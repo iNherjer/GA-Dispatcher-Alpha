@@ -326,6 +326,8 @@ function resetApp() {
     if(map) { routeMarkers.forEach(m => map.removeLayer(m)); if (polyline) map.removeLayer(polyline); if (window.hitBoxPolyline) map.removeLayer(window.hitBoxPolyline); }
     if (miniMap) { if (miniRoutePolyline) miniMap.removeLayer(miniRoutePolyline); miniMapMarkers.forEach(m => miniMap.removeLayer(m)); miniMapMarkers = []; }
     document.getElementById('searchIndicator').innerText = "System bereit."; setDrumCounter('distDrum', 0); recalculatePerformance();
+    const rBtn = document.getElementById('radioGenerateBtn');
+    if(rBtn) rBtn.classList.remove('active');
 }
 
 /* =========================================================
@@ -396,10 +398,15 @@ function checkBearing(b, dirPref) {
     return false;
 }
 
-function resetBtn(btn) { 
+function resetBtn(btn) {
     if(btn) { btn.disabled = false; btn.innerText = "Auftrag generieren"; }
     const rBtn = document.getElementById('radioGenerateBtn');
-    if(rBtn) { rBtn.disabled = false; rBtn.innerText = "DISPATCH"; }
+    if(rBtn) {
+        rBtn.classList.remove('disabled');
+        rBtn.style.pointerEvents = '';
+        const label = rBtn.querySelector('.audio-btn-label');
+        if(label) label.textContent = "DISPATCH";
+    }
 }
 
 function calcNav(lat1, lon1, lat2, lon2) {
@@ -624,7 +631,12 @@ async function generateMission() {
     const btn = document.getElementById('generateBtn'); 
     const rBtn = document.getElementById('radioGenerateBtn');
     if(btn) { btn.disabled = true; btn.innerText = "Sucht Route & Daten..."; }
-    if(rBtn) { rBtn.disabled = true; rBtn.innerText = "CALC..."; }
+    if(rBtn) {
+        rBtn.classList.add('disabled');
+        rBtn.style.pointerEvents = 'none';
+        const label = rBtn.querySelector('.audio-btn-label');
+        if(label) label.textContent = "CALC...";
+    }
     document.getElementById("briefingBox").style.display = "none";
     
     const page1 = document.getElementById('notePage1'), page2 = document.getElementById('notePage2');
@@ -785,6 +797,8 @@ async function generateMission() {
         if (!isPOI) fetchRunwayDetails(dest.lat, dest.lon, 'mDestRwy', currentDestICAO);
         fetchAreaDescription(dest.lat, dest.lon, 'wikiDescText', isPOI ? dest.n : null);
         indicator.innerText = `Briefing komplett.`; resetBtn(btn);
+        const rBtnLed = document.getElementById('radioGenerateBtn');
+        if(rBtnLed) rBtnLed.classList.add('active');
         
         if(window.meterInterval) clearInterval(window.meterInterval);
         if(needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`; 
