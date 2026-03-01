@@ -174,7 +174,7 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
         
         // Berechnung: Ziehen nach oben/rechts erhöht, unten/links verringert
         // Faktor: ca. 1 Pixel = 1 Einheit (TAS) oder 0.2 Einheiten (GPH)
-        let delta = (startY - clientY) + (clientX - startX); 
+        let delta = Math.round((startY - clientY) + (clientX - startX));
         if (type === 'gph') delta = Math.round(delta * 0.3); // GPH ändert sich langsamer
         
         let newVal = startVal + delta;
