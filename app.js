@@ -67,6 +67,7 @@ function applyNavComPreset(t, g, s, n, btnElement) {
     // Aktualisiere die NavCom-Anzeigen
     syncToNavCom('tasRadioDisplay', t);
     syncToNavCom('gphRadioDisplay', g);
+    saveAudioButtonStates();
 }
 
 // NEU: Audio Panel AI Klick-Logik
@@ -77,10 +78,30 @@ function toggleNavComAI(btnElement) {
         saveAiToggle();
         if(aiToggleBtn.checked) btnElement.classList.add('active');
         else btnElement.classList.remove('active');
+        saveAudioButtonStates();
     }
 }
 
 // NEU: Lässt die Encoder-Knöpfe rotieren und löst den Sync aus!
+// Transfer-Button: DEP ↔ DEST tauschen (Rückflug-Funktion)
+function swapDepDest() {
+    const depRadio  = document.getElementById('startLocRadio');
+    const destRadio = document.getElementById('destLocRadio');
+    const depClassic  = document.getElementById('startLoc');
+    const destClassic = document.getElementById('destLoc');
+    if (!depRadio || !destRadio) return;
+
+    const tempVal = depRadio.value;
+    depRadio.value  = destRadio.value || '';
+    destRadio.value = tempVal;
+
+    // Classic-Inputs synchron halten
+    if (depClassic)  depClassic.value  = depRadio.value;
+    if (destClassic) destClassic.value = destRadio.value;
+
+    updateMapFromInputs();
+}
+
 function cycleRadioOption(selectId) {
     const selectEl = document.getElementById(selectId);
     if (!selectEl) return;
@@ -827,6 +848,7 @@ async function generateMission() {
         else document.getElementById('mkI').classList.add('on'); // Weiß (Lokal)
         
         setTimeout(() => saveMissionState(), 1000);
+        refreshGPSAfterDispatch();
     }, 800); 
 }
 
@@ -1356,11 +1378,331 @@ function makeDraggable(element, noteId) {
         document.onmouseup = null; document.ontouchend = null; document.onmousemove = null; document.ontouchmove = null;
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
         const noteIndex = notes.findIndex(n => n.id === noteId);
-        if(noteIndex > -1) { 
+        if(noteIndex > -1) {
             const board = document.getElementById('pinboard');
-            notes[noteIndex].x = (element.offsetLeft / board.offsetWidth) * 100; 
-            notes[noteIndex].y = (element.offsetTop / board.offsetHeight) * 100; 
-            localStorage.setItem('ga_pinboard', JSON.stringify(notes)); 
+            notes[noteIndex].x = (element.offsetLeft / board.offsetWidth) * 100;
+            notes[noteIndex].y = (element.offsetTop / board.offsetHeight) * 100;
+            localStorage.setItem('ga_pinboard', JSON.stringify(notes));
         }
     }
 }
+
+/* =========================================================
+   KLN 90B GPS MODULE
+   ========================================================= */
+const gpsState = {
+    mode: 'FPL',
+    subPage: 0,
+    leftPage: 0,  // für AIP/WX: 0=DEP, 1=DEST
+    visible: false,
+    maxPages: { FPL: 1, DEP: 3, DEST: 3, AIP: 2, WX: 2 },
+    metarCache: {}
+};
+
+// --- Toggle GPS Module ---
+function toggleGPSModule(btnEl) {
+    gpsState.visible = !gpsState.visible;
+    const mod = document.getElementById('kln90bModule');
+    const fp = document.querySelector('.flightplan-container');
+    if (gpsState.visible) {
+        if (mod) mod.style.display = 'flex';
+        if (fp) fp.style.display = 'none';
+        if (btnEl) btnEl.classList.add('active');
+    } else {
+        if (mod) mod.style.display = 'none';
+        if (fp) fp.style.display = '';
+        if (btnEl) btnEl.classList.remove('active');
+    }
+    saveAudioButtonStates();
+    renderGPS();
+}
+
+// --- Save & Restore all audio button states ---
+function saveAudioButtonStates() {
+    const states = {};
+    document.querySelectorAll('.audio-btn-grid .audio-btn').forEach(btn => {
+        const id = btn.id;
+        if (id) states[id] = btn.classList.contains('active');
+    });
+    localStorage.setItem('ga_navcom_buttons', JSON.stringify(states));
+}
+
+function restoreAudioButtonStates() {
+    const saved = JSON.parse(localStorage.getItem('ga_navcom_buttons') || '{}');
+    for (const [id, active] of Object.entries(saved)) {
+        const btn = document.getElementById(id);
+        if (!btn) continue;
+        if (active) btn.classList.add('active');
+        else btn.classList.remove('active');
+    }
+    // GPS visibility
+    if (saved['btnToggleGPS']) {
+        gpsState.visible = true;
+        const mod = document.getElementById('kln90bModule');
+        const fp = document.querySelector('.flightplan-container');
+        if (mod) mod.style.display = 'flex';
+        if (fp) fp.style.display = 'none';
+        renderGPS();
+    }
+    // AI toggle sync
+    if (saved['btnToggleAI']) {
+        const aiToggle = document.getElementById('aiToggle');
+        if (aiToggle) aiToggle.checked = true;
+    }
+}
+
+// --- Mode Buttons ---
+function initGPSButtons() {
+    document.querySelectorAll('.kln90b-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.kln90b-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            gpsState.mode = btn.dataset.mode;
+            gpsState.subPage = 0;
+            gpsState.leftPage = 0;
+            renderGPS();
+        });
+    });
+}
+
+// --- Encoder Logic ---
+function initGPSEncoders() {
+    const encL = document.getElementById('gpsEncoderL');
+    const encR = document.getElementById('gpsEncoderR');
+
+    // Left encoder: click cycles left-pane (DEP/DEST in AIP/WX modes)
+    if (encL) {
+        encL.addEventListener('click', () => {
+            if (gpsState.mode === 'AIP' || gpsState.mode === 'WX') {
+                gpsState.leftPage = (gpsState.leftPage + 1) % 2;
+                renderGPS();
+            }
+        });
+        encL.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (gpsState.mode === 'AIP' || gpsState.mode === 'WX') {
+                gpsState.leftPage = (gpsState.leftPage + (e.deltaY > 0 ? 1 : -1) + 2) % 2;
+                renderGPS();
+            }
+        });
+    }
+
+    // Right encoder: click/wheel cycles sub-pages
+    if (encR) {
+        encR.addEventListener('click', () => {
+            const max = gpsState.maxPages[gpsState.mode] || 1;
+            gpsState.subPage = (gpsState.subPage + 1) % max;
+            renderGPS();
+        });
+        encR.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const max = gpsState.maxPages[gpsState.mode] || 1;
+            gpsState.subPage = (gpsState.subPage + (e.deltaY > 0 ? 1 : -1) + max) % max;
+            renderGPS();
+        });
+    }
+}
+
+// --- Main Render ---
+function renderGPS() {
+    const left = document.getElementById('gpsLeft');
+    const right = document.getElementById('gpsRight');
+    const modeLbl = document.getElementById('gpsModeLbl');
+    const pageLbl = document.getElementById('gpsPageLbl');
+    if (!left || !right) return;
+
+    const max = gpsState.maxPages[gpsState.mode] || 1;
+    modeLbl.textContent = gpsState.mode;
+    pageLbl.textContent = `PG ${gpsState.subPage + 1}/${max}`;
+
+    switch (gpsState.mode) {
+        case 'FPL': renderFPL(left, right); break;
+        case 'DEP': renderAirportInfo(left, right, 'dep'); break;
+        case 'DEST': renderAirportInfo(left, right, 'dest'); break;
+        case 'AIP': renderAIP(left, right); break;
+        case 'WX': renderWX(left, right); break;
+    }
+}
+
+// --- FPL Mode ---
+function renderFPL(left, right) {
+    if (!currentMissionData) {
+        left.innerHTML = '<div class="kln90b-line dim">NO FLIGHTPLAN</div>';
+        right.innerHTML = '<div class="kln90b-line dim">DISPATCH FIRST</div>';
+        return;
+    }
+    const dep = currentStartICAO || '----';
+    const dest = currentDestICAO || '----';
+    const depName = currentSName || '';
+    const destName = currentDName || '';
+
+    left.innerHTML =
+        `<div class="kln90b-line highlight">1: ${dep}</div>` +
+        `<div class="kln90b-line dim">   ${depName}</div>` +
+        `<div class="kln90b-line highlight">2: ${dest}</div>` +
+        `<div class="kln90b-line dim">   ${destName}</div>`;
+
+    // Calc route data
+    const dist = currentMissionData.dist || 0;
+    const tas = parseInt(document.getElementById('tasSlider')?.value) || 115;
+    const gph = parseInt(document.getElementById('gphSlider')?.value) || 9;
+    const mins = Math.round((dist / tas) * 60);
+    const fuel = Math.ceil((dist / tas) * gph + 0.75 * gph);
+    const hdg = currentMissionData.heading || 0;
+
+    right.innerHTML =
+        `<div class="kln90b-line">DIST: ${dist} NM</div>` +
+        `<div class="kln90b-line">TIME: ${mins} MIN</div>` +
+        `<div class="kln90b-line">FUEL: ${fuel} GAL</div>` +
+        `<div class="kln90b-line">HDG:  ${hdg}°</div>`;
+}
+
+// --- DEP / DEST Mode ---
+async function renderAirportInfo(left, right, type) {
+    const icao = type === 'dep' ? currentStartICAO : currentDestICAO;
+    const name = type === 'dep' ? currentSName : currentDName;
+
+    if (!icao) {
+        left.innerHTML = '<div class="kln90b-line dim">NO DATA</div>';
+        right.innerHTML = '<div class="kln90b-line dim">DISPATCH FIRST</div>';
+        return;
+    }
+
+    left.innerHTML =
+        `<div class="kln90b-line highlight">${icao}</div>` +
+        `<div class="kln90b-line">${name || ''}</div>`;
+
+    const data = await getAirportData(icao);
+
+    if (gpsState.subPage === 0) {
+        // Page 0: Koordinaten & Elevation
+        const lat = data ? data.lat.toFixed(4) : '---';
+        const lon = data ? data.lon.toFixed(4) : '---';
+        right.innerHTML =
+            `<div class="kln90b-line">LAT: ${lat}</div>` +
+            `<div class="kln90b-line">LON: ${lon}</div>` +
+            `<div class="kln90b-line dim">ELEV: ---</div>`;
+    } else if (gpsState.subPage === 1) {
+        // Page 1: Wikipedia
+        right.innerHTML = '<div class="kln90b-line dim">LOADING...</div>';
+        if (data) {
+            try {
+                const geoRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${data.lat}|${data.lon}&gsradius=10000&gslimit=1&format=json&origin=*`);
+                const geoData = await geoRes.json();
+                if (geoData?.query?.geosearch?.length > 0) {
+                    const title = geoData.query.geosearch[0].title;
+                    const extRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=true&explaintext=true&exsentences=2&titles=${encodeURIComponent(title)}&format=json&origin=*`);
+                    const extData = await extRes.json();
+                    const pageId = Object.keys(extData.query.pages)[0];
+                    const txt = extData.query.pages[pageId]?.extract || 'Keine Info';
+                    // Truncate to fit display
+                    const short = txt.length > 140 ? txt.substring(0, 137) + '...' : txt;
+                    right.innerHTML = `<div class="kln90b-line" style="font-size:10px; line-height:1.4;">${short}</div>`;
+                } else {
+                    right.innerHTML = '<div class="kln90b-line dim">NO WIKI DATA</div>';
+                }
+            } catch (e) {
+                right.innerHTML = '<div class="kln90b-line dim">FETCH ERROR</div>';
+            }
+        }
+    } else if (gpsState.subPage === 2) {
+        // Page 2: Runway info
+        right.innerHTML = '<div class="kln90b-line dim">LOADING RWY...</div>';
+        if (data) {
+            try {
+                const rwyEl = type === 'dep' ? document.getElementById('mDepRwy') : document.getElementById('mDestRwy');
+                const rwyText = rwyEl ? rwyEl.innerText : 'Keine Pisten-Info';
+                const short = rwyText.length > 120 ? rwyText.substring(0, 117) + '...' : rwyText;
+                right.innerHTML = `<div class="kln90b-line" style="font-size:10px; line-height:1.4;">RWY:\n${short}</div>`;
+            } catch (e) {
+                right.innerHTML = '<div class="kln90b-line dim">NO RWY DATA</div>';
+            }
+        }
+    }
+}
+
+// --- AIP Mode ---
+function renderAIP(left, right) {
+    const isDep = gpsState.leftPage === 0;
+    const icao = isDep ? currentStartICAO : currentDestICAO;
+    const name = isDep ? currentSName : currentDName;
+    const label = isDep ? 'DEP' : 'DEST';
+
+    left.innerHTML =
+        `<div class="kln90b-line highlight">${label}</div>` +
+        `<div class="kln90b-line">${icao || '----'}</div>` +
+        `<div class="kln90b-line dim">${name || ''}</div>`;
+
+    if (!icao) {
+        right.innerHTML = '<div class="kln90b-line dim">NO DATA</div>';
+        return;
+    }
+
+    right.innerHTML =
+        `<div class="kln90b-line">AIP VFR</div>` +
+        `<div class="kln90b-line highlight" style="cursor:pointer;" onclick="window.open('https://aip.aero/de/vfr/?${icao}','_blank')">OPEN AIP ▸</div>` +
+        `<div class="kln90b-line dim" style="font-size:10px;">aip.aero/vfr</div>`;
+}
+
+// --- WX / METAR Mode ---
+async function renderWX(left, right) {
+    const isDep = gpsState.leftPage === 0;
+    const icao = isDep ? currentStartICAO : currentDestICAO;
+    const name = isDep ? currentSName : currentDName;
+    const label = isDep ? 'DEP' : 'DEST';
+
+    left.innerHTML =
+        `<div class="kln90b-line highlight">${label}</div>` +
+        `<div class="kln90b-line">${icao || '----'}</div>` +
+        `<div class="kln90b-line dim">${name || ''}</div>`;
+
+    if (!icao) {
+        right.innerHTML = '<div class="kln90b-line dim">NO ICAO</div>';
+        return;
+    }
+
+    right.innerHTML = '<div class="kln90b-line dim">FETCHING WX...</div>';
+
+    // Check cache (5 min)
+    const cached = gpsState.metarCache[icao];
+    if (cached && (Date.now() - cached.ts < 300000)) {
+        displayMetar(right, cached.text);
+        return;
+    }
+
+    try {
+        const res = await fetch(`https://metar.vatsim.net/metar.php?id=${icao}`);
+        const text = await res.text();
+        const metar = text.trim() || 'NO METAR';
+        gpsState.metarCache[icao] = { text: metar, ts: Date.now() };
+        displayMetar(right, metar);
+    } catch (e) {
+        right.innerHTML = '<div class="kln90b-line dim">WX FETCH ERR</div>';
+    }
+}
+
+function displayMetar(el, text) {
+    // Word-wrap METAR for small display
+    const lines = [];
+    const maxLen = 22;
+    let remaining = text;
+    while (remaining.length > 0) {
+        lines.push(remaining.substring(0, maxLen));
+        remaining = remaining.substring(maxLen);
+    }
+    el.innerHTML = lines.map(l => `<div class="kln90b-line" style="font-size:10px;">${l}</div>`).join('');
+}
+
+// --- Refresh GPS after mission dispatch ---
+function refreshGPSAfterDispatch() {
+    if (gpsState.visible) {
+        setTimeout(() => renderGPS(), 500);
+    }
+}
+
+// --- Init on DOMContentLoaded ---
+document.addEventListener('DOMContentLoaded', () => {
+    initGPSButtons();
+    initGPSEncoders();
+    restoreAudioButtonStates();
+});
