@@ -51,12 +51,22 @@ function syncToNavCom(radioId, value) {
 // NEU: Audio Panel Preset Klick-Logik
 function applyNavComPreset(t, g, s, n, btnElement) {
     applyPreset(t, g, s, n); // Nutzt deine bestehende Funktion
-    
+
     // LEDs umschalten (Nur die ersten 3 Buttons sind Flugzeuge)
     document.getElementById('btnAC-C172').classList.remove('active');
     document.getElementById('btnAC-PA24').classList.remove('active');
     document.getElementById('btnAC-AERO').classList.remove('active');
     btnElement.classList.add('active');
+
+    // Werte für GPH und TAS anpassen
+    document.getElementById('tasSlider').value = t;
+    document.getElementById('gphSlider').value = g;
+    handleSliderChange('tas', t);
+    handleSliderChange('gph', g);
+
+    // Aktualisiere die NavCom-Anzeigen
+    syncToNavCom('tasRadioDisplay', t);
+    syncToNavCom('gphRadioDisplay', g);
 }
 
 // NEU: Audio Panel AI Klick-Logik
@@ -855,7 +865,7 @@ function updateMeasureRoute() {
     
     if(measurePoints.length === 2) {
         measurePolyline = L.polyline(measurePoints, {color: '#f2c12e', weight: 4, dashArray: '6,6'}).addTo(map);
-        const nav = calcNav(measurePoints[0].lat, measurePoints[0].lng, measurePoints[1].lat, measurePoints[1].lng);
+        const nav = calcNav(measurePoints[0].lat, measurePoints[0].lng || measurePoints[0].lon, measurePoints[1].lat, measurePoints[1].lng || measurePoints[1].lon);
         const centerLat = (measurePoints[0].lat + measurePoints[1].lat) / 2, centerLng = (measurePoints[0].lng + measurePoints[1].lng) / 2;
         const labelText = `<div style="font-weight:bold; font-size:14px; color:#111; text-align:center; line-height: 1.2;">${nav.brng}°<br>${nav.dist} NM</div>`;
         measureTooltip = L.tooltip({ permanent: true, direction: 'center', className: 'measure-label' }).setLatLng([centerLat, centerLng]).setContent(labelText).addTo(map);
@@ -1211,7 +1221,7 @@ function pinCurrentFlight() {
     const routeText = `${currentStartICAO} ➔ ${currentDestICAO === "POI" ? currentMissionData.poiName : currentDestICAO}`;
     notes.push({
         id: Date.now(), type: "flight", flightData: state,
-        text: `✈️ <b>${routeText}</b><br><span style="font-size:11px; color:#555;">${currentMissionData.mission}</span><br><span style="font-size:11px;">${state.mDistNote}</span>`,
+        text: `✈️ <b>${routeText}</b><br><span style="font-size:11px; color:#555;">${state.mission}</span><br><span style="font-size:11px;">${state.mDistNote}</span>`,
         x: 35 + Math.random()*15, y: 20 + Math.random()*15, rot: Math.floor(Math.random() * 9) - 4
     });
     
