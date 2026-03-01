@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>GA Dispatcher (Analog Edition)</title>
+    
+    <link rel="icon" type="image/png" href="IconDRK.PNG">
+    <link rel="icon" type="image/png" sizes="32x32" href="Icon.PNG" media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/png" sizes="32x32" href="IconDRK.PNG" media="(prefers-color-scheme: dark)">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#080808">
+    <link rel="apple-touch-icon" href="IconDRK.PNG">
+    <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="theme-retro">
+
+<div class="container">
+    <div class="glareshield"></div>
+
+    <div class="screw top-left" onclick="cyclePanelColor()" title="Panel-Lackierung ändern" style="cursor: pointer; z-index: 20;"></div>
+    <div class="screw top-right"></div>
+    <div class="screw bottom-left"></div>
+    <div class="screw bottom-right"></div>
+
+    <h1 id="mainTitle">GA Dispatcher</h1>
+    <div id="searchIndicator">System bereit.</div>
+    
+    <div id="classicInputs">
+        <div class="grid-2">
+            <div><label>Start</label><input type="text" id="startLoc" value="EDTW" maxlength="4" oninput="this.value=this.value.toUpperCase(); syncToNavCom('startLocRadio', this.value)" onchange="updateMapFromInputs()"></div>
+            <div><label>Ziel (Opt.)</label><input type="text" id="destLoc" placeholder="Zufall" maxlength="4" oninput="this.value=this.value.toUpperCase(); syncToNavCom('destLocRadio', this.value)" onchange="updateMapFromInputs()"></div>
+        </div>
+        
+        <div class="grid-2">
+            <div><label>Typ</label><select id="targetType" onchange="syncToNavCom('targetTypeRadio', this.value)">
+                <option value="apt">Flugplatz (A ➔ B)</option>
+                <option value="poi">POI (Rundflug)</option>
+            </select></div>
+            <div><label>Distanz (Total)</label><select id="distRange" onchange="syncToNavCom('distRangeRadio', this.value)">
+                <option value="any">Egal (Zufall)</option>
+                <option value="short">Short (10-50 NM)</option>
+                <option value="medium">Medium (50-100 NM)</option>
+                <option value="long">Long (100-250 NM)</option>
+            </select></div>
+        </div>
+        
+        <div class="grid-3">
+            <div><label>Region</label><select id="regionFilter" onchange="syncToNavCom('regionFilterRadio', this.value)">
+                <option value="any">Europaweit</option>
+                <option value="de" selected>Nur DE</option>
+                <option value="int">Nur Ausland</option>
+            </select></div>
+            <div><label>Richtung</label><select id="dirPref" onchange="syncToNavCom('dirPrefRadio', this.value)">
+                <option value="any">Egal</option>
+                <option value="N">Norden</option>
+                <option value="E">Osten</option>
+                <option value="S">Süden</option>
+                <option value="W">Westen</option>
+            </select></div>
+            <div><label>Sitze</label><select id="maxSeats" onchange="syncToNavCom('maxSeatsRadio', this.value)">
+                <option value="2">2</option><option value="4" selected>4</option><option value="6">6</option>
+            </select></div>
+        </div>
+
+        <div class="preset-row">
+            <button class="btn-preset" onclick="applyPreset(115, 9, 4, 'C172')">C172</button>
+            <button class="btn-preset" onclick="applyPreset(160, 14, 4, 'PA-24')">Comanche</button>
+            <button class="btn-preset" onclick="applyPreset(220, 25, 6, 'AERO')">Aerostar</button>
+        </div>
+
+        <div class="slider-container">
+            <div class="slider-header">
+                <label class="slider-label">GPH</label>
+                <span id="gphDrum" class="drum-readout-container theme-color-text" style="font-weight:bold;">14</span>
+            </div>
+            <input type="range" id="gphSlider" min="5" max="35" value="14" oninput="handleSliderChange('gph', this.value)">
+        </div>
+
+        <div class="slider-container">
+            <div class="slider-header">
+                <label class="slider-label">TAS (kts)</label>
+                <span id="tasDrum" class="drum-readout-container theme-color-text" style="font-weight:bold;">160</span>
+            </div>
+            <input type="range" id="tasSlider" min="80" max="260" value="160" step="5" oninput="handleSliderChange('tas', this.value)">
+        </div>
+        
+        <div class="action-bar" id="classicActionBar">
+            <button class="btn-main" id="generateBtn" onclick="generateMission()">Auftrag generieren</button>
+            
+            <div class="emergency-reset" onclick="resetApp()" title="Briefing verwerfen & Reset">
+                <div class="emergency-reset-inner">↻</div>
+            </div>
+            
+            <div class="analog-meter" id="searchMeter" title="Signalstärke">
+                <div class="meter-face">
+                    <div class="meter-scale"></div>
+                    <div class="meter-label">SIG</div>
+                </div>
+                <div class="meter-needle" id="meterNeedle"></div>
+                <div class="meter-led" id="meterLed"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="navcomInputs" class="radio-stack">
+        
+        <div class="radio-module audio-panel" style="padding: 10px 12px;">
+            <div class="radio-module-right-screws"></div>
+            
+            <div class="audio-panel-inner">
+                <div class="marker-lights">
+                    <div class="marker-light mk-outer" id="mkO">O</div>
+                    <div class="marker-light mk-middle" id="mkM">M</div>
+                    <div class="marker-light mk-inner" id="mkI">I</div>
+                </div>
+                
+                <div class="audio-btn-grid">
+                    <div class="audio-btn active" id="btnAC-C172" onclick="applyNavComPreset(115, 9, 4, 'C172', this)">C172<div class="audio-led"></div></div>
+                    <div class="audio-btn" id="btnAC-PA24" onclick="applyNavComPreset(160, 14, 4, 'PA-24', this)">PA24<div class="audio-led"></div></div>
+                    <div class="audio-btn" id="btnAC-AERO" onclick="applyNavComPreset(220, 25, 6, 'AERO', this)">AERO<div class="audio-led"></div></div>
+                    <div class="audio-btn" id="btnToggleAI" onclick="toggleNavComAI(this)">AI KI<div class="audio-led"></div></div>
+                    
+                    <div class="audio-btn" onclick="exportMission()">SAVE<div class="audio-led"></div></div>
+                    <div class="audio-btn" onclick="importMission()">LOAD<div class="audio-led"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="radio-row">
+            <div class="radio-module half-module">
+                <div class="radio-module-right-screws"></div>
+                <div class="radio-label">COM 1 - DEP</div>
+                <div class="radio-display-container">
+                    <div style="width: 100%; text-align: center;">
+                        <span class="lcd-label">ICAO</span>
+                        <input type="text" id="startLocRadio" class="lcd-input" value="EDTW" maxlength="4" style="width:100%;" oninput="this.value=this.value.toUpperCase(); document.getElementById('startLoc').value = this.value; updateMapFromInputs();">
+                    </div>
+                </div>
+                <div class="radio-knob"></div>
+            </div>
+            <div class="radio-module half-module">
+                <div class="radio-module-right-screws"></div>
+                <div class="radio-label">COM 2 - DEST</div>
+                <div class="radio-display-container">
+                    <div style="width: 100%; text-align: center;">
+                        <span class="lcd-label">ICAO</span>
+                        <input type="text" id="destLocRadio" class="lcd-input" placeholder="----" maxlength="4" style="width:100%;" oninput="this.value=this.value.toUpperCase(); document.getElementById('destLoc').value = this.value; updateMapFromInputs();">
+                    </div>
+                </div>
+                <div class="radio-knob"></div>
+            </div>
+        </div>
+
+        <div class="radio-row">
+            <div class="radio-module half-module">
+                <div class="radio-module-right-screws"></div>
+                <div class="radio-label">NAV 1 - TYPE</div>
+                <div class="radio-display-container">
+                    <div style="width: 100%; text-align: center;">
+                        <select id="targetTypeRadio" class="lcd-input" style="width:100%;" onchange="document.getElementById('targetType').value = this.value">
+                            <option value="apt">APT</option>
+                            <option value="poi">POI</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="radio-knob" onclick="cycleRadioOption('targetTypeRadio')" title="Klicken für nächste Option"></div>
+            </div>
+            <div class="radio-module half-module">
+                <div class="radio-module-right-screws"></div>
+                <div class="radio-label">NAV 2 - DIST</div>
+                <div class="radio-display-container">
+                    <div style="width: 100%; text-align: center;">
+                        <select id="distRangeRadio" class="lcd-input" style="width:100%;" onchange="document.getElementById('distRange').value = this.value">
+                            <option value="any">RNDM</option>
+                            <option value="short">10-50</option>
+                            <option value="medium">50-99</option>
+                            <option value="long">100+</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="radio-knob" onclick="cycleRadioOption('distRangeRadio')" title="Klicken für nächste Option"></div>
+            </div>
+        </div>
+
+        <div class="radio-row">
+            <div class="radio-module half-module">
+                <div class="radio-module-right-screws"></div>
+                <div class="radio-label">ADF 1 - REGN</div>
+                <div class="radio-display-container">
+                    <div style="width: 100%; text-align: center;">
+                        <select id="regionFilterRadio" class="lcd-input" style="width:100%;" onchange="document.getElementById('regionFilter').value = this.value">
+                            <option value="any">ALL</option>
+                            <option value="de" selected>GER</option>
+                            <option value="int">INT</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="radio-knob" onclick="cycleRadioOption('regionFilterRadio')" title="Klicken für nächste Option"></div>
+            </div>
+            <div class="radio-module half-module">
+                <div class="radio-module-right-screws"></div>
+                <div class="radio-label">ADF 2 - HDG°</div>
+                <div class="radio-display-container">
+                    <div style="width: 100%; text-align: center;">
+                        <select id="dirPrefRadio" class="lcd-input" style="width:100%;" onchange="document.getElementById('dirPref').value = this.value">
+                            <option value="any">ANY</option>
+                            <option value="N">N</option>
+                            <option value="E">E</option>
+                            <option value="S">S</option>
+                            <option value="W">W</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="radio-knob" onclick="cycleRadioOption('dirPrefRadio')" title="Klicken für nächste Option"></div>
+            </div>
+        </div>
+
+        <div class="radio-module">
+            <div class="radio-module-right-screws"></div>
+            <div class="radio-label">XPDR - AIRCRAFT</div>
+            
+            <div class="radio-display-container" style="gap: 5px; flex-grow: 1; align-items: center; justify-content: space-around; padding: 4px 10px;">
+                
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="text-align: center;">
+                        <span class="lcd-label">TAS</span>
+                        <div id="tasRadioDisplay" class="lcd-input" style="width: 45px; pointer-events: none;">160</div>
+                    </div>
+                    <div class="radio-knob drag-knob" id="tasDragKnob" title="Ziehen zum Ändern"></div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="text-align: center;">
+                        <span class="lcd-label">GPH</span>
+                        <div id="gphRadioDisplay" class="lcd-input" style="width: 35px; pointer-events: none;">14</div>
+                    </div>
+                    <div class="radio-knob drag-knob" id="gphDragKnob" title="Ziehen zum Ändern"></div>
+                </div>
+
+                <div style="text-align: center; border-left: 2px solid #222; padding-left: 10px;">
+                    <span class="lcd-label">PAX</span>
+                    <select id="maxSeatsRadio" class="lcd-input" style="width:30px;" onchange="document.getElementById('maxSeats').value = this.value">
+                        <option value="2">2</option><option value="4" selected>4</option><option value="6">6</option>
+                    </select>
+                </div>
+
+            </div>
+            <button class="radio-btn-exec" id="radioGenerateBtn" onclick="generateMission()">DISPATCH</button>
+        </div>
+    </div>
+    
+    <div style="display:flex; gap: 10px; margin-top: 15px; margin-bottom: 5px;">
+        <button class="btn-preset" style="flex:1; background-color: #444; color: #fff; border-color: #222;" onclick="toggleMapTable()">🗺️ Kartentisch</button>
+        <button class="btn-preset" style="flex:1; background-color: #444; color: #fff; border-color: #222;" onclick="togglePinboard()">📋 Pinnwand</button>
+    </div>
+
+    <div id="briefingBox" class="briefing">
+        <div class="notes-stack" id="notesStack">
+            <div class="paperclip" onclick="toggleNotes()"></div>
+            <div class="mission-note-page front-note" id="notePage1" onclick="toggleNotes()">
+                <div class="briefing-save-pin" onclick="pinCurrentFlight(); event.stopPropagation();" title="Flug ans Hangar-Board heften">📌</div>
+                <div class="briefing-export-pin" onclick="exportMission(); event.stopPropagation();" title="Flug als Code kopieren">🔗</div>
+                <div class="page-number">Seite 1</div>
+                <h2 id="mTitle"></h2>
+                <p id="mStory" class="story"></p>
+                
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 15px; border-top: 1px dashed #444; padding-top: 12px;">
+                    <div class="note-manifest" style="margin-top: 0; padding-top: 0; border-top: none; flex-grow: 1;">
+                        <div><strong>PAYLOAD:</strong> <span id="mPay"></span></div>
+                        <div><strong>FRACHT:</strong> <span id="mWeight"></span></div>
+                        <div><strong>STRECKE:</strong> <span id="mDistNote"></span></div>
+                        <div><strong>KURS:</strong> <span id="mHeadingNote"></span></div>
+                        <div><strong>ETE CA:</strong> <span id="mETENote"></span></div>
+                    </div>
+                    
+                    <div class="briefing-photo-attachment" onclick="toggleMapTable(); event.stopPropagation();" title="Kartentisch öffnen" style="margin: 0 0 0 15px; flex-shrink: 0;">
+                        <div class="photo-pin"></div>
+                        <div class="photo-img" id="miniMap"></div>
+                        <div class="photo-caption">Route Map</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mission-note-page back-note" id="notePage2" onclick="toggleNotes()">
+                <div class="page-number">Seite 2</div>
+                <h2 class="wiki-title">Ziel-Info</h2>
+                <div id="wikiDescContainer" class="wiki-info-note">
+                    📖 <span id="wikiDescText">Warte auf Daten...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flightplan-container" style="display:flex; flex-direction:column;">
+            <div class="aero-info-box" id="boxDep">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                    <span class="box-title theme-green-text">🛫 <span id="mDepICAO"></span> | <span id="mDepName" style="color:#fff; text-shadow:none;"></span></span>
+                </div>
+                <div><span id="mDepCoords" class="copy-box" onclick="copyCoords('mDepCoords')"></span></div>
+                <div class="rwy-info">Piste: <span id="mDepRwy" style="color:#fff; font-weight:bold;">Sucht Pisten-Infos...</span></div>
+                <div class="switch-row">
+                    <div class="retro-switch-container" onclick="openMetar('dep')">
+                        <div class="retro-switch"></div><span class="retro-switch-label">METAR</span>
+                    </div>
+                    <div class="retro-switch-container" onclick="openAIP('dep')">
+                        <div class="retro-switch"></div><span class="retro-switch-label">AIP</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="aero-info-box" id="boxRoute">
+                <div class="route-label" style="background:transparent; border:none; box-shadow:none; padding:0;">✈️ Flugplan & Performance</div>
+                <div class="route-data">
+                    <div class="drum-readout-container">Dist: <span id="distDrum"></span> <span>NM</span></div>
+                    <div class="drum-readout-container">Zeit: <span id="timeDrum"></span> <span>Min</span></div>
+                    <div class="drum-readout-container">Fuel: <span id="fuelDrum"></span> <span>Gal</span></div>
+                </div>
+                <div id="waypointList" class="waypoint-list"></div>
+            </div>
+
+            <div class="aero-info-box" id="boxDest">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                    <span class="box-title" style="color:var(--red);">
+                        <span id="destIcon">🛬</span> <span id="mDestICAO"></span> | <span id="mDestName" style="color:#fff; text-shadow:none;"></span>
+                    </span>
+                </div>
+                <div><span id="mDestCoords" class="copy-box" onclick="copyCoords('mDestCoords')"></span></div>
+                <div class="rwy-info" id="destRwyContainer">Piste: <span id="mDestRwy" style="color:#fff; font-weight:bold;">Sucht Pisten-Infos...</span></div>
+                <div class="switch-row" id="destSwitchRow">
+                    <div class="retro-switch-container" onclick="openMetar('dest')">
+                        <div class="retro-switch"></div><span class="retro-switch-label">METAR</span>
+                    </div>
+                    <div class="retro-switch-container" onclick="openAIP('dest')">
+                        <div class="retro-switch"></div><span class="retro-switch-label">AIP</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <button class="btn-log" style="width: 100%;" onclick="logCurrentFlight()">✈️ Flug loggen & Startplatz setzen</button>
+        </div>
+    </div>
+
+    <div class="logbook">
+        <h3 class="theme-title-text">Flugbuch <button style="font-size:10px; background:none; border:1px solid #555; color:#888; cursor:pointer; padding:2px 5px;" onclick="clearLog()">Clear</button></h3>
+        <div id="logContent"></div>
+    </div>
+
+    <div class="api-settings">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <label style="margin: 0;">🤖 KI-Dispatcher (Gemini API)</label>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="analog-meter api-fuel-meter" title="API Quota (Täglich)">
+                    <div class="meter-face">
+                        <div class="meter-scale api-scale"></div>
+                        <div class="meter-label" style="width: 100%; left: 0; text-align: center;">
+                            <span style="position:absolute; left: 4px; color: #d93829;">E</span>
+                            <span style="color: #888;">FUEL</span>
+                            <span style="position:absolute; right: 4px; color: #00ff41;">F</span>
+                        </div>
+                    </div>
+                    <div class="meter-needle" id="apiNeedle"></div>
+                </div>
+                <label class="switch" style="transform: scale(0.7); margin: 0; transform-origin: right;">
+                    <input type="checkbox" id="aiToggle" onchange="saveAiToggle()" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+        <input type="password" id="apiKeyInput" placeholder="Optional. Leer = Lokale Datenbank" onchange="saveApiKey()">
+        <div class="api-hint">
+            <strong>Tipp:</strong> Mehr Abwechslung? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Gemini API-Key</a> benutzen um dynamische Missionen generieren zu lassen. <br>
+            <span style="opacity: 0.7;">🔒 Sicher: Der Key wird ausschließlich lokal in deinem Browser gespeichert.</span>
+        </div>
+    </div>
+
+    <div class="theme-switch-wrapper" style="flex-direction: column; align-items: center; border-top: 2px dashed #444; margin-top: 30px; padding-top: 15px;">
+        <div style="display: flex; justify-content: space-between; width: 150px; font-size: 10px; font-weight: bold; text-transform: uppercase;">
+            <span id="lbl-classic" style="color: #888; cursor: pointer;" onclick="changeThemeFromSlider(0)">Modern</span>
+            <span id="lbl-retro" style="color: #888; cursor: pointer;" onclick="changeThemeFromSlider(1)">Analog</span>
+            <span id="lbl-navcom" style="color: #888; cursor: pointer;" onclick="changeThemeFromSlider(2)">NavCom</span>
+        </div>
+        <input type="range" id="themeSlider" min="0" max="2" value="1" style="width: 150px; margin-top: 10px; cursor: pointer;" oninput="changeThemeFromSlider(this.value)">
+    </div>
+</div>
+
+<div class="version-info">Version 95.0 (Dual-AI Fuel Edition)</div>
+
+<div id="pinboardOverlay" class="pinboard-overlay">
+    <div class="pinboard-header">
+        <span style="color: #fff; font-weight: bold; font-family: monospace;">AIRCRAFT STATUS LOG</span>
+        <div>
+            <button class="pb-btn" style="background:#4da6ff; color:#fff; font-weight:bold; border:1px solid #222;" onclick="toggleTutorialNotes()">💡 Tipps an/aus</button>
+            <button class="pb-btn" style="background:#f2c12e; color:#111; font-weight:bold; border:1px solid #222;" onclick="importMission()">📥 Code laden</button>
+            <button class="pb-btn add" onclick="addNote()">➕ Zettel</button>
+            <button class="pb-btn" style="background:#d93829; color:#fff; font-weight:bold; border:1px solid #222;" onclick="clearPinboard()">🗑️ Alle löschen</button>
+            <button class="pb-btn close" onclick="togglePinboard()">❌ Schließen</button>
+        </div>
+    </div>
+    <div class="pinboard-scroll-area">
+        <div id="pinboard" class="pinboard-content"></div>
+    </div>
+</div>
+
+<div id="mapTableOverlay" class="pinboard-overlay">
+    <div class="pinboard-header">
+        <span style="color: #fff; font-weight: bold; font-family: monospace;">NAV STATION (KARTENTISCH)</span>
+        <div>
+            <button class="pb-btn" id="measureBtn" onclick="toggleMeasureMode()">📏 Messen (Aus)</button>
+            <button class="pb-btn" onclick="clearMeasure()">🗑️ Zirkel löschen</button>
+            <button class="pb-btn" onclick="resetMainRoute()">🔄 Route Reset</button>
+            <button class="pb-btn close" onclick="toggleMapTable()">❌ Schließen</button>
+        </div>
+    </div>
+    <div class="pinboard-scroll-area">
+        <div class="maptable-content">
+            <div id="map"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="datenbank.js"></script>
+<script src="missions.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
