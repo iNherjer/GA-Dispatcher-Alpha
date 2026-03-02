@@ -436,8 +436,8 @@ body.theme-retro .wp-data { color: var(--piper-yellow); }
    ========================================================================== */
 @media (max-width: 850px) {
     #mapTableOverlay .pinboard-scroll-area { padding: 0 !important; }
-    .maptable-content { width: 100% !important; height: 100% !important; border-radius: 0 !important; }
-    #map { width: 92% !important; height: 92% !important; border-radius: 6px !important; }
+    .maptable-content { width: 100% !important; height: 100% !important; border-radius: 0 !important; background-size: 100% 100% !important; }
+    #map { width: 100% !important; height: 100% !important; border-radius: 0 !important; border: none !important; }
 
     /* Pinnwand NUR horizontal scrollbar machen, Höhe exakt ans Display anpassen */
     #pinboardOverlay .pinboard-scroll-area {
@@ -999,6 +999,54 @@ body.theme-navcom .kln90b-module .radio-label {
 
 /* Drag Knobs Cursor */
 .drag-knob { cursor: ns-resize; } /* Zeigt Pfeile nach oben/unten an */
+
+/* KLN Loading-Animation: drei Punkte blinken nacheinander */
+@keyframes kln-dot {
+    0%, 60%, 100% { opacity: 0.15; }
+    30%            { opacity: 1;    }
+}
+.kln-loading-dots span {
+    display: inline-block;
+    animation: kln-dot 1.2s infinite;
+    font-size: 14px;
+    letter-spacing: 2px;
+}
+.kln-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.kln-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* iPad Landscape (851–1024px): Karte und Pinnwand füllen ganzen Bildschirm */
+@media (min-width: 851px) and (max-width: 1024px) {
+    body.maptable-open, body.pinboard-open { overflow: hidden !important; }
+    .pinboard-overlay { background: #080808 !important; }
+
+    #mapTableOverlay .pinboard-scroll-area { padding: 0 !important; }
+    .maptable-content {
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 0 !important;
+        background-size: 100% 100% !important;
+    }
+    #map { width: 92% !important; height: 92% !important; border-radius: 6px !important; }
+
+    #pinboardOverlay .pinboard-scroll-area {
+        display: block !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
+        padding: 0 !important;
+        height: calc(100vh - 70px) !important;
+    }
+    .pinboard-content {
+        height: 100% !important;
+        width: auto !important;
+        aspect-ratio: 16 / 10 !important;
+        background-size: 100% 100% !important;
+        margin: 0 !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 0 !important;
+    }
+}
 
 /* KLN 90B: mehr Höhe auf schmalen Mobilgeräten (iPhone Portrait) */
 @media (max-width: 480px) {
