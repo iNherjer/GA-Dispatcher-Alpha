@@ -823,6 +823,9 @@ body.theme-navcom .kln90b-module .radio-label {
     line-height: 1.45;
     min-height: 0;
     word-break: break-word;
+    /* Graceful bottom fade statt hartem Abschnitt */
+    -webkit-mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
 }
 .kln90b-left  { grid-column: 1; grid-row: 1; }
 .kln90b-right { grid-column: 3; grid-row: 1; }
@@ -996,3 +999,15 @@ body.theme-navcom .kln90b-module .radio-label {
 
 /* Drag Knobs Cursor */
 .drag-knob { cursor: ns-resize; } /* Zeigt Pfeile nach oben/unten an */
+
+/* KLN 90B: mehr Höhe auf schmalen Mobilgeräten (iPhone Portrait) */
+@media (max-width: 480px) {
+    .kln90b-display {
+        height: 145px;
+    }
+    /* Fade-Out etwas weicher, da mehr Platz vorhanden */
+    .kln90b-left, .kln90b-right {
+        -webkit-mask-image: linear-gradient(to bottom, black 82%, transparent 100%);
+        mask-image: linear-gradient(to bottom, black 82%, transparent 100%);
+    }
+}

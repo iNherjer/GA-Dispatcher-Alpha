@@ -208,6 +208,18 @@ function cyclePanelColor() {
    ========================================================= */
 let map, polyline, markers = [], currentStartICAO, currentDestICAO, currentMissionData = null, selectedAC = "PA-24";
 let globalAirports = null, runwayCache = {};
+
+// Fetch mit Timeout-Schutz
+async function fetchWithTimeout(url, ms = 6000) {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), ms);
+    try {
+        const res = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(tid);
+        return res;
+    } catch(e) { clearTimeout(tid); throw e; }
+}
+
 let measureMode = false, measurePoints = [], measurePolyline = null, measureMarkers = [], measureTooltip = null;
 let routeWaypoints = [], routeMarkers = [], currentSName = "", currentDName = "";
 let miniMap, miniRoutePolyline, miniMapMarkers = [];
@@ -346,12 +358,12 @@ function saveMissionState() {
         mDepICAO: document.getElementById("mDepICAO").innerText,
         mDepName: document.getElementById("mDepName").innerText,
         mDepCoords: document.getElementById("mDepCoords").innerText,
-        mDepRwy: document.getElementById("mDepRwy").innerText,
+        mDepRwy: '',   // Runway-Daten werden bei Restore neu geladen, nicht gecacht
         destIcon: document.getElementById("destIcon").innerText,
         mDestICAO: document.getElementById("mDestICAO").innerText,
         mDestName: document.getElementById("mDestName").innerText,
         mDestCoords: document.getElementById("mDestCoords").innerText,
-        mDestRwy: document.getElementById("mDestRwy").innerText,
+        mDestRwy: '',  // Runway-Daten werden bei Restore neu geladen, nicht gecacht
         mPay: document.getElementById("mPay").innerText,
         mWeight: document.getElementById("mWeight").innerText,
         mDistNote: document.getElementById("mDistNote").innerText,
@@ -369,13 +381,13 @@ function saveMissionState() {
     localStorage.setItem('ga_active_mission', JSON.stringify(state));
 }
 
-function restoreMissionState(state) {
+async function restoreMissionState(state) {
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
     document.getElementById("mDepICAO").innerText = state.mDepICAO; document.getElementById("mDepName").innerText = state.mDepName;
-    document.getElementById("mDepCoords").innerText = state.mDepCoords; document.getElementById("mDepRwy").innerText = state.mDepRwy;
+    document.getElementById("mDepCoords").innerText = state.mDepCoords; document.getElementById("mDepRwy").innerText = "Sucht Pisten...";
     document.getElementById("destIcon").innerText = state.destIcon; document.getElementById("mDestICAO").innerText = state.mDestICAO;
     document.getElementById("mDestName").innerText = state.mDestName; document.getElementById("mDestCoords").innerText = state.mDestCoords;
-    document.getElementById("mDestRwy").innerText = state.mDestRwy; document.getElementById("mPay").innerText = state.mPay;
+    document.getElementById("mDestRwy").innerText = state.isPOI ? "" : "Sucht Pisten..."; document.getElementById("mPay").innerText = state.mPay;
     document.getElementById("mWeight").innerText = state.mWeight; document.getElementById("mDistNote").innerText = state.mDistNote;
     document.getElementById("mHeadingNote").innerText = state.mHeadingNote; document.getElementById("mETENote").innerText = state.mETENote;
     document.getElementById("wikiDescText").innerText = state.wikiDescText;
@@ -409,6 +421,17 @@ function restoreMissionState(state) {
     document.querySelectorAll('.kln90b-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'FPL'));
     // GPS nach Mission-Restore aktualisieren
     setTimeout(() => refreshGPSAfterDispatch(), 200);
+    // Pistendaten frisch laden (nicht aus altem localStorage-Cache)
+    if (currentStartICAO) {
+        getAirportData(currentStartICAO).then(d => {
+            if (d) fetchRunwayDetails(d.lat, d.lon, 'mDepRwy', currentStartICAO);
+        });
+    }
+    if (currentDestICAO && currentDestICAO !== currentStartICAO && !state.isPOI) {
+        getAirportData(currentDestICAO).then(d => {
+            if (d) fetchRunwayDetails(d.lat, d.lon, 'mDestRwy', currentDestICAO);
+        });
+    }
 }
 
 function resetApp() {
@@ -417,13 +440,19 @@ function resetApp() {
     currentMissionData = null; routeWaypoints = [];
     if(map) { routeMarkers.forEach(m => map.removeLayer(m)); if (polyline) map.removeLayer(polyline); if (window.hitBoxPolyline) map.removeLayer(window.hitBoxPolyline); }
     if (miniMap) { if (miniRoutePolyline) miniMap.removeLayer(miniRoutePolyline); miniMapMarkers.forEach(m => miniMap.removeLayer(m)); miniMapMarkers = []; }
+    // Zielfeld leeren (Classic + NavCom Radio)
+    const destLocEl      = document.getElementById('destLoc');
+    const destLocRadioEl = document.getElementById('destLocRadio');
+    if (destLocEl)      destLocEl.value      = '';
+    if (destLocRadioEl) destLocRadioEl.value = '';
+
     document.getElementById('searchIndicator').innerText = "System bereit."; setDrumCounter('distDrum', 0); recalculatePerformance();
     const rBtn = document.getElementById('radioGenerateBtn');
     if(rBtn) rBtn.classList.remove('active');
     // GPS-State und alle Caches zurücksetzen
     gpsState.wikiCache = {};
     gpsState.metarCache = {};
-    runwayCache = {}; // auch Pisten-Cache leeren, damit Wikipedia neu abgefragt wird
+    runwayCache = {}; // Pisten-Cache leeren, damit Wikipedia neu abgefragt wird
     gpsState.mode = 'FPL';
     gpsState.subPage = 0;
     gpsState.maxPages = { FPL: 1, DEP: 2, DEST: 2, AIP: 2, WX: 2 };
@@ -536,13 +565,15 @@ async function loadGlobalAirports() {
 }
 
 async function getAirportData(icao) {
-    if (typeof coreDB !== 'undefined' && coreDB[icao]) return coreDB[icao]; 
-    await loadGlobalAirports(); 
+    // Priorität: 1. GitHub-Datenbank  2. Nominatim  3. coreDB (letzter Ausweg)
+    await loadGlobalAirports();
     if (globalAirports[icao]) return { icao: icao, n: globalAirports[icao].name || globalAirports[icao].city, lat: globalAirports[icao].lat, lon: globalAirports[icao].lon };
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${icao}+airport`); const data = await res.json();
         if (data && data.length > 0) return { icao: icao, n: data[0].display_name.split(',')[0], lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-    } catch (e) {} return null;
+    } catch (e) {}
+    if (typeof coreDB !== 'undefined' && coreDB[icao]) return coreDB[icao];
+    return null;
 }
 
 async function findGithubAirport(lat, lon, minNM, maxNM, dirPref, regionPref) {
@@ -613,57 +644,78 @@ async function fetchRunwayDetails(lat, lon, elementId, icaoCode) {
         return;
     }
 
-    // Fallback: OpenStreetMap Overpass
+    // Fallback: OpenStreetMap Overpass – alle Pisten sammeln, nicht nur die erste
     try {
         const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(`[out:json][timeout:5];way["aeroway"="runway"](around:2000,${lat},${lon});out tags;`)}`);
         const data = await res.json();
         if (data?.elements?.length > 0) {
-            let rwyElement = data.elements.find(el => el.tags && el.tags.ref) || data.elements[0];
-            const ref = rwyElement.tags.ref || "???";
-            let surface = rwyElement.tags.surface ? rwyElement.tags.surface.toLowerCase() : "unbekannt";
-            const trans = { "asphalt": "Asphalt", "concrete": "Beton", "grass": "Gras", "paved": "Befestigt", "unpaved": "Unbefestigt", "dirt": "Erde", "gravel": "Schotter" };
-            const finalString = `${ref} – ${trans[surface] || surface}${rwyElement.tags.length ? ` · ${rwyElement.tags.length}m` : ""}`;
-            if (icaoCode && finalString !== "??? – unbekannt") runwayCache[icaoCode] = finalString;
-            domEl.innerText = finalString; domEl.style.color = hColor; return;
+            const trans = { "asphalt": "Asphalt", "concrete": "Beton", "grass": "Gras",
+                            "paved": "Asphalt", "unpaved": "Unbefestigt", "dirt": "Erde", "gravel": "Schotter" };
+            const seen = new Set();
+            const parts = [];
+            for (const el of data.elements) {
+                if (!el.tags?.ref) continue;
+                const key = el.tags.ref;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                const surf = el.tags.surface ? (trans[el.tags.surface.toLowerCase()] || el.tags.surface) : '?';
+                const len  = el.tags.length  ? ` · ${Math.round(el.tags.length)}m` : '';
+                parts.push(`${key} – ${surf}${len}`);
+            }
+            if (parts.length > 0) { domEl.innerText = parts.join('\n'); domEl.style.color = hColor; return; }
         }
     } catch (e) {}
     domEl.innerText = "Keine Daten gefunden"; domEl.style.color = "#888";
 }
 
 async function fetchRunwayFromWikipedia(icaoCode, lat, lon) {
-    try {
-        let airportTitle = null;
+    const isAirport = t => ['flugplatz','flughafen','airport','airfield','aerodrome'].some(k => t.toLowerCase().includes(k));
+    const seen = new Set();
 
-        // 1. Geosearch: Flugplatz/Flughafen in der Nähe
-        const geoRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=3000&gslimit=15&format=json&origin=*`);
-        const geoData = await geoRes.json();
-        if (geoData?.query?.geosearch) {
-            const candidate = geoData.query.geosearch.find(r => {
-                const t = r.title.toLowerCase();
-                return t.includes('flugplatz') || t.includes('flughafen') || t.includes('airport') ||
-                       (icaoCode && t.includes(icaoCode.toLowerCase()));
-            });
-            if (candidate) airportTitle = candidate.title;
+    async function tryTitle(title) {
+        if (!title || seen.has(title)) return null;
+        seen.add(title);
+        try {
+            const r = await fetchWithTimeout(
+                `https://de.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(title)}&prop=wikitext&format=json&origin=*`, 8000);
+            const d = await r.json();
+            const wt = d?.parse?.wikitext?.['*'] || '';
+            return wt ? parseRunwayFromWikitext(wt) : null;
+        } catch(e) { return null; }
+    }
+
+    try {
+        const candidates = [];
+
+        // 1. Kombinierte ICAO + Flugplatz Suche (präziseste Methode)
+        if (icaoCode) {
+            const r = await fetchWithTimeout(
+                `https://de.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(icaoCode + ' Flugplatz Flughafen')}&srlimit=5&format=json&origin=*`, 5000);
+            const d = await r.json();
+            for (const hit of (d?.query?.search || [])) {
+                if (isAirport(hit.title)) candidates.push(hit.title);
+            }
+            // Fallback: ersten Treffer nehmen auch ohne Airport-Keyword im Titel
+            if (candidates.length === 0 && d?.query?.search?.length > 0)
+                candidates.push(d.query.search[0].title);
         }
 
-        // 2. Fallback: Wikipedia-Suche nach ICAO + "Flugplatz"
-        if (!airportTitle && icaoCode) {
-            const searchRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(icaoCode + ' Flugplatz Flughafen')}&srlimit=3&format=json&origin=*`);
-            const searchData = await searchRes.json();
-            if (searchData?.query?.search?.length > 0) {
-                airportTitle = searchData.query.search[0].title;
+        // 2. Geosearch 5 km – Airport-Keyword-Treffer priorisieren
+        if (candidates.length === 0) {
+            const g = await fetchWithTimeout(
+                `https://de.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=5000&gslimit=20&format=json&origin=*`, 6000);
+            const gd = await g.json();
+            for (const hit of (gd?.query?.geosearch || [])) {
+                if (isAirport(hit.title)) candidates.push(hit.title);
             }
         }
 
-        if (!airportTitle) return null;
-
-        // 3. Wikitext des Artikels holen
-        const parseRes = await fetch(`https://de.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(airportTitle)}&prop=wikitext&format=json&origin=*`);
-        const parseData = await parseRes.json();
-        const wikitext = parseData?.parse?.wikitext?.['*'] || '';
-        if (!wikitext) return null;
-
-        return parseRunwayFromWikitext(wikitext);
+        // Kandidaten der Reihe nach probieren – erster mit Pistendaten gewinnt
+        for (const title of candidates.slice(0, 4)) {
+            const result = await tryTitle(title);
+            if (result) return result;
+        }
+        return null;
     } catch (e) {
         return null;
     }
@@ -673,6 +725,15 @@ function parseRunwayFromWikitext(wikitext) {
     const runways = [];
     let m;
 
+    // Wikitext global vorverarbeiten: Markup entfernen das Regex-Matching verhindert
+    wikitext = wikitext
+        .replace(/'{3}([^']*?)'{3}/g, '$1')   // '''fett''' → plain
+        .replace(/'{2}([^']*?)'{2}/g, '$1')   // ''kursiv'' → plain
+        .replace(/&nbsp;/g, ' ')              // geschütztes Leerzeichen
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+
     // Hilfsfunktion: Wikitext-Markup bereinigen
     const clean = s => s
         .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2')  // [[Link|Text]] → Text
@@ -681,20 +742,19 @@ function parseRunwayFromWikitext(wikitext) {
         .replace(/&nbsp;/g, ' ')
         .trim();
 
-    // Pattern 1a: | Piste = 09/27 (1575 × 30 m, Asphalt)\n14/32 (612 m, Gras)
+    // Pattern 1a: Infobox-Felder | Piste = / | Pisten = / | Runway = / | runway1_heading_ft = ...
     //             Mehrere Pisten in EINEM Feld, getrennt durch <br> oder Zeilenumbrüche
-    const pisteSinglePat = /\|\s*[Pp]iste\s*=\s*([\s\S]*?)(?=\n\s*\||\n\}\}|$)/g;
+    const pisteSinglePat = /\|\s*(?:[Pp]isten?|[Rr]unways?)\s*=\s*([\s\S]*?)(?=\n\s*\||\n\}\}|$)/g;
     while ((m = pisteSinglePat.exec(wikitext)) !== null) {
         const raw = clean(m[1]);
-        // Jede Zeile kann eine eigene Piste sein
         const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 2);
         for (const line of lines) {
             if (/\d{2}\/\d{2}/.test(line)) runways.push(line.replace(/[()]/g, '').trim());
         }
     }
 
-    // Pattern 1b: | Piste1 = ..., | Piste2 = ... (nummerierte Felder)
-    const pisteNumPat = /\|\s*[Pp]iste(\d+)\s*=\s*([^\n|{}]{4,150})/g;
+    // Pattern 1b: | Piste1 = ..., | Piste2 = ..., | Runway1 = ... (nummerierte Felder)
+    const pisteNumPat = /\|\s*(?:[Pp]isten?|[Rr]unways?)(\d+)\s*=\s*([^\n|{}]{4,150})/g;
     while ((m = pisteNumPat.exec(wikitext)) !== null) {
         const val = clean(m[2]);
         if (val.length > 3 && /\d{2}\/\d{2}/.test(val)) {
@@ -714,13 +774,65 @@ function parseRunwayFromWikitext(wikitext) {
         }
     }
 
-    // Pattern 3: Wikitable-Zeilen | 09/27 || 1200 || Asphalt
-    const tablePat = /\|\s*(\d{2}\/\d{2})\s*\|\|?\s*([\d.,×x]+\s*m?)?\s*\|\|?\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß\-/]*)/g;
+    // Pattern 3a: Wikitable | 09/27 || 1200 m || Asphalt  (Länge vor Belag)
+    const tablePat = /\|\s*(\d{2}[LRC]?\/\d{2}[LRC]?)\s*\|\|\s*([\d.,×x]+\s*m[^\n|]*?)\s*\|\|\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß\-/]*)/g;
     while ((m = tablePat.exec(wikitext)) !== null) {
         const hdg  = m[1].trim();
-        const len  = m[2] ? m[2].trim().replace(/[×x\s]/g, '').replace(/[^\d]/g, '') : '';
+        const len  = m[2] ? m[2].trim().replace(/\(.*?\)/g, '').replace(/[×x\s]/g, '').replace(/[^\d]/g, '') : '';
         const surf = m[3] ? m[3].trim() : '';
         if (hdg) runways.push([hdg, len ? len + 'm' : '', surf].filter(Boolean).join(' · '));
+    }
+
+    // Pattern 3b: Wikitable | 09/27 || Asphalt || 1200 m  (Belag vor Länge – dt. Standard)
+    const tablePatDE = /\|\s*(\d{2}[LRC]?\/\d{2}[LRC]?)\s*\|\|\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß\-/]*)\s*\|\|\s*([\d.,×x]+[^|\n{]*m[^|\n{]*)/g;
+    while ((m = tablePatDE.exec(wikitext)) !== null) {
+        const hdg    = m[1].trim();
+        const surf   = m[2].trim();
+        const rawLen = m[3].trim().replace(/\(.*?\)/g, '').replace(/[×x\s]/g, '').replace(/[^\d]/g, '');
+        if (hdg) runways.push([hdg, rawLen ? rawLen + 'm' : '', surf].filter(Boolean).join(' · '));
+    }
+
+    // Pattern 3c: Wikitable zeilenweise – jede Zelle in eigener Zeile
+    // Format: \n| 09/27\n| Asphalt\n| 1200 m  (dt. Reihenfolge: Kennung | Belag | Länge)
+    const tablePatNL = /\n\|\s*(\d{2}[LRC]?\/\d{2}[LRC]?)\s*\n\|\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß\-/]*)\s*\n\|\s*([\d.,]+[^\n|]*m[^\n|]*)/g;
+    while ((m = tablePatNL.exec(wikitext)) !== null) {
+        const hdg    = m[1].trim();
+        const surf   = m[2].trim();
+        const rawLen = m[3].trim().replace(/\(.*?\)/g, '').replace(/[×x\s]/g, '').replace(/[^\d]/g, '');
+        if (hdg) runways.push([hdg, rawLen ? rawLen + 'm' : '', surf].filter(Boolean).join(' · '));
+    }
+
+    // Pattern 3d: Wikitable zeilenweise – Länge vor Belag
+    // Format: \n| 09/27\n| 1200 m\n| Asphalt
+    const tablePatNLrev = /\n\|\s*(\d{2}[LRC]?\/\d{2}[LRC]?)\s*\n\|\s*([\d.,]+[^\n|]*m[^\n|]*)\n\|\s*([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß\-/]*)/g;
+    while ((m = tablePatNLrev.exec(wikitext)) !== null) {
+        const hdg    = m[1].trim();
+        const rawLen = m[2].trim().replace(/\(.*?\)/g, '').replace(/[×x\s]/g, '').replace(/[^\d]/g, '');
+        const surf   = m[3].trim();
+        if (hdg) runways.push([hdg, rawLen ? rawLen + 'm' : '', surf].filter(Boolean).join(' · '));
+    }
+
+    // Pattern 3e: Zeilen-basierter Wikitable-Parser (universell, spaltenreihenfolge-unabhängig)
+    // Verarbeitet jede Tabellenzeile als Block, erkennt DD/DD-Zelle und sucht Länge + Belag
+    {
+        const SURFACES = /\b(asphalt|beton|gras|grass|schotter|gravel|concrete|paved|unpaved|dirt|erde)\b/i;
+        const rowBlocks = wikitext.split(/\n\|-+[^\n]*/);
+        for (const block of rowBlocks) {
+            // Alle Zellen: inline || und zeilenweise | (nicht |-, |}, |!)
+            const cellRaw = block.split(/\|\||\n\|(?![-}|!])/).map(c => c.replace(/^\|/, '').trim()).filter(c => c.length > 0);
+            const hdgCell = cellRaw.find(c => /^\d{2}[LRC]?\/\d{2}[LRC]?$/.test(c));
+            if (!hdgCell) continue;
+            const hdg = hdgCell.trim();
+            // Länge: erste Zelle mit Zahl + m (z.B. "1.338 m × 30 m", "1338 m", "1.240 m")
+            const lenCell = cellRaw.find(c => c !== hdgCell && /\d/.test(c) && /\bm\b/.test(c));
+            const len = lenCell ? (lenCell.match(/(\d[\d.,]*)/)?.[1] || '').replace(/\./g, '').replace(/,/g, '') : '';
+            // Belag: Zelle die bekanntes Oberflächenwort enthält
+            const surfCell = cellRaw.find(c => SURFACES.test(c));
+            const surf = surfCell ? (surfCell.match(SURFACES)?.[0] || '') : '';
+            // Nur wenn mindestens Heading vorhanden
+            const entry = [hdg, len ? len + 'm' : '', surf ? surf.charAt(0).toUpperCase() + surf.slice(1) : ''].filter(Boolean).join(' · ');
+            runways.push(entry);
+        }
     }
 
     // Pattern 4: Freitext – "Piste 09/27, 1.575 m, Asphalt"
@@ -904,8 +1016,14 @@ async function generateMission() {
     const selectedGph = parseInt(document.getElementById("gphSlider").value) || 14;
     
     let targetDest = document.getElementById("destLoc").value.toUpperCase();
+    // DEP == DEST: Zielflugplatz ignorieren → POI verwenden
+    let forcePOI = false;
+    if (targetDest && targetDest === currentStartICAO) {
+        targetDest = '';
+        forcePOI = true;
+    }
     let dataSource = targetDest ? "Manuell" : "Generiert";
-    
+
     let minNM, maxNM;
     if(rangePref === "any") {
         const roll = Math.random(); if (roll < 0.33) { minNM=10; maxNM=50; } else if (roll < 0.66) { minNM=50; maxNM=100; } else { minNM=100; maxNM=250; }
@@ -913,38 +1031,39 @@ async function generateMission() {
         if(rangePref === "short") { minNM=10; maxNM=50; } if(rangePref === "medium") { minNM=50; maxNM=100; } if(rangePref === "long") { minNM=100; maxNM=250; }
     }
 
-    let searchMin = targetType === "poi" ? minNM / 2 : minNM, searchMax = targetType === "poi" ? maxNM / 2 : maxNM, dest = null;
-    
+    const effectiveType = (forcePOI || targetType === "poi") ? "poi" : "apt";
+    let searchMin = effectiveType === "poi" ? minNM / 2 : minNM, searchMax = effectiveType === "poi" ? maxNM / 2 : maxNM, dest = null;
+
     if (targetDest) { dest = await getAirportData(targetDest); } else {
-        if (targetType === "apt") { dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref); } 
-        else if (targetType === "poi") { dest = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref); }
+        if (effectiveType === "apt") { dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref); }
+        else { dest = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref); }
     }
     
     if(!dest && !targetDest && typeof coreDB !== 'undefined') {
-        if (targetType === "apt") {
+        if (effectiveType === "apt") {
             dataSource = "Core DB (Fallback)";
             let keys = Object.keys(coreDB).filter(k => k !== currentStartICAO);
             if(regionPref === "de") keys = keys.filter(k => k.startsWith('ED') || k.startsWith('ET'));
             if(regionPref === "int") keys = keys.filter(k => !k.startsWith('ED') && !k.startsWith('ET'));
             let dirFilteredKeys = keys.filter(k => checkBearing(calcNav(start.lat, start.lon, coreDB[k].lat, coreDB[k].lon).brng, dirPref));
             if(dirFilteredKeys.length > 0) keys = dirFilteredKeys;
-            if(keys.length === 0) keys = Object.keys(coreDB).filter(k => k !== currentStartICAO); 
+            if(keys.length === 0) keys = Object.keys(coreDB).filter(k => k !== currentStartICAO);
             dest = coreDB[keys[Math.floor(Math.random()*keys.length)]];
-        } else if (targetType === "poi" && typeof fallbackPOIs !== 'undefined') {
+        } else if (effectiveType === "poi" && typeof fallbackPOIs !== 'undefined') {
             dataSource = "Fallback POIs";
             let validPOIs = fallbackPOIs.filter(p => checkBearing(calcNav(start.lat, start.lon, p.lat, p.lon).brng, dirPref));
-            if(validPOIs.length === 0) validPOIs = fallbackPOIs; 
+            if(validPOIs.length === 0) validPOIs = fallbackPOIs;
             dest = validPOIs[Math.floor(Math.random() * validPOIs.length)]; dest.icao = "POI";
         }
     }
 
-    if(!dest) { 
-        indicator.innerText = "Fehler: Kein passendes Ziel gefunden."; resetBtn(btn); 
+    if(!dest) {
+        indicator.innerText = "Fehler: Kein passendes Ziel gefunden."; resetBtn(btn);
         if(window.meterInterval) clearInterval(window.meterInterval);
-        if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`; return; 
+        if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`; return;
     }
-    
-    const isPOI = (targetType === 'poi' && !targetDest);
+
+    const isPOI = forcePOI || (effectiveType === 'poi' && !targetDest);
     const nav = calcNav(start.lat, start.lon, dest.lat, dest.lon);
     let totalDist = isPOI ? nav.dist * 2 : nav.dist;
     currentDestICAO = isPOI ? currentStartICAO : dest.icao;
@@ -1754,7 +1873,7 @@ function initGPSEncoders() {
 
     // Linker Encoder: vorherige Seite
     if (encL) {
-        encL.addEventListener('click', prevPage);
+        encL.addEventListener('click', () => prevPage());
         encL.addEventListener('wheel', (e) => {
             e.preventDefault();
             e.deltaY > 0 ? nextPage() : prevPage();
@@ -1762,12 +1881,32 @@ function initGPSEncoders() {
     }
     // Rechter Encoder: nächste Seite
     if (encR) {
-        encR.addEventListener('click', nextPage);
+        encR.addEventListener('click', () => nextPage());
         encR.addEventListener('wheel', (e) => {
             e.preventDefault();
             e.deltaY > 0 ? nextPage() : prevPage();
         });
     }
+}
+
+// --- COM2-Knopf: Ziel löschen ---
+function initCom2Knob() {
+    const knob = document.getElementById('com2Knob');
+    if (!knob) return;
+    knob.addEventListener('click', () => {
+        currentDestICAO = '';
+        const destLocEl      = document.getElementById('destLoc');
+        const destLocRadioEl = document.getElementById('destLocRadio');
+        if (destLocEl)      destLocEl.value      = '';
+        if (destLocRadioEl) destLocRadioEl.value = '';
+        // Falls KLN auf DEST steht, zurück zu FPL
+        if (gpsState.mode === 'DEST') {
+            document.querySelectorAll('.kln90b-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'FPL'));
+            gpsState.mode    = 'FPL';
+            gpsState.subPage = 0;
+            if (gpsState.visible) renderGPS();
+        }
+    });
 }
 
 // --- Main Render ---
@@ -1893,9 +2032,16 @@ async function renderAirportInfo(left, right, type) {
                 const res   = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
                 const ov    = await res.json();
                 if (ov?.elements?.length > 0) {
-                    const trans = {asphalt:'Asphalt',concrete:'Beton',grass:'Gras',paved:'Befestigt',unpaved:'Unbefestigt',dirt:'Erde',gravel:'Schotter'};
-                    const parts = ov.elements.filter(e => e.tags?.ref)
-                        .map(e => `${e.tags.ref} – ${trans[e.tags.surface]||e.tags.surface||'?'}${e.tags.length ? ' · '+Math.round(e.tags.length)+'m' : ''}`);
+                    const trans = {asphalt:'Asphalt',concrete:'Beton',grass:'Gras',paved:'Asphalt',unpaved:'Unbefestigt',dirt:'Erde',gravel:'Schotter'};
+                    const seen = new Set();
+                    const parts = [];
+                    for (const e of ov.elements) {
+                        if (!e.tags?.ref || seen.has(e.tags.ref)) continue;
+                        seen.add(e.tags.ref);
+                        const surf = e.tags.surface ? (trans[e.tags.surface.toLowerCase()]||e.tags.surface) : '?';
+                        const len  = e.tags.length  ? ' · '+Math.round(e.tags.length)+'m' : '';
+                        parts.push(`${e.tags.ref} – ${surf}${len}`);
+                    }
                     if (parts.length > 0) runwayCache[icao] = parts.join(' | ');
                 }
             }
@@ -2088,5 +2234,6 @@ function refreshGPSAfterDispatch() {
 document.addEventListener('DOMContentLoaded', () => {
     initGPSButtons();
     initGPSEncoders();
+    initCom2Knob();
     restoreAudioButtonStates();
 });
