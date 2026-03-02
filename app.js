@@ -2018,34 +2018,45 @@ async function renderAirportInfo(left, right, type) {
         `<div class="kln90b-line dim" style="font-size:9px; margin-top:2px;">${lat}</div>` +
         `<div class="kln90b-line dim" style="font-size:9px;">${lon}</div>`;
 
-    // Runway- und Wiki-Daten laden (ab Seite 0 direkt)
+    // Runway-Daten: Overpass sofort parallel starten, Wikipedia im Hintergrund
     right.innerHTML = '<div class="kln90b-line dim">LOADING...</div>';
 
-    // Runway holen (Wikipedia zuerst, dann Overpass)
     if (!runwayCache[icao] && data) {
-        try {
-            const fetched = await fetchRunwayFromWikipedia(icao, data.lat, data.lon);
-            if (fetched) {
-                runwayCache[icao] = fetched;
-            } else {
-                const query = `[out:json][timeout:8];way["aeroway"="runway"](around:3000,${data.lat},${data.lon});out tags;`;
-                const res   = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-                const ov    = await res.json();
-                if (ov?.elements?.length > 0) {
-                    const trans = {asphalt:'Asphalt',concrete:'Beton',grass:'Gras',paved:'Asphalt',unpaved:'Unbefestigt',dirt:'Erde',gravel:'Schotter'};
-                    const seen = new Set();
-                    const parts = [];
+        const trans = {asphalt:'Asphalt',concrete:'Beton',grass:'Gras',paved:'Asphalt',unpaved:'Unbefestigt',dirt:'Erde',gravel:'Schotter'};
+
+        // Overpass sofort (schnell, ~1-2 s) → Platzhalter
+        const ovPromise = fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(
+            `[out:json][timeout:8];way["aeroway"="runway"](around:3000,${data.lat},${data.lon});out tags;`)}`)
+            .then(r => r.json())
+            .then(ov => {
+                if (ov?.elements?.length > 0 && !runwayCache[icao]) {
+                    const seen = new Set(), parts = [];
                     for (const e of ov.elements) {
                         if (!e.tags?.ref || seen.has(e.tags.ref)) continue;
                         seen.add(e.tags.ref);
-                        const surf = e.tags.surface ? (trans[e.tags.surface.toLowerCase()]||e.tags.surface) : '?';
+                        const surf = e.tags.surface ? (trans[e.tags.surface.toLowerCase()] || e.tags.surface) : '?';
                         const len  = e.tags.length  ? ' · '+Math.round(e.tags.length)+'m' : '';
                         parts.push(`${e.tags.ref} – ${surf}${len}`);
                     }
-                    if (parts.length > 0) runwayCache[icao] = parts.join(' | ');
+                    if (parts.length > 0) {
+                        runwayCache[icao] = parts.join(' | ');
+                        // Anzeige sofort aktualisieren falls noch auf Runway-Seite
+                        if (gpsState.mode === mode && gpsState.subPage === 0) renderGPS();
+                    }
                 }
+            }).catch(() => {});
+
+        // Wikipedia parallel (langsamer, dafür vollständige Daten)
+        fetchRunwayFromWikipedia(icao, data.lat, data.lon).then(wikiResult => {
+            if (wikiResult) {
+                runwayCache[icao] = wikiResult;   // überschreibt ggf. Overpass-Platzhalter
+                // Anzeige aktualisieren falls noch auf Runway- oder Wiki-Seite
+                if (gpsState.mode === mode) renderGPS();
             }
-        } catch(e) {}
+        }).catch(() => {});
+
+        // Auf Overpass warten damit erste Render-Seite nicht leer ist
+        await ovPromise;
     }
 
     const RWYS_PER_PAGE = 4;
