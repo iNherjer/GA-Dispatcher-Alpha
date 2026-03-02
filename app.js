@@ -386,9 +386,27 @@ function restoreMissionState(state) {
     currentStartICAO = state.currentStartICAO; currentDestICAO = state.currentDestICAO;
     currentSName = state.currentSName; currentDName = state.currentDName;
 
+    // Formular-Inputs synchronisieren (Classic + NavCom Radio)
+    const startLocEl = document.getElementById('startLoc');
+    const destLocEl  = document.getElementById('destLoc');
+    const startLocRadioEl = document.getElementById('startLocRadio');
+    const destLocRadioEl  = document.getElementById('destLocRadio');
+    if (startLocEl) startLocEl.value = currentStartICAO || '';
+    if (destLocEl)  destLocEl.value  = (currentDestICAO && currentDestICAO !== currentStartICAO) ? currentDestICAO : '';
+    if (startLocRadioEl) startLocRadioEl.value = currentStartICAO || '';
+    if (destLocRadioEl)  destLocRadioEl.value  = (currentDestICAO && currentDestICAO !== currentStartICAO) ? currentDestICAO : '';
+
     document.getElementById("briefingBox").style.display = "block";
     renderMainRoute(); setDrumCounter('distDrum', state.currentMissionData.dist);
     recalculatePerformance(); document.getElementById('searchIndicator').innerText = "📋 Gespeichertes Briefing geladen.";
+    // GPS-State für den geladenen Flug zurücksetzen
+    gpsState.mode = 'FPL';
+    gpsState.subPage = 0;
+    gpsState.maxPages = { FPL: 1, DEP: 2, DEST: 2, AIP: 2, WX: 2 };
+    gpsState.wikiCache = {};
+    gpsState.metarCache = {};
+    runwayCache = {};
+    document.querySelectorAll('.kln90b-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'FPL'));
     // GPS nach Mission-Restore aktualisieren
     setTimeout(() => refreshGPSAfterDispatch(), 200);
 }
@@ -408,7 +426,7 @@ function resetApp() {
     runwayCache = {}; // auch Pisten-Cache leeren, damit Wikipedia neu abgefragt wird
     gpsState.mode = 'FPL';
     gpsState.subPage = 0;
-    gpsState.maxPages = { FPL: 1, DEP: 3, DEST: 3, AIP: 2, WX: 2 };
+    gpsState.maxPages = { FPL: 1, DEP: 2, DEST: 2, AIP: 2, WX: 2 };
     document.querySelectorAll('.kln90b-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'FPL'));
     renderGPS();
 }
@@ -450,6 +468,8 @@ function recalculatePerformance() {
     if (!currentMissionData) return;
     const tas = parseInt(document.getElementById("tasSlider").value), gph = parseInt(document.getElementById("gphSlider").value), dist = currentMissionData.dist;
     setDrumCounter('timeDrum', Math.round((dist / tas) * 60)); setDrumCounter('fuelDrum', Math.ceil((dist / tas * gph) + (0.75 * gph)));
+    // GPS FPL live aktualisieren (zeigt Fuel/Zeit/Distanz)
+    if (gpsState.visible && gpsState.mode === 'FPL') renderGPS();
     setTimeout(() => saveMissionState(), 500);
 }
 
@@ -993,7 +1013,15 @@ async function generateMission() {
     const destSwitchRow = document.getElementById("destSwitchRow"); if(destSwitchRow) destSwitchRow.style.display = isPOI ? "none" : "flex";
 
     document.getElementById("briefingBox").style.display = "block";
-    
+
+    // Ziel-ICAO in Classic- und NavCom-Inputs eintragen (nur bei echtem Zielflughafen)
+    if (!isPOI) {
+        const destLocEl      = document.getElementById('destLoc');
+        const destLocRadioEl = document.getElementById('destLocRadio');
+        if (destLocEl)      destLocEl.value      = currentDestICAO;
+        if (destLocRadioEl) destLocRadioEl.value = currentDestICAO;
+    }
+
     updateMap(start.lat, start.lon, dest.lat, dest.lon, currentStartICAO, dest.n);
 
     indicator.innerText = `Flugplan bereit (${dataSource}). Lade Infos...`;
@@ -1328,7 +1356,13 @@ function logCurrentFlight() {
     log.unshift({ ...currentMissionData, date: new Date().toLocaleString('de-DE', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) });
     localStorage.setItem('ga_logbook', JSON.stringify(log.slice(0, 50)));
     localStorage.setItem('last_icao_dest', currentMissionData.dest);
-    document.getElementById('startLoc').value = currentMissionData.dest; document.getElementById('destLoc').value = "";
+    const newStart = currentMissionData.dest || '';
+    document.getElementById('startLoc').value = newStart;
+    document.getElementById('destLoc').value = "";
+    const startLocRadioEl = document.getElementById('startLocRadio');
+    const destLocRadioEl  = document.getElementById('destLocRadio');
+    if (startLocRadioEl) startLocRadioEl.value = newStart;
+    if (destLocRadioEl)  destLocRadioEl.value  = '';
     renderLog(); alert(`Flug geloggt! Du bist in ${currentMissionData.dest}.`);
 }
 
@@ -1451,7 +1485,7 @@ function pinCurrentFlight() {
     const routeText = `${currentStartICAO} ➔ ${currentDestICAO === "POI" ? currentMissionData.poiName : currentDestICAO}`;
     notes.push({
         id: Date.now(), type: "flight", flightData: state,
-        text: `✈️ <b>${routeText}</b><br><span style="font-size:11px; color:#555;">${state.mission}</span><br><span style="font-size:11px;">${state.mDistNote}</span>`,
+        text: `✈️ <b>${routeText}</b><br><span style="font-size:11px; color:#555;">${state.currentMissionData?.mission || ''}</span><br><span style="font-size:11px;">${state.mDistNote}</span>`,
         x: 35 + Math.random()*15, y: 20 + Math.random()*15, rot: Math.floor(Math.random() * 9) - 4
     });
     
@@ -1602,7 +1636,7 @@ const gpsState = {
     mode: 'FPL',
     subPage: 0,       // universelle Sub-Page; steuert alle Inhalte (Waypoints, Runway, Wiki)
     visible: false,
-    maxPages: { FPL: 1, DEP: 3, DEST: 3, AIP: 2, WX: 2 },
+    maxPages: { FPL: 1, DEP: 2, DEST: 2, AIP: 2, WX: 2 },
     metarCache: {},
     wikiCache: {}     // { icao: ['page1', 'page2', ...] }
 };
@@ -1663,13 +1697,39 @@ function restoreAudioButtonStates() {
 function initGPSButtons() {
     document.querySelectorAll('.kln90b-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+            const targetMode = btn.dataset.mode;
+
+            // AIP: Direkt-Link öffnen wenn bereits auf DEP- oder DEST-Seite
+            if (targetMode === 'AIP') {
+                if (gpsState.mode === 'DEP' && currentStartICAO) {
+                    window.open(`https://aip.aero/de/vfr/?${currentStartICAO}`, '_blank');
+                    return;
+                }
+                if (gpsState.mode === 'DEST' && currentDestICAO) {
+                    window.open(`https://aip.aero/de/vfr/?${currentDestICAO}`, '_blank');
+                    return;
+                }
+            }
+
+            // WX: Direkt-Link öffnen wenn bereits auf DEP- oder DEST-Seite
+            if (targetMode === 'WX') {
+                if (gpsState.mode === 'DEP' && currentStartICAO) {
+                    window.open(`https://metar-taf.com/de/${currentStartICAO}`, '_blank');
+                    return;
+                }
+                if (gpsState.mode === 'DEST' && currentDestICAO) {
+                    window.open(`https://metar-taf.com/de/${currentDestICAO}`, '_blank');
+                    return;
+                }
+            }
+
             document.querySelectorAll('.kln90b-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            gpsState.mode = btn.dataset.mode;
+            gpsState.mode = targetMode;
             gpsState.subPage = 0;
             // Seitenanzahl auf Default zurücksetzen – wird nach Wiki-Fetch aktualisiert
             if (gpsState.mode === 'DEP' || gpsState.mode === 'DEST') {
-                gpsState.maxPages[gpsState.mode] = 4;
+                gpsState.maxPages[gpsState.mode] = 2;
             }
             renderGPS();
         });
@@ -1755,9 +1815,9 @@ function renderFPL(left, right) {
         }
     }
 
-    // legPages + 1 Performance-Seite
+    // Nur Leg-Seiten (Performance wird rechts auf allen Seiten angezeigt)
     const legPages   = Math.max(1, Math.ceil(legs.length / FPL_LEGS_PER_PAGE));
-    const totalPages = legPages + 1;
+    const totalPages = legPages;
     gpsState.maxPages['FPL'] = totalPages;
     if (gpsState.subPage >= totalPages) gpsState.subPage = totalPages - 1;
 
@@ -1793,25 +1853,6 @@ function renderFPL(left, right) {
             `<div class="kln90b-line" style="font-size:10px;">TME ${_mins2}m</div>`+
             `<div class="kln90b-line" style="font-size:10px;">FUL ${_fuel2}G</div>`+
             `<div class="kln90b-line" style="font-size:10px;">HDG ${_hdg2}°</div>`;
-    } else {
-        // ── Performance-Seite ─────────────────────────────────────────────────
-        const dist = Math.round((currentMissionData.dist || 0) * 10) / 10;
-        const tas  = parseInt(document.getElementById('tasSlider')?.value) || 115;
-        const gph  = parseInt(document.getElementById('gphSlider')?.value) || 9;
-        const mins = Math.round((dist / tas) * 60);
-        const fuel = Math.ceil((dist / tas) * gph + 0.75 * gph);
-        let totalHdg = currentMissionData.heading || 0;
-        if (wps && wps.length >= 2) {
-            const first = wps[0], last = wps[wps.length - 1];
-            totalHdg = calcNav(first.lat, first.lng || first.lon, last.lat, last.lng || last.lon).brng;
-        }
-        // Performance-Seite: links leer/label, rechts Details
-        left.innerHTML  = '<div class="kln90b-line dim" style="font-size:9px;">─TOTAL─</div>';
-        right.innerHTML =
-            `<div class="kln90b-line" style="font-size:10px;">DST ${dist} NM</div>` +
-            `<div class="kln90b-line" style="font-size:10px;">TME ${mins} MIN</div>` +
-            `<div class="kln90b-line" style="font-size:10px;">FUL ${fuel} GAL</div>` +
-            `<div class="kln90b-line" style="font-size:10px;">HDG ${totalHdg}°</div>`;
     }
 }
 
@@ -1838,14 +1879,7 @@ async function renderAirportInfo(left, right, type) {
         `<div class="kln90b-line dim" style="font-size:9px; margin-top:2px;">${lat}</div>` +
         `<div class="kln90b-line dim" style="font-size:9px;">${lon}</div>`;
 
-    if (gpsState.subPage === 0) {
-        right.innerHTML =
-            `<div class="kln90b-line dim" style="font-size:9px;">ELEV</div>` +
-            `<div class="kln90b-line" style="font-size:10px;">${elev}</div>`;
-        return;
-    }
-
-    // Seite ≥ 1: Runway- und Wiki-Daten laden (nur wenn nötig)
+    // Runway- und Wiki-Daten laden (ab Seite 0 direkt)
     right.innerHTML = '<div class="kln90b-line dim">LOADING...</div>';
 
     // Runway holen (Wikipedia zuerst, dann Overpass)
@@ -1873,10 +1907,10 @@ async function renderAirportInfo(left, right, type) {
     const rwyPages    = Math.max(1, Math.ceil(allRunways.length / RWYS_PER_PAGE));
     const sp          = gpsState.subPage;
 
-    if (sp >= 1 && sp <= rwyPages) {
-        // Runway-Seite(n)
-        const slice = allRunways.slice((sp-1)*RWYS_PER_PAGE, sp*RWYS_PER_PAGE);
-        const label = rwyPages > 1 ? `RUNWAYS (${sp}/${rwyPages}):` : 'RUNWAYS:';
+    if (sp < rwyPages) {
+        // Runway-Seite(n) – startet jetzt bei subPage 0
+        const slice = allRunways.slice(sp * RWYS_PER_PAGE, (sp + 1) * RWYS_PER_PAGE);
+        const label = rwyPages > 1 ? `RUNWAYS (${sp+1}/${rwyPages}):` : 'RUNWAYS:';
         right.innerHTML =
             `<div class="kln90b-line dim" style="font-size:9px; margin-bottom:1px;">${label}</div>` +
             (slice.length
@@ -1885,7 +1919,7 @@ async function renderAirportInfo(left, right, type) {
 
         // maxPages aktualisieren (Wiki noch unbekannt → 1 Platzhalter)
         const wikiN = gpsState.wikiCache[icao]?.length || 1;
-        const total = 1 + rwyPages + wikiN;
+        const total = rwyPages + wikiN;
         if (gpsState.maxPages[mode] !== total) {
             gpsState.maxPages[mode] = total;
             const lbl = document.getElementById('gpsPageLbl');
@@ -1899,7 +1933,7 @@ async function renderAirportInfo(left, right, type) {
         await fetchAndCacheWikiPages(icao, data.lat, data.lon);
     }
     const wikiArr = gpsState.wikiCache[icao] || ['Keine Daten.'];
-    const total   = 1 + rwyPages + wikiArr.length;
+    const total   = rwyPages + wikiArr.length;
     if (gpsState.maxPages[mode] !== total) {
         gpsState.maxPages[mode] = total;
         const lbl = document.getElementById('gpsPageLbl');
@@ -1907,7 +1941,7 @@ async function renderAirportInfo(left, right, type) {
     }
     if (gpsState.subPage >= total) gpsState.subPage = total - 1;
 
-    const wikiIdx = sp - 1 - rwyPages;
+    const wikiIdx = sp - rwyPages;
     if (wikiIdx >= 0 && wikiIdx < wikiArr.length) {
         right.innerHTML =
             `<div class="kln90b-line" style="font-size:9px; line-height:1.5; white-space:normal;">${wikiArr[wikiIdx]}</div>`;
@@ -2022,7 +2056,7 @@ function renderAIP(left, right) {
 }
 
 // --- WX / METAR Mode ---
-async function renderWX(left, right) {
+function renderWX(left, right) {
     // subPage 0 = DEP, subPage 1 = DEST
     const isDep  = gpsState.subPage === 0;
     const icao   = isDep ? currentStartICAO : currentDestICAO;
@@ -2035,31 +2069,12 @@ async function renderWX(left, right) {
         `<div class="kln90b-line" style="font-size:10px;">${icao||'----'}</div>` +
         `<div class="kln90b-line dim" style="font-size:9px; white-space:normal;">${name||''}</div>`;
 
-    if (!icao) { right.innerHTML = '<div class="kln90b-line dim">NO ICAO</div>'; return; }
+    if (!icao) { right.innerHTML = '<div class="kln90b-line dim">NO DATA</div>'; return; }
 
-    right.innerHTML = '<div class="kln90b-line dim">FETCHING...</div>';
-
-    // Check cache (5 min)
-    const cached = gpsState.metarCache[icao];
-    if (cached && (Date.now() - cached.ts < 300000)) {
-        displayMetar(right, icao, label, cached.text);
-        return;
-    }
-
-    try {
-        const res   = await fetch(`https://metar.vatsim.net/metar.php?id=${icao}`);
-        const text  = await res.text();
-        const metar = text.trim() || 'NO METAR';
-        gpsState.metarCache[icao] = { text: metar, ts: Date.now() };
-        displayMetar(right, icao, label, metar);
-    } catch (e) {
-        right.innerHTML = '<div class="kln90b-line dim">WX FETCH ERR</div>';
-    }
-}
-
-function displayMetar(el, icao, label, text) {
-    el.innerHTML =
-        `<div class="kln90b-line" style="font-size:9px; white-space:normal; line-height:1.5; word-break:break-all;">${text||'NO DATA'}</div>`;
+    right.innerHTML =
+        `<div class="kln90b-line dim">METAR/TAF</div>` +
+        `<div class="kln90b-line highlight" style="cursor:pointer;" onclick="window.open('https://metar-taf.com/de/${icao}','_blank')">OPEN ▸</div>` +
+        `<div class="kln90b-line dim" style="font-size:9px;">metar-taf.com</div>`;
 }
 
 // --- Refresh GPS after mission dispatch ---

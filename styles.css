@@ -513,9 +513,9 @@ body.theme-navcom .audio-panel .audio-btn-grid { gap: 4px; }
 
 /* Outer Rack – dunkles Aluminium-Gehäuse */
 body.theme-navcom .radio-stack {
-    gap: 3px;
+    gap: 2px;
     background: #080808;
-    padding: 8px;
+    padding: 6px;
     border-radius: 6px;
     border: 5px solid #1e1e1e;
     border-top: 5px solid #333;
@@ -534,7 +534,7 @@ body.theme-navcom .radio-module {
     border-bottom: 3px solid #1a1a1a;
     border-right: 1px solid #666;
     border-radius: 2px;
-    padding: 10px 10px 12px 10px;
+    padding: 6px 10px 8px 10px;
     box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.12),
         inset 0 -1px 0 rgba(0,0,0,0.6),
@@ -561,8 +561,8 @@ body.theme-navcom .half-module {
         "lbl  knob";
     grid-template-columns: 1fr auto;
     grid-template-rows: auto auto auto;
-    gap: 4px 0;
-    padding: 8px 10px 10px 10px;
+    gap: 3px 0;
+    padding: 5px 10px 6px 10px;
     overflow: visible;
 }
 
@@ -936,10 +936,10 @@ body.theme-navcom .kln90b-module .radio-label {
 }
 
 /* Radio Stack Modul Styling */
-.radio-stack { flex-direction: column; gap: 6px; background: #111; padding: 12px; border-radius: 8px; border: 4px solid #2a2a2a; box-shadow: 0 15px 35px rgba(0,0,0,0.9), inset 0 0 10px rgba(0,0,0,0.8); width: 100%; box-sizing: border-box; margin-bottom: 20px;}
-.radio-row { display: flex; gap: 8px; width: 100%; }
-.radio-module { background: #1a1a1a; border: 2px solid #ccc; border-radius: 4px; padding: 16px 12px 12px 12px; position: relative; display: flex; align-items: center; justify-content: space-between; box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), 0 4px 6px rgba(0,0,0,0.5); }
-.half-module { flex: 1; padding: 14px 10px 10px 10px; min-width: 0; }
+.radio-stack { flex-direction: column; gap: 4px; background: #111; padding: 10px; border-radius: 8px; border: 4px solid #2a2a2a; box-shadow: 0 15px 35px rgba(0,0,0,0.9), inset 0 0 10px rgba(0,0,0,0.8); width: 100%; box-sizing: border-box; margin-bottom: 20px;}
+.radio-row { display: flex; gap: 6px; width: 100%; }
+.radio-module { background: #1a1a1a; border: 2px solid #ccc; border-radius: 4px; padding: 10px 12px 8px 12px; position: relative; display: flex; align-items: center; justify-content: space-between; box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), 0 4px 6px rgba(0,0,0,0.5); }
+.half-module { flex: 1; padding: 8px 10px 6px 10px; min-width: 0; }
 
 .radio-module::before, .radio-module::after, .radio-module-right-screws::before, .radio-module-right-screws::after { content: '⊕'; position: absolute; color: #666; font-size: 11px; }
 .radio-module::before { top: 4px; left: 4px; } .radio-module::after { bottom: 4px; left: 4px; }
