@@ -771,6 +771,35 @@ body.theme-navcom .kln90b-module .radio-label {
     padding: 0 6px;
 }
 
+/* Outer body wrapper */
+.kln90b-body { width: 100%; }
+
+/* Top row: [side-col] [center-col] [side-col] */
+.kln90b-top-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    width: 100%;
+}
+
+/* Side columns: CRSR button + Encoder */
+.kln90b-side-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+/* Center column: Display + Buttons */
+.kln90b-center-col {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: 5px;
+}
+
 /* Display – grünes Phosphor LCD */
 .kln90b-display {
     display: grid;
@@ -780,9 +809,9 @@ body.theme-navcom .kln90b-module .radio-label {
     border: 2px solid #ccc;
     border-radius: 3px;
     padding: 0;
-    min-height: 120px;
+    height: 110px;
     font-family: 'Share Tech Mono', monospace;
-    font-size: 12px;
+    font-size: 11px;
     color: #33ff33;
     text-shadow: 0 0 4px rgba(51,255,51,0.6);
     box-shadow:
@@ -790,6 +819,9 @@ body.theme-navcom .kln90b-module .radio-label {
         inset 0 2px 8px rgba(0,0,0,0.9);
     position: relative;
     overflow: hidden;
+    width: 100%;
+    box-sizing: border-box;
+    flex-shrink: 0;
 }
 /* Scanline-Overlay */
 .kln90b-display::before {
@@ -807,20 +839,15 @@ body.theme-navcom .kln90b-module .radio-label {
     z-index: 2;
 }
 .kln90b-left, .kln90b-right {
-    padding: 8px 10px;
+    padding: 6px 8px;
     overflow: hidden;
     white-space: pre-line;
-    line-height: 1.6;
+    line-height: 1.5;
+    align-content: start;
+    min-height: 0;
 }
-.kln90b-left {
-    grid-column: 1;
-    grid-row: 1;
-    border-right: none;
-}
-.kln90b-right {
-    grid-column: 3;
-    grid-row: 1;
-}
+.kln90b-left  { grid-column: 1; grid-row: 1; }
+.kln90b-right { grid-column: 3; grid-row: 1; }
 .kln90b-divider {
     grid-column: 2;
     grid-row: 1;
@@ -833,35 +860,26 @@ body.theme-navcom .kln90b-module .radio-label {
     grid-row: 2;
     display: flex;
     justify-content: space-between;
-    padding: 3px 10px;
-    font-size: 10px;
+    padding: 2px 8px;
+    font-size: 9px;
     color: #33ff33;
     opacity: 0.7;
     border-top: 1px solid rgba(51,255,51,0.2);
     background: rgba(0,0,0,0.3);
 }
-.kln90b-line {
-    margin: 0;
-    min-height: 1.4em;
-}
-.kln90b-line.highlight {
-    color: #66ff66;
-    text-shadow: 0 0 8px rgba(51,255,51,0.9);
-}
-.kln90b-line.dim {
-    opacity: 0.5;
-}
+.kln90b-line { margin: 0; min-height: 1.4em; }
+.kln90b-line.highlight { color: #66ff66; text-shadow: 0 0 8px rgba(51,255,51,0.9); }
+.kln90b-line.dim { opacity: 0.5; }
 
-/* Controls Bar */
-.kln90b-controls {
+/* Mode Buttons row – same width as display (inside center-col) */
+.kln90b-buttons {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 8px;
-    gap: 6px;
+    gap: 3px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
-/* Encoder (Drehgeber) */
+/* Encoder (Drehgeber) – identisch zu Radio-Knöpfen */
 .kln90b-encoder {
     width: 34px;
     height: 34px;
@@ -896,38 +914,63 @@ body.theme-navcom .kln90b-module .radio-label {
     z-index: 1;
 }
 
-/* Mode Buttons */
-.kln90b-buttons {
-    display: flex;
-    gap: 4px;
-    flex: 1;
-    justify-content: center;
-}
-.kln90b-btn {
-    background: linear-gradient(to bottom, #383838 0%, #242424 100%);
-    border: 1px solid #555;
-    border-top: 2px solid #666;
-    border-bottom: 3px solid #111;
-    border-radius: 3px;
-    color: #ccc;
+/* CRSR Taster – weiß, klein, kein LED, wie Radio-Transfer-Taster */
+.kln90b-crsr-btn {
+    background: linear-gradient(to bottom, #e8e8e8 0%, #c0c0c0 100%);
+    color: #111;
+    border: 1px solid #888;
+    border-top: 1px solid #f4f4f4;
+    border-bottom: 2px solid #555;
+    border-radius: 2px;
     font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    padding: 4px 7px;
+    font-size: 8px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    height: 18px;
+    width: 38px;
+    padding: 0;
     cursor: pointer;
-    box-shadow: 1px 2px 4px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08);
+    box-shadow: 1px 2px 3px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.6);
+    transition: 0.08s;
+    user-select: none;
+}
+.kln90b-crsr-btn:active {
+    border-top: 1px solid #777;
+    border-bottom: 1px solid #ccc;
+    box-shadow: inset 1px 2px 3px rgba(0,0,0,0.4);
+    transform: translateY(1px);
+}
+
+/* Mode Buttons – weiß, klein, kein LED */
+.kln90b-btn {
+    background: linear-gradient(to bottom, #e8e8e8 0%, #c0c0c0 100%);
+    border: 1px solid #888;
+    border-top: 1px solid #f4f4f4;
+    border-bottom: 2px solid #555;
+    border-radius: 2px;
+    color: #222;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 4px 0;
+    cursor: pointer;
+    box-shadow: 1px 2px 3px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.6);
     user-select: none;
     transition: 0.08s;
+    flex: 1;
+    text-align: center;
 }
 .kln90b-btn:active {
-    border-top: 1px solid #333;
-    border-bottom: 1px solid #444;
-    box-shadow: inset 1px 2px 4px rgba(0,0,0,0.9);
+    border-top: 1px solid #777;
+    border-bottom: 1px solid #ccc;
+    box-shadow: inset 1px 2px 3px rgba(0,0,0,0.4);
     transform: translateY(1px);
 }
 .kln90b-btn.active {
-    color: #33ff33;
-    text-shadow: 0 0 6px rgba(51,255,51,0.7);
-    border-bottom-color: #33ff33;
+    background: linear-gradient(to bottom, #c8c8c8 0%, #a8a8a8 100%);
+    color: #000;
+    border-bottom: 2px solid rgba(51,255,51,0.7);
+    box-shadow: inset 1px 1px 3px rgba(0,0,0,0.3), 0 0 4px rgba(51,255,51,0.3);
 }
 
 /* Radio Stack Modul Styling */
