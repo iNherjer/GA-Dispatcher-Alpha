@@ -266,43 +266,35 @@
         <div class="radio-module kln90b-module" id="kln90bModule" style="display:none;">
             <div class="radio-label">KLN 90B TSO</div>
             <div class="kln90b-body">
-                <div class="kln90b-top-row">
-                    <!-- Linke Seite: CRSR + Encoder -->
-                    <div class="kln90b-side-col">
-                        <button class="kln90b-crsr-btn" id="gpsCrsrL" title="CRSR Links">CRSR</button>
-                        <div class="kln90b-encoder" id="gpsEncoderL" title="Linker Encoder: Kategorie wechseln">
-                            <div class="kln90b-enc-inner"></div>
-                        </div>
+                <!-- Split-Display: links | divider | rechts -->
+                <div class="kln90b-display" id="gpsDisplay">
+                    <div class="kln90b-left" id="gpsLeft">
+                        <div class="kln90b-line dim">---</div>
                     </div>
-                    <!-- Mitte: Display + Buttons darunter -->
-                    <div class="kln90b-center-col">
-                        <div class="kln90b-display" id="gpsDisplay">
-                            <div class="kln90b-left" id="gpsLeft">
-                                <div class="kln90b-line">---</div>
-                            </div>
-                            <div class="kln90b-divider"></div>
-                            <div class="kln90b-right" id="gpsRight">
-                                <div class="kln90b-line">NO DATA</div>
-                            </div>
-                            <div class="kln90b-statusbar">
-                                <span id="gpsModeLbl">FPL</span>
-                                <span id="gpsPageLbl">PG 1/1</span>
-                            </div>
-                        </div>
-                        <div class="kln90b-buttons">
-                            <button class="kln90b-btn active" data-mode="FPL">FPL</button>
-                            <button class="kln90b-btn" data-mode="DEP">DEP</button>
-                            <button class="kln90b-btn" data-mode="DEST">DEST</button>
-                            <button class="kln90b-btn" data-mode="AIP">AIP</button>
-                            <button class="kln90b-btn" data-mode="WX">WX</button>
-                        </div>
+                    <div class="kln90b-divider"></div>
+                    <div class="kln90b-right" id="gpsRight">
+                        <div class="kln90b-line">NO DATA</div>
                     </div>
-                    <!-- Rechte Seite: CRSR + Encoder -->
-                    <div class="kln90b-side-col">
-                        <button class="kln90b-crsr-btn" id="gpsCrsrR" title="CRSR Rechts">CRSR</button>
-                        <div class="kln90b-encoder" id="gpsEncoderR" title="Rechter Encoder: Sub-Pages">
-                            <div class="kln90b-enc-inner"></div>
-                        </div>
+                    <div class="kln90b-statusbar">
+                        <span id="gpsModeLbl">FPL</span>
+                        <span id="gpsPageLbl">PG 1/1</span>
+                    </div>
+                </div>
+                <!-- Mode-Taster -->
+                <div class="kln90b-buttons">
+                    <button class="kln90b-btn active" data-mode="FPL">FPL</button>
+                    <button class="kln90b-btn" data-mode="DEP">DEP</button>
+                    <button class="kln90b-btn" data-mode="DEST">DEST</button>
+                    <button class="kln90b-btn" data-mode="AIP">AIP</button>
+                    <button class="kln90b-btn" data-mode="WX">WX</button>
+                </div>
+                <!-- Encoder-Reihe: links = zurück, rechts = vor -->
+                <div class="kln90b-encoder-row">
+                    <div class="kln90b-encoder" id="gpsEncoderL" title="Vorherige Seite ◂">
+                        <div class="kln90b-enc-inner"></div>
+                    </div>
+                    <div class="kln90b-encoder" id="gpsEncoderR" title="Nächste Seite ▸">
+                        <div class="kln90b-enc-inner"></div>
                     </div>
                 </div>
             </div>
