@@ -671,14 +671,24 @@ async function fetchRunwayDetails(lat, lon, elementId, icaoCode) {
 // Globaler Cache
 const wikiTitleCache = {};
 
-// NEU: Zentrale, smarte Titelsuche (Behebt das München/TAF-Problem)
+// NEU: Zentrale, smarte Titelsuche mit High-Speed Wikidata!
 async function getWikiTitleForAirport(icao, lat, lon) {
     if (wikiTitleCache[icao]) return wikiTitleCache[icao];
 
     try {
-        const isAirport = (t) => ['flugplatz', 'flughafen', 'airport', 'air base', 'aerodrome', icao.toLowerCase()].some(kw => t.toLowerCase().includes(kw));
+        // 1. ABSOLUTE PRIORITÄT: Wikidata P239 (ICAO) Suchmaschine.
+        // Das ist die "Lichtgeschwindigkeits"-Suche, die fast immer exakt 100% den richtigen Artikel trifft!
+        const wdRes = await fetchWithTimeout(`https://de.wikipedia.org/w/api.php?action=query&list=search&srsearch=haswbstatement:P239=${icao}&format=json&origin=*`, 4000);
+        const wdData = await wdRes.json();
+        if (wdData?.query?.search?.length > 0) {
+            wikiTitleCache[icao] = wdData.query.search[0].title;
+            return wdData.query.search[0].title;
+        }
+
+        // 2. Erweiterter Geosearch-Fallback (falls ICAO nicht in Wikidata gepflegt ist)
+        // Suchbegriffe erweitert um Segelflug und Landeplatz für kleine Plätze aus der CoreDB!
+        const isAirport = (t) => ['flugplatz', 'flughafen', 'airport', 'air base', 'aerodrome', 'segelflug', 'landeplatz', 'fliegerhorst', icao.toLowerCase()].some(kw => t.toLowerCase().includes(kw));
         
-        // 1. Priorität: Geosearch (Ortsgebunden, schließt falsche Artikel wie TAF fast zu 100% aus!)
         const geoRes = await fetchWithTimeout(`https://de.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=10000&gslimit=10&format=json&origin=*`, 4000);
         const geoData = await geoRes.json();
         const geoResults = geoData?.query?.geosearch || [];
@@ -689,7 +699,7 @@ async function getWikiTitleForAirport(icao, lat, lon) {
             return hit.title;
         }
 
-        // 2. Priorität: Textsuche (Falls Geokoordinaten bei Wikipedia leicht abweichen)
+        // 3. Fallback: Textsuche
         const txtRes = await fetchWithTimeout(`https://de.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(icao + ' Flughafen OR Flugplatz')}&srlimit=5&format=json&origin=*`, 4000);
         const txtData = await txtRes.json();
         const txtResults = txtData?.query?.search || [];
@@ -705,7 +715,6 @@ async function getWikiTitleForAirport(icao, lat, lon) {
     } catch (e) {}
     return null;
 }
-
 async function fetchRunwayFromWikipedia(icaoCode, lat, lon) {
     if (!icaoCode) return null;
     try {
@@ -728,68 +737,76 @@ async function fetchRunwayFromWikipedia(icaoCode, lat, lon) {
 function parseRunwayFromWikitext(wikitext) {
     const runways = [];
     
-    // Kommentare absolut sicher entfernen
+    // 1. Text bereinigen (Killt HTML-Kommentare, wandelt geschützte HTML-Leerzeichen um)
     const commentRegex = new RegExp('<' + '!--[\\s\\S]*?--' + '>', 'g');
-    let text = wikitext.replace(commentRegex, '').replace(/<br\s*\/?>/gi, '\n');
-    
-    // DER FIX: HTML-Leerzeichen (&#160; und &nbsp;) in echte Leerzeichen umwandeln!
+    let text = wikitext.replace(commentRegex, '');
+    text = text.replace(/<br\s*\/?>/gi, ' ');
     text = text.replace(/&#160;/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&times;/gi, '×');
-    
-    // STRICT HDG REGEX: Sucht 01-36, L/R/C.
+    text = text.replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2'); // Wiki-Links auflösen
+    text = text.replace(/<[^>]+>/g, ' '); // Sämtliche HTML-Tags löschen
+    text = text.replace(/\s+/g, ' '); // Alles auf eine Zeile normieren
+
+    // 2. Präzise Suchmuster
     const HDG_PATTERN = /\b((?:0?[1-9]|[12]\d|3[0-6])[LRC]?\s*\/\s*(?:0?[1-9]|[12]\d|3[0-6])[LRC]?)\b/g;
-    
     const SURFACES = /\b(asphalt|beton|gras|grass|schotter|gravel|concrete|paved|unpaved|dirt|erde|sand|wasser|water|eis|ice)\b/i;
-    
-    // Sucht präzise nach "len=1200", "Länge=1200" oder "1200 m"
-    const LEN_PATTERN = /(?:(?:länge|length|len)\s*=\s*([1-9][\d.,]*))|(?:([1-9][\d.,]*)\s*(?:m|Meter)\b)/i;
+    // Sucht z.B. "3200m", "3200 m" oder auch "3200 m x 45 m"
+    const LEN_PATTERN = /(?:(?:länge|length|len)\d*\s*=\s*([1-9][\d.,]*))|(?:([1-9][\d.,]*)\s*(?:m|Meter)\b)|(?:([1-9][\d.,]*)\s*(?:x|×)\s*\d+)/i;
 
     let matches = [];
     let match;
     while ((match = HDG_PATTERN.exec(text)) !== null) {
         let cleanHdg = match[1].replace(/\s+/g, '');
         let parts = cleanHdg.split('/');
-        let n1 = parseInt(parts[0], 10);
-        let n2 = parseInt(parts[1], 10);
         
-        // DER ULTIMATIVE TEST: Pisten liegen IMMER exakt 180 Grad auseinander!
-        if (Math.abs(n1 - n2) === 18) {
-            matches.push({ hdg: cleanHdg, index: match.index });
+        // 180-Grad Test (Ignoriert Brüche und Öffnungszeiten)
+        if (Math.abs(parseInt(parts[0], 10) - parseInt(parts[1], 10)) === 18) {
+            matches.push({ hdg: cleanHdg, index: match.index, raw: match[1] });
         }
     }
 
+    // 3. VORWÄRTS-PRIORITÄT (Verhindert das Stehlen von Nachbar-Attributen!)
     for (let i = 0; i < matches.length; i++) {
         const hdg = matches[i].hdg;
         const startIdx = matches[i].index;
         
-        // Suchfenster: 50 Zeichen davor bis 180 Zeichen danach
-        const endLimit = i + 1 < matches.length ? matches[i+1].index : text.length;
-        const endIdx = Math.min(startIdx + 180, endLimit); 
-        const preStartIdx = Math.max(0, startIdx - 50);
+        // VORWÄRTS-Fenster (Nur bis zur nächsten Piste schauen!)
+        let endIdx = Math.min(startIdx + 200, text.length);
+        if (i + 1 < matches.length) {
+            if (matches[i+1].index < endIdx) endIdx = matches[i+1].index;
+        }
+        let contextFwd = text.substring(startIdx, endIdx);
         
-        let context = text.substring(preStartIdx, endIdx)
-            .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, '$2') 
-            .replace(/<[^>]+>/g, ' '); 
+        // RÜCKWÄRTS-Fenster (Nur als Fallback, stoppt strikt an der vorherigen Piste!)
+        let preStartIdx = Math.max(0, startIdx - 60);
+        if (i > 0) {
+            const prevEnd = matches[i-1].index + matches[i-1].raw.length;
+            if (prevEnd > preStartIdx) preStartIdx = prevEnd;
+        }
+        let contextBwd = text.substring(preStartIdx, startIdx);
 
         let length = '';
         let surface = '';
 
-        const lenMatch = context.match(LEN_PATTERN);
-        let rawLen = lenMatch ? (lenMatch[1] || lenMatch[2]) : null;
+        // Zuerst FWD suchen, NUR WENN nichts gefunden wird BWD suchen
+        let lenMatch = contextFwd.match(LEN_PATTERN);
+        if (!lenMatch) lenMatch = contextBwd.match(LEN_PATTERN); 
         
-        // Smarter Fallback: Findet nackte Zahlen in Tabellenzellen, z.B. "| 1200 ||" oder "| 1.200 |"
+        let rawLen = lenMatch ? (lenMatch[1] || lenMatch[2] || lenMatch[3]) : null;
+        
         if (!rawLen) {
-            const isolatedNum = context.match(/(?:\||\s|^)([1-5][\d.]{2,3})(?:\s|\||$)/);
+            // Nackte Zahlen in formatlosen Tabellen fangen
+            let isolatedNum = contextFwd.match(/(?:\||\s|^)([1-9][\d.]{2,3})(?:\s|\||$)/);
+            if (!isolatedNum) isolatedNum = contextBwd.match(/(?:\||\s|^)([1-9][\d.]{2,3})(?:\s|\||$)/);
             if (isolatedNum) rawLen = isolatedNum[1];
         }
 
-        if (rawLen) {
-            length = rawLen.replace(/[.,]/g, '') + 'm';
-        }
+        if (rawLen) length = rawLen.replace(/[.,]/g, '') + 'm';
 
-        const surfMatch = context.match(SURFACES);
-        if (surfMatch) {
-            surface = surfMatch[1].charAt(0).toUpperCase() + surfMatch[1].slice(1).toLowerCase();
-        }
+        // Belag genauso priorisiert suchen
+        let surfMatch = contextFwd.match(SURFACES);
+        if (!surfMatch) surfMatch = contextBwd.match(SURFACES);
+        
+        if (surfMatch) surface = surfMatch[1].charAt(0).toUpperCase() + surfMatch[1].slice(1).toLowerCase();
 
         if (length || surface || matches.length === 1) {
             runways.push([hdg, length, surface].filter(Boolean).join(' · '));
@@ -798,18 +815,60 @@ function parseRunwayFromWikitext(wikitext) {
 
     if (runways.length === 0) return null;
     
-    // Deduplizieren: Pro Pistenkennung nur den umfangreichsten Eintrag behalten
-    const uniqueMap = new Map();
-    runways.forEach(rwy => {
-        const heading = rwy.split(' · ')[0];
-        if (!uniqueMap.has(heading) || rwy.length > uniqueMap.get(heading).length) {
-            uniqueMap.set(heading, rwy);
-        }
-    });
+    // 4. Intelligente Deduplizierung & Historien-Blocker
+    const uniqueRunways = [...new Set(runways)];
+    // Längste Strings zuerst prüfen (Infobox vs. unvollständiger Text)
+    uniqueRunways.sort((a, b) => b.length - a.length);
     
-    const finalRunways = Array.from(uniqueMap.values()).slice(0, 5);
-    return finalRunways.length > 0 ? finalRunways.join(' | ') : null;
+    const finalRunways = [];
+    
+    for (const rwy of uniqueRunways) {
+        const parts = rwy.split(' · ');
+        const currentHdg = parts[0];
+        
+        const currentSurfMatch = rwy.match(new RegExp(SURFACES.source, 'i'));
+        const currentSurf = currentSurfMatch ? currentSurfMatch[1].toLowerCase() : null;
+
+        let isSubsetOrHistory = false;
+
+        for (const existing of finalRunways) {
+            const existingParts = existing.split(' · ');
+            if (existingParts[0] === currentHdg) {
+                
+                // Prüfen ob Subset
+                let allAttrMatch = true;
+                for (let j = 1; j < parts.length; j++) {
+                    if (!existing.includes(parts[j])) {
+                        allAttrMatch = false;
+                        break;
+                    }
+                }
+                
+                if (allAttrMatch) {
+                    isSubsetOrHistory = true;
+                    break;
+                }
+
+                // Historien-Blocker: Verwirft alte Umbauten bei gleicher Kennung (EDDV Hannover)
+                const existingSurfMatch = existing.match(new RegExp(SURFACES.source, 'i'));
+                const existingSurf = existingSurfMatch ? existingSurfMatch[1].toLowerCase() : null;
+
+                if (existingSurf === currentSurf || !currentSurf) {
+                    isSubsetOrHistory = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!isSubsetOrHistory) {
+            finalRunways.push(rwy);
+        }
+    }
+    
+    return finalRunways.slice(0, 5).join(' | ');
 }
+
+
 async function fetchAndCacheWikiPages(icao, lat, lon) {
     try {
         // Nutzt jetzt die selbe smarte Geo-Suche wie die Runway-Funktion!
