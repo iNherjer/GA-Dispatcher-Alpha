@@ -1563,58 +1563,33 @@ function initPanelClickHandlers() {
     // PC (≥1250px): Klick auf inaktives Panel im Dual-Panel-Modus → Fokus wechseln
     ['pinboardOverlay', 'mapTableOverlay'].forEach(id => {
         document.getElementById(id).addEventListener('click', function(e) {
-            const w = window.innerWidth;
-
-            if (w >= 1250) {
-                // PC: Dual-Panel Fokus-Wechsel
-                if (document.body.classList.contains('dual-panel-open') && !this.classList.contains('panel-focus')) {
-                    e.stopPropagation();
-                    setPanelFocus(id);
-                    if (id === 'mapTableOverlay' && map) {
-                        setTimeout(() => map.invalidateSize(), 300);
-                    }
-                }
-            } else if (w >= 768 && window.innerHeight >= 600) {
-                // iPad (nicht iPhone-Landscape): Tap auf Panel-Streifen im Peek-Modus → Panel wieder voll einfahren
-                if (document.body.classList.contains('panel-peeked')) {
-                    e.stopPropagation();
-                    document.body.classList.remove('panel-peeked');
-                    if (id === 'mapTableOverlay' && map) {
-                        setTimeout(() => map.invalidateSize(), 300);
-                    }
+            if (window.innerWidth < 1250) return;
+            // PC: Dual-Panel Fokus-Wechsel — nur wenn Panel nicht bereits im Fokus
+            if (document.body.classList.contains('dual-panel-open') && !this.classList.contains('panel-focus')) {
+                e.stopPropagation();
+                setPanelFocus(id);
+                if (id === 'mapTableOverlay' && map) {
+                    setTimeout(() => map.invalidateSize(), 300);
                 }
             }
         });
     });
 
-    // PC + iPad: Tap/Klick auf Hauptmenü (.container)
+    // PC (≥1250px): Klick auf Container-Hintergrund im Dual-Panel-Fokus-Modus → Fokus aufheben
     document.querySelector('.container').addEventListener('click', function(e) {
-        const w = window.innerWidth;
-
-        // PC (≥1250px): Klick auf Container im Dual-Panel-Fokus-Modus → Fokus aufheben
-        if (w >= 1250) {
-            if (document.body.classList.contains('dual-panel-open') &&
-                (document.body.classList.contains('panel-focus-pinboard') ||
-                 document.body.classList.contains('panel-focus-maptable'))) {
-                setPanelFocus(null); // entfernt alle Fokus-Klassen → Container mittig
-            }
-            return;
-        }
-
-        // iPad (768–1249px, Höhe ≥600px): Tap auf Hauptmenü im Panel-offen-Zustand → Peek-Modus
-        if (w < 768 || window.innerHeight < 600) return;
-        const pbOpen = document.body.classList.contains('pinboard-open');
-        const mtOpen = document.body.classList.contains('maptable-open');
-        if ((pbOpen || mtOpen) && !document.body.classList.contains('panel-peeked')) {
-            // Hauptmenü-Streifen wurde angetippt → Panel zur Seite schieben
-            e.stopPropagation();
-            document.body.classList.add('panel-peeked');
-        } else if ((pbOpen || mtOpen) && document.body.classList.contains('panel-peeked')) {
-            // Im Peek-Modus Hauptmenü angetippt → Panel wieder voll einfahren
-            e.stopPropagation();
-            document.body.classList.remove('panel-peeked');
-            if (mtOpen && map) {
-                setTimeout(() => map.invalidateSize(), 300);
+        if (window.innerWidth < 1250) return;
+        if (document.body.classList.contains('dual-panel-open') &&
+            (document.body.classList.contains('panel-focus-pinboard') ||
+             document.body.classList.contains('panel-focus-maptable'))) {
+            // Nur auf echtem Hintergrund auslösen — nicht wenn interaktives Element geklickt
+            const isInteractive = e.target.closest(
+                'button, input, select, textarea, label, a, [onclick], ' +
+                '.screw, .pb-btn, .radio-block, .nav-block, .form-row, ' +
+                '.radio-stack, .kln-block, .mission-block, .waypoint-list, ' +
+                '.emergency-reset, .log-entry, [class*="btn"], [class*="icon"]'
+            );
+            if (!isInteractive) {
+                setPanelFocus(null); // Fokus aufheben → Container zurück in die Mitte
             }
         }
     });
@@ -1649,7 +1624,6 @@ function toggleMapTable() {
         // Kartentisch schließen
         board.classList.remove('active');
         document.body.classList.remove('maptable-open');
-        document.body.classList.remove('panel-peeked');
         document.body.classList.remove('panel-focus-maptable');
         board.classList.remove('panel-focus');
         document.body.classList.remove('map-is-fullscreen');
@@ -1803,7 +1777,6 @@ function togglePinboard() {
         // Pinnwand schließen
         board.classList.remove('active');
         document.body.classList.remove('pinboard-open');
-        document.body.classList.remove('panel-peeked');
         document.body.classList.remove('panel-focus-pinboard');
         board.classList.remove('panel-focus');
         if (isDesktop && mapBoard.classList.contains('active')) {

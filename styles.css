@@ -305,7 +305,8 @@ body.theme-retro .api-fuel-meter .api-scale { border-left: 3px solid #d93829 !im
    ========================================================================== */
 .pinboard-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 9999; flex-direction: column; }
 .pinboard-overlay.active { display: flex; }
-.pinboard-header { background: #1a1a1a; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; }
+.pinboard-header { background: #1a1a1a; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; flex-wrap: wrap; gap: 6px; }
+.pinboard-header > div { display: flex; flex-wrap: wrap; gap: 4px; }
 .pb-btn { background: #444; color: #fff; border: 1px solid #222; padding: 5px 10px; cursor: pointer; border-radius: 3px; font-family: monospace; }
 .pb-btn.add { background: var(--green); color: #000; font-weight: bold; }
 .pinboard-scroll-area { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: center; }
@@ -392,6 +393,10 @@ body.map-is-fullscreen .pinboard-header { position: absolute; top: 0; left: 0; r
         visibility: visible; opacity: 1; pointer-events: all; 
     }
 
+    /* Header: auf Desktop kein Wrap — Panel kann sehr schmal werden (Dual-Panel-Modus) */
+    .pinboard-header { flex-wrap: nowrap; overflow: hidden; flex-shrink: 0; }
+    .pinboard-header > div { flex-wrap: nowrap; flex-shrink: 0; overflow: hidden; }
+
     /* Der innere Bereich unter dem Header bekommt den gesamten Restplatz */
     .pinboard-scroll-area {
         flex: 1 !important;
@@ -458,6 +463,7 @@ body.map-is-fullscreen .pinboard-header { position: absolute; top: 0; left: 0; r
     body.dual-panel-open .pinboard-content,
     body.dual-panel-open .maptable-content {
         transform: scale(1) !important;
+        transition: none !important;           /* Scale-Animation deaktivieren – Größe ändert sich im Dual-Modus nie */
         width: calc(100vw - 540px) !important;
         max-width: min(calc(100vw - 540px), calc((100vh - 120px) * 1.6)) !important;
         flex-shrink: 0 !important;
@@ -478,36 +484,67 @@ body.map-is-fullscreen .pinboard-header { position: absolute; top: 0; left: 0; r
     body.dual-panel-open #pinboardOverlay,
     body.dual-panel-open #mapTableOverlay {
         transform: translateX(0) !important;
+        transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) !important;
     }
 
-    /* ── FOKUS PINNWAND ──
-       Wie Einzelmodus: NUR .container verschiebt sich, Overlays bleiben per left/right
-       am Viewport fixiert. Das fokussierte Panel bekommt Einzelmodus-left/right,
-       das inaktive Panel wird an den äußersten Rand geschoben (120px Streifen sichtbar). */
-    body.dual-panel-open.panel-focus-pinboard .container {
-        transform: translateX(calc(-50vw + 260px)) !important;
-    }
-    body.dual-panel-open.panel-focus-pinboard #pinboardOverlay {
-        left: 520px !important; right: 20px !important;    /* = Einzelmodus → volle Breite */
-        transform: translateX(0) !important;               /* bleibt Viewport-fixiert, animierbar */
-    }
+    /* ── FOKUS-MODUS: alle drei Elemente synchron als eine Einheit verschieben ──
+       left/right der Overlays bleiben bei den Dual-Panel-Werten (50vw ± 240px).
+       Nur translateX bewegt alle drei gleichmäßig — kein Positionssprung, keine Lücke.
+
+       Verschiebung so dass der Kartentisch-Streifen 120px zeigt:
+         Kartentisch hat right: calc(50vw + 240px), Breite = 50vw - 240px.
+         Nach translateX(D): rechter Rand optisch = (50vw - 240px) + D = 120px
+         → D = 120px - 50vw + 240px = 360px - 50vw
+         Kontrollrechnung Container: linker Rand = (50vw - 240px) + D = 120px ✓
+         Pinnwand-Streifen = 100vw - [(50vw + 240px) + D] = 100vw - (50vw+240px) - (360px-50vw)
+                           = 100vw - 600px → auf einem 1280px Screen = 680px (ragt raus) ✓ */
+    body.dual-panel-open.panel-focus-pinboard .container,
+    body.dual-panel-open.panel-focus-pinboard #pinboardOverlay,
     body.dual-panel-open.panel-focus-pinboard #mapTableOverlay {
-        left: 0 !important; right: calc(100vw - 120px) !important; /* 120px Streifen am linken Rand */
-        transform: translateX(0) !important;
+        transform: translateX(calc(360px - 50vw)) !important;
+        transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    }
+    /* Fokus Pinnwand: aktives Panel über Container, inaktives dahinter */
+    body.dual-panel-open.panel-focus-pinboard #pinboardOverlay {
+        z-index: 11 !important;
+        overflow: visible !important;   /* Overlay darf Content nicht abschneiden */
+    }
+    body.dual-panel-open.panel-focus-pinboard #mapTableOverlay { z-index: 9 !important; }
+    body.dual-panel-open.panel-focus-pinboard #pinboardOverlay .pinboard-scroll-area {
+        overflow: visible !important;   /* Scroll-Area ebenfalls öffnen */
+        justify-content: flex-start !important;
+    }
+    body.dual-panel-open.panel-focus-pinboard .pinboard-content {
+        width: calc(100vw - 540px) !important;
+        max-width: min(calc(100vw - 540px), calc((100vh - 120px) * 1.6)) !important;
+        flex-shrink: 0 !important;
     }
 
-    /* ── FOKUS KARTENTISCH ──
-       Spiegelbild: Container nach rechts, Kartentisch = Einzelmodus, Pinnwand raus. */
-    body.dual-panel-open.panel-focus-maptable .container {
-        transform: translateX(calc(50vw - 260px)) !important;
-    }
-    body.dual-panel-open.panel-focus-maptable #mapTableOverlay {
-        left: 20px !important; right: 520px !important;   /* = Einzelmodus → volle Breite */
-        transform: translateX(0) !important;
-    }
+    /* ── FOKUS KARTENTISCH: Spiegelbild ──
+       Pinnwand-Streifen 120px rechts:
+         Pinnwand left: calc(50vw + 240px), nach translateX(D): links optisch = (50vw+240px)+D
+         Sichtbarer Streifen = 100vw - [(50vw+240px)+D] = 120px
+         → D = 100vw - 120px - 50vw - 240px = 50vw - 360px */
+    body.dual-panel-open.panel-focus-maptable .container,
+    body.dual-panel-open.panel-focus-maptable #mapTableOverlay,
     body.dual-panel-open.panel-focus-maptable #pinboardOverlay {
-        left: calc(100vw - 120px) !important; right: 0 !important; /* 120px Streifen am rechten Rand */
-        transform: translateX(0) !important;
+        transform: translateX(calc(50vw - 360px)) !important;
+        transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    }
+    /* Fokus Kartentisch: aktives Panel über Container, inaktives dahinter */
+    body.dual-panel-open.panel-focus-maptable #mapTableOverlay {
+        z-index: 11 !important;
+        overflow: visible !important;   /* Overlay darf Content nicht abschneiden */
+    }
+    body.dual-panel-open.panel-focus-maptable #pinboardOverlay { z-index: 9 !important; }
+    body.dual-panel-open.panel-focus-maptable #mapTableOverlay .pinboard-scroll-area {
+        overflow: visible !important;   /* Scroll-Area ebenfalls öffnen */
+        justify-content: flex-end !important;
+    }
+    body.dual-panel-open.panel-focus-maptable .maptable-content {
+        width: calc(100vw - 540px) !important;
+        max-width: min(calc(100vw - 540px), calc((100vh - 120px) * 1.6)) !important;
+        flex-shrink: 0 !important;
     }
 
     /* Inaktive Panels: Klick-Cursor zeigt Interaktivität */
@@ -550,8 +587,8 @@ body.theme-retro .wp-data { color: var(--piper-yellow); }
 /* ── iPhone (≤767px): Karte Vollbild, Pinnwand horizontal panbar ── */
 @media (max-width: 767px) {
     #mapTableOverlay .pinboard-scroll-area { padding: 0 !important; }
-    .maptable-content { width: 100% !important; height: 100% !important; border-radius: 0 !important; background-size: 100% 100% !important; }
-    #map { width: 100% !important; height: 100% !important; border-radius: 0 !important; border: none !important; }
+    .maptable-content { width: 100% !important; height: 100% !important; border-radius: 0 !important; background-size: 100% 100% !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+    #map { width: calc(100% - 40px) !important; height: calc(100% - 40px) !important; border-radius: 8px !important; border: none !important; }
 
     /* Pinnwand: nur horizontal panbar, kein Pinch-Zoom */
     #pinboardOverlay { touch-action: pan-x; }
@@ -575,21 +612,22 @@ body.theme-retro .wp-data { color: var(--piper-yellow); }
     }
 }
 
-/* ── iPad (768px–1249px, min-height 600px): Peek-Navigation – Panel schiebt sich herein, Hauptmenü bleibt als Streifen sichtbar ──
-   min-height: 600px schließt iPhone-Landscape aus (max ~430px Höhe), lässt iPad durch (≥744px). */
-@media (min-width: 768px) and (max-width: 1249px) and (min-height: 600px) {
-    /* Kein Browser-Pinch-Zoom auf den Overlays, aber Touch für Peek-Taps erlaubt */
+/* ── iPad (768px–1249px): Vollbild-Overlay für Kartentisch und Pinnwand ── */
+@media (min-width: 768px) and (max-width: 1249px) {
     #mapTableOverlay, #pinboardOverlay { touch-action: pan-y; }
 
-    /* Hauptmenü bekommt Transition für das Peek-Schieben */
-    .container { transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
-
-    /* Karte: Vollbild, Hintergrundbild gestreckt auf das Div */
+    /* Karte: Vollbild */
     #mapTableOverlay .pinboard-scroll-area { padding: 0 !important; }
-    .maptable-content { width: 100% !important; height: 100% !important; border-radius: 0 !important; background-size: 100% 100% !important; }
+    .maptable-content {
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 0 !important;
+        background-size: 100% 100% !important;
+        transform: none !important;
+    }
     #map { width: 92% !important; height: 92% !important; border-radius: 6px !important; }
 
-    /* Pinnwand: zentriert, passt sich komplett ans Display an – nichts abgeschnitten */
+    /* Pinnwand: zentriert, passt sich komplett ans Display an */
     #pinboardOverlay .pinboard-scroll-area {
         display: flex !important;
         justify-content: center !important;
@@ -599,7 +637,7 @@ body.theme-retro .wp-data { color: var(--piper-yellow); }
         height: calc(100vh - 70px) !important;
     }
     .pinboard-content {
-        width: min(100vw, calc((100vh - 70px) * 16 / 10)) !important;
+        width: min(100%, calc((100vh - 70px) * 16 / 10)) !important;
         height: auto !important;
         aspect-ratio: 16 / 10 !important;
         background-size: 100% 100% !important;
@@ -607,49 +645,7 @@ body.theme-retro .wp-data { color: var(--piper-yellow); }
         max-width: none !important;
         max-height: none !important;
         border-radius: 0 !important;
-    }
-
-    /* ── PEEK: Panel voll sichtbar, Hauptmenü rausgeschoben (70px Streifen sichtbar) ── */
-    /* Pinnwand öffnet von rechts → Hauptmenü nach links raus */
-    body.pinboard-open .container {
-        transform: translateX(calc(-100vw + 70px));
-    }
-    body.pinboard-open #pinboardOverlay {
-        left: 70px !important;
-        right: 0 !important;
-        transition: left 0.5s cubic-bezier(0.22, 1, 0.36, 1), right 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    /* Kartentisch öffnet von links → Hauptmenü nach rechts raus */
-    body.maptable-open .container {
-        transform: translateX(calc(100vw - 70px));
-    }
-    body.maptable-open #mapTableOverlay {
-        left: 0 !important;
-        right: 70px !important;
-        transition: left 0.5s cubic-bezier(0.22, 1, 0.36, 1), right 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    /* ── PANEL-PEEK-MODUS: Hauptmenü zurück, Panel als schmaler Streifen sichtbar ── */
-    body.panel-peeked.pinboard-open .container {
-        transform: translateX(0);
-    }
-    body.panel-peeked.pinboard-open #pinboardOverlay {
-        left: calc(100vw - 70px) !important;
-        right: 0 !important;
-    }
-    body.panel-peeked.maptable-open .container {
-        transform: translateX(0);
-    }
-    body.panel-peeked.maptable-open #mapTableOverlay {
-        left: 0 !important;
-        right: calc(100vw - 70px) !important;
-    }
-
-    /* Panel-Streifen im Peek-Modus zeigt Cursor als Pointer */
-    body.panel-peeked #pinboardOverlay,
-    body.panel-peeked #mapTableOverlay {
-        cursor: pointer;
+        transform: none !important;
     }
 }
 
