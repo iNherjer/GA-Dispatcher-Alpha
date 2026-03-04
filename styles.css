@@ -366,15 +366,17 @@ body.map-is-fullscreen .pinboard-header { position: absolute; top: 0; left: 0; r
 
 @media (min-width: 1250px) {
     /* Container für die Overlays auf der rechten / linken Seite */
-    #pinboardOverlay, #mapTableOverlay { 
+    #pinboardOverlay, #mapTableOverlay {
         display: flex !important; flex-direction: column;
-        visibility: hidden; background: transparent; 
-        top: 0 !important; bottom: 0 !important; 
-        z-index: 1; opacity: 0; pointer-events: none; 
-        position: fixed; 
+        visibility: hidden; background: transparent;
+        top: 0 !important; bottom: 0 !important;
+        z-index: 1; opacity: 0; pointer-events: none;
+        position: fixed;
         overflow: hidden !important; /* Verhindert das Auftauchen von Scrollbalken! */
-        transition: opacity 0.4s, visibility 0.4s; 
-        transform: none !important;
+        transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+                    visibility 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+                    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        transform: none; /* kein !important mehr — Dual-Panel-Regeln können überschreiben */
     }
 
     #pinboardOverlay { left: 520px !important; right: 20px !important; }
@@ -412,6 +414,104 @@ body.map-is-fullscreen .pinboard-header { position: absolute; top: 0; left: 0; r
     #pinboardOverlay.active .pinboard-content,
     #mapTableOverlay.active .maptable-content {
         transform: scale(1);
+    }
+
+    /* ── DUAL-PANEL MODUS ──
+       Problem 1: Overlays sind position:fixed → Koordinaten relativ zum Viewport,
+                  nicht zum Container. left:520px passt nur bei einer bestimmten Breite.
+       Problem 2: z-index Container=10, Overlays=1 → Overlays verschwinden darunter.
+
+       Lösung:
+       - left/right der Overlays auf 50vw-Basis: Container ist max-width:480px, zentriert.
+         Rechter Container-Rand = 50vw + 240px → Pinnwand dockt dort an.
+         Linker Container-Rand = 50vw - 240px → Kartentisch endet dort (right: 50vw+240px).
+       - z-index der Overlays auf 11 (über Container=10).
+       - Kein Fokus: alle drei bei translateX(0), Container mittig, beide Panels ragen raus.
+       - Fokus: alle drei synchron mit gleichem translateX → wirken als wären sie gekoppelt. ── */
+
+    /* Dual-Panel: Overlays am Container-Rand verankern + über Container legen */
+    body.dual-panel-open #pinboardOverlay {
+        left: calc(50vw + 240px) !important;
+        right: 0 !important;
+        z-index: 11 !important;
+    }
+    body.dual-panel-open #mapTableOverlay {
+        left: 0 !important;
+        right: calc(50vw + 240px) !important;
+        z-index: 11 !important;
+    }
+
+    /* Dual-Panel: beide Overlays sichtbar */
+    body.dual-panel-open #pinboardOverlay,
+    body.dual-panel-open #mapTableOverlay {
+        visibility: visible !important; opacity: 1 !important; pointer-events: all !important;
+    }
+
+    /* Content: Größe einfrieren auf Einzelmodus-Werte.
+       width + max-width werden fest auf die Einzelmodus-Breite gesetzt
+       (= 100vw - left(520px) - right(20px) = 100vw - 540px),
+       beschränkt durch die Höhenkoppelung wie im Einzelmodus.
+       Der Content ragt über den schmalen Dual-Panel-Container hinaus;
+       overflow:hidden auf dem Container schneidet ihn am Viewport-Rand ab. */
+    body.dual-panel-open .pinboard-content,
+    body.dual-panel-open .maptable-content {
+        transform: scale(1) !important;
+        width: calc(100vw - 540px) !important;
+        max-width: min(calc(100vw - 540px), calc((100vh - 120px) * 1.6)) !important;
+        flex-shrink: 0 !important;
+    }
+    /* Pinnwand-Content linksbündig → ragt nach rechts aus dem Bild */
+    body.dual-panel-open #pinboardOverlay .pinboard-scroll-area {
+        justify-content: flex-start !important;
+        align-items: center !important;
+    }
+    /* Kartentisch-Content rechtsbündig → ragt nach links aus dem Bild */
+    body.dual-panel-open #mapTableOverlay .pinboard-scroll-area {
+        justify-content: flex-end !important;
+        align-items: center !important;
+    }
+
+    /* ── KEIN FOKUS: alles bei translateX(0), Container mittig ── */
+    body.dual-panel-open .container,
+    body.dual-panel-open #pinboardOverlay,
+    body.dual-panel-open #mapTableOverlay {
+        transform: translateX(0) !important;
+    }
+
+    /* ── FOKUS PINNWAND ──
+       Wie Einzelmodus: NUR .container verschiebt sich, Overlays bleiben per left/right
+       am Viewport fixiert. Das fokussierte Panel bekommt Einzelmodus-left/right,
+       das inaktive Panel wird an den äußersten Rand geschoben (120px Streifen sichtbar). */
+    body.dual-panel-open.panel-focus-pinboard .container {
+        transform: translateX(calc(-50vw + 260px)) !important;
+    }
+    body.dual-panel-open.panel-focus-pinboard #pinboardOverlay {
+        left: 520px !important; right: 20px !important;    /* = Einzelmodus → volle Breite */
+        transform: none !important;                        /* kein translateX, am Viewport fixiert */
+    }
+    body.dual-panel-open.panel-focus-pinboard #mapTableOverlay {
+        left: 0 !important; right: calc(100vw - 120px) !important; /* 120px Streifen am linken Rand */
+        transform: none !important;
+    }
+
+    /* ── FOKUS KARTENTISCH ──
+       Spiegelbild: Container nach rechts, Kartentisch = Einzelmodus, Pinnwand raus. */
+    body.dual-panel-open.panel-focus-maptable .container {
+        transform: translateX(calc(50vw - 260px)) !important;
+    }
+    body.dual-panel-open.panel-focus-maptable #mapTableOverlay {
+        left: 20px !important; right: 520px !important;   /* = Einzelmodus → volle Breite */
+        transform: none !important;
+    }
+    body.dual-panel-open.panel-focus-maptable #pinboardOverlay {
+        left: calc(100vw - 120px) !important; right: 0 !important; /* 120px Streifen am rechten Rand */
+        transform: none !important;
+    }
+
+    /* Inaktive Panels: Klick-Cursor zeigt Interaktivität */
+    body.dual-panel-open #pinboardOverlay:not(.panel-focus),
+    body.dual-panel-open #mapTableOverlay:not(.panel-focus) {
+        cursor: pointer;
     }
 }
 
@@ -473,10 +573,13 @@ body.theme-retro .wp-data { color: var(--piper-yellow); }
     }
 }
 
-/* ── iPad (768px–1249px): Bild passt ans Display – kein Scroll, kein Pinch-Zoom ── */
+/* ── iPad (768px–1249px): Peek-Navigation – Panel schiebt sich herein, Hauptmenü bleibt als Streifen sichtbar ── */
 @media (min-width: 768px) and (max-width: 1249px) {
-    /* Kein Browser-Scroll und kein Pinch-Zoom auf den Overlays */
-    #mapTableOverlay, #pinboardOverlay { touch-action: none; }
+    /* Kein Browser-Pinch-Zoom auf den Overlays, aber Touch für Peek-Taps erlaubt */
+    #mapTableOverlay, #pinboardOverlay { touch-action: pan-y; }
+
+    /* Hauptmenü bekommt Transition für das Peek-Schieben */
+    .container { transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
 
     /* Karte: Vollbild, Hintergrundbild gestreckt auf das Div */
     #mapTableOverlay .pinboard-scroll-area { padding: 0 !important; }
@@ -493,8 +596,6 @@ body.theme-retro .wp-data { color: var(--piper-yellow); }
         height: calc(100vh - 70px) !important;
     }
     .pinboard-content {
-        /* Nimmt die kleinste passende Dimension: entweder volle Breite
-           oder so breit, dass die Höhe ins Display passt – nie abgeschnitten */
         width: min(100vw, calc((100vh - 70px) * 16 / 10)) !important;
         height: auto !important;
         aspect-ratio: 16 / 10 !important;
@@ -503,6 +604,49 @@ body.theme-retro .wp-data { color: var(--piper-yellow); }
         max-width: none !important;
         max-height: none !important;
         border-radius: 0 !important;
+    }
+
+    /* ── PEEK: Panel voll sichtbar, Hauptmenü rausgeschoben (70px Streifen sichtbar) ── */
+    /* Pinnwand öffnet von rechts → Hauptmenü nach links raus */
+    body.pinboard-open .container {
+        transform: translateX(calc(-100vw + 70px));
+    }
+    body.pinboard-open #pinboardOverlay {
+        left: 70px !important;
+        right: 0 !important;
+        transition: left 0.5s cubic-bezier(0.22, 1, 0.36, 1), right 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Kartentisch öffnet von links → Hauptmenü nach rechts raus */
+    body.maptable-open .container {
+        transform: translateX(calc(100vw - 70px));
+    }
+    body.maptable-open #mapTableOverlay {
+        left: 0 !important;
+        right: 70px !important;
+        transition: left 0.5s cubic-bezier(0.22, 1, 0.36, 1), right 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* ── PANEL-PEEK-MODUS: Hauptmenü zurück, Panel als schmaler Streifen sichtbar ── */
+    body.panel-peeked.pinboard-open .container {
+        transform: translateX(0);
+    }
+    body.panel-peeked.pinboard-open #pinboardOverlay {
+        left: calc(100vw - 70px) !important;
+        right: 0 !important;
+    }
+    body.panel-peeked.maptable-open .container {
+        transform: translateX(0);
+    }
+    body.panel-peeked.maptable-open #mapTableOverlay {
+        left: 0 !important;
+        right: calc(100vw - 70px) !important;
+    }
+
+    /* Panel-Streifen im Peek-Modus zeigt Cursor als Pointer */
+    body.panel-peeked #pinboardOverlay,
+    body.panel-peeked #mapTableOverlay {
+        cursor: pointer;
     }
 }
 

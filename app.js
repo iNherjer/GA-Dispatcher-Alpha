@@ -1547,6 +1547,67 @@ async function updateMapFromInputs() {
     }
 }
 
+/* =========================================================
+   DUAL-PANEL FOKUS-STEUERUNG (PC ≥1250px)
+   ========================================================= */
+function setPanelFocus(panelId) {
+    // body-Klassen steuern die .container-Position via CSS (panel-focus-pinboard / panel-focus-maptable)
+    document.body.classList.toggle('panel-focus-pinboard', panelId === 'pinboardOverlay');
+    document.body.classList.toggle('panel-focus-maptable', panelId === 'mapTableOverlay');
+    // panel-focus auf Overlays für Cursor-Styling der inaktiven Panels
+    document.getElementById('pinboardOverlay').classList.toggle('panel-focus', panelId === 'pinboardOverlay');
+    document.getElementById('mapTableOverlay').classList.toggle('panel-focus', panelId === 'mapTableOverlay');
+}
+
+function initPanelClickHandlers() {
+    // PC (≥1250px): Klick auf inaktives Panel im Dual-Panel-Modus → Fokus wechseln
+    ['pinboardOverlay', 'mapTableOverlay'].forEach(id => {
+        document.getElementById(id).addEventListener('click', function(e) {
+            const w = window.innerWidth;
+
+            if (w >= 1250) {
+                // PC: Dual-Panel Fokus-Wechsel
+                if (document.body.classList.contains('dual-panel-open') && !this.classList.contains('panel-focus')) {
+                    e.stopPropagation();
+                    setPanelFocus(id);
+                    if (id === 'mapTableOverlay' && map) {
+                        setTimeout(() => map.invalidateSize(), 300);
+                    }
+                }
+            } else if (w >= 768) {
+                // iPad: Tap auf Panel-Streifen im Peek-Modus → Panel wieder voll einfahren
+                if (document.body.classList.contains('panel-peeked')) {
+                    e.stopPropagation();
+                    document.body.classList.remove('panel-peeked');
+                    if (id === 'mapTableOverlay' && map) {
+                        setTimeout(() => map.invalidateSize(), 300);
+                    }
+                }
+            }
+        });
+    });
+
+    // iPad (768–1249px): Tap auf Hauptmenü (.container) im Panel-offen-Zustand → Peek-Modus aktivieren
+    document.querySelector('.container').addEventListener('click', function(e) {
+        const w = window.innerWidth;
+        if (w < 768 || w >= 1250) return;
+        const pbOpen = document.body.classList.contains('pinboard-open');
+        const mtOpen = document.body.classList.contains('maptable-open');
+        if ((pbOpen || mtOpen) && !document.body.classList.contains('panel-peeked')) {
+            // Hauptmenü-Streifen wurde angetippt → Panel zur Seite schieben
+            e.stopPropagation();
+            document.body.classList.add('panel-peeked');
+        } else if ((pbOpen || mtOpen) && document.body.classList.contains('panel-peeked')) {
+            // Im Peek-Modus Hauptmenü angetippt → Panel wieder voll einfahren
+            e.stopPropagation();
+            document.body.classList.remove('panel-peeked');
+            if (mtOpen && map) {
+                setTimeout(() => map.invalidateSize(), 300);
+            }
+        }
+    });
+}
+
 /* iOS-Scroll-Lock: verhindert, dass die Seite unter einem Overlay scrollt und
    stellt sicher, dass das Overlay immer mittig im Viewport erscheint. */
 let _scrollLockY = 0;
@@ -1570,10 +1631,42 @@ function unlockBodyScroll() {
 
 function toggleMapTable() {
     const board = document.getElementById('mapTableOverlay'), pinBoard = document.getElementById('pinboardOverlay');
-    if (pinBoard.classList.contains('active')) { togglePinboard(); }
-    board.classList.toggle('active'); document.body.classList.toggle('maptable-open');
+    const isDesktop = window.innerWidth >= 1250;
+
     if (board.classList.contains('active')) {
-        lockBodyScroll();
+        // Kartentisch schließen
+        board.classList.remove('active');
+        document.body.classList.remove('maptable-open');
+        document.body.classList.remove('panel-peeked');
+        document.body.classList.remove('panel-focus-maptable');
+        board.classList.remove('panel-focus');
+        document.body.classList.remove('map-is-fullscreen');
+        if (isDesktop && pinBoard.classList.contains('active')) {
+            // Pinnwand bleibt offen – dual-panel-open erst nach der Slide-Animation entfernen,
+            // damit kein left/right-Sprung sichtbar wird bevor die Transition fertig ist
+            setTimeout(() => {
+                document.body.classList.remove('dual-panel-open');
+                document.body.classList.remove('panel-focus-pinboard');
+            }, 620);
+        } else {
+            document.body.classList.remove('dual-panel-open');
+            document.body.classList.remove('panel-focus-pinboard');
+            unlockBodyScroll();
+        }
+    } else {
+        // Kartentisch öffnen
+        if (isDesktop && pinBoard.classList.contains('active')) {
+            // Dual-Panel-Modus: kein Fokus beim Öffnen → Container bleibt mittig, beide Panels sichtbar
+            document.body.classList.add('dual-panel-open');
+            document.body.classList.add('maptable-open');
+            board.classList.add('active');
+            // panel-focus-xxx bewusst NICHT setzen → kein Fokus, Container mittig
+        } else {
+            if (pinBoard.classList.contains('active')) { togglePinboard(); }
+            board.classList.add('active');
+            document.body.classList.add('maptable-open');
+            lockBodyScroll();
+        }
         if(!map) initMapBase();
         setTimeout(() => {
             if(map) {
@@ -1582,9 +1675,6 @@ function toggleMapTable() {
                 else updateMapFromInputs();
             }
         }, 500);
-    } else {
-        unlockBodyScroll();
-        document.body.classList.remove('map-is-fullscreen');
     }
 }
 
@@ -1695,14 +1785,41 @@ function clearPinboard() {
 function togglePinboard() {
     const board = document.getElementById('pinboardOverlay');
     const mapBoard = document.getElementById('mapTableOverlay');
-    if (mapBoard.classList.contains('active')) { toggleMapTable(); }
-    board.classList.toggle('active');
-    document.body.classList.toggle('pinboard-open');
+    const isDesktop = window.innerWidth >= 1250;
+
     if (board.classList.contains('active')) {
-        lockBodyScroll();
-        renderNotes();
+        // Pinnwand schließen
+        board.classList.remove('active');
+        document.body.classList.remove('pinboard-open');
+        document.body.classList.remove('panel-peeked');
+        document.body.classList.remove('panel-focus-pinboard');
+        board.classList.remove('panel-focus');
+        if (isDesktop && mapBoard.classList.contains('active')) {
+            // Kartentisch bleibt offen – dual-panel-open erst nach der Slide-Animation entfernen
+            setTimeout(() => {
+                document.body.classList.remove('dual-panel-open');
+                document.body.classList.remove('panel-focus-maptable');
+            }, 620);
+        } else {
+            document.body.classList.remove('dual-panel-open');
+            document.body.classList.remove('panel-focus-maptable');
+            unlockBodyScroll();
+        }
     } else {
-        unlockBodyScroll();
+        // Pinnwand öffnen
+        if (isDesktop && mapBoard.classList.contains('active')) {
+            // Dual-Panel-Modus: kein Fokus beim Öffnen → Container bleibt mittig, beide Panels sichtbar
+            document.body.classList.add('dual-panel-open');
+            document.body.classList.add('pinboard-open');
+            board.classList.add('active');
+            // panel-focus-xxx bewusst NICHT setzen → kein Fokus, Container mittig
+        } else {
+            if (mapBoard.classList.contains('active')) { toggleMapTable(); }
+            board.classList.add('active');
+            document.body.classList.add('pinboard-open');
+            lockBodyScroll();
+        }
+        renderNotes();
     }
 }
 
@@ -2386,4 +2503,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initGPSEncoders();
     initCom2Knob();
     restoreAudioButtonStates();
+    initPanelClickHandlers();
 });
