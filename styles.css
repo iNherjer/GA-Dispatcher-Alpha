@@ -375,8 +375,10 @@ body.map-is-fullscreen .pinboard-header { position: absolute; top: 0; left: 0; r
         overflow: hidden !important; /* Verhindert das Auftauchen von Scrollbalken! */
         transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
                     visibility 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-                    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-        transform: none; /* kein !important mehr — Dual-Panel-Regeln können überschreiben */
+                    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+                    left 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+                    right 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        transform: translateX(0); /* translateX(0) statt none — CSS kann so zwischen Zuständen interpolieren */
     }
 
     #pinboardOverlay { left: 520px !important; right: 20px !important; }
@@ -487,11 +489,11 @@ body.map-is-fullscreen .pinboard-header { position: absolute; top: 0; left: 0; r
     }
     body.dual-panel-open.panel-focus-pinboard #pinboardOverlay {
         left: 520px !important; right: 20px !important;    /* = Einzelmodus → volle Breite */
-        transform: none !important;                        /* kein translateX, am Viewport fixiert */
+        transform: translateX(0) !important;               /* bleibt Viewport-fixiert, animierbar */
     }
     body.dual-panel-open.panel-focus-pinboard #mapTableOverlay {
         left: 0 !important; right: calc(100vw - 120px) !important; /* 120px Streifen am linken Rand */
-        transform: none !important;
+        transform: translateX(0) !important;
     }
 
     /* ── FOKUS KARTENTISCH ──
@@ -501,11 +503,11 @@ body.map-is-fullscreen .pinboard-header { position: absolute; top: 0; left: 0; r
     }
     body.dual-panel-open.panel-focus-maptable #mapTableOverlay {
         left: 20px !important; right: 520px !important;   /* = Einzelmodus → volle Breite */
-        transform: none !important;
+        transform: translateX(0) !important;
     }
     body.dual-panel-open.panel-focus-maptable #pinboardOverlay {
         left: calc(100vw - 120px) !important; right: 0 !important; /* 120px Streifen am rechten Rand */
-        transform: none !important;
+        transform: translateX(0) !important;
     }
 
     /* Inaktive Panels: Klick-Cursor zeigt Interaktivität */
@@ -573,8 +575,9 @@ body.theme-retro .wp-data { color: var(--piper-yellow); }
     }
 }
 
-/* ── iPad (768px–1249px): Peek-Navigation – Panel schiebt sich herein, Hauptmenü bleibt als Streifen sichtbar ── */
-@media (min-width: 768px) and (max-width: 1249px) {
+/* ── iPad (768px–1249px, min-height 600px): Peek-Navigation – Panel schiebt sich herein, Hauptmenü bleibt als Streifen sichtbar ──
+   min-height: 600px schließt iPhone-Landscape aus (max ~430px Höhe), lässt iPad durch (≥744px). */
+@media (min-width: 768px) and (max-width: 1249px) and (min-height: 600px) {
     /* Kein Browser-Pinch-Zoom auf den Overlays, aber Touch für Peek-Taps erlaubt */
     #mapTableOverlay, #pinboardOverlay { touch-action: pan-y; }
 

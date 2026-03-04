@@ -1574,8 +1574,8 @@ function initPanelClickHandlers() {
                         setTimeout(() => map.invalidateSize(), 300);
                     }
                 }
-            } else if (w >= 768) {
-                // iPad: Tap auf Panel-Streifen im Peek-Modus → Panel wieder voll einfahren
+            } else if (w >= 768 && window.innerHeight >= 600) {
+                // iPad (nicht iPhone-Landscape): Tap auf Panel-Streifen im Peek-Modus → Panel wieder voll einfahren
                 if (document.body.classList.contains('panel-peeked')) {
                     e.stopPropagation();
                     document.body.classList.remove('panel-peeked');
@@ -1587,10 +1587,22 @@ function initPanelClickHandlers() {
         });
     });
 
-    // iPad (768–1249px): Tap auf Hauptmenü (.container) im Panel-offen-Zustand → Peek-Modus aktivieren
+    // PC + iPad: Tap/Klick auf Hauptmenü (.container)
     document.querySelector('.container').addEventListener('click', function(e) {
         const w = window.innerWidth;
-        if (w < 768 || w >= 1250) return;
+
+        // PC (≥1250px): Klick auf Container im Dual-Panel-Fokus-Modus → Fokus aufheben
+        if (w >= 1250) {
+            if (document.body.classList.contains('dual-panel-open') &&
+                (document.body.classList.contains('panel-focus-pinboard') ||
+                 document.body.classList.contains('panel-focus-maptable'))) {
+                setPanelFocus(null); // entfernt alle Fokus-Klassen → Container mittig
+            }
+            return;
+        }
+
+        // iPad (768–1249px, Höhe ≥600px): Tap auf Hauptmenü im Panel-offen-Zustand → Peek-Modus
+        if (w < 768 || window.innerHeight < 600) return;
         const pbOpen = document.body.classList.contains('pinboard-open');
         const mtOpen = document.body.classList.contains('maptable-open');
         if ((pbOpen || mtOpen) && !document.body.classList.contains('panel-peeked')) {
