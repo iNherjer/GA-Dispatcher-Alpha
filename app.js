@@ -1848,7 +1848,7 @@ async function captureMapForPDF() {
         const p1 = latLngToPixel(nw.lat, nw.lng, z);
         const p2 = latLngToPixel(se.lat, se.lng, z);
         const routeW = Math.abs(p2.x - p1.x), routeH = Math.abs(p2.y - p1.y);
-        if (routeW < W - 40 && routeH < H - 40) { zoom = z; break; }
+        if (routeW < W - 20 && routeH < H - 20) { zoom = z; break; }
     }
 
     const center = bounds.getCenter();
@@ -1864,27 +1864,44 @@ async function captureMapForPDF() {
 
     // Load tiles
     const tileSize = 256;
+    const tilePromises = [];
+    const subdomains = ['a', 'b', 'c'];
+
+    // Topo tiles at actual zoom
     const startTileX = Math.floor((centerPx.x - W / 2) / tileSize);
     const startTileY = Math.floor((centerPx.y - H / 2) / tileSize);
     const endTileX = Math.ceil((centerPx.x + W / 2) / tileSize);
     const endTileY = Math.ceil((centerPx.y + H / 2) / tileSize);
 
-    const tilePromises = [];
-    const subdomains = ['a', 'b', 'c'];
-
     for (let tx = startTileX; tx <= endTileX; tx++) {
         for (let ty = startTileY; ty <= endTileY; ty++) {
             const s = subdomains[(tx + ty) % 3];
             const topoUrl = `https://${s}.tile.opentopomap.org/${zoom}/${tx}/${ty}.png`;
-            const aeroUrl = `https://nwy-tiles-api.prod.newaydata.com/tiles/${zoom}/${tx}/${ty}.png?path=latest/aero/latest`;
             const drawX = (tx * tileSize) - (centerPx.x - W / 2);
             const drawY = (ty * tileSize) - (centerPx.y - H / 2);
-
             tilePromises.push(loadTileImage(topoUrl).then(img => {
                 if (img) { ctx.globalAlpha = 0.5; ctx.drawImage(img, drawX, drawY, tileSize, tileSize); ctx.globalAlpha = 1.0; }
             }));
+        }
+    }
+
+    // VFR aero overlay: max native zoom 12, upscale for higher zooms
+    const aeroZoom = Math.min(zoom, 12);
+    const aeroScale = Math.pow(2, zoom - aeroZoom);
+    const aeroCenterPx = latLngToPixel(center.lat, center.lng, aeroZoom);
+    const aeroTileSize = tileSize * aeroScale;
+    const aStartX = Math.floor((aeroCenterPx.x - (W / 2) / aeroScale) / tileSize);
+    const aStartY = Math.floor((aeroCenterPx.y - (H / 2) / aeroScale) / tileSize);
+    const aEndX = Math.ceil((aeroCenterPx.x + (W / 2) / aeroScale) / tileSize);
+    const aEndY = Math.ceil((aeroCenterPx.y + (H / 2) / aeroScale) / tileSize);
+
+    for (let tx = aStartX; tx <= aEndX; tx++) {
+        for (let ty = aStartY; ty <= aEndY; ty++) {
+            const aeroUrl = `https://nwy-tiles-api.prod.newaydata.com/tiles/${aeroZoom}/${tx}/${ty}.png?path=latest/aero/latest`;
+            const drawX = (tx * aeroTileSize) - (aeroCenterPx.x * aeroScale - W / 2);
+            const drawY = (ty * aeroTileSize) - (aeroCenterPx.y * aeroScale - H / 2);
             tilePromises.push(loadTileImage(aeroUrl).then(img => {
-                if (img) { ctx.globalAlpha = 0.65; ctx.drawImage(img, drawX, drawY, tileSize, tileSize); ctx.globalAlpha = 1.0; }
+                if (img) { ctx.globalAlpha = 0.65; ctx.drawImage(img, drawX, drawY, aeroTileSize, aeroTileSize); ctx.globalAlpha = 1.0; }
             }));
         }
     }
@@ -1927,6 +1944,70 @@ async function captureMapForPDF() {
 
     const imgData = canvas.toDataURL('image/jpeg', 0.92);
     return { data: imgData, width: canvas.width, height: canvas.height };
+}
+
+async function renderTileCanvas(centerLat, centerLng, zoom, W, H) {
+    const centerPx = latLngToPixel(centerLat, centerLng, zoom);
+    const canvas = document.createElement('canvas');
+    canvas.width = W * 2; canvas.height = H * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+    ctx.fillStyle = '#e8e0d0';
+    ctx.fillRect(0, 0, W, H);
+
+    const tileSize = 256;
+    const subdomains = ['a', 'b', 'c'];
+    const tilePromises = [];
+
+    // Topo tiles at actual zoom
+    const startTileX = Math.floor((centerPx.x - W / 2) / tileSize);
+    const startTileY = Math.floor((centerPx.y - H / 2) / tileSize);
+    const endTileX = Math.ceil((centerPx.x + W / 2) / tileSize);
+    const endTileY = Math.ceil((centerPx.y + H / 2) / tileSize);
+
+    for (let tx = startTileX; tx <= endTileX; tx++) {
+        for (let ty = startTileY; ty <= endTileY; ty++) {
+            const s = subdomains[(tx + ty) % 3];
+            const topoUrl = `https://${s}.tile.opentopomap.org/${zoom}/${tx}/${ty}.png`;
+            const drawX = (tx * tileSize) - (centerPx.x - W / 2);
+            const drawY = (ty * tileSize) - (centerPx.y - H / 2);
+            tilePromises.push(loadTileImage(topoUrl).then(img => {
+                if (img) { ctx.globalAlpha = 0.5; ctx.drawImage(img, drawX, drawY, tileSize, tileSize); ctx.globalAlpha = 1.0; }
+            }));
+        }
+    }
+
+    // VFR aero overlay: max native zoom 12, upscale for higher zooms
+    const aeroZoom = Math.min(zoom, 12);
+    const scale = Math.pow(2, zoom - aeroZoom);
+    const aeroCenterPx = latLngToPixel(centerLat, centerLng, aeroZoom);
+    const aeroTileSize = tileSize * scale;
+    const aStartX = Math.floor((aeroCenterPx.x - (W / 2) / scale) / tileSize);
+    const aStartY = Math.floor((aeroCenterPx.y - (H / 2) / scale) / tileSize);
+    const aEndX = Math.ceil((aeroCenterPx.x + (W / 2) / scale) / tileSize);
+    const aEndY = Math.ceil((aeroCenterPx.y + (H / 2) / scale) / tileSize);
+
+    for (let tx = aStartX; tx <= aEndX; tx++) {
+        for (let ty = aStartY; ty <= aEndY; ty++) {
+            const aeroUrl = `https://nwy-tiles-api.prod.newaydata.com/tiles/${aeroZoom}/${tx}/${ty}.png?path=latest/aero/latest`;
+            const drawX = (tx * aeroTileSize) - (aeroCenterPx.x * scale - W / 2);
+            const drawY = (ty * aeroTileSize) - (aeroCenterPx.y * scale - H / 2);
+            tilePromises.push(loadTileImage(aeroUrl).then(img => {
+                if (img) { ctx.globalAlpha = 0.65; ctx.drawImage(img, drawX, drawY, aeroTileSize, aeroTileSize); ctx.globalAlpha = 1.0; }
+            }));
+        }
+    }
+
+    await Promise.all(tilePromises);
+
+    // Airport marker
+    const apx = latLngToPixel(centerLat, centerLng, zoom);
+    const cx = apx.x - (centerPx.x - W / 2), cy = apx.y - (centerPx.y - H / 2);
+    ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff4444'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
+
+    return canvas.toDataURL('image/jpeg', 0.92);
 }
 
 function latLngToPixel(lat, lng, zoom) {
@@ -2272,7 +2353,7 @@ function drawRouteNavigationPage(doc, data, legs) {
     doc.setLineDashPattern([], 0);
 }
 
-function drawAirportInfoPage(doc, type, data, photo) {
+function drawAirportInfoPage(doc, type, data, photo, detailMap) {
     let y = 30;
     const isDep = (type === 'dep');
 
@@ -2364,11 +2445,39 @@ function drawAirportInfoPage(doc, type, data, photo) {
     doc.setTextColor(50, 50, 50);
 
     if (desc && desc !== 'Warte auf Daten...') {
-        const maxChars = 1200;
+        const maxChars = 800;
         const trimmedDesc = desc.length > maxChars ? desc.substring(0, maxChars) + '...' : desc;
         y = pdfWrappedText(doc, trimmedDesc, 32, y, 155, 5.5);
     } else {
         doc.text('Keine weiteren Informationen verfügbar.', 32, y);
+        y += 6;
+    }
+
+    // Detail map (airport chart with traffic pattern zoom)
+    if (detailMap) {
+        y = Math.max(y + 8, 185);
+        doc.setDrawColor(100, 100, 100);
+        doc.setLineDashPattern([2, 2], 0);
+        doc.line(32, y, 190, y);
+        doc.setLineDashPattern([], 0);
+        y += 8;
+
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(11, 31, 101);
+        doc.text(`PLATZKARTE ${icao}`, 32, y);
+        y += 6;
+
+        const mapW = 155, mapH = 80;
+        const mapX = 32;
+
+        doc.setFillColor(230, 225, 210);
+        doc.rect(mapX - 1, y - 1, mapW + 2, mapH + 2, 'F');
+        doc.setDrawColor(160, 155, 140);
+        doc.setLineWidth(0.4);
+        doc.rect(mapX - 1, y - 1, mapW + 2, mapH + 2, 'S');
+
+        doc.addImage(detailMap, 'JPEG', mapX, y, mapW, mapH);
     }
 }
 
@@ -2463,15 +2572,24 @@ async function generateBriefingPDF() {
         const isPOI = data.isPOI;
         const totalPages = isPOI ? 4 : 5;
 
-        // Start map capture early (async)
+        // Start all async work in parallel: route map, detail maps, photos
         const mapImagePromise = captureMapForPDF();
+
+        // Airport coordinates from waypoints
+        const depLL = routeWaypoints[0];
+        const destLL = routeWaypoints[routeWaypoints.length - 1];
+        const detailZoom = 12; // Zoom level to see traffic patterns and airspace
+        const depDetailPromise = renderTileCanvas(depLL.lat, depLL.lng || depLL.lon, detailZoom, 700, 360);
+        const destDetailPromise = isPOI ? Promise.resolve(null) : renderTileCanvas(destLL.lat, destLL.lng || destLL.lon, detailZoom, 700, 360);
 
         // Fetch airport photos
         const depPhotoUrl = extractImageUrl(document.getElementById('wikiDepImage'));
         const destPhotoUrl = extractImageUrl(document.getElementById('wikiDestImage'));
-        const [depPhoto, destPhoto] = await Promise.all([
+        const [depPhoto, destPhoto, depDetail, destDetail] = await Promise.all([
             depPhotoUrl ? getImageAsBase64(depPhotoUrl) : Promise.resolve(null),
-            destPhotoUrl ? getImageAsBase64(destPhotoUrl) : Promise.resolve(null)
+            destPhotoUrl ? getImageAsBase64(destPhotoUrl) : Promise.resolve(null),
+            depDetailPromise,
+            destDetailPromise
         ]);
 
         // Page 1: Mission Briefing
@@ -2486,13 +2604,13 @@ async function generateBriefingPDF() {
         // Page 3: Departure Airport
         doc.addPage();
         drawNotebookBackground(doc, 3, totalPages);
-        drawAirportInfoPage(doc, 'dep', data, depPhoto);
+        drawAirportInfoPage(doc, 'dep', data, depPhoto, depDetail);
 
         // Page 4: Destination Airport (skip for POI)
         if (!isPOI) {
             doc.addPage();
             drawNotebookBackground(doc, 4, totalPages);
-            drawAirportInfoPage(doc, 'dest', data, destPhoto);
+            drawAirportInfoPage(doc, 'dest', data, destPhoto, destDetail);
         }
 
         // Last page: Route Map
