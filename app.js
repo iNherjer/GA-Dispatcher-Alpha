@@ -40,7 +40,6 @@ function setTheme(mode) {
     syncGPSWithTheme(mode, wasNavcom);
 }
 
-// GPS-Sichtbarkeit mit dem gewählten Design synchronisieren
 function syncGPSWithTheme(newMode, wasNavcom) {
     const fp  = document.querySelector('.flightplan-container');
     const mod = document.getElementById('kln90bModule');
@@ -213,7 +212,7 @@ function cyclePanelColor() {
 let map, polyline, markers = [], currentStartICAO, currentDestICAO, currentMissionData = null, selectedAC = "PA-24";
 let currentDepFreq = "";
 let currentDestFreq = "";
-let globalAirports = null, runwayCache = {};
+let globalAirports = null, runwayCache = {}, freqCache = {};
 
 async function fetchWithTimeout(url, ms = 6000) {
     const ctrl = new AbortController();
@@ -371,6 +370,8 @@ function saveMissionState() {
         mETENote: document.getElementById("mETENote").innerText,
         wikiDepDescText: document.getElementById("wikiDepDescText") ? document.getElementById("wikiDepDescText").innerText : "",
         wikiDestDescText: document.getElementById("wikiDestDescText") ? document.getElementById("wikiDestDescText").innerText : "",
+        wikiDepFreqText: document.getElementById("wikiDepFreqText") ? document.getElementById("wikiDepFreqText").innerHTML : "",
+        wikiDestFreqText: document.getElementById("wikiDestFreqText") ? document.getElementById("wikiDestFreqText").innerHTML : "",
         wikiDepImageUrl: imgDepUrl,
         wikiDestImageUrl: imgDestUrl, 
         isPOI: document.getElementById("destRwyContainer").style.display === "none",
@@ -379,7 +380,9 @@ function saveMissionState() {
         currentStartICAO: currentStartICAO,
         currentDestICAO: currentDestICAO,
         currentSName: currentSName,
-        currentDName: currentDName
+        currentDName: currentDName,
+        currentDepFreq: currentDepFreq,
+        currentDestFreq: currentDestFreq
     };
     localStorage.setItem('ga_active_mission', JSON.stringify(state));
 }
@@ -388,14 +391,21 @@ async function restoreMissionState(state) {
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
     document.getElementById("mDepICAO").innerText = state.mDepICAO; document.getElementById("mDepName").innerText = state.mDepName;
     document.getElementById("mDepCoords").innerText = state.mDepCoords; document.getElementById("mDepRwy").innerText = "Sucht Pisten...";
+    const rDepName = document.getElementById('wikiDepNameDisplay');
+    if (rDepName) rDepName.innerText = `${state.mDepICAO} – ${state.mDepName}`;
     document.getElementById("destIcon").innerText = state.destIcon; document.getElementById("mDestICAO").innerText = state.mDestICAO;
     document.getElementById("mDestName").innerText = state.mDestName; document.getElementById("mDestCoords").innerText = state.mDestCoords;
+    const rDestName = document.getElementById('wikiDestNameDisplay');
+    if (rDestName) rDestName.innerText = `${state.mDestICAO} – ${state.mDestName}`;
     document.getElementById("mDestRwy").innerText = state.isPOI ? "" : "Sucht Pisten..."; document.getElementById("mPay").innerText = state.mPay;
     document.getElementById("mWeight").innerText = state.mWeight; document.getElementById("mDistNote").innerText = state.mDistNote;
     document.getElementById("mHeadingNote").innerText = state.mHeadingNote; document.getElementById("mETENote").innerText = state.mETENote;
     
     if (document.getElementById("wikiDepDescText")) document.getElementById("wikiDepDescText").innerText = state.wikiDepDescText || "";
     if (document.getElementById("wikiDestDescText")) document.getElementById("wikiDestDescText").innerText = state.wikiDestDescText || "";
+    
+    if (document.getElementById("wikiDepFreqText")) document.getElementById("wikiDepFreqText").innerHTML = state.wikiDepFreqText || "";
+    if (document.getElementById("wikiDestFreqText")) document.getElementById("wikiDestFreqText").innerHTML = state.wikiDestFreqText || "";
     
     const imgDepContainer = document.getElementById("wikiDepImageContainer");
     const imgDepEl = document.getElementById("wikiDepImage");
@@ -413,11 +423,12 @@ async function restoreMissionState(state) {
 
     document.getElementById("destRwyContainer").style.display = state.isPOI ? "none" : "block";
     if (document.getElementById("wikiDestRwyText")) document.getElementById("wikiDestRwyText").style.display = state.isPOI ? "none" : "block";
-    const destSwitchRow = document.getElementById("destSwitchRow"); if(destSwitchRow) destSwitchRow.style.display = state.isPOI ? "none" : "flex";
+    const destSwitchRow = document.getElementById("destSwitchRow"); if(destSwitchRow) destSwitchRow.style.display = "flex";
 
     currentMissionData = state.currentMissionData; routeWaypoints = state.routeWaypoints;
     currentStartICAO = state.currentStartICAO; currentDestICAO = state.currentDestICAO;
     currentSName = state.currentSName; currentDName = state.currentDName;
+    currentDepFreq = state.currentDepFreq || ""; currentDestFreq = state.currentDestFreq || "";
 
     const startLocEl = document.getElementById('startLoc');
     const destLocEl  = document.getElementById('destLoc');
@@ -631,7 +642,7 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
     const imgElement = document.getElementById(imgElId);
     const textElement = document.getElementById(elementId);
     if (imgContainer) imgContainer.style.display = 'none';
-    if (!textElement) return; // Fail safe
+    if (!textElement) return;
 
     try {
         let titleToFetch = exactTitle;
@@ -674,20 +685,20 @@ async function fetchRunwayDetails(lat, lon, elementId, icaoCode) {
     
     // Check Cache first
     if (icaoCode && runwayCache[icaoCode]) { 
-        domEl.innerText = runwayCache[icaoCode]; 
+        domEl.innerHTML = runwayCache[icaoCode].replace(/\n/g, '<br>'); 
         domEl.style.color = hColor; 
-        if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) document.getElementById('wikiDepRwyText').innerText = 'Pisten: ' + domEl.innerText;
-        if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) document.getElementById('wikiDestRwyText').innerText = 'Pisten: ' + domEl.innerText;
+        if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) document.getElementById('wikiDepRwyText').innerHTML = 'Pisten:<br>' + domEl.innerHTML;
+        if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) document.getElementById('wikiDestRwyText').innerHTML = 'Pisten:<br>' + domEl.innerHTML;
         return; 
     }
 
     const wikiResult = await fetchRunwayFromWikipedia(icaoCode, lat, lon);
     if (wikiResult) {
         if (icaoCode) runwayCache[icaoCode] = wikiResult;
-        domEl.innerText = wikiResult;
+        domEl.innerHTML = wikiResult.replace(/\n/g, '<br>');
         domEl.style.color = hColor;
-        if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) document.getElementById('wikiDepRwyText').innerText = 'Pisten: ' + domEl.innerText;
-        if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) document.getElementById('wikiDestRwyText').innerText = 'Pisten: ' + domEl.innerText;
+        if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) document.getElementById('wikiDepRwyText').innerHTML = 'Pisten:<br>' + domEl.innerHTML;
+        if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) document.getElementById('wikiDestRwyText').innerHTML = 'Pisten:<br>' + domEl.innerHTML;
         return;
     }
 
@@ -709,17 +720,23 @@ async function fetchRunwayDetails(lat, lon, elementId, icaoCode) {
                 parts.push(`${key} – ${surf}${len}`);
             }
             if (parts.length > 0) { 
-                domEl.innerText = parts.join('\n'); 
+                const rwyString = parts.join('\n');
+                if (icaoCode) runwayCache[icaoCode] = rwyString;
+                domEl.innerHTML = rwyString.replace(/\n/g, '<br>'); 
                 domEl.style.color = hColor; 
-                if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) document.getElementById('wikiDepRwyText').innerText = 'Pisten: ' + domEl.innerText;
-                if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) document.getElementById('wikiDestRwyText').innerText = 'Pisten: ' + domEl.innerText;
+                if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) document.getElementById('wikiDepRwyText').innerHTML = 'Pisten:<br>' + domEl.innerHTML;
+                if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) document.getElementById('wikiDestRwyText').innerHTML = 'Pisten:<br>' + domEl.innerHTML;
                 return; 
             }
         }
     } catch (e) {}
-    domEl.innerText = "Keine Daten gefunden"; domEl.style.color = "#888";
-    if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) document.getElementById('wikiDepRwyText').innerText = 'Pisten: ' + domEl.innerText;
-    if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) document.getElementById('wikiDestRwyText').innerText = 'Pisten: ' + domEl.innerText;
+    
+    const notFoundStr = "Keine Daten gefunden";
+    domEl.innerText = notFoundStr; 
+    domEl.style.color = "#888";
+    if (icaoCode) runwayCache[icaoCode] = notFoundStr;
+    if (icaoCode === currentStartICAO && document.getElementById('wikiDepRwyText')) document.getElementById('wikiDepRwyText').innerText = 'Pisten: ' + notFoundStr;
+    if (icaoCode === currentDestICAO && document.getElementById('wikiDestRwyText')) document.getElementById('wikiDestRwyText').innerText = 'Pisten: ' + notFoundStr;
 }
 
 const wikiTitleCache = {};
@@ -897,7 +914,7 @@ function parseRunwayFromWikitext(wikitext) {
         }
     }
     
-    return finalRunways.slice(0, 5).join(' | ');
+    return finalRunways.slice(0, 5).join('\n');
 }
 
 async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText) {
@@ -1040,7 +1057,6 @@ async function fetchAirportFreq(icao, elementId, type) {
     if (el) el.innerText = '📻 Sucht Frequenz...';
     const proxy = 'https://ga-proxy.einherjer.workers.dev';
 
-    // Mapping von OpenAIP Frequenz-Namen auf deutsche Bezeichnungen
     const freqLabelMap = {
         'TWR': 'Turm', 'TOWER': 'Turm',
         'GND': 'Rollkontrolle', 'GROUND': 'Rollkontrolle',
@@ -1057,20 +1073,35 @@ async function fetchAirportFreq(icao, elementId, type) {
         if (data && data.items && data.items.length > 0) {
             const apt = data.items[0];
             if (apt.frequencies && apt.frequencies.length > 0) {
-                // Reine Werte für Route-Tabelle und PDF-Karte
-                const freqValues = apt.frequencies.map(f => f.value).join(', ');
-                if (type === 'dep') currentDepFreq = freqValues;
-                if (type === 'dest') currentDestFreq = freqValues;
+                
+                // Bestimme die relevanteste Frequenz (Tower > Info > Radio)
+                const prio = { 'TOWER':1, 'TWR':1, 'INFO':2, 'INFORMATION':2, 'ATIS':2, 'RADIO':3, 'CTAF':3, 'UNICOM':3, 'MULTICOM':3, 'APP':4, 'APPROACH':4 };
+                let bestF = apt.frequencies[0];
+                let bestScore = 99;
+                apt.frequencies.forEach(f => {
+                    const n = (f.name||'').toUpperCase().trim();
+                    const score = prio[n] || 99;
+                    if(score < bestScore) { bestScore = score; bestF = f; }
+                });
+                
+                // Speichere NUR den Zahlenwert für die Routen-Tabelle
+                const bestFreqValue = bestF.value;
+                if (type === 'dep') currentDepFreq = bestFreqValue;
+                if (type === 'dest') currentDestFreq = bestFreqValue;
+                
                 updateRoutePerformance();
 
-                // Detaillierte Anzeige mit Bezeichnungen für Start/Ziel-Info
-                const lines = apt.frequencies.map(f => {
+                // Für die Detail-Anzeige auf der Karte alle formatieren
+                const labeledFreqs = apt.frequencies.map(f => {
                     const fName = (f.name || '').toUpperCase().trim();
                     const label = freqLabelMap[fName] || f.name || 'Freq';
-                    return `📻 ${label}: ${f.value}`;
+                    return { label: label, value: f.value };
                 });
+                const lines = labeledFreqs.map(lf => `📻 ${lf.label}: ${lf.value}`);
                 if (el) el.innerHTML = lines.join('<br>');
-                return freqValues;
+
+                freqCache[icao] = labeledFreqs;
+                return bestFreqValue;
             }
         }
         if (el) el.innerText = '';
@@ -1229,7 +1260,9 @@ async function generateMission() {
     document.getElementById("mDepICAO").innerText = currentStartICAO;
     document.getElementById("mDepName").innerText = start.n;
     document.getElementById("mDepCoords").innerText = `${start.lat.toFixed(4)}, ${start.lon.toFixed(4)}`;
-    
+    const wikiDepNameEl = document.getElementById('wikiDepNameDisplay');
+    if (wikiDepNameEl) wikiDepNameEl.innerText = `${currentStartICAO} – ${start.n}`;
+
     setDrumCounter('distDrum', totalDist);
     recalculatePerformance();
 
@@ -1237,6 +1270,8 @@ async function generateMission() {
     document.getElementById("mDestICAO").innerText = isPOI ? "POI" : currentDestICAO;
     document.getElementById("mDestName").innerText = dest.n;
     document.getElementById("mDestCoords").innerText = `${dest.lat.toFixed(4)}, ${dest.lon.toFixed(4)}`;
+    const wikiDestNameEl = document.getElementById('wikiDestNameDisplay');
+    if (wikiDestNameEl) wikiDestNameEl.innerText = `${isPOI ? 'POI' : currentDestICAO} – ${dest.n}`;
     
     document.getElementById("mPay").innerText = paxText; document.getElementById("mWeight").innerText = cargoText;
     document.getElementById("mDistNote").innerText = `${totalDist} NM`; 
@@ -1266,11 +1301,9 @@ async function generateMission() {
         fetchAreaDescription(start.lat, start.lon, 'wikiDepDescText', null, currentStartICAO, 'wikiDepImageContainer', 'wikiDepImage');
         fetchAreaDescription(dest.lat, dest.lon, 'wikiDestDescText', isPOI ? dest.n : null, isPOI ? null : currentDestICAO, 'wikiDestImageContainer', 'wikiDestImage');
         
-        // Frequenzen zurücksetzen, damit alte Werte beim Neu-Generieren nicht hängen bleiben
         currentDepFreq = ""; 
         currentDestFreq = "";
         
-        // HIER NEU: Übergibt 'dep', damit die Funktion weiß, dass es der Start ist
         fetchAirportFreq(currentStartICAO, 'wikiDepFreqText', 'dep');
         renderTileCanvas(start.lat, start.lon, 13, 600, 400).then(url => {
             const img = document.getElementById('uiDepDetailMap');
@@ -1278,7 +1311,6 @@ async function generateMission() {
         });
         
         if (!isPOI) {
-            // HIER NEU: Übergibt 'dest', damit die Funktion weiß, dass es das Ziel ist
             fetchAirportFreq(currentDestICAO, 'wikiDestFreqText', 'dest');
             renderTileCanvas(dest.lat, dest.lon, 13, 600, 400).then(url => {
                 const img = document.getElementById('uiDestDetailMap');
@@ -1478,6 +1510,7 @@ function renderMainRoute() {
     
     updateRoutePerformance(); updateMiniMap(); 
 }
+
 function updateRoutePerformance() {
     if(routeWaypoints.length < 2 || !currentMissionData) return;
     let totalNM = 0, wpHTML = '';
@@ -1488,8 +1521,8 @@ function updateRoutePerformance() {
     let totalFuel = 0;
 
     let blHTML = '<table style="width:100%; border-collapse:collapse; text-align:left; font-size:14px; font-family:\'Courier New\', monospace; font-weight:bold; color:#222; margin-top:5px;">';
-    blHTML += '<colgroup><col style="width:50%;"><col style="width:12%;"><col style="width:12%;"><col style="width:12%;"><col style="width:14%;"></colgroup>';
-    blHTML += '<tr style="border-bottom:2px solid #888; color:#0b1f65;"><th>Route</th><th>HDG</th><th>NM</th><th>Min</th><th>Gal</th></tr>';
+    blHTML += '<colgroup><col style="width:30%;"><col style="width:20%;"><col style="width:16%;"><col style="width:10%;"><col style="width:10%;"><col style="width:14%;"></colgroup>';
+    blHTML += '<tr style="border-bottom:2px solid #888; color:#0b1f65;"><th>Route</th><th>FREQ</th><th>HDG</th><th>NM</th><th>Min</th><th>Gal</th></tr>';
     
     for(let i=0; i<routeWaypoints.length - 1; i++) {
         let p1 = routeWaypoints[i], p2 = routeWaypoints[i+1], nav = calcNav(p1.lat, p1.lng || p1.lon, p2.lat, p2.lng || p2.lon);
@@ -1504,15 +1537,27 @@ function updateRoutePerformance() {
         let cleanName1 = name1.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
         let cleanName2 = name2.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
 
-        // VOR/NDB: Nur Kürzel + Frequenz statt voller Name
-        let vi1 = cleanName1.match(/\[([^\]]+)\]/);
-        if (vi1) { let vf1 = cleanName1.match(/\(([^)]+)\)/); cleanName1 = vf1 ? `${vi1[1]} (${vf1[1]})` : vi1[1]; }
-        let vi2 = cleanName2.match(/\[([^\]]+)\]/);
-        if (vi2) { let vf2 = cleanName2.match(/\(([^)]+)\)/); cleanName2 = vf2 ? `${vi2[1]} (${vf2[1]})` : vi2[1]; }
+        // Frequenz aus Namen extrahieren
+        let f1 = "";
+        let m1 = cleanName1.match(/\(([^)]+)\)/);
+        if (m1) { f1 = m1[1]; cleanName1 = cleanName1.replace(/\s*\([^)]+\)/, ''); }
+        else if (isStart && currentDepFreq) { f1 = currentDepFreq; }
 
-        // Frequenzen für Start/Ziel dunkelblau einbetten
-        if (isStart && currentDepFreq) cleanName1 += ` <span style="color:#0b1f65;">(${currentDepFreq})</span>`;
-        if (isEnd && currentDestFreq) cleanName2 += ` <span style="color:#0b1f65;">(${currentDestFreq})</span>`;
+        let f2 = "";
+        let m2 = cleanName2.match(/\(([^)]+)\)/);
+        if (m2) { f2 = m2[1]; cleanName2 = cleanName2.replace(/\s*\([^)]+\)/, ''); }
+        else if (isEnd && currentDestFreq) { f2 = currentDestFreq; }
+
+        // VOR Klammern erhalten - nur Kennung nutzen wenn vorhanden
+        let v1 = cleanName1.match(/\[([^\]]+)\]/); 
+        let isV1 = !!v1;
+        if (v1) cleanName1 = `[${v1[1].trim().split(/\s+/)[0]}]`;
+        else cleanName1 = cleanName1.trim();
+        
+        let v2 = cleanName2.match(/\[([^\]]+)\]/);
+        let isV2 = !!v2;
+        if (v2) cleanName2 = `[${v2[1].trim().split(/\s+/)[0]}]`;
+        else cleanName2 = cleanName2.trim();
         
         let legTime = Math.round((nav.dist / tas) * 60);
         let legFuel = parseFloat((nav.dist / tas * gph).toFixed(1));
@@ -1520,13 +1565,22 @@ function updateRoutePerformance() {
         totalTime += legTime;
         totalFuel += legFuel;
 
-        blHTML += `<tr><td colspan="5" style="padding-top:12px; color:#111; line-height: 1.2;">${i+1}. ${cleanName1}<br>&nbsp;&nbsp;&nbsp;➔ ${cleanName2}</td></tr>`;
-        blHTML += `<tr style="border-bottom:1px dashed #ccc; color:#d93829;"><td style="padding-bottom:6px;"></td><td style="padding-bottom:6px;">${nav.brng}°</td><td style="padding-bottom:6px;">${nav.dist}</td><td style="padding-bottom:6px;">${legTime}</td><td style="padding-bottom:6px;">${legFuel.toFixed(1)}</td></tr>`;
+        const c1 = isV1 ? '#111' : '#0b1f65';
+        const c2 = isV2 ? '#111' : '#0b1f65';
+
+        blHTML += `<tr style="border-bottom:1px dashed #ccc;">`;
+        blHTML += `<td style="padding:8px 0 8px 8px; color:#111; line-height: 1.4;"><span style="display:inline-block; min-width:20px; text-align:right;">${i+1}.</span> ${cleanName1}<br><span style="display:inline-block; min-width:20px; text-align:left;">➔</span> ${cleanName2}</td>`;
+        blHTML += `<td style="padding:8px 0 8px 4px; font-size:14px; line-height: 1.6;"><span style="color:${c1}">${f1}</span><br><span style="color:${c2}">${f2}</span></td>`;
+        blHTML += `<td style="padding:8px 0 8px 16px; color:#d93829; vertical-align:middle;">${nav.brng}°</td>`;
+        blHTML += `<td style="padding:8px 0; color:#d93829; vertical-align:middle;">${nav.dist}</td>`;
+        blHTML += `<td style="padding:8px 0; color:#d93829; vertical-align:middle;">${legTime}</td>`;
+        blHTML += `<td style="padding:8px 0; color:#d93829; vertical-align:middle;">${legFuel.toFixed(1)}</td>`;
+        blHTML += `</tr>`;
         
-        wpHTML += `<div class="wp-row"><span class="wp-name">${cleanName1.replace(/<[^>]+>/g, '')} ➔ ${cleanName2.replace(/<[^>]+>/g, '')}</span><span class="wp-data">${nav.brng}° | ${nav.dist} NM</span></div>`;
+        wpHTML += `<div class="wp-row"><span class="wp-name">${cleanName1.replace(/<[^>]+>/g, '').trim()} ➔ ${cleanName2.replace(/<[^>]+>/g, '').trim()}</span><span class="wp-data">${nav.brng}° | ${nav.dist} NM</span></div>`;
     }
     
-    blHTML += `<tr style="border-top:2px solid #888; color:#0b1f65; font-size:15px;"><td style="padding-top:8px;">TOTAL</td><td style="padding-top:8px;"></td><td style="padding-top:8px;">${totalNM}</td><td style="padding-top:8px;">${totalTime}</td><td style="padding-top:8px;">${totalFuel.toFixed(1)}</td></tr>`;
+    blHTML += `<tr style="border-top:2px solid #888; color:#0b1f65; font-size:15px;"><td style="padding-top:8px;">TOTAL</td><td style="padding-top:8px;"></td><td style="padding-top:8px;"></td><td style="padding-top:8px;">${totalNM}</td><td style="padding-top:8px;">${totalTime}</td><td style="padding-top:8px;">${totalFuel.toFixed(1)}</td></tr>`;
     blHTML += '</table>';
     
     const blDiv = document.getElementById('briefingNavLog');
@@ -1999,15 +2053,23 @@ function computeLegs() {
         
         n1 = n1.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
         n2 = n2.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
-        // VOR/NDB: Nur Kürzel + Frequenz
-        let ci1 = n1.match(/\[([^\]]+)\]/);
-        if (ci1) { let cf1 = n1.match(/\(([^)]+)\)/); n1 = cf1 ? `${ci1[1]} (${cf1[1]})` : ci1[1]; }
-        let ci2 = n2.match(/\[([^\]]+)\]/);
-        if (ci2) { let cf2 = n2.match(/\(([^)]+)\)/); n2 = cf2 ? `${ci2[1]} (${cf2[1]})` : ci2[1]; }
+
+        let f1 = "";
+        let m1 = n1.match(/\(([^)]+)\)/);
+        if (m1) { f1 = m1[1]; n1 = n1.replace(/\s*\([^)]+\)/, ''); }
+        else if (i === 0 && currentDepFreq) { f1 = currentDepFreq; }
+
+        let f2 = "";
+        let m2 = n2.match(/\(([^)]+)\)/);
+        if (m2) { f2 = m2[1]; n2 = n2.replace(/\s*\([^)]+\)/, ''); }
+        else if (i === routeWaypoints.length - 2 && currentDestFreq) { f2 = currentDestFreq; }
+
+        let c1 = n1.match(/\[([^\]]+)\]/); if (c1) n1 = `[${c1[1]}]`;
+        let c2 = n2.match(/\[([^\]]+)\]/); if (c2) n2 = `[${c2[1]}]`;
 
         const time = Math.round((nav.dist / tas) * 60);
         const fuel = (nav.dist / tas * gph).toFixed(1);
-        legs.push({ from: n1, to: n2, heading: nav.brng, dist: nav.dist, time: time, fuel: fuel });
+        legs.push({ from: n1.trim(), to: n2.trim(), f1: f1, f2: f2, heading: nav.brng, dist: nav.dist, time: time, fuel: fuel });
     }
     return legs;
 }
@@ -2043,7 +2105,6 @@ async function captureMapForPDF() {
     const bounds = L.latLngBounds(routeWaypoints);
 
     // Calculate zoom and center manually for tile rendering
-    // Find zoom level where route fits in WxH with padding
     let zoom = 1;
     for (let z = 14; z >= 1; z--) {
         const nw = bounds.getNorthWest(), se = bounds.getSouthEast();
@@ -2069,7 +2130,6 @@ async function captureMapForPDF() {
     const tilePromises = [];
     const subdomains = ['a', 'b', 'c'];
 
-    // Topo tiles at actual zoom
     const startTileX = Math.floor((centerPx.x - W / 2) / tileSize);
     const startTileY = Math.floor((centerPx.y - H / 2) / tileSize);
     const endTileX = Math.ceil((centerPx.x + W / 2) / tileSize);
@@ -2087,7 +2147,7 @@ async function captureMapForPDF() {
         }
     }
 
-    // VFR aero overlay: max native zoom 12, upscale for higher zooms
+    // VFR aero overlay
     const aeroZoom = Math.min(zoom, 12);
     const aeroScale = Math.pow(2, zoom - aeroZoom);
     const aeroCenterPx = latLngToPixel(center.lat, center.lng, aeroZoom);
@@ -2135,12 +2195,9 @@ async function captureMapForPDF() {
         ctx.fillStyle = fill; ctx.fill();
         ctx.strokeStyle = '#111'; ctx.lineWidth = 2; ctx.stroke();
 
-        // Label mit Frequenz für Flugplätze, VOR und NDB
         let label = isStart ? currentSName : isDest ? currentDName : (wp.name || `WP${i}`);
-        // Start/Ziel: Erste Frequenz anhängen
         if (isStart && currentDepFreq) { label += ` (${currentDepFreq.split(',')[0].trim()})`; }
         else if (isDest && currentDestFreq) { label += ` (${currentDestFreq.split(',')[0].trim()})`; }
-        // Wegpunkte: VOR/NDB → Kürzel + Freq, APT → ICAO + Freq
         if (!isStart && !isDest) {
             label = label.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
             const idM = label.match(/\[([^\]]+)\]/);
@@ -2170,7 +2227,6 @@ async function renderTileCanvas(centerLat, centerLng, zoom, W, H) {
     const subdomains = ['a', 'b', 'c'];
     const tilePromises = [];
 
-    // Topo tiles at actual zoom
     const startTileX = Math.floor((centerPx.x - W / 2) / tileSize);
     const startTileY = Math.floor((centerPx.y - H / 2) / tileSize);
     const endTileX = Math.ceil((centerPx.x + W / 2) / tileSize);
@@ -2188,7 +2244,6 @@ async function renderTileCanvas(centerLat, centerLng, zoom, W, H) {
         }
     }
 
-    // VFR aero overlay: max native zoom 12, upscale for higher zooms
     const aeroZoom = Math.min(zoom, 12);
     const scale = Math.pow(2, zoom - aeroZoom);
     const aeroCenterPx = latLngToPixel(centerLat, centerLng, aeroZoom);
@@ -2211,7 +2266,6 @@ async function renderTileCanvas(centerLat, centerLng, zoom, W, H) {
 
     await Promise.all(tilePromises);
 
-    // Airport marker
     const apx = latLngToPixel(centerLat, centerLng, zoom);
     const cx = apx.x - (centerPx.x - W / 2), cy = apx.y - (centerPx.y - H / 2);
     ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2);
@@ -2241,36 +2295,30 @@ function loadTileImage(url) {
 function drawNotebookBackground(doc, pageNum, totalPages) {
     const W = 210, H = 297;
 
-    // Cream paper
     doc.setFillColor(253, 245, 230);
     doc.rect(0, 0, W, H, 'F');
 
-    // Horizontal lines
     doc.setDrawColor(180, 200, 215);
     doc.setLineWidth(0.15);
     for (let y = 21; y < H - 10; y += 7) {
         doc.line(12, y, W - 12, y);
     }
 
-    // Red margin line
     doc.setDrawColor(210, 70, 70);
     doc.setLineWidth(0.35);
     doc.line(28, 0, 28, H);
 
-    // Hole punch marks
     doc.setDrawColor(180, 175, 160);
     doc.setLineWidth(0.3);
     [55, H / 2, H - 55].forEach(y => {
         doc.circle(9, y, 3.5);
     });
 
-    // Page number
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(120, 115, 100);
     doc.text(`Seite ${pageNum} / ${totalPages}`, W - 15, H - 12, { align: 'right' });
 
-    // Footer watermark
     doc.setFontSize(7);
     doc.setTextColor(170, 165, 150);
     doc.text('GA Dispatcher \u2013 Briefing Pack', W / 2, H - 6, { align: 'center' });
@@ -2284,125 +2332,91 @@ function pdfWrappedText(doc, text, x, y, maxWidth, lineHeight) {
     return y + (lines.length * lineHeight);
 }
 
-function drawMissionBriefingPage(doc, data) {
+function drawMissionBriefingPage(doc, data, mapImage) {
     let y = 30;
 
-    // Title (Helvetica for compact proportional font, emojis stripped)
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(18);
     doc.setTextColor(11, 31, 101);
     const cleanTitle = stripEmojis(data.title);
     const titleLines = doc.splitTextToSize(cleanTitle, 155);
-    titleLines.forEach((line, i) => {
-        doc.text(line, 32, y + (i * 8));
-    });
+    titleLines.forEach((line, i) => { doc.text(line, 32, y + (i * 8)); });
     y += titleLines.length * 8 + 3;
 
-    // Underline
-    doc.setDrawColor(11, 31, 101);
-    doc.setLineWidth(0.5);
-    doc.line(32, y, 190, y);
+    doc.setDrawColor(11, 31, 101); doc.setLineWidth(0.5); doc.line(32, y, 190, y);
     y += 10;
 
-    // Route subtitle
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(80, 80, 80);
-    const routeStr = data.isPOI
-        ? `${data.depICAO} > ${data.destName} (Rundflug)`
-        : `${data.depICAO} (${data.depName}) > ${data.destICAO} (${data.destName})`;
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(80, 80, 80);
+    const routeStr = data.isPOI ? `${data.depICAO} > ${data.destName} (Rundflug)` : `${data.depICAO} (${data.depName}) > ${data.destICAO} (${data.destName})`;
     const routeLines = doc.splitTextToSize(routeStr, 155);
-    routeLines.forEach((line, i) => {
-        doc.text(line, 32, y + (i * 6));
-    });
+    routeLines.forEach((line, i) => { doc.text(line, 32, y + (i * 6)); });
     y += routeLines.length * 6 + 6;
 
-    // Story text
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(40, 40, 40);
+    doc.setFont('Helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(40, 40, 40);
     y = pdfWrappedText(doc, stripEmojis(data.story), 32, y, 155, 5.5);
     y += 8;
 
-    // Dashed separator
-    doc.setDrawColor(100, 100, 100);
-    doc.setLineWidth(0.3);
-    doc.setLineDashPattern([2, 2], 0);
-    doc.line(32, y, 190, y);
-    doc.setLineDashPattern([], 0);
+    doc.setDrawColor(100, 100, 100); doc.setLineWidth(0.3); doc.setLineDashPattern([2, 2], 0); doc.line(32, y, 190, y); doc.setLineDashPattern([], 0);
     y += 10;
 
-    // Payload & Cargo
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(217, 56, 41);
-    doc.text('PAYLOAD:', 32, y);
-    doc.setTextColor(40, 40, 40);
-    doc.setFont('Helvetica', 'normal');
-    doc.text(data.payload, 62, y);
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(217, 56, 41); doc.text('PAYLOAD:', 32, y);
+    doc.setTextColor(40, 40, 40); doc.setFont('Helvetica', 'normal'); doc.text(data.payload, 62, y);
     y += 7;
 
-    doc.setFont('Helvetica', 'bold');
-    doc.setTextColor(217, 56, 41);
-    doc.text('FRACHT:', 32, y);
-    doc.setTextColor(40, 40, 40);
-    doc.setFont('Helvetica', 'normal');
-    doc.text(data.cargo, 62, y);
+    doc.setFont('Helvetica', 'bold'); doc.setTextColor(217, 56, 41); doc.text('FRACHT:', 32, y);
+    doc.setTextColor(40, 40, 40); doc.setFont('Helvetica', 'normal'); doc.text(data.cargo, 62, y);
     y += 14;
 
-    // Flight data box
-    doc.setDrawColor(180, 175, 160);
-    doc.setFillColor(248, 243, 228);
-    doc.setLineWidth(0.3);
+    doc.setDrawColor(180, 175, 160); doc.setFillColor(248, 243, 228); doc.setLineWidth(0.3);
     doc.roundedRect(32, y - 4, 158, 50, 2, 2, 'FD');
 
     y += 4;
     const col1 = 38, col2 = 110;
 
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(217, 56, 41);
-    doc.text('STRECKE:', col1, y);
-    doc.setTextColor(40, 40, 40);
-    doc.text(data.distance, col1 + 35, y);
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(217, 56, 41); doc.text('STRECKE:', col1, y);
+    doc.setTextColor(40, 40, 40); doc.text(data.distance, col1 + 35, y);
 
-    doc.setTextColor(217, 56, 41);
-    doc.text('KURS:', col2, y);
-    doc.setTextColor(40, 40, 40);
-    doc.text(data.heading, col2 + 25, y);
+    doc.setTextColor(217, 56, 41); doc.text('KURS:', col2, y);
+    doc.setTextColor(40, 40, 40); doc.text(data.heading, col2 + 25, y);
     y += 8;
 
-    doc.setTextColor(217, 56, 41);
-    doc.text('ETE CA:', col1, y);
-    doc.setTextColor(40, 40, 40);
-    doc.text(data.totalTimeStr, col1 + 35, y);
+    doc.setTextColor(217, 56, 41); doc.text('ETE CA:', col1, y);
+    doc.setTextColor(40, 40, 40); doc.text(data.totalTimeStr, col1 + 35, y);
 
-    doc.setTextColor(217, 56, 41);
-    doc.text('FUEL:', col2, y);
-    doc.setTextColor(40, 40, 40);
-    doc.text(`${data.totalFuel} Gal`, col2 + 25, y);
+    doc.setTextColor(217, 56, 41); doc.text('FUEL:', col2, y);
+    doc.setTextColor(40, 40, 40); doc.text(`${data.totalFuel} Gal`, col2 + 25, y);
     y += 8;
 
-    doc.setTextColor(217, 56, 41);
-    doc.text('AIRCRAFT:', col1, y);
-    doc.setTextColor(40, 40, 40);
-    doc.text(data.aircraft, col1 + 35, y);
+    doc.setTextColor(217, 56, 41); doc.text('AIRCRAFT:', col1, y);
+    doc.setTextColor(40, 40, 40); doc.text(data.aircraft, col1 + 35, y);
 
-    doc.setTextColor(217, 56, 41);
-    doc.text('TAS:', col2, y);
-    doc.setTextColor(40, 40, 40);
-    doc.text(`${data.tas} kts`, col2 + 25, y);
+    doc.setTextColor(217, 56, 41); doc.text('TAS:', col2, y);
+    doc.setTextColor(40, 40, 40); doc.text(`${data.tas} kts`, col2 + 25, y);
     y += 8;
 
-    doc.setTextColor(217, 56, 41);
-    doc.text('GPH:', col1, y);
-    doc.setTextColor(40, 40, 40);
-    doc.text(`${data.gph} gal/h`, col1 + 35, y);
+    doc.setTextColor(217, 56, 41); doc.text('GPH:', col1, y);
+    doc.setTextColor(40, 40, 40); doc.text(`${data.gph} gal/h`, col1 + 35, y);
 
-    doc.setTextColor(217, 56, 41);
-    doc.text('DATUM:', col2, y);
-    doc.setTextColor(40, 40, 40);
-    doc.text(`${data.date} ${data.time}`, col2 + 25, y);
+    doc.setTextColor(217, 56, 41); doc.text('DATUM:', col2, y);
+    doc.setTextColor(40, 40, 40); doc.text(`${data.date} ${data.time}`, col2 + 25, y);
+
+    y += 24; 
+    if (mapImage) {
+        doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101);
+        doc.text('ROUTE MAP', 32, y);
+        y += 4;
+
+        const maxW = 158; 
+        const maxH = Math.min(100, 280 - y);
+        const ratio = mapImage.width / mapImage.height;
+        let imgW, imgH;
+        if (ratio > maxW / maxH) { imgW = maxW; imgH = maxW / ratio; } else { imgH = maxH; imgW = maxH * ratio; }
+        const imgX = 32 + (maxW - imgW) / 2; 
+
+        doc.setFillColor(230, 225, 210); doc.rect(imgX - 2, y - 2, imgW + 4, imgH + 4, 'F');
+        doc.setDrawColor(160, 155, 140); doc.setLineWidth(0.5); doc.rect(imgX - 2, y - 2, imgW + 4, imgH + 4, 'S');
+        doc.addImage(mapImage.data, 'JPEG', imgX, y, imgW, imgH);
+    }
 }
 
 function drawRouteNavigationPage(doc, data, legs) {
@@ -2412,12 +2426,12 @@ function drawRouteNavigationPage(doc, data, legs) {
     doc.setDrawColor(11, 31, 101); doc.setLineWidth(0.5); doc.line(32, y, 190, y); y += 12;
 
     doc.setFont('Helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(80, 80, 80);
-    const wpNames = [currentSName];
+    const wpNames = [data.depICAO || currentStartICAO];
     for (let i = 1; i < routeWaypoints.length - 1; i++) wpNames.push(`WP${i}`);
-    if (routeWaypoints.length > 1) wpNames.push(currentDName);
+    if (routeWaypoints.length > 1) wpNames.push(data.destICAO || currentDestICAO);
     doc.text(wpNames.join(' -> '), 32, y); y += 10;
 
-    const tableX = 32, colWidths = [10, 68, 16, 18, 18, 18];
+    const tableX = 32, colWidths = [10, 42, 16, 16, 16, 16, 16];
     const tableW = colWidths.reduce((a, b) => a + b, 0), rowH = 12; 
 
     doc.setFillColor(220, 215, 200); doc.rect(tableX, y, tableW, 8, 'F');
@@ -2426,10 +2440,11 @@ function drawRouteNavigationPage(doc, data, legs) {
     doc.setFont('Helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(40, 40, 40);
     doc.text('LEG', tableX + 2, y + 5.5);
     doc.text('ROUTE', tableX + colWidths[0] + 2, y + 5.5);
-    doc.text('HDG', tableX + colWidths[0] + colWidths[1] + 2, y + 5.5);
-    doc.text('DIST', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 2, y + 5.5);
-    doc.text('TIME', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2, y + 5.5);
-    doc.text('FUEL', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 2, y + 5.5);
+    doc.text('FREQ', tableX + colWidths[0] + colWidths[1] + 2, y + 5.5);
+    doc.text('HDG', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 2, y + 5.5);
+    doc.text('DIST', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2, y + 5.5);
+    doc.text('TIME', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 2, y + 5.5);
+    doc.text('FUEL', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] + 2, y + 5.5);
     y += 8;
 
     doc.setFont('Helvetica', 'normal');
@@ -2445,25 +2460,33 @@ function drawRouteNavigationPage(doc, data, legs) {
         doc.setDrawColor(200, 195, 180); doc.rect(tableX, y, tableW, rowH, 'S');
 
         doc.setTextColor(40, 40, 40);
+        doc.setFontSize(9);
         doc.text(`${i + 1}`, tableX + 3, y + 7);
+        
         doc.text(`${leg.from}`, tableX + colWidths[0] + 2, y + 4.5);
         doc.text(`-> ${leg.to}`, tableX + colWidths[0] + 2, y + 9.5); 
         
-        doc.text(`${leg.heading}\u00B0`, tableX + colWidths[0] + colWidths[1] + 2, y + 7);
-        doc.text(`${leg.dist} NM`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + 2, y + 7);
-        doc.text(`${leg.time} m`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2, y + 7);
-        doc.text(`${leg.fuel} G`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 2, y + 7);
+        doc.setFontSize(8);
+        doc.setTextColor(11, 31, 101); 
+        if (leg.f1) doc.text(leg.f1, tableX + colWidths[0] + colWidths[1] + 2, y + 4.5);
+        if (leg.f2) doc.text(leg.f2, tableX + colWidths[0] + colWidths[1] + 2, y + 9.5);
+        
+        doc.setFontSize(9);
+        doc.setTextColor(40, 40, 40);
+        doc.text(`${leg.heading}\u00B0`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + 2, y + 7);
+        doc.text(`${leg.dist} NM`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2, y + 7);
+        doc.text(`${leg.time} m`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 2, y + 7);
+        doc.text(`${leg.fuel} G`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] + 2, y + 7);
         y += rowH;
     });
 
-    // NEU: Total Werte für Time & Fuel im PDF
     doc.setFillColor(210, 205, 190); doc.rect(tableX, y, tableW, 8, 'F');
     doc.setDrawColor(160, 155, 140); doc.rect(tableX, y, tableW, 8, 'S');
     doc.setFont('Helvetica', 'bold'); doc.setTextColor(11, 31, 101);
     doc.text('TOTAL', tableX + colWidths[0] + 2, y + 5.5);
-    doc.text(`${data.totalDist} NM`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + 2, y + 5.5);
-    doc.text(`${totalTime} m`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2, y + 5.5);
-    doc.text(`${totalFuel.toFixed(1)} G`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 2, y + 5.5);
+    doc.text(`${data.totalDist} NM`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2, y + 5.5);
+    doc.text(`${totalTime} m`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 2, y + 5.5);
+    doc.text(`${totalFuel.toFixed(1)} G`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] + 2, y + 5.5);
     y += 8 + 14;
 
     doc.setDrawColor(100, 100, 100); doc.setLineWidth(0.3); doc.setLineDashPattern([2, 2], 0); doc.line(32, y, 190, y); doc.setLineDashPattern([], 0); y += 10;
@@ -2477,200 +2500,125 @@ function drawRouteNavigationPage(doc, data, legs) {
     doc.setFont('Helvetica', 'bold'); doc.setTextColor(217, 56, 41); doc.text('ETE:', perfCol1, y); doc.setTextColor(40, 40, 40); doc.setFont('Helvetica', 'normal'); doc.text(data.totalTimeStr, perfCol1 + 38, y);
     doc.setFont('Helvetica', 'bold'); doc.setTextColor(217, 56, 41); doc.text('Fuel:', perfCol2, y); doc.setTextColor(40, 40, 40); doc.setFont('Helvetica', 'normal'); doc.text(`${data.totalFuel} Gal`, perfCol2 + 28, y); y += 16;
 }
+
 function drawAirportInfoPage(doc, type, data, photo, detailMap) {
     let y = 30;
     const isDep = (type === 'dep');
+    const isPOI = (!isDep && data.isPOI);
 
-    // Title
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.setTextColor(11, 31, 101);
-    doc.text(isDep ? 'DEPARTURE AIRPORT' : 'DESTINATION AIRPORT', 32, y);
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(11, 31, 101);
+    doc.text(isPOI ? 'ZIELPUNKT INFO' : (isDep ? 'DEPARTURE AIRPORT' : 'DESTINATION AIRPORT'), 32, y);
     y += 4;
-    doc.setDrawColor(11, 31, 101);
-    doc.setLineWidth(0.5);
-    doc.line(32, y, 190, y);
+    doc.setDrawColor(11, 31, 101); doc.setLineWidth(0.5); doc.line(32, y, 190, y);
     y += 14;
 
     const icao = isDep ? data.depICAO : data.destICAO;
     const name = isDep ? data.depName : data.destName;
     const coords = isDep ? data.depCoords : data.destCoords;
     const rwy = isDep ? data.depRwy : data.destRwy;
-    const rwyText = isDep ? data.depRwyText : data.destRwyText;
     const desc = isDep ? data.depDesc : data.destDesc;
+    const freq = isDep ? data.depFreq : data.destFreq;
 
-    // Photo (top right if available)
-    let textMaxW = 155;
+    const photoYStart = y - 2;
     if (photo) {
         try {
-            doc.addImage(photo, 'JPEG', 140, y - 5, 50, 38);
-            // Polaroid border
-            doc.setDrawColor(200, 195, 180);
-            doc.setLineWidth(0.5);
-            doc.rect(138, y - 7, 54, 46);
-            textMaxW = 100;
-        } catch(e) { textMaxW = 155; }
+            doc.addImage(photo, 'JPEG', 152, photoYStart, 38, 28);
+            doc.setDrawColor(200, 195, 180); doc.setLineWidth(0.4); doc.rect(151, photoYStart - 1, 40, 34);
+        } catch(e) {}
     }
 
-    // ICAO big
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(24);
-    doc.setTextColor(11, 31, 101);
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(11, 31, 101);
     doc.text(icao, 32, y);
-    y += 10;
+    y += 7; 
 
-    // Name
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(12);
-    doc.setTextColor(60, 60, 60);
+    doc.setFont('Helvetica', 'normal'); doc.setFontSize(14); doc.setTextColor(60, 60, 60);
     doc.text(name, 32, y);
+    y += 7;
+
+    doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100, 100, 100);
+    doc.text(`Coords: ${coords}`, 32, y); 
+
+    y = photo ? Math.max(y + 6, photoYStart + 36) : y + 6;
+
+    doc.setDrawColor(100, 100, 100); doc.setLineWidth(0.3); doc.setLineDashPattern([2, 2], 0); doc.line(32, y, 190, y); doc.setLineDashPattern([], 0);
     y += 8;
 
-    // Coordinates
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Koordinaten: ${coords}`, 32, y);
-    y += 14;
+    if (!isPOI) {
+    let blockY = y;
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(217, 56, 41);
+    doc.text('RUNWAYS', 32, blockY);
+    doc.text('FREQUENZEN', 115, blockY);
+    
+    let rwyY = blockY + 7;
+    let freqY = blockY + 7;
 
-    // Runway info & Freq
-    const freq = isDep ? data.depFreq : data.destFreq;
-    if (freq && !freq.includes('Sucht Frequenz')) {
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(11, 31, 101);
-        doc.text(freq.replace('📻 ', ''), 32, y);
-        y += 8;
+    doc.setFont('Helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(40, 40, 40);
+    if (rwy && rwy !== 'Sucht Pisten-Infos...' && rwy !== 'Keine Daten gefunden') {
+        const runways = rwy.split(/\s*(?:\||\n|<br\s*\/?>)\s*/i).filter(r => r.trim());
+        runways.forEach(r => { doc.text(stripEmojis(r.trim()), 34, rwyY); rwyY += 6; });
+    } else {
+        doc.setTextColor(120, 120, 120); doc.text('Keine Pistendaten verfuegbar.', 34, rwyY); rwyY += 6;
     }
 
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(217, 56, 41);
-    doc.text('RUNWAY INFO', 32, y);
-    y += 8;
-
-    // Separator
-    doc.setDrawColor(100, 100, 100);
-    doc.setLineDashPattern([2, 2], 0);
-    doc.line(32, y, 190, y);
-    doc.setLineDashPattern([], 0);
-    y += 10;
-
-    // Description
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(12);
     doc.setTextColor(11, 31, 101);
-    doc.text('AIRPORT INFO', 32, y);
-    y += 8;
+    if (freq && !freq.includes('Sucht Frequenz') && freq.trim() !== '') {
+        const freqClean = stripEmojis(freq);
+        const freqLines = freqClean.split('\n').filter(l => l.trim());
+        freqLines.forEach(line => { doc.text(line.trim(), 117, freqY); freqY += 6; });
+    } else {
+        doc.setTextColor(120, 120, 120); doc.text('Keine Frequenzdaten verfuegbar.', 117, freqY); freqY += 6;
+    }
 
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(50, 50, 50);
+    y = Math.max(rwyY, freqY) + 4;
+
+    doc.setDrawColor(100, 100, 100); doc.setLineDashPattern([2, 2], 0); doc.line(32, y, 190, y); doc.setLineDashPattern([], 0);
+    y += 8;
+    }
+
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(11, 31, 101);
+    doc.text(isPOI ? 'INFO' : 'AIRPORT INFO', 32, y);
+    y += 7;
+
+    doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(50, 50, 50);
 
     if (desc && desc !== 'Warte auf Daten...') {
-        const maxChars = 800;
+        const maxChars = 600;
         const trimmedDesc = desc.length > maxChars ? desc.substring(0, maxChars) + '...' : desc;
         y = pdfWrappedText(doc, trimmedDesc, 32, y, 155, 5.5);
     } else {
-        doc.text('Keine weiteren Informationen verfügbar.', 32, y);
+        doc.text('Keine weiteren Informationen verfuegbar.', 32, y);
         y += 6;
     }
 
-    // Detail map (airport chart with traffic pattern zoom)
     if (detailMap) {
-        y = Math.max(y + 8, 185);
-        doc.setDrawColor(100, 100, 100);
-        doc.setLineDashPattern([2, 2], 0);
-        doc.line(32, y, 190, y);
-        doc.setLineDashPattern([], 0);
-        y += 8;
-
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(11, 31, 101);
-        doc.text(`PLATZKARTE ${icao}`, 32, y);
+        y = Math.max(y + 6, 170);
+        doc.setDrawColor(100, 100, 100); doc.setLineDashPattern([2, 2], 0); doc.line(32, y, 190, y); doc.setLineDashPattern([], 0);
         y += 6;
 
-        const mapW = 155, mapH = 80;
-        const mapX = 32;
+        doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101);
+        doc.text(isPOI ? 'KARTE' : `PLATZKARTE ${icao}`, 32, y);
+        y += 5;
 
-        doc.setFillColor(230, 225, 210);
-        doc.rect(mapX - 1, y - 1, mapW + 2, mapH + 2, 'F');
-        doc.setDrawColor(160, 155, 140);
-        doc.setLineWidth(0.4);
-        doc.rect(mapX - 1, y - 1, mapW + 2, mapH + 2, 'S');
+        // Berechne Aspect Ratio basierend auf 700x360
+        const mapRatio = 700 / 360;
+        const maxW = 155;
+        const maxH = Math.min(100, 280 - y);
+        let mapW, mapH;
 
+        if (maxW / maxH < mapRatio) {
+            mapW = maxW;
+            mapH = mapW / mapRatio;
+        } else {
+            mapH = maxH;
+            mapW = mapH * mapRatio;
+        }
+        
+        const mapX = 32 + (maxW - mapW) / 2;
+
+        doc.setFillColor(230, 225, 210); doc.rect(mapX - 1, y - 1, mapW + 2, mapH + 2, 'F');
+        doc.setDrawColor(160, 155, 140); doc.setLineWidth(0.4); doc.rect(mapX - 1, y - 1, mapW + 2, mapH + 2, 'S');
         doc.addImage(detailMap, 'JPEG', mapX, y, mapW, mapH);
     }
-}
-
-function drawMapPage(doc, mapImage, data) {
-    let y = 30;
-
-    // Title
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.setTextColor(11, 31, 101);
-    doc.text('ROUTE MAP', 32, y);
-    y += 4;
-    doc.setDrawColor(11, 31, 101);
-    doc.setLineWidth(0.5);
-    doc.line(32, y, 190, y);
-    y += 10;
-
-    if (mapImage) {
-        // Calculate aspect-ratio-correct dimensions
-        const maxW = 165, maxH = 200;
-        const ratio = mapImage.width / mapImage.height;
-        let imgW, imgH;
-        if (ratio > maxW / maxH) {
-            imgW = maxW;
-            imgH = maxW / ratio;
-        } else {
-            imgH = maxH;
-            imgW = maxH * ratio;
-        }
-        const imgX = (210 - imgW) / 2;
-
-        doc.setFillColor(230, 225, 210);
-        doc.rect(imgX - 2, y - 2, imgW + 4, imgH + 4, 'F');
-        doc.setDrawColor(160, 155, 140);
-        doc.setLineWidth(0.5);
-        doc.rect(imgX - 2, y - 2, imgW + 4, imgH + 4, 'S');
-
-        doc.addImage(mapImage.data, 'JPEG', imgX, y, imgW, imgH);
-        y += imgH + 10;
-    } else {
-        // Fallback: text-only waypoint list
-        doc.setFont('Helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text('Karte konnte nicht erfasst werden.', 32, y);
-        y += 10;
-
-        doc.setTextColor(40, 40, 40);
-        routeWaypoints.forEach((wp, i) => {
-            const lat = wp.lat.toFixed(4), lng = (wp.lng || wp.lon).toFixed(4);
-            const label = (i === 0) ? currentSName : (i === routeWaypoints.length - 1) ? currentDName : `WP ${i}`;
-            doc.text(`${label}: ${lat}, ${lng}`, 38, y);
-            y += 6;
-        });
-        y += 10;
-    }
-
-    // Route summary under map
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(11, 31, 101);
-    const mapRouteStr = data.isPOI
-        ? `${data.depICAO} > ${data.destName} (Rundflug)`
-        : `${data.depICAO} > ${data.destICAO}`;
-    doc.text(mapRouteStr, 32, y);
-    y += 7;
-
-    doc.setFont('Helvetica', 'normal');
-    doc.setTextColor(60, 60, 60);
-    doc.text(`Total: ${data.totalDist} NM | HDG: ${data.heading} | ETE: ${data.totalTimeStr} | Fuel: ${data.totalFuel} Gal`, 32, y);
 }
 
 async function generateBriefingPDF() {
@@ -2693,19 +2641,15 @@ async function generateBriefingPDF() {
         const data = gatherBriefingData();
         const legs = computeLegs();
         const isPOI = data.isPOI;
-        const totalPages = isPOI ? 4 : 5;
+        const totalPages = isPOI ? 3 : 4;
 
-        // Start all async work in parallel: route map, detail maps, photos
         const mapImagePromise = captureMapForPDF();
-
-        // Airport coordinates from waypoints
         const depLL = routeWaypoints[0];
         const destLL = routeWaypoints[routeWaypoints.length - 1];
-        const detailZoom = 12; // Zoom level to see traffic patterns and airspace
+        const detailZoom = 12; 
         const depDetailPromise = renderTileCanvas(depLL.lat, depLL.lng || depLL.lon, detailZoom, 700, 360);
-        const destDetailPromise = isPOI ? Promise.resolve(null) : renderTileCanvas(destLL.lat, destLL.lng || destLL.lon, detailZoom, 700, 360);
+        const destDetailPromise = renderTileCanvas(destLL.lat, destLL.lng || destLL.lon, detailZoom, 700, 360);
 
-        // Fetch airport photos
         const depPhotoUrl = extractImageUrl(document.getElementById('wikiDepImage'));
         const destPhotoUrl = extractImageUrl(document.getElementById('wikiDestImage'));
         const [depPhoto, destPhoto, depDetail, destDetail] = await Promise.all([
@@ -2715,34 +2659,25 @@ async function generateBriefingPDF() {
             destDetailPromise
         ]);
 
-        // Page 1: Mission Briefing
-        drawNotebookBackground(doc, 1, totalPages);
-        drawMissionBriefingPage(doc, data);
+        const mapImage = await mapImagePromise;
 
-        // Page 2: Route & Navigation
+        doc.setProperties({ title: `Briefing Pack - ${data.depICAO} to ${isPOI ? 'POI' : data.destICAO}` });
+
+        drawNotebookBackground(doc, 1, totalPages);
+        drawMissionBriefingPage(doc, data, mapImage);
+
         doc.addPage();
         drawNotebookBackground(doc, 2, totalPages);
         drawRouteNavigationPage(doc, data, legs);
 
-        // Page 3: Departure Airport
         doc.addPage();
         drawNotebookBackground(doc, 3, totalPages);
         drawAirportInfoPage(doc, 'dep', data, depPhoto, depDetail);
 
-        // Page 4: Destination Airport (skip for POI)
-        if (!isPOI) {
-            doc.addPage();
-            drawNotebookBackground(doc, 4, totalPages);
-            drawAirportInfoPage(doc, 'dest', data, destPhoto, destDetail);
-        }
-
-        // Last page: Route Map
-        const mapImage = await mapImagePromise;
         doc.addPage();
-        drawNotebookBackground(doc, totalPages, totalPages);
-        drawMapPage(doc, mapImage, data);
+        drawNotebookBackground(doc, 4, totalPages);
+        drawAirportInfoPage(doc, 'dest', data, destPhoto, destDetail);
 
-        // Save
         const filename = `Briefing_${data.depICAO}_${isPOI ? 'Rundflug' : data.destICAO}_${data.date.replace(/\./g, '')}.pdf`;
         doc.save(filename);
 
@@ -3004,13 +2939,12 @@ function renderFPL(left, right) {
             let n1 = i === 0 ? (currentStartICAO || 'DEP')  : (wps[i].name || `WP${i}`);
             let n2 = i === wps.length - 2 ? (currentDestICAO  || 'DEST') : (wps[i+1].name || `WP${i+1}`);
             
-            // Wegschneiden für GPS: Nur Kürzel, keine Frequenzen
             n1 = n1.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
             n2 = n2.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
-            // VOR/NDB: Nur Identifier aus [IDENT] extrahieren
-            let m1 = n1.match(/\[([^\]]+)\]/); if (m1) n1 = m1[1];
-            let m2 = n2.match(/\[([^\]]+)\]/); if (m2) n2 = m2[1];
-            // Frequenzen entfernen
+            
+            let m1 = n1.match(/\[([^\]]+)\]/); if (m1) n1 = `[${m1[1]}]`;
+            let m2 = n2.match(/\[([^\]]+)\]/); if (m2) n2 = `[${m2[1]}]`;
+            
             n1 = n1.replace(/\s*\([^)]+\)/, '');
             n2 = n2.replace(/\s*\([^)]+\)/, '');
 
@@ -3081,7 +3015,7 @@ async function renderAirportInfo(left, right, type) {
                         parts.push(`${e.tags.ref} – ${surf}${len}`);
                     }
                     if (parts.length > 0) {
-                        runwayCache[icao] = parts.join(' | ');
+                        runwayCache[icao] = parts.join('\n');
                         if (gpsState.mode === mode) renderGPS();
                     }
                 } else {
@@ -3096,8 +3030,11 @@ async function renderAirportInfo(left, right, type) {
     }
 
     const RWYS_PER_PAGE = 4;
-    const allRunways  = runwayCache[icao] ? runwayCache[icao].split(' | ').filter(r=>r.trim()) : [];
+    const FREQS_PER_PAGE = 4;
+    const allRunways  = runwayCache[icao] ? runwayCache[icao].split(/\s*(?:\||\n|<br\s*\/?>)\s*/i).filter(r=>r.trim()) : [];
+    const allFreqs    = freqCache[icao] || [];
     const rwyPages    = Math.max(1, Math.ceil(allRunways.length / RWYS_PER_PAGE));
+    const freqPages   = allFreqs.length > 0 ? Math.ceil(allFreqs.length / FREQS_PER_PAGE) : 0;
     const sp          = gpsState.subPage;
 
     if (sp < rwyPages) {
@@ -3110,7 +3047,25 @@ async function renderAirportInfo(left, right, type) {
                 : '<div class="kln90b-line dim">NO RWY DATA</div>');
 
         const wikiN = gpsState.wikiCache[icao]?.length || 1;
-        const total = rwyPages + wikiN;
+        const total = rwyPages + freqPages + wikiN;
+        if (gpsState.maxPages[mode] !== total) {
+            gpsState.maxPages[mode] = total;
+            const lbl = document.getElementById('gpsPageLbl');
+            if (lbl) lbl.textContent = `PG ${sp+1}/${total}`;
+        }
+        return;
+    }
+
+    const freqIdx = sp - rwyPages;
+    if (freqPages > 0 && freqIdx >= 0 && freqIdx < freqPages) {
+        const fSlice = allFreqs.slice(freqIdx * FREQS_PER_PAGE, (freqIdx + 1) * FREQS_PER_PAGE);
+        const fLabel = freqPages > 1 ? `FREQ (${freqIdx+1}/${freqPages}):` : 'FREQ:';
+        right.innerHTML =
+            `<div class="kln90b-line dim" style="font-size:9px; margin-bottom:1px;">${fLabel}</div>` +
+            fSlice.map(f => `<div class="kln90b-line" style="font-size:9px; white-space:normal; line-height:1.4;">▸ ${f.label}: ${f.value}</div>`).join('');
+
+        const wikiN = gpsState.wikiCache[icao]?.length || 1;
+        const total = rwyPages + freqPages + wikiN;
         if (gpsState.maxPages[mode] !== total) {
             gpsState.maxPages[mode] = total;
             const lbl = document.getElementById('gpsPageLbl');
@@ -3123,7 +3078,7 @@ async function renderAirportInfo(left, right, type) {
         await fetchAndCacheWikiPages(icao, data.lat, data.lon);
     }
     const wikiArr = gpsState.wikiCache[icao] || ['Keine Daten.'];
-    const total   = rwyPages + wikiArr.length;
+    const total   = rwyPages + freqPages + wikiArr.length;
     if (gpsState.maxPages[mode] !== total) {
         gpsState.maxPages[mode] = total;
         const lbl = document.getElementById('gpsPageLbl');
@@ -3131,10 +3086,10 @@ async function renderAirportInfo(left, right, type) {
     }
     if (gpsState.subPage >= total) gpsState.subPage = total - 1;
 
-    const wikiIdx = sp - rwyPages;
-    if (wikiIdx >= 0 && wikiIdx < wikiArr.length) {
+    const wikiPageIdx = sp - rwyPages - freqPages;
+    if (wikiPageIdx >= 0 && wikiPageIdx < wikiArr.length) {
         right.innerHTML =
-            `<div class="kln90b-line" style="font-size:9px; line-height:1.5; white-space:normal;">${wikiArr[wikiIdx]}</div>`;
+            `<div class="kln90b-line" style="font-size:9px; line-height:1.5; white-space:normal;">${wikiArr[wikiPageIdx]}</div>`;
     } else {
         right.innerHTML = '<div class="kln90b-line dim">NO WIKI DATA</div>';
     }
@@ -3257,7 +3212,7 @@ document.addEventListener('DOMContentLoaded', () => {
 /* =========================================================
    19. OPENAIP SNAPPING (NAVAIDS & REP-POINTS)
    ========================================================= */
-let snapMode = true; // JETZT STANDARDMÄßIG AN!
+let snapMode = true; 
 let cachedNavData = [];
 
 function toggleSnapMode() {
@@ -3301,10 +3256,15 @@ async function fetchOpenAIPData() {
         let repArray = repJson.items || [];
         let aptArray = aptJson.items || [];
 
-        // VORs & NDBs: Zieht jetzt auch "identifier" aus der Datenbank
         navArray.forEach(i => {
             if (!i.geometry) return;
-            let freq = (i.frequencies && i.frequencies.length > 0 && i.frequencies[0].value) ? ` (${i.frequencies[0].value})` : '';
+            let freqVal = '';
+            if (i.frequency !== undefined && i.frequency !== null) {
+                freqVal = (typeof i.frequency === 'object' && i.frequency.value) ? i.frequency.value : i.frequency;
+            } else if (i.frequencies && i.frequencies.length > 0) {
+                freqVal = i.frequencies[0].value || i.frequencies[0];
+            }
+            let freq = freqVal ? ` (${freqVal})` : '';
             let idVal = i.identifier || i.designator || '';
             let ident = idVal ? ` [${idVal}]` : '';
             cachedNavData.push({ name: `${i.name}${ident}${freq}`, lat: i.geometry.coordinates[1], lng: i.geometry.coordinates[0] });
@@ -3315,7 +3275,6 @@ async function fetchOpenAIPData() {
             cachedNavData.push({ name: `RPP ${i.name}`, lat: i.geometry.coordinates[1], lng: i.geometry.coordinates[0] });
         });
         
-        // Airports: Nimmt NUR noch den ICAO Code, falls vorhanden (sonst Name)
         aptArray.forEach(i => {
             if (!i.geometry) return;
             let freq = (i.frequencies && i.frequencies.length > 0 && i.frequencies[0].value) ? ` (${i.frequencies[0].value})` : '';
