@@ -1039,21 +1039,38 @@ async function fetchAirportFreq(icao, elementId, type) {
     const el = document.getElementById(elementId);
     if (el) el.innerText = '📻 Sucht Frequenz...';
     const proxy = 'https://ga-proxy.einherjer.workers.dev';
+
+    // Mapping von OpenAIP Frequenz-Namen auf deutsche Bezeichnungen
+    const freqLabelMap = {
+        'TWR': 'Turm', 'TOWER': 'Turm',
+        'GND': 'Rollkontrolle', 'GROUND': 'Rollkontrolle',
+        'ATIS': 'Information', 'INFO': 'Information',
+        'RADIO': 'Radio', 'CTAF': 'Radio', 'UNICOM': 'Radio', 'MULTICOM': 'Radio',
+        'APP': 'Anflug', 'APPROACH': 'Anflug',
+        'DEP': 'Abflug', 'DEPARTURE': 'Abflug',
+        'FIS': 'FIS', 'APRON': 'Vorfeld', 'AWOS': 'AWOS'
+    };
+
     try {
         const res = await fetch(`${proxy}/api/airports?search=${icao}&limit=1&t=${Date.now()}`);
         const data = await res.json();
         if (data && data.items && data.items.length > 0) {
             const apt = data.items[0];
             if (apt.frequencies && apt.frequencies.length > 0) {
-                // Holt nur den reinen Wert (z.B. 118.105) und lässt den Typ weg
-                const freqs = apt.frequencies.map(f => f.value).join(', ');
-                if (el) el.innerText = `📻 FREQ: ${freqs}`;
-                
-                // Speichert die Frequenzen fest ab und aktualisiert die Tabelle
-                if (type === 'dep') currentDepFreq = freqs;
-                if (type === 'dest') currentDestFreq = freqs;
-                updateRoutePerformance(); 
-                return freqs;
+                // Reine Werte für Route-Tabelle und PDF-Karte
+                const freqValues = apt.frequencies.map(f => f.value).join(', ');
+                if (type === 'dep') currentDepFreq = freqValues;
+                if (type === 'dest') currentDestFreq = freqValues;
+                updateRoutePerformance();
+
+                // Detaillierte Anzeige mit Bezeichnungen für Start/Ziel-Info
+                const lines = apt.frequencies.map(f => {
+                    const fName = (f.name || '').toUpperCase().trim();
+                    const label = freqLabelMap[fName] || f.name || 'Freq';
+                    return `📻 ${label}: ${f.value}`;
+                });
+                if (el) el.innerHTML = lines.join('<br>');
+                return freqValues;
             }
         }
         if (el) el.innerText = '';
@@ -1486,8 +1503,14 @@ function updateRoutePerformance() {
         
         let cleanName1 = name1.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
         let cleanName2 = name2.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
-        
-        // Frequenzen absolut sicher und dunkelblau in die Namen einbetten
+
+        // VOR/NDB: Nur Kürzel + Frequenz statt voller Name
+        let vi1 = cleanName1.match(/\[([^\]]+)\]/);
+        if (vi1) { let vf1 = cleanName1.match(/\(([^)]+)\)/); cleanName1 = vf1 ? `${vi1[1]} (${vf1[1]})` : vi1[1]; }
+        let vi2 = cleanName2.match(/\[([^\]]+)\]/);
+        if (vi2) { let vf2 = cleanName2.match(/\(([^)]+)\)/); cleanName2 = vf2 ? `${vi2[1]} (${vf2[1]})` : vi2[1]; }
+
+        // Frequenzen für Start/Ziel dunkelblau einbetten
         if (isStart && currentDepFreq) cleanName1 += ` <span style="color:#0b1f65;">(${currentDepFreq})</span>`;
         if (isEnd && currentDestFreq) cleanName2 += ` <span style="color:#0b1f65;">(${currentDestFreq})</span>`;
         
@@ -1745,10 +1768,10 @@ const tutorialNotes = [
 
 function toggleTutorialNotes() {
     let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
-    const hasTutorial = notes.some(n => n.id >= 101 && n.id <= 106);
-    
+    const hasTutorial = notes.some(n => n.id >= 101 && n.id <= 108);
+
     if (hasTutorial) {
-        notes = notes.filter(n => n.id < 101 || n.id > 106);
+        notes = notes.filter(n => n.id < 101 || n.id > 108);
     } else {
         tutorialNotes.forEach(tn => {
             if (!notes.find(n => n.id === tn.id)) notes.push(tn);
@@ -1976,6 +1999,11 @@ function computeLegs() {
         
         n1 = n1.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
         n2 = n2.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
+        // VOR/NDB: Nur Kürzel + Frequenz
+        let ci1 = n1.match(/\[([^\]]+)\]/);
+        if (ci1) { let cf1 = n1.match(/\(([^)]+)\)/); n1 = cf1 ? `${ci1[1]} (${cf1[1]})` : ci1[1]; }
+        let ci2 = n2.match(/\[([^\]]+)\]/);
+        if (ci2) { let cf2 = n2.match(/\(([^)]+)\)/); n2 = cf2 ? `${ci2[1]} (${cf2[1]})` : ci2[1]; }
 
         const time = Math.round((nav.dist / tas) * 60);
         const fuel = (nav.dist / tas * gph).toFixed(1);
@@ -2107,8 +2135,17 @@ async function captureMapForPDF() {
         ctx.fillStyle = fill; ctx.fill();
         ctx.strokeStyle = '#111'; ctx.lineWidth = 2; ctx.stroke();
 
-        // NEU: Nimmt wp.name, wenn vorhanden
-        const label = isStart ? currentSName : isDest ? currentDName : (wp.name || `WP${i}`);
+        // Label mit Frequenz für Flugplätze, VOR und NDB
+        let label = isStart ? currentSName : isDest ? currentDName : (wp.name || `WP${i}`);
+        // Start/Ziel: Erste Frequenz anhängen
+        if (isStart && currentDepFreq) { label += ` (${currentDepFreq.split(',')[0].trim()})`; }
+        else if (isDest && currentDestFreq) { label += ` (${currentDestFreq.split(',')[0].trim()})`; }
+        // Wegpunkte: VOR/NDB → Kürzel + Freq, APT → ICAO + Freq
+        if (!isStart && !isDest) {
+            label = label.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
+            const idM = label.match(/\[([^\]]+)\]/);
+            if (idM) { const frM = label.match(/\(([^)]+)\)/); label = frM ? `${idM[1]} (${frM[1]})` : idM[1]; }
+        }
         ctx.font = 'bold 11px Helvetica, Arial, sans-serif';
         ctx.fillStyle = '#111';
         ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
@@ -2967,9 +3004,15 @@ function renderFPL(left, right) {
             let n1 = i === 0 ? (currentStartICAO || 'DEP')  : (wps[i].name || `WP${i}`);
             let n2 = i === wps.length - 2 ? (currentDestICAO  || 'DEST') : (wps[i+1].name || `WP${i+1}`);
             
-            // Wegschneiden für GPS
+            // Wegschneiden für GPS: Nur Kürzel, keine Frequenzen
             n1 = n1.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
             n2 = n2.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
+            // VOR/NDB: Nur Identifier aus [IDENT] extrahieren
+            let m1 = n1.match(/\[([^\]]+)\]/); if (m1) n1 = m1[1];
+            let m2 = n2.match(/\[([^\]]+)\]/); if (m2) n2 = m2[1];
+            // Frequenzen entfernen
+            n1 = n1.replace(/\s*\([^)]+\)/, '');
+            n2 = n2.replace(/\s*\([^)]+\)/, '');
 
             const n1Short = n1.length > 8 ? n1.substring(0, 7) + '.' : n1;
             const n2Short = n2.length > 8 ? n2.substring(0, 7) + '.' : n2;
