@@ -26,7 +26,7 @@
     <div class="screw bottom-left"></div>
     <div class="screw bottom-right"></div>
 
-    <h1 id="mainTitle">GA Dispatcher</h1>
+    <h1 id="mainTitle">GA Dispatcher <a href="readme.html" target="_blank" class="help-icon" title="Hilfe & Readme" style="font-weight:bold;">?</a></h1>
     <div id="searchIndicator">System bereit.</div>
     
     <div id="classicInputs">
@@ -262,11 +262,9 @@
             </div>
         </div>
 
-        <!-- KLN 90B GPS Module -->
         <div class="radio-module kln90b-module" id="kln90bModule" style="display:none;">
             <div class="radio-label">KLN 90B TSO</div>
             <div class="kln90b-body">
-                <!-- Split-Display: links | divider | rechts -->
                 <div class="kln90b-display" id="gpsDisplay">
                     <div class="kln90b-left" id="gpsLeft">
                         <div class="kln90b-line dim">---</div>
@@ -280,7 +278,6 @@
                         <span id="gpsPageLbl">PG 1/1</span>
                     </div>
                 </div>
-                <!-- Mode-Taster -->
                 <div class="kln90b-buttons">
                     <button class="kln90b-btn active" data-mode="FPL">FPL</button>
                     <button class="kln90b-btn" data-mode="DEP">DEP</button>
@@ -288,7 +285,6 @@
                     <button class="kln90b-btn" data-mode="AIP">AIP</button>
                     <button class="kln90b-btn" data-mode="WX">WX</button>
                 </div>
-                <!-- Encoder-Reihe: links = zurück, rechts = vor -->
                 <div class="kln90b-encoder-row">
                     <div class="kln90b-encoder" id="gpsEncoderL" title="Vorherige Seite ◂">
                         <div class="kln90b-enc-inner"></div>
@@ -323,10 +319,10 @@
 
 <div class="briefing" id="briefingBox">
 
-    <div class="notes-stack" id="notesStack">
-            <div class="paperclip" onclick="toggleNotes(event)"></div>
+    <div class="notes-stack" id="notesStack" onclick="toggleNotes(event)">
+            <div class="paperclip"></div>
             
-            <div class="mission-note-page front-note" id="notePage1" onclick="toggleNotes(event)">
+            <div class="mission-note-page front-note" id="notePage1">
                 <div class="briefing-save-pin" onclick="pinCurrentFlight(); event.stopPropagation();" title="Flug ans Hangar-Board heften">📌</div>
                 <div class="briefing-export-pin" onclick="exportMission(); event.stopPropagation();" title="Flug als Code kopieren">🔗</div>
                 <div class="briefing-pdf-pin" onclick="generateBriefingPDF(); event.stopPropagation();" title="Briefing Pack als PDF drucken">📄</div>
@@ -356,7 +352,7 @@
                 </div>
             </div>
 
-            <div class="mission-note-page back-note" id="notePage2" onclick="toggleNotes(event)">
+            <div class="mission-note-page back-note" id="notePage2">
                 <div class="briefing-save-pin" onclick="pinCurrentFlight(); event.stopPropagation();" title="Flug ans Hangar-Board heften">📌</div>
                 <div class="briefing-export-pin" onclick="exportMission(); event.stopPropagation();" title="Flug als Code kopieren">🔗</div>
                 <div class="briefing-pdf-pin" onclick="generateBriefingPDF(); event.stopPropagation();" title="Briefing Pack als PDF drucken">📄</div>
@@ -366,7 +362,7 @@
                 </div>
             </div>
 
-            <div class="mission-note-page third-note" id="notePage3" onclick="toggleNotes(event)">
+            <div class="mission-note-page third-note" id="notePage3">
                 <div class="briefing-save-pin" onclick="pinCurrentFlight(); event.stopPropagation();" title="Flug ans Hangar-Board heften">📌</div>
                 <div class="briefing-export-pin" onclick="exportMission(); event.stopPropagation();" title="Flug als Code kopieren">🔗</div>
                 <div class="briefing-pdf-pin" onclick="generateBriefingPDF(); event.stopPropagation();" title="Briefing Pack als PDF drucken">📄</div>
@@ -390,9 +386,10 @@
                     📖 <span id="wikiDepDescText">Warte auf Daten...</span>
                 </div>
                 <img id="uiDepDetailMap" src="" style="width:100%; border-radius:4px; margin-top:15px; display:none; border: 2px solid #ccc; box-shadow: 2px 3px 6px rgba(0,0,0,0.3);">
+                <iframe id="metarFrameDep" src="" style="width:100%; height:435px; border:none; margin-top:15px; border-radius:4px; box-shadow: 2px 3px 6px rgba(0,0,0,0.3); display:none; pointer-events: auto;"></iframe>
             </div>
 
-            <div class="mission-note-page fourth-note" id="notePage4" onclick="toggleNotes(event)">
+            <div class="mission-note-page fourth-note" id="notePage4">
                 <div class="briefing-save-pin" onclick="pinCurrentFlight(); event.stopPropagation();" title="Flug ans Hangar-Board heften">📌</div>
                 <div class="briefing-export-pin" onclick="exportMission(); event.stopPropagation();" title="Flug als Code kopieren">🔗</div>
                 <div class="briefing-pdf-pin" onclick="generateBriefingPDF(); event.stopPropagation();" title="Briefing Pack als PDF drucken">📄</div>
@@ -416,6 +413,7 @@
                     📖 <span id="wikiDestDescText">Warte auf Daten...</span>
                 </div>
                 <img id="uiDestDetailMap" src="" style="width:100%; border-radius:4px; margin-top:15px; display:none; border: 2px solid #ccc; box-shadow: 2px 3px 6px rgba(0,0,0,0.3);">
+                <iframe id="metarFrameDest" src="" style="width:100%; height:435px; border:none; margin-top:15px; border-radius:4px; box-shadow: 2px 3px 6px rgba(0,0,0,0.3); display:none; pointer-events: auto;"></iframe>
             </div>
         </div>
 
@@ -506,9 +504,9 @@
 
     <div class="theme-switch-wrapper" style="flex-direction: column; align-items: center; border-top: 2px dashed #444; margin-top: 30px; padding-top: 15px;">
         <div style="display: flex; justify-content: space-between; width: 150px; font-size: 10px; font-weight: bold; text-transform: uppercase;">
-            <span id="lbl-classic" style="color: #888; cursor: pointer;" onclick="changeThemeFromSlider(0)">Modern</span>
-            <span id="lbl-retro" style="color: #888; cursor: pointer;" onclick="changeThemeFromSlider(1)">Analog</span>
-            <span id="lbl-navcom" style="color: #888; cursor: pointer;" onclick="changeThemeFromSlider(2)">NavCom</span>
+            <span id="lbl-classic" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(0)">Modern</span>
+            <span id="lbl-retro" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(1)">Analog</span>
+            <span id="lbl-navcom" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(2)">NavCom</span>
         </div>
         <input type="range" id="themeSlider" min="0" max="2" value="1" style="width: 150px; margin-top: 10px; cursor: pointer;" oninput="changeThemeFromSlider(this.value)">
     </div>
