@@ -512,26 +512,9 @@ async function restoreMissionState(state) {
         });
     }
 
-    // --- NEU: Restore METAR Iframes ---
-    const metarDep = document.getElementById('metarFrameDep');
-    if (metarDep && currentStartICAO) {
-        metarDep.src = `https://metar-taf.com/de/embed-info/${currentStartICAO}?qnh=hPa&rh=rh`;
-        metarDep.style.display = 'block';
-    } else if (metarDep) { 
-        metarDep.src = '';
-        metarDep.style.display = 'none'; 
-    }
-
-    const metarDest = document.getElementById('metarFrameDest');
-    if (metarDest) {
-        if (state.isPOI || !currentDestICAO) {
-            metarDest.src = '';
-            metarDest.style.display = 'none';
-        } else {
-            metarDest.src = `https://metar-taf.com/de/embed-info/${currentDestICAO}?qnh=hPa&rh=rh`;
-            metarDest.style.display = 'block';
-        }
-    }
+    // --- NEU: Restore METAR Widgets ---
+    loadMetarWidget(currentStartICAO, 'metarContainerDep');
+    loadMetarWidget(state.isPOI ? null : currentDestICAO, 'metarContainerDest');
 }
 
 function resetApp() {
@@ -561,13 +544,10 @@ function resetApp() {
     document.querySelectorAll('.kln90b-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'FPL'));
     renderGPS();
 
-    // --- NEU: METAR Iframes resetten ---
-    const metarDep = document.getElementById('metarFrameDep');
-    if (metarDep) { metarDep.src = ''; metarDep.style.display = 'none'; }
-    const metarDest = document.getElementById('metarFrameDest');
-    if (metarDest) { metarDest.src = ''; metarDest.style.display = 'none'; }
+    // --- NEU: METAR Widgets resetten ---
+    loadMetarWidget(null, 'metarContainerDep');
+    loadMetarWidget(null, 'metarContainerDest');
 }
-
 /* =========================================================
    4. HELPER-FUNKTIONEN (UI & Mathe)
    ========================================================= */
@@ -648,6 +628,39 @@ function resetBtn(btn) {
     }
 }
 
+function loadMetarWidget(icao, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    container.innerHTML = ''; // Altes Widget löschen
+    
+    if (!icao) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'block';
+    
+    // Generiert eine zufällige ID, die das Metar-Skript benötigt
+    const targetId = 'metartaf-' + Math.random().toString(36).substring(2, 10);
+    
+    // 1. Den Anchor (Link) erstellen
+    const a = document.createElement('a');
+    a.href = `https://metar-taf.com/de/metar/${icao}`;
+    a.id = targetId;
+    a.style = "font-size:18px; font-weight:500; color:#000; width:100%; height:435px; display:block";
+    a.innerText = `METAR ${icao}`;
+    container.appendChild(a);
+    
+    // 2. Das Metar-Skript erstellen und ausführen
+    const script = document.createElement('script');
+    script.async = true;
+    script.defer = true;
+    script.crossOrigin = "anonymous";
+    script.src = `https://metar-taf.com/de/embed-js/${icao}?qnh=hPa&rh=rh&target=${targetId}`;
+    
+    container.appendChild(script);
+}
 function calcNav(lat1, lon1, lat2, lon2) {
     const R = 3440, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
     const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
@@ -1391,11 +1404,7 @@ async function generateMission() {
         });
 
         // --- NEU: METAR Start laden ---
-        const metarDep = document.getElementById('metarFrameDep');
-        if (metarDep && currentStartICAO) {
-            metarDep.src = `https://metar-taf.com/de/embed-info/${currentStartICAO}?qnh=hPa&rh=rh`;
-            metarDep.style.display = 'block';
-        }
+        loadMetarWidget(currentStartICAO, 'metarContainerDep');
         
         if (!isPOI) {
             fetchAirportFreq(currentDestICAO, 'wikiDestFreqText', 'dest');
@@ -1410,16 +1419,7 @@ async function generateMission() {
         });
 
         // --- NEU: METAR Ziel laden (nur wenn kein POI) ---
-        const metarDest = document.getElementById('metarFrameDest');
-        if (metarDest) {
-            if (isPOI || !currentDestICAO) {
-                metarDest.src = '';
-                metarDest.style.display = 'none';
-            } else {
-                metarDest.src = `https://metar-taf.com/de/embed-info/${currentDestICAO}?qnh=hPa&rh=rh`;
-                metarDest.style.display = 'block';
-            }
-        }
+        loadMetarWidget(isPOI ? null : currentDestICAO, 'metarContainerDest');
 
         indicator.innerText = `Briefing komplett.`; resetBtn(btn);
         const rBtnLed = document.getElementById('radioGenerateBtn');
