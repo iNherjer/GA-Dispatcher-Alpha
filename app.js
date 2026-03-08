@@ -134,43 +134,31 @@ function toggleNotes(event) {
     // Wenn wir auf einen Link oder Button klicken, nichts tun
     if (event && (event.target.tagName === 'A' || event.target.tagName === 'BUTTON')) return;
 
-    const stack = document.getElementById('notesStack');
-    const p1 = document.getElementById('notePage1'), p2 = document.getElementById('notePage2'), p3 = document.getElementById('notePage3'), p4 = document.getElementById('notePage4');
-    if (!p1 || !p2 || !p3 || !p4) return;
+    const pages = ['notePage1','notePage2','notePage3','notePage4','notePage5'].map(id => document.getElementById(id)).filter(Boolean);
+    if (pages.length < 2) return;
+    const classes = ['front-note','back-note','third-note','fourth-note','fifth-note'];
 
     let forward = true;
-
-    // Wenn auf die Büroklammer geklickt wird -> Immer zurück (ist ja ganz links)
     if (event && event.target && event.target.classList.contains('paperclip')) {
         forward = false;
-    }
-    // Ansonsten: Einfach - links vom Bildschirm = zurück
-    else {
-        if (event.clientX < window.innerWidth / 2) {
-            forward = false;
-        }
+    } else {
+        if (event.clientX < window.innerWidth / 2) forward = false;
     }
 
+    // Find current front page index
+    let frontIdx = pages.findIndex(p => p.classList.contains('front-note'));
+    if (frontIdx < 0) frontIdx = 0;
+
     if (forward) {
-        if(p1.classList.contains('front-note')) {
-            p1.className = 'mission-note-page fourth-note'; p2.className = 'mission-note-page front-note'; p3.className = 'mission-note-page back-note'; p4.className = 'mission-note-page third-note';
-        } else if(p2.classList.contains('front-note')) {
-            p2.className = 'mission-note-page fourth-note'; p3.className = 'mission-note-page front-note'; p4.className = 'mission-note-page back-note'; p1.className = 'mission-note-page third-note';
-        } else if(p3.classList.contains('front-note')) {
-            p3.className = 'mission-note-page fourth-note'; p4.className = 'mission-note-page front-note'; p1.className = 'mission-note-page back-note'; p2.className = 'mission-note-page third-note';
-        } else {
-            p4.className = 'mission-note-page fourth-note'; p1.className = 'mission-note-page front-note'; p2.className = 'mission-note-page back-note'; p3.className = 'mission-note-page third-note';
-        }
+        frontIdx = (frontIdx + 1) % pages.length;
     } else {
-        if(p1.classList.contains('front-note')) {
-            p1.className = 'mission-note-page back-note'; p2.className = 'mission-note-page third-note'; p3.className = 'mission-note-page fourth-note'; p4.className = 'mission-note-page front-note';
-        } else if(p2.classList.contains('front-note')) {
-            p2.className = 'mission-note-page back-note'; p3.className = 'mission-note-page third-note'; p4.className = 'mission-note-page fourth-note'; p1.className = 'mission-note-page front-note';
-        } else if(p3.classList.contains('front-note')) {
-            p3.className = 'mission-note-page back-note'; p4.className = 'mission-note-page third-note'; p1.className = 'mission-note-page fourth-note'; p2.className = 'mission-note-page front-note';
-        } else {
-            p4.className = 'mission-note-page back-note'; p1.className = 'mission-note-page third-note'; p2.className = 'mission-note-page fourth-note'; p3.className = 'mission-note-page front-note';
-        }
+        frontIdx = (frontIdx - 1 + pages.length) % pages.length;
+    }
+
+    // Assign classes in order starting from frontIdx
+    for (let i = 0; i < pages.length; i++) {
+        let pageIdx = (frontIdx + i) % pages.length;
+        pages[pageIdx].className = 'mission-note-page ' + classes[i];
     }
 }
 
@@ -295,10 +283,15 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
         
         let delta = Math.round((startY - clientY) + (clientX - startX));
         if (type === 'gph') delta = Math.round(delta * 0.3); 
+        if (type === 'alt') delta = Math.round(delta * 10);
         
         let newVal = startVal + delta;
         if (newVal < min) newVal = min;
         if (newVal > max) newVal = max;
+        
+        // Snap to slider step
+        const step = parseInt(slider.step) || 1;
+        if (step > 1) newVal = Math.round(newVal / step) * step;
 
         display.innerText = newVal;
         slider.value = newVal;
@@ -367,6 +360,8 @@ window.onload = () => {
 
     initDragKnob('tasDragKnob', 'tasRadioDisplay', 'tasSlider', 80, 260, 'tas');
     initDragKnob('gphDragKnob', 'gphRadioDisplay', 'gphSlider', 5, 35, 'gph');
+    initDragKnob('altDragKnob', 'altRadioDisplay', 'altSlider', 1500, 9500, 'alt');
+    syncToNavCom('altRadioDisplay', document.getElementById('altSlider') ? document.getElementById('altSlider').value : '4500');
     
     if(aiToggleBtn && aiToggleBtn.checked) {
         const btnAI = document.getElementById('btnToggleAI');
@@ -596,8 +591,12 @@ function setDrumCounter(elementId, valueStr) {
 
 function handleSliderChange(type, val) { 
     setDrumCounter(type + 'Drum', val); 
-    recalculatePerformance(); 
+    if (type !== 'alt') recalculatePerformance(); 
     syncToNavCom(type + 'Radio', val);
+    if (type === 'alt') {
+        syncToNavCom('altRadioDisplay', val);
+        triggerVerticalProfileUpdate();
+    }
 }
 
 function recalculatePerformance() {
@@ -610,6 +609,7 @@ function recalculatePerformance() {
 
 function refreshAllDrums() {
     setDrumCounter('tasDrum', document.getElementById('tasSlider').value); setDrumCounter('gphDrum', document.getElementById('gphSlider').value);
+    const altSlider = document.getElementById('altSlider'); if (altSlider) setDrumCounter('altDrum', altSlider.value);
     if(currentMissionData) { setDrumCounter('distDrum', currentMissionData.dist); recalculatePerformance(); }
 }
 
@@ -805,9 +805,11 @@ async function loadMetarWidget(icao, containerId, lat, lon) {
         let arrowHtml = '';
         if (!isVRB && wspd > 0 && wdir !== null && wdir !== "VRB") {
             arrowHtml = `
-            <svg viewBox="0 0 160 160" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; transform-origin: center center; transform: rotate(${wdir}deg); filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.4)); pointer-events:none;">
-                <line x1="80" y1="6" x2="80" y2="70" stroke="#1a73e8" stroke-width="4" stroke-linecap="round"/>
-                <polygon points="72,55 80,80 88,55" fill="#1a73e8" />
+            <svg viewBox="0 0 160 160" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; pointer-events:none;">
+                <g transform="rotate(${wdir} 80 80)">
+                    <line x1="80" y1="6" x2="80" y2="70" stroke="#1a73e8" stroke-width="4" stroke-linecap="round"/>
+                    <polygon points="72,55 80,80 88,55" fill="#1a73e8" />
+                </g>
             </svg>`;
         }
         
@@ -2188,6 +2190,9 @@ function updateRoutePerformance() {
     window.airspaceFetchTimeout = setTimeout(() => {
         fetchRouteAirspaces(routeWaypoints);
     }, 800);
+
+    // Trigger Vertical Profile Update
+    triggerVerticalProfileUpdate();
 
     setTimeout(() => saveMissionState(), 500);
     if (gpsState.visible && gpsState.mode === 'FPL') renderGPS();
@@ -4063,3 +4068,815 @@ async function fetchOpenAIPData() {
         });
     } catch(e) { console.error("❌ Fetch Error:", e); }
 }
+
+/* =========================================================
+   VERTICAL PROFILE (Höhenprofil) ENGINE
+   ========================================================= */
+let vpElevationData = null;
+let vpProfileTimeout = null;
+
+function triggerVerticalProfileUpdate() {
+    if (vpProfileTimeout) clearTimeout(vpProfileTimeout);
+    vpProfileTimeout = setTimeout(async () => {
+        if (!routeWaypoints || routeWaypoints.length < 2) return;
+        const page5 = document.getElementById('notePage5');
+        if (page5) page5.style.display = '';
+        const status = document.getElementById('verticalProfileStatus');
+        if (status) status.textContent = 'Lade Höhendaten...';
+        try {
+            vpElevationData = await fetchRouteElevation(routeWaypoints);
+            renderVerticalProfile('verticalProfileCanvas');
+            if (status) status.textContent = vpElevationData.length + ' Höhenpunkte geladen';
+        } catch(e) {
+            console.error('Vertical Profile Error:', e);
+            if (status) status.textContent = 'Fehler beim Laden der Höhendaten';
+        }
+    }, 1200);
+}
+
+async function fetchRouteElevation(routePts) {
+    const interpolated = [];
+    let cumulativeDist = 0;
+
+    for (let i = 0; i < routePts.length - 1; i++) {
+        const p1 = routePts[i], p2 = routePts[i+1];
+        const lat1 = p1.lat, lon1 = p1.lng || p1.lon;
+        const lat2 = p2.lat, lon2 = p2.lng || p2.lon;
+        const segDist = calcNav(lat1, lon1, lat2, lon2).dist;
+        const steps = Math.max(1, Math.round(segDist));
+        
+        for (let j = 0; j <= steps; j++) {
+            if (i > 0 && j === 0) continue;
+            const f = j / steps;
+            interpolated.push({
+                lat: lat1 + (lat2 - lat1) * f,
+                lon: lon1 + (lon2 - lon1) * f,
+                distNM: cumulativeDist + segDist * f
+            });
+        }
+        cumulativeDist += segDist;
+    }
+
+    let samplePts = interpolated;
+    if (interpolated.length > 100) {
+        samplePts = [];
+        for (let i = 0; i < 100; i++) {
+            const idx = Math.round(i * (interpolated.length - 1) / 99);
+            samplePts.push(interpolated[idx]);
+        }
+    }
+
+    const lats = samplePts.map(p => p.lat.toFixed(4)).join(',');
+    const lons = samplePts.map(p => p.lon.toFixed(4)).join(',');
+    
+    const res = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + lats + '&longitude=' + lons);
+    if (!res.ok) throw new Error('Elevation API error: ' + res.status);
+    const data = await res.json();
+    
+    if (!data.elevation || data.elevation.length !== samplePts.length) {
+        throw new Error('Invalid elevation response');
+    }
+
+    return samplePts.map((p, i) => ({
+        distNM: p.distNM,
+        elevFt: Math.round(data.elevation[i] * 3.28084),
+        lat: p.lat,
+        lon: p.lon
+    }));
+}
+
+function computeFlightProfile(elevationData, cruiseAltFt, climbRateFpm, descentRateFpm, tasKts) {
+    if (!elevationData || elevationData.length < 2) return null;
+    
+    const depElevFt = elevationData[0].elevFt;
+    const destElevFt = elevationData[elevationData.length - 1].elevFt;
+    const totalDistNM = elevationData[elevationData.length - 1].distNM;
+
+    const climbFt = Math.max(0, cruiseAltFt - depElevFt);
+    const climbTimeMin = climbFt / climbRateFpm;
+    const climbDistNM = (climbTimeMin / 60) * tasKts * 0.85;
+
+    const descentFt = Math.max(0, cruiseAltFt - destElevFt);
+    const descentTimeMin = descentFt / descentRateFpm;
+    const descentDistNM = (descentTimeMin / 60) * tasKts * 0.9;
+
+    const tocDistNM = Math.min(climbDistNM, totalDistNM * 0.4);
+    const todDistNM = Math.max(totalDistNM - descentDistNM, totalDistNM * 0.6);
+
+    const profile = [];
+    for (const pt of elevationData) {
+        let altFt;
+        if (pt.distNM <= tocDistNM) {
+            const f = tocDistNM > 0 ? pt.distNM / tocDistNM : 1;
+            altFt = depElevFt + (cruiseAltFt - depElevFt) * f;
+        } else if (pt.distNM >= todDistNM) {
+            const f = (totalDistNM - todDistNM) > 0 ? (pt.distNM - todDistNM) / (totalDistNM - todDistNM) : 1;
+            altFt = cruiseAltFt - (cruiseAltFt - destElevFt) * f;
+        } else {
+            altFt = cruiseAltFt;
+        }
+        profile.push({ distNM: pt.distNM, altFt: Math.round(altFt) });
+    }
+
+    return { profile, tocDistNM, todDistNM };
+}
+
+function renderVerticalProfile(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !vpElevationData || vpElevationData.length < 2) return;
+
+    const container = canvas.parentElement;
+    const displayWidth = container.clientWidth || 400;
+    const displayHeight = Math.round(displayWidth * 0.4);
+    
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const padLeft = 45, padRight = 15, padTop = 20, padBottom = 30;
+    const plotW = displayWidth - padLeft - padRight;
+    const plotH = displayHeight - padTop - padBottom;
+
+    const cruiseAlt = parseInt(document.getElementById('altSlider')?.value || 4500);
+    const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
+    const totalDist = vpElevationData[vpElevationData.length - 1].distNM;
+    const maxTerrain = Math.max(...vpElevationData.map(p => p.elevFt));
+    const maxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500);
+    const minAlt = 0;
+
+    const fpResult = computeFlightProfile(vpElevationData, cruiseAlt, 500, 500, tas);
+    
+    const xOf = (distNM) => padLeft + (distNM / totalDist) * plotW;
+    const yOf = (altFt) => padTop + plotH - ((altFt - minAlt) / (maxAlt - minAlt)) * plotH;
+
+    // Background
+    ctx.fillStyle = '#eef6ff';
+    ctx.fillRect(0, 0, displayWidth, displayHeight);
+
+    // Sky gradient
+    const skyGrad = ctx.createLinearGradient(0, padTop, 0, padTop + plotH);
+    skyGrad.addColorStop(0, '#87CEEB');
+    skyGrad.addColorStop(0.5, '#c8e6f8');
+    skyGrad.addColorStop(1, '#e8f4f8');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(padLeft, padTop, plotW, plotH);
+
+    // Airspace blocks
+    if (typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
+        for (const as of activeAirspaces) {
+            if (!as.lowerLimit || !as.upperLimit) continue;
+            const lowerFt = airspaceLimitToFt(as.lowerLimit);
+            const upperFt = airspaceLimitToFt(as.upperLimit);
+            if (lowerFt === null || upperFt === null || upperFt <= minAlt || lowerFt >= maxAlt) continue;
+
+            let asMinDist = totalDist, asMaxDist = 0, found = false;
+            if (as.geometry) {
+                const polys = [];
+                if (as.geometry.type === 'Polygon') polys.push(as.geometry.coordinates[0]);
+                else if (as.geometry.type === 'MultiPolygon') as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
+
+                for (const pt of vpElevationData) {
+                    for (const poly of polys) {
+                        if (vpPointInPoly(pt, poly)) {
+                            if (pt.distNM < asMinDist) asMinDist = pt.distNM;
+                            if (pt.distNM > asMaxDist) asMaxDist = pt.distNM;
+                            found = true; break;
+                        }
+                    }
+                }
+            }
+            if (!found) continue;
+
+            const style = getAirspaceStyle(as);
+            const x1 = xOf(asMinDist), x2 = xOf(asMaxDist);
+            const y1 = yOf(Math.min(upperFt, maxAlt)), y2 = yOf(Math.max(lowerFt, minAlt));
+
+            ctx.fillStyle = vpHexToRgba(style.color, 0.15);
+            ctx.strokeStyle = vpHexToRgba(style.color, 0.5);
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+            ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+            ctx.setLineDash([]);
+
+            const displayName = getAirspaceDisplayName(as);
+            ctx.fillStyle = vpHexToRgba(style.color, 0.7);
+            ctx.font = 'bold 8px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(displayName, (x1+x2)/2, y1 + 10);
+            ctx.font = '7px Arial';
+            ctx.fillText(lowerFt + '–' + upperFt + ' ft', (x1+x2)/2, y1 + 19);
+        }
+    }
+    ctx.textAlign = 'left';
+
+    // Safety line (terrain + 1000ft)
+    ctx.beginPath();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(200, 80, 0, 0.5)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < vpElevationData.length; i++) {
+        const x = xOf(vpElevationData[i].distNM), y = yOf(vpElevationData[i].elevFt + 1000);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Terrain polygon
+    ctx.beginPath();
+    ctx.moveTo(xOf(0), yOf(0));
+    for (let i = 0; i < vpElevationData.length; i++) ctx.lineTo(xOf(vpElevationData[i].distNM), yOf(vpElevationData[i].elevFt));
+    ctx.lineTo(xOf(totalDist), yOf(0));
+    ctx.closePath();
+
+    const terrainGrad = ctx.createLinearGradient(0, yOf(maxTerrain), 0, yOf(0));
+    terrainGrad.addColorStop(0, '#8B7355');
+    terrainGrad.addColorStop(0.3, '#6B8E23');
+    terrainGrad.addColorStop(0.7, '#228B22');
+    terrainGrad.addColorStop(1, '#2E8B57');
+    ctx.fillStyle = terrainGrad;
+    ctx.fill();
+
+    ctx.beginPath();
+    for (let i = 0; i < vpElevationData.length; i++) {
+        const x = xOf(vpElevationData[i].distNM), y = yOf(vpElevationData[i].elevFt);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = '#3a5a20';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Flight profile
+    if (fpResult && fpResult.profile) {
+        ctx.beginPath();
+        for (let i = 0; i < fpResult.profile.length; i++) {
+            const x = xOf(fpResult.profile[i].distNM), y = yOf(fpResult.profile[i].altFt) + 2;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        ctx.beginPath();
+        for (let i = 0; i < fpResult.profile.length; i++) {
+            const x = xOf(fpResult.profile[i].distNM), y = yOf(fpResult.profile[i].altFt);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = '#d93829';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // TOC
+        ctx.beginPath();
+        ctx.arc(xOf(fpResult.tocDistNM), yOf(cruiseAlt), 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#d93829';
+        ctx.fill();
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 9px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('TOC', xOf(fpResult.tocDistNM), yOf(cruiseAlt) - 7);
+
+        // TOD
+        ctx.beginPath();
+        ctx.arc(xOf(fpResult.todDistNM), yOf(cruiseAlt), 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#d93829';
+        ctx.fill();
+        ctx.fillStyle = '#333';
+        ctx.fillText('TOD', xOf(fpResult.todDistNM), yOf(cruiseAlt) - 7);
+        ctx.textAlign = 'left';
+    }
+
+    // Waypoint markers
+    let wpCumDist = 0;
+    for (let i = 0; i < routeWaypoints.length; i++) {
+        if (i > 0) {
+            const prev = routeWaypoints[i-1], curr = routeWaypoints[i];
+            wpCumDist += calcNav(prev.lat, prev.lng || prev.lon, curr.lat, curr.lng || curr.lon).dist;
+        }
+        const x = xOf(wpCumDist);
+        
+        ctx.beginPath();
+        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 1;
+        ctx.moveTo(x, padTop);
+        ctx.lineTo(x, padTop + plotH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        let wpLabel;
+        if (i === 0) wpLabel = currentStartICAO || 'DEP';
+        else if (i === routeWaypoints.length - 1) wpLabel = (currentMissionData?.poiName ? 'POI' : currentDestICAO) || 'DEST';
+        else wpLabel = routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i;
+        if (wpLabel.length > 8) wpLabel = wpLabel.substring(0, 7) + '…';
+
+        ctx.save();
+        ctx.translate(x, padTop + plotH + 4);
+        ctx.rotate(-Math.PI / 4);
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 8px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(wpLabel, 0, 0);
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(x, padTop + 3, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = i === 0 ? '#44ff44' : (i === routeWaypoints.length - 1 ? '#ff4444' : '#fdfd86');
+        ctx.fill();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    // Y axis
+    ctx.fillStyle = '#555';
+    ctx.font = '9px Arial';
+    ctx.textAlign = 'right';
+    const altStep = maxAlt > 6000 ? 2000 : (maxAlt > 3000 ? 1000 : 500);
+    for (let alt = 0; alt <= maxAlt; alt += altStep) {
+        const y = yOf(alt);
+        if (y < padTop - 5 || y > padTop + plotH + 5) continue;
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+        ctx.lineWidth = 0.5;
+        ctx.moveTo(padLeft, y);
+        ctx.lineTo(padLeft + plotW, y);
+        ctx.stroke();
+        ctx.fillStyle = '#555';
+        ctx.fillText(alt >= 1000 ? (alt/1000).toFixed(alt % 1000 === 0 ? 0 : 1) + 'k' : alt + '', padLeft - 4, y + 3);
+    }
+
+    ctx.save();
+    ctx.translate(8, padTop + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#888';
+    ctx.font = 'bold 8px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('ALT (ft)', 0, 0);
+    ctx.restore();
+
+    // X axis
+    ctx.textAlign = 'center';
+    const distStep = totalDist > 100 ? 20 : (totalDist > 50 ? 10 : 5);
+    for (let d = 0; d <= totalDist; d += distStep) {
+        ctx.fillStyle = '#888';
+        ctx.font = '8px Arial';
+        ctx.fillText(d + '', xOf(d), padTop + plotH + 22);
+    }
+    ctx.fillStyle = '#888';
+    ctx.font = 'bold 8px Arial';
+    ctx.fillText('NM', padLeft + plotW + 8, padTop + plotH + 22);
+
+    // Border
+    ctx.strokeStyle = '#bbb';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(padLeft, padTop, plotW, plotH);
+
+    // Cruise altitude label & line
+    ctx.fillStyle = 'rgba(217, 56, 41, 0.8)';
+    ctx.font = 'bold 9px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('CRZ ' + cruiseAlt + ' ft', padLeft + 4, yOf(cruiseAlt) - 4);
+    ctx.beginPath();
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = 'rgba(217, 56, 41, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.moveTo(padLeft, yOf(cruiseAlt));
+    ctx.lineTo(padLeft + plotW, yOf(cruiseAlt));
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Peak elevation marker
+    const peakPt = vpElevationData.reduce((max, p) => p.elevFt > max.elevFt ? p : max);
+    ctx.fillStyle = '#333';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 3);
+    ctx.font = 'bold 8px Arial';
+    ctx.fillText(peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 12);
+}
+
+function vpPointInPoly(pt, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i][0], yi = polygon[i][1];
+        const xj = polygon[j][0], yj = polygon[j][1];
+        const intersect = ((yi > pt.lat) !== (yj > pt.lat)) && (pt.lon < (xj - xi) * (pt.lat - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+function airspaceLimitToFt(lim) {
+    if (!lim) return null;
+    if (lim.referenceDatum === 0 && lim.value === 0) return 0;
+    if (lim.unit === 6) return lim.value * 100;
+    if (lim.unit === 1) return lim.value;
+    if (lim.unit === 0) return Math.round(lim.value * 3.28084);
+    return lim.value;
+}
+
+function vpHexToRgba(hex, alpha) {
+    if (!hex || hex.charAt(0) !== '#') return 'rgba(0,0,0,' + alpha + ')';
+    const r = parseInt(hex.slice(1,3), 16) || 0;
+    const g = parseInt(hex.slice(3,5), 16) || 0;
+    const b = parseInt(hex.slice(5,7), 16) || 0;
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+}
+
+/* =========================================================
+   MAP TABLE PROFILE STRIP
+   ========================================================= */
+let vpZoomLevel = 100; // 100 = full route, 10 = 10% view
+let vpMapProfileVisible = true;
+let vpHighResData = null; // Higher resolution elevation data for zoom
+
+function toggleMapProfile() {
+    vpMapProfileVisible = !vpMapProfileVisible;
+    const strip = document.getElementById('mapProfileStrip');
+    const btn = document.getElementById('vpToggleBtn');
+    if (strip) strip.style.display = vpMapProfileVisible ? '' : 'none';
+    if (btn) {
+        btn.textContent = vpMapProfileVisible ? '📊 Profil (An)' : '📊 Profil (Aus)';
+        btn.style.background = vpMapProfileVisible ? '#2E8B57' : '#444';
+    }
+    if (vpMapProfileVisible) renderMapProfile();
+    // Invalidate map size since space changed
+    if (typeof map !== 'undefined' && map) setTimeout(() => map.invalidateSize(), 100);
+}
+
+function syncAltFromMap(val) {
+    const mainSlider = document.getElementById('altSlider');
+    if (mainSlider) mainSlider.value = val;
+    document.getElementById('altMapDisplay').textContent = val;
+    handleSliderChange('alt', val);
+    renderMapProfile();
+}
+
+function vpZoom(delta) {
+    vpZoomLevel = Math.max(10, Math.min(100, vpZoomLevel + delta));
+    document.getElementById('vpZoomDisplay').textContent = vpZoomLevel + '%';
+    
+    // If zoomed in, fetch higher resolution data
+    if (vpZoomLevel < 100 && routeWaypoints && routeWaypoints.length >= 2) {
+        fetchHighResElevation().then(() => renderMapProfile());
+    } else {
+        vpHighResData = null;
+        renderMapProfile();
+    }
+}
+
+async function fetchHighResElevation() {
+    if (!routeWaypoints || routeWaypoints.length < 2) return;
+    
+    const interpolated = [];
+    let cumulativeDist = 0;
+
+    for (let i = 0; i < routeWaypoints.length - 1; i++) {
+        const p1 = routeWaypoints[i], p2 = routeWaypoints[i+1];
+        const lat1 = p1.lat, lon1 = p1.lng || p1.lon;
+        const lat2 = p2.lat, lon2 = p2.lng || p2.lon;
+        const segDist = calcNav(lat1, lon1, lat2, lon2).dist;
+        // Higher resolution: every 0.25 NM instead of 1 NM
+        const steps = Math.max(1, Math.round(segDist * 4));
+        
+        for (let j = 0; j <= steps; j++) {
+            if (i > 0 && j === 0) continue;
+            const f = j / steps;
+            interpolated.push({
+                lat: lat1 + (lat2 - lat1) * f,
+                lon: lon1 + (lon2 - lon1) * f,
+                distNM: cumulativeDist + segDist * f
+            });
+        }
+        cumulativeDist += segDist;
+    }
+
+    // Resample to max 100 points
+    let samplePts = interpolated;
+    if (interpolated.length > 100) {
+        samplePts = [];
+        for (let i = 0; i < 100; i++) {
+            const idx = Math.round(i * (interpolated.length - 1) / 99);
+            samplePts.push(interpolated[idx]);
+        }
+    }
+
+    const lats = samplePts.map(p => p.lat.toFixed(5)).join(',');
+    const lons = samplePts.map(p => p.lon.toFixed(5)).join(',');
+    
+    try {
+        const res = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + lats + '&longitude=' + lons);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.elevation || data.elevation.length !== samplePts.length) return;
+        
+        vpHighResData = samplePts.map((p, i) => ({
+            distNM: p.distNM,
+            elevFt: Math.round(data.elevation[i] * 3.28084),
+            lat: p.lat,
+            lon: p.lon
+        }));
+    } catch(e) {
+        console.error('High-res elevation fetch error:', e);
+    }
+}
+
+function renderMapProfile() {
+    const canvas = document.getElementById('mapProfileCanvas');
+    const scrollContainer = document.getElementById('mapProfileScroll');
+    if (!canvas || !scrollContainer) return;
+    
+    const elevData = (vpZoomLevel < 100 && vpHighResData) ? vpHighResData : vpElevationData;
+    if (!elevData || elevData.length < 2) return;
+
+    const containerHeight = scrollContainer.clientHeight || 100;
+    const baseWidth = scrollContainer.clientWidth || 600;
+    
+    // Zoom: canvas is wider than container when zoomed in
+    const zoomFactor = 100 / vpZoomLevel;
+    const canvasWidth = Math.round(baseWidth * zoomFactor);
+    
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvasWidth * dpr;
+    canvas.height = containerHeight * dpr;
+    canvas.style.width = canvasWidth + 'px';
+    canvas.style.height = containerHeight + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const padLeft = 40, padRight = 10, padTop = 12, padBottom = 22;
+    const plotW = canvasWidth - padLeft - padRight;
+    const plotH = containerHeight - padTop - padBottom;
+
+    const cruiseAlt = parseInt(document.getElementById('altSliderMap')?.value || document.getElementById('altSlider')?.value || 4500);
+    const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
+    const totalDist = elevData[elevData.length - 1].distNM;
+    const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
+    const maxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500);
+    const minAlt = 0;
+
+    const fpResult = computeFlightProfile(elevData, cruiseAlt, 500, 500, tas);
+    
+    const xOf = (distNM) => padLeft + (distNM / totalDist) * plotW;
+    const yOf = (altFt) => padTop + plotH - ((altFt - minAlt) / (maxAlt - minAlt)) * plotH;
+
+    // Background - dark theme for map strip
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, canvasWidth, containerHeight);
+
+    // Sky gradient (dark)
+    const skyGrad = ctx.createLinearGradient(0, padTop, 0, padTop + plotH);
+    skyGrad.addColorStop(0, '#1a2a3a');
+    skyGrad.addColorStop(0.5, '#1a2030');
+    skyGrad.addColorStop(1, '#151a20');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(padLeft, padTop, plotW, plotH);
+
+    // Airspace blocks (dark theme)
+    if (typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
+        for (const as of activeAirspaces) {
+            if (!as.lowerLimit || !as.upperLimit) continue;
+            const lowerFt = airspaceLimitToFt(as.lowerLimit);
+            const upperFt = airspaceLimitToFt(as.upperLimit);
+            if (lowerFt === null || upperFt === null || upperFt <= minAlt || lowerFt >= maxAlt) continue;
+
+            let asMinDist = totalDist, asMaxDist = 0, found = false;
+            if (as.geometry) {
+                const polys = [];
+                if (as.geometry.type === 'Polygon') polys.push(as.geometry.coordinates[0]);
+                else if (as.geometry.type === 'MultiPolygon') as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
+
+                for (const pt of elevData) {
+                    for (const poly of polys) {
+                        if (vpPointInPoly(pt, poly)) {
+                            if (pt.distNM < asMinDist) asMinDist = pt.distNM;
+                            if (pt.distNM > asMaxDist) asMaxDist = pt.distNM;
+                            found = true; break;
+                        }
+                    }
+                }
+            }
+            if (!found) continue;
+
+            const style = getAirspaceStyle(as);
+            const x1 = xOf(asMinDist), x2 = xOf(asMaxDist);
+            const y1 = yOf(Math.min(upperFt, maxAlt)), y2 = yOf(Math.max(lowerFt, minAlt));
+
+            ctx.fillStyle = vpHexToRgba(style.color, 0.12);
+            ctx.strokeStyle = vpHexToRgba(style.color, 0.4);
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+            ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+            ctx.setLineDash([]);
+
+            // Airspace label (only if zoomed enough to show)
+            if (zoomFactor >= 1.5 || (x2 - x1) > 40) {
+                const displayName = getAirspaceDisplayName(as);
+                ctx.fillStyle = vpHexToRgba(style.color, 0.6);
+                ctx.font = 'bold 8px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(displayName, (x1+x2)/2, y1 + 10);
+                if (zoomFactor >= 2) {
+                    ctx.font = '7px Arial';
+                    ctx.fillText(lowerFt + '–' + upperFt + ' ft', (x1+x2)/2, y1 + 19);
+                }
+            }
+        }
+    }
+    ctx.textAlign = 'left';
+
+    // Safety line
+    ctx.beginPath();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(200, 120, 40, 0.4)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < elevData.length; i++) {
+        const x = xOf(elevData[i].distNM), y = yOf(elevData[i].elevFt + 1000);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Terrain polygon
+    ctx.beginPath();
+    ctx.moveTo(xOf(0), yOf(0));
+    for (let i = 0; i < elevData.length; i++) ctx.lineTo(xOf(elevData[i].distNM), yOf(elevData[i].elevFt));
+    ctx.lineTo(xOf(totalDist), yOf(0));
+    ctx.closePath();
+
+    const terrainGrad = ctx.createLinearGradient(0, yOf(maxTerrain), 0, yOf(0));
+    terrainGrad.addColorStop(0, '#6B5B3C');
+    terrainGrad.addColorStop(0.3, '#3B5B23');
+    terrainGrad.addColorStop(0.7, '#1B5B22');
+    terrainGrad.addColorStop(1, '#1E5B37');
+    ctx.fillStyle = terrainGrad;
+    ctx.fill();
+
+    ctx.beginPath();
+    for (let i = 0; i < elevData.length; i++) {
+        const x = xOf(elevData[i].distNM), y = yOf(elevData[i].elevFt);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = '#4a7a30';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Flight profile
+    if (fpResult && fpResult.profile) {
+        ctx.beginPath();
+        for (let i = 0; i < fpResult.profile.length; i++) {
+            const x = xOf(fpResult.profile[i].distNM), y = yOf(fpResult.profile[i].altFt) + 1;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.beginPath();
+        for (let i = 0; i < fpResult.profile.length; i++) {
+            const x = xOf(fpResult.profile[i].distNM), y = yOf(fpResult.profile[i].altFt);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // TOC/TOD markers
+        ctx.beginPath();
+        ctx.arc(xOf(fpResult.tocDistNM), yOf(cruiseAlt), 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff4444';
+        ctx.fill();
+        ctx.fillStyle = '#aaa';
+        ctx.font = 'bold 8px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('TOC', xOf(fpResult.tocDistNM), yOf(cruiseAlt) - 6);
+
+        ctx.beginPath();
+        ctx.arc(xOf(fpResult.todDistNM), yOf(cruiseAlt), 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff4444';
+        ctx.fill();
+        ctx.fillStyle = '#aaa';
+        ctx.fillText('TOD', xOf(fpResult.todDistNM), yOf(cruiseAlt) - 6);
+        ctx.textAlign = 'left';
+    }
+
+    // Cruise altitude line
+    ctx.beginPath();
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = 'rgba(255, 68, 68, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.moveTo(padLeft, yOf(cruiseAlt));
+    ctx.lineTo(padLeft + plotW, yOf(cruiseAlt));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255, 68, 68, 0.6)';
+    ctx.font = 'bold 8px Arial';
+    ctx.fillText('CRZ ' + cruiseAlt + ' ft', padLeft + 4, yOf(cruiseAlt) - 3);
+
+    // Waypoint markers
+    let wpCumDist = 0;
+    for (let i = 0; i < routeWaypoints.length; i++) {
+        if (i > 0) {
+            const prev = routeWaypoints[i-1], curr = routeWaypoints[i];
+            wpCumDist += calcNav(prev.lat, prev.lng || prev.lon, curr.lat, curr.lng || curr.lon).dist;
+        }
+        const x = xOf(wpCumDist);
+        
+        ctx.beginPath();
+        ctx.setLineDash([2, 3]);
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 1;
+        ctx.moveTo(x, padTop);
+        ctx.lineTo(x, padTop + plotH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        let wpLabel;
+        if (i === 0) wpLabel = currentStartICAO || 'DEP';
+        else if (i === routeWaypoints.length - 1) wpLabel = (currentMissionData?.poiName ? 'POI' : currentDestICAO) || 'DEST';
+        else wpLabel = routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i;
+        if (!zoomFactor || zoomFactor < 2) { if (wpLabel.length > 6) wpLabel = wpLabel.substring(0, 5) + '…'; }
+        else { if (wpLabel.length > 10) wpLabel = wpLabel.substring(0, 9) + '…'; }
+
+        // Colored dot
+        ctx.beginPath();
+        ctx.arc(x, padTop + plotH + 2, 2, 0, Math.PI * 2);
+        ctx.fillStyle = i === 0 ? '#44ff44' : (i === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00');
+        ctx.fill();
+
+        // Label  
+        ctx.fillStyle = '#999';
+        ctx.font = (zoomFactor >= 2) ? 'bold 9px Arial' : 'bold 7px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(wpLabel, x, padTop + plotH + 14);
+    }
+
+    // Y axis
+    ctx.textAlign = 'right';
+    const altStep = maxAlt > 6000 ? 2000 : (maxAlt > 3000 ? 1000 : 500);
+    for (let alt = 0; alt <= maxAlt; alt += altStep) {
+        const y = yOf(alt);
+        if (y < padTop - 3 || y > padTop + plotH + 3) continue;
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 0.5;
+        ctx.moveTo(padLeft, y);
+        ctx.lineTo(padLeft + plotW, y);
+        ctx.stroke();
+        ctx.fillStyle = '#666';
+        ctx.font = '8px Arial';
+        ctx.fillText(alt >= 1000 ? (alt/1000).toFixed(0) + 'k' : alt + '', padLeft - 3, y + 3);
+    }
+
+    // X axis ticks
+    ctx.textAlign = 'center';
+    const distStep = totalDist > 150 ? 25 : (totalDist > 80 ? 10 : 5);
+    for (let d = distStep; d < totalDist; d += distStep) {
+        const x = xOf(d);
+        ctx.fillStyle = '#555';
+        ctx.font = '7px Arial';
+        ctx.fillText(d + '', x, containerHeight - 2);
+    }
+
+    // Peak marker
+    const peakPt = elevData.reduce((max, p) => p.elevFt > max.elevFt ? p : max);
+    ctx.fillStyle = '#888';
+    ctx.font = '9px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 2);
+    if (zoomFactor >= 1.5 || containerHeight > 100) {
+        ctx.font = 'bold 7px Arial';
+        ctx.fillText(peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 10);
+    }
+
+    // Border
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(padLeft, padTop, plotW, plotH);
+}
+
+// Auto-render map profile when triggerVerticalProfileUpdate fires
+const _origTrigger = triggerVerticalProfileUpdate;
+triggerVerticalProfileUpdate = function() {
+    _origTrigger();
+    // Also render map profile after data is ready
+    setTimeout(() => {
+        if (vpMapProfileVisible && vpElevationData) {
+            // Sync alt slider on map
+            const mainAlt = document.getElementById('altSlider');
+            const mapAlt = document.getElementById('altSliderMap');
+            const mapDisplay = document.getElementById('altMapDisplay');
+            if (mainAlt && mapAlt) { mapAlt.value = mainAlt.value; }
+            if (mainAlt && mapDisplay) { mapDisplay.textContent = mainAlt.value; }
+            renderMapProfile();
+        }
+    }, 1500);
+};
