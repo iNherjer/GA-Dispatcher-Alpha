@@ -346,7 +346,12 @@ window.onload = () => {
 
     const activeMission = localStorage.getItem('ga_active_mission');
     if (activeMission) {
-        setTimeout(() => restoreMissionState(JSON.parse(activeMission)), 300);
+        setTimeout(() => {
+            restoreMissionState(JSON.parse(activeMission));
+            // Clear destination input on initial load to allow easy random route generation
+            const dInp = document.getElementById('destLoc');
+            if (dInp) dInp.value = '';
+        }, 300);
     }
 
     requestAnimationFrame(() => {
@@ -2326,7 +2331,11 @@ function initMapBase() {
         btn.onclick = function(e){
             e.preventDefault(); document.body.classList.toggle('map-is-fullscreen');
             if (document.body.classList.contains('map-is-fullscreen')) { btn.innerHTML = '✖'; } else { btn.innerHTML = '⛶'; }
-            setTimeout(() => { if(map) map.invalidateSize(); updateMiniMap(); }, 300);
+            setTimeout(() => { 
+                if(map) map.invalidateSize(); 
+                updateMiniMap(); 
+                if (typeof renderMapProfile === 'function') renderMapProfile();
+            }, 300);
         };
         return btn;
     };
