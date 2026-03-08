@@ -31,8 +31,8 @@
     
     <div id="classicInputs">
         <div class="grid-2">
-            <div><label>Start</label><input type="text" id="startLoc" value="EDTW" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); syncToNavCom('startLocRadio', this.value)" onchange="updateMapFromInputs()"></div>
-            <div><label>Ziel (Opt.)</label><input type="text" id="destLoc" placeholder="Zufall" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); syncToNavCom('destLocRadio', this.value)" onchange="updateMapFromInputs()"></div>
+            <div><label>Start</label><input type="text" id="startLoc" value="EDTW" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); syncToNavCom('startLocRadio', this.value)"></div>
+            <div><label>Ziel (Opt.)</label><input type="text" id="destLoc" placeholder="Zufall" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); syncToNavCom('destLocRadio', this.value)"></div>
         </div>
         
         <div class="grid-2">
@@ -138,7 +138,7 @@
                 <div class="radio-display-container">
                     <div class="radio-disp-inner">
                         <span class="lcd-label">DEP</span>
-                        <input type="text" id="startLocRadio" class="lcd-input" value="EDTW" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); document.getElementById('startLoc').value = this.value; updateMapFromInputs();">
+                        <input type="text" id="startLocRadio" class="lcd-input" value="EDTW" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); document.getElementById('startLoc').value = this.value;">
                     </div>
                 </div>
                 <button class="radio-transfer-btn" onclick="swapDepDest()" title="DEP &harr; DEST tauschen">↔</button>
@@ -150,7 +150,7 @@
                 <div class="radio-display-container">
                     <div class="radio-disp-inner">
                         <span class="lcd-label">DEST</span>
-                        <input type="text" id="destLocRadio" class="lcd-input" placeholder="----" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); document.getElementById('destLoc').value = this.value; updateMapFromInputs();">
+                        <input type="text" id="destLocRadio" class="lcd-input" placeholder="----" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); document.getElementById('destLoc').value = this.value;">
                     </div>
                 </div>
                 <button class="radio-transfer-btn" onclick="swapDepDest()" title="DEP &harr; DEST tauschen">↔</button>
@@ -359,6 +359,11 @@
                 <div class="page-number">Seite 2</div>
                 <h2 class="wiki-title" style="margin-bottom: 2px;">Nav-Log</h2>
                 <div id="briefingNavLog" style="font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 1.4; color: #222; margin-top: 10px;">
+                </div>
+                
+                <div id="routeAirspacesContainer" style="margin-top: 15px; font-size: 11px; display: none; background: rgba(255,255,255,0.5); padding: 8px; border-radius: 4px; border: 1px dashed #888;">
+                    <div style="font-weight: bold; margin-bottom: 6px; border-bottom: 1px solid #444; padding-bottom: 4px; color: #d93829;">⚠️ Lufträume & ED-R auf Route</div>
+                    <div id="routeAirspacesList">Suche...</div>
                 </div>
             </div>
 

@@ -540,7 +540,7 @@ function resetApp() {
     if(!confirm("Möchtest du das aktuelle Briefing wirklich verwerfen und alles auf Anfang setzen?")) return;
     localStorage.removeItem('ga_active_mission'); document.getElementById("briefingBox").style.display = "none";
     currentMissionData = null; routeWaypoints = [];
-    if(map) { routeMarkers.forEach(m => map.removeLayer(m)); if (polyline) map.removeLayer(polyline); if (window.hitBoxPolyline) map.removeLayer(window.hitBoxPolyline); }
+    if(map) { routeMarkers.forEach(m => map.removeLayer(m)); if (polyline) map.removeLayer(polyline); if (window.hitBoxPolyline) map.removeLayer(window.hitBoxPolyline); clearAirspaceMapLayers(); }
     if (miniMap) { if (miniRoutePolyline) miniMap.removeLayer(miniRoutePolyline); miniMapMarkers.forEach(m => miniMap.removeLayer(m)); miniMapMarkers = []; }
     
     const destLocEl      = document.getElementById('destLoc');
@@ -1402,6 +1402,283 @@ async function fetchAirportFreq(icao, elementId, type) {
     return null;
 }
 
+/* =========================================================
+   OPENAIP AIRSPACE LOGIC
+   ========================================================= */
+let activeAirspaces = [];
+let airspaceMapLayers = [];
+let highlightedAirspaceIdx = -1; // track which airspace is toggled on
+
+function clearAirspaceMapLayers() {
+    if (!map) return;
+    airspaceMapLayers.forEach(l => map.removeLayer(l));
+    airspaceMapLayers = [];
+    highlightedAirspaceIdx = -1;
+    // Remove active styling from all rows
+    document.querySelectorAll('.as-row.as-active').forEach(el => el.classList.remove('as-active'));
+}
+
+function toggleAirspaceHighlight(idx) {
+    if (!map || !activeAirspaces[idx]) return;
+    
+    // If same airspace is already highlighted, toggle it off
+    if (highlightedAirspaceIdx === idx) {
+        clearAirspaceMapLayers();
+        return;
+    }
+    
+    // Clear previous
+    airspaceMapLayers.forEach(l => map.removeLayer(l));
+    airspaceMapLayers = [];
+    document.querySelectorAll('.as-row.as-active').forEach(el => el.classList.remove('as-active'));
+    
+    const airspace = activeAirspaces[idx];
+    highlightedAirspaceIdx = idx;
+
+    const coords = airspace.geometry.coordinates;
+    let polys = [];
+    if (airspace.geometry.type === 'Polygon') {
+        polys = [coords[0].map(c => [c[1], c[0]])];
+    } else if (airspace.geometry.type === 'MultiPolygon') {
+        polys = coords.map(pc => pc[0].map(c => [c[1], c[0]]));
+    }
+
+    const info = getAirspaceStyle(airspace);
+    polys.forEach(ring => {
+        const layer = L.polygon(ring, {
+            color: info.mapColor || '#ff4444',
+            weight: 3,
+            fillColor: info.mapColor || '#ff4444',
+            fillOpacity: 0.25,
+            dashArray: '6,4'
+        }).addTo(map);
+        
+        const displayName = getAirspaceDisplayName(airspace);
+        layer.bindTooltip(`<b>${info.icon} ${displayName}</b>`, { sticky: true, className: 'airspace-tooltip' });
+        airspaceMapLayers.push(layer);
+    });
+    
+    // Mark the row as active
+    const row = document.querySelector(`.as-row[data-as-idx="${idx}"]`);
+    if (row) row.classList.add('as-active');
+}
+
+function getAirspaceDisplayName(a) {
+    const t = a.type;
+    const name = a.name || 'Unbekannt';
+    if (t === 33) return `FIS ${name}`;
+    return name;
+}
+
+function getAirspaceFreqInfo(a) {
+    const t = a.type;
+    if (!a.frequencies || a.frequencies.length === 0) return '';
+    
+    // For CTR/TMA/CTA (type 4, 7, 26) and type 0 with icaoClass 3: show Tower/Approach freq
+    if ([4, 7, 26].includes(t) || (t === 0 && a.icaoClass === 3)) {
+        const primary = a.frequencies.find(f => f.primary) || a.frequencies[0];
+        if (primary) {
+            const label = primary.name || 'TWR';
+            return `<span style="color:#0b1f65; font-weight:bold; font-size:10px;">📻 ${label}: ${primary.value}</span>`;
+        }
+    }
+    
+    // For TMZ (type 27): show squawk if available, otherwise freq
+    if (t === 27) {
+        const primary = a.frequencies.find(f => f.primary) || a.frequencies[0];
+        if (primary) {
+            return `<span style="color:#9966ff; font-weight:bold; font-size:10px;">📻 ${primary.name || 'XPDR'}: ${primary.value}</span>`;
+        }
+    }
+    
+    // For RMZ (type 28) and FIS (type 33): show freq
+    if ([28, 33].includes(t)) {
+        const primary = a.frequencies.find(f => f.primary) || a.frequencies[0];
+        if (primary) {
+            return `<span style="color:#66cccc; font-weight:bold; font-size:10px;">📻 ${primary.name || 'INFO'}: ${primary.value}</span>`;
+        }
+    }
+    
+    return '';
+}
+
+function getAirspaceStyle(a) {
+    const t = a.type;
+    const classLetters = ['A','B','C','D','E','F','G'];
+    const cls = (a.icaoClass !== undefined && classLetters[a.icaoClass]) ? '-' + classLetters[a.icaoClass] : '';
+    if (t === 1) return { color: '#ff3333', icon: '⛔', mapColor: '#ff3333', category: 'ED-R / Restricted' };
+    if (t === 2) return { color: '#ff6600', icon: '⛔', mapColor: '#ff6600', category: 'Danger' };
+    if (t === 3) return { color: '#cc0000', icon: '🚫', mapColor: '#cc0000', category: 'Prohibited' };
+    if (t === 4) return { color: '#f2c12e', icon: '⚠️', mapColor: '#f2c12e', category: `CTR${cls}` };
+    if (t === 7) return { color: '#4da6ff', icon: '⚠️', mapColor: '#4da6ff', category: `TMA${cls}` };
+    if (t === 26) return { color: '#4da6ff', icon: '⚠️', mapColor: '#4da6ff', category: `CTA${cls}` };
+    if (t === 27) return { color: '#9966ff', icon: '📡', mapColor: '#9966ff', category: 'TMZ' };
+    if (t === 28) return { color: '#66cccc', icon: '📡', mapColor: '#66cccc', category: 'RMZ' };
+    if (t === 0 && a.icaoClass === 3) return { color: '#f2c12e', icon: '⚠️', mapColor: '#dda820', category: 'CTR-D (HX)' };
+    if (t === 33) return { color: '#888', icon: '🌐', mapColor: '#888', category: 'FIS' };
+    return { color: '#aaa', icon: '📋', mapColor: '#aaa', category: `Type ${t}` };
+}
+
+async function fetchRouteAirspaces(routePts) {
+    const listEl = document.getElementById('routeAirspacesList');
+    const container = document.getElementById('routeAirspacesContainer');
+
+    if (!routePts || routePts.length < 2) return;
+
+    if(container) {
+        container.style.display = 'block';
+        listEl.innerHTML = '<span style="color:#888;">Berechne Lufträume (OpenAIP)...</span>';
+    }
+
+    let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+    routePts.forEach(p => {
+        let lat = p.lat, lon = p.lng || p.lon;
+        if(lat < minLat) minLat = lat;
+        if(lat > maxLat) maxLat = lat;
+        if(lon < minLon) minLon = lon;
+        if(lon > maxLon) maxLon = lon;
+    });
+
+    minLat -= 0.15; maxLat += 0.15;
+    minLon -= 0.25; maxLon += 0.25;
+
+    try {
+        let allItems = [];
+        let page = 1;
+        let totalPages = 1;
+        while (page <= totalPages && page <= 5) {
+            const url = `https://ga-proxy.einherjer.workers.dev/api/airspaces?bbox=${minLon},${minLat},${maxLon},${maxLat}&limit=200&page=${page}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('API Error');
+            const data = await res.json();
+            if (!data || !data.items) break;
+            allItems = allItems.concat(data.items);
+            totalPages = data.totalPages || 1;
+            page++;
+        }
+        
+        if (allItems.length === 0) {
+             listEl.innerHTML = '<span style="color:#888;">Keine Daten gefunden.</span>';
+             return;
+        }
+
+        const airspaces = allItems;
+        const intersecting = [];
+
+        const testPoints = [];
+        for (let i = 0; i < routePts.length - 1; i++) {
+            const p1 = routePts[i], p2 = routePts[i+1];
+            const lat1 = p1.lat, lon1 = p1.lng || p1.lon;
+            const lat2 = p2.lat, lon2 = p2.lng || p2.lon;
+            const dist = calcNav(lat1, lon1, lat2, lon2).dist;
+            
+            const steps = Math.max(2, Math.ceil(dist));
+            for(let j=0; j<=steps; j++) {
+                const f = j/steps;
+                testPoints.push({ lat: lat1 + (lat2-lat1)*f, lon: lon1 + (lon2-lon1)*f });
+            }
+        }
+
+        function pointInPolygon(pt, polygon) {
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i][0], yi = polygon[i][1];
+                const xj = polygon[j][0], yj = polygon[j][1];
+                const intersect = ((yi > pt.lat) !== (yj > pt.lat))
+                    && (pt.lon < (xj - xi) * (pt.lat - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        // Relevant: 0 (CTR HX sectors), 1 (ED-R), 2 (Danger), 3 (Prohibited), 
+        // 4 (CTR), 7 (TMA), 26 (CTA), 27 (TMZ), 28 (RMZ), 33 (FIS)
+        // Excluded: 10 (FIR), type 0 with icaoClass 4 (Airspace D)
+        const relevantTypes = new Set([0, 1, 2, 3, 4, 7, 26, 27, 28, 33]);
+
+        const addedIds = new Set();
+        for (const as of airspaces) {
+            if (addedIds.has(as._id)) continue;
+            if (!relevantTypes.has(as.type)) continue;
+            // Type 0: only include CTR sectors (icaoClass 3)
+            if (as.type === 0 && as.icaoClass !== 3) continue;
+            
+            let hits = false;
+            if (as.geometry && as.geometry.type === 'Polygon') {
+                const poly = as.geometry.coordinates[0];
+                for(const tp of testPoints) {
+                    if (pointInPolygon(tp, poly)) { hits = true; break; }
+                }
+            } else if (as.geometry && as.geometry.type === 'MultiPolygon') {
+                for (const polyContainer of as.geometry.coordinates) {
+                    const poly = polyContainer[0];
+                    for(const tp of testPoints) {
+                        if (pointInPolygon(tp, poly)) { hits = true; break; }
+                    }
+                    if(hits) break;
+                }
+            }
+            
+            if (hits) {
+                intersecting.push(as);
+                addedIds.add(as._id);
+            }
+        }
+
+        const sortOrder = { 3:1, 1:2, 2:3, 4:4, 0:5, 7:6, 26:7, 27:8, 28:9, 33:10 };
+        intersecting.sort((a,b) => (sortOrder[a.type]||99) - (sortOrder[b.type]||99));
+
+        activeAirspaces = intersecting;
+        clearAirspaceMapLayers();
+
+        if (intersecting.length === 0) {
+            listEl.innerHTML = '<span style="color:#33ff33;">✅ Route frei – keine Konflikte erkannt.</span>';
+        } else {
+            let html = '';
+            intersecting.forEach((a, idx) => {
+                const style = getAirspaceStyle(a);
+                const displayName = getAirspaceDisplayName(a);
+                const freqInfo = getAirspaceFreqInfo(a);
+                
+                let limitStr = '';
+                const fmtLmt = (lim) => {
+                    if(!lim) return '?';
+                    if (lim.referenceDatum===0 && lim.value===0) return 'GND';
+                    if (lim.unit===6) return `FL ${lim.value}`;
+                    let u = lim.unit === 1 ? 'FT' : (lim.unit === 6 ? 'FL ' : 'M');
+                    let r = lim.referenceDatum === 1 ? ' MSL' : (lim.referenceDatum===0 ? ' AGL' : '');
+                    return `${lim.value} ${u}${r}`;
+                };
+
+                if (a.lowerLimit && a.upperLimit) {
+                    limitStr = `<span style="color:#555; font-size:9px; white-space:nowrap;">[${fmtLmt(a.lowerLimit)} – ${fmtLmt(a.upperLimit)}]</span>`;
+                }
+
+                const catLabel = `<span style="font-size:9px; color:#888;">${style.category}</span>`;
+                const freqLine = freqInfo ? `<div style="margin-top:1px;">${freqInfo}</div>` : '';
+
+                html += `<div class="as-row" data-as-idx="${idx}" 
+                            onclick="toggleAirspaceHighlight(${idx}); event.stopPropagation();"
+                            style="padding: 5px 4px; border-bottom: 1px dashed #bbb; cursor:pointer; transition: background 0.15s;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <span style="color:${style.color}; line-height:1.3;">
+                                    <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${style.color}; margin-right:4px; vertical-align:middle;"></span>${style.icon} <b>${displayName}</b>
+                                    <span style="margin-left:4px;">${catLabel}</span>
+                                </span>
+                                ${limitStr}
+                            </div>
+                            ${freqLine}
+                        </div>`;
+            });
+            listEl.innerHTML = html;
+        }
+
+    } catch (e) {
+        console.error("OpenAIP Error", e);
+        listEl.innerHTML = '<span style="color:#d93829;">Fehler beim Laden der Luftraumdaten.</span>';
+    }
+}
+
 async function generateMission() {
     const btn = document.getElementById('generateBtn'); 
     const rBtn = document.getElementById('radioGenerateBtn');
@@ -1836,7 +2113,7 @@ function updateRoutePerformance() {
         let isEnd = (i === routeWaypoints.length - 2);
 
         let name1 = isStart ? currentStartICAO : (routeWaypoints[i].name || `WP ${i}`);
-        let name2 = isEnd ? currentDestICAO : (routeWaypoints[i+1].name || `WP ${i+1}`);
+        let name2 = isEnd ? (currentMissionData?.poiName ? 'POI' : currentDestICAO) : (routeWaypoints[i+1].name || `WP ${i+1}`);
         
         let cleanName1 = name1.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
         let cleanName2 = name2.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
@@ -1891,7 +2168,11 @@ function updateRoutePerformance() {
     if (blDiv) blDiv.innerHTML = blHTML;
 
     let initialNav = calcNav(routeWaypoints[0].lat, routeWaypoints[0].lng || routeWaypoints[0].lon, routeWaypoints[1].lat, routeWaypoints[1].lng || routeWaypoints[1].lon);
-    currentMissionData.dist = totalNM; currentMissionData.heading = initialNav.brng;
+    
+    if (currentMissionData) {
+        currentMissionData.dist = totalNM; 
+        currentMissionData.heading = initialNav.brng;
+    }
 
     setDrumCounter('distDrum', totalNM);
     const mHeadingNote = document.getElementById("mHeadingNote"); if(mHeadingNote) mHeadingNote.innerText = `${initialNav.brng}°`;
@@ -1901,6 +2182,12 @@ function updateRoutePerformance() {
     const mDistNote = document.getElementById("mDistNote"); if(mDistNote) mDistNote.innerText = `${totalNM} NM`;
     const hrs = Math.floor(totalTime / 60), mins = totalTime % 60;
     const mETENote = document.getElementById("mETENote"); if(mETENote) mETENote.innerText = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} Min.`;
+
+    // Trigger Airspace Check
+    if (window.airspaceFetchTimeout) clearTimeout(window.airspaceFetchTimeout);
+    window.airspaceFetchTimeout = setTimeout(() => {
+        fetchRouteAirspaces(routeWaypoints);
+    }, 800);
 
     setTimeout(() => saveMissionState(), 500);
     if (gpsState.visible && gpsState.mode === 'FPL') renderGPS();
@@ -1992,11 +2279,22 @@ async function updateMapFromInputs() {
     let sData = await getAirportData(sIcao), dData = dIcao ? await getAirportData(dIcao) : null;
     if(sData && dData) {
         currentSName = sData.icao; currentDName = dData.icao;
-        routeWaypoints = [{lat: sData.lat, lng: sData.lon}, {lat: dData.lat, lng: dData.lon}];
-        renderMainRoute(); map.fitBounds(L.latLngBounds([sData.lat, sData.lon], [dData.lat, dData.lon]), { padding: [40, 40] });
+        if (!currentMissionData) {
+            map.fitBounds(L.latLngBounds([sData.lat, sData.lon], [dData.lat, dData.lon]), { padding: [40, 40] });
+        } else {
+            routeWaypoints = [{lat: sData.lat, lng: sData.lon}, {lat: dData.lat, lng: dData.lon}];
+            renderMainRoute(); 
+            map.fitBounds(L.latLngBounds([sData.lat, sData.lon], [dData.lat, dData.lon]), { padding: [40, 40] });
+        }
     } else if (sData) {
-        currentSName = sData.icao; routeWaypoints = [{lat: sData.lat, lng: sData.lon}];
-        renderMainRoute(); map.panTo([sData.lat, sData.lon]); if(map.getZoom() < 8) map.setZoom(9);
+        currentSName = sData.icao; 
+        if (!currentMissionData) {
+            map.panTo([sData.lat, sData.lon]); if(map.getZoom() < 8) map.setZoom(9);
+        } else {
+            routeWaypoints = [{lat: sData.lat, lng: sData.lon}];
+            renderMainRoute(); 
+            map.panTo([sData.lat, sData.lon]); if(map.getZoom() < 8) map.setZoom(9);
+        }
     }
 }
 
@@ -2330,7 +2628,7 @@ function gatherBriefingData() {
         depName:    document.getElementById('mDepName').innerText,
         depCoords:  document.getElementById('mDepCoords').innerText,
         depRwy:     document.getElementById('mDepRwy').innerText,
-        destICAO:   document.getElementById('mDestICAO').innerText,
+        destICAO:   currentMissionData?.poiName ? 'POI' : document.getElementById('mDestICAO').innerText,
         destName:   document.getElementById('mDestName').innerText,
         destCoords: document.getElementById('mDestCoords').innerText,
         destRwy:    document.getElementById('mDestRwy').innerText,
@@ -2735,29 +3033,29 @@ function drawRouteNavigationPage(doc, data, legs) {
     let y = 30;
     doc.setFont('Helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(11, 31, 101);
     doc.text('ROUTE & NAVIGATION', 32, y); y += 4;
-    doc.setDrawColor(11, 31, 101); doc.setLineWidth(0.5); doc.line(32, y, 190, y); y += 12;
+    doc.setDrawColor(11, 31, 101); doc.setLineWidth(0.5); doc.line(32, y, 190, y); y += 10;
 
     doc.setFont('Helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(80, 80, 80);
     const wpNames = [data.depICAO || currentStartICAO];
     for (let i = 1; i < routeWaypoints.length - 1; i++) wpNames.push(`WP${i}`);
-    if (routeWaypoints.length > 1) wpNames.push(data.destICAO || currentDestICAO);
-    doc.text(wpNames.join(' -> '), 32, y); y += 10;
+    if (routeWaypoints.length > 1) wpNames.push(data.isPOI ? 'POI' : (data.destICAO || currentDestICAO));
+    doc.text(wpNames.join(' -> '), 32, y); y += 8;
 
     const tableX = 32, colWidths = [10, 42, 16, 16, 16, 16, 16];
-    const tableW = colWidths.reduce((a, b) => a + b, 0), rowH = 12; 
+    const tableW = colWidths.reduce((a, b) => a + b, 0), rowH = 10; 
 
-    doc.setFillColor(220, 215, 200); doc.rect(tableX, y, tableW, 8, 'F');
-    doc.setDrawColor(160, 155, 140); doc.rect(tableX, y, tableW, 8, 'S');
+    doc.setFillColor(220, 215, 200); doc.rect(tableX, y, tableW, 7, 'F');
+    doc.setDrawColor(160, 155, 140); doc.rect(tableX, y, tableW, 7, 'S');
 
-    doc.setFont('Helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(40, 40, 40);
-    doc.text('LEG', tableX + 2, y + 5.5);
-    doc.text('ROUTE', tableX + colWidths[0] + 2, y + 5.5);
-    doc.text('FREQ', tableX + colWidths[0] + colWidths[1] + 2, y + 5.5);
-    doc.text('HDG', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 2, y + 5.5);
-    doc.text('DIST', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2, y + 5.5);
-    doc.text('TIME', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 2, y + 5.5);
-    doc.text('FUEL', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] + 2, y + 5.5);
-    y += 8;
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(40, 40, 40);
+    doc.text('LEG', tableX + 2, y + 5);
+    doc.text('ROUTE', tableX + colWidths[0] + 2, y + 5);
+    doc.text('FREQ', tableX + colWidths[0] + colWidths[1] + 2, y + 5);
+    doc.text('HDG', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 2, y + 5);
+    doc.text('DIST', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2, y + 5);
+    doc.text('TIME', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 2, y + 5);
+    doc.text('FUEL', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] + 2, y + 5);
+    y += 7;
 
     doc.setFont('Helvetica', 'normal');
     
@@ -2772,48 +3070,131 @@ function drawRouteNavigationPage(doc, data, legs) {
         doc.setDrawColor(200, 195, 180); doc.rect(tableX, y, tableW, rowH, 'S');
 
         doc.setTextColor(40, 40, 40);
-        doc.setFontSize(9);
-        doc.text(`${i + 1}`, tableX + 3, y + 7);
+        doc.setFontSize(8);
+        doc.text(`${i + 1}`, tableX + 3, y + 6);
         
-        doc.text(`${leg.from}`, tableX + colWidths[0] + 2, y + 4.5);
-        doc.text(`-> ${leg.to}`, tableX + colWidths[0] + 2, y + 9.5); 
+        doc.text(`${leg.from}`, tableX + colWidths[0] + 2, y + 4);
+        doc.text(`-> ${leg.to}`, tableX + colWidths[0] + 2, y + 8.5); 
+        
+        doc.setFontSize(7);
+        doc.setTextColor(11, 31, 101); 
+        if (leg.f1) doc.text(leg.f1, tableX + colWidths[0] + colWidths[1] + 2, y + 4);
+        if (leg.f2) doc.text(leg.f2, tableX + colWidths[0] + colWidths[1] + 2, y + 8.5);
         
         doc.setFontSize(8);
-        doc.setTextColor(11, 31, 101); 
-        if (leg.f1) doc.text(leg.f1, tableX + colWidths[0] + colWidths[1] + 2, y + 4.5);
-        if (leg.f2) doc.text(leg.f2, tableX + colWidths[0] + colWidths[1] + 2, y + 9.5);
-        
-        doc.setFontSize(9);
         doc.setTextColor(40, 40, 40);
-        doc.text(`${leg.heading}\u00B0`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + 2, y + 7);
-        doc.text(`${leg.dist} NM`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2, y + 7);
-        doc.text(`${leg.time} m`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 2, y + 7);
-        doc.text(`${leg.fuel} G`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] + 2, y + 7);
+        doc.text(`${leg.heading}\u00B0`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + 2, y + 6);
+        doc.text(`${leg.dist} NM`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2, y + 6);
+        doc.text(`${leg.time} m`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 2, y + 6);
+        doc.text(`${leg.fuel} G`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] + 2, y + 6);
         y += rowH;
     });
 
-    doc.setFillColor(210, 205, 190); doc.rect(tableX, y, tableW, 8, 'F');
-    doc.setDrawColor(160, 155, 140); doc.rect(tableX, y, tableW, 8, 'S');
-    doc.setFont('Helvetica', 'bold'); doc.setTextColor(11, 31, 101);
-    doc.text('TOTAL', tableX + colWidths[0] + 2, y + 5.5);
-    doc.text(`${data.totalDist} NM`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2, y + 5.5);
-    doc.text(`${totalTime} m`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 2, y + 5.5);
-    doc.text(`${totalFuel.toFixed(1)} G`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] + 2, y + 5.5);
-    y += 8 + 14;
+    doc.setFillColor(210, 205, 190); doc.rect(tableX, y, tableW, 7, 'F');
+    doc.setDrawColor(160, 155, 140); doc.rect(tableX, y, tableW, 7, 'S');
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(11, 31, 101);
+    doc.text('TOTAL', tableX + colWidths[0] + 2, y + 5);
+    doc.text(`${data.totalDist} NM`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 2, y + 5);
+    doc.text(`${totalTime} m`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + 2, y + 5);
+    doc.text(`${totalFuel.toFixed(1)} G`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] + 2, y + 5);
+    y += 7 + 6;
 
-    doc.setDrawColor(100, 100, 100); doc.setLineWidth(0.3); doc.setLineDashPattern([2, 2], 0); doc.line(32, y, 190, y); doc.setLineDashPattern([], 0); y += 10;
-    doc.setFont('Helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(11, 31, 101); doc.text('PERFORMANCE', 32, y); y += 12;
+    // --- COMPACT PERFORMANCE ---
+    doc.setDrawColor(100, 100, 100); doc.setLineWidth(0.3); doc.setLineDashPattern([2, 2], 0); doc.line(32, y, 190, y); doc.setLineDashPattern([], 0); y += 6;
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101); doc.text('PERFORMANCE', 32, y); y += 8;
 
-    doc.setFontSize(10); const perfCol1 = 38, perfCol2 = 110;
-    doc.setTextColor(217, 56, 41); doc.text('Aircraft:', perfCol1, y); doc.setTextColor(40, 40, 40); doc.setFont('Helvetica', 'normal'); doc.text(data.aircraft, perfCol1 + 38, y);
-    doc.setFont('Helvetica', 'bold'); doc.setTextColor(217, 56, 41); doc.text('TAS:', perfCol2, y); doc.setTextColor(40, 40, 40); doc.setFont('Helvetica', 'normal'); doc.text(`${data.tas} kts`, perfCol2 + 28, y); y += 8;
-    doc.setFont('Helvetica', 'bold'); doc.setTextColor(217, 56, 41); doc.text('GPH:', perfCol1, y); doc.setTextColor(40, 40, 40); doc.setFont('Helvetica', 'normal'); doc.text(`${data.gph} gal/h`, perfCol1 + 38, y);
-    doc.setFont('Helvetica', 'bold'); doc.setTextColor(217, 56, 41); doc.text('Dist:', perfCol2, y); doc.setTextColor(40, 40, 40); doc.setFont('Helvetica', 'normal'); doc.text(`${data.totalDist} NM`, perfCol2 + 28, y); y += 8;
-    doc.setFont('Helvetica', 'bold'); doc.setTextColor(217, 56, 41); doc.text('ETE:', perfCol1, y); doc.setTextColor(40, 40, 40); doc.setFont('Helvetica', 'normal'); doc.text(data.totalTimeStr, perfCol1 + 38, y);
-    doc.setFont('Helvetica', 'bold'); doc.setTextColor(217, 56, 41); doc.text('Fuel:', perfCol2, y); doc.setTextColor(40, 40, 40); doc.setFont('Helvetica', 'normal'); doc.text(`${data.totalFuel} Gal`, perfCol2 + 28, y); y += 16;
+    doc.setFontSize(9);
+    const pc = [34, 66, 98, 130, 162];
+    const items = [
+        ['AC', data.aircraft], ['TAS', `${data.tas} kts`], ['GPH', `${data.gph} gal/h`],
+        ['ETE', data.totalTimeStr], ['FUEL', `${data.totalFuel} Gal`]
+    ];
+    items.forEach((item, i) => {
+        const x = pc[i];
+        doc.setFont('Helvetica', 'bold'); doc.setTextColor(217, 56, 41); doc.text(item[0], x, y);
+        doc.setFont('Helvetica', 'normal'); doc.setTextColor(40, 40, 40); doc.text(item[1], x, y + 5);
+    });
+    y += 14;
+
+    // --- AIRSPACE WARNINGS ---
+    doc.setDrawColor(100, 100, 100); doc.setLineWidth(0.3); doc.setLineDashPattern([2, 2], 0); doc.line(32, y, 190, y); doc.setLineDashPattern([], 0); y += 6;
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101); doc.text('AIRSPACE WARNINGS', 32, y); y += 8;
+
+    if (!activeAirspaces || activeAirspaces.length === 0) {
+        doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(40, 140, 40);
+        doc.text('Route frei - keine Konflikte erkannt.', 34, y);
+    } else {
+        const fmtLmt = (lim) => {
+            if(!lim) return '?';
+            if (lim.referenceDatum===0 && lim.value===0) return 'GND';
+            if (lim.unit===6) return `FL ${lim.value}`;
+            let u = lim.unit === 1 ? 'FT' : (lim.unit === 6 ? 'FL ' : 'M');
+            let r = lim.referenceDatum === 1 ? ' MSL' : (lim.referenceDatum===0 ? ' AGL' : '');
+            return `${lim.value} ${u}${r}`;
+        };
+
+        for (let i = 0; i < activeAirspaces.length; i++) {
+            if (y > 278) {
+                doc.setFont('Helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(120, 120, 120);
+                doc.text(`... und ${activeAirspaces.length - i} weitere`, 38, y);
+                break;
+            }
+            const a = activeAirspaces[i];
+            const style = getAirspaceStyle(a);
+            const displayName = getAirspaceDisplayName(a);
+            
+            // Color dot
+            const rgb = hexToRgb(style.color);
+            if (rgb) { doc.setFillColor(rgb.r, rgb.g, rgb.b); doc.circle(35, y - 1.2, 1.2, 'F'); }
+
+            // Category + name
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(8);
+            doc.setTextColor(40, 40, 40);
+            const catTag = `[${style.category}]`;
+            doc.text(catTag, 38, y);
+            const catW = doc.getTextWidth(catTag);
+            doc.setFont('Helvetica', 'normal');
+            const maxNameLen = 28;
+            const trimmedName = displayName.length > maxNameLen ? displayName.substring(0, maxNameLen - 2) + '..' : displayName;
+            doc.text(trimmedName, 38 + catW + 1, y);
+
+            // Limits (right-aligned)
+            if (a.lowerLimit && a.upperLimit) {
+                const limStr = `${fmtLmt(a.lowerLimit)} - ${fmtLmt(a.upperLimit)}`;
+                doc.setFontSize(7); doc.setTextColor(100, 100, 100);
+                doc.text(limStr, 190, y, { align: 'right' });
+            }
+
+            // Frequency / Squawk on same line below
+            let freqStr = '';
+            if (a.frequencies && a.frequencies.length > 0) {
+                const primary = a.frequencies.find(f => f.primary) || a.frequencies[0];
+                if (primary && primary.value) {
+                    if (a.type === 27) {
+                        freqStr = `SQUAWK: ${primary.value}`;
+                    } else {
+                        freqStr = `${primary.name || 'FREQ'}: ${primary.value}`;
+                    }
+                }
+            }
+            if (freqStr) {
+                y += 3.5;
+                doc.setFontSize(7); doc.setTextColor(11, 31, 101);
+                doc.setFont('Helvetica', 'bold');
+                doc.text(freqStr, 38, y);
+            }
+
+            y += 5;
+        }
+    }
 }
 
-function drawAirportInfoPage(doc, type, data, photo, detailMap) {
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
+}
+
+function drawAirportInfoPage(doc, type, data, photo, detailMap, metarImg) {
     let y = 30;
     const isDep = (type === 'dep');
     const isPOI = (!isDep && data.isPOI);
@@ -2902,35 +3283,82 @@ function drawAirportInfoPage(doc, type, data, photo, detailMap) {
         y += 6;
     }
 
-    if (detailMap) {
+    if (detailMap || metarImg) {
         y = Math.max(y + 6, 170);
         doc.setDrawColor(100, 100, 100); doc.setLineDashPattern([2, 2], 0); doc.line(32, y, 190, y); doc.setLineDashPattern([], 0);
         y += 6;
 
-        doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101);
-        doc.text(isPOI ? 'KARTE' : `PLATZKARTE ${icao}`, 32, y);
-        y += 5;
-
-        // Berechne Aspect Ratio basierend auf 700x360
-        const mapRatio = 700 / 360;
-        const maxW = 155;
+        const hasMetar = metarImg && metarImg.data && !isPOI;
+        const mapAvailW = hasMetar ? 95 : 155;
         const maxH = Math.min(100, 280 - y);
-        let mapW, mapH;
 
-        if (maxW / maxH < mapRatio) {
-            mapW = maxW;
-            mapH = mapW / mapRatio;
-        } else {
-            mapH = maxH;
-            mapW = mapH * mapRatio;
+        if (detailMap) {
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101);
+            doc.text(isPOI ? 'KARTE' : `PLATZKARTE ${icao}`, 32, y);
+            const mapLabelY = y;
+            y += 5;
+
+            const mapRatio = 700 / 360;
+            let mapW, mapH;
+            if (mapAvailW / maxH < mapRatio) { mapW = mapAvailW; mapH = mapW / mapRatio; }
+            else { mapH = maxH; mapW = mapH * mapRatio; }
+            
+            const mapX = 32;
+            doc.setFillColor(230, 225, 210); doc.rect(mapX - 1, y - 1, mapW + 2, mapH + 2, 'F');
+            doc.setDrawColor(160, 155, 140); doc.setLineWidth(0.4); doc.rect(mapX - 1, y - 1, mapW + 2, mapH + 2, 'S');
+            doc.addImage(detailMap, 'JPEG', mapX, y, mapW, mapH);
+
+            // METAR neben der Karte
+            if (hasMetar) {
+                const metarX = 32 + mapAvailW + 4;
+                const metarAvailW = 190 - metarX;
+                
+                doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101);
+                doc.text('METAR', metarX, mapLabelY);
+
+                // Proportional skalieren anhand des echten Seitenverhältnisses
+                const metarRatio = metarImg.ratio || 1.5;
+                let metarW = metarAvailW;
+                let metarH = metarW / metarRatio;
+                if (metarH > mapH) { metarH = mapH; metarW = metarH * metarRatio; }
+                
+                doc.setFillColor(240, 236, 224); doc.rect(metarX - 1, y - 1, metarW + 2, metarH + 2, 'F');
+                doc.setDrawColor(160, 155, 140); doc.setLineWidth(0.4); doc.rect(metarX - 1, y - 1, metarW + 2, metarH + 2, 'S');
+                try {
+                    doc.addImage(metarImg.data, 'PNG', metarX, y, metarW, metarH);
+                } catch(e) {
+                    doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120, 120, 120);
+                    doc.text('METAR nicht verfuegbar', metarX + 2, y + 10);
+                }
+            }
+        } else if (hasMetar) {
+            // Nur METAR, keine Karte
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101);
+            doc.text('METAR', 32, y);
+            y += 5;
+            const metarRatio = metarImg.ratio || 1.5;
+            let metarW = 155;
+            let metarH = metarW / metarRatio;
+            if (metarH > maxH) { metarH = maxH; metarW = metarH * metarRatio; }
+            doc.setFillColor(240, 236, 224); doc.rect(31, y - 1, metarW + 2, metarH + 2, 'F');
+            doc.setDrawColor(160, 155, 140); doc.setLineWidth(0.4); doc.rect(31, y - 1, metarW + 2, metarH + 2, 'S');
+            try {
+                doc.addImage(metarImg.data, 'PNG', 32, y, metarW, metarH);
+            } catch(e) {}
         }
-        
-        const mapX = 32 + (maxW - mapW) / 2;
-
-        doc.setFillColor(230, 225, 210); doc.rect(mapX - 1, y - 1, mapW + 2, mapH + 2, 'F');
-        doc.setDrawColor(160, 155, 140); doc.setLineWidth(0.4); doc.rect(mapX - 1, y - 1, mapW + 2, mapH + 2, 'S');
-        doc.addImage(detailMap, 'JPEG', mapX, y, mapW, mapH);
     }
+}
+
+async function captureMetarWidget(containerId) {
+    try {
+        const container = document.getElementById(containerId);
+        if (!container || container.style.display === 'none' || !container.innerHTML.trim()) return null;
+        // Check if it has actual METAR content (not loading or error)
+        if (container.innerHTML.includes('Sucht lokales') || container.innerHTML.includes('Fehler')) return null;
+        const ratio = container.offsetWidth / container.offsetHeight;
+        const canvas = await html2canvas(container, { backgroundColor: '#f0eada', scale: 2, useCORS: true, logging: false });
+        return { data: canvas.toDataURL('image/png'), ratio: ratio };
+    } catch(e) { console.warn('METAR capture failed:', e); return null; }
 }
 
 async function generateBriefingPDF() {
@@ -2964,11 +3392,16 @@ async function generateBriefingPDF() {
 
         const depPhotoUrl = extractImageUrl(document.getElementById('wikiDepImage'));
         const destPhotoUrl = extractImageUrl(document.getElementById('wikiDestImage'));
-        const [depPhoto, destPhoto, depDetail, destDetail] = await Promise.all([
+        const depMetarPromise = captureMetarWidget('metarContainerDep');
+        const destMetarPromise = isPOI ? Promise.resolve(null) : captureMetarWidget('metarContainerDest');
+
+        const [depPhoto, destPhoto, depDetail, destDetail, depMetar, destMetar] = await Promise.all([
             depPhotoUrl ? getImageAsBase64(depPhotoUrl) : Promise.resolve(null),
             destPhotoUrl ? getImageAsBase64(destPhotoUrl) : Promise.resolve(null),
             depDetailPromise,
-            destDetailPromise
+            destDetailPromise,
+            depMetarPromise,
+            destMetarPromise
         ]);
 
         const mapImage = await mapImagePromise;
@@ -2984,11 +3417,11 @@ async function generateBriefingPDF() {
 
         doc.addPage();
         drawNotebookBackground(doc, 3, totalPages);
-        drawAirportInfoPage(doc, 'dep', data, depPhoto, depDetail);
+        drawAirportInfoPage(doc, 'dep', data, depPhoto, depDetail, depMetar);
 
         doc.addPage();
         drawNotebookBackground(doc, 4, totalPages);
-        drawAirportInfoPage(doc, 'dest', data, destPhoto, destDetail);
+        drawAirportInfoPage(doc, 'dest', data, destPhoto, destDetail, destMetar);
 
         const filename = `Briefing_${data.depICAO}_${isPOI ? 'Rundflug' : data.destICAO}_${data.date.replace(/\./g, '')}.pdf`;
         doc.save(filename);
@@ -3249,7 +3682,7 @@ function renderFPL(left, right) {
         for (let i = 0; i < wps.length - 1; i++) {
             const p1 = wps[i], p2 = wps[i + 1], nav = calcNav(p1.lat, p1.lng || p1.lon, p2.lat, p2.lng || p2.lon);
             let n1 = i === 0 ? (currentStartICAO || 'DEP')  : (wps[i].name || `WP${i}`);
-            let n2 = i === wps.length - 2 ? (currentDestICAO  || 'DEST') : (wps[i+1].name || `WP${i+1}`);
+            let n2 = i === wps.length - 2 ? (currentMissionData?.poiName ? 'POI' : (currentDestICAO || 'DEST')) : (wps[i+1].name || `WP${i+1}`);
             
             n1 = n1.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
             n2 = n2.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
@@ -3279,14 +3712,15 @@ function renderFPL(left, right) {
             const isEnd = (start + idx) === 0 || (start + idx) === legs.length - 1;
             return `<div class="kln90b-line ${isEnd ? 'highlight' : ''}" style="font-size:10px; line-height:1.5; white-space:nowrap;">${l.n1}\u2192${l.n2}&nbsp;&nbsp;<span class="dim">${l.brng}\u00b0&thinsp;${l.dist}&thinsp;NM</span></div>`;
         }).join('');
-        if (legs.length === 0) left.innerHTML = `<div class="kln90b-line highlight">${currentStartICAO}</div><div class="kln90b-line dim">→${currentDestICAO}</div>`;
+        if (legs.length === 0) left.innerHTML = `<div class="kln90b-line highlight">${currentStartICAO}</div><div class="kln90b-line dim">→${currentMissionData?.poiName ? 'POI' : currentDestICAO}</div>`;
         
         const _d = Math.round((currentMissionData.dist||0)*10)/10, _t = parseInt(document.getElementById('tasSlider')?.value)||115, _g = parseInt(document.getElementById('gphSlider')?.value)||9;
         right.innerHTML = `<div class="kln90b-line dim" style="font-size:9px;">TOTAL:</div><div class="kln90b-line" style="font-size:10px;">DST ${_d}NM</div><div class="kln90b-line" style="font-size:10px;">TME ${Math.round((_d/_t)*60)}m</div><div class="kln90b-line" style="font-size:10px;">FUL ${Math.ceil((_d/_t)*_g+0.75*_g)}G</div><div class="kln90b-line" style="font-size:10px;">HDG ${currentMissionData.heading||0}°</div>`;
     }
 }
 async function renderAirportInfo(left, right, type) {
-    const icao = type === 'dep' ? currentStartICAO : currentDestICAO;
+    const isPOIMission = currentMissionData?.poiName && type === 'dest';
+    const icao = type === 'dep' ? currentStartICAO : (isPOIMission ? 'POI' : currentDestICAO);
     if (!icao) {
         left.innerHTML  = '<div class="kln90b-line dim">NO DATA</div>';
         right.innerHTML = '<div class="kln90b-line dim">DISPATCH</div>';
@@ -3294,8 +3728,9 @@ async function renderAirportInfo(left, right, type) {
     }
 
     const mode = gpsState.mode;
-    const data = await getAirportData(icao);
-    const name = (data && data.n) ? data.n : (type==='dep' ? currentSName : currentDName) || icao;
+    const realIcao = type === 'dep' ? currentStartICAO : currentDestICAO;
+    const data = await getAirportData(realIcao);
+    const name = isPOIMission ? currentMissionData.poiName : ((data && data.n) ? data.n : (type==='dep' ? currentSName : currentDName) || icao);
     const lat  = data ? data.lat.toFixed(4) : '---';
     const lon  = data ? data.lon.toFixed(4) : '---';
 
@@ -3306,6 +3741,29 @@ async function renderAirportInfo(left, right, type) {
         `<div class="kln90b-line dim" style="font-size:9px;">${lon}</div>`;
 
     right.innerHTML = '<div class="kln90b-line dim kln-loading-dots" style="margin-top:8px;"><span>●</span><span>●</span><span>●</span></div>';
+
+    // POI-Missionen: Keine Runway/Freq-Daten, nur Wiki-Info
+    if (isPOIMission) {
+        const wikiKey = currentMissionData.poiName || 'POI';
+        if (!gpsState.wikiCache[wikiKey] && data) {
+            await fetchAndCacheWikiPages(realIcao, data.lat, data.lon);
+            if (gpsState.wikiCache[realIcao]) gpsState.wikiCache[wikiKey] = gpsState.wikiCache[realIcao];
+        }
+        const wikiArr = gpsState.wikiCache[wikiKey] || gpsState.wikiCache[realIcao] || ['Keine Daten.'];
+        const total = wikiArr.length;
+        gpsState.maxPages[mode] = total;
+        const lbl = document.getElementById('gpsPageLbl');
+        if (lbl) lbl.textContent = `PG ${gpsState.subPage+1}/${total}`;
+        if (gpsState.subPage >= total) gpsState.subPage = total - 1;
+        const sp = gpsState.subPage;
+        if (sp >= 0 && sp < wikiArr.length) {
+            right.innerHTML =
+                `<div class="kln90b-line" style="font-size:9px; line-height:1.5; white-space:normal;">${wikiArr[sp]}</div>`;
+        } else {
+            right.innerHTML = '<div class="kln90b-line dim">NO DATA</div>';
+        }
+        return;
+    }
 
     if (!runwayCache[icao] && data) {
         const wikiResult = await fetchRunwayFromWikipedia(icao, data.lat, data.lon);

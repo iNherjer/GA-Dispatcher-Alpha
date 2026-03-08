@@ -481,6 +481,11 @@ body.map-is-fullscreen .pb-btn.close { display: none !important; }
 .wp-name { font-weight: bold; flex-grow: 1; padding-right: 15px; line-height: 1.3; }
 .wp-data { color: var(--green); font-weight: bold; letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0; text-align: right; }
 .interactive-route { cursor: pointer; }
+
+/* Airspace List Rows (NavLog) */
+.as-row { border-radius: 3px; }
+.as-row:hover { background: rgba(0,0,0,0.06); }
+.as-row.as-active { background: rgba(0,0,0,0.12) !important; box-shadow: inset 3px 0 0 #d93829; }
 body.theme-retro .waypoint-list { color: #f4f4f4; border-top: 1px dashed #777; background: rgba(0, 0, 0, 0.25); padding: 10px 12px; border-radius: 6px; margin-top: 12px; font-size: 15px; }
 body.theme-retro .wp-data { color: var(--piper-yellow); }
 
