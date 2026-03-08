@@ -779,63 +779,77 @@ async function loadMetarWidget(icao, containerId, lat, lon) {
             const isLong = i % 10 === 0;
             const len = isCard ? 8 : (isLong ? 5 : 3);
             const sw = isCard ? 2 : 1;
-            const col = isCard ? '#888' : '#444';
+            const col = isCard ? '#111' : '#888';
             svgTicks += `<line x1="80" y1="2" x2="80" y2="${2+len}" stroke="${col}" stroke-width="${sw}" transform="rotate(${i} 80 80)" />`;
+            
+            if (i % 30 === 0 && !isCard) {
+                const angleRad = (i - 90) * Math.PI / 180;
+                const r = 61; // Radius for the numbers
+                const tx = 80 + r * Math.cos(angleRad);
+                const ty = 80 + r * Math.sin(angleRad);
+                svgTicks += `<text x="${tx}" y="${ty}" font-family="sans-serif" font-size="10" fill="#333" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${i/10}</text>`;
+            } else if (isCard) {
+                const angleRad = (i - 90) * Math.PI / 180;
+                const r = 61; // Radius for the letters
+                const tx = 80 + r * Math.cos(angleRad);
+                const ty = 80 + r * Math.sin(angleRad);
+                let letter = '';
+                if(i===0) letter = 'N';
+                else if(i===90) letter = 'O';
+                else if(i===180) letter = 'S';
+                else if(i===270) letter = 'W';
+                svgTicks += `<text x="${tx}" y="${ty}" font-family="sans-serif" font-size="14" fill="#111" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${letter}</text>`;
+            }
         }
 
         let arrowHtml = '';
         if (!isVRB && wspd > 0 && wdir !== null && wdir !== "VRB") {
             arrowHtml = `
-            <svg viewBox="0 0 160 160" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; transform-origin: center center; transform: rotate(${wdir}deg); filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.8)); pointer-events:none;">
-                <line x1="80" y1="6" x2="80" y2="70" stroke="#4da6ff" stroke-width="4" stroke-linecap="round"/>
-                <polygon points="72,55 80,80 88,55" fill="#4da6ff" />
+            <svg viewBox="0 0 160 160" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; transform-origin: center center; transform: rotate(${wdir}deg); filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.4)); pointer-events:none;">
+                <line x1="80" y1="6" x2="80" y2="70" stroke="#1a73e8" stroke-width="4" stroke-linecap="round"/>
+                <polygon points="72,55 80,80 88,55" fill="#1a73e8" />
             </svg>`;
         }
         
         const headerText = isFallback ? `▶ NEAREST: ${foundIcao}` : `▶ STATION: ${icao}`;
 
         container.innerHTML = `
-            <div style="background:#2b2d31; border-radius:12px; padding:15px 15px 20px 15px; border: 4px solid #5a5f6a; box-shadow: inset 0 5px 15px rgba(0,0,0,0.4), 0 5px 10px rgba(0,0,0,0.3); font-family: 'Arial', sans-serif; color: #f4f4f4; position:relative; overflow:hidden;">
+            <div style="background:#f0eada; border-radius:12px; padding:15px 15px 20px 15px; border: 3px solid #c2bba8; box-shadow: 0 4px 8px rgba(0,0,0,0.2), inset 0 2px 5px rgba(255,255,255,0.5); font-family: 'Arial', sans-serif; color: #333; position:relative; overflow:hidden;">
                 
-                <div style="position:absolute; top:6px; left:6px; width:6px; height:6px; background:#777; border-radius:50%; box-shadow: inset 0 0 2px #000;"></div>
-                <div style="position:absolute; bottom:6px; right:6px; width:6px; height:6px; background:#777; border-radius:50%; box-shadow: inset 0 0 2px #000;"></div>
-                <div style="position:absolute; top:6px; right:6px; width:6px; height:6px; background:#777; border-radius:50%; box-shadow: inset 0 0 2px #000;"></div>
-                <div style="position:absolute; bottom:6px; left:6px; width:6px; height:6px; background:#777; border-radius:50%; box-shadow: inset 0 0 2px #000;"></div>
+                <div style="position:absolute; top:6px; left:6px; width:6px; height:6px; background:#ddd; border-radius:50%; box-shadow: inset 0 0 2px #555;"></div>
+                <div style="position:absolute; bottom:6px; right:6px; width:6px; height:6px; background:#ddd; border-radius:50%; box-shadow: inset 0 0 2px #555;"></div>
+                <div style="position:absolute; top:6px; right:6px; width:6px; height:6px; background:#ddd; border-radius:50%; box-shadow: inset 0 0 2px #555;"></div>
+                <div style="position:absolute; bottom:6px; left:6px; width:6px; height:6px; background:#ddd; border-radius:50%; box-shadow: inset 0 0 2px #555;"></div>
 
-                <div style="color: #f2c12e; font-size: 14px; font-weight: bold; margin-bottom: 12px; border-bottom: 2px dashed #4a4e59; padding-bottom: 8px; font-family: 'Courier New', Courier, monospace; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">
+                <div style="color: #8a1a12; font-size: 14px; font-weight: bold; margin-bottom: 12px; border-bottom: 2px dashed #c2bba8; padding-bottom: 8px; font-family: 'Courier New', Courier, monospace; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.5px;">
                     <span>${headerText}</span>
-                    <span style="color:${catColor}; font-size:14px; padding: 2px 8px; border: 2px solid ${catColor}; border-radius: 4px; background: rgba(0,0,0,0.5); box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);">${catText}</span>
+                    <span style="color:${catColor}; font-size:14px; padding: 2px 8px; border: 2px solid ${catColor}; border-radius: 4px; background: rgba(255,255,255,0.7); box-shadow: 0 1px 2px rgba(0,0,0,0.1);">${catText}</span>
                 </div>
                 
-                <div style="background:#111; color:#33ff33; font-family: 'Courier New', Courier, monospace; padding:10px; border-radius:4px; font-size:11.5px; margin-bottom:18px; border: 2px inset #333; line-height: 1.4; letter-spacing: 0.5px; box-shadow: inset 0 0 10px rgba(0,255,0,0.05); text-shadow: 0 0 3px rgba(51,255,51,0.4);">
+                <div style="background:#e6e0ce; color:#333; font-family: 'Courier New', Courier, monospace; padding:10px; border-radius:4px; font-size:11.5px; margin-bottom:18px; border: 1px inset #c2bba8; line-height: 1.4; letter-spacing: 0.5px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
                     ${raw}
                 </div>
                 
                 <div style="display:flex; justify-content: space-between; align-items: center; gap: 8px;">
                     <div style="display:flex; flex-direction:column; gap:8px; font-family: 'Courier New', Courier, monospace; flex-shrink: 1; min-width: 0;">
-                        <div><div style="color:#a1a1a1; font-size:10px; font-weight:bold; letter-spacing:1px;">WIND</div><div style="color:#4da6ff; font-size:15px; font-weight:bold; text-shadow: 0 1px 2px #000; white-space: nowrap;">${windText}</div></div>
+                        <div><div style="color:#666; font-size:10px; font-weight:bold; letter-spacing:1px;">WIND</div><div style="color:#1a73e8; font-size:15px; font-weight:bold; white-space: nowrap;">${windText}</div></div>
                         <div style="display:flex; gap:12px;">
-                            <div><div style="color:#a1a1a1; font-size:10px; font-weight:bold; letter-spacing:1px;">TEMP</div><div style="color:#fff; font-size:15px; font-weight:bold; text-shadow: 0 1px 2px #000; white-space: nowrap;">${temp}</div></div>
-                            <div><div style="color:#a1a1a1; font-size:10px; font-weight:bold; letter-spacing:1px;">DEWP</div><div style="color:#fff; font-size:15px; font-weight:bold; text-shadow: 0 1px 2px #000; white-space: nowrap;">${dewp}</div></div>
+                            <div><div style="color:#666; font-size:10px; font-weight:bold; letter-spacing:1px;">TEMP</div><div style="color:#111; font-size:15px; font-weight:bold; white-space: nowrap;">${temp}</div></div>
+                            <div><div style="color:#666; font-size:10px; font-weight:bold; letter-spacing:1px;">DEWP</div><div style="color:#111; font-size:15px; font-weight:bold; white-space: nowrap;">${dewp}</div></div>
                         </div>
-                        <div><div style="color:#a1a1a1; font-size:10px; font-weight:bold; letter-spacing:1px;">QNH</div><div style="color:#fff; font-size:15px; font-weight:bold; text-shadow: 0 1px 2px #000; white-space: nowrap;">${qnhStr}</div></div>
-                        <div><div style="color:#a1a1a1; font-size:10px; font-weight:bold; letter-spacing:1px;">COVER</div><div style="color:#fff; font-size:15px; font-weight:bold; text-shadow: 0 1px 2px #000; white-space: nowrap;">${cover}</div></div>
+                        <div><div style="color:#666; font-size:10px; font-weight:bold; letter-spacing:1px;">QNH</div><div style="color:#111; font-size:15px; font-weight:bold; white-space: nowrap;">${qnhStr}</div></div>
+                        <div><div style="color:#666; font-size:10px; font-weight:bold; letter-spacing:1px;">COVER</div><div style="color:#111; font-size:15px; font-weight:bold; white-space: nowrap;">${cover}</div></div>
                     </div>
                     
-                    <div style="position:relative; width:160px; height:160px; flex-shrink: 0; border:4px solid #1a1c1e; border-radius:50%; background:#080808; box-shadow: inset 0 0 20px rgba(0,0,0,0.9), 0 3px 8px rgba(0,0,0,0.6);">
+                    <div style="position:relative; width:160px; height:160px; flex-shrink: 0; border:4px solid #a8a291; border-radius:50%; background:#fcfaf5; box-shadow: inset 0 2px 8px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.2);">
                         <svg viewBox="0 0 160 160" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:1; pointer-events:none;">
                             ${svgTicks}
                         </svg>
-
-                        <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); font-size:12px; color:#a1a1a1; font-weight:bold; z-index:2; font-family: sans-serif;">N</div>
-                        <div style="position:absolute; bottom:12px; left:50%; transform:translateX(-50%); font-size:12px; color:#a1a1a1; font-weight:bold; z-index:2; font-family: sans-serif;">S</div>
-                        <div style="position:absolute; top:50%; left:12px; transform:translateY(-50%); font-size:12px; color:#a1a1a1; font-weight:bold; z-index:2; font-family: sans-serif;">W</div>
-                        <div style="position:absolute; top:50%; right:12px; transform:translateY(-50%); font-size:12px; color:#a1a1a1; font-weight:bold; z-index:2; font-family: sans-serif;">E</div>
                         
-                        <div style="position:absolute; top:50%; left:50%; width:26px; height:120px; background:#3c4045; border:1px solid #111; border-radius: 3px; transform: translate(-50%, -50%) rotate(${rwyHdg}deg); transform-origin: center center; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding: 4px 0; box-sizing: border-box; z-index:5; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">
-                            <div style="width:100%; text-align:center; font-size:10px; line-height:1; color:#f4f4f4; font-weight:bold; transform: rotate(180deg); font-family: sans-serif;">${rwy1}</div>
+                        <div style="position:absolute; top:50%; left:50%; width:26px; height:105px; background:#444; border:1px solid #111; border-radius: 3px; transform: translate(-50%, -50%) rotate(${rwyHdg}deg); transform-origin: center center; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding: 4px 0; box-sizing: border-box; z-index:5; box-shadow: 0 2px 4px rgba(0,0,0,0.4);">
+                            <div style="width:100%; text-align:center; font-size:10px; line-height:1; color:#fff; font-weight:bold; transform: rotate(180deg); font-family: sans-serif;">${rwy1}</div>
                             <div style="width:2px; flex-grow:1; margin: 4px 0; background: repeating-linear-gradient(to bottom, #d4d4d4 0, #d4d4d4 8px, transparent 8px, transparent 16px);"></div>
-                            <div style="width:100%; text-align:center; font-size:10px; line-height:1; color:#f4f4f4; font-weight:bold; font-family: sans-serif;">${rwy2}</div>
+                            <div style="width:100%; text-align:center; font-size:10px; line-height:1; color:#fff; font-weight:bold; font-family: sans-serif;">${rwy2}</div>
                         </div>
                         
                         ${arrowHtml}
