@@ -26,13 +26,13 @@
     <div class="screw bottom-left"></div>
     <div class="screw bottom-right"></div>
 
-    <h1 id="mainTitle">GA Dispatcher</h1>
+    <h1 id="mainTitle">GA Dispatcher <a href="readme.html" target="_blank" class="help-icon" title="Hilfe & Readme" style="font-weight:bold;">?</a></h1>
     <div id="searchIndicator">System bereit.</div>
     
     <div id="classicInputs">
         <div class="grid-2">
-            <div><label>Start</label><input type="text" id="startLoc" value="EDTW" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); syncToNavCom('startLocRadio', this.value)" onchange="updateMapFromInputs()"></div>
-            <div><label>Ziel (Opt.)</label><input type="text" id="destLoc" placeholder="Zufall" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); syncToNavCom('destLocRadio', this.value)" onchange="updateMapFromInputs()"></div>
+            <div><label>Start</label><input type="text" id="startLoc" value="EDTW" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); syncToNavCom('startLocRadio', this.value)"></div>
+            <div><label>Ziel (Opt.)</label><input type="text" id="destLoc" placeholder="Zufall" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); syncToNavCom('destLocRadio', this.value)"></div>
         </div>
         
         <div class="grid-2">
@@ -87,6 +87,14 @@
             </div>
             <input type="range" id="tasSlider" min="80" max="260" value="115" step="5" oninput="handleSliderChange('tas', this.value)">
         </div>
+
+        <div class="slider-container">
+            <div class="slider-header">
+                <label class="slider-label">Cruise ALT (ft)</label>
+                <span id="altDrum" class="drum-readout-container theme-color-text" style="font-weight:bold;">4500</span>
+            </div>
+            <input type="range" id="altSlider" min="1500" max="9500" value="4500" step="100" oninput="handleSliderChange('alt', this.value)">
+        </div>
         
         <div class="action-bar" id="classicActionBar">
             <button class="btn-main" id="generateBtn" onclick="generateMission()">Auftrag generieren</button>
@@ -138,7 +146,7 @@
                 <div class="radio-display-container">
                     <div class="radio-disp-inner">
                         <span class="lcd-label">DEP</span>
-                        <input type="text" id="startLocRadio" class="lcd-input" value="EDTW" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); document.getElementById('startLoc').value = this.value; updateMapFromInputs();">
+                        <input type="text" id="startLocRadio" class="lcd-input" value="EDTW" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); document.getElementById('startLoc').value = this.value;">
                     </div>
                 </div>
                 <button class="radio-transfer-btn" onclick="swapDepDest()" title="DEP &harr; DEST tauschen">↔</button>
@@ -150,7 +158,7 @@
                 <div class="radio-display-container">
                     <div class="radio-disp-inner">
                         <span class="lcd-label">DEST</span>
-                        <input type="text" id="destLocRadio" class="lcd-input" placeholder="----" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); document.getElementById('destLoc').value = this.value; updateMapFromInputs();">
+                        <input type="text" id="destLocRadio" class="lcd-input" placeholder="----" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); document.getElementById('destLoc').value = this.value;">
                     </div>
                 </div>
                 <button class="radio-transfer-btn" onclick="swapDepDest()" title="DEP &harr; DEST tauschen">↔</button>
@@ -259,14 +267,20 @@
                     </select>
                 </div>
 
+                <div style="display: flex; align-items: center; gap: 8px; border-left: 2px solid #222; padding-left: 10px;">
+                    <div style="text-align: center;">
+                        <span class="lcd-label">ALT</span>
+                        <div id="altRadioDisplay" class="lcd-input" style="width: 45px; pointer-events: none;">4500</div>
+                    </div>
+                    <div class="radio-knob drag-knob" id="altDragKnob" title="Ziehen zum Ändern"></div>
+                </div>
+
             </div>
         </div>
 
-        <!-- KLN 90B GPS Module -->
         <div class="radio-module kln90b-module" id="kln90bModule" style="display:none;">
             <div class="radio-label">KLN 90B TSO</div>
             <div class="kln90b-body">
-                <!-- Split-Display: links | divider | rechts -->
                 <div class="kln90b-display" id="gpsDisplay">
                     <div class="kln90b-left" id="gpsLeft">
                         <div class="kln90b-line dim">---</div>
@@ -280,7 +294,6 @@
                         <span id="gpsPageLbl">PG 1/1</span>
                     </div>
                 </div>
-                <!-- Mode-Taster -->
                 <div class="kln90b-buttons">
                     <button class="kln90b-btn active" data-mode="FPL">FPL</button>
                     <button class="kln90b-btn" data-mode="DEP">DEP</button>
@@ -288,7 +301,6 @@
                     <button class="kln90b-btn" data-mode="AIP">AIP</button>
                     <button class="kln90b-btn" data-mode="WX">WX</button>
                 </div>
-                <!-- Encoder-Reihe: links = zurück, rechts = vor -->
                 <div class="kln90b-encoder-row">
                     <div class="kln90b-encoder" id="gpsEncoderL" title="Vorherige Seite ◂">
                         <div class="kln90b-enc-inner"></div>
@@ -323,10 +335,10 @@
 
 <div class="briefing" id="briefingBox">
 
-    <div class="notes-stack" id="notesStack">
-            <div class="paperclip" onclick="toggleNotes(event)"></div>
+    <div class="notes-stack" id="notesStack" onclick="toggleNotes(event)">
+            <div class="paperclip"></div>
             
-            <div class="mission-note-page front-note" id="notePage1" onclick="toggleNotes(event)">
+            <div class="mission-note-page front-note" id="notePage1">
                 <div class="briefing-save-pin" onclick="pinCurrentFlight(); event.stopPropagation();" title="Flug ans Hangar-Board heften">📌</div>
                 <div class="briefing-export-pin" onclick="exportMission(); event.stopPropagation();" title="Flug als Code kopieren">🔗</div>
                 <div class="briefing-pdf-pin" onclick="generateBriefingPDF(); event.stopPropagation();" title="Briefing Pack als PDF drucken">📄</div>
@@ -356,17 +368,28 @@
                 </div>
             </div>
 
-            <div class="mission-note-page back-note" id="notePage2" onclick="toggleNotes(event)">
+            <div class="mission-note-page back-note" id="notePage2">
                 <div class="briefing-save-pin" onclick="pinCurrentFlight(); event.stopPropagation();" title="Flug ans Hangar-Board heften">📌</div>
                 <div class="briefing-export-pin" onclick="exportMission(); event.stopPropagation();" title="Flug als Code kopieren">🔗</div>
                 <div class="briefing-pdf-pin" onclick="generateBriefingPDF(); event.stopPropagation();" title="Briefing Pack als PDF drucken">📄</div>
                 <div class="page-number">Seite 2</div>
                 <h2 class="wiki-title" style="margin-bottom: 2px;">Nav-Log</h2>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:6px; margin-bottom: 4px;" onclick="event.stopPropagation();">
+                    <label style="font-size:11px; margin:0; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                        <input type="checkbox" id="navLogAirspaceFilter" onchange="if(typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();" style="width:auto; margin:0; padding:0;" checked>
+                        <span style="font-size:11px;">Warnungen filtern (nur Flughöhe)</span>
+                    </label>
+                </div>
                 <div id="briefingNavLog" style="font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 1.4; color: #222; margin-top: 10px;">
+                </div>
+                
+                <div id="routeAirspacesContainer" style="margin-top: 15px; font-size: 11px; display: none; background: rgba(255,255,255,0.5); padding: 8px; border-radius: 4px; border: 1px dashed #888;">
+                    <div style="font-weight: bold; margin-bottom: 6px; border-bottom: 1px solid #444; padding-bottom: 4px; color: #d93829;">⚠️ Lufträume & ED-R auf Route</div>
+                    <div id="routeAirspacesList">Suche...</div>
                 </div>
             </div>
 
-            <div class="mission-note-page third-note" id="notePage3" onclick="toggleNotes(event)">
+            <div class="mission-note-page third-note" id="notePage3">
                 <div class="briefing-save-pin" onclick="pinCurrentFlight(); event.stopPropagation();" title="Flug ans Hangar-Board heften">📌</div>
                 <div class="briefing-export-pin" onclick="exportMission(); event.stopPropagation();" title="Flug als Code kopieren">🔗</div>
                 <div class="briefing-pdf-pin" onclick="generateBriefingPDF(); event.stopPropagation();" title="Briefing Pack als PDF drucken">📄</div>
@@ -389,10 +412,10 @@
                     <div id="wikiDepFreqText" style="color: var(--blue); font-weight: bold; margin-bottom: 10px; font-size: 13px; border-bottom: 1px dashed #ccc; padding-bottom: 5px;"></div>
                     📖 <span id="wikiDepDescText">Warte auf Daten...</span>
                 </div>
-                <img id="uiDepDetailMap" src="" style="width:100%; border-radius:4px; margin-top:15px; display:none; border: 2px solid #ccc; box-shadow: 2px 3px 6px rgba(0,0,0,0.3);">
-            </div>
+                <img id="uiDepDetailMap" src="" style="box-sizing: border-box; width:100%; border-radius:4px; margin-top:15px; display:none; border: 2px solid #ccc; box-shadow: 2px 3px 6px rgba(0,0,0,0.3);">
+                <div id="metarContainerDep" style="width:100%; height:auto; margin-top:15px; border-radius:6px; box-shadow: 2px 4px 8px rgba(0,0,0,0.4); display:none;"></div>            </div>
 
-            <div class="mission-note-page fourth-note" id="notePage4" onclick="toggleNotes(event)">
+            <div class="mission-note-page fourth-note" id="notePage4">
                 <div class="briefing-save-pin" onclick="pinCurrentFlight(); event.stopPropagation();" title="Flug ans Hangar-Board heften">📌</div>
                 <div class="briefing-export-pin" onclick="exportMission(); event.stopPropagation();" title="Flug als Code kopieren">🔗</div>
                 <div class="briefing-pdf-pin" onclick="generateBriefingPDF(); event.stopPropagation();" title="Briefing Pack als PDF drucken">📄</div>
@@ -415,7 +438,19 @@
                     <div id="wikiDestFreqText" style="color: var(--blue); font-weight: bold; margin-bottom: 10px; font-size: 13px; border-bottom: 1px dashed #ccc; padding-bottom: 5px;"></div>
                     📖 <span id="wikiDestDescText">Warte auf Daten...</span>
                 </div>
-                <img id="uiDestDetailMap" src="" style="width:100%; border-radius:4px; margin-top:15px; display:none; border: 2px solid #ccc; box-shadow: 2px 3px 6px rgba(0,0,0,0.3);">
+                <img id="uiDestDetailMap" src="" style="box-sizing: border-box; width:100%; border-radius:4px; margin-top:15px; display:none; border: 2px solid #ccc; box-shadow: 2px 3px 6px rgba(0,0,0,0.3);">
+                <div id="metarContainerDest" style="width:100%; height:auto; margin-top:15px; border-radius:6px; box-shadow: 2px 4px 8px rgba(0,0,0,0.4); display:none;"></div>            </div>
+
+            <div class="mission-note-page fifth-note" id="notePage5" style="display:none;">
+                <div class="briefing-save-pin" onclick="pinCurrentFlight(); event.stopPropagation();" title="Flug ans Hangar-Board heften">📌</div>
+                <div class="briefing-export-pin" onclick="exportMission(); event.stopPropagation();" title="Flug als Code kopieren">🔗</div>
+                <div class="briefing-pdf-pin" onclick="generateBriefingPDF(); event.stopPropagation();" title="Briefing Pack als PDF drucken">📄</div>
+                <div class="page-number">Seite 5</div>
+                <h2 class="wiki-title" style="margin-bottom: 2px;">Vertical Profile</h2>
+                <div id="verticalProfileContainer" style="width:100%; margin-top:8px; position:relative;">
+                    <canvas id="verticalProfileCanvas" style="width:100%; border-radius:4px; border: 1px solid #ccc; background:#f0f4e8;"></canvas>
+                    <div id="verticalProfileStatus" style="font-size:10px; color:#888; margin-top:4px; text-align:center;">Lade Höhendaten...</div>
+                </div>
             </div>
         </div>
 
@@ -506,9 +541,9 @@
 
     <div class="theme-switch-wrapper" style="flex-direction: column; align-items: center; border-top: 2px dashed #444; margin-top: 30px; padding-top: 15px;">
         <div style="display: flex; justify-content: space-between; width: 150px; font-size: 10px; font-weight: bold; text-transform: uppercase;">
-            <span id="lbl-classic" style="color: #888; cursor: pointer;" onclick="changeThemeFromSlider(0)">Modern</span>
-            <span id="lbl-retro" style="color: #888; cursor: pointer;" onclick="changeThemeFromSlider(1)">Analog</span>
-            <span id="lbl-navcom" style="color: #888; cursor: pointer;" onclick="changeThemeFromSlider(2)">NavCom</span>
+            <span id="lbl-classic" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(0)">Modern</span>
+            <span id="lbl-retro" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(1)">Analog</span>
+            <span id="lbl-navcom" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(2)">NavCom</span>
         </div>
         <input type="range" id="themeSlider" min="0" max="2" value="1" style="width: 150px; margin-top: 10px; cursor: pointer;" oninput="changeThemeFromSlider(this.value)">
     </div>
@@ -548,12 +583,34 @@
             <button class="pb-btn" id="measureBtn" onclick="toggleMeasureMode()">📏 Messen (Aus)</button>
             <button class="pb-btn" onclick="clearMeasure()">🗑️ Zirkel löschen</button>
             <button class="pb-btn" onclick="resetMainRoute()">🔄 Route Reset</button>
+            <button class="pb-btn" id="vpToggleBtn" onclick="toggleMapProfile()" style="background:#2E8B57; color:#fff; font-weight:bold;">📊 Profil (An)</button>
             <button class="pb-btn close" onclick="toggleMapTable()">❌ Schließen</button>
         </div>
     </div>
     <div class="pinboard-scroll-area">
-        <div class="maptable-content">
-            <div id="map"></div>
+        <div class="maptable-content" style="flex-direction: column;">
+            <div id="mapArea" style="flex:1; display:flex; align-items:center; justify-content:center; width:100%; min-height:0;">
+                <div id="map"></div>
+            </div>
+            <div id="profileResizeHandle" class="profile-resize-handle" title="Ziehen zum Ändern der Profilhöhe">⋯</div>
+            <div id="mapProfileStrip" class="map-profile-strip">
+                <div class="map-profile-controls">
+                    <span style="color:#aaa; font-size:10px; font-family:monospace; margin-right:8px;">ALT</span>
+                    <input type="range" id="altSliderMap" min="1500" max="9500" value="4500" step="100" style="width:80px; height:4px;" oninput="syncAltFromMap(this.value)">
+                    <span id="altMapDisplay" style="color:#fff; font-size:11px; font-family:monospace; min-width:40px; margin:0 8px;">4500</span>
+                    <span style="color:#555; font-size:10px;">|</span>
+                    <span style="color:#aaa; font-size:10px; font-family:monospace; margin:0 8px;">ZOOM</span>
+                    <button class="vp-zoom-btn" onclick="vpZoom(-10)" title="Rauszoomen">−</button>
+                    <span id="vpZoomDisplay" style="color:#fff; font-size:11px; font-family:monospace; min-width:35px; text-align:center;">100%</span>
+                    <button class="vp-zoom-btn" onclick="vpZoom(10)" title="Reinzoomen">+</button>
+                </div>
+                <div id="mapProfileScroll" class="map-profile-scroll">
+                    <canvas id="mapProfileCanvas"></canvas>
+                </div>
+                <div class="map-profile-pos-bar">
+                    <input type="range" id="vpPosSlider" min="0" max="1000" value="0" step="1" oninput="vpUpdatePosition(this.value / 1000)" style="width:100%;">
+                </div>
+            </div>
         </div>
     </div>
 </div>
