@@ -811,18 +811,18 @@ async function loadMetarWidget(icao, containerId, lat, lon) {
                     ${raw}
                 </div>
                 
-                <div style="display:flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 20px;">
-                    <div style="display:flex; flex-direction:column; gap:12px; font-family: 'Courier New', Courier, monospace; min-width: 140px;">
-                        <div><div style="color:#a1a1a1; font-size:11px; font-weight:bold; letter-spacing:1px;">WIND</div><div style="color:#4da6ff; font-size:16px; font-weight:bold; text-shadow: 0 1px 2px #000;">${windText}</div></div>
-                        <div style="display:flex; gap:20px;">
-                            <div><div style="color:#a1a1a1; font-size:11px; font-weight:bold; letter-spacing:1px;">TEMP</div><div style="color:#fff; font-size:16px; font-weight:bold; text-shadow: 0 1px 2px #000;">${temp}</div></div>
-                            <div><div style="color:#a1a1a1; font-size:11px; font-weight:bold; letter-spacing:1px;">DEWP</div><div style="color:#fff; font-size:16px; font-weight:bold; text-shadow: 0 1px 2px #000;">${dewp}</div></div>
+                <div style="display:flex; justify-content: space-between; align-items: center; gap: 8px;">
+                    <div style="display:flex; flex-direction:column; gap:8px; font-family: 'Courier New', Courier, monospace; flex-shrink: 1; min-width: 0;">
+                        <div><div style="color:#a1a1a1; font-size:10px; font-weight:bold; letter-spacing:1px;">WIND</div><div style="color:#4da6ff; font-size:15px; font-weight:bold; text-shadow: 0 1px 2px #000; white-space: nowrap;">${windText}</div></div>
+                        <div style="display:flex; gap:12px;">
+                            <div><div style="color:#a1a1a1; font-size:10px; font-weight:bold; letter-spacing:1px;">TEMP</div><div style="color:#fff; font-size:15px; font-weight:bold; text-shadow: 0 1px 2px #000; white-space: nowrap;">${temp}</div></div>
+                            <div><div style="color:#a1a1a1; font-size:10px; font-weight:bold; letter-spacing:1px;">DEWP</div><div style="color:#fff; font-size:15px; font-weight:bold; text-shadow: 0 1px 2px #000; white-space: nowrap;">${dewp}</div></div>
                         </div>
-                        <div><div style="color:#a1a1a1; font-size:11px; font-weight:bold; letter-spacing:1px;">QNH</div><div style="color:#fff; font-size:16px; font-weight:bold; text-shadow: 0 1px 2px #000;">${qnhStr}</div></div>
-                        <div><div style="color:#a1a1a1; font-size:11px; font-weight:bold; letter-spacing:1px;">COVER</div><div style="color:#fff; font-size:16px; font-weight:bold; text-shadow: 0 1px 2px #000;">${cover}</div></div>
+                        <div><div style="color:#a1a1a1; font-size:10px; font-weight:bold; letter-spacing:1px;">QNH</div><div style="color:#fff; font-size:15px; font-weight:bold; text-shadow: 0 1px 2px #000; white-space: nowrap;">${qnhStr}</div></div>
+                        <div><div style="color:#a1a1a1; font-size:10px; font-weight:bold; letter-spacing:1px;">COVER</div><div style="color:#fff; font-size:15px; font-weight:bold; text-shadow: 0 1px 2px #000; white-space: nowrap;">${cover}</div></div>
                     </div>
                     
-                    <div style="position:relative; width:160px; height:160px; flex-shrink: 0; margin: 0 auto; border:4px solid #1a1c1e; border-radius:50%; background:#080808; box-shadow: inset 0 0 20px rgba(0,0,0,0.9), 0 3px 8px rgba(0,0,0,0.6);">
+                    <div style="position:relative; width:160px; height:160px; flex-shrink: 0; border:4px solid #1a1c1e; border-radius:50%; background:#080808; box-shadow: inset 0 0 20px rgba(0,0,0,0.9), 0 3px 8px rgba(0,0,0,0.6);">
                         <svg viewBox="0 0 160 160" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:1; pointer-events:none;">
                             ${svgTicks}
                         </svg>
