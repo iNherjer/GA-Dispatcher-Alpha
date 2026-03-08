@@ -513,8 +513,27 @@ async function restoreMissionState(state) {
     }
 
     // --- NEU: Restore METAR Widgets ---
-    loadMetarWidget(currentStartICAO, 'metarContainerDep');
-    loadMetarWidget(state.isPOI ? null : currentDestICAO, 'metarContainerDest');
+    const depP = routeWaypoints && routeWaypoints.length > 0 ? routeWaypoints[0] : null;
+    loadMetarWidget(currentStartICAO, 'metarContainerDep', depP?.lat, depP?.lng || depP?.lon);
+    
+    const destP = routeWaypoints && routeWaypoints.length > 1 ? routeWaypoints[routeWaypoints.length - 1] : null;
+    loadMetarWidget(state.isPOI ? null : currentDestICAO, 'metarContainerDest', destP?.lat, destP?.lng || destP?.lon);
+
+    if (routeWaypoints && routeWaypoints.length > 0) {
+        const depP = routeWaypoints[0];
+        renderTileCanvas(depP.lat, depP.lng || depP.lon, 13, 900, 600).then(url => {
+            const img = document.getElementById('uiDepDetailMap');
+            if(img) { img.src = url; img.style.display = 'block'; }
+        });
+        
+        if (routeWaypoints.length > 1) {
+            const destP = routeWaypoints[routeWaypoints.length - 1];
+            renderTileCanvas(destP.lat, destP.lng || destP.lon, 13, 900, 600).then(url => {
+                const img = document.getElementById('uiDestDetailMap');
+                if(img) { img.src = url; img.style.display = 'block'; }
+            });
+        }
+    }
 }
 
 function resetApp() {
@@ -628,38 +647,206 @@ function resetBtn(btn) {
     }
 }
 
-function loadMetarWidget(icao, containerId) {
+async function loadMetarWidget(icao, containerId, lat, lon) {
     const container = document.getElementById(containerId);
     if (!container) return;
     
-    container.innerHTML = ''; // Altes Widget löschen
+    container.innerHTML = '<div style="padding:20px; text-align:center; color:#888; font-size:12px; background:#1a1a1a; border-radius:6px;">Sucht lokales Wetter...</div>';
     
-    if (!icao) {
+    if (!icao || icao === 'POI') {
         container.style.display = 'none';
         return;
     }
-    
     container.style.display = 'block';
-    
-    // Generiert eine zufällige ID, die das Metar-Skript benötigt
-    const targetId = 'metartaf-' + Math.random().toString(36).substring(2, 10);
-    
-    // 1. Den Anchor (Link) erstellen
-    const a = document.createElement('a');
-    a.href = `https://metar-taf.com/de/metar/${icao}`;
-    a.id = targetId;
-    a.style = "font-size:18px; font-weight:500; color:#000; width:100%; height:435px; display:block";
-    a.innerText = `METAR ${icao}`;
-    container.appendChild(a);
-    
-    // 2. Das Metar-Skript erstellen und ausführen
-    const script = document.createElement('script');
-    script.async = true;
-    script.defer = true;
-    script.crossOrigin = "anonymous";
-    script.src = `https://metar-taf.com/de/embed-js/${icao}?qnh=hPa&rh=rh&target=${targetId}`;
-    
-    container.appendChild(script);
+
+    try {
+        let metarDataList = [];
+        let isFallback = false;
+        let foundIcao = icao;
+
+        // Hilfsfunktion: Versucht direkten Fetch, bei CORS-Blockade (Catch) nutzt sie einen schnellen, rohen Proxy
+        async function safeFetch(urlObj) {
+            try {
+                const r = await fetch(urlObj);
+                if (r.ok && r.status !== 204) return await r.text();
+            } catch (err) {
+                try {
+                    const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(urlObj)}`;
+                    const pr = await fetch(proxyUrl);
+                    if (pr.ok && pr.status !== 204) return await pr.text();
+                } catch (pxErr) {
+                    console.error("Proxy fetch failed", pxErr);
+                }
+            }
+            return null;
+        }
+
+        const directUrl = `https://aviationweather.gov/api/data/metar?ids=${icao}&format=json&t=${Date.now()}`;
+        const mainText = await safeFetch(directUrl);
+        if (mainText) {
+            try { metarDataList = JSON.parse(mainText); } catch(e){}
+        }
+
+        // Falls kein METAR da ist, Fallback auf Umkreissuche
+        if ((!metarDataList || metarDataList.length === 0) && lat !== undefined && lon !== undefined) {
+            const latMin = lat - 0.6, latMax = lat + 0.6;
+            const lonMin = lon - 0.8, lonMax = lon + 0.8;
+            const fbUrl = `https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json&t=${Date.now()}`;
+            const fbText = await safeFetch(fbUrl);
+            
+            if (fbText) {
+                try {
+                    const fbData = JSON.parse(fbText);
+                    if (fbData && fbData.length > 0) {
+                        let closest = fbData[0];
+                        let minDist = calcNav(lat, lon, closest.lat, closest.lon).dist;
+                        for (let i = 1; i < fbData.length; i++) {
+                            let d = calcNav(lat, lon, fbData[i].lat, fbData[i].lon).dist;
+                            if (d < minDist) { minDist = d; closest = fbData[i]; }
+                        }
+                        metarDataList = [closest];
+                        foundIcao = closest.icaoId;
+                        isFallback = true;
+                    }
+                } catch(parseErr) {
+                    console.error("Failed to parse fallback JSON", parseErr);
+                }
+            }
+        }
+
+        if (!metarDataList || metarDataList.length === 0) {
+            container.innerHTML = `
+                <div style="background:#1a1a1a; border-radius:6px; padding:15px; text-align:center; border: 1px solid #333;">
+                    <div style="color:#d93829; font-weight:bold; margin-bottom:5px;">Kein METAR in der Nähe von ${icao}</div>
+                    <div style="font-size:11px; color:#888; margin-bottom:12px;">Für diesen Bereich steht kein automatisches Wetter zur Verfügung.</div>
+                    <a href="https://metar-taf.com/de/${icao}" target="_blank" style="display:inline-block; background:#4da6ff; color:#111; padding:6px 12px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; transition: background 0.2s;">Manuell suchen ➔</a>
+                </div>`;
+            return;
+        }
+
+        const metar = metarDataList[0];
+        const raw = metar.rawOb || "";
+        const temp = metar.temp !== null ? metar.temp + '°C' : '--';
+        const dewp = metar.dewp !== null ? metar.dewp + '°C' : '--';
+        
+        // Parse Flight Category color
+        let catColor = "#fff";
+        let catText = metar.fltCat || "N/A";
+        if (catText === "VFR") catColor = "#33ff33";
+        else if (catText === "MVFR") catColor = "#4da6ff";
+        else if (catText === "IFR") catColor = "#ff3333";
+        else if (catText === "LIFR") catColor = "#ff33ff";
+        
+        let cover = metar.cover || "--";
+        if (cover === "Clear") cover = "CLR";
+
+        let qnhStr = "--";
+        const qMatch = raw.match ? raw.match(/Q(\d{4})/) : null;
+        const aMatch = raw.match ? raw.match(/A(\d{4})/) : null;
+        if (qMatch) qnhStr = qMatch[1] + ' hPa';
+        else if (aMatch) qnhStr = Math.round((parseInt(aMatch[1]) / 100) * 33.8639) + ' hPa';
+
+        let wdir = metar.wdir;
+        let wspd = metar.wspd || 0;
+        let wgst = metar.wgst ? `G${metar.wgst}` : '';
+        let isVRB = raw.match ? /VRB\d{2,3}KT/.test(raw) : (wdir === "VRB");
+
+        let windText = isVRB ? `VRB / ${wspd}${wgst} kt` : `${wdir}° / ${wspd}${wgst} kt`;
+        if (wspd === 0) windText = "Calm (0 kt)";
+
+        let retries = 0;
+        while (!runwayCache[foundIcao] && !runwayCache[icao] && retries < 15) {
+            await new Promise(r => setTimeout(r, 200));
+            retries++;
+        }
+
+        let rwyHdg = 0;
+        let rwy1 = "";
+        let rwy2 = "";
+        const rData = runwayCache[foundIcao] || runwayCache[icao];
+        if (rData && !rData.includes('Keine Daten')) {
+            const match = rData.match(/(?:^|\s|\n|<br\s*\/?>)(0[1-9]|[12]\d|3[0-6])([LRC]?)\s*\/\s*((?:0[1-9]|[12]\d|3[0-6])[LRC]?)/);
+            if (match) {
+                rwyHdg = parseInt(match[1], 10) * 10;
+                rwy1 = match[1] + match[2];
+                rwy2 = match[3];
+            }
+        }
+
+        let svgTicks = '';
+        for (let i = 0; i < 360; i += 5) {
+            const isCard = i % 90 === 0;
+            const isLong = i % 10 === 0;
+            const len = isCard ? 8 : (isLong ? 5 : 3);
+            const sw = isCard ? 2 : 1;
+            const col = isCard ? '#888' : '#444';
+            svgTicks += `<line x1="80" y1="2" x2="80" y2="${2+len}" stroke="${col}" stroke-width="${sw}" transform="rotate(${i} 80 80)" />`;
+        }
+
+        let arrowHtml = '';
+        if (!isVRB && wspd > 0 && wdir !== null && wdir !== "VRB") {
+            arrowHtml = `
+            <svg viewBox="0 0 160 160" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; transform-origin: center center; transform: rotate(${wdir}deg); filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.8)); pointer-events:none;">
+                <line x1="80" y1="6" x2="80" y2="70" stroke="#4da6ff" stroke-width="4" stroke-linecap="round"/>
+                <polygon points="72,55 80,80 88,55" fill="#4da6ff" />
+            </svg>`;
+        }
+        
+        const headerText = isFallback ? `▶ NEAREST: ${foundIcao}` : `▶ STATION: ${icao}`;
+
+        container.innerHTML = `
+            <div style="background:#2b2d31; border-radius:12px; padding:15px 15px 20px 15px; border: 4px solid #5a5f6a; box-shadow: inset 0 5px 15px rgba(0,0,0,0.4), 0 5px 10px rgba(0,0,0,0.3); font-family: 'Arial', sans-serif; color: #f4f4f4; position:relative; overflow:hidden;">
+                
+                <div style="position:absolute; top:6px; left:6px; width:6px; height:6px; background:#777; border-radius:50%; box-shadow: inset 0 0 2px #000;"></div>
+                <div style="position:absolute; bottom:6px; right:6px; width:6px; height:6px; background:#777; border-radius:50%; box-shadow: inset 0 0 2px #000;"></div>
+                <div style="position:absolute; top:6px; right:6px; width:6px; height:6px; background:#777; border-radius:50%; box-shadow: inset 0 0 2px #000;"></div>
+                <div style="position:absolute; bottom:6px; left:6px; width:6px; height:6px; background:#777; border-radius:50%; box-shadow: inset 0 0 2px #000;"></div>
+
+                <div style="color: #f2c12e; font-size: 14px; font-weight: bold; margin-bottom: 12px; border-bottom: 2px dashed #4a4e59; padding-bottom: 8px; font-family: 'Courier New', Courier, monospace; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">
+                    <span>${headerText}</span>
+                    <span style="color:${catColor}; font-size:14px; padding: 2px 8px; border: 2px solid ${catColor}; border-radius: 4px; background: rgba(0,0,0,0.5); box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);">${catText}</span>
+                </div>
+                
+                <div style="background:#111; color:#33ff33; font-family: 'Courier New', Courier, monospace; padding:10px; border-radius:4px; font-size:11.5px; margin-bottom:18px; border: 2px inset #333; line-height: 1.4; letter-spacing: 0.5px; box-shadow: inset 0 0 10px rgba(0,255,0,0.05); text-shadow: 0 0 3px rgba(51,255,51,0.4);">
+                    ${raw}
+                </div>
+                
+                <div style="display:flex; justify-content: space-around; align-items: center;">
+                    <div style="display:flex; flex-direction:column; gap:12px; font-family: 'Courier New', Courier, monospace;">
+                        <div><div style="color:#a1a1a1; font-size:11px; font-weight:bold; letter-spacing:1px;">WIND</div><div style="color:#4da6ff; font-size:16px; font-weight:bold; text-shadow: 0 1px 2px #000;">${windText}</div></div>
+                        <div style="display:flex; gap:20px;">
+                            <div><div style="color:#a1a1a1; font-size:11px; font-weight:bold; letter-spacing:1px;">TEMP</div><div style="color:#fff; font-size:16px; font-weight:bold; text-shadow: 0 1px 2px #000;">${temp}</div></div>
+                            <div><div style="color:#a1a1a1; font-size:11px; font-weight:bold; letter-spacing:1px;">DEWP</div><div style="color:#fff; font-size:16px; font-weight:bold; text-shadow: 0 1px 2px #000;">${dewp}</div></div>
+                        </div>
+                        <div><div style="color:#a1a1a1; font-size:11px; font-weight:bold; letter-spacing:1px;">QNH</div><div style="color:#fff; font-size:16px; font-weight:bold; text-shadow: 0 1px 2px #000;">${qnhStr}</div></div>
+                        <div><div style="color:#a1a1a1; font-size:11px; font-weight:bold; letter-spacing:1px;">COVER</div><div style="color:#fff; font-size:16px; font-weight:bold; text-shadow: 0 1px 2px #000;">${cover}</div></div>
+                    </div>
+                    
+                    <div style="position:relative; width:160px; height:160px; border:4px solid #1a1c1e; border-radius:50%; background:#080808; box-shadow: inset 0 0 20px rgba(0,0,0,0.9), 0 3px 8px rgba(0,0,0,0.6);">
+                        <svg viewBox="0 0 160 160" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:1; pointer-events:none;">
+                            ${svgTicks}
+                        </svg>
+
+                        <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); font-size:12px; color:#a1a1a1; font-weight:bold; z-index:2; font-family: sans-serif;">N</div>
+                        <div style="position:absolute; bottom:12px; left:50%; transform:translateX(-50%); font-size:12px; color:#a1a1a1; font-weight:bold; z-index:2; font-family: sans-serif;">S</div>
+                        <div style="position:absolute; top:50%; left:12px; transform:translateY(-50%); font-size:12px; color:#a1a1a1; font-weight:bold; z-index:2; font-family: sans-serif;">W</div>
+                        <div style="position:absolute; top:50%; right:12px; transform:translateY(-50%); font-size:12px; color:#a1a1a1; font-weight:bold; z-index:2; font-family: sans-serif;">E</div>
+                        
+                        <div style="position:absolute; top:50%; left:50%; width:26px; height:120px; background:#3c4045; border:1px solid #111; border-radius: 3px; transform: translate(-50%, -50%) rotate(${rwyHdg}deg); transform-origin: center center; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding: 4px 0; box-sizing: border-box; z-index:5; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+                            <div style="width:100%; text-align:center; font-size:10px; line-height:1; color:#f4f4f4; font-weight:bold; transform: rotate(180deg); font-family: sans-serif;">${rwy1}</div>
+                            <div style="width:2px; flex-grow:1; margin: 4px 0; background: repeating-linear-gradient(to bottom, #d4d4d4 0, #d4d4d4 8px, transparent 8px, transparent 16px);"></div>
+                            <div style="width:100%; text-align:center; font-size:10px; line-height:1; color:#f4f4f4; font-weight:bold; font-family: sans-serif;">${rwy2}</div>
+                        </div>
+                        
+                        ${arrowHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        console.error("METAR fetch error:", err);
+        container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-size:12px; background:#1a1a1a;">Fehler beim Laden des METARs: <br/>${err.message || err}</div>`;
+    }
 }
 function calcNav(lat1, lon1, lat2, lon2) {
     const R = 3440, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
@@ -1398,13 +1585,13 @@ async function generateMission() {
         currentDestFreq = "";
         
         fetchAirportFreq(currentStartICAO, 'wikiDepFreqText', 'dep');
-        renderTileCanvas(start.lat, start.lon, 13, 600, 400).then(url => {
+        renderTileCanvas(start.lat, start.lon, 13, 900, 600).then(url => {
             const img = document.getElementById('uiDepDetailMap');
             if(img) { img.src = url; img.style.display = 'block'; }
         });
 
         // --- NEU: METAR Start laden ---
-        loadMetarWidget(currentStartICAO, 'metarContainerDep');
+        loadMetarWidget(currentStartICAO, 'metarContainerDep', start.lat, start.lon);
         
         if (!isPOI) {
             fetchAirportFreq(currentDestICAO, 'wikiDestFreqText', 'dest');
@@ -1413,13 +1600,13 @@ async function generateMission() {
             if(df) df.innerHTML = '';
         }
 
-        renderTileCanvas(dest.lat, dest.lon, 13, 600, 400).then(url => {
+        renderTileCanvas(dest.lat, dest.lon, 13, 900, 600).then(url => {
             const img = document.getElementById('uiDestDetailMap');
             if(img) { img.src = url; img.style.display = 'block'; }
         });
 
         // --- NEU: METAR Ziel laden (nur wenn kein POI) ---
-        loadMetarWidget(isPOI ? null : currentDestICAO, 'metarContainerDest');
+        loadMetarWidget(isPOI ? null : currentDestICAO, 'metarContainerDest', dest.lat, dest.lon);
 
         indicator.innerText = `Briefing komplett.`; resetBtn(btn);
         const rBtnLed = document.getElementById('radioGenerateBtn');
