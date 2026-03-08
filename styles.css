@@ -416,6 +416,36 @@ body.theme-retro .api-fuel-meter .api-scale { border-left: 3px solid #d93829 !im
 .map-profile-scroll::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
 .map-profile-scroll canvas { display: block; height: 100%; }
 
+/* Resize Handle */
+.profile-resize-handle {
+    width: 100%; height: 14px; background: #222; cursor: ns-resize;
+    display: flex; align-items: center; justify-content: center;
+    color: #666; font-size: 16px; letter-spacing: 4px; line-height: 1;
+    user-select: none; -webkit-user-select: none; flex-shrink: 0;
+    border-top: 1px solid #333; border-bottom: 1px solid #333;
+    transition: background 0.15s;
+}
+.profile-resize-handle:hover { background: #333; color: #aaa; }
+.profile-resize-handle:active { background: #444; color: #fff; }
+
+/* Position Slider Bar */
+.map-profile-pos-bar {
+    height: 18px; background: #111; padding: 2px 10px; flex-shrink: 0;
+    display: flex; align-items: center; border-top: 1px solid #222;
+}
+.map-profile-pos-bar input[type=range] {
+    height: 3px; margin: 0; padding: 0; background: #333; border: none;
+}
+.map-profile-pos-bar input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent;
+    border-bottom: 10px solid #ff00ff; background: transparent; cursor: pointer;
+}
+
+/* Flush map edges with profile */
+#mapArea { padding: 0; }
+#mapArea #map { border-radius: 0 !important; border: none !important; box-shadow: none !important; width: 100% !important; height: 100% !important; filter: none !important; }
+
 body.map-is-fullscreen .container { display: none !important; }
 body.map-is-fullscreen { overflow: hidden !important; padding: 0 !important; margin: 0 !important; }
 body.map-is-fullscreen #mapTableOverlay { background: #111 !important; left: 0 !important; right: 0 !important; top: 0 !important; bottom: 0 !important; transform: none !important; width: 100vw !important; height: 100vh !important; z-index: 99999 !important; border-radius: 0 !important; display: flex !important; flex-direction: column !important; }

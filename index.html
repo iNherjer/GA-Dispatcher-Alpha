@@ -374,6 +374,12 @@
                 <div class="briefing-pdf-pin" onclick="generateBriefingPDF(); event.stopPropagation();" title="Briefing Pack als PDF drucken">📄</div>
                 <div class="page-number">Seite 2</div>
                 <h2 class="wiki-title" style="margin-bottom: 2px;">Nav-Log</h2>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:6px; margin-bottom: 4px;" onclick="event.stopPropagation();">
+                    <label style="font-size:11px; margin:0; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                        <input type="checkbox" id="navLogAirspaceFilter" onchange="if(typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();" style="width:auto; margin:0; padding:0;" checked>
+                        <span style="font-size:11px;">Warnungen filtern (nur Flughöhe)</span>
+                    </label>
+                </div>
                 <div id="briefingNavLog" style="font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 1.4; color: #222; margin-top: 10px;">
                 </div>
                 
@@ -586,6 +592,7 @@
             <div id="mapArea" style="flex:1; display:flex; align-items:center; justify-content:center; width:100%; min-height:0;">
                 <div id="map"></div>
             </div>
+            <div id="profileResizeHandle" class="profile-resize-handle" title="Ziehen zum Ändern der Profilhöhe">⋯</div>
             <div id="mapProfileStrip" class="map-profile-strip">
                 <div class="map-profile-controls">
                     <span style="color:#aaa; font-size:10px; font-family:monospace; margin-right:8px;">ALT</span>
@@ -599,6 +606,9 @@
                 </div>
                 <div id="mapProfileScroll" class="map-profile-scroll">
                     <canvas id="mapProfileCanvas"></canvas>
+                </div>
+                <div class="map-profile-pos-bar">
+                    <input type="range" id="vpPosSlider" min="0" max="1000" value="0" step="1" oninput="vpUpdatePosition(this.value / 1000)" style="width:100%;">
                 </div>
             </div>
         </div>
