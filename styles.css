@@ -1300,9 +1300,29 @@ body.theme-navcom .kln90b-module .radio-label {
     .lcd-label {
         font-size: 9px !important;
     }
-    /* Orangen Display-Labels (DEP, DEST, ALT etc.) besser lesbar */
+    /* NavCom: Labels genauso groß wie Werte */
     body.theme-navcom .radio-disp-inner .lcd-label {
-        font-size: 14px !important;
+        font-size: 18px !important;
+    }
+    /* NavCom: Knöpfe auf iPhone wie KLN-Encoder (volle Größe + Styling) */
+    body.theme-navcom .radio-knob {
+        width: 40px !important;
+        height: 40px !important;
+        border: 3px solid #d8d8d8 !important;
+        box-shadow:
+            3px 5px 10px rgba(0,0,0,0.85),
+            1px 1px 0 rgba(255,255,255,0.15),
+            inset 0 2px 5px rgba(255,255,255,0.12),
+            inset 0 -2px 5px rgba(0,0,0,0.8) !important;
+        margin-left: 0 !important;
+    }
+    body.theme-navcom .radio-knob::after {
+        width: 18px !important;
+        height: 18px !important;
+    }
+    /* NavCom: PAX auf iPhone ausblenden */
+    body.theme-navcom .xpdr-pax {
+        display: none !important;
     }
     .radio-module > .radio-display-container {
         border-width: 1px !important;
@@ -1369,6 +1389,62 @@ body.theme-navcom .discord-link {
 body.theme-navcom .discord-link:hover {
     color: #33ff33;
     text-shadow: 0 0 5px rgba(51, 255, 51, 0.6);
+}
+
+/* ==========================================================================
+   18a. EXTRA-SCHMALE GERÄTE (≤393px: iPhone SE, iPhone 14 mini etc.)
+   ========================================================================== */
+@media (max-width: 393px) {
+
+    /* --- Briefing: bis an die Container-Kante (Classic/Modern Theme) --- */
+    .briefing {
+        margin-left: -10px;
+        margin-right: -10px;
+        border-radius: 0;
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    /* --- Zettelstapel: bis an die Container-Kante (Retro + NavCom) --- */
+    body.theme-retro .notes-stack {
+        margin-left: -14px;
+        margin-right: -14px;
+    }
+
+    /* --- NavCom: Kleinere Encoder (28px, wie die frühere Variante) --- */
+    body.theme-navcom .radio-knob {
+        width: 28px !important;
+        height: 28px !important;
+        border: 2px solid #d8d8d8 !important;
+        box-shadow:
+            2px 3px 6px rgba(0,0,0,0.85),
+            inset 0 1px 3px rgba(255,255,255,0.12),
+            inset 0 -1px 3px rgba(0,0,0,0.8) !important;
+        margin-left: 2px !important;
+    }
+    body.theme-navcom .radio-knob::before {
+        top: 2px !important;
+        left: 2px !important;
+        right: 2px !important;
+        bottom: 2px !important;
+    }
+    body.theme-navcom .radio-knob::after {
+        width: 12px !important;
+        height: 12px !important;
+    }
+
+    /* --- XPDR: Kein Zeilenumbruch --- */
+    .radio-module > .radio-display-container {
+        flex-wrap: nowrap !important;
+    }
+
+    /* --- Schrift skalieren für mehr Platz --- */
+    .radio-module .lcd-input {
+        font-size: 16px !important;
+    }
+    body.theme-navcom .radio-disp-inner .lcd-label {
+        font-size: 14px !important;
+    }
 }
 
 /* ==========================================================================

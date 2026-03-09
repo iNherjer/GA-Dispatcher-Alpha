@@ -3321,13 +3321,43 @@ function drawRouteNavigationPage(doc, data, legs) {
 
     let finalAirspaces = activeAirspaces || [];
     const filterCheckbox = document.getElementById('navLogAirspaceFilter');
-    if (filterCheckbox && filterCheckbox.checked && finalAirspaces.length > 0) {
-        const relevantTypes = new Set([0, 1, 2, 3, 4, 7, 26, 27, 28, 33]);
-        finalAirspaces = finalAirspaces.filter(a => {
-            if (a.icaoClass && (a.icaoClass === 0 || a.icaoClass === 4 || a.icaoClass === 5 || a.icaoClass === 6)) return false;
-            if (!relevantTypes.has(a.type)) return false;
-            return true;
-        });
+    const pdfFilterActive = filterCheckbox && filterCheckbox.checked;
+    if (pdfFilterActive && finalAirspaces.length > 0) {
+        let pdfFpResult = null;
+        if (typeof vpElevationData !== 'undefined' && vpElevationData && vpElevationData.length >= 2) {
+            const cruiseAlt = parseInt(document.getElementById('altSlider')?.value || 4500);
+            const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
+            pdfFpResult = computeFlightProfile(vpElevationData, cruiseAlt, vpClimbRate, vpDescentRate, tas);
+        }
+        if (pdfFpResult && pdfFpResult.profile) {
+            finalAirspaces = finalAirspaces.filter(a => {
+                if (!a.lowerLimit || !a.upperLimit) return true;
+                const lowerFt = airspaceLimitToFt(a.lowerLimit);
+                const upperFt = airspaceLimitToFt(a.upperLimit);
+                if (lowerFt === null || upperFt === null) return true;
+                let intersects = false;
+                if (a.geometry) {
+                    const polys = [];
+                    if (a.geometry.type === 'Polygon') polys.push(a.geometry.coordinates[0]);
+                    else if (a.geometry.type === 'MultiPolygon') a.geometry.coordinates.forEach(mc => polys.push(mc[0]));
+                    for (let pi = 0; pi < pdfFpResult.profile.length; pi++) {
+                        const pp = pdfFpResult.profile[pi];
+                        if (pp.altFt >= lowerFt && pp.altFt <= upperFt) {
+                            const pt = vpElevationData[pi];
+                            for (const poly of polys) {
+                                if (vpPointInPoly(pt, poly)) { intersects = true; break; }
+                            }
+                        }
+                        if (intersects) break;
+                    }
+                } else {
+                    for (const pp of pdfFpResult.profile) {
+                        if (pp.altFt >= lowerFt && pp.altFt <= upperFt) { intersects = true; break; }
+                    }
+                }
+                return intersects;
+            });
+        }
     }
 
     if (finalAirspaces.length === 0) {
@@ -4449,8 +4479,9 @@ function renderVerticalProfile(canvasId) {
     const dpr = window.devicePixelRatio || 1;
     canvas.width = displayWidth * dpr;
     canvas.height = displayHeight * dpr;
-    canvas.style.width = displayWidth + 'px';
-    canvas.style.height = displayHeight + 'px';
+    canvas.style.width = '100%';
+    canvas.style.maxWidth = displayWidth + 'px';
+    canvas.style.height = 'auto';
 
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
