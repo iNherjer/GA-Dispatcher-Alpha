@@ -548,7 +548,10 @@ async function restoreMissionState(state) {
     runwayCache = {};
     document.querySelectorAll('.kln90b-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'FPL'));
     
-    setTimeout(() => refreshGPSAfterDispatch(), 200);
+    setTimeout(() => {
+        refreshGPSAfterDispatch();
+        vpUpdatePosition(0);
+    }, 200);
     
     if (currentStartICAO) {
         getAirportData(currentStartICAO).then(d => {
@@ -616,6 +619,13 @@ function resetApp() {
     // --- NEU: METAR Widgets resetten ---
     loadMetarWidget(null, 'metarContainerDep');
     loadMetarWidget(null, 'metarContainerDest');
+    
+    // Position Marker im Profil zurücksetzen
+    vpPositionFraction = 0;
+    if (vpPositionLeafletMarker && map) {
+        map.removeLayer(vpPositionLeafletMarker);
+        vpPositionLeafletMarker = null;
+    }
 }
 /* =========================================================
    4. HELPER-FUNKTIONEN (UI & Mathe)
@@ -2106,6 +2116,8 @@ async function generateMission() {
         
         setTimeout(() => saveMissionState(), 1000);
         refreshGPSAfterDispatch();
+        // Position im Profil auf Start zurücksetzen
+        vpUpdatePosition(0);
     }, 800);
 }
     
@@ -5285,7 +5297,7 @@ if (_origToggleMapTable) {
 /* =========================================================
    POSITION MARKER (Magenta triangle + Leaflet marker sync)
    ========================================================= */
-let vpPositionFraction = -1; // -1 = hidden
+let vpPositionFraction = 0; // 0 = start of profile
 let vpPositionLeafletMarker = null;
 
 function vpUpdatePosition(fraction) {
