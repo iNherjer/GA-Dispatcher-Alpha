@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>GA Dispatcher - Hilfe & Handbuch</title>
+    
+    <link rel="icon" type="image/png" href="IconDRK.PNG">
+    <link rel="icon" type="image/png" sizes="32x32" href="Icon.PNG" media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/png" sizes="32x32" href="IconDRK.PNG" media="(prefers-color-scheme: dark)">
+    <link rel="stylesheet" href="styles.css">
+    
+    <style>
+        /* Spezifische Styles für die Readme-Seite */
+        .readme-content {
+            line-height: 1.6;
+            font-size: 15px;
+        }
+        .readme-content h1, .readme-content h2, .readme-content h3 {
+            color: var(--blue);
+            margin-top: 25px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        /* Theme-Anpassungen für Überschriften */
+        body.theme-retro h1, body.theme-retro h2, body.theme-retro h3 {
+            color: var(--piper-white);
+            text-shadow: 1px 1px 0 #555;
+            font-family: 'Oleo Script', cursive;
+            transform: rotate(-1deg);
+        }
+        body.theme-navcom h1, body.theme-navcom h2, body.theme-navcom h3 {
+            color: #33ff33;
+            text-shadow: 0 0 5px rgba(51,255,51,0.6);
+            font-family: 'Share Tech Mono', monospace;
+            transform: none;
+            letter-spacing: 2px;
+        }
+        
+        /* Listen-Styles */
+        ul { padding-left: 20px; }
+        li { margin-bottom: 8px; }
+        
+        /* Links */
+        a { color: var(--blue); text-decoration: none; border-bottom: 1px dotted currentColor; transition: color 0.2s; }
+        a:hover { color: var(--green); }
+        
+        body.theme-retro a { color: var(--piper-yellow); }
+        body.theme-navcom a { color: #33ff33; border-bottom: 1px solid #33ff33; }
+        
+        /* Code-Blocks */
+        code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+            color: #e0e0e0;
+        }
+        body.theme-retro code {
+            background: rgba(255,255,255,0.2);
+            color: #111;
+            font-weight: bold;
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+        body.theme-navcom code {
+            color: #33ff33;
+            background: rgba(0, 50, 0, 0.5);
+            border: 1px solid #005500;
+        }
+        
+        /* Buttons im Text */
+        .key-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-size: 0.9em;
+            background: #222;
+            color: #fff;
+            box-shadow: 0 2px 0 #111;
+        }
+        body.theme-retro .key-badge {
+            background: #eee;
+            color: #111;
+            border: 1px solid #bbb;
+            box-shadow: 1px 1px 0 #999;
+            font-family: sans-serif;
+            font-weight: bold;
+        }
+        
+        /* Zurück-Button */
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 8px 15px;
+            background: var(--blue);
+            color: #111;
+            font-weight: bold;
+            text-decoration: none;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+        body.theme-retro .back-btn {
+            background: linear-gradient(to bottom, #d93829, #8a1a12);
+            color: #fff;
+            border: 2px solid #222;
+            border-bottom: 4px solid #111;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+        }
+        body.theme-navcom .back-btn {
+            background: transparent;
+            color: #33ff33;
+            border: 2px solid #33ff33;
+            box-shadow: 0 0 10px rgba(51,255,51,0.3);
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        /* Kontrast-Fixes für helle Panels (analog zu styles.css) */
+        body.theme-retro .container.panel-creme, 
+        body.theme-retro .container.panel-light {
+            color: #111;
+        }
+        body.theme-retro .container.panel-creme h1, 
+        body.theme-retro .container.panel-light h1,
+        body.theme-retro .container.panel-creme h2, 
+        body.theme-retro .container.panel-light h2 {
+            color: #222;
+            text-shadow: none;
+        }
+    </style>
+</head>
+<body class="theme-retro">
+
+<div class="container">
+    <div class="glareshield"></div>
+    <div class="screw top-left" onclick="cyclePanelColor()" title="Panel-Lackierung ändern" style="cursor: pointer; z-index: 20;"></div>
+    <div class="screw top-right"></div>
+    <div class="screw bottom-left"></div>
+    <div class="screw bottom-right"></div>
+
+    <a href="index.html" class="back-btn">⬅ ZURÜCK ZUM COCKPIT</a>
+
+    <div class="readme-content">
+        <h1 style="border-bottom:none; margin-bottom:0;">GA Dispatcher</h1>
+        <p style="margin-top:0; font-style:italic; opacity:0.8;">Virtueller Flugdienstleiter für General Aviation</p>
+        
+        <p>Der <strong>GA Dispatcher</strong> unterstützt Piloten der General Aviation bei der Flugplanung im Simulator. Das Tool generiert auf Knopfdruck abwechslungsreiche Flugaufträge, ergänzt diese mit realen Wetter- sowie Pistendaten und stellt ein vollständiges, kontextbezogenes Briefing zur Verfügung.</p>
+
+        <hr style="border:0; border-top:1px dashed #555; margin: 20px 0;">
+
+        <h2>🚀 Schnelleinstieg (Quick Start)</h2>
+        <p>Für einen unkomplizierten Start ohne detaillierte Vorplanung:</p>
+        <ol>
+            <li>Trage unter <span class="key-badge">Start / DEP</span> deinen aktuellen ICAO-Code ein (z.B. <code>EDTW</code>).</li>
+            <li>Belasse die restlichen Einstellungen auf den Standardwerten.</li>
+            <li>Klicke auf <span class="key-badge">Auftrag generieren</span> (bzw. DISPATCH im NavCom-Modus).</li>
+        </ol>
+        <p>Das System wählt nun ein passendes Ziel und erstellt eine direkte GPS-Route (Direct). Frequenzen, das aktuelle METAR und ein kurzes Briefing werden umgehend bereitgestellt, sodass der Flug sofort beginnen kann.</p>
+
+        <hr style="border:0; border-top:1px dashed #555; margin: 20px 0;">
+
+        <h2>🗺️ Erweiterte Flugplanung</h2>
+        <p>Für detailliertere Routen oder reine VFR-Flüge bietet der <span class="key-badge">🗺️ Kartentisch</span> zusätzliche Werkzeuge zur Flugvorbereitung:</p>
+
+        <ul>
+            <li><strong>Wegpunkte setzen:</strong> Klicke auf die Routen-Linie, um neue Wegpunkte hinzuzufügen. Diese lassen sich per Drag & Drop verschieben, um beispielsweise Kontrollzonen strukturiert zu umfliegen.</li>
+            <li><strong>🧲 Snapping:</strong> Wenn der Snapping-Modus aktiviert ist, rasten Wegpunkte beim Verschieben automatisch an echten VORs, Flugplätzen oder VFR-Pflichtmeldepunkten ein.</li>
+            <li><strong>📊 Höhenprofil (Vertical Profile):</strong> Unterhalb der Karte wird ein Querschnitt der geplanten Route dargestellt.
+                <ul>
+                    <li><strong>Terrain & Lufträume:</strong> Zeigt das Bodenprofil (inklusive höchster Erhebung) sowie alle durchkreuzten Lufträume im Seitenprofil.</li>
+                    <li><strong>Interaktive Flughöhe:</strong> Die Reiseflughöhe kann durch vertikales Verschieben der roten Fluglinie mit der Maus direkt und visuell angepasst werden.</li>
+                    <li><strong>Step-Climbs (Doppelklick):</strong> Ein Doppelklick auf die Fluglinie setzt einen festen Höhen-Wegpunkt. Dies ist besonders nützlich, um Steig- und Sinkflüge gezielt zu planen, wenn Berge oder bestimmte Lufträume überflogen werden müssen.</li>
+                </ul>
+            </li>
+            <li><strong>Luftraum-Warnungen:</strong> Auf Seite 2 des Briefings (Nav-Log) werden relevante Lufträume detailliert aufgelistet. Ist der Höhenfilter aktiv, zeigt das System nur noch die Zonen an, in die du auf deiner aktuell eingestellten Flughöhe auch tatsächlich einfliegen würdest.</li>
+        </ul>
+
+        <hr style="border:0; border-top:1px dashed #555; margin: 20px 0;">
+
+        <h2>🎨 Benutzeroberfläche (Themes)</h2>
+        <p>Über den Schieberegler im unteren Bereich lässt sich das Erscheinungsbild der Anwendung anpassen:</p>
+        <ul>
+            <li><strong>Modern:</strong> Klar strukturiertes, zeitgemäßes User Interface.</li>
+            <li><strong>Analog:</strong> 60er-Jahre Retro-Optik mit mechanischen Trommelzählwerken. <em>Tipp: Die Farbe des Panels lässt sich durch einen Klick auf die obere linke Schraube wechseln.</em></li>
+            <li><strong>NavCom:</strong> Simulation eines typischen Bendix/King Radio-Stacks (inklusive funktionsfähigem KLN 90B GPS-Display). Werte werden hier authentisch über Rändelräder (Drag-Knobs) eingestellt.</li>
+        </ul>
+
+        <hr style="border:0; border-top:1px dashed #555; margin: 20px 0;">
+
+        <h2>🤖 Dynamische KI-Briefings (Gemini API)</h2>
+        <p>Für individuellere und kreativere Einsatzbeschreibungen (inklusive fiktiver Passagier- und Frachtdetails sowie dem Einbezug lokaler Wikipedia-Informationen) lässt sich eine KI integrieren:</p>
+        <ol>
+            <li>Beziehe einen kostenlosen API-Key im <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.</li>
+            <li>Füge diesen Key unten im Tool in das Passwort-Feld unter <strong>"KI-Dispatcher"</strong> ein.</li>
+        </ol>
+        <p><em>Hinweis zur Datensicherheit: Der Key wird ausschließlich lokal im Cache deines Browsers gespeichert und nur für die direkte Abfrage an Google verwendet.</em></p>
+        
+        <div style="text-align:center; margin-top:40px; font-size:0.8em; opacity:0.6;">
+            &copy; 2024 GA Dispatcher
+        </div>
+    </div>
+</div>
+
+<script>
+    // Theme beim Laden wiederherstellen (analog zur Haupt-App)
+    function applySavedTheme() {
+        const savedTheme = localStorage.getItem('ga_theme') || 'retro'; // Default Retro
+        const savedPanel = localStorage.getItem('ga_panel_theme') || 'panel-med';
+
+        document.body.className = ''; // Reset
+        const container = document.querySelector('.container');
+        
+        // Panel-Farben Reset
+        container.classList.remove('panel-med', 'panel-creme', 'panel-light', 'panel-dark');
+
+        if (savedTheme === 'retro') {
+            document.body.classList.add('theme-retro');
+            container.classList.add(savedPanel);
+        } else if (savedTheme === 'navcom') {
+            document.body.classList.add('theme-navcom');
+        } else {
+            // Classic/Modern
+        }
+    }
+
+    // Funktion zum Durchschalten der Panel-Farben (nur Retro)
+    function cyclePanelColor() {
+        if (!document.body.classList.contains('theme-retro')) return;
+        
+        const panel = document.querySelector('.container');
+        const themes = ['panel-med', 'panel-creme', 'panel-light', 'panel-dark'];
+        let currentIndex = 0;
+        
+        for (let i = 0; i < themes.length; i++) {
+            if (panel.classList.contains(themes[i])) {
+                currentIndex = i;
+                panel.classList.remove(themes[i]);
+                break;
+            }
+        }
+        
+        const nextTheme = themes[(currentIndex + 1) % themes.length];
+        panel.classList.add(nextTheme);
+        localStorage.setItem('ga_panel_theme', nextTheme);
+    }
+
+    // Init beim Start
+    document.addEventListener('DOMContentLoaded', applySavedTheme);
+</script>
+
+</body>
+</html>
