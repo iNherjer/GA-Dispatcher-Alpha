@@ -447,9 +447,10 @@ body.theme-retro .api-fuel-meter .api-scale { border-left: 3px solid #d93829 !im
 @media (max-width: 768px) {
     .profile-resize-handle { height: 30px; }
 
-    /* Profil-Strip: bis zum unteren Bildschirmrand */
+    /* Profil-Strip: etwas weiter oben (iPhone-Ecken schneiden sonst Start/Landezone ab)
+       + padding-bottom für Safari-Adressleiste und Home-Indicator */
     .map-profile-strip {
-        padding-bottom: 0px !important;
+        padding-bottom: env(safe-area-inset-bottom, 8px);
         margin-bottom: 0;
     }
 
@@ -480,20 +481,17 @@ body.theme-retro .api-fuel-meter .api-scale { border-left: 3px solid #d93829 !im
 
 body.map-is-fullscreen .container { display: none !important; }
 body.map-is-fullscreen { overflow: hidden !important; padding: 0 !important; margin: 0 !important; }
-body.map-is-fullscreen #mapTableOverlay { 
-    background: #111 !important; 
-    left: 0 !important; right: 0 !important; top: 0 !important; bottom: 0 !important; 
-    transform: none !important; width: 100vw !important; height: 100vh !important; height: 100dvh !important;
-    z-index: 99999 !important; border-radius: 0 !important; display: flex !important; flex-direction: column !important; 
-    box-sizing: border-box !important;
+body.map-is-fullscreen #mapTableOverlay { background: #111 !important; left: 0 !important; right: 0 !important; top: 0 !important; bottom: 0 !important; transform: none !important; width: 100vw !important; height: 100vh !important; z-index: 99999 !important; border-radius: 0 !important; display: flex !important; flex-direction: column !important; }
+
+body.map-is-fullscreen .maptable-content { 
+    width: 100% !important; height: 100% !important; 
+    max-width: none !important; max-height: none !important; 
+    aspect-ratio: auto !important; margin: 0 !important; 
+    transform: none !important; background: none !important; 
+    box-shadow: none !important; border-radius: 0 !important; 
 }
 
-body.map-is-fullscreen .pinboard-header { 
-    position: relative !important; height: auto !important; z-index: 100000; box-sizing: border-box; background: rgba(26,26,26,0.95); flex-wrap: wrap; gap: 8px; 
-    padding-top: max(10px, env(safe-area-inset-top));
-    padding-left: max(15px, env(safe-area-inset-left));
-    padding-right: max(15px, env(safe-area-inset-right));
-}
+body.map-is-fullscreen .pinboard-header { position: relative !important; height: auto !important; z-index: 100000; box-sizing: border-box; background: rgba(26,26,26,0.95); flex-wrap: wrap; gap: 8px; }
 body.map-is-fullscreen .pinboard-scroll-area { position: relative !important; top: 0 !important; flex: 1 !important; display: block; padding: 0; margin: 0; overflow: hidden; }
 body.map-is-fullscreen #map { width: 100% !important; height: 100% !important; max-width: 100%; max-height: 100%; border-radius: 0 !important; filter: none !important; border: none !important; box-shadow: none !important; }
 body.map-is-fullscreen .map-profile-strip { min-height: 100px; height: 25%; max-height: 220px; }
