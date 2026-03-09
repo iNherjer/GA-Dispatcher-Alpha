@@ -13,16 +13,22 @@
     --green: #44ff44; 
 }
 
-body { 
-    font-family: 'Segoe UI', Roboto, sans-serif; 
-    background-color: var(--bg-dark); 
-    color: var(--text); 
-    margin: 0; padding: 20px 10px; 
+html {
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+}
+body {
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text);
+    margin: 0; padding: 20px 10px;
     display: flex; flex-direction: column; align-items: center; min-height: 100vh;
-    background-image: url('bg.jpg'); 
+    background-image: url('bg.jpg');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
     background-repeat: no-repeat;
     transition: background-color 0.3s, color 0.3s;
 }
@@ -51,7 +57,7 @@ h1 { font-size: 20px; text-align: center; color: var(--blue); margin: 0 0 10px 0
     margin-left: 8px;
     color: inherit;
     text-decoration: none;
-    opacity: 0.6;
+    opacity: 0.9;
     border: 1px solid currentColor;
     border-radius: 50%;
     width: 1.2em;
@@ -66,8 +72,8 @@ h1 { font-size: 20px; text-align: center; color: var(--blue); margin: 0 0 10px 0
     transform: scale(1.1);
 }
 
-#searchIndicator { font-size: 12px; color: var(--blue); text-align: center; margin-bottom: 15px; font-style: italic; height: 15px; }
-label { font-size: 11px; color: #888; display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: bold; }
+#searchIndicator { font-size: 12px; color: var(--green); text-align: center; margin-bottom: 15px; font-style: italic; height: 15px; opacity: 1.0; }
+label { font-size: 11px; color: #d1d1d1; display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: bold; opacity: 1.0; }
 input, select { width: 100%; padding: 12px; background-color: #2a2a2a; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; font-size: 16px; margin-bottom: 8px; transition: all 0.3s; }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -93,7 +99,7 @@ input[type=range]::-webkit-slider-thumb { appearance: none; height: 18px; width:
 .pin-hitbox { width: 34px; height: 34px; display: flex; justify-content: center; align-items: center; background: transparent; cursor: pointer; }
 .pin-dot { width: 14px; height: 14px; min-width: 14px; min-height: 14px; border-radius: 50%; border: 2px solid #222; box-shadow: 0 0 6px rgba(0,0,0,0.8); box-sizing: border-box; flex-shrink: 0; }
 
-.briefing { margin-top: 15px; padding: 15px; background-color: #252525; border-radius: 10px; border: 1px solid #444; display: none; transition: all 0.3s; }
+.briefing { margin-top: 15px; padding: 15px; background-color: #252525; border-radius: 10px; border: 1px solid #444; display: none; transition: all 0.3s; overflow-x: hidden; word-wrap: break-word; }
 .aero-info-box { background: #1e252b; padding: 14px 12px; border-radius: 8px; border-left: 4px solid var(--warn); margin-bottom: 12px; transition: all 0.3s; }
 .box-title { font-weight: bold; text-transform: uppercase; font-size: 15px; }
 
@@ -101,9 +107,9 @@ input[type=range]::-webkit-slider-thumb { appearance: none; height: 18px; width:
 .copy-box:hover { color: var(--green); background: #444; }
 .copy-box::after { content: ' 📋'; font-size: 11px; opacity: 0.5; }
 
-.route-label { font-size: 12px; color: #888; text-transform: uppercase; margin-bottom: 10px; font-weight: bold; }
+.route-label { font-size: 12px; color: #b0b0b0; text-transform: uppercase; margin-bottom: 10px; font-weight: bold; }
 .route-data { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 16px; font-weight: bold; color: #fff; line-height: 1.4; }
-.rwy-info { font-size: 14px; color: #aaa; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #444; }
+.rwy-info { font-size: 14px; color: #c0c0c0; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #444; }
 
 .btn-log { background: var(--green); color: #000; grid-column: span 2; margin-top: 10px; padding: 16px; border: none; border-radius: 8px; font-weight: 800; cursor: pointer; text-transform: uppercase; transition: 0.2s; font-size: 14px;}
 .btn-log:hover { background: #33cc33; }
@@ -111,14 +117,14 @@ input[type=range]::-webkit-slider-thumb { appearance: none; height: 18px; width:
 .logbook { margin-top: 25px; border-top: 2px solid #333; padding-top: 15px; width: 100%; transition: all 0.3s; }
 .log-entry { background: #1a1a1a; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid var(--blue); font-size: 12px; }
 
-.version-info { text-align: center; font-size: 11px; color: #555; margin-top: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.version-info { text-align: center; font-size: 11px; color: #777; margin-top: 12px; text-transform: uppercase; letter-spacing: 1px; }
 .screw { display: none; }
 
 /* ==========================================================================
    2. MECHANISCHER KIPPSCHALTER (TOGGLE)
    ========================================================================== */
 .theme-switch-wrapper { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 35px; padding-top: 20px; border-top: 1px dashed #444; }
-.switch-label { font-size: 10px; font-weight: bold; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+.switch-label { font-size: 10px; font-weight: bold; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
 .switch { position: relative; display: inline-block; width: 26px; height: 40px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #111; border-radius: 4px; border: 2px solid #333; box-shadow: inset 0 4px 8px rgba(0,0,0,0.8); transition: .3s; }
@@ -160,7 +166,7 @@ body.theme-retro .top-right { top: 38px; right: 16px; transform: rotate(15deg); 
 body.theme-retro .bottom-left { bottom: 16px; left: 16px; transform: rotate(-20deg); }
 body.theme-retro .bottom-right { bottom: 16px; right: 16px; transform: rotate(70deg); }
 
-body.theme-retro h1 { font-family: 'Oleo Script', cursive; font-size: 38px; color: #f4f4f4; text-shadow: -1px -1px 0 #aaa, 1px 1px 0 #555, 2px 2px 0 #444, 3px 3px 5px rgba(0,0,0,0.8); font-weight: 400; letter-spacing: 1px; border-bottom: none; padding-bottom: 0; margin-bottom: 15px; transform: rotate(-2deg); }
+body.theme-retro h1 { font-family: 'Oleo Script', cursive; font-size: 38px; color: #f4f4f4; text-shadow: -1px -1px 0 #aaa, 1px 1px 0 #555, 2px 2px 0 #444, 3px 3px 5px rgba(0,0,0,0.8); font-weight: 400; letter-spacing: 1px; border-bottom: none; padding-bottom: 0; margin-bottom: 15px; margin-top: 25px; transform: rotate(-2deg); }
 body.theme-retro #searchIndicator { color: var(--piper-yellow); font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9); }
 body.theme-retro h3.theme-title-text { color: var(--piper-white); text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9); }
 
@@ -258,7 +264,7 @@ body.theme-retro .slider-label { background: transparent; border: none; box-shad
 .wiki-title { display: none; }
 .wiki-info-note { font-size: 14px; color: #ccc; font-style: italic; line-height: 1.5; }
 
-.notes-stack { display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px; }
+.notes-stack { display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px; max-width: 100%; box-sizing: border-box; }
 .paperclip, .page-number { display: none; }
 .mission-note-page { display: block !important; opacity: 1 !important; transform: none !important; }
 
@@ -291,7 +297,7 @@ body.theme-retro #mStory, body.theme-retro .wiki-info-note { font-family: 'Couri
    7. PAYLOAD & FRACHT
    ========================================================================== */
 .note-manifest { display: grid; grid-template-columns: 1fr 1fr; margin-top: 15px; padding-top: 12px; border-top: 1px dashed #444; font-size: 14px; color: #eee; }
-.note-manifest strong { color: #888; display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 2px; }
+.note-manifest strong { color: #b0b0b0; display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 2px; }
 .note-manifest span { font-size: 16px; font-weight: bold; color: #fff; }
 body.theme-retro .note-manifest { display: block; margin-top: 24px; padding-top: 0; border-top: none; }
 body.theme-retro .note-manifest div { line-height: 24px; font-family: 'Courier New', Courier, monospace; font-size: 14px; font-weight: bold; color: #222; }
@@ -320,7 +326,7 @@ body.theme-retro .retro-switch-container:active .retro-switch { transform: trans
 .api-settings label { color: var(--blue); }
 body.theme-retro .api-settings label { color: var(--piper-yellow); background: transparent; border: none; box-shadow: none; padding: 0; text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9); }
 body.theme-retro .api-settings input { background-image: none; border-radius: 4px; border-right: 1px solid #c2bba8; padding-right: 12px; font-family: monospace; }
-.api-hint { font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4; }
+.api-hint { font-size: 11px; color: #aaa; margin-top: 8px; line-height: 1.4; }
 .api-hint a { color: var(--blue); text-decoration: none; border-bottom: 1px dotted var(--blue); transition: color 0.2s; }
 .api-hint a:hover { color: var(--green); border-bottom-color: var(--green); }
 body.theme-retro .api-hint { font-family: 'Courier New', Courier, monospace; color: #e4dec8; font-weight: bold; letter-spacing: -0.5px; text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9); }
@@ -388,9 +394,9 @@ body.theme-retro .api-fuel-meter .api-scale { border-left: 3px solid #d93829 !im
 #map { width: 92%; height: 90%; display: block; border-radius: 3px; filter: sepia(0.35) contrast(0.95); box-shadow: inset 0 0 15px rgba(0,0,0,0.6), 0 0 5px rgba(0,0,0,0.4); border: 1px solid rgba(0,0,0,0.3); }
 
 /* Map Profile Strip */
-.map-profile-strip { 
-    width: 100%; height: 20%; min-height: 80px; 
-    background: #1a1a1a; border-top: 2px solid #333; 
+.map-profile-strip {
+    width: 100%; height: 25%; min-height: 80px;
+    background: #1a1a1a; border-top: 2px solid #333;
     display: flex; flex-direction: column; flex-shrink: 0;
 }
 .map-profile-controls { 
@@ -418,20 +424,47 @@ body.theme-retro .api-fuel-meter .api-scale { border-left: 3px solid #d93829 !im
 
 /* Resize Handle */
 .profile-resize-handle {
-    width: 100%; height: 14px; background: #222; cursor: ns-resize;
+    width: 100%; height: 22px; background: #222; cursor: ns-resize;
     display: flex; align-items: center; justify-content: center;
-    color: #666; font-size: 16px; letter-spacing: 4px; line-height: 1;
+    color: transparent; font-size: 0; line-height: 1;
     user-select: none; -webkit-user-select: none; flex-shrink: 0;
-    border-top: 1px solid #333; border-bottom: 1px solid #333;
+    border-top: 1px solid #444; border-bottom: 1px solid #444;
     transition: background 0.15s;
+    touch-action: none;
 }
-.profile-resize-handle:hover { background: #333; color: #aaa; }
-.profile-resize-handle:active { background: #444; color: #fff; }
+.profile-resize-handle::before {
+    content: '';
+    display: block;
+    width: 36px; height: 2px;
+    background: #555;
+    box-shadow: 0 5px 0 #555, 0 10px 0 #555;
+    border-radius: 1px;
+}
+.profile-resize-handle:hover { background: #333; }
+.profile-resize-handle:hover::before { background: #aaa; box-shadow: 0 5px 0 #aaa, 0 10px 0 #aaa; }
+.profile-resize-handle:active { background: #444; }
+.profile-resize-handle:active::before { background: #fff; box-shadow: 0 5px 0 #fff, 0 10px 0 #fff; }
+@media (max-width: 768px) {
+    .profile-resize-handle { height: 30px; }
+
+    /* Profil-Strip: etwas weiter oben (iPhone-Ecken schneiden sonst Start/Landezone ab)
+       + padding-bottom für Safari-Adressleiste und Home-Indicator */
+    .map-profile-strip {
+        padding-bottom: env(safe-area-inset-bottom, 8px);
+        margin-bottom: 0;
+    }
+
+    /* Fullscreen: dynamische Viewport-Höhe für Safari (Adressleiste beeinflusst vh nicht) */
+    body.map-is-fullscreen #mapTableOverlay {
+        height: 100vh !important;    /* Fallback */
+        height: 100dvh !important;   /* Überschreibt in Browsern mit dvh-Support (Safari 16+) */
+    }
+}
 
 /* Position Slider Bar */
 .map-profile-pos-bar {
-    height: 18px; background: #111; padding: 2px 10px; flex-shrink: 0;
-    display: flex; align-items: center; border-top: 1px solid #222;
+    height: 20px; background: #111; padding: 2px 10px; flex-shrink: 0;
+    display: flex; align-items: center; border-bottom: 1px solid #222;
 }
 .map-profile-pos-bar input[type=range] {
     height: 3px; margin: 0; padding: 0; background: #333; border: none;
@@ -448,24 +481,29 @@ body.theme-retro .api-fuel-meter .api-scale { border-left: 3px solid #d93829 !im
 
 body.map-is-fullscreen .container { display: none !important; }
 body.map-is-fullscreen { overflow: hidden !important; padding: 0 !important; margin: 0 !important; }
-body.map-is-fullscreen #mapTableOverlay { background: #111 !important; left: 0 !important; right: 0 !important; top: 0 !important; bottom: 0 !important; transform: none !important; width: 100vw !important; height: 100vh !important; z-index: 99999 !important; border-radius: 0 !important; display: flex !important; flex-direction: column !important; }
-
-body.map-is-fullscreen .maptable-content { 
-    width: 100% !important; height: 100% !important; 
-    max-width: none !important; max-height: none !important; 
-    aspect-ratio: auto !important; margin: 0 !important; 
-    transform: none !important; background: none !important; 
-    box-shadow: none !important; border-radius: 0 !important; 
+body.map-is-fullscreen #mapTableOverlay { 
+    background: #111 !important; 
+    left: 0 !important; right: 0 !important; top: 0 !important; bottom: 0 !important; 
+    transform: none !important; width: 100vw !important; height: 100vh !important; height: 100dvh !important;
+    z-index: 99999 !important; border-radius: 0 !important; display: flex !important; flex-direction: column !important; 
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    padding-left: env(safe-area-inset-left, 0px) !important;
+    padding-right: env(safe-area-inset-right, 0px) !important;
+    box-sizing: border-box !important;
 }
 
-body.map-is-fullscreen .pinboard-header { position: relative !important; height: auto !important; z-index: 100000; box-sizing: border-box; background: rgba(26,26,26,0.95); flex-wrap: wrap; gap: 8px; }
+body.map-is-fullscreen .pinboard-header { 
+    position: relative !important; height: auto !important; z-index: 100000; box-sizing: border-box; background: rgba(26,26,26,0.95); flex-wrap: wrap; gap: 8px; 
+    padding-left: max(15px, env(safe-area-inset-left));
+    padding-right: max(15px, env(safe-area-inset-right));
+}
 body.map-is-fullscreen .pinboard-scroll-area { position: relative !important; top: 0 !important; flex: 1 !important; display: block; padding: 0; margin: 0; overflow: hidden; }
 body.map-is-fullscreen #map { width: 100% !important; height: 100% !important; max-width: 100%; max-height: 100%; border-radius: 0 !important; filter: none !important; border: none !important; box-shadow: none !important; }
-body.map-is-fullscreen .map-profile-strip { min-height: 100px; height: 20%; max-height: 200px; }
+body.map-is-fullscreen .map-profile-strip { min-height: 100px; height: 25%; max-height: 220px; }
 /* ==========================================================================
    12. DIE SCHUBLADEN-ANIMATION (PC LAYOUT DYNAMISCH - SCROLLBAR FIX)
    ========================================================================== */
-.container { position: relative; z-index: 10; transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.container { position: relative; z-index: 10; transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); overflow-x: hidden; }
 
 @media (min-width: 1250px) {
     /* Container für die Overlays auf der rechten / linken Seite */
@@ -519,8 +557,25 @@ body.map-is-fullscreen .map-profile-strip { min-height: 100px; height: 20%; max-
 }
 
 @media (max-width: 1249px) {
-    body.maptable-open, body.pinboard-open { overflow: hidden !important; }
+    body.maptable-open, body.pinboard-open { overflow: hidden !important; position: fixed !important; width: 100% !important; }
     .pinboard-overlay { background: #080808 !important; }
+    #mapTableOverlay {
+        touch-action: none;
+        overflow: hidden !important;
+        position: fixed !important;
+        top: 0 !important; left: 0 !important;
+        width: 100vw !important; height: 100vh !important;
+        overscroll-behavior: none;
+    }
+    #mapTableOverlay .pinboard-scroll-area {
+        overflow: hidden !important;
+        touch-action: none;
+        overscroll-behavior: none;
+    }
+    .maptable-content {
+        touch-action: none;
+        overflow: hidden !important;
+    }
 }
 body.map-is-fullscreen .pb-btn.close { display: none !important; }
 
@@ -601,12 +656,28 @@ body.theme-retro .wp-data { color: var(--piper-yellow); }
     body.theme-retro .container {
         padding: 30px 15px 20px 15px !important;
     }
+
+    /* Briefing: etwas breiter auf iPhone durch weniger Padding */
+    .container {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+    body.theme-retro .container {
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+    }
+    .briefing-photo-attachment {
+        width: 100px !important;
+    }
+    body.theme-retro .notes-stack {
+        min-width: 0;
+    }
 }
 
 /* ── iPad (768px–1249px): Bild passt ans Display – kein Scroll, kein Pinch-Zoom ── */
 @media (min-width: 768px) and (max-width: 1249px) {
     /* Kein Browser-Scroll und kein Pinch-Zoom auf den Overlays */
-    #mapTableOverlay, #pinboardOverlay { touch-action: none; }
+    #mapTableOverlay, #pinboardOverlay { touch-action: pan-x pan-y; }
 
     /* Karte: Vollbild, Hintergrundbild gestreckt auf das Div */
     #mapTableOverlay .pinboard-scroll-area { padding: 0 !important; }
@@ -1133,7 +1204,14 @@ body.theme-navcom .kln90b-module .radio-label {
 .lcd-label { display: block; color: #33ff33; font-family: 'Share Tech Mono', monospace; font-size: 10px; opacity: 0.7; margin-bottom: 2px; letter-spacing: 1px; }
 
 /* Bendix/King Style Encoder (Weiße Ringe & geriffeltes Inneres) */
-.radio-knob { width: 32px; height: 32px; border-radius: 50%; background: #111; border: 2px solid #e0e0e0; box-shadow: 2px 4px 6px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.2); position: relative; flex-shrink: 0; margin-left: 10px; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s; }
+.radio-knob { 
+    width: 32px; height: 32px; min-width: 32px; min-height: 32px; 
+    border-radius: 50%; background: #111; border: 2px solid #e0e0e0; 
+    box-shadow: 2px 4px 6px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.2); 
+    position: relative; flex-shrink: 0; margin-left: 10px; cursor: pointer; 
+    transition: transform 0.1s, box-shadow 0.1s; 
+    box-sizing: border-box; transform-origin: center; 
+}
 .radio-knob:active { transform: scale(0.95); box-shadow: 1px 2px 3px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.2); }
 .radio-knob::before { content: ''; position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px; border-radius: 50%; background: repeating-conic-gradient(#333 0% 5%, #111 5% 10%); }
 .radio-knob::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background: #111; border: 2px solid #e0e0e0; box-shadow: inset 0 1px 2px rgba(255,255,255,0.3); }
@@ -1162,6 +1240,19 @@ body.theme-navcom .kln90b-module .radio-label {
 /* Aktiver Taster (LED an) */
 .audio-btn.active .audio-led { background: #33ff33; box-shadow: 0 0 8px #33ff33, inset 0 1px 2px #fff; border-color: #fff; }
 .audio-btn.active { color: #fff; text-shadow: 0 0 3px rgba(255,255,255,0.5); }
+
+/* Airspace Pulse Highlight Animation */
+@keyframes airspace-pulse {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 0.55; }
+}
+@keyframes airspace-stroke-pulse {
+    0%, 100% { stroke-opacity: 0.5; stroke-width: 2; }
+    50% { stroke-opacity: 1; stroke-width: 4; }
+}
+.airspace-highlight-pulse path {
+    animation: airspace-pulse 1.5s ease-in-out infinite, airspace-stroke-pulse 1.5s ease-in-out infinite;
+}
 
 /* CMD Action Bar (NavCom DISPATCH/CLEAR) */
 .navcom-action-bar { padding: 10px 12px; justify-content: center; }
@@ -1200,6 +1291,69 @@ body.theme-navcom .kln90b-module .radio-label {
     .kln90b-left, .kln90b-right {
         -webkit-mask-image: linear-gradient(to bottom, black 82%, transparent 100%);
         mask-image: linear-gradient(to bottom, black 82%, transparent 100%);
+    }
+
+    /* XPDR / Aircraft module: kompakter auf iPhone */
+    .radio-module {
+        padding: 6px 4px 4px 4px !important;
+    }
+    .radio-module > .radio-display-container {
+        flex-wrap: wrap !important;
+        gap: 2px !important;
+        padding: 2px 4px !important;
+    }
+    .radio-module .lcd-input {
+        font-size: 18px !important;
+    }
+    .radio-knob.drag-knob {
+        width: 28px !important;
+        height: 28px !important;
+        margin-left: 4px !important;
+    }
+    .radio-knob {
+        width: 30px !important;
+        height: 30px !important;
+        margin-left: 4px !important;
+    }
+    .lcd-label {
+        font-size: 9px !important;
+    }
+    /* NavCom: Labels genauso groß wie Werte */
+    body.theme-navcom .radio-disp-inner .lcd-label {
+        font-size: 18px !important;
+    }
+    /* NavCom: Knöpfe auf iPhone wie KLN-Encoder (volle Größe + Styling) */
+    body.theme-navcom .radio-knob {
+        width: 40px !important;
+        height: 40px !important;
+        border: 3px solid #d8d8d8 !important;
+        box-shadow:
+            3px 5px 10px rgba(0,0,0,0.85),
+            1px 1px 0 rgba(255,255,255,0.15),
+            inset 0 2px 5px rgba(255,255,255,0.12),
+            inset 0 -2px 5px rgba(0,0,0,0.8) !important;
+        margin-left: 0 !important;
+    }
+    body.theme-navcom .radio-knob::after {
+        width: 18px !important;
+        height: 18px !important;
+    }
+    /* NavCom: PAX auf iPhone ausblenden */
+    body.theme-navcom .xpdr-pax {
+        display: none !important;
+    }
+    .radio-module > .radio-display-container {
+        border-width: 1px !important;
+    }
+    .radio-stack {
+        padding: 6px !important;
+        border-width: 2px !important;
+    }
+    .radio-row {
+        gap: 2px !important;
+    }
+    .half-module {
+        padding: 5px 6px 4px 6px !important;
     }
 }
 
@@ -1253,6 +1407,62 @@ body.theme-navcom .discord-link {
 body.theme-navcom .discord-link:hover {
     color: #33ff33;
     text-shadow: 0 0 5px rgba(51, 255, 51, 0.6);
+}
+
+/* ==========================================================================
+   18a. EXTRA-SCHMALE GERÄTE (≤393px: iPhone SE, iPhone 14 mini etc.)
+   ========================================================================== */
+@media (max-width: 393px) {
+
+    /* --- Briefing: bis an die Container-Kante (Classic/Modern Theme) --- */
+    .briefing {
+        margin-left: -10px;
+        margin-right: -10px;
+        border-radius: 0;
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    /* --- Zettelstapel: bis an die Container-Kante (Retro + NavCom) --- */
+    body.theme-retro .notes-stack {
+        margin-left: -14px;
+        margin-right: -14px;
+    }
+
+    /* --- NavCom: Kleinere Encoder (28px, wie die frühere Variante) --- */
+    body.theme-navcom .radio-knob {
+        width: 28px !important;
+        height: 28px !important;
+        border: 2px solid #d8d8d8 !important;
+        box-shadow:
+            2px 3px 6px rgba(0,0,0,0.85),
+            inset 0 1px 3px rgba(255,255,255,0.12),
+            inset 0 -1px 3px rgba(0,0,0,0.8) !important;
+        margin-left: 2px !important;
+    }
+    body.theme-navcom .radio-knob::before {
+        top: 2px !important;
+        left: 2px !important;
+        right: 2px !important;
+        bottom: 2px !important;
+    }
+    body.theme-navcom .radio-knob::after {
+        width: 12px !important;
+        height: 12px !important;
+    }
+
+    /* --- XPDR: Kein Zeilenumbruch --- */
+    .radio-module > .radio-display-container {
+        flex-wrap: nowrap !important;
+    }
+
+    /* --- Schrift skalieren für mehr Platz --- */
+    .radio-module .lcd-input {
+        font-size: 16px !important;
+    }
+    body.theme-navcom .radio-disp-inner .lcd-label {
+        font-size: 14px !important;
+    }
 }
 
 /* ==========================================================================
