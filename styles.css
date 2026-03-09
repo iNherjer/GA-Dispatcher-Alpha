@@ -458,6 +458,10 @@ body.theme-retro .api-fuel-meter .api-scale { border-left: 3px solid #d93829 !im
     body.map-is-fullscreen #mapTableOverlay {
         height: 100vh !important;    /* Fallback */
         height: 100dvh !important;   /* Überschreibt in Browsern mit dvh-Support (Safari 16+) */
+        padding-top: env(safe-area-inset-top, 0px) !important;
+        padding-left: env(safe-area-inset-left, 0px) !important;
+        padding-right: env(safe-area-inset-right, 0px) !important;
+        box-sizing: border-box !important;
     }
 }
 
