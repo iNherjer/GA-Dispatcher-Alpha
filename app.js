@@ -673,7 +673,7 @@ function handleRateChange(val) {
     }
     // Re-render profiles
     if (typeof renderMapProfile === 'function') renderMapProfile();
-    if (typeof renderVerticalProfile === 'function') renderVerticalProfile('vpCanvas');
+    if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
     if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
 }
 
@@ -5529,6 +5529,7 @@ function initAltWaypoints() {
             vpDraggingMagenta = false;
             dragOrigWP = null;
             renderMapProfile();
+            if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
             if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
         }
     }
@@ -5538,6 +5539,9 @@ function initAltWaypoints() {
     let vpDraggingMagenta = false;
     let dragStartY = 0, dragStartX = 0, dragOrigWP = null;
     let lastTapTime = 0;
+    let vpIsPanning = false;
+    let vpPanStartScrollLeft = 0;
+    let vpPanStartX = 0;
 
     // === DOUBLE CLICK: remove/add waypoint ===
     canvas.addEventListener('dblclick', (e) => {
@@ -5610,9 +5614,9 @@ function initAltWaypoints() {
 
     // === TOUCH EVENTS ===
     canvas.addEventListener('touchstart', (e) => {
-        e.preventDefault();
         const touch = e.touches[0];
         vpWasDragging = false;
+        vpIsPanning = false;
         const m = vpGetCanvasMetrics();
         if (!m) return;
         const { mx, my } = vpClientToCanvas(touch.clientX, touch.clientY, m);
@@ -5622,7 +5626,7 @@ function initAltWaypoints() {
         // Double-tap detection (300ms window)
         const now = Date.now();
         if (now - lastTapTime < 300) {
-            // Double-tap: handle hit
+            e.preventDefault();
             vpHandleDoubleHit(mx, my, m);
             lastTapTime = 0;
             return;
@@ -5631,12 +5635,14 @@ function initAltWaypoints() {
 
         // Priority 1: Magenta marker drag
         if (vpHitTestMagenta(mx, m)) {
+            e.preventDefault();
             vpDraggingMagenta = true;
             return;
         }
         // Priority 2: Waypoint drag
         const wpIdx = vpHitTestWaypoint(mx, my, m);
         if (wpIdx >= 0) {
+            e.preventDefault();
             vpDraggingWP = wpIdx;
             dragOrigWP = { ...vpAltWaypoints[wpIdx] };
             return;
@@ -5644,13 +5650,31 @@ function initAltWaypoints() {
         // Priority 3: Flight line segment drag
         const mouseDistNM = vpHitTestFlightLine(mx, my, m);
         if (mouseDistNM !== null) {
+            e.preventDefault();
             const segIdx = vpFindSegmentIdx(mouseDistNM);
             const origSegAlt = (segIdx >= 0 && segIdx < vpSegmentAlts.length) ? vpSegmentAlts[segIdx] : m.cruiseAlt;
             vpDraggingSegment = { segIdx, origAlt: origSegAlt, origCruiseAlt: m.cruiseAlt };
+            return;
+        }
+        // Priority 4: Pan when zoomed in
+        if (vpZoomLevel < 100) {
+            e.preventDefault();
+            vpIsPanning = true;
+            const scrollContainer = document.getElementById('mapProfileScroll');
+            vpPanStartScrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+            vpPanStartX = touch.clientX;
         }
     }, {passive: false});
 
     canvas.addEventListener('touchmove', (e) => {
+        if (vpIsPanning) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const deltaX = vpPanStartX - touch.clientX;
+            const scrollContainer = document.getElementById('mapProfileScroll');
+            if (scrollContainer) scrollContainer.scrollLeft = vpPanStartScrollLeft + deltaX;
+            return;
+        }
         if (vpDraggingWP < 0 && !vpDraggingSegment && !vpDraggingMagenta) return;
         e.preventDefault();
         const touch = e.touches[0];
@@ -5659,6 +5683,10 @@ function initAltWaypoints() {
     }, {passive: false});
 
     canvas.addEventListener('touchend', (e) => {
+        if (vpIsPanning) {
+            vpIsPanning = false;
+            return;
+        }
         // Single tap without drag: Logic removed to prevent accidental creation
         if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) {
             vpHandleDragEnd();

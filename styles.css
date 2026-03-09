@@ -99,7 +99,7 @@ input[type=range]::-webkit-slider-thumb { appearance: none; height: 18px; width:
 .pin-hitbox { width: 34px; height: 34px; display: flex; justify-content: center; align-items: center; background: transparent; cursor: pointer; }
 .pin-dot { width: 14px; height: 14px; min-width: 14px; min-height: 14px; border-radius: 50%; border: 2px solid #222; box-shadow: 0 0 6px rgba(0,0,0,0.8); box-sizing: border-box; flex-shrink: 0; }
 
-.briefing { margin-top: 15px; padding: 15px; background-color: #252525; border-radius: 10px; border: 1px solid #444; display: none; transition: all 0.3s; }
+.briefing { margin-top: 15px; padding: 15px; background-color: #252525; border-radius: 10px; border: 1px solid #444; display: none; transition: all 0.3s; overflow-x: hidden; word-wrap: break-word; }
 .aero-info-box { background: #1e252b; padding: 14px 12px; border-radius: 8px; border-left: 4px solid var(--warn); margin-bottom: 12px; transition: all 0.3s; }
 .box-title { font-weight: bold; text-transform: uppercase; font-size: 15px; }
 
@@ -107,9 +107,9 @@ input[type=range]::-webkit-slider-thumb { appearance: none; height: 18px; width:
 .copy-box:hover { color: var(--green); background: #444; }
 .copy-box::after { content: ' 📋'; font-size: 11px; opacity: 0.5; }
 
-.route-label { font-size: 12px; color: #888; text-transform: uppercase; margin-bottom: 10px; font-weight: bold; }
+.route-label { font-size: 12px; color: #b0b0b0; text-transform: uppercase; margin-bottom: 10px; font-weight: bold; }
 .route-data { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 16px; font-weight: bold; color: #fff; line-height: 1.4; }
-.rwy-info { font-size: 14px; color: #aaa; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #444; }
+.rwy-info { font-size: 14px; color: #c0c0c0; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #444; }
 
 .btn-log { background: var(--green); color: #000; grid-column: span 2; margin-top: 10px; padding: 16px; border: none; border-radius: 8px; font-weight: 800; cursor: pointer; text-transform: uppercase; transition: 0.2s; font-size: 14px;}
 .btn-log:hover { background: #33cc33; }
@@ -117,14 +117,14 @@ input[type=range]::-webkit-slider-thumb { appearance: none; height: 18px; width:
 .logbook { margin-top: 25px; border-top: 2px solid #333; padding-top: 15px; width: 100%; transition: all 0.3s; }
 .log-entry { background: #1a1a1a; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid var(--blue); font-size: 12px; }
 
-.version-info { text-align: center; font-size: 11px; color: #555; margin-top: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.version-info { text-align: center; font-size: 11px; color: #777; margin-top: 12px; text-transform: uppercase; letter-spacing: 1px; }
 .screw { display: none; }
 
 /* ==========================================================================
    2. MECHANISCHER KIPPSCHALTER (TOGGLE)
    ========================================================================== */
 .theme-switch-wrapper { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 35px; padding-top: 20px; border-top: 1px dashed #444; }
-.switch-label { font-size: 10px; font-weight: bold; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+.switch-label { font-size: 10px; font-weight: bold; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
 .switch { position: relative; display: inline-block; width: 26px; height: 40px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #111; border-radius: 4px; border: 2px solid #333; box-shadow: inset 0 4px 8px rgba(0,0,0,0.8); transition: .3s; }
@@ -264,7 +264,7 @@ body.theme-retro .slider-label { background: transparent; border: none; box-shad
 .wiki-title { display: none; }
 .wiki-info-note { font-size: 14px; color: #ccc; font-style: italic; line-height: 1.5; }
 
-.notes-stack { display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px; }
+.notes-stack { display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px; max-width: 100%; box-sizing: border-box; }
 .paperclip, .page-number { display: none; }
 .mission-note-page { display: block !important; opacity: 1 !important; transform: none !important; }
 
@@ -297,7 +297,7 @@ body.theme-retro #mStory, body.theme-retro .wiki-info-note { font-family: 'Couri
    7. PAYLOAD & FRACHT
    ========================================================================== */
 .note-manifest { display: grid; grid-template-columns: 1fr 1fr; margin-top: 15px; padding-top: 12px; border-top: 1px dashed #444; font-size: 14px; color: #eee; }
-.note-manifest strong { color: #888; display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 2px; }
+.note-manifest strong { color: #b0b0b0; display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 2px; }
 .note-manifest span { font-size: 16px; font-weight: bold; color: #fff; }
 body.theme-retro .note-manifest { display: block; margin-top: 24px; padding-top: 0; border-top: none; }
 body.theme-retro .note-manifest div { line-height: 24px; font-family: 'Courier New', Courier, monospace; font-size: 14px; font-weight: bold; color: #222; }
@@ -326,7 +326,7 @@ body.theme-retro .retro-switch-container:active .retro-switch { transform: trans
 .api-settings label { color: var(--blue); }
 body.theme-retro .api-settings label { color: var(--piper-yellow); background: transparent; border: none; box-shadow: none; padding: 0; text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9); }
 body.theme-retro .api-settings input { background-image: none; border-radius: 4px; border-right: 1px solid #c2bba8; padding-right: 12px; font-family: monospace; }
-.api-hint { font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4; }
+.api-hint { font-size: 11px; color: #aaa; margin-top: 8px; line-height: 1.4; }
 .api-hint a { color: var(--blue); text-decoration: none; border-bottom: 1px dotted var(--blue); transition: color 0.2s; }
 .api-hint a:hover { color: var(--green); border-bottom-color: var(--green); }
 body.theme-retro .api-hint { font-family: 'Courier New', Courier, monospace; color: #e4dec8; font-weight: bold; letter-spacing: -0.5px; text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9); }
@@ -637,6 +637,22 @@ body.theme-retro .wp-data { color: var(--piper-yellow); }
 
     body.theme-retro .container {
         padding: 30px 15px 20px 15px !important;
+    }
+
+    /* Briefing: etwas breiter auf iPhone durch weniger Padding */
+    .container {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+    body.theme-retro .container {
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+    }
+    .briefing-photo-attachment {
+        width: 100px !important;
+    }
+    body.theme-retro .notes-stack {
+        min-width: 0;
     }
 }
 
@@ -1269,33 +1285,37 @@ body.theme-navcom .kln90b-module .radio-label {
         padding: 2px 4px !important;
     }
     .radio-module .lcd-input {
-        font-size: 16px !important;
+        font-size: 18px !important;
     }
     .radio-knob.drag-knob {
-        width: 22px !important;
-        height: 22px !important;
+        width: 28px !important;
+        height: 28px !important;
         margin-left: 4px !important;
     }
     .radio-knob {
-        width: 26px !important;
-        height: 26px !important;
+        width: 30px !important;
+        height: 30px !important;
         margin-left: 4px !important;
     }
     .lcd-label {
-        font-size: 7px !important;
+        font-size: 9px !important;
+    }
+    /* Orangen Display-Labels (DEP, DEST, ALT etc.) besser lesbar */
+    body.theme-navcom .radio-disp-inner .lcd-label {
+        font-size: 14px !important;
     }
     .radio-module > .radio-display-container {
         border-width: 1px !important;
     }
     .radio-stack {
-        padding: 4px !important;
+        padding: 6px !important;
         border-width: 2px !important;
     }
     .radio-row {
         gap: 2px !important;
     }
     .half-module {
-        padding: 4px 4px 3px 4px !important;
+        padding: 5px 6px 4px 6px !important;
     }
 }
 
