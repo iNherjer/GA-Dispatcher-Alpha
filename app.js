@@ -5345,7 +5345,7 @@ function initAltWaypoints() {
             const wp = vpAltWaypoints[i];
             const wpx = m.padLeft + (wp.distNM / m.totalDist) * m.plotW;
             const wpy = m.padTop + m.plotH - (wp.altFt / m.maxAlt) * m.plotH;
-            if (Math.abs(mx - wpx) < 18 && Math.abs(my - wpy) < 18) return i;
+            if (Math.abs(mx - wpx) < 26 && Math.abs(my - wpy) < 26) return i;
         }
         return -1;
     }
@@ -5357,7 +5357,7 @@ function initAltWaypoints() {
         const profObj = typeof computeFlightProfile === 'function' ? computeFlightProfile(m.elevData, m.cruiseAlt, vpClimbRate, vpDescentRate, tas) : null;
         const altAtMouse = getExactAltAtDist(mouseDistNM, profObj, m.cruiseAlt);
         const lineY = m.padTop + m.plotH - (altAtMouse / m.maxAlt) * m.plotH;
-        if (Math.abs(my - lineY) < 18) return mouseDistNM;
+        if (Math.abs(my - lineY) < 32) return mouseDistNM;
         return null;
     }
 
@@ -5427,19 +5427,38 @@ function initAltWaypoints() {
         }
         vpAltWaypoints.splice(insertIdx, 0, { distNM: clickDistNM, altFt: exactAlt });
         if (vpSegmentAlts.length > 0 && insertIdx < vpSegmentAlts.length) {
-            const oldSegAlt = vpSegmentAlts[insertIdx];
-            vpSegmentAlts.splice(insertIdx, 1, oldSegAlt, oldSegAlt);
+            vpSegmentAlts.splice(insertIdx, 1, exactAlt, exactAlt);
         } else if (vpSegmentAlts.length > 0 && insertIdx >= vpSegmentAlts.length) {
-            const prevAlt = vpSegmentAlts[vpSegmentAlts.length - 1] || cruiseAlt;
-            vpSegmentAlts.push(prevAlt);
+            vpSegmentAlts.push(exactAlt);
         } else if (vpAltWaypoints.length >= 2 && vpSegmentAlts.length === 0) {
             vpSegmentAlts = [];
             for (let k = 0; k < vpAltWaypoints.length - 1; k++) {
-                vpSegmentAlts.push(cruiseAlt);
+                vpSegmentAlts.push(exactAlt);
             }
         }
         renderMapProfile();
         if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+    }
+
+    function vpHandleDoubleHit(mx, my, m) {
+        // 1. Try removing existing waypoint
+        const wpIdx = vpHitTestWaypoint(mx, my, m);
+        if (wpIdx >= 0) {
+            const wp = vpAltWaypoints[wpIdx];
+            vpRemoveWaypoint(wp.distNM, m.totalDist);
+            return true;
+        }
+        // 2. Try adding new waypoint on flight line
+        const clickDistNM = vpHitTestFlightLine(mx, my, m);
+        if (clickDistNM !== null) {
+            const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
+            const profObj = typeof computeFlightProfile === 'function' ? computeFlightProfile(m.elevData, m.cruiseAlt, vpClimbRate, vpDescentRate, tas) : null;
+            let exactAlt = getExactAltAtDist(clickDistNM, profObj, m.cruiseAlt);
+            exactAlt = Math.round(exactAlt / 100) * 100;
+            vpAddWaypoint(clickDistNM, exactAlt, m.cruiseAlt, m.totalDist);
+            return true;
+        }
+        return false;
     }
 
     function vpHandleDragMove(clientX, clientY, dragStartX, dragStartY, dragOrigWP) {
@@ -5520,31 +5539,17 @@ function initAltWaypoints() {
     let dragStartY = 0, dragStartX = 0, dragOrigWP = null;
     let lastTapTime = 0;
 
-    // === DOUBLE CLICK: remove waypoint ===
+    // === DOUBLE CLICK: remove/add waypoint ===
     canvas.addEventListener('dblclick', (e) => {
         const m = vpGetCanvasMetrics();
         if (!m) return;
-        const { mx } = vpClientToCanvas(e.clientX, e.clientY, m);
-        const clickDistNM = ((mx - m.padLeft) / m.plotW) * m.totalDist;
-        vpRemoveWaypoint(clickDistNM, m.totalDist);
+        const { mx, my } = vpClientToCanvas(e.clientX, e.clientY, m);
+        vpHandleDoubleHit(mx, my, m);
     });
 
-    // === CLICK: add waypoint ===
+    // === CLICK: no more single-click creation ===
     canvas.addEventListener('click', (e) => {
-        if (vpWasDragging) return;
-        const m = vpGetCanvasMetrics();
-        if (!m) return;
-        const { mx, my } = vpClientToCanvas(e.clientX, e.clientY, m);
-        const clickDistNM = vpHitTestFlightLine(mx, my, m);
-        if (clickDistNM !== null) {
-            const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
-            const vpClimbRate = parseInt(document.getElementById('climbSlider')?.value || 500);
-            const vpDescentRate = parseInt(document.getElementById('descentSlider')?.value || 500);
-            const profObj = typeof computeFlightProfile === 'function' ? computeFlightProfile(m.elevData, m.cruiseAlt, vpClimbRate, vpDescentRate, tas) : null;
-            let exactAlt = getExactAltAtDist(clickDistNM, profObj, m.cruiseAlt);
-            exactAlt = Math.round(exactAlt / 100) * 100;
-            vpAddWaypoint(clickDistNM, exactAlt, m.cruiseAlt, m.totalDist);
-        }
+        // Logic removed to prevent accidental creation on iPhone
     });
 
     // === HOVER CURSOR ===
@@ -5617,9 +5622,8 @@ function initAltWaypoints() {
         // Double-tap detection (300ms window)
         const now = Date.now();
         if (now - lastTapTime < 300) {
-            // Double-tap: remove waypoint
-            const clickDistNM = ((mx - m.padLeft) / m.plotW) * m.totalDist;
-            vpRemoveWaypoint(clickDistNM, m.totalDist);
+            // Double-tap: handle hit
+            vpHandleDoubleHit(mx, my, m);
             lastTapTime = 0;
             return;
         }
@@ -5655,29 +5659,9 @@ function initAltWaypoints() {
     }, {passive: false});
 
     canvas.addEventListener('touchend', (e) => {
+        // Single tap without drag: Logic removed to prevent accidental creation
         if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) {
             vpHandleDragEnd();
-            return;
-        }
-        // Single tap without drag: add waypoint (delayed to allow double-tap detection)
-        if (!vpWasDragging) {
-            const tapX = dragStartX, tapY = dragStartY;
-            setTimeout(() => {
-                if (lastTapTime === 0) return; // was consumed by double-tap
-                const m = vpGetCanvasMetrics();
-                if (!m) return;
-                const { mx, my } = vpClientToCanvas(tapX, tapY, m);
-                const clickDistNM = vpHitTestFlightLine(mx, my, m);
-                if (clickDistNM !== null) {
-                    const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
-                    const vpClimbRate = parseInt(document.getElementById('climbSlider')?.value || 500);
-                    const vpDescentRate = parseInt(document.getElementById('descentSlider')?.value || 500);
-                    const profObj = typeof computeFlightProfile === 'function' ? computeFlightProfile(m.elevData, m.cruiseAlt, vpClimbRate, vpDescentRate, tas) : null;
-                    let exactAlt = getExactAltAtDist(clickDistNM, profObj, m.cruiseAlt);
-                    exactAlt = Math.round(exactAlt / 100) * 100;
-                    vpAddWaypoint(clickDistNM, exactAlt, m.cruiseAlt, m.totalDist);
-                }
-            }, 320);
         }
     });
 }

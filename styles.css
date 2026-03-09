@@ -1359,6 +1359,19 @@ body.theme-navcom .discord-link:hover {
         /* Überschreibt den 3.0 Zoom von weiter oben */
         transform: translate(-50%, 20%) scale(2.6) rotate(2deg) !important; 
     }
+    
+    /* NavCom Theme Mobile Adjustments */
+    body.theme-navcom .lcd-label, 
+    body.theme-navcom .radio-label {
+        font-size: 11px;
+        letter-spacing: 1px;
+    }
+    body.theme-navcom .lcd-input {
+        font-size: 24px;
+    }
+    body.theme-navcom .radio-display-container {
+        padding: 4px 6px;
+    }
 }
 
 /* FIX: Interaktive Elemente auf Hintergrund-Seiten deaktivieren, damit Klicks zuverlässig zum Blättern führen */
