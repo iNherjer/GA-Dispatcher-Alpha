@@ -4921,7 +4921,7 @@ function renderMapProfile() {
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
-    const padLeft = 40, padRight = 10, padTop = 12, padBottom = 22;
+    const padLeft = 40, padRight = 10, padTop = 12, padBottom = 28;
     const plotW = canvasWidth - padLeft - padRight;
     const plotH = containerHeight - padTop - padBottom;
 
