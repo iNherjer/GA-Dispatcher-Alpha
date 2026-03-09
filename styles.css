@@ -447,10 +447,9 @@ body.theme-retro .api-fuel-meter .api-scale { border-left: 3px solid #d93829 !im
 @media (max-width: 768px) {
     .profile-resize-handle { height: 30px; }
 
-    /* Profil-Strip: etwas weiter oben (iPhone-Ecken schneiden sonst Start/Landezone ab)
-       + padding-bottom für Safari-Adressleiste und Home-Indicator */
+    /* Profil-Strip: bis zum unteren Bildschirmrand */
     .map-profile-strip {
-        padding-bottom: env(safe-area-inset-bottom, 8px);
+        padding-bottom: 0px !important;
         margin-bottom: 0;
     }
 
@@ -486,14 +485,12 @@ body.map-is-fullscreen #mapTableOverlay {
     left: 0 !important; right: 0 !important; top: 0 !important; bottom: 0 !important; 
     transform: none !important; width: 100vw !important; height: 100vh !important; height: 100dvh !important;
     z-index: 99999 !important; border-radius: 0 !important; display: flex !important; flex-direction: column !important; 
-    padding-top: env(safe-area-inset-top, 0px) !important;
-    padding-left: env(safe-area-inset-left, 0px) !important;
-    padding-right: env(safe-area-inset-right, 0px) !important;
     box-sizing: border-box !important;
 }
 
 body.map-is-fullscreen .pinboard-header { 
     position: relative !important; height: auto !important; z-index: 100000; box-sizing: border-box; background: rgba(26,26,26,0.95); flex-wrap: wrap; gap: 8px; 
+    padding-top: max(10px, env(safe-area-inset-top));
     padding-left: max(15px, env(safe-area-inset-left));
     padding-right: max(15px, env(safe-area-inset-right));
 }
