@@ -657,7 +657,8 @@ function handleRateChange(val) {
     vpClimbRate = val;
     vpDescentRate = val;
     // Sync displays
-    setDrumCounter('rateDrum', val);
+    const rateDrum = document.getElementById('rateDrum');
+    if (rateDrum) rateDrum.textContent = val;
     const rateMapDisplay = document.getElementById('rateMapDisplay');
     if (rateMapDisplay) rateMapDisplay.textContent = val;
     // Sync sliders
@@ -687,7 +688,6 @@ function recalculatePerformance() {
 function refreshAllDrums() {
     setDrumCounter('tasDrum', document.getElementById('tasSlider').value); setDrumCounter('gphDrum', document.getElementById('gphSlider').value);
     const altSlider = document.getElementById('altSlider'); if (altSlider) setDrumCounter('altDrum', altSlider.value);
-    const rateSlider = document.getElementById('rateSlider'); if (rateSlider) setDrumCounter('rateDrum', rateSlider.value);
     if(currentMissionData) { setDrumCounter('distDrum', currentMissionData.dist); recalculatePerformance(); }
 }
 
@@ -2273,20 +2273,9 @@ function updateRoutePerformance() {
     let totalTime = 0;
     let totalFuel = 0;
 
-    const isRetroTheme = document.body.classList.contains('theme-retro');
-    const tc = isRetroTheme ? {
-        base: '#222', header: '#0b1f65', hdrBorder: '#888',
-        name: '#111', nav: '#d93829', rowBorder: '1px dashed #ccc',
-        totalBorder: '#888', total: '#0b1f65', freqVOR: '#111', freqApt: '#0b1f65'
-    } : {
-        base: '#ccc', header: '#5db0ff', hdrBorder: '#555',
-        name: '#e0e0e0', nav: '#ff8877', rowBorder: '1px dashed #3a3a3a',
-        totalBorder: '#555', total: '#5db0ff', freqVOR: '#e0e0e0', freqApt: '#5db0ff'
-    };
-
-    let blHTML = `<table style="width:100%; border-collapse:collapse; text-align:left; font-size:14px; font-family:'Courier New', monospace; font-weight:bold; color:${tc.base}; margin-top:5px;">`;
+    let blHTML = '<table style="width:100%; border-collapse:collapse; text-align:left; font-size:14px; font-family:\'Courier New\', monospace; font-weight:bold; color:#222; margin-top:5px;">';
     blHTML += '<colgroup><col style="width:30%;"><col style="width:20%;"><col style="width:16%;"><col style="width:10%;"><col style="width:10%;"><col style="width:14%;"></colgroup>';
-    blHTML += `<tr style="border-bottom:2px solid ${tc.hdrBorder}; color:${tc.header};"><th>Route</th><th>FREQ</th><th>HDG</th><th>NM</th><th>Min</th><th>Gal</th></tr>`;
+    blHTML += '<tr style="border-bottom:2px solid #888; color:#0b1f65;"><th>Route</th><th>FREQ</th><th>HDG</th><th>NM</th><th>Min</th><th>Gal</th></tr>';
     
     for(let i=0; i<routeWaypoints.length - 1; i++) {
         let p1 = routeWaypoints[i], p2 = routeWaypoints[i+1], nav = calcNav(p1.lat, p1.lng || p1.lon, p2.lat, p2.lng || p2.lon);
@@ -2329,22 +2318,22 @@ function updateRoutePerformance() {
         totalTime += legTime;
         totalFuel += legFuel;
 
-        const c1 = isV1 ? tc.freqVOR : tc.freqApt;
-        const c2 = isV2 ? tc.freqVOR : tc.freqApt;
+        const c1 = isV1 ? '#111' : '#0b1f65';
+        const c2 = isV2 ? '#111' : '#0b1f65';
 
-        blHTML += `<tr style="border-bottom:${tc.rowBorder};">`;
-        blHTML += `<td style="padding:8px 0 8px 8px; color:${tc.name}; line-height: 1.4;"><span style="display:inline-block; min-width:20px; text-align:right;">${i+1}.</span> ${cleanName1}<br><span style="display:inline-block; min-width:20px; text-align:left;">➔</span> ${cleanName2}</td>`;
+        blHTML += `<tr style="border-bottom:1px dashed #ccc;">`;
+        blHTML += `<td style="padding:8px 0 8px 8px; color:#111; line-height: 1.4;"><span style="display:inline-block; min-width:20px; text-align:right;">${i+1}.</span> ${cleanName1}<br><span style="display:inline-block; min-width:20px; text-align:left;">➔</span> ${cleanName2}</td>`;
         blHTML += `<td style="padding:8px 0 8px 4px; font-size:14px; line-height: 1.6;"><span style="color:${c1}">${f1}</span><br><span style="color:${c2}">${f2}</span></td>`;
-        blHTML += `<td style="padding:8px 0 8px 16px; color:${tc.nav}; vertical-align:middle;">${nav.brng}°</td>`;
-        blHTML += `<td style="padding:8px 0; color:${tc.nav}; vertical-align:middle;">${nav.dist}</td>`;
-        blHTML += `<td style="padding:8px 0; color:${tc.nav}; vertical-align:middle;">${legTime}</td>`;
-        blHTML += `<td style="padding:8px 0; color:${tc.nav}; vertical-align:middle;">${legFuel.toFixed(1)}</td>`;
+        blHTML += `<td style="padding:8px 0 8px 16px; color:#d93829; vertical-align:middle;">${nav.brng}°</td>`;
+        blHTML += `<td style="padding:8px 0; color:#d93829; vertical-align:middle;">${nav.dist}</td>`;
+        blHTML += `<td style="padding:8px 0; color:#d93829; vertical-align:middle;">${legTime}</td>`;
+        blHTML += `<td style="padding:8px 0; color:#d93829; vertical-align:middle;">${legFuel.toFixed(1)}</td>`;
         blHTML += `</tr>`;
         
         wpHTML += `<div class="wp-row"><span class="wp-name">${cleanName1.replace(/<[^>]+>/g, '').trim()} ➔ ${cleanName2.replace(/<[^>]+>/g, '').trim()}</span><span class="wp-data">${nav.brng}° | ${nav.dist} NM</span></div>`;
     }
     
-    blHTML += `<tr style="border-top:2px solid ${tc.totalBorder}; color:${tc.total}; font-size:15px;"><td style="padding-top:8px;">TOTAL</td><td style="padding-top:8px;"></td><td style="padding-top:8px;"></td><td style="padding-top:8px;">${totalNM}</td><td style="padding-top:8px;">${totalTime}</td><td style="padding-top:8px;">${totalFuel.toFixed(1)}</td></tr>`;
+    blHTML += `<tr style="border-top:2px solid #888; color:#0b1f65; font-size:15px;"><td style="padding-top:8px;">TOTAL</td><td style="padding-top:8px;"></td><td style="padding-top:8px;"></td><td style="padding-top:8px;">${totalNM}</td><td style="padding-top:8px;">${totalTime}</td><td style="padding-top:8px;">${totalFuel.toFixed(1)}</td></tr>`;
     blHTML += '</table>';
     
     const blDiv = document.getElementById('briefingNavLog');
