@@ -170,28 +170,37 @@ function toggleWikiPhoto(event, containerId) {
     const container = document.getElementById(containerId);
     if (!container) { event.stopPropagation(); return; }
 
-    // Wenn bereits ein Clone vorhanden → immer Zoom-Out (Backdrop- oder Clone-Klick)
-    const existingClone = document.getElementById('photo-zoom-clone');
-    if (existingClone) {
+    // Placeholder im DOM bedeutet: gerade gezoomt → Zoom-Out
+    const placeholder = document.getElementById('photo-zoom-placeholder');
+    if (placeholder) {
         event.stopPropagation();
-        const currentRect = container.getBoundingClientRect();
-        const origTransform = container.style.transform || 'rotate(3deg)';
-        // Clone ohne Animation zur aktuellen Originalposition springen (scrollsicher)
-        existingClone.style.transition = 'none';
-        existingClone.style.top  = currentRect.top  + 'px';
-        existingClone.style.left = currentRect.left + 'px';
-        void existingClone.offsetWidth;
-        // Dann transform zurück-animieren
-        existingClone.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.4s';
-        existingClone.style.transform  = origTransform;
-        existingClone.style.boxShadow  = '';
-        setTimeout(() => { existingClone.remove(); container.style.visibility = ''; }, 430);
+        const origTransform = container.dataset.wikiOrigTransform || '';
+
+        // Zum aktuellen Viewport-Ort des Platzhalters springen (scrollsicher), dann transform zurück
+        const phRect = placeholder.getBoundingClientRect();
+        container.style.transition = 'none';
+        container.style.top  = phRect.top  + 'px';
+        container.style.left = phRect.left + 'px';
+        void container.offsetWidth;
+        container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.4s';
+        container.style.transform  = origTransform;
+        container.style.boxShadow  = '';
+        container.style.cursor     = '';
+
+        setTimeout(() => {
+            // Element zurück an Originalstelle im DOM
+            placeholder.parentNode.insertBefore(container, placeholder);
+            placeholder.remove();
+            // Kompletten Inline-Style auf Original zurücksetzen (stellt margin-left:auto etc. wieder her)
+            container.style.cssText = container.dataset.wikiOrigCssText || '';
+        }, 430);
+
         const bd = document.getElementById('photo-backdrop');
         if (bd) { bd.style.opacity = '0'; setTimeout(() => bd.remove(), 400); }
         return;
     }
 
-    // Zoom-In nur wenn das Foto auf der aktiven Seite ist (Retro: nur front-note)
+    // Zoom-In nur auf der aktiven Seite (Retro: nur front-note anklicken)
     const page = container.closest('.mission-note-page');
     if (page && !page.classList.contains('front-note')) {
         return; // Event durchlassen → Seite wird umgeblättert
@@ -199,29 +208,34 @@ function toggleWikiPhoto(event, containerId) {
 
     event.stopPropagation();
 
-    // ── ZOOM IN: Clone in <body> hängen – kein Overflow-Clipping durch Eltern ──
+    // ── ZOOM IN: Original-Element in <body> verschieben (kein Clone → keine Qualitätsverluste) ──
     const rect = container.getBoundingClientRect();
-    const origTransform = container.style.transform || 'rotate(3deg)';
+    container.dataset.wikiOrigTransform = container.style.transform || '';
+    container.dataset.wikiOrigCssText   = container.style.cssText;   // komplette Styles für Restore
 
-    const clone = container.cloneNode(true);
-    clone.id = 'photo-zoom-clone';
-    clone.onclick = e => { e.stopPropagation(); toggleWikiPhoto(e, containerId); };
-    clone.style.position   = 'fixed';
-    clone.style.top        = rect.top    + 'px';
-    clone.style.left       = rect.left   + 'px';
-    clone.style.width      = rect.width  + 'px';
-    clone.style.height     = rect.height + 'px';
-    clone.style.margin     = '0';
-    clone.style.float      = 'none';
-    clone.style.transform  = origTransform;
-    clone.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.4s';
-    clone.style.zIndex     = '10000';
-    clone.style.cursor     = 'zoom-out';
-    document.body.appendChild(clone);
+    // Referenz für Zielbreite VOR dem Verschieben ermitteln
+    const noteRef = container.closest('.notes-stack') || container.closest('.mission-note-page');
+    const noteW   = noteRef ? noteRef.getBoundingClientRect().width : window.innerWidth * 0.7;
 
-    container.style.visibility = 'hidden'; // hält Platz im Layout
+    // Platzhalter einfügen, damit der Layout-Platz erhalten bleibt
+    const ph = document.createElement('div');
+    ph.id = 'photo-zoom-placeholder';
+    ph.style.cssText = `width:${rect.width}px;height:${rect.height}px;flex-shrink:0;visibility:hidden;`;
+    container.parentNode.insertBefore(ph, container);
 
-    // Hintergrund-Verdunkelung (fixed, überdeckt alles)
+    // Element nach <body> verschieben und an gleicher Viewport-Position fixieren
+    document.body.appendChild(container);
+    container.style.position   = 'fixed';
+    container.style.top        = rect.top    + 'px';
+    container.style.left       = rect.left   + 'px';
+    container.style.width      = rect.width  + 'px';
+    container.style.margin     = '0';
+    container.style.float      = 'none';
+    container.style.zIndex     = '10000';
+    container.style.cursor     = 'zoom-out';
+    container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.4s';
+
+    // Hintergrund-Verdunkelung
     const bd = document.createElement('div');
     bd.id = 'photo-backdrop';
     bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;opacity:0;transition:opacity 0.4s;';
@@ -230,24 +244,22 @@ function toggleWikiPhoto(event, containerId) {
     bd.style.opacity = '1';
     bd.onclick = e => { e.stopPropagation(); toggleWikiPhoto(e, containerId); };
 
-    void clone.offsetWidth; // Reflow: Transition startet vom Ausgangszustand
+    void container.offsetWidth; // Reflow: Transition startet vom Ausgangszustand
 
     // Zielgröße: PC/iPad = 120% des Hauptcontainers, iPhone = Bildschirmbreite − 24px
     const isMobile = window.innerWidth <= 767;
     const polW    = rect.width;
-    const noteRef = container.closest('.notes-stack') || container.closest('.mission-note-page');
-    const noteW   = noteRef ? noteRef.getBoundingClientRect().width : window.innerWidth * 0.7;
     const targetW = isMobile ? (window.innerWidth - 24) : (noteW * 1.2);
     const scale   = targetW / polW;
 
-    // Viewport-Mitte als Ziel (leicht über Bildschirmmitte damit alles sichtbar)
+    // Viewport-Mitte als Ziel (leicht über Bildschirmmitte)
     const vpCx  = window.innerWidth  / 2;
     const vpCy  = window.innerHeight * 0.42;
     const polCx = rect.left + polW        / 2;
     const polCy = rect.top  + rect.height / 2;
 
-    clone.style.transform = `translate(${(vpCx - polCx).toFixed(1)}px, ${(vpCy - polCy).toFixed(1)}px) scale(${scale.toFixed(3)}) rotate(2deg)`;
-    clone.style.boxShadow = '5px 20px 50px rgba(0, 0, 0, 0.8)';
+    container.style.transform = `translate(${(vpCx - polCx).toFixed(1)}px, ${(vpCy - polCy).toFixed(1)}px) scale(${scale.toFixed(3)}) rotate(2deg)`;
+    container.style.boxShadow = '5px 20px 50px rgba(0, 0, 0, 0.8)';
 }
 
 function updateDynamicColors() {
@@ -520,6 +532,7 @@ function saveMissionState() {
         currentDestFreq: currentDestFreq,
         freqCache: freqCache,
         vpAltWaypoints: typeof vpAltWaypoints !== 'undefined' ? vpAltWaypoints : [],
+        vpSegmentAlts: typeof vpSegmentAlts !== 'undefined' ? vpSegmentAlts : [],
         vpElevationData: typeof vpElevationData !== 'undefined' ? vpElevationData : null
     };
     localStorage.setItem('ga_active_mission', JSON.stringify(state));
@@ -570,7 +583,15 @@ async function restoreMissionState(state) {
     currentDepFreq = state.currentDepFreq || ""; currentDestFreq = state.currentDestFreq || "";
     freqCache = state.freqCache || {};
     vpAltWaypoints = state.vpAltWaypoints || [];
+    vpSegmentAlts  = state.vpSegmentAlts  || [];
     vpElevationData = state.vpElevationData || null;
+    // Routenwechsel-Detektor vorbelegen – verhindert, dass vpAltWaypoints nach dem Restore
+    // sofort wieder gelöscht werden (window._lastVpRouteKey ist nach Reload undefined)
+    if (state.routeWaypoints && state.routeWaypoints.length > 0) {
+        window._lastVpRouteKey = state.routeWaypoints.map(p =>
+            `${(p.lat || 0).toFixed(4)},${((p.lng || p.lon) || 0).toFixed(4)}`
+        ).join('|');
+    }
 
     // Fallback: Wenn Frequenzen im Briefing fehlen (z.B. alte Pinnwand-Daten), neu laden
     if (!state.wikiDepFreqText && currentStartICAO) {
@@ -2820,6 +2841,7 @@ function pinCurrentFlight() {
         currentDestICAO: currentDestICAO, currentSName: currentSName, currentDName: currentDName,
         currentDepFreq: currentDepFreq, currentDestFreq: currentDestFreq, freqCache: freqCache,
         vpAltWaypoints: typeof vpAltWaypoints !== 'undefined' ? vpAltWaypoints : [],
+        vpSegmentAlts: typeof vpSegmentAlts !== 'undefined' ? vpSegmentAlts : [],
         vpElevationData: typeof vpElevationData !== 'undefined' ? vpElevationData : null
     };
 
@@ -5796,6 +5818,7 @@ function initAltWaypoints() {
 
     function vpHandleDragEnd() {
         if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) {
+            const needsSave = vpDraggingWP >= 0 || !!vpDraggingSegment; // Magenta = nur Position, keine Höhendaten
             if (vpDraggingWP >= 0) {
                 vpAltWaypoints.sort((a, b) => a.distNM - b.distNM);
             }
@@ -5806,6 +5829,7 @@ function initAltWaypoints() {
             renderMapProfile();
             if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
             if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+            if (needsSave) setTimeout(() => saveMissionState(), 200);
         }
     }
 
@@ -5823,7 +5847,7 @@ function initAltWaypoints() {
         const m = vpGetCanvasMetrics();
         if (!m) return;
         const { mx, my } = vpClientToCanvas(e.clientX, e.clientY, m);
-        vpHandleDoubleHit(mx, my, m);
+        if (vpHandleDoubleHit(mx, my, m)) setTimeout(() => saveMissionState(), 200);
     });
 
     // === CLICK: no more single-click creation ===
@@ -5902,7 +5926,7 @@ function initAltWaypoints() {
         const now = Date.now();
         if (now - lastTapTime < 300) {
             e.preventDefault();
-            vpHandleDoubleHit(mx, my, m);
+            if (vpHandleDoubleHit(mx, my, m)) setTimeout(() => saveMissionState(), 200);
             lastTapTime = 0;
             return;
         }
