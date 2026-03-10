@@ -1612,12 +1612,12 @@ function getAirspaceFreqInfo(a) {
         const primary = a.frequencies.find(f => f.primary) || a.frequencies[0];
         if (primary) {
             const label = primary.name || 'TWR';
-            return `<span style="color:#0b1f65; font-weight:bold; font-size:10px;">📻 ${label}: ${primary.value}</span>`;
+            return `<span style="color:#f2c12e; font-weight:bold; font-size:10px;">📻 ${label}: ${primary.value}</span>`;
         }
     }
 
-    // For TMZ (type 27): show squawk if available, otherwise freq
-    if (t === 27) {
+    // For TMZ (type 5 or 27): show squawk if available, otherwise freq
+    if (t === 5 || t === 27) {
         const primary = a.frequencies.find(f => f.primary) || a.frequencies[0];
         if (primary) {
             return `<span style="color:#9966ff; font-weight:bold; font-size:10px;">📻 ${primary.name || 'XPDR'}: ${primary.value}</span>`;
@@ -1645,7 +1645,7 @@ function getAirspaceStyle(a) {
     if (t === 4) return { color: '#f2c12e', icon: '⚠️', mapColor: '#f2c12e', category: `CTR${cls}` };
     if (t === 7) return { color: '#4da6ff', icon: '⚠️', mapColor: '#4da6ff', category: `TMA${cls}` };
     if (t === 26) return { color: '#4da6ff', icon: '⚠️', mapColor: '#4da6ff', category: `CTA${cls}` };
-    if (t === 27) return { color: '#9966ff', icon: '📡', mapColor: '#9966ff', category: 'TMZ' };
+    if (t === 5 || t === 27) return { color: '#9966ff', icon: '📡', mapColor: '#9966ff', category: 'TMZ' };
     if (t === 6 || t === 28) return { color: '#66cccc', icon: '📡', mapColor: '#66cccc', category: 'RMZ' };
     if (t === 0 && a.icaoClass === 3) return { color: '#f2c12e', icon: '⚠️', mapColor: '#dda820', category: 'CTR-D (HX)' };
     if (t === 33) return { color: '#888', icon: '🌐', mapColor: '#888', category: 'FIS' };
@@ -1748,9 +1748,9 @@ async function fetchRouteAirspaces(routePts) {
         }
 
         // Relevant: 0 (CTR HX sectors), 1 (ED-R), 2 (Danger), 3 (Prohibited),
-        // 4 (CTR), 6 (RMZ alt code), 7 (TMA), 26 (CTA), 27 (TMZ), 28 (RMZ), 33 (FIS)
+        // 4 (CTR), 5 (TMZ), 6 (RMZ alt code), 7 (TMA), 26 (CTA), 27 (TMZ alt code), 28 (RMZ), 33 (FIS)
         // Excluded: 10 (FIR)
-        const relevantTypes = new Set([0, 1, 2, 3, 4, 6, 7, 26, 27, 28, 33]);
+        const relevantTypes = new Set([0, 1, 2, 3, 4, 5, 6, 7, 26, 27, 28, 33]);
 
         const addedIds = new Set();
         for (const as of airspaces) {
@@ -1774,12 +1774,33 @@ async function fetchRouteAirspaces(routePts) {
             }
         }
 
-        const sortOrder = { 3: 1, 1: 2, 2: 3, 4: 4, 0: 5, 7: 6, 26: 7, 27: 8, 6: 9, 28: 9, 33: 10 };
+        const sortOrder = { 3: 1, 1: 2, 2: 3, 4: 4, 0: 5, 5: 8, 7: 6, 26: 7, 27: 8, 6: 9, 28: 9, 33: 10 };
         intersecting.sort((a, b) => (sortOrder[a.type] || 99) - (sortOrder[b.type] || 99));
 
-        activeAirspaces = intersecting;
+        // Deduplicate by name: type 0 (icaoClass 3) and type 4 often represent the same CTR in OpenAIP
+        // Keep type 4, but inherit frequencies from the duplicate if type 4 has none
+        const byName = new Map();
+        for (const as of intersecting) {
+            const key = as.name || as._id;
+            if (!byName.has(key)) {
+                byName.set(key, as);
+            } else {
+                const existing = byName.get(key);
+                if (as.type === 4 && existing.type !== 4) {
+                    if ((!as.frequencies || as.frequencies.length === 0) && existing.frequencies?.length > 0)
+                        as.frequencies = existing.frequencies;
+                    byName.set(key, as);
+                } else if (existing.type === 4 && as.type !== 4) {
+                    if ((!existing.frequencies || existing.frequencies.length === 0) && as.frequencies?.length > 0)
+                        existing.frequencies = as.frequencies;
+                }
+            }
+        }
+        activeAirspaces = [...byName.values()];
         clearAirspaceMapLayers();
         renderAirspaceWarningsList();
+        if (typeof renderMapProfile === 'function' && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) renderMapProfile();
+        if (typeof renderVerticalProfile === 'function' && document.getElementById('vpCanvas')) renderVerticalProfile();
 
     } catch (e) {
         console.error("OpenAIP Error", e);
@@ -5019,7 +5040,7 @@ function renderMapProfile() {
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
-    const padLeft = 40, padRight = 10, padTop = 12, padBottom = 22;
+    const padLeft = 33, padRight = 16, padTop = 12, padBottom = 22;
     const plotW = canvasWidth - padLeft - padRight;
     const plotH = containerHeight - padTop - padBottom;
 
@@ -5136,24 +5157,6 @@ function renderMapProfile() {
             ctx.fill();
             ctx.stroke();
             ctx.setLineDash([]);
-
-            // Label for Hangar profile
-            if ((asMaxDist - asMinDist) > 5) {
-                const displayName = getAirspaceDisplayName(as);
-                ctx.fillStyle = vpHexToRgba(style.color, 0.7);
-                ctx.font = 'bold 10px Arial';
-                ctx.textAlign = 'center';
-                const xMid = xOf((asMinDist + asMaxDist) / 2);
-
-                let sumUpper = 0;
-                relevantPts.forEach(p => sumUpper += (isUpperAgl ? p.elevFt + upperFt : upperFt));
-                const avgUpper = sumUpper / relevantPts.length;
-                const labelY = yOf(Math.min(avgUpper, maxAlt));
-
-                ctx.fillText(displayName, xMid, labelY + 11);
-                ctx.font = '8px Arial';
-                ctx.fillText(lowerFt + '–' + upperFt + (isUpperAgl ? ' ft AGL' : ' ft'), xMid, labelY + 21);
-            }
 
             // Airspace label (only if zoomed enough to show)
             if (zoomFactor >= 1.5 || (x2 - x1) > 40 || isHighlighted) {
@@ -5418,7 +5421,8 @@ function initProfileResize() {
         const delta = startY - clientY; // pulling up = bigger profile
         let newH = startH + delta;
         const totalH = maptable.offsetHeight;
-        newH = Math.max(60, Math.min(totalH * 0.6, newH));
+        const maxFraction = document.body.classList.contains('map-is-fullscreen') ? 0.75 : 0.6;
+        newH = Math.max(60, Math.min(totalH * maxFraction, newH));
         strip.style.height = newH + 'px';
 
         if (typeof map !== 'undefined' && map) map.invalidateSize();
@@ -5546,7 +5550,7 @@ function initAltWaypoints() {
         const cruiseAlt = parseInt(document.getElementById('altSliderMap')?.value || document.getElementById('altSlider')?.value || 4500);
         const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
         const maxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500);
-        const padLeft = 40, padRight = 10, padTop = 12, padBottom = 22;
+        const padLeft = 33, padRight = 16, padTop = 12, padBottom = 22;
         const plotW = canvasWidth - padLeft - padRight;
         const plotH = containerHeight - padTop - padBottom;
         const scaleX = canvasWidth / rect.width;

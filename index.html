@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>GA Dispatcher (Analog Edition)</title>
+    <title>GA Dispatcher</title>
     
     <link rel="icon" type="image/png" href="IconDRK.PNG">
     <link rel="icon" type="image/png" sizes="32x32" href="Icon.PNG" media="(prefers-color-scheme: light)">
     <link rel="icon" type="image/png" sizes="32x32" href="IconDRK.PNG" media="(prefers-color-scheme: dark)">
+    <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="GA Dispatcher">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#080808">
+    <meta name="mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -631,6 +634,15 @@
 <script src="datenbank.js"></script>
 <script src="missions.js"></script>
 <script src="app.js"></script>
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('[PWA] Service Worker registriert:', reg.scope))
+                .catch(err => console.warn('[PWA] SW-Registrierung fehlgeschlagen:', err));
+        });
+    }
+</script>
 
 </body>
 </html>

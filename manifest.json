@@ -1,0 +1,27 @@
+{
+  "name": "GA Dispatcher",
+  "short_name": "GA Disp",
+  "description": "GA Flight Dispatcher",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#080808",
+  "theme_color": "#080808",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "IconDRK.PNG",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "Icon.PNG",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["navigation", "utilities"],
+  "screenshots": []
+}

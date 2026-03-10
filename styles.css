@@ -2109,7 +2109,7 @@ body.map-is-fullscreen #map {
 body.map-is-fullscreen .map-profile-strip {
     min-height: 100px;
     height: 25%;
-    max-height: 220px;
+    max-height: 75%;
 }
 
 /* ==========================================================================
