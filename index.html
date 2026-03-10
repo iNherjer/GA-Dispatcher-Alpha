@@ -660,12 +660,23 @@
 <script src="missions.js"></script>
 <script src="app.js"></script>
 <script>
-    // Service Worker
+    // Service Worker mit Auto-Reload bei Updates
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('[PWA] Service Worker registriert:', reg.scope))
-                .catch(err => console.warn('[PWA] SW-Registrierung fehlgeschlagen:', err));
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                console.log('[PWA] Service Worker registriert:', reg.scope);
+
+                // Prüft auf Updates, wenn die Seite aus dem Hintergrund geholt wird
+                reg.update();
+            }).catch(err => console.warn('[PWA] SW-Registrierung fehlgeschlagen:', err));
+            // Wenn ein neuer Service Worker die Kontrolle übernimmt, Seite sofort neu laden!
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) {
+                    refreshing = true;
+                    window.location.reload();
+                }
+            });
         });
     }
 
