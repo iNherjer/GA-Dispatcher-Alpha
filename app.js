@@ -170,61 +170,84 @@ function toggleWikiPhoto(event, containerId) {
     const container = document.getElementById(containerId);
     if (!container) { event.stopPropagation(); return; }
 
-    // Nur reagieren, wenn das Foto auch auf der aktiven Seite ist!
-    const page = container.closest('.mission-note-page');
-    if (page && !page.classList.contains('front-note')) {
-        // Event durchlassen -> Seite wird umgeblättert
+    // Wenn bereits ein Clone vorhanden → immer Zoom-Out (Backdrop- oder Clone-Klick)
+    const existingClone = document.getElementById('photo-zoom-clone');
+    if (existingClone) {
+        event.stopPropagation();
+        const currentRect = container.getBoundingClientRect();
+        const origTransform = container.style.transform || 'rotate(3deg)';
+        // Clone ohne Animation zur aktuellen Originalposition springen (scrollsicher)
+        existingClone.style.transition = 'none';
+        existingClone.style.top  = currentRect.top  + 'px';
+        existingClone.style.left = currentRect.left + 'px';
+        void existingClone.offsetWidth;
+        // Dann transform zurück-animieren
+        existingClone.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.4s';
+        existingClone.style.transform  = origTransform;
+        existingClone.style.boxShadow  = '';
+        setTimeout(() => { existingClone.remove(); container.style.visibility = ''; }, 430);
+        const bd = document.getElementById('photo-backdrop');
+        if (bd) { bd.style.opacity = '0'; setTimeout(() => bd.remove(), 400); }
         return;
     }
 
-    event.stopPropagation();
-    const isZoomed = container.classList.contains('photo-zoomed');
-    let backdrop = document.getElementById('photo-backdrop');
-
-    if (!isZoomed) {
-        // Originalzustand merken (inline transform aus dem HTML, z.B. rotate(-2deg))
-        container.dataset.origTransform = container.style.transform || '';
-
-        // Referenz-Container für Zentrierung: notes-stack = die gesamte Karteikarte
-        const noteContainer = container.closest('.notes-stack') || container.closest('.mission-note-page') || container.parentElement;
-        const isMobile = window.innerWidth <= 767;
-        const polW = container.offsetWidth;
-        const noteW = noteContainer.offsetWidth;
-
-        // Zielbreite: PC/iPad = 120% des Containers, iPhone = Bildschirmbreite − 24px Rand
-        const targetW = isMobile ? (window.innerWidth - 24) : (noteW * 1.2);
-        const scale = targetW / polW;
-
-        // Horizontale Verschiebung: Mitte des Polaroids → Mitte des Containers
-        const polRect = container.getBoundingClientRect();
-        const noteRect = noteContainer.getBoundingClientRect();
-        const txPx = (noteRect.left + noteW / 2) - (polRect.left + polW / 2);
-        const txPct = (txPx / polW * 100).toFixed(1);
-
-        // Leichte Verschiebung nach unten damit das Bild nicht hinter Elemente rutscht
-        const tyPct = isMobile ? '4' : '10';
-
-        container.style.transform = `translate(${txPct}%, ${tyPct}%) scale(${scale.toFixed(3)}) rotate(2deg)`;
-        container.classList.add('photo-zoomed');
-
-        if (!backdrop) {
-            backdrop = document.createElement('div');
-            backdrop.id = 'photo-backdrop';
-            backdrop.style = 'position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); border-radius: 4px; z-index: 50; opacity: 0; transition: opacity 0.4s;';
-            container.parentElement.appendChild(backdrop);
-            void backdrop.offsetWidth;
-            backdrop.style.opacity = '1';
-            backdrop.onclick = function (e) { e.stopPropagation(); toggleWikiPhoto(e, containerId); };
-        }
-    } else {
-        // Originalzustand wiederherstellen
-        container.style.transform = container.dataset.origTransform || '';
-        container.classList.remove('photo-zoomed');
-        if (backdrop) {
-            backdrop.style.opacity = '0';
-            setTimeout(() => backdrop.remove(), 400);
-        }
+    // Zoom-In nur wenn das Foto auf der aktiven Seite ist (Retro: nur front-note)
+    const page = container.closest('.mission-note-page');
+    if (page && !page.classList.contains('front-note')) {
+        return; // Event durchlassen → Seite wird umgeblättert
     }
+
+    event.stopPropagation();
+
+    // ── ZOOM IN: Clone in <body> hängen – kein Overflow-Clipping durch Eltern ──
+    const rect = container.getBoundingClientRect();
+    const origTransform = container.style.transform || 'rotate(3deg)';
+
+    const clone = container.cloneNode(true);
+    clone.id = 'photo-zoom-clone';
+    clone.onclick = e => { e.stopPropagation(); toggleWikiPhoto(e, containerId); };
+    clone.style.position   = 'fixed';
+    clone.style.top        = rect.top    + 'px';
+    clone.style.left       = rect.left   + 'px';
+    clone.style.width      = rect.width  + 'px';
+    clone.style.height     = rect.height + 'px';
+    clone.style.margin     = '0';
+    clone.style.float      = 'none';
+    clone.style.transform  = origTransform;
+    clone.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.4s';
+    clone.style.zIndex     = '10000';
+    clone.style.cursor     = 'zoom-out';
+    document.body.appendChild(clone);
+
+    container.style.visibility = 'hidden'; // hält Platz im Layout
+
+    // Hintergrund-Verdunkelung (fixed, überdeckt alles)
+    const bd = document.createElement('div');
+    bd.id = 'photo-backdrop';
+    bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;opacity:0;transition:opacity 0.4s;';
+    document.body.appendChild(bd);
+    void bd.offsetWidth;
+    bd.style.opacity = '1';
+    bd.onclick = e => { e.stopPropagation(); toggleWikiPhoto(e, containerId); };
+
+    void clone.offsetWidth; // Reflow: Transition startet vom Ausgangszustand
+
+    // Zielgröße: PC/iPad = 120% des Hauptcontainers, iPhone = Bildschirmbreite − 24px
+    const isMobile = window.innerWidth <= 767;
+    const polW    = rect.width;
+    const noteRef = container.closest('.notes-stack') || container.closest('.mission-note-page');
+    const noteW   = noteRef ? noteRef.getBoundingClientRect().width : window.innerWidth * 0.7;
+    const targetW = isMobile ? (window.innerWidth - 24) : (noteW * 1.2);
+    const scale   = targetW / polW;
+
+    // Viewport-Mitte als Ziel (leicht über Bildschirmmitte damit alles sichtbar)
+    const vpCx  = window.innerWidth  / 2;
+    const vpCy  = window.innerHeight * 0.42;
+    const polCx = rect.left + polW        / 2;
+    const polCy = rect.top  + rect.height / 2;
+
+    clone.style.transform = `translate(${(vpCx - polCx).toFixed(1)}px, ${(vpCy - polCy).toFixed(1)}px) scale(${scale.toFixed(3)}) rotate(2deg)`;
+    clone.style.boxShadow = '5px 20px 50px rgba(0, 0, 0, 0.8)';
 }
 
 function updateDynamicColors() {

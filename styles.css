@@ -2442,12 +2442,9 @@ body.theme-retro .wp-data {
         width: 100px !important;
     }
 
-    /* Route-Map-Polaroid: Querformat wenn genug Breite vorhanden (iPhone 375px+) */
+    /* Route-Map-Polaroid: gleiche Dimensionen wie PC (130px × 115px), überschreibt den 100px-Override */
     .briefing-photo-attachment:has(#miniMap) {
-        width: 148px !important;
-    }
-    .briefing-photo-attachment:has(#miniMap) .photo-img {
-        height: 80px;
+        width: 130px !important;
     }
 
     body.theme-retro .notes-stack {
