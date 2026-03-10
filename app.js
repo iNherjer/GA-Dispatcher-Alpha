@@ -533,6 +533,17 @@ window.onload = () => {
         const syncInput = document.getElementById('syncIdInput');
         if(syncInput) syncInput.value = savedSyncId;
     }
+
+    // SW Version auslesen und im Footer anzeigen
+    fetch('./sw.js?t=' + Date.now())
+        .then(r => r.text())
+        .then(text => {
+            const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
+            if (match) {
+                const el = document.getElementById('swVersionDisplay');
+                if (el) el.innerText = match[1];
+            }
+        }).catch(() => {});
 };
 
 function saveApiKey() { localStorage.setItem('ga_gemini_key', document.getElementById('apiKeyInput').value.trim()); }
@@ -2833,8 +2844,10 @@ function togglePinboard() {
     if (board.classList.contains('active')) {
         lockBodyScroll();
         renderNotes();
+        silentSyncLoad(); // Beim Öffnen direkt auf Updates prüfen
     } else {
         unlockBodyScroll();
+        triggerCloudSave(); // Beim Schließen Sicherheitsspeicherung pushen
     }
 }
 
@@ -3944,6 +3957,7 @@ function makeDraggable(element, noteId) {
             notes[noteIndex].x = (element.offsetLeft / board.offsetWidth) * 100;
             notes[noteIndex].y = (element.offsetTop / board.offsetHeight) * 100;
             localStorage.setItem('ga_pinboard', JSON.stringify(notes));
+            triggerCloudSave();
         }
     }
 }
@@ -6279,12 +6293,55 @@ async function silentSyncLoad() {
         // Silently fail in background
     }
 }
-// === Auto-Sync Trigger ===
-// 1. Wenn der Tab wieder in den Vordergrund kommt (z.B. App-Wechsel am Tablet)
-document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === 'visible') silentSyncLoad();
+// === Auto-Sync Trigger (Adaptive Polling) ===
+let syncLastActivityTime = Date.now();
+let syncLastFetchTime = Date.now();
+let syncIsSleeping = false;
+// Aktivität registrieren
+function resetSyncTimer() {
+    const now = Date.now();
+    syncLastActivityTime = now;
+
+    // Wenn die App im Tiefschlaf war (nach > 3 Min), sofort wecken und synchen!
+    if (syncIsSleeping) {
+        syncIsSleeping = false;
+        if (document.visibilityState === 'visible') silentSyncLoad();
+        syncLastFetchTime = now;
+    }
+}
+// Event-Listener für Benutzer-Aktivität (Click, Touch, Scroll, Tastatur)
+['click', 'touchstart', 'scroll', 'keydown'].forEach(evt => {
+    document.addEventListener(evt, resetSyncTimer, { passive: true, capture: true });
 });
-window.addEventListener("focus", silentSyncLoad);
-// 2. Alle 30 Sekunden routinemäßig im Hintergrund prüfen
-setInterval(silentSyncLoad, 30000);
+// Wenn der Tab wieder in den Vordergrund kommt
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === 'visible') {
+        resetSyncTimer();
+        silentSyncLoad();
+    }
+});
+window.addEventListener("focus", () => {
+    resetSyncTimer();
+    silentSyncLoad();
+});
+// Der intelligente Loop (läuft grundlegend alle 10 Sekunden)
+setInterval(() => {
+    if (document.visibilityState !== 'visible' || !getSyncId()) return;
+    const now = Date.now();
+    const idleTime = now - syncLastActivityTime;
+    if (idleTime < 60000) {
+        // Phase 1: Aktiv (Letzte Aktivität vor < 60 Sekunden) -> Alle 10s
+        silentSyncLoad();
+        syncLastFetchTime = now;
+    } else if (idleTime < 180000) {
+        // Phase 2: Halbschlaf (Letzte Aktivität vor 1 bis 3 Minuten) -> Alle 30s
+        if (now - syncLastFetchTime >= 30000) {
+            silentSyncLoad();
+            syncLastFetchTime = now;
+        }
+    } else {
+        // Phase 3: Tiefschlaf (Letzte Aktivität vor > 3 Minuten) -> Sync stoppen
+        syncIsSleeping = true;
+    }
+}, 10000);
 setTimeout(() => initAltWaypoints(), 2000);
