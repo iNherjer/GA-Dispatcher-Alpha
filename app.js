@@ -178,10 +178,35 @@ function toggleWikiPhoto(event, containerId) {
     }
 
     event.stopPropagation();
-    container.classList.toggle('photo-zoomed');
-
+    const isZoomed = container.classList.contains('photo-zoomed');
     let backdrop = document.getElementById('photo-backdrop');
-    if (container.classList.contains('photo-zoomed')) {
+
+    if (!isZoomed) {
+        // Originalzustand merken (inline transform aus dem HTML, z.B. rotate(-2deg))
+        container.dataset.origTransform = container.style.transform || '';
+
+        // Referenz-Container für Zentrierung: notes-stack = die gesamte Karteikarte
+        const noteContainer = container.closest('.notes-stack') || container.closest('.mission-note-page') || container.parentElement;
+        const isMobile = window.innerWidth <= 767;
+        const polW = container.offsetWidth;
+        const noteW = noteContainer.offsetWidth;
+
+        // Zielbreite: PC/iPad = 120% des Containers, iPhone = Bildschirmbreite − 24px Rand
+        const targetW = isMobile ? (window.innerWidth - 24) : (noteW * 1.2);
+        const scale = targetW / polW;
+
+        // Horizontale Verschiebung: Mitte des Polaroids → Mitte des Containers
+        const polRect = container.getBoundingClientRect();
+        const noteRect = noteContainer.getBoundingClientRect();
+        const txPx = (noteRect.left + noteW / 2) - (polRect.left + polW / 2);
+        const txPct = (txPx / polW * 100).toFixed(1);
+
+        // Leichte Verschiebung nach unten damit das Bild nicht hinter Elemente rutscht
+        const tyPct = isMobile ? '4' : '10';
+
+        container.style.transform = `translate(${txPct}%, ${tyPct}%) scale(${scale.toFixed(3)}) rotate(2deg)`;
+        container.classList.add('photo-zoomed');
+
         if (!backdrop) {
             backdrop = document.createElement('div');
             backdrop.id = 'photo-backdrop';
@@ -191,9 +216,14 @@ function toggleWikiPhoto(event, containerId) {
             backdrop.style.opacity = '1';
             backdrop.onclick = function (e) { e.stopPropagation(); toggleWikiPhoto(e, containerId); };
         }
-    } else if (backdrop) {
-        backdrop.style.opacity = '0';
-        setTimeout(() => backdrop.remove(), 400);
+    } else {
+        // Originalzustand wiederherstellen
+        container.style.transform = container.dataset.origTransform || '';
+        container.classList.remove('photo-zoomed');
+        if (backdrop) {
+            backdrop.style.opacity = '0';
+            setTimeout(() => backdrop.remove(), 400);
+        }
     }
 }
 

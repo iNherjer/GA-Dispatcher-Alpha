@@ -2442,6 +2442,14 @@ body.theme-retro .wp-data {
         width: 100px !important;
     }
 
+    /* Route-Map-Polaroid: Querformat wenn genug Breite vorhanden (iPhone 375px+) */
+    .briefing-photo-attachment:has(#miniMap) {
+        width: 148px !important;
+    }
+    .briefing-photo-attachment:has(#miniMap) .photo-img {
+        height: 80px;
+    }
+
     body.theme-retro .notes-stack {
         min-width: 0;
     }
@@ -3621,10 +3629,8 @@ body.theme-navcom .kln90b-module .radio-label {
     cursor: zoom-in;
 }
 
-/* Der herangeholte / vergrößerte Zustand */
+/* Der herangeholte / vergrößerte Zustand – transform wird per JS berechnet und als Inline-Style gesetzt */
 .briefing-photo-attachment.photo-zoomed {
-    /* Zieht das Bild nach links (-72%), etwas nach unten (20%) und macht es 3x so groß */
-    transform: translate(-72%, 20%) scale(3.0) rotate(2deg) !important;
     z-index: 100 !important;
     box-shadow: 5px 20px 50px rgba(0, 0, 0, 0.8) !important;
     cursor: zoom-out !important;
@@ -3733,12 +3739,7 @@ body.theme-navcom .discord-link:hover {
 /* ==========================================================================
    18. OVERRIDES FÜR MOBILE (Muss ganz unten stehen!)
    ========================================================================== */
-@media (max-width: 767px) {
-    .briefing-photo-attachment.photo-zoomed {
-        /* Überschreibt den 3.0 Zoom von weiter oben */
-        transform: translate(-50%, 20%) scale(2.6) rotate(2deg) !important;
-    }
-}
+/* (mobile .photo-zoomed transform wird per JS gesetzt – kein CSS-Override nötig) */
 
 /* FIX: Interaktive Elemente auf Hintergrund-Seiten deaktivieren, damit Klicks zuverlässig zum Blättern führen */
 body.theme-retro .mission-note-page:not(.front-note) .briefing-photo-attachment,
