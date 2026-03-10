@@ -170,29 +170,38 @@ function toggleWikiPhoto(event, containerId) {
     const container = document.getElementById(containerId);
     if (!container) { event.stopPropagation(); return; }
 
-    // Placeholder im DOM bedeutet: gerade gezoomt → Zoom-Out
+    // ── ZOOM-OUT: Placeholder im DOM → Element ist gerade gezoomt ──
     const placeholder = document.getElementById('photo-zoom-placeholder');
     if (placeholder) {
         event.stopPropagation();
         const origTransform = container.dataset.wikiOrigTransform || '';
+        const rotMatch  = origTransform.match(/rotate\(([^)]+)\)/);
+        const origAngle = rotMatch ? rotMatch[1] : '0deg';
 
-        // Zum aktuellen Viewport-Ort des Platzhalters springen (scrollsicher), dann transform zurück
+        // Viewport-Mitte und Startskalierung aus Zoom-In wiederverwenden
+        const vpCx       = parseFloat(container.dataset.wikiVpCx  || window.innerWidth  / 2);
+        const vpCy       = parseFloat(container.dataset.wikiVpCy  || window.innerHeight * 0.42);
+        const startScale = parseFloat(container.dataset.wikiZoomStartScale || 0.35);
+
+        // Platzhalter-Mitte = Viewport-Position der Originalstelle (dank margin-left:auto im Platzhalter korrekt)
         const phRect = placeholder.getBoundingClientRect();
-        container.style.transition = 'none';
-        container.style.top  = phRect.top  + 'px';
-        container.style.left = phRect.left + 'px';
+        const phCx   = phRect.left + phRect.width  / 2;
+        const phCy   = phRect.top  + phRect.height / 2;
+
+        // Schliess-Transform: von Mitte (translate 0,0 scale 1) zurück zur Originalposition (startScale)
         void container.offsetWidth;
-        container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.4s';
-        container.style.transform  = origTransform;
-        container.style.boxShadow  = '';
-        container.style.cursor     = '';
+        container.style.transform = `translate(${(phCx - vpCx).toFixed(1)}px, ${(phCy - vpCy).toFixed(1)}px) scale(${startScale.toFixed(4)}) rotate(${origAngle})`;
+        container.style.boxShadow = '';
+        container.style.cursor    = '';
 
         setTimeout(() => {
-            // Element zurück an Originalstelle im DOM
             placeholder.parentNode.insertBefore(container, placeholder);
             placeholder.remove();
-            // Kompletten Inline-Style auf Original zurücksetzen (stellt margin-left:auto etc. wieder her)
+            // Outer-Container-Style vollständig wiederherstellen (width, position, margin, transform …)
             container.style.cssText = container.dataset.wikiOrigCssText || '';
+            // Inner photo-img-Höhe wiederherstellen
+            const imgEl = container.querySelector('.photo-img');
+            if (imgEl) imgEl.style.height = container.dataset.wikiPhotoImgOrigHeight || '';
         }, 430);
 
         const bd = document.getElementById('photo-backdrop');
@@ -200,40 +209,81 @@ function toggleWikiPhoto(event, containerId) {
         return;
     }
 
-    // Zoom-In nur auf der aktiven Seite (Retro: nur front-note anklicken)
+    // Zoom-In nur auf aktiver Seite
     const page = container.closest('.mission-note-page');
-    if (page && !page.classList.contains('front-note')) {
-        return; // Event durchlassen → Seite wird umgeblättert
-    }
+    if (page && !page.classList.contains('front-note')) return;
 
     event.stopPropagation();
 
-    // ── ZOOM IN: Original-Element in <body> verschieben (kein Clone → keine Qualitätsverluste) ──
+    // ── ZOOM-IN ──
+    // Strategie: Element auf Ziel-Displaygröße setzen (scale 1 im Endzustand) statt
+    // kleines Element hochzuskalieren. background-size:cover rendert dann nativ in
+    // voller Zielauflösung → gestochen scharfes Bild, keine GPU-Upscale-Unschärfe.
     const rect = container.getBoundingClientRect();
     container.dataset.wikiOrigTransform = container.style.transform || '';
-    container.dataset.wikiOrigCssText   = container.style.cssText;   // komplette Styles für Restore
+    container.dataset.wikiOrigCssText   = container.style.cssText;
 
-    // Referenz für Zielbreite VOR dem Verschieben ermitteln
     const noteRef = container.closest('.notes-stack') || container.closest('.mission-note-page');
     const noteW   = noteRef ? noteRef.getBoundingClientRect().width : window.innerWidth * 0.7;
 
-    // Platzhalter einfügen, damit der Layout-Platz erhalten bleibt
+    const isMobile   = window.innerWidth <= 767;
+    const targetW    = isMobile ? (window.innerWidth - 24) : (noteW * 1.2);
+    const scaleRatio = targetW / rect.width;
+
+    // Photo-img proportional skalieren, damit background-size:cover die Zielgröße füllt
+    const imgEl = container.querySelector('.photo-img');
+    container.dataset.wikiPhotoImgOrigHeight = imgEl ? (imgEl.style.height || '') : '';
+    const origPhotoH = imgEl
+        ? (parseFloat(imgEl.style.height) || parseFloat(window.getComputedStyle(imgEl).height) || 100)
+        : 100;
+    const newPhotoH = Math.round(origPhotoH * scaleRatio);
+    if (imgEl) imgEl.style.height = newPhotoH + 'px';
+
+    // Platzhalter mit korrektem margin-left → Zoom-Out landet exakt an Originalposition
+    const mlMatch = (container.dataset.wikiOrigCssText || '').match(/margin-left\s*:\s*([^;]+)/i);
+    const origML  = mlMatch ? mlMatch[1].trim() : 'auto';
     const ph = document.createElement('div');
     ph.id = 'photo-zoom-placeholder';
-    ph.style.cssText = `width:${rect.width}px;height:${rect.height}px;flex-shrink:0;visibility:hidden;`;
+    ph.style.cssText = `width:${rect.width}px;height:${rect.height}px;flex-shrink:0;margin-left:${origML};visibility:hidden;`;
     container.parentNode.insertBefore(ph, container);
 
-    // Element nach <body> verschieben und an gleicher Viewport-Position fixieren
+    // Gesamthöhe analytisch berechnen (padding-top 6 + padding-bottom 22 + border 2 = 30px)
+    const actualTargetH = newPhotoH + 30;
+
+    // Viewport-Mitte für Zoom (wird für Zoom-Out gespeichert)
+    const vpCx = window.innerWidth  / 2;
+    const vpCy = window.innerHeight * 0.42;
+    container.dataset.wikiVpCx = vpCx;
+    container.dataset.wikiVpCy = vpCy;
+
+    const startScale = rect.width / targetW;   // < 1 → lässt Element in Originalgröße erscheinen
+    container.dataset.wikiZoomStartScale = startScale.toFixed(6);
+
+    // Element nach <body> verschieben – kein overflow-clipping durch Ancestors
     document.body.appendChild(container);
-    container.style.position   = 'fixed';
-    container.style.top        = rect.top    + 'px';
-    container.style.left       = rect.left   + 'px';
-    container.style.width      = rect.width  + 'px';
-    container.style.margin     = '0';
-    container.style.float      = 'none';
-    container.style.zIndex     = '10000';
-    container.style.cursor     = 'zoom-out';
-    container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.4s';
+
+    // Transition unterdrücken während Setup (überschreibt das !important der CSS-Klasse)
+    container.classList.add('wiki-zoom-setup');
+
+    container.style.position = 'fixed';
+    container.style.width    = Math.round(targetW) + 'px';
+    container.style.top      = Math.round(vpCy - actualTargetH / 2) + 'px';
+    container.style.left     = Math.round(vpCx - targetW        / 2) + 'px';
+    container.style.margin   = '0';
+    container.style.float    = 'none';
+    container.style.zIndex   = '10000';
+    container.style.cursor   = 'zoom-out';
+
+    // Starttransform: Element erscheint an Originalposition in Originalgröße
+    const origCx = rect.left + rect.width  / 2;
+    const origCy = rect.top  + rect.height / 2;
+    const rotIn  = (container.dataset.wikiOrigTransform || '').match(/rotate\(([^)]+)\)/);
+    const startAngle = rotIn ? rotIn[1] : '3deg';
+    container.style.transform = `translate(${(origCx - vpCx).toFixed(1)}px, ${(origCy - vpCy).toFixed(1)}px) scale(${startScale.toFixed(4)}) rotate(${startAngle})`;
+
+    // Startzustand einfrieren, dann Transition wieder aktivieren
+    void container.offsetWidth;
+    container.classList.remove('wiki-zoom-setup');
 
     // Hintergrund-Verdunkelung
     const bd = document.createElement('div');
@@ -244,21 +294,9 @@ function toggleWikiPhoto(event, containerId) {
     bd.style.opacity = '1';
     bd.onclick = e => { e.stopPropagation(); toggleWikiPhoto(e, containerId); };
 
-    void container.offsetWidth; // Reflow: Transition startet vom Ausgangszustand
-
-    // Zielgröße: PC/iPad = 120% des Hauptcontainers, iPhone = Bildschirmbreite − 24px
-    const isMobile = window.innerWidth <= 767;
-    const polW    = rect.width;
-    const targetW = isMobile ? (window.innerWidth - 24) : (noteW * 1.2);
-    const scale   = targetW / polW;
-
-    // Viewport-Mitte als Ziel (leicht über Bildschirmmitte)
-    const vpCx  = window.innerWidth  / 2;
-    const vpCy  = window.innerHeight * 0.42;
-    const polCx = rect.left + polW        / 2;
-    const polCy = rect.top  + rect.height / 2;
-
-    container.style.transform = `translate(${(vpCx - polCx).toFixed(1)}px, ${(vpCy - polCy).toFixed(1)}px) scale(${scale.toFixed(3)}) rotate(2deg)`;
+    // Zielzustand: Element in voller Zielgröße, zentriert im Viewport – kein GPU-Upscaling
+    void container.offsetWidth;
+    container.style.transform = `translate(0px, 0px) scale(1) rotate(2deg)`;
     container.style.boxShadow = '5px 20px 50px rgba(0, 0, 0, 0.8)';
 }
 
@@ -1118,7 +1156,7 @@ async function fetchAreaDescription(lat, lon, elementId, exactTitle = null, icao
         }
 
         if (titleToFetch) {
-            const extRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages&exintro=true&explaintext=true&exsentences=4&pithumbsize=400&titles=${encodeURIComponent(titleToFetch)}&format=json&origin=*`);
+            const extRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages&exintro=true&explaintext=true&exsentences=4&pithumbsize=1200&titles=${encodeURIComponent(titleToFetch)}&format=json&origin=*`);
             const extData = await extRes.json();
 
             if (extData?.query?.pages) {
@@ -4471,7 +4509,7 @@ function triggerVerticalProfileUpdate() {
             vpHighResData = null;
             vpZoomLevel = 100;
             const zd = document.getElementById('vpZoomDisplay');
-            if (zd) zd.textContent = '100%';
+            if (zd) zd.textContent = '0%';
             window._lastVpRouteKey = cacheKey;
         }
 
@@ -5024,7 +5062,8 @@ function syncAltFromMap(val) {
 
 function vpZoom(delta) {
     vpZoomLevel = Math.max(10, Math.min(100, vpZoomLevel + delta));
-    document.getElementById('vpZoomDisplay').textContent = vpZoomLevel + '%';
+    // Anzeige invertiert: 0 % = rausgezoomt (vpZoomLevel 100), 100 % = maximal rein (vpZoomLevel 10)
+    document.getElementById('vpZoomDisplay').textContent = Math.round((100 - vpZoomLevel) / 90 * 100) + '%';
 
     // If zoomed in, fetch higher resolution data
     if (vpZoomLevel < 100 && routeWaypoints && routeWaypoints.length >= 2) {
