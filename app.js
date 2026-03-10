@@ -266,7 +266,9 @@ function toggleWikiPhoto(event, containerId) {
     container.classList.add('wiki-zoom-setup');
 
     container.style.position = 'fixed';
-    container.style.width    = Math.round(targetW) + 'px';
+    // Breite mit !important setzen, damit das mobile CSS (!important: 100px) überschrieben wird.
+    // Inline-!important schlägt Stylesheet-!important in der CSS-Kaskade.
+    container.style.setProperty('width', Math.round(targetW) + 'px', 'important');
     container.style.top      = Math.round(vpCy - actualTargetH / 2) + 'px';
     container.style.left     = Math.round(vpCx - targetW        / 2) + 'px';
     container.style.margin   = '0';
