@@ -6241,8 +6241,8 @@ async function triggerCloudSave(immediate = false) {
     if (!immediate) {
         updateSyncStatus("Warte auf Abschluss...");
         if (syncSaveTimeout) clearTimeout(syncSaveTimeout);
-        // 5 Sekunden Debouncing als Write-Schutz!
-        syncSaveTimeout = setTimeout(() => triggerCloudSave(true), 5000);
+        // 10 Sekunden Debouncing: Sammelt alle Aktionen und lädt erst bei Inaktivität hoch
+        syncSaveTimeout = setTimeout(() => triggerCloudSave(true), 10000);
         return;
     }
     localSyncTime = Date.now();
@@ -6376,5 +6376,4 @@ setInterval(() => {
         syncIsSleeping = true;
     }
 }, 10000);
-setTimeout(() => initAltWaypoints(), 2000);
 setTimeout(() => initAltWaypoints(), 2000);
