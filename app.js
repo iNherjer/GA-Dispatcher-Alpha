@@ -6157,12 +6157,19 @@ computeFlightProfile = function (elevationData, cruiseAltFt, climbRateFpm, desce
    CLOUD SYNC LOGIC
    ========================================================= */
 const SYNC_URL = 'https://ga-proxy.einherjer.workers.dev/api/sync/';
+let localSyncTime = localStorage.getItem('ga_sync_time') ? parseInt(localStorage.getItem('ga_sync_time')) : 0;
 function getSyncId() {
     return document.getElementById('syncIdInput')?.value.trim() || localStorage.getItem('ga_sync_id') || "";
 }
 function saveSyncId() {
     const id = document.getElementById('syncIdInput').value.trim();
+    const oldId = localStorage.getItem('ga_sync_id');
+    if (id !== oldId) {
+        localSyncTime = 0; // Reset bei neuer ID, um frischen Download zu erzwingen
+        localStorage.setItem('ga_sync_time', 0);
+    }
     localStorage.setItem('ga_sync_id', id);
+    if (id) silentSyncLoad();
 }
 function generateSyncId() {
     const words = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliett", "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "Xray", "Yankee", "Zulu"];
@@ -6171,7 +6178,11 @@ function generateSyncId() {
     const num = Math.floor(Math.random() * 900) + 100;
     const newId = `${w1}-${w2}-${num}`;
     document.getElementById('syncIdInput').value = newId;
-    saveSyncId();
+
+    localSyncTime = 0;
+    localStorage.setItem('ga_sync_time', 0);
+    localStorage.setItem('ga_sync_id', newId);
+
     updateSyncStatus("Neue ID generiert. Speichere...");
     triggerCloudSave();
 }
@@ -6187,11 +6198,16 @@ async function triggerCloudSave() {
     const id = getSyncId();
     if (!id) return;
     updateSyncStatus("Sync läuft...");
+
+    localSyncTime = Date.now();
+    localStorage.setItem('ga_sync_time', localSyncTime);
     const payload = {
         pinboard: JSON.parse(localStorage.getItem('ga_pinboard') || '[]'),
         logbook: JSON.parse(localStorage.getItem('ga_logbook') || '[]'),
-        activeMission: JSON.parse(localStorage.getItem('ga_active_mission') || 'null')
+        activeMission: JSON.parse(localStorage.getItem('ga_active_mission') || 'null'),
+        lastModified: localSyncTime
     };
+
     try {
         const res = await fetch(SYNC_URL + id, { method: 'POST', body: JSON.stringify(payload) });
         if (res.ok) updateSyncStatus("Cloud: Gespeichert ✅");
@@ -6209,16 +6225,19 @@ async function forceSyncLoad() {
         if (res.status === 404) { alert("Zu dieser ID wurden keine Daten gefunden. (Evtl. abgelaufen oder vertippt?)"); updateSyncStatus("Nicht gefunden", true); return; }
         if (!res.ok) throw new Error("Netzwerkfehler");
         const data = await res.json();
-
+        if (data.lastModified) {
+            localSyncTime = data.lastModified;
+            localStorage.setItem('ga_sync_time', localSyncTime);
+        }
         if (data.pinboard) localStorage.setItem('ga_pinboard', JSON.stringify(data.pinboard));
         if (data.logbook) localStorage.setItem('ga_logbook', JSON.stringify(data.logbook));
         if (data.activeMission) {
             localStorage.setItem('ga_active_mission', JSON.stringify(data.activeMission));
             restoreMissionState(data.activeMission);
         } else {
-            resetApp(); // Wenn kein aktiver Flug im Savegame, UI leeren
+            localStorage.removeItem('ga_active_mission');
+            document.getElementById("briefingBox").style.display = "none";
         }
-
         updateSyncStatus("Cloud: Geladen ✅");
         if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
         renderLog();
@@ -6228,4 +6247,44 @@ async function forceSyncLoad() {
         alert("Fehler beim Laden aus der Cloud.");
     }
 }
+async function silentSyncLoad() {
+    const id = getSyncId();
+    if (!id) return;
+    try {
+        const res = await fetch(SYNC_URL + id);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Nur aktualisieren, wenn die Cloud-Daten neuer sind als unsere lokalen
+        if (data.lastModified && data.lastModified > localSyncTime) {
+            localSyncTime = data.lastModified;
+            localStorage.setItem('ga_sync_time', localSyncTime);
+
+            if (data.pinboard) localStorage.setItem('ga_pinboard', JSON.stringify(data.pinboard));
+            if (data.logbook) localStorage.setItem('ga_logbook', JSON.stringify(data.logbook));
+
+            if (data.activeMission) {
+                localStorage.setItem('ga_active_mission', JSON.stringify(data.activeMission));
+                restoreMissionState(data.activeMission);
+            } else {
+                localStorage.removeItem('ga_active_mission');
+                document.getElementById("briefingBox").style.display = "none";
+            }
+
+            if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
+            renderLog();
+            updateSyncStatus("Auto-Sync: Aktualisiert 🔄");
+        }
+    } catch (e) {
+        // Silently fail in background
+    }
+}
+// === Auto-Sync Trigger ===
+// 1. Wenn der Tab wieder in den Vordergrund kommt (z.B. App-Wechsel am Tablet)
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === 'visible') silentSyncLoad();
+});
+window.addEventListener("focus", silentSyncLoad);
+// 2. Alle 30 Sekunden routinemäßig im Hintergrund prüfen
+setInterval(silentSyncLoad, 30000);
 setTimeout(() => initAltWaypoints(), 2000);
