@@ -2388,8 +2388,8 @@ function updateRoutePerformance() {
         totalTime += legTime;
         totalFuel += legFuel;
 
-        const c1 = isV1 ? '#111' : '#0b1f65';
-        const c2 = isV2 ? '#111' : '#0b1f65';
+        const c1 = isV1 ? 'var(--navlog-text)' : 'var(--navlog-freq)';
+        const c2 = isV2 ? 'var(--navlog-text)' : 'var(--navlog-freq)';
 
         blHTML += `<tr style="border-bottom:1px dashed var(--navlog-border);">`;
         blHTML += `<td style="padding:8px 0 8px 8px; color:var(--navlog-text); line-height: 1.4;"><span style="display:inline-block; min-width:20px; text-align:right;">${i + 1}.</span> ${cleanName1}<br><span style="display:inline-block; min-width:20px; text-align:left;">➔</span> ${cleanName2}</td>`;

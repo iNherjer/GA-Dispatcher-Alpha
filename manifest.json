@@ -1,6 +1,6 @@
 {
   "name": "GA Dispatcher",
-  "short_name": "GA Disp",
+  "short_name": "GA Dispatcher",
   "description": "GA Flight Dispatcher",
   "start_url": "./index.html",
   "display": "standalone",
@@ -10,18 +10,23 @@
   "lang": "de",
   "icons": [
     {
-      "src": "IconDRK.PNG",
-      "sizes": "any",
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "Icon.PNG",
-      "sizes": "any",
+      "src": "IconDRK.PNG",
+      "sizes": "1032x1019",
       "type": "image/png",
       "purpose": "any"
     }
   ],
-  "categories": ["navigation", "utilities"],
-  "screenshots": []
+  "categories": ["navigation", "utilities"]
 }

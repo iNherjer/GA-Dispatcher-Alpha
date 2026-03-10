@@ -635,6 +635,7 @@
 <script src="missions.js"></script>
 <script src="app.js"></script>
 <script>
+    // Service Worker
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js')
@@ -642,6 +643,57 @@
                 .catch(err => console.warn('[PWA] SW-Registrierung fehlgeschlagen:', err));
         });
     }
+
+    // iOS Install-Hinweis (iOS zeigt keinen nativen Install-Banner)
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true;
+    const dismissed = localStorage.getItem('pwa-hint-dismissed');
+    if (isIos && !isStandalone && !dismissed) {
+        const hint = document.createElement('div');
+        hint.id = 'pwa-hint';
+        hint.innerHTML = `
+            <span>⬆️ Zum Homescreen: <b>Teilen</b> → <b>Zum Home-Bildschirm</b></span>
+            <button onclick="localStorage.setItem('pwa-hint-dismissed','1');this.parentElement.remove()">✕</button>
+        `;
+        hint.style.cssText = `
+            position:fixed; bottom:0; left:0; right:0; z-index:99999;
+            background:#1a1a1a; color:#e0e0e0; font-size:13px;
+            display:flex; align-items:center; justify-content:space-between;
+            padding:10px 14px; gap:10px;
+            border-top:1px solid #444;
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+        `;
+        hint.querySelector('button').style.cssText = `
+            background:none; border:none; color:#aaa; font-size:18px; cursor:pointer; flex-shrink:0;
+        `;
+        document.body.appendChild(hint);
+    }
+
+    // Android Install-Prompt abfangen & Button zeigen
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const btn = document.createElement('div');
+        btn.id = 'pwa-install-btn';
+        btn.innerHTML = `📲 App installieren <button onclick="this.parentElement.remove()">✕</button>`;
+        btn.style.cssText = `
+            position:fixed; bottom:0; left:0; right:0; z-index:99999;
+            background:#1a1a1a; color:#ffcc00; font-size:13px; font-weight:bold;
+            display:flex; align-items:center; justify-content:space-between;
+            padding:10px 14px; gap:10px; border-top:1px solid #444; cursor:pointer;
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+        `;
+        btn.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            btn.remove();
+        });
+        btn.querySelector('button').style.cssText = `background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;`;
+        document.body.appendChild(btn);
+    });
 </script>
 
 </body>

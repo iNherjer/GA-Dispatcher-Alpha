@@ -14,6 +14,7 @@
     --navlog-text: #e0e0e0;
     --navlog-heading: #4da6ff;
     --navlog-data: #ffcc00;
+    --navlog-freq: #ffcc00;
     --navlog-border: #444;
 }
 
@@ -483,6 +484,7 @@ body.theme-retro {
     --navlog-text: #111;
     --navlog-heading: #0b1f65;
     --navlog-data: #d93829;
+    --navlog-freq: #0b1f65;
     --navlog-border: #888;
     font-family: 'Arial', sans-serif;
 }
@@ -2515,6 +2517,11 @@ body.theme-navcom {
     --piper-white: #f4f4f4;
     --piper-yellow: #33ff33;
     --piper-red: #ff4444;
+    --navlog-text: #111;
+    --navlog-heading: #0b1f65;
+    --navlog-data: #d93829;
+    --navlog-freq: #0b1f65;
+    --navlog-border: #888;
     font-family: 'Arial', sans-serif;
 }
 
