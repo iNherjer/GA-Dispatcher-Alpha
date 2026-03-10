@@ -472,6 +472,11 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
 }
 
 window.onload = () => {
+    // iOS 10+ ignoriert user-scalable=no im Viewport-Tag.
+    // Pinch-to-Zoom auf dem gesamten Dokument per JS sperren (passive:false erforderlich).
+    document.addEventListener('touchstart', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchmove',  e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+
     const savedTheme = localStorage.getItem('ga_theme') || 'retro';
     setTheme(savedTheme);
     applySavedPanelTheme();
