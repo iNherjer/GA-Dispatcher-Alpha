@@ -549,7 +549,7 @@ window.onload = () => {
 
     initDragKnob('tasDragKnob', 'tasRadioDisplay', 'tasSlider', 80, 260, 'tas');
     initDragKnob('gphDragKnob', 'gphRadioDisplay', 'gphSlider', 5, 35, 'gph');
-    initDragKnob('altDragKnob', 'altRadioDisplay', 'altSlider', 1500, 9500, 'alt');
+    initDragKnob('altDragKnob', 'altRadioDisplay', 'altSlider', 1500, 13500, 'alt');
     syncToNavCom('altRadioDisplay', document.getElementById('altSlider') ? document.getElementById('altSlider').value : '4500');
 
     if (aiToggleBtn && aiToggleBtn.checked) {
@@ -3881,6 +3881,7 @@ async function fetchOpenAIPData() {
    VERTICAL PROFILE (Höhenprofil) ENGINE
    ========================================================= */
 let vpElevationData = null;
+let vpWeatherData = null;
 let vpProfileTimeout = null;
 let vpZoomLevel = 100; // 100 = full route, 10 = 10% view
 let vpHighResData = null; // Higher resolution elevation data for zoom
@@ -3910,8 +3911,10 @@ function triggerVerticalProfileUpdate() {
 
         try {
             vpElevationData = await fetchRouteElevation(routeWaypoints);
+            if (status) status.textContent = 'Lade Wetterlage...';
+            vpWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData);
             renderVerticalProfile('verticalProfileCanvas');
-            if (status) status.textContent = vpElevationData.length + ' Höhenpunkte geladen';
+            if (status) status.textContent = vpElevationData.length + ' Höhenpunkte & Wetter geladen';
         } catch (e) {
             console.error('Vertical Profile Error:', e);
             if (status) status.textContent = 'Limit API/Fehler';
@@ -4001,6 +4004,151 @@ async function fetchRouteElevation(routePts) {
     return finalData;
 }
 
+async function fetchRouteWeather(routePts, elevData) {
+    if (!routePts || routePts.length < 2 || !elevData || elevData.length < 2) return null;
+    let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+    routePts.forEach(p => {
+        let lat = p.lat, lon = p.lng || p.lon;
+        if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
+        if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon;
+    });
+    minLat = Math.max(-90, minLat - 0.6);
+    maxLat = Math.min(90, maxLat + 0.6);
+    minLon = Math.max(-180, minLon - 0.8);
+    maxLon = Math.min(180, maxLon + 0.8);
+    console.log(`[Wetter Debug] Bounding Box: minLon=${minLon}, minLat=${minLat}, maxLon=${maxLon}, maxLat=${maxLat}`);
+    let metars = [];
+    const url = `https://aviationweather.gov/api/data/metar?bbox=${minLon},${minLat},${maxLon},${maxLat}&format=json`;
+    try {
+        console.log(`[Wetter Debug] Versuche direkten Abruf...`);
+        const r = await fetch(url);
+        if (r.ok) {
+            metars = await r.json();
+        } else {
+            throw new Error("Direkter Abruf fehlgeschlagen: " + r.status);
+        }
+    } catch(e) {
+        console.warn(`[Wetter Debug] Direkter Abruf gescheitert. Versuche Proxy (AllOrigins)...`);
+        try {
+            // AllOrigins ist deutlich stabiler für lokale Entwicklungen (CORS)
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+            const pr = await fetch(proxyUrl);
+
+            if (pr.ok) {
+                const textData = await pr.text();
+                try {
+                    metars = JSON.parse(textData);
+                } catch (parseErr) {
+                    console.error(`[Wetter Debug] Proxy lieferte kein gültiges JSON, sondern:`, textData.substring(0, 150));
+                    return null;
+                }
+            } else {
+                throw new Error("Proxy HTTP Status: " + pr.status);
+            }
+        } catch(pxErr) {
+            console.error(`[Wetter Debug] Proxy ebenfalls gescheitert.`, pxErr);
+            return null;
+        }
+    }
+    if (!metars || metars.length === 0) {
+        console.log(`[Wetter Debug] Keine METAR-Stationen in der Bounding Box gefunden.`);
+        return null;
+    }
+    console.log(`[Wetter Debug] ${metars.length} METAR-Stationen in Region gefunden. Führe Routing-Zuweisung durch...`);
+    const totalDist = elevData[elevData.length - 1].distNM;
+    const numZones = 5;
+    const zones = [];
+    for (let i = 0; i < numZones; i++) {
+        const targetDist = (i / (numZones - 1)) * totalDist;
+        let bestPt = elevData[0], minDiff = Infinity;
+        for (const pt of elevData) {
+            const diff = Math.abs(pt.distNM - targetDist);
+            if (diff < minDiff) { minDiff = diff; bestPt = pt; }
+        }
+        let closestMetar = null, minMetarDist = Infinity;
+        metars.forEach(m => {
+            const d = calcNav(bestPt.lat, bestPt.lon, m.lat, m.lon).dist;
+            if (d < minMetarDist) { minMetarDist = d; closestMetar = m; }
+        });
+        if (closestMetar && minMetarDist < 60) {
+            const clouds = [];
+            const raw = closestMetar.rawOb || "";
+            const stnElevFt = closestMetar.elev ? closestMetar.elev * 3.28084 : 0;
+            const cloudRegex = /(FEW|SCT|BKN|OVC|VV)(\d{3})/g;
+            let match;
+            while((match = cloudRegex.exec(raw)) !== null) {
+                const type = match[1];
+                const agl = parseInt(match[2], 10) * 100;
+                const msl = Math.round(agl + stnElevFt);
+                clouds.push({ type, baseAgl: agl, baseMsl: msl });
+            }
+            console.log(`[Wetter Debug] Zone ${i+1} (${Math.round(targetDist)}NM): Station ${closestMetar.icaoId} gewählt (Distanz: ${Math.round(minMetarDist)}NM) -> Wolken:`, clouds.length > 0 ? clouds : "CAVOK / Clear");
+            zones.push({ distNM: bestPt.distNM, icao: closestMetar.icaoId, clouds: clouds });
+        } else {
+            console.log(`[Wetter Debug] Zone ${i+1} (${Math.round(targetDist)}NM): Keine Station im Umkreis von 60NM gefunden.`);
+        }
+    }
+
+    console.log(`[Wetter Debug] Abgeschlossen. Finale Profil-Daten:`, zones);
+    return zones;
+}
+// Globale Debug-Funktion für die Entwicklerkonsole
+window.debugCloudProfile = function() {
+    console.log("=== MANUELLER CLOUD DEBUG START ===");
+    if (!routeWaypoints || routeWaypoints.length < 2) {
+        console.warn("Bitte erst einen Flugauftrag generieren (Route fehlt).");
+        return;
+    }
+    triggerVerticalProfileUpdate();
+    console.log("Update angetriggert. Bitte das Profil-Canvas öffnen und die Logs beobachten.");
+};
+function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme) {
+    if (!vpWeatherData || vpWeatherData.length === 0) return;
+
+    ctx.save();
+    const cFew = isDarkTheme ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.7)';
+    const cSct = isDarkTheme ? 'rgba(220,220,220,0.45)' : 'rgba(230,230,230,0.85)';
+    const cBkn = isDarkTheme ? 'rgba(180,180,180,0.65)' : 'rgba(200,200,200,0.95)';
+    const cOvc = isDarkTheme ? 'rgba(120,120,120,0.8)' : 'rgba(150,150,150,0.95)';
+    const textCol = '#222'; // Schrift auf Wolken immer dunkel
+    for (let i = 0; i < vpWeatherData.length; i++) {
+        const zone = vpWeatherData[i];
+        if (!zone.clouds || zone.clouds.length === 0) continue;
+        const prevDist = (i > 0) ? (zone.distNM + vpWeatherData[i-1].distNM)/2 : Math.max(0, zone.distNM - 15);
+        const nextDist = (i < vpWeatherData.length - 1) ? (zone.distNM + vpWeatherData[i+1].distNM)/2 : Math.min(totalDist, zone.distNM + 15);
+        const startX = xOf(prevDist);
+        const endX = xOf(nextDist);
+        const midX = xOf(zone.distNM);
+        zone.clouds.forEach(c => {
+            const y = yOf(c.baseMsl);
+            if (y < padTop - 5 || y > padTop + plotH) return; // Nicht zeichnen, wenn völlig außerhalb
+            ctx.beginPath();
+            ctx.moveTo(startX, y);
+            ctx.lineTo(endX, y);
+            ctx.lineWidth = 14;
+            ctx.lineCap = 'round';
+            if (c.type === 'FEW') { ctx.strokeStyle = cFew; ctx.setLineDash([15, 25]); }
+            else if (c.type === 'SCT') { ctx.strokeStyle = cSct; ctx.setLineDash([30, 15]); }
+            else if (c.type === 'BKN') { ctx.strokeStyle = cBkn; ctx.setLineDash([70, 8]); }
+            else { ctx.strokeStyle = cOvc; ctx.setLineDash([]); } // OVC / VV
+            if (!isDarkTheme) {
+                ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetY = 2;
+            }
+
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.shadowColor = 'transparent';
+            ctx.fillStyle = textCol;
+            ctx.font = 'bold 8px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(c.type, midX, y + 3);
+        });
+    }
+    ctx.restore();
+}
+
 function computeFlightProfile(elevationData, cruiseAltFt, climbRateFpm, descentRateFpm, tasKts) {
     if (!elevationData || elevationData.length < 2) return null;
 
@@ -4067,7 +4215,15 @@ function renderVerticalProfile(canvasId) {
     const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
     const totalDist = vpElevationData[vpElevationData.length - 1].distNM;
     const maxTerrain = Math.max(...vpElevationData.map(p => p.elevFt));
-    const maxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500);
+    let maxCloudAlt = 0;
+    if (vpWeatherData) {
+        vpWeatherData.forEach(zone => {
+            if (zone.clouds) zone.clouds.forEach(c => {
+                if (c.baseMsl > maxCloudAlt) maxCloudAlt = c.baseMsl;
+            });
+        });
+    }
+    const maxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500, maxCloudAlt + 1000);
     const minAlt = 0;
 
     const fpResult = computeFlightProfile(vpElevationData, cruiseAlt, vpClimbRate, vpDescentRate, tas);
@@ -4225,6 +4381,8 @@ function renderVerticalProfile(canvasId) {
     ctx.strokeStyle = '#3a5a20';
     ctx.lineWidth = 1.5;
     ctx.stroke();
+
+    vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, false); // Light theme Wolken
 
     // Flight profile
     if (fpResult && fpResult.profile) {
@@ -4552,7 +4710,15 @@ function renderMapProfile() {
     const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
     const totalDist = elevData[elevData.length - 1].distNM;
     const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
-    const maxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500);
+    let maxCloudAlt = 0;
+    if (vpWeatherData) {
+        vpWeatherData.forEach(zone => {
+            if (zone.clouds) zone.clouds.forEach(c => {
+                if (c.baseMsl > maxCloudAlt) maxCloudAlt = c.baseMsl;
+            });
+        });
+    }
+    const maxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500, maxCloudAlt + 1000);
     const minAlt = 0;
 
     const fpResult = computeFlightProfile(elevData, cruiseAlt, vpClimbRate, vpDescentRate, tas);
@@ -4720,6 +4886,8 @@ function renderMapProfile() {
     ctx.strokeStyle = '#4a7a30';
     ctx.lineWidth = 1.5;
     ctx.stroke();
+
+    vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, true); // Dark theme Wolken
 
     // Flight profile
     if (fpResult && fpResult.profile) {

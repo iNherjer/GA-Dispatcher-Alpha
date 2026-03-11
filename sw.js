@@ -1,5 +1,5 @@
 // GA Dispatcher – Service Worker
-const CACHE = 'ga-dispatcher-v39';
+const CACHE = 'ga-dispatcher-v42';
 
 const STATIC = [
     './',
@@ -28,6 +28,8 @@ const STATIC = [
 // API-Domains – immer vom Netz holen, nie cachen
 const NETWORK_ONLY = [
     'ga-proxy.einherjer.workers.dev',
+    'aviationweather.gov',
+    'api.allorigins.win',
     'api.open-meteo.com',
     'nominatim.openstreetmap.org',
     'opensky-network.org',
