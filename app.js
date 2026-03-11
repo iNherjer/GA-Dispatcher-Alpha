@@ -713,21 +713,6 @@ async function restoreMissionState(state) {
     const destP = routeWaypoints && routeWaypoints.length > 1 ? routeWaypoints[routeWaypoints.length - 1] : null;
     loadMetarWidget(state.isPOI ? null : currentDestICAO, 'metarContainerDest', destP?.lat, destP?.lng || destP?.lon);
 
-    if (routeWaypoints && routeWaypoints.length > 0) {
-        const depP = routeWaypoints[0];
-        renderTileCanvas(depP.lat, depP.lng || depP.lon, 13, 900, 600).then(url => {
-            const img = document.getElementById('uiDepDetailMap');
-            if (img) { img.src = url; img.style.display = 'block'; }
-        });
-
-        if (routeWaypoints.length > 1) {
-            const destP = routeWaypoints[routeWaypoints.length - 1];
-            renderTileCanvas(destP.lat, destP.lng || destP.lon, 13, 900, 600).then(url => {
-                const img = document.getElementById('uiDestDetailMap');
-                if (img) { img.src = url; img.style.display = 'block'; }
-            });
-        }
-    }
 }
 
 function resetApp() {
@@ -2258,10 +2243,6 @@ async function generateMission() {
         currentDestFreq = "";
 
         fetchAirportFreq(currentStartICAO, 'wikiDepFreqText', 'dep');
-        renderTileCanvas(start.lat, start.lon, 13, 900, 600).then(url => {
-            const img = document.getElementById('uiDepDetailMap');
-            if (img) { img.src = url; img.style.display = 'block'; }
-        });
 
         // --- NEU: METAR Start laden ---
         loadMetarWidget(currentStartICAO, 'metarContainerDep', start.lat, start.lon);
@@ -2272,11 +2253,6 @@ async function generateMission() {
             const df = document.getElementById('wikiDestFreqText');
             if (df) df.innerHTML = '';
         }
-
-        renderTileCanvas(dest.lat, dest.lon, 13, 900, 600).then(url => {
-            const img = document.getElementById('uiDestDetailMap');
-            if (img) { img.src = url; img.style.display = 'block'; }
-        });
 
         // --- NEU: METAR Ziel laden (nur wenn kein POI) ---
         loadMetarWidget(isPOI ? null : currentDestICAO, 'metarContainerDest', dest.lat, dest.lon);
