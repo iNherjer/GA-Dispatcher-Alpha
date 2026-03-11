@@ -1,5 +1,5 @@
 // GA Dispatcher – Service Worker
-const CACHE = 'ga-dispatcher-v42';
+const CACHE = 'ga-dispatcher-v43';
 
 const STATIC = [
     './',
@@ -29,6 +29,8 @@ const STATIC = [
 const NETWORK_ONLY = [
     'ga-proxy.einherjer.workers.dev',
     'aviationweather.gov',
+    'api.codetabs.com',
+    'corsproxy.io',
     'api.allorigins.win',
     'api.open-meteo.com',
     'nominatim.openstreetmap.org',

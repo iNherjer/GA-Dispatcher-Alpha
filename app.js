@@ -4016,45 +4016,46 @@ async function fetchRouteWeather(routePts, elevData) {
     maxLat = Math.min(90, maxLat + 0.6);
     minLon = Math.max(-180, minLon - 0.8);
     maxLon = Math.min(180, maxLon + 0.8);
-    console.log(`[Wetter Debug] Bounding Box: minLon=${minLon}, minLat=${minLat}, maxLon=${maxLon}, maxLat=${maxLat}`);
+    console.log(`[Wetter Debug] Box: minLon=${minLon.toFixed(2)}, minLat=${minLat.toFixed(2)}, maxLon=${maxLon.toFixed(2)}, maxLat=${maxLat.toFixed(2)}`);
+    // WICHTIG: Cache-Buster (&t=...) hinzugefügt! Das verhindert den "Load failed" Bug in Safari!
+    const url = `https://aviationweather.gov/api/data/metar?bbox=${minLon},${minLat},${maxLon},${maxLat}&format=json&t=${Date.now()}`;
     let metars = [];
-    const url = `https://aviationweather.gov/api/data/metar?bbox=${minLon},${minLat},${maxLon},${maxLat}&format=json`;
     try {
-        console.log(`[Wetter Debug] Versuche direkten Abruf...`);
+        console.log(`[Wetter Debug] 1. Direkter Abruf...`);
         const r = await fetch(url);
-        if (r.ok) {
-            metars = await r.json();
-        } else {
-            throw new Error("Direkter Abruf fehlgeschlagen: " + r.status);
-        }
+        if (r.ok && r.status !== 204) {
+            const txt = await r.text();
+            metars = JSON.parse(txt);
+        } else throw new Error("HTTP " + r.status);
     } catch(e) {
-        console.warn(`[Wetter Debug] Direkter Abruf gescheitert. Versuche Proxy (AllOrigins)...`);
+        console.warn(`[Wetter Debug] 1. Fehlgeschlagen. Versuche 2. Proxy (Codetabs)...`);
         try {
-            // AllOrigins ist deutlich stabiler für lokale Entwicklungen (CORS)
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-            const pr = await fetch(proxyUrl);
-
-            if (pr.ok) {
-                const textData = await pr.text();
-                try {
-                    metars = JSON.parse(textData);
-                } catch (parseErr) {
-                    console.error(`[Wetter Debug] Proxy lieferte kein gültiges JSON, sondern:`, textData.substring(0, 150));
-                    return null;
-                }
-            } else {
-                throw new Error("Proxy HTTP Status: " + pr.status);
+            const proxy1 = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
+            const r2 = await fetch(proxy1);
+            if (r2.ok && r2.status !== 204) {
+                const txt = await r2.text();
+                metars = JSON.parse(txt);
+            } else throw new Error("Proxy1 HTTP " + r2.status);
+        } catch(e2) {
+            console.warn(`[Wetter Debug] 2. Fehlgeschlagen. Versuche 3. Proxy (Corsproxy)...`);
+            try {
+                const proxy2 = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                const r3 = await fetch(proxy2);
+                if (r3.ok && r3.status !== 204) {
+                    const txt = await r3.text();
+                    metars = JSON.parse(txt);
+                } else throw new Error("Proxy2 HTTP " + r3.status);
+            } catch(e3) {
+                console.error(`[Wetter Debug] ALLE Netzabfragen blockiert! Ggf. stört ein Adblocker.`, e3);
+                return null;
             }
-        } catch(pxErr) {
-            console.error(`[Wetter Debug] Proxy ebenfalls gescheitert.`, pxErr);
-            return null;
         }
     }
     if (!metars || metars.length === 0) {
         console.log(`[Wetter Debug] Keine METAR-Stationen in der Bounding Box gefunden.`);
         return null;
     }
-    console.log(`[Wetter Debug] ${metars.length} METAR-Stationen in Region gefunden. Führe Routing-Zuweisung durch...`);
+    console.log(`[Wetter Debug] ${metars.length} METAR-Stationen gefunden. Führe Routing-Zuweisung durch...`);
     const totalDist = elevData[elevData.length - 1].distNM;
     const numZones = 5;
     const zones = [];
@@ -4082,14 +4083,11 @@ async function fetchRouteWeather(routePts, elevData) {
                 const msl = Math.round(agl + stnElevFt);
                 clouds.push({ type, baseAgl: agl, baseMsl: msl });
             }
-            console.log(`[Wetter Debug] Zone ${i+1} (${Math.round(targetDist)}NM): Station ${closestMetar.icaoId} gewählt (Distanz: ${Math.round(minMetarDist)}NM) -> Wolken:`, clouds.length > 0 ? clouds : "CAVOK / Clear");
+            console.log(`[Wetter Debug] Zone ${i+1}: Station ${closestMetar.icaoId} -> Wolken:`, clouds.length > 0 ? clouds : "Clear / CAVOK");
             zones.push({ distNM: bestPt.distNM, icao: closestMetar.icaoId, clouds: clouds });
-        } else {
-            console.log(`[Wetter Debug] Zone ${i+1} (${Math.round(targetDist)}NM): Keine Station im Umkreis von 60NM gefunden.`);
         }
     }
 
-    console.log(`[Wetter Debug] Abgeschlossen. Finale Profil-Daten:`, zones);
     return zones;
 }
 // Globale Debug-Funktion für die Entwicklerkonsole
