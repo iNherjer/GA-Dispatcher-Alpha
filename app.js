@@ -4012,47 +4012,49 @@ async function fetchRouteWeather(routePts, elevData) {
         if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
         if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon;
     });
-    minLat = Math.max(-90, minLat - 0.6);
-    maxLat = Math.min(90, maxLat + 0.6);
-    minLon = Math.max(-180, minLon - 0.8);
-    maxLon = Math.min(180, maxLon + 0.8);
-    console.log(`[Wetter Debug] Box: minLon=${minLon.toFixed(2)}, minLat=${minLat.toFixed(2)}, maxLon=${maxLon.toFixed(2)}, maxLat=${maxLat.toFixed(2)}`);
-    // WICHTIG: Cache-Buster (&t=...) hinzugefügt! Das verhindert den "Load failed" Bug in Safari!
-    const url = `https://aviationweather.gov/api/data/metar?bbox=${minLon},${minLat},${maxLon},${maxLat}&format=json&t=${Date.now()}`;
+    // Box leicht erweitern und Koordinaten kappen (AWC mag keine endlosen Dezimalstellen)
+    minLat = Number((Math.max(-90, minLat - 0.8)).toFixed(4));
+    maxLat = Number((Math.min(90, maxLat + 0.8)).toFixed(4));
+    minLon = Number((Math.max(-180, minLon - 1.2)).toFixed(4));
+    maxLon = Number((Math.min(180, maxLon + 1.2)).toFixed(4));
+    console.log(`[Wetter Debug] Box: minLon=${minLon}, minLat=${minLat}, maxLon=${maxLon}, maxLat=${maxLat}`);
+    const url = `https://aviationweather.gov/api/data/metar?bbox=${minLon},${minLat},${maxLon},${maxLat}&format=json`;
     let metars = [];
     try {
         console.log(`[Wetter Debug] 1. Direkter Abruf...`);
         const r = await fetch(url);
-        if (r.ok && r.status !== 204) {
+        if (r.status === 204) {
+            console.log(`[Wetter Debug] API meldet 204 (No Content). Himmel ist klar oder keine Stationen verfügbar.`);
+            return null;
+        }
+        if (r.ok) {
             const txt = await r.text();
             metars = JSON.parse(txt);
         } else throw new Error("HTTP " + r.status);
     } catch(e) {
-        console.warn(`[Wetter Debug] 1. Fehlgeschlagen. Versuche 2. Proxy (Codetabs)...`);
+        console.warn(`[Wetter Debug] Direktabruf fehlgeschlagen (Oft AWC 204 CORS-Bug). Versuche JSON-Wrapper...`);
         try {
-            const proxy1 = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
-            const r2 = await fetch(proxy1);
-            if (r2.ok && r2.status !== 204) {
-                const txt = await r2.text();
-                metars = JSON.parse(txt);
-            } else throw new Error("Proxy1 HTTP " + r2.status);
-        } catch(e2) {
-            console.warn(`[Wetter Debug] 2. Fehlgeschlagen. Versuche 3. Proxy (Corsproxy)...`);
-            try {
-                const proxy2 = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-                const r3 = await fetch(proxy2);
-                if (r3.ok && r3.status !== 204) {
-                    const txt = await r3.text();
-                    metars = JSON.parse(txt);
-                } else throw new Error("Proxy2 HTTP " + r3.status);
-            } catch(e3) {
-                console.error(`[Wetter Debug] ALLE Netzabfragen blockiert! Ggf. stört ein Adblocker.`, e3);
+            // Die /get Variante von AllOrigins verpackt alles in HTTP 200 und umgeht den CORS-Bug
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+            const pr = await fetch(proxyUrl);
+            const data = await pr.json();
+
+            if (data.status && data.status.http_code === 204) {
+                console.log(`[Wetter Debug] Proxy bestätigt 204 (No Content). Keine Wolken-Daten in dieser Region.`);
                 return null;
             }
+            if (data.contents) {
+                metars = JSON.parse(data.contents);
+            } else {
+                return null;
+            }
+        } catch(pxErr) {
+            console.error(`[Wetter Debug] Proxy ebenfalls fehlgeschlagen.`, pxErr);
+            return null;
         }
     }
     if (!metars || metars.length === 0) {
-        console.log(`[Wetter Debug] Keine METAR-Stationen in der Bounding Box gefunden.`);
+        console.log(`[Wetter Debug] Array leer. Keine Stationen gefunden.`);
         return null;
     }
     console.log(`[Wetter Debug] ${metars.length} METAR-Stationen gefunden. Führe Routing-Zuweisung durch...`);
@@ -4083,7 +4085,7 @@ async function fetchRouteWeather(routePts, elevData) {
                 const msl = Math.round(agl + stnElevFt);
                 clouds.push({ type, baseAgl: agl, baseMsl: msl });
             }
-            console.log(`[Wetter Debug] Zone ${i+1}: Station ${closestMetar.icaoId} -> Wolken:`, clouds.length > 0 ? clouds : "Clear / CAVOK");
+            console.log(`[Wetter Debug] Zone ${i+1}: Station ${closestMetar.icaoId} (Distanz ${Math.round(minMetarDist)}NM) -> Wolken:`, clouds.length > 0 ? clouds : "Clear / CAVOK");
             zones.push({ distNM: bestPt.distNM, icao: closestMetar.icaoId, clouds: clouds });
         }
     }
