@@ -348,6 +348,35 @@ let currentDepFreq = "";
 let currentDestFreq = "";
 let globalAirports = null, runwayCache = {}, freqCache = {};
 
+/* =========================================================
+   PWA UPDATE TRIGGER & SOFT AUTO SYNC EVENTS
+   ========================================================= */
+let isRefreshing = false;
+if ('serviceWorker' in navigator) {
+    // Erzwingt einen automatischen Reload, sobald ein Update (neue sw.js Version) installiert wurde
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!isRefreshing) { isRefreshing = true; window.location.reload(); }
+    });
+}
+// SOFT AUTO SYNC: Lädt beim Öffnen, Speichert beim Schließen (oder in den Hintergrund wischen)
+window.addEventListener('visibilitychange', () => {
+    const t = document.getElementById('syncToggle');
+    if (t && t.checked && getSyncId()) {
+        if (document.visibilityState === 'hidden') {
+            triggerCloudSave(true); // Push in die Cloud (nur wenn sich Daten wirklich geändert haben)
+        } else if (document.visibilityState === 'visible') {
+            silentSyncLoad(); // Pull aus der Cloud
+        }
+    }
+});
+window.addEventListener('pagehide', () => {
+    const t = document.getElementById('syncToggle');
+    if (t && t.checked && getSyncId()) {
+        triggerCloudSave(true); // Letzter Rettungs-Push beim Schließen des Tabs
+    }
+});
+/* ========================================================= */
+
 async function fetchWithTimeout(url, ms = 6000) {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), ms);
@@ -5826,52 +5855,32 @@ function resetSyncTimer() {
 ['click', 'touchstart', 'scroll', 'keydown'].forEach(evt => {
     document.addEventListener(evt, resetSyncTimer, { passive: true, capture: true });
 });
-// Wenn der Tab in den Vordergrund/Hintergrund wechselt
-document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === 'visible') {
-        resetSyncTimer();
-        silentSyncLoad();
-    } else if (document.visibilityState === 'hidden') {
-        // App wird in den Hintergrund gewischt oder geschlossen
-        if (syncSaveTimeout) {
-            clearTimeout(syncSaveTimeout);
-            syncSaveTimeout = null;
-            triggerCloudSave(true); // Sofort pushen!
-        }
-    }
-});
-window.addEventListener("focus", () => { resetSyncTimer(); silentSyncLoad(); });
-// Fallback für alte iOS-Versionen oder explizites Tab-Schließen
-window.addEventListener("pagehide", () => {
-    if (syncSaveTimeout) {
-        clearTimeout(syncSaveTimeout);
-        syncSaveTimeout = null;
-        triggerCloudSave(true);
-    }
-});
 setTimeout(setLastSyncedPayload, 1000);
 setInterval(() => {
     if (document.visibilityState !== 'visible') return;
     const t = document.getElementById('syncToggle');
     const personalSyncActive = getSyncId() && t && t.checked;
     const groupSyncActive = !!getGroupName();
-    // Loop abbrechen, wenn weder Personal noch Group Sync an sind
     if (!personalSyncActive && !groupSyncActive) return;
     const now = Date.now();
     const idleTime = now - syncLastActivityTime;
 
     if (idleTime < 60000) {
         // Phase 1: Aktiv (Letzte Aktivität vor < 60 Sekunden) -> Alle 10s
-        if (personalSyncActive) silentSyncLoad();
-        if (groupSyncActive) silentGroupSync();
+
+        // --- FULL AUTO SYNC (Temporär deaktiviert für Soft-Sync Interimslösung) ---
+        // if (personalSyncActive) silentSyncLoad();
+
+        if (groupSyncActive) silentGroupSync(); // Multiplayer braucht weiterhin Live-Updates
         syncLastFetchTime = now;
     } else if (idleTime < 180000) {
         // Phase 2: Halbschlaf (1 bis 3 Minuten) -> Alle 30s
-        if (now - syncLastFetchTime >= 30000) {
-            if (personalSyncActive) silentSyncLoad();
-            if (groupSyncActive) silentGroupSync();
-            syncLastFetchTime = now;
-        }
+
+        // --- FULL AUTO SYNC (Temporär deaktiviert für Soft-Sync Interimslösung) ---
+        // if (personalSyncActive) silentSyncLoad();
+
+        if (groupSyncActive) silentGroupSync();
+        syncLastFetchTime = now;
     } else {
         // Phase 3: Tiefschlaf (> 3 Minuten) -> Sync stoppen
         syncIsSleeping = true;
