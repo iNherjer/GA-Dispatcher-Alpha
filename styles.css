@@ -3957,6 +3957,9 @@ body.theme-navcom .btn-menu:active {
     margin-left: 6px;
     width: 16px;
     height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    flex-shrink: 0;
     line-height: 16px;
     text-align: center;
     border-radius: 50%;
@@ -3974,6 +3977,9 @@ body.theme-navcom .btn-menu:active {
     margin-left: 4px;
     width: 16px;
     height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    flex-shrink: 0;
     line-height: 16px;
     text-align: center;
     border-radius: 50%;
