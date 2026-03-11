@@ -2580,6 +2580,18 @@ body.theme-navcom #searchIndicator {
     color: #aaa;
     font-family: monospace;
 }
+body.theme-navcom .help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    font-size: 14px;
+    line-height: 1; /* Ignoriert störende Font-Baselines */
+    vertical-align: middle;
+    margin-top: -3px; /* Optische Korrektur zur H1-Höhe */
+    border-width: 2px; /* Etwas dickerer Rahmen, passend zum NavCom-Look */
+}
 
 body.theme-navcom .theme-switch-wrapper {
     border-top: 2px solid #555;
