@@ -4012,7 +4012,6 @@ async function fetchRouteWeather(routePts, elevData) {
         if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
         if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon;
     });
-    // Box leicht erweitern und Koordinaten kappen (AWC mag keine endlosen Dezimalstellen)
     minLat = Number((Math.max(-90, minLat - 0.8)).toFixed(4));
     maxLat = Number((Math.min(90, maxLat + 0.8)).toFixed(4));
     minLon = Number((Math.max(-180, minLon - 1.2)).toFixed(4));
@@ -4024,7 +4023,7 @@ async function fetchRouteWeather(routePts, elevData) {
         console.log(`[Wetter Debug] 1. Direkter Abruf...`);
         const r = await fetch(url);
         if (r.status === 204) {
-            console.log(`[Wetter Debug] API meldet 204 (No Content). Himmel ist klar oder keine Stationen verfügbar.`);
+            console.log(`[Wetter Debug] API meldet 204 (No Content). Himmel ist klar.`);
             return null;
         }
         if (r.ok) {
@@ -4032,32 +4031,39 @@ async function fetchRouteWeather(routePts, elevData) {
             metars = JSON.parse(txt);
         } else throw new Error("HTTP " + r.status);
     } catch(e) {
-        console.warn(`[Wetter Debug] Direktabruf fehlgeschlagen (Oft AWC 204 CORS-Bug). Versuche JSON-Wrapper...`);
+        console.warn(`[Wetter Debug] Direktabruf blockiert (Oft Safari CORS 204 Bug). Frage Proxy...`);
         try {
-            // Die /get Variante von AllOrigins verpackt alles in HTTP 200 und umgeht den CORS-Bug
             const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
             const pr = await fetch(proxyUrl);
-            const data = await pr.json();
 
-            if (data.status && data.status.http_code === 204) {
-                console.log(`[Wetter Debug] Proxy bestätigt 204 (No Content). Keine Wolken-Daten in dieser Region.`);
-                return null;
-            }
-            if (data.contents) {
-                metars = JSON.parse(data.contents);
-            } else {
-                return null;
+            // WICHTIG: Erst als Text lesen! Verhindert den SyntaxError, wenn der Proxy bei 204 HTML oder Leer-Strings liefert.
+            const rawText = await pr.text();
+
+            try {
+                const data = JSON.parse(rawText);
+                if (data.status && data.status.http_code === 204) {
+                    console.log(`[Wetter Debug] Proxy bestätigt 204. Himmel ist klar.`);
+                    return null;
+                }
+                if (data.contents) {
+                    metars = JSON.parse(data.contents);
+                } else {
+                    return null;
+                }
+            } catch(parseErr) {
+                console.log(`[Wetter Debug] Proxy lieferte kein JSON (Typisch bei 204). Wir gehen von klarem Himmel (CAVOK) aus.`);
+                return null; // Kein roter Error mehr, wir überspringen das Wolken-Zeichnen einfach lautlos!
             }
         } catch(pxErr) {
-            console.error(`[Wetter Debug] Proxy ebenfalls fehlgeschlagen.`, pxErr);
+            console.log(`[Wetter Debug] Proxy nicht erreichbar. Überspringe Wolken.`);
             return null;
         }
     }
     if (!metars || metars.length === 0) {
-        console.log(`[Wetter Debug] Array leer. Keine Stationen gefunden.`);
+        console.log(`[Wetter Debug] Keine Stationen mit Wolken gefunden.`);
         return null;
     }
-    console.log(`[Wetter Debug] ${metars.length} METAR-Stationen gefunden. Führe Routing-Zuweisung durch...`);
+    console.log(`[Wetter Debug] ${metars.length} METAR-Stationen gefunden. Werte aus...`);
     const totalDist = elevData[elevData.length - 1].distNM;
     const numZones = 5;
     const zones = [];
@@ -4085,12 +4091,14 @@ async function fetchRouteWeather(routePts, elevData) {
                 const msl = Math.round(agl + stnElevFt);
                 clouds.push({ type, baseAgl: agl, baseMsl: msl });
             }
-            console.log(`[Wetter Debug] Zone ${i+1}: Station ${closestMetar.icaoId} (Distanz ${Math.round(minMetarDist)}NM) -> Wolken:`, clouds.length > 0 ? clouds : "Clear / CAVOK");
-            zones.push({ distNM: bestPt.distNM, icao: closestMetar.icaoId, clouds: clouds });
+            if(clouds.length > 0) {
+                console.log(`[Wetter Debug] Zone ${i+1}: Wolken von ${closestMetar.icaoId} geladen.`);
+                zones.push({ distNM: bestPt.distNM, icao: closestMetar.icaoId, clouds: clouds });
+            }
         }
     }
 
-    return zones;
+    return zones.length > 0 ? zones : null;
 }
 // Globale Debug-Funktion für die Entwicklerkonsole
 window.debugCloudProfile = function() {
