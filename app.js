@@ -3110,7 +3110,9 @@ function renderNotes() {
         // Render Crew Roster
         const roster = document.createElement('div');
         roster.className = 'post-it roster-card';
-        roster.style.left = '2%'; roster.style.top = '4%'; roster.style.transform = 'rotate(-2deg)';
+        roster.style.left = '8%'; // Weiter nach rechts verschoben, damit er nicht auf dem Rahmen liegt
+        roster.style.top = '4%';
+        roster.style.transform = 'rotate(-2deg)';
         
         const amIAdmin = (groupDataCache.members || []).find(m => m.nick === getGroupNick())?.isAdmin;
         let membersHtml = (groupDataCache.members || []).map(m => {
