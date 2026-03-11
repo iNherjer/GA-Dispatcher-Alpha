@@ -2911,8 +2911,22 @@ function updateGroupUIFromSync(gName, gNick) {
         leaveGroup(true); // Lautlos aufräumen
     }
 }
+function setNavComLed(btnId, state) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.classList.remove('led-syncing', 'led-success', 'led-error');
+    if (state !== 'off') btn.classList.add(`led-${state}`);
+}
 function updateGroupBadgeUI() {
-    const newBadges = JSON.parse(localStorage.getItem('ga_group_new')) || [];
+    let newBadges = JSON.parse(localStorage.getItem('ga_group_new')) || [];
+    let hidden = JSON.parse(localStorage.getItem('ga_group_hidden')) || [];
+
+    // GHOST BUSTER: Wenn ein Zettel im lokalen Müll liegt, kann er nicht "Neu" sein!
+    let initialLen = newBadges.length;
+    newBadges = newBadges.filter(id => !hidden.includes(id));
+    if (newBadges.length !== initialLen) {
+        localStorage.setItem('ga_group_new', JSON.stringify(newBadges));
+    }
     const mainBadge = document.getElementById('mainPinboardBadge');
     const tabBadge = document.getElementById('groupBadge');
     const hasNew = newBadges.length > 0;
@@ -2988,6 +3002,7 @@ function addNote() {
     }
 }
 function deleteNote(id, isGroup) {
+    clearNewBadge(id);
     if (isGroup) {
         let gNotes = groupDataCache.notes || [];
         const note = gNotes.find(n => n.id === id);
@@ -5549,8 +5564,11 @@ async function triggerCloudSave(immediate = false) {
     const id = getSyncId();
     const t = document.getElementById('syncToggle');
     if (!id) return;
-    // Blockiere Auto-Saves, wenn Schalter aus ist (Manuelle Klicks gehen durch!)
     if (immediate !== 'manual' && t && !t.checked) return;
+    if (immediate === 'manual') {
+        if (!confirm("⬆️ CLOUD UPLOAD\nMöchtest du deinen aktuellen, lokalen Stand hochladen und das bisherige Cloud-Backup überschreiben?")) return;
+        setNavComLed('navcomSaveBtn', 'syncing');
+    }
     if (!immediate) {
         updateSyncStatus("Warte auf Abschluss...");
         if (syncSaveTimeout) clearTimeout(syncSaveTimeout);
@@ -5582,20 +5600,38 @@ async function triggerCloudSave(immediate = false) {
             lastSyncedPayloadStr = currentPayloadStr;
             updateSyncStatus("Cloud: Gespeichert ✅");
             flashSyncIndicator('up');
+            if (immediate === 'manual') {
+                setNavComLed('navcomSaveBtn', 'success');
+                setTimeout(() => setNavComLed('navcomSaveBtn', 'off'), 3000);
+            }
         } else {
-            updateSyncStatus("Cloud: Speicher-Fehler", true);
+            throw new Error("Server Error");
         }
     } catch (e) {
-        updateSyncStatus("Cloud: Offline", true);
+        updateSyncStatus("Cloud: Speicher-Fehler", true);
+        if (immediate === 'manual') {
+            setNavComLed('navcomSaveBtn', 'error');
+            setTimeout(() => setNavComLed('navcomSaveBtn', 'off'), 3000);
+        }
     }
 }
 async function forceSyncLoad() {
+    if (!confirm("⬇️ CLOUD DOWNLOAD\nMöchtest du deinen Spielstand aus der Cloud laden? Alle lokalen Änderungen (die nicht hochgeladen wurden) gehen dabei verloren!")) return;
     const id = getSyncId();
     if (!id) { alert("Bitte zuerst eine Pilot-ID eingeben oder generieren (🎲)."); return; }
+
+    setNavComLed('navcomLoadBtn', 'syncing');
     updateSyncStatus("Lade Daten...");
+
     try {
         const res = await fetch(SYNC_URL + id);
-        if (res.status === 404) { alert("Zu dieser ID wurden keine Daten gefunden."); updateSyncStatus("Nicht gefunden", true); return; }
+        if (res.status === 404) {
+            alert("Zu dieser ID wurden keine Daten gefunden.");
+            updateSyncStatus("Nicht gefunden", true);
+            setNavComLed('navcomLoadBtn', 'error');
+            setTimeout(() => setNavComLed('navcomLoadBtn', 'off'), 3000);
+            return;
+        }
         if (!res.ok) throw new Error("Netzwerkfehler");
         const data = await res.json();
 
@@ -5622,12 +5658,16 @@ async function forceSyncLoad() {
         updateGroupBadgeUI();
         updateSyncStatus("Cloud: Geladen ✅");
         flashSyncIndicator('down');
+
+        setNavComLed('navcomLoadBtn', 'success');
+        setTimeout(() => setNavComLed('navcomLoadBtn', 'off'), 3000);
         if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
         renderLog();
-        alert("Daten erfolgreich aus der Cloud synchronisiert!");
     } catch (e) {
         updateSyncStatus("Cloud: Lade-Fehler", true);
         alert("Fehler beim Laden aus der Cloud.");
+        setNavComLed('navcomLoadBtn', 'error');
+        setTimeout(() => setNavComLed('navcomLoadBtn', 'off'), 3000);
     }
 }
 async function silentSyncLoad() {
