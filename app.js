@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         slider.addEventListener('mouseup', onEnd);
         slider.addEventListener('touchend', onEnd);
+        slider.addEventListener('touchcancel', onEnd); // Verhindert Einfrieren beim Scrollen
     });
 });
 
@@ -545,13 +546,11 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
     document.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('mouseup', onEnd);
     document.addEventListener('touchend', onEnd);
+    document.addEventListener('touchcancel', onEnd); // Verhindert Hängenbleiben der Knöpfe
 }
 
 window.onload = () => {
-    // iOS 10+ ignoriert user-scalable=no im Viewport-Tag.
-    // Pinch-to-Zoom auf dem gesamten Dokument per JS sperren (passive:false erforderlich).
-    document.addEventListener('touchstart', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
-    document.addEventListener('touchmove',  e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    // V78: Pinch-Zoom-Sperre via CSS touch-action (index.html) – kein aggressiver JS-Blocker mehr nötig.
 
     const savedTheme = localStorage.getItem('ga_theme') || 'retro';
     setTheme(savedTheme);
@@ -6021,6 +6020,13 @@ function initAltWaypoints() {
             vpHandleDragEnd();
         }
     });
+
+    canvas.addEventListener('touchcancel', (e) => {
+        vpIsPanning = false;
+        if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) {
+            vpHandleDragEnd();
+        }
+    });
 }
 
 // Override computeFlightProfile to use altitude waypoints + segment altitudes
@@ -6509,19 +6515,22 @@ async function checkCloudAfterIdle() {
     setTimeout(() => { idleCheckInProgress = false; }, 10000);
 }
 function resetSyncTimer() {
-    const now = Date.now();
-    const idleTime = now - syncLastActivityTime;
-    // IDLE CHECK: Wenn länger als 30 Sekunden keine Aktion stattfand
-    if (idleTime > 30000 && !idleCheckInProgress) {
-        const t = document.getElementById('syncToggle');
-        if (getSyncId() && t && t.checked) {
-            checkCloudAfterIdle();
+    try {
+        const now = Date.now();
+        const idleTime = now - syncLastActivityTime;
+        if (idleTime > 30000 && !idleCheckInProgress) {
+            const t = document.getElementById('syncToggle');
+            if (getSyncId() && t && t.checked) {
+                checkCloudAfterIdle();
+            }
         }
-    }
-    syncLastActivityTime = now;
-    if (syncIsSleeping) {
-        syncIsSleeping = false;
-        syncLastFetchTime = now;
+        syncLastActivityTime = now;
+        if (syncIsSleeping) {
+            syncIsSleeping = false;
+            syncLastFetchTime = now;
+        }
+    } catch(e) {
+        console.warn("Sync Timer Error intercepted", e);
     }
 }
 ['click', 'touchstart', 'scroll', 'keydown'].forEach(evt => {
