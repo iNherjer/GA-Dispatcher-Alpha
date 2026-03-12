@@ -6692,26 +6692,122 @@ window.importMission = function() {
     }
 };
 
-window.generateBriefingPDF = async function() {
-    alert("📄 Das PDF-Briefing wird generiert. Das kann einen kurzen Moment dauern...");
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('p', 'mm', 'a4');
-    const pages = ['notePage1', 'notePage2', 'notePage3', 'notePage4', 'notePage5']
-                  .map(id => document.getElementById(id))
-                  .filter(el => el && el.style.display !== 'none');
-    for (let i = 0; i < pages.length; i++) {
-        if (i > 0) doc.addPage();
-        // UI-Buttons für sauberen Druck kurz ausblenden
-        const pins = pages[i].querySelectorAll('.briefing-save-pin, .briefing-export-pin, .briefing-pdf-pin');
-        pins.forEach(p => p.style.display = 'none');
+// V83: CORS-sicherer Tile-Bild-Loader – umgeht den Safari-Cache-Bug bei toDataURL()
+function loadTileImage(url) {
+    return new Promise(resolve => {
+        // Cache-Buster anhängen, um Safari zu zwingen, den fehlerhaften Image-Cache zu ignorieren
+        const fetchUrl = url + (url.includes('?') ? '&' : '?') + 'nocache=' + Date.now();
 
-        const canvas = await html2canvas(pages[i], { scale: 2, useCORS: true, backgroundColor: '#fdf5e6' });
-        pins.forEach(p => p.style.display = '');
-        const imgData = canvas.toDataURL('image/jpeg', 0.9);
-        const pdfWidth = doc.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        doc.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        fetch(fetchUrl, { mode: 'cors' })
+            .then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.blob();
+            })
+            .then(blob => {
+                const img = new Image();
+                const objectUrl = URL.createObjectURL(blob);
+                img.onload = () => {
+                    resolve(img);
+                    URL.revokeObjectURL(objectUrl); // RAM wieder freigeben
+                };
+                img.onerror = () => {
+                    resolve(null);
+                    URL.revokeObjectURL(objectUrl);
+                };
+                img.src = objectUrl;
+            })
+            .catch(() => {
+                // Bei strikten CORS-Blockern das Bild einfach überspringen, statt das PDF abstürzen zu lassen
+                resolve(null);
+            });
+    });
+}
+
+window.generateBriefingPDF = async function() {
+    if (!currentMissionData || document.getElementById("briefingBox").style.display !== "block") {
+        alert('Kein aktives Briefing vorhanden.');
+        return;
     }
-    const dest = document.getElementById('mDestICAO') ? document.getElementById('mDestICAO').innerText : 'Flight';
-    doc.save(`GA_Briefing_${dest}.pdf`);
+    if (!window.jspdf || !window.html2canvas) {
+        alert('PDF-Bibliotheken nicht geladen. Bitte Seite neu laden.');
+        return;
+    }
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = '📄 Erstelle Briefing Pack PDF...';
+    alert("📄 Das PDF-Briefing wird generiert. Das kann einen Moment dauern...");
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+
+        // Finde alle aktiven Zettel
+        const pages = ['notePage1', 'notePage2', 'notePage3', 'notePage4', 'notePage5']
+                      .map(id => document.getElementById(id))
+                      .filter(el => el && el.style.display !== 'none');
+
+        for (let i = 0; i < pages.length; i++) {
+            if (i > 0) doc.addPage();
+
+            const pageEl = pages[i];
+
+            // 1. Vorbereitungen für sauberen Druck (Schatten, Rotationen und Pins weg)
+            const origTransform = pageEl.style.transform;
+            const origBoxShadow = pageEl.style.boxShadow;
+            const origMargin = pageEl.style.margin;
+
+            pageEl.style.transform = 'none';
+            pageEl.style.boxShadow = 'none';
+            pageEl.style.margin = '0';
+
+            const pins = pageEl.querySelectorAll('.briefing-save-pin, .briefing-export-pin, .briefing-pdf-pin');
+            const origPinDisplays = [];
+            pins.forEach((p, idx) => {
+                origPinDisplays[idx] = p.style.display;
+                p.style.display = 'none';
+            });
+
+            // Spezielle Korrektur für die kleinen Polaroids
+            const polaroids = pageEl.querySelectorAll('.briefing-photo-attachment');
+            const origPolTransforms = [];
+            polaroids.forEach((p, idx) => {
+                origPolTransforms[idx] = p.style.transform;
+                p.style.transform = 'none'; // Gerade rücken
+            });
+
+            // 2. Abfotografieren
+            const canvas = await html2canvas(pageEl, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#fdf5e6',
+                logging: false
+            });
+
+            // 3. Originalzustand wiederherstellen
+            pageEl.style.transform = origTransform;
+            pageEl.style.boxShadow = origBoxShadow;
+            pageEl.style.margin = origMargin;
+
+            pins.forEach((p, idx) => { p.style.display = origPinDisplays[idx]; });
+            polaroids.forEach((p, idx) => { p.style.transform = origPolTransforms[idx]; });
+
+            // 4. Ins PDF einfügen (mit leichtem Rand)
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const pdfWidth = doc.internal.pageSize.getWidth() - 20; // 10mm Rand links/rechts
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+            doc.addImage(imgData, 'JPEG', 10, 15, pdfWidth, pdfHeight);
+
+            // Fußzeile
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`GA Dispatcher - Seite ${i + 1} von ${pages.length}`, 10, doc.internal.pageSize.getHeight() - 10);
+        }
+
+        const dest = document.getElementById('mDestICAO') ? document.getElementById('mDestICAO').innerText : 'Flight';
+        doc.save(`Briefing_${dest}.pdf`);
+        if (indicator) indicator.innerText = 'System bereit.';
+    } catch (e) {
+        console.error('PDF Error:', e);
+        if (indicator) indicator.innerText = 'System bereit.';
+        alert('PDF konnte nicht erstellt werden. Siehe Konsole.');
+    }
 };
