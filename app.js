@@ -470,7 +470,7 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
         isDragging = true;
         startY = e.touches ? e.touches[0].clientY : e.clientY;
         startX = e.touches ? e.touches[0].clientX : e.clientX;
-        // ALT knob in rate mode: use rate value
+
         if (type === 'alt' && navcomAltMode === 'rate') {
             startVal = vpClimbRate || 500;
         } else {
@@ -478,6 +478,12 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
         }
         document.body.style.cursor = 'ns-resize';
         e.preventDefault();
+        // Listener NUR WÄHREND des Drags aktivieren
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('mouseup', onEnd);
+        document.addEventListener('touchend', onEnd);
+        document.addEventListener('touchcancel', onEnd);
     }
 
     function onMove(e) {
@@ -485,7 +491,6 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
 
-        // ALT knob in rate mode: different range and sensitivity
         if (type === 'alt' && navcomAltMode === 'rate') {
             let delta = Math.round((startY - clientY) + (clientX - startX));
             delta = Math.round(delta * 3);
@@ -507,7 +512,6 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
         if (newVal < min) newVal = min;
         if (newVal > max) newVal = max;
 
-        // Snap to slider step
         const step = parseInt(slider.step) || 1;
         if (step > 1) newVal = Math.round(newVal / step) * step;
 
@@ -527,33 +531,32 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
     }
 
     function onEnd() {
+        if (!isDragging) return;
         window.vpUIInteractionActive = false;
         isDragging = false;
         document.body.style.cursor = 'default';
         knob.style.transition = 'transform 0.3s ease';
         knob.style.transform = `rotate(0deg)`;
         setTimeout(() => knob.style.transition = '', 300);
+
         if (type === 'alt' || (type === 'alt' && typeof navcomAltMode !== 'undefined' && navcomAltMode === 'rate')) {
             if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
             if (typeof renderMapProfile === 'function') renderMapProfile();
             if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
         }
+        // Listener nach dem Drag wieder entfernen, um Konflikte zu vermeiden
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('mouseup', onEnd);
+        document.removeEventListener('touchend', onEnd);
+        document.removeEventListener('touchcancel', onEnd);
     }
 
     knob.addEventListener('mousedown', onStart);
     knob.addEventListener('touchstart', onStart, { passive: false });
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('mouseup', onEnd);
-    document.addEventListener('touchend', onEnd);
-    document.addEventListener('touchcancel', onEnd); // Verhindert Hängenbleiben der Knöpfe
 }
 
 window.onload = () => {
-    // V79: Sicherer Multi-Touch-Blocker (Pinch-Zoom sperren) – null-guard verhindert Deadlock in Safari
-    document.addEventListener('touchstart', e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
-    document.addEventListener('touchmove',  e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
-
     const savedTheme = localStorage.getItem('ga_theme') || 'retro';
     setTheme(savedTheme);
     applySavedPanelTheme();
