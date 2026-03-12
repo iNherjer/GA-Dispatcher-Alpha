@@ -2589,6 +2589,7 @@ function updateRoutePerformance() {
 
 function initMapBase() {
     if (map) return;
+    const radarActive = localStorage.getItem('ga_radar_active') === 'true';
     const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: 'OpenTopoMap' });
     const topoLightMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
     const satMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
@@ -2614,7 +2615,7 @@ function initMapBase() {
                 const latestRadar = data.radar.past[data.radar.past.length - 1].path;
                 L.tileLayer(`https://tilecache.rainviewer.com${latestRadar}/256/{z}/{x}/{y}/2/1_1.png`, {
                     opacity: 0.65, transparent: true, maxNativeZoom: 7, attribution: 'Radar © RainViewer'
-                }).addTo(radarOverlay);
+                }).addTo(radarOverlay); if (radarActive) radarOverlay.addTo(map);
             }
         }).catch(e => console.warn('RainViewer Fetch Fehler:', e));
     const overlayMaps = {
@@ -2622,8 +2623,14 @@ function initMapBase() {
         "🌧️ Wetterradar (Niederschlag)": radarOverlay
     };
     L.control.layers(baseMaps, overlayMaps).addTo(map);
-    map.on('overlayadd', function (e) { if (e.name === "🛩️ VFR Lufträume (Overlay)") topoMap.setOpacity(0.5); });
-    map.on('overlayremove', function (e) { if (e.name === "🛩️ VFR Lufträume (Overlay)") topoMap.setOpacity(1.0); });
+    map.on('overlayadd', function (e) {
+        if (e.name === "🛩️ VFR Lufträume (Overlay)") topoMap.setOpacity(0.5);
+        if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'true');
+    });
+    map.on('overlayremove', function (e) {
+        if (e.name === "🛩️ VFR Lufträume (Overlay)") topoMap.setOpacity(1.0);
+        if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'false');
+    });
     let fetchTimeout = null;
     map.on('moveend', function () {
         if (snapMode) {
@@ -4000,84 +4007,81 @@ async function fetchRouteElevation(routePts) {
 async function fetchRouteWeather(routePts, elevData) {
     if (!routePts || routePts.length < 2 || !elevData || elevData.length < 2) return null;
     const totalDist = elevData[elevData.length - 1].distNM;
-    const numZones = 5;
+    const numZones = 10;
     const zones = [];
     const fetchPromises = [];
-    console.log(`[Wetter Debug] Teile Route (${Math.round(totalDist)}NM) in ${numZones} Segmente auf...`);
     for (let i = 0; i < numZones; i++) {
         const targetDist = (i / (numZones - 1)) * totalDist;
-
         let bestPt = elevData[0];
         let minDiff = Infinity;
         for (const pt of elevData) {
             const diff = Math.abs(pt.distNM - targetDist);
             if (diff < minDiff) { minDiff = diff; bestPt = pt; }
         }
-        const minLat = Number((bestPt.lat - 0.6).toFixed(4));
-        const maxLat = Number((bestPt.lat + 0.6).toFixed(4));
-        const minLon = Number((bestPt.lon - 0.8).toFixed(4));
-        const maxLon = Number((bestPt.lon + 0.8).toFixed(4));
-        // RÜCKKEHR ZUR RICHTIGEN REIHENFOLGE: minLat, minLon, maxLat, maxLon
+        const minLat = Number((bestPt.lat - 0.4).toFixed(4));
+        const maxLat = Number((bestPt.lat + 0.4).toFixed(4));
+        const minLon = Number((bestPt.lon - 0.6).toFixed(4));
+        const maxLon = Number((bestPt.lon + 0.6).toFixed(4));
         const url = `https://aviationweather.gov/api/data/metar?bbox=${minLat},${minLon},${maxLat},${maxLon}&format=json&t=${Date.now()}`;
-        const p = fetch(url)
-            .then(async r => {
-                if (r.status === 204) return [];
-                if (!r.ok) throw new Error("HTTP " + r.status);
-                const txt = await r.text();
-                return JSON.parse(txt);
-            })
-            .catch(async e => {
-                // WICHTIG: Wir nutzen jetzt den Codetabs-Proxy, exakt wie beim funktionierenden Metar-Widget!
-                try {
-                    const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
-                    const pr = await fetch(proxyUrl);
-                    if (pr.status === 204) return [];
-                    if (!pr.ok) throw new Error("Proxy HTTP " + pr.status);
-                    const txt = await pr.text();
-                    return JSON.parse(txt);
-                } catch(px) {
-                    return [];
-                }
-            })
-            .then(metars => {
-                return { targetDist, bestPt, metars, index: i };
-            });
+        const p = fetch(url).then(async r => {
+            if (r.status === 204) return [];
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return JSON.parse(await r.text());
+        }).catch(async e => {
+            try {
+                const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
+                const pr = await fetch(proxyUrl);
+                if (pr.status === 204) return [];
+                if (!pr.ok) throw new Error("Proxy Error");
+                return JSON.parse(await pr.text());
+            } catch(px) { return []; }
+        }).then(metars => ({ targetDist, bestPt, metars, index: i }));
         fetchPromises.push(p);
     }
     const results = await Promise.all(fetchPromises);
     for (let i = 0; i < results.length; i++) {
         const res = results[i];
-
-        if (!res.metars || res.metars.length === 0) {
-            console.log(`[Wetter Debug] Zone ${res.index + 1} (${Math.round(res.targetDist)}NM): Keine Wolken (CAVOK/Leer).`);
-            continue;
-        }
+        if (!res.metars || res.metars.length === 0) continue;
         let closestMetar = null, minMetarDist = Infinity;
         res.metars.forEach(m => {
             const d = calcNav(res.bestPt.lat, res.bestPt.lon, m.lat, m.lon).dist;
             if (d < minMetarDist) { minMetarDist = d; closestMetar = m; }
         });
-        if (closestMetar && minMetarDist < 60) {
+        if (closestMetar && minMetarDist < 45) {
             const clouds = [];
             const raw = closestMetar.rawOb || "";
             const stnElevFt = closestMetar.elev ? closestMetar.elev * 3.28084 : 0;
             const cloudRegex = /(FEW|SCT|BKN|OVC|VV)(\d{3})/g;
-            let match;
+            let match, lowestBase = Infinity;
             while((match = cloudRegex.exec(raw)) !== null) {
                 const type = match[1];
                 const agl = parseInt(match[2], 10) * 100;
                 const msl = Math.round(agl + stnElevFt);
+                if (msl < lowestBase) lowestBase = msl;
                 clouds.push({ type, baseAgl: agl, baseMsl: msl });
             }
-            if(clouds.length > 0) {
-                console.log(`[Wetter Debug] Zone ${res.index + 1} (${Math.round(res.targetDist)}NM): Wolken von ${closestMetar.icaoId} geladen.`);
-                zones.push({ distNM: res.bestPt.distNM, icao: closestMetar.icaoId, clouds: clouds });
-            } else {
-                console.log(`[Wetter Debug] Zone ${res.index + 1}: ${closestMetar.icaoId} meldet klaren Himmel.`);
+            const hasRain = /\b(-|\+)?(RA|DZ|SH|SHRA)\b/i.test(raw);
+            const hasSnow = /\b(-|\+)?(SN|SG|PL|SHSN)\b/i.test(raw);
+            const hasTS = /\b(-|\+)?(TS|TSRA|CB)\b/i.test(raw);
+            if(clouds.length > 0 || hasRain || hasSnow || hasTS) {
+                const visuals = { puffs: [], drops: [], flashes: [] };
+                if (clouds.length > 0) {
+                    for(let c=0; c<25; c++) visuals.puffs.push({ x: Math.random(), y: Math.random(), r: Math.random(), op: Math.random() });
+                }
+                if (hasRain || hasSnow) {
+                    for(let d=0; d<45; d++) visuals.drops.push({ x: Math.random(), y: Math.random(), spd: Math.random() });
+                }
+                if (hasTS) {
+                    for(let f=0; f<2; f++) visuals.flashes.push({ x: Math.random(), pts: [Math.random(), Math.random(), Math.random(), Math.random()] });
+                }
+                zones.push({
+                    distNM: res.bestPt.distNM, icao: closestMetar.icaoId, clouds: clouds,
+                    lowestBase: lowestBase !== Infinity ? lowestBase : 5000,
+                    weather: { hasRain, hasSnow, hasTS }, visuals: visuals
+                });
             }
         }
     }
-
     return zones.length > 0 ? zones : null;
 }
 // Globale Debug-Funktion für die Entwicklerkonsole
@@ -4090,49 +4094,114 @@ window.debugCloudProfile = function() {
     triggerVerticalProfileUpdate();
     console.log("Update angetriggert. Bitte das Profil-Canvas öffnen und die Logs beobachten.");
 };
-function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme) {
+function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elevData) {
     if (!vpWeatherData || vpWeatherData.length === 0) return;
-
+    const getElevY = (dNM) => {
+        if (!elevData || elevData.length < 2) return yOf(0);
+        for(let i=0; i<elevData.length-1; i++) {
+            if (dNM >= elevData[i].distNM && dNM <= elevData[i+1].distNM) {
+                const f = (dNM - elevData[i].distNM) / (elevData[i+1].distNM - elevData[i].distNM);
+                return yOf(elevData[i].elevFt + f * (elevData[i+1].elevFt - elevData[i].elevFt));
+            }
+        }
+        return yOf(elevData[elevData.length-1].elevFt);
+    };
+    // Stabiler, deterministischer Pseudo-Zufallsgenerator gegen Flackern
+    const prng = (s) => { let x = Math.sin(s) * 10000; return x - Math.floor(x); };
     ctx.save();
-    const cFew = isDarkTheme ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.7)';
-    const cSct = isDarkTheme ? 'rgba(220,220,220,0.45)' : 'rgba(230,230,230,0.85)';
-    const cBkn = isDarkTheme ? 'rgba(180,180,180,0.65)' : 'rgba(200,200,200,0.95)';
-    const cOvc = isDarkTheme ? 'rgba(120,120,120,0.8)' : 'rgba(150,150,150,0.95)';
-    const textCol = '#222'; // Schrift auf Wolken immer dunkel
     for (let i = 0; i < vpWeatherData.length; i++) {
         const zone = vpWeatherData[i];
-        if (!zone.clouds || zone.clouds.length === 0) continue;
-        const prevDist = (i > 0) ? (zone.distNM + vpWeatherData[i-1].distNM)/2 : Math.max(0, zone.distNM - 15);
-        const nextDist = (i < vpWeatherData.length - 1) ? (zone.distNM + vpWeatherData[i+1].distNM)/2 : Math.min(totalDist, zone.distNM + 15);
-        const startX = xOf(prevDist);
-        const endX = xOf(nextDist);
-        const midX = xOf(zone.distNM);
-        zone.clouds.forEach(c => {
-            const y = yOf(c.baseMsl);
-            if (y < padTop - 5 || y > padTop + plotH) return; // Nicht zeichnen, wenn völlig außerhalb
+        const prevDist = (i > 0) ? (zone.distNM + vpWeatherData[i-1].distNM)/2 : Math.max(0, zone.distNM - totalDist*0.05);
+        const nextDist = (i < vpWeatherData.length - 1) ? (zone.distNM + vpWeatherData[i+1].distNM)/2 : Math.min(totalDist, zone.distNM + totalDist*0.05);
+        const startX = xOf(prevDist), endX = xOf(nextDist), width = endX - startX, midX = startX + width/2;
+        // 1. REGEN & SCHNEE
+        if (zone.weather && (zone.weather.hasRain || zone.weather.hasSnow) && zone.lowestBase) {
+            const baseY = yOf(zone.lowestBase);
             ctx.beginPath();
-            ctx.moveTo(startX, y);
-            ctx.lineTo(endX, y);
-            ctx.lineWidth = 14;
-            ctx.lineCap = 'round';
-            if (c.type === 'FEW') { ctx.strokeStyle = cFew; ctx.setLineDash([15, 25]); }
-            else if (c.type === 'SCT') { ctx.strokeStyle = cSct; ctx.setLineDash([30, 15]); }
-            else if (c.type === 'BKN') { ctx.strokeStyle = cBkn; ctx.setLineDash([70, 8]); }
-            else { ctx.strokeStyle = cOvc; ctx.setLineDash([]); } // OVC / VV
-            if (!isDarkTheme) {
-                ctx.shadowColor = 'rgba(0,0,0,0.2)';
-                ctx.shadowBlur = 4;
-                ctx.shadowOffsetY = 2;
+            for(let d=0; d<35; d++) {
+                const pxRand = prng(i * 200 + d + 0.1), pyRand = prng(i * 200 + d + 0.2), spdRand = prng(i * 200 + d + 0.3);
+                const dropX = startX + pxRand * width, dNM = prevDist + pxRand * (nextDist - prevDist);
+                const groundY = getElevY(dNM);
+                if (baseY < groundY) {
+                    if (zone.weather.hasSnow) {
+                        const sy = baseY + pyRand * (groundY - baseY);
+                        ctx.moveTo(dropX, sy); ctx.arc(dropX, sy, 0.8 + spdRand, 0, Math.PI*2);
+                    } else {
+                        const ry1 = baseY + pyRand * (groundY - baseY);
+                        const ry2 = Math.min(groundY, ry1 + 6 + spdRand * 4);
+                        ctx.moveTo(dropX, ry1); ctx.lineTo(dropX - 1 - spdRand*2, ry2);
+                    }
+                }
             }
-
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.shadowColor = 'transparent';
-            ctx.fillStyle = textCol;
-            ctx.font = 'bold 8px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(c.type, midX, y + 3);
-        });
+            ctx.fillStyle = zone.weather.hasSnow ? 'rgba(255,255,255,0.8)' : 'rgba(80, 150, 255, 0.6)';
+            ctx.strokeStyle = zone.weather.hasSnow ? 'rgba(255,255,255,0.8)' : 'rgba(80, 150, 255, 0.5)';
+            ctx.lineWidth = 1.5;
+            if (zone.weather.hasSnow) ctx.fill(); else ctx.stroke();
+        }
+        // 2. BLITZE
+        if (zone.weather && zone.weather.hasTS && zone.lowestBase) {
+            const baseY = yOf(zone.lowestBase);
+            ctx.beginPath();
+            for(let f=0; f<2; f++) {
+                const fxRand = prng(i * 300 + f + 0.1);
+                const fx = startX + width * 0.2 + fxRand * width * 0.6;
+                const groundY = getElevY(prevDist + fxRand * (nextDist - prevDist));
+                if (baseY < groundY) {
+                    const stepY = (groundY - baseY) / 4;
+                    ctx.moveTo(fx, baseY);
+                    ctx.lineTo(fx + (prng(i*300+f+0.2)-0.5)*15, baseY + stepY);
+                    ctx.lineTo(fx + (prng(i*300+f+0.3)-0.5)*15, baseY + stepY*2);
+                    ctx.lineTo(fx + (prng(i*300+f+0.4)-0.5)*15, baseY + stepY*3);
+                    ctx.lineTo(fx + (prng(i*300+f+0.5)-0.5)*15, groundY);
+                }
+            }
+            ctx.strokeStyle = 'rgba(255, 230, 100, 0.9)'; ctx.lineWidth = 1.5; ctx.stroke();
+        }
+        // 3. WOLKEN (PUFFS)
+        if (zone.clouds && zone.clouds.length > 0) {
+            zone.clouds.forEach((c, cIdx) => {
+                const baseY = yOf(c.baseMsl);
+                let thicknessFt = 600, baseColor = isDarkTheme ? 210 : 255;
+                if (c.type === 'SCT') { thicknessFt = 1200; baseColor -= 15; }
+                else if (c.type === 'BKN') { thicknessFt = 3000; baseColor -= 40; }
+                else if (c.type === 'OVC' || c.type === 'VV') { thicknessFt = 5000; baseColor -= 70; }
+                if (zone.weather && zone.weather.hasTS) { thicknessFt = Math.max(thicknessFt, 12000); baseColor -= 60; }
+                const topY = yOf(c.baseMsl + thicknessFt), layerHeight = baseY - topY;
+                if (baseY < padTop - 20 || topY > padTop + plotH + 20) return;
+                const maxRadiusY = Math.abs(yOf(1500) - yOf(0)), maxRadiusX = width * 0.4;
+                const maxR = Math.max(3, Math.min(maxRadiusY, maxRadiusX));
+                const seedBase = i * 100 + cIdx * 10;
+                ctx.save();
+                // Flache Basis: Alles unterhalb von baseY wird rigoros abgeschnitten!
+                ctx.beginPath();
+                ctx.rect(startX, 0, width, baseY);
+                ctx.clip();
+                for(let p=0; p<45; p++) {
+                    const pxRand = prng(seedBase + p + 0.1);
+                    if (c.type === 'FEW' && (pxRand * 4) % 1 > 0.2) continue;
+                    if (c.type === 'SCT' && (pxRand * 4) % 1 > 0.5) continue;
+                    if (c.type === 'BKN' && (pxRand * 3) % 1 > 0.85) continue;
+                    const pyRand = prng(seedBase + p + 0.2), prRand = prng(seedBase + p + 0.3), opRand = prng(seedBase + p + 0.4);
+                    const px = startX + (pxRand * 1.1 - 0.05) * width;
+                    const py = baseY - pyRand * layerHeight; // Kein pow() mehr nötig, Clip macht die Basis flach!
+                    const pr = 4 + prRand * maxR;
+                    const cVal = Math.floor(baseColor - opRand * 30);
+                    // FEW und SCT jetzt deutlich transparenter
+                    const alpha = (c.type === 'FEW' || c.type === 'SCT') ? (0.15 + opRand * 0.2) : (0.5 + opRand * 0.4);
+                    ctx.beginPath();
+                    ctx.arc(px, py, pr, 0, Math.PI*2);
+                    ctx.fillStyle = `rgba(${cVal},${cVal},${cVal},${alpha})`;
+                    // Der Unschärfe-Trick für franzige Wolken
+                    ctx.shadowColor = `rgba(${cVal},${cVal},${cVal},${alpha})`;
+                    ctx.shadowBlur = 8 + prRand * 12;
+                    ctx.fill();
+                }
+                ctx.restore();
+                ctx.fillStyle = isDarkTheme ? '#ccc' : '#222';
+                ctx.font = 'bold 8px Arial'; ctx.textAlign = 'center';
+                ctx.fillText(c.type, midX, baseY + 12);
+            });
+        }
     }
     ctx.restore();
 }
@@ -4211,7 +4280,7 @@ function renderVerticalProfile(canvasId) {
             });
         });
     }
-    let autoMaxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500, vpShowClouds ? maxCloudAlt + 1000 : 0);
+    let autoMaxAlt = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
     const maxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
     const minAlt = 0;
 
@@ -4371,7 +4440,7 @@ function renderVerticalProfile(canvasId) {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, false); // Light theme Wolken
+    if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, false, vpElevationData);
 
     // Flight profile
     if (fpResult && fpResult.profile) {
@@ -4707,7 +4776,7 @@ function renderMapProfile() {
             });
         });
     }
-    let autoMaxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500, vpShowClouds ? maxCloudAlt + 1000 : 0);
+    let autoMaxAlt = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
     const maxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
     const minAlt = 0;
 
@@ -4877,7 +4946,7 @@ function renderMapProfile() {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, true); // Dark theme Wolken
+    if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, true, elevData);
 
     // Flight profile
     if (fpResult && fpResult.profile) {
@@ -6125,7 +6194,7 @@ function vpChangeYAxis(delta) {
         if (vpShowClouds && vpWeatherData) {
             vpWeatherData.forEach(zone => { if (zone.clouds) zone.clouds.forEach(c => { if (c.baseMsl > maxCloudAlt) maxCloudAlt = c.baseMsl; }); });
         }
-        vpMaxAltOverride = Math.max(cruiseAlt + 500, maxTerrain + 1500, vpShowClouds ? maxCloudAlt + 1000 : 0);
+        vpMaxAltOverride = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
         vpMaxAltOverride = Math.ceil(vpMaxAltOverride / 1000) * 1000;
     }
     vpMaxAltOverride = Math.max(3000, vpMaxAltOverride + delta);

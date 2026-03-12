@@ -657,28 +657,26 @@
             <div id="profileResizeHandle" class="profile-resize-handle" title="Ziehen zum Ändern der Profilhöhe"></div>
             <div id="mapProfileStrip" class="map-profile-strip">
                 <div class="map-profile-controls" style="gap: 4px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; scrollbar-width: none;">
+                    <span style="color:#aaa; font-size:10px; font-family:monospace; margin-left:4px;">ZOOM</span>
+                    <button class="vp-ctrl-btn" onclick="vpZoom(10)">−</button>
+                    <span id="vpZoomDisplay" class="vp-ctrl-label" style="min-width:24px;">0%</span>
+                    <button class="vp-ctrl-btn" onclick="vpZoom(-10)">+</button>
+                    <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
+                    <span style="color:#aaa; font-size:10px; font-family:monospace;">MAX FT</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(-1000)">−</button>
+                    <span id="yAxisDisplay" class="vp-ctrl-label" onclick="vpResetYAxis()" title="Klick = Auto Skalierung">AUTO</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(1000)">+</button>
+                    <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
                     <span style="color:#aaa; font-size:10px; font-family:monospace; margin-right:2px;">ALT</span>
                     <button class="vp-ctrl-btn" onclick="vpChangeAlt(-500)">−</button>
                     <span id="altMapInput" class="vp-ctrl-val" onclick="promptForAlt()" title="Klicken für manuelle Eingabe">4500</span>
                     <button class="vp-ctrl-btn" onclick="vpChangeAlt(500)">+</button>
-
                     <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
-
                     <span style="color:#aaa; font-size:10px; font-family:monospace;">V/S</span>
                     <button class="vp-ctrl-btn" onclick="vpChangeRate(-100)">−</button>
                     <span id="rateMapInput" class="vp-ctrl-val" onclick="promptForRate()" title="Klicken für manuelle Eingabe">500</span>
                     <button class="vp-ctrl-btn" onclick="vpChangeRate(100)">+</button>
-                    <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
-                    <span style="color:#aaa; font-size:10px; font-family:monospace;">Y-AXIS</span>
-                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(-1000)">−</button>
-                    <span id="yAxisDisplay" class="vp-ctrl-label" onclick="vpResetYAxis()" title="Klick = Auto Skalierung">AUTO</span>
-                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(1000)">+</button>
-                    <button id="btnToggleClouds" class="vp-toggle-cloud active" onclick="vpToggleClouds()" title="Wolken an/aus">⛅</button>
-                    <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
-                    <span style="color:#aaa; font-size:10px; font-family:monospace;">ZOOM</span>
-                    <button class="vp-ctrl-btn" onclick="vpZoom(10)">−</button>
-                    <span id="vpZoomDisplay" class="vp-ctrl-label" style="min-width:24px;">0%</span>
-                    <button class="vp-ctrl-btn" onclick="vpZoom(-10)">+</button>
+                    <button id="btnToggleClouds" class="vp-toggle-cloud active" onclick="vpToggleClouds()" title="Wolken an/aus" style="margin-left:auto;">⛅</button>
                 </div>
                 <div id="mapProfileScroll" class="map-profile-scroll" style="touch-action: none;">
                     <canvas id="mapProfileCanvas"></canvas>
