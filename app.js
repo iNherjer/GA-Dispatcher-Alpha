@@ -1,6 +1,13 @@
 /* =========================================================
    GLOBAL HELPERS
    ========================================================= */
+if (!document.getElementById('vp-pulse-style')) {
+    const style = document.createElement('style');
+    style.id = 'vp-pulse-style';
+    style.innerHTML = `@keyframes vpPulse { 0% {opacity:1; transform:scale(1);} 50% {opacity:0.4; transform:scale(0.85);} 100% {opacity:1; transform:scale(1);} } .vp-loading-pulse { animation: vpPulse 1.2s infinite; pointer-events: none; }`;
+    document.head.appendChild(style);
+}
+
 window.formatAsLimit = function(lim) {
     if (!lim) return '?';
     if (lim.referenceDatum === 0 && lim.value === 0) return 'GND';
@@ -9,6 +16,27 @@ window.formatAsLimit = function(lim) {
     let r = lim.referenceDatum === 1 ? ' MSL' : (lim.referenceDatum === 0 ? ' AGL' : '');
     return `${lim.value} ${u}${r}`;
 };
+
+// V77: Globale Flag – true, solange der Nutzer irgendeinen Slider/Knob berührt
+window.vpUIInteractionActive = false;
+document.addEventListener('DOMContentLoaded', () => {
+    // Erkennt, wenn der Nutzer an einem klassischen Slider zieht
+    document.querySelectorAll('input[type="range"]').forEach(slider => {
+        slider.addEventListener('mousedown', () => window.vpUIInteractionActive = true);
+        slider.addEventListener('touchstart', () => window.vpUIInteractionActive = true, {passive: true});
+        const onEnd = () => {
+            window.vpUIInteractionActive = false;
+            if (slider.id === 'altSlider' || slider.id === 'rateSlider') {
+                if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+                if (typeof vpDrawClouds === 'function' && document.getElementById('verticalProfileCanvas')) {
+                    renderMapProfile(); renderVerticalProfile('verticalProfileCanvas');
+                }
+            }
+        };
+        slider.addEventListener('mouseup', onEnd);
+        slider.addEventListener('touchend', onEnd);
+    });
+});
 
 /* =========================================================
    1. THEME TOGGLE & NOTIZEN TOGGLE
@@ -437,6 +465,7 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
     let currentRotation = 0;
 
     function onStart(e) {
+        window.vpUIInteractionActive = true;
         isDragging = true;
         startY = e.touches ? e.touches[0].clientY : e.clientY;
         startX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -497,11 +526,17 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
     }
 
     function onEnd() {
+        window.vpUIInteractionActive = false;
         isDragging = false;
         document.body.style.cursor = 'default';
         knob.style.transition = 'transform 0.3s ease';
         knob.style.transform = `rotate(0deg)`;
         setTimeout(() => knob.style.transition = '', 300);
+        if (type === 'alt' || (type === 'alt' && typeof navcomAltMode !== 'undefined' && navcomAltMode === 'rate')) {
+            if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
+            if (typeof renderMapProfile === 'function') renderMapProfile();
+            if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+        }
     }
 
     knob.addEventListener('mousedown', onStart);
@@ -835,8 +870,12 @@ function handleSliderChange(type, val) {
         syncToNavCom('altRadioDisplay', val);
         const mInp = document.getElementById('altMapInput');
         if (mInp && mInp.innerText != val) mInp.innerText = val;
-        triggerVerticalProfileUpdate();
-        if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+
+        // Direkter Render-Aufruf! KEIN 3-Sekunden triggerVerticalProfileUpdate() mehr!
+        if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
+        if (typeof renderMapProfile === 'function') renderMapProfile();
+        // Lufträume nur prüfen, wenn wir nicht gerade aktiv ziehen
+        if (!window.vpUIInteractionActive && typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
     }
 }
 
@@ -861,7 +900,7 @@ function handleRateChange(val) {
     // Re-render profiles
     if (typeof renderMapProfile === 'function') renderMapProfile();
     if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
-    if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+    if (!window.vpUIInteractionActive && typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
 }
 
 function recalculatePerformance() {
@@ -4026,60 +4065,57 @@ async function fetchProfileObstacles(elevData) {
 
 function triggerVerticalProfileUpdate() {
     if (vpProfileTimeout) clearTimeout(vpProfileTimeout);
+    // SOFORT pulsieren, um dem User zu zeigen, dass Änderungen registriert wurden
+    ['btnToggleClouds', 'btnToggleLandmarks', 'btnToggleObstacles'].forEach(id => {
+        const b = document.getElementById(id); if(b) b.classList.add('vp-loading-pulse');
+    });
     vpProfileTimeout = setTimeout(async () => {
         if (!routeWaypoints || routeWaypoints.length < 2) return;
-
         const cacheKey = routeWaypoints.map(p => `${(p.lat || 0).toFixed(4)},${((p.lng || p.lon) || 0).toFixed(4)}`).join('|');
         if (window._lastVpRouteKey !== cacheKey) {
-            vpAltWaypoints = []; vpSegmentAlts = [];
-            vpHighResData = null;
-            vpZoomLevel = 100;
-            const zd = document.getElementById('vpZoomDisplay');
-            if (zd) zd.textContent = '0%';
+            vpAltWaypoints = []; vpSegmentAlts = []; vpHighResData = null; vpZoomLevel = 100;
+            const zd = document.getElementById('vpZoomDisplay'); if (zd) zd.textContent = '0%';
             window._lastVpRouteKey = cacheKey;
         }
-
         const page5 = document.getElementById('notePage5');
         if (page5) page5.style.display = '';
         const status = document.getElementById('verticalProfileStatus');
         if (status) status.textContent = 'Lade Höhendaten...';
-
         try {
             vpElevationData = await fetchRouteElevation(routeWaypoints);
             if (status) status.textContent = 'Lade Wetterlage...';
             vpWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData);
-            renderVerticalProfile('verticalProfileCanvas');
-            if (status) status.textContent = vpElevationData.length + ' Höhenpunkte & Wetter geladen';
 
             if (window._lastLandmarkRouteKey !== cacheKey) {
-                vpLandmarks = [];
-                vpObstacles = [];
-                Promise.all([
-                    fetchProfileLandmarks(vpElevationData),
-                    fetchProfileObstacles(vpElevationData)
-                ]).then(([lms, obs]) => {
-                    vpLandmarks = lms;
-                    vpObstacles = obs;
-                    window._lastLandmarkRouteKey = cacheKey;
-                    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
-                    if (typeof renderMapProfile === 'function' && document.getElementById('mapTableOverlay').classList.contains('active')) renderMapProfile();
-                });
+                window._lastLandmarkRouteKey = cacheKey;
+                const lmStr = localStorage.getItem('ga_lms_' + cacheKey);
+                const obStr = localStorage.getItem('ga_obs_' + cacheKey);
+
+                if (lmStr && obStr) {
+                    try { vpLandmarks = JSON.parse(lmStr); vpObstacles = JSON.parse(obStr); } catch(e) {}
+                } else {
+                    vpLandmarks = []; vpObstacles = [];
+                    const [lms, obs] = await Promise.all([fetchProfileLandmarks(vpElevationData), fetchProfileObstacles(vpElevationData)]);
+                    vpLandmarks = lms; vpObstacles = obs;
+                    try {
+                        localStorage.setItem('ga_lms_' + cacheKey, JSON.stringify(lms));
+                        localStorage.setItem('ga_obs_' + cacheKey, JSON.stringify(obs));
+                    } catch(e) {}
+                }
             }
+            if (status) status.textContent = vpElevationData.length + ' Höhenpunkte & Wetter geladen';
         } catch (e) {
             console.error('Vertical Profile Error:', e);
             if (status) status.textContent = 'Limit API/Fehler';
-
-            // If we have nothing, render a flat baseline so the canvas still draws and airspaces update
-            if (!vpElevationData || vpElevationData.length === 0) {
-                const totalDist = routeWaypoints.reduce((acc, wp, i) => i === 0 ? 0 : acc + calcNav(routeWaypoints[i - 1].lat, routeWaypoints[i - 1].lng || routeWaypoints[i - 1].lon, wp.lat, wp.lng || wp.lon).dist, 0);
-                vpElevationData = [
-                    { distNM: 0, elevFt: 0, lat: routeWaypoints[0].lat, lon: routeWaypoints[0].lng || routeWaypoints[0].lon },
-                    { distNM: Math.max(1, totalDist), elevFt: 0, lat: routeWaypoints[routeWaypoints.length - 1].lat, lon: routeWaypoints[routeWaypoints.length - 1].lng || routeWaypoints[routeWaypoints.length - 1].lon }
-                ];
-            }
-            renderVerticalProfile('verticalProfileCanvas');
+        } finally {
+            // Fertig geladen -> Pulsieren stoppen
+            ['btnToggleClouds', 'btnToggleLandmarks', 'btnToggleObstacles'].forEach(id => {
+                const b = document.getElementById(id); if(b) b.classList.remove('vp-loading-pulse');
+            });
+            if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+            if (typeof renderMapProfile === 'function' && document.getElementById('mapTableOverlay').classList.contains('active')) renderMapProfile();
         }
-    }, 1200);
+    }, 3000);
 }
 
 async function fetchRouteElevation(routePts) {
@@ -4156,6 +4192,12 @@ async function fetchRouteElevation(routePts) {
 
 async function fetchRouteWeather(routePts, elevData) {
     if (!routePts || routePts.length < 2 || !elevData || elevData.length < 2) return null;
+    window._weatherCache = window._weatherCache || {};
+    // Koordinaten als Key (sobald sich die Route ändert, verfällt der Cache)
+    const weatherKey = routePts.map(p => `${(p.lat || 0).toFixed(2)},${((p.lng || p.lon) || 0).toFixed(2)}`).join('|');
+    if (window._weatherCache[weatherKey] && (Date.now() - window._weatherCache[weatherKey].time) < 15 * 60000) {
+        return window._weatherCache[weatherKey].data;
+    }
     const totalDist = elevData[elevData.length - 1].distNM;
     const numZones = 10;
     const zones = [];
@@ -4232,7 +4274,11 @@ async function fetchRouteWeather(routePts, elevData) {
             }
         }
     }
-    return zones.length > 0 ? zones : null;
+    if (zones.length > 0) {
+        window._weatherCache[weatherKey] = { time: Date.now(), data: zones };
+        return zones;
+    }
+    return null;
 }
 // Globale Debug-Funktion für die Entwicklerkonsole
 window.debugCloudProfile = function() {
@@ -4292,55 +4338,76 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
     if(countDrawn === 0 && vpLandmarks.length > 0) console.log("⚠️ Landmarks wurden geladen, aber durch Kollision/Rand abgeschnitten!");
 }
 
-function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor) {
+function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
     if (!vpObstacles || vpObstacles.length === 0) return;
     const edgePad = Math.min(1.0, totalDist * 0.02);
+    // Terrain-interpolierte Basis – gleiche Logik wie vpDrawClouds → Hindernis sitzt exakt auf der Geländelinie
+    const getElevY = (dNM) => {
+        if (!elevData || elevData.length < 2) return yOf(0);
+        for (let i = 0; i < elevData.length - 1; i++) {
+            if (dNM >= elevData[i].distNM && dNM <= elevData[i+1].distNM) {
+                const f = (dNM - elevData[i].distNM) / (elevData[i+1].distNM - elevData[i].distNM);
+                return yOf(elevData[i].elevFt + f * (elevData[i+1].elevFt - elevData[i].elevFt));
+            }
+        }
+        return yOf(elevData[elevData.length - 1].elevFt);
+    };
     ctx.save();
     for (const obs of vpObstacles) {
         if (obs.distNM < edgePad || obs.distNM > totalDist - edgePad) continue;
         const px = xOf(obs.distNM);
-        const pyBase = yOf(obs.elevFt);
-        const pyTop = yOf(obs.elevFt + obs.hFt);
-        const towerHeightPx = Math.max(1, pyBase - pyTop); // Exakte Turmhöhe in Pixeln
+        const pyBase = getElevY(obs.distNM);                        // Geländelinie an dieser Stelle
+        const heightPx = Math.abs(yOf(obs.hFt) - yOf(0));          // Turmhöhe in Pixeln (skalenunabhängig)
+        const pyTop = pyBase - heightPx;                             // Turmspitze
+        const towerHeightPx = Math.max(1, heightPx);
 
-        // Turm zeichnen
-        ctx.beginPath();
-        ctx.moveTo(px, pyBase);
-        ctx.lineTo(px, pyTop);
-        ctx.strokeStyle = 'rgba(80, 80, 80, 0.9)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
         if (obs.type === 'wind') {
-            // Windrad: Radius = exakt 40% (2/5) der Turmhöhe, limitiert gegen extreme Verzerrung
-            const r = Math.max(4, Math.min(towerHeightPx * 0.4, 25));
-            ctx.fillStyle = '#d93829'; // Warn-Rot
+            // Windrad: Nabe sitzt r Pixel über der Turmspitze, Rotorblätter gehen von der Nabe aus
+            const r = Math.max(4, Math.min(towerHeightPx * 0.35, 25));
+            const pyHub = pyTop + r;                                 // Nabe liegt r px unterhalb der Spitze
 
-            // Pseudo-zufälliger Startwinkel (Snapshot in time), damit nicht alle gleich stehen
+            // Turm (Fundament → Nabe)
+            ctx.beginPath();
+            ctx.moveTo(px, pyBase);
+            ctx.lineTo(px, pyHub);
+            ctx.strokeStyle = 'rgba(80, 80, 80, 0.9)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Rotorblätter (pseudo-zufälliger Snapshot-Winkel)
+            ctx.fillStyle = '#d93829';
             const rotOffset = (obs.distNM * 137) % (Math.PI * 2);
-            for(let i=0; i<3; i++) {
-                let a = rotOffset + (i * 120 - 90) * Math.PI / 180;
+            for (let i = 0; i < 3; i++) {
+                const a = rotOffset + (i * 120 - 90) * Math.PI / 180;
                 ctx.beginPath();
-                ctx.moveTo(px, pyTop);
-                ctx.lineTo(px + Math.cos(a - 0.2) * r * 0.25, pyTop + Math.sin(a - 0.2) * r * 0.25);
-                ctx.lineTo(px + Math.cos(a) * r, pyTop + Math.sin(a) * r);
-                ctx.lineTo(px + Math.cos(a + 0.2) * r * 0.25, pyTop + Math.sin(a + 0.2) * r * 0.25);
+                ctx.moveTo(px, pyHub);
+                ctx.lineTo(px + Math.cos(a - 0.2) * r * 0.25, pyHub + Math.sin(a - 0.2) * r * 0.25);
+                ctx.lineTo(px + Math.cos(a) * r,               pyHub + Math.sin(a) * r);
+                ctx.lineTo(px + Math.cos(a + 0.2) * r * 0.25, pyHub + Math.sin(a + 0.2) * r * 0.25);
                 ctx.closePath();
                 ctx.fill();
             }
-            // Nabe (Mittelpunkt)
-            ctx.beginPath(); ctx.arc(px, pyTop, 1.5, 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill();
+            // Nabe (weißer Mittelpunkt)
+            ctx.beginPath(); ctx.arc(px, pyHub, 1.5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
         } else {
-            // Klassischer Mast: Roter Punkt mit zufälliger Helligkeit (Snapshot vom Blinken)
-            const alpha = 0.4 + ((obs.distNM * 88) % 100) / 100 * 0.6; // Ergibt einen Wert zwischen 0.4 und 1.0
-            ctx.beginPath(); ctx.arc(px, pyTop, 2, 0, Math.PI*2); ctx.fillStyle = `rgba(217, 56, 41, ${alpha})`; ctx.fill();
+            // Klassischer Mast: Turm + roter Warnpunkt mit Snapshot-Alpha (simuliertes Blinken)
+            ctx.beginPath();
+            ctx.moveTo(px, pyBase);
+            ctx.lineTo(px, pyTop);
+            ctx.strokeStyle = 'rgba(80, 80, 80, 0.9)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            const alpha = 0.4 + ((obs.distNM * 88) % 100) / 100 * 0.6;
+            ctx.beginPath(); ctx.arc(px, pyTop, 2, 0, Math.PI * 2); ctx.fillStyle = `rgba(217, 56, 41, ${alpha})`; ctx.fill();
         }
-        // Cluster-Label (x5, x12) bei Windparks anzeigen
+
+        // Cluster-Label (z. B. ×5, ×12) bei Windparks
         if (obs.count > 1) {
             ctx.fillStyle = '#d93829';
             ctx.font = 'bold 7px Arial';
             ctx.textAlign = 'left';
-            // Abstand des Textes dynamisch an Turmhöhe anpassen
-            ctx.fillText('x' + obs.count, px + Math.max(5, towerHeightPx * 0.2), pyTop + 4);
+            ctx.fillText('×' + obs.count, px + Math.max(5, towerHeightPx * 0.2), pyTop + 4);
         }
     }
     ctx.restore();
@@ -4465,8 +4532,11 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
                     ctx.arc(px, py, pr, 0, Math.PI * 2);
                     ctx.fillStyle = `rgba(${cVal},${cVal},${cVal},${alpha})`;
 
-                    // Performance-Fix: Weiche Ränder deaktivieren, während gezogen wird!
-                    const isDragging = (typeof vpDraggingWP !== 'undefined' && vpDraggingWP >= 0) || (typeof vpDraggingSegment !== 'undefined' && !!vpDraggingSegment) || (typeof vpResizeActive !== 'undefined' && vpResizeActive);
+                    // Performance-Fix: Weiche Ränder deaktivieren, während Graphen, Slider oder Drehknöpfe gezogen werden!
+                    const isDragging = (typeof vpDraggingWP !== 'undefined' && vpDraggingWP >= 0) ||
+                                       (typeof vpDraggingSegment !== 'undefined' && !!vpDraggingSegment) ||
+                                       (typeof vpResizeActive !== 'undefined' && vpResizeActive) ||
+                                       (window.vpUIInteractionActive === true);
                     if (!isDragging) {
                         ctx.shadowColor = `rgba(${cVal},${cVal},${cVal},${alpha})`;
                         ctx.shadowBlur = 4 + prRand * 8;
@@ -4733,10 +4803,9 @@ function renderVerticalProfile(canvasId) {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    vpDrawLandmarks(ctx, xOf, yOf, vpElevationData, totalDist, false, 1.0);
-    vpDrawObstacles(ctx, xOf, yOf, totalDist, 1.0);
-
-    if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, false, vpElevationData);
+    if (vpShowLandmarks) vpDrawLandmarks(ctx, xOf, yOf, typeof elevData !== 'undefined' ? elevData : vpElevationData, totalDist, typeof zoomFactor !== 'undefined', typeof zoomFactor !== 'undefined' ? zoomFactor : 1.0);
+    if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, typeof zoomFactor !== 'undefined', typeof elevData !== 'undefined' ? elevData : vpElevationData);
+    if (vpShowObstacles) vpDrawObstacles(ctx, xOf, yOf, totalDist, typeof zoomFactor !== 'undefined' ? zoomFactor : 1.0, typeof elevData !== 'undefined' ? elevData : vpElevationData);
 
     // Flight profile
     if (fpResult && fpResult.profile) {
@@ -5254,10 +5323,9 @@ function renderMapProfile() {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, true, zoomFactor);
-    vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor);
-
-    if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, true, elevData);
+    if (vpShowLandmarks) vpDrawLandmarks(ctx, xOf, yOf, typeof elevData !== 'undefined' ? elevData : vpElevationData, totalDist, typeof zoomFactor !== 'undefined', typeof zoomFactor !== 'undefined' ? zoomFactor : 1.0);
+    if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, typeof zoomFactor !== 'undefined', typeof elevData !== 'undefined' ? elevData : vpElevationData);
+    if (vpShowObstacles) vpDrawObstacles(ctx, xOf, yOf, totalDist, typeof zoomFactor !== 'undefined' ? zoomFactor : 1.0, typeof elevData !== 'undefined' ? elevData : vpElevationData);
 
     // Flight profile
     if (fpResult && fpResult.profile) {
@@ -6462,7 +6530,14 @@ function resetSyncTimer() {
 setTimeout(() => initAltWaypoints(), 2000);
 // === VERTICAL PROFILE CONTROLS (V49) ===
 let vpMaxAltOverride = 0; // 0 = Auto-Scaling
-let vpShowClouds = true;
+let vpShowClouds = localStorage.getItem('ga_show_clouds') !== 'false'; // Default: true
+let vpShowLandmarks = localStorage.getItem('ga_show_landmarks') !== 'false';
+let vpShowObstacles = localStorage.getItem('ga_show_obstacles') !== 'false';
+document.addEventListener('DOMContentLoaded', () => {
+    const bc = document.getElementById('btnToggleClouds'); if(bc) bc.classList.toggle('active', vpShowClouds);
+    const bl = document.getElementById('btnToggleLandmarks'); if(bl) bl.classList.toggle('active', vpShowLandmarks);
+    const bo = document.getElementById('btnToggleObstacles'); if(bo) bo.classList.toggle('active', vpShowObstacles);
+});
 function vpChangeAlt(delta) {
     let val = parseInt(document.getElementById('altMapInput').innerText) || 4500;
     val = Math.max(1500, Math.min(13500, val + delta));
@@ -6471,13 +6546,10 @@ function vpChangeAlt(delta) {
 function syncAltFromInput(val) {
     val = parseInt(val) || 4500;
     const inp = document.getElementById('altMapInput');
-    inp.innerText = val;
+    if (inp) inp.innerText = val;
     const mainSlider = document.getElementById('altSlider');
     if (mainSlider) mainSlider.value = val;
-    handleSliderChange('alt', val);
-    if (typeof renderMapProfile === 'function') renderMapProfile();
-    if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
-    if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+    handleSliderChange('alt', val); // handleSliderChange übernimmt jetzt den direkten Render
 }
 function vpChangeRate(delta) {
     let val = parseInt(document.getElementById('rateMapInput').innerText) || 500;
@@ -6516,9 +6588,26 @@ function vpResetYAxis() {
 }
 function vpToggleClouds() {
     vpShowClouds = !vpShowClouds;
+    localStorage.setItem('ga_show_clouds', vpShowClouds);
     const btn = document.getElementById('btnToggleClouds');
     if (btn) btn.classList.toggle('active', vpShowClouds);
-    renderMapProfile();
+    if (typeof renderMapProfile === 'function') renderMapProfile();
+    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+}
+function vpToggleLandmarks() {
+    vpShowLandmarks = !vpShowLandmarks;
+    localStorage.setItem('ga_show_landmarks', vpShowLandmarks);
+    const btn = document.getElementById('btnToggleLandmarks');
+    if (btn) btn.classList.toggle('active', vpShowLandmarks);
+    if (typeof renderMapProfile === 'function') renderMapProfile();
+    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+}
+function vpToggleObstacles() {
+    vpShowObstacles = !vpShowObstacles;
+    localStorage.setItem('ga_show_obstacles', vpShowObstacles);
+    const btn = document.getElementById('btnToggleObstacles');
+    if (btn) btn.classList.toggle('active', vpShowObstacles);
+    if (typeof renderMapProfile === 'function') renderMapProfile();
     if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
 }
 
