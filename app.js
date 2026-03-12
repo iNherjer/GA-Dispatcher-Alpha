@@ -1734,21 +1734,24 @@ let vpPulsePhase = 0; // 0..1 for pulse animation
 
 function vpStartHighlightPulse() {
     vpStopHighlightPulse();
-    vpPulsePhase = 0;
-    function animate() {
-        vpPulsePhase = (vpPulsePhase + 0.02) % 1;
+    vpPulsePhase = 0.25; // Startet direkt mit voller Leuchtkraft
+
+    function toggleBlink() {
+        vpPulsePhase = (vpPulsePhase === 0.25) ? 0 : 0.25; // Wechselt zwischen 0 und 0.25 (an/aus)
         if (typeof renderMapProfile === 'function') renderMapProfile();
         if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
-        vpPulseAnimFrame = requestAnimationFrame(animate);
     }
-    vpPulseAnimFrame = requestAnimationFrame(animate);
+
+    toggleBlink(); // Sofortiges erstes Rendern
+    vpPulseAnimFrame = setInterval(toggleBlink, 700); // Alle 700ms entspannt umschalten statt 60x pro Sekunde
 }
 
 function vpStopHighlightPulse() {
     if (vpPulseAnimFrame) {
-        cancelAnimationFrame(vpPulseAnimFrame);
+        clearInterval(vpPulseAnimFrame);
         vpPulseAnimFrame = null;
     }
+    vpPulsePhase = 0;
 }
 
 function clearAirspaceMapLayers() {
