@@ -4007,6 +4007,77 @@ async function fetchProfileLandmarks(elevData) {
     return landmarks.sort((a,b) => b.pop - a.pop);
 }
 
+async function fetchProfileObstacles(elevData) {
+    if (!elevData || elevData.length < 2) return [];
+    
+    // Korridor-Punkte generieren (alle 5 NM ein Such-Kreis mit 4000m Radius)
+    const totalDist = elevData[elevData.length - 1].distNM;
+    const searchNodes = [];
+    for (let d = 0; d <= totalDist; d += 5) {
+        let pt = elevData.find(p => p.distNM >= d) || elevData[elevData.length - 1];
+        searchNodes.push(`node["generator:source"="wind"](around:4000,${pt.lat.toFixed(4)},${pt.lon.toFixed(4)});node["man_made"~"mast|tower"]["height"](around:4000,${pt.lat.toFixed(4)},${pt.lon.toFixed(4)});`);
+    }
+    
+    // Chunking: Maximal 40 Kreise pro API-Request, um Server zu schonen
+    let rawObstacles = [];
+    const chunks = [];
+    for (let i = 0; i < searchNodes.length; i += 40) {
+        chunks.push(searchNodes.slice(i, i + 40).join(''));
+    }
+
+    for (const chunk of chunks) {
+        let query = `[out:json][timeout:15];(${chunk});out;`;
+        try {
+            let url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+            let res = await fetch(url);
+            if (!res.ok) {
+                url = `https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+                res = await fetch(url);
+            }
+            if (!res.ok) continue;
+
+            let json = await res.json();
+            if(json.elements) {
+                json.elements.forEach(e => {
+                    if (!e.lat || !e.lon) return;
+                    let isWind = e.tags["generator:source"] === "wind";
+                    let hStr = e.tags.height;
+                    let hMeter = hStr ? parseFloat(hStr.replace(',', '.')) : (isWind ? 120 : 50);
+                    if (isNaN(hMeter) || hMeter < 30) return;
+                    let hFt = Math.round(hMeter * 3.28084);
+                    let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
+                    elevData.forEach(ep => {
+                        let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
+                        if(d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
+                    });
+                    // Feinschliff: Nur behalten, wenn sie wirklich im 2NM Radius der Route sind
+                    if (bestD < 2.0) {
+                        rawObstacles.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
+                    }
+                });
+            }
+        } catch(e) { console.warn("Obstacles Chunk Error:", e.message); }
+    }
+
+    // Clustering in 0.5 NM Abschnitte
+    let buckets = {};
+    rawObstacles.forEach(obs => {
+        let bIdx = Math.floor(obs.distNM / 0.5);
+        if (!buckets[bIdx]) buckets[bIdx] = [];
+        buckets[bIdx].push(obs);
+    });
+    let finalObs = [];
+    for (let k in buckets) {
+        let group = buckets[k];
+        group.sort((a,b) => b.hFt - a.hFt);
+        let rep = group[0];
+        rep.count = group.length;
+        finalObs.push(rep);
+    }
+    console.log("🗼 Obstacles Korridor-Scan fertig:", finalObs.length, "Hindernisse.");
+    return finalObs;
+}
+
 function triggerVerticalProfileUpdate() {
     if (vpProfileFastTimeout) clearTimeout(vpProfileFastTimeout);
     if (vpProfileSlowTimeout) clearTimeout(vpProfileSlowTimeout);
@@ -4090,6 +4161,163 @@ function triggerVerticalProfileUpdate() {
             if (typeof renderMapProfile === 'function' && document.getElementById('mapTableOverlay').classList.contains('active')) renderMapProfile();
         }
     }, 2800);
+}
+
+async function fetchRouteElevation(routePts) {
+    if (!routePts || routePts.length < 2) return [];
+    const cacheKey = routePts.map(p => `${(p.lat || 0).toFixed(4)},${((p.lng || p.lon) || 0).toFixed(4)}`).join('|');
+    if (vpElevationCache[cacheKey]) return vpElevationCache[cacheKey];
+    try {
+        const stored = localStorage.getItem('ga_elev_cache_' + cacheKey);
+        if (stored) {
+            const data = JSON.parse(stored);
+            vpElevationCache[cacheKey] = data;
+            return data;
+        }
+    } catch (e) { }
+
+    const interpolated = [];
+    let cumulativeDist = 0;
+
+    for (let i = 0; i < routePts.length - 1; i++) {
+        const p1 = routePts[i], p2 = routePts[i + 1];
+        const lat1 = p1.lat, lon1 = p1.lng || p1.lon;
+        const lat2 = p2.lat, lon2 = p2.lng || p2.lon;
+        const segDist = calcNav(lat1, lon1, lat2, lon2).dist;
+        const steps = Math.max(1, Math.round(segDist));
+
+        for (let j = 0; j <= steps; j++) {
+            if (i > 0 && j === 0) continue;
+            const f = j / steps;
+            interpolated.push({
+                lat: lat1 + (lat2 - lat1) * f,
+                lon: lon1 + (lon2 - lon1) * f,
+                distNM: cumulativeDist + segDist * f
+            });
+        }
+        cumulativeDist += segDist;
+    }
+
+    let samplePts = interpolated;
+    if (interpolated.length > 100) {
+        samplePts = [];
+        for (let i = 0; i < 100; i++) {
+            const idx = Math.round(i * (interpolated.length - 1) / 99);
+            samplePts.push(interpolated[idx]);
+        }
+    }
+
+    const lats = samplePts.map(p => p.lat.toFixed(4)).join(',');
+    const lons = samplePts.map(p => p.lon.toFixed(4)).join(',');
+
+    const res = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + lats + '&longitude=' + lons);
+    if (!res.ok) throw new Error('Elevation API error: ' + res.status);
+    const data = await res.json();
+
+    if (!data.elevation || data.elevation.length !== samplePts.length) {
+        throw new Error('Invalid elevation response');
+    }
+
+    const finalData = samplePts.map((p, i) => ({
+        distNM: p.distNM,
+        elevFt: Math.round(data.elevation[i] * 3.28084),
+        lat: p.lat,
+        lon: p.lon
+    }));
+
+    vpElevationCache[cacheKey] = finalData;
+    try { localStorage.setItem('ga_elev_cache_' + cacheKey, JSON.stringify(finalData)); } catch (e) { }
+    return finalData;
+}
+
+async function fetchRouteWeather(routePts, elevData) {
+    if (!routePts || routePts.length < 2 || !elevData || elevData.length < 2) return null;
+    window._weatherCache = window._weatherCache || {};
+    const weatherKey = routePts.map(p => `${(p.lat || 0).toFixed(2)},${((p.lng || p.lon) || 0).toFixed(2)}`).join('|');
+    if (window._weatherCache[weatherKey] && (Date.now() - window._weatherCache[weatherKey].time) < 15 * 60000) {
+        return window._weatherCache[weatherKey].data;
+    }
+    const totalDist = elevData[elevData.length - 1].distNM;
+    const numZones = 10;
+    const zones = [];
+    const fetchPromises = [];
+    for (let i = 0; i < numZones; i++) {
+        const targetDist = (i / (numZones - 1)) * totalDist;
+        let bestPt = elevData[0];
+        let minDiff = Infinity;
+        for (const pt of elevData) {
+            const diff = Math.abs(pt.distNM - targetDist);
+            if (diff < minDiff) { minDiff = diff; bestPt = pt; }
+        }
+        const minLat = Number((bestPt.lat - 0.4).toFixed(4));
+        const maxLat = Number((bestPt.lat + 0.4).toFixed(4));
+        const minLon = Number((bestPt.lon - 0.6).toFixed(4));
+        const maxLon = Number((bestPt.lon + 0.6).toFixed(4));
+        const url = `https://aviationweather.gov/api/data/metar?bbox=${minLat},${minLon},${maxLat},${maxLon}&format=json&t=${Date.now()}`;
+        const p = fetch(url).then(async r => {
+            if (r.status === 204) return [];
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return JSON.parse(await r.text());
+        }).catch(async e => {
+            try {
+                const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
+                const pr = await fetch(proxyUrl);
+                if (pr.status === 204) return [];
+                if (!pr.ok) throw new Error("Proxy Error");
+                return JSON.parse(await pr.text());
+            } catch(px) { return []; }
+        }).then(metars => ({ targetDist, bestPt, metars, index: i }));
+        fetchPromises.push(p);
+    }
+    const results = await Promise.all(fetchPromises);
+    for (let i = 0; i < results.length; i++) {
+        const res = results[i];
+        if (!res.metars || res.metars.length === 0) continue;
+        let closestMetar = null, minMetarDist = Infinity;
+        res.metars.forEach(m => {
+            const d = calcNav(res.bestPt.lat, res.bestPt.lon, m.lat, m.lon).dist;
+            if (d < minMetarDist) { minMetarDist = d; closestMetar = m; }
+        });
+        if (closestMetar && minMetarDist < 45) {
+            const clouds = [];
+            const raw = closestMetar.rawOb || "";
+            const stnElevFt = closestMetar.elev ? closestMetar.elev * 3.28084 : 0;
+            const cloudRegex = /(FEW|SCT|BKN|OVC|VV)(\d{3})/g;
+            let match, lowestBase = Infinity;
+            while((match = cloudRegex.exec(raw)) !== null) {
+                const type = match[1];
+                const agl = parseInt(match[2], 10) * 100;
+                const msl = Math.round(agl + stnElevFt);
+                if (msl < lowestBase) lowestBase = msl;
+                clouds.push({ type, baseAgl: agl, baseMsl: msl });
+            }
+            const hasRain = /\b(-|\+)?(RA|DZ|SH|SHRA)\b/i.test(raw);
+            const hasSnow = /\b(-|\+)?(SN|SG|PL|SHSN)\b/i.test(raw);
+            const hasTS = /\b(-|\+)?(TS|TSRA|CB)\b/i.test(raw);
+            if(clouds.length > 0 || hasRain || hasSnow || hasTS) {
+                const visuals = { puffs: [], drops: [], flashes: [] };
+                if (clouds.length > 0) {
+                    for(let c=0; c<25; c++) visuals.puffs.push({ x: Math.random(), y: Math.random(), r: Math.random(), op: Math.random() });
+                }
+                if (hasRain || hasSnow) {
+                    for(let d=0; d<45; d++) visuals.drops.push({ x: Math.random(), y: Math.random(), spd: Math.random() });
+                }
+                if (hasTS) {
+                    for(let f=0; f<2; f++) visuals.flashes.push({ x: Math.random(), pts: [Math.random(), Math.random(), Math.random(), Math.random()] });
+                }
+                zones.push({
+                    distNM: res.bestPt.distNM, icao: closestMetar.icaoId, clouds: clouds,
+                    lowestBase: lowestBase !== Infinity ? lowestBase : 5000,
+                    weather: { hasRain, hasSnow, hasTS }, visuals: visuals
+                });
+            }
+        }
+    }
+    if (zones.length > 0) {
+        window._weatherCache[weatherKey] = { time: Date.now(), data: zones };
+        return zones;
+    }
+    return null;
 }
 
 function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
