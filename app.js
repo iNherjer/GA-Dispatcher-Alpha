@@ -822,7 +822,7 @@ function handleSliderChange(type, val) {
     if (type === 'alt') {
         syncToNavCom('altRadioDisplay', val);
         const mInp = document.getElementById('altMapInput');
-        if (mInp && mInp.value != val) mInp.value = val;
+        if (mInp && mInp.innerText != val) mInp.innerText = val;
         triggerVerticalProfileUpdate();
         if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
     }
@@ -840,7 +840,7 @@ function handleRateChange(val) {
     const rateSlider = document.getElementById('rateSlider');
     const rateMapInp = document.getElementById('rateMapInput');
     if (rateSlider) rateSlider.value = val;
-    if (rateMapInp && rateMapInp.value != val) rateMapInp.value = val;
+    if (rateMapInp && rateMapInp.innerText != val) rateMapInp.innerText = val;
     // Sync NAVCOM if in rate mode
     if (typeof navcomAltMode !== 'undefined' && navcomAltMode === 'rate') {
         const altRadioDisplay = document.getElementById('altRadioDisplay');
@@ -2589,23 +2589,16 @@ function updateRoutePerformance() {
 
 function initMapBase() {
     if (map) return;
-
     const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: 'OpenTopoMap' });
     const topoLightMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
     const satMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
     const darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB' });
     const lightMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB' });
-
     const aeroOverlay = L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
-        attribution: 'AeroData / Navigraph',
-        opacity: 0.65,
-        maxNativeZoom: 12
+        attribution: 'AeroData / Navigraph', opacity: 0.65, maxNativeZoom: 12
     });
-
     topoMap.setOpacity(0.5);
-
     map = L.map('map', { layers: [topoMap, aeroOverlay], attributionControl: false }).setView([51.1657, 10.4515], 6);
-
     const baseMaps = {
         "⛰️ Topografie (Mit Text)": topoMap,
         "🗺️ Terrain (Ohne Text)": topoLightMap,
@@ -2613,40 +2606,38 @@ function initMapBase() {
         "🌑 Dark Mode (Clean)": darkMap,
         "📝 Blank Mode (Weiß)": lightMap
     };
-
+    const radarOverlay = L.layerGroup();
+    fetch('https://api.rainviewer.com/public/weather-maps.json')
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.radar && data.radar.past && data.radar.past.length > 0) {
+                const latestRadar = data.radar.past[data.radar.past.length - 1].path;
+                L.tileLayer(`https://tilecache.rainviewer.com${latestRadar}/256/{z}/{x}/{y}/2/1_1.png`, {
+                    opacity: 0.65, transparent: true, maxNativeZoom: 7, attribution: 'Radar © RainViewer'
+                }).addTo(radarOverlay);
+            }
+        }).catch(e => console.warn('RainViewer Fetch Fehler:', e));
     const overlayMaps = {
-        "🛩️ VFR Lufträume (Overlay)": aeroOverlay
+        "🛩️ VFR Lufträume (Overlay)": aeroOverlay,
+        "🌧️ Wetterradar (Niederschlag)": radarOverlay
     };
-
     L.control.layers(baseMaps, overlayMaps).addTo(map);
-
-    map.on('overlayadd', function (e) {
-        if (e.name === "🛩️ VFR Lufträume (Overlay)") {
-            topoMap.setOpacity(0.5);
-        }
-    });
-
-    map.on('overlayremove', function (e) {
-        if (e.name === "🛩️ VFR Lufträume (Overlay)") {
-            topoMap.setOpacity(1.0);
-        }
-    });
-
+    map.on('overlayadd', function (e) { if (e.name === "🛩️ VFR Lufträume (Overlay)") topoMap.setOpacity(0.5); });
+    map.on('overlayremove', function (e) { if (e.name === "🛩️ VFR Lufträume (Overlay)") topoMap.setOpacity(1.0); });
     let fetchTimeout = null;
     map.on('moveend', function () {
         if (snapMode) {
-            clearTimeout(fetchTimeout); // Löscht alte, noch nicht ausgeführte Anfragen
-            fetchTimeout = setTimeout(fetchOpenAIPData, 600); // Wartet 0,6 Sekunden Stillstand ab
+            clearTimeout(fetchTimeout);
+            fetchTimeout = setTimeout(fetchOpenAIPData, 600);
         }
     });
-
+    // Fehlenden Vollbild-Button wiederherstellen
     const fsControl = L.control({ position: 'topleft' });
     fsControl.onAdd = function () {
         const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control');
         btn.innerHTML = '⛶'; btn.title = 'Vollbildmodus'; btn.style.width = '30px'; btn.style.height = '30px';
         btn.style.lineHeight = '30px'; btn.style.backgroundColor = '#fff'; btn.style.border = '1px solid #ccc';
         btn.style.cursor = 'pointer'; btn.style.fontSize = '18px'; btn.style.fontWeight = 'bold'; btn.style.textAlign = 'center'; btn.style.padding = '0';
-
         btn.onclick = function (e) {
             e.preventDefault(); document.body.classList.toggle('map-is-fullscreen');
             if (document.body.classList.contains('map-is-fullscreen')) { btn.innerHTML = '✖'; } else { btn.innerHTML = '⛶'; }
@@ -6098,13 +6089,14 @@ setTimeout(() => initAltWaypoints(), 2000);
 let vpMaxAltOverride = 0; // 0 = Auto-Scaling
 let vpShowClouds = true;
 function vpChangeAlt(delta) {
-    let val = parseInt(document.getElementById('altMapInput').value) || 4500;
+    let val = parseInt(document.getElementById('altMapInput').innerText) || 4500;
     val = Math.max(1500, Math.min(13500, val + delta));
     syncAltFromInput(val);
 }
 function syncAltFromInput(val) {
     val = parseInt(val) || 4500;
-    document.getElementById('altMapInput').value = val;
+    const inp = document.getElementById('altMapInput');
+    inp.innerText = val;
     const mainSlider = document.getElementById('altSlider');
     if (mainSlider) mainSlider.value = val;
     handleSliderChange('alt', val);
@@ -6113,20 +6105,21 @@ function syncAltFromInput(val) {
     if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
 }
 function vpChangeRate(delta) {
-    let val = parseInt(document.getElementById('rateMapInput').value) || 500;
+    let val = parseInt(document.getElementById('rateMapInput').innerText) || 500;
     val = Math.max(200, Math.min(1500, val + delta));
     syncRateFromInput(val);
 }
 function syncRateFromInput(val) {
     val = parseInt(val) || 500;
-    document.getElementById('rateMapInput').value = val;
+    const inp = document.getElementById('rateMapInput');
+    inp.innerText = val;
     handleRateChange(val);
 }
 function vpChangeYAxis(delta) {
     if (vpMaxAltOverride === 0) {
         const elevData = (typeof vpZoomLevel !== 'undefined' && vpZoomLevel < 100 && vpHighResData) ? vpHighResData : vpElevationData;
         if (!elevData) return;
-        const cruiseAlt = parseInt(document.getElementById('altMapInput')?.value || 4500);
+        const cruiseAlt = parseInt(document.getElementById('altMapInput')?.innerText || 4500);
         const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
         let maxCloudAlt = 0;
         if (vpShowClouds && vpWeatherData) {
@@ -6153,3 +6146,40 @@ function vpToggleClouds() {
     renderMapProfile();
     if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
 }
+
+// === PROMPT-EINGABE für ALT / V/S (V57) ===
+window.promptForAlt = function() {
+    const current = document.getElementById('altMapInput').innerText;
+    const res = prompt("Gewünschte Flughöhe (ALT) eingeben:", current);
+    if (res !== null && !isNaN(parseInt(res))) {
+        let val = parseInt(res);
+        val = Math.max(1500, Math.min(13500, val));
+        syncAltFromInput(val);
+    }
+};
+window.promptForRate = function() {
+    const current = document.getElementById('rateMapInput').innerText;
+    const res = prompt("Gewünschte Steig-/Sinkrate (V/S) in ft/min eingeben:", current);
+    if (res !== null && !isNaN(parseInt(res))) {
+        let val = parseInt(res);
+        val = Math.max(200, Math.min(1500, val));
+        syncRateFromInput(val);
+    }
+};
+
+// === FORCE UPDATE (V53) ===
+window.forceAppUpdate = function() {
+    if (confirm("Möchtest du ein Update erzwingen? Der Zwischenspeicher wird geleert und die App neu geladen.")) {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) { registration.unregister(); }
+                caches.keys().then(function(names) {
+                    for (let name of names) caches.delete(name);
+                    window.location.reload(true);
+                });
+            });
+        } else {
+            window.location.reload(true);
+        }
+    }
+};
