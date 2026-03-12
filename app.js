@@ -3951,6 +3951,16 @@ let vpDescentRate = 500; // ft/min descent rate (configurable)
 let vpLandmarks = [];
 let vpObstacles = [];
 
+let globalCities = null;
+async function loadGlobalCities() {
+    if (globalCities) return;
+    try {
+        const res = await fetch('./cities.json');
+        if (res.ok) globalCities = await res.json();
+        else globalCities = []; 
+    } catch (e) { globalCities = []; }
+}
+
 async function fetchProfileLandmarks(elevData) {
     if (!elevData || elevData.length < 2) return [];
     let minL = 90, maxL = -90, minLo = 180, maxLo = -180;
@@ -3960,7 +3970,8 @@ async function fetchProfileLandmarks(elevData) {
     });
     minL -= 0.1; maxL += 0.1; minLo -= 0.15; maxLo += 0.15;
     let landmarks = [];
-    // 1. Flugplätze (Höchste Priorität)
+    
+    // 1. Flugplätze
     await loadGlobalAirports();
     for(let k in globalAirports) {
         let a = globalAirports[k];
@@ -3973,85 +3984,78 @@ async function fetchProfileLandmarks(elevData) {
             if (bestD < 3.5) landmarks.push({ name: a.icao, type: 'apt', pop: 100000000, distNM: bestDistNM });
         }
     }
-    // 2. Städte & Dörfer via Overpass (mit Fallback & 429 Schutz)
-    try {
-        let query = `[out:json][timeout:8];(node["place"="city"](${minL.toFixed(4)},${minLo.toFixed(4)},${maxL.toFixed(4)},${maxLo.toFixed(4)});node["place"="town"](${minL.toFixed(4)},${minLo.toFixed(4)},${maxL.toFixed(4)},${maxLo.toFixed(4)}););out;`;
-        let url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-        let res = await fetch(url);
-
-        // Fallback, falls der Hauptserver uns wegen 429 blockt
-        if (!res.ok) {
-            url = `https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-            res = await fetch(url);
-        }
-
-        if (!res.ok) throw new Error("Overpass HTTP " + res.status);
-
-        let json = await res.json();
-        if(json.elements) {
-            json.elements.forEach(e => {
-                if (!e.lat || !e.lon) return;
-                let pop = parseInt(e.tags.population) || (e.tags.place === 'city' ? 50000 : 10000);
+    
+    // 2. Städte aus lokaler JSON
+    await loadGlobalCities();
+    if (globalCities && globalCities.length > 0) {
+        globalCities.forEach(c => {
+            if (c.lat > minL && c.lat < maxL && c.lon > minLo && c.lon < maxLo) {
                 let bestD = Infinity, bestDistNM = 0;
                 elevData.forEach(ep => {
-                    let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
+                    let d = calcNav(c.lat, c.lon, ep.lat, ep.lon).dist;
                     if(d < bestD) { bestD = d; bestDistNM = ep.distNM; }
                 });
-                if (bestD < 3.5) landmarks.push({ name: e.tags.name, type: e.tags.place, pop: pop, distNM: bestDistNM });
-            });
-        }
-    } catch(e) { console.warn("Landmark Fetch Error:", e.message); }
-    console.log("🏙️ Landmarks geladen:", landmarks.length, "Stück.");
-    // Sortieren: Groß nach Klein. Größere Städte werden zuerst gezeichnet und blockieren den Platz für kleine.
+                // Zeigt nur Städte an, die näher als 3.5 NM zur Route liegen
+                if (bestD < 3.5) landmarks.push({ name: c.name, type: 'city', pop: c.pop || 50000, distNM: bestDistNM });
+            }
+        });
+    }
     return landmarks.sort((a,b) => b.pop - a.pop);
 }
 
 async function fetchProfileObstacles(elevData) {
     if (!elevData || elevData.length < 2) return [];
-    let minL = 90, maxL = -90, minLo = 180, maxLo = -180;
-    elevData.forEach(p => {
-        if(p.lat < minL) minL = p.lat; if(p.lat > maxL) maxL = p.lat;
-        if(p.lon < minLo) minLo = p.lon; if(p.lon > maxLo) maxLo = p.lon;
-    });
-    // Etwas engerer Suchradius als bei Städten, um Datenmenge zu schonen
-    minL -= 0.06; maxL += 0.06; minLo -= 0.1; maxLo += 0.1;
+    
+    // Korridor-Punkte generieren (alle 5 NM ein Such-Kreis mit 4000m Radius)
+    const totalDist = elevData[elevData.length - 1].distNM;
+    const searchNodes = [];
+    for (let d = 0; d <= totalDist; d += 5) {
+        let pt = elevData.find(p => p.distNM >= d) || elevData[elevData.length - 1];
+        searchNodes.push(`node["generator:source"="wind"](around:4000,${pt.lat.toFixed(4)},${pt.lon.toFixed(4)});node["man_made"~"mast|tower"]["height"](around:4000,${pt.lat.toFixed(4)},${pt.lon.toFixed(4)});`);
+    }
+    
+    // Chunking: Maximal 40 Kreise pro API-Request, um Server zu schonen
     let rawObstacles = [];
-    try {
-        let query = `[out:json][timeout:10];(node["generator:source"="wind"](${minL.toFixed(4)},${minLo.toFixed(4)},${maxL.toFixed(4)},${maxLo.toFixed(4)});node["man_made"~"mast|tower"]["height"](${minL.toFixed(4)},${minLo.toFixed(4)},${maxL.toFixed(4)},${maxLo.toFixed(4)}););out;`;
-        let url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-        let res = await fetch(url);
+    const chunks = [];
+    for (let i = 0; i < searchNodes.length; i += 40) {
+        chunks.push(searchNodes.slice(i, i + 40).join(''));
+    }
 
-        if (!res.ok) {
-            url = `https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-            res = await fetch(url);
-        }
-        if (!res.ok) throw new Error("Overpass HTTP " + res.status);
+    for (const chunk of chunks) {
+        let query = `[out:json][timeout:15];(${chunk});out;`;
+        try {
+            let url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+            let res = await fetch(url);
+            if (!res.ok) {
+                url = `https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+                res = await fetch(url);
+            }
+            if (!res.ok) continue;
 
-        let json = await res.json();
-        if(json.elements) {
-            json.elements.forEach(e => {
-                if (!e.lat || !e.lon) return;
-
-                // Höhe extrahieren (Meter -> Feet). Default Windrad: 120m (400ft). Default Mast: 50m (160ft)
-                let isWind = e.tags["generator:source"] === "wind";
-                let hStr = e.tags.height;
-                let hMeter = hStr ? parseFloat(hStr.replace(',', '.')) : (isWind ? 120 : 50);
-                if (isNaN(hMeter) || hMeter < 30) return; // Unter 30m ignorieren wir
-                let hFt = Math.round(hMeter * 3.28084);
-                let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
-                elevData.forEach(ep => {
-                    let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
-                    if(d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
+            let json = await res.json();
+            if(json.elements) {
+                json.elements.forEach(e => {
+                    if (!e.lat || !e.lon) return;
+                    let isWind = e.tags["generator:source"] === "wind";
+                    let hStr = e.tags.height;
+                    let hMeter = hStr ? parseFloat(hStr.replace(',', '.')) : (isWind ? 120 : 50);
+                    if (isNaN(hMeter) || hMeter < 30) return;
+                    let hFt = Math.round(hMeter * 3.28084);
+                    let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
+                    elevData.forEach(ep => {
+                        let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
+                        if(d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
+                    });
+                    // Feinschliff: Nur behalten, wenn sie wirklich im 2NM Radius der Route sind
+                    if (bestD < 2.0) {
+                        rawObstacles.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
+                    }
                 });
+            }
+        } catch(e) { console.warn("Obstacles Chunk Error:", e.message); }
+    }
 
-                // Nur Hindernisse näher als 2 NM zur direkten Fluglinie
-                if (bestD < 2.0) {
-                    rawObstacles.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
-                }
-            });
-        }
-    } catch(e) { console.warn("Obstacles Fetch Error:", e.message); }
-    // Clustering: Gruppiere in 0.5 NM "Eimer" (Windparks zusammenfassen)
+    // Clustering in 0.5 NM Abschnitte
     let buckets = {};
     rawObstacles.forEach(obs => {
         let bIdx = Math.floor(obs.distNM / 0.5);
@@ -4061,12 +4065,12 @@ async function fetchProfileObstacles(elevData) {
     let finalObs = [];
     for (let k in buckets) {
         let group = buckets[k];
-        group.sort((a,b) => b.hFt - a.hFt); // Das höchste Hindernis der Gruppe gewinnt
+        group.sort((a,b) => b.hFt - a.hFt);
         let rep = group[0];
-        rep.count = group.length; // Merken, wie viele es hier gibt (für Windparks)
+        rep.count = group.length;
         finalObs.push(rep);
     }
-    console.log("🗼 Obstacles geladen & geclustert:", finalObs.length, "Stück.");
+    console.log("🗼 Obstacles Korridor-Scan fertig:", finalObs.length, "Hindernisse.");
     return finalObs;
 }
 
