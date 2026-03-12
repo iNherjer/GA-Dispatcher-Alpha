@@ -3942,7 +3942,8 @@ async function fetchOpenAIPData() {
    ========================================================= */
 let vpElevationData = null;
 let vpWeatherData = null;
-let vpProfileTimeout = null;
+let vpProfileFastTimeout = null;
+let vpProfileSlowTimeout = null;
 let vpZoomLevel = 100; // 100 = full route, 10 = 10% view
 let vpHighResData = null; // Higher resolution elevation data for zoom
 let vpElevationCache = {}; // Cache to prevent API rate limits (HTTP 429)
@@ -3985,7 +3986,7 @@ async function fetchProfileLandmarks(elevData) {
         }
     }
     
-    // 2. Städte aus lokaler JSON
+    // 2. Städte & Dörfer aus lokaler JSON
     await loadGlobalCities();
     if (globalCities && globalCities.length > 0) {
         globalCities.forEach(c => {
@@ -3995,358 +3996,100 @@ async function fetchProfileLandmarks(elevData) {
                     let d = calcNav(c.lat, c.lon, ep.lat, ep.lon).dist;
                     if(d < bestD) { bestD = d; bestDistNM = ep.distNM; }
                 });
-                // Zeigt nur Städte an, die näher als 3.5 NM zur Route liegen
-                if (bestD < 3.5) landmarks.push({ name: c.name, type: 'city', pop: c.pop || 50000, distNM: bestDistNM });
+                if (bestD < 3.5) {
+                    // Dorf (<15k) oder Stadt (>=15k)
+                    let cType = c.pop >= 15000 ? 'city' : 'town';
+                    landmarks.push({ name: c.name, type: cType, pop: c.pop || 5000, distNM: bestDistNM });
+                }
             }
         });
     }
     return landmarks.sort((a,b) => b.pop - a.pop);
 }
 
-async function fetchProfileObstacles(elevData) {
-    if (!elevData || elevData.length < 2) return [];
-    
-    // Korridor-Punkte generieren (alle 5 NM ein Such-Kreis mit 4000m Radius)
-    const totalDist = elevData[elevData.length - 1].distNM;
-    const searchNodes = [];
-    for (let d = 0; d <= totalDist; d += 5) {
-        let pt = elevData.find(p => p.distNM >= d) || elevData[elevData.length - 1];
-        searchNodes.push(`node["generator:source"="wind"](around:4000,${pt.lat.toFixed(4)},${pt.lon.toFixed(4)});node["man_made"~"mast|tower"]["height"](around:4000,${pt.lat.toFixed(4)},${pt.lon.toFixed(4)});`);
-    }
-    
-    // Chunking: Maximal 40 Kreise pro API-Request, um Server zu schonen
-    let rawObstacles = [];
-    const chunks = [];
-    for (let i = 0; i < searchNodes.length; i += 40) {
-        chunks.push(searchNodes.slice(i, i + 40).join(''));
-    }
-
-    for (const chunk of chunks) {
-        let query = `[out:json][timeout:15];(${chunk});out;`;
-        try {
-            let url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-            let res = await fetch(url);
-            if (!res.ok) {
-                url = `https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-                res = await fetch(url);
-            }
-            if (!res.ok) continue;
-
-            let json = await res.json();
-            if(json.elements) {
-                json.elements.forEach(e => {
-                    if (!e.lat || !e.lon) return;
-                    let isWind = e.tags["generator:source"] === "wind";
-                    let hStr = e.tags.height;
-                    let hMeter = hStr ? parseFloat(hStr.replace(',', '.')) : (isWind ? 120 : 50);
-                    if (isNaN(hMeter) || hMeter < 30) return;
-                    let hFt = Math.round(hMeter * 3.28084);
-                    let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
-                    elevData.forEach(ep => {
-                        let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
-                        if(d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
-                    });
-                    // Feinschliff: Nur behalten, wenn sie wirklich im 2NM Radius der Route sind
-                    if (bestD < 2.0) {
-                        rawObstacles.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
-                    }
-                });
-            }
-        } catch(e) { console.warn("Obstacles Chunk Error:", e.message); }
-    }
-
-    // Clustering in 0.5 NM Abschnitte
-    let buckets = {};
-    rawObstacles.forEach(obs => {
-        let bIdx = Math.floor(obs.distNM / 0.5);
-        if (!buckets[bIdx]) buckets[bIdx] = [];
-        buckets[bIdx].push(obs);
-    });
-    let finalObs = [];
-    for (let k in buckets) {
-        let group = buckets[k];
-        group.sort((a,b) => b.hFt - a.hFt);
-        let rep = group[0];
-        rep.count = group.length;
-        finalObs.push(rep);
-    }
-    console.log("🗼 Obstacles Korridor-Scan fertig:", finalObs.length, "Hindernisse.");
-    return finalObs;
-}
-
 function triggerVerticalProfileUpdate() {
-    if (vpProfileTimeout) clearTimeout(vpProfileTimeout);
-    // SOFORT pulsieren, um dem User zu zeigen, dass Änderungen registriert wurden
+    if (vpProfileFastTimeout) clearTimeout(vpProfileFastTimeout);
+    if (vpProfileSlowTimeout) clearTimeout(vpProfileSlowTimeout);
+
+    // Blinken für ALLE aktiven Profil-Daten starten
     ['btnToggleClouds', 'btnToggleLandmarks', 'btnToggleObstacles'].forEach(id => {
         const b = document.getElementById(id); if(b) b.classList.add('vp-loading-pulse');
     });
-    vpProfileTimeout = setTimeout(async () => {
+
+    // 🏎️ FAST LANE: Terrain & Lokale Orte (0.5 Sekunden)
+    vpProfileFastTimeout = setTimeout(async () => {
         if (!routeWaypoints || routeWaypoints.length < 2) return;
         const cacheKey = routeWaypoints.map(p => `${(p.lat || 0).toFixed(4)},${((p.lng || p.lon) || 0).toFixed(4)}`).join('|');
+        
         if (window._lastVpRouteKey !== cacheKey) {
             vpAltWaypoints = []; vpSegmentAlts = []; vpHighResData = null; vpZoomLevel = 100;
             const zd = document.getElementById('vpZoomDisplay'); if (zd) zd.textContent = '0%';
             window._lastVpRouteKey = cacheKey;
         }
+
         const page5 = document.getElementById('notePage5');
         if (page5) page5.style.display = '';
         const status = document.getElementById('verticalProfileStatus');
-        if (status) status.textContent = 'Lade Höhendaten...';
+        if (status) status.textContent = 'Lade Terrain & Orte...';
+
         try {
             vpElevationData = await fetchRouteElevation(routeWaypoints);
-            if (status) status.textContent = 'Lade Wetterlage...';
+            
+            if (window._lastLandmarkRouteKey !== cacheKey) {
+                const lmStr = localStorage.getItem('ga_lms_' + cacheKey);
+                if (lmStr) {
+                    try { vpLandmarks = JSON.parse(lmStr); } catch(e) { vpLandmarks = []; }
+                } else {
+                    vpLandmarks = await fetchProfileLandmarks(vpElevationData);
+                    try { localStorage.setItem('ga_lms_' + cacheKey, JSON.stringify(vpLandmarks)); } catch(e) {}
+                }
+            }
+            
+            // Erstes Rendering: Terrain & Städte sind sofort da!
+            if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+            if (typeof renderMapProfile === 'function' && document.getElementById('mapTableOverlay').classList.contains('active')) renderMapProfile();
+            
+        } catch(e) {
+            console.error('Fast Profile Error:', e);
+        }
+    }, 500);
+
+    // 🐢 SLOW LANE: Wetter & Overpass API (2.8 Sekunden)
+    vpProfileSlowTimeout = setTimeout(async () => {
+        if (!routeWaypoints || routeWaypoints.length < 2) return;
+        const cacheKey = window._lastVpRouteKey;
+        const status = document.getElementById('verticalProfileStatus');
+        if (status) status.textContent = 'Lade Wetter & Hindernisse...';
+
+        try {
+            if (!vpElevationData) return; // Warten, falls Fast Lane noch hängt
+
             vpWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData);
 
             if (window._lastLandmarkRouteKey !== cacheKey) {
-                window._lastLandmarkRouteKey = cacheKey;
-                const lmStr = localStorage.getItem('ga_lms_' + cacheKey);
+                window._lastLandmarkRouteKey = cacheKey; 
                 const obStr = localStorage.getItem('ga_obs_' + cacheKey);
-
-                if (lmStr && obStr) {
-                    try { vpLandmarks = JSON.parse(lmStr); vpObstacles = JSON.parse(obStr); } catch(e) {}
+                if (obStr) {
+                    try { vpObstacles = JSON.parse(obStr); } catch(e) { vpObstacles = []; }
                 } else {
-                    vpLandmarks = []; vpObstacles = [];
-                    const [lms, obs] = await Promise.all([fetchProfileLandmarks(vpElevationData), fetchProfileObstacles(vpElevationData)]);
-                    vpLandmarks = lms; vpObstacles = obs;
-                    try {
-                        localStorage.setItem('ga_lms_' + cacheKey, JSON.stringify(lms));
-                        localStorage.setItem('ga_obs_' + cacheKey, JSON.stringify(obs));
-                    } catch(e) {}
+                    vpObstacles = await fetchProfileObstacles(vpElevationData);
+                    try { localStorage.setItem('ga_obs_' + cacheKey, JSON.stringify(vpObstacles)); } catch(e) {}
                 }
             }
-            if (status) status.textContent = vpElevationData.length + ' Höhenpunkte & Wetter geladen';
-        } catch (e) {
-            console.error('Vertical Profile Error:', e);
-            if (status) status.textContent = 'Limit API/Fehler';
+            if (status) status.textContent = vpElevationData.length + ' Punkte & API-Daten geladen';
+        } catch(e) {
+            console.error('Slow Profile Error:', e);
+            if (status) status.textContent = 'API Limit erreicht';
         } finally {
-            // Fertig geladen -> Pulsieren stoppen
+            // Fertig -> Blinken beenden
             ['btnToggleClouds', 'btnToggleLandmarks', 'btnToggleObstacles'].forEach(id => {
                 const b = document.getElementById(id); if(b) b.classList.remove('vp-loading-pulse');
             });
+            // Zweites Rendering: Wetter & Hindernisse einblenden!
             if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
             if (typeof renderMapProfile === 'function' && document.getElementById('mapTableOverlay').classList.contains('active')) renderMapProfile();
         }
-    }, 3000);
-}
-
-async function fetchRouteElevation(routePts) {
-    if (!routePts || routePts.length < 2) return [];
-
-    // Generate a unique cache key based on route coordinates
-    const cacheKey = routePts.map(p => `${(p.lat || 0).toFixed(4)},${((p.lng || p.lon) || 0).toFixed(4)}`).join('|');
-    if (vpElevationCache[cacheKey]) {
-        return vpElevationCache[cacheKey];
-    }
-
-    try {
-        const stored = localStorage.getItem('ga_elev_cache_' + cacheKey);
-        if (stored) {
-            const data = JSON.parse(stored);
-            vpElevationCache[cacheKey] = data;
-            return data;
-        }
-    } catch (e) { }
-
-    const interpolated = [];
-    let cumulativeDist = 0;
-
-    for (let i = 0; i < routePts.length - 1; i++) {
-        const p1 = routePts[i], p2 = routePts[i + 1];
-        const lat1 = p1.lat, lon1 = p1.lng || p1.lon;
-        const lat2 = p2.lat, lon2 = p2.lng || p2.lon;
-        const segDist = calcNav(lat1, lon1, lat2, lon2).dist;
-        const steps = Math.max(1, Math.round(segDist));
-
-        for (let j = 0; j <= steps; j++) {
-            if (i > 0 && j === 0) continue;
-            const f = j / steps;
-            interpolated.push({
-                lat: lat1 + (lat2 - lat1) * f,
-                lon: lon1 + (lon2 - lon1) * f,
-                distNM: cumulativeDist + segDist * f
-            });
-        }
-        cumulativeDist += segDist;
-    }
-
-    let samplePts = interpolated;
-    if (interpolated.length > 100) {
-        samplePts = [];
-        for (let i = 0; i < 100; i++) {
-            const idx = Math.round(i * (interpolated.length - 1) / 99);
-            samplePts.push(interpolated[idx]);
-        }
-    }
-
-    const lats = samplePts.map(p => p.lat.toFixed(4)).join(',');
-    const lons = samplePts.map(p => p.lon.toFixed(4)).join(',');
-
-    const res = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + lats + '&longitude=' + lons);
-    if (!res.ok) throw new Error('Elevation API error: ' + res.status);
-    const data = await res.json();
-
-    if (!data.elevation || data.elevation.length !== samplePts.length) {
-        throw new Error('Invalid elevation response');
-    }
-
-    const finalData = samplePts.map((p, i) => ({
-        distNM: p.distNM,
-        elevFt: Math.round(data.elevation[i] * 3.28084),
-        lat: p.lat,
-        lon: p.lon
-    }));
-
-    vpElevationCache[cacheKey] = finalData;
-    try { localStorage.setItem('ga_elev_cache_' + cacheKey, JSON.stringify(finalData)); } catch (e) { }
-    return finalData;
-}
-
-async function fetchRouteWeather(routePts, elevData) {
-    if (!routePts || routePts.length < 2 || !elevData || elevData.length < 2) return null;
-    window._weatherCache = window._weatherCache || {};
-    // Koordinaten als Key (sobald sich die Route ändert, verfällt der Cache)
-    const weatherKey = routePts.map(p => `${(p.lat || 0).toFixed(2)},${((p.lng || p.lon) || 0).toFixed(2)}`).join('|');
-    if (window._weatherCache[weatherKey] && (Date.now() - window._weatherCache[weatherKey].time) < 15 * 60000) {
-        return window._weatherCache[weatherKey].data;
-    }
-    const totalDist = elevData[elevData.length - 1].distNM;
-    const numZones = 10;
-    const zones = [];
-    const fetchPromises = [];
-    for (let i = 0; i < numZones; i++) {
-        const targetDist = (i / (numZones - 1)) * totalDist;
-        let bestPt = elevData[0];
-        let minDiff = Infinity;
-        for (const pt of elevData) {
-            const diff = Math.abs(pt.distNM - targetDist);
-            if (diff < minDiff) { minDiff = diff; bestPt = pt; }
-        }
-        const minLat = Number((bestPt.lat - 0.4).toFixed(4));
-        const maxLat = Number((bestPt.lat + 0.4).toFixed(4));
-        const minLon = Number((bestPt.lon - 0.6).toFixed(4));
-        const maxLon = Number((bestPt.lon + 0.6).toFixed(4));
-        const url = `https://aviationweather.gov/api/data/metar?bbox=${minLat},${minLon},${maxLat},${maxLon}&format=json&t=${Date.now()}`;
-        const p = fetch(url).then(async r => {
-            if (r.status === 204) return [];
-            if (!r.ok) throw new Error("HTTP " + r.status);
-            return JSON.parse(await r.text());
-        }).catch(async e => {
-            try {
-                const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
-                const pr = await fetch(proxyUrl);
-                if (pr.status === 204) return [];
-                if (!pr.ok) throw new Error("Proxy Error");
-                return JSON.parse(await pr.text());
-            } catch(px) { return []; }
-        }).then(metars => ({ targetDist, bestPt, metars, index: i }));
-        fetchPromises.push(p);
-    }
-    const results = await Promise.all(fetchPromises);
-    for (let i = 0; i < results.length; i++) {
-        const res = results[i];
-        if (!res.metars || res.metars.length === 0) continue;
-        let closestMetar = null, minMetarDist = Infinity;
-        res.metars.forEach(m => {
-            const d = calcNav(res.bestPt.lat, res.bestPt.lon, m.lat, m.lon).dist;
-            if (d < minMetarDist) { minMetarDist = d; closestMetar = m; }
-        });
-        if (closestMetar && minMetarDist < 45) {
-            const clouds = [];
-            const raw = closestMetar.rawOb || "";
-            const stnElevFt = closestMetar.elev ? closestMetar.elev * 3.28084 : 0;
-            const cloudRegex = /(FEW|SCT|BKN|OVC|VV)(\d{3})/g;
-            let match, lowestBase = Infinity;
-            while((match = cloudRegex.exec(raw)) !== null) {
-                const type = match[1];
-                const agl = parseInt(match[2], 10) * 100;
-                const msl = Math.round(agl + stnElevFt);
-                if (msl < lowestBase) lowestBase = msl;
-                clouds.push({ type, baseAgl: agl, baseMsl: msl });
-            }
-            const hasRain = /\b(-|\+)?(RA|DZ|SH|SHRA)\b/i.test(raw);
-            const hasSnow = /\b(-|\+)?(SN|SG|PL|SHSN)\b/i.test(raw);
-            const hasTS = /\b(-|\+)?(TS|TSRA|CB)\b/i.test(raw);
-            if(clouds.length > 0 || hasRain || hasSnow || hasTS) {
-                const visuals = { puffs: [], drops: [], flashes: [] };
-                if (clouds.length > 0) {
-                    for(let c=0; c<25; c++) visuals.puffs.push({ x: Math.random(), y: Math.random(), r: Math.random(), op: Math.random() });
-                }
-                if (hasRain || hasSnow) {
-                    for(let d=0; d<45; d++) visuals.drops.push({ x: Math.random(), y: Math.random(), spd: Math.random() });
-                }
-                if (hasTS) {
-                    for(let f=0; f<2; f++) visuals.flashes.push({ x: Math.random(), pts: [Math.random(), Math.random(), Math.random(), Math.random()] });
-                }
-                zones.push({
-                    distNM: res.bestPt.distNM, icao: closestMetar.icaoId, clouds: clouds,
-                    lowestBase: lowestBase !== Infinity ? lowestBase : 5000,
-                    weather: { hasRain, hasSnow, hasTS }, visuals: visuals
-                });
-            }
-        }
-    }
-    if (zones.length > 0) {
-        window._weatherCache[weatherKey] = { time: Date.now(), data: zones };
-        return zones;
-    }
-    return null;
-}
-// Globale Debug-Funktion für die Entwicklerkonsole
-window.debugCloudProfile = function() {
-    console.log("=== MANUELLER CLOUD DEBUG START ===");
-    if (!routeWaypoints || routeWaypoints.length < 2) {
-        console.warn("Bitte erst einen Flugauftrag generieren (Route fehlt).");
-        return;
-    }
-    triggerVerticalProfileUpdate();
-    console.log("Update angetriggert. Bitte das Profil-Canvas öffnen und die Logs beobachten.");
-};
-function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFactor) {
-    if (!vpLandmarks || vpLandmarks.length === 0) return;
-    const getElevY = (dNM) => {
-        if (!elevData || elevData.length < 2) return yOf(0);
-        for(let i=0; i<elevData.length-1; i++) {
-            if (dNM >= elevData[i].distNM && dNM <= elevData[i+1].distNM) {
-                const f = (dNM - elevData[i].distNM) / (elevData[i+1].distNM - elevData[i].distNM);
-                return yOf(elevData[i].elevFt + f * (elevData[i+1].elevFt - elevData[i].elevFt));
-            }
-        }
-        return yOf(elevData[elevData.length-1].elevFt);
-    };
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    let occupiedX = [];
-    let countDrawn = 0;
-    const edgePad = Math.min(2.5, totalDist * 0.05); // Dynamischer Rand-Puffer
-    for (const lm of vpLandmarks) {
-        if (lm.distNM < edgePad || lm.distNM > totalDist - edgePad) continue;
-        const px = xOf(lm.distNM);
-        const icon = lm.type === 'apt' ? '🛫' : (lm.type === 'city' ? '🏢' : '🏘️');
-        const fontSize = (zoomFactor >= 1.5) ? 10 : 8;
-
-        ctx.font = `bold ${fontSize}px Arial`;
-        const textWidth = ctx.measureText(lm.name).width;
-        const reqWidth = Math.max(textWidth, 14) + 6;
-        const minX = px - reqWidth / 2;
-        const maxX = px + reqWidth / 2;
-        let collision = false;
-        for (const occ of occupiedX) {
-            if (minX < occ.maxX && maxX > occ.minX) { collision = true; break; }
-        }
-        if (!collision) {
-            occupiedX.push({ minX, maxX });
-            const py = getElevY(lm.distNM);
-            ctx.font = '11px Arial';
-            ctx.fillText(icon, px, py - 6);
-            ctx.font = `bold ${fontSize}px Arial`;
-            ctx.fillStyle = isDarkTheme ? 'rgba(190, 180, 160, 0.7)' : 'rgba(70, 60, 40, 0.7)';
-            ctx.fillText(lm.name, px, py + 10);
-            countDrawn++;
-        }
-    }
-    ctx.restore();
-    if(countDrawn === 0 && vpLandmarks.length > 0) console.log("⚠️ Landmarks wurden geladen, aber durch Kollision/Rand abgeschnitten!");
+    }, 2800);
 }
 
 function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
