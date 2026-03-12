@@ -4090,15 +4090,14 @@ async function fetchProfileLandmarks(elevData) {
     return landmarks.sort((a,b) => b.pop - a.pop);
 }
 
-async function fetchProfileObstacles(elevData) {
+async function fetchProfileObstacles(elevData, signal) {
     if (!elevData || elevData.length < 2) return [];
 
     const bboxes = [];
     let currentChunk = [];
     let chunkStart = 0;
-    const CHUNK_NM = 25; // 25 NM Segmente für weniger Server-Overhead
+    const CHUNK_NM = 25; // 25 NM Segmente
 
-    // Route in Bounding Boxes (Vierecke) unterteilen
     for (let i = 0; i < elevData.length; i++) {
         currentChunk.push(elevData[i]);
         if (elevData[i].distNM - chunkStart >= CHUNK_NM || i === elevData.length - 1) {
@@ -4109,48 +4108,98 @@ async function fetchProfileObstacles(elevData) {
                 if (p.lon < minLon) minLon = p.lon;
                 if (p.lon > maxLon) maxLon = p.lon;
             });
-            // Engeres Padding: ca. 3.5 km in Grad (reicht exakt für die bestD < 2.0 Prüfung)
             bboxes.push(`${(minLat - 0.035).toFixed(4)},${(minLon - 0.05).toFixed(4)},${(maxLat + 0.035).toFixed(4)},${(maxLon + 0.05).toFixed(4)}`);
-            
-            currentChunk = [elevData[i]]; // Letzten Punkt übernehmen für sauberen Übergang
+            currentChunk = [elevData[i]]; 
             chunkStart = elevData[i].distNM;
         }
     }
 
-    const BATCH_SIZE = 4; // 4 Boxen á 25 NM = 100 NM pro Request
+    const BATCH_SIZE = 4;
     let rawObstacles = [];
+    let anySuccess = false;
 
-    // Routen-Boxen in 100 NM Pakete aufteilen und nacheinander abrufen (verhindert Timeouts)
+    console.log(`[Overpass] Starte Hindernis-Suche. ${bboxes.length} Boxen total. Teile in Batches von ${BATCH_SIZE}.`);
+
     for (let i = 0; i < bboxes.length; i += BATCH_SIZE) {
         const batch = bboxes.slice(i, i + BATCH_SIZE);
         let queryBody = batch.map(b => `node["generator:source"="wind"](${b});node["man_made"~"mast|tower"]["height"](${b});`).join('');
-        let query = `[out:json][timeout:20];(${queryBody});out qt;`;
+        let query = `[out:json][timeout:25];(${queryBody});out qt;`;
 
-        try {
-            let res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-            if (!res.ok) res = await fetch(`https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-            if (res.ok) {
-                let json = await res.json();
-                if (json.elements) {
-                    json.elements.forEach(e => {
-                        if (!e.lat || !e.lon) return;
-                        let isWind = e.tags && e.tags["generator:source"] === "wind";
-                        let hStr = e.tags && e.tags.height ? e.tags.height : null;
-                        let hMeter = hStr ? parseFloat(hStr.replace(',', '.')) : (isWind ? 120 : 50);
-                        if (isNaN(hMeter) || hMeter < 30) return;
-                        
-                        let hFt = Math.round(hMeter * 3.28084);
-                        let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
-                        elevData.forEach(ep => {
-                            let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
-                            if (d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
-                        });
-                        if (bestD < 2.0) rawObstacles.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
-                    });
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(bboxes.length / BATCH_SIZE);
+        console.log(`[Overpass] Fetching Batch ${batchNum} / ${totalBatches}...`);
+
+        let retries = 2;
+        let batchSuccess = false;
+
+        while (retries > 0 && !batchSuccess) {
+            try {
+                if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+
+                // 1. Versuch: Hauptserver
+                let res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal });
+                
+                // 2. Versuch: Wenn Hauptserver zickt (inkl. 429), sofort auf Fallback lz4 wechseln
+                if (!res.ok) {
+                    console.warn(`[Overpass] Hauptserver Fehler (Status: ${res.status}) bei Batch ${batchNum}. Versuche lz4 Fallback...`);
+                    res = await fetch(`https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal });
                 }
+
+                // 3. Auswertung
+                if (res.status === 429) {
+                    console.warn(`[Overpass] Beide Server blocken (429 Rate Limit) bei Batch ${batchNum}. Warte 2.5s...`);
+                    await new Promise(r => setTimeout(r, 2500));
+                    retries--;
+                    continue;
+                }
+
+                if (res.ok) {
+                    batchSuccess = true;
+                    let json = await res.json();
+                    console.log(`[Overpass] Batch ${batchNum} erfolgreich. ${json.elements ? json.elements.length : 0} Rohelemente.`);
+                    
+                    if (json.elements) {
+                        json.elements.forEach(e => {
+                            if (!e.lat || !e.lon) return;
+                            let isWind = e.tags && e.tags["generator:source"] === "wind";
+                            let hStr = e.tags && e.tags.height ? e.tags.height : null;
+                            let hMeter = hStr ? parseFloat(hStr.replace(',', '.')) : (isWind ? 120 : 50);
+                            if (isNaN(hMeter) || hMeter < 30) return;
+                            
+                            let hFt = Math.round(hMeter * 3.28084);
+                            let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
+                            elevData.forEach(ep => {
+                                let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
+                                if (d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
+                            });
+                            if (bestD < 2.0) rawObstacles.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
+                        });
+                    }
+                } else {
+                    console.warn(`[Overpass] Beide Server down für Batch ${batchNum}. Status: ${res.status}. Noch ${retries-1} Versuche.`);
+                    retries--;
+                    if (retries > 0) await new Promise(r => setTimeout(r, 2000));
+                }
+            } catch(e) {
+                if (e.name === 'AbortError') {
+                    console.log(`[Overpass] Abfrage abgebrochen (Route geändert).`);
+                    return null; 
+                }
+                console.warn(`[Overpass] Netzwerkfehler: ${e.message}. Noch ${retries-1} Versuche.`);
+                retries--;
+                if (retries > 0) await new Promise(r => setTimeout(r, 2000));
             }
-        } catch(e) { 
-            console.warn("Obstacles Batch Error:", e.message); 
+        }
+
+        // Strikter Cache-Schutz: Wenn dieser Batch komplett gescheitert ist, sofort abbrechen!
+        if (!batchSuccess) {
+            console.error(`[Overpass] Batch ${batchNum} endgültig gescheitert. Breche ab, um unvollständigen Cache zu verhindern.`);
+            return null; // Gibt null zurück -> Profil rendert ohne, aber speichert nichts im Cache!
+        }
+
+        // Atempause für den Server zwischen erfolgreichen Batches (verhindert 429 im nächsten Loop)
+        if (i + BATCH_SIZE < bboxes.length) {
+            await new Promise(r => setTimeout(r, 1200)); // Pause auf 1200ms erhöht
         }
     }
 
@@ -4169,22 +4218,18 @@ async function fetchProfileObstacles(elevData) {
         rep.count = group.length;
         finalObs.push(rep);
     }
+    
+    console.log(`[Overpass] Suche komplett. ${finalObs.length} Hindernis-Gruppen nach Filterung auf der Route.`);
     return finalObs;
 }
 
 function triggerVerticalProfileUpdate() {
-    if (window.vpFetchController) {
-        window.vpFetchController.abort();
-    }
-    window.vpFetchController = new AbortController();
-    const currentSignal = window.vpFetchController.signal;
-
     if (vpProfileFastTimeout) clearTimeout(vpProfileFastTimeout);
     if (vpProfileSlowTimeout) clearTimeout(vpProfileSlowTimeout);
 
-    ['btnToggleClouds', 'btnToggleLandmarks', 'btnToggleObstacles'].forEach(id => {
-        const b = document.getElementById(id); if(b) b.classList.add('vp-loading-pulse');
-    });
+    if (window.vpFetchController) window.vpFetchController.abort();
+    window.vpFetchController = new AbortController();
+    const currentSignal = window.vpFetchController.signal;
 
     vpProfileFastTimeout = setTimeout(async () => {
         if (!routeWaypoints || routeWaypoints.length < 2) return;
@@ -4196,29 +4241,31 @@ function triggerVerticalProfileUpdate() {
             window._lastVpRouteKey = cacheKey;
         }
 
-        const page5 = document.getElementById('notePage5');
-        if (page5) page5.style.display = '';
         const status = document.getElementById('verticalProfileStatus');
         if (status) status.textContent = 'Lade Terrain & Orte...';
 
         try {
             vpElevationData = await fetchRouteElevation(routeWaypoints, currentSignal);
             
-            if (window._lastLandmarkRouteKey !== cacheKey) {
+            if (window._lastLmRouteKey !== cacheKey) {
+                const btnLm = document.getElementById('btnToggleLandmarks');
+                if (btnLm) btnLm.classList.add('vp-loading-pulse');
+
                 const lmStr = localStorage.getItem('ga_lms_' + cacheKey);
                 if (lmStr) {
-                    try { vpLandmarks = JSON.parse(lmStr); } catch(e) { vpLandmarks = []; }
+                    try { vpLandmarks = JSON.parse(lmStr); window._lastLmRouteKey = cacheKey; } catch(e) { vpLandmarks = []; }
                 } else {
                     vpLandmarks = await fetchProfileLandmarks(vpElevationData);
-                    try { localStorage.setItem('ga_lms_' + cacheKey, JSON.stringify(vpLandmarks)); } catch(e) {}
+                    if (vpLandmarks !== null) {
+                        try { localStorage.setItem('ga_lms_' + cacheKey, JSON.stringify(vpLandmarks)); window._lastLmRouteKey = cacheKey; } catch(e) {}
+                    }
                 }
+                if (btnLm) btnLm.classList.remove('vp-loading-pulse');
             }
             
-            if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
-            if (typeof renderMapProfile === 'function' && document.getElementById('mapTableOverlay').classList.contains('active')) renderMapProfile();
-            
+            if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
         } catch(e) {
-            console.error('Fast Profile Error:', e);
+            if (e && e.name !== 'AbortError') console.error('Fast Profile Error:', e);
         }
     }, 500);
 
@@ -4231,28 +4278,34 @@ function triggerVerticalProfileUpdate() {
         try {
             if (!vpElevationData) return; 
 
+            const btnCl = document.getElementById('btnToggleClouds');
+            if (btnCl) btnCl.classList.add('vp-loading-pulse');
             vpWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData, currentSignal);
+            if (btnCl) btnCl.classList.remove('vp-loading-pulse');
 
-            if (window._lastLandmarkRouteKey !== cacheKey) {
-                window._lastLandmarkRouteKey = cacheKey; 
+            if (window._lastObsRouteKey !== cacheKey) {
+                const btnOb = document.getElementById('btnToggleObstacles');
+                if (btnOb) btnOb.classList.add('vp-loading-pulse');
+
                 const obStr = localStorage.getItem('ga_obs_' + cacheKey);
                 if (obStr) {
-                    try { vpObstacles = JSON.parse(obStr); } catch(e) { vpObstacles = []; }
+                    try { vpObstacles = JSON.parse(obStr); window._lastObsRouteKey = cacheKey; } catch(e) { vpObstacles = []; }
                 } else {
-                    vpObstacles = await fetchProfileObstacles(vpElevationData);
-                    try { localStorage.setItem('ga_obs_' + cacheKey, JSON.stringify(vpObstacles)); } catch(e) {}
+                    vpObstacles = await fetchProfileObstacles(vpElevationData, currentSignal);
+                    if (vpObstacles !== null) { 
+                        try { localStorage.setItem('ga_obs_' + cacheKey, JSON.stringify(vpObstacles)); window._lastObsRouteKey = cacheKey; } catch(e) {}
+                    }
                 }
+                if (btnOb) btnOb.classList.remove('vp-loading-pulse');
             }
             if (status) status.textContent = vpElevationData.length + ' Punkte & API-Daten geladen';
         } catch(e) {
-            console.error('Slow Profile Error:', e);
+            if (e && e.name !== 'AbortError') console.error('Slow Profile Error:', e);
             if (status) status.textContent = 'API Limit erreicht';
         } finally {
-            ['btnToggleClouds', 'btnToggleLandmarks', 'btnToggleObstacles'].forEach(id => {
-                const b = document.getElementById(id); if(b) b.classList.remove('vp-loading-pulse');
-            });
-            if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
-            if (typeof renderMapProfile === 'function' && document.getElementById('mapTableOverlay').classList.contains('active')) renderMapProfile();
+            const bC = document.getElementById('btnToggleClouds'); if(bC) bC.classList.remove('vp-loading-pulse');
+            const bO = document.getElementById('btnToggleObstacles'); if(bO) bO.classList.remove('vp-loading-pulse');
+            if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
         }
     }, 2800);
 }
@@ -6750,24 +6803,42 @@ function vpToggleClouds() {
     localStorage.setItem('ga_show_clouds', vpShowClouds);
     const btn = document.getElementById('btnToggleClouds');
     if (btn) btn.classList.toggle('active', vpShowClouds);
-    if (typeof renderMapProfile === 'function') renderMapProfile();
-    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+    
+    if (vpShowClouds && window._lastVpRouteKey) {
+        triggerVerticalProfileUpdate();
+    } else if (typeof window.throttledRenderProfiles === 'function') {
+        window.throttledRenderProfiles();
+    }
 }
+
 function vpToggleLandmarks() {
     vpShowLandmarks = !vpShowLandmarks;
     localStorage.setItem('ga_show_landmarks', vpShowLandmarks);
     const btn = document.getElementById('btnToggleLandmarks');
     if (btn) btn.classList.toggle('active', vpShowLandmarks);
-    if (typeof renderMapProfile === 'function') renderMapProfile();
-    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+    
+    if (vpShowLandmarks && window._lastVpRouteKey) {
+        localStorage.removeItem('ga_lms_' + window._lastVpRouteKey);
+        window._lastLmRouteKey = null; // Zwingt zum erneuten Fetch
+        triggerVerticalProfileUpdate();
+    } else if (typeof window.throttledRenderProfiles === 'function') {
+        window.throttledRenderProfiles();
+    }
 }
+
 function vpToggleObstacles() {
     vpShowObstacles = !vpShowObstacles;
     localStorage.setItem('ga_show_obstacles', vpShowObstacles);
     const btn = document.getElementById('btnToggleObstacles');
     if (btn) btn.classList.toggle('active', vpShowObstacles);
-    if (typeof renderMapProfile === 'function') renderMapProfile();
-    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+    
+    if (vpShowObstacles && window._lastVpRouteKey) {
+        localStorage.removeItem('ga_obs_' + window._lastVpRouteKey);
+        window._lastObsRouteKey = null; // Zwingt zum erneuten Fetch
+        triggerVerticalProfileUpdate();
+    } else if (typeof window.throttledRenderProfiles === 'function') {
+        window.throttledRenderProfiles();
+    }
 }
 
 // === PROMPT-EINGABE für ALT / V/S (V57) ===
