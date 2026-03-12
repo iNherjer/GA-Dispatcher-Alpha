@@ -172,8 +172,14 @@ function cycleRadioOption(selectId) {
 }
 
 function toggleNotes(event) {
-    // Wenn wir auf einen Link oder Button klicken, nichts tun
-    if (event && (event.target.tagName === 'A' || event.target.tagName === 'BUTTON')) return;
+    // Wenn wir auf einen Link, Button oder ein Pin-Icon klicken, umblättern hart blockieren
+    if (event && event.target && (
+        event.target.tagName === 'A' ||
+        event.target.tagName === 'BUTTON' ||
+        event.target.classList.contains('briefing-save-pin') ||
+        event.target.classList.contains('briefing-export-pin') ||
+        event.target.classList.contains('briefing-pdf-pin')
+    )) return;
 
     const pages = ['notePage1', 'notePage2', 'notePage3', 'notePage4', 'notePage5'].map(id => document.getElementById(id)).filter(Boolean);
     if (pages.length < 2) return;
@@ -1732,6 +1738,7 @@ function vpStartHighlightPulse() {
     function animate() {
         vpPulsePhase = (vpPulsePhase + 0.02) % 1;
         if (typeof renderMapProfile === 'function') renderMapProfile();
+        if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
         vpPulseAnimFrame = requestAnimationFrame(animate);
     }
     vpPulseAnimFrame = requestAnimationFrame(animate);
@@ -1745,19 +1752,20 @@ function vpStopHighlightPulse() {
 }
 
 function clearAirspaceMapLayers() {
-    if (!map) return;
-    airspaceMapLayers.forEach(l => map.removeLayer(l));
-    airspaceMapLayers = [];
+    if (map) {
+        airspaceMapLayers.forEach(l => map.removeLayer(l));
+        airspaceMapLayers = [];
+    }
     highlightedAirspaceIdx = -1;
     vpHighlightPulseIdx = -1;
     vpStopHighlightPulse();
-    // Remove active styling from all rows
     document.querySelectorAll('.as-row.as-active').forEach(el => el.classList.remove('as-active'));
     if (typeof renderMapProfile === 'function') renderMapProfile();
+    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
 }
 
 function toggleAirspaceHighlight(idx) {
-    if (!map || !activeAirspaces[idx]) return;
+    if (!activeAirspaces[idx]) return;
 
     // If same airspace is already highlighted, toggle it off
     if (highlightedAirspaceIdx === idx) {
@@ -1765,48 +1773,40 @@ function toggleAirspaceHighlight(idx) {
         return;
     }
 
-    // Clear previous
-    airspaceMapLayers.forEach(l => map.removeLayer(l));
-    airspaceMapLayers = [];
+    if (map) {
+        airspaceMapLayers.forEach(l => map.removeLayer(l));
+        airspaceMapLayers = [];
+    }
     document.querySelectorAll('.as-row.as-active').forEach(el => el.classList.remove('as-active'));
 
     const airspace = activeAirspaces[idx];
     highlightedAirspaceIdx = idx;
 
-    const coords = airspace.geometry.coordinates;
-    let polys = [];
-    if (airspace.geometry.type === 'Polygon') {
-        polys = [coords[0].map(c => [c[1], c[0]])];
-    } else if (airspace.geometry.type === 'MultiPolygon') {
-        polys = coords.map(pc => pc[0].map(c => [c[1], c[0]]));
+    if (map) {
+        const coords = airspace.geometry.coordinates;
+        let polys = [];
+        if (airspace.geometry.type === 'Polygon') {
+            polys = [coords[0].map(c => [c[1], c[0]])];
+        } else if (airspace.geometry.type === 'MultiPolygon') {
+            polys = coords.map(pc => pc[0].map(c => [c[1], c[0]]));
+        }
+        const info = getAirspaceStyle(airspace);
+        polys.forEach(ring => {
+            const layer = L.polygon(ring, {
+                color: info.mapColor || '#ff4444', weight: 3, fillColor: info.mapColor || '#ff4444',
+                fillOpacity: 0.25, dashArray: '6,4', className: 'airspace-highlight-pulse'
+            }).addTo(map);
+            const displayName = getAirspaceDisplayName(airspace);
+            layer.bindTooltip(`<b>${info.icon} ${displayName}</b>`, { sticky: true, className: 'airspace-tooltip' });
+            airspaceMapLayers.push(layer);
+        });
     }
 
-    const info = getAirspaceStyle(airspace);
-    polys.forEach(ring => {
-        const layer = L.polygon(ring, {
-            color: info.mapColor || '#ff4444',
-            weight: 3,
-            fillColor: info.mapColor || '#ff4444',
-            fillOpacity: 0.25,
-            dashArray: '6,4',
-            className: 'airspace-highlight-pulse'
-        }).addTo(map);
-
-        const displayName = getAirspaceDisplayName(airspace);
-        layer.bindTooltip(`<b>${info.icon} ${displayName}</b>`, { sticky: true, className: 'airspace-tooltip' });
-        airspaceMapLayers.push(layer);
-    });
-
-    // Mark the row as active
     const row = document.querySelector(`.as-row[data-as-idx="${idx}"]`);
     if (row) row.classList.add('as-active');
 
-    // Start pulsing animation in the vertical profile canvas
     vpHighlightPulseIdx = idx;
     vpStartHighlightPulse();
-
-    // Re-render profile to show highlighted airspace
-    if (typeof renderMapProfile === 'function') renderMapProfile();
 }
 
 function getAirspaceDisplayName(a) {
@@ -6661,4 +6661,54 @@ window.forceAppUpdate = function() {
             window.location.reload(true);
         }
     }
+};
+
+// =========================================================
+// V80: MISSION EXPORT / IMPORT / PDF-BRIEFING
+// =========================================================
+window.exportMission = function() {
+    const data = localStorage.getItem('ga_active_mission');
+    if (!data) { alert("Kein aktiver Flug zum Exportieren."); return; }
+    const code = btoa(encodeURIComponent(data));
+    navigator.clipboard.writeText(code).then(() => {
+        alert("🔗 Flug-Code kopiert!\n\nDu kannst ihn nun im Chat teilen oder über 'Code laden' (Pinnwand) auf einem anderen Gerät importieren.");
+    }).catch(() => alert("Fehler beim Kopieren."));
+};
+
+window.importMission = function() {
+    const code = prompt("Füge hier den kopierten Flug-Code ein:");
+    if (!code) return;
+    try {
+        const decoded = decodeURIComponent(atob(code));
+        const state = JSON.parse(decoded);
+        localStorage.setItem('ga_active_mission', JSON.stringify(state));
+        restoreMissionState(state);
+        alert("✅ Flug erfolgreich geladen!");
+    } catch(e) {
+        alert("❌ Ungültiger oder beschädigter Code.");
+    }
+};
+
+window.generateBriefingPDF = async function() {
+    alert("📄 Das PDF-Briefing wird generiert. Das kann einen kurzen Moment dauern...");
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pages = ['notePage1', 'notePage2', 'notePage3', 'notePage4', 'notePage5']
+                  .map(id => document.getElementById(id))
+                  .filter(el => el && el.style.display !== 'none');
+    for (let i = 0; i < pages.length; i++) {
+        if (i > 0) doc.addPage();
+        // UI-Buttons für sauberen Druck kurz ausblenden
+        const pins = pages[i].querySelectorAll('.briefing-save-pin, .briefing-export-pin, .briefing-pdf-pin');
+        pins.forEach(p => p.style.display = 'none');
+
+        const canvas = await html2canvas(pages[i], { scale: 2, useCORS: true, backgroundColor: '#fdf5e6' });
+        pins.forEach(p => p.style.display = '');
+        const imgData = canvas.toDataURL('image/jpeg', 0.9);
+        const pdfWidth = doc.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        doc.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+    }
+    const dest = document.getElementById('mDestICAO') ? document.getElementById('mDestICAO').innerText : 'Flight';
+    doc.save(`GA_Briefing_${dest}.pdf`);
 };
