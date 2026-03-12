@@ -821,6 +821,8 @@ function handleSliderChange(type, val) {
     syncToNavCom(type + 'Radio', val);
     if (type === 'alt') {
         syncToNavCom('altRadioDisplay', val);
+        const mInp = document.getElementById('altMapInput');
+        if (mInp && mInp.value != val) mInp.value = val;
         triggerVerticalProfileUpdate();
         if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
     }
@@ -836,9 +838,9 @@ function handleRateChange(val) {
     if (rateMapDisplay) rateMapDisplay.textContent = val;
     // Sync sliders
     const rateSlider = document.getElementById('rateSlider');
-    const rateSliderMap = document.getElementById('rateSliderMap');
+    const rateMapInp = document.getElementById('rateMapInput');
     if (rateSlider) rateSlider.value = val;
-    if (rateSliderMap) rateSliderMap.value = val;
+    if (rateMapInp && rateMapInp.value != val) rateMapInp.value = val;
     // Sync NAVCOM if in rate mode
     if (typeof navcomAltMode !== 'undefined' && navcomAltMode === 'rate') {
         const altRadioDisplay = document.getElementById('altRadioDisplay');
@@ -4211,14 +4213,15 @@ function renderVerticalProfile(canvasId) {
     const totalDist = vpElevationData[vpElevationData.length - 1].distNM;
     const maxTerrain = Math.max(...vpElevationData.map(p => p.elevFt));
     let maxCloudAlt = 0;
-    if (vpWeatherData) {
+    if (vpShowClouds && vpWeatherData) {
         vpWeatherData.forEach(zone => {
             if (zone.clouds) zone.clouds.forEach(c => {
                 if (c.baseMsl > maxCloudAlt) maxCloudAlt = c.baseMsl;
             });
         });
     }
-    const maxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500, maxCloudAlt + 1000);
+    let autoMaxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500, vpShowClouds ? maxCloudAlt + 1000 : 0);
+    const maxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
     const minAlt = 0;
 
     const fpResult = computeFlightProfile(vpElevationData, cruiseAlt, vpClimbRate, vpDescentRate, tas);
@@ -4377,7 +4380,7 @@ function renderVerticalProfile(canvasId) {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, false); // Light theme Wolken
+    if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, false); // Light theme Wolken
 
     // Flight profile
     if (fpResult && fpResult.profile) {
@@ -4706,14 +4709,15 @@ function renderMapProfile() {
     const totalDist = elevData[elevData.length - 1].distNM;
     const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
     let maxCloudAlt = 0;
-    if (vpWeatherData) {
+    if (vpShowClouds && vpWeatherData) {
         vpWeatherData.forEach(zone => {
             if (zone.clouds) zone.clouds.forEach(c => {
                 if (c.baseMsl > maxCloudAlt) maxCloudAlt = c.baseMsl;
             });
         });
     }
-    const maxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500, maxCloudAlt + 1000);
+    let autoMaxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500, vpShowClouds ? maxCloudAlt + 1000 : 0);
+    const maxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
     const minAlt = 0;
 
     const fpResult = computeFlightProfile(elevData, cruiseAlt, vpClimbRate, vpDescentRate, tas);
@@ -4882,7 +4886,7 @@ function renderMapProfile() {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, true); // Dark theme Wolken
+    if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, true); // Dark theme Wolken
 
     // Flight profile
     if (fpResult && fpResult.profile) {
@@ -6090,3 +6094,62 @@ function resetSyncTimer() {
     document.addEventListener(evt, resetSyncTimer, { passive: true, capture: true });
 });
 setTimeout(() => initAltWaypoints(), 2000);
+// === VERTICAL PROFILE CONTROLS (V49) ===
+let vpMaxAltOverride = 0; // 0 = Auto-Scaling
+let vpShowClouds = true;
+function vpChangeAlt(delta) {
+    let val = parseInt(document.getElementById('altMapInput').value) || 4500;
+    val = Math.max(1500, Math.min(13500, val + delta));
+    syncAltFromInput(val);
+}
+function syncAltFromInput(val) {
+    val = parseInt(val) || 4500;
+    document.getElementById('altMapInput').value = val;
+    const mainSlider = document.getElementById('altSlider');
+    if (mainSlider) mainSlider.value = val;
+    handleSliderChange('alt', val);
+    if (typeof renderMapProfile === 'function') renderMapProfile();
+    if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
+    if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+}
+function vpChangeRate(delta) {
+    let val = parseInt(document.getElementById('rateMapInput').value) || 500;
+    val = Math.max(200, Math.min(1500, val + delta));
+    syncRateFromInput(val);
+}
+function syncRateFromInput(val) {
+    val = parseInt(val) || 500;
+    document.getElementById('rateMapInput').value = val;
+    handleRateChange(val);
+}
+function vpChangeYAxis(delta) {
+    if (vpMaxAltOverride === 0) {
+        const elevData = (typeof vpZoomLevel !== 'undefined' && vpZoomLevel < 100 && vpHighResData) ? vpHighResData : vpElevationData;
+        if (!elevData) return;
+        const cruiseAlt = parseInt(document.getElementById('altMapInput')?.value || 4500);
+        const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
+        let maxCloudAlt = 0;
+        if (vpShowClouds && vpWeatherData) {
+            vpWeatherData.forEach(zone => { if (zone.clouds) zone.clouds.forEach(c => { if (c.baseMsl > maxCloudAlt) maxCloudAlt = c.baseMsl; }); });
+        }
+        vpMaxAltOverride = Math.max(cruiseAlt + 500, maxTerrain + 1500, vpShowClouds ? maxCloudAlt + 1000 : 0);
+        vpMaxAltOverride = Math.ceil(vpMaxAltOverride / 1000) * 1000;
+    }
+    vpMaxAltOverride = Math.max(3000, vpMaxAltOverride + delta);
+    document.getElementById('yAxisDisplay').textContent = (vpMaxAltOverride / 1000) + 'k';
+    renderMapProfile();
+    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+}
+function vpResetYAxis() {
+    vpMaxAltOverride = 0;
+    document.getElementById('yAxisDisplay').textContent = 'AUTO';
+    renderMapProfile();
+    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+}
+function vpToggleClouds() {
+    vpShowClouds = !vpShowClouds;
+    const btn = document.getElementById('btnToggleClouds');
+    if (btn) btn.classList.toggle('active', vpShowClouds);
+    renderMapProfile();
+    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+}
