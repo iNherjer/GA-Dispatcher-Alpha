@@ -4157,46 +4157,76 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
             }
             ctx.strokeStyle = 'rgba(255, 230, 100, 0.9)'; ctx.lineWidth = 1.5; ctx.stroke();
         }
-        // 3. WOLKEN (PUFFS)
+        // 3. WOLKEN (PUFFS) – Zoom-adaptiv, isolierte Zellen für FEW/SCT
         if (zone.clouds && zone.clouds.length > 0) {
             zone.clouds.forEach((c, cIdx) => {
                 const baseY = yOf(c.baseMsl);
                 let thicknessFt = 600, baseColor = isDarkTheme ? 210 : 255;
-                if (c.type === 'SCT') { thicknessFt = 1200; baseColor -= 15; }
-                else if (c.type === 'BKN') { thicknessFt = 3000; baseColor -= 40; }
-                else if (c.type === 'OVC' || c.type === 'VV') { thicknessFt = 5000; baseColor -= 70; }
-                if (zone.weather && zone.weather.hasTS) { thicknessFt = Math.max(thicknessFt, 12000); baseColor -= 60; }
+                let coverage = 1.0, radiusMult = 1.0, numCells = 4;
+                // Logik für isolierte Grüppchen (mehr Zellen = kleinere Wölkchen)
+                if (c.type === 'FEW') { thicknessFt = 800; coverage = 0.22; radiusMult = 0.35; numCells = 16; }
+                else if (c.type === 'SCT') { thicknessFt = 1500; baseColor -= 15; coverage = 0.45; radiusMult = 0.6; numCells = 10; }
+                else if (c.type === 'BKN') { thicknessFt = 3000; baseColor -= 40; coverage = 0.80; radiusMult = 0.9; numCells = 6; }
+                else if (c.type === 'OVC' || c.type === 'VV') { thicknessFt = 5000; baseColor -= 70; coverage = 1.0; }
+                if (zone.weather && zone.weather.hasTS) { thicknessFt = Math.max(thicknessFt, 12000); baseColor -= 60; coverage = 1.0; radiusMult = 1.1; numCells = 4; }
                 const topY = yOf(c.baseMsl + thicknessFt), layerHeight = baseY - topY;
                 if (baseY < padTop - 20 || topY > padTop + plotH + 20) return;
-                const maxRadiusY = Math.abs(yOf(1500) - yOf(0)), maxRadiusX = width * 0.4;
-                const maxR = Math.max(3, Math.min(maxRadiusY, maxRadiusX));
+                // Zoom-abhängige Skalierung: Beim Rauszoomen wird 'width' klein -> Wolken werden winzig!
+                const maxRadiusY = Math.abs(yOf(1000) - yOf(0));
+                const maxRadiusX = width * (2.5 / numCells);
+                const maxR = Math.max(2, Math.min(maxRadiusY, maxRadiusX)) * radiusMult;
+
                 const seedBase = i * 100 + cIdx * 10;
+
                 ctx.save();
-                // Flache Basis: Alles unterhalb von baseY wird rigoros abgeschnitten!
                 ctx.beginPath();
-                ctx.rect(startX, 0, width, baseY);
+                ctx.rect(startX - 2000, 0, width + 4000, baseY);
                 ctx.clip();
-                for(let p=0; p<45; p++) {
+                const numPuffs = c.type === 'FEW' ? 40 : 60;
+                for (let p = 0; p < numPuffs; p++) {
                     const pxRand = prng(seedBase + p + 0.1);
-                    if (c.type === 'FEW' && (pxRand * 4) % 1 > 0.2) continue;
-                    if (c.type === 'SCT' && (pxRand * 4) % 1 > 0.5) continue;
-                    if (c.type === 'BKN' && (pxRand * 3) % 1 > 0.85) continue;
-                    const pyRand = prng(seedBase + p + 0.2), prRand = prng(seedBase + p + 0.3), opRand = prng(seedBase + p + 0.4);
-                    const px = startX + (pxRand * 1.1 - 0.05) * width;
-                    const py = baseY - pyRand * layerHeight; // Kein pow() mehr nötig, Clip macht die Basis flach!
-                    const pr = 4 + prRand * maxR;
+
+                    const cellIndex = Math.floor(pxRand * numCells);
+                    const cellActive = prng(seedBase + cellIndex * 77) < coverage;
+                    if (!cellActive) continue;
+                    let localPx = pxRand;
+                    // Bei FEW/SCT zwingen wir die Puffs in die Mitte der Zelle (0.2 bis 0.8), um Gaps zu garantieren!
+                    if (c.type === 'FEW' || c.type === 'SCT') {
+                        const cellStart = cellIndex / numCells;
+                        const puffInCell = prng(seedBase + p + 0.5);
+                        localPx = cellStart + (0.2 + puffInCell * 0.6) / numCells;
+                    }
+                    const pyRand = prng(seedBase + p + 0.2);
+                    const prRand = prng(seedBase + p + 0.3);
+                    const opRand = prng(seedBase + p + 0.4);
+                    // OVC überlappt stark, FEW/SCT bleiben strikt in ihrer Zone
+                    const px = (c.type === 'FEW' || c.type === 'SCT')
+                        ? startX + localPx * width
+                        : startX + (localPx * 1.2 - 0.1) * width;
+                    const py = baseY - pyRand * layerHeight;
+                    const pr = 2 + prRand * maxR;
+
                     const cVal = Math.floor(baseColor - opRand * 30);
-                    // FEW und SCT jetzt deutlich transparenter
-                    const alpha = (c.type === 'FEW' || c.type === 'SCT') ? (0.15 + opRand * 0.2) : (0.5 + opRand * 0.4);
+                    const alpha = (c.type === 'FEW') ? (0.15 + opRand * 0.2) : ((c.type === 'SCT') ? (0.3 + opRand * 0.3) : (0.5 + opRand * 0.4));
+
                     ctx.beginPath();
-                    ctx.arc(px, py, pr, 0, Math.PI*2);
+                    ctx.arc(px, py, pr, 0, Math.PI * 2);
                     ctx.fillStyle = `rgba(${cVal},${cVal},${cVal},${alpha})`;
-                    // Der Unschärfe-Trick für franzige Wolken
-                    ctx.shadowColor = `rgba(${cVal},${cVal},${cVal},${alpha})`;
-                    ctx.shadowBlur = 8 + prRand * 12;
+
+                    // Performance-Fix: Weiche Ränder deaktivieren, während gezogen wird!
+                    const isDragging = (typeof vpDraggingWP !== 'undefined' && vpDraggingWP >= 0) || (typeof vpDraggingSegment !== 'undefined' && !!vpDraggingSegment);
+                    if (!isDragging) {
+                        ctx.shadowColor = `rgba(${cVal},${cVal},${cVal},${alpha})`;
+                        ctx.shadowBlur = 4 + prRand * 8;
+                    } else {
+                        ctx.shadowColor = 'transparent';
+                        ctx.shadowBlur = 0;
+                    }
+
                     ctx.fill();
                 }
                 ctx.restore();
+
                 ctx.fillStyle = isDarkTheme ? '#ccc' : '#222';
                 ctx.font = 'bold 8px Arial'; ctx.textAlign = 'center';
                 ctx.fillText(c.type, midX, baseY + 12);
@@ -5278,9 +5308,14 @@ function initAltWaypoints() {
         const zoomFactor = 100 / vpZoomLevel;
         const canvasWidth = Math.round(baseWidth * zoomFactor);
         const totalDist = elevData[elevData.length - 1].distNM;
-        const cruiseAlt = parseInt(document.getElementById('altSliderMap')?.value || document.getElementById('altSlider')?.value || 4500);
+
+        // FIX: Aus dem neuen Span-Feld lesen
+        const cruiseAlt = parseInt(document.getElementById('altMapInput')?.innerText || document.getElementById('altSlider')?.value || 4500);
         const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
-        const maxAlt = Math.max(cruiseAlt + 500, maxTerrain + 1500);
+
+        // FIX: Exakt gleiche Skalierung wie beim Rendering (+ 2500)
+        let autoMaxAlt = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
+        const maxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
         const padLeft = 33, padRight = 16, padTop = 12, padBottom = 22;
         const plotW = canvasWidth - padLeft - padRight;
         const plotH = containerHeight - padTop - padBottom;
@@ -5419,7 +5454,6 @@ function initAltWaypoints() {
         if (!m) return;
         const deltaY = dragStartY - clientY;
         const altChange = (deltaY / m.plotH) * m.maxAlt;
-
         if (vpDraggingWP >= 0) {
             const scaleX = m.canvasWidth / m.rect.width;
             const deltaX = (clientX - dragStartX) * scaleX;
@@ -5437,54 +5471,45 @@ function initAltWaypoints() {
             if (seg.segIdx >= 0 && seg.segIdx < vpSegmentAlts.length) {
                 vpSegmentAlts[seg.segIdx] = newAlt;
                 renderMapProfile();
-                if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
             } else if (seg.segIdx === -1) {
-                const newGlobalAlt = Math.max(500, Math.round((seg.origCruiseAlt + altChange) / 500) * 500);
-                const altMap = document.getElementById('altSliderMap');
-                const altMain = document.getElementById('altSlider');
-                if (altMap && altMap.value != newGlobalAlt) {
-                    altMap.value = newGlobalAlt;
-                    if (typeof handleSliderChange === 'function') handleSliderChange('alt', newGlobalAlt);
-                } else if (altMain && altMain.value != newGlobalAlt) {
-                    altMain.value = newGlobalAlt;
-                    if (typeof handleSliderChange === 'function') handleSliderChange('alt', newGlobalAlt);
+                const newGlobalAlt = Math.max(1500, Math.min(13500, Math.round((seg.origCruiseAlt + altChange) / 500) * 500));
+                const altMap = document.getElementById('altMapInput');
+                if (altMap && altMap.innerText != newGlobalAlt) {
+                    altMap.innerText = newGlobalAlt;
+                    renderMapProfile();
                 }
             } else if (seg.segIdx === -2 || seg.segIdx === -3) {
-                if (vpAltWaypoints.length > 0) {
-                    vpAltWaypoints[0].altFt = newAlt;
-                    renderMapProfile();
-                    if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
-                }
+                if (vpAltWaypoints.length > 0) { vpAltWaypoints[0].altFt = newAlt; renderMapProfile(); }
             } else if (seg.segIdx === -4) {
-                if (vpAltWaypoints.length > 0) {
-                    vpAltWaypoints[vpAltWaypoints.length - 1].altFt = newAlt;
-                    renderMapProfile();
-                    if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
-                }
+                if (vpAltWaypoints.length > 0) { vpAltWaypoints[vpAltWaypoints.length - 1].altFt = newAlt; renderMapProfile(); }
             }
         } else if (vpDraggingMagenta) {
             const { mx } = vpClientToCanvas(clientX, clientY, m);
             let frac = (mx - m.padLeft) / m.plotW;
             frac = Math.max(0, Math.min(1, frac));
             vpUpdatePosition(frac);
-            const posSlider = document.getElementById('vpPosSlider');
-            if (posSlider) posSlider.value = Math.round(frac * 1000);
         }
     }
 
     function vpHandleDragEnd() {
         if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) {
-            const needsSave = vpDraggingWP >= 0 || !!vpDraggingSegment; // Magenta = nur Position, keine Höhendaten
-            if (vpDraggingWP >= 0) {
-                vpAltWaypoints.sort((a, b) => a.distNM - b.distNM);
+            const needsSave = vpDraggingWP >= 0 || !!vpDraggingSegment;
+
+            // Bei globaler Höhenänderung einmalig am Ende synchronisieren
+            if (vpDraggingSegment && vpDraggingSegment.segIdx === -1) {
+                const finalAlt = parseInt(document.getElementById('altMapInput').innerText) || 4500;
+                syncAltFromInput(finalAlt);
             }
+            if (vpDraggingWP >= 0) vpAltWaypoints.sort((a, b) => a.distNM - b.distNM);
+
             vpDraggingWP = -1;
             vpDraggingSegment = null;
             vpDraggingMagenta = false;
             dragOrigWP = null;
+
             renderMapProfile();
             if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
-            if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+            if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList(); // Erst beim Loslassen berechnen!
             if (needsSave) setTimeout(() => saveMissionState(), 200);
         }
     }
