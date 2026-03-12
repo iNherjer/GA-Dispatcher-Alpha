@@ -1,4 +1,16 @@
 /* =========================================================
+   GLOBAL HELPERS
+   ========================================================= */
+window.formatAsLimit = function(lim) {
+    if (!lim) return '?';
+    if (lim.referenceDatum === 0 && lim.value === 0) return 'GND';
+    if (lim.unit === 6) return `FL ${lim.value}`;
+    let u = lim.unit === 1 ? 'FT' : 'M';
+    let r = lim.referenceDatum === 1 ? ' MSL' : (lim.referenceDatum === 0 ? ' AGL' : '');
+    return `${lim.value} ${u}${r}`;
+};
+
+/* =========================================================
    1. THEME TOGGLE & NOTIZEN TOGGLE
    ========================================================= */
 function changeThemeFromSlider(val) {
@@ -1755,10 +1767,12 @@ function toggleAirspaceHighlight(idx) {
 }
 
 function getAirspaceDisplayName(a) {
-    const t = a.type;
-    const name = a.name || 'Unbekannt';
-    if (t === 33) return `FIS ${name}`;
-    return name;
+    const style = getAirspaceStyle(a);
+    let name = a.name || 'Unbekannt';
+    // Entferne überflüssige Begriffe wie "TMA", "CTR" und freistehende Klassen-Buchstaben (wie "C" oder "D") aus dem Roh-Namen
+    name = name.replace(/\b(TMA|CTR|CTA|TMZ|RMZ|FIS)\b/ig, '');
+    name = name.replace(/\b[A-G]\b/g, '');
+    return `${name.trim()} [${style.category}]`;
 }
 
 function getAirspaceFreqInfo(a) {
@@ -3888,6 +3902,127 @@ let vpHighResData = null; // Higher resolution elevation data for zoom
 let vpElevationCache = {}; // Cache to prevent API rate limits (HTTP 429)
 let vpClimbRate = 500; // ft/min climb rate (configurable)
 let vpDescentRate = 500; // ft/min descent rate (configurable)
+let vpLandmarks = [];
+let vpObstacles = [];
+
+async function fetchProfileLandmarks(elevData) {
+    if (!elevData || elevData.length < 2) return [];
+    let minL = 90, maxL = -90, minLo = 180, maxLo = -180;
+    elevData.forEach(p => {
+        if(p.lat < minL) minL = p.lat; if(p.lat > maxL) maxL = p.lat;
+        if(p.lon < minLo) minLo = p.lon; if(p.lon > maxLo) maxLo = p.lon;
+    });
+    minL -= 0.1; maxL += 0.1; minLo -= 0.15; maxLo += 0.15;
+    let landmarks = [];
+    // 1. Flugplätze (Höchste Priorität)
+    await loadGlobalAirports();
+    for(let k in globalAirports) {
+        let a = globalAirports[k];
+        if (a.lat > minL && a.lat < maxL && a.lon > minLo && a.lon < maxLo) {
+            let bestD = Infinity, bestDistNM = 0;
+            elevData.forEach(ep => {
+                let d = calcNav(a.lat, a.lon, ep.lat, ep.lon).dist;
+                if(d < bestD) { bestD = d; bestDistNM = ep.distNM; }
+            });
+            if (bestD < 3.5) landmarks.push({ name: a.icao, type: 'apt', pop: 100000000, distNM: bestDistNM });
+        }
+    }
+    // 2. Städte & Dörfer via Overpass (mit Fallback & 429 Schutz)
+    try {
+        let query = `[out:json][timeout:8];(node["place"="city"](${minL.toFixed(4)},${minLo.toFixed(4)},${maxL.toFixed(4)},${maxLo.toFixed(4)});node["place"="town"](${minL.toFixed(4)},${minLo.toFixed(4)},${maxL.toFixed(4)},${maxLo.toFixed(4)}););out;`;
+        let url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+        let res = await fetch(url);
+
+        // Fallback, falls der Hauptserver uns wegen 429 blockt
+        if (!res.ok) {
+            url = `https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+            res = await fetch(url);
+        }
+
+        if (!res.ok) throw new Error("Overpass HTTP " + res.status);
+
+        let json = await res.json();
+        if(json.elements) {
+            json.elements.forEach(e => {
+                if (!e.lat || !e.lon) return;
+                let pop = parseInt(e.tags.population) || (e.tags.place === 'city' ? 50000 : 10000);
+                let bestD = Infinity, bestDistNM = 0;
+                elevData.forEach(ep => {
+                    let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
+                    if(d < bestD) { bestD = d; bestDistNM = ep.distNM; }
+                });
+                if (bestD < 3.5) landmarks.push({ name: e.tags.name, type: e.tags.place, pop: pop, distNM: bestDistNM });
+            });
+        }
+    } catch(e) { console.warn("Landmark Fetch Error:", e.message); }
+    console.log("🏙️ Landmarks geladen:", landmarks.length, "Stück.");
+    // Sortieren: Groß nach Klein. Größere Städte werden zuerst gezeichnet und blockieren den Platz für kleine.
+    return landmarks.sort((a,b) => b.pop - a.pop);
+}
+
+async function fetchProfileObstacles(elevData) {
+    if (!elevData || elevData.length < 2) return [];
+    let minL = 90, maxL = -90, minLo = 180, maxLo = -180;
+    elevData.forEach(p => {
+        if(p.lat < minL) minL = p.lat; if(p.lat > maxL) maxL = p.lat;
+        if(p.lon < minLo) minLo = p.lon; if(p.lon > maxLo) maxLo = p.lon;
+    });
+    // Etwas engerer Suchradius als bei Städten, um Datenmenge zu schonen
+    minL -= 0.06; maxL += 0.06; minLo -= 0.1; maxLo += 0.1;
+    let rawObstacles = [];
+    try {
+        let query = `[out:json][timeout:10];(node["generator:source"="wind"](${minL.toFixed(4)},${minLo.toFixed(4)},${maxL.toFixed(4)},${maxLo.toFixed(4)});node["man_made"~"mast|tower"]["height"](${minL.toFixed(4)},${minLo.toFixed(4)},${maxL.toFixed(4)},${maxLo.toFixed(4)}););out;`;
+        let url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+        let res = await fetch(url);
+
+        if (!res.ok) {
+            url = `https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+            res = await fetch(url);
+        }
+        if (!res.ok) throw new Error("Overpass HTTP " + res.status);
+
+        let json = await res.json();
+        if(json.elements) {
+            json.elements.forEach(e => {
+                if (!e.lat || !e.lon) return;
+
+                // Höhe extrahieren (Meter -> Feet). Default Windrad: 120m (400ft). Default Mast: 50m (160ft)
+                let isWind = e.tags["generator:source"] === "wind";
+                let hStr = e.tags.height;
+                let hMeter = hStr ? parseFloat(hStr.replace(',', '.')) : (isWind ? 120 : 50);
+                if (isNaN(hMeter) || hMeter < 30) return; // Unter 30m ignorieren wir
+                let hFt = Math.round(hMeter * 3.28084);
+                let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
+                elevData.forEach(ep => {
+                    let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
+                    if(d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
+                });
+
+                // Nur Hindernisse näher als 2 NM zur direkten Fluglinie
+                if (bestD < 2.0) {
+                    rawObstacles.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
+                }
+            });
+        }
+    } catch(e) { console.warn("Obstacles Fetch Error:", e.message); }
+    // Clustering: Gruppiere in 0.5 NM "Eimer" (Windparks zusammenfassen)
+    let buckets = {};
+    rawObstacles.forEach(obs => {
+        let bIdx = Math.floor(obs.distNM / 0.5);
+        if (!buckets[bIdx]) buckets[bIdx] = [];
+        buckets[bIdx].push(obs);
+    });
+    let finalObs = [];
+    for (let k in buckets) {
+        let group = buckets[k];
+        group.sort((a,b) => b.hFt - a.hFt); // Das höchste Hindernis der Gruppe gewinnt
+        let rep = group[0];
+        rep.count = group.length; // Merken, wie viele es hier gibt (für Windparks)
+        finalObs.push(rep);
+    }
+    console.log("🗼 Obstacles geladen & geclustert:", finalObs.length, "Stück.");
+    return finalObs;
+}
 
 function triggerVerticalProfileUpdate() {
     if (vpProfileTimeout) clearTimeout(vpProfileTimeout);
@@ -3915,6 +4050,21 @@ function triggerVerticalProfileUpdate() {
             vpWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData);
             renderVerticalProfile('verticalProfileCanvas');
             if (status) status.textContent = vpElevationData.length + ' Höhenpunkte & Wetter geladen';
+
+            if (window._lastLandmarkRouteKey !== cacheKey) {
+                vpLandmarks = [];
+                vpObstacles = [];
+                Promise.all([
+                    fetchProfileLandmarks(vpElevationData),
+                    fetchProfileObstacles(vpElevationData)
+                ]).then(([lms, obs]) => {
+                    vpLandmarks = lms;
+                    vpObstacles = obs;
+                    window._lastLandmarkRouteKey = cacheKey;
+                    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+                    if (typeof renderMapProfile === 'function' && document.getElementById('mapTableOverlay').classList.contains('active')) renderMapProfile();
+                });
+            }
         } catch (e) {
             console.error('Vertical Profile Error:', e);
             if (status) status.textContent = 'Limit API/Fehler';
@@ -4094,6 +4244,108 @@ window.debugCloudProfile = function() {
     triggerVerticalProfileUpdate();
     console.log("Update angetriggert. Bitte das Profil-Canvas öffnen und die Logs beobachten.");
 };
+function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFactor) {
+    if (!vpLandmarks || vpLandmarks.length === 0) return;
+    const getElevY = (dNM) => {
+        if (!elevData || elevData.length < 2) return yOf(0);
+        for(let i=0; i<elevData.length-1; i++) {
+            if (dNM >= elevData[i].distNM && dNM <= elevData[i+1].distNM) {
+                const f = (dNM - elevData[i].distNM) / (elevData[i+1].distNM - elevData[i].distNM);
+                return yOf(elevData[i].elevFt + f * (elevData[i+1].elevFt - elevData[i].elevFt));
+            }
+        }
+        return yOf(elevData[elevData.length-1].elevFt);
+    };
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    let occupiedX = [];
+    let countDrawn = 0;
+    const edgePad = Math.min(2.5, totalDist * 0.05); // Dynamischer Rand-Puffer
+    for (const lm of vpLandmarks) {
+        if (lm.distNM < edgePad || lm.distNM > totalDist - edgePad) continue;
+        const px = xOf(lm.distNM);
+        const icon = lm.type === 'apt' ? '🛫' : (lm.type === 'city' ? '🏢' : '🏘️');
+        const fontSize = (zoomFactor >= 1.5) ? 10 : 8;
+
+        ctx.font = `bold ${fontSize}px Arial`;
+        const textWidth = ctx.measureText(lm.name).width;
+        const reqWidth = Math.max(textWidth, 14) + 6;
+        const minX = px - reqWidth / 2;
+        const maxX = px + reqWidth / 2;
+        let collision = false;
+        for (const occ of occupiedX) {
+            if (minX < occ.maxX && maxX > occ.minX) { collision = true; break; }
+        }
+        if (!collision) {
+            occupiedX.push({ minX, maxX });
+            const py = getElevY(lm.distNM);
+            ctx.font = '11px Arial';
+            ctx.fillText(icon, px, py - 6);
+            ctx.font = `bold ${fontSize}px Arial`;
+            ctx.fillStyle = isDarkTheme ? 'rgba(190, 180, 160, 0.7)' : 'rgba(70, 60, 40, 0.7)';
+            ctx.fillText(lm.name, px, py + 10);
+            countDrawn++;
+        }
+    }
+    ctx.restore();
+    if(countDrawn === 0 && vpLandmarks.length > 0) console.log("⚠️ Landmarks wurden geladen, aber durch Kollision/Rand abgeschnitten!");
+}
+
+function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor) {
+    if (!vpObstacles || vpObstacles.length === 0) return;
+    const edgePad = Math.min(1.0, totalDist * 0.02);
+    ctx.save();
+    for (const obs of vpObstacles) {
+        if (obs.distNM < edgePad || obs.distNM > totalDist - edgePad) continue;
+        const px = xOf(obs.distNM);
+        const pyBase = yOf(obs.elevFt);
+        const pyTop = yOf(obs.elevFt + obs.hFt);
+        const towerHeightPx = Math.max(1, pyBase - pyTop); // Exakte Turmhöhe in Pixeln
+
+        // Turm zeichnen
+        ctx.beginPath();
+        ctx.moveTo(px, pyBase);
+        ctx.lineTo(px, pyTop);
+        ctx.strokeStyle = 'rgba(80, 80, 80, 0.9)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        if (obs.type === 'wind') {
+            // Windrad: Radius = exakt 40% (2/5) der Turmhöhe, limitiert gegen extreme Verzerrung
+            const r = Math.max(4, Math.min(towerHeightPx * 0.4, 25));
+            ctx.fillStyle = '#d93829'; // Warn-Rot
+
+            // Pseudo-zufälliger Startwinkel (Snapshot in time), damit nicht alle gleich stehen
+            const rotOffset = (obs.distNM * 137) % (Math.PI * 2);
+            for(let i=0; i<3; i++) {
+                let a = rotOffset + (i * 120 - 90) * Math.PI / 180;
+                ctx.beginPath();
+                ctx.moveTo(px, pyTop);
+                ctx.lineTo(px + Math.cos(a - 0.2) * r * 0.25, pyTop + Math.sin(a - 0.2) * r * 0.25);
+                ctx.lineTo(px + Math.cos(a) * r, pyTop + Math.sin(a) * r);
+                ctx.lineTo(px + Math.cos(a + 0.2) * r * 0.25, pyTop + Math.sin(a + 0.2) * r * 0.25);
+                ctx.closePath();
+                ctx.fill();
+            }
+            // Nabe (Mittelpunkt)
+            ctx.beginPath(); ctx.arc(px, pyTop, 1.5, 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill();
+        } else {
+            // Klassischer Mast: Roter Punkt mit zufälliger Helligkeit (Snapshot vom Blinken)
+            const alpha = 0.4 + ((obs.distNM * 88) % 100) / 100 * 0.6; // Ergibt einen Wert zwischen 0.4 und 1.0
+            ctx.beginPath(); ctx.arc(px, pyTop, 2, 0, Math.PI*2); ctx.fillStyle = `rgba(217, 56, 41, ${alpha})`; ctx.fill();
+        }
+        // Cluster-Label (x5, x12) bei Windparks anzeigen
+        if (obs.count > 1) {
+            ctx.fillStyle = '#d93829';
+            ctx.font = 'bold 7px Arial';
+            ctx.textAlign = 'left';
+            // Abstand des Textes dynamisch an Turmhöhe anpassen
+            ctx.fillText('x' + obs.count, px + Math.max(5, towerHeightPx * 0.2), pyTop + 4);
+        }
+    }
+    ctx.restore();
+}
+
 function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elevData) {
     if (!vpWeatherData || vpWeatherData.length === 0) return;
     const getElevY = (dNM) => {
@@ -4214,7 +4466,7 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
                     ctx.fillStyle = `rgba(${cVal},${cVal},${cVal},${alpha})`;
 
                     // Performance-Fix: Weiche Ränder deaktivieren, während gezogen wird!
-                    const isDragging = (typeof vpDraggingWP !== 'undefined' && vpDraggingWP >= 0) || (typeof vpDraggingSegment !== 'undefined' && !!vpDraggingSegment);
+                    const isDragging = (typeof vpDraggingWP !== 'undefined' && vpDraggingWP >= 0) || (typeof vpDraggingSegment !== 'undefined' && !!vpDraggingSegment) || (typeof vpResizeActive !== 'undefined' && vpResizeActive);
                     if (!isDragging) {
                         ctx.shadowColor = `rgba(${cVal},${cVal},${cVal},${alpha})`;
                         ctx.shadowBlur = 4 + prRand * 8;
@@ -4332,6 +4584,7 @@ function renderVerticalProfile(canvasId) {
     ctx.fillRect(padLeft, padTop, plotW, plotH);
 
     // Airspace blocks
+    let occupiedASLabels = [];
     if (typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
         for (const as of activeAirspaces) {
             // FIS Sektoren (Typ 33) ignorieren
@@ -4416,20 +4669,30 @@ function renderVerticalProfile(canvasId) {
             ctx.stroke();
             ctx.setLineDash([]);
 
-            const displayName = getAirspaceDisplayName(as);
-            ctx.fillStyle = vpHexToRgba(style.color, 0.7);
-            ctx.font = 'bold 8px Arial';
-            ctx.textAlign = 'center';
-            
-            // Estimate label Y
             let sumUpper = 0;
             relevantPts.forEach(p => sumUpper += (isUpperAgl ? p.elevFt + upperFt : upperFt));
             const avgUpper = sumUpper / relevantPts.length;
-            const labelY = yOf(Math.min(avgUpper, maxAlt));
 
-            ctx.fillText(displayName, (x1 + x2) / 2, labelY + 10);
-            ctx.font = '7px Arial';
-            ctx.fillText(lowerFt + '–' + upperFt + (isUpperAgl ? ' ft AGL' : ' ft'), (x1 + x2) / 2, labelY + 19);
+            // Verhindert, dass das Label oben aus dem Bild rutscht
+            let labelY = yOf(Math.min(avgUpper, maxAlt));
+            labelY = Math.max(padTop + 15, labelY);
+            const displayName = getAirspaceDisplayName(as);
+            ctx.font = 'bold 8px Arial';
+            const tw = ctx.measureText(displayName).width;
+            const tLeft = ((x1 + x2) / 2) - tw/2, tRight = tLeft + tw;
+
+            let collision = false;
+            for(let occ of occupiedASLabels) {
+                if (tLeft < occ.r && tRight > occ.l && labelY < occ.b && (labelY+20) > occ.t) { collision = true; break; }
+            }
+            if (!collision) {
+                occupiedASLabels.push({l: tLeft-5, r: tRight+5, t: labelY-5, b: labelY+20});
+                ctx.fillStyle = vpHexToRgba(style.color, 0.7);
+                ctx.textAlign = 'center';
+                ctx.fillText(displayName, (x1 + x2) / 2, labelY + 10);
+                ctx.font = '7px Arial';
+                ctx.fillText(formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 19);
+            }
         }
     }
     ctx.textAlign = 'left';
@@ -4469,6 +4732,9 @@ function renderVerticalProfile(canvasId) {
     ctx.strokeStyle = '#3a5a20';
     ctx.lineWidth = 1.5;
     ctx.stroke();
+
+    vpDrawLandmarks(ctx, xOf, yOf, vpElevationData, totalDist, false, 1.0);
+    vpDrawObstacles(ctx, xOf, yOf, totalDist, 1.0);
 
     if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, false, vpElevationData);
 
@@ -4828,6 +5094,7 @@ function renderMapProfile() {
     ctx.fillRect(padLeft, padTop, plotW, plotH);
 
     // Airspace blocks (dark theme) with pulse highlight support
+    let occupiedASLabels = [];
     if (typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
         for (let asIdx = 0; asIdx < activeAirspaces.length; asIdx++) {
             const as = activeAirspaces[asIdx];
@@ -4917,23 +5184,34 @@ function renderMapProfile() {
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Airspace label (only if zoomed enough to show)
+            let sumUpper = 0;
+            relevantPts.forEach(p => sumUpper += (isUpperAgl ? p.elevFt + upperFt : upperFt));
+            const avgUpper = sumUpper / relevantPts.length;
+
+            let labelY = yOf(Math.min(avgUpper, maxAlt));
+            labelY = Math.max(padTop + 15, labelY); // Klemme an die Decke
             if (zoomFactor >= 1.5 || (x2 - x1) > 40 || isHighlighted) {
                 const displayName = getAirspaceDisplayName(as);
-                ctx.fillStyle = vpHexToRgba(style.color, isHighlighted ? 0.9 : 0.6);
                 ctx.font = isHighlighted ? 'bold 11px Arial' : 'bold 10px Arial';
-                ctx.textAlign = 'center';
+                const tw = ctx.measureText(displayName).width;
+                const tLeft = ((x1 + x2) / 2) - tw/2, tRight = tLeft + tw;
 
-                // Estimate label Y from average upper limit in this segment
-                let sumUpper = 0;
-                relevantPts.forEach(p => sumUpper += (isUpperAgl ? p.elevFt + upperFt : upperFt));
-                const avgUpper = sumUpper / relevantPts.length;
-                const labelY = yOf(Math.min(avgUpper, maxAlt));
+                let collision = false;
+                if (!isHighlighted) {
+                    for (let occ of occupiedASLabels) {
+                        if (tLeft < occ.r && tRight > occ.l && labelY < occ.b && (labelY+25) > occ.t) { collision = true; break; }
+                    }
+                }
 
-                ctx.fillText(displayName, (x1 + x2) / 2, labelY + 12);
-                if (zoomFactor >= 2 || isHighlighted) {
-                    ctx.font = '9px Arial';
-                    ctx.fillText(lowerFt + '–' + upperFt + (isUpperAgl ? ' ft AGL' : ' ft'), (x1 + x2) / 2, labelY + 23);
+                if (!collision) {
+                    if (!isHighlighted) occupiedASLabels.push({l: tLeft-5, r: tRight+5, t: labelY-5, b: labelY+25});
+                    ctx.fillStyle = vpHexToRgba(style.color, isHighlighted ? 0.9 : 0.6);
+                    ctx.textAlign = 'center';
+                    ctx.fillText(displayName, (x1 + x2) / 2, labelY + 12);
+                    if (zoomFactor >= 2 || isHighlighted) {
+                        ctx.font = '9px Arial';
+                        ctx.fillText(formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 23);
+                    }
                 }
             }
         }
@@ -4975,6 +5253,9 @@ function renderMapProfile() {
     ctx.strokeStyle = '#4a7a30';
     ctx.lineWidth = 1.5;
     ctx.stroke();
+
+    vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, true, zoomFactor);
+    vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor);
 
     if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, true, elevData);
 
