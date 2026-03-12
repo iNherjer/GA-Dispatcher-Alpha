@@ -550,7 +550,9 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
 }
 
 window.onload = () => {
-    // V78: Pinch-Zoom-Sperre via CSS touch-action (index.html) – kein aggressiver JS-Blocker mehr nötig.
+    // V79: Sicherer Multi-Touch-Blocker (Pinch-Zoom sperren) – null-guard verhindert Deadlock in Safari
+    document.addEventListener('touchstart', e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchmove',  e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
     const savedTheme = localStorage.getItem('ga_theme') || 'retro';
     setTheme(savedTheme);
@@ -6023,6 +6025,7 @@ function initAltWaypoints() {
 
     canvas.addEventListener('touchcancel', (e) => {
         vpIsPanning = false;
+        vpWasDragging = false;
         if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) {
             vpHandleDragEnd();
         }
