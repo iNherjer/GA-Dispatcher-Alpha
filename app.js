@@ -4887,14 +4887,23 @@ function renderVerticalProfile(canvasId) {
     const displayHeight = Math.round(displayWidth * 0.4);
 
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = displayWidth * dpr;
-    canvas.height = displayHeight * dpr;
+    const targetW = displayWidth * dpr;
+    const targetH = displayHeight * dpr;
+
+    const ctx = canvas.getContext('2d');
+    
+    // Performance Fix für das kleine Diagramm
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+        ctx.scale(dpr, dpr);
+    } else {
+        ctx.clearRect(0, 0, displayWidth, displayHeight);
+    }
+
     canvas.style.width = '100%';
     canvas.style.maxWidth = displayWidth + 'px';
     canvas.style.height = 'auto';
-
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
 
     const padLeft = 45, padRight = 15, padTop = 20, padBottom = 30;
     const plotW = displayWidth - padLeft - padRight;
@@ -5419,13 +5428,23 @@ function renderMapProfile() {
     const canvasWidth = Math.round(baseWidth * zoomFactor);
 
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvasWidth * dpr;
-    canvas.height = containerHeight * dpr;
-    canvas.style.width = canvasWidth + 'px';
-    canvas.style.height = containerHeight + 'px';
+    const targetW = canvasWidth * dpr;
+    const targetH = containerHeight * dpr;
 
     const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
+    
+    // Performance Fix: Speicher nur neu allokieren, wenn sich die echte Auflösung ändert (z.B. Zoom)!
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+        ctx.scale(dpr, dpr);
+    } else {
+        // Bei reinem Dragging/Y-Achsen Änderung: Nur den alten Inhalt wegwischen (100x schneller!)
+        ctx.clearRect(0, 0, canvasWidth, containerHeight);
+    }
+
+    canvas.style.width = canvasWidth + 'px';
+    canvas.style.height = containerHeight + 'px';
 
     const padLeft = 33, padRight = 16, padTop = 12, padBottom = 22;
     const plotW = canvasWidth - padLeft - padRight;
