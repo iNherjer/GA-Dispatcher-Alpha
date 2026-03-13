@@ -4527,6 +4527,12 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
         }
         return yOf(elevData[elevData.length-1].elevFt);
     };
+    
+    let viewMinX = -Infinity, viewMaxX = Infinity;
+    if (ctx.canvas.id === 'mapProfileCanvas') {
+        const sc = document.getElementById('mapProfileScroll');
+        if (sc) { viewMinX = sc.scrollLeft - 200; viewMaxX = sc.scrollLeft + sc.clientWidth + 200; }
+    }
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -4536,6 +4542,7 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
     for (const lm of vpLandmarks) {
         if (lm.distNM < edgePad || lm.distNM > totalDist - edgePad) continue;
         const px = xOf(lm.distNM);
+        if (px < viewMinX || px > viewMaxX) continue; // CULLING
         const icon = lm.type === 'apt' ? '🛫' : (lm.type === 'city' ? '🏢' : '🏘️');
         const fontSize = (zoomFactor >= 1.5) ? 10 : 8;
 
@@ -4578,6 +4585,12 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
         }
         return yOf(elevData[elevData.length - 1].elevFt);
     };
+
+    let viewMinX = -Infinity, viewMaxX = Infinity;
+    if (ctx.canvas.id === 'mapProfileCanvas') {
+        const sc = document.getElementById('mapProfileScroll');
+        if (sc) { viewMinX = sc.scrollLeft - 200; viewMaxX = sc.scrollLeft + sc.clientWidth + 200; }
+    }
     
     ctx.save();
     
@@ -4587,6 +4600,7 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
     for (const obs of vpObstacles) {
         if (obs.distNM < edgePad || obs.distNM > totalDist - edgePad) continue;
         const px = xOf(obs.distNM);
+        if (px < viewMinX || px > viewMaxX) continue; // CULLING
         const pyGround = getElevY(obs.distNM);
         const heightPx = Math.abs(yOf(obs.hFt) - yOf(0));
         const pyTop = pyGround - heightPx;
@@ -4704,6 +4718,12 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
         }
         return yOf(elevData[elevData.length-1].elevFt);
     };
+
+    let viewMinX = -Infinity, viewMaxX = Infinity;
+    if (ctx.canvas.id === 'mapProfileCanvas') {
+        const sc = document.getElementById('mapProfileScroll');
+        if (sc) { viewMinX = sc.scrollLeft - 200; viewMaxX = sc.scrollLeft + sc.clientWidth + 200; }
+    }
     // Stabiler, deterministischer Pseudo-Zufallsgenerator gegen Flackern
     const prng = (s) => { let x = Math.sin(s) * 10000; return x - Math.floor(x); };
     ctx.save();
@@ -4712,6 +4732,8 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
         const prevDist = (i > 0) ? (zone.distNM + vpWeatherData[i-1].distNM)/2 : Math.max(0, zone.distNM - totalDist*0.05);
         const nextDist = (i < vpWeatherData.length - 1) ? (zone.distNM + vpWeatherData[i+1].distNM)/2 : Math.min(totalDist, zone.distNM + totalDist*0.05);
         const startX = xOf(prevDist), endX = xOf(nextDist), width = endX - startX, midX = startX + width/2;
+        
+        if (endX < viewMinX || startX > viewMaxX) continue; // CULLING
         // 1. REGEN & SCHNEE
         if (zone.weather && (zone.weather.hasRain || zone.weather.hasSnow) && zone.lowestBase) {
             const baseY = yOf(zone.lowestBase);
@@ -4896,14 +4918,13 @@ function renderVerticalProfile(canvasId) {
     if (canvas.width !== targetW || canvas.height !== targetH) {
         canvas.width = targetW;
         canvas.height = targetH;
+        canvas.style.width = '100%';
+        canvas.style.maxWidth = displayWidth + 'px';
+        canvas.style.height = 'auto';
         ctx.scale(dpr, dpr);
     } else {
         ctx.clearRect(0, 0, displayWidth, displayHeight);
     }
-
-    canvas.style.width = '100%';
-    canvas.style.maxWidth = displayWidth + 'px';
-    canvas.style.height = 'auto';
 
     const padLeft = 45, padRight = 15, padTop = 20, padBottom = 30;
     const plotW = displayWidth - padLeft - padRight;
@@ -5437,14 +5458,17 @@ function renderMapProfile() {
     if (canvas.width !== targetW || canvas.height !== targetH) {
         canvas.width = targetW;
         canvas.height = targetH;
+        canvas.style.width = canvasWidth + 'px';
+        canvas.style.height = containerHeight + 'px';
         ctx.scale(dpr, dpr);
     } else {
         // Bei reinem Dragging/Y-Achsen Änderung: Nur den alten Inhalt wegwischen (100x schneller!)
         ctx.clearRect(0, 0, canvasWidth, containerHeight);
     }
-
-    canvas.style.width = canvasWidth + 'px';
-    canvas.style.height = containerHeight + 'px';
+    
+    // Viewport Culling Init: Ermittle, welcher Bereich gerade sichtbar ist (mit 200px Puffer)
+    const viewMinX = scrollContainer.scrollLeft - 200;
+    const viewMaxX = scrollContainer.scrollLeft + baseWidth + 200;
 
     const padLeft = 33, padRight = 16, padTop = 12, padBottom = 22;
     const plotW = canvasWidth - padLeft - padRight;
@@ -5544,6 +5568,7 @@ function renderMapProfile() {
 
             const style = getAirspaceStyle(as);
             const x1 = xOf(asMinDist), x2 = xOf(asMaxDist);
+            if (x2 < viewMinX || x1 > viewMaxX) continue; // CULLING: Unsichtbare Lufträume überspringen
 
             // Pulsing highlight for the active airspace
             const isHighlighted = (vpHighlightPulseIdx >= 0 && asIdx === vpHighlightPulseIdx);
@@ -5980,7 +6005,7 @@ function initAltWaypoints() {
         const totalDist = elevData[elevData.length - 1].distNM;
 
         // FIX: Aus dem neuen Span-Feld lesen
-        const cruiseAlt = parseInt(document.getElementById('altMapInput')?.innerText || document.getElementById('altSlider')?.value || 4500);
+        const cruiseAlt = parseInt(document.getElementById('altMapInput')?.textContent || document.getElementById('altSlider')?.value || 4500);
         const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
 
         // FIX: Exakt gleiche Skalierung wie beim Rendering (+ 2500)
@@ -6144,8 +6169,8 @@ function initAltWaypoints() {
             } else if (seg.segIdx === -1) {
                 const newGlobalAlt = Math.max(1500, Math.min(13500, Math.round((seg.origCruiseAlt + altChange) / 500) * 500));
                 const altMap = document.getElementById('altMapInput');
-                if (altMap && altMap.innerText != newGlobalAlt) {
-                    altMap.innerText = newGlobalAlt;
+                if (altMap && altMap.textContent != newGlobalAlt) {
+                    altMap.textContent = newGlobalAlt;
                     renderMapProfile();
                 }
             } else if (seg.segIdx === -2 || seg.segIdx === -3) {
@@ -6167,7 +6192,7 @@ function initAltWaypoints() {
 
             // Bei globaler Höhenänderung einmalig am Ende synchronisieren
             if (vpDraggingSegment && vpDraggingSegment.segIdx === -1) {
-                const finalAlt = parseInt(document.getElementById('altMapInput').innerText) || 4500;
+                const finalAlt = parseInt(document.getElementById('altMapInput').textContent) || 4500;
                 syncAltFromInput(finalAlt);
             }
             if (vpDraggingWP >= 0) vpAltWaypoints.sort((a, b) => a.distNM - b.distNM);
@@ -6909,20 +6934,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const bo = document.getElementById('btnToggleObstacles'); if(bo) bo.classList.toggle('active', vpShowObstacles);
 });
 function vpChangeAlt(delta) {
-    let val = parseInt(document.getElementById('altMapInput').innerText) || 4500;
+    let val = parseInt(document.getElementById('altMapInput').textContent) || 4500;
     val = Math.max(1500, Math.min(13500, val + delta));
     syncAltFromInput(val);
 }
 function syncAltFromInput(val) {
     val = parseInt(val) || 4500;
     const inp = document.getElementById('altMapInput');
-    if (inp) inp.innerText = val;
+    if (inp) inp.textContent = val;
     const mainSlider = document.getElementById('altSlider');
     if (mainSlider) mainSlider.value = val;
     handleSliderChange('alt', val); // handleSliderChange übernimmt jetzt den direkten Render
 }
 function vpChangeRate(delta) {
-    let val = parseInt(document.getElementById('rateMapInput').innerText) || 500;
+    let val = parseInt(document.getElementById('rateMapInput').textContent) || 500;
     val = Math.max(200, Math.min(1500, val + delta));
     syncRateFromInput(val);
 }
@@ -6937,7 +6962,7 @@ function vpChangeYAxis(delta) {
     if (vpMaxAltOverride === 0) {
         const elevData = (typeof vpZoomLevel !== 'undefined' && vpZoomLevel < 100 && vpHighResData) ? vpHighResData : vpElevationData;
         if (!elevData) return;
-        const cruiseAlt = parseInt(document.getElementById('altMapInput')?.innerText || 4500);
+        const cruiseAlt = parseInt(document.getElementById('altMapInput')?.textContent || 4500);
         const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
         vpMaxAltOverride = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
         vpMaxAltOverride = Math.ceil(vpMaxAltOverride / 1000) * 1000;
@@ -7000,7 +7025,7 @@ function vpToggleObstacles() {
 
 // === PROMPT-EINGABE für ALT / V/S (V57) ===
 window.promptForAlt = function() {
-    const current = document.getElementById('altMapInput').innerText;
+    const current = document.getElementById('altMapInput').textContent;
     const res = prompt("Gewünschte Flughöhe (ALT) eingeben:", current);
     if (res !== null && !isNaN(parseInt(res))) {
         let val = parseInt(res);
@@ -7009,7 +7034,7 @@ window.promptForAlt = function() {
     }
 };
 window.promptForRate = function() {
-    const current = document.getElementById('rateMapInput').innerText;
+    const current = document.getElementById('rateMapInput').textContent;
     const res = prompt("Gewünschte Steig-/Sinkrate (V/S) in ft/min eingeben:", current);
     if (res !== null && !isNaN(parseInt(res))) {
         let val = parseInt(res);
