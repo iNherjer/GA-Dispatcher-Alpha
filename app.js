@@ -2090,6 +2090,8 @@ async function fetchRouteAirspaces(routePts) {
 }
 
 function renderAirspaceWarningsList() {
+    // Performance-Fix: Keine schweren DOM-Updates während User-Scroll/Drag!
+    if (window.vpIsFastRendering || window.vpUIInteractionActive) return;
     const listEl = document.getElementById('routeAirspacesList');
     if (!listEl) return;
 
@@ -5321,18 +5323,27 @@ window.activateFastRender = function() {
     }, 350);
 };
 
+let vpHighResFetchTimeout = null;
 function vpZoom(delta) {
     window.activateFastRender();
     vpZoomLevel = Math.max(10, Math.min(100, vpZoomLevel + delta));
-    // Anzeige invertiert: 0 % = rausgezoomt (vpZoomLevel 100), 100 % = maximal rein (vpZoomLevel 10)
-    document.getElementById('vpZoomDisplay').textContent = Math.round((100 - vpZoomLevel) / 90 * 100) + '%';
+    const zd = document.getElementById('vpZoomDisplay');
+    if (zd) zd.textContent = Math.round((100 - vpZoomLevel) / 90 * 100) + '%';
 
-    // If zoomed in, fetch higher resolution data
+    // Ruckelfrei mit 60 FPS rendern statt bei jedem Event
+    if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+
+    // High-Res API Debounce
+    if (vpHighResFetchTimeout) clearTimeout(vpHighResFetchTimeout);
     if (vpZoomLevel < 100 && routeWaypoints && routeWaypoints.length >= 2) {
-        fetchHighResElevation().then(() => renderMapProfile());
-    } else {
+        vpHighResFetchTimeout = setTimeout(() => {
+            fetchHighResElevation().then(() => {
+                if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+            });
+        }, 400); 
+    } else if (vpZoomLevel === 100) {
         vpHighResData = null;
-        renderMapProfile();
+        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
     }
 }
 
@@ -6162,6 +6173,8 @@ function initAltWaypoints() {
     let vpIsPanning = false;
     let vpPanStartScrollLeft = 0;
     let vpPanStartX = 0;
+    let initialPinchDist = null;
+    let initialTwoFingerY = null;
 
     // === DOUBLE CLICK: remove/add waypoint ===
     canvas.addEventListener('dblclick', (e) => {
@@ -6234,6 +6247,16 @@ function initAltWaypoints() {
 
     // === TOUCH EVENTS ===
     canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            initialPinchDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            initialTwoFingerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            return;
+        }
+
         const touch = e.touches[0];
         vpWasDragging = false;
         vpIsPanning = false;
@@ -6243,7 +6266,6 @@ function initAltWaypoints() {
         dragStartX = touch.clientX;
         dragStartY = touch.clientY;
 
-        // Double-tap detection (300ms window)
         const now = Date.now();
         if (now - lastTapTime < 300) {
             e.preventDefault();
@@ -6253,13 +6275,11 @@ function initAltWaypoints() {
         }
         lastTapTime = now;
 
-        // Priority 1: Magenta marker drag
         if (vpHitTestMagenta(mx, m)) {
             e.preventDefault();
             vpDraggingMagenta = true;
             return;
         }
-        // Priority 2: Waypoint drag
         const wpIdx = vpHitTestWaypoint(mx, my, m);
         if (wpIdx >= 0) {
             e.preventDefault();
@@ -6267,7 +6287,6 @@ function initAltWaypoints() {
             dragOrigWP = { ...vpAltWaypoints[wpIdx] };
             return;
         }
-        // Priority 3: Flight line segment drag
         const mouseDistNM = vpHitTestFlightLine(mx, my, m);
         if (mouseDistNM !== null) {
             e.preventDefault();
@@ -6276,7 +6295,6 @@ function initAltWaypoints() {
             vpDraggingSegment = { segIdx, origAlt: origSegAlt, origCruiseAlt: m.cruiseAlt };
             return;
         }
-        // Priority 4: Pan when zoomed in
         if (vpZoomLevel < 100) {
             e.preventDefault();
             vpIsPanning = true;
@@ -6287,6 +6305,32 @@ function initAltWaypoints() {
     }, { passive: false });
 
     canvas.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && initialPinchDist !== null && initialTwoFingerY !== null) {
+            e.preventDefault();
+            
+            // X-Achse: Pinch-to-Zoom
+            const currentDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const distDiff = currentDist - initialPinchDist;
+            if (Math.abs(distDiff) > 10) {
+                let zoomDelta = distDiff > 0 ? -3 : 3; 
+                vpZoom(zoomDelta);
+                initialPinchDist = currentDist;
+            }
+
+            // Y-Achse: Zwei-Finger vertikaler Wisch
+            const currentTwoFingerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            const yDiff = currentTwoFingerY - initialTwoFingerY;
+            if (Math.abs(yDiff) > 15) {
+                let yDelta = yDiff > 0 ? -1000 : 1000; 
+                vpChangeYAxis(yDelta);
+                initialTwoFingerY = currentTwoFingerY;
+            }
+            return;
+        }
+
         if (vpIsPanning) {
             e.preventDefault();
             const touch = e.touches[0];
@@ -6303,23 +6347,28 @@ function initAltWaypoints() {
     }, { passive: false });
 
     canvas.addEventListener('touchend', (e) => {
-        if (vpIsPanning) {
-            vpIsPanning = false;
-            return;
-        }
-        // Single tap without drag: Logic removed to prevent accidental creation
-        if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) {
-            vpHandleDragEnd();
-        }
+        if (e.touches.length < 2) { initialPinchDist = null; initialTwoFingerY = null; }
+        if (vpIsPanning) { vpIsPanning = false; return; }
+        if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) vpHandleDragEnd();
     });
 
     canvas.addEventListener('touchcancel', (e) => {
-        vpIsPanning = false;
-        vpWasDragging = false;
-        if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) {
-            vpHandleDragEnd();
-        }
+        initialPinchDist = null; initialTwoFingerY = null;
+        vpIsPanning = false; vpWasDragging = false;
+        if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) vpHandleDragEnd();
     });
+
+    // === MOUSE WHEEL ZOOM (Multi-Achsen) ===
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault(); 
+        if (e.ctrlKey) {
+            let yDelta = e.deltaY > 0 ? 1000 : -1000;
+            vpChangeYAxis(yDelta);
+        } else {
+            let zoomDelta = e.deltaY > 0 ? 5 : -5;
+            vpZoom(zoomDelta);
+        }
+    }, { passive: false });
 }
 
 // Override computeFlightProfile to use altitude waypoints + segment altitudes
@@ -6871,17 +6920,14 @@ function vpChangeYAxis(delta) {
         if (!elevData) return;
         const cruiseAlt = parseInt(document.getElementById('altMapInput')?.innerText || 4500);
         const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
-        let maxCloudAlt = 0;
-        if (vpShowClouds && vpWeatherData) {
-            vpWeatherData.forEach(zone => { if (zone.clouds) zone.clouds.forEach(c => { if (c.baseMsl > maxCloudAlt) maxCloudAlt = c.baseMsl; }); });
-        }
         vpMaxAltOverride = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
         vpMaxAltOverride = Math.ceil(vpMaxAltOverride / 1000) * 1000;
     }
     vpMaxAltOverride = Math.max(3000, vpMaxAltOverride + delta);
     document.getElementById('yAxisDisplay').textContent = (vpMaxAltOverride / 1000) + 'k';
-    renderMapProfile();
-    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+    
+    // Performance-Rendering!
+    if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
 }
 function vpResetYAxis() {
     window.activateFastRender();
@@ -7623,4 +7669,13 @@ window.addEventListener('resize', () => {
             }
         }
     }, 200); // 200ms warten, bis das mobile Gerät die Drehung visuell abgeschlossen hat
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.innerWidth <= 767) {
+        const zd = document.getElementById('vpZoomDisplay');
+        if (zd && zd.parentElement) {
+            zd.parentElement.style.display = 'none';
+        }
+    }
 });
