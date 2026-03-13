@@ -1,11 +1,12 @@
 // GA Dispatcher – Service Worker
-const CACHE = 'ga-dispatcher-v116';
+const CACHE = 'ga-dispatcher-v117';
 
 const STATIC = [
     './',
     './index.html',
     './styles.css',
     './app.js',
+    './board.js',
     './datenbank.js',
     './missions.js',
     './airports.json',
