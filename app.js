@@ -7671,35 +7671,53 @@ window.addEventListener('resize', () => {
     }, 200); // 200ms warten, bis das mobile Gerät die Drehung visuell abgeschlossen hat
 });
 
-// Verstecke zielgenau NUR die Zoom- und Y-Achsen-Steuerung auf mobilen Geräten
+// Verstecke zielgenau die Zoom- und Y-Achsen-Steuerung inkl. Text-Labels auf mobilen Geräten
 document.addEventListener('DOMContentLoaded', () => {
     if (window.innerWidth <= 767) {
-        const hideSpecificControls = (displayId) => {
+        const hideSpecificControls = (displayId, labelKeywords) => {
             const el = document.getElementById(displayId);
             if (!el) return;
-            
-            // Ist der Container isoliert (z.B. nur -, Display, +)? Dann gesamten Container ausblenden.
-            if (el.parentElement && el.parentElement.tagName === 'DIV' && el.parentElement.children.length <= 4) {
-                el.parentElement.style.display = 'none';
-            } else {
-                // Andernfalls: Nur das Textfeld und direkt angrenzende Buttons (wie + und -) verstecken
-                el.style.display = 'none';
-                
-                let prev = el.previousElementSibling;
-                while (prev && prev.tagName === 'BUTTON') { 
-                    prev.style.display = 'none'; 
-                    prev = prev.previousElementSibling; 
+
+            el.style.display = 'none';
+
+            // 1. Rückwärts durch echte Elemente gehen (versteckt Buttons und Label-Spans/Divs)
+            let prev = el.previousElementSibling;
+            while (prev) {
+                if (prev.tagName === 'BUTTON' || labelKeywords.some(kw => prev.textContent.toUpperCase().includes(kw))) {
+                    prev.style.display = 'none';
+                    prev = prev.previousElementSibling;
+                } else {
+                    break; // Stop, wenn ein völlig anderes Element (z.B. ein Toggle-Icon) erreicht wird
                 }
-                
-                let next = el.nextElementSibling;
-                while (next && next.tagName === 'BUTTON') { 
-                    next.style.display = 'none'; 
-                    next = next.nextElementSibling; 
+            }
+
+            // 2. Rückwärts durch alle Nodes gehen (erwischt "nackte" Text-Nodes ohne HTML-Tag)
+            let prevNode = el.previousSibling;
+            while (prevNode) {
+                if (prevNode.nodeType === 3 && labelKeywords.some(kw => prevNode.textContent.toUpperCase().includes(kw))) {
+                    prevNode.textContent = ''; // Rohen Text löschen
+                }
+                // Abbrechen, wenn wir ein echtes Element treffen, das weder Button noch gesuchtes Label ist
+                if (prevNode.nodeType === 1 && prevNode.tagName !== 'BUTTON' && !labelKeywords.some(kw => prevNode.textContent.toUpperCase().includes(kw))) {
+                    break; 
+                }
+                prevNode = prevNode.previousSibling;
+            }
+
+            // 3. Vorwärts gehen (versteckt nachfolgende Plus-Buttons)
+            let next = el.nextElementSibling;
+            while (next) {
+                if (next.tagName === 'BUTTON') {
+                    next.style.display = 'none';
+                    next = next.nextElementSibling;
+                } else {
+                    break;
                 }
             }
         };
-        
-        hideSpecificControls('vpZoomDisplay');
-        hideSpecificControls('yAxisDisplay');
+
+        // Suche nach den Elementen und lösche auch die zugehörigen Texte/Labels davor
+        hideSpecificControls('vpZoomDisplay', ['ZOOM']);
+        hideSpecificControls('yAxisDisplay', ['MAX', 'FT', 'ALT']);
     }
 });
