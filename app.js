@@ -7671,11 +7671,35 @@ window.addEventListener('resize', () => {
     }, 200); // 200ms warten, bis das mobile Gerät die Drehung visuell abgeschlossen hat
 });
 
+// Verstecke zielgenau NUR die Zoom- und Y-Achsen-Steuerung auf mobilen Geräten
 document.addEventListener('DOMContentLoaded', () => {
     if (window.innerWidth <= 767) {
-        const zd = document.getElementById('vpZoomDisplay');
-        if (zd && zd.parentElement) {
-            zd.parentElement.style.display = 'none';
-        }
+        const hideSpecificControls = (displayId) => {
+            const el = document.getElementById(displayId);
+            if (!el) return;
+            
+            // Ist der Container isoliert (z.B. nur -, Display, +)? Dann gesamten Container ausblenden.
+            if (el.parentElement && el.parentElement.tagName === 'DIV' && el.parentElement.children.length <= 4) {
+                el.parentElement.style.display = 'none';
+            } else {
+                // Andernfalls: Nur das Textfeld und direkt angrenzende Buttons (wie + und -) verstecken
+                el.style.display = 'none';
+                
+                let prev = el.previousElementSibling;
+                while (prev && prev.tagName === 'BUTTON') { 
+                    prev.style.display = 'none'; 
+                    prev = prev.previousElementSibling; 
+                }
+                
+                let next = el.nextElementSibling;
+                while (next && next.tagName === 'BUTTON') { 
+                    next.style.display = 'none'; 
+                    next = next.nextElementSibling; 
+                }
+            }
+        };
+        
+        hideSpecificControls('vpZoomDisplay');
+        hideSpecificControls('yAxisDisplay');
     }
 });
