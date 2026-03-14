@@ -1,4 +1,7 @@
 /* === VERTICAL PROFILE & CANVAS ENGINE === */
+window.vpBgNeedsUpdate = true;
+window.vpAnimFrameId = null;
+window._vpLastScrollLeft = 0;
 /* =========================================================
    VERTICAL PROFILE (Höhenprofil) ENGINE
    ========================================================= */
@@ -507,11 +510,8 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
         return yOf(elevData[elevData.length-1].elevFt);
     };
     
+    // KEIN Culling für Layer 1 (Wird nativ von der GPU gescrollt)
     let viewMinX = -Infinity, viewMaxX = Infinity;
-    if (ctx.canvas.id === 'mapProfileCanvas') {
-        const sc = document.getElementById('mapProfileScroll');
-        if (sc) { viewMinX = sc.scrollLeft - 200; viewMaxX = sc.scrollLeft + sc.clientWidth + 200; }
-    }
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -525,24 +525,30 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
         const icon = lm.type === 'apt' ? '🛫' : (lm.type === 'city' ? '🏢' : '🏘️');
         const fontSize = (zoomFactor >= 1.5) ? 10 : 8;
 
-        ctx.font = `bold ${fontSize}px Arial`;
-        const textWidth = ctx.measureText(lm.name).width;
-        const reqWidth = Math.max(textWidth, 14) + 6;
-        const minX = px - reqWidth / 2;
-        const maxX = px + reqWidth / 2;
-        let collision = false;
-        for (const occ of occupiedX) {
-            if (minX < occ.maxX && maxX > occ.minX) { collision = true; break; }
-        }
-        if (!collision) {
-            occupiedX.push({ minX, maxX });
-            const py = getElevY(lm.distNM);
+        const py = getElevY(lm.distNM);
+        if (window.vpIsFastRendering) {
+            // PERFORMANCE: Nur das Icon ohne Kollisionsabfrage
             ctx.font = '11px Arial';
             ctx.fillText(icon, px, py - 6);
+        } else {
             ctx.font = `bold ${fontSize}px Arial`;
-            ctx.fillStyle = isDarkTheme ? 'rgba(190, 180, 160, 0.7)' : 'rgba(70, 60, 40, 0.7)';
-            ctx.fillText(lm.name, px, py + 10);
-            countDrawn++;
+            const textWidth = ctx.measureText(lm.name).width;
+            const reqWidth = Math.max(textWidth, 14) + 6;
+            const minX = px - reqWidth / 2;
+            const maxX = px + reqWidth / 2;
+            let collision = false;
+            for (const occ of occupiedX) {
+                if (minX < occ.maxX && maxX > occ.minX) { collision = true; break; }
+            }
+            if (!collision) {
+                occupiedX.push({ minX, maxX });
+                ctx.font = '11px Arial';
+                ctx.fillText(icon, px, py - 6);
+                ctx.font = `bold ${fontSize}px Arial`;
+                ctx.fillStyle = isDarkTheme ? 'rgba(190, 180, 160, 0.7)' : 'rgba(70, 60, 40, 0.7)';
+                ctx.fillText(lm.name, px, py + 10);
+                countDrawn++;
+            }
         }
     }
     ctx.restore();
@@ -550,7 +556,7 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
     if(countDrawn === 0 && vpLandmarks.length > 0) console.log("⚠️ Landmarks wurden geladen, aber durch Kollision/Rand abgeschnitten!");
 }
 
-function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
+function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs = 0) {
     if (!vpObstacles || vpObstacles.length === 0) return;
     const edgePad = Math.min(1.0, totalDist * 0.02);
     
@@ -581,27 +587,28 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
         const px = xOf(obs.distNM);
         if (px < viewMinX || px > viewMaxX) continue; // CULLING
         const pyGround = getElevY(obs.distNM);
-        const heightPx = Math.abs(yOf(obs.hFt) - yOf(0));
-        const pyTop = pyGround - heightPx;
-        const towerHeightPx = Math.max(1, heightPx);
+        const trueHeightPx = Math.abs(yOf(obs.hFt) - yOf(0));
+        
+        // Der Mast steckt 8 Pixel tief im Boden
         const pyRoot = pyGround + 8; 
 
         if (obs.type === 'wind') {
-            // Strikt proportionale Skalierung: Rotorblätter sind exakt 45% der Masthöhe, egal bei welchem Zoom!
-            const r = Math.max(1, towerHeightPx * 0.45);
-            const pyHub = pyTop + r;                                   
+            // FIX: Die "echte" sichtbare Länge ist die Höhe über Grund PLUS die 8px im Boden!
+            const visualTotalHeight = trueHeightPx + 8;
+            
+            // Blätter sind jetzt immer ca. 45% des ECHTEN sichtbaren Mastes (mindestens 4px)
+            const r = Math.max(4, visualTotalHeight * 0.45);
+            
+            // Die Nabe sitzt so, dass das obere Blatt genau an der echten Spitze kratzt
+            const pyTop = pyGround - trueHeightPx;
+            const pyHub = pyTop + r;
 
-            ctx.beginPath();
-            ctx.moveTo(px, pyRoot);
-            ctx.lineTo(px, pyHub);
-            ctx.strokeStyle = 'rgba(230, 230, 230, 0.9)';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(px, pyRoot); ctx.lineTo(px, pyHub);
+            ctx.strokeStyle = 'rgba(230, 230, 230, 0.9)'; ctx.lineWidth = 1.5; ctx.stroke();
 
-            ctx.fillStyle = '#f5f5f5';
-            ctx.strokeStyle = 'rgba(150, 150, 150, 0.6)';
-            ctx.lineWidth = 0.5;
-            const rotOffset = (obs.distNM * 137) % (Math.PI * 2);
+            ctx.fillStyle = '#f5f5f5'; ctx.strokeStyle = 'rgba(150, 150, 150, 0.6)'; ctx.lineWidth = 0.5;
+            const rotSpeed = 0.0015;
+            const rotOffset = ((obs.distNM * 137) + (timeMs * rotSpeed)) % (Math.PI * 2);
             for (let i = 0; i < 3; i++) {
                 const a = rotOffset + (i * 120 - 90) * Math.PI / 180;
                 ctx.beginPath();
@@ -609,25 +616,25 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
                 ctx.lineTo(px + Math.cos(a - 0.2) * r * 0.25, pyHub + Math.sin(a - 0.2) * r * 0.25);
                 ctx.lineTo(px + Math.cos(a) * r,               pyHub + Math.sin(a) * r);
                 ctx.lineTo(px + Math.cos(a + 0.2) * r * 0.25, pyHub + Math.sin(a + 0.2) * r * 0.25);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
+                ctx.closePath(); ctx.fill(); ctx.stroke();
             }
-            ctx.beginPath(); ctx.arc(px, pyHub, 1.5, 0, Math.PI * 2); ctx.fillStyle = '#ccc'; ctx.fill();
+            // Nabe wächst proportional mit
+            ctx.beginPath(); ctx.arc(px, pyHub, Math.max(1.5, r * 0.15), 0, Math.PI * 2); ctx.fillStyle = '#ccc'; ctx.fill();
         } else {
-            ctx.beginPath();
-            ctx.moveTo(px, pyRoot);
-            ctx.lineTo(px, pyTop);
-            ctx.strokeStyle = 'rgba(80, 80, 80, 0.9)';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
+            // Normale Masten (ohne Rotoren) - mindestens 2px über dem Boden sichtbar
+            const pyTop = pyGround - Math.max(2, trueHeightPx);
+            ctx.beginPath(); ctx.moveTo(px, pyRoot); ctx.lineTo(px, pyTop);
+            ctx.strokeStyle = 'rgba(80, 80, 80, 0.9)'; ctx.lineWidth = 1.5; ctx.stroke();
 
-            const alpha = 0.4 + ((obs.distNM * 88) % 100) / 100 * 0.6;
-            ctx.beginPath(); ctx.arc(px, pyTop, 2, 0, Math.PI * 2); ctx.fillStyle = `rgba(217, 56, 41, ${alpha})`; ctx.fill();
+            // ANIMATION: Blinkendes Licht
+            const blink = 0.3 + 0.6 * (Math.sin(timeMs * 0.005 + obs.distNM * 50) * 0.5 + 0.5);
+            ctx.beginPath(); ctx.arc(px, pyTop, 2, 0, Math.PI * 2); ctx.fillStyle = `rgba(217, 56, 41, ${blink})`; ctx.fill();
         }
 
         rawLabels.push({ x: px, yBase: pyRoot, count: obs.count || 1 });
     }
+    
+    if (window.vpIsFastRendering) { ctx.restore(); return; } // Performance-Culling
     
     // 2. Labels abhängig vom Zoom/Pixelabstand clustern
     rawLabels.sort((a, b) => a.x - b.x);
@@ -698,11 +705,8 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
         return yOf(elevData[elevData.length-1].elevFt);
     };
 
+    // KEIN Culling für Layer 1 (Wird nativ von der GPU gescrollt)
     let viewMinX = -Infinity, viewMaxX = Infinity;
-    if (ctx.canvas.id === 'mapProfileCanvas') {
-        const sc = document.getElementById('mapProfileScroll');
-        if (sc) { viewMinX = sc.scrollLeft - 200; viewMaxX = sc.scrollLeft + sc.clientWidth + 200; }
-    }
     // Stabiler, deterministischer Pseudo-Zufallsgenerator gegen Flackern
     const prng = (s) => { let x = Math.sin(s) * 10000; return x - Math.floor(x); };
     ctx.save();
@@ -713,49 +717,6 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
         const startX = xOf(prevDist), endX = xOf(nextDist), width = endX - startX, midX = startX + width/2;
         
         if (endX < viewMinX || startX > viewMaxX) continue; // CULLING
-        // 1. REGEN & SCHNEE
-        if (zone.weather && (zone.weather.hasRain || zone.weather.hasSnow) && zone.lowestBase) {
-            const baseY = yOf(zone.lowestBase);
-            ctx.beginPath();
-            for(let d=0; d<35; d++) {
-                const pxRand = prng(i * 200 + d + 0.1), pyRand = prng(i * 200 + d + 0.2), spdRand = prng(i * 200 + d + 0.3);
-                const dropX = startX + pxRand * width, dNM = prevDist + pxRand * (nextDist - prevDist);
-                const groundY = getElevY(dNM);
-                if (baseY < groundY) {
-                    if (zone.weather.hasSnow) {
-                        const sy = baseY + pyRand * (groundY - baseY);
-                        ctx.moveTo(dropX, sy); ctx.arc(dropX, sy, 0.8 + spdRand, 0, Math.PI*2);
-                    } else {
-                        const ry1 = baseY + pyRand * (groundY - baseY);
-                        const ry2 = Math.min(groundY, ry1 + 6 + spdRand * 4);
-                        ctx.moveTo(dropX, ry1); ctx.lineTo(dropX - 1 - spdRand*2, ry2);
-                    }
-                }
-            }
-            ctx.fillStyle = zone.weather.hasSnow ? 'rgba(255,255,255,0.8)' : 'rgba(80, 150, 255, 0.6)';
-            ctx.strokeStyle = zone.weather.hasSnow ? 'rgba(255,255,255,0.8)' : 'rgba(80, 150, 255, 0.5)';
-            ctx.lineWidth = 1.5;
-            if (zone.weather.hasSnow) ctx.fill(); else ctx.stroke();
-        }
-        // 2. BLITZE
-        if (zone.weather && zone.weather.hasTS && zone.lowestBase) {
-            const baseY = yOf(zone.lowestBase);
-            ctx.beginPath();
-            for(let f=0; f<2; f++) {
-                const fxRand = prng(i * 300 + f + 0.1);
-                const fx = startX + width * 0.2 + fxRand * width * 0.6;
-                const groundY = getElevY(prevDist + fxRand * (nextDist - prevDist));
-                if (baseY < groundY) {
-                    const stepY = (groundY - baseY) / 4;
-                    ctx.moveTo(fx, baseY);
-                    ctx.lineTo(fx + (prng(i*300+f+0.2)-0.5)*15, baseY + stepY);
-                    ctx.lineTo(fx + (prng(i*300+f+0.3)-0.5)*15, baseY + stepY*2);
-                    ctx.lineTo(fx + (prng(i*300+f+0.4)-0.5)*15, baseY + stepY*3);
-                    ctx.lineTo(fx + (prng(i*300+f+0.5)-0.5)*15, groundY);
-                }
-            }
-            ctx.strokeStyle = 'rgba(255, 230, 100, 0.9)'; ctx.lineWidth = 1.5; ctx.stroke();
-        }
         // 3. WOLKEN (PUFFS) – Zoom-adaptiv, isolierte Zellen für FEW/SCT
         if (zone.clouds && zone.clouds.length > 0) {
             zone.clouds.forEach((c, cIdx) => {
@@ -834,6 +795,113 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
                 ctx.font = 'bold 8px Arial'; ctx.textAlign = 'center';
                 ctx.fillText(c.type, midX, baseY + 12);
             });
+        }
+    }
+    ctx.restore();
+}
+
+function vpDrawAnimatedWeather(ctx, xOf, yOf, totalDist, elevData, timeMs, viewMinX, viewMaxX) {
+    if (!vpWeatherData || vpWeatherData.length === 0) return;
+
+    const getElevY = (dNM) => {
+        if (!elevData || elevData.length < 2) return yOf(0);
+        for(let i=0; i<elevData.length-1; i++) {
+            if (dNM >= elevData[i].distNM && dNM <= elevData[i+1].distNM) {
+                const f = (dNM - elevData[i].distNM) / (elevData[i+1].distNM - elevData[i].distNM);
+                return yOf(elevData[i].elevFt + f * (elevData[i+1].elevFt - elevData[i].elevFt));
+            }
+        }
+        return yOf(elevData[elevData.length-1].elevFt);
+    };
+
+    ctx.save();
+    for (let i = 0; i < vpWeatherData.length; i++) {
+        const zone = vpWeatherData[i];
+        if (!zone.weather || (!zone.weather.hasRain && !zone.weather.hasSnow && !zone.weather.hasTS)) continue;
+
+        const prevDist = (i > 0) ? (zone.distNM + vpWeatherData[i-1].distNM)/2 : Math.max(0, zone.distNM - totalDist*0.05);
+        const nextDist = (i < vpWeatherData.length - 1) ? (zone.distNM + vpWeatherData[i+1].distNM)/2 : Math.min(totalDist, zone.distNM + totalDist*0.05);
+        const startX = xOf(prevDist);
+        const endX = xOf(nextDist);
+        const width = endX - startX;
+
+        if (endX < viewMinX || startX > viewMaxX) continue; // CULLING
+
+        const baseY = yOf(zone.lowestBase);
+
+        // 1. REGEN & SCHNEE ANIMIERT
+        if ((zone.weather.hasRain || zone.weather.hasSnow) && zone.visuals && zone.visuals.drops) {
+            ctx.beginPath();
+            for(let d=0; d < zone.visuals.drops.length; d++) {
+                const drop = zone.visuals.drops[d];
+                const dropX = startX + drop.x * width;
+                const dNM = prevDist + drop.x * (nextDist - prevDist);
+                const groundY = getElevY(dNM);
+
+                if (baseY >= groundY) continue; 
+                const fallDist = groundY - baseY;
+                if (fallDist <= 0) continue;
+
+                // PERFORMANCE/LOOK FIX: Speed auf ca. 20% reduziert
+                const speed = zone.weather.hasSnow ? (0.01 + drop.spd * 0.02) : (0.08 + drop.spd * 0.08);
+                const currentYOffset = ((drop.y * fallDist) + (timeMs * speed)) % fallDist;
+                const sy = baseY + currentYOffset;
+
+                if (zone.weather.hasSnow) {
+                    const sway = Math.sin(timeMs * 0.002 + d) * 4 * drop.spd;
+                    // Schnee driftet auch leicht organisch nach links
+                    const snowDrift = currentYOffset * 0.15; 
+                    const sx = dropX + sway - snowDrift;
+                    ctx.moveTo(sx, sy);
+                    ctx.arc(sx, sy, 0.8 + drop.spd, 0, Math.PI*2);
+                } else {
+                    const tailLength = 6 + drop.spd * 8;
+                    const windSlant = 2 + drop.spd * 4; // Windwinkel nach unten links
+                    
+                    // GEOMETRIE FIX: Der Tropfen wandert auf der X-Achse exakt mit dem Fall nach unten links
+                    const driftRatio = windSlant / tailLength;
+                    const currentX = dropX - (currentYOffset * driftRatio);
+
+                    ctx.moveTo(currentX, sy);
+                    ctx.lineTo(currentX - windSlant, sy + tailLength); 
+                }
+            }
+            ctx.fillStyle = zone.weather.hasSnow ? 'rgba(255,255,255,0.8)' : 'rgba(120, 180, 255, 0.6)';
+            ctx.strokeStyle = zone.weather.hasSnow ? 'rgba(255,255,255,0.8)' : 'rgba(100, 160, 255, 0.5)';
+            ctx.lineWidth = zone.weather.hasSnow ? 1 : 1.5;
+            if (zone.weather.hasSnow) ctx.fill(); else ctx.stroke();
+        }
+
+        // 2. BLITZE ANIMIERT
+        if (zone.weather.hasTS && zone.visuals && zone.visuals.flashes) {
+            const flashCycle = timeMs % 5000; // Ein Blitz-Zyklus dauert 5 Sekunden
+            let hasActiveFlash = false;
+            
+            ctx.beginPath();
+            for(let f=0; f < zone.visuals.flashes.length; f++) {
+                const flash = zone.visuals.flashes[f];
+                const flashTimeStart = flash.x * 4500; // Zufälliger Start im Zyklus
+                
+                // Blitz leuchtet für knackige 120ms
+                if (flashCycle > flashTimeStart && flashCycle < flashTimeStart + 120) {
+                    hasActiveFlash = true;
+                    const fx = startX + width * 0.2 + flash.x * width * 0.6;
+                    const groundY = getElevY(prevDist + flash.x * (nextDist - prevDist));
+                    if (baseY < groundY) {
+                        const stepY = (groundY - baseY) / 4;
+                        ctx.moveTo(fx, baseY);
+                        ctx.lineTo(fx + (flash.pts[0]-0.5)*20, baseY + stepY);
+                        ctx.lineTo(fx + (flash.pts[1]-0.5)*20, baseY + stepY*2);
+                        ctx.lineTo(fx + (flash.pts[2]-0.5)*20, baseY + stepY*3);
+                        ctx.lineTo(fx + (flash.pts[3]-0.5)*20, groundY);
+                    }
+                }
+            }
+            if (hasActiveFlash) {
+                ctx.strokeStyle = 'rgba(255, 230, 100, 0.9)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
         }
     }
     ctx.restore();
@@ -977,7 +1045,7 @@ function renderVerticalProfile(canvasId) {
     const plotW = displayWidth - padLeft - padRight;
     const plotH = displayHeight - padTop - padBottom;
 
-    const cruiseAlt = parseInt(document.getElementById('altSlider')?.value || 4500);
+    const cruiseAlt = parseInt(document.getElementById('altMapInput')?.textContent || document.getElementById('altSlider')?.value || 4500);
     const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
     const totalDist = vpElevationData[vpElevationData.length - 1].distNM;
     const maxTerrain = Math.max(...vpElevationData.map(p => p.elevFt));
@@ -1332,17 +1400,7 @@ function syncAltFromMap(val) {
     if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
 }
 
-// Globale Fast-Render Steuerung
-window.vpIsFastRendering = false;
-let vpFastRenderTimeout = null;
-window.activateFastRender = function() {
-    window.vpIsFastRendering = true;
-    if (vpFastRenderTimeout) clearTimeout(vpFastRenderTimeout);
-    vpFastRenderTimeout = setTimeout(() => {
-        window.vpIsFastRendering = false;
-        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
-    }, 350);
-};
+// Globale Fast-Render Steuerung (Nun in app.js definiert)
 
 let vpHighResFetchTimeout = null;
 function vpZoom(delta) {
@@ -1425,364 +1483,287 @@ async function fetchHighResElevation() {
 }
 
 function renderMapProfile() {
-    const canvas = document.getElementById('mapProfileCanvas');
+    window.vpBgNeedsUpdate = true;
+    if (!window.vpAnimFrameId) {
+        window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
+    }
+}
+
+function renderMapProfileFrames(timeMs) {
+    const mapTable = document.getElementById('mapTableOverlay');
+    if (!mapTable || !mapTable.classList.contains('active') || (typeof vpMapProfileVisible !== 'undefined' && !vpMapProfileVisible)) {
+        window.vpAnimFrameId = null; // Animation stoppen, wenn Profil/Tisch unsichtbar
+        return;
+    }
+
+    const fgCanvas = document.getElementById('mapProfileCanvas');
+    const bgCanvas = document.getElementById('mapProfileCanvasBg');
     const scrollContainer = document.getElementById('mapProfileScroll');
-    if (!canvas || !scrollContainer) return;
+    const wrapper = document.getElementById('vpCanvasWrapper');
+    if (!fgCanvas || !bgCanvas || !scrollContainer || !wrapper) {
+        window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
+        return;
+    }
 
     const elevData = (vpZoomLevel < 100 && vpHighResData) ? vpHighResData : vpElevationData;
-    if (!elevData || elevData.length < 2) return;
+    if (!elevData || elevData.length < 2) {
+        window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
+        return;
+    }
 
     const containerHeight = scrollContainer.clientHeight || 100;
     const baseWidth = scrollContainer.clientWidth || 600;
-
-    // Zoom: canvas is wider than container when zoomed in
     const zoomFactor = 100 / vpZoomLevel;
-    const canvasWidth = Math.round(baseWidth * zoomFactor);
-
     const dpr = window.devicePixelRatio || 1;
+    
+    // HARDWARE-LIMIT SCHUTZ: Ältere GPUs (Intel) crashen bei Texturen > 16384px ins Software-Rendering.
+    const maxSafeWidth = 14000 / dpr; 
+    let canvasWidth = Math.round(baseWidth * zoomFactor);
+    if (canvasWidth > maxSafeWidth) canvasWidth = maxSafeWidth;
+
     const targetW = canvasWidth * dpr;
     const targetH = containerHeight * dpr;
 
-    const ctx = canvas.getContext('2d');
-    
-    // Performance Fix: Speicher nur neu allokieren, wenn sich die echte Auflösung ändert (z.B. Zoom)!
-    if (canvas.width !== targetW || canvas.height !== targetH) {
-        canvas.width = targetW;
-        canvas.height = targetH;
-        canvas.style.width = canvasWidth + 'px';
-        canvas.style.height = containerHeight + 'px';
-        ctx.scale(dpr, dpr);
-    } else {
-        // Bei reinem Dragging/Y-Achsen Änderung: Nur den alten Inhalt wegwischen (100x schneller!)
-        ctx.clearRect(0, 0, canvasWidth, containerHeight);
-    }
-    
-    // Viewport Culling Init: Ermittle, welcher Bereich gerade sichtbar ist (mit 200px Puffer)
-    const viewMinX = scrollContainer.scrollLeft - 200;
-    const viewMaxX = scrollContainer.scrollLeft + baseWidth + 200;
+    if (wrapper.style.width !== canvasWidth + 'px') wrapper.style.width = canvasWidth + 'px';
 
     const padLeft = 33, padRight = 16, padTop = 12, padBottom = 22;
     const plotW = canvasWidth - padLeft - padRight;
     const plotH = containerHeight - padTop - padBottom;
 
-    const cruiseAlt = parseInt(document.getElementById('altSliderMap')?.value || document.getElementById('altSlider')?.value || 4500);
+    const cruiseAlt = parseInt(document.getElementById('altMapInput')?.textContent || document.getElementById('altSlider')?.value || 4500);
     const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
     const totalDist = elevData[elevData.length - 1].distNM;
     const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
-    let maxCloudAlt = 0;
-    if (vpShowClouds && vpWeatherData) {
-        vpWeatherData.forEach(zone => {
-            if (zone.clouds) zone.clouds.forEach(c => {
-                if (c.baseMsl > maxCloudAlt) maxCloudAlt = c.baseMsl;
-            });
-        });
-    }
     let autoMaxAlt = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
     const maxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
     const minAlt = 0;
 
-    const fpResult = computeFlightProfile(elevData, cruiseAlt, vpClimbRate, vpDescentRate, tas);
-
+    const fpResult = typeof computeFlightProfile === 'function' ? computeFlightProfile(elevData, cruiseAlt, vpClimbRate, vpDescentRate, tas) : null;
     const xOf = (distNM) => padLeft + (distNM / totalDist) * plotW;
     const yOf = (altFt) => padTop + plotH - ((altFt - minAlt) / (maxAlt - minAlt)) * plotH;
+    const viewMinX = scrollContainer.scrollLeft - 200;
+    const viewMaxX = scrollContainer.scrollLeft + baseWidth + 200;
 
-    // Background - dark theme for map strip
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(0, 0, canvasWidth, containerHeight);
+    // =======================================================
+    // LAYER 1: STATISCHER HINTERGRUND (Terrain, Wolken, etc.)
+    // =======================================================
+    if (window.vpBgNeedsUpdate || bgCanvas.width !== targetW || bgCanvas.height !== targetH) {
+        if (bgCanvas.width !== targetW || bgCanvas.height !== targetH) {
+            bgCanvas.width = targetW; bgCanvas.height = targetH;
+            bgCanvas.style.width = canvasWidth + 'px'; bgCanvas.style.height = containerHeight + 'px';
+        }
+        const bgCtx = bgCanvas.getContext('2d');
+        bgCtx.save();
+        bgCtx.scale(dpr, dpr);
+        bgCtx.clearRect(0, 0, canvasWidth, containerHeight);
 
-    // Sky gradient (dark)
-    const skyGrad = ctx.createLinearGradient(0, padTop, 0, padTop + plotH);
-    skyGrad.addColorStop(0, '#1a2a3a');
-    skyGrad.addColorStop(0.5, '#1a2030');
-    skyGrad.addColorStop(1, '#151a20');
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(padLeft, padTop, plotW, plotH);
+        bgCtx.fillStyle = '#1a1a1a'; bgCtx.fillRect(0, 0, canvasWidth, containerHeight);
+        const skyGrad = bgCtx.createLinearGradient(0, padTop, 0, padTop + plotH);
+        skyGrad.addColorStop(0, '#1a2a3a'); skyGrad.addColorStop(0.5, '#1a2030'); skyGrad.addColorStop(1, '#151a20');
+        bgCtx.fillStyle = skyGrad; bgCtx.fillRect(padLeft, padTop, plotW, plotH);
 
-    // Airspace blocks (dark theme) with pulse highlight support
-    let occupiedASLabels = [];
-    if (typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
-        const cachedAirspaces = getCachedAirspaceIntersections(elevData, totalDist);
-        for (const item of cachedAirspaces) {
-            const { asIdx, as, lowerFt, upperFt, isLowerAgl, isUpperAgl, asMinDist, asMaxDist, relevantPts } = item;
-            
-            const style = getAirspaceStyle(as);
-            const x1 = xOf(asMinDist), x2 = xOf(asMaxDist);
-            if (x2 < viewMinX || x1 > viewMaxX) continue; // CULLING
+        let occupiedASLabels = [];
+        if (typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
+            const cachedAirspaces = getCachedAirspaceIntersections(elevData, totalDist);
+            for (const item of cachedAirspaces) {
+                const { asIdx, as, lowerFt, upperFt, isLowerAgl, isUpperAgl, asMinDist, asMaxDist, relevantPts } = item;
+                const style = getAirspaceStyle(as);
+                const x1 = xOf(asMinDist), x2 = xOf(asMaxDist);
 
-            // Pulsing highlight for the active airspace
-            const isHighlighted = (vpHighlightPulseIdx >= 0 && asIdx === vpHighlightPulseIdx);
-            const pulseOpacity = isHighlighted ? 0.2 + 0.4 * (0.5 + 0.5 * Math.sin(vpPulsePhase * Math.PI * 2)) : 0.15;
-            const strokeOpacity = isHighlighted ? 0.5 + 0.5 * (0.5 + 0.5 * Math.sin(vpPulsePhase * Math.PI * 2)) : 0.5;
-            const lineW = isHighlighted ? 2 + 2 * (0.5 + 0.5 * Math.sin(vpPulsePhase * Math.PI * 2)) : 2;
+                const isHighlighted = (typeof vpHighlightPulseIdx !== 'undefined' && vpHighlightPulseIdx >= 0 && asIdx === vpHighlightPulseIdx);
+                const phase = typeof vpPulsePhase !== 'undefined' ? vpPulsePhase : 0;
+                const pulseOpacity = isHighlighted ? 0.2 + 0.4 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2)) : 0.15;
+                const strokeOpacity = isHighlighted ? 0.5 + 0.5 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2)) : 0.5;
+                const lineW = isHighlighted ? 2 + 2 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2)) : 2;
 
-            ctx.fillStyle = vpHexToRgba(style.color, pulseOpacity);
-            ctx.strokeStyle = vpHexToRgba(style.color, strokeOpacity);
-            ctx.lineWidth = lineW;
-            ctx.setLineDash(isHighlighted ? [] : [3, 3]);
+                bgCtx.fillStyle = vpHexToRgba(style.color, pulseOpacity);
+                bgCtx.strokeStyle = vpHexToRgba(style.color, strokeOpacity);
+                bgCtx.lineWidth = lineW; bgCtx.setLineDash(isHighlighted ? [] : [3, 3]);
 
-            ctx.beginPath();
-            for (let i = 0; i < relevantPts.length; i++) {
-                const p = relevantPts[i];
-                const realUpper = isUpperAgl ? p.elevFt + upperFt : upperFt;
-                ctx.lineTo(xOf(p.distNM), yOf(Math.min(realUpper, maxAlt)));
-            }
-            for (let i = relevantPts.length - 1; i >= 0; i--) {
-                const p = relevantPts[i];
-                const realLower = isLowerAgl ? p.elevFt + lowerFt : lowerFt;
-                ctx.lineTo(xOf(p.distNM), yOf(Math.max(realLower, minAlt)));
-            }
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            let sumUpper = 0;
-            relevantPts.forEach(p => sumUpper += (isUpperAgl ? p.elevFt + upperFt : upperFt));
-            const avgUpper = sumUpper / relevantPts.length;
-
-            let labelY = yOf(Math.min(avgUpper, maxAlt));
-            labelY = Math.max(padTop + 15, labelY); 
-            if (zoomFactor >= 1.5 || (x2 - x1) > 40 || isHighlighted) {
-                const displayName = getAirspaceDisplayName(as);
-                ctx.font = isHighlighted ? 'bold 11px Arial' : 'bold 10px Arial';
-                const tw = ctx.measureText(displayName).width;
-                const tLeft = ((x1 + x2) / 2) - tw/2, tRight = tLeft + tw;
-
-                let collision = false;
-                if (!isHighlighted) {
-                    for (let occ of occupiedASLabels) {
-                        if (tLeft < occ.r && tRight > occ.l && labelY < occ.b && (labelY+25) > occ.t) { collision = true; break; }
-                    }
+                bgCtx.beginPath();
+                for (let i = 0; i < relevantPts.length; i++) {
+                    const p = relevantPts[i];
+                    const realUpper = isUpperAgl ? p.elevFt + upperFt : upperFt;
+                    bgCtx.lineTo(xOf(p.distNM), yOf(Math.min(realUpper, maxAlt)));
                 }
+                for (let i = relevantPts.length - 1; i >= 0; i--) {
+                    const p = relevantPts[i];
+                    const realLower = isLowerAgl ? p.elevFt + lowerFt : lowerFt;
+                    bgCtx.lineTo(xOf(p.distNM), yOf(Math.max(realLower, minAlt)));
+                }
+                bgCtx.closePath(); bgCtx.fill(); bgCtx.stroke(); bgCtx.setLineDash([]);
 
-                if (!collision) {
-                    if (!isHighlighted) occupiedASLabels.push({l: tLeft-5, r: tRight+5, t: labelY-5, b: labelY+25});
-                    ctx.fillStyle = vpHexToRgba(style.color, isHighlighted ? 0.9 : 0.6);
-                    ctx.textAlign = 'center';
-                    ctx.fillText(displayName, (x1 + x2) / 2, labelY + 12);
-                    if (zoomFactor >= 2 || isHighlighted) {
-                        ctx.font = '9px Arial';
-                        ctx.fillText(formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 23);
+                let sumUpper = 0; relevantPts.forEach(p => sumUpper += (isUpperAgl ? p.elevFt + upperFt : upperFt));
+                const avgUpper = sumUpper / relevantPts.length;
+                let labelY = yOf(Math.min(avgUpper, maxAlt)); labelY = Math.max(padTop + 15, labelY); 
+
+                if (!window.vpIsFastRendering && (zoomFactor >= 1.5 || (x2 - x1) > 40 || isHighlighted)) {
+                    const displayName = getAirspaceDisplayName(as);
+                    bgCtx.font = isHighlighted ? 'bold 11px Arial' : 'bold 10px Arial';
+                    const tw = bgCtx.measureText(displayName).width;
+                    const tLeft = ((x1 + x2) / 2) - tw/2, tRight = tLeft + tw;
+                    let collision = false;
+                    if (!isHighlighted) {
+                        for (let occ of occupiedASLabels) {
+                            if (tLeft < occ.r && tRight > occ.l && labelY < occ.b && (labelY+25) > occ.t) { collision = true; break; }
+                        }
+                    }
+                    if (!collision) {
+                        if (!isHighlighted) occupiedASLabels.push({l: tLeft-5, r: tRight+5, t: labelY-5, b: labelY+25});
+                        bgCtx.fillStyle = vpHexToRgba(style.color, isHighlighted ? 0.9 : 0.6); bgCtx.textAlign = 'center';
+                        bgCtx.fillText(displayName, (x1 + x2) / 2, labelY + 12);
+                        if (zoomFactor >= 2 || isHighlighted) {
+                            bgCtx.font = '9px Arial'; bgCtx.fillText(formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 23);
+                        }
                     }
                 }
             }
         }
+        bgCtx.textAlign = 'left';
+
+        bgCtx.beginPath(); bgCtx.setLineDash([4, 4]); bgCtx.strokeStyle = 'rgba(200, 120, 40, 0.4)'; bgCtx.lineWidth = 1;
+        for (let i = 0; i < elevData.length; i++) {
+            const x = xOf(elevData[i].distNM), y = yOf(elevData[i].elevFt + 1000);
+            if (i === 0) bgCtx.moveTo(x, y); else bgCtx.lineTo(x, y);
+        }
+        bgCtx.stroke(); bgCtx.setLineDash([]);
+
+        bgCtx.beginPath(); bgCtx.moveTo(xOf(0), yOf(0));
+        for (let i = 0; i < elevData.length; i++) bgCtx.lineTo(xOf(elevData[i].distNM), yOf(elevData[i].elevFt));
+        bgCtx.lineTo(xOf(totalDist), yOf(0)); bgCtx.closePath();
+        const terrainGrad = bgCtx.createLinearGradient(0, yOf(maxTerrain), 0, yOf(0));
+        terrainGrad.addColorStop(0, '#6B5B3C'); terrainGrad.addColorStop(0.3, '#3B5B23'); terrainGrad.addColorStop(0.7, '#1B5B22'); terrainGrad.addColorStop(1, '#1E5B37');
+        bgCtx.fillStyle = terrainGrad; bgCtx.fill();
+        bgCtx.beginPath();
+        for (let i = 0; i < elevData.length; i++) {
+            const x = xOf(elevData[i].distNM), y = yOf(elevData[i].elevFt);
+            if (i === 0) bgCtx.moveTo(x, y); else bgCtx.lineTo(x, y);
+        }
+        bgCtx.strokeStyle = '#4a7a30'; bgCtx.lineWidth = 1.5; bgCtx.stroke();
+
+        if (vpShowLandmarks) vpDrawLandmarks(bgCtx, xOf, yOf, elevData, totalDist, true, zoomFactor);
+        if (vpShowClouds) vpDrawClouds(bgCtx, xOf, yOf, padTop, plotH, totalDist, true, elevData);
+
+        bgCtx.textAlign = 'right';
+        const altStep = maxAlt > 6000 ? 2000 : (maxAlt > 3000 ? 1000 : 500);
+        for (let alt = 0; alt <= maxAlt; alt += altStep) {
+            const y = yOf(alt);
+            if (y < padTop - 3 || y > padTop + plotH + 3) continue;
+            bgCtx.beginPath(); bgCtx.strokeStyle = 'rgba(255,255,255,0.05)'; bgCtx.lineWidth = 0.5;
+            bgCtx.moveTo(padLeft, y); bgCtx.lineTo(padLeft + plotW, y); bgCtx.stroke();
+            bgCtx.fillStyle = '#777'; bgCtx.font = '9px Arial';
+            bgCtx.fillText(alt >= 1000 ? (alt / 1000).toFixed(0) + 'k' : alt + '', padLeft - 3, y + 3);
+        }
+
+        bgCtx.textAlign = 'center';
+        const distStep = totalDist > 150 ? 25 : (totalDist > 80 ? 10 : 5);
+        for (let d = distStep; d < totalDist; d += distStep) {
+            bgCtx.fillStyle = '#666'; bgCtx.font = '8px Arial'; bgCtx.fillText(d + '', xOf(d), containerHeight - 1);
+        }
+
+        const peakPt = elevData.reduce((max, p) => p.elevFt > max.elevFt ? p : max);
+        bgCtx.fillStyle = '#aaa'; bgCtx.font = '11px Arial'; bgCtx.textAlign = 'center';
+        bgCtx.fillText('▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 3);
+        bgCtx.font = 'bold 9px Arial'; bgCtx.fillText(peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 13);
+
+        bgCtx.strokeStyle = '#333'; bgCtx.lineWidth = 1; bgCtx.strokeRect(padLeft, padTop, plotW, plotH);
+        bgCtx.restore();
+        window.vpBgNeedsUpdate = false;
     }
-    ctx.textAlign = 'left';
 
-    // Safety line
-    ctx.beginPath();
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = 'rgba(200, 120, 40, 0.4)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < elevData.length; i++) {
-        const x = xOf(elevData[i].distNM), y = yOf(elevData[i].elevFt + 1000);
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    // =======================================================
+    // LAYER 2: DYNAMISCHER VORDERGRUND (Windräder, Route)
+    // =======================================================
+    if (fgCanvas.width !== targetW || fgCanvas.height !== targetH) {
+        fgCanvas.width = targetW; fgCanvas.height = targetH;
+        fgCanvas.style.width = canvasWidth + 'px'; fgCanvas.style.height = containerHeight + 'px';
     }
-    ctx.stroke();
-    ctx.setLineDash([]);
+    const fgCtx = fgCanvas.getContext('2d');
+    fgCtx.save();
+    fgCtx.scale(dpr, dpr);
+    fgCtx.clearRect(0, 0, canvasWidth, containerHeight); // NUR Foreground leeren!
 
-    // Terrain polygon
-    ctx.beginPath();
-    ctx.moveTo(xOf(0), yOf(0));
-    for (let i = 0; i < elevData.length; i++) ctx.lineTo(xOf(elevData[i].distNM), yOf(elevData[i].elevFt));
-    ctx.lineTo(xOf(totalDist), yOf(0));
-    ctx.closePath();
+    // Windräder rotieren in Echtzeit auf dem Glas!
+    if (vpShowObstacles) vpDrawObstacles(fgCtx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs);
 
-    const terrainGrad = ctx.createLinearGradient(0, yOf(maxTerrain), 0, yOf(0));
-    terrainGrad.addColorStop(0, '#6B5B3C');
-    terrainGrad.addColorStop(0.3, '#3B5B23');
-    terrainGrad.addColorStop(0.7, '#1B5B22');
-    terrainGrad.addColorStop(1, '#1E5B37');
-    ctx.fillStyle = terrainGrad;
-    ctx.fill();
+    // Wetter animieren (Regen fällt, Blitze zucken)
+    if (vpShowClouds) vpDrawAnimatedWeather(fgCtx, xOf, yOf, totalDist, elevData, timeMs, viewMinX, viewMaxX);
 
-    ctx.beginPath();
-    for (let i = 0; i < elevData.length; i++) {
-        const x = xOf(elevData[i].distNM), y = yOf(elevData[i].elevFt);
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = '#4a7a30';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    if (vpShowLandmarks) vpDrawLandmarks(ctx, xOf, yOf, typeof elevData !== 'undefined' ? elevData : vpElevationData, totalDist, typeof zoomFactor !== 'undefined', typeof zoomFactor !== 'undefined' ? zoomFactor : 1.0);
-    if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, typeof zoomFactor !== 'undefined', typeof elevData !== 'undefined' ? elevData : vpElevationData);
-    if (vpShowObstacles) vpDrawObstacles(ctx, xOf, yOf, totalDist, typeof zoomFactor !== 'undefined' ? zoomFactor : 1.0, typeof elevData !== 'undefined' ? elevData : vpElevationData);
-
-    // Flight profile
     if (fpResult && fpResult.profile) {
-        ctx.beginPath();
+        // Rote Linie Schatten
+        fgCtx.beginPath();
+        let shStarted = false;
         for (let i = 0; i < fpResult.profile.length; i++) {
-            const x = xOf(fpResult.profile[i].distNM), y = yOf(fpResult.profile[i].altFt) + 1;
-            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            const x = xOf(fpResult.profile[i].distNM);
+            // CULLING: Überspringe Vektoren, die komplett außerhalb des Bildschirms liegen!
+            if (x < viewMinX - 100 && i < fpResult.profile.length - 1 && xOf(fpResult.profile[i+1].distNM) < viewMinX) continue;
+            if (x > viewMaxX + 100 && i > 0 && xOf(fpResult.profile[i-1].distNM) > viewMaxX) continue;
+            
+            const y = yOf(fpResult.profile[i].altFt) + 1;
+            if (!shStarted) { fgCtx.moveTo(x, y); shStarted = true; } else { fgCtx.lineTo(x, y); }
         }
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-        ctx.lineWidth = 3;
-        ctx.stroke();
+        fgCtx.strokeStyle = 'rgba(0,0,0,0.3)'; fgCtx.lineWidth = 3; fgCtx.stroke();
 
-        ctx.beginPath();
+        // Rote Linie
+        fgCtx.beginPath();
+        let rdStarted = false;
         for (let i = 0; i < fpResult.profile.length; i++) {
-            const x = xOf(fpResult.profile[i].distNM), y = yOf(fpResult.profile[i].altFt);
-            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            const x = xOf(fpResult.profile[i].distNM);
+            if (x < viewMinX - 100 && i < fpResult.profile.length - 1 && xOf(fpResult.profile[i+1].distNM) < viewMinX) continue;
+            if (x > viewMaxX + 100 && i > 0 && xOf(fpResult.profile[i-1].distNM) > viewMaxX) continue;
+            
+            const y = yOf(fpResult.profile[i].altFt);
+            if (!rdStarted) { fgCtx.moveTo(x, y); rdStarted = true; } else { fgCtx.lineTo(x, y); }
         }
-        ctx.strokeStyle = '#ff4444';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        fgCtx.strokeStyle = '#ff4444'; fgCtx.lineWidth = 2; fgCtx.stroke();
     }
 
-    // Cruise altitude line
-    ctx.beginPath();
-    ctx.setLineDash([6, 4]);
-    ctx.strokeStyle = 'rgba(255, 68, 68, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.moveTo(padLeft, yOf(cruiseAlt));
-    ctx.lineTo(padLeft + plotW, yOf(cruiseAlt));
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(255, 68, 68, 0.7)';
-    ctx.font = 'bold 10px Arial';
-    ctx.fillText('CRZ ' + cruiseAlt + ' ft', padLeft + 4, yOf(cruiseAlt) - 4);
+    fgCtx.beginPath(); fgCtx.setLineDash([6, 4]); fgCtx.strokeStyle = 'rgba(255, 68, 68, 0.3)'; fgCtx.lineWidth = 1;
+    fgCtx.moveTo(Math.max(padLeft, viewMinX), yOf(cruiseAlt)); 
+    fgCtx.lineTo(Math.min(padLeft + plotW, viewMaxX), yOf(cruiseAlt)); 
+    fgCtx.stroke(); fgCtx.setLineDash([]);
+    
+    fgCtx.fillStyle = 'rgba(255, 68, 68, 0.7)'; fgCtx.font = 'bold 10px Arial'; fgCtx.textAlign = 'left';
+    fgCtx.fillText('CRZ ' + cruiseAlt + ' ft', Math.max(padLeft + 4, viewMinX + 4), yOf(cruiseAlt) - 4);
 
-    // Waypoint markers
     let wpCumDist = 0;
     for (let i = 0; i < routeWaypoints.length; i++) {
-        if (i > 0) {
-            const prev = routeWaypoints[i - 1], curr = routeWaypoints[i];
-            wpCumDist += calcNav(prev.lat, prev.lng || prev.lon, curr.lat, curr.lng || curr.lon).dist;
-        }
+        if (i > 0) wpCumDist += calcNav(routeWaypoints[i - 1].lat, routeWaypoints[i - 1].lng || routeWaypoints[i - 1].lon, routeWaypoints[i].lat, routeWaypoints[i].lng || routeWaypoints[i].lon).dist;
         const x = xOf(wpCumDist);
+        if (x < viewMinX - 40 || x > viewMaxX + 40) continue; // CULLING Wegpunkte
 
-        ctx.beginPath();
-        ctx.setLineDash([2, 3]);
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        ctx.lineWidth = 1;
-        ctx.moveTo(x, padTop);
-        ctx.lineTo(x, padTop + plotH);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        let wpLabel;
-        if (i === 0) wpLabel = currentStartICAO || 'DEP';
-        else if (i === routeWaypoints.length - 1) wpLabel = (currentMissionData?.poiName ? 'POI' : currentDestICAO) || 'DEST';
-        else wpLabel = routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i;
-        if (!zoomFactor || zoomFactor < 2) { if (wpLabel.length > 6) wpLabel = wpLabel.substring(0, 5) + '…'; }
-        else { if (wpLabel.length > 12) wpLabel = wpLabel.substring(0, 11) + '…'; }
-
-        // Colored dot
-        ctx.beginPath();
-        ctx.arc(x, padTop + plotH + 3, 3, 0, Math.PI * 2);
-        ctx.fillStyle = i === 0 ? '#44ff44' : (i === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00');
-        ctx.fill();
-
-        // Label  
-        ctx.fillStyle = '#bbb';
-        ctx.font = (zoomFactor >= 2) ? 'bold 11px Arial' : 'bold 9px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(wpLabel, x, padTop + plotH + 16);
+        fgCtx.beginPath(); fgCtx.setLineDash([2, 3]); fgCtx.strokeStyle = 'rgba(255,255,255,0.2)'; fgCtx.lineWidth = 1;
+        fgCtx.moveTo(x, padTop); fgCtx.lineTo(x, padTop + plotH); fgCtx.stroke(); fgCtx.setLineDash([]);
+        let wpLabel = (i === 0) ? (currentStartICAO || 'DEP') : ((i === routeWaypoints.length - 1) ? ((currentMissionData?.poiName ? 'POI' : currentDestICAO) || 'DEST') : (routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i));
+        if (!zoomFactor || zoomFactor < 2) { if (wpLabel.length > 6) wpLabel = wpLabel.substring(0, 5) + '…'; } else { if (wpLabel.length > 12) wpLabel = wpLabel.substring(0, 11) + '…'; }
+        fgCtx.beginPath(); fgCtx.arc(x, padTop + plotH + 3, 3, 0, Math.PI * 2); fgCtx.fillStyle = i === 0 ? '#44ff44' : (i === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00'); fgCtx.fill();
+        fgCtx.fillStyle = '#bbb'; fgCtx.font = (zoomFactor >= 2) ? 'bold 11px Arial' : 'bold 9px Arial'; fgCtx.textAlign = 'center'; fgCtx.fillText(wpLabel, x, padTop + plotH + 16);
     }
 
-    // Y axis
-    ctx.textAlign = 'right';
-    const altStep = maxAlt > 6000 ? 2000 : (maxAlt > 3000 ? 1000 : 500);
-    for (let alt = 0; alt <= maxAlt; alt += altStep) {
-        const y = yOf(alt);
-        if (y < padTop - 3 || y > padTop + plotH + 3) continue;
-        ctx.beginPath();
-        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-        ctx.lineWidth = 0.5;
-        ctx.moveTo(padLeft, y);
-        ctx.lineTo(padLeft + plotW, y);
-        ctx.stroke();
-        ctx.fillStyle = '#777';
-        ctx.font = '9px Arial';
-        ctx.fillText(alt >= 1000 ? (alt / 1000).toFixed(0) + 'k' : alt + '', padLeft - 3, y + 3);
-    }
-
-    // X axis ticks
-    ctx.textAlign = 'center';
-    const distStep = totalDist > 150 ? 25 : (totalDist > 80 ? 10 : 5);
-    for (let d = distStep; d < totalDist; d += distStep) {
-        const x = xOf(d);
-        ctx.fillStyle = '#666';
-        ctx.font = '8px Arial';
-        ctx.fillText(d + '', x, containerHeight - 1);
-    }
-
-    // Peak marker
-    const peakPt = elevData.reduce((max, p) => p.elevFt > max.elevFt ? p : max);
-    ctx.fillStyle = '#aaa';
-    ctx.font = '11px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 3);
-    ctx.font = 'bold 9px Arial';
-    ctx.fillText(peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 13);
-
-    // Border
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(padLeft, padTop, plotW, plotH);
-
-    // === POSITION MARKER (Magenta triangle + line) ===
     if (typeof vpPositionFraction === 'number' && vpPositionFraction >= 0) {
-        const posDistNM = vpPositionFraction * totalDist;
-        const posX = xOf(posDistNM);
-
-        // Vertical magenta line
-        ctx.beginPath();
-        ctx.strokeStyle = '#ff00ff';
-        ctx.lineWidth = 1.5;
-        ctx.moveTo(posX, padTop);
-        ctx.lineTo(posX, padTop + plotH);
-        ctx.stroke();
-
-        // Magenta triangle at bottom
-        ctx.beginPath();
-        ctx.moveTo(posX, padTop + plotH + 2);
-        ctx.lineTo(posX - 5, padTop + plotH + 10);
-        ctx.lineTo(posX + 5, padTop + plotH + 10);
-        ctx.closePath();
-        ctx.fillStyle = '#ff00ff';
-        ctx.fill();
+        const posX = xOf(vpPositionFraction * totalDist);
+        if (posX >= viewMinX - 20 && posX <= viewMaxX + 20) { // CULLING Marker
+            fgCtx.beginPath(); fgCtx.strokeStyle = '#ff00ff'; fgCtx.lineWidth = 1.5; fgCtx.moveTo(posX, padTop); fgCtx.lineTo(posX, padTop + plotH); fgCtx.stroke();
+            fgCtx.beginPath(); fgCtx.moveTo(posX, padTop + plotH + 2); fgCtx.lineTo(posX - 5, padTop + plotH + 10); fgCtx.lineTo(posX + 5, padTop + plotH + 10); fgCtx.closePath(); fgCtx.fillStyle = '#ff00ff'; fgCtx.fill();
+        }
     }
 
-    // === ALTITUDE WAYPOINTS (user markers on flight line) ===
     if (vpAltWaypoints.length > 0) {
         for (let i = 0; i < vpAltWaypoints.length; i++) {
-            const wp = vpAltWaypoints[i];
-            const wx = xOf(wp.distNM);
-            const wy = yOf(wp.altFt);
+            const wp = vpAltWaypoints[i], wx = xOf(wp.distNM), wy = yOf(wp.altFt);
+            if (wx < viewMinX - 20 || wx > viewMaxX + 20) continue; // CULLING Alt-Marker
 
-            // Vertical dashed line from waypoint down to terrain
-            ctx.beginPath();
-            ctx.setLineDash([2, 3]);
-            ctx.strokeStyle = 'rgba(255,0,255,0.3)';
-            ctx.lineWidth = 1;
-            ctx.moveTo(wx, wy);
-            ctx.lineTo(wx, padTop + plotH);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Diamond marker
-            ctx.beginPath();
-            ctx.moveTo(wx, wy - 7);
-            ctx.lineTo(wx + 6, wy);
-            ctx.lineTo(wx, wy + 7);
-            ctx.lineTo(wx - 6, wy);
-            ctx.closePath();
-            ctx.fillStyle = '#ff00ff';
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-
-            // Label: show altitude
-            ctx.fillStyle = '#ff00ff';
-            ctx.font = 'bold 9px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(wp.altFt + ' ft', wx, wy - 11);
+            fgCtx.beginPath(); fgCtx.setLineDash([2, 3]); fgCtx.strokeStyle = 'rgba(255,0,255,0.3)'; fgCtx.lineWidth = 1;
+            fgCtx.moveTo(wx, wy); fgCtx.lineTo(wx, padTop + plotH); fgCtx.stroke(); fgCtx.setLineDash([]);
+            fgCtx.beginPath(); fgCtx.moveTo(wx, wy - 7); fgCtx.lineTo(wx + 6, wy); fgCtx.lineTo(wx, wy + 7); fgCtx.lineTo(wx - 6, wy); fgCtx.closePath();
+            fgCtx.fillStyle = '#ff00ff'; fgCtx.fill(); fgCtx.strokeStyle = '#fff'; fgCtx.lineWidth = 1; fgCtx.stroke();
+            fgCtx.fillStyle = '#ff00ff'; fgCtx.font = 'bold 9px Arial'; fgCtx.textAlign = 'center'; fgCtx.fillText(wp.altFt + ' ft', wx, wy - 11);
         }
     }
+    fgCtx.restore();
+
+    // Loop fortsetzen
+    window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
 }
 
 // Removed arbitrary setTimeout hook in favor of synchronous hooks within renderVerticalProfile
@@ -2089,12 +2070,14 @@ function initAltWaypoints() {
             if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
         } else if (vpDraggingSegment) {
             const seg = vpDraggingSegment;
+            // 100er Schritte basierend auf dem echten Startpunkt!
             const newAlt = Math.max(0, Math.round((seg.origAlt + altChange) / 100) * 100);
+            
             if (seg.segIdx >= 0 && seg.segIdx < vpSegmentAlts.length) {
                 vpSegmentAlts[seg.segIdx] = newAlt;
                 if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
             } else if (seg.segIdx === -1) {
-                const newGlobalAlt = Math.max(1500, Math.min(13500, Math.round((seg.origCruiseAlt + altChange) / 500) * 500));
+                const newGlobalAlt = Math.max(1500, Math.min(13500, newAlt));
                 const altMap = document.getElementById('altMapInput');
                 if (altMap && altMap.textContent != newGlobalAlt) {
                     altMap.textContent = newGlobalAlt;
@@ -2175,7 +2158,6 @@ function initAltWaypoints() {
 
     // === MOUSEDOWN: start drag ===
     canvas.addEventListener('mousedown', (e) => {
-        if (typeof window.activateFastRender === 'function') window.activateFastRender();
         vpWasDragging = false;
         const m = vpGetCanvasMetrics();
         if (!m) return;
@@ -2200,10 +2182,17 @@ function initAltWaypoints() {
         // Priority 3: Flight line segment drag
         const mouseDistNM = vpHitTestFlightLine(mx, my, m);
         if (mouseDistNM !== null) {
-            const segIdx = vpFindSegmentIdx(mouseDistNM);
-            const origSegAlt = (segIdx >= 0 && segIdx < vpSegmentAlts.length) ? vpSegmentAlts[segIdx] : m.cruiseAlt;
-            vpDraggingSegment = { segIdx, origAlt: origSegAlt, origCruiseAlt: m.cruiseAlt };
             e.preventDefault(); e.stopPropagation();
+            const segIdx = vpFindSegmentIdx(mouseDistNM);
+            
+            // FIX: Exakte, physikalische Höhe an der angeklickten Stelle berechnen
+            const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
+            const profObj = typeof computeFlightProfile === 'function' ? computeFlightProfile(m.elevData, m.cruiseAlt, vpClimbRate, vpDescentRate, tas) : null;
+            let exactAltAtClick = typeof getExactAltAtDist === 'function' ? getExactAltAtDist(mouseDistNM, profObj, m.cruiseAlt) : m.cruiseAlt;
+            exactAltAtClick = Math.round(exactAltAtClick / 100) * 100;
+            
+            vpDraggingSegment = { segIdx, origAlt: exactAltAtClick, origCruiseAlt: m.cruiseAlt };
+            return;
         }
     });
 
@@ -2219,7 +2208,6 @@ function initAltWaypoints() {
 
     // === TOUCH EVENTS ===
     canvas.addEventListener('touchstart', (e) => {
-        if (typeof window.activateFastRender === 'function') window.activateFastRender();
         if (e.touches.length === 2) {
             e.preventDefault();
             initialPinchDist = Math.hypot(

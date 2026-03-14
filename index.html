@@ -681,7 +681,10 @@
                     <button id="btnToggleObstacles" class="vp-toggle-cloud active" onclick="vpToggleObstacles()" title="Hindernisse an/aus" style="margin-left:4px;">🗼</button>
                 </div>
                 <div id="mapProfileScroll" class="map-profile-scroll" style="touch-action: none;">
-                    <canvas id="mapProfileCanvas"></canvas>
+                    <div id="vpCanvasWrapper" style="position: relative; height: 100%; transform: translateZ(0);">
+                        <canvas id="mapProfileCanvasBg" style="position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none;"></canvas>
+                        <canvas id="mapProfileCanvas" style="position: absolute; left: 0; top: 0; z-index: 2; touch-action: none;"></canvas>
+                    </div>
                 </div>
             </div>
         </div>

@@ -919,10 +919,28 @@ window.throttledRenderProfiles = function() {
     if (vpRenderPending) return;
     vpRenderPending = true;
     requestAnimationFrame(() => {
-        if (typeof renderMapProfile === 'function') renderMapProfile();
-        if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+        // PERFORMANCE: Nur das aktive Profil rendern, nicht beide gleichzeitig!
+        const mapTable = document.getElementById('mapTableOverlay');
+        if (mapTable && mapTable.classList.contains('active')) {
+            if (typeof renderMapProfile === 'function') renderMapProfile();
+        } else {
+            if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+        }
         vpRenderPending = false;
     });
+};
+
+window.vpIsFastRendering = false;
+let vpFastRenderTimeout = null;
+window.activateFastRender = function() {
+    window.vpIsFastRendering = true;
+    window.vpBgNeedsUpdate = true; // Zwingt Layer 1 zum Update
+    if (vpFastRenderTimeout) clearTimeout(vpFastRenderTimeout);
+    vpFastRenderTimeout = setTimeout(() => {
+        window.vpIsFastRendering = false;
+        window.vpBgNeedsUpdate = true; 
+        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+    }, 350);
 };
 
 function handleSliderChange(type, val) {
