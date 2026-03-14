@@ -319,6 +319,9 @@ function triggerVerticalProfileUpdate() {
                 if (btnCl) btnCl.classList.add('vp-loading-pulse');
                 vpWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData, currentSignal);
                 if (btnCl) btnCl.classList.remove('vp-loading-pulse');
+                
+                // FIX: Zwingt Layer 1 zum sofortigen Zeichnen, damit Wolken & Regen zeitgleich erscheinen!
+                window.vpBgNeedsUpdate = true; 
             };
 
             const fetchOverpass = async () => {
@@ -446,63 +449,82 @@ async function fetchRouteElevation(routePts, signal) {
 
 async function fetchRouteWeather(routePts, elevData, signal) {
     if (!routePts || routePts.length < 2 || !elevData || elevData.length < 2) return null;
-    window._weatherCache = window._weatherCache || {};
-    // Koordinaten als Key (sobald sich die Route ändert, verfällt der Cache)
-    const weatherKey = routePts.map(p => `${(p.lat || 0).toFixed(2)},${((p.lng || p.lon) || 0).toFixed(2)}`).join('|');
-    if (window._weatherCache[weatherKey] && (Date.now() - window._weatherCache[weatherKey].time) < 15 * 60000) {
-        return window._weatherCache[weatherKey].data;
-    }
+
     const totalDist = elevData[elevData.length - 1].distNM;
-    const numZones = 10;
+    let activeMetars = [];
+
+    // METAR FIX: Route in parallele 60-NM-Blöcke schneiden, um AviationWeather API-Schnittlimits (Max Stations) zu umgehen!
+    const CHUNK_NM = 60;
+    const promises = [];
+
+    for (let d = 0; d < totalDist; d += CHUNK_NM) {
+        let cMinLat = 90, cMaxLat = -90, cMinLon = 180, cMaxLon = -180;
+        elevData.forEach(p => {
+            if (p.distNM >= d && p.distNM < d + CHUNK_NM) {
+                if (p.lat < cMinLat) cMinLat = p.lat;
+                if (p.lat > cMaxLat) cMaxLat = p.lat;
+                if (p.lon < cMinLon) cMinLon = p.lon;
+                if (p.lon > cMaxLon) cMaxLon = p.lon;
+            }
+        });
+        if (cMinLat === 90) continue;
+        
+        // Puffer hinzufügen (ca. 45 NM)
+        cMinLat -= 0.8; cMaxLat += 0.8; cMinLon -= 0.8; cMaxLon += 0.8;
+        const url = `https://aviationweather.gov/api/data/metar?bbox=${cMinLat},${cMinLon},${cMaxLat},${cMaxLon}&format=json&t=${Date.now()}`;
+        
+        promises.push(
+            fetch(url, { signal })
+            .then(r => r.ok && r.status !== 204 ? r.json() : [])
+            .catch(async () => {
+                try {
+                    const pr = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`, { signal });
+                    return pr.ok && pr.status !== 204 ? pr.json() : [];
+                } catch(e) { return []; }
+            })
+        );
+    }
+
+    const results = await Promise.all(promises);
+    if (signal && signal.aborted) return null;
+
+    let seen = new Set();
+    results.forEach(arr => {
+        if (arr && arr.length) {
+            arr.forEach(m => {
+                if (!seen.has(m.icaoId)) {
+                    seen.add(m.icaoId);
+                    activeMetars.push(m);
+                }
+            });
+        }
+    });
+
+    if (!activeMetars || activeMetars.length === 0) return null;
+    const stepNM = 15;
     const zones = [];
-    const fetchPromises = [];
-    for (let i = 0; i < numZones; i++) {
-        const targetDist = (i / (numZones - 1)) * totalDist;
+
+    for (let targetDist = 0; targetDist <= totalDist; targetDist += stepNM) {
         let bestPt = elevData[0];
         let minDiff = Infinity;
         for (const pt of elevData) {
             const diff = Math.abs(pt.distNM - targetDist);
             if (diff < minDiff) { minDiff = diff; bestPt = pt; }
         }
-        const minLat = Number((bestPt.lat - 0.4).toFixed(4));
-        const maxLat = Number((bestPt.lat + 0.4).toFixed(4));
-        const minLon = Number((bestPt.lon - 0.6).toFixed(4));
-        const maxLon = Number((bestPt.lon + 0.6).toFixed(4));
-        const url = `https://aviationweather.gov/api/data/metar?bbox=${minLat},${minLon},${maxLat},${maxLon}&format=json&t=${Date.now()}`;
-        const p = fetch(url, { signal }).then(async r => {
-            if (r.status === 204) return [];
-            if (!r.ok) throw new Error("HTTP " + r.status);
-            return JSON.parse(await r.text());
-        }).catch(async e => {
-            if (e && e.name === 'AbortError') return null;
-            try {
-                const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
-                const pr = await fetch(proxyUrl, { signal });
-                if (pr.status === 204) return [];
-                if (!pr.ok) throw new Error("Proxy Error");
-                return JSON.parse(await pr.text());
-            } catch(px) { 
-                if (px && px.name === 'AbortError') return null;
-                return []; 
-            }
-        }).then(metars => ({ targetDist, bestPt, metars, index: i }));
-        fetchPromises.push(p);
-    }
-    const results = await Promise.all(fetchPromises);
-    for (let i = 0; i < results.length; i++) {
-        const res = results[i];
-        if (!res.metars || res.metars.length === 0) continue;
+
         let closestMetar = null, minMetarDist = Infinity;
-        res.metars.forEach(m => {
-            const d = calcNav(res.bestPt.lat, res.bestPt.lon, m.lat, m.lon).dist;
+        activeMetars.forEach(m => {
+            const d = calcNav(bestPt.lat, bestPt.lon, m.lat, m.lon).dist;
             if (d < minMetarDist) { minMetarDist = d; closestMetar = m; }
         });
+
         if (closestMetar && minMetarDist < 45) {
             const clouds = [];
             const raw = closestMetar.rawOb || "";
             const stnElevFt = closestMetar.elev ? closestMetar.elev * 3.28084 : 0;
             const cloudRegex = /(FEW|SCT|BKN|OVC|VV)(\d{3})/g;
             let match, lowestBase = Infinity;
+            
             while((match = cloudRegex.exec(raw)) !== null) {
                 const type = match[1];
                 const agl = parseInt(match[2], 10) * 100;
@@ -510,34 +532,32 @@ async function fetchRouteWeather(routePts, elevData, signal) {
                 if (msl < lowestBase) lowestBase = msl;
                 clouds.push({ type, baseAgl: agl, baseMsl: msl });
             }
+            
             const hasRain = /\b(-|\+)?(RA|DZ|SH|SHRA)\b/i.test(raw);
             const hasSnow = /\b(-|\+)?(SN|SG|PL|SHSN)\b/i.test(raw);
             const hasTS = /\b(-|\+)?(TS|TSRA|CB)\b/i.test(raw);
+            
             if(clouds.length > 0 || hasRain || hasSnow || hasTS) {
                 const visuals = { puffs: [], drops: [], flashes: [] };
                 if (clouds.length > 0) {
                     for(let c=0; c<25; c++) visuals.puffs.push({ x: Math.random(), y: Math.random(), r: Math.random(), op: Math.random() });
                 }
                 if (hasRain || hasSnow) {
-                    // DOPPELTE MENGE FÜR SATTEN REGEN
                     for(let d=0; d<120; d++) visuals.drops.push({ x: Math.random(), y: Math.random(), spd: Math.random() });
                 }
                 if (hasTS) {
                     for(let f=0; f<2; f++) visuals.flashes.push({ x: Math.random(), pts: [Math.random(), Math.random(), Math.random(), Math.random()] });
                 }
                 zones.push({
-                    distNM: res.bestPt.distNM, icao: closestMetar.icaoId, clouds: clouds,
+                    distNM: bestPt.distNM, icao: closestMetar.icaoId, clouds: clouds,
                     lowestBase: lowestBase !== Infinity ? lowestBase : 5000,
                     weather: { hasRain, hasSnow, hasTS }, visuals: visuals
                 });
             }
         }
     }
-    if (zones.length > 0) {
-        window._weatherCache[weatherKey] = { time: Date.now(), data: zones };
-        return zones;
-    }
-    return null;
+
+    return zones.length > 0 ? zones : null;
 }
 // Globale Debug-Funktion für die Entwicklerkonsole
 window.debugCloudProfile = function() {
@@ -549,7 +569,7 @@ window.debugCloudProfile = function() {
     triggerVerticalProfileUpdate();
     console.log("Update angetriggert. Bitte das Profil-Canvas öffnen und die Logs beobachten.");
 };
-function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFactor) {
+function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFactor, maxAlt) {
     if (!elevData || elevData.length < 2) return;
     ctx.save();
     const prng = (s) => { let x = Math.sin(s) * 10000; return x - Math.floor(x); };
@@ -601,7 +621,6 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
     ctx.fill();
     
     // 2. ECHTE FLÜSSE UND AUTOBAHNEN (Linear Features aus Overpass)
-    // FIX: Prüfe, ob der Schalter aktiviert ist!
     if (typeof vpShowLinear !== 'undefined' && vpShowLinear && typeof vpLinearFeatures !== 'undefined' && vpLinearFeatures.length > 0) {
         const getElevY = (dNM) => {
             for(let i=0; i<elevData.length-1; i++) {
@@ -613,91 +632,70 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             return yOf(elevData[elevData.length-1].elevFt);
         };
         
-        let occupiedSigns = []; // Speichert belegte Pixel-Bereiche für Schilder
-
-        for (const feat of vpLinearFeatures) {
-            const px = xOf(feat.distNM);
-            if (px < viewMinX || px > viewMaxX) continue;
-            const py = getElevY(feat.distNM);
-            
-            if (feat.type === 'river') {
-                // Fluss: Blaue Trapez-Kerbe ins Terrain
-                ctx.fillStyle = '#3498db';
-                ctx.beginPath();
-                ctx.moveTo(px - 4, py - 1); // Oben links (breiter)
-                ctx.lineTo(px - 2, py + 5); // Unten links (schmaler)
-                ctx.lineTo(px + 2, py + 5); // Unten rechts (schmaler)
-                ctx.lineTo(px + 4, py - 1); // Oben rechts (breiter)
-                ctx.fill();
+        // PERFORMANCE FIX: Layout nur 1x pro Zoom-Stufe UND maxAlt berechnen!
+        const layoutKey = zoomFactor.toFixed(2) + '_' + (maxAlt || 0).toFixed(0);
+        if (!window._vpLinearLayouts || window._vpLinearLayouts.key !== layoutKey) {
+            let occupiedSigns = [];
+            for (const feat of vpLinearFeatures) {
+                const px = xOf(feat.distNM);
+                const py = getElevY(feat.distNM);
+                feat._render = { px, py, drawName: false, labelY: 0, tw: 0 };
                 
                 if (feat.name && zoomFactor >= 1.2) {
-                    ctx.font = 'bold 8px Arial';
+                    ctx.font = feat.type === 'river' ? 'bold 8px Arial' : 'bold 7px Arial';
                     const tw = ctx.measureText(feat.name).width;
-                    let labelY = py + 15;
-                    let collision = true;
-                    let attempts = 0;
-                    
-                    // Schiebe das Fluss-Label nach unten, wenn der Platz belegt ist
+                    feat._render.tw = tw;
+                    let labelY = feat.type === 'river' ? py + 15 : py - 14;
+                    let collision = true, attempts = 0;
                     while(collision && attempts < 4) {
                         collision = false;
                         for(let occ of occupiedSigns) {
-                            if (px - tw/2 - 2 < occ.r && px + tw/2 + 2 > occ.l && labelY < occ.b && labelY + 10 > occ.t) {
-                                collision = true; break;
-                            }
+                            if (px - tw/2 - 3 < occ.r && px + tw/2 + 3 > occ.l && labelY < occ.b && labelY + 10 > occ.t) { collision = true; break; }
                         }
-                        if(collision) { labelY += 10; attempts++; }
+                        if(collision) { labelY += (feat.type === 'river' ? 10 : -12); attempts++; }
                     }
-                    
                     if(!collision) {
                         occupiedSigns.push({l: px - tw/2 - 2, r: px + tw/2 + 2, t: labelY, b: labelY + 10});
-                        ctx.fillStyle = '#3498db';
-                        ctx.textAlign = 'center';
-                        ctx.fillText(feat.name, px, labelY + 8);
-                    }
-                }
-            } else if (feat.type === 'highway') {
-                // Autobahn: Graues Band
-                ctx.fillStyle = '#555';
-                ctx.fillRect(px - 3, py - 2, 6, 4);
-                ctx.fillStyle = '#f2c12e';
-                ctx.fillRect(px - 1, py - 1, 2, 2);
-                
-                // Autobahn-Name (Schild)
-                if (feat.name && zoomFactor >= 1.2) {
-                    ctx.font = 'bold 7px Arial';
-                    const tw = ctx.measureText(feat.name).width;
-                    let labelY = py - 14;
-                    let collision = true;
-                    let attempts = 0;
-                    
-                    // Schiebe das Autobahnschild nach oben, wenn der Platz belegt ist
-                    while(collision && attempts < 4) {
-                        collision = false;
-                        for(let occ of occupiedSigns) {
-                            if (px - tw/2 - 3 < occ.r && px + tw/2 + 3 > occ.l && labelY < occ.b && labelY + 10 > occ.t) {
-                                collision = true; break;
-                            }
-                        }
-                        if(collision) { labelY -= 12; attempts++; } // Nächstes Schild stapelt sich darüber
-                    }
-                    
-                    if(!collision) {
-                        occupiedSigns.push({l: px - tw/2 - 2, r: px + tw/2 + 2, t: labelY, b: labelY + 10});
-                        ctx.fillStyle = '#1a73e8'; // Blaues Schild
-                        ctx.fillRect(px - tw/2 - 2, labelY, tw + 4, 10);
-                        ctx.fillStyle = '#fff';
-                        ctx.textAlign = 'center';
-                        ctx.fillText(feat.name, px, labelY + 8);
+                        feat._render.drawName = true;
+                        // FIX: Wir merken uns nur den Pixel-Abstand zum Boden, nicht die absolute Höhe!
+                        feat._render.labelYOffset = labelY - py;
                     }
                 }
             }
+            window._vpLinearLayouts = { key: layoutKey, occ: occupiedSigns };
+            window.vpLinearOccupied = occupiedSigns; 
         }
-        window.vpLinearOccupied = occupiedSigns; // Exportiere den Platz für die Städte-Kollision
+
+        // NUR NOCH ZEICHNEN (mit weichem Culling)
+        for (const feat of vpLinearFeatures) {
+            if (!feat._render) continue;
+            
+            // FIX: X und Y live berechnen, damit Schilder mit der Bodenlinie wandern
+            const px = xOf(feat.distNM);
+            const py = getElevY(feat.distNM);
+            if (px < viewMinX - 50 || px > viewMaxX + 50) continue;
+            
+            if (feat.type === 'river') {
+                ctx.fillStyle = '#3498db'; ctx.beginPath();
+                ctx.moveTo(px - 4, py - 1); ctx.lineTo(px - 2, py + 5); ctx.lineTo(px + 2, py + 5); ctx.lineTo(px + 4, py - 1); ctx.fill();
+                if (feat._render.drawName) {
+                    const labelY = py + feat._render.labelYOffset;
+                    ctx.fillStyle = '#3498db'; ctx.font = 'bold 8px Arial'; ctx.textAlign = 'center'; ctx.fillText(feat.name, px, labelY + 8);
+                }
+            } else if (feat.type === 'highway') {
+                ctx.fillStyle = '#555'; ctx.fillRect(px - 3, py - 2, 6, 4);
+                ctx.fillStyle = '#f2c12e'; ctx.fillRect(px - 1, py - 1, 2, 2);
+                if (feat._render.drawName) {
+                    const labelY = py + feat._render.labelYOffset;
+                    ctx.fillStyle = '#1a73e8'; ctx.fillRect(px - feat._render.tw/2 - 2, labelY, feat._render.tw + 4, 10);
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 7px Arial'; ctx.textAlign = 'center'; ctx.fillText(feat.name, px, labelY + 8);
+                }
+            }
+        }
     }
     ctx.restore();
 }
-
-function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFactor) {
+function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFactor, maxAlt) {
     if (!vpLandmarks || vpLandmarks.length === 0) return;
     const getElevY = (dNM) => {
         if (!elevData || elevData.length < 2) return yOf(0);
@@ -710,61 +708,39 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
         return yOf(elevData[elevData.length-1].elevFt);
     };
     
-    // KEIN Culling für Layer 1 (Wird nativ von der GPU gescrollt)
-    let viewMinX = -Infinity, viewMaxX = Infinity;
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    let occupiedX = [];
-    let countDrawn = 0;
-    const edgePad = Math.min(2.5, totalDist * 0.05); // Dynamischer Rand-Puffer
-    for (const lm of vpLandmarks) {
-        if (lm.distNM < edgePad || lm.distNM > totalDist - edgePad) continue;
-        const px = xOf(lm.distNM);
-        if (px < viewMinX || px > viewMaxX) continue; // CULLING
-        const icon = lm.type === 'apt' ? '🛫' : (lm.type === 'city' ? '🏢' : '🏘️');
-        const fontSize = (zoomFactor >= 1.5) ? 10 : 8;
-
-        // DYNAMISCHE SKALIERUNG ANHAND EINWOHNERZAHL (0.5 bis 2.5)
-        let iconScale = 1.0;
-        if (lm.type !== 'apt') {
-            const p = Math.max(5000, Math.min(1000000, lm.pop || 5000));
-            const logPop = Math.log10(p); // Wertebereich ca. 3.7 bis 6.0
-            let factor = (logPop - 3.7) / 2.3;
-            factor = Math.max(0, Math.min(1, factor));
-            iconScale = 0.5 + factor * 2.0;
-            
-            // Dämpfung bei starkem Rauszoomen
-            const maxAllowed = zoomFactor >= 1.5 ? 2.5 : 1.5;
-            iconScale = Math.min(iconScale, maxAllowed);
-        } else {
-            iconScale = 1.2; // Flughäfen haben eine fixe, gut sichtbare Größe
-        }
+    // PERFORMANCE FIX: Kollisionen nur 1x pro Zoom-Stufe UND maxAlt berechnen
+    const layoutKey = zoomFactor.toFixed(2) + '_' + (maxAlt || 0).toFixed(0) + '_' + (window.vpShowLinear ? '1' : '0');
+    if (!window._vpLandmarkLayouts || window._vpLandmarkLayouts.key !== layoutKey) {
+        let globalOccupiedX = [];
+        const nmPerPx = totalDist / (xOf(totalDist) - xOf(0));
+        const edgePad = Math.min(2.5, totalDist * 0.05);
+        ctx.font = `bold ${(zoomFactor >= 1.5 ? 10 : 8)}px Arial`; // Setup für measureText
         
-        const iconFontSize = Math.max(8, Math.round(11 * iconScale));
-        const iconOffsetY = Math.round(iconFontSize * 0.55); // Icon wächst nach oben, Y-Anker anpassen
+        for (const lm of vpLandmarks) {
+            lm._render = null;
+            if (lm.distNM < edgePad || lm.distNM > totalDist - edgePad) continue;
+            
+            const px = xOf(lm.distNM);
+            const icon = lm.type === 'apt' ? '🛫' : (lm.type === 'city' ? '🏢' : '🏘️');
+            const fontSize = (zoomFactor >= 1.5) ? 10 : 8;
 
-        if (window.vpIsFastRendering) {
-            const py = getElevY(lm.distNM);
-            ctx.font = iconFontSize + 'px Arial';
-            ctx.fillStyle = '#ffffff'; 
-            ctx.fillText(icon, px, py - iconOffsetY);
-        } else {
-            ctx.font = `bold ${fontSize}px Arial`;
+            let iconScale = 1.0;
+            if (lm.type !== 'apt') {
+                const p = Math.max(5000, Math.min(1000000, lm.pop || 5000));
+                const logPop = Math.log10(p);
+                let factor = (logPop - 3.7) / 2.3;
+                iconScale = Math.min((zoomFactor >= 1.5 ? 2.5 : 1.5), 0.5 + Math.max(0, Math.min(1, factor)) * 2.0);
+            } else iconScale = 1.2;
+            
+            const iconFontSize = Math.max(8, Math.round(11 * iconScale));
+            const iconOffsetY = Math.round(iconFontSize * 0.55);
+            
             const textWidth = ctx.measureText(lm.name).width;
             const reqWidth = Math.max(textWidth, iconFontSize + 4) + 6;
             
-            // NM pro Pixel berechnen, um physikalisch korrekt auf der Bodenlinie zu gleiten
-            const nmPerPx = totalDist / (xOf(totalDist) - xOf(0));
-            
-            let shiftAttempts = 0;
-            let currentDistNM = lm.distNM;
-            let currentPx = px;
-            let currentPy = getElevY(currentDistNM);
-            let collision = true;
-            let finalMinX, finalMaxX;
+            let shiftAttempts = 0, currentDistNM = lm.distNM, currentPx = px, currentPy = getElevY(lm.distNM);
+            let collision = true, finalMinX, finalMaxX;
 
-            // Gleite nach links und rechts, bis ein freier Platz gefunden ist (max. 12 Versuche)
             while (collision && shiftAttempts < 12) {
                 collision = false;
                 finalMinX = currentPx - reqWidth / 2;
@@ -772,59 +748,80 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
                 const boxT = currentPy - iconOffsetY - iconFontSize;
                 const boxB = currentPy + 20;
 
-                // 1. Prüfe gegen andere Städte
-                for (const occ of occupiedX) {
+                for (const occ of globalOccupiedX) {
                     if (finalMinX < occ.maxX && finalMaxX > occ.minX) { collision = true; break; }
                 }
-                
-                // 2. Prüfe gegen Flüsse & Autobahnen
                 if (!collision && window.vpLinearOccupied) {
                     for (const occ of window.vpLinearOccupied) {
-                        if (finalMinX < occ.r && finalMaxX > occ.l && boxT < occ.b && boxB > occ.t) {
-                            collision = true; break;
-                        }
+                        if (finalMinX < occ.r && finalMaxX > occ.l && boxT < occ.b && boxB > occ.t) { collision = true; break; }
                     }
                 }
-
                 if (collision) {
                     shiftAttempts++;
-                    // Weiche abwechselnd nach links und rechts aus (in 8-Pixel-Schritten)
                     const shiftPx = (shiftAttempts % 2 !== 0 ? -1 : 1) * Math.ceil(shiftAttempts / 2) * 8;
                     currentDistNM = lm.distNM + (shiftPx * nmPerPx);
                     currentPx = xOf(currentDistNM);
-                    currentPy = getElevY(currentDistNM); // Neue Geländehöhe abfragen!
+                    currentPy = getElevY(currentDistNM); 
                 }
             }
 
-            if (!collision && currentPx >= viewMinX && currentPx <= viewMaxX) {
-                occupiedX.push({ minX: finalMinX, maxX: finalMaxX, t: currentPy - iconOffsetY - iconFontSize, b: currentPy + 20 });
-                
-                ctx.font = iconFontSize + 'px Arial';
-                ctx.fillStyle = '#ffffff'; 
-                ctx.fillText(icon, currentPx, currentPy - iconOffsetY);
-                
-                ctx.font = `bold ${fontSize}px Arial`;
-                ctx.fillStyle = isDarkTheme ? 'rgba(190, 180, 160, 0.7)' : 'rgba(70, 60, 40, 0.7)';
-                ctx.fillText(lm.name, currentPx, currentPy + 10); 
-                countDrawn++;
+            if (!collision) {
+                globalOccupiedX.push({ minX: finalMinX, maxX: finalMaxX, t: currentPy - iconOffsetY - iconFontSize, b: currentPy + 20 });
+                // FIX: Wir cachen nur die Distanz (inkl. Ausweich-Shift), die Pixelhöhe wird im Render-Loop LIVE berechnet!
+                lm._render = { distNM: currentDistNM, icon, iconFontSize, iconOffsetY, fontSize };
             }
+        }
+        window._vpLandmarkLayouts = { key: layoutKey, occ: globalOccupiedX };
+        window.vpLandmarkOccupiedX = globalOccupiedX;
+    }
+    
+    // NUR NOCH ZEICHNEN (Schnell, ohne jegliche Kollisions-Logik)
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    
+    let viewMinX = -Infinity, viewMaxX = Infinity;
+    if (ctx.canvas.id === 'mapProfileCanvasBg') {
+        const sc = document.getElementById('mapProfileScroll');
+        if (sc) { viewMinX = sc.scrollLeft - 100; viewMaxX = sc.scrollLeft + sc.clientWidth + 100; }
+    }
+
+    for (const lm of vpLandmarks) {
+        if (!lm._render) continue;
+        
+        // FIX: X und Y Pixel in Echtzeit anhand der aktuellen Skalierung berechnen
+        const px = xOf(lm._render.distNM);
+        const py = getElevY(lm._render.distNM);
+        
+        if (px < viewMinX || px > viewMaxX) continue;
+        
+        ctx.font = lm._render.iconFontSize + 'px Arial';
+        ctx.fillStyle = '#ffffff'; 
+        ctx.fillText(lm._render.icon, px, py - lm._render.iconOffsetY);
+        
+        if (!window.vpIsFastRendering) {
+            ctx.font = `bold ${lm._render.fontSize}px Arial`;
+            ctx.fillStyle = isDarkTheme ? 'rgba(190, 180, 160, 0.7)' : 'rgba(70, 60, 40, 0.7)';
+            ctx.fillText(lm.name, px, py + 10); 
         }
     }
     ctx.restore();
-    window.vpLandmarkOccupiedX = occupiedX; // Speichert den belegten Platz für die Hindernisse
-    if(countDrawn === 0 && vpLandmarks.length > 0) console.log("⚠️ Landmarks wurden geladen, aber durch Kollision/Rand abgeschnitten!");
 }
-
 function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs = 0) {
     if (!vpObstacles || vpObstacles.length === 0) return;
     const edgePad = Math.min(1.0, totalDist * 0.02);
     
     const getElevY = (dNM) => {
         if (!elevData || elevData.length < 2) return yOf(0);
-        for (let i = 0; i < elevData.length - 1; i++) {
-            if (dNM >= elevData[i].distNM && dNM <= elevData[i+1].distNM) {
-                const f = (dNM - elevData[i].distNM) / (elevData[i+1].distNM - elevData[i].distNM);
-                return yOf(elevData[i].elevFt + f * (elevData[i+1].elevFt - elevData[i].elevFt));
+        let low = 0, high = elevData.length - 2;
+        while (low <= high) {
+            let mid = (low + high) >> 1;
+            if (dNM < elevData[mid].distNM) high = mid - 1;
+            else if (dNM > elevData[mid+1].distNM) low = mid + 1;
+            else {
+                const p1 = elevData[mid], p2 = elevData[mid+1];
+                const f = (dNM - p1.distNM) / (p2.distNM - p1.distNM || 1);
+                return yOf(p1.elevFt + f * (p2.elevFt - p1.elevFt));
             }
         }
         return yOf(elevData[elevData.length - 1].elevFt);
@@ -1056,6 +1053,34 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
             });
         }
     }
+
+    // METAR STATIONEN & GRENZEN BEI 16000 FT (Dezentes Debugging-Overlay)
+    let lastIcao = null;
+    let lastDist = 0;
+    for (let i = 0; i < vpWeatherData.length; i++) {
+        const zone = vpWeatherData[i];
+        if (zone.icao !== lastIcao) {
+            const bDist = (i === 0) ? 0 : (lastDist + zone.distNM) / 2;
+            const bx = xOf(bDist);
+            if (bx >= viewMinX - 100 && bx <= viewMaxX + 100) {
+                ctx.beginPath();
+                ctx.moveTo(bx, yOf(16500));
+                ctx.lineTo(bx, yOf(15500));
+                ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([2, 2]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                ctx.font = 'bold 9px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('📡 ' + zone.icao, bx + 4, yOf(16000));
+            }
+            lastIcao = zone.icao;
+        }
+        lastDist = zone.distNM;
+    }
     ctx.restore();
 }
 
@@ -1064,13 +1089,18 @@ function vpDrawAnimatedWeather(ctx, xOf, yOf, totalDist, elevData, timeMs, viewM
 
     const getElevY = (dNM) => {
         if (!elevData || elevData.length < 2) return yOf(0);
-        for(let i=0; i<elevData.length-1; i++) {
-            if (dNM >= elevData[i].distNM && dNM <= elevData[i+1].distNM) {
-                const f = (dNM - elevData[i].distNM) / (elevData[i+1].distNM - elevData[i].distNM);
-                return yOf(elevData[i].elevFt + f * (elevData[i+1].elevFt - elevData[i].elevFt));
+        let low = 0, high = elevData.length - 2;
+        while (low <= high) {
+            let mid = (low + high) >> 1;
+            if (dNM < elevData[mid].distNM) high = mid - 1;
+            else if (dNM > elevData[mid+1].distNM) low = mid + 1;
+            else {
+                const p1 = elevData[mid], p2 = elevData[mid+1];
+                const f = (dNM - p1.distNM) / (p2.distNM - p1.distNM || 1);
+                return yOf(p1.elevFt + f * (p2.elevFt - p1.elevFt));
             }
         }
-        return yOf(elevData[elevData.length-1].elevFt);
+        return yOf(elevData[elevData.length - 1].elevFt);
     };
 
     ctx.save();
@@ -1343,7 +1373,7 @@ function renderVerticalProfile(canvasId) {
 
     // Airspace blocks
     let occupiedASLabels = [];
-    if (typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
+    if (vpAirspaceMode !== 0 && typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
         const cachedAirspaces = getCachedAirspaceIntersections(vpElevationData, totalDist);
         for (const item of cachedAirspaces) {
             const { asIdx, as, lowerFt, upperFt, isLowerAgl, isUpperAgl, asMinDist, asMaxDist, relevantPts } = item;
@@ -1435,7 +1465,7 @@ function renderVerticalProfile(canvasId) {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    if (vpShowLandmarks) vpDrawLandmarks(ctx, xOf, yOf, typeof elevData !== 'undefined' ? elevData : vpElevationData, totalDist, typeof zoomFactor !== 'undefined', typeof zoomFactor !== 'undefined' ? zoomFactor : 1.0);
+    if (vpShowLandmarks) vpDrawLandmarks(ctx, xOf, yOf, typeof elevData !== 'undefined' ? elevData : vpElevationData, totalDist, typeof zoomFactor !== 'undefined', typeof zoomFactor !== 'undefined' ? zoomFactor : 1.0, maxAlt);
     if (vpShowClouds) vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, typeof zoomFactor !== 'undefined', typeof elevData !== 'undefined' ? elevData : vpElevationData);
     if (vpShowObstacles) vpDrawObstacles(ctx, xOf, yOf, totalDist, typeof zoomFactor !== 'undefined' ? zoomFactor : 1.0, typeof elevData !== 'undefined' ? elevData : vpElevationData);
 
@@ -1746,7 +1776,8 @@ async function fetchHighResElevation() {
 }
 
 function renderMapProfile() {
-    window.vpBgNeedsUpdate = true;
+    // FIX: window.vpBgNeedsUpdate = true; ENTFERNT! 
+    // Der Background aktualisiert sich nur noch, wenn sich Panning oder die Y-Achse ändert!
     if (!window.vpAnimFrameId) {
         window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
     }
@@ -1796,7 +1827,20 @@ function renderMapProfileFrames(timeMs) {
     const totalDist = elevData[elevData.length - 1].distNM;
     const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
     let autoMaxAlt = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
-    const maxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
+    let currentMaxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
+
+    // PERFORMANCE & UX FIX: Y-Achse während des Ziehens einfrieren!
+    const isDragging = (typeof vpDraggingWP !== 'undefined' && vpDraggingWP >= 0) || 
+                       (typeof vpDraggingSegment !== 'undefined' && !!vpDraggingSegment) ||
+                       (window.vpDraggingPosMarker === true);
+    
+    if (isDragging) {
+        if (!window._vpFrozenMaxAlt) window._vpFrozenMaxAlt = currentMaxAlt;
+        currentMaxAlt = window._vpFrozenMaxAlt;
+    } else {
+        window._vpFrozenMaxAlt = null;
+    }
+    const maxAlt = currentMaxAlt;
     const minAlt = 0;
 
     const fpResult = typeof computeFlightProfile === 'function' ? computeFlightProfile(elevData, cruiseAlt, vpClimbRate, vpDescentRate, tas) : null;
@@ -1823,6 +1867,69 @@ function renderMapProfileFrames(timeMs) {
 
     const viewMinX = viewX - 50;
     const viewMaxX = viewX + baseWidth + 50;
+
+    // NEU: Luftraum-Render-Logik als wiederverwendbare Funktion (für BG und FG)
+    const drawAirspaces = (targetCtx, isFg) => {
+        let occupiedASLabels = [];
+        if (typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
+            const cachedAirspaces = getCachedAirspaceIntersections(elevData, totalDist);
+            for (const item of cachedAirspaces) {
+                const { asIdx, as, lowerFt, upperFt, isLowerAgl, isUpperAgl, asMinDist, asMaxDist, relevantPts } = item;
+                const style = getAirspaceStyle(as);
+                const x1 = xOf(asMinDist), x2 = xOf(asMaxDist);
+
+                const isHighlighted = (typeof vpHighlightPulseIdx !== 'undefined' && vpHighlightPulseIdx >= 0 && asIdx === vpHighlightPulseIdx);
+                const phase = typeof vpPulsePhase !== 'undefined' ? vpPulsePhase : 0;
+                const pulseOpacity = isHighlighted ? 0.2 + 0.4 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2)) : (isFg ? 0.22 : 0.15);
+                const strokeOpacity = isHighlighted ? 0.5 + 0.5 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2)) : 0.5;
+                const lineW = isHighlighted ? 2 + 2 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2)) : 2;
+
+                targetCtx.fillStyle = vpHexToRgba(style.color, pulseOpacity);
+                targetCtx.strokeStyle = vpHexToRgba(style.color, strokeOpacity);
+                targetCtx.lineWidth = lineW; 
+                targetCtx.setLineDash(isHighlighted ? [] : [3, 3]);
+
+                targetCtx.beginPath();
+                for (let i = 0; i < relevantPts.length; i++) {
+                    const p = relevantPts[i];
+                    const realUpper = isUpperAgl ? p.elevFt + upperFt : upperFt;
+                    targetCtx.lineTo(xOf(p.distNM), yOf(Math.min(realUpper, maxAlt)));
+                }
+                for (let i = relevantPts.length - 1; i >= 0; i--) {
+                    const p = relevantPts[i];
+                    const realLower = isLowerAgl ? p.elevFt + lowerFt : lowerFt;
+                    targetCtx.lineTo(xOf(p.distNM), yOf(Math.max(realLower, minAlt)));
+                }
+                targetCtx.closePath(); targetCtx.fill(); targetCtx.stroke(); targetCtx.setLineDash([]);
+
+                let sumUpper = 0; relevantPts.forEach(p => sumUpper += (isUpperAgl ? p.elevFt + upperFt : upperFt));
+                const avgUpper = sumUpper / relevantPts.length;
+                let labelY = yOf(Math.min(avgUpper, maxAlt)); labelY = Math.max(padTop + 15, labelY); 
+
+                if (!window.vpIsFastRendering && (zoomFactor >= 1.5 || (x2 - x1) > 40 || isHighlighted)) {
+                    const displayName = getAirspaceDisplayName(as);
+                    targetCtx.font = isHighlighted ? 'bold 11px Arial' : 'bold 10px Arial';
+                    const tw = targetCtx.measureText(displayName).width;
+                    const tLeft = ((x1 + x2) / 2) - tw/2, tRight = tLeft + tw;
+                    let collision = false;
+                    if (!isHighlighted) {
+                        for (let occ of occupiedASLabels) {
+                            if (tLeft < occ.r && tRight > occ.l && labelY < occ.b && (labelY+25) > occ.t) { collision = true; break; }
+                        }
+                    }
+                    if (!collision) {
+                        if (!isHighlighted) occupiedASLabels.push({l: tLeft-5, r: tRight+5, t: labelY-5, b: labelY+25});
+                        targetCtx.fillStyle = vpHexToRgba(style.color, isHighlighted ? 0.9 : 0.6); targetCtx.textAlign = 'center';
+                        targetCtx.fillText(displayName, (x1 + x2) / 2, labelY + 12);
+                        if (zoomFactor >= 2 || isHighlighted) {
+                            targetCtx.font = '9px Arial'; targetCtx.fillText(formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 23);
+                        }
+                    }
+                }
+            }
+        }
+        targetCtx.textAlign = 'left';
+    };
 
     // =======================================================
     // LAYER 1: STATISCHER HINTERGRUND
@@ -1851,65 +1958,10 @@ function renderMapProfileFrames(timeMs) {
         bgCtx.fillStyle = skyGrad; 
         bgCtx.fillRect(viewX, padTop, baseWidth, plotH);
 
-        let occupiedASLabels = [];
-        if (typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
-            const cachedAirspaces = getCachedAirspaceIntersections(elevData, totalDist);
-            for (const item of cachedAirspaces) {
-                const { asIdx, as, lowerFt, upperFt, isLowerAgl, isUpperAgl, asMinDist, asMaxDist, relevantPts } = item;
-                const style = getAirspaceStyle(as);
-                const x1 = xOf(asMinDist), x2 = xOf(asMaxDist);
-
-                const isHighlighted = (typeof vpHighlightPulseIdx !== 'undefined' && vpHighlightPulseIdx >= 0 && asIdx === vpHighlightPulseIdx);
-                const phase = typeof vpPulsePhase !== 'undefined' ? vpPulsePhase : 0;
-                const pulseOpacity = isHighlighted ? 0.2 + 0.4 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2)) : 0.15;
-                const strokeOpacity = isHighlighted ? 0.5 + 0.5 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2)) : 0.5;
-                const lineW = isHighlighted ? 2 + 2 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2)) : 2;
-
-                bgCtx.fillStyle = vpHexToRgba(style.color, pulseOpacity);
-                bgCtx.strokeStyle = vpHexToRgba(style.color, strokeOpacity);
-                bgCtx.lineWidth = lineW; 
-                bgCtx.setLineDash(isHighlighted ? [] : [3, 3]);
-
-                bgCtx.beginPath();
-                for (let i = 0; i < relevantPts.length; i++) {
-                    const p = relevantPts[i];
-                    const realUpper = isUpperAgl ? p.elevFt + upperFt : upperFt;
-                    bgCtx.lineTo(xOf(p.distNM), yOf(Math.min(realUpper, maxAlt)));
-                }
-                for (let i = relevantPts.length - 1; i >= 0; i--) {
-                    const p = relevantPts[i];
-                    const realLower = isLowerAgl ? p.elevFt + lowerFt : lowerFt;
-                    bgCtx.lineTo(xOf(p.distNM), yOf(Math.max(realLower, minAlt)));
-                }
-                bgCtx.closePath(); bgCtx.fill(); bgCtx.stroke(); bgCtx.setLineDash([]);
-
-                let sumUpper = 0; relevantPts.forEach(p => sumUpper += (isUpperAgl ? p.elevFt + upperFt : upperFt));
-                const avgUpper = sumUpper / relevantPts.length;
-                let labelY = yOf(Math.min(avgUpper, maxAlt)); labelY = Math.max(padTop + 15, labelY); 
-
-                if (!window.vpIsFastRendering && (zoomFactor >= 1.5 || (x2 - x1) > 40 || isHighlighted)) {
-                    const displayName = getAirspaceDisplayName(as);
-                    bgCtx.font = isHighlighted ? 'bold 11px Arial' : 'bold 10px Arial';
-                    const tw = bgCtx.measureText(displayName).width;
-                    const tLeft = ((x1 + x2) / 2) - tw/2, tRight = tLeft + tw;
-                    let collision = false;
-                    if (!isHighlighted) {
-                        for (let occ of occupiedASLabels) {
-                            if (tLeft < occ.r && tRight > occ.l && labelY < occ.b && (labelY+25) > occ.t) { collision = true; break; }
-                        }
-                    }
-                    if (!collision) {
-                        if (!isHighlighted) occupiedASLabels.push({l: tLeft-5, r: tRight+5, t: labelY-5, b: labelY+25});
-                        bgCtx.fillStyle = vpHexToRgba(style.color, isHighlighted ? 0.9 : 0.6); bgCtx.textAlign = 'center';
-                        bgCtx.fillText(displayName, (x1 + x2) / 2, labelY + 12);
-                        if (zoomFactor >= 2 || isHighlighted) {
-                            bgCtx.font = '9px Arial'; bgCtx.fillText(formatAsLimit(as.lowerLimit) + ' – ' + formatAsLimit(as.upperLimit), (x1 + x2) / 2, labelY + 23);
-                        }
-                    }
-                }
-            }
+        // Aufruf für Layer 1 (Statischer Hintergrund)
+        if (vpAirspaceMode === 1) {
+            drawAirspaces(bgCtx, false);
         }
-        bgCtx.textAlign = 'left';
 
         bgCtx.beginPath(); bgCtx.setLineDash([4, 4]); bgCtx.strokeStyle = 'rgba(200, 120, 40, 0.4)'; bgCtx.lineWidth = 1;
         for (let i = 0; i < elevData.length; i++) {
@@ -1933,9 +1985,9 @@ function renderMapProfileFrames(timeMs) {
         bgCtx.strokeStyle = '#4a7a30'; bgCtx.lineWidth = 1.5; bgCtx.stroke();
 
         // WÄLDER UND FLÜSSE GENERIEREN
-        vpDrawTerrainCover(bgCtx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFactor);
+        vpDrawTerrainCover(bgCtx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFactor, maxAlt);
 
-        if (vpShowLandmarks) vpDrawLandmarks(bgCtx, xOf, yOf, elevData, totalDist, true, zoomFactor);
+        if (vpShowLandmarks) vpDrawLandmarks(bgCtx, xOf, yOf, elevData, totalDist, true, zoomFactor, maxAlt);
         if (vpShowClouds) vpDrawClouds(bgCtx, xOf, yOf, padTop, plotH, totalDist, true, elevData);
 
         bgCtx.textAlign = 'right';
@@ -1981,6 +2033,11 @@ function renderMapProfileFrames(timeMs) {
     fgCtx.translate(-viewX, 0); 
 
     fgCtx.clearRect(viewX, 0, baseWidth, containerHeight);
+
+    // Aufruf für Layer 2 (Dynamischer Vordergrund)
+    if (vpAirspaceMode === 2) {
+        drawAirspaces(fgCtx, true);
+    }
 
     if (vpShowObstacles) vpDrawObstacles(fgCtx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs);
     if (vpShowClouds) vpDrawAnimatedWeather(fgCtx, xOf, yOf, totalDist, elevData, timeMs, viewMinX, viewMaxX);
@@ -2294,8 +2351,12 @@ function initAltWaypoints() {
                 }
             }
             if (vpAltWaypoints.length < 2) vpSegmentAlts = [];
-            renderMapProfile();
-            if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+            renderMapProfile(); // Zeichnet sofort!
+            
+            // FIX: Schwere DOM/Luftraum-Berechnungen asynchron ausführen, damit der Klick nicht einfriert!
+            setTimeout(() => {
+                if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+            }, 50);
             return true;
         }
         return false;
@@ -2321,8 +2382,12 @@ function initAltWaypoints() {
                 vpSegmentAlts.push(exactAlt);
             }
         }
-        renderMapProfile();
-        if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+        renderMapProfile(); // Zeichnet sofort!
+        
+        // FIX: Entkoppeln, um Ruckler zu vermeiden!
+        setTimeout(() => {
+            if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+        }, 50);
     }
 
     function vpHandleDoubleHit(mx, my, m) {
@@ -2377,7 +2442,7 @@ function initAltWaypoints() {
             } else if (seg.segIdx === -4) {
                 if (vpAltWaypoints.length > 0) vpAltWaypoints[vpAltWaypoints.length - 1].altFt = newAlt;
             }
-        } else if (vpDraggingMagenta) {
+        } else if (window.vpDraggingPosMarker) {
             const { mx } = vpClientToCanvas(clientX, clientY, m);
             let frac = (mx - m.padLeft) / m.plotW;
             frac = Math.max(0, Math.min(1, frac));
@@ -2386,7 +2451,7 @@ function initAltWaypoints() {
     }
 
     function vpHandleDragEnd() {
-        if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) {
+        if (vpDraggingWP >= 0 || vpDraggingSegment || window.vpDraggingPosMarker) {
             const needsSave = vpDraggingWP >= 0 || !!vpDraggingSegment;
 
             // Bei globaler Höhenänderung einmalig am Ende synchronisieren
@@ -2398,19 +2463,29 @@ function initAltWaypoints() {
 
             vpDraggingWP = -1;
             vpDraggingSegment = null;
-            vpDraggingMagenta = false;
+            window.vpDraggingPosMarker = false;
             dragOrigWP = null;
 
-            renderMapProfile();
-            if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
-            if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList(); // Erst beim Loslassen berechnen!
-            if (needsSave) window.debouncedSaveMissionState();
+            // 1. Priorität: Vordergrund (Rote Linie) sofort einrasten lassen
+            renderMapProfile(); 
+            
+            // 2. Priorität: UI-Logik (Mini-Profil) und Background-Schatten sanft nachladen (150ms)
+            setTimeout(() => {
+                if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
+                window.vpBgNeedsUpdate = true; // Stellt die Wolkenschatten nach dem Drag wieder her
+            }, 150);
+
+            // 3. Priorität: Schwere Daten-Logik (Lufträume & JSON-Speichern) ins Backend schieben (300ms)
+            setTimeout(() => {
+                if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList(); 
+                if (needsSave) window.debouncedSaveMissionState();
+            }, 300);
         }
     }
 
     // === STATE ===
     let vpWasDragging = false;
-    let vpDraggingMagenta = false;
+    window.vpDraggingPosMarker = false;
     let dragStartY = 0, dragStartX = 0, dragOrigWP = null;
     let lastTapTime = 0;
     let vpIsPanning = false;
@@ -2434,7 +2509,7 @@ function initAltWaypoints() {
 
     // === HOVER CURSOR ===
     canvas.addEventListener('mousemove', (e) => {
-        if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) return;
+        if (vpDraggingWP >= 0 || vpDraggingSegment || window.vpDraggingPosMarker) return;
         const m = vpGetCanvasMetrics();
         if (!m) return;
         const { mx, my } = vpClientToCanvas(e.clientX, e.clientY, m);
@@ -2456,7 +2531,7 @@ function initAltWaypoints() {
 
         // Priority 1: Magenta marker drag
         if (vpHitTestMagenta(mx, m)) {
-            vpDraggingMagenta = true;
+            window.vpDraggingPosMarker = true;
             e.preventDefault(); e.stopPropagation();
             return;
         }
@@ -2487,7 +2562,7 @@ function initAltWaypoints() {
 
     // === MOUSEMOVE: drag ===
     document.addEventListener('mousemove', (e) => {
-        if (vpDraggingWP < 0 && !vpDraggingSegment && !vpDraggingMagenta) return;
+        if (vpDraggingWP < 0 && !vpDraggingSegment && !window.vpDraggingPosMarker) return;
         if (Math.abs(e.clientX - dragStartX) > 2 || Math.abs(e.clientY - dragStartY) > 2) vpWasDragging = true;
         vpHandleDragMove(e.clientX, e.clientY, dragStartX, dragStartY, dragOrigWP);
     });
@@ -2527,7 +2602,7 @@ function initAltWaypoints() {
 
         if (vpHitTestMagenta(mx, m)) {
             e.preventDefault();
-            vpDraggingMagenta = true;
+            window.vpDraggingPosMarker = true;
             return;
         }
         const wpIdx = vpHitTestWaypoint(mx, my, m);
@@ -2589,7 +2664,7 @@ function initAltWaypoints() {
             if (scrollContainer) scrollContainer.scrollLeft = vpPanStartScrollLeft + deltaX;
             return;
         }
-        if (vpDraggingWP < 0 && !vpDraggingSegment && !vpDraggingMagenta) return;
+        if (vpDraggingWP < 0 && !vpDraggingSegment && !window.vpDraggingPosMarker) return;
         e.preventDefault();
         const touch = e.touches[0];
         if (Math.abs(touch.clientX - dragStartX) > 3 || Math.abs(touch.clientY - dragStartY) > 3) vpWasDragging = true;
@@ -2599,13 +2674,13 @@ function initAltWaypoints() {
     canvas.addEventListener('touchend', (e) => {
         if (e.touches.length < 2) { initialPinchDist = null; initialTwoFingerY = null; }
         if (vpIsPanning) { vpIsPanning = false; return; }
-        if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) vpHandleDragEnd();
+        if (vpDraggingWP >= 0 || vpDraggingSegment || window.vpDraggingPosMarker) vpHandleDragEnd();
     });
 
     canvas.addEventListener('touchcancel', (e) => {
         initialPinchDist = null; initialTwoFingerY = null;
         vpIsPanning = false; vpWasDragging = false;
-        if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) vpHandleDragEnd();
+        if (vpDraggingWP >= 0 || vpDraggingSegment || window.vpDraggingPosMarker) vpHandleDragEnd();
     });
 
     // === MOUSE WHEEL ZOOM & PAN (Multi-Achsen) ===
@@ -2735,12 +2810,23 @@ let vpMaxAltOverride = 0; // 0 = Auto-Scaling
 let vpShowClouds = localStorage.getItem('ga_show_clouds') !== 'false'; // Default: true
 let vpShowLandmarks = localStorage.getItem('ga_show_landmarks') !== 'false';
 let vpShowObstacles = localStorage.getItem('ga_show_obstacles') !== 'false';
-let vpShowLinear = localStorage.getItem('ga_show_linear') !== 'false'; // NEU
+let vpShowLinear = localStorage.getItem('ga_show_linear') !== 'false';
+let vpAirspaceMode = parseInt(localStorage.getItem('ga_show_airspaces') || '1'); // 0=Off, 1=Bg, 2=Fg
+
+function updateAirspaceBtn() {
+    const btn = document.getElementById('btnToggleAirspaces');
+    if (!btn) return;
+    btn.classList.toggle('active', vpAirspaceMode !== 0);
+    if (vpAirspaceMode === 1) btn.innerHTML = '🛡️<span style="font-size:8px;vertical-align:sub;">BG</span>';
+    else if (vpAirspaceMode === 2) btn.innerHTML = '🛡️<span style="font-size:8px;vertical-align:super;">FG</span>';
+    else btn.innerHTML = '🛡️<span style="font-size:8px;vertical-align:sub;">OFF</span>';
+}
 document.addEventListener('DOMContentLoaded', () => {
     const bc = document.getElementById('btnToggleClouds'); if(bc) bc.classList.toggle('active', vpShowClouds);
     const bl = document.getElementById('btnToggleLandmarks'); if(bl) bl.classList.toggle('active', vpShowLandmarks);
     const bo = document.getElementById('btnToggleObstacles'); if(bo) bo.classList.toggle('active', vpShowObstacles);
     const blin = document.getElementById('btnToggleLinear'); if(blin) blin.classList.toggle('active', vpShowLinear);
+    updateAirspaceBtn(); // NEU
 });
 function vpChangeAlt(delta) {
     let val = parseInt(document.getElementById('altMapInput').textContent) || 4500;
@@ -2841,6 +2927,14 @@ function vpToggleLinearFeatures() {
     if (typeof window.throttledRenderProfiles === 'function') {
         window.throttledRenderProfiles();
     }
+}
+
+function vpToggleAirspaces() {
+    vpAirspaceMode = (vpAirspaceMode + 1) % 3;
+    localStorage.setItem('ga_show_airspaces', vpAirspaceMode);
+    updateAirspaceBtn();
+    window.vpBgNeedsUpdate = true; // Zwingt den Hintergrund zum Update
+    if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
 }
 
 // === PROMPT-EINGABE für ALT / V/S (V57) ===
