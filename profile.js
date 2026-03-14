@@ -1544,7 +1544,15 @@ function renderMapProfileFrames(timeMs) {
     const xOf = (distNM) => padLeft + (distNM / totalDist) * plotW;
     const yOf = (altFt) => padTop + plotH - ((altFt - minAlt) / (maxAlt - minAlt)) * plotH;
     
-    const viewX = scrollContainer.scrollLeft;
+    const maxScroll = Math.max(0, virtualWidth - baseWidth);
+    const viewXRaw = scrollContainer.scrollLeft;
+    const viewX = Math.min(viewXRaw, maxScroll);
+    
+    // Zwinge die Scrollbar sofort zurück, falls wir durch Auszoomen im Nichts gelandet sind
+    if (viewXRaw > maxScroll) {
+        scrollContainer.scrollLeft = maxScroll;
+    }
+
     if (viewX !== window._vpLastScrollLeft) {
         window.vpBgNeedsUpdate = true;
         window._vpLastScrollLeft = viewX;
@@ -1941,15 +1949,14 @@ function initAltWaypoints() {
         const plotW = virtualWidth - padLeft - padRight;
         const plotH = containerHeight - padTop - padBottom;
         
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        return { elevData, rect, viewX, containerHeight, baseWidth, virtualWidth, zoomFactor, totalDist, cruiseAlt, maxTerrain, maxAlt, padLeft, padRight, padTop, padBottom, plotW, plotH, scaleX, scaleY };
+        return { elevData, rect, viewX, containerHeight, baseWidth, virtualWidth, zoomFactor, totalDist, cruiseAlt, maxTerrain, maxAlt, padLeft, padRight, padTop, padBottom, plotW, plotH };
     }
 
     function vpClientToCanvas(clientX, clientY, m) {
-        const screenX = (clientX - m.rect.left) * m.scaleX;
-        const mx = screenX + (m.viewX * m.scaleX); // Scroll-Offset addieren!
-        return { mx, my: (clientY - m.rect.top) * m.scaleY };
+        // FIX: Koordinaten 1:1 in CSS-Pixeln berechnen
+        const cssX = clientX - m.rect.left;
+        const cssY = clientY - m.rect.top;
+        return { mx: cssX + m.viewX, my: cssY };
     }
 
     function vpHitTestWaypoint(mx, my, m) {
@@ -2079,8 +2086,8 @@ function initAltWaypoints() {
         const deltaY = dragStartY - clientY;
         const altChange = (deltaY / m.plotH) * m.maxAlt;
         if (vpDraggingWP >= 0) {
-            const scaleX = m.canvasWidth / m.rect.width;
-            const deltaX = (clientX - dragStartX) * scaleX;
+            // FIX: Saubere CSS-Delta Berechnung ohne falsche Skalierung
+            const deltaX = clientX - dragStartX;
             const distChange = (deltaX / m.plotW) * m.totalDist;
             let newDist = dragOrigWP.distNM + distChange;
             newDist = Math.max(0, Math.min(m.totalDist, newDist));
