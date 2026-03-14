@@ -31,6 +31,7 @@ let vpClimbRate = 500; // ft/min climb rate (configurable)
 let vpDescentRate = 500; // ft/min descent rate (configurable)
 let vpLandmarks = [];
 let vpObstacles = [];
+let vpLinearFeatures = [];
 
 async function fetchProfileLandmarks(elevData) {
     if (!elevData || elevData.length < 2) return [];
@@ -74,6 +75,8 @@ async function fetchProfileLandmarks(elevData) {
     return landmarks.sort((a,b) => b.pop - a.pop);
 }
 
+
+
 async function fetchProfileObstacles(elevData, signal) {
     if (!elevData || elevData.length < 2) return [];
 
@@ -98,16 +101,17 @@ async function fetchProfileObstacles(elevData, signal) {
         }
     }
 
-    const BATCH_SIZE = 2; // Reduziert auf 2 Boxen (50 NM) für weniger Serverlast
+    const BATCH_SIZE = 5; // 125 NM pro Batch - Reduziert API-Aufrufe auf 1-2 pro Flug!
     let rawObstacles = [];
     let anySuccess = false;
+    let rawLinearFeatures = [];
 
     console.log(`[Overpass] Starte Hindernis-Suche. ${bboxes.length} Boxen total. Teile in Batches von ${BATCH_SIZE}.`);
 
     for (let i = 0; i < bboxes.length; i += BATCH_SIZE) {
         const batch = bboxes.slice(i, i + BATCH_SIZE);
-        let queryBody = batch.map(b => `node["generator:source"="wind"](${b});node["man_made"~"mast|tower"]["height"](${b});`).join('');
-        let query = `[out:json][timeout:25];(${queryBody});out qt;`;
+        let queryBody = batch.map(b => `node["generator:source"="wind"](${b});node["man_made"~"mast|tower"]["height"](${b});way["highway"="motorway"](${b});way["waterway"="river"](${b});`).join('');
+        let query = `[out:json][timeout:25];(${queryBody});out geom qt;`;
 
         const batchNum = Math.floor(i / BATCH_SIZE) + 1;
         const totalBatches = Math.ceil(bboxes.length / BATCH_SIZE);
@@ -145,21 +149,56 @@ async function fetchProfileObstacles(elevData, signal) {
                     
                     if (json.elements) {
                         json.elements.forEach(e => {
-                            if (!e.lat || !e.lon) return;
-                            let isWind = e.tags && e.tags["generator:source"] === "wind";
-                            let hStr = e.tags && e.tags.height ? e.tags.height : null;
-                            let hMeter = hStr ? parseFloat(hStr.replace(',', '.')) : (isWind ? 120 : 50);
-                            if (isNaN(hMeter) || hMeter < 30) return;
+                            // A) KNOTEN (Hindernisse)
+                            if (e.type === 'node' && e.lat && e.lon) {
+                                let isWind = e.tags && e.tags["generator:source"] === "wind";
+                                let hStr = e.tags && e.tags.height ? e.tags.height : null;
+                                let hMeter = hStr ? parseFloat(hStr.replace(',', '.')) : (isWind ? 120 : 50);
+                                if (isNaN(hMeter) || hMeter < 30) return;
+                                
+                                let hFt = Math.round(hMeter * 3.28084);
+                                let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
+                                elevData.forEach(ep => {
+                                    let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
+                                    if (d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
+                                });
+                                if (bestD < 2.0) rawObstacles.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
                             
-                            let hFt = Math.round(hMeter * 3.28084);
-                            let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
-                            elevData.forEach(ep => {
-                                let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
-                                if (d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
-                            });
-                        if (bestD < 2.0) rawObstacles.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
-                    });
-                }
+                            // B) LINIEN (Flüsse & Autobahnen kreuzen Route)
+                            } else if (e.type === 'way' && e.geometry && e.tags) {
+                                let featType = e.tags.highway ? 'highway' : 'river';
+                                let name = e.tags.name || e.tags.ref || '';
+                                if (!name && featType === 'highway') return;
+
+                                if (typeof routeWaypoints !== 'undefined' && routeWaypoints.length >= 2) {
+                                    for (let i = 0; i < routeWaypoints.length - 1; i++) {
+                                        let rp0 = {lat: routeWaypoints[i].lat, lon: routeWaypoints[i].lng||routeWaypoints[i].lon};
+                                        let rp1 = {lat: routeWaypoints[i+1].lat, lon: routeWaypoints[i+1].lng||routeWaypoints[i+1].lon};
+                                        
+                                        for(let j = 0; j < e.geometry.length - 1; j++) {
+                                            let wp0 = e.geometry[j];
+                                            let wp1 = e.geometry[j+1];
+                                            let s1_x = wp1.lon - wp0.lon; let s1_y = wp1.lat - wp0.lat;
+                                            let s2_x = rp1.lon - rp0.lon; let s2_y = rp1.lat - rp0.lat;
+                                            let denom = (-s2_x * s1_y + s1_x * s2_y);
+                                            if (Math.abs(denom) > 1e-10) {
+                                                let s = (-s1_y * (wp0.lon - rp0.lon) + s1_x * (wp0.lat - rp0.lat)) / denom;
+                                                let t = ( s2_x * (wp0.lat - rp0.lat) - s2_y * (wp0.lon - rp0.lon)) / denom;
+                                                if (s >= 0 && s <= 1 && t >= 0 && t <= 1) {
+                                                    let ix = { lat: wp0.lat + (t * s1_y), lon: wp0.lon + (t * s1_x) };
+                                                    let distBefore = 0;
+                                                    for(let k=0; k<i; k++) distBefore += calcNav(routeWaypoints[k].lat, routeWaypoints[k].lng||routeWaypoints[k].lon, routeWaypoints[k+1].lat, routeWaypoints[k+1].lng||routeWaypoints[k+1].lon).dist;
+                                                    let distOnSeg = calcNav(rp0.lat, rp0.lon, ix.lat, ix.lon).dist;
+                                                    rawLinearFeatures.push({ type: featType, name, distNM: distBefore + distOnSeg });
+                                                    break; // Kreuzungspunkt gefunden, nächste Route prüfen
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
 
                     // --- NEU: Inkrementelles Rendering der Batches ---
                     let tempBuckets = {};
@@ -180,6 +219,7 @@ async function fetchProfileObstacles(elevData, signal) {
                     if (typeof window.throttledRenderProfiles === 'function') {
                         window.throttledRenderProfiles();
                     }
+                    vpLinearFeatures = rawLinearFeatures.sort((a,b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx-1].name !== f.name || Math.abs(arr[idx-1].distNM - f.distNM) > 1.0);
                     // -------------------------------------------------
 
                 } else {
@@ -203,9 +243,9 @@ async function fetchProfileObstacles(elevData, signal) {
             return null;
         }
 
-        // Atempause für den Server zwischen erfolgreichen Batches erhöht
+        // Minimale Atempause (nur nötig bei Flügen > 125 NM)
         if (i + BATCH_SIZE < bboxes.length) {
-            await new Promise(r => setTimeout(r, 1500)); 
+            await new Promise(r => setTimeout(r, 300)); 
         }
     }
 
@@ -225,14 +265,12 @@ async function fetchProfileObstacles(elevData, signal) {
         finalObs.push(rep);
     }
     
-    console.log(`[Overpass] Suche komplett. ${finalObs.length} Hindernis-Gruppen nach Filterung auf der Route.`);
-    return finalObs;
+    console.log(`[Overpass] Suche komplett. ${finalObs.length} Hindernisse & ${vpLinearFeatures.length} Flüsse/Straßen.`);
+    return { obs: finalObs, lin: vpLinearFeatures };
 }
 
 function triggerVerticalProfileUpdate() {
     if (vpProfileFastTimeout) clearTimeout(vpProfileFastTimeout);
-    if (vpProfileSlowTimeout) clearTimeout(vpProfileSlowTimeout);
-
     if (window.vpFetchController) window.vpFetchController.abort();
     window.vpFetchController = new AbortController();
     const currentSignal = window.vpFetchController.signal;
@@ -248,15 +286,16 @@ function triggerVerticalProfileUpdate() {
         }
 
         const status = document.getElementById('verticalProfileStatus');
-        if (status) status.textContent = 'Lade Terrain & Orte...';
+        if (status) status.textContent = 'Lade Terrain...';
 
         try {
+            // 1. Höhendaten (Blockierend, da alles andere darauf aufbaut)
             vpElevationData = await fetchRouteElevation(routeWaypoints, currentSignal);
             
+            // 2. Städte / Landmarks (Lokale JSON, blitzschnell)
             if (window._lastLmRouteKey !== cacheKey) {
                 const btnLm = document.getElementById('btnToggleLandmarks');
                 if (btnLm) btnLm.classList.add('vp-loading-pulse');
-
                 const lmStr = localStorage.getItem('ga_lms_' + cacheKey);
                 if (lmStr) {
                     try { vpLandmarks = JSON.parse(lmStr); window._lastLmRouteKey = cacheKey; } catch(e) { vpLandmarks = []; }
@@ -270,50 +309,62 @@ function triggerVerticalProfileUpdate() {
             }
             
             if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
-        } catch(e) {
-            if (e && e.name !== 'AbortError') console.error('Fast Profile Error:', e);
-        }
-    }, 500);
 
-    vpProfileSlowTimeout = setTimeout(async () => {
-        if (!routeWaypoints || routeWaypoints.length < 2) return;
-        const cacheKey = window._lastVpRouteKey;
-        const status = document.getElementById('verticalProfileStatus');
-        if (status) status.textContent = 'Lade Wetter & Hindernisse...';
+            if (status) status.textContent = 'Lade Wetter & Umgebung...';
+            
+            // 3. PARALLELER FETCH: Wetter & Overpass
+            const fetchWetter = async () => {
+                if (!vpShowClouds) return;
+                const btnCl = document.getElementById('btnToggleClouds');
+                if (btnCl) btnCl.classList.add('vp-loading-pulse');
+                vpWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData, currentSignal);
+                if (btnCl) btnCl.classList.remove('vp-loading-pulse');
+            };
 
-        try {
-            if (!vpElevationData) return; 
+            const fetchOverpass = async () => {
+                if (!vpShowObstacles && !vpShowLinear) return;
+                if (window._lastObsRouteKey !== cacheKey) {
+                    const btnOb = document.getElementById('btnToggleObstacles');
+                    const btnLin = document.getElementById('btnToggleLinear');
+                    if (btnOb) btnOb.classList.add('vp-loading-pulse');
+                    if (btnLin) btnLin.classList.add('vp-loading-pulse');
 
-            const btnCl = document.getElementById('btnToggleClouds');
-            if (btnCl) btnCl.classList.add('vp-loading-pulse');
-            vpWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData, currentSignal);
-            if (btnCl) btnCl.classList.remove('vp-loading-pulse');
-
-            if (window._lastObsRouteKey !== cacheKey) {
-                const btnOb = document.getElementById('btnToggleObstacles');
-                if (btnOb) btnOb.classList.add('vp-loading-pulse');
-
-                const obStr = localStorage.getItem('ga_obs_' + cacheKey);
-                if (obStr) {
-                    try { vpObstacles = JSON.parse(obStr); window._lastObsRouteKey = cacheKey; } catch(e) { vpObstacles = []; }
-                } else {
-                    vpObstacles = await fetchProfileObstacles(vpElevationData, currentSignal);
-                    if (vpObstacles !== null) { 
-                        try { localStorage.setItem('ga_obs_' + cacheKey, JSON.stringify(vpObstacles)); window._lastObsRouteKey = cacheKey; } catch(e) {}
+                    // FIX: Kombinierter Cache für Hindernisse UND Flüsse/Autobahnen
+                    const obStr = localStorage.getItem('ga_obs_combo_' + cacheKey);
+                    if (obStr) {
+                        try { 
+                            const cached = JSON.parse(obStr); 
+                            vpObstacles = cached.obs || [];
+                            vpLinearFeatures = cached.lin || [];
+                            window._lastObsRouteKey = cacheKey; 
+                        } catch(e) { vpObstacles = []; vpLinearFeatures = []; }
+                    } else {
+                        const result = await fetchProfileObstacles(vpElevationData, currentSignal);
+                        if (result !== null) { 
+                            vpObstacles = result.obs || [];
+                            vpLinearFeatures = result.lin || [];
+                            try { localStorage.setItem('ga_obs_combo_' + cacheKey, JSON.stringify(result)); window._lastObsRouteKey = cacheKey; } catch(e) {}
+                        }
                     }
+                    if (btnOb) btnOb.classList.remove('vp-loading-pulse');
+                    if (btnLin) btnLin.classList.remove('vp-loading-pulse');
                 }
-                if (btnOb) btnOb.classList.remove('vp-loading-pulse');
-            }
+            };
+
+            // Führe beide schweren Netzwerk-Tasks komplett parallel aus!
+            await Promise.all([fetchWetter(), fetchOverpass()]);
             if (status) status.textContent = vpElevationData.length + ' Punkte & API-Daten geladen';
+            
         } catch(e) {
-            if (e && e.name !== 'AbortError') console.error('Slow Profile Error:', e);
-            if (status) status.textContent = 'API Limit erreicht';
+            if (e && e.name !== 'AbortError') console.error('Profile Fetch Error:', e);
+            if (status) status.textContent = 'API Error / Abgebrochen';
         } finally {
             const bC = document.getElementById('btnToggleClouds'); if(bC) bC.classList.remove('vp-loading-pulse');
             const bO = document.getElementById('btnToggleObstacles'); if(bO) bO.classList.remove('vp-loading-pulse');
+            const bL = document.getElementById('btnToggleLinear'); if(bL) bL.classList.remove('vp-loading-pulse');
             if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
         }
-    }, 2800);
+    }, 150); // Nur noch 150ms Debounce statt fast 3 Sekunden!
 }
 
 async function fetchRouteElevation(routePts, signal) {
@@ -468,7 +519,8 @@ async function fetchRouteWeather(routePts, elevData, signal) {
                     for(let c=0; c<25; c++) visuals.puffs.push({ x: Math.random(), y: Math.random(), r: Math.random(), op: Math.random() });
                 }
                 if (hasRain || hasSnow) {
-                    for(let d=0; d<45; d++) visuals.drops.push({ x: Math.random(), y: Math.random(), spd: Math.random() });
+                    // DOPPELTE MENGE FÜR SATTEN REGEN
+                    for(let d=0; d<120; d++) visuals.drops.push({ x: Math.random(), y: Math.random(), spd: Math.random() });
                 }
                 if (hasTS) {
                     for(let f=0; f<2; f++) visuals.flashes.push({ x: Math.random(), pts: [Math.random(), Math.random(), Math.random(), Math.random()] });
@@ -497,6 +549,154 @@ window.debugCloudProfile = function() {
     triggerVerticalProfileUpdate();
     console.log("Update angetriggert. Bitte das Profil-Canvas öffnen und die Logs beobachten.");
 };
+function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFactor) {
+    if (!elevData || elevData.length < 2) return;
+    ctx.save();
+    const prng = (s) => { let x = Math.sin(s) * 10000; return x - Math.floor(x); };
+    
+    // 1. WÄLDER (Dunkelgrüne Tannenzacken)
+    ctx.fillStyle = '#1c3614'; 
+    ctx.beginPath();
+    
+    for (let i = 0; i < elevData.length - 1; i++) {
+        const p1 = elevData[i];
+        const p2 = elevData[i+1];
+        const startX = xOf(p1.distNM);
+        const endX = xOf(p2.distNM);
+        
+        if (endX < viewMinX || startX > viewMaxX) continue;
+        
+        const dist = p2.distNM - p1.distNM;
+        if (dist === 0) continue;
+        const slope = Math.abs(p2.elevFt - p1.elevFt) / dist;
+        
+        const isForest = (p1.elevFt > 200 && p1.elevFt < 4500) && (slope > 80 || prng(i) > 0.5);
+        
+        if (isForest) {
+            // PERFORMANCE & OPTIK FIX: Verhindert den "Blob" beim Rauszoomen
+            const pixelDist = endX - startX;
+            const maxTrees = Math.max(1, Math.floor(pixelDist / 6)); // Max 1 Baum alle 6 Pixel
+            const numTrees = Math.min(Math.max(1, Math.floor(dist * 15)), maxTrees); 
+            
+            for(let t = 0; t < numTrees; t++) {
+                const seed = i * 100 + t;
+                if (prng(seed + 0.1) > 0.7) continue;
+                
+                const f = t / numTrees;
+                const tx = startX + f * (endX - startX);
+                const altFt = p1.elevFt + f * (p2.elevFt - p1.elevFt);
+                const ty = yOf(altFt);
+                
+                // Bäume skalieren sanft runter, bleiben aber knackig
+                const scale = Math.min(1, zoomFactor / 2.5);
+                const treeHeight = Math.max(3, (5 + prng(seed + 0.2) * 8) * scale);
+                const treeWidth = Math.max(2, (4 + prng(seed + 0.3) * 4) * scale);
+                
+                ctx.moveTo(tx - treeWidth/2, ty + 2);
+                ctx.lineTo(tx, ty - treeHeight);
+                ctx.lineTo(tx + treeWidth/2, ty + 2);
+            }
+        }
+    }
+    ctx.fill();
+    
+    // 2. ECHTE FLÜSSE UND AUTOBAHNEN (Linear Features aus Overpass)
+    // FIX: Prüfe, ob der Schalter aktiviert ist!
+    if (typeof vpShowLinear !== 'undefined' && vpShowLinear && typeof vpLinearFeatures !== 'undefined' && vpLinearFeatures.length > 0) {
+        const getElevY = (dNM) => {
+            for(let i=0; i<elevData.length-1; i++) {
+                if (dNM >= elevData[i].distNM && dNM <= elevData[i+1].distNM) {
+                    const f = (dNM - elevData[i].distNM) / (elevData[i+1].distNM - elevData[i].distNM);
+                    return yOf(elevData[i].elevFt + f * (elevData[i+1].elevFt - elevData[i].elevFt));
+                }
+            }
+            return yOf(elevData[elevData.length-1].elevFt);
+        };
+        
+        let occupiedSigns = []; // Speichert belegte Pixel-Bereiche für Schilder
+
+        for (const feat of vpLinearFeatures) {
+            const px = xOf(feat.distNM);
+            if (px < viewMinX || px > viewMaxX) continue;
+            const py = getElevY(feat.distNM);
+            
+            if (feat.type === 'river') {
+                // Fluss: Blaue Trapez-Kerbe ins Terrain
+                ctx.fillStyle = '#3498db';
+                ctx.beginPath();
+                ctx.moveTo(px - 4, py - 1); // Oben links (breiter)
+                ctx.lineTo(px - 2, py + 5); // Unten links (schmaler)
+                ctx.lineTo(px + 2, py + 5); // Unten rechts (schmaler)
+                ctx.lineTo(px + 4, py - 1); // Oben rechts (breiter)
+                ctx.fill();
+                
+                if (feat.name && zoomFactor >= 1.2) {
+                    ctx.font = 'bold 8px Arial';
+                    const tw = ctx.measureText(feat.name).width;
+                    let labelY = py + 15;
+                    let collision = true;
+                    let attempts = 0;
+                    
+                    // Schiebe das Fluss-Label nach unten, wenn der Platz belegt ist
+                    while(collision && attempts < 4) {
+                        collision = false;
+                        for(let occ of occupiedSigns) {
+                            if (px - tw/2 - 2 < occ.r && px + tw/2 + 2 > occ.l && labelY < occ.b && labelY + 10 > occ.t) {
+                                collision = true; break;
+                            }
+                        }
+                        if(collision) { labelY += 10; attempts++; }
+                    }
+                    
+                    if(!collision) {
+                        occupiedSigns.push({l: px - tw/2 - 2, r: px + tw/2 + 2, t: labelY, b: labelY + 10});
+                        ctx.fillStyle = '#3498db';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(feat.name, px, labelY + 8);
+                    }
+                }
+            } else if (feat.type === 'highway') {
+                // Autobahn: Graues Band
+                ctx.fillStyle = '#555';
+                ctx.fillRect(px - 3, py - 2, 6, 4);
+                ctx.fillStyle = '#f2c12e';
+                ctx.fillRect(px - 1, py - 1, 2, 2);
+                
+                // Autobahn-Name (Schild)
+                if (feat.name && zoomFactor >= 1.2) {
+                    ctx.font = 'bold 7px Arial';
+                    const tw = ctx.measureText(feat.name).width;
+                    let labelY = py - 14;
+                    let collision = true;
+                    let attempts = 0;
+                    
+                    // Schiebe das Autobahnschild nach oben, wenn der Platz belegt ist
+                    while(collision && attempts < 4) {
+                        collision = false;
+                        for(let occ of occupiedSigns) {
+                            if (px - tw/2 - 3 < occ.r && px + tw/2 + 3 > occ.l && labelY < occ.b && labelY + 10 > occ.t) {
+                                collision = true; break;
+                            }
+                        }
+                        if(collision) { labelY -= 12; attempts++; } // Nächstes Schild stapelt sich darüber
+                    }
+                    
+                    if(!collision) {
+                        occupiedSigns.push({l: px - tw/2 - 2, r: px + tw/2 + 2, t: labelY, b: labelY + 10});
+                        ctx.fillStyle = '#1a73e8'; // Blaues Schild
+                        ctx.fillRect(px - tw/2 - 2, labelY, tw + 4, 10);
+                        ctx.fillStyle = '#fff';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(feat.name, px, labelY + 8);
+                    }
+                }
+            }
+        }
+        window.vpLinearOccupied = occupiedSigns; // Exportiere den Platz für die Städte-Kollision
+    }
+    ctx.restore();
+}
+
 function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFactor) {
     if (!vpLandmarks || vpLandmarks.length === 0) return;
     const getElevY = (dNM) => {
@@ -525,28 +725,87 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
         const icon = lm.type === 'apt' ? '🛫' : (lm.type === 'city' ? '🏢' : '🏘️');
         const fontSize = (zoomFactor >= 1.5) ? 10 : 8;
 
-        const py = getElevY(lm.distNM);
+        // DYNAMISCHE SKALIERUNG ANHAND EINWOHNERZAHL (0.5 bis 2.5)
+        let iconScale = 1.0;
+        if (lm.type !== 'apt') {
+            const p = Math.max(5000, Math.min(1000000, lm.pop || 5000));
+            const logPop = Math.log10(p); // Wertebereich ca. 3.7 bis 6.0
+            let factor = (logPop - 3.7) / 2.3;
+            factor = Math.max(0, Math.min(1, factor));
+            iconScale = 0.5 + factor * 2.0;
+            
+            // Dämpfung bei starkem Rauszoomen
+            const maxAllowed = zoomFactor >= 1.5 ? 2.5 : 1.5;
+            iconScale = Math.min(iconScale, maxAllowed);
+        } else {
+            iconScale = 1.2; // Flughäfen haben eine fixe, gut sichtbare Größe
+        }
+        
+        const iconFontSize = Math.max(8, Math.round(11 * iconScale));
+        const iconOffsetY = Math.round(iconFontSize * 0.55); // Icon wächst nach oben, Y-Anker anpassen
+
         if (window.vpIsFastRendering) {
-            // PERFORMANCE: Nur das Icon ohne Kollisionsabfrage
-            ctx.font = '11px Arial';
-            ctx.fillText(icon, px, py - 6);
+            const py = getElevY(lm.distNM);
+            ctx.font = iconFontSize + 'px Arial';
+            ctx.fillStyle = '#ffffff'; 
+            ctx.fillText(icon, px, py - iconOffsetY);
         } else {
             ctx.font = `bold ${fontSize}px Arial`;
             const textWidth = ctx.measureText(lm.name).width;
-            const reqWidth = Math.max(textWidth, 14) + 6;
-            const minX = px - reqWidth / 2;
-            const maxX = px + reqWidth / 2;
-            let collision = false;
-            for (const occ of occupiedX) {
-                if (minX < occ.maxX && maxX > occ.minX) { collision = true; break; }
+            const reqWidth = Math.max(textWidth, iconFontSize + 4) + 6;
+            
+            // NM pro Pixel berechnen, um physikalisch korrekt auf der Bodenlinie zu gleiten
+            const nmPerPx = totalDist / (xOf(totalDist) - xOf(0));
+            
+            let shiftAttempts = 0;
+            let currentDistNM = lm.distNM;
+            let currentPx = px;
+            let currentPy = getElevY(currentDistNM);
+            let collision = true;
+            let finalMinX, finalMaxX;
+
+            // Gleite nach links und rechts, bis ein freier Platz gefunden ist (max. 12 Versuche)
+            while (collision && shiftAttempts < 12) {
+                collision = false;
+                finalMinX = currentPx - reqWidth / 2;
+                finalMaxX = currentPx + reqWidth / 2;
+                const boxT = currentPy - iconOffsetY - iconFontSize;
+                const boxB = currentPy + 20;
+
+                // 1. Prüfe gegen andere Städte
+                for (const occ of occupiedX) {
+                    if (finalMinX < occ.maxX && finalMaxX > occ.minX) { collision = true; break; }
+                }
+                
+                // 2. Prüfe gegen Flüsse & Autobahnen
+                if (!collision && window.vpLinearOccupied) {
+                    for (const occ of window.vpLinearOccupied) {
+                        if (finalMinX < occ.r && finalMaxX > occ.l && boxT < occ.b && boxB > occ.t) {
+                            collision = true; break;
+                        }
+                    }
+                }
+
+                if (collision) {
+                    shiftAttempts++;
+                    // Weiche abwechselnd nach links und rechts aus (in 8-Pixel-Schritten)
+                    const shiftPx = (shiftAttempts % 2 !== 0 ? -1 : 1) * Math.ceil(shiftAttempts / 2) * 8;
+                    currentDistNM = lm.distNM + (shiftPx * nmPerPx);
+                    currentPx = xOf(currentDistNM);
+                    currentPy = getElevY(currentDistNM); // Neue Geländehöhe abfragen!
+                }
             }
-            if (!collision) {
-                occupiedX.push({ minX, maxX });
-                ctx.font = '11px Arial';
-                ctx.fillText(icon, px, py - 6);
+
+            if (!collision && currentPx >= viewMinX && currentPx <= viewMaxX) {
+                occupiedX.push({ minX: finalMinX, maxX: finalMaxX, t: currentPy - iconOffsetY - iconFontSize, b: currentPy + 20 });
+                
+                ctx.font = iconFontSize + 'px Arial';
+                ctx.fillStyle = '#ffffff'; 
+                ctx.fillText(icon, currentPx, currentPy - iconOffsetY);
+                
                 ctx.font = `bold ${fontSize}px Arial`;
                 ctx.fillStyle = isDarkTheme ? 'rgba(190, 180, 160, 0.7)' : 'rgba(70, 60, 40, 0.7)';
-                ctx.fillText(lm.name, px, py + 10);
+                ctx.fillText(lm.name, currentPx, currentPy + 10); 
                 countDrawn++;
             }
         }
@@ -1673,6 +1932,9 @@ function renderMapProfileFrames(timeMs) {
         }
         bgCtx.strokeStyle = '#4a7a30'; bgCtx.lineWidth = 1.5; bgCtx.stroke();
 
+        // WÄLDER UND FLÜSSE GENERIEREN
+        vpDrawTerrainCover(bgCtx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFactor);
+
         if (vpShowLandmarks) vpDrawLandmarks(bgCtx, xOf, yOf, elevData, totalDist, true, zoomFactor);
         if (vpShowClouds) vpDrawClouds(bgCtx, xOf, yOf, padTop, plotH, totalDist, true, elevData);
 
@@ -1856,7 +2118,11 @@ let vpPositionLeafletMarker = null;
 
 function vpUpdatePosition(fraction) {
     vpPositionFraction = fraction;
-    renderMapProfile();
+    
+    // FIX: Kein renderMapProfile() mehr! Weckt nur die Foreground-Schleife, falls sie schläft.
+    if (!window.vpAnimFrameId && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) {
+        window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
+    }
 
     // Update Leaflet marker on map
     if (!vpElevationData || vpElevationData.length < 2) return;
@@ -2086,7 +2352,6 @@ function initAltWaypoints() {
         const deltaY = dragStartY - clientY;
         const altChange = (deltaY / m.plotH) * m.maxAlt;
         if (vpDraggingWP >= 0) {
-            // FIX: Saubere CSS-Delta Berechnung ohne falsche Skalierung
             const deltaX = clientX - dragStartX;
             const distChange = (deltaX / m.plotW) * m.totalDist;
             let newDist = dragOrigWP.distNM + distChange;
@@ -2095,26 +2360,22 @@ function initAltWaypoints() {
             newAlt = Math.max(0, Math.min(m.maxAlt, newAlt));
             vpAltWaypoints[vpDraggingWP].distNM = newDist;
             vpAltWaypoints[vpDraggingWP].altFt = newAlt;
-            if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
         } else if (vpDraggingSegment) {
             const seg = vpDraggingSegment;
-            // 100er Schritte basierend auf dem echten Startpunkt!
             const newAlt = Math.max(0, Math.round((seg.origAlt + altChange) / 100) * 100);
             
             if (seg.segIdx >= 0 && seg.segIdx < vpSegmentAlts.length) {
                 vpSegmentAlts[seg.segIdx] = newAlt;
-                if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
             } else if (seg.segIdx === -1) {
                 const newGlobalAlt = Math.max(1500, Math.min(13500, newAlt));
                 const altMap = document.getElementById('altMapInput');
                 if (altMap && altMap.textContent != newGlobalAlt) {
                     altMap.textContent = newGlobalAlt;
-                    if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
                 }
             } else if (seg.segIdx === -2 || seg.segIdx === -3) {
-                if (vpAltWaypoints.length > 0) { vpAltWaypoints[0].altFt = newAlt; if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles(); }
+                if (vpAltWaypoints.length > 0) vpAltWaypoints[0].altFt = newAlt;
             } else if (seg.segIdx === -4) {
-                if (vpAltWaypoints.length > 0) { vpAltWaypoints[vpAltWaypoints.length - 1].altFt = newAlt; if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles(); }
+                if (vpAltWaypoints.length > 0) vpAltWaypoints[vpAltWaypoints.length - 1].altFt = newAlt;
             }
         } else if (vpDraggingMagenta) {
             const { mx } = vpClientToCanvas(clientX, clientY, m);
@@ -2347,15 +2608,23 @@ function initAltWaypoints() {
         if (vpDraggingWP >= 0 || vpDraggingSegment || vpDraggingMagenta) vpHandleDragEnd();
     });
 
-    // === MOUSE WHEEL ZOOM (Multi-Achsen) ===
+    // === MOUSE WHEEL ZOOM & PAN (Multi-Achsen) ===
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault(); 
         if (e.ctrlKey) {
             let yDelta = e.deltaY > 0 ? 1000 : -1000;
             vpChangeYAxis(yDelta);
-        } else {
-            let zoomDelta = e.deltaY > 0 ? 5 : -5;
+        } else if (e.shiftKey) {
+            // FIX: OS wandelt Shift+Scroll oft in deltaX um!
+            let wheelDelta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+            let zoomDelta = wheelDelta > 0 ? 5 : -5;
             vpZoom(zoomDelta);
+        } else {
+            const scrollContainer = document.getElementById('mapProfileScroll');
+            if (scrollContainer) {
+                const panDelta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+                scrollContainer.scrollLeft += panDelta;
+            }
         }
     }, { passive: false });
 }
@@ -2466,10 +2735,12 @@ let vpMaxAltOverride = 0; // 0 = Auto-Scaling
 let vpShowClouds = localStorage.getItem('ga_show_clouds') !== 'false'; // Default: true
 let vpShowLandmarks = localStorage.getItem('ga_show_landmarks') !== 'false';
 let vpShowObstacles = localStorage.getItem('ga_show_obstacles') !== 'false';
+let vpShowLinear = localStorage.getItem('ga_show_linear') !== 'false'; // NEU
 document.addEventListener('DOMContentLoaded', () => {
     const bc = document.getElementById('btnToggleClouds'); if(bc) bc.classList.toggle('active', vpShowClouds);
     const bl = document.getElementById('btnToggleLandmarks'); if(bl) bl.classList.toggle('active', vpShowLandmarks);
     const bo = document.getElementById('btnToggleObstacles'); if(bo) bo.classList.toggle('active', vpShowObstacles);
+    const blin = document.getElementById('btnToggleLinear'); if(blin) blin.classList.toggle('active', vpShowLinear);
 });
 function vpChangeAlt(delta) {
     let val = parseInt(document.getElementById('altMapInput').textContent) || 4500;
@@ -2557,6 +2828,17 @@ function vpToggleObstacles() {
         window._lastObsRouteKey = null; // Zwingt zum erneuten Fetch
         triggerVerticalProfileUpdate();
     } else if (typeof window.throttledRenderProfiles === 'function') {
+        window.throttledRenderProfiles();
+    }
+}
+
+function vpToggleLinearFeatures() {
+    vpShowLinear = !vpShowLinear;
+    localStorage.setItem('ga_show_linear', vpShowLinear);
+    const btn = document.getElementById('btnToggleLinear');
+    if (btn) btn.classList.toggle('active', vpShowLinear);
+    
+    if (typeof window.throttledRenderProfiles === 'function') {
         window.throttledRenderProfiles();
     }
 }
