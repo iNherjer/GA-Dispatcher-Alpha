@@ -832,6 +832,12 @@ function vpDrawAnimatedWeather(ctx, xOf, yOf, totalDist, elevData, timeMs, viewM
         // 1. REGEN & SCHNEE ANIMIERT
         if ((zone.weather.hasRain || zone.weather.hasSnow) && zone.visuals && zone.visuals.drops) {
             ctx.beginPath();
+            
+            // FIX: Virtuelles Fall-Band (von ganz oben nach ganz unten auf dem Bildschirm)
+            const virtualTop = -100; 
+            const virtualBottom = 500; 
+            const virtualFallDist = virtualBottom - virtualTop;
+
             for(let d=0; d < zone.visuals.drops.length; d++) {
                 const drop = zone.visuals.drops[d];
                 const dropX = startX + drop.x * width;
@@ -839,26 +845,24 @@ function vpDrawAnimatedWeather(ctx, xOf, yOf, totalDist, elevData, timeMs, viewM
                 const groundY = getElevY(dNM);
 
                 if (baseY >= groundY) continue; 
-                const fallDist = groundY - baseY;
-                if (fallDist <= 0) continue;
 
-                // PERFORMANCE/LOOK FIX: Speed auf ca. 20% reduziert
-                const speed = zone.weather.hasSnow ? (0.01 + drop.spd * 0.02) : (0.08 + drop.spd * 0.08);
-                const currentYOffset = ((drop.y * fallDist) + (timeMs * speed)) % fallDist;
-                const sy = baseY + currentYOffset;
+                // Unabhängige, konstante Fall-Animation
+                const speed = zone.weather.hasSnow ? (0.01 + drop.spd * 0.01) : (0.05 + drop.spd * 0.03);
+                const currentYOffset = ((drop.y * virtualFallDist) + (timeMs * speed)) % virtualFallDist;
+                const sy = virtualTop + currentYOffset;
+
+                // CULLING: Tropfen nur zeichnen, wenn er sich zwischen Wolke und Boden befindet!
+                if (sy < baseY || sy > groundY) continue;
 
                 if (zone.weather.hasSnow) {
                     const sway = Math.sin(timeMs * 0.002 + d) * 4 * drop.spd;
-                    // Schnee driftet auch leicht organisch nach links
                     const snowDrift = currentYOffset * 0.15; 
                     const sx = dropX + sway - snowDrift;
                     ctx.moveTo(sx, sy);
                     ctx.arc(sx, sy, 0.8 + drop.spd, 0, Math.PI*2);
                 } else {
                     const tailLength = 6 + drop.spd * 8;
-                    const windSlant = 2 + drop.spd * 4; // Windwinkel nach unten links
-                    
-                    // GEOMETRIE FIX: Der Tropfen wandert auf der X-Achse exakt mit dem Fall nach unten links
+                    const windSlant = 2 + drop.spd * 4; 
                     const driftRatio = windSlant / tailLength;
                     const currentX = dropX - (currentYOffset * driftRatio);
 
@@ -1492,7 +1496,7 @@ function renderMapProfile() {
 function renderMapProfileFrames(timeMs) {
     const mapTable = document.getElementById('mapTableOverlay');
     if (!mapTable || !mapTable.classList.contains('active') || (typeof vpMapProfileVisible !== 'undefined' && !vpMapProfileVisible)) {
-        window.vpAnimFrameId = null; // Animation stoppen, wenn Profil/Tisch unsichtbar
+        window.vpAnimFrameId = null; 
         return;
     }
 
@@ -1514,20 +1518,18 @@ function renderMapProfileFrames(timeMs) {
     const containerHeight = scrollContainer.clientHeight || 100;
     const baseWidth = scrollContainer.clientWidth || 600;
     const zoomFactor = 100 / vpZoomLevel;
-    const dpr = window.devicePixelRatio || 1;
     
-    // HARDWARE-LIMIT SCHUTZ: Ältere GPUs (Intel) crashen bei Texturen > 16384px ins Software-Rendering.
-    const maxSafeWidth = 14000 / dpr; 
-    let canvasWidth = Math.round(baseWidth * zoomFactor);
-    if (canvasWidth > maxSafeWidth) canvasWidth = maxSafeWidth;
+    // Virtuelle Breite für die Scrollbar
+    const virtualWidth = Math.round(baseWidth * zoomFactor);
+    if (wrapper.style.width !== virtualWidth + 'px') wrapper.style.width = virtualWidth + 'px';
 
-    const targetW = canvasWidth * dpr;
+    // Canvas bleibt immer exakt so groß wie der sichtbare Bildschirm! (Kein iOS Absturz mehr)
+    const dpr = window.devicePixelRatio || 1;
+    const targetW = baseWidth * dpr;
     const targetH = containerHeight * dpr;
 
-    if (wrapper.style.width !== canvasWidth + 'px') wrapper.style.width = canvasWidth + 'px';
-
     const padLeft = 33, padRight = 16, padTop = 12, padBottom = 22;
-    const plotW = canvasWidth - padLeft - padRight;
+    const plotW = virtualWidth - padLeft - padRight;
     const plotH = containerHeight - padTop - padBottom;
 
     const cruiseAlt = parseInt(document.getElementById('altMapInput')?.textContent || document.getElementById('altSlider')?.value || 4500);
@@ -1541,26 +1543,46 @@ function renderMapProfileFrames(timeMs) {
     const fpResult = typeof computeFlightProfile === 'function' ? computeFlightProfile(elevData, cruiseAlt, vpClimbRate, vpDescentRate, tas) : null;
     const xOf = (distNM) => padLeft + (distNM / totalDist) * plotW;
     const yOf = (altFt) => padTop + plotH - ((altFt - minAlt) / (maxAlt - minAlt)) * plotH;
-    const viewMinX = scrollContainer.scrollLeft - 200;
-    const viewMaxX = scrollContainer.scrollLeft + baseWidth + 200;
+    
+    const viewX = scrollContainer.scrollLeft;
+    if (viewX !== window._vpLastScrollLeft) {
+        window.vpBgNeedsUpdate = true;
+        window._vpLastScrollLeft = viewX;
+    }
+    
+    // Hardwarebeschleunigtes Mitführen der Leinwände (GPU Magic)
+    bgCanvas.style.transform = `translateX(${viewX}px)`;
+    fgCanvas.style.transform = `translateX(${viewX}px)`;
+
+    const viewMinX = viewX - 50;
+    const viewMaxX = viewX + baseWidth + 50;
 
     // =======================================================
-    // LAYER 1: STATISCHER HINTERGRUND (Terrain, Wolken, etc.)
+    // LAYER 1: STATISCHER HINTERGRUND
     // =======================================================
     if (window.vpBgNeedsUpdate || bgCanvas.width !== targetW || bgCanvas.height !== targetH) {
         if (bgCanvas.width !== targetW || bgCanvas.height !== targetH) {
-            bgCanvas.width = targetW; bgCanvas.height = targetH;
-            bgCanvas.style.width = canvasWidth + 'px'; bgCanvas.style.height = containerHeight + 'px';
+            bgCanvas.width = targetW; 
+            bgCanvas.height = targetH;
+            bgCanvas.style.width = baseWidth + 'px'; 
+            bgCanvas.style.height = containerHeight + 'px';
         }
         const bgCtx = bgCanvas.getContext('2d');
         bgCtx.save();
         bgCtx.scale(dpr, dpr);
-        bgCtx.clearRect(0, 0, canvasWidth, containerHeight);
+        bgCtx.translate(-viewX, 0); // Vektor-Koordinatensystem anpassen
 
-        bgCtx.fillStyle = '#1a1a1a'; bgCtx.fillRect(0, 0, canvasWidth, containerHeight);
+        bgCtx.clearRect(viewX, 0, baseWidth, containerHeight);
+
+        bgCtx.fillStyle = '#1a1a1a'; 
+        bgCtx.fillRect(viewX, 0, baseWidth, containerHeight);
+        
         const skyGrad = bgCtx.createLinearGradient(0, padTop, 0, padTop + plotH);
-        skyGrad.addColorStop(0, '#1a2a3a'); skyGrad.addColorStop(0.5, '#1a2030'); skyGrad.addColorStop(1, '#151a20');
-        bgCtx.fillStyle = skyGrad; bgCtx.fillRect(padLeft, padTop, plotW, plotH);
+        skyGrad.addColorStop(0, '#1a2a3a'); 
+        skyGrad.addColorStop(0.5, '#1a2030'); 
+        skyGrad.addColorStop(1, '#151a20');
+        bgCtx.fillStyle = skyGrad; 
+        bgCtx.fillRect(viewX, padTop, baseWidth, plotH);
 
         let occupiedASLabels = [];
         if (typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0) {
@@ -1578,7 +1600,8 @@ function renderMapProfileFrames(timeMs) {
 
                 bgCtx.fillStyle = vpHexToRgba(style.color, pulseOpacity);
                 bgCtx.strokeStyle = vpHexToRgba(style.color, strokeOpacity);
-                bgCtx.lineWidth = lineW; bgCtx.setLineDash(isHighlighted ? [] : [3, 3]);
+                bgCtx.lineWidth = lineW; 
+                bgCtx.setLineDash(isHighlighted ? [] : [3, 3]);
 
                 bgCtx.beginPath();
                 for (let i = 0; i < relevantPts.length; i++) {
@@ -1634,6 +1657,7 @@ function renderMapProfileFrames(timeMs) {
         const terrainGrad = bgCtx.createLinearGradient(0, yOf(maxTerrain), 0, yOf(0));
         terrainGrad.addColorStop(0, '#6B5B3C'); terrainGrad.addColorStop(0.3, '#3B5B23'); terrainGrad.addColorStop(0.7, '#1B5B22'); terrainGrad.addColorStop(1, '#1E5B37');
         bgCtx.fillStyle = terrainGrad; bgCtx.fill();
+        
         bgCtx.beginPath();
         for (let i = 0; i < elevData.length; i++) {
             const x = xOf(elevData[i].distNM), y = yOf(elevData[i].elevFt);
@@ -1650,9 +1674,9 @@ function renderMapProfileFrames(timeMs) {
             const y = yOf(alt);
             if (y < padTop - 3 || y > padTop + plotH + 3) continue;
             bgCtx.beginPath(); bgCtx.strokeStyle = 'rgba(255,255,255,0.05)'; bgCtx.lineWidth = 0.5;
-            bgCtx.moveTo(padLeft, y); bgCtx.lineTo(padLeft + plotW, y); bgCtx.stroke();
+            bgCtx.moveTo(viewX + padLeft, y); bgCtx.lineTo(viewX + baseWidth, y); bgCtx.stroke();
             bgCtx.fillStyle = '#777'; bgCtx.font = '9px Arial';
-            bgCtx.fillText(alt >= 1000 ? (alt / 1000).toFixed(0) + 'k' : alt + '', padLeft - 3, y + 3);
+            bgCtx.fillText(alt >= 1000 ? (alt / 1000).toFixed(0) + 'k' : alt + '', viewX + padLeft - 3, y + 3);
         }
 
         bgCtx.textAlign = 'center';
@@ -1666,52 +1690,49 @@ function renderMapProfileFrames(timeMs) {
         bgCtx.fillText('▲', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 3);
         bgCtx.font = 'bold 9px Arial'; bgCtx.fillText(peakPt.elevFt + ' ft', xOf(peakPt.distNM), yOf(peakPt.elevFt) - 13);
 
-        bgCtx.strokeStyle = '#333'; bgCtx.lineWidth = 1; bgCtx.strokeRect(padLeft, padTop, plotW, plotH);
+        bgCtx.strokeStyle = '#333'; bgCtx.lineWidth = 1; 
+        bgCtx.strokeRect(padLeft, padTop, plotW, plotH);
         bgCtx.restore();
         window.vpBgNeedsUpdate = false;
     }
 
     // =======================================================
-    // LAYER 2: DYNAMISCHER VORDERGRUND (Windräder, Route)
+    // LAYER 2: DYNAMISCHER VORDERGRUND 
     // =======================================================
     if (fgCanvas.width !== targetW || fgCanvas.height !== targetH) {
-        fgCanvas.width = targetW; fgCanvas.height = targetH;
-        fgCanvas.style.width = canvasWidth + 'px'; fgCanvas.style.height = containerHeight + 'px';
+        fgCanvas.width = targetW; 
+        fgCanvas.height = targetH;
+        fgCanvas.style.width = baseWidth + 'px'; 
+        fgCanvas.style.height = containerHeight + 'px';
     }
     const fgCtx = fgCanvas.getContext('2d');
     fgCtx.save();
     fgCtx.scale(dpr, dpr);
-    fgCtx.clearRect(0, 0, canvasWidth, containerHeight); // NUR Foreground leeren!
+    fgCtx.translate(-viewX, 0); 
 
-    // Windräder rotieren in Echtzeit auf dem Glas!
+    fgCtx.clearRect(viewX, 0, baseWidth, containerHeight);
+
     if (vpShowObstacles) vpDrawObstacles(fgCtx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs);
-
-    // Wetter animieren (Regen fällt, Blitze zucken)
     if (vpShowClouds) vpDrawAnimatedWeather(fgCtx, xOf, yOf, totalDist, elevData, timeMs, viewMinX, viewMaxX);
 
     if (fpResult && fpResult.profile) {
-        // Rote Linie Schatten
         fgCtx.beginPath();
         let shStarted = false;
         for (let i = 0; i < fpResult.profile.length; i++) {
             const x = xOf(fpResult.profile[i].distNM);
-            // CULLING: Überspringe Vektoren, die komplett außerhalb des Bildschirms liegen!
             if (x < viewMinX - 100 && i < fpResult.profile.length - 1 && xOf(fpResult.profile[i+1].distNM) < viewMinX) continue;
             if (x > viewMaxX + 100 && i > 0 && xOf(fpResult.profile[i-1].distNM) > viewMaxX) continue;
-            
             const y = yOf(fpResult.profile[i].altFt) + 1;
             if (!shStarted) { fgCtx.moveTo(x, y); shStarted = true; } else { fgCtx.lineTo(x, y); }
         }
         fgCtx.strokeStyle = 'rgba(0,0,0,0.3)'; fgCtx.lineWidth = 3; fgCtx.stroke();
 
-        // Rote Linie
         fgCtx.beginPath();
         let rdStarted = false;
         for (let i = 0; i < fpResult.profile.length; i++) {
             const x = xOf(fpResult.profile[i].distNM);
             if (x < viewMinX - 100 && i < fpResult.profile.length - 1 && xOf(fpResult.profile[i+1].distNM) < viewMinX) continue;
             if (x > viewMaxX + 100 && i > 0 && xOf(fpResult.profile[i-1].distNM) > viewMaxX) continue;
-            
             const y = yOf(fpResult.profile[i].altFt);
             if (!rdStarted) { fgCtx.moveTo(x, y); rdStarted = true; } else { fgCtx.lineTo(x, y); }
         }
@@ -1730,7 +1751,7 @@ function renderMapProfileFrames(timeMs) {
     for (let i = 0; i < routeWaypoints.length; i++) {
         if (i > 0) wpCumDist += calcNav(routeWaypoints[i - 1].lat, routeWaypoints[i - 1].lng || routeWaypoints[i - 1].lon, routeWaypoints[i].lat, routeWaypoints[i].lng || routeWaypoints[i].lon).dist;
         const x = xOf(wpCumDist);
-        if (x < viewMinX - 40 || x > viewMaxX + 40) continue; // CULLING Wegpunkte
+        if (x < viewMinX - 40 || x > viewMaxX + 40) continue;
 
         fgCtx.beginPath(); fgCtx.setLineDash([2, 3]); fgCtx.strokeStyle = 'rgba(255,255,255,0.2)'; fgCtx.lineWidth = 1;
         fgCtx.moveTo(x, padTop); fgCtx.lineTo(x, padTop + plotH); fgCtx.stroke(); fgCtx.setLineDash([]);
@@ -1742,7 +1763,7 @@ function renderMapProfileFrames(timeMs) {
 
     if (typeof vpPositionFraction === 'number' && vpPositionFraction >= 0) {
         const posX = xOf(vpPositionFraction * totalDist);
-        if (posX >= viewMinX - 20 && posX <= viewMaxX + 20) { // CULLING Marker
+        if (posX >= viewMinX - 20 && posX <= viewMaxX + 20) {
             fgCtx.beginPath(); fgCtx.strokeStyle = '#ff00ff'; fgCtx.lineWidth = 1.5; fgCtx.moveTo(posX, padTop); fgCtx.lineTo(posX, padTop + plotH); fgCtx.stroke();
             fgCtx.beginPath(); fgCtx.moveTo(posX, padTop + plotH + 2); fgCtx.lineTo(posX - 5, padTop + plotH + 10); fgCtx.lineTo(posX + 5, padTop + plotH + 10); fgCtx.closePath(); fgCtx.fillStyle = '#ff00ff'; fgCtx.fill();
         }
@@ -1751,7 +1772,7 @@ function renderMapProfileFrames(timeMs) {
     if (vpAltWaypoints.length > 0) {
         for (let i = 0; i < vpAltWaypoints.length; i++) {
             const wp = vpAltWaypoints[i], wx = xOf(wp.distNM), wy = yOf(wp.altFt);
-            if (wx < viewMinX - 20 || wx > viewMaxX + 20) continue; // CULLING Alt-Marker
+            if (wx < viewMinX - 20 || wx > viewMaxX + 20) continue;
 
             fgCtx.beginPath(); fgCtx.setLineDash([2, 3]); fgCtx.strokeStyle = 'rgba(255,0,255,0.3)'; fgCtx.lineWidth = 1;
             fgCtx.moveTo(wx, wy); fgCtx.lineTo(wx, padTop + plotH); fgCtx.stroke(); fgCtx.setLineDash([]);
@@ -1762,7 +1783,6 @@ function renderMapProfileFrames(timeMs) {
     }
     fgCtx.restore();
 
-    // Loop fortsetzen
     window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
 }
 
@@ -1906,29 +1926,30 @@ function initAltWaypoints() {
         if (!elevData || elevData.length < 2) return null;
         const rect = canvas.getBoundingClientRect();
         const scrollContainer = document.getElementById('mapProfileScroll');
+        const viewX = scrollContainer ? scrollContainer.scrollLeft : 0;
         const containerHeight = scrollContainer?.clientHeight || 100;
         const baseWidth = scrollContainer?.clientWidth || 600;
         const zoomFactor = 100 / vpZoomLevel;
-        const canvasWidth = Math.round(baseWidth * zoomFactor);
+        const virtualWidth = Math.round(baseWidth * zoomFactor);
         const totalDist = elevData[elevData.length - 1].distNM;
 
-        // FIX: Aus dem neuen Span-Feld lesen
         const cruiseAlt = parseInt(document.getElementById('altMapInput')?.textContent || document.getElementById('altSlider')?.value || 4500);
         const maxTerrain = Math.max(...elevData.map(p => p.elevFt));
-
-        // FIX: Exakt gleiche Skalierung wie beim Rendering (+ 2500)
         let autoMaxAlt = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
         const maxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
         const padLeft = 33, padRight = 16, padTop = 12, padBottom = 22;
-        const plotW = canvasWidth - padLeft - padRight;
+        const plotW = virtualWidth - padLeft - padRight;
         const plotH = containerHeight - padTop - padBottom;
-        const scaleX = canvasWidth / rect.width;
-        const scaleY = containerHeight / rect.height;
-        return { elevData, rect, containerHeight, baseWidth, zoomFactor, canvasWidth, totalDist, cruiseAlt, maxTerrain, maxAlt, padLeft, padRight, padTop, padBottom, plotW, plotH, scaleX, scaleY };
+        
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return { elevData, rect, viewX, containerHeight, baseWidth, virtualWidth, zoomFactor, totalDist, cruiseAlt, maxTerrain, maxAlt, padLeft, padRight, padTop, padBottom, plotW, plotH, scaleX, scaleY };
     }
 
     function vpClientToCanvas(clientX, clientY, m) {
-        return { mx: (clientX - m.rect.left) * m.scaleX, my: (clientY - m.rect.top) * m.scaleY };
+        const screenX = (clientX - m.rect.left) * m.scaleX;
+        const mx = screenX + (m.viewX * m.scaleX); // Scroll-Offset addieren!
+        return { mx, my: (clientY - m.rect.top) * m.scaleY };
     }
 
     function vpHitTestWaypoint(mx, my, m) {

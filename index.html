@@ -680,8 +680,8 @@
                     <button id="btnToggleLandmarks" class="vp-toggle-cloud active" onclick="vpToggleLandmarks()" title="Städte an/aus" style="margin-left:4px;">🏙️</button>
                     <button id="btnToggleObstacles" class="vp-toggle-cloud active" onclick="vpToggleObstacles()" title="Hindernisse an/aus" style="margin-left:4px;">🗼</button>
                 </div>
-                <div id="mapProfileScroll" class="map-profile-scroll" style="touch-action: none;">
-                    <div id="vpCanvasWrapper" style="position: relative; height: 100%; transform: translateZ(0);">
+                <div id="mapProfileScroll" class="map-profile-scroll" style="touch-action: none; overflow-x: auto; overflow-y: hidden;">
+                    <div id="vpCanvasWrapper" style="height: 100%; position: relative;">
                         <canvas id="mapProfileCanvasBg" style="position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none;"></canvas>
                         <canvas id="mapProfileCanvas" style="position: absolute; left: 0; top: 0; z-index: 2; touch-action: none;"></canvas>
                     </div>
