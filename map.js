@@ -285,16 +285,27 @@ function updateRoutePerformance() {
 function initMapBase() {
     if (map) return;
     const radarActive = localStorage.getItem('ga_radar_active') === 'true';
+    
+    // Base Maps
     const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: 'OpenTopoMap' });
     const topoLightMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
     const satMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' });
     const darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB' });
     const lightMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: 'CartoDB' });
+    
+    // Overlays
     const aeroOverlay = L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
         attribution: 'AeroData / Navigraph', opacity: 0.65, maxNativeZoom: 12
     });
+    
+    // NEU: Die offizielle DFS ICAO 1:500.000 Karte vom Secais Server
+    const dfsIcaoOverlay = L.tileLayer('https://secais.dfs.de/static-maps/icao500/tiles/{z}/{x}/{y}.png', {
+        attribution: '© DFS Deutsche Flugsicherung', maxNativeZoom: 11, opacity: 1.0
+    });
+
     topoMap.setOpacity(0.5);
     map = L.map('map', { layers: [topoMap, aeroOverlay], attributionControl: false }).setView([51.1657, 10.4515], 6);
+    
     const baseMaps = {
         "⛰️ Topografie (Mit Text)": topoMap,
         "🗺️ Terrain (Ohne Text)": topoLightMap,
@@ -302,6 +313,7 @@ function initMapBase() {
         "🌑 Dark Mode (Clean)": darkMap,
         "📝 Blank Mode (Weiß)": lightMap
     };
+    
     const radarOverlay = L.layerGroup();
     fetch('https://api.rainviewer.com/public/weather-maps.json')
         .then(res => res.json())
@@ -313,19 +325,25 @@ function initMapBase() {
                 }).addTo(radarOverlay); if (radarActive) radarOverlay.addTo(map);
             }
         }).catch(e => console.warn('RainViewer Fetch Fehler:', e));
+        
     const overlayMaps = {
+        "🗺️ DFS ICAO Karte 1:500k": dfsIcaoOverlay,
         "🛩️ VFR Lufträume (Overlay)": aeroOverlay,
         "🌧️ Wetterradar (Niederschlag)": radarOverlay
     };
+    
     L.control.layers(baseMaps, overlayMaps).addTo(map);
+    
     map.on('overlayadd', function (e) {
         if (e.name === "🛩️ VFR Lufträume (Overlay)") topoMap.setOpacity(0.5);
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'true');
     });
+    
     map.on('overlayremove', function (e) {
         if (e.name === "🛩️ VFR Lufträume (Overlay)") topoMap.setOpacity(1.0);
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'false');
     });
+    
     let fetchTimeout = null;
     map.on('moveend', function () {
         if (snapMode) {
@@ -333,7 +351,7 @@ function initMapBase() {
             fetchTimeout = setTimeout(fetchOpenAIPData, 600);
         }
     });
-    // Fehlenden Vollbild-Button wiederherstellen
+    
     const fsControl = L.control({ position: 'topleft' });
     fsControl.onAdd = function () {
         const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control');
@@ -557,3 +575,44 @@ async function fetchOpenAIPData() {
         // Leiser Fallback, wenn das Netzwerk mal hakt
     }
 }
+/* =========================================================
+   WETTER MARKER AUF DER KARTE (VFR / IFR)
+   ========================================================= */
+let wxMapMarkers = [];
+
+window.renderWeatherMarkers = function() {
+    if (!map) return;
+    wxMapMarkers.forEach(m => map.removeLayer(m));
+    wxMapMarkers = [];
+
+    if (typeof vpShowClouds !== 'undefined' && !vpShowClouds) return;
+    if (typeof vpWeatherData === 'undefined' || !vpWeatherData || vpWeatherData.length === 0) return;
+
+    let seenIcao = new Set();
+
+    vpWeatherData.forEach(zone => {
+        if (!zone.icao || !zone.stnLat || !zone.stnLon || seenIcao.has(zone.icao)) return;
+        seenIcao.add(zone.icao);
+
+        let catColor = "#fff";
+        let catText = zone.fltCat || "VFR";
+        if (catText === "VFR") catColor = "#33ff33";
+        else if (catText === "MVFR") catColor = "#4da6ff";
+        else if (catText === "IFR") catColor = "#ff4444";
+        else if (catText === "LIFR") catColor = "#ff33ff";
+
+        const html = `
+            <div style="background: rgba(10,10,10,0.85); border: 2px solid ${catColor}; border-radius: 4px; padding: 2px 4px; color: ${catColor}; font-family: monospace; font-size: 11px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;">
+                <span style="color:#fff; margin-right:4px;">${zone.icao}</span> ${catText}
+            </div>
+        `;
+
+        const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [70, 22], iconAnchor: [35, 11] });
+        const marker = L.marker([zone.stnLat, zone.stnLon], { icon: icon, interactive: true }).addTo(map);
+        
+        // Popup mit dem RAW METAR 
+        marker.bindPopup(`<div style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: bold; color: #222; background: #f0eada; padding: 8px; border-radius: 4px; border: 1px solid #c2bba8; margin: -5px;">${zone.raw}</div>`);
+        
+        wxMapMarkers.push(marker);
+    });
+};

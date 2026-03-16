@@ -358,6 +358,9 @@ function triggerVerticalProfileUpdate() {
             await Promise.all([fetchWetter(), fetchOverpass()]);
             if (status) status.textContent = vpElevationData.length + ' Punkte & API-Daten geladen';
             
+            // NEU: Wetter-Marker auf der Karte zeichnen
+            if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
+            
         } catch(e) {
             if (e && e.name !== 'AbortError') console.error('Profile Fetch Error:', e);
             if (status) status.textContent = 'API Error / Abgebrochen';
@@ -544,23 +547,26 @@ async function fetchRouteWeather(routePts, elevData, signal) {
             const hasSnow = /\b(-|\+)?(SN|SG|PL|SHSN)\b/i.test(raw);
             const hasTS = /\b(-|\+)?(TS|TSRA|CB)\b/i.test(raw);
             
-            if(clouds.length > 0 || hasRain || hasSnow || hasTS) {
-                const visuals = { puffs: [], drops: [], flashes: [] };
-                if (clouds.length > 0) {
-                    for(let c=0; c<25; c++) visuals.puffs.push({ x: Math.random(), y: Math.random(), r: Math.random(), op: Math.random() });
-                }
-                if (hasRain || hasSnow) {
-                    for(let d=0; d<120; d++) visuals.drops.push({ x: Math.random(), y: Math.random(), spd: Math.random() });
-                }
-                if (hasTS) {
-                    for(let f=0; f<2; f++) visuals.flashes.push({ x: Math.random(), pts: [Math.random(), Math.random(), Math.random(), Math.random()] });
-                }
-                zones.push({
-                    distNM: bestPt.distNM, icao: closestMetar.icaoId, stnDist: Math.round(minMetarDist), clouds: clouds,
-                    lowestBase: lowestBase !== Infinity ? lowestBase : 5000,
-                    weather: { hasRain, hasSnow, hasTS }, visuals: visuals
-                });
+            const visuals = { puffs: [], drops: [], flashes: [] };
+            if (clouds.length > 0) {
+                for(let c=0; c<25; c++) visuals.puffs.push({ x: Math.random(), y: Math.random(), r: Math.random(), op: Math.random() });
             }
+            if (hasRain || hasSnow) {
+                for(let d=0; d<120; d++) visuals.drops.push({ x: Math.random(), y: Math.random(), spd: Math.random() });
+            }
+            if (hasTS) {
+                for(let f=0; f<2; f++) visuals.flashes.push({ x: Math.random(), pts: [Math.random(), Math.random(), Math.random(), Math.random()] });
+            }
+            
+            // IMMER pushen, damit auch wolkenlose Stationen als Marker auf der Karte landen!
+            zones.push({
+                distNM: bestPt.distNM, icao: closestMetar.icaoId, stnDist: Math.round(minMetarDist), clouds: clouds,
+                lowestBase: lowestBase !== Infinity ? lowestBase : 5000,
+                weather: { hasRain, hasSnow, hasTS }, visuals: visuals,
+                stnLat: closestMetar.lat, stnLon: closestMetar.lon,
+                fltCat: closestMetar.fltcat || closestMetar.fltCat || "VFR",
+                raw: raw
+            });
         }
     }
 
@@ -2894,6 +2900,7 @@ function vpToggleClouds() {
     } else {
         window.vpBgNeedsUpdate = true; // FIX: Hintergrund zum Löschen zwingen
         if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+        if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
     }
 }
 
