@@ -632,11 +632,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let wxMapMarkers = [];
 
-window.updateWeatherMarkerDodging = function() {
-    if (!map || typeof wxMapMarkers === 'undefined' || wxMapMarkers.length === 0) return;
-    
-    // Echtzeit-Koordinaten direkt aus der sichtbaren roten Linie holen
-    let pts = [];
+    window.updateWeatherMarkerDodging = function() {
+        if (!map || typeof wxMapMarkers === 'undefined' || wxMapMarkers.length === 0) return;
+        
+        // FIX: Verhindere NaN, wenn die Karte versteckt ist (Leaflet liefert dann 0,0 für alles)
+        const mapTable = document.getElementById('mapTableOverlay');
+        if (!mapTable || !mapTable.classList.contains('active')) {
+            wxMapMarkers.forEach(marker => {
+                const wrap = marker._icon ? marker._icon.querySelector('.wx-marker-wrap') : null;
+                if (wrap) wrap.style.transform = `translate(0px, 0px)`;
+            });
+            return;
+        }
+
+        // Echtzeit-Koordinaten direkt aus der sichtbaren roten Linie holen
+        let pts = [];
     if (typeof polyline !== 'undefined' && polyline) {
         pts = polyline.getLatLngs().map(ll => map.latLngToLayerPoint(ll));
     } else if (typeof routeWaypoints !== 'undefined' && routeWaypoints && routeWaypoints.length >= 2) {
@@ -716,17 +726,24 @@ window.renderWeatherMarkers = function() {
         let wspd = zone.wspd || 0;
         
         if (wdir && wdir !== 'VRB' && wspd > 0) {
+            let rotDir = (parseInt(wdir) + 180) % 360;
+            let wdir_rad = parseInt(wdir) * Math.PI / 180;
+            let a = 34; // Oval X-Radius (halbe Breite des Markers)
+            let b = 15; // Oval Y-Radius (halbe Höhe des Markers)
+            let r_ellipse = (a * b) / Math.sqrt(Math.pow(b * Math.sin(wdir_rad), 2) + Math.pow(a * Math.cos(wdir_rad), 2));
+            let transY = r_ellipse + 8; // Schiebt den Pfeil genau auf den Rand des Squircle
+
             windHtml = `
-            <div style="position:absolute; top:-28px; left:50%; width:2px; height:16px; background:${catColor}; transform-origin: 50% 39px; transform: translateX(-50%) rotate(${wdir}deg);">
+            <div style="position:absolute; top:50%; left:50%; width:2px; height:16px; background:${catColor}; transform: translate(-50%, -50%) rotate(${rotDir}deg) translateY(${transY}px); z-index:1;">
                 <div style="position:absolute; top:-4px; left:-3px; width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:6px solid ${catColor};"></div>
-                <div style="position:absolute; top:-16px; left:-15px; width:30px; text-align:center; color:${catColor}; font-size:10px; font-family:monospace; font-weight:bold; text-shadow: 1px 1px 2px #000; transform: rotate(-${wdir}deg);">${wspd}kt</div>
+                <div style="position:absolute; top:18px; left:-15px; width:30px; text-align:center; color:${catColor}; font-size:10px; font-family:monospace; font-weight:bold; text-shadow: 1px 1px 2px #000; transform: rotate(-${rotDir}deg);">${wspd}kt</div>
             </div>`;
         }
 
         const html = `
-            <div class="wx-marker-wrap" style="position:relative; transition: transform 0.2s ease-out;">
+            <div class="wx-marker-wrap" style="position:relative; transition: transform 0.2s ease-out; display: flex; align-items: center; justify-content: center;">
                 ${windHtml}
-                <div style="background: rgba(10,10,10,0.85); border: 2px solid ${catColor}; border-radius: 4px; padding: 2px 4px; color: ${catColor}; font-family: monospace; font-size: 11px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; position:relative; z-index:2;">
+                <div style="background: rgba(10,10,10,0.85); border: 2px solid ${catColor}; border-radius: 4px; padding: 2px 4px; color: ${catColor}; font-family: monospace; font-size: 11px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); position:relative; z-index:2;">
                     <span style="color:#fff; margin-right:4px;">${zone.icao}</span> ${catText}
                 </div>
             </div>

@@ -498,10 +498,18 @@ async function fetchRouteWeather(routePts, elevData, signal) {
         if (arr && arr.length) {
             console.log(`[Wetter] Chunk ${idx + 1}: ${arr.length} METAR-Stationen geliefert.`);
             totalInChunks += arr.length;
+            
+            // BULK CACHE: Füttert die Widgets sofort mit den heruntergeladenen Daten!
+            const useBulk = (typeof gpsState !== 'undefined' && gpsState.metarCache);
+            
             arr.forEach(m => {
-                if (!seen.has(m.icaoId)) {
+                if (m && m.icaoId && !seen.has(m.icaoId)) {
                     seen.add(m.icaoId);
                     activeMetars.push(m);
+                    
+                    if (useBulk) {
+                        gpsState.metarCache[m.icaoId] = { data: [m], isFallback: false, foundIcao: m.icaoId };
+                    }
                 }
             });
         } else {
@@ -536,11 +544,10 @@ async function fetchRouteWeather(routePts, elevData, signal) {
             let match, lowestBase = Infinity;
             
             while((match = cloudRegex.exec(raw)) !== null) {
-                const type = match[1];
                 const agl = parseInt(match[2], 10) * 100;
                 const msl = Math.round(agl + stnElevFt);
                 if (msl < lowestBase) lowestBase = msl;
-                clouds.push({ type, baseAgl: agl, baseMsl: msl });
+                clouds.push({ type: match[1], baseAgl: agl, baseMsl: msl });
             }
             
             const hasRain = /\b(-|\+)?(RA|DZ|SH|SHRA)\b/i.test(raw);
@@ -686,8 +693,8 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             if (!feat._render) continue;
             
             // FIX: X und Y live berechnen, damit Schilder mit der Bodenlinie wandern
-            const px = xOf(feat.distNM);
-            const py = getElevY(feat.distNM);
+            const px = xOf(feat._render.distNM);
+            const py = getElevY(feat._render.distNM);
             if (px < viewMinX - 50 || px > viewMaxX + 50) continue;
             
             if (feat.type === 'river') {

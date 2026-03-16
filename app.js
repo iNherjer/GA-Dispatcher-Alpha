@@ -1075,12 +1075,13 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
         let isFallback = false;
         let foundIcao = icao;
 
-        // --- CACHE LOGIK: Bei Theme-Wechsel nicht neu von der API laden ---
+        // --- CACHE LOGIK: Bulk-Daten aus dem Profil nutzen oder Theme-Wechsel abfangen ---
         const cacheKey = icao + (lat ? `_${lat.toFixed(2)}` : '') + (lon ? `_${lon.toFixed(2)}` : '');
-        if (gpsState.metarCache[cacheKey]) {
-            metarDataList = gpsState.metarCache[cacheKey].data;
-            isFallback = gpsState.metarCache[cacheKey].isFallback;
-            foundIcao = gpsState.metarCache[cacheKey].foundIcao;
+        const cachedEntry = gpsState.metarCache[cacheKey] || gpsState.metarCache[icao];
+        if (cachedEntry) {
+            metarDataList = cachedEntry.data;
+            isFallback = cachedEntry.isFallback;
+            foundIcao = cachedEntry.foundIcao;
         } else {
 
             async function safeFetch(urlObj, retries = 3) {
@@ -1188,13 +1189,17 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
         let windText = isVRB ? `VRB / ${wspd}${wgst} kt` : `${wdir}° / ${wspd}${wgst} kt`;
         if (wspd === 0) windText = "Calm (0 kt)";
 
+        const isMini = containerId.startsWith('wxPopup');
+        
+        // PERFORMANCE FIX: Wait-Schleife für Pisten-Daten nur ausführen, wenn es kein Mini-Popup ist!
         let retries = 0;
-        while (!runwayCache[foundIcao] && !runwayCache[icao] && retries < 15) {
-            await new Promise(r => setTimeout(r, 200));
-            retries++;
+        if (!isMini) {
+            while (!runwayCache[foundIcao] && !runwayCache[icao] && retries < 15) {
+                await new Promise(r => setTimeout(r, 200));
+                retries++;
+            }
         }
 
-        const isMini = containerId.startsWith('wxPopup');
         let rwyHdg = 0; let rwy1 = ""; let rwy2 = "";
         
         // Pisten-Infos nur laden, wenn wir NICHT im Mini-Popup sind (spart Platz & Zeit)
@@ -2222,32 +2227,35 @@ async function fetchRouteAirspaces(routePts) {
 }
 
 function renderAirspaceWarningsList() {
-    // Performance-Fix: Keine schweren DOM-Updates während User-Scroll/Drag!
-    if (window.vpIsFastRendering || window.vpUIInteractionActive) return;
-    const listEl = document.getElementById('routeAirspacesList');
-    if (!listEl) return;
+        // Performance-Fix: Keine schweren DOM-Updates während User-Scroll/Drag!
+        if (window.vpIsFastRendering || window.vpUIInteractionActive) return;
+        const listEl = document.getElementById('routeAirspacesList');
+        if (!listEl) return;
 
-    if (!activeAirspaces || activeAirspaces.length === 0) {
-        listEl.innerHTML = '<span style="color:#33ff33;">✅ Route frei – keine Konflikte erkannt.</span>';
-        return;
-    }
+        if (!activeAirspaces || activeAirspaces.length === 0) {
+            listEl.innerHTML = '<span style="color:#33ff33;">✅ Route frei – keine Konflikte erkannt.</span>';
+            return;
+        }
 
-    const filterCheckbox = document.getElementById('navLogAirspaceFilter');
-    const filterActive = filterCheckbox && filterCheckbox.checked;
+        const filterCheckbox = document.getElementById('navLogAirspaceFilter');
+        const filterActive = filterCheckbox && filterCheckbox.checked;
 
-    let fpResult = null;
-    if (filterActive && typeof vpElevationData !== 'undefined' && vpElevationData && vpElevationData.length >= 2) {
-        const cruiseAlt = parseInt(document.getElementById('altSliderMap')?.value || document.getElementById('altSlider')?.value || 4500);
-        const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
-        fpResult = computeFlightProfile(vpElevationData, cruiseAlt, vpClimbRate, vpDescentRate, tas);
-    }
+        // FIX: Wir müssen garantieren, dass wir dasselbe Array (Normal oder High-Res Zoom) nutzen wie das visuelle Profil!
+        const elevDataToUse = (typeof vpZoomLevel !== 'undefined' && vpZoomLevel < 100 && typeof vpHighResData !== 'undefined' && vpHighResData) ? vpHighResData : vpElevationData;
 
-    let finalAirspaces = activeAirspaces;
+        let fpResult = null;
+        if (filterActive && elevDataToUse && elevDataToUse.length >= 2) {
+            const cruiseAlt = parseInt(document.getElementById('altSliderMap')?.value || document.getElementById('altSlider')?.value || 4500);
+            const tas = parseInt(document.getElementById('tasSlider')?.value || 115);
+            fpResult = computeFlightProfile(elevDataToUse, cruiseAlt, vpClimbRate, vpDescentRate, tas);
+        }
 
-    if (filterActive && fpResult && fpResult.profile) {
-        // PERFORMANCE FIX: Kompletten Polygon-Check entfernt! Wir nutzen den bestehenden 2D-Schnittstellen-Cache.
-        const totalDist = vpElevationData[vpElevationData.length - 1].distNM;
-        const cachedAirspaces = getCachedAirspaceIntersections(vpElevationData, totalDist);
+        let finalAirspaces = activeAirspaces;
+
+        if (filterActive && fpResult && fpResult.profile) {
+            // PERFORMANCE FIX: Kompletten Polygon-Check entfernt! Wir nutzen den bestehenden 2D-Schnittstellen-Cache.
+            const totalDist = elevDataToUse[elevDataToUse.length - 1].distNM;
+            const cachedAirspaces = getCachedAirspaceIntersections(elevDataToUse, totalDist);
 
         finalAirspaces = activeAirspaces.filter(a => {
             // 1. Ist der Luftraum überhaupt im 2D-Cache? (Wenn nicht, überfliegen wir ihn in 2D gar nicht)
