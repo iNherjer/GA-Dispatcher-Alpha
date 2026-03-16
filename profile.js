@@ -281,6 +281,8 @@ function triggerVerticalProfileUpdate() {
         
         if (window._lastVpRouteKey !== cacheKey) {
             vpAltWaypoints = []; vpSegmentAlts = []; vpHighResData = null; vpZoomLevel = 100;
+            vpWeatherData = null;
+            if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
             const zd = document.getElementById('vpZoomDisplay'); if (zd) zd.textContent = '0%';
             window._lastVpRouteKey = cacheKey;
         }
@@ -320,8 +322,8 @@ function triggerVerticalProfileUpdate() {
                 vpWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData, currentSignal);
                 if (btnCl) btnCl.classList.remove('vp-loading-pulse');
                 
-                // FIX: Zwingt Layer 1 zum sofortigen Zeichnen, damit Wolken & Regen zeitgleich erscheinen!
                 window.vpBgNeedsUpdate = true; 
+                if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers(); // Sofort zeichnen, nicht auf Overpass warten!
             };
 
             const fetchOverpass = async () => {
@@ -354,7 +356,7 @@ function triggerVerticalProfileUpdate() {
                 }
             };
 
-            // Führe beide schweren Netzwerk-Tasks komplett parallel aus!
+            // Führe beide schweren Netzwerk-Tasks parallel aus
             await Promise.all([fetchWetter(), fetchOverpass()]);
             if (status) status.textContent = vpElevationData.length + ' Punkte & API-Daten geladen';
             
@@ -365,9 +367,6 @@ function triggerVerticalProfileUpdate() {
             const bC = document.getElementById('btnToggleClouds'); if(bC) bC.classList.remove('vp-loading-pulse');
             const bO = document.getElementById('btnToggleObstacles'); if(bO) bO.classList.remove('vp-loading-pulse');
             const bL = document.getElementById('btnToggleLinear'); if(bL) bL.classList.remove('vp-loading-pulse');
-            
-            // Marker IMMER am Ende synchronisieren, egal ob Error, Abort oder Success
-            if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
             if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
         }
     }, 150); // Nur noch 150ms Debounce statt fast 3 Sekunden!
