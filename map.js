@@ -727,29 +727,25 @@ window.renderWeatherMarkers = function() {
         
         if (wdir && wdir !== 'VRB' && wspd > 0) {
             let rotDir = (parseInt(wdir) + 180) % 360;
-            let wdir_rad = parseInt(wdir) * Math.PI / 180;
-            let a = 34; // Oval X-Radius (halbe Breite des Markers)
-            let b = 15; // Oval Y-Radius (halbe Höhe des Markers)
-            let r_ellipse = (a * b) / Math.sqrt(Math.pow(b * Math.sin(wdir_rad), 2) + Math.pow(a * Math.cos(wdir_rad), 2));
-            let transY = r_ellipse + 8; // Schiebt den Pfeil genau auf den Rand des Squircle
-
             windHtml = `
-            <div style="position:absolute; top:50%; left:50%; width:2px; height:16px; background:${catColor}; transform: translate(-50%, -50%) rotate(${rotDir}deg) translateY(${transY}px); z-index:1;">
-                <div style="position:absolute; top:-4px; left:-3px; width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:6px solid ${catColor};"></div>
-                <div style="position:absolute; top:18px; left:-15px; width:30px; text-align:center; color:${catColor}; font-size:10px; font-family:monospace; font-weight:bold; text-shadow: 1px 1px 2px #000; transform: rotate(-${rotDir}deg);">${wspd}kt</div>
+            <div style="margin-top: 4px; background: rgba(10,10,10,0.85); border: 1px solid #4da6ff; border-radius: 4px; padding: 2px 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+                <svg width="12" height="12" viewBox="0 0 24 24" style="transform: rotate(${rotDir}deg); margin-right: 4px; overflow: visible;">
+                    <path d="M12 2L12 22M12 2L5 9M12 2L19 9" stroke="#4da6ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span style="color:#4da6ff; font-family:monospace; font-size:11px; font-weight:bold;">${wspd}kt</span>
             </div>`;
         }
 
         const html = `
-            <div class="wx-marker-wrap" style="position:relative; transition: transform 0.2s ease-out; display: flex; align-items: center; justify-content: center;">
-                ${windHtml}
-                <div style="background: rgba(10,10,10,0.85); border: 2px solid ${catColor}; border-radius: 4px; padding: 2px 4px; color: ${catColor}; font-family: monospace; font-size: 11px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); position:relative; z-index:2;">
+            <div class="wx-marker-wrap" style="position:relative; transition: transform 0.2s ease-out; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <div style="background: rgba(10,10,10,0.85); border: 2px solid ${catColor}; border-radius: 4px; padding: 2px 5px; color: ${catColor}; font-family: monospace; font-size: 11px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); position:relative; z-index:2;">
                     <span style="color:#fff; margin-right:4px;">${zone.icao}</span> ${catText}
                 </div>
+                ${windHtml}
             </div>
         `;
 
-        const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [70, 22], iconAnchor: [35, 11] });
+        const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [80, 45], iconAnchor: [40, 15] });
         const marker = L.marker([zone.stnLat, zone.stnLon], { icon: icon, interactive: true }).addTo(map);
         
         // Kompaktes Popup-Container

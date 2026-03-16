@@ -358,9 +358,6 @@ function triggerVerticalProfileUpdate() {
             await Promise.all([fetchWetter(), fetchOverpass()]);
             if (status) status.textContent = vpElevationData.length + ' Punkte & API-Daten geladen';
             
-            // NEU: Wetter-Marker auf der Karte zeichnen
-            if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
-            
         } catch(e) {
             if (e && e.name !== 'AbortError') console.error('Profile Fetch Error:', e);
             if (status) status.textContent = 'API Error / Abgebrochen';
@@ -368,6 +365,9 @@ function triggerVerticalProfileUpdate() {
             const bC = document.getElementById('btnToggleClouds'); if(bC) bC.classList.remove('vp-loading-pulse');
             const bO = document.getElementById('btnToggleObstacles'); if(bO) bO.classList.remove('vp-loading-pulse');
             const bL = document.getElementById('btnToggleLinear'); if(bL) bL.classList.remove('vp-loading-pulse');
+            
+            // Marker IMMER am Ende synchronisieren, egal ob Error, Abort oder Success
+            if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
             if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
         }
     }, 150); // Nur noch 150ms Debounce statt fast 3 Sekunden!
@@ -489,7 +489,7 @@ async function fetchRouteWeather(routePts, elevData, signal) {
     }
 
     const results = await Promise.all(promises);
-    if (signal && signal.aborted) return null;
+    if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
     let seen = new Set();
     let totalInChunks = 0;
@@ -1169,14 +1169,19 @@ function vpDrawAnimatedWeather(ctx, xOf, yOf, totalDist, elevData, timeMs, viewM
                 if (zone.weather.hasSnow) {
                     const sway = Math.sin(timeMs * 0.002 + d) * 4 * drop.spd;
                     const snowDrift = currentYOffset * 0.15; 
-                    const sx = dropX + sway - snowDrift;
+                    let rawSx = dropX + sway - snowDrift;
+                    // FIX: Zwingt den Schnee durch Modulo-Wrap immer in der exakten Stations-Breite (Zone) zu bleiben!
+                    const sx = startX + ((rawSx - startX) % width + width) % width;
+                    
                     ctx.moveTo(sx, sy);
                     ctx.arc(sx, sy, 0.8 + drop.spd, 0, Math.PI*2);
                 } else {
                     const tailLength = 6 + drop.spd * 8;
                     const windSlant = 2 + drop.spd * 4; 
                     const driftRatio = windSlant / tailLength;
-                    const currentX = dropX - (currentYOffset * driftRatio);
+                    let rawX = dropX - (currentYOffset * driftRatio);
+                    // FIX: Zwingt den Regen durch Modulo-Wrap immer in der exakten Stations-Breite (Zone) zu bleiben!
+                    const currentX = startX + ((rawX - startX) % width + width) % width;
 
                     ctx.moveTo(currentX, sy);
                     ctx.lineTo(currentX - windSlant, sy + tailLength); 
