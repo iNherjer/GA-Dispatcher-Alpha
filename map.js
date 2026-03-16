@@ -132,6 +132,18 @@ function renderMainRoute() {
                 }
             });
 
+        marker.on('drag', function (e) {
+            if (polyline) {
+                const latlngs = polyline.getLatLngs();
+                latlngs[index] = marker.getLatLng();
+                polyline.setLatLngs(latlngs);
+                if (typeof window.hitBoxPolyline !== 'undefined' && window.hitBoxPolyline) {
+                    window.hitBoxPolyline.setLatLngs(latlngs);
+                }
+                if (typeof updateWeatherMarkerDodging === 'function') updateWeatherMarkerDodging();
+            }
+        });
+
             marker.on('dragend', function (e) {
                 let dropLatLng = marker.getLatLng();
 
@@ -176,6 +188,7 @@ function renderMainRoute() {
     });
 
     updateRoutePerformance(); updateMiniMap();
+    if (typeof updateWeatherMarkerDodging === 'function') updateWeatherMarkerDodging();
 }
 
 function updateRoutePerformance() {
@@ -335,12 +348,23 @@ function initMapBase() {
     L.control.layers(baseMaps, overlayMaps).addTo(map);
     
     map.on('overlayadd', function (e) {
-        if (e.name === "🛩️ VFR Lufträume (Overlay)") topoMap.setOpacity(0.5);
+        // Schaltet DFS ab, wenn VFR-Lufträume aktiviert werden
+        if (e.name === "🛩️ VFR Lufträume (Overlay)") {
+            if (typeof dfsIcaoOverlay !== 'undefined' && map.hasLayer(dfsIcaoOverlay)) map.removeLayer(dfsIcaoOverlay);
+            topoMap.setOpacity(0.5);
+        }
+        // Schaltet VFR-Lufträume ab, wenn DFS aktiviert wird
+        if (e.name === "🗺️ DFS ICAO Karte 1:500k") {
+            if (typeof aeroOverlay !== 'undefined' && map.hasLayer(aeroOverlay)) map.removeLayer(aeroOverlay);
+            topoMap.setOpacity(1.0);
+        }
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'true');
     });
     
     map.on('overlayremove', function (e) {
-        if (e.name === "🛩️ VFR Lufträume (Overlay)") topoMap.setOpacity(1.0);
+        if (e.name === "🛩️ VFR Lufträume (Overlay)") {
+            topoMap.setOpacity(1.0);
+        }
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'false');
     });
     
@@ -578,14 +602,100 @@ async function fetchOpenAIPData() {
 /* =========================================================
    WETTER MARKER AUF DER KARTE (VFR / IFR)
    ========================================================= */
+window.vpShowMapMetar = localStorage.getItem('ga_show_map_metar') !== 'false';
+
+window.toggleMapMetars = function() {
+    window.vpShowMapMetar = !window.vpShowMapMetar;
+    localStorage.setItem('ga_show_map_metar', window.vpShowMapMetar);
+    const btn = document.getElementById('mapMetarBtn');
+    if (btn) {
+        btn.innerText = window.vpShowMapMetar ? '🌤️ METARs (An)' : '🌤️ METARs (Aus)';
+        btn.style.background = window.vpShowMapMetar ? '#4da6ff' : '#444';
+        btn.style.color = window.vpShowMapMetar ? '#111' : '#fff';
+    }
+    // API triggern falls Wetter gebraucht wird, ansonsten nur Marker neu rendern
+    if (window.vpShowMapMetar && typeof window._lastVpRouteKey !== 'undefined') {
+        if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
+    } else {
+        if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('mapMetarBtn');
+    if (btn) {
+        btn.innerText = window.vpShowMapMetar ? '🌤️ METARs (An)' : '🌤️ METARs (Aus)';
+        btn.style.background = window.vpShowMapMetar ? '#4da6ff' : '#444';
+        btn.style.color = window.vpShowMapMetar ? '#111' : '#fff';
+    }
+});
+
 let wxMapMarkers = [];
+
+window.updateWeatherMarkerDodging = function() {
+    if (!map || typeof wxMapMarkers === 'undefined' || wxMapMarkers.length === 0) return;
+    
+    // Echtzeit-Koordinaten direkt aus der sichtbaren roten Linie holen
+    let pts = [];
+    if (typeof polyline !== 'undefined' && polyline) {
+        pts = polyline.getLatLngs().map(ll => map.latLngToLayerPoint(ll));
+    } else if (typeof routeWaypoints !== 'undefined' && routeWaypoints && routeWaypoints.length >= 2) {
+        pts = routeWaypoints.map(wp => map.latLngToLayerPoint([wp.lat, wp.lng || wp.lon]));
+    } else return;
+    
+    wxMapMarkers.forEach(marker => {
+        const wrap = marker._icon ? marker._icon.querySelector('.wx-marker-wrap') : null;
+        if (!wrap) return;
+        
+        const mPx = map.latLngToLayerPoint(marker.getLatLng());
+        let minDist = Infinity;
+        let pushVec = { x: 0, y: 0 };
+        
+        // Abstand zu den Liniensegmenten
+        for (let i = 0; i < pts.length - 1; i++) {
+            const p1 = pts[i], p2 = pts[i+1];
+            const l2 = Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2);
+            let t = 0;
+            if (l2 > 0) t = Math.max(0, Math.min(1, ((mPx.x - p1.x) * (p2.x - p1.x) + (mPx.y - p1.y) * (p2.y - p1.y)) / l2));
+            const projX = p1.x + t * (p2.x - p1.x);
+            const projY = p1.y + t * (p2.y - p1.y);
+            
+            const dist = Math.sqrt(Math.pow(mPx.x - projX, 2) + Math.pow(mPx.y - projY, 2));
+            if (dist < minDist) {
+                minDist = dist;
+                if (dist > 0) pushVec = { x: (mPx.x - projX) / dist, y: (mPx.y - projY) / dist };
+                else pushVec = { x: 1, y: 1 };
+            }
+        }
+        
+        // Abstand zu den Wegpunkten selbst prüfen
+        pts.forEach(p => {
+            const dist = Math.sqrt(Math.pow(mPx.x - p.x, 2) + Math.pow(mPx.y - p.y, 2));
+            if (dist < minDist) {
+                minDist = dist;
+                if (dist > 0) pushVec = { x: (mPx.x - p.x) / dist, y: (mPx.y - p.y) / dist };
+                else pushVec = { x: 1, y: 1 };
+            }
+        });
+        
+        const THRESHOLD = 45; 
+        if (minDist < THRESHOLD) {
+            const force = THRESHOLD - minDist + 15; 
+            wrap.style.transition = 'transform 0.1s linear';
+            wrap.style.transform = `translate(${pushVec.x * force}px, ${pushVec.y * force}px)`;
+        } else {
+            wrap.style.transition = 'transform 0.2s ease-out';
+            wrap.style.transform = `translate(0px, 0px)`;
+        }
+    });
+};
 
 window.renderWeatherMarkers = function() {
     if (!map) return;
     wxMapMarkers.forEach(m => map.removeLayer(m));
     wxMapMarkers = [];
 
-    if (typeof vpShowClouds !== 'undefined' && !vpShowClouds) return;
+    if (!window.vpShowMapMetar) return;
     if (typeof vpWeatherData === 'undefined' || !vpWeatherData || vpWeatherData.length === 0) return;
 
     let seenIcao = new Set();
@@ -601,18 +711,47 @@ window.renderWeatherMarkers = function() {
         else if (catText === "IFR") catColor = "#ff4444";
         else if (catText === "LIFR") catColor = "#ff33ff";
 
+        let windHtml = '';
+        let wdir = zone.wdir;
+        let wspd = zone.wspd || 0;
+        
+        if (wdir && wdir !== 'VRB' && wspd > 0) {
+            windHtml = `
+            <div style="position:absolute; top:-28px; left:50%; width:2px; height:16px; background:${catColor}; transform-origin: 50% 39px; transform: translateX(-50%) rotate(${wdir}deg);">
+                <div style="position:absolute; top:-4px; left:-3px; width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:6px solid ${catColor};"></div>
+                <div style="position:absolute; top:-16px; left:-15px; width:30px; text-align:center; color:${catColor}; font-size:10px; font-family:monospace; font-weight:bold; text-shadow: 1px 1px 2px #000; transform: rotate(-${wdir}deg);">${wspd}kt</div>
+            </div>`;
+        }
+
         const html = `
-            <div style="background: rgba(10,10,10,0.85); border: 2px solid ${catColor}; border-radius: 4px; padding: 2px 4px; color: ${catColor}; font-family: monospace; font-size: 11px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;">
-                <span style="color:#fff; margin-right:4px;">${zone.icao}</span> ${catText}
+            <div class="wx-marker-wrap" style="position:relative; transition: transform 0.2s ease-out;">
+                ${windHtml}
+                <div style="background: rgba(10,10,10,0.85); border: 2px solid ${catColor}; border-radius: 4px; padding: 2px 4px; color: ${catColor}; font-family: monospace; font-size: 11px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; position:relative; z-index:2;">
+                    <span style="color:#fff; margin-right:4px;">${zone.icao}</span> ${catText}
+                </div>
             </div>
         `;
 
         const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [70, 22], iconAnchor: [35, 11] });
         const marker = L.marker([zone.stnLat, zone.stnLon], { icon: icon, interactive: true }).addTo(map);
         
-        // Popup mit dem RAW METAR 
-        marker.bindPopup(`<div style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: bold; color: #222; background: #f0eada; padding: 8px; border-radius: 4px; border: 1px solid #c2bba8; margin: -5px;">${zone.raw}</div>`);
+        // Kompaktes Popup-Container
+        const popupId = `wxPopup_${zone.icao}`;
+        marker.bindPopup(`<div id="${popupId}" style="width: 250px; min-height: 120px; display: flex; align-items: center; justify-content: center; color: #888; font-family: Arial, sans-serif; margin: -5px;">Lade METAR...</div>`, { maxWidth: 300 });
+        
+        // Rendert das moderne, kompakte Widget (forceModern=true) beim Klick
+        marker.on('popupopen', () => {
+            if (typeof loadMetarWidget === 'function') {
+                loadMetarWidget(zone.icao, popupId, zone.stnLat, zone.stnLon, true);
+            }
+        });
         
         wxMapMarkers.push(marker);
     });
+
+    if (!map._wxDodgingBound) {
+        map.on('move zoom moveend zoomend mousemove', () => { if (typeof updateWeatherMarkerDodging === 'function') updateWeatherMarkerDodging(); });
+        map._wxDodgingBound = true;
+    }
+    setTimeout(updateWeatherMarkerDodging, 50);
 };

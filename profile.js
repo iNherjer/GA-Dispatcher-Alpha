@@ -314,7 +314,7 @@ function triggerVerticalProfileUpdate() {
             
             // 3. PARALLELER FETCH: Wetter & Overpass
             const fetchWetter = async () => {
-                if (!vpShowClouds) return;
+                if (!vpShowClouds && !(typeof window.vpShowMapMetar !== 'undefined' && window.vpShowMapMetar)) return;
                 const btnCl = document.getElementById('btnToggleClouds');
                 if (btnCl) btnCl.classList.add('vp-loading-pulse');
                 vpWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData, currentSignal);
@@ -565,7 +565,9 @@ async function fetchRouteWeather(routePts, elevData, signal) {
                 weather: { hasRain, hasSnow, hasTS }, visuals: visuals,
                 stnLat: closestMetar.lat, stnLon: closestMetar.lon,
                 fltCat: closestMetar.fltcat || closestMetar.fltCat || "VFR",
-                raw: raw
+                raw: raw,
+                wdir: closestMetar.wdir, 
+                wspd: closestMetar.wspd
             });
         }
     }
@@ -2898,9 +2900,8 @@ function vpToggleClouds() {
     if (vpShowClouds && window._lastVpRouteKey) {
         triggerVerticalProfileUpdate();
     } else {
-        window.vpBgNeedsUpdate = true; // FIX: Hintergrund zum Löschen zwingen
+        window.vpBgNeedsUpdate = true;
         if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
-        if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
     }
 }
 
