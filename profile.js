@@ -653,9 +653,12 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             return yOf(elevData[elevData.length-1].elevFt);
         };
         
-        // PERFORMANCE FIX: Layout nur 1x pro Zoom-Stufe UND maxAlt berechnen!
-        const layoutKey = zoomFactor.toFixed(2) + '_' + (maxAlt || 0).toFixed(0);
-        if (!window._vpLinearLayouts || window._vpLinearLayouts.key !== layoutKey) {
+        // PERFORMANCE FIX: Layout nur 1x pro Zoom-Stufe, maxAlt UND aktueller Route berechnen!
+        const routeKey = window._lastVpRouteKey || 'none';
+        const layoutKey = routeKey + '_' + zoomFactor.toFixed(2) + '_' + (maxAlt || 0).toFixed(0);
+        
+        // Neu berechnen, wenn sich der Cache-Key ändert ODER die Features noch keine Render-Daten haben
+        if (!window._vpLinearLayouts || window._vpLinearLayouts.key !== layoutKey || (vpLinearFeatures.length > 0 && !vpLinearFeatures[0]._render)) {
             let occupiedSigns = [];
             for (const feat of vpLinearFeatures) {
                 const px = xOf(feat.distNM);
@@ -692,8 +695,8 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             if (!feat._render) continue;
             
             // FIX: X und Y live berechnen, damit Schilder mit der Bodenlinie wandern
-            const px = xOf(feat._render.distNM);
-            const py = getElevY(feat._render.distNM);
+            const px = xOf(feat.distNM);
+            const py = getElevY(feat.distNM);
             if (px < viewMinX - 50 || px > viewMaxX + 50) continue;
             
             if (feat.type === 'river') {
@@ -729,9 +732,12 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
         return yOf(elevData[elevData.length-1].elevFt);
     };
     
-    // PERFORMANCE FIX: Kollisionen nur 1x pro Zoom-Stufe UND maxAlt berechnen
-    const layoutKey = zoomFactor.toFixed(2) + '_' + (maxAlt || 0).toFixed(0) + '_' + (window.vpShowLinear ? '1' : '0');
-    if (!window._vpLandmarkLayouts || window._vpLandmarkLayouts.key !== layoutKey) {
+    // PERFORMANCE FIX: Kollisionen nur 1x pro Zoom-Stufe, maxAlt UND aktueller Route berechnen
+    const routeKey = window._lastVpRouteKey || 'none';
+    const layoutKey = routeKey + '_' + zoomFactor.toFixed(2) + '_' + (maxAlt || 0).toFixed(0) + '_' + (window.vpShowLinear ? '1' : '0');
+    
+    // Neu berechnen, wenn sich der Cache-Key ändert ODER die Städte noch keine Render-Daten haben
+    if (!window._vpLandmarkLayouts || window._vpLandmarkLayouts.key !== layoutKey || (vpLandmarks.length > 0 && !vpLandmarks[0]._render)) {
         let globalOccupiedX = [];
         const nmPerPx = totalDist / (xOf(totalDist) - xOf(0));
         const edgePad = Math.min(2.5, totalDist * 0.05);
@@ -2954,9 +2960,14 @@ function vpToggleLinearFeatures() {
     const btn = document.getElementById('btnToggleLinear');
     if (btn) btn.classList.toggle('active', vpShowLinear);
     
-    window.vpBgNeedsUpdate = true; // FIX: Hintergrund zum Löschen zwingen
-    if (typeof window.throttledRenderProfiles === 'function') {
-        window.throttledRenderProfiles();
+    if (vpShowLinear && window._lastVpRouteKey) {
+        // Löscht den Kombi-Cache für Hindernisse & Straßen und triggert einen sauberen Neubau
+        localStorage.removeItem('ga_obs_combo_' + window._lastVpRouteKey);
+        window._lastObsRouteKey = null; 
+        triggerVerticalProfileUpdate();
+    } else {
+        window.vpBgNeedsUpdate = true; // Hintergrund zum Löschen zwingen
+        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
     }
 }
 
