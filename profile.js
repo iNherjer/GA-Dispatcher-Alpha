@@ -239,8 +239,8 @@ async function fetchProfileObstacles(elevData, signal) {
         }
 
         if (!batchSuccess) {
-            console.error(`[Overpass] Batch ${batchNum} endgültig gescheitert. Breche ab, um unvollständigen Cache zu verhindern.`);
-            return null;
+            console.error(`[Overpass] Batch ${batchNum} endgültig gescheitert. Liefere bisher gesammelte partielle Daten.`);
+            break; // Wir brechen nur die Schleife ab, behalten aber alle bereits geladenen Hindernisse!
         }
 
         // Minimale Atempause (nur nötig bei Flügen > 125 NM)
@@ -282,6 +282,8 @@ function triggerVerticalProfileUpdate() {
         if (window._lastVpRouteKey !== cacheKey) {
             vpAltWaypoints = []; vpSegmentAlts = []; vpHighResData = null; vpZoomLevel = 100;
             vpWeatherData = null;
+            vpObstacles = []; // NEU: Alte Hindernisse sofort löschen
+            vpLinearFeatures = []; // NEU: Alte Straßen/Flüsse sofort löschen
             if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
             const zd = document.getElementById('vpZoomDisplay'); if (zd) zd.textContent = '0%';
             window._lastVpRouteKey = cacheKey;
