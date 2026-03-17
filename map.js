@@ -1,4 +1,11 @@
 /* === MAP, ROUTING & LEAFLET ENGINE === */
+if (!document.getElementById('route-anim-style')) {
+    const style = document.createElement('style');
+    style.id = 'route-anim-style';
+    // -20 lässt die Striche der Linie vorwärts (Richtung Ziel) fließen
+    style.innerHTML = `@keyframes routeDashAnim { to { stroke-dashoffset: -20; } } .animated-route-line { animation: routeDashAnim 1.5s linear infinite; }`;
+    document.head.appendChild(style);
+}
 /* =========================================================
    7. KARTE (LEAFLET, KARTENTISCH & MESS-WERKZEUG)
    ========================================================= */
@@ -7,6 +14,7 @@ const hitBoxIcon = (color) => L.divIcon({ className: 'custom-pin', html: hitBoxH
 
 const startIcon = hitBoxIcon('#44ff44'), destIcon = hitBoxIcon('#ff4444');
 const wpIcon = L.divIcon({ className: 'custom-pin', html: `<div class="pin-hitbox" style="cursor: move;"><div class="pin-dot" style="background-color: #fdfd86;"></div></div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
+const poiIcon = L.divIcon({ className: 'custom-pin', html: `<div class="pin-hitbox" style="cursor: move;"><div class="pin-dot" style="background-color: #b266ff; border: 2px solid #fff;"></div></div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
 const measureIcon = L.divIcon({ className: 'custom-pin', html: `<div class="pin-hitbox" style="cursor: move;"><div class="pin-dot" style="background-color: #fff; width: 12px; height: 12px; min-width: 12px; min-height: 12px;"></div></div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
 
 function toggleMeasureMode() {
@@ -68,7 +76,8 @@ function renderMainRoute() {
     }
 
     if (!polyline) {
-        polyline = L.polyline(routeWaypoints, { color: '#ff4444', weight: 8, dashArray: '10,10', interactive: false }).addTo(map);
+        // className 'animated-route-line' hinzugefügt für den CSS-Fluss!
+        polyline = L.polyline(routeWaypoints, { color: '#ff4444', weight: 8, dashArray: '10,10', className: 'animated-route-line', interactive: false }).addTo(map);
     } else {
         polyline.setLatLngs(routeWaypoints);
     }
@@ -91,14 +100,22 @@ function renderMainRoute() {
 
     routeWaypoints.forEach((latlng, index) => {
         let isStart = (index === 0), isDest = (index === routeWaypoints.length - 1 && routeWaypoints.length > 1);
-        let icon = isStart ? startIcon : (isDest ? destIcon : wpIcon);
+        let isPOI = routeWaypoints[index].isPOI === true;
+        
+        let icon = isStart ? startIcon : (isDest ? destIcon : (isPOI ? poiIcon : wpIcon));
+        // Wir erlauben das Draggen von POIs und Wegpunkten. Start/Dest bleiben fix.
         let draggable = (!isStart && !isDest);
-        let marker = L.marker(latlng, { icon: icon, draggable: draggable }).addTo(map);
+        // POI Marker immer nach vorne holen (Z-Index), damit er nicht hinter der Linie verschwindet
+        let marker = L.marker(latlng, { icon: icon, draggable: draggable, zIndexOffset: isPOI ? 1000 : 0 }).addTo(map);
 
         if (isStart) {
             marker.bindPopup(`<b>DEP:</b> ${currentSName}`);
         } else if (isDest) {
-            marker.bindPopup(`<b>DEST:</b> ${currentDName}`);
+            // Bei einem Rundflug heißt das Ziel wieder so wie der Startplatz
+            marker.bindPopup(`<b>DEST:</b> ${currentMissionData?.poiName ? currentSName : currentDName}`);
+        } else if (isPOI) {
+            // POIs bekommen ein spezielles lila Popup ohne Löschen-Button (da es das Missionsziel ist)
+            marker.bindPopup(`<div style="text-align:center; color:#b266ff;"><b>${routeWaypoints[index].name}</b></div>`);
         } else {
             let wpName = routeWaypoints[index].name ? `<b>${routeWaypoints[index].name}</b>` : `<b>Wegpunkt</b>`;
             marker.bindPopup(`<div style="text-align:center;">${wpName}<br><button onclick="removeRouteWaypoint(${index})" style="margin-top:5px; background:#d93829; color:#fff; border:none; padding:4px 8px; cursor:pointer; border-radius: 2px;">🗑️ Löschen</button></div>`);
@@ -212,7 +229,14 @@ function updateRoutePerformance() {
         let isEnd = (i === routeWaypoints.length - 2);
 
         let name1 = isStart ? currentStartICAO : (routeWaypoints[i].name || `WP ${i}`);
-        let name2 = isEnd ? (currentMissionData?.poiName ? 'POI' : currentDestICAO) : (routeWaypoints[i + 1].name || `WP ${i + 1}`);
+        
+        let name2;
+        if (isEnd) {
+            // Bei einem Rundflug (POI-Mission) ist das Endziel der Startplatz
+            name2 = (currentMissionData && currentMissionData.poiName) ? currentStartICAO : currentDestICAO;
+        } else {
+            name2 = routeWaypoints[i + 1].name || `WP ${i + 1}`;
+        }
 
         let cleanName1 = name1.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
         let cleanName2 = name2.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
@@ -400,7 +424,25 @@ function initMapBase() {
 function updateMap(lat1, lon1, lat2, lon2, s, d) {
     if (!map) initMapBase();
     currentSName = s || "Start"; currentDName = d || "Ziel";
-    routeWaypoints = [{ lat: lat1, lng: lon1 }, { lat: lat2, lng: lon2 }];
+    
+    // POI-Check: Wenn poiName gesetzt ist, bauen wir ein Rundflug-Dreieck
+    if (currentMissionData && currentMissionData.poiName) {
+        // Berechnung des direkten Rückwegs (vom POI zurück zum Start)
+        const returnNav = calcNav(lat2, lon2, lat1, lon1);
+        // Wir biegen den Rückflug um 20 Grad ab und legen den Wegpunkt auf ~45% der Strecke
+        const offsetBearing = (returnNav.brng + 20) % 360;
+        const returnWp = getDestinationPoint(lat2, lon2, returnNav.dist * 0.45, offsetBearing);
+        
+        routeWaypoints = [
+            { lat: lat1, lng: lon1 }, 
+            { lat: lat2, lng: lon2, name: "🎯 " + currentMissionData.poiName, isPOI: true }, 
+            { lat: returnWp.lat, lng: returnWp.lon, name: "Return Leg" }, 
+            { lat: lat1, lng: lon1, name: currentSName } // HIER: Name explizit auf den Startplatz setzen für das Höhenband!
+        ];
+    } else {
+        routeWaypoints = [{ lat: lat1, lng: lon1 }, { lat: lat2, lng: lon2 }];
+    }
+    
     renderMainRoute();
 }
 

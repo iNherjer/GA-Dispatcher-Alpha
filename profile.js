@@ -77,197 +77,120 @@ async function fetchProfileLandmarks(elevData) {
 
 
 
-async function fetchProfileObstacles(elevData, signal) {
-    if (!elevData || elevData.length < 2) return [];
+// Helper for fetch with timeout
+async function fetchWithTimeout(resource, options = {}) {
+    const { timeout = 8000 } = options;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    const response = await fetch(resource, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return response;
+}
 
-    const bboxes = [];
-    let currentChunk = [];
-    let chunkStart = 0;
-    const CHUNK_NM = 25; // 25 NM Segmente
+window.fetchObstaclesAlongRoute = async function(routeWaypoints, elevData) {
+    vpObstacles = [];
+    vpLinearFeatures = [];
+    if (!routeWaypoints || routeWaypoints.length < 2) return;
+    const chunkSize = 5;
+    
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const endpoints = [
+        'https://overpass-api.de/api/interpreter',
+        'https://lz4.overpass-api.de/api/interpreter',
+        'https://overpass.kumi.systems/api/interpreter'
+    ];
 
-    for (let i = 0; i < elevData.length; i++) {
-        currentChunk.push(elevData[i]);
-        if (elevData[i].distNM - chunkStart >= CHUNK_NM || i === elevData.length - 1) {
-            let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
-            currentChunk.forEach(p => {
-                if (p.lat < minLat) minLat = p.lat;
-                if (p.lat > maxLat) maxLat = p.lat;
-                if (p.lon < minLon) minLon = p.lon;
-                if (p.lon > maxLon) maxLon = p.lon;
-            });
-            bboxes.push(`${(minLat - 0.035).toFixed(4)},${(minLon - 0.05).toFixed(4)},${(maxLat + 0.035).toFixed(4)},${(maxLon + 0.05).toFixed(4)}`);
-            currentChunk = [elevData[i]]; 
-            chunkStart = elevData[i].distNM;
+    for (let i = 0; i < routeWaypoints.length - 1; i += chunkSize) {
+        let chunkEnd = Math.min(i + chunkSize, routeWaypoints.length - 1);
+        let centers = [];
+        for (let j = i; j < chunkEnd; j++) {
+            const p1 = routeWaypoints[j], p2 = routeWaypoints[j+1];
+            let cLat = (p1.lat + p2.lat) / 2;
+            let p1lng = p1.lng || p1.lon || 0;
+            let p2lng = p2.lng || p2.lon || 0;
+            let cLon = (p1lng + p2lng) / 2;
+            centers.push({lat: cLat, lon: cLon});
         }
-    }
 
-    const BATCH_SIZE = 5; // 125 NM pro Batch - Reduziert API-Aufrufe auf 1-2 pro Flug!
-    let rawObstacles = [];
-    let anySuccess = false;
-    let rawLinearFeatures = [];
+        let queryParts = centers.map(c => `
+            node["generator:source"="wind"](around:2500,${c.lat},${c.lon});
+            node["man_made"~"mast|tower|communications_tower|chimney"](around:2500,${c.lat},${c.lon});
+            way["highway"="motorway"](around:2000,${c.lat},${c.lon});
+            way["waterway"="river"](around:2000,${c.lat},${c.lon});
+        `).join('');
 
-    console.log(`[Overpass] Starte Hindernis-Suche. ${bboxes.length} Boxen total. Teile in Batches von ${BATCH_SIZE}.`);
-
-    for (let i = 0; i < bboxes.length; i += BATCH_SIZE) {
-        const batch = bboxes.slice(i, i + BATCH_SIZE);
-        let queryBody = batch.map(b => `node["generator:source"="wind"](${b});node["man_made"~"mast|tower"]["height"](${b});way["highway"="motorway"](${b});way["waterway"="river"](${b});`).join('');
-        let query = `[out:json][timeout:25];(${queryBody});out geom qt;`;
-
-        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(bboxes.length / BATCH_SIZE);
-        console.log(`[Overpass] Fetching Batch ${batchNum} / ${totalBatches}...`);
-
-        let retries = 3; // Erhöht auf 3 Versuche
-        let batchSuccess = false;
-
-        while (retries > 0 && !batchSuccess) {
+        const query = `[out:json][timeout:15];(${queryParts});out center;`;
+        
+        for (let retry = 0; retry < 3; retry++) {
             try {
-                if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
-
-                // 1. Versuch: Hauptserver
-                let res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal });
+                const endpoint = endpoints[(Math.floor(i / chunkSize) + retry) % endpoints.length];
+                const url = `${endpoint}?data=${encodeURIComponent(query)}`;
+                const res = await fetchWithTimeout(url, { timeout: 10000 });
                 
-                // 2. Versuch: Wenn Hauptserver zickt, sofort auf Fallback lz4 wechseln
                 if (!res.ok) {
-                    console.warn(`[Overpass] Hauptserver Fehler (Status: ${res.status}) bei Batch ${batchNum}. Versuche lz4 Fallback...`);
-                    res = await fetch(`https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal });
+                    if (res.status === 429) { await sleep(1500); continue; }
+                    throw new Error(`HTTP Error ${res.status}`);
                 }
+                
+                const data = await res.json();
+                if (data && data.elements) {
+                    data.elements.forEach(el => {
+                        let lat = el.lat || (el.center && el.center.lat);
+                        let lon = el.lon || (el.center && el.center.lon);
+                        if (!lat || !lon) return;
+                        
+                        let type = 'unknown';
+                        if (el.tags) {
+                            if (el.tags['generator:source'] === 'wind') type = 'wind';
+                            else if (el.tags['highway'] === 'motorway') type = 'highway';
+                            else if (el.tags['waterway'] === 'river') type = 'river';
+                            else if (el.tags['man_made'] === 'tower' || el.tags['man_made'] === 'communications_tower') type = 'tower';
+                            else if (el.tags['man_made'] === 'chimney') type = 'chimney';
+                            else if (el.tags['man_made'] === 'mast') type = 'tower';
+                        }
+                        
+                        let elev = 0;
+                        if (type === 'wind') elev = 450;
+                        else if (type === 'tower') elev = 300;
+                        else if (type === 'chimney') elev = 250;
+                        
+                        // distNM calculation for the obstacle/feature
+                        let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
+                        if (elevData) {
+                            elevData.forEach(ep => {
+                                let d = calcNav(lat, lon, ep.lat, ep.lon).dist;
+                                if (d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
+                            });
+                        }
+                        if (bestD > 3.0) return; // Too far from route
 
-                // 3. Auswertung: Bei 429 drastisch längere Pause einlegen!
-                if (res.status === 429) {
-                    console.warn(`[Overpass] Beide Server blocken (429 Rate Limit) bei Batch ${batchNum}. Warte 5s (Cool-Down)...`);
-                    await new Promise(r => setTimeout(r, 5000)); // Längere Strafe absitzen
-                    retries--;
-                    continue;
-                }
-
-                if (res.ok) {
-                    batchSuccess = true;
-                    anySuccess = true;
-                    let json = await res.json();
-                    console.log(`[Overpass] Batch ${batchNum} erfolgreich. ${json.elements ? json.elements.length : 0} Rohelemente.`);
-                    
-                    if (json.elements) {
-                        json.elements.forEach(e => {
-                            // A) KNOTEN (Hindernisse)
-                            if (e.type === 'node' && e.lat && e.lon) {
-                                let isWind = e.tags && e.tags["generator:source"] === "wind";
-                                let hStr = e.tags && e.tags.height ? e.tags.height : null;
-                                let hMeter = hStr ? parseFloat(hStr.replace(',', '.')) : (isWind ? 120 : 50);
-                                if (isNaN(hMeter) || hMeter < 30) return;
-                                
-                                let hFt = Math.round(hMeter * 3.28084);
-                                let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
-                                elevData.forEach(ep => {
-                                    let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
-                                    if (d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
-                                });
-                                if (bestD < 2.0) rawObstacles.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
-                            
-                            // B) LINIEN (Flüsse & Autobahnen kreuzen Route)
-                            } else if (e.type === 'way' && e.geometry && e.tags) {
-                                let featType = e.tags.highway ? 'highway' : 'river';
-                                let name = e.tags.name || e.tags.ref || '';
-                                if (!name && featType === 'highway') return;
-
-                                if (typeof routeWaypoints !== 'undefined' && routeWaypoints.length >= 2) {
-                                    for (let i = 0; i < routeWaypoints.length - 1; i++) {
-                                        let rp0 = {lat: routeWaypoints[i].lat, lon: routeWaypoints[i].lng||routeWaypoints[i].lon};
-                                        let rp1 = {lat: routeWaypoints[i+1].lat, lon: routeWaypoints[i+1].lng||routeWaypoints[i+1].lon};
-                                        
-                                        for(let j = 0; j < e.geometry.length - 1; j++) {
-                                            let wp0 = e.geometry[j];
-                                            let wp1 = e.geometry[j+1];
-                                            let s1_x = wp1.lon - wp0.lon; let s1_y = wp1.lat - wp0.lat;
-                                            let s2_x = rp1.lon - rp0.lon; let s2_y = rp1.lat - rp0.lat;
-                                            let denom = (-s2_x * s1_y + s1_x * s2_y);
-                                            if (Math.abs(denom) > 1e-10) {
-                                                let s = (-s1_y * (wp0.lon - rp0.lon) + s1_x * (wp0.lat - rp0.lat)) / denom;
-                                                let t = ( s2_x * (wp0.lat - rp0.lat) - s2_y * (wp0.lon - rp0.lon)) / denom;
-                                                if (s >= 0 && s <= 1 && t >= 0 && t <= 1) {
-                                                    let ix = { lat: wp0.lat + (t * s1_y), lon: wp0.lon + (t * s1_x) };
-                                                    let distBefore = 0;
-                                                    for(let k=0; k<i; k++) distBefore += calcNav(routeWaypoints[k].lat, routeWaypoints[k].lng||routeWaypoints[k].lon, routeWaypoints[k+1].lat, routeWaypoints[k+1].lng||routeWaypoints[k+1].lon).dist;
-                                                    let distOnSeg = calcNav(rp0.lat, rp0.lon, ix.lat, ix.lon).dist;
-                                                    rawLinearFeatures.push({ type: featType, name, distNM: distBefore + distOnSeg });
-                                                    break; // Kreuzungspunkt gefunden, nächste Route prüfen
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        });
-                    }
-
-                    // --- NEU: Inkrementelles Rendering der Batches ---
-                    let tempBuckets = {};
-                    rawObstacles.forEach(obs => {
-                        let bIdx = Math.floor(obs.distNM / 0.5);
-                        if (!tempBuckets[bIdx]) tempBuckets[bIdx] = [];
-                        tempBuckets[bIdx].push(obs);
+                        if (type === 'highway' || type === 'river') {
+                            vpLinearFeatures.push({ type, name: el.tags?.name || el.tags?.ref || '', distNM: bestDistNM });
+                        } else {
+                            vpObstacles.push({ lat, lon, type, elevAGL: elev, hFt: Math.round(elev), distNM: bestDistNM, elevFt: baseElevFt, name: el.tags?.name || '' });
+                        }
                     });
-                    let tempFinal = [];
-                    for (let k in tempBuckets) {
-                        tempBuckets[k].sort((a,b) => b.hFt - a.hFt);
-                        let rep = tempBuckets[k][0];
-                        rep.count = tempBuckets[k].length;
-                        tempFinal.push(rep);
-                    }
-                    // Globales Array sofort updaten und neu zeichnen lassen
-                    vpObstacles = tempFinal;
-                    if (typeof window.throttledRenderProfiles === 'function') {
-                        window.throttledRenderProfiles();
-                    }
-                    vpLinearFeatures = rawLinearFeatures.sort((a,b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx-1].name !== f.name || Math.abs(arr[idx-1].distNM - f.distNM) > 1.0);
-                    // -------------------------------------------------
-
-                } else {
-                    console.warn(`[Overpass] Beide Server down für Batch ${batchNum}. Status: ${res.status}. Noch ${retries-1} Versuche.`);
-                    retries--;
-                    if (retries > 0) await new Promise(r => setTimeout(r, 3000));
                 }
-            } catch(e) {
-                if (e.name === 'AbortError') {
-                    console.log(`[Overpass] Abfrage abgebrochen (Route geändert).`);
-                    return null; 
-                }
-                console.warn(`[Overpass] Netzwerkfehler: ${e.message}. Noch ${retries-1} Versuche.`);
-                retries--;
-                if (retries > 0) await new Promise(r => setTimeout(r, 3000));
+                break;
+            } catch (e) {
+                await sleep(1000);
             }
         }
-
-        if (!batchSuccess) {
-            console.error(`[Overpass] Batch ${batchNum} endgültig gescheitert. Breche ab, um unvollständigen Cache zu verhindern.`);
-            return null;
-        }
-
-        // Minimale Atempause (nur nötig bei Flügen > 125 NM)
-        if (i + BATCH_SIZE < bboxes.length) {
-            await new Promise(r => setTimeout(r, 300)); 
-        }
+        if (chunkEnd < routeWaypoints.length - 1) await sleep(400);
     }
 
-    let buckets = {};
-    rawObstacles.forEach(obs => {
-        let bIdx = Math.floor(obs.distNM / 0.5);
-        if (!buckets[bIdx]) buckets[bIdx] = [];
-        buckets[bIdx].push(obs);
+    // Deduplicate
+    const seen = new Set();
+    vpObstacles = vpObstacles.filter(o => {
+        const id = `${o.lat.toFixed(4)}_${o.lon.toFixed(4)}_${o.type}`;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
     });
-    
-    let finalObs = [];
-    for (let k in buckets) {
-        let group = buckets[k];
-        group.sort((a,b) => b.hFt - a.hFt);
-        let rep = group[0];
-        rep.count = group.length;
-        finalObs.push(rep);
-    }
-    
-    console.log(`[Overpass] Suche komplett. ${finalObs.length} Hindernisse & ${vpLinearFeatures.length} Flüsse/Straßen.`);
-    return { obs: finalObs, lin: vpLinearFeatures };
-}
+
+    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+    return { obs: vpObstacles, lin: vpLinearFeatures };
+};
 
 function triggerVerticalProfileUpdate() {
     if (vpProfileFastTimeout) clearTimeout(vpProfileFastTimeout);
@@ -344,7 +267,7 @@ function triggerVerticalProfileUpdate() {
                             window._lastObsRouteKey = cacheKey; 
                         } catch(e) { vpObstacles = []; vpLinearFeatures = []; }
                     } else {
-                        const result = await fetchProfileObstacles(vpElevationData, currentSignal);
+                        const result = await window.fetchObstaclesAlongRoute(routeWaypoints, vpElevationData);
                         if (result !== null) { 
                             vpObstacles = result.obs || [];
                             vpLinearFeatures = result.lin || [];
@@ -1232,10 +1155,6 @@ function computeFlightProfile(elevationData, cruiseAltFt, climbRateFpm, descentR
 
     const depElevFt = elevationData[0].elevFt;
     let destElevFt = elevationData[elevationData.length - 1].elevFt;
-    // If destination is a POI, stay at cruise altitude (no descent)
-    if (typeof currentMissionData !== 'undefined' && currentMissionData && currentMissionData.poiName) {
-        destElevFt = cruiseAltFt;
-    }
     const totalDistNM = elevationData[elevationData.length - 1].distNM;
 
     const climbFt = Math.max(0, cruiseAltFt - depElevFt);
@@ -1555,8 +1474,12 @@ function renderVerticalProfile(canvasId) {
         ctx.setLineDash([]);
 
         let wpLabel;
+        const isLast = (i === routeWaypoints.length - 1);
+        const isPOI_Mission = (currentMissionData && currentMissionData.poiName);
+
         if (i === 0) wpLabel = currentStartICAO || 'DEP';
-        else if (i === routeWaypoints.length - 1) wpLabel = (currentMissionData?.poiName ? 'POI' : currentDestICAO) || 'DEST';
+        else if (isLast) wpLabel = isPOI_Mission ? currentStartICAO : (currentDestICAO || 'DEST');
+        else if (routeWaypoints[i] && routeWaypoints[i].isPOI) wpLabel = 'POI';
         else wpLabel = routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i;
         if (wpLabel.length > 8) wpLabel = wpLabel.substring(0, 7) + '…';
 
@@ -2744,10 +2667,6 @@ computeFlightProfile = function (elevationData, cruiseAltFt, climbRateFpm, desce
     const totalDistNM = elevationData[elevationData.length - 1].distNM;
     const depElevFt = elevationData[0].elevFt;
     let destElevFt = elevationData[elevationData.length - 1].elevFt;
-    // If destination is a POI (not an airport), keep cruise altitude — no descent to ground
-    if (typeof currentMissionData !== 'undefined' && currentMissionData && currentMissionData.poiName) {
-        destElevFt = cruiseAltFt;
-    }
     const wps = vpAltWaypoints;
 
     // Ensure vpSegmentAlts has the right length
