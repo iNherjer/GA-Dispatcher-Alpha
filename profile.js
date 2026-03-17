@@ -101,10 +101,17 @@ async function fetchProfileObstacles(elevData, signal) {
         }
     }
 
-    const BATCH_SIZE = 5; // 125 NM pro Batch - Reduziert API-Aufrufe auf 1-2 pro Flug!
+    const BATCH_SIZE = 2; // 50 NM pro Batch - Schnelleres optisches Feedback
     let rawObstacles = [];
     let anySuccess = false;
     let rawLinearFeatures = [];
+
+    // Array der offiziellen Overpass-Instanzen für Load-Balancing (Round-Robin)
+    const overpassServers = [
+        'https://overpass-api.de/api/interpreter',
+        'https://lz4.overpass-api.de/api/interpreter',
+        'https://z.overpass-api.de/api/interpreter'
+    ];
 
     console.log(`[Overpass] Starte Hindernis-Suche. ${bboxes.length} Boxen total. Teile in Batches von ${BATCH_SIZE}.`);
 
@@ -115,22 +122,29 @@ async function fetchProfileObstacles(elevData, signal) {
 
         const batchNum = Math.floor(i / BATCH_SIZE) + 1;
         const totalBatches = Math.ceil(bboxes.length / BATCH_SIZE);
-        console.log(`[Overpass] Fetching Batch ${batchNum} / ${totalBatches}...`);
+        
+        // Round-Robin Logik: Wähle den Server basierend auf der Batch-Nummer
+        const primaryIdx = (batchNum - 1) % overpassServers.length;
+        const fallbackIdx = (batchNum) % overpassServers.length;
+        const primaryUrl = `${overpassServers[primaryIdx]}?data=${encodeURIComponent(query)}`;
+        const fallbackUrl = `${overpassServers[fallbackIdx]}?data=${encodeURIComponent(query)}`;
 
-        let retries = 3; // Erhöht auf 3 Versuche
+        console.log(`[Overpass] Fetching Batch ${batchNum} / ${totalBatches} via Server ${primaryIdx}...`);
+
+        let retries = 3;
         let batchSuccess = false;
 
         while (retries > 0 && !batchSuccess) {
             try {
                 if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
-                // 1. Versuch: Hauptserver
-                let res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal });
+                // 1. Versuch: Round-Robin Server
+                let res = await fetch(primaryUrl, { signal });
                 
-                // 2. Versuch: Wenn Hauptserver zickt, sofort auf Fallback lz4 wechseln
+                // 2. Versuch: Fallback auf den nächsten Server im Array
                 if (!res.ok) {
-                    console.warn(`[Overpass] Hauptserver Fehler (Status: ${res.status}) bei Batch ${batchNum}. Versuche lz4 Fallback...`);
-                    res = await fetch(`https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, { signal });
+                    console.warn(`[Overpass] Server ${primaryIdx} Fehler (Status: ${res.status}) bei Batch ${batchNum}. Versuche Fallback ${fallbackIdx}...`);
+                    res = await fetch(fallbackUrl, { signal });
                 }
 
                 // 3. Auswertung: Bei 429 drastisch längere Pause einlegen!
@@ -216,10 +230,12 @@ async function fetchProfileObstacles(elevData, signal) {
                     }
                     // Globales Array sofort updaten und neu zeichnen lassen
                     vpObstacles = tempFinal;
+                    vpLinearFeatures = rawLinearFeatures.sort((a,b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx-1].name !== f.name || Math.abs(arr[idx-1].distNM - f.distNM) > 1.0);
+                    
+                    window.vpBgNeedsUpdate = true; // FIX: Zwingt Layer 1 (Hintergrund), die Flüsse/Straßen sofort zu zeichnen!
                     if (typeof window.throttledRenderProfiles === 'function') {
                         window.throttledRenderProfiles();
                     }
-                    vpLinearFeatures = rawLinearFeatures.sort((a,b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx-1].name !== f.name || Math.abs(arr[idx-1].distNM - f.distNM) > 1.0);
                     // -------------------------------------------------
 
                 } else {
@@ -350,6 +366,7 @@ function triggerVerticalProfileUpdate() {
                         if (result !== null) { 
                             vpObstacles = result.obs || [];
                             vpLinearFeatures = result.lin || [];
+                            window.vpBgNeedsUpdate = true; // FIX: Garantiert, dass der Hintergrund nach dem finalen Fetch aktualisiert wird
                             try { localStorage.setItem('ga_obs_combo_' + cacheKey, JSON.stringify(result)); window._lastObsRouteKey = cacheKey; } catch(e) {}
                         }
                     }
