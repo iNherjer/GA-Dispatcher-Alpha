@@ -77,6 +77,24 @@ async function fetchProfileLandmarks(elevData) {
 
 
 
+// Helfer zum Entdoppeln von Hindernissen (nimmt das höchste in einem 0.5 NM Fenster)
+function deduplicateFeatures(features) {
+    let buckets = {};
+    features.forEach(f => {
+        let bIdx = Math.floor(f.distNM / 0.5);
+        if (!buckets[bIdx]) buckets[bIdx] = [];
+        buckets[bIdx].push(f);
+    });
+    let final = [];
+    for (let k in buckets) {
+        buckets[k].sort((a,b) => b.hFt - a.hFt);
+        let rep = buckets[k][0];
+        rep.count = buckets[k].length;
+        final.push(rep);
+    }
+    return final;
+}
+
 async function fetchProfileObstacles(elevData, signal) {
     if (!elevData || elevData.length < 2) return [];
 
@@ -115,7 +133,11 @@ async function fetchProfileObstacles(elevData, signal) {
 
     console.log(`[Overpass] Starte Hindernis-Suche. ${bboxes.length} Boxen total. Teile in Batches von ${BATCH_SIZE}.`);
 
+    let currentBackoff = 3000; // Startet bei 3 Sekunden Wartezeit für 429er
+
     for (let i = 0; i < bboxes.length; i += BATCH_SIZE) {
+        if (signal && signal.aborted) break; // Hard-Abort VOR jedem neuen Batch
+
         const batch = bboxes.slice(i, i + BATCH_SIZE);
         let queryBody = batch.map(b => `node["generator:source"="wind"](${b});node["man_made"~"mast|tower"]["height"](${b});way["highway"="motorway"](${b});way["waterway"="river"](${b});`).join('');
         let query = `[out:json][timeout:25];(${queryBody});out geom qt;`;
@@ -123,11 +145,9 @@ async function fetchProfileObstacles(elevData, signal) {
         const batchNum = Math.floor(i / BATCH_SIZE) + 1;
         const totalBatches = Math.ceil(bboxes.length / BATCH_SIZE);
         
-        // Round-Robin Logik: Wähle den Server basierend auf der Batch-Nummer
+        // Round-Robin Logik
         const primaryIdx = (batchNum - 1) % overpassServers.length;
         const fallbackIdx = (batchNum) % overpassServers.length;
-        const primaryUrl = `${overpassServers[primaryIdx]}?data=${encodeURIComponent(query)}`;
-        const fallbackUrl = `${overpassServers[fallbackIdx]}?data=${encodeURIComponent(query)}`;
 
         console.log(`[Overpass] Fetching Batch ${batchNum} / ${totalBatches} via Server ${primaryIdx}...`);
 
@@ -135,23 +155,23 @@ async function fetchProfileObstacles(elevData, signal) {
         let batchSuccess = false;
 
         while (retries > 0 && !batchSuccess) {
+            if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError'); // Hard-Abort im Retry-Loop
+            
             try {
-                if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
-
-                // 1. Versuch: Round-Robin Server
-                let res = await fetch(primaryUrl, { signal });
+                let res = await fetch(`${overpassServers[primaryIdx]}?data=${encodeURIComponent(query)}`, { signal });
                 
-                // 2. Versuch: Fallback auf den nächsten Server im Array
-                if (!res.ok) {
-                    console.warn(`[Overpass] Server ${primaryIdx} Fehler (Status: ${res.status}) bei Batch ${batchNum}. Versuche Fallback ${fallbackIdx}...`);
-                    res = await fetch(fallbackUrl, { signal });
+                if (!res.ok && res.status !== 429) {
+                    if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+                    console.warn(`[Overpass] Server ${primaryIdx} Fehler (${res.status}). Versuche Fallback ${fallbackIdx}...`);
+                    res = await fetch(`${overpassServers[fallbackIdx]}?data=${encodeURIComponent(query)}`, { signal });
                 }
 
-                // 3. Auswertung: Bei 429 drastisch längere Pause einlegen!
-                if (res.status === 429) {
-                    console.warn(`[Overpass] Beide Server blocken (429 Rate Limit) bei Batch ${batchNum}. Warte 5s (Cool-Down)...`);
-                    await new Promise(r => setTimeout(r, 5000)); // Längere Strafe absitzen
-                    retries--;
+                if (!res.ok) {
+                    if (res.status === 429) {
+                        console.warn(`[Overpass] Rate Limit (429) aufgetreten! Warte ${currentBackoff / 1000}s (Exponential Backoff)...`);
+                        await new Promise(r => setTimeout(r, currentBackoff));
+                        currentBackoff *= 2; // Verdoppelt die Wartezeit bei erneutem Fehler (3s -> 6s -> 12s)
+                    }           retries--;
                     continue;
                 }
 
@@ -253,15 +273,39 @@ async function fetchProfileObstacles(elevData, signal) {
                 if (retries > 0) await new Promise(r => setTimeout(r, 3000));
             }
         }
-
         if (!batchSuccess) {
-            console.error(`[Overpass] Batch ${batchNum} endgültig gescheitert. Liefere bisher gesammelte partielle Daten.`);
-            break; // Wir brechen nur die Schleife ab, behalten aber alle bereits geladenen Hindernisse!
+            console.error(`[Overpass] Batch ${batchNum} gescheitert. Liefere bisher gesammelte partielle Daten.`);
+            break; // Schleife abbrechen, aber bereits gesammelte Daten behalten
         }
 
-        // Minimale Atempause (nur nötig bei Flügen > 125 NM)
+        // --- Inkrementelles Rendering ---
+        if (rawObstacles.length > 0 || rawLinearFeatures.length > 0) {
+            if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+            
+            let tempFinal = deduplicateFeatures(rawObstacles);
+            tempFinal.forEach(obs => {
+                const elevNode = elevData.reduce((prev, curr) => Math.abs(curr.distNM - obs.distNM) < Math.abs(prev.distNM - obs.distNM) ? curr : prev);
+                obs.groundElevFt = elevNode.elevFt;
+            });
+            
+            if (window.vpAnimFrameId) cancelAnimationFrame(window.vpAnimFrameId);
+            window.vpAnimFrameId = requestAnimationFrame(() => {
+                if (signal && !signal.aborted) {
+                    vpObstacles = tempFinal;
+                    vpLinearFeatures = rawLinearFeatures.sort((a,b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx-1].name !== f.name || Math.abs(arr[idx-1].distNM - f.distNM) > 1.0);
+                    
+                    window.vpBgNeedsUpdate = true; // Flüsse sofort im Hintergrund zeichnen
+                    if (typeof window.throttledRenderProfiles === 'function') {
+                        window.throttledRenderProfiles();
+                    }
+                }
+            });
+        }
+
+        // Dynamische Atempause zwischen Batches (hilft, den Bann zu vermeiden)
         if (i + BATCH_SIZE < bboxes.length) {
-            await new Promise(r => setTimeout(r, 300)); 
+            if (signal && signal.aborted) break;
+            await new Promise(r => setTimeout(r, 1500)); 
         }
     }
 
