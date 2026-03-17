@@ -124,10 +124,8 @@ function deduplicateFeatures(features) {
 async function fetchProfileObstacles(elevData, signal) {
     if (!elevData || elevData.length < 2) return null;
 
-    window.vpFailedOverpassChunks = [];
-    if (typeof window.updateOverpassErrorUI === 'function') window.updateOverpassErrorUI();
-
-    const CHUNK_NM = 100; 
+    // 1. Riesige 250-NM-Segmente (Normale Flüge sind somit nur 1 Abfrage = keine 429er!)
+    const CHUNK_NM = 250; 
     let chunks = [];
     let currentChunk = [];
     let chunkStartDist = elevData[0].distNM;
@@ -149,20 +147,16 @@ async function fetchProfileObstacles(elevData, signal) {
         'https://z.overpass-api.de/api/interpreter'
     ];
 
-    console.log(`[Overpass] Teile Flug in ${chunks.length} Segment(e) (je max 100 NM). Starte gestaffelten Fetch (5s)...`);
+    console.log(`[Overpass] Teile Flug in ${chunks.length} Segment(e) (je max 250 NM). Starte SEQUENZIELLEN Fetch...`);
 
-    // Globale Sammel-Arrays für dieses Fetch-Event
     let cumulativeRawObs = [];
     let cumulativeRawLin = [];
 
-    // Erstelle Fetch-Promises für jeden Chunk
-    const fetchPromises = chunks.map(async (chunkData, idx) => {
+    // 2. SEQUENZIELLE SCHLEIFE (Kein Promise.all mehr!)
+    for (let idx = 0; idx < chunks.length; idx++) {
+        if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
         
-        // --- STAGGERED START (5 Sekunden Versatz pro Segment) ---
-        if (idx > 0) {
-            await new Promise(r => setTimeout(r, idx * 5000));
-        }
-
+        const chunkData = chunks[idx];
         let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
         chunkData.forEach(p => {
             if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat;
@@ -180,10 +174,11 @@ async function fetchProfileObstacles(elevData, signal) {
         const polylineStr = pathCoords.join(',');
 
         const radius = 4000; 
-        const queryBody = `node["generator:source"="wind"](around:${radius},${polylineStr});node["man_made"~"mast|tower"]["height"](around:${radius},${polylineStr});way["highway"="motorway"](around:${radius},${polylineStr});way["waterway"="river"](around:${radius},${polylineStr});`;
-        const query = `[out:json][timeout:25][bbox:${bbox}];(${queryBody});out geom qt;`;
+        // Autobahnen und Masten (ohne RAM-fressende Flüsse)
+        const queryBody = `node["generator:source"="wind"](around:${radius},${polylineStr});node["man_made"~"mast|tower"]["height"](around:${radius},${polylineStr});way["highway"="motorway"](around:${radius},${polylineStr});`;
+        const query = `[out:json][timeout:45][bbox:${bbox}];(${queryBody});out geom qt;`;
 
-        let retries = 5; 
+        let retries = 3; // 3 Versuche pro Segment reichen bei sequenzieller Abfrage
         let attempt = 0;
         let success = false;
         
@@ -193,6 +188,7 @@ async function fetchProfileObstacles(elevData, signal) {
             attempt++;
             
             try {
+                console.log(`[Overpass] Frage Segment ${idx+1}/${chunks.length} bei ${serverUrl} an...`);
                 const res = await fetch(serverUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -201,26 +197,22 @@ async function fetchProfileObstacles(elevData, signal) {
                 });
 
                 if (res.status === 429) {
-                    console.warn(`[Overpass] Segment ${idx+1}: Server ${serverUrl} überlastet (429). Warte 15s... (Noch ${retries-1} Versuche)`);
+                    console.warn(`[Overpass] Segment ${idx+1}: 429. Warte 15s...`);
                     await new Promise(r => setTimeout(r, 15000));
-                    retries--;
-                    continue; 
+                    retries--; continue; 
                 }
                 if (res.status === 504) {
-                    console.warn(`[Overpass] Segment ${idx+1}: Server RAM voll (504) auf ${serverUrl}. Warte 5s und wechsle...`);
+                    console.warn(`[Overpass] Segment ${idx+1}: 504. Warte 5s...`);
                     await new Promise(r => setTimeout(r, 5000));
-                    retries--;
-                    continue; 
+                    retries--; continue; 
                 }
                 if (!res.ok) {
-                    console.warn(`[Overpass] Segment ${idx+1}: HTTP Fehler ${res.status}. Warte 3s...`);
                     await new Promise(r => setTimeout(r, 3000));
-                    retries--;
-                    continue;
+                    retries--; continue;
                 }
 
                 const json = await res.json();
-                console.log(`[Overpass] Segment ${idx+1} erfolgreich von ${serverUrl}! (${json.elements ? json.elements.length : 0} Elemente)`);
+                console.log(`[Overpass] Segment ${idx+1} erfolgreich! (${json.elements ? json.elements.length : 0} Elemente)`);
                 
                 let localObs = [];
                 let localLin = [];
@@ -229,19 +221,16 @@ async function fetchProfileObstacles(elevData, signal) {
                     json.elements.forEach(e => {
                         if (e.type === 'node' && e.lat && e.lon) {
                             let isWind = e.tags && e.tags["generator:source"] === "wind";
-                            let hStr = e.tags && e.tags.height ? e.tags.height : null;
-                            let hMeter = hStr ? parseFloat(hStr.replace(',', '.')) : (isWind ? 120 : 50);
+                            let hMeter = (e.tags && e.tags.height) ? parseFloat(e.tags.height.replace(',', '.')) : (isWind ? 120 : 50);
                             if (isNaN(hMeter) || hMeter < 30) return;
                             
                             let hFt = Math.round(hMeter * 3.28084);
                             let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
-                            elevData.forEach(ep => {
+                            chunkData.forEach(ep => {
                                 let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
                                 if (d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
                             });
-                            // Kein Distanz-Culling mehr, wir vertrauen dem API-Korridor!
                             localObs.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
-                        
                         } else if (e.type === 'way' && e.geometry && e.tags) {
                             let featType = e.tags.highway ? 'highway' : 'river';
                             let name = e.tags.name || e.tags.ref || '';
@@ -253,9 +242,8 @@ async function fetchProfileObstacles(elevData, signal) {
                                     let rp1 = {lat: routeWaypoints[i+1].lat, lon: routeWaypoints[i+1].lng||routeWaypoints[i+1].lon};
                                     
                                     for(let j = 0; j < e.geometry.length - 1; j++) {
-                                        let wp0 = e.geometry[j];
-                                        let wp1 = e.geometry[j+1];
-                                        let s1_x = wp1.lon - wp0.lon; let s1_y = wp1.lat - wp0.lat;
+                                        let wp0 = e.geometry[j], wp1 = e.geometry[j+1];
+                                        let s1_x = wp1.lon - wp0.lon, s1_y = wp1.lat - wp0.lat;
                                         let s2_x = rp1.lon - rp0.lon; let s2_y = rp1.lat - rp0.lat;
                                         let denom = (-s2_x * s1_y + s1_x * s2_y);
                                         if (Math.abs(denom) > 1e-10) {
@@ -265,8 +253,7 @@ async function fetchProfileObstacles(elevData, signal) {
                                                 let ix = { lat: wp0.lat + (t * s1_y), lon: wp0.lon + (t * s1_x) };
                                                 let distBefore = 0;
                                                 for(let k=0; k<i; k++) distBefore += calcNav(routeWaypoints[k].lat, routeWaypoints[k].lng||routeWaypoints[k].lon, routeWaypoints[k+1].lat, routeWaypoints[k+1].lng||routeWaypoints[k+1].lon).dist;
-                                                let distOnSeg = calcNav(rp0.lat, rp0.lon, ix.lat, ix.lon).dist;
-                                                localLin.push({ type: featType, name, distNM: distBefore + distOnSeg });
+                                                localLin.push({ type: featType, name: name, distNM: distBefore + calcNav(rp0.lat, rp0.lon, ix.lat, ix.lon).dist });
                                                 break;
                                             }
                                         }
@@ -277,7 +264,6 @@ async function fetchProfileObstacles(elevData, signal) {
                     });
                 }
 
-                // --- INKREMENTELLES RENDERING PRO SEGMENT ---
                 if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
                 cumulativeRawObs.push(...localObs);
                 cumulativeRawLin.push(...localLin);
@@ -288,7 +274,6 @@ async function fetchProfileObstacles(elevData, signal) {
                     if (!buckets[bIdx]) buckets[bIdx] = [];
                     buckets[bIdx].push(obs);
                 });
-                
                 let tempFinalObs = [];
                 for (let k in buckets) {
                     let group = buckets[k];
@@ -302,7 +287,7 @@ async function fetchProfileObstacles(elevData, signal) {
                 
                 let tempFinalLin = cumulativeRawLin.sort((a,b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx-1].name !== f.name || Math.abs(arr[idx-1].distNM - f.distNM) > 1.0);
 
-                // Globale Render-Updates sofort auslösen (Puzzleteil eingefügt!)
+                // Inkrementelles Rendering: Sofort zeichnen!
                 requestAnimationFrame(() => {
                     if (signal && !signal.aborted) {
                         vpObstacles = tempFinalObs;
@@ -312,30 +297,27 @@ async function fetchProfileObstacles(elevData, signal) {
                     }
                 });
 
-                success = true; // Raus aus der Retry-Schleife für dieses Segment
+                success = true;
             } catch(e) {
                 if (e.name === 'AbortError') throw e;
-                console.warn(`[Overpass] Netzwerkfehler bei Segment ${idx+1}. Warte 3s...`);
-                await new Promise(r => setTimeout(r, 3000));
+                await new Promise(r => setTimeout(r, 2000));
                 retries--;
             }
         }
         
         if (!success) {
-            console.error(`[Overpass] Segment ${idx+1} endgültig gescheitert! Segment für manuellen Retry markiert.`);
+            console.error(`[Overpass] Segment ${idx+1} endgültig gescheitert!`);
             window.vpFailedOverpassChunks.push(chunkData);
         }
-    });
-
-    // 3. Warten, bis alle unabhängigen Fetch-Prozesse fertig sind
-    try {
-        await Promise.all(fetchPromises);
-    } catch(e) {
-        if (e.name === 'AbortError') return null;
+        
+        // Atempause zwischen den sequenziellen Segmenten, um Rate-Limits zu schonen
+        if (idx < chunks.length - 1 && success) {
+            await new Promise(r => setTimeout(r, 1000));
+        }
     }
 
-    console.log(`[Overpass] Alle Segmente abgeschlossen!`);
     if (typeof window.updateOverpassErrorUI === 'function') window.updateOverpassErrorUI();
+    console.log(`[Overpass] Alle Segmente verarbeitet.`);
     return { obs: vpObstacles, lin: vpLinearFeatures };
 }
 
@@ -3081,129 +3063,7 @@ window.retryFailedOverpassChunks = async function() {
         const lastPt = `${chunkData[chunkData.length-1].lat.toFixed(4)},${chunkData[chunkData.length-1].lon.toFixed(4)}`;
         if (pathCoords[pathCoords.length-1] !== lastPt) pathCoords.push(lastPt);
         
-        const queryBody = `node["generator:source"="wind"](around:4000,${pathCoords.join(',')});node["man_made"~"mast|tower"]["height"](around:4000,${pathCoords.join(',')});way["highway"="motorway"](around:4000,${pathCoords.join(',')});way["waterway"="river"](around:4000,${pathCoords.join(',')});`;
-        const query = `[out:json][timeout:25][bbox:${bbox}];(${queryBody});out geom qt;`;
-
-        let retries = 5, attempt = 0, success = false;
-        while (retries > 0 && !success) {
-            const serverUrl = overpassServers[(idx + attempt) % overpassServers.length];
-            attempt++;
-            try {
-                const res = await fetch(serverUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(query)}` });
-                if (res.status === 429) { await new Promise(r => setTimeout(r, 15000)); retries--; continue; }
-                if (res.status === 504) { await new Promise(r => setTimeout(r, 5000)); retries--; continue; }
-                if (!res.ok) { await new Promise(r => setTimeout(r, 3000)); retries--; continue; }
-
-                const json = await res.json();
-                if (json.elements) {
-                    json.elements.forEach(e => {
-                        if (e.type === 'node' && e.lat && e.lon) {
-                            let isWind = e.tags && e.tags["generator:source"] === "wind";
-                            let hMeter = (e.tags && e.tags.height) ? parseFloat(e.tags.height.replace(',', '.')) : (isWind ? 120 : 50);
-                            if (isNaN(hMeter) || hMeter < 30) return;
-                            let hFt = Math.round(hMeter * 3.28084);
-                            let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
-                            chunkData.forEach(ep => {
-                                let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
-                                if (d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
-                            });
-                            newObs.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
-                        } else if (e.type === 'way' && e.geometry && e.tags) {
-                            let featType = e.tags.highway ? 'highway' : 'river';
-                            let name = e.tags.name || e.tags.ref || '';
-                            if (!name && featType === 'highway') return;
-                            if (typeof routeWaypoints !== 'undefined' && routeWaypoints.length >= 2) {
-                                for (let i = 0; i < routeWaypoints.length - 1; i++) {
-                                    let rp0 = {lat: routeWaypoints[i].lat, lon: routeWaypoints[i].lng||routeWaypoints[i].lon};
-                                    let rp1 = {lat: routeWaypoints[i+1].lat, lon: routeWaypoints[i+1].lng||routeWaypoints[i+1].lon};
-                                    for(let j = 0; j < e.geometry.length - 1; j++) {
-                                        let wp0 = e.geometry[j], wp1 = e.geometry[j+1];
-                                        let s1_x = wp1.lon - wp0.lon, s1_y = wp1.lat - wp0.lat;
-                                        let s2_x = rp1.lon - rp0.lon, s2_y = rp1.lat - rp0.lat;
-                                        let denom = (-s2_x * s1_y + s1_x * s2_y);
-                                        if (Math.abs(denom) > 1e-10) {
-                                            let s = (-s1_y * (wp0.lon - rp0.lon) + s1_x * (wp0.lat - rp0.lat)) / denom;
-                                            let t = ( s2_x * (wp0.lat - rp0.lat) - s2_y * (wp0.lon - rp0.lon)) / denom;
-                                            if (s >= 0 && s <= 1 && t >= 0 && t <= 1) {
-                                                let ix = { lat: wp0.lat + (t * s1_y), lon: wp0.lon + (t * s1_x) };
-                                                let distBefore = 0;
-                                                for(let k=0; k<i; k++) distBefore += calcNav(routeWaypoints[k].lat, routeWaypoints[k].lng||routeWaypoints[k].lon, routeWaypoints[k+1].lat, routeWaypoints[k+1].lng||routeWaypoints[k+1].lon).dist;
-                                                newLin.push({ type: featType, name: name, distNM: distBefore + calcNav(rp0.lat, rp0.lon, ix.lat, ix.lon).dist });
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-                success = true;
-            } catch(e) { await new Promise(r => setTimeout(r, 3000)); retries--; }
-        }
-        if (!success) window.vpFailedOverpassChunks.push(chunkData);
-    });
-
-    await Promise.all(fetchPromises);
-
-    // Merge mit existierenden Daten
-    let combinedObs = [...(typeof vpObstacles !== 'undefined' ? vpObstacles : []), ...newObs];
-    let buckets = {};
-    combinedObs.forEach(obs => {
-        let bIdx = Math.floor(obs.distNM / 0.5);
-        if (!buckets[bIdx]) buckets[bIdx] = [];
-        buckets[bIdx].push(obs);
-    });
-    let tempFinalObs = [];
-    for (let k in buckets) {
-        let group = buckets[k];
-        group.sort((a,b) => b.hFt - a.hFt);
-        let rep = group[0];
-        rep.count = group.length;
-        tempFinalObs.push(rep);
-    }
-    vpObstacles = tempFinalObs;
-
-    let combinedLin = [...(typeof vpLinearFeatures !== 'undefined' ? vpLinearFeatures : []), ...newLin];
-    vpLinearFeatures = combinedLin.sort((a,b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx-1].name !== f.name || Math.abs(arr[idx-1].distNM - f.distNM) > 1.0);
-
-    window.vpBgNeedsUpdate = true;
-    if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
-    
-    if (btnOb) btnOb.classList.remove('vp-loading-pulse');
-    if (typeof window.updateOverpassErrorUI === 'function') window.updateOverpassErrorUI();
-};
-
-
-window.retryFailedOverpassChunks = async function() {
-    const chunks = window.vpFailedOverpassChunks;
-    if (!chunks || chunks.length === 0) return;
-    
-    console.log(`[Overpass] Starte manuellen Retry für ${chunks.length} fehlgeschlagene Segmente...`);
-    window.vpFailedOverpassChunks = []; 
-    if (typeof window.updateOverpassErrorUI === 'function') window.updateOverpassErrorUI();
-    
-    const btnOb = document.getElementById('btnToggleObstacles');
-    if (btnOb) btnOb.classList.add('vp-loading-pulse');
-
-    const overpassServers = ['https://overpass-api.de/api/interpreter', 'https://lz4.overpass-api.de/api/interpreter', 'https://z.overpass-api.de/api/interpreter'];
-    let newObs = []; let newLin = [];
-
-    const fetchPromises = chunks.map(async (chunkData, idx) => {
-        let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
-        chunkData.forEach(p => {
-            if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat;
-            if (p.lon < minLon) minLon = p.lon; if (p.lon > maxLon) maxLon = p.lon;
-        });
-        const bbox = `${(minLat - 0.05).toFixed(4)},${(minLon - 0.08).toFixed(4)},${(maxLat + 0.05).toFixed(4)},${(maxLon + 0.08).toFixed(4)}`;
-
-        let pathCoords = [];
-        const step = Math.max(1, Math.ceil(chunkData.length / 30));
-        for (let i = 0; i < chunkData.length; i += step) pathCoords.push(`${chunkData[i].lat.toFixed(4)},${chunkData[i].lon.toFixed(4)}`);
-        const lastPt = `${chunkData[chunkData.length-1].lat.toFixed(4)},${chunkData[chunkData.length-1].lon.toFixed(4)}`;
-        if (pathCoords[pathCoords.length-1] !== lastPt) pathCoords.push(lastPt);
-        
-        const queryBody = `node["generator:source"="wind"](around:4000,${pathCoords.join(',')});node["man_made"~"mast|tower"]["height"](around:4000,${pathCoords.join(',')});way["highway"="motorway"](around:4000,${pathCoords.join(',')});way["waterway"="river"](around:4000,${pathCoords.join(',')});`;
+        const queryBody = `node["generator:source"="wind"](around:4000,${pathCoords.join(',')});node["man_made"~"mast|tower"]["height"](around:4000,${pathCoords.join(',')});way["highway"="motorway"](around:4000,${pathCoords.join(',')});`;
         const query = `[out:json][timeout:25][bbox:${bbox}];(${queryBody});out geom qt;`;
 
         let retries = 5, attempt = 0, success = false;
