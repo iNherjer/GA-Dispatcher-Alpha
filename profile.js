@@ -87,12 +87,10 @@ async function fetchWithTimeout(resource, options = {}) {
     return response;
 }
 
-window.fetchObstaclesAlongRoute = async function(routeWaypoints, elevData) {
-    vpObstacles = [];
-    vpLinearFeatures = [];
-    if (!routeWaypoints || routeWaypoints.length < 2) return;
-    const chunkSize = 5;
-    
+async function fetchProfileObstacles(elevData, signal) {
+    if (!elevData || elevData.length < 2) return { obs: [], lin: [] };
+
+    // Helper für Delays und Rate-Limiting
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     const endpoints = [
         'https://overpass-api.de/api/interpreter',
@@ -100,97 +98,195 @@ window.fetchObstaclesAlongRoute = async function(routeWaypoints, elevData) {
         'https://overpass.kumi.systems/api/interpreter'
     ];
 
-    for (let i = 0; i < routeWaypoints.length - 1; i += chunkSize) {
-        let chunkEnd = Math.min(i + chunkSize, routeWaypoints.length - 1);
-        let centers = [];
-        for (let j = i; j < chunkEnd; j++) {
-            const p1 = routeWaypoints[j], p2 = routeWaypoints[j+1];
-            let cLat = (p1.lat + p2.lat) / 2;
-            let p1lng = p1.lng || p1.lon || 0;
-            let p2lng = p2.lng || p2.lon || 0;
-            let cLon = (p1lng + p2lng) / 2;
-            centers.push({lat: cLat, lon: cLon});
+    const bboxes = [];
+    let currentChunk = [];
+    let chunkStart = 0;
+    const CHUNK_NM = 25; // 25 NM Segmente
+
+    for (let i = 0; i < elevData.length; i++) {
+        currentChunk.push(elevData[i]);
+        if (elevData[i].distNM - chunkStart >= CHUNK_NM || i === elevData.length - 1) {
+            let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+            currentChunk.forEach(p => {
+                if (p.lat < minLat) minLat = p.lat;
+                if (p.lat > maxLat) maxLat = p.lat;
+                if (p.lon < minLon) minLon = p.lon;
+                if (p.lon > maxLon) maxLon = p.lon;
+            });
+            bboxes.push(`${(minLat - 0.035).toFixed(4)},${(minLon - 0.05).toFixed(4)},${(maxLat + 0.035).toFixed(4)},${(maxLon + 0.05).toFixed(4)}`);
+            currentChunk = [elevData[i]]; 
+            chunkStart = elevData[i].distNM;
         }
+    }
 
-        let queryParts = centers.map(c => `
-            node["generator:source"="wind"](around:2500,${c.lat},${c.lon});
-            node["man_made"~"mast|tower|communications_tower|chimney"](around:2500,${c.lat},${c.lon});
-            way["highway"="motorway"](around:2000,${c.lat},${c.lon});
-            way["waterway"="river"](around:2000,${c.lat},${c.lon});
+    const BATCH_SIZE = 5; // 125 NM pro Batch
+    let rawObstacles = [];
+    let rawLinearFeatures = [];
+    let anySuccess = false;
+
+    console.log(`[Overpass] Starte Hindernis-Suche. ${bboxes.length} Boxen total. Teile in Batches von ${BATCH_SIZE}.`);
+
+    for (let i = 0; i < bboxes.length; i += BATCH_SIZE) {
+        const batch = bboxes.slice(i, i + BATCH_SIZE);
+        // Optimierte Query: Ohne zwingendes ["height"] Tag für Türme, da es oft in OSM fehlt!
+        let queryBody = batch.map(b => `
+            node["generator:source"="wind"](${b});
+            node["man_made"~"mast|tower|chimney"](${b});
+            way["highway"~"motorway|trunk"](${b});
+            way["waterway"~"river|canal"](${b});
         `).join('');
+        // WICHTIG: out geom qt; MUSS bleiben, damit wir die Vektoren für die Flüsse erhalten!
+        let query = `[out:json][timeout:25];(${queryBody});out geom qt;`;
 
-        const query = `[out:json][timeout:15];(${queryParts});out center;`;
-        
-        for (let retry = 0; retry < 3; retry++) {
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(bboxes.length / BATCH_SIZE);
+        console.log(`[Overpass] Fetching Batch ${batchNum} / ${totalBatches}...`);
+
+        let retries = 3;
+        let batchSuccess = false;
+
+        while (retries > 0 && !batchSuccess) {
             try {
-                const endpoint = endpoints[(Math.floor(i / chunkSize) + retry) % endpoints.length];
+                if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+
+                // Load-Balancing: Wir wechseln den Server dynamisch durch
+                const endpoint = endpoints[(batchNum - 1 + (3 - retries)) % endpoints.length];
                 const url = `${endpoint}?data=${encodeURIComponent(query)}`;
-                const res = await fetchWithTimeout(url, { timeout: 10000 });
                 
-                if (!res.ok) {
-                    if (res.status === 429) { await sleep(1500); continue; }
-                    throw new Error(`HTTP Error ${res.status}`);
+                let res = await fetchWithTimeout(url, { timeout: 15000 });
+                
+                // 429er Fehler hart abfangen und mit Cool-Down reagieren
+                if (res.status === 429) {
+                    console.warn(`[Overpass] Rate Limit (429) auf ${endpoint}. Warte 3s...`);
+                    await sleep(3000);
+                    retries--;
+                    continue;
                 }
                 
-                const data = await res.json();
-                if (data && data.elements) {
-                    data.elements.forEach(el => {
-                        let lat = el.lat || (el.center && el.center.lat);
-                        let lon = el.lon || (el.center && el.center.lon);
-                        if (!lat || !lon) return;
-                        
-                        let type = 'unknown';
-                        if (el.tags) {
-                            if (el.tags['generator:source'] === 'wind') type = 'wind';
-                            else if (el.tags['highway'] === 'motorway') type = 'highway';
-                            else if (el.tags['waterway'] === 'river') type = 'river';
-                            else if (el.tags['man_made'] === 'tower' || el.tags['man_made'] === 'communications_tower') type = 'tower';
-                            else if (el.tags['man_made'] === 'chimney') type = 'chimney';
-                            else if (el.tags['man_made'] === 'mast') type = 'tower';
-                        }
-                        
-                        let elev = 0;
-                        if (type === 'wind') elev = 450;
-                        else if (type === 'tower') elev = 300;
-                        else if (type === 'chimney') elev = 250;
-                        
-                        // distNM calculation for the obstacle/feature
-                        let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
-                        if (elevData) {
+                if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+
+                let json = await res.json();
+                batchSuccess = true;
+                anySuccess = true;
+                
+                if (json.elements) {
+                    json.elements.forEach(e => {
+                        // A) KNOTEN (Hindernisse)
+                        if (e.type === 'node' && e.lat && e.lon) {
+                            let isWind = e.tags && e.tags["generator:source"] === "wind";
+                            let hStr = e.tags && e.tags.height ? e.tags.height : null;
+                            // Default Höhen, falls kein Height-Tag in OSM existiert
+                            let hMeter = hStr ? parseFloat(hStr.replace(',', '.')) : (isWind ? 120 : 50);
+                            if (isNaN(hMeter) || hMeter < 30) return;
+                            
+                            let hFt = Math.round(hMeter * 3.28084);
+                            let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
                             elevData.forEach(ep => {
-                                let d = calcNav(lat, lon, ep.lat, ep.lon).dist;
+                                let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
                                 if (d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
                             });
-                        }
-                        if (bestD > 3.0) return; // Too far from route
+                            if (bestD < 2.0) rawObstacles.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
+                        
+                        // B) LINIEN (Flüsse & Autobahnen) - Eure geniale Vektor-Berechnung!
+                        } else if (e.type === 'way' && e.geometry && e.tags) {
+                            let featType = e.tags.highway ? 'highway' : 'river';
+                            let name = e.tags.name || e.tags.ref || '';
+                            if (!name && featType === 'highway') return;
 
-                        if (type === 'highway' || type === 'river') {
-                            vpLinearFeatures.push({ type, name: el.tags?.name || el.tags?.ref || '', distNM: bestDistNM });
-                        } else {
-                            vpObstacles.push({ lat, lon, type, elevAGL: elev, hFt: Math.round(elev), distNM: bestDistNM, elevFt: baseElevFt, name: el.tags?.name || '' });
+                            if (typeof routeWaypoints !== 'undefined' && routeWaypoints.length >= 2) {
+                                for (let ri = 0; ri < routeWaypoints.length - 1; ri++) {
+                                    let rp0 = {lat: routeWaypoints[ri].lat, lon: routeWaypoints[ri].lng||routeWaypoints[ri].lon};
+                                    let rp1 = {lat: routeWaypoints[ri+1].lat, lon: routeWaypoints[ri+1].lng||routeWaypoints[ri+1].lon};
+                                    
+                                    for(let j = 0; j < e.geometry.length - 1; j++) {
+                                        let wp0 = e.geometry[j];
+                                        let wp1 = e.geometry[j+1];
+                                        let s1_x = wp1.lon - wp0.lon; let s1_y = wp1.lat - wp0.lat;
+                                        let s2_x = rp1.lon - rp0.lon; let s2_y = rp1.lat - rp0.lat;
+                                        let denom = (-s2_x * s1_y + s1_x * s2_y);
+                                        
+                                        if (Math.abs(denom) > 1e-10) {
+                                            let s = (-s1_y * (wp0.lon - rp0.lon) + s1_x * (wp0.lat - rp0.lat)) / denom;
+                                            let t = ( s2_x * (wp0.lat - rp0.lat) - s2_y * (wp0.lon - rp0.lon)) / denom;
+                                            // Treffer!
+                                            if (s >= 0 && s <= 1 && t >= 0 && t <= 1) {
+                                                let ix = { lat: wp0.lat + (t * s1_y), lon: wp0.lon + (t * s1_x) };
+                                                let distBefore = 0;
+                                                for(let k=0; k<ri; k++) {
+                                                    distBefore += calcNav(routeWaypoints[k].lat, routeWaypoints[k].lng||routeWaypoints[k].lon, routeWaypoints[k+1].lat, routeWaypoints[k+1].lng||routeWaypoints[k+1].lon).dist;
+                                                }
+                                                let distOnSeg = calcNav(rp0.lat, rp0.lon, ix.lat, ix.lon).dist;
+                                                rawLinearFeatures.push({ type: featType, name: name, distNM: distBefore + distOnSeg });
+                                                break; // Intersection gefunden, springe zur nächsten Line
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     });
                 }
-                break;
-            } catch (e) {
-                await sleep(1000);
+                
+                // Inkrementelles Rendering: Updates sofort ins UI schieben!
+                let tempBuckets = {};
+                rawObstacles.forEach(obs => {
+                    let bIdx = Math.floor(obs.distNM / 0.5);
+                    if (!tempBuckets[bIdx]) tempBuckets[bIdx] = [];
+                    tempBuckets[bIdx].push(obs);
+                });
+                let tempFinal = [];
+                for (let k in tempBuckets) {
+                    tempBuckets[k].sort((a,b) => b.hFt - a.hFt);
+                    let rep = tempBuckets[k][0];
+                    rep.count = tempBuckets[k].length;
+                    tempFinal.push(rep);
+                }
+                
+                // Globale Variablen direkt aktualisieren für den fließenden Live-Aufbau
+                vpObstacles = tempFinal;
+                vpLinearFeatures = rawLinearFeatures.sort((a,b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx-1].name !== f.name || Math.abs(arr[idx-1].distNM - f.distNM) > 1.0);
+                
+                if (typeof window.throttledRenderProfiles === 'function') {
+                    window.throttledRenderProfiles();
+                }
+                
+            } catch(e) {
+                if (e.name === 'AbortError') return { obs: [], lin: [] };
+                console.warn(`[Overpass] Netzwerkfehler Batch ${batchNum}: ${e.message}. Noch ${retries-1} Versuche.`);
+                retries--;
+                if (retries > 0) await sleep(2000);
             }
         }
-        if (chunkEnd < routeWaypoints.length - 1) await sleep(400);
+
+        if (!batchSuccess) {
+            console.error(`[Overpass] Batch ${batchNum} endgültig gescheitert. Fahre fort, um Totalausfall zu vermeiden.`);
+        }
+
+        // POLITENESS-DELAY: Warten VOR dem nächsten Chunk, damit die API uns liebt
+        if (i + BATCH_SIZE < bboxes.length) {
+            await sleep(600); 
+        }
     }
 
-    // Deduplicate
-    const seen = new Set();
-    vpObstacles = vpObstacles.filter(o => {
-        const id = `${o.lat.toFixed(4)}_${o.lon.toFixed(4)}_${o.type}`;
-        if (seen.has(id)) return false;
-        seen.add(id);
-        return true;
+    let buckets = {};
+    rawObstacles.forEach(obs => {
+        let bIdx = Math.floor(obs.distNM / 0.5);
+        if (!buckets[bIdx]) buckets[bIdx] = [];
+        buckets[bIdx].push(obs);
     });
-
-    if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
-    return { obs: vpObstacles, lin: vpLinearFeatures };
-};
+    
+    let finalObs = [];
+    for (let k in buckets) {
+        let group = buckets[k];
+        group.sort((a,b) => b.hFt - a.hFt);
+        let rep = group[0];
+        rep.count = group.length;
+        finalObs.push(rep);
+    }
+    
+    console.log(`[Overpass] Suche komplett. ${finalObs.length} Hindernisse & ${vpLinearFeatures.length} Flüsse/Straßen.`);
+    return { obs: finalObs, lin: vpLinearFeatures };
+}
 
 function triggerVerticalProfileUpdate() {
     if (vpProfileFastTimeout) clearTimeout(vpProfileFastTimeout);
@@ -267,7 +363,7 @@ function triggerVerticalProfileUpdate() {
                             window._lastObsRouteKey = cacheKey; 
                         } catch(e) { vpObstacles = []; vpLinearFeatures = []; }
                     } else {
-                        const result = await window.fetchObstaclesAlongRoute(routeWaypoints, vpElevationData);
+                        const result = await fetchProfileObstacles(vpElevationData, currentSignal);
                         if (result !== null) { 
                             vpObstacles = result.obs || [];
                             vpLinearFeatures = result.lin || [];
