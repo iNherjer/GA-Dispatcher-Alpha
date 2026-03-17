@@ -288,8 +288,8 @@ async function fetchProfileObstacles(elevData, signal) {
                 obs.groundElevFt = elevNode.elevFt;
             });
             
-            if (window.vpAnimFrameId) cancelAnimationFrame(window.vpAnimFrameId);
-            window.vpAnimFrameId = requestAnimationFrame(() => {
+            // FIX: Wir nutzen hier NICHT vpAnimFrameId, da das sonst die 60FPS Map-Schleife killt!
+            requestAnimationFrame(() => {
                 if (signal && !signal.aborted) {
                     vpObstacles = tempFinal;
                     vpLinearFeatures = rawLinearFeatures.sort((a,b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx-1].name !== f.name || Math.abs(arr[idx-1].distNM - f.distNM) > 1.0);

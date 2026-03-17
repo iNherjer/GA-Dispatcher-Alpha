@@ -1,5 +1,5 @@
 // GA Dispatcher – Service Worker
-const CACHE = 'ga-dispatcher-v189';
+const CACHE = 'ga-dispatcher-v190';
 
 const STATIC = [
     './',
