@@ -152,6 +152,8 @@ async function fetchProfileObstacles(elevData, signal) {
     let cumulativeRawObs = [];
     let cumulativeRawLin = [];
 
+    window.vpServerOffset = (window.vpServerOffset || 0) + 1; // Rotiert die Server auch beim Ziehen der Route weiter
+
     // 2. SEQUENZIELLE SCHLEIFE (Kein Promise.all mehr!)
     for (let idx = 0; idx < chunks.length; idx++) {
         if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -184,7 +186,7 @@ async function fetchProfileObstacles(elevData, signal) {
         
         while (retries > 0 && !success) {
             if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
-            const serverUrl = overpassServers[(idx + attempt) % overpassServers.length];
+            const serverUrl = overpassServers[(idx + attempt + window.vpServerOffset) % overpassServers.length];
             attempt++;
             
             try {
@@ -348,6 +350,8 @@ function triggerVerticalProfileUpdate() {
             // 1. Höhendaten (Blockierend, da alles andere darauf aufbaut)
             vpElevationData = await fetchRouteElevation(routeWaypoints, currentSignal);
             
+            window.vpElevationData = vpElevationData;
+            
             // 2. Städte / Landmarks (Lokale JSON, blitzschnell)
             if (window._lastLmRouteKey !== cacheKey) {
                 const btnLm = document.getElementById('btnToggleLandmarks');
@@ -371,13 +375,22 @@ function triggerVerticalProfileUpdate() {
             // 3. PARALLELER FETCH: Wetter & Overpass
             const fetchWetter = async () => {
                 if (!vpShowClouds && !(typeof window.vpShowMapMetar !== 'undefined' && window.vpShowMapMetar)) return;
+                
+                // FIX: Wetter nicht aus dem Netz neu laden, wenn wir es für diese Route schon have!
+                if (window._lastWetterRouteKey === cacheKey && vpWeatherData) {
+                    window.vpBgNeedsUpdate = true; 
+                    if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
+                    return;
+                }
+
                 const btnCl = document.getElementById('btnToggleClouds');
                 if (btnCl) btnCl.classList.add('vp-loading-pulse');
                 vpWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData, currentSignal);
+                window._lastWetterRouteKey = cacheKey; // Cache-Key merken
                 if (btnCl) btnCl.classList.remove('vp-loading-pulse');
                 
                 window.vpBgNeedsUpdate = true; 
-                if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers(); // Sofort zeichnen, nicht auf Overpass warten!
+                if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers(); 
             };
 
             const fetchOverpass = async () => {
@@ -2988,19 +3001,18 @@ function vpToggleLandmarks() {
 function vpToggleObstacles() {
     if (window.vpFailedOverpassChunks && window.vpFailedOverpassChunks.length > 0) {
         if (typeof window.retryFailedOverpassChunks === 'function') window.retryFailedOverpassChunks();
-        return; // Verhindert das Ausschalten, startet stattdessen den Retry!
+        return; 
     }
     vpShowObstacles = !vpShowObstacles;
     localStorage.setItem('ga_show_obstacles', vpShowObstacles);
     const btn = document.getElementById('btnToggleObstacles');
     if (btn) btn.classList.toggle('active', vpShowObstacles);
     
-    if (vpShowObstacles && window._lastVpRouteKey) {
-        localStorage.removeItem('ga_obs_' + window._lastVpRouteKey);
-        window._lastObsRouteKey = null; // Zwingt zum erneuten Fetch
+    // FIX: Nur neu abfragen, wenn für die aktuelle Route noch nie geladen wurde!
+    if (vpShowObstacles && window._lastVpRouteKey && window._lastObsRouteKey !== window._lastVpRouteKey) {
         triggerVerticalProfileUpdate();
     } else {
-        window.vpBgNeedsUpdate = true; // FIX: Hintergrund zum Löschen zwingen
+        window.vpBgNeedsUpdate = true; 
         if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
     }
 }
@@ -3008,20 +3020,18 @@ function vpToggleObstacles() {
 function vpToggleLinearFeatures() {
     if (window.vpFailedOverpassChunks && window.vpFailedOverpassChunks.length > 0) {
         if (typeof window.retryFailedOverpassChunks === 'function') window.retryFailedOverpassChunks();
-        return; // Verhindert das Ausschalten, startet stattdessen den Retry!
+        return; 
     }
     vpShowLinear = !vpShowLinear;
     localStorage.setItem('ga_show_linear', vpShowLinear);
     const btn = document.getElementById('btnToggleLinear');
     if (btn) btn.classList.toggle('active', vpShowLinear);
     
-    if (vpShowLinear && window._lastVpRouteKey) {
-        // Löscht den Kombi-Cache für Hindernisse & Straßen und triggert einen sauberen Neubau
-        localStorage.removeItem('ga_obs_combo_' + window._lastVpRouteKey);
-        window._lastObsRouteKey = null; 
+    // FIX: Nur neu abfragen, wenn für die aktuelle Route noch nie geladen wurde!
+    if (vpShowLinear && window._lastVpRouteKey && window._lastObsRouteKey !== window._lastVpRouteKey) {
         triggerVerticalProfileUpdate();
     } else {
-        window.vpBgNeedsUpdate = true; // Hintergrund zum Löschen zwingen
+        window.vpBgNeedsUpdate = true; 
         if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
     }
 }
