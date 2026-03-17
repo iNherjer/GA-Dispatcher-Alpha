@@ -162,6 +162,82 @@ function renderMainRoute() {
 
             marker.on('dragend', function (e) {
                 let dropLatLng = marker.getLatLng();
+                const origLatLng = { lat: routeWaypoints[index].lat, lng: routeWaypoints[index].lng || routeWaypoints[index].lon };
+
+                // === NEU: SPEZIELLE POI LOGIK ===
+                if (isPOI) {
+                    const currentName = routeWaypoints[index].name ? routeWaypoints[index].name.replace("🎯 ", "") : "Unbekannt";
+                    const newName = prompt("Neues Ziel für den Rundflug festlegen?\nGib den Namen des neuen POI ein:", currentName);
+                    
+                    if (newName !== null && newName.trim() !== "") {
+                        // 1. POI aktualisieren
+                        routeWaypoints[index].lat = dropLatLng.lat;
+                        routeWaypoints[index].lng = dropLatLng.lng;
+                        routeWaypoints[index].name = "🎯 " + newName.trim();
+                        
+                        if (typeof currentMissionData !== 'undefined' && currentMissionData) {
+                            currentMissionData.poiName = newName.trim();
+                        }
+                        
+                        // 2. Das dynamische Dreieck anpassen
+                        const returnNav = calcNav(dropLatLng.lat, dropLatLng.lng, routeWaypoints[0].lat, routeWaypoints[0].lng || routeWaypoints[0].lon);
+                        const offsetBearing = (returnNav.brng + 20) % 360;
+                        const returnWp = getDestinationPoint(dropLatLng.lat, dropLatLng.lng, returnNav.dist * 0.45, offsetBearing);
+                        
+                        if (routeWaypoints.length > 2) {
+                            routeWaypoints[2].lat = returnWp.lat;
+                            routeWaypoints[2].lng = returnWp.lon;
+                        }
+
+                        // 3. UI aktualisieren
+                        const mDestName = document.getElementById("mDestName");
+                        if (mDestName) mDestName.innerText = newName.trim();
+                        const wikiDestNameEl = document.getElementById('wikiDestNameDisplay');
+                        if (wikiDestNameEl) wikiDestNameEl.innerText = `POI – ${newName.trim()}`;
+                        
+                        // 4. Wiki-Daten live laden
+                        if (typeof fetchAreaDescription === 'function') {
+                            const descEl = document.getElementById("wikiDestDescText");
+                            if (descEl) descEl.innerText = "Lade neue Ziel-Info...";
+                            fetchAreaDescription(dropLatLng.lat, dropLatLng.lng, 'wikiDestDescText', newName.trim(), null, 'wikiDestImageContainer', 'wikiDestImage');
+                        }
+
+                        // 5. KI-Briefing Story umschreiben (Live Dispatch)
+                        renderMainRoute(); // Aktualisiert die Distanzen im Hintergrund
+                        
+                        setTimeout(async () => {
+                            const paxText = document.getElementById("mPay").innerText;
+                            const cargoText = document.getElementById("mWeight").innerText;
+                            const totalDist = currentMissionData.dist;
+                            
+                            const titleEl = document.getElementById("mTitle");
+                            const storyEl = document.getElementById("mStory");
+                            if (titleEl) titleEl.innerHTML = "🔄 Auftrag wird umgeschrieben...";
+                            if (storyEl) storyEl.innerText = "Dispatcher passt die Story an das neue Ziel an...";
+                            
+                            let m = await fetchGeminiMission(currentSName, newName.trim(), totalDist, true, paxText, cargoText);
+                            if (m) {
+                                if (titleEl) titleEl.innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
+                                if (storyEl) storyEl.innerText = m.s;
+                                currentMissionData.mission = m.t;
+                            } else {
+                                if (titleEl) titleEl.innerHTML = "📋 Privater Rundflug";
+                                if (storyEl) storyEl.innerText = `Umgeleiteter Flugpunkt: ${newName.trim()}`;
+                                currentMissionData.mission = "Privater Rundflug";
+                            }
+                            window.debouncedSaveMissionState();
+                        }, 400);
+
+                        return;
+                    } else {
+                        // Abbruch: Marker schnipst an Original-Position zurück
+                        routeWaypoints[index].lat = origLatLng.lat;
+                        routeWaypoints[index].lng = origLatLng.lng;
+                    }
+                    renderMainRoute();
+                    return;
+                }
+                // === ENDE POI LOGIK ===
 
                 if (snapMode && cachedNavData.length > 0) {
                     let mousePoint = map.latLngToLayerPoint(dropLatLng);
