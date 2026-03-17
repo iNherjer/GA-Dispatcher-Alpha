@@ -1238,10 +1238,6 @@ function computeFlightProfile(elevationData, cruiseAltFt, climbRateFpm, descentR
 
     const depElevFt = elevationData[0].elevFt;
     let destElevFt = elevationData[elevationData.length - 1].elevFt;
-    // If destination is a POI, stay at cruise altitude (no descent)
-    if (typeof currentMissionData !== 'undefined' && currentMissionData && currentMissionData.poiName) {
-        destElevFt = cruiseAltFt;
-    }
     const totalDistNM = elevationData[elevationData.length - 1].distNM;
 
     const climbFt = Math.max(0, cruiseAltFt - depElevFt);
@@ -1562,7 +1558,7 @@ function renderVerticalProfile(canvasId) {
 
         let wpLabel;
         if (i === 0) wpLabel = currentStartICAO || 'DEP';
-        else if (i === routeWaypoints.length - 1) wpLabel = (currentMissionData?.poiName ? 'POI' : currentDestICAO) || 'DEST';
+        else if (i === routeWaypoints.length - 1) wpLabel = currentDestICAO || 'DEST';
         else wpLabel = routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i;
         if (wpLabel.length > 8) wpLabel = wpLabel.substring(0, 7) + '…';
 
@@ -2115,7 +2111,7 @@ function renderMapProfileFrames(timeMs) {
 
         fgCtx.beginPath(); fgCtx.setLineDash([2, 3]); fgCtx.strokeStyle = 'rgba(255,255,255,0.2)'; fgCtx.lineWidth = 1;
         fgCtx.moveTo(x, padTop); fgCtx.lineTo(x, padTop + plotH); fgCtx.stroke(); fgCtx.setLineDash([]);
-        let wpLabel = (i === 0) ? (currentStartICAO || 'DEP') : ((i === routeWaypoints.length - 1) ? ((currentMissionData?.poiName ? 'POI' : currentDestICAO) || 'DEST') : (routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i));
+        let wpLabel = (i === 0) ? (currentStartICAO || 'DEP') : ((i === routeWaypoints.length - 1) ? (currentDestICAO || 'DEST') : (routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i));
         if (!zoomFactor || zoomFactor < 2) { if (wpLabel.length > 6) wpLabel = wpLabel.substring(0, 5) + '…'; } else { if (wpLabel.length > 12) wpLabel = wpLabel.substring(0, 11) + '…'; }
         fgCtx.beginPath(); fgCtx.arc(x, padTop + plotH + 3, 3, 0, Math.PI * 2); fgCtx.fillStyle = i === 0 ? '#44ff44' : (i === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00'); fgCtx.fill();
         fgCtx.fillStyle = '#bbb'; fgCtx.font = (zoomFactor >= 2) ? 'bold 11px Arial' : 'bold 9px Arial'; fgCtx.textAlign = 'center'; fgCtx.fillText(wpLabel, x, padTop + plotH + 16);
@@ -2750,10 +2746,6 @@ computeFlightProfile = function (elevationData, cruiseAltFt, climbRateFpm, desce
     const totalDistNM = elevationData[elevationData.length - 1].distNM;
     const depElevFt = elevationData[0].elevFt;
     let destElevFt = elevationData[elevationData.length - 1].elevFt;
-    // If destination is a POI (not an airport), keep cruise altitude — no descent to ground
-    if (typeof currentMissionData !== 'undefined' && currentMissionData && currentMissionData.poiName) {
-        destElevFt = cruiseAltFt;
-    }
     const wps = vpAltWaypoints;
 
     // Ensure vpSegmentAlts has the right length

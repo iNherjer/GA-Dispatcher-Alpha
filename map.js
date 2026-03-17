@@ -1,4 +1,11 @@
 /* === MAP, ROUTING & LEAFLET ENGINE === */
+if (!document.getElementById('route-anim-style')) {
+    const style = document.createElement('style');
+    style.id = 'route-anim-style';
+    // -20 lässt die Striche der Linie vorwärts (Richtung Ziel) fließen
+    style.innerHTML = `@keyframes routeDashAnim { to { stroke-dashoffset: -20; } } .animated-route-line { animation: routeDashAnim 1.5s linear infinite; }`;
+    document.head.appendChild(style);
+}
 /* =========================================================
    7. KARTE (LEAFLET, KARTENTISCH & MESS-WERKZEUG)
    ========================================================= */
@@ -69,7 +76,7 @@ function renderMainRoute() {
     }
 
     if (!polyline) {
-        polyline = L.polyline(routeWaypoints, { color: '#ff4444', weight: 8, dashArray: '10,10', interactive: false }).addTo(map);
+        polyline = L.polyline(routeWaypoints, { color: '#ff4444', weight: 8, dashArray: '10,10', className: 'animated-route-line', interactive: false }).addTo(map);
     } else {
         polyline.setLatLngs(routeWaypoints);
     }
@@ -426,10 +433,10 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
         const returnWp = getDestinationPoint(lat2, lon2, returnNav.dist * 0.45, offsetBearing);
         
         routeWaypoints = [
-            { lat: lat1, lng: lon1 }, // 1. Start
-            { lat: lat2, lng: lon2, name: "🎯 " + currentMissionData.poiName, isPOI: true }, // 2. POI (Unser Ziel)
-            { lat: returnWp.lat, lng: returnWp.lon, name: "Return Leg" }, // 3. Dynamischer Wegpunkt für den Loop
-            { lat: lat1, lng: lon1 } // 4. Zurück zum Start
+            { lat: lat1, lng: lon1 }, 
+            { lat: lat2, lng: lon2, name: "🎯 " + currentMissionData.poiName, isPOI: true }, 
+            { lat: returnWp.lat, lng: returnWp.lon, name: "Return Leg" }, 
+            { lat: lat1, lng: lon1, name: currentSName } // HIER: Name explizit auf den Startplatz setzen
         ];
     } else {
         routeWaypoints = [{ lat: lat1, lng: lon1 }, { lat: lat2, lng: lon2 }];
