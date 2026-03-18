@@ -406,3 +406,91 @@ function resetSyncTimer() {
 ['click', 'touchstart', 'scroll', 'keydown'].forEach(evt => {
     document.addEventListener(evt, resetSyncTimer, { passive: true, capture: true });
 });
+
+// Globale Variablen für das Live-Tracking
+let liveGpsSocket = null;
+let liveGpsMarker = null; 
+
+// Diese Funktion aufrufen, sobald eine Route per Sync ID geladen wurde (z.B. connectToLiveGPS("4815"))
+window.connectToLiveGPS = function(syncId) {
+    if (!syncId) return;
+
+    const wsUrl = 'wss://websocketrelais.onrender.com/';
+
+    // Alte Verbindung schließen, falls wir die ID wechseln
+    if (liveGpsSocket) liveGpsSocket.close();
+
+    console.log(`[GPS] 📡 Verbinde mit Live-Tracking für Raum ${syncId}...`);
+    liveGpsSocket = new WebSocket(wsUrl);
+
+    liveGpsSocket.onopen = () => {
+        console.log(`[GPS] ✅ Verbunden! Warte auf Flugzeug-Daten...`);
+        // Dem Server mitteilen, in welchen Raum wir wollen
+        liveGpsSocket.send(JSON.stringify({ type: 'join', syncId: syncId }));
+    };
+
+    liveGpsSocket.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'gps') {
+                updateLivePlanePosition(data.lat, data.lon, data.alt, data.hdg);
+            }
+        } catch (e) {
+            console.error('[GPS] Fehler beim Lesen der Daten:', e);
+        }
+    };
+
+    liveGpsSocket.onclose = () => {
+        console.warn('[GPS] ❌ Verbindung getrennt. Versuche Reconnect in 5 Sekunden...');
+        setTimeout(() => connectToLiveGPS(syncId), 5000);
+    };
+};
+
+function updateLivePlanePosition(lat, lon, alt, hdg) {
+    // 1. FLUGZEUG AUF DER LEAFLET-KARTE ZEICHNEN
+    if (typeof map !== 'undefined' && map && typeof L !== 'undefined') {
+        if (!liveGpsMarker) {
+            const planeIcon = L.divIcon({
+                html: `<div style="font-size: 28px; transform: rotate(${hdg}deg); transform-origin: center; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.5));">✈️</div>`,
+                className: 'live-plane-marker',
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+            liveGpsMarker = L.marker([lat, lon], { icon: planeIcon, zIndexOffset: 9999 }).addTo(map);
+        } else {
+            liveGpsMarker.setLatLng([lat, lon]);
+            const iconElement = liveGpsMarker.getElement();
+            if (iconElement) {
+                iconElement.innerHTML = `<div style="font-size: 28px; transform: rotate(${hdg}deg); transform-origin: center; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.5));">✈️</div>`;
+            }
+        }
+    }
+
+    // 2. DAS HÖHENPROFIL SYNCHRONISIEREN (Die absolute Magie!)
+    // Berechnet, wo auf der Linie sich das Flugzeug gerade befindet
+    if (typeof vpElevationData !== 'undefined' && vpElevationData && vpElevationData.length > 0) {
+        let bestDistNM = 0;
+        let bestDist = Infinity;
+
+        // Finde den nächstgelegenen Punkt auf der Flugroute
+        vpElevationData.forEach(p => {
+            let d = calcNav(lat, lon, p.lat, p.lon).dist;
+            if (d < bestDist) {
+                bestDist = d;
+                bestDistNM = p.distNM;
+            }
+        });
+
+        // Wenn wir näher als 3 NM an der Route sind, schnappt der Positionsmarker im Profil ein!
+        if (bestDist < 3.0) {
+            const totalDist = vpElevationData[vpElevationData.length - 1].distNM;
+            let fraction = bestDistNM / totalDist;
+            
+            // Profil-Marker aktualisieren (deine bestehende Funktion aus profile.js)
+            if (typeof vpUpdatePosition === 'function' && !window.vpDraggingPosMarker) {
+                vpUpdatePosition(fraction);
+            }
+        }
+    }
+}
+
