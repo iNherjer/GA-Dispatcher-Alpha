@@ -1,4 +1,4 @@
-/* === VERTICAL PROFILE & CANVAS ENGINE === */
+/* === VERTICAL PROFILE & CANVAS ENGINE (v205) === */
 if (!document.getElementById('vp-err-dot-style')) {
     const style = document.createElement('style');
     style.id = 'vp-err-dot-style';
@@ -2186,28 +2186,42 @@ function renderMapProfileFrames(timeMs) {
         fgCtx.fillStyle = '#bbb'; fgCtx.font = (zoomFactor >= 2) ? 'bold 11px Arial' : 'bold 9px Arial'; fgCtx.textAlign = 'center'; fgCtx.fillText(wpLabel, x, padTop + plotH + 16);
     }
 
+    // A: SCRUB-MARKER (Magenta Linie bei Hover)
     if (typeof vpPositionFraction === 'number' && vpPositionFraction >= 0) {
         const posX = xOf(vpPositionFraction * totalDist);
         if (posX >= viewMinX - 20 && posX <= viewMaxX + 20) {
-            // Alte statische Linie (Magenta)
             fgCtx.beginPath(); fgCtx.strokeStyle = '#ff00ff'; fgCtx.lineWidth = 1.5; fgCtx.moveTo(posX, padTop); fgCtx.lineTo(posX, padTop + plotH); fgCtx.stroke();
             fgCtx.beginPath(); fgCtx.moveTo(posX, padTop + plotH + 2); fgCtx.lineTo(posX - 5, padTop + plotH + 10); fgCtx.lineTo(posX + 5, padTop + plotH + 10); fgCtx.closePath(); fgCtx.fillStyle = '#ff00ff'; fgCtx.fill();
+        }
+    }
 
-            // LIVE AIRCRAFT INDICATOR (Neu: Mit Höhe und Icon)
-            if (typeof vpLiveAltFt === 'number' && vpLiveAltFt > 0) {
-                const posY = yOf(vpLiveAltFt);
-                fgCtx.save();
-                fgCtx.translate(posX, posY);
-                fgCtx.font = '20px Arial';
-                fgCtx.textAlign = 'center';
-                fgCtx.textBaseline = 'middle';
-                fgCtx.shadowColor = 'rgba(0,0,0,0.8)';
-                fgCtx.shadowBlur = 4;
-                fgCtx.fillStyle = '#fff';
-                // Kurze Animation oder einfacher Marker
-                fgCtx.fillText('✈️', 0, 0); 
-                fgCtx.restore();
+            // B: LIVE-GPS-MARKER (Das Flugzeug, unabhängig vom Scrubbing)
+    if (typeof vpLiveGpsFraction === 'number' && vpLiveGpsFraction >= 0) {
+        const liveX = xOf(vpLiveGpsFraction * totalDist);
+        if (liveX >= viewMinX - 30 && liveX <= viewMaxX + 30) {
+            const liveY = yOf(vpLiveAltFt);
+            
+            fgCtx.save();
+            fgCtx.translate(liveX, liveY);
+            
+            // Flugzeug horizontal spiegeln je nach Richtung (Heading West/East)
+            if (vpLiveHdg > 180 && vpLiveHdg < 360) {
+                fgCtx.scale(-1, 1);
             }
+
+            // Flugzeug Premium SVG Icon (Side-View)
+            fgCtx.fillStyle = '#E63946'; // Das Rot aus dem User-SVG
+            fgCtx.strokeStyle = '#FFFFFF';
+            fgCtx.lineWidth = 1;
+
+            // Side-View Path (Zentrierung auf Y=11, X=12.5 für 24x24 viewBox)
+            const sideViewPath = new Path2D("M21,14 L4,14 L2,12 L11,12 L15,6 L18,6 L14,12 L21,12 C22.1,12 23,12.9 23,14 C23,15.1 22.1,16 21,16 L21,14 Z");
+            
+            fgCtx.translate(-12.5, -11); 
+            fgCtx.fill(sideViewPath);
+            fgCtx.stroke(sideViewPath);
+            
+            fgCtx.restore();
         }
     }
 
@@ -2285,17 +2299,16 @@ function initProfileResize() {
 /* =========================================================
    POSITION MARKER (Magenta triangle + Leaflet marker sync)
    ========================================================= */
-let vpPositionFraction = 0; // 0 = start of profile
+let vpPositionFraction = -1; // -1 = hidden scrub marker
+let vpLiveGpsFraction = -1;  // -1 = hidden live aircraft
 let vpLiveAltFt = 0;
 let vpLiveHdg = 0;
 let vpPositionLeafletMarker = null;
 
-function vpUpdatePosition(fraction, altFt = 0, hdg = 0) {
+function vpUpdatePosition(fraction) {
     vpPositionFraction = fraction;
-    vpLiveAltFt = altFt;
-    vpLiveHdg = hdg;
     
-    // FIX: Kein renderMapProfile() mehr! Weckt nur die Foreground-Schleife, falls sie schläft.
+    // Weckt nur die Foreground-Schleife, falls sie schläft.
     if (!window.vpAnimFrameId && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) {
         window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
     }
@@ -2338,6 +2351,16 @@ function vpUpdatePosition(fraction, altFt = 0, hdg = 0) {
                 if (map.hasLayer(vpPositionLeafletMarker)) map.removeLayer(vpPositionLeafletMarker);
             }
         }
+    }
+}
+
+function vpUpdateLiveAircraft(fraction, altFt, hdg) {
+    vpLiveGpsFraction = fraction;
+    vpLiveAltFt = altFt;
+    vpLiveHdg = hdg;
+
+    if (!window.vpAnimFrameId && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) {
+        window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
     }
 }
 

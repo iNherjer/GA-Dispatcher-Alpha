@@ -1,4 +1,4 @@
-/* === CLOUD SYNC & MULTIPLAYER FETCH LOGIC === */
+/* === CLOUD SYNC & MULTIPLAYER FETCH LOGIC (v205) === */
 /* =========================================================
    CLOUD SYNC LOGIC (Adaptive, Diffing, Debounce & Toggle)
    ========================================================= */
@@ -495,32 +495,38 @@ window.connectToLiveGPS = function(syncId) {
 };
 
 function updateLivePlanePosition(lat, lon, alt, hdg) {
-    // 1. FLUGZEUG AUF DER LEAFLET-KARTE ZEICHNEN
+    // 1. FLUGZEUG AUF DER LEAFLET-KARTE ZEICHNEN (SVG Icon mit Rotation)
     if (typeof map !== 'undefined' && map && typeof L !== 'undefined') {
+        const svgIconHtml = `
+            <div style="width: 32px; height: 32px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.6));">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#E63946" stroke="#FFFFFF" stroke-width="1.5" style="transform: rotate(${hdg}deg); transform-origin: center; width: 32px; height: 32px;">
+                    <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+                </svg>
+            </div>
+        `;
+
         if (!liveGpsMarker) {
             const planeIcon = L.divIcon({
-                html: `<div style="font-size: 28px; transform: rotate(${hdg}deg); transform-origin: center; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.5));">✈️</div>`,
+                html: svgIconHtml,
                 className: 'live-plane-marker',
-                iconSize: [28, 28],
-                iconAnchor: [14, 14]
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
             });
             liveGpsMarker = L.marker([lat, lon], { icon: planeIcon, zIndexOffset: 9999 }).addTo(map);
         } else {
             liveGpsMarker.setLatLng([lat, lon]);
             const iconElement = liveGpsMarker.getElement();
             if (iconElement) {
-                iconElement.innerHTML = `<div style="font-size: 28px; transform: rotate(${hdg}deg); transform-origin: center; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.5));">✈️</div>`;
+                iconElement.innerHTML = svgIconHtml;
             }
         }
     }
 
-    // 2. DAS HÖHENPROFIL SYNCHRONISIEREN (Die absolute Magie!)
-    // Berechnet, wo auf der Linie sich das Flugzeug gerade befindet
+    // 2. DAS HÖHENPROFIL SYNCHRONISIEREN
     if (typeof vpElevationData !== 'undefined' && vpElevationData && vpElevationData.length > 0) {
         let bestDistNM = 0;
         let bestDist = Infinity;
 
-        // Finde den nächstgelegenen Punkt auf der Flugroute
         vpElevationData.forEach(p => {
             let d = calcNav(lat, lon, p.lat, p.lon).dist;
             if (d < bestDist) {
@@ -534,9 +540,9 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             const totalDist = vpElevationData[vpElevationData.length - 1].distNM;
             let fraction = bestDistNM / totalDist;
             
-            // Profil-Marker aktualisieren (deine bestehende Funktion aus profile.js)
-            if (typeof vpUpdatePosition === 'function' && !window.vpDraggingPosMarker) {
-                vpUpdatePosition(fraction, alt, hdg);
+            // Marker B (Live) unabhängig von Marker A (Scrub) aktualisieren!
+            if (typeof vpUpdateLiveAircraft === 'function') {
+                vpUpdateLiveAircraft(fraction, alt, hdg);
             }
         }
     }
