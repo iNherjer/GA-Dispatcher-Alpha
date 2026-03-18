@@ -1,4 +1,4 @@
-/* === CLOUD SYNC & MULTIPLAYER FETCH LOGIC (v207) === */
+/* === CLOUD SYNC & MULTIPLAYER FETCH LOGIC (v208) === */
 /* =========================================================
    CLOUD SYNC LOGIC (Adaptive, Diffing, Debounce & Toggle)
    ========================================================= */
@@ -495,12 +495,12 @@ window.connectToLiveGPS = function(syncId) {
 };
 
 function updateLivePlanePosition(lat, lon, alt, hdg) {
-    // 1. FLUGZEUG AUF DER LEAFLET-KARTE ZEICHNEN (SVG Icon mit Rotation)
+    // 1. FLUGZEUG AUF DER LEAFLET-KARTE ZEICHNEN (Dynamisch via CSS Variablen)
     if (typeof map !== 'undefined' && map && typeof L !== 'undefined') {
         const svgIconHtml = `
-            <div style="width: 40px; height: 40px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.6));">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 447.74 339.91" style="transform: rotate(${hdg}deg); transform-origin: center; width: 40px; height: 40px;">
-                    <path fill="#E63946" d="M447.22,118.14a2,2,0,0,0-1.48-.65H443a61.87,61.87,0,0,0-6.2-19.62,8.66,8.66,0,0,0-7.67-4.6H290.3a13.4,13.4,0,0,1-4.61-.81L259.8,83a10.84,10.84,0,0,1-7.09-8.94c-1.44-12.06-4.15-34.18-6.06-46.78a16.45,16.45,0,0,0-10.94-13.17c-.9-.31-1.81-.59-2.69-.82a1.94,1.94,0,0,1-1.4-1.37,29.46,29.46,0,0,0-5.37-10.72,3.45,3.45,0,0,0-5.28,0A29.37,29.37,0,0,0,215.6,12a2,2,0,0,1-1.4,1.37c-.88.23-1.79.51-2.69.82a16.46,16.46,0,0,0-10.95,13.17C198.67,39.84,196,62,194.51,74.09A10.84,10.84,0,0,1,187.42,83l-25.89,9.43a13.4,13.4,0,0,1-4.61.81H18a8.66,8.66,0,0,0-7.66,4.6,61.62,61.62,0,0,0-6.2,19.62H2a2,2,0,0,0-2,2.19l.63,6.83a2,2,0,0,0,2,1.82h.72v.33A71.32,71.32,0,0,0,6.5,150a49.32,49.32,0,0,0,8.4,16.31,5.49,5.49,0,0,0,4.28,2H196.94c.84,5.65,13.56,91.52,17.94,122h-50.2a11.94,11.94,0,0,0-11.92,11.92v13.57a11.94,11.94,0,0,0,11.92,11.92H224.5v11.4c0,.37.64.71,1,.71s1.1-.34,1.1-.71V327.8h59.82a11.94,11.94,0,0,0,11.92-11.92V302.31a11.94,11.94,0,0,0-11.92-11.92H232.34c4.38-30.49,17.1-116.36,17.93-122H428a5.53,5.53,0,0,0,4.29-2,49.32,49.32,0,0,0,8.4-16.31,71.64,71.64,0,0,0,3.14-21.38v-.33h1.24a2,2,0,0,0,2-1.82l.63-6.83A2,2,0,0,0,447.22,118.14Zm-4.62,1c0,.27.07.54.1.81l.09.87C442.74,120.3,442.67,119.74,442.6,119.19ZM443,123c0,.14,0,.29,0,.44s0,.58.05.86h0C443,123.9,443,123.46,443,123Zm.09,1.32v.06c0,.12,0,.24,0,.37C443.08,124.63,443.08,124.49,443.07,124.35Z"/>
+            <div style="width: var(--plane-size); height: var(--plane-size); filter: drop-shadow(0 0 5px rgba(0,0,0,0.6)); position: relative;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 447.74 339.91" style="transform: rotate(${hdg}deg); transform-origin: center; width: 100%; height: 100%;">
+                    <path fill="var(--plane-color)" d="M447.22,118.14a2,2,0,0,0-1.48-.65H443a61.87,61.87,0,0,0-6.2-19.62,8.66,8.66,0,0,0-7.67-4.6H290.3a13.4,13.4,0,0,1-4.61-.81L259.8,83a10.84,10.84,0,0,1-7.09-8.94c-1.44-12.06-4.15-34.18-6.06-46.78a16.45,16.45,0,0,0-10.94-13.17c-.9-.31-1.81-.59-2.69-.82a1.94,1.94,0,0,1-1.4-1.37,29.46,29.46,0,0,0-5.37-10.72,3.45,3.45,0,0,0-5.28,0A29.37,29.37,0,0,0,215.6,12a2,2,0,0,1-1.4,1.37c-.88.23-1.79.51-2.69.82a16.46,16.46,0,0,0-10.95,13.17C198.67,39.84,196,62,194.51,74.09A10.84,10.84,0,0,1,187.42,83l-25.89,9.43a13.4,13.4,0,0,1-4.61.81H18a8.66,8.66,0,0,0-7.66,4.6,61.62,61.62,0,0,0-6.2,19.62H2a2,2,0,0,0-2,2.19l.63,6.83a2,2,0,0,0,2,1.82h.72v.33A71.32,71.32,0,0,0,6.5,150a49.32,49.32,0,0,0,8.4,16.31,5.49,5.49,0,0,0,4.28,2H196.94c.84,5.65,13.56,91.52,17.94,122h-50.2a11.94,11.94,0,0,0-11.92,11.92v13.57a11.94,11.94,0,0,0,11.92,11.92H224.5v11.4c0,.37.64.71,1,.71s1.1-.34,1.1-.71V327.8h59.82a11.94,11.94,0,0,0,11.92-11.92V302.31a11.94,11.94,0,0,0-11.92-11.92H232.34c4.38-30.49,17.1-116.36,17.93-122H428a5.53,5.53,0,0,0,4.29-2,49.32,49.32,0,0,0,8.4-16.31,71.64,71.64,0,0,0,3.14-21.38v-.33h1.24a2,2,0,0,0,2-1.82l.63-6.83A2,2,0,0,0,447.22,118.14Zm-4.62,1c0,.27.07.54.1.81l.09.87C442.74,120.3,442.67,119.74,442.6,119.19ZM443,123c0,.14,0,.29,0,.44s0,.58.05.86h0C443,123.9,443,123.46,443,123Zm.09,1.32v.06c0,.12,0,.24,0,.37C443.08,124.63,443.08,124.49,443.07,124.35Z"/>
                 </svg>
             </div>
         `;
@@ -509,14 +509,43 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             const planeIcon = L.divIcon({
                 html: svgIconHtml,
                 className: 'live-plane-marker',
-                iconSize: [40, 40],
-                iconAnchor: [20, 20]
+                iconSize: [60, 60],
+                iconAnchor: [30, 30]
             });
             liveGpsMarker = L.marker([lat, lon], { icon: planeIcon, zIndexOffset: 9999 }).addTo(map);
+
+            // Popup mit Konfiguration
+            const popupDiv = document.createElement('div');
+            popupDiv.style.minWidth = '120px';
+            popupDiv.innerHTML = `
+                <div style="font-weight:bold; margin-bottom:8px; color:#333;">Plane Icon</div>
+                <label style="font-size:10px; color:#666; margin-bottom:2px;">COLOR</label>
+                <input type="color" id="planeColorPicker" value="${getComputedStyle(document.documentElement).getPropertyValue('--plane-color').trim() || '#E63946'}" style="width:100%; height:30px; border:1px solid #ccc; background:none; cursor:pointer; margin-bottom:8px;">
+                <label style="font-size:10px; color:#666; margin-bottom:2px;">SIZE</label>
+                <input type="range" id="planeSizeSlider" min="20" max="100" value="${parseInt(getComputedStyle(document.documentElement).getPropertyValue('--plane-size')) || 40}" style="width:100%; cursor:pointer;">
+            `;
+
+            liveGpsMarker.bindPopup(popupDiv);
+            
+            // Event Listener hinzufügen, wenn das Popup geöffnet wird
+            liveGpsMarker.on('popupopen', () => {
+                const colorPicker = document.getElementById('planeColorPicker');
+                const sizeSlider = document.getElementById('planeSizeSlider');
+                
+                colorPicker?.addEventListener('input', (e) => {
+                    document.documentElement.style.setProperty('--plane-color', e.target.value);
+                });
+                
+                sizeSlider?.addEventListener('input', (e) => {
+                    document.documentElement.style.setProperty('--plane-size', e.target.value + 'px');
+                });
+            });
+
         } else {
             liveGpsMarker.setLatLng([lat, lon]);
             const iconElement = liveGpsMarker.getElement();
             if (iconElement) {
+                // Wir aktualisieren nur den HTML-Inhalt für die Rotation, die Variablen wirken vom CSS
                 iconElement.innerHTML = svgIconHtml;
             }
         }
