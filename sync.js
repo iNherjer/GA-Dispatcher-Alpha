@@ -21,7 +21,10 @@ function saveSyncId() {
         localStorage.setItem('ga_sync_time', 0);
     }
     localStorage.setItem('ga_sync_id', id);
-    if (id) silentSyncLoad();
+    if (id) {
+        silentSyncLoad();
+        if (typeof connectToLiveGPS === 'function') connectToLiveGPS(id);
+    }
 }
 function generateSyncId() {
     const words = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliett", "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "Xray", "Yankee", "Zulu"];
@@ -37,6 +40,7 @@ function generateSyncId() {
     if (t) { t.checked = true; localStorage.setItem('ga_sync_enabled', 'true'); }
     updateSyncStatus("Neue ID generiert. Speichere...");
     triggerCloudSave(true);
+    if (typeof connectToLiveGPS === 'function') connectToLiveGPS(newId);
 }
 function updateSyncStatus(msg, isError = false) {
     const el = document.getElementById('syncStatus');
@@ -410,7 +414,7 @@ function resetSyncTimer() {
 // Globale Variablen für das Live-Tracking
 let liveGpsSocket = null;
 let liveGpsMarker = null; 
-
+let gpsWatchdog;
 // Diese Funktion aufrufen, sobald eine Route per Sync ID geladen wurde (z.B. connectToLiveGPS("4815"))
 window.connectToLiveGPS = function(syncId) {
     if (!syncId) return;
@@ -427,6 +431,13 @@ window.connectToLiveGPS = function(syncId) {
         console.log(`[GPS] ✅ Verbunden! Warte auf Flugzeug-Daten...`);
         // Dem Server mitteilen, in welchen Raum wir wollen
         liveGpsSocket.send(JSON.stringify({ type: 'join', syncId: syncId }));
+
+        const ind = document.getElementById('liveGpsIndicator');
+        if (ind) { 
+            ind.innerHTML = '🛰️ WAIT'; 
+            ind.style.color = '#f2c12e'; // Orange
+            ind.style.textShadow = 'none';
+        }
     };
 
     liveGpsSocket.onmessage = (event) => {
@@ -434,6 +445,24 @@ window.connectToLiveGPS = function(syncId) {
             const data = JSON.parse(event.data);
             if (data.type === 'gps') {
                 updateLivePlanePosition(data.lat, data.lon, data.alt, data.hdg);
+
+                const ind = document.getElementById('liveGpsIndicator');
+                if (ind) {
+                    ind.innerHTML = '🛰️ LIVE'; 
+                    ind.style.color = '#44ff44'; // Grün
+                    ind.style.textShadow = '0 0 8px #44ff44';
+                    
+                    // Watchdog: Timer bei jedem neuen Paket zurücksetzen
+                    clearTimeout(gpsWatchdog);
+                    gpsWatchdog = setTimeout(() => {
+                        // Wenn 3 Sekunden lang kein Paket mehr kam -> Zurück auf WAIT
+                        if (ind.innerHTML === '🛰️ LIVE') {
+                            ind.innerHTML = '🛰️ WAIT';
+                            ind.style.color = '#f2c12e';
+                            ind.style.textShadow = 'none';
+                        }
+                    }, 3000);
+                }
             }
         } catch (e) {
             console.error('[GPS] Fehler beim Lesen der Daten:', e);
@@ -442,7 +471,26 @@ window.connectToLiveGPS = function(syncId) {
 
     liveGpsSocket.onclose = () => {
         console.warn('[GPS] ❌ Verbindung getrennt. Versuche Reconnect in 5 Sekunden...');
+        
+        clearTimeout(gpsWatchdog);
+        const ind = document.getElementById('liveGpsIndicator');
+        if (ind) { 
+            ind.innerHTML = '🛰️ OFF'; 
+            ind.style.color = '#666'; // Grau
+            ind.style.textShadow = 'none';
+        }
+
         setTimeout(() => connectToLiveGPS(syncId), 5000);
+    };
+
+    liveGpsSocket.onerror = () => {
+        clearTimeout(gpsWatchdog);
+        const ind = document.getElementById('liveGpsIndicator');
+        if (ind) { 
+            ind.innerHTML = '🛰️ OFF'; 
+            ind.style.color = '#666'; // Grau
+            ind.style.textShadow = 'none';
+        }
     };
 };
 
@@ -494,3 +542,12 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     }
 }
 
+// Auto-Start Live GPS on app load
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        const savedId = localStorage.getItem('ga_sync_id');
+        if (savedId && typeof connectToLiveGPS === 'function') {
+            connectToLiveGPS(savedId);
+        }
+    }, 1000); // Kurze Verzögerung, damit Karte und UI erst fertig laden
+});
