@@ -536,7 +536,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             
             // Profil-Marker aktualisieren (deine bestehende Funktion aus profile.js)
             if (typeof vpUpdatePosition === 'function' && !window.vpDraggingPosMarker) {
-                vpUpdatePosition(fraction);
+                vpUpdatePosition(fraction, alt, hdg);
             }
         }
     }

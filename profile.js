@@ -2189,8 +2189,25 @@ function renderMapProfileFrames(timeMs) {
     if (typeof vpPositionFraction === 'number' && vpPositionFraction >= 0) {
         const posX = xOf(vpPositionFraction * totalDist);
         if (posX >= viewMinX - 20 && posX <= viewMaxX + 20) {
+            // Alte statische Linie (Magenta)
             fgCtx.beginPath(); fgCtx.strokeStyle = '#ff00ff'; fgCtx.lineWidth = 1.5; fgCtx.moveTo(posX, padTop); fgCtx.lineTo(posX, padTop + plotH); fgCtx.stroke();
             fgCtx.beginPath(); fgCtx.moveTo(posX, padTop + plotH + 2); fgCtx.lineTo(posX - 5, padTop + plotH + 10); fgCtx.lineTo(posX + 5, padTop + plotH + 10); fgCtx.closePath(); fgCtx.fillStyle = '#ff00ff'; fgCtx.fill();
+
+            // LIVE AIRCRAFT INDICATOR (Neu: Mit Höhe und Icon)
+            if (typeof vpLiveAltFt === 'number' && vpLiveAltFt > 0) {
+                const posY = yOf(vpLiveAltFt);
+                fgCtx.save();
+                fgCtx.translate(posX, posY);
+                fgCtx.font = '20px Arial';
+                fgCtx.textAlign = 'center';
+                fgCtx.textBaseline = 'middle';
+                fgCtx.shadowColor = 'rgba(0,0,0,0.8)';
+                fgCtx.shadowBlur = 4;
+                fgCtx.fillStyle = '#fff';
+                // Kurze Animation oder einfacher Marker
+                fgCtx.fillText('✈️', 0, 0); 
+                fgCtx.restore();
+            }
         }
     }
 
@@ -2269,10 +2286,14 @@ function initProfileResize() {
    POSITION MARKER (Magenta triangle + Leaflet marker sync)
    ========================================================= */
 let vpPositionFraction = 0; // 0 = start of profile
+let vpLiveAltFt = 0;
+let vpLiveHdg = 0;
 let vpPositionLeafletMarker = null;
 
-function vpUpdatePosition(fraction) {
+function vpUpdatePosition(fraction, altFt = 0, hdg = 0) {
     vpPositionFraction = fraction;
+    vpLiveAltFt = altFt;
+    vpLiveHdg = hdg;
     
     // FIX: Kein renderMapProfile() mehr! Weckt nur die Foreground-Schleife, falls sie schläft.
     if (!window.vpAnimFrameId && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) {
