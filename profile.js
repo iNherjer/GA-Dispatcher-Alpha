@@ -176,8 +176,8 @@ async function fetchProfileObstacles(elevData, signal) {
         const polylineStr = pathCoords.join(',');
 
         const radius = 4000; 
-        // Autobahnen und Masten (ohne RAM-fressende Flüsse)
-        const queryBody = `node["generator:source"="wind"](around:${radius},${polylineStr});node["man_made"~"mast|tower"]["height"](around:${radius},${polylineStr});way["highway"="motorway"](around:${radius},${polylineStr});`;
+        // Autobahnen, Masten UND Flüsse
+        const queryBody = `node["generator:source"="wind"](around:${radius},${polylineStr});node["man_made"~"mast|tower"]["height"](around:${radius},${polylineStr});way["highway"="motorway"](around:${radius},${polylineStr});way["waterway"="river"](around:${radius},${polylineStr});`;
         const query = `[out:json][timeout:45][bbox:${bbox}];(${queryBody});out geom qt;`;
 
         let retries = 3; // 3 Versuche pro Segment reichen bei sequenzieller Abfrage
@@ -409,6 +409,7 @@ function triggerVerticalProfileUpdate() {
                             vpObstacles = cached.obs || [];
                             vpLinearFeatures = cached.lin || [];
                             window._lastObsRouteKey = cacheKey; 
+                            window.vpBgNeedsUpdate = true; // <--- FIX: Redraw nach Laden aus Cache erzwingen
                         } catch(e) { vpObstacles = []; vpLinearFeatures = []; }
                     } else {
                         const result = await fetchProfileObstacles(vpElevationData, currentSignal);
@@ -3073,7 +3074,7 @@ window.retryFailedOverpassChunks = async function() {
         const lastPt = `${chunkData[chunkData.length-1].lat.toFixed(4)},${chunkData[chunkData.length-1].lon.toFixed(4)}`;
         if (pathCoords[pathCoords.length-1] !== lastPt) pathCoords.push(lastPt);
         
-        const queryBody = `node["generator:source"="wind"](around:4000,${pathCoords.join(',')});node["man_made"~"mast|tower"]["height"](around:4000,${pathCoords.join(',')});way["highway"="motorway"](around:4000,${pathCoords.join(',')});`;
+        const queryBody = `node["generator:source"="wind"](around:4000,${pathCoords.join(',')});node["man_made"~"mast|tower"]["height"](around:4000,${pathCoords.join(',')});way["highway"="motorway"](around:4000,${pathCoords.join(',')});way["waterway"="river"](around:4000,${pathCoords.join(',')});`;
         const query = `[out:json][timeout:25][bbox:${bbox}];(${queryBody});out geom qt;`;
 
         let retries = 5, attempt = 0, success = false;
