@@ -3239,6 +3239,9 @@ window.promptForRate = function() {
     }
 };
 
+/* =========================================================
+   2D SIMULATOR EXPORT (Vollständige Welt)
+   ========================================================= */
 window.exportFor2DSim = function() {
     if (!vpElevationData || vpElevationData.length < 2) {
         alert("Bitte generiere zuerst eine Route im Dispatcher!");
@@ -3248,66 +3251,94 @@ window.exportFor2DSim = function() {
     const NM_TO_M = 1852;
     const FT_TO_M = 0.3048;
 
-    let terrainPoints = [];
-
-    // 1. Generate Start Runway at x = 0
-    terrainPoints.push({
-        x: 0,
-        elevation: vpElevationData[0].elevFt * FT_TO_M,
-        type: "runway",
-        length: 1200
-    });
-
-    // 2. Add intermediate terrain points
+    let waypoints = [];
+    
+    // 1. Start-Landebahn generieren
+    waypoints.push({ x: 0, elevation: vpElevationData[0].elevFt * FT_TO_M, type: "runway", length: 1200 });
+    
+    // 2. Wegpunkte / Topographie
     for (let i = 1; i < vpElevationData.length - 1; i++) {
-        let pt = vpElevationData[i];
-        terrainPoints.push({
-            x: pt.distNM * NM_TO_M,
-            elevation: pt.elevFt * FT_TO_M,
-            type: "terrain"
+        waypoints.push({ x: vpElevationData[i].distNM * NM_TO_M, elevation: vpElevationData[i].elevFt * FT_TO_M, type: "terrain" });
+    }
+    
+    // 3. Ziel-Landebahn generieren
+    let totalDistM = vpElevationData[vpElevationData.length - 1].distNM * NM_TO_M;
+    waypoints.push({ x: totalDistM, elevation: vpElevationData[vpElevationData.length - 1].elevFt * FT_TO_M, type: "runway", length: 1200 });
+
+    // 4. Wetter-Zonen (Regen, Schnee, Wolken)
+    let weatherZones = [];
+    let cloudBaseMeters = 1500;
+    if (typeof vpWeatherData !== 'undefined' && vpWeatherData) {
+        if (vpWeatherData.length > 0 && vpWeatherData[0].lowestBase !== Infinity) {
+            cloudBaseMeters = vpWeatherData[0].lowestBase * FT_TO_M;
+        }
+        vpWeatherData.forEach(zone => {
+            weatherZones.push({
+                x: zone.distNM * NM_TO_M,
+                icao: zone.icao,
+                hasRain: zone.weather ? zone.weather.hasRain : false,
+                hasSnow: zone.weather ? zone.weather.hasSnow : false,
+                hasTS: zone.weather ? zone.weather.hasTS : false,
+                clouds: zone.clouds ? zone.clouds.map(c => ({
+                    type: c.type,
+                    baseM: c.baseMsl * FT_TO_M
+                })) : []
+            });
         });
     }
 
-    // 3. Generate Destination Runway
-    let lastPt = vpElevationData[vpElevationData.length - 1];
-    let totalDistM = lastPt.distNM * NM_TO_M;
-    terrainPoints.push({
-        x: totalDistM,
-        elevation: lastPt.elevFt * FT_TO_M,
-        type: "runway",
-        length: 1200
-    });
-
-    // 4. Extract Weather Data (Cloud Base)
-    let cloudBaseMeters = 1500; 
-    if (typeof vpWeatherData !== 'undefined' && vpWeatherData && vpWeatherData.length > 0) {
-        let lowestFt = vpWeatherData[0].lowestBase;
-        if (lowestFt && lowestFt !== Infinity) {
-            cloudBaseMeters = lowestFt * FT_TO_M;
-        }
+    // 5. Hindernisse (Windräder, Masten)
+    let obstacles = [];
+    if (typeof vpObstacles !== 'undefined' && vpObstacles) {
+        vpObstacles.forEach(obs => {
+            obstacles.push({
+                x: obs.distNM * NM_TO_M,
+                type: obs.type, // 'wind' oder 'mast'
+                heightM: obs.hFt * FT_TO_M
+            });
+        });
     }
 
-    // 5. Construct Final JSON
+    // 6. Flüsse & Autobahnen
+    let linearFeatures = [];
+    if (typeof vpLinearFeatures !== 'undefined' && vpLinearFeatures) {
+        vpLinearFeatures.forEach(feat => {
+            linearFeatures.push({
+                x: feat.distNM * NM_TO_M,
+                type: feat.type, // 'river' oder 'highway'
+                name: feat.name
+            });
+        });
+    }
+
+    // 7. Städte & Flughäfen
+    let landmarks = [];
+    if (typeof vpLandmarks !== 'undefined' && vpLandmarks) {
+        vpLandmarks.forEach(lm => {
+            landmarks.push({
+                x: lm.distNM * NM_TO_M,
+                type: lm.type, // 'apt', 'city', 'town'
+                name: lm.name
+            });
+        });
+    }
+
+    // 8. JSON zusammensetzen
     let simData = {
-        qnh: 1013,
-        cloudBase: Math.round(cloudBaseMeters),
-        oatAtSeaLevel: 15,
-        wind: { vx: -5, vy: 0 }, 
-        terrain: {
-            points: terrainPoints
-        }
+        weather: { windVX: -5, windVY: 0, oat: 15, qnh: 1013, cloudBase: Math.round(cloudBaseMeters) },
+        waypoints: waypoints,
+        weatherZones: weatherZones,
+        obstacles: obstacles,
+        linearFeatures: linearFeatures,
+        landmarks: landmarks
     };
 
     let jsonString = JSON.stringify(simData, null, 2);
 
-    // 6. Copy to clipboard or download
     if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(jsonString).then(() => {
-            alert("✅ Flugplan für 2D Simulator kopiert!");
-        }).catch(() => fallbackDownload(jsonString));
-    } else {
-        fallbackDownload(jsonString);
-    }
+        navigator.clipboard.writeText(jsonString).then(() => { alert("✅ Reale Welt exportiert und in die Zwischenablage kopiert!"); })
+        .catch(() => fallbackDownload(jsonString));
+    } else { fallbackDownload(jsonString); }
 };
 
 function fallbackDownload(jsonString) {
