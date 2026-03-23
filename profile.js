@@ -3238,3 +3238,87 @@ window.promptForRate = function() {
         syncRateFromInput(val);
     }
 };
+
+window.exportFor2DSim = function() {
+    if (!vpElevationData || vpElevationData.length < 2) {
+        alert("Bitte generiere zuerst eine Route im Dispatcher!");
+        return;
+    }
+
+    const NM_TO_M = 1852;
+    const FT_TO_M = 0.3048;
+
+    let terrainPoints = [];
+
+    // 1. Generate Start Runway at x = 0
+    terrainPoints.push({
+        x: 0,
+        elevation: vpElevationData[0].elevFt * FT_TO_M,
+        type: "runway",
+        length: 1200
+    });
+
+    // 2. Add intermediate terrain points
+    for (let i = 1; i < vpElevationData.length - 1; i++) {
+        let pt = vpElevationData[i];
+        terrainPoints.push({
+            x: pt.distNM * NM_TO_M,
+            elevation: pt.elevFt * FT_TO_M,
+            type: "terrain"
+        });
+    }
+
+    // 3. Generate Destination Runway
+    let lastPt = vpElevationData[vpElevationData.length - 1];
+    let totalDistM = lastPt.distNM * NM_TO_M;
+    terrainPoints.push({
+        x: totalDistM,
+        elevation: lastPt.elevFt * FT_TO_M,
+        type: "runway",
+        length: 1200
+    });
+
+    // 4. Extract Weather Data (Cloud Base)
+    let cloudBaseMeters = 1500; 
+    if (typeof vpWeatherData !== 'undefined' && vpWeatherData && vpWeatherData.length > 0) {
+        let lowestFt = vpWeatherData[0].lowestBase;
+        if (lowestFt && lowestFt !== Infinity) {
+            cloudBaseMeters = lowestFt * FT_TO_M;
+        }
+    }
+
+    // 5. Construct Final JSON
+    let simData = {
+        qnh: 1013,
+        cloudBase: Math.round(cloudBaseMeters),
+        oatAtSeaLevel: 15,
+        wind: { vx: -5, vy: 0 }, 
+        terrain: {
+            points: terrainPoints
+        }
+    };
+
+    let jsonString = JSON.stringify(simData, null, 2);
+
+    // 6. Copy to clipboard or download
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(jsonString).then(() => {
+            alert("✅ Flugplan für 2D Simulator kopiert!");
+        }).catch(() => fallbackDownload(jsonString));
+    } else {
+        fallbackDownload(jsonString);
+    }
+};
+
+function fallbackDownload(jsonString) {
+    let blob = new Blob([jsonString], {type: "application/json"});
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement('a');
+    a.href = url;
+    a.download = "2d_sim_flightplan.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    alert("✅ Flugplan als '2d_sim_flightplan.json' heruntergeladen!");
+}
+
