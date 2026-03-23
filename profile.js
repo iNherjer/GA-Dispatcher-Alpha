@@ -3333,23 +3333,16 @@ window.exportFor2DSim = function() {
         landmarks: landmarks
     };
 
-    let jsonString = JSON.stringify(simData, null, 2);
+    let jsonString = JSON.stringify(simData);
 
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(jsonString).then(() => { alert("✅ Reale Welt exportiert und in die Zwischenablage kopiert!"); })
-        .catch(() => fallbackDownload(jsonString));
-    } else { fallbackDownload(jsonString); }
+    // 9. MAGIC TRANSFER: Ab in den localStorage und Simulator öffnen!
+    try {
+        localStorage.setItem('autoSimFlightPlan', jsonString);
+        // Öffnet den Simulator in einem neuen Tab (Pfad ggf. anpassen, falls game.html woanders liegt)
+        window.open('game.html', '_blank'); 
+    } catch (e) {
+        alert("Fehler beim Transfer! Bitte Cookies/Local Storage im Browser erlauben.");
+        console.error(e);
+    }
 };
-
-function fallbackDownload(jsonString) {
-    let blob = new Blob([jsonString], {type: "application/json"});
-    let url = URL.createObjectURL(blob);
-    let a = document.createElement('a');
-    a.href = url;
-    a.download = "2d_sim_flightplan.json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    alert("✅ Flugplan als '2d_sim_flightplan.json' heruntergeladen!");
-}
 
