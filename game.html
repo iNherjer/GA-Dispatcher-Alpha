@@ -90,6 +90,9 @@
   "weatherZones": [
     { "x": 0, "hasRain": false, "hasSnow": false, "clouds": [{"baseM": 600, "type": "FEW"}] },
     { "x": 5000, "hasRain": true, "hasSnow": false, "clouds": [{"baseM": 400, "type": "OVC"}] }
+  ],
+  "airspaces": [
+    { "startX": 0, "endX": 10000, "lowerM": 0, "upperM": 1200, "isLowerAgl": true, "isCTR": true, "name": "EDDF CTR" }
   ]
 }</textarea>
         <button id="startFlightBtn" style="padding: 15px 30px; margin-top: 20px; font-size: 18px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 5px; font-weight: bold;">Start Flight</button>
@@ -203,6 +206,10 @@
         let worldLinear = [];
         let worldLandmarks = [];
         let worldWeatherZones = [];
+        let worldAirspaces = [];
+        let aiPlanes = [];
+        let isTCAS = false;
+        let isInCTR = false;
         let needsAudioResume = false;
         let clouds = [];
 
@@ -277,6 +284,7 @@
                 worldLandmarks = fLms.filter(l => l.x > 300);
                 
                 worldWeatherZones = flightPlan.weatherZones || [];
+                worldAirspaces = flightPlan.airspaces || [];
                 
                 runways = [];
                 flightPlan.waypoints.forEach(wp => {
@@ -642,6 +650,33 @@
             // --- 4. KOLLISION ---
             let crashed = false;
 
+            if (Math.random() < 0.005) {
+                let isApproaching = Math.random() > 0.5;
+                aiPlanes.push({
+                    x: plane.x + (isApproaching ? 10000 : -10000), 
+                    y: 300 + Math.random() * 2700,
+                    vx: isApproaching ? -50 : 50
+                });
+            }
+            aiPlanes = aiPlanes.filter(ai => Math.abs(ai.x - plane.x) < 15000);
+            
+            isTCAS = false;
+            aiPlanes.forEach(ai => {
+                ai.x += ai.vx * DT;
+                let dx = Math.abs(plane.x - ai.x);
+                let dy = Math.abs(plane.y - ai.y);
+                if (dx < 15 && dy < 10) crashed = true;
+                else if (dx < 2000 && dy < 150) isTCAS = true;
+            });
+
+            isInCTR = false;
+            worldAirspaces.forEach(as => {
+                let lowerBound = as.isLowerAgl ? as.lowerM + getTerrainHeight(plane.x) : as.lowerM;
+                if (plane.x >= as.startX && plane.x <= as.endX && plane.y >= lowerBound && plane.y <= as.upperM) {
+                    if (as.isCTR) isInCTR = true;
+                }
+            });
+
             let hitObs = worldObstacles.find(o => Math.abs(plane.x - o.x) < 3 && plane.y < (getTerrainHeight(o.x) + o.heightM - 2));
             if (hitObs) crashed = true;
 
@@ -842,6 +877,55 @@
                     targetCtx.arc((c.x + p.offsetX) * zoomX, (c.y + p.offsetY) * zoomY, p.radius * Math.max(zoomX, zoomY), 0, Math.PI * 2);
                     targetCtx.fill();
                 });
+            });
+
+            worldAirspaces.forEach(as => {
+                let groundY1 = as.isLowerAgl ? getTerrainHeight(as.startX) : 0;
+                let lowerBound = as.lowerM + groundY1; 
+                let height = as.upperM - lowerBound;
+                
+                targetCtx.fillStyle = as.isCTR ? 'rgba(200, 50, 50, 0.15)' : 'rgba(50, 50, 200, 0.1)';
+                targetCtx.strokeStyle = as.isCTR ? 'rgba(200, 50, 50, 0.5)' : 'rgba(50, 50, 200, 0.5)';
+                targetCtx.lineWidth = 1;
+                targetCtx.setLineDash([10 * zoomX, 10 * zoomX]);
+                targetCtx.fillRect(as.startX * zoomX, lowerBound * zoomY, (as.endX - as.startX) * zoomX, height * zoomY);
+                targetCtx.strokeRect(as.startX * zoomX, lowerBound * zoomY, (as.endX - as.startX) * zoomX, height * zoomY);
+                targetCtx.setLineDash([]);
+                
+                if (!drawPlaneHighlight) {
+                    targetCtx.save();
+                    targetCtx.scale(1, -1);
+                    targetCtx.fillStyle = as.isCTR ? 'rgba(200, 50, 50, 0.8)' : 'rgba(50, 50, 200, 0.8)';
+                    targetCtx.textAlign = 'center';
+                    targetCtx.font = 'bold ' + Math.max(12, 14 * zoomX) + 'px sans-serif';
+                    targetCtx.fillText(as.name, (as.startX + (as.endX - as.startX)/2) * zoomX, -(as.upperM - 20) * zoomY);
+                    targetCtx.restore();
+                }
+            });
+
+            aiPlanes.forEach(ai => {
+                targetCtx.fillStyle = '#fff';
+                targetCtx.beginPath();
+                let dir = ai.vx > 0 ? 1 : -1;
+                targetCtx.moveTo((ai.x + dir * 15) * zoomX, ai.y * zoomY);
+                targetCtx.lineTo((ai.x - dir * 15) * zoomX, (ai.y + 5) * zoomY);
+                targetCtx.lineTo((ai.x - dir * 15) * zoomX, (ai.y - 5) * zoomY);
+                targetCtx.fill();
+                
+                if (Date.now() % 1000 < 100) {
+                    targetCtx.fillStyle = '#fff';
+                    targetCtx.beginPath();
+                    targetCtx.arc(ai.x * zoomX, ai.y * zoomY, 8 * zoomX, 0, Math.PI*2);
+                    targetCtx.fill();
+                }
+
+                let dx = Math.abs(plane.x - ai.x);
+                let dy = Math.abs(plane.y - ai.y);
+                if (dx < 2000 && dy < 150) {
+                    targetCtx.strokeStyle = 'red';
+                    targetCtx.lineWidth = 2 * zoomX;
+                    targetCtx.strokeRect((ai.x - 20) * zoomX, (ai.y - 20) * zoomY, 40 * zoomX, 40 * zoomY);
+                }
             });
 
             if (!drawPlaneHighlight) {
@@ -1136,6 +1220,24 @@
                 ctx.font = 'bold 40px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText('BRAKES', canvas.width / 2, canvas.height - 50);
+            }
+
+            if (isTCAS) {
+                let isBlink = (Date.now() % 500) < 250;
+                ctx.fillStyle = isBlink ? 'red' : 'yellow';
+                ctx.font = 'bold 40px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('TRAFFIC! TRAFFIC!', canvas.width / 2, 80);
+            }
+
+            if (isInCTR) {
+                let isBlink = (Date.now() % 500) < 250;
+                if (isBlink) {
+                    ctx.fillStyle = 'red';
+                    ctx.font = 'bold 36px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('⚠️ AIRSPACE VIOLATION: UNAUTHORIZED ENTRY INTO CTR', canvas.width / 2, 130);
+                }
             }
 
             if (needsAudioResume) {
