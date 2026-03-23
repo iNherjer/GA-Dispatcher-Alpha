@@ -3323,14 +3323,41 @@ window.exportFor2DSim = function() {
         });
     }
 
-    // 8. JSON zusammensetzen
+    // 7b. Lufträume (Airspaces) extrahieren
+    let airspaces = [];
+    if (typeof activeAirspaces !== 'undefined' && activeAirspaces.length > 0 && typeof getCachedAirspaceIntersections === 'function') {
+        let totalDistNM = vpElevationData[vpElevationData.length - 1].distNM;
+        let cachedAS = getCachedAirspaceIntersections(vpElevationData, totalDistNM);
+        
+        cachedAS.forEach(item => {
+            // Nur relevante Lufträume exportieren (z.B. keine unendlichen FIRs)
+            let asName = item.as.name || "Luftraum";
+            // Wir berechnen die absolute MSL Höhe in Metern für den Simulator
+            let lowerM = item.lowerFt * FT_TO_M;
+            let upperM = item.upperFt * FT_TO_M;
+            
+            airspaces.push({
+                name: asName,
+                type: item.as.type, 
+                isCTR: asName.includes("CTR") || asName.includes("Control Zone"),
+                startX: item.asMinDist * NM_TO_M,
+                endX: item.asMaxDist * NM_TO_M,
+                lowerM: lowerM,
+                upperM: upperM,
+                isLowerAgl: item.isLowerAgl
+            });
+        });
+    }
+
+    // 8. JSON zusammensetzen (Update!)
     let simData = {
         weather: { windVX: -5, windVY: 0, oat: 15, qnh: 1013, cloudBase: Math.round(cloudBaseMeters) },
         waypoints: waypoints,
         weatherZones: weatherZones,
         obstacles: obstacles,
         linearFeatures: linearFeatures,
-        landmarks: landmarks
+        landmarks: landmarks,
+        airspaces: airspaces // <--- NEU!
     };
 
     let jsonString = JSON.stringify(simData);
