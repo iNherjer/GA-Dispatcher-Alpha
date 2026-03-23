@@ -183,12 +183,12 @@
         const L_lapse = 0.0065; 
         const R_spec = 287.05;  
         
+        // --- GLOBAL STATE HOISTING ---
         let currentZoom = 15; 
         let isAutoZoom = true;
         let manualZoomLevel = 15;
         let windVX = 0;
         let windVY = 0;
-        let imcTimer = 0;
         
         let audioCtx = null;
         let engineOsc = null;
@@ -197,33 +197,42 @@
         let windFilter = null;
         let windGain = null;
         let loopId = null;
-
-        const plane = {
-            x: 0, y: 1.5, vx: 0, vy: 0,
-            pitch: 0, pitchRate: 0, facingRight: true,
-            throttle: 0, propLever: 1.0, // Neuer Prop-Hebel (0.0 bis 1.0)
-            map: 10, rpm: 800, hp: 0, mixture: 1.0, engineHealth: 100, engineTemp: 15,
-            elevatorInput: 0, trim: -0.05, flaps: 0, overspeedTimer: 0,
-            mass: 1000, 
-            inertia: 2500, wingArea: 16.2, 
-            length: 8.28, height: 3.02 
-        };
+        
+        let isStalled = false;
+        let imcTimer = 0;
+        let overspeedTimer = 0;
+        let isGameOver = false;
 
         let flightPlan = {};
         let runways = [];
-        let isGameOver = false;
+        let clouds = [];
         let worldObstacles = [];
         let worldLinear = [];
         let worldLandmarks = [];
         let worldWeatherZones = [];
         let worldAirspaces = [];
         let aiPlanes = [];
+        let trees = [];
+        let particles = [];
+        let weatherParticles = [];
+        
         let isTCAS = false;
         let isInCTR = false;
         let needsAudioResume = false;
-        let clouds = [];
+        
         const keys = {};
         const keyJustPressed = {};
+
+        const plane = {
+            x: 0, y: 1.5, vx: 0, vy: 0,
+            pitch: 0, pitchRate: 0, facingRight: true,
+            throttle: 0, propLever: 1.0,
+            map: 10, rpm: 800, hp: 0, mixture: 1.0, engineHealth: 100, engineTemp: 15,
+            elevatorInput: 0, trim: -0.05, flaps: 0, overspeedTimer: 0,
+            mass: 1000, 
+            inertia: 2500, wingArea: 16.2, 
+            length: 8.28, height: 3.02 
+        };
 
         function initAudio() {
             if (!audioCtx) {
@@ -341,10 +350,14 @@
             parseAndStartFPL(document.getElementById('fplInput').value);
         });
 
-        let savedFPL = localStorage.getItem('autoSimFlightPlan');
-        if (savedFPL) {
-            parseAndStartFPL(savedFPL);
-        }
+        window.addEventListener('DOMContentLoaded', () => {
+            let savedFPL = localStorage.getItem('autoSimFlightPlan');
+            if (savedFPL) {
+                parseAndStartFPL(savedFPL);
+            } else {
+                document.getElementById('startOverlay').style.display = 'flex';
+            }
+        });
 
         window.addEventListener('keydown', (e) => {
             if(!keys[e.code]) {
@@ -378,11 +391,6 @@
             manualZoomLevel += e.deltaY > 0 ? -1 : 1;
             manualZoomLevel = Math.max(2, Math.min(40, manualZoomLevel));
         });
-
-        let isStalled = false;
-        let trees = [];
-        let particles = [];
-        let weatherParticles = [];
 
         function manageParticles() {
             particles = particles.filter(p => Math.abs(p.x - plane.x) < 500 && Math.abs(p.y - plane.y) < 500);
