@@ -148,6 +148,16 @@
     </div>
 
     <canvas id="minimap" width="400" height="100" style="position: absolute; top: 10px; left: 10px; z-index: 100; border: 2px solid #333; border-radius: 4px;"></canvas>
+    
+    <div id="radioMenu" style="display: none; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 600px; background: rgba(20, 30, 40, 0.95); border: 2px solid #5599ff; border-radius: 8px; padding: 15px; color: #fff; font-family: monospace; z-index: 1000;">
+        <div id="radioHistory" style="height: 80px; overflow-y: auto; margin-bottom: 10px; font-size: 14px; color: #aaa;"></div>
+        <div id="radioOptions" style="display: flex; flex-direction: column; gap: 5px;">
+            <button class="radio-btn" style="background: #334455; color: white; border: 1px solid #778899; padding: 8px; cursor: pointer; text-align: left;">1. [Option A]</button>
+            <button class="radio-btn" style="background: #334455; color: white; border: 1px solid #778899; padding: 8px; cursor: pointer; text-align: left;">2. [Option B]</button>
+            <button class="radio-btn" style="background: #334455; color: white; border: 1px solid #778899; padding: 8px; cursor: pointer; text-align: left;">3. [Option C]</button>
+        </div>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -212,6 +222,8 @@
         let isInCTR = false;
         let needsAudioResume = false;
         let clouds = [];
+        const keys = {};
+        const keyJustPressed = {};
 
         function initAudio() {
             if (!audioCtx) {
@@ -334,10 +346,16 @@
             parseAndStartFPL(savedFPL);
         }
 
-        const keys = {};
-        const keyJustPressed = {};
         window.addEventListener('keydown', (e) => {
-            if(!keys[e.code]) keyJustPressed[e.code] = true;
+            if(!keys[e.code]) {
+                keyJustPressed[e.code] = true;
+                if (e.code === 'KeyC' || e.code === 'KeyF') {
+                    let rMenu = document.getElementById('radioMenu');
+                    if (rMenu) {
+                        rMenu.style.display = rMenu.style.display === 'none' ? 'block' : 'none';
+                    }
+                }
+            }
             keys[e.code] = true;
         });
         window.addEventListener('keyup', (e) => keys[e.code] = false);
