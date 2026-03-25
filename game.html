@@ -140,6 +140,7 @@
 
     <div id="stallWarn" class="warn">STALL WARNUNG!</div>
 
+    <button id="btn-alt-mode" onclick="window.isAglMode = !window.isAglMode; this.innerText = window.isAglMode ? 'Grid: AGL' : 'Grid: MSL';" style="position: absolute; top: 10px; left: 10px; z-index: 9999; pointer-events: auto; background: rgba(0, 0, 0, 0.5); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 5px 10px; font-family: sans-serif; font-weight: bold; cursor: pointer; user-select: none;">Grid: MSL</button>
     <button id="btn-auto-zoom" style="position: absolute; top: 10px; right: 10px; z-index: 2000; padding: 5px; background: rgba(255,255,255,0.8); border: 1px solid black; border-radius: 4px; font-weight: bold; touch-action: manipulation;">Auto Zoom: ON</button>
 
     <div id="sidebar">
@@ -380,6 +381,7 @@
         let camY = 1.5;
         let panOffsetX = 0;
         let panOffsetY = 0;
+        window.isAglMode = false;
 
         const keys = {};
         const keyJustPressed = {};
@@ -644,7 +646,7 @@
         window.addEventListener('keydown', (e) => {
             if(!keys[e.code]) {
                 keyJustPressed[e.code] = true;
-                if (e.code === 'KeyC' || e.code === 'KeyF' || e.code === 'Enter') {
+                if (e.code === 'Enter' || e.code === 'NumpadEnter') {
                     let rMenu = document.getElementById('radioMenu');
                     if (rMenu) {
                         if (atcState === 0) {
@@ -711,6 +713,17 @@
             } else if (atcState > 1 && opt === 1) {
                 if (atcState === 2) hasTakeoffClearance = true;
                 if (atcState === 3) isCtrCleared = true;
+                if (atcState === 4) {
+                    let fplX = typeof getFplX === 'function' ? getFplX(plane.x) : plane.x;
+                    let targetRwy = runways.find(r => r.startX > fplX - 2000);
+                    if (!targetRwy && runways.length > 0) targetRwy = runways[runways.length - 1];
+                    if (targetRwy) {
+                        window.activeGlidePath = {
+                            rwy: targetRwy,
+                            approachFromLeft: fplX < targetRwy.startX + (targetRwy.endX - targetRwy.startX) / 2
+                        };
+                    }
+                }
                 atcState = 0;
                 document.getElementById('radioMenu').style.display = 'none';
             }
@@ -729,6 +742,9 @@
             panOffsetX = 0; panOffsetY = 0;
             document.getElementById('btn-auto-zoom').innerText = "Auto Zoom: ON";
         });
+
+        const btnAltMode = document.getElementById('btn-alt-mode');
+        // Managed by inline JS now
 
         canvas.addEventListener('wheel', (e) => {
             isAutoZoom = false;
@@ -898,8 +914,8 @@
             if (keys['KeyE']) plane.propLever = Math.min(1, plane.propLever + 0.01);
             if (keys['KeyD']) plane.propLever = Math.max(0, plane.propLever - 0.01);
 
-            if (keys['KeyR']) plane.mixture = Math.min(1, plane.mixture + 0.01);
-            if (keys['KeyF']) plane.mixture = Math.max(0, plane.mixture - 0.01);
+            if (keys['KeyR']) plane.mixture = Math.min(1, plane.mixture + 0.002);
+            if (keys['KeyF']) plane.mixture = Math.max(0, plane.mixture - 0.002);
 
             if (keyJustPressed['Digit1']) {
                 plane.flaps = Math.max(0, plane.flaps - 1);
@@ -983,8 +999,11 @@
             let idealMixture = Math.max(0.3, rho / 1.225);
             let mixtureError = Math.abs(plane.mixture - idealMixture);
             
-            if (plane.mixture > idealMixture + 0.1 && plane.map > 15) {
-                plane.engineHealth -= 0.005; // Fouling damage
+            if (plane.mixture > idealMixture + 0.15 && plane.map > 15) {
+                plane.engineHealth -= 0.2 * DT;
+                window.mixtureWarning = true;
+            } else {
+                window.mixtureWarning = false;
             }
             
             plane.engineHealth = Math.max(0, Math.min(100, plane.engineHealth));
@@ -1164,6 +1183,7 @@
                             else if (fpm > -600) touchdownMessage = "⚠️ FIRM TOUCHDOWN: " + fpm + " FPM";
                             else touchdownMessage = "💥 HARD LANDING! " + fpm + " FPM";
                             touchdownTimer = 4.0;
+                            window.activeGlidePath = null;
                             // Spawn Touchdown Smoke
                             for (let i = 0; i < 20; i++) {
                                 particles.push({
@@ -1178,6 +1198,12 @@
                         }
                         plane.y = minFlightHeight;
                         if (plane.vy < 0) plane.vy = 0;
+                        
+                        // Tricycle gear physics: heavy engine pulls the nose down at low speeds
+                        if (plane.pitch > 0) {
+                            plane.pitchRate -= 0.3 * DT;
+                        }
+
                         if (plane.pitch < 0) {
                             plane.pitch = 0;
                             if (plane.pitchRate < 0) plane.pitchRate = 0;
@@ -1297,6 +1323,16 @@
 
             updateWidth('bar-hp', Math.min(100, (plane.hp / 200) * 100) + "%");
             updateText('val-hp', Math.round(plane.hp));
+
+            const mixLabel = document.querySelector('.slider-col.mix label');
+            if (mixLabel) {
+                if (window.mixtureWarning) {
+                    let flash = (Date.now() % 500) < 250;
+                    mixLabel.style.color = flash ? 'red' : 'white';
+                } else {
+                    mixLabel.style.color = 'white';
+                }
+            }
 
             updateWidth('bar-hlt', plane.engineHealth + "%");
             updateText('val-hlt', Math.round(plane.engineHealth));
@@ -1530,10 +1566,51 @@
                         let bx = (srnd() - 0.5) * spread;
                         let bw = 20 + srnd() * 40;
                         let bh = 10 + srnd() * 30;
-                        if (bh > maxHeight) maxHeight = bh;
-                        let shades = ['#2c3e50', '#34495e', '#7f8c8d'];
-                        targetCtx.fillStyle = shades[Math.floor(srnd()*shades.length)];
-                        targetCtx.fillRect((bx - bw/2) * zoomX, 0, bw * zoomX, bh * zoomY);
+                        
+                        // Calculate precise ground height for this specific building's X coordinate
+                        let bFplX = lm.x + bx;
+                        let bVisX = typeof getVisualX === 'function' ? getVisualX(bFplX) : bFplX;
+                        let bGroundY = typeof getTerrainHeight === 'function' ? getTerrainHeight(bFplX) : groundY;
+                        
+                        // Calculate relative coordinates to the landmark's translated center
+                        let relX = (bVisX - lm.visualX) * zoomX;
+                        let relY = (bGroundY - groundY) * zoomY;
+                        let drawW = bw * zoomX;
+                        let drawH = bh * zoomY;
+                        let roofH = (bw / 2) * 0.577 * zoomY; // 30-degree pitch (tan(30) = 0.577)
+                        let embed = 50 * zoomY; // Extend 50m underground to hide floating edges
+                        
+                        // Ensure the landmark label clears the highest roof on the highest hill
+                        let absoluteTopY = (bGroundY - groundY) + bh + (bw/2)*0.577;
+                        if (absoluteTopY > maxHeight) maxHeight = absoluteTopY;
+                        
+                        if (!drawPlaneHighlight) {
+                            // Main View: Draw Building Body (anchored into the earth)
+                            let shades = ['#2c3e50', '#34495e', '#7f8c8d'];
+                            targetCtx.fillStyle = shades[Math.floor(srnd()*shades.length)];
+                            targetCtx.beginPath();
+                            targetCtx.moveTo(relX - drawW/2, relY - embed);
+                            targetCtx.lineTo(relX + drawW/2, relY - embed);
+                            targetCtx.lineTo(relX + drawW/2, relY + drawH);
+                            targetCtx.lineTo(relX - drawW/2, relY + drawH);
+                            targetCtx.closePath();
+                            targetCtx.fill();
+                            
+                            // Draw 30-Degree Pitched Roof
+                            targetCtx.fillStyle = '#1a252f'; 
+                            targetCtx.beginPath();
+                            targetCtx.moveTo(relX - drawW/2, relY + drawH);
+                            targetCtx.lineTo(relX + drawW/2, relY + drawH);
+                            targetCtx.lineTo(relX, relY + drawH + roofH);
+                            targetCtx.closePath();
+                            targetCtx.fill();
+                        } else {
+                            // Minimap View: Fixed small size to prevent distortion (no scale-matching)
+                            let miniW = 2; // Fixed 2 pixels wide
+                            let miniH = 3 + (bh / 40) * 3; // Fixed 3 to 6 pixels high
+                            targetCtx.fillStyle = '#7f8c8d';
+                            targetCtx.fillRect(relX - miniW/2, relY, miniW, miniH);
+                        }
                     }
                 } else {
                     targetCtx.fillStyle = '#ccc';
@@ -1624,6 +1701,52 @@
                     }
                 }
             });
+
+            if (window.activeGlidePath && !drawPlaneHighlight) {
+                let gp = window.activeGlidePath;
+                let touchX = gp.approachFromLeft ? gp.rwy.startX + 100 : gp.rwy.endX - 100; // Touchdown zone
+                let touchY = gp.rwy.height;
+                let visualTouchX = typeof getVisualX === 'function' ? getVisualX(touchX) : touchX;
+                
+                let angleRad = 3.5 * (Math.PI / 180); // 3.5 degree steep approach for obstacle clearance
+                let lengthM = 3000; // 3km long path
+                let dir = gp.approachFromLeft ? -1 : 1;
+                
+                let startVisX = (typeof getVisualX === 'function' ? getVisualX(touchX + dir * lengthM) : touchX + dir * lengthM);
+                let startY = touchY + (lengthM * Math.tan(angleRad));
+                
+                // Check if plane is on glidepath to determine color
+                let currentPlaneFplX = getFplX(plane.x);
+                let planeDistToTouch = Math.abs(currentPlaneFplX - touchX);
+                let idealPlaneY = touchY + (planeDistToTouch * Math.tan(angleRad));
+                let deviation = plane.y - idealPlaneY;
+                let pathColor = 'rgba(255, 200, 0, 0.6)'; // Yellow (Too High)
+                if (deviation < -10) pathColor = 'rgba(255, 50, 50, 0.6)'; // Red (Too Low)
+                else if (Math.abs(deviation) <= 10) pathColor = 'rgba(50, 255, 50, 0.6)'; // Green (On Glidepath)
+                
+                targetCtx.save();
+                targetCtx.strokeStyle = pathColor;
+                targetCtx.lineWidth = 4 * zoomX;
+                targetCtx.setLineDash([20 * zoomX, 15 * zoomX]);
+                targetCtx.beginPath();
+                targetCtx.moveTo(startVisX * zoomX, startY * zoomY);
+                targetCtx.lineTo(visualTouchX * zoomX, touchY * zoomY);
+                targetCtx.stroke();
+                targetCtx.setLineDash([]);
+                
+                // Running Rabbit Light
+                let t = (Date.now() % 2000) / 2000; // Loops every 2 seconds
+                let dotX = startVisX + (visualTouchX - startVisX) * t;
+                let dotY = startY + (touchY - startY) * t;
+                
+                targetCtx.fillStyle = 'white';
+                targetCtx.shadowColor = 'white';
+                targetCtx.shadowBlur = 10 * zoomX;
+                targetCtx.beginPath();
+                targetCtx.arc(dotX * zoomX, dotY * zoomY, 5 * Math.max(zoomX, zoomY), 0, Math.PI * 2);
+                targetCtx.fill();
+                targetCtx.restore();
+            }
 
             let terrGrad = targetCtx.createLinearGradient(0, 30 * zoomY, 0, -2000 * zoomY);
             terrGrad.addColorStop(0, '#7A9674');
@@ -1718,6 +1841,70 @@
             let screenOffsetY = (canvas.height - 30) + excessY;
 
             drawWorld(ctx, canvas.width, canvas.height, currentZoom, currentZoom, screenOffsetX, screenOffsetY, screenOffsetXUnstretched, false);
+
+            // --- Altitude Grid Layer ---
+            ctx.save();
+            ctx.font = 'bold 12px sans-serif'; // Bolder text
+            ctx.textAlign = 'left';
+            
+            let ftToM = 0.3048;
+            let stepFt = 100;
+            let stepM = stepFt * ftToM;
+            let leftWorldX = -screenOffsetX / currentZoom;
+            let rightWorldX = (canvas.width - screenOffsetX) / currentZoom;
+            
+            let currentAltFt = plane.y / ftToM;
+            // Draw from 2000ft below up to exactly 1000ft above current altitude
+            let minGridFt = Math.max(100, Math.floor((currentAltFt - 2000) / 100) * 100);
+            let maxGridFt = Math.floor((currentAltFt + 3000) / 100) * 100;
+            
+            for (let altFt = minGridFt; altFt <= maxGridFt; altFt += stepFt) {
+                let altM = altFt * ftToM;
+                let isThick = (altFt % 1000 === 0);
+                let showLabel = (altFt % 500 === 0);
+
+                ctx.strokeStyle = isThick ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.1)';
+                ctx.fillStyle = isThick ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = isThick ? 2 : 1;
+
+                ctx.beginPath();
+                if (!window.isAglMode) {
+                    // MSL Mode
+                    let screenY = screenOffsetY - (altM * currentZoom);
+                    if (screenY > -50 && screenY < canvas.height + 50) { 
+                        ctx.moveTo(0, screenY);
+                        ctx.lineTo(canvas.width, screenY);
+                        ctx.stroke();
+                        if (showLabel) ctx.fillText(altFt + " ft", 10, screenY - 5);
+                    }
+                } else {
+                    // AGL Mode
+                    let first = true;
+                    let stepX = 50;
+                    let minScreenY = 9999; let maxScreenY = -9999;
+                    for (let x = leftWorldX; x <= rightWorldX + stepX; x += stepX) {
+                        let realX = typeof getFplX === 'function' ? getFplX(x) : x;
+                        let groundY = typeof getTerrainHeight === 'function' ? getTerrainHeight(realX) : 0;
+                        let y = groundY + altM;
+                        let screenX = x * currentZoom + screenOffsetX;
+                        let screenY = screenOffsetY - (y * currentZoom);
+                        
+                        if (screenY < minScreenY) minScreenY = screenY;
+                        if (screenY > maxScreenY) maxScreenY = screenY;
+                        
+                        if (first) { ctx.moveTo(screenX, screenY); first = false; }
+                        else { ctx.lineTo(screenX, screenY); }
+                    }
+                    if (maxScreenY > 0 && minScreenY < canvas.height) {
+                        ctx.stroke();
+                        let realLeftX = typeof getFplX === 'function' ? getFplX(leftWorldX) : leftWorldX;
+                        let leftGroundY = typeof getTerrainHeight === 'function' ? getTerrainHeight(realLeftX) : 0;
+                        let leftScreenY = screenOffsetY - ((leftGroundY + altM) * currentZoom);
+                        if (showLabel) ctx.fillText(altFt + " ft AGL", 10, leftScreenY - 5);
+                    }
+                }
+            }
+            ctx.restore();
 
             if (imcTimer > 0) {
                 let alpha = Math.min(0.98, imcTimer);
@@ -1867,7 +2054,8 @@
             const mCtx = mCanvas.getContext('2d');
             
             let miniZoomX = mCanvas.width / 15000;
-            let miniZoomY = mCanvas.height / 1200;
+            let maxVisibleMeters = Math.max(300, plane.y + 304.8);
+            let miniZoomY = mCanvas.height / maxVisibleMeters;
             let miniOffsetX = (mCanvas.width / 3) - (plane.x * miniZoomX);
             let miniOffsetY = mCanvas.height;
 
