@@ -728,65 +728,73 @@
         };
 
         window.applyWeather = function() {
-            clouds.length = 0; // Clear existing clouds
-            particles.length = 0; 
-            window.precipitation = 'none';
-            let cloudCount = 10;
-            let baseAlt = 3000;
-            let altVariance = 5000;
-
-            if (window.weatherMode === 'hard') {
-                cloudCount = 45;
-                baseAlt = 0; // Ground level fog/clouds!
-                altVariance = 12000;
-                window.precipitation = Math.random() > 0.5 ? 'rain' : 'snow';
-            } else if (window.weatherMode === 'real') {
-                cloudCount = (typeof fpl !== 'undefined' && fpl.length > 0 && fpl[0].clouds) ? fpl[0].clouds : 25;
-                baseAlt = 1500;
-                altVariance = 8000;
-                if (Math.random() > 0.7) window.precipitation = 'rain';
-            }
-
-            // Generate Clouds
-            for (let i = 0; i < cloudCount; i++) {
-                let w = 200 + Math.random() * 400;
-                let h = 50 + Math.random() * 150;
-                let cX = Math.random() * 50000;
-                let cY = baseAlt + Math.random() * altVariance;
+            clouds.length = 0; particles.length = 0;
+            window.weatherZones = [];
+            
+            // Zone width in VISUAL coordinates (what plane.x uses)
+            // Hard = ~3NM = ~5556m real, compressed by routeScale
+            // Real = ~5NM = ~9260m real, compressed by routeScale
+            // Easy = ~8NM = ~14816m real, compressed by routeScale
+            let realZoneWidthM = window.weatherMode === 'hard' ? 5556 : (window.weatherMode === 'real' ? 9260 : 14816);
+            let visualZoneWidth = realZoneWidthM / routeScale; // Compressed to match visual world
+            let totalZones = Math.ceil(300000 / realZoneWidthM); // Cover ~300km of real route
+            
+            for (let i = 0; i < totalZones; i++) {
+                let zoneStartX = i * visualZoneWidth; // Visual coordinates
+                let precipType = 'none';
+                let cloudCount = 3;
                 
-                // Keep compatibility with existing renderer by adding puffs
-                let puffs = [];
-                for(let j=0; j<5; j++) {
-                    puffs.push({
-                        offsetX: (Math.random()-0.5) * w,
-                        offsetY: (Math.random()-0.5) * h,
-                        radius: 50 + Math.random() * 50
+                if (window.weatherMode === 'hard') {
+                    let r = Math.random();
+                    if (r > 0.5) precipType = 'rain';
+                    else if (r > 0.2) precipType = 'snow';
+                    cloudCount = precipType !== 'none' ? 15 : 5;
+                } else if (window.weatherMode === 'real') {
+                    let r = Math.random();
+                    if (r > 0.75) precipType = 'rain';
+                    cloudCount = 8;
+                }
+                // Easy mode: mostly clear with a few scattered clouds
+                
+                window.weatherZones.push({ startX: zoneStartX, endX: zoneStartX + visualZoneWidth, precip: precipType });
+                
+                // Spawn Clouds for this zone
+                // Weather happens mainly between GND (~0m) and ~600m (2000ft)
+                for (let c = 0; c < cloudCount; c++) {
+                    let cloudAlt;
+                    if (precipType !== 'none') {
+                        // Precip clouds: very low, 100m (300ft) to 400m (1300ft)
+                        cloudAlt = 100 + Math.random() * 300;
+                    } else if (window.weatherMode === 'hard') {
+                        // Broken clouds: 150m to 600m 
+                        cloudAlt = 150 + Math.random() * 450;
+                    } else if (window.weatherMode === 'real') {
+                        // Mixed: some low (200m), some mid (600m)
+                        cloudAlt = 200 + Math.random() * 500;
+                    } else {
+                        // Easy: higher scattered clouds, 500m to 1500m
+                        cloudAlt = 500 + Math.random() * 1000;
+                    }
+                    
+                    // Cloud radius scales with weather severity
+                    let cloudRadius = precipType !== 'none' ? (200 + Math.random() * 250) : (80 + Math.random() * 120);
+                    
+                    clouds.push({
+                        x: zoneStartX + (Math.random() * visualZoneWidth), // Visual X
+                        y: cloudAlt,
+                        radius: cloudRadius,
+                        speed: 0.2 + Math.random() * 0.8,
+                        hasPrecip: precipType !== 'none' // Tag cloud as precipitation source
                     });
                 }
-                
-                clouds.push({
-                    x: cX,
-                    y: cY,
-                    w: w,
-                    h: h,
-                    puffs: puffs,
-                    speed: 0.5 + Math.random() * 1.5
-                });
             }
             
-            // Generate Particles if precipitation is active
-            if (window.precipitation !== 'none') {
-                for(let i=0; i<200; i++) {
-                    particles.push({
-                        x: Math.random() * window.innerWidth,
-                        y: Math.random() * window.innerHeight,
-                        vy: window.precipitation === 'rain' ? 15 + Math.random()*10 : 2 + Math.random()*3,
-                        vx: window.precipitation === 'rain' ? -2 + Math.random()*1 : -1 + Math.random()*2,
-                        l: window.precipitation === 'rain' ? 15 : 3 // length or radius
-                    });
-                }
+            // Pre-fill particles for memory allocation
+            for(let i=0; i<300; i++) {
+                particles.push({ active: false, x: 0, y: 0, vy: 0, vx: 0, l: 0, type: 'none' });
             }
         };
+
 
         function parseAndStartFPL(jsonStr) {
             try {
@@ -1417,7 +1425,7 @@
 
             let currentX = getFplX(plane.x);
             let turbulenceIntensity = 0.5;
-            let inCloudForTurb = clouds.some(c => c.puffs.some(p => Math.hypot(currentX - (c.x + p.offsetX), plane.y - (c.y + p.offsetY)) < p.radius));
+            let inCloudForTurb = clouds.some(c => Math.hypot(plane.x - c.x, plane.y - c.y) < c.radius);
             if (inCloudForTurb) turbulenceIntensity = 3.0;
             worldWeatherZones.forEach(z => {
                 if (Math.abs(currentX - z.x) < 5000) {
@@ -1551,18 +1559,34 @@
             manageTrees();
             manageParticles();
             
-            let inCloud = clouds.some(c => {
-                return c.puffs.some(p => {
-                    let cx = c.x + p.offsetX; 
-                    let cy = c.y + p.offsetY;
-                    return Math.hypot(currentX - cx, plane.y - cy) < p.radius;
-                });
-            });
+            let inCloud = clouds.some(c => Math.hypot(plane.x - c.x, plane.y - c.y) < c.radius);
+            
             // --- Icing & IMC Logic ---
             let altFt = Math.max(0, plane.y * 3.28084); 
             window.OAT = 15 - (altFt / 1000) * 2;
             let oatEl = document.getElementById('warn-oat');
             if (oatEl) oatEl.innerText = Math.round(window.OAT) + '°C';
+            
+            // Check if plane is UNDER a precip cloud (within horizontal range, below its altitude)
+            let underPrecipCloud = clouds.some(c => c.hasPrecip && Math.abs(plane.x - c.x) < c.radius * 1.5 && plane.y < c.y);
+            let currentZone = window.weatherZones ? window.weatherZones.find(z => plane.x >= z.startX && plane.x < z.endX) : null;
+            let zonePrecipType = currentZone ? currentZone.precip : 'none';
+            window.precipitation = (underPrecipCloud && zonePrecipType !== 'none') ? zonePrecipType : 'none';
+            
+            // Reactivate/Deactivate particles based on being under a precip cloud
+            particles.forEach(p => {
+                if (window.precipitation !== 'none' && !p.active && Math.random() > 0.9) {
+                    p.active = true;
+                    p.x = Math.random() * window.innerWidth;
+                    p.y = -20 - Math.random() * 100;
+                    p.type = window.precipitation;
+                    p.vy = p.type === 'rain' ? 15 + Math.random()*10 : 3 + Math.random()*4;
+                    p.vx = p.type === 'rain' ? -2 + Math.random()*1 : -1 + Math.random()*2;
+                    p.l = p.type === 'rain' ? 15 : 3;
+                } else if (window.precipitation === 'none') {
+                    p.active = false;
+                }
+            });
 
             let inVisibleMoisture = inCloud || window.precipitation !== 'none';
   
@@ -1828,21 +1852,30 @@
                 }
             }
 
+            targetCtx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            for (let i = 0; i < clouds.length; i++) {
+                let cX = clouds[i].x * zoomX + screenOffsetX;
+                let cY = screenOffsetY - (clouds[i].y * zoomY);
+                let r = clouds[i].radius * zoomX;
+                if (cX + r > 0 && cX - r < targetCtx.canvas.width) {
+                    targetCtx.beginPath();
+                    // Center main puff
+                    targetCtx.arc(cX, cY, r, 0, Math.PI * 2);
+                    // Left puff
+                    targetCtx.arc(cX - r * 0.8, cY + r * 0.2, r * 0.7, 0, Math.PI * 2);
+                    // Right puff
+                    targetCtx.arc(cX + r * 0.8, cY + r * 0.2, r * 0.7, 0, Math.PI * 2);
+                    // Top puffs
+                    targetCtx.arc(cX - r * 0.4, cY - r * 0.4, r * 0.6, 0, Math.PI * 2);
+                    targetCtx.arc(cX + r * 0.4, cY - r * 0.4, r * 0.6, 0, Math.PI * 2);
+                    targetCtx.fill();
+                }
+            }
+            
             targetCtx.save();
             targetCtx.translate(screenOffsetX, screenOffsetY);
             targetCtx.scale(1, -1); 
 
-
-
-            targetCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            clouds.forEach(c => {
-                let centerVisualX = getVisualX(c.x);
-                c.puffs.forEach(p => {
-                    targetCtx.beginPath();
-                    targetCtx.arc((centerVisualX + p.offsetX) * zoomX, (c.y + p.offsetY) * zoomY, p.radius * Math.max(zoomX, zoomY), 0, Math.PI * 2);
-                    targetCtx.fill();
-                });
-            });
 
             worldAirspaces.forEach(as => {
                 let groundY1 = as.isLowerAgl ? getTerrainHeight(as.startX) : 0;
@@ -2488,14 +2521,15 @@
                 }
             }
 
-            if (window.precipitation !== 'none') {
+            let activeParticles = particles.filter(p => p.active);
+            if (activeParticles.length > 0) {
                 ctx.save();
-                ctx.fillStyle = window.precipitation === 'snow' ? 'rgba(255,255,255,0.8)' : 'rgba(150,200,255,0.6)';
-                ctx.strokeStyle = 'rgba(150,200,255,0.6)';
-                ctx.lineWidth = 2;
-                for(let i=0; i<particles.length; i++) {
-                    let p = particles[i];
-                    if (window.precipitation === 'snow') {
+                for(let i=0; i<activeParticles.length; i++) {
+                    let p = activeParticles[i];
+                    ctx.fillStyle = p.type === 'snow' ? 'rgba(255,255,255,0.8)' : 'rgba(150,200,255,0.6)';
+                    ctx.strokeStyle = 'rgba(150,200,255,0.6)';
+                    ctx.lineWidth = 2;
+                    if (p.type === 'snow') {
                         ctx.beginPath();
                         ctx.arc(p.x, p.y, p.l, 0, Math.PI*2);
                         ctx.fill();
@@ -2507,7 +2541,7 @@
                     }
                     // Animate
                     p.y += p.vy;
-                    p.x += p.vx - (plane.vx * 0.1); // Shift slightly with plane speed
+                    p.x += p.vx - (plane.vx * 0.1); 
                     if (p.y > canvas.height) p.y = -20;
                     if (p.x < 0) p.x = canvas.width;
                     if (p.x > canvas.width) p.x = 0;
