@@ -11,20 +11,129 @@
         .warn { position:absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 24px; color: red; font-weight: bold; display: none; animation: blink 1s infinite; z-index: 2000; }
         @keyframes blink { 50% { opacity: 0; } }
         
-        /* Unified Sidebar */
+        /* ===================== COCKPIT PANEL ===================== */
         #sidebar {
-            position: absolute; right: 0; top: 0; bottom: 0; width: 300px;
-            background: rgba(20, 20, 20, 0.9); border-left: 2px solid #444;
-            color: white; padding: 20px; box-sizing: border-box;
-            display: flex; flex-direction: column; gap: 15px; user-select: none;
+            position: absolute; right: 0; top: 0; bottom: 0; width: 320px;
+            background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+            border-left: 3px solid #333;
+            color: white; padding: 8px; box-sizing: border-box;
+            display: flex; flex-direction: column; gap: 6px; user-select: none;
             overflow-y: auto; z-index: 1000;
+            font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
         }
+        .panel-section {
+            background: linear-gradient(145deg, #1e1e1e, #141414);
+            border: 1px solid #333; border-radius: 6px;
+            padding: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.6);
+        }
+        .panel-label {
+            font-size: 9px; text-transform: uppercase; letter-spacing: 2px;
+            color: #777; text-align: center; margin-bottom: 6px;
+        }
+
+        /* --- Six-Pack Flight Instruments --- */
+        .sixpack {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 6px; justify-items: center;
+        }
+        .inst {
+            width: 88px; height: 88px; border-radius: 50%;
+            background: radial-gradient(circle at 40% 35%, #1a1a1a, #050505);
+            border: 3px solid #444;
+            position: relative; overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            color: white; font-size: 9px; font-weight: bold; flex-direction: column;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.5);
+        }
+        .inst::after {
+            content: ''; position: absolute; top: 2px; left: 10%; width: 80%; height: 40%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent);
+            border-radius: 50%; pointer-events: none;
+        }
+        .inst-label { position: absolute; bottom: 14px; color: #888; z-index: 2; font-size: 8px; letter-spacing: 1px; }
+        .inst-val { position: absolute; bottom: 3px; font-size: 13px; z-index: 2; color: #0f0; font-family: 'Courier New', monospace; }
+        .needle {
+            position: absolute; width: 2px; height: 38px; background: white;
+            bottom: 50%; transform-origin: bottom center; transition: transform 0.1s; z-index: 3;
+            box-shadow: 0 0 4px rgba(255,255,255,0.3);
+        }
+        .needle::after {
+            content: ''; position: absolute; bottom: -4px; left: -3px;
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #555; border: 1px solid #777;
+        }
+        .horizon-bg {
+            position: absolute; width: 150%; height: 200%;
+            background: linear-gradient(to bottom, #2e6bb5 50%, #6b4226 50%);
+            top: -50%; transition: transform 0.1s;
+        }
+        .horizon-line { position: absolute; width: 40px; height: 2px; background: #FFD700; z-index: 2; box-shadow: 0 0 3px #FFD700; }
+
+        /* --- Round Engine Gauges --- */
+        .engine-gauges {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 6px; justify-items: center;
+        }
+        .gauge {
+            width: 80px; height: 80px; border-radius: 50%;
+            background: radial-gradient(circle at 40% 35%, #1a1a1a, #050505);
+            border: 2px solid #444; position: relative;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 1px 4px rgba(0,0,0,0.4);
+        }
+        .gauge-label { font-size: 7px; color: #888; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
+        .gauge-val { font-size: 16px; font-weight: bold; font-family: 'Courier New', monospace; color: #0f0; }
+        .gauge-unit { font-size: 7px; color: #666; margin-top: 1px; }
+        .gauge-bar {
+            position: absolute; bottom: 6px; width: 50px; height: 4px;
+            background: #222; border-radius: 2px; overflow: hidden;
+        }
+        .gauge-bar-fill { height: 100%; background: #4CAF50; width: 0%; transition: width 0.15s, background 0.15s; border-radius: 2px; }
+
+        /* --- Power Quadrant --- */
+        .power-quadrant {
+            display: flex; gap: 8px; background: linear-gradient(145deg, #1e1e1e, #111);
+            padding: 10px 8px; border-radius: 6px; justify-content: center;
+            border: 1px solid #333; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+        }
+        .lever-col {
+            display: flex; flex-direction: column; align-items: center; gap: 3px;
+        }
+        .lever-col label {
+            font-size: 9px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
+        }
+        .lever-col input[type="range"] {
+            -webkit-appearance: slider-vertical; appearance: slider-vertical;
+            writing-mode: bt-lr; height: 90px; width: 18px; cursor: pointer;
+        }
+        .lever-col.thr label { color: #aaa; }
+        .lever-col.thr input { accent-color: #888; }
+        .lever-col.prop label { color: #42a5f5; }
+        .lever-col.prop input { accent-color: #2196F3; }
+        .lever-col.mix label { color: #ef5350; }
+        .lever-col.mix input { accent-color: #f44336; }
+        .lever-col.flap label { color: #ccc; }
+        .lever-col.flap input { accent-color: white; direction: rtl; }
+
+        /* --- Annunciator / Switches --- */
+        .switch-row {
+            display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
+        }
+        .cockpit-btn {
+            padding: 6px 10px; font-size: 10px; font-weight: bold;
+            background: #2a2a2a; color: #ccc; border: 1px solid #555;
+            border-radius: 4px; cursor: pointer; text-transform: uppercase;
+            letter-spacing: 1px; transition: background 0.15s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+        .cockpit-btn:active { transform: translateY(1px); box-shadow: none; }
+
+        /* Legacy compat */
         .bar-container { display: flex; align-items: center; gap: 10px; font-size: 12px; }
         .bar { flex: 1; height: 12px; background: #333; border-radius: 6px; overflow: hidden; position: relative; }
         .bar-fill { height: 100%; background: #4CAF50; width: 0%; transition: width 0.1s, background 0.1s; }
         .bar-label { min-width: 40px; }
         .bar-val { min-width: 35px; text-align: right; }
-        
         .pedestal { display: flex; gap: 15px; background: #222; padding: 15px; border-radius: 8px; justify-content: center; }
         .slider-col { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 11px; }
         .slider-col input[type="range"] {
@@ -35,28 +144,7 @@
         .slider-col.prop input { accent-color: #2196F3; }
         .slider-col.mix input { accent-color: #f44336; }
         .slider-col.flap input { accent-color: white; direction: rtl; }
-        
         .inst-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
-        .inst {
-            width: 70px; height: 70px; border-radius: 50%;
-            background: #111; border: 2px solid #555;
-            position: relative; overflow: hidden;
-            display: flex; justify-content: center; align-items: center;
-            color: white; font-size: 9px; font-weight: bold; flex-direction: column;
-            box-shadow: inset 0 0 10px black;
-        }
-        .inst-label { position: absolute; bottom: 12px; color: #aaa; z-index: 2; }
-        .inst-val { position: absolute; bottom: 2px; font-size: 11px; z-index: 2; }
-        .needle {
-            position: absolute; width: 2px; height: 35px; background: white;
-            bottom: 50%; transform-origin: bottom center; transition: transform 0.1s; z-index: 3;
-        }
-        .horizon-bg {
-            position: absolute; width: 150%; height: 200%;
-            background: linear-gradient(to bottom, #4A90E2 50%, #8B5A2B 50%);
-            top: -50%; transition: transform 0.1s;
-        }
-        .horizon-line { position: absolute; width: 35px; height: 2px; background: yellow; z-index: 2; }
 
         .trim-controls { display: flex; flex-direction: column; gap: 4px; align-items: center; font-size: 11px; }
         .trim-controls button { padding: 4px 8px; cursor: pointer; color: black; }
@@ -138,6 +226,15 @@
         </div>
     </div>
 
+    <div id="weatherMenu" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 5000; display: none; flex-direction: column; align-items: center; justify-content: center; color: white; font-family: sans-serif;">
+        <h1 style="margin-bottom: 30px; text-shadow: 2px 2px 4px #000;">FLIGHT CONDITIONS</h1>
+        <div style="display: flex; gap: 20px;">
+            <button onclick="startGame('real')" style="padding: 15px 30px; font-size: 18px; font-weight: bold; background: #3498db; color: white; border: 2px solid #fff; border-radius: 8px; cursor: pointer;">Real (Dispatcher)</button>
+            <button onclick="startGame('easy')" style="padding: 15px 30px; font-size: 18px; font-weight: bold; background: #2ecc71; color: white; border: 2px solid #fff; border-radius: 8px; cursor: pointer;">Easy (Clear/Few)</button>
+            <button onclick="startGame('hard')" style="padding: 15px 30px; font-size: 18px; font-weight: bold; background: #e74c3c; color: white; border: 2px solid #fff; border-radius: 8px; cursor: pointer;">Anspruchsvoll (IMC/Precip)</button>
+        </div>
+    </div>
+
     <div id="stallWarn" class="warn">STALL WARNUNG!</div>
 
     <div style="position: absolute; top: max(15px, env(safe-area-inset-top)); left: max(15px, env(safe-area-inset-left)); z-index: 9999; display: flex; gap: 10px;">
@@ -147,42 +244,86 @@
 
     <div id="score-display" style="position: absolute; top: max(15px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: bold; color: #FFD700; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 2000; pointer-events: none;">Score: 0</div>
 
-    <div style="position: absolute; top: max(15px, env(safe-area-inset-top)); right: max(15px, env(safe-area-inset-right)); z-index: 2000; display: flex; gap: 10px; pointer-events: auto;">
-        <button id="btn-zoom-in" onclick="event.stopPropagation(); isAutoZoom = false; document.getElementById('btn-auto-zoom').innerText = 'Auto Zoom: OFF'; manualZoomLevel = Math.min(40, currentZoom * 1.5);" style="padding: 10px 15px; font-size: 18px; font-weight: bold; background: rgba(0,0,0,0.5); color: white; border: 1px solid #fff; border-radius: 4px; cursor: pointer;">+</button>
-        <button id="btn-zoom-out" onclick="event.stopPropagation(); isAutoZoom = false; document.getElementById('btn-auto-zoom').innerText = 'Auto Zoom: OFF'; manualZoomLevel = Math.max(2, currentZoom / 1.5);" style="padding: 10px 15px; font-size: 18px; font-weight: bold; background: rgba(0,0,0,0.5); color: white; border: 1px solid #fff; border-radius: 4px; cursor: pointer;">-</button>
-        <button id="btn-auto-zoom" onclick="event.stopPropagation(); isAutoZoom = true; window.isCameraDetached = false; window.panOffsetX = 0; window.panOffsetY = 0; this.innerText = 'Auto Zoom: ON';" style="padding: 10px; font-size: 14px; font-weight: bold; background: rgba(0,0,0,0.5); color: white; border: 1px solid #fff; border-radius: 4px; cursor: pointer;">Auto Zoom: ON</button>
-    </div>
+
 
     <div id="sidebar">
-        <h3 style="margin: 0; text-align: center;">Flight Panel</h3>
-        
-        <div class="mobile-row-top"> <!-- Instruments Top -->
-            <div class="inst-row">
+        <!-- ===== PRIMARY FLIGHT INSTRUMENTS (Six-Pack) ===== -->
+        <div class="panel-section">
+            <div class="panel-label">Primary Flight</div>
+            <div class="sixpack">
+                <!-- Row 1: ASI, Attitude, Altimeter -->
                 <div class="inst"><div class="needle" id="ndl-spd"></div><div class="inst-label">ASI</div><div class="inst-val" id="val-spd">0</div></div>
                 <div class="inst"><div class="horizon-bg" id="ndl-att"></div><div class="horizon-line"></div><div class="inst-label">ATT</div></div>
                 <div class="inst"><div class="needle" id="ndl-alt"></div><div class="inst-label">ALT</div><div class="inst-val" id="val-alt">0</div></div>
+                <!-- Row 2: Trim, DG (placeholder), VSI -->
+                <div class="inst" style="border-color: #27ae60;">
+                    <div class="inst-label" style="bottom:16px;">TRIM</div>
+                    <div class="inst-val" id="val-trim" style="color:#27ae60; font-size:14px;">0.050</div>
+                </div>
+                <div class="inst" style="border-color: #555;">
+                    <div style="font-size:24px; color: #555;">N</div>
+                    <div class="inst-label">DG</div>
+                </div>
                 <div class="inst"><div class="needle" id="ndl-vsi"></div><div class="inst-label">VSI</div><div class="inst-val" id="val-vsi">0</div></div>
             </div>
+        </div>
 
-            <div style="flex: 1; padding: 0 5px;">
-                <div class="bar-container">
-                    <span class="bar-label">RPM</span><div class="bar"><div class="bar-fill" id="bar-rpm"></div></div><span class="bar-val" id="val-rpm">0</span>
+        <!-- ===== ENGINE INSTRUMENTS ===== -->
+        <div class="panel-section">
+            <div class="panel-label">Engine</div>
+            <div class="engine-gauges">
+                <!-- Row 1: RPM, MAP, CHT -->
+                <div class="gauge">
+                    <div class="gauge-label">RPM</div>
+                    <div class="gauge-val" id="val-rpm">0</div>
+                    <div class="gauge-bar"><div class="gauge-bar-fill" id="bar-rpm"></div></div>
                 </div>
-                <div class="bar-container">
-                    <span class="bar-label">MAP</span><div class="bar"><div class="bar-fill" id="bar-map"></div></div><span class="bar-val" id="val-map">0</span>
+                <div class="gauge">
+                    <div class="gauge-label">MAP</div>
+                    <div class="gauge-val" id="val-map">0</div>
+                    <div class="gauge-unit">inHg</div>
                 </div>
-                <div class="bar-container">
-                    <span class="bar-label">TMP</span><div class="bar"><div class="bar-fill" id="bar-tmp"></div></div><span class="bar-val" id="val-tmp">0</span>
+                <div class="gauge">
+                    <div class="gauge-label">CHT</div>
+                    <div class="gauge-val" id="val-tmp">0</div>
+                    <div class="gauge-bar"><div class="gauge-bar-fill" id="bar-tmp"></div></div>
                 </div>
-                <div class="bar-container">
-                    <span class="bar-label">HP</span><div class="bar"><div class="bar-fill" id="bar-hp"></div></div><span class="bar-val" id="val-hp">0</span>
+                <!-- Row 2: HP, HLT, OAT -->
+                <div class="gauge">
+                    <div class="gauge-label">HP</div>
+                    <div class="gauge-val" id="val-hp">0</div>
+                    <div class="gauge-bar"><div class="gauge-bar-fill" id="bar-hp"></div></div>
                 </div>
-                <div class="bar-container">
-                    <span class="bar-label">HLT</span><div class="bar"><div class="bar-fill" id="bar-hlt"></div></div><span class="bar-val" id="val-hlt">0</span>
+                <div class="gauge">
+                    <div class="gauge-label">ENG HLT</div>
+                    <div class="gauge-val" id="val-hlt">100</div>
+                    <div class="gauge-bar"><div class="gauge-bar-fill" id="bar-hlt" style="width:100%"></div></div>
+                </div>
+                <div class="gauge" style="border-color: #0dd;">
+                    <div class="gauge-label">OAT</div>
+                    <div class="gauge-val" id="warn-oat" style="color: #0dd; font-size:14px;">15°C</div>
                 </div>
             </div>
         </div>
 
+        <!-- ===== ANNUNCIATOR / SWITCHES ===== -->
+        <div class="panel-section">
+            <div class="switch-row">
+                <button id="btn-carbheat" class="cockpit-btn" onclick="window.carbHeatOn = !window.carbHeatOn; this.style.background = window.carbHeatOn ? '#e67e22' : '#2a2a2a'; this.style.color = window.carbHeatOn ? '#fff' : '#ccc'; this.innerText = 'CARB HEAT: ' + (window.carbHeatOn ? 'ON' : 'OFF');">CARB HEAT: OFF</button>
+                <button id="btn-zoom-in" class="cockpit-btn" onclick="event.stopPropagation(); isAutoZoom = false; document.getElementById('btn-auto-zoom').innerText = 'AUTO Z: OFF'; manualZoomLevel = Math.min(40, currentZoom * 1.5);">ZOOM +</button>
+                <button id="btn-zoom-out" class="cockpit-btn" onclick="event.stopPropagation(); isAutoZoom = false; document.getElementById('btn-auto-zoom').innerText = 'AUTO Z: OFF'; manualZoomLevel = Math.max(2, currentZoom / 1.5);">ZOOM -</button>
+                <button id="btn-auto-zoom" class="cockpit-btn" onclick="event.stopPropagation(); isAutoZoom = true; window.isCameraDetached = false; window.panOffsetX = 0; window.panOffsetY = 0; this.innerText = 'AUTO Z: ON';">AUTO Z: ON</button>
+            </div>
+        </div>
+
+        <!-- ===== WEATHER WARNINGS (absolute overlay) ===== -->
+        <div id="weather-warnings" style="position:absolute; top: 100px; left: 50%; transform: translateX(-50%); text-align:center; font-family:sans-serif; font-weight:bold; font-size:18px; text-shadow:2px 2px 4px #000; pointer-events:none; z-index:2500;">
+            <div id="warn-imc" style="color: #FFA500; display:none;">IMC LIMIT: <span id="imc-timer">60</span>s</div>
+            <div id="warn-carbice" style="color: #FF4444; display:none;">CARB ICE! PWR DROP</div>
+            <div id="warn-airframeice" style="color: #FF4444; display:none;">AIRFRAME ICE! STALL RISK</div>
+        </div>
+
+        <!-- ===== ATC RADIO ===== -->
         <div id="radioMenu" style="display: none; width: 100%; box-sizing: border-box; background: #2a3b4c; border: 2px solid #5599ff; border-radius: 8px; padding: 10px; flex-shrink: 0; color: #fff; font-family: monospace; z-index: 10000 !important; pointer-events: auto;">
             <div id="radioHistory" style="height: 80px; overflow-y: auto; margin-bottom: 10px; font-size: 14px; color: #aaa;"></div>
             <div id="radioOptions" style="display: flex; flex-direction: column; gap: 5px;">
@@ -192,30 +333,35 @@
             </div>
         </div>
 
-        <div class="mobile-row-bottom"> <!-- Controls Bottom -->
-            <div style="display: flex; gap: 10px; align-items: center; padding-left: 10px;">
-                <div class="slider-col center-slider">
-                    <label style="color: white; font-weight: bold; margin-bottom: 5px;">PITCH</label>
-                    <input type="range" id="mobile-pitch" min="-1.5" max="1.5" step="0.01" value="0" style="touch-action: none;">
-                    <span id="val-pitch" style="display:none;">0</span>
+        <!-- ===== POWER QUADRANT ===== -->
+        <div class="panel-section" style="margin-top: auto;">
+            <div class="panel-label">Power Quadrant</div>
+            <div class="mobile-row-bottom">
+                <div style="display: flex; gap: 10px; align-items: center; padding-left: 10px;">
+                    <div class="lever-col" style="align-items:center;">
+                        <label style="color: white; font-weight: bold; margin-bottom: 5px;">PITCH</label>
+                        <input type="range" id="mobile-pitch" min="-1.5" max="1.5" step="0.01" value="0" style="touch-action: none;">
+                        <span id="val-pitch" style="display:none;">0</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px; height: 100px; justify-content: space-between;">
+                        <button class="mobile-ctrl-btn cockpit-btn" id="btn-trim-up-mob" style="background: #27ae60; color: white; border: none; flex: 1;">TRIM ▲</button>
+                        <button class="mobile-ctrl-btn cockpit-btn" id="btn-trim-dn-mob" style="background: #27ae60; color: white; border: none; flex: 1;">TRIM ▼</button>
+                        <button class="mobile-ctrl-btn cockpit-btn" id="btn-brake-mob" style="background: #c0392b; color: white; border: none; flex: 1; touch-action: none;">BRAKE</button>
+                    </div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 4px; height: 130px; justify-content: space-between;">
-                    <button class="mobile-ctrl-btn" id="btn-trim-up-mob" style="background: #27ae60; color: white; border: none; border-radius: 4px; font-weight: bold; flex: 1;">TRIM U</button>
-                    <button class="mobile-ctrl-btn" id="btn-trim-dn-mob" style="background: #27ae60; color: white; border: none; border-radius: 4px; font-weight: bold; flex: 1;">TRIM D</button>
-                    <button class="mobile-ctrl-btn" id="btn-brake-mob" style="background: #e74c3c; color: white; border: none; border-radius: 4px; font-weight: bold; flex: 1; touch-action: none;">BRAKE</button>
-                </div>
-            </div>
 
-            <div class="pedestal">
-                <div class="slider-col thr"><label>THR</label><input type="range" id="sl-thr" min="0" max="1" step="0.01" value="0"></div>
-                <div class="slider-col prop"><label>PROP</label><input type="range" id="sl-prop" min="0" max="1" step="0.01" value="1"></div>
-                <div class="slider-col mix"><label>MIX</label><input type="range" id="sl-mix" min="0" max="1" step="0.01" value="1"></div>
-                <div class="slider-col flap"><label>FLAP</label><input type="range" id="sl-flap" min="0" max="3" step="1" value="0"></div>
+                <div class="power-quadrant">
+                    <div class="lever-col thr"><label>THR</label><input type="range" id="sl-thr" min="0" max="1" step="0.01" value="0"></div>
+                    <div class="lever-col prop"><label>PROP</label><input type="range" id="sl-prop" min="0" max="1" step="0.01" value="1"></div>
+                    <div class="lever-col mix"><label>MIX</label><input type="range" id="sl-mix" min="0" max="1" step="0.01" value="1"></div>
+                    <div class="lever-col flap"><label>FLAP</label><input type="range" id="sl-flap" min="0" max="3" step="1" value="0"></div>
+                </div>
             </div>
         </div>
-        
-        <div class="pedestal" style="margin-top:auto; padding: 2px; background: transparent; height: 25px;">
-            <button onclick="restartGame()" style="width:100%; height:100%; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; padding: 0; margin: 0;">Restart Simulation</button>
+
+        <!-- ===== RESTART ===== -->
+        <div style="padding: 2px; flex-shrink: 0;">
+            <button onclick="restartGame()" class="cockpit-btn" style="width:100%; background: #8b0000; color: #faa; border-color: #c0392b;">↻ RESTART SIMULATION</button>
         </div>
     </div>
 
@@ -386,13 +532,16 @@
         let loopId = null;
         
         let isStalled = false;
-        let imcTimer = 0;
+        let visualCloudTimer = 0;
         let overspeedTimer = 0;
         let isGameOver = false;
         let isBraking = false;
         let touchdownMessage = "";
         let touchdownTimer = 0;
 
+        window.weatherMode = 'easy'; 
+        window.precipitation = 'none'; 
+        const particles = [];
         let flightPlan = {};
         let runways = [];
         let clouds = [];
@@ -403,7 +552,7 @@
         let worldAirspaces = [];
         let aiPlanes = [];
         let trees = [];
-        let particles = [];
+        let sceneParticles = [];
         let weatherParticles = [];
         
         let isTCAS = false;
@@ -502,11 +651,16 @@
             window.location.reload(); 
         }
 
+        window.carbHeatOn = false;
+        window.imcTimer = 60; // Seconds before penalty
+        window.OAT = 15; // Outside Air Temp in Celsius
+
         const plane = {
             x: 0, y: 1.5, vx: 0, vy: 0,
             pitch: 0, pitchRate: 0, facingRight: true,
             throttle: 0, propLever: 1.0,
             map: 10, rpm: 800, hp: 0, mixture: 1.0, engineHealth: 100, engineTemp: 15,
+            carbIce: 0, airframeIce: 0,
             elevatorInput: 0, trim: 0.05, flaps: 0, overspeedTimer: 0,
             mass: 1000, 
             inertia: 2500, wingArea: 16.2, 
@@ -566,11 +720,82 @@
             }
         });
 
+        window.startGame = function(mode) {
+            window.weatherMode = mode;
+            document.getElementById('weatherMenu').style.display = 'none';
+            applyWeather();
+            loop();
+        };
+
+        window.applyWeather = function() {
+            clouds.length = 0; // Clear existing clouds
+            particles.length = 0; 
+            window.precipitation = 'none';
+            let cloudCount = 10;
+            let baseAlt = 3000;
+            let altVariance = 5000;
+
+            if (window.weatherMode === 'hard') {
+                cloudCount = 45;
+                baseAlt = 0; // Ground level fog/clouds!
+                altVariance = 12000;
+                window.precipitation = Math.random() > 0.5 ? 'rain' : 'snow';
+            } else if (window.weatherMode === 'real') {
+                cloudCount = (typeof fpl !== 'undefined' && fpl.length > 0 && fpl[0].clouds) ? fpl[0].clouds : 25;
+                baseAlt = 1500;
+                altVariance = 8000;
+                if (Math.random() > 0.7) window.precipitation = 'rain';
+            }
+
+            // Generate Clouds
+            for (let i = 0; i < cloudCount; i++) {
+                let w = 200 + Math.random() * 400;
+                let h = 50 + Math.random() * 150;
+                let cX = Math.random() * 50000;
+                let cY = baseAlt + Math.random() * altVariance;
+                
+                // Keep compatibility with existing renderer by adding puffs
+                let puffs = [];
+                for(let j=0; j<5; j++) {
+                    puffs.push({
+                        offsetX: (Math.random()-0.5) * w,
+                        offsetY: (Math.random()-0.5) * h,
+                        radius: 50 + Math.random() * 50
+                    });
+                }
+                
+                clouds.push({
+                    x: cX,
+                    y: cY,
+                    w: w,
+                    h: h,
+                    puffs: puffs,
+                    speed: 0.5 + Math.random() * 1.5
+                });
+            }
+            
+            // Generate Particles if precipitation is active
+            if (window.precipitation !== 'none') {
+                for(let i=0; i<200; i++) {
+                    particles.push({
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        vy: window.precipitation === 'rain' ? 15 + Math.random()*10 : 2 + Math.random()*3,
+                        vx: window.precipitation === 'rain' ? -2 + Math.random()*1 : -1 + Math.random()*2,
+                        l: window.precipitation === 'rain' ? 15 : 3 // length or radius
+                    });
+                }
+            }
+        };
+
         function parseAndStartFPL(jsonStr) {
             try {
                 initAudio();
                 flightPlan = JSON.parse(jsonStr);
                 window.fpl = flightPlan.waypoints;
+                
+                document.getElementById('startOverlay').style.display = 'none';
+                document.getElementById('weatherMenu').style.display = 'flex';
                 
                 windVX = flightPlan.weather.windVX;
                 windVY = flightPlan.weather.windVY;
@@ -620,9 +845,6 @@
                 }
                 camX = plane.x;
                 camY = plane.y;
-
-                document.getElementById('startOverlay').style.display = 'none';
-                loop(); 
             } catch (e) {
                 alert("Invalid JSON FPL: " + e.message);
                 document.getElementById('startOverlay').style.display = 'flex';
@@ -806,6 +1028,8 @@
         document.getElementById('sl-flap').addEventListener('input', e => plane.flaps = parseInt(e.target.value));
         document.getElementById('btn-trim-dn').addEventListener('click', () => plane.trim = Math.min(0.2, plane.trim + 0.001));
         document.getElementById('btn-trim-up').addEventListener('click', () => plane.trim = Math.max(-0.2, plane.trim - 0.001));
+
+
         
 
 
@@ -871,21 +1095,21 @@
         function manageParticles() {
             if (plane.engineHealth < 70) {
                 if (Math.random() < (100 - plane.engineHealth) / 100) {
-                    particles.push({ x: plane.x, y: plane.y, life: 1.0, type: 'smoke' });
+                    sceneParticles.push({ x: plane.x, y: plane.y, life: 1.0, type: 'smoke' });
                 }
             }
 
-            particles = particles.filter(p => p.life > 0 || (Math.abs(p.x - plane.x) < 500 && Math.abs(p.y - plane.y) < 500));
+            sceneParticles = sceneParticles.filter(p => p.life > 0 || (Math.abs(p.x - plane.x) < 500 && Math.abs(p.y - plane.y) < 500));
             
-            while(particles.length < 100) {
-                particles.push({
+            while(sceneParticles.length < 100) {
+                sceneParticles.push({
                     x: plane.x + (Math.random() - 0.5) * 1000,
                     y: plane.y + (Math.random() - 0.5) * 1000,
                     type: 'speed',
                     life: 1.0
                 });
             }
-            particles.forEach(p => {
+            sceneParticles.forEach(p => {
                 if (p.type === 'smoke') {
                     p.life -= DT;
                     p.x += (windVX - plane.vx) * DT;
@@ -1118,16 +1342,23 @@
             }
 
             // Engine: Thrust Calculation
+            let powerMultiplier = 1.0 - (plane.carbIce / 100); 
+            if (window.carbHeatOn) powerMultiplier *= 0.9; // 10% loss due to hot intake air
+
             let densityRatio = rho / 1.225; 
             let maxStaticThrust = 5400; 
             
             let propEfficiency = Math.max(0.6, 1 - (trueSpeed / 150)); 
-            let thrust = (plane.hp / 200) * maxStaticThrust * densityRatio * propEfficiency;
+            let thrust = (plane.hp / 200) * maxStaticThrust * densityRatio * propEfficiency * powerMultiplier;
 
             if (plane.throttle < 0.05) thrust = -(trueSpeed * 5); // Windmilling Prop Drag
 
             // --- 3. AERODYNAMIK ---
             let dynamicPressure = 0.5 * rho * trueSpeed**2; 
+
+            // Airframe Ice effect on Aero coefficients
+            let icingLiftFactor = 1.0 - (plane.airframeIce / 100) * 0.3; // Up to 30% lift loss
+            let icingDragFactor = 1.0 + (plane.airframeIce / 100) * 0.5; // Up to 50% drag increase 
 
             let pitchTorque = 0;
             let stabilityTorque = -aoa * dynamicPressure * 10;
@@ -1176,8 +1407,8 @@
             plane.pitchRate = isMirrored ? -simPitchRate : simPitchRate;
             plane.pitch += plane.pitchRate * DT;
 
-            let lift = dynamicPressure * plane.wingArea * cl;
-            let drag = dynamicPressure * plane.wingArea * cd;
+            let lift = dynamicPressure * plane.wingArea * cl * icingLiftFactor;
+            let drag = dynamicPressure * plane.wingArea * cd * icingDragFactor;
 
             let simForceX = thrust * Math.cos(simPitch) - drag * Math.cos(fpa) - lift * Math.sin(fpa);
             let forceY = thrust * Math.sin(simPitch) - drag * Math.sin(fpa) + lift * Math.cos(fpa) - (plane.mass * G);
@@ -1279,7 +1510,7 @@
                             window.activeGlidePath = null;
                             // Spawn Touchdown Smoke
                             for (let i = 0; i < 20; i++) {
-                                particles.push({
+                                sceneParticles.push({
                                     x: plane.x - 2 + (Math.random() - 0.5) * 2,
                                     y: minFlightHeight,
                                     vx: plane.vx * 0.1 + (Math.random() - 0.5) * 10,
@@ -1327,12 +1558,51 @@
                     return Math.hypot(currentX - cx, plane.y - cy) < p.radius;
                 });
             });
+            // --- Icing & IMC Logic ---
+            let altFt = Math.max(0, plane.y * 3.28084); 
+            window.OAT = 15 - (altFt / 1000) * 2;
+            let oatEl = document.getElementById('warn-oat');
+            if (oatEl) oatEl.innerText = Math.round(window.OAT) + '°C';
+
+            let inVisibleMoisture = inCloud || window.precipitation !== 'none';
+  
+            // IMC Timer Penalty
             if (inCloud) {
-                imcTimer = 5.0;
-                plane.engineHealth -= 0.01 * DT; // Reward for VFR flight logic
+                visualCloudTimer = 5.0; // Keep existing visual effect
+                window.imcTimer = Math.max(0, window.imcTimer - 0.016); 
+                let warnImc = document.getElementById('warn-imc');
+                if (warnImc) {
+                    warnImc.style.display = 'block';
+                    let timerSpan = document.getElementById('imc-timer');
+                    if (timerSpan) timerSpan.innerText = Math.ceil(window.imcTimer);
+                }
+                if (window.imcTimer === 0) window.flightScore -= 0.1; // Reduced bleed for realism
             } else {
-                imcTimer = Math.max(0, imcTimer - DT);
+                visualCloudTimer = Math.max(0, visualCloudTimer - DT);
+                window.imcTimer = Math.min(60, window.imcTimer + 0.05); 
+                let warnImc = document.getElementById('warn-imc');
+                if (window.imcTimer === 60 && warnImc) warnImc.style.display = 'none';
             }
+            
+            // Carburetor Icing
+            if (inVisibleMoisture && window.OAT >= -5 && window.OAT <= 15) {
+                plane.carbIce = Math.min(100, plane.carbIce + 0.05);
+            } else {
+                plane.carbIce = Math.max(0, plane.carbIce - 0.02); 
+            }
+            if (window.carbHeatOn) plane.carbIce = Math.max(0, plane.carbIce - 0.5); 
+            
+            // Airframe Icing
+            if (inVisibleMoisture && window.OAT >= -20 && window.OAT <= 2) {
+                plane.airframeIce = Math.min(100, plane.airframeIce + 0.02);
+            } else if (window.OAT > 2) {
+                plane.airframeIce = Math.max(0, plane.airframeIce - 0.05); 
+            }
+            
+            let warnCarb = document.getElementById('warn-carbice');
+            if (warnCarb) warnCarb.style.display = plane.carbIce > 15 ? 'block' : 'none';
+            let warnAir = document.getElementById('warn-airframeice');
+            if (warnAir) warnAir.style.display = plane.airframeIce > 10 ? 'block' : 'none';
             if (touchdownTimer > 0) touchdownTimer -= DT;
 
             // --- 5. KAMERA ZOOM ---
@@ -1397,10 +1667,10 @@
             updateText('val-trim', plane.trim.toFixed(3));
 
             updateText('val-rpm', Math.round(plane.rpm));
-            let rpmColor = 'white';
+            let rpmColor = '#0f0';
             if (plane.rpm > 2750) {
                 let flash = (Date.now() % 400) < 200;
-                rpmColor = flash ? 'red' : 'white';
+                rpmColor = flash ? 'red' : '#0f0';
             }
             updateColor('val-rpm', rpmColor);
 
@@ -1413,11 +1683,15 @@
             updateText('val-tmp', Math.round(plane.engineTemp));
             updateWidth('bar-tmp', Math.max(0, Math.min(100, ((plane.engineTemp - 15) / 235) * 100)) + "%");
             updateBg('bar-tmp', plane.engineTemp > 240 ? 'red' : (plane.engineTemp >= 220 ? 'orange' : '#4CAF50'));
+            let visualPowerMultiplier = 1.0 - (plane.carbIce / 100);
+            if (window.carbHeatOn) visualPowerMultiplier *= 0.9;
+            let effectiveHP = Math.max(0, plane.hp * visualPowerMultiplier);
 
-            updateWidth('bar-hp', Math.min(100, (plane.hp / 200) * 100) + "%");
-            updateText('val-hp', Math.round(plane.hp));
+            updateWidth('bar-hp', Math.min(100, (effectiveHP / 200) * 100) + "%");
+            updateText('val-hp', Math.round(effectiveHP));
 
-            const mixLabel = document.querySelector('.slider-col.mix label');
+            const mixLabel = document.querySelector('.lever-col.mix label');
+            if (!mixLabel) { var mixLabel2 = document.querySelector('.slider-col.mix label'); }
             if (mixLabel) {
                 if (window.mixtureWarning) {
                     let flash = (Date.now() % 500) < 250;
@@ -1647,7 +1921,7 @@
             if (!drawPlaneHighlight) {
                 targetCtx.strokeStyle = 'rgba(255,255,255,0.4)';
                 targetCtx.lineWidth = 1 * zoomX;
-                particles.forEach(p => {
+                sceneParticles.forEach(p => {
                     if (p.type === 'smoke') {
                         targetCtx.fillStyle = `rgba(50, 50, 50, ${p.life * 0.8})`;
                         targetCtx.beginPath();
@@ -2113,8 +2387,8 @@
             }
             ctx.restore();
 
-            if (imcTimer > 0) {
-                let alpha = Math.min(0.98, imcTimer);
+            if (visualCloudTimer > 0) {
+                let alpha = Math.min(0.98, visualCloudTimer);
                 ctx.fillStyle = `rgba(220, 225, 230, ${alpha})`;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
@@ -2212,6 +2486,33 @@
                     ctx.textAlign = 'center';
                     ctx.fillText('CLICK ANYWHERE TO START AUDIO', canvas.width / 2, canvas.height / 2 - 100);
                 }
+            }
+
+            if (window.precipitation !== 'none') {
+                ctx.save();
+                ctx.fillStyle = window.precipitation === 'snow' ? 'rgba(255,255,255,0.8)' : 'rgba(150,200,255,0.6)';
+                ctx.strokeStyle = 'rgba(150,200,255,0.6)';
+                ctx.lineWidth = 2;
+                for(let i=0; i<particles.length; i++) {
+                    let p = particles[i];
+                    if (window.precipitation === 'snow') {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.l, 0, Math.PI*2);
+                        ctx.fill();
+                    } else {
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p.x + p.vx * 2, p.y + p.vy * 1.5);
+                        ctx.stroke();
+                    }
+                    // Animate
+                    p.y += p.vy;
+                    p.x += p.vx - (plane.vx * 0.1); // Shift slightly with plane speed
+                    if (p.y > canvas.height) p.y = -20;
+                    if (p.x < 0) p.x = canvas.width;
+                    if (p.x > canvas.width) p.x = 0;
+                }
+                ctx.restore();
             }
 
             if (simRate > 1) {
