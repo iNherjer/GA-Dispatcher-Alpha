@@ -145,6 +145,8 @@
         <button id="btn-mobile-atc" onpointerdown="window.toggleATC(); event.preventDefault();" style="pointer-events: auto; background: #2980b9; color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 5px 10px; font-family: sans-serif; font-weight: bold; cursor: pointer;">ATC / RADIO</button>
     </div>
 
+    <div id="score-display" style="position: absolute; top: max(15px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: bold; color: #FFD700; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 2000; pointer-events: none;">Score: 0</div>
+
     <div style="position: absolute; top: max(15px, env(safe-area-inset-top)); right: max(15px, env(safe-area-inset-right)); z-index: 2000; display: flex; gap: 10px; pointer-events: auto;">
         <button id="btn-zoom-in" onclick="event.stopPropagation(); isAutoZoom = false; document.getElementById('btn-auto-zoom').innerText = 'Auto Zoom: OFF'; manualZoomLevel = Math.min(40, currentZoom * 1.5);" style="padding: 10px 15px; font-size: 18px; font-weight: bold; background: rgba(0,0,0,0.5); color: white; border: 1px solid #fff; border-radius: 4px; cursor: pointer;">+</button>
         <button id="btn-zoom-out" onclick="event.stopPropagation(); isAutoZoom = false; document.getElementById('btn-auto-zoom').innerText = 'Auto Zoom: OFF'; manualZoomLevel = Math.max(2, currentZoom / 1.5);" style="padding: 10px 15px; font-size: 18px; font-weight: bold; background: rgba(0,0,0,0.5); color: white; border: 1px solid #fff; border-radius: 4px; cursor: pointer;">-</button>
@@ -335,6 +337,15 @@
         window.cleanedForestCanvas = null;
         const planeImg = new Image();
         planeImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(planeSVG);
+
+        const trafficImages = [];
+        const trafficColors = ['#e74c3c', '#3498db', '#f1c40f', '#9b59b6']; // Red, Blue, Yellow, Purple
+        trafficColors.forEach(color => {
+            let coloredSVG = planeSVG.replace(/fill:#231f20/g, 'fill:' + color);
+            let img = new Image();
+            img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(coloredSVG);
+            trafficImages.push(img);
+        });
         const treeImages = [];
         const treeFiles = ['baum1.png', 'baum2.png', 'baum3.png', 'baumgruppe.png'];
         treeFiles.forEach(file => {
@@ -357,6 +368,14 @@
         let manualZoomLevel = 15;
         let windVX = 0;
         let windVY = 0;
+        
+        window.flightScore = 0; 
+        window.lastPlaneVy = 0; 
+        window.wasOnGround = true;
+        window.fpl = [];
+        window.engineAbused = false;
+        window.scoredTakeoffATC = false;
+        window.scoredLandingATC = false;
         
         let audioCtx = null;
         let engineOsc = null;
@@ -388,6 +407,7 @@
         let weatherParticles = [];
         
         let isTCAS = false;
+        let tcasAlt = 0;
         let isInCTR = false;
         let needsAudioResume = false;
         let atcState = 0;
@@ -550,6 +570,7 @@
             try {
                 initAudio();
                 flightPlan = JSON.parse(jsonStr);
+                window.fpl = flightPlan.waypoints;
                 
                 windVX = flightPlan.weather.windVX;
                 windVY = flightPlan.weather.windVY;
@@ -746,7 +767,14 @@
                 if (opt === 3) atcState = 4;
                 updateRadioUI();
             } else if (atcState > 1 && opt === 1) {
-                if (atcState === 2) hasTakeoffClearance = true;
+                if (atcState === 2) {
+                    hasTakeoffClearance = true;
+                    if (!window.scoredTakeoffATC) {
+                        window.flightScore += 100;
+                        window.scoredTakeoffATC = true;
+                        if (typeof showFeedbackText === 'function') showFeedbackText("ATC TAKEOFF +100", "#00FF00");
+                    }
+                }
                 if (atcState === 3) isCtrCleared = true;
                 if (atcState === 4) {
                     let fplX = typeof getFplX === 'function' ? getFplX(plane.x) : plane.x;
@@ -757,6 +785,13 @@
                             rwy: targetRwy,
                             approachFromLeft: fplX < targetRwy.startX + (targetRwy.endX - targetRwy.startX) / 2
                         };
+                        
+                        // Scoring logic for landing clearance
+                        if (!window.scoredLandingATC) {
+                            window.flightScore += 100;
+                            window.scoredLandingATC = true;
+                            if (typeof showFeedbackText === 'function') showFeedbackText("ATC LANDING +100", "#00FF00");
+                        }
                     }
                 }
                 atcState = 0;
@@ -917,8 +952,28 @@
                     return r.height; // Perfectly flat
                 }
             }
-            
-            return Math.max(0, baseH);
+            return baseH;
+        }
+
+        function getTargetAltitudeAtX(x) {
+            let pts = window.fpl || [];
+            if (pts.length === 0) return 0;
+            if (x <= pts[0].x) return pts[0].alt || (pts[0].elevation / 0.3048 + 1000);
+            if (x >= pts[pts.length-1].x) return pts[pts.length-1].alt || (pts[pts.length-1].elevation / 0.3048 + 1000);
+
+            let wp1 = pts[0], wp2 = pts[1];
+            for (let i = 0; i < pts.length - 1; i++) {
+                if (x >= pts[i].x && x <= pts[i+1].x) {
+                    wp1 = pts[i];
+                    wp2 = pts[i+1];
+                    break;
+                }
+            }
+            let tDist = Math.max(1, wp2.x - wp1.x);
+            let t = (x - wp1.x) / tDist;
+            let alt1 = wp1.alt || (wp1.elevation / 0.3048 + 1000);
+            let alt2 = wp2.alt || (wp2.elevation / 0.3048 + 1000);
+            return alt1 * (1 - t) + alt2 * t;
         }
 
         function manageTrees() {
@@ -1037,6 +1092,9 @@
             }
             
             plane.engineHealth = Math.max(0, Math.min(100, plane.engineHealth));
+            if (plane.rpm > 2750 || plane.engineHealth < 99.9 || (plane.mixture > idealMixture + 0.15 && plane.map > 15)) {
+                window.engineAbused = true;
+            }
             
             let healthFactor = plane.engineHealth / 100;
             let mixtureFactor = mixtureError > 0.1 ? Math.max(0, 1 - (mixtureError * 2)) : 1.0;
@@ -1163,18 +1221,23 @@
                 aiPlanes.push({
                     x: currentX + (isApproaching ? 10000 : -10000), 
                     y: aiY,
-                    vx: isApproaching ? -60 : 60
+                    vx: isApproaching ? -60 : 60,
+                    img: trafficImages[Math.floor(Math.random() * trafficImages.length)]
                 });
             }
             aiPlanes = aiPlanes.filter(ai => Math.abs(ai.x - currentX) < 15000);
             
             isTCAS = false;
+            tcasAlt = 0;
             aiPlanes.forEach(ai => {
                 ai.x += ai.vx * DT * simRate;
                 let dx = Math.abs(currentX - ai.x);
                 let dy = Math.abs(plane.y - ai.y);
                 if (dx < 15 && dy < 10) crashed = true;
-                else if (dx < 2000 && dy < 150) isTCAS = true;
+                else if (dx < 2000 && dy < 150) {
+                    isTCAS = true;
+                    tcasAlt = ai.y * 3.28084;
+                }
             });
 
             isInCTR = false;
@@ -1535,15 +1598,29 @@
 
             aiPlanes.forEach(ai => {
                 let drawX = getVisualX(ai.x);
-                targetCtx.fillStyle = '#fff';
-                targetCtx.beginPath();
-                let dir = ai.vx > 0 ? 1 : -1;
-                targetCtx.moveTo((drawX + dir * 15) * zoomX, ai.y * zoomY);
-                targetCtx.lineTo((drawX - dir * 15) * zoomX, (ai.y + 6) * zoomY);
-                targetCtx.lineTo((drawX - dir * 10) * zoomX, ai.y * zoomY); // Tail indent
-                targetCtx.lineTo((drawX - dir * 15) * zoomX, (ai.y - 6) * zoomY);
-                targetCtx.closePath();
-                targetCtx.fill();
+                let drawY = ai.y * zoomY;
+                
+                targetCtx.save();
+                targetCtx.translate(drawX * zoomX, drawY);
+                if (ai.vx < 0) { targetCtx.scale(-1, 1); }
+                // Use planeW and planeH from earlier in drawWorld or use fixed values
+                let tW = 50 * zoomX; // Adjust as needed
+                let tH = 18 * zoomY; // Adjust as needed
+                if (ai.img && ai.img.complete) {
+                    targetCtx.drawImage(ai.img, -tW/2, -tH/2, tW, tH);
+                } else {
+                    // Fallback to triangle if image not loaded
+                    targetCtx.fillStyle = ai.vx < 0 ? '#e74c3c' : '#3498db';
+                    targetCtx.beginPath();
+                    let dir = ai.vx > 0 ? 1 : -1;
+                    targetCtx.moveTo(dir * 15 * zoomX, 0);
+                    targetCtx.lineTo(-dir * 15 * zoomX, 6 * zoomY);
+                    targetCtx.lineTo(-dir * 10 * zoomX, 0);
+                    targetCtx.lineTo(-dir * 15 * zoomX, -6 * zoomY);
+                    targetCtx.closePath();
+                    targetCtx.fill();
+                }
+                targetCtx.restore();
                 
                 if (!drawPlaneHighlight) {
                     let altDiffFt = Math.round((ai.y - plane.y) * 3.28 / 100);
@@ -1856,6 +1933,24 @@
             targetCtx.globalAlpha = 1.0;
 
 
+            if (typeof window.fpl !== 'undefined' && window.fpl.length > 0) {
+                targetCtx.save();
+                targetCtx.strokeStyle = 'rgba(255, 50, 50, 0.4)'; // Pale red
+                targetCtx.lineWidth = 4 * zoomY; // Visible line
+                targetCtx.lineJoin = 'round';
+                targetCtx.setLineDash([15 * zoomX, 10 * zoomX]); // Dashed line for planning style
+                targetCtx.beginPath();
+                for (let i = 0; i < window.fpl.length; i++) {
+                    let ptX = (typeof getVisualX === 'function' ? getVisualX(window.fpl[i].x || window.fpl[i].dist) : window.fpl[i].x) * zoomX + screenOffsetX;
+                    let targetAltMeters = (window.fpl[i].alt || (window.fpl[i].elevation / 0.3048 + 1000)) * 0.3048;
+                    let ptY = screenOffsetY - (targetAltMeters * zoomY); 
+                    if (i === 0) targetCtx.moveTo(ptX, ptY);
+                    else targetCtx.lineTo(ptX, ptY);
+                }
+                targetCtx.stroke();
+                targetCtx.restore();
+            }
+
             if (drawPlaneHighlight) {
                 targetCtx.fillStyle = 'red';
                 targetCtx.beginPath();
@@ -2096,7 +2191,7 @@
                 ctx.fillStyle = isBlink ? 'red' : 'yellow';
                 ctx.font = 'bold 40px sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText('TRAFFIC! TRAFFIC!', canvas.width / 2, 80);
+                ctx.fillText('TRAFFIC PROXIMITY - ALT: ' + Math.floor(tcasAlt) + ' FT', canvas.width / 2, 80);
             }
 
             if (isInCTR) {
@@ -2200,6 +2295,20 @@
 
 
 
+        function showFeedbackText(text, color) {
+            let fb = document.createElement('div');
+            fb.innerText = text;
+            fb.style.cssText = 'position:absolute; top:30%; left:50%; transform:translate(-50%,-50%); font-size:40px; font-weight:bold; color:'+color+'; text-shadow:2px 2px 5px #000; z-index:3000; pointer-events:none; animation: fadeUp 2s forwards;';
+            document.body.appendChild(fb);
+            if (!document.getElementById('fadeUpStyle')) {
+                let style = document.createElement('style');
+                style.id = 'fadeUpStyle';
+                style.innerHTML = '@keyframes fadeUp { 0% { opacity:1; transform: translate(-50%, -50%); } 100% { opacity:0; transform: translate(-50%, -100%); } }';
+                document.head.appendChild(style);
+            }
+            setTimeout(() => fb.remove(), 2000);
+        }
+
         function loop() {
             if (isGameOver) {
                 draw();
@@ -2207,6 +2316,57 @@
                 return;
             }
             updatePhysics();
+            
+            // Scoring Logic
+            let currentScoreDelta = 0;
+            
+            // 1. G-Force / Smoothness Reward
+            let verticalAccel = Math.abs(plane.vy - window.lastPlaneVy);
+            if (verticalAccel < 0.05 && plane.y > getTerrainHeight(getFplX(plane.x)) + 10) {
+                currentScoreDelta += 0.05; // Reward for very smooth pitch control in the air
+            }
+            
+            // 2. Altitude Tracking Reward
+            if (typeof fpl !== 'undefined' && fpl.length > 1 && plane.y > getTerrainHeight(getFplX(plane.x)) + 50) {
+                let targetAltMeters = getTargetAltitudeAtX(getFplX(plane.x)) * 0.3048; 
+                let altDiff = Math.abs(plane.y - targetAltMeters);
+                if (altDiff < 15) currentScoreDelta += 0.1; // Within ~50ft
+            }
+            
+            // 3. Landing Evaluation
+            let isCurrentlyOnGround = plane.y <= getTerrainHeight(getFplX(plane.x)) + 2; 
+            if (isCurrentlyOnGround && !window.wasOnGround) {
+                // Touchdown moment!
+                let touchdownSpeed = Math.abs(plane.vy);
+                if (touchdownSpeed < 0.5) {
+                    window.flightScore += 500; // BUTTER LANDING!
+                    showFeedbackText("BUTTER! +500", "#00FF00");
+                } else if (touchdownSpeed < 1.5) {
+                    window.flightScore += 200; // Good landing
+                    showFeedbackText("GOOD LANDING +200", "#AAFF00");
+                } else if (touchdownSpeed > 3.0) {
+                    window.flightScore -= 300; // Hard landing penalty
+                    showFeedbackText("HARD LANDING! -300", "#FF0000");
+                }
+
+                // Airmanship Bonus: Engine Handling
+                if (!window.engineAbused && touchdownSpeed < 1.5) {
+                    window.flightScore += 500;
+                    setTimeout(() => { showFeedbackText("PERFECT ENGINE +500", "#00FFFF"); }, 1000); 
+                }
+                
+                // Reset trackers for the next flight/leg
+                window.engineAbused = false;
+                window.scoredTakeoffATC = false;
+                window.scoredLandingATC = false;
+            }
+            
+            window.flightScore += currentScoreDelta;
+            window.lastPlaneVy = plane.vy;
+            window.wasOnGround = isCurrentlyOnGround;
+            let scoreEl = document.getElementById('score-display');
+            if (scoreEl) scoreEl.innerText = 'Score: ' + Math.floor(window.flightScore);
+
             draw();
             loopId = requestAnimationFrame(loop);
         }
