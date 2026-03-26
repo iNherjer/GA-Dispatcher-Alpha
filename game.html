@@ -171,8 +171,10 @@
             .mobile-row-top { display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; height: auto !important; min-height: 50px; padding: 2px 0 !important; border-bottom: 1px solid #333; }
             .mobile-row-bottom { display: flex; flex-direction: row; justify-content: space-between; align-items: stretch; width: 100%; flex: 1; padding: 0 !important; }
 
-            /* Dashboard: Instruments + Engine in one flat row */
-            .sixpack { grid-template-columns: repeat(6, 1fr) !important; gap: 2px !important; }
+            /* Dashboard: Instruments + Engine in one flat row, hide DG + OAT */
+            .inst-dg { display: none !important; }
+            .gauge-oat { display: none !important; }
+            .sixpack { grid-template-columns: repeat(5, 1fr) !important; gap: 2px !important; }
             .inst { width: 36px !important; height: 36px !important; border-width: 1.5px !important; }
             .inst-val { font-size: 7px !important; bottom: 0px !important; }
             .inst-label { bottom: 4px !important; font-size: 5px !important; }
@@ -180,13 +182,21 @@
             .panel-label { font-size: 6px !important; margin-bottom: 1px !important; letter-spacing: 1px !important; }
             .panel-section { padding: 2px 4px !important; }
 
-            /* Engine gauges: compact single row beside sixpack */
-            .engine-gauges { grid-template-columns: repeat(6, 1fr) !important; gap: 2px !important; }
+            /* Engine gauges: compact row beside sixpack, 5 cols (no OAT) */
+            .engine-gauges { grid-template-columns: repeat(5, 1fr) !important; gap: 2px !important; }
             .gauge { width: 36px !important; height: 36px !important; border-width: 1.5px !important; }
             .gauge-label { font-size: 5px !important; }
             .gauge-val { font-size: 9px !important; }
             .gauge-unit { font-size: 5px !important; }
             .gauge-bar { width: 24px !important; height: 3px !important; bottom: 3px !important; }
+
+            /* OAT text display under score on mobile */
+            #mobile-oat-display {
+                position: fixed; top: calc(env(safe-area-inset-top, 15px) + 26px);
+                left: 50%; transform: translateX(-50%);
+                font-size: 11px; color: #0dd; font-family: 'Courier New', monospace;
+                text-shadow: 1px 1px 3px rgba(0,0,0,0.8); z-index: 2000; pointer-events: none;
+            }
 
             /* Show instruments + engine side by side in one row */
             #mobile-dashboard-row .panel-section {
@@ -200,8 +210,9 @@
             }
 
             .pedestal { flex: 1; padding: 0 !important; background: transparent !important; gap: 5px !important; justify-content: flex-end !important; padding-right: 15px !important; }
-            .power-quadrant { flex: 1; gap: 0 !important; justify-content: space-around !important; padding: 2px 8px !important; }
-            .lever-col input[type="range"] { height: 70px !important; }
+            .power-quadrant { flex: 1; gap: 0 !important; justify-content: space-around !important; padding: 2px 8px !important; align-items: stretch !important; }
+            .lever-col { flex: 1; justify-content: stretch !important; }
+            .lever-col input[type="range"] { height: 100% !important; flex: 1; }
             .lever-col label { font-size: 8px !important; }
             .slider-col { gap: 2px !important; }
             .slider-col input[type="range"] { height: 80px !important; width: 30px !important; }
@@ -297,7 +308,7 @@
 
         /* Desktop: hide mobile-only elements, show desktop score */
         @media (min-width: 801px) and (orientation: landscape) {
-            #mobile-top-hud, #btn-flip-dir, #btn-recenter, #cockpit-toggle, #mobile-dashboard-row { display: none !important; }
+            #mobile-top-hud, #btn-flip-dir, #btn-recenter, #cockpit-toggle, #mobile-dashboard-row, #mobile-oat-display { display: none !important; }
         }
     </style>
 </head>
@@ -336,6 +347,8 @@
 
     <!-- Score Display (shared between mobile HUD and desktop) -->
     <div id="score-display" style="position: absolute; top: max(15px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: bold; color: #FFD700; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 2000; pointer-events: none;">Score: 0</div>
+    <!-- Mobile OAT readout under score -->
+    <div id="mobile-oat-display">OAT: 15°C</div>
 
     <!-- Mobile Top HUD Bar -->
     <div id="mobile-top-hud">
@@ -369,7 +382,7 @@
                     <div class="inst-label" style="bottom:16px;">TRIM</div>
                     <div class="inst-val" id="val-trim" style="color:#27ae60; font-size:14px;">0.050</div>
                 </div>
-                <div class="inst" style="border-color: #555;">
+                <div class="inst inst-dg" style="border-color: #555;">
                     <div style="font-size:24px; color: #555;">N</div>
                     <div class="inst-label">DG</div>
                 </div>
@@ -408,7 +421,7 @@
                     <div class="gauge-val" id="val-hlt">100</div>
                     <div class="gauge-bar"><div class="gauge-bar-fill" id="bar-hlt" style="width:100%"></div></div>
                 </div>
-                <div class="gauge" style="border-color: #0dd;">
+                <div class="gauge gauge-oat" style="border-color: #0dd;">
                     <div class="gauge-label">OAT</div>
                     <div class="gauge-val" id="warn-oat" style="color: #0dd; font-size:14px;">15°C</div>
                 </div>
@@ -446,13 +459,13 @@
         <div class="panel-section pq-section" style="margin-top: auto; flex: 1; display: flex; flex-direction: column;">
             <div class="panel-label">Power Quadrant</div>
             <div class="mobile-row-bottom">
-                <div style="display: flex; gap: 10px; align-items: center; padding-left: 10px;">
-                    <div class="lever-col" style="align-items:center;">
-                        <label style="color: white; font-weight: bold; margin-bottom: 5px;">PITCH</label>
-                        <input type="range" id="mobile-pitch" min="-1.5" max="1.5" step="0.01" value="0" style="touch-action: none;">
+                <div style="display: flex; gap: 6px; align-items: stretch; padding-left: 6px;">
+                    <div class="lever-col" style="align-items:center; flex: 0 0 auto;">
+                        <label style="color: white; font-weight: bold; margin-bottom: 2px; font-size: 8px;">PITCH</label>
+                        <input type="range" id="mobile-pitch" min="-1.5" max="1.5" step="0.01" value="0" style="touch-action: none; flex: 1;">
                         <span id="val-pitch" style="display:none;">0</span>
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; justify-content: space-between;">
+                    <div style="display: flex; flex-direction: column; gap: 3px; justify-content: stretch;">
                         <button class="mobile-ctrl-btn cockpit-btn" id="btn-trim-up-mob" style="background: #27ae60; color: white; border: none; flex: 1;">TRIM ▲</button>
                         <button class="mobile-ctrl-btn cockpit-btn" id="btn-trim-dn-mob" style="background: #27ae60; color: white; border: none; flex: 1;">TRIM ▼</button>
                         <button class="mobile-ctrl-btn cockpit-btn" id="btn-brake-mob" style="background: #c0392b; color: white; border: none; flex: 1; touch-action: none;">BRAKE</button>
@@ -956,31 +969,32 @@
                 // Spawn Clouds for this zone
                 // Weather happens mainly between GND (~0m) and ~600m (2000ft)
                 for (let c = 0; c < cloudCount; c++) {
-                    let cloudAlt;
+                    let cloudAGL; // Cloud height ABOVE GROUND LEVEL
                     if (precipType !== 'none') {
-                        // Precip clouds: very low, 100m (300ft) to 400m (1300ft)
-                        cloudAlt = 100 + Math.random() * 300;
+                        cloudAGL = 100 + Math.random() * 300;
                     } else if (window.weatherMode === 'hard') {
-                        // Broken clouds: 150m to 600m 
-                        cloudAlt = 150 + Math.random() * 450;
+                        cloudAGL = 150 + Math.random() * 450;
                     } else if (window.weatherMode === 'real') {
-                        // Mixed: some low (200m), some mid (600m)
-                        cloudAlt = 200 + Math.random() * 500;
+                        cloudAGL = 200 + Math.random() * 500;
                     } else {
-                        // Easy: scattered and friendly low-level clouds
-                        cloudAlt = 200 + Math.random() * 400;
+                        cloudAGL = 200 + Math.random() * 400;
                     }
-                    
+
                     // Cloud radius: smaller for navigability
                     let cloudRadiusH = precipType !== 'none' ? (100 + Math.random() * 150) : (50 + Math.random() * 80);
                     // Vertical extent: 100-500ft = 30-150m
                     let cloudRadiusV = 15 + Math.random() * 60; // 15m to 75m half-height
-                    
+
+                    // Cloud X in visual space, then get FPL X to find terrain height
+                    let cloudVisualX = zoneStartX + (Math.random() * visualZoneWidth);
+                    let cloudFplX = typeof getFplX === 'function' ? getFplX(cloudVisualX) : cloudVisualX;
+                    let terrainAtCloud = typeof getTerrainHeight === 'function' ? getTerrainHeight(cloudFplX) : 0;
+
                     clouds.push({
-                        x: zoneStartX + (Math.random() * visualZoneWidth), // Visual X
-                        y: cloudAlt,
-                        radius: cloudRadiusH,   // Horizontal radius (for X collision & rendering)
-                        radiusV: cloudRadiusV,  // Vertical radius (for Y collision & rendering)
+                        x: cloudVisualX,
+                        y: terrainAtCloud + cloudAGL, // AGL: terrain + height above ground
+                        radius: cloudRadiusH,
+                        radiusV: cloudRadiusV,
                         speed: 0.2 + Math.random() * 0.8,
                         hasPrecip: precipType !== 'none'
                     });
@@ -1778,6 +1792,8 @@
             window.OAT = 15 - (altFt / 1000) * 2;
             let oatEl = document.getElementById('warn-oat');
             if (oatEl) oatEl.innerText = Math.round(window.OAT) + '°C';
+            let mobOat = document.getElementById('mobile-oat-display');
+            if (mobOat) mobOat.innerText = 'OAT: ' + Math.round(window.OAT) + '°C';
             
             // Check if plane is UNDER a precip cloud (within horizontal range, below its altitude)
             let underPrecipCloud = clouds.some(c => c.hasPrecip && Math.abs(plane.x - c.x) < c.radius * 1.5 && plane.y < c.y);
@@ -2028,8 +2044,9 @@
                     let leftWorldX = -screenOffsetX / zoomX;
                     let rightWorldX = (targetWidth - screenOffsetX) / zoomX;
                     let minTerrainElev = Infinity;
-                    // Scan the visible screen width every 50 meters
-                    for (let scanX = leftWorldX; scanX <= rightWorldX + 50; scanX += 50) {
+                    // Scan visible screen at coarser step for performance
+                    let scanStep = Math.max(100, (rightWorldX - leftWorldX) / 10);
+                    for (let scanX = leftWorldX; scanX <= rightWorldX + scanStep; scanX += scanStep) {
                         let realX = typeof getFplX === 'function' ? getFplX(scanX) : scanX;
                         let elev = typeof getTerrainHeight === 'function' ? getTerrainHeight(realX) : 0;
                         if (elev < minTerrainElev) minTerrainElev = elev;
@@ -2431,13 +2448,15 @@
             targetCtx.beginPath();
             
             let cLeft = -screenOffsetX / zoomX;
-            let startX = Math.max(0, cLeft - 200); 
+            let startX = cLeft - 200; // Allow terrain to extend left of origin
             let endX = startX + (targetWidth / zoomX) + 400;
             
             targetCtx.moveTo(startX * zoomX, -2000 * zoomY); 
             targetCtx.lineTo(startX * zoomX, getTerrainHeight(getFplX(startX)) * zoomY);
             
-            for (let x = startX; x <= endX; x += 5) {
+            // Adaptive terrain detail: finer when zoomed in, coarser when zoomed out
+            let terrainStep = Math.max(3, Math.min(20, 1 / zoomX * 50));
+            for (let x = startX; x <= endX; x += terrainStep) {
                 targetCtx.lineTo(x * zoomX, getTerrainHeight(getFplX(x)) * zoomY);
             }
             
@@ -2500,49 +2519,50 @@
             }
             targetCtx.restore(); 
 
-            // Procedural Foreground Tree Decorations (Fixed Sync & Runway Clearance)
+            // Procedural Foreground Tree Decorations (Optimized)
             if (treeImages.length > 0 && !drawPlaneHighlight) {
-                let treeStep = 20; // The fixed grid distance between potential trees
+                // Adaptive tree step: fewer trees when zoomed out (more visible area)
+                let visibleWorldWidth = targetWidth / zoomX;
+                let treeStep = visibleWorldWidth > 2000 ? 60 : visibleWorldWidth > 800 ? 40 : 20;
                 let leftWorldX = -screenOffsetX / zoomX;
                 let rightWorldX = (targetWidth - screenOffsetX) / zoomX;
-                
-                // The startX MUST be a multiple of treeStep to prevent desync racing!
+
                 let sDrawX = Math.floor(leftWorldX / treeStep) * treeStep;
                 let eDrawX = Math.floor(rightWorldX / treeStep) * treeStep + treeStep;
-                
+
+                // Pre-build runway clearance intervals for O(1) lookup
+                let rwClear = runways.map(r => ({ s: r.startX - 100, e: r.endX + 100 }));
+
                 for (let x = sDrawX; x <= eDrawX; x += treeStep) {
                     let realX = typeof getFplX === 'function' ? getFplX(x) : x;
-                    
-                    // Check if tree is on or near a runway (100m clearance)
-                    let isOnRunway = runways.some(r => realX >= r.startX - 100 && realX <= r.endX + 100);
-                    
-                    // Calculate a stable pseudo-random value based strictly on coordinate
+
+                    // Fast pseudo-random first (cheapest check)
                     let rand = Math.abs(Math.sin(realX * 12.9898) * 100);
-                    
-                    // Only draw if not on a runway and rng passes
-                    if (!isOnRunway && rand > 40) { 
-                        // Use the rand seed to pick a specific image from the array reliably
-                        let imgIndex = Math.floor(rand) % treeImages.length;
-                        let selectedImg = treeImages[imgIndex];
-                        
-                        // Only draw if this specific image is fully loaded
-                        if (selectedImg.complete && selectedImg.naturalHeight > 0) {
-                            let tGroundY = typeof getTerrainHeight === 'function' ? getTerrainHeight(realX) : 0;
-                            let treeBaseY = screenOffsetY - (tGroundY * zoomY) + (5 * zoomY);
-                            
-                            let sScale = 0.6 + (rand % 10) / 20;
-                            let baseTreeH = 30; // 30 meters tall
-                            let finalH = baseTreeH * sScale * zoomY;
-                            
-                            // Dynamically calculate width based on the actual PNG's aspect ratio!
-                            let aspectRatio = selectedImg.naturalWidth / selectedImg.naturalHeight;
-                            let finalW = finalH * aspectRatio;
-                            
-                            let drawX = (x * zoomX + screenOffsetX) - (finalW / 2); // Center the image horizontally
-                            let drawY = treeBaseY - finalH;
-                            
-                            targetCtx.drawImage(selectedImg, drawX, drawY, finalW, finalH);
-                        }
+                    if (rand <= 40) continue;
+
+                    // Runway clearance check (pre-built array)
+                    let isOnRunway = false;
+                    for (let i = 0; i < rwClear.length; i++) {
+                        if (realX >= rwClear[i].s && realX <= rwClear[i].e) { isOnRunway = true; break; }
+                    }
+                    if (isOnRunway) continue;
+
+                    let imgIndex = Math.floor(rand) % treeImages.length;
+                    let selectedImg = treeImages[imgIndex];
+
+                    if (selectedImg.complete && selectedImg.naturalHeight > 0) {
+                        let tGroundY = typeof getTerrainHeight === 'function' ? getTerrainHeight(realX) : 0;
+                        let treeBaseY = screenOffsetY - (tGroundY * zoomY) + (5 * zoomY);
+
+                        let sScale = 0.6 + (rand % 10) / 20;
+                        let finalH = 30 * sScale * zoomY;
+                        let aspectRatio = selectedImg.naturalWidth / selectedImg.naturalHeight;
+                        let finalW = finalH * aspectRatio;
+
+                        let drawX = (x * zoomX + screenOffsetX) - (finalW / 2);
+                        let drawY = treeBaseY - finalH;
+
+                        targetCtx.drawImage(selectedImg, drawX, drawY, finalW, finalH);
                     }
                 }
             }
