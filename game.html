@@ -162,30 +162,87 @@
             #minimap { width: 100% !important; height: 100% !important; position: relative !important; top: 0 !important; left: 0 !important; display: block; border-radius: 0; border: none; }
             
             #sidebar { 
-                position: relative !important; width: 100vw !important; height: 45vh !important; 
-                order: 3; border-left: none; border-top: 2px solid #444; 
+                position: relative !important; width: 100vw !important; height: 25vh !important;
+                order: 4; border-left: none; border-top: 2px solid #444; 
                 padding: 0 !important; display: flex !important; flex-direction: column !important; 
                 gap: 2px !important; flex-shrink: 0; overflow: hidden !important;
             }
-            .mobile-row-top { display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; height: auto !important; min-height: 70px; padding: 2px 0 !important; border-bottom: 1px solid #333; }
-            .mobile-row-bottom { display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; height: auto !important; padding: 2px 0 !important; }
+            .mobile-row-top { display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; height: auto !important; min-height: 50px; padding: 2px 0 !important; border-bottom: 1px solid #333; }
+            .mobile-row-bottom { display: flex; flex-direction: row; justify-content: space-between; align-items: stretch; width: 100%; flex: 1; padding: 2px 0 !important; }
 
-            .inst { width: 45px !important; height: 45px !important; }
-            .inst-val { font-size: 8px !important; bottom: 1px !important; }
-            .inst-label { bottom: 6px !important; font-size: 7px !important; }
-            .needle { height: 22px !important; }
+            /* Sixpack as single horizontal row */
+            .sixpack { grid-template-columns: repeat(6, 1fr) !important; gap: 3px !important; }
+            .inst { width: 40px !important; height: 40px !important; border-width: 2px !important; }
+            .inst-val { font-size: 7px !important; bottom: 0px !important; }
+            .inst-label { bottom: 5px !important; font-size: 6px !important; }
+            .needle { height: 18px !important; }
+            .panel-label { font-size: 7px !important; margin-bottom: 2px !important; letter-spacing: 1px !important; }
+            .panel-section { padding: 4px !important; }
             
             .pedestal { flex: 1; padding: 0 !important; background: transparent !important; gap: 5px !important; justify-content: flex-end !important; padding-right: 15px !important; }
+            .power-quadrant { flex: 1; gap: 0 !important; justify-content: space-evenly !important; padding: 4px !important; }
+            .lever-col input[type="range"] { height: 80px !important; }
             .slider-col { gap: 2px !important; }
-            .slider-col input[type="range"] { height: 130px !important; width: 30px !important; }
+            .slider-col input[type="range"] { height: 100px !important; width: 30px !important; }
             .bar-container { font-size: 8px !important; gap: 2px !important; }
             .bar { height: 6px !important; }
             
-            #simRateControls { top: env(safe-area-inset-top, 5px) !important; left: 10px !important; }
-            #routeScaleControls { top: calc(env(safe-area-inset-top, 5px) + 25px) !important; left: 10px !important; }
+            #simRateControls { position: static !important; background: none !important; padding: 2px !important; }
+            #routeScaleControls { position: static !important; background: none !important; padding: 2px !important; }
+            #simRateControls span, #routeScaleControls span { display: none; }
 
-            .radio-btn, .mobile-ctrl-btn { padding: 8px !important; font-size: 12px !important; }
+            .radio-btn, .mobile-ctrl-btn { padding: 8px !important; font-size: 12px !important; min-height: 44px; }
             #mobile-pitch { width: 60px !important; margin: 0 !important; }
+
+            /* --- Mobile Top HUD Bar --- */
+            #mobile-top-hud {
+                position: fixed; top: 0; left: 0; right: 0;
+                padding: calc(env(safe-area-inset-top, 15px) + 4px) env(safe-area-inset-right, 8px) 6px env(safe-area-inset-left, 8px);
+                display: flex; justify-content: space-between; align-items: flex-start;
+                z-index: 9999; pointer-events: none;
+            }
+            #mobile-top-hud > * { pointer-events: auto; }
+            #mobile-top-hud button { min-height: 38px; min-width: 38px; font-size: 11px; }
+            .hud-left { display: flex; gap: 6px; }
+            .hud-left button { background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; padding: 8px 10px; font-weight: bold; font-family: sans-serif; }
+            .hud-center { flex: 1; display: flex; justify-content: center; pointer-events: none; }
+
+            /* Score repositioned on mobile to sit at safe-area top center */
+            #score-display { top: calc(env(safe-area-inset-top, 15px) + 4px) !important; font-size: 16px !important; }
+            .hud-right { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+            .hud-right button { min-height: 32px; min-width: 32px; padding: 4px 6px; font-size: 10px; }
+
+            /* Hide old absolute-positioned top buttons on mobile (now in HUD) */
+            .desktop-top-buttons { display: none !important; }
+
+            /* --- Floating Action Buttons on Flight View --- */
+            #btn-flip-dir, #btn-recenter {
+                position: absolute; z-index: 1500;
+                width: 56px; height: 56px; border-radius: 50%;
+                background: rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.4);
+                color: white; font-size: 24px; cursor: pointer;
+                display: flex; align-items: center; justify-content: center;
+            }
+            #btn-flip-dir { bottom: 15px; left: 15px; }
+            #btn-recenter { bottom: 15px; right: 15px; display: none; }
+
+            /* --- Cockpit Toggle Bar --- */
+            #cockpit-toggle {
+                order: 3; height: 28px; background: #1a1a1a; border-top: 1px solid #444; border-bottom: 1px solid #333;
+                display: flex; align-items: center; justify-content: center; color: #888;
+                font-size: 16px; cursor: pointer; flex-shrink: 0; -webkit-user-select: none; user-select: none;
+            }
+
+            /* --- Compact Cockpit --- */
+            #sidebar .panel-section:nth-child(2) { display: none; } /* Engine gauges hidden on mobile */
+            #sidebar.cockpit-collapsed { height: auto !important; max-height: 18vh !important; }
+            #sidebar.cockpit-collapsed .panel-section { display: none !important; }
+            #sidebar.cockpit-collapsed .pq-section { display: flex !important; margin-top: 0 !important; }
+            #sidebar.cockpit-collapsed .pq-section .panel-label { display: none !important; }
+            #sidebar.cockpit-collapsed > div:last-child { display: none !important; } /* Hide restart in collapsed */
+
+            /* --- Touch Target Minimums --- */
+            .cockpit-btn { min-height: 44px; min-width: 44px; padding: 10px 12px !important; font-size: 11px !important; }
         }
         
         /* Global Mobile UX - Large Slider Thumbs */
@@ -196,11 +253,13 @@
         #mobile-pitch::-webkit-slider-thumb { width: 50px !important; height: 50px !important; border-width: 3px !important; }
         #mobile-pitch::-moz-range-thumb { width: 50px !important; height: 50px !important; border-width: 3px !important; }
         @media (max-width: 600px) {
-            #sidebar { height: auto !important; flex-shrink: 0; }
+            #sidebar { height: 25vh !important; flex-shrink: 0; }
             #mobile-flight-view { flex: 1 !important; height: auto !important; }
             .pedestal { padding: 2px !important; }
-            #sidebar > .pedestal:last-child { height: 20px !important; padding: 0 !important; margin: 0 !important; }
-            #sidebar > .pedestal:last-child button { font-size: 9px !important; }
+        }
+        /* Desktop: hide mobile-only elements, show desktop score */
+        @media (min-width: 801px) and (orientation: landscape) {
+            #mobile-top-hud, #btn-flip-dir, #btn-recenter, #cockpit-toggle { display: none !important; }
         }
     </style>
 </head>
@@ -237,12 +296,24 @@
 
     <div id="stallWarn" class="warn">STALL WARNUNG!</div>
 
-    <div style="position: absolute; top: max(15px, env(safe-area-inset-top)); left: max(15px, env(safe-area-inset-left)); z-index: 9999; display: flex; gap: 10px;">
-        <button id="btn-alt-mode" onpointerdown="window.isAglMode = !window.isAglMode; this.innerText = window.isAglMode ? 'Grid: AGL' : 'Grid: MSL'; event.preventDefault();" style="pointer-events: auto; background: rgba(0, 0, 0, 0.5); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 5px 10px; font-family: sans-serif; font-weight: bold; cursor: pointer;">Grid: MSL</button>
-        <button id="btn-mobile-atc" onpointerdown="window.toggleATC(); event.preventDefault();" style="pointer-events: auto; background: #2980b9; color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 5px 10px; font-family: sans-serif; font-weight: bold; cursor: pointer;">ATC / RADIO</button>
+    <!-- Score Display (shared between mobile HUD and desktop) -->
+    <div id="score-display" style="position: absolute; top: max(15px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: bold; color: #FFD700; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 2000; pointer-events: none;">Score: 0</div>
+
+    <!-- Mobile Top HUD Bar -->
+    <div id="mobile-top-hud">
+        <div class="hud-left">
+            <button id="btn-alt-mode" onpointerdown="window.isAglMode = !window.isAglMode; this.innerText = window.isAglMode ? 'AGL' : 'MSL'; event.preventDefault();">MSL</button>
+            <button onpointerdown="window.toggleATC(); event.preventDefault();" style="background: #2980b9;">ATC</button>
+        </div>
+        <div class="hud-center"></div>
+        <div class="hud-right" id="mobile-hud-right"></div>
     </div>
 
-    <div id="score-display" style="position: absolute; top: max(15px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: bold; color: #FFD700; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 2000; pointer-events: none;">Score: 0</div>
+    <!-- Desktop top buttons (hidden on mobile via CSS) -->
+    <div class="desktop-top-buttons" style="position: absolute; top: max(15px, env(safe-area-inset-top)); left: max(15px, env(safe-area-inset-left)); z-index: 9999; display: flex; gap: 10px;">
+        <button id="btn-alt-mode-dt" onpointerdown="window.isAglMode = !window.isAglMode; this.innerText = window.isAglMode ? 'Grid: AGL' : 'Grid: MSL'; document.getElementById('btn-alt-mode').innerText = window.isAglMode ? 'AGL' : 'MSL'; event.preventDefault();" style="pointer-events: auto; background: rgba(0, 0, 0, 0.5); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 5px 10px; font-family: sans-serif; font-weight: bold; cursor: pointer;">Grid: MSL</button>
+        <button id="btn-mobile-atc" onpointerdown="window.toggleATC(); event.preventDefault();" style="pointer-events: auto; background: #2980b9; color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 5px 10px; font-family: sans-serif; font-weight: bold; cursor: pointer;">ATC / RADIO</button>
+    </div>
 
 
 
@@ -334,7 +405,7 @@
         </div>
 
         <!-- ===== POWER QUADRANT ===== -->
-        <div class="panel-section" style="margin-top: auto;">
+        <div class="panel-section pq-section" style="margin-top: auto; flex: 1; display: flex; flex-direction: column;">
             <div class="panel-label">Power Quadrant</div>
             <div class="mobile-row-bottom">
                 <div style="display: flex; gap: 10px; align-items: center; padding-left: 10px;">
@@ -343,7 +414,7 @@
                         <input type="range" id="mobile-pitch" min="-1.5" max="1.5" step="0.01" value="0" style="touch-action: none;">
                         <span id="val-pitch" style="display:none;">0</span>
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 4px; height: 100px; justify-content: space-between;">
+                    <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; justify-content: space-between;">
                         <button class="mobile-ctrl-btn cockpit-btn" id="btn-trim-up-mob" style="background: #27ae60; color: white; border: none; flex: 1;">TRIM ▲</button>
                         <button class="mobile-ctrl-btn cockpit-btn" id="btn-trim-dn-mob" style="background: #27ae60; color: white; border: none; flex: 1;">TRIM ▼</button>
                         <button class="mobile-ctrl-btn cockpit-btn" id="btn-brake-mob" style="background: #c0392b; color: white; border: none; flex: 1; touch-action: none;">BRAKE</button>
@@ -368,6 +439,8 @@
     <div id="mobile-minimap-container">
         <canvas id="minimap" width="400" height="100" style="position: absolute; top: 10px; left: 10px; z-index: 100; border: 2px solid #333; border-radius: 4px;"></canvas>
     </div>
+
+    <div id="cockpit-toggle">&#9660; Cockpit</div>
     
     <div id="simRateControls" style="position: absolute; top: 120px; left: 10px; z-index: 100; background: rgba(0, 0, 0, 0.7); color: white; padding: 5px; border-radius: 4px; font-family: sans-serif; font-size: 12px;">
       <span>Sim Rate: </span>
@@ -387,6 +460,8 @@
 
     <div id="mobile-flight-view">
         <canvas id="gameCanvas"></canvas>
+        <button id="btn-flip-dir" title="Richtung wechseln">&#x27F2;</button>
+        <button id="btn-recenter" title="Kamera zurücksetzen">&#x2295;</button>
     </div>
 
     <script>
@@ -412,6 +487,8 @@
         }
         window.addEventListener('resize', resize);
         resize();
+        // Re-measure after flex layout settles (fixes squished canvas on mobile first load)
+        requestAnimationFrame(() => { resize(); requestAnimationFrame(resize); });
 
         // --- MOBILE TOUCH PITCH SLIDER IMPLEMENTATION (Self-Centering) ---
         const pitchSlider = document.getElementById('mobile-pitch');
@@ -475,6 +552,57 @@
             }
             window.addEventListener('touchcancel', stopTrim);
         }
+
+        // --- Mobile: Direction flip button ---
+        const btnFlipDir = document.getElementById('btn-flip-dir');
+        if (btnFlipDir) {
+            btnFlipDir.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                plane.facingRight = !plane.facingRight;
+                plane.vx *= -1;
+                plane.pitch *= -1;
+            });
+        }
+
+        // --- Mobile: Re-center / follow button ---
+        const btnRecenter = document.getElementById('btn-recenter');
+        if (btnRecenter) {
+            btnRecenter.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                isAutoZoom = true;
+                window.isCameraDetached = false;
+                window.panOffsetX = 0;
+                window.panOffsetY = 0;
+                const autoBtn = document.getElementById('btn-auto-zoom');
+                if (autoBtn) autoBtn.innerText = 'AUTO Z: ON';
+            });
+        }
+
+        // --- Mobile: Cockpit toggle ---
+        const cockpitToggle = document.getElementById('cockpit-toggle');
+        if (cockpitToggle) {
+            cockpitToggle.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                const sidebar = document.getElementById('sidebar');
+                sidebar.classList.toggle('cockpit-collapsed');
+                cockpitToggle.innerHTML = sidebar.classList.contains('cockpit-collapsed') ? '&#9650; Cockpit' : '&#9660; Cockpit';
+                setTimeout(resize, 50);
+            });
+        }
+
+        // --- Mobile: Move SimRate/RouteScale into HUD ---
+        (function() {
+            let isMob = window.innerWidth <= 800 || window.innerHeight > window.innerWidth;
+            if (isMob) {
+                const hudRight = document.getElementById('mobile-hud-right');
+                const simRC = document.getElementById('simRateControls');
+                const routeRC = document.getElementById('routeScaleControls');
+                if (hudRight && simRC) hudRight.appendChild(simRC);
+                if (hudRight && routeRC) hudRight.appendChild(routeRC);
+            }
+        })();
 
         const planeSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 504.91 184.69"><defs><style>.cls-1{fill:#231f20; stroke:#ffffff; stroke-width:5px; stroke-linejoin:round;}</style></defs><title>Asset 3</title><g id="Layer_2" data-name="Layer 2"><g id="Layer_1-2" data-name="Layer 1"><path class="cls-1" d="M504.83,54.71l-.57-2.37a1.12,1.12,0,0,0-.84-.84,1.14,1.14,0,0,0-1.13.35,108.13,108.13,0,0,0-7.76,9.95,42.45,42.45,0,0,0-6.15,11.54,20.33,20.33,0,0,0-2.53-.45c-1.13-2.15-6.44-3.5-15.36-3.92-12.18-.81-42.61-3.25-51.64-4a13.91,13.91,0,0,1-3.4-.72l-.53-.2a15,15,0,0,1-1.62-.77c-5.49-3.07-19.3-10.65-29.11-14.65-7.6-3.09-12.88-5.24-18.9-6.51l-.8-.16a71.07,71.07,0,0,0-12.43-1.21,161,161,0,0,0-20.61,1.63v-.86a1.45,1.45,0,0,0-1.62-1.43c-2.38.28-6.23,1.11-7.08,3.5L320,44c-2.6-2-6.49-2.07-8.85-1.92a2,2,0,0,0-1.88,2.22l.15,1.42c-13.69,1.51-38.55,6-65.14,11.22l-.07-1.22A4.24,4.24,0,0,0,243,52.92l-17-16.46a.46.46,0,0,0-.65,0,.47.47,0,0,0,0,.65l17,16.46a3.36,3.36,0,0,1,1,2.22l.07,1.35c-19.92,3.91-40.74,8.21-58.51,11.94l-.22-4a4.17,4.17,0,0,0-1.29-2.83l-17-16.46a.46.46,0,0,0-.64.66l17,16.46a3.3,3.3,0,0,1,1,2.22l.23,4.2c-15.46,3.25-28.52,6.07-36.53,7.8a18.29,18.29,0,0,1-17.05-5.25L73.68,12.1a9.11,9.11,0,0,0-5-2.7V5.7A.68.68,0,0,0,68,5H67V1.89A1.89,1.89,0,0,0,65.08,0a1.89,1.89,0,0,0-1.89,1.89V5H62.13a.68.68,0,0,0-.67.68v4.55L38.14,15.42a4.46,4.46,0,0,0-1.16.41,4.74,4.74,0,0,0-1,.69,1.66,1.66,0,0,0-.45.69h0L24,18.84a.46.46,0,0,0,.06.92h.07l11.35-1.61a1.58,1.58,0,0,0,.82,1l.07,0a4.28,4.28,0,0,1,2.17,2.37l26.85,72a24.81,24.81,0,0,0-2.32,5.77L0,110.9l1.15.32c.18,0,18.4,5,48.57,5.2h0l17.32-4.16a1.51,1.51,0,0,1,1.34.31c1.35,1.13,5.76,3.21,20.08,4.44l.41,0-1.62,2.45a2.43,2.43,0,0,0,3.49,3.29l6.64-5c7.72.7,16.8,1.57,26.24,2.47,15.52,1.48,31.57,3,42.88,4,18.77,1.55,54.16,4.95,61,5.6l-19.28,7.63,39.35.54,3.63,6.59a1.32,1.32,0,0,0,1.52.63l1.57-.47a1.31,1.31,0,0,0,.8-1.84l-2.4-4.84,13.36.19.8,2.92,9.31-2.57,36.25,2v4.57l5.11,3.2c-3.29.8-18.46,4.51-24.31,6.06-6.22,1.65-9.95,2.88-9.29,6.17.41,2.05,2.4,3.68,4.29,5,3.29,2.3,6.84,3.11,10.19,3.73s6.52,1.17,9.34,1.65l5.46.93a13.62,13.62,0,0,0,27,1.79c.42-.06.87-.13,1.33-.22a41.71,41.71,0,0,0,10.61-3.56l.16-.07c2.56-1.25,6.42-3.13,5.92-6.53-.69-4.67-5.09-7.72-8.63-10.16-5.13-3.55-14.6-4.94-18.2-5.36v-7.41c3.37-.32,39.35-3.77,51.17-5.41,12.27-1.71,32.66-6.86,37-9.86.82.14,5.58.81,9.48-1.56v3.31l1.82,1.81a.78.78,0,0,0,1.34-.55v-5.27l7.93-1.18v.82l-7.77,7.73,7.05,3.51a11.14,11.14,0,0,1-3.52,1.38c-1.71.33-18.72-.25-26-.51a2.13,2.13,0,0,0-1.82,3.35l5.63,8.07a5.22,5.22,0,0,0,3.56,2.17,53.38,53.38,0,0,1,9.85,2.13L430,151.4a36.46,36.46,0,0,0,9.37,2.64,13.18,13.18,0,0,0,24.92-.47c.83-.36,1.67-.76,2.51-1.19l.49-.25c2.2-1.11,5.52-2.79,4.68-5.72a11.89,11.89,0,0,0-3.26-4.68l-.33-.34a45.54,45.54,0,0,0-7.27-6.28,29.74,29.74,0,0,0-7.87-3.61,56.48,56.48,0,0,0-5.57-1.47l-1.82-9.58,1.25-.19c4.59-.7,9.32-1.42,13.94-2.31,1.52-.3,3.07-.54,4.58-.78s3-.48,4.51-.77l.18,0c2.9-.56,5.89-1.13,8.24-3.11a21.78,21.78,0,0,0,7.26-11.85,64.85,64.85,0,0,0,1.29-8.49,37.13,37.13,0,0,0,15.63-8.15,2.93,2.93,0,0,0,1-2.35,3,3,0,0,0-1.22-2.31,43,43,0,0,0-6.18-3.8l8.32-19.79A2.86,2.86,0,0,0,504.83,54.71ZM321.27,80.13a3.12,3.12,0,0,1-2.14,1.07l-24,1.61a3.13,3.13,0,0,1-3-1.78l-6.32-13.25a3.11,3.11,0,0,1,2.16-4.4l29.13-6.25A3.13,3.13,0,0,1,320.84,60L322,77.86A3.09,3.09,0,0,1,321.27,80.13Zm67.42-6.44-21.6-30c5.14,1.29,10.06,3.29,16.65,6h0c9.75,4,23.52,11.53,29,14.59.34.19.68.36,1,.52-3.91,5.23-13.17,9.1-18.45,11a5.69,5.69,0,0,1-1.91.33A5.83,5.83,0,0,1,388.69,73.69Zm4.68,3h0Zm-.35,0-.33,0Zm-.4,0-.27,0Zm-.35,0-.31-.07Zm-.38-.09-.27-.07Zm-.34-.09-.31-.1Zm-.38-.13-.25-.1Zm-.33-.13-.29-.14Zm-.35-.17-.24-.13Zm-.31-.17-.28-.18Zm-.33-.21a1.88,1.88,0,0,1-.23-.16A1.88,1.88,0,0,0,389.85,75.56Zm-.3-.21-.26-.21Zm-14-.4a5.12,5.12,0,0,1-4.27,2.83l-36.16,2.38a5.21,5.21,0,0,1-3.89-1.38A5.16,5.16,0,0,1,329.57,75l-.26-15.32a5.33,5.33,0,0,1,4.77-5.4l23.15-2.51a9.58,9.58,0,0,1,9.11,4.31l9,13.75A5.11,5.11,0,0,1,375.58,75Zm12.87-.67a3.17,3.17,0,0,1-.21-.27A3.17,3.17,0,0,0,388.45,74.28Zm.27.32-.21-.25Zm0,0,.24.24Zm.53.51-.23-.21Zm4.19,1.53h0Zm1.81-.28.25-.08Zm-1.55.27h0Zm.26,0h0Zm.26,0,.14,0Zm.26,0,.15,0Zm.26,0,.15,0Zm.25-.07.17,0Zm44.66,54.37-3.46-1.25,5.23-4.35,1.93,2.46Z"/></g></g></svg>`;
         const forestImg = new Image();
@@ -731,11 +859,9 @@
             clouds.length = 0; particles.length = 0;
             window.weatherZones = [];
             
-            // Zone width in VISUAL coordinates (what plane.x uses)
-            // Hard = ~3NM = ~5556m real, compressed by routeScale
+            // Hard & Easy = ~3NM = ~5556m real, compressed by routeScale
             // Real = ~5NM = ~9260m real, compressed by routeScale
-            // Easy = ~8NM = ~14816m real, compressed by routeScale
-            let realZoneWidthM = window.weatherMode === 'hard' ? 5556 : (window.weatherMode === 'real' ? 9260 : 14816);
+            let realZoneWidthM = window.weatherMode === 'real' ? 9260 : 5556;
             let visualZoneWidth = realZoneWidthM / routeScale; // Compressed to match visual world
             let totalZones = Math.ceil(300000 / realZoneWidthM); // Cover ~300km of real route
             
@@ -746,15 +872,24 @@
                 
                 if (window.weatherMode === 'hard') {
                     let r = Math.random();
-                    if (r > 0.5) precipType = 'rain';
-                    else if (r > 0.2) precipType = 'snow';
+                    if (r > 0.5) precipType = 'rain'; // 50% chance
+                    else if (r > 0.2) precipType = 'snow'; // 30% chance
                     cloudCount = precipType !== 'none' ? 15 : 5;
                 } else if (window.weatherMode === 'real') {
                     let r = Math.random();
                     if (r > 0.75) precipType = 'rain';
                     cloudCount = 8;
+                } else {
+                    // Easy mode: 25% of Hard mode amounts
+                    let r = Math.random();
+                    // Hard rain chance = 50% -> Easy rain chance = 12.5%
+                    if (r > 0.875) precipType = 'rain';
+                    // Hard snow chance = 30% -> Easy snow chance = 7.5%
+                    else if (r > 0.8) precipType = 'snow';
+                    
+                    // Cloud count: ~25% of Hard mode (15 -> 4, 5 -> 2)
+                    cloudCount = precipType !== 'none' ? 4 : 2;
                 }
-                // Easy mode: mostly clear with a few scattered clouds
                 
                 window.weatherZones.push({ startX: zoneStartX, endX: zoneStartX + visualZoneWidth, precip: precipType });
                 
@@ -772,19 +907,22 @@
                         // Mixed: some low (200m), some mid (600m)
                         cloudAlt = 200 + Math.random() * 500;
                     } else {
-                        // Easy: higher scattered clouds, 500m to 1500m
-                        cloudAlt = 500 + Math.random() * 1000;
+                        // Easy: scattered and friendly low-level clouds
+                        cloudAlt = 200 + Math.random() * 400;
                     }
                     
-                    // Cloud radius scales with weather severity
-                    let cloudRadius = precipType !== 'none' ? (200 + Math.random() * 250) : (80 + Math.random() * 120);
+                    // Cloud radius: smaller for navigability
+                    let cloudRadiusH = precipType !== 'none' ? (100 + Math.random() * 150) : (50 + Math.random() * 80);
+                    // Vertical extent: 100-500ft = 30-150m
+                    let cloudRadiusV = 15 + Math.random() * 60; // 15m to 75m half-height
                     
                     clouds.push({
                         x: zoneStartX + (Math.random() * visualZoneWidth), // Visual X
                         y: cloudAlt,
-                        radius: cloudRadius,
+                        radius: cloudRadiusH,   // Horizontal radius (for X collision & rendering)
+                        radiusV: cloudRadiusV,  // Vertical radius (for Y collision & rendering)
                         speed: 0.2 + Math.random() * 0.8,
-                        hasPrecip: precipType !== 'none' // Tag cloud as precipitation source
+                        hasPrecip: precipType !== 'none'
                     });
                 }
             }
@@ -942,6 +1080,10 @@
                             rMenu.style.display = 'none';
                         }
                     }
+                }
+                if (e.code === 'KeyQ') {
+                    let btn = document.getElementById('btn-carbheat');
+                    if(btn) btn.click();
                 }
                 
                 if (atcState > 0) {
@@ -1425,7 +1567,11 @@
 
             let currentX = getFplX(plane.x);
             let turbulenceIntensity = 0.5;
-            let inCloudForTurb = clouds.some(c => Math.hypot(plane.x - c.x, plane.y - c.y) < c.radius);
+            let inCloudForTurb = clouds.some(c => {
+                let dx = (plane.x - c.x) / c.radius;
+                let dy = (plane.y - c.y) / (c.radiusV || c.radius);
+                return (dx*dx + dy*dy) < 1;
+            });
             if (inCloudForTurb) turbulenceIntensity = 3.0;
             worldWeatherZones.forEach(z => {
                 if (Math.abs(currentX - z.x) < 5000) {
@@ -1559,7 +1705,11 @@
             manageTrees();
             manageParticles();
             
-            let inCloud = clouds.some(c => Math.hypot(plane.x - c.x, plane.y - c.y) < c.radius);
+            let inCloud = clouds.some(c => {
+                let dx = (plane.x - c.x) / c.radius;
+                let dy = (plane.y - c.y) / (c.radiusV || c.radius);
+                return (dx*dx + dy*dy) < 1;
+            });
             
             // --- Icing & IMC Logic ---
             let altFt = Math.max(0, plane.y * 3.28084); 
@@ -1856,19 +2006,24 @@
             for (let i = 0; i < clouds.length; i++) {
                 let cX = clouds[i].x * zoomX + screenOffsetX;
                 let cY = screenOffsetY - (clouds[i].y * zoomY);
-                let r = clouds[i].radius * zoomX;
-                if (cX + r > 0 && cX - r < targetCtx.canvas.width) {
+                let rH = clouds[i].radius * zoomX; // Horizontal radius in pixels
+                let rV = (clouds[i].radiusV || clouds[i].radius) * zoomY; // Vertical radius in pixels
+                if (cX + rH > 0 && cX - rH < targetCtx.canvas.width && cY + rV > 0 && cY - rV < targetCtx.canvas.height) {
+                    targetCtx.save();
+                    targetCtx.translate(cX, cY);
+                    targetCtx.scale(1, rV / Math.max(1, rH)); // Squash vertically
                     targetCtx.beginPath();
                     // Center main puff
-                    targetCtx.arc(cX, cY, r, 0, Math.PI * 2);
+                    targetCtx.arc(0, 0, rH, 0, Math.PI * 2);
                     // Left puff
-                    targetCtx.arc(cX - r * 0.8, cY + r * 0.2, r * 0.7, 0, Math.PI * 2);
+                    targetCtx.arc(-rH * 0.7, rH * 0.15, rH * 0.6, 0, Math.PI * 2);
                     // Right puff
-                    targetCtx.arc(cX + r * 0.8, cY + r * 0.2, r * 0.7, 0, Math.PI * 2);
+                    targetCtx.arc(rH * 0.7, rH * 0.15, rH * 0.6, 0, Math.PI * 2);
                     // Top puffs
-                    targetCtx.arc(cX - r * 0.4, cY - r * 0.4, r * 0.6, 0, Math.PI * 2);
-                    targetCtx.arc(cX + r * 0.4, cY - r * 0.4, r * 0.6, 0, Math.PI * 2);
+                    targetCtx.arc(-rH * 0.35, -rH * 0.3, rH * 0.5, 0, Math.PI * 2);
+                    targetCtx.arc(rH * 0.35, -rH * 0.3, rH * 0.5, 0, Math.PI * 2);
                     targetCtx.fill();
+                    targetCtx.restore();
                 }
             }
             
@@ -2333,6 +2488,11 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const mobileFontScale = Math.min(1, canvas.width / 800);
+
+            // Show/hide re-center button based on camera state
+            const rcBtn = document.getElementById('btn-recenter');
+            if (rcBtn) rcBtn.style.display = window.isCameraDetached ? 'flex' : 'none';
 
             if (!window.isCameraDetached) {
                 camX += (plane.x - camX) * 0.5;
@@ -2426,7 +2586,7 @@
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
                 ctx.fillStyle = 'red';
-                ctx.font = 'bold 24px sans-serif';
+                ctx.font = 'bold ' + Math.floor(24 * mobileFontScale) + 'px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText("WARNING: IMC - NO VISIBILITY", canvas.width / 2, 50);
             }
@@ -2488,7 +2648,7 @@
 
             if ((keys['Space'] || isBraking) && plane.y <= getTerrainHeight(currentFplX) + 1.6) {
                 ctx.fillStyle = 'red';
-                ctx.font = 'bold 40px sans-serif';
+                ctx.font = 'bold ' + Math.floor(40 * mobileFontScale) + 'px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText('BRAKES', canvas.width / 2, canvas.height - 50);
             }
@@ -2496,7 +2656,7 @@
             if (isTCAS) {
                 let isBlink = (Date.now() % 500) < 250;
                 ctx.fillStyle = isBlink ? 'red' : 'yellow';
-                ctx.font = 'bold 40px sans-serif';
+                ctx.font = 'bold ' + Math.floor(40 * mobileFontScale) + 'px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText('TRAFFIC PROXIMITY - ALT: ' + Math.floor(tcasAlt) + ' FT', canvas.width / 2, 80);
             }
@@ -2505,9 +2665,9 @@
                 let isBlink = (Date.now() % 500) < 250;
                 if (isBlink) {
                     ctx.fillStyle = 'red';
-                    ctx.font = 'bold 36px sans-serif';
+                    ctx.font = 'bold ' + Math.floor(36 * mobileFontScale) + 'px sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText('⚠️ AIRSPACE VIOLATION: UNAUTHORIZED ENTRY INTO CTR', canvas.width / 2, 130);
+                    ctx.fillText('AIRSPACE VIOLATION: CTR', canvas.width / 2, 130);
                 }
             }
 
@@ -2515,7 +2675,7 @@
                 let isBlink = (Date.now() % 1000) < 500;
                 if (isBlink) {
                     ctx.fillStyle = 'yellow';
-                    ctx.font = 'bold 30px sans-serif';
+                    ctx.font = 'bold ' + Math.floor(30 * mobileFontScale) + 'px sans-serif';
                     ctx.textAlign = 'center';
                     ctx.fillText('CLICK ANYWHERE TO START AUDIO', canvas.width / 2, canvas.height / 2 - 100);
                 }
@@ -2551,7 +2711,7 @@
 
             if (simRate > 1) {
                 ctx.fillStyle = 'yellow';
-                ctx.font = 'bold 24px sans-serif';
+                ctx.font = 'bold ' + Math.floor(24 * mobileFontScale) + 'px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(`TIME WARP ${simRate}x`, canvas.width / 2, 40);
             }
@@ -2575,15 +2735,15 @@
                 let flash = Math.floor(Date.now() / 500) % 2 === 0;
                 if (flash) {
                     ctx.fillStyle = 'red';
-                    ctx.font = 'bold 80px sans-serif';
+                    ctx.font = 'bold ' + Math.floor(80 * mobileFontScale) + 'px sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText('GAME OVER! EXPLOSION', canvas.width / 2, canvas.height / 2);
+                    ctx.fillText('GAME OVER!', canvas.width / 2, canvas.height / 2);
                 }
             }
 
             if (touchdownTimer > 0) {
                 ctx.fillStyle = touchdownMessage.includes('BUTTER') ? '#FFD700' : (touchdownMessage.includes('HARD') ? '#FF0000' : '#00FF00');
-                ctx.font = 'bold 30px sans-serif';
+                ctx.font = 'bold ' + Math.floor(30 * mobileFontScale) + 'px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(touchdownMessage, canvas.width / 2, canvas.height / 2 - 50);
             }
@@ -2633,7 +2793,7 @@
         function showFeedbackText(text, color) {
             let fb = document.createElement('div');
             fb.innerText = text;
-            fb.style.cssText = 'position:absolute; top:30%; left:50%; transform:translate(-50%,-50%); font-size:40px; font-weight:bold; color:'+color+'; text-shadow:2px 2px 5px #000; z-index:3000; pointer-events:none; animation: fadeUp 2s forwards;';
+            fb.style.cssText = 'position:absolute; top: max(80px, 25%); left:50%; transform:translate(-50%,-50%); font-size:clamp(20px, 6vw, 40px); font-weight:bold; color:'+color+'; text-shadow:2px 2px 5px #000; z-index:3000; pointer-events:none; animation: fadeUp 2s forwards;';
             document.body.appendChild(fb);
             if (!document.getElementById('fadeUpStyle')) {
                 let style = document.createElement('style');
