@@ -2011,7 +2011,8 @@
                     let allReady = bergeImgs.every(img => img.complete && img.naturalWidth > 0);
                     if (allReady) {
                         let forestRefH = (forestImg.complete && forestImg.naturalHeight > 0) ? forestImg.naturalHeight * 0.75 : 300;
-                        let mountainTargetH = forestRefH * 2;
+                        let isMobBg = window.innerWidth <= 800 || window.innerHeight > window.innerWidth;
+                        let mountainTargetH = forestRefH * (isMobBg ? 1.0 : 2.0);
 
                         // Build shuffled tile sequences once (seeded, deterministic per layer)
                         if (!window._bergeSeqs) {
@@ -2034,12 +2035,9 @@
                                 seededShuffle([0,1,2,3], 42),   // back layer
                                 seededShuffle([0,1,2,3], 137)   // front layer
                             ];
-                            // Pre-calculate tile widths at target height
-                            window._bergeTileW = bergeImgs.map(img => {
-                                let aspect = img.naturalWidth / img.naturalHeight;
-                                return mountainTargetH * aspect;
-                            });
                         }
+                        // Calculate tile widths for current mountainTargetH (adapts to screen size)
+                        let tileWidths = bergeImgs.map(img => (img.naturalWidth / img.naturalHeight) * mountainTargetH);
 
                         // Vertical parallax: mountains slide down below screen as plane climbs AGL.
                         // They follow camera Y slower than terrain, so they sink relative to view.
@@ -2063,7 +2061,6 @@
                             { seq: window._bergeSeqs[1], parallax: 0.25, alpha: 0.95, yFollow: 0.25 }
                         ];
 
-                        let tileWidths = window._bergeTileW;
                         let drawH = mountainTargetH;
 
                         for (let layer of layers) {
