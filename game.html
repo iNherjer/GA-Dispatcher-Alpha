@@ -308,7 +308,7 @@
 
         /* Desktop: hide mobile-only elements, show desktop score */
         @media (min-width: 801px) and (orientation: landscape) {
-            #mobile-top-hud, #btn-flip-dir, #btn-recenter, #cockpit-toggle, #mobile-dashboard-row, #mobile-oat-display { display: none !important; }
+            #mobile-top-hud, #btn-flip-dir, #btn-recenter, #cockpit-toggle, #mobile-dashboard-row, #mobile-oat-display, #mobile-pitch-controls { display: none !important; }
         }
     </style>
 </head>
@@ -347,6 +347,8 @@
 
     <!-- Score Display (shared between mobile HUD and desktop) -->
     <div id="score-display" style="position: absolute; top: max(15px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: bold; color: #FFD700; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); z-index: 2000; pointer-events: none;">Score: 0</div>
+    <!-- FPS Debug Overlay -->
+    <div id="fps-debug" style="position:fixed; top:5px; left:5px; z-index:99999; background:rgba(0,0,0,0.7); color:#0f0; font:bold 14px monospace; padding:4px 8px; border-radius:4px; pointer-events:none; line-height:1.4;">0 FPS</div>
     <!-- Mobile OAT readout under score -->
     <div id="mobile-oat-display">OAT: 15°C</div>
 
@@ -459,7 +461,7 @@
         <div class="panel-section pq-section" style="margin-top: auto; flex: 1; display: flex; flex-direction: column;">
             <div class="panel-label">Power Quadrant</div>
             <div class="mobile-row-bottom">
-                <div style="display: flex; gap: 6px; align-items: stretch; padding-left: 6px;">
+                <div id="mobile-pitch-controls" style="display: flex; gap: 6px; align-items: stretch; padding-left: 6px;">
                     <div class="lever-col" style="align-items:center; flex: 0 0 auto;">
                         <label style="color: white; font-weight: bold; margin-bottom: 2px; font-size: 8px;">PITCH</label>
                         <input type="range" id="mobile-pitch" min="-1.5" max="1.5" step="0.01" value="0" style="touch-action: none; flex: 1;">
@@ -516,6 +518,9 @@
     </div>
 
     <script>
+        // --- FPS Counter (debug) ---
+        var _fpsFrames = 0, _fpsLast = performance.now(), _fpsDisplay = 0;
+
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -1977,7 +1982,8 @@
 
             if (!drawPlaneHighlight) {
                 const bgZoom = 2.5;
-                let bgOffsetX = (targetWidth * 0.3) - (getFplX(camX) * bgZoom);
+                // Use visual camX (not getFplX) so parallax speed stays constant across runways
+                let bgOffsetX = (targetWidth * 0.3) - (camX * bgZoom);
 
                 // Background Layer: Pale Clouds
                 targetCtx.save();
@@ -2831,6 +2837,16 @@
             }
 
             drawMinimap();
+
+            // --- FPS Debug Overlay (HTML element, always visible) ---
+            let _fpsEl = document.getElementById('fps-debug');
+            if (_fpsEl) {
+                let fplX = getFplX(plane.x);
+                let onRwy = runways.some(r => fplX >= r.startX && fplX <= r.endX);
+                let fpsColor = _fpsDisplay >= 50 ? '#0f0' : (_fpsDisplay >= 30 ? '#ff0' : '#f00');
+                _fpsEl.style.color = fpsColor;
+                _fpsEl.innerHTML = _fpsDisplay + ' FPS<br><span style="color:#aaa;font-size:10px;">X:' + Math.round(fplX) + (onRwy ? ' <b style="color:#0ff">[RWY]</b>' : '') + ' Z:' + currentZoom.toFixed(1) + '</span>';
+            }
         }
 
         function drawMinimap() {
@@ -2887,9 +2903,18 @@
         }
 
         function loop() {
+            // FPS measurement
+            _fpsFrames++;
+            let now = performance.now();
+            if (now - _fpsLast >= 500) {
+                _fpsDisplay = Math.round(_fpsFrames / ((now - _fpsLast) / 1000));
+                _fpsFrames = 0;
+                _fpsLast = now;
+            }
+
             if (isGameOver) {
                 draw();
-                loopId = requestAnimationFrame(loop); 
+                loopId = requestAnimationFrame(loop);
                 return;
             }
             updatePhysics();
