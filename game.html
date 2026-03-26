@@ -858,7 +858,8 @@
         });
 
         function restartGame() {
-            // Keep autoSimFlightPlan in localStorage so it can be reloaded
+            // Flag so bootstrapper is shown on reload, but FPL stays in localStorage
+            sessionStorage.setItem('showBootstrapper', '1');
             window.location.reload();
         }
 
@@ -1142,11 +1143,19 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             let savedFPL = localStorage.getItem('autoSimFlightPlan');
+            let showBootstrapper = sessionStorage.getItem('showBootstrapper');
+            sessionStorage.removeItem('showBootstrapper');
+
             if (savedFPL) {
-                // Populate textarea so "Load FPL" button uses the dispatcher plan
+                // Always populate textarea with last dispatcher FPL
                 document.getElementById('fplInput').value = savedFPL;
+            }
+
+            if (savedFPL && !showBootstrapper) {
+                // Auto-start with saved FPL (coming from dispatcher)
                 parseAndStartFPL(savedFPL);
             } else {
+                // Show bootstrapper (first visit, or after restart)
                 document.getElementById('startOverlay').style.display = 'flex';
             }
         });
@@ -2012,7 +2021,7 @@
                     if (allReady) {
                         let forestRefH = (forestImg.complete && forestImg.naturalHeight > 0) ? forestImg.naturalHeight * 0.75 : 300;
                         let isMobBg = window.innerWidth <= 800 || window.innerHeight > window.innerWidth;
-                        let mountainTargetH = forestRefH * (isMobBg ? 1.0 : 2.0);
+                        let mountainTargetH = forestRefH * (isMobBg ? 1.6 : 2.0);
 
                         // Build shuffled tile sequences once (seeded, deterministic per layer)
                         if (!window._bergeSeqs) {
@@ -2051,7 +2060,7 @@
                         let isMob = window.innerWidth <= 800 || window.innerHeight > window.innerWidth;
                         let baseScreenY = (targetHeight - 30);
                         let planePixY = camY * zoomY;
-                        let maxAllowedY = targetHeight * (isMob ? 0.4 : 0.75);
+                        let maxAllowedY = targetHeight * (isMob ? 0.65 : 0.75);
                         let excessYlocal = Math.max(0, planePixY - maxAllowedY);
 
                         let layers = [
@@ -2109,7 +2118,8 @@
                 // Parallax Layer 3: Tiled Forest (wald.png)
                 if (typeof forestImg !== 'undefined' && forestImg.complete && forestImg.naturalWidth > 0) {
                     targetCtx.save();
-                    let drawScale = 0.75;
+                    let isMobForest = window.innerWidth <= 800 || window.innerHeight > window.innerWidth;
+                    let drawScale = isMobForest ? 0.5 : 0.75;
                     let scaledW = forestImg.width * drawScale;
                     let scaledH = forestImg.height * drawScale;
                     
@@ -2668,9 +2678,9 @@
             let screenOffsetX = canvas.width * 0.3 - (camX * currentZoom);
             let planePixelY = camY * currentZoom;
             let isMobile = window.innerWidth <= 800 || window.innerHeight > window.innerWidth;
-            let maxAllowedYOnScreen = canvas.height * (isMobile ? 0.4 : 0.75);
+            let maxAllowedYOnScreen = canvas.height * (isMobile ? 0.65 : 0.75);
             let excessY = Math.max(0, planePixelY - maxAllowedYOnScreen);
-            let screenOffsetY = (canvas.height - 30) + excessY;
+            let screenOffsetY = (canvas.height - (isMobile ? 10 : 30)) + excessY;
 
             drawWorld(ctx, canvas.width, canvas.height, currentZoom, currentZoom, screenOffsetX, screenOffsetY, screenOffsetXUnstretched, false);
 
