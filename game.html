@@ -774,9 +774,9 @@
             });
         });
 
-        function restartGame() { 
-            localStorage.removeItem('autoSimFlightPlan');
-            window.location.reload(); 
+        function restartGame() {
+            // Keep autoSimFlightPlan in localStorage so it can be reloaded
+            window.location.reload();
         }
 
         window.carbHeatOn = false;
@@ -1059,6 +1059,8 @@
         window.addEventListener('DOMContentLoaded', () => {
             let savedFPL = localStorage.getItem('autoSimFlightPlan');
             if (savedFPL) {
+                // Populate textarea so "Load FPL" button uses the dispatcher plan
+                document.getElementById('fplInput').value = savedFPL;
                 parseAndStartFPL(savedFPL);
             } else {
                 document.getElementById('startOverlay').style.display = 'flex';
