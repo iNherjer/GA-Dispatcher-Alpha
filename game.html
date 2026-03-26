@@ -690,6 +690,13 @@
         bergeImgs[1].src = 'berge2.png';
         bergeImgs[2].src = 'berge3.png';
         bergeImgs[3].src = 'berge4.png';
+        const wolkeImgs = [new Image(), new Image(), new Image()];
+        wolkeImgs[0].src = 'wolke1.png';
+        wolkeImgs[1].src = 'wolke2.png';
+        wolkeImgs[2].src = 'wolke3.png';
+        const rwolkeImgs = [new Image(), new Image()];
+        rwolkeImgs[0].src = 'rwolke1.png';
+        rwolkeImgs[1].src = 'rwolke2.png';
         window.forestScale = 0.4;
         window.cleanedForestCanvas = null;
         const planeImg = new Image();
@@ -1007,7 +1014,8 @@
                         radius: cloudRadiusH,
                         radiusV: cloudRadiusV,
                         speed: 0.2 + Math.random() * 0.8,
-                        hasPrecip: precipType !== 'none'
+                        hasPrecip: precipType !== 'none',
+                        imgIdx: Math.floor(Math.random() * (precipType !== 'none' ? rwolkeImgs.length : wolkeImgs.length))
                     });
                 }
             }
@@ -1064,7 +1072,20 @@
                                     radius: (20 + Math.random() * 30) * sizeMult
                                 });
                             }
-                            clouds.push({ x: z.x + (Math.random()-0.5)*1000, y: c.baseM, puffs: puffs });
+                            // Derive radius/radiusV from puffs for collision + PNG sizing
+                            let maxRH = 0, maxRV = 0;
+                            puffs.forEach(p => {
+                                maxRH = Math.max(maxRH, Math.abs(p.offsetX) + p.radius);
+                                maxRV = Math.max(maxRV, Math.abs(p.offsetY) + p.radius);
+                            });
+                            let isPrecip = !!(z.hasRain || z.hasSnow || z.hasTS);
+                            clouds.push({
+                                x: z.x + (Math.random()-0.5)*1000, y: c.baseM,
+                                puffs: puffs,
+                                radius: maxRH, radiusV: maxRV,
+                                hasPrecip: isPrecip,
+                                imgIdx: Math.floor(Math.random() * (isPrecip ? rwolkeImgs.length : wolkeImgs.length))
+                            });
                         });
                     }
                 });
@@ -2048,41 +2069,46 @@
                         // Calculate tile widths for current mountainTargetH (adapts to screen size)
                         let tileWidths = bergeImgs.map(img => (img.naturalWidth / img.naturalHeight) * mountainTargetH);
 
-                        // Vertical parallax: mountains slide down below screen as plane climbs AGL.
-                        // They follow camera Y slower than terrain, so they sink relative to view.
+                        // Mountains follow terrain (like forest) using smoothMinElev.
+                        // They sink below screen as plane climbs AGL above terrain.
                         // Front layer sinks faster → you "look over" it first.
-                        // Gentle fade only in the last stretch. Gone at ~2000ft AGL (610m).
+                        // Uses smoothMinElev (computed by forest layer) for terrain-relative positioning.
                         let terrainAtCam = typeof getTerrainHeight === 'function' ? getTerrainHeight(typeof getFplX === 'function' ? getFplX(camX) : camX) : 0;
                         let aglM = Math.max(0, camY - terrainAtCam);
-                        let maxAglM = 610; // 2000ft in meters
+                        let maxAglM = 610; // 2000ft AGL in meters
 
-                        // excessY is the camera's upward pixel scroll
-                        let isMob = window.innerWidth <= 800 || window.innerHeight > window.innerWidth;
-                        let baseScreenY = (targetHeight - 30);
-                        let planePixY = camY * zoomY;
-                        let maxAllowedY = targetHeight * (isMob ? 0.65 : 0.75);
-                        let excessYlocal = Math.max(0, planePixY - maxAllowedY);
+                        // Own ultra-slow smoother for mountains (much lazier than forest)
+                        if (typeof window.smoothMountainElev === 'undefined') window.smoothMountainElev = terrainAtCam;
+                        let mtnElevDiff = terrainAtCam - window.smoothMountainElev;
+                        if (mtnElevDiff > 0) {
+                            // Rising terrain: extremely lazy follow (0.3% per frame)
+                            window.smoothMountainElev += mtnElevDiff * 0.003;
+                        } else {
+                            // Falling terrain: slightly faster but still very gentle (1% per frame)
+                            window.smoothMountainElev += mtnElevDiff * 0.01;
+                        }
+                        let terrainScreenY = screenOffsetY - (window.smoothMountainElev * zoomY);
 
                         let layers = [
-                            // back: follows 8% of climb → barely moves, hugs horizon, sinks last
-                            { seq: window._bergeSeqs[0], parallax: 0.10, alpha: 0.85, yFollow: 0.08 },
-                            // front: follows 25% → sinks noticeably, you look over it first
-                            { seq: window._bergeSeqs[1], parallax: 0.25, alpha: 0.95, yFollow: 0.25 }
+                            // back: barely sinks with AGL, hugs terrain horizon
+                            { seq: window._bergeSeqs[0], parallax: 0.10, alpha: 0.85, ySinkRate: 0.3 },
+                            // front: sinks faster, you look over it first
+                            { seq: window._bergeSeqs[1], parallax: 0.25, alpha: 0.95, ySinkRate: 0.7 }
                         ];
 
                         let drawH = mountainTargetH;
 
                         for (let layer of layers) {
-                            // Very gentle fade: only start fading after 60% of maxAglM, fully gone at 100%
+                            // Gentle fade: start at 60% of maxAGL, fully gone at 100%
                             let aglRatio = Math.min(1, aglM / maxAglM);
-                            let fadeStart = 0.6; // Start fading at 60% (~1200ft)
+                            let fadeStart = 0.6;
                             let fadeFactor = aglRatio <= fadeStart ? 1.0 : 1.0 - ((aglRatio - fadeStart) / (1 - fadeStart));
                             let layerAlpha = layer.alpha * fadeFactor;
                             if (layerAlpha <= 0.01) continue;
 
-                            // Mountains use reduced excessY so they lag behind the ground
-                            let mountainScreenY = baseScreenY + (excessYlocal * layer.yFollow);
-                            let drawY = mountainScreenY - drawH + (drawH * 0.15);
+                            // Anchor to terrain line (like forest), then sink down based on AGL
+                            let sinkPixels = aglRatio * drawH * layer.ySinkRate;
+                            let drawY = terrainScreenY - drawH + (drawH * 0.15) + sinkPixels;
 
                             let shiftX = bgOffsetX * layer.parallax;
 
@@ -2167,29 +2193,30 @@
                 }
             }
 
-            targetCtx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            // PNG Cloud Rendering (wolke1-3 for normal, rwolke1-2 for precipitation)
             for (let i = 0; i < clouds.length; i++) {
-                let cX = clouds[i].x * zoomX + screenOffsetX;
-                let cY = screenOffsetY - (clouds[i].y * zoomY);
-                let rH = clouds[i].radius * zoomX; // Horizontal radius in pixels
-                let rV = (clouds[i].radiusV || clouds[i].radius) * zoomY; // Vertical radius in pixels
-                if (cX + rH > 0 && cX - rH < targetCtx.canvas.width && cY + rV > 0 && cY - rV < targetCtx.canvas.height) {
-                    targetCtx.save();
-                    targetCtx.translate(cX, cY);
-                    targetCtx.scale(1, rV / Math.max(1, rH)); // Squash vertically
-                    targetCtx.beginPath();
-                    // Center main puff
-                    targetCtx.arc(0, 0, rH, 0, Math.PI * 2);
-                    // Left puff
-                    targetCtx.arc(-rH * 0.7, rH * 0.15, rH * 0.6, 0, Math.PI * 2);
-                    // Right puff
-                    targetCtx.arc(rH * 0.7, rH * 0.15, rH * 0.6, 0, Math.PI * 2);
-                    // Top puffs
-                    targetCtx.arc(-rH * 0.35, -rH * 0.3, rH * 0.5, 0, Math.PI * 2);
-                    targetCtx.arc(rH * 0.35, -rH * 0.3, rH * 0.5, 0, Math.PI * 2);
-                    targetCtx.fill();
-                    targetCtx.restore();
-                }
+                let c = clouds[i];
+                let cX = c.x * zoomX + screenOffsetX;
+                let cY = screenOffsetY - (c.y * zoomY);
+                let rH = c.radius * zoomX;
+                let rV = (c.radiusV || c.radius) * zoomY;
+
+                // Bounding-box culling
+                if (cX + rH < 0 || cX - rH > targetWidth || cY + rV < 0 || cY - rV > targetHeight) continue;
+
+                // Pick image: precip → rwolkeImgs, normal → wolkeImgs
+                let imgArr = c.hasPrecip ? rwolkeImgs : wolkeImgs;
+                let img = imgArr[(c.imgIdx || 0) % imgArr.length];
+                if (!img || !img.complete || !img.naturalWidth) continue;
+
+                // Draw size matches collision ellipse
+                // Double-draw with screen blending for stronger opacity
+                let dx = cX - rH, dy = cY - rV, dw = rH * 2, dh = rV * 2;
+                targetCtx.save();
+                targetCtx.globalCompositeOperation = 'screen';
+                targetCtx.drawImage(img, dx, dy, dw, dh);
+                targetCtx.drawImage(img, dx, dy, dw, dh);
+                targetCtx.restore();
             }
             
             targetCtx.save();
