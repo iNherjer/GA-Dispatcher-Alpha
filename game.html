@@ -2605,9 +2605,10 @@
                     let ptX = drawUnstretchedFPL
                         ? fplRawX * zoomX + (screenOffsetXUnstretched - screenOffsetX)
                         : (typeof getVisualX === 'function' ? getVisualX(fplRawX) : fplRawX) * zoomX;
-                    let targetAltMeters = window.fpl[i].alt != null
-                        ? window.fpl[i].alt * 0.3048
-                        : window.fpl[i].elevation + 304.8;
+                    let wp = window.fpl[i];
+                    let targetAltMeters = wp.alt != null
+                        ? wp.alt * 0.3048
+                        : (wp.type === 'runway' ? wp.elevation : wp.elevation + 304.8);
                     let ptY = targetAltMeters * zoomY;
                     if (i === 0) targetCtx.moveTo(ptX, ptY);
                     else targetCtx.lineTo(ptX, ptY);
