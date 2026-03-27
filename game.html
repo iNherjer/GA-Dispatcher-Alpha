@@ -883,7 +883,7 @@
             elevatorInput: 0, trim: 0.05, flaps: 0, overspeedTimer: 0,
             mass: 1000, 
             inertia: 2500, wingArea: 16.2, 
-            length: 8.28, height: 3.02 
+            length: 9.936, height: 3.624
         };
 
         function initAudio() {
@@ -2746,11 +2746,17 @@
             let screenOffsetXUnstretched = canvas.width * 0.3 - (fplCamX * currentZoom);
 
             let screenOffsetX = canvas.width * 0.3 - (camX * currentZoom);
-            let planePixelY = camY * currentZoom;
             let isMobile = window.innerWidth <= 800 || window.innerHeight > window.innerWidth;
-            let maxAllowedYOnScreen = canvas.height * (isMobile ? 0.65 : 0.75);
-            let excessY = Math.max(0, planePixelY - maxAllowedYOnScreen);
-            let screenOffsetY = (canvas.height - (isMobile ? 10 : 30)) + excessY;
+
+            // Get terrain height below camera for AGL-relative camera positioning
+            let groundRef = (typeof getTerrainHeight === 'function' && typeof getFplX === 'function')
+                ? getTerrainHeight(getFplX(camX)) : 0;
+            // Position plane lower in frame when near ground, higher when cruising
+            let aglMeters = Math.max(0, camY - groundRef);
+            let t = Math.min(1, aglMeters / 300); // 0 = on ground, 1 = ≥300m AGL
+            let maxFraction = isMobile ? 0.65 : 0.75;
+            let targetFraction = maxFraction - t * 0.40; // ground: 0.75 from top → cruise: 0.35
+            let screenOffsetY = canvas.height * targetFraction + camY * currentZoom;
 
             drawWorld(ctx, canvas.width, canvas.height, currentZoom, currentZoom, screenOffsetX, screenOffsetY, screenOffsetXUnstretched, false);
 
