@@ -588,10 +588,11 @@ function resetSyncTimer() {
 
 // Globale Variablen für das Live-Tracking
 let liveGpsSocket = null;
-let liveGpsMarker = null; 
+let liveGpsMarker = null;
 let gpsWatchdog;
+let gpsReconnectDelay = 2000; // Start: 2s, wächst bei wiederholtem Fehlschlag
 // Diese Funktion aufrufen, sobald eine Route per Sync ID geladen wurde (z.B. connectToLiveGPS("4815"))
-window.connectToLiveGPS = function(syncId) {
+window.connectToLiveGPS = async function(syncId) {
     if (!syncId) return;
 
     const wsUrl = 'wss://websocketrelais.onrender.com/';
@@ -600,16 +601,25 @@ window.connectToLiveGPS = function(syncId) {
     if (liveGpsSocket) liveGpsSocket.close();
 
     console.log(`[GPS] 📡 Verbinde mit Live-Tracking für Pilot-ID ${syncId}...`);
+
+    // Wake-up Ping: Render.com Free Tier aus dem Schlaf holen bevor WebSocket versucht wird
+    const ind0 = document.getElementById('liveGpsIndicator');
+    if (ind0) { ind0.innerHTML = '🛰️ WAKE'; ind0.style.color = '#f2c12e'; ind0.style.textShadow = 'none'; }
+    try {
+        await fetch('https://websocketrelais.onrender.com/', { method: 'HEAD', mode: 'no-cors', signal: AbortSignal.timeout(8000) });
+    } catch(e) { /* Server schläft evtl. noch – WebSocket versucht es trotzdem */ }
+
     liveGpsSocket = new WebSocket(wsUrl);
 
     liveGpsSocket.onopen = () => {
         console.log(`[GPS] ✅ Verbunden! Warte auf Flugzeug-Daten...`);
+        gpsReconnectDelay = 2000; // Erfolg → Backoff zurücksetzen
         // Dem Server mitteilen, in welchen Raum wir wollen (mit PIN!)
         liveGpsSocket.send(JSON.stringify({ type: 'join', syncId: syncId, pin: getSyncPin() }));
 
         const ind = document.getElementById('liveGpsIndicator');
-        if (ind) { 
-            ind.innerHTML = '🛰️ WAIT'; 
+        if (ind) {
+            ind.innerHTML = '🛰️ WAIT';
             ind.style.color = '#f2c12e'; // Orange
             ind.style.textShadow = 'none';
         }
@@ -650,17 +660,18 @@ window.connectToLiveGPS = function(syncId) {
     };
 
     liveGpsSocket.onclose = () => {
-        console.warn('[GPS] ❌ Verbindung getrennt. Versuche Reconnect in 5 Sekunden...');
-        
         clearTimeout(gpsWatchdog);
         const ind = document.getElementById('liveGpsIndicator');
-        if (ind) { 
-            ind.innerHTML = '🛰️ OFF'; 
-            ind.style.color = '#666'; // Grau
+        if (ind) {
+            ind.innerHTML = '🛰️ OFF';
+            ind.style.color = '#666';
             ind.style.textShadow = 'none';
         }
 
-        setTimeout(() => connectToLiveGPS(syncId), 5000);
+        // Exponentielles Backoff: 2s → 4s → 8s → max 15s (fängt Render.com Cold Starts sauber ab)
+        console.warn(`[GPS] ❌ Verbindung getrennt. Reconnect in ${(gpsReconnectDelay/1000).toFixed(0)}s...`);
+        setTimeout(() => connectToLiveGPS(syncId), gpsReconnectDelay);
+        gpsReconnectDelay = Math.min(gpsReconnectDelay * 2, 15000);
     };
 
     liveGpsSocket.onerror = () => {
@@ -729,9 +740,10 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     }
 
     // --- ICON A: KARTE ---
-    const svgIconHtml = `
-        <div style="width: var(--plane-size); height: var(--plane-size); filter: drop-shadow(0 0 5px rgba(0,0,0,0.6)); position: relative;">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 447.74 339.91" style="transform: rotate(${hdg}deg); transform-origin: center; width: 100%; height: 100%;">
+    // SVG nur einmal bauen, danach nur per CSS-Transform rotieren (kein innerHTML-Rebuild pro Paket!)
+    const _planeSvgTemplate = `
+        <div class="live-plane-inner" style="width: var(--plane-size); height: var(--plane-size); filter: drop-shadow(0 0 5px rgba(0,0,0,0.6)); position: relative;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 447.74 339.91" style="transform-origin: center; width: 100%; height: 100%; will-change: transform;">
                 <path fill="var(--plane-color)" d="M447.22,118.14a2,2,0,0,0-1.48-.65H443a61.87,61.87,0,0,0-6.2-19.62,8.66,8.66,0,0,0-7.67-4.6H290.3a13.4,13.4,0,0,1-4.61-.81L259.8,83a10.84,10.84,0,0,1-7.09-8.94c-1.44-12.06-4.15-34.18-6.06-46.78a16.45,16.45,0,0,0-10.94-13.17c-.9-.31-1.81-.59-2.69-.82a1.94,1.94,0,0,1-1.4-1.37,29.46,29.46,0,0,0-5.37-10.72,3.45,3.45,0,0,0-5.28,0A29.37,29.37,0,0,0,215.6,12a2,2,0,0,1-1.4,1.37c-.88.23-1.79.51-2.69.82a16.46,16.46,0,0,0-10.95,13.17C198.67,39.84,196,62,194.51,74.09A10.84,10.84,0,0,1,187.42,83l-25.89,9.43a13.4,13.4,0,0,1-4.61.81H18a8.66,8.66,0,0,0-7.66,4.6,61.62,61.62,0,0,0-6.2,19.62H2a2,2,0,0,0-2,2.19l.63,6.83a2,2,0,0,0,2,1.82h.72v.33A71.32,71.32,0,0,0,6.5,150a49.32,49.32,0,0,0,8.4,16.31,5.49,5.49,0,0,0,4.28,2H196.94c.84,5.65,13.56,91.52,17.94,122h-50.2a11.94,11.94,0,0,0-11.92,11.92v13.57a11.94,11.94,0,0,0,11.92,11.92H224.5v11.4c0,.37.64.71,1,.71s1.1-.34,1.1-.71V327.8h59.82a11.94,11.94,0,0,0,11.92-11.92V302.31a11.94,11.94,0,0,0-11.92-11.92H232.34c4.38-30.49,17.1-116.36,17.93-122H428a5.53,5.53,0,0,0,4.29-2,49.32,49.32,0,0,0,8.4-16.31,71.64,71.64,0,0,0,3.14-21.38v-.33h1.24a2,2,0,0,0,2-1.82l.63-6.83A2,2,0,0,0,447.22,118.14Zm-4.62,1c0,.27.07.54.1.81l.09.87C442.74,120.3,442.67,119.74,442.6,119.19ZM443,123c0,.14,0,.29,0,.44s0,.58.05.86h0C443,123.9,443,123.46,443,123Zm.09,1.32v.06c0,.12,0,.24,0,.37C443.08,124.63,443.08,124.49,443.07,124.35Z"/>
             </svg>
         </div>
@@ -739,12 +751,15 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
 
     if (!liveGpsMarker) {
         const planeIcon = L.divIcon({
-            html: svgIconHtml,
+            html: _planeSvgTemplate,
             className: 'live-plane-marker',
             iconSize: [60, 60],
             iconAnchor: [30, 30]
         });
         liveGpsMarker = L.marker([lat, lon], { icon: planeIcon, zIndexOffset: 9999 }).addTo(map);
+        // Initiale Rotation setzen
+        const svgEl = liveGpsMarker.getElement()?.querySelector('svg');
+        if (svgEl) svgEl.style.transform = `rotate(${hdg}deg)`;
 
         map.on('dragstart', () => { if (isAutoFollow) toggleAutoFollow(); });
 
@@ -764,21 +779,38 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         });
     } else {
         liveGpsMarker.setLatLng([lat, lon]);
-        const iconElement = liveGpsMarker.getElement();
-        if (iconElement) iconElement.innerHTML = svgIconHtml;
+        // Nur CSS-Transform updaten statt innerHTML neu zu bauen → GPU-beschleunigt, kein Reflow
+        const svgEl = liveGpsMarker.getElement()?.querySelector('svg');
+        if (svgEl) svgEl.style.transform = `rotate(${hdg}deg)`;
     }
 
     // --- ICON B: HÖHENPROFIL ---
-    if (typeof vpElevationData !== 'undefined' && vpElevationData && vpElevationData.length > 0) {
-        let bestDistNM = 0, bestDist = Infinity;
-        vpElevationData.forEach(p => {
-            let d = calcNav(lat, lon, p.lat, p.lon).dist;
-            if (d < bestDist) { bestDist = d; bestDistNM = p.distNM; }
-        });
-        if (bestDist < 3.0) {
-            const totalDist = vpElevationData[vpElevationData.length - 1].distNM;
+    // Optimiert: Binäre Suche nach dem nächsten Punkt auf der Route statt O(n) Brute-Force
+    if (typeof vpElevationData !== 'undefined' && vpElevationData && vpElevationData.length > 2) {
+        const ed = vpElevationData;
+        const totalDist = ed[ed.length - 1].distNM;
+
+        // Schnelle binäre Suche: Entlang der Route den nächsten Längengrad/Breitengrad-Match finden
+        let lo = 0, hi = ed.length - 1, bestIdx = 0, bestDist = Infinity;
+        // Grobe Eingrenzung: Route in ~8 Sprünge abschätzen, dann lokal suchen
+        const step = Math.max(1, Math.floor(ed.length / 8));
+        for (let i = 0; i < ed.length; i += step) {
+            const dLat = lat - ed[i].lat, dLon = lon - (ed[i].lon || ed[i].lng);
+            const approxDist = dLat * dLat + dLon * dLon; // Quadrat reicht für Vergleich
+            if (approxDist < bestDist) { bestDist = approxDist; bestIdx = i; }
+        }
+        // Lokal um den besten Treffer herum feinsuchen
+        const searchLo = Math.max(0, bestIdx - step);
+        const searchHi = Math.min(ed.length - 1, bestIdx + step);
+        for (let i = searchLo; i <= searchHi; i++) {
+            const dLat = lat - ed[i].lat, dLon = lon - (ed[i].lon || ed[i].lng);
+            const approxDist = dLat * dLat + dLon * dLon;
+            if (approxDist < bestDist) { bestDist = approxDist; bestIdx = i; }
+        }
+        // approxDist ist in Grad² – 3 NM ≈ 0.05° → Schwelle ~0.0025
+        if (bestDist < 0.0025) {
             if (typeof vpUpdateLiveAircraft === 'function') {
-                vpUpdateLiveAircraft(bestDistNM / totalDist, alt, hdg);
+                vpUpdateLiveAircraft(ed[bestIdx].distNM / totalDist, alt, hdg);
             }
         }
     }
