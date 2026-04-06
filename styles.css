@@ -4152,3 +4152,18 @@ body.theme-navcom .btn-menu:active {
     70% { opacity: 1; }
     100% { opacity: 0; }
 }
+
+/* Prediction Vector Tooltips */
+.prediction-tooltip {
+    background: rgba(0, 0, 0, 0.7) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    color: #fff !important;
+    font-size: 10px !important;
+    font-weight: bold !important;
+    padding: 1px 4px !important;
+    border-radius: 3px !important;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5) !important;
+}
+.prediction-tooltip::before {
+    border-top-color: rgba(0, 0, 0, 0.7) !important;
+}

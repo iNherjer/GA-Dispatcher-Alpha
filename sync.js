@@ -27,8 +27,15 @@ function getSyncPin() {
 let liveSnailTrail = null;
 let lastTrailPoint = null;
 let isAutoFollow = true;
-let lastGpsTickDetails = null; 
+let lastGpsTickDetails = null;
 let lastTelemetryUpdateAt = 0;
+
+// --- PREDICTION VECTORS ---
+let predictionLine = null;
+let predictionMarkers = [];
+let lastPredictionUpdate = 0;
+let smoothedGS = 0;
+let smoothedVS = 0;
 
 function toggleAutoFollow() {
     isAutoFollow = !isAutoFollow;
@@ -732,11 +739,89 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
                     vsEl.style.color = vs > 100 ? 'var(--green)' : (vs < -100 ? 'var(--red)' : '#fff');
                 }
             }
+            // Smoothed GS/VS for prediction (EMA α=0.3)
+            smoothedGS = smoothedGS === 0 ? gs : smoothedGS * 0.7 + gs * 0.3;
+            smoothedVS = smoothedVS === 0 ? vs : smoothedVS * 0.7 + vs * 0.3;
+
             // Update last info for speed calculation
             lastGpsTickDetails = { lat, lon, alt, t: now };
         }
     } else {
         lastGpsTickDetails = { lat, lon, alt, t: now };
+    }
+
+    // --- PREDICTION VECTORS ---
+    if (smoothedGS > 30 && typeof getDestinationPoint === 'function' && now - lastPredictionUpdate > 1000) {
+        lastPredictionUpdate = now;
+        const horizons = [2, 5, 10];
+        const predPoints = horizons.map(min => {
+            const distNM = smoothedGS * (min / 60);
+            const pt = getDestinationPoint(lat, lon, distNM, hdg);
+            const predAlt = alt + (smoothedVS * min);
+            return { lat: pt.lat, lon: pt.lon, min, alt: Math.max(0, predAlt) };
+        });
+
+        const lineCoords = [[lat, lon], ...predPoints.map(p => [p.lat, p.lon])];
+
+        // Linie zeichnen/updaten
+        if (!predictionLine) {
+            predictionLine = L.polyline(lineCoords, {
+                color: '#ffffff',
+                weight: 2,
+                opacity: 0.7,
+                dashArray: '8, 6',
+                interactive: false
+            }).addTo(map);
+        } else {
+            predictionLine.setLatLngs(lineCoords);
+        }
+
+        // TAWS-Check: Prediction-Linie einfärben wenn taws.js geladen
+        if (typeof checkTerrainAlongPath === 'function') {
+            checkTerrainAlongPath(predPoints).then(results => {
+                if (!results || !predictionLine) return;
+                // Worst-case Threat bestimmt Linienfarbe
+                let worst = 'green';
+                for (const r of results) {
+                    if (r.threat === 'red') { worst = 'red'; break; }
+                    if (r.threat === 'amber') worst = 'amber';
+                }
+                const color = worst === 'red' ? '#ff2222' : worst === 'amber' ? '#ffaa00' : '#ffffff';
+                predictionLine.setStyle({ color });
+
+                // Marker-Farben aktualisieren
+                predictionMarkers.forEach((m, i) => {
+                    if (results[i]) {
+                        const c = results[i].threat === 'red' ? '#ff2222' : results[i].threat === 'amber' ? '#ffaa00' : '#ffffff';
+                        m.setStyle({ color: c, fillColor: c });
+                    }
+                });
+            });
+        }
+
+        // Zeitmarker zeichnen/updaten
+        while (predictionMarkers.length < predPoints.length) {
+            const idx = predictionMarkers.length;
+            const m = L.circleMarker([0, 0], {
+                radius: 4,
+                color: '#ffffff',
+                fillColor: '#ffffff',
+                fillOpacity: 0.9,
+                weight: 1.5,
+                interactive: false
+            }).addTo(map);
+            m.bindTooltip('', { permanent: true, direction: 'top', offset: [0, -8], className: 'prediction-tooltip' });
+            predictionMarkers.push(m);
+        }
+        predPoints.forEach((p, i) => {
+            predictionMarkers[i].setLatLng([p.lat, p.lon]);
+            predictionMarkers[i].setTooltipContent(`${p.min}m`);
+        });
+    } else if (smoothedGS <= 30) {
+        // Zu langsam → Prediction ausblenden
+        if (predictionLine) { predictionLine.remove(); predictionLine = null; }
+        predictionMarkers.forEach(m => m.remove());
+        predictionMarkers = [];
     }
 
     // --- ICON A: KARTE ---
