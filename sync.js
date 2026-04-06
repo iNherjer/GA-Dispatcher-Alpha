@@ -758,8 +758,11 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             const distNM = smoothedGS * (min / 60);
             const pt = getDestinationPoint(lat, lon, distNM, hdg);
             const predAlt = alt + (smoothedVS * min);
-            return { lat: pt.lat, lon: pt.lon, min, alt: Math.max(0, predAlt) };
+            return { lat: pt.lat, lon: pt.lon, min, distNMAhead: distNM, altFt: Math.max(0, predAlt), alt: Math.max(0, predAlt), threat: 'green' };
         });
+
+        // Für Vertikalprofil-Rendering bereitstellen
+        window.vpPredictionData = predPoints;
 
         const lineCoords = [[lat, lon], ...predPoints.map(p => [p.lat, p.lon])];
 
@@ -796,6 +799,13 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
                         m.setStyle({ color: c, fillColor: c });
                     }
                 });
+
+                // Threats ans Vertikalprofil weitergeben
+                if (window.vpPredictionData) {
+                    results.forEach((r, i) => {
+                        if (window.vpPredictionData[i]) window.vpPredictionData[i].threat = r.threat;
+                    });
+                }
             });
         }
 

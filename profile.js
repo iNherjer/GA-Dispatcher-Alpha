@@ -2232,6 +2232,70 @@ function renderMapProfileFrames(timeMs) {
         }
     }
 
+    // C: PREDICTION VECTORS im Vertikalprofil
+    if (window.vpPredictionData && window.vpPredictionData.length > 0 &&
+        typeof vpLiveGpsFraction === 'number' && vpLiveGpsFraction >= 0) {
+
+        const baseDist = vpLiveGpsFraction * totalDist;
+        const baseX = xOf(baseDist);
+        const baseY = yOf(vpLiveAltFt);
+
+        // Punkte filtern die noch innerhalb der Route liegen
+        const visiblePts = window.vpPredictionData.filter(pt => baseDist + pt.distNMAhead <= totalDist + 1);
+
+        if (visiblePts.length > 0) {
+            // Gestrichelte Linie vom Flugzeug durch alle Prediction-Punkte
+            fgCtx.save();
+            fgCtx.setLineDash([5, 4]);
+            fgCtx.lineWidth = 1.5;
+            fgCtx.beginPath();
+            fgCtx.moveTo(baseX, baseY);
+
+            for (const pt of visiblePts) {
+                const px = xOf(baseDist + pt.distNMAhead);
+                const py = yOf(pt.altFt);
+                fgCtx.lineTo(px, py);
+            }
+            fgCtx.strokeStyle = 'rgba(255,255,255,0.55)';
+            fgCtx.stroke();
+            fgCtx.setLineDash([]);
+
+            // Zeitmarker + Labels
+            for (const pt of visiblePts) {
+                const px = xOf(baseDist + pt.distNMAhead);
+                const py = yOf(pt.altFt);
+
+                // Culling: nur sichtbaren Bereich rendern
+                if (px < viewMinX - 30 || px > viewMaxX + 30) continue;
+
+                const tc = pt.threat === 'red' ? '#ff2222' : pt.threat === 'amber' ? '#ffaa00' : '#ffffff';
+
+                // Kreis
+                fgCtx.beginPath();
+                fgCtx.arc(px, py, 3.5, 0, Math.PI * 2);
+                fgCtx.fillStyle = tc;
+                fgCtx.fill();
+                fgCtx.strokeStyle = 'rgba(0,0,0,0.6)';
+                fgCtx.lineWidth = 1;
+                fgCtx.stroke();
+
+                // Zeitlabel oben
+                fgCtx.fillStyle = tc;
+                fgCtx.font = 'bold 9px Arial';
+                fgCtx.textAlign = 'center';
+                fgCtx.fillText(pt.min + 'm', px, py - 8);
+
+                // Höhe unten (nur wenn genug Platz)
+                if (zoomFactor >= 1.5 || window.vpPredictionData.length <= 3) {
+                    fgCtx.fillStyle = 'rgba(255,255,255,0.6)';
+                    fgCtx.font = '8px Arial';
+                    fgCtx.fillText(Math.round(pt.altFt) + 'ft', px, py + 14);
+                }
+            }
+            fgCtx.restore();
+        }
+    }
+
     if (vpAltWaypoints.length > 0) {
         for (let i = 0; i < vpAltWaypoints.length; i++) {
             const wp = vpAltWaypoints[i], wx = xOf(wp.distNM), wy = yOf(wp.altFt);
