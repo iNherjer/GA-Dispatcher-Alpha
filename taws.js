@@ -6,7 +6,7 @@ const TAWS_TILE_ZOOM = 10;
 const TAWS_TILE_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 const TAWS_SAFETY_RED = 500;     // ft - TERRAIN WARNING
 const TAWS_SAFETY_AMBER = 1000;  // ft - TERRAIN CAUTION
-const TAWS_CACHE_MAX = 30;
+const TAWS_CACHE_MAX = 50;
 
 // Tile-Cache: Map<"z/x/y", { imageData, ts }>
 const _tawsTileCache = new Map();
