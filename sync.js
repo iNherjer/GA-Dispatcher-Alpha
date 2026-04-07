@@ -902,10 +902,16 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             const approxDist = dLat * dLat + dLon * dLon;
             if (approxDist < bestDist) { bestDist = approxDist; bestIdx = i; }
         }
-        // approxDist ist in Grad² – 3 NM ≈ 0.05° → Schwelle ~0.0025
-        if (bestDist < 0.0025) {
+        // approxDist ist in Grad² – 10 NM ≈ 0.167° → Schwelle ~0.028
+        // Rechtwinklig zur Route: Flugzeug muss innerhalb ±10 NM senkrecht zur Route liegen
+        if (bestDist < 0.028) {
             if (typeof vpUpdateLiveAircraft === 'function') {
                 vpUpdateLiveAircraft(ed[bestIdx].distNM / totalDist, alt, hdg);
+            }
+        } else {
+            // Zu weit von der Route entfernt → Positions-Marker ausblenden
+            if (typeof vpUpdateLiveAircraft === 'function') {
+                vpUpdateLiveAircraft(-1, alt, hdg);  // -1 = ausblenden
             }
         }
     }

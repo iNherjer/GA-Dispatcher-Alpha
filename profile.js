@@ -788,8 +788,9 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
     }
     ctx.restore();
 }
-function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFactor, maxAlt) {
-    if (!vpLandmarks || vpLandmarks.length === 0) return;
+function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFactor, maxAlt, lmOverride = null) {
+    const _landmarks = lmOverride !== null ? lmOverride : vpLandmarks;
+    if (!_landmarks || _landmarks.length === 0) return;
     const getElevY = (dNM) => {
         if (!elevData || elevData.length < 2) return yOf(0);
         for(let i=0; i<elevData.length-1; i++) {
@@ -805,14 +806,18 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
     const routeKey = window._lastVpRouteKey || 'none';
     const layoutKey = routeKey + '_' + zoomFactor.toFixed(2) + '_' + (maxAlt || 0).toFixed(0) + '_' + (window.vpShowLinear ? '1' : '0');
     
-    // Neu berechnen, wenn sich der Cache-Key ändert ODER die Städte noch keine Render-Daten haben
-    if (!window._vpLandmarkLayouts || window._vpLandmarkLayouts.key !== layoutKey || (vpLandmarks.length > 0 && !vpLandmarks[0]._render)) {
+    // Im HDG-Modus: kein Layout-Cache, immer neu berechnen (distNM ändert sich mit Kurs)
+    const isHdgLm = lmOverride !== null;
+    const hdgLmKey = isHdgLm ? ('hdg_' + (window.lastLiveGpsPos?.hdg || 0).toFixed(0) + '_' + zoomFactor.toFixed(2)) : null;
+    const effectiveLayoutKey = isHdgLm ? hdgLmKey : layoutKey;
+
+    if (!window._vpLandmarkLayouts || window._vpLandmarkLayouts.key !== effectiveLayoutKey || (_landmarks.length > 0 && !_landmarks[0]._render)) {
         let globalOccupiedX = [];
         const nmPerPx = totalDist / (xOf(totalDist) - xOf(0));
         const edgePad = Math.min(2.5, totalDist * 0.05);
         ctx.font = `bold ${(zoomFactor >= 1.5 ? 10 : 8)}px Arial`; // Setup für measureText
-        
-        for (const lm of vpLandmarks) {
+
+        for (const lm of _landmarks) {
             lm._render = null;
             if (lm.distNM < edgePad || lm.distNM > totalDist - edgePad) continue;
             
@@ -867,7 +872,7 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
                 lm._render = { distNM: currentDistNM, icon, iconFontSize, iconOffsetY, fontSize };
             }
         }
-        window._vpLandmarkLayouts = { key: layoutKey, occ: globalOccupiedX };
+        window._vpLandmarkLayouts = { key: effectiveLayoutKey, occ: globalOccupiedX };
         window.vpLandmarkOccupiedX = globalOccupiedX;
     }
     
@@ -882,9 +887,9 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
         if (sc) { viewMinX = sc.scrollLeft - 100; viewMaxX = sc.scrollLeft + sc.clientWidth + 100; }
     }
 
-    for (const lm of vpLandmarks) {
+    for (const lm of _landmarks) {
         if (!lm._render) continue;
-        
+
         // FIX: X und Y Pixel in Echtzeit anhand der aktuellen Skalierung berechnen
         const px = xOf(lm._render.distNM);
         const py = getElevY(lm._render.distNM);
@@ -2090,8 +2095,8 @@ function renderMapProfileFrames(timeMs) {
         vpDrawTerrainCover(bgCtx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFactor, maxAlt);
 
         if (vpShowLandmarks) {
-            const lmSrc = isHdgMode ? vpHdgLandmarks : null;
-            vpDrawLandmarks(bgCtx, xOf, yOf, lmSrc || elevData, totalDist, true, zoomFactor, maxAlt, lmSrc ? lmSrc : null);
+            const lmOverride = isHdgMode ? vpHdgLandmarks : null;
+            vpDrawLandmarks(bgCtx, xOf, yOf, elevData, totalDist, true, zoomFactor, maxAlt, lmOverride);
         }
         if (vpShowClouds && !isHdgMode) vpDrawClouds(bgCtx, xOf, yOf, padTop, plotH, totalDist, true, elevData);
 
