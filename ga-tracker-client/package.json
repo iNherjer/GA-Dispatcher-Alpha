@@ -1,0 +1,13 @@
+{
+  "name": "ga-tracker-client",
+  "version": "1.0.0",
+  "description": "MSFS to WebSocket GPS Tracker Bridge",
+  "main": "tracker.js",
+  "scripts": {
+    "start": "node tracker.js"
+  },
+  "dependencies": {
+    "node-simconnect": "^4.0.0",
+    "ws": "^8.19.0"
+  }
+}
