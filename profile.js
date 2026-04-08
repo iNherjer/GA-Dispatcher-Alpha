@@ -8,22 +8,25 @@ if (!document.getElementById('vp-err-dot-style')) {
 
 window.vpFailedOverpassChunks = [];
 window.updateOverpassErrorUI = function() {
+    const hasError = window.vpFailedOverpassChunks && window.vpFailedOverpassChunks.length > 0;
+
+    // Error-Dot auf Einzel-Buttons (im Untermenü)
     const btnOb = document.getElementById('btnToggleObstacles');
     const btnLin = document.getElementById('btnToggleLinear');
     [btnOb, btnLin].forEach(btn => {
         if (!btn) return;
         btn.classList.add('vp-btn-relative');
         let dot = btn.querySelector('.vp-error-dot');
-        if (window.vpFailedOverpassChunks && window.vpFailedOverpassChunks.length > 0) {
-            if (!dot) {
-                dot = document.createElement('div');
-                dot.className = 'vp-error-dot';
-                btn.appendChild(dot);
-            }
+        if (hasError) {
+            if (!dot) { dot = document.createElement('div'); dot.className = 'vp-error-dot'; btn.appendChild(dot); }
         } else {
             if (dot) dot.remove();
         }
     });
+
+    // Error-Dot auch am Zahnrad-Button sichtbar machen
+    const gearDot = document.getElementById('vpSettingsErrorDot');
+    if (gearDot) gearDot.style.display = hasError ? 'block' : 'none';
 };
 window.vpBgNeedsUpdate = true;
 window.vpAnimFrameId = null;

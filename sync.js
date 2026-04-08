@@ -771,6 +771,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
                     vsEl.textContent = Math.round(vs);
                     vsEl.style.color = vs > 100 ? 'var(--green)' : (vs < -100 ? 'var(--red)' : '#fff');
                 }
+                // AGL wird in updateLivePlanePosition weiter unten gesetzt (nach bestIdx-Suche)
             }
             // Smoothed GS/VS for prediction (EMA α=0.3)
             smoothedGS = smoothedGS === 0 ? gs : smoothedGS * 0.7 + gs * 0.3;
@@ -945,16 +946,29 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             if (approxDist < bestDist) { bestDist = approxDist; bestIdx = i; }
         }
         // approxDist ist in Grad² – 1° ≈ 111 km ≈ 59.9 NM
-        // distNM = sqrt(bestDist) * 59.9
         const approxDistNM = Math.sqrt(bestDist) * 59.9;
-        window.vpLiveRouteDistNM = approxDistNM; // für Profil-Rendering (HDG-Linie)
+        window.vpLiveRouteDistNM = approxDistNM;
+
+        // AGL aus Terrain-Höhe an der nächstgelegenen Route-Position
+        const terrainFt = bestDist < 0.028 ? (ed[bestIdx].elevFt ?? 0) : 0;
+        const aglFt = Math.max(0, Math.round(alt - terrainFt));
+        const aglEl = document.getElementById('teleAGL');
+        if (aglEl) {
+            if (bestDist < 0.28) { // AGL nur anzeigen wenn nahe Route (~10 NM)
+                aglEl.textContent = aglFt;
+                aglEl.style.color = aglFt < 500 ? '#ff4444' : aglFt < 1000 ? '#ffcc44' : '#ffcc44';
+            } else {
+                aglEl.textContent = '—';
+                aglEl.style.color = '#ffcc44';
+            }
+        }
+
         if (bestDist < 0.028) { // ~10 NM Schwelle für Icon-Anzeige
             if (typeof vpUpdateLiveAircraft === 'function') {
                 vpUpdateLiveAircraft(ed[bestIdx].distNM / totalDist, alt, hdg);
             }
         } else {
             window.vpLiveRouteDistNM = 999;
-            // Zu weit von der Route entfernt → Positions-Marker ausblenden
             if (typeof vpUpdateLiveAircraft === 'function') {
                 vpUpdateLiveAircraft(-1, alt, hdg);  // -1 = ausblenden
             }
