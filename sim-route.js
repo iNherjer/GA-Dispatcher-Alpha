@@ -18,10 +18,10 @@
     // ── Public API ────────────────────────────────────────────────────────────
 
     window.startSimMode = function () {
-        // Kein Sim-Modus wenn Live-GPS verbunden
-        if (typeof liveGpsSocket !== 'undefined' && liveGpsSocket &&
-            liveGpsSocket.readyState === 1 /* OPEN */) {
-            alert('Live-GPS ist aktiv – bitte erst trennen, dann simulieren.');
+        // Kein Sim-Modus wenn aktiv GPS-Daten vom Tracker ankommen (letzte 8 Sekunden)
+        const lastGps = window.lastLiveGpsPos;
+        if (lastGps && (Date.now() - lastGps.t < 8000)) {
+            alert('Live-GPS ist aktiv – bitte erst den Tracker stoppen.');
             return;
         }
         if (simActive) { _stop(); return; }
