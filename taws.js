@@ -38,6 +38,9 @@ function _tawsInitAudio() {
     }
     if (_tawsAudioCtx && _tawsAudioCtx.state === 'suspended') _tawsAudioCtx.resume();
 
+    // Airspace-Clips laden (erst wenn AudioContext bereit)
+    _awLoadClips();
+
     // HTMLAudioElement vorausladen – iOS entsperrt Audio nur bei User-Geste
     if (!_tawsAlertAudio) {
         _tawsAlertAudio = new Audio('./taws-alert.m4a');
@@ -84,6 +87,154 @@ function _tawsUnlockAll() {
 }
 document.addEventListener('touchstart', _tawsUnlockAll, { once: true, passive: true });
 document.addEventListener('click',      _tawsUnlockAll, { once: true });
+
+// ── Airspace Warning Module (AWM) ─────────────────────────────────────────────
+// Spielt dynamisch zusammengesetzte Ansagen via AudioContext ab (iOS-sicher).
+// Clips: audio-warnings/aw-*.m4a — erzeugt mit Anna Premium de_DE.
+
+const _AWM_CLIPS = [
+    'aw-achtung','aw-in',
+    'aw-ctr','aw-class-c','aw-class-d','aw-rmz','aw-tmz',
+    'aw-1min','aw-2min','aw-3min','aw-4min','aw-5min',
+    'aw-6min','aw-7min','aw-8min','aw-9min','aw-10min'
+];
+const _awBuffers   = {};           // key → AudioBuffer
+let   _awLoaded    = false;
+let   _awLoading   = false;
+
+// Cooldown pro Luftraum-Index: { t5: bool, t2: bool, t5inside: bool, t2inside: bool }
+const _awState = new Map();
+
+async function _awLoadClips() {
+    if (_awLoaded || _awLoading || !_tawsAudioCtx) return;
+    _awLoading = true;
+    await Promise.all(_AWM_CLIPS.map(async key => {
+        try {
+            const r  = await fetch('./audio-warnings/' + key + '.m4a');
+            const ab = await r.arrayBuffer();
+            _awBuffers[key] = await _tawsAudioCtx.decodeAudioData(ab);
+        } catch(e) { /* Clip fehlt → überspringen */ }
+    }));
+    _awLoaded    = true;
+    _awLoading   = false;
+}
+
+// Clips sequenziell abspielen (AudioContext bufferSource-Kette)
+function _awPlaySequence(keys) {
+    if (!_tawsAudioCtx || !_awLoaded) return;
+    if (_tawsAudioCtx.state === 'suspended') _tawsAudioCtx.resume();
+    let t = _tawsAudioCtx.currentTime + 0.1;
+    for (const key of keys) {
+        const buf = _awBuffers[key];
+        if (!buf) continue;
+        const src = _tawsAudioCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(_tawsAudioCtx.destination);
+        src.start(t);
+        t += buf.duration + 0.08;   // 80 ms Pause zwischen Wörtern
+    }
+}
+
+// Luftraum-Typ → Audio-Key (null = kein Alert für diesen Typ)
+function _awTypeKey(as) {
+    const t = as.type, cls = as.icaoClass;
+    if (t === 4)                return 'aw-ctr';      // CTR (Kontrollzone)
+    if (cls === 2)              return 'aw-class-c';  // Class C
+    if (cls === 3 || t === 0)   return 'aw-class-d';  // Class D
+    if (t === 5 || t === 27)    return 'aw-tmz';      // TMZ
+    if (t === 6 || t === 28)    return 'aw-rmz';      // RMZ
+    return null;   // Restricted/Danger/TMA/FIS → kein Sprach-Alert
+}
+
+// Minuten-Zahl → Audio-Key
+function _awMinKey(min) {
+    const n = Math.round(min);
+    const k = ['','aw-1min','aw-2min','aw-3min','aw-4min','aw-5min',
+                  'aw-6min','aw-7min','aw-8min','aw-9min','aw-10min'];
+    return (n >= 1 && n <= 10) ? k[n] : null;
+}
+
+/**
+ * Vorhersage-Punkte gegen aktive Lufträume prüfen und ggf. Ansage abspielen.
+ * Wird von sync.js 1x/Sekunde aufgerufen (parallel zu checkTerrainAlongPath).
+ * @param {Array<{lat,lon,alt,min}>} predPoints
+ */
+function checkAirspaceWarnings(predPoints) {
+    if (!_awLoaded) { _awLoadClips(); return; }
+    if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) return;
+    if (typeof vpPointInPoly    === 'undefined') return;
+    if (typeof airspaceLimitToFt === 'undefined') return;
+
+    const gs = window.smoothedGS || 0;
+    if (gs < 10) return;   // Am Boden → kein Alert
+
+    // Warn-Level: bei 5 min und bei 2 min
+    const LEVELS = [
+        { min: 5, stateKey: 't5' },
+        { min: 2, stateKey: 't2' },
+    ];
+
+    for (let asIdx = 0; asIdx < activeAirspaces.length; asIdx++) {
+        const as = activeAirspaces[asIdx];
+        if (!as.geometry) continue;
+
+        const typeKey = _awTypeKey(as);
+        if (!typeKey) continue;
+
+        if (!as.lowerLimit || !as.upperLimit) continue;
+        const lowerFt = airspaceLimitToFt(as.lowerLimit);
+        const upperFt = airspaceLimitToFt(as.upperLimit);
+        if (lowerFt === null || upperFt === null) continue;
+
+        // GND-basierte Lufträume: untere Grenze = 0 ft MSL (konservativ)
+        const effLower = (as.lowerLimit.referenceDatum === 0) ? 0 : lowerFt;
+        const effUpper = upperFt;   // Obergrenze fast immer MSL
+
+        // Polygone
+        const polys = [];
+        if (as.geometry.type === 'Polygon')      polys.push(as.geometry.coordinates[0]);
+        else if (as.geometry.type === 'MultiPolygon')
+            as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
+        if (!polys.length) continue;
+
+        // State holen/anlegen
+        if (!_awState.has(asIdx)) _awState.set(asIdx, { t5: false, t2: false, t5in: false, t2in: false });
+        const st = _awState.get(asIdx);
+
+        for (const lvl of LEVELS) {
+            const pt = predPoints.find(p => Math.round(p.min) === lvl.min);
+            if (!pt) continue;
+
+            // Punkt im Polygon?
+            let inside = false;
+            for (const poly of polys) {
+                if (vpPointInPoly({ lat: pt.lat, lon: pt.lon }, poly)) { inside = true; break; }
+            }
+
+            const inKey = lvl.stateKey + 'in';
+
+            // Höhencheck: Flughöhe im Luftraum-Vertikalbereich (±200 ft Puffer)
+            const altOk = pt.alt >= effLower - 200 && pt.alt <= effUpper + 200;
+
+            if (inside && altOk) {
+                // Erste Flanke (war draußen, jetzt drin) → Ansage
+                if (!st[inKey] && !st[lvl.stateKey]) {
+                    st[lvl.stateKey] = true;
+                    const minKey = _awMinKey(lvl.min);
+                    if (minKey) {
+                        console.log(`[AWM] ${as.name} (${typeKey}) in ${lvl.min} min`);
+                        _awPlaySequence(['aw-achtung', typeKey, 'aw-in', minKey]);
+                    }
+                }
+                st[inKey] = true;
+            } else {
+                // Punkt hat Luftraum verlassen → Warnung für dieses Level zurücksetzen
+                st[inKey]          = false;
+                st[lvl.stateKey]   = false;
+            }
+        }
+    }
+}
 
 /**
  * Tile-Koordinaten aus lat/lon berechnen (Slippy Map)

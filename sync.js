@@ -822,6 +822,9 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             predictionLine.setLatLngs(lineCoords);
         }
 
+        // Airspace-Warnungen prüfen (Sprach-Alerts via AWM)
+        if (typeof checkAirspaceWarnings === 'function') checkAirspaceWarnings(predPoints);
+
         // TAWS-Check: Prediction-Linie einfärben wenn taws.js geladen
         if (typeof checkTerrainAlongPath === 'function') {
             checkTerrainAlongPath(predPoints).then(results => {

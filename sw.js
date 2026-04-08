@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v251';
+const CACHE = 'ga-dispatcher-v252';
 
 const STATIC = [
     './',
@@ -23,6 +23,23 @@ const STATIC = [
     './map.jpg',
     './pinicon.png',
     './taws-alert.m4a',
+    './audio-warnings/aw-achtung.m4a',
+    './audio-warnings/aw-in.m4a',
+    './audio-warnings/aw-ctr.m4a',
+    './audio-warnings/aw-class-c.m4a',
+    './audio-warnings/aw-class-d.m4a',
+    './audio-warnings/aw-rmz.m4a',
+    './audio-warnings/aw-tmz.m4a',
+    './audio-warnings/aw-1min.m4a',
+    './audio-warnings/aw-2min.m4a',
+    './audio-warnings/aw-3min.m4a',
+    './audio-warnings/aw-4min.m4a',
+    './audio-warnings/aw-5min.m4a',
+    './audio-warnings/aw-6min.m4a',
+    './audio-warnings/aw-7min.m4a',
+    './audio-warnings/aw-8min.m4a',
+    './audio-warnings/aw-9min.m4a',
+    './audio-warnings/aw-10min.m4a',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
     // CDN – html2canvas & jsPDF
