@@ -60,6 +60,7 @@ function connectSimConnect(ws, syncId, pin) {
               } else return;
 
               if (ws.readyState === WebSocket.OPEN && (lat !== 0 || lon !== 0)) {
+                ownLat = lat; ownLon = lon; // für Traffic-Eigenfilter
                 // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
                 const gpsMsg = { type: 'gps', syncId: syncId, pin: pin, lat: lat, lon: lon, alt: Math.round(alt), hdg: Math.round(hdg) };
                 if (latestTrafficSnapshot && latestTrafficSnapshot.length > 0) {
@@ -87,6 +88,7 @@ function connectSimConnect(ws, syncId, pin) {
 
       let trafficBuffer = {};
       let latestTrafficSnapshot = null; // wird beim nächsten GPS-Tick eingebettet
+      let ownLat = 0, ownLon = 0; // wird aus GPS-Tick aktualisiert
 
       handle.on('simObjectDataByType', (recv) => {
         if (recv.requestID !== TRAFFIC_REQ_ID) return;
@@ -112,16 +114,34 @@ function connectSimConnect(ws, syncId, pin) {
 
       // Traffic alle 2 Sekunden abfragen
       const trafficInterval = setInterval(() => {
-        if (ws.readyState !== 1 /*OPEN*/) return; // Use numeric 1 to avoid WebSocket reference issues
+        if (ws.readyState !== 1 /*OPEN*/) return;
         trafficBuffer = {};
-        // SIMCONNECT_SIMOBJECT_TYPE_AIRCRAFT = 1, Radius 100 NM = 185200m
-        handle.requestDataOnSimObjectType(TRAFFIC_REQ_ID, TRAFFIC_DEF_ID, 185200, 1);
+        // SIMCONNECT_SIMOBJECT_TYPE_AIRCRAFT = 1, Radius 50 NM = 92600m
+        handle.requestDataOnSimObjectType(TRAFFIC_REQ_ID, TRAFFIC_DEF_ID, 92600, 1);
 
-        // 500ms warten damit alle simObjectDataByType-Events ankommen, dann als Snapshot merken
+        // 500ms warten damit alle simObjectDataByType-Events ankommen, dann filtern & als Snapshot merken
         setTimeout(() => {
-          const aircraft = Object.values(trafficBuffer);
-          latestTrafficSnapshot = aircraft; // wird beim nächsten GPS-Tick ins Paket eingebettet
-          if (aircraft.length > 0) console.log(`[TRAFFIC] ${aircraft.length} Flugzeug(e) → wird mit nächstem GPS gesendet`);
+          const all = Object.values(trafficBuffer);
+          // Filter: nur fliegende Flieger (GS > 10 kts), eigenes Objekt per Position ausschließen
+          const moving = all.filter(ac => {
+            if (ac.gs < 10) return false; // Bodenfahrzeuge / geparkte Flieger raus
+            const dLat = Math.abs(ac.lat - ownLat), dLon = Math.abs(ac.lon - ownLon);
+            if (dLat < 0.0015 && dLon < 0.0015) return false; // eigene Position ~0.1 NM
+            return true;
+          });
+          // Die 20 nächsten nach einfachem Winkelabstand sortieren
+          const nearest = moving
+            .map(ac => {
+              const dLat = ac.lat - ownLat, dLon = ac.lon - ownLon;
+              return { ...ac, _d: dLat * dLat + dLon * dLon };
+            })
+            .sort((a, b) => a._d - b._d)
+            .slice(0, 20)
+            .map(({ _d, ...ac }) => ac);
+
+          latestTrafficSnapshot = nearest;
+          if (nearest.length > 0)
+            console.log(`[TRAFFIC] ${all.length} gesamt → ${moving.length} fliegend → ${nearest.length} gesendet`);
         }, 500);
       }, 2000);
 

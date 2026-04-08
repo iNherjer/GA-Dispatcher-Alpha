@@ -650,11 +650,16 @@ window.connectToLiveGPS = async function(syncId) {
 
                 // Traffic-Daten die im GPS-Paket eingebettet sind (Relay-kompatibler Weg)
                 if (data.traffic && Array.isArray(data.traffic)) {
-                    // Eigenes Flugzeug herausfiltern (SimConnect liefert auch User-Objekt mit)
+                    // Eigenes Flugzeug + irrelevanten Traffic herausfiltern
                     const filteredTraffic = data.traffic.filter(ac => {
                         const dLat = Math.abs((ac.lat ?? 0) - data.lat);
                         const dLon = Math.abs((ac.lon ?? 0) - data.lon);
-                        return dLat > 0.0015 || dLon > 0.0015; // ~0.1 NM Mindestabstand
+                        if (dLat < 0.0015 && dLon < 0.0015) return false; // eigene Position ~0.1 NM
+                        // Nur Flieger innerhalb ±5000 ft anzeigen – außer sie sind sehr nah (<5 NM)
+                        const dAlt = Math.abs((ac.alt ?? 0) - data.alt);
+                        const nearBy = dLat < 0.08 && dLon < 0.08; // ~5 NM box
+                        if (!nearBy && dAlt > 5000) return false;
+                        return true;
                     });
                     window.vpTrafficData = filteredTraffic;
                     if (window.vpTrafficMapVisible) {
