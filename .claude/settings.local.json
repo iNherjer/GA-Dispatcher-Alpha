@@ -1,7 +1,26 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:cdnjs.cloudflare.com)"
+      "WebFetch(domain:cdnjs.cloudflare.com)",
+      "Bash(sips -z 192 192 \"/Users/johannesfaist/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GA dispatcher alpha/Icon.PNG\" --out \"/Users/johannesfaist/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GA dispatcher alpha/icon-192.png\")",
+      "Bash(sips -z 512 512 \"/Users/johannesfaist/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GA dispatcher alpha/Icon.PNG\" --out \"/Users/johannesfaist/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GA dispatcher alpha/icon-512.png\")",
+      "Bash(sips -z 192 192 \"/Users/johannesfaist/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GA dispatcher alpha/IconDRK.PNG\" --out \"/Users/johannesfaist/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GA dispatcher alpha/icon-192.png\")",
+      "Bash(sips -z 512 512 \"/Users/johannesfaist/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GA dispatcher alpha/IconDRK.PNG\" --out \"/Users/johannesfaist/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GA dispatcher alpha/icon-512.png\")",
+      "Bash(python3 -:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(brew --prefix python)",
+      "Bash(/opt/homebrew/opt/python@3.14/bin/python3 --version)",
+      "Bash(/opt/homebrew/opt/python@3.14/libexec/bin/python3 --version)",
+      "Read(//opt/homebrew/Cellar/**)",
+      "Read(//opt/homebrew/Frameworks/Python.framework/**)",
+      "Bash(xargs kill:*)",
+      "Bash(chmod +x \"/Users/jofaist/Desktop/GA dispatcher alpha/ga-tracker-client/Sim-Test starten.command\")",
+      "Bash(mdfind -name node kind:executable)",
+      "Bash(grep -E \"^/.*/bin/node$\")",
+      "Read(//Users/jofaist/Library/**)",
+      "Read(//Users/jofaist/**)",
+      "Bash(/opt/homebrew/bin/brew list:*)"
     ]
   }
 }
