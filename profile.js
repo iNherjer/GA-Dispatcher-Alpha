@@ -2494,7 +2494,8 @@ function renderMapProfileFrames(timeMs) {
         }
     }
 
-    if (vpAltWaypoints.length > 0) {
+    // Altitude-Waypoint-Diamanten nur im RTE-Modus (distNM = Route-NM, im HDG unbrauchbar)
+    if (!isHdgMode && vpAltWaypoints.length > 0) {
         for (let i = 0; i < vpAltWaypoints.length; i++) {
             const wp = vpAltWaypoints[i], wx = xOf(wp.distNM), wy = yOf(wp.altFt);
             if (wx < viewMinX - 20 || wx > viewMaxX + 20) continue;
