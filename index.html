@@ -706,32 +706,32 @@
             <div id="mapProfileStrip" class="map-profile-strip">
                 <div class="map-profile-controls" style="gap: 4px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; scrollbar-width: none;">
                     <span style="color:#aaa; font-size:10px; font-family:monospace; margin-left:4px;">ZOOM</span>
-                    <button class="vp-ctrl-btn" onclick="vpZoom(10)">−</button>
-                    <span id="vpZoomDisplay" class="vp-ctrl-label" style="min-width:24px;">0%</span>
-                    <button class="vp-ctrl-btn" onclick="vpZoom(-10)">+</button>
+                    <button class="vp-ctrl-btn" onclick="vpZoom(10)" title="Horizontal rauszoomen">−</button>
+                    <span id="vpZoomDisplay" class="vp-ctrl-label" style="min-width:24px;" title="Aktueller Zoom-Level">0%</span>
+                    <button class="vp-ctrl-btn" onclick="vpZoom(-10)" title="Horizontal reinzoomen">+</button>
                     <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
-                    <span style="color:#aaa; font-size:10px; font-family:monospace;">MAX FT</span>
-                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(-1000)">−</button>
-                    <span id="yAxisDisplay" class="vp-ctrl-label" onclick="vpResetYAxis()" title="Klick = Auto Skalierung">AUTO</span>
-                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(1000)">+</button>
+                    <span style="color:#aaa; font-size:10px; font-family:monospace;" title="Maximale Höhe der Y-Achse (ft)">MAX FT</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(-1000)" title="Y-Achse verkleinern (−1000 ft)">−</button>
+                    <span id="yAxisDisplay" class="vp-ctrl-label" onclick="vpResetYAxis()" title="Klick = Auto-Skalierung zurücksetzen">AUTO</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(1000)" title="Y-Achse vergrößern (+1000 ft)">+</button>
                     <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
-                    <span style="color:#aaa; font-size:10px; font-family:monospace; margin-right:2px;">ALT</span>
-                    <button class="vp-ctrl-btn" onclick="vpChangeAlt(-500)">−</button>
-                    <span id="altMapInput" class="vp-ctrl-val" onclick="promptForAlt()" title="Klicken für manuelle Eingabe">4500</span>
-                    <button class="vp-ctrl-btn" onclick="vpChangeAlt(500)">+</button>
+                    <span style="color:#aaa; font-size:10px; font-family:monospace; margin-right:2px;" title="Reiseflughöhe (ft MSL)">ALT</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeAlt(-500)" title="Reiseflughöhe −500 ft">−</button>
+                    <span id="altMapInput" class="vp-ctrl-val" onclick="promptForAlt()" title="Reiseflughöhe – klicken für manuelle Eingabe">4500</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeAlt(500)" title="Reiseflughöhe +500 ft">+</button>
                     <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
-                    <span style="color:#aaa; font-size:10px; font-family:monospace;">V/S</span>
-                    <button class="vp-ctrl-btn" onclick="vpChangeRate(-100)">−</button>
-                    <span id="rateMapInput" class="vp-ctrl-val" onclick="promptForRate()" title="Klicken für manuelle Eingabe">500</span>
-                    <button class="vp-ctrl-btn" onclick="vpChangeRate(100)">+</button>
-                    <button id="btnToggleClouds" class="vp-toggle-cloud active" onclick="vpToggleClouds()" title="Wolken an/aus" style="margin-left:auto;">⛅</button>
-                    <button id="btnToggleLandmarks" class="vp-toggle-cloud active" onclick="vpToggleLandmarks()" title="Städte an/aus" style="margin-left:4px;">🏙️</button>
-                    <button id="btnToggleObstacles" class="vp-toggle-cloud active" onclick="vpToggleObstacles()" title="Hindernisse an/aus" style="margin-left:4px;">🗼</button>
-                    <button id="btnToggleLinear" class="vp-toggle-cloud active" onclick="vpToggleLinearFeatures()" title="Straßen & Flüsse an/aus" style="margin-left:4px;">🛣️</button>
-                    <button id="btnToggleAirspaces" class="vp-toggle-cloud active" onclick="vpToggleAirspaces()" title="Lufträume (Bg / Fg / Aus)" style="margin-left:4px; min-width:32px;">🛡️<span style="font-size:8px;vertical-align:sub;">BG</span></button>
-                    <button id="btnToggleVpMode" class="vp-toggle-cloud" onclick="vpToggleMode()" title="Route / Heading Modus" style="margin-left:6px; min-width:34px; font-size:9px; font-family:monospace; letter-spacing:0.5px;">RTE</button>
-                    <button id="btnToggleTrafficMap" class="vp-toggle-cloud active" onclick="window.toggleTrafficMap && toggleTrafficMap()" title="Traffic auf Karte an/aus" style="margin-left:6px; min-width:32px;">✈️</button>
-                    <button id="btnToggleTrafficProfile" class="vp-toggle-cloud active" onclick="window.vpToggleTrafficProfile && vpToggleTrafficProfile()" title="Traffic im Höhenprofil an/aus" style="margin-left:4px; min-width:32px; font-size:9px;">📡</button>
+                    <span style="color:#aaa; font-size:10px; font-family:monospace;" title="Steig- und Sinkrate (ft/min)">V/S</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeRate(-100)" title="V/S −100 ft/min">−</button>
+                    <span id="rateMapInput" class="vp-ctrl-val" onclick="promptForRate()" title="Steig-/Sinkrate – klicken für manuelle Eingabe">500</span>
+                    <button class="vp-ctrl-btn" onclick="vpChangeRate(100)" title="V/S +100 ft/min">+</button>
+                    <button id="btnToggleClouds" class="vp-toggle-cloud active" onclick="vpToggleClouds()" title="Wetter-Wolkenbasis aus METAR an/aus" style="margin-left:auto;">⛅</button>
+                    <button id="btnToggleLandmarks" class="vp-toggle-cloud active" onclick="vpToggleLandmarks()" title="Städte & Sehenswürdigkeiten an/aus" style="margin-left:4px;">🏙️</button>
+                    <button id="btnToggleObstacles" class="vp-toggle-cloud active" onclick="vpToggleObstacles()" title="Hindernisse (Masten, Windkraft) an/aus" style="margin-left:4px;">🗼</button>
+                    <button id="btnToggleLinear" class="vp-toggle-cloud active" onclick="vpToggleLinearFeatures()" title="Flüsse & Autobahnen an/aus" style="margin-left:4px;">🛣️</button>
+                    <button id="btnToggleAirspaces" class="vp-toggle-cloud active" onclick="vpToggleAirspaces()" title="Lufträume: Hintergrund / Vordergrund / Aus" style="margin-left:4px; min-width:32px;">🛡️<span style="font-size:8px;vertical-align:sub;">BG</span></button>
+                    <button id="btnToggleVpMode" class="vp-toggle-cloud" onclick="vpToggleMode()" title="Zwischen Routen-Modus (RTE) und Heading-Modus (HDG) wechseln" style="margin-left:6px; min-width:34px; font-size:9px; font-family:monospace; letter-spacing:0.5px; color:#6f6; border-color:#4a4; background:#0d200d;">RTE</button>
+                    <button id="btnToggleTrafficMap" class="vp-toggle-cloud active" onclick="window.toggleTrafficMap && toggleTrafficMap()" title="AI Traffic auf Karte an/aus" style="margin-left:6px; min-width:32px;">✈️</button>
+                    <button id="btnToggleTrafficProfile" class="vp-toggle-cloud active" onclick="window.vpToggleTrafficProfile && vpToggleTrafficProfile()" title="AI Traffic im Höhenprofil an/aus" style="margin-left:4px; min-width:32px; font-size:9px;">📡</button>
                     <span style="color:#555; font-size:10px; margin: 0 4px;">|</span>
                     <button id="btnSimMode" class="vp-toggle-cloud" onclick="window.startSimMode && startSimMode()" title="Route simulieren" style="min-width:40px; font-size:9px; font-family:monospace; letter-spacing:0.5px; background:#1a3a1a; color:#6f6;">▶&thinsp;SIM</button>
                 </div>

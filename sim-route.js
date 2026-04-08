@@ -220,8 +220,12 @@
     function _getFlightProfile(cruiseAlt, rate, gs) {
         const elevData = typeof vpElevationData !== 'undefined' ? vpElevationData : null;
         if (!elevData || elevData.length < 2) return null;
-        // Cache-Key: Route + CRZ + V/S + GS
-        const key = `${_routeHash()}_${cruiseAlt}_${rate}_${Math.round(gs / 10)}`;
+        // Cache-Key: Route + CRZ + V/S + GS + Segment-Alts (verschobene Segmente)
+        const segKey = (typeof vpSegmentAlts !== 'undefined' && vpSegmentAlts.length > 0)
+            ? vpSegmentAlts.join(',') : '';
+        const wpKey = (typeof vpAltWaypoints !== 'undefined' && vpAltWaypoints.length > 0)
+            ? vpAltWaypoints.map(w => `${w.distNM.toFixed(1)}:${w.altFt}`).join(',') : '';
+        const key = `${_routeHash()}_${cruiseAlt}_${rate}_${Math.round(gs / 10)}_${wpKey}_${segKey}`;
         if (_fpCache && _fpCacheKey === key) return _fpCache;
         if (typeof computeFlightProfile !== 'function') return null;
         _fpCache = computeFlightProfile(elevData, cruiseAlt, rate, rate, gs);
@@ -242,23 +246,9 @@
         // Berücksichtigt Flugplatz-Elevation am Start/Ziel, TOC, TOD
         const fp = _getFlightProfile(cruiseAlt, rate, gs);
         if (fp && typeof getExactAltAtDist === 'function') {
-            let alt = getExactAltAtDist(distNM, fp, cruiseAlt);
-
-            // Priorität 1a: vpAltWaypoints (manuell gesetzte Ankerpunkte) überschreiben Segmente
-            if (typeof vpAltWaypoints !== 'undefined' && vpAltWaypoints.length >= 2) {
-                const wps = vpAltWaypoints;
-                if (distNM >= wps[0].distNM && distNM <= wps[wps.length - 1].distNM) {
-                    for (let i = 0; i < wps.length - 1; i++) {
-                        const a = wps[i], b = wps[i + 1];
-                        if (distNM >= a.distNM && distNM <= b.distNM) {
-                            const t = (distNM - a.distNM) / (b.distNM - a.distNM);
-                            alt = a.altFt + (b.altFt - a.altFt) * t;
-                            break;
-                        }
-                    }
-                }
-            }
-            return alt;
+            // computeFlightProfile berücksichtigt bereits vpAltWaypoints + vpSegmentAlts —
+            // getExactAltAtDist liest exakt das was die rote Linie zeichnet
+            return getExactAltAtDist(distNM, fp, cruiseAlt);
         }
 
         // Priorität 2: Fallback ohne Terrain-Daten – Flugplatzhöhe aus elevData wenn vorhanden
