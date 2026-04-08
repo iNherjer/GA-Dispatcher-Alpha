@@ -2296,50 +2296,75 @@ function renderMapProfileFrames(timeMs) {
     }
     if (vpShowClouds && !isHdgMode) vpDrawAnimatedWeather(fgCtx, xOf, yOf, totalDist, elevData, timeMs, viewMinX, viewMaxX);
 
-    if (fpResult && fpResult.profile) {
-        fgCtx.beginPath();
-        let shStarted = false;
-        for (let i = 0; i < fpResult.profile.length; i++) {
-            const x = xOf(fpResult.profile[i].distNM);
-            if (x < viewMinX - 100 && i < fpResult.profile.length - 1 && xOf(fpResult.profile[i+1].distNM) < viewMinX) continue;
-            if (x > viewMaxX + 100 && i > 0 && xOf(fpResult.profile[i-1].distNM) > viewMaxX) continue;
-            const y = yOf(fpResult.profile[i].altFt) + 1;
-            if (!shStarted) { fgCtx.moveTo(x, y); shStarted = true; } else { fgCtx.lineTo(x, y); }
-        }
-        fgCtx.strokeStyle = 'rgba(0,0,0,0.3)'; fgCtx.lineWidth = 3; fgCtx.stroke();
+    // Fluglinie (Climb/Cruise/Descend) und Route-Waypoint-Marker nur im RTE-Modus
+    // Im HDG-Modus wären distNM-Werte (NM) falsch durch xOf() das Minuten erwartet
+    if (!isHdgMode) {
+        if (fpResult && fpResult.profile) {
+            fgCtx.beginPath();
+            let shStarted = false;
+            for (let i = 0; i < fpResult.profile.length; i++) {
+                const x = xOf(fpResult.profile[i].distNM);
+                if (x < viewMinX - 100 && i < fpResult.profile.length - 1 && xOf(fpResult.profile[i+1].distNM) < viewMinX) continue;
+                if (x > viewMaxX + 100 && i > 0 && xOf(fpResult.profile[i-1].distNM) > viewMaxX) continue;
+                const y = yOf(fpResult.profile[i].altFt) + 1;
+                if (!shStarted) { fgCtx.moveTo(x, y); shStarted = true; } else { fgCtx.lineTo(x, y); }
+            }
+            fgCtx.strokeStyle = 'rgba(0,0,0,0.3)'; fgCtx.lineWidth = 3; fgCtx.stroke();
 
-        fgCtx.beginPath();
-        let rdStarted = false;
-        for (let i = 0; i < fpResult.profile.length; i++) {
-            const x = xOf(fpResult.profile[i].distNM);
-            if (x < viewMinX - 100 && i < fpResult.profile.length - 1 && xOf(fpResult.profile[i+1].distNM) < viewMinX) continue;
-            if (x > viewMaxX + 100 && i > 0 && xOf(fpResult.profile[i-1].distNM) > viewMaxX) continue;
-            const y = yOf(fpResult.profile[i].altFt);
-            if (!rdStarted) { fgCtx.moveTo(x, y); rdStarted = true; } else { fgCtx.lineTo(x, y); }
+            fgCtx.beginPath();
+            let rdStarted = false;
+            for (let i = 0; i < fpResult.profile.length; i++) {
+                const x = xOf(fpResult.profile[i].distNM);
+                if (x < viewMinX - 100 && i < fpResult.profile.length - 1 && xOf(fpResult.profile[i+1].distNM) < viewMinX) continue;
+                if (x > viewMaxX + 100 && i > 0 && xOf(fpResult.profile[i-1].distNM) > viewMaxX) continue;
+                const y = yOf(fpResult.profile[i].altFt);
+                if (!rdStarted) { fgCtx.moveTo(x, y); rdStarted = true; } else { fgCtx.lineTo(x, y); }
+            }
+            fgCtx.strokeStyle = '#ff4444'; fgCtx.lineWidth = 2; fgCtx.stroke();
         }
-        fgCtx.strokeStyle = '#ff4444'; fgCtx.lineWidth = 2; fgCtx.stroke();
     }
 
+    // CRZ-Höhenlinie (gestrichelt, horizontal) – in beiden Modi
     fgCtx.beginPath(); fgCtx.setLineDash([6, 4]); fgCtx.strokeStyle = 'rgba(255, 68, 68, 0.3)'; fgCtx.lineWidth = 1;
-    fgCtx.moveTo(Math.max(padLeft, viewMinX), yOf(cruiseAlt)); 
-    fgCtx.lineTo(Math.min(padLeft + plotW, viewMaxX), yOf(cruiseAlt)); 
+    fgCtx.moveTo(Math.max(padLeft, viewMinX), yOf(cruiseAlt));
+    fgCtx.lineTo(Math.min(padLeft + plotW, viewMaxX), yOf(cruiseAlt));
     fgCtx.stroke(); fgCtx.setLineDash([]);
-    
     fgCtx.fillStyle = 'rgba(255, 68, 68, 0.7)'; fgCtx.font = 'bold 10px Arial'; fgCtx.textAlign = 'left';
     fgCtx.fillText('CRZ ' + cruiseAlt + ' ft', Math.max(padLeft + 4, viewMinX + 4), yOf(cruiseAlt) - 4);
 
-    let wpCumDist = 0;
-    for (let i = 0; i < routeWaypoints.length; i++) {
-        if (i > 0) wpCumDist += calcNav(routeWaypoints[i - 1].lat, routeWaypoints[i - 1].lng || routeWaypoints[i - 1].lon, routeWaypoints[i].lat, routeWaypoints[i].lng || routeWaypoints[i].lon).dist;
-        const x = xOf(wpCumDist);
-        if (x < viewMinX - 40 || x > viewMaxX + 40) continue;
+    // Im HDG-Modus: "JETZT"-Linie bei VP_HDG_LOOKBACK_MIN (Flugzeugposition)
+    if (isHdgMode) {
+        const nowX = xOf(VP_HDG_LOOKBACK_MIN);
+        if (nowX >= viewMinX && nowX <= viewMaxX) {
+            fgCtx.beginPath();
+            fgCtx.setLineDash([3, 4]);
+            fgCtx.strokeStyle = 'rgba(255,255,255,0.18)';
+            fgCtx.lineWidth = 1;
+            fgCtx.moveTo(nowX, padTop);
+            fgCtx.lineTo(nowX, padTop + plotH);
+            fgCtx.stroke();
+            fgCtx.setLineDash([]);
+            fgCtx.fillStyle = 'rgba(255,255,255,0.35)';
+            fgCtx.font = '8px Arial'; fgCtx.textAlign = 'center';
+            fgCtx.fillText('NOW', nowX, padTop + plotH + 12);
+        }
+    }
 
-        fgCtx.beginPath(); fgCtx.setLineDash([2, 3]); fgCtx.strokeStyle = 'rgba(255,255,255,0.2)'; fgCtx.lineWidth = 1;
-        fgCtx.moveTo(x, padTop); fgCtx.lineTo(x, padTop + plotH); fgCtx.stroke(); fgCtx.setLineDash([]);
-        let wpLabel = (i === 0) ? (currentStartICAO || 'DEP') : ((i === routeWaypoints.length - 1) ? (currentDestICAO || 'DEST') : (routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i));
-        if (!zoomFactor || zoomFactor < 2) { if (wpLabel.length > 6) wpLabel = wpLabel.substring(0, 5) + '…'; } else { if (wpLabel.length > 12) wpLabel = wpLabel.substring(0, 11) + '…'; }
-        fgCtx.beginPath(); fgCtx.arc(x, padTop + plotH + 3, 3, 0, Math.PI * 2); fgCtx.fillStyle = i === 0 ? '#44ff44' : (i === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00'); fgCtx.fill();
-        fgCtx.fillStyle = '#bbb'; fgCtx.font = (zoomFactor >= 2) ? 'bold 11px Arial' : 'bold 9px Arial'; fgCtx.textAlign = 'center'; fgCtx.fillText(wpLabel, x, padTop + plotH + 16);
+    // Route-Waypoint-Marker nur im RTE-Modus (Positionen in NM, im HDG unbrauchbar)
+    if (!isHdgMode) {
+        let wpCumDist = 0;
+        for (let i = 0; i < routeWaypoints.length; i++) {
+            if (i > 0) wpCumDist += calcNav(routeWaypoints[i - 1].lat, routeWaypoints[i - 1].lng || routeWaypoints[i - 1].lon, routeWaypoints[i].lat, routeWaypoints[i].lng || routeWaypoints[i].lon).dist;
+            const x = xOf(wpCumDist);
+            if (x < viewMinX - 40 || x > viewMaxX + 40) continue;
+
+            fgCtx.beginPath(); fgCtx.setLineDash([2, 3]); fgCtx.strokeStyle = 'rgba(255,255,255,0.2)'; fgCtx.lineWidth = 1;
+            fgCtx.moveTo(x, padTop); fgCtx.lineTo(x, padTop + plotH); fgCtx.stroke(); fgCtx.setLineDash([]);
+            let wpLabel = (i === 0) ? (currentStartICAO || 'DEP') : ((i === routeWaypoints.length - 1) ? (currentDestICAO || 'DEST') : (routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i));
+            if (!zoomFactor || zoomFactor < 2) { if (wpLabel.length > 6) wpLabel = wpLabel.substring(0, 5) + '…'; } else { if (wpLabel.length > 12) wpLabel = wpLabel.substring(0, 11) + '…'; }
+            fgCtx.beginPath(); fgCtx.arc(x, padTop + plotH + 3, 3, 0, Math.PI * 2); fgCtx.fillStyle = i === 0 ? '#44ff44' : (i === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00'); fgCtx.fill();
+            fgCtx.fillStyle = '#bbb'; fgCtx.font = (zoomFactor >= 2) ? 'bold 11px Arial' : 'bold 9px Arial'; fgCtx.textAlign = 'center'; fgCtx.fillText(wpLabel, x, padTop + plotH + 16);
+        }
     }
 
     // A: SCRUB-MARKER (Magenta Linie bei Hover)
