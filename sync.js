@@ -776,8 +776,9 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             smoothedGS = smoothedGS === 0 ? gs : smoothedGS * 0.7 + gs * 0.3;
             smoothedVS = smoothedVS === 0 ? vs : smoothedVS * 0.7 + vs * 0.3;
 
-            // Auto-HDG: Bei erster echter GPS-Bewegung HDG-Modus aktivieren
+            // Auto-HDG: Bei erster echter GPS-Bewegung HDG-Modus aktivieren (nicht im Sim-Modus)
             if (smoothedGS > 20 && !window._hdgAutoActivated
+                && !window.simModeActive
                 && typeof vpMode !== 'undefined' && vpMode === 'ROUTE'
                 && typeof vpToggleMode === 'function') {
                 window._hdgAutoActivated = true;
@@ -1052,6 +1053,21 @@ window.toggleTrafficMap = function() {
     } else if (window.vpTrafficData?.length) {
         updateTrafficOnMap(window.vpTrafficData, window.lastLiveGpsPos?.alt);
     }
+};
+
+// Sim-Modus: Flugzeug-Icon, Trail und Profil zurücksetzen
+window.hideLivePlane = function () {
+    if (liveGpsMarker) { liveGpsMarker.remove(); liveGpsMarker = null; }
+    if (liveSnailTrail) { liveSnailTrail.setLatLngs([]); }
+    // Prediction-Vektoren entfernen
+    if (predictionLine) { predictionLine.setLatLngs([]); }
+    predictionMarkers.forEach(m => { try { m.remove(); } catch(e) {} });
+    predictionMarkers = [];
+    // Profil zurücksetzen
+    if (typeof vpUpdateLiveAircraft === 'function') vpUpdateLiveAircraft(-1, 0, 0);
+    window.lastLiveGpsPos = null;
+    lastGpsTickDetails = null;
+    lastTrailPoint = null;
 };
 
 // Auto-Start & Login on app load
