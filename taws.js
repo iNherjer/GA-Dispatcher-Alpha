@@ -20,6 +20,20 @@ const _tawsCtx = _tawsCanvas.getContext('2d', { willReadFrequently: true });
 let _tawsLastVoiceAlert = 0;
 const TAWS_VOICE_COOLDOWN = 15000; // 15 Sekunden
 
+// iOS Safari: speechSynthesis erfordert eine User-Geste zum Aktivieren.
+// Beim ersten Touch/Click eine stille Utterance sprechen um TTS zu "entsperren".
+let _tawsSpeechUnlocked = false;
+function _tawsUnlockSpeech() {
+    if (_tawsSpeechUnlocked || typeof speechSynthesis === 'undefined') return;
+    _tawsSpeechUnlocked = true;
+    const u = new SpeechSynthesisUtterance('');
+    u.volume = 0;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+}
+document.addEventListener('touchstart', _tawsUnlockSpeech, { once: true, passive: true });
+document.addEventListener('click',      _tawsUnlockSpeech, { once: true });
+
 /**
  * Tile-Koordinaten aus lat/lon berechnen (Slippy Map)
  */
@@ -151,6 +165,7 @@ async function checkTerrainAlongPath(points) {
             msg.pitch = 1.0;
             msg.volume = 1.0;
             msg.lang = 'en-US';
+            speechSynthesis.cancel(); // iOS: Queue leeren, sonst hängt es
             speechSynthesis.speak(msg);
         }
     }
