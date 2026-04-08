@@ -959,30 +959,57 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
 }
 
 // ─── TRAFFIC AUF KARTE ────────────────────────────────────────────────────────
+// Proximity-Matching: statt exaktem Key-Lookup wird der nächstgelegene
+// bestehende Marker gefunden und geupdated. Damit funktioniert es auch bei
+// wechselnden SimConnect-IDs (MSFS Online-Traffic) und Formationsflug.
+const TRAFFIC_MATCH_DEG = 0.025; // ~2 km Matching-Schwelle
+
+function _trafficIconHtml(hdg, relAltStr, relAltColor, callsign) {
+    return `<div style="position:relative; transform:translate(-10px,-13px); pointer-events:none; text-align:center;">
+        <svg class="trf-svg" viewBox="-8 -12 16 24" width="20" height="26"
+             style="transform:rotate(${hdg}deg); display:block; margin:0 auto;
+                    filter:drop-shadow(0 0 2px rgba(0,0,0,0.9));">
+            <ellipse cx="0" cy="0"  rx="1.8" ry="10" fill="#00ccff" opacity="0.95"/>
+            <ellipse cx="0" cy="-1" rx="8"   ry="1.8" fill="#00ccff" opacity="0.95"/>
+            <ellipse cx="0" cy="8"  rx="4"   ry="1.2" fill="#00ccff" opacity="0.85"/>
+        </svg>
+        <div class="trf-alt" style="font-size:8px;font-weight:bold;color:${relAltColor};
+             text-shadow:1px 1px 2px #000;line-height:1.1;white-space:nowrap;">${relAltStr}</div>
+        <div style="font-size:7px;color:#aaddff;text-shadow:1px 1px 2px #000;
+             line-height:1;white-space:nowrap;">${callsign}</div>
+    </div>`;
+}
+
 function updateTrafficOnMap(aircraft, ownAlt) {
     if (typeof map === 'undefined' || !map || typeof L === 'undefined') return;
 
-    const currentKeys = new Set();
+    const claimedKeys = new Set(); // Marker die in diesem Update bereits belegt wurden
 
     for (const ac of aircraft) {
-        const key = String(ac.id ?? (ac.callsign ?? (ac.lat + ',' + ac.lon)));
-        currentKeys.add(key);
-
         const relAlt = ownAlt != null ? ac.alt - ownAlt : null;
         const relAltStr = relAlt != null
-            ? (relAlt >= 0 ? '+' : '') + Math.round(relAlt / 100) * 100
-            : '';
+            ? (relAlt >= 0 ? '+' : '') + Math.round(relAlt / 100) * 100 : '';
         const relAltColor = relAlt == null ? '#aaa'
             : Math.abs(relAlt) < 300 ? '#ff8800'
             : relAlt > 0 ? '#44ff44' : '#aaaaaa';
         const hdg = ac.hdg ?? 0;
-        const callsign = ac.callsign ?? ('AI-' + key);
+        const callsign = ac.callsign ?? ('AI-' + String(ac.id ?? (ac.lat + ',' + ac.lon)));
 
-        if (liveTrafficMarkers[key]) {
-            // Existierenden Marker aktualisieren
-            const t = liveTrafficMarkers[key];
-            t.marker.setLatLng([ac.lat, ac.lon]);
-            const el = t.marker.getElement();
+        // Nächstgelegenen unbelegten Marker suchen
+        let bestKey = null, bestDist = TRAFFIC_MATCH_DEG;
+        for (const [key, t] of Object.entries(liveTrafficMarkers)) {
+            if (claimedKeys.has(key)) continue;
+            const d = Math.hypot(t.lat - ac.lat, t.lon - ac.lon);
+            if (d < bestDist) { bestDist = d; bestKey = key; }
+        }
+
+        if (bestKey) {
+            // Bestehenden Marker in-place aktualisieren
+            claimedKeys.add(bestKey);
+            liveTrafficMarkers[bestKey].lat = ac.lat;
+            liveTrafficMarkers[bestKey].lon = ac.lon;
+            liveTrafficMarkers[bestKey].marker.setLatLng([ac.lat, ac.lon]);
+            const el = liveTrafficMarkers[bestKey].marker.getElement();
             if (el) {
                 const svgEl = el.querySelector('.trf-svg');
                 if (svgEl) svgEl.style.transform = `rotate(${hdg}deg)`;
@@ -991,42 +1018,24 @@ function updateTrafficOnMap(aircraft, ownAlt) {
             }
         } else {
             // Neuen Marker erstellen
-            const iconHtml = `
-                <div style="position:relative; transform:translate(-10px,-13px); pointer-events:none; text-align:center;">
-                    <svg class="trf-svg" viewBox="-8 -12 16 24" width="20" height="26"
-                         style="transform:rotate(${hdg}deg); display:block; margin:0 auto;
-                                filter:drop-shadow(0 0 2px rgba(0,0,0,0.9));">
-                        <!-- Rumpf -->
-                        <ellipse cx="0" cy="0" rx="1.8" ry="10" fill="#00ccff" opacity="0.95"/>
-                        <!-- Haupttragfläche -->
-                        <ellipse cx="0" cy="-1" rx="8" ry="1.8" fill="#00ccff" opacity="0.95"/>
-                        <!-- Leitwerk -->
-                        <ellipse cx="0" cy="8"  rx="4"   ry="1.2" fill="#00ccff" opacity="0.85"/>
-                    </svg>
-                    <div class="trf-alt" style="font-size:8px; font-weight:bold; color:${relAltColor};
-                         text-shadow:1px 1px 2px #000; line-height:1.1; white-space:nowrap;">${relAltStr}</div>
-                    <div style="font-size:7px; color:#aaddff; text-shadow:1px 1px 2px #000;
-                         line-height:1; white-space:nowrap;">${callsign}</div>
-                </div>`;
-
+            const newKey = String(ac.id ?? (Date.now() + Math.random()));
+            claimedKeys.add(newKey);
             const icon = L.divIcon({
-                html: iconHtml,
+                html: _trafficIconHtml(hdg, relAltStr, relAltColor, callsign),
                 className: 'traffic-marker',
                 iconSize: [0, 0],
                 iconAnchor: [0, 0]
             });
             const marker = L.marker([ac.lat, ac.lon], {
-                icon,
-                interactive: false,
-                zIndexOffset: 5000
+                icon, interactive: false, zIndexOffset: 5000
             }).addTo(map);
-            liveTrafficMarkers[key] = { marker };
+            liveTrafficMarkers[newKey] = { marker, lat: ac.lat, lon: ac.lon };
         }
     }
 
-    // Veraltete Marker entfernen
+    // Nicht beanspruchte Marker entfernen (Flieger aus der Range verschwunden)
     for (const key of Object.keys(liveTrafficMarkers)) {
-        if (!currentKeys.has(key)) {
+        if (!claimedKeys.has(key)) {
             liveTrafficMarkers[key].marker.remove();
             delete liveTrafficMarkers[key];
         }

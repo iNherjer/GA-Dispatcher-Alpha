@@ -102,8 +102,8 @@ function connectSimConnect(ws, syncId, pin) {
           } else return;
           if (tLat === 0 && tLon === 0) return; // Skip invalid positions
           // Stabiler Key aus gerundeter Position (SimConnect vergibt bei jedem Request neue Object-IDs)
-          // 0.01° ≈ 1 km – Flugzeug bleibt bei normalen Geschwindigkeiten mehrere Zyklen in derselben Zelle
-          const stableKey = `${Math.round(tLat * 100)}_${Math.round(tLon * 100)}`;
+          // 0.001° ≈ 100 m – auch Formation-Flieger mit >100m Abstand erhalten eigene Zellen
+          const stableKey = `${Math.round(tLat * 1000)}_${Math.round(tLon * 1000)}`;
           trafficBuffer[stableKey] = {
             id: stableKey,
             lat: parseFloat(tLat.toFixed(5)),
