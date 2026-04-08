@@ -1,5 +1,5 @@
 /**
- * GA Dispatcher — Simulations-Testskript
+ * VFR Multitool — Simulations-Testskript
  * Sendet synthetische GPS-Daten an den Relay-Server (Raum DEINA, PIN 0815)
  *
  * Flugmuster (wiederholt, 8 Phasen à 15s):
@@ -76,7 +76,7 @@ function moveForward(lat, lon, hdgDeg, distM) {
 }
 
 function startSim() {
-    console.log(`\n🛫 GA Dispatcher Sim-Test`);
+    console.log(`\n🛫 VFR Multitool Sim-Test`);
     console.log(`   Server : ${WS_URL}`);
     console.log(`   Raum   : ${SYNC_ID}  PIN: ${PIN}`);
     console.log(`   Start  : ${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E  |  ${alt}ft  |  HDG ${hdg}°`);

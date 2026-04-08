@@ -28,7 +28,7 @@ function startTracker(syncId, pin) {
 }
 
 function connectSimConnect(ws, syncId, pin) {
-  open('GA-Tracker-v206', 5)
+  open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       console.log("✈️ MSFS gefunden! Warte auf Positionsdaten...");
 
