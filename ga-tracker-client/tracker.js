@@ -101,8 +101,11 @@ function connectSimConnect(ws, syncId, pin) {
             tLat = d.readDouble(); tLon = d.readDouble(); tAlt = d.readDouble(); tHdg = d.readDouble(); tGs = d.readDouble();
           } else return;
           if (tLat === 0 && tLon === 0) return; // Skip invalid positions
-          trafficBuffer[recv.objectID] = {
-            id: recv.objectID,
+          // Stabiler Key aus gerundeter Position (SimConnect vergibt bei jedem Request neue Object-IDs)
+          // 0.01° ≈ 1 km – Flugzeug bleibt bei normalen Geschwindigkeiten mehrere Zyklen in derselben Zelle
+          const stableKey = `${Math.round(tLat * 100)}_${Math.round(tLon * 100)}`;
+          trafficBuffer[stableKey] = {
+            id: stableKey,
             lat: parseFloat(tLat.toFixed(5)),
             lon: parseFloat(tLon.toFixed(5)),
             alt: Math.round(tAlt),
