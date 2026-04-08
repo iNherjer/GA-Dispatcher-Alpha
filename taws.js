@@ -18,7 +18,7 @@ const _tawsCtx = _tawsCanvas.getContext('2d', { willReadFrequently: true });
 
 // Voice-Alert Cooldown (verhindert Spam)
 let _tawsLastVoiceAlert = 0;
-const TAWS_VOICE_COOLDOWN = 20000; // 20 Sekunden
+const TAWS_VOICE_COOLDOWN = 15000; // 15 Sekunden
 
 // ── Audio-System (iOS-sicher via AudioContext) ────────────────────────────────
 // speechSynthesis funktioniert im iOS-PWA-Modus nicht zuverlässig.
@@ -210,7 +210,7 @@ async function checkTerrainAlongPath(points) {
     if (hasImmediateThreat) {
         // Landing-Suppression: GS < 65 kts → Landephase, kein Alert
         const gs = window.smoothedGS || 0;
-        const isLanding = gs > 5 && gs < 65;
+        const isLanding = gs > 5 && gs < 75;
 
         const now = Date.now();
         if (!isLanding && now - _tawsLastVoiceAlert > TAWS_VOICE_COOLDOWN) {
