@@ -37,6 +37,11 @@ let lastPredictionUpdate = 0;
 let smoothedGS = 0;
 let smoothedVS = 0;
 
+// --- LIVE TRAFFIC ---
+let liveTrafficMarkers = {}; // key → { marker }
+window.vpTrafficData = [];
+window.vpTrafficMapVisible = true;
+
 function toggleAutoFollow() {
     isAutoFollow = !isAutoFollow;
     const btn = document.getElementById('autoFollowBtn');
@@ -661,6 +666,12 @@ window.connectToLiveGPS = async function(syncId) {
                     }, 3000);
                 }
             }
+            if (data.type === 'traffic') {
+                window.vpTrafficData = data.aircraft || [];
+                if (window.vpTrafficMapVisible) {
+                    updateTrafficOnMap(window.vpTrafficData, window.lastLiveGpsPos?.alt);
+                }
+            }
         } catch (e) {
             console.error('[GPS] Fehler beim Lesen der Daten:', e);
         }
@@ -916,6 +927,93 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         }
     }
 }
+
+// ─── TRAFFIC AUF KARTE ────────────────────────────────────────────────────────
+function updateTrafficOnMap(aircraft, ownAlt) {
+    if (typeof map === 'undefined' || !map || typeof L === 'undefined') return;
+
+    const currentKeys = new Set();
+
+    for (const ac of aircraft) {
+        const key = String(ac.id ?? (ac.callsign ?? (ac.lat + ',' + ac.lon)));
+        currentKeys.add(key);
+
+        const relAlt = ownAlt != null ? ac.alt - ownAlt : null;
+        const relAltStr = relAlt != null
+            ? (relAlt >= 0 ? '+' : '') + Math.round(relAlt / 100) * 100
+            : '';
+        const relAltColor = relAlt == null ? '#aaa'
+            : Math.abs(relAlt) < 300 ? '#ff8800'
+            : relAlt > 0 ? '#44ff44' : '#aaaaaa';
+        const hdg = ac.hdg ?? 0;
+        const callsign = ac.callsign ?? ('AI-' + key);
+
+        if (liveTrafficMarkers[key]) {
+            // Existierenden Marker aktualisieren
+            const t = liveTrafficMarkers[key];
+            t.marker.setLatLng([ac.lat, ac.lon]);
+            const el = t.marker.getElement();
+            if (el) {
+                const svgEl = el.querySelector('.trf-svg');
+                if (svgEl) svgEl.style.transform = `rotate(${hdg}deg)`;
+                const altEl = el.querySelector('.trf-alt');
+                if (altEl) { altEl.textContent = relAltStr; altEl.style.color = relAltColor; }
+            }
+        } else {
+            // Neuen Marker erstellen
+            const iconHtml = `
+                <div style="position:relative; transform:translate(-10px,-13px); pointer-events:none; text-align:center;">
+                    <svg class="trf-svg" viewBox="-8 -12 16 24" width="20" height="26"
+                         style="transform:rotate(${hdg}deg); display:block; margin:0 auto;
+                                filter:drop-shadow(0 0 2px rgba(0,0,0,0.9));">
+                        <!-- Rumpf -->
+                        <ellipse cx="0" cy="0" rx="1.8" ry="10" fill="#00ccff" opacity="0.95"/>
+                        <!-- Haupttragfläche -->
+                        <ellipse cx="0" cy="-1" rx="8" ry="1.8" fill="#00ccff" opacity="0.95"/>
+                        <!-- Leitwerk -->
+                        <ellipse cx="0" cy="8"  rx="4"   ry="1.2" fill="#00ccff" opacity="0.85"/>
+                    </svg>
+                    <div class="trf-alt" style="font-size:8px; font-weight:bold; color:${relAltColor};
+                         text-shadow:1px 1px 2px #000; line-height:1.1; white-space:nowrap;">${relAltStr}</div>
+                    <div style="font-size:7px; color:#aaddff; text-shadow:1px 1px 2px #000;
+                         line-height:1; white-space:nowrap;">${callsign}</div>
+                </div>`;
+
+            const icon = L.divIcon({
+                html: iconHtml,
+                className: 'traffic-marker',
+                iconSize: [0, 0],
+                iconAnchor: [0, 0]
+            });
+            const marker = L.marker([ac.lat, ac.lon], {
+                icon,
+                interactive: false,
+                zIndexOffset: 5000
+            }).addTo(map);
+            liveTrafficMarkers[key] = { marker };
+        }
+    }
+
+    // Veraltete Marker entfernen
+    for (const key of Object.keys(liveTrafficMarkers)) {
+        if (!currentKeys.has(key)) {
+            liveTrafficMarkers[key].marker.remove();
+            delete liveTrafficMarkers[key];
+        }
+    }
+}
+
+window.toggleTrafficMap = function() {
+    window.vpTrafficMapVisible = !window.vpTrafficMapVisible;
+    const btn = document.getElementById('btnToggleTrafficMap');
+    if (btn) btn.classList.toggle('active', window.vpTrafficMapVisible);
+    if (!window.vpTrafficMapVisible) {
+        Object.values(liveTrafficMarkers).forEach(t => t.marker.remove());
+        liveTrafficMarkers = {};
+    } else if (window.vpTrafficData?.length) {
+        updateTrafficOnMap(window.vpTrafficData, window.lastLiveGpsPos?.alt);
+    }
+};
 
 // Auto-Start & Login on app load
 document.addEventListener('DOMContentLoaded', () => {

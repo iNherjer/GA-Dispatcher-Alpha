@@ -4167,3 +4167,10 @@ body.theme-navcom .btn-menu:active {
 .prediction-tooltip::before {
     border-top-color: rgba(0, 0, 0, 0.7) !important;
 }
+
+/* ─── TRAFFIC MARKER ─────────────────────────────────────────────────────── */
+.traffic-marker {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}

@@ -59,6 +59,9 @@ let vpLandmarks = [];
 let vpObstacles = [];
 let vpLinearFeatures = [];
 
+// Traffic im Profil
+window.vpTrafficProfileVisible = true;
+
 async function fetchProfileLandmarks(elevData) {
     if (!elevData || elevData.length < 2) return [];
     let minL = 90, maxL = -90, minLo = 180, maxLo = -180;
@@ -1887,6 +1890,113 @@ function renderMapProfile() {
     }
 }
 
+// ─── TRAFFIC PROJEKTION AUF ROUTE ────────────────────────────────────────────
+function vpProjectTrafficOnRoute(elevData) {
+    if (!window.vpTrafficData?.length || !elevData?.length) return [];
+    const MAX_LAT_NM = 5;
+    const result = [];
+    for (const ac of window.vpTrafficData) {
+        let bestDist = Infinity, bestDistNM = 0;
+        for (const ep of elevData) {
+            if (ep.lat == null) continue;
+            const d = calcNav(ac.lat, ac.lon, ep.lat, ep.lon).dist;
+            if (d < bestDist) { bestDist = d; bestDistNM = ep.distNM; }
+        }
+        if (bestDist <= MAX_LAT_NM) {
+            result.push({ id: ac.id, callsign: ac.callsign, projDistNM: bestDistNM, altFt: ac.alt, lateralNM: bestDist });
+        }
+    }
+    return result;
+}
+
+// ─── TRAFFIC PROJEKTION AUF HEADING (HDG-MODUS) ──────────────────────────────
+function vpProjectTrafficOnHeading() {
+    if (!window.vpTrafficData?.length || !window.lastLiveGpsPos) return [];
+    const { lat: oLat, lon: oLon, hdg: oHdg } = window.lastLiveGpsPos;
+    const gs = (typeof smoothedGS !== 'undefined' && smoothedGS > 20) ? smoothedGS : 80;
+    const hdgRad = oHdg * Math.PI / 180;
+    const hdgSin = Math.sin(hdgRad), hdgCos = Math.cos(hdgRad);
+    const MAX_LAT_NM = 5;
+    const minAlongNM = -(VP_HDG_LOOKBACK_MIN * gs / 60);
+    const maxAlongNM =  VP_HDG_LOOKAHEAD_MIN * gs / 60;
+    const result = [];
+
+    for (const ac of window.vpTrafficData) {
+        const dLatNM = (ac.lat - oLat) * 60;
+        const dLonNM = (ac.lon - oLon) * 60 * Math.cos(oLat * Math.PI / 180);
+        const along = dLonNM * hdgSin + dLatNM * hdgCos;   // NM entlang Heading
+        const cross = Math.abs(-dLonNM * hdgCos + dLatNM * hdgSin); // NM quer
+        if (cross > MAX_LAT_NM || along < minAlongNM || along > maxAlongNM) continue;
+        // Im HDG-Modus: distNM speichert Minuten (gleich wie vpHdgElevData)
+        const timeMin = VP_HDG_LOOKBACK_MIN + (along / (gs / 60));
+        result.push({ id: ac.id, callsign: ac.callsign, projDistNM: timeMin, altFt: ac.alt, lateralNM: cross });
+    }
+    return result;
+}
+
+// ─── TRAFFIC IM VERTIKALPROFIL ZEICHNEN ──────────────────────────────────────
+function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, viewMaxX) {
+    if (!window.vpTrafficProfileVisible) return;
+    const traffic = isHdgMode ? vpProjectTrafficOnHeading() : vpProjectTrafficOnRoute(elevData);
+    if (!traffic.length) return;
+
+    const ownAlt = (window.lastLiveGpsPos?.alt) ?? vpLiveAltFt ?? 0;
+
+    for (const ac of traffic) {
+        const tx = xOf(ac.projDistNM);
+        const ty = yOf(ac.altFt);
+        if (tx < viewMinX - 30 || tx > viewMaxX + 30) continue;
+
+        const relAlt = Math.round((ac.altFt - ownAlt) / 100) * 100;
+        const relAltStr = (relAlt >= 0 ? '+' : '') + relAlt;
+        const relAltColor = Math.abs(relAlt) < 300 ? '#ff8800' : relAlt > 0 ? '#44ff44' : '#888888';
+
+        fgCtx.save();
+        fgCtx.translate(tx, ty);
+
+        // Flugzeug-Silhouette (Seitenansicht, schaut nach rechts)
+        fgCtx.fillStyle = '#00ccff';
+        fgCtx.strokeStyle = 'rgba(0,0,0,0.6)';
+        fgCtx.lineWidth = 0.5;
+
+        // Rumpf
+        fgCtx.beginPath();
+        fgCtx.ellipse(0, 0, 7, 2, 0, 0, Math.PI * 2);
+        fgCtx.fill(); fgCtx.stroke();
+
+        // Tragfläche (oben)
+        fgCtx.beginPath();
+        fgCtx.moveTo(-7, -1); fgCtx.lineTo(5, -1); fgCtx.lineTo(4, 1.5); fgCtx.lineTo(-6, 1.5);
+        fgCtx.closePath(); fgCtx.fill(); fgCtx.stroke();
+
+        // Leitwerk (hinten oben)
+        fgCtx.beginPath();
+        fgCtx.moveTo(-7, -1); fgCtx.lineTo(-4, -4); fgCtx.lineTo(-2, -1);
+        fgCtx.closePath(); fgCtx.fill(); fgCtx.stroke();
+
+        // Relative Höhe
+        fgCtx.fillStyle = relAltColor;
+        fgCtx.font = 'bold 8px monospace';
+        fgCtx.textAlign = 'center';
+        fgCtx.fillText(relAltStr, 0, -11);
+
+        // Callsign (wenn vorhanden)
+        if (ac.callsign) {
+            fgCtx.fillStyle = 'rgba(0, 200, 255, 0.75)';
+            fgCtx.font = '7px monospace';
+            fgCtx.fillText(ac.callsign, 0, 14);
+        }
+
+        fgCtx.restore();
+    }
+}
+
+window.vpToggleTrafficProfile = function() {
+    window.vpTrafficProfileVisible = !window.vpTrafficProfileVisible;
+    const btn = document.getElementById('btnToggleTrafficProfile');
+    if (btn) btn.classList.toggle('active', window.vpTrafficProfileVisible);
+};
+
 function renderMapProfileFrames(timeMs) {
     const mapTable = document.getElementById('mapTableOverlay');
     if (!mapTable || !mapTable.classList.contains('active') || (typeof vpMapProfileVisible !== 'undefined' && !vpMapProfileVisible)) {
@@ -2364,6 +2474,10 @@ function renderMapProfileFrames(timeMs) {
             fgCtx.fillStyle = '#ff00ff'; fgCtx.font = 'bold 9px Arial'; fgCtx.textAlign = 'center'; fgCtx.fillText(wp.altFt + ' ft', wx, wy - 11);
         }
     }
+
+    // D: TRAFFIC IM PROFIL
+    vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, viewMaxX);
+
     fgCtx.restore();
 
     window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);

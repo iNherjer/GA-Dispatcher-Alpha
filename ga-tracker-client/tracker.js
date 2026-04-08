@@ -1,0 +1,201 @@
+const { open, SimConnectDataType } = require('node-simconnect');
+const WebSocket = require('ws');
+const readline = require('readline');
+const fs = require('fs');
+
+/**
+ * GA TRACKER CLIENT - MSFS 2024 Edition
+ * Inklusive Auto-Save Config, PIN-Auth & 5-Sekunden Boot-Timer
+ */
+
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+const WS_URL = 'wss://websocketrelais.onrender.com/';
+const CONFIG_FILE = 'tracker-config.json';
+
+function startTracker(syncId, pin) {
+  console.log(`\nVerbinde mit WebSocket-Server: ${WS_URL}...`);
+  const ws = new WebSocket(WS_URL);
+
+  ws.on('open', () => {
+    // WICHTIG: Sende jetzt ID UND PIN zur Authentifizierung
+    ws.send(JSON.stringify({ type: 'join', syncId: syncId, pin: pin }));
+    console.log(`📡 Verbunden mit ID: ${syncId} (Auth aktiv)`);
+    connectSimConnect(ws, syncId, pin);
+  });
+
+  ws.on('error', (err) => console.error("❌ WebSocket-Fehler:", err.message));
+  ws.on('close', () => process.exit());
+}
+
+function connectSimConnect(ws, syncId, pin) {
+  open('GA-Tracker-v206', 5)
+    .then(({ handle }) => {
+      console.log("✈️ MSFS gefunden! Warte auf Positionsdaten...");
+
+      let lastSent = 0;
+      const SEND_INTERVAL_MS = 66; 
+      const DEF_ID = 206;
+      const REQ_ID = 206;
+
+      handle.addToDataDefinition(DEF_ID, 'PLANE LATITUDE', 'degrees', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(DEF_ID, 'PLANE LONGITUDE', 'degrees', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(DEF_ID, 'PLANE ALTITUDE', 'feet', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(DEF_ID, 'PLANE HEADING DEGREES TRUE', 'degrees', SimConnectDataType.FLOAT64);
+
+      handle.requestDataOnSimObject(REQ_ID, DEF_ID, 0, 2, 0, 0, 0, 0);
+
+      handle.on('simObjectData', (recv) => {
+        if (recv.requestID === REQ_ID) {
+          const now = Date.now();
+          if (now - lastSent >= SEND_INTERVAL_MS) {
+            lastSent = now;
+            
+            try {
+              let lat, lon, alt, hdg;
+              
+              if (typeof recv.data.readFloat64 === 'function') {
+                lat = recv.data.readFloat64(); lon = recv.data.readFloat64(); alt = recv.data.readFloat64(); hdg = recv.data.readFloat64();
+              } else if (typeof recv.data.readDouble === 'function') {
+                lat = recv.data.readDouble(); lon = recv.data.readDouble(); alt = recv.data.readDouble(); hdg = recv.data.readDouble();
+              } else return;
+
+              if (ws.readyState === WebSocket.OPEN && (lat !== 0 || lon !== 0)) {
+                // Sende auch hier den PIN mit, falls das Backend jeden GPS-Tick prüft
+                ws.send(JSON.stringify({
+                  type: 'gps', syncId: syncId, pin: pin, lat: lat, lon: lon, alt: Math.round(alt), hdg: Math.round(hdg)
+                }));
+                console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}°`);
+              } else if (lat === 0) {
+                 process.stdout.write("."); 
+              }
+            } catch (e) { console.error("❌ Lesefehler:", e.message); }
+          }
+        }
+      });
+      // --- TRAFFIC: AI-Verkehr aus MSFS ---
+      const TRAFFIC_DEF_ID = 208;
+      const TRAFFIC_REQ_ID = 208;
+
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'PLANE LATITUDE', 'degrees', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'PLANE LONGITUDE', 'degrees', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'PLANE ALTITUDE', 'feet', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'PLANE HEADING DEGREES TRUE', 'degrees', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'GROUND VELOCITY', 'knots', SimConnectDataType.FLOAT64);
+
+      let trafficBuffer = {};
+
+      handle.on('simObjectDataByType', (recv) => {
+        if (recv.requestID !== TRAFFIC_REQ_ID) return;
+        try {
+          const d = recv.data;
+          let tLat, tLon, tAlt, tHdg, tGs;
+          if (typeof d.readFloat64 === 'function') {
+            tLat = d.readFloat64(); tLon = d.readFloat64(); tAlt = d.readFloat64(); tHdg = d.readFloat64(); tGs = d.readFloat64();
+          } else if (typeof d.readDouble === 'function') {
+            tLat = d.readDouble(); tLon = d.readDouble(); tAlt = d.readDouble(); tHdg = d.readDouble(); tGs = d.readDouble();
+          } else return;
+          if (tLat === 0 && tLon === 0) return; // Skip invalid positions
+          trafficBuffer[recv.objectID] = {
+            id: recv.objectID,
+            lat: parseFloat(tLat.toFixed(5)),
+            lon: parseFloat(tLon.toFixed(5)),
+            alt: Math.round(tAlt),
+            hdg: Math.round(tHdg),
+            gs: Math.round(tGs)
+          };
+        } catch(e) { /* Lesefehler ignorieren */ }
+      });
+
+      // Traffic alle 2 Sekunden abfragen
+      const trafficInterval = setInterval(() => {
+        if (ws.readyState !== 1 /*OPEN*/) return; // Use numeric 1 to avoid WebSocket reference issues
+        trafficBuffer = {};
+        // SIMCONNECT_SIMOBJECT_TYPE_AIRCRAFT = 1, Radius 100 NM = 185200m
+        handle.requestDataOnSimObjectType(TRAFFIC_REQ_ID, TRAFFIC_DEF_ID, 185200, 1);
+
+        // 500ms warten damit alle simObjectDataByType-Events ankommen, dann senden
+        setTimeout(() => {
+          const aircraft = Object.values(trafficBuffer);
+          if (ws.readyState === 1) {
+            ws.send(JSON.stringify({ type: 'traffic', syncId: syncId, pin: pin, aircraft }));
+            if (aircraft.length > 0) console.log(`[TRAFFIC] ${aircraft.length} Flugzeug(e) in der Nähe`);
+          }
+        }, 500);
+      }, 2000);
+
+      handle.on('close', () => {
+        clearInterval(trafficInterval);
+        setTimeout(() => connectSimConnect(ws, syncId, pin), 5000);
+      });
+    })
+    .catch(err => setTimeout(() => connectSimConnect(ws, syncId, pin), 5000));
+}
+
+function askCredentials() {
+  rl.question("Bitte gib deine Sync ID ein (z.B. Foxtrot-Mike-764): ", (idAnswer) => {
+    const finalId = idAnswer.trim();
+    if (!finalId) { console.log("Fehler: Keine ID eingegeben."); return process.exit(1); }
+    
+    rl.question("Bitte gib deinen 4-stelligen PIN ein: ", (pinAnswer) => {
+      const finalPin = pinAnswer.trim();
+      fs.writeFileSync(CONFIG_FILE, JSON.stringify({ syncId: finalId, pin: finalPin }));
+      startTracker(finalId, finalPin);
+    });
+  });
+}
+
+function main() {
+  let savedId = '';
+  let savedPin = '';
+
+  if (fs.existsSync(CONFIG_FILE)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      savedId = data.syncId || '';
+      savedPin = data.pin || '';
+    } catch (e) {}
+  }
+
+  if (savedId && savedPin) {
+    console.log("=====================================");
+    console.log(` Gespeicherte Pilot-Daten gefunden:`);
+    console.log(` ID:  [ ${savedId} ]`);
+    console.log(` PIN: [ **** ]`);
+    console.log("=====================================\n");
+    
+    let timeLeft = 5;
+    let timerCompleted = false;
+
+    // Startet den Countdown
+    const countdownInterval = setInterval(() => {
+      if (timeLeft > 0) {
+        // \r überschreibt die aktuelle Zeile im Terminal, so entsteht die Animation
+        process.stdout.write(`\r🚀 Autostart in ${timeLeft} Sekunden... (Drücke ENTER zum Ändern der ID/PIN)   `);
+        timeLeft--;
+      } else {
+        clearInterval(countdownInterval);
+        if (!timerCompleted) {
+          timerCompleted = true;
+          console.log(`\n\n✅ Starte automatisch mit ID: ${savedId}`);
+          startTracker(savedId, savedPin);
+        }
+      }
+    }, 1000);
+    process.stdout.write(`\r🚀 Autostart in 5 Sekunden... (Drücke ENTER zum Ändern der ID/PIN)   `);
+
+    // Lauscht auf die ENTER Taste
+    rl.once('line', () => {
+      if (!timerCompleted) {
+        timerCompleted = true;
+        clearInterval(countdownInterval);
+        console.log(`\n\n--- Neueingabe gestartet ---`);
+        askCredentials();
+      }
+    });
+
+  } else {
+    askCredentials();
+  }
+}
+
+main();

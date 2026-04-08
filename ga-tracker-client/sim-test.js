@@ -47,6 +47,17 @@ const VS_PER_TICK = VS_FPM / 60 * (TICK_MS / 1000);
 // Phase:   0      1      2      3      4      5      6      7
 const VS_PATTERN = [+1,  +1,    0,     0,    -1,    -1,     0,     0];
 
+// --- SIMULATED TRAFFIC ---
+const trafficAircraft = [
+  // DHX01: Fliegt parallel (Ost) ~5 NM nördlich, 5500ft, 120kts
+  { id: 1, callsign: 'DHX01', lat: 48.370, lon: 8.200, alt: 5500, hdg: 90,  gs: 120, gsMs: 120 * 1852 / 3600, turnRate: 0 },
+  // DHX02: Fliegt von NE nach SW Kreuzungsverkehr, 4000ft, 90kts, mit Rechtsdrehung
+  { id: 2, callsign: 'DHX02', lat: 48.320, lon: 8.600, alt: 4000, hdg: 220, gs: 90,  gsMs: 90 * 1852 / 3600,  turnRate: 0 },
+  // DHX03: Kreist nordöstlich, 6200ft, 100kts (3°/s Rechtsdrehen)
+  { id: 3, callsign: 'DHX03', lat: 48.420, lon: 8.550, alt: 6200, hdg: 0,   gs: 100, gsMs: 100 * 1852 / 3600, turnRate: 3 },
+];
+let lastTrafficSentMs = 0;
+
 // Zustand
 let phaseIndex = 0;
 let phaseElapsedMs = 0;
@@ -113,6 +124,38 @@ function startSim() {
                 alt: Math.round(alt),
                 hdg: Math.round(hdg)
             }));
+
+            // Traffic-Positionen jede Sekunde updaten
+            for (const ac of trafficAircraft) {
+                if (ac.turnRate !== 0) {
+                    ac.hdg = (ac.hdg + ac.turnRate * (TICK_MS / 1000) + 360) % 360;
+                }
+                const d = ac.gsMs * (TICK_MS / 1000);
+                const newAcPos = moveForward(ac.lat, ac.lon, ac.hdg, d);
+                ac.lat = newAcPos.lat;
+                ac.lon = newAcPos.lon;
+            }
+
+            // Traffic alle 2 Sekunden senden
+            const nowMs = Date.now();
+            if (nowMs - lastTrafficSentMs >= 2000) {
+                lastTrafficSentMs = nowMs;
+                ws.send(JSON.stringify({
+                    type: 'traffic',
+                    syncId: SYNC_ID,
+                    pin: PIN,
+                    aircraft: trafficAircraft.map(ac => ({
+                        id: ac.id,
+                        callsign: ac.callsign,
+                        lat: parseFloat(ac.lat.toFixed(5)),
+                        lon: parseFloat(ac.lon.toFixed(5)),
+                        alt: ac.alt,
+                        hdg: Math.round(ac.hdg),
+                        gs: ac.gs
+                    }))
+                }));
+                process.stdout.write(`\r[TRAFFIC] ${trafficAircraft.length} AC gesendet`);
+            }
 
             // Phasen-Fortschritt
             phaseElapsedMs += TICK_MS;
