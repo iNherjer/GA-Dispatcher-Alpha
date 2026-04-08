@@ -180,9 +180,9 @@
     <div class="readme-content">
 
         <h1 style="border-bottom:none; margin-bottom:0;">VFR Multitool</h1>
-        <p style="margin-top:2px; font-style:italic; opacity:0.75;">Electronic Flight Bag für MSFS &amp; X-Plane · Dokumentation</p>
+        <p style="margin-top:2px; font-style:italic; opacity:0.75;">Electronic Flight Bag für Microsoft Flight Simulator · Dokumentation</p>
 
-        <p>Das <strong>VFR Multitool</strong> ist ein vollständiges, webbasiertes EFB (Electronic Flight Bag) für General-Aviation-Piloten in Flugsimulatoren. Es vereint Missionsplanung, Moving Map, Terrain-Awareness (TAWS), Live-Tracking, KI-Briefings und Crew-Funktionen in einer einzigen Progressive Web App – optimiert für iPad, Tablet und Desktop.</p>
+        <p>Das <strong>VFR Multitool</strong> ist ein vollständiges, webbasiertes EFB (Electronic Flight Bag) für General-Aviation-Piloten in <strong>Microsoft Flight Simulator (MSFS)</strong>. Es vereint Missionsplanung, Moving Map, Terrain-Awareness (TAWS), Live-Tracking, KI-Briefings und Crew-Funktionen in einer einzigen Progressive Web App – optimiert für iPad, Tablet und Desktop.</p>
 
         <hr class="section">
 
@@ -198,7 +198,7 @@
                 Terrain-Canvas mit Terrarium-Tiles (TAWS), Luftraum-Bändern, Hindernissen (Masten/Windkraft), Wetter-Wolken, linearen Features (Flüsse, Autobahnen) und animiertem Flugzeug-Icon mit Pitch.
             </div>
             <div class="feature-card">
-                <strong>📡 Live-GPS (MSFS/X-Plane)</strong>
+                <strong>📡 Live-GPS (MSFS)</strong>
                 SimConnect-basierter Tracker-Client sendet per WebSocket Lat/Lon/Alt/HDG in Echtzeit. Automatische Wiederverbindung, PIN-Auth, kein LAN nötig.
             </div>
             <div class="feature-card">
@@ -235,7 +235,7 @@
 
         <h2>📡 Live-Tracking – Einrichtung</h2>
 
-        <p>Das Live-Tracking verbindet deinen PC (mit MSFS) über einen Cloud-Relay-Server mit dem VFR Multitool auf iPad oder Browser – ohne LAN-Konfiguration.</p>
+        <p>Das Live-Tracking verbindet deinen PC (mit MSFS) über einen Cloud-Relay-Server mit dem VFR Multitool auf iPad oder Browser – ohne LAN-Konfiguration. Der Tracker nutzt <strong>SimConnect</strong> und funktioniert daher ausschließlich mit <strong>Microsoft Flight Simulator (MSFS 2020 / 2024)</strong>.</p>
 
         <h3>Schritt 1 – Tracker starten</h3>
         <ol>
@@ -243,13 +243,14 @@
             <li>Navigiere in den Ordner <code>ga-tracker-client</code> und führe <code>npm install</code> aus.</li>
             <li>Starte den Tracker mit <code>node tracker.js</code> (oder dem mitgelieferten <code>.command</code>-Script auf macOS).</li>
             <li>Beim ersten Start: Sync-ID und 4-stelligen PIN eingeben. Danach Autostart nach 5 Sekunden.</li>
+            <li><strong>Reihenfolge egal:</strong> Tracker und MSFS können in beliebiger Reihenfolge gestartet werden. Läuft MSFS noch nicht, wartet der Tracker automatisch und verbindet sich, sobald der Simulator bereit ist.</li>
         </ol>
 
         <h3>Schritt 2 – VFR Multitool verbinden</h3>
         <ol>
             <li>Öffne im Tool den Sync-Bereich (unten).</li>
             <li>Trage dieselbe <strong>Sync-ID</strong> und denselben <strong>PIN</strong> ein.</li>
-            <li>Klicke auf <span class="key-badge">🔴 Live</span> – das Flugzeug erscheint auf der Karte, sobald MSFS läuft und du im Cockpit sitzt.</li>
+            <li>Klicke auf <span class="key-badge">🔴 Live</span> – das Flugzeug erscheint auf der Karte, sobald du im Cockpit sitzt.</li>
         </ol>
 
         <h3>Was wird übertragen?</h3>

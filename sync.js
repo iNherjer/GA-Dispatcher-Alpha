@@ -650,9 +650,15 @@ window.connectToLiveGPS = async function(syncId) {
 
                 // Traffic-Daten die im GPS-Paket eingebettet sind (Relay-kompatibler Weg)
                 if (data.traffic && Array.isArray(data.traffic)) {
-                    window.vpTrafficData = data.traffic;
+                    // Eigenes Flugzeug herausfiltern (SimConnect liefert auch User-Objekt mit)
+                    const filteredTraffic = data.traffic.filter(ac => {
+                        const dLat = Math.abs((ac.lat ?? 0) - data.lat);
+                        const dLon = Math.abs((ac.lon ?? 0) - data.lon);
+                        return dLat > 0.0015 || dLon > 0.0015; // ~0.1 NM Mindestabstand
+                    });
+                    window.vpTrafficData = filteredTraffic;
                     if (window.vpTrafficMapVisible) {
-                        updateTrafficOnMap(data.traffic, data.alt);
+                        updateTrafficOnMap(filteredTraffic, data.alt);
                     }
                 }
 
