@@ -754,6 +754,14 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             smoothedGS = smoothedGS === 0 ? gs : smoothedGS * 0.7 + gs * 0.3;
             smoothedVS = smoothedVS === 0 ? vs : smoothedVS * 0.7 + vs * 0.3;
 
+            // Auto-HDG: Bei erster echter GPS-Bewegung HDG-Modus aktivieren
+            if (smoothedGS > 20 && !window._hdgAutoActivated
+                && typeof vpMode !== 'undefined' && vpMode === 'ROUTE'
+                && typeof vpToggleMode === 'function') {
+                window._hdgAutoActivated = true;
+                vpToggleMode();
+            }
+
             // Update last info for speed calculation
             lastGpsTickDetails = { lat, lon, alt, t: now };
         }

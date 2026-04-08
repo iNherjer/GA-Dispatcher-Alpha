@@ -258,7 +258,7 @@ async function fetchProfileObstacles(elevData, signal) {
                                                 let ix = { lat: wp0.lat + (t * s1_y), lon: wp0.lon + (t * s1_x) };
                                                 let distBefore = 0;
                                                 for(let k=0; k<i; k++) distBefore += calcNav(routeWaypoints[k].lat, routeWaypoints[k].lng||routeWaypoints[k].lon, routeWaypoints[k+1].lat, routeWaypoints[k+1].lng||routeWaypoints[k+1].lon).dist;
-                                                localLin.push({ type: featType, name: name, distNM: distBefore + calcNav(rp0.lat, rp0.lon, ix.lat, ix.lon).dist });
+                                                localLin.push({ type: featType, name: name, distNM: distBefore + calcNav(rp0.lat, rp0.lon, ix.lat, ix.lon).dist, lat: ix.lat, lon: ix.lon });
                                                 break;
                                             }
                                         }
@@ -713,8 +713,12 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
     }
     ctx.fill();
     
-    // 2. ECHTE FLÜSSE UND AUTOBAHNEN (Linear Features aus Overpass)
-    if (typeof vpShowLinear !== 'undefined' && vpShowLinear && typeof vpLinearFeatures !== 'undefined' && vpLinearFeatures.length > 0) {
+    // 2. ECHTE FLÜSSE UND AUTOBAHNEN (Linear Features aus Overpass / HDG-Korridor)
+    // Im HDG-Modus: vpHdgLinearFeatures (entlang Heading gefiltert), sonst Route-Daten
+    const _linSrc = (vpMode === 'HDG' && typeof vpHdgLinearFeatures !== 'undefined' && vpHdgLinearFeatures.length > 0)
+        ? vpHdgLinearFeatures
+        : (typeof vpLinearFeatures !== 'undefined' ? vpLinearFeatures : []);
+    if (typeof vpShowLinear !== 'undefined' && vpShowLinear && _linSrc.length > 0) {
         const getElevY = (dNM) => {
             for(let i=0; i<elevData.length-1; i++) {
                 if (dNM >= elevData[i].distNM && dNM <= elevData[i+1].distNM) {
@@ -724,15 +728,18 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             }
             return yOf(elevData[elevData.length-1].elevFt);
         };
-        
+
         // PERFORMANCE FIX: Layout nur 1x pro Zoom-Stufe, maxAlt UND aktueller Route berechnen!
         const routeKey = window._lastVpRouteKey || 'none';
-        const layoutKey = routeKey + '_' + zoomFactor.toFixed(2) + '_' + (maxAlt || 0).toFixed(0);
-        
+        // Im HDG-Modus: Cache-Key enthält Heading → wird bei Kursänderung invalidiert
+        const layoutKey = (vpMode === 'HDG')
+            ? ('hdg_lin_' + (window.lastLiveGpsPos?.hdg || 0).toFixed(0) + '_' + zoomFactor.toFixed(2))
+            : (routeKey + '_' + zoomFactor.toFixed(2) + '_' + (maxAlt || 0).toFixed(0));
+
         // Neu berechnen, wenn sich der Cache-Key ändert ODER die Features noch keine Render-Daten haben
-        if (!window._vpLinearLayouts || window._vpLinearLayouts.key !== layoutKey || (vpLinearFeatures.length > 0 && !vpLinearFeatures[0]._render)) {
+        if (!window._vpLinearLayouts || window._vpLinearLayouts.key !== layoutKey || (_linSrc.length > 0 && !_linSrc[0]._render)) {
             let occupiedSigns = [];
-            for (const feat of vpLinearFeatures) {
+            for (const feat of _linSrc) {
                 const px = xOf(feat.distNM);
                 const py = getElevY(feat.distNM);
                 feat._render = { px, py, drawName: false, labelY: 0, tw: 0 };
@@ -763,7 +770,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
         }
 
         // NUR NOCH ZEICHNEN (mit weichem Culling)
-        for (const feat of vpLinearFeatures) {
+        for (const feat of _linSrc) {
             if (!feat._render) continue;
             
             // FIX: X und Y live berechnen, damit Schilder mit der Bodenlinie wandern
@@ -3652,6 +3659,7 @@ let vpMode = 'ROUTE';            // 'ROUTE' | 'HDG'
 let vpHdgElevData = null;        // [{distNM (=Minuten), elevFt, lat, lon}]
 let vpHdgLandmarks = [];
 let vpHdgObstacles = [];
+let vpHdgLinearFeatures = [];
 let vpHdgUpdateTimer = null;
 let vpHdgLastUpdate = { lat: 0, lon: 0, hdg: -999 };
 
@@ -3672,6 +3680,8 @@ function vpToggleMode() {
     } else {
         stopHdgCycle();
         if (btn) { btn.textContent = 'RTE'; btn.classList.remove('active'); }
+        // Flag zurücksetzen → Auto-HDG kann beim nächsten GPS-Connect wieder greifen
+        window._hdgAutoActivated = false;
     }
 }
 
@@ -3686,6 +3696,7 @@ function stopHdgCycle() {
     vpHdgElevData = null;
     vpHdgLandmarks = [];
     vpHdgObstacles = [];
+    vpHdgLinearFeatures = [];
     vpMode = 'ROUTE';
     window.vpBgNeedsUpdate = true;
 }
@@ -3706,6 +3717,7 @@ async function updateHdgProfile() {
     await generateHdgProfile(lat, lon, hdg, alt, gs);
     computeHdgLandmarks(lat, lon, hdg, gs);
     computeHdgObstacles(lat, lon, hdg, gs);
+    computeHdgLinearFeatures(lat, lon, hdg, gs);
     window.vpBgNeedsUpdate = true;
 }
 
@@ -3836,9 +3848,34 @@ function computeHdgObstacles(lat, lon, hdg, gs) {
         if (Math.abs(sideDevNM) > 3) continue;
         const alongNM = nav.dist * Math.cos(angleOff * Math.PI / 180);
         const alongMin = (alongNM / gs) * 60;
-        const timeMin = VP_HDG_LOOKBACK_MIN + (nav.brng === hdg ? alongMin : -alongMin);
+        // angleOff ≤ 20° → Hindernis liegt voraus (Heading-Korridor)
+        const timeMin = VP_HDG_LOOKBACK_MIN + alongMin;
         if (timeMin < 0 || timeMin > totalMin) continue;
         vpHdgObstacles.push({ ...obs, distNM: timeMin, groundElevFt: obs.elevFt });
+    }
+}
+
+// ── Lineare Features (Straßen & Flüsse) entlang Heading ──
+function computeHdgLinearFeatures(lat, lon, hdg, gs) {
+    vpHdgLinearFeatures = [];
+    if (!vpLinearFeatures || vpLinearFeatures.length === 0) return;
+
+    const totalMin = VP_HDG_LOOKBACK_MIN + VP_HDG_LOOKAHEAD_MIN;
+    const totalNM  = gs * (totalMin / 60);
+
+    for (const lin of vpLinearFeatures) {
+        if (!lin.lat || !lin.lon) continue;
+        if (typeof calcNav !== 'function') break;
+        const nav = calcNav(lat, lon, lin.lat, lin.lon);
+        if (nav.dist > totalNM + 3) continue;
+        const angleOff = Math.abs(((nav.brng - hdg) + 540) % 360 - 180);
+        if (angleOff > 25) continue; // etwas breiterer Korridor für Straßen/Flüsse
+        const sideDevNM = nav.dist * Math.sin(angleOff * Math.PI / 180);
+        if (Math.abs(sideDevNM) > 5) continue;
+        const alongNM = nav.dist * Math.cos(angleOff * Math.PI / 180);
+        const timeMin = VP_HDG_LOOKBACK_MIN + (alongNM / gs) * 60;
+        if (timeMin < 0 || timeMin > totalMin) continue;
+        vpHdgLinearFeatures.push({ ...lin, distNM: timeMin });
     }
 }
 
