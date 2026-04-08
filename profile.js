@@ -2886,6 +2886,7 @@ function initAltWaypoints() {
 
     // === DOUBLE CLICK: remove/add waypoint ===
     canvas.addEventListener('dblclick', (e) => {
+        if (typeof vpMode !== 'undefined' && vpMode === 'HDG') return; // Nur im RTE-Modus
         const m = vpGetCanvasMetrics();
         if (!m) return;
         const { mx, my } = vpClientToCanvas(e.clientX, e.clientY, m);
@@ -2906,7 +2907,7 @@ function initAltWaypoints() {
         let cursor = 'default';
         if (vpHitTestMagenta(mx, m)) cursor = 'ew-resize';
         else if (vpHitTestWaypoint(mx, my, m) >= 0) cursor = 'move';
-        else if (vpHitTestFlightLine(mx, my, m) !== null) cursor = 'ns-resize';
+        else if ((typeof vpMode === 'undefined' || vpMode !== 'HDG') && vpHitTestFlightLine(mx, my, m) !== null) cursor = 'ns-resize';
         canvas.style.cursor = cursor;
     });
 
@@ -2985,7 +2986,9 @@ function initAltWaypoints() {
         const now = Date.now();
         if (now - lastTapTime < 300) {
             e.preventDefault();
-            if (vpHandleDoubleHit(mx, my, m)) window.debouncedSaveMissionState();
+            if (typeof vpMode === 'undefined' || vpMode !== 'HDG') { // Nur im RTE-Modus
+                if (vpHandleDoubleHit(mx, my, m)) window.debouncedSaveMissionState();
+            }
             lastTapTime = 0;
             return;
         }
@@ -3003,6 +3006,7 @@ function initAltWaypoints() {
             dragOrigWP = { ...vpAltWaypoints[wpIdx] };
             return;
         }
+        if (typeof vpMode !== 'undefined' && vpMode === 'HDG') return; // Keine Höhenlinien-Interaktion im HDG-Modus
         const mouseDistNM = vpHitTestFlightLine(mx, my, m);
         if (mouseDistNM !== null) {
             e.preventDefault();
