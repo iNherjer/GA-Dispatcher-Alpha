@@ -2296,6 +2296,42 @@ function renderMapProfileFrames(timeMs) {
     }
     if (vpShowClouds && !isHdgMode) vpDrawAnimatedWeather(fgCtx, xOf, yOf, totalDist, elevData, timeMs, viewMinX, viewMaxX);
 
+    // Im HDG-Modus: Fluglinie einblenden wenn Flugzeug ≤2 NM von der geplanten Route entfernt
+    // X-Achse: NM-Offset vom aktuellen Standort → Minuten umrechnen (offsetNM / gs * 60)
+    if (isHdgMode
+        && typeof vpLiveGpsFraction === 'number' && vpLiveGpsFraction >= 0
+        && (window.vpLiveRouteDistNM ?? 999) <= 2.0
+        && typeof vpElevationData !== 'undefined' && vpElevationData && vpElevationData.length >= 2
+        && typeof computeFlightProfile === 'function') {
+
+        const routeElevData = vpElevationData;
+        const routeTotalDist = routeElevData[routeElevData.length - 1].distNM;
+        const tasHdg = parseInt(document.getElementById('tasSlider')?.value || 115);
+        const fpRoute = computeFlightProfile(routeElevData, cruiseAlt, vpClimbRate, vpDescentRate, tasHdg);
+        if (fpRoute && fpRoute.profile) {
+            const liveDistNM = vpLiveGpsFraction * routeTotalDist;
+            const gs = (window.lastLiveGpsPos?.gs > 20 ? window.lastLiveGpsPos.gs : null) || tasHdg;
+            const hdgTotalMin = VP_HDG_LOOKBACK_MIN + VP_HDG_LOOKAHEAD_MIN;
+
+            const _drawHdgFpLine = (offsetY, style, width) => {
+                fgCtx.beginPath();
+                let started = false;
+                for (const pt of fpRoute.profile) {
+                    const offsetNM = pt.distNM - liveDistNM;
+                    const minAxis = VP_HDG_LOOKBACK_MIN + (offsetNM / gs * 60);
+                    if (minAxis < -0.5 || minAxis > hdgTotalMin + 0.5) { started = false; continue; }
+                    const x = xOf(minAxis);
+                    if (x < viewMinX - 60 || x > viewMaxX + 60) { started = false; continue; }
+                    const y = yOf(pt.altFt) + offsetY;
+                    if (!started) { fgCtx.moveTo(x, y); started = true; } else { fgCtx.lineTo(x, y); }
+                }
+                fgCtx.strokeStyle = style; fgCtx.lineWidth = width; fgCtx.stroke();
+            };
+            _drawHdgFpLine(1, 'rgba(0,0,0,0.3)', 3);
+            _drawHdgFpLine(0, '#ff4444', 2);
+        }
+    }
+
     // Fluglinie (Climb/Cruise/Descend) und Route-Waypoint-Marker nur im RTE-Modus
     // Im HDG-Modus wären distNM-Werte (NM) falsch durch xOf() das Minuten erwartet
     if (!isHdgMode) {

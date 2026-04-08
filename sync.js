@@ -729,7 +729,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     if (typeof map === 'undefined' || !map || typeof L === 'undefined') return;
 
     const now = Date.now();
-    window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now };
+    window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now, gs: smoothedGS };
 
     // --- FEATURE 1: SNAIL TRAIL ---
     if (!liveSnailTrail) {
@@ -944,13 +944,16 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             const approxDist = dLat * dLat + dLon * dLon;
             if (approxDist < bestDist) { bestDist = approxDist; bestIdx = i; }
         }
-        // approxDist ist in Grad² – 10 NM ≈ 0.167° → Schwelle ~0.028
-        // Rechtwinklig zur Route: Flugzeug muss innerhalb ±10 NM senkrecht zur Route liegen
-        if (bestDist < 0.028) {
+        // approxDist ist in Grad² – 1° ≈ 111 km ≈ 59.9 NM
+        // distNM = sqrt(bestDist) * 59.9
+        const approxDistNM = Math.sqrt(bestDist) * 59.9;
+        window.vpLiveRouteDistNM = approxDistNM; // für Profil-Rendering (HDG-Linie)
+        if (bestDist < 0.028) { // ~10 NM Schwelle für Icon-Anzeige
             if (typeof vpUpdateLiveAircraft === 'function') {
                 vpUpdateLiveAircraft(ed[bestIdx].distNM / totalDist, alt, hdg);
             }
         } else {
+            window.vpLiveRouteDistNM = 999;
             // Zu weit von der Route entfernt → Positions-Marker ausblenden
             if (typeof vpUpdateLiveAircraft === 'function') {
                 vpUpdateLiveAircraft(-1, alt, hdg);  // -1 = ausblenden
