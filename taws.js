@@ -20,19 +20,60 @@ const _tawsCtx = _tawsCanvas.getContext('2d', { willReadFrequently: true });
 let _tawsLastVoiceAlert = 0;
 const TAWS_VOICE_COOLDOWN = 15000; // 15 Sekunden
 
-// iOS Safari: speechSynthesis erfordert eine User-Geste zum Aktivieren.
-// Beim ersten Touch/Click eine stille Utterance sprechen um TTS zu "entsperren".
+// ── Audio-System (iOS-sicher via AudioContext) ────────────────────────────────
+// speechSynthesis funktioniert im iOS-PWA-Modus nicht zuverlässig.
+// Primärer Alert: AudioContext-Synthesizer (identisch zum Mini-Spiel → funktioniert).
+// Sekundär: speechSynthesis als Desktop-Fallback.
+
+let _tawsAudioCtx = null;
 let _tawsSpeechUnlocked = false;
-function _tawsUnlockSpeech() {
-    if (_tawsSpeechUnlocked || typeof speechSynthesis === 'undefined') return;
-    _tawsSpeechUnlocked = true;
-    const u = new SpeechSynthesisUtterance('');
-    u.volume = 0;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
+
+function _tawsInitAudio() {
+    if (_tawsAudioCtx) {
+        // iOS: AudioContext nach Inaktivität "suspended" → wieder aufwecken
+        if (_tawsAudioCtx.state === 'suspended') _tawsAudioCtx.resume();
+        return;
+    }
+    try {
+        _tawsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch(e) { _tawsAudioCtx = null; }
 }
-document.addEventListener('touchstart', _tawsUnlockSpeech, { once: true, passive: true });
-document.addEventListener('click',      _tawsUnlockSpeech, { once: true });
+
+// "Whoop Whoop" – klassischer GPWS-Warntton (zwei aufsteigende Sweeps)
+function _tawsPlayWhoopWhoop() {
+    if (!_tawsAudioCtx) return;
+    if (_tawsAudioCtx.state === 'suspended') _tawsAudioCtx.resume();
+    const now = _tawsAudioCtx.currentTime;
+    for (let i = 0; i < 2; i++) {
+        const osc  = _tawsAudioCtx.createOscillator();
+        const gain = _tawsAudioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(_tawsAudioCtx.destination);
+        osc.type = 'sine';
+        const t = now + i * 0.65;
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.linearRampToValueAtTime(920, t + 0.45);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.85, t + 0.05);
+        gain.gain.setValueAtTime(0.85, t + 0.40);
+        gain.gain.linearRampToValueAtTime(0, t + 0.55);
+        osc.start(t);
+        osc.stop(t + 0.6);
+    }
+}
+
+function _tawsUnlockAll() {
+    _tawsInitAudio();
+    if (!_tawsSpeechUnlocked && typeof speechSynthesis !== 'undefined') {
+        _tawsSpeechUnlocked = true;
+        const u = new SpeechSynthesisUtterance('');
+        u.volume = 0;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(u);
+    }
+}
+document.addEventListener('touchstart', _tawsUnlockAll, { once: true, passive: true });
+document.addEventListener('click',      _tawsUnlockAll, { once: true });
 
 /**
  * Tile-Koordinaten aus lat/lon berechnen (Slippy Map)
@@ -156,17 +197,22 @@ async function checkTerrainAlongPath(points) {
     }
 
     // Voice-Alert bei Red Threat
-    if (hasRedThreat && typeof speechSynthesis !== 'undefined') {
+    if (hasRedThreat) {
         const now = Date.now();
         if (now - _tawsLastVoiceAlert > TAWS_VOICE_COOLDOWN) {
             _tawsLastVoiceAlert = now;
-            const msg = new SpeechSynthesisUtterance('Terrain, terrain. Pull up.');
-            msg.rate = 1.1;
-            msg.pitch = 1.0;
-            msg.volume = 1.0;
-            msg.lang = 'en-US';
-            speechSynthesis.cancel(); // iOS: Queue leeren, sonst hängt es
-            speechSynthesis.speak(msg);
+            // 1) AudioContext-Ton (primär, funktioniert auf iOS PWA)
+            _tawsPlayWhoopWhoop();
+            // 2) speechSynthesis (Fallback für Desktop / wenn TTS verfügbar)
+            if (typeof speechSynthesis !== 'undefined') {
+                const msg = new SpeechSynthesisUtterance('Terrain, terrain. Pull up.');
+                msg.rate = 1.1;
+                msg.pitch = 1.0;
+                msg.volume = 1.0;
+                msg.lang = 'en-US';
+                speechSynthesis.cancel();
+                speechSynthesis.speak(msg);
+            }
         }
     }
 
