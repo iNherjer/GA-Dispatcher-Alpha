@@ -26,17 +26,27 @@ const TAWS_VOICE_COOLDOWN = 15000; // 15 Sekunden
 // Sekundär: speechSynthesis als Desktop-Fallback.
 
 let _tawsAudioCtx = null;
+let _tawsAlertAudio = null;   // HTMLAudioElement für "Terrain terrain pull up"
 let _tawsSpeechUnlocked = false;
 
 function _tawsInitAudio() {
-    if (_tawsAudioCtx) {
-        // iOS: AudioContext nach Inaktivität "suspended" → wieder aufwecken
-        if (_tawsAudioCtx.state === 'suspended') _tawsAudioCtx.resume();
-        return;
+    // AudioContext für Whoop-Whoop-Ton
+    if (!_tawsAudioCtx) {
+        try {
+            _tawsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch(e) { _tawsAudioCtx = null; }
     }
-    try {
-        _tawsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } catch(e) { _tawsAudioCtx = null; }
+    if (_tawsAudioCtx && _tawsAudioCtx.state === 'suspended') _tawsAudioCtx.resume();
+
+    // HTMLAudioElement vorausladen – iOS entsperrt Audio nur bei User-Geste
+    if (!_tawsAlertAudio) {
+        _tawsAlertAudio = new Audio('./taws-alert.m4a');
+        _tawsAlertAudio.preload = 'auto';
+        // Stilles Play+Pause um iOS-Unlock auszulösen
+        _tawsAlertAudio.volume = 0;
+        const p = _tawsAlertAudio.play();
+        if (p) p.then(() => { _tawsAlertAudio.pause(); _tawsAlertAudio.currentTime = 0; _tawsAlertAudio.volume = 1; }).catch(() => {});
+    }
 }
 
 // "Whoop Whoop" – klassischer GPWS-Warntton (zwei aufsteigende Sweeps)
@@ -201,15 +211,18 @@ async function checkTerrainAlongPath(points) {
         const now = Date.now();
         if (now - _tawsLastVoiceAlert > TAWS_VOICE_COOLDOWN) {
             _tawsLastVoiceAlert = now;
-            // 1) AudioContext-Ton (primär, funktioniert auf iOS PWA)
+            // 1) Voraufgezeichnetes Sample (primär – funktioniert auf iOS PWA)
+            if (_tawsAlertAudio) {
+                _tawsAlertAudio.currentTime = 0;
+                _tawsAlertAudio.volume = 1;
+                _tawsAlertAudio.play().catch(() => {});
+            }
+            // 2) Whoop-Whoop-Ton via AudioContext (läuft parallel zum Sample)
             _tawsPlayWhoopWhoop();
-            // 2) speechSynthesis (Fallback für Desktop / wenn TTS verfügbar)
+            // 3) speechSynthesis als zusätzlicher Fallback (Desktop Safari)
             if (typeof speechSynthesis !== 'undefined') {
                 const msg = new SpeechSynthesisUtterance('Terrain, terrain. Pull up.');
-                msg.rate = 1.1;
-                msg.pitch = 1.0;
-                msg.volume = 1.0;
-                msg.lang = 'en-US';
+                msg.rate = 1.1; msg.pitch = 1.0; msg.volume = 1.0; msg.lang = 'en-US';
                 speechSynthesis.cancel();
                 speechSynthesis.speak(msg);
             }

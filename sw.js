@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v248';
+const CACHE = 'ga-dispatcher-v249';
 
 const STATIC = [
     './',
@@ -22,6 +22,7 @@ const STATIC = [
     './board.jpg',
     './map.jpg',
     './pinicon.png',
+    './taws-alert.m4a',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
     // CDN – html2canvas & jsPDF
