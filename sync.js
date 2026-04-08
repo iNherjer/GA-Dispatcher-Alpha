@@ -648,6 +648,14 @@ window.connectToLiveGPS = async function(syncId) {
             if (data.type === 'gps') {
                 updateLivePlanePosition(data.lat, data.lon, data.alt, data.hdg);
 
+                // Traffic-Daten die im GPS-Paket eingebettet sind (Relay-kompatibler Weg)
+                if (data.traffic && Array.isArray(data.traffic)) {
+                    window.vpTrafficData = data.traffic;
+                    if (window.vpTrafficMapVisible) {
+                        updateTrafficOnMap(data.traffic, data.alt);
+                    }
+                }
+
                 const ind = document.getElementById('liveGpsIndicator');
                 if (ind) {
                     ind.innerHTML = '🛰️ LIVE'; 
@@ -685,6 +693,9 @@ window.connectToLiveGPS = async function(syncId) {
             ind.style.color = '#666';
             ind.style.textShadow = 'none';
         }
+
+        // Auto-HDG zurücksetzen damit es bei der nächsten Verbindung wieder greift
+        window._hdgAutoActivated = false;
 
         // Exponentielles Backoff: 2s → 4s → 8s → max 15s (fängt Render.com Cold Starts sauber ab)
         console.warn(`[GPS] ❌ Verbindung getrennt. Reconnect in ${(gpsReconnectDelay/1000).toFixed(0)}s...`);

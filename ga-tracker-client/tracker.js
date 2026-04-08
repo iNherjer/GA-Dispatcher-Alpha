@@ -60,10 +60,13 @@ function connectSimConnect(ws, syncId, pin) {
               } else return;
 
               if (ws.readyState === WebSocket.OPEN && (lat !== 0 || lon !== 0)) {
-                // Sende auch hier den PIN mit, falls das Backend jeden GPS-Tick prüft
-                ws.send(JSON.stringify({
-                  type: 'gps', syncId: syncId, pin: pin, lat: lat, lon: lon, alt: Math.round(alt), hdg: Math.round(hdg)
-                }));
+                // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
+                const gpsMsg = { type: 'gps', syncId: syncId, pin: pin, lat: lat, lon: lon, alt: Math.round(alt), hdg: Math.round(hdg) };
+                if (latestTrafficSnapshot && latestTrafficSnapshot.length > 0) {
+                  gpsMsg.traffic = latestTrafficSnapshot;
+                  latestTrafficSnapshot = null; // einmalig senden, dann löschen
+                }
+                ws.send(JSON.stringify(gpsMsg));
                 console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}°`);
               } else if (lat === 0) {
                  process.stdout.write("."); 
@@ -83,6 +86,7 @@ function connectSimConnect(ws, syncId, pin) {
       handle.addToDataDefinition(TRAFFIC_DEF_ID, 'GROUND VELOCITY', 'knots', SimConnectDataType.FLOAT64);
 
       let trafficBuffer = {};
+      let latestTrafficSnapshot = null; // wird beim nächsten GPS-Tick eingebettet
 
       handle.on('simObjectDataByType', (recv) => {
         if (recv.requestID !== TRAFFIC_REQ_ID) return;
@@ -113,13 +117,11 @@ function connectSimConnect(ws, syncId, pin) {
         // SIMCONNECT_SIMOBJECT_TYPE_AIRCRAFT = 1, Radius 100 NM = 185200m
         handle.requestDataOnSimObjectType(TRAFFIC_REQ_ID, TRAFFIC_DEF_ID, 185200, 1);
 
-        // 500ms warten damit alle simObjectDataByType-Events ankommen, dann senden
+        // 500ms warten damit alle simObjectDataByType-Events ankommen, dann als Snapshot merken
         setTimeout(() => {
           const aircraft = Object.values(trafficBuffer);
-          if (ws.readyState === 1) {
-            ws.send(JSON.stringify({ type: 'traffic', syncId: syncId, pin: pin, aircraft }));
-            if (aircraft.length > 0) console.log(`[TRAFFIC] ${aircraft.length} Flugzeug(e) in der Nähe`);
-          }
+          latestTrafficSnapshot = aircraft; // wird beim nächsten GPS-Tick ins Paket eingebettet
+          if (aircraft.length > 0) console.log(`[TRAFFIC] ${aircraft.length} Flugzeug(e) → wird mit nächstem GPS gesendet`);
         }, 500);
       }, 2000);
 

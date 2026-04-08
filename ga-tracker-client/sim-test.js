@@ -114,18 +114,7 @@ function startSim() {
             lat = newPos.lat;
             lon = newPos.lon;
 
-            // GPS senden
-            ws.send(JSON.stringify({
-                type: 'gps',
-                syncId: SYNC_ID,
-                pin: PIN,
-                lat: parseFloat(lat.toFixed(6)),
-                lon: parseFloat(lon.toFixed(6)),
-                alt: Math.round(alt),
-                hdg: Math.round(hdg)
-            }));
-
-            // Traffic-Positionen jede Sekunde updaten
+            // Traffic-Positionen updaten
             for (const ac of trafficAircraft) {
                 if (ac.turnRate !== 0) {
                     ac.hdg = (ac.hdg + ac.turnRate * (TICK_MS / 1000) + 360) % 360;
@@ -136,26 +125,37 @@ function startSim() {
                 ac.lon = newAcPos.lon;
             }
 
-            // Traffic alle 2 Sekunden senden
+            // Traffic alle 2 Sekunden als Feld im GPS-Paket einbetten
+            // (Relay-Server leiten nur bekannte Typen wie 'gps' weiter)
             const nowMs = Date.now();
-            if (nowMs - lastTrafficSentMs >= 2000) {
+            const includeTraffic = nowMs - lastTrafficSentMs >= 2000;
+            if (includeTraffic) {
                 lastTrafficSentMs = nowMs;
-                ws.send(JSON.stringify({
-                    type: 'traffic',
-                    syncId: SYNC_ID,
-                    pin: PIN,
-                    aircraft: trafficAircraft.map(ac => ({
-                        id: ac.id,
-                        callsign: ac.callsign,
-                        lat: parseFloat(ac.lat.toFixed(5)),
-                        lon: parseFloat(ac.lon.toFixed(5)),
-                        alt: ac.alt,
-                        hdg: Math.round(ac.hdg),
-                        gs: ac.gs
-                    }))
-                }));
-                process.stdout.write(`\r[TRAFFIC] ${trafficAircraft.length} AC gesendet`);
+                process.stdout.write(`\r[TRAFFIC] ${trafficAircraft.length} AC + GPS gesendet`);
             }
+
+            // GPS senden (ggf. mit Traffic eingebettet)
+            const gpsMsg = {
+                type: 'gps',
+                syncId: SYNC_ID,
+                pin: PIN,
+                lat: parseFloat(lat.toFixed(6)),
+                lon: parseFloat(lon.toFixed(6)),
+                alt: Math.round(alt),
+                hdg: Math.round(hdg)
+            };
+            if (includeTraffic) {
+                gpsMsg.traffic = trafficAircraft.map(ac => ({
+                    id: ac.id,
+                    callsign: ac.callsign,
+                    lat: parseFloat(ac.lat.toFixed(5)),
+                    lon: parseFloat(ac.lon.toFixed(5)),
+                    alt: ac.alt,
+                    hdg: Math.round(ac.hdg),
+                    gs: ac.gs
+                }));
+            }
+            ws.send(JSON.stringify(gpsMsg));
 
             // Phasen-Fortschritt
             phaseElapsedMs += TICK_MS;

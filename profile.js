@@ -2933,7 +2933,8 @@ function initAltWaypoints() {
             e.preventDefault(); e.stopPropagation();
             return;
         }
-        // Priority 3: Flight line segment drag
+        // Priority 3: Flight line segment drag (nur im ROUTE-Modus)
+        if (typeof vpMode !== 'undefined' && vpMode === 'HDG') return; // Keine Höhenlinien-Interaktion im HDG-Modus
         const mouseDistNM = vpHitTestFlightLine(mx, my, m);
         if (mouseDistNM !== null) {
             e.preventDefault(); e.stopPropagation();
@@ -3680,8 +3681,8 @@ function vpToggleMode() {
     } else {
         stopHdgCycle();
         if (btn) { btn.textContent = 'RTE'; btn.classList.remove('active'); }
-        // Flag zurücksetzen → Auto-HDG kann beim nächsten GPS-Connect wieder greifen
-        window._hdgAutoActivated = false;
+        // _hdgAutoActivated bleibt true → kein sofortiger Re-Trigger durch GPS-Tick
+        // Reset passiert erst beim GPS-Disconnect (in sync.js onclose)
     }
 }
 
