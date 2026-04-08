@@ -679,6 +679,7 @@
             <button class="pb-btn" onclick="clearMeasure()">🗑️ Zirkel löschen</button>
             <button class="pb-btn" onclick="resetMainRoute()">🔄 Route Reset</button>
             <button class="pb-btn" id="mapMetarBtn" onclick="toggleMapMetars()" style="background:#4da6ff; color:#111; font-weight:bold;">🌤️ METARs (An)</button>
+            <button class="pb-btn" id="btnToggleTrafficMap" onclick="window.toggleTrafficMap && toggleTrafficMap()" style="background:#1a3a2a; color:#6f6;">✈️ Traffic (Aus)</button>
             <button class="pb-btn" id="vpToggleBtn" onclick="toggleMapProfile()" style="background:#2E8B57; color:#fff; font-weight:bold;">📊 Profil (An)</button>
             <button class="pb-btn" id="freeflightBtn" onclick="toggleFreeflightMode()" style="background:#444; color:#fff;">✈️ Direct To (Aus)</button>
             <button class="pb-btn close" onclick="toggleMapTable()">❌ Schließen</button>
@@ -688,19 +689,12 @@
         <div class="maptable-content" style="flex-direction: column;">
             <div id="mapArea" style="position: relative; flex:1; display:flex; align-items:center; justify-content:center; width:100%; min-height:0;">
                 <div id="map"></div>
-                <!-- Karten-Overlay: Auto-Follow + Traffic-Toggle -->
-                <div style="position:absolute; bottom:20px; right:20px; z-index:10001; display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
-                    <button id="autoFollowBtn" onclick="toggleAutoFollow()" class="map-overlay-btn" title="Auto-Follow (Karten-Zentrierung)" style="position:static;">
-                        🎯
-                    </button>
-                    <button id="btnToggleTrafficMap" onclick="window.toggleTrafficMap && toggleTrafficMap()" title="AI Traffic auf Karte an/aus"
-                        style="width:36px; height:36px; border-radius:50%; border:none; background:rgba(0,180,100,0.85); color:#fff;
-                               font-size:17px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center;">
-                        ✈️
-                    </button>
-                </div>
-                <!-- Live Telemetrie – links oben, kollidiert nicht mit Overlay-Buttons -->
-                <div id="liveTelemetryBox" class="telemetry-box" style="display:none; top:10px; left:10px; right:auto; min-width:90px;">
+                <!-- Karten-Overlay: Auto-Follow Button -->
+                <button id="autoFollowBtn" onclick="toggleAutoFollow()" class="map-overlay-btn" title="Auto-Follow (Karten-Zentrierung)">
+                    🎯
+                </button>
+                <!-- Live Telemetrie – oben mittig -->
+                <div id="liveTelemetryBox" class="telemetry-box" style="display:none; top:10px; left:50%; transform:translateX(-50%); right:auto; min-width:110px; pointer-events:none;">
                     <div style="display:flex; justify-content:space-between; gap:16px; margin-bottom:2px;">
                         <span>GS:</span><span><span id="teleGS" class="tele-val" style="color:var(--blue);">0.0</span> <span class="tele-unit">KT</span></span>
                     </div>
@@ -715,7 +709,6 @@
             <div id="profileResizeHandle" class="profile-resize-handle" title="Ziehen zum Ändern der Profilhöhe"></div>
             <div id="mapProfileStrip" class="map-profile-strip">
                 <div class="map-profile-controls" style="gap: 4px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; scrollbar-width: none;">
-                    <span style="color:#aaa; font-size:10px; font-family:monospace; margin-left:4px;">ZOOM</span>
                     <span style="color:#aaa; font-size:10px; font-family:monospace; margin-left:4px;">ZOOM</span>
                     <button class="vp-ctrl-btn" onclick="vpZoom(10)" title="Horizontal rauszoomen">−</button>
                     <span id="vpZoomDisplay" class="vp-ctrl-label" style="min-width:24px;" title="Aktueller Zoom-Level">0%</span>
@@ -741,7 +734,7 @@
                         <button id="btnVpSettings" onclick="toggleVpSettingsMenu()" title="Darstellungs-Optionen" class="vp-toggle-cloud vp-btn-relative" style="min-width:28px; font-size:13px;">
                             ⚙️<span id="vpSettingsErrorDot" style="display:none; position:absolute; top:-4px; right:-4px; width:9px; height:9px; background:#ff4444; border-radius:50%; border:1.5px solid #222; box-shadow:0 0 4px #f00;"></span>
                         </button>
-                        <div id="vpSettingsMenu" style="display:none; position:absolute; bottom:calc(100% + 6px); right:0; background:#1a1a1a; border:1px solid #444; border-radius:8px; padding:8px 6px; z-index:9999; white-space:nowrap; box-shadow:0 4px 16px rgba(0,0,0,0.6); min-width:44px;">
+                        <div id="vpSettingsMenu" style="display:none; position:fixed; background:#1a1a1a; border:1px solid #444; border-radius:8px; padding:8px 6px; z-index:99999; white-space:nowrap; box-shadow:0 4px 16px rgba(0,0,0,0.6); min-width:44px;">
                             <div style="display:flex; flex-direction:column; gap:5px; align-items:stretch;">
                                 <button id="btnToggleClouds" class="vp-toggle-cloud active" onclick="vpToggleClouds()" title="Wetter-Wolkenbasis aus METAR an/aus" style="width:100%; justify-content:flex-start; gap:6px;">⛅ <span style="font-size:9px;">Wolken</span></button>
                                 <button id="btnToggleLandmarks" class="vp-toggle-cloud active" onclick="vpToggleLandmarks()" title="Städte & Sehenswürdigkeiten an/aus" style="width:100%; justify-content:flex-start; gap:6px;">🏙️ <span style="font-size:9px;">Städte</span></button>
@@ -794,15 +787,20 @@
     // ── Zahnrad-Untermenü Höhenprofil ──────────────────────────────────────────
     function toggleVpSettingsMenu() {
         const menu = document.getElementById('vpSettingsMenu');
-        if (!menu) return;
+        const btn  = document.getElementById('btnVpSettings');
+        if (!menu || !btn) return;
         const open = menu.style.display !== 'none';
-        menu.style.display = open ? 'none' : 'block';
-        if (!open) {
-            // Beim Öffnen außerhalb-Klick registrieren
-            setTimeout(() => {
-                document.addEventListener('click', _closeVpSettingsOnOutside, { once: true, capture: true });
-            }, 0);
-        }
+        if (open) { menu.style.display = 'none'; return; }
+        // position:fixed, oberhalb des Buttons — außerhalb des overflow-Containers
+        const r = btn.getBoundingClientRect();
+        menu.style.bottom = (window.innerHeight - r.top + 6) + 'px';
+        menu.style.right  = (window.innerWidth  - r.right) + 'px';
+        menu.style.top    = 'auto';
+        menu.style.left   = 'auto';
+        menu.style.display = 'block';
+        setTimeout(() => {
+            document.addEventListener('click', _closeVpSettingsOnOutside, { once: true, capture: true });
+        }, 0);
     }
     function _closeVpSettingsOnOutside(e) {
         const menu = document.getElementById('vpSettingsMenu');
