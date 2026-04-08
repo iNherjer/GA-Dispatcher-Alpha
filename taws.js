@@ -18,7 +18,7 @@ const _tawsCtx = _tawsCanvas.getContext('2d', { willReadFrequently: true });
 
 // Voice-Alert Cooldown (verhindert Spam)
 let _tawsLastVoiceAlert = 0;
-const TAWS_VOICE_COOLDOWN = 15000; // 15 Sekunden
+const TAWS_VOICE_COOLDOWN = 20000; // 20 Sekunden
 
 // ── Audio-System (iOS-sicher via AudioContext) ────────────────────────────────
 // speechSynthesis funktioniert im iOS-PWA-Modus nicht zuverlässig.
@@ -183,7 +183,7 @@ async function checkTerrainAlongPath(points) {
 
     // Jetzt synchron sampeln (alles im Cache)
     const results = [];
-    let hasRedThreat = false;
+    let hasImmediateThreat = false;  // Nur Punkte ≤ 1 Minute → Voice-Alert
 
     for (const p of points) {
         try {
@@ -194,22 +194,26 @@ async function checkTerrainAlongPath(points) {
             let threat = 'green';
             if (clearance < TAWS_SAFETY_RED) {
                 threat = 'red';
-                hasRedThreat = true;
+                // Voice nur wenn Kollision in ≤ 60 Sekunden
+                if ((p.min ?? 99) <= 1) hasImmediateThreat = true;
             } else if (clearance < TAWS_SAFETY_AMBER) {
                 threat = 'amber';
             }
 
             results.push({ lat: p.lat, lon: p.lon, terrainFt, aircraftFt, threat });
         } catch (e) {
-            // Tile-Fehler: kein Threat annehmen
             results.push({ lat: p.lat, lon: p.lon, terrainFt: 0, aircraftFt: p.alt, threat: 'green' });
         }
     }
 
-    // Voice-Alert bei Red Threat
-    if (hasRedThreat) {
+    // Voice-Alert: nur bei unmittelbarer Gefahr, nicht beim Landen
+    if (hasImmediateThreat) {
+        // Landing-Suppression: GS < 65 kts → Landephase, kein Alert
+        const gs = window.smoothedGS || 0;
+        const isLanding = gs > 5 && gs < 65;
+
         const now = Date.now();
-        if (now - _tawsLastVoiceAlert > TAWS_VOICE_COOLDOWN) {
+        if (!isLanding && now - _tawsLastVoiceAlert > TAWS_VOICE_COOLDOWN) {
             _tawsLastVoiceAlert = now;
             // 1) Voraufgezeichnetes Sample (primär – funktioniert auf iOS PWA)
             if (_tawsAlertAudio) {
@@ -219,13 +223,6 @@ async function checkTerrainAlongPath(points) {
             }
             // 2) Whoop-Whoop-Ton via AudioContext (läuft parallel zum Sample)
             _tawsPlayWhoopWhoop();
-            // 3) speechSynthesis als zusätzlicher Fallback (Desktop Safari)
-            if (typeof speechSynthesis !== 'undefined') {
-                const msg = new SpeechSynthesisUtterance('Terrain, terrain. Pull up.');
-                msg.rate = 1.1; msg.pitch = 1.0; msg.volume = 1.0; msg.lang = 'en-US';
-                speechSynthesis.cancel();
-                speechSynthesis.speak(msg);
-            }
         }
     }
 

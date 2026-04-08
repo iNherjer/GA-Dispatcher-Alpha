@@ -796,7 +796,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     // --- PREDICTION VECTORS ---
     if (smoothedGS > 30 && typeof getDestinationPoint === 'function' && now - lastPredictionUpdate > 1000) {
         lastPredictionUpdate = now;
-        const horizons = [2, 5, 10];
+        const horizons = [1, 2, 5, 10];
         const predPoints = horizons.map(min => {
             const distNM = smoothedGS * (min / 60);
             const pt = getDestinationPoint(lat, lon, distNM, hdg);
