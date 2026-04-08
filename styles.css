@@ -2418,6 +2418,8 @@ body.theme-retro .wp-data {
 
 /* ── iPhone (≤767px): Karte Vollbild, Pinnwand horizontal panbar ── */
 @media (max-width: 767px) {
+    #navStationLabel { display: none; }
+
     #mapTableOverlay .pinboard-scroll-area {
         padding: 0 !important;
     }
