@@ -4176,3 +4176,21 @@ body.theme-navcom .btn-menu:active {
     border: none !important;
     box-shadow: none !important;
 }
+
+/* ── AWM Frequenz-Banner ─────────────────────────────────────────────────── */
+.awm-freq-entry { display:flex; align-items:center; gap:10px;
+    background:rgba(8,8,8,0.94); border-top-width:2px; border-top-style:solid;
+    padding:8px 10px 8px 13px; backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px); cursor:pointer; user-select:none; }
+.awm-freq-name  { font-weight:bold; font-size:13px; font-family:monospace;
+    letter-spacing:.4px; white-space:nowrap; }
+.awm-freq-vals  { font-size:15px; font-family:monospace; }
+.awm-freq-val   { white-space:nowrap; display:inline-block; }
+.awm-freq-dismiss { background:none; border:none; color:#555; font-size:17px;
+    cursor:pointer; padding:0 2px 0 6px; line-height:1; flex-shrink:0;
+    touch-action:manipulation; }
+@media (max-width: 480px) {
+    .awm-freq-name { font-size:11px; }
+    .awm-freq-vals { font-size:12px; display:flex; flex-direction:column; gap:1px; }
+    .awm-freq-entry { padding:6px 8px 6px 10px; gap:7px; }
+}

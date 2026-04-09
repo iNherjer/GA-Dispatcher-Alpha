@@ -751,6 +751,12 @@
                                         oninput="awmSetVolume(this.value)">
                                     <span id="awmVolumeLabel" style="font-size:9px; color:#aaa; min-width:28px; text-align:right;">100%</span>
                                 </div>
+                                <label style="display:flex; align-items:center; gap:6px; padding:4px 2px; cursor:pointer; user-select:none; border-top:1px solid #333; margin-top:2px;">
+                                    <input type="checkbox" id="awmReadFreqCheck" checked
+                                        style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                        onchange="awmSetReadFreq(this.checked)">
+                                    <span style="font-size:9px;">📻 Frequenz ansagen</span>
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -892,7 +898,7 @@
         document.body.appendChild(btn);
     });
 
-    // Lautstärke-Slider aus localStorage initialisieren
+    // Lautstärke-Slider + Frequenz-Checkbox aus localStorage initialisieren
     window.addEventListener('load', () => {
         const saved = localStorage.getItem('awm_volume');
         if (saved !== null) {
@@ -901,6 +907,11 @@
             const lbl = document.getElementById('awmVolumeLabel');
             if (sl)  sl.value = pct;
             if (lbl) lbl.textContent = pct + '%';
+        }
+        const freqSaved = localStorage.getItem('awm_read_freq');
+        if (freqSaved !== null) {
+            const cb = document.getElementById('awmReadFreqCheck');
+            if (cb) cb.checked = (freqSaved !== '0');
         }
     });
 </script>

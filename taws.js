@@ -120,8 +120,45 @@ const _AWM_CLIPS = [
     'aw-ctr','aw-charlie','aw-delta','aw-rmz','aw-tmz','aw-edr',
     'aw-1min','aw-2min','aw-3min','aw-4min','aw-5min',
     'aw-6min','aw-7min','aw-8min','aw-9min','aw-10min',
+    // Frequenz-/Squawk-Ansage
+    'aw-freq','aw-sqwk','aw-komma',
+    'aw-d0','aw-d1','aw-d2','aw-d3','aw-d4',
+    'aw-d5','aw-d6','aw-d7','aw-d8','aw-d9',
     'taws-alert'
 ];
+
+// Frequenz-Ansage an/aus (default: an), persistent
+let _awmReadFreq = (localStorage.getItem('awm_read_freq') !== '0');
+window.awmSetReadFreq = function(on) {
+    _awmReadFreq = !!on;
+    localStorage.setItem('awm_read_freq', on ? '1' : '0');
+};
+
+// Frequenz-/Squawk-String → Clip-Keys (mit "Zwo" für 2)
+function _awFreqToClips(valueStr, isSquawk) {
+    const digitKey = ['aw-d0','aw-d1','aw-d2','aw-d3','aw-d4',
+                      'aw-d5','aw-d6','aw-d7','aw-d8','aw-d9'];
+    const prefix = isSquawk ? 'aw-sqwk' : 'aw-freq';
+    const clips = [prefix];
+    // Trailing-Nullen nach dem Komma entfernen (130.000 → 130)
+    let s = valueStr.toString().trim().replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+    for (const ch of s) {
+        if (ch >= '0' && ch <= '9') clips.push(digitKey[parseInt(ch)]);
+        else if (ch === '.' || ch === ',') clips.push('aw-komma');
+        // Sonstige Zeichen (Leerzeichen, Bindestrich) überspringen
+    }
+    return clips;
+}
+
+// Primäre Frequenz/Squawk eines Luftraums als Clip-Sequenz
+function _awGetFreqClips(as) {
+    if (!_awmReadFreq || !as.frequencies || !as.frequencies.length) return [];
+    const primary = as.frequencies.find(f => f.primary) || as.frequencies[0];
+    if (!primary || !primary.value) return [];
+    const nm = (primary.name || '').toUpperCase();
+    const isSquawk = /XPDR|SQK|SQUAWK|TRANSP/.test(nm);
+    return _awFreqToClips(primary.value, isSquawk);
+}
 const _awBuffers   = {};           // key → AudioBuffer
 let   _awLoaded    = false;
 let   _awLoading   = false;
@@ -277,23 +314,20 @@ function _awShowFreqBanner(as, col) {
 
     const entry = document.createElement('div');
     entry.dataset.askey = escaped;
-    entry.style.cssText = [
-        'display:flex', 'align-items:center',
-        'background:rgba(8,8,8,0.94)',
-        `border-top:2px solid ${col || '#888'}`,
-        'padding:8px 10px 8px 13px', 'gap:10px',
-        'backdrop-filter:blur(8px)', '-webkit-backdrop-filter:blur(8px)',
-        'cursor:pointer', 'user-select:none'
-    ].join(';');
+    entry.className = 'awm-freq-entry';
+    entry.style.borderTopColor = col || '#888';
+
+    const valsHtml = freqParts
+        .map(p => `<span class="awm-freq-val" style="color:${freqColor};">${p}</span>`)
+        .join('<span style="color:#444;margin:0 4px;">·</span>');
 
     entry.innerHTML =
         `<span style="flex:1;min-width:0;display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;">` +
-        `<span style="color:${col};font-weight:bold;font-size:13px;font-family:monospace;letter-spacing:.4px;white-space:nowrap;">${displayName}</span>` +
-        `<span style="color:#555;font-size:11px;">·</span>` +
-        `<span style="color:${freqColor};font-size:15px;font-family:monospace;white-space:nowrap;">${freqParts.join('&ensp;·&ensp;')}</span>` +
+        `<span class="awm-freq-name" style="color:${col};">${displayName}</span>` +
+        `<span style="color:#555;font-size:10px;">·</span>` +
+        `<span class="awm-freq-vals">${valsHtml}</span>` +
         `</span>` +
-        `<button style="background:none;border:none;color:#555;font-size:17px;cursor:pointer;padding:0 2px 0 6px;line-height:1;flex-shrink:0;touch-action:manipulation;" ` +
-        `onclick="event.stopPropagation();">✕</button>`;
+        `<button class="awm-freq-dismiss" onclick="event.stopPropagation();">✕</button>`;
 
     // Antippen / Klick → Eintrag entfernen, Banner verstecken wenn leer
     const dismiss = () => {
@@ -446,7 +480,7 @@ function checkAirspaceWarnings(predPoints) {
                 window._awmPulse = { color: col, lowerFt: effLower, upperFt: effUpper, startMs: now, as };
                 window.vpBgNeedsUpdate = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest2)} min`);
-                _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest2)) || 'aw-2min']);
+                _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest2)) || 'aw-2min', ..._awGetFreqClips(as)]);
                 _awShowFreqBanner(as, col);
                 // Kette starten: gleiche Klasse dahinter nicht nochmals ansagen
                 if (typeKey && _awTypeChain.has(typeKey)) _awTypeChain.get(typeKey).warnedAt = now;
@@ -466,7 +500,7 @@ function checkAirspaceWarnings(predPoints) {
                 window._awmPulse = { color: col, lowerFt: effLower, upperFt: effUpper, startMs: now, as };
                 window.vpBgNeedsUpdate = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest5)} min`);
-                _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest5)) || 'aw-5min']);
+                _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest5)) || 'aw-5min', ..._awGetFreqClips(as)]);
                 _awShowFreqBanner(as, col);
                 // Kette starten: gleiche Klasse dahinter nicht nochmals ansagen
                 if (typeKey && _awTypeChain.has(typeKey)) _awTypeChain.get(typeKey).warnedAt = now;

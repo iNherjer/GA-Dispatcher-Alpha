@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v272';
+const CACHE = 'ga-dispatcher-v273';
 
 const STATIC = [
     './',
@@ -31,6 +31,19 @@ const STATIC = [
     './audio-warnings/aw-rmz.m4a',
     './audio-warnings/aw-tmz.m4a',
     './audio-warnings/aw-edr.m4a',
+    './audio-warnings/aw-freq.m4a',
+    './audio-warnings/aw-sqwk.m4a',
+    './audio-warnings/aw-komma.m4a',
+    './audio-warnings/aw-d0.m4a',
+    './audio-warnings/aw-d1.m4a',
+    './audio-warnings/aw-d2.m4a',
+    './audio-warnings/aw-d3.m4a',
+    './audio-warnings/aw-d4.m4a',
+    './audio-warnings/aw-d5.m4a',
+    './audio-warnings/aw-d6.m4a',
+    './audio-warnings/aw-d7.m4a',
+    './audio-warnings/aw-d8.m4a',
+    './audio-warnings/aw-d9.m4a',
     './audio-warnings/aw-1min.m4a',
     './audio-warnings/aw-2min.m4a',
     './audio-warnings/aw-3min.m4a',
