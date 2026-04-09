@@ -794,6 +794,29 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     }
 
     // --- PREDICTION VECTORS ---
+    // Hilfsfunktion: Luftraum-Farbe für einen Vorhersagepunkt (synchron, für Marker-Einfärbung)
+    function _getAirspaceColorForPredPoint(pt) {
+        if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) return null;
+        if (typeof vpPointInPoly === 'undefined' || typeof airspaceLimitToFt === 'undefined') return null;
+        for (const as of activeAirspaces) {
+            if (!as.geometry || !as.lowerLimit || !as.upperLimit) continue;
+            if (as.type === 33) continue; // FIS überspringen
+            const lowerFt = airspaceLimitToFt(as.lowerLimit);
+            const upperFt = airspaceLimitToFt(as.upperLimit);
+            if (lowerFt === null || upperFt === null) continue;
+            const effLower = (as.lowerLimit.referenceDatum === 0) ? 0 : lowerFt;
+            if (pt.alt < effLower - 500 || pt.alt > upperFt + 500) continue;
+            const polys = [];
+            if (as.geometry.type === 'Polygon') polys.push(as.geometry.coordinates[0]);
+            else if (as.geometry.type === 'MultiPolygon') as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
+            for (const poly of polys) {
+                if (vpPointInPoly({ lat: pt.lat, lon: pt.lon }, poly)) {
+                    return typeof getAirspaceStyle === 'function' ? getAirspaceStyle(as).color : '#f2c12e';
+                }
+            }
+        }
+        return null;
+    }
     if (smoothedGS > 30 && typeof getDestinationPoint === 'function' && now - lastPredictionUpdate > 1000) {
         lastPredictionUpdate = now;
         const horizons = [1, 2, 5, 10];
@@ -848,12 +871,19 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
                 const color = worst === 'red' ? '#ff2222' : worst === 'amber' ? '#ffaa00' : '#ffffff';
                 predictionLine.setStyle({ color });
 
-                // Marker-Farben aktualisieren
+                // Marker-Farben: Terrain hat Priorität, danach Luftraum-Farbe
                 predictionMarkers.forEach((m, i) => {
-                    if (results[i]) {
-                        const c = results[i].threat === 'red' ? '#ff2222' : results[i].threat === 'amber' ? '#ffaa00' : '#ffffff';
-                        m.setStyle({ color: c, fillColor: c });
+                    const pt = predPoints[i];
+                    const terrain = results[i];
+                    let c = '#ffffff';
+                    if (terrain?.threat === 'red')   c = '#ff2222';
+                    else if (terrain?.threat === 'amber') c = '#ffaa00';
+                    else if (pt) {
+                        // Luftraum-Check für visuelle Rückmeldung
+                        const asC = _getAirspaceColorForPredPoint(pt);
+                        if (asC) c = asC;
                     }
+                    m.setStyle({ color: c, fillColor: c });
                 });
 
                 // Threats ans Vertikalprofil weitergeben

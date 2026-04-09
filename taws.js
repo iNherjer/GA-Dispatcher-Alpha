@@ -190,7 +190,7 @@ function checkAirspaceWarnings(predPoints) {
 
         // GND-basierte Lufträume: untere Grenze = 0 ft MSL (konservativ)
         const effLower = (as.lowerLimit.referenceDatum === 0) ? 0 : lowerFt;
-        const effUpper = upperFt;   // Obergrenze fast immer MSL
+        const effUpper = upperFt;
 
         // Polygone
         const polys = [];
@@ -199,9 +199,12 @@ function checkAirspaceWarnings(predPoints) {
             as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
         if (!polys.length) continue;
 
-        // State holen/anlegen
-        if (!_awState.has(asIdx)) _awState.set(asIdx, { t5: false, t2: false, t5in: false, t2in: false });
-        const st = _awState.get(asIdx);
+        // Stabiler Key: Name + Typ + untere Grenze (unabhängig vom Array-Index)
+        // Wichtig: fetchRouteAirspaces überschreibt activeAirspaces komplett →
+        // Array-Index wäre nach Refresh falsch
+        const asKey = `${as.type}_${as.name || 'x'}_${Math.round(lowerFt)}`;
+        if (!_awState.has(asKey)) _awState.set(asKey, { t5: false, t2: false, t5in: false, t2in: false });
+        const st = _awState.get(asKey);
 
         for (const lvl of LEVELS) {
             const pt = predPoints.find(p => Math.round(p.min) === lvl.min);
@@ -215,8 +218,8 @@ function checkAirspaceWarnings(predPoints) {
 
             const inKey = lvl.stateKey + 'in';
 
-            // Höhencheck: Flughöhe im Luftraum-Vertikalbereich (±200 ft Puffer)
-            const altOk = pt.alt >= effLower - 200 && pt.alt <= effUpper + 200;
+            // Höhencheck: Flughöhe im Luftraum-Vertikalbereich (±500 ft Puffer)
+            const altOk = pt.alt >= effLower - 500 && pt.alt <= effUpper + 500;
 
             if (inside && altOk) {
                 // Erste Flanke (war draußen, jetzt drin) → Ansage
@@ -224,7 +227,7 @@ function checkAirspaceWarnings(predPoints) {
                     st[lvl.stateKey] = true;
                     const minKey = _awMinKey(lvl.min);
                     if (minKey) {
-                        console.log(`[AWM] ${as.name} (${typeKey}) in ${lvl.min} min`);
+                        console.log(`[AWM] ✈ Warnung: ${as.name} (${typeKey}) in ${lvl.min} min | alt=${Math.round(pt.alt)} effLower=${effLower} effUpper=${effUpper}`);
                         _awPlaySequence(['aw-achtung', typeKey, 'aw-in', minKey]);
                     }
                 }

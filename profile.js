@@ -2412,7 +2412,8 @@ function renderMapProfileFrames(timeMs) {
     }
 
     // A: SCRUB-MARKER (Magenta Linie bei Hover)
-    if (typeof vpPositionFraction === 'number' && vpPositionFraction >= 0) {
+    // Scrub-Marker nur im RTE-Modus (in HDG-Modus ist Position live-GPS-gesteuert)
+    if (!isHdgMode && typeof vpPositionFraction === 'number' && vpPositionFraction >= 0) {
         const posX = xOf(vpPositionFraction * totalDist);
         if (posX >= viewMinX - 20 && posX <= viewMaxX + 20) {
             fgCtx.beginPath(); fgCtx.strokeStyle = '#ff00ff'; fgCtx.lineWidth = 1.5; fgCtx.moveTo(posX, padTop); fgCtx.lineTo(posX, padTop + plotH); fgCtx.stroke();
@@ -2990,8 +2991,9 @@ function initAltWaypoints() {
         dragStartX = e.clientX;
         dragStartY = e.clientY;
 
-        // Priority 1: Magenta marker drag
-        if (vpHitTestMagenta(mx, m)) {
+        // Priority 1: Magenta marker drag (nur im RTE-Modus)
+        const _isHdgNow = (typeof vpMode !== 'undefined' && vpMode === 'HDG');
+        if (!_isHdgNow && vpHitTestMagenta(mx, m)) {
             window.vpDraggingPosMarker = true;
             e.preventDefault(); e.stopPropagation();
             return;
@@ -3064,7 +3066,8 @@ function initAltWaypoints() {
         }
         lastTapTime = now;
 
-        if (vpHitTestMagenta(mx, m)) {
+        const _isHdgNow2 = (typeof vpMode !== 'undefined' && vpMode === 'HDG');
+        if (!_isHdgNow2 && vpHitTestMagenta(mx, m)) {
             e.preventDefault();
             window.vpDraggingPosMarker = true;
             return;
