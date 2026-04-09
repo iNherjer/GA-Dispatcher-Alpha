@@ -1508,16 +1508,30 @@ function renderVerticalProfile(canvasId) {
             ctx.lineWidth = 1;
             ctx.setLineDash([3, 3]);
 
+            // Airspace-Form zeichnen: MSL → exaktes Rechteck (kein Sampling-Artefakt),
+            // AGL → Gelände-folgendes Polygon
             ctx.beginPath();
-            for (let i = 0; i < relevantPts.length; i++) {
-                const p = relevantPts[i];
-                const realUpper = isUpperAgl ? p.elevFt + upperFt : upperFt;
-                ctx.lineTo(xOf(p.distNM), yOf(Math.min(realUpper, maxAlt)));
-            }
-            for (let i = relevantPts.length - 1; i >= 0; i--) {
-                const p = relevantPts[i];
-                const realLower = isLowerAgl ? p.elevFt + lowerFt : lowerFt;
-                ctx.lineTo(xOf(p.distNM), yOf(Math.max(realLower, minAlt)));
+            if (!isLowerAgl && !isUpperAgl) {
+                // Reines MSL-Rechteck — exakt von asMinDist bis asMaxDist
+                const ry1 = yOf(Math.min(upperFt, maxAlt));
+                const ry2 = yOf(Math.max(lowerFt, minAlt));
+                ctx.moveTo(xOf(asMinDist), ry1);
+                ctx.lineTo(xOf(asMaxDist), ry1);
+                ctx.lineTo(xOf(asMaxDist), ry2);
+                ctx.lineTo(xOf(asMinDist), ry2);
+            } else {
+                // AGL-Polygon entlang Geländeprofil
+                for (let i = 0; i < relevantPts.length; i++) {
+                    const p = relevantPts[i];
+                    const realUpper = isUpperAgl ? p.elevFt + upperFt : upperFt;
+                    const y = yOf(Math.min(realUpper, maxAlt));
+                    if (i === 0) ctx.moveTo(xOf(p.distNM), y); else ctx.lineTo(xOf(p.distNM), y);
+                }
+                for (let i = relevantPts.length - 1; i >= 0; i--) {
+                    const p = relevantPts[i];
+                    const realLower = isLowerAgl ? p.elevFt + lowerFt : lowerFt;
+                    ctx.lineTo(xOf(p.distNM), yOf(Math.max(realLower, minAlt)));
+                }
             }
             ctx.closePath();
             ctx.fill();
@@ -1526,7 +1540,7 @@ function renderVerticalProfile(canvasId) {
 
             let sumUpper = 0;
             relevantPts.forEach(p => sumUpper += (isUpperAgl ? p.elevFt + upperFt : upperFt));
-            const avgUpper = sumUpper / relevantPts.length;
+            const avgUpper = relevantPts.length ? sumUpper / relevantPts.length : upperFt;
 
             let labelY = yOf(Math.min(avgUpper, maxAlt));
             labelY = Math.max(padTop + 15, labelY);
@@ -2121,16 +2135,27 @@ function renderMapProfileFrames(timeMs) {
                 targetCtx.lineWidth = lineW; 
                 targetCtx.setLineDash(isHighlighted ? [] : [3, 3]);
 
+                // Airspace-Form zeichnen: MSL → exaktes Rechteck, AGL → Gelände-Polygon
                 targetCtx.beginPath();
-                for (let i = 0; i < relevantPts.length; i++) {
-                    const p = relevantPts[i];
-                    const realUpper = isUpperAgl ? p.elevFt + upperFt : upperFt;
-                    targetCtx.lineTo(xOf(p.distNM), yOf(Math.min(realUpper, maxAlt)));
-                }
-                for (let i = relevantPts.length - 1; i >= 0; i--) {
-                    const p = relevantPts[i];
-                    const realLower = isLowerAgl ? p.elevFt + lowerFt : lowerFt;
-                    targetCtx.lineTo(xOf(p.distNM), yOf(Math.max(realLower, minAlt)));
+                if (!isLowerAgl && !isUpperAgl) {
+                    const ry1 = yOf(Math.min(upperFt, maxAlt));
+                    const ry2 = yOf(Math.max(lowerFt, minAlt));
+                    targetCtx.moveTo(xOf(asMinDist), ry1);
+                    targetCtx.lineTo(xOf(asMaxDist), ry1);
+                    targetCtx.lineTo(xOf(asMaxDist), ry2);
+                    targetCtx.lineTo(xOf(asMinDist), ry2);
+                } else {
+                    for (let i = 0; i < relevantPts.length; i++) {
+                        const p = relevantPts[i];
+                        const realUpper = isUpperAgl ? p.elevFt + upperFt : upperFt;
+                        const y = yOf(Math.min(realUpper, maxAlt));
+                        if (i === 0) targetCtx.moveTo(xOf(p.distNM), y); else targetCtx.lineTo(xOf(p.distNM), y);
+                    }
+                    for (let i = relevantPts.length - 1; i >= 0; i--) {
+                        const p = relevantPts[i];
+                        const realLower = isLowerAgl ? p.elevFt + lowerFt : lowerFt;
+                        targetCtx.lineTo(xOf(p.distNM), yOf(Math.max(realLower, minAlt)));
+                    }
                 }
                 targetCtx.closePath(); targetCtx.fill(); targetCtx.stroke(); targetCtx.setLineDash([]);
 

@@ -128,6 +128,11 @@ let   _awLoading   = false;
 
 // State pro Luftraum: { t5, t2, t5in, t2in, firstSeen5, firstSeen2 }
 const _awState = new Map();
+// Gleiche-Klasse Ketten-Unterdrückung: typeKey → { lastActiveMs, warnedAt }
+// Wenn der Pilot durch mehrere aufeinanderfolgende D-Sektoren fliegt ohne Unterbrechung,
+// wird nur der erste angesagt.
+const _awTypeChain = new Map(); // typeKey → { lastActiveMs, warnedAt }
+const _AW_CHAIN_GAP = 45000;   // 45 s offener Luftraum → Kette zurückgesetzt
 // Serielle Abspielqueue: verhindert gleichzeitige Ansagen
 let _awQueueBusy = false;
 const _awQueue = [];
@@ -310,14 +315,43 @@ function checkAirspaceWarnings(predPoints) {
                       - Math.min(b.earliest5 ?? 99, b.earliest2 ?? 99));
     const nearestKey = unentered.length > 0 ? unentered[0].asKey : null;
 
+    // Gleiche-Klasse Ketten-Update:
+    // • Alle aktuell sichtbaren typeKeys als aktiv markieren
+    // • Falls das Flugzeug gerade in einer ANDEREN Klasse ist → Kette der restlichen Klassen brechen
+    const insideTypeKeys = new Set(crossings.filter(c => c.insideNow && c.typeKey).map(c => c.typeKey));
+    for (const c of crossings) {
+        if (!c.typeKey) continue;
+        if (!_awTypeChain.has(c.typeKey)) _awTypeChain.set(c.typeKey, { lastActiveMs: 0, warnedAt: 0 });
+        _awTypeChain.get(c.typeKey).lastActiveMs = now;
+    }
+    // Wenn drin in einer Klasse, breche Ketten aller anderen (bereits-gewarnte) Klassen
+    if (insideTypeKeys.size > 0) {
+        for (const [tk, ch] of _awTypeChain) {
+            if (!insideTypeKeys.has(tk) && ch.warnedAt > 0) {
+                ch.warnedAt = 0; // Kette unterbrochen durch andere Klasse
+            }
+        }
+    }
+
     // ── Pass 3: Warnungen ausspielen ──────────────────────────────────────────
     for (const c of crossings) {
         const { as, typeKey, effLower, effUpper, earliest5, earliest2, insideNow, asKey } = c;
         const in5 = earliest5 !== null;
         const in2 = earliest2 !== null;
 
-        // Nur warnen wenn: bereits drin ODER nächster uneingetretener Luftraum
-        const allowed = insideNow || asKey === nearestKey;
+        // Gleiche-Klasse Ketten-Unterdrückung:
+        // Wenn wir bereits für diesen typeKey gewarnt haben UND die Kette noch aktiv ist
+        // (kein langer Gap ohne Luftraum dieser Klasse), die Warnung unterdrücken.
+        let chainSuppressed = false;
+        if (!insideNow && typeKey) {
+            const ch = _awTypeChain.get(typeKey);
+            if (ch && ch.warnedAt > 0 && (now - ch.lastActiveMs) < _AW_CHAIN_GAP) {
+                chainSuppressed = true;
+            }
+        }
+
+        // Nur warnen wenn: bereits drin ODER nächster uneingetretener Luftraum UND nicht Ketten-unterdrückt
+        const allowed = (insideNow || asKey === nearestKey) && !chainSuppressed;
 
         if (!_awState.has(asKey))
             _awState.set(asKey, { t5: false, t2: false, firstSeen5: 0, firstSeen2: 0, lastSeen5: 0, lastSeen2: 0 });
@@ -342,6 +376,8 @@ function checkAirspaceWarnings(predPoints) {
                 window.vpBgNeedsUpdate = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest2)} min`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest2)) || 'aw-2min']);
+                // Kette starten: gleiche Klasse dahinter nicht nochmals ansagen
+                if (typeKey && _awTypeChain.has(typeKey)) _awTypeChain.get(typeKey).warnedAt = now;
             }
         } else if (st.lastSeen2 && (now - st.lastSeen2) > STICKY) {
             st.t2 = false; st.firstSeen2 = 0; st.lastSeen2 = 0;
@@ -359,6 +395,8 @@ function checkAirspaceWarnings(predPoints) {
                 window.vpBgNeedsUpdate = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest5)} min`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest5)) || 'aw-5min']);
+                // Kette starten: gleiche Klasse dahinter nicht nochmals ansagen
+                if (typeKey && _awTypeChain.has(typeKey)) _awTypeChain.get(typeKey).warnedAt = now;
             }
         } else if (!in2 && st.lastSeen5 && (now - st.lastSeen5) > STICKY) {
             st.t5 = false; st.firstSeen5 = 0; st.lastSeen5 = 0;
