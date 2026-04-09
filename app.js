@@ -2217,8 +2217,10 @@ async function fetchRouteAirspaces(routePts) {
         // Keep type 4, but inherit frequencies from the duplicate if type 4 has none
         const byName = new Map();
         for (const as of intersecting) {
-            // ICAO Klasse in den Key aufnehmen, damit Class D nicht von gleichnamigen CTRs überschrieben wird
-            const key = (as.name || as._id) + '_' + (as.icaoClass || as.type);
+            // ICAO Klasse + untere Grenze in den Key aufnehmen, damit höhenversetzte Lufträume
+            // mit gleichem Namen (z.B. Stuttgart TMA Class C + Class D übereinander) nicht zusammengeführt werden
+            const lowerVal = (as.lowerLimit && as.lowerLimit.value !== undefined) ? as.lowerLimit.value : 0;
+            const key = (as.name || as._id) + '_' + (as.icaoClass || as.type) + '_' + lowerVal;
             if (!byName.has(key)) {
                 byName.set(key, as);
             } else {

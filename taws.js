@@ -214,8 +214,7 @@ function _awPulseOnMap(as, color) {
 
 /**
  * Vorhersage-Punkte gegen aktive Lufträume prüfen und ggf. Ansage abspielen.
- * Vereinfachte Version: Sobald irgendein predPoint im Luftraum liegt → "Achtung [Typ]".
- * Kein Zeitmarker, 30s Cooldown pro Luftraum.
+ * Nearest-first: nur der nächste noch nicht eingetretene Luftraum wird angesagt.
  */
 function checkAirspaceWarnings(predPoints) {
     if (!_awLoaded) { _awLoadClips(); return; }
@@ -223,24 +222,25 @@ function checkAirspaceWarnings(predPoints) {
     if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) return;
     if (typeof vpPointInPoly === 'undefined' || typeof airspaceLimitToFt === 'undefined') return;
 
-    const now = Date.now();  // war fehlend → ReferenceError crashte jeden Tick
+    const now = Date.now();
+    const PERSIST = 5000;
+    const STICKY  = 3000;
 
+    // ── Pass 1: Schnittstellen für alle Lufträume berechnen ───────────────────
+    const crossings = [];
     for (const as of activeAirspaces) {
         if (!as.geometry) continue;
-        if (as.type === 33) continue;  // FIS: kein Alert
+        if (as.type === 33) continue;
 
         const typeKey = _awTypeKey(as) || 'aw-ctr';
-
-        // Höhengrenzen (mit großzügigem Puffer — fehlende Limits werden toleriert)
         let effLower = 0, effUpper = 99999;
-        if (as.lowerLimit && as.upperLimit && typeof airspaceLimitToFt === 'function') {
+        if (as.lowerLimit && as.upperLimit) {
             const lo = airspaceLimitToFt(as.lowerLimit);
             const hi = airspaceLimitToFt(as.upperLimit);
             if (lo !== null) effLower = (as.lowerLimit.referenceDatum === 0) ? 0 : lo;
             if (hi !== null) effUpper = hi;
         }
 
-        // Polygone
         const polys = [];
         if (as.geometry.type === 'Polygon')
             polys.push(as.geometry.coordinates[0]);
@@ -248,31 +248,53 @@ function checkAirspaceWarnings(predPoints) {
             as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
         if (!polys.length) continue;
 
-        // Stabiler State-Key
-        const asKey = `${as.type}_${as.name || 'x'}_${Math.round(effLower)}`;
-        if (!_awState.has(asKey)) _awState.set(asKey, { t5: false, t2: false, firstSeen5: 0, firstSeen2: 0, lastSeen5: 0, lastSeen2: 0 });
-        const st = _awState.get(asKey);
-
-        // Frühesten Schnittpunkt ≤5 min und ≤2 min finden
-        let earliest5 = null, earliest2 = null;
+        let earliest5 = null, earliest2 = null, insideNow = false;
         for (const pt of predPoints) {
-            if (pt.min > 5) continue;
-            // Höhencheck: 500 ft unterhalb des Bodens tolerieren, nur 300 ft oberhalb der Decke
-            // Verhindert Warnungen für Lufträume weit über dem Flugzeug
             if (pt.alt < effLower - 500 || pt.alt > effUpper + 300) continue;
             let inside = false;
             for (const poly of polys) {
                 if (vpPointInPoly({ lat: pt.lat, lon: pt.lon }, poly)) { inside = true; break; }
             }
             if (!inside) continue;
-            if (earliest5 === null || pt.min < earliest5) earliest5 = pt.min;
+            if (pt.min <= 1)  insideNow = true;   // Flugzeug praktisch drin
+            if (pt.min <= 5 && (earliest5 === null || pt.min < earliest5)) earliest5 = pt.min;
             if (pt.min <= 2 && (earliest2 === null || pt.min < earliest2)) earliest2 = pt.min;
         }
 
+        if (earliest5 === null && earliest2 === null && !insideNow) continue;
+
+        const asKey = `${as.type}_${as.name || 'x'}_${Math.round(effLower)}`;
+        crossings.push({ as, typeKey, effLower, effUpper, earliest5, earliest2, insideNow, asKey });
+    }
+
+    // ── Pass 2: Nächsten noch nicht eingetretenen Luftraum bestimmen ──────────
+    // Lufträume in denen man schon drin ist dürfen weiterhin passieren.
+    // Von den noch nicht eingetretenen: nur den nächsten warnen (blockiert weiter entfernte).
+    const unentered = crossings
+        .filter(c => !c.insideNow)
+        .sort((a, b) => Math.min(a.earliest5 ?? 99, a.earliest2 ?? 99)
+                      - Math.min(b.earliest5 ?? 99, b.earliest2 ?? 99));
+    const nearestKey = unentered.length > 0 ? unentered[0].asKey : null;
+
+    // ── Pass 3: Warnungen ausspielen ──────────────────────────────────────────
+    for (const c of crossings) {
+        const { as, typeKey, effLower, effUpper, earliest5, earliest2, insideNow, asKey } = c;
         const in5 = earliest5 !== null;
         const in2 = earliest2 !== null;
-        const PERSIST  = 5000; // ms Schnitt muss stabil sein bevor Warnung feuert
-        const STICKY   = 3000; // ms nach letztem Kontakt bevor Timer zurückgesetzt wird
+
+        // Nur warnen wenn: bereits drin ODER nächster uneingetretener Luftraum
+        const allowed = insideNow || asKey === nearestKey;
+
+        if (!_awState.has(asKey))
+            _awState.set(asKey, { t5: false, t2: false, firstSeen5: 0, firstSeen2: 0, lastSeen5: 0, lastSeen2: 0 });
+        const st = _awState.get(asKey);
+
+        if (!allowed) {
+            // Timer zurücksetzen damit Warnung feuert sobald Luftraum als nächstes drankommt
+            if (st.lastSeen5 && (now - st.lastSeen5) > STICKY) { st.t5 = false; st.firstSeen5 = 0; st.lastSeen5 = 0; }
+            if (st.lastSeen2 && (now - st.lastSeen2) > STICKY) { st.t2 = false; st.firstSeen2 = 0; st.lastSeen2 = 0; }
+            continue;
+        }
 
         // 2-min Warnung
         if (in2) {
@@ -280,37 +302,32 @@ function checkAirspaceWarnings(predPoints) {
             if (!st.firstSeen2) st.firstSeen2 = now;
             if (!st.t2 && (now - st.firstSeen2) >= PERSIST) {
                 st.t2 = true;
-                console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤2 min`);
-                const _pulseColor2 = (typeof getAirspaceStyle === 'function') ? getAirspaceStyle(as).color : '#ffffff';
-                _awPulseOnMap(as, _pulseColor2);
-                window._awmPulse = { color: _pulseColor2, lowerFt: effLower, upperFt: effUpper, startMs: Date.now() };
+                const col = (typeof getAirspaceStyle === 'function') ? getAirspaceStyle(as).color : '#ffffff';
+                _awPulseOnMap(as, col);
+                window._awmPulse = { color: col, lowerFt: effLower, upperFt: effUpper, startMs: now };
                 window.vpBgNeedsUpdate = true;
+                console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest2)} min`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest2)) || 'aw-2min']);
             }
         } else if (st.lastSeen2 && (now - st.lastSeen2) > STICKY) {
-            // Erst nach 3s ohne Kontakt zurücksetzen (Kurvenflug-Toleranz)
-            st.t2 = false;
-            st.firstSeen2 = 0;
-            st.lastSeen2  = 0;
+            st.t2 = false; st.firstSeen2 = 0; st.lastSeen2 = 0;
         }
 
-        // 5-min Warnung (nur wenn kein 2-min Schnitt)
+        // 5-min Warnung (nur wenn kein 2-min Schnitt aktiv)
         if (in5 && !in2) {
             st.lastSeen5 = now;
             if (!st.firstSeen5) st.firstSeen5 = now;
             if (!st.t5 && (now - st.firstSeen5) >= PERSIST) {
                 st.t5 = true;
-                console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤5 min`);
-                const _pulseColor5 = (typeof getAirspaceStyle === 'function') ? getAirspaceStyle(as).color : '#ffffff';
-                _awPulseOnMap(as, _pulseColor5);
-                window._awmPulse = { color: _pulseColor5, lowerFt: effLower, upperFt: effUpper, startMs: Date.now() };
+                const col = (typeof getAirspaceStyle === 'function') ? getAirspaceStyle(as).color : '#ffffff';
+                _awPulseOnMap(as, col);
+                window._awmPulse = { color: col, lowerFt: effLower, upperFt: effUpper, startMs: now };
                 window.vpBgNeedsUpdate = true;
+                console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest5)} min`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest5)) || 'aw-5min']);
             }
         } else if (!in2 && st.lastSeen5 && (now - st.lastSeen5) > STICKY) {
-            st.t5 = false;
-            st.firstSeen5 = 0;
-            st.lastSeen5  = 0;
+            st.t5 = false; st.firstSeen5 = 0; st.lastSeen5 = 0;
         }
     }
 }
