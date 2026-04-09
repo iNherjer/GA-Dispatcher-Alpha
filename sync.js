@@ -845,12 +845,15 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             predictionLine.setLatLngs(lineCoords);
         }
 
-        // Im HDG-Modus: Lufträume für aktuellen Bereich nachladen (alle ~10 km).
-        // WICHTIG: Im ROUTE-Modus NICHT aufrufen — activeAirspaces enthält dann schon
-        // die vollständigen Routen-Lufträume und darf nicht durch den Vorhersage-Ausschnitt
-        // überschrieben werden (sonst verschwinden Lufträume im Vertikalprofil).
+        // Lufträume positions-basiert nachladen wenn:
+        //   a) HDG-Modus — activeAirspaces muss positions-basiert sein, oder
+        //   b) Keine Route gesetzt — ohne Route wird fetchRouteAirspaces nie aufgerufen
+        //      → activeAirspaces bleibt sonst dauerhaft leer
+        // Im ROUTE-Modus MIT Route: NICHT aufrufen, sonst überschreibt der 10-NM-Ausschnitt
+        // die komplette Routen-Luftraumliste und Lufträume verschwinden aus dem Vertikalprofil.
         const _isHdgModeNow = (typeof vpMode !== 'undefined' && vpMode === 'HDG');
-        if (_isHdgModeNow && typeof fetchRouteAirspaces === 'function') {
+        const _hasRoute = !!(window._lastVpRouteKey);
+        if ((_isHdgModeNow || !_hasRoute) && typeof fetchRouteAirspaces === 'function') {
             const hdgKey = `${lat.toFixed(1)}_${lon.toFixed(1)}`;
             if (window._lastHdgAirspaceKey !== hdgKey) {
                 window._lastHdgAirspaceKey = hdgKey;

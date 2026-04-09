@@ -224,7 +224,7 @@ function checkAirspaceWarnings(predPoints) {
 
         // Stabiler State-Key
         const asKey = `${as.type}_${as.name || 'x'}_${Math.round(effLower)}`;
-        if (!_awState.has(asKey)) _awState.set(asKey, { t5: false, t2: false, t5in: false, t2in: false });
+        if (!_awState.has(asKey)) _awState.set(asKey, { t5: false, t2: false, firstSeen5: 0, firstSeen2: 0 });
         const st = _awState.get(asKey);
 
         // Frühesten Schnittpunkt ≤5 min und ≤2 min finden
@@ -244,41 +244,32 @@ function checkAirspaceWarnings(predPoints) {
 
         const in5 = earliest5 !== null;
         const in2 = earliest2 !== null;
-        const PERSIST = 5000; // 5 Sekunden Persistenz vor Auslösung
+        const PERSIST = 5000; // ms Persistenz vor Auslösung
 
         // 2-min Warnung
         if (in2) {
-            if (!st.t2in) {
-                // Erste Sekunde in Zone: Startzeit merken
-                if (!st.t2in) st.firstSeen2 = st.firstSeen2 || now;
-            }
-            const held2 = now - (st.firstSeen2 || now);
-            if (!st.t2 && held2 >= PERSIST) {
+            if (!st.firstSeen2) st.firstSeen2 = now;   // Eintrittszeit setzen
+            if (!st.t2 && (now - st.firstSeen2) >= PERSIST) {
                 st.t2 = true;
-                console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤2 min (${held2}ms gehalten)`);
+                console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤2 min`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', 'aw-2min']);
             }
-            st.t2in = true;
         } else {
-            st.t2in     = false;
-            st.t2       = false;
-            st.firstSeen2 = null;
+            st.t2 = false;
+            st.firstSeen2 = 0;
         }
 
-        // 5-min Warnung (nur wenn kein 2-min Alert)
+        // 5-min Warnung (nur wenn kein 2-min Schnitt)
         if (in5 && !in2) {
-            if (!st.t5in) st.firstSeen5 = st.firstSeen5 || now;
-            const held5 = now - (st.firstSeen5 || now);
-            if (!st.t5 && held5 >= PERSIST) {
+            if (!st.firstSeen5) st.firstSeen5 = now;
+            if (!st.t5 && (now - st.firstSeen5) >= PERSIST) {
                 st.t5 = true;
-                console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤5 min (${held5}ms gehalten)`);
+                console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤5 min`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', 'aw-5min']);
             }
-            st.t5in = true;
-        } else if (!in5) {
-            st.t5in     = false;
-            st.t5       = false;
-            st.firstSeen5 = null;
+        } else {
+            st.t5 = false;
+            st.firstSeen5 = 0;
         }
     }
 }
