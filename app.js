@@ -2217,10 +2217,16 @@ async function fetchRouteAirspaces(routePts) {
         // Keep type 4, but inherit frequencies from the duplicate if type 4 has none
         const byName = new Map();
         for (const as of intersecting) {
-            // ICAO Klasse + untere Grenze in den Key aufnehmen, damit höhenversetzte Lufträume
-            // mit gleichem Namen (z.B. Stuttgart TMA Class C + Class D übereinander) nicht zusammengeführt werden
+            // Deduplizierungs-Key:
+            // • Typ 0 / Typ 4 (Airspace/CTR): Name + Klasse + untere Grenze — fasst OpenAIP-Duplikate
+            //   desselben CTRs zusammen (type 0 ↔ type 4 mit gleichen Grenzen).
+            // • Alle anderen Typen (TMA, TMZ, RMZ …): _id verwenden — jeder Sektor bleibt erhalten,
+            //   auch wenn mehrere Sektoren denselben Namen tragen (z.B. Stuttgart TMA Außenring Nord/Süd).
             const lowerVal = (as.lowerLimit && as.lowerLimit.value !== undefined) ? as.lowerLimit.value : 0;
-            const key = (as.name || as._id) + '_' + (as.icaoClass || as.type) + '_' + lowerVal;
+            const isCtrlDup = (as.type === 0 || as.type === 4);
+            const key = isCtrlDup
+                ? (as.name || as._id) + '_' + (as.icaoClass || as.type) + '_' + lowerVal
+                : (as._id || (as.name || 'x') + '_' + (as.icaoClass || as.type) + '_' + lowerVal);
             if (!byName.has(key)) {
                 byName.set(key, as);
             } else {

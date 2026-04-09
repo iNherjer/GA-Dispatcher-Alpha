@@ -742,6 +742,13 @@
                                 <button id="btnToggleLinear" class="vp-toggle-cloud active vp-btn-relative" onclick="vpToggleLinearFeatures()" title="Flüsse & Autobahnen an/aus" style="width:100%; justify-content:flex-start; gap:6px;">🛣️ <span style="font-size:9px;">Flüsse/Straßen</span></button>
                                 <button id="btnToggleAirspaces" class="vp-toggle-cloud active" onclick="vpToggleAirspaces()" title="Lufträume: Hintergrund / Vordergrund / Aus" style="width:100%; justify-content:flex-start; gap:6px; min-width:unset;">🛡️ <span style="font-size:9px;">Lufträume</span></button>
                                 <button id="btnToggleTrafficProfile" class="vp-toggle-cloud active" onclick="window.vpToggleTrafficProfile && vpToggleTrafficProfile()" title="AI Traffic im Höhenprofil an/aus" style="width:100%; justify-content:flex-start; gap:6px;">📡 <span style="font-size:9px;">Traffic</span></button>
+                                <div style="display:flex; align-items:center; gap:5px; padding:3px 2px; border-top:1px solid #333; margin-top:2px;">
+                                    <span style="font-size:11px;" title="Ansage-Lautstärke">🔊</span>
+                                    <input type="range" id="awmVolumeSlider" min="0" max="100" value="100"
+                                        style="flex:1; min-width:70px; accent-color:#4da6ff; cursor:pointer;"
+                                        oninput="awmSetVolume(this.value)">
+                                    <span id="awmVolumeLabel" style="font-size:9px; color:#aaa; min-width:28px; text-align:right;">100%</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -881,6 +888,18 @@
         });
         btn.querySelector('button').style.cssText = `background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;`;
         document.body.appendChild(btn);
+    });
+
+    // Lautstärke-Slider aus localStorage initialisieren
+    window.addEventListener('load', () => {
+        const saved = localStorage.getItem('awm_volume');
+        if (saved !== null) {
+            const pct = Math.round(parseFloat(saved) * 100);
+            const sl  = document.getElementById('awmVolumeSlider');
+            const lbl = document.getElementById('awmVolumeLabel');
+            if (sl)  sl.value = pct;
+            if (lbl) lbl.textContent = pct + '%';
+        }
     });
 </script>
 

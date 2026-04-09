@@ -28,11 +28,30 @@ const TAWS_VOICE_COOLDOWN = 15000; // 15 Sekunden
 let _tawsAudioCtx = null;
 let _tawsSpeechUnlocked = false;
 
+// Master-Lautstärke (0–1), persistent via localStorage
+let _awmVolume = Math.min(1, Math.max(0, parseFloat(localStorage.getItem('awm_volume') ?? '1')));
+let _awmMasterGain = null;
+
+// Von index.html Slider aufgerufen
+window.awmSetVolume = function(val) {
+    _awmVolume = Math.min(1, Math.max(0, val / 100));
+    if (_awmMasterGain) _awmMasterGain.gain.value = _awmVolume;
+    localStorage.setItem('awm_volume', _awmVolume);
+    const lbl = document.getElementById('awmVolumeLabel');
+    if (lbl) lbl.textContent = Math.round(val) + '%';
+};
+
 function _tawsInitAudio() {
     if (!_tawsAudioCtx) {
         try {
             _tawsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
         } catch(e) { _tawsAudioCtx = null; }
+    }
+    // Master-GainNode für Lautstärkeregelung aller Audio-Ausgaben
+    if (_tawsAudioCtx && !_awmMasterGain) {
+        _awmMasterGain = _tawsAudioCtx.createGain();
+        _awmMasterGain.gain.value = _awmVolume;
+        _awmMasterGain.connect(_tawsAudioCtx.destination);
     }
     // Alle Clips laden sobald AudioContext bereit — inkl. taws-alert (kein HTMLAudioElement mehr)
     if (!_awLoaded && !_awLoading) _awLoadClips();
@@ -58,7 +77,7 @@ function _tawsPlayWhoopWhoop() {
             const osc  = _tawsAudioCtx.createOscillator();
             const gain = _tawsAudioCtx.createGain();
             osc.connect(gain);
-            gain.connect(_tawsAudioCtx.destination);
+            gain.connect(_awmMasterGain || _tawsAudioCtx.destination);
             osc.type = 'sine';
             const t = now + i * 0.65;
             osc.frequency.setValueAtTime(440, t);
@@ -131,7 +150,7 @@ function _awDrainQueue() {
             if (!buf) { console.warn('[AWM] Buffer fehlt:', key); continue; }
             const src = _tawsAudioCtx.createBufferSource();
             src.buffer = buf;
-            src.connect(_tawsAudioCtx.destination);
+            src.connect(_awmMasterGain || _tawsAudioCtx.destination);
             src.start(t);
             totalDur += buf.duration + 0.08;
             t += buf.duration + 0.08;
@@ -249,6 +268,22 @@ function checkAirspaceWarnings(predPoints) {
         if (!polys.length) continue;
 
         let earliest5 = null, earliest2 = null, insideNow = false;
+
+        // insideNow: Flugzeug befindet sich JETZT in diesem Luftraum (GPS-Position, nicht Prediction)
+        // Nur so wird sichergestellt, dass der zweite Luftraum erst angesagt wird wenn der erste
+        // tatsächlich durchflogen wird — nicht schon 1 Minute vorher.
+        const _gps = window.lastLiveGpsPos;
+        if (_gps && _gps.alt !== undefined && _gps.lat !== undefined) {
+            const _gAlt = _gps.alt; // bereits in Feet (sync.js)
+            if (_gAlt >= effLower - 200 && _gAlt <= effUpper + 200) {
+                for (const poly of polys) {
+                    if (vpPointInPoly({ lat: _gps.lat, lon: _gps.lon }, poly)) {
+                        insideNow = true; break;
+                    }
+                }
+            }
+        }
+
         for (const pt of predPoints) {
             if (pt.alt < effLower - 500 || pt.alt > effUpper + 300) continue;
             let inside = false;
@@ -256,7 +291,6 @@ function checkAirspaceWarnings(predPoints) {
                 if (vpPointInPoly({ lat: pt.lat, lon: pt.lon }, poly)) { inside = true; break; }
             }
             if (!inside) continue;
-            if (pt.min <= 1)  insideNow = true;   // Flugzeug praktisch drin
             if (pt.min <= 5 && (earliest5 === null || pt.min < earliest5)) earliest5 = pt.min;
             if (pt.min <= 2 && (earliest2 === null || pt.min < earliest2)) earliest2 = pt.min;
         }
