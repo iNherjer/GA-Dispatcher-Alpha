@@ -192,9 +192,7 @@ function checkAirspaceWarnings(predPoints) {
 
     for (const as of activeAirspaces) {
         if (!as.geometry) continue;
-
-        const typeKey = _awTypeKey(as);
-        if (!typeKey) continue;
+        if (as.type === 33) continue;  // FIS: kein Alert
 
         // Polygone sammeln
         const polys = [];
@@ -217,17 +215,16 @@ function checkAirspaceWarnings(predPoints) {
         }
 
         const asKey = `${as.type}_${as.name || 'x'}`;
+        const typeKey = _awTypeKey(as) || 'aw-ctr';  // Fallback: CTR-Sound für unbekannte Typen
 
         if (anyInside) {
             const lastT = _awState.get(asKey) || 0;
             if (now - lastT > COOLDOWN) {
                 _awState.set(asKey, now);
-                console.log(`[AWM] ✈ Schneide Luftraum: ${as.name} (${typeKey})`);
-                _awPlaySequence(['aw-achtung', typeKey]);
+                console.log(`[AWM] ✈ Schneide Luftraum: ${as.name} typ=${as.type} key=${typeKey} bufLoaded=${Object.keys(_awBuffers).join(',')}`);
+                _awPlaySequence(['taws-alert']);  // TEST: taws-alert statt aw-Clips (prüft ob Pfad erreichbar)
             }
         } else {
-            // Kein Schnitt mehr → Cooldown-Zeit zurücksetzen, damit beim nächsten Eintreten
-            // sofort wieder gewarnt wird
             if (_awState.has(asKey)) _awState.set(asKey, 0);
         }
     }
