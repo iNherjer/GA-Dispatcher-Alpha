@@ -2581,7 +2581,7 @@ function renderMapProfileFrames(timeMs) {
     // D: TRAFFIC IM PROFIL
     vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, viewMaxX);
 
-    // E: AWM PULS — Luftraum kurz aufblinken lassen wenn Warnung ausgelöst wurde
+    // E: AWM PULS — nur das Luftraum-Polygon aufblinken (nicht ganzer Bildschirm)
     if (window._awmPulse) {
         const _p = window._awmPulse;
         const _elapsed = Date.now() - _p.startMs;
@@ -2591,7 +2591,16 @@ function renderMapProfileFrames(timeMs) {
         } else {
             const _phase = Math.floor(_elapsed / 450);  // 0-5
             if (_phase % 2 === 0) {
-                const _alpha = 0.7 * (1 - (_elapsed % 450) / 450 * 0.4);
+                // Horizontale Ausdehnung aus dem Airspace-Cache holen
+                let _px1 = padLeft, _pw = plotW; // Fallback: volle Breite
+                if (_p.as && window._vpAsCache && window._vpAsCache.items) {
+                    const _match = window._vpAsCache.items.find(item => item.as === _p.as);
+                    if (_match) {
+                        _px1 = xOf(_match.asMinDist);
+                        _pw  = Math.max(4, xOf(_match.asMaxDist) - _px1);
+                    }
+                }
+                const _alpha = 0.75 * (1 - (_elapsed % 450) / 450 * 0.35);
                 const _y1 = Math.min(yOf(Math.max(_p.lowerFt, 0)), yOf(Math.max(_p.upperFt, 0)));
                 const _y2 = Math.max(yOf(Math.max(_p.lowerFt, 0)), yOf(Math.max(_p.upperFt, 0)));
                 const _h  = Math.max(4, _y2 - _y1);
@@ -2599,10 +2608,10 @@ function renderMapProfileFrames(timeMs) {
                 fgCtx.globalAlpha = _alpha;
                 fgCtx.strokeStyle = _p.color;
                 fgCtx.lineWidth = 3;
-                fgCtx.strokeRect(padLeft, _y1, plotW, _h);
-                fgCtx.globalAlpha = _alpha * 0.25;
+                fgCtx.strokeRect(_px1, _y1, _pw, _h);
+                fgCtx.globalAlpha = _alpha * 0.28;
                 fgCtx.fillStyle = _p.color;
-                fgCtx.fillRect(padLeft, _y1, plotW, _h);
+                fgCtx.fillRect(_px1, _y1, _pw, _h);
                 fgCtx.restore();
             }
         }

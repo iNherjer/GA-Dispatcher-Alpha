@@ -288,9 +288,9 @@ function _awShowFreqBanner(as, col) {
 
     entry.innerHTML =
         `<span style="flex:1;min-width:0;display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;">` +
-        `<span style="color:${col};font-weight:bold;font-size:11px;font-family:monospace;letter-spacing:.4px;white-space:nowrap;">${displayName}</span>` +
-        `<span style="color:#555;font-size:10px;">·</span>` +
-        `<span style="color:${freqColor};font-size:12px;font-family:monospace;white-space:nowrap;">${freqParts.join('&ensp;·&ensp;')}</span>` +
+        `<span style="color:${col};font-weight:bold;font-size:13px;font-family:monospace;letter-spacing:.4px;white-space:nowrap;">${displayName}</span>` +
+        `<span style="color:#555;font-size:11px;">·</span>` +
+        `<span style="color:${freqColor};font-size:15px;font-family:monospace;white-space:nowrap;">${freqParts.join('&ensp;·&ensp;')}</span>` +
         `</span>` +
         `<button style="background:none;border:none;color:#555;font-size:17px;cursor:pointer;padding:0 2px 0 6px;line-height:1;flex-shrink:0;touch-action:manipulation;" ` +
         `onclick="event.stopPropagation();">✕</button>`;
@@ -443,7 +443,7 @@ function checkAirspaceWarnings(predPoints) {
                 st.t2 = true;
                 const col = (typeof getAirspaceStyle === 'function') ? getAirspaceStyle(as).color : '#ffffff';
                 _awPulseOnMap(as, col);
-                window._awmPulse = { color: col, lowerFt: effLower, upperFt: effUpper, startMs: now };
+                window._awmPulse = { color: col, lowerFt: effLower, upperFt: effUpper, startMs: now, as };
                 window.vpBgNeedsUpdate = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest2)} min`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest2)) || 'aw-2min']);
@@ -463,7 +463,7 @@ function checkAirspaceWarnings(predPoints) {
                 st.t5 = true;
                 const col = (typeof getAirspaceStyle === 'function') ? getAirspaceStyle(as).color : '#ffffff';
                 _awPulseOnMap(as, col);
-                window._awmPulse = { color: col, lowerFt: effLower, upperFt: effUpper, startMs: now };
+                window._awmPulse = { color: col, lowerFt: effLower, upperFt: effUpper, startMs: now, as };
                 window.vpBgNeedsUpdate = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest5)} min`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest5)) || 'aw-5min']);
