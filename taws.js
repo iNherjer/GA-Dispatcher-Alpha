@@ -153,9 +153,10 @@ function _awTypeKey(as) {
     if (t === 4)                return 'aw-ctr';      // CTR (Kontrollzone)
     if (cls === 2)              return 'aw-class-c';  // Class C
     if (cls === 3 || t === 0)   return 'aw-class-d';  // Class D
+    if (t === 7 || t === 26)    return 'aw-ctr';      // TMA / CTA → wie CTR ansagen
     if (t === 5 || t === 27)    return 'aw-tmz';      // TMZ
     if (t === 6 || t === 28)    return 'aw-rmz';      // RMZ
-    return null;   // Restricted/Danger/TMA/FIS → kein Sprach-Alert
+    return null;   // Restricted/Danger/FIS → kein Sprach-Alert
 }
 
 // Minuten-Zahl → Audio-Key
@@ -218,37 +219,57 @@ function checkAirspaceWarnings(predPoints) {
         if (!_awState.has(asKey)) _awState.set(asKey, { t5: false, t2: false, t5in: false, t2in: false });
         const st = _awState.get(asKey);
 
-        for (const lvl of LEVELS) {
-            const pt = predPoints.find(p => Math.round(p.min) === lvl.min);
-            if (!pt) continue;
-
-            // Punkt im Polygon?
+        // Frühestes Eintreten in den Luftraum finden (unter allen Vorhersage-Punkten ≤5 min)
+        // Damit wird auch bei 3-4 min Abstand korrekt gewarnt, nicht nur bei exakt 2/5 min.
+        let earliest5 = null;  // frühester Punkt ≤5 min drin
+        let earliest2 = null;  // frühester Punkt ≤2 min drin
+        for (const pt of predPoints) {
+            if (pt.min > 5) continue;
+            // Höhencheck ±1000 ft Puffer (toleranter als früher, fängt Steig-/Sinkphasen besser)
+            const altOk = pt.alt >= effLower - 1000 && pt.alt <= effUpper + 1000;
+            if (!altOk) continue;
             let inside = false;
             for (const poly of polys) {
                 if (vpPointInPoly({ lat: pt.lat, lon: pt.lon }, poly)) { inside = true; break; }
             }
+            if (!inside) continue;
+            if (earliest5 === null || pt.min < earliest5) earliest5 = pt.min;
+            if (pt.min <= 2 && (earliest2 === null || pt.min < earliest2)) earliest2 = pt.min;
+        }
 
-            const inKey = lvl.stateKey + 'in';
+        const in5 = earliest5 !== null;
+        const in2 = earliest2 !== null;
 
-            // Höhencheck: Flughöhe im Luftraum-Vertikalbereich (±500 ft Puffer)
-            const altOk = pt.alt >= effLower - 500 && pt.alt <= effUpper + 500;
-
-            if (inside && altOk) {
-                // Erste Flanke (war draußen, jetzt drin) → Ansage
-                if (!st[inKey] && !st[lvl.stateKey]) {
-                    st[lvl.stateKey] = true;
-                    const minKey = _awMinKey(lvl.min);
-                    if (minKey) {
-                        console.log(`[AWM] ✈ Warnung: ${as.name} (${typeKey}) in ${lvl.min} min | alt=${Math.round(pt.alt)} effLower=${effLower} effUpper=${effUpper}`);
-                        _awPlaySequence(['aw-achtung', typeKey, 'aw-in', minKey]);
-                    }
+        // 2-min Warnung
+        if (in2) {
+            if (!st.t2in && !st.t2) {
+                st.t2 = true;
+                const minKey = _awMinKey(2);
+                if (minKey) {
+                    console.log(`[AWM] ✈ Warnung: ${as.name} (${typeKey}) ≤2 min (frühester=${earliest2}min)`);
+                    _awPlaySequence(['aw-achtung', typeKey, 'aw-in', minKey]);
                 }
-                st[inKey] = true;
-            } else {
-                // Punkt hat Luftraum verlassen → Warnung für dieses Level zurücksetzen
-                st[inKey]          = false;
-                st[lvl.stateKey]   = false;
             }
+            st.t2in = true;
+        } else {
+            st.t2in = false;
+            st.t2   = false;
+        }
+
+        // 5-min Warnung (nur wenn noch kein 2-min Alert)
+        if (in5 && !in2) {
+            if (!st.t5in && !st.t5) {
+                st.t5 = true;
+                const minKey = _awMinKey(5);
+                if (minKey) {
+                    console.log(`[AWM] ✈ Warnung: ${as.name} (${typeKey}) ≤5 min (frühester=${earliest5}min)`);
+                    _awPlaySequence(['aw-achtung', typeKey, 'aw-in', minKey]);
+                }
+            }
+            st.t5in = true;
+        } else if (!in5) {
+            st.t5in = false;
+            st.t5   = false;
         }
     }
 }

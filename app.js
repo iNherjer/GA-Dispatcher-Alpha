@@ -2234,6 +2234,7 @@ async function fetchRouteAirspaces(routePts) {
             }
         }
         activeAirspaces = [...byName.values()];
+        window._activeAirspacesVersion = (window._activeAirspacesVersion || 0) + 1;
         clearAirspaceMapLayers();
         renderAirspaceWarningsList();
         if (typeof renderMapProfile === 'function' && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) renderMapProfile();

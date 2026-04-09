@@ -1362,7 +1362,7 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
     const hdgPosKey = isHdg && elevData[0]
         ? `_${(elevData[0].lat || 0).toFixed(2)}_${(elevData[0].lon || 0).toFixed(2)}`
         : '';
-    const asCacheKey = (window._lastVpRouteKey || 'none') + '_' + activeAirspaces.length + hdgPosKey;
+    const asCacheKey = (window._lastVpRouteKey || 'none') + '_v' + (window._activeAirspacesVersion || 0) + hdgPosKey;
     if (window._vpAsCache && window._vpAsCache.key === asCacheKey && window._vpAsCache.elevLength === elevData.length) {
         return window._vpAsCache.items;
     }
