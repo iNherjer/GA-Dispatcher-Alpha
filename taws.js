@@ -186,6 +186,32 @@ function _awMinKey(min) {
     return (n >= 1 && n <= 10) ? k[n] : null;
 }
 
+// Luftraum 3× auf Karte aufblinken lassen
+function _awPulseOnMap(as, color) {
+    if (!as.geometry || typeof L === 'undefined' || typeof map === 'undefined') return;
+    const polys = [];
+    if (as.geometry.type === 'Polygon')
+        polys.push(as.geometry.coordinates[0]);
+    else if (as.geometry.type === 'MultiPolygon')
+        as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
+
+    polys.forEach(poly => {
+        const latlngs = poly.map(c => [c[1], c[0]]);  // GeoJSON [lon,lat] → Leaflet [lat,lon]
+        const flash = L.polygon(latlngs, {
+            color, weight: 4, opacity: 0,
+            fillColor: color, fillOpacity: 0,
+            interactive: false
+        }).addTo(map);
+        let tick = 0;
+        const id = setInterval(() => {
+            tick++;
+            const on = (tick % 2 === 1);
+            flash.setStyle({ opacity: on ? 1 : 0, fillOpacity: on ? 0.3 : 0 });
+            if (tick >= 6) { clearInterval(id); if (map.hasLayer(flash)) map.removeLayer(flash); }
+        }, 450);
+    });
+}
+
 /**
  * Vorhersage-Punkte gegen aktive Lufträume prüfen und ggf. Ansage abspielen.
  * Vereinfachte Version: Sobald irgendein predPoint im Luftraum liegt → "Achtung [Typ]".
@@ -231,8 +257,9 @@ function checkAirspaceWarnings(predPoints) {
         let earliest5 = null, earliest2 = null;
         for (const pt of predPoints) {
             if (pt.min > 5) continue;
-            // Höhencheck ±1500 ft Puffer
-            if (pt.alt < effLower - 1500 || pt.alt > effUpper + 1500) continue;
+            // Höhencheck: 500 ft unterhalb des Bodens tolerieren, nur 300 ft oberhalb der Decke
+            // Verhindert Warnungen für Lufträume weit über dem Flugzeug
+            if (pt.alt < effLower - 500 || pt.alt > effUpper + 300) continue;
             let inside = false;
             for (const poly of polys) {
                 if (vpPointInPoly({ lat: pt.lat, lon: pt.lon }, poly)) { inside = true; break; }
@@ -254,7 +281,11 @@ function checkAirspaceWarnings(predPoints) {
             if (!st.t2 && (now - st.firstSeen2) >= PERSIST) {
                 st.t2 = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤2 min`);
-                _awPlaySequence(['aw-achtung', typeKey, 'aw-in', 'aw-2min']);
+                const _pulseColor2 = (typeof getAirspaceStyle === 'function') ? getAirspaceStyle(as).color : '#ffffff';
+                _awPulseOnMap(as, _pulseColor2);
+                window._awmPulse = { color: _pulseColor2, lowerFt: effLower, upperFt: effUpper, startMs: Date.now() };
+                window.vpBgNeedsUpdate = true;
+                _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest2)) || 'aw-2min']);
             }
         } else if (st.lastSeen2 && (now - st.lastSeen2) > STICKY) {
             // Erst nach 3s ohne Kontakt zurücksetzen (Kurvenflug-Toleranz)
@@ -270,7 +301,11 @@ function checkAirspaceWarnings(predPoints) {
             if (!st.t5 && (now - st.firstSeen5) >= PERSIST) {
                 st.t5 = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤5 min`);
-                _awPlaySequence(['aw-achtung', typeKey, 'aw-in', 'aw-5min']);
+                const _pulseColor5 = (typeof getAirspaceStyle === 'function') ? getAirspaceStyle(as).color : '#ffffff';
+                _awPulseOnMap(as, _pulseColor5);
+                window._awmPulse = { color: _pulseColor5, lowerFt: effLower, upperFt: effUpper, startMs: Date.now() };
+                window.vpBgNeedsUpdate = true;
+                _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest5)) || 'aw-5min']);
             }
         } else if (!in2 && st.lastSeen5 && (now - st.lastSeen5) > STICKY) {
             st.t5 = false;

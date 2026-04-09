@@ -830,6 +830,14 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         // Für Vertikalprofil-Rendering bereitstellen
         window.vpPredictionData = predPoints;
 
+        // Erweiterte Punkte für AWM (3 und 4 min) — nur intern, nicht auf Karte
+        const _awmExtra = [3, 4].map(min => {
+            const distNM = smoothedGS * (min / 60);
+            const pt = getDestinationPoint(lat, lon, distNM, hdg);
+            return { lat: pt.lat, lon: pt.lon, min, alt: Math.max(0, alt + smoothedVS * min) };
+        });
+        const _awmPredPoints = [...predPoints, ..._awmExtra];
+
         const lineCoords = [[lat, lon], ...predPoints.map(p => [p.lat, p.lon])];
 
         // Linie zeichnen/updaten
@@ -863,7 +871,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         }
 
         // Airspace-Warnungen prüfen (Sprach-Alerts via AWM)
-        if (typeof checkAirspaceWarnings === 'function') checkAirspaceWarnings(predPoints);
+        if (typeof checkAirspaceWarnings === 'function') checkAirspaceWarnings(_awmPredPoints);
 
         // TAWS-Check: Prediction-Linie einfärben wenn taws.js geladen
         if (typeof checkTerrainAlongPath === 'function') {

@@ -2556,6 +2556,33 @@ function renderMapProfileFrames(timeMs) {
     // D: TRAFFIC IM PROFIL
     vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, viewMaxX);
 
+    // E: AWM PULS — Luftraum kurz aufblinken lassen wenn Warnung ausgelöst wurde
+    if (window._awmPulse) {
+        const _p = window._awmPulse;
+        const _elapsed = Date.now() - _p.startMs;
+        const _TOTAL = 2700;  // 3 Pulse × 900ms
+        if (_elapsed > _TOTAL) {
+            window._awmPulse = null;
+        } else {
+            const _phase = Math.floor(_elapsed / 450);  // 0-5
+            if (_phase % 2 === 0) {
+                const _alpha = 0.7 * (1 - (_elapsed % 450) / 450 * 0.4);
+                const _y1 = Math.min(yOf(Math.max(_p.lowerFt, 0)), yOf(Math.max(_p.upperFt, 0)));
+                const _y2 = Math.max(yOf(Math.max(_p.lowerFt, 0)), yOf(Math.max(_p.upperFt, 0)));
+                const _h  = Math.max(4, _y2 - _y1);
+                fgCtx.save();
+                fgCtx.globalAlpha = _alpha;
+                fgCtx.strokeStyle = _p.color;
+                fgCtx.lineWidth = 3;
+                fgCtx.strokeRect(padLeft, _y1, plotW, _h);
+                fgCtx.globalAlpha = _alpha * 0.25;
+                fgCtx.fillStyle = _p.color;
+                fgCtx.fillRect(padLeft, _y1, plotW, _h);
+                fgCtx.restore();
+            }
+        }
+    }
+
     fgCtx.restore();
 
     window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
