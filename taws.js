@@ -42,6 +42,7 @@ function _tawsInitAudio() {
 function _tawsResumeThen(fn) {
     if (!_tawsAudioCtx) return;
     if (_tawsAudioCtx.state === 'suspended') {
+        console.warn('[TAWS] AudioContext noch suspended beim Playback — resume() ohne User-Gesture!');
         _tawsAudioCtx.resume().then(fn).catch(() => {});
     } else {
         fn();
@@ -74,6 +75,12 @@ function _tawsPlayWhoopWhoop() {
 
 function _tawsUnlockAll() {
     _tawsInitAudio();
+    // iOS PFLICHT: AudioContext.resume() MUSS aus einem User-Gesture-Handler heraus
+    // aufgerufen werden. Danach bleibt der Context 'running' und kann jederzeit
+    // per _tawsResumeThen() verwendet werden.
+    if (_tawsAudioCtx && _tawsAudioCtx.state === 'suspended') {
+        _tawsAudioCtx.resume().catch(() => {});
+    }
     if (!_tawsSpeechUnlocked && typeof speechSynthesis !== 'undefined') {
         _tawsSpeechUnlocked = true;
         const u = new SpeechSynthesisUtterance('');
