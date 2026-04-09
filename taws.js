@@ -169,107 +169,66 @@ function _awMinKey(min) {
 
 /**
  * Vorhersage-Punkte gegen aktive Lufträume prüfen und ggf. Ansage abspielen.
- * Wird von sync.js 1x/Sekunde aufgerufen (parallel zu checkTerrainAlongPath).
- * @param {Array<{lat,lon,alt,min}>} predPoints
+ * Vereinfachte Version: Sobald irgendein predPoint im Luftraum liegt → "Achtung [Typ]".
+ * Kein Zeitmarker, 30s Cooldown pro Luftraum.
  */
 function checkAirspaceWarnings(predPoints) {
     // Clips laden sobald AudioContext verfügbar (non-blocking)
     if (!_awLoaded) { _awLoadClips(); return; }
+    if (!_tawsAudioCtx) { console.warn('[AWM] kein AudioContext'); return; }
 
-    if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) return;
-    if (typeof vpPointInPoly     === 'undefined') return;
-    if (typeof airspaceLimitToFt === 'undefined') return;
+    if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) {
+        console.log('[AWM] activeAirspaces leer, skip');
+        return;
+    }
+    if (typeof vpPointInPoly     === 'undefined') { console.warn('[AWM] vpPointInPoly fehlt'); return; }
+    if (typeof airspaceLimitToFt === 'undefined') { console.warn('[AWM] airspaceLimitToFt fehlt'); return; }
 
     const gs = window.smoothedGS || 0;
-    if (gs < 10) return;   // Am Boden → kein Alert
+    if (gs < 10) return;
 
-    // Warn-Level: bei 5 min und bei 2 min
-    const LEVELS = [
-        { min: 5, stateKey: 't5' },
-        { min: 2, stateKey: 't2' },
-    ];
+    const now = Date.now();
+    const COOLDOWN = 30000;  // 30s pro Luftraum
 
-    for (let asIdx = 0; asIdx < activeAirspaces.length; asIdx++) {
-        const as = activeAirspaces[asIdx];
+    for (const as of activeAirspaces) {
         if (!as.geometry) continue;
 
         const typeKey = _awTypeKey(as);
         if (!typeKey) continue;
 
-        if (!as.lowerLimit || !as.upperLimit) continue;
-        const lowerFt = airspaceLimitToFt(as.lowerLimit);
-        const upperFt = airspaceLimitToFt(as.upperLimit);
-        if (lowerFt === null || upperFt === null) continue;
-
-        // GND-basierte Lufträume: untere Grenze = 0 ft MSL (konservativ)
-        const effLower = (as.lowerLimit.referenceDatum === 0) ? 0 : lowerFt;
-        const effUpper = upperFt;
-
-        // Polygone
+        // Polygone sammeln
         const polys = [];
-        if (as.geometry.type === 'Polygon')      polys.push(as.geometry.coordinates[0]);
+        if (as.geometry.type === 'Polygon')
+            polys.push(as.geometry.coordinates[0]);
         else if (as.geometry.type === 'MultiPolygon')
             as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
         if (!polys.length) continue;
 
-        // Stabiler Key: Name + Typ + untere Grenze (unabhängig vom Array-Index)
-        // Wichtig: fetchRouteAirspaces überschreibt activeAirspaces komplett →
-        // Array-Index wäre nach Refresh falsch
-        const asKey = `${as.type}_${as.name || 'x'}_${Math.round(lowerFt)}`;
-        if (!_awState.has(asKey)) _awState.set(asKey, { t5: false, t2: false, t5in: false, t2in: false });
-        const st = _awState.get(asKey);
-
-        // Frühestes Eintreten in den Luftraum finden (unter allen Vorhersage-Punkten ≤5 min)
-        // Damit wird auch bei 3-4 min Abstand korrekt gewarnt, nicht nur bei exakt 2/5 min.
-        let earliest5 = null;  // frühester Punkt ≤5 min drin
-        let earliest2 = null;  // frühester Punkt ≤2 min drin
+        // Prüfe ob irgendein Vorhersage-Punkt im Polygon liegt (ohne Höhenfilter — zum Testen)
+        let anyInside = false;
         for (const pt of predPoints) {
-            if (pt.min > 5) continue;
-            // Höhencheck ±1000 ft Puffer (toleranter als früher, fängt Steig-/Sinkphasen besser)
-            const altOk = pt.alt >= effLower - 1000 && pt.alt <= effUpper + 1000;
-            if (!altOk) continue;
-            let inside = false;
             for (const poly of polys) {
-                if (vpPointInPoly({ lat: pt.lat, lon: pt.lon }, poly)) { inside = true; break; }
-            }
-            if (!inside) continue;
-            if (earliest5 === null || pt.min < earliest5) earliest5 = pt.min;
-            if (pt.min <= 2 && (earliest2 === null || pt.min < earliest2)) earliest2 = pt.min;
-        }
-
-        const in5 = earliest5 !== null;
-        const in2 = earliest2 !== null;
-
-        // 2-min Warnung
-        if (in2) {
-            if (!st.t2in && !st.t2) {
-                st.t2 = true;
-                const minKey = _awMinKey(2);
-                if (minKey) {
-                    console.log(`[AWM] ✈ Warnung: ${as.name} (${typeKey}) ≤2 min (frühester=${earliest2}min)`);
-                    _awPlaySequence(['aw-achtung', typeKey, 'aw-in', minKey]);
+                if (vpPointInPoly({ lat: pt.lat, lon: pt.lon }, poly)) {
+                    anyInside = true;
+                    break;
                 }
             }
-            st.t2in = true;
+            if (anyInside) break;
+        }
+
+        const asKey = `${as.type}_${as.name || 'x'}`;
+
+        if (anyInside) {
+            const lastT = _awState.get(asKey) || 0;
+            if (now - lastT > COOLDOWN) {
+                _awState.set(asKey, now);
+                console.log(`[AWM] ✈ Schneide Luftraum: ${as.name} (${typeKey})`);
+                _awPlaySequence(['aw-achtung', typeKey]);
+            }
         } else {
-            st.t2in = false;
-            st.t2   = false;
-        }
-
-        // 5-min Warnung (nur wenn noch kein 2-min Alert)
-        if (in5 && !in2) {
-            if (!st.t5in && !st.t5) {
-                st.t5 = true;
-                const minKey = _awMinKey(5);
-                if (minKey) {
-                    console.log(`[AWM] ✈ Warnung: ${as.name} (${typeKey}) ≤5 min (frühester=${earliest5}min)`);
-                    _awPlaySequence(['aw-achtung', typeKey, 'aw-in', minKey]);
-                }
-            }
-            st.t5in = true;
-        } else if (!in5) {
-            st.t5in = false;
-            st.t5   = false;
+            // Kein Schnitt mehr → Cooldown-Zeit zurücksetzen, damit beim nächsten Eintreten
+            // sofort wieder gewarnt wird
+            if (_awState.has(asKey)) _awState.set(asKey, 0);
         }
     }
 }
