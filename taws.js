@@ -196,8 +196,8 @@ function checkAirspaceWarnings(predPoints) {
     if (!_tawsAudioCtx) return;
     if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) return;
     if (typeof vpPointInPoly === 'undefined' || typeof airspaceLimitToFt === 'undefined') return;
-    // Hinweis: GS-Check entfällt — outer block in sync.js ruft uns nur bei GS > 30 auf,
-    // und window.smoothedGS wäre ohnehin undefined (let-Variable in sync.js).
+
+    const now = Date.now();  // war fehlend → ReferenceError crashte jeden Tick
 
     for (const as of activeAirspaces) {
         if (!as.geometry) continue;
@@ -224,7 +224,7 @@ function checkAirspaceWarnings(predPoints) {
 
         // Stabiler State-Key
         const asKey = `${as.type}_${as.name || 'x'}_${Math.round(effLower)}`;
-        if (!_awState.has(asKey)) _awState.set(asKey, { t5: false, t2: false, firstSeen5: 0, firstSeen2: 0 });
+        if (!_awState.has(asKey)) _awState.set(asKey, { t5: false, t2: false, firstSeen5: 0, firstSeen2: 0, lastSeen5: 0, lastSeen2: 0 });
         const st = _awState.get(asKey);
 
         // Frühesten Schnittpunkt ≤5 min und ≤2 min finden
@@ -244,32 +244,38 @@ function checkAirspaceWarnings(predPoints) {
 
         const in5 = earliest5 !== null;
         const in2 = earliest2 !== null;
-        const PERSIST = 5000; // ms Persistenz vor Auslösung
+        const PERSIST  = 5000; // ms Schnitt muss stabil sein bevor Warnung feuert
+        const STICKY   = 3000; // ms nach letztem Kontakt bevor Timer zurückgesetzt wird
 
         // 2-min Warnung
         if (in2) {
-            if (!st.firstSeen2) st.firstSeen2 = now;   // Eintrittszeit setzen
+            st.lastSeen2 = now;
+            if (!st.firstSeen2) st.firstSeen2 = now;
             if (!st.t2 && (now - st.firstSeen2) >= PERSIST) {
                 st.t2 = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤2 min`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', 'aw-2min']);
             }
-        } else {
+        } else if (st.lastSeen2 && (now - st.lastSeen2) > STICKY) {
+            // Erst nach 3s ohne Kontakt zurücksetzen (Kurvenflug-Toleranz)
             st.t2 = false;
             st.firstSeen2 = 0;
+            st.lastSeen2  = 0;
         }
 
         // 5-min Warnung (nur wenn kein 2-min Schnitt)
         if (in5 && !in2) {
+            st.lastSeen5 = now;
             if (!st.firstSeen5) st.firstSeen5 = now;
             if (!st.t5 && (now - st.firstSeen5) >= PERSIST) {
                 st.t5 = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤5 min`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', 'aw-5min']);
             }
-        } else {
+        } else if (!in2 && st.lastSeen5 && (now - st.lastSeen5) > STICKY) {
             st.t5 = false;
             st.firstSeen5 = 0;
+            st.lastSeen5  = 0;
         }
     }
 }
