@@ -173,28 +173,29 @@ function _awMinKey(min) {
  * Kein Zeitmarker, 30s Cooldown pro Luftraum.
  */
 function checkAirspaceWarnings(predPoints) {
-    // Clips laden sobald AudioContext verfügbar (non-blocking)
     if (!_awLoaded) { _awLoadClips(); return; }
-    if (!_tawsAudioCtx) { console.warn('[AWM] kein AudioContext'); return; }
-
-    if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) {
-        console.log('[AWM] activeAirspaces leer, skip');
-        return;
-    }
-    if (typeof vpPointInPoly     === 'undefined') { console.warn('[AWM] vpPointInPoly fehlt'); return; }
-    if (typeof airspaceLimitToFt === 'undefined') { console.warn('[AWM] airspaceLimitToFt fehlt'); return; }
-
-    // GS-Check: smoothedGS ist in sync.js mit 'let' deklariert → nicht auf window.
-    // Der outer block in sync.js ruft uns sowieso nur bei GS > 30 auf → Check entfällt.
-
-    const now = Date.now();
-    const COOLDOWN = 30000;  // 30s pro Luftraum
+    if (!_tawsAudioCtx) return;
+    if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) return;
+    if (typeof vpPointInPoly === 'undefined' || typeof airspaceLimitToFt === 'undefined') return;
+    // Hinweis: GS-Check entfällt — outer block in sync.js ruft uns nur bei GS > 30 auf,
+    // und window.smoothedGS wäre ohnehin undefined (let-Variable in sync.js).
 
     for (const as of activeAirspaces) {
         if (!as.geometry) continue;
         if (as.type === 33) continue;  // FIS: kein Alert
 
-        // Polygone sammeln
+        const typeKey = _awTypeKey(as) || 'aw-ctr';
+
+        // Höhengrenzen (mit großzügigem Puffer — fehlende Limits werden toleriert)
+        let effLower = 0, effUpper = 99999;
+        if (as.lowerLimit && as.upperLimit && typeof airspaceLimitToFt === 'function') {
+            const lo = airspaceLimitToFt(as.lowerLimit);
+            const hi = airspaceLimitToFt(as.upperLimit);
+            if (lo !== null) effLower = (as.lowerLimit.referenceDatum === 0) ? 0 : lo;
+            if (hi !== null) effUpper = hi;
+        }
+
+        // Polygone
         const polys = [];
         if (as.geometry.type === 'Polygon')
             polys.push(as.geometry.coordinates[0]);
@@ -202,30 +203,53 @@ function checkAirspaceWarnings(predPoints) {
             as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
         if (!polys.length) continue;
 
-        // Prüfe ob irgendein Vorhersage-Punkt im Polygon liegt (ohne Höhenfilter — zum Testen)
-        let anyInside = false;
+        // Stabiler State-Key
+        const asKey = `${as.type}_${as.name || 'x'}_${Math.round(effLower)}`;
+        if (!_awState.has(asKey)) _awState.set(asKey, { t5: false, t2: false, t5in: false, t2in: false });
+        const st = _awState.get(asKey);
+
+        // Frühesten Schnittpunkt ≤5 min und ≤2 min finden
+        let earliest5 = null, earliest2 = null;
         for (const pt of predPoints) {
+            if (pt.min > 5) continue;
+            // Höhencheck ±1500 ft Puffer
+            if (pt.alt < effLower - 1500 || pt.alt > effUpper + 1500) continue;
+            let inside = false;
             for (const poly of polys) {
-                if (vpPointInPoly({ lat: pt.lat, lon: pt.lon }, poly)) {
-                    anyInside = true;
-                    break;
-                }
+                if (vpPointInPoly({ lat: pt.lat, lon: pt.lon }, poly)) { inside = true; break; }
             }
-            if (anyInside) break;
+            if (!inside) continue;
+            if (earliest5 === null || pt.min < earliest5) earliest5 = pt.min;
+            if (pt.min <= 2 && (earliest2 === null || pt.min < earliest2)) earliest2 = pt.min;
         }
 
-        const asKey = `${as.type}_${as.name || 'x'}`;
-        const typeKey = _awTypeKey(as) || 'aw-ctr';  // Fallback: CTR-Sound für unbekannte Typen
+        const in5 = earliest5 !== null;
+        const in2  = earliest2 !== null;
 
-        if (anyInside) {
-            const lastT = _awState.get(asKey) || 0;
-            if (now - lastT > COOLDOWN) {
-                _awState.set(asKey, now);
-                console.log(`[AWM] ✈ Schneide Luftraum: ${as.name} typ=${as.type} key=${typeKey} bufLoaded=${Object.keys(_awBuffers).join(',')}`);
-                _awPlaySequence(['taws-alert']);  // TEST: taws-alert statt aw-Clips (prüft ob Pfad erreichbar)
+        // 2-min Warnung
+        if (in2) {
+            if (!st.t2in && !st.t2) {
+                st.t2 = true;
+                console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤2 min`);
+                _awPlaySequence(['aw-achtung', typeKey, 'aw-in', 'aw-2min']);
             }
+            st.t2in = true;
         } else {
-            if (_awState.has(asKey)) _awState.set(asKey, 0);
+            st.t2in = false;
+            st.t2   = false;
+        }
+
+        // 5-min Warnung (nur wenn noch kein 2-min Alert läuft)
+        if (in5 && !in2) {
+            if (!st.t5in && !st.t5) {
+                st.t5 = true;
+                console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤5 min`);
+                _awPlaySequence(['aw-achtung', typeKey, 'aw-in', 'aw-5min']);
+            }
+            st.t5in = true;
+        } else if (!in5) {
+            st.t5in = false;
+            st.t5   = false;
         }
     }
 }
