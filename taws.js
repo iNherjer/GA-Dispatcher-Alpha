@@ -184,8 +184,8 @@ function checkAirspaceWarnings(predPoints) {
     if (typeof vpPointInPoly     === 'undefined') { console.warn('[AWM] vpPointInPoly fehlt'); return; }
     if (typeof airspaceLimitToFt === 'undefined') { console.warn('[AWM] airspaceLimitToFt fehlt'); return; }
 
-    const gs = window.smoothedGS || 0;
-    if (gs < 10) return;
+    // GS-Check: smoothedGS ist in sync.js mit 'let' deklariert → nicht auf window.
+    // Der outer block in sync.js ruft uns sowieso nur bei GS > 30 auf → Check entfällt.
 
     const now = Date.now();
     const COOLDOWN = 30000;  // 30s pro Luftraum
@@ -354,7 +354,7 @@ async function checkTerrainAlongPath(points) {
     // Voice-Alert: nur bei unmittelbarer Gefahr, nicht beim Landen
     if (hasImmediateThreat) {
         // Landing-Suppression: GS < 65 kts → Landephase, kein Alert
-        const gs = window.smoothedGS || 0;
+        const gs = (window.lastLiveGpsPos && window.lastLiveGpsPos.gs) || 0;
         const isLanding = gs > 5 && gs < 75;
 
         const now = Date.now();
