@@ -117,7 +117,7 @@ document.addEventListener('click',      _tawsUnlockAll, { once: true });
 
 const _AWM_CLIPS = [
     'aw-achtung','aw-in',
-    'aw-ctr','aw-charlie','aw-delta','aw-rmz','aw-tmz',
+    'aw-ctr','aw-charlie','aw-delta','aw-rmz','aw-tmz','aw-edr',
     'aw-1min','aw-2min','aw-3min','aw-4min','aw-5min',
     'aw-6min','aw-7min','aw-8min','aw-9min','aw-10min',
     'taws-alert'
@@ -199,7 +199,8 @@ function _awTypeKey(as) {
     if (t === 7 || t === 26)    return 'aw-ctr';      // TMA / CTA → wie CTR ansagen
     if (t === 5 || t === 27)    return 'aw-tmz';      // TMZ
     if (t === 6 || t === 28)    return 'aw-rmz';      // RMZ
-    return null;   // Restricted/Danger/FIS → kein Sprach-Alert
+    if (t === 1)                return 'aw-edr';      // ED-R Restricted (Buchstaben E-D-R)
+    return null;   // Danger/Prohibited/FIS → kein Sprach-Alert
 }
 
 // Minuten-Zahl → Audio-Key
