@@ -98,17 +98,48 @@ document.addEventListener('click',      _tawsUnlockAll, { once: true });
 
 const _AWM_CLIPS = [
     'aw-achtung','aw-in',
-    'aw-ctr','aw-class-c','aw-class-d','aw-rmz','aw-tmz',
+    'aw-ctr','aw-charlie','aw-delta','aw-rmz','aw-tmz',
     'aw-1min','aw-2min','aw-3min','aw-4min','aw-5min',
     'aw-6min','aw-7min','aw-8min','aw-9min','aw-10min',
-    'taws-alert'   // Terrain-Warnung ebenfalls als AudioContext-Buffer (kein HTMLAudioElement)
+    'taws-alert'
 ];
 const _awBuffers   = {};           // key → AudioBuffer
 let   _awLoaded    = false;
 let   _awLoading   = false;
 
-// Cooldown pro Luftraum-Index: { t5: bool, t2: bool, t5inside: bool, t2inside: bool }
+// State pro Luftraum: { t5, t2, t5in, t2in, firstSeen5, firstSeen2 }
 const _awState = new Map();
+// Serielle Abspielqueue: verhindert gleichzeitige Ansagen
+let _awQueueBusy = false;
+const _awQueue = [];
+
+function _awEnqueue(keys) {
+    _awQueue.push(keys);
+    if (!_awQueueBusy) _awDrainQueue();
+}
+
+function _awDrainQueue() {
+    if (!_awQueue.length) { _awQueueBusy = false; return; }
+    _awQueueBusy = true;
+    const keys = _awQueue.shift();
+    if (!_tawsAudioCtx || !_awLoaded) { _awDrainQueue(); return; }
+    _tawsResumeThen(() => {
+        let t = _tawsAudioCtx.currentTime + 0.15;
+        let totalDur = 0;
+        for (const key of keys) {
+            const buf = _awBuffers[key];
+            if (!buf) { console.warn('[AWM] Buffer fehlt:', key); continue; }
+            const src = _tawsAudioCtx.createBufferSource();
+            src.buffer = buf;
+            src.connect(_tawsAudioCtx.destination);
+            src.start(t);
+            totalDur += buf.duration + 0.08;
+            t += buf.duration + 0.08;
+        }
+        // Nächste Ansage erst nach Ende dieser starten
+        setTimeout(_awDrainQueue, Math.max(0, totalDur * 1000));
+    });
+}
 
 async function _awLoadClips() {
     if (_awLoaded || _awLoading || !_tawsAudioCtx) return;
@@ -129,30 +160,18 @@ async function _awLoadClips() {
     console.log('[AWM] Alle Clips geladen:', Object.keys(_awBuffers).join(', '));
 }
 
-// Clips sequenziell abspielen — erst resume() abwarten, dann schedulen
-// (iOS: AudioContext.currentTime läuft erst nach resume() → sonst Zeiten in der Vergangenheit)
+// Ansage in serielle Queue einreihen
 function _awPlaySequence(keys) {
     if (!_tawsAudioCtx || !_awLoaded) return;
-    _tawsResumeThen(() => {
-        let t = _tawsAudioCtx.currentTime + 0.15;
-        for (const key of keys) {
-            const buf = _awBuffers[key];
-            if (!buf) { console.warn('[AWM] Buffer fehlt:', key); continue; }
-            const src = _tawsAudioCtx.createBufferSource();
-            src.buffer = buf;
-            src.connect(_tawsAudioCtx.destination);
-            src.start(t);
-            t += buf.duration + 0.08;
-        }
-    });
+    _awEnqueue(keys);
 }
 
 // Luftraum-Typ → Audio-Key (null = kein Alert für diesen Typ)
 function _awTypeKey(as) {
     const t = as.type, cls = as.icaoClass;
     if (t === 4)                return 'aw-ctr';      // CTR (Kontrollzone)
-    if (cls === 2)              return 'aw-class-c';  // Class C
-    if (cls === 3 || t === 0)   return 'aw-class-d';  // Class D
+    if (cls === 2)              return 'aw-charlie';  // Class C
+    if (cls === 3 || t === 0)   return 'aw-delta';    // Class D
     if (t === 7 || t === 26)    return 'aw-ctr';      // TMA / CTA → wie CTR ansagen
     if (t === 5 || t === 27)    return 'aw-tmz';      // TMZ
     if (t === 6 || t === 28)    return 'aw-rmz';      // RMZ
@@ -224,32 +243,42 @@ function checkAirspaceWarnings(predPoints) {
         }
 
         const in5 = earliest5 !== null;
-        const in2  = earliest2 !== null;
+        const in2 = earliest2 !== null;
+        const PERSIST = 5000; // 5 Sekunden Persistenz vor Auslösung
 
         // 2-min Warnung
         if (in2) {
-            if (!st.t2in && !st.t2) {
+            if (!st.t2in) {
+                // Erste Sekunde in Zone: Startzeit merken
+                if (!st.t2in) st.firstSeen2 = st.firstSeen2 || now;
+            }
+            const held2 = now - (st.firstSeen2 || now);
+            if (!st.t2 && held2 >= PERSIST) {
                 st.t2 = true;
-                console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤2 min`);
+                console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤2 min (${held2}ms gehalten)`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', 'aw-2min']);
             }
             st.t2in = true;
         } else {
-            st.t2in = false;
-            st.t2   = false;
+            st.t2in     = false;
+            st.t2       = false;
+            st.firstSeen2 = null;
         }
 
-        // 5-min Warnung (nur wenn noch kein 2-min Alert läuft)
+        // 5-min Warnung (nur wenn kein 2-min Alert)
         if (in5 && !in2) {
-            if (!st.t5in && !st.t5) {
+            if (!st.t5in) st.firstSeen5 = st.firstSeen5 || now;
+            const held5 = now - (st.firstSeen5 || now);
+            if (!st.t5 && held5 >= PERSIST) {
                 st.t5 = true;
-                console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤5 min`);
+                console.log(`[AWM] ✈ ${as.name} (${typeKey}) ≤5 min (${held5}ms gehalten)`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', 'aw-5min']);
             }
             st.t5in = true;
         } else if (!in5) {
-            st.t5in = false;
-            st.t5   = false;
+            st.t5in     = false;
+            st.t5       = false;
+            st.firstSeen5 = null;
         }
     }
 }
