@@ -2511,7 +2511,7 @@ function renderMapProfileFrames(timeMs) {
                 // Culling: nur sichtbaren Bereich rendern
                 if (px < viewMinX - 30 || px > viewMaxX + 30) continue;
 
-                const tc = pt.threat === 'red' ? '#ff2222' : pt.threat === 'amber' ? '#ffaa00' : '#ffffff';
+                const tc = pt.threat === 'red' ? '#ff2222' : pt.threat === 'amber' ? '#ffaa00' : (pt.asColor || '#ffffff');
 
                 // Kreis
                 fgCtx.beginPath();

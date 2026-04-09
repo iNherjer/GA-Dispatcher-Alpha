@@ -26,53 +26,50 @@ const TAWS_VOICE_COOLDOWN = 15000; // 15 Sekunden
 // Sekundär: speechSynthesis als Desktop-Fallback.
 
 let _tawsAudioCtx = null;
-let _tawsAlertAudio = null;   // HTMLAudioElement für "Terrain terrain pull up"
 let _tawsSpeechUnlocked = false;
 
 function _tawsInitAudio() {
-    // AudioContext für Whoop-Whoop-Ton
     if (!_tawsAudioCtx) {
         try {
             _tawsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
         } catch(e) { _tawsAudioCtx = null; }
     }
-    if (_tawsAudioCtx && _tawsAudioCtx.state === 'suspended') _tawsAudioCtx.resume();
-
-    // Airspace-Clips sofort laden sobald AudioContext bereit ist
+    // Alle Clips laden sobald AudioContext bereit — inkl. taws-alert (kein HTMLAudioElement mehr)
     if (!_awLoaded && !_awLoading) _awLoadClips();
+}
 
-    // HTMLAudioElement vorausladen – iOS entsperrt Audio nur bei User-Geste
-    if (!_tawsAlertAudio) {
-        _tawsAlertAudio = new Audio('./taws-alert.m4a');
-        _tawsAlertAudio.preload = 'auto';
-        // Stilles Play+Pause um iOS-Unlock auszulösen
-        _tawsAlertAudio.volume = 0;
-        const p = _tawsAlertAudio.play();
-        if (p) p.then(() => { _tawsAlertAudio.pause(); _tawsAlertAudio.currentTime = 0; _tawsAlertAudio.volume = 1; }).catch(() => {});
+// Intern: AudioContext aufwecken und danach callback ausführen
+function _tawsResumeThen(fn) {
+    if (!_tawsAudioCtx) return;
+    if (_tawsAudioCtx.state === 'suspended') {
+        _tawsAudioCtx.resume().then(fn).catch(() => {});
+    } else {
+        fn();
     }
 }
 
 // "Whoop Whoop" – klassischer GPWS-Warntton (zwei aufsteigende Sweeps)
 function _tawsPlayWhoopWhoop() {
     if (!_tawsAudioCtx) return;
-    if (_tawsAudioCtx.state === 'suspended') _tawsAudioCtx.resume();
-    const now = _tawsAudioCtx.currentTime;
-    for (let i = 0; i < 2; i++) {
-        const osc  = _tawsAudioCtx.createOscillator();
-        const gain = _tawsAudioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(_tawsAudioCtx.destination);
-        osc.type = 'sine';
-        const t = now + i * 0.65;
-        osc.frequency.setValueAtTime(440, t);
-        osc.frequency.linearRampToValueAtTime(920, t + 0.45);
-        gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(0.85, t + 0.05);
-        gain.gain.setValueAtTime(0.85, t + 0.40);
-        gain.gain.linearRampToValueAtTime(0, t + 0.55);
-        osc.start(t);
-        osc.stop(t + 0.6);
-    }
+    _tawsResumeThen(() => {
+        const now = _tawsAudioCtx.currentTime;
+        for (let i = 0; i < 2; i++) {
+            const osc  = _tawsAudioCtx.createOscillator();
+            const gain = _tawsAudioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(_tawsAudioCtx.destination);
+            osc.type = 'sine';
+            const t = now + i * 0.65;
+            osc.frequency.setValueAtTime(440, t);
+            osc.frequency.linearRampToValueAtTime(920, t + 0.45);
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.linearRampToValueAtTime(0.85, t + 0.05);
+            gain.gain.setValueAtTime(0.85, t + 0.40);
+            gain.gain.linearRampToValueAtTime(0, t + 0.55);
+            osc.start(t);
+            osc.stop(t + 0.6);
+        }
+    });
 }
 
 function _tawsUnlockAll() {
@@ -96,7 +93,8 @@ const _AWM_CLIPS = [
     'aw-achtung','aw-in',
     'aw-ctr','aw-class-c','aw-class-d','aw-rmz','aw-tmz',
     'aw-1min','aw-2min','aw-3min','aw-4min','aw-5min',
-    'aw-6min','aw-7min','aw-8min','aw-9min','aw-10min'
+    'aw-6min','aw-7min','aw-8min','aw-9min','aw-10min',
+    'taws-alert'   // Terrain-Warnung ebenfalls als AudioContext-Buffer (kein HTMLAudioElement)
 ];
 const _awBuffers   = {};           // key → AudioBuffer
 let   _awLoaded    = false;
@@ -109,30 +107,37 @@ async function _awLoadClips() {
     if (_awLoaded || _awLoading || !_tawsAudioCtx) return;
     _awLoading = true;
     await Promise.all(_AWM_CLIPS.map(async key => {
+        // taws-alert liegt im Root, alle anderen in audio-warnings/
+        const url = key === 'taws-alert'
+            ? './taws-alert.m4a'
+            : './audio-warnings/' + key + '.m4a';
         try {
-            const r  = await fetch('./audio-warnings/' + key + '.m4a');
+            const r  = await fetch(url);
             const ab = await r.arrayBuffer();
             _awBuffers[key] = await _tawsAudioCtx.decodeAudioData(ab);
-        } catch(e) { /* Clip fehlt → überspringen */ }
+        } catch(e) { console.warn('[AWM] Clip laden fehlgeschlagen:', key, e); }
     }));
-    _awLoaded    = true;
-    _awLoading   = false;
+    _awLoaded  = true;
+    _awLoading = false;
+    console.log('[AWM] Alle Clips geladen:', Object.keys(_awBuffers).join(', '));
 }
 
-// Clips sequenziell abspielen (AudioContext bufferSource-Kette)
+// Clips sequenziell abspielen — erst resume() abwarten, dann schedulen
+// (iOS: AudioContext.currentTime läuft erst nach resume() → sonst Zeiten in der Vergangenheit)
 function _awPlaySequence(keys) {
     if (!_tawsAudioCtx || !_awLoaded) return;
-    if (_tawsAudioCtx.state === 'suspended') _tawsAudioCtx.resume();
-    let t = _tawsAudioCtx.currentTime + 0.1;
-    for (const key of keys) {
-        const buf = _awBuffers[key];
-        if (!buf) continue;
-        const src = _tawsAudioCtx.createBufferSource();
-        src.buffer = buf;
-        src.connect(_tawsAudioCtx.destination);
-        src.start(t);
-        t += buf.duration + 0.08;   // 80 ms Pause zwischen Wörtern
-    }
+    _tawsResumeThen(() => {
+        let t = _tawsAudioCtx.currentTime + 0.15;
+        for (const key of keys) {
+            const buf = _awBuffers[key];
+            if (!buf) { console.warn('[AWM] Buffer fehlt:', key); continue; }
+            const src = _tawsAudioCtx.createBufferSource();
+            src.buffer = buf;
+            src.connect(_tawsAudioCtx.destination);
+            src.start(t);
+            t += buf.duration + 0.08;
+        }
+    });
 }
 
 // Luftraum-Typ → Audio-Key (null = kein Alert für diesen Typ)
@@ -371,14 +376,9 @@ async function checkTerrainAlongPath(points) {
         const now = Date.now();
         if (!isLanding && now - _tawsLastVoiceAlert > TAWS_VOICE_COOLDOWN) {
             _tawsLastVoiceAlert = now;
-            // 1) Voraufgezeichnetes Sample (primär – funktioniert auf iOS PWA)
-            if (_tawsAlertAudio) {
-                _tawsAlertAudio.currentTime = 0;
-                _tawsAlertAudio.volume = 1;
-                _tawsAlertAudio.play().catch(() => {});
-            }
-            // 2) Whoop-Whoop-Ton via AudioContext (läuft parallel zum Sample)
+            // Whoop-Whoop + Sprachsample via AudioContext (kein HTMLAudioElement mehr)
             _tawsPlayWhoopWhoop();
+            _awPlaySequence(['taws-alert']);
         }
     }
 

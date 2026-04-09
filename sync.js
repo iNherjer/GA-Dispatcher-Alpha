@@ -886,10 +886,17 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
                     m.setStyle({ color: c, fillColor: c });
                 });
 
-                // Threats ans Vertikalprofil weitergeben
+                // Threats + Airspace-Farbe ans Vertikalprofil weitergeben
                 if (window.vpPredictionData) {
                     results.forEach((r, i) => {
-                        if (window.vpPredictionData[i]) window.vpPredictionData[i].threat = r.threat;
+                        if (!window.vpPredictionData[i]) return;
+                        window.vpPredictionData[i].threat = r.threat;
+                        // Airspace-Farbe: nur setzen wenn kein Terrain-Threat
+                        if (r.threat === 'green') {
+                            window.vpPredictionData[i].asColor = _getAirspaceColorForPredPoint(predPoints[i]) || null;
+                        } else {
+                            window.vpPredictionData[i].asColor = null;
+                        }
                     });
                 }
             });
