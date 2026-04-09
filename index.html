@@ -693,6 +693,8 @@
                 <button id="autoFollowBtn" onclick="toggleAutoFollow()" class="map-overlay-btn" title="Auto-Follow (Karten-Zentrierung)">
                     🎯
                 </button>
+                <!-- AWM Frequenz-Banner: erscheint bei Luftraum-Warnung, bleibt bis zum Antippen -->
+                <div id="awmFreqBanner" style="display:none; position:absolute; bottom:0; left:0; right:0; z-index:5000; pointer-events:auto; border-radius:0 0 4px 4px; overflow:hidden;"></div>
                 <!-- Live Telemetrie – oben mittig -->
                 <div id="liveTelemetryBox" class="telemetry-box" style="display:none; top:10px; left:50%; transform:translateX(-50%); right:auto; min-width:110px; pointer-events:none;">
                     <div style="display:flex; justify-content:space-between; gap:16px; margin-bottom:2px;">

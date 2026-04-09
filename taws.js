@@ -238,6 +238,76 @@ function _awPulseOnMap(as, color) {
 }
 
 /**
+ * Frequenz/Squawk-Banner am unteren Kartenrand anzeigen.
+ * Bleibt stehen bis der Pilot tippt/klickt — kein Auto-Dismiss.
+ */
+function _awShowFreqBanner(as, col) {
+    if (!as.frequencies || as.frequencies.length === 0) return;
+    const banner = document.getElementById('awmFreqBanner');
+    if (!banner) return;
+
+    // Gleichen Luftraum nicht doppelt anzeigen
+    const asKey = `${as.type}_${as.name || as._id || 'x'}`;
+    const escaped = asKey.replace(/[^a-zA-Z0-9_-]/g, '_');
+    if (banner.querySelector(`[data-askey="${escaped}"]`)) return;
+
+    // Alle Frequenzen/Squawks aufbereiten
+    const t = as.type;
+    const freqParts = [];
+    for (const f of (as.frequencies || [])) {
+        if (!f.value) continue;
+        const nm = (f.name || '').toUpperCase();
+        const isSquawk = /XPDR|SQK|SQUAWK|TRANSP/.test(nm);
+        const icon  = isSquawk ? '🔲' : '📻';
+        const label = isSquawk ? (nm || 'XPDR')
+                    : (t === 5 || t === 27) ? (nm || 'FREQ')
+                    : (t === 6 || t === 28 || t === 33) ? (nm || 'INFO')
+                    : (nm || 'TWR');
+        freqParts.push(`${icon}\u202F${label}: <b>${f.value}</b>`);
+    }
+    if (!freqParts.length) return;
+
+    const displayName = (typeof getAirspaceDisplayName === 'function')
+        ? getAirspaceDisplayName(as) : (as.name || '?');
+
+    // Farbe für Frequenz-Label
+    let freqColor = col || '#ffffff';
+    if (t === 5 || t === 27)          freqColor = '#9966ff'; // TMZ
+    else if (t === 6 || t === 28 || t === 33) freqColor = '#66cccc'; // RMZ/FIS
+
+    const entry = document.createElement('div');
+    entry.dataset.askey = escaped;
+    entry.style.cssText = [
+        'display:flex', 'align-items:center',
+        'background:rgba(8,8,8,0.94)',
+        `border-top:2px solid ${col || '#888'}`,
+        'padding:8px 10px 8px 13px', 'gap:10px',
+        'backdrop-filter:blur(8px)', '-webkit-backdrop-filter:blur(8px)',
+        'cursor:pointer', 'user-select:none'
+    ].join(';');
+
+    entry.innerHTML =
+        `<span style="flex:1;min-width:0;display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;">` +
+        `<span style="color:${col};font-weight:bold;font-size:11px;font-family:monospace;letter-spacing:.4px;white-space:nowrap;">${displayName}</span>` +
+        `<span style="color:#555;font-size:10px;">·</span>` +
+        `<span style="color:${freqColor};font-size:12px;font-family:monospace;white-space:nowrap;">${freqParts.join('&ensp;·&ensp;')}</span>` +
+        `</span>` +
+        `<button style="background:none;border:none;color:#555;font-size:17px;cursor:pointer;padding:0 2px 0 6px;line-height:1;flex-shrink:0;touch-action:manipulation;" ` +
+        `onclick="event.stopPropagation();">✕</button>`;
+
+    // Antippen / Klick → Eintrag entfernen, Banner verstecken wenn leer
+    const dismiss = () => {
+        entry.remove();
+        if (!banner.children.length) banner.style.display = 'none';
+    };
+    entry.addEventListener('click', dismiss);
+    entry.addEventListener('touchend', dismiss, { passive: true });
+
+    banner.appendChild(entry);
+    banner.style.display = 'block';
+}
+
+/**
  * Vorhersage-Punkte gegen aktive Lufträume prüfen und ggf. Ansage abspielen.
  * Nearest-first: nur der nächste noch nicht eingetretene Luftraum wird angesagt.
  */
@@ -377,6 +447,7 @@ function checkAirspaceWarnings(predPoints) {
                 window.vpBgNeedsUpdate = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest2)} min`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest2)) || 'aw-2min']);
+                _awShowFreqBanner(as, col);
                 // Kette starten: gleiche Klasse dahinter nicht nochmals ansagen
                 if (typeKey && _awTypeChain.has(typeKey)) _awTypeChain.get(typeKey).warnedAt = now;
             }
@@ -396,6 +467,7 @@ function checkAirspaceWarnings(predPoints) {
                 window.vpBgNeedsUpdate = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest5)} min`);
                 _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest5)) || 'aw-5min']);
+                _awShowFreqBanner(as, col);
                 // Kette starten: gleiche Klasse dahinter nicht nochmals ansagen
                 if (typeKey && _awTypeChain.has(typeKey)) _awTypeChain.get(typeKey).warnedAt = now;
             }
