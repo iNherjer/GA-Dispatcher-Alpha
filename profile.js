@@ -1357,7 +1357,12 @@ function computeFlightProfile(elevationData, cruiseAltFt, climbRateFpm, descentR
     return { profile, tocDistNM, todDistNM };
 }
 function getCachedAirspaceIntersections(elevData, totalDist) {
-    const asCacheKey = (window._lastVpRouteKey || 'none') + '_' + activeAirspaces.length;
+    // Im HDG-Modus ändert sich elevData[0] mit jeder Position → Cache-Key muss mitlaufen
+    const isHdg = (typeof vpMode !== 'undefined' && vpMode === 'HDG');
+    const hdgPosKey = isHdg && elevData[0]
+        ? `_${(elevData[0].lat || 0).toFixed(2)}_${(elevData[0].lon || 0).toFixed(2)}`
+        : '';
+    const asCacheKey = (window._lastVpRouteKey || 'none') + '_' + activeAirspaces.length + hdgPosKey;
     if (window._vpAsCache && window._vpAsCache.key === asCacheKey && window._vpAsCache.elevLength === elevData.length) {
         return window._vpAsCache.items;
     }

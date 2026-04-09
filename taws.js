@@ -38,8 +38,8 @@ function _tawsInitAudio() {
     }
     if (_tawsAudioCtx && _tawsAudioCtx.state === 'suspended') _tawsAudioCtx.resume();
 
-    // Airspace-Clips laden (erst wenn AudioContext bereit)
-    _awLoadClips();
+    // Airspace-Clips sofort laden sobald AudioContext bereit ist
+    if (!_awLoaded && !_awLoading) _awLoadClips();
 
     // HTMLAudioElement vorausladen – iOS entsperrt Audio nur bei User-Geste
     if (!_tawsAlertAudio) {
@@ -160,9 +160,11 @@ function _awMinKey(min) {
  * @param {Array<{lat,lon,alt,min}>} predPoints
  */
 function checkAirspaceWarnings(predPoints) {
+    // Clips laden sobald AudioContext verfügbar (non-blocking)
     if (!_awLoaded) { _awLoadClips(); return; }
+
     if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) return;
-    if (typeof vpPointInPoly    === 'undefined') return;
+    if (typeof vpPointInPoly     === 'undefined') return;
     if (typeof airspaceLimitToFt === 'undefined') return;
 
     const gs = window.smoothedGS || 0;

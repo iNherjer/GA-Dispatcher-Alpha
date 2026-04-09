@@ -822,6 +822,16 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             predictionLine.setLatLngs(lineCoords);
         }
 
+        // Im HDG-Modus: Lufträume für aktuellen Bereich nachladen (alle ~10 km)
+        if (typeof fetchRouteAirspaces === 'function') {
+            const hdgKey = `${lat.toFixed(1)}_${lon.toFixed(1)}`;
+            if (window._lastHdgAirspaceKey !== hdgKey) {
+                window._lastHdgAirspaceKey = hdgKey;
+                const hdgPts = [{ lat, lng: lon }, ...predPoints.map(p => ({ lat: p.lat, lng: p.lon }))];
+                fetchRouteAirspaces(hdgPts);
+            }
+        }
+
         // Airspace-Warnungen prüfen (Sprach-Alerts via AWM)
         if (typeof checkAirspaceWarnings === 'function') checkAirspaceWarnings(predPoints);
 
