@@ -673,13 +673,13 @@
 <div id="mapTableOverlay" class="pinboard-overlay">
     <div class="pinboard-header">
         <span id="navStationLabel" style="color: #fff; font-weight: bold; font-family: monospace;">NAV STATION (KARTENTISCH)</span>
-        <div>
-             <button class="pb-btn" id="snapBtn" onclick="toggleSnapMode()">🧲 Snapping (Aus)</button>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <button class="pb-btn" id="snapBtn" onclick="toggleSnapMode()">🧲 Snapping (Aus)</button>
             <button class="pb-btn" id="measureBtn" onclick="toggleMeasureMode()">📏 Messen (Aus)</button>
             <button class="pb-btn" onclick="clearMeasure()">🗑️ Zirkel löschen</button>
             <button class="pb-btn" onclick="resetMainRoute()">🔄 Route Reset</button>
             <button class="pb-btn" id="vpToggleBtn" onclick="toggleMapProfile()" style="background:#2E8B57; color:#fff; font-weight:bold;">📊 Profil (An)</button>
-            <div style="position:relative; display:inline-block;">
+            <div style="position:relative; display:inline-flex; align-items:center;">
                 <button class="pb-btn" id="mapHintsBtn" onclick="window.toggleMapHintsMenu && toggleMapHintsMenu()">⚙️ Hinweise</button>
                 <div id="mapHintsMenu" style="display:none; position:absolute; top:38px; right:0; min-width:210px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:10020;">
                     <button id="hintToggleMagentaLine" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('magentaLine')">🟣 Direkt-Linie (An)</button>
@@ -689,7 +689,7 @@
                     <button id="hintToggleNextLeg" class="pb-btn" style="display:block; width:100%; margin:0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('nextLeg')">🧭 Wegpunkt-Info (An)</button>
                 </div>
             </div>
-            <div style="position:relative; display:inline-block;">
+            <div style="position:relative; display:inline-flex; align-items:center;">
                 <button class="pb-btn" id="mapVoiceBtn" onclick="toggleMapVoiceMenu()">🎙️ Voice</button>
                 <div id="mapVoiceMenu" style="display:none; position:absolute; top:38px; right:0; min-width:230px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:10020;">
                     <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
