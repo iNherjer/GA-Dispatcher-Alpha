@@ -129,9 +129,23 @@ const _AWM_CLIPS = [
 
 // Frequenz-Ansage an/aus (default: an), persistent
 let _awmReadFreq = (localStorage.getItem('awm_read_freq') !== '0');
+let _awmTerrainWarn = (localStorage.getItem('awm_warn_terrain') !== '0');
+let _awmAirspaceWarn = (localStorage.getItem('awm_warn_airspace') !== '0');
 window.awmSetReadFreq = function(on) {
     _awmReadFreq = !!on;
     localStorage.setItem('awm_read_freq', on ? '1' : '0');
+};
+window.awmSetTerrainWarn = function(on) {
+    _awmTerrainWarn = !!on;
+    localStorage.setItem('awm_warn_terrain', on ? '1' : '0');
+};
+window.awmSetAirspaceWarn = function(on) {
+    _awmAirspaceWarn = !!on;
+    localStorage.setItem('awm_warn_airspace', on ? '1' : '0');
+    if (!_awmAirspaceWarn) {
+        const banner = document.getElementById('awmFreqBanner');
+        if (banner) banner.style.display = 'none';
+    }
 };
 
 // Frequenz-/Squawk-String → Clip-Keys (mit "Zwo" für 2)
@@ -356,6 +370,11 @@ function _awShowFreqBanner(as, col) {
  * Nearest-first: nur der nächste noch nicht eingetretene Luftraum wird angesagt.
  */
 function checkAirspaceWarnings(predPoints) {
+    if (!_awmAirspaceWarn) {
+        const banner = document.getElementById('awmFreqBanner');
+        if (banner) banner.style.display = 'none';
+        return;
+    }
     if (!_awLoaded) { _awLoadClips(); return; }
     if (!_tawsAudioCtx) return;
     if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) return;
@@ -644,6 +663,7 @@ async function checkTerrainAlongPath(points) {
 
     // Voice-Alert: nur bei unmittelbarer Gefahr, nicht beim Landen
     if (hasImmediateThreat) {
+        if (!_awmTerrainWarn) return results;
         // Landing-Suppression: GS < 65 kts → Landephase, kein Alert
         const gs = (window.lastLiveGpsPos && window.lastLiveGpsPos.gs) || 0;
         const isLanding = gs > 5 && gs < 75;

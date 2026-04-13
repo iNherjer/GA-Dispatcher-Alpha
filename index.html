@@ -689,6 +689,36 @@
                     <button id="hintToggleNextLeg" class="pb-btn" style="display:block; width:100%; margin:0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('nextLeg')">🧭 Wegpunkt-Info (An)</button>
                 </div>
             </div>
+            <div style="position:relative; display:inline-block;">
+                <button class="pb-btn" id="mapVoiceBtn" onclick="toggleMapVoiceMenu()">🎙️ Voice</button>
+                <div id="mapVoiceMenu" style="display:none; position:absolute; top:38px; right:0; min-width:230px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:10020;">
+                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                        <span style="font-size:13px;">🔊</span>
+                        <input type="range" id="awmVolumeSlider" min="0" max="100" value="100"
+                            style="flex:1; min-width:90px; accent-color:#4da6ff; cursor:pointer;"
+                            oninput="awmSetVolume(this.value)">
+                        <span id="awmVolumeLabel" style="font-size:11px; color:#aaa; min-width:34px; text-align:right;">100%</span>
+                    </div>
+                    <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                        <input type="checkbox" id="awmReadFreqCheck" checked
+                            style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                            onchange="awmSetReadFreq(this.checked)">
+                        📻 Frequenz ansagen
+                    </label>
+                    <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                        <input type="checkbox" id="awmTerrainWarnCheck" checked
+                            style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                            onchange="awmSetTerrainWarn(this.checked)">
+                        🏔️ Terrain Warning
+                    </label>
+                    <label class="pb-btn" style="display:flex; width:100%; margin:0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                        <input type="checkbox" id="awmAirspaceWarnCheck" checked
+                            style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                            onchange="awmSetAirspaceWarn(this.checked)">
+                        🛡️ Luftraum Warning
+                    </label>
+                </div>
+            </div>
             <button class="pb-btn" id="freeflightBtn" onclick="toggleFreeflightMode()" style="background:#444; color:#fff;">✈️ Direct To (Aus)</button>
             <button class="pb-btn close" onclick="toggleMapTable()">❌ Schließen</button>
         </div>
@@ -762,27 +792,14 @@
                         <button id="btnVpSettings" onclick="toggleVpSettingsMenu()" title="Darstellungs-Optionen" class="vp-toggle-cloud active vp-btn-relative" style="min-width:28px; font-size:13px;">
                             ⚙️<span id="vpSettingsErrorDot" style="display:none; position:absolute; top:-4px; right:-4px; width:9px; height:9px; background:#ff4444; border-radius:50%; border:1.5px solid #222; box-shadow:0 0 4px #f00;"></span>
                         </button>
-                        <div id="vpSettingsMenu" style="display:none; position:fixed; background:#0d0d0d; border:1px solid #666; border-radius:8px; padding:8px 6px; z-index:99999; white-space:nowrap; box-shadow:0 4px 20px rgba(0,0,0,0.95); min-width:44px; color:#fff;">
+                        <div id="vpSettingsMenu" style="display:none; position:fixed; min-width:210px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:10040;">
                             <div style="display:flex; flex-direction:column; gap:5px; align-items:stretch;">
-                                <button id="btnToggleClouds" class="vp-toggle-cloud active" onclick="vpToggleClouds()" title="Wetter-Wolkenbasis aus METAR an/aus" style="width:100%; justify-content:flex-start; gap:6px;">⛅ <span style="font-size:9px;">Wolken</span></button>
-                                <button id="btnToggleLandmarks" class="vp-toggle-cloud active" onclick="vpToggleLandmarks()" title="Städte & Sehenswürdigkeiten an/aus" style="width:100%; justify-content:flex-start; gap:6px;">🏙️ <span style="font-size:9px;">Städte</span></button>
-                                <button id="btnToggleObstacles" class="vp-toggle-cloud active vp-btn-relative" onclick="vpToggleObstacles()" title="Hindernisse (Masten, Windkraft) an/aus" style="width:100%; justify-content:flex-start; gap:6px;">🗼 <span style="font-size:9px;">Hindernisse</span></button>
-                                <button id="btnToggleLinear" class="vp-toggle-cloud active vp-btn-relative" onclick="vpToggleLinearFeatures()" title="Flüsse & Autobahnen an/aus" style="width:100%; justify-content:flex-start; gap:6px;">🛣️ <span style="font-size:9px;">Flüsse/Straßen</span></button>
-                                <button id="btnToggleAirspaces" class="vp-toggle-cloud active" onclick="vpToggleAirspaces()" title="Lufträume: Hintergrund / Vordergrund / Aus" style="width:100%; justify-content:flex-start; gap:6px; min-width:unset;">🛡️ <span style="font-size:9px;">Lufträume</span></button>
-                                <button id="btnToggleTrafficProfile" class="vp-toggle-cloud active" onclick="window.vpToggleTrafficProfile && vpToggleTrafficProfile()" title="AI Traffic im Höhenprofil an/aus" style="width:100%; justify-content:flex-start; gap:6px;">📡 <span style="font-size:9px;">Traffic</span></button>
-                                <div style="display:flex; align-items:center; gap:5px; padding:3px 2px; border-top:1px solid #333; margin-top:2px;">
-                                    <span style="font-size:11px;" title="Ansage-Lautstärke">🔊</span>
-                                    <input type="range" id="awmVolumeSlider" min="0" max="100" value="100"
-                                        style="flex:1; min-width:70px; accent-color:#4da6ff; cursor:pointer;"
-                                        oninput="awmSetVolume(this.value)">
-                                    <span id="awmVolumeLabel" style="font-size:9px; color:#aaa; min-width:28px; text-align:right;">100%</span>
-                                </div>
-                                <label style="display:flex; align-items:center; gap:6px; padding:4px 2px; cursor:pointer; user-select:none; border-top:1px solid #333; margin-top:2px;">
-                                    <input type="checkbox" id="awmReadFreqCheck" checked
-                                        style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
-                                        onchange="awmSetReadFreq(this.checked)">
-                                    <span style="font-size:9px;">📻 Frequenz ansagen</span>
-                                </label>
+                                <button id="btnToggleClouds" class="pb-btn active" onclick="vpToggleClouds()" title="Wetter-Wolkenbasis aus METAR an/aus" style="display:block; width:100%; margin:0; text-align:left;">⛅ Wolken</button>
+                                <button id="btnToggleLandmarks" class="pb-btn active" onclick="vpToggleLandmarks()" title="Städte & Sehenswürdigkeiten an/aus" style="display:block; width:100%; margin:0; text-align:left;">🏙️ Städte</button>
+                                <button id="btnToggleObstacles" class="pb-btn active vp-btn-relative" onclick="vpToggleObstacles()" title="Hindernisse (Masten, Windkraft) an/aus" style="display:block; width:100%; margin:0; text-align:left;">🗼 Hindernisse</button>
+                                <button id="btnToggleLinear" class="pb-btn active vp-btn-relative" onclick="vpToggleLinearFeatures()" title="Flüsse & Autobahnen an/aus" style="display:block; width:100%; margin:0; text-align:left;">🛣️ Flüsse/Straßen</button>
+                                <button id="btnToggleAirspaces" class="pb-btn active" onclick="vpToggleAirspaces()" title="Lufträume: Hintergrund / Vordergrund / Aus" style="display:block; width:100%; margin:0; text-align:left;">🛡️ Lufträume</button>
+                                <button id="btnToggleTrafficProfile" class="pb-btn active" onclick="window.vpToggleTrafficProfile && vpToggleTrafficProfile()" title="AI Traffic im Höhenprofil an/aus" style="display:block; width:100%; margin:0; text-align:left;">📡 Traffic</button>
                             </div>
                         </div>
                     </div>
@@ -830,16 +847,17 @@
         const menu = document.getElementById('vpSettingsMenu');
         const btn  = document.getElementById('btnVpSettings');
         if (!menu || !btn) return;
-        const open = menu.style.display !== 'none';
-        if (open) { menu.style.display = 'none'; return; }
-        // Ins body verschieben, damit kein CSS-transform/overflow-Container es beschneidet
+        const open = menu.style.display === 'block';
+        if (open) {
+            menu.style.display = 'none';
+            return;
+        }
         document.body.appendChild(menu);
         const r = btn.getBoundingClientRect();
-        menu.style.position = 'fixed';
-        menu.style.bottom = (window.innerHeight - r.top + 6) + 'px';
-        menu.style.right  = (window.innerWidth  - r.right) + 'px';
-        menu.style.top    = 'auto';
-        menu.style.left   = 'auto';
+        menu.style.top = (r.bottom + 6) + 'px';
+        menu.style.right = (window.innerWidth - r.right) + 'px';
+        menu.style.left = 'auto';
+        menu.style.bottom = 'auto';
         menu.style.display = 'block';
         setTimeout(() => {
             document.addEventListener('click', _closeVpSettingsOnOutside, { once: true, capture: true });
@@ -848,6 +866,25 @@
     function _closeVpSettingsOnOutside(e) {
         const menu = document.getElementById('vpSettingsMenu');
         const btn  = document.getElementById('btnVpSettings');
+        if (menu && !menu.contains(e.target) && btn && !btn.contains(e.target)) {
+            menu.style.display = 'none';
+        }
+    }
+    function toggleMapVoiceMenu() {
+        const menu = document.getElementById('mapVoiceMenu');
+        const btn  = document.getElementById('mapVoiceBtn');
+        if (!menu || !btn) return;
+        const open = menu.style.display === 'block';
+        menu.style.display = open ? 'none' : 'block';
+        if (!open) {
+            setTimeout(() => {
+                document.addEventListener('click', _closeMapVoiceOnOutside, { once: true, capture: true });
+            }, 0);
+        }
+    }
+    function _closeMapVoiceOnOutside(e) {
+        const menu = document.getElementById('mapVoiceMenu');
+        const btn  = document.getElementById('mapVoiceBtn');
         if (menu && !menu.contains(e.target) && btn && !btn.contains(e.target)) {
             menu.style.display = 'none';
         }
@@ -924,7 +961,7 @@
         document.body.appendChild(btn);
     });
 
-    // Lautstärke-Slider + Frequenz-Checkbox aus localStorage initialisieren
+    // Voice-Menü aus localStorage initialisieren
     window.addEventListener('load', () => {
         const saved = localStorage.getItem('awm_volume');
         if (saved !== null) {
@@ -938,6 +975,16 @@
         if (freqSaved !== null) {
             const cb = document.getElementById('awmReadFreqCheck');
             if (cb) cb.checked = (freqSaved !== '0');
+        }
+        const terrSaved = localStorage.getItem('awm_warn_terrain');
+        if (terrSaved !== null) {
+            const cb = document.getElementById('awmTerrainWarnCheck');
+            if (cb) cb.checked = (terrSaved !== '0');
+        }
+        const asSaved = localStorage.getItem('awm_warn_airspace');
+        if (asSaved !== null) {
+            const cb = document.getElementById('awmAirspaceWarnCheck');
+            if (cb) cb.checked = (asSaved !== '0');
         }
     });
 </script>
