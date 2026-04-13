@@ -902,9 +902,9 @@ function updateNextWpTelemetry(lat, lon) {
 
         // Ansage nur bei automatischem Advance, nicht bei manuellem Wegpunktwechsel
         if (isAutoAdvance && typeof window.awmAnnounceWpAdvance === 'function') {
-            const nextWp     = routeWaypoints[wpIdx];
-            const navToNext  = calcNav(lat, lon, nextWp.lat, nextWp.lng || nextWp.lon);
-            window.awmAnnounceWpAdvance(navToNext.brng);
+            const nextWp    = routeWaypoints[wpIdx];
+            const navToNext = calcNav(lat, lon, nextWp.lat, nextWp.lng || nextWp.lon);
+            window.awmAnnounceWpAdvance(navToNext.brng, navToNext.dist);
         }
     }
     liveNextLegIndex = legIdx;

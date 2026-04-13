@@ -155,16 +155,24 @@ window.awmSetWpAlert = function(on) {
     localStorage.setItem('awm_warn_wp', on ? '1' : '0');
 };
 
-// Aufgerufen aus sync.js wenn Auto-Advance ausgelöst wird; brng = Kurs zum nächsten WP
-window.awmAnnounceWpAdvance = function(brng) {
+// Ziffern → deutsche Aussprache (Luftfahrt: "zwo" für 2)
+function _awmDigitsDE(numStr) {
+    const map = ['null','eins','zwo','drei','vier','fünf','sechs','sieben','acht','neun'];
+    return String(numStr).split('').map(c => map[parseInt(c)] ?? c).join(' ');
+}
+
+// Aufgerufen aus sync.js wenn Auto-Advance ausgelöst wird
+// brng = Kurs zum nächsten WP, distNM = Distanz in NM
+window.awmAnnounceWpAdvance = function(brng, distNM) {
     if (!_awmWpAlert) return;
-    const crsStr = String(Math.round(brng)).padStart(3, '0');
-    _awmSpeakWpAlert(crsStr);
+    const crsStr  = String(Math.round(brng)).padStart(3, '0');
+    const distStr = String(Math.round(distNM));
+    _awmSpeakWpAlert(crsStr, distStr);
 };
 
-function _awmSpeakWpAlert(crsStr) {
+function _awmSpeakWpAlert(crsStr, distStr) {
     if (typeof speechSynthesis === 'undefined') return;
-    const text = `Steuerkurs ${parseInt(crsStr, 10)} Grad`;
+    const text = `Wegpunkt erreicht, neuer Steuerkurs ${_awmDigitsDE(crsStr)} Grad, für ${_awmDigitsDE(distStr)} Meilen`;
     function speak() {
         const u    = new SpeechSynthesisUtterance(text);
         u.lang     = 'de-DE';
