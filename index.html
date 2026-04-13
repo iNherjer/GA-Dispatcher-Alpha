@@ -711,11 +711,17 @@
                             onchange="awmSetTerrainWarn(this.checked)">
                         🏔️ Terrain Warning
                     </label>
-                    <label class="pb-btn" style="display:flex; width:100%; margin:0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                    <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
                         <input type="checkbox" id="awmAirspaceWarnCheck" checked
                             style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
                             onchange="awmSetAirspaceWarn(this.checked)">
                         🛡️ Luftraum Warning
+                    </label>
+                    <label class="pb-btn" style="display:flex; width:100%; margin:0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                        <input type="checkbox" id="awmWpAlertCheck" checked
+                            style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                            onchange="awmSetWpAlert(this.checked)">
+                        📍 Wegpunkt-Ansage (1 min)
                     </label>
                 </div>
             </div>
@@ -1035,6 +1041,11 @@
         if (asSaved !== null) {
             const cb = document.getElementById('awmAirspaceWarnCheck');
             if (cb) cb.checked = (asSaved !== '0');
+        }
+        const wpSaved = localStorage.getItem('awm_warn_wp');
+        if (wpSaved !== null) {
+            const cb = document.getElementById('awmWpAlertCheck');
+            if (cb) cb.checked = (wpSaved !== '0');
         }
     });
 </script>

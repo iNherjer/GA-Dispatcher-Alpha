@@ -892,6 +892,11 @@ function updateNextWpTelemetry(lat, lon) {
     const crs = `${String(nav.brng).padStart(3, '0')}°`;
     const dist = nav.dist.toFixed(1);
 
+    // 1-Minuten-Wegpunkt-Ansage
+    if (typeof window.awmCheckWp1Min === 'function') {
+        window.awmCheckWp1Min(wpIdx, nav.dist, smoothedGS, nav.brng);
+    }
+
     const wpName = getWpDisplayName(wpIdx);
     const freqInfo = getWpFrequencyText(wpIdx);
     if (freqInfo) {
