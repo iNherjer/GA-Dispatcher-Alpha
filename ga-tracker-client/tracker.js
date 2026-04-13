@@ -13,18 +13,34 @@ const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
 
 function startTracker(syncId, pin) {
-  console.log(`\nVerbinde mit WebSocket-Server: ${WS_URL}...`);
-  const ws = new WebSocket(WS_URL);
+  let _reconnecting = false;
 
-  ws.on('open', () => {
-    // WICHTIG: Sende jetzt ID UND PIN zur Authentifizierung
-    ws.send(JSON.stringify({ type: 'join', syncId: syncId, pin: pin }));
-    console.log(`📡 Verbunden mit ID: ${syncId} (Auth aktiv)`);
-    connectSimConnect(ws, syncId, pin);
-  });
+  function connect() {
+    if (_reconnecting) return;
+    _reconnecting = true;
+    console.log(`\nVerbinde mit WebSocket-Server: ${WS_URL}...`);
+    const ws = new WebSocket(WS_URL);
 
-  ws.on('error', (err) => console.error("❌ WebSocket-Fehler:", err.message));
-  ws.on('close', () => process.exit());
+    ws.on('open', () => {
+      _reconnecting = false;
+      ws.send(JSON.stringify({ type: 'join', syncId: syncId, pin: pin }));
+      console.log(`📡 Verbunden mit ID: ${syncId} (Auth aktiv)`);
+      connectSimConnect(ws, syncId, pin);
+    });
+
+    ws.on('error', (err) => {
+      console.error("❌ WebSocket-Fehler:", err.message);
+      // 'close' wird danach automatisch gefeuert, daher hier kein reconnect nötig
+    });
+
+    ws.on('close', () => {
+      console.warn("⚠️  WebSocket getrennt. Neuverbindung in 5 Sekunden...");
+      _reconnecting = false;
+      setTimeout(connect, 5000);
+    });
+  }
+
+  connect();
 }
 
 function connectSimConnect(ws, syncId, pin) {
@@ -150,10 +166,19 @@ function connectSimConnect(ws, syncId, pin) {
 
       handle.on('close', () => {
         clearInterval(trafficInterval);
-        setTimeout(() => connectSimConnect(ws, syncId, pin), 5000);
+        // Nur reconnecten wenn WS noch offen ist, sonst wartet WS-Reconnect auf SimConnect-Neustart
+        if (ws.readyState === WebSocket.OPEN) {
+          console.warn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
+          setTimeout(() => connectSimConnect(ws, syncId, pin), 5000);
+        }
       });
     })
-    .catch(err => setTimeout(() => connectSimConnect(ws, syncId, pin), 5000));
+    .catch(err => {
+      if (ws.readyState === WebSocket.OPEN) {
+        console.warn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
+        setTimeout(() => connectSimConnect(ws, syncId, pin), 5000);
+      }
+    });
 }
 
 function askCredentials() {
@@ -222,5 +247,13 @@ function main() {
     askCredentials();
   }
 }
+
+// Globale Fehlerbehandlung: Prozess darf nie durch unbehandelte Fehler sterben
+process.on('uncaughtException', (err) => {
+  console.error("💥 Unbehandelter Fehler (Prozess läuft weiter):", err.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error("💥 Unbehandelte Promise-Ablehnung (Prozess läuft weiter):", reason);
+});
 
 main();
