@@ -717,12 +717,18 @@
                             onchange="awmSetAirspaceWarn(this.checked)">
                         🛡️ Luftraum Warning
                     </label>
-                    <label class="pb-btn" style="display:flex; width:100%; margin:0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                    <label class="pb-btn" style="display:flex; width:100%; margin:0 0 8px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
                         <input type="checkbox" id="awmWpAlertCheck" checked
                             style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
                             onchange="awmSetWpAlert(this.checked)">
-                        📍 Wegpunkt-Ansage (1 min)
+                        📍 Wegpunkt-Ansage
                     </label>
+                    <div style="border-top:1px solid #333; padding-top:8px;">
+                        <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">STIMME</div>
+                        <audio id="awmDemoAudio" style="display:none;"></audio>
+                        <div id="awmVoiceList" style="display:flex; flex-direction:column; gap:4px;">
+                        </div>
+                    </div>
                 </div>
             </div>
             <button class="pb-btn" id="freeflightBtn" onclick="toggleFreeflightMode()" style="background:#444; color:#fff;">✈️ Direct To (Aus)</button>
@@ -1047,6 +1053,52 @@
             const cb = document.getElementById('awmWpAlertCheck');
             if (cb) cb.checked = (wpSaved !== '0');
         }
+
+        // Voice-Pack Selector aufbauen
+        const VOICE_PACKS = [
+            { id: '',         label: 'Anna',    emoji: '🇩🇪' },
+            { id: 'matilda',  label: 'Matilda', emoji: '🎙️' },
+            { id: 'liam',     label: 'Liam',    emoji: '🎙️' },
+            { id: 'hannah',   label: 'Hannah',  emoji: '🎙️' },
+        ];
+        const activePack = localStorage.getItem('awm_voice_pack') || '';
+        const list = document.getElementById('awmVoiceList');
+        if (list) {
+            VOICE_PACKS.forEach(v => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex; align-items:center; gap:6px;';
+                const isActive = v.id === activePack;
+                row.innerHTML = `
+                    <button id="awmVoiceBtn_${v.id || 'anna'}"
+                        onclick="awmSelectVoice('${v.id}')"
+                        style="flex:1; text-align:left; padding:5px 8px; border-radius:5px; border:1px solid ${isActive ? '#4da6ff' : '#444'}; background:${isActive ? '#1a3a5c' : '#1e1e1e'}; color:${isActive ? '#4da6ff' : '#ccc'}; font-size:12px; cursor:pointer;">
+                        ${v.emoji} ${v.label}
+                    </button>
+                    ${v.id ? `<button onclick="awmPlayVoiceDemo('${v.id}')"
+                        style="padding:5px 8px; border-radius:5px; border:1px solid #444; background:#1e1e1e; color:#aaa; font-size:11px; cursor:pointer;" title="Demo abspielen">▶</button>` : ''}
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        window.awmSelectVoice = function(pack) {
+            if (typeof awmSetVoice === 'function') awmSetVoice(pack);
+            document.querySelectorAll('[id^="awmVoiceBtn_"]').forEach(btn => {
+                const active = btn.id === `awmVoiceBtn_${pack || 'anna'}`;
+                btn.style.border    = `1px solid ${active ? '#4da6ff' : '#444'}`;
+                btn.style.background = active ? '#1a3a5c' : '#1e1e1e';
+                btn.style.color      = active ? '#4da6ff' : '#ccc';
+            });
+        };
+
+        window.awmPlayVoiceDemo = function(pack) {
+            const audio = document.getElementById('awmDemoAudio');
+            if (!audio) return;
+            audio.src    = `./audio-warnings/voices/${pack}/demo.mp3`;
+            audio.volume = parseFloat(localStorage.getItem('awm_volume') ?? '1');
+            audio.currentTime = 0;
+            audio.play().catch(() => {});
+        };
     });
 </script>
 

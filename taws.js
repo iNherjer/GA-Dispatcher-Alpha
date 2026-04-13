@@ -204,6 +204,19 @@ const _awBuffers   = {};           // key → AudioBuffer
 let   _awLoaded    = false;
 let   _awLoading   = false;
 
+// Voice-Pack: '' = Anna (Standard), 'matilda'|'liam'|'hannah' = ElevenLabs
+let _awmVoicePack = localStorage.getItem('awm_voice_pack') || '';
+window.awmSetVoice = function(pack) {
+    _awmVoicePack = pack;
+    localStorage.setItem('awm_voice_pack', pack);
+    // Clips neu laden
+    _awLoaded  = false;
+    _awLoading = false;
+    for (const k of Object.keys(_awBuffers)) delete _awBuffers[k];
+    _tawsInitAudio();
+    _awLoadClips();
+};
+
 // State pro Luftraum: { t5, t2, t5in, t2in, firstSeen5, firstSeen2 }
 const _awState = new Map();
 // Gleiche-Klasse Ketten-Unterdrückung: typeKey → { lastActiveMs, warnedAt }
@@ -255,11 +268,16 @@ function _awDrainQueue() {
 async function _awLoadClips() {
     if (_awLoaded || _awLoading || !_tawsAudioCtx) return;
     _awLoading = true;
+    const pack = _awmVoicePack;
     await Promise.all(_AWM_CLIPS.map(async key => {
-        // taws-alert liegt im Root, alle anderen in audio-warnings/
-        const url = key === 'taws-alert'
-            ? './taws-alert.m4a'
-            : './audio-warnings/' + key + '.m4a';
+        let url;
+        if (key === 'taws-alert') {
+            url = './taws-alert.m4a';
+        } else if (pack) {
+            url = `./audio-warnings/voices/${pack}/${key}.mp3`;
+        } else {
+            url = `./audio-warnings/${key}.m4a`;
+        }
         try {
             const r  = await fetch(url);
             const ab = await r.arrayBuffer();
@@ -268,7 +286,7 @@ async function _awLoadClips() {
     }));
     _awLoaded  = true;
     _awLoading = false;
-    console.log('[AWM] Alle Clips geladen:', Object.keys(_awBuffers).join(', '));
+    console.log(`[AWM] Clips geladen (${pack || 'anna'}):`, Object.keys(_awBuffers).length);
 }
 
 // Ansage in serielle Queue einreihen
