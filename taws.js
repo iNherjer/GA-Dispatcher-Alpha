@@ -124,6 +124,8 @@ const _AWM_CLIPS = [
     'aw-freq','aw-sqwk','aw-komma',
     'aw-d0','aw-d1','aw-d2','aw-d3','aw-d4',
     'aw-d5','aw-d6','aw-d7','aw-d8','aw-d9',
+    // Wegpunkt-Ansage
+    'aw-wp-erreicht','aw-neuer-kurs','aw-grad','aw-fuer','aw-meilen',
     'taws-alert'
 ];
 
@@ -155,42 +157,23 @@ window.awmSetWpAlert = function(on) {
     localStorage.setItem('awm_warn_wp', on ? '1' : '0');
 };
 
-// Ziffern → deutsche Aussprache (Luftfahrt: "zwo" für 2)
-function _awmDigitsDE(numStr) {
-    const map = ['null','eins','zwo','drei','vier','fünf','sechs','sieben','acht','neun'];
-    return String(numStr).split('').map(c => map[parseInt(c)] ?? c).join(' ');
-}
-
 // Aufgerufen aus sync.js wenn Auto-Advance ausgelöst wird
 // brng = Kurs zum nächsten WP, distNM = Distanz in NM
 window.awmAnnounceWpAdvance = function(brng, distNM) {
     if (!_awmWpAlert) return;
-    const crsStr  = String(Math.round(brng)).padStart(3, '0');
-    const distStr = String(Math.round(distNM));
-    _awmSpeakWpAlert(crsStr, distStr);
+    const digitKey = ['aw-d0','aw-d1','aw-d2','aw-d3','aw-d4',
+                      'aw-d5','aw-d6','aw-d7','aw-d8','aw-d9'];
+    // Kurs: 3-stellig, Ziffer für Ziffer
+    const crsDigits = String(Math.round(brng)).padStart(3, '0').split('').map(c => digitKey[+c]);
+    // Distanz: gerundet, Ziffer für Ziffer
+    const distDigits = String(Math.round(distNM)).split('').map(c => digitKey[+c]);
+    const clips = [
+        'aw-wp-erreicht',
+        'aw-neuer-kurs', ...crsDigits, 'aw-grad',
+        'aw-fuer',       ...distDigits, 'aw-meilen'
+    ];
+    _awEnqueue(clips);
 };
-
-function _awmSpeakWpAlert(crsStr, distStr) {
-    if (typeof speechSynthesis === 'undefined') return;
-    const text = `Wegpunkt erreicht, neuer Steuerkurs ${_awmDigitsDE(crsStr)} Grad, für ${_awmDigitsDE(distStr)} Meilen`;
-    function speak() {
-        const u    = new SpeechSynthesisUtterance(text);
-        u.lang     = 'de-DE';
-        u.rate     = 0.88;
-        u.volume   = _awmVolume;
-        const voices = speechSynthesis.getVoices();
-        const voice  = voices.find(v => /anna/i.test(v.name) && v.lang.startsWith('de'))
-                    || voices.find(v => v.lang === 'de-DE')
-                    || voices.find(v => v.lang.startsWith('de'));
-        if (voice) u.voice = voice;
-        speechSynthesis.speak(u);
-    }
-    if (speechSynthesis.getVoices().length > 0) {
-        speak();
-    } else {
-        speechSynthesis.addEventListener('voiceschanged', speak, { once: true });
-    }
-}
 
 // Frequenz-/Squawk-String → Clip-Keys (mit "Zwo" für 2)
 function _awFreqToClips(valueStr, isSquawk) {
