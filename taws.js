@@ -148,38 +148,23 @@ window.awmSetAirspaceWarn = function(on) {
     }
 };
 
-// Wegpunkt-Ansage an/aus (1 Minute vor Überflug), persistent
+// Wegpunkt-Ansage an/aus (beim automatischen Wegpunkt-Advance), persistent
 let _awmWpAlert = (localStorage.getItem('awm_warn_wp') !== '0');
 window.awmSetWpAlert = function(on) {
     _awmWpAlert = !!on;
     localStorage.setItem('awm_warn_wp', on ? '1' : '0');
 };
 
-// Tracking: Ansage nur einmal pro Wegpunkt
-let _awmWpAlertLastWpIdx = -1;
-let _awmWpAlertFired     = false;
-
-// Aufgerufen bei jedem GPS-Tick aus sync.js
-window.awmCheckWp1Min = function(wpIdx, distNM, gs, brng) {
+// Aufgerufen aus sync.js wenn Auto-Advance ausgelöst wird; brng = Kurs zum nächsten WP
+window.awmAnnounceWpAdvance = function(brng) {
     if (!_awmWpAlert) return;
-    // Reset wenn Wegpunkt gewechselt hat
-    if (wpIdx !== _awmWpAlertLastWpIdx) {
-        _awmWpAlertLastWpIdx = wpIdx;
-        _awmWpAlertFired     = false;
-    }
-    if (_awmWpAlertFired) return;
-    if (gs < 30) return;                  // am Boden / zu langsam
-    const etaMin = (distNM / gs) * 60;
-    if (etaMin <= 1.5 && etaMin >= 0.4) {
-        _awmWpAlertFired = true;
-        const crsStr = String(Math.round(brng)).padStart(3, '0');
-        _awmSpeakWpAlert(crsStr);
-    }
+    const crsStr = String(Math.round(brng)).padStart(3, '0');
+    _awmSpeakWpAlert(crsStr);
 };
 
 function _awmSpeakWpAlert(crsStr) {
     if (typeof speechSynthesis === 'undefined') return;
-    const text = `Wegpunkt in einer Minute. Steuerkurs ${parseInt(crsStr, 10)} Grad`;
+    const text = `Steuerkurs ${parseInt(crsStr, 10)} Grad`;
     function speak() {
         const u    = new SpeechSynthesisUtterance(text);
         u.lang     = 'de-DE';
