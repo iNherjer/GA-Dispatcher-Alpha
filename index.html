@@ -842,6 +842,56 @@
 <script src="board.js"></script>
 <script src="sim-route.js"></script>
 <script>
+    function _openFloatingMenuInViewport(menu, btn, preferAbove = false) {
+        if (!menu || !btn) return;
+        const pad = 6;
+        document.body.appendChild(menu);
+        menu.style.position = 'fixed';
+        menu.style.display = 'block';
+        menu.style.visibility = 'hidden';
+        menu.style.left = '0px';
+        menu.style.top = '0px';
+        menu.style.right = 'auto';
+        menu.style.bottom = 'auto';
+        menu.style.maxWidth = `calc(100vw - ${pad * 2}px)`;
+        menu.style.maxHeight = `calc(100vh - ${pad * 2}px)`;
+        menu.style.overflowY = 'auto';
+
+        const br = btn.getBoundingClientRect();
+        const mr = menu.getBoundingClientRect();
+
+        let left = br.right - mr.width;
+        left = Math.max(pad, Math.min(left, window.innerWidth - mr.width - pad));
+
+        const aboveTop = br.top - mr.height - 6;
+        const belowTop = br.bottom + 6;
+        const fitsAbove = aboveTop >= pad;
+        const fitsBelow = (belowTop + mr.height) <= (window.innerHeight - pad);
+
+        let top;
+        if (preferAbove) {
+            if (fitsAbove) top = aboveTop;
+            else if (fitsBelow) top = belowTop;
+            else top = Math.max(pad, window.innerHeight - mr.height - pad);
+        } else {
+            if (fitsBelow) top = belowTop;
+            else if (fitsAbove) top = aboveTop;
+            else top = Math.max(pad, window.innerHeight - mr.height - pad);
+        }
+
+        menu.style.left = `${left}px`;
+        menu.style.top = `${top}px`;
+        menu.style.visibility = 'visible';
+    }
+
+    function _closeFloatingMenus() {
+        const ids = ['vpSettingsMenu', 'mapVoiceMenu', 'mapHintsMenu'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+    }
+
     // ── Zahnrad-Untermenü Höhenprofil ──────────────────────────────────────────
     function toggleVpSettingsMenu() {
         const menu = document.getElementById('vpSettingsMenu');
@@ -852,13 +902,7 @@
             menu.style.display = 'none';
             return;
         }
-        document.body.appendChild(menu);
-        const r = btn.getBoundingClientRect();
-        menu.style.top = (r.bottom + 6) + 'px';
-        menu.style.right = (window.innerWidth - r.right) + 'px';
-        menu.style.left = 'auto';
-        menu.style.bottom = 'auto';
-        menu.style.display = 'block';
+        _openFloatingMenuInViewport(menu, btn, true);
         setTimeout(() => {
             document.addEventListener('click', _closeVpSettingsOnOutside, { once: true, capture: true });
         }, 0);
@@ -875,7 +919,11 @@
         const btn  = document.getElementById('mapVoiceBtn');
         if (!menu || !btn) return;
         const open = menu.style.display === 'block';
-        menu.style.display = open ? 'none' : 'block';
+        if (open) {
+            menu.style.display = 'none';
+            return;
+        }
+        _openFloatingMenuInViewport(menu, btn, false);
         if (!open) {
             setTimeout(() => {
                 document.addEventListener('click', _closeMapVoiceOnOutside, { once: true, capture: true });
@@ -889,6 +937,8 @@
             menu.style.display = 'none';
         }
     }
+    window.addEventListener('resize', _closeFloatingMenus);
+    window.addEventListener('orientationchange', _closeFloatingMenus);
 
     // Service Worker mit Auto-Reload bei Updates
     if ('serviceWorker' in navigator) {
