@@ -1054,16 +1054,43 @@
             if (cb) cb.checked = (wpSaved !== '0');
         }
 
-        // Voice-Pack Selector aufbauen
-        const VOICE_PACKS = [
-            { id: '',         label: 'Anna',    emoji: '🇩🇪' },
-            { id: 'matilda',  label: 'Matilda', emoji: '🎙️' },
-            { id: 'liam',     label: 'Liam',    emoji: '🎙️' },
-            { id: 'hannah',   label: 'Hannah',  emoji: '🎙️' },
-        ];
         const activePack = localStorage.getItem('awm_voice_pack') || '';
         const list = document.getElementById('awmVoiceList');
-        if (list) {
+        async function _loadVoicePacks() {
+            const fallback = [
+                { id: 'matilda', label: 'Matilda', emoji: '🎙️' },
+                { id: 'liam',    label: 'Liam',    emoji: '🎙️' },
+                { id: 'hannah',  label: 'Hannah',  emoji: '🎙️' }
+            ];
+            try {
+                const r = await fetch('./audio-warnings/voices/catalog.json', { cache: 'no-store' });
+                if (!r.ok) return fallback;
+                const data = await r.json();
+                if (!Array.isArray(data?.packs)) return fallback;
+                return data.packs;
+            } catch(_) {
+                return fallback;
+            }
+        }
+
+        async function _packHasDemo(id) {
+            try {
+                const r = await fetch(`./audio-warnings/voices/${id}/demo.mp3`, { method: 'HEAD', cache: 'no-store' });
+                return r.ok;
+            } catch(_) {
+                return false;
+            }
+        }
+
+        async function _buildVoiceList() {
+            if (!list) return;
+            list.innerHTML = '';
+            const dynamicPacks = await _loadVoicePacks();
+            const visiblePacks = [];
+            for (const p of dynamicPacks) {
+                if (p?.id && await _packHasDemo(p.id)) visiblePacks.push(p);
+            }
+            const VOICE_PACKS = [{ id: '', label: 'Anna', emoji: '🇩🇪' }, ...visiblePacks];
             VOICE_PACKS.forEach(v => {
                 const row = document.createElement('div');
                 row.style.cssText = 'display:flex; align-items:center; gap:6px;';
@@ -1080,6 +1107,7 @@
                 list.appendChild(row);
             });
         }
+        _buildVoiceList();
 
         window.awmSelectVoice = function(pack) {
             if (typeof awmSetVoice === 'function') awmSetVoice(pack);
