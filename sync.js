@@ -1126,27 +1126,16 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     // Hilfsfunktion: Luftraum-Farbe für einen Vorhersagepunkt (synchron, für Marker-Einfärbung)
     function _getAirspaceColorForPredPoint(pt) {
         if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) return null;
-        if (typeof vpPointInPoly === 'undefined' || typeof airspaceLimitToFt === 'undefined') return null;
+        if (typeof getAirspaceVerticalBandFt === 'undefined' || typeof isPointInsideAirspace === 'undefined') return null;
         for (const as of activeAirspaces) {
             if (!as.geometry || !as.lowerLimit || !as.upperLimit) continue;
             if (as.type === 33) continue; // FIS überspringen
-            const lowerFt = airspaceLimitToFt(as.lowerLimit);
-            const upperFt = airspaceLimitToFt(as.upperLimit);
-            if (lowerFt === null || upperFt === null) continue;
             const terrainBase = Number(pt.terrainFt ?? window.lastLiveTerrainFt) || 0;
-            const isLowerAgl = !!(as._lowerIsAgl || as.lowerLimit.referenceDatum === 0);
-            const isUpperAgl = !!(as._upperIsAgl || as.upperLimit.referenceDatum === 0);
-            const effLower = isLowerAgl ? (terrainBase + lowerFt) : lowerFt;
-            const effUpper = isUpperAgl ? (terrainBase + upperFt) : upperFt;
-            if (pt.alt < effLower - 500 || pt.alt > effUpper + 500) continue;
-            const polys = [];
-            if (as.geometry.type === 'Polygon') polys.push(as.geometry.coordinates[0]);
-            else if (as.geometry.type === 'MultiPolygon') as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
-            for (const poly of polys) {
-                if (vpPointInPoly({ lat: pt.lat, lon: pt.lon }, poly)) {
-                    return typeof getAirspaceStyle === 'function' ? getAirspaceStyle(as).color : '#f2c12e';
-                }
-            }
+            const band = getAirspaceVerticalBandFt(as, terrainBase);
+            if (!band) continue;
+            if (pt.alt < band.lowerFt - 500 || pt.alt > band.upperFt + 500) continue;
+            if (isPointInsideAirspace(as, pt.lat, pt.lon))
+                return typeof getAirspaceStyle === 'function' ? getAirspaceStyle(as).color : '#f2c12e';
         }
         return null;
     }
@@ -1170,6 +1159,13 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             return { lat: pt.lat, lon: pt.lon, min, alt: Math.max(0, alt + smoothedVS * min) };
         });
         const _awmPredPoints = [...predPoints, ..._awmExtra];
+        // Zusätzlicher TAWS-Feinpunkt für 15s "time-to-impact" Warnung.
+        const _tawsExtra = [0.25].map(min => {
+            const distNM = smoothedGS * (min / 60);
+            const pt = getDestinationPoint(lat, lon, distNM, hdg);
+            return { lat: pt.lat, lon: pt.lon, min, alt: Math.max(0, alt + smoothedVS * min) };
+        });
+        const _tawsPredPoints = [..._awmPredPoints, ..._tawsExtra];
 
         const lineCoords = [[lat, lon], ...predPoints.map(p => [p.lat, p.lon])];
 
@@ -1229,7 +1225,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
 
         // TAWS-Check: Prediction-Linie einfärben wenn taws.js geladen
         if (typeof checkTerrainAlongPath === 'function') {
-            checkTerrainAlongPath(predPoints).then(results => {
+            checkTerrainAlongPath(_tawsPredPoints).then(results => {
                 if (!results || !predictionLine) return;
                 // Airspace-Warnungen mit Terrain-Info füttern (AGL-Limits korrekt auswerten).
                 if (typeof checkAirspaceWarnings === 'function') {
@@ -1243,7 +1239,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
 
                 // Worst-case Threat bestimmt Linienfarbe
                 let worst = 'green';
-                for (const r of results) {
+                for (const r of results.slice(0, predPoints.length)) {
                     if (r.threat === 'red') { worst = 'red'; break; }
                     if (r.threat === 'amber') worst = 'amber';
                 }

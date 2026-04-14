@@ -443,19 +443,13 @@ function checkAirspaceWarnings(predPoints) {
     if (!_awLoaded) { _awLoadClips(); return; }
     if (!_tawsAudioCtx) return;
     if (typeof activeAirspaces === 'undefined' || !activeAirspaces.length) return;
-    if (typeof vpPointInPoly === 'undefined' || typeof airspaceLimitToFt === 'undefined') return;
+    if (typeof getAirspaceVerticalBandFt === 'undefined' || typeof isPointInsideAirspace === 'undefined') return;
 
     const now = Date.now();
     const PERSIST = 5000;
     const STICKY  = 3000;
     const lastTerrainFt = Number(window.lastLiveTerrainFt) || 0;
     const getTerrainForPoint = (pt) => Number(pt?.terrainFt ?? lastTerrainFt) || 0;
-    const isLimitAgl = (as, boundary) => {
-        const lim = boundary === 'lower' ? as?.lowerLimit : as?.upperLimit;
-        if (!lim) return false;
-        if (lim.referenceDatum === 0) return true;
-        return boundary === 'lower' ? !!as?._lowerIsAgl : !!as?._upperIsAgl;
-    };
 
     // ── Pass 1: Schnittstellen für alle Lufträume berechnen ───────────────────
     const crossings = [];
@@ -464,22 +458,12 @@ function checkAirspaceWarnings(predPoints) {
         if (as.type === 33) continue;
 
         const typeKey = _awTypeKey(as) || 'aw-ctr';
-        let lowerFt = 0, upperFt = 99999;
-        if (as.lowerLimit && as.upperLimit) {
-            const lo = airspaceLimitToFt(as.lowerLimit);
-            const hi = airspaceLimitToFt(as.upperLimit);
-            if (lo !== null) lowerFt = lo;
-            if (hi !== null) upperFt = hi;
-        }
-        const lowerIsAgl = isLimitAgl(as, 'lower');
-        const upperIsAgl = isLimitAgl(as, 'upper');
-
-        const polys = [];
-        if (as.geometry.type === 'Polygon')
-            polys.push(as.geometry.coordinates[0]);
-        else if (as.geometry.type === 'MultiPolygon')
-            as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
-        if (!polys.length) continue;
+        const bandBase = getAirspaceVerticalBandFt(as, 0);
+        if (!bandBase) continue;
+        const lowerFt = bandBase.baseLowerFt;
+        const upperFt = bandBase.baseUpperFt;
+        const lowerIsAgl = bandBase.isLowerAgl;
+        const upperIsAgl = bandBase.isUpperAgl;
 
         let earliest5 = null, earliest2 = null, insideNow = false;
 
@@ -488,29 +472,19 @@ function checkAirspaceWarnings(predPoints) {
         // tatsächlich durchflogen wird — nicht schon 1 Minute vorher.
         const _gps = window.lastLiveGpsPos;
         if (_gps && _gps.alt !== undefined && _gps.lat !== undefined) {
-            const _gTerrain = getTerrainForPoint(_gps);
-            const effLowerNow = lowerIsAgl ? (lowerFt + _gTerrain) : lowerFt;
-            const effUpperNow = upperIsAgl ? (upperFt + _gTerrain) : upperFt;
+            const bandNow = getAirspaceVerticalBandFt(as, getTerrainForPoint(_gps));
+            if (!bandNow) continue;
             const _gAlt = _gps.alt; // bereits in Feet (sync.js)
-            if (_gAlt >= effLowerNow - 200 && _gAlt <= effUpperNow + 200) {
-                for (const poly of polys) {
-                    if (vpPointInPoly({ lat: _gps.lat, lon: _gps.lon }, poly)) {
-                        insideNow = true; break;
-                    }
-                }
+            if (_gAlt >= bandNow.lowerFt - 200 && _gAlt <= bandNow.upperFt + 200) {
+                if (isPointInsideAirspace(as, _gps.lat, _gps.lon)) insideNow = true;
             }
         }
 
         for (const pt of predPoints) {
-            const terrainFt = getTerrainForPoint(pt);
-            const effLower = lowerIsAgl ? (lowerFt + terrainFt) : lowerFt;
-            const effUpper = upperIsAgl ? (upperFt + terrainFt) : upperFt;
-            if (pt.alt < effLower - 500 || pt.alt > effUpper + 300) continue;
-            let inside = false;
-            for (const poly of polys) {
-                if (vpPointInPoly({ lat: pt.lat, lon: pt.lon }, poly)) { inside = true; break; }
-            }
-            if (!inside) continue;
+            const bandPt = getAirspaceVerticalBandFt(as, getTerrainForPoint(pt));
+            if (!bandPt) continue;
+            if (pt.alt < bandPt.lowerFt - 500 || pt.alt > bandPt.upperFt + 300) continue;
+            if (!isPointInsideAirspace(as, pt.lat, pt.lon)) continue;
             if (pt.min <= 5 && (earliest5 === null || pt.min < earliest5)) earliest5 = pt.min;
             if (pt.min <= 2 && (earliest2 === null || pt.min < earliest2)) earliest2 = pt.min;
         }
@@ -732,8 +706,8 @@ async function checkTerrainAlongPath(points) {
             let threat = 'green';
             if (clearance < TAWS_SAFETY_RED) {
                 threat = 'red';
-                // Voice nur wenn Kollision in ≤ 60 Sekunden
-                if ((p.min ?? 99) <= 1) hasImmediateThreat = true;
+                // Voice nur wenn Kollision in ≤ 15 Sekunden
+                if ((p.min ?? 99) <= 0.25) hasImmediateThreat = true;
             } else if (clearance < TAWS_SAFETY_AMBER) {
                 threat = 'amber';
             }

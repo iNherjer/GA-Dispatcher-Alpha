@@ -1469,13 +1469,12 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
     for (let asIdx = 0; asIdx < activeAirspaces.length; asIdx++) {
         const as = activeAirspaces[asIdx];
         if (as.type === 33) continue;
-        if (!as.lowerLimit || !as.upperLimit) continue;
-        const lowerFt = airspaceLimitToFt(as.lowerLimit);
-        const upperFt = airspaceLimitToFt(as.upperLimit);
-        if (lowerFt === null || upperFt === null) continue;
-
-        const isLowerAgl = as.lowerLimit.referenceDatum === 0;
-        const isUpperAgl = as.upperLimit.referenceDatum === 0;
+        const band = getAirspaceVerticalBandFt(as, 0);
+        if (!band) continue;
+        const lowerFt = band.baseLowerFt;
+        const upperFt = band.baseUpperFt;
+        const isLowerAgl = band.isLowerAgl;
+        const isUpperAgl = band.isUpperAgl;
 
         let asMinDist = totalDist, asMaxDist = 0, found = false;
         const polys = [];
@@ -1883,6 +1882,30 @@ function airspaceLimitToFt(lim) {
     if (lim.unit === 1) return lim.value;
     if (lim.unit === 0) return Math.round(lim.value * 3.28084);
     return lim.value;
+}
+
+function getAirspaceVerticalBandFt(as, terrainFt) {
+    if (!as?.lowerLimit || !as?.upperLimit) return null;
+    const baseLowerFt = airspaceLimitToFt(as.lowerLimit);
+    const baseUpperFt = airspaceLimitToFt(as.upperLimit);
+    if (baseLowerFt === null || baseUpperFt === null) return null;
+    const groundFt = Number(terrainFt) || 0;
+    const isLowerAgl = !!(as._lowerIsAgl || as.lowerLimit.referenceDatum === 0);
+    const isUpperAgl = !!(as._upperIsAgl || as.upperLimit.referenceDatum === 0);
+    const lowerFt = isLowerAgl ? (groundFt + baseLowerFt) : baseLowerFt;
+    const upperFt = isUpperAgl ? (groundFt + baseUpperFt) : baseUpperFt;
+    return { lowerFt, upperFt, baseLowerFt, baseUpperFt, isLowerAgl, isUpperAgl };
+}
+
+function isPointInsideAirspace(as, lat, lon) {
+    if (!as?.geometry) return false;
+    const polys = [];
+    if (as.geometry.type === 'Polygon') polys.push(as.geometry.coordinates[0]);
+    else if (as.geometry.type === 'MultiPolygon') as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
+    for (const poly of polys) {
+        if (vpPointInPoly({ lat, lon }, poly)) return true;
+    }
+    return false;
 }
 
 function vpHexToRgba(hex, alpha) {
