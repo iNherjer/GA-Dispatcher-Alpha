@@ -324,6 +324,11 @@ function _awTypeKey(as) {
     return null;   // Danger/Prohibited/FIS → kein Sprach-Alert
 }
 
+function _awTypeClips(as) {
+    const key = _awTypeKey(as);
+    return key ? [key] : [];
+}
+
 // Minuten-Zahl → Audio-Key
 function _awMinKey(min) {
     const n = Math.round(min);
@@ -569,7 +574,7 @@ function checkAirspaceWarnings(predPoints) {
                 window._awmPulse = { color: col, lowerFt: effLower, upperFt: effUpper, startMs: now, as };
                 window.vpBgNeedsUpdate = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest2)} min`);
-                _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest2)) || 'aw-2min', ..._awGetFreqClips(as)]);
+                _awPlaySequence(['aw-achtung', ..._awTypeClips(as), 'aw-in', _awMinKey(Math.round(earliest2)) || 'aw-2min', ..._awGetFreqClips(as)]);
                 _awShowFreqBanner(as, col);
                 // Kette starten: gleiche Klasse dahinter nicht nochmals ansagen
                 if (typeKey && _awTypeChain.has(typeKey)) _awTypeChain.get(typeKey).warnedAt = now;
@@ -589,7 +594,7 @@ function checkAirspaceWarnings(predPoints) {
                 window._awmPulse = { color: col, lowerFt: effLower, upperFt: effUpper, startMs: now, as };
                 window.vpBgNeedsUpdate = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest5)} min`);
-                _awPlaySequence(['aw-achtung', typeKey, 'aw-in', _awMinKey(Math.round(earliest5)) || 'aw-5min', ..._awGetFreqClips(as)]);
+                _awPlaySequence(['aw-achtung', ..._awTypeClips(as), 'aw-in', _awMinKey(Math.round(earliest5)) || 'aw-5min', ..._awGetFreqClips(as)]);
                 _awShowFreqBanner(as, col);
                 // Kette starten: gleiche Klasse dahinter nicht nochmals ansagen
                 if (typeKey && _awTypeChain.has(typeKey)) _awTypeChain.get(typeKey).warnedAt = now;

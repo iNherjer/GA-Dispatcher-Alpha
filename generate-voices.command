@@ -68,12 +68,29 @@ echo "1) Matilda, Hannah, Liam (empfohlen)"
 echo "2) Alle konfigurierten Stimmen"
 read -r -p "Auswahl [1/2, Enter=1]: " CHOICE
 
+echo
+echo "Was soll erzeugt werden?"
+echo "1) Alle Clips"
+echo "2) Nur problematische Kurzclips (Zahlen, zwo, Grad, fuer, Meilen, Komma, EDR)"
+echo "3) Nur E-DR"
+read -r -p "Auswahl [1/2/3, Enter=1]: " CLIP_CHOICE
+
 ARGS=(--force)
 if [[ "${CHOICE:-1}" == "2" ]]; then
   echo "Starte: alle konfigurierten Stimmen..."
 else
   echo "Starte: matilda,hannah,liam..."
   ARGS+=(--only matilda,hannah,liam)
+fi
+
+if [[ "${CLIP_CHOICE:-1}" == "2" ]]; then
+  echo "Modus: problematische Kurzclips"
+  ARGS+=(--clips aw-fuer,aw-grad,aw-d0,aw-d1,aw-d2,aw-d3,aw-d4,aw-d5,aw-d6,aw-d7,aw-d8,aw-d9,aw-edr,aw-komma,aw-meilen,aw-zwo)
+elif [[ "${CLIP_CHOICE:-1}" == "3" ]]; then
+  echo "Modus: nur E-DR"
+  ARGS+=(--clips aw-edr)
+else
+  echo "Modus: alle Clips"
 fi
 
 echo
