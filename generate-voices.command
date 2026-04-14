@@ -71,9 +71,10 @@ read -r -p "Auswahl [1/2, Enter=1]: " CHOICE
 echo
 echo "Was soll erzeugt werden?"
 echo "1) Alle Clips"
-echo "2) Nur problematische Kurzclips (Zahlen, zwo, Grad, fuer, Meilen, Komma, EDR)"
+echo "2) Nur problematische Kurzclips (Zahlen, zwo, Grad, fuer, Meilen, Komma, EDR, 1 Minute, Demo)"
 echo "3) Nur E-DR"
-read -r -p "Auswahl [1/2/3, Enter=1]: " CLIP_CHOICE
+echo "4) Nur 1 Minute + Demo"
+read -r -p "Auswahl [1/2/3/4, Enter=1]: " CLIP_CHOICE
 
 ARGS=(--force)
 if [[ "${CHOICE:-1}" == "2" ]]; then
@@ -85,10 +86,13 @@ fi
 
 if [[ "${CLIP_CHOICE:-1}" == "2" ]]; then
   echo "Modus: problematische Kurzclips"
-  ARGS+=(--clips aw-fuer,aw-grad,aw-d0,aw-d1,aw-d2,aw-d3,aw-d4,aw-d5,aw-d6,aw-d7,aw-d8,aw-d9,aw-edr,aw-komma,aw-meilen,aw-zwo)
+  ARGS+=(--clips aw-1min,aw-fuer,aw-grad,aw-d0,aw-d1,aw-d2,aw-d3,aw-d4,aw-d5,aw-d6,aw-d7,aw-d8,aw-d9,aw-edr,aw-komma,aw-meilen,aw-zwo,demo)
 elif [[ "${CLIP_CHOICE:-1}" == "3" ]]; then
   echo "Modus: nur E-DR"
   ARGS+=(--clips aw-edr)
+elif [[ "${CLIP_CHOICE:-1}" == "4" ]]; then
+  echo "Modus: nur 1 Minute + Demo"
+  ARGS+=(--clips aw-1min,demo)
 else
   echo "Modus: alle Clips"
 fi

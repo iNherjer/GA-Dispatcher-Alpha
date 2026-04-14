@@ -22,7 +22,7 @@ node tools/generate-elevenlabs-voice-packs.mjs --only matilda,hannah,liam --forc
 ## Nur problematische Kurzclips neu rendern
 
 ```bash
-node tools/generate-elevenlabs-voice-packs.mjs --only matilda,hannah,liam --clips aw-fuer,aw-grad,aw-d0,aw-d1,aw-d2,aw-d3,aw-d4,aw-d5,aw-d6,aw-d7,aw-d8,aw-d9,aw-edr,aw-komma,aw-meilen,aw-zwo --force
+node tools/generate-elevenlabs-voice-packs.mjs --only matilda,hannah,liam --clips aw-1min,aw-fuer,aw-grad,aw-d0,aw-d1,aw-d2,aw-d3,aw-d4,aw-d5,aw-d6,aw-d7,aw-d8,aw-d9,aw-edr,aw-komma,aw-meilen,aw-zwo,demo --force
 ```
 
 Nur EDR neu rendern:

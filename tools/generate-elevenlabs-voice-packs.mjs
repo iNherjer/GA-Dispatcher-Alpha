@@ -21,7 +21,7 @@ const CLIPS = [
   { key: 'aw-tmz', text: 'Transponder Mandatory Zone' },
   { key: 'aw-edr', text: 'Flugbeschränkungsgebiet' },
   { key: 'aw-para', text: 'Fallschirmsprunggebiet' },
-  { key: 'aw-1min', text: 'eine Minute' },
+  { key: 'aw-1min', text: 'einer Minute' },
   { key: 'aw-2min', text: 'zwei Minuten' },
   { key: 'aw-3min', text: 'drei Minuten' },
   { key: 'aw-4min', text: 'vier Minuten' },
@@ -50,7 +50,7 @@ const CLIPS = [
   { key: 'aw-grad', text: 'Die Einheit lautet jetzt.\n\nGrad.', trim: 'tail', tailSec: 0.76 },
   { key: 'aw-fuer', text: 'Das Wort lautet jetzt.\n\nFür.', trim: 'tail', tailSec: 0.74 },
   { key: 'aw-meilen', text: 'Die Einheit lautet jetzt.\n\nMeilen.', trim: 'tail', tailSec: 0.86 },
-  { key: 'demo', text: 'Demo. Neuer Steuerkurs null zwo fünf Grad. Frequenz eins zwo drei Komma vier fünf zwo.' }
+  { key: 'demo', text: 'Demo. Neuer Steuerkurs null zwo fünf Grad. In einer Minute. Frequenz eins zwo drei Komma vier fünf zwo.' }
 ];
 
 function parseArgs() {

@@ -1310,6 +1310,7 @@ function toggleMapTable() {
     if (board.classList.contains('active')) {
         lockBodyScroll();
         if (!map) initMapBase();
+        if (shouldAutoStartMapFullscreen()) document.body.classList.add('map-is-fullscreen');
 
         setTimeout(() => {
             if (map) {
@@ -1328,6 +1329,10 @@ function toggleMapTable() {
         document.body.classList.remove('map-is-fullscreen');
         if (typeof _closeFloatingMenus === 'function') _closeFloatingMenus();
     }
+}
+
+function shouldAutoStartMapFullscreen() {
+    return window.innerWidth < 1250;
 }
 
 /* =========================================================
