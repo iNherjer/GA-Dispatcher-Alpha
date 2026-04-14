@@ -787,6 +787,53 @@ function getRegionalFisFrequency(lat, lon) {
     return '';
 }
 
+function normalizeTextToken(s) {
+    return String(s || '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9 ]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function getAssociatedAirportIcaoForRpp(wp) {
+    if (!wp) return '';
+    const direct = String(wp.rppAirportIcao || '').trim().toUpperCase();
+    if (/^[A-Z]{4}$/.test(direct)) return direct;
+    if (wp._rppAssocIcao && /^[A-Z]{4}$/.test(wp._rppAssocIcao)) return wp._rppAssocIcao;
+    if (typeof globalAirports !== 'object' || !globalAirports || typeof calcNav !== 'function') return '';
+
+    const label = String(wp.name || '').replace(/^RPP\s+/i, '');
+    const normLabel = normalizeTextToken(label);
+    const tokens = normLabel.split(' ').filter(t => t.length >= 4);
+
+    let bestIcao = '';
+    let bestScore = Infinity;
+
+    for (const key in globalAirports) {
+        const apt = globalAirports[key];
+        const icao = String(apt?.icao || key || '').trim().toUpperCase();
+        if (!/^[A-Z]{4}$/.test(icao)) continue;
+        if (!Number.isFinite(wp.lat) || !Number.isFinite(wp.lng || wp.lon)) continue;
+        if (!Number.isFinite(apt.lat) || !Number.isFinite(apt.lon)) continue;
+
+        const dNm = calcNav(wp.lat, wp.lng || wp.lon, apt.lat, apt.lon).dist;
+        if (!Number.isFinite(dNm) || dNm > 35) continue;
+
+        const aptText = normalizeTextToken(`${apt.name || ''} ${apt.city || ''} ${icao}`);
+        const tokenHit = tokens.length > 0 && tokens.some(t => aptText.includes(t));
+        if (!tokenHit && dNm > 8) continue;
+
+        const score = dNm + (tokenHit ? 0 : 12);
+        if (score < bestScore) {
+            bestScore = score;
+            bestIcao = icao;
+        }
+    }
+
+    wp._rppAssocIcao = bestIcao || '';
+    return bestIcao;
+}
+
 function getWpFrequencyText(wpIdx) {
     if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || !routeWaypoints[wpIdx]) return '';
     const wp = routeWaypoints[wpIdx];
@@ -805,6 +852,14 @@ function getWpFrequencyText(wpIdx) {
         const icao = (typeof currentDestICAO !== 'undefined') ? currentDestICAO : '';
         const f = (typeof currentDestFreq !== 'undefined' && currentDestFreq) ? currentDestFreq : getPrimaryAirportFrequency(icao, 'dest');
         return f ? `📻 ${f}` : '';
+    }
+
+    if (/^RPP\s+/i.test(wpName)) {
+        const rppIcao = getAssociatedAirportIcaoForRpp(wp);
+        if (rppIcao) {
+            const f = getPrimaryAirportFrequency(rppIcao, null);
+            if (f) return `📻 ${rppIcao} ${f}`;
+        }
     }
 
     const fis = getRegionalFisFrequency(wp.lat, wp.lng || wp.lon);
