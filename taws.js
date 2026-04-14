@@ -448,6 +448,14 @@ function checkAirspaceWarnings(predPoints) {
     const now = Date.now();
     const PERSIST = 5000;
     const STICKY  = 3000;
+    const lastTerrainFt = Number(window.lastLiveTerrainFt) || 0;
+    const getTerrainForPoint = (pt) => Number(pt?.terrainFt ?? lastTerrainFt) || 0;
+    const isLimitAgl = (as, boundary) => {
+        const lim = boundary === 'lower' ? as?.lowerLimit : as?.upperLimit;
+        if (!lim) return false;
+        if (lim.referenceDatum === 0) return true;
+        return boundary === 'lower' ? !!as?._lowerIsAgl : !!as?._upperIsAgl;
+    };
 
     // ── Pass 1: Schnittstellen für alle Lufträume berechnen ───────────────────
     const crossings = [];
@@ -456,13 +464,15 @@ function checkAirspaceWarnings(predPoints) {
         if (as.type === 33) continue;
 
         const typeKey = _awTypeKey(as) || 'aw-ctr';
-        let effLower = 0, effUpper = 99999;
+        let lowerFt = 0, upperFt = 99999;
         if (as.lowerLimit && as.upperLimit) {
             const lo = airspaceLimitToFt(as.lowerLimit);
             const hi = airspaceLimitToFt(as.upperLimit);
-            if (lo !== null) effLower = lo;
-            if (hi !== null) effUpper = hi;
+            if (lo !== null) lowerFt = lo;
+            if (hi !== null) upperFt = hi;
         }
+        const lowerIsAgl = isLimitAgl(as, 'lower');
+        const upperIsAgl = isLimitAgl(as, 'upper');
 
         const polys = [];
         if (as.geometry.type === 'Polygon')
@@ -478,8 +488,11 @@ function checkAirspaceWarnings(predPoints) {
         // tatsächlich durchflogen wird — nicht schon 1 Minute vorher.
         const _gps = window.lastLiveGpsPos;
         if (_gps && _gps.alt !== undefined && _gps.lat !== undefined) {
+            const _gTerrain = getTerrainForPoint(_gps);
+            const effLowerNow = lowerIsAgl ? (lowerFt + _gTerrain) : lowerFt;
+            const effUpperNow = upperIsAgl ? (upperFt + _gTerrain) : upperFt;
             const _gAlt = _gps.alt; // bereits in Feet (sync.js)
-            if (_gAlt >= effLower - 200 && _gAlt <= effUpper + 200) {
+            if (_gAlt >= effLowerNow - 200 && _gAlt <= effUpperNow + 200) {
                 for (const poly of polys) {
                     if (vpPointInPoly({ lat: _gps.lat, lon: _gps.lon }, poly)) {
                         insideNow = true; break;
@@ -489,6 +502,9 @@ function checkAirspaceWarnings(predPoints) {
         }
 
         for (const pt of predPoints) {
+            const terrainFt = getTerrainForPoint(pt);
+            const effLower = lowerIsAgl ? (lowerFt + terrainFt) : lowerFt;
+            const effUpper = upperIsAgl ? (upperFt + terrainFt) : upperFt;
             if (pt.alt < effLower - 500 || pt.alt > effUpper + 300) continue;
             let inside = false;
             for (const poly of polys) {
@@ -501,8 +517,8 @@ function checkAirspaceWarnings(predPoints) {
 
         if (earliest5 === null && earliest2 === null && !insideNow) continue;
 
-        const asKey = `${as.type}_${as.name || 'x'}_${Math.round(effLower)}`;
-        crossings.push({ as, typeKey, effLower, effUpper, earliest5, earliest2, insideNow, asKey });
+        const asKey = `${as.type}_${as.name || 'x'}_${Math.round(lowerFt)}`;
+        crossings.push({ as, typeKey, lowerFt, upperFt, lowerIsAgl, upperIsAgl, earliest5, earliest2, insideNow, asKey });
     }
 
     // ── Pass 2: Nächsten noch nicht eingetretenen Luftraum bestimmen ──────────
@@ -534,7 +550,9 @@ function checkAirspaceWarnings(predPoints) {
 
     // ── Pass 3: Warnungen ausspielen ──────────────────────────────────────────
     for (const c of crossings) {
-        const { as, typeKey, effLower, effUpper, earliest5, earliest2, insideNow, asKey } = c;
+        const { as, typeKey, lowerFt, upperFt, lowerIsAgl, upperIsAgl, earliest5, earliest2, insideNow, asKey } = c;
+        const effLower = lowerIsAgl ? (lowerFt + lastTerrainFt) : lowerFt;
+        const effUpper = upperIsAgl ? (upperFt + lastTerrainFt) : upperFt;
         const in5 = earliest5 !== null;
         const in2 = earliest2 !== null;
 

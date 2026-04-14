@@ -1133,8 +1133,12 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             const lowerFt = airspaceLimitToFt(as.lowerLimit);
             const upperFt = airspaceLimitToFt(as.upperLimit);
             if (lowerFt === null || upperFt === null) continue;
-            const effLower = lowerFt;
-            if (pt.alt < effLower - 500 || pt.alt > upperFt + 500) continue;
+            const terrainBase = Number(pt.terrainFt ?? window.lastLiveTerrainFt) || 0;
+            const isLowerAgl = !!(as._lowerIsAgl || as.lowerLimit.referenceDatum === 0);
+            const isUpperAgl = !!(as._upperIsAgl || as.upperLimit.referenceDatum === 0);
+            const effLower = isLowerAgl ? (terrainBase + lowerFt) : lowerFt;
+            const effUpper = isUpperAgl ? (terrainBase + upperFt) : upperFt;
+            if (pt.alt < effLower - 500 || pt.alt > effUpper + 500) continue;
             const polys = [];
             if (as.geometry.type === 'Polygon') polys.push(as.geometry.coordinates[0]);
             else if (as.geometry.type === 'MultiPolygon') as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
@@ -1223,13 +1227,20 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             window._lastGpsCityKey = null;
         }
 
-        // Airspace-Warnungen prüfen (Sprach-Alerts via AWM)
-        if (typeof checkAirspaceWarnings === 'function') checkAirspaceWarnings(_awmPredPoints);
-
         // TAWS-Check: Prediction-Linie einfärben wenn taws.js geladen
         if (typeof checkTerrainAlongPath === 'function') {
             checkTerrainAlongPath(predPoints).then(results => {
                 if (!results || !predictionLine) return;
+                // Airspace-Warnungen mit Terrain-Info füttern (AGL-Limits korrekt auswerten).
+                if (typeof checkAirspaceWarnings === 'function') {
+                    const terrainFallback = Number(window.lastLiveTerrainFt) || 0;
+                    const awmPts = _awmPredPoints.map((p, idx) => ({
+                        ...p,
+                        terrainFt: Number(results[idx]?.terrainFt ?? terrainFallback) || 0
+                    }));
+                    checkAirspaceWarnings(awmPts);
+                }
+
                 // Worst-case Threat bestimmt Linienfarbe
                 let worst = 'green';
                 for (const r of results) {
@@ -1268,6 +1279,9 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
                     });
                 }
             });
+        } else {
+            // Fallback ohne Terrain-Resolver
+            if (typeof checkAirspaceWarnings === 'function') checkAirspaceWarnings(_awmPredPoints);
         }
 
         // Zeitmarker zeichnen/updaten
@@ -1377,6 +1391,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
 
         // AGL aus Terrain-Höhe an der nächstgelegenen Route-Position
         const terrainFt = bestDist < 0.028 ? (ed[bestIdx].elevFt ?? 0) : 0;
+        window.lastLiveTerrainFt = terrainFt;
         const aglFt = Math.max(0, Math.round(alt - terrainFt));
         const aglEl = document.getElementById('teleAGL');
         if (aglEl) {
