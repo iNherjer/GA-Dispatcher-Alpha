@@ -1133,7 +1133,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             const lowerFt = airspaceLimitToFt(as.lowerLimit);
             const upperFt = airspaceLimitToFt(as.upperLimit);
             if (lowerFt === null || upperFt === null) continue;
-            const effLower = (as.lowerLimit.referenceDatum === 0) ? 0 : lowerFt;
+            const effLower = lowerFt;
             if (pt.alt < effLower - 500 || pt.alt > upperFt + 500) continue;
             const polys = [];
             if (as.geometry.type === 'Polygon') polys.push(as.geometry.coordinates[0]);

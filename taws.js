@@ -460,7 +460,7 @@ function checkAirspaceWarnings(predPoints) {
         if (as.lowerLimit && as.upperLimit) {
             const lo = airspaceLimitToFt(as.lowerLimit);
             const hi = airspaceLimitToFt(as.upperLimit);
-            if (lo !== null) effLower = (as.lowerLimit.referenceDatum === 0) ? 0 : lo;
+            if (lo !== null) effLower = lo;
             if (hi !== null) effUpper = hi;
         }
 

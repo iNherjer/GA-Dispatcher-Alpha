@@ -2081,13 +2081,42 @@ function getAirspaceDisplayName(a) {
     return `${name.trim()} [${style.category}]`;
 }
 
+function normalizeAirspaceNameForFreq(name) {
+    return String(name || '')
+        .toUpperCase()
+        .replace(/\b(TMA|CTR|CTA|TMZ|RMZ|FIS|HX)\b/g, ' ')
+        .replace(/[^A-Z0-9]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function pickPreferredAirspaceFrequency(freqs, airspaceType) {
+    if (!Array.isArray(freqs) || freqs.length === 0) return null;
+    const list = freqs.filter(f => f && f.value);
+    if (!list.length) return null;
+
+    const wantsTowerLike = [4, 7, 26].includes(airspaceType) || airspaceType === 0;
+    if (wantsTowerLike) {
+        const towerRx = /\b(TWR|TOWER|TURM)\b/i;
+        const appRx = /\b(APP|APPROACH|ANFLUG)\b/i;
+        const infoRx = /\b(INFO|INFORMATION|RADIO)\b/i;
+        return list.find(f => towerRx.test(f.name || ''))
+            || list.find(f => appRx.test(f.name || ''))
+            || list.find(f => infoRx.test(f.name || ''))
+            || list.find(f => f.primary)
+            || list[0];
+    }
+
+    return list.find(f => f.primary) || list[0];
+}
+
 function getAirspaceFreqInfo(a) {
     const t = a.type;
     if (!a.frequencies || a.frequencies.length === 0) return '';
 
     // For CTR/TMA/CTA (type 4, 7, 26) and type 0 with icaoClass 3: show Tower/Approach freq
     if ([4, 7, 26].includes(t) || (t === 0 && a.icaoClass === 3)) {
-        const primary = a.frequencies.find(f => f.primary) || a.frequencies[0];
+        const primary = pickPreferredAirspaceFrequency(a.frequencies, t);
         if (primary) {
             const label = primary.name || 'TWR';
             return `<span style="color:#f2c12e; font-weight:bold; font-size:10px;">📻 ${label}: ${primary.value}</span>`;
@@ -2096,7 +2125,7 @@ function getAirspaceFreqInfo(a) {
 
     // For TMZ (type 5 or 27): show squawk if available, otherwise freq
     if (t === 5 || t === 27) {
-        const primary = a.frequencies.find(f => f.primary) || a.frequencies[0];
+        const primary = pickPreferredAirspaceFrequency(a.frequencies, t);
         if (primary) {
             return `<span style="color:#9966ff; font-weight:bold; font-size:10px;">📻 ${primary.name || 'XPDR'}: ${primary.value}</span>`;
         }
@@ -2104,7 +2133,7 @@ function getAirspaceFreqInfo(a) {
     // For RMZ (type 6 or 28) and FIS (type 33): show freq
     // Para-Zonen (PARA-RMZ): orangene Farbe + 🪂 Icon
     if ([6, 28, 33].includes(t)) {
-        const primary = a.frequencies.find(f => f.primary) || a.frequencies[0];
+        const primary = pickPreferredAirspaceFrequency(a.frequencies, t);
         if (primary) {
             const isPara = isParaAirspace(a);
             const col  = isPara ? '#ffaa00' : '#66cccc';
@@ -2296,6 +2325,28 @@ async function fetchRouteAirspaces(routePts) {
             }
         }
         activeAirspaces = [...byName.values()];
+
+        // Zusätzlicher Frequenz-Fallback:
+        // Wenn ein CTR/TMA/CTA-Eintrag ohne Frequenz durchrutscht, versuche aus
+        // gleich benannten/intersektierenden Sektoren die Frequenzen zu übernehmen.
+        const byNormNameWithFreq = new Map();
+        for (const src of intersecting) {
+            if (!src?.frequencies || src.frequencies.length === 0) continue;
+            const norm = normalizeAirspaceNameForFreq(src.name);
+            if (!norm) continue;
+            if (!byNormNameWithFreq.has(norm)) byNormNameWithFreq.set(norm, src.frequencies);
+        }
+        activeAirspaces.forEach(as => {
+            if (as?.frequencies && as.frequencies.length > 0) return;
+            const isCtaCtrFamily = [0, 4, 7, 26].includes(as?.type);
+            if (!isCtaCtrFamily) return;
+            const norm = normalizeAirspaceNameForFreq(as.name);
+            const fallbackFreqs = norm ? byNormNameWithFreq.get(norm) : null;
+            if (fallbackFreqs && fallbackFreqs.length > 0) {
+                as.frequencies = fallbackFreqs;
+            }
+        });
+
         window._activeAirspacesVersion = (window._activeAirspacesVersion || 0) + 1;
         clearAirspaceMapLayers();
         renderAirspaceWarningsList();
