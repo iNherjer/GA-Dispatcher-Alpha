@@ -363,6 +363,36 @@ function _awPulseOnMap(as, color) {
     });
 }
 
+let _awProfilePulseTimer = null;
+function _awPulseOnProfileBand(as) {
+    if (!as || typeof activeAirspaces === 'undefined' || !Array.isArray(activeAirspaces)) return;
+    const idx = activeAirspaces.findIndex(a => a === as || (a && as && a._id && as._id && a._id === as._id));
+    if (idx < 0) return;
+
+    const prevIdx = (typeof vpHighlightPulseIdx === 'number') ? vpHighlightPulseIdx : -1;
+    vpHighlightPulseIdx = idx;
+
+    if (typeof vpStartHighlightPulse === 'function') vpStartHighlightPulse();
+    else {
+        if (typeof renderMapProfile === 'function') renderMapProfile();
+        if (document.getElementById('verticalProfileCanvas') && typeof renderVerticalProfile === 'function') {
+            renderVerticalProfile('verticalProfileCanvas');
+        }
+    }
+
+    if (_awProfilePulseTimer) clearTimeout(_awProfilePulseTimer);
+    _awProfilePulseTimer = setTimeout(() => {
+        if (typeof vpHighlightPulseIdx !== 'undefined') {
+            vpHighlightPulseIdx = (prevIdx >= 0 && activeAirspaces[prevIdx]) ? prevIdx : -1;
+        }
+        if (typeof vpStopHighlightPulse === 'function') vpStopHighlightPulse();
+        if (typeof renderMapProfile === 'function') renderMapProfile();
+        if (document.getElementById('verticalProfileCanvas') && typeof renderVerticalProfile === 'function') {
+            renderVerticalProfile('verticalProfileCanvas');
+        }
+    }, 2800);
+}
+
 /**
  * Frequenz/Squawk-Banner am unteren Kartenrand anzeigen.
  * Bleibt stehen bis der Pilot tippt/klickt — kein Auto-Dismiss.
@@ -524,9 +554,7 @@ function checkAirspaceWarnings(predPoints) {
 
     // ── Pass 3: Warnungen ausspielen ──────────────────────────────────────────
     for (const c of crossings) {
-        const { as, typeKey, lowerFt, upperFt, lowerIsAgl, upperIsAgl, earliest5, earliest2, insideNow, asKey } = c;
-        const effLower = lowerIsAgl ? (lowerFt + lastTerrainFt) : lowerFt;
-        const effUpper = upperIsAgl ? (upperFt + lastTerrainFt) : upperFt;
+        const { as, typeKey, earliest5, earliest2, insideNow, asKey } = c;
         const in5 = earliest5 !== null;
         const in2 = earliest2 !== null;
 
@@ -563,7 +591,7 @@ function checkAirspaceWarnings(predPoints) {
                 st.t2 = true;
                 const col = (typeof getAirspaceStyle === 'function') ? getAirspaceStyle(as).color : '#ffffff';
                 _awPulseOnMap(as, col);
-                window._awmPulse = { color: col, lowerFt: effLower, upperFt: effUpper, startMs: now, as };
+                _awPulseOnProfileBand(as);
                 window.vpBgNeedsUpdate = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest2)} min`);
                 _awPlaySequence(['aw-achtung', ..._awTypeClips(as), 'aw-in', _awMinKey(Math.round(earliest2)) || 'aw-2min', ..._awGetFreqClips(as)]);
@@ -583,7 +611,7 @@ function checkAirspaceWarnings(predPoints) {
                 st.t5 = true;
                 const col = (typeof getAirspaceStyle === 'function') ? getAirspaceStyle(as).color : '#ffffff';
                 _awPulseOnMap(as, col);
-                window._awmPulse = { color: col, lowerFt: effLower, upperFt: effUpper, startMs: now, as };
+                _awPulseOnProfileBand(as);
                 window.vpBgNeedsUpdate = true;
                 console.log(`[AWM] ✈ ${as.name} (${typeKey}) in ${Math.round(earliest5)} min`);
                 _awPlaySequence(['aw-achtung', ..._awTypeClips(as), 'aw-in', _awMinKey(Math.round(earliest5)) || 'aw-5min', ..._awGetFreqClips(as)]);
