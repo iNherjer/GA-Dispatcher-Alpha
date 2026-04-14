@@ -390,7 +390,7 @@ function _awPulseOnProfileBand(as) {
         if (document.getElementById('verticalProfileCanvas') && typeof renderVerticalProfile === 'function') {
             renderVerticalProfile('verticalProfileCanvas');
         }
-    }, 2800);
+    }, 6000);
 }
 
 /**

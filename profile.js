@@ -2246,7 +2246,7 @@ function renderMapProfileFrames(timeMs) {
                 const style = getAirspaceStyle(as);
                 const x1 = xOf(asMinDist), x2 = xOf(asMaxDist);
 
-                const isHighlighted = (typeof vpHighlightPulseIdx !== 'undefined' && vpHighlightPulseIdx >= 0 && asIdx === vpHighlightPulseIdx);
+                const isHighlighted = !!isFg && (typeof vpHighlightPulseIdx !== 'undefined' && vpHighlightPulseIdx >= 0 && asIdx === vpHighlightPulseIdx);
                 const phase = typeof vpPulsePhase !== 'undefined' ? vpPulsePhase : 0;
                 const pulseOpacity = isHighlighted ? 0.2 + 0.4 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2)) : (isFg ? 0.22 : 0.15);
                 const strokeOpacity = isHighlighted ? 0.5 + 0.5 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2)) : 0.5;
