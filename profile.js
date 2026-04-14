@@ -2706,6 +2706,54 @@ function renderMapProfileFrames(timeMs) {
     // D: TRAFFIC IM PROFIL
     vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, viewMaxX);
 
+    // E: Vordergrund-Puls fuer den aktuell gewarnten Luftraum.
+    // Zeichnet das bereits vorhandene Band nochmals im FG, damit der Blinkeffekt
+    // auch bei statischem BG-Cache sichtbar bleibt.
+    if (typeof vpHighlightPulseIdx !== 'undefined' && vpHighlightPulseIdx >= 0) {
+        const phase = (typeof vpPulsePhase !== 'undefined') ? vpPulsePhase : 0;
+        const pulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2));
+        const cachedAirspaces = getCachedAirspaceIntersections(elevData, totalDist);
+        const item = cachedAirspaces.find(it => it.asIdx === vpHighlightPulseIdx);
+        if (item && item.as) {
+            const { as, lowerFt, upperFt, isLowerAgl, isUpperAgl, relevantPts } = item;
+            const style = getAirspaceStyle(as);
+
+            fgCtx.save();
+            fgCtx.fillStyle = vpHexToRgba(style.color, 0.14 + 0.24 * pulse);
+            fgCtx.strokeStyle = vpHexToRgba(style.color, 0.65 + 0.30 * pulse);
+            fgCtx.lineWidth = 2.2 + 1.8 * pulse;
+            fgCtx.setLineDash([]);
+            fgCtx.beginPath();
+
+            if (!isLowerAgl && !isUpperAgl) {
+                const x1 = xOf(item.asMinDist), x2 = xOf(item.asMaxDist);
+                const ry1 = yOf(Math.min(upperFt, maxAlt));
+                const ry2 = yOf(Math.max(lowerFt, minAlt));
+                fgCtx.moveTo(x1, ry1);
+                fgCtx.lineTo(x2, ry1);
+                fgCtx.lineTo(x2, ry2);
+                fgCtx.lineTo(x1, ry2);
+            } else {
+                for (let i = 0; i < relevantPts.length; i++) {
+                    const p = relevantPts[i];
+                    const realUpper = isUpperAgl ? p.elevFt + upperFt : upperFt;
+                    const y = yOf(Math.min(realUpper, maxAlt));
+                    if (i === 0) fgCtx.moveTo(xOf(p.distNM), y); else fgCtx.lineTo(xOf(p.distNM), y);
+                }
+                for (let i = relevantPts.length - 1; i >= 0; i--) {
+                    const p = relevantPts[i];
+                    const realLower = isLowerAgl ? p.elevFt + lowerFt : lowerFt;
+                    fgCtx.lineTo(xOf(p.distNM), yOf(Math.max(realLower, minAlt)));
+                }
+            }
+
+            fgCtx.closePath();
+            fgCtx.fill();
+            fgCtx.stroke();
+            fgCtx.restore();
+        }
+    }
+
     fgCtx.restore();
 
     window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);

@@ -2106,13 +2106,15 @@ function inferAirspaceLimitIsAgl(as, lim, boundary) {
     // OpenAIP liefert "GND" vereinzelt als 0 FT MSL statt 0 FT AGL.
     if (boundary === 'lower' && value === 0) return true;
 
-    // Wenn Untergrenze effektiv GND ist und Obergrenze niedrig ist, ist sie sehr
-    // wahrscheinlich ebenfalls AGL (z.B. GND-1000 AGL statt 0-1000 MSL).
+    // Obergrenze nur bei TMZ/RMZ heuristisch auf AGL drehen.
+    // Für CTR/TMA/CTA nie auto-AGL, sonst werden legitime MSL-Decken verfälscht.
     if (boundary === 'upper' && lim.unit !== 6 && value > 0) {
+        const canAutoUpperAgl = [5, 6, 27, 28].includes(t);
+        if (!canAutoUpperAgl) return false;
         const lower = as.lowerLimit || null;
         const lowerLooksGnd = !!lower && Number(lower.value) === 0 && (lower.referenceDatum === 0 || lower.referenceDatum === 1);
         const upperFt = lim.unit === 1 ? value : (lim.unit === 0 ? value * 3.28084 : value);
-        if (lowerLooksGnd && upperFt <= 5000) return true;
+        if (lowerLooksGnd && upperFt <= 4000) return true;
     }
 
     return false;
