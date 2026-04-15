@@ -2269,6 +2269,7 @@ let wxCloudFieldSvgSeq = 0;
 let wxOverlayFetchController = null;
 let wxOverlayFetchTimer = null;
 let wxOverlayLastKey = '';
+const WX_GRID_SPACING_SCALE = 1.5;
 
 function clearMapOpenMeteoOverlays() {
     if (!map) return;
@@ -2328,7 +2329,7 @@ function buildWindBarbIcon(directionDeg, speedKt) {
     }
 
     const svg = `
-        <svg width="44" height="44" viewBox="0 0 24 24" style="overflow:visible;">
+        <svg width="36" height="36" viewBox="0 0 24 24" style="overflow:visible;">
             <g transform="rotate(${renderDir} 12 12)">
                 <circle cx="12" cy="12" r="1.8" fill="${style.core}"/>
                 <line x1="12" y1="21.2" x2="12" y2="2.2" stroke="${style.stroke}" stroke-width="${style.strokeWidth}" stroke-linecap="round"/>
@@ -2339,8 +2340,8 @@ function buildWindBarbIcon(directionDeg, speedKt) {
     return L.divIcon({
         className: 'wx-windbarb-icon',
         html: `<div style="filter: drop-shadow(0 1px 3px rgba(0,0,0,${style.shadow}));">${svg}</div>`,
-        iconSize: [44, 44],
-        iconAnchor: [22, 22]
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
     });
 }
 
@@ -2426,8 +2427,8 @@ function getMapWeatherGridPoints(cols = 8, rows = 6) {
     if (lonSpan < 0) lonSpan += 360;
     lonSpan = Math.max(0.05, lonSpan);
 
-    const latStep = pickWeatherGridStep(latSpan, rows);
-    const lonStep = pickWeatherGridStep(lonSpan, cols);
+    const latStep = pickWeatherGridStep(latSpan, rows) * WX_GRID_SPACING_SCALE;
+    const lonStep = pickWeatherGridStep(lonSpan, cols) * WX_GRID_SPACING_SCALE;
     const latStart = Math.floor(south / latStep) * latStep;
     const latEnd = Math.ceil(north / latStep) * latStep;
 
@@ -2501,7 +2502,7 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
 
         clearMapOpenMeteoOverlays();
         const z = map.getZoom ? map.getZoom() : 8;
-        const cloudIconSize = Math.max(46, Math.min(70, Math.round(50 + (z - 6) * 2.4)));
+        const cloudIconSize = Math.max(37, Math.min(56, Math.round((50 + (z - 6) * 2.4) * 0.8)));
 
         samples.forEach((sample, idx) => {
             if (!sample || !Number.isFinite(sample.lat) || !Number.isFinite(sample.lon)) return;
