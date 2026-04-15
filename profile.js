@@ -76,12 +76,14 @@ const VP_OVERPASS_STATE_STORAGE_KEY = 'ga_overpass_state_v1';
 const VP_OBS_POOL_STORAGE_KEY = 'ga_obs_pool_v1';
 const VP_OBS_POOL_MAX_OBS = 12000;
 const VP_OBS_POOL_MAX_LIN = 8000;
-const VP_OBS_POOL_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+const VP_OBS_POOL_TTL_MS = 0; // 0 = rolling cache ohne Zeitablauf
 const VP_OBS_POOL_MAX_BYTES = 2_400_000;
 const VP_OBS_TILE_COVERAGE_KEY = 'ga_obs_tile_cov_v1';
-const VP_OBS_TILE_STEP_LAT = 0.25;
-const VP_OBS_TILE_STEP_LON = 0.25;
-const VP_OBS_TILE_TTL_MS = 12 * 60 * 60 * 1000;
+const VP_OBS_TILE_EDGE_NM = 25;
+const VP_OBS_TILE_STEP_LAT = VP_OBS_TILE_EDGE_NM / 60; // ~0.4167°
+const VP_OBS_TILE_STEP_LON = VP_OBS_TILE_EDGE_NM / 60; // global fixer Raster-Schritt
+const VP_OBS_TILE_TTL_MS = 0; // 0 = rolling cache ohne Zeitablauf
+const VP_OBS_TILE_INTER_REQUEST_MS = 1400;
 let vpOverpassStateHydrated = false;
 let vpOverpassState = {
     cooldownUntil: 0,
@@ -102,6 +104,11 @@ const vpObsPool = {
     lin: new Map()
 };
 const vpObsTileCoverage = new Map();
+window.vpObsTileConfig = {
+    storageKey: VP_OBS_TILE_COVERAGE_KEY,
+    stepLat: VP_OBS_TILE_STEP_LAT,
+    stepLon: VP_OBS_TILE_STEP_LON
+};
 
 // Traffic im Profil
 window.vpTrafficProfileVisible = true;
@@ -287,11 +294,13 @@ function vpTrimMapNewest(mapObj, keepCount) {
 
 function vpPruneObsPool(now = Date.now()) {
     const ttl = VP_OBS_POOL_TTL_MS;
-    for (const [k, v] of vpObsPool.obs.entries()) {
-        if (!v || !Number(v.ts) || (now - Number(v.ts)) > ttl) vpObsPool.obs.delete(k);
-    }
-    for (const [k, v] of vpObsPool.lin.entries()) {
-        if (!v || !Number(v.ts) || (now - Number(v.ts)) > ttl) vpObsPool.lin.delete(k);
+    if (ttl > 0) {
+        for (const [k, v] of vpObsPool.obs.entries()) {
+            if (!v || !Number(v.ts) || (now - Number(v.ts)) > ttl) vpObsPool.obs.delete(k);
+        }
+        for (const [k, v] of vpObsPool.lin.entries()) {
+            if (!v || !Number(v.ts) || (now - Number(v.ts)) > ttl) vpObsPool.lin.delete(k);
+        }
     }
     vpTrimTimedMap(vpObsPool.obs, VP_OBS_POOL_MAX_OBS);
     vpTrimTimedMap(vpObsPool.lin, VP_OBS_POOL_MAX_LIN);
@@ -420,6 +429,22 @@ function vpObsTileKey(lat, lon) {
     return `${latI}|${lonI}`;
 }
 
+function vpObsTileBoundsFromKey(key) {
+    const parts = String(key || '').split('|');
+    if (parts.length < 2) return null;
+    const latI = Number(parts[0]);
+    const lonI = Number(parts[1]);
+    if (!Number.isFinite(latI) || !Number.isFinite(lonI)) return null;
+    const south = (latI * VP_OBS_TILE_STEP_LAT) - 90;
+    const west = (lonI * VP_OBS_TILE_STEP_LON) - 180;
+    return {
+        south,
+        west,
+        north: south + VP_OBS_TILE_STEP_LAT,
+        east: west + VP_OBS_TILE_STEP_LON
+    };
+}
+
 function vpCollectRouteTileKeys(elevData) {
     const set = new Set();
     if (!Array.isArray(elevData)) return set;
@@ -442,8 +467,13 @@ function vpHydrateObsTileCoverage() {
         for (const item of parsed) {
             if (!item || typeof item.k !== 'string') continue;
             const ts = Number(item.ts || 0);
-            if (!ts || (now - ts) > VP_OBS_TILE_TTL_MS) continue;
-            vpObsTileCoverage.set(item.k, ts);
+            if (!ts) continue;
+            if (VP_OBS_TILE_TTL_MS > 0 && (now - ts) > VP_OBS_TILE_TTL_MS) continue;
+            vpObsTileCoverage.set(item.k, {
+                ts,
+                src: String(item.src || 'unknown'),
+                usedTs: Number(item.usedTs || 0)
+            });
         }
     } catch (_) { }
 }
@@ -455,10 +485,19 @@ function vpPersistObsTileCoverageSoon() {
         try {
             const now = Date.now();
             const payload = [];
-            for (const [k, ts] of vpObsTileCoverage.entries()) {
-                if ((now - Number(ts || 0)) <= VP_OBS_TILE_TTL_MS) payload.push({ k, ts });
+            for (const [k, meta] of vpObsTileCoverage.entries()) {
+                const ts = Number((meta && meta.ts) || 0);
+                if (!ts) continue;
+                if (VP_OBS_TILE_TTL_MS > 0 && (now - ts) > VP_OBS_TILE_TTL_MS) continue;
+                payload.push({
+                    k,
+                    ts,
+                    src: String((meta && meta.src) || 'unknown'),
+                    usedTs: Number((meta && meta.usedTs) || 0)
+                });
             }
             localStorage.setItem(VP_OBS_TILE_COVERAGE_KEY, JSON.stringify(payload));
+            if (window.vpNotifyObsTileCoverageChanged) window.vpNotifyObsTileCoverageChanged();
         } catch (_) { }
     }, 400);
 }
@@ -468,10 +507,25 @@ function vpGetRouteTileCoverageProbe(elevData) {
     const keys = vpCollectRouteTileKeys(elevData);
     const now = Date.now();
     const missing = [];
+    let touchedUsage = false;
     for (const key of keys) {
-        const ts = Number(vpObsTileCoverage.get(key) || 0);
-        if (!ts || (now - ts) > VP_OBS_TILE_TTL_MS) missing.push(key);
+        const meta = vpObsTileCoverage.get(key);
+        const ts = Number((meta && meta.ts) || 0);
+        if (!ts) {
+            missing.push(key);
+            continue;
+        }
+        if (VP_OBS_TILE_TTL_MS > 0 && (now - ts) > VP_OBS_TILE_TTL_MS) {
+            missing.push(key);
+            continue;
+        }
+        if (meta && meta.usedTs !== now) {
+            meta.usedTs = now;
+            vpObsTileCoverage.set(key, meta);
+            touchedUsage = true;
+        }
     }
+    if (touchedUsage) vpPersistObsTileCoverageSoon();
     if (window.vpWeatherDebug) {
         window.vpWeatherDebug.overpassTileCoverageEntries = vpObsTileCoverage.size;
         window.vpWeatherDebug.overpassTileLastMissingCount = missing.length;
@@ -480,11 +534,26 @@ function vpGetRouteTileCoverageProbe(elevData) {
     return { total: keys.size, missing };
 }
 
-function vpMarkRouteTilesCovered(elevData) {
+function vpMarkRouteTilesCovered(elevData, source = 'unknown') {
     vpHydrateObsTileCoverage();
     const keys = vpCollectRouteTileKeys(elevData);
+    vpMarkTileKeysCovered(keys, source);
+}
+
+function vpMarkTileKeysCovered(keys, source = 'unknown') {
+    vpHydrateObsTileCoverage();
     const now = Date.now();
-    for (const key of keys) vpObsTileCoverage.set(key, now);
+    const src = String(source || 'unknown');
+    if (!keys) return;
+    for (const key of keys) {
+        if (typeof key !== 'string' || !key) continue;
+        const prev = vpObsTileCoverage.get(key);
+        vpObsTileCoverage.set(key, {
+            ts: now,
+            src,
+            usedTs: Number((prev && prev.usedTs) || 0)
+        });
+    }
     if (window.vpWeatherDebug) window.vpWeatherDebug.overpassTileCoverageEntries = vpObsTileCoverage.size;
     vpPersistObsTileCoverageSoon();
 }
@@ -540,6 +609,105 @@ function vpProjectObsPoolToRoute(elevData) {
     };
 }
 
+function vpExtractOverpassTileFeatures(elements) {
+    const obs = [];
+    const lin = [];
+    if (!Array.isArray(elements)) return { obs, lin };
+    for (const e of elements) {
+        if (e.type === 'node' && Number.isFinite(e.lat) && Number.isFinite(e.lon)) {
+            const isWind = e.tags && e.tags['generator:source'] === 'wind';
+            const hRaw = (e.tags && e.tags.height) ? String(e.tags.height).replace(',', '.') : (isWind ? '120' : '50');
+            const hMeter = parseFloat(hRaw);
+            if (!Number.isFinite(hMeter) || hMeter < 30) continue;
+            obs.push({
+                type: isWind ? 'wind' : 'mast',
+                hFt: Math.round(hMeter * 3.28084),
+                elevFt: 0,
+                lat: Number(e.lat),
+                lon: Number(e.lon)
+            });
+            continue;
+        }
+        if (e.type === 'way' && Array.isArray(e.geometry) && e.tags) {
+            const featType = e.tags.highway ? 'highway' : (e.tags.waterway ? 'river' : '');
+            if (!featType) continue;
+            const name = String(e.tags.name || e.tags.ref || '');
+            if (!name && featType === 'highway') continue;
+            const geom = e.geometry;
+            const step = Math.max(1, Math.floor(geom.length / 12));
+            for (let i = 0; i < geom.length; i += step) {
+                const g = geom[i];
+                if (!g || !Number.isFinite(g.lat) || !Number.isFinite(g.lon)) continue;
+                lin.push({
+                    type: featType,
+                    name,
+                    lat: Number(g.lat),
+                    lon: Number(g.lon)
+                });
+            }
+        }
+    }
+    return { obs, lin };
+}
+
+async function vpFetchOverpassTile(tileKey, signal, tileIndex = 0) {
+    const b = vpObsTileBoundsFromKey(tileKey);
+    if (!b) return { ok: false, cooldown: false };
+    const bbox = `${b.south.toFixed(4)},${b.west.toFixed(4)},${b.north.toFixed(4)},${b.east.toFixed(4)}`;
+    const query = `[out:json][timeout:45][bbox:${bbox}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];way["highway"="motorway"];way["waterway"="river"];);out geom qt;`;
+
+    let retries = 3;
+    let attempt = 0;
+    while (retries > 0) {
+        if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+        window.vpServerOffset = (window.vpServerOffset || 0) + 1;
+        const serverUrl = VP_OVERPASS_SERVERS[(tileIndex + attempt + window.vpServerOffset) % VP_OVERPASS_SERVERS.length];
+        attempt++;
+        try {
+            const res = await fetch(serverUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `data=${encodeURIComponent(query)}`,
+                signal
+            });
+            if (res.status === 429) {
+                if (window.vpWeatherDebug) window.vpWeatherDebug.overpass429Count += 1;
+                const retryAfter = Number(res.headers.get('retry-after') || 0);
+                const cooldownMs = vpApplyOverpassBackoff(429, retryAfter);
+                console.warn(`[Overpass] Tile ${tileKey}: 429. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
+                return { ok: false, cooldown: true };
+            }
+            if (res.status === 504) {
+                if (window.vpWeatherDebug) window.vpWeatherDebug.overpass504Count += 1;
+                if (retries > 1) {
+                    retries--;
+                    await new Promise(r => setTimeout(r, 2200));
+                    continue;
+                }
+                const retryAfter = Number(res.headers.get('retry-after') || 0);
+                const cooldownMs = vpApplyOverpassBackoff(504, retryAfter);
+                console.warn(`[Overpass] Tile ${tileKey}: 504. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
+                return { ok: false, cooldown: true };
+            }
+            if (!res.ok) {
+                retries--;
+                await new Promise(r => setTimeout(r, 2500));
+                continue;
+            }
+            const json = await res.json();
+            const features = vpExtractOverpassTileFeatures(json && json.elements);
+            let src = serverUrl;
+            try { src = new URL(serverUrl).host; } catch (_) {}
+            return { ok: true, features, src };
+        } catch (e) {
+            if (e && e.name === 'AbortError') throw e;
+            retries--;
+            if (retries > 0) await new Promise(r => setTimeout(r, 2000));
+        }
+    }
+    return { ok: false, cooldown: false };
+}
+
 async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', forceNetwork = false) {
     if (!elevData || elevData.length < 2) return null;
 
@@ -548,285 +716,152 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
         const remainingMin = Math.max(1, Math.ceil(remainingMs / 60000));
         if (window.vpWeatherDebug) window.vpWeatherDebug.overpassCooldownSkips += 1;
         console.warn(`[Overpass] Cooldown aktiv (${remainingMin} min). Nutze Cache/Bestand, kein Netz-Request.`);
-        return { obs: vpObstacles || [], lin: vpLinearFeatures || [] };
+        const seededCd = vpProjectObsPoolToRoute(elevData);
+        return { obs: seededCd.obs || [], lin: seededCd.lin || [], source: 'cooldown-cache', loadedTileKeys: [], failedTileKeys: [] };
     }
     if (window.vpWeatherDebug) window.vpWeatherDebug.overpassRequests += 1;
 
-    // 1. Riesige 250-NM-Segmente (Normale Flüge sind somit nur 1 Abfrage = keine 429er!)
-    const CHUNK_NM = 250; 
-    let chunks = [];
-    let currentChunk = [];
-    let chunkStartDist = elevData[0].distNM;
-
-    for (let i = 0; i < elevData.length; i++) {
-        currentChunk.push(elevData[i]);
-        if (elevData[i].distNM - chunkStartDist >= CHUNK_NM || i === elevData.length - 1) {
-            if (currentChunk.length > 1) chunks.push(currentChunk);
-            if (i < elevData.length - 1) {
-                currentChunk = [elevData[i]];
-                chunkStartDist = elevData[i].distNM;
-            }
-        }
+    const probe = vpGetRouteTileCoverageProbe(elevData);
+    const allKeys = Array.from(vpCollectRouteTileKeys(elevData));
+    const toLoad = forceNetwork ? allKeys : probe.missing.slice();
+    if (!toLoad.length) {
+        const seeded = vpProjectObsPoolToRoute(elevData);
+        return { obs: seeded.obs || [], lin: seeded.lin || [], source: 'tile-cache', loadedTileKeys: [], failedTileKeys: [] };
     }
 
-    console.log(`[Overpass] Teile Flug in ${chunks.length} Segment(e) (je max 250 NM). Starte SEQUENZIELLEN Fetch...${routeCacheKey ? ` [${routeCacheKey.slice(0, 24)}]` : ''}`);
+    console.log(`[Overpass] Tile-Modus: ${toLoad.length}/${allKeys.length} Tiles laden${routeCacheKey ? ` [${routeCacheKey.slice(0, 24)}]` : ''}.`);
+    const usedServers = new Set();
+    const loadedTileKeys = [];
+    const failedTileKeys = [];
 
-    let cumulativeRawObs = [];
-    let cumulativeRawLin = [];
-
-    window.vpServerOffset = (window.vpServerOffset || 0) + 1; // Rotiert die Server auch beim Ziehen der Route weiter
-
-    // 2. SEQUENZIELLE SCHLEIFE (Kein Promise.all mehr!)
-    for (let idx = 0; idx < chunks.length; idx++) {
+    for (let i = 0; i < toLoad.length; i++) {
         if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
-        
-        const chunkData = chunks[idx];
-        let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
-        chunkData.forEach(p => {
-            if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat;
-            if (p.lon < minLon) minLon = p.lon; if (p.lon > maxLon) maxLon = p.lon;
-        });
-        const bbox = `${(minLat - 0.05).toFixed(4)},${(minLon - 0.08).toFixed(4)},${(maxLat + 0.05).toFixed(4)},${(maxLon + 0.08).toFixed(4)}`;
-
-        let pathCoords = [];
-        const step = Math.max(1, Math.ceil(chunkData.length / 30));
-        for (let i = 0; i < chunkData.length; i += step) {
-            pathCoords.push(`${chunkData[i].lat.toFixed(4)},${chunkData[i].lon.toFixed(4)}`);
-        }
-        const lastPt = `${chunkData[chunkData.length-1].lat.toFixed(4)},${chunkData[chunkData.length-1].lon.toFixed(4)}`;
-        if (pathCoords[pathCoords.length-1] !== lastPt) pathCoords.push(lastPt);
-        const polylineStr = pathCoords.join(',');
-
-        const radius = 4000; 
-        // Autobahnen, Masten UND Flüsse
-        const queryBody = `node["generator:source"="wind"](around:${radius},${polylineStr});node["man_made"~"mast|tower"]["height"](around:${radius},${polylineStr});way["highway"="motorway"](around:${radius},${polylineStr});way["waterway"="river"](around:${radius},${polylineStr});`;
-        const query = `[out:json][timeout:45][bbox:${bbox}];(${queryBody});out geom qt;`;
-
-        let retries = 3; // 3 Versuche pro Segment reichen bei sequenzieller Abfrage
-        let attempt = 0;
-        let success = false;
-        
-        while (retries > 0 && !success) {
-            if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
-            const serverUrl = VP_OVERPASS_SERVERS[(idx + attempt + window.vpServerOffset) % VP_OVERPASS_SERVERS.length];
-            attempt++;
-            
-            try {
-                console.log(`[Overpass] Frage Segment ${idx+1}/${chunks.length} bei ${serverUrl} an...`);
-                const res = await fetch(serverUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `data=${encodeURIComponent(query)}`,
-                    signal
-                });
-
-                if (res.status === 429) {
-                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpass429Count += 1;
-                    const retryAfter = Number(res.headers.get('retry-after') || 0);
-                    const cooldownMs = vpApplyOverpassBackoff(429, retryAfter);
-                    console.warn(`[Overpass] Segment ${idx+1}: 429. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
-                    retries = 0;
-                    continue;
-                }
-                if (res.status === 504) {
-                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpass504Count += 1;
-                    if (retries > 1) {
-                        retries--;
-                        await new Promise(r => setTimeout(r, 2500));
-                        continue;
-                    }
-                    const retryAfter = Number(res.headers.get('retry-after') || 0);
-                    const cooldownMs = vpApplyOverpassBackoff(504, retryAfter);
-                    console.warn(`[Overpass] Segment ${idx+1}: 504. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
-                    retries = 0;
-                    continue;
-                }
-                if (!res.ok) {
-                    await new Promise(r => setTimeout(r, 3000));
-                    retries--; continue;
-                }
-
-                const json = await res.json();
-                console.log(`[Overpass] Segment ${idx+1} erfolgreich! (${json.elements ? json.elements.length : 0} Elemente)`);
-                
-                let localObs = [];
-                let localLin = [];
-
-                if (json.elements) {
-                    json.elements.forEach(e => {
-                        if (e.type === 'node' && e.lat && e.lon) {
-                            let isWind = e.tags && e.tags["generator:source"] === "wind";
-                            let hMeter = (e.tags && e.tags.height) ? parseFloat(e.tags.height.replace(',', '.')) : (isWind ? 120 : 50);
-                            if (isNaN(hMeter) || hMeter < 30) return;
-                            
-                            let hFt = Math.round(hMeter * 3.28084);
-                            let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
-                            chunkData.forEach(ep => {
-                                let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
-                                if (d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
-                            });
-                            localObs.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt, lat: e.lat, lon: e.lon });
-                        } else if (e.type === 'way' && e.geometry && e.tags) {
-                            let featType = e.tags.highway ? 'highway' : 'river';
-                            let name = e.tags.name || e.tags.ref || '';
-                            if (!name && featType === 'highway') return;
-
-                            if (typeof routeWaypoints !== 'undefined' && routeWaypoints.length >= 2) {
-                                for (let i = 0; i < routeWaypoints.length - 1; i++) {
-                                    let rp0 = {lat: routeWaypoints[i].lat, lon: routeWaypoints[i].lng||routeWaypoints[i].lon};
-                                    let rp1 = {lat: routeWaypoints[i+1].lat, lon: routeWaypoints[i+1].lng||routeWaypoints[i+1].lon};
-                                    
-                                    for(let j = 0; j < e.geometry.length - 1; j++) {
-                                        let wp0 = e.geometry[j], wp1 = e.geometry[j+1];
-                                        let s1_x = wp1.lon - wp0.lon, s1_y = wp1.lat - wp0.lat;
-                                        let s2_x = rp1.lon - rp0.lon; let s2_y = rp1.lat - rp0.lat;
-                                        let denom = (-s2_x * s1_y + s1_x * s2_y);
-                                        if (Math.abs(denom) > 1e-10) {
-                                            let s = (-s1_y * (wp0.lon - rp0.lon) + s1_x * (wp0.lat - rp0.lat)) / denom;
-                                            let t = ( s2_x * (wp0.lat - rp0.lat) - s2_y * (wp0.lon - rp0.lon)) / denom;
-                                            if (s >= 0 && s <= 1 && t >= 0 && t <= 1) {
-                                                let ix = { lat: wp0.lat + (t * s1_y), lon: wp0.lon + (t * s1_x) };
-                                                let distBefore = 0;
-                                                for(let k=0; k<i; k++) distBefore += calcNav(routeWaypoints[k].lat, routeWaypoints[k].lng||routeWaypoints[k].lon, routeWaypoints[k+1].lat, routeWaypoints[k+1].lng||routeWaypoints[k+1].lon).dist;
-                                                localLin.push({ type: featType, name: name, distNM: distBefore + calcNav(rp0.lat, rp0.lon, ix.lat, ix.lon).dist, lat: ix.lat, lon: ix.lon });
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-
-                if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
-                cumulativeRawObs.push(...localObs);
-                cumulativeRawLin.push(...localLin);
-
-                let buckets = {};
-                cumulativeRawObs.forEach(obs => {
-                    let bIdx = Math.floor(obs.distNM / 0.5);
-                    if (!buckets[bIdx]) buckets[bIdx] = [];
-                    buckets[bIdx].push(obs);
-                });
-                let tempFinalObs = [];
-                for (let k in buckets) {
-                    let group = buckets[k];
-                    group.sort((a,b) => b.hFt - a.hFt);
-                    let rep = group[0];
-                    rep.count = group.length;
-                    const elevNode = elevData.reduce((prev, curr) => Math.abs(curr.distNM - rep.distNM) < Math.abs(prev.distNM - rep.distNM) ? curr : prev);
-                    rep.groundElevFt = elevNode.elevFt;
-                    tempFinalObs.push(rep);
-                }
-                
-                let tempFinalLin = cumulativeRawLin.sort((a,b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx-1].name !== f.name || Math.abs(arr[idx-1].distNM - f.distNM) > 1.0);
-
-                // Inkrementelles Rendering: Sofort zeichnen!
-                requestAnimationFrame(() => {
-                    if (signal && !signal.aborted) {
-                        vpObstacles = tempFinalObs;
-                        vpLinearFeatures = tempFinalLin;
-                        window.vpBgNeedsUpdate = true;
-                        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
-                    }
-                });
-
-                success = true;
-                vpMarkOverpassSuccess();
-            } catch(e) {
-                if (e.name === 'AbortError') throw e;
-                await new Promise(r => setTimeout(r, 2000));
-                retries--;
-            }
-        }
-        
-        if (!success) {
-            console.error(`[Overpass] Segment ${idx+1} endgültig gescheitert!`);
-            window.vpFailedOverpassChunks.push(chunkData);
-            if (!vpIsOverpassCoolingDown()) {
-                const cooldownMs = vpApplyOverpassBackoff(429);
-                console.warn(`[Overpass] Schutz-Cooldown aktiviert (${Math.max(1, Math.ceil(cooldownMs / 60000))} min).`);
-            }
+        if (!forceNetwork && vpIsOverpassCoolingDown()) {
+            const remainSec = Math.ceil(vpGetOverpassCooldownRemainingMs() / 1000);
+            console.warn(`[Overpass] Tile-Queue pausiert (Cooldown ${remainSec}s).`);
+            failedTileKeys.push(...toLoad.slice(i));
             break;
         }
-        
-        // Atempause zwischen den sequenziellen Segmenten, um Rate-Limits zu schonen
-        if (idx < chunks.length - 1 && success) {
-            await new Promise(r => setTimeout(r, 1000));
+
+        const tileKey = toLoad[i];
+        const res = await vpFetchOverpassTile(tileKey, signal, i);
+        if (!res || !res.ok) {
+            failedTileKeys.push(tileKey);
+            if (res && res.cooldown) {
+                failedTileKeys.push(...toLoad.slice(i + 1));
+                break;
+            }
+            continue;
         }
-    }
 
-    if (typeof window.updateOverpassErrorUI === 'function') window.updateOverpassErrorUI();
-    vpRememberObstacleData(vpObstacles, vpLinearFeatures);
-    console.log(`[Overpass] Alle Segmente verarbeitet.`);
-    return { obs: vpObstacles, lin: vpLinearFeatures };
-}
+        if (res.src) usedServers.add(res.src);
+        if (res.features) vpRememberObstacleData(res.features.obs || [], res.features.lin || []);
+        vpMarkTileKeysCovered([tileKey], res.src || 'overpass');
+        loadedTileKeys.push(tileKey);
+        vpMarkOverpassSuccess();
 
-// GPS-zentrierte Hindernisse laden (ohne Flugplan, 30×30 km Box, max. alle 2 Minuten)
-async function fetchGpsObstacles(lat, lon) {
-    const cacheKey = `ga_gps_obs_${lat.toFixed(1)}_${lon.toFixed(1)}`;
-    try {
-        const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-        if (cached && (Date.now() - cached.ts) < 30 * 60 * 1000) {
-            vpObstacles = cached.obs;
+        const seededLive = vpProjectObsPoolToRoute(elevData);
+        requestAnimationFrame(() => {
+            if (signal && signal.aborted) return;
+            vpObstacles = seededLive.obs || [];
+            vpLinearFeatures = seededLive.lin || [];
             window.vpBgNeedsUpdate = true;
             if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
-            return;
-        }
-    } catch(e) {}
-
-    const minLat = (lat - 0.135).toFixed(4), maxLat = (lat + 0.135).toFixed(4);
-    const minLon = (lon - 0.20).toFixed(4),  maxLon = (lon + 0.20).toFixed(4);
-    const bbox = `${minLat},${minLon},${maxLat},${maxLon}`;
-    const query = `[out:json][timeout:30][bbox:${bbox}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];);out body qt;`;
-
-    window.vpServerOffset = (window.vpServerOffset || 0) + 1;
-    const serverUrl = VP_OVERPASS_SERVERS[window.vpServerOffset % VP_OVERPASS_SERVERS.length];
-
-    try {
-        const res = await fetch(serverUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `data=${encodeURIComponent(query)}`
-        });
-        if (!res.ok) return;
-        const json = await res.json();
-        if (!json.elements) return;
-
-        let rawObs = [];
-        json.elements.forEach(e => {
-            if (e.type !== 'node' || !e.lat || !e.lon) return;
-            const hFt = parseFloat(e.tags?.height || 0) * 3.28084;
-            if (hFt < 50) return;
-            const nav = calcNav(lat, lon, e.lat, e.lon);
-            const isWind = e.tags?.['generator:source'] === 'wind';
-            rawObs.push({ type: isWind ? 'windrad' : 'mast', hFt, distNM: nav.dist, elevFt: 0, groundElevFt: 0, lat: e.lat, lon: e.lon });
         });
 
-        let buckets = {};
-        rawObs.forEach(obs => {
-            let bIdx = Math.floor(obs.distNM / 0.5);
-            if (!buckets[bIdx]) buckets[bIdx] = [];
-            buckets[bIdx].push(obs);
-        });
-        let finalObs = [];
-        for (let k in buckets) {
-            let group = buckets[k].sort((a,b) => b.hFt - a.hFt);
-            let rep = group[0]; rep.count = group.length;
-            finalObs.push(rep);
-        }
-
-        vpObstacles = finalObs;
-        vpRememberObstacleData(finalObs, []);
-        window.vpBgNeedsUpdate = true;
-        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
-
-        try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), obs: finalObs })); } catch(e) {}
-        console.log(`[GPS-Obs] ${finalObs.length} Hindernisse im 30km-Umkreis geladen.`);
-    } catch(e) {
-        console.warn('[GPS-Obs] Overpass-Fehler:', e);
+        if (i < toLoad.length - 1) await new Promise(r => setTimeout(r, VP_OBS_TILE_INTER_REQUEST_MS));
     }
+
+    if (failedTileKeys.length > 0) {
+        window.vpFailedOverpassChunks = failedTileKeys.map(k => ({ tileKey: k }));
+    } else {
+        window.vpFailedOverpassChunks = [];
+    }
+    if (typeof window.updateOverpassErrorUI === 'function') window.updateOverpassErrorUI();
+
+    const seededFinal = vpProjectObsPoolToRoute(elevData);
+    vpObstacles = seededFinal.obs || [];
+    vpLinearFeatures = seededFinal.lin || [];
+    const sourceLabel = usedServers.size > 0 ? Array.from(usedServers).join(',') : 'tile-cache';
+    window.vpLastObsTileSource = sourceLabel;
+    console.log(`[Overpass] Tile-Queue fertig. geladen=${loadedTileKeys.length}, fehlend=${failedTileKeys.length}`);
+    return {
+        obs: vpObstacles,
+        lin: vpLinearFeatures,
+        source: sourceLabel,
+        loadedTileKeys,
+        failedTileKeys
+    };
+}
+
+// GPS-zentrierte Hindernisse laden (ohne Flugplan, Tile-Modus: Center + 8 Nachbartiles)
+async function fetchGpsObstacles(lat, lon) {
+    const centerKey = vpObsTileKey(lat, lon);
+    const [latI, lonI] = centerKey.split('|').map(Number);
+    const tileKeys = [];
+    for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+            tileKeys.push(`${latI + dy}|${lonI + dx}`);
+        }
+    }
+    const probe = vpGetRouteTileCoverageProbe(tileKeys.map(k => {
+        const b = vpObsTileBoundsFromKey(k);
+        return b ? { lat: (b.south + b.north) / 2, lon: (b.west + b.east) / 2 } : null;
+    }).filter(Boolean));
+    const missing = probe.missing || [];
+
+    if (!vpIsOverpassCoolingDown() && missing.length > 0) {
+        for (let i = 0; i < missing.length; i++) {
+            try {
+                const res = await vpFetchOverpassTile(missing[i], null, i);
+                if (res && res.ok) {
+                    vpRememberObstacleData(res.features?.obs || [], res.features?.lin || []);
+                    vpMarkTileKeysCovered([missing[i]], res.src || 'gps-overpass');
+                } else if (res && res.cooldown) {
+                    break;
+                }
+            } catch (e) {
+                console.warn('[GPS-Obs] Tile-Fehler:', e);
+            }
+            if (i < missing.length - 1) await new Promise(r => setTimeout(r, VP_OBS_TILE_INTER_REQUEST_MS));
+        }
+    }
+
+    vpHydrateObsPool();
+    const rawObs = [];
+    for (const item of vpObsPool.obs.values()) {
+        if (!item || !Number.isFinite(item.lat) || !Number.isFinite(item.lon)) continue;
+        const nav = calcNav(lat, lon, item.lat, item.lon);
+        if (!Number.isFinite(nav.dist) || nav.dist > 22) continue;
+        rawObs.push({
+            type: item.type || 'mast',
+            hFt: Number(item.hFt || 0),
+            distNM: nav.dist,
+            elevFt: Number(item.elevFt || 0),
+            groundElevFt: 0,
+            lat: Number(item.lat),
+            lon: Number(item.lon)
+        });
+    }
+
+    const buckets = {};
+    rawObs.forEach(obs => {
+        const bIdx = Math.floor(obs.distNM / 0.5);
+        if (!buckets[bIdx]) buckets[bIdx] = [];
+        buckets[bIdx].push(obs);
+    });
+    const finalObs = [];
+    for (const k of Object.keys(buckets)) {
+        const group = buckets[k].sort((a, b) => b.hFt - a.hFt);
+        const rep = group[0];
+        rep.count = group.length;
+        finalObs.push(rep);
+    }
+
+    vpObstacles = finalObs;
+    window.vpBgNeedsUpdate = true;
+    if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+    console.log(`[GPS-Obs] ${finalObs.length} Hindernisse aus Tile-Cache/Netz (${missing.length} fehlende Tiles geprüft).`);
 }
 window.fetchGpsObstacles = fetchGpsObstacles;
 
@@ -979,7 +1014,7 @@ function triggerVerticalProfileUpdate() {
                             window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
                             hasUsableCache = (vpObstacles.length > 0 || vpLinearFeatures.length > 0);
                             vpRememberObstacleData(vpObstacles, vpLinearFeatures);
-                            vpMarkRouteTilesCovered(vpElevationData);
+                            vpMarkRouteTilesCovered(vpElevationData, 'route-cache');
                             window.vpBgNeedsUpdate = true; // <--- FIX: Redraw nach Laden aus Cache erzwingen
                         } catch(e) { vpObstacles = []; vpLinearFeatures = []; }
                     }
@@ -1002,7 +1037,9 @@ function triggerVerticalProfileUpdate() {
                             window.vpBgNeedsUpdate = true; // FIX: Garantiert, dass der Hintergrund nach dem finalen Fetch aktualisiert wird
                             window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
                             vpRememberObstacleData(vpObstacles, vpLinearFeatures);
-                            vpMarkRouteTilesCovered(vpElevationData);
+                            if (result && Array.isArray(result.loadedTileKeys) && result.loadedTileKeys.length > 0) {
+                                vpMarkTileKeysCovered(result.loadedTileKeys, (result && result.source) ? result.source : 'overpass');
+                            }
                             try {
                                 localStorage.setItem('ga_obs_combo_' + cacheKey, JSON.stringify({ ts: Date.now(), obs: vpObstacles, lin: vpLinearFeatures }));
                                 window._lastObsRouteKey = cacheKey;
@@ -1632,6 +1669,18 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`- Tile-Cache Einträge: ${vpObsTileCoverage.size}`);
     lines.push(`- Tile-Cache Hit/Miss: ${dbg.overpassTileCoverageHits || 0}/${dbg.overpassTileCoverageMisses || 0}`);
     lines.push(`- Letzter Tile-Miss: ${dbg.overpassTileLastMissingCount || 0}${dbg.overpassTileLastMissingSample ? ` (${dbg.overpassTileLastMissingSample})` : ''}`);
+    lines.push(`- Tiles Overlay (Karte): ${window.vpObsTileOverlayEnabled ? 'An' : 'Aus'}`);
+    const srcCounter = {};
+    for (const meta of vpObsTileCoverage.values()) {
+        const src = String((meta && meta.src) || 'unknown');
+        srcCounter[src] = (srcCounter[src] || 0) + 1;
+    }
+    const srcSummary = Object.keys(srcCounter)
+        .sort((a, b) => srcCounter[b] - srcCounter[a])
+        .slice(0, 4)
+        .map(k => `${k}:${srcCounter[k]}`)
+        .join(' | ');
+    lines.push(`- Tile-Quellen: ${srcSummary || '-'}`);
     const overpassCdRem = Math.ceil(vpGetOverpassCooldownRemainingMs() / 1000);
     lines.push(`- Overpass Cooldown aktiv: ${vpIsOverpassCoolingDown() ? `Ja (${overpassCdRem}s)` : 'Nein'}`);
     lines.push('');
@@ -1680,7 +1729,10 @@ window.vpToggleWeatherDebugPanel = function(forceState) {
     if (!panel) return;
     const show = typeof forceState === 'boolean' ? forceState : (panel.style.display === 'none' || !panel.style.display);
     panel.style.display = show ? 'block' : 'none';
-    if (show) window.vpRefreshWeatherDebugReport && window.vpRefreshWeatherDebugReport();
+    if (show) {
+        window.vpUpdateObsTileOverlayButtonUi && window.vpUpdateObsTileOverlayButtonUi();
+        window.vpRefreshWeatherDebugReport && window.vpRefreshWeatherDebugReport();
+    }
 };
 vpInstallGlobalDebugHooks();
 
@@ -5714,135 +5766,40 @@ window.retryFailedOverpassChunks = async function() {
         return;
     }
     
-    console.log(`[Overpass] Starte manuellen Retry für ${chunks.length} fehlgeschlagene Segmente...`);
+    console.log(`[Overpass] Starte manuellen Retry für ${chunks.length} fehlgeschlagene Tiles...`);
     window.vpFailedOverpassChunks = []; 
     if (typeof window.updateOverpassErrorUI === 'function') window.updateOverpassErrorUI();
     
     const btnOb = document.getElementById('btnToggleObstacles');
     if (btnOb) btnOb.classList.add('vp-loading-pulse');
 
-    let newObs = []; let newLin = [];
-
-    const fetchPromises = chunks.map(async (chunkData, idx) => {
-        let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
-        chunkData.forEach(p => {
-            if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat;
-            if (p.lon < minLon) minLon = p.lon; if (p.lon > maxLon) maxLon = p.lon;
-        });
-        const bbox = `${(minLat - 0.05).toFixed(4)},${(minLon - 0.08).toFixed(4)},${(maxLat + 0.05).toFixed(4)},${(maxLon + 0.08).toFixed(4)}`;
-
-        let pathCoords = [];
-        const step = Math.max(1, Math.ceil(chunkData.length / 30));
-        for (let i = 0; i < chunkData.length; i += step) pathCoords.push(`${chunkData[i].lat.toFixed(4)},${chunkData[i].lon.toFixed(4)}`);
-        const lastPt = `${chunkData[chunkData.length-1].lat.toFixed(4)},${chunkData[chunkData.length-1].lon.toFixed(4)}`;
-        if (pathCoords[pathCoords.length-1] !== lastPt) pathCoords.push(lastPt);
-        
-        const queryBody = `node["generator:source"="wind"](around:4000,${pathCoords.join(',')});node["man_made"~"mast|tower"]["height"](around:4000,${pathCoords.join(',')});way["highway"="motorway"](around:4000,${pathCoords.join(',')});way["waterway"="river"](around:4000,${pathCoords.join(',')});`;
-        const query = `[out:json][timeout:25][bbox:${bbox}];(${queryBody});out geom qt;`;
-
-        let retries = 5, attempt = 0, success = false;
-        while (retries > 0 && !success) {
-            const serverUrl = VP_OVERPASS_SERVERS[(idx + attempt) % VP_OVERPASS_SERVERS.length];
-            attempt++;
-            try {
-                const res = await fetch(serverUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(query)}` });
-                if (res.status === 429) {
-                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpass429Count += 1;
-                    const retryAfter = Number(res.headers.get('retry-after') || 0);
-                    const cooldownMs = vpApplyOverpassBackoff(429, retryAfter);
-                    console.warn(`[Overpass] Retry 429. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
-                    retries = 0;
-                    continue;
-                }
-                if (res.status === 504) {
-                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpass504Count += 1;
-                    if (retries > 1) {
-                        retries--;
-                        await new Promise(r => setTimeout(r, 2500));
-                        continue;
-                    }
-                    const retryAfter = Number(res.headers.get('retry-after') || 0);
-                    const cooldownMs = vpApplyOverpassBackoff(504, retryAfter);
-                    console.warn(`[Overpass] Retry 504. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
-                    retries = 0;
-                    continue;
-                }
-                if (!res.ok) { await new Promise(r => setTimeout(r, 3000)); retries--; continue; }
-
-                const json = await res.json();
-                if (json.elements) {
-                    json.elements.forEach(e => {
-                        if (e.type === 'node' && e.lat && e.lon) {
-                            let isWind = e.tags && e.tags["generator:source"] === "wind";
-                            let hMeter = (e.tags && e.tags.height) ? parseFloat(e.tags.height.replace(',', '.')) : (isWind ? 120 : 50);
-                            if (isNaN(hMeter) || hMeter < 30) return;
-                            let hFt = Math.round(hMeter * 3.28084);
-                            let bestD = Infinity, bestDistNM = 0, baseElevFt = 0;
-                            chunkData.forEach(ep => {
-                                let d = calcNav(e.lat, e.lon, ep.lat, ep.lon).dist;
-                                if (d < bestD) { bestD = d; bestDistNM = ep.distNM; baseElevFt = ep.elevFt; }
-                            });
-                            newObs.push({ type: isWind ? 'wind' : 'mast', hFt: hFt, distNM: bestDistNM, elevFt: baseElevFt });
-                        } else if (e.type === 'way' && e.geometry && e.tags) {
-                            let featType = e.tags.highway ? 'highway' : 'river';
-                            let name = e.tags.name || e.tags.ref || '';
-                            if (!name && featType === 'highway') return;
-                            if (typeof routeWaypoints !== 'undefined' && routeWaypoints.length >= 2) {
-                                for (let i = 0; i < routeWaypoints.length - 1; i++) {
-                                    let rp0 = {lat: routeWaypoints[i].lat, lon: routeWaypoints[i].lng||routeWaypoints[i].lon};
-                                    let rp1 = {lat: routeWaypoints[i+1].lat, lon: routeWaypoints[i+1].lng||routeWaypoints[i+1].lon};
-                                    for(let j = 0; j < e.geometry.length - 1; j++) {
-                                        let wp0 = e.geometry[j], wp1 = e.geometry[j+1];
-                                        let s1_x = wp1.lon - wp0.lon, s1_y = wp1.lat - wp0.lat;
-                                        let s2_x = rp1.lon - rp0.lon, s2_y = rp1.lat - rp0.lat;
-                                        let denom = (-s2_x * s1_y + s1_x * s2_y);
-                                        if (Math.abs(denom) > 1e-10) {
-                                            let s = (-s1_y * (wp0.lon - rp0.lon) + s1_x * (wp0.lat - rp0.lat)) / denom;
-                                            let t = ( s2_x * (wp0.lat - rp0.lat) - s2_y * (wp0.lon - rp0.lon)) / denom;
-                                            if (s >= 0 && s <= 1 && t >= 0 && t <= 1) {
-                                                let ix = { lat: wp0.lat + (t * s1_y), lon: wp0.lon + (t * s1_x) };
-                                                let distBefore = 0;
-                                                for(let k=0; k<i; k++) distBefore += calcNav(routeWaypoints[k].lat, routeWaypoints[k].lng||routeWaypoints[k].lon, routeWaypoints[k+1].lat, routeWaypoints[k+1].lng||routeWaypoints[k+1].lon).dist;
-                                                newLin.push({ type: featType, name: name, distNM: distBefore + calcNav(rp0.lat, rp0.lon, ix.lat, ix.lon).dist, lat: ix.lat, lon: ix.lon });
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-                success = true;
-                vpMarkOverpassSuccess();
-            } catch(e) { await new Promise(r => setTimeout(r, 3000)); retries--; }
+    const tileKeys = chunks
+        .map(c => (c && typeof c.tileKey === 'string') ? c.tileKey : '')
+        .filter(Boolean);
+    const failedAgain = [];
+    for (let i = 0; i < tileKeys.length; i++) {
+        const tileKey = tileKeys[i];
+        const res = await vpFetchOverpassTile(tileKey, null, i);
+        if (res && res.ok) {
+            vpRememberObstacleData(res.features?.obs || [], res.features?.lin || []);
+            vpMarkTileKeysCovered([tileKey], res.src || 'overpass-retry');
+            vpMarkOverpassSuccess();
+        } else {
+            failedAgain.push({ tileKey });
+            if (res && res.cooldown) {
+                for (let k = i + 1; k < tileKeys.length; k++) failedAgain.push({ tileKey: tileKeys[k] });
+                break;
+            }
         }
-        if (!success) window.vpFailedOverpassChunks.push(chunkData);
-    });
-
-    await Promise.all(fetchPromises);
-
-    // Merge mit existierenden Daten
-    let combinedObs = [...(typeof vpObstacles !== 'undefined' ? vpObstacles : []), ...newObs];
-    let buckets = {};
-    combinedObs.forEach(obs => {
-        let bIdx = Math.floor(obs.distNM / 0.5);
-        if (!buckets[bIdx]) buckets[bIdx] = [];
-        buckets[bIdx].push(obs);
-    });
-    let tempFinalObs = [];
-    for (let k in buckets) {
-        let group = buckets[k];
-        group.sort((a,b) => b.hFt - a.hFt);
-        let rep = group[0];
-        rep.count = group.length;
-        tempFinalObs.push(rep);
+        if (i < tileKeys.length - 1) await new Promise(r => setTimeout(r, VP_OBS_TILE_INTER_REQUEST_MS));
     }
-    vpObstacles = tempFinalObs;
+    window.vpFailedOverpassChunks = failedAgain;
 
-    let combinedLin = [...(typeof vpLinearFeatures !== 'undefined' ? vpLinearFeatures : []), ...newLin];
-    vpLinearFeatures = combinedLin.sort((a,b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx-1].name !== f.name || Math.abs(arr[idx-1].distNM - f.distNM) > 1.0);
-    vpRememberObstacleData(vpObstacles, vpLinearFeatures);
+    if (Array.isArray(vpElevationData) && vpElevationData.length > 1) {
+        const seeded = vpProjectObsPoolToRoute(vpElevationData);
+        vpObstacles = seeded.obs || [];
+        vpLinearFeatures = seeded.lin || [];
+    }
 
     window.vpBgNeedsUpdate = true;
     if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();

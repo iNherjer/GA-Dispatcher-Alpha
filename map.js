@@ -34,6 +34,108 @@ const MAP_HINT_DEFAULTS = {
     nextLeg: true
 };
 window.mapHints = window.mapHints || { ...MAP_HINT_DEFAULTS };
+let vpObsTileDebugLayer = null;
+window.vpObsTileOverlayEnabled = localStorage.getItem('ga_debug_obs_tile_overlay') === 'true';
+
+function updateObsTileOverlayButtonUi() {
+    const btn = document.getElementById('btnToggleObsTileOverlay');
+    if (!btn) return;
+    const on = !!window.vpObsTileOverlayEnabled;
+    btn.textContent = `Tiles Overlay ${on ? 'An' : 'Aus'}`;
+    btn.style.background = on ? '#245a8f' : '#1b334a';
+    btn.style.borderColor = on ? '#5ea8ff' : '#3a6388';
+    btn.style.color = on ? '#dff0ff' : '#9fd0ff';
+}
+window.vpUpdateObsTileOverlayButtonUi = updateObsTileOverlayButtonUi;
+
+function getObsTileDebugConfig() {
+    const cfg = window.vpObsTileConfig || {};
+    return {
+        storageKey: cfg.storageKey || 'ga_obs_tile_cov_v1',
+        stepLat: Number(cfg.stepLat || 0.25),
+        stepLon: Number(cfg.stepLon || 0.25)
+    };
+}
+
+function parseObsTileCoverageEntries() {
+    const cfg = getObsTileDebugConfig();
+    try {
+        const raw = localStorage.getItem(cfg.storageKey);
+        const parsed = JSON.parse(raw || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function tileBoundsFromKey(key, stepLat, stepLon) {
+    const parts = String(key || '').split('|');
+    if (parts.length < 2) return null;
+    const latI = Number(parts[0]);
+    const lonI = Number(parts[1]);
+    if (!Number.isFinite(latI) || !Number.isFinite(lonI)) return null;
+    const south = (latI * stepLat) - 90;
+    const west = (lonI * stepLon) - 180;
+    return {
+        south,
+        west,
+        north: south + stepLat,
+        east: west + stepLon
+    };
+}
+
+function renderObsTileOverlay() {
+    if (!map) return;
+    if (!vpObsTileDebugLayer) vpObsTileDebugLayer = L.layerGroup();
+    vpObsTileDebugLayer.clearLayers();
+    if (!window.vpObsTileOverlayEnabled) {
+        if (map.hasLayer(vpObsTileDebugLayer)) map.removeLayer(vpObsTileDebugLayer);
+        return;
+    }
+
+    const cfg = getObsTileDebugConfig();
+    const entries = parseObsTileCoverageEntries();
+    const now = Date.now();
+    const bounds = map.getBounds().pad(0.35);
+    for (const item of entries) {
+        const b = tileBoundsFromKey(item && item.k, cfg.stepLat, cfg.stepLon);
+        if (!b) continue;
+        if (b.east < bounds.getWest() || b.west > bounds.getEast() || b.north < bounds.getSouth() || b.south > bounds.getNorth()) continue;
+        const loadedTs = Number((item && item.ts) || 0);
+        const usedTs = Number((item && item.usedTs) || 0);
+        const isNew = loadedTs > 0 && (now - loadedTs) < (2 * 60 * 1000);
+        const wasUsed = usedTs > 0;
+        const color = isNew ? '#ff9a3d' : (wasUsed ? '#4fcd73' : '#4da2ff');
+        const fillOpacity = isNew ? 0.2 : (wasUsed ? 0.14 : 0.1);
+        const strokeWeight = isNew ? 2 : 1;
+        const rect = L.rectangle([[b.south, b.west], [b.north, b.east]], {
+            color,
+            weight: strokeWeight,
+            fillColor: color,
+            fillOpacity,
+            interactive: false
+        });
+        rect.addTo(vpObsTileDebugLayer);
+    }
+    if (!map.hasLayer(vpObsTileDebugLayer)) vpObsTileDebugLayer.addTo(map);
+}
+window.vpRenderObsTileOverlay = renderObsTileOverlay;
+window.vpNotifyObsTileCoverageChanged = function() {
+    if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
+};
+
+window.vpToggleObsTileOverlay = function(forceState) {
+    const next = (typeof forceState === 'boolean') ? forceState : !window.vpObsTileOverlayEnabled;
+    window.vpObsTileOverlayEnabled = !!next;
+    localStorage.setItem('ga_debug_obs_tile_overlay', String(window.vpObsTileOverlayEnabled));
+    updateObsTileOverlayButtonUi();
+    renderObsTileOverlay();
+};
+
+window.addEventListener('storage', function(e) {
+    if (!e || e.key !== 'ga_obs_tile_cov_v1') return;
+    if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
+});
 
 function loadMapHintSettings() {
     Object.keys(MAP_HINT_DEFAULTS).forEach(key => {
@@ -1886,9 +1988,11 @@ function initMapBase() {
             fetchTimeout = setTimeout(fetchOpenAIPData, 600);
         }
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
+        if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
     });
     map.on('zoomend', function() {
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
+        if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
     });
     
     const fsControl = L.control({ position: 'topleft' });
@@ -2281,6 +2385,8 @@ let ffNeedsStart = false;
 function toggleSnapMode() {
     snapMode = !snapMode;
     updateSnapButtonUI();
+    updateObsTileOverlayButtonUi();
+    if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
     if (snapMode && map) fetchOpenAIPData();
     else cachedNavData = [];
 }
