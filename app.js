@@ -889,70 +889,81 @@ function setDrumCounter(elementId, valueStr) {
         return (Math.round(parsed * 10) / 10).toFixed(1);
     };
     const displayValue = normalizeDisplayValue();
+    const renderFallback = () => {
+        container.innerHTML = `<span class="theme-color-text" style="font-weight:bold;">${displayValue}</span>`;
+        container.dataset.lastVal = displayValue;
+    };
 
-    if (!document.body.classList.contains('theme-retro')) {
-        if (container.dataset.lastVal !== displayValue) {
-            let span = container.querySelector('span');
-            if (!span) {
-                container.innerHTML = `<span class="theme-color-text" style="font-weight:bold;">${displayValue}</span>`;
-                updateDynamicColors(); // Nur einmalig beim Erstellen formatieren!
-            } else {
-                span.textContent = displayValue;
+    try {
+        if (!document.body.classList.contains('theme-retro')) {
+            if (container.dataset.lastVal !== displayValue) {
+                let span = container.querySelector('span');
+                if (!span) {
+                    renderFallback();
+                    updateDynamicColors(); // Nur einmalig beim Erstellen formatieren!
+                } else {
+                    span.textContent = displayValue;
+                    container.dataset.lastVal = displayValue;
+                }
             }
-            container.dataset.lastVal = displayValue;
+            return;
         }
-        return;
-    }
 
-    let tokenValue = displayValue.replace(/,/g, '.').replace(/[^0-9.]/g, '');
-    if (!tokenValue) tokenValue = (elementId === 'distDrum') ? '0.0' : '0';
-    const tokens = tokenValue.split('');
-    const digitHeight = 22;
+        let tokenValue = displayValue.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+        if (!tokenValue) tokenValue = (elementId === 'distDrum') ? '0.0' : '0';
+        const tokens = tokenValue.split('');
+        const digitHeight = 22;
 
-    let cache = window.drumCache[elementId];
-    
-    // Wenn Element nicht im Cache ist oder der Container geleert wurde: Neu aufbauen
-    if (!cache || !cache.windowEl || !container.contains(cache.windowEl)) {
-        container.innerHTML = '<div class="drum-window"></div>';
-        cache = {
-            windowEl: container.querySelector('.drum-window'),
-            strips: [],
-            layoutKey: ''
-        };
-        window.drumCache[elementId] = cache;
-    }
+        let cache = window.drumCache[elementId];
+        
+        // Wenn Element nicht im Cache ist oder der Container geleert wurde: Neu aufbauen
+        if (!cache || !cache.windowEl || !container.contains(cache.windowEl)) {
+            container.innerHTML = '<div class="drum-window"></div>';
+            cache = {
+                windowEl: container.querySelector('.drum-window'),
+                strips: [],
+                layoutKey: ''
+            };
+            window.drumCache[elementId] = cache;
+        }
 
-    const layoutKey = tokens.map(ch => (/\d/.test(ch) ? '#' : ch)).join('');
-    if (cache.layoutKey !== layoutKey) {
-        cache.windowEl.innerHTML = '';
-        cache.strips = [];
-        tokens.forEach((token) => {
-            if (/\d/.test(token)) {
-                const strip = document.createElement('div');
-                strip.className = 'drum-strip';
-                strip.innerHTML = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => `<div class="drum-digit">${d}</div>`).join('');
-                cache.windowEl.appendChild(strip);
-                cache.strips.push(strip);
-                return;
+        const layoutKey = tokens.map(ch => (/\d/.test(ch) ? '#' : ch)).join('');
+        if (cache.layoutKey !== layoutKey) {
+            cache.windowEl.innerHTML = '';
+            cache.strips = [];
+            tokens.forEach((token) => {
+                if (/\d/.test(token)) {
+                    const strip = document.createElement('div');
+                    strip.className = 'drum-strip';
+                    strip.innerHTML = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => `<div class="drum-digit">${d}</div>`).join('');
+                    cache.windowEl.appendChild(strip);
+                    cache.strips.push(strip);
+                    return;
+                }
+                const sep = document.createElement('div');
+                sep.className = 'drum-separator';
+                sep.textContent = token;
+                cache.windowEl.appendChild(sep);
+            });
+            cache.layoutKey = layoutKey;
+        }
+
+        // Werte (CSS Transform) aktualisieren
+        const digits = tokens.filter(token => /\d/.test(token));
+        digits.forEach((digit, index) => {
+            if (!cache.strips[index]) return;
+            const translateY = -(parseInt(digit) * digitHeight);
+            const transformStr = `translateY(${translateY}px)`;
+            if (cache.strips[index].style.transform !== transformStr) {
+                cache.strips[index].style.transform = transformStr;
             }
-            const sep = document.createElement('div');
-            sep.className = 'drum-separator';
-            sep.textContent = token;
-            cache.windowEl.appendChild(sep);
         });
-        cache.layoutKey = layoutKey;
+        container.dataset.lastVal = displayValue;
+    } catch (err) {
+        console.error('setDrumCounter failed:', err);
+        renderFallback();
+        if (window.drumCache && window.drumCache[elementId]) delete window.drumCache[elementId];
     }
-
-    // Werte (CSS Transform) aktualisieren
-    const digits = tokens.filter(token => /\d/.test(token));
-    digits.forEach((digit, index) => {
-        if (!cache.strips[index]) return;
-        const translateY = -(parseInt(digit) * digitHeight);
-        const transformStr = `translateY(${translateY}px)`;
-        if (cache.strips[index].style.transform !== transformStr) {
-            cache.strips[index].style.transform = transformStr;
-        }
-    });
 }
 let vpRenderPending = false;
 window.throttledRenderProfiles = function() {
