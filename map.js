@@ -2413,6 +2413,63 @@ function normalizeLon180(lon) {
     return x;
 }
 
+function buildRouteWeatherBounds() {
+    if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return null;
+    let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+    for (const wp of routeWaypoints) {
+        const lat = Number(wp && wp.lat);
+        const lon = Number(wp && (wp.lng ?? wp.lon));
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        minLat = Math.min(minLat, lat);
+        maxLat = Math.max(maxLat, lat);
+        minLon = Math.min(minLon, lon);
+        maxLon = Math.max(maxLon, lon);
+    }
+    if (!Number.isFinite(minLat) || !Number.isFinite(minLon)) return null;
+    const padDeg = 1.6; // ~95 NM
+    return {
+        minLat: Math.max(-89.5, minLat - padDeg),
+        maxLat: Math.min(89.5, maxLat + padDeg),
+        minLon: normalizeLon180(minLon - padDeg),
+        maxLon: normalizeLon180(maxLon + padDeg),
+        wrapsDateline: (minLon - padDeg) < -180 || (maxLon + padDeg) > 180
+    };
+}
+
+function pointInsideBounds(lat, lon, b) {
+    if (!b) return false;
+    const latOk = lat >= b.minLat && lat <= b.maxLat;
+    if (!latOk) return false;
+    if (!b.wrapsDateline) return lon >= b.minLon && lon <= b.maxLon;
+    return lon >= b.minLon || lon <= b.maxLon;
+}
+
+function filterWeatherPointsByActiveDomain(points) {
+    if (!Array.isArray(points) || points.length === 0) return points;
+    const routeBounds = buildRouteWeatherBounds();
+    const gps = window.lastLiveGpsPos;
+    const hasRecentGps = !!(gps && Number.isFinite(gps.lat) && Number.isFinite(gps.lon) && Number.isFinite(gps.t) && (Date.now() - gps.t < 15 * 60 * 1000));
+    const gpsRadiusDeg = 2.3; // ~140 NM
+    const gpsLatMin = hasRecentGps ? Math.max(-89.5, gps.lat - gpsRadiusDeg) : 0;
+    const gpsLatMax = hasRecentGps ? Math.min(89.5, gps.lat + gpsRadiusDeg) : 0;
+    const gpsLonMin = hasRecentGps ? normalizeLon180(gps.lon - gpsRadiusDeg) : 0;
+    const gpsLonMax = hasRecentGps ? normalizeLon180(gps.lon + gpsRadiusDeg) : 0;
+    const gpsWrap = hasRecentGps ? ((gps.lon - gpsRadiusDeg) < -180 || (gps.lon + gpsRadiusDeg) > 180) : false;
+
+    if (!routeBounds && !hasRecentGps) return points;
+    const filtered = points.filter(p => {
+        if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lon)) return false;
+        if (routeBounds && pointInsideBounds(p.lat, p.lon, routeBounds)) return true;
+        if (hasRecentGps) {
+            if (p.lat < gpsLatMin || p.lat > gpsLatMax) return false;
+            if (!gpsWrap) return p.lon >= gpsLonMin && p.lon <= gpsLonMax;
+            return p.lon >= gpsLonMin || p.lon <= gpsLonMax;
+        }
+        return false;
+    });
+    return filtered.length > 0 ? filtered : points;
+}
+
 function getMapWeatherGridPoints(cols = 8, rows = 6) {
     if (!map) return { points: [], key: '' };
     const b = map.getBounds();
@@ -2447,15 +2504,17 @@ function getMapWeatherGridPoints(cols = 8, rows = 6) {
             });
         }
     }
+    const filteredPts = filterWeatherPointsByActiveDomain(pts);
     return {
-        points: pts,
+        points: filteredPts,
         key: [
             latStep.toFixed(3),
             lonStep.toFixed(3),
             latStart.toFixed(3),
             latEnd.toFixed(3),
             lonStart.toFixed(3),
-            lonEnd.toFixed(3)
+            lonEnd.toFixed(3),
+            filteredPts.length
         ].join('|')
     };
 }
@@ -2497,7 +2556,8 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
     const signal = wxOverlayFetchController.signal;
 
     try {
-        const samples = await window.fetchOpenMeteoWeatherPoints(points, { signal, includePressure: false, maxConcurrency: 6 });
+        if (window.vpWeatherDebug) window.vpWeatherDebug.mapOverlayFetches += 1;
+        const samples = await window.fetchOpenMeteoWeatherPoints(points, { signal, includePressure: false, maxConcurrency: 4 });
         if (signal.aborted) return;
 
         clearMapOpenMeteoOverlays();
@@ -2529,6 +2589,13 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
     } catch (e) {
         if (e && e.name === 'AbortError') return;
         console.warn('[MapWX] Open-Meteo Overlay Fehler:', e);
+        if (window.vpWeatherDebug && typeof window.vpWeatherDebugSetError === 'function') {
+            window.vpWeatherDebugSetError(e, 'map overlay');
+        } else if (window.vpWeatherDebug) {
+            window.vpWeatherDebug.openMeteoErrors = (window.vpWeatherDebug.openMeteoErrors || 0) + 1;
+            window.vpWeatherDebug.lastErrorAt = Date.now();
+            window.vpWeatherDebug.lastErrorMsg = `map overlay: ${e && (e.message || String(e))}`;
+        }
         clearMapOpenMeteoOverlays();
     }
 };
