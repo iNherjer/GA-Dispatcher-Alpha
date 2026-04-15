@@ -16,7 +16,7 @@ export ELEVENLABS_API_KEY="..."
 ## Komplett neu rendern (empfohlen)
 
 ```bash
-node tools/generate-elevenlabs-voice-packs.mjs --only matilda,hannah,liam --force
+node tools/generate-elevenlabs-voice-packs.mjs --only matilda,hannah,liam,ava-en --force
 ```
 
 ## Nur problematische Kurzclips neu rendern
@@ -37,6 +37,19 @@ Optional weitere Stimmen:
 node tools/generate-elevenlabs-voice-packs.mjs --only bella,adam,callum,ivy,lily --force
 ```
 
+Nur englisches Ava-Pack:
+
+```bash
+node tools/generate-elevenlabs-voice-packs.mjs --only ava-en --force
+```
+
+Falls deine API-Key-Scopes `voices_read` nicht erlauben (oder der Name nicht eindeutig ist), kannst du die Voice-ID direkt setzen:
+
+```bash
+export ELEVENLABS_AVA_VOICE_ID="deine_voice_id"
+node tools/generate-elevenlabs-voice-packs.mjs --only ava-en --force
+```
+
 ## Wichtige Punkte
 
 - Zahlen werden als einzelne Clips erzeugt (`aw-d0` ... `aw-d9`).
@@ -44,3 +57,5 @@ node tools/generate-elevenlabs-voice-packs.mjs --only bella,adam,callum,ivy,lily
 - Nach dem Rendern wird `audio-warnings/voices/catalog.json` automatisch aktualisiert.
 - Das UI zeigt nur Packs an, deren `demo.mp3` existiert.
 - Problematische Kurzwoerter werden nicht mehr nackt gerendert, sondern aus einem deutschen Traegersatz automatisch auf den letzten Sprachblock zugeschnitten.
+- `ava-en` nutzt ein englisches Clip-Set bei identischen Clip-Keys (kompatibel mit der bestehenden AWM-Logik).
+- Ausgabe ist `mp3_44100_128` und damit breit kompatibel (inkl. Nicht-Apple-Geraete/Browser).

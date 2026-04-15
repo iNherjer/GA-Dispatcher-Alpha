@@ -11,6 +11,7 @@
     { "id": "matilda", "label": "Matilda", "emoji": "🎙️", "voiceId": "XrExE9yKIg1WjnnlVkGX", "voiceName": "Matilda" },
     { "id": "hannah",  "label": "Hannah",  "emoji": "🎙️", "voiceId": "cgSgspJ2msm6clMCkdW9", "voiceName": "Hannah" },
     { "id": "liam",    "label": "Liam",    "emoji": "🎙️", "voiceId": "TX3LPaxmHKxFdv7VOQHJ", "voiceName": "Liam" },
+    { "id": "ava-en",  "label": "Ava (EN)", "emoji": "🇬🇧", "voiceName": "Ava", "voiceIdEnv": "ELEVENLABS_AVA_VOICE_ID", "clipSet": "en", "language": "en" },
     { "id": "bella",   "label": "Bella",   "emoji": "🎙️", "voiceId": "EXAVITQu4vr4xnSDxMaL", "voiceName": "Bella" },
     { "id": "adam",    "label": "Adam",    "emoji": "🎙️", "voiceId": "pNInz6obpgDQGcFmaJgB", "voiceName": "Adam" },
     { "id": "callum",  "label": "Callum",  "emoji": "🎙️", "voiceId": "N2lVS1w4EtoT3dr4eOWO", "voiceName": "Callum" },

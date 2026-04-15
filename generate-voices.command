@@ -64,9 +64,14 @@ fi
 
 echo
 echo "Welche Packs sollen neu erzeugt werden?"
-echo "1) Matilda, Hannah, Liam (empfohlen)"
+echo "1) Matilda, Hannah, Liam, Ava EN (empfohlen)"
 echo "2) Alle konfigurierten Stimmen"
 read -r -p "Auswahl [1/2, Enter=1]: " CHOICE
+
+if [[ -z "${ELEVENLABS_AVA_VOICE_ID:-}" ]]; then
+  echo "Hinweis: ELEVENLABS_AVA_VOICE_ID ist nicht gesetzt."
+  echo "Ava EN wird dann per Namenssuche ('Ava') aufgeloest."
+fi
 
 echo
 echo "Was soll erzeugt werden?"
@@ -80,8 +85,8 @@ ARGS=(--force)
 if [[ "${CHOICE:-1}" == "2" ]]; then
   echo "Starte: alle konfigurierten Stimmen..."
 else
-  echo "Starte: matilda,hannah,liam..."
-  ARGS+=(--only matilda,hannah,liam)
+  echo "Starte: matilda,hannah,liam,ava-en..."
+  ARGS+=(--only matilda,hannah,liam,ava-en)
 fi
 
 if [[ "${CLIP_CHOICE:-1}" == "2" ]]; then

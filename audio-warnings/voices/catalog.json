@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-14T06:28:53.007Z",
+  "generatedAt": "2026-04-15T12:57:35.722Z",
   "packs": [
     {
       "id": "matilda",
@@ -40,6 +40,12 @@
       "id": "lily",
       "label": "Lily",
       "emoji": "🎙️"
+    },
+    {
+      "id": "ava-en",
+      "label": "Ava (EN)",
+      "emoji": "🇬🇧",
+      "language": "en"
     }
   ]
 }

@@ -11,47 +11,95 @@ const CONFIG_PATH = path.join(ROOT, 'tools', 'elevenlabs-voices.config.json');
 const API_BASE = 'https://api.elevenlabs.io/v1';
 const execFileAsync = promisify(execFile);
 
-const CLIPS = [
-  { key: 'aw-achtung', text: 'Achtung' },
-  { key: 'aw-in', text: 'in' },
-  { key: 'aw-ctr', text: 'Kontrollzone' },
-  { key: 'aw-charlie', text: 'Luftraum Charlie' },
-  { key: 'aw-delta', text: 'Luftraum Delta' },
-  { key: 'aw-rmz', text: 'Radio Mandatory Zone' },
-  { key: 'aw-tmz', text: 'Transponder Mandatory Zone' },
-  { key: 'aw-edr', text: 'Flugbeschränkungsgebiet' },
-  { key: 'aw-para', text: 'Fallschirmsprunggebiet' },
-  { key: 'aw-1min', text: 'einer Minute' },
-  { key: 'aw-2min', text: 'zwei Minuten' },
-  { key: 'aw-3min', text: 'drei Minuten' },
-  { key: 'aw-4min', text: 'vier Minuten' },
-  { key: 'aw-5min', text: 'fünf Minuten' },
-  { key: 'aw-6min', text: 'sechs Minuten' },
-  { key: 'aw-7min', text: 'sieben Minuten' },
-  { key: 'aw-8min', text: 'acht Minuten' },
-  { key: 'aw-9min', text: 'neun Minuten' },
-  { key: 'aw-10min', text: 'zehn Minuten' },
-  { key: 'aw-freq', text: 'Frequenz' },
-  { key: 'aw-sqwk', text: 'Squawk' },
-  { key: 'aw-komma', text: 'Das Trennzeichen kommt jetzt.\n\nKomma.', trim: 'tail', tailSec: 0.72 },
-  { key: 'aw-d0', text: 'Die Ziffer kommt jetzt.\n\nNull.', trim: 'tail', tailSec: 0.72 },
-  { key: 'aw-d1', text: 'Die Ziffer kommt jetzt.\n\nEins.', trim: 'tail', tailSec: 0.72 },
-  { key: 'aw-d2', text: 'Die Ziffer kommt jetzt.\n\nZwo.', trim: 'tail', tailSec: 0.78 },
-  { key: 'aw-d3', text: 'Die Ziffer kommt jetzt.\n\nDrei.', trim: 'tail', tailSec: 0.76 },
-  { key: 'aw-d4', text: 'Die Ziffer kommt jetzt.\n\nVier.', trim: 'tail', tailSec: 0.76 },
-  { key: 'aw-d5', text: 'Die Ziffer kommt jetzt.\n\nFünf.', trim: 'tail', tailSec: 0.82 },
-  { key: 'aw-d6', text: 'Die Ziffer kommt jetzt.\n\nSechs.', trim: 'tail', tailSec: 0.82 },
-  { key: 'aw-d7', text: 'Die Ziffer kommt jetzt.\n\nSieben.', trim: 'tail', tailSec: 0.84 },
-  { key: 'aw-d8', text: 'Die Ziffer kommt jetzt.\n\nAcht.', trim: 'tail', tailSec: 0.76 },
-  { key: 'aw-d9', text: 'Die Ziffer kommt jetzt.\n\nNeun.', trim: 'tail', tailSec: 0.78 },
-  { key: 'aw-zwo', text: 'Die Ziffer kommt jetzt.\n\nZwo.', trim: 'tail', tailSec: 0.78 },
-  { key: 'aw-wp-erreicht', text: 'Wegpunkt erreicht' },
-  { key: 'aw-neuer-kurs', text: 'Neuer Steuerkurs' },
-  { key: 'aw-grad', text: 'Die Einheit lautet jetzt.\n\nGrad.', trim: 'tail', tailSec: 0.76 },
-  { key: 'aw-fuer', text: 'Das Wort lautet jetzt.\n\nFür.', trim: 'tail', tailSec: 0.74 },
-  { key: 'aw-meilen', text: 'Die Einheit lautet jetzt.\n\nMeilen.', trim: 'tail', tailSec: 0.86 },
-  { key: 'demo', text: 'Demo. Neuer Steuerkurs null zwo fünf Grad. In einer Minute. Frequenz eins zwo drei Komma vier fünf zwo.' }
-];
+const CLIP_SETS = {
+  de: [
+    { key: 'aw-achtung', text: 'Achtung' },
+    { key: 'aw-in', text: 'in' },
+    { key: 'aw-ctr', text: 'Kontrollzone' },
+    { key: 'aw-charlie', text: 'Luftraum Charlie' },
+    { key: 'aw-delta', text: 'Luftraum Delta' },
+    { key: 'aw-rmz', text: 'Radio Mandatory Zone' },
+    { key: 'aw-tmz', text: 'Transponder Mandatory Zone' },
+    { key: 'aw-edr', text: 'Flugbeschränkungsgebiet' },
+    { key: 'aw-para', text: 'Fallschirmsprunggebiet' },
+    { key: 'aw-1min', text: 'einer Minute' },
+    { key: 'aw-2min', text: 'zwei Minuten' },
+    { key: 'aw-3min', text: 'drei Minuten' },
+    { key: 'aw-4min', text: 'vier Minuten' },
+    { key: 'aw-5min', text: 'fünf Minuten' },
+    { key: 'aw-6min', text: 'sechs Minuten' },
+    { key: 'aw-7min', text: 'sieben Minuten' },
+    { key: 'aw-8min', text: 'acht Minuten' },
+    { key: 'aw-9min', text: 'neun Minuten' },
+    { key: 'aw-10min', text: 'zehn Minuten' },
+    { key: 'aw-freq', text: 'Frequenz' },
+    { key: 'aw-sqwk', text: 'Squawk' },
+    { key: 'aw-komma', text: 'Das Trennzeichen kommt jetzt.\n\nKomma.', trim: 'tail', tailSec: 0.72 },
+    { key: 'aw-d0', text: 'Die Ziffer kommt jetzt.\n\nNull.', trim: 'tail', tailSec: 0.72 },
+    { key: 'aw-d1', text: 'Die Ziffer kommt jetzt.\n\nEins.', trim: 'tail', tailSec: 0.72 },
+    { key: 'aw-d2', text: 'Die Ziffer kommt jetzt.\n\nZwo.', trim: 'tail', tailSec: 0.78 },
+    { key: 'aw-d3', text: 'Die Ziffer kommt jetzt.\n\nDrei.', trim: 'tail', tailSec: 0.76 },
+    { key: 'aw-d4', text: 'Die Ziffer kommt jetzt.\n\nVier.', trim: 'tail', tailSec: 0.76 },
+    { key: 'aw-d5', text: 'Die Ziffer kommt jetzt.\n\nFünf.', trim: 'tail', tailSec: 0.82 },
+    { key: 'aw-d6', text: 'Die Ziffer kommt jetzt.\n\nSechs.', trim: 'tail', tailSec: 0.82 },
+    { key: 'aw-d7', text: 'Die Ziffer kommt jetzt.\n\nSieben.', trim: 'tail', tailSec: 0.84 },
+    { key: 'aw-d8', text: 'Die Ziffer kommt jetzt.\n\nAcht.', trim: 'tail', tailSec: 0.76 },
+    { key: 'aw-d9', text: 'Die Ziffer kommt jetzt.\n\nNeun.', trim: 'tail', tailSec: 0.78 },
+    { key: 'aw-zwo', text: 'Die Ziffer kommt jetzt.\n\nZwo.', trim: 'tail', tailSec: 0.78 },
+    { key: 'aw-wp-erreicht', text: 'Wegpunkt erreicht' },
+    { key: 'aw-neuer-kurs', text: 'Neuer Steuerkurs' },
+    { key: 'aw-grad', text: 'Die Einheit lautet jetzt.\n\nGrad.', trim: 'tail', tailSec: 0.76 },
+    { key: 'aw-fuer', text: 'Komm ich.\n\nFühr dich.', trim: 'last' },
+    { key: 'aw-meilen', text: 'Die Einheit lautet jetzt.\n\nMeilen.', trim: 'tail', tailSec: 0.86 },
+    { key: 'demo', text: 'Demo. Neuer Steuerkurs null zwo fünf Grad. In einer Minute. Frequenz eins zwo drei Komma vier fünf zwo.' }
+  ],
+  en: [
+    { key: 'aw-achtung', text: 'Caution' },
+    { key: 'aw-in', text: 'in' },
+    { key: 'aw-ctr', text: 'control zone' },
+    { key: 'aw-charlie', text: 'airspace Charlie' },
+    { key: 'aw-delta', text: 'airspace Delta' },
+    { key: 'aw-rmz', text: 'radio mandatory zone' },
+    { key: 'aw-tmz', text: 'transponder mandatory zone' },
+    { key: 'aw-edr', text: 'restricted area' },
+    { key: 'aw-para', text: 'parachute area' },
+    { key: 'aw-1min', text: 'one minute' },
+    { key: 'aw-2min', text: 'two minutes' },
+    { key: 'aw-3min', text: 'three minutes' },
+    { key: 'aw-4min', text: 'four minutes' },
+    { key: 'aw-5min', text: 'five minutes' },
+    { key: 'aw-6min', text: 'six minutes' },
+    { key: 'aw-7min', text: 'seven minutes' },
+    { key: 'aw-8min', text: 'eight minutes' },
+    { key: 'aw-9min', text: 'nine minutes' },
+    { key: 'aw-10min', text: 'ten minutes' },
+    { key: 'aw-freq', text: 'frequency' },
+    { key: 'aw-sqwk', text: 'squawk' },
+    { key: 'aw-komma', text: 'The separator comes now.\n\nDecimal.', trim: 'tail', tailSec: 0.7 },
+    { key: 'aw-d0', text: 'The digit comes now.\n\nZero.', trim: 'tail', tailSec: 0.66 },
+    { key: 'aw-d1', text: 'The digit comes now.\n\nOne.', trim: 'tail', tailSec: 0.66 },
+    { key: 'aw-d2', text: 'The digit comes now.\n\nTwo.', trim: 'tail', tailSec: 0.66 },
+    { key: 'aw-d3', text: 'The digit comes now.\n\nThree.', trim: 'tail', tailSec: 0.7 },
+    { key: 'aw-d4', text: 'The digit comes now.\n\nFour.', trim: 'tail', tailSec: 0.68 },
+    { key: 'aw-d5', text: 'The digit comes now.\n\nFive.', trim: 'tail', tailSec: 0.68 },
+    { key: 'aw-d6', text: 'The digit comes now.\n\nSix.', trim: 'tail', tailSec: 0.66 },
+    { key: 'aw-d7', text: 'The digit comes now.\n\nSeven.', trim: 'tail', tailSec: 0.72 },
+    { key: 'aw-d8', text: 'The digit comes now.\n\nEight.', trim: 'tail', tailSec: 0.7 },
+    { key: 'aw-d9', text: 'The digit comes now.\n\nNine.', trim: 'tail', tailSec: 0.68 },
+    { key: 'aw-zwo', text: 'The digit comes now.\n\nTwo.', trim: 'tail', tailSec: 0.66 },
+    { key: 'aw-wp-erreicht', text: 'waypoint reached' },
+    { key: 'aw-neuer-kurs', text: 'new heading' },
+    { key: 'aw-grad', text: 'The unit is.\n\nDegrees.', trim: 'tail', tailSec: 0.68 },
+    { key: 'aw-fuer', text: 'The next word is.\n\nFor.', trim: 'last' },
+    { key: 'aw-meilen', text: 'The unit is.\n\nMiles.', trim: 'tail', tailSec: 0.68 },
+    { key: 'demo', text: 'Demo. New heading zero two five degrees. In one minute. Frequency one two three decimal four five two.' }
+  ]
+};
+
+function getPackClips(pack) {
+  const clipSetId = String(pack.clipSet || 'de').toLowerCase();
+  return CLIP_SETS[clipSetId] || CLIP_SETS.de;
+}
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -82,10 +130,29 @@ async function fetchVoices(apiKey) {
   return Array.isArray(data.voices) ? data.voices : [];
 }
 
+function normalizeVoiceName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
 function resolveVoiceId(pack, voices) {
   if (pack.voiceId) return pack.voiceId;
-  const byName = voices.find(v => (v.name || '').toLowerCase() === (pack.voiceName || '').toLowerCase());
-  if (byName?.voice_id) return byName.voice_id;
+  if (pack.voiceIdEnv && process.env[pack.voiceIdEnv]) return process.env[pack.voiceIdEnv];
+
+  const target = normalizeVoiceName(pack.voiceName || pack.label);
+  if (!target) return null;
+
+  const exact = voices.find(v => normalizeVoiceName(v.name) === target);
+  if (exact?.voice_id) return exact.voice_id;
+
+  const fuzzy = voices.find(v => {
+    const vName = normalizeVoiceName(v.name);
+    return vName && (vName.includes(target) || target.includes(vName));
+  });
+  if (fuzzy?.voice_id) return fuzzy.voice_id;
+
   return null;
 }
 
@@ -238,12 +305,38 @@ async function trimToTail(inputFile, outputFile, tailSec) {
   await fs.copyFile(inputFile, outputFile);
 }
 
+async function trimToHead(inputFile, outputFile, headSec) {
+  const keepSec = Math.max(0.2, Number(headSec) || 0.4);
+  const tempOut = `${outputFile}.tmp.mp3`;
+  const args = [
+    '-y',
+    '-hide_banner',
+    '-i', inputFile,
+    '-c:a', 'libmp3lame',
+    '-b:a', '128k',
+    '-ac', '1',
+    '-ar', '44100',
+    '-af', `atrim=start=0:end=${keepSec},asetpts=N/SR/TB,silenceremove=start_periods=1:start_silence=0.02:start_threshold=-42dB`,
+    tempOut
+  ];
+  await execFileAsync('ffmpeg', args, { maxBuffer: 1024 * 1024 * 16 });
+
+  if (await isValidAudio(tempOut)) {
+    await fs.rename(tempOut, outputFile);
+    return;
+  }
+
+  await fs.rm(tempOut, { force: true });
+  await fs.copyFile(inputFile, outputFile);
+}
+
 async function buildPack(apiKey, pack, cfg, force, clipFilter) {
   const dir = path.join(VOICES_ROOT, pack.id);
   await ensureDir(dir);
+  const clips = getPackClips(pack);
 
-  for (const clip of CLIPS) {
-    const { key, text, trim, tailSec } = clip;
+  for (const clip of clips) {
+    const { key, text, trim, tailSec, headSec } = clip;
     if (clipFilter?.length && !clipFilter.includes(key)) continue;
     const file = path.join(dir, `${key}.mp3`);
     if (!force && await exists(file)) continue;
@@ -271,6 +364,14 @@ async function buildPack(apiKey, pack, cfg, force, clipFilter) {
       } finally {
         await fs.rm(tempFile, { force: true });
       }
+    } else if (trim === 'head') {
+      const tempFile = path.join(os.tmpdir(), `${pack.id}-${key}-${Date.now()}.mp3`);
+      await fs.writeFile(tempFile, audio);
+      try {
+        await trimToHead(tempFile, file, headSec);
+      } finally {
+        await fs.rm(tempFile, { force: true });
+      }
     } else {
       await fs.writeFile(file, audio);
     }
@@ -282,7 +383,12 @@ async function buildPack(apiKey, pack, cfg, force, clipFilter) {
 async function writeCatalog(allPacks) {
   const catalog = {
     generatedAt: new Date().toISOString(),
-    packs: allPacks.map(p => ({ id: p.id, label: p.label, emoji: p.emoji || '🎙️' }))
+    packs: allPacks.map(p => ({
+      id: p.id,
+      label: p.label,
+      emoji: p.emoji || '🎙️',
+      language: p.language || (String(p.clipSet || 'de').toLowerCase() === 'en' ? 'en' : 'de')
+    }))
   };
   const file = path.join(VOICES_ROOT, 'catalog.json');
   await fs.writeFile(file, `${JSON.stringify(catalog, null, 2)}\n`, 'utf8');
@@ -291,7 +397,7 @@ async function writeCatalog(allPacks) {
 async function main() {
   const apiKey = process.env.ELEVENLABS_API_KEY || '';
   if (!apiKey) {
-    throw new Error('ELEVENLABS_API_KEY fehlt. Beispiel: ELEVENLABS_API_KEY=... node tools/generate-elevenlabs-voice-packs.mjs --only matilda,hannah,liam --force');
+    throw new Error('ELEVENLABS_API_KEY fehlt. Beispiel: ELEVENLABS_API_KEY=... node tools/generate-elevenlabs-voice-packs.mjs --only matilda,hannah,liam,ava-en --force');
   }
   const args = parseArgs();
   const cfg = await readJson(CONFIG_PATH);
@@ -306,7 +412,7 @@ async function main() {
   for (const pack of selected) {
     const voiceId = resolveVoiceId(pack, voices);
     if (!voiceId) {
-      process.stderr.write(`[skip] ${pack.id}: Voice "${pack.voiceName || ''}" nicht gefunden.\n`);
+      process.stderr.write(`[skip] ${pack.id}: Voice "${pack.voiceName || ''}" nicht gefunden (optional voiceIdEnv=${pack.voiceIdEnv || 'n/a'}).\n`);
       continue;
     }
     pack.voiceIdResolved = voiceId;
