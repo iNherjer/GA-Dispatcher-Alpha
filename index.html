@@ -973,7 +973,7 @@
     window.addEventListener('orientationchange', _closeFloatingMenus);
 
     // Service Worker mit Auto-Reload bei Updates
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && /^https?:$/i.test(window.location.protocol)) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js').then(reg => {
                 console.log('[PWA] Service Worker registriert:', reg.scope);

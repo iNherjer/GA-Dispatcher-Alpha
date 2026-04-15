@@ -64,6 +64,44 @@ let vpObstacles = [];
 let vpLinearFeatures = [];
 window.vpElevationFallbackActive = false;
 window.vpTerrainElevationSource = 'terrarium';
+const VP_OVERPASS_SERVERS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://lz4.overpass-api.de/api/interpreter',
+    'https://z.overpass-api.de/api/interpreter'
+];
+const VP_OVERPASS_MIN_REQUERY_MS = 15 * 1000;
+const VP_OVERPASS_BASE_COOLDOWN_MS = 15 * 1000;
+const VP_OVERPASS_MAX_COOLDOWN_MS = 3 * 60 * 1000;
+const VP_OVERPASS_STATE_STORAGE_KEY = 'ga_overpass_state_v1';
+const VP_OBS_POOL_STORAGE_KEY = 'ga_obs_pool_v1';
+const VP_OBS_POOL_MAX_OBS = 12000;
+const VP_OBS_POOL_MAX_LIN = 8000;
+const VP_OBS_POOL_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+const VP_OBS_POOL_MAX_BYTES = 2_400_000;
+const VP_OBS_TILE_COVERAGE_KEY = 'ga_obs_tile_cov_v1';
+const VP_OBS_TILE_STEP_LAT = 0.25;
+const VP_OBS_TILE_STEP_LON = 0.25;
+const VP_OBS_TILE_TTL_MS = 12 * 60 * 60 * 1000;
+let vpOverpassStateHydrated = false;
+let vpOverpassState = {
+    cooldownUntil: 0,
+    backoffLevel: 0,
+    lastFailureAt: 0,
+    lastFailureStatus: 0,
+    lastSuccessAt: 0
+};
+window.vpOverpassInFlight = window.vpOverpassInFlight || new Map();
+window.vpOverpassRouteLastSuccess = window.vpOverpassRouteLastSuccess || {};
+window.vpOverpassGlobalInFlight = window.vpOverpassGlobalInFlight || null;
+let vpObsPoolHydrated = false;
+let vpObsPoolPersistTimer = null;
+let vpObsTileCoverageHydrated = false;
+let vpObsTileCoveragePersistTimer = null;
+const vpObsPool = {
+    obs: new Map(),
+    lin: new Map()
+};
+const vpObsTileCoverage = new Map();
 
 // Traffic im Profil
 window.vpTrafficProfileVisible = true;
@@ -157,8 +195,362 @@ function deduplicateFeatures(features) {
     return final;
 }
 
-async function fetchProfileObstacles(elevData, signal) {
+function vpHydrateOverpassState() {
+    if (vpOverpassStateHydrated) return;
+    vpOverpassStateHydrated = true;
+    try {
+        const raw = localStorage.getItem(VP_OVERPASS_STATE_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return;
+        vpOverpassState = {
+            cooldownUntil: Number(parsed.cooldownUntil || 0),
+            backoffLevel: Math.max(0, Number(parsed.backoffLevel || 0)),
+            lastFailureAt: Number(parsed.lastFailureAt || 0),
+            lastFailureStatus: Number(parsed.lastFailureStatus || 0),
+            lastSuccessAt: Number(parsed.lastSuccessAt || 0)
+        };
+    } catch (_) { }
+}
+
+function vpPersistOverpassState() {
+    try {
+        localStorage.setItem(VP_OVERPASS_STATE_STORAGE_KEY, JSON.stringify(vpOverpassState));
+    } catch (_) { }
+}
+
+function vpGetOverpassCooldownRemainingMs(now = Date.now()) {
+    vpHydrateOverpassState();
+    const until = Number(vpOverpassState.cooldownUntil || 0);
+    return Math.max(0, until - now);
+}
+
+function vpIsOverpassCoolingDown(now = Date.now()) {
+    return vpGetOverpassCooldownRemainingMs(now) > 0;
+}
+
+function vpMarkOverpassSuccess() {
+    vpHydrateOverpassState();
+    vpOverpassState.backoffLevel = 0;
+    vpOverpassState.cooldownUntil = 0;
+    vpOverpassState.lastSuccessAt = Date.now();
+    vpPersistOverpassState();
+}
+
+function vpApplyOverpassBackoff(statusCode, retryAfterSec = 0) {
+    vpHydrateOverpassState();
+    vpOverpassState.backoffLevel = Math.min(6, Number(vpOverpassState.backoffLevel || 0) + 1);
+    const baseMs = statusCode === 429 ? Math.max(VP_OVERPASS_BASE_COOLDOWN_MS, 20 * 1000) : VP_OVERPASS_BASE_COOLDOWN_MS;
+    const exp = Math.pow(1.7, Math.max(0, vpOverpassState.backoffLevel - 1));
+    const retryAfterMs = Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec * 1000 : 0;
+    const cooldownMs = Math.min(VP_OVERPASS_MAX_COOLDOWN_MS, Math.max(baseMs * exp, retryAfterMs));
+    const jitterMs = Math.floor(Math.random() * 1200);
+    vpOverpassState.cooldownUntil = Date.now() + cooldownMs + jitterMs;
+    vpOverpassState.lastFailureAt = Date.now();
+    vpOverpassState.lastFailureStatus = Number(statusCode || 0);
+    vpPersistOverpassState();
+    return cooldownMs + jitterMs;
+}
+
+function vpObsKey(item) {
+    const lat = Number(item && item.lat);
+    const lon = Number(item && item.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+    const t = String(item.type || 'obs');
+    return `${t}|${lat.toFixed(4)}|${lon.toFixed(4)}`;
+}
+
+function vpLinKey(item) {
+    const lat = Number(item && item.lat);
+    const lon = Number(item && item.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+    const t = String(item.type || 'lin');
+    const n = String(item.name || '').slice(0, 48);
+    return `${t}|${n}|${lat.toFixed(4)}|${lon.toFixed(4)}`;
+}
+
+function vpTrimTimedMap(mapObj, maxEntries) {
+    if (!mapObj || mapObj.size <= maxEntries) return;
+    const arr = Array.from(mapObj.entries());
+    arr.sort((a, b) => Number(b[1].ts || 0) - Number(a[1].ts || 0));
+    mapObj.clear();
+    for (let i = 0; i < Math.min(maxEntries, arr.length); i++) mapObj.set(arr[i][0], arr[i][1]);
+}
+
+function vpTrimMapNewest(mapObj, keepCount) {
+    if (!mapObj) return;
+    const arr = Array.from(mapObj.entries());
+    arr.sort((a, b) => Number(b[1].ts || 0) - Number(a[1].ts || 0));
+    mapObj.clear();
+    for (let i = 0; i < Math.min(keepCount, arr.length); i++) mapObj.set(arr[i][0], arr[i][1]);
+}
+
+function vpPruneObsPool(now = Date.now()) {
+    const ttl = VP_OBS_POOL_TTL_MS;
+    for (const [k, v] of vpObsPool.obs.entries()) {
+        if (!v || !Number(v.ts) || (now - Number(v.ts)) > ttl) vpObsPool.obs.delete(k);
+    }
+    for (const [k, v] of vpObsPool.lin.entries()) {
+        if (!v || !Number(v.ts) || (now - Number(v.ts)) > ttl) vpObsPool.lin.delete(k);
+    }
+    vpTrimTimedMap(vpObsPool.obs, VP_OBS_POOL_MAX_OBS);
+    vpTrimTimedMap(vpObsPool.lin, VP_OBS_POOL_MAX_LIN);
+}
+
+function vpEncodeObsPoolWithBudget() {
+    const obsArr = Array.from(vpObsPool.obs.values()).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
+    const linArr = Array.from(vpObsPool.lin.values()).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
+    let obsCount = Math.min(obsArr.length, VP_OBS_POOL_MAX_OBS);
+    let linCount = Math.min(linArr.length, VP_OBS_POOL_MAX_LIN);
+    let raw = '';
+
+    while (true) {
+        const payload = { obs: obsArr.slice(0, obsCount), lin: linArr.slice(0, linCount) };
+        raw = JSON.stringify(payload);
+        if (raw.length <= VP_OBS_POOL_MAX_BYTES) return { raw, obsCount, linCount };
+        if (obsCount <= 250 && linCount <= 150) return { raw, obsCount, linCount };
+
+        if (obsCount >= linCount && obsCount > 250) {
+            obsCount = Math.max(250, obsCount - Math.max(150, Math.floor(obsCount * 0.15)));
+        } else if (linCount > 150) {
+            linCount = Math.max(150, linCount - Math.max(100, Math.floor(linCount * 0.15)));
+        } else {
+            return { raw, obsCount, linCount };
+        }
+    }
+}
+
+function vpHydrateObsPool() {
+    if (vpObsPoolHydrated) return;
+    vpObsPoolHydrated = true;
+    try {
+        const raw = localStorage.getItem(VP_OBS_POOL_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        const obs = Array.isArray(parsed && parsed.obs) ? parsed.obs : [];
+        const lin = Array.isArray(parsed && parsed.lin) ? parsed.lin : [];
+        for (const item of obs) {
+            const key = vpObsKey(item);
+            if (!key) continue;
+            vpObsPool.obs.set(key, {
+                ts: Number(item.ts || 0),
+                type: item.type || 'mast',
+                hFt: Number(item.hFt || 0),
+                elevFt: Number(item.elevFt || 0),
+                lat: Number(item.lat),
+                lon: Number(item.lon)
+            });
+        }
+        for (const item of lin) {
+            const key = vpLinKey(item);
+            if (!key) continue;
+            vpObsPool.lin.set(key, {
+                ts: Number(item.ts || 0),
+                type: item.type || 'linear',
+                name: String(item.name || ''),
+                lat: Number(item.lat),
+                lon: Number(item.lon)
+            });
+        }
+        vpPruneObsPool();
+    } catch (_) { }
+}
+
+function vpPersistObsPoolSoon() {
+    if (vpObsPoolPersistTimer) return;
+    vpObsPoolPersistTimer = setTimeout(() => {
+        vpObsPoolPersistTimer = null;
+        try {
+            vpPruneObsPool();
+            const packed = vpEncodeObsPoolWithBudget();
+            vpTrimMapNewest(vpObsPool.obs, packed.obsCount);
+            vpTrimMapNewest(vpObsPool.lin, packed.linCount);
+            localStorage.setItem(VP_OBS_POOL_STORAGE_KEY, packed.raw);
+            if (window.vpWeatherDebug) window.vpWeatherDebug.overpassTileCoverageEntries = vpObsTileCoverage.size;
+        } catch (_) {
+            try {
+                // Fallback: aggressiv trimmen und ein zweiter Versuch.
+                vpTrimMapNewest(vpObsPool.obs, 1200);
+                vpTrimMapNewest(vpObsPool.lin, 800);
+                const fallbackRaw = JSON.stringify({ obs: Array.from(vpObsPool.obs.values()), lin: Array.from(vpObsPool.lin.values()) });
+                localStorage.setItem(VP_OBS_POOL_STORAGE_KEY, fallbackRaw);
+            } catch (_) { }
+        }
+    }, 400);
+}
+
+function vpRememberObstacleData(obsArr, linArr) {
+    vpHydrateObsPool();
+    const now = Date.now();
+    if (Array.isArray(obsArr)) {
+        for (const item of obsArr) {
+            const key = vpObsKey(item);
+            if (!key) continue;
+            vpObsPool.obs.set(key, {
+                ts: now,
+                type: item.type || 'mast',
+                hFt: Number(item.hFt || 0),
+                elevFt: Number(item.elevFt || 0),
+                lat: Number(item.lat),
+                lon: Number(item.lon)
+            });
+        }
+    }
+    if (Array.isArray(linArr)) {
+        for (const item of linArr) {
+            const key = vpLinKey(item);
+            if (!key) continue;
+            vpObsPool.lin.set(key, {
+                ts: now,
+                type: item.type || 'linear',
+                name: String(item.name || ''),
+                lat: Number(item.lat),
+                lon: Number(item.lon)
+            });
+        }
+    }
+    vpTrimTimedMap(vpObsPool.obs, VP_OBS_POOL_MAX_OBS);
+    vpTrimTimedMap(vpObsPool.lin, VP_OBS_POOL_MAX_LIN);
+    vpPersistObsPoolSoon();
+}
+
+function vpObsTileKey(lat, lon) {
+    const latI = Math.floor((Number(lat) + 90) / VP_OBS_TILE_STEP_LAT);
+    const lonI = Math.floor((Number(lon) + 180) / VP_OBS_TILE_STEP_LON);
+    return `${latI}|${lonI}`;
+}
+
+function vpCollectRouteTileKeys(elevData) {
+    const set = new Set();
+    if (!Array.isArray(elevData)) return set;
+    for (const p of elevData) {
+        if (!p || !Number.isFinite(Number(p.lat)) || !Number.isFinite(Number(p.lon))) continue;
+        set.add(vpObsTileKey(p.lat, p.lon));
+    }
+    return set;
+}
+
+function vpHydrateObsTileCoverage() {
+    if (vpObsTileCoverageHydrated) return;
+    vpObsTileCoverageHydrated = true;
+    try {
+        const raw = localStorage.getItem(VP_OBS_TILE_COVERAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return;
+        const now = Date.now();
+        for (const item of parsed) {
+            if (!item || typeof item.k !== 'string') continue;
+            const ts = Number(item.ts || 0);
+            if (!ts || (now - ts) > VP_OBS_TILE_TTL_MS) continue;
+            vpObsTileCoverage.set(item.k, ts);
+        }
+    } catch (_) { }
+}
+
+function vpPersistObsTileCoverageSoon() {
+    if (vpObsTileCoveragePersistTimer) return;
+    vpObsTileCoveragePersistTimer = setTimeout(() => {
+        vpObsTileCoveragePersistTimer = null;
+        try {
+            const now = Date.now();
+            const payload = [];
+            for (const [k, ts] of vpObsTileCoverage.entries()) {
+                if ((now - Number(ts || 0)) <= VP_OBS_TILE_TTL_MS) payload.push({ k, ts });
+            }
+            localStorage.setItem(VP_OBS_TILE_COVERAGE_KEY, JSON.stringify(payload));
+        } catch (_) { }
+    }, 400);
+}
+
+function vpGetRouteTileCoverageProbe(elevData) {
+    vpHydrateObsTileCoverage();
+    const keys = vpCollectRouteTileKeys(elevData);
+    const now = Date.now();
+    const missing = [];
+    for (const key of keys) {
+        const ts = Number(vpObsTileCoverage.get(key) || 0);
+        if (!ts || (now - ts) > VP_OBS_TILE_TTL_MS) missing.push(key);
+    }
+    if (window.vpWeatherDebug) {
+        window.vpWeatherDebug.overpassTileCoverageEntries = vpObsTileCoverage.size;
+        window.vpWeatherDebug.overpassTileLastMissingCount = missing.length;
+        window.vpWeatherDebug.overpassTileLastMissingSample = missing.slice(0, 10).join(', ');
+    }
+    return { total: keys.size, missing };
+}
+
+function vpMarkRouteTilesCovered(elevData) {
+    vpHydrateObsTileCoverage();
+    const keys = vpCollectRouteTileKeys(elevData);
+    const now = Date.now();
+    for (const key of keys) vpObsTileCoverage.set(key, now);
+    if (window.vpWeatherDebug) window.vpWeatherDebug.overpassTileCoverageEntries = vpObsTileCoverage.size;
+    vpPersistObsTileCoverageSoon();
+}
+
+function vpProjectObsPoolToRoute(elevData) {
+    vpHydrateObsPool();
+    if (!Array.isArray(elevData) || elevData.length < 2) return { obs: [], lin: [] };
+
+    const obsSeed = [];
+    const linSeed = [];
+    const nearestOnRoute = (lat, lon) => {
+        let bestPt = elevData[0];
+        let bestD = Infinity;
+        for (const ep of elevData) {
+            const d = calcNav(lat, lon, ep.lat, ep.lon).dist;
+            if (d < bestD) {
+                bestD = d;
+                bestPt = ep;
+            }
+        }
+        return { bestPt, bestD };
+    };
+
+    for (const item of vpObsPool.obs.values()) {
+        const { bestPt, bestD } = nearestOnRoute(item.lat, item.lon);
+        if (bestD > 3.6) continue;
+        obsSeed.push({
+            type: item.type || 'mast',
+            hFt: Number(item.hFt || 0),
+            distNM: bestPt.distNM,
+            elevFt: Number(item.elevFt || 0),
+            groundElevFt: Number(bestPt.elevFt || 0),
+            lat: Number(item.lat),
+            lon: Number(item.lon)
+        });
+    }
+
+    for (const item of vpObsPool.lin.values()) {
+        const { bestPt, bestD } = nearestOnRoute(item.lat, item.lon);
+        if (bestD > 2.8) continue;
+        linSeed.push({
+            type: item.type || 'linear',
+            name: String(item.name || ''),
+            distNM: bestPt.distNM,
+            lat: Number(item.lat),
+            lon: Number(item.lon)
+        });
+    }
+
+    return {
+        obs: deduplicateFeatures(obsSeed),
+        lin: linSeed.sort((a, b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx - 1].name !== f.name || Math.abs(arr[idx - 1].distNM - f.distNM) > 1.0)
+    };
+}
+
+async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', forceNetwork = false) {
     if (!elevData || elevData.length < 2) return null;
+
+    if (!forceNetwork && vpIsOverpassCoolingDown()) {
+        const remainingMs = vpGetOverpassCooldownRemainingMs();
+        const remainingMin = Math.max(1, Math.ceil(remainingMs / 60000));
+        if (window.vpWeatherDebug) window.vpWeatherDebug.overpassCooldownSkips += 1;
+        console.warn(`[Overpass] Cooldown aktiv (${remainingMin} min). Nutze Cache/Bestand, kein Netz-Request.`);
+        return { obs: vpObstacles || [], lin: vpLinearFeatures || [] };
+    }
+    if (window.vpWeatherDebug) window.vpWeatherDebug.overpassRequests += 1;
 
     // 1. Riesige 250-NM-Segmente (Normale Flüge sind somit nur 1 Abfrage = keine 429er!)
     const CHUNK_NM = 250; 
@@ -177,13 +569,7 @@ async function fetchProfileObstacles(elevData, signal) {
         }
     }
 
-    const overpassServers = [
-        'https://overpass-api.de/api/interpreter',
-        'https://lz4.overpass-api.de/api/interpreter',
-        'https://z.overpass-api.de/api/interpreter'
-    ];
-
-    console.log(`[Overpass] Teile Flug in ${chunks.length} Segment(e) (je max 250 NM). Starte SEQUENZIELLEN Fetch...`);
+    console.log(`[Overpass] Teile Flug in ${chunks.length} Segment(e) (je max 250 NM). Starte SEQUENZIELLEN Fetch...${routeCacheKey ? ` [${routeCacheKey.slice(0, 24)}]` : ''}`);
 
     let cumulativeRawObs = [];
     let cumulativeRawLin = [];
@@ -222,7 +608,7 @@ async function fetchProfileObstacles(elevData, signal) {
         
         while (retries > 0 && !success) {
             if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
-            const serverUrl = overpassServers[(idx + attempt + window.vpServerOffset) % overpassServers.length];
+            const serverUrl = VP_OVERPASS_SERVERS[(idx + attempt + window.vpServerOffset) % VP_OVERPASS_SERVERS.length];
             attempt++;
             
             try {
@@ -235,14 +621,25 @@ async function fetchProfileObstacles(elevData, signal) {
                 });
 
                 if (res.status === 429) {
-                    console.warn(`[Overpass] Segment ${idx+1}: 429. Warte 15s...`);
-                    await new Promise(r => setTimeout(r, 15000));
-                    retries--; continue; 
+                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpass429Count += 1;
+                    const retryAfter = Number(res.headers.get('retry-after') || 0);
+                    const cooldownMs = vpApplyOverpassBackoff(429, retryAfter);
+                    console.warn(`[Overpass] Segment ${idx+1}: 429. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
+                    retries = 0;
+                    continue;
                 }
                 if (res.status === 504) {
-                    console.warn(`[Overpass] Segment ${idx+1}: 504. Warte 5s...`);
-                    await new Promise(r => setTimeout(r, 5000));
-                    retries--; continue; 
+                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpass504Count += 1;
+                    if (retries > 1) {
+                        retries--;
+                        await new Promise(r => setTimeout(r, 2500));
+                        continue;
+                    }
+                    const retryAfter = Number(res.headers.get('retry-after') || 0);
+                    const cooldownMs = vpApplyOverpassBackoff(504, retryAfter);
+                    console.warn(`[Overpass] Segment ${idx+1}: 504. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
+                    retries = 0;
+                    continue;
                 }
                 if (!res.ok) {
                     await new Promise(r => setTimeout(r, 3000));
@@ -336,6 +733,7 @@ async function fetchProfileObstacles(elevData, signal) {
                 });
 
                 success = true;
+                vpMarkOverpassSuccess();
             } catch(e) {
                 if (e.name === 'AbortError') throw e;
                 await new Promise(r => setTimeout(r, 2000));
@@ -346,6 +744,11 @@ async function fetchProfileObstacles(elevData, signal) {
         if (!success) {
             console.error(`[Overpass] Segment ${idx+1} endgültig gescheitert!`);
             window.vpFailedOverpassChunks.push(chunkData);
+            if (!vpIsOverpassCoolingDown()) {
+                const cooldownMs = vpApplyOverpassBackoff(429);
+                console.warn(`[Overpass] Schutz-Cooldown aktiviert (${Math.max(1, Math.ceil(cooldownMs / 60000))} min).`);
+            }
+            break;
         }
         
         // Atempause zwischen den sequenziellen Segmenten, um Rate-Limits zu schonen
@@ -355,6 +758,7 @@ async function fetchProfileObstacles(elevData, signal) {
     }
 
     if (typeof window.updateOverpassErrorUI === 'function') window.updateOverpassErrorUI();
+    vpRememberObstacleData(vpObstacles, vpLinearFeatures);
     console.log(`[Overpass] Alle Segmente verarbeitet.`);
     return { obs: vpObstacles, lin: vpLinearFeatures };
 }
@@ -377,13 +781,8 @@ async function fetchGpsObstacles(lat, lon) {
     const bbox = `${minLat},${minLon},${maxLat},${maxLon}`;
     const query = `[out:json][timeout:30][bbox:${bbox}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];);out body qt;`;
 
-    const overpassServers = [
-        'https://overpass-api.de/api/interpreter',
-        'https://lz4.overpass-api.de/api/interpreter',
-        'https://z.overpass-api.de/api/interpreter'
-    ];
     window.vpServerOffset = (window.vpServerOffset || 0) + 1;
-    const serverUrl = overpassServers[window.vpServerOffset % overpassServers.length];
+    const serverUrl = VP_OVERPASS_SERVERS[window.vpServerOffset % VP_OVERPASS_SERVERS.length];
 
     try {
         const res = await fetch(serverUrl, {
@@ -419,6 +818,7 @@ async function fetchGpsObstacles(lat, lon) {
         }
 
         vpObstacles = finalObs;
+        vpRememberObstacleData(finalObs, []);
         window.vpBgNeedsUpdate = true;
         if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
 
@@ -435,6 +835,8 @@ function triggerVerticalProfileUpdate() {
     if (window.vpFetchController) window.vpFetchController.abort();
     window.vpFetchController = new AbortController();
     const currentSignal = window.vpFetchController.signal;
+    const forceOverpassReload = window._vpForceOverpassOnce === true;
+    window._vpForceOverpassOnce = false;
     window.vpBgNeedsUpdate = true;
 
     vpProfileFastTimeout = setTimeout(async () => {
@@ -445,8 +847,8 @@ function triggerVerticalProfileUpdate() {
             vpAltWaypoints = []; vpSegmentAlts = []; vpHighResData = null; vpZoomLevel = 100;
             vpWeatherData = null;
             window._lastWeatherSourceKey = null;
-            vpObstacles = []; // NEU: Alte Hindernisse sofort löschen
-            vpLinearFeatures = []; // NEU: Alte Straßen/Flüsse sofort löschen
+            // Hindernisse/Linear-Features nicht hart leeren:
+            // bis neue Route-Daten da sind, bleibt die letzte Darstellung sichtbar.
             if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
             const zd = document.getElementById('vpZoomDisplay'); if (zd) zd.textContent = '0%';
             window._lastVpRouteKey = cacheKey;
@@ -514,7 +916,52 @@ function triggerVerticalProfileUpdate() {
 
             const fetchOverpass = async () => {
                 if (!vpShowObstacles && !vpShowLinear) return;
-                if (window._lastObsRouteKey !== cacheKey) {
+                if (!forceOverpassReload && window._lastObsRouteKey === cacheKey) return;
+
+                const now = Date.now();
+                const lastSuccessAt = Number((window.vpOverpassRouteLastSuccess && window.vpOverpassRouteLastSuccess[cacheKey]) || 0);
+                if (!forceOverpassReload && lastSuccessAt > 0 && (now - lastSuccessAt) < VP_OVERPASS_MIN_REQUERY_MS) {
+                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpassRouteThrottleSkips += 1;
+                    console.log(`[Overpass] Route-Guard aktiv (${Math.ceil((VP_OVERPASS_MIN_REQUERY_MS - (now - lastSuccessAt)) / 1000)}s Rest), nutze Bestand.`);
+                    return;
+                }
+
+                const tileProbe = vpGetRouteTileCoverageProbe(vpElevationData);
+                if (!forceOverpassReload && tileProbe.total > 0 && tileProbe.missing.length === 0) {
+                    const seeded = vpProjectObsPoolToRoute(vpElevationData);
+                    if ((seeded.obs && seeded.obs.length) || (seeded.lin && seeded.lin.length)) {
+                        vpObstacles = seeded.obs || [];
+                        vpLinearFeatures = seeded.lin || [];
+                        window._lastObsRouteKey = cacheKey;
+                        window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
+                        if (window.vpWeatherDebug) window.vpWeatherDebug.overpassTileCoverageHits += 1;
+                        window.vpBgNeedsUpdate = true;
+                        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+                        console.log('[Overpass] Route vollständig im Tile-Cache. Kein Netz-Request nötig.');
+                        return;
+                    }
+                } else if (!forceOverpassReload && tileProbe.missing.length > 0) {
+                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpassTileCoverageMisses += 1;
+                    console.log(`[Overpass] Tile-Cache unvollständig: ${tileProbe.missing.length}/${tileProbe.total} Tiles fehlen.`);
+                }
+
+                const inflightKey = `obs|${cacheKey}`;
+                if (window.vpOverpassInFlight && window.vpOverpassInFlight.has(inflightKey)) {
+                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpassInFlightJoins += 1;
+                    await window.vpOverpassInFlight.get(inflightKey);
+                    return;
+                }
+                if (window.vpOverpassGlobalInFlight && window.vpOverpassGlobalInFlight.promise) {
+                    if (window.vpOverpassGlobalInFlight.key === inflightKey) {
+                        if (window.vpWeatherDebug) window.vpWeatherDebug.overpassInFlightJoins += 1;
+                        await window.vpOverpassGlobalInFlight.promise;
+                    } else {
+                        console.log('[Overpass] Globaler Request läuft bereits, nutze vorerst Cache/Pool-Daten.');
+                    }
+                    return;
+                }
+
+                const runner = (async () => {
                     const btnOb = document.getElementById('btnToggleObstacles');
                     const btnLin = document.getElementById('btnToggleLinear');
                     if (btnOb) btnOb.classList.add('vp-loading-pulse');
@@ -522,25 +969,59 @@ function triggerVerticalProfileUpdate() {
 
                     // FIX: Kombinierter Cache für Hindernisse UND Flüsse/Autobahnen
                     const obStr = localStorage.getItem('ga_obs_combo_' + cacheKey);
+                    let hasUsableCache = false;
                     if (obStr) {
                         try { 
                             const cached = JSON.parse(obStr); 
                             vpObstacles = cached.obs || [];
                             vpLinearFeatures = cached.lin || [];
                             window._lastObsRouteKey = cacheKey; 
+                            window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
+                            hasUsableCache = (vpObstacles.length > 0 || vpLinearFeatures.length > 0);
+                            vpRememberObstacleData(vpObstacles, vpLinearFeatures);
+                            vpMarkRouteTilesCovered(vpElevationData);
                             window.vpBgNeedsUpdate = true; // <--- FIX: Redraw nach Laden aus Cache erzwingen
                         } catch(e) { vpObstacles = []; vpLinearFeatures = []; }
-                    } else {
-                        const result = await fetchProfileObstacles(vpElevationData, currentSignal);
+                    }
+
+                    if (!hasUsableCache) {
+                        const seeded = vpProjectObsPoolToRoute(vpElevationData);
+                        if ((seeded.obs && seeded.obs.length) || (seeded.lin && seeded.lin.length)) {
+                            vpObstacles = seeded.obs || [];
+                            vpLinearFeatures = seeded.lin || [];
+                            window.vpBgNeedsUpdate = true;
+                            if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+                        }
+                    }
+
+                    if (!obStr || forceOverpassReload) {
+                        const result = await fetchProfileObstacles(vpElevationData, currentSignal, cacheKey, forceOverpassReload);
                         if (result !== null) { 
                             vpObstacles = result.obs || [];
                             vpLinearFeatures = result.lin || [];
                             window.vpBgNeedsUpdate = true; // FIX: Garantiert, dass der Hintergrund nach dem finalen Fetch aktualisiert wird
-                            try { localStorage.setItem('ga_obs_combo_' + cacheKey, JSON.stringify(result)); window._lastObsRouteKey = cacheKey; } catch(e) {}
+                            window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
+                            vpRememberObstacleData(vpObstacles, vpLinearFeatures);
+                            vpMarkRouteTilesCovered(vpElevationData);
+                            try {
+                                localStorage.setItem('ga_obs_combo_' + cacheKey, JSON.stringify({ ts: Date.now(), obs: vpObstacles, lin: vpLinearFeatures }));
+                                window._lastObsRouteKey = cacheKey;
+                            } catch(e) {}
                         }
                     }
                     if (btnOb) btnOb.classList.remove('vp-loading-pulse');
                     if (btnLin) btnLin.classList.remove('vp-loading-pulse');
+                })();
+
+                if (window.vpOverpassInFlight) window.vpOverpassInFlight.set(inflightKey, runner);
+                window.vpOverpassGlobalInFlight = { key: inflightKey, promise: runner };
+                try {
+                    await runner;
+                } finally {
+                    if (window.vpOverpassInFlight) window.vpOverpassInFlight.delete(inflightKey);
+                    if (window.vpOverpassGlobalInFlight && window.vpOverpassGlobalInFlight.promise === runner) {
+                        window.vpOverpassGlobalInFlight = null;
+                    }
                 }
             };
 
@@ -565,6 +1046,13 @@ function triggerVerticalProfileUpdate() {
         }
     }, 150); // Nur noch 150ms Debounce statt fast 3 Sekunden!
 }
+
+window.vpForceOverpassRefresh = function() {
+    if (!window._lastVpRouteKey || !routeWaypoints || routeWaypoints.length < 2) return;
+    window._vpForceOverpassOnce = true;
+    window._lastObsRouteKey = null;
+    triggerVerticalProfileUpdate();
+};
 
 async function fetchRouteElevation(routePts, signal) {
     if (!routePts || routePts.length < 2) return [];
@@ -651,6 +1139,7 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal) {
 
     const totalDist = elevData[elevData.length - 1].distNM;
     let activeMetars = [];
+    const isFileOrigin = !!(window.location && window.location.protocol === 'file:');
 
     // METAR FIX: Route in parallele 60-NM-Blöcke schneiden, um AviationWeather API-Schnittlimits (Max Stations) zu umgehen!
     const CHUNK_NM = 60;
@@ -672,15 +1161,20 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal) {
         cMinLat -= 0.8; cMaxLat += 0.8; cMinLon -= 0.8; cMaxLon += 0.8;
         const url = `https://aviationweather.gov/api/data/metar?bbox=${cMinLat},${cMinLon},${cMaxLat},${cMaxLon}&format=json&t=${Date.now()}`;
         
+        const fetchViaProxy = async () => {
+            try {
+                const pr = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`, { signal });
+                return pr.ok && pr.status !== 204 ? pr.json() : [];
+            } catch(e) { return []; }
+        };
+
         promises.push(
-            fetch(url, { signal })
-            .then(r => r.ok && r.status !== 204 ? r.json() : [])
-            .catch(async () => {
-                try {
-                    const pr = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`, { signal });
-                    return pr.ok && pr.status !== 204 ? pr.json() : [];
-                } catch(e) { return []; }
-            })
+            (isFileOrigin
+                ? fetchViaProxy()
+                : fetch(url, { signal })
+                    .then(r => r.ok && r.status !== 204 ? r.json() : [])
+                    .catch(fetchViaProxy)
+            )
         );
     }
 
@@ -827,6 +1321,17 @@ window.vpWeatherDebug = window.vpWeatherDebug || {
     last429At: 0,
     elevation429Count: 0,
     lastElevation429At: 0,
+    overpassRequests: 0,
+    overpass429Count: 0,
+    overpass504Count: 0,
+    overpassCooldownSkips: 0,
+    overpassRouteThrottleSkips: 0,
+    overpassInFlightJoins: 0,
+    overpassTileCoverageHits: 0,
+    overpassTileCoverageMisses: 0,
+    overpassTileCoverageEntries: 0,
+    overpassTileLastMissingCount: 0,
+    overpassTileLastMissingSample: '',
     globalErrors: 0,
     globalWarnings: 0,
     unhandledRejections: 0,
@@ -1097,6 +1602,7 @@ function vpFormatDebugTs(ts) {
 }
 
 window.vpBuildWeatherDebugReport = function() {
+    vpHydrateObsTileCoverage();
     const dbg = window.vpWeatherDebug || {};
     const cacheTotal = vpOpenMeteoPointCache ? vpOpenMeteoPointCache.size : 0;
     const hit = Number(dbg.openMeteoCacheHits || 0);
@@ -1116,6 +1622,18 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`- Cache Hit/Miss: ${hit}/${miss} (Hitrate ${hitRate}%)`);
     lines.push(`- Cache Einträge (RAM): ${cacheTotal}/${VP_OM_CACHE_MAX_ENTRIES}`);
     lines.push(`- Cache Hydrate/Persist: ${dbg.cacheHydratedEntries || 0} geladen, ${dbg.cachePersistWrites || 0} gespeichert`);
+    lines.push('');
+    lines.push('Overpass Verbrauch');
+    lines.push(`- Requests (Session): ${dbg.overpassRequests || 0}`);
+    lines.push(`- Overpass 429/504: ${dbg.overpass429Count || 0}/${dbg.overpass504Count || 0}`);
+    lines.push(`- Cooldown-Skips: ${dbg.overpassCooldownSkips || 0}`);
+    lines.push(`- Route-Guard-Skips: ${dbg.overpassRouteThrottleSkips || 0}`);
+    lines.push(`- Inflight-Joins: ${dbg.overpassInFlightJoins || 0}`);
+    lines.push(`- Tile-Cache Einträge: ${vpObsTileCoverage.size}`);
+    lines.push(`- Tile-Cache Hit/Miss: ${dbg.overpassTileCoverageHits || 0}/${dbg.overpassTileCoverageMisses || 0}`);
+    lines.push(`- Letzter Tile-Miss: ${dbg.overpassTileLastMissingCount || 0}${dbg.overpassTileLastMissingSample ? ` (${dbg.overpassTileLastMissingSample})` : ''}`);
+    const overpassCdRem = Math.ceil(vpGetOverpassCooldownRemainingMs() / 1000);
+    lines.push(`- Overpass Cooldown aktiv: ${vpIsOverpassCoolingDown() ? `Ja (${overpassCdRem}s)` : 'Nein'}`);
     lines.push('');
     lines.push('Trigger / Flows');
     lines.push(`- Profil-Fetches: ${dbg.profileRouteFetches || 0}`);
@@ -5145,10 +5663,6 @@ function vpToggleLandmarks() {
 }
 
 function vpToggleObstacles() {
-    if (window.vpFailedOverpassChunks && window.vpFailedOverpassChunks.length > 0) {
-        if (typeof window.retryFailedOverpassChunks === 'function') window.retryFailedOverpassChunks();
-        return; 
-    }
     vpShowObstacles = !vpShowObstacles;
     localStorage.setItem('ga_show_obstacles', vpShowObstacles);
     const btn = document.getElementById('btnToggleObstacles');
@@ -5164,10 +5678,6 @@ function vpToggleObstacles() {
 }
 
 function vpToggleLinearFeatures() {
-    if (window.vpFailedOverpassChunks && window.vpFailedOverpassChunks.length > 0) {
-        if (typeof window.retryFailedOverpassChunks === 'function') window.retryFailedOverpassChunks();
-        return; 
-    }
     vpShowLinear = !vpShowLinear;
     localStorage.setItem('ga_show_linear', vpShowLinear);
     const btn = document.getElementById('btnToggleLinear');
@@ -5194,6 +5704,15 @@ function vpToggleAirspaces() {
 window.retryFailedOverpassChunks = async function() {
     const chunks = window.vpFailedOverpassChunks;
     if (!chunks || chunks.length === 0) return;
+    if (window.vpOverpassGlobalInFlight && window.vpOverpassGlobalInFlight.promise) {
+        console.warn('[Overpass] Retry blockiert: Es läuft bereits ein Overpass-Request.');
+        return;
+    }
+    if (vpIsOverpassCoolingDown()) {
+        const remainingMin = Math.max(1, Math.ceil(vpGetOverpassCooldownRemainingMs() / 60000));
+        console.warn(`[Overpass] Retry blockiert: Cooldown noch ${remainingMin} min aktiv.`);
+        return;
+    }
     
     console.log(`[Overpass] Starte manuellen Retry für ${chunks.length} fehlgeschlagene Segmente...`);
     window.vpFailedOverpassChunks = []; 
@@ -5202,7 +5721,6 @@ window.retryFailedOverpassChunks = async function() {
     const btnOb = document.getElementById('btnToggleObstacles');
     if (btnOb) btnOb.classList.add('vp-loading-pulse');
 
-    const overpassServers = ['https://overpass-api.de/api/interpreter', 'https://lz4.overpass-api.de/api/interpreter', 'https://z.overpass-api.de/api/interpreter'];
     let newObs = []; let newLin = [];
 
     const fetchPromises = chunks.map(async (chunkData, idx) => {
@@ -5224,12 +5742,31 @@ window.retryFailedOverpassChunks = async function() {
 
         let retries = 5, attempt = 0, success = false;
         while (retries > 0 && !success) {
-            const serverUrl = overpassServers[(idx + attempt) % overpassServers.length];
+            const serverUrl = VP_OVERPASS_SERVERS[(idx + attempt) % VP_OVERPASS_SERVERS.length];
             attempt++;
             try {
                 const res = await fetch(serverUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(query)}` });
-                if (res.status === 429) { await new Promise(r => setTimeout(r, 15000)); retries--; continue; }
-                if (res.status === 504) { await new Promise(r => setTimeout(r, 5000)); retries--; continue; }
+                if (res.status === 429) {
+                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpass429Count += 1;
+                    const retryAfter = Number(res.headers.get('retry-after') || 0);
+                    const cooldownMs = vpApplyOverpassBackoff(429, retryAfter);
+                    console.warn(`[Overpass] Retry 429. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
+                    retries = 0;
+                    continue;
+                }
+                if (res.status === 504) {
+                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpass504Count += 1;
+                    if (retries > 1) {
+                        retries--;
+                        await new Promise(r => setTimeout(r, 2500));
+                        continue;
+                    }
+                    const retryAfter = Number(res.headers.get('retry-after') || 0);
+                    const cooldownMs = vpApplyOverpassBackoff(504, retryAfter);
+                    console.warn(`[Overpass] Retry 504. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
+                    retries = 0;
+                    continue;
+                }
                 if (!res.ok) { await new Promise(r => setTimeout(r, 3000)); retries--; continue; }
 
                 const json = await res.json();
@@ -5266,7 +5803,7 @@ window.retryFailedOverpassChunks = async function() {
                                                 let ix = { lat: wp0.lat + (t * s1_y), lon: wp0.lon + (t * s1_x) };
                                                 let distBefore = 0;
                                                 for(let k=0; k<i; k++) distBefore += calcNav(routeWaypoints[k].lat, routeWaypoints[k].lng||routeWaypoints[k].lon, routeWaypoints[k+1].lat, routeWaypoints[k+1].lng||routeWaypoints[k+1].lon).dist;
-                                                newLin.push({ type: featType, name: name, distNM: distBefore + calcNav(rp0.lat, rp0.lon, ix.lat, ix.lon).dist });
+                                                newLin.push({ type: featType, name: name, distNM: distBefore + calcNav(rp0.lat, rp0.lon, ix.lat, ix.lon).dist, lat: ix.lat, lon: ix.lon });
                                                 break;
                                             }
                                         }
@@ -5277,6 +5814,7 @@ window.retryFailedOverpassChunks = async function() {
                     });
                 }
                 success = true;
+                vpMarkOverpassSuccess();
             } catch(e) { await new Promise(r => setTimeout(r, 3000)); retries--; }
         }
         if (!success) window.vpFailedOverpassChunks.push(chunkData);
@@ -5304,6 +5842,7 @@ window.retryFailedOverpassChunks = async function() {
 
     let combinedLin = [...(typeof vpLinearFeatures !== 'undefined' ? vpLinearFeatures : []), ...newLin];
     vpLinearFeatures = combinedLin.sort((a,b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx-1].name !== f.name || Math.abs(arr[idx-1].distNM - f.distNM) > 1.0);
+    vpRememberObstacleData(vpObstacles, vpLinearFeatures);
 
     window.vpBgNeedsUpdate = true;
     if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();

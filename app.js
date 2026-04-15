@@ -415,7 +415,7 @@ window.drumCache = {};
    PWA UPDATE TRIGGER & SOFT AUTO SYNC EVENTS
    ========================================================= */
 let isRefreshing = false;
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && /^https?:$/i.test(window.location.protocol)) {
     // Erzwingt einen automatischen Reload, sobald ein Update (neue sw.js Version) installiert wurde
     navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!isRefreshing) { isRefreshing = true; window.location.reload(); }
@@ -3610,19 +3610,20 @@ document.addEventListener('DOMContentLoaded', () => {
     initCom2Knob();
     restoreAudioButtonStates();
 
-    // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-    fetch('sw.js', { cache: 'no-store' })
-        .then(r => r.text())
-        .then(text => {
-            const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
-            if (match) {
-                const el = document.getElementById('swVersionDisplay');
-                if (el) el.innerText = match[1];
-            }
-        }).catch(() => {
-            const el = document.getElementById('swVersionDisplay');
-            if (el) el.innerText = "Offline";
-        });
+    const el = document.getElementById('swVersionDisplay');
+    if (/^https?:$/i.test(window.location.protocol)) {
+        // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
+        fetch('sw.js', { cache: 'no-store' })
+            .then(r => r.text())
+            .then(text => {
+                const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
+                if (match && el) el.innerText = match[1];
+            }).catch(() => {
+                if (el) el.innerText = "Offline";
+            });
+    } else if (el) {
+        el.innerText = "FILE-MODE";
+    }
 });
 
 
