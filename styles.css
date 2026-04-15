@@ -944,8 +944,22 @@ body.theme-retro .drum-digit {
     background-color: transparent;
 }
 
+body.theme-retro .drum-separator {
+    height: 22px;
+    line-height: 22px;
+    width: 8px;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 17px;
+    color: var(--piper-white);
+    user-select: none;
+}
+
 body.theme-retro .highlight .drum-digit,
-body.theme-retro .theme-green-text .drum-digit {
+body.theme-retro .theme-green-text .drum-digit,
+body.theme-retro .highlight .drum-separator,
+body.theme-retro .theme-green-text .drum-separator {
     color: var(--piper-yellow);
 }
 
