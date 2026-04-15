@@ -57,8 +57,26 @@ function getObsTileDebugConfig() {
     };
 }
 
+function getObsTileFailDebugConfig() {
+    const cfg = window.vpObsTileFailConfig || {};
+    return {
+        storageKey: cfg.storageKey || 'ga_obs_tile_failed_v1'
+    };
+}
+
 function parseObsTileCoverageEntries() {
     const cfg = getObsTileDebugConfig();
+    try {
+        const raw = localStorage.getItem(cfg.storageKey);
+        const parsed = JSON.parse(raw || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function parseObsTileFailedEntries() {
+    const cfg = getObsTileFailDebugConfig();
     try {
         const raw = localStorage.getItem(cfg.storageKey);
         const parsed = JSON.parse(raw || '[]');
@@ -95,19 +113,39 @@ function renderObsTileOverlay() {
 
     const cfg = getObsTileDebugConfig();
     const entries = parseObsTileCoverageEntries();
+    const entryByKey = new Map();
+    for (const item of entries) {
+        const key = item && item.k;
+        if (typeof key !== 'string' || !key) continue;
+        entryByKey.set(key, item);
+    }
+    const failedEntries = parseObsTileFailedEntries();
+    const failedByKey = new Map();
+    for (const item of failedEntries) {
+        const key = item && item.k;
+        if (typeof key !== 'string' || !key) continue;
+        failedByKey.set(key, item);
+    }
     const now = Date.now();
     const bounds = map.getBounds().pad(0.35);
-    for (const item of entries) {
-        const b = tileBoundsFromKey(item && item.k, cfg.stepLat, cfg.stepLon);
+    const mergedKeys = new Set();
+    entries.forEach(item => { if (item && item.k) mergedKeys.add(item.k); });
+    failedEntries.forEach(item => { if (item && item.k) mergedKeys.add(item.k); });
+    for (const key of mergedKeys) {
+        const item = entryByKey.get(key) || { k: key };
+        const b = tileBoundsFromKey(key, cfg.stepLat, cfg.stepLon);
         if (!b) continue;
         if (b.east < bounds.getWest() || b.west > bounds.getEast() || b.north < bounds.getSouth() || b.south > bounds.getNorth()) continue;
         const loadedTs = Number((item && item.ts) || 0);
         const usedTs = Number((item && item.usedTs) || 0);
+        const failMeta = failedByKey.get(key);
+        const failedTs = Number((failMeta && failMeta.ts) || 0);
         const isNew = loadedTs > 0 && (now - loadedTs) < (2 * 60 * 1000);
         const wasUsed = usedTs > 0;
-        const color = isNew ? '#ff9a3d' : (wasUsed ? '#4fcd73' : '#4da2ff');
-        const fillOpacity = isNew ? 0.2 : (wasUsed ? 0.14 : 0.1);
-        const strokeWeight = isNew ? 2 : 1;
+        const hasFailure = failedTs > 0 && (!loadedTs || failedTs >= loadedTs);
+        const color = hasFailure ? '#ff4a4a' : (isNew ? '#ff9a3d' : (wasUsed ? '#4fcd73' : '#4da2ff'));
+        const fillOpacity = hasFailure ? 0.2 : (isNew ? 0.2 : (wasUsed ? 0.14 : 0.1));
+        const strokeWeight = hasFailure ? 2 : (isNew ? 2 : 1);
         const rect = L.rectangle([[b.south, b.west], [b.north, b.east]], {
             color,
             weight: strokeWeight,
@@ -133,7 +171,7 @@ window.vpToggleObsTileOverlay = function(forceState) {
 };
 
 window.addEventListener('storage', function(e) {
-    if (!e || e.key !== 'ga_obs_tile_cov_v1') return;
+    if (!e || (e.key !== 'ga_obs_tile_cov_v1' && e.key !== 'ga_obs_tile_failed_v1')) return;
     if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
 });
 
@@ -2278,6 +2316,9 @@ function toggleMapTable(forceInternal) {
                 refreshMapTableLayout().catch((error) => {
                     console.error('Map table refresh failed:', error);
                 });
+                if (routeWaypoints && routeWaypoints.length >= 2 && typeof triggerVerticalProfileUpdate === 'function') {
+                    triggerVerticalProfileUpdate();
+                }
             }, 500);
         } else {
             unlockBodyScroll();
