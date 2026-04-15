@@ -407,6 +407,8 @@ let currentDestFreq = "";
 let currentDepElev = null;
 let currentDestElev = null;
 let globalAirports = null, runwayCache = {}, freqCache = {};
+let globalAirportsLoadPromise = null;
+const openAipAirportDispatchCache = new Map();
 window.drumCache = {};
 
 /* =========================================================
@@ -1451,13 +1453,166 @@ function getDestinationPoint(lat, lon, distNM, bearing) {
    5. DATEN-FETCHING (APIs & GEMINI KI)
    ========================================================= */
 async function loadGlobalAirports() {
-    if (globalAirports) return;
-    try { const res = await fetch('./airports.json'); globalAirports = await res.json(); } catch (e) { globalAirports = {}; }
+    if (globalAirports && Object.keys(globalAirports).length > 0) return;
+    if (globalAirportsLoadPromise) {
+        await globalAirportsLoadPromise;
+        return;
+    }
+
+    const isValidAirportMap = (parsed) => {
+        if (!parsed || typeof parsed !== 'object') return false;
+        const keys = Object.keys(parsed);
+        if (keys.length < 1000) return false;
+        // Mindest-Sanitycheck für das bekannte Schema.
+        const sample = parsed.EDDM || parsed.EDDF || parsed.EDNY || parsed.LOWW;
+        return !!(sample && typeof sample.lat === 'number' && typeof sample.lon === 'number');
+    };
+
+    const tryParseResponse = async (res) => {
+        if (!res || !res.ok) return null;
+        try {
+            const parsed = await res.json();
+            return isValidAirportMap(parsed) ? parsed : null;
+        } catch (_) {
+            return null;
+        }
+    };
+
+    globalAirportsLoadPromise = (async () => {
+        // Safari/Browser blocken fetch() auf lokale Dateien unter file://.
+        // Dann direkt auf Online-Fallbacks gehen und keine Console-Error-Flut erzeugen.
+        if (window.location && window.location.protocol === 'file:') {
+            globalAirports = null;
+            return;
+        }
+
+        const urls = [
+            './airports.json',
+            'airports.json',
+            '/airports.json',
+            `./airports.json?t=${Date.now()}`
+        ];
+
+        // 1) Erst SW/Browser-Cache direkt prüfen (robust bei Netzproblemen).
+        if (typeof caches !== 'undefined' && caches && typeof caches.match === 'function') {
+            for (const url of urls) {
+                try {
+                    const cached = await caches.match(url, { ignoreSearch: true });
+                    const parsed = await tryParseResponse(cached);
+                    if (parsed) {
+                        globalAirports = parsed;
+                        return;
+                    }
+                } catch (_) { }
+            }
+        }
+
+        // 2) Normale Fetches (cache darf genutzt werden).
+        for (const url of urls) {
+            try {
+                const res = await fetch(url, { cache: 'default' });
+                const parsed = await tryParseResponse(res);
+                if (parsed) {
+                    globalAirports = parsed;
+                    return;
+                }
+            } catch (_) { }
+        }
+
+        // 3) Letzter Versuch hart neu laden.
+        for (const url of urls) {
+            try {
+                const res = await fetch(url, { cache: 'reload' });
+                const parsed = await tryParseResponse(res);
+                if (parsed) {
+                    globalAirports = parsed;
+                    return;
+                }
+            } catch (_) { }
+        }
+
+        // WICHTIG: Kein dauerhaftes "{}", sonst bleibt APT-Dispatch den ganzen
+        // Session-Lauf defekt. Bei Fehler auf null lassen, damit spätere Retries
+        // weiter möglich bleiben.
+        globalAirports = null;
+    })().finally(() => {
+        globalAirportsLoadPromise = null;
+    });
+
+    await globalAirportsLoadPromise;
+}
+
+function getOpenAipDispatchBBox(lat, lon, maxNM) {
+    const radiusNm = Math.max(90, Math.min(420, (Number(maxNM) || 120) * 1.25));
+    const dLat = radiusNm / 60;
+    const cosLat = Math.max(0.2, Math.abs(Math.cos((lat * Math.PI) / 180)));
+    const dLon = radiusNm / (60 * cosLat);
+    return {
+        west: Math.max(-180, lon - dLon),
+        south: Math.max(-90, lat - dLat),
+        east: Math.min(180, lon + dLon),
+        north: Math.min(90, lat + dLat)
+    };
+}
+
+async function fetchOpenAipDispatchAirports(lat, lon, maxNM, regionPref = 'any') {
+    const key = [
+        Math.round(lat * 10) / 10,
+        Math.round(lon * 10) / 10,
+        Math.round((Number(maxNM) || 120) / 10) * 10,
+        regionPref || 'any'
+    ].join('|');
+    const now = Date.now();
+    const cached = openAipAirportDispatchCache.get(key);
+    if (cached && (now - cached.ts) < 15 * 60 * 1000) {
+        return cached.items;
+    }
+
+    const { west, south, east, north } = getOpenAipDispatchBBox(lat, lon, maxNM);
+    const bbox = `${west},${south},${east},${north}`;
+    const proxy = 'https://ga-proxy.einherjer.workers.dev';
+
+    try {
+        const res = await fetch(`${proxy}/api/airports?bbox=${bbox}&limit=1000&t=${now}`);
+        if (!res.ok) return [];
+        const json = await res.json();
+        const items = Array.isArray(json?.items) ? json.items : [];
+        const parsed = [];
+        for (const item of items) {
+            const coords = item?.geometry?.coordinates;
+            if (!Array.isArray(coords) || coords.length < 2) continue;
+            const lonV = Number(coords[0]);
+            const latV = Number(coords[1]);
+            if (!Number.isFinite(latV) || !Number.isFinite(lonV)) continue;
+            const icao = String(item?.icaoCode || item?.designator || '').trim().toUpperCase();
+            if (!icao) continue;
+            const isDE = icao.startsWith('ED') || icao.startsWith('ET');
+            if (regionPref === 'de' && !isDE) continue;
+            if (regionPref === 'int' && isDE) continue;
+            parsed.push({
+                icao,
+                name: String(item?.name || icao),
+                lat: latV,
+                lon: lonV
+            });
+        }
+        openAipAirportDispatchCache.set(key, { ts: now, items: parsed });
+        return parsed;
+    } catch (_) {
+        return [];
+    }
 }
 
 async function getAirportData(icao) {
     await loadGlobalAirports();
-    if (globalAirports[icao]) return { icao: icao, n: globalAirports[icao].name || globalAirports[icao].city, lat: globalAirports[icao].lat, lon: globalAirports[icao].lon };
+    if (globalAirports && globalAirports[icao]) {
+        return {
+            icao: icao,
+            n: globalAirports[icao].name || globalAirports[icao].city,
+            lat: globalAirports[icao].lat,
+            lon: globalAirports[icao].lon
+        };
+    }
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${icao}+airport`); const data = await res.json();
         if (data && data.length > 0) return { icao: icao, n: data[0].display_name.split(',')[0], lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
@@ -1466,7 +1621,26 @@ async function getAirportData(icao) {
 }
 
 async function findGithubAirport(lat, lon, minNM, maxNM, dirPref, regionPref) {
-    await loadGlobalAirports(); let validAirports = [];
+    await loadGlobalAirports();
+    if (!globalAirports || Object.keys(globalAirports).length === 0) {
+        const fallbackAirports = await fetchOpenAipDispatchAirports(lat, lon, maxNM, regionPref);
+        const validFromFallback = [];
+        for (const apt of fallbackAirports) {
+            if (apt.icao === currentStartICAO) continue;
+            const navCalc = calcNav(lat, lon, apt.lat, apt.lon);
+            if (navCalc.dist >= minNM && navCalc.dist <= maxNM && checkBearing(navCalc.brng, dirPref)) {
+                validFromFallback.push({ icao: apt.icao, n: apt.name, lat: apt.lat, lon: apt.lon });
+            }
+        }
+        if (validFromFallback.length > 0) {
+            return validFromFallback[Math.floor(Math.random() * validFromFallback.length)];
+        }
+        // Einmal harter Retry lokal, falls sich der Modus/Host geändert hat.
+        await loadGlobalAirports();
+    }
+    if (!globalAirports || Object.keys(globalAirports).length === 0) return null;
+
+    let validAirports = [];
     for (const key in globalAirports) {
         const apt = globalAirports[key]; if (apt.icao === currentStartICAO) continue;
         const isDE = apt.icao.startsWith('ED') || apt.icao.startsWith('ET');
@@ -2714,6 +2888,18 @@ async function generateMission() {
         else { dest = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref); }
     }
 
+    // APT-Fallbackkette: reduziert "Kein Ziel gefunden" bei engen Filtern
+    // oder wenn Richtung/Region aktuell zu restriktiv sind.
+    if (!dest && !targetDest && effectiveType === "apt") {
+        dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, 'any', regionPref);
+    }
+    if (!dest && !targetDest && effectiveType === "apt" && regionPref !== 'any') {
+        dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, 'any', 'any');
+    }
+    if (!dest && !targetDest && effectiveType === "apt") {
+        dest = await findGithubAirport(start.lat, start.lon, 5, 350, 'any', 'any');
+    }
+
     if (!dest && !targetDest && effectiveType === "poi" && typeof fallbackPOIs !== 'undefined') {
         dataSource = "Fallback POIs";
         let validPOIs = fallbackPOIs.filter(p => checkBearing(calcNav(start.lat, start.lon, p.lat, p.lon).brng, dirPref));
@@ -2723,7 +2909,11 @@ async function generateMission() {
     }
 
     if (!dest) {
-        indicator.innerText = "Fehler: Kein passendes Ziel gefunden."; resetBtn(btn);
+        indicator.innerText = "Fehler: Kein passendes Ziel gefunden.";
+        if (effectiveType === "apt" && (!globalAirports || Object.keys(globalAirports).length === 0)) {
+            indicator.innerText = "Fehler: Airport-Daten nicht geladen (airports.json).";
+        }
+        resetBtn(btn);
         if (window.meterInterval) clearInterval(window.meterInterval);
         if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`; return;
     }

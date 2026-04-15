@@ -2680,7 +2680,10 @@ window.scheduleMapWeatherOverlayUpdate = function(forceFetch = false) {
 
 window.renderMapWeatherOverlays = async function(forceFetch = false) {
     if (!map) return;
-    if (window.vpWeatherSource !== 'openmeteo') {
+    const openMeteoActive = (typeof window.vpIsOpenMeteoDisplayActive === 'function')
+        ? window.vpIsOpenMeteoDisplayActive()
+        : (window.vpWeatherSource === 'openmeteo' && !window.vpWeatherFallbackActive);
+    if (!openMeteoActive) {
         clearMapOpenMeteoOverlays();
         return;
     }
@@ -2825,7 +2828,10 @@ window.renderWeatherMarkers = function() {
     wxMapMarkers.forEach(m => map.removeLayer(m));
     wxMapMarkers = [];
 
-    if (window.vpWeatherSource === 'openmeteo') {
+    const openMeteoActive = (typeof window.vpIsOpenMeteoDisplayActive === 'function')
+        ? window.vpIsOpenMeteoDisplayActive()
+        : (window.vpWeatherSource === 'openmeteo' && !window.vpWeatherFallbackActive);
+    if (openMeteoActive) {
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         return;
     }
