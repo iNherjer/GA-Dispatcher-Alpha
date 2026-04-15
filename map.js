@@ -2137,44 +2137,7 @@ async function refreshMapTableLayout() {
     if (typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible && typeof renderMapProfile === 'function') renderMapProfile();
 }
 
-async function openMapTableInternal() {
-    const board = document.getElementById('mapTableOverlay');
-    const autoFs = shouldAutoStartMapFullscreen();
-    const shouldUseScrollLock = window.innerWidth < 1250 && !autoFs;
-
-    document.body.classList.add('maptable-open');
-    if (typeof _closeFloatingMenus === 'function') _closeFloatingMenus();
-
-    if (shouldUseScrollLock) lockBodyScroll();
-    await animateDrawerOverlay(board, true);
-
-    if (autoFs) {
-        enterMapFullscreenMode();
-        await nextFrame();
-        await waitMs(45);
-    }
-
-    await refreshMapTableLayout();
-}
-
-async function closeMapTableInternal() {
-    const board = document.getElementById('mapTableOverlay');
-    const wasFullscreen = document.body.classList.contains('map-is-fullscreen');
-
-    if (wasFullscreen) {
-        exitMapFullscreenMode();
-        await nextFrame();
-        await waitMs(20);
-    }
-
-    document.body.classList.remove('maptable-open');
-    await animateDrawerOverlay(board, false);
-    unlockBodyScroll();
-    exitMapFullscreenMode();
-    if (typeof _closeFloatingMenus === 'function') _closeFloatingMenus();
-}
-
-async function toggleMapTable(forceInternal) {
+function toggleMapTable(forceInternal) {
     const board = document.getElementById('mapTableOverlay');
     const pinBoard = document.getElementById('pinboardOverlay');
     if (!board || !pinBoard) return;
@@ -2184,24 +2147,43 @@ async function toggleMapTable(forceInternal) {
     if (!force) setDrawerTransitionBusy(true);
 
     try {
-        const mapIsOpen = board.classList.contains('active') || getDrawerState(board) === DRAWER_STATE.OPENING;
-        if (mapIsOpen) {
-            await closeMapTableInternal();
-            return;
+        if (pinBoard.classList.contains('active') && typeof togglePinboard === 'function') {
+            togglePinboard(true);
         }
 
-        const pinboardIsOpen = pinBoard.classList.contains('active') || getDrawerState(pinBoard) === DRAWER_STATE.OPENING;
-        if (pinboardIsOpen && typeof togglePinboard === 'function') {
-            await togglePinboard(true);
-        }
+        board.classList.toggle('active');
+        document.body.classList.toggle('maptable-open');
+        setDrawerState(board, board.classList.contains('active') ? DRAWER_STATE.OPEN : DRAWER_STATE.CLOSED);
+        if (typeof _closeFloatingMenus === 'function') _closeFloatingMenus();
 
-        await openMapTableInternal();
+        if (board.classList.contains('active')) {
+            const autoFs = shouldAutoStartMapFullscreen();
+            if (autoFs) {
+                enterMapFullscreenMode();
+            } else {
+                lockBodyScroll();
+            }
+            if (!map) initMapBase();
+
+            setTimeout(() => {
+                refreshMapTableLayout().catch((error) => {
+                    console.error('Map table refresh failed:', error);
+                });
+            }, 500);
+        } else {
+            unlockBodyScroll();
+            exitMapFullscreenMode();
+            if (typeof _closeFloatingMenus === 'function') _closeFloatingMenus();
+        }
     } catch (error) {
         console.error('Map table toggle failed:', error);
         unlockBodyScroll();
         exitMapFullscreenMode();
     } finally {
-        if (!force) setDrawerTransitionBusy(false);
+        if (!force) {
+            const releaseDelay = Math.max(120, getDrawerDurationMs() + 80);
+            setTimeout(() => setDrawerTransitionBusy(false), releaseDelay);
+        }
     }
 }
 
