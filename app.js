@@ -970,13 +970,13 @@ window.throttledRenderProfiles = function() {
     if (vpRenderPending) return;
     vpRenderPending = true;
     requestAnimationFrame(() => {
-        // PERFORMANCE: Nur das aktive Profil rendern, nicht beide gleichzeitig!
         const mapTable = document.getElementById('mapTableOverlay');
-        if (mapTable && mapTable.classList.contains('active')) {
-            if (typeof renderMapProfile === 'function') renderMapProfile();
-        } else {
-            if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
-        }
+        const mapTableOpen = !!(mapTable && mapTable.classList.contains('active'));
+
+        // Stabilitaet vor Micro-Optimierung: das Hauptprofil immer frisch halten,
+        // auch wenn Drawer-/Overlay-Zustaende kurzzeitig hinterherhaengen.
+        if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
+        if (mapTableOpen && typeof renderMapProfile === 'function') renderMapProfile();
         vpRenderPending = false;
     });
 };

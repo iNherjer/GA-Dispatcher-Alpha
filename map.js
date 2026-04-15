@@ -947,6 +947,7 @@ function resetMainRoute() {
 
 function renderMainRoute() {
     if (!map) initMapBase();
+    window.vpBgNeedsUpdate = true;
     routeMarkers.forEach(m => map.removeLayer(m));
     routeMarkers = [];
     clearRouteLegLabels();
@@ -1263,7 +1264,11 @@ function renderMainRoute() {
     });
 
     renderRouteLegLabels();
+    const hasMissionContext = !!currentMissionData;
     updateRoutePerformance(); updateMiniMap();
+    if (!hasMissionContext && routeWaypoints.length >= 2 && typeof triggerVerticalProfileUpdate === 'function') {
+        triggerVerticalProfileUpdate();
+    }
     if (typeof updateWeatherMarkerDodging === 'function') updateWeatherMarkerDodging();
 }
 

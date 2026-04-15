@@ -432,6 +432,7 @@ function triggerVerticalProfileUpdate() {
     if (window.vpFetchController) window.vpFetchController.abort();
     window.vpFetchController = new AbortController();
     const currentSignal = window.vpFetchController.signal;
+    window.vpBgNeedsUpdate = true;
 
     vpProfileFastTimeout = setTimeout(async () => {
         if (!routeWaypoints || routeWaypoints.length < 2) return;
@@ -454,6 +455,7 @@ function triggerVerticalProfileUpdate() {
         try {
             // 1. Höhendaten (Blockierend, da alles andere darauf aufbaut)
             vpElevationData = await fetchRouteElevation(routeWaypoints, currentSignal);
+            window.vpBgNeedsUpdate = true;
             
             window.vpElevationData = vpElevationData;
             
@@ -3270,8 +3272,9 @@ async function fetchHighResElevation() {
 }
 
 function renderMapProfile() {
-    // FIX: window.vpBgNeedsUpdate = true; ENTFERNT! 
-    // Der Background aktualisiert sich nur noch, wenn sich Panning oder die Y-Achse ändert!
+    // Sicherheitsnetz: explizite Render-Aufrufe sollen den statischen Layer
+    // immer neu zeichnen, damit Karten-Edits und Menü-Toggles sichtbar werden.
+    window.vpBgNeedsUpdate = true;
     if (!window.vpAnimFrameId) {
         window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
     }
