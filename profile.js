@@ -1759,17 +1759,20 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
     }
 
     function vpProxyIsCoolingDown(key, now = Date.now()) {
+        if (key === 'ga_worker') return false;
         const until = Number(vpMetarProxyBackoff.get(key) || 0);
         return until > now;
     }
 
     function vpProxyMarkFailed(key) {
         if (!key) return;
+        if (key === 'ga_worker') return;
         vpMetarProxyBackoff.set(key, Date.now() + VP_METAR_PROXY_FAIL_COOLDOWN_MS);
     }
 
     function vpProxyMarkOk(key) {
         if (!key) return;
+        if (key === 'ga_worker') return;
         vpMetarProxyBackoff.delete(key);
     }
 
@@ -1882,13 +1885,19 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
     const results = await Promise.all(promises);
     if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
-    // Stage-2 Cache-Aufbau: größere Zone (bis 150 NM) im Hintergrund nachziehen.
+    const hasAnyMetarResult = results.some(item => item && Array.isArray(item.arr) && item.arr.length > 0);
+
+    // Stage-2 Cache-Aufbau: größere Zone im Hintergrund nachziehen (sehr konservativ).
     try {
         const nowPrefetch = Date.now();
         const prefetchKey = `pf|${vpBuildElevationRouteKey(routePts, 2)}`;
         const lastPrefetchAt = Number(window.vpMetarPrefetchLastRunAt || 0);
         const lastPrefetchKey = String(window.vpMetarPrefetchLastKey || '');
-        if ((prefetchKey !== lastPrefetchKey) || ((nowPrefetch - lastPrefetchAt) > VP_METAR_PREFETCH_MIN_INTERVAL_MS)) {
+        if (
+            hasAnyMetarResult &&
+            vpMetarProxyBackoff.size === 0 &&
+            ((prefetchKey !== lastPrefetchKey) || ((nowPrefetch - lastPrefetchAt) > VP_METAR_PREFETCH_MIN_INTERVAL_MS))
+        ) {
             window.vpMetarPrefetchLastKey = prefetchKey;
             window.vpMetarPrefetchLastRunAt = nowPrefetch;
             const nearDefs = vpBuildPrefetchGridChunks(elevData, VP_METAR_PREFETCH_NEAR_NM);
@@ -1916,7 +1925,7 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
                         } finally {
                             vpMetarPrefetchInFlight.delete(d.key);
                         }
-                        await new Promise(r => setTimeout(r, 180));
+                        await new Promise(r => setTimeout(r, 500));
                     }
                     vpWeatherDebugEvent(`METAR prefetch near/far queued: near=${nearDefs.length} far=${prefetchDefs.length}`);
                 };
@@ -2039,12 +2048,12 @@ const VP_METAR_FAIL_COOLDOWN_SOFT_MS = 45 * 1000;
 const VP_METAR_CHUNK_CACHE_TTL_MS = 30 * 60 * 1000;
 const VP_METAR_CHUNK_EMPTY_TTL_MS = 2 * 60 * 1000;
 const VP_METAR_CHUNK_CACHE_MAX = 420;
-const VP_METAR_PROXY_FAIL_COOLDOWN_MS = 90 * 1000;
+const VP_METAR_PROXY_FAIL_COOLDOWN_MS = 30 * 1000;
 const VP_METAR_PREFETCH_NEAR_NM = 80;
 const VP_METAR_PREFETCH_FAR_NM = 150;
 const VP_METAR_PREFETCH_CELL_DEG = 1.6;
-const VP_METAR_PREFETCH_MAX_CHUNKS = 10;
-const VP_METAR_PREFETCH_MIN_INTERVAL_MS = 45 * 1000;
+const VP_METAR_PREFETCH_MAX_CHUNKS = 2;
+const VP_METAR_PREFETCH_MIN_INTERVAL_MS = 3 * 60 * 1000;
 const VP_OM_CACHE_STORAGE_KEY = 'ga_om_cache_v1';
 const VP_OM_CACHE_MAX_ENTRIES = 900;
 const VP_OM_COORD_STEP_BASE = 0.05;     // ~3 NM
