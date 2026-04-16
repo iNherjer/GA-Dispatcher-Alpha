@@ -72,6 +72,8 @@ const VP_OVERPASS_SERVERS = [
 const VP_OVERPASS_MIN_REQUERY_MS = 15 * 1000;
 const VP_OVERPASS_BASE_COOLDOWN_MS = 15 * 1000;
 const VP_OVERPASS_MAX_COOLDOWN_MS = 3 * 60 * 1000;
+const VP_OVERPASS_TILE_FAIL_BASE_MS = 45 * 1000;
+const VP_OVERPASS_TILE_FAIL_MAX_MS = 8 * 60 * 1000;
 const VP_OVERPASS_STATE_STORAGE_KEY = 'ga_overpass_state_v1';
 const VP_OBS_POOL_STORAGE_KEY = 'ga_obs_pool_v1';
 const VP_OBS_POOL_MAX_OBS = 12000;
@@ -101,6 +103,7 @@ let vpOverpassState = {
 window.vpOverpassInFlight = window.vpOverpassInFlight || new Map();
 window.vpOverpassRouteLastSuccess = window.vpOverpassRouteLastSuccess || {};
 window.vpOverpassGlobalInFlight = window.vpOverpassGlobalInFlight || null;
+window.vpOverpassTileBackoff = window.vpOverpassTileBackoff || new Map();
 let vpObsPoolHydrated = false;
 let vpObsPoolPersistTimer = null;
 let vpObsTileCoverageHydrated = false;
@@ -247,6 +250,45 @@ function vpGetOverpassCooldownRemainingMs(now = Date.now()) {
 
 function vpIsOverpassCoolingDown(now = Date.now()) {
     return vpGetOverpassCooldownRemainingMs(now) > 0;
+}
+
+function vpGetTileBackoffRemainingMs(tileKey, now = Date.now()) {
+    const m = window.vpOverpassTileBackoff && window.vpOverpassTileBackoff.get(tileKey);
+    if (!m) return 0;
+    const until = Number(m.until || 0);
+    return Math.max(0, until - now);
+}
+
+function vpIsTileBackoffActive(tileKey, now = Date.now()) {
+    return vpGetTileBackoffRemainingMs(tileKey, now) > 0;
+}
+
+function vpMarkTileBackoff(tileKey) {
+    if (typeof tileKey !== 'string' || !tileKey) return 0;
+    if (!window.vpOverpassTileBackoff) window.vpOverpassTileBackoff = new Map();
+    const now = Date.now();
+    const prev = window.vpOverpassTileBackoff.get(tileKey);
+    const tries = Math.min(8, Number((prev && prev.tries) || 0) + 1);
+    const ms = Math.min(VP_OVERPASS_TILE_FAIL_MAX_MS, Math.round(VP_OVERPASS_TILE_FAIL_BASE_MS * Math.pow(1.7, Math.max(0, tries - 1))));
+    const jitter = Math.round((Math.random() - 0.5) * 0.16 * ms);
+    const until = now + Math.max(15 * 1000, ms + jitter);
+    window.vpOverpassTileBackoff.set(tileKey, { tries, until });
+    return Math.max(0, until - now);
+}
+
+function vpClearTileBackoff(tileKey) {
+    if (!window.vpOverpassTileBackoff) return;
+    window.vpOverpassTileBackoff.delete(tileKey);
+}
+
+function vpMinTileBackoffRemainingMs(tileKeys, now = Date.now()) {
+    let min = Infinity;
+    if (!Array.isArray(tileKeys)) return 0;
+    for (const key of tileKeys) {
+        const rem = vpGetTileBackoffRemainingMs(key, now);
+        if (rem > 0 && rem < min) min = rem;
+    }
+    return Number.isFinite(min) ? min : 0;
 }
 
 function vpMarkOverpassSuccess() {
@@ -784,10 +826,8 @@ async function vpFetchOverpassTile(tileKey, signal, tileIndex = 0) {
                 }
                 if (res.status === 504) {
                     if (window.vpWeatherDebug) window.vpWeatherDebug.overpass504Count += 1;
-                    const retryAfter = Number(res.headers.get('retry-after') || 0);
-                    const cooldownMs = vpApplyOverpassBackoff(504, retryAfter);
-                    console.warn(`[Overpass] Tile ${tileKey}: 504. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
-                    return { ok: false, cooldown: true, status: 504, src: serverUrl };
+                    console.warn(`[Overpass] Tile ${tileKey}: 504 (tile-lokales Backoff).`);
+                    return { ok: false, cooldown: false, status: 504, src: serverUrl, tileBackoff: true };
                 }
                 if (!res.ok) {
                     retries--;
@@ -831,10 +871,14 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
     const probe = vpGetRouteTileCoverageProbe(elevData);
     const allKeys = Array.from(vpCollectRouteTileKeys(elevData));
     const toLoadAll = forceNetwork ? allKeys : probe.missing.slice();
+    const nowTs = Date.now();
+    const readyKeys = toLoadAll.filter(k => forceNetwork || !vpIsTileBackoffActive(k, nowTs));
+    const blockedKeys = toLoadAll.filter(k => !readyKeys.includes(k));
     const maxPerPass = forceNetwork ? VP_OBS_TILE_MAX_PER_PASS_FORCE : VP_OBS_TILE_MAX_PER_PASS;
-    const toLoad = toLoadAll.slice(0, Math.max(1, maxPerPass));
-    const deferredTileKeys = toLoadAll.slice(toLoad.length);
-    const interDelayMs = toLoadAll.length > maxPerPass ? VP_OBS_TILE_INTER_REQUEST_LONG_MS : VP_OBS_TILE_INTER_REQUEST_MS;
+    const toLoad = readyKeys.slice(0, Math.max(1, maxPerPass));
+    const deferredTileKeys = readyKeys.slice(toLoad.length).concat(blockedKeys);
+    const interDelayMs = readyKeys.length > maxPerPass ? VP_OBS_TILE_INTER_REQUEST_LONG_MS : VP_OBS_TILE_INTER_REQUEST_MS;
+    const nextTileRetryMs = vpMinTileBackoffRemainingMs(blockedKeys, nowTs);
     if (window.vpWeatherDebug) {
         window.vpWeatherDebug.overpassLastDeferredCount = deferredTileKeys.length;
         if (deferredTileKeys.length > 0) {
@@ -848,7 +892,7 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
     }
     if (!toLoad.length) {
         const seeded = vpProjectObsPoolToRoute(elevData);
-        return { obs: seeded.obs || [], lin: seeded.lin || [], source: 'tile-cache', loadedTileKeys: [], failedTileKeys: [], deferredTileKeys: [] };
+        return { obs: seeded.obs || [], lin: seeded.lin || [], source: 'tile-cache', loadedTileKeys: [], failedTileKeys: [], deferredTileKeys: deferredTileKeys || [], nextTileRetryMs };
     }
 
     console.log(`[Overpass] Tile-Modus: ${toLoad.length}/${toLoadAll.length} jetzt laden, ${deferredTileKeys.length} defer${routeCacheKey ? ` [${routeCacheKey.slice(0, 24)}]` : ''}.`);
@@ -869,6 +913,10 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
         const res = await vpFetchOverpassTile(tileKey, signal, i);
         if (!res || !res.ok) {
             vpMarkTileFailed(tileKey, Number((res && res.status) || 0), String((res && res.src) || ''));
+            if (res && res.tileBackoff) {
+                const waitMs = vpMarkTileBackoff(tileKey);
+                console.warn(`[Overpass] Tile ${tileKey} pausiert für ${(waitMs / 1000).toFixed(0)}s.`);
+            }
             if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
             failedTileKeys.push(tileKey);
             if (res && res.cooldown) {
@@ -880,6 +928,7 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
         }
 
         vpClearTileFailed(tileKey);
+        vpClearTileBackoff(tileKey);
         if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
         if (res.src) usedServers.add(res.src);
         if (res.features) vpRememberObstacleData(res.features.obs || [], res.features.lin || []);
@@ -918,7 +967,8 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
         source: sourceLabel,
         loadedTileKeys,
         failedTileKeys,
-        deferredTileKeys
+        deferredTileKeys,
+        nextTileRetryMs
     };
 }
 
@@ -1176,6 +1226,10 @@ function triggerVerticalProfileUpdate() {
                                 window._lastObsRouteKey = cacheKey;
                             } catch(e) {}
                             if (!forceOverpassReload && result && Array.isArray(result.deferredTileKeys) && result.deferredTileKeys.length > 0) {
+                                const deferredWait = Math.max(
+                                    VP_OBS_TILE_DEFERRED_RETRY_MS,
+                                    Number(result.nextTileRetryMs || 0) + 800
+                                );
                                 if (window._vpOverpassDeferredRefreshTimer) clearTimeout(window._vpOverpassDeferredRefreshTimer);
                                 window._vpOverpassDeferredRefreshTimer = setTimeout(() => {
                                     window._vpOverpassDeferredRefreshTimer = null;
@@ -1183,7 +1237,7 @@ function triggerVerticalProfileUpdate() {
                                     if (window._lastVpRouteKey !== cacheKey) return;
                                     if (vpIsOverpassCoolingDown()) return;
                                     if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
-                                }, VP_OBS_TILE_DEFERRED_RETRY_MS);
+                                }, deferredWait);
                             }
                             if (!forceOverpassReload && result && Array.isArray(result.failedTileKeys) && result.failedTileKeys.length > 0) {
                                 const retryMs = Math.max(VP_OBS_TILE_DEFERRED_RETRY_MS, vpGetOverpassCooldownRemainingMs() + 1200);
