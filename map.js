@@ -2866,7 +2866,9 @@ function filterWeatherPointsByActiveDomain(points) {
         }
         return false;
     });
-    return filtered;
+    // Wenn durch Domain-Filter zu stark ausgedünnt wird, auf das Viewport-Raster zurückfallen.
+    if (filtered.length >= 8) return filtered;
+    return points;
 }
 
 function getMapWeatherGridPoints(cols = 8, rows = 6) {
@@ -2932,7 +2934,10 @@ window.scheduleMapWeatherOverlayUpdate = function(forceFetch = false) {
 window.renderMapWeatherOverlays = async function(forceFetch = false) {
     if (!map) return;
     const fbMode = String(window.vpWeatherFallbackMode || 'none');
-    const openMeteoSourceSelected = (window.vpWeatherSource === 'openmeteo' && fbMode !== 'openmeteo_to_metar');
+    const openMeteoSourceSelected = (
+        (window.vpWeatherSource === 'openmeteo' && fbMode !== 'openmeteo_to_metar')
+        || fbMode === 'metar_to_openmeteo'
+    );
     if (!openMeteoSourceSelected) {
         clearMapOpenMeteoOverlays();
         return;
@@ -3088,7 +3093,10 @@ window.renderWeatherMarkers = function() {
     wxMapMarkers = [];
 
     const fbMode = String(window.vpWeatherFallbackMode || 'none');
-    const openMeteoSourceSelected = (window.vpWeatherSource === 'openmeteo' && fbMode !== 'openmeteo_to_metar');
+    const openMeteoSourceSelected = (
+        (window.vpWeatherSource === 'openmeteo' && fbMode !== 'openmeteo_to_metar')
+        || fbMode === 'metar_to_openmeteo'
+    );
     if (openMeteoSourceSelected) {
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         return;
@@ -3097,7 +3105,7 @@ window.renderWeatherMarkers = function() {
     if (!window.vpShowMapMetar) return;
     if (typeof vpWeatherData === 'undefined' || !vpWeatherData || vpWeatherData.length === 0) return;
     const sourceNow = window.vpWeatherSource || 'metar';
-    const metarDisplayMode = sourceNow === 'metar' || fbMode === 'openmeteo_to_metar';
+    const metarDisplayMode = (sourceNow === 'metar' && fbMode !== 'metar_to_openmeteo') || fbMode === 'openmeteo_to_metar';
 
     let seenIcao = new Set();
 
@@ -3131,15 +3139,18 @@ window.renderWeatherMarkers = function() {
         }
 
         const html = `
-            <div class="wx-marker-wrap" style="position:relative; transition: transform 0.2s ease-out; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                <div style="background: rgba(10,10,10,0.85); border: 2px solid ${catColor}; border-radius: 4px; padding: 2px 5px; color: ${catColor}; font-family: monospace; font-size: 11px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); position:relative; z-index:2;">
-                    <span style="color:#fff; margin-right:4px;">${zone.icao}</span> ${catText}
+            <div class="wx-marker-wrap" style="position:relative; transition: transform 0.2s ease-out; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: visible;">
+                <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
+                    <div style="position:absolute; left:50%; top:50%; width:130%; height:130%; transform:translate(-50%,-50%); border-radius:999px; z-index:1; pointer-events:none; background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.24) 0%, rgba(180,195,215,0.18) 38%, rgba(95,120,150,0.12) 68%, rgba(40,55,75,0.04) 100%); box-shadow: 0 1px 8px rgba(0,0,0,0.20), inset 0 0 10px rgba(255,255,255,0.12);"></div>
+                    <div style="background: rgba(10,10,10,0.85); border: 2px solid ${catColor}; border-radius: 4px; padding: 2px 5px; color: ${catColor}; font-family: monospace; font-size: 11px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); position:relative; z-index:2;">
+                        <span style="color:#fff; margin-right:4px;">${zone.icao}</span> ${catText}
+                    </div>
                 </div>
                 ${windHtml}
             </div>
         `;
 
-        const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [80, 45], iconAnchor: [40, 15] });
+        const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [90, 56], iconAnchor: [45, 20] });
         const stnPos = L.latLng(zLat, zLon);
         const stnPx = map.latLngToLayerPoint(stnPos);
         const angle = (markerIndex % 8) * (Math.PI / 4);
