@@ -2632,6 +2632,11 @@ let wxCloudFieldSvgSeq = 0;
 let wxOverlayFetchController = null;
 let wxOverlayFetchTimer = null;
 let wxOverlayLastKey = '';
+let wxOverlayLastFetchAt = 0;
+const WX_OVERLAY_MIN_INTERVAL_MS = 12 * 1000;
+const WX_OVERLAY_MIN_INTERVAL_FORCE_MS = 3 * 1000;
+const WX_WEATHER_DOMAIN_ROUTE_NM = 50;
+const WX_WEATHER_DOMAIN_GPS_NM = 50;
 
 window.resetMapWeatherVisualsForSourceSwitch = function() {
     try {
@@ -2795,6 +2800,15 @@ function normalizeLon180(lon) {
     return x;
 }
 
+function nmToLatDeg(nm) {
+    return Number(nm || 0) / 60;
+}
+
+function nmToLonDegAtLat(nm, latDeg) {
+    const cosLat = Math.max(0.2, Math.abs(Math.cos((Number(latDeg || 0) * Math.PI) / 180)));
+    return Number(nm || 0) / (60 * cosLat);
+}
+
 function buildRouteWeatherBounds() {
     if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return null;
     let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
@@ -2808,13 +2822,15 @@ function buildRouteWeatherBounds() {
         maxLon = Math.max(maxLon, lon);
     }
     if (!Number.isFinite(minLat) || !Number.isFinite(minLon)) return null;
-    const padDeg = 1.6; // ~95 NM
+    const midLat = (minLat + maxLat) * 0.5;
+    const padLatDeg = nmToLatDeg(WX_WEATHER_DOMAIN_ROUTE_NM);
+    const padLonDeg = nmToLonDegAtLat(WX_WEATHER_DOMAIN_ROUTE_NM, midLat);
     return {
-        minLat: Math.max(-89.5, minLat - padDeg),
-        maxLat: Math.min(89.5, maxLat + padDeg),
-        minLon: normalizeLon180(minLon - padDeg),
-        maxLon: normalizeLon180(maxLon + padDeg),
-        wrapsDateline: (minLon - padDeg) < -180 || (maxLon + padDeg) > 180
+        minLat: Math.max(-89.5, minLat - padLatDeg),
+        maxLat: Math.min(89.5, maxLat + padLatDeg),
+        minLon: normalizeLon180(minLon - padLonDeg),
+        maxLon: normalizeLon180(maxLon + padLonDeg),
+        wrapsDateline: (minLon - padLonDeg) < -180 || (maxLon + padLonDeg) > 180
     };
 }
 
@@ -2831,12 +2847,13 @@ function filterWeatherPointsByActiveDomain(points) {
     const routeBounds = buildRouteWeatherBounds();
     const gps = window.lastLiveGpsPos;
     const hasRecentGps = !!(gps && Number.isFinite(gps.lat) && Number.isFinite(gps.lon) && Number.isFinite(gps.t) && (Date.now() - gps.t < 15 * 60 * 1000));
-    const gpsRadiusDeg = 2.3; // ~140 NM
-    const gpsLatMin = hasRecentGps ? Math.max(-89.5, gps.lat - gpsRadiusDeg) : 0;
-    const gpsLatMax = hasRecentGps ? Math.min(89.5, gps.lat + gpsRadiusDeg) : 0;
-    const gpsLonMin = hasRecentGps ? normalizeLon180(gps.lon - gpsRadiusDeg) : 0;
-    const gpsLonMax = hasRecentGps ? normalizeLon180(gps.lon + gpsRadiusDeg) : 0;
-    const gpsWrap = hasRecentGps ? ((gps.lon - gpsRadiusDeg) < -180 || (gps.lon + gpsRadiusDeg) > 180) : false;
+    const gpsLatPad = hasRecentGps ? nmToLatDeg(WX_WEATHER_DOMAIN_GPS_NM) : 0;
+    const gpsLonPad = hasRecentGps ? nmToLonDegAtLat(WX_WEATHER_DOMAIN_GPS_NM, gps.lat) : 0;
+    const gpsLatMin = hasRecentGps ? Math.max(-89.5, gps.lat - gpsLatPad) : 0;
+    const gpsLatMax = hasRecentGps ? Math.min(89.5, gps.lat + gpsLatPad) : 0;
+    const gpsLonMin = hasRecentGps ? normalizeLon180(gps.lon - gpsLonPad) : 0;
+    const gpsLonMax = hasRecentGps ? normalizeLon180(gps.lon + gpsLonPad) : 0;
+    const gpsWrap = hasRecentGps ? ((gps.lon - gpsLonPad) < -180 || (gps.lon + gpsLonPad) > 180) : false;
 
     if (!routeBounds && !hasRecentGps) return points;
     const filtered = points.filter(p => {
@@ -2849,7 +2866,7 @@ function filterWeatherPointsByActiveDomain(points) {
         }
         return false;
     });
-    return filtered.length > 0 ? filtered : points;
+    return filtered;
 }
 
 function getMapWeatherGridPoints(cols = 8, rows = 6) {
@@ -2887,8 +2904,12 @@ function getMapWeatherGridPoints(cols = 8, rows = 6) {
         }
     }
     const filteredPts = filterWeatherPointsByActiveDomain(pts);
+    const maxPoints = 48;
+    const reducedPts = filteredPts.length > maxPoints
+        ? filteredPts.filter((_, idx) => (idx % Math.ceil(filteredPts.length / maxPoints)) === 0).slice(0, maxPoints)
+        : filteredPts;
     return {
-        points: filteredPts,
+        points: reducedPts,
         key: [
             latStep.toFixed(3),
             lonStep.toFixed(3),
@@ -2896,7 +2917,7 @@ function getMapWeatherGridPoints(cols = 8, rows = 6) {
             latEnd.toFixed(3),
             lonStart.toFixed(3),
             lonEnd.toFixed(3),
-            filteredPts.length
+            reducedPts.length
         ].join('|')
     };
 }
@@ -2905,7 +2926,7 @@ window.scheduleMapWeatherOverlayUpdate = function(forceFetch = false) {
     if (wxOverlayFetchTimer) clearTimeout(wxOverlayFetchTimer);
     wxOverlayFetchTimer = setTimeout(() => {
         if (typeof window.renderMapWeatherOverlays === 'function') window.renderMapWeatherOverlays(forceFetch);
-    }, forceFetch ? 80 : 260);
+    }, forceFetch ? 180 : 900);
 };
 
 window.renderMapWeatherOverlays = async function(forceFetch = false) {
@@ -2927,12 +2948,20 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
         return;
     }
     if (typeof window.fetchOpenMeteoWeatherPoints !== 'function') return;
+    if (typeof window.vpIsOpenMeteoCoolingDown === 'function' && window.vpIsOpenMeteoCoolingDown()) return;
 
     const grid = getMapWeatherGridPoints(8, 6);
     const points = grid.points;
-    if (!points.length) return;
+    if (!points.length) {
+        clearMapOpenMeteoOverlays();
+        return;
+    }
     const gridKey = `${grid.key}|${showWind ? 1 : 0}|${showCloud ? 1 : 0}`;
     if (!forceFetch && gridKey === wxOverlayLastKey) return;
+    const now = Date.now();
+    const minInterval = forceFetch ? WX_OVERLAY_MIN_INTERVAL_FORCE_MS : WX_OVERLAY_MIN_INTERVAL_MS;
+    if (!forceFetch && (now - wxOverlayLastFetchAt) < minInterval) return;
+    if (forceFetch && (now - wxOverlayLastFetchAt) < WX_OVERLAY_MIN_INTERVAL_FORCE_MS) return;
     wxOverlayLastKey = gridKey;
 
     if (wxOverlayFetchController) wxOverlayFetchController.abort();
@@ -2943,6 +2972,7 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
         if (window.vpWeatherDebug) window.vpWeatherDebug.mapOverlayFetches += 1;
         const samples = await window.fetchOpenMeteoWeatherPoints(points, { signal, includePressure: false, maxConcurrency: 4 });
         if (signal.aborted) return;
+        wxOverlayLastFetchAt = Date.now();
 
         clearMapOpenMeteoOverlays();
         const z = map.getZoom ? map.getZoom() : 8;

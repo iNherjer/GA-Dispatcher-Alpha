@@ -35,6 +35,17 @@ Wenn `--env production` Fehler über `.../workers/services/.../environments/prod
 
 Hinweis:
 - Der Worker nutzt `env.GA_SYNC_KV`; dafür muss ein KV-Binding `GA_SYNC_KV` im Worker vorhanden sein.
+- Ohne dieses Binding liefert `/api/sync/*` einen `503` mit Hinweistext.
+
+## Pflicht-Binding für Sync
+
+In `wrangler.toml` ergänzen (mit echter Namespace-ID):
+
+```toml
+[[kv_namespaces]]
+binding = "GA_SYNC_KV"
+id = "<DEINE_KV_NAMESPACE_ID>"
+```
 
 ## Integration im bestehenden Worker
 

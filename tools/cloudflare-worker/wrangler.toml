@@ -11,6 +11,6 @@ OBSTACLE_TILES_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-
 # Wichtig:
 # - GA_SYNC_KV muss als KV Binding vorhanden sein (Dashboard oder wrangler.toml).
 # - Beispiel (falls ihr die ID habt):
-# [[kv_namespaces]]
-# binding = "GA_SYNC_KV"
-# id = "<KV_NAMESPACE_ID>"
+[[kv_namespaces]]
+binding = "GA_SYNC_KV"
+id = "359fbc81dd0548bbba7e27eba4e513c5"

@@ -34,6 +34,10 @@ function json(data, status = 200, extraHeaders = {}) {
   });
 }
 
+function hasSyncKvBinding(env) {
+  return !!(env && env.GA_SYNC_KV && typeof env.GA_SYNC_KV.get === "function" && typeof env.GA_SYNC_KV.put === "function");
+}
+
 function normalizeTileKey(raw) {
   const v = String(raw || "").trim();
   if (!/^-?\d+\|-?\d+$/.test(v)) return null;
@@ -430,6 +434,11 @@ export default {
     // 1. CLOUD-SYNC (MIT STRIKTER PIN-PRÜFUNG)
     // ==========================================
     if (requestUrl.pathname.startsWith("/api/sync/")) {
+      if (!hasSyncKvBinding(env)) {
+        return json({
+          error: "Sync KV binding missing (GA_SYNC_KV). Add KV binding in worker settings or wrangler.toml."
+        }, 503);
+      }
       const pathParts = requestUrl.pathname.split("/").filter(Boolean);
       const pilotId = pathParts[2];
 
@@ -438,7 +447,12 @@ export default {
       }
 
       if (request.method === "GET") {
-        const rawData = await env.GA_SYNC_KV.get(pilotId);
+        let rawData = null;
+        try {
+          rawData = await env.GA_SYNC_KV.get(pilotId);
+        } catch (error) {
+          return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+        }
         if (!rawData) {
           return json({ error: "Leer oder abgelaufen" }, 404);
         }
@@ -465,7 +479,12 @@ export default {
 
         try {
           const incomingData = JSON.parse(rawBody);
-          const existingRaw = await env.GA_SYNC_KV.get(pilotId);
+          let existingRaw = null;
+          try {
+            existingRaw = await env.GA_SYNC_KV.get(pilotId);
+          } catch (error) {
+            return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+          }
 
           if (existingRaw) {
             const existingData = JSON.parse(existingRaw);
@@ -474,7 +493,11 @@ export default {
             }
           }
 
-          await env.GA_SYNC_KV.put(pilotId, rawBody, { expirationTtl: 31536000 });
+          try {
+            await env.GA_SYNC_KV.put(pilotId, rawBody, { expirationTtl: 31536000 });
+          } catch (error) {
+            return json({ error: "KV-Write fehlgeschlagen", message: String(error?.message || error) }, 502);
+          }
           return json({ success: true }, 200);
         } catch {
           return json({ error: "Ungültiges JSON beim Speichern" }, 400);
