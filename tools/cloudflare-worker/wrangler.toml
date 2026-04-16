@@ -1,0 +1,16 @@
+name = "ga-proxy"
+main = "worker-merged-full.js"
+compatibility_date = "2026-04-16"
+
+# Verhindert einige "services/environments"-Fallstricke bei gemischten Legacy-Setups.
+legacy_env = true
+
+[vars]
+OBSTACLE_TILES_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles"
+
+# Wichtig:
+# - GA_SYNC_KV muss als KV Binding vorhanden sein (Dashboard oder wrangler.toml).
+# - Beispiel (falls ihr die ID habt):
+# [[kv_namespaces]]
+# binding = "GA_SYNC_KV"
+# id = "<KV_NAMESPACE_ID>"

@@ -1,0 +1,10 @@
+{
+  "name": "ga-proxy-aip-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node aip-chart-worker.test.mjs",
+    "deploy": "wrangler deploy",
+    "deploy:prod": "wrangler deploy --env production"
+  }
+}

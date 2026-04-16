@@ -91,6 +91,12 @@ const VP_OBS_TILE_MAX_PER_PASS = 1;
 const VP_OBS_TILE_MAX_PER_PASS_FORCE = 2;
 const VP_OBS_TILE_INTER_REQUEST_LONG_MS = 4200;
 const VP_OBS_TILE_DEFERRED_RETRY_MS = 5000;
+const VP_OBS_HOSTED_ENABLED = localStorage.getItem('ga_obs_hosted_enabled') !== 'false';
+const VP_OBS_HOSTED_MISS_TTL_MS = 30 * 60 * 1000;
+const VP_OBS_HOSTED_TIMEOUT_MS = 2200;
+const VP_OBS_HOSTED_ENDPOINTS = [
+    'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
+];
 const VP_PROFILE_FPS_IDLE = 10;
 const VP_PROFILE_FPS_ACTIVE = 22;
 const VP_PROFILE_FPS_INTERACT = 30;
@@ -120,6 +126,7 @@ const vpObsPool = {
 };
 const vpObsTileCoverage = new Map();
 const vpObsTileFailed = new Map();
+const vpObsHostedMissCache = new Map();
 window.vpObsTileConfig = {
     storageKey: VP_OBS_TILE_COVERAGE_KEY,
     stepLat: VP_OBS_TILE_STEP_LAT,
@@ -798,6 +805,129 @@ function vpExtractOverpassTileFeatures(elements) {
     return { obs, lin };
 }
 
+function vpParseHostedObstaclePayload(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    if (Array.isArray(payload.elements)) return vpExtractOverpassTileFeatures(payload.elements);
+    const obsIn = Array.isArray(payload.obs) ? payload.obs : (Array.isArray(payload.features && payload.features.obs) ? payload.features.obs : []);
+    const linIn = Array.isArray(payload.lin) ? payload.lin : (Array.isArray(payload.features && payload.features.lin) ? payload.features.lin : []);
+    const obs = [];
+    const lin = [];
+    for (const e of obsIn) {
+        const lat = Number(e && e.lat);
+        const lon = Number(e && e.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        const hFt = Math.max(0, Math.round(Number(e.hFt || 0)));
+        obs.push({
+            type: String(e.type || 'mast'),
+            hFt,
+            elevFt: Math.max(0, Math.round(Number(e.elevFt || 0))),
+            lat,
+            lon
+        });
+    }
+    for (const e of linIn) {
+        const lat = Number(e && e.lat);
+        const lon = Number(e && e.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        lin.push({
+            type: String(e.type || 'linear'),
+            name: String(e.name || ''),
+            lat,
+            lon
+        });
+    }
+    return { obs, lin };
+}
+
+function vpGetHostedMissRemainingMs(tileKey, now = Date.now()) {
+    const entry = vpObsHostedMissCache.get(tileKey);
+    if (!entry) return 0;
+    return Math.max(0, Number(entry.until || 0) - now);
+}
+
+function vpMarkHostedMiss(tileKey, status = 0, ttlMs = VP_OBS_HOSTED_MISS_TTL_MS) {
+    if (!tileKey) return;
+    const jitter = Math.floor(Math.random() * 2000);
+    vpObsHostedMissCache.set(tileKey, {
+        status: Number(status || 0),
+        until: Date.now() + Math.max(60 * 1000, ttlMs) + jitter
+    });
+}
+
+function vpClearHostedMiss(tileKey) {
+    if (!tileKey) return;
+    vpObsHostedMissCache.delete(tileKey);
+}
+
+async function vpFetchHostedObstacleTile(tileKey, signal) {
+    if (!VP_OBS_HOSTED_ENABLED) return { ok: false, status: 0, src: '', hostedSkipped: true };
+    if (vpGetHostedMissRemainingMs(tileKey) > 0) return { ok: false, status: 0, src: 'hosted-miss-cache', hostedSkipped: true };
+    const b = vpObsTileBoundsFromKey(tileKey);
+    if (!b) return { ok: false, status: 0, src: '' };
+    const [latI, lonI] = String(tileKey).split('|').map(Number);
+    const dbg = window.vpWeatherDebug;
+    const endpoints = VP_OBS_HOSTED_ENDPOINTS.slice();
+    const timeoutMs = VP_OBS_HOSTED_TIMEOUT_MS;
+
+    for (const endpoint of endpoints) {
+        if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+        let ctrl = null;
+        let timer = null;
+        let onAbort = null;
+        try {
+            ctrl = new AbortController();
+            if (signal) {
+                onAbort = () => ctrl.abort();
+                if (signal.aborted) ctrl.abort();
+                else signal.addEventListener('abort', onAbort, { once: true });
+            }
+            timer = setTimeout(() => ctrl.abort(), timeoutMs);
+            const url = `${endpoint}?tile=${encodeURIComponent(tileKey)}&lat_i=${encodeURIComponent(String(latI))}&lon_i=${encodeURIComponent(String(lonI))}&south=${encodeURIComponent(b.south.toFixed(5))}&west=${encodeURIComponent(b.west.toFixed(5))}&north=${encodeURIComponent(b.north.toFixed(5))}&east=${encodeURIComponent(b.east.toFixed(5))}&v=1`;
+            if (dbg) dbg.hostedTileRequests = Number(dbg.hostedTileRequests || 0) + 1;
+            const res = await fetch(url, { signal: ctrl.signal });
+            if (res.status === 404 || res.status === 204) {
+                if (dbg) dbg.hostedTileMisses = Number(dbg.hostedTileMisses || 0) + 1;
+                vpMarkHostedMiss(tileKey, res.status);
+                return { ok: false, status: res.status, src: endpoint, hostedMiss: true };
+            }
+            if (!res.ok) {
+                if (res.status === 400 || res.status === 403) vpMarkHostedMiss(tileKey, res.status, 5 * 60 * 1000);
+                if (dbg) dbg.hostedTileErrors = Number(dbg.hostedTileErrors || 0) + 1;
+                continue;
+            }
+            const payload = await res.json();
+            const features = vpParseHostedObstaclePayload(payload);
+            if (!features) {
+                if (dbg) dbg.hostedTileErrors = Number(dbg.hostedTileErrors || 0) + 1;
+                continue;
+            }
+            vpClearHostedMiss(tileKey);
+            if (dbg) dbg.hostedTileHits = Number(dbg.hostedTileHits || 0) + 1;
+            let src = endpoint;
+            try { src = new URL(endpoint).host + ':hosted'; } catch (_) {}
+            return { ok: true, features, src, hosted: true };
+        } catch (e) {
+            if (e && e.name === 'AbortError') {
+                if (signal && signal.aborted) throw e;
+            }
+            if (dbg) dbg.hostedTileErrors = Number(dbg.hostedTileErrors || 0) + 1;
+        } finally {
+            if (timer) clearTimeout(timer);
+            if (signal && onAbort) signal.removeEventListener('abort', onAbort);
+        }
+    }
+    return { ok: false, status: 0, src: '', hostedMiss: false };
+}
+
+async function vpFetchObstacleTile(tileKey, signal, tileIndex = 0, options = {}) {
+    const preferOverpass = !!(options && options.preferOverpass);
+    if (!preferOverpass) {
+        const hosted = await vpFetchHostedObstacleTile(tileKey, signal);
+        if (hosted && hosted.ok) return hosted;
+    }
+    return await vpFetchOverpassTile(tileKey, signal, tileIndex);
+}
+
 async function vpFetchOverpassTile(tileKey, signal, tileIndex = 0) {
     const b = vpObsTileBoundsFromKey(tileKey);
     if (!b) return { ok: false, cooldown: false };
@@ -914,7 +1044,7 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
         }
 
         const tileKey = toLoad[i];
-        const res = await vpFetchOverpassTile(tileKey, signal, i);
+        const res = await vpFetchObstacleTile(tileKey, signal, i, { preferOverpass: !!forceNetwork });
         if (!res || !res.ok) {
             vpMarkTileFailed(tileKey, Number((res && res.status) || 0), String((res && res.src) || ''));
             if (res && res.tileBackoff) {
@@ -995,7 +1125,7 @@ async function fetchGpsObstacles(lat, lon) {
     if (!vpIsOverpassCoolingDown() && missing.length > 0) {
         for (let i = 0; i < missing.length; i++) {
             try {
-                const res = await vpFetchOverpassTile(missing[i], null, i);
+                const res = await vpFetchObstacleTile(missing[i], null, i, { preferOverpass: false });
                 if (res && res.ok) {
                     vpClearTileFailed(missing[i]);
                     vpRememberObstacleData(res.features?.obs || [], res.features?.lin || []);
@@ -1653,6 +1783,10 @@ window.vpWeatherDebug = window.vpWeatherDebug || {
     overpassCooldownSkips: 0,
     overpassRouteThrottleSkips: 0,
     overpassInFlightJoins: 0,
+    hostedTileRequests: 0,
+    hostedTileHits: 0,
+    hostedTileMisses: 0,
+    hostedTileErrors: 0,
     overpassTileCoverageHits: 0,
     overpassTileCoverageMisses: 0,
     overpassTileCoverageEntries: 0,
@@ -2038,6 +2172,7 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push('');
     lines.push('Overpass Verbrauch');
     lines.push(`- Requests (Session): ${dbg.overpassRequests || 0}`);
+    lines.push(`- Hosted Tile Req/Hits/Miss/Err: ${dbg.hostedTileRequests || 0}/${dbg.hostedTileHits || 0}/${dbg.hostedTileMisses || 0}/${dbg.hostedTileErrors || 0}`);
     lines.push(`- Overpass 429/504: ${dbg.overpass429Count || 0}/${dbg.overpass504Count || 0}`);
     lines.push(`- Cooldown-Skips: ${dbg.overpassCooldownSkips || 0}`);
     lines.push(`- Route-Guard-Skips: ${dbg.overpassRouteThrottleSkips || 0}`);
@@ -6345,7 +6480,7 @@ window.retryFailedOverpassChunks = async function() {
     const failedAgain = [];
     for (let i = 0; i < tileKeys.length; i++) {
         const tileKey = tileKeys[i];
-        const res = await vpFetchOverpassTile(tileKey, null, i);
+        const res = await vpFetchObstacleTile(tileKey, null, i, { preferOverpass: true });
         if (res && res.ok) {
             vpRememberObstacleData(res.features?.obs || [], res.features?.lin || []);
             vpMarkTileKeysCovered([tileKey], res.src || 'overpass-retry');
