@@ -2014,6 +2014,23 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
             const hasRain = /\b(-|\+)?(RA|DZ|SH|SHRA)\b/i.test(raw);
             const hasSnow = /\b(-|\+)?(SN|SG|PL|SHSN)\b/i.test(raw);
             const hasTS = /\b(-|\+)?(TS|TSRA|CB)\b/i.test(raw);
+            const mslPressureRaw = Number(closestMetar.mslp ?? closestMetar.slp ?? closestMetar.altim);
+            const mslPressureHpa = (Number.isFinite(mslPressureRaw) && mslPressureRaw >= 850 && mslPressureRaw <= 1100)
+                ? mslPressureRaw
+                : null;
+            const pressureProfile = [];
+            if (Number.isFinite(mslPressureHpa)) {
+                const pressureAnomalyFt = (mslPressureHpa - VP_STD_MSL_PRESSURE_HPA) * 27;
+                const base1000 = Number(VP_OM_LEVEL_DEFAULT_FT[1000] || 360);
+                const wkt = Number(closestMetar.wspd);
+                const wdir = Number(closestMetar.wdir);
+                pressureProfile.push({
+                    hPa: 1000,
+                    geopotentialFt: base1000 + pressureAnomalyFt,
+                    windKt: Number.isFinite(wkt) ? wkt : null,
+                    windDirDeg: Number.isFinite(wdir) ? wdir : null
+                });
+            }
             
             const visuals = { puffs: [], drops: [], flashes: [] };
             if (clouds.length > 0) {
@@ -2035,7 +2052,10 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
                 fltCat: closestMetar.fltcat || closestMetar.fltCat || "VFR",
                 raw: raw,
                 wdir: closestMetar.wdir, 
-                wspd: closestMetar.wspd
+                wspd: closestMetar.wspd,
+                mslPressureHpa: mslPressureHpa,
+                pressureProfile: pressureProfile,
+                wxSource: 'metar'
             });
         }
     }
@@ -3087,7 +3107,8 @@ async function fetchRouteWeatherOpenMeteo(routePts, elevData, signal) {
             wdir: Math.round(sample.wdir || 0),
             wspd: Math.round(sample.wspd || 0),
             mslPressureHpa: sample.mslPressureHpa,
-            pressureProfile: pressureProfile
+            pressureProfile: pressureProfile,
+            wxSource: 'openmeteo'
         });
     }
 
@@ -4354,8 +4375,11 @@ function vpMapIsobarDisplayFt(level, rawFt, reliefStats) {
 }
 
 function vpDrawIsobars(ctx, xOf, yOf, padTop, plotH, viewMinX, viewMaxX, rightX) {
-    if (!vpShowIsobars || !vpIsOpenMeteoDisplayActive() || !vpWeatherData || vpWeatherData.length < 2) return;
-    const levels = VP_OM_PRESSURE_LEVELS;
+    if (!vpShowIsobars || !vpWeatherData || vpWeatherData.length < 2) return;
+    const hasPressureData = vpWeatherData.some(z => Array.isArray(z.pressureProfile) && z.pressureProfile.length > 0);
+    if (!hasPressureData) return;
+    const hasOpenMeteoProfiles = vpWeatherData.some(z => z && z.wxSource === 'openmeteo');
+    const levels = hasOpenMeteoProfiles ? VP_OM_PRESSURE_LEVELS : [1000];
     const reliefStats = vpBuildIsobarReliefStats();
     ctx.save();
     ctx.setLineDash([3, 3]);
@@ -4405,15 +4429,17 @@ function vpDrawIsobars(ctx, xOf, yOf, padTop, plotH, viewMinX, viewMaxX, rightX)
         }
         usedLabelYs.push(ly);
         ctx.fillStyle = 'rgba(180,205,235,0.82)';
-        ctx.fillText(`${level} hPa`, rightX, ly);
+        const label = (!hasOpenMeteoProfiles && level === 1000) ? 'QNH' : `${level} hPa`;
+        ctx.fillText(label, rightX, ly);
     }
 
     ctx.restore();
 }
 
 function vpDrawWindComponentsOnIsobars(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, padTop, plotH) {
-    if (!vpShowWindComponents || !vpIsOpenMeteoDisplayActive() || !vpWeatherData || vpWeatherData.length === 0) return;
-    const levels = VP_OM_PRESSURE_LEVELS;
+    if (!vpShowWindComponents || !vpWeatherData || vpWeatherData.length === 0) return;
+    const hasOpenMeteoProfiles = vpWeatherData.some(z => z && z.wxSource === 'openmeteo');
+    const levels = hasOpenMeteoProfiles ? VP_OM_PRESSURE_LEVELS : [1000];
     const reliefStats = vpBuildIsobarReliefStats();
     ctx.save();
     ctx.font = 'bold 8px Arial';

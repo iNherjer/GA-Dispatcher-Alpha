@@ -3106,6 +3106,10 @@ window.renderWeatherMarkers = function() {
     if (typeof vpWeatherData === 'undefined' || !vpWeatherData || vpWeatherData.length === 0) return;
     const sourceNow = window.vpWeatherSource || 'metar';
     const metarDisplayMode = (sourceNow === 'metar' && fbMode !== 'metar_to_openmeteo') || fbMode === 'openmeteo_to_metar';
+    const cloudsToggleEnabled = (typeof localStorage !== 'undefined')
+        ? (localStorage.getItem('ga_show_clouds') !== 'false')
+        : true;
+    const cloudDiscEnabled = (window.mapHints && window.mapHints.cloudFields !== false) && cloudsToggleEnabled;
 
     let seenIcao = new Set();
 
@@ -3160,17 +3164,24 @@ window.renderWeatherMarkers = function() {
         const lowA = (0.10 + (lowCloud / 100) * 0.42).toFixed(3);
         const midA = (0.10 + (midCloud / 100) * 0.42).toFixed(3);
         const highA = (0.10 + (highCloud / 100) * 0.42).toFixed(3);
-        const cloudDiscBg = `conic-gradient(
-            from -90deg,
-            rgba(116,136,160,${highA}) 0deg 120deg,
-            rgba(138,160,184,${midA}) 120deg 240deg,
-            rgba(166,186,208,${lowA}) 240deg 360deg
+        const cloudDiscBg = `linear-gradient(to bottom,
+            rgba(124,144,168,${highA}) 0%,
+            rgba(124,144,168,${highA}) 33.333%,
+            rgba(146,168,192,${midA}) 33.333%,
+            rgba(146,168,192,${midA}) 66.666%,
+            rgba(172,192,214,${lowA}) 66.666%,
+            rgba(172,192,214,${lowA}) 100%
         )`;
+        const cloudDiscHtml = cloudDiscEnabled ? `
+                    <div style="position:absolute; left:50%; top:50%; width:120%; aspect-ratio:1 / 1; height:auto; transform:translate(-50%,-50%); border-radius:999px; z-index:1; pointer-events:none; overflow:hidden; background:${cloudDiscBg}; box-shadow: 0 0 0 1px rgba(216,229,242,0.52), 0 3px 12px rgba(12,18,26,0.30), inset 0 0 8px rgba(255,255,255,0.22);">
+                        <div style="position:absolute; inset:0; border-radius:999px; background: radial-gradient(circle at 35% 32%, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.10) 38%, rgba(255,255,255,0.00) 72%);"></div>
+                    </div>
+        ` : '';
 
         const html = `
             <div class="wx-marker-wrap" style="position:relative; transition: transform 0.2s ease-out; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: visible;">
                 <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
-                    <div style="position:absolute; left:50%; top:50%; width:120%; height:120%; transform:translate(-50%,-50%); border-radius:999px; z-index:1; pointer-events:none; background:${cloudDiscBg}; box-shadow: 0 0 0 1px rgba(216,229,242,0.52), 0 3px 12px rgba(12,18,26,0.30), inset 0 0 8px rgba(255,255,255,0.22);"></div>
+                    ${cloudDiscHtml}
                     <div style="background: rgba(10,10,10,0.85); border: 2px solid ${catColor}; border-radius: 4px; padding: 2px 5px; color: ${catColor}; font-family: monospace; font-size: 11px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); position:relative; z-index:2;">
                         <span style="color:#fff; margin-right:4px;">${zone.icao}</span> ${catText}
                     </div>
