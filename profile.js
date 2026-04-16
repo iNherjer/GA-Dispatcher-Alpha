@@ -1371,7 +1371,16 @@ function triggerVerticalProfileUpdate() {
 
                 const btnCl = document.getElementById('btnToggleClouds');
                 if (btnCl) btnCl.classList.add('vp-loading-pulse');
-                vpWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData, currentSignal);
+                const prevWeatherData = Array.isArray(vpWeatherData) ? vpWeatherData : null;
+                const nextWeatherData = await fetchRouteWeather(routeWaypoints, vpElevationData, currentSignal);
+                if (Array.isArray(nextWeatherData) && nextWeatherData.length > 0) {
+                    vpWeatherData = nextWeatherData;
+                } else if (prevWeatherData && prevWeatherData.length > 0) {
+                    vpWeatherDebugEvent('Wetter-Fetch leer/failed -> letzter gültiger Stand bleibt aktiv');
+                    vpWeatherData = prevWeatherData;
+                } else {
+                    vpWeatherData = nextWeatherData;
+                }
                 window._lastWetterRouteKey = weatherRouteKey; // Cache-Key merken
                 window._lastWeatherSourceKey = vpGetWeatherSourceCacheKey();
                 window._lastWeatherFetchAt = Date.now();
@@ -1657,15 +1666,13 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
         ].join('|');
     }
 
-    function vpGetMetarChunkCache(key, now = Date.now()) {
+    function vpGetMetarChunkCache(key, now = Date.now(), allowStale = false) {
         if (!key) return null;
         const entry = vpMetarChunkCache.get(key);
         if (!entry || !Array.isArray(entry.data)) return null;
         const ttl = entry.empty ? VP_METAR_CHUNK_EMPTY_TTL_MS : VP_METAR_CHUNK_CACHE_TTL_MS;
-        if ((now - Number(entry.ts || 0)) > ttl) {
-            vpMetarChunkCache.delete(key);
-            return null;
-        }
+        const age = now - Number(entry.ts || 0);
+        if (age > ttl && !allowStale) return null;
         return entry.data;
     }
 
@@ -1786,8 +1793,14 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
         if (Array.isArray(cached)) return { arr: cached, fromCache: true };
         const url = `https://aviationweather.gov/api/data/metar?bbox=${chunk.minLat},${chunk.minLon},${chunk.maxLat},${chunk.maxLon}&format=json&t=${Date.now()}`;
         const arr = await safeFetchMetarJson(url, retries);
-        vpSetMetarChunkCache(chunk.key, Array.isArray(arr) ? arr : [], Date.now());
-        return { arr: Array.isArray(arr) ? arr : [], fromCache: false };
+        const safeArr = Array.isArray(arr) ? arr : [];
+        vpSetMetarChunkCache(chunk.key, safeArr, Date.now());
+        if (safeArr.length > 0) return { arr: safeArr, fromCache: false };
+        const stale = vpGetMetarChunkCache(chunk.key, nowTs, true);
+        if (Array.isArray(stale) && stale.length > 0) {
+            return { arr: stale, fromCache: true, staleFallback: true };
+        }
+        return { arr: safeArr, fromCache: false };
     });
 
     const results = await Promise.all(promises);
@@ -1799,8 +1812,9 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
     results.forEach((item, idx) => {
         const arr = item && Array.isArray(item.arr) ? item.arr : [];
         const fromCache = !!(item && item.fromCache);
+        const fromStale = !!(item && item.staleFallback);
         if (arr && arr.length) {
-            console.log(`[Wetter] Chunk ${idx + 1}: ${arr.length} METAR-Stationen geliefert${fromCache ? ' (cache)' : ''}.`);
+            console.log(`[Wetter] Chunk ${idx + 1}: ${arr.length} METAR-Stationen geliefert${fromStale ? ' (stale-cache)' : (fromCache ? ' (cache)' : '')}.`);
             totalInChunks += arr.length;
             
             // BULK CACHE: Füttert die Widgets sofort mit den heruntergeladenen Daten!
