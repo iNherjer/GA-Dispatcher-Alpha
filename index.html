@@ -657,6 +657,7 @@
         <div style="display:flex; gap:6px;">
             <button id="btnToggleObsTileOverlay" onclick="window.vpToggleObsTileOverlay && vpToggleObsTileOverlay()" style="font-size:11px; border:1px solid #3a6388; background:#1b334a; color:#9fd0ff; border-radius:4px; padding:2px 6px; cursor:pointer;">Tiles Overlay Aus</button>
             <button onclick="window.vpRetryFailedObsTiles && vpRetryFailedObsTiles()" style="font-size:11px; border:1px solid #7a5a2f; background:#3b2a14; color:#ffd28b; border-radius:4px; padding:2px 6px; cursor:pointer;">Retry Tiles</button>
+            <button onclick="if (confirm('Rolling Cache wirklich leeren?\\n\\nPool, Tile-Coverage, Failed-Tiles und Route-Cache werden gelöscht.')) { window.vpClearObstacleRollingCache && vpClearObstacleRollingCache(); window.vpRefreshWeatherDebugReport && vpRefreshWeatherDebugReport(); }" style="font-size:11px; border:1px solid #8a6a2f; background:#4a391b; color:#ffd79f; border-radius:4px; padding:2px 6px; cursor:pointer;">Cache leeren</button>
             <button onclick="window.vpRefreshWeatherDebugReport && vpRefreshWeatherDebugReport()" style="font-size:11px; border:1px solid #3a6388; background:#1b334a; color:#9fd0ff; border-radius:4px; padding:2px 6px; cursor:pointer;">↻</button>
             <button onclick="window.vpToggleWeatherDebugPanel && vpToggleWeatherDebugPanel(false)" style="font-size:11px; border:1px solid #6b3d3d; background:#3b2020; color:#ffb4b4; border-radius:4px; padding:2px 6px; cursor:pointer;">✕</button>
         </div>

@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Obstacle Tile Workbench</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    :root {
+      --bg: #10161f;
+      --panel: #1a2431;
+      --panel-2: #213044;
+      --text: #e8eef5;
+      --muted: #9eb2c8;
+      --ok: #ff3cf7;
+      --stale: #ff9d2e;
+      --failed: #ff3d3d;
+      --queued: #ffd54a;
+      --active: #59ff7d;
+      --selected: #56b8ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 20% 0%, #24374f, #0c1219 55%);
+    }
+    .wrap {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 12px;
+      height: 100vh;
+      padding: 12px;
+    }
+    .panel {
+      background: linear-gradient(180deg, var(--panel), #141d29);
+      border: 1px solid #33485f;
+      border-radius: 12px;
+      padding: 12px;
+      overflow: auto;
+    }
+    .map-panel {
+      background: #0f1824;
+      border: 1px solid #33485f;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+    #map { width: 100%; height: 100%; }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    button {
+      border: 1px solid #49617a;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: var(--panel-2);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:disabled { opacity: .5; cursor: default; }
+    .legend { display: grid; gap: 6px; font-size: 12px; margin: 10px 0; }
+    .legend span { display: inline-flex; align-items: center; gap: 8px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .log {
+      margin-top: 10px;
+      background: #0f1722;
+      border: 1px solid #2f4358;
+      border-radius: 8px;
+      padding: 8px;
+      height: 180px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.35;
+      white-space: pre-wrap;
+    }
+    .stat { display: grid; grid-template-columns: 1fr auto; gap: 6px; font-size: 13px; margin: 4px 0; }
+    .queue {
+      margin-top: 8px;
+      border: 1px solid #2f4358;
+      border-radius: 8px;
+      padding: 8px;
+      background: #0f1722;
+      font-size: 12px;
+      max-height: 140px;
+      overflow: auto;
+    }
+    .hint {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      background: rgba(10,14,20,.82);
+      color: #d6e8ff;
+      border: 1px solid #2e465f;
+      border-radius: 8px;
+      padding: 6px 9px;
+      font-size: 12px;
+      pointer-events: none;
+    }
+    @media (max-width: 980px) {
+      .wrap { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .panel { max-height: 46vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>Obstacle Tile Workbench</h1>
+      <div class="muted">Klick Tiles zum Auswählen. Queue läuft seriell. Repo-Push macht Commit + Push für neue Tiles.</div>
+
+      <div class="stat"><span>Geladen</span><strong id="stLoaded">0</strong></div>
+      <div class="stat"><span>Stale (&gt; 3 Monate)</span><strong id="stStale">0</strong></div>
+      <div class="stat"><span>Fehlgeschlagen</span><strong id="stFailed">0</strong></div>
+      <div class="stat"><span>Ausgewählt</span><strong id="stSelected">0</strong></div>
+      <div class="stat"><span>Queue</span><strong id="stQueue">0</strong></div>
+      <div class="stat"><span>Aktuelles Tile</span><strong id="stCurrent">-</strong></div>
+
+      <div class="buttons">
+        <button id="btnRefresh">Status neu laden</button>
+        <button id="btnClearSelection">Auswahl leeren</button>
+        <button id="btnEnqueue">Auswahl laden</button>
+        <button id="btnRetryFailed">Failed erneut laden</button>
+        <button id="btnClearQueue">Queue leeren</button>
+        <button id="btnPush">Neue Ergebnisse pushen</button>
+      </div>
+
+      <div class="legend">
+        <span><i class="dot" style="background:#ff3cf7"></i> Magenta: geladen und frisch</span>
+        <span><i class="dot" style="background:#ff9d2e"></i> Orange: geladen, aber &gt; 3 Monate alt</span>
+        <span><i class="dot" style="background:#ff3d3d"></i> Rot: fehlgeschlagen (Retry per Klick oder Button)</span>
+        <span><i class="dot" style="background:#ffd54a"></i> Gelb: in Queue</span>
+        <span><i class="dot" style="background:#59ff7d"></i> Grün: wird gerade geladen</span>
+        <span><i class="dot" style="background:#56b8ff"></i> Blau: ausgewählt</span>
+      </div>
+
+      <div class="queue" id="queueView">Queue: -</div>
+      <div class="log" id="logView"></div>
+    </div>
+
+    <div class="map-panel">
+      <div id="map"></div>
+      <div class="hint" id="hint">Tile: -</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const TILE_STEP = 25 / 60;
+    const state = {
+      loaded: {},
+      failed: {},
+      queue: [],
+      currentTile: null,
+      recent: {},
+      selected: new Set()
+    };
+
+    const logView = document.getElementById('logView');
+    const queueView = document.getElementById('queueView');
+    const hint = document.getElementById('hint');
+    let lastRectClickAt = 0;
+
+    function log(msg) {
+      const t = new Date().toLocaleTimeString();
+      logView.textContent = `[${t}] ${msg}\n` + logView.textContent;
+    }
+
+    function toggleTileSelection(key) {
+      if (!/^[-0-9]+\|[-0-9]+$/.test(String(key || ''))) return;
+      if (state.selected.has(key)) state.selected.delete(key);
+      else state.selected.add(key);
+      updateUi();
+      renderGrid();
+    }
+
+    function normLon180(v) {
+      let x = Number(v);
+      while (x < -180) x += 360;
+      while (x >= 180) x -= 360;
+      return x;
+    }
+
+    function tileKeyFromLatLon(lat, lon) {
+      const latI = Math.floor((Number(lat) + 90) / TILE_STEP);
+      const lonI = Math.floor((normLon180(lon) + 180) / TILE_STEP);
+      return `${latI}|${lonI}`;
+    }
+
+    function tileBounds(key) {
+      const [latI, lonI] = String(key).split('|').map(Number);
+      if (!Number.isFinite(latI) || !Number.isFinite(lonI)) return null;
+      const south = -90 + latI * TILE_STEP;
+      const north = south + TILE_STEP;
+      const west = -180 + lonI * TILE_STEP;
+      const east = west + TILE_STEP;
+      return [[south, west], [north, east]];
+    }
+
+    const map = L.map('map', { preferCanvas: true, zoomControl: true }).setView([48.8, 8.7], 8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 15,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    const gridLayer = L.layerGroup().addTo(map);
+    const rects = new Map();
+
+    function tileStyle(key) {
+      const inQueue = state.queue.includes(key);
+      const isCurrent = state.currentTile === key;
+      const isSelected = state.selected.has(key);
+      const failed = !!state.failed[key] || (state.recent[key] && state.recent[key].ok === false);
+      const loaded = state.loaded[key];
+
+      let color = '#41566f';
+      let fill = '#1c2a3a';
+      let opacity = 0.6;
+      let fillOpacity = 0.12;
+      let weight = 1;
+      let dashArray = null;
+
+      if (loaded) {
+        color = loaded.stale ? '#ff9d2e' : '#ff3cf7';
+        fill = loaded.stale ? '#ff9d2e' : '#ff3cf7';
+        fillOpacity = loaded.stale ? 0.22 : 0.28;
+        opacity = 0.9;
+      }
+      if (failed) {
+        color = '#ff3d3d';
+        fill = '#ff3d3d';
+        fillOpacity = 0.26;
+        opacity = 0.95;
+      }
+      if (inQueue) {
+        color = '#ffd54a';
+        fill = '#ffd54a';
+        fillOpacity = 0.20;
+      }
+      if (isCurrent) {
+        color = '#59ff7d';
+        fill = '#59ff7d';
+        fillOpacity = 0.30;
+        weight = 2;
+        dashArray = '6 4';
+      }
+      if (isSelected && !isCurrent) {
+        color = '#56b8ff';
+        weight = Math.max(weight, 2);
+      }
+
+      return { color, fillColor: fill, opacity, fillOpacity, weight, dashArray };
+    }
+
+    function visibleTileKeys() {
+      const b = map.getBounds();
+      const south = Math.max(-89.999, b.getSouth());
+      const north = Math.min(89.999, b.getNorth());
+      const west = Math.max(-179.999, b.getWest());
+      const east = Math.min(179.999, b.getEast());
+
+      const latI0 = Math.floor((south + 90) / TILE_STEP);
+      const latI1 = Math.floor((north + 90) / TILE_STEP);
+      const lonI0 = Math.floor((west + 180) / TILE_STEP);
+      const lonI1 = Math.floor((east + 180) / TILE_STEP);
+
+      const keys = [];
+      for (let latI = latI0; latI <= latI1; latI++) {
+        for (let lonI = lonI0; lonI <= lonI1; lonI++) {
+          keys.push(`${latI}|${lonI}`);
+        }
+      }
+      return keys;
+    }
+
+    function renderGrid() {
+      const keys = visibleTileKeys();
+      const set = new Set(keys);
+
+      for (const [k, rect] of rects.entries()) {
+        if (!set.has(k)) {
+          gridLayer.removeLayer(rect);
+          rects.delete(k);
+        }
+      }
+
+      for (const key of keys) {
+        const bounds = tileBounds(key);
+        if (!bounds) continue;
+        let rect = rects.get(key);
+        const style = tileStyle(key);
+
+        if (!rect) {
+          rect = L.rectangle(bounds, style);
+          rect.on('click', (ev) => {
+            lastRectClickAt = Date.now();
+            if (ev && ev.originalEvent) {
+              try { L.DomEvent.stop(ev.originalEvent); } catch (_) {}
+            }
+            toggleTileSelection(key);
+          });
+          rect.on('mouseover', () => {
+            const loaded = state.loaded[key];
+            const failed = state.failed[key];
+            const info = loaded
+              ? (loaded.stale ? 'geladen, alt' : 'geladen')
+              : (failed ? `failed (${failed.status || 0})` : 'nicht geladen');
+            hint.textContent = `Tile ${key} • ${info}`;
+          });
+          rect.on('mouseout', () => {
+            hint.textContent = `Tile: ${state.currentTile || '-'}`;
+          });
+          rect.bindTooltip(key, { direction: 'center', permanent: false, opacity: 0.85 });
+          rects.set(key, rect);
+          gridLayer.addLayer(rect);
+        } else {
+          rect.setStyle(style);
+        }
+      }
+    }
+
+    async function api(path, method = 'GET', body = null) {
+      const res = await fetch(path, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.ok === false) {
+        throw new Error(json.message || json.error || `HTTP ${res.status}`);
+      }
+      return json;
+    }
+
+    function updateUi() {
+      const loadedCount = Object.keys(state.loaded).length;
+      const staleCount = Object.values(state.loaded).filter(v => v && v.stale).length;
+      const failedCount = Object.keys(state.failed).length;
+
+      document.getElementById('stLoaded').textContent = String(loadedCount);
+      document.getElementById('stStale').textContent = String(staleCount);
+      document.getElementById('stFailed').textContent = String(failedCount);
+      document.getElementById('stSelected').textContent = String(state.selected.size);
+      document.getElementById('stQueue').textContent = String(state.queue.length);
+      document.getElementById('stCurrent').textContent = state.currentTile || '-';
+      queueView.textContent = state.queue.length ? `Queue: ${state.queue.join(', ')}` : 'Queue: -';
+      hint.textContent = `Tile: ${state.currentTile || '-'}`;
+
+      document.getElementById('btnEnqueue').disabled = state.selected.size === 0;
+      document.getElementById('btnClearSelection').disabled = state.selected.size === 0;
+      document.getElementById('btnClearQueue').disabled = state.queue.length === 0;
+      document.getElementById('btnRetryFailed').disabled = Object.keys(state.failed).length === 0;
+    }
+
+    async function refreshState(quiet = false) {
+      try {
+        const s = await api('/api/state');
+        state.loaded = s.loaded || {};
+        state.failed = s.failed || {};
+        state.queue = s.queue || [];
+        state.currentTile = s.currentTile || null;
+        state.recent = s.recent || {};
+
+        for (const key of Array.from(state.selected)) {
+          if (!/^[-0-9]+\|[-0-9]+$/.test(key)) state.selected.delete(key);
+        }
+
+        updateUi();
+        renderGrid();
+        if (!quiet) log('Status aktualisiert');
+      } catch (e) {
+        log(`Status-Fehler: ${e.message || e}`);
+      }
+    }
+
+    document.getElementById('btnRefresh').addEventListener('click', () => refreshState(false));
+
+    document.getElementById('btnClearSelection').addEventListener('click', () => {
+      state.selected.clear();
+      updateUi();
+      renderGrid();
+    });
+
+    document.getElementById('btnEnqueue').addEventListener('click', async () => {
+      const tiles = Array.from(state.selected);
+      if (!tiles.length) return;
+      try {
+        const out = await api('/api/enqueue', 'POST', { tiles });
+        log(`In Queue: ${out.added.join(', ') || '-'} `);
+        state.selected.clear();
+        await refreshState(true);
+      } catch (e) {
+        log(`Queue-Fehler: ${e.message || e}`);
+      }
+    });
+
+    document.getElementById('btnRetryFailed').addEventListener('click', async () => {
+      const tiles = Object.keys(state.failed || {});
+      if (!tiles.length) return;
+      try {
+        const out = await api('/api/enqueue', 'POST', { tiles });
+        log(`Retry queued: ${out.added.length} Tiles`);
+        await refreshState(true);
+      } catch (e) {
+        log(`Retry-Fehler: ${e.message || e}`);
+      }
+    });
+
+    document.getElementById('btnClearQueue').addEventListener('click', async () => {
+      try {
+        await api('/api/clear-queue', 'POST', {});
+        log('Queue geleert');
+        await refreshState(true);
+      } catch (e) {
+        log(`Queue-Reset-Fehler: ${e.message || e}`);
+      }
+    });
+
+    document.getElementById('btnPush').addEventListener('click', async () => {
+      try {
+        if (state.currentTile || state.queue.length > 0) {
+          log(`Push blockiert: Queue läuft noch (${state.queue.length} wartend${state.currentTile ? ', 1 aktiv' : ''}).`);
+          return;
+        }
+        log('Push gestartet...');
+        const out = await api('/api/push', 'POST', {});
+        log(out.message || 'Push abgeschlossen');
+        if (Array.isArray(out.stagedFiles) && out.stagedFiles.length > 0) {
+          log(`Gepusht: ${out.stagedFiles.join(', ')}`);
+        }
+        await refreshState(true);
+      } catch (e) {
+        log(`Push-Fehler: ${e.message || e}`);
+      }
+    });
+
+    map.on('moveend zoomend', () => renderGrid());
+
+    map.on('click', (ev) => {
+      if ((Date.now() - lastRectClickAt) < 180) return;
+      const key = tileKeyFromLatLon(ev.latlng.lat, ev.latlng.lng);
+      toggleTileSelection(key);
+    });
+
+    refreshState(true);
+    setInterval(() => refreshState(true), 1500);
+  </script>
+</body>
+</html>

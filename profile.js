@@ -1643,6 +1643,43 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
     const totalDist = elevData[elevData.length - 1].distNM;
     let activeMetars = [];
 
+    function vpQuant(v, step = 0.25) {
+        if (!Number.isFinite(v) || !Number.isFinite(step) || step <= 0) return Number(v || 0);
+        return Math.round(v / step) * step;
+    }
+
+    function vpBuildMetarChunkKey(minLat, minLon, maxLat, maxLon) {
+        return [
+            vpQuant(minLat).toFixed(2),
+            vpQuant(minLon).toFixed(2),
+            vpQuant(maxLat).toFixed(2),
+            vpQuant(maxLon).toFixed(2)
+        ].join('|');
+    }
+
+    function vpGetMetarChunkCache(key, now = Date.now()) {
+        if (!key) return null;
+        const entry = vpMetarChunkCache.get(key);
+        if (!entry || !Array.isArray(entry.data)) return null;
+        const ttl = entry.empty ? VP_METAR_CHUNK_EMPTY_TTL_MS : VP_METAR_CHUNK_CACHE_TTL_MS;
+        if ((now - Number(entry.ts || 0)) > ttl) {
+            vpMetarChunkCache.delete(key);
+            return null;
+        }
+        return entry.data;
+    }
+
+    function vpSetMetarChunkCache(key, arr, now = Date.now()) {
+        if (!key || !Array.isArray(arr)) return;
+        vpMetarChunkCache.set(key, { ts: now, data: arr, empty: arr.length === 0 });
+        if (vpMetarChunkCache.size <= VP_METAR_CHUNK_CACHE_MAX) return;
+        const drop = vpMetarChunkCache.size - VP_METAR_CHUNK_CACHE_MAX;
+        const oldest = Array.from(vpMetarChunkCache.entries())
+            .sort((a, b) => Number((a[1] && a[1].ts) || 0) - Number((b[1] && b[1].ts) || 0))
+            .slice(0, Math.max(1, drop));
+        for (const [k] of oldest) vpMetarChunkCache.delete(k);
+    }
+
     function parseMetarJsonText(text) {
         if (typeof text !== 'string') return null;
         const trimmed = text.trim();
@@ -1718,7 +1755,7 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
 
     // METAR FIX: Route in parallele 60-NM-Blöcke schneiden, um AviationWeather API-Schnittlimits (Max Stations) zu umgehen!
     const CHUNK_NM = 60;
-    const promises = [];
+    const chunkDefs = [];
 
     for (let d = 0; d < totalDist; d += CHUNK_NM) {
         let cMinLat = 90, cMaxLat = -90, cMinLon = 180, cMaxLon = -180;
@@ -1734,10 +1771,24 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
         
         // Puffer hinzufügen (ca. 45 NM)
         cMinLat -= 0.8; cMaxLat += 0.8; cMinLon -= 0.8; cMaxLon += 0.8;
-        const url = `https://aviationweather.gov/api/data/metar?bbox=${cMinLat},${cMinLon},${cMaxLat},${cMaxLon}&format=json&t=${Date.now()}`;
-        
-        promises.push(safeFetchMetarJson(url, retries));
+        chunkDefs.push({
+            minLat: cMinLat,
+            minLon: cMinLon,
+            maxLat: cMaxLat,
+            maxLon: cMaxLon,
+            key: vpBuildMetarChunkKey(cMinLat, cMinLon, cMaxLat, cMaxLon)
+        });
     }
+
+    const nowTs = Date.now();
+    const promises = chunkDefs.map(async (chunk) => {
+        const cached = vpGetMetarChunkCache(chunk.key, nowTs);
+        if (Array.isArray(cached)) return { arr: cached, fromCache: true };
+        const url = `https://aviationweather.gov/api/data/metar?bbox=${chunk.minLat},${chunk.minLon},${chunk.maxLat},${chunk.maxLon}&format=json&t=${Date.now()}`;
+        const arr = await safeFetchMetarJson(url, retries);
+        vpSetMetarChunkCache(chunk.key, Array.isArray(arr) ? arr : [], Date.now());
+        return { arr: Array.isArray(arr) ? arr : [], fromCache: false };
+    });
 
     const results = await Promise.all(promises);
     if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -1745,9 +1796,11 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
     let seen = new Set();
     let totalInChunks = 0;
     
-    results.forEach((arr, idx) => {
+    results.forEach((item, idx) => {
+        const arr = item && Array.isArray(item.arr) ? item.arr : [];
+        const fromCache = !!(item && item.fromCache);
         if (arr && arr.length) {
-            console.log(`[Wetter] Chunk ${idx + 1}: ${arr.length} METAR-Stationen geliefert.`);
+            console.log(`[Wetter] Chunk ${idx + 1}: ${arr.length} METAR-Stationen geliefert${fromCache ? ' (cache)' : ''}.`);
             totalInChunks += arr.length;
             
             // BULK CACHE: Füttert die Widgets sofort mit den heruntergeladenen Daten!
@@ -1764,7 +1817,7 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
                 }
             });
         } else {
-            console.log(`[Wetter] Chunk ${idx + 1}: 0 Stationen (Leerer Bereich oder Fehler).`);
+            console.log(`[Wetter] Chunk ${idx + 1}: 0 Stationen${fromCache ? ' (cache)' : ' (Leerer Bereich oder Fehler)'}.`);
         }
     });
     console.log(`[Wetter] Gesamt nach Duplikat-Filterung: ${activeMetars.length} einzigartige Stationen für dieses Flugprofil.`);
@@ -1849,11 +1902,15 @@ const VP_METAR_RECOVERY_PROBE_MS = 2 * 60 * 1000;
 const VP_METAR_ROUTE_CACHE_TTL_MS = 10 * 60 * 1000;
 const VP_METAR_ROUTE_CACHE_MAX = 24;
 const VP_METAR_FAIL_COOLDOWN_MS = 4 * 60 * 1000;
+const VP_METAR_CHUNK_CACHE_TTL_MS = 15 * 60 * 1000;
+const VP_METAR_CHUNK_EMPTY_TTL_MS = 3 * 60 * 1000;
+const VP_METAR_CHUNK_CACHE_MAX = 160;
 const VP_OM_CACHE_STORAGE_KEY = 'ga_om_cache_v1';
 const VP_OM_CACHE_MAX_ENTRIES = 900;
 const VP_OM_COORD_STEP_BASE = 0.05;     // ~3 NM
 const VP_OM_COORD_STEP_PRESS = 0.075;   // ~4-5 NM
 const vpOpenMeteoPointCache = new Map();
+const vpMetarChunkCache = new Map();
 let vpOmCacheHydrated = false;
 let vpOmCachePersistTimer = null;
 const vpMetarRouteCache = new Map();

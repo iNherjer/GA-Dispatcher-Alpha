@@ -54,3 +54,34 @@ Output:
   1. try hosted tile source
   2. fallback to Overpass
 - Missing hosted tiles are memoized locally for 30 minutes to avoid repeated misses.
+
+## Tile Workbench UI (local)
+
+Interactive tile curation UI with map + tile grid:
+
+```bash
+node tools/obstacle-tile-workbench-server.mjs
+```
+
+Then open:
+
+- `http://127.0.0.1:8788`
+
+Behavior:
+
+- Click tiles to select multiple.
+- `Auswahl laden`: queue selected tiles and process serially.
+- `Failed erneut laden`: retry all failed tiles.
+- `Neue Ergebnisse pushen`: `git add` + `git commit` + `git push` for:
+  - `obstacles/tiles`
+  - `obstacles/manifest.v1.json`
+  - `obstacles/failed-tiles.json`
+
+Status colors in grid:
+
+- Magenta: loaded + fresh
+- Orange: loaded, older than 3 months
+- Red: failed
+- Yellow: queued
+- Green: currently processing
+- Blue: selected
