@@ -3141,7 +3141,7 @@ window.renderWeatherMarkers = function() {
         const html = `
             <div class="wx-marker-wrap" style="position:relative; transition: transform 0.2s ease-out; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: visible;">
                 <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
-                    <div style="position:absolute; left:50%; top:50%; width:130%; height:130%; transform:translate(-50%,-50%); border-radius:999px; z-index:1; pointer-events:none; background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.24) 0%, rgba(180,195,215,0.18) 38%, rgba(95,120,150,0.12) 68%, rgba(40,55,75,0.04) 100%); box-shadow: 0 1px 8px rgba(0,0,0,0.20), inset 0 0 10px rgba(255,255,255,0.12);"></div>
+                    <div style="position:absolute; left:50%; top:50%; width:155%; height:155%; transform:translate(-50%,-50%); border-radius:999px; z-index:1; pointer-events:none; background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.42) 0%, rgba(212,223,236,0.36) 28%, rgba(143,166,190,0.28) 58%, rgba(92,114,138,0.18) 78%, rgba(52,67,85,0.10) 100%); box-shadow: 0 0 0 1px rgba(228,238,247,0.46), 0 4px 14px rgba(12,18,26,0.35), inset 0 0 14px rgba(255,255,255,0.22);"></div>
                     <div style="background: rgba(10,10,10,0.85); border: 2px solid ${catColor}; border-radius: 4px; padding: 2px 5px; color: ${catColor}; font-family: monospace; font-size: 11px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); position:relative; z-index:2;">
                         <span style="color:#fff; margin-right:4px;">${zone.icao}</span> ${catText}
                     </div>
@@ -3150,7 +3150,7 @@ window.renderWeatherMarkers = function() {
             </div>
         `;
 
-        const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [90, 56], iconAnchor: [45, 20] });
+        const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [96, 62], iconAnchor: [48, 22] });
         const stnPos = L.latLng(zLat, zLon);
         const stnPx = map.latLngToLayerPoint(stnPos);
         const angle = (markerIndex % 8) * (Math.PI / 4);
