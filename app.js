@@ -1126,19 +1126,50 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
             foundIcao = cachedEntry.foundIcao;
         } else {
 
+            function parseMetarTextToArray(txt) {
+                if (typeof txt !== 'string') return null;
+                const t = txt.trim();
+                if (!t) return null;
+                try {
+                    const parsed = JSON.parse(t);
+                    if (Array.isArray(parsed)) return parsed;
+                    if (parsed && Array.isArray(parsed.data)) return parsed.data;
+                    if (parsed && Array.isArray(parsed.results)) return parsed.results;
+                    if (parsed && typeof parsed.contents === 'string') {
+                        const nested = JSON.parse(parsed.contents);
+                        return Array.isArray(nested) ? nested : null;
+                    }
+                } catch (_) {}
+                return null;
+            }
+
             async function safeFetch(urlObj, retries = 3) {
+                const skipDirectMetarFetch = !!(window.location && window.location.protocol === 'file:');
+                const proxyUrls = [
+                    (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,
+                    (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+                    (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
+                ];
                 for (let i = 0; i < retries; i++) {
-                    try {
-                        const r = await fetch(urlObj);
-                        if (r.ok && r.status !== 204) return await r.text();
-                    } catch (err) {
+                    if (!skipDirectMetarFetch) {
                         try {
-                            const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(urlObj)}`;
-                            const pr = await fetch(proxyUrl);
-                            if (pr.ok && pr.status !== 204) return await pr.text();
-                        } catch (pxErr) {
-                            if (i === retries - 1) console.error("Metar Fetch endgültig gescheitert nach", retries, "Versuchen", pxErr);
-                        }
+                            const r = await fetch(urlObj);
+                            if (r.ok && r.status !== 204) {
+                                const t = await r.text();
+                                const arr = parseMetarTextToArray(t);
+                                if (arr) return arr;
+                            }
+                        } catch (_) {}
+                    }
+
+                    for (const mkProxyUrl of proxyUrls) {
+                        try {
+                            const pr = await fetch(mkProxyUrl(urlObj));
+                            if (!pr.ok || pr.status === 204) continue;
+                            const t = await pr.text();
+                            const arr = parseMetarTextToArray(t);
+                            if (arr) return arr;
+                        } catch (_) {}
                     }
                     if (i < retries - 1) await new Promise(res => setTimeout(res, 600));
                 }
@@ -1146,20 +1177,17 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
             }
 
             const directUrl = `https://aviationweather.gov/api/data/metar?ids=${icao}&format=json&t=${Date.now()}`;
-            const mainText = await safeFetch(directUrl);
-            if (mainText) {
-                try { metarDataList = JSON.parse(mainText); } catch (e) { }
-            }
+            const mainData = await safeFetch(directUrl);
+            if (Array.isArray(mainData)) metarDataList = mainData;
 
             if ((!metarDataList || metarDataList.length === 0) && lat !== undefined && lon !== undefined) {
                 const latMin = lat - 0.6, latMax = lat + 0.6;
                 const lonMin = lon - 0.8, lonMax = lon + 0.8;
                 const fbUrl = `https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json&t=${Date.now()}`;
-                const fbText = await safeFetch(fbUrl);
-                if (fbText) {
+                const fbData = await safeFetch(fbUrl);
+                if (Array.isArray(fbData)) {
                     try {
-                        const fbData = JSON.parse(fbText);
-                        if (fbData && fbData.length > 0) {
+                        if (fbData.length > 0) {
                             const candidates = fbData.filter(m =>
                                 m &&
                                 Number.isFinite(Number(m.lat)) &&
@@ -1178,7 +1206,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
                             }
                         }
                     } catch (parseErr) {
-                        console.error("Failed to parse fallback JSON", parseErr);
+                        console.error("Failed to process fallback METAR JSON", parseErr);
                     }
                 }
             }

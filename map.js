@@ -2630,6 +2630,25 @@ let wxCloudFieldSvgSeq = 0;
 let wxOverlayFetchController = null;
 let wxOverlayFetchTimer = null;
 let wxOverlayLastKey = '';
+
+window.resetMapWeatherVisualsForSourceSwitch = function() {
+    try {
+        if (wxOverlayFetchTimer) {
+            clearTimeout(wxOverlayFetchTimer);
+            wxOverlayFetchTimer = null;
+        }
+        if (wxOverlayFetchController) {
+            wxOverlayFetchController.abort();
+            wxOverlayFetchController = null;
+        }
+    } catch (_) {}
+    wxOverlayLastKey = '';
+    clearMapOpenMeteoOverlays();
+    if (Array.isArray(wxMapMarkers)) {
+        wxMapMarkers.forEach(m => { try { map && map.removeLayer(m); } catch (_) {} });
+        wxMapMarkers = [];
+    }
+};
 const WX_GRID_SPACING_SCALE = 1.5;
 
 function clearMapOpenMeteoOverlays() {
@@ -2889,10 +2908,9 @@ window.scheduleMapWeatherOverlayUpdate = function(forceFetch = false) {
 
 window.renderMapWeatherOverlays = async function(forceFetch = false) {
     if (!map) return;
-    const openMeteoActive = (typeof window.vpIsOpenMeteoDisplayActive === 'function')
-        ? window.vpIsOpenMeteoDisplayActive()
-        : (window.vpWeatherSource === 'openmeteo' && !window.vpWeatherFallbackActive);
-    if (!openMeteoActive) {
+    const fbMode = String(window.vpWeatherFallbackMode || 'none');
+    const openMeteoSourceSelected = (window.vpWeatherSource === 'openmeteo' && fbMode !== 'openmeteo_to_metar');
+    if (!openMeteoSourceSelected) {
         clearMapOpenMeteoOverlays();
         return;
     }
@@ -3037,21 +3055,25 @@ window.renderWeatherMarkers = function() {
     wxMapMarkers.forEach(m => map.removeLayer(m));
     wxMapMarkers = [];
 
-    const openMeteoActive = (typeof window.vpIsOpenMeteoDisplayActive === 'function')
-        ? window.vpIsOpenMeteoDisplayActive()
-        : (window.vpWeatherSource === 'openmeteo' && !window.vpWeatherFallbackActive);
-    if (openMeteoActive) {
+    const fbMode = String(window.vpWeatherFallbackMode || 'none');
+    const openMeteoSourceSelected = (window.vpWeatherSource === 'openmeteo' && fbMode !== 'openmeteo_to_metar');
+    if (openMeteoSourceSelected) {
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         return;
     }
 
     if (!window.vpShowMapMetar) return;
     if (typeof vpWeatherData === 'undefined' || !vpWeatherData || vpWeatherData.length === 0) return;
+    const sourceNow = window.vpWeatherSource || 'metar';
+    const metarDisplayMode = sourceNow === 'metar' || fbMode === 'openmeteo_to_metar';
 
     let seenIcao = new Set();
 
     vpWeatherData.forEach((zone, markerIndex) => {
-        if (!zone.icao || !zone.stnLat || !zone.stnLon || seenIcao.has(zone.icao)) return;
+        if (metarDisplayMode && /^OM\d+$/i.test(String(zone && zone.icao || ''))) return;
+        const zLat = Number(zone && zone.stnLat);
+        const zLon = Number(zone && zone.stnLon);
+        if (!zone.icao || !Number.isFinite(zLat) || !Number.isFinite(zLon) || seenIcao.has(zone.icao)) return;
         seenIcao.add(zone.icao);
 
         let catColor = "#fff";
@@ -3086,7 +3108,7 @@ window.renderWeatherMarkers = function() {
         `;
 
         const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [80, 45], iconAnchor: [40, 15] });
-        const stnPos = L.latLng(zone.stnLat, zone.stnLon);
+        const stnPos = L.latLng(zLat, zLon);
         const stnPx = map.latLngToLayerPoint(stnPos);
         const angle = (markerIndex % 8) * (Math.PI / 4);
         const offsetPx = L.point(Math.round(Math.cos(angle) * 14), Math.round(Math.sin(angle) * 14) - 10);
@@ -3103,9 +3125,7 @@ window.renderWeatherMarkers = function() {
                 marker.closePopup();
                 return;
             }
-            if (typeof loadMetarWidget === 'function') {
-                loadMetarWidget(zone.icao, popupId, zone.stnLat, zone.stnLon, true);
-            }
+            if (typeof loadMetarWidget === 'function') loadMetarWidget(zone.icao, popupId, zLat, zLon, true);
         });
         
         wxMapMarkers.push(marker);
