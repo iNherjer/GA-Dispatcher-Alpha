@@ -91,6 +91,8 @@ const VP_OBS_TILE_MAX_PER_PASS = 1;
 const VP_OBS_TILE_MAX_PER_PASS_FORCE = 2;
 const VP_OBS_TILE_INTER_REQUEST_LONG_MS = 4200;
 const VP_OBS_TILE_DEFERRED_RETRY_MS = 5000;
+const VP_OBS_HOSTED_PARALLELISM = 6;
+const VP_OBS_HOSTED_MAX_PER_PASS = 36;
 const VP_OBS_HOSTED_ENABLED = localStorage.getItem('ga_obs_hosted_enabled') !== 'false';
 const VP_OBS_HOSTED_MISS_TTL_MS = 30 * 60 * 1000;
 const VP_OBS_HOSTED_TIMEOUT_MS = 2200;
@@ -928,6 +930,40 @@ async function vpFetchObstacleTile(tileKey, signal, tileIndex = 0, options = {})
     return await vpFetchOverpassTile(tileKey, signal, tileIndex);
 }
 
+async function vpFetchHostedTilesParallel(tileKeys, signal, options = {}) {
+    const keys = Array.from(new Set((Array.isArray(tileKeys) ? tileKeys : []).filter(Boolean)));
+    if (!keys.length) return new Map();
+    const concurrency = Math.max(1, Math.min(12, Number((options && options.concurrency) || VP_OBS_HOSTED_PARALLELISM)));
+    const results = new Map();
+    let cursor = 0;
+
+    const worker = async () => {
+        while (cursor < keys.length) {
+            if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+            const idx = cursor++;
+            const tileKey = keys[idx];
+            if (!tileKey) continue;
+            if (window.vpSetObsTileLoading) window.vpSetObsTileLoading(tileKey, true);
+            if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
+            try {
+                const res = await vpFetchHostedObstacleTile(tileKey, signal);
+                results.set(tileKey, res || { ok: false, status: 0, src: '' });
+            } catch (e) {
+                if (e && e.name === 'AbortError') throw e;
+                results.set(tileKey, { ok: false, status: 0, src: '' });
+            } finally {
+                if (window.vpSetObsTileLoading) window.vpSetObsTileLoading(tileKey, false);
+            }
+        }
+    };
+
+    const workers = [];
+    const workerCount = Math.min(concurrency, keys.length);
+    for (let i = 0; i < workerCount; i++) workers.push(worker());
+    await Promise.all(workers);
+    return results;
+}
+
 async function vpFetchOverpassTile(tileKey, signal, tileIndex = 0) {
     const b = vpObsTileBoundsFromKey(tileKey);
     if (!b) return { ok: false, cooldown: false };
@@ -1009,10 +1045,58 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
     const readyKeys = toLoadAll.filter(k => forceNetwork || !vpIsTileBackoffActive(k, nowTs));
     const blockedKeys = toLoadAll.filter(k => !readyKeys.includes(k));
     const maxPerPass = forceNetwork ? VP_OBS_TILE_MAX_PER_PASS_FORCE : VP_OBS_TILE_MAX_PER_PASS;
-    const toLoad = readyKeys.slice(0, Math.max(1, maxPerPass));
-    const deferredTileKeys = readyKeys.slice(toLoad.length).concat(blockedKeys);
-    const interDelayMs = readyKeys.length > maxPerPass ? VP_OBS_TILE_INTER_REQUEST_LONG_MS : VP_OBS_TILE_INTER_REQUEST_MS;
+    let toLoad = [];
+    let deferredTileKeys = [];
+    let interDelayMs = VP_OBS_TILE_INTER_REQUEST_MS;
     const nextTileRetryMs = vpMinTileBackoffRemainingMs(blockedKeys, nowTs);
+    const usedServers = new Set();
+    const loadedTileKeys = [];
+    const failedTileKeys = [];
+    let hostedLoadedCount = 0;
+    let hostedAttemptCount = 0;
+
+    // Phase 1: Hosted-Tiles parallel laden (schnell), Overpass erst danach.
+    let overpassCandidates = readyKeys.slice();
+    if (!forceNetwork && readyKeys.length > 0) {
+        const hostedBatchSize = Math.min(VP_OBS_HOSTED_MAX_PER_PASS, readyKeys.length);
+        const hostedKeys = readyKeys.slice(0, hostedBatchSize);
+        hostedAttemptCount = hostedKeys.length;
+        if (hostedKeys.length > 0) {
+            const hostedResMap = await vpFetchHostedTilesParallel(hostedKeys, signal, { concurrency: VP_OBS_HOSTED_PARALLELISM });
+            const hostedMissKeys = [];
+            for (const key of hostedKeys) {
+                const res = hostedResMap.get(key);
+                if (res && res.ok) {
+                    vpClearTileFailed(key);
+                    vpClearTileBackoff(key);
+                    if (res.src) usedServers.add(res.src);
+                    if (res.features) vpRememberObstacleData(res.features.obs || [], res.features.lin || []);
+                    vpMarkTileKeysCovered([key], res.src || 'hosted');
+                    loadedTileKeys.push(key);
+                    hostedLoadedCount++;
+                } else {
+                    hostedMissKeys.push(key);
+                }
+            }
+            const hostedKeySet = new Set(hostedKeys);
+            overpassCandidates = hostedMissKeys.concat(readyKeys.filter(k => !hostedKeySet.has(k)));
+            if (hostedLoadedCount > 0) {
+                const seededHosted = vpProjectObsPoolToRoute(elevData);
+                requestAnimationFrame(() => {
+                    if (signal && signal.aborted) return;
+                    vpObstacles = seededHosted.obs || [];
+                    vpLinearFeatures = seededHosted.lin || [];
+                    window.vpBgNeedsUpdate = true;
+                    if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+                });
+            }
+        }
+    }
+
+    toLoad = overpassCandidates.slice(0, Math.max(1, maxPerPass));
+    deferredTileKeys = overpassCandidates.slice(toLoad.length).concat(blockedKeys);
+    interDelayMs = overpassCandidates.length > maxPerPass ? VP_OBS_TILE_INTER_REQUEST_LONG_MS : VP_OBS_TILE_INTER_REQUEST_MS;
+
     if (window.vpWeatherDebug) {
         window.vpWeatherDebug.overpassLastDeferredCount = deferredTileKeys.length;
         if (deferredTileKeys.length > 0) {
@@ -1026,13 +1110,19 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
     }
     if (!toLoad.length) {
         const seeded = vpProjectObsPoolToRoute(elevData);
-        return { obs: seeded.obs || [], lin: seeded.lin || [], source: 'tile-cache', loadedTileKeys: [], failedTileKeys: [], deferredTileKeys: deferredTileKeys || [], nextTileRetryMs };
+        const sourceLabelNoOp = usedServers.size > 0 ? Array.from(usedServers).join(',') : 'tile-cache';
+        return {
+            obs: seeded.obs || [],
+            lin: seeded.lin || [],
+            source: sourceLabelNoOp,
+            loadedTileKeys,
+            failedTileKeys: [],
+            deferredTileKeys: deferredTileKeys || [],
+            nextTileRetryMs
+        };
     }
 
-    console.log(`[Overpass] Tile-Modus: ${toLoad.length}/${toLoadAll.length} jetzt laden, ${deferredTileKeys.length} defer${routeCacheKey ? ` [${routeCacheKey.slice(0, 24)}]` : ''}.`);
-    const usedServers = new Set();
-    const loadedTileKeys = [];
-    const failedTileKeys = [];
+    console.log(`[Overpass] Tile-Modus: hosted ${hostedLoadedCount}/${hostedAttemptCount} ok, overpass ${toLoad.length}/${overpassCandidates.length} jetzt laden, ${deferredTileKeys.length} defer${routeCacheKey ? ` [${routeCacheKey.slice(0, 24)}]` : ''}.`);
 
     for (let i = 0; i < toLoad.length; i++) {
         if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -1123,24 +1213,45 @@ async function fetchGpsObstacles(lat, lon) {
     const missing = probe.missing || [];
 
     if (!vpIsOverpassCoolingDown() && missing.length > 0) {
-        for (let i = 0; i < missing.length; i++) {
+        const hostedBatchSize = Math.min(VP_OBS_HOSTED_MAX_PER_PASS, missing.length);
+        const hostedKeys = missing.slice(0, hostedBatchSize);
+        const hostedResults = await vpFetchHostedTilesParallel(hostedKeys, null, { concurrency: VP_OBS_HOSTED_PARALLELISM });
+        const hostedOk = new Set();
+        for (const key of hostedKeys) {
+            const res = hostedResults.get(key);
+            if (res && res.ok) {
+                hostedOk.add(key);
+                vpClearTileFailed(key);
+                vpClearTileBackoff(key);
+                vpRememberObstacleData(res.features?.obs || [], res.features?.lin || []);
+                vpMarkTileKeysCovered([key], res.src || 'gps-hosted');
+            }
+        }
+
+        const restHosted = missing.filter(k => !hostedOk.has(k));
+        const overpassKeys = restHosted.slice(0, Math.max(1, VP_OBS_TILE_MAX_PER_PASS));
+        for (let i = 0; i < overpassKeys.length; i++) {
+            const tileKey = overpassKeys[i];
             try {
-                const res = await vpFetchObstacleTile(missing[i], null, i, { preferOverpass: false });
+                const res = await vpFetchOverpassTile(tileKey, null, i);
                 if (res && res.ok) {
-                    vpClearTileFailed(missing[i]);
+                    vpClearTileFailed(tileKey);
+                    vpClearTileBackoff(tileKey);
                     vpRememberObstacleData(res.features?.obs || [], res.features?.lin || []);
-                    vpMarkTileKeysCovered([missing[i]], res.src || 'gps-overpass');
+                    vpMarkTileKeysCovered([tileKey], res.src || 'gps-overpass');
+                    vpMarkOverpassSuccess();
                 } else if (res && res.cooldown) {
-                    vpMarkTileFailed(missing[i], Number(res.status || 0), String(res.src || ''));
+                    vpMarkTileFailed(tileKey, Number(res.status || 0), String(res.src || ''));
                     break;
                 } else {
-                    vpMarkTileFailed(missing[i], Number((res && res.status) || 0), String((res && res.src) || ''));
+                    vpMarkTileFailed(tileKey, Number((res && res.status) || 0), String((res && res.src) || ''));
+                    if (res && res.tileBackoff) vpMarkTileBackoff(tileKey);
                 }
             } catch (e) {
-                vpMarkTileFailed(missing[i], 0, '');
+                vpMarkTileFailed(tileKey, 0, '');
                 console.warn('[GPS-Obs] Tile-Fehler:', e);
             }
-            if (i < missing.length - 1) await new Promise(r => setTimeout(r, VP_OBS_TILE_INTER_REQUEST_MS));
+            if (i < overpassKeys.length - 1) await new Promise(r => setTimeout(r, VP_OBS_TILE_INTER_REQUEST_MS));
         }
     }
 
