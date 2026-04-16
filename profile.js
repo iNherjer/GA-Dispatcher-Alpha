@@ -83,11 +83,11 @@ const VP_OBS_TILE_EDGE_NM = 25;
 const VP_OBS_TILE_STEP_LAT = VP_OBS_TILE_EDGE_NM / 60; // ~0.4167°
 const VP_OBS_TILE_STEP_LON = VP_OBS_TILE_EDGE_NM / 60; // global fixer Raster-Schritt
 const VP_OBS_TILE_TTL_MS = 0; // 0 = rolling cache ohne Zeitablauf
-const VP_OBS_TILE_INTER_REQUEST_MS = 1400;
-const VP_OBS_TILE_MAX_PER_PASS = 6;
-const VP_OBS_TILE_MAX_PER_PASS_FORCE = 10;
-const VP_OBS_TILE_INTER_REQUEST_LONG_MS = 2200;
-const VP_OBS_TILE_DEFERRED_RETRY_MS = 12000;
+const VP_OBS_TILE_INTER_REQUEST_MS = 3200;
+const VP_OBS_TILE_MAX_PER_PASS = 1;
+const VP_OBS_TILE_MAX_PER_PASS_FORCE = 2;
+const VP_OBS_TILE_INTER_REQUEST_LONG_MS = 4200;
+const VP_OBS_TILE_DEFERRED_RETRY_MS = 15000;
 const VP_OBS_TILE_FAILED_KEY = 'ga_obs_tile_failed_v1';
 const VP_OBS_TILE_FAILED_MAX = 1200;
 let vpOverpassStateHydrated = false;
@@ -749,59 +749,59 @@ function vpExtractOverpassTileFeatures(elements) {
 async function vpFetchOverpassTile(tileKey, signal, tileIndex = 0) {
     const b = vpObsTileBoundsFromKey(tileKey);
     if (!b) return { ok: false, cooldown: false };
+    if (window.vpSetObsTileLoading) window.vpSetObsTileLoading(tileKey, true);
     const bbox = `${b.south.toFixed(4)},${b.west.toFixed(4)},${b.north.toFixed(4)},${b.east.toFixed(4)}`;
     const query = `[out:json][timeout:45][bbox:${bbox}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];way["highway"="motorway"];way["waterway"="river"];);out geom qt;`;
 
-    let retries = 3;
+    let retries = 1;
     let attempt = 0;
-    while (retries > 0) {
-        if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
-        window.vpServerOffset = (window.vpServerOffset || 0) + 1;
-        const serverUrl = VP_OVERPASS_SERVERS[(tileIndex + attempt + window.vpServerOffset) % VP_OVERPASS_SERVERS.length];
-        attempt++;
-        try {
-            const res = await fetch(serverUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `data=${encodeURIComponent(query)}`,
-                signal
-            });
-            if (res.status === 429) {
-                if (window.vpWeatherDebug) window.vpWeatherDebug.overpass429Count += 1;
-                const retryAfter = Number(res.headers.get('retry-after') || 0);
-                const cooldownMs = vpApplyOverpassBackoff(429, retryAfter);
-                console.warn(`[Overpass] Tile ${tileKey}: 429. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
-                return { ok: false, cooldown: true, status: 429, src: serverUrl };
-            }
-            if (res.status === 504) {
-                if (window.vpWeatherDebug) window.vpWeatherDebug.overpass504Count += 1;
-                if (retries > 1) {
+    try {
+        while (retries > 0) {
+            if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+            window.vpServerOffset = (window.vpServerOffset || 0) + 1;
+            const serverUrl = VP_OVERPASS_SERVERS[(tileIndex + attempt + window.vpServerOffset) % VP_OVERPASS_SERVERS.length];
+            attempt++;
+            try {
+                const res = await fetch(serverUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `data=${encodeURIComponent(query)}`,
+                    signal
+                });
+                if (res.status === 429) {
+                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpass429Count += 1;
+                    const retryAfter = Number(res.headers.get('retry-after') || 0);
+                    const cooldownMs = vpApplyOverpassBackoff(429, retryAfter);
+                    console.warn(`[Overpass] Tile ${tileKey}: 429. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
+                    return { ok: false, cooldown: true, status: 429, src: serverUrl };
+                }
+                if (res.status === 504) {
+                    if (window.vpWeatherDebug) window.vpWeatherDebug.overpass504Count += 1;
+                    const retryAfter = Number(res.headers.get('retry-after') || 0);
+                    const cooldownMs = vpApplyOverpassBackoff(504, retryAfter);
+                    console.warn(`[Overpass] Tile ${tileKey}: 504. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
+                    return { ok: false, cooldown: true, status: 504, src: serverUrl };
+                }
+                if (!res.ok) {
                     retries--;
-                    await new Promise(r => setTimeout(r, 2200));
+                    await new Promise(r => setTimeout(r, 1500));
                     continue;
                 }
-                const retryAfter = Number(res.headers.get('retry-after') || 0);
-                const cooldownMs = vpApplyOverpassBackoff(504, retryAfter);
-                console.warn(`[Overpass] Tile ${tileKey}: 504. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
-                return { ok: false, cooldown: true, status: 504, src: serverUrl };
-            }
-            if (!res.ok) {
+                const json = await res.json();
+                const features = vpExtractOverpassTileFeatures(json && json.elements);
+                let src = serverUrl;
+                try { src = new URL(serverUrl).host; } catch (_) {}
+                return { ok: true, features, src };
+            } catch (e) {
+                if (e && e.name === 'AbortError') throw e;
                 retries--;
-                await new Promise(r => setTimeout(r, 2500));
-                continue;
+                if (retries > 0) await new Promise(r => setTimeout(r, 1200));
             }
-            const json = await res.json();
-            const features = vpExtractOverpassTileFeatures(json && json.elements);
-            let src = serverUrl;
-            try { src = new URL(serverUrl).host; } catch (_) {}
-            return { ok: true, features, src };
-        } catch (e) {
-            if (e && e.name === 'AbortError') throw e;
-            retries--;
-            if (retries > 0) await new Promise(r => setTimeout(r, 2000));
         }
+        return { ok: false, cooldown: false, status: 0, src: '' };
+    } finally {
+        if (window.vpSetObsTileLoading) window.vpSetObsTileLoading(tileKey, false);
     }
-    return { ok: false, cooldown: false, status: 0, src: '' };
 }
 
 async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', forceNetwork = false) {
@@ -3629,51 +3629,101 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
         const isLowerAgl = band.isLowerAgl;
         const isUpperAgl = band.isUpperAgl;
 
-        let asMinDist = totalDist, asMaxDist = 0, found = false;
         const polys = [];
         if (as.geometry) {
             if (as.geometry.type === 'Polygon') polys.push(as.geometry.coordinates[0]);
             else if (as.geometry.type === 'MultiPolygon') as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
+        }
+        if (polys.length === 0) continue;
 
-            for (let pi = 0; pi < elevData.length; pi++) {
-                const pt = elevData[pi];
-                for (const poly of polys) {
-                    if (vpPointInPoly(pt, poly)) {
-                        if (pt.distNM < asMinDist) asMinDist = pt.distNM;
-                        if (pt.distNM > asMaxDist) asMaxDist = pt.distNM;
-                        found = true; break;
-                    }
+        const pointInsideAnyPoly = (pt) => {
+            for (const poly of polys) {
+                if (vpPointInPoly(pt, poly)) return true;
+            }
+            return false;
+        };
+
+        const segmentCrossFractions = (ptA, ptB) => {
+            const vals = [];
+            for (const poly of polys) {
+                for (let ei = 0, ej = poly.length - 1; ei < poly.length; ej = ei++) {
+                    const ax = poly[ej][0], ay = poly[ej][1], bx = poly[ei][0], by = poly[ei][1];
+                    const d1x = ptB.lon - ptA.lon, d1y = ptB.lat - ptA.lat;
+                    const d2x = bx - ax, d2y = by - ay;
+                    const cross = d1x * d2y - d1y * d2x;
+                    if (Math.abs(cross) < 1e-12) continue;
+                    const t = ((ax - ptA.lon) * d2y - (ay - ptA.lat) * d2x) / cross;
+                    const u = ((ax - ptA.lon) * d1y - (ay - ptA.lat) * d1x) / cross;
+                    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) vals.push(t);
                 }
-                if (!found && pi < elevData.length - 1) {
-                    const pt2 = elevData[pi + 1];
-                    for (const poly of polys) {
-                        for (let ei = 0, ej = poly.length - 1; ei < poly.length; ej = ei++) {
-                            const ax = poly[ej][0], ay = poly[ej][1], bx = poly[ei][0], by = poly[ei][1];
-                            const d1x = pt2.lon-pt.lon, d1y = pt2.lat-pt.lat;
-                            const d2x = bx-ax, d2y = by-ay;
-                            const cross = d1x*d2y - d1y*d2x;
-                            if (Math.abs(cross) < 1e-12) continue;
-                            const t = ((ax-pt.lon)*d2y - (ay-pt.lat)*d2x) / cross;
-                            const u = ((ax-pt.lon)*d1y - (ay-pt.lat)*d1x) / cross;
-                            if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
-                                const crossDist = pt.distNM + t * (pt2.distNM - pt.distNM);
-                                if (crossDist < asMinDist) asMinDist = crossDist;
-                                if (crossDist > asMaxDist) asMaxDist = crossDist;
-                                found = true; break;
-                            }
-                        }
-                        if (found) break;
-                    }
+            }
+            vals.sort((a, b) => a - b);
+            const unique = [];
+            for (const t of vals) {
+                if (!unique.length || Math.abs(t - unique[unique.length - 1]) > 1e-5) unique.push(t);
+            }
+            return unique;
+        };
+
+        const intervals = [];
+        let openStart = null;
+        const openInterval = (dist) => {
+            if (openStart === null) openStart = dist;
+        };
+        const closeInterval = (dist) => {
+            if (openStart !== null && dist > openStart + 1e-4) intervals.push({ min: openStart, max: dist });
+            openStart = null;
+        };
+
+        for (let i = 0; i < elevData.length - 1; i++) {
+            const a = elevData[i];
+            const b = elevData[i + 1];
+            const segLen = b.distNM - a.distNM;
+            if (segLen <= 1e-6) continue;
+
+            const cuts = [0, ...segmentCrossFractions(a, b), 1];
+            for (let c = 0; c < cuts.length - 1; c++) {
+                const t0 = cuts[c], t1 = cuts[c + 1];
+                if (t1 - t0 <= 1e-6) continue;
+                const mid = (t0 + t1) * 0.5;
+                const probe = {
+                    lat: a.lat + (b.lat - a.lat) * mid,
+                    lon: a.lon + (b.lon - a.lon) * mid
+                };
+                const inside = pointInsideAnyPoly(probe);
+                const d0 = a.distNM + segLen * t0;
+                const d1 = a.distNM + segLen * t1;
+                if (inside) {
+                    openInterval(d0);
+                    if (c === cuts.length - 2) closeInterval(d1);
+                } else {
+                    closeInterval(d0);
                 }
             }
         }
-        if (!found) continue;
+        if (openStart !== null) closeInterval(totalDist);
+        if (intervals.length === 0) continue;
 
-        const eps = (elevData.length > 1) ? (elevData[1].distNM - elevData[0].distNM) * 0.5 : 0.5;
-        const relevantPts = elevData.filter(p => p.distNM >= asMinDist - eps && p.distNM <= asMaxDist + eps);
-        if (relevantPts.length < 1) continue;
-
-        items.push({ asIdx, as, lowerFt, upperFt, isLowerAgl, isUpperAgl, asMinDist, asMaxDist, relevantPts });
+        const eps = (elevData.length > 1) ? Math.max(0.05, (elevData[1].distNM - elevData[0].distNM) * 0.5) : 0.5;
+        for (let runIdx = 0; runIdx < intervals.length; runIdx++) {
+            const interval = intervals[runIdx];
+            const asMinDist = interval.min;
+            const asMaxDist = interval.max;
+            const relevantPts = elevData.filter(p => p.distNM >= asMinDist - eps && p.distNM <= asMaxDist + eps);
+            if (relevantPts.length < 1) continue;
+            items.push({
+                asIdx,
+                as,
+                runIdx,
+                lowerFt,
+                upperFt,
+                isLowerAgl,
+                isUpperAgl,
+                asMinDist,
+                asMaxDist,
+                relevantPts
+            });
+        }
     }
     window._vpAsCache = { key: asCacheKey, elevLength: elevData.length, items: items };
     return items;
