@@ -3138,10 +3138,39 @@ window.renderWeatherMarkers = function() {
             </div>`;
         }
 
+        const coverageByType = { FEW: 25, SCT: 50, BKN: 80, OVC: 100, VV: 100 };
+        let lowCloud = 0, midCloud = 0, highCloud = 0;
+        if (Array.isArray(zone.clouds) && zone.clouds.length > 0) {
+            zone.clouds.forEach((c) => {
+                if (!c) return;
+                const t = String(c.type || '').toUpperCase();
+                const cov = Number(coverageByType[t] || 0);
+                const baseAgl = Number(c.baseAgl || 0);
+                if (baseAgl > 0 && baseAgl < 3500) lowCloud = Math.max(lowCloud, cov);
+                else if (baseAgl > 0 && baseAgl < 10000) midCloud = Math.max(midCloud, cov);
+                else highCloud = Math.max(highCloud, cov);
+            });
+        }
+        if (lowCloud === 0 && midCloud === 0 && highCloud === 0) {
+            if (catText === 'LIFR') { lowCloud = 95; midCloud = 70; highCloud = 55; }
+            else if (catText === 'IFR') { lowCloud = 80; midCloud = 55; highCloud = 40; }
+            else if (catText === 'MVFR') { lowCloud = 55; midCloud = 35; highCloud = 25; }
+            else { lowCloud = 25; midCloud = 15; highCloud = 10; }
+        }
+        const lowA = (0.10 + (lowCloud / 100) * 0.42).toFixed(3);
+        const midA = (0.10 + (midCloud / 100) * 0.42).toFixed(3);
+        const highA = (0.10 + (highCloud / 100) * 0.42).toFixed(3);
+        const cloudDiscBg = `conic-gradient(
+            from -90deg,
+            rgba(116,136,160,${highA}) 0deg 120deg,
+            rgba(138,160,184,${midA}) 120deg 240deg,
+            rgba(166,186,208,${lowA}) 240deg 360deg
+        )`;
+
         const html = `
             <div class="wx-marker-wrap" style="position:relative; transition: transform 0.2s ease-out; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: visible;">
                 <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
-                    <div style="position:absolute; left:50%; top:50%; width:155%; height:155%; transform:translate(-50%,-50%); border-radius:999px; z-index:1; pointer-events:none; background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.42) 0%, rgba(212,223,236,0.36) 28%, rgba(143,166,190,0.28) 58%, rgba(92,114,138,0.18) 78%, rgba(52,67,85,0.10) 100%); box-shadow: 0 0 0 1px rgba(228,238,247,0.46), 0 4px 14px rgba(12,18,26,0.35), inset 0 0 14px rgba(255,255,255,0.22);"></div>
+                    <div style="position:absolute; left:50%; top:50%; width:120%; height:120%; transform:translate(-50%,-50%); border-radius:999px; z-index:1; pointer-events:none; background:${cloudDiscBg}; box-shadow: 0 0 0 1px rgba(216,229,242,0.52), 0 3px 12px rgba(12,18,26,0.30), inset 0 0 8px rgba(255,255,255,0.22);"></div>
                     <div style="background: rgba(10,10,10,0.85); border: 2px solid ${catColor}; border-radius: 4px; padding: 2px 5px; color: ${catColor}; font-family: monospace; font-size: 11px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); position:relative; z-index:2;">
                         <span style="color:#fff; margin-right:4px;">${zone.icao}</span> ${catText}
                     </div>
@@ -3150,7 +3179,7 @@ window.renderWeatherMarkers = function() {
             </div>
         `;
 
-        const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [96, 62], iconAnchor: [48, 22] });
+        const icon = L.divIcon({ className: 'custom-pin', html: html, iconSize: [92, 58], iconAnchor: [46, 21] });
         const stnPos = L.latLng(zLat, zLon);
         const stnPx = map.latLngToLayerPoint(stnPos);
         const angle = (markerIndex % 8) * (Math.PI / 4);
