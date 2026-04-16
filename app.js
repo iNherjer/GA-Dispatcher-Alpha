@@ -1146,7 +1146,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
             }
 
             async function safeFetch(urlObj, retries = 3) {
-                const skipDirectMetarFetch = !!(window.location && window.location.protocol === 'file:');
+                const skipDirectMetarFetch = true;
                 const proxyUrls = [
                     (u) => `https://ga-proxy.einherjer.workers.dev/api/metar?src=${encodeURIComponent(u)}`,
                     (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,

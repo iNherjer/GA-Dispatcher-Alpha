@@ -1738,7 +1738,7 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
         return null;
     }
 
-    const skipDirectMetarFetch = !!(window.location && window.location.protocol === 'file:');
+    const skipDirectMetarFetch = true;
 
     async function fetchWithTimeout(urlObj) {
         const ctrl = new AbortController();
@@ -1860,9 +1860,11 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
     }
 
     const nowTs = Date.now();
-    const promises = chunkDefs.map(async (chunk) => {
-        const cached = vpGetMetarChunkCache(chunk.key, nowTs);
-        if (Array.isArray(cached)) return { arr: cached, fromCache: true };
+    const fetchChunkData = async (chunk, bypassCache = false) => {
+        if (!bypassCache) {
+            const cached = vpGetMetarChunkCache(chunk.key, nowTs);
+            if (Array.isArray(cached)) return { arr: cached, fromCache: true };
+        }
         const url = `https://aviationweather.gov/api/data/metar?bbox=${chunk.minLat},${chunk.minLon},${chunk.maxLat},${chunk.maxLon}&format=json&t=${Date.now()}`;
         const arr = await safeFetchMetarJson(url, retries);
         if (arr === null) {
@@ -1880,9 +1882,22 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
             return { arr: stale, fromCache: true, staleFallback: true };
         }
         return { arr: safeArr, fromCache: false };
+    };
+
+    const promises = chunkDefs.map(async (chunk) => {
+        const cached = vpGetMetarChunkCache(chunk.key, nowTs);
+        if (Array.isArray(cached)) return { arr: cached, fromCache: true };
+        return fetchChunkData(chunk, false);
     });
 
-    const results = await Promise.all(promises);
+    let results = await Promise.all(promises);
+    const allEmpty = results.length > 0 && results.every(item => !item || !Array.isArray(item.arr) || item.arr.length === 0);
+    const allFromCache = results.length > 0 && results.every(item => !!(item && item.fromCache));
+    if (allEmpty && allFromCache) {
+        vpWeatherDebugEvent('METAR cache-only empty result -> force refresh');
+        for (const c of chunkDefs) vpMetarChunkCache.delete(c.key);
+        results = await Promise.all(chunkDefs.map(c => fetchChunkData(c, true)));
+    }
     if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
     const hasAnyMetarResult = results.some(item => item && Array.isArray(item.arr) && item.arr.length > 0);
@@ -2046,7 +2061,7 @@ const VP_METAR_ROUTE_CACHE_MAX = 24;
 const VP_METAR_FAIL_COOLDOWN_MS = 4 * 60 * 1000;
 const VP_METAR_FAIL_COOLDOWN_SOFT_MS = 45 * 1000;
 const VP_METAR_CHUNK_CACHE_TTL_MS = 30 * 60 * 1000;
-const VP_METAR_CHUNK_EMPTY_TTL_MS = 2 * 60 * 1000;
+const VP_METAR_CHUNK_EMPTY_TTL_MS = 20 * 1000;
 const VP_METAR_CHUNK_CACHE_MAX = 420;
 const VP_METAR_PROXY_FAIL_COOLDOWN_MS = 30 * 1000;
 const VP_METAR_PREFETCH_NEAR_NM = 80;
