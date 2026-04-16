@@ -128,6 +128,57 @@ async function handleObstacleTile(request, requestUrl, env) {
   return response;
 }
 
+function buildMetarUpstreamUrl(requestUrl) {
+  const src = String(requestUrl.searchParams.get("src") || "").trim();
+  if (src) {
+    const srcUrl = safeUrl(src);
+    if (!srcUrl || srcUrl.protocol !== "https:") return null;
+    if (srcUrl.hostname !== "aviationweather.gov") return null;
+    if (!srcUrl.pathname.startsWith("/api/data/metar")) return null;
+    srcUrl.searchParams.set("format", "json");
+    return srcUrl.toString();
+  }
+
+  const ids = String(requestUrl.searchParams.get("ids") || "").trim();
+  const bbox = String(requestUrl.searchParams.get("bbox") || "").trim();
+  if (!ids && !bbox) return null;
+  const u = new URL("https://aviationweather.gov/api/data/metar");
+  if (ids) u.searchParams.set("ids", ids);
+  if (bbox) u.searchParams.set("bbox", bbox);
+  u.searchParams.set("format", "json");
+  return u.toString();
+}
+
+async function handleMetarProxy(requestUrl) {
+  const upstreamUrl = buildMetarUpstreamUrl(requestUrl);
+  if (!upstreamUrl) return json({ ok: false, errorCode: "invalid_metar_query" }, 400);
+
+  let upstream;
+  try {
+    upstream = await fetch(upstreamUrl, {
+      method: "GET",
+      headers: {
+        "User-Agent": "GA-Dispatcher-MetarProxy/1.0",
+        "Accept": "application/json"
+      },
+      redirect: "follow"
+    });
+  } catch (error) {
+    return json({ ok: false, errorCode: "upstream_failed", message: String(error?.message || error) }, 502);
+  }
+
+  const text = await upstream.text();
+  const ct = upstream.headers.get("content-type") || "application/json; charset=utf-8";
+  return new Response(text, {
+    status: upstream.status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": ct,
+      "Cache-Control": "public, max-age=30"
+    }
+  });
+}
+
 function normalizeIcao(raw) {
   return String(raw || "").trim().toUpperCase();
 }
@@ -526,7 +577,14 @@ export default {
     }
 
     // ==========================================
-    // 4. OPENAIP PROXY (Catch-All für Snapping)
+    // 4. METAR PROXY (AviationWeather CORS-stabil)
+    // ==========================================
+    if (requestUrl.pathname === "/api/metar" && request.method === "GET") {
+      return handleMetarProxy(requestUrl);
+    }
+
+    // ==========================================
+    // 5. OPENAIP PROXY (Catch-All für Snapping)
     // ==========================================
     let targetPath = requestUrl.pathname;
     if (targetPath.includes("/v1/")) {

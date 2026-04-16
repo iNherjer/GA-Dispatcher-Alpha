@@ -1110,16 +1110,18 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
         container.style.display = 'none';
         return;
     }
+    const icaoNorm = String(icao || '').trim().toUpperCase();
+    const looksLikeIcao = /^[A-Z0-9]{4}$/.test(icaoNorm);
     container.style.display = 'block';
 
     try {
         let metarDataList = [];
         let isFallback = false;
-        let foundIcao = icao;
+        let foundIcao = icaoNorm;
 
         // --- CACHE LOGIK: Bulk-Daten aus dem Profil nutzen oder Theme-Wechsel abfangen ---
-        const cacheKey = icao + (lat ? `_${lat.toFixed(2)}` : '') + (lon ? `_${lon.toFixed(2)}` : '');
-        const cachedEntry = gpsState.metarCache[cacheKey] || gpsState.metarCache[icao];
+        const cacheKey = icaoNorm + (lat ? `_${lat.toFixed(2)}` : '') + (lon ? `_${lon.toFixed(2)}` : '');
+        const cachedEntry = gpsState.metarCache[cacheKey] || gpsState.metarCache[icaoNorm];
         if (cachedEntry) {
             metarDataList = cachedEntry.data;
             isFallback = cachedEntry.isFallback;
@@ -1146,9 +1148,8 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
             async function safeFetch(urlObj, retries = 3) {
                 const skipDirectMetarFetch = !!(window.location && window.location.protocol === 'file:');
                 const proxyUrls = [
+                    (u) => `https://ga-proxy.einherjer.workers.dev/api/metar?src=${encodeURIComponent(u)}`,
                     (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,
-                    (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-                    (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
                 ];
                 for (let i = 0; i < retries; i++) {
                     if (!skipDirectMetarFetch) {
@@ -1176,9 +1177,11 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
                 return null;
             }
 
-            const directUrl = `https://aviationweather.gov/api/data/metar?ids=${icao}&format=json&t=${Date.now()}`;
-            const mainData = await safeFetch(directUrl);
-            if (Array.isArray(mainData)) metarDataList = mainData;
+            if (looksLikeIcao) {
+                const directUrl = `https://aviationweather.gov/api/data/metar?ids=${icaoNorm}&format=json&t=${Date.now()}`;
+                const mainData = await safeFetch(directUrl);
+                if (Array.isArray(mainData)) metarDataList = mainData;
+            }
 
             if ((!metarDataList || metarDataList.length === 0) && lat !== undefined && lon !== undefined) {
                 const latMin = lat - 0.6, latMax = lat + 0.6;
@@ -1201,7 +1204,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
                                     if (d < minDist) { minDist = d; closest = candidates[i]; }
                                 }
                                 metarDataList = [closest];
-                                foundIcao = closest.icaoId || icao;
+                                foundIcao = closest.icaoId || icaoNorm;
                                 isFallback = true;
                             }
                         }
@@ -1295,8 +1298,8 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
             }
         }
 
-        const headerText = isFallback ? `Nearest: ${foundIcao}` : `Station: ${icao}`;
-        const modernHeaderText = isFallback ? `▶ NEAREST: ${foundIcao}` : `▶ STATION: ${icao}`;
+        const headerText = isFallback ? `Nearest: ${foundIcao}` : `Station: ${icaoNorm}`;
+        const modernHeaderText = isFallback ? `▶ NEAREST: ${foundIcao}` : `▶ STATION: ${icaoNorm}`;
 
         if (isRetro) {
             let svgTicks = `
