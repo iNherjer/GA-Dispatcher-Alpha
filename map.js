@@ -238,7 +238,16 @@ function applyMapHintEffects(key) {
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
     }
     if (key === 'windBarbs' || key === 'cloudFields') {
-        if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
+        // Sofortige visuelle Reaktion ohne zusätzlichen Quellen-Toggle.
+        if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
+        if (typeof clearMapOpenMeteoOverlays === 'function') clearMapOpenMeteoOverlays();
+        wxOverlayLastKey = '';
+        wxOverlayLastFetchAt = 0;
+        if (wxOverlayFetchTimer) {
+            clearTimeout(wxOverlayFetchTimer);
+            wxOverlayFetchTimer = null;
+        }
+        if (typeof window.renderMapWeatherOverlays === 'function') window.renderMapWeatherOverlays(true);
     }
     if (key === 'traffic') {
         window.vpTrafficMapVisible = window.mapHints.traffic !== false;
