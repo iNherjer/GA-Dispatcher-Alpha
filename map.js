@@ -1274,7 +1274,7 @@ function renderMainRoute() {
                 if (typeof window.hitBoxPolyline !== 'undefined' && window.hitBoxPolyline) {
                     window.hitBoxPolyline.setLatLngs(latlngs);
                 }
-                if (typeof updateWeatherMarkerDodging === 'function') updateWeatherMarkerDodging();
+                scheduleWeatherMarkerDodging(true);
             }
         });
 
@@ -1441,7 +1441,7 @@ function renderMainRoute() {
     if (!hasMissionContext && routeWaypoints.length >= 2 && typeof triggerVerticalProfileUpdate === 'function') {
         triggerVerticalProfileUpdate();
     }
-    if (typeof updateWeatherMarkerDodging === 'function') updateWeatherMarkerDodging();
+    scheduleWeatherMarkerDodging(true);
 }
 
 window.openRouteWaypointAirportInfo = function (index) {
@@ -2596,6 +2596,36 @@ document.addEventListener('DOMContentLoaded', () => {
 let wxMapMarkers = [];
 let wxWindBarbMarkers = [];
 let wxCloudFieldMarkers = [];
+let wxDodgingRafQueued = false;
+let wxDodgingTimer = null;
+let wxDodgingLastRun = 0;
+
+function scheduleWeatherMarkerDodging(force = false) {
+    if (!map || typeof window.updateWeatherMarkerDodging !== 'function') return;
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const minGapMs = force ? 0 : 90;
+
+    const queueRaf = () => {
+        if (wxDodgingRafQueued) return;
+        wxDodgingRafQueued = true;
+        requestAnimationFrame(() => {
+            wxDodgingRafQueued = false;
+            wxDodgingLastRun = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+            if (typeof window.updateWeatherMarkerDodging === 'function') window.updateWeatherMarkerDodging();
+        });
+    };
+
+    if ((now - wxDodgingLastRun) >= minGapMs) {
+        queueRaf();
+        return;
+    }
+    if (wxDodgingTimer) return;
+    const waitMs = Math.max(10, minGapMs - (now - wxDodgingLastRun));
+    wxDodgingTimer = setTimeout(() => {
+        wxDodgingTimer = null;
+        queueRaf();
+    }, waitMs);
+}
 let wxCloudFieldSvgSeq = 0;
 let wxOverlayFetchController = null;
 let wxOverlayFetchTimer = null;
@@ -3082,10 +3112,10 @@ window.renderWeatherMarkers = function() {
     });
 
     if (!map._wxDodgingBound) {
-        map.on('move zoom moveend zoomend mousemove', () => { if (typeof updateWeatherMarkerDodging === 'function') updateWeatherMarkerDodging(); });
+        map.on('move zoom moveend zoomend', () => scheduleWeatherMarkerDodging(false));
         map._wxDodgingBound = true;
     }
-    setTimeout(updateWeatherMarkerDodging, 50);
+    setTimeout(() => scheduleWeatherMarkerDodging(true), 50);
 };
 
 /* =========================================================

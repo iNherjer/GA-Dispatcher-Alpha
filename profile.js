@@ -30,6 +30,7 @@ window.updateOverpassErrorUI = function() {
 };
 window.vpBgNeedsUpdate = true;
 window.vpAnimFrameId = null;
+window.vpAnimFrameMeta = window.vpAnimFrameMeta || { lastPaintMs: 0, lastTargetFps: 0 };
 window._vpLastScrollLeft = 0;
 /* =========================================================
    VERTICAL PROFILE (Höhenprofil) ENGINE
@@ -90,6 +91,9 @@ const VP_OBS_TILE_MAX_PER_PASS = 1;
 const VP_OBS_TILE_MAX_PER_PASS_FORCE = 2;
 const VP_OBS_TILE_INTER_REQUEST_LONG_MS = 4200;
 const VP_OBS_TILE_DEFERRED_RETRY_MS = 5000;
+const VP_PROFILE_FPS_IDLE = 10;
+const VP_PROFILE_FPS_ACTIVE = 22;
+const VP_PROFILE_FPS_INTERACT = 30;
 const VP_OBS_TILE_FAILED_KEY = 'ga_obs_tile_failed_v1';
 const VP_OBS_TILE_FAILED_MAX = 1200;
 let vpOverpassStateHydrated = false;
@@ -4392,6 +4396,30 @@ function renderMapProfile() {
     }
 }
 
+function vpGetMapProfileTargetFps(isHdgMode) {
+    const isInteracting = !!(
+        window.vpIsFastRendering ||
+        window.vpDraggingPosMarker === true ||
+        (typeof vpDraggingWP !== 'undefined' && vpDraggingWP >= 0) ||
+        (typeof vpDraggingSegment !== 'undefined' && !!vpDraggingSegment)
+    );
+    if (isInteracting) return VP_PROFILE_FPS_INTERACT;
+
+    const obsSrc = isHdgMode ? vpHdgObstacles : vpObstacles;
+    const hasObstacleAnim = vpShowObstacles && Array.isArray(obsSrc) && obsSrc.length > 0;
+    const hasWeatherAnim = !!vpShowClouds;
+    const hasAirspacePulse = (typeof vpHighlightPulseIdx !== 'undefined' && vpHighlightPulseIdx >= 0);
+    const hasTrafficAnim = !!(window.vpTrafficProfileVisible && window.vpTrafficData && window.vpTrafficData.length);
+    const hasPrediction = !!(window.vpPredictionData && window.vpPredictionData.length);
+
+    let fps = (hasObstacleAnim || hasWeatherAnim || hasAirspacePulse || hasTrafficAnim || hasPrediction || isHdgMode)
+        ? VP_PROFILE_FPS_ACTIVE
+        : VP_PROFILE_FPS_IDLE;
+
+    if (document.hidden) fps = Math.min(fps, 8);
+    return fps;
+}
+
 // ─── TRAFFIC PROJEKTION AUF ROUTE ────────────────────────────────────────────
 function vpProjectTrafficOnRoute(elevData) {
     if (!window.vpTrafficData?.length || !elevData?.length) return [];
@@ -4516,6 +4544,19 @@ function renderMapProfileFrames(timeMs) {
     }
 
     const isHdgMode = (typeof vpMode !== 'undefined' && vpMode === 'HDG');
+    const perfMeta = window.vpAnimFrameMeta || (window.vpAnimFrameMeta = { lastPaintMs: 0, lastTargetFps: 0 });
+    const targetFps = vpGetMapProfileTargetFps(isHdgMode);
+    const frameIntervalMs = 1000 / Math.max(1, targetFps);
+    const nowMs = Number.isFinite(timeMs) ? timeMs : performance.now();
+    const elapsedMs = nowMs - (Number(perfMeta.lastPaintMs) || 0);
+
+    if (!window.vpBgNeedsUpdate && elapsedMs < frameIntervalMs) {
+        window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
+        return;
+    }
+    perfMeta.lastPaintMs = nowMs;
+    perfMeta.lastTargetFps = targetFps;
+
     const elevData = isHdgMode
         ? vpHdgElevData
         : (vpZoomLevel < 100 && vpHighResData) ? vpHighResData : vpElevationData;
