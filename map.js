@@ -38,6 +38,7 @@ let vpObsTileDebugLayer = null;
 window.vpObsTileOverlayEnabled = localStorage.getItem('ga_debug_obs_tile_overlay') === 'true';
 const VP_OBS_TILE_USED_RECENT_MS = 5 * 60 * 1000;
 window.vpObsTileLoadingKeys = window.vpObsTileLoadingKeys || new Set();
+window.vpObsTileDeferredKeys = window.vpObsTileDeferredKeys || new Set();
 
 function updateObsTileOverlayButtonUi() {
     const btn = document.getElementById('btnToggleObsTileOverlay');
@@ -130,11 +131,13 @@ function renderObsTileOverlay() {
     }
     const now = Date.now();
     const loadingKeys = (window.vpObsTileLoadingKeys instanceof Set) ? window.vpObsTileLoadingKeys : new Set();
+    const deferredKeys = (window.vpObsTileDeferredKeys instanceof Set) ? window.vpObsTileDeferredKeys : new Set();
     const bounds = map.getBounds().pad(0.35);
     const mergedKeys = new Set();
     entries.forEach(item => { if (item && item.k) mergedKeys.add(item.k); });
     failedEntries.forEach(item => { if (item && item.k) mergedKeys.add(item.k); });
     loadingKeys.forEach(k => { if (k) mergedKeys.add(k); });
+    deferredKeys.forEach(k => { if (k) mergedKeys.add(k); });
     for (const key of mergedKeys) {
         const item = entryByKey.get(key) || { k: key };
         const b = tileBoundsFromKey(key, cfg.stepLat, cfg.stepLon);
@@ -145,14 +148,14 @@ function renderObsTileOverlay() {
         const failMeta = failedByKey.get(key);
         const failedTs = Number((failMeta && failMeta.ts) || 0);
         const isLoading = loadingKeys.has(key);
-        const isNew = loadedTs > 0 && (now - loadedTs) < (2 * 60 * 1000);
+        const isDeferred = deferredKeys.has(key);
         const wasUsed = usedTs > 0 && (now - usedTs) <= VP_OBS_TILE_USED_RECENT_MS;
         const hasFailure = failedTs > 0 && (!loadedTs || failedTs >= loadedTs);
         const color = isLoading
             ? '#ff9a3d'
-            : (hasFailure ? '#b71c1c' : (isNew ? '#ff9a3d' : (wasUsed ? '#4fcd73' : '#4da2ff')));
-        const fillOpacity = isLoading ? 0.26 : (hasFailure ? 0.28 : (isNew ? 0.2 : (wasUsed ? 0.14 : 0.1)));
-        const strokeWeight = isLoading ? 2 : (hasFailure ? 2 : (isNew ? 2 : 1));
+            : (hasFailure ? '#b71c1c' : (isDeferred ? '#ffd54f' : (wasUsed ? '#4fcd73' : '#4da2ff')));
+        const fillOpacity = isLoading ? 0.26 : (hasFailure ? 0.28 : (isDeferred ? 0.22 : (wasUsed ? 0.14 : 0.1)));
+        const strokeWeight = isLoading ? 2 : (hasFailure ? 2 : (isDeferred ? 2 : 1));
         const rect = L.rectangle([[b.south, b.west], [b.north, b.east]], {
             color,
             weight: strokeWeight,
@@ -173,6 +176,21 @@ window.vpSetObsTileLoading = function(tileKey, isLoading) {
     if (!(window.vpObsTileLoadingKeys instanceof Set)) window.vpObsTileLoadingKeys = new Set();
     if (isLoading) window.vpObsTileLoadingKeys.add(tileKey);
     else window.vpObsTileLoadingKeys.delete(tileKey);
+    if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
+};
+window.vpSetObsTileDeferred = function(tileKeys, isDeferred) {
+    if (!(window.vpObsTileDeferredKeys instanceof Set)) window.vpObsTileDeferredKeys = new Set();
+    if (tileKeys === '__RESET__') {
+        window.vpObsTileDeferredKeys.clear();
+        if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
+        return;
+    }
+    const keys = Array.isArray(tileKeys) ? tileKeys : [tileKeys];
+    for (const key of keys) {
+        if (typeof key !== 'string' || !key) continue;
+        if (isDeferred) window.vpObsTileDeferredKeys.add(key);
+        else window.vpObsTileDeferredKeys.delete(key);
+    }
     if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
 };
 

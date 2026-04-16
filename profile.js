@@ -87,7 +87,7 @@ const VP_OBS_TILE_INTER_REQUEST_MS = 3200;
 const VP_OBS_TILE_MAX_PER_PASS = 1;
 const VP_OBS_TILE_MAX_PER_PASS_FORCE = 2;
 const VP_OBS_TILE_INTER_REQUEST_LONG_MS = 4200;
-const VP_OBS_TILE_DEFERRED_RETRY_MS = 15000;
+const VP_OBS_TILE_DEFERRED_RETRY_MS = 5000;
 const VP_OBS_TILE_FAILED_KEY = 'ga_obs_tile_failed_v1';
 const VP_OBS_TILE_FAILED_MAX = 1200;
 let vpOverpassStateHydrated = false;
@@ -611,6 +611,12 @@ function vpGetRouteTileCoverageProbe(elevData) {
             missing.push(key);
             continue;
         }
+        // Legacy/Provisional marker aus altem Route-Cache nicht als "wirklich geladen" behandeln.
+        // Dadurch werden diese Tiles automatisch erneut gegen Overpass validiert.
+        if (String((meta && meta.src) || '') === 'route-cache') {
+            missing.push(key);
+            continue;
+        }
         if (VP_OBS_TILE_TTL_MS > 0 && (now - ts) > VP_OBS_TILE_TTL_MS) {
             missing.push(key);
             continue;
@@ -749,6 +755,7 @@ function vpExtractOverpassTileFeatures(elements) {
 async function vpFetchOverpassTile(tileKey, signal, tileIndex = 0) {
     const b = vpObsTileBoundsFromKey(tileKey);
     if (!b) return { ok: false, cooldown: false };
+    if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
     if (window.vpSetObsTileLoading) window.vpSetObsTileLoading(tileKey, true);
     const bbox = `${b.south.toFixed(4)},${b.west.toFixed(4)},${b.north.toFixed(4)},${b.east.toFixed(4)}`;
     const query = `[out:json][timeout:45][bbox:${bbox}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];way["highway"="motorway"];way["waterway"="river"];);out geom qt;`;
@@ -788,6 +795,10 @@ async function vpFetchOverpassTile(tileKey, signal, tileIndex = 0) {
                     continue;
                 }
                 const json = await res.json();
+                if (!json || !Array.isArray(json.elements)) {
+                    console.warn(`[Overpass] Tile ${tileKey}: Antwort unvollständig (kein elements[]).`);
+                    return { ok: false, cooldown: false, status: 520, src: serverUrl };
+                }
                 const features = vpExtractOverpassTileFeatures(json && json.elements);
                 let src = serverUrl;
                 try { src = new URL(serverUrl).host; } catch (_) {}
@@ -831,6 +842,10 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
             window.vpWeatherDebug.overpassDeferredTilesTotal = Number(window.vpWeatherDebug.overpassDeferredTilesTotal || 0) + deferredTileKeys.length;
         }
     }
+    if (window.vpSetObsTileDeferred) {
+        window.vpSetObsTileDeferred('__RESET__', false);
+        if (deferredTileKeys.length > 0) window.vpSetObsTileDeferred(deferredTileKeys, true);
+    }
     if (!toLoad.length) {
         const seeded = vpProjectObsPoolToRoute(elevData);
         return { obs: seeded.obs || [], lin: seeded.lin || [], source: 'tile-cache', loadedTileKeys: [], failedTileKeys: [], deferredTileKeys: [] };
@@ -854,6 +869,7 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
         const res = await vpFetchOverpassTile(tileKey, signal, i);
         if (!res || !res.ok) {
             vpMarkTileFailed(tileKey, Number((res && res.status) || 0), String((res && res.src) || ''));
+            if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
             failedTileKeys.push(tileKey);
             if (res && res.cooldown) {
                 failedTileKeys.push(...toLoad.slice(i + 1));
@@ -864,6 +880,7 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
         }
 
         vpClearTileFailed(tileKey);
+        if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
         if (res.src) usedServers.add(res.src);
         if (res.features) vpRememberObstacleData(res.features.obs || [], res.features.lin || []);
         vpMarkTileKeysCovered([tileKey], res.src || 'overpass');
@@ -894,7 +911,7 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
     vpLinearFeatures = seededFinal.lin || [];
     const sourceLabel = usedServers.size > 0 ? Array.from(usedServers).join(',') : 'tile-cache';
     window.vpLastObsTileSource = sourceLabel;
-    console.log(`[Overpass] Tile-Queue fertig. geladen=${loadedTileKeys.length}, fehlend=${failedTileKeys.length}`);
+    console.log(`[Overpass] Tile-Queue fertig. geladen=${loadedTileKeys.length}, failed=${failedTileKeys.length}, deferred=${deferredTileKeys.length}`);
     return {
         obs: vpObstacles,
         lin: vpLinearFeatures,
@@ -1078,6 +1095,7 @@ function triggerVerticalProfileUpdate() {
                 }
 
                 if (!forceOverpassReload && tileProbe.total > 0 && tileProbe.missing.length === 0) {
+                    if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred('__RESET__', false);
                     const seeded = vpProjectObsPoolToRoute(vpElevationData);
                     if ((seeded.obs && seeded.obs.length) || (seeded.lin && seeded.lin.length)) {
                         vpObstacles = seeded.obs || [];
@@ -1126,10 +1144,8 @@ function triggerVerticalProfileUpdate() {
                             vpObstacles = cached.obs || [];
                             vpLinearFeatures = cached.lin || [];
                             window._lastObsRouteKey = cacheKey; 
-                            window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
                             hasUsableCache = (vpObstacles.length > 0 || vpLinearFeatures.length > 0);
                             vpRememberObstacleData(vpObstacles, vpLinearFeatures);
-                            vpMarkRouteTilesCovered(vpElevationData, 'route-cache');
                             window.vpBgNeedsUpdate = true; // <--- FIX: Redraw nach Laden aus Cache erzwingen
                         } catch(e) { vpObstacles = []; vpLinearFeatures = []; }
                     }
@@ -1144,7 +1160,7 @@ function triggerVerticalProfileUpdate() {
                         }
                     }
 
-                    if (!obStr || forceOverpassReload) {
+                    if (forceOverpassReload || !obStr || tileProbe.missing.length > 0) {
                         const result = await fetchProfileObstacles(vpElevationData, currentSignal, cacheKey, forceOverpassReload);
                         if (result !== null) { 
                             vpObstacles = result.obs || [];
@@ -1168,6 +1184,17 @@ function triggerVerticalProfileUpdate() {
                                     if (vpIsOverpassCoolingDown()) return;
                                     if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
                                 }, VP_OBS_TILE_DEFERRED_RETRY_MS);
+                            }
+                            if (!forceOverpassReload && result && Array.isArray(result.failedTileKeys) && result.failedTileKeys.length > 0) {
+                                const retryMs = Math.max(VP_OBS_TILE_DEFERRED_RETRY_MS, vpGetOverpassCooldownRemainingMs() + 1200);
+                                if (window._vpOverpassFailedRefreshTimer) clearTimeout(window._vpOverpassFailedRefreshTimer);
+                                window._vpOverpassFailedRefreshTimer = setTimeout(() => {
+                                    window._vpOverpassFailedRefreshTimer = null;
+                                    if (!routeWaypoints || routeWaypoints.length < 2) return;
+                                    if (window._lastVpRouteKey !== cacheKey) return;
+                                    if (vpIsOverpassCoolingDown()) return;
+                                    if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
+                                }, retryMs);
                             }
                         }
                     }
@@ -1766,6 +1793,22 @@ function vpFormatDebugTs(ts) {
     try { return new Date(ts).toLocaleString(); } catch (_) { return String(ts); }
 }
 
+function vpApproxStorageBytes(key) {
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? (raw.length * 2) : 0;
+    } catch (_) {
+        return 0;
+    }
+}
+
+function vpFormatBytes(bytes) {
+    const b = Number(bytes || 0);
+    if (b < 1024) return `${b} B`;
+    if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+    return `${(b / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 window.vpBuildWeatherDebugReport = function() {
     vpHydrateObsTileCoverage();
     vpHydrateObsTileFailed();
@@ -1822,6 +1865,11 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`- Tile-Quellen: ${srcSummary || '-'}`);
     const overpassCdRem = Math.ceil(vpGetOverpassCooldownRemainingMs() / 1000);
     lines.push(`- Overpass Cooldown aktiv: ${vpIsOverpassCoolingDown() ? `Ja (${overpassCdRem}s)` : 'Nein'}`);
+    const rollingPoolBytes = vpApproxStorageBytes(VP_OBS_POOL_STORAGE_KEY);
+    const rollingTileBytes = vpApproxStorageBytes(VP_OBS_TILE_COVERAGE_KEY);
+    const rollingFailBytes = vpApproxStorageBytes(VP_OBS_TILE_FAILED_KEY);
+    const rollingTotalBytes = rollingPoolBytes + rollingTileBytes + rollingFailBytes;
+    lines.push(`- Rolling Cache Größe: ${vpFormatBytes(rollingTotalBytes)} (Pool ${vpFormatBytes(rollingPoolBytes)}, Tiles ${vpFormatBytes(rollingTileBytes)}, Failed ${vpFormatBytes(rollingFailBytes)})`);
     lines.push('');
     lines.push('Trigger / Flows');
     lines.push(`- Profil-Fetches: ${dbg.profileRouteFetches || 0}`);
