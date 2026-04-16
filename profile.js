@@ -2252,6 +2252,41 @@ window.vpRefreshWeatherDebugReport = function() {
     body.textContent = window.vpBuildWeatherDebugReport ? window.vpBuildWeatherDebugReport() : 'Debug-Daten nicht verfügbar';
 };
 
+window.vpClearObstacleRollingCache = function() {
+    try {
+        localStorage.removeItem(VP_OBS_POOL_STORAGE_KEY);
+        localStorage.removeItem(VP_OBS_TILE_COVERAGE_KEY);
+        localStorage.removeItem(VP_OBS_TILE_FAILED_KEY);
+        localStorage.removeItem(VP_OVERPASS_STATE_STORAGE_KEY);
+        const toDelete = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k) continue;
+            if (k.startsWith('ga_obs_combo_')) toDelete.push(k);
+        }
+        toDelete.forEach(k => localStorage.removeItem(k));
+    } catch (_) { }
+
+    try {
+        vpObsPool.obs.clear();
+        vpObsPool.lin.clear();
+        vpObsTileCoverage.clear();
+        vpObsTileFailed.clear();
+        if (window.vpOverpassTileBackoff instanceof Map) window.vpOverpassTileBackoff.clear();
+        window.vpFailedOverpassChunks = [];
+        vpObstacles = [];
+        vpLinearFeatures = [];
+        window._lastObsRouteKey = null;
+        window.vpOverpassRouteLastSuccess = {};
+        if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred('__RESET__', false);
+        if (window.updateOverpassErrorUI) window.updateOverpassErrorUI();
+        if (window.vpNotifyObsTileCoverageChanged) window.vpNotifyObsTileCoverageChanged();
+        window.vpBgNeedsUpdate = true;
+        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+    } catch (_) { }
+    console.log('[Overpass] Rolling Cache geleert (Pool/Tiles/Failed/Route-Cache).');
+};
+
 window.vpToggleWeatherDebugPanel = function(forceState) {
     const panel = document.getElementById('weatherDebugPanel');
     if (!panel) return;

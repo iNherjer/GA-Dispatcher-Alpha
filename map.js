@@ -145,16 +145,18 @@ function renderObsTileOverlay() {
         if (b.east < bounds.getWest() || b.west > bounds.getEast() || b.north < bounds.getSouth() || b.south > bounds.getNorth()) continue;
         const loadedTs = Number((item && item.ts) || 0);
         const usedTs = Number((item && item.usedTs) || 0);
+        const src = String((item && item.src) || '').toLowerCase();
         const failMeta = failedByKey.get(key);
         const failedTs = Number((failMeta && failMeta.ts) || 0);
         const isLoading = loadingKeys.has(key);
         const isDeferred = deferredKeys.has(key);
         const wasUsed = usedTs > 0 && (now - usedTs) <= VP_OBS_TILE_USED_RECENT_MS;
         const hasFailure = failedTs > 0 && (!loadedTs || failedTs >= loadedTs);
+        const isHostedTile = src.includes('hosted') || src.includes('github');
         const color = isLoading
             ? '#ff9a3d'
-            : (hasFailure ? '#b71c1c' : (isDeferred ? '#ffd54f' : (wasUsed ? '#4fcd73' : '#4da2ff')));
-        const fillOpacity = isLoading ? 0.26 : (hasFailure ? 0.28 : (isDeferred ? 0.22 : (wasUsed ? 0.14 : 0.1)));
+            : (hasFailure ? '#b71c1c' : (isDeferred ? '#ffd54f' : (isHostedTile ? '#d500f9' : (wasUsed ? '#4fcd73' : '#4da2ff'))));
+        const fillOpacity = isLoading ? 0.26 : (hasFailure ? 0.28 : (isDeferred ? 0.22 : (isHostedTile ? 0.2 : (wasUsed ? 0.14 : 0.1))));
         const strokeWeight = isLoading ? 2 : (hasFailure ? 2 : (isDeferred ? 2 : 1));
         const rect = L.rectangle([[b.south, b.west], [b.north, b.east]], {
             color,

@@ -58,13 +58,15 @@ function buildObstacleTileUrl(env, tileKey) {
 async function handleObstacleTile(request, requestUrl, env) {
   const tileKey = normalizeTileKey(requestUrl.searchParams.get("tile"));
   if (!tileKey) return json({ ok: false, errorCode: "invalid_tile" }, 400);
+  const refreshRaw = String(requestUrl.searchParams.get("refresh") || "").toLowerCase();
+  const forceRefresh = refreshRaw === "1" || refreshRaw === "true" || refreshRaw === "yes";
 
   const upstreamUrl = buildObstacleTileUrl(env, tileKey);
   if (!upstreamUrl) return json({ ok: false, errorCode: "invalid_tile" }, 400);
 
   const cacheKey = new Request(`https://cache.local/obstacles/tile?tile=${encodeURIComponent(tileKey)}`);
   const cache = caches.default;
-  const useCache = request.method === "GET";
+  const useCache = request.method === "GET" && !forceRefresh;
   if (useCache) {
     const hit = await cache.match(cacheKey);
     if (hit) return hit;
@@ -85,7 +87,11 @@ async function handleObstacleTile(request, requestUrl, env) {
   }
 
   if (upstream.status === 404 || upstream.status === 204) {
-    const missRes = json({ ok: false, tile: tileKey, errorCode: "not_found" }, 404, { "Cache-Control": "public, max-age=900" });
+    const missRes = json(
+      { ok: false, tile: tileKey, errorCode: "not_found", forceRefresh },
+      404,
+      { "Cache-Control": forceRefresh ? "no-store" : "public, max-age=900" }
+    );
     if (useCache) await cache.put(cacheKey, missRes.clone());
     return missRes;
   }
@@ -107,11 +113,12 @@ async function handleObstacleTile(request, requestUrl, env) {
     ok: true,
     tile: tileKey,
     source: "github-hosted",
+    forceRefresh,
     version: Number(payload?.version || 1),
     updatedAt: payload?.updatedAt || null,
     obs,
     lin
-  }, 200, { "Cache-Control": "public, max-age=3600" });
+  }, 200, { "Cache-Control": forceRefresh ? "no-store" : "public, max-age=3600" });
 
   if (useCache) await cache.put(cacheKey, response.clone());
   return response;
