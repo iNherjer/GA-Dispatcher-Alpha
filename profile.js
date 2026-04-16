@@ -3618,6 +3618,12 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
         return window._vpAsCache.items;
     }
     
+    const baseStepNm = (elevData.length > 1)
+        ? Math.max(0.05, Math.abs((elevData[1].distNM || 0) - (elevData[0].distNM || 0)))
+        : 0.25;
+    // Mikro-Splitter zusammenführen, aber echte mehrfach-Durchflüge getrennt lassen.
+    const mergeGapNm = Math.max(0.12, baseStepNm * 0.35);
+    const minIntervalNm = Math.max(0.06, baseStepNm * 0.22);
     let items = [];
     for (let asIdx = 0; asIdx < activeAirspaces.length; asIdx++) {
         const as = activeAirspaces[asIdx];
@@ -3704,9 +3710,31 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
         if (openStart !== null) closeInterval(totalDist);
         if (intervals.length === 0) continue;
 
+        // 1) Zu kleine Fragmente verwerfen
+        const filtered = intervals
+            .map(iv => ({ min: Number(iv.min || 0), max: Number(iv.max || 0) }))
+            .filter(iv => Number.isFinite(iv.min) && Number.isFinite(iv.max) && iv.max > iv.min + minIntervalNm)
+            .sort((a, b) => a.min - b.min);
+        if (filtered.length === 0) continue;
+
+        // 2) Fast angrenzende Intervalle zusammenführen (numerisches Flattern am Rand)
+        const merged = [];
+        for (const iv of filtered) {
+            if (merged.length === 0) {
+                merged.push({ min: iv.min, max: iv.max });
+                continue;
+            }
+            const prev = merged[merged.length - 1];
+            if (iv.min <= prev.max + mergeGapNm) {
+                prev.max = Math.max(prev.max, iv.max);
+            } else {
+                merged.push({ min: iv.min, max: iv.max });
+            }
+        }
+
         const eps = (elevData.length > 1) ? Math.max(0.05, (elevData[1].distNM - elevData[0].distNM) * 0.5) : 0.5;
-        for (let runIdx = 0; runIdx < intervals.length; runIdx++) {
-            const interval = intervals[runIdx];
+        for (let runIdx = 0; runIdx < merged.length; runIdx++) {
+            const interval = merged[runIdx];
             const asMinDist = interval.min;
             const asMaxDist = interval.max;
             const relevantPts = elevData.filter(p => p.distNM >= asMinDist - eps && p.distNM <= asMaxDist + eps);
