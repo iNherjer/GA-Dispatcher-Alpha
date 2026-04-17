@@ -689,6 +689,7 @@
 
 <div id="mapTableOverlay" class="pinboard-overlay">
     <div class="pinboard-header">
+        <div id="mapToolbarInner">
         <span id="navStationLabel" style="color: #fff; font-weight: bold; font-family: monospace;">NAV STATION (KARTENTISCH)</span>
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
             <button class="pb-btn" id="snapBtn" onclick="toggleSnapMode()">🧲 Snapping (Aus)</button>
@@ -753,6 +754,10 @@
             </div>
             <button class="pb-btn" id="freeflightBtn" onclick="toggleFreeflightMode()" style="background:#444; color:#fff;">✈️ Direct To (Aus)</button>
             <button class="pb-btn close" onclick="document.body.classList.remove('map-is-fullscreen'); document.documentElement.classList.remove('map-is-fullscreen'); toggleMapTable()">❌ Schließen</button>
+        </div>
+        </div><!-- /#mapToolbarInner -->
+        <div id="mapToolbarToggleRow">
+            <button id="mapToolbarToggle" onclick="toggleMapToolbar()">▲</button>
         </div>
     </div>
     <div class="pinboard-scroll-area">

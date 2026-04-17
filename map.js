@@ -2334,6 +2334,22 @@ async function refreshMapTableLayout() {
     if (typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible && typeof renderMapProfile === 'function') renderMapProfile();
 }
 
+function toggleMapToolbar() {
+    const collapsed = document.body.classList.toggle('toolbar-collapsed');
+    const btn = document.getElementById('mapToolbarToggle');
+    if (btn) btn.textContent = collapsed ? '▼' : '▲';
+    localStorage.setItem('ga_toolbar_collapsed', collapsed ? '1' : '');
+}
+
+// Restore toolbar state on load
+document.addEventListener('DOMContentLoaded', function() {
+    if (localStorage.getItem('ga_toolbar_collapsed')) {
+        document.body.classList.add('toolbar-collapsed');
+        const btn = document.getElementById('mapToolbarToggle');
+        if (btn) btn.textContent = '▼';
+    }
+});
+
 function toggleMapTable(forceInternal) {
     const board = document.getElementById('mapTableOverlay');
     const pinBoard = document.getElementById('pinboardOverlay');
