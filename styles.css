@@ -2212,7 +2212,7 @@ body.map-is-fullscreen .pinboard-header {
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    overflow: hidden;
+    overflow: visible;
     max-height: 300px;
     transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1),
                 opacity     0.22s ease,
