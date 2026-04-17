@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v340';
+const CACHE = 'ga-dispatcher-v346';
 
 const STATIC = [
     './',
@@ -95,6 +95,8 @@ const STATIC = [
     './audio-warnings/aw-8min.m4a',
     './audio-warnings/aw-9min.m4a',
     './audio-warnings/aw-10min.m4a',
+    'https://cdn.jsdelivr.net/npm/dseg@0.46.0/fonts/DSEG7-Classic/DSEG7Classic-Bold.woff2',
+    './MS33558.ttf',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
     // CDN – html2canvas & jsPDF

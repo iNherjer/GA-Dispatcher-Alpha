@@ -2,6 +2,19 @@
    1. BASIS / CLASSIC DESIGN (Modern & Clean)
    ========================================================================== */
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Oleo+Script:wght@400;700&display=swap');
+@font-face {
+    font-family: 'DSEG7';
+    src: url('https://cdn.jsdelivr.net/npm/dseg@0.46.0/fonts/DSEG7-Classic/DSEG7Classic-Bold.woff2') format('woff2');
+    font-weight: bold;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'MS33558';
+    src: url('./MS33558.woff2') format('woff2'),
+         url('./MS33558.ttf') format('truetype');
+    font-weight: normal;
+    font-display: swap;
+}
 
 :root {
     --blue: #4da6ff;

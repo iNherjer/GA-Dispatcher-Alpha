@@ -673,73 +673,137 @@ let _compassRot = 0;
 function buildCompassSvg() {
     const svg = document.getElementById('compassSvg');
     if (!svg || svg.childElementCount > 0) return;
-    const cx = 150, cy = 150, NS = 'http://www.w3.org/2000/svg';
-    const mk = tag => document.createElementNS(NS, tag);
+    const CX = 150, CY = 150, NS = 'http://www.w3.org/2000/svg';
 
-    // Background
-    const bg = mk('circle');
-    bg.setAttribute('cx', cx); bg.setAttribute('cy', cy); bg.setAttribute('r', '148');
-    bg.setAttribute('fill', 'rgba(12,20,30,0.93)');
-    bg.setAttribute('stroke', 'rgba(80,130,180,0.45)'); bg.setAttribute('stroke-width', '1.5');
-    svg.appendChild(bg);
+    function e(tag, attrs, text) {
+        const el = document.createElementNS(NS, tag);
+        for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, String(v));
+        if (text != null) el.textContent = text;
+        return el;
+    }
 
-    // Inner reference ring
-    const ring = mk('circle');
-    ring.setAttribute('cx', cx); ring.setAttribute('cy', cy); ring.setAttribute('r', '108');
-    ring.setAttribute('fill', 'none');
-    ring.setAttribute('stroke', 'rgba(80,130,180,0.18)'); ring.setAttribute('stroke-width', '1');
-    svg.appendChild(ring);
+    // ── Background ───────────────────────────────────────────────────────────
+    svg.appendChild(e('circle', { cx: CX, cy: CY, r: 149,
+        fill: 'rgba(2,5,10,0.97)', stroke: 'rgba(255,255,255,0.7)', 'stroke-width': 1.5 }));
+    // Thin inner rings (HSI reference circles)
+    svg.appendChild(e('circle', { cx: CX, cy: CY, r: 108,
+        fill: 'none', stroke: 'rgba(255,255,255,0.12)', 'stroke-width': 0.8 }));
+    svg.appendChild(e('circle', { cx: CX, cy: CY, r: 62,
+        fill: 'none', stroke: 'rgba(255,255,255,0.08)', 'stroke-width': 0.8 }));
 
-    const CARDINALS = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
-    const outerR = 138;
+    // ── Tick marks + labels ───────────────────────────────────────────────────
+    // Label graduation: every 30° (N/E/S/W + heading÷10 without zero-pad)
+    const CARDS  = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
+    const OR = 143; // outer ring radius
 
     for (let deg = 0; deg < 360; deg += 5) {
-        const svgRad = (deg - 90) * Math.PI / 180;
+        const r = (deg - 90) * Math.PI / 180;
         const isCard = deg % 90 === 0;
-        const is10   = deg % 10 === 0;
-        const tickLen = isCard ? 18 : is10 ? 11 : 5;
-        const strokeW = isCard ? '2.5' : is10 ? '1.5' : '0.8';
-        const color   = isCard ? (deg === 0 ? '#ff5555' : '#7bb8f0')
-                      : is10   ? 'rgba(140,185,225,0.65)'
-                      :          'rgba(120,160,200,0.3)';
+        const is30   = !isCard && deg % 30 === 0;
+        const is10   = !isCard && !is30 && deg % 10 === 0;
 
-        const x1 = cx + outerR * Math.cos(svgRad),       y1 = cy + outerR * Math.sin(svgRad);
-        const x2 = cx + (outerR - tickLen) * Math.cos(svgRad), y2 = cy + (outerR - tickLen) * Math.sin(svgRad);
-        const line = mk('line');
-        line.setAttribute('x1', x1.toFixed(1)); line.setAttribute('y1', y1.toFixed(1));
-        line.setAttribute('x2', x2.toFixed(1)); line.setAttribute('y2', y2.toFixed(1));
-        line.setAttribute('stroke', color); line.setAttribute('stroke-width', strokeW);
-        svg.appendChild(line);
+        // Tick sizes: cardinal 18 px, 30° 12 px, 10° 7 px, 5° 4 px
+        const tLen    = isCard ? 18 : is30 ? 12 : is10 ? 7 : 4;
+        const tStroke = isCard ? 2.2 : is30 ? 1.6 : is10 ? 1.0 : 0.7;
+        const tColor  = '#ffffff';   // all ticks pure white like the reference
 
-        // Label every 10° — cardinal letters or 2-digit number (heading ÷ 10)
-        if (is10) {
-            const labelR = outerR - tickLen - 12;
-            const lx = cx + labelR * Math.cos(svgRad);
-            const ly = cy + labelR * Math.sin(svgRad);
-            const label = CARDINALS[deg] !== undefined
-                ? CARDINALS[deg]
-                : String(Math.round(deg / 10)).padStart(2, '0');
+        svg.appendChild(e('line', {
+            x1: (CX + OR * Math.cos(r)).toFixed(1),          y1: (CY + OR * Math.sin(r)).toFixed(1),
+            x2: (CX + (OR - tLen) * Math.cos(r)).toFixed(1), y2: (CY + (OR - tLen) * Math.sin(r)).toFixed(1),
+            stroke: tColor, 'stroke-width': tStroke,
+            opacity: isCard ? 1 : is30 ? 0.9 : is10 ? 0.65 : 0.35
+        }));
 
-            const txt = mk('text');
-            txt.setAttribute('x', lx.toFixed(1));
-            txt.setAttribute('y', ly.toFixed(1));
-            txt.setAttribute('text-anchor', 'middle');
-            txt.setAttribute('dominant-baseline', 'middle');
-            // Radial rotation: each label readable from center looking outward
-            txt.setAttribute('transform', `rotate(${deg},${lx.toFixed(1)},${ly.toFixed(1)})`);
-            txt.setAttribute('fill', deg === 0 ? '#ff7777' : isCard ? '#8ec5ff' : 'rgba(155,195,230,0.75)');
-            txt.setAttribute('font-size', isCard ? '18' : '11');
-            txt.setAttribute('font-family', 'Arial, sans-serif');
-            txt.setAttribute('font-weight', isCard ? 'bold' : 'normal');
-            txt.textContent = label;
-            svg.appendChild(txt);
+        // Labels only at every 30° (matches reference image graduation)
+        if (deg % 30 === 0) {
+            const lr = OR - tLen - (isCard ? 14 : 11);
+            const lx = CX + lr * Math.cos(r), ly = CY + lr * Math.sin(r);
+            // heading÷10 without leading zero for non-cardinals (3, 6, 12, 15 …)
+            const label = CARDS[deg] ?? String(deg / 10);
+            svg.appendChild(e('text', {
+                x: lx.toFixed(1), y: ly.toFixed(1),
+                'text-anchor': 'middle', 'dominant-baseline': 'middle',
+                transform: `rotate(${deg},${lx.toFixed(1)},${ly.toFixed(1)})`,
+                fill: deg === 0 ? '#ff4d4d' : '#ffffff',
+                'font-size': isCard ? 21 : 14,
+                'font-family': "'MS33558', 'Arial Narrow', Arial, sans-serif",
+                'font-weight': isCard ? 'bold' : '600',
+                'letter-spacing': isCard ? '0.5' : '0'
+            }, label));
         }
     }
 
-    const dot = mk('circle');
-    dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', '3');
-    dot.setAttribute('fill', 'rgba(100,160,220,0.6)');
-    svg.appendChild(dot);
+    // ── HDG bug (bearing to next WP, on outer ring at 12 o'clock before rotation) ──
+    const bugG = e('g', { id: 'compassBugGroup', transform: `rotate(0,${CX},${CY})` });
+    bugG.style.display = 'none';
+    // Orange upward-pointing hollow triangle (apex toward disc centre)
+    bugG.appendChild(e('polygon', { points: `${CX-10},30 ${CX+10},30 ${CX},8`,
+        fill: 'none', stroke: '#f07800', 'stroke-width': 2.2, 'stroke-linejoin': 'round' }));
+    svg.appendChild(bugG);
+
+    // ── Aircraft symbol (fixed centre reference) ──────────────────────────────
+    const ac = e('g', { 'pointer-events': 'none' });
+    ac.appendChild(e('line',    { x1: CX, y1: CY - 18, x2: CX, y2: CY + 14, stroke: '#f0a800', 'stroke-width': 2.2 }));
+    ac.appendChild(e('line',    { x1: CX - 18, y1: CY + 2, x2: CX + 18, y2: CY + 2, stroke: '#f0a800', 'stroke-width': 2.2 }));
+    ac.appendChild(e('line',    { x1: CX - 7, y1: CY + 12, x2: CX + 7, y2: CY + 12, stroke: '#f0a800', 'stroke-width': 2 }));
+    svg.appendChild(ac);
+
+    // Centre dot
+    svg.appendChild(e('circle', { cx: CX, cy: CY, r: 2.8, fill: 'rgba(180,205,230,0.55)' }));
+}
+
+// Update HDG bug + fixed CDI bar
+// bearingToWp: bearing° to next WP (disc angle for bug)
+// courseDeg:   planned track bearing° (unused – CDI is fixed horizontal)
+// xteNm:       cross-track error in NM, positive = right of track
+window.updateCompassInstruments = function(bearingToWp, courseDeg, xteNm) {
+    const bugG = document.getElementById('compassBugGroup');
+    if (bugG) {
+        bugG.setAttribute('transform', `rotate(${bearingToWp},150,150)`);
+        bugG.style.display = '';
+    }
+
+    const cdiBar = document.getElementById('compassCdiBarFixed');
+    if (cdiBar) {
+        const MAX_PX = 44, FULL_NM = 2.0;
+        // positive xte (right of track) → CDI deflects left (negative x)
+        const offset = Math.max(-MAX_PX, Math.min(MAX_PX, -(xteNm / FULL_NM) * MAX_PX));
+        cdiBar.setAttribute('x1', offset.toFixed(1));
+        cdiBar.setAttribute('x2', offset.toFixed(1));
+        const cdiSvg = document.getElementById('compassCdiSvg');
+        if (cdiSvg) cdiSvg.style.display = '';
+    }
+};
+
+function buildCompassFixed() {
+    const svg = document.getElementById('compassCdiSvg');
+    if (!svg || svg.childElementCount > 0) return;
+    const NS = 'http://www.w3.org/2000/svg';
+    function e(tag, attrs) {
+        const el = document.createElementNS(NS, tag);
+        for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, String(v));
+        return el;
+    }
+    // Background pill
+    svg.appendChild(e('rect', { x: -52, y: -12, width: 104, height: 24, rx: 5,
+        fill: 'rgba(2,5,10,0.82)', stroke: 'rgba(255,255,255,0.18)', 'stroke-width': 1 }));
+    // Centre track line (thin, white)
+    svg.appendChild(e('line', { x1: 0, y1: -8, x2: 0, y2: 8,
+        stroke: 'rgba(255,255,255,0.35)', 'stroke-width': 1.2, 'stroke-dasharray': '3 2' }));
+    // Scale dots at ±22 and ±44 px
+    for (const dx of [-44, -22, 22, 44]) {
+        svg.appendChild(e('circle', { cx: dx, cy: 0, r: 2.5,
+            fill: 'none', stroke: 'rgba(255,255,255,0.45)', 'stroke-width': 1.5 }));
+    }
+    // CDI bar (vertical, moves horizontally)
+    svg.appendChild(e('line', { id: 'compassCdiBarFixed', x1: 0, y1: -10, x2: 0, y2: 10,
+        stroke: '#ccd8ea', 'stroke-width': 3.5, 'stroke-linecap': 'round' }));
+    // Heading readout below CDI strip — DSEG7 7-segment LED font
+    svg.appendChild(e('text', { id: 'compassHdgReadout', x: 0, y: 25,
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        fill: '#f5e97a', 'font-size': 15, 'font-family': "'DSEG7', 'Courier New', monospace",
+        'font-weight': 'bold', 'letter-spacing': '2' }, '---°'));
+    svg.style.display = 'none';
 }
 
 function updateCompassBottom() {
@@ -757,6 +821,9 @@ window.updateCompassHeading = function(hdg) {
     _compassRot += delta;
     disc.style.transform = `rotate(${_compassRot}deg)`;
 
+    const hdgText = document.getElementById('compassHdgReadout');
+    if (hdgText) hdgText.textContent = String(Math.round(hdg) % 360).padStart(3, '0') + '°';
+
     if (isMapHintOn('compass', true) && wrap.style.display !== 'block') {
         wrap.style.display = 'block';
         updateCompassBottom();
@@ -766,6 +833,10 @@ window.updateCompassHeading = function(hdg) {
 window.hideCompassRose = function() {
     const wrap = document.getElementById('compassRoseWrap');
     if (wrap) wrap.style.display = 'none';
+    const bugG = document.getElementById('compassBugGroup');
+    if (bugG) bugG.style.display = 'none';
+    const cdiSvg = document.getElementById('compassCdiSvg');
+    if (cdiSvg) cdiSvg.style.display = 'none';
 };
 
 function routeKeyForLiveNav() {
@@ -1083,6 +1154,21 @@ function updateNextWpTelemetry(lat, lon) {
     box.style.display = isMapHintOn('nextLeg', true) ? 'block' : 'none';
     setNextLegButtonStates(wpIdx, maxWp);
     updateLiveToActiveWpLine(lat, lon, wpIdx);
+
+    // Compass HSI instruments
+    if (typeof window.updateCompassInstruments === 'function') {
+        let xteNm = 0;
+        if (wpIdx > 0 && typeof calcNav === 'function') {
+            try {
+                const prevWp = routeWaypoints[wpIdx - 1];
+                const fromPrev = calcNav(prevWp.lat, prevWp.lng || prevWp.lon, lat, lon);
+                const R = 3440.065;
+                const diffRad = (fromPrev.brng - inboundBrng) * Math.PI / 180;
+                xteNm = Math.asin(Math.sin(fromPrev.dist / R) * Math.sin(diffRad)) * R;
+            } catch (_) {}
+        }
+        window.updateCompassInstruments(nav.brng, inboundBrng, xteNm);
+    }
 }
 
 // Diese Funktion aufrufen, sobald eine Route per Sync ID geladen wurde (z.B. connectToLiveGPS("4815"))
@@ -1734,6 +1820,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTelemetryBoxDrag(document.getElementById('liveNextWpBox'), 'ga_nextwp_pos');
 
     buildCompassSvg();
+    buildCompassFixed();
     updateCompassBottom();
 
     const compassWrap = document.getElementById('compassRoseWrap');
