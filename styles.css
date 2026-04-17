@@ -2203,7 +2203,6 @@ body.map-is-fullscreen .pinboard-header {
     gap: 4px;
     padding-left: max(15px, env(safe-area-inset-left));
     padding-right: max(15px, env(safe-area-inset-right));
-    padding-bottom: 0;
 }
 
 /* ── Toolbar inner row ───────────────────────────────────────────────────────── */
@@ -2221,29 +2220,39 @@ body.map-is-fullscreen .pinboard-header {
     opacity: 1;
 }
 
-/* ── Collapse toggle tab ─────────────────────────────────────────────────────── */
+/* ── Collapse toggle tab — floats below header into map, doesn't add height ── */
 #mapToolbarToggleRow {
     display: none;
-    justify-content: center;
-    width: 100%;
 }
 body.map-is-fullscreen #mapToolbarToggleRow {
     display: flex;
+    justify-content: center;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translate(-50%, 100%);
+    z-index: 100001;
+    pointer-events: auto;
 }
 #mapToolbarToggle {
-    background: #2a2a2a;
-    border: 1px solid #3a3a3a;
+    background: rgba(26, 26, 26, 0.72);
+    border: 1px solid rgba(255,255,255,0.15);
     border-top: none;
-    color: #888;
+    color: rgba(200,200,200,0.85);
     font-size: 9px;
-    padding: 3px 28px 4px;
+    padding: 3px 22px 5px;
     cursor: pointer;
     border-radius: 0 0 10px 10px;
     line-height: 1;
-    letter-spacing: 0.05em;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     transition: color 0.15s, background 0.15s;
 }
-#mapToolbarToggle:hover { color: #fff; background: #383838; }
+#mapToolbarToggle:hover { color: #fff; background: rgba(50,50,50,0.88); }
+
+body.map-is-fullscreen .pinboard-header {
+    overflow: visible;
+}
 
 /* ── Collapsed state ────────────────────────────────────────────────────────── */
 body.map-is-fullscreen.toolbar-collapsed #mapToolbarInner {
@@ -2253,6 +2262,7 @@ body.map-is-fullscreen.toolbar-collapsed #mapToolbarInner {
 }
 body.map-is-fullscreen.toolbar-collapsed .pinboard-header {
     padding-top: 0 !important;
+    padding-bottom: 0 !important;
 }
 
 body.map-is-fullscreen .maptable-content {
