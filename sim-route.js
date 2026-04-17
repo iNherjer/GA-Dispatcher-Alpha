@@ -139,6 +139,7 @@
 
         const box = document.getElementById('liveTelemetryBox');
         if (box) box.style.display = 'none';
+        if (typeof window.hideCompassRose === 'function') window.hideCompassRose();
 
         // Wenn die Simulation endet, HDG-Modus sauber zurück auf ROUTE setzen.
         if (typeof window.vpEnsureRouteMode === 'function') {

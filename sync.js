@@ -664,7 +664,109 @@ function hideNextWpTelemetry() {
         liveToWpLine = null;
     }
     liveActiveWpIndex = null;
+    hideCompassRose();
 }
+
+// ── Compass Rose ──────────────────────────────────────────────────────────────
+let _compassRot = 0;
+
+function buildCompassSvg() {
+    const svg = document.getElementById('compassSvg');
+    if (!svg || svg.childElementCount > 0) return;
+    const cx = 150, cy = 150, NS = 'http://www.w3.org/2000/svg';
+    const mk = tag => document.createElementNS(NS, tag);
+
+    // Background
+    const bg = mk('circle');
+    bg.setAttribute('cx', cx); bg.setAttribute('cy', cy); bg.setAttribute('r', '148');
+    bg.setAttribute('fill', 'rgba(12,20,30,0.93)');
+    bg.setAttribute('stroke', 'rgba(80,130,180,0.45)'); bg.setAttribute('stroke-width', '1.5');
+    svg.appendChild(bg);
+
+    // Inner reference ring
+    const ring = mk('circle');
+    ring.setAttribute('cx', cx); ring.setAttribute('cy', cy); ring.setAttribute('r', '108');
+    ring.setAttribute('fill', 'none');
+    ring.setAttribute('stroke', 'rgba(80,130,180,0.18)'); ring.setAttribute('stroke-width', '1');
+    svg.appendChild(ring);
+
+    const CARDINALS = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
+    const outerR = 138;
+
+    for (let deg = 0; deg < 360; deg += 5) {
+        const svgRad = (deg - 90) * Math.PI / 180;
+        const isCard = deg % 90 === 0;
+        const is10   = deg % 10 === 0;
+        const tickLen = isCard ? 18 : is10 ? 11 : 5;
+        const strokeW = isCard ? '2.5' : is10 ? '1.5' : '0.8';
+        const color   = isCard ? (deg === 0 ? '#ff5555' : '#7bb8f0')
+                      : is10   ? 'rgba(140,185,225,0.65)'
+                      :          'rgba(120,160,200,0.3)';
+
+        const x1 = cx + outerR * Math.cos(svgRad),       y1 = cy + outerR * Math.sin(svgRad);
+        const x2 = cx + (outerR - tickLen) * Math.cos(svgRad), y2 = cy + (outerR - tickLen) * Math.sin(svgRad);
+        const line = mk('line');
+        line.setAttribute('x1', x1.toFixed(1)); line.setAttribute('y1', y1.toFixed(1));
+        line.setAttribute('x2', x2.toFixed(1)); line.setAttribute('y2', y2.toFixed(1));
+        line.setAttribute('stroke', color); line.setAttribute('stroke-width', strokeW);
+        svg.appendChild(line);
+
+        // Label every 10° — cardinal letters or 2-digit number (heading ÷ 10)
+        if (is10) {
+            const labelR = outerR - tickLen - 12;
+            const lx = cx + labelR * Math.cos(svgRad);
+            const ly = cy + labelR * Math.sin(svgRad);
+            const label = CARDINALS[deg] !== undefined
+                ? CARDINALS[deg]
+                : String(Math.round(deg / 10)).padStart(2, '0');
+
+            const txt = mk('text');
+            txt.setAttribute('x', lx.toFixed(1));
+            txt.setAttribute('y', ly.toFixed(1));
+            txt.setAttribute('text-anchor', 'middle');
+            txt.setAttribute('dominant-baseline', 'middle');
+            // Radial rotation: each label readable from center looking outward
+            txt.setAttribute('transform', `rotate(${deg},${lx.toFixed(1)},${ly.toFixed(1)})`);
+            txt.setAttribute('fill', deg === 0 ? '#ff7777' : isCard ? '#8ec5ff' : 'rgba(155,195,230,0.75)');
+            txt.setAttribute('font-size', isCard ? '18' : '11');
+            txt.setAttribute('font-family', 'Arial, sans-serif');
+            txt.setAttribute('font-weight', isCard ? 'bold' : 'normal');
+            txt.textContent = label;
+            svg.appendChild(txt);
+        }
+    }
+
+    const dot = mk('circle');
+    dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', '3');
+    dot.setAttribute('fill', 'rgba(100,160,220,0.6)');
+    svg.appendChild(dot);
+}
+
+function updateCompassBottom() {
+    // mapArea shrinks/grows with profile via flex — bottom:0 tracks the map edge automatically
+}
+
+window.updateCompassHeading = function(hdg) {
+    if (hdg == null || isNaN(hdg)) return;
+    const wrap = document.getElementById('compassRoseWrap');
+    const disc = document.getElementById('compassDisc');
+    if (!wrap || !disc) return;
+
+    const target = -hdg;
+    const delta = ((target - _compassRot) % 360 + 540) % 360 - 180;
+    _compassRot += delta;
+    disc.style.transform = `rotate(${_compassRot}deg)`;
+
+    if (isMapHintOn('compass', true) && wrap.style.display !== 'block') {
+        wrap.style.display = 'block';
+        updateCompassBottom();
+    }
+};
+
+window.hideCompassRose = function() {
+    const wrap = document.getElementById('compassRoseWrap');
+    if (wrap) wrap.style.display = 'none';
+};
 
 function routeKeyForLiveNav() {
     if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return '';
@@ -1112,6 +1214,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
 
     const now = Date.now();
     window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now, gs: smoothedGS };
+    window.updateCompassHeading(hdg);
 
     // --- FEATURE 1: SNAIL TRAIL ---
     if (!liveSnailTrail) {
@@ -1626,4 +1729,109 @@ document.addEventListener('DOMContentLoaded', () => {
             }, { passive: false });
         });
     }
+
+    initTelemetryBoxDrag(document.getElementById('liveTelemetryBox'), 'ga_tele_pos');
+    initTelemetryBoxDrag(document.getElementById('liveNextWpBox'), 'ga_nextwp_pos');
+
+    buildCompassSvg();
+    updateCompassBottom();
+
+    const compassWrap = document.getElementById('compassRoseWrap');
+    if (compassWrap) {
+        compassWrap.addEventListener('click', () => {
+            compassWrap.classList.toggle('compass-minimized');
+        });
+    }
+
+    // Profil-Toggle: Kompass-Position neu berechnen
+    const _origToggleProfile = window.toggleMapProfile;
+    if (typeof _origToggleProfile === 'function') {
+        window.toggleMapProfile = function() {
+            _origToggleProfile.apply(this, arguments);
+            setTimeout(updateCompassBottom, 150);
+        };
+    }
 });
+
+function initTelemetryBoxDrag(el, storageKey) {
+    if (!el) return;
+
+    const DEFAULT_STYLES = {
+        liveTelemetryBox: { top: '10px', left: '50%', transform: 'translateX(-50%)', right: 'auto' },
+        liveNextWpBox:    { top: '10px', left: 'calc(50% + 128px)', transform: 'none', right: 'auto' }
+    };
+
+    function applyPosition(top, left) {
+        el.style.top = top;
+        el.style.left = left;
+        el.style.transform = 'none';
+        el.style.right = 'auto';
+    }
+
+    function savePosition() {
+        localStorage.setItem(storageKey, JSON.stringify({ top: el.style.top, left: el.style.left }));
+    }
+
+    function restorePosition() {
+        const saved = localStorage.getItem(storageKey);
+        if (!saved) return;
+        try {
+            const { top, left } = JSON.parse(saved);
+            applyPosition(top, left);
+            el.classList.add('tele-dragged');
+        } catch(e) {}
+    }
+
+    function resetPosition() {
+        localStorage.removeItem(storageKey);
+        el.classList.remove('tele-dragged');
+        const def = DEFAULT_STYLES[el.id];
+        if (def) {
+            el.style.top = def.top;
+            el.style.left = def.left;
+            el.style.transform = def.transform;
+            el.style.right = def.right;
+        }
+    }
+
+    restorePosition();
+
+    let dragging = false, startX, startY, startTop, startLeft;
+
+    el.addEventListener('pointerdown', e => {
+        if (e.target.closest('button')) return;
+        e.stopPropagation();
+        el.setPointerCapture(e.pointerId);
+        dragging = true;
+        el.classList.add('tele-dragging');
+        startX = e.clientX;
+        startY = e.clientY;
+        startTop = el.offsetTop;
+        startLeft = el.offsetLeft;
+    });
+
+    el.addEventListener('pointermove', e => {
+        if (!dragging) return;
+        e.stopPropagation();
+        const parent = el.parentElement;
+        const maxLeft = parent.offsetWidth - el.offsetWidth - 5;
+        const maxTop = parent.offsetHeight - el.offsetHeight - 5;
+        const newLeft = Math.max(5, Math.min(maxLeft, startLeft + (e.clientX - startX)));
+        const newTop  = Math.max(5, Math.min(maxTop,  startTop  + (e.clientY - startY)));
+        applyPosition(newTop + 'px', newLeft + 'px');
+        el.classList.add('tele-dragged');
+    });
+
+    el.addEventListener('pointerup', e => {
+        if (!dragging) return;
+        dragging = false;
+        el.classList.remove('tele-dragging');
+        el.releasePointerCapture(e.pointerId);
+        savePosition();
+    });
+
+    el.addEventListener('dblclick', e => {
+        if (e.target.closest('button')) return;
+        resetPosition();
+    });
+}

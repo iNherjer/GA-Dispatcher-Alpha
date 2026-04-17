@@ -31,7 +31,8 @@ const MAP_HINT_DEFAULTS = {
     cloudFields: true,
     traffic: true,
     telemetry: true,
-    nextLeg: true
+    nextLeg: true,
+    compass: true
 };
 window.mapHints = window.mapHints || { ...MAP_HINT_DEFAULTS };
 let vpObsTileDebugLayer = null;
@@ -255,11 +256,15 @@ function applyMapHintEffects(key) {
     }
     if (key === 'telemetry') {
         const box = document.getElementById('liveTelemetryBox');
-        if (box && !window.mapHints.telemetry) box.style.display = 'none';
+        if (box) box.classList.toggle('tele-hint-off', !window.mapHints.telemetry);
     }
     if (key === 'nextLeg') {
         const box = document.getElementById('liveNextWpBox');
-        if (box && !window.mapHints.nextLeg) box.style.display = 'none';
+        if (box) box.classList.toggle('tele-hint-off', !window.mapHints.nextLeg);
+    }
+    if (key === 'compass') {
+        const wrap = document.getElementById('compassRoseWrap');
+        if (wrap) wrap.classList.toggle('compass-hint-off', !window.mapHints.compass);
     }
     if (key === 'magentaLine' && window.mapHints.magentaLine === false) {
         if (typeof window.clearLiveToWpLine === 'function') window.clearLiveToWpLine();
@@ -274,7 +279,8 @@ function refreshMapHintMenuUi() {
         cloudFields: '☁️ Wolkenfelder',
         traffic: '✈️ Traffic',
         telemetry: '📟 Telemetrie',
-        nextLeg: '🧭 Wegpunkt-Info'
+        nextLeg: '🧭 Wegpunkt-Info',
+        compass: '🔵 Kompassscheibe'
     };
     const ids = {
         magentaLine: 'hintToggleMagentaLine',
@@ -283,7 +289,8 @@ function refreshMapHintMenuUi() {
         cloudFields: 'hintToggleCloudFields',
         traffic: 'hintToggleTraffic',
         telemetry: 'hintToggleTelemetry',
-        nextLeg: 'hintToggleNextLeg'
+        nextLeg: 'hintToggleNextLeg',
+        compass: 'hintToggleCompass'
     };
     Object.keys(ids).forEach(key => {
         const btn = document.getElementById(ids[key]);

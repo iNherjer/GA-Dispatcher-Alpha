@@ -705,7 +705,8 @@
                     <button id="hintToggleCloudFields" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('cloudFields')">☁️ Wolkenfelder (An)</button>
                     <button id="hintToggleTraffic" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('traffic')">✈️ Traffic (An)</button>
                     <button id="hintToggleTelemetry" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('telemetry')">📟 Telemetrie (An)</button>
-                    <button id="hintToggleNextLeg" class="pb-btn" style="display:block; width:100%; margin:0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('nextLeg')">🧭 Wegpunkt-Info (An)</button>
+                    <button id="hintToggleNextLeg" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('nextLeg')">🧭 Wegpunkt-Info (An)</button>
+                    <button id="hintToggleCompass" class="pb-btn" style="display:block; width:100%; margin:0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('compass')">🔵 Kompassscheibe (An)</button>
                 </div>
             </div>
             <div style="position:relative; display:inline-flex; align-items:center;">
@@ -756,7 +757,7 @@
     </div>
     <div class="pinboard-scroll-area">
         <div class="maptable-content" style="flex-direction: column;">
-            <div id="mapArea" style="position: relative; flex:1; display:flex; align-items:center; justify-content:center; width:100%; min-height:0;">
+            <div id="mapArea" style="position: relative; flex:1; display:flex; align-items:center; justify-content:center; width:100%; min-height:0; overflow:hidden;">
                 <div id="map"></div>
                 <!-- Karten-Overlay: Auto-Follow Button -->
                 <button id="autoFollowBtn" onclick="toggleAutoFollow()" class="map-overlay-btn" title="Auto-Follow (Karten-Zentrierung)">
@@ -765,7 +766,7 @@
                 <!-- AWM Frequenz-Banner: erscheint bei Luftraum-Warnung, bleibt bis zum Antippen -->
                 <div id="awmFreqBanner" style="display:none; position:absolute; bottom:0; left:0; right:0; z-index:5000; pointer-events:auto; border-radius:0 0 4px 4px; overflow:hidden;"></div>
                 <!-- Live Telemetrie – oben mittig -->
-                <div id="liveTelemetryBox" class="telemetry-box" style="display:none; top:10px; left:50%; transform:translateX(-50%); right:auto; min-width:110px; pointer-events:none;">
+                <div id="liveTelemetryBox" class="telemetry-box" style="display:none; top:10px; left:50%; transform:translateX(-50%); right:auto; min-width:110px; pointer-events:auto; cursor:grab;" title="Ziehen zum Verschieben · Doppelklick zum Zurücksetzen">
                     <div style="display:flex; justify-content:space-between; gap:16px; margin-bottom:2px;">
                         <span>GS:</span><span><span id="teleGS" class="tele-val" style="color:var(--blue);">0.0</span> <span class="tele-unit">KT</span></span>
                     </div>
@@ -776,7 +777,7 @@
                         <span>AGL:</span><span><span id="teleAGL" class="tele-val" style="color:#ffcc44;">—</span> <span class="tele-unit">FT</span></span>
                     </div>
                 </div>
-                <div id="liveNextWpBox" class="telemetry-box" style="display:none; top:10px; left:calc(50% + 128px); transform:none; right:auto; width:138px; min-width:138px; pointer-events:auto; padding:8px 9px;">
+                <div id="liveNextWpBox" class="telemetry-box" style="display:none; top:10px; left:calc(50% + 128px); transform:none; right:auto; width:138px; min-width:138px; pointer-events:auto; padding:8px 9px; cursor:grab;" title="Ziehen zum Verschieben · Doppelklick zum Zurücksetzen">
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">
                         <div style="font-size:11px; color:#8ec5ff; letter-spacing:0.4px;">NEXT LEG</div>
                         <div style="display:flex; align-items:center; gap:4px;">
@@ -792,6 +793,14 @@
                     <div style="display:flex; justify-content:space-between; gap:10px;">
                         <span style="font-size:11px; color:#aaa;">DIS</span>
                         <span><span id="nextWpDist" class="tele-val" style="font-size:14px; color:#ffcc44;">--.-</span> <span class="tele-unit">NM</span></span>
+                    </div>
+                </div>
+                <!-- Compass Rose -->
+                <div id="compassRoseWrap" style="display:none;">
+                    <div id="compassHeadingMarker"></div>
+                    <div id="compassPeekTab"></div>
+                    <div id="compassDisc">
+                        <svg id="compassSvg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" width="300" height="300"></svg>
                     </div>
                 </div>
             </div>
