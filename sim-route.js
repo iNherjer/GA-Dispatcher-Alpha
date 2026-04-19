@@ -12,8 +12,11 @@
     let simLastTick      = null;
     let simRouteCache    = null;    // { segs, totalDist }
     let simRouteHash     = '';      // Änderungs-Erkennung
+    let simPhase         = 'flight'; // start_hold | flight | end_hold
+    let simHoldRemainSec = 0;
 
     const TICK_MS = 200;            // 5 Hz – flüssig genug, CPU-schonend
+    const SIM_HOLD_SEC = 5;         // Boden-Standzeit vor Start / nach Landung
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -35,10 +38,12 @@
         simRouteHash    = _routeHash();
         simDistNM       = 0;
         simActive       = true;
+        simPhase        = 'start_hold';
+        simHoldRemainSec = SIM_HOLD_SEC;
         window.simModeActive = true;
         simLastTick     = Date.now();
 
-        _inject(true);                              // sofort erste Position zeigen
+        _injectHold(false);                         // sofort Startposition mit 0 kn zeigen
         simInterval = setInterval(_tick, TICK_MS);
         _ui(true);
     };
@@ -58,6 +63,20 @@
         const now  = Date.now();
         const dtSec = (now - simLastTick) / 1000 * simSpeedFactor;
         simLastTick = now;
+
+        if (simPhase === 'start_hold') {
+            simHoldRemainSec -= dtSec;
+            _injectHold(false);
+            if (simHoldRemainSec <= 0) simPhase = 'flight';
+            return;
+        }
+
+        if (simPhase === 'end_hold') {
+            simHoldRemainSec -= dtSec;
+            _injectHold(true);
+            if (simHoldRemainSec <= 0) _stop();
+            return;
+        }
 
         simDistNM += _gs() * dtSec / 3600;
 
@@ -79,8 +98,16 @@
             simRouteCache = newCache;
         }
 
-        if (!simRouteCache || simDistNM >= simRouteCache.totalDist) {
+        if (!simRouteCache) {
             _stop();
+            return;
+        }
+
+        if (simDistNM >= simRouteCache.totalDist) {
+            simDistNM = simRouteCache.totalDist;
+            simPhase = 'end_hold';
+            simHoldRemainSec = SIM_HOLD_SEC;
+            _injectHold(true);
             return;
         }
 
@@ -119,6 +146,29 @@
         }
 
         // Positions-Injektion → gleiche Funktion wie Live-GPS
+        updateLivePlanePosition(pos.lat, pos.lon, Math.round(alt), pos.hdg);
+    }
+
+    function _injectHold(atEnd) {
+        if (!simRouteCache) return;
+        const d = atEnd ? simRouteCache.totalDist : 0;
+        const pos = _pos(simRouteCache, d);
+        if (!pos) return;
+        const alt = _alt(d, simRouteCache);
+
+        smoothedGS = 0;
+        smoothedVS = 0;
+
+        const box = document.getElementById('liveTelemetryBox');
+        if (box) box.style.display = 'block';
+        const gsEl = document.getElementById('teleGS');
+        const vsEl = document.getElementById('teleVS');
+        if (gsEl) gsEl.textContent = '0';
+        if (vsEl) {
+            vsEl.textContent = '+0';
+            vsEl.style.color = '#fff';
+        }
+
         updateLivePlanePosition(pos.lat, pos.lon, Math.round(alt), pos.hdg);
     }
 
