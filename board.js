@@ -2,6 +2,7 @@
 let currentBoardMode = 'private'; 
 let pendingPinNote = null;
 let groupDataCache = { members: [], notes: [] };
+let pinnedReplayLayer = null;
 const tutorialNotes = [
     { id: 101, text: "👋 WILLKOMMEN!\n\nZiehe diese Zettel umher, bearbeite sie (✏️) oder lösch sie (✖).", x: 4, y: 6, rot: -2 },
     { id: 102, text: "📻 NAVCOM THEME\n\nZieh mit gedrückter Maus an den runden Drehknöpfen, um TAS und GPH schnell einzustellen!", x: 28, y: 10, rot: 3 },
@@ -358,6 +359,89 @@ function pinCurrentFlight() {
         executePin('private');
     }
 }
+
+window.pinCompletedFlightRecord = function(record) {
+    if (!record || !Array.isArray(record.track) || record.track.length < 2) return;
+    const notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
+    const dep = record.depLabel || 'START';
+    const arr = record.arrLabel || 'LANDUNG';
+    const mins = Math.max(1, Math.round((record.durationSec || 0) / 60));
+    const avg = Number(record.avgGs || 0).toFixed(0);
+    const dist = Number(record.distanceNm || 0).toFixed(1);
+    const maxAlt = Math.round(record.maxAltFt || 0);
+    const td = Number.isFinite(record.touchdownVsFpm) ? `${Math.round(record.touchdownVsFpm)} fpm` : '-';
+    const dateText = record.dateLabel || new Date().toLocaleString('de-DE');
+
+    const note = {
+        id: Date.now(),
+        type: 'flight_record',
+        flightRecord: record,
+        text: `🛬 <b>${dep} ➔ ${arr}</b><br><span style="font-size:11px; color:#555;">${dateText}</span><br><span style="font-size:11px;">${dist} NM • ${mins} min • Ø ${avg} kt<br>MAX ${maxAlt} ft • TD ${td}</span>`,
+        x: 35 + Math.random() * 15,
+        y: 20 + Math.random() * 15,
+        rot: Math.floor(Math.random() * 9) - 4
+    };
+
+    notes.push(note);
+
+    // Rolling limit nur für aufgezeichnete Flüge (älteste zuerst weg)
+    const recIdx = [];
+    notes.forEach((n, i) => { if (n.type === 'flight_record') recIdx.push(i); });
+    while (recIdx.length > 40) {
+        const idx = recIdx.shift();
+        notes.splice(idx, 1);
+        for (let j = 0; j < recIdx.length; j++) recIdx[j] -= 1;
+    }
+
+    localStorage.setItem('ga_pinboard', JSON.stringify(notes));
+    triggerCloudSave();
+    if (document.getElementById('pinboardOverlay')?.classList.contains('active')) renderNotes();
+};
+
+window.loadPinnedFlightRecord = function(id, isGroup) {
+    let note;
+    if (isGroup) {
+        note = (groupDataCache.notes || []).find(n => n.id === id);
+    } else {
+        const notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
+        note = notes.find(n => n.id === id);
+    }
+    if (!note?.flightRecord?.track?.length || typeof map === 'undefined' || !map || typeof L === 'undefined') return;
+
+    if (pinnedReplayLayer) {
+        try { pinnedReplayLayer.remove(); } catch (e) {}
+        pinnedReplayLayer = null;
+    }
+
+    const latlngs = note.flightRecord.track
+        .filter(p => Array.isArray(p) && p.length >= 2)
+        .map(p => [p[0], p[1]]);
+    if (latlngs.length < 2) return;
+
+    const start = latlngs[0];
+    const end = latlngs[latlngs.length - 1];
+
+    const line = L.polyline(latlngs, {
+        color: '#ff00d6',
+        weight: 4,
+        opacity: 0.9,
+        dashArray: '10,7',
+        interactive: false
+    });
+    const mStart = L.circleMarker(start, {
+        radius: 5, color: '#00ff8f', fillColor: '#00ff8f', fillOpacity: 0.9, weight: 1
+    }).bindTooltip('Start', { permanent: false });
+    const mEnd = L.circleMarker(end, {
+        radius: 5, color: '#ff3b3b', fillColor: '#ff3b3b', fillOpacity: 0.9, weight: 1
+    }).bindTooltip('Landung', { permanent: false });
+
+    pinnedReplayLayer = L.layerGroup([line, mStart, mEnd]).addTo(map);
+    try {
+        map.fitBounds(line.getBounds(), { padding: [40, 40] });
+    } catch (e) {}
+
+    togglePinboard();
+};
 function closePinModal() {
     document.getElementById('pinModalOverlay').style.display = 'none';
     pendingPinNote = null;
@@ -461,6 +545,8 @@ function createNoteDOM(note, isGroup) {
     
     if (note.type === 'flight') {
         div.innerHTML = `${badgeHtml}<div class="post-it-pin"></div><div class="post-it-del" onclick="deleteNote(${note.id}, ${isGroup})">✖</div>${note.text}<button class="flight-load-btn" onclick="loadPinnedFlight(${note.id}, ${isGroup})">📂 Flug laden</button>${authorHtml}`;
+    } else if (note.type === 'flight_record') {
+        div.innerHTML = `${badgeHtml}<div class="post-it-pin"></div><div class="post-it-del" onclick="deleteNote(${note.id}, ${isGroup})">✖</div>${note.text}<button class="flight-load-btn" onclick="loadPinnedFlightRecord(${note.id}, ${isGroup})">🗺️ Replay</button>${authorHtml}`;
     } else {
         let editBtn = (!isGroup || note.author === getGroupNick()) ? `<div class="post-it-edit" onclick="editNote(${note.id}, ${isGroup})">✏️</div>` : '';
         div.innerHTML = `${badgeHtml}<div class="post-it-pin"></div>${editBtn}<div class="post-it-del" onclick="deleteNote(${note.id}, ${isGroup})">✖</div>${note.text.replace(/\n/g, '<br>')}${authorHtml}`;
@@ -489,7 +575,7 @@ function makeDraggable(element, noteId, isGroup) {
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
     element.onmousedown = dragMouseDown; element.ontouchstart = dragMouseDown;
     function dragMouseDown(e) {
-        if (e.target.className === 'post-it-del' || e.target.className === 'post-it-edit' || e.target.className === 'flight-load-btn') return;
+        if (e.target.className === 'post-it-del' || e.target.className === 'post-it-edit' || e.target.className === 'flight-load-btn' || e.target.className === 'flight-replay-btn') return;
         e.preventDefault();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX, clientY = e.touches ? e.touches[0].clientY : e.clientY;
         pos3 = clientX; pos4 = clientY;

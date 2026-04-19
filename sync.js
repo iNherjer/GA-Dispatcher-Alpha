@@ -38,6 +38,23 @@ let smoothedGS = 0;
 let smoothedVS = 0;
 let liveToWpLine = null;
 
+// --- FLIGHT RECORDER (Snail Trail + Stats) ---
+let flightRecorder = {
+    active: false,
+    armed: false,
+    startTs: 0,
+    endTs: 0,
+    lowSpeedSince: 0,
+    touchdownVsFpm: null,
+    maxGs: 0,
+    maxAltFt: 0,
+    sumGs: 0,
+    gsSamples: 0,
+    distNm: 0,
+    track: [],
+    lastSample: null
+};
+
 // --- LIVE TRAFFIC ---
 let liveTrafficMarkers = {}; // key → { marker }
 window.vpTrafficData = [];
@@ -1629,19 +1646,15 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         const approxDistNM = Math.sqrt(bestDist) * 59.9;
         window.vpLiveRouteDistNM = approxDistNM;
 
-        // AGL aus Terrain-Höhe an der nächstgelegenen Route-Position
+        // Terrain-Höhe weiterhin intern vorhalten (z.B. für Warnlogik),
+        // Telemetrie zeigt aber MSL-Höhe.
         const terrainFt = bestDist < 0.028 ? (ed[bestIdx].elevFt ?? 0) : 0;
         window.lastLiveTerrainFt = terrainFt;
-        const aglFt = Math.max(0, Math.round(alt - terrainFt));
+        const mslFt = Math.max(0, Math.round(alt));
         const aglEl = document.getElementById('teleAGL');
         if (aglEl) {
-            if (bestDist < 0.28) { // AGL nur anzeigen wenn nahe Route (~10 NM)
-                aglEl.textContent = aglFt;
-                aglEl.style.color = aglFt < 500 ? '#ff4444' : aglFt < 1000 ? '#ffcc44' : '#ffcc44';
-            } else {
-                aglEl.textContent = '—';
-                aglEl.style.color = '#ffcc44';
-            }
+            aglEl.textContent = mslFt;
+            aglEl.style.color = mslFt < 1500 ? '#ff4444' : (mslFt < 3000 ? '#ffcc44' : '#8ec5ff');
         }
 
         if (bestDist < 0.028) { // ~10 NM Schwelle für Icon-Anzeige
@@ -1654,6 +1667,176 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
                 vpUpdateLiveAircraft(-1, alt, hdg);  // -1 = ausblenden
             }
         }
+    }
+
+    updateFlightRecorder(lat, lon, alt);
+}
+
+function resetFlightRecorder() {
+    flightRecorder = {
+        active: false,
+        armed: false,
+        startTs: 0,
+        endTs: 0,
+        lowSpeedSince: 0,
+        touchdownVsFpm: null,
+        maxGs: 0,
+        maxAltFt: 0,
+        sumGs: 0,
+        gsSamples: 0,
+        distNm: 0,
+        track: [],
+        lastSample: null
+    };
+}
+
+function addFlightTrackPoint(lat, lon, alt, now, force = false) {
+    const r = flightRecorder;
+    const prev = r.track.length ? r.track[r.track.length - 1] : null;
+    if (!force && prev) {
+        const prevLatLng = [prev[0], prev[1]];
+        const dM = map && typeof map.distance === 'function' ? map.distance(prevLatLng, [lat, lon]) : 0;
+        const dtMs = now - ((prev[3] || 0) + r.startTs);
+        if (dM < 180 && dtMs < 15000) return;
+    }
+    const relSec = Math.max(0, Math.round((now - r.startTs) / 1000));
+    r.track.push([
+        Number(lat.toFixed(5)),
+        Number(lon.toFixed(5)),
+        Math.round(alt),
+        relSec
+    ]);
+    if (r.track.length > 1200) {
+        // Sanftes Decimation wenn sehr lang: jeden zweiten Punkt verwerfen
+        const compact = [];
+        for (let i = 0; i < r.track.length; i += 2) compact.push(r.track[i]);
+        r.track = compact;
+    }
+}
+
+function nearestAirportLabel(lat, lon) {
+    if (typeof globalAirports === 'undefined' || !globalAirports) {
+        return `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+    }
+    let bestIcao = null;
+    let bestNm = Infinity;
+    for (const [icao, a] of Object.entries(globalAirports)) {
+        if (!a || !Number.isFinite(a.lat) || !Number.isFinite(a.lon)) continue;
+        const dLat = a.lat - lat;
+        const dLon = a.lon - lon;
+        const nm = Math.hypot(dLat, dLon) * 59.9;
+        if (nm < bestNm) { bestNm = nm; bestIcao = icao; }
+    }
+    if (bestIcao && bestNm <= 35) return bestIcao;
+    return `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+}
+
+function finalizeFlightRecorder(now) {
+    const r = flightRecorder;
+    r.endTs = now;
+
+    const durationSec = Math.max(1, Math.round((r.endTs - r.startTs) / 1000));
+    const avgGs = r.gsSamples > 0 ? (r.sumGs / r.gsSamples) : 0;
+    if (r.distNm < 2 || durationSec < 120 || r.track.length < 2) {
+        resetFlightRecorder();
+        return;
+    }
+
+    const track = r.track.length > 450
+        ? r.track.filter((_, i) => i % Math.ceil(r.track.length / 450) === 0)
+        : r.track.slice();
+
+    const dep = track[0];
+    const arr = track[track.length - 1];
+    const depLabel = (typeof currentStartICAO !== 'undefined' && currentStartICAO) ? currentStartICAO : nearestAirportLabel(dep[0], dep[1]);
+    const arrLabel = (typeof currentDestICAO !== 'undefined' && currentDestICAO && currentDestICAO !== 'POI')
+        ? currentDestICAO
+        : nearestAirportLabel(arr[0], arr[1]);
+
+    const record = {
+        id: Date.now(),
+        createdAt: Date.now(),
+        dateLabel: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+        depLabel,
+        arrLabel,
+        durationSec,
+        distanceNm: Number(r.distNm.toFixed(1)),
+        avgGs: Number(avgGs.toFixed(1)),
+        maxGs: Number(r.maxGs.toFixed(1)),
+        maxAltFt: Math.round(r.maxAltFt),
+        touchdownVsFpm: Number.isFinite(r.touchdownVsFpm) ? Math.round(r.touchdownVsFpm) : null,
+        track
+    };
+
+    const hist = JSON.parse(localStorage.getItem('ga_flight_history') || '[]');
+    hist.unshift(record);
+    localStorage.setItem('ga_flight_history', JSON.stringify(hist.slice(0, 80)));
+
+    if (typeof window.pinCompletedFlightRecord === 'function') {
+        window.pinCompletedFlightRecord(record);
+        console.log(`[FlightRec] 🧾 Flug ausgewertet & an Pinwand gehängt: ${depLabel} ➔ ${arrLabel} (${record.distanceNm} NM, ${Math.round(durationSec / 60)} min)`);
+    } else {
+        console.warn('[FlightRec] pinCompletedFlightRecord() nicht verfügbar.');
+    }
+    triggerCloudSave();
+    resetFlightRecorder();
+}
+
+function updateFlightRecorder(lat, lon, alt) {
+    if (window.simModeActive) return; // Sim-Flüge nicht in die reale Historie schreiben
+
+    const now = Date.now();
+    const gs = Number(smoothedGS) || 0;
+    const agl = Math.max(0, (Number(alt) || 0) - (Number(window.lastLiveTerrainFt) || 0));
+    const r = flightRecorder;
+
+    // Armierung: Nur wenn echte Bewegung beginnt
+    if (!r.active) {
+        if (gs > 28 || agl > 220) {
+            r.active = true;
+            r.armed = agl > 300 || gs > 45;
+            r.startTs = now;
+            r.maxGs = gs;
+            r.maxAltFt = alt;
+            r.sumGs = gs;
+            r.gsSamples = 1;
+            r.track = [];
+            r.lastSample = [lat, lon];
+            addFlightTrackPoint(lat, lon, alt, now, true);
+        }
+        return;
+    }
+
+    // Distanz akkumulieren
+    if (r.lastSample && map && typeof map.distance === 'function') {
+        const dM = map.distance(r.lastSample, [lat, lon]);
+        if (Number.isFinite(dM) && dM > 0) r.distNm += (dM / 1852);
+    }
+    r.lastSample = [lat, lon];
+
+    r.maxGs = Math.max(r.maxGs, gs);
+    r.maxAltFt = Math.max(r.maxAltFt, Number(alt) || 0);
+    r.sumGs += gs;
+    r.gsSamples += 1;
+    if (agl > 300 || gs > 45) r.armed = true;
+
+    addFlightTrackPoint(lat, lon, alt, now, false);
+
+    // Landing-Detection: erst wenn der Flug wirklich "airborne" war
+    if (!r.armed) return;
+
+    const landingCandidate = gs < 18 && agl < 140;
+    if (landingCandidate) {
+        if (!r.lowSpeedSince) {
+            r.lowSpeedSince = now;
+            if (Number.isFinite(smoothedVS)) r.touchdownVsFpm = smoothedVS;
+        }
+        if ((now - r.lowSpeedSince) >= 5000) {
+            addFlightTrackPoint(lat, lon, alt, now, true);
+            finalizeFlightRecorder(now);
+        }
+    } else {
+        r.lowSpeedSince = 0;
     }
 }
 
@@ -1781,6 +1964,7 @@ window.hideLivePlane = function () {
     window.lastLiveGpsPos = null;
     lastGpsTickDetails = null;
     lastTrailPoint = null;
+    resetFlightRecorder();
     hideNextWpTelemetry();
 };
 
