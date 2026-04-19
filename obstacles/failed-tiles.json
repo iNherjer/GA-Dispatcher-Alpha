@@ -1,6 +1,12 @@
 {
-  "generatedAt": "2026-04-17T10:13:43.528Z",
-  "ok": 1,
-  "failed": 0,
-  "failedTiles": []
+  "generatedAt": "2026-04-17T10:24:49.479Z",
+  "ok": 0,
+  "failed": 1,
+  "failedTiles": [
+    {
+      "tile": "341|459",
+      "status": 429,
+      "error": "HTTP 429"
+    }
+  ]
 }
