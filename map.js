@@ -1130,6 +1130,7 @@ window.removeRouteWaypoint = function (index) { routeWaypoints.splice(index, 1);
 
 function resetMainRoute() {
     if (routeWaypoints.length > 2) {
+        if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
         routeWaypoints = [routeWaypoints[0], routeWaypoints[routeWaypoints.length - 1]];
         renderMainRoute(); map.fitBounds(L.latLngBounds(routeWaypoints), { padding: [40, 40] });
     }
@@ -1137,6 +1138,13 @@ function resetMainRoute() {
 
 function renderMainRoute() {
     if (!map) initMapBase();
+    const _routeKey = Array.isArray(routeWaypoints)
+        ? routeWaypoints.map(p => `${(p.lat || 0).toFixed(5)},${((p.lng || p.lon) || 0).toFixed(5)}`).join('|')
+        : '';
+    if (window._lastReplayRouteKey !== _routeKey) {
+        if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
+        window._lastReplayRouteKey = _routeKey;
+    }
     window.vpBgNeedsUpdate = true;
     routeMarkers.forEach(m => map.removeLayer(m));
     routeMarkers = [];

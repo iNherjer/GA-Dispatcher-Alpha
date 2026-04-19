@@ -4,6 +4,13 @@ let pendingPinNote = null;
 let groupDataCache = { members: [], notes: [] };
 let pinnedReplayLayer = null;
 let debriefOverlayEl = null;
+
+window.clearPinnedFlightReplay = function() {
+    if (pinnedReplayLayer) {
+        try { pinnedReplayLayer.remove(); } catch (e) {}
+        pinnedReplayLayer = null;
+    }
+};
 const tutorialNotes = [
     { id: 101, text: "👋 WILLKOMMEN!\n\nZiehe diese Zettel umher, bearbeite sie (✏️) oder lösch sie (✖).", x: 4, y: 6, rot: -2 },
     { id: 102, text: "📻 NAVCOM THEME\n\nZieh mit gedrückter Maus an den runden Drehknöpfen, um TAS und GPH schnell einzustellen!", x: 28, y: 10, rot: 3 },
@@ -468,10 +475,7 @@ window.loadPinnedFlightRecord = function(id, isGroup) {
     }
     if (!note?.flightRecord?.track?.length || typeof map === 'undefined' || !map || typeof L === 'undefined') return;
 
-    if (pinnedReplayLayer) {
-        try { pinnedReplayLayer.remove(); } catch (e) {}
-        pinnedReplayLayer = null;
-    }
+    window.clearPinnedFlightReplay();
 
     const latlngs = note.flightRecord.track
         .filter(p => Array.isArray(p) && p.length >= 2)

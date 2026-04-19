@@ -838,6 +838,8 @@ function resetApp() {
     if (!confirm("Möchtest du das aktuelle Briefing wirklich verwerfen und alles auf Anfang setzen?")) return;
     localStorage.removeItem('ga_active_mission'); document.getElementById("briefingBox").style.display = "none";
     currentMissionData = null; routeWaypoints = [];
+    if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
+    window._lastReplayRouteKey = '';
     vpAltWaypoints = []; vpSegmentAlts = [];
     vpElevationData = null; window.vpElevationData = null;
     window._lastVpRouteKey = null; window.vpBgNeedsUpdate = true;
