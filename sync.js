@@ -1783,6 +1783,8 @@ function finalizeFlightRecorder(now) {
 }
 
 function updateFlightRecorder(lat, lon, alt) {
+    if (window.simModeActive) return; // Sim-Flüge laufen über sim-route Debrief/Prompt
+
     const now = Date.now();
     const gs = Number(smoothedGS) || 0;
     const agl = Math.max(0, (Number(alt) || 0) - (Number(window.lastLiveTerrainFt) || 0));

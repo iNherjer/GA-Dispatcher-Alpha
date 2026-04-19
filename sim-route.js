@@ -14,6 +14,12 @@
     let simRouteHash     = '';      // Änderungs-Erkennung
     let simPhase         = 'flight'; // start_hold | flight | end_hold
     let simHoldRemainSec = 0;
+    let simStartTs       = 0;
+    let simElapsedSec    = 0;
+    let simMaxAltFt      = 0;
+    let simTouchdownVs   = null;
+    let simTrack         = [];
+    let simLastTrackPt   = null;
 
     const TICK_MS = 200;            // 5 Hz – flüssig genug, CPU-schonend
     const SIM_HOLD_SEC = 5;         // Boden-Standzeit vor Start / nach Landung
@@ -40,6 +46,12 @@
         simActive       = true;
         simPhase        = 'start_hold';
         simHoldRemainSec = SIM_HOLD_SEC;
+        simStartTs      = Date.now();
+        simElapsedSec   = 0;
+        simMaxAltFt     = 0;
+        simTouchdownVs  = null;
+        simTrack        = [];
+        simLastTrackPt  = null;
         window.simModeActive = true;
         simLastTick     = Date.now();
 
@@ -74,11 +86,16 @@
         if (simPhase === 'end_hold') {
             simHoldRemainSec -= dtSec;
             _injectHold(true);
-            if (simHoldRemainSec <= 0) _stop();
+            if (simHoldRemainSec <= 0) {
+                const rec = _buildSimRecord();
+                _stop();
+                _promptSimLog(rec);
+            }
             return;
         }
 
         simDistNM += _gs() * dtSec / 3600;
+        simElapsedSec += dtSec;
 
         // Route-Änderung erkennen (Waypoint verschoben / hinzugefügt)
         const h = _routeHash();
@@ -124,11 +141,13 @@
         if (!pos) return;
 
         const alt = _alt(simDistNM, simRouteCache);
+        simMaxAltFt = Math.max(simMaxAltFt, alt || 0);
 
         // VS aus Höhendifferenz über die nächsten 0.15 NM
         const fwd    = Math.min(simDistNM + 0.15, simRouteCache.totalDist - 0.01);
         const altFwd = _alt(fwd, simRouteCache);
         const vs     = (altFwd - alt) / Math.max(0.15 / gs * 60, 0.001); // ft/min
+        simTouchdownVs = vs;
 
         // Globale EMA-Vars (aus sync.js – gleiches Script-Scope) für Profil-Icon
         smoothedGS = gs;
@@ -147,6 +166,7 @@
 
         // Positions-Injektion → gleiche Funktion wie Live-GPS
         updateLivePlanePosition(pos.lat, pos.lon, Math.round(alt), pos.hdg);
+        _recordSimTrack(pos.lat, pos.lon, alt);
     }
 
     function _injectHold(atEnd) {
@@ -170,6 +190,7 @@
         }
 
         updateLivePlanePosition(pos.lat, pos.lon, Math.round(alt), pos.hdg);
+        _recordSimTrack(pos.lat, pos.lon, alt, true);
     }
 
     // ── Stop ──────────────────────────────────────────────────────────────────
@@ -197,6 +218,56 @@
         }
 
         _ui(false);
+    }
+
+    function _recordSimTrack(lat, lon, alt, force) {
+        const now = Date.now();
+        if (!force && simLastTrackPt && typeof map !== 'undefined' && map && typeof map.distance === 'function') {
+            const dM = map.distance(simLastTrackPt, [lat, lon]);
+            if (dM < 140) return;
+        }
+        const relSec = Math.max(0, Math.round((now - simStartTs) / 1000));
+        simTrack.push([Number(lat.toFixed(5)), Number(lon.toFixed(5)), Math.round(alt || 0), relSec]);
+        simLastTrackPt = [lat, lon];
+        if (simTrack.length > 900) {
+            const compact = [];
+            for (let i = 0; i < simTrack.length; i += 2) compact.push(simTrack[i]);
+            simTrack = compact;
+        }
+    }
+
+    function _buildSimRecord() {
+        if (!simRouteCache || !simTrack.length) return null;
+        const first = simTrack[0];
+        const last = simTrack[simTrack.length - 1];
+        const depLabel = (typeof currentStartICAO !== 'undefined' && currentStartICAO) ? currentStartICAO : 'SIM START';
+        const arrLabel = (typeof currentDestICAO !== 'undefined' && currentDestICAO && currentDestICAO !== 'POI') ? currentDestICAO : 'SIM LANDING';
+        const gs = _gs();
+        const dist = Number(simRouteCache.totalDist || 0);
+        const durSec = Math.max(1, Math.round(simElapsedSec + (SIM_HOLD_SEC * 2)));
+        return {
+            id: Date.now(),
+            createdAt: Date.now(),
+            dateLabel: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+            depLabel,
+            arrLabel,
+            durationSec: durSec,
+            distanceNm: Number(dist.toFixed(1)),
+            avgGs: Number(gs.toFixed(1)),
+            maxGs: Number(gs.toFixed(1)),
+            maxAltFt: Math.round(simMaxAltFt || 0),
+            touchdownVsFpm: Number.isFinite(simTouchdownVs) ? Math.round(simTouchdownVs) : null,
+            track: simTrack.slice()
+        };
+    }
+
+    function _promptSimLog(record) {
+        if (!record || !record.track || record.track.length < 2) return;
+        const ok = confirm('Simulationsflug beendet.\n\nMöchtest du diesen Flug loggen und an die Pinwand hängen?');
+        if (!ok) return;
+        if (typeof window.pinCompletedFlightRecord === 'function') {
+            window.pinCompletedFlightRecord(record, { openDebrief: true });
+        }
     }
 
     // ── Route-Helfer ──────────────────────────────────────────────────────────

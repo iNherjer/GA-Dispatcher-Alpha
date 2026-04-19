@@ -3,6 +3,7 @@ let currentBoardMode = 'private';
 let pendingPinNote = null;
 let groupDataCache = { members: [], notes: [] };
 let pinnedReplayLayer = null;
+let debriefOverlayEl = null;
 const tutorialNotes = [
     { id: 101, text: "👋 WILLKOMMEN!\n\nZiehe diese Zettel umher, bearbeite sie (✏️) oder lösch sie (✖).", x: 4, y: 6, rot: -2 },
     { id: 102, text: "📻 NAVCOM THEME\n\nZieh mit gedrückter Maus an den runden Drehknöpfen, um TAS und GPH schnell einzustellen!", x: 28, y: 10, rot: 3 },
@@ -360,7 +361,62 @@ function pinCurrentFlight() {
     }
 }
 
-window.pinCompletedFlightRecord = function(record) {
+function ensureDebriefOverlay() {
+    if (debriefOverlayEl) return debriefOverlayEl;
+    const ov = document.createElement('div');
+    ov.id = 'flightDebriefOverlay';
+    ov.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:10050; display:none; align-items:center; justify-content:center; padding:20px;';
+    ov.innerHTML = `
+        <div style="width:min(820px,96vw); max-height:92vh; overflow:auto; background:#111a24; color:#eaf2ff; border:1px solid #2f4866; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.5);">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #2f4866;">
+                <div style="font-weight:bold; font-size:18px;">Flight Debrief</div>
+                <button id="flightDebriefCloseBtn" style="background:#2a3f58; color:#fff; border:1px solid #3f5b7f; border-radius:8px; padding:6px 10px; cursor:pointer;">Schließen</button>
+            </div>
+            <div id="flightDebriefBody" style="padding:14px 16px 18px 16px;"></div>
+        </div>
+    `;
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.style.display = 'none'; });
+    document.body.appendChild(ov);
+    const btn = ov.querySelector('#flightDebriefCloseBtn');
+    if (btn) btn.addEventListener('click', () => { ov.style.display = 'none'; });
+    debriefOverlayEl = ov;
+    return ov;
+}
+
+window.showFlightDebrief = function(record) {
+    if (!record) return;
+    const ov = ensureDebriefOverlay();
+    const body = ov.querySelector('#flightDebriefBody');
+    if (!body) return;
+
+    const dep = record.depLabel || 'START';
+    const arr = record.arrLabel || 'LANDUNG';
+    const mins = Math.max(1, Math.round((record.durationSec || 0) / 60));
+    const avg = Number(record.avgGs || 0).toFixed(0);
+    const maxGs = Number(record.maxGs || 0).toFixed(0);
+    const dist = Number(record.distanceNm || 0).toFixed(1);
+    const maxAlt = Math.round(record.maxAltFt || 0);
+    const td = Number.isFinite(record.touchdownVsFpm) ? `${Math.round(record.touchdownVsFpm)} fpm` : '-';
+    const dateText = record.dateLabel || new Date(record.createdAt || Date.now()).toLocaleString('de-DE');
+    const pts = Array.isArray(record.track) ? record.track.length : 0;
+
+    body.innerHTML = `
+        <div style="font-size:20px; font-weight:bold; margin-bottom:8px;">${dep} ➔ ${arr}</div>
+        <div style="color:#9fc0e8; margin-bottom:14px;">${dateText}</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px;">
+            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Distanz</div><div style="font-size:18px; font-weight:bold;">${dist} NM</div></div>
+            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Flugzeit</div><div style="font-size:18px; font-weight:bold;">${mins} min</div></div>
+            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Ø GS</div><div style="font-size:18px; font-weight:bold;">${avg} kt</div></div>
+            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max GS</div><div style="font-size:18px; font-weight:bold;">${maxGs} kt</div></div>
+            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max ALT</div><div style="font-size:18px; font-weight:bold;">${maxAlt} ft</div></div>
+            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Touchdown VS</div><div style="font-size:18px; font-weight:bold;">${td}</div></div>
+        </div>
+        <div style="font-size:12px; color:#9fc0e8;">Trackpunkte gespeichert: ${pts}</div>
+    `;
+    ov.style.display = 'flex';
+};
+
+window.pinCompletedFlightRecord = function(record, opts = {}) {
     if (!record || !Array.isArray(record.track) || record.track.length < 2) return;
     const notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
     const dep = record.depLabel || 'START';
@@ -396,6 +452,10 @@ window.pinCompletedFlightRecord = function(record) {
     localStorage.setItem('ga_pinboard', JSON.stringify(notes));
     triggerCloudSave();
     if (document.getElementById('pinboardOverlay')?.classList.contains('active')) renderNotes();
+
+    if (opts.openDebrief) {
+        window.showFlightDebrief(record);
+    }
 };
 
 window.loadPinnedFlightRecord = function(id, isGroup) {
@@ -441,6 +501,18 @@ window.loadPinnedFlightRecord = function(id, isGroup) {
     } catch (e) {}
 
     togglePinboard();
+};
+
+window.openPinnedFlightDebrief = function(id, isGroup) {
+    let note;
+    if (isGroup) {
+        note = (groupDataCache.notes || []).find(n => n.id === id);
+    } else {
+        const notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
+        note = notes.find(n => n.id === id);
+    }
+    if (!note?.flightRecord) return;
+    window.showFlightDebrief(note.flightRecord);
 };
 function closePinModal() {
     document.getElementById('pinModalOverlay').style.display = 'none';
@@ -546,7 +618,7 @@ function createNoteDOM(note, isGroup) {
     if (note.type === 'flight') {
         div.innerHTML = `${badgeHtml}<div class="post-it-pin"></div><div class="post-it-del" onclick="deleteNote(${note.id}, ${isGroup})">✖</div>${note.text}<button class="flight-load-btn" onclick="loadPinnedFlight(${note.id}, ${isGroup})">📂 Flug laden</button>${authorHtml}`;
     } else if (note.type === 'flight_record') {
-        div.innerHTML = `${badgeHtml}<div class="post-it-pin"></div><div class="post-it-del" onclick="deleteNote(${note.id}, ${isGroup})">✖</div>${note.text}<button class="flight-load-btn" onclick="loadPinnedFlightRecord(${note.id}, ${isGroup})">🗺️ Replay</button>${authorHtml}`;
+        div.innerHTML = `${badgeHtml}<div class="post-it-pin"></div><div class="post-it-del" onclick="deleteNote(${note.id}, ${isGroup})">✖</div>${note.text}<div style="display:flex; gap:6px; margin-top:0.8cqw;"><button class="flight-load-btn" style="flex:1; width:auto;" onclick="loadPinnedFlightRecord(${note.id}, ${isGroup})">🗺️ Karte</button><button class="flight-load-btn" style="flex:1; width:auto;" onclick="openPinnedFlightDebrief(${note.id}, ${isGroup})">📊 Debrief</button></div>${authorHtml}`;
     } else {
         let editBtn = (!isGroup || note.author === getGroupNick()) ? `<div class="post-it-edit" onclick="editNote(${note.id}, ${isGroup})">✏️</div>` : '';
         div.innerHTML = `${badgeHtml}<div class="post-it-pin"></div>${editBtn}<div class="post-it-del" onclick="deleteNote(${note.id}, ${isGroup})">✖</div>${note.text.replace(/\n/g, '<br>')}${authorHtml}`;
