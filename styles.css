@@ -4548,8 +4548,15 @@ body.theme-navcom .btn-menu:active {
 
 /* ── Passenger voice widget — always on top in map fullscreen ── */
 #paxVoiceWidget {
-    z-index: 100200;
+    z-index: 100200 !important;
 }
 body.map-is-fullscreen #paxVoiceWidget {
     bottom: 80px;
+}
+@keyframes paxBlink {
+    0%, 100% { box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+    50%       { box-shadow: 0 0 14px 5px rgba(77,166,255,0.75); }
+}
+#paxVoiceBtn.pax-has-new {
+    animation: paxBlink 1.2s ease-in-out infinite;
 }

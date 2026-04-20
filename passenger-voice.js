@@ -264,6 +264,7 @@ function _showPaxMessage(text, eventLabel) {
     if (panel) panel.style.display = 'block';
     if (badge) badge.style.display = 'block';
     if (btn) {
+        btn.classList.add('pax-has-new');
         btn.style.transform = 'scale(1.15)';
         setTimeout(() => { if (btn) btn.style.transform = 'scale(1)'; }, 300);
     }
@@ -276,17 +277,23 @@ function _showPaxMessage(text, eventLabel) {
 function _togglePaxPanel() {
     const panel = document.getElementById('paxVoicePanel');
     const badge = document.getElementById('paxVoiceBadge');
+    const btn   = document.getElementById('paxVoiceBtn');
     if (!panel) return;
     const isOpen = panel.style.display !== 'none';
     panel.style.display = isOpen ? 'none' : 'block';
-    if (!isOpen && badge) badge.style.display = 'none';
+    if (!isOpen) {
+        if (badge) badge.style.display = 'none';
+        if (btn) btn.classList.remove('pax-has-new');
+    }
 }
 
 function _closePaxPanel() {
     const panel = document.getElementById('paxVoicePanel');
     const badge = document.getElementById('paxVoiceBadge');
+    const btn   = document.getElementById('paxVoiceBtn');
     if (panel) panel.style.display = 'none';
     if (badge) badge.style.display = 'none';
+    if (btn) btn.classList.remove('pax-has-new');
 }
 
 // ─── TWO-STEP PIPELINE ───────────────────────────────────────────────────────

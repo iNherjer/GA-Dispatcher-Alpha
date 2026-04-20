@@ -1172,7 +1172,7 @@ function updateNextWpTelemetry(lat, lon) {
     }
     courseEl.textContent = crs;
     distEl.textContent = dist;
-    box.style.display = isMapHintOn('nextLeg', true) ? 'block' : 'none';
+    box.style.display = (window.simModeActive || isMapHintOn('nextLeg', true)) ? 'block' : 'none';
     setNextLegButtonStates(wpIdx, maxWp);
     updateLiveToActiveWpLine(lat, lon, wpIdx);
 
@@ -1358,7 +1358,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
 
             const box = document.getElementById('liveTelemetryBox');
             if (box) {
-                box.style.display = isMapHintOn('telemetry', true) ? 'block' : 'none';
+                box.style.display = (window.simModeActive || isMapHintOn('telemetry', true)) ? 'block' : 'none';
                 const gsEl = document.getElementById('teleGS');
                 const vsEl = document.getElementById('teleVS');
                 if (gsEl) gsEl.textContent = gs.toFixed(1);
