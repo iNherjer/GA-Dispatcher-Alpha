@@ -113,6 +113,7 @@ let _paxFarewellDone  = false;
 let _paxComfortLastAt = 0;
 let _paxComfortCount  = 0;
 let _paxComfortBusy   = false;
+let _paxWxMismatchDone = false;
 
 // POI dwell state machine
 let _poiInRadius        = false;
@@ -133,6 +134,7 @@ window.paxVoiceResetMission = function() {
     _paxComfortLastAt = 0;
     _paxComfortCount  = 0;
     _paxComfortBusy   = false;
+    _paxWxMismatchDone = false;
     _poiInRadius      = false;
     _poiEnteredAt     = null;
     _poiLastTickTime  = null;
@@ -639,10 +641,67 @@ function _baseContext() {
     const story = _getMissionStory();
     if (!pax || !md) return null;
 
+    const cargo = document.getElementById('mWeight')?.innerText?.trim() || '';
+    const payload = document.getElementById('mPay')?.innerText?.trim() || '';
+    const roleStyle = _roleStyleHint(pax.role);
+
     return `Du bist ${pax.name}, ${pax.role}. Persönlichkeit: ${pax.personality}.
 Flug: ${md.start || '?'} → ${md.poiName || md.dest || '?'} (${md.dist || '?'} NM, ${md.ac || 'GA-Flugzeug'}).
+Fracht/Beladung: ${cargo || 'n/a'}${payload ? ` · Passagiere: ${payload}` : ''}
 ${story ? `Auftrag: ${story}` : ''}
+Rollenstil: ${roleStyle}
 Antworte NUR mit dem exakten gesprochenen Text — keine Anführungszeichen, keine Regieanweisungen, kein Markdown.`;
+}
+
+function _roleStyleHint(roleRaw) {
+    const role = String(roleRaw || '').toLowerCase();
+    if (/report|journal|presse|medien|film|foto/.test(role)) {
+        return 'professionell beobachtend, fokussiert, leicht lebendig; keine übertriebene Touri-Euphorie bei geplanten Zielen.';
+    }
+    if (/vip|manager|anwalt|architekt|business|kunde/.test(role)) {
+        return 'ruhig, souverän, wertig; kurze klare Aussagen statt Show.';
+    }
+    if (/ingenieur|inspekt|vermess|techn|beobachter|amt/.test(role)) {
+        return 'sachlich-pragmatisch, präzise, mit Fokus auf Auftrag und Bedingungen.';
+    }
+    if (/flugsch|student|trainee/.test(role)) {
+        return 'interessiert, lernorientiert, respektvoll und eher zurückhaltend.';
+    }
+    return 'natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show.';
+}
+
+function _briefingDestWeather() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
+    const d = md?.weatherBriefing?.dest;
+    if (!d || typeof d !== 'object') return null;
+    return {
+        windDeg: Number.isFinite(d.windDeg) ? Number(d.windDeg) : null,
+        windKts: Number.isFinite(d.windKts) ? Number(d.windKts) : null,
+        visKm: Number.isFinite(d.visKm) ? Number(d.visKm) : null
+    };
+}
+
+function _consumeWeatherMismatchEasteregg(flightData) {
+    if (_paxWxMismatchDone) return '';
+    const brief = _briefingDestWeather();
+    if (!brief || !flightData) return '';
+
+    const liveWind = Number.isFinite(flightData.windKts) ? Number(flightData.windKts) : null;
+    const liveDir  = Number.isFinite(flightData.windDeg) ? Number(flightData.windDeg) : null;
+    const liveVis  = Number.isFinite(flightData.visKm) ? Number(flightData.visKm) : null;
+    if (liveWind == null && liveVis == null) return '';
+
+    let score = 0;
+    if (brief.windKts != null && liveWind != null && Math.abs(brief.windKts - liveWind) >= 8) score++;
+    if (brief.windDeg != null && liveDir != null) {
+        const d = Math.abs(((liveDir - brief.windDeg + 540) % 360) - 180);
+        if (d >= 60) score++;
+    }
+    if (brief.visKm != null && liveVis != null && Math.abs(brief.visKm - liveVis) >= 4) score++;
+    if (score < 2) return '';
+
+    _paxWxMismatchDone = true;
+    return ' Kleiner Side-Note mit Augenzwinkern: Das Wetter fühlt sich gerade deutlich anders an als gemeldet — vielleicht hat im MSFS jemand am Wetterregler gespielt.';
 }
 
 function _poiEntryPrompt(flightData) {
@@ -795,6 +854,7 @@ function _atTargetPrompt(flightData) {
         if (Math.abs(diff) > 300) notes += ` Wir sind noch ${diff > 0 ? diff + ' ft zu hoch' : Math.abs(diff) + ' ft zu niedrig'} für meine Arbeit.`;
     }
     if (wx) notes += ` ${wx}`;
+    notes += _consumeWeatherMismatchEasteregg(flightData);
 
     return `${ctx}
 
@@ -905,6 +965,7 @@ function _farewellPrompt(record) {
     if (td && Math.abs(record.touchdownVsFpm) < 200) highlights += ' Die Landung war richtig sanft — Kompliment!';
     if (td && Math.abs(record.touchdownVsFpm) > 500) highlights += ` Die Landung mit ${Math.abs(record.touchdownVsFpm)} ft/min war etwas holprig.`;
     if (wx) highlights += ` ${wx}`;
+    highlights += _consumeWeatherMismatchEasteregg(window.lastLiveFlightData || null);
 
     return `${ctx}
 

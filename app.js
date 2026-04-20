@@ -2072,6 +2072,7 @@ function parseRunwayFromWikitext(wikitext) {
 }
 
 const _poiTerrainCache = new Map();
+const _missionWxCache = new Map();
 
 async function fetchPoiTerrainElevationFt(lat, lon) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
@@ -2108,6 +2109,113 @@ async function fetchPoiTerrainElevationFt(lat, lon) {
     return normalized;
 }
 
+function _summarizeMissionWeather(wx) {
+    if (!wx) return 'Keine aktuellen Wetterdaten verfügbar.';
+    const visTxt = Number.isFinite(wx.visKm)
+        ? (wx.visKm >= 10 ? 'Sicht >10 km' : `Sicht ${wx.visKm.toFixed(1)} km`)
+        : 'Sicht n/a';
+    const windTxt = (Number.isFinite(wx.windDeg) && Number.isFinite(wx.windKts))
+        ? `Wind ${wx.windDeg}°/${Math.round(wx.windKts)} kt`
+        : 'Wind n/a';
+    const tempTxt = Number.isFinite(wx.tempC) ? `${Math.round(wx.tempC)}°C` : 'Temp n/a';
+    const wxTxt = wx.wxCode ? `WX ${wx.wxCode}` : 'WX NIL';
+    const catTxt = wx.fltCat ? `Kategorie ${wx.fltCat}` : 'Kategorie n/a';
+    return `${windTxt}, ${visTxt}, ${tempTxt}, ${wxTxt}, ${catTxt}`;
+}
+
+function _looksLikeIcao(icao) {
+    return /^[A-Z0-9]{4}$/.test(String(icao || '').trim().toUpperCase());
+}
+
+async function fetchMissionWeatherSnapshot(icao, lat, lon) {
+    const normIcao = String(icao || '').trim().toUpperCase();
+    const key = `${normIcao || 'POI'}_${Number(lat || 0).toFixed(3)}_${Number(lon || 0).toFixed(3)}`;
+    if (_missionWxCache.has(key)) return _missionWxCache.get(key);
+
+    const parsePayload = (txt) => {
+        if (typeof txt !== 'string' || !txt.trim()) return null;
+        try {
+            const p = JSON.parse(txt);
+            if (Array.isArray(p)) return p;
+            if (Array.isArray(p?.data)) return p.data;
+            if (Array.isArray(p?.results)) return p.results;
+            if (typeof p?.contents === 'string') {
+                const nested = JSON.parse(p.contents);
+                return Array.isArray(nested) ? nested : null;
+            }
+        } catch (e) {}
+        return null;
+    };
+
+    const tryFetch = async (url) => {
+        const variants = [
+            `https://ga-proxy.einherjer.workers.dev/api/metar?src=${encodeURIComponent(url)}`,
+            `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`
+        ];
+        for (const u of variants) {
+            try {
+                const res = await fetch(u);
+                if (!res.ok || res.status === 204) continue;
+                const txt = await res.text();
+                const arr = parsePayload(txt);
+                if (Array.isArray(arr) && arr.length) return arr;
+            } catch (e) {}
+        }
+        return null;
+    };
+
+    let metar = null;
+    if (_looksLikeIcao(normIcao)) {
+        const arr = await tryFetch(`https://aviationweather.gov/api/data/metar?ids=${normIcao}&format=json&t=${Date.now()}`);
+        if (arr && arr[0]) metar = arr[0];
+    }
+    if (!metar && Number.isFinite(lat) && Number.isFinite(lon)) {
+        const latMin = lat - 0.6, latMax = lat + 0.6;
+        const lonMin = lon - 0.8, lonMax = lon + 0.8;
+        const arr = await tryFetch(`https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json&t=${Date.now()}`);
+        if (arr && arr[0]) {
+            const cands = arr.filter(m => Number.isFinite(Number(m?.lat)) && Number.isFinite(Number(m?.lon)));
+            if (cands.length) {
+                let best = cands[0];
+                let bestD = calcNav(lat, lon, Number(best.lat), Number(best.lon)).dist;
+                for (let i = 1; i < cands.length; i++) {
+                    const d = calcNav(lat, lon, Number(cands[i].lat), Number(cands[i].lon)).dist;
+                    if (d < bestD) { bestD = d; best = cands[i]; }
+                }
+                metar = best;
+            }
+        }
+    }
+
+    let out = null;
+    if (metar) {
+        const raw = typeof metar.rawOb === 'string' ? metar.rawOb : (typeof metar.raw === 'string' ? metar.raw : '');
+        let visKm = null;
+        if (raw.includes(' 9999 ')) visKm = 10;
+        else {
+            const vm = raw.match(/\s(\d{4})\s/);
+            if (vm && vm[1] !== '0000') visKm = Math.round((parseInt(vm[1], 10) / 1000) * 10) / 10;
+        }
+        let windDeg = Number.isFinite(Number(metar.wdir)) ? Number(metar.wdir) : null;
+        let windKts = Number.isFinite(Number(metar.wspd)) ? Number(metar.wspd) : null;
+        const vrb = /VRB\d{2,3}KT/.test(raw || '');
+        if (vrb) windDeg = null;
+        out = {
+            station: String(metar.icaoId || normIcao || '').toUpperCase() || null,
+            raw: raw || null,
+            windDeg,
+            windKts,
+            visKm,
+            tempC: Number.isFinite(Number(metar.temp)) ? Number(metar.temp) : null,
+            wxCode: metar.wxString || null,
+            fltCat: metar.fltCat || null
+        };
+    }
+
+    _missionWxCache.set(key, out);
+    return out;
+}
+
 function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) {
     if (!passenger || typeof passenger !== 'object') return passenger;
     const normalized = {
@@ -2137,7 +2245,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
     return normalized;
 }
 
-async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null) {
+async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
     if (!aiToggleBtn || !aiToggleBtn.checked) return null;
     const apiKeyInput = document.getElementById('apiKeyInput');
@@ -2197,6 +2305,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     ${isPOI ? `5. RUNDFLUG-REGELN: Start und Landung ist ${startName}. Am POI (${destName}) wird NICHT gelandet.` : `5. ROUTEN-REGELN: Normaler Streckenflug von ${startName} nach ${destName}.`}
     6. PASSAGIERE & FRACHT: Erfinde passend zur Mission, WER mitfliegt (maximal ${maxPaxLimit} Personen) und WAS transportiert wird. Wenn niemand mitfliegt, schreibe '0 PAX'.
     7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission (oder null bei 0 PAX). greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. ${poiAltRule}
+    8. AKTUELLES WETTER (als Realitätsanker einbauen, aber ohne überdramatisieren):
+       Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
+       Ziel (${destName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
 
     Antworte AUSSCHLIESSLICH als JSON. Keine Markdown-Formatierung.
     Struktur: {
@@ -3127,12 +3238,17 @@ async function generateMission() {
     if (isPOI && Number.isFinite(dest?.lat) && Number.isFinite(dest?.lon)) {
         poiTerrainFt = await fetchPoiTerrainElevationFt(dest.lat, dest.lon);
     }
+    const [depWeatherSnap, destWeatherSnap] = await Promise.all([
+        fetchMissionWeatherSnapshot(currentStartICAO, start.lat, start.lon),
+        fetchMissionWeatherSnapshot(isPOI ? 'POI' : currentDestICAO, dest.lat, dest.lon)
+    ]);
+    const missionWeather = { dep: depWeatherSnap, dest: destWeatherSnap };
 
     const maxPax = Math.max(1, maxSeats - 1), randomPax = Math.floor(Math.random() * maxPax) + 1;
     let paxText = `${randomPax} PAX`, cargoText = `${Math.floor(Math.random() * 300) + 20} lbs`;
 
     indicator.innerText = `Kontaktiere KI-Dispatcher...`;
-    let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt);
+    let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt, missionWeather);
 
     if (m) {
         dataSource = m._source;
@@ -3200,7 +3316,16 @@ async function generateMission() {
     const hrs = Math.floor(totalMinutes / 60), mins = totalMinutes % 60;
     const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} Min.`;
 
-    currentMissionData = { start: currentStartICAO, dest: currentDestICAO, poiName: isPOI ? dest.n : null, mission: m.t, dist: totalDist, ac: selectedAC, heading: nav.brng };
+    currentMissionData = {
+        start: currentStartICAO,
+        dest: currentDestICAO,
+        poiName: isPOI ? dest.n : null,
+        mission: m.t,
+        dist: totalDist,
+        ac: selectedAC,
+        heading: nav.brng,
+        weatherBriefing: missionWeather
+    };
 
     window.activePassenger = (m && m.passenger) ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt) : null;
     try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch(e) {}
