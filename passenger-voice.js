@@ -419,7 +419,11 @@ function _closePaxPanel() {
 async function _generateSpokenText(apiKey, situationPrompt) {
     const payload = {
         contents: [{ parts: [{ text: situationPrompt }] }],
-        generationConfig: { response_mime_type: 'text/plain' }
+        generationConfig: {
+            response_mime_type: 'text/plain',
+            temperature: 0.95,
+            topP: 0.9
+        }
     };
     const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
 
@@ -678,7 +682,11 @@ Erkläre dem Piloten verständnisvoll, dass wir die Mission abbrechen und zurüc
 
 // Shared tone instruction appended to every prompt
 const _TONE = `
-Sprich den Piloten direkt an (per Du, kein Erzähler-Stil). Ton: persönlich, warmherzig und grundsätzlich positiv — auch wenn etwas nicht ideal läuft, bleib konstruktiv und ermutigend. Ich-Form. Auf Deutsch.`;
+Sprich den Piloten direkt an (per Du, kein Erzähler-Stil). Ton: persönlich, warmherzig und spontan, als würdest du live im Cockpit reagieren statt einen Text vorzulesen.
+Ich-Form. Alltagssprache, kurze natürliche Sätze, gern mit kleinen Einwürfen wie "ehrlich gesagt", "ui", "okay".
+Leichter Humor ist ausdrücklich erlaubt (1 kleine, freundliche Pointe), aber nicht albern.
+Auch wenn etwas nicht ideal läuft: konstruktiv, menschlich und ermutigend bleiben.
+Auf Deutsch.`;
 
 function _weatherContext(fd) {
     if (!fd) return '';
