@@ -1129,11 +1129,16 @@ function clearMeasure() {
 window.removeRouteWaypoint = function (index) { routeWaypoints.splice(index, 1); renderMainRoute(); };
 
 function resetMainRoute() {
-    if (routeWaypoints.length > 2) {
-        if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
+    if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
+    if (window._missionRouteWaypoints && window._missionRouteWaypoints.length >= 2) {
+        routeWaypoints = JSON.parse(JSON.stringify(window._missionRouteWaypoints));
+    } else if (routeWaypoints.length > 2) {
         routeWaypoints = [routeWaypoints[0], routeWaypoints[routeWaypoints.length - 1]];
-        renderMainRoute(); map.fitBounds(L.latLngBounds(routeWaypoints), { padding: [40, 40] });
+    } else {
+        return;
     }
+    renderMainRoute();
+    map.fitBounds(L.latLngBounds(routeWaypoints.map(p => [p.lat, p.lng ?? p.lon])), { padding: [40, 40] });
 }
 
 function renderMainRoute() {
@@ -2149,15 +2154,16 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
         const returnWp = getDestinationPoint(lat2, lon2, returnNav.dist * 0.45, offsetBearing);
         
         routeWaypoints = [
-            { lat: lat1, lng: lon1 }, 
-            { lat: lat2, lng: lon2, name: "🎯 " + currentMissionData.poiName, isPOI: true }, 
-            { lat: returnWp.lat, lng: returnWp.lon, name: "Return Leg" }, 
-            { lat: lat1, lng: lon1, name: currentSName } // HIER: Name explizit auf den Startplatz setzen
+            { lat: lat1, lng: lon1 },
+            { lat: lat2, lng: lon2, name: "🎯 " + currentMissionData.poiName, isPOI: true },
+            { lat: returnWp.lat, lng: returnWp.lon, name: "Return Leg" },
+            { lat: lat1, lng: lon1, name: currentSName }
         ];
     } else {
         routeWaypoints = [{ lat: lat1, lng: lon1 }, { lat: lat2, lng: lon2 }];
     }
-    
+    window._missionRouteWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
+
     renderMainRoute();
 }
 

@@ -702,6 +702,7 @@ function saveMissionState() {
         isPOI: document.getElementById("destRwyContainer").style.display === "none",
         currentMissionData: currentMissionData,
         routeWaypoints: routeWaypoints,
+        missionRouteWaypoints: window._missionRouteWaypoints || null,
         currentStartICAO: currentStartICAO,
         currentDestICAO: currentDestICAO,
         currentSName: currentSName,
@@ -761,6 +762,7 @@ async function restoreMissionState(state) {
     const destLinks = document.getElementById("wikiDestLinks"); if (destLinks) destLinks.style.display = state.isPOI ? "none" : "block";
 
     currentMissionData = state.currentMissionData; routeWaypoints = state.routeWaypoints;
+    window._missionRouteWaypoints = state.missionRouteWaypoints || null;
     window.activePassenger = state.activePassenger || null;
     currentStartICAO = state.currentStartICAO; currentDestICAO = state.currentDestICAO;
     currentSName = state.currentSName; currentDName = state.currentDName;
@@ -839,7 +841,7 @@ async function restoreMissionState(state) {
 function resetApp() {
     if (!confirm("Möchtest du das aktuelle Briefing wirklich verwerfen und alles auf Anfang setzen?")) return;
     localStorage.removeItem('ga_active_mission'); document.getElementById("briefingBox").style.display = "none";
-    currentMissionData = null; routeWaypoints = [];
+    currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null;
     if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
     window._lastReplayRouteKey = '';
     vpAltWaypoints = []; vpSegmentAlts = [];
