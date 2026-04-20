@@ -2106,6 +2106,29 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
 
     const maxPaxLimit = paxText.split(' ')[0];
 
+    const sanitizePassengerProfile = (passenger) => {
+        if (!passenger || typeof passenger !== 'object') return null;
+        const normalized = {
+            ...passenger,
+            targetAltFt: Number(passenger.targetAltFt) || 0,
+            targetRadiusNm: Number(passenger.targetRadiusNm) || 0,
+            targetDwellMin: Number(passenger.targetDwellMin) || 0
+        };
+
+        // A-B Flüge: keine Arbeitsvorgaben am Ziel (nur Komfort/Charakter).
+        if (!isPOI) {
+            normalized.targetAltFt = 0;
+            normalized.targetRadiusNm = 0;
+            normalized.targetDwellMin = 0;
+        } else {
+            if (normalized.targetAltFt < 0) normalized.targetAltFt = 0;
+            if (normalized.targetRadiusNm < 0) normalized.targetRadiusNm = 0;
+            if (normalized.targetDwellMin < 0) normalized.targetDwellMin = 0;
+        }
+
+        return normalized;
+    };
+
     const prompt = `Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen.
     Erstelle ein realistisches Einsatzbriefing für diesen Flug:
     Start: ${startName}
@@ -2119,7 +2142,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${destName}" ganz natürlich ein.
     ${isPOI ? `5. RUNDFLUG-REGELN: Start und Landung ist ${startName}. Am POI (${destName}) wird NICHT gelandet.` : `5. ROUTEN-REGELN: Normaler Streckenflug von ${startName} nach ${destName}.`}
     6. PASSAGIERE & FRACHT: Erfinde passend zur Mission, WER mitfliegt (maximal ${maxPaxLimit} Personen) und WAS transportiert wird. Wenn niemand mitfliegt, schreibe '0 PAX'.
-    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission (oder null bei 0 PAX). greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. targetAltFt: optimale Arbeitshöhe in Fuß (0 wenn keine spezifische Höhe nötig, z.B. Touristenflug). targetRadiusNm: Aktionsradius am Ziel — 2 für präzise Punkte (Brücke, Gebäude), 3 für Stadtgebiete, 4-5 für Landschaft/Panorama. targetDwellMin: Verweildauer in Minuten — 0 für Touristen/Genussflüge ohne Arbeitsauftrag (einfacher Überflug reicht), 1-2 für kurzes Kreisen, 3-5 für professionelle Arbeit.
+    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission (oder null bei 0 PAX). greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. ${isPOI ? "POI-Einsatzparameter: targetAltFt (optimale Arbeitshöhe in Fuß; 0 wenn keine nötig), targetRadiusNm (Aktionsradius am Ziel; 2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (Verweildauer; 0 für reinen Überflug, 1-2 kurz, 3-5 professionell)." : "A-B-REGEL: Kein POI-Arbeitsauftrag. targetAltFt MUSS 0 sein, targetRadiusNm MUSS 0 sein, targetDwellMin MUSS 0 sein."}
 
     Antworte AUSSCHLIESSLICH als JSON. Keine Markdown-Formatierung.
     Struktur: {
@@ -2139,7 +2162,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             const data = await resFlash3.json();
             const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
             incrementApiUsage('flash');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: parsed.passenger || null, i: "📋", cat: "std", _source: "Gemini 3.0 Flash" };
+            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: "std", _source: "Gemini 3.0 Flash" };
         }
     } catch (e) { }
 
@@ -2149,7 +2172,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             const data = await resFlash.json();
             const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
             incrementApiUsage('flash');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: parsed.passenger || null, i: "📋", cat: "std", _source: "Gemini 2.5 Flash" };
+            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: "std", _source: "Gemini 2.5 Flash" };
         }
     } catch (e) { }
 
@@ -2159,7 +2182,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             const data = await resLite.json();
             const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
             incrementApiUsage('lite');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: parsed.passenger || null, i: "📋", cat: "std", _source: "Gemini 2.5 Flash Lite" };
+            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: "std", _source: "Gemini 2.5 Flash Lite" };
         }
     } catch (e) { }
     return null;

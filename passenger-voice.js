@@ -664,14 +664,17 @@ function _greetingPrompt() {
     const pax = window.activePassenger;
     if (!ctx || !pax) return null;
     const wx = _weatherContext(window.lastLiveFlightData);
-    const dwellReq = pax.targetDwellMin > 0
-        ? `Ich brauche etwa ${pax.targetDwellMin} Minuten am Ziel.`
-        : `Ein Überflug reicht mir — kein fixer Zeitbedarf.`;
+    const isPOI = _isPOIMission();
+    const reqLine = isPOI
+        ? (pax.targetDwellMin > 0
+            ? `Bitte auch kurz deine Anforderungen nennen: ${pax.targetAltFt ? `am liebsten um die ${pax.targetAltFt} ft` : 'Höhe nach Absprache'}. Ich brauche etwa ${pax.targetDwellMin} Minuten am Ziel.`
+            : `Bitte auch kurz deine Anforderungen nennen: ${pax.targetAltFt ? `am liebsten um die ${pax.targetAltFt} ft` : 'Höhe nach Absprache'}. Ein Überflug reicht mir — kein fixer Zeitbedarf.`)
+        : `Bitte erwähne nur Komfortpräferenzen für den Reiseflug (z.B. ruhige Kurven) und KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer.`;
     return `${ctx}
 
 Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.${wx ? ' ' + wx : ''}
 Basistextt für deine Begrüßung (frei adaptieren): "${pax.greetingText}"
-Bitte auch kurz deine Anforderungen nennen: ${pax.targetAltFt ? `am liebsten um die ${pax.targetAltFt} ft` : 'Höhe nach Absprache'}. ${dwellReq}
+${reqLine}
 Max 3 Sätze.${_TONE}`;
 }
 
