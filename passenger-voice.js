@@ -308,6 +308,7 @@ async function _speakAndShow(situationPrompt, eventLabel) {
     if (!apiKey) { console.warn('[PaxVoice] Kein API-Key — bitte im Einstellungen eintragen'); return; }
 
     console.log('[PaxVoice] Textgenerierung läuft für:', eventLabel);
+    console.log('[PaxVoice] Prompt:\n', situationPrompt);
     const spokenText = await _generateSpokenText(apiKey, situationPrompt);
     if (!spokenText) { console.warn('[PaxVoice] Kein Text von Gemini erhalten (API-Fehler oder leere Antwort)'); return; }
     console.log('[PaxVoice] Text erhalten:', spokenText.slice(0, 80), '...');
@@ -354,6 +355,7 @@ function _baseContext() {
     return `Du spielst ${pax.name}, ${pax.role}. Persönlichkeit: ${pax.personality}.
 Flug: ${md.start || '?'} → ${md.poiName || md.dest || '?'} (${md.dist || '?'} NM, ${md.ac || 'GA-Flugzeug'}).
 ${story ? `Missionsauftrag: ${story}` : ''}
+Ton: ruhig, sachlich, in deiner Rolle. Kein übertriebener Enthusiasmus, keine Ausrufezeichen.
 Antworte NUR mit dem exakten Text den du sprichst — keine Anführungszeichen, keine Erzählerhinweise, kein Markdown.`;
 }
 
@@ -382,7 +384,7 @@ function _atTargetPrompt(flightData) {
 
     const situation = isPOI
         ? `Ihr habt "${currentMissionData?.poiName || 'das Ziel'}" erreicht. Aktuelle Höhe: ${altFt} ft MSL / ${aglFt} ft AGL. Flugneigung: ${bank}°.`
-        : `Ihr seid gerade auf ${currentMissionData?.dest || 'dem Zielflugplatz'} gelandet. Sinkrate: ${vs} ft/min.`;
+        : `Ihr befindet euch im Anflug auf ${currentMissionData?.dest || 'den Zielflugplatz'} — Landung in wenigen Minuten. Höhe: ${altFt} ft. Kommentiere den Flug kurz und dass ihr gleich da seid.`;
 
     let comfort = '';
     if (pax.gTolerance === 'niedrig' && parseFloat(gf) > 1.3) comfort += ' Die G-Belastung war für dich spürbar. ';
@@ -456,13 +458,21 @@ window.triggerPaxFarewell = async function(record) {
     setTimeout(() => _speakAndShow(prompt, 'Verabschiedung'), 3000);
 };
 
-// Called each GPS tick from sync.js + sim-route.js — POI proximity check
+// Called each GPS tick from sync.js + sim-route.js — proximity check for POI and airport
 window.checkPaxPoiProximity = function(lat, lon, flightData) {
     if (!_paxVoiceEnabled || _paxAtTargetDone || !window.activePassenger) return;
-    if (!_isPOIMission()) return;
 
-    // Use actual dest coords from DOM (reliable for both live and sim)
-    const dest = _getDestCoords();
+    const isPOI = _isPOIMission();
+    let dest;
+    if (isPOI) {
+        dest = _getDestCoords();
+    } else {
+        // Airport: letzter Waypoint der Route = Zielflugplatz
+        const wps = (typeof routeWaypoints !== 'undefined') ? routeWaypoints : null;
+        if (!wps || wps.length < 2) return;
+        const last = wps[wps.length - 1];
+        dest = { lat: last.lat, lon: last.lng ?? last.lon };
+    }
     if (!dest) return;
 
     const dLat  = (dest.lat - lat) * Math.PI / 180;
@@ -471,9 +481,9 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
             + Math.cos(lat * Math.PI / 180) * Math.cos(dest.lat * Math.PI / 180) * Math.sin(dLonR / 2) ** 2;
     const distNm = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 3440.065;
 
-    const radius = window.activePassenger.targetRadiusNm || 1.5;
+    const radius = isPOI ? (window.activePassenger.targetRadiusNm || 1.5) : 1.5;
     if (distNm <= radius) {
-        console.log(`[PaxVoice] POI in Reichweite: ${distNm.toFixed(2)} NM`);
+        console.log(`[PaxVoice] ${isPOI ? 'POI' : 'Airport'} in Reichweite: ${distNm.toFixed(2)} NM`);
         window.triggerPaxAtTarget(flightData);
     }
 };
