@@ -718,6 +718,7 @@ ${story ? `Auftrag: ${story}` : ''}
 Rollenstil: ${roleStyle}
 Region am Ziel: ${dialectProfile.regionLabel}.
 Sprachfärbung: ${dialectProfile.dialectHint}. Intensität: ${dialectProfile.strengthLabel}. Halte diese Färbung über alle Meldungen dieses Flugs konsistent.
+Globale Sprachregeln: ${_dialectGlobalRules(dialectProfile, pax.role)}
 Antworte NUR mit dem exakten gesprochenen Text — keine Anführungszeichen, keine Regieanweisungen, kein Markdown.`;
 }
 
@@ -829,6 +830,28 @@ function _contextualDialectProfile(pax) {
         strengthLabel,
         regionLabel: regional.region || 'Unbekannt'
     };
+}
+
+function _dialectGlobalRules(profile, roleRaw) {
+    const dialect = String(profile?.dialectHint || 'neutral').toLowerCase();
+    const neutralRole = _rolePrefersNeutralSpeech(roleRaw);
+
+    if (neutralRole || dialect === 'neutral') {
+        return 'Standardaussprache priorisieren; regionale Farbe nur sehr dezent in Wortwahl, keine markante regionale Prosodie.';
+    }
+
+    let antiMix = 'Keine Mischung mit anderen Regionen innerhalb derselben Meldung.';
+    if (dialect.includes('badisch') || dialect.includes('schwaebisch')) {
+        antiMix = 'Nicht bayrisch, nicht fraenkisch, nicht oesterreichisch klingen; im suedwestdeutschen Spektrum bleiben.';
+    } else if (dialect.includes('fraenkisch')) {
+        antiMix = 'Nicht bayrisch oder schwaebisch klingen; fraenkische Färbung nur sehr dezent.';
+    } else if (dialect.includes('bayrisch') || dialect.includes('oberbayerisch')) {
+        antiMix = 'Nicht schwaebisch, nicht badisch, nicht fraenkisch klingen.';
+    } else if (dialect.includes('norddeutsch') || dialect.includes('hamburgisch') || dialect.includes('holsteinisch')) {
+        antiMix = 'Nicht sueddeutsch (bayrisch/schwaebisch) klingen.';
+    }
+
+    return `Regionale Farbe zuerst ueber Wortwahl/Redewendungen, Aussprache nah an Standarddeutsch halten. ${antiMix}`;
 }
 
 function _briefingDestWeather() {
@@ -944,6 +967,7 @@ Sprache: locker und einfach, kein steifes Hochdeutsch, kein Amtsdeutsch. Eher so
 Ich-Form. Kurze natürliche Sätze, gern mit kleinen Einwürfen wie "ehrlich gesagt", "ui", "okay", "passt".
 Gelegentlich leichte Umgangssprache ist okay (z.B. "wir ham", "grad"), aber nicht übertreiben und nicht in starken Dialekt kippen.
 Wenn eine regionale Sprachfärbung angegeben ist: nur leicht dosieren, verständlich bleiben und über alle Meldungen konsistent halten.
+Keine Dialekt-Mischung zwischen Regionen. Regionale Farbe primär in Wortwahl, nicht in harter Lautverschiebung.
 ${humorLine}
 Auch wenn etwas nicht ideal läuft: konstruktiv, menschlich und ermutigend bleiben.
 Auf Deutsch.`;
