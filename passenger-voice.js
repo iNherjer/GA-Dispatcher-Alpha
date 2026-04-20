@@ -544,27 +544,26 @@ function _baseContext() {
     const story = _getMissionStory();
     if (!pax || !md) return null;
 
-    return `Du spielst ${pax.name}, ${pax.role}. Persönlichkeit: ${pax.personality}.
+    return `Du bist ${pax.name}, ${pax.role}. Persönlichkeit: ${pax.personality}.
 Flug: ${md.start || '?'} → ${md.poiName || md.dest || '?'} (${md.dist || '?'} NM, ${md.ac || 'GA-Flugzeug'}).
-${story ? `Missionsauftrag: ${story}` : ''}
-Ton: ruhig, sachlich, in deiner Rolle. Kein übertriebener Enthusiasmus, keine Ausrufezeichen.
-Sprich immer in der Ich-Form, direkt zum Piloten — du redest, du denkst, du beobachtest.
-Antworte NUR mit dem exakten Text den du sprichst — keine Anführungszeichen, keine Erzählerhinweise, kein Markdown.`;
+${story ? `Auftrag: ${story}` : ''}
+Antworte NUR mit dem exakten gesprochenen Text — keine Anführungszeichen, keine Regieanweisungen, kein Markdown.`;
 }
 
 function _poiEntryPrompt(flightData) {
     const ctx = _baseContext();
     const pax = window.activePassenger;
     if (!ctx || !pax) return null;
-    const md  = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
+    const md    = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
     const altFt = Math.round(flightData?.mslFt || 0);
+    const wx    = _weatherContext(flightData);
     const noReqs = !pax.targetAltFt && !pax.targetDwellMin;
-    const reqHint = noReqs ? '' : ` Erinnere den Piloten kurz an deine Anforderungen (${pax.targetAltFt ? pax.targetAltFt + ' ft' : 'Höhe egal'}${pax.targetDwellMin ? ', ' + pax.targetDwellMin + ' min' : ''}).`;
+    const reqHint = noReqs ? '' : ` Erinnere kurz an deine Anforderungen: ${pax.targetAltFt ? pax.targetAltFt + ' ft' : 'Höhe egal'}${pax.targetDwellMin ? ', ca. ' + pax.targetDwellMin + ' min' : ''}.`;
     return `${ctx}
 
-Situation: Wir erreichen gerade das Zielgebiet "${md?.poiName || 'Ziel'}" auf ${altFt} ft. Du siehst es zum ersten Mal aus der Luft.
-Reagiere spontan — zeige auf was du siehst, beschreibe kurz was du erkennst. Darf etwas lebhafter sein als sonst.${reqHint}
-Ich-Form, 1-2 Sätze. Auf Deutsch.`;
+Moment: Das Zielgebiet "${md?.poiName || 'Ziel'}" taucht gerade vor uns auf — wir sind auf ${altFt} ft.${wx ? ' ' + wx : ''}
+Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}
+1-2 Sätze, darf etwas begeisterter sein als sonst.${_TONE}`;
 }
 
 function _poiAltComplaintPrompt(flightData, altFt, targetAlt, attempt) {
@@ -574,13 +573,13 @@ function _poiAltComplaintPrompt(flightData, altFt, targetAlt, attempt) {
     const diff = altFt - targetAlt;
     const dir  = diff < 0 ? `${Math.abs(Math.round(diff))} ft zu niedrig` : `${Math.round(diff)} ft zu hoch`;
     const md   = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
-    const lastWarning = attempt >= (_paxStrictMode ? 2 : 3)
-        ? ' Das ist meine letzte Bitte — sonst müssen wir leider abbrechen.' : '';
+    const isLast = attempt >= (_paxStrictMode ? 2 : 3);
+    const wx = _weatherContext(flightData);
     return `${ctx}
 
-Situation: Wir sind im Zielgebiet "${md?.poiName || 'Ziel'}", aber die Höhe stimmt nicht.
-Aktuelle Höhe: ${altFt} ft (${dir}). Ich brauche etwa ${targetAlt} ft.${lastWarning}
-Bitte den Piloten sachlich, die Höhe zu korrigieren. Ich-Form, 1-2 Sätze. Auf Deutsch.`;
+Moment: Wir sind am Ziel "${md?.poiName || 'Ziel'}", aber die Höhe passt noch nicht.
+Aktuell: ${altFt} ft (${dir} von meinen benötigten ${targetAlt} ft).${wx ? ' ' + wx : ''}${isLast ? ' Das ist mein letzter Versuch — danach müssen wir leider aufgeben.' : ''}
+Bitte den Piloten freundlich aber klar, die Höhe anzupassen. 1-2 Sätze.${_TONE}`;
 }
 
 function _poiAltCorrectedPrompt(flightData) {
@@ -589,7 +588,7 @@ function _poiAltCorrectedPrompt(flightData) {
     const altFt = Math.round(flightData?.mslFt || 0);
     return `${ctx}
 
-Situation: Die Flughöhe passt jetzt — wir sind auf etwa ${altFt} ft im Zielgebiet. Bestätige kurz, dass es jetzt gut ist und ich anfangen kann. 1 Satz, Ich-Form. Auf Deutsch.`;
+Moment: Höhe passt jetzt — wir sind auf ${altFt} ft im Zielgebiet. Sag dem Piloten kurz, dass es jetzt stimmt und du anfangen kannst. 1 Satz.${_TONE}`;
 }
 
 function _poiSatisfiedPrompt(flightData) {
@@ -597,27 +596,41 @@ function _poiSatisfiedPrompt(flightData) {
     const pax = window.activePassenger;
     if (!ctx || !pax) return null;
     const dwell = Math.round(_poiDwellSec / 60 * 10) / 10;
+    const wx = _weatherContext(flightData);
     return `${ctx}
 
-Situation: Ich habe meine Arbeit im Zielgebiet abgeschlossen (${dwell} Minuten). Sage dem Piloten kurz, dass ich fertig bin und wir weiterfliegen können. 1-2 Sätze, Ich-Form. Auf Deutsch.`;
+Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}
+Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können. 1-2 Sätze.${_TONE}`;
 }
 
 function _poiAbortPrompt(flightData) {
     const ctx = _baseContext();
     const pax = window.activePassenger;
     if (!ctx || !pax) return null;
+    const wx = _weatherContext(flightData);
     return `${ctx}
 
-Situation: Trotz mehrfacher Bitte hat die Flughöhe nicht gepasst — ich kann meine Arbeit unter diesen Bedingungen nicht erledigen. Sage dem Piloten sachlich, dass wir die Mission hier abbrechen und zurückfliegen müssen. 2 Sätze, Ich-Form. Auf Deutsch.`;
+Moment: Trotz mehrfacher Bitte war die Höhe nicht erreichbar — ich kann unter diesen Bedingungen nicht arbeiten.${wx ? ' ' + wx : ''}
+Erkläre dem Piloten verständnisvoll, dass wir die Mission abbrechen und zurückfliegen müssen. Kein Vorwurf — manchmal passt es einfach nicht. 2 Sätze.${_TONE}`;
 }
+
+// Shared tone instruction appended to every prompt
+const _TONE = `
+Sprich den Piloten direkt an (per Du, kein Erzähler-Stil). Ton: persönlich, warmherzig und grundsätzlich positiv — auch wenn etwas nicht ideal läuft, bleib konstruktiv und ermutigend. Ich-Form. Auf Deutsch.`;
 
 function _weatherContext(fd) {
     if (!fd) return '';
     const parts = [];
-    if (fd.windKts != null) parts.push(`Wind: ${fd.windKts} kts aus ${fd.windDeg ?? '?'}°`);
-    if (fd.tempC   != null) parts.push(`Temp: ${fd.tempC}°C`);
-    if (fd.visKm   != null) parts.push(`Sicht: ${fd.visKm} km`);
-    return parts.length ? `Aktuelle Wetterlage: ${parts.join(', ')}.` : '';
+    if (fd.windKts != null) {
+        const desc = fd.windKts > 20 ? ' (kräftig)' : fd.windKts > 10 ? ' (mäßig)' : ' (schwach)';
+        parts.push(`Wind ${fd.windKts} kts aus ${fd.windDeg ?? '?'}°${desc}`);
+    }
+    if (fd.tempC   != null) parts.push(`${fd.tempC}°C`);
+    if (fd.visKm   != null) {
+        const desc = fd.visKm < 3 ? ' (sehr schlecht)' : fd.visKm < 8 ? ' (eingeschränkt)' : fd.visKm > 20 ? ' (ausgezeichnet)' : '';
+        parts.push(`Sicht ${fd.visKm} km${desc}`);
+    }
+    return parts.length ? `Wetter: ${parts.join(', ')}.` : '';
 }
 
 function _greetingPrompt() {
@@ -625,14 +638,15 @@ function _greetingPrompt() {
     const pax = window.activePassenger;
     if (!ctx || !pax) return null;
     const wx = _weatherContext(window.lastLiveFlightData);
+    const dwellReq = pax.targetDwellMin > 0
+        ? `Ich brauche etwa ${pax.targetDwellMin} Minuten am Ziel.`
+        : `Ein Überflug reicht mir — kein fixer Zeitbedarf.`;
     return `${ctx}
 
-Situation: Der Motor läuft gerade an / das Flugzeug setzt sich in Bewegung. Du bist soeben eingestiegen.${wx ? '\n' + wx : ''}
-Begrüße den Piloten kurz und sachlich — passend zu deiner Rolle. Basiere dich auf: "${pax.greetingText}"
-Nenne dann deine konkreten Anforderungen für diesen Flug als direkte Bitte an den Piloten:
-- Optimale Flughöhe: ${pax.targetAltFt ? pax.targetAltFt + ' ft' : 'nach Absprache'}
-${pax.targetDwellMin > 0 ? `- Verweildauer am Ziel: etwa ${pax.targetDwellMin} Minuten` : '- Verweildauer: kein fixer Bedarf, ein Überflug reicht mir'}
-Formuliere das natürlich in der Ich-Form. Max 3 Sätze. Auf Deutsch.`;
+Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.${wx ? ' ' + wx : ''}
+Basistextt für deine Begrüßung (frei adaptieren): "${pax.greetingText}"
+Bitte auch kurz deine Anforderungen nennen: ${pax.targetAltFt ? `am liebsten um die ${pax.targetAltFt} ft` : 'Höhe nach Absprache'}. ${dwellReq}
+Max 3 Sätze.${_TONE}`;
 }
 
 function _atTargetPrompt(flightData) {
@@ -644,26 +658,26 @@ function _atTargetPrompt(flightData) {
     const aglFt = Math.round(flightData?.aglFt || 0);
     const bank  = Math.abs(flightData?.bankDeg || 0).toFixed(1);
     const gf    = (flightData?.gForce || 1.0).toFixed(2);
-    const vs    = Math.round(flightData?.vsFpm || 0);
     const isPOI = _isPOIMission();
+    const wx    = _weatherContext(flightData);
 
     const situation = isPOI
-        ? `Ihr habt "${currentMissionData?.poiName || 'das Ziel'}" erreicht. Aktuelle Höhe: ${altFt} ft MSL / ${aglFt} ft AGL. Flugneigung: ${bank}°.`
-        : `Ihr befindet euch im Anflug auf ${currentMissionData?.dest || 'den Zielflugplatz'} — Landung in wenigen Minuten. Höhe: ${altFt} ft. Kommentiere den Flug kurz und dass ihr gleich da seid.`;
+        ? `Wir sind am Ziel "${(typeof currentMissionData !== 'undefined' ? currentMissionData : null)?.poiName || 'Ziel'}". Höhe: ${altFt} ft MSL / ${aglFt} ft AGL.`
+        : `Wir nähern uns ${(typeof currentMissionData !== 'undefined' ? currentMissionData : null)?.dest || 'dem Flughafen'} — Landung gleich.`;
 
-    let comfort = '';
-    if (pax.gTolerance === 'niedrig' && parseFloat(gf) > 1.3) comfort += ' Die G-Belastung war für dich spürbar. ';
-    if (pax.bankTolerance === 'niedrig' && parseFloat(bank) > 20) comfort += ' Die Kurvenneigung hat dich etwas beschäftigt. ';
+    let notes = '';
+    if (pax.gTolerance === 'niedrig' && parseFloat(gf) > 1.3) notes += ` Die G-Belastung vorhin war spürbar für mich.`;
+    if (pax.bankTolerance === 'niedrig' && parseFloat(bank) > 20) notes += ` Die Kurven haben mich etwas mitgenommen.`;
     if (isPOI && altFt > 0 && pax.targetAltFt) {
         const diff = altFt - pax.targetAltFt;
-        if (Math.abs(diff) > 300) comfort += ` Deine optimale Arbeitshöhe wären ${pax.targetAltFt} ft — aktuell ${diff > 0 ? diff + ' ft zu hoch' : Math.abs(diff) + ' ft zu niedrig'}. `;
+        if (Math.abs(diff) > 300) notes += ` Wir sind noch ${diff > 0 ? diff + ' ft zu hoch' : Math.abs(diff) + ' ft zu niedrig'} für meine Arbeit.`;
     }
+    if (wx) notes += ` ${wx}`;
 
-    const wx = _weatherContext(flightData);
     return `${ctx}
 
-Situation: ${situation}${comfort}${wx ? '\n' + wx : ''}
-Reagiere spontan und in deiner Rolle auf diesen Moment. Kommentiere was du siehst, was du tust oder was jetzt passiert. Beziehe das Wetter kurz ein wenn es relevant ist. Max 2-3 Sätze. Auf Deutsch.`;
+Moment: ${situation}${notes}
+Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv. Max 2-3 Sätze.${_TONE}`;
 }
 
 function _farewellPrompt(record) {
@@ -672,25 +686,23 @@ function _farewellPrompt(record) {
     if (!ctx || !pax) return null;
 
     const min  = Math.round(record.durationSec / 60);
-    const td   = record.touchdownVsFpm != null ? `${Math.abs(record.touchdownVsFpm)} ft/min` : 'unbekannt';
+    const td   = record.touchdownVsFpm != null ? `${Math.abs(record.touchdownVsFpm)} ft/min` : null;
     const bank = (record.maxBankDeg || 0).toFixed(1);
     const maxG = (record.maxGForce  || 1.0).toFixed(2);
-    const avgG = (record.avgGForce  || 1.0).toFixed(2);
+    const wx   = _weatherContext(window.lastLiveFlightData);
 
-    let assessment = '';
-    if (pax.gTolerance === 'niedrig' && (record.maxGForce || 1) > 1.5) assessment += ' Die G-Belastung war zu hoch für meinen Geschmack. ';
-    if (pax.bankTolerance === 'niedrig' && (record.maxBankDeg || 0) > 30) assessment += ' Die Kurvenlagen haben mich Überwindung gekostet. ';
-    if (record.touchdownVsFpm && Math.abs(record.touchdownVsFpm) < 200) assessment += ' Die Landung war ausgesprochen sanft. ';
-    if (record.touchdownVsFpm && Math.abs(record.touchdownVsFpm) > 500) assessment += ' Die Landung war etwas hart. ';
+    let highlights = '';
+    if (pax.gTolerance === 'niedrig' && (record.maxGForce || 1) > 1.5) highlights += ' Etwas viel G für mich, aber okay.';
+    if (pax.bankTolerance === 'niedrig' && (record.maxBankDeg || 0) > 30) highlights += ' Die Kurven waren schon sportlich.';
+    if (td && Math.abs(record.touchdownVsFpm) < 200) highlights += ' Die Landung war richtig sanft — Kompliment!';
+    if (td && Math.abs(record.touchdownVsFpm) > 500) highlights += ` Die Landung mit ${Math.abs(record.touchdownVsFpm)} ft/min war etwas holprig.`;
+    if (wx) highlights += ` ${wx}`;
 
-    const wx = _weatherContext(window.lastLiveFlightData);
     return `${ctx}
 
-Situation: Der Flug ist beendet. Fakten:
-• Dauer: ${min} min, ${record.distanceNm} NM, Max-Höhe: ${record.maxAltFt} ft
-• Landung: ${td} Sinkrate | Max Neigung: ${bank}° | Max G: ${maxG}g | Ø G: ${avgG}g
-${wx ? '• ' + wx : ''}${assessment}
-Verabschiede dich beim Piloten und gib ein ehrliches, persönliches Fazit über den Flug — aus deiner Perspektive als ${pax.role}. Beziehe das Wetter ein wenn es relevant war. Max 3 Sätze. Auf Deutsch.`;
+Moment: Wir sind gelandet, Flug beendet.
+Fakten: ${min} min, ${record.distanceNm} NM, max ${record.maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.${highlights ? '\n' + highlights : ''}
+Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Auch wenn etwas nicht perfekt war, schließ positiv ab. Max 3 Sätze.${_TONE}`;
 }
 
 // ─── PUBLIC TRIGGERS ─────────────────────────────────────────────────────────
