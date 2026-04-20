@@ -1677,7 +1677,11 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     }
 
     updateFlightRecorder(lat, lon, alt);
-    if (typeof window.checkPaxPoiProximity === 'function') window.checkPaxPoiProximity(lat, lon, window.lastLiveFlightData || {});
+    if (typeof window.checkPaxPoiProximity === 'function') {
+        const _paxFd = Object.assign({ mslFt: mslFt, aglFt: mslFt }, window.lastLiveFlightData || {});
+        _paxFd.mslFt = mslFt; // always use the locally computed altitude (works in sim + live)
+        window.checkPaxPoiProximity(lat, lon, _paxFd);
+    }
 }
 
 function resetFlightRecorder() {
