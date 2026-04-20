@@ -64,6 +64,10 @@ function connectSimConnect(ws, syncId, pin) {
       handle.addToDataDefinition(DEF_ID, 'GENERAL ENG RPM:1', 'rpm', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(DEF_ID, 'SIM ON GROUND', 'Bool', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(DEF_ID, 'PLANE TOUCHDOWN NORMAL VELOCITY', 'feet per second', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(DEF_ID, 'AMBIENT WIND VELOCITY', 'knots', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(DEF_ID, 'AMBIENT WIND DIRECTION', 'degrees', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(DEF_ID, 'AMBIENT TEMPERATURE', 'celsius', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(DEF_ID, 'AMBIENT VISIBILITY', 'meters', SimConnectDataType.FLOAT64);
 
       handle.requestDataOnSimObject(REQ_ID, DEF_ID, 0, 2, 0, 0, 0, 0);
 
@@ -75,15 +79,18 @@ function connectSimConnect(ws, syncId, pin) {
             
             try {
               let lat, lon, alt, hdg, agl, bank, gForce, vsFpm, engRpm, onGround, touchdownFps;
-              
+              let windKts, windDeg, tempC, visMeters;
+
               if (typeof recv.data.readFloat64 === 'function') {
                 lat = recv.data.readFloat64(); lon = recv.data.readFloat64(); alt = recv.data.readFloat64(); hdg = recv.data.readFloat64();
                 agl = recv.data.readFloat64(); bank = recv.data.readFloat64(); gForce = recv.data.readFloat64(); vsFpm = recv.data.readFloat64();
                 engRpm = recv.data.readFloat64(); onGround = recv.data.readFloat64(); touchdownFps = recv.data.readFloat64();
+                windKts = recv.data.readFloat64(); windDeg = recv.data.readFloat64(); tempC = recv.data.readFloat64(); visMeters = recv.data.readFloat64();
               } else if (typeof recv.data.readDouble === 'function') {
                 lat = recv.data.readDouble(); lon = recv.data.readDouble(); alt = recv.data.readDouble(); hdg = recv.data.readDouble();
                 agl = recv.data.readDouble(); bank = recv.data.readDouble(); gForce = recv.data.readDouble(); vsFpm = recv.data.readDouble();
                 engRpm = recv.data.readDouble(); onGround = recv.data.readDouble(); touchdownFps = recv.data.readDouble();
+                windKts = recv.data.readDouble(); windDeg = recv.data.readDouble(); tempC = recv.data.readDouble(); visMeters = recv.data.readDouble();
               } else return;
 
               if (ws.readyState === WebSocket.OPEN && (lat !== 0 || lon !== 0)) {
@@ -98,7 +105,11 @@ function connectSimConnect(ws, syncId, pin) {
                   engRpm: Math.round(engRpm || 0),
                   onGround: !!onGround,
                   touchdownFps: Number.isFinite(touchdownFps) ? Math.round(touchdownFps * 100) / 100 : null,
-                  touchdownFpm: Number.isFinite(touchdownFps) ? Math.round(touchdownFps * 60) : null
+                  touchdownFpm: Number.isFinite(touchdownFps) ? Math.round(touchdownFps * 60) : null,
+                  windKts:  Number.isFinite(windKts)  ? Math.round(windKts  * 10) / 10 : null,
+                  windDeg:  Number.isFinite(windDeg)  ? Math.round(windDeg)          : null,
+                  tempC:    Number.isFinite(tempC)    ? Math.round(tempC * 10) / 10   : null,
+                  visKm:    Number.isFinite(visMeters) ? Math.round(visMeters / 100) / 10 : null
                 };
                 const gpsMsg = {
                   type: 'gps',
@@ -115,7 +126,7 @@ function connectSimConnect(ws, syncId, pin) {
                   latestTrafficSnapshot = null; // einmalig senden, dann löschen
                 }
                 ws.send(JSON.stringify(gpsMsg));
-                console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}°`);
+                console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km`);
               } else if (lat === 0) {
                  process.stdout.write("."); 
               }

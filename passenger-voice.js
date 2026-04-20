@@ -611,13 +611,23 @@ function _poiAbortPrompt(flightData) {
 Situation: Trotz mehrfacher Bitte hat die Flughöhe nicht gepasst — ich kann meine Arbeit unter diesen Bedingungen nicht erledigen. Sage dem Piloten sachlich, dass wir die Mission hier abbrechen und zurückfliegen müssen. 2 Sätze, Ich-Form. Auf Deutsch.`;
 }
 
+function _weatherContext(fd) {
+    if (!fd) return '';
+    const parts = [];
+    if (fd.windKts != null) parts.push(`Wind: ${fd.windKts} kts aus ${fd.windDeg ?? '?'}°`);
+    if (fd.tempC   != null) parts.push(`Temp: ${fd.tempC}°C`);
+    if (fd.visKm   != null) parts.push(`Sicht: ${fd.visKm} km`);
+    return parts.length ? `Aktuelle Wetterlage: ${parts.join(', ')}.` : '';
+}
+
 function _greetingPrompt() {
     const ctx = _baseContext();
     const pax = window.activePassenger;
     if (!ctx || !pax) return null;
+    const wx = _weatherContext(window.lastLiveFlightData);
     return `${ctx}
 
-Situation: Der Motor läuft gerade an / das Flugzeug setzt sich in Bewegung. Du bist soeben eingestiegen.
+Situation: Der Motor läuft gerade an / das Flugzeug setzt sich in Bewegung. Du bist soeben eingestiegen.${wx ? '\n' + wx : ''}
 Begrüße den Piloten kurz und sachlich — passend zu deiner Rolle. Basiere dich auf: "${pax.greetingText}"
 Nenne dann deine konkreten Anforderungen für diesen Flug als direkte Bitte an den Piloten:
 - Optimale Flughöhe: ${pax.targetAltFt ? pax.targetAltFt + ' ft' : 'nach Absprache'}
@@ -649,10 +659,11 @@ function _atTargetPrompt(flightData) {
         if (Math.abs(diff) > 300) comfort += ` Deine optimale Arbeitshöhe wären ${pax.targetAltFt} ft — aktuell ${diff > 0 ? diff + ' ft zu hoch' : Math.abs(diff) + ' ft zu niedrig'}. `;
     }
 
+    const wx = _weatherContext(flightData);
     return `${ctx}
 
-Situation: ${situation}${comfort}
-Reagiere spontan und in deiner Rolle auf diesen Moment. Kommentiere was du siehst, was du tust oder was jetzt passiert. Max 2-3 Sätze. Auf Deutsch.`;
+Situation: ${situation}${comfort}${wx ? '\n' + wx : ''}
+Reagiere spontan und in deiner Rolle auf diesen Moment. Kommentiere was du siehst, was du tust oder was jetzt passiert. Beziehe das Wetter kurz ein wenn es relevant ist. Max 2-3 Sätze. Auf Deutsch.`;
 }
 
 function _farewellPrompt(record) {
@@ -672,13 +683,14 @@ function _farewellPrompt(record) {
     if (record.touchdownVsFpm && Math.abs(record.touchdownVsFpm) < 200) assessment += ' Die Landung war ausgesprochen sanft. ';
     if (record.touchdownVsFpm && Math.abs(record.touchdownVsFpm) > 500) assessment += ' Die Landung war etwas hart. ';
 
+    const wx = _weatherContext(window.lastLiveFlightData);
     return `${ctx}
 
 Situation: Der Flug ist beendet. Fakten:
 • Dauer: ${min} min, ${record.distanceNm} NM, Max-Höhe: ${record.maxAltFt} ft
 • Landung: ${td} Sinkrate | Max Neigung: ${bank}° | Max G: ${maxG}g | Ø G: ${avgG}g
-${assessment}
-Verabschiede dich beim Piloten und gib ein ehrliches, persönliches Fazit über den Flug — aus deiner Perspektive als ${pax.role}. Max 3 Sätze. Auf Deutsch.`;
+${wx ? '• ' + wx : ''}${assessment}
+Verabschiede dich beim Piloten und gib ein ehrliches, persönliches Fazit über den Flug — aus deiner Perspektive als ${pax.role}. Beziehe das Wetter ein wenn es relevant war. Max 3 Sätze. Auf Deutsch.`;
 }
 
 // ─── PUBLIC TRIGGERS ─────────────────────────────────────────────────────────
