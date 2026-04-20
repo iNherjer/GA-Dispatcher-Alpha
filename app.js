@@ -2034,7 +2034,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${destName}" ganz natürlich ein.
     ${isPOI ? `5. RUNDFLUG-REGELN: Start und Landung ist ${startName}. Am POI (${destName}) wird NICHT gelandet.` : `5. ROUTEN-REGELN: Normaler Streckenflug von ${startName} nach ${destName}.`}
     6. PASSAGIERE & FRACHT: Erfinde passend zur Mission, WER mitfliegt (maximal ${maxPaxLimit} Personen) und WAS transportiert wird. Wenn niemand mitfliegt, schreibe '0 PAX'.
-    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission (oder null bei 0 PAX). greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. targetAltFt: optimale Beobachtungshöhe (POI) oder Anflughöhe. targetRadiusNm: 1.5 städtisch, 2.5 ländlich (nur POI relevant). targetDwellMin: gewünschte Verweildauer am Zielgebiet in Minuten (0 = kurzer Überflug, 1-2 = kurzes Kreisen, 3-5 = längere Beobachtung).
+    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission (oder null bei 0 PAX). greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. targetAltFt: optimale Arbeitshöhe in Fuß (0 wenn keine spezifische Höhe nötig, z.B. Touristenflug). targetRadiusNm: Aktionsradius am Ziel — 2 für präzise Punkte (Brücke, Gebäude), 3 für Stadtgebiete, 4-5 für Landschaft/Panorama. targetDwellMin: Verweildauer in Minuten — 0 für Touristen/Genussflüge ohne Arbeitsauftrag (einfacher Überflug reicht), 1-2 für kurzes Kreisen, 3-5 für professionelle Arbeit.
 
     Antworte AUSSCHLIESSLICH als JSON. Keine Markdown-Formatierung.
     Struktur: {
@@ -2042,7 +2042,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         "story": "Das Briefing (max 3-4 Sätze, lockerer Ton)",
         "pax": "z.B. '2 PAX (Fotograf & Assistent)' oder '0 PAX'",
         "cargo": "z.B. 'Kamera-Gimbal (80 lbs)' oder 'Reisegepäck (40 lbs)'",
-        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "targetAltFt": 3500, "targetRadiusNm": 1.5, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten" }
+        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "targetAltFt": 3500, "targetRadiusNm": 3.0, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten" }
     }`;
 
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };

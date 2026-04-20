@@ -32,6 +32,7 @@ let _poiLastComplaintAt = null;
 let _poiAltWasOk        = null;  // null=unknown, true/false
 let _poiSatisfied       = false;
 let _poiAborted         = false;
+let _poiEntryDone       = false; // entry comment fired once on radius entry
 
 window.paxVoiceResetMission = function() {
     _paxGreetingDone  = false;
@@ -46,6 +47,7 @@ window.paxVoiceResetMission = function() {
     _poiAltWasOk      = null;
     _poiSatisfied     = false;
     _poiAborted       = false;
+    _poiEntryDone     = false;
 };
 
 // ─── STRICT / EASY MODE ──────────────────────────────────────────────────────
@@ -390,6 +392,21 @@ Sprich immer in der Ich-Form, direkt zum Piloten — du redest, du denkst, du be
 Antworte NUR mit dem exakten Text den du sprichst — keine Anführungszeichen, keine Erzählerhinweise, kein Markdown.`;
 }
 
+function _poiEntryPrompt(flightData) {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const md  = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
+    const altFt = Math.round(flightData?.mslFt || 0);
+    const noReqs = !pax.targetAltFt && !pax.targetDwellMin;
+    const reqHint = noReqs ? '' : ` Erinnere den Piloten kurz an deine Anforderungen (${pax.targetAltFt ? pax.targetAltFt + ' ft' : 'Höhe egal'}${pax.targetDwellMin ? ', ' + pax.targetDwellMin + ' min' : ''}).`;
+    return `${ctx}
+
+Situation: Wir erreichen gerade das Zielgebiet "${md?.poiName || 'Ziel'}" auf ${altFt} ft. Du siehst es zum ersten Mal aus der Luft.
+Reagiere spontan — zeige auf was du siehst, beschreibe kurz was du erkennst. Darf etwas lebhafter sein als sonst.${reqHint}
+Ich-Form, 1-2 Sätze. Auf Deutsch.`;
+}
+
 function _poiAltComplaintPrompt(flightData, altFt, targetAlt, attempt) {
     const ctx = _baseContext();
     const pax = window.activePassenger;
@@ -444,7 +461,7 @@ Situation: Der Motor läuft gerade an / das Flugzeug setzt sich in Bewegung. Du 
 Begrüße den Piloten kurz und sachlich — passend zu deiner Rolle. Basiere dich auf: "${pax.greetingText}"
 Nenne dann deine konkreten Anforderungen für diesen Flug als direkte Bitte an den Piloten:
 - Optimale Flughöhe: ${pax.targetAltFt ? pax.targetAltFt + ' ft' : 'nach Absprache'}
-- Verweildauer am Ziel: ${pax.targetDwellMin > 0 ? `etwa ${pax.targetDwellMin} Minuten` : 'kurzer Überflug genügt'}
+${pax.targetDwellMin > 0 ? `- Verweildauer am Ziel: etwa ${pax.targetDwellMin} Minuten` : '- Verweildauer: kein fixer Bedarf, ein Überflug reicht mir'}
 Formuliere das natürlich in der Ich-Form. Max 3 Sätze. Auf Deutsch.`;
 }
 
@@ -576,7 +593,7 @@ function _tickPoiDwell(lat, lon, flightData) {
 
     const strict               = _paxStrictMode;
     const altTolerance         = strict ? 200  : 600;
-    const dwellRequired        = (pax.targetDwellMin || 1) * 60 * (strict ? 1.0 : 0.5);
+    const dwellRequired        = pax.targetDwellMin > 0 ? pax.targetDwellMin * 60 * (strict ? 1.0 : 0.5) : 0;
     const maxAttempts          = strict ? 2 : 3;
     const graceSec             = strict ? 15  : 25;
     const complaintIntervalSec = strict ? 30 : 45;
@@ -591,15 +608,30 @@ function _tickPoiDwell(lat, lon, flightData) {
         _poiInRadius     = true;
         _poiLastTickTime = now;
         if (!_poiEnteredAt) _poiEnteredAt = now;
-        console.log(`[PaxVoice] POI-Radius betreten, dist: ${distNm.toFixed(2)} NM, dwell benötigt: ${dwellRequired.toFixed(0)}s`);
+        console.log(`[PaxVoice] POI-Radius betreten, dist: ${distNm.toFixed(2)} NM, dwell: ${dwellRequired.toFixed(0)}s, altReq: ${pax.targetAltFt || 'keins'}`);
+
+        // Entry comment — spontane erste Reaktion beim Einflug
+        if (!_poiEntryDone) {
+            _poiEntryDone = true;
+            const p = _poiEntryPrompt(flightData);
+            if (p) setTimeout(() => _speakAndShow(p, 'Zielgebiet'), 800);
+        }
+
+        // Flyover (targetDwellMin=0): Entry genügt → satisfied nach kurzem Delay
+        if (dwellRequired === 0) {
+            _poiSatisfied    = true;
+            _paxAtTargetDone = true;
+            console.log('[PaxVoice] Flyover-Mission — Überflug genügt');
+            return;
+        }
     }
 
     const dt = Math.min((now - _poiLastTickTime) / 1000, 5);
     _poiLastTickTime = now;
 
-    const altFt    = flightData?.mslFt || 0;
+    const altFt     = flightData?.mslFt || 0;
     const targetAlt = pax.targetAltFt || 0;
-    const altOk    = targetAlt === 0 || Math.abs(altFt - targetAlt) <= altTolerance;
+    const altOk     = targetAlt === 0 || Math.abs(altFt - targetAlt) <= altTolerance;
     const inRadiusForSec   = (now - (_poiEnteredAt || now)) / 1000;
     const lastComplaintSec = _poiLastComplaintAt ? (now - _poiLastComplaintAt) / 1000 : Infinity;
 
