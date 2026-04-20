@@ -2222,7 +2222,8 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         ...passenger,
         targetAltFt: Number(passenger.targetAltFt) || 0,
         targetRadiusNm: Number(passenger.targetRadiusNm) || 0,
-        targetDwellMin: Number(passenger.targetDwellMin) || 0
+        targetDwellMin: Number(passenger.targetDwellMin) || 0,
+        dialectHint: typeof passenger.dialectHint === 'string' ? passenger.dialectHint.trim() : ''
     };
 
     // A-B Flüge: keine Arbeitsvorgaben am Ziel (nur Komfort/Charakter).
@@ -2242,6 +2243,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         const minRequired = Math.max(500, minMslByTerrain);
         if (normalized.targetAltFt < minRequired) normalized.targetAltFt = minRequired;
     }
+    if (!normalized.dialectHint) normalized.dialectHint = 'neutral';
     return normalized;
 }
 
@@ -2308,6 +2310,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     8. AKTUELLES WETTER (als Realitätsanker einbauen, aber ohne überdramatisieren):
        Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
        Ziel (${destName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
+    9. SPRACHSTIL PASSAGIER: Lege optional "dialectHint" fest:
+       - "neutral" für normales Deutsch
+       - oder leichte regionale Färbung (z.B. "leicht schwäbisch", "leicht bayrisch", "leicht norddeutsch"), wenn es zur Person passt.
+       Wichtig: nie starker Dialekt, immer verständlich.
 
     Antworte AUSSCHLIESSLICH als JSON. Keine Markdown-Formatierung.
     Struktur: {
@@ -2315,7 +2321,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         "story": "Das Briefing (max 3-4 Sätze, lockerer Ton)",
         "pax": "z.B. '2 PAX (Fotograf & Assistent)' oder '0 PAX'",
         "cargo": "z.B. 'Kamera-Gimbal (80 lbs)' oder 'Reisegepäck (40 lbs)'",
-        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "targetAltFt": 3500, "targetRadiusNm": 3.0, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten" }
+        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "dialectHint": "neutral oder leicht regional", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "targetAltFt": 3500, "targetRadiusNm": 3.0, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten" }
     }`;
 
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };

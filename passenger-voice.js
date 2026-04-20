@@ -114,6 +114,7 @@ let _paxComfortLastAt = 0;
 let _paxComfortCount  = 0;
 let _paxComfortBusy   = false;
 let _paxWxMismatchDone = false;
+let _paxSpeechQueue   = Promise.resolve();
 
 // POI dwell state machine
 let _poiInRadius        = false;
@@ -135,6 +136,7 @@ window.paxVoiceResetMission = function() {
     _paxComfortCount  = 0;
     _paxComfortBusy   = false;
     _paxWxMismatchDone = false;
+    _paxSpeechQueue   = Promise.resolve();
     _poiInRadius      = false;
     _poiEnteredAt     = null;
     _poiLastTickTime  = null;
@@ -564,15 +566,18 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
         const dest = window._awmMasterGain || ctx.destination;
         const { input, noise } = _buildIntercomChain(ctx, dest, buf.duration);
 
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.connect(input);
+        await new Promise(resolve => {
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            src.connect(input);
+            src.onended = () => resolve();
 
-        const t = ctx.currentTime + 0.1;
-        src.start(t);
-        noise.start(t);
-        noise.stop(t + buf.duration + 0.3);
-        _paxLog(`Intercom-Wiedergabe: ${buf.duration.toFixed(1)} s`, 'audio');
+            const t = ctx.currentTime + 0.1;
+            src.start(t);
+            noise.start(t);
+            noise.stop(t + buf.duration + 0.3);
+            _paxLog(`Intercom-Wiedergabe: ${buf.duration.toFixed(1)} s`, 'audio');
+        });
     } catch(e) {
         _paxLog(`Playback Fehler: ${e.message}`, 'warn');
     }
@@ -613,7 +618,7 @@ async function _playTextAsTTS(text) {
     }
 }
 
-async function _speakAndShow(situationPrompt, eventLabel) {
+async function _speakAndShowNow(situationPrompt, eventLabel) {
     const apiKey = _getApiKey();
     if (!apiKey) { _paxLog('Kein API-Key', 'warn'); return; }
 
@@ -633,6 +638,18 @@ async function _speakAndShow(situationPrompt, eventLabel) {
     await _playTextAsTTS(spokenText);
 }
 
+function _speakAndShow(situationPrompt, eventLabel) {
+    const run = async () => {
+        try {
+            await _speakAndShowNow(situationPrompt, eventLabel);
+        } catch (e) {
+            _paxLog(`Speech-Queue Fehler: ${e.message || e}`, 'warn');
+        }
+    };
+    _paxSpeechQueue = _paxSpeechQueue.then(run, run);
+    return _paxSpeechQueue;
+}
+
 // ─── PROMPT BUILDERS ─────────────────────────────────────────────────────────
 
 function _baseContext() {
@@ -645,11 +662,13 @@ function _baseContext() {
     const payload = document.getElementById('mPay')?.innerText?.trim() || '';
     const roleStyle = _roleStyleHint(pax.role);
 
+    const dialect = String(pax.dialectHint || '').trim() || 'neutral';
     return `Du bist ${pax.name}, ${pax.role}. Persönlichkeit: ${pax.personality}.
 Flug: ${md.start || '?'} → ${md.poiName || md.dest || '?'} (${md.dist || '?'} NM, ${md.ac || 'GA-Flugzeug'}).
 Fracht/Beladung: ${cargo || 'n/a'}${payload ? ` · Passagiere: ${payload}` : ''}
 ${story ? `Auftrag: ${story}` : ''}
 Rollenstil: ${roleStyle}
+Sprachfärbung: ${dialect}. Halte diese Färbung über alle Meldungen dieses Flugs konsistent.
 Antworte NUR mit dem exakten gesprochenen Text — keine Anführungszeichen, keine Regieanweisungen, kein Markdown.`;
 }
 
@@ -780,6 +799,7 @@ Sprich den Piloten direkt an (per Du, kein Erzähler-Stil). Ton: persönlich, wa
 Sprache: locker und einfach, kein steifes Hochdeutsch, kein Amtsdeutsch. Eher so, wie man im Cockpit wirklich redet.
 Ich-Form. Kurze natürliche Sätze, gern mit kleinen Einwürfen wie "ehrlich gesagt", "ui", "okay", "passt".
 Gelegentlich leichte Umgangssprache ist okay (z.B. "wir ham", "grad"), aber nicht übertreiben und nicht in starken Dialekt kippen.
+Wenn eine regionale Sprachfärbung angegeben ist: nur leicht dosieren, verständlich bleiben und über alle Meldungen konsistent halten.
 ${humorLine}
 Auch wenn etwas nicht ideal läuft: konstruktiv, menschlich und ermutigend bleiben.
 Auf Deutsch.`;
