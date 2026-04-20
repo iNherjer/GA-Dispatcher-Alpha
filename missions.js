@@ -28,7 +28,8 @@ function generateDynamicPOIMission(poiName, maxSeats) {
             { i: "🌉", t: `Struktur-Prüfung: ${poiName}`, s: `Das Verkehrsministerium beauftragt dich mit einer Riss- und Statikprüfung der Pfeiler von ${poiName}. Fliege mehrere langsame Pässe.`, p: paxGov, w: cargoUtility },
             { i: "🚄", t: `Verkehrs-Studie: ${poiName}`, s: `Ein Ingenieurbüro plant eine Erweiterung der Verkehrswege bei ${poiName}. Dokumentiere den Verkehrsfluss zur Hauptverkehrszeit aus der Luft.`, p: paxGov, w: "Kamera-Gimbal (120 lbs)" },
             { i: "🎬", t: `Action-Dreh: ${poiName}`, s: `Eine Filmcrew dreht eine Verfolgungsjagd über ${poiName}. Du lieferst die dynamischen Luftaufnahmen für den Blockbuster.`, p: paxMedia, w: cargoMedia },
-            { i: "🚁", t: `Instandhaltung: ${poiName}`, s: `Wartungstrupps benötigen einen Überblick über die schwer zugänglichen Stahlseile und Bögen von ${poiName}.`, p: "1 PAX (Ingenieur)", w: cargoUtility }
+            { i: "🚁", t: `Instandhaltung: ${poiName}`, s: `Wartungstrupps benötigen einen Überblick über die schwer zugänglichen Stahlseile und Bögen von ${poiName}.`, p: "1 PAX (Ingenieur)", w: cargoUtility },
+            { i: "🧰", t: `Brücken-Techniker Shuttle: ${poiName}`, s: `Ein Statik-Techniker muss dringend zur Sichtprüfung an ${poiName}. Fliege stabil und liefere ihn direkt in den Einsatzraum.`, p: "1 PAX (Brücken-Techniker)", w: "Messkoffer & Laser (70 lbs)" }
         ];
     }
     else if (normalizedName.includes("autobahn") || normalizedName.includes("kreuz") || normalizedName.includes("dreieck") || normalizedName.includes("strasse") || normalizedName.includes("highway") || normalizedName.includes("motorway") || normalizedName.includes("interstate") || normalizedName.includes("freeway") || normalizedName.includes("ring") || normalizedName.includes("junction") || normalizedName.includes("tunnel")) {
@@ -36,7 +37,15 @@ function generateDynamicPOIMission(poiName, maxSeats) {
             { i: "🚗", t: `Stau-Report: ${poiName}`, s: `Verkehrschaos zur Rush-Hour! Fliege den Bereich um ${poiName} ab und melde Rückstaus live an den lokalen Radiosender.`, p: paxMedia, w: "Funktechnik & Reporter (190 lbs)" },
             { i: "🛣️", t: `Trassen-Inspektion: ${poiName}`, s: `Das Straßenbauamt bittet um einen 10 km langen Abflug der Fahrbahn entlang ${poiName}. Dokumentiere massive Frostschäden.`, p: paxGov, w: cargoUtility },
             { i: "🚓", t: `Polizei-Support: ${poiName}`, s: `Schwerer LKW-Unfall gemeldet. Die Polizei benötigt dringend hochauflösende Luftaufnahmen zur Rekonstruktion des Hergangs nahe ${poiName}.`, p: "1 PAX (Polizeifotograf)", w: "Kamera-Equipment (30 lbs)" },
-            { i: "🚚", t: `Schwerlast-Eskorte: ${poiName}`, s: `Ein extremer Schwertransport blockiert die Route bei ${poiName}. Das Planungsbüro braucht ein Auge in der Luft für Engstellen.`, p: paxGov, w: "Live-Link Antennen (50 lbs)" }
+            { i: "🚚", t: `Schwerlast-Eskorte: ${poiName}`, s: `Ein extremer Schwertransport blockiert die Route bei ${poiName}. Das Planungsbüro braucht ein Auge in der Luft für Engstellen.`, p: paxGov, w: "Live-Link Antennen (50 lbs)" },
+            { i: "🦺", t: `Autobahn-Technikflug: ${poiName}`, s: `Ein Straßen-Technikerteam prüft Brückenfugen und Schallschutz bei ${poiName}. Du lieferst die Crew an die kritischen Abschnitte aus der Luft.`, p: "1 PAX (Straßen-Techniker)", w: "Inspektionskoffer (60 lbs)" }
+        ];
+    }
+    else if (normalizedName.includes("funkturm") || normalizedName.includes("fernsehturm") || normalizedName.includes("sendemast") || normalizedName.includes("funkmast") || normalizedName.includes("mast") || normalizedName.includes("tower")) {
+        templates = [
+            { i: "📡", t: `Funkmast-Inspektion: ${poiName}`, s: `Der Betreiber meldet Auffälligkeiten an den Abspannungen von ${poiName}. Fliege ruhige Kreise für die Sichtkontrolle.`, p: "1 PAX (Funk-Techniker)", w: "Messkoffer & Richtantenne (85 lbs)" },
+            { i: "🛰️", t: `Signal-Check: ${poiName}`, s: `Ein Telekom-Team misst die Versorgung rund um ${poiName}. Halte stabilen Kurs für reproduzierbare Daten.`, p: "1 PAX (Netztechniker)", w: "Spektrumanalysator (55 lbs)" },
+            { i: "🔧", t: `Wartungs-Shuttle: ${poiName}`, s: `Ein Servicetechniker muss mit Werkzeug und Ersatzteilen zu ${poiName}. Bringe ihn zügig und ohne Hektik ins Einsatzgebiet.`, p: "1 PAX (Servicetechniker)", w: "Werkzeugkiste (70 lbs)" }
         ];
     }
     else if (normalizedName.includes("industrie") || normalizedName.includes("werk") || normalizedName.includes("fabrik") || normalizedName.includes("kraftwerk") || normalizedName.includes("anlage") || normalizedName.includes("mine") || normalizedName.includes("tagebau")) {

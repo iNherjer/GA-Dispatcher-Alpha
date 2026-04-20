@@ -69,6 +69,8 @@ const missions = [
     { t: "Business Charter", i: "🧑‍💼", cat: "std", s: "Ein lokaler Unternehmer muss zu einem Meeting. Pünktlichkeit zählt!" },
     { t: "Business Charter", i: "🧑‍💼", cat: "std", s: "Ein Architekten-Team muss zur Bauabnahme. Fliege weich, sie arbeiten an ihren Laptops." },
     { t: "Business Charter", i: "🧑‍💼", cat: "std", s: "Wichtige Investoren. Wenn der Flug angenehm wird, springt vielleicht ein Dauerauftrag für dich raus." },
+    { t: "Business Charter", i: "🧑‍💼", cat: "std", s: "Ein Geschäftsmann muss ohne Verzögerung zum Kundentermin. Der Slot ist eng, also sauber und effizient fliegen." },
+    { t: "Business Charter", i: "🧑‍💼", cat: "std", s: "Eine Projektleiterin hat in 90 Minuten Vertragsgespräch am Zielort. Der Flug soll ruhig, aber pünktlich sein." },
     { t: "Organtransport", i: "🚑", cat: "std", s: "HÖCHSTE PRIORITÄT: Ein Spenderorgan muss sofort geliefert werden." },
     { t: "Organtransport", i: "🚑", cat: "std", s: "Dringendes Blutplasma für eine Operation am Zielort. Funk 'Medical Flight' für Priorität." },
     { t: "AOG Ersatzteil", i: "🔧", cat: "std", s: "Technik-Support: Ein Bauteil für eine gestrandete Maschine am Zielort liefern." },
