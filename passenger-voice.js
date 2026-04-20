@@ -356,6 +356,7 @@ function _baseContext() {
 Flug: ${md.start || '?'} → ${md.poiName || md.dest || '?'} (${md.dist || '?'} NM, ${md.ac || 'GA-Flugzeug'}).
 ${story ? `Missionsauftrag: ${story}` : ''}
 Ton: ruhig, sachlich, in deiner Rolle. Kein übertriebener Enthusiasmus, keine Ausrufezeichen.
+Sprich immer in der Ich-Form, direkt zum Piloten — du redest, du denkst, du beobachtest.
 Antworte NUR mit dem exakten Text den du sprichst — keine Anführungszeichen, keine Erzählerhinweise, kein Markdown.`;
 }
 
@@ -366,8 +367,11 @@ function _greetingPrompt() {
     return `${ctx}
 
 Situation: Der Motor läuft gerade an / das Flugzeug setzt sich in Bewegung. Du bist soeben eingestiegen.
-Begrüße den Piloten herzlich — passend zu deiner Rolle und Mission. Basiere dich auf: "${pax.greetingText}"
-Gib kurz an was du dir von diesem Flug erhoffst oder erwartest. Max 2-3 Sätze. Auf Deutsch.`;
+Begrüße den Piloten kurz und sachlich — passend zu deiner Rolle. Basiere dich auf: "${pax.greetingText}"
+Nenne dann deine konkreten Anforderungen für diesen Flug:
+- Optimale Flughöhe: ${pax.targetAltFt ? pax.targetAltFt + ' ft' : 'nach Absprache'}
+- Wie lange du am Ziel bleiben möchtest (kreisen, Überflug, mehrere Minuten etc.) — passend zu deiner Rolle und Mission
+Formuliere das als direkte Bitte an den Piloten, in der Ich-Form. Max 3 Sätze. Auf Deutsch.`;
 }
 
 function _atTargetPrompt(flightData) {
