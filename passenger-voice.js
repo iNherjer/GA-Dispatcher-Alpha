@@ -128,6 +128,7 @@ let _poiSatisfied       = false;
 let _poiAborted         = false;
 let _poiEntryDone       = false; // entry comment fired once on radius entry
 let _poiInspectionOutcome = null; // keeps one consistent inspection result per mission
+let _poiSightCallDone   = false; // early pre-arrival call before entering POI radius
 
 window.paxVoiceResetMission = function() {
     _paxGreetingDone  = false;
@@ -149,6 +150,7 @@ window.paxVoiceResetMission = function() {
     _poiAborted       = false;
     _poiEntryDone     = false;
     _poiInspectionOutcome = null;
+    _poiSightCallDone = false;
 };
 
 // ─── STRICT / EASY MODE ──────────────────────────────────────────────────────
@@ -239,6 +241,65 @@ function _inspectionResultHint() {
         return ` Inspektionsfazit: Den gesuchten Punkt an "${objectName}" konntest du noch nicht eindeutig erkennen. Bitte freundlich um einen weiteren ruhigen Pass.`;
     }
     return ` Inspektionsfazit: Bei "${objectName}" konntest du keinen relevanten Schaden erkennen. Gib kurz Entwarnung.`;
+}
+
+function _professionalRoleMeta() {
+    const pax = window.activePassenger || {};
+    const role = String(pax.role || '').toLowerCase();
+    const story = String(_getMissionStory() || '').toLowerCase();
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const objectName = md.poiName || 'dem Zielobjekt';
+
+    if (/(biolog|oekolog|ökolog|ornitholog|umwelt|naturwacht|naturschutz)/.test(role + ' ' + story)) {
+        return {
+            field: 'Biologie',
+            entry: ` Nenne kurz, welche Arten/Indikatoren du an "${objectName}" beobachtest (z.B. Vogelkolonien, Ufervegetation, Stoerfaktoren).`,
+            progress: ` Gib einen kurzen biologischen Zwischenstand zu "${objectName}" (Bestand, Aktivitaet, Auffaelligkeiten).`,
+            result: ` Schließe mit einem biologischen Kurzfazit zu "${objectName}" ab (z.B. unauffaellig, Belastungshinweis, weiterer Beobachtungsbedarf).`
+        };
+    }
+    if (/(geolog|geomorph|hydrolog|vulkanolog|boden|gestein|erosion|rutsch|schicht)/.test(role + ' ' + story)) {
+        return {
+            field: 'Geowissenschaft',
+            entry: ` Nenne kurz, welche geologischen Merkmale du an "${objectName}" prüfst (z.B. Erosion, Bruchkanten, Hangstabilitaet, Sedimente).`,
+            progress: ` Gib einen kurzen geologischen Zwischenstand zu "${objectName}" (stabil, Erosionsspuren, Verdachtsstelle).`,
+            result: ` Schließe mit einem geologischen Kurzfazit zu "${objectName}" ab und nenne ggf. Bedarf fuer Nachmessung.`
+        };
+    }
+    if (/(wissenschaft|forschung|forscher|analyst|kartograf|vermess|meteorolog|limnolog)/.test(role + ' ' + story)) {
+        return {
+            field: 'Forschung',
+            entry: ` Nenne kurz, welche Mess-/Beobachtungsaufgabe du an "${objectName}" durchführst.`,
+            progress: ` Gib einen knappen fachlichen Zwischenstand (Datenguete, erste Beobachtung, offene Punkte).`,
+            result: ` Schließe mit einem knappen fachlichen Ergebnis und dem naechsten sinnvollen Schritt ab.`
+        };
+    }
+    return null;
+}
+
+function _professionalTaskHint(mode = 'entry') {
+    const meta = _professionalRoleMeta();
+    if (!meta) return '';
+    if (mode === 'progress') return meta.progress || '';
+    if (mode === 'result') return meta.result || '';
+    return meta.entry || '';
+}
+
+function _professionalLandingToneHint() {
+    const meta = _professionalRoleMeta();
+    if (!meta) return '';
+    return ' Ton bei Landung: sachlich, knapp und dankend. Kein Show-/Sightseeing-Ton.';
+}
+
+function _targetFactHint() {
+    const raw = document.getElementById('wikiDestDescText')?.innerText?.trim() || '';
+    if (!raw) return '';
+    if (/warte auf daten|lade ziel-info|nicht geladen|keine regionalen/i.test(raw)) return '';
+    const cleaned = raw.replace(/\s+/g, ' ').trim();
+    const firstSentence = cleaned.split(/[.!?]/).map(s => s.trim()).filter(Boolean)[0] || '';
+    if (!firstSentence || firstSentence.length < 28) return '';
+    const clip = firstSentence.length > 180 ? `${firstSentence.slice(0, 177)}...` : firstSentence;
+    return ` Sachlicher Ziel-Fakt (wenn passend kurz einbauen): ${clip}.`;
 }
 
 // ─── UI ──────────────────────────────────────────────────────────────────────
@@ -731,7 +792,7 @@ function _roleStyleHint(roleRaw) {
         return 'ruhig, souverän, wertig; kurze klare Aussagen statt Show.';
     }
     if (/ingenieur|inspekt|vermess|techn|beobachter|amt/.test(role)) {
-        return 'sachlich-pragmatisch, präzise, mit Fokus auf Auftrag und Bedingungen.';
+        return 'sachlich-pragmatisch, präzise und faktenbasiert, mit Fokus auf Auftrag und Bedingungen; keine romantisierenden Landschaftsformulierungen.';
     }
     if (/flugsch|student|trainee/.test(role)) {
         return 'interessiert, lernorientiert, respektvoll und eher zurückhaltend.';
@@ -898,11 +959,44 @@ function _poiEntryPrompt(flightData) {
     const noReqs = !pax.targetAltFt && !pax.targetDwellMin;
     const reqHint = noReqs ? '' : ` Erinnere kurz an deine Anforderungen: ${pax.targetAltFt ? pax.targetAltFt + ' ft' : 'Höhe egal'}${pax.targetDwellMin ? ', ca. ' + pax.targetDwellMin + ' min' : ''}.`;
     const inspHint = _inspectionEntryHint();
+    const profHint = _professionalTaskHint('entry');
+    const factHint = _targetFactHint();
     return `${ctx}
 
 Moment: Das Zielgebiet "${md?.poiName || 'Ziel'}" taucht gerade vor uns auf — wir sind auf ${altFt} ft.${wx ? ' ' + wx : ''}
-Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}${inspHint}
+Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}${inspHint}${profHint}${factHint}
 1-2 Sätze, darf etwas begeisterter sein als sonst.${_toneHint()}`;
+}
+
+function _bearingDeg(lat1, lon1, lat2, lon2) {
+    const phi1 = lat1 * Math.PI / 180;
+    const phi2 = lat2 * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const y = Math.sin(dLon) * Math.cos(phi2);
+    const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLon);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+function _relativeClockPos(targetBearingDeg, headingDeg) {
+    if (!Number.isFinite(targetBearingDeg) || !Number.isFinite(headingDeg)) return '12 Uhr';
+    const rel = (targetBearingDeg - headingDeg + 360) % 360;
+    const hour = Math.round(rel / 30) || 12;
+    return `${hour > 12 ? hour - 12 : hour} Uhr`;
+}
+
+function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
+    const ctx = _baseContext();
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
+    if (!ctx || !md) return null;
+    const factHint = _targetFactHint();
+    const announcedEta = 2; // bewusst knapper wegen Latenz durch Text+TTS
+    const roundedDist = Math.max(0.5, Math.round(distNm * 10) / 10);
+    const realEta = Math.max(1, Math.round(etaMin));
+    return `${ctx}
+
+Moment: Zielobjekt "${md.poiName || 'Ziel'}" wird im Anflug sichtbar. Distanz etwa ${roundedDist} NM, reale ETA ca. ${realEta} min, relative Lage ${clockPos}.
+Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".${factHint}
+Techniker-/Inspektionsrollen: knapp, professionell, kein Sightseeing-Ton. Max 2 Sätze.${_toneHint()}`;
 }
 
 function _poiAltComplaintPrompt(flightData, altFt, targetAlt, attempt) {
@@ -937,10 +1031,11 @@ function _poiSatisfiedPrompt(flightData) {
     const dwell = Math.round(_poiDwellSec / 60 * 10) / 10;
     const wx = _weatherContext(flightData);
     const inspResultHint = _inspectionResultHint();
+    const profResultHint = _professionalTaskHint('result');
     return `${ctx}
 
 Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}
-Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${inspResultHint} 1-2 Sätze.${_toneHint()}`;
+Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${inspResultHint}${profResultHint} 1-2 Sätze.${_toneHint()}`;
 }
 
 function _poiAbortPrompt(flightData) {
@@ -1047,10 +1142,11 @@ function _atTargetPrompt(flightData) {
     const inspectionLiveHint = _inspectionMissionMeta()
         ? ' Falls es zu deiner Rolle passt, nenne direkt eine erste fachliche Beobachtung am Objekt (z.B. unauffaellig, Verdacht, klarer Schaden).'
         : '';
+    const professionalProgressHint = _professionalTaskHint('progress');
     return `${ctx}
 
 Moment: ${situation}${notes}
-Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv.${inspectionLiveHint} Max 2-3 Sätze.${_toneHint()}`;
+Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv.${inspectionLiveHint}${professionalProgressHint} Max 2-3 Sätze.${_toneHint()}`;
 }
 
 function _evaluateComfortBreach(flightData, pax) {
@@ -1157,12 +1253,13 @@ function _farewellPrompt(record) {
     if (td && Math.abs(record.touchdownVsFpm) > 500) highlights += ` Die Landung mit ${Math.abs(record.touchdownVsFpm)} ft/min war etwas holprig.`;
     if (wx) highlights += ` ${wx}`;
     highlights += _consumeWeatherMismatchEasteregg(window.lastLiveFlightData || null);
+    const profLandingHint = _professionalLandingToneHint();
 
     return `${ctx}
 
 Moment: Wir sind gelandet, Flug beendet.
 Fakten: ${min} min, ${record.distanceNm} NM, max ${record.maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.${highlights ? '\n' + highlights : ''}
-Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Auch wenn etwas nicht perfekt war, schließ positiv ab. Max 3 Sätze.${_toneHint()}`;
+Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug. Auch wenn etwas nicht perfekt war, schließ positiv ab.${profLandingHint} Max 3 Sätze.${_toneHint()}`;
 }
 
 // ─── PUBLIC TRIGGERS ─────────────────────────────────────────────────────────
@@ -1254,6 +1351,12 @@ function _tickPoiDwell(lat, lon, flightData) {
     const radius   = pax.targetRadiusNm || 1.5;
     const inRadius = distNm <= radius;
     const now      = Date.now();
+    const gsKts = Number(flightData?.gs || flightData?.gsKts || flightData?.groundSpeed || window.lastLiveGpsPos?.gs || 0);
+    const effectiveGs = gsKts > 25 ? gsKts : 95;
+    const etaMin = (distNm / effectiveGs) * 60;
+    const targetBearing = _bearingDeg(lat, lon, dest.lat, dest.lon);
+    const hdg = Number(flightData?.hdg || flightData?.heading || flightData?.trackDeg || flightData?.trkDeg || window.lastLiveGpsPos?.hdg || targetBearing);
+    const clockPos = _relativeClockPos(targetBearing, hdg);
 
     const strict               = _paxStrictMode;
     const altTolerance         = strict ? 200  : 600;
@@ -1261,6 +1364,15 @@ function _tickPoiDwell(lat, lon, flightData) {
     const maxAttempts          = strict ? 2 : 3;
     const graceSec             = strict ? 15  : 25;
     const complaintIntervalSec = strict ? 30 : 45;
+
+    // Frühe POI-Meldung: technisch hilfreiche "Objekt in Sicht"-Ansage.
+    // Trigger bei ~3 min Restzeit (gesprochen wird "ca. 2 min", um Gen-/TTS-Latenz auszugleichen).
+    if (!_poiSightCallDone && !inRadius && etaMin <= 3.2 && distNm <= Math.max(2.2, radius + 1.2)) {
+        _poiSightCallDone = true;
+        _paxLog(`POI pre-call | dist: ${distNm.toFixed(2)} NM | eta: ${etaMin.toFixed(1)} min | pos: ${clockPos}`, 'event');
+        const p = _poiInSightPrompt(flightData, distNm, etaMin, clockPos);
+        if (p) setTimeout(() => _speakAndShow(p, 'Objekt in Sicht'), 300);
+    }
 
     if (!inRadius) {
         _poiInRadius     = false;
