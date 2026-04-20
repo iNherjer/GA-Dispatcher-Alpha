@@ -84,9 +84,9 @@ function _paxDrawZones() {
         const wps = (typeof routeWaypoints !== 'undefined') ? routeWaypoints : null;
         if (wps && wps.length >= 2) {
             const last = wps[wps.length - 1];
-            L.circle([last.lat, last.lng ?? last.lon], { radius: 1.5 * NM, color: '#ffa040', weight: 2,
+            L.circle([last.lat, last.lng ?? last.lon], { radius: _AIRPORT_AT_TARGET_NM * NM, color: '#ffa040', weight: 2,
                 opacity: 0.9, fillColor: '#ffa040', fillOpacity: 0.08, dashArray: '10,7' })
-             .bindTooltip('At-Target: 1.5 NM vor Landung').addTo(_paxZonesLayer);
+             .bindTooltip(`At-Target: ${_AIRPORT_AT_TARGET_NM.toFixed(1)} NM vor Landung`).addTo(_paxZonesLayer);
         }
     }
     _paxZonesLayer.addTo(map);
@@ -110,6 +110,9 @@ window.paxVoiceSetEnabled = function(on) {
 let _paxGreetingDone  = false;
 let _paxAtTargetDone  = false;  // airport at-target done
 let _paxFarewellDone  = false;
+let _paxComfortLastAt = 0;
+let _paxComfortCount  = 0;
+let _paxComfortBusy   = false;
 
 // POI dwell state machine
 let _poiInRadius        = false;
@@ -127,6 +130,9 @@ window.paxVoiceResetMission = function() {
     _paxGreetingDone  = false;
     _paxAtTargetDone  = false;
     _paxFarewellDone  = false;
+    _paxComfortLastAt = 0;
+    _paxComfortCount  = 0;
+    _paxComfortBusy   = false;
     _poiInRadius      = false;
     _poiEnteredAt     = null;
     _poiLastTickTime  = null;
@@ -177,6 +183,7 @@ function _getDestCoords() {
 let _paxPanel = null;
 let _paxBtn   = null;
 let _lastPaxText = '';
+const _AIRPORT_AT_TARGET_NM = 2.0;
 
 function _injectPaxUI() {
     if (document.getElementById('paxVoiceWidget')) return;
@@ -192,12 +199,15 @@ function _injectPaxUI() {
     const btn = document.createElement('button');
     btn.id = 'paxVoiceBtn';
     btn.title = 'Passagier-Nachricht';
+    const isMobile = window.innerWidth <= 767;
+    const btnSize = isMobile ? 52 : 40;
     btn.style.cssText = `
-        width: 40px; height: 40px; border-radius: 50%; border: none;
-        background: #1a3a5c; color: #fff; font-size: 18px; cursor: pointer;
+        width: ${btnSize}px; height: ${btnSize}px; border-radius: 50%; border: none;
+        background: #1a3a5c; color: #fff; font-size: ${isMobile ? 22 : 18}px; cursor: pointer;
         box-shadow: 0 2px 10px rgba(0,0,0,0.5); transition: transform 0.15s;
         display: flex; align-items: center; justify-content: center;
         position: relative;
+        touch-action: none; user-select: none; -webkit-user-select: none;
     `;
     btn.innerHTML = '🧑‍✈️';
     // click handled by _initPaxWidgetDrag (drag-aware)
@@ -249,6 +259,8 @@ function _injectPaxUI() {
     _paxBtn   = btn;
 
     _initPaxWidgetDrag(widget, btn);
+    window.addEventListener('resize', _ensurePaxWidgetOnScreen);
+    window.addEventListener('orientationchange', _ensurePaxWidgetOnScreen);
 }
 
 function _initPaxWidgetDrag(widget, btn) {
@@ -273,45 +285,76 @@ function _initPaxWidgetDrag(widget, btn) {
     }
 
     let _dragging = false, _startX, _startY, _startLeft, _startTop;
+    let _ignoreClickUntil = 0;
 
     btn.addEventListener('pointerdown', e => {
         const rect = widget.getBoundingClientRect();
+        e.preventDefault();
         _startX    = e.clientX;
         _startY    = e.clientY;
         _startLeft = rect.left;
         _startTop  = rect.top;
         _dragging  = false;
         btn.setPointerCapture(e.pointerId);
-    }, { passive: true });
+    }, { passive: false });
 
     btn.addEventListener('pointermove', e => {
         if (!btn.hasPointerCapture(e.pointerId)) return;
+        e.preventDefault();
         const dx = e.clientX - _startX;
         const dy = e.clientY - _startY;
-        if (!_dragging && Math.sqrt(dx * dx + dy * dy) < 6) return;
+        if (!_dragging && Math.sqrt(dx * dx + dy * dy) < 3) return;
         _dragging = true;
-        const w = widget.offsetWidth  || 48;
-        const h = widget.offsetHeight || 48;
+        const w = btn.offsetWidth  || 48;
+        const h = btn.offsetHeight || 48;
         applyPos(
-            Math.max(0, Math.min(window.innerHeight - h, _startTop  + dy)),
-            Math.max(0, Math.min(window.innerWidth  - w, _startLeft + dx))
+            Math.max(8, Math.min(window.innerHeight - h - 8, _startTop  + dy)),
+            Math.max(8, Math.min(window.innerWidth  - w - 8, _startLeft + dx))
         );
     });
 
-    btn.addEventListener('pointerup', e => {
-        btn.releasePointerCapture(e.pointerId);
+    const onPointerDone = (e) => {
+        if (btn.hasPointerCapture(e.pointerId)) btn.releasePointerCapture(e.pointerId);
         if (_dragging) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify({ top: widget.style.top, left: widget.style.left }));
             _dragging = false;
+            _ignoreClickUntil = Date.now() + 250;
             e.stopImmediatePropagation();
         }
-    });
+    };
+    btn.addEventListener('pointerup', onPointerDone);
+    btn.addEventListener('pointercancel', onPointerDone);
 
     // Override click to ignore drag-end
     btn.addEventListener('click', e => {
-        if (_dragging) { e.stopImmediatePropagation(); return; }
+        if (_dragging || Date.now() < _ignoreClickUntil) { e.stopImmediatePropagation(); return; }
         _togglePaxPanel();
     }, true);
+}
+
+function _ensurePaxWidgetOnScreen() {
+    const widget = document.getElementById('paxVoiceWidget');
+    const panel = document.getElementById('paxVoicePanel');
+    const btn = document.getElementById('paxVoiceBtn');
+    if (!widget || !btn) return;
+
+    const rect = widget.getBoundingClientRect();
+    const margin = 8;
+    const panelOpen = !!panel && panel.style.display !== 'none';
+    const btnW = btn.offsetWidth || 48;
+    const btnH = btn.offsetHeight || 48;
+    const reqW = panelOpen ? Math.max(panel.offsetWidth || 280, btnW) : btnW;
+    const reqH = panelOpen ? (btnH + 8 + (panel.offsetHeight || 0)) : btnH;
+
+    const maxLeft = Math.max(margin, window.innerWidth - reqW - margin);
+    const maxTop = Math.max(margin, window.innerHeight - reqH - margin);
+    const left = Math.max(margin, Math.min(rect.left, maxLeft));
+    const top = Math.max(margin, Math.min(rect.top, maxTop));
+
+    widget.style.top = top + 'px';
+    widget.style.left = left + 'px';
+    widget.style.bottom = 'auto';
+    widget.style.right = 'auto';
 }
 
 function _showPaxMessage(text, eventLabel) {
@@ -332,7 +375,10 @@ function _showPaxMessage(text, eventLabel) {
     widget.style.display = 'flex';
 
     // Auto-open panel only in text-only mode (voice off)
-    if (panel && !_paxVoiceEnabled) panel.style.display = 'block';
+    if (panel && !_paxVoiceEnabled) {
+        panel.style.display = 'block';
+        _ensurePaxWidgetOnScreen();
+    }
     if (badge) badge.style.display = 'block';
     if (btn) {
         btn.classList.add('pax-has-new');
@@ -353,6 +399,7 @@ function _togglePaxPanel() {
     const isOpen = panel.style.display !== 'none';
     panel.style.display = isOpen ? 'none' : 'block';
     if (!isOpen) {
+        _ensurePaxWidgetOnScreen();
         if (badge) badge.style.display = 'none';
         if (btn) btn.classList.remove('pax-has-new');
     }
@@ -709,6 +756,83 @@ Moment: ${situation}${notes}
 Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv. Max 2-3 Sätze.${_TONE}`;
 }
 
+function _evaluateComfortBreach(flightData, pax) {
+    if (!flightData || !pax) return null;
+    const g = Number(flightData.gForce || 1.0);
+    const bank = Math.abs(Number(flightData.bankDeg || 0));
+    const wind = Number(flightData.windKts || 0);
+
+    const gTol = pax.gTolerance || 'mittel';
+    const bankTol = pax.bankTolerance || 'mittel';
+
+    const gWarn = gTol === 'niedrig' ? 1.45 : gTol === 'hoch' ? 2.2 : 1.8;
+    const gHard = gTol === 'niedrig' ? 1.65 : gTol === 'hoch' ? 2.6 : 2.1;
+
+    const bWarn = bankTol === 'niedrig' ? 28 : bankTol === 'hoch' ? 50 : 38;
+    const bHard = bankTol === 'niedrig' ? 38 : bankTol === 'hoch' ? 60 : 50;
+    // Wind-Hinweise unabhängig von POI/A-B, bewusst etwas später als "mäßiger Wind".
+    const wWarn = 22;
+    const wHard = 32;
+
+    const gLevel = g >= gHard ? 'hard' : g >= gWarn ? 'warn' : null;
+    const bLevel = bank >= bHard ? 'hard' : bank >= bWarn ? 'warn' : null;
+    const wLevel = wind >= wHard ? 'hard' : wind >= wWarn ? 'warn' : null;
+    if (!gLevel && !bLevel && !wLevel) return null;
+
+    const severity = (gLevel === 'hard' || bLevel === 'hard' || wLevel === 'hard') ? 'hard' : 'warn';
+    return { severity, g, bank, wind, gLevel, bLevel, wLevel };
+}
+
+function _comfortBreachPrompt(flightData, breach, count) {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax || !breach) return null;
+    const wx = _weatherContext(flightData);
+    const bits = [];
+    if (breach.gLevel) bits.push(`G-Last gerade ${breach.g.toFixed(2)}g`);
+    if (breach.bLevel) bits.push(`Bank aktuell ${breach.bank.toFixed(0)}°`);
+    if (breach.wLevel) bits.push(`Wind ${breach.wind.toFixed(0)} kts`);
+    const level = breach.severity === 'hard' ? 'deutlich' : 'spürbar';
+    const humor = breach.severity === 'hard'
+        ? 'Gib gern einen kurzen humorvollen Kommentar zur sportlichen Flugweise.'
+        : 'Du darfst leicht humorvoll sein, aber bleib freundlich.';
+
+    return `${ctx}
+
+Moment: Mitten im Flug wurden Komfortgrenzen ${level} überschritten (${bits.join(' · ')}).${wx ? ' ' + wx : ''}
+Melde dich beim Piloten mit einem kurzen, menschlichen Statement zu deinem Komfortgefühl. ${humor}
+Hinweis: Das ist Hinweis #${count} in diesem Flug. Maximal 1-2 Sätze.${_TONE}`;
+}
+
+function _maybePaxComfortFeedback(flightData) {
+    if (!window.activePassenger || !flightData) return;
+    if (!_paxGreetingDone || _paxAtTargetDone || _paxFarewellDone) return;
+    if (_paxComfortBusy) return;
+    if (_paxComfortCount >= 3) return;
+
+    const now = Date.now();
+    const cooldownMs = 90 * 1000;
+    if ((now - _paxComfortLastAt) < cooldownMs) return;
+
+    const breach = _evaluateComfortBreach(flightData, window.activePassenger);
+    if (!breach) return;
+
+    _paxComfortBusy = true;
+    _paxComfortLastAt = now;
+    _paxComfortCount += 1;
+    _paxLog(`Komfort-Hinweis #${_paxComfortCount} | G ${breach.g.toFixed(2)} | Bank ${breach.bank.toFixed(0)}°`, 'event');
+
+    const prompt = _comfortBreachPrompt(flightData, breach, _paxComfortCount);
+    if (!prompt) { _paxComfortBusy = false; return; }
+    setTimeout(async () => {
+        try {
+            await _speakAndShow(prompt, 'Komfort-Hinweis');
+        } finally {
+            _paxComfortBusy = false;
+        }
+    }, 300);
+}
+
 function _farewellPrompt(record) {
     const ctx = _baseContext();
     const pax = window.activePassenger;
@@ -796,17 +920,18 @@ function _haversineNm(lat1, lon1, lat2, lon2) {
 // Called each GPS tick from sync.js + sim-route.js
 window.checkPaxPoiProximity = function(lat, lon, flightData) {
     if (!window.activePassenger) return;
+    _maybePaxComfortFeedback(flightData);
 
     if (_isPOIMission()) {
         if (!_poiSatisfied && !_poiAborted) _tickPoiDwell(lat, lon, flightData);
     } else {
-        // Airport: simple 1.5 NM approach trigger (live mode fallback)
+        // Airport: early approach trigger (live mode fallback)
         if (_paxAtTargetDone) return;
         const wps = (typeof routeWaypoints !== 'undefined') ? routeWaypoints : null;
         if (!wps || wps.length < 2) return;
         const last = wps[wps.length - 1];
         const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
-        if (distNm <= 1.5) {
+        if (distNm <= _AIRPORT_AT_TARGET_NM) {
             _paxLog(`Airport in Reichweite: ${distNm.toFixed(2)} NM`, 'state');
             window.triggerPaxAtTarget(flightData);
         }

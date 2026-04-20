@@ -397,7 +397,7 @@ function _awPulseOnProfileBand(as) {
 }
 
 /**
- * Frequenz/Squawk-Banner am unteren Kartenrand anzeigen.
+ * Frequenz/Squawk-Banner am oberen Kartenrand anzeigen.
  * Bleibt stehen bis der Pilot tippt/klickt — kein Auto-Dismiss.
  */
 function _awShowFreqBanner(as, col) {

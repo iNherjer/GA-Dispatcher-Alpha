@@ -4529,6 +4529,9 @@ body.theme-navcom .btn-menu:active {
 }
 
 /* ── AWM Frequenz-Banner ─────────────────────────────────────────────────── */
+#awmFreqBanner {
+    padding-top: max(0px, env(safe-area-inset-top));
+}
 .awm-freq-entry { display:flex; align-items:center; gap:10px;
     background:rgba(8,8,8,0.94); border-top-width:2px; border-top-style:solid;
     padding:8px 10px 8px 13px; backdrop-filter:blur(8px);
