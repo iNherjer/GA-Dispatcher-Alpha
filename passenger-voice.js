@@ -514,7 +514,11 @@ async function _playTextAsTTS(text) {
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
             { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ttsPayload) }
         );
-        if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
+        if (!res.ok) {
+            const errBody = await res.text().catch(() => '(unlesbar)');
+            _paxLog(`TTS HTTP ${res.status}: ${errBody.slice(0, 300)}`, 'warn');
+            throw new Error(`TTS HTTP ${res.status}`);
+        }
         const data     = await res.json();
         const part     = data?.candidates?.[0]?.content?.parts?.[0];
         const b64      = part?.inlineData?.data;
