@@ -20,6 +20,7 @@
     let simTouchdownVs   = null;
     let simTrack         = [];
     let simLastTrackPt   = null;
+    let simPoiAtTargetTriggered = false; // pax voice: verhindert Doppel-Trigger beim POI
 
     const TICK_MS = 200;            // 5 Hz – flüssig genug, CPU-schonend
     const SIM_HOLD_SEC = 5;         // Boden-Standzeit vor Start / nach Landung
@@ -52,7 +53,10 @@
         simTouchdownVs  = null;
         simTrack        = [];
         simLastTrackPt  = null;
+        simPoiAtTargetTriggered = false;
         window.simModeActive = true;
+        if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
+        console.log('[SimPax] Sim gestartet — paxVoiceEnabled:', localStorage.getItem('awm_pax_voice'), '| activePassenger:', !!window.activePassenger);
         simLastTick     = Date.now();
 
         _injectHold(false);                         // sofort Startposition mit 0 kn zeigen
@@ -79,7 +83,11 @@
         if (simPhase === 'start_hold') {
             simHoldRemainSec -= dtSec;
             _injectHold(false);
-            if (simHoldRemainSec <= 0) simPhase = 'flight';
+            if (simHoldRemainSec <= 0) {
+                simPhase = 'flight';
+                console.log('[SimPax] start_hold abgelaufen → flight. Greeting trigger...');
+                if (typeof window.triggerPaxGreeting === 'function') setTimeout(window.triggerPaxGreeting, 500);
+            }
             return;
         }
 
@@ -88,6 +96,8 @@
             _injectHold(true);
             if (simHoldRemainSec <= 0) {
                 const rec = _buildSimRecord();
+                console.log('[SimPax] end_hold abgelaufen → Farewell trigger. Record:', rec?.distanceNm, 'NM');
+                if (typeof window.triggerPaxFarewell === 'function') window.triggerPaxFarewell(rec);
                 _stop();
                 _promptSimLog(rec);
             }
@@ -120,11 +130,27 @@
             return;
         }
 
+        // Pax voice: POI-Ziel bei Streckenmitte (round-trip → POI ist bei totalDist/2)
+        const _isPOISim = (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI');
+        if (_isPOISim && !simPoiAtTargetTriggered && simRouteCache.totalDist > 0 &&
+            simDistNM >= simRouteCache.totalDist / 2) {
+            simPoiAtTargetTriggered = true;
+            console.log('[SimPax] POI-Mitte erreicht bei', simDistNM.toFixed(1), '/', simRouteCache.totalDist.toFixed(1), 'NM → At-Target trigger');
+            if (typeof window.triggerPaxAtTarget === 'function')
+                window.triggerPaxAtTarget({ mslFt: simMaxAltFt, aglFt: 0, bankDeg: 0, gForce: 1.0, vsFpm: 0 });
+        }
+
         if (simDistNM >= simRouteCache.totalDist) {
             simDistNM = simRouteCache.totalDist;
             simPhase = 'end_hold';
             simHoldRemainSec = SIM_HOLD_SEC;
             _injectHold(true);
+            // Pax voice: at-target für Flugplatz-Ziel (kein POI)
+            if (!_isPOISim) {
+                console.log('[SimPax] Zielflugplatz erreicht → At-Target trigger');
+                if (typeof window.triggerPaxAtTarget === 'function')
+                    window.triggerPaxAtTarget({ mslFt: 0, aglFt: 0, bankDeg: 0, gForce: 1.0, vsFpm: simTouchdownVs || 0 });
+            }
             return;
         }
 

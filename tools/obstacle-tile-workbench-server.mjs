@@ -25,6 +25,20 @@ const queueSet = new Set();
 let processing = false;
 let currentTile = null;
 const lastResults = new Map();
+let lastRepoSync = {
+  ok: false,
+  checkedAt: 0,
+  message: 'Noch nicht geprüft.',
+  remoteRef: 'origin/main',
+  remoteTileCount: 0,
+  localTileCount: 0,
+  missingInRepoCount: 0,
+  missingLocalCount: 0,
+  missingInRepoSample: [],
+  missingLocalSample: [],
+  missingInRepoTiles: [],
+  remoteTiles: []
+};
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -107,6 +121,105 @@ async function getRemoteSyncState() {
   return { ok: true, behind, ahead };
 }
 
+async function collectLocalTileKeysFromFs() {
+  const out = new Set();
+  async function walk(dir) {
+    let entries = [];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch (_) {
+      return;
+    }
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        await walk(full);
+        continue;
+      }
+      if (!e.isFile() || !e.name.endsWith('.json')) continue;
+      const rel = path.relative(TILE_DIR, full);
+      const m = rel.match(/^(-?\d+)[/\\](-?\d+)\.json$/);
+      if (!m) continue;
+      const key = normalizeTileKey(`${m[1]}|${m[2]}`);
+      if (key) out.add(key);
+    }
+  }
+  await walk(TILE_DIR);
+  return out;
+}
+
+async function loadRemoteTilesFromOriginMain() {
+  const show = await runCmd('git', ['show', 'origin/main:obstacles/manifest.v1.json'], { cwd: ROOT });
+  if (show.code !== 0) {
+    return {
+      ok: false,
+      message: (show.stderr || show.stdout || '').trim() || 'Konnte origin/main Manifest nicht lesen'
+    };
+  }
+  let parsed = null;
+  try {
+    parsed = JSON.parse(String(show.stdout || '{}'));
+  } catch (e) {
+    return { ok: false, message: `Manifest JSON ungültig: ${String(e && e.message || e)}` };
+  }
+  const tiles = new Set();
+  for (const raw of Array.isArray(parsed && parsed.tiles) ? parsed.tiles : []) {
+    const k = normalizeTileKey(raw);
+    if (k) tiles.add(k);
+  }
+  return { ok: true, tiles };
+}
+
+async function runRepoSyncCheck() {
+  const fetched = await runCmd('git', ['fetch', 'origin', 'main'], { cwd: ROOT });
+  if (fetched.code !== 0) {
+    lastRepoSync = {
+      ...lastRepoSync,
+      ok: false,
+      checkedAt: Date.now(),
+      message: (fetched.stderr || fetched.stdout || '').trim() || 'git fetch fehlgeschlagen'
+    };
+    return lastRepoSync;
+  }
+
+  const remoteRes = await loadRemoteTilesFromOriginMain();
+  if (!remoteRes.ok) {
+    lastRepoSync = {
+      ...lastRepoSync,
+      ok: false,
+      checkedAt: Date.now(),
+      message: remoteRes.message || 'Remote-Tiles konnten nicht gelesen werden'
+    };
+    return lastRepoSync;
+  }
+
+  const localTiles = await collectLocalTileKeysFromFs();
+  const remoteTiles = remoteRes.tiles;
+
+  const missingInRepo = [];
+  for (const k of localTiles) if (!remoteTiles.has(k)) missingInRepo.push(k);
+  const missingLocal = [];
+  for (const k of remoteTiles) if (!localTiles.has(k)) missingLocal.push(k);
+  missingInRepo.sort();
+  missingLocal.sort();
+
+  lastRepoSync = {
+    ok: true,
+    checkedAt: Date.now(),
+    message: 'Repo-Sync geprüft',
+    remoteRef: 'origin/main',
+    remoteTileCount: remoteTiles.size,
+    localTileCount: localTiles.size,
+    missingInRepoCount: missingInRepo.length,
+    missingLocalCount: missingLocal.length,
+    missingInRepoSample: missingInRepo.slice(0, 20),
+    missingLocalSample: missingLocal.slice(0, 20),
+    missingInRepoTiles: missingInRepo,
+    remoteTiles: Array.from(remoteTiles)
+  };
+  return lastRepoSync;
+}
+
 async function collectTileState() {
   const manifest = await readJsonSafe(MANIFEST_PATH, {
     version: 1,
@@ -170,6 +283,18 @@ async function collectTileState() {
     manifest: {
       generatedAt: manifest.generatedAt || null,
       tileCount: Number(manifest.tileCount || Object.keys(loadedMap).length || 0)
+    },
+    repoSync: {
+      ok: !!lastRepoSync.ok,
+      checkedAt: Number(lastRepoSync.checkedAt || 0),
+      message: String(lastRepoSync.message || ''),
+      remoteRef: String(lastRepoSync.remoteRef || 'origin/main'),
+      remoteTileCount: Number(lastRepoSync.remoteTileCount || 0),
+      localTileCount: Number(lastRepoSync.localTileCount || 0),
+      missingInRepoCount: Number(lastRepoSync.missingInRepoCount || 0),
+      missingLocalCount: Number(lastRepoSync.missingLocalCount || 0),
+      missingInRepoSample: Array.isArray(lastRepoSync.missingInRepoSample) ? lastRepoSync.missingInRepoSample : [],
+      missingLocalSample: Array.isArray(lastRepoSync.missingLocalSample) ? lastRepoSync.missingLocalSample : []
     }
   };
 }
@@ -374,6 +499,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/push') {
       const out = await handlePush();
       return sendJson(res, out.ok ? 200 : Number(out.code || 500), out);
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/repo-sync') {
+      const out = await runRepoSyncCheck();
+      return sendJson(res, out.ok ? 200 : 500, out);
     }
 
     return sendJson(res, 404, { ok: false, error: 'not_found' });

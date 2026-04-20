@@ -123,6 +123,8 @@
       <div class="stat"><span>Ausgewählt</span><strong id="stSelected">0</strong></div>
       <div class="stat"><span>Queue</span><strong id="stQueue">0</strong></div>
       <div class="stat"><span>Aktuelles Tile</span><strong id="stCurrent">-</strong></div>
+      <div class="stat"><span>Repo fehlt (lokal vorhanden)</span><strong id="stRepoMissing">0</strong></div>
+      <div class="stat"><span>Lokal fehlt (im Repo)</span><strong id="stLocalMissing">0</strong></div>
 
       <div class="buttons">
         <button id="btnRefresh">Status neu laden</button>
@@ -131,12 +133,14 @@
         <button id="btnRetryFailed">Failed erneut laden</button>
         <button id="btnClearQueue">Queue leeren</button>
         <button id="btnPush">Neue Ergebnisse pushen</button>
+        <button id="btnRepoSync">Repo-Sync prüfen</button>
       </div>
 
       <div class="legend">
         <span><i class="dot" style="background:#ff3cf7"></i> Magenta: geladen und frisch</span>
         <span><i class="dot" style="background:#ff9d2e"></i> Orange: geladen, aber &gt; 3 Monate alt</span>
         <span><i class="dot" style="background:#ff3d3d"></i> Rot: fehlgeschlagen (Retry per Klick oder Button)</span>
+        <span><i class="dot" style="background:#ff5d5d"></i> Rot blinkend: lokal geladen, aber im Repo fehlend</span>
         <span><i class="dot" style="background:#ffd54a"></i> Gelb: in Queue</span>
         <span><i class="dot" style="background:#59ff7d"></i> Grün: wird gerade geladen</span>
         <span><i class="dot" style="background:#56b8ff"></i> Blau: ausgewählt</span>
@@ -161,7 +165,10 @@
       queue: [],
       currentTile: null,
       recent: {},
-      selected: new Set()
+      selected: new Set(),
+      repoSync: null,
+      repoTiles: new Set(),
+      missingInRepoTiles: new Set()
     };
 
     const logView = document.getElementById('logView');
@@ -220,6 +227,9 @@
       const isSelected = state.selected.has(key);
       const failed = !!state.failed[key] || (state.recent[key] && state.recent[key].ok === false);
       const loaded = state.loaded[key];
+      const repoKnown = state.repoTiles && state.repoTiles.size > 0;
+      const repoMissing = repoKnown && !state.repoTiles.has(key);
+      const blinkOn = (Math.floor(Date.now() / 450) % 2) === 0;
 
       let color = '#41566f';
       let fill = '#1c2a3a';
@@ -228,6 +238,14 @@
       let weight = 1;
       let dashArray = null;
 
+      if (repoMissing && loaded) {
+        color = '#ff5d5d';
+        fill = '#ff5d5d';
+        fillOpacity = blinkOn ? 0.30 : 0.08;
+        opacity = 0.95;
+        weight = blinkOn ? 2 : 1;
+        dashArray = '4 3';
+      }
       if (loaded) {
         color = loaded.stale ? '#ff9d2e' : '#ff3cf7';
         fill = loaded.stale ? '#ff9d2e' : '#ff3cf7';
@@ -344,6 +362,8 @@
       const loadedCount = Object.keys(state.loaded).length;
       const staleCount = Object.values(state.loaded).filter(v => v && v.stale).length;
       const failedCount = Object.keys(state.failed).length;
+      const repoMissing = state.repoSync ? Number(state.repoSync.missingInRepoCount || 0) : 0;
+      const localMissing = state.repoSync ? Number(state.repoSync.missingLocalCount || 0) : 0;
 
       document.getElementById('stLoaded').textContent = String(loadedCount);
       document.getElementById('stStale').textContent = String(staleCount);
@@ -351,6 +371,8 @@
       document.getElementById('stSelected').textContent = String(state.selected.size);
       document.getElementById('stQueue').textContent = String(state.queue.length);
       document.getElementById('stCurrent').textContent = state.currentTile || '-';
+      document.getElementById('stRepoMissing').textContent = String(repoMissing);
+      document.getElementById('stLocalMissing').textContent = String(localMissing);
       queueView.textContent = state.queue.length ? `Queue: ${state.queue.join(', ')}` : 'Queue: -';
       hint.textContent = `Tile: ${state.currentTile || '-'}`;
 
@@ -368,6 +390,7 @@
         state.queue = s.queue || [];
         state.currentTile = s.currentTile || null;
         state.recent = s.recent || {};
+        state.repoSync = s.repoSync || state.repoSync || null;
 
         for (const key of Array.from(state.selected)) {
           if (!/^[-0-9]+\|[-0-9]+$/.test(key)) state.selected.delete(key);
@@ -378,6 +401,27 @@
         if (!quiet) log('Status aktualisiert');
       } catch (e) {
         log(`Status-Fehler: ${e.message || e}`);
+      }
+    }
+
+    async function runRepoSyncCheck() {
+      try {
+        log('Repo-Sync gestartet...');
+        const out = await api('/api/repo-sync', 'POST', {});
+        state.repoSync = out || null;
+        state.repoTiles = new Set(Array.isArray(out && out.remoteTiles) ? out.remoteTiles : []);
+        state.missingInRepoTiles = new Set(Array.isArray(out && out.missingInRepoTiles) ? out.missingInRepoTiles : []);
+        const missRepo = Number(out && out.missingInRepoCount || 0);
+        const missLocal = Number(out && out.missingLocalCount || 0);
+        log(`Repo-Sync: missingInRepo=${missRepo}, missingLocal=${missLocal}`);
+        const sampleA = Array.isArray(out && out.missingInRepoSample) ? out.missingInRepoSample : [];
+        const sampleB = Array.isArray(out && out.missingLocalSample) ? out.missingLocalSample : [];
+        if (sampleA.length) log(`Missing in Repo: ${sampleA.join(', ')}`);
+        if (sampleB.length) log(`Missing lokal: ${sampleB.join(', ')}`);
+        updateUi();
+        renderGrid();
+      } catch (e) {
+        log(`Repo-Sync-Fehler: ${e.message || e}`);
       }
     }
 
@@ -441,6 +485,7 @@
         log(`Push-Fehler: ${e.message || e}`);
       }
     });
+    document.getElementById('btnRepoSync').addEventListener('click', runRepoSyncCheck);
 
     map.on('moveend zoomend', () => renderGrid());
 
@@ -451,7 +496,9 @@
     });
 
     refreshState(true);
+    runRepoSyncCheck();
     setInterval(() => refreshState(true), 1500);
+    setInterval(() => renderGrid(), 450);
   </script>
 </body>
 </html>

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "GA Dispatcher (Main)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8080", "--directory", "/Users/johannesfaist/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GA dispatcher alpha/.claude/worktrees/priceless-shaw"],
+      "port": 8080
+    },
+    {
+      "name": "Zwischenstopp",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8081", "--directory", "/Users/johannesfaist/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GA dispatcher alpha/Zwischenstopp"],
+      "port": 8081
+    }
+  ]
+}

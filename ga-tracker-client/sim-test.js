@@ -142,7 +142,18 @@ function startSim() {
                 lat: parseFloat(lat.toFixed(6)),
                 lon: parseFloat(lon.toFixed(6)),
                 alt: Math.round(alt),
-                hdg: Math.round(hdg)
+                hdg: Math.round(hdg),
+                flight: {
+                    mslFt: Math.round(alt),
+                    aglFt: Math.max(0, Math.round(alt - 2200)),
+                    bankDeg: isCurrentlyTurning ? -22 : 0,
+                    gForce: isCurrentlyTurning ? 1.22 : 1.00,
+                    vsFpm: Math.round(vsDir * VS_FPM),
+                    engRpm: 2250,
+                    onGround: alt <= (ALT_MIN + 30),
+                    touchdownFps: null,
+                    touchdownFpm: null
+                }
             };
             if (includeTraffic) {
                 gpsMsg.traffic = trafficAircraft.map(ac => ({

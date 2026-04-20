@@ -52,6 +52,8 @@ function _tawsInitAudio() {
         _awmMasterGain = _tawsAudioCtx.createGain();
         _awmMasterGain.gain.value = _awmVolume;
         _awmMasterGain.connect(_tawsAudioCtx.destination);
+        window._tawsAudioCtx = _tawsAudioCtx;
+        window._awmMasterGain = _awmMasterGain;
     }
     // Alle Clips laden sobald AudioContext bereit — inkl. taws-alert (kein HTMLAudioElement mehr)
     if (!_awLoaded && !_awLoading) _awLoadClips();

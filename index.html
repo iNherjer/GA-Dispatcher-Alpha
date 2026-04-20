@@ -744,6 +744,15 @@
                             onchange="awmSetWpAlert(this.checked)">
                         📍 Wegpunkt-Ansage
                     </label>
+                    <div style="border-top:1px solid #333; padding-top:8px; margin-top:2px;">
+                        <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">PASSAGIER</div>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmPaxVoiceCheck"
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="paxVoiceSetEnabled(this.checked)">
+                            🧑‍✈️ Passagier-Stimme
+                        </label>
+                    </div>
                     <div style="border-top:1px solid #333; padding-top:8px;">
                         <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">STIMME</div>
                         <audio id="awmDemoAudio" style="display:none;"></audio>
@@ -779,7 +788,7 @@
                         <span>VS:</span><span><span id="teleVS" class="tele-val" style="color:var(--green);">0</span> <span class="tele-unit">FT/M</span></span>
                     </div>
                     <div style="display:flex; justify-content:space-between; gap:16px;">
-                        <span>AGL:</span><span><span id="teleAGL" class="tele-val" style="color:#ffcc44;">—</span> <span class="tele-unit">FT</span></span>
+                        <span>ALT:</span><span><span id="teleAGL" class="tele-val" style="color:#ffcc44;">—</span> <span class="tele-unit">FT</span></span>
                     </div>
                 </div>
                 <div id="liveNextWpBox" class="telemetry-box" style="display:none; top:10px; left:calc(50% + 128px); transform:none; right:auto; width:138px; min-width:138px; pointer-events:auto; padding:8px 9px; cursor:grab;" title="Ziehen zum Verschieben · Doppelklick zum Zurücksetzen">
@@ -893,6 +902,7 @@
 <script src="app.js"></script>
 <script src="board.js"></script>
 <script src="sim-route.js"></script>
+<script src="passenger-voice.js"></script>
 <script>
     function _openFloatingMenuInViewport(menu, btn, preferAbove = false) {
         if (!menu || !btn) return;

@@ -52,7 +52,11 @@ let flightRecorder = {
     gsSamples: 0,
     distNm: 0,
     track: [],
-    lastSample: null
+    lastSample: null,
+    maxBankDeg: 0,
+    maxGForce: 1.0,
+    sumGForce: 0,
+    gForceSamples: 0
 };
 
 // --- LIVE TRAFFIC ---
@@ -1232,6 +1236,9 @@ window.connectToLiveGPS = async function(syncId) {
             }
             if (data.type === 'gps') {
                 updateLivePlanePosition(data.lat, data.lon, data.alt, data.hdg);
+                if (data.flight && typeof data.flight === 'object') {
+                    window.lastLiveFlightData = data.flight;
+                }
 
                 // Traffic-Daten die im GPS-Paket eingebettet sind (Relay-kompatibler Weg)
                 if (data.traffic && Array.isArray(data.traffic)) {
@@ -1670,6 +1677,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     }
 
     updateFlightRecorder(lat, lon, alt);
+    if (typeof window.checkPaxPoiProximity === 'function') window.checkPaxPoiProximity(lat, lon, window.lastLiveFlightData || {});
 }
 
 function resetFlightRecorder() {
@@ -1686,7 +1694,11 @@ function resetFlightRecorder() {
         gsSamples: 0,
         distNm: 0,
         track: [],
-        lastSample: null
+        lastSample: null,
+        maxBankDeg: 0,
+        maxGForce: 1.0,
+        sumGForce: 0,
+        gForceSamples: 0
     };
 }
 
@@ -1765,7 +1777,10 @@ function finalizeFlightRecorder(now) {
         maxGs: Number(r.maxGs.toFixed(1)),
         maxAltFt: Math.round(r.maxAltFt),
         touchdownVsFpm: Number.isFinite(r.touchdownVsFpm) ? Math.round(r.touchdownVsFpm) : null,
-        track
+        track,
+        maxBankDeg: Number((r.maxBankDeg || 0).toFixed(1)),
+        maxGForce: Number((r.maxGForce || 1.0).toFixed(2)),
+        avgGForce: r.gForceSamples > 0 ? Number((r.sumGForce / r.gForceSamples).toFixed(2)) : 1.0
     };
 
     const hist = JSON.parse(localStorage.getItem('ga_flight_history') || '[]');
@@ -1779,6 +1794,7 @@ function finalizeFlightRecorder(now) {
         console.warn('[FlightRec] pinCompletedFlightRecord() nicht verfügbar.');
     }
     triggerCloudSave();
+    if (typeof window.triggerPaxFarewell === 'function') window.triggerPaxFarewell(record);
     resetFlightRecorder();
 }
 
@@ -1795,6 +1811,7 @@ function updateFlightRecorder(lat, lon, alt) {
         if (gs > 28 || agl > 220) {
             r.active = true;
             r.armed = agl > 300 || gs > 45;
+            if (typeof window.triggerPaxGreeting === 'function') setTimeout(window.triggerPaxGreeting, 1500);
             r.startTs = now;
             r.maxGs = gs;
             r.maxAltFt = alt;
@@ -1819,6 +1836,15 @@ function updateFlightRecorder(lat, lon, alt) {
     r.sumGs += gs;
     r.gsSamples += 1;
     if (agl > 300 || gs > 45) r.armed = true;
+    const _lfd = window.lastLiveFlightData;
+    if (_lfd) {
+        if (Number.isFinite(_lfd.bankDeg)) r.maxBankDeg = Math.max(r.maxBankDeg, Math.abs(_lfd.bankDeg));
+        if (Number.isFinite(_lfd.gForce) && _lfd.gForce > 0.1) {
+            r.maxGForce = Math.max(r.maxGForce, _lfd.gForce);
+            r.sumGForce += _lfd.gForce;
+            r.gForceSamples += 1;
+        }
+    }
 
     addFlightTrackPoint(lat, lon, alt, now, false);
 
@@ -1830,6 +1856,7 @@ function updateFlightRecorder(lat, lon, alt) {
         if (!r.lowSpeedSince) {
             r.lowSpeedSince = now;
             if (Number.isFinite(smoothedVS)) r.touchdownVsFpm = smoothedVS;
+            if (typeof window.triggerPaxAtTarget === 'function') window.triggerPaxAtTarget(window.lastLiveFlightData || {});
         }
         if ((now - r.lowSpeedSince) >= 5000) {
             addFlightTrackPoint(lat, lon, alt, now, true);
@@ -1962,6 +1989,7 @@ window.hideLivePlane = function () {
     // Profil zurücksetzen
     if (typeof vpUpdateLiveAircraft === 'function') vpUpdateLiveAircraft(-1, 0, 0);
     window.lastLiveGpsPos = null;
+    window.lastLiveFlightData = null;
     lastGpsTickDetails = null;
     lastTrailPoint = null;
     resetFlightRecorder();
