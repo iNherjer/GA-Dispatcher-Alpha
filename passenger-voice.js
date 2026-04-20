@@ -194,7 +194,7 @@ function _injectPaxUI() {
         position: relative;
     `;
     btn.innerHTML = '🧑‍✈️';
-    btn.onclick = () => _togglePaxPanel();
+    // click handled by _initPaxWidgetDrag (drag-aware)
 
     // New-message badge
     const badge = document.createElement('span');
@@ -241,6 +241,71 @@ function _injectPaxUI() {
 
     _paxPanel = panel;
     _paxBtn   = btn;
+
+    _initPaxWidgetDrag(widget, btn);
+}
+
+function _initPaxWidgetDrag(widget, btn) {
+    const STORAGE_KEY = 'ga_pax_widget_pos';
+
+    function applyPos(top, left) {
+        widget.style.top    = top + 'px';
+        widget.style.left   = left + 'px';
+        widget.style.bottom = 'auto';
+        widget.style.right  = 'auto';
+    }
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        try {
+            const { top, left } = JSON.parse(saved);
+            widget.style.top    = top;
+            widget.style.left   = left;
+            widget.style.bottom = 'auto';
+            widget.style.right  = 'auto';
+        } catch(e) {}
+    }
+
+    let _dragging = false, _startX, _startY, _startLeft, _startTop;
+
+    btn.addEventListener('pointerdown', e => {
+        const rect = widget.getBoundingClientRect();
+        _startX    = e.clientX;
+        _startY    = e.clientY;
+        _startLeft = rect.left;
+        _startTop  = rect.top;
+        _dragging  = false;
+        btn.setPointerCapture(e.pointerId);
+    }, { passive: true });
+
+    btn.addEventListener('pointermove', e => {
+        if (!btn.hasPointerCapture(e.pointerId)) return;
+        const dx = e.clientX - _startX;
+        const dy = e.clientY - _startY;
+        if (!_dragging && Math.sqrt(dx * dx + dy * dy) < 6) return;
+        _dragging = true;
+        const w = widget.offsetWidth  || 48;
+        const h = widget.offsetHeight || 48;
+        applyPos(
+            Math.max(0, Math.min(window.innerHeight - h, _startTop  + dy)),
+            Math.max(0, Math.min(window.innerWidth  - w, _startLeft + dx))
+        );
+    });
+
+    btn.addEventListener('pointerup', e => {
+        btn.releasePointerCapture(e.pointerId);
+        if (_dragging) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ top: widget.style.top, left: widget.style.left }));
+            _dragging = false;
+            e.stopImmediatePropagation();
+        }
+    });
+
+    // Override click to ignore drag-end
+    btn.addEventListener('click', e => {
+        if (_dragging) { e.stopImmediatePropagation(); return; }
+        _togglePaxPanel();
+    }, true);
 }
 
 function _showPaxMessage(text, eventLabel) {
@@ -260,8 +325,8 @@ function _showPaxMessage(text, eventLabel) {
 
     widget.style.display = 'flex';
 
-    // Auto-open panel on new message
-    if (panel) panel.style.display = 'block';
+    // Auto-open panel only in text-only mode (voice off)
+    if (panel && !_paxVoiceEnabled) panel.style.display = 'block';
     if (badge) badge.style.display = 'block';
     if (btn) {
         btn.classList.add('pax-has-new');
