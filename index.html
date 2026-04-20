@@ -642,6 +642,9 @@
     </button><br>
     <button id="btnWeatherDebugConsole" onclick="window.vpToggleWeatherDebugPanel && vpToggleWeatherDebugPanel()" style="background: transparent; color: #7fb7ff; border: 1px dashed #2f5a8a; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 0.7em; margin-top: 4px; opacity: 0.65;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.65">
         🧪 Debug Console
+    </button>
+    <button onclick="window.paxVoiceOpenLog && paxVoiceOpenLog()" style="background: transparent; color: #a0c8ff; border: 1px dashed #2f5a8a; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 0.7em; margin-top: 2px; opacity: 0.65;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.65">
+        🎙 Pax Log
     </button><br>
     <a href="https://discord.gg/xzXQXey2N8" target="_blank" class="discord-link" title="Komm auf unseren Discord für Feedback & Ideen!">
         <svg viewBox="0 0 127.14 96.36" width="14" height="14" style="fill: currentColor; vertical-align: middle; margin-right: 4px; margin-bottom: 2px;">
@@ -655,6 +658,7 @@
     <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #254462;">
         <strong style="font-size:12px; letter-spacing:0.3px;">DEBUG CONSOLE</strong>
         <div style="display:flex; gap:6px;">
+            <button id="btnPaxZones" onclick="window.paxVoiceToggleZones && paxVoiceToggleZones()" style="font-size:11px; border:1px solid #2a5a3a; background:#142a1e; color:#80e0a0; border-radius:4px; padding:2px 6px; cursor:pointer;">Pax Zonen Aus</button>
             <button id="btnToggleObsTileOverlay" onclick="window.vpToggleObsTileOverlay && vpToggleObsTileOverlay()" style="font-size:11px; border:1px solid #3a6388; background:#1b334a; color:#9fd0ff; border-radius:4px; padding:2px 6px; cursor:pointer;">Tiles Overlay Aus</button>
             <button onclick="window.vpRetryFailedObsTiles && vpRetryFailedObsTiles()" style="font-size:11px; border:1px solid #7a5a2f; background:#3b2a14; color:#ffd28b; border-radius:4px; padding:2px 6px; cursor:pointer;">Retry Tiles</button>
             <button onclick="if (confirm('Rolling Cache wirklich leeren?\\n\\nPool, Tile-Coverage, Failed-Tiles und Route-Cache werden gelöscht.')) { window.vpClearObstacleRollingCache && vpClearObstacleRollingCache(); window.vpRefreshWeatherDebugReport && vpRefreshWeatherDebugReport(); }" style="font-size:11px; border:1px solid #8a6a2f; background:#4a391b; color:#ffd79f; border-radius:4px; padding:2px 6px; cursor:pointer;">Cache leeren</button>
@@ -663,6 +667,19 @@
         </div>
     </div>
     <pre id="weatherDebugBody" style="margin:0; padding:10px; overflow:auto; white-space:pre-wrap; font-size:11px; line-height:1.35; color:#dcecff; max-height:calc(55vh - 46px);"></pre>
+</div>
+
+<div id="paxLogPanel" style="display:none; position:fixed; left:12px; bottom:12px; width:min(92vw,560px); max-height:55vh; z-index:100300; background:rgba(8,12,18,0.96); border:1px solid #1e4a2e; border-radius:8px; box-shadow:0 12px 30px rgba(0,0,0,0.5); color:#c0e8d0; font-family:monospace; flex-direction:column;">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #1e3a28; flex-shrink:0;">
+        <strong style="font-size:12px; letter-spacing:0.3px;">🎙 PAX VOICE LOG</strong>
+        <div style="display:flex; gap:6px; align-items:center;">
+            <span id="paxLogModeLabel" style="font-size:10px; color:#6a9a7a; padding:1px 6px; border:1px solid #2a5a3a; border-radius:3px;">EASY</span>
+            <button id="btnPaxZonesLog" onclick="window.paxVoiceToggleZones && paxVoiceToggleZones(); document.getElementById('btnPaxZonesLog').textContent = window._paxZonesVisible ? 'Zonen Ein' : 'Zonen Aus';" style="font-size:11px; border:1px solid #2a5a3a; background:#142a1e; color:#80e0a0; border-radius:4px; padding:2px 6px; cursor:pointer;">Zonen Aus</button>
+            <button onclick="window.paxVoiceClearLog && paxVoiceClearLog()" style="font-size:11px; border:1px solid #5a4a2a; background:#2a2010; color:#d0b060; border-radius:4px; padding:2px 6px; cursor:pointer;">Leeren</button>
+            <button onclick="document.getElementById('paxLogPanel').style.display='none'" style="font-size:11px; border:1px solid #6b3d3d; background:#3b2020; color:#ffb4b4; border-radius:4px; padding:2px 6px; cursor:pointer;">✕</button>
+        </div>
+    </div>
+    <pre id="paxLogBody" style="margin:0; padding:10px; overflow:auto; white-space:pre-wrap; font-size:10.5px; line-height:1.45; color:#b0d8c0; max-height:calc(55vh - 46px); flex:1;">— noch keine Einträge —</pre>
 </div>
 
 <div id="pinboardOverlay" class="pinboard-overlay">

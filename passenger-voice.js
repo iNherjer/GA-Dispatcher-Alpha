@@ -9,6 +9,89 @@
  *   window.activePassenger, window.currentMissionData, window.routeWaypoints
  */
 
+// ─── LOG ─────────────────────────────────────────────────────────────────────
+const _paxLogEntries = [];
+const _PAX_LOG_MAX   = 120;
+
+// type: 'event' | 'send' | 'recv' | 'audio' | 'warn' | 'state'
+function _paxLog(msg, type = 'event') {
+    const ts = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    _paxLogEntries.unshift({ ts, msg, type });
+    if (_paxLogEntries.length > _PAX_LOG_MAX) _paxLogEntries.length = _PAX_LOG_MAX;
+    console.log(`[PaxVoice] ${msg}`);
+    _paxLogRender();
+}
+
+function _paxLogRender() {
+    const el = document.getElementById('paxLogBody');
+    if (!el) return;
+    const PREFIX = { event: '▶', send: '↑ SEND', recv: '↓ RECV', audio: '🔊', warn: '⚠', state: '·' };
+    el.textContent = _paxLogEntries.map(e => `${e.ts}  ${(PREFIX[e.type] || '·').padEnd(6)}  ${e.msg}`).join('\n');
+}
+
+window.paxVoiceClearLog = function() { _paxLogEntries.length = 0; _paxLogRender(); };
+window.paxVoiceOpenLog  = function() {
+    const p = document.getElementById('paxLogPanel');
+    if (!p) return;
+    p.style.display = p.style.display === 'none' ? 'flex' : 'none';
+    const lbl = document.getElementById('paxLogModeLabel');
+    if (lbl) lbl.textContent = _paxStrictMode ? 'STRENG' : 'EASY';
+    _paxLogRender();
+};
+
+// ─── MAP ZONES ────────────────────────────────────────────────────────────────
+let _paxZonesLayer   = null;
+let _paxZonesVisible = false;
+
+window.paxVoiceToggleZones = function() {
+    _paxZonesVisible = !_paxZonesVisible;
+    const btn = document.getElementById('btnPaxZones');
+    if (btn) btn.textContent = _paxZonesVisible ? 'Pax Zonen Ein' : 'Pax Zonen Aus';
+    if (_paxZonesVisible) { _paxDrawZones(); }
+    else if (_paxZonesLayer && typeof map !== 'undefined') { map.removeLayer(_paxZonesLayer); _paxZonesLayer = null; }
+};
+
+window.paxVoiceRefreshZones = function() { if (_paxZonesVisible) _paxDrawZones(); };
+
+function _paxDrawZones() {
+    if (typeof map === 'undefined' || !map || typeof L === 'undefined') return;
+    if (_paxZonesLayer) map.removeLayer(_paxZonesLayer);
+    _paxZonesLayer = L.layerGroup();
+
+    const pax = window.activePassenger;
+    const NM  = 1852; // metres per NM
+
+    if (_isPOIMission()) {
+        const dest = _getDestCoords();
+        if (dest && pax) {
+            const r = (pax.targetRadiusNm || 1.5) * NM;
+            const label = `POI-Radius: ${pax.targetRadiusNm || 1.5} NM`
+                + (pax.targetAltFt  ? ` · ${pax.targetAltFt} ft`  : '')
+                + (pax.targetDwellMin ? ` · ${pax.targetDwellMin} min` : ' · Überflug');
+            L.circle([dest.lat, dest.lon], { radius: r, color: '#4da6ff', weight: 2, opacity: 0.9,
+                fillColor: '#4da6ff', fillOpacity: 0.08, dashArray: '10,7' })
+             .bindTooltip(label, { permanent: false }).addTo(_paxZonesLayer);
+            // Altitude ring label at centre
+            if (pax.targetAltFt) {
+                L.marker([dest.lat, dest.lon], { icon: L.divIcon({
+                    className: '', html: `<div style="background:rgba(10,20,40,0.75);color:#4da6ff;font-size:11px;padding:2px 6px;border-radius:4px;white-space:nowrap;border:1px solid #2a5a9a;">${pax.targetAltFt} ft · ${pax.targetDwellMin || 0} min</div>`,
+                    iconAnchor: [40, 0]
+                }), interactive: false }).addTo(_paxZonesLayer);
+            }
+        }
+    } else {
+        // Airport approach ring
+        const wps = (typeof routeWaypoints !== 'undefined') ? routeWaypoints : null;
+        if (wps && wps.length >= 2) {
+            const last = wps[wps.length - 1];
+            L.circle([last.lat, last.lng ?? last.lon], { radius: 1.5 * NM, color: '#ffa040', weight: 2,
+                opacity: 0.9, fillColor: '#ffa040', fillOpacity: 0.08, dashArray: '10,7' })
+             .bindTooltip('At-Target: 1.5 NM vor Landung').addTo(_paxZonesLayer);
+        }
+    }
+    _paxZonesLayer.addTo(map);
+}
+
 // ─── TOGGLE ──────────────────────────────────────────────────────────────────
 let _paxVoiceEnabled = (localStorage.getItem('awm_pax_voice') === '1');
 
@@ -217,22 +300,24 @@ async function _generateSpokenText(apiKey, situationPrompt) {
 
     for (const model of ['gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
         try {
+            _paxLog(`Textgen → ${model}`, 'send');
             const res = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
                 opts
             );
             if (!res.ok) {
-                console.warn('[PaxVoice] Textgen', model, 'HTTP', res.status);
+                _paxLog(`Textgen ${model} HTTP ${res.status}`, 'warn');
                 continue;
             }
             const data = await res.json();
             const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
             if (text) {
                 if (typeof incrementApiUsage === 'function') incrementApiUsage('flash');
+                _paxLog(`Textgen OK (${text.length} Zeichen): "${text.slice(0, 80)}${text.length > 80 ? '…' : ''}"`, 'recv');
                 return text;
             }
-            console.warn('[PaxVoice] Textgen', model, 'leere Antwort:', JSON.stringify(data).slice(0, 200));
-        } catch(e) { console.warn('[PaxVoice] Textgen', model, 'Fehler:', e.message); }
+            _paxLog(`Textgen ${model} leere Antwort: ${JSON.stringify(data).slice(0, 120)}`, 'warn');
+        } catch(e) { _paxLog(`Textgen ${model} Fehler: ${e.message}`, 'warn'); }
     }
     return null;
 }
@@ -300,19 +385,18 @@ function _buildIntercomChain(ctx, destination, durationSec) {
 
 async function _paxDecodeAndPlay(base64Audio, mimeType) {
     const ctx = window._tawsAudioCtx;
-    if (!ctx) { console.warn('[PaxVoice] AudioContext nicht verfügbar'); return; }
+    if (!ctx) { _paxLog('AudioContext nicht verfügbar', 'warn'); return; }
     if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
 
     const binary = atob(base64Audio);
     const bytes  = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-    // Gemini TTS returns raw PCM — wrap in WAV so decodeAudioData can handle it
     let audioBuffer = bytes.buffer;
     if (!mimeType || mimeType.includes('pcm') || mimeType.includes('L16')) {
         const rateMatch = mimeType?.match(/rate=(\d+)/);
         const sampleRate = rateMatch ? parseInt(rateMatch[1]) : 24000;
-        console.log('[PaxVoice] PCM → WAV wrap, rate:', sampleRate, 'mimeType:', mimeType);
+        _paxLog(`PCM→WAV wrap | rate: ${sampleRate} Hz | mime: ${mimeType || 'unbekannt'}`, 'audio');
         audioBuffer = _pcmToWav(bytes.buffer, sampleRate, 1, 16);
     }
 
@@ -329,21 +413,20 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
         src.start(t);
         noise.start(t);
         noise.stop(t + buf.duration + 0.3);
-        console.log('[PaxVoice] Intercom-Wiedergabe, Dauer:', buf.duration.toFixed(1), 's');
+        _paxLog(`Intercom-Wiedergabe: ${buf.duration.toFixed(1)} s`, 'audio');
     } catch(e) {
-        console.warn('[PaxVoice] Playback Fehler:', e);
+        _paxLog(`Playback Fehler: ${e.message}`, 'warn');
     }
 }
 
 async function _speakAndShow(situationPrompt, eventLabel) {
     const apiKey = _getApiKey();
-    if (!apiKey) { console.warn('[PaxVoice] Kein API-Key — bitte im Einstellungen eintragen'); return; }
+    if (!apiKey) { _paxLog('Kein API-Key', 'warn'); return; }
 
-    console.log('[PaxVoice] Textgenerierung läuft für:', eventLabel);
-    console.log('[PaxVoice] Prompt:\n', situationPrompt);
+    _paxLog(`── ${eventLabel} ──`, 'event');
+    _paxLog(`PROMPT: ${situationPrompt.replace(/\n+/g, ' ').slice(0, 200)}…`, 'send');
     const spokenText = await _generateSpokenText(apiKey, situationPrompt);
-    if (!spokenText) { console.warn('[PaxVoice] Kein Text von Gemini erhalten (API-Fehler oder leere Antwort)'); return; }
-    console.log('[PaxVoice] Text erhalten:', spokenText.slice(0, 80), '...');
+    if (!spokenText) { _paxLog('Kein Text von Gemini (API-Fehler oder leere Antwort)', 'warn'); return; }
 
     _showPaxMessage(spokenText, eventLabel);
 
@@ -368,11 +451,11 @@ async function _speakAndShow(situationPrompt, eventLabel) {
         const b64      = part?.inlineData?.data;
         const mimeType = part?.inlineData?.mimeType || '';
         if (!b64) throw new Error('Keine Audio-Daten');
-        console.log('[PaxVoice] TTS mimeType:', mimeType, '| Datengröße:', b64.length);
+        _paxLog(`TTS OK | mime: ${mimeType} | ${b64.length} chars base64`, 'recv');
         if (typeof incrementApiUsage === 'function') incrementApiUsage('flash');
         await _paxDecodeAndPlay(b64, mimeType);
     } catch(e) {
-        console.warn('[PaxVoice] TTS Fehler:', e);
+        _paxLog(`TTS Fehler: ${e.message}`, 'warn');
     }
 }
 
@@ -524,32 +607,32 @@ Verabschiede dich beim Piloten und gib ein ehrliches, persönliches Fazit über 
 // ─── PUBLIC TRIGGERS ─────────────────────────────────────────────────────────
 
 window.triggerPaxGreeting = async function() {
-    console.log('[PaxVoice] triggerPaxGreeting aufgerufen | enabled:', _paxVoiceEnabled, '| done:', _paxGreetingDone, '| pax:', !!window.activePassenger, '| apiKey:', !!_getApiKey());
+    _paxLog(`triggerPaxGreeting | enabled:${_paxVoiceEnabled} done:${_paxGreetingDone} pax:${!!window.activePassenger} key:${!!_getApiKey()}`, 'state');
     if (!_paxVoiceEnabled || _paxGreetingDone || !window.activePassenger) return;
     _paxGreetingDone = true;
     const prompt = _greetingPrompt();
-    if (!prompt) { _paxGreetingDone = false; console.warn('[PaxVoice] Greeting: kein Prompt (Mission-Daten fehlen?)'); return; }
-    console.log('[PaxVoice] Greeting → API-Call gestartet');
+    if (!prompt) { _paxGreetingDone = false; _paxLog('Greeting: kein Prompt (Mission-Daten fehlen?)', 'warn'); return; }
+    _paxLog('Greeting → API-Call gestartet', 'event');
     await _speakAndShow(prompt, 'Begrüßung');
 };
 
 window.triggerPaxAtTarget = async function(flightData) {
-    console.log('[PaxVoice] triggerPaxAtTarget aufgerufen | enabled:', _paxVoiceEnabled, '| done:', _paxAtTargetDone, '| pax:', !!window.activePassenger, '| flightData:', JSON.stringify(flightData));
+    _paxLog(`triggerPaxAtTarget | enabled:${_paxVoiceEnabled} done:${_paxAtTargetDone} pax:${!!window.activePassenger} alt:${flightData?.mslFt||0}ft`, 'state');
     if (!_paxVoiceEnabled || _paxAtTargetDone || !window.activePassenger) return;
     _paxAtTargetDone = true;
     const prompt = _atTargetPrompt(flightData);
-    if (!prompt) { _paxAtTargetDone = false; console.warn('[PaxVoice] AtTarget: kein Prompt'); return; }
-    console.log('[PaxVoice] At-Target → API-Call in 2s');
+    if (!prompt) { _paxAtTargetDone = false; _paxLog('AtTarget: kein Prompt', 'warn'); return; }
+    _paxLog('At-Target → API-Call in 2s', 'event');
     setTimeout(() => _speakAndShow(prompt, _isPOIMission() ? 'Am Ziel' : 'Landung'), 2000);
 };
 
 window.triggerPaxFarewell = async function(record) {
-    console.log('[PaxVoice] triggerPaxFarewell aufgerufen | enabled:', _paxVoiceEnabled, '| done:', _paxFarewellDone, '| pax:', !!window.activePassenger);
+    _paxLog(`triggerPaxFarewell | enabled:${_paxVoiceEnabled} done:${_paxFarewellDone} pax:${!!window.activePassenger}`, 'state');
     if (!_paxVoiceEnabled || _paxFarewellDone || !window.activePassenger) return;
     _paxFarewellDone = true;
     const prompt = _farewellPrompt(record);
-    if (!prompt) { _paxFarewellDone = false; console.warn('[PaxVoice] Farewell: kein Prompt'); return; }
-    console.log('[PaxVoice] Farewell → API-Call in 3s');
+    if (!prompt) { _paxFarewellDone = false; _paxLog('Farewell: kein Prompt', 'warn'); return; }
+    _paxLog('Farewell → API-Call in 3s', 'event');
     setTimeout(() => _speakAndShow(prompt, 'Verabschiedung'), 3000);
 };
 
@@ -575,7 +658,7 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
         const last = wps[wps.length - 1];
         const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
         if (distNm <= 1.5) {
-            console.log(`[PaxVoice] Airport in Reichweite: ${distNm.toFixed(2)} NM`);
+            _paxLog(`Airport in Reichweite: ${distNm.toFixed(2)} NM`, 'state');
             window.triggerPaxAtTarget(flightData);
         }
     }
@@ -608,7 +691,7 @@ function _tickPoiDwell(lat, lon, flightData) {
         _poiInRadius     = true;
         _poiLastTickTime = now;
         if (!_poiEnteredAt) _poiEnteredAt = now;
-        console.log(`[PaxVoice] POI-Radius betreten, dist: ${distNm.toFixed(2)} NM, dwell: ${dwellRequired.toFixed(0)}s, altReq: ${pax.targetAltFt || 'keins'}`);
+        _paxLog(`POI-Radius betreten | dist: ${distNm.toFixed(2)} NM | dwell: ${dwellRequired.toFixed(0)}s | altReq: ${pax.targetAltFt || 'keins'}`, 'state');
 
         // Entry comment — spontane erste Reaktion beim Einflug
         if (!_poiEntryDone) {
@@ -621,7 +704,7 @@ function _tickPoiDwell(lat, lon, flightData) {
         if (dwellRequired === 0) {
             _poiSatisfied    = true;
             _paxAtTargetDone = true;
-            console.log('[PaxVoice] Flyover-Mission — Überflug genügt');
+            _paxLog('Flyover-Mission — Überflug genügt, satisfied', 'event');
             return;
         }
     }
@@ -639,14 +722,14 @@ function _tickPoiDwell(lat, lon, flightData) {
         _poiDwellSec += dt;
 
         if (_poiAltWasOk === false) {
-            console.log('[PaxVoice] Höhe korrigiert → Bestätigung');
+            _paxLog('Höhe korrigiert → Bestätigung', 'event');
             const p = _poiAltCorrectedPrompt(flightData);
             if (p) setTimeout(() => _speakAndShow(p, 'Höhe ok'), 500);
         }
         _poiAltWasOk = true;
 
         if (_poiDwellSec >= dwellRequired) {
-            console.log(`[PaxVoice] Verweilzeit erfüllt (${_poiDwellSec.toFixed(0)}s) → zufrieden`);
+            _paxLog(`Verweilzeit erfüllt (${_poiDwellSec.toFixed(0)}s) → zufrieden`, 'event');
             _poiSatisfied    = true;
             _paxAtTargetDone = true;
             const p = _poiSatisfiedPrompt(flightData);
@@ -660,11 +743,11 @@ function _tickPoiDwell(lat, lon, flightData) {
             if (_poiAttempts < maxAttempts) {
                 _poiAttempts++;
                 _poiLastComplaintAt = now;
-                console.log(`[PaxVoice] Höhen-Reklamation #${_poiAttempts} (${altFt} ft statt ${targetAlt} ft)`);
+                _paxLog(`Höhen-Reklamation #${_poiAttempts} | ${altFt} ft statt ${targetAlt} ft`, 'event');
                 const p = _poiAltComplaintPrompt(flightData, altFt, targetAlt, _poiAttempts);
                 if (p) setTimeout(() => _speakAndShow(p, `Höhe (${_poiAttempts}/${maxAttempts})`), 500);
             } else {
-                console.log('[PaxVoice] Max. Versuche erreicht → Abbruch');
+                _paxLog('Max. Versuche erreicht → Abbruch', 'event');
                 _poiAborted      = true;
                 _paxAtTargetDone = true;
                 const p = _poiAbortPrompt(flightData);
@@ -688,5 +771,5 @@ function _tickPoiDwell(lat, lon, flightData) {
     }
 
     _injectPaxUI();
-    console.log('[PaxVoice] System bereit.');
+    _paxLog('System bereit', 'state');
 }());
