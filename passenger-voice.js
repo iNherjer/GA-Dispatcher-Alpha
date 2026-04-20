@@ -19,13 +19,43 @@ window.paxVoiceSetEnabled = function(on) {
 
 // ─── PER-MISSION STATE ───────────────────────────────────────────────────────
 let _paxGreetingDone  = false;
-let _paxAtTargetDone  = false;
+let _paxAtTargetDone  = false;  // airport at-target done
 let _paxFarewellDone  = false;
 
+// POI dwell state machine
+let _poiInRadius        = false;
+let _poiEnteredAt       = null;
+let _poiLastTickTime    = null;
+let _poiDwellSec        = 0;
+let _poiAttempts        = 0;
+let _poiLastComplaintAt = null;
+let _poiAltWasOk        = null;  // null=unknown, true/false
+let _poiSatisfied       = false;
+let _poiAborted         = false;
+
 window.paxVoiceResetMission = function() {
-    _paxGreetingDone = false;
-    _paxAtTargetDone = false;
-    _paxFarewellDone = false;
+    _paxGreetingDone  = false;
+    _paxAtTargetDone  = false;
+    _paxFarewellDone  = false;
+    _poiInRadius      = false;
+    _poiEnteredAt     = null;
+    _poiLastTickTime  = null;
+    _poiDwellSec      = 0;
+    _poiAttempts      = 0;
+    _poiLastComplaintAt = null;
+    _poiAltWasOk      = null;
+    _poiSatisfied     = false;
+    _poiAborted       = false;
+};
+
+// ─── STRICT / EASY MODE ──────────────────────────────────────────────────────
+let _paxStrictMode = (localStorage.getItem('awm_pax_strict') === '1');
+
+window.paxVoiceSetMode = function(strict) {
+    _paxStrictMode = !!strict;
+    localStorage.setItem('awm_pax_strict', strict ? '1' : '0');
+    const el = document.getElementById('awmPaxModeSelect');
+    if (el) el.value = strict ? 'strict' : 'easy';
 };
 
 // ─── INIT ─── called at bottom of file after all defs ───────────────────────
@@ -360,6 +390,50 @@ Sprich immer in der Ich-Form, direkt zum Piloten — du redest, du denkst, du be
 Antworte NUR mit dem exakten Text den du sprichst — keine Anführungszeichen, keine Erzählerhinweise, kein Markdown.`;
 }
 
+function _poiAltComplaintPrompt(flightData, altFt, targetAlt, attempt) {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const diff = altFt - targetAlt;
+    const dir  = diff < 0 ? `${Math.abs(Math.round(diff))} ft zu niedrig` : `${Math.round(diff)} ft zu hoch`;
+    const md   = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
+    const lastWarning = attempt >= (_paxStrictMode ? 2 : 3)
+        ? ' Das ist meine letzte Bitte — sonst müssen wir leider abbrechen.' : '';
+    return `${ctx}
+
+Situation: Wir sind im Zielgebiet "${md?.poiName || 'Ziel'}", aber die Höhe stimmt nicht.
+Aktuelle Höhe: ${altFt} ft (${dir}). Ich brauche etwa ${targetAlt} ft.${lastWarning}
+Bitte den Piloten sachlich, die Höhe zu korrigieren. Ich-Form, 1-2 Sätze. Auf Deutsch.`;
+}
+
+function _poiAltCorrectedPrompt(flightData) {
+    const ctx = _baseContext();
+    if (!ctx) return null;
+    const altFt = Math.round(flightData?.mslFt || 0);
+    return `${ctx}
+
+Situation: Die Flughöhe passt jetzt — wir sind auf etwa ${altFt} ft im Zielgebiet. Bestätige kurz, dass es jetzt gut ist und ich anfangen kann. 1 Satz, Ich-Form. Auf Deutsch.`;
+}
+
+function _poiSatisfiedPrompt(flightData) {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const dwell = Math.round(_poiDwellSec / 60 * 10) / 10;
+    return `${ctx}
+
+Situation: Ich habe meine Arbeit im Zielgebiet abgeschlossen (${dwell} Minuten). Sage dem Piloten kurz, dass ich fertig bin und wir weiterfliegen können. 1-2 Sätze, Ich-Form. Auf Deutsch.`;
+}
+
+function _poiAbortPrompt(flightData) {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    return `${ctx}
+
+Situation: Trotz mehrfacher Bitte hat die Flughöhe nicht gepasst — ich kann meine Arbeit unter diesen Bedingungen nicht erledigen. Sage dem Piloten sachlich, dass wir die Mission hier abbrechen und zurückfliegen müssen. 2 Sätze, Ich-Form. Auf Deutsch.`;
+}
+
 function _greetingPrompt() {
     const ctx = _baseContext();
     const pax = window.activePassenger;
@@ -368,10 +442,10 @@ function _greetingPrompt() {
 
 Situation: Der Motor läuft gerade an / das Flugzeug setzt sich in Bewegung. Du bist soeben eingestiegen.
 Begrüße den Piloten kurz und sachlich — passend zu deiner Rolle. Basiere dich auf: "${pax.greetingText}"
-Nenne dann deine konkreten Anforderungen für diesen Flug:
+Nenne dann deine konkreten Anforderungen für diesen Flug als direkte Bitte an den Piloten:
 - Optimale Flughöhe: ${pax.targetAltFt ? pax.targetAltFt + ' ft' : 'nach Absprache'}
-- Wie lange du am Ziel bleiben möchtest (kreisen, Überflug, mehrere Minuten etc.) — passend zu deiner Rolle und Mission
-Formuliere das als direkte Bitte an den Piloten, in der Ich-Form. Max 3 Sätze. Auf Deutsch.`;
+- Verweildauer am Ziel: ${pax.targetDwellMin > 0 ? `etwa ${pax.targetDwellMin} Minuten` : 'kurzer Überflug genügt'}
+Formuliere das natürlich in der Ich-Form. Max 3 Sätze. Auf Deutsch.`;
 }
 
 function _atTargetPrompt(flightData) {
@@ -462,41 +536,119 @@ window.triggerPaxFarewell = async function(record) {
     setTimeout(() => _speakAndShow(prompt, 'Verabschiedung'), 3000);
 };
 
-// Called each GPS tick from sync.js + sim-route.js — proximity check for POI and airport
-window.checkPaxPoiProximity = function(lat, lon, flightData) {
-    if (!_paxVoiceEnabled || _paxAtTargetDone || !window.activePassenger) return;
+function _haversineNm(lat1, lon1, lat2, lon2) {
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 3440.065;
+}
 
-    const isPOI = _isPOIMission();
-    let dest;
-    if (isPOI) {
-        dest = _getDestCoords();
+// Called each GPS tick from sync.js + sim-route.js
+window.checkPaxPoiProximity = function(lat, lon, flightData) {
+    if (!_paxVoiceEnabled || !window.activePassenger) return;
+
+    if (_isPOIMission()) {
+        if (!_poiSatisfied && !_poiAborted) _tickPoiDwell(lat, lon, flightData);
     } else {
-        // Airport: letzter Waypoint der Route = Zielflugplatz
+        // Airport: simple 1.5 NM approach trigger (live mode fallback)
+        if (_paxAtTargetDone) return;
         const wps = (typeof routeWaypoints !== 'undefined') ? routeWaypoints : null;
         if (!wps || wps.length < 2) return;
         const last = wps[wps.length - 1];
-        dest = { lat: last.lat, lon: last.lng ?? last.lon };
-    }
-    if (!dest) return;
-
-    const dLat  = (dest.lat - lat) * Math.PI / 180;
-    const dLonR = (dest.lon - lon) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) ** 2
-            + Math.cos(lat * Math.PI / 180) * Math.cos(dest.lat * Math.PI / 180) * Math.sin(dLonR / 2) ** 2;
-    const distNm = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 3440.065;
-
-    const radius = isPOI ? (window.activePassenger.targetRadiusNm || 1.5) : 1.5;
-    if (distNm <= radius) {
-        console.log(`[PaxVoice] ${isPOI ? 'POI' : 'Airport'} in Reichweite: ${distNm.toFixed(2)} NM`);
-        window.triggerPaxAtTarget(flightData);
+        const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
+        if (distNm <= 1.5) {
+            console.log(`[PaxVoice] Airport in Reichweite: ${distNm.toFixed(2)} NM`);
+            window.triggerPaxAtTarget(flightData);
+        }
     }
 };
+
+function _tickPoiDwell(lat, lon, flightData) {
+    const pax  = window.activePassenger;
+    const dest = _getDestCoords();
+    if (!dest) return;
+
+    const distNm   = _haversineNm(lat, lon, dest.lat, dest.lon);
+    const radius   = pax.targetRadiusNm || 1.5;
+    const inRadius = distNm <= radius;
+    const now      = Date.now();
+
+    const strict               = _paxStrictMode;
+    const altTolerance         = strict ? 200  : 600;
+    const dwellRequired        = (pax.targetDwellMin || 1) * 60 * (strict ? 1.0 : 0.5);
+    const maxAttempts          = strict ? 2 : 3;
+    const graceSec             = strict ? 15  : 25;
+    const complaintIntervalSec = strict ? 30 : 45;
+
+    if (!inRadius) {
+        _poiInRadius     = false;
+        _poiLastTickTime = null;
+        return;
+    }
+
+    if (!_poiInRadius) {
+        _poiInRadius     = true;
+        _poiLastTickTime = now;
+        if (!_poiEnteredAt) _poiEnteredAt = now;
+        console.log(`[PaxVoice] POI-Radius betreten, dist: ${distNm.toFixed(2)} NM, dwell benötigt: ${dwellRequired.toFixed(0)}s`);
+    }
+
+    const dt = Math.min((now - _poiLastTickTime) / 1000, 5);
+    _poiLastTickTime = now;
+
+    const altFt    = flightData?.mslFt || 0;
+    const targetAlt = pax.targetAltFt || 0;
+    const altOk    = targetAlt === 0 || Math.abs(altFt - targetAlt) <= altTolerance;
+    const inRadiusForSec   = (now - (_poiEnteredAt || now)) / 1000;
+    const lastComplaintSec = _poiLastComplaintAt ? (now - _poiLastComplaintAt) / 1000 : Infinity;
+
+    if (altOk) {
+        _poiDwellSec += dt;
+
+        if (_poiAltWasOk === false) {
+            console.log('[PaxVoice] Höhe korrigiert → Bestätigung');
+            const p = _poiAltCorrectedPrompt(flightData);
+            if (p) setTimeout(() => _speakAndShow(p, 'Höhe ok'), 500);
+        }
+        _poiAltWasOk = true;
+
+        if (_poiDwellSec >= dwellRequired) {
+            console.log(`[PaxVoice] Verweilzeit erfüllt (${_poiDwellSec.toFixed(0)}s) → zufrieden`);
+            _poiSatisfied    = true;
+            _paxAtTargetDone = true;
+            const p = _poiSatisfiedPrompt(flightData);
+            if (p) setTimeout(() => _speakAndShow(p, 'Ziel erfüllt'), 500);
+        }
+    } else {
+        _poiAltWasOk = false;
+
+        const canComplain = inRadiusForSec >= graceSec && lastComplaintSec >= complaintIntervalSec;
+        if (canComplain) {
+            if (_poiAttempts < maxAttempts) {
+                _poiAttempts++;
+                _poiLastComplaintAt = now;
+                console.log(`[PaxVoice] Höhen-Reklamation #${_poiAttempts} (${altFt} ft statt ${targetAlt} ft)`);
+                const p = _poiAltComplaintPrompt(flightData, altFt, targetAlt, _poiAttempts);
+                if (p) setTimeout(() => _speakAndShow(p, `Höhe (${_poiAttempts}/${maxAttempts})`), 500);
+            } else {
+                console.log('[PaxVoice] Max. Versuche erreicht → Abbruch');
+                _poiAborted      = true;
+                _paxAtTargetDone = true;
+                const p = _poiAbortPrompt(flightData);
+                if (p) setTimeout(() => _speakAndShow(p, 'Abbruch'), 1000);
+            }
+        }
+    }
+}
 
 // ─── BOOT ─────────────────────────────────────────────────────────────────────
 // All function declarations above are now defined — safe to init
 (function() {
     const chk = document.getElementById('awmPaxVoiceCheck');
     if (chk) chk.checked = _paxVoiceEnabled;
+    const modeEl = document.getElementById('awmPaxModeSelect');
+    if (modeEl) modeEl.value = _paxStrictMode ? 'strict' : 'easy';
 
     if (!window.activePassenger) {
         const saved = localStorage.getItem('ga_active_passenger');
