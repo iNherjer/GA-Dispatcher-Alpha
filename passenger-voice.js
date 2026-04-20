@@ -147,12 +147,22 @@ window.paxVoiceResetMission = function() {
 
 // ─── STRICT / EASY MODE ──────────────────────────────────────────────────────
 let _paxStrictMode = (localStorage.getItem('awm_pax_strict') === '1');
+let _paxHumorLevel = (localStorage.getItem('awm_pax_humor') || 'normal');
+if (!['subtle', 'normal', 'bold'].includes(_paxHumorLevel)) _paxHumorLevel = 'normal';
 
 window.paxVoiceSetMode = function(strict) {
     _paxStrictMode = !!strict;
     localStorage.setItem('awm_pax_strict', strict ? '1' : '0');
     const el = document.getElementById('awmPaxModeSelect');
     if (el) el.value = strict ? 'strict' : 'easy';
+};
+
+window.paxVoiceSetHumor = function(level) {
+    const next = (level === 'subtle' || level === 'bold' || level === 'normal') ? level : 'normal';
+    _paxHumorLevel = next;
+    localStorage.setItem('awm_pax_humor', next);
+    const el = document.getElementById('awmPaxHumorSelect');
+    if (el) el.value = next;
 };
 
 // ─── INIT ─── called at bottom of file after all defs ───────────────────────
@@ -629,7 +639,7 @@ function _poiEntryPrompt(flightData) {
 
 Moment: Das Zielgebiet "${md?.poiName || 'Ziel'}" taucht gerade vor uns auf — wir sind auf ${altFt} ft.${wx ? ' ' + wx : ''}
 Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}
-1-2 Sätze, darf etwas begeisterter sein als sonst.${_TONE}`;
+1-2 Sätze, darf etwas begeisterter sein als sonst.${_toneHint()}`;
 }
 
 function _poiAltComplaintPrompt(flightData, altFt, targetAlt, attempt) {
@@ -645,7 +655,7 @@ function _poiAltComplaintPrompt(flightData, altFt, targetAlt, attempt) {
 
 Moment: Wir sind am Ziel "${md?.poiName || 'Ziel'}", aber die Höhe passt noch nicht.
 Aktuell: ${altFt} ft (${dir} von meinen benötigten ${targetAlt} ft).${wx ? ' ' + wx : ''}${isLast ? ' Das ist mein letzter Versuch — danach müssen wir leider aufgeben.' : ''}
-Bitte den Piloten freundlich aber klar, die Höhe anzupassen. 1-2 Sätze.${_TONE}`;
+Bitte den Piloten freundlich aber klar, die Höhe anzupassen. 1-2 Sätze.${_toneHint()}`;
 }
 
 function _poiAltCorrectedPrompt(flightData) {
@@ -654,7 +664,7 @@ function _poiAltCorrectedPrompt(flightData) {
     const altFt = Math.round(flightData?.mslFt || 0);
     return `${ctx}
 
-Moment: Höhe passt jetzt — wir sind auf ${altFt} ft im Zielgebiet. Sag dem Piloten kurz, dass es jetzt stimmt und du anfangen kannst. 1 Satz.${_TONE}`;
+Moment: Höhe passt jetzt — wir sind auf ${altFt} ft im Zielgebiet. Sag dem Piloten kurz, dass es jetzt stimmt und du anfangen kannst. 1 Satz.${_toneHint()}`;
 }
 
 function _poiSatisfiedPrompt(flightData) {
@@ -666,7 +676,7 @@ function _poiSatisfiedPrompt(flightData) {
     return `${ctx}
 
 Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}
-Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können. 1-2 Sätze.${_TONE}`;
+Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können. 1-2 Sätze.${_toneHint()}`;
 }
 
 function _poiAbortPrompt(flightData) {
@@ -677,16 +687,23 @@ function _poiAbortPrompt(flightData) {
     return `${ctx}
 
 Moment: Trotz mehrfacher Bitte war die Höhe nicht erreichbar — ich kann unter diesen Bedingungen nicht arbeiten.${wx ? ' ' + wx : ''}
-Erkläre dem Piloten verständnisvoll, dass wir die Mission abbrechen und zurückfliegen müssen. Kein Vorwurf — manchmal passt es einfach nicht. 2 Sätze.${_TONE}`;
+Erkläre dem Piloten verständnisvoll, dass wir die Mission abbrechen und zurückfliegen müssen. Kein Vorwurf — manchmal passt es einfach nicht. 2 Sätze.${_toneHint()}`;
 }
 
 // Shared tone instruction appended to every prompt
-const _TONE = `
+function _toneHint() {
+    const humorLine = _paxHumorLevel === 'subtle'
+        ? 'Humor nur sehr dezent: höchstens eine kleine, freundliche Nuance.'
+        : _paxHumorLevel === 'bold'
+            ? 'Humor darf deutlich hörbar sein: eine kurze, freche, aber sympathische Pointe ist ausdrücklich okay.'
+            : 'Humor in normaler Dosis: eine lockere, freundliche Pointe ist willkommen.';
+    return `
 Sprich den Piloten direkt an (per Du, kein Erzähler-Stil). Ton: persönlich, warmherzig und spontan, als würdest du live im Cockpit reagieren statt einen Text vorzulesen.
 Ich-Form. Alltagssprache, kurze natürliche Sätze, gern mit kleinen Einwürfen wie "ehrlich gesagt", "ui", "okay".
-Leichter Humor ist ausdrücklich erlaubt (1 kleine, freundliche Pointe), aber nicht albern.
+${humorLine}
 Auch wenn etwas nicht ideal läuft: konstruktiv, menschlich und ermutigend bleiben.
 Auf Deutsch.`;
+}
 
 function _weatherContext(fd) {
     if (!fd) return '';
@@ -711,7 +728,7 @@ function _wrongLocationPrompt(distNm) {
     return `${ctx}
 
 Moment: Das Flugzeug bewegt sich, aber wir sind ${distNm.toFixed(1)} NM vom geplanten Startflughafen ${md?.start || '?'} entfernt. Das ergibt keinen Sinn.
-Reagiere verwundert und leicht amüsiert — irgendwas stimmt hier nicht, und du weißt nicht ob der Pilot sich verfahren hat oder ob das Briefing falsch war. 1-2 Sätze.${_TONE}`;
+Reagiere verwundert und leicht amüsiert — irgendwas stimmt hier nicht, und du weißt nicht ob der Pilot sich verfahren hat oder ob das Briefing falsch war. 1-2 Sätze.${_toneHint()}`;
 }
 
 function _greetingPrompt() {
@@ -730,7 +747,7 @@ function _greetingPrompt() {
 Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.${wx ? ' ' + wx : ''}
 Basistextt für deine Begrüßung (frei adaptieren): "${pax.greetingText}"
 ${reqLine}
-Max 3 Sätze.${_TONE}`;
+Max 3 Sätze.${_toneHint()}`;
 }
 
 function _atTargetPrompt(flightData) {
@@ -761,7 +778,7 @@ function _atTargetPrompt(flightData) {
     return `${ctx}
 
 Moment: ${situation}${notes}
-Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv. Max 2-3 Sätze.${_TONE}`;
+Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv. Max 2-3 Sätze.${_toneHint()}`;
 }
 
 function _evaluateComfortBreach(flightData, pax) {
@@ -815,7 +832,7 @@ function _comfortBreachPrompt(flightData, breach, count) {
 
 Moment: Mitten im Flug wurden Komfortgrenzen ${level} überschritten (${bits.join(' · ')}).${wx ? ' ' + wx : ''}
 Melde dich beim Piloten mit einem kurzen, menschlichen Statement zu deinem Komfortgefühl. ${humor}
-Hinweis: Das ist Hinweis #${count} in diesem Flug. Maximal 1-2 Sätze.${_TONE}`;
+Hinweis: Das ist Hinweis #${count} in diesem Flug. Maximal 1-2 Sätze.${_toneHint()}`;
 }
 
 function _maybePaxComfortFeedback(flightData) {
@@ -872,7 +889,7 @@ function _farewellPrompt(record) {
 
 Moment: Wir sind gelandet, Flug beendet.
 Fakten: ${min} min, ${record.distanceNm} NM, max ${record.maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.${highlights ? '\n' + highlights : ''}
-Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Auch wenn etwas nicht perfekt war, schließ positiv ab. Max 3 Sätze.${_TONE}`;
+Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Auch wenn etwas nicht perfekt war, schließ positiv ab. Max 3 Sätze.${_toneHint()}`;
 }
 
 // ─── PUBLIC TRIGGERS ─────────────────────────────────────────────────────────
@@ -1057,6 +1074,8 @@ function _tickPoiDwell(lat, lon, flightData) {
     if (chk) chk.checked = _paxVoiceEnabled;
     const modeEl = document.getElementById('awmPaxModeSelect');
     if (modeEl) modeEl.value = _paxStrictMode ? 'strict' : 'easy';
+    const humorEl = document.getElementById('awmPaxHumorSelect');
+    if (humorEl) humorEl.value = _paxHumorLevel;
 
     if (!window.activePassenger) {
         const saved = localStorage.getItem('ga_active_passenger');
