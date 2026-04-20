@@ -195,6 +195,11 @@ let _paxBtn   = null;
 let _lastPaxText = '';
 const _AIRPORT_AT_TARGET_NM = 3.0;
 
+function _isMapTableOpen() {
+    const board = document.getElementById('mapTableOverlay');
+    return !!(board && board.classList.contains('active'));
+}
+
 function _injectPaxUI() {
     if (document.getElementById('paxVoiceWidget')) return;
 
@@ -298,6 +303,7 @@ function _initPaxWidgetDrag(widget, btn) {
     let _ignoreClickUntil = 0;
 
     btn.addEventListener('pointerdown', e => {
+        if (!_isMapTableOpen()) return;
         const rect = widget.getBoundingClientRect();
         e.preventDefault();
         _startX    = e.clientX;
@@ -337,6 +343,7 @@ function _initPaxWidgetDrag(widget, btn) {
 
     // Override click to ignore drag-end
     btn.addEventListener('click', e => {
+        if (!_isMapTableOpen()) return;
         if (_dragging || Date.now() < _ignoreClickUntil) { e.stopImmediatePropagation(); return; }
         _togglePaxPanel();
     }, true);

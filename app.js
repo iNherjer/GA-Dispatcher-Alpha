@@ -2071,7 +2071,73 @@ function parseRunwayFromWikitext(wikitext) {
     return finalRunways.slice(0, 5).join('\n');
 }
 
-async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText) {
+const _poiTerrainCache = new Map();
+
+async function fetchPoiTerrainElevationFt(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const key = `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`;
+    if (_poiTerrainCache.has(key)) return _poiTerrainCache.get(key);
+
+    let elevFt = null;
+    try {
+        if (typeof sampleTerrainElevation === 'function') {
+            elevFt = await Promise.race([
+                sampleTerrainElevation(lat, lon),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('terrain-timeout')), 2500))
+            ]);
+        }
+    } catch (e) {}
+
+    if (!Number.isFinite(elevFt)) {
+        try {
+            const url = `https://api.open-meteo.com/v1/elevation?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}`;
+            const res = await fetch(url);
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data?.elevation) && Number.isFinite(data.elevation[0])) {
+                    elevFt = Math.round(data.elevation[0] * 3.28084);
+                } else if (Number.isFinite(data?.elevation)) {
+                    elevFt = Math.round(data.elevation * 3.28084);
+                }
+            }
+        } catch (e) {}
+    }
+
+    const normalized = Number.isFinite(elevFt) ? Math.max(0, Math.round(elevFt)) : null;
+    _poiTerrainCache.set(key, normalized);
+    return normalized;
+}
+
+function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) {
+    if (!passenger || typeof passenger !== 'object') return passenger;
+    const normalized = {
+        ...passenger,
+        targetAltFt: Number(passenger.targetAltFt) || 0,
+        targetRadiusNm: Number(passenger.targetRadiusNm) || 0,
+        targetDwellMin: Number(passenger.targetDwellMin) || 0
+    };
+
+    // A-B Flüge: keine Arbeitsvorgaben am Ziel (nur Komfort/Charakter).
+    if (!isPOI) {
+        normalized.targetAltFt = 0;
+        normalized.targetRadiusNm = 0;
+        normalized.targetDwellMin = 0;
+        return normalized;
+    }
+
+    if (normalized.targetAltFt < 0) normalized.targetAltFt = 0;
+    if (normalized.targetRadiusNm < 0) normalized.targetRadiusNm = 0;
+    if (normalized.targetDwellMin < 0) normalized.targetDwellMin = 0;
+
+    if (normalized.targetAltFt > 0) {
+        const minMslByTerrain = Number.isFinite(poiTerrainFt) ? Math.round(poiTerrainFt + 500) : 0;
+        const minRequired = Math.max(500, minMslByTerrain);
+        if (normalized.targetAltFt < minRequired) normalized.targetAltFt = minRequired;
+    }
+    return normalized;
+}
+
+async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
     if (!aiToggleBtn || !aiToggleBtn.checked) return null;
     const apiKeyInput = document.getElementById('apiKeyInput');
@@ -2108,26 +2174,14 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
 
     const sanitizePassengerProfile = (passenger) => {
         if (!passenger || typeof passenger !== 'object') return null;
-        const normalized = {
-            ...passenger,
-            targetAltFt: Number(passenger.targetAltFt) || 0,
-            targetRadiusNm: Number(passenger.targetRadiusNm) || 0,
-            targetDwellMin: Number(passenger.targetDwellMin) || 0
-        };
-
-        // A-B Flüge: keine Arbeitsvorgaben am Ziel (nur Komfort/Charakter).
-        if (!isPOI) {
-            normalized.targetAltFt = 0;
-            normalized.targetRadiusNm = 0;
-            normalized.targetDwellMin = 0;
-        } else {
-            if (normalized.targetAltFt < 0) normalized.targetAltFt = 0;
-            if (normalized.targetRadiusNm < 0) normalized.targetRadiusNm = 0;
-            if (normalized.targetDwellMin < 0) normalized.targetDwellMin = 0;
-        }
-
-        return normalized;
+        return enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt);
     };
+
+    const poiAltRule = isPOI
+        ? (Number.isFinite(poiTerrainFt)
+            ? `POI-Einsatzparameter: targetAltFt (MSL) darf NICHT unter ${Math.round(poiTerrainFt + 500)} ft liegen, weil am POI mindestens 500 ft AGL gelten. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).`
+            : "POI-Einsatzparameter: targetAltFt konservativ wählen; niemals so niedrig, dass es unter 500 ft AGL wäre. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).")
+        : "A-B-REGEL: Kein POI-Arbeitsauftrag. targetAltFt MUSS 0 sein, targetRadiusNm MUSS 0 sein, targetDwellMin MUSS 0 sein.";
 
     const prompt = `Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen.
     Erstelle ein realistisches Einsatzbriefing für diesen Flug:
@@ -2142,7 +2196,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${destName}" ganz natürlich ein.
     ${isPOI ? `5. RUNDFLUG-REGELN: Start und Landung ist ${startName}. Am POI (${destName}) wird NICHT gelandet.` : `5. ROUTEN-REGELN: Normaler Streckenflug von ${startName} nach ${destName}.`}
     6. PASSAGIERE & FRACHT: Erfinde passend zur Mission, WER mitfliegt (maximal ${maxPaxLimit} Personen) und WAS transportiert wird. Wenn niemand mitfliegt, schreibe '0 PAX'.
-    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission (oder null bei 0 PAX). greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. ${isPOI ? "POI-Einsatzparameter: targetAltFt (optimale Arbeitshöhe in Fuß; 0 wenn keine nötig), targetRadiusNm (Aktionsradius am Ziel; 2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (Verweildauer; 0 für reinen Überflug, 1-2 kurz, 3-5 professionell)." : "A-B-REGEL: Kein POI-Arbeitsauftrag. targetAltFt MUSS 0 sein, targetRadiusNm MUSS 0 sein, targetDwellMin MUSS 0 sein."}
+    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission (oder null bei 0 PAX). greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. ${poiAltRule}
 
     Antworte AUSSCHLIESSLICH als JSON. Keine Markdown-Formatierung.
     Struktur: {
@@ -3069,12 +3123,16 @@ async function generateMission() {
     const nav = calcNav(start.lat, start.lon, dest.lat, dest.lon);
     let totalDist = isPOI ? nav.dist * 2 : nav.dist;
     currentDestICAO = isPOI ? currentStartICAO : dest.icao;
+    let poiTerrainFt = null;
+    if (isPOI && Number.isFinite(dest?.lat) && Number.isFinite(dest?.lon)) {
+        poiTerrainFt = await fetchPoiTerrainElevationFt(dest.lat, dest.lon);
+    }
 
     const maxPax = Math.max(1, maxSeats - 1), randomPax = Math.floor(Math.random() * maxPax) + 1;
     let paxText = `${randomPax} PAX`, cargoText = `${Math.floor(Math.random() * 300) + 20} lbs`;
 
     indicator.innerText = `Kontaktiere KI-Dispatcher...`;
-    let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText);
+    let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt);
 
     if (m) {
         dataSource = m._source;
@@ -3144,7 +3202,7 @@ async function generateMission() {
 
     currentMissionData = { start: currentStartICAO, dest: currentDestICAO, poiName: isPOI ? dest.n : null, mission: m.t, dist: totalDist, ac: selectedAC, heading: nav.brng };
 
-    window.activePassenger = (m && m.passenger) ? m.passenger : null;
+    window.activePassenger = (m && m.passenger) ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt) : null;
     try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch(e) {}
     if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
 
