@@ -423,7 +423,7 @@ async function _generateSpokenText(apiKey, situationPrompt) {
     };
     const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
 
-    for (const model of ['gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
+    for (const model of ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
         try {
             _paxLog(`Textgen → ${model}`, 'send');
             const res = await fetch(
