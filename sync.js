@@ -1815,7 +1815,7 @@ function updateFlightRecorder(lat, lon, alt) {
         if (gs > 28 || agl > 220) {
             r.active = true;
             r.armed = agl > 300 || gs > 45;
-            if (typeof window.triggerPaxGreeting === 'function') setTimeout(window.triggerPaxGreeting, 1500);
+            if (typeof window.triggerPaxGreeting === 'function') setTimeout(() => window.triggerPaxGreeting(lat, lon), 1500);
             r.startTs = now;
             r.maxGs = gs;
             r.maxAltFt = alt;

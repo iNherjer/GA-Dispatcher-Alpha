@@ -94,10 +94,16 @@ function _paxDrawZones() {
 
 // ─── TOGGLE ──────────────────────────────────────────────────────────────────
 let _paxVoiceEnabled = (localStorage.getItem('awm_pax_voice') === '1');
+let _lastSpokenText  = null; // last generated text — for retroactive TTS
 
 window.paxVoiceSetEnabled = function(on) {
+    const wasOff = !_paxVoiceEnabled;
     _paxVoiceEnabled = !!on;
     localStorage.setItem('awm_pax_voice', on ? '1' : '0');
+    if (on && wasOff && _lastSpokenText && window.activePassenger) {
+        _paxLog('Voice aktiviert — lade TTS für letzte Nachricht nach', 'event');
+        setTimeout(() => _playTextAsTTS(_lastSpokenText), 400);
+    }
 };
 
 // ─── PER-MISSION STATE ───────────────────────────────────────────────────────
@@ -491,32 +497,18 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
     }
 }
 
-async function _speakAndShow(situationPrompt, eventLabel) {
+async function _playTextAsTTS(text) {
     const apiKey = _getApiKey();
-    if (!apiKey) { _paxLog('Kein API-Key', 'warn'); return; }
-
-    _paxLog(`── ${eventLabel} ──`, 'event');
-    _paxLog(`PROMPT: ${situationPrompt.replace(/\n+/g, ' ').slice(0, 200)}…`, 'send');
-    const spokenText = await _generateSpokenText(apiKey, situationPrompt);
-    if (!spokenText) { _paxLog('Kein Text von Gemini (API-Fehler oder leere Antwort)', 'warn'); return; }
-
-    _showPaxMessage(spokenText, eventLabel);
-
-    if (!_paxVoiceEnabled) {
-        _paxLog('TTS übersprungen (Stimme deaktiviert)', 'state');
-        return;
-    }
-
+    if (!apiKey) { _paxLog('Kein API-Key für TTS', 'warn'); return; }
     const pax = window.activePassenger;
     const voiceName = (pax?.gender === 'male') ? 'Charon' : 'Kore';
     const ttsPayload = {
-        contents: [{ role: 'user', parts: [{ text: spokenText }] }],
+        contents: [{ role: 'user', parts: [{ text }] }],
         generationConfig: {
             responseModalities: ['AUDIO'],
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
         }
     };
-
     try {
         const res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
@@ -534,6 +526,25 @@ async function _speakAndShow(situationPrompt, eventLabel) {
     } catch(e) {
         _paxLog(`TTS Fehler: ${e.message}`, 'warn');
     }
+}
+
+async function _speakAndShow(situationPrompt, eventLabel) {
+    const apiKey = _getApiKey();
+    if (!apiKey) { _paxLog('Kein API-Key', 'warn'); return; }
+
+    _paxLog(`── ${eventLabel} ──`, 'event');
+    _paxLog(`PROMPT: ${situationPrompt.replace(/\n+/g, ' ').slice(0, 200)}…`, 'send');
+    const spokenText = await _generateSpokenText(apiKey, situationPrompt);
+    if (!spokenText) { _paxLog('Kein Text von Gemini (API-Fehler oder leere Antwort)', 'warn'); return; }
+
+    _lastSpokenText = spokenText;
+    _showPaxMessage(spokenText, eventLabel);
+
+    if (!_paxVoiceEnabled) {
+        _paxLog('TTS übersprungen (Stimme deaktiviert) — Text gespeichert', 'state');
+        return;
+    }
+    await _playTextAsTTS(spokenText);
 }
 
 // ─── PROMPT BUILDERS ─────────────────────────────────────────────────────────
@@ -633,6 +644,17 @@ function _weatherContext(fd) {
     return parts.length ? `Wetter: ${parts.join(', ')}.` : '';
 }
 
+function _wrongLocationPrompt(distNm) {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
+    return `${ctx}
+
+Moment: Das Flugzeug bewegt sich, aber wir sind ${distNm.toFixed(1)} NM vom geplanten Startflughafen ${md?.start || '?'} entfernt. Das ergibt keinen Sinn.
+Reagiere verwundert und leicht amüsiert — irgendwas stimmt hier nicht, und du weißt nicht ob der Pilot sich verfahren hat oder ob das Briefing falsch war. 1-2 Sätze.${_TONE}`;
+}
+
 function _greetingPrompt() {
     const ctx = _baseContext();
     const pax = window.activePassenger;
@@ -707,10 +729,29 @@ Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus d
 
 // ─── PUBLIC TRIGGERS ─────────────────────────────────────────────────────────
 
-window.triggerPaxGreeting = async function() {
+window.triggerPaxGreeting = async function(lat, lon) {
     _paxLog(`triggerPaxGreeting | tts:${_paxVoiceEnabled} done:${_paxGreetingDone} pax:${!!window.activePassenger} key:${!!_getApiKey()}`, 'state');
     if (_paxGreetingDone || !window.activePassenger) return;
     _paxGreetingDone = true;
+
+    // Location check: must be within 1 NM of the briefed departure airport
+    const wp0 = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints) && routeWaypoints.length > 0)
+        ? routeWaypoints[0] : null;
+    if (wp0 && Number.isFinite(lat) && Number.isFinite(lon)) {
+        const dLat  = (wp0.lat - lat) * Math.PI / 180;
+        const dLon  = ((wp0.lng ?? wp0.lon) - lon) * Math.PI / 180;
+        const a     = Math.sin(dLat/2)**2 + Math.cos(lat*Math.PI/180) * Math.cos(wp0.lat*Math.PI/180) * Math.sin(dLon/2)**2;
+        const distNm = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 3440.065;
+        _paxLog(`Greeting Standort-Check: ${distNm.toFixed(2)} NM vom Startplatz`, 'state');
+        if (distNm > 1.0) {
+            _paxLog(`Falsche Position (${distNm.toFixed(1)} NM) → Falsche-Ort-Meldung`, 'warn');
+            const wrongPrompt = _wrongLocationPrompt(distNm);
+            if (wrongPrompt) await _speakAndShow(wrongPrompt, '⚠️ Falscher Ort');
+            _paxGreetingDone = false; // allow retry when actually at correct airport
+            return;
+        }
+    }
+
     const prompt = _greetingPrompt();
     if (!prompt) { _paxGreetingDone = false; _paxLog('Greeting: kein Prompt (Mission-Daten fehlen?)', 'warn'); return; }
     _paxLog('Greeting → API-Call', 'event');
