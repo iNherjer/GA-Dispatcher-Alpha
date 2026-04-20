@@ -1704,6 +1704,7 @@ function classifyPOITitleCategory(title) {
     const t = normalizeMissionText(title);
     if (t.includes("bruecke") || t.includes("brucke") || t.includes("bridge") || t.includes("viadukt") || t.includes("aquadukt") || t.includes("steg") || t.includes("pont") || t.includes("puente")) return "bridge";
     if (t.includes("autobahn") || t.includes("kreuz") || t.includes("dreieck") || t.includes("kreuzung") || t.includes("strasse") || t.includes("highway") || t.includes("motorway") || t.includes("interstate") || t.includes("freeway") || t.includes("ring") || t.includes("junction") || t.includes("interchange") || t.includes("tunnel")) return "road";
+    if (t.includes("staudamm") || t.includes("talsperre") || t.includes("stausee") || t.includes("sperrmauer") || t.includes("reservoir") || t.includes("dam") || t.includes("wehr")) return "dam";
     if (t.includes("funkturm") || t.includes("fernsehturm") || t.includes("sendemast") || t.includes("funkmast") || t.includes("mast")) return "telecom";
     if (t.includes("industrie") || t.includes("werk") || t.includes("fabrik") || t.includes("kraftwerk") || t.includes("anlage") || t.includes("mine") || t.includes("tagebau")) return "industry";
     if (t.includes("burg") || t.includes("schloss") || t.includes("ruine") || t.includes("festung") || t.includes("kloster") || t.includes("dom") || t.includes("monument") || t.includes("denkmal")) return "castle";
@@ -1739,6 +1740,7 @@ function pickBalancedByCategory(items, categoryOf, storagePrefix) {
 async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref) {
     const scoredKeywords = [
         "bruecke", "brucke", "bridge", "viadukt", "autobahn", "autobahnkreuz", "kreuz", "kreuzung", "dreieck", "strasse", "tunnel", "highway", "motorway", "interstate", "freeway", "interchange",
+        "staudamm", "talsperre", "stausee", "sperrmauer", "reservoir", "dam", "wehr",
         "funkturm", "fernsehturm", "sendemast", "funkmast",
         "fluss", "river", "strom", "kanal", "see", "lake", "hafen", "bay", "fjord", "insel", "kueste",
         "burg", "schloss", "dom", "denkmal", "monument", "festung", "kloster",

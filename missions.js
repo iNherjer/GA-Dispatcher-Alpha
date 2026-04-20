@@ -48,6 +48,14 @@ function generateDynamicPOIMission(poiName, maxSeats) {
             { i: "🔧", t: `Wartungs-Shuttle: ${poiName}`, s: `Ein Servicetechniker muss mit Werkzeug und Ersatzteilen zu ${poiName}. Bringe ihn zügig und ohne Hektik ins Einsatzgebiet.`, p: "1 PAX (Servicetechniker)", w: "Werkzeugkiste (70 lbs)" }
         ];
     }
+    else if (normalizedName.includes("staudamm") || normalizedName.includes("talsperre") || normalizedName.includes("stausee") || normalizedName.includes("sperrmauer") || normalizedName.includes("reservoir") || normalizedName.includes("dam") || normalizedName.includes("wehr")) {
+        templates = [
+            { i: "🧱", t: `Staudamm-Inspektion: ${poiName}`, s: `Die Wasserbehörde meldet mögliche Risse an der Sperrmauer von ${poiName}. Fliege mehrere ruhige Pässe entlang der Staumauer.`, p: "1 PAX (Talsperren-Techniker)", w: "Rissmonitor & Messlaser (95 lbs)" },
+            { i: "💦", t: `Hochwasser-Check: ${poiName}`, s: `Nach Starkregen soll die Entlastungsanlage von ${poiName} geprüft werden. Dokumentiere Überläufe und Wasserkanten präzise aus der Luft.`, p: paxGov, w: "Wetter-Sensoren (50 lbs)" },
+            { i: "🔩", t: `Wartungsflug: ${poiName}`, s: `Ein Instandhaltungsteam kontrolliert Schieber, Wehrfelder und Uferbefestigungen an ${poiName}. Du hältst die Plattform für stabile Sichtfenster.`, p: "1 PAX (Wasserbau-Techniker)", w: "Werkzeugkiste (70 lbs)" },
+            { i: "📷", t: `Bauwerks-Dokumentation: ${poiName}`, s: `Für das Jahresgutachten der Talsperre ${poiName} sind neue Luftbilder nötig. Fliege präzise entlang Krone und Wasserseite.`, p: "1 PAX (Bauwerksgutachter)", w: "Kamera-Gimbal (120 lbs)" }
+        ];
+    }
     else if (normalizedName.includes("industrie") || normalizedName.includes("werk") || normalizedName.includes("fabrik") || normalizedName.includes("kraftwerk") || normalizedName.includes("anlage") || normalizedName.includes("mine") || normalizedName.includes("tagebau")) {
         templates = [
             { i: "🏭", t: `Industrie-Inspektion: ${poiName}`, s: `Die Werksleitung von ${poiName} benötigt detaillierte Wärmebildaufnahmen der Kühltürme und Schornsteine. Halte dich genau an die freigegebene Höhe!`, p: paxGov, w: "Infrarot-Scanner (80 lbs)" },

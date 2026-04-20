@@ -175,6 +175,7 @@ const fallbackPOIs = [
     { n: "Rhein (Loreley-Abschnitt)", lat: 50.139, lon: 7.728 },
     { n: "Donau (Wachau-Abschnitt)", lat: 48.398, lon: 15.597 },
     { n: "Elbe bei Hamburg", lat: 53.546, lon: 9.966 },
+    { n: "Stausee Kleine Kinzig", lat: 48.277, lon: 8.351 },
     { n: "Autobahnkreuz Köln-West", lat: 50.948, lon: 6.835 },
     { n: "Autobahndreieck Funkturm Berlin", lat: 52.510, lon: 13.245 },
     { n: "A8 Albaufstieg (Autobahn)", lat: 48.665, lon: 9.675 },

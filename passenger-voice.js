@@ -127,6 +127,7 @@ let _poiAltWasOk        = null;  // null=unknown, true/false
 let _poiSatisfied       = false;
 let _poiAborted         = false;
 let _poiEntryDone       = false; // entry comment fired once on radius entry
+let _poiInspectionOutcome = null; // keeps one consistent inspection result per mission
 
 window.paxVoiceResetMission = function() {
     _paxGreetingDone  = false;
@@ -147,6 +148,7 @@ window.paxVoiceResetMission = function() {
     _poiSatisfied     = false;
     _poiAborted       = false;
     _poiEntryDone     = false;
+    _poiInspectionOutcome = null;
 };
 
 // ─── STRICT / EASY MODE ──────────────────────────────────────────────────────
@@ -191,6 +193,52 @@ function _getDestCoords() {
     const parts = el.innerText.split(',').map(s => parseFloat(s.trim()));
     if (parts.length >= 2 && isFinite(parts[0]) && isFinite(parts[1])) return { lat: parts[0], lon: parts[1] };
     return null;
+}
+
+function _inspectionMissionMeta() {
+    if (!_isPOIMission()) return null;
+    const pax = window.activePassenger || {};
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const role = String(pax.role || '').toLowerCase();
+    const title = String(md.mission || '').toLowerCase();
+    const story = String(_getMissionStory() || '').toLowerCase();
+    const hay = `${role} ${title} ${story}`;
+    const isInspection = /(inspekt|pruef|prüfung|wartung|techn|statik|vermess|scan|check|schaden|fuge|mast|abspannung|brueck|bruck|autobahn|strass|funk|sendemast|stausee|staudamm|talsperre|wehr|sperrmauer)/.test(hay);
+    if (!isInspection) return null;
+    return {
+        objectName: md.poiName || 'dem Objekt',
+        role: role
+    };
+}
+
+function _getPoiInspectionOutcome() {
+    if (_poiInspectionOutcome) return _poiInspectionOutcome;
+    const options = ['clear', 'minor', 'damage', 'pending'];
+    _poiInspectionOutcome = options[Math.floor(Math.random() * options.length)];
+    return _poiInspectionOutcome;
+}
+
+function _inspectionEntryHint() {
+    const meta = _inspectionMissionMeta();
+    if (!meta) return '';
+    return ` Fokus Inspektion: Sag kurz, wonach du am Objekt "${meta.objectName}" suchst (z.B. Risse, lockere Bauteile, Schaeden, Auffaelligkeiten).`;
+}
+
+function _inspectionResultHint() {
+    const meta = _inspectionMissionMeta();
+    if (!meta) return '';
+    const objectName = meta.objectName;
+    const outcome = _getPoiInspectionOutcome();
+    if (outcome === 'damage') {
+        return ` Inspektionsfazit: Bei "${objectName}" hast du einen klaren Schaden gesehen. Sage konkret, was betroffen wirkt und dass der Befund weitergemeldet wird.`;
+    }
+    if (outcome === 'minor') {
+        return ` Inspektionsfazit: Bei "${objectName}" hast du eine auffaellige Stelle gesehen, aber ohne sichere Schadensbestaetigung. Bitte um kurze Nachpruefung.`;
+    }
+    if (outcome === 'pending') {
+        return ` Inspektionsfazit: Den gesuchten Punkt an "${objectName}" konntest du noch nicht eindeutig erkennen. Bitte freundlich um einen weiteren ruhigen Pass.`;
+    }
+    return ` Inspektionsfazit: Bei "${objectName}" konntest du keinen relevanten Schaden erkennen. Gib kurz Entwarnung.`;
 }
 
 // ─── UI ──────────────────────────────────────────────────────────────────────
@@ -662,13 +710,14 @@ function _baseContext() {
     const payload = document.getElementById('mPay')?.innerText?.trim() || '';
     const roleStyle = _roleStyleHint(pax.role);
 
-    const dialect = String(pax.dialectHint || '').trim() || 'neutral';
+    const dialectProfile = _contextualDialectProfile(pax);
     return `Du bist ${pax.name}, ${pax.role}. Persönlichkeit: ${pax.personality}.
 Flug: ${md.start || '?'} → ${md.poiName || md.dest || '?'} (${md.dist || '?'} NM, ${md.ac || 'GA-Flugzeug'}).
 Fracht/Beladung: ${cargo || 'n/a'}${payload ? ` · Passagiere: ${payload}` : ''}
 ${story ? `Auftrag: ${story}` : ''}
 Rollenstil: ${roleStyle}
-Sprachfärbung: ${dialect}. Halte diese Färbung über alle Meldungen dieses Flugs konsistent.
+Region am Ziel: ${dialectProfile.regionLabel}.
+Sprachfärbung: ${dialectProfile.dialectHint}. Intensität: ${dialectProfile.strengthLabel}. Halte diese Färbung über alle Meldungen dieses Flugs konsistent.
 Antworte NUR mit dem exakten gesprochenen Text — keine Anführungszeichen, keine Regieanweisungen, kein Markdown.`;
 }
 
@@ -687,6 +736,99 @@ function _roleStyleHint(roleRaw) {
         return 'interessiert, lernorientiert, respektvoll und eher zurückhaltend.';
     }
     return 'natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show.';
+}
+
+function _rolePrefersNeutralSpeech(roleRaw) {
+    const role = String(roleRaw || '').toLowerCase();
+    return /(wissenschaft|wissenschaftler|wissenschaftlerin|professor|dozent|arzt|aerzt|anwalt|richter|controller|vorstand|manager|analyst)/.test(role);
+}
+
+function _roleSupportsRegionalSpeech(roleRaw) {
+    const role = String(roleRaw || '').toLowerCase();
+    return /(techn|mechan|wartung|inspekt|ingenieur|report|journal|fotograf|flugplatz|verein|beobachter|bauer|handwerker|taxi|bus|shuttle)/.test(role);
+}
+
+function _roleDialectStrength(roleRaw) {
+    const role = String(roleRaw || '').toLowerCase();
+    if (_rolePrefersNeutralSpeech(role)) return 'none';
+    if (_roleSupportsRegionalSpeech(role)) return 'medium';
+    if (/(vip|manager|anwalt|business|kunde|berater|auditor)/.test(role)) return 'low';
+    return 'low';
+}
+
+function _regionalSpeechProfileForCoords(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return { region: 'Unbekannt', dialect: 'neutral' };
+
+    // Schleswig-Holstein / Itzehoe / Nordsee-nahe
+    if (lat >= 53.7 && lat <= 55.2 && lon >= 8.0 && lon <= 11.5) return { region: 'Schleswig-Holstein', dialect: 'leicht holsteinisch-norddeutsch' };
+    // Hamburg
+    if (lat >= 53.35 && lat <= 53.85 && lon >= 9.55 && lon <= 10.45) return { region: 'Hamburg', dialect: 'leicht hamburgisch' };
+    // Niedersachsen / Bremen
+    if (lat >= 52.2 && lat <= 53.9 && lon >= 7.0 && lon <= 10.4) return { region: 'Niedersachsen/Bremen', dialect: 'leicht norddeutsch' };
+    // Mecklenburg-Vorpommern
+    if (lat >= 53.1 && lat <= 54.7 && lon >= 10.5 && lon <= 14.7) return { region: 'Mecklenburg-Vorpommern', dialect: 'leicht nordostdeutsch' };
+
+    // Rheinland / Ruhr / Saar
+    if (lat >= 50.6 && lat <= 52.1 && lon >= 6.0 && lon <= 8.2) return { region: 'Rheinland/Ruhrgebiet', dialect: 'leicht rheinisch' };
+    if (lat >= 49.0 && lat <= 50.7 && lon >= 6.0 && lon <= 8.4) return { region: 'Rheinland-Pfalz/Saar', dialect: 'leicht rheinlaendisch' };
+    if (lat >= 49.6 && lat <= 50.9 && lon >= 8.0 && lon <= 9.5) return { region: 'Rhein-Main', dialect: 'leicht hessisch' };
+
+    // Baden-Wuerttemberg
+    if (lat >= 47.45 && lat <= 49.95 && lon >= 7.35 && lon <= 10.65) {
+        return lon < 8.85
+            ? { region: 'Baden/Schwarzwald', dialect: 'leicht badisch' }
+            : { region: 'Wuerttemberg/Schwaben', dialect: 'leicht schwaebisch' };
+    }
+
+    // Bayern differenziert: Berchtesgadener Land bis Franken
+    if (lat >= 47.45 && lat <= 48.25 && lon >= 12.6 && lon <= 13.5) return { region: 'Berchtesgadener Land', dialect: 'leicht oberbayerisch' };
+    if (lat >= 47.2 && lat <= 48.8 && lon >= 9.4 && lon <= 11.0) return { region: 'Bayerisch-Schwaben/Allgaeu', dialect: 'leicht schwaebisch' };
+    if (lat >= 47.2 && lat <= 49.2 && lon >= 11.0 && lon <= 13.8) return { region: 'Ober-/Niederbayern', dialect: 'leicht bayrisch' };
+    if (lat >= 49.0 && lat <= 50.9 && lon >= 9.2 && lon <= 12.6) return { region: 'Franken', dialect: 'leicht fraenkisch' };
+
+    // Ostdeutschland
+    if (lat >= 51.3 && lat <= 53.7 && lon >= 12.0 && lon <= 14.9) return { region: 'Berlin/Brandenburg', dialect: 'leicht berlinisch-brandenburgisch' };
+    if (lat >= 50.2 && lat <= 51.8 && lon >= 11.8 && lon <= 14.9) return { region: 'Sachsen', dialect: 'leicht saechsisch' };
+    if (lat >= 50.4 && lat <= 51.8 && lon >= 9.8 && lon <= 12.2) return { region: 'Thueringen', dialect: 'leicht thueringisch' };
+
+    // D-A-CH Nachbarn
+    if (lat >= 46.9 && lat <= 48.1 && lon >= 9.3 && lon <= 12.3) return { region: 'Westoesterreich', dialect: 'leicht oesterreichisch' };
+    if (lat >= 46.2 && lat <= 48.5 && lon >= 5.9 && lon <= 10.6) return { region: 'Schweiz', dialect: 'leicht schweizerdeutsch gefaerbt' };
+
+    return { region: 'Mitteleuropa', dialect: 'neutral' };
+}
+
+function _contextualDialectProfile(pax) {
+    const explicit = String(pax?.dialectHint || '').trim().toLowerCase() || 'neutral';
+    const role = String(pax?.role || '');
+    const strength = _roleDialectStrength(role);
+    if (strength === 'none') {
+        return { dialectHint: 'neutral', strengthLabel: 'neutral', regionLabel: 'rollenbedingt neutral' };
+    }
+
+    const coords = _getDestCoords();
+    const regional = _regionalSpeechProfileForCoords(coords?.lat, coords?.lon);
+
+    let dialect = 'neutral';
+    if (regional.dialect !== 'neutral') {
+        // Region hat Vorrang, damit z.B. in Baden kein fraenkischer Klang erzwungen wird.
+        dialect = regional.dialect;
+    } else if (explicit && explicit !== 'neutral') {
+        dialect = explicit;
+    }
+
+    if (dialect === 'neutral') {
+        return { dialectHint: 'neutral', strengthLabel: 'neutral', regionLabel: regional.region || 'Unbekannt' };
+    }
+
+    const strengthLabel = strength === 'medium'
+        ? 'dezent-hoerbar'
+        : 'sehr dezent';
+    return {
+        dialectHint: dialect,
+        strengthLabel,
+        regionLabel: regional.region || 'Unbekannt'
+    };
 }
 
 function _briefingDestWeather() {
@@ -732,10 +874,11 @@ function _poiEntryPrompt(flightData) {
     const wx    = _weatherContext(flightData);
     const noReqs = !pax.targetAltFt && !pax.targetDwellMin;
     const reqHint = noReqs ? '' : ` Erinnere kurz an deine Anforderungen: ${pax.targetAltFt ? pax.targetAltFt + ' ft' : 'Höhe egal'}${pax.targetDwellMin ? ', ca. ' + pax.targetDwellMin + ' min' : ''}.`;
+    const inspHint = _inspectionEntryHint();
     return `${ctx}
 
 Moment: Das Zielgebiet "${md?.poiName || 'Ziel'}" taucht gerade vor uns auf — wir sind auf ${altFt} ft.${wx ? ' ' + wx : ''}
-Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}
+Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}${inspHint}
 1-2 Sätze, darf etwas begeisterter sein als sonst.${_toneHint()}`;
 }
 
@@ -770,10 +913,11 @@ function _poiSatisfiedPrompt(flightData) {
     if (!ctx || !pax) return null;
     const dwell = Math.round(_poiDwellSec / 60 * 10) / 10;
     const wx = _weatherContext(flightData);
+    const inspResultHint = _inspectionResultHint();
     return `${ctx}
 
 Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}
-Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können. 1-2 Sätze.${_toneHint()}`;
+Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${inspResultHint} 1-2 Sätze.${_toneHint()}`;
 }
 
 function _poiAbortPrompt(flightData) {
@@ -876,10 +1020,13 @@ function _atTargetPrompt(flightData) {
     if (wx) notes += ` ${wx}`;
     notes += _consumeWeatherMismatchEasteregg(flightData);
 
+    const inspectionLiveHint = _inspectionMissionMeta()
+        ? ' Falls es zu deiner Rolle passt, nenne direkt eine erste fachliche Beobachtung am Objekt (z.B. unauffaellig, Verdacht, klarer Schaden).'
+        : '';
     return `${ctx}
 
 Moment: ${situation}${notes}
-Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv. Max 2-3 Sätze.${_toneHint()}`;
+Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv.${inspectionLiveHint} Max 2-3 Sätze.${_toneHint()}`;
 }
 
 function _evaluateComfortBreach(flightData, pax) {
