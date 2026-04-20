@@ -865,7 +865,9 @@ function _tickPoiDwell(lat, lon, flightData) {
     const lastComplaintSec = _poiLastComplaintAt ? (now - _poiLastComplaintAt) / 1000 : Infinity;
 
     if (altOk) {
-        _poiDwellSec += dt;
+        // Proximity boost: 2× at centre, 1× at edge (linear)
+        const proximityFactor = 1 + Math.max(0, 1 - distNm / radius);
+        _poiDwellSec += dt * proximityFactor;
 
         if (_poiAltWasOk === false) {
             _paxLog('Höhe korrigiert → Bestätigung', 'event');
