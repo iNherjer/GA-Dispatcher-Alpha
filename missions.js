@@ -1,7 +1,14 @@
 // missions.js - Zuständig für die Generierung der Einsatz-Texte
 
 function generateDynamicPOIMission(poiName, maxSeats) {
-    const nameLower = poiName.toLowerCase();
+    const normalizedName = poiName
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/ä/g, 'ae')
+        .replace(/ö/g, 'oe')
+        .replace(/ü/g, 'ue')
+        .replace(/ß/g, 'ss');
     const maxPax = Math.max(1, maxSeats - 1); 
     const rnd = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -16,7 +23,7 @@ function generateDynamicPOIMission(poiName, maxSeats) {
 
     let templates = [];
 
-    if (nameLower.includes("brücke") || nameLower.includes("viadukt") || nameLower.includes("aquädukt") || nameLower.includes("steg")) {
+    if (normalizedName.includes("bruecke") || normalizedName.includes("brucke") || normalizedName.includes("bridge") || normalizedName.includes("viadukt") || normalizedName.includes("aquadukt") || normalizedName.includes("steg") || normalizedName.includes("pont") || normalizedName.includes("puente")) {
         templates = [
             { i: "🌉", t: `Struktur-Prüfung: ${poiName}`, s: `Das Verkehrsministerium beauftragt dich mit einer Riss- und Statikprüfung der Pfeiler von ${poiName}. Fliege mehrere langsame Pässe.`, p: paxGov, w: cargoUtility },
             { i: "🚄", t: `Verkehrs-Studie: ${poiName}`, s: `Ein Ingenieurbüro plant eine Erweiterung der Verkehrswege bei ${poiName}. Dokumentiere den Verkehrsfluss zur Hauptverkehrszeit aus der Luft.`, p: paxGov, w: "Kamera-Gimbal (120 lbs)" },
@@ -24,7 +31,7 @@ function generateDynamicPOIMission(poiName, maxSeats) {
             { i: "🚁", t: `Instandhaltung: ${poiName}`, s: `Wartungstrupps benötigen einen Überblick über die schwer zugänglichen Stahlseile und Bögen von ${poiName}.`, p: "1 PAX (Ingenieur)", w: cargoUtility }
         ];
     }
-    else if (nameLower.includes("autobahn") || nameLower.includes("kreuz") || nameLower.includes("dreieck") || nameLower.includes("straße") || nameLower.includes("highway") || nameLower.includes("tunnel")) {
+    else if (normalizedName.includes("autobahn") || normalizedName.includes("kreuz") || normalizedName.includes("dreieck") || normalizedName.includes("strasse") || normalizedName.includes("highway") || normalizedName.includes("motorway") || normalizedName.includes("interstate") || normalizedName.includes("freeway") || normalizedName.includes("ring") || normalizedName.includes("junction") || normalizedName.includes("tunnel")) {
         templates = [
             { i: "🚗", t: `Stau-Report: ${poiName}`, s: `Verkehrschaos zur Rush-Hour! Fliege den Bereich um ${poiName} ab und melde Rückstaus live an den lokalen Radiosender.`, p: paxMedia, w: "Funktechnik & Reporter (190 lbs)" },
             { i: "🛣️", t: `Trassen-Inspektion: ${poiName}`, s: `Das Straßenbauamt bittet um einen 10 km langen Abflug der Fahrbahn entlang ${poiName}. Dokumentiere massive Frostschäden.`, p: paxGov, w: cargoUtility },
@@ -32,7 +39,7 @@ function generateDynamicPOIMission(poiName, maxSeats) {
             { i: "🚚", t: `Schwerlast-Eskorte: ${poiName}`, s: `Ein extremer Schwertransport blockiert die Route bei ${poiName}. Das Planungsbüro braucht ein Auge in der Luft für Engstellen.`, p: paxGov, w: "Live-Link Antennen (50 lbs)" }
         ];
     }
-    else if (nameLower.includes("industrie") || nameLower.includes("werk") || nameLower.includes("fabrik") || nameLower.includes("kraftwerk") || nameLower.includes("anlage") || nameLower.includes("mine") || nameLower.includes("tagebau")) {
+    else if (normalizedName.includes("industrie") || normalizedName.includes("werk") || normalizedName.includes("fabrik") || normalizedName.includes("kraftwerk") || normalizedName.includes("anlage") || normalizedName.includes("mine") || normalizedName.includes("tagebau")) {
         templates = [
             { i: "🏭", t: `Industrie-Inspektion: ${poiName}`, s: `Die Werksleitung von ${poiName} benötigt detaillierte Wärmebildaufnahmen der Kühltürme und Schornsteine. Halte dich genau an die freigegebene Höhe!`, p: paxGov, w: "Infrarot-Scanner (80 lbs)" },
             { i: "☢️", t: `Emissions-Messung: ${poiName}`, s: `Das Umweltamt will die Abgaswerte über ${poiName} überprüfen. Fliege mit den montierten Sensoren mehrfach quer durch die Abluftfahne.`, p: paxNone, w: "Luft-Sniffer & Sensoren (120 lbs)" },
@@ -41,7 +48,7 @@ function generateDynamicPOIMission(poiName, maxSeats) {
             { i: "🔥", t: `Gefahren-Abwehr: ${poiName}`, s: `Es gab eine Verpuffung in einem der Silos bei ${poiName}. Der Einsatzleiter der Feuerwehr ist an Bord und verschafft sich einen Überblick.`, p: "1 PAX (Einsatzleiter)", w: "Funk-Relais (50 lbs)" }
         ];
     }
-    else if (nameLower.includes("burg") || nameLower.includes("schloss") || nameLower.includes("ruine") || nameLower.includes("festung") || nameLower.includes("kloster") || nameLower.includes("dom") || nameLower.includes("monument") || nameLower.includes("denkmal")) {
+    else if (normalizedName.includes("burg") || normalizedName.includes("schloss") || normalizedName.includes("ruine") || normalizedName.includes("festung") || normalizedName.includes("kloster") || normalizedName.includes("dom") || normalizedName.includes("monument") || normalizedName.includes("denkmal")) {
         templates = [
             { i: "🏰", t: `Historik-Flug: ${poiName}`, s: `Ein Historiker benötigt hochauflösende Luftaufnahmen von ${poiName}, um alte Mauerstrukturen im Umland zu erkennen. Kreise mehrmals in ruhiger Höhe.`, p: paxGov, w: cargoMedia },
             { i: "🥂", t: `Hochzeits-Tour: ${poiName}`, s: `Ein frisch vermähltes Paar hat einen exklusiven Rundflug gebucht. Zeige ihnen ${poiName} von seiner romantischsten Seite.`, p: paxVIP, w: cargoVIP },
@@ -50,7 +57,7 @@ function generateDynamicPOIMission(poiName, maxSeats) {
             { i: "👻", t: `Mystery-Flug: ${poiName}`, s: `Ein reicher Fan von Mythen und Legenden hat dich gebucht. Er glaubt fest daran, dass es bei ${poiName} spukt und will den Ort aus der Luft beobachten.`, p: paxVIP, w: "Ferngläser & EMF-Meter (10 lbs)" }
         ];
     } 
-    else if (nameLower.includes("fluss") || nameLower.includes("strom") || nameLower.includes("kanal") || nameLower.includes("see") || nameLower.includes("talsperre") || nameLower.includes("teich") || nameLower.includes("insel") || nameLower.includes("weiher") || nameLower.includes("küste") || nameLower.includes("hafen")) {
+    else if (normalizedName.includes("fluss") || normalizedName.includes("strom") || normalizedName.includes("kanal") || normalizedName.includes("see") || normalizedName.includes("talsperre") || normalizedName.includes("teich") || normalizedName.includes("insel") || normalizedName.includes("weiher") || normalizedName.includes("kueste") || normalizedName.includes("hafen") || normalizedName.includes("river") || normalizedName.includes("lake") || normalizedName.includes("bay") || normalizedName.includes("fjord") || normalizedName.includes("meer") || normalizedName.includes("rhein") || normalizedName.includes("donau") || normalizedName.includes("elbe") || normalizedName.includes("isar") || normalizedName.includes("neckar")) {
         templates = [
             { i: "💧", t: `Pegel-Messung: ${poiName}`, s: `Die Wasserbehörde muss den aktuellen Wasserstand und mögliche Ufer-Erosionen bei ${poiName} dokumentieren.`, p: paxNone, w: cargoUtility },
             { i: "🚢", t: `Schifffahrts-Kontrolle: ${poiName}`, s: `Die Flusswacht benötigt ein Update über die aktuelle Schiffsdichte und mögliche Blockaden bei ${poiName}.`, p: paxGov, w: cargoUtility },
@@ -59,7 +66,7 @@ function generateDynamicPOIMission(poiName, maxSeats) {
             { i: "🛶", t: `Werbedreh: ${poiName}`, s: `Der Tourismusverband will neue, dynamische Aufnahmen von Wassersportlern bei ${poiName}. Fliege tief und ruhig für die Kameracrew.`, p: paxMedia, w: cargoMedia }
         ];
     } 
-    else if (nameLower.includes("berg") || nameLower.includes("spitze") || nameLower.includes("horn") || nameLower.includes("gipfel") || nameLower.includes("kogel") || nameLower.includes("wald") || nameLower.includes("tal") || nameLower.includes("schlucht")) {
+    else if (normalizedName.includes("berg") || normalizedName.includes("spitze") || normalizedName.includes("horn") || normalizedName.includes("gipfel") || normalizedName.includes("kogel") || normalizedName.includes("wald") || normalizedName.includes("tal") || normalizedName.includes("schlucht") || normalizedName.includes("alpen") || normalizedName.includes("pass")) {
         templates = [
             { i: "⛰️", t: `Topo-Scan: ${poiName}`, s: `Das Landesvermessungsamt aktualisiert die 3D-Karten der Region. Fliege ein präzises Raster über ${poiName} ab, damit der Laser scannen kann.`, p: paxNone, w: cargoUtility },
             { i: "🌲", t: `Forst-Patrouille: ${poiName}`, s: `Wegen starker Trockenheit ist die Waldbrandgefahr extrem hoch. Patrouilliere das Gebiet um ${poiName} und halte Ausschau nach Rauchentwicklung.`, p: paxGov, w: "Infrarot-Kamera (60 lbs)" },
@@ -68,7 +75,7 @@ function generateDynamicPOIMission(poiName, maxSeats) {
             { i: "📸", t: `Kalender-Shooting: ${poiName}`, s: `Ein bekannter Naturfotograf braucht das perfekte Bild von ${poiName} für das Cover seines neuen Alpen-Kalenders.`, p: paxMedia, w: cargoMedia }
         ];
     } 
-    else if (nameLower.includes("stadt") || nameLower.includes("turm") || nameLower.includes("park") || nameLower.includes("stadion") || nameLower.includes("arena") || nameLower.includes("zentrum")) {
+    else if (normalizedName.includes("stadt") || normalizedName.includes("turm") || normalizedName.includes("park") || normalizedName.includes("stadion") || normalizedName.includes("arena") || normalizedName.includes("zentrum") || normalizedName.includes("city")) {
         templates = [
             { i: "🏙️", t: `City-Panorama: ${poiName}`, s: `Eine Reisegruppe aus Übersee hat eine VIP-Städtetour gebucht. Das Highlight der Route ist ganz klar ${poiName}.`, p: `${maxPax} PAX (Touristen)`, w: cargoVIP },
             { i: "🏗️", t: `Bauaufsicht: ${poiName}`, s: `Das Ingenieurbüro verlangt hochauflösende Aufnahmen von der Statik und dem Zustand der Anlagen bei ${poiName}.`, p: paxGov, w: cargoUtility },

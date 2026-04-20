@@ -1689,7 +1689,73 @@ async function findGithubAirport(lat, lon, minNM, maxNM, dirPref, regionPref) {
     return null;
 }
 
+function normalizeMissionText(txt) {
+    return (txt || "")
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/ä/g, 'ae')
+        .replace(/ö/g, 'oe')
+        .replace(/ü/g, 'ue')
+        .replace(/ß/g, 'ss');
+}
+
+function classifyPOITitleCategory(title) {
+    const t = normalizeMissionText(title);
+    if (t.includes("bruecke") || t.includes("brucke") || t.includes("bridge") || t.includes("viadukt") || t.includes("aquadukt") || t.includes("steg") || t.includes("pont") || t.includes("puente")) return "bridge";
+    if (t.includes("autobahn") || t.includes("kreuz") || t.includes("dreieck") || t.includes("strasse") || t.includes("highway") || t.includes("motorway") || t.includes("interstate") || t.includes("freeway") || t.includes("ring") || t.includes("junction") || t.includes("tunnel")) return "road";
+    if (t.includes("industrie") || t.includes("werk") || t.includes("fabrik") || t.includes("kraftwerk") || t.includes("anlage") || t.includes("mine") || t.includes("tagebau")) return "industry";
+    if (t.includes("burg") || t.includes("schloss") || t.includes("ruine") || t.includes("festung") || t.includes("kloster") || t.includes("dom") || t.includes("monument") || t.includes("denkmal")) return "castle";
+    if (t.includes("fluss") || t.includes("strom") || t.includes("kanal") || t.includes("see") || t.includes("talsperre") || t.includes("teich") || t.includes("insel") || t.includes("weiher") || t.includes("kueste") || t.includes("hafen") || t.includes("river") || t.includes("lake") || t.includes("bay") || t.includes("fjord") || t.includes("meer") || t.includes("rhein") || t.includes("donau") || t.includes("elbe") || t.includes("isar") || t.includes("neckar")) return "water";
+    if (t.includes("berg") || t.includes("spitze") || t.includes("horn") || t.includes("gipfel") || t.includes("kogel") || t.includes("wald") || t.includes("tal") || t.includes("schlucht") || t.includes("alpen") || t.includes("pass")) return "mountain";
+    if (t.includes("stadt") || t.includes("turm") || t.includes("park") || t.includes("stadion") || t.includes("arena") || t.includes("zentrum") || t.includes("city")) return "city";
+    return "generic";
+}
+
+function pickBalancedByCategory(items, categoryOf, storagePrefix) {
+    if (!Array.isArray(items) || items.length === 0) return null;
+    const countsKey = `${storagePrefix}_counts`;
+    const lastKey = `${storagePrefix}_last`;
+    const counts = JSON.parse(localStorage.getItem(countsKey) || '{}');
+    const lastCat = localStorage.getItem(lastKey) || '';
+
+    const categories = [...new Set(items.map(categoryOf))];
+    const minCount = Math.min(...categories.map(cat => parseInt(counts[cat] || 0, 10)));
+    let candidateCats = categories.filter(cat => parseInt(counts[cat] || 0, 10) === minCount);
+    if (candidateCats.length > 1 && candidateCats.includes(lastCat)) {
+        candidateCats = candidateCats.filter(cat => cat !== lastCat);
+    }
+    const selectedCat = candidateCats[Math.floor(Math.random() * candidateCats.length)] || categories[0];
+    const pool = items.filter(item => categoryOf(item) === selectedCat);
+    const picked = pool[Math.floor(Math.random() * pool.length)] || items[0];
+
+    counts[selectedCat] = parseInt(counts[selectedCat] || 0, 10) + 1;
+    localStorage.setItem(countsKey, JSON.stringify(counts));
+    localStorage.setItem(lastKey, selectedCat);
+    return { item: picked, category: selectedCat };
+}
+
 async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref) {
+    const scoredKeywords = [
+        "bruecke", "brucke", "bridge", "viadukt", "autobahn", "kreuz", "strasse", "tunnel", "highway", "motorway", "interstate", "freeway",
+        "fluss", "river", "strom", "kanal", "see", "lake", "hafen", "bay", "fjord", "insel", "kueste",
+        "burg", "schloss", "dom", "denkmal", "monument", "festung", "kloster",
+        "berg", "gipfel", "tal", "schlucht", "wald", "spitze",
+        "stadt", "city", "turm", "arena", "stadion", "zentrum"
+    ];
+    const weakKeywords = ["liste", "begriffsklarung", "jahr", "person", "verwaltungsgemeinschaft", "gemeinde"];
+    const scorePOITitle = (title) => {
+        const t = normalizeMissionText(title);
+        let score = 0;
+        for (const kw of scoredKeywords) {
+            if (t.includes(kw)) score += 1;
+        }
+        for (const kw of weakKeywords) {
+            if (t.includes(kw)) score -= 1;
+        }
+        return score;
+    };
+
     const dist = Math.floor(Math.random() * (maxNM - minNM + 1)) + minNM;
     let minB = 0, maxB = 360;
     if (dirPref === 'N') { minB = 315; maxB = 405; } else if (dirPref === 'E') { minB = 45; maxB = 135; } else if (dirPref === 'S') { minB = 135; maxB = 225; } else if (dirPref === 'W') { minB = 225; maxB = 315; }
@@ -1699,8 +1765,25 @@ async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref) {
     try {
         const res = await fetch(url); const data = await res.json();
         if (data.query && data.query.geosearch && data.query.geosearch.length > 0) {
-            const poi = data.query.geosearch[Math.floor(Math.random() * data.query.geosearch.length)];
-            return { icao: "POI", n: poi.title, lat: poi.lat, lon: poi.lon };
+            const geosearch = data.query.geosearch;
+            let poiPool = geosearch;
+            let bestScore = -999;
+            for (const p of geosearch) {
+                const s = scorePOITitle(p.title);
+                if (s > bestScore) bestScore = s;
+            }
+            if (bestScore > 0) {
+                poiPool = geosearch.filter(p => scorePOITitle(p.title) === bestScore);
+            }
+            const balancedPoi = pickBalancedByCategory(poiPool, p => classifyPOITitleCategory(p.title), 'ga_poi_cat');
+            const poi = balancedPoi ? balancedPoi.item : poiPool[Math.floor(Math.random() * poiPool.length)];
+            return {
+                icao: "POI",
+                n: poi.title,
+                lat: poi.lat,
+                lon: poi.lon,
+                poiCategory: balancedPoi ? balancedPoi.category : classifyPOITitleCategory(poi.title)
+            };
         }
     } catch (e) { }
     return null;
@@ -2943,7 +3026,9 @@ async function generateMission() {
         dataSource = "Fallback POIs";
         let validPOIs = fallbackPOIs.filter(p => checkBearing(calcNav(start.lat, start.lon, p.lat, p.lon).brng, dirPref));
         if (validPOIs.length === 0) validPOIs = fallbackPOIs;
-        dest = validPOIs[Math.floor(Math.random() * validPOIs.length)];
+        const balancedFallbackPoi = pickBalancedByCategory(validPOIs, p => classifyPOITitleCategory(p.n), 'ga_poi_cat');
+        dest = balancedFallbackPoi ? balancedFallbackPoi.item : validPOIs[Math.floor(Math.random() * validPOIs.length)];
+        dest.poiCategory = balancedFallbackPoi ? balancedFallbackPoi.category : classifyPOITitleCategory(dest.n);
         dest.icao = "POI";
     }
 
@@ -2978,23 +3063,56 @@ async function generateMission() {
         if (isPOI) {
             m = generateDynamicPOIMission(dest.n, maxSeats); paxText = m.payloadText; cargoText = m.cargoText; dataSource = "Wikipedia GeoSearch";
         } else if (typeof missions !== 'undefined') {
-            let availM = missions.filter(ms => (nav.dist < 50 || ms.cat === "std"));
+            // A->B-Missionen gleichmäßig über Kategorien rotieren (inkl. Trainingsflüge).
+            const availM = missions.filter(ms => ms && ms.cat !== "poi");
+            if (availM.length === 0) {
+                m = missions[0];
+            } else {
+                const availCats = [...new Set(availM.map(ms => ms.cat || "std"))];
+                const catCounts = JSON.parse(localStorage.getItem('ga_mission_cat_counts') || '{}');
+                const lastCat = localStorage.getItem('ga_last_mission_cat') || '';
 
-            let history = JSON.parse(localStorage.getItem('ga_std_history')) || [];
-            let freshM = availM.filter(ms => !history.includes(ms.t));
+                const minCount = Math.min(...availCats.map(cat => parseInt(catCounts[cat] || 0, 10)));
+                let candidateCats = availCats.filter(cat => parseInt(catCounts[cat] || 0, 10) === minCount);
+                if (candidateCats.length > 1 && candidateCats.includes(lastCat)) {
+                    candidateCats = candidateCats.filter(cat => cat !== lastCat);
+                }
+                const selectedCat = candidateCats[Math.floor(Math.random() * candidateCats.length)] || availCats[0];
 
-            if (freshM.length === 0) { freshM = availM; history = []; }
+                const pool = availM.filter(ms => (ms.cat || "std") === selectedCat);
+                const historyByCat = JSON.parse(localStorage.getItem('ga_mission_history_by_cat') || '{}');
+                let catHistory = Array.isArray(historyByCat[selectedCat]) ? historyByCat[selectedCat] : [];
+                let freshM = pool.filter(ms => !catHistory.includes(ms.t));
 
-            m = freshM[Math.floor(Math.random() * freshM.length)] || missions[0];
+                if (freshM.length === 0) {
+                    freshM = pool;
+                    catHistory = [];
+                }
 
-            history.push(m.t);
-            if (history.length > 30) history.shift();
-            localStorage.setItem('ga_std_history', JSON.stringify(history));
+                m = freshM[Math.floor(Math.random() * freshM.length)] || pool[0] || missions[0];
+
+                catHistory.push(m.t);
+                if (catHistory.length > 20) catHistory.shift();
+                historyByCat[selectedCat] = catHistory;
+                localStorage.setItem('ga_mission_history_by_cat', JSON.stringify(historyByCat));
+
+                catCounts[selectedCat] = parseInt(catCounts[selectedCat] || 0, 10) + 1;
+                localStorage.setItem('ga_mission_cat_counts', JSON.stringify(catCounts));
+                localStorage.setItem('ga_last_mission_cat', selectedCat);
+            }
 
             if (dataSource === "Generiert") dataSource = "GitHub Airport DB";
-            if (m.cat === "trn" || m.cat === "cargo") { paxText = "0 PAX"; }
+                if (m.cat === "trn" || m.cat === "cargo") { paxText = "0 PAX"; }
         }
     }
+
+    const poolCategory = isPOI ? (dest.poiCategory || classifyPOITitleCategory(dest.n)) : (m?.cat || 'std');
+    console.debug('[DISPATCH]', {
+        mode: isPOI ? 'POI' : 'A-B',
+        category: poolCategory,
+        mission: m?.t || 'n/a',
+        target: dest?.n || 'n/a'
+    });
 
     const fuel = Math.ceil((totalDist / selectedTas * selectedGph) + (0.75 * selectedGph));
     const totalMinutes = Math.round((totalDist / selectedTas) * 60);
