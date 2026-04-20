@@ -37,6 +37,8 @@ let lastPredictionUpdate = 0;
 let smoothedGS = 0;
 let smoothedVS = 0;
 let liveToWpLine = null;
+let vpProfileLockIdx = -1;
+let vpProfileLockSig = '';
 
 // --- FLIGHT RECORDER (Snail Trail + Stats) ---
 let flightRecorder = {
@@ -1323,6 +1325,46 @@ window.connectToLiveGPS = async function(syncId) {
     };
 };
 
+function _headingDiffDeg(a, b) {
+    return Math.abs(((a - b + 540) % 360) - 180);
+}
+
+function _profileSegmentCourseDeg(ed, i) {
+    const i0 = Math.max(0, i - 1);
+    const i1 = Math.min(ed.length - 1, i + 1);
+    if (i0 === i1) return null;
+    const a = ed[i0], b = ed[i1];
+    const aLon = a.lon ?? a.lng;
+    const bLon = b.lon ?? b.lng;
+    if (!Number.isFinite(a?.lat) || !Number.isFinite(aLon) || !Number.isFinite(b?.lat) || !Number.isFinite(bLon)) return null;
+    const refLat = ((a.lat + b.lat) * 0.5) * Math.PI / 180;
+    const dLon = (bLon - aLon) * Math.cos(refLat);
+    const dLat = (b.lat - a.lat);
+    if (Math.abs(dLon) < 1e-9 && Math.abs(dLat) < 1e-9) return null;
+    return (Math.atan2(dLon, dLat) * 180 / Math.PI + 360) % 360;
+}
+
+function _profileIdxScore(ed, i, lat, lon, hdg) {
+    const p = ed[i];
+    const pLon = p.lon ?? p.lng;
+    const dLat = lat - p.lat;
+    const dLon = lon - pLon;
+    const distNm = Math.sqrt(dLat * dLat + dLon * dLon) * 59.9;
+    let score = distNm;
+
+    if (Number.isFinite(hdg)) {
+        const segCourse = _profileSegmentCourseDeg(ed, i);
+        if (Number.isFinite(segCourse)) {
+            const diff = _headingDiffDeg(hdg, segCourse);
+            if (diff > 20) {
+                // Gegenkurs-Segmente in Nähe bekommen eine klare, aber nicht harte Strafe.
+                score += Math.min(2.5, ((diff - 20) / 160) * 2.5);
+            }
+        }
+    }
+    return { score, distNm };
+}
+
 function updateLivePlanePosition(lat, lon, alt, hdg) {
     if (typeof map === 'undefined' || !map || typeof L === 'undefined') return;
 
@@ -1631,35 +1673,70 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     }
 
     // --- ICON B: HÖHENPROFIL ---
-    // Optimiert: Binäre Suche nach dem nächsten Punkt auf der Route statt O(n) Brute-Force
+    // Richtungssensitives Lock-on: verhindert Sprünge zwischen nahen Hin-/Rück-Segmenten.
     if (typeof vpElevationData !== 'undefined' && vpElevationData && vpElevationData.length > 2) {
         const ed = vpElevationData;
         const totalDist = ed[ed.length - 1].distNM;
+        const routeSig = `${ed.length}:${Math.round(totalDist * 10)}`;
+        if (routeSig !== vpProfileLockSig) {
+            vpProfileLockSig = routeSig;
+            vpProfileLockIdx = -1;
+        }
 
-        // Schnelle binäre Suche: Entlang der Route den nächsten Längengrad/Breitengrad-Match finden
-        let lo = 0, hi = ed.length - 1, bestIdx = 0, bestDist = Infinity;
-        // Grobe Eingrenzung: Route in ~8 Sprünge abschätzen, dann lokal suchen
-        const step = Math.max(1, Math.floor(ed.length / 8));
-        for (let i = 0; i < ed.length; i += step) {
-            const dLat = lat - ed[i].lat, dLon = lon - (ed[i].lon || ed[i].lng);
-            const approxDist = dLat * dLat + dLon * dLon; // Quadrat reicht für Vergleich
-            if (approxDist < bestDist) { bestDist = approxDist; bestIdx = i; }
+        const coarseStep = Math.max(1, Math.floor(ed.length / 8));
+        let coarseIdx = 0, coarseBest = Infinity;
+        for (let i = 0; i < ed.length; i += coarseStep) {
+            const p = ed[i];
+            const pLon = p.lon ?? p.lng;
+            const dLat = lat - p.lat;
+            const dLon = lon - pLon;
+            const d2 = dLat * dLat + dLon * dLon;
+            if (d2 < coarseBest) { coarseBest = d2; coarseIdx = i; }
         }
-        // Lokal um den besten Treffer herum feinsuchen
-        const searchLo = Math.max(0, bestIdx - step);
-        const searchHi = Math.min(ed.length - 1, bestIdx + step);
+
+        const localWindow = Math.max(40, coarseStep * 4);
+        const hasLock = Number.isFinite(vpProfileLockIdx) && vpProfileLockIdx >= 0 && vpProfileLockIdx < ed.length;
+        let searchLo = Math.max(0, coarseIdx - coarseStep);
+        let searchHi = Math.min(ed.length - 1, coarseIdx + coarseStep);
+        if (hasLock) {
+            searchLo = Math.max(0, vpProfileLockIdx - localWindow);
+            searchHi = Math.min(ed.length - 1, vpProfileLockIdx + localWindow);
+        }
+
+        let bestIdx = searchLo;
+        let bestScore = Infinity;
+        let bestDistNm = Infinity;
         for (let i = searchLo; i <= searchHi; i++) {
-            const dLat = lat - ed[i].lat, dLon = lon - (ed[i].lon || ed[i].lng);
-            const approxDist = dLat * dLat + dLon * dLon;
-            if (approxDist < bestDist) { bestDist = approxDist; bestIdx = i; }
+            const s = _profileIdxScore(ed, i, lat, lon, hdg);
+            if (s.score < bestScore) {
+                bestScore = s.score;
+                bestDistNm = s.distNm;
+                bestIdx = i;
+            }
         }
-        // approxDist ist in Grad² – 1° ≈ 111 km ≈ 59.9 NM
-        const approxDistNM = Math.sqrt(bestDist) * 59.9;
-        window.vpLiveRouteDistNM = approxDistNM;
+
+        // Wenn Lock-Fenster zu weit weg liegt, einmal global neu einloggen.
+        if (hasLock && bestDistNm > 2.2) {
+            let globalBestIdx = 0;
+            let globalBestScore = Infinity;
+            let globalBestDistNm = Infinity;
+            for (let i = 0; i < ed.length; i += 1) {
+                const s = _profileIdxScore(ed, i, lat, lon, hdg);
+                if (s.score < globalBestScore) {
+                    globalBestScore = s.score;
+                    globalBestDistNm = s.distNm;
+                    globalBestIdx = i;
+                }
+            }
+            bestIdx = globalBestIdx;
+            bestDistNm = globalBestDistNm;
+        }
+        vpProfileLockIdx = bestIdx;
+        window.vpLiveRouteDistNM = bestDistNm;
 
         // Terrain-Höhe weiterhin intern vorhalten (z.B. für Warnlogik),
         // Telemetrie zeigt aber MSL-Höhe.
-        const terrainFt = bestDist < 0.028 ? (ed[bestIdx].elevFt ?? 0) : 0;
+        const terrainFt = bestDistNm < 10 ? (ed[bestIdx].elevFt ?? 0) : 0;
         window.lastLiveTerrainFt = terrainFt;
         const mslFt = Math.max(0, Math.round(alt));
         const aglEl = document.getElementById('teleAGL');
@@ -1668,7 +1745,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
             aglEl.style.color = mslFt < 1500 ? '#ff4444' : (mslFt < 3000 ? '#ffcc44' : '#8ec5ff');
         }
 
-        if (bestDist < 0.028) { // ~10 NM Schwelle für Icon-Anzeige
+        if (bestDistNm < 10) { // ~10 NM Schwelle für Icon-Anzeige
             if (typeof vpUpdateLiveAircraft === 'function') {
                 vpUpdateLiveAircraft(ed[bestIdx].distNM / totalDist, alt, hdg);
             }
@@ -2033,6 +2110,8 @@ window.hideLivePlane = function () {
     if (typeof vpUpdateLiveAircraft === 'function') vpUpdateLiveAircraft(-1, 0, 0);
     window.lastLiveGpsPos = null;
     window.lastLiveFlightData = null;
+    vpProfileLockIdx = -1;
+    vpProfileLockSig = '';
     lastGpsTickDetails = null;
     lastTrailPoint = null;
     resetFlightRecorder();
