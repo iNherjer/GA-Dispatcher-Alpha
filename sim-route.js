@@ -144,12 +144,12 @@
                 window.triggerPaxAtTarget({ mslFt: curAlt, aglFt: 0, bankDeg: 0, gForce: 1.0, vsFpm: 0 });
         }
 
-        // Pax voice: Airport 1,5 NM vor Ziel (Anflug, nicht Landung)
+        // Pax voice: Airport 3,0 NM vor Ziel (Anflug, nicht Landung)
         if (!_isPOISim && !simAptAtTargetTriggered && simRouteCache.totalDist > 0 &&
-            simDistNM >= simRouteCache.totalDist - 1.5) {
+            simDistNM >= simRouteCache.totalDist - 3.0) {
             simAptAtTargetTriggered = true;
             const curAlt = Math.round(_alt(simDistNM, simRouteCache));
-            console.log('[SimPax] Airport-Anflug 1.5 NM vor Ziel → At-Target, alt:', curAlt, 'ft');
+            console.log('[SimPax] Airport-Anflug 3.0 NM vor Ziel → At-Target, alt:', curAlt, 'ft');
             if (typeof window.triggerPaxAtTarget === 'function')
                 window.triggerPaxAtTarget({ mslFt: curAlt, aglFt: 0, bankDeg: 0, gForce: 1.0, vsFpm: simTouchdownVs || 0 });
         }
@@ -291,6 +291,8 @@
             maxGs: Number(gs.toFixed(1)),
             maxAltFt: Math.round(simMaxAltFt || 0),
             touchdownVsFpm: Number.isFinite(simTouchdownVs) ? Math.round(simTouchdownVs) : null,
+            maxClimbFpm: 0,
+            maxDescentFpm: Number.isFinite(simTouchdownVs) ? Math.round(Math.min(simTouchdownVs, 0)) : 0,
             track: simTrack.slice()
         };
     }

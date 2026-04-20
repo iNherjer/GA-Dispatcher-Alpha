@@ -45,6 +45,8 @@ let flightRecorder = {
     startTs: 0,
     endTs: 0,
     lowSpeedSince: 0,
+    wasOnGround: false,
+    farewellTriggered: false,
     touchdownVsFpm: null,
     maxGs: 0,
     maxAltFt: 0,
@@ -56,7 +58,9 @@ let flightRecorder = {
     maxBankDeg: 0,
     maxGForce: 1.0,
     sumGForce: 0,
-    gForceSamples: 0
+    gForceSamples: 0,
+    maxClimbFpm: 0,
+    maxDescentFpm: 0
 };
 
 // --- LIVE TRAFFIC ---
@@ -1691,6 +1695,8 @@ function resetFlightRecorder() {
         startTs: 0,
         endTs: 0,
         lowSpeedSince: 0,
+        wasOnGround: false,
+        farewellTriggered: false,
         touchdownVsFpm: null,
         maxGs: 0,
         maxAltFt: 0,
@@ -1702,7 +1708,9 @@ function resetFlightRecorder() {
         maxBankDeg: 0,
         maxGForce: 1.0,
         sumGForce: 0,
-        gForceSamples: 0
+        gForceSamples: 0,
+        maxClimbFpm: 0,
+        maxDescentFpm: 0
     };
 }
 
@@ -1747,15 +1755,13 @@ function nearestAirportLabel(lat, lon) {
     return `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
 }
 
-function finalizeFlightRecorder(now) {
+function _buildFlightRecordSnapshot(now) {
     const r = flightRecorder;
-    r.endTs = now;
-
-    const durationSec = Math.max(1, Math.round((r.endTs - r.startTs) / 1000));
+    const endTs = Number.isFinite(now) ? now : Date.now();
+    const durationSec = Math.max(1, Math.round((endTs - r.startTs) / 1000));
     const avgGs = r.gsSamples > 0 ? (r.sumGs / r.gsSamples) : 0;
     if (r.distNm < 2 || durationSec < 120 || r.track.length < 2) {
-        resetFlightRecorder();
-        return;
+        return null;
     }
 
     const track = r.track.length > 450
@@ -1769,7 +1775,7 @@ function finalizeFlightRecorder(now) {
         ? currentDestICAO
         : nearestAirportLabel(arr[0], arr[1]);
 
-    const record = {
+    return {
         id: Date.now(),
         createdAt: Date.now(),
         dateLabel: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
@@ -1784,8 +1790,21 @@ function finalizeFlightRecorder(now) {
         track,
         maxBankDeg: Number((r.maxBankDeg || 0).toFixed(1)),
         maxGForce: Number((r.maxGForce || 1.0).toFixed(2)),
-        avgGForce: r.gForceSamples > 0 ? Number((r.sumGForce / r.gForceSamples).toFixed(2)) : 1.0
+        avgGForce: r.gForceSamples > 0 ? Number((r.sumGForce / r.gForceSamples).toFixed(2)) : 1.0,
+        maxClimbFpm: Number.isFinite(r.maxClimbFpm) ? Math.round(r.maxClimbFpm) : 0,
+        maxDescentFpm: Number.isFinite(r.maxDescentFpm) ? Math.round(r.maxDescentFpm) : 0
     };
+}
+
+function finalizeFlightRecorder(now) {
+    const r = flightRecorder;
+    r.endTs = now;
+
+    const record = _buildFlightRecordSnapshot(now);
+    if (!record) {
+        resetFlightRecorder();
+        return;
+    }
 
     const hist = JSON.parse(localStorage.getItem('ga_flight_history') || '[]');
     hist.unshift(record);
@@ -1798,7 +1817,7 @@ function finalizeFlightRecorder(now) {
         console.warn('[FlightRec] pinCompletedFlightRecord() nicht verfügbar.');
     }
     triggerCloudSave();
-    if (typeof window.triggerPaxFarewell === 'function') window.triggerPaxFarewell(record);
+    if (!r.farewellTriggered && typeof window.triggerPaxFarewell === 'function') window.triggerPaxFarewell(record);
     resetFlightRecorder();
 }
 
@@ -1823,6 +1842,7 @@ function updateFlightRecorder(lat, lon, alt) {
             r.gsSamples = 1;
             r.track = [];
             r.lastSample = [lat, lon];
+            r.wasOnGround = !!window.lastLiveFlightData?.onGround;
             addFlightTrackPoint(lat, lon, alt, now, true);
         }
         return;
@@ -1841,6 +1861,7 @@ function updateFlightRecorder(lat, lon, alt) {
     r.gsSamples += 1;
     if (agl > 300 || gs > 45) r.armed = true;
     const _lfd = window.lastLiveFlightData;
+    const onGroundNow = !!_lfd?.onGround;
     if (_lfd) {
         if (Number.isFinite(_lfd.bankDeg)) r.maxBankDeg = Math.max(r.maxBankDeg, Math.abs(_lfd.bankDeg));
         if (Number.isFinite(_lfd.gForce) && _lfd.gForce > 0.1) {
@@ -1849,8 +1870,26 @@ function updateFlightRecorder(lat, lon, alt) {
             r.gForceSamples += 1;
         }
     }
+    if (Number.isFinite(smoothedVS)) {
+        if (smoothedVS > 0) r.maxClimbFpm = Math.max(r.maxClimbFpm, smoothedVS);
+        if (smoothedVS < 0) r.maxDescentFpm = Math.min(r.maxDescentFpm, smoothedVS);
+    }
 
     addFlightTrackPoint(lat, lon, alt, now, false);
+
+    // Touchdown-Trigger (Live-Tracker): Farewell sofort beim ersten Bodenkontakt.
+    if (r.armed && onGroundNow && !r.wasOnGround) {
+        if (Number.isFinite(_lfd?.touchdownFpm)) r.touchdownVsFpm = _lfd.touchdownFpm;
+        else if (Number.isFinite(smoothedVS)) r.touchdownVsFpm = smoothedVS;
+        if (!r.farewellTriggered && typeof window.triggerPaxFarewell === 'function') {
+            const earlyRecord = _buildFlightRecordSnapshot(now);
+            if (earlyRecord) {
+                r.farewellTriggered = true;
+                window.triggerPaxFarewell(earlyRecord);
+            }
+        }
+    }
+    r.wasOnGround = onGroundNow;
 
     // Landing-Detection: erst wenn der Flug wirklich "airborne" war
     if (!r.armed) return;

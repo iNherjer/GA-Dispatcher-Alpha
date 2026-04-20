@@ -404,6 +404,11 @@ window.showFlightDebrief = function(record) {
     const dist = Number(record.distanceNm || 0).toFixed(1);
     const maxAlt = Math.round(record.maxAltFt || 0);
     const td = Number.isFinite(record.touchdownVsFpm) ? `${Math.round(record.touchdownVsFpm)} fpm` : '-';
+    const maxBank = Number.isFinite(record.maxBankDeg) ? `${Number(record.maxBankDeg).toFixed(1)}°` : '-';
+    const maxG = Number.isFinite(record.maxGForce) ? `${Number(record.maxGForce).toFixed(2)} g` : '-';
+    const maxClimb = Number.isFinite(record.maxClimbFpm) ? `${Math.round(record.maxClimbFpm)} fpm` : '-';
+    const maxDescRaw = Number.isFinite(record.maxDescentFpm) ? Math.round(record.maxDescentFpm) : null;
+    const maxDescent = Number.isFinite(maxDescRaw) ? `${Math.abs(maxDescRaw)} fpm` : '-';
     const dateText = record.dateLabel || new Date(record.createdAt || Date.now()).toLocaleString('de-DE');
     const pts = Array.isArray(record.track) ? record.track.length : 0;
 
@@ -417,6 +422,10 @@ window.showFlightDebrief = function(record) {
             <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max GS</div><div style="font-size:18px; font-weight:bold;">${maxGs} kt</div></div>
             <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max ALT</div><div style="font-size:18px; font-weight:bold;">${maxAlt} ft</div></div>
             <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Touchdown VS</div><div style="font-size:18px; font-weight:bold;">${td}</div></div>
+            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max Bank</div><div style="font-size:18px; font-weight:bold;">${maxBank}</div></div>
+            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max G</div><div style="font-size:18px; font-weight:bold;">${maxG}</div></div>
+            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max Climb</div><div style="font-size:18px; font-weight:bold;">${maxClimb}</div></div>
+            <div style="background:#182739; border:1px solid #2d4461; border-radius:10px; padding:10px;"><div style="font-size:12px; color:#9fc0e8;">Max Descent</div><div style="font-size:18px; font-weight:bold;">${maxDescent}</div></div>
         </div>
         <div style="font-size:12px; color:#9fc0e8;">Trackpunkte gespeichert: ${pts}</div>
     `;
@@ -433,13 +442,17 @@ window.pinCompletedFlightRecord = function(record, opts = {}) {
     const dist = Number(record.distanceNm || 0).toFixed(1);
     const maxAlt = Math.round(record.maxAltFt || 0);
     const td = Number.isFinite(record.touchdownVsFpm) ? `${Math.round(record.touchdownVsFpm)} fpm` : '-';
+    const maxBank = Number.isFinite(record.maxBankDeg) ? `${Number(record.maxBankDeg).toFixed(1)}°` : '-';
+    const maxG = Number.isFinite(record.maxGForce) ? `${Number(record.maxGForce).toFixed(2)}g` : '-';
+    const maxDescRaw = Number.isFinite(record.maxDescentFpm) ? Math.round(record.maxDescentFpm) : null;
+    const maxDescent = Number.isFinite(maxDescRaw) ? `${Math.abs(maxDescRaw)} fpm` : '-';
     const dateText = record.dateLabel || new Date().toLocaleString('de-DE');
 
     const note = {
         id: Date.now(),
         type: 'flight_record',
         flightRecord: record,
-        text: `🛬 <b>${dep} ➔ ${arr}</b><br><span style="font-size:11px; color:#555;">${dateText}</span><br><span style="font-size:11px;">${dist} NM • ${mins} min • Ø ${avg} kt<br>MAX ${maxAlt} ft • TD ${td}</span>`,
+        text: `🛬 <b>${dep} ➔ ${arr}</b><br><span style="font-size:11px; color:#555;">${dateText}</span><br><span style="font-size:11px;">${dist} NM • ${mins} min • Ø ${avg} kt<br>MAX ${maxAlt} ft • TD ${td}<br>G ${maxG} • Bank ${maxBank} • DESC ${maxDescent}</span>`,
         x: 35 + Math.random() * 15,
         y: 20 + Math.random() * 15,
         rot: Math.floor(Math.random() * 9) - 4

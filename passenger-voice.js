@@ -183,7 +183,7 @@ function _getDestCoords() {
 let _paxPanel = null;
 let _paxBtn   = null;
 let _lastPaxText = '';
-const _AIRPORT_AT_TARGET_NM = 2.0;
+const _AIRPORT_AT_TARGET_NM = 3.0;
 
 function _injectPaxUI() {
     if (document.getElementById('paxVoiceWidget')) return;
@@ -761,6 +761,7 @@ function _evaluateComfortBreach(flightData, pax) {
     const g = Number(flightData.gForce || 1.0);
     const bank = Math.abs(Number(flightData.bankDeg || 0));
     const wind = Number(flightData.windKts || 0);
+    const vsFpm = Number.isFinite(flightData.vsFpm) ? Number(flightData.vsFpm) : Number(flightData.vs || 0);
 
     const gTol = pax.gTolerance || 'mittel';
     const bankTol = pax.bankTolerance || 'mittel';
@@ -773,14 +774,18 @@ function _evaluateComfortBreach(flightData, pax) {
     // Wind-Hinweise unabhängig von POI/A-B, bewusst etwas später als "mäßiger Wind".
     const wWarn = 22;
     const wHard = 32;
+    // Sinkflug: bei deutlichem Downrate-Hinweis darf der Passagier reagieren.
+    const dWarn = -1500;
+    const dHard = -2200;
 
     const gLevel = g >= gHard ? 'hard' : g >= gWarn ? 'warn' : null;
     const bLevel = bank >= bHard ? 'hard' : bank >= bWarn ? 'warn' : null;
     const wLevel = wind >= wHard ? 'hard' : wind >= wWarn ? 'warn' : null;
-    if (!gLevel && !bLevel && !wLevel) return null;
+    const dLevel = vsFpm <= dHard ? 'hard' : vsFpm <= dWarn ? 'warn' : null;
+    if (!gLevel && !bLevel && !wLevel && !dLevel) return null;
 
-    const severity = (gLevel === 'hard' || bLevel === 'hard' || wLevel === 'hard') ? 'hard' : 'warn';
-    return { severity, g, bank, wind, gLevel, bLevel, wLevel };
+    const severity = (gLevel === 'hard' || bLevel === 'hard' || wLevel === 'hard' || dLevel === 'hard') ? 'hard' : 'warn';
+    return { severity, g, bank, wind, vsFpm, gLevel, bLevel, wLevel, dLevel };
 }
 
 function _comfortBreachPrompt(flightData, breach, count) {
@@ -792,6 +797,7 @@ function _comfortBreachPrompt(flightData, breach, count) {
     if (breach.gLevel) bits.push(`G-Last gerade ${breach.g.toFixed(2)}g`);
     if (breach.bLevel) bits.push(`Bank aktuell ${breach.bank.toFixed(0)}°`);
     if (breach.wLevel) bits.push(`Wind ${breach.wind.toFixed(0)} kts`);
+    if (breach.dLevel) bits.push(`Sinkflug ${Math.round(breach.vsFpm)} ft/min`);
     const level = breach.severity === 'hard' ? 'deutlich' : 'spürbar';
     const humor = breach.severity === 'hard'
         ? 'Gib gern einen kurzen humorvollen Kommentar zur sportlichen Flugweise.'
@@ -847,6 +853,9 @@ function _farewellPrompt(record) {
     let highlights = '';
     if (pax.gTolerance === 'niedrig' && (record.maxGForce || 1) > 1.5) highlights += ' Etwas viel G für mich, aber okay.';
     if (pax.bankTolerance === 'niedrig' && (record.maxBankDeg || 0) > 30) highlights += ' Die Kurven waren schon sportlich.';
+    if (Number.isFinite(record.maxDescentFpm) && record.maxDescentFpm <= -1500) {
+        highlights += ` Der Sinkflug mit ${Math.abs(Math.round(record.maxDescentFpm))} ft/min ging etwas auf Ohren und Magen.`;
+    }
     if (td && Math.abs(record.touchdownVsFpm) < 200) highlights += ' Die Landung war richtig sanft — Kompliment!';
     if (td && Math.abs(record.touchdownVsFpm) > 500) highlights += ` Die Landung mit ${Math.abs(record.touchdownVsFpm)} ft/min war etwas holprig.`;
     if (wx) highlights += ` ${wx}`;
