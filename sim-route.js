@@ -198,6 +198,18 @@
             vsEl.style.color = vs > 100 ? 'var(--green)' : vs < -100 ? 'var(--red)' : '#fff';
         }
 
+        // Sim-FlightData für Passenger-Logik spiegeln (inkl. VS).
+        window.lastLiveFlightData = {
+            mslFt: Math.round(alt || 0),
+            aglFt: 0,
+            bankDeg: 0,
+            gForce: 1.0,
+            vsFpm: Math.round(vs || 0),
+            windKts: null,
+            windDeg: null,
+            onGround: false
+        };
+
         // Positions-Injektion → gleiche Funktion wie Live-GPS
         updateLivePlanePosition(pos.lat, pos.lon, Math.round(alt), pos.hdg);
         _recordSimTrack(pos.lat, pos.lon, alt);
@@ -222,6 +234,17 @@
             vsEl.textContent = '+0';
             vsEl.style.color = '#fff';
         }
+
+        window.lastLiveFlightData = {
+            mslFt: Math.round(alt || 0),
+            aglFt: 0,
+            bankDeg: 0,
+            gForce: 1.0,
+            vsFpm: 0,
+            windKts: null,
+            windDeg: null,
+            onGround: !!atEnd
+        };
 
         updateLivePlanePosition(pos.lat, pos.lon, Math.round(alt), pos.hdg);
         _recordSimTrack(pos.lat, pos.lon, alt, true);

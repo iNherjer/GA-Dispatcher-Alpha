@@ -522,6 +522,17 @@ function _buildIntercomChain(ctx, destination, durationSec) {
     return { input: hp, noise };
 }
 
+function _normalizeSpokenText(text) {
+    if (!text) return text;
+    return String(text)
+        .replace(/[–—]+/g, ', ')
+        .replace(/\s*;\s*/g, ', ')
+        .replace(/\.{3,}/g, '. ')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\s+([,.!?])/g, '$1')
+        .trim();
+}
+
 async function _paxDecodeAndPlay(base64Audio, mimeType) {
     const ctx = window._tawsAudioCtx;
     if (!ctx) { _paxLog('AudioContext nicht verfügbar', 'warn'); return; }
@@ -599,7 +610,8 @@ async function _speakAndShow(situationPrompt, eventLabel) {
 
     _paxLog(`── ${eventLabel} ──`, 'event');
     _paxLog(`PROMPT: ${situationPrompt.replace(/\n+/g, ' ').slice(0, 200)}…`, 'send');
-    const spokenText = await _generateSpokenText(apiKey, situationPrompt);
+    const spokenTextRaw = await _generateSpokenText(apiKey, situationPrompt);
+    const spokenText = _normalizeSpokenText(spokenTextRaw);
     if (!spokenText) { _paxLog('Kein Text von Gemini (API-Fehler oder leere Antwort)', 'warn'); return; }
 
     _lastSpokenText = spokenText;
@@ -699,7 +711,9 @@ function _toneHint() {
             : 'Humor in normaler Dosis: eine lockere, freundliche Pointe ist willkommen.';
     return `
 Sprich den Piloten direkt an (per Du, kein Erzähler-Stil). Ton: persönlich, warmherzig und spontan, als würdest du live im Cockpit reagieren statt einen Text vorzulesen.
-Ich-Form. Alltagssprache, kurze natürliche Sätze, gern mit kleinen Einwürfen wie "ehrlich gesagt", "ui", "okay".
+Sprache: locker und einfach, kein steifes Hochdeutsch, kein Amtsdeutsch. Eher so, wie man im Cockpit wirklich redet.
+Ich-Form. Kurze natürliche Sätze, gern mit kleinen Einwürfen wie "ehrlich gesagt", "ui", "okay", "passt".
+Gelegentlich leichte Umgangssprache ist okay (z.B. "wir ham", "grad"), aber nicht übertreiben und nicht in starken Dialekt kippen.
 ${humorLine}
 Auch wenn etwas nicht ideal läuft: konstruktiv, menschlich und ermutigend bleiben.
 Auf Deutsch.`;
