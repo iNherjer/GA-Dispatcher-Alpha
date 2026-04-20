@@ -4545,3 +4545,11 @@ body.theme-navcom .btn-menu:active {
     .awm-freq-vals { font-size:12px; display:flex; flex-direction:column; gap:1px; }
     .awm-freq-entry { padding:6px 8px 6px 10px; gap:7px; }
 }
+
+/* ── Passenger voice widget — always on top in map fullscreen ── */
+#paxVoiceWidget {
+    z-index: 100200;
+}
+body.map-is-fullscreen #paxVoiceWidget {
+    bottom: 80px;
+}

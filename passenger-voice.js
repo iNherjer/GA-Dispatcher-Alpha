@@ -430,6 +430,11 @@ async function _speakAndShow(situationPrompt, eventLabel) {
 
     _showPaxMessage(spokenText, eventLabel);
 
+    if (!_paxVoiceEnabled) {
+        _paxLog('TTS übersprungen (Stimme deaktiviert)', 'state');
+        return;
+    }
+
     const pax = window.activePassenger;
     const voiceName = (pax?.gender === 'male') ? 'Charon' : 'Kore';
     const ttsPayload = {
@@ -607,18 +612,18 @@ Verabschiede dich beim Piloten und gib ein ehrliches, persönliches Fazit über 
 // ─── PUBLIC TRIGGERS ─────────────────────────────────────────────────────────
 
 window.triggerPaxGreeting = async function() {
-    _paxLog(`triggerPaxGreeting | enabled:${_paxVoiceEnabled} done:${_paxGreetingDone} pax:${!!window.activePassenger} key:${!!_getApiKey()}`, 'state');
-    if (!_paxVoiceEnabled || _paxGreetingDone || !window.activePassenger) return;
+    _paxLog(`triggerPaxGreeting | tts:${_paxVoiceEnabled} done:${_paxGreetingDone} pax:${!!window.activePassenger} key:${!!_getApiKey()}`, 'state');
+    if (_paxGreetingDone || !window.activePassenger) return;
     _paxGreetingDone = true;
     const prompt = _greetingPrompt();
     if (!prompt) { _paxGreetingDone = false; _paxLog('Greeting: kein Prompt (Mission-Daten fehlen?)', 'warn'); return; }
-    _paxLog('Greeting → API-Call gestartet', 'event');
+    _paxLog('Greeting → API-Call', 'event');
     await _speakAndShow(prompt, 'Begrüßung');
 };
 
 window.triggerPaxAtTarget = async function(flightData) {
-    _paxLog(`triggerPaxAtTarget | enabled:${_paxVoiceEnabled} done:${_paxAtTargetDone} pax:${!!window.activePassenger} alt:${flightData?.mslFt||0}ft`, 'state');
-    if (!_paxVoiceEnabled || _paxAtTargetDone || !window.activePassenger) return;
+    _paxLog(`triggerPaxAtTarget | tts:${_paxVoiceEnabled} done:${_paxAtTargetDone} pax:${!!window.activePassenger} alt:${flightData?.mslFt||0}ft`, 'state');
+    if (_paxAtTargetDone || !window.activePassenger) return;
     _paxAtTargetDone = true;
     const prompt = _atTargetPrompt(flightData);
     if (!prompt) { _paxAtTargetDone = false; _paxLog('AtTarget: kein Prompt', 'warn'); return; }
@@ -627,8 +632,8 @@ window.triggerPaxAtTarget = async function(flightData) {
 };
 
 window.triggerPaxFarewell = async function(record) {
-    _paxLog(`triggerPaxFarewell | enabled:${_paxVoiceEnabled} done:${_paxFarewellDone} pax:${!!window.activePassenger}`, 'state');
-    if (!_paxVoiceEnabled || _paxFarewellDone || !window.activePassenger) return;
+    _paxLog(`triggerPaxFarewell | tts:${_paxVoiceEnabled} done:${_paxFarewellDone} pax:${!!window.activePassenger}`, 'state');
+    if (_paxFarewellDone || !window.activePassenger) return;
     _paxFarewellDone = true;
     const prompt = _farewellPrompt(record);
     if (!prompt) { _paxFarewellDone = false; _paxLog('Farewell: kein Prompt', 'warn'); return; }
@@ -646,7 +651,7 @@ function _haversineNm(lat1, lon1, lat2, lon2) {
 
 // Called each GPS tick from sync.js + sim-route.js
 window.checkPaxPoiProximity = function(lat, lon, flightData) {
-    if (!_paxVoiceEnabled || !window.activePassenger) return;
+    if (!window.activePassenger) return;
 
     if (_isPOIMission()) {
         if (!_poiSatisfied && !_poiAborted) _tickPoiDwell(lat, lon, flightData);
