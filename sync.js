@@ -130,6 +130,11 @@ function _distanceToMissionTargetNm(lat, lon) {
     return _haversineNmLocal(lat, lon, t.lat, t.lon);
 }
 
+function _isAtMissionTarget(lat, lon, thresholdNm = 1.2) {
+    const dNm = _distanceToMissionTargetNm(lat, lon);
+    return Number.isFinite(dNm) ? dNm <= thresholdNm : false;
+}
+
 window.missionRuntimeReset = function() {
     _resetMissionRuntime();
     resetFlightRecorder();
@@ -2015,7 +2020,7 @@ function _buildFlightRecordSnapshot(now) {
     };
 }
 
-function finalizeFlightRecorder(now) {
+function finalizeFlightRecorder(now, endLat = null, endLon = null) {
     const r = flightRecorder;
     try {
         r.endTs = now;
@@ -2037,7 +2042,11 @@ function finalizeFlightRecorder(now) {
             console.warn('[FlightRec] pinCompletedFlightRecord() nicht verfügbar.');
         }
         triggerCloudSave();
-        if (!r.farewellTriggered && typeof window.triggerPaxFarewell === 'function') window.triggerPaxFarewell(record);
+        // Farewell nur am korrekten Zielplatz triggern.
+        const atTargetForFarewell = _isAtMissionTarget(Number(endLat), Number(endLon), 1.2);
+        if (!r.farewellTriggered && atTargetForFarewell && typeof window.triggerPaxFarewell === 'function') {
+            window.triggerPaxFarewell(record);
+        }
     } finally {
         resetFlightRecorder();
     }
@@ -2189,7 +2198,8 @@ function updateFlightRecorder(lat, lon, alt) {
     if (r.armed && r.hadAirbornePhase && onGroundNow && !r.wasOnGround) {
         if (Number.isFinite(_lfd?.touchdownFpm)) r.touchdownVsFpm = _lfd.touchdownFpm;
         else if (Number.isFinite(smoothedVS)) r.touchdownVsFpm = smoothedVS;
-        if (!r.farewellTriggered && typeof window.triggerPaxFarewell === 'function') {
+        const atTargetForFarewell = _isAtMissionTarget(lat, lon, 1.2);
+        if (!r.farewellTriggered && atTargetForFarewell && typeof window.triggerPaxFarewell === 'function') {
             const earlyRecord = _buildFlightRecordSnapshot(now);
             if (earlyRecord) {
                 r.farewellTriggered = true;
@@ -2241,7 +2251,7 @@ function updateFlightRecorder(lat, lon, alt) {
         }
         if ((now - r.lowSpeedSince) >= 5000) {
             addFlightTrackPoint(lat, lon, alt, now, true);
-            finalizeFlightRecorder(now);
+            finalizeFlightRecorder(now, lat, lon);
         }
     } else {
         r.lowSpeedSince = 0;
