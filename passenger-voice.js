@@ -122,6 +122,7 @@ let _paxWrongStartContinueDone = false;
 let _paxOffDestLastAt = 0;
 let _aptTrainingBriefDone = false;
 let _aptTrainingLandingBriefDone = false;
+const _UNIFIED_INSTRUCTOR_BASELINE = true;
 let _trainingEval = null;
 
 // POI dwell state machine
@@ -1001,6 +1002,9 @@ function _regionalSpeechProfileForCoords(lat, lon) {
 }
 
 function _contextualDialectProfile(pax) {
+    if (_UNIFIED_INSTRUCTOR_BASELINE) {
+        return { dialectHint: 'neutral', strengthLabel: 'neutral', regionLabel: 'Global: instructor_baseline' };
+    }
     const explicit = String(pax?.dialectHint || '').trim().toLowerCase() || 'neutral';
     const role = String(pax?.role || '');
     const roleProfile = String(pax?.roleProfile || '').toLowerCase();
@@ -1245,6 +1249,27 @@ Erkläre dem Piloten verständnisvoll, dass wir die Mission abbrechen und zurüc
 
 // Shared tone instruction appended to every prompt
 function _toneHint() {
+    if (_UNIFIED_INSTRUCTOR_BASELINE) {
+        const greetingLine = _paxGreetingDone
+            ? 'Keine erneute Begrüßung am Satzanfang. Direkt mit dem Inhalt starten.'
+            : 'Wenn überhaupt, nur eine sehr kurze Begrüßung am Anfang (z.B. "Hi").';
+        const humorLine = _paxHumorLevel === 'subtle'
+            ? 'Humor nur sehr dezent.'
+            : _paxHumorLevel === 'bold'
+                ? 'Humor darf hörbar sein, aber bleib professionell und klar.'
+                : 'Humor in normaler Dosis: freundlich und kurz.';
+        return `
+Sprich den Piloten direkt an (per Du, kein Erzähler-Stil).
+Sprechbasis fuer ALLE Rollen: identisch ruhig, klar und praezise wie ein erfahrener Fluglehrer.
+Aussprache und Wortwahl durchgehend neutral-standardsprachlich (kein Dialekt, keine regionale Faerbung).
+Ich-Form. Kurze, saubere Saetze. Keine verschachtelten Formulierungen.
+Vermeide Semikolon, Gedankenstrich, Klammern und ueberlange Saetze.
+${greetingLine}
+Keine dialektale Schreibweise, keine Lautschrift, keine regionalen Fuelleworte.
+${humorLine}
+Auch bei lockerem Ton: professionell, freundlich, konsistent.
+Auf Deutsch.`;
+    }
     const profile = _contextualDialectProfile(window.activePassenger || null);
     const roleProfile = String(window.activePassenger?.roleProfile || '').toLowerCase();
     const isCharterNeutral = roleProfile === 'charter_professional_neutral_v1';
