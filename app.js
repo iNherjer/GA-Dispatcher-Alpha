@@ -2697,19 +2697,16 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         if (!normalized.cargo || /kein cargo|none|0 lbs/i.test(String(normalized.cargo))) {
             normalized.cargo = 'Trainingsunterlagen (10 lbs)';
         }
-        const fallbackInstructor = buildInstructorPassenger(null);
-        if (!normalized.passenger || typeof normalized.passenger !== 'object') {
-            normalized.passenger = fallbackInstructor;
-        } else {
-            const g = String(normalized.passenger.gender || '').toLowerCase();
-            if (!String(normalized.passenger.role || '').trim()) {
-                normalized.passenger.role = (g === 'female') ? 'Fluglehrerin' : 'Fluglehrer';
-            }
-            if (!String(normalized.passenger.name || '').trim()) normalized.passenger.name = fallbackInstructor.name;
-            if (!String(normalized.passenger.personality || '').trim()) normalized.passenger.personality = fallbackInstructor.personality;
-            if (!String(normalized.passenger.dialectHint || '').trim()) normalized.passenger.dialectHint = 'neutral';
-            if (!String(normalized.passenger.greetingText || '').trim()) normalized.passenger.greetingText = fallbackInstructor.greetingText;
-        }
+        const aiPassenger = (normalized.passenger && typeof normalized.passenger === 'object') ? normalized.passenger : {};
+        const personaPassenger = buildInstructorPassenger(aiPassenger.trainingPlan || null);
+        normalized.passenger = {
+            ...personaPassenger,
+            // KI-Trainingsplan bevorzugen, damit Aufgabeninhalt erhalten bleibt.
+            trainingPlan: sanitizeTrainingPlan(aiPassenger.trainingPlan || personaPassenger.trainingPlan, true),
+            // Komfortwerte aus KI optional übernehmen, ansonsten Persona-Defaults.
+            gTolerance: String(aiPassenger.gTolerance || personaPassenger.gTolerance || 'mittel').toLowerCase(),
+            bankTolerance: String(aiPassenger.bankTolerance || personaPassenger.bankTolerance || 'mittel').toLowerCase()
+        };
         return normalized;
     };
 
