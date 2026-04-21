@@ -1224,16 +1224,27 @@ Erkläre dem Piloten verständnisvoll, dass wir die Mission abbrechen und zurüc
 
 // Shared tone instruction appended to every prompt
 function _toneHint() {
+    const profile = _contextualDialectProfile(window.activePassenger || null);
+    const region = String(profile?.regionLabel || '').toLowerCase();
+    const isSouthernRegion = /(baden|schwarzwald|wuerttemberg|schwaben|allgaeu|bayern|franken|berchtesgaden|schweiz|oesterreich)/.test(region);
     const humorLine = _paxHumorLevel === 'subtle'
         ? 'Humor nur sehr dezent: höchstens eine kleine, freundliche Nuance.'
         : _paxHumorLevel === 'bold'
             ? 'Humor darf deutlich hörbar sein: eine kurze, freche, aber sympathische Pointe ist ausdrücklich okay.'
             : 'Humor in normaler Dosis: eine lockere, freundliche Pointe ist willkommen.';
+    const greetingLine = _paxGreetingDone
+        ? 'Keine erneute Begrüßung am Satzanfang (kein "Hi", "Hallo", "Moin", "Servus", "Sali"). Direkt mit dem Inhalt starten.'
+        : 'Wenn überhaupt, nur eine sehr kurze Begrüßung am Anfang (z.B. "Hi").';
+    const moinLine = isSouthernRegion
+        ? 'In dieser Region KEIN "Moin" verwenden. Falls Begrüßung, dann eher neutral "Hi" oder "Hey".'
+        : 'Nutze "Moin" nur wenn es regional wirklich passt, sonst neutral bleiben.';
     return `
 Sprich den Piloten direkt an (per Du, kein Erzähler-Stil). Ton: persönlich, warmherzig und spontan, als würdest du live im Cockpit reagieren statt einen Text vorzulesen.
 Sprache: locker und einfach, kein steifes Hochdeutsch, kein Amtsdeutsch. Eher so, wie man im Cockpit wirklich redet.
 Ich-Form. Kurze natürliche Sätze, gern mit kleinen Einwürfen wie "ehrlich gesagt", "ui", "okay", "passt".
 Gelegentlich leichte Umgangssprache ist okay (z.B. "wir ham", "grad"), aber nicht übertreiben und nicht in starken Dialekt kippen.
+${greetingLine}
+${moinLine}
 Wenn eine regionale Sprachfärbung angegeben ist: nur leicht dosieren, verständlich bleiben und über alle Meldungen konsistent halten.
 Keine Dialekt-Mischung zwischen Regionen. Regionale Farbe primär in Wortwahl, nicht in harter Lautverschiebung.
 ${humorLine}
