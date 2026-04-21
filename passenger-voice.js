@@ -929,11 +929,11 @@ function _roleStyleHint(roleRaw, pax = null) {
     if (/report|journal|presse|medien|film|foto/.test(role)) {
         return 'professionell beobachtend, fokussiert, leicht lebendig; keine übertriebene Touri-Euphorie bei geplanten Zielen.';
     }
+    if (/ingenieur|inspekt|vermess|techn|beobachter|amt|facility|wartung|hausmeister|betrieb/.test(role)) {
+        return 'sachlich-pragmatisch, präzise und faktenbasiert, mit Fokus auf Auftrag und Bedingungen; keine romantisierenden Landschaftsformulierungen.';
+    }
     if (/vip|manager|anwalt|architekt|business|kunde/.test(role)) {
         return 'ruhig, souverän, wertig; kurze klare Aussagen statt Show.';
-    }
-    if (/ingenieur|inspekt|vermess|techn|beobachter|amt/.test(role)) {
-        return 'sachlich-pragmatisch, präzise und faktenbasiert, mit Fokus auf Auftrag und Bedingungen; keine romantisierenden Landschaftsformulierungen.';
     }
     if (/flugsch|student|trainee/.test(role)) {
         return 'interessiert, lernorientiert, respektvoll und eher zurückhaltend.';
@@ -1264,6 +1264,9 @@ Sprechbasis fuer ALLE Rollen: identisch ruhig, klar und praezise wie ein erfahre
 Aussprache und Wortwahl durchgehend neutral-standardsprachlich (kein Dialekt, keine regionale Faerbung).
 Ich-Form. Kurze, saubere Saetze. Keine verschachtelten Formulierungen.
 Vermeide Semikolon, Gedankenstrich, Klammern und ueberlange Saetze.
+Kein formelles Schriftdeutsch und kein Behoerdenton.
+Vermeide Formulierungen wie "Es freut mich sehr", "Wir werden uns", "Es ergibt sich", "bequem aus der Luft".
+Bevorzuge gesprochene, natuerliche Varianten wie "Freut mich", "wir schauen uns ... an", "passt", "okay".
 ${greetingLine}
 Keine dialektale Schreibweise, keine Lautschrift, keine regionalen Fuelleworte.
 ${humorLine}
@@ -1402,7 +1405,8 @@ function _greetingPrompt() {
     return `${ctx}
 
 Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.${wx ? ' ' + wx : ''}
-Basistextt für deine Begrüßung (frei adaptieren): "${pax.greetingText}"
+Basistext für deine Begrüßung (frei adaptieren): "${pax.greetingText}"
+Du DARFST hier mit einer kurzen natürlichen Begrüßung beginnen (z.B. "Hi"), aber nur sehr knapp.
 ${reqLine}
 Max 3 Sätze.${_toneHint()}`;
 }
