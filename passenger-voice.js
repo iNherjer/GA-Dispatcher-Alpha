@@ -252,6 +252,8 @@ function _trainingEvalSummary() {
 let _paxStrictMode = (localStorage.getItem('awm_pax_strict') === '1');
 let _paxHumorLevel = (localStorage.getItem('awm_pax_humor') || 'normal');
 if (!['subtle', 'normal', 'bold'].includes(_paxHumorLevel)) _paxHumorLevel = 'normal';
+let _paxTtsModelPref = (localStorage.getItem('awm_pax_tts_model') || 'auto');
+if (!['auto', '3.1', '2.5'].includes(_paxTtsModelPref)) _paxTtsModelPref = 'auto';
 
 window.paxVoiceSetMode = function(strict) {
     _paxStrictMode = !!strict;
@@ -266,6 +268,15 @@ window.paxVoiceSetHumor = function(level) {
     localStorage.setItem('awm_pax_humor', next);
     const el = document.getElementById('awmPaxHumorSelect');
     if (el) el.value = next;
+};
+
+window.paxVoiceSetTtsModel = function(mode) {
+    const next = (mode === '3.1' || mode === '2.5' || mode === 'auto') ? mode : 'auto';
+    _paxTtsModelPref = next;
+    localStorage.setItem('awm_pax_tts_model', next);
+    const el = document.getElementById('awmPaxTtsModelSelect');
+    if (el) el.value = next;
+    _paxLog(`TTS-Modus gesetzt: ${next}`, 'state');
 };
 
 // ─── INIT ─── called at bottom of file after all defs ───────────────────────
@@ -820,26 +831,46 @@ async function _playTextAsTTS(text, speaker = null) {
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
         }
     };
+    const ttsModels = (_paxTtsModelPref === '3.1')
+        ? ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']
+        : (_paxTtsModelPref === '2.5')
+            ? ['gemini-2.5-flash-preview-tts']
+            : ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts'];
+    _paxLog(`TTS-Modelle: ${ttsModels.join(' -> ')} | Modus: ${_paxTtsModelPref}`, 'state');
+
+    let lastErr = null;
+    for (const model of ttsModels) {
     try {
         const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
             { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ttsPayload) }
         );
         if (!res.ok) {
             const errBody = await res.text().catch(() => '(unlesbar)');
-            _paxLog(`TTS HTTP ${res.status}: ${errBody.slice(0, 300)}`, 'warn');
-            throw new Error(`TTS HTTP ${res.status}`);
+            _paxLog(`TTS ${model} HTTP ${res.status}: ${errBody.slice(0, 300)}`, 'warn');
+            lastErr = new Error(`TTS ${model} HTTP ${res.status}`);
+            continue;
         }
         const data     = await res.json();
         const part     = data?.candidates?.[0]?.content?.parts?.[0];
         const b64      = part?.inlineData?.data;
         const mimeType = part?.inlineData?.mimeType || '';
-        if (!b64) throw new Error('Keine Audio-Daten');
-        _paxLog(`TTS OK | mime: ${mimeType} | ${b64.length} chars base64`, 'recv');
+        if (!b64) {
+            _paxLog(`TTS ${model} ohne Audio-Daten`, 'warn');
+            lastErr = new Error(`TTS ${model}: Keine Audio-Daten`);
+            continue;
+        }
+        _paxLog(`TTS OK (${model}) | mime: ${mimeType} | ${b64.length} chars base64`, 'recv');
         if (typeof incrementApiUsage === 'function') incrementApiUsage('flash');
         await _paxDecodeAndPlay(b64, mimeType);
+        return;
     } catch(e) {
-        _paxLog(`TTS Fehler: ${e.message}`, 'warn');
+        lastErr = e;
+        _paxLog(`TTS ${model} Fehler: ${e.message}`, 'warn');
+    }
+    }
+    if (lastErr) {
+        _paxLog(`TTS Fehler: ${lastErr.message}`, 'warn');
     }
 }
 
@@ -1981,6 +2012,8 @@ function _tickPoiDwell(lat, lon, flightData) {
     if (modeEl) modeEl.value = _paxStrictMode ? 'strict' : 'easy';
     const humorEl = document.getElementById('awmPaxHumorSelect');
     if (humorEl) humorEl.value = _paxHumorLevel;
+    const ttsModelEl = document.getElementById('awmPaxTtsModelSelect');
+    if (ttsModelEl) ttsModelEl.value = _paxTtsModelPref;
 
     if (!window.activePassenger) {
         const saved = localStorage.getItem('ga_active_passenger');
