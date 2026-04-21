@@ -131,6 +131,7 @@ let _poiAborted         = false;
 let _poiEntryDone       = false; // entry comment fired once on radius entry
 let _poiInspectionOutcome = null; // keeps one consistent inspection result per mission
 let _poiSightCallDone   = false; // early pre-arrival call before entering POI radius
+let _poiTrainingLastDistToDestNm = null; // trend helper: detect outbound vs. return leg
 
 window.paxVoiceResetMission = function() {
     _paxGreetingDone  = false;
@@ -169,6 +170,7 @@ window.paxVoiceResetMission = function() {
     _poiEntryDone     = false;
     _poiInspectionOutcome = null;
     _poiSightCallDone = false;
+    _poiTrainingLastDistToDestNm = null;
 };
 
 function _trainingEvalBegin() {
@@ -1098,6 +1100,7 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     const ctx = _baseContext();
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
     if (!ctx || !md) return null;
+    if (_activeAptTrainingPlan()) return null;
     const factHint = _targetFactHint();
     const announcedEta = 2; // bewusst knapper wegen Latenz durch Text+TTS
     const roundedDist = Math.max(0.5, Math.round(distNm * 10) / 10);
@@ -1491,12 +1494,22 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
         const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
         if (trainingPlan.trigger === 'half_route') {
             if (_isPOIMission() && wps.length >= 3) {
-                const midWp = wps[Math.floor((wps.length - 1) / 2)];
-                const distToMidNm = _haversineNm(lat, lon, midWp.lat, midWp.lng ?? midWp.lon);
-                if (distToMidNm <= 2.2) {
+                // POI-Training: "half_route" soll auf dem Hinweg zur Trainingszone feuern,
+                // nicht am POI selbst und nicht auf dem Rueckweg.
+                const dest = _getDestCoords() || { lat: last.lat, lon: (last.lng ?? last.lon) };
+                const startLon = first.lng ?? first.lon;
+                const totalOutNm = _haversineNm(first.lat, startLon, dest.lat, dest.lon);
+                const doneOutNm = _haversineNm(first.lat, startLon, lat, lon);
+                const distToDestNm = _haversineNm(lat, lon, dest.lat, dest.lon);
+                const progressOut = totalOutNm > 0.5 ? Math.max(0, Math.min(1, doneOutNm / totalOutNm)) : 0;
+                const approaching = (_poiTrainingLastDistToDestNm == null)
+                    ? true
+                    : (distToDestNm <= (_poiTrainingLastDistToDestNm + 0.02));
+                _poiTrainingLastDistToDestNm = distToDestNm;
+                if (progressOut >= 0.48 && progressOut <= 0.78 && approaching) {
                     _aptTrainingBriefDone = true;
-                    _paxLog(`Training-Trigger half_route(POI) | distMid ${distToMidNm.toFixed(2)} NM`, 'event');
-                    const p = _aptTrainingPrompt(flightData, distNm, 0.50);
+                    _paxLog(`Training-Trigger half_route(POI outbound) | progress ${(progressOut * 100).toFixed(0)}% | distDest ${distToDestNm.toFixed(2)} NM`, 'event');
+                    const p = _aptTrainingPrompt(flightData, distNm, progressOut);
                     if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 }
             } else {
@@ -1543,6 +1556,10 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
 };
 
 function _tickPoiDwell(lat, lon, flightData) {
+    // POI-Training nutzt ein virtuelles Uebungsgebiet ohne echtes Objekt.
+    // Daher keine Objekt-/Dwell-/In-Sight-Trigger aus dem POI-Inspektionspfad.
+    if (_activeAptTrainingPlan()) return;
+
     const pax  = window.activePassenger;
     const dest = _getDestCoords();
     if (!dest) return;
