@@ -1272,6 +1272,7 @@ Vermeide Semikolon, Gedankenstrich, Klammern und ueberlange Saetze.
 Kein formelles Schriftdeutsch und kein Behoerdenton.
 Vermeide Formulierungen wie "Es freut mich sehr", "Wir werden uns", "Es ergibt sich", "bequem aus der Luft".
 Bevorzuge gesprochene, natuerliche Varianten wie "Freut mich", "wir schauen uns ... an", "passt", "okay".
+Nutze natuerliche Kurzformen wie "fuers", "zum", "beim" statt steifer Formen wie "fuer das", "zu dem", "bei dem", wenn es sprachlich passt.
 ${greetingLine}
 Keine dialektale Schreibweise, keine Lautschrift, keine regionalen Fuelleworte.
 ${humorLine}
@@ -1402,11 +1403,15 @@ function _greetingPrompt() {
     const wx = _weatherContext(window.lastLiveFlightData);
     const isPOI = _isPOIMission();
     const trainingPlan = _activeAptTrainingPlan();
+    const role = String(pax?.role || '').toLowerCase();
+    const isClubTechRole = /(mechan|wartung|techn|inspekt|ingenieur|facility|vereins|hangar)/.test(role);
     const reqLine = isPOI
         ? (trainingPlan
             ? `Bitte nenne kurz das Übungsthema und wie wir es sicher und sauber abfliegen. Keine internen Parameter oder technischen Vorgaben zitieren.`
             : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast. Keine internen Parameter oder technischen Vorgaben zitieren.`)
-        : `Bitte erwähne nur Komfortpräferenzen für den Reiseflug (z.B. ruhige Kurven) und KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer.`;
+        : (isClubTechRole
+            ? `Fokus auf den Auftrag und den Ablauf am Ziel. Komfortwünsche nur nennen, wenn sie wirklich wichtig sind. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
+            : `Komfortpräferenzen nur knapp und nur wenn nötig erwähnen. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`);
     return `${ctx}
 
 Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.${wx ? ' ' + wx : ''}
