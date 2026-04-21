@@ -2452,6 +2452,57 @@ const TRAINING_PATTERN_ITEMS = [
     'Missed Approach / Go-Around',
     'Extra-Platzrunde mit stabilisiertem Endanflug'
 ];
+const INSTRUCTOR_PERSONA_LIBRARY = [
+    {
+        name: 'Alex Kramer',
+        role: 'Fluglehrer',
+        gender: 'male',
+        personality: 'ruhig, präzise, motivierend',
+        dialectHint: 'neutral',
+        greetingText: 'Morgen! Heute fliegen wir Training und ich gebe dir die Aufgaben unterwegs.'
+    },
+    {
+        name: 'Lea Hartmann',
+        role: 'Fluglehrerin',
+        gender: 'female',
+        personality: 'ruhig, präzise, motivierend',
+        dialectHint: 'neutral',
+        greetingText: 'Hi, ich bin Lea. Heute trainieren wir strukturiert und ich gebe dir die Aufgaben Schritt für Schritt.'
+    }
+];
+
+function _pickNextInstructorPersona() {
+    const list = Array.isArray(INSTRUCTOR_PERSONA_LIBRARY) && INSTRUCTOR_PERSONA_LIBRARY.length
+        ? INSTRUCTOR_PERSONA_LIBRARY
+        : [{
+            name: 'Alex Kramer',
+            role: 'Fluglehrer',
+            gender: 'male',
+            personality: 'ruhig, präzise, motivierend',
+            dialectHint: 'neutral',
+            greetingText: 'Morgen! Heute fliegen wir Training und ich gebe dir die Aufgaben unterwegs.'
+        }];
+    let idx = -1;
+    try { idx = parseInt(localStorage.getItem('ga_instructor_persona_idx') || '-1', 10); } catch (_) { idx = -1; }
+    if (!Number.isFinite(idx)) idx = -1;
+    idx = (idx + 1) % list.length;
+    try { localStorage.setItem('ga_instructor_persona_idx', String(idx)); } catch (_) {}
+    return { ...list[idx] };
+}
+
+function buildInstructorPassenger(trainingPlan = null) {
+    const persona = _pickNextInstructorPersona();
+    return {
+        ...persona,
+        gTolerance: 'mittel',
+        bankTolerance: 'mittel',
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0,
+        roleProfile: 'instructor_calm_precise_v1',
+        trainingPlan: sanitizeTrainingPlan(trainingPlan, true)
+    };
+}
 
 function _pickUniqueTrainingItems(pool, count, used = new Set()) {
     const src = Array.isArray(pool) ? pool.filter(Boolean) : [];
@@ -2646,23 +2697,18 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         if (!normalized.cargo || /kein cargo|none|0 lbs/i.test(String(normalized.cargo))) {
             normalized.cargo = 'Trainingsunterlagen (10 lbs)';
         }
+        const fallbackInstructor = buildInstructorPassenger(null);
         if (!normalized.passenger || typeof normalized.passenger !== 'object') {
-            normalized.passenger = {
-                name: 'Alex Kramer',
-                role: 'Fluglehrer',
-                gender: 'male',
-                personality: 'ruhig, präzise, motivierend',
-                dialectHint: 'neutral',
-                gTolerance: 'mittel',
-                bankTolerance: 'mittel',
-                targetAltFt: 0,
-                targetRadiusNm: 0,
-                targetDwellMin: 0,
-                greetingText: 'Morgen! Heute fliegen wir Training und ich gebe dir die Aufgaben unterwegs.',
-                trainingPlan: sanitizeTrainingPlan(null, true)
-            };
-        } else if (!String(normalized.passenger.role || '').trim()) {
-            normalized.passenger.role = 'Fluglehrer';
+            normalized.passenger = fallbackInstructor;
+        } else {
+            const g = String(normalized.passenger.gender || '').toLowerCase();
+            if (!String(normalized.passenger.role || '').trim()) {
+                normalized.passenger.role = (g === 'female') ? 'Fluglehrerin' : 'Fluglehrer';
+            }
+            if (!String(normalized.passenger.name || '').trim()) normalized.passenger.name = fallbackInstructor.name;
+            if (!String(normalized.passenger.personality || '').trim()) normalized.passenger.personality = fallbackInstructor.personality;
+            if (!String(normalized.passenger.dialectHint || '').trim()) normalized.passenger.dialectHint = 'neutral';
+            if (!String(normalized.passenger.greetingText || '').trim()) normalized.passenger.greetingText = fallbackInstructor.greetingText;
         }
         return normalized;
     };
@@ -2687,8 +2733,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
          * Option A: nur Airwork (z.B. 2 reine Airwork-Uebungen)
          * Option B: Mix aus Airwork + genau 1 Landeuebung (z.B. 3 Uebungen: 2 Airwork, 1 Pattern/Landung)
        - Gib dazu eine kurze Instruktor-Ansage in "instructorLine".
-    12. TRAININGS-PAX: Es MUSS genau EIN Passagier mitfliegen: der Instruktor. pax MUSS "1 PAX (Instruktor)" oder gleichwertig sein.
+    12. TRAININGS-PAX: Es MUSS genau EIN Passagier mitfliegen: der Instruktor / die Instruktorin. pax MUSS "1 PAX (Instruktor)" oder gleichwertig sein.
         Der passenger darf NICHT null sein und role MUSS klar Instructor/Fluglehrer sein.
+        Variiere das Geschlecht gelegentlich (auch Fluglehrerin).
         cargo nur unkritisch (z.B. "Trainingsunterlagen"), kein echter Frachtauftrag.`
         : `10. KEIN TRAININGSDRIFT: Falls es kein Trainingsflug ist, darf KEIN Trainingsauftrag mit Fluglehrer, Übungen, Platzrunden-Drills oder Checkflug-Inhalten erzeugt werden.`;
     const poiNoTrainingRule = (isPOI && !isTrainingMission)
@@ -3710,25 +3757,13 @@ async function generateMission() {
         if (isPOI) {
             if (selectedPoiCategory === 'trn') {
                 const fallbackPlan = sanitizeTrainingPlan(null, true);
+                const instructor = buildInstructorPassenger(fallbackPlan);
                 m = {
                     i: '🧑‍✈️',
                     t: 'Trainingsflug im Übungsgebiet',
                     s: 'Heute trainieren wir Verfahren und Flugpraezision im platznahen Uebungsgebiet. Ich gebe dir die Uebungsschritte unterwegs, wir arbeiten sauber nach Verfahren und landen danach wieder am Startplatz.',
                     cat: 'trn',
-                    passenger: {
-                        name: 'Alex Kramer',
-                        role: 'Fluglehrer',
-                        gender: 'male',
-                        personality: 'ruhig, praezise, motivierend',
-                        dialectHint: 'neutral',
-                        gTolerance: 'mittel',
-                        bankTolerance: 'mittel',
-                        targetAltFt: 0,
-                        targetRadiusNm: 0,
-                        targetDwellMin: 0,
-                        greetingText: 'Morgen! Heute trainieren wir sauber nach Verfahren. Ich gebe dir gleich die ersten Aufgaben.',
-                        trainingPlan: fallbackPlan
-                    }
+                    passenger: instructor
                 };
                 paxText = "1 PAX (Instruktor)";
                 cargoText = "Trainingsunterlagen (10 lbs)";
@@ -3786,20 +3821,7 @@ async function generateMission() {
                 paxText = "1 PAX (Instruktor)";
                 if (!cargoText || /kein cargo|none|0 lbs/i.test(String(cargoText))) cargoText = "Trainingsunterlagen (10 lbs)";
                 if (!m.passenger || typeof m.passenger !== 'object') {
-                    m.passenger = {
-                        name: 'Alex Kramer',
-                        role: 'Fluglehrer',
-                        gender: 'male',
-                        personality: 'ruhig, präzise, motivierend',
-                        dialectHint: 'neutral',
-                        gTolerance: 'mittel',
-                        bankTolerance: 'mittel',
-                        targetAltFt: 0,
-                        targetRadiusNm: 0,
-                        targetDwellMin: 0,
-                        greetingText: 'Morgen! Heute fliegen wir Training und ich gebe dir die Aufgaben unterwegs.',
-                        trainingPlan: sanitizeTrainingPlan(null, true)
-                    };
+                    m.passenger = buildInstructorPassenger(null);
                 }
             }
         }
