@@ -595,6 +595,15 @@
                 <button class="btn-preset sync-req-btn" id="cloudPullBtn" style="flex: 1; margin: 0; height: 42px; background: #333; color: #f2c12e;" onclick="forceSyncLoad()" disabled>📥 Pull</button>
             </div>
         </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:4px 0 8px 0;">
+            <label style="margin:0; font-size:12px;">🎯 Missionsstatus</label>
+            <span id="missionRuntimeStatus" style="font-size:10px; color:#888;">Wartet auf Boden-Stabilisierung</span>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <button class="btn-preset" id="missionStartBtn" style="flex:1; margin:0; height:36px; background:#1f3b2a; color:#80e0a0; border-color:#2a5a3a;" onclick="window.manualMissionStart && manualMissionStart()">▶ Mission Start</button>
+            <button class="btn-preset" id="missionEndBtn" style="flex:1; margin:0; height:36px; background:#3b2020; color:#ffb4b4; border-color:#6b3d3d;" onclick="window.manualMissionEnd && manualMissionEnd()">■ Mission Ende</button>
+        </div>
         
         <div class="api-hint" id="loginHint">
             Ein Pilot-ID + PIN schützt deine Identität. Logge dich ein, um Cloud-Sync zu nutzen.

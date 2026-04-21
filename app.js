@@ -1025,6 +1025,7 @@ function resetApp() {
     if (destLocRadioEl) destLocRadioEl.value = '';
 
     document.getElementById('searchIndicator').innerText = "System bereit."; setDrumCounter('distDrum', 0); recalculatePerformance();
+    if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
     const rBtn = document.getElementById('radioGenerateBtn');
     if (rBtn) rBtn.classList.remove('active');
 
@@ -3955,6 +3956,7 @@ async function generateMission() {
     window.activePassenger = (m && m.passenger) ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt) : null;
     try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch(e) {}
     if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
+    if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
     const paxBriefingText = formatPaxBriefingText(paxText, window.activePassenger);
 
     document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;

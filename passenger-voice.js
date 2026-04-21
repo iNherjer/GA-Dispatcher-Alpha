@@ -117,6 +117,7 @@ let _paxWxMismatchDone = false;
 let _paxSpeechQueue   = Promise.resolve();
 let _paxWrongStartActive = false;
 let _paxWrongStartContinueDone = false;
+let _paxOffDestLastAt = 0;
 let _aptTrainingBriefDone = false;
 let _aptTrainingLandingBriefDone = false;
 let _trainingEval = null;
@@ -150,6 +151,7 @@ window.paxVoiceResetMission = function() {
     _paxSpeechQueue   = Promise.resolve();
     _paxWrongStartActive = false;
     _paxWrongStartContinueDone = false;
+    _paxOffDestLastAt = 0;
     _aptTrainingBriefDone = false;
     _aptTrainingLandingBriefDone = false;
     _trainingEval = {
@@ -1320,6 +1322,17 @@ function _maybeWrongStartContinue(flightData) {
     setTimeout(() => _speakAndShow(p, 'Route läuft ab hier'), 300);
 }
 
+function _offDestinationLandingPrompt(distNm) {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const distTxt = Number.isFinite(distNm) ? `${distNm.toFixed(1)} NM` : 'ein gutes Stueck';
+    return `${ctx}
+
+Moment: Wir sind am Boden, aber nicht am geplanten Ziel (Abweichung etwa ${distTxt}).
+Sag in 1-2 kurzen Sätzen mit leichtem Humor, dass wir offenbar woanders gelandet sind ("wo sind wir denn hier gelandet?"), die Mission aber weiter offen bleibt. Keine Panik, konstruktiv bleiben.${_toneHint()}`;
+}
+
 function _greetingPrompt() {
     const ctx = _baseContext();
     const pax = window.activePassenger;
@@ -1613,6 +1626,17 @@ window.triggerPaxFarewell = async function(record) {
     if (!prompt) { _paxFarewellDone = false; _paxLog('Farewell: kein Prompt', 'warn'); return; }
     _paxLog('Farewell → API-Call in 3s', 'event');
     setTimeout(() => _speakAndShow(prompt, 'Verabschiedung'), 3000);
+};
+
+window.triggerPaxOffDestinationLanding = async function(distNm) {
+    const now = Date.now();
+    if (!window.activePassenger) return;
+    if ((now - _paxOffDestLastAt) < 90000) return;
+    _paxOffDestLastAt = now;
+    const p = _offDestinationLandingPrompt(distNm);
+    if (!p) return;
+    _paxLog(`Off-Destination Landing Hinweis | d=${Number(distNm || 0).toFixed(1)} NM`, 'event');
+    setTimeout(() => _speakAndShow(p, 'Falscher Landeplatz'), 300);
 };
 
 function _haversineNm(lat1, lon1, lat2, lon2) {

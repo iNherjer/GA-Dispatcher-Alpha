@@ -71,6 +71,96 @@ let flightRecorder = {
     maxDescentFpm: 0
 };
 
+let missionRuntime = {
+    armed: false,
+    active: false,
+    manual: false,
+    readySince: 0,
+    pendingEndAt: 0,
+    lastOffDestAt: 0
+};
+
+function _updateMissionRuntimeUi() {
+    const st = document.getElementById('missionRuntimeStatus');
+    if (st) {
+        st.textContent = missionRuntime.active
+            ? (missionRuntime.manual ? 'Aktiv (manuell)' : 'Aktiv')
+            : (missionRuntime.armed ? 'Scharf (bereit)' : 'Wartet auf Boden-Stabilisierung');
+        st.style.color = missionRuntime.active ? '#4caf50' : (missionRuntime.armed ? '#f2c12e' : '#888');
+    }
+    const bStart = document.getElementById('missionStartBtn');
+    const bEnd = document.getElementById('missionEndBtn');
+    if (bStart) bStart.disabled = missionRuntime.active;
+    if (bEnd) bEnd.disabled = !missionRuntime.active;
+}
+
+function _resetMissionRuntime() {
+    missionRuntime = {
+        armed: false,
+        active: false,
+        manual: false,
+        readySince: 0,
+        pendingEndAt: 0,
+        lastOffDestAt: 0
+    };
+    _updateMissionRuntimeUi();
+}
+
+function _targetPointForMission() {
+    const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : null;
+    if (!wps || wps.length < 1) return null;
+    const isPoi = (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI');
+    const wp = isPoi ? wps[0] : wps[wps.length - 1];
+    const lat = Number(wp?.lat), lon = Number(wp?.lng ?? wp?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+}
+
+function _haversineNmLocal(lat1, lon1, lat2, lon2) {
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2
+        + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 3440.065;
+}
+
+function _distanceToMissionTargetNm(lat, lon) {
+    const t = _targetPointForMission();
+    if (!t) return null;
+    return _haversineNmLocal(lat, lon, t.lat, t.lon);
+}
+
+window.missionRuntimeReset = function() {
+    _resetMissionRuntime();
+    resetFlightRecorder();
+};
+
+window.manualMissionStart = function() {
+    missionRuntime.armed = true;
+    missionRuntime.active = true;
+    missionRuntime.manual = true;
+    missionRuntime.readySince = 0;
+    missionRuntime.pendingEndAt = 0;
+    missionRuntime.lastOffDestAt = 0;
+    resetFlightRecorder();
+    const pos = window.lastLiveGpsPos;
+    if (pos && typeof window.triggerPaxGreeting === 'function') {
+        setTimeout(() => window.triggerPaxGreeting(pos.lat, pos.lon), 200);
+    }
+    _updateMissionRuntimeUi();
+};
+
+window.manualMissionEnd = function() {
+    missionRuntime.active = false;
+    missionRuntime.armed = false;
+    missionRuntime.manual = false;
+    missionRuntime.readySince = 0;
+    missionRuntime.pendingEndAt = 0;
+    missionRuntime.lastOffDestAt = 0;
+    resetFlightRecorder();
+    _updateMissionRuntimeUi();
+};
+
 // --- LIVE TRAFFIC ---
 let liveTrafficMarkers = {}; // key → { marker }
 window.vpTrafficData = [];
@@ -1985,10 +2075,43 @@ function updateFlightRecorder(lat, lon, alt) {
             console.log('[FlightRec] Pause-Ende mit Neustart-Muster erkannt -> Mission reset bereit');
             resetFlightRecorder();
             if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
+            _resetMissionRuntime();
             return;
         }
         r.lastUpdateTs = now; // dt-Sprung nach Pause vermeiden
     }
+
+    // Mission wird erst "scharf", wenn stabile Bodenlage erkannt wurde:
+    // stillstandnah, very low AGL, on ground.
+    if (!missionRuntime.active) {
+        const readyNow = onGroundNow && gs <= 2.0 && agl <= 10;
+        if (readyNow) {
+            if (!missionRuntime.readySince) missionRuntime.readySince = now;
+            if (!missionRuntime.armed && (now - missionRuntime.readySince) >= 2500) {
+                missionRuntime.armed = true;
+                missionRuntime.manual = false;
+                _updateMissionRuntimeUi();
+            }
+        } else {
+            missionRuntime.readySince = 0;
+        }
+    }
+
+    // Erstes echtes Rollen/Bewegen startet die Mission (Begrüßung ab 10 kn).
+    if (!missionRuntime.active && missionRuntime.armed && !simPaused && gs >= 10) {
+        missionRuntime.active = true;
+        missionRuntime.manual = false;
+        missionRuntime.pendingEndAt = 0;
+        missionRuntime.lastOffDestAt = 0;
+        resetFlightRecorder();
+        if (typeof window.triggerPaxGreeting === 'function') {
+            setTimeout(() => window.triggerPaxGreeting(lat, lon), 300);
+        }
+        _updateMissionRuntimeUi();
+    }
+
+    // Ohne aktive Mission keine Recorder-/Landungs-/Debrief-Logik.
+    if (!missionRuntime.active) return;
 
     // Aktivierung: erst nach stabilem Startkandidaten (kein GPS-Spike/Spawn)
     if (!r.active) {
@@ -2008,7 +2131,6 @@ function updateFlightRecorder(lat, lon, alt) {
             r.active = true;
             r.armed = false;
             r.startCandidateSince = 0;
-            if (typeof window.triggerPaxGreeting === 'function') setTimeout(() => window.triggerPaxGreeting(lat, lon), 1500);
             r.startTs = now;
             r.maxGs = gs;
             r.maxAltFt = alt;
@@ -2075,6 +2197,36 @@ function updateFlightRecorder(lat, lon, alt) {
         }
     }
     r.wasOnGround = onGroundNow;
+
+    // Missionsende / Bodenfall:
+    // - am Ziel + stillstand -> mission schließen (nach kurzer Verabschiedungslatenz)
+    // - woanders + stillstand -> humorvoller Hinweis, mission bleibt offen
+    const groundStill = onGroundNow && gs <= 2.0;
+    if (groundStill) {
+        const dTargetNm = _distanceToMissionTargetNm(lat, lon);
+        const atTarget = Number.isFinite(dTargetNm) ? dTargetNm <= 1.2 : false;
+        if (atTarget) {
+            if (!missionRuntime.pendingEndAt) missionRuntime.pendingEndAt = now + 5000;
+            if (now >= missionRuntime.pendingEndAt) {
+                missionRuntime.active = false;
+                missionRuntime.armed = false;
+                missionRuntime.manual = false;
+                missionRuntime.readySince = 0;
+                missionRuntime.pendingEndAt = 0;
+                _updateMissionRuntimeUi();
+            }
+        } else {
+            missionRuntime.pendingEndAt = 0;
+            if (r.hadAirbornePhase && (now - missionRuntime.lastOffDestAt) > 90000) {
+                missionRuntime.lastOffDestAt = now;
+                if (typeof window.triggerPaxOffDestinationLanding === 'function') {
+                    window.triggerPaxOffDestinationLanding(dTargetNm);
+                }
+            }
+        }
+    } else {
+        missionRuntime.pendingEndAt = 0;
+    }
 
     // Landing-Detection: erst wenn der Flug wirklich "airborne" war
     if (!r.armed || !r.hadAirbornePhase) return;
@@ -2223,11 +2375,13 @@ window.hideLivePlane = function () {
     lastGpsTickDetails = null;
     lastTrailPoint = null;
     resetFlightRecorder();
+    _resetMissionRuntime();
     hideNextWpTelemetry();
 };
 
 // Auto-Start & Login on app load
 document.addEventListener('DOMContentLoaded', () => {
+    _updateMissionRuntimeUi();
     // Felder aus dem bestätigten Speicher vorbefüllen
     const savedId = localStorage.getItem('ga_saved_id') || localStorage.getItem('ga_sync_id');
     const savedPin = localStorage.getItem('ga_saved_pin') || localStorage.getItem('ga_sync_pin');
