@@ -647,6 +647,37 @@ let liveNextLegIndex = 0;
 let liveNextRouteKey = '';
 let liveActiveWpIndex = null; // null = automatisch (aus Leg), sonst manuell gewählter Ziel-Wegpunkt
 const liveFreqLookupPending = {};
+const MIN_TRACKER_VERSION_CODE = 207;
+const MIN_TRACKER_VERSION_LABEL = 'v207';
+let trackerVersionPromptShown = false;
+
+function _extractTrackerVersionCode(pkt) {
+    if (!pkt || typeof pkt !== 'object') return null;
+    const codeRaw = pkt.trackerVersionCode;
+    if (Number.isFinite(codeRaw)) return Math.round(codeRaw);
+    const verRaw = String(pkt.trackerVersion || '').trim().toLowerCase();
+    const m = verRaw.match(/(\d{2,})/);
+    if (m) {
+        const parsed = parseInt(m[1], 10);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+}
+
+function _maybePromptTrackerUpdate(pkt) {
+    const code = _extractTrackerVersionCode(pkt);
+    const reportedLabel = String(pkt?.trackerVersion || '').trim() || (Number.isFinite(code) ? `v${code}` : 'keine Versionsnummer');
+    const outdated = !Number.isFinite(code) || code < MIN_TRACKER_VERSION_CODE;
+    if (!outdated || trackerVersionPromptShown) return;
+    trackerVersionPromptShown = true;
+    updateSyncStatus(`Tracker veraltet (${reportedLabel}) – Update auf ${MIN_TRACKER_VERSION_LABEL} empfohlen.`, true);
+    alert(
+        `Neue Tracker-Version verfügbar.\n\n` +
+        `Erkannt: ${reportedLabel}\n` +
+        `Empfohlen: mindestens ${MIN_TRACKER_VERSION_LABEL}\n\n` +
+        `Bitte den Tracker aktualisieren.`
+    );
+}
 
 function clampLiveLegIndex(idx) {
     if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return 0;
@@ -1241,6 +1272,7 @@ window.connectToLiveGPS = async function(syncId) {
                 return;
             }
             if (data.type === 'gps') {
+                _maybePromptTrackerUpdate(data);
                 updateLivePlanePosition(data.lat, data.lon, data.alt, data.hdg);
                 if (data.flight && typeof data.flight === 'object') {
                     window.lastLiveFlightData = data.flight;

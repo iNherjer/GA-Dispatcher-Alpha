@@ -22,6 +22,8 @@ const WebSocket = require('ws');
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const SYNC_ID = 'DEINA';
 const PIN = '0815';
+const TRACKER_VERSION = 'v207';
+const TRACKER_VERSION_CODE = 207;
 
 // Startposition: EDTW Winzeln-Schramberg
 let lat = 48.279;
@@ -139,6 +141,8 @@ function startSim() {
                 type: 'gps',
                 syncId: SYNC_ID,
                 pin: PIN,
+                trackerVersion: TRACKER_VERSION,
+                trackerVersionCode: TRACKER_VERSION_CODE,
                 lat: parseFloat(lat.toFixed(6)),
                 lon: parseFloat(lon.toFixed(6)),
                 alt: Math.round(alt),

@@ -11,6 +11,8 @@ const fs = require('fs');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
+const TRACKER_VERSION = 'v207';
+const TRACKER_VERSION_CODE = 207;
 
 function startTracker(syncId, pin) {
   let _reconnecting = false;
@@ -121,6 +123,8 @@ function connectSimConnect(ws, syncId, pin) {
                   type: 'gps',
                   syncId: syncId,
                   pin: pin,
+                  trackerVersion: TRACKER_VERSION,
+                  trackerVersionCode: TRACKER_VERSION_CODE,
                   lat: lat,
                   lon: lon,
                   alt: Math.round(alt),
