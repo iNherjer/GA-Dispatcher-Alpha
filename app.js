@@ -2470,6 +2470,24 @@ const INSTRUCTOR_PERSONA_LIBRARY = [
         greetingText: 'Hi, ich bin Lea. Heute trainieren wir strukturiert und ich gebe dir die Aufgaben Schritt für Schritt.'
     }
 ];
+const CHARTER_PERSONA_LIBRARY = [
+    {
+        name: 'Martin Vogt',
+        role: 'Unternehmensberater',
+        gender: 'male',
+        personality: 'ruhig, fokussiert, höflich',
+        dialectHint: 'neutral',
+        greetingText: 'Hi, danke dir fürs Fliegen heute. Ich brauch einen ruhigen, sauberen Charterflug.'
+    },
+    {
+        name: 'Nora Seidel',
+        role: 'Projektleiterin',
+        gender: 'female',
+        personality: 'ruhig, strukturiert, freundlich',
+        dialectHint: 'neutral',
+        greetingText: 'Hi, danke fürs Mitnehmen. Mir ist ein ruhiger, planbarer Flug wichtig.'
+    }
+];
 
 function _pickNextInstructorPersona() {
     const list = Array.isArray(INSTRUCTOR_PERSONA_LIBRARY) && INSTRUCTOR_PERSONA_LIBRARY.length
@@ -2501,6 +2519,49 @@ function buildInstructorPassenger(trainingPlan = null) {
         targetDwellMin: 0,
         roleProfile: 'instructor_calm_precise_v1',
         trainingPlan: sanitizeTrainingPlan(trainingPlan, true)
+    };
+}
+
+function _pickNextCharterPersona() {
+    const list = Array.isArray(CHARTER_PERSONA_LIBRARY) && CHARTER_PERSONA_LIBRARY.length
+        ? CHARTER_PERSONA_LIBRARY
+        : [{
+            name: 'Martin Vogt',
+            role: 'Unternehmensberater',
+            gender: 'male',
+            personality: 'ruhig, fokussiert, höflich',
+            dialectHint: 'neutral',
+            greetingText: 'Hi, danke dir fürs Fliegen heute. Ich brauch einen ruhigen, sauberen Charterflug.'
+        }];
+    let idx = -1;
+    try { idx = parseInt(localStorage.getItem('ga_charter_persona_idx') || '-1', 10); } catch (_) { idx = -1; }
+    if (!Number.isFinite(idx)) idx = -1;
+    idx = (idx + 1) % list.length;
+    try { localStorage.setItem('ga_charter_persona_idx', String(idx)); } catch (_) {}
+    return { ...list[idx] };
+}
+
+function buildCharterPassenger(basePassenger = null) {
+    const base = (basePassenger && typeof basePassenger === 'object') ? basePassenger : {};
+    const persona = _pickNextCharterPersona();
+    return {
+        ...persona,
+        ...base,
+        name: String(base.name || '').trim() || persona.name,
+        role: String(base.role || '').trim() || persona.role,
+        gender: (String(base.gender || '').toLowerCase() === 'female' || String(base.gender || '').toLowerCase() === 'male')
+            ? String(base.gender || '').toLowerCase()
+            : persona.gender,
+        personality: String(base.personality || '').trim() || persona.personality,
+        greetingText: String(base.greetingText || '').trim() || persona.greetingText,
+        dialectHint: 'neutral',
+        gTolerance: String(base.gTolerance || 'mittel').toLowerCase(),
+        bankTolerance: String(base.bankTolerance || 'mittel').toLowerCase(),
+        roleProfile: 'instructor_calm_precise_v1',
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0,
+        trainingPlan: null
     };
 }
 
@@ -2631,6 +2692,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
 
     const missionSel = missionPicker || { baseType: isPOI ? 'poi' : 'apt', category: 'all' };
     const isAptTrainingMission = !isPOI && missionSel.baseType === 'apt' && missionSel.category === 'trn';
+    const isAptCharterMission = !isPOI && missionSel.baseType === 'apt' && missionSel.category === 'charter';
     const isPoiTrainingMission = isPOI && missionSel.baseType === 'poi' && missionSel.category === 'trn';
     const isTrainingMission = isAptTrainingMission || isPoiTrainingMission;
     const poiThemesByCat = {
@@ -2704,6 +2766,11 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             normalized.targetRadiusNm = 0;
             normalized.targetDwellMin = 0;
         }
+        if (isAptCharterMission) {
+            const charter = buildCharterPassenger(normalized);
+            charter.trainingPlan = null;
+            return charter;
+        }
         return normalized;
     };
     const enforceTrainingInstructorPayload = (payload) => {
@@ -2723,6 +2790,15 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             gTolerance: String(aiPassenger.gTolerance || personaPassenger.gTolerance || 'mittel').toLowerCase(),
             bankTolerance: String(aiPassenger.bankTolerance || personaPassenger.bankTolerance || 'mittel').toLowerCase()
         };
+        return normalized;
+    };
+    const enforceCharterPayload = (payload) => {
+        if (!isAptCharterMission || !payload || typeof payload !== 'object') return payload;
+        const normalized = { ...payload };
+        normalized.passenger = buildCharterPassenger(normalized.passenger || null);
+        if (!normalized.pax || /^\s*0\s*PAX\b/i.test(String(normalized.pax))) {
+            normalized.pax = `1 PAX (${normalized.passenger.role})`;
+        }
         return normalized;
     };
 
@@ -2800,7 +2876,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         const resFlash3 = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, reqOptions);
         if (resFlash3.ok) {
             const data = await resFlash3.json();
-            const parsed = enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text));
+            const parsed = enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text)));
             incrementApiUsage('flash');
             return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: targetMissionCat, _source: "Gemini 3.0 Flash" };
         }
@@ -2810,7 +2886,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         const resFlash = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, reqOptions);
         if (resFlash.ok) {
             const data = await resFlash.json();
-            const parsed = enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text));
+            const parsed = enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text)));
             incrementApiUsage('flash');
             return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash" };
         }
@@ -2820,7 +2896,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         const resLite = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`, reqOptions);
         if (resLite.ok) {
             const data = await resLite.json();
-            const parsed = enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text));
+            const parsed = enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text)));
             incrementApiUsage('lite');
             return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash Lite" };
         }
@@ -3830,6 +3906,16 @@ async function generateMission() {
             if (dataSource === "Generiert") dataSource = "GitHub Airport DB";
             const aptCatOfMission = classifyAptMissionCategory(m || {});
             if (m.cat === "cargo" || aptCatOfMission === 'cargo') { paxText = "0 PAX"; }
+            if (m.cat === "charter" || aptCatOfMission === 'charter' || selectedAptCategory === 'charter') {
+                if (!m.passenger || typeof m.passenger !== 'object') {
+                    m.passenger = buildCharterPassenger(null);
+                } else {
+                    m.passenger = buildCharterPassenger(m.passenger);
+                }
+                if (!paxText || /^\s*0\s*PAX\b/i.test(String(paxText))) {
+                    paxText = `1 PAX (${m.passenger.role})`;
+                }
+            }
             if (m.cat === "trn" || aptCatOfMission === 'trn' || selectedAptCategory === 'trn') {
                 paxText = "1 PAX (Instruktor)";
                 if (!cargoText || /kein cargo|none|0 lbs/i.test(String(cargoText))) cargoText = "Trainingsunterlagen (10 lbs)";

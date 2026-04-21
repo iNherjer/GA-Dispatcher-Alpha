@@ -873,7 +873,7 @@ function _baseContext() {
 
     const cargo = document.getElementById('mWeight')?.innerText?.trim() || '';
     const payload = document.getElementById('mPay')?.innerText?.trim() || '';
-    const roleStyle = _roleStyleHint(pax.role);
+    const roleStyle = _roleStyleHint(pax.role, pax);
 
     const dialectProfile = _contextualDialectProfile(pax);
     const trainingPlan = _activeAptTrainingPlan();
@@ -894,7 +894,10 @@ Globale Sprachregeln: ${_dialectGlobalRules(dialectProfile, pax.role)}
 Antworte NUR mit dem exakten gesprochenen Text — keine Anführungszeichen, keine Regieanweisungen, kein Markdown.`;
 }
 
-function _roleStyleHint(roleRaw) {
+function _roleStyleHint(roleRaw, pax = null) {
+    if (String(pax?.roleProfile || '').toLowerCase() === 'instructor_calm_precise_v1') {
+        return 'klar, ruhig und didaktisch: kurze präzise Anweisungen mit Fokus auf Sicherheit und Trainingsziel.';
+    }
     const role = String(roleRaw || '').toLowerCase();
     if (/fluglehrer|instructor|instruktor|checkpilot/.test(role)) {
         return 'klar, ruhig und didaktisch: kurze präzise Anweisungen mit Fokus auf Sicherheit und Trainingsziel.';
@@ -977,6 +980,9 @@ function _regionalSpeechProfileForCoords(lat, lon) {
 function _contextualDialectProfile(pax) {
     const explicit = String(pax?.dialectHint || '').trim().toLowerCase() || 'neutral';
     const role = String(pax?.role || '');
+    if (String(pax?.roleProfile || '').toLowerCase() === 'instructor_calm_precise_v1') {
+        return { dialectHint: 'neutral', strengthLabel: 'neutral', regionLabel: 'Profil: calm_precise_neutral' };
+    }
     const trainingPlan = _activeAptTrainingPlan();
     if (trainingPlan && /fluglehrer|instructor|instruktor|checkpilot/.test(role.toLowerCase())) {
         return { dialectHint: 'neutral', strengthLabel: 'neutral', regionLabel: 'Training-Instruktor neutral' };
