@@ -114,6 +114,7 @@ let _paxFarewellDone  = false;
 let _paxComfortLastAt = 0;
 let _paxComfortCount  = 0;
 let _paxComfortBusy   = false;
+let _paxLandingPhaseAnnounced = false;
 let _paxWxMismatchDone = false;
 let _paxSpeechQueue   = Promise.resolve();
 let _paxWrongStartActive = false;
@@ -148,6 +149,7 @@ window.paxVoiceResetMission = function() {
     _paxComfortLastAt = 0;
     _paxComfortCount  = 0;
     _paxComfortBusy   = false;
+    _paxLandingPhaseAnnounced = false;
     _paxWxMismatchDone = false;
     _paxSpeechQueue   = Promise.resolve();
     _lastSpokenSpeaker = null;
@@ -1508,11 +1510,18 @@ Melde dich beim Piloten mit einem kurzen, menschlichen Statement zu deinem Komfo
 Hinweis: Das ist Hinweis #${count} in diesem Flug. Maximal 1-2 Sätze.${_toneHint()}`;
 }
 
-function _maybePaxComfortFeedback(flightData) {
+function _maybePaxComfortFeedback(flightData, lat, lon) {
     if (!window.activePassenger || !flightData) return;
     if (!_paxGreetingDone || _paxAtTargetDone || _paxFarewellDone) return;
+    if (_paxLandingPhaseAnnounced || _aptTrainingLandingBriefDone || _poiTrainingLandingBriefDone) return;
     if (_paxComfortBusy) return;
     if (_paxComfortCount >= 3) return;
+    const onGround = (typeof flightData?.onGround === 'boolean')
+        ? !!flightData.onGround
+        : (Number(flightData?.aglFt || 0) <= 12 && Number(flightData?.gs || flightData?.gsKts || 0) < 30);
+    if (onGround) return;
+    const depDistNm = _distanceFromDepartureNm(Number(lat), Number(lon));
+    if (Number.isFinite(depDistNm) && depDistNm < 2.0) return;
 
     const now = Date.now();
     const cooldownMs = 90 * 1000;
@@ -1619,12 +1628,14 @@ window.triggerPaxAtTarget = async function(flightData) {
     const trainingPlan = _activeAptTrainingPlan();
     if (trainingPlan) {
         _paxAtTargetDone = true;
+        _paxLandingPhaseAnnounced = true;
         _paxLog('AtTarget unterdrueckt: Trainingsmodus aktiv (eigene Trainings-Trigger steuern die Ansagen)', 'state');
         return;
     }
     _paxAtTargetDone = true;
+    _paxLandingPhaseAnnounced = true;
     const prompt = _atTargetPrompt(flightData);
-    if (!prompt) { _paxAtTargetDone = false; _paxLog('AtTarget: kein Prompt', 'warn'); return; }
+    if (!prompt) { _paxAtTargetDone = false; _paxLandingPhaseAnnounced = false; _paxLog('AtTarget: kein Prompt', 'warn'); return; }
     _paxLog('At-Target → API-Call in 2s', 'event');
     setTimeout(() => _speakAndShow(prompt, _isPOIMission() ? 'Am Ziel' : 'Landung'), 2000);
 };
@@ -1658,6 +1669,15 @@ function _haversineNm(lat1, lon1, lat2, lon2) {
     return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 3440.065;
 }
 
+function _distanceFromDepartureNm(lat, lon) {
+    const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : null;
+    if (!wps || !wps.length) return null;
+    const depLat = Number(wps[0]?.lat);
+    const depLon = Number(wps[0]?.lng ?? wps[0]?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(depLat) || !Number.isFinite(depLon)) return null;
+    return _haversineNm(lat, lon, depLat, depLon);
+}
+
 function _trainingPoiCenterFromRoute(wps) {
     if (!Array.isArray(wps) || wps.length < 3) return null;
     const mid = wps[Math.floor((wps.length - 1) / 2)];
@@ -1671,7 +1691,7 @@ function _trainingPoiCenterFromRoute(wps) {
 window.checkPaxPoiProximity = function(lat, lon, flightData) {
     if (!window.activePassenger) return;
     const isPoiMission = _isPOIMission();
-    _maybePaxComfortFeedback(flightData);
+    _maybePaxComfortFeedback(flightData, lat, lon);
     _maybeWrongStartContinue(flightData || window.lastLiveFlightData || {});
     const trainingPlan = _activeAptTrainingPlan();
     const wps = (typeof routeWaypoints !== 'undefined') ? routeWaypoints : null;
@@ -1713,11 +1733,13 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
             if (_poiTrainingZoneStartDone && !_poiTrainingLandingBriefDone) {
                 if (trainingPlan.mode === 'pattern' && distNm <= 5.0) {
                     _poiTrainingLandingBriefDone = true;
+                    _paxLandingPhaseAnnounced = true;
                     _paxLog(`Training-Trigger poi_landing_pattern_5nm | distHome ${distNm.toFixed(2)} NM`, 'event');
                     const p = _trainingLandingPrepPrompt(flightData, distNm, 'pattern', 'Startflugplatz');
                     if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 } else if (trainingPlan.mode !== 'pattern' && distNm <= 4.0) {
                     _poiTrainingLandingBriefDone = true;
+                    _paxLandingPhaseAnnounced = true;
                     _paxLog(`Training-Trigger poi_landing_4nm | distHome ${distNm.toFixed(2)} NM`, 'event');
                     const p = _trainingLandingPrepPrompt(flightData, distNm, 'landing', 'Startflugplatz');
                     if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
@@ -1739,11 +1761,13 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
             if (_aptTrainingBriefDone && !_aptTrainingLandingBriefDone) {
                 if (trainingPlan.mode === 'pattern' && distNm <= 5.0) {
                     _aptTrainingLandingBriefDone = true;
+                    _paxLandingPhaseAnnounced = true;
                     _paxLog(`Training-Trigger apt_landing_pattern_5nm | dist ${distNm.toFixed(2)} NM`, 'event');
                     const p = _trainingLandingPrepPrompt(flightData, distNm, 'pattern', 'Zielflugplatz');
                     if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 } else if (trainingPlan.mode !== 'pattern' && distNm <= 4.0) {
                     _aptTrainingLandingBriefDone = true;
+                    _paxLandingPhaseAnnounced = true;
                     _paxLog(`Training-Trigger apt_landing_4nm | dist ${distNm.toFixed(2)} NM`, 'event');
                     const p = _trainingLandingPrepPrompt(flightData, distNm, 'landing', 'Zielflugplatz');
                     if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
