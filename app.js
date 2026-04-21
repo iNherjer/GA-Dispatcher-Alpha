@@ -3609,6 +3609,12 @@ async function generateMission() {
     const effectiveType = (forcePOI || missionPicker.baseType === "poi") ? "poi" : "apt";
     const selectedPoiCategory = effectiveType === 'poi' ? (missionPicker.category || 'all') : 'all';
     const selectedAptCategory = effectiveType === 'apt' ? (missionPicker.category || 'all') : 'all';
+    // Guardrail: Bei POI-Missionen darf ein evtl. noch befülltes Zielfeld
+    // (z.B. vom vorherigen A-B-Flug) NICHT als Ziel ausgewertet werden.
+    if (effectiveType === "poi" && targetDest) {
+        targetDest = '';
+        dataSource = "Generiert";
+    }
     let searchMin = effectiveType === "poi" ? minNM / 2 : minNM, searchMax = effectiveType === "poi" ? maxNM / 2 : maxNM, dest = null;
     if (effectiveType === 'poi' && selectedPoiCategory === 'trn') {
         // Platznahes POI-Training: Übungsgebiet bewusst nahe am Startplatz halten.
