@@ -1138,6 +1138,11 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     const announcedEta = 2; // bewusst knapper wegen Latenz durch Text+TTS
     const roundedDist = Math.max(0.5, Math.round(distNm * 10) / 10);
     const realEta = Math.max(1, Math.round(etaMin));
+    const pax = window.activePassenger || {};
+    const targetAltFt = Number(pax?.targetAltFt || 0);
+    const altBrief = targetAltFt > 0
+        ? ` Nenne in derselben Meldung bitte kurz die geplante Arbeitsflughöhe: "${targetAltFt} Fuß".`
+        : '';
     const trainingPlan = _activeAptTrainingPlan();
     const trainingHint = trainingPlan
         ? `Instruktor-Modus: Nur fliegerische Hinweise (Anflugstruktur, Luftraum-Scan, Kurs-/Höhenführung, Arbeitsverteilung im Cockpit). Landmarken nur als nüchterne Navigationsreferenz, keine Objektbeschreibung oder Ortsanekdoten.`
@@ -1145,7 +1150,7 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     return `${ctx}
 
 Moment: Zielobjekt "${md.poiName || 'Ziel'}" wird im Anflug sichtbar. Distanz etwa ${roundedDist} NM, reale ETA ca. ${realEta} min, relative Lage ${clockPos}.
-Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".${factHint} ${trainingHint}
+Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".${altBrief}${factHint} ${trainingHint}
 Techniker-/Inspektionsrollen: knapp, professionell, kein Sightseeing-Ton. Max 2 Sätze.${_toneHint()}`;
 }
 
