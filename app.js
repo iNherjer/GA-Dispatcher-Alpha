@@ -1653,6 +1653,20 @@ function getDestinationPoint(lat, lon, distNM, bearing) {
     return { lat: lat2 * 180 / Math.PI, lon: lon2 * 180 / Math.PI };
 }
 
+function pickRandomTrainingPoiNearAirport(startLat, startLon, dirPref, minNm = 4, maxNm = 18) {
+    const safeMin = Math.max(2, Number(minNm) || 4);
+    const safeMax = Math.max(safeMin + 1, Number(maxNm) || 18);
+    for (let i = 0; i < 24; i++) {
+        const dist = safeMin + Math.random() * (safeMax - safeMin);
+        const brg = Math.random() * 360;
+        if (!checkBearing(brg, dirPref)) continue;
+        const p = getDestinationPoint(startLat, startLon, dist, brg);
+        return { n: 'Übungsgebiet', lat: p.lat, lon: p.lon, icao: 'POI', poiCategory: 'trn' };
+    }
+    const fallback = getDestinationPoint(startLat, startLon, Math.max(5, safeMin), 45);
+    return { n: 'Übungsgebiet', lat: fallback.lat, lon: fallback.lon, icao: 'POI', poiCategory: 'trn' };
+}
+
 /* =========================================================
    5. DATEN-FETCHING (APIs & GEMINI KI)
    ========================================================= */
@@ -2606,25 +2620,29 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const poiNoTrainingRule = (isPOI && !isTrainingMission)
         ? `13. POI-GUARDRAIL: Bei POI-Missionen sind Trainingsinhalte strikt verboten (kein Instructor, keine Airwork-/Platzrunden-Aufgaben).`
         : '';
+    const promptDestName = isPoiTrainingMission ? `Übungsgebiet nahe ${startName}` : destName;
+    const localKnowledgeRule = isPoiTrainingMission
+        ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
+        : `4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${promptDestName}" ganz natürlich ein.`;
 
     const prompt = `Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen.
     Erstelle ein realistisches Einsatzbriefing für diesen Flug:
     Start: ${startName}
-    Ziel: ${destName} ${isPOI ? '(POI / Wendepunkt)' : '(Zielflughafen)'}
+    Ziel: ${promptDestName} ${isPOI ? '(POI / Wendepunkt)' : '(Zielflughafen)'}
     Distanz (Gesamt): ${dist} NM
 
     WICHTIGE REGELN:
     1. Antworte IMMER auf Deutsch.
     2. TONFALL: Entspannt, kumpelhaft und alltäglich. Keine übertriebene Dramatik, keine Actionfilm-Rhetorik! Fliegen ist Routine und macht Spaß.
     3. THEMA VORGEGEBEN: Dein Auftrag MUSS sich zwingend um dieses Thema drehen: "${randomTheme}".
-    4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${destName}" ganz natürlich ein.
+    ${localKnowledgeRule}
     ${categoryRule}
-    ${isPOI ? `5. RUNDFLUG-REGELN: Start und Landung ist ${startName}. Am POI (${destName}) wird NICHT gelandet.` : `5. ROUTEN-REGELN: Normaler Streckenflug von ${startName} nach ${destName}.`}
+    ${isPOI ? `5. RUNDFLUG-REGELN: Start und Landung ist ${startName}. Am POI (${promptDestName}) wird NICHT gelandet.` : `5. ROUTEN-REGELN: Normaler Streckenflug von ${startName} nach ${promptDestName}.`}
     6. PASSAGIERE & FRACHT: Erfinde passend zur Mission, WER mitfliegt (maximal ${maxPaxLimit} Personen) und WAS transportiert wird. Wenn niemand mitfliegt, schreibe '0 PAX'.
     7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission.${isTrainingMission ? ' Bei Trainingsflug IMMER der Instruktor (nicht null).' : ' (oder null bei 0 PAX).'} greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. ${poiAltRule}
     8. AKTUELLES WETTER (als Realitätsanker einbauen, aber ohne überdramatisieren):
        Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
-       Ziel (${destName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
+       Ziel (${promptDestName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
     9. SPRACHSTIL PASSAGIER: Lege optional "dialectHint" fest:
        - "neutral" für normales Deutsch
        - oder leichte regionale Färbung (z.B. "leicht schwäbisch", "leicht bayrisch", "leicht norddeutsch"), wenn es zur Person passt.
@@ -3525,8 +3543,15 @@ async function generateMission() {
     }
 
     if (targetDest) { dest = await getAirportData(targetDest); } else {
-        if (effectiveType === "apt") { dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref); }
-        else { dest = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory); }
+        if (effectiveType === "apt") {
+            dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref);
+        } else if (selectedPoiCategory === 'trn') {
+            // POI-Training nutzt absichtlich nur ein synthetisches Übungsgebiet, kein echtes Objekt.
+            dest = pickRandomTrainingPoiNearAirport(start.lat, start.lon, dirPref, searchMin, searchMax);
+            dataSource = "Training Area RNG";
+        } else {
+            dest = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory);
+        }
     }
 
     // APT-Fallbackkette: reduziert "Kein Ziel gefunden" bei engen Filtern
@@ -3541,17 +3566,18 @@ async function generateMission() {
         dest = await findGithubAirport(start.lat, start.lon, 5, 350, 'any', 'any');
     }
 
-    if (!dest && !targetDest && effectiveType === "poi" && typeof fallbackPOIs !== 'undefined') {
+    if (!dest && !targetDest && effectiveType === "poi" && selectedPoiCategory === 'trn') {
+        dest = pickRandomTrainingPoiNearAirport(start.lat, start.lon, dirPref, searchMin, searchMax);
+        dataSource = "Training Area RNG";
+    }
+
+    if (!dest && !targetDest && effectiveType === "poi" && selectedPoiCategory !== 'trn' && typeof fallbackPOIs !== 'undefined') {
         dataSource = "Fallback POIs";
         let validPOIs = fallbackPOIs.filter(p => checkBearing(calcNav(start.lat, start.lon, p.lat, p.lon).brng, dirPref));
-        if (selectedPoiCategory === 'trn') {
-            validPOIs = validPOIs.filter(p => calcNav(start.lat, start.lon, p.lat, p.lon).dist <= 25);
-        } else if (selectedPoiCategory !== 'all') {
+        if (selectedPoiCategory !== 'all') {
             validPOIs = validPOIs.filter(p => classifyPOITitleCategory(p.n) === selectedPoiCategory);
         }
-        if (validPOIs.length === 0 && selectedPoiCategory === 'trn') {
-            validPOIs = fallbackPOIs.filter(p => calcNav(start.lat, start.lon, p.lat, p.lon).dist <= 25);
-        } else if (validPOIs.length === 0 && selectedPoiCategory !== 'all') {
+        if (validPOIs.length === 0 && selectedPoiCategory !== 'all') {
             validPOIs = fallbackPOIs.filter(p => classifyPOITitleCategory(p.n) === selectedPoiCategory);
         }
         if (validPOIs.length === 0) validPOIs = fallbackPOIs;
@@ -3602,7 +3628,34 @@ async function generateMission() {
         indicator.innerText = `Lade Auftrag aus lokaler Datenbank...`;
         dataSource = "Lokale DB";
         if (isPOI) {
-            m = generateDynamicPOIMission(dest.n, maxSeats); paxText = m.payloadText; cargoText = m.cargoText; dataSource = "Wikipedia GeoSearch";
+            if (selectedPoiCategory === 'trn') {
+                const fallbackPlan = sanitizeTrainingPlan(null, true);
+                m = {
+                    i: '🧑‍✈️',
+                    t: 'Trainingsflug im Übungsgebiet',
+                    s: 'Heute trainieren wir Verfahren und Flugpraezision im platznahen Uebungsgebiet. Ich gebe dir die Uebungsschritte unterwegs, wir arbeiten sauber nach Verfahren und landen danach wieder am Startplatz.',
+                    cat: 'trn',
+                    passenger: {
+                        name: 'Alex Kramer',
+                        role: 'Fluglehrer',
+                        gender: 'male',
+                        personality: 'ruhig, praezise, motivierend',
+                        dialectHint: 'neutral',
+                        gTolerance: 'mittel',
+                        bankTolerance: 'mittel',
+                        targetAltFt: 0,
+                        targetRadiusNm: 0,
+                        targetDwellMin: 0,
+                        greetingText: 'Morgen! Heute trainieren wir sauber nach Verfahren. Ich gebe dir gleich die ersten Aufgaben.',
+                        trainingPlan: fallbackPlan
+                    }
+                };
+                paxText = "1 PAX (Instruktor)";
+                cargoText = "Trainingsunterlagen (10 lbs)";
+                dataSource = "Lokale Training DB";
+            } else {
+                m = generateDynamicPOIMission(dest.n, maxSeats); paxText = m.payloadText; cargoText = m.cargoText; dataSource = "Wikipedia GeoSearch";
+            }
         } else if (typeof missions !== 'undefined') {
             // A->B-Missionen gleichmäßig über Kategorien rotieren (inkl. Trainingsflüge).
             const availM = missions.filter(ms => {

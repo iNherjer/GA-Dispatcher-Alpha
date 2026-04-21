@@ -366,6 +366,7 @@ function _professionalLandingToneHint() {
 }
 
 function _targetFactHint() {
+    if (_activeAptTrainingPlan()) return '';
     const raw = document.getElementById('wikiDestDescText')?.innerText?.trim() || '';
     if (!raw) return '';
     if (/warte auf daten|lade ziel-info|nicht geladen|keine regionalen/i.test(raw)) return '';
@@ -964,6 +965,10 @@ function _regionalSpeechProfileForCoords(lat, lon) {
 function _contextualDialectProfile(pax) {
     const explicit = String(pax?.dialectHint || '').trim().toLowerCase() || 'neutral';
     const role = String(pax?.role || '');
+    const trainingPlan = _activeAptTrainingPlan();
+    if (trainingPlan && /fluglehrer|instructor|instruktor|checkpilot/.test(role.toLowerCase())) {
+        return { dialectHint: 'neutral', strengthLabel: 'neutral', regionLabel: 'Training-Instruktor neutral' };
+    }
     const strength = _roleDialectStrength(role);
     if (strength === 'none') {
         return { dialectHint: 'neutral', strengthLabel: 'neutral', regionLabel: 'rollenbedingt neutral' };
