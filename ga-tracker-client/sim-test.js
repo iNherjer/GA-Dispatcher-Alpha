@@ -152,7 +152,9 @@ function startSim() {
                     engRpm: 2250,
                     onGround: alt <= (ALT_MIN + 30),
                     touchdownFps: null,
-                    touchdownFpm: null
+                    touchdownFpm: null,
+                    aoaDeg: isCurrentlyTurning ? 6.2 : 4.1,
+                    stallState: false
                 }
             };
             if (includeTraffic) {

@@ -39,7 +39,7 @@
         </div>
         
         <div class="grid-2">
-            <div><label>Typ</label><select id="targetType" onchange="syncToNavCom('targetTypeRadio', this.value)">
+            <div><label id="targetTypeLabel" onclick="toggleMissionPickerMode()" title="Mission-Picker umschalten" style="cursor:pointer; user-select:none;">Typ</label><select id="targetType" onchange="setMissionTypeSelection(this.value)">
                 <option value="apt">Flugplatz (A ➔ B)</option>
                 <option value="poi">POI (Rundflug)</option>
             </select></div>
@@ -187,13 +187,13 @@
                 <div class="radio-display-container">
                     <div class="radio-disp-inner">
                         <span class="lcd-label">TYPE</span>
-                        <select id="targetTypeRadio" class="lcd-input" onchange="document.getElementById('targetType').value = this.value">
+                        <select id="targetTypeRadio" class="lcd-input" onchange="setMissionTypeSelection(this.value)">
                             <option value="apt">APT</option>
                             <option value="poi">POI</option>
                         </select>
                     </div>
                 </div>
-                <button class="radio-transfer-btn" onclick="cycleRadioOption('targetTypeRadio')" title="Nächste Option">↔</button>
+                <button class="radio-transfer-btn" onclick="toggleMissionPickerMode()" title="Mission-Picker umschalten">↔</button>
                 <div class="radio-knob" onclick="cycleRadioOption('targetTypeRadio')" title="Klicken für nächste Option"></div>
             </div>
             <div class="radio-module half-module">

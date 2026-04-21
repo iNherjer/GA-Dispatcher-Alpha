@@ -205,6 +205,8 @@
             bankDeg: 0,
             gForce: 1.0,
             vsFpm: Math.round(vs || 0),
+            aoaDeg: 4.0,
+            stallState: false,
             windKts: null,
             windDeg: null,
             onGround: false
@@ -241,6 +243,8 @@
             bankDeg: 0,
             gForce: 1.0,
             vsFpm: 0,
+            aoaDeg: 3.5,
+            stallState: false,
             windKts: null,
             windDeg: null,
             onGround: !!atEnd

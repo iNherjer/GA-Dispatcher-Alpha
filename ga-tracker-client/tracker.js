@@ -68,6 +68,8 @@ function connectSimConnect(ws, syncId, pin) {
       handle.addToDataDefinition(DEF_ID, 'AMBIENT WIND DIRECTION', 'degrees', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(DEF_ID, 'AMBIENT TEMPERATURE', 'celsius', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(DEF_ID, 'AMBIENT VISIBILITY', 'meters', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(DEF_ID, 'INCIDENCE ALPHA', 'degrees', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(DEF_ID, 'STALL WARNING', 'Bool', SimConnectDataType.FLOAT64);
 
       handle.requestDataOnSimObject(REQ_ID, DEF_ID, 0, 2, 0, 0, 0, 0);
 
@@ -79,18 +81,20 @@ function connectSimConnect(ws, syncId, pin) {
             
             try {
               let lat, lon, alt, hdg, agl, bank, gForce, vsFpm, engRpm, onGround, touchdownFps;
-              let windKts, windDeg, tempC, visMeters;
+              let windKts, windDeg, tempC, visMeters, aoaDeg, stallState;
 
               if (typeof recv.data.readFloat64 === 'function') {
                 lat = recv.data.readFloat64(); lon = recv.data.readFloat64(); alt = recv.data.readFloat64(); hdg = recv.data.readFloat64();
                 agl = recv.data.readFloat64(); bank = recv.data.readFloat64(); gForce = recv.data.readFloat64(); vsFpm = recv.data.readFloat64();
                 engRpm = recv.data.readFloat64(); onGround = recv.data.readFloat64(); touchdownFps = recv.data.readFloat64();
                 windKts = recv.data.readFloat64(); windDeg = recv.data.readFloat64(); tempC = recv.data.readFloat64(); visMeters = recv.data.readFloat64();
+                aoaDeg = recv.data.readFloat64(); stallState = recv.data.readFloat64();
               } else if (typeof recv.data.readDouble === 'function') {
                 lat = recv.data.readDouble(); lon = recv.data.readDouble(); alt = recv.data.readDouble(); hdg = recv.data.readDouble();
                 agl = recv.data.readDouble(); bank = recv.data.readDouble(); gForce = recv.data.readDouble(); vsFpm = recv.data.readDouble();
                 engRpm = recv.data.readDouble(); onGround = recv.data.readDouble(); touchdownFps = recv.data.readDouble();
                 windKts = recv.data.readDouble(); windDeg = recv.data.readDouble(); tempC = recv.data.readDouble(); visMeters = recv.data.readDouble();
+                aoaDeg = recv.data.readDouble(); stallState = recv.data.readDouble();
               } else return;
 
               if (ws.readyState === WebSocket.OPEN && (lat !== 0 || lon !== 0)) {
@@ -109,7 +113,9 @@ function connectSimConnect(ws, syncId, pin) {
                   windKts:  Number.isFinite(windKts)  ? Math.round(windKts  * 10) / 10 : null,
                   windDeg:  Number.isFinite(windDeg)  ? Math.round(windDeg)          : null,
                   tempC:    Number.isFinite(tempC)    ? Math.round(tempC * 10) / 10   : null,
-                  visKm:    Number.isFinite(visMeters) ? Math.round(visMeters / 100) / 10 : null
+                  visKm:    Number.isFinite(visMeters) ? Math.round(visMeters / 100) / 10 : null,
+                  aoaDeg:   Number.isFinite(aoaDeg) ? Math.round(aoaDeg * 10) / 10 : null,
+                  stallState: Number.isFinite(stallState) ? (stallState > 0.5) : false
                 };
                 const gpsMsg = {
                   type: 'gps',

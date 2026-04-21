@@ -182,6 +182,158 @@ function cycleRadioOption(selectId) {
     selectEl.dispatchEvent(new Event('change'));
 }
 
+const MISSION_PICKER_STORAGE_KEY = 'ga_mission_picker_mode';
+const MISSION_PICKER_OPTIONS = {
+    basic: [
+        { value: 'apt', classic: 'Flugplatz (A ➔ B)', radioShort: 'APT', radioFull: 'Airport (alle Kategorien)' },
+        { value: 'poi', classic: 'POI (Rundflug)', radioShort: 'POI', radioFull: 'POI (alle Kategorien)' }
+    ],
+    full: [
+        { value: 'apt:all', classic: 'APT (alle Kategorien)', radioShort: 'APT ALL', radioFull: 'Airport (alle Kategorien)' },
+        { value: 'apt:club', classic: 'APT · Verein', radioShort: 'APT CLUB', radioFull: 'Airport · Verein' },
+        { value: 'apt:private', classic: 'APT · Privat', radioShort: 'APT PRIV', radioFull: 'Airport · Privat' },
+        { value: 'apt:charter', classic: 'APT · Charter', radioShort: 'APT CHR', radioFull: 'Airport · Charter' },
+        { value: 'apt:cargo', classic: 'APT · Cargo (ohne PAX)', radioShort: 'APT CARGO', radioFull: 'Airport · Cargo (ohne PAX)' },
+        { value: 'apt:trn', classic: 'APT · Training', radioShort: 'APT TRN', radioFull: 'Airport · Training' },
+        { value: 'poi:all', classic: 'POI (alle Kategorien)', radioShort: 'POI ALL', radioFull: 'POI (alle Kategorien)' },
+        { value: 'poi:bridge', classic: 'POI · Brücken', radioShort: 'POI BRG', radioFull: 'POI · Brücken' },
+        { value: 'poi:road', classic: 'POI · Straße/Autobahn', radioShort: 'POI ROAD', radioFull: 'POI · Straße/Autobahn' },
+        { value: 'poi:dam', classic: 'POI · Staudamm/Talsperre', radioShort: 'POI DAM', radioFull: 'POI · Staudamm/Talsperre' },
+        { value: 'poi:telecom', classic: 'POI · Funkmast/Funkturm', radioShort: 'POI TEL', radioFull: 'POI · Funkmast/Funkturm' },
+        { value: 'poi:industry', classic: 'POI · Industrie/Anlagen', radioShort: 'POI IND', radioFull: 'POI · Industrie/Anlagen' },
+        { value: 'poi:castle', classic: 'POI · Burg/Schloss', radioShort: 'POI CST', radioFull: 'POI · Burg/Schloss' },
+        { value: 'poi:water', classic: 'POI · Fluss/See/Küste', radioShort: 'POI WTR', radioFull: 'POI · Fluss/See/Küste' },
+        { value: 'poi:mountain', classic: 'POI · Berg/Tal', radioShort: 'POI MTN', radioFull: 'POI · Berg/Tal' },
+        { value: 'poi:city', classic: 'POI · Stadt/Turm', radioShort: 'POI CITY', radioFull: 'POI · Stadt/Turm' },
+        { value: 'poi:generic', classic: 'POI · Sonstige', radioShort: 'POI GEN', radioFull: 'POI · Sonstige' }
+    ]
+};
+
+function parseMissionPickerValue(raw) {
+    const value = String(raw || '').trim().toLowerCase();
+    if (value === 'apt') return { baseType: 'apt', category: 'all' };
+    if (value === 'poi') return { baseType: 'poi', category: 'all' };
+    if (value.startsWith('apt:')) return { baseType: 'apt', category: value.split(':')[1] || 'all' };
+    if (value.startsWith('poi:')) return { baseType: 'poi', category: value.split(':')[1] || 'all' };
+    return { baseType: 'apt', category: 'all' };
+}
+
+function _missionPickerMode() {
+    const m = localStorage.getItem(MISSION_PICKER_STORAGE_KEY);
+    if (m === 'full' || m === 'basic') return m;
+    return 'full';
+}
+
+function _setMissionPickerMode(nextMode) {
+    localStorage.setItem(MISSION_PICKER_STORAGE_KEY, nextMode === 'full' ? 'full' : 'basic');
+}
+
+function _optionByValue(mode, value) {
+    return (MISSION_PICKER_OPTIONS[mode] || []).find(o => o.value === value) || null;
+}
+
+function _populateMissionTypeSelects(mode, preferredValue = null) {
+    const classic = document.getElementById('targetType');
+    const radio = document.getElementById('targetTypeRadio');
+    if (!classic || !radio) return;
+
+    const currentClassic = preferredValue || classic.value || radio.value || 'apt';
+    const parsed = parseMissionPickerValue(currentClassic);
+    let normalizedTarget = currentClassic;
+
+    if (mode === 'basic') {
+        normalizedTarget = parsed.baseType;
+    } else if (!String(normalizedTarget).includes(':')) {
+        normalizedTarget = `${parsed.baseType}:all`;
+    }
+
+    const options = MISSION_PICKER_OPTIONS[mode] || MISSION_PICKER_OPTIONS.basic;
+    classic.innerHTML = '';
+    radio.innerHTML = '';
+    options.forEach(opt => {
+        const c = document.createElement('option');
+        c.value = opt.value;
+        c.textContent = opt.classic;
+        classic.appendChild(c);
+
+        const r = document.createElement('option');
+        r.value = opt.value;
+        r.dataset.shortLabel = opt.radioShort || opt.radioFull || opt.classic;
+        r.dataset.fullLabel = opt.radioFull || opt.classic;
+        r.textContent = r.dataset.shortLabel;
+        radio.appendChild(r);
+    });
+
+    if (!_optionByValue(mode, normalizedTarget)) {
+        normalizedTarget = mode === 'full' ? `${parsed.baseType}:all` : parsed.baseType;
+    }
+    if (!_optionByValue(mode, normalizedTarget)) normalizedTarget = options[0]?.value || 'apt';
+
+    classic.value = normalizedTarget;
+    radio.value = normalizedTarget;
+    _setNavcomTypeOptionsExpanded(false);
+}
+
+function refreshMissionPickerOptions(preferredValue = null) {
+    _populateMissionTypeSelects(_missionPickerMode(), preferredValue);
+}
+
+function _setNavcomTypeOptionsExpanded(expanded) {
+    const radio = document.getElementById('targetTypeRadio');
+    if (!radio) return;
+    for (const opt of radio.options) {
+        const shortLabel = opt.dataset.shortLabel || opt.textContent;
+        const fullLabel = opt.dataset.fullLabel || shortLabel;
+        opt.textContent = expanded ? fullLabel : shortLabel;
+    }
+}
+
+function setMissionTypeSelection(value) {
+    const mode = _missionPickerMode();
+    const classic = document.getElementById('targetType');
+    const radio = document.getElementById('targetTypeRadio');
+    if (!classic || !radio) return;
+    const parsed = parseMissionPickerValue(value);
+    let normalized = String(value || '').trim().toLowerCase();
+    if (!_optionByValue(mode, normalized)) {
+        normalized = mode === 'full' ? `${parsed.baseType}:all` : parsed.baseType;
+    }
+    if (!_optionByValue(mode, normalized)) return;
+    classic.value = normalized;
+    radio.value = normalized;
+    localStorage.setItem('ga_target_type', normalized);
+    _setNavcomTypeOptionsExpanded(false);
+}
+
+function toggleMissionPickerMode() {
+    const curMode = _missionPickerMode();
+    const nextMode = curMode === 'full' ? 'basic' : 'full';
+    const currentValue = document.getElementById('targetType')?.value || 'apt';
+    _setMissionPickerMode(nextMode);
+    refreshMissionPickerOptions(currentValue);
+    localStorage.setItem('ga_target_type', document.getElementById('targetType')?.value || 'apt');
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) {
+        indicator.innerText = nextMode === 'full'
+            ? 'Mission Picker: Kategorien aktiviert'
+            : 'Mission Picker: Basisansicht (APT/POI)';
+        setTimeout(() => {
+            if (indicator.innerText.includes('Mission Picker:')) indicator.innerText = 'System bereit.';
+        }, 1600);
+    }
+}
+
+function classifyAptMissionCategory(ms) {
+    const t = normalizeMissionText(ms?.t || '');
+    const s = normalizeMissionText(ms?.s || '');
+    const all = `${t} ${s}`;
+    if ((ms?.cat || '') === 'trn' || /training|ueb|checkflug|flight review|stall|vor|pattern|touch|go|steep|avionics|no-flap|crosswind/.test(all)) return 'trn';
+    if (/organtransport|aog|labor|urgent mail|medicine|archive transport|flower delivery|high priority courier|art transfer|relocation flight|fracht|dokumente|ersatzteil|medikament|plasma|proben|transport/.test(all)) return 'cargo';
+    if (/business charter|vip transfer|investor|unternehmer|meeting|bauabnahme|charter|kunde/.test(all)) return 'charter';
+    if (/flugplatzfest|vereinsmaschine|kollegen-hilfe|piloten-stammtisch|fly-in|aeroclub|vereins/.test(all)) return 'club';
+    return 'private';
+}
+
 function toggleNotes(event) {
     // Wenn wir auf einen Link, Button oder ein Pin-Icon klicken, umblättern hart blockieren
     if (event && event.target && (
@@ -594,6 +746,19 @@ window.onload = () => {
     const aiToggleBtn = document.getElementById('aiToggle');
     if (aiToggleBtn) { aiToggleBtn.checked = (aiEnabled !== 'false'); }
 
+    const savedTargetType = localStorage.getItem('ga_target_type') || document.getElementById('targetType')?.value || 'apt';
+    refreshMissionPickerOptions(savedTargetType);
+    setMissionTypeSelection(document.getElementById('targetType')?.value || savedTargetType);
+    const navTypeSel = document.getElementById('targetTypeRadio');
+    if (navTypeSel && !navTypeSel.dataset.expandHandlersBound) {
+        navTypeSel.addEventListener('mousedown', () => _setNavcomTypeOptionsExpanded(true));
+        navTypeSel.addEventListener('touchstart', () => _setNavcomTypeOptionsExpanded(true), { passive: true });
+        navTypeSel.addEventListener('focus', () => _setNavcomTypeOptionsExpanded(true));
+        navTypeSel.addEventListener('blur', () => _setNavcomTypeOptionsExpanded(false));
+        navTypeSel.addEventListener('change', () => _setNavcomTypeOptionsExpanded(false));
+        navTypeSel.dataset.expandHandlersBound = '1';
+    }
+
     renderLog();
     updateApiFuelMeter();
 
@@ -617,6 +782,7 @@ window.onload = () => {
     });
 
     syncToNavCom('startLocRadio', document.getElementById('startLoc').value);
+    syncToNavCom('targetTypeRadio', document.getElementById('targetType').value);
     syncToNavCom('tasRadioDisplay', document.getElementById('tasSlider').value);
     syncToNavCom('gphRadioDisplay', document.getElementById('gphSlider').value.toString().padStart(2, '0'));
     syncToNavCom('maxSeatsRadio', document.getElementById('maxSeats').value);
@@ -1737,7 +1903,7 @@ function pickBalancedByCategory(items, categoryOf, storagePrefix) {
     return { item: picked, category: selectedCat };
 }
 
-async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref) {
+async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null) {
     const scoredKeywords = [
         "bruecke", "brucke", "bridge", "viadukt", "autobahn", "autobahnkreuz", "kreuz", "kreuzung", "dreieck", "strasse", "tunnel", "highway", "motorway", "interstate", "freeway", "interchange",
         "staudamm", "talsperre", "stausee", "sperrmauer", "reservoir", "dam", "wehr",
@@ -1771,13 +1937,18 @@ async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref) {
         if (data.query && data.query.geosearch && data.query.geosearch.length > 0) {
             const geosearch = data.query.geosearch;
             let poiPool = geosearch;
+            const forceCat = String(forcedCategory || '').trim().toLowerCase();
+            if (forceCat && forceCat !== 'all') {
+                const forcedPool = geosearch.filter(p => classifyPOITitleCategory(p.title) === forceCat);
+                if (forcedPool.length > 0) poiPool = forcedPool;
+            }
             let bestScore = -999;
-            for (const p of geosearch) {
+            for (const p of poiPool) {
                 const s = scorePOITitle(p.title);
                 if (s > bestScore) bestScore = s;
             }
             if (bestScore > 0) {
-                poiPool = geosearch.filter(p => scorePOITitle(p.title) === bestScore);
+                poiPool = poiPool.filter(p => scorePOITitle(p.title) === bestScore);
             }
             const balancedPoi = pickBalancedByCategory(poiPool, p => classifyPOITitleCategory(p.title), 'ga_poi_cat');
             const poi = balancedPoi ? balancedPoi.item : poiPool[Math.floor(Math.random() * poiPool.length)];
@@ -2251,7 +2422,32 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
     return normalized;
 }
 
-async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null) {
+function sanitizeTrainingPlan(rawPlan, isPOI, isAptTrainingMission) {
+    if (isPOI || !isAptTrainingMission) return null;
+    if (!rawPlan || typeof rawPlan !== 'object') {
+        return {
+            mode: 'airwork',
+            trigger: 'half_route',
+            focus: ['Stall-Training', 'Steep Turns (Vollkreis)', 'Slow Flight'],
+            instructorLine: 'Wir starten mit Airwork: erst Stall-Training, dann Steep Turns, danach Slow Flight.'
+        };
+    }
+    const modeRaw = String(rawPlan.mode || '').toLowerCase();
+    const mode = (modeRaw === 'airwork' || modeRaw === 'pattern') ? modeRaw : 'airwork';
+    const triggerRaw = String(rawPlan.trigger || '').toLowerCase();
+    const trigger = (triggerRaw === 'half_route' || triggerRaw === 'five_nm_before_landing')
+        ? triggerRaw
+        : (mode === 'pattern' ? 'five_nm_before_landing' : 'half_route');
+    const focusRaw = Array.isArray(rawPlan.focus) ? rawPlan.focus : [];
+    const focus = focusRaw
+        .map(x => String(x || '').trim())
+        .filter(Boolean)
+        .slice(0, 5);
+    const instructorLine = String(rawPlan.instructorLine || '').trim().slice(0, 220);
+    return { mode, trigger, focus, instructorLine };
+}
+
+async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
     if (!aiToggleBtn || !aiToggleBtn.checked) return null;
     const apiKeyInput = document.getElementById('apiKeyInput');
@@ -2281,15 +2477,98 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         "Tierrettung / Tiertransport"
     ];
 
-    const randomTheme = isPOI
-        ? poiCategories[Math.floor(Math.random() * poiCategories.length)]
-        : aptCategories[Math.floor(Math.random() * aptCategories.length)];
+    const missionSel = missionPicker || { baseType: isPOI ? 'poi' : 'apt', category: 'all' };
+    const isAptTrainingMission = !isPOI && missionSel.baseType === 'apt' && missionSel.category === 'trn';
+    const poiThemesByCat = {
+        bridge: ["Infrastruktur-Inspektion (Brücke/Viadukt)"],
+        road: ["Infrastruktur-Inspektion (Straßen/Autobahnknoten)"],
+        dam: ["Infrastruktur-Inspektion (Staudamm/Talsperre)"],
+        telecom: ["Infrastruktur-Inspektion (Funkmast/Funkturm)"],
+        industry: ["Infrastruktur-Inspektion (Industrieanlage)"],
+        castle: ["Tourismus & Sightseeing", "Luftbildfotografie (Medien/Immobilien)"],
+        water: ["Natur- & Umweltschutz (Beobachtung)", "Wissenschaftliche Datenerfassung"],
+        mountain: ["Natur- & Umweltschutz (Beobachtung)", "Luftbildfotografie (Medien/Immobilien)"],
+        city: ["Lokales Event / Großveranstaltung von oben", "Luftbildfotografie (Medien/Immobilien)"],
+        generic: poiCategories
+    };
+    const aptThemesByCat = {
+        club: [
+            "Besuch bei einem befreundeten Fliegerverein (Stammtisch, Fly-In, Austausch)",
+            "Flugplatz-Logistik (Ersatzteil für die Vereinsmaschine holen, Mechaniker-Shuttle)"
+        ],
+        private: [
+            "Kulinarischer Ausflug ($100 Burger, legendäre Pizza, Steak oder BBQ am Ziel)",
+            "Kaffee & Kuchen Run (Klassischer Nachmittagsausflug zum Flugplatz-Café)",
+            "Tagesausflug mit Freunden (Wandern, Action oder einfach abhängen am Zielort)",
+            "Städtetrip (Sightseeing, Kultur, 1-2 echte Highlights der Zielstadt erkunden)",
+            "Wellness-Urlaub / Romantischer Wochenendausflug mit der Frau/dem Partner",
+            "Kurioses / Verrückter, aber friedlicher Privatflug"
+        ],
+        charter: [
+            "Business-Charter (Geschäftsmann/Geschäftsfrau rechtzeitig zu einem Termin fliegen)",
+            "Business-Charter (Alltäglicher Flug für einen Architekten, Anwalt oder Bauleiter)"
+        ],
+        cargo: [
+            "Eilige, aber unspektakuläre Kleinfracht (Dokumente, Ersatzteile)",
+            "Kurierflug ohne Passagiere (zeitkritische Fracht)"
+        ],
+        trn: [
+            "Spezielles Flugtraining (Seitenwind, Navigation, Platzrunden-Drill am fremden Platz)",
+            "Trainingsflug mit Instructor (Workload-Management & SOPs)",
+            "Reiner Übungsflug ohne Charter-Story"
+        ],
+        all: aptCategories
+    };
+    const themePool = isPOI
+        ? (poiThemesByCat[missionSel.category] || poiCategories)
+        : (aptThemesByCat[missionSel.category] || aptCategories);
+    const randomTheme = themePool[Math.floor(Math.random() * themePool.length)];
+    const categoryRule = isPOI
+        ? (missionSel.category && missionSel.category !== 'all'
+            ? `3b. KATEGORIE-FIX: Die Mission muss zur POI-Kategorie "${missionSel.category}" passen.`
+            : '')
+        : (missionSel.category && missionSel.category !== 'all'
+            ? `3b. KATEGORIE-FIX: Die Mission muss zur APT-Kategorie "${missionSel.category}" passen.`
+            : '');
 
     const maxPaxLimit = paxText.split(' ')[0];
+    const targetMissionCat = isPOI
+        ? 'poi'
+        : ((missionSel.category && missionSel.category !== 'all') ? missionSel.category : 'std');
 
     const sanitizePassengerProfile = (passenger) => {
         if (!passenger || typeof passenger !== 'object') return null;
-        return enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt);
+        const normalized = enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt);
+        if (!normalized || typeof normalized !== 'object') return normalized;
+        normalized.trainingPlan = sanitizeTrainingPlan(passenger.trainingPlan, isPOI, isAptTrainingMission);
+        return normalized;
+    };
+    const enforceTrainingInstructorPayload = (payload) => {
+        if (!isAptTrainingMission || !payload || typeof payload !== 'object') return payload;
+        const normalized = { ...payload };
+        normalized.pax = '1 PAX (Instruktor)';
+        if (!normalized.cargo || /kein cargo|none|0 lbs/i.test(String(normalized.cargo))) {
+            normalized.cargo = 'Trainingsunterlagen (10 lbs)';
+        }
+        if (!normalized.passenger || typeof normalized.passenger !== 'object') {
+            normalized.passenger = {
+                name: 'Alex Kramer',
+                role: 'Fluglehrer',
+                gender: 'male',
+                personality: 'ruhig, präzise, motivierend',
+                dialectHint: 'neutral',
+                gTolerance: 'mittel',
+                bankTolerance: 'mittel',
+                targetAltFt: 0,
+                targetRadiusNm: 0,
+                targetDwellMin: 0,
+                greetingText: 'Morgen! Heute fliegen wir Training und ich gebe dir die Aufgaben unterwegs.',
+                trainingPlan: sanitizeTrainingPlan(null, false, true)
+            };
+        } else if (!String(normalized.passenger.role || '').trim()) {
+            normalized.passenger.role = 'Fluglehrer';
+        }
+        return normalized;
     };
 
     const poiAltRule = isPOI
@@ -2297,6 +2576,23 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             ? `POI-Einsatzparameter: targetAltFt (MSL) darf NICHT unter ${Math.round(poiTerrainFt + 500)} ft liegen, weil am POI mindestens 500 ft AGL gelten. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).`
             : "POI-Einsatzparameter: targetAltFt konservativ wählen; niemals so niedrig, dass es unter 500 ft AGL wäre. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).")
         : "A-B-REGEL: Kein POI-Arbeitsauftrag. targetAltFt MUSS 0 sein, targetRadiusNm MUSS 0 sein, targetDwellMin MUSS 0 sein.";
+
+    const trainingHardRules = isAptTrainingMission
+        ? `10. TRAININGSFLUG-PFLICHT: Das ist ein klarer Trainingsflug A->B mit Fluglehrer. Keine Charter-, Cargo- oder POI-Story.
+    11. TRAININGSINHALT MUSS KONKRET SEIN:
+       - Wähle mode: "airwork" ODER "pattern".
+       - Bei mode "airwork": Übungen in der Luft, z.B. Stall-Training, Steep Turns/Vollkreis, Slow Flight, Navigationsaufgabe.
+         trigger MUSS "half_route" sein (Instruktor meldet sich auf halber Strecke).
+       - Bei mode "pattern": Übungen platznah im Anflug/Platzrunde, z.B. Engine-Out-Approach, No-Flaps, Extra-Platzrunden, Touch-and-Go, Missed Approach.
+         trigger MUSS "five_nm_before_landing" sein (Instruktor meldet sich 5 NM vor Ziel).
+       - Gib 2-4 konkrete Übungen in "focus" an und eine kurze Instruktor-Ansage in "instructorLine".
+    12. TRAININGS-PAX: Es MUSS genau EIN Passagier mitfliegen: der Instruktor. pax MUSS "1 PAX (Instruktor)" oder gleichwertig sein.
+        Der passenger darf NICHT null sein und role MUSS klar Instructor/Fluglehrer sein.
+        cargo nur unkritisch (z.B. "Trainingsunterlagen"), kein echter Frachtauftrag.`
+        : `10. KEIN TRAININGSDRIFT: Falls es kein Trainingsflug ist, darf KEIN Trainingsauftrag mit Fluglehrer, Übungen, Platzrunden-Drills oder Checkflug-Inhalten erzeugt werden.`;
+    const poiNoTrainingRule = isPOI
+        ? `13. POI-GUARDRAIL: Bei POI-Missionen sind Trainingsinhalte strikt verboten (kein Instructor, keine Airwork-/Platzrunden-Aufgaben).`
+        : '';
 
     const prompt = `Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen.
     Erstelle ein realistisches Einsatzbriefing für diesen Flug:
@@ -2309,9 +2605,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     2. TONFALL: Entspannt, kumpelhaft und alltäglich. Keine übertriebene Dramatik, keine Actionfilm-Rhetorik! Fliegen ist Routine und macht Spaß.
     3. THEMA VORGEGEBEN: Dein Auftrag MUSS sich zwingend um dieses Thema drehen: "${randomTheme}".
     4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${destName}" ganz natürlich ein.
+    ${categoryRule}
     ${isPOI ? `5. RUNDFLUG-REGELN: Start und Landung ist ${startName}. Am POI (${destName}) wird NICHT gelandet.` : `5. ROUTEN-REGELN: Normaler Streckenflug von ${startName} nach ${destName}.`}
     6. PASSAGIERE & FRACHT: Erfinde passend zur Mission, WER mitfliegt (maximal ${maxPaxLimit} Personen) und WAS transportiert wird. Wenn niemand mitfliegt, schreibe '0 PAX'.
-    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission (oder null bei 0 PAX). greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. ${poiAltRule}
+    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission.${isAptTrainingMission ? ' Bei Trainingsflug IMMER der Instruktor (nicht null).' : ' (oder null bei 0 PAX).'} greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. ${poiAltRule}
     8. AKTUELLES WETTER (als Realitätsanker einbauen, aber ohne überdramatisieren):
        Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
        Ziel (${destName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
@@ -2319,6 +2616,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
        - "neutral" für normales Deutsch
        - oder leichte regionale Färbung (z.B. "leicht schwäbisch", "leicht bayrisch", "leicht norddeutsch"), wenn es zur Person passt.
        Wichtig: nie starker Dialekt, immer verständlich.
+    ${trainingHardRules}
+    ${poiNoTrainingRule}
 
     Antworte AUSSCHLIESSLICH als JSON. Keine Markdown-Formatierung.
     Struktur: {
@@ -2326,7 +2625,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         "story": "Das Briefing (max 3-4 Sätze, lockerer Ton)",
         "pax": "z.B. '2 PAX (Fotograf & Assistent)' oder '0 PAX'",
         "cargo": "z.B. 'Kamera-Gimbal (80 lbs)' oder 'Reisegepäck (40 lbs)'",
-        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "dialectHint": "neutral oder leicht regional", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "targetAltFt": 3500, "targetRadiusNm": 3.0, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten" }
+        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "dialectHint": "neutral oder leicht regional", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "targetAltFt": 3500, "targetRadiusNm": 3.0, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten", "trainingPlan": { "mode": "airwork|pattern", "trigger": "half_route|five_nm_before_landing", "focus": ["Übung 1", "Übung 2"], "instructorLine": "Kurze konkrete Instruktoranweisung" } }
     }`;
 
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
@@ -2336,9 +2635,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         const resFlash3 = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, reqOptions);
         if (resFlash3.ok) {
             const data = await resFlash3.json();
-            const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
+            const parsed = enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text));
             incrementApiUsage('flash');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: "std", _source: "Gemini 3.0 Flash" };
+            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: targetMissionCat, _source: "Gemini 3.0 Flash" };
         }
     } catch (e) { }
 
@@ -2346,9 +2645,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         const resFlash = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, reqOptions);
         if (resFlash.ok) {
             const data = await resFlash.json();
-            const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
+            const parsed = enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text));
             incrementApiUsage('flash');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: "std", _source: "Gemini 2.5 Flash" };
+            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash" };
         }
     } catch (e) { }
 
@@ -2356,9 +2655,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         const resLite = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`, reqOptions);
         if (resLite.ok) {
             const data = await resLite.json();
-            const parsed = JSON.parse(data.candidates[0].content.parts[0].text);
+            const parsed = enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text));
             incrementApiUsage('lite');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: "std", _source: "Gemini 2.5 Flash Lite" };
+            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash Lite" };
         }
     } catch (e) { }
     return null;
@@ -3182,6 +3481,7 @@ async function generateMission() {
 
     const rangePref = document.getElementById("distRange").value, regionPref = document.getElementById("regionFilter").value;
     const targetType = document.getElementById("targetType").value, dirPref = document.getElementById("dirPref").value;
+    const missionPicker = parseMissionPickerValue(targetType);
     const maxSeats = parseInt(document.getElementById("maxSeats").value);
     const selectedTas = parseInt(document.getElementById("tasSlider").value) || 160;
     const selectedGph = parseInt(document.getElementById("gphSlider").value) || 14;
@@ -3201,12 +3501,14 @@ async function generateMission() {
         if (rangePref === "short") { minNM = 10; maxNM = 50; } if (rangePref === "medium") { minNM = 50; maxNM = 100; } if (rangePref === "long") { minNM = 100; maxNM = 250; }
     }
 
-    const effectiveType = (forcePOI || targetType === "poi") ? "poi" : "apt";
+    const effectiveType = (forcePOI || missionPicker.baseType === "poi") ? "poi" : "apt";
+    const selectedPoiCategory = effectiveType === 'poi' ? (missionPicker.category || 'all') : 'all';
+    const selectedAptCategory = effectiveType === 'apt' ? (missionPicker.category || 'all') : 'all';
     let searchMin = effectiveType === "poi" ? minNM / 2 : minNM, searchMax = effectiveType === "poi" ? maxNM / 2 : maxNM, dest = null;
 
     if (targetDest) { dest = await getAirportData(targetDest); } else {
         if (effectiveType === "apt") { dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref); }
-        else { dest = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref); }
+        else { dest = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory); }
     }
 
     // APT-Fallbackkette: reduziert "Kein Ziel gefunden" bei engen Filtern
@@ -3224,6 +3526,12 @@ async function generateMission() {
     if (!dest && !targetDest && effectiveType === "poi" && typeof fallbackPOIs !== 'undefined') {
         dataSource = "Fallback POIs";
         let validPOIs = fallbackPOIs.filter(p => checkBearing(calcNav(start.lat, start.lon, p.lat, p.lon).brng, dirPref));
+        if (selectedPoiCategory !== 'all') {
+            validPOIs = validPOIs.filter(p => classifyPOITitleCategory(p.n) === selectedPoiCategory);
+        }
+        if (validPOIs.length === 0 && selectedPoiCategory !== 'all') {
+            validPOIs = fallbackPOIs.filter(p => classifyPOITitleCategory(p.n) === selectedPoiCategory);
+        }
         if (validPOIs.length === 0) validPOIs = fallbackPOIs;
         const balancedFallbackPoi = pickBalancedByCategory(validPOIs, p => classifyPOITitleCategory(p.n), 'ga_poi_cat');
         dest = balancedFallbackPoi ? balancedFallbackPoi.item : validPOIs[Math.floor(Math.random() * validPOIs.length)];
@@ -3259,7 +3567,7 @@ async function generateMission() {
     let paxText = `${randomPax} PAX`, cargoText = `${Math.floor(Math.random() * 300) + 20} lbs`;
 
     indicator.innerText = `Kontaktiere KI-Dispatcher...`;
-    let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt, missionWeather);
+    let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt, missionWeather, missionPicker);
 
     if (m) {
         dataSource = m._source;
@@ -3272,7 +3580,11 @@ async function generateMission() {
             m = generateDynamicPOIMission(dest.n, maxSeats); paxText = m.payloadText; cargoText = m.cargoText; dataSource = "Wikipedia GeoSearch";
         } else if (typeof missions !== 'undefined') {
             // A->B-Missionen gleichmäßig über Kategorien rotieren (inkl. Trainingsflüge).
-            const availM = missions.filter(ms => ms && ms.cat !== "poi");
+            const availM = missions.filter(ms => {
+                if (!ms || ms.cat === 'poi') return false;
+                if (selectedAptCategory === 'all') return true;
+                return classifyAptMissionCategory(ms) === selectedAptCategory;
+            });
             if (availM.length === 0) {
                 m = missions[0];
             } else {
@@ -3310,9 +3622,32 @@ async function generateMission() {
             }
 
             if (dataSource === "Generiert") dataSource = "GitHub Airport DB";
-                if (m.cat === "trn" || m.cat === "cargo") { paxText = "0 PAX"; }
+            const aptCatOfMission = classifyAptMissionCategory(m || {});
+            if (m.cat === "cargo" || aptCatOfMission === 'cargo') { paxText = "0 PAX"; }
+            if (m.cat === "trn" || aptCatOfMission === 'trn' || selectedAptCategory === 'trn') {
+                paxText = "1 PAX (Instruktor)";
+                if (!cargoText || /kein cargo|none|0 lbs/i.test(String(cargoText))) cargoText = "Trainingsunterlagen (10 lbs)";
+                if (!m.passenger || typeof m.passenger !== 'object') {
+                    m.passenger = {
+                        name: 'Alex Kramer',
+                        role: 'Fluglehrer',
+                        gender: 'male',
+                        personality: 'ruhig, präzise, motivierend',
+                        dialectHint: 'neutral',
+                        gTolerance: 'mittel',
+                        bankTolerance: 'mittel',
+                        targetAltFt: 0,
+                        targetRadiusNm: 0,
+                        targetDwellMin: 0,
+                        greetingText: 'Morgen! Heute fliegen wir Training und ich gebe dir die Aufgaben unterwegs.',
+                        trainingPlan: sanitizeTrainingPlan(null, false, true)
+                    };
+                }
+            }
         }
     }
+    if (!isPOI && selectedAptCategory === 'cargo') paxText = "0 PAX";
+    if (!isPOI && selectedAptCategory === 'trn') paxText = "1 PAX (Instruktor)";
 
     const poolCategory = isPOI ? (dest.poiCategory || classifyPOITitleCategory(dest.n)) : (m?.cat || 'std');
     console.debug('[DISPATCH]', {

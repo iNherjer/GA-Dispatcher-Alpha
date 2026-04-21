@@ -115,6 +115,8 @@ let _paxComfortCount  = 0;
 let _paxComfortBusy   = false;
 let _paxWxMismatchDone = false;
 let _paxSpeechQueue   = Promise.resolve();
+let _aptTrainingBriefDone = false;
+let _trainingEval = null;
 
 // POI dwell state machine
 let _poiInRadius        = false;
@@ -139,6 +141,22 @@ window.paxVoiceResetMission = function() {
     _paxComfortBusy   = false;
     _paxWxMismatchDone = false;
     _paxSpeechQueue   = Promise.resolve();
+    _aptTrainingBriefDone = false;
+    _trainingEval = {
+        active: false,
+        startedAt: 0,
+        samples: 0,
+        minAltFt: Number.POSITIVE_INFINITY,
+        maxAltFt: Number.NEGATIVE_INFINITY,
+        maxAbsBankDeg: 0,
+        maxGForce: 1.0,
+        maxClimbFpm: 0,
+        maxDescentFpm: 0,
+        aoaSamples: 0,
+        maxAoaDeg: 0,
+        stallEvents: 0,
+        _stallPrev: false
+    };
     _poiInRadius      = false;
     _poiEnteredAt     = null;
     _poiLastTickTime  = null;
@@ -152,6 +170,62 @@ window.paxVoiceResetMission = function() {
     _poiInspectionOutcome = null;
     _poiSightCallDone = false;
 };
+
+function _trainingEvalBegin() {
+    if (!_trainingEval) return;
+    if (_trainingEval.active) return;
+    _trainingEval.active = true;
+    _trainingEval.startedAt = Date.now();
+}
+
+function _toBoolStall(v) {
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'number') return v > 0.5;
+    const s = String(v || '').trim().toLowerCase();
+    return s === '1' || s === 'true' || s === 'yes' || s === 'stall';
+}
+
+function _trainingEvalTick(flightData) {
+    if (!_trainingEval || !_trainingEval.active || !flightData) return;
+    const alt = Number(flightData.mslFt);
+    const bank = Math.abs(Number(flightData.bankDeg || 0));
+    const g = Number(flightData.gForce || 1.0);
+    const vs = Number.isFinite(flightData.vsFpm) ? Number(flightData.vsFpm) : Number(flightData.vs || 0);
+    if (Number.isFinite(alt)) {
+        _trainingEval.minAltFt = Math.min(_trainingEval.minAltFt, alt);
+        _trainingEval.maxAltFt = Math.max(_trainingEval.maxAltFt, alt);
+    }
+    if (Number.isFinite(bank)) _trainingEval.maxAbsBankDeg = Math.max(_trainingEval.maxAbsBankDeg, bank);
+    if (Number.isFinite(g) && g > 0.1) _trainingEval.maxGForce = Math.max(_trainingEval.maxGForce, g);
+    if (Number.isFinite(vs)) {
+        if (vs > 0) _trainingEval.maxClimbFpm = Math.max(_trainingEval.maxClimbFpm, vs);
+        if (vs < 0) _trainingEval.maxDescentFpm = Math.min(_trainingEval.maxDescentFpm, vs);
+    }
+
+    const aoa = Number(flightData.aoaDeg);
+    if (Number.isFinite(aoa)) {
+        _trainingEval.aoaSamples += 1;
+        _trainingEval.maxAoaDeg = Math.max(_trainingEval.maxAoaDeg, Math.abs(aoa));
+    }
+    const stallNow = _toBoolStall(flightData.stallState);
+    if (stallNow && !_trainingEval._stallPrev) _trainingEval.stallEvents += 1;
+    _trainingEval._stallPrev = stallNow;
+    _trainingEval.samples += 1;
+}
+
+function _trainingEvalSummary() {
+    if (!_trainingEval || _trainingEval.samples < 8) return null;
+    const minAlt = Number.isFinite(_trainingEval.minAltFt) ? _trainingEval.minAltFt : null;
+    const maxAlt = Number.isFinite(_trainingEval.maxAltFt) ? _trainingEval.maxAltFt : null;
+    const altVar = (minAlt != null && maxAlt != null) ? Math.max(0, Math.round(maxAlt - minAlt)) : null;
+    const bank = Math.round(_trainingEval.maxAbsBankDeg || 0);
+    const maxG = Number((_trainingEval.maxGForce || 1.0).toFixed(2));
+    const climb = Math.round(_trainingEval.maxClimbFpm || 0);
+    const descent = Math.round(_trainingEval.maxDescentFpm || 0);
+    const aoaMax = _trainingEval.aoaSamples > 0 ? Number((_trainingEval.maxAoaDeg || 0).toFixed(1)) : null;
+    const stallEvents = _trainingEval.stallEvents || 0;
+    return { altVar, bank, maxG, climb, descent, aoaMax, stallEvents, samples: _trainingEval.samples };
+}
 
 // ─── STRICT / EASY MODE ──────────────────────────────────────────────────────
 let _paxStrictMode = (localStorage.getItem('awm_pax_strict') === '1');
@@ -300,6 +374,24 @@ function _targetFactHint() {
     if (!firstSentence || firstSentence.length < 28) return '';
     const clip = firstSentence.length > 180 ? `${firstSentence.slice(0, 177)}...` : firstSentence;
     return ` Sachlicher Ziel-Fakt (wenn passend kurz einbauen): ${clip}.`;
+}
+
+function _activeAptTrainingPlan() {
+    if (_isPOIMission()) return null;
+    const pax = window.activePassenger || null;
+    if (!pax || typeof pax !== 'object') return null;
+    const plan = pax.trainingPlan;
+    if (!plan || typeof plan !== 'object') return null;
+    const modeRaw = String(plan.mode || '').toLowerCase();
+    const triggerRaw = String(plan.trigger || '').toLowerCase();
+    const mode = (modeRaw === 'airwork' || modeRaw === 'pattern') ? modeRaw : null;
+    const trigger = (triggerRaw === 'half_route' || triggerRaw === 'five_nm_before_landing') ? triggerRaw : null;
+    if (!mode || !trigger) return null;
+    const focus = Array.isArray(plan.focus)
+        ? plan.focus.map(x => String(x || '').trim()).filter(Boolean).slice(0, 5)
+        : [];
+    const instructorLine = String(plan.instructorLine || '').trim();
+    return { mode, trigger, focus, instructorLine };
 }
 
 // ─── UI ──────────────────────────────────────────────────────────────────────
@@ -785,6 +877,9 @@ Antworte NUR mit dem exakten gesprochenen Text — keine Anführungszeichen, kei
 
 function _roleStyleHint(roleRaw) {
     const role = String(roleRaw || '').toLowerCase();
+    if (/fluglehrer|instructor|instruktor|checkpilot/.test(role)) {
+        return 'klar, ruhig und didaktisch: kurze präzise Anweisungen mit Fokus auf Sicherheit und Trainingsziel.';
+    }
     if (/report|journal|presse|medien|film|foto/.test(role)) {
         return 'professionell beobachtend, fokussiert, leicht lebendig; keine übertriebene Touri-Euphorie bei geplanten Zielen.';
     }
@@ -1149,6 +1244,33 @@ Moment: ${situation}${notes}
 Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv.${inspectionLiveHint}${professionalProgressHint} Max 2-3 Sätze.${_toneHint()}`;
 }
 
+function _aptTrainingPrompt(flightData, distNm, progressRatio) {
+    const ctx = _baseContext();
+    const plan = _activeAptTrainingPlan();
+    if (!ctx || !plan) return null;
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const wx = _weatherContext(flightData);
+    const triggerLine = plan.trigger === 'half_route'
+        ? `Trigger: Halbe Strecke erreicht (${Math.round((progressRatio || 0.5) * 100)}%).`
+        : `Trigger: etwa ${Math.max(0.2, distNm || 0).toFixed(1)} NM vor ${md.dest || 'dem Zielflugplatz'}.`;
+    const modeLine = plan.mode === 'airwork'
+        ? 'Trainingsmodus AIRWORK: Übungen in der Luft, nicht platzrundenfokussiert.'
+        : 'Trainingsmodus PLATZARBEIT: Übungen für Anflug/Platzrunde.';
+    const focusLine = plan.focus.length
+        ? `Heutige Übungen: ${plan.focus.join(', ')}.`
+        : 'Nenne jetzt 2-3 konkrete Standardübungen passend zu diesem Modus.';
+    const lineHint = plan.instructorLine
+        ? `Wenn passend, baue diese Instruktor-Linie sinngemäß ein: "${plan.instructorLine}".`
+        : '';
+    return `${ctx}
+
+Moment: Trainingsflug mit Instruktor. ${triggerLine}${wx ? ' ' + wx : ''}
+${modeLine}
+${focusLine}
+Gib dem Piloten jetzt eine kurze, konkrete Arbeitsanweisung (Reihenfolge oder Priorität), dann einen knappen Sicherheitsfokus.${lineHint}
+Ton: sachlich, ruhig, klar. Kein Sightseeing, kein romantischer Ton. Max 2 Sätze.${_toneHint()}`;
+}
+
 function _evaluateComfortBreach(flightData, pax) {
     if (!flightData || !pax) return null;
     const g = Number(flightData.gForce || 1.0);
@@ -1254,12 +1376,20 @@ function _farewellPrompt(record) {
     if (wx) highlights += ` ${wx}`;
     highlights += _consumeWeatherMismatchEasteregg(window.lastLiveFlightData || null);
     const profLandingHint = _professionalLandingToneHint();
+    const trainingPlan = _activeAptTrainingPlan();
+    const trn = trainingPlan ? _trainingEvalSummary() : null;
+    const trnFacts = trn
+        ? `\nTrainingsdaten (Übungsabschnitt): Höhenvariation ${trn.altVar ?? 'n/a'} ft, max Bank ${trn.bank}°, max G ${trn.maxG}g, max Steigen ${trn.climb} ft/min, max Sinken ${Math.abs(trn.descent)} ft/min${trn.aoaMax != null ? `, max AOA ${trn.aoaMax}°` : ''}, Stall-Events ${trn.stallEvents}.`
+        : '';
+    const trnTask = trn
+        ? '\nDa du hier als Instruktor unterwegs bist: Gib ein kurzes, konkretes Trainingsfazit (was war gut, was sollte beim nächsten Flug sauberer werden).'
+        : '';
 
     return `${ctx}
 
 Moment: Wir sind gelandet, Flug beendet.
-Fakten: ${min} min, ${record.distanceNm} NM, max ${record.maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.${highlights ? '\n' + highlights : ''}
-Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug. Auch wenn etwas nicht perfekt war, schließ positiv ab.${profLandingHint} Max 3 Sätze.${_toneHint()}`;
+Fakten: ${min} min, ${record.distanceNm} NM, max ${record.maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.${highlights ? '\n' + highlights : ''}${trnFacts}
+Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug. Auch wenn etwas nicht perfekt war, schließ positiv ab.${trnTask}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
 }
 
 // ─── PUBLIC TRIGGERS ─────────────────────────────────────────────────────────
@@ -1329,12 +1459,42 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
     if (_isPOIMission()) {
         if (!_poiSatisfied && !_poiAborted) _tickPoiDwell(lat, lon, flightData);
     } else {
-        // Airport: early approach trigger (live mode fallback)
-        if (_paxAtTargetDone) return;
         const wps = (typeof routeWaypoints !== 'undefined') ? routeWaypoints : null;
         if (!wps || wps.length < 2) return;
+        const first = wps[0];
         const last = wps[wps.length - 1];
         const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
+
+        const trainingPlan = _activeAptTrainingPlan();
+        if (trainingPlan && !_aptTrainingBriefDone) {
+            if (trainingPlan.trigger === 'half_route') {
+                const totalNm = _haversineNm(first.lat, first.lng ?? first.lon, last.lat, last.lng ?? last.lon);
+                const doneNm = _haversineNm(first.lat, first.lng ?? first.lon, lat, lon);
+                const progress = totalNm > 1 ? (doneNm / totalNm) : 0;
+                if (progress >= 0.50) {
+                    _aptTrainingBriefDone = true;
+                    _paxLog(`Training-Trigger half_route | progress ${(progress * 100).toFixed(0)}%`, 'event');
+                    const p = _aptTrainingPrompt(flightData, distNm, progress);
+                    if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                }
+            } else if (trainingPlan.trigger === 'five_nm_before_landing' && distNm <= 5.0) {
+                _aptTrainingBriefDone = true;
+                _paxLog(`Training-Trigger five_nm_before_landing | dist ${distNm.toFixed(2)} NM`, 'event');
+                const p = _aptTrainingPrompt(flightData, distNm, null);
+                if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+            }
+        }
+        if (trainingPlan && _aptTrainingBriefDone) {
+            _trainingEvalBegin();
+            _trainingEvalTick(flightData || window.lastLiveFlightData || {});
+        }
+
+        // Bei Trainingsflügen übernimmt die Instruktor-Ansage den Trigger,
+        // dadurch vermeiden wir doppelte "Landung"-Meldungen.
+        if (trainingPlan) return;
+
+        // Airport: early approach trigger (live mode fallback)
+        if (_paxAtTargetDone) return;
         if (distNm <= _AIRPORT_AT_TARGET_NM) {
             _paxLog(`Airport in Reichweite: ${distNm.toFixed(2)} NM`, 'state');
             window.triggerPaxAtTarget(flightData);
