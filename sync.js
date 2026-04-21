@@ -653,8 +653,8 @@ let liveNextLegIndex = 0;
 let liveNextRouteKey = '';
 let liveActiveWpIndex = null; // null = automatisch (aus Leg), sonst manuell gewählter Ziel-Wegpunkt
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 209;
-const MIN_TRACKER_VERSION_LABEL = 'v209';
+const MIN_TRACKER_VERSION_CODE = 210;
+const MIN_TRACKER_VERSION_LABEL = 'v210';
 let trackerVersionPromptShown = false;
 
 function _extractTrackerVersionCode(pkt) {
@@ -1407,7 +1407,9 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     if (typeof map === 'undefined' || !map || typeof L === 'undefined') return;
 
     const now = Date.now();
-    window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now, gs: smoothedGS };
+    const simGsNow = Number(window.lastLiveFlightData?.gsKts ?? window.lastLiveFlightData?.gs);
+    const curGs = Number.isFinite(simGsNow) ? simGsNow : smoothedGS;
+    window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now, gs: curGs };
     window.updateCompassHeading(hdg);
 
     // --- FEATURE 1: SNAIL TRAIL ---
@@ -1437,7 +1439,9 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         const dt = (now - lastGpsTickDetails.t) / 1000; // Sekunden
         if (dt > 1.0) { // UI-Update-Schutz & Smoothing (ca. 1 Sekunde)
             const distM = map.distance([lastGpsTickDetails.lat, lastGpsTickDetails.lon], [lat, lon]);
-            const gs = (distM / dt) * 1.94384;
+            const calcGs = (distM / dt) * 1.94384;
+            const simGs = Number(window.lastLiveFlightData?.gsKts ?? window.lastLiveFlightData?.gs);
+            const gs = Number.isFinite(simGs) ? simGs : calcGs;
             const vs = ((alt - lastGpsTickDetails.alt) / dt) * 60;
 
             const box = document.getElementById('liveTelemetryBox');
@@ -1953,8 +1957,8 @@ function updateFlightRecorder(lat, lon, alt) {
     if (window.simModeActive) return; // Sim-Flüge laufen über sim-route Debrief/Prompt
 
     const now = Date.now();
-    const gs = Number(smoothedGS) || 0;
     const _lfd = window.lastLiveFlightData;
+    const gs = Number.isFinite(_lfd?.gsKts) ? Number(_lfd.gsKts) : (Number(smoothedGS) || 0);
     const agl = Number.isFinite(_lfd?.aglFt)
         ? Math.max(0, Number(_lfd.aglFt))
         : Math.max(0, (Number(alt) || 0) - (Number(window.lastLiveTerrainFt) || 0));

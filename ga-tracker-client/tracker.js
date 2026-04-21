@@ -11,8 +11,8 @@ const fs = require('fs');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v209';
-const TRACKER_VERSION_CODE = 209;
+const TRACKER_VERSION = 'v210';
+const TRACKER_VERSION_CODE = 210;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 
 function startTracker(syncId, pin) {
@@ -90,6 +90,7 @@ function connectSimConnect(ws, syncId, pin) {
       addRequiredVar('INCIDENCE ALPHA', 'degrees', 'aoaDeg');
       addRequiredVar('STALL WARNING', 'Bool', 'stallState');
       // Wetter-Zusatzwerte (optional je nach SimConnect/Sim-Version)
+      addOptionalVar('GROUND VELOCITY', 'knots', 'groundSpeedKts');
       addOptionalVar('AMBIENT WIND GUST', 'knots', 'windGustKts');
       addOptionalVar('AMBIENT PRECIP STATE', 'Enum', 'precipState');
       addOptionalVar('AMBIENT PRECIP RATE', 'millimeters of water', 'precipRateMmH');
@@ -151,6 +152,7 @@ function connectSimConnect(ws, syncId, pin) {
               const visMeters = raw.visMeters;
               const aoaDeg = raw.aoaDeg;
               const stallState = raw.stallState;
+              const groundSpeedKts = raw.groundSpeedKts;
               const windGustKts = raw.windGustKts;
               const precipState = raw.precipState;
               const precipRateMmH = raw.precipRateMmH;
@@ -168,6 +170,8 @@ function connectSimConnect(ws, syncId, pin) {
                   bankDeg: Number.isFinite(bank) ? Math.round(bank * 10) / 10 : 0,
                   gForce: Number.isFinite(gForce) ? Math.round(gForce * 100) / 100 : 1,
                   vsFpm: Math.round(vsFpm || 0),
+                  gsKts: Number.isFinite(groundSpeedKts) ? Math.round(groundSpeedKts * 10) / 10 : null,
+                  gs: Number.isFinite(groundSpeedKts) ? Math.round(groundSpeedKts * 10) / 10 : null,
                   engRpm: Math.round(engRpm || 0),
                   onGround: !!onGround,
                   touchdownFps: Number.isFinite(touchdownFps) ? Math.round(touchdownFps * 100) / 100 : null,
@@ -207,7 +211,7 @@ function connectSimConnect(ws, syncId, pin) {
                   latestTrafficSnapshot = null; // einmalig senden, dann löschen
                 }
                 ws.send(JSON.stringify(gpsMsg));
-                console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipRateMmH ?? '?'}mm/h | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
+                console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | GS ${flight.gsKts ?? '?'}kts | OnG ${flight.onGround ? 'Y' : 'N'} | Pause ${flight.simPaused ? 'Y' : 'N'} | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipRateMmH ?? '?'}mm/h | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
               } else if (lat === 0) {
                  process.stdout.write("."); 
               }
