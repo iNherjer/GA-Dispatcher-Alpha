@@ -263,6 +263,8 @@ function _getApiKey() {
 }
 
 function _isPOIMission() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
+    if (md && typeof md === 'object' && md.poiName) return true;
     if (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI') return true;
     return document.getElementById('destRwyContainer')?.style.display === 'none';
 }
@@ -1538,6 +1540,7 @@ function _haversineNm(lat1, lon1, lat2, lon2) {
 // Called each GPS tick from sync.js + sim-route.js
 window.checkPaxPoiProximity = function(lat, lon, flightData) {
     if (!window.activePassenger) return;
+    const isPoiMission = _isPOIMission();
     _maybePaxComfortFeedback(flightData);
     const trainingPlan = _activeAptTrainingPlan();
     const wps = (typeof routeWaypoints !== 'undefined') ? routeWaypoints : null;
@@ -1545,7 +1548,7 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
         const first = wps[0];
         const last = wps[wps.length - 1];
         const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
-        if (_isPOIMission()) {
+        if (isPoiMission) {
             const dest = _getDestCoords() || { lat: last.lat, lon: (last.lng ?? last.lon) };
             const distToDestNm = _haversineNm(lat, lon, dest.lat, dest.lon);
             const approaching = (_poiTrainingLastDistToDestNm == null)
@@ -1586,7 +1589,7 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
                 }
             }
         } else if (trainingPlan.trigger === 'half_route') {
-            if (!_isPOIMission()) {
+            if (!isPoiMission) {
                 const totalNm = _haversineNm(first.lat, first.lng ?? first.lon, last.lat, last.lng ?? last.lon);
                 const doneNm = _haversineNm(first.lat, first.lng ?? first.lon, lat, lon);
                 const progress = totalNm > 1 ? (doneNm / totalNm) : 0;
@@ -1597,7 +1600,7 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
                     if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 }
             }
-        } else if (!_isPOIMission() && trainingPlan.trigger === 'five_nm_before_landing' && distNm <= 5.0) {
+        } else if (!isPoiMission && trainingPlan.trigger === 'five_nm_before_landing' && distNm <= 5.0) {
             _aptTrainingBriefDone = true;
             _paxLog(`Training-Trigger five_nm_before_landing | dist ${distNm.toFixed(2)} NM`, 'event');
             const p = _aptTrainingPrompt(flightData, distNm, null);
@@ -1609,7 +1612,7 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
         _trainingEvalTick(flightData || window.lastLiveFlightData || {});
     }
 
-    if (_isPOIMission()) {
+    if (isPoiMission) {
         if (!_poiSatisfied && !_poiAborted) _tickPoiDwell(lat, lon, flightData);
     } else {
         if (!wps || wps.length < 2) return;
