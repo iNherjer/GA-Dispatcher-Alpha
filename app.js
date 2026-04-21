@@ -2409,12 +2409,27 @@ async function fetchMissionWeatherSnapshot(icao, lat, lon) {
 
 function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) {
     if (!passenger || typeof passenger !== 'object') return passenger;
+    const _normLevel = (v, fallback = 'mittel') => {
+        const s = String(v || '').trim().toLowerCase();
+        return (s === 'niedrig' || s === 'mittel' || s === 'hoch') ? s : fallback;
+    };
+    const _deriveStomachSensitivity = (gToleranceRaw) => {
+        const gTol = _normLevel(gToleranceRaw, 'mittel');
+        if (gTol === 'niedrig') return 'hoch';
+        if (gTol === 'hoch') return 'niedrig';
+        return 'mittel';
+    };
     const normalized = {
         ...passenger,
         targetAltFt: Number(passenger.targetAltFt) || 0,
         targetRadiusNm: Number(passenger.targetRadiusNm) || 0,
         targetDwellMin: Number(passenger.targetDwellMin) || 0,
-        dialectHint: typeof passenger.dialectHint === 'string' ? passenger.dialectHint.trim() : ''
+        dialectHint: typeof passenger.dialectHint === 'string' ? passenger.dialectHint.trim() : '',
+        gTolerance: _normLevel(passenger.gTolerance, 'mittel'),
+        bankTolerance: _normLevel(passenger.bankTolerance, 'mittel'),
+        cargoSensitivity: _normLevel(passenger.cargoSensitivity, 'mittel'),
+        stomachSensitivity: _normLevel(passenger.stomachSensitivity, _deriveStomachSensitivity(passenger.gTolerance)),
+        comfortPriority: _normLevel(passenger.comfortPriority, 'mittel')
     };
 
     // A-B Flüge: keine Arbeitsvorgaben am Ziel (nur Komfort/Charakter).
@@ -2515,6 +2530,9 @@ function buildInstructorPassenger(trainingPlan = null) {
         ...persona,
         gTolerance: 'mittel',
         bankTolerance: 'mittel',
+        cargoSensitivity: 'niedrig',
+        stomachSensitivity: 'mittel',
+        comfortPriority: 'mittel',
         targetAltFt: 0,
         targetRadiusNm: 0,
         targetDwellMin: 0,
@@ -2558,6 +2576,9 @@ function buildCharterPassenger(basePassenger = null) {
         dialectHint: 'neutral',
         gTolerance: String(base.gTolerance || 'mittel').toLowerCase(),
         bankTolerance: String(base.bankTolerance || 'mittel').toLowerCase(),
+        cargoSensitivity: String(base.cargoSensitivity || 'mittel').toLowerCase(),
+        stomachSensitivity: String(base.stomachSensitivity || 'mittel').toLowerCase(),
+        comfortPriority: String(base.comfortPriority || 'mittel').toLowerCase(),
         roleProfile: 'charter_professional_neutral_v1',
         targetAltFt: 0,
         targetRadiusNm: 0,
@@ -2789,7 +2810,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             trainingPlan: sanitizeTrainingPlan(aiPassenger.trainingPlan || personaPassenger.trainingPlan, true),
             // Komfortwerte aus KI optional übernehmen, ansonsten Persona-Defaults.
             gTolerance: String(aiPassenger.gTolerance || personaPassenger.gTolerance || 'mittel').toLowerCase(),
-            bankTolerance: String(aiPassenger.bankTolerance || personaPassenger.bankTolerance || 'mittel').toLowerCase()
+            bankTolerance: String(aiPassenger.bankTolerance || personaPassenger.bankTolerance || 'mittel').toLowerCase(),
+            cargoSensitivity: String(aiPassenger.cargoSensitivity || personaPassenger.cargoSensitivity || 'niedrig').toLowerCase(),
+            stomachSensitivity: String(aiPassenger.stomachSensitivity || personaPassenger.stomachSensitivity || 'mittel').toLowerCase(),
+            comfortPriority: String(aiPassenger.comfortPriority || personaPassenger.comfortPriority || 'mittel').toLowerCase()
         };
         return normalized;
     };
@@ -2850,7 +2874,12 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     ${categoryRule}
     ${isPOI ? `5. RUNDFLUG-REGELN: Start und Landung ist ${startName}. Am POI (${promptDestName}) wird NICHT gelandet.` : `5. ROUTEN-REGELN: Normaler Streckenflug von ${startName} nach ${promptDestName}.`}
     6. PASSAGIERE & FRACHT: Erfinde passend zur Mission, WER mitfliegt (maximal ${maxPaxLimit} Personen) und WAS transportiert wird. Wenn niemand mitfliegt, schreibe '0 PAX'.
-    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission.${isTrainingMission ? ' Bei Trainingsflug IMMER der Instruktor (nicht null).' : ' (oder null bei 0 PAX).'} greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. ${poiAltRule}
+    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission.${isTrainingMission ? ' Bei Trainingsflug IMMER der Instruktor (nicht null).' : ' (oder null bei 0 PAX).'} greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'.
+       Zusätzlich (datengetrieben, aus Rollen-/Auftragskontext ableiten):
+       - cargoSensitivity: wie empfindlich reagiert der Passagier auf Bewegung in Bezug auf die Fracht? ('niedrig'|'mittel'|'hoch')
+       - stomachSensitivity: wie empfindlich ist der Passagier gegenüber Turbulenz/Manövern? ('niedrig'|'mittel'|'hoch')
+       - comfortPriority: wie wichtig ist insgesamt ruhiges Fliegen in dieser Mission? ('niedrig'|'mittel'|'hoch')
+       Nutze dafür den vollen Kontext (Rolle, Auftrag, Art der Fracht, Wetter, Missionsziel), keine starre Liste. ${poiAltRule}
     8. AKTUELLES WETTER (als Realitätsanker einbauen, aber ohne überdramatisieren):
        Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
        Ziel (${promptDestName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
@@ -2867,7 +2896,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         "story": "Das Briefing (max 3-4 Sätze, lockerer Ton)",
         "pax": "z.B. '2 PAX (Fotograf & Assistent)' oder '0 PAX'",
         "cargo": "z.B. 'Kamera-Gimbal (80 lbs)' oder 'Reisegepäck (40 lbs)'",
-        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "dialectHint": "neutral oder leicht regional", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "targetAltFt": 3500, "targetRadiusNm": 3.0, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten", "trainingPlan": { "mode": "airwork|pattern", "trigger": "half_route|five_nm_before_landing", "focus": ["Übung 1", "Übung 2"], "instructorLine": "Kurze konkrete Instruktoranweisung" } }
+        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "dialectHint": "neutral oder leicht regional", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "cargoSensitivity": "niedrig|mittel|hoch", "stomachSensitivity": "niedrig|mittel|hoch", "comfortPriority": "niedrig|mittel|hoch", "targetAltFt": 3500, "targetRadiusNm": 3.0, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten", "trainingPlan": { "mode": "airwork|pattern", "trigger": "half_route|five_nm_before_landing", "focus": ["Übung 1", "Übung 2"], "instructorLine": "Kurze konkrete Instruktoranweisung" } }
     }`;
 
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
@@ -3930,12 +3959,13 @@ async function generateMission() {
     if (!isPOI && selectedAptCategory === 'trn') paxText = "1 PAX (Instruktor)";
 
     const poolCategory = isPOI ? (dest.poiCategory || classifyPOITitleCategory(dest.n)) : (m?.cat || 'std');
-    console.debug('[DISPATCH]', {
+    const dispatchSnapshot = {
         mode: isPOI ? 'POI' : 'A-B',
         category: poolCategory,
         mission: m?.t || 'n/a',
         target: dest?.n || 'n/a'
-    });
+    };
+    console.debug('[DISPATCH]', dispatchSnapshot);
 
     const fuel = Math.ceil((totalDist / selectedTas * selectedGph) + (0.75 * selectedGph));
     const totalMinutes = Math.round((totalDist / selectedTas) * 60);
@@ -3955,6 +3985,36 @@ async function generateMission() {
 
     window.activePassenger = (m && m.passenger) ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt) : null;
     try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch(e) {}
+    try {
+        const p = window.activePassenger || {};
+        const missionDebugSnapshot = {
+            ts: Date.now(),
+            mode: dispatchSnapshot.mode,
+            category: dispatchSnapshot.category,
+            mission: dispatchSnapshot.mission,
+            target: dispatchSnapshot.target,
+            source: m?._source || dataSource || 'n/a',
+            story: String(m?.s || ''),
+            paxText: String(paxText || ''),
+            cargoText: String(cargoText || ''),
+            passenger: {
+                name: p.name || null,
+                role: p.role || null,
+                gTolerance: p.gTolerance || 'mittel',
+                bankTolerance: p.bankTolerance || 'mittel',
+                cargoSensitivity: p.cargoSensitivity || 'mittel',
+                stomachSensitivity: p.stomachSensitivity || 'mittel',
+                comfortPriority: p.comfortPriority || 'mittel',
+                targetAltFt: Number(p.targetAltFt || 0),
+                targetRadiusNm: Number(p.targetRadiusNm || 0),
+                targetDwellMin: Number(p.targetDwellMin || 0)
+            }
+        };
+        window.vpMissionDebugSnapshot = missionDebugSnapshot;
+        localStorage.setItem('ga_mission_debug_snapshot', JSON.stringify(missionDebugSnapshot));
+        console.debug('[MISSION SNAPSHOT]', missionDebugSnapshot);
+        if (typeof window.vpRefreshWeatherDebugReport === 'function') window.vpRefreshWeatherDebugReport();
+    } catch (_) {}
     if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
     if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
     const paxBriefingText = formatPaxBriefingText(paxText, window.activePassenger);

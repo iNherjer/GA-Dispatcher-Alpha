@@ -2652,6 +2652,28 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`- Unhandled Rejections: ${dbg.unhandledRejections || 0}`);
     lines.push(`- Letzter globaler Fehler: ${vpFormatDebugTs(dbg.lastGlobalErrorAt)}${dbg.lastGlobalErrorMsg ? ` (${dbg.lastGlobalErrorMsg})` : ''}`);
     lines.push('');
+    lines.push('Mission Snapshot');
+    let missionSnap = window.vpMissionDebugSnapshot || null;
+    if (!missionSnap) {
+        try { missionSnap = JSON.parse(localStorage.getItem('ga_mission_debug_snapshot') || 'null'); } catch (_) { missionSnap = null; }
+    }
+    if (!missionSnap) {
+        lines.push('- (keine aktive Mission oder noch kein Snapshot)');
+    } else {
+        const p = missionSnap.passenger || {};
+        lines.push(`- Zeit: ${vpFormatDebugTs(missionSnap.ts)}`);
+        lines.push(`- Modus/Kategorie: ${missionSnap.mode || '?'} / ${missionSnap.category || '?'}`);
+        lines.push(`- Mission: ${missionSnap.mission || 'n/a'}`);
+        lines.push(`- Ziel: ${missionSnap.target || 'n/a'}`);
+        lines.push(`- Quelle: ${missionSnap.source || 'n/a'}`);
+        lines.push(`- PAX/Cargo: ${missionSnap.paxText || 'n/a'} | ${missionSnap.cargoText || 'n/a'}`);
+        lines.push(`- Passenger: ${p.name || '?'} (${p.role || '?'})`);
+        lines.push(`- Toleranzen: g=${p.gTolerance || 'mittel'} | bank=${p.bankTolerance || 'mittel'}`);
+        lines.push(`- Sensitivität: cargo=${p.cargoSensitivity || 'mittel'} | magen=${p.stomachSensitivity || 'mittel'} | comfortPriority=${p.comfortPriority || 'mittel'}`);
+        lines.push(`- POI-Parameter: alt=${Number(p.targetAltFt || 0)} ft | radius=${Number(p.targetRadiusNm || 0)} NM | dwell=${Number(p.targetDwellMin || 0)} min`);
+        if (missionSnap.story) lines.push(`- Story: ${String(missionSnap.story).replace(/\s+/g, ' ').trim()}`);
+    }
+    lines.push('');
     lines.push('Free-Plan Referenz');
     lines.push('- 600/min, 5.000/h, 10.000/Tag, 300.000/Monat (Open-Meteo Free)');
     lines.push('- Achtung: viele Variablen pro Request können als mehrere API-Calls zählen.');
