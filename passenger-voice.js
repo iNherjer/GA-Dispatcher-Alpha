@@ -95,6 +95,7 @@ function _paxDrawZones() {
 // ─── TOGGLE ──────────────────────────────────────────────────────────────────
 let _paxVoiceEnabled = (localStorage.getItem('awm_pax_voice') === '1');
 let _lastSpokenText  = null; // last generated text — for retroactive TTS
+let _lastSpokenSpeaker = null; // speaker snapshot for retroactive TTS
 
 window.paxVoiceSetEnabled = function(on) {
     const wasOff = !_paxVoiceEnabled;
@@ -102,7 +103,7 @@ window.paxVoiceSetEnabled = function(on) {
     localStorage.setItem('awm_pax_voice', on ? '1' : '0');
     if (on && wasOff && _lastSpokenText && window.activePassenger) {
         _paxLog('Voice aktiviert — lade TTS für letzte Nachricht nach', 'event');
-        setTimeout(() => _playTextAsTTS(_lastSpokenText), 400);
+        setTimeout(() => _playTextAsTTS(_lastSpokenText, _lastSpokenSpeaker || null), 400);
     }
 };
 
@@ -149,6 +150,7 @@ window.paxVoiceResetMission = function() {
     _paxComfortBusy   = false;
     _paxWxMismatchDone = false;
     _paxSpeechQueue   = Promise.resolve();
+    _lastSpokenSpeaker = null;
     _paxWrongStartActive = false;
     _paxWrongStartContinueDone = false;
     _paxOffDestLastAt = 0;
@@ -802,11 +804,12 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
     }
 }
 
-async function _playTextAsTTS(text) {
+async function _playTextAsTTS(text, speaker = null) {
     const apiKey = _getApiKey();
     if (!apiKey) { _paxLog('Kein API-Key für TTS', 'warn'); return; }
-    const pax = window.activePassenger;
+    const pax = speaker || window.activePassenger || _lastSpokenSpeaker || null;
     const voiceName = (pax?.gender === 'male') ? 'Charon' : 'Kore';
+    _paxLog(`TTS Stimme: ${voiceName} | Persona: ${pax?.name || 'unbekannt'}`, 'state');
     const ttsPayload = {
         contents: [{ role: 'user', parts: [{ text }] }],
         generationConfig: {
@@ -840,6 +843,13 @@ async function _playTextAsTTS(text) {
 async function _speakAndShowNow(situationPrompt, eventLabel) {
     const apiKey = _getApiKey();
     if (!apiKey) { _paxLog('Kein API-Key', 'warn'); return; }
+    const pax = window.activePassenger || null;
+    const speakerSnapshot = pax ? {
+        name: pax.name || '',
+        role: pax.role || '',
+        gender: pax.gender || '',
+        roleProfile: pax.roleProfile || ''
+    } : null;
 
     _paxLog(`── ${eventLabel} ──`, 'event');
     _paxLog(`PROMPT: ${situationPrompt.replace(/\n+/g, ' ').slice(0, 200)}…`, 'send');
@@ -848,13 +858,14 @@ async function _speakAndShowNow(situationPrompt, eventLabel) {
     if (!spokenText) { _paxLog('Kein Text von Gemini (API-Fehler oder leere Antwort)', 'warn'); return; }
 
     _lastSpokenText = spokenText;
+    _lastSpokenSpeaker = speakerSnapshot;
     _showPaxMessage(spokenText, eventLabel);
 
     if (!_paxVoiceEnabled) {
         _paxLog('TTS übersprungen (Stimme deaktiviert) — Text gespeichert', 'state');
         return;
     }
-    await _playTextAsTTS(spokenText);
+    await _playTextAsTTS(spokenText, speakerSnapshot);
 }
 
 function _speakAndShow(situationPrompt, eventLabel) {
