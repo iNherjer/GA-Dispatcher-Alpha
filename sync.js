@@ -743,8 +743,8 @@ let liveNextLegIndex = 0;
 let liveNextRouteKey = '';
 let liveActiveWpIndex = null; // null = automatisch (aus Leg), sonst manuell gewählter Ziel-Wegpunkt
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 210;
-const MIN_TRACKER_VERSION_LABEL = 'v210';
+const MIN_TRACKER_VERSION_CODE = 211;
+const MIN_TRACKER_VERSION_LABEL = 'v211';
 let trackerVersionPromptShown = false;
 
 function _extractTrackerVersionCode(pkt) {
@@ -2054,13 +2054,14 @@ function updateFlightRecorder(lat, lon, alt) {
         : Math.max(0, (Number(alt) || 0) - (Number(window.lastLiveTerrainFt) || 0));
     const hasOnGroundFlag = typeof _lfd?.onGround === 'boolean';
     const onGroundNow = hasOnGroundFlag ? !!_lfd.onGround : false;
-    const simPaused = !!_lfd?.simPaused;
+    const simPaused = !!_lfd?.simPaused || (Number(_lfd?.pauseFlags || 0) > 0);
+    const inMenuOrMap = !!_lfd?.inMenuOrMap || (Number(_lfd?.simRunning) === 0) || (Number(_lfd?.dialogMode) === 1);
     const r = flightRecorder;
     const dtSec = r.lastUpdateTs ? Math.max(0, (now - r.lastUpdateTs) / 1000) : 0;
     r.lastUpdateTs = now;
 
     // Pause im Sim: Recorder einfrieren und keine Trigger auslösen.
-    if (simPaused) {
+    if (simPaused || inMenuOrMap) {
         r.pauseActive = true;
         r.wasOnGround = onGroundNow;
         r.lowSpeedSince = 0;
@@ -2098,7 +2099,7 @@ function updateFlightRecorder(lat, lon, alt) {
     }
 
     // Erstes echtes Rollen/Bewegen startet die Mission (Begrüßung ab 10 kn).
-    if (!missionRuntime.active && missionRuntime.armed && !simPaused && gs >= 10) {
+    if (!missionRuntime.active && missionRuntime.armed && !simPaused && !inMenuOrMap && gs >= 10) {
         missionRuntime.active = true;
         missionRuntime.manual = false;
         missionRuntime.pendingEndAt = 0;

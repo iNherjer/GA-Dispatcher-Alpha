@@ -11,8 +11,8 @@ const fs = require('fs');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v210';
-const TRACKER_VERSION_CODE = 210;
+const TRACKER_VERSION = 'v211';
+const TRACKER_VERSION_CODE = 211;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 
 function startTracker(syncId, pin) {
@@ -55,6 +55,86 @@ function connectSimConnect(ws, syncId, pin) {
       const SEND_INTERVAL_MS = 66; 
       const DEF_ID = 206;
       const REQ_ID = 206;
+      const EVT_PAUSE_EX1 = 910;
+      const EVT_PAUSE = 911;
+      const EVT_SIM_START = 912;
+      const EVT_SIM_STOP = 913;
+      const EVT_POSITION_CHANGED = 914;
+      const EVT_FLIGHT_LOADED = 915;
+      const SYS_REQ_SIM = 920;
+      const SYS_REQ_DIALOG = 921;
+
+      const runtimeState = {
+        pauseFlags: 0,
+        simRunning: 1,
+        dialogMode: 0,
+        lastPositionChangedAt: 0,
+        lastFlightLoadedAt: 0
+      };
+      const isInMenuOrMap = () => (runtimeState.simRunning === 0) || (runtimeState.dialogMode === 1);
+      const requestRuntimeStates = () => {
+        try { handle.requestSystemState(SYS_REQ_SIM, 'Sim'); } catch (_) {}
+        try { handle.requestSystemState(SYS_REQ_DIALOG, 'DialogMode'); } catch (_) {}
+      };
+
+      const subscribeSystemEventSafe = (evtId, name) => {
+        try {
+          const hr = handle.subscribeToSystemEvent(evtId, name);
+          if (typeof hr === 'number' && hr < 0) {
+            console.warn(`ℹ️ SystemEvent nicht verfuegbar: ${name}`);
+          }
+        } catch (e) {
+          console.warn(`ℹ️ SystemEvent Fehler (${name}):`, e?.message || e);
+        }
+      };
+      subscribeSystemEventSafe(EVT_PAUSE_EX1, 'Pause_EX1');
+      subscribeSystemEventSafe(EVT_PAUSE, 'Pause');
+      subscribeSystemEventSafe(EVT_SIM_START, 'SimStart');
+      subscribeSystemEventSafe(EVT_SIM_STOP, 'SimStop');
+      subscribeSystemEventSafe(EVT_POSITION_CHANGED, 'PositionChanged');
+      subscribeSystemEventSafe(EVT_FLIGHT_LOADED, 'FlightLoaded');
+      requestRuntimeStates();
+      const runtimePollInterval = setInterval(requestRuntimeStates, 3000);
+
+      handle.on('eventEx1', (recvEventEx1) => {
+        if (recvEventEx1.clientEventId === EVT_PAUSE_EX1) {
+          const flags = Number(recvEventEx1?.data?.[0] || 0);
+          runtimeState.pauseFlags = Number.isFinite(flags) ? flags : 0;
+        }
+      });
+
+      handle.on('event', (recvEvent) => {
+        switch (recvEvent.clientEventId) {
+          case EVT_PAUSE:
+            runtimeState.pauseFlags = Number(recvEvent.data) ? 1 : 0;
+            break;
+          case EVT_SIM_START:
+            runtimeState.simRunning = 1;
+            break;
+          case EVT_SIM_STOP:
+            runtimeState.simRunning = 0;
+            break;
+          case EVT_POSITION_CHANGED:
+            runtimeState.lastPositionChangedAt = Date.now();
+            break;
+          default:
+            break;
+        }
+      });
+
+      handle.on('eventFilename', (recvEventFilename) => {
+        if (recvEventFilename.clientEventId === EVT_FLIGHT_LOADED) {
+          runtimeState.lastFlightLoadedAt = Date.now();
+        }
+      });
+
+      handle.on('systemState', (recvState) => {
+        if (recvState.requestID === SYS_REQ_SIM) {
+          runtimeState.simRunning = Number(recvState.dataInteger) ? 1 : 0;
+        } else if (recvState.requestID === SYS_REQ_DIALOG) {
+          runtimeState.dialogMode = Number(recvState.dataInteger) ? 1 : 0;
+        }
+      });
 
       const simVarOrder = [];
       let shortReadWarned = false;
@@ -160,6 +240,10 @@ function connectSimConnect(ws, syncId, pin) {
               const turbulencePct = raw.turbulencePct;
               const simPausedA = raw.simPausedA;
               const simPausedB = raw.simPausedB;
+              const simPausedFromVar = Number.isFinite(simPausedA)
+                ? (simPausedA > 0.5)
+                : (Number.isFinite(simPausedB) ? (simPausedB > 0.5) : false);
+              const simPausedFromEvent = (runtimeState.pauseFlags || 0) !== 0;
 
               if (ws.readyState === WebSocket.OPEN && (lat !== 0 || lon !== 0)) {
                 ownLat = lat; ownLon = lon; // für Traffic-Eigenfilter
@@ -188,9 +272,11 @@ function connectSimConnect(ws, syncId, pin) {
                     : (Number.isFinite(precipState) ? precipState > 0 : null),
                   inCloud: Number.isFinite(inCloud) ? (inCloud > 0.5) : null,
                   turbulencePct: Number.isFinite(turbulencePct) ? Math.round(turbulencePct) : null,
-                  simPaused: Number.isFinite(simPausedA)
-                    ? (simPausedA > 0.5)
-                    : (Number.isFinite(simPausedB) ? (simPausedB > 0.5) : false),
+                  simPaused: simPausedFromEvent || simPausedFromVar,
+                  pauseFlags: runtimeState.pauseFlags || 0,
+                  simRunning: runtimeState.simRunning,
+                  dialogMode: runtimeState.dialogMode,
+                  inMenuOrMap: isInMenuOrMap(),
                   aoaDeg:   Number.isFinite(aoaDeg) ? Math.round(aoaDeg * 10) / 10 : null,
                   stallState: Number.isFinite(stallState) ? (stallState > 0.5) : false
                 };
@@ -211,7 +297,7 @@ function connectSimConnect(ws, syncId, pin) {
                   latestTrafficSnapshot = null; // einmalig senden, dann löschen
                 }
                 ws.send(JSON.stringify(gpsMsg));
-                console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | GS ${flight.gsKts ?? '?'}kts | OnG ${flight.onGround ? 'Y' : 'N'} | Pause ${flight.simPaused ? 'Y' : 'N'} | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipRateMmH ?? '?'}mm/h | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
+                console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | GS ${flight.gsKts ?? '?'}kts | OnG ${flight.onGround ? 'Y' : 'N'} | Pause ${flight.simPaused ? 'Y' : 'N'}(${flight.pauseFlags ?? 0}) | Sim ${flight.simRunning ? 'RUN' : 'STOP'} | Menu ${flight.inMenuOrMap ? 'Y' : 'N'} | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipRateMmH ?? '?'}mm/h | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
               } else if (lat === 0) {
                  process.stdout.write("."); 
               }
@@ -292,6 +378,7 @@ function connectSimConnect(ws, syncId, pin) {
       }, 2000);
 
       handle.on('close', () => {
+        clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);
         // Nur reconnecten wenn WS noch offen ist, sonst wartet WS-Reconnect auf SimConnect-Neustart
         if (ws.readyState === WebSocket.OPEN) {
