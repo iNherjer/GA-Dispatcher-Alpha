@@ -132,6 +132,9 @@ let _poiEntryDone       = false; // entry comment fired once on radius entry
 let _poiInspectionOutcome = null; // keeps one consistent inspection result per mission
 let _poiSightCallDone   = false; // early pre-arrival call before entering POI radius
 let _poiTrainingLastDistToDestNm = null; // trend helper: detect outbound vs. return leg
+let _poiTrainingPreBriefDone = false; // 4 NM before training area
+let _poiTrainingZoneStartDone = false; // when entering training area
+let _poiTrainingLandingBriefDone = false; // 5/4 NM before landing on return leg
 
 window.paxVoiceResetMission = function() {
     _paxGreetingDone  = false;
@@ -171,6 +174,9 @@ window.paxVoiceResetMission = function() {
     _poiInspectionOutcome = null;
     _poiSightCallDone = false;
     _poiTrainingLastDistToDestNm = null;
+    _poiTrainingPreBriefDone = false;
+    _poiTrainingZoneStartDone = false;
+    _poiTrainingLandingBriefDone = false;
 };
 
 function _trainingEvalBegin() {
@@ -1116,6 +1122,52 @@ Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die L
 Techniker-/Inspektionsrollen: knapp, professionell, kein Sightseeing-Ton. Max 2 Sätze.${_toneHint()}`;
 }
 
+function _poiTrainingPreZonePrompt(flightData, distNm) {
+    const ctx = _baseContext();
+    const plan = _activeAptTrainingPlan();
+    if (!ctx || !plan) return null;
+    const wx = _weatherContext(flightData);
+    const focus = plan.focus.length ? plan.focus.join(', ') : 'saubere Kurs-/Höhenführung, Luftraum-Scan und stabile Fluglage';
+    const distTxt = Math.max(0.2, Number(distNm || 0)).toFixed(1);
+    return `${ctx}
+
+Moment: Wir sind noch ca. ${distTxt} NM vor dem Übungsgebiet.${wx ? ' ' + wx : ''}
+Briefing für die nächste Phase: ${focus}. Gib dem Piloten jetzt eine kurze, klare Vorbereitung auf die Übung.
+Keine Objektbeschreibung, kein "in Sicht", nur Verfahren/Sicherheit. Max 2 Sätze.${_toneHint()}`;
+}
+
+function _poiTrainingZoneEntryPrompt(flightData) {
+    const ctx = _baseContext();
+    const plan = _activeAptTrainingPlan();
+    if (!ctx || !plan) return null;
+    const focus = plan.focus.length ? plan.focus.join(', ') : 'Basis-Airwork';
+    const lineHint = plan.instructorLine
+        ? `Nutze sinngemäß diese Linie: "${plan.instructorLine}".`
+        : '';
+    return `${ctx}
+
+Moment: Einflug ins Übungsgebiet. Jetzt startet die Übung.
+Gib die Startanweisung für die Durchführung in 1-2 klaren Schritten (Priorität und Sicherheitsfokus). Übungen: ${focus}. ${lineHint}
+Ton: Instruktor-Funkstil, knapp und präzise. Max 2 Sätze.${_toneHint()}`;
+}
+
+function _trainingLandingPrepPrompt(flightData, distNm, mode) {
+    const ctx = _baseContext();
+    const plan = _activeAptTrainingPlan();
+    if (!ctx || !plan) return null;
+    const wx = _weatherContext(flightData);
+    const d = Math.max(0.2, Number(distNm || 0)).toFixed(1);
+    const pattern = mode === 'pattern';
+    const body = pattern
+        ? `Wir sind etwa ${d} NM vor der Landung. Jetzt die Platzübung sauber anweisen und danach normal landen lassen.`
+        : `Wir sind etwa ${d} NM vor der Landung. Jetzt kurze, klare Landevorbereitung geben.`;
+    return `${ctx}
+
+Moment: Rückanflug zum Startflugplatz.${wx ? ' ' + wx : ''}
+${body} Nenne Wind/Wetter knapp und gib genau einen konkreten Tipp für den Anflug bzw. die Landung.
+Ton: sachlich, instruktiv, kein Offtopic. Max 2 Sätze.${_toneHint()}`;
+}
+
 function _poiAltComplaintPrompt(flightData, altFt, targetAlt, attempt) {
     const ctx = _baseContext();
     const pax = window.activePassenger;
@@ -1492,27 +1544,48 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
         const first = wps[0];
         const last = wps[wps.length - 1];
         const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
-        if (trainingPlan.trigger === 'half_route') {
-            if (_isPOIMission() && wps.length >= 3) {
-                // POI-Training: "half_route" soll auf dem Hinweg zur Trainingszone feuern,
-                // nicht am POI selbst und nicht auf dem Rueckweg.
-                const dest = _getDestCoords() || { lat: last.lat, lon: (last.lng ?? last.lon) };
-                const startLon = first.lng ?? first.lon;
-                const totalOutNm = _haversineNm(first.lat, startLon, dest.lat, dest.lon);
-                const doneOutNm = _haversineNm(first.lat, startLon, lat, lon);
-                const distToDestNm = _haversineNm(lat, lon, dest.lat, dest.lon);
-                const progressOut = totalOutNm > 0.5 ? Math.max(0, Math.min(1, doneOutNm / totalOutNm)) : 0;
-                const approaching = (_poiTrainingLastDistToDestNm == null)
-                    ? true
-                    : (distToDestNm <= (_poiTrainingLastDistToDestNm + 0.02));
-                _poiTrainingLastDistToDestNm = distToDestNm;
-                if (progressOut >= 0.48 && progressOut <= 0.78 && approaching) {
-                    _aptTrainingBriefDone = true;
-                    _paxLog(`Training-Trigger half_route(POI outbound) | progress ${(progressOut * 100).toFixed(0)}% | distDest ${distToDestNm.toFixed(2)} NM`, 'event');
-                    const p = _aptTrainingPrompt(flightData, distNm, progressOut);
+        if (_isPOIMission()) {
+            const dest = _getDestCoords() || { lat: last.lat, lon: (last.lng ?? last.lon) };
+            const distToDestNm = _haversineNm(lat, lon, dest.lat, dest.lon);
+            const approaching = (_poiTrainingLastDistToDestNm == null)
+                ? true
+                : (distToDestNm <= (_poiTrainingLastDistToDestNm + 0.02));
+            _poiTrainingLastDistToDestNm = distToDestNm;
+
+            // 1) 4 NM vor Trainingsgebiet: Übungsbeschreibung/Einweisung
+            if (!_poiTrainingPreBriefDone && approaching && distToDestNm <= 4.0) {
+                _poiTrainingPreBriefDone = true;
+                _paxLog(`Training-Trigger poi_prebrief_4nm | distDest ${distToDestNm.toFixed(2)} NM`, 'event');
+                const p = _poiTrainingPreZonePrompt(flightData, distToDestNm);
+                if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+            }
+
+            // 2) Beim Einflug in die Zone: Übung starten
+            const zoneNm = Math.max(1.2, Number(window.activePassenger?.targetRadiusNm || 0) || 0);
+            if (!_poiTrainingZoneStartDone && distToDestNm <= zoneNm) {
+                _poiTrainingZoneStartDone = true;
+                _trainingEvalBegin();
+                _paxLog(`Training-Trigger poi_zone_entry | distDest ${distToDestNm.toFixed(2)} NM`, 'event');
+                const p = _poiTrainingZoneEntryPrompt(flightData);
+                if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+            }
+
+            // 3) Rückanflug: entweder 5 NM (Pattern) oder 4 NM (normale Landung)
+            if (_poiTrainingZoneStartDone && !_poiTrainingLandingBriefDone) {
+                if (trainingPlan.mode === 'pattern' && distNm <= 5.0) {
+                    _poiTrainingLandingBriefDone = true;
+                    _paxLog(`Training-Trigger poi_landing_pattern_5nm | distHome ${distNm.toFixed(2)} NM`, 'event');
+                    const p = _trainingLandingPrepPrompt(flightData, distNm, 'pattern');
+                    if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                } else if (trainingPlan.mode !== 'pattern' && distNm <= 4.0) {
+                    _poiTrainingLandingBriefDone = true;
+                    _paxLog(`Training-Trigger poi_landing_4nm | distHome ${distNm.toFixed(2)} NM`, 'event');
+                    const p = _trainingLandingPrepPrompt(flightData, distNm, 'landing');
                     if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 }
-            } else {
+            }
+        } else if (trainingPlan.trigger === 'half_route') {
+            if (!_isPOIMission()) {
                 const totalNm = _haversineNm(first.lat, first.lng ?? first.lon, last.lat, last.lng ?? last.lon);
                 const doneNm = _haversineNm(first.lat, first.lng ?? first.lon, lat, lon);
                 const progress = totalNm > 1 ? (doneNm / totalNm) : 0;
@@ -1523,14 +1596,14 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
                     if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 }
             }
-        } else if (trainingPlan.trigger === 'five_nm_before_landing' && distNm <= 5.0) {
+        } else if (!_isPOIMission() && trainingPlan.trigger === 'five_nm_before_landing' && distNm <= 5.0) {
             _aptTrainingBriefDone = true;
             _paxLog(`Training-Trigger five_nm_before_landing | dist ${distNm.toFixed(2)} NM`, 'event');
             const p = _aptTrainingPrompt(flightData, distNm, null);
             if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
         }
     }
-    if (trainingPlan && _aptTrainingBriefDone) {
+    if (trainingPlan && (_aptTrainingBriefDone || _poiTrainingZoneStartDone)) {
         _trainingEvalBegin();
         _trainingEvalTick(flightData || window.lastLiveFlightData || {});
     }
