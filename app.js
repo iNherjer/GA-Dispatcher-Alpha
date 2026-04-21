@@ -2437,29 +2437,99 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
     return normalized;
 }
 
+const TRAINING_AIRWORK_ITEMS = [
+    'Stall-Training',
+    'Steep Turns (Vollkreis)',
+    'Slow Flight',
+    'Haengekurven rechts/links',
+    'Clean/Dirty Configuration Changes',
+    'VFR-Navigationsaufgabe mit Kurskorrektur'
+];
+const TRAINING_PATTERN_ITEMS = [
+    'No-Flaps-Approach',
+    'Engine-Out-Approach (simuliert)',
+    'Touch-and-Go',
+    'Missed Approach / Go-Around',
+    'Extra-Platzrunde mit stabilisiertem Endanflug'
+];
+
+function _pickUniqueTrainingItems(pool, count, used = new Set()) {
+    const src = Array.isArray(pool) ? pool.filter(Boolean) : [];
+    const shuffled = src
+        .filter(item => !used.has(item))
+        .sort(() => Math.random() - 0.5);
+    const out = [];
+    for (const item of shuffled) {
+        out.push(item);
+        used.add(item);
+        if (out.length >= count) break;
+    }
+    return out;
+}
+
+function _isPatternFocusItem(text) {
+    const s = String(text || '').toLowerCase();
+    return /pattern|platzrunde|touch|go-around|missed|no-flap|engine-out|anflug|landung|final/.test(s);
+}
+
+function buildDistributedTrainingPlan(seedMode = 'airwork') {
+    const totalCount = 2 + Math.floor(Math.random() * 3); // 2..4
+    const preferPattern = String(seedMode || '').toLowerCase() === 'pattern';
+    let patternCount = 0;
+
+    if (preferPattern) {
+        patternCount = Math.min(totalCount - 1, totalCount >= 4 ? 2 : 1);
+    } else if (totalCount >= 3 && Math.random() < 0.55) {
+        // Airwork bleibt dominant, aber oft mit einer Landeuebung gemischt.
+        patternCount = 1;
+    }
+    const airworkCount = Math.max(1, totalCount - patternCount);
+    const used = new Set();
+    const focus = [
+        ..._pickUniqueTrainingItems(TRAINING_AIRWORK_ITEMS, airworkCount, used),
+        ..._pickUniqueTrainingItems(TRAINING_PATTERN_ITEMS, patternCount, used)
+    ];
+    const mode = patternCount > 0 ? 'pattern' : 'airwork';
+    const trigger = mode === 'pattern' ? 'five_nm_before_landing' : 'half_route';
+    const instructorLine = mode === 'pattern'
+        ? 'Wir machen erst die Uebungen in der Luft und gehen dann in eine Landeuebung am Platz.'
+        : 'Wir bleiben heute beim Airwork: sauber, ruhig und mit klarem Ablauf.';
+    return { mode, trigger, focus, instructorLine };
+}
+
 function sanitizeTrainingPlan(rawPlan, isTrainingMission) {
     if (!isTrainingMission) return null;
     if (!rawPlan || typeof rawPlan !== 'object') {
-        return {
-            mode: 'airwork',
-            trigger: 'half_route',
-            focus: ['Stall-Training', 'Steep Turns (Vollkreis)', 'Slow Flight'],
-            instructorLine: 'Wir starten mit Airwork: erst Stall-Training, dann Steep Turns, danach Slow Flight.'
-        };
+        return buildDistributedTrainingPlan('airwork');
     }
     const modeRaw = String(rawPlan.mode || '').toLowerCase();
-    const mode = (modeRaw === 'airwork' || modeRaw === 'pattern') ? modeRaw : 'airwork';
+    const requestedMode = (modeRaw === 'airwork' || modeRaw === 'pattern') ? modeRaw : 'airwork';
+    const focusRaw = Array.isArray(rawPlan.focus) ? rawPlan.focus : [];
+    let focus = focusRaw
+        .map(x => String(x || '').trim())
+        .filter(Boolean)
+        .slice(0, 4);
+    // Trainingsvielfalt erzwingen: insgesamt 2-4 Manoever, oft Airwork + optional 1 Pattern.
+    if (focus.length < 2) {
+        const fallback = buildDistributedTrainingPlan(requestedMode);
+        focus = fallback.focus;
+    } else {
+        const hasPattern = focus.some(_isPatternFocusItem);
+        if (!hasPattern && focus.length >= 3 && requestedMode === 'airwork' && Math.random() < 0.45) {
+            const add = _pickUniqueTrainingItems(TRAINING_PATTERN_ITEMS, 1, new Set(focus));
+            focus = focus.concat(add).slice(0, 4);
+        }
+    }
+    const mode = focus.some(_isPatternFocusItem) ? 'pattern' : requestedMode;
     const triggerRaw = String(rawPlan.trigger || '').toLowerCase();
     const trigger = (triggerRaw === 'half_route' || triggerRaw === 'five_nm_before_landing')
         ? triggerRaw
         : (mode === 'pattern' ? 'five_nm_before_landing' : 'half_route');
-    const focusRaw = Array.isArray(rawPlan.focus) ? rawPlan.focus : [];
-    const focus = focusRaw
-        .map(x => String(x || '').trim())
-        .filter(Boolean)
-        .slice(0, 5);
     const instructorLine = String(rawPlan.instructorLine || '').trim().slice(0, 220);
-    return { mode, trigger, focus, instructorLine };
+    const instructorFallback = mode === 'pattern'
+        ? 'Heute mit gemischtem Programm: Airwork im Uebungsgebiet, dann eine saubere Landeuebung am Platz.'
+        : 'Heute konzentrieren wir uns auf Airwork mit ruhigem, sauberem Ablauf.';
+    return { mode, trigger, focus, instructorLine: instructorLine || instructorFallback };
 }
 
 async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null) {
@@ -2612,7 +2682,11 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
        - Bei mode "pattern": Übungen platznah im Anflug/Platzrunde, z.B. Engine-Out-Approach, No-Flaps, Extra-Platzrunden, Touch-and-Go, Missed Approach.
          trigger MUSS "five_nm_before_landing" sein (Instruktor meldet sich 5 NM vor Ziel).
          Wichtig: Die eigentliche Landung erfolgt ERST nach Abschluss der Übung am Platz.
-       - Gib 2-4 konkrete Übungen in "focus" an und eine kurze Instruktor-Ansage in "instructorLine".
+       - Gib 2-4 konkrete Übungen in "focus" an (keine Dubletten).
+       - Verteile sinnvoll:
+         * Option A: nur Airwork (z.B. 2 reine Airwork-Uebungen)
+         * Option B: Mix aus Airwork + genau 1 Landeuebung (z.B. 3 Uebungen: 2 Airwork, 1 Pattern/Landung)
+       - Gib dazu eine kurze Instruktor-Ansage in "instructorLine".
     12. TRAININGS-PAX: Es MUSS genau EIN Passagier mitfliegen: der Instruktor. pax MUSS "1 PAX (Instruktor)" oder gleichwertig sein.
         Der passenger darf NICHT null sein und role MUSS klar Instructor/Fluglehrer sein.
         cargo nur unkritisch (z.B. "Trainingsunterlagen"), kein echter Frachtauftrag.`
