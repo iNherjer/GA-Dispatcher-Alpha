@@ -2558,7 +2558,7 @@ function buildCharterPassenger(basePassenger = null) {
         dialectHint: 'neutral',
         gTolerance: String(base.gTolerance || 'mittel').toLowerCase(),
         bankTolerance: String(base.bankTolerance || 'mittel').toLowerCase(),
-        roleProfile: 'instructor_calm_precise_v1',
+        roleProfile: 'charter_professional_neutral_v1',
         targetAltFt: 0,
         targetRadiusNm: 0,
         targetDwellMin: 0,

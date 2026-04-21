@@ -999,8 +999,12 @@ function _regionalSpeechProfileForCoords(lat, lon) {
 function _contextualDialectProfile(pax) {
     const explicit = String(pax?.dialectHint || '').trim().toLowerCase() || 'neutral';
     const role = String(pax?.role || '');
-    if (String(pax?.roleProfile || '').toLowerCase() === 'instructor_calm_precise_v1') {
+    const roleProfile = String(pax?.roleProfile || '').toLowerCase();
+    if (roleProfile === 'instructor_calm_precise_v1') {
         return { dialectHint: 'neutral', strengthLabel: 'neutral', regionLabel: 'Profil: calm_precise_neutral' };
+    }
+    if (roleProfile === 'charter_professional_neutral_v1') {
+        return { dialectHint: 'neutral', strengthLabel: 'neutral', regionLabel: 'Profil: charter_professional_neutral' };
     }
     const trainingPlan = _activeAptTrainingPlan();
     if (trainingPlan && /fluglehrer|instructor|instruktor|checkpilot/.test(role.toLowerCase())) {
@@ -1238,6 +1242,8 @@ Erkläre dem Piloten verständnisvoll, dass wir die Mission abbrechen und zurüc
 // Shared tone instruction appended to every prompt
 function _toneHint() {
     const profile = _contextualDialectProfile(window.activePassenger || null);
+    const roleProfile = String(window.activePassenger?.roleProfile || '').toLowerCase();
+    const isCharterNeutral = roleProfile === 'charter_professional_neutral_v1';
     const region = String(profile?.regionLabel || '').toLowerCase();
     const isSouthernRegion = /(baden|schwarzwald|wuerttemberg|schwaben|allgaeu|bayern|franken|berchtesgaden|schweiz|oesterreich)/.test(region);
     const humorLine = _paxHumorLevel === 'subtle'
@@ -1251,11 +1257,17 @@ function _toneHint() {
     const moinLine = isSouthernRegion
         ? 'In dieser Region KEIN "Moin" verwenden. Falls Begrüßung, dann eher neutral "Hi" oder "Hey".'
         : 'Nutze "Moin" nur wenn es regional wirklich passt, sonst neutral bleiben.';
+    const registerLine = isCharterNeutral
+        ? 'Sprache: klar, natürlich und professionell. Kein Dialekt, keine regionale Färbung, keine saloppen Regionalwörter.'
+        : 'Sprache: locker und einfach, kein steifes Hochdeutsch, kein Amtsdeutsch. Eher so, wie man im Cockpit wirklich redet.';
+    const colloquialLine = isCharterNeutral
+        ? 'Wortwahl überwiegend standardnah halten; nur sehr sparsame Umgangssprache.'
+        : 'Gelegentlich leichte Umgangssprache ist okay (z.B. "grad"), aber in normaler Standardschreibung bleiben.';
     return `
 Sprich den Piloten direkt an (per Du, kein Erzähler-Stil). Ton: persönlich, warmherzig und spontan, als würdest du live im Cockpit reagieren statt einen Text vorzulesen.
-Sprache: locker und einfach, kein steifes Hochdeutsch, kein Amtsdeutsch. Eher so, wie man im Cockpit wirklich redet.
+${registerLine}
 Ich-Form. Kurze natürliche Sätze, gern mit kleinen Einwürfen wie "ehrlich gesagt", "ui", "okay", "passt".
-Gelegentlich leichte Umgangssprache ist okay (z.B. "grad"), aber in normaler Standardschreibung bleiben.
+${colloquialLine}
 ${greetingLine}
 ${moinLine}
 Keine Dialekt-Aussprache simulieren: keine Lautschrift, keine absichtlich "verzogene" Schreibweise.
