@@ -863,11 +863,18 @@ function _baseContext() {
     const roleStyle = _roleStyleHint(pax.role);
 
     const dialectProfile = _contextualDialectProfile(pax);
+    const trainingPlan = _activeAptTrainingPlan();
+    const trainingDiscipline = trainingPlan
+        ? `Trainingsmodus aktiv (${trainingPlan.mode}). Bleib strikt in der Instruktorrolle:
+Nur fliegerische Inhalte (Verfahren, Flugweg, Luftraum-Scan, Wind/Wetter, Maschinenführung, Sicherheit).
+Kein Sightseeing, keine historischen/romantischen Zielbeschreibungen, keine Anekdoten über Orte.`
+        : '';
     return `Du bist ${pax.name}, ${pax.role}. Persönlichkeit: ${pax.personality}.
 Flug: ${md.start || '?'} → ${md.poiName || md.dest || '?'} (${md.dist || '?'} NM, ${md.ac || 'GA-Flugzeug'}).
 Fracht/Beladung: ${cargo || 'n/a'}${payload ? ` · Passagiere: ${payload}` : ''}
 ${story ? `Auftrag: ${story}` : ''}
 Rollenstil: ${roleStyle}
+${trainingDiscipline}
 Region am Ziel: ${dialectProfile.regionLabel}.
 Sprachfärbung: ${dialectProfile.dialectHint}. Intensität: ${dialectProfile.strengthLabel}. Halte diese Färbung über alle Meldungen dieses Flugs konsistent.
 Globale Sprachregeln: ${_dialectGlobalRules(dialectProfile, pax.role)}
@@ -896,7 +903,7 @@ function _roleStyleHint(roleRaw) {
 
 function _rolePrefersNeutralSpeech(roleRaw) {
     const role = String(roleRaw || '').toLowerCase();
-    return /(wissenschaft|wissenschaftler|wissenschaftlerin|professor|dozent|arzt|aerzt|anwalt|richter|controller|vorstand|manager|analyst)/.test(role);
+    return /(wissenschaft|wissenschaftler|wissenschaftlerin|professor|dozent|arzt|aerzt|anwalt|richter|controller|vorstand|manager|analyst|fluglehrer|instructor|instruktor|checkpilot)/.test(role);
 }
 
 function _roleSupportsRegionalSpeech(roleRaw) {
@@ -1057,7 +1064,7 @@ function _poiEntryPrompt(flightData) {
     const factHint = _targetFactHint();
     const trainingPlan = _activeAptTrainingPlan();
     const trainingHint = trainingPlan
-        ? ' Als Instruktor: gib stattdessen einen kurzen VFR-Hinweis (z.B. Luftraum-Orientierung, markante Geländepunkte, sauberes Scan-Muster). Kein Schwärmen über die Landschaft.'
+        ? ' Als Instruktor: bleib strikt prozedural. Fokus auf Flugweg, Maschine, Luftraum-Scan und Sicherheitsverfahren. Keine Ortsfakten, keine Geschichte, kein Schwärmen.'
         : '';
     return `${ctx}
 
@@ -1092,7 +1099,7 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     const realEta = Math.max(1, Math.round(etaMin));
     const trainingPlan = _activeAptTrainingPlan();
     const trainingHint = trainingPlan
-        ? `Instruktor-Modus: Nenne statt Sightseeing eine knappe VFR-Hilfe (z.B. Landmarke zur Positionsbestimmung, sinnvoller Referenzpunkt für Ein-/Ausflug, Luftraum- oder Kurs-Hinweis), falls realistisch.`
+        ? `Instruktor-Modus: Nur fliegerische Hinweise (Anflugstruktur, Luftraum-Scan, Kurs-/Höhenführung, Arbeitsverteilung im Cockpit). Landmarken nur als nüchterne Navigationsreferenz, keine Objektbeschreibung oder Ortsanekdoten.`
         : '';
     return `${ctx}
 
@@ -1274,7 +1281,7 @@ function _aptTrainingPrompt(flightData, distNm, progressRatio) {
         ? `Wenn passend, baue diese Instruktor-Linie sinngemäß ein: "${plan.instructorLine}".`
         : '';
     const landingPrepHint = plan.trigger === 'five_nm_before_landing'
-        ? 'Da wir im Endanflug-Setup sind: gib zusätzlich eine kurze Landevorbereitung mit Wind/Wetter-Hinweis, 1-2 realistischen Landmarken zur VFR-Orientierung und genau einem praktischen Tipp für die Landung. Sag klar: zuerst die Platzübung sauber durchführen, danach normal landen.'
+        ? 'Da wir im Endanflug-Setup sind: gib zusätzlich eine kurze Landevorbereitung mit Wind/Wetter-Hinweis, optional 1 nüchterne Landmarke nur zur Navigation, und genau einen praktischen Tipp für die Landung. Sag klar: zuerst die Platzübung sauber durchführen, danach normal landen.'
         : '';
     return `${ctx}
 
@@ -1282,7 +1289,7 @@ Moment: Trainingsflug mit Instruktor. ${triggerLine}${wx ? ' ' + wx : ''}
 ${modeLine}
 ${focusLine}
 Gib dem Piloten jetzt eine kurze, konkrete Arbeitsanweisung (Reihenfolge oder Priorität), dann einen knappen Sicherheitsfokus.${lineHint} ${landingPrepHint}
-Ton: sachlich, ruhig, klar. Kein Sightseeing, kein romantischer Ton. Max 2 Sätze.${_toneHint()}`;
+Ton: sachlich, ruhig, klar. Strikter Instruktor-Funkstil: keine Ortsgeschichte, keine Schwärmerei, kein Offtopic. Max 2 Sätze.${_toneHint()}`;
 }
 
 function _evaluateComfortBreach(flightData, pax) {
@@ -1374,7 +1381,8 @@ function _farewellPrompt(record) {
     if (!ctx || !pax) return null;
 
     const min  = Math.round(record.durationSec / 60);
-    const td   = record.touchdownVsFpm != null ? `${Math.abs(record.touchdownVsFpm)} ft/min` : null;
+    const isSimRecord = !!record?.simulated;
+    const td   = (!isSimRecord && record.touchdownVsFpm != null) ? `${Math.abs(record.touchdownVsFpm)} ft/min` : null;
     const bank = (record.maxBankDeg || 0).toFixed(1);
     const maxG = (record.maxGForce  || 1.0).toFixed(2);
     const wx   = _weatherContext(window.lastLiveFlightData);
@@ -1382,11 +1390,12 @@ function _farewellPrompt(record) {
     let highlights = '';
     if (pax.gTolerance === 'niedrig' && (record.maxGForce || 1) > 1.5) highlights += ' Etwas viel G für mich, aber okay.';
     if (pax.bankTolerance === 'niedrig' && (record.maxBankDeg || 0) > 30) highlights += ' Die Kurven waren schon sportlich.';
-    if (Number.isFinite(record.maxDescentFpm) && record.maxDescentFpm <= -1500) {
+    if (!isSimRecord && Number.isFinite(record.maxDescentFpm) && record.maxDescentFpm <= -1500) {
         highlights += ` Der Sinkflug mit ${Math.abs(Math.round(record.maxDescentFpm))} ft/min ging etwas auf Ohren und Magen.`;
     }
     if (td && Math.abs(record.touchdownVsFpm) < 200) highlights += ' Die Landung war richtig sanft — Kompliment!';
     if (td && Math.abs(record.touchdownVsFpm) > 500) highlights += ` Die Landung mit ${Math.abs(record.touchdownVsFpm)} ft/min war etwas holprig.`;
+    if (isSimRecord) highlights += ' Hinweis: Sim-Modus aktiv, Landebewertung nur eingeschränkt belastbar.';
     if (wx) highlights += ` ${wx}`;
     highlights += _consumeWeatherMismatchEasteregg(window.lastLiveFlightData || null);
     const profLandingHint = _professionalLandingToneHint();

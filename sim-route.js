@@ -308,6 +308,7 @@
         const durSec = Math.max(1, Math.round(simElapsedSec + (SIM_HOLD_SEC * 2)));
         return {
             id: Date.now(),
+            simulated: true,
             createdAt: Date.now(),
             dateLabel: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
             depLabel,
