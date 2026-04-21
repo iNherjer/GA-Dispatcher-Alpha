@@ -789,7 +789,8 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
     let audioBuffer = bytes.buffer;
-    if (!mimeType || mimeType.includes('pcm') || mimeType.includes('L16')) {
+    const mimeLower = String(mimeType || '').toLowerCase();
+    if (!mimeType || mimeLower.includes('pcm') || mimeLower.includes('l16')) {
         const rateMatch = mimeType?.match(/rate=(\d+)/);
         const sampleRate = rateMatch ? parseInt(rateMatch[1]) : 24000;
         _paxLog(`PCM→WAV wrap | rate: ${sampleRate} Hz | mime: ${mimeType || 'unbekannt'}`, 'audio');
