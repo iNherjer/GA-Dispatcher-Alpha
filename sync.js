@@ -46,6 +46,7 @@ let flightRecorder = {
     armed: false,
     startCandidateSince: 0,
     lastUpdateTs: 0,
+    pauseActive: false,
     airborneEvidenceSec: 0,
     hadAirbornePhase: false,
     startTs: 0,
@@ -652,8 +653,8 @@ let liveNextLegIndex = 0;
 let liveNextRouteKey = '';
 let liveActiveWpIndex = null; // null = automatisch (aus Leg), sonst manuell gewählter Ziel-Wegpunkt
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 208;
-const MIN_TRACKER_VERSION_LABEL = 'v208';
+const MIN_TRACKER_VERSION_CODE = 209;
+const MIN_TRACKER_VERSION_LABEL = 'v209';
 let trackerVersionPromptShown = false;
 
 function _extractTrackerVersionCode(pkt) {
@@ -1797,7 +1798,11 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     updateFlightRecorder(lat, lon, alt);
     if (typeof window.checkPaxPoiProximity === 'function') {
         const _paxAlt = Math.max(0, Math.round(alt));
-        const _paxFd  = Object.assign({}, window.lastLiveFlightData || {}, { mslFt: _paxAlt, aglFt: _paxAlt });
+        const _aglFromTracker = Number(window.lastLiveFlightData?.aglFt);
+        const _paxFd  = Object.assign({}, window.lastLiveFlightData || {}, {
+            mslFt: _paxAlt,
+            aglFt: Number.isFinite(_aglFromTracker) ? Math.max(0, Math.round(_aglFromTracker)) : _paxAlt
+        });
         window.checkPaxPoiProximity(lat, lon, _paxFd);
     }
 }
@@ -1808,6 +1813,7 @@ function resetFlightRecorder() {
         armed: false,
         startCandidateSince: 0,
         lastUpdateTs: 0,
+        pauseActive: false,
         airborneEvidenceSec: 0,
         hadAirbornePhase: false,
         startTs: 0,
@@ -1948,26 +1954,53 @@ function updateFlightRecorder(lat, lon, alt) {
 
     const now = Date.now();
     const gs = Number(smoothedGS) || 0;
-    const agl = Math.max(0, (Number(alt) || 0) - (Number(window.lastLiveTerrainFt) || 0));
     const _lfd = window.lastLiveFlightData;
+    const agl = Number.isFinite(_lfd?.aglFt)
+        ? Math.max(0, Number(_lfd.aglFt))
+        : Math.max(0, (Number(alt) || 0) - (Number(window.lastLiveTerrainFt) || 0));
     const hasOnGroundFlag = typeof _lfd?.onGround === 'boolean';
     const onGroundNow = hasOnGroundFlag ? !!_lfd.onGround : false;
+    const simPaused = !!_lfd?.simPaused;
     const r = flightRecorder;
     const dtSec = r.lastUpdateTs ? Math.max(0, (now - r.lastUpdateTs) / 1000) : 0;
     r.lastUpdateTs = now;
 
+    // Pause im Sim: Recorder einfrieren und keine Trigger auslösen.
+    if (simPaused) {
+        r.pauseActive = true;
+        r.wasOnGround = onGroundNow;
+        r.lowSpeedSince = 0;
+        return;
+    }
+
+    // Nach Pause unterscheiden: echter Neustart vs. normale Fortsetzung.
+    if (r.pauseActive) {
+        r.pauseActive = false;
+        const restartPattern = onGroundNow && gs <= 2.5 && agl <= 120;
+        if (restartPattern) {
+            console.log('[FlightRec] Pause-Ende mit Neustart-Muster erkannt -> Mission reset bereit');
+            resetFlightRecorder();
+            if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
+            return;
+        }
+        r.lastUpdateTs = now; // dt-Sprung nach Pause vermeiden
+    }
+
     // Aktivierung: erst nach stabilem Startkandidaten (kein GPS-Spike/Spawn)
     if (!r.active) {
-        const startCandidate = hasOnGroundFlag
-            ? (!onGroundNow && (gs > 24 || agl > 180))
+        const taxiStartCandidate = hasOnGroundFlag && onGroundNow && gs > 6;
+        const airborneStartCandidate = hasOnGroundFlag
+            ? (!onGroundNow && (gs > 20 || agl > 120))
             : (gs > 28 || agl > 220);
+        const startCandidate = taxiStartCandidate || airborneStartCandidate;
         if (startCandidate) {
             if (!r.startCandidateSince) r.startCandidateSince = now;
         } else {
             r.startCandidateSince = 0;
         }
 
-        if (r.startCandidateSince && (now - r.startCandidateSince) >= 4000) {
+        const stableMs = taxiStartCandidate ? 1800 : 3000;
+        if (r.startCandidateSince && (now - r.startCandidateSince) >= stableMs) {
             r.active = true;
             r.armed = false;
             r.startCandidateSince = 0;

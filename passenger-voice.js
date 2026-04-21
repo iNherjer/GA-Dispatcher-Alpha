@@ -115,6 +115,8 @@ let _paxComfortCount  = 0;
 let _paxComfortBusy   = false;
 let _paxWxMismatchDone = false;
 let _paxSpeechQueue   = Promise.resolve();
+let _paxWrongStartActive = false;
+let _paxWrongStartContinueDone = false;
 let _aptTrainingBriefDone = false;
 let _aptTrainingLandingBriefDone = false;
 let _trainingEval = null;
@@ -146,6 +148,8 @@ window.paxVoiceResetMission = function() {
     _paxComfortBusy   = false;
     _paxWxMismatchDone = false;
     _paxSpeechQueue   = Promise.resolve();
+    _paxWrongStartActive = false;
+    _paxWrongStartContinueDone = false;
     _aptTrainingBriefDone = false;
     _aptTrainingLandingBriefDone = false;
     _trainingEval = {
@@ -1291,6 +1295,31 @@ Moment: Das Flugzeug bewegt sich, aber wir sind ${distNm.toFixed(1)} NM vom gepl
 Reagiere verwundert und leicht amüsiert — irgendwas stimmt hier nicht, und du weißt nicht ob der Pilot sich verfahren hat oder ob das Briefing falsch war. 1-2 Sätze.${_toneHint()}`;
 }
 
+function _wrongStartContinuePrompt(flightData) {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const wx = _weatherContext(flightData);
+    return `${ctx}
+
+Moment: Wir sind inzwischen gestartet, aber vom falschen Platz. Mission läuft jetzt einfach von hier weiter.${wx ? ' ' + wx : ''}
+Sag dem Piloten mit einem kurzen, lockeren Kommentar, dass wir die Mission jetzt pragmatisch von diesem Startpunkt aus fliegen und offenbar niemand genau weiß, wie wir spontan hier gelandet sind. Humor erlaubt, aber glaubwürdig bleiben. Max 1-2 Sätze.${_toneHint()}`;
+}
+
+function _maybeWrongStartContinue(flightData) {
+    if (!_paxWrongStartActive || _paxWrongStartContinueDone) return;
+    const onGround = !!flightData?.onGround;
+    const aglFt = Number(flightData?.aglFt || 0);
+    const gsKts = Number(flightData?.gs || flightData?.gsKts || flightData?.groundSpeed || window.lastLiveGpsPos?.gs || 0);
+    if (onGround) return;
+    if (aglFt < 120 && gsKts < 60) return;
+    _paxWrongStartContinueDone = true;
+    const p = _wrongStartContinuePrompt(flightData);
+    if (!p) return;
+    _paxLog('Wrong-Start Follow-up nach Abheben', 'event');
+    setTimeout(() => _speakAndShow(p, 'Route läuft ab hier'), 300);
+}
+
 function _greetingPrompt() {
     const ctx = _baseContext();
     const pax = window.activePassenger;
@@ -1547,7 +1576,9 @@ window.triggerPaxGreeting = async function(lat, lon) {
             _paxLog(`Falsche Position (${distNm.toFixed(1)} NM) → Falsche-Ort-Meldung`, 'warn');
             const wrongPrompt = _wrongLocationPrompt(distNm);
             if (wrongPrompt) await _speakAndShow(wrongPrompt, '⚠️ Falscher Ort');
-            _paxGreetingDone = false; // allow retry when actually at correct airport
+            // Mission soll trotzdem weiterlaufen: wir merken den Wrong-Start
+            // und geben nach dem Abheben einen kurzen Folgekommentar.
+            _paxWrongStartActive = true;
             return;
         }
     }
@@ -1606,6 +1637,7 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
     if (!window.activePassenger) return;
     const isPoiMission = _isPOIMission();
     _maybePaxComfortFeedback(flightData);
+    _maybeWrongStartContinue(flightData || window.lastLiveFlightData || {});
     const trainingPlan = _activeAptTrainingPlan();
     const wps = (typeof routeWaypoints !== 'undefined') ? routeWaypoints : null;
     if (trainingPlan && wps && wps.length >= 2) {

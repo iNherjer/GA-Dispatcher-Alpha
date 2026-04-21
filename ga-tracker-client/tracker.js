@@ -11,8 +11,8 @@ const fs = require('fs');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v208';
-const TRACKER_VERSION_CODE = 208;
+const TRACKER_VERSION = 'v209';
+const TRACKER_VERSION_CODE = 209;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 
 function startTracker(syncId, pin) {
@@ -95,6 +95,8 @@ function connectSimConnect(ws, syncId, pin) {
       addOptionalVar('AMBIENT PRECIP RATE', 'millimeters of water', 'precipRateMmH');
       addOptionalVar('AMBIENT IN CLOUD', 'Bool', 'inCloud');
       addOptionalVar('AMBIENT TURBULENCE', 'percent', 'turbulencePct');
+      addOptionalVar('IS PAUSED', 'Bool', 'simPausedA');
+      addOptionalVar('SIM IS PAUSED', 'Bool', 'simPausedB');
 
       handle.requestDataOnSimObject(REQ_ID, DEF_ID, 0, 2, 0, 0, 0, 0);
 
@@ -154,6 +156,8 @@ function connectSimConnect(ws, syncId, pin) {
               const precipRateMmH = raw.precipRateMmH;
               const inCloud = raw.inCloud;
               const turbulencePct = raw.turbulencePct;
+              const simPausedA = raw.simPausedA;
+              const simPausedB = raw.simPausedB;
 
               if (ws.readyState === WebSocket.OPEN && (lat !== 0 || lon !== 0)) {
                 ownLat = lat; ownLon = lon; // für Traffic-Eigenfilter
@@ -180,6 +184,9 @@ function connectSimConnect(ws, syncId, pin) {
                     : (Number.isFinite(precipState) ? precipState > 0 : null),
                   inCloud: Number.isFinite(inCloud) ? (inCloud > 0.5) : null,
                   turbulencePct: Number.isFinite(turbulencePct) ? Math.round(turbulencePct) : null,
+                  simPaused: Number.isFinite(simPausedA)
+                    ? (simPausedA > 0.5)
+                    : (Number.isFinite(simPausedB) ? (simPausedB > 0.5) : false),
                   aoaDeg:   Number.isFinite(aoaDeg) ? Math.round(aoaDeg * 10) / 10 : null,
                   stallState: Number.isFinite(stallState) ? (stallState > 0.5) : false
                 };
