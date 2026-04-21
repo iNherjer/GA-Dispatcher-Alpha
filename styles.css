@@ -10,8 +10,7 @@
 }
 @font-face {
     font-family: 'MS33558';
-    src: url('./MS33558.woff2') format('woff2'),
-         url('./MS33558.ttf') format('truetype');
+    src: url('./MS33558.ttf') format('truetype');
     font-weight: normal;
     font-display: swap;
 }
