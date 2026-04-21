@@ -1152,6 +1152,7 @@ function _poiTrainingZoneEntryPrompt(flightData) {
 Moment: Einflug ins Übungsgebiet. Jetzt startet die Übung.
 Gib die Startanweisung für die Durchführung in 1-2 klaren Schritten (Priorität und Sicherheitsfokus). Übungen: ${focus}. ${lineHint}
 Hänge kurz an: Nach Abschluss der Übung fliegen wir zurück Richtung Platz, falls Zeit bleibt mit kurzer Freiflug-Phase.
+Wichtig: Keine offene Anweisung. Der letzte Satz MUSS den nächsten klaren Schritt benennen (z.B. "danach zurück auf Kurs Richtung Platz").
 Ton: Instruktor-Funkstil, knapp und präzise. Max 2 Sätze.${_toneHint()}`;
 }
 
@@ -1359,12 +1360,15 @@ function _aptTrainingPrompt(flightData, distNm, progressRatio) {
     const landingPrepHint = plan.trigger === 'five_nm_before_landing'
         ? 'Da wir im Endanflug-Setup sind: gib zusätzlich eine kurze Landevorbereitung mit Wind/Wetter-Hinweis, optional 1 nüchterne Landmarke nur zur Navigation, und genau einen praktischen Tipp für die Landung. Sag klar: zuerst die Platzübung sauber durchführen, danach normal landen.'
         : '';
+    const closeStepHint = plan.trigger === 'half_route'
+        ? `Schließe zwingend mit einem klaren nächsten Schritt ab, z.B.: "Danach zurück auf Kurs Richtung ${md.dest || 'Zielflugplatz'}."`
+        : 'Schließe zwingend mit einem klaren nächsten Schritt ab, z.B.: "Danach normal weiter im Anflug."';
     return `${ctx}
 
 Moment: Trainingsflug mit Instruktor. ${triggerLine}${wx ? ' ' + wx : ''}
 ${modeLine}
 ${focusLine}
-Gib dem Piloten jetzt eine kurze, konkrete Arbeitsanweisung (Reihenfolge oder Priorität), dann einen knappen Sicherheitsfokus.${lineHint} ${landingPrepHint}
+Gib dem Piloten jetzt eine kurze, konkrete Arbeitsanweisung (Reihenfolge oder Priorität), dann einen knappen Sicherheitsfokus.${lineHint} ${landingPrepHint} ${closeStepHint}
 Ton: sachlich, ruhig, klar. Strikter Instruktor-Funkstil: keine Ortsgeschichte, keine Schwärmerei, kein Offtopic. Max 2 Sätze.${_toneHint()}`;
 }
 
