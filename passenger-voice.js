@@ -686,7 +686,7 @@ async function _generateSpokenText(apiKey, situationPrompt) {
             const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
             if (text) {
                 if (typeof incrementApiUsage === 'function') incrementApiUsage('flash');
-                _paxLog(`Textgen OK (${text.length} Zeichen): "${text.slice(0, 80)}${text.length > 80 ? '…' : ''}"`, 'recv');
+                _paxLog(`Textgen OK (${text.length} Zeichen): "${text}"`, 'recv');
                 return text;
             }
             _paxLog(`Textgen ${model} leere Antwort: ${JSON.stringify(data).slice(0, 120)}`, 'warn');
@@ -854,7 +854,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel) {
     } : null;
 
     _paxLog(`── ${eventLabel} ──`, 'event');
-    _paxLog(`PROMPT: ${situationPrompt.replace(/\n+/g, ' ').slice(0, 200)}…`, 'send');
+    _paxLog(`PROMPT (voll): ${situationPrompt.replace(/\n+/g, ' ')}`, 'send');
     const spokenTextRaw = await _generateSpokenText(apiKey, situationPrompt);
     const spokenText = _normalizeSpokenText(spokenTextRaw);
     if (!spokenText) { _paxLog('Kein Text von Gemini (API-Fehler oder leere Antwort)', 'warn'); return; }
@@ -871,11 +871,15 @@ async function _speakAndShowNow(situationPrompt, eventLabel) {
 }
 
 function _speakAndShow(situationPrompt, eventLabel) {
+    _paxLog(`Queue +1 | Event: ${eventLabel}`, 'state');
     const run = async () => {
+        _paxLog(`Queue ▶ Start | Event: ${eventLabel}`, 'state');
         try {
             await _speakAndShowNow(situationPrompt, eventLabel);
         } catch (e) {
             _paxLog(`Speech-Queue Fehler: ${e.message || e}`, 'warn');
+        } finally {
+            _paxLog(`Queue ✓ Ende | Event: ${eventLabel}`, 'state');
         }
     };
     _paxSpeechQueue = _paxSpeechQueue.then(run, run);

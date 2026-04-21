@@ -11,42 +11,94 @@ const fs = require('fs');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v211';
-const TRACKER_VERSION_CODE = 211;
+const TRACKER_VERSION = 'v212';
+const TRACKER_VERSION_CODE = 212;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 
 function startTracker(syncId, pin) {
   let _reconnecting = false;
+  let _reconnectTimer = null;
+  let _simStarted = false;
+  let _wsAttempt = 0;
+  let _currentWs = null;
+
+  const getWs = () => _currentWs;
+  const scheduleReconnect = (reason, delayMs = 5000) => {
+    if (_reconnectTimer) return;
+    _reconnecting = false;
+    if (reason) console.warn(`⚠️  ${reason}`);
+    _reconnectTimer = setTimeout(() => {
+      _reconnectTimer = null;
+      connect();
+    }, delayMs);
+  };
 
   function connect() {
     if (_reconnecting) return;
     _reconnecting = true;
-    console.log(`\nVerbinde mit WebSocket-Server: ${WS_URL}...`);
-    const ws = new WebSocket(WS_URL);
+    _wsAttempt += 1;
+    console.log(`\nVerbinde mit WebSocket-Server: ${WS_URL}... (Versuch ${_wsAttempt})`);
+    const ws = new WebSocket(WS_URL, { handshakeTimeout: 10000 });
+    _currentWs = ws;
+    let opened = false;
+    let awaitingPong = false;
+    let pingInterval = null;
+    const connectWatchdog = setTimeout(() => {
+      if (!opened) {
+        console.warn("⚠️  WebSocket-Handshake Timeout. Erzwinge Neuverbindung...");
+        try { ws.terminate(); } catch (_) {}
+      }
+    }, 12000);
+
+    const clearWsTimers = () => {
+      clearTimeout(connectWatchdog);
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+    };
 
     ws.on('open', () => {
+      opened = true;
       _reconnecting = false;
+      clearWsTimers();
       ws.send(JSON.stringify({ type: 'join', syncId: syncId, pin: pin }));
       console.log(`📡 Verbunden mit ID: ${syncId} (Auth aktiv)`);
-      connectSimConnect(ws, syncId, pin);
+      pingInterval = setInterval(() => {
+        try {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          if (awaitingPong) {
+            console.warn("⚠️  WebSocket-Ping Timeout. Erzwinge Neuverbindung...");
+            try { ws.terminate(); } catch (_) {}
+            return;
+          }
+          awaitingPong = true;
+          ws.ping();
+        } catch (_) {}
+      }, 25000);
+      if (!_simStarted) {
+        _simStarted = true;
+        connectSimConnect(getWs, syncId, pin);
+      }
     });
+    ws.on('pong', () => { awaitingPong = false; });
 
     ws.on('error', (err) => {
       console.error("❌ WebSocket-Fehler:", err.message);
-      // 'close' wird danach automatisch gefeuert, daher hier kein reconnect nötig
+      if (!opened) scheduleReconnect("WebSocket-Verbindung fehlgeschlagen. Neuer Versuch in 5 Sekunden...");
     });
 
     ws.on('close', () => {
-      console.warn("⚠️  WebSocket getrennt. Neuverbindung in 5 Sekunden...");
-      _reconnecting = false;
-      setTimeout(connect, 5000);
+      clearWsTimers();
+      if (_currentWs === ws) _currentWs = null;
+      scheduleReconnect("WebSocket getrennt. Neuverbindung in 5 Sekunden...");
     });
   }
 
   connect();
 }
 
-function connectSimConnect(ws, syncId, pin) {
+function connectSimConnect(getWs, syncId, pin) {
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       console.log("✈️ MSFS gefunden! Warte auf Positionsdaten...");
@@ -245,7 +297,8 @@ function connectSimConnect(ws, syncId, pin) {
                 : (Number.isFinite(simPausedB) ? (simPausedB > 0.5) : false);
               const simPausedFromEvent = (runtimeState.pauseFlags || 0) !== 0;
 
-              if (ws.readyState === WebSocket.OPEN && (lat !== 0 || lon !== 0)) {
+              const ws = getWs();
+              if (ws && ws.readyState === WebSocket.OPEN && (lat !== 0 || lon !== 0)) {
                 ownLat = lat; ownLon = lon; // für Traffic-Eigenfilter
                 // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
                 const flight = {
@@ -346,7 +399,8 @@ function connectSimConnect(ws, syncId, pin) {
 
       // Traffic alle 2 Sekunden abfragen
       const trafficInterval = setInterval(() => {
-        if (ws.readyState !== 1 /*OPEN*/) return;
+        const ws = getWs();
+        if (!ws || ws.readyState !== 1 /*OPEN*/) return;
         trafficBuffer = {};
         // SIMCONNECT_SIMOBJECT_TYPE_AIRCRAFT = 1, Radius 50 NM = 92600m
         handle.requestDataOnSimObjectType(TRAFFIC_REQ_ID, TRAFFIC_DEF_ID, 92600, 1);
@@ -381,16 +435,18 @@ function connectSimConnect(ws, syncId, pin) {
         clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);
         // Nur reconnecten wenn WS noch offen ist, sonst wartet WS-Reconnect auf SimConnect-Neustart
-        if (ws.readyState === WebSocket.OPEN) {
+        const ws = getWs();
+        if (ws && ws.readyState === WebSocket.OPEN) {
           console.warn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-          setTimeout(() => connectSimConnect(ws, syncId, pin), 5000);
+          setTimeout(() => connectSimConnect(getWs, syncId, pin), 5000);
         }
       });
     })
     .catch(err => {
-      if (ws.readyState === WebSocket.OPEN) {
+      const ws = getWs();
+      if (ws && ws.readyState === WebSocket.OPEN) {
         console.warn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(ws, syncId, pin), 5000);
+        setTimeout(() => connectSimConnect(getWs, syncId, pin), 5000);
       }
     });
 }
