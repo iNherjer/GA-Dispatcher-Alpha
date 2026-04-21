@@ -44,6 +44,10 @@ let vpProfileLockSig = '';
 let flightRecorder = {
     active: false,
     armed: false,
+    startCandidateSince: 0,
+    lastUpdateTs: 0,
+    airborneEvidenceSec: 0,
+    hadAirbornePhase: false,
     startTs: 0,
     endTs: 0,
     lowSpeedSince: 0,
@@ -61,6 +65,7 @@ let flightRecorder = {
     maxGForce: 1.0,
     sumGForce: 0,
     gForceSamples: 0,
+    maxAglFt: 0,
     maxClimbFpm: 0,
     maxDescentFpm: 0
 };
@@ -1801,6 +1806,10 @@ function resetFlightRecorder() {
     flightRecorder = {
         active: false,
         armed: false,
+        startCandidateSince: 0,
+        lastUpdateTs: 0,
+        airborneEvidenceSec: 0,
+        hadAirbornePhase: false,
         startTs: 0,
         endTs: 0,
         lowSpeedSince: 0,
@@ -1818,6 +1827,7 @@ function resetFlightRecorder() {
         maxGForce: 1.0,
         sumGForce: 0,
         gForceSamples: 0,
+        maxAglFt: 0,
         maxClimbFpm: 0,
         maxDescentFpm: 0
     };
@@ -1907,27 +1917,30 @@ function _buildFlightRecordSnapshot(now) {
 
 function finalizeFlightRecorder(now) {
     const r = flightRecorder;
-    r.endTs = now;
+    try {
+        r.endTs = now;
 
-    const record = _buildFlightRecordSnapshot(now);
-    if (!record) {
+        // Nur echte Fluege finalisieren, nicht reine Repositions-/Bodenartefakte.
+        if (!r.hadAirbornePhase) return;
+
+        const record = _buildFlightRecordSnapshot(now);
+        if (!record) return;
+
+        const hist = JSON.parse(localStorage.getItem('ga_flight_history') || '[]');
+        hist.unshift(record);
+        localStorage.setItem('ga_flight_history', JSON.stringify(hist.slice(0, 80)));
+
+        if (typeof window.pinCompletedFlightRecord === 'function') {
+            window.pinCompletedFlightRecord(record);
+            console.log(`[FlightRec] 🧾 Flug ausgewertet & an Pinwand gehängt: ${record.depLabel} ➔ ${record.arrLabel} (${record.distanceNm} NM, ${Math.round(record.durationSec / 60)} min)`);
+        } else {
+            console.warn('[FlightRec] pinCompletedFlightRecord() nicht verfügbar.');
+        }
+        triggerCloudSave();
+        if (!r.farewellTriggered && typeof window.triggerPaxFarewell === 'function') window.triggerPaxFarewell(record);
+    } finally {
         resetFlightRecorder();
-        return;
     }
-
-    const hist = JSON.parse(localStorage.getItem('ga_flight_history') || '[]');
-    hist.unshift(record);
-    localStorage.setItem('ga_flight_history', JSON.stringify(hist.slice(0, 80)));
-
-    if (typeof window.pinCompletedFlightRecord === 'function') {
-        window.pinCompletedFlightRecord(record);
-        console.log(`[FlightRec] 🧾 Flug ausgewertet & an Pinwand gehängt: ${depLabel} ➔ ${arrLabel} (${record.distanceNm} NM, ${Math.round(durationSec / 60)} min)`);
-    } else {
-        console.warn('[FlightRec] pinCompletedFlightRecord() nicht verfügbar.');
-    }
-    triggerCloudSave();
-    if (!r.farewellTriggered && typeof window.triggerPaxFarewell === 'function') window.triggerPaxFarewell(record);
-    resetFlightRecorder();
 }
 
 function updateFlightRecorder(lat, lon, alt) {
@@ -1936,41 +1949,67 @@ function updateFlightRecorder(lat, lon, alt) {
     const now = Date.now();
     const gs = Number(smoothedGS) || 0;
     const agl = Math.max(0, (Number(alt) || 0) - (Number(window.lastLiveTerrainFt) || 0));
+    const _lfd = window.lastLiveFlightData;
+    const hasOnGroundFlag = typeof _lfd?.onGround === 'boolean';
+    const onGroundNow = hasOnGroundFlag ? !!_lfd.onGround : false;
     const r = flightRecorder;
+    const dtSec = r.lastUpdateTs ? Math.max(0, (now - r.lastUpdateTs) / 1000) : 0;
+    r.lastUpdateTs = now;
 
-    // Armierung: Nur wenn echte Bewegung beginnt
+    // Aktivierung: erst nach stabilem Startkandidaten (kein GPS-Spike/Spawn)
     if (!r.active) {
-        if (gs > 28 || agl > 220) {
+        const startCandidate = hasOnGroundFlag
+            ? (!onGroundNow && (gs > 24 || agl > 180))
+            : (gs > 28 || agl > 220);
+        if (startCandidate) {
+            if (!r.startCandidateSince) r.startCandidateSince = now;
+        } else {
+            r.startCandidateSince = 0;
+        }
+
+        if (r.startCandidateSince && (now - r.startCandidateSince) >= 4000) {
             r.active = true;
-            r.armed = agl > 300 || gs > 45;
+            r.armed = false;
+            r.startCandidateSince = 0;
             if (typeof window.triggerPaxGreeting === 'function') setTimeout(() => window.triggerPaxGreeting(lat, lon), 1500);
             r.startTs = now;
             r.maxGs = gs;
             r.maxAltFt = alt;
+            r.maxAglFt = agl;
             r.sumGs = gs;
             r.gsSamples = 1;
             r.track = [];
             r.lastSample = [lat, lon];
-            r.wasOnGround = !!window.lastLiveFlightData?.onGround;
+            r.wasOnGround = onGroundNow;
             addFlightTrackPoint(lat, lon, alt, now, true);
         }
         return;
     }
 
-    // Distanz akkumulieren
+    // Reposition/Teleport erkannt (typisch nach falschem Start + neu laden): Recorder sauber verwerfen.
     if (r.lastSample && map && typeof map.distance === 'function') {
         const dM = map.distance(r.lastSample, [lat, lon]);
+        const dNm = dM / 1852;
+        if (dNm > 5 && gs < 40 && (hasOnGroundFlag ? onGroundNow : agl < 200)) {
+            console.warn(`[FlightRec] Reposition erkannt (${dNm.toFixed(1)} NM Sprung) -> Recorder reset`);
+            resetFlightRecorder();
+            return;
+        }
         if (Number.isFinite(dM) && dM > 0) r.distNm += (dM / 1852);
     }
     r.lastSample = [lat, lon];
 
     r.maxGs = Math.max(r.maxGs, gs);
     r.maxAltFt = Math.max(r.maxAltFt, Number(alt) || 0);
+    r.maxAglFt = Math.max(r.maxAglFt || 0, agl);
     r.sumGs += gs;
     r.gsSamples += 1;
-    if (agl > 300 || gs > 45) r.armed = true;
-    const _lfd = window.lastLiveFlightData;
-    const onGroundNow = !!_lfd?.onGround;
+    const airborneNow = hasOnGroundFlag ? !onGroundNow : (agl > 180 || gs > 35);
+    if (airborneNow && dtSec > 0) r.airborneEvidenceSec += dtSec;
+    if (!airborneNow && r.airborneEvidenceSec > 0) r.airborneEvidenceSec = Math.max(0, r.airborneEvidenceSec - dtSec * 0.5);
+    if (!r.hadAirbornePhase && (r.airborneEvidenceSec >= 8 || r.maxAglFt >= 500)) r.hadAirbornePhase = true;
+    r.armed = r.hadAirbornePhase;
+
     if (_lfd) {
         if (Number.isFinite(_lfd.bankDeg)) r.maxBankDeg = Math.max(r.maxBankDeg, Math.abs(_lfd.bankDeg));
         if (Number.isFinite(_lfd.gForce) && _lfd.gForce > 0.1) {
@@ -1987,7 +2026,7 @@ function updateFlightRecorder(lat, lon, alt) {
     addFlightTrackPoint(lat, lon, alt, now, false);
 
     // Touchdown-Trigger (Live-Tracker): Farewell sofort beim ersten Bodenkontakt.
-    if (r.armed && onGroundNow && !r.wasOnGround) {
+    if (r.armed && r.hadAirbornePhase && onGroundNow && !r.wasOnGround) {
         if (Number.isFinite(_lfd?.touchdownFpm)) r.touchdownVsFpm = _lfd.touchdownFpm;
         else if (Number.isFinite(smoothedVS)) r.touchdownVsFpm = smoothedVS;
         if (!r.farewellTriggered && typeof window.triggerPaxFarewell === 'function') {
@@ -2001,7 +2040,7 @@ function updateFlightRecorder(lat, lon, alt) {
     r.wasOnGround = onGroundNow;
 
     // Landing-Detection: erst wenn der Flug wirklich "airborne" war
-    if (!r.armed) return;
+    if (!r.armed || !r.hadAirbornePhase) return;
 
     const landingCandidate = gs < 18 && agl < 140;
     if (landingCandidate) {
