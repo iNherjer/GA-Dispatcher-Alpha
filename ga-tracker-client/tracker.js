@@ -13,6 +13,7 @@ const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
 const TRACKER_VERSION = 'v208';
 const TRACKER_VERSION_CODE = 208;
+const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 
 function startTracker(syncId, pin) {
   let _reconnecting = false;
@@ -56,6 +57,7 @@ function connectSimConnect(ws, syncId, pin) {
       const REQ_ID = 206;
 
       const simVarOrder = [];
+      let shortReadWarned = false;
       const addRequiredVar = (name, units, key) => {
         const hr = handle.addToDataDefinition(DEF_ID, name, units, SimConnectDataType.FLOAT64);
         if (typeof hr === 'number' && hr < 0) throw new Error(`SimVar nicht verfuegbar: ${name}`);
@@ -109,7 +111,26 @@ function connectSimConnect(ws, syncId, pin) {
               if (!readFn) return;
 
               const raw = {};
-              for (const entry of simVarOrder) raw[entry.key] = readFn();
+              for (const entry of simVarOrder) raw[entry.key] = null;
+              let readCount = 0;
+              for (const entry of simVarOrder) {
+                try {
+                  raw[entry.key] = readFn();
+                  readCount += 1;
+                } catch (readErr) {
+                  if (!shortReadWarned) {
+                    shortReadWarned = true;
+                    console.warn(
+                      `ℹ️ SimConnect liefert kuerzeres Paket als erwartet (${readCount}/${simVarOrder.length} Werte). ` +
+                      `Optionale Wetterwerte werden fuer diese Session deaktiviert.`
+                    );
+                  }
+                  // Sobald der Buffer zu Ende ist, restliche optionale Felder null lassen.
+                  // Bei required-Feldern brechen wir den Tick sauber ab.
+                  if (entry.required) throw readErr;
+                  break;
+                }
+              }
 
               const lat = raw.lat;
               const lon = raw.lon;
@@ -290,6 +311,10 @@ function askCredentials() {
 }
 
 function main() {
+  console.log("=====================================");
+  console.log(` ${TRACKER_DISPLAY_NAME}`);
+  console.log("=====================================");
+
   let savedId = '';
   let savedPin = '';
 
