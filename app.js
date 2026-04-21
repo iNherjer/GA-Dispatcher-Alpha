@@ -1882,11 +1882,26 @@ function normalizeMissionText(txt) {
         .replace(/ß/g, 'ss');
 }
 
+function _hasWordToken(text, token) {
+    const t = String(text || '');
+    const w = String(token || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|[^a-z0-9])${w}([^a-z0-9]|$)`).test(t);
+}
+
 function classifyPOITitleCategory(title) {
     const t = normalizeMissionText(title);
     if (t.includes("bruecke") || t.includes("brucke") || t.includes("bridge") || t.includes("viadukt") || t.includes("aquadukt") || t.includes("steg") || t.includes("pont") || t.includes("puente")) return "bridge";
     if (t.includes("autobahn") || t.includes("kreuz") || t.includes("dreieck") || t.includes("kreuzung") || t.includes("strasse") || t.includes("highway") || t.includes("motorway") || t.includes("interstate") || t.includes("freeway") || t.includes("ring") || t.includes("junction") || t.includes("interchange") || t.includes("tunnel")) return "road";
-    if (t.includes("staudamm") || t.includes("talsperre") || t.includes("stausee") || t.includes("sperrmauer") || t.includes("reservoir") || t.includes("dam") || t.includes("wehr")) return "dam";
+    if (
+        _hasWordToken(t, "staudamm") ||
+        _hasWordToken(t, "talsperre") ||
+        _hasWordToken(t, "stausee") ||
+        _hasWordToken(t, "sperrmauer") ||
+        _hasWordToken(t, "reservoir") ||
+        _hasWordToken(t, "damm") ||
+        _hasWordToken(t, "dam") ||
+        _hasWordToken(t, "wehr")
+    ) return "dam";
     if (t.includes("funkturm") || t.includes("fernsehturm") || t.includes("sendemast") || t.includes("funkmast") || t.includes("mast")) return "telecom";
     if (t.includes("industrie") || t.includes("werk") || t.includes("fabrik") || t.includes("kraftwerk") || t.includes("anlage") || t.includes("mine") || t.includes("tagebau")) return "industry";
     if (t.includes("burg") || t.includes("schloss") || t.includes("ruine") || t.includes("festung") || t.includes("kloster") || t.includes("dom") || t.includes("monument") || t.includes("denkmal")) return "castle";
@@ -1919,6 +1934,96 @@ function pickBalancedByCategory(items, categoryOf, storagePrefix) {
     return { item: picked, category: selectedCat };
 }
 
+function _nmToLatDeg(nm) {
+    return Number(nm || 0) / 60;
+}
+
+function _nmToLonDeg(nm, latDeg) {
+    const c = Math.max(0.2, Math.cos((Number(latDeg || 0) * Math.PI) / 180));
+    return Number(nm || 0) / (60 * c);
+}
+
+function _buildViewBoxAround(lat, lon, radiusNm) {
+    const dLat = _nmToLatDeg(radiusNm);
+    const dLon = _nmToLonDeg(radiusNm, lat);
+    return {
+        west: Number(lon) - dLon,
+        east: Number(lon) + dLon,
+        south: Number(lat) - dLat,
+        north: Number(lat) + dLat
+    };
+}
+
+function _isDamLikeNominatimItem(item) {
+    if (!item) return false;
+    const hay = normalizeMissionText([
+        item.name,
+        item.display_name,
+        item.class,
+        item.category,
+        item.type,
+        item.addresstype
+    ].filter(Boolean).join(' '));
+    if (
+        _hasWordToken(hay, 'staudamm') ||
+        _hasWordToken(hay, 'talsperre') ||
+        _hasWordToken(hay, 'stausee') ||
+        _hasWordToken(hay, 'sperrmauer') ||
+        _hasWordToken(hay, 'reservoir') ||
+        _hasWordToken(hay, 'damm') ||
+        _hasWordToken(hay, 'dam') ||
+        _hasWordToken(hay, 'wehr')
+    ) return true;
+    const cls = String(item.class || item.category || '').toLowerCase();
+    const type = String(item.type || '').toLowerCase();
+    return (
+        (cls === 'waterway' && (type === 'dam' || type === 'weir')) ||
+        (cls === 'landuse' && type === 'reservoir') ||
+        (cls === 'water' && (type === 'dam' || type === 'reservoir'))
+    );
+}
+
+async function findNominatimDamPOI(lat, lon) {
+    const vb = _buildViewBoxAround(lat, lon, 18);
+    const queries = ['staudamm', 'talsperre', 'stausee', 'reservoir', 'dam', 'wehr'];
+    const seen = new Set();
+    const candidates = [];
+
+    for (const q of queries) {
+        try {
+            const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=20&bounded=1&q=${encodeURIComponent(q)}&viewbox=${encodeURIComponent(`${vb.west},${vb.north},${vb.east},${vb.south}`)}`;
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const list = await res.json();
+            if (!Array.isArray(list)) continue;
+            for (const it of list) {
+                const key = `${it.osm_type || '?'}:${it.osm_id || '?'}:${it.lat || '?'}:${it.lon || '?'}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                if (!_isDamLikeNominatimItem(it)) continue;
+                const ilat = Number(it.lat);
+                const ilon = Number(it.lon);
+                if (!Number.isFinite(ilat) || !Number.isFinite(ilon)) continue;
+                const dNm = calcNav(lat, lon, ilat, ilon).dist;
+                if (!Number.isFinite(dNm) || dNm > 18.5) continue;
+                const name = String(it.name || it.display_name || '').split(',')[0].trim();
+                candidates.push({
+                    n: name || 'Staudamm/Talsperre',
+                    lat: ilat,
+                    lon: ilon,
+                    dNm,
+                    importance: Number(it.importance || 0)
+                });
+            }
+        } catch (_) {}
+    }
+
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => (a.dNm - b.dNm) || (b.importance - a.importance));
+    const pick = candidates[0];
+    return { icao: 'POI', n: pick.n, lat: pick.lat, lon: pick.lon, poiCategory: 'dam' };
+}
+
 async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null) {
     const scoredKeywords = [
         "bruecke", "brucke", "bridge", "viadukt", "autobahn", "autobahnkreuz", "kreuz", "kreuzung", "dreieck", "strasse", "tunnel", "highway", "motorway", "interstate", "freeway", "interchange",
@@ -1942,18 +2047,22 @@ async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory 
         return score;
     };
 
+    const forceCat = String(forcedCategory || '').trim().toLowerCase();
     const dist = Math.floor(Math.random() * (maxNM - minNM + 1)) + minNM;
     let minB = 0, maxB = 360;
     if (dirPref === 'N') { minB = 315; maxB = 405; } else if (dirPref === 'E') { minB = 45; maxB = 135; } else if (dirPref === 'S') { minB = 135; maxB = 225; } else if (dirPref === 'W') { minB = 225; maxB = 315; }
     let bearing = Math.floor(Math.random() * (maxB - minB + 1)) + minB; bearing = bearing % 360;
     const target = getDestinationPoint(lat, lon, dist, bearing);
+    if (forceCat === 'dam') {
+        const damPoi = await findNominatimDamPOI(target.lat, target.lon);
+        if (damPoi) return damPoi;
+    }
     const url = `https://de.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${target.lat}|${target.lon}&gsradius=10000&gslimit=30&format=json&origin=*`;
     try {
         const res = await fetch(url); const data = await res.json();
         if (data.query && data.query.geosearch && data.query.geosearch.length > 0) {
             const geosearch = data.query.geosearch;
             let poiPool = geosearch;
-            const forceCat = String(forcedCategory || '').trim().toLowerCase();
             if (forceCat && forceCat !== 'all') {
                 const forcedPool = geosearch.filter(p => classifyPOITitleCategory(p.title) === forceCat);
                 if (forcedPool.length > 0) poiPool = forcedPool;
@@ -3888,7 +3997,7 @@ async function generateMission() {
                 cargoText = "Trainingsunterlagen (10 lbs)";
                 dataSource = "Lokale Training DB";
             } else {
-                m = generateDynamicPOIMission(dest.n, maxSeats); paxText = m.payloadText; cargoText = m.cargoText; dataSource = "Wikipedia GeoSearch";
+                m = generateDynamicPOIMission(dest.n, maxSeats, dest.poiCategory); paxText = m.payloadText; cargoText = m.cargoText; dataSource = "Wikipedia GeoSearch";
             }
         } else if (typeof missions !== 'undefined') {
             // A->B-Missionen gleichmäßig über Kategorien rotieren (inkl. Trainingsflüge).
