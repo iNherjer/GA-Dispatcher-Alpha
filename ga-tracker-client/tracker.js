@@ -11,8 +11,8 @@ const fs = require('fs');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v207';
-const TRACKER_VERSION_CODE = 207;
+const TRACKER_VERSION = 'v208';
+const TRACKER_VERSION_CODE = 208;
 
 function startTracker(syncId, pin) {
   let _reconnecting = false;
@@ -55,23 +55,44 @@ function connectSimConnect(ws, syncId, pin) {
       const DEF_ID = 206;
       const REQ_ID = 206;
 
-      handle.addToDataDefinition(DEF_ID, 'PLANE LATITUDE', 'degrees', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'PLANE LONGITUDE', 'degrees', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'PLANE ALTITUDE', 'feet', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'PLANE HEADING DEGREES TRUE', 'degrees', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'PLANE ALT ABOVE GROUND', 'feet', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'PLANE BANK DEGREES', 'degrees', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'G FORCE', 'GForce', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'VERTICAL SPEED', 'feet per minute', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'GENERAL ENG RPM:1', 'rpm', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'SIM ON GROUND', 'Bool', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'PLANE TOUCHDOWN NORMAL VELOCITY', 'feet per second', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'AMBIENT WIND VELOCITY', 'knots', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'AMBIENT WIND DIRECTION', 'degrees', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'AMBIENT TEMPERATURE', 'celsius', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'AMBIENT VISIBILITY', 'meters', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'INCIDENCE ALPHA', 'degrees', SimConnectDataType.FLOAT64);
-      handle.addToDataDefinition(DEF_ID, 'STALL WARNING', 'Bool', SimConnectDataType.FLOAT64);
+      const simVarOrder = [];
+      const addRequiredVar = (name, units, key) => {
+        const hr = handle.addToDataDefinition(DEF_ID, name, units, SimConnectDataType.FLOAT64);
+        if (typeof hr === 'number' && hr < 0) throw new Error(`SimVar nicht verfuegbar: ${name}`);
+        simVarOrder.push({ key, required: true });
+      };
+      const addOptionalVar = (name, units, key) => {
+        const hr = handle.addToDataDefinition(DEF_ID, name, units, SimConnectDataType.FLOAT64);
+        if (typeof hr === 'number' && hr < 0) {
+          console.warn(`ℹ️ Optionaler SimVar nicht verfuegbar: ${name}`);
+          return;
+        }
+        simVarOrder.push({ key, required: false, name });
+      };
+
+      addRequiredVar('PLANE LATITUDE', 'degrees', 'lat');
+      addRequiredVar('PLANE LONGITUDE', 'degrees', 'lon');
+      addRequiredVar('PLANE ALTITUDE', 'feet', 'alt');
+      addRequiredVar('PLANE HEADING DEGREES TRUE', 'degrees', 'hdg');
+      addRequiredVar('PLANE ALT ABOVE GROUND', 'feet', 'agl');
+      addRequiredVar('PLANE BANK DEGREES', 'degrees', 'bank');
+      addRequiredVar('G FORCE', 'GForce', 'gForce');
+      addRequiredVar('VERTICAL SPEED', 'feet per minute', 'vsFpm');
+      addRequiredVar('GENERAL ENG RPM:1', 'rpm', 'engRpm');
+      addRequiredVar('SIM ON GROUND', 'Bool', 'onGround');
+      addRequiredVar('PLANE TOUCHDOWN NORMAL VELOCITY', 'feet per second', 'touchdownFps');
+      addRequiredVar('AMBIENT WIND VELOCITY', 'knots', 'windKts');
+      addRequiredVar('AMBIENT WIND DIRECTION', 'degrees', 'windDeg');
+      addRequiredVar('AMBIENT TEMPERATURE', 'celsius', 'tempC');
+      addRequiredVar('AMBIENT VISIBILITY', 'meters', 'visMeters');
+      addRequiredVar('INCIDENCE ALPHA', 'degrees', 'aoaDeg');
+      addRequiredVar('STALL WARNING', 'Bool', 'stallState');
+      // Wetter-Zusatzwerte (optional je nach SimConnect/Sim-Version)
+      addOptionalVar('AMBIENT WIND GUST', 'knots', 'windGustKts');
+      addOptionalVar('AMBIENT PRECIP STATE', 'Enum', 'precipState');
+      addOptionalVar('AMBIENT PRECIP RATE', 'millimeters of water', 'precipRateMmH');
+      addOptionalVar('AMBIENT IN CLOUD', 'Bool', 'inCloud');
+      addOptionalVar('AMBIENT TURBULENCE', 'percent', 'turbulencePct');
 
       handle.requestDataOnSimObject(REQ_ID, DEF_ID, 0, 2, 0, 0, 0, 0);
 
@@ -82,22 +103,36 @@ function connectSimConnect(ws, syncId, pin) {
             lastSent = now;
             
             try {
-              let lat, lon, alt, hdg, agl, bank, gForce, vsFpm, engRpm, onGround, touchdownFps;
-              let windKts, windDeg, tempC, visMeters, aoaDeg, stallState;
+              const readFn = typeof recv.data.readFloat64 === 'function'
+                ? () => recv.data.readFloat64()
+                : (typeof recv.data.readDouble === 'function' ? () => recv.data.readDouble() : null);
+              if (!readFn) return;
 
-              if (typeof recv.data.readFloat64 === 'function') {
-                lat = recv.data.readFloat64(); lon = recv.data.readFloat64(); alt = recv.data.readFloat64(); hdg = recv.data.readFloat64();
-                agl = recv.data.readFloat64(); bank = recv.data.readFloat64(); gForce = recv.data.readFloat64(); vsFpm = recv.data.readFloat64();
-                engRpm = recv.data.readFloat64(); onGround = recv.data.readFloat64(); touchdownFps = recv.data.readFloat64();
-                windKts = recv.data.readFloat64(); windDeg = recv.data.readFloat64(); tempC = recv.data.readFloat64(); visMeters = recv.data.readFloat64();
-                aoaDeg = recv.data.readFloat64(); stallState = recv.data.readFloat64();
-              } else if (typeof recv.data.readDouble === 'function') {
-                lat = recv.data.readDouble(); lon = recv.data.readDouble(); alt = recv.data.readDouble(); hdg = recv.data.readDouble();
-                agl = recv.data.readDouble(); bank = recv.data.readDouble(); gForce = recv.data.readDouble(); vsFpm = recv.data.readDouble();
-                engRpm = recv.data.readDouble(); onGround = recv.data.readDouble(); touchdownFps = recv.data.readDouble();
-                windKts = recv.data.readDouble(); windDeg = recv.data.readDouble(); tempC = recv.data.readDouble(); visMeters = recv.data.readDouble();
-                aoaDeg = recv.data.readDouble(); stallState = recv.data.readDouble();
-              } else return;
+              const raw = {};
+              for (const entry of simVarOrder) raw[entry.key] = readFn();
+
+              const lat = raw.lat;
+              const lon = raw.lon;
+              const alt = raw.alt;
+              const hdg = raw.hdg;
+              const agl = raw.agl;
+              const bank = raw.bank;
+              const gForce = raw.gForce;
+              const vsFpm = raw.vsFpm;
+              const engRpm = raw.engRpm;
+              const onGround = raw.onGround;
+              const touchdownFps = raw.touchdownFps;
+              const windKts = raw.windKts;
+              const windDeg = raw.windDeg;
+              const tempC = raw.tempC;
+              const visMeters = raw.visMeters;
+              const aoaDeg = raw.aoaDeg;
+              const stallState = raw.stallState;
+              const windGustKts = raw.windGustKts;
+              const precipState = raw.precipState;
+              const precipRateMmH = raw.precipRateMmH;
+              const inCloud = raw.inCloud;
+              const turbulencePct = raw.turbulencePct;
 
               if (ws.readyState === WebSocket.OPEN && (lat !== 0 || lon !== 0)) {
                 ownLat = lat; ownLon = lon; // für Traffic-Eigenfilter
@@ -114,8 +149,16 @@ function connectSimConnect(ws, syncId, pin) {
                   touchdownFpm: Number.isFinite(touchdownFps) ? Math.round(touchdownFps * 60) : null,
                   windKts:  Number.isFinite(windKts)  ? Math.round(windKts  * 10) / 10 : null,
                   windDeg:  Number.isFinite(windDeg)  ? Math.round(windDeg)          : null,
+                  windGustKts: Number.isFinite(windGustKts) ? Math.round(windGustKts * 10) / 10 : null,
                   tempC:    Number.isFinite(tempC)    ? Math.round(tempC * 10) / 10   : null,
                   visKm:    Number.isFinite(visMeters) ? Math.round(visMeters / 100) / 10 : null,
+                  precipState: Number.isFinite(precipState) ? Math.round(precipState) : null,
+                  precipRateMmH: Number.isFinite(precipRateMmH) ? Math.round(precipRateMmH * 10) / 10 : null,
+                  precipActive: Number.isFinite(precipRateMmH)
+                    ? precipRateMmH > 0.05
+                    : (Number.isFinite(precipState) ? precipState > 0 : null),
+                  inCloud: Number.isFinite(inCloud) ? (inCloud > 0.5) : null,
+                  turbulencePct: Number.isFinite(turbulencePct) ? Math.round(turbulencePct) : null,
                   aoaDeg:   Number.isFinite(aoaDeg) ? Math.round(aoaDeg * 10) / 10 : null,
                   stallState: Number.isFinite(stallState) ? (stallState > 0.5) : false
                 };
@@ -136,7 +179,7 @@ function connectSimConnect(ws, syncId, pin) {
                   latestTrafficSnapshot = null; // einmalig senden, dann löschen
                 }
                 ws.send(JSON.stringify(gpsMsg));
-                console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km`);
+                console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipRateMmH ?? '?'}mm/h | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
               } else if (lat === 0) {
                  process.stdout.write("."); 
               }

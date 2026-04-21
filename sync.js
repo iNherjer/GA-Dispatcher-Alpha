@@ -647,8 +647,8 @@ let liveNextLegIndex = 0;
 let liveNextRouteKey = '';
 let liveActiveWpIndex = null; // null = automatisch (aus Leg), sonst manuell gewählter Ziel-Wegpunkt
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 207;
-const MIN_TRACKER_VERSION_LABEL = 'v207';
+const MIN_TRACKER_VERSION_CODE = 208;
+const MIN_TRACKER_VERSION_LABEL = 'v208';
 let trackerVersionPromptShown = false;
 
 function _extractTrackerVersionCode(pkt) {

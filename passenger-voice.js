@@ -1266,10 +1266,29 @@ function _weatherContext(fd) {
         const desc = fd.windKts > 20 ? ' (kräftig)' : fd.windKts > 10 ? ' (mäßig)' : ' (schwach)';
         parts.push(`Wind ${fd.windKts} kts aus ${fd.windDeg ?? '?'}°${desc}`);
     }
+    if (fd.windGustKts != null && fd.windKts != null) {
+        const spread = Math.max(0, Number(fd.windGustKts) - Number(fd.windKts));
+        if (spread >= 4) parts.push(`Böen bis ${fd.windGustKts} kts`);
+    } else if (fd.windGustKts != null) {
+        parts.push(`Böen bis ${fd.windGustKts} kts`);
+    }
     if (fd.tempC   != null) parts.push(`${fd.tempC}°C`);
     if (fd.visKm   != null) {
         const desc = fd.visKm < 3 ? ' (sehr schlecht)' : fd.visKm < 8 ? ' (eingeschränkt)' : fd.visKm > 20 ? ' (ausgezeichnet)' : '';
         parts.push(`Sicht ${fd.visKm} km${desc}`);
+    }
+    if (fd.precipRateMmH != null) {
+        const p = Number(fd.precipRateMmH);
+        const state = p >= 4 ? 'stark' : p >= 1.5 ? 'mäßig' : p > 0.05 ? 'leicht' : '';
+        if (state) parts.push(`Niederschlag ${state}`);
+    } else if (fd.precipActive === true) {
+        parts.push('Niederschlag');
+    }
+    if (fd.inCloud === true) parts.push('in Wolken');
+    if (fd.turbulencePct != null) {
+        const t = Number(fd.turbulencePct);
+        if (t >= 60) parts.push('Turbulenz stark');
+        else if (t >= 35) parts.push('Turbulenz spürbar');
     }
     return parts.length ? `Wetter: ${parts.join(', ')}.` : '';
 }
@@ -1383,6 +1402,10 @@ function _evaluateComfortBreach(flightData, pax) {
     const g = Number(flightData.gForce || 1.0);
     const bank = Math.abs(Number(flightData.bankDeg || 0));
     const wind = Number(flightData.windKts || 0);
+    const gust = Number(flightData.windGustKts || 0);
+    const gustSpread = (Number.isFinite(gust) && Number.isFinite(wind)) ? Math.max(0, gust - wind) : 0;
+    const turbulence = Number(flightData.turbulencePct || 0);
+    const precipRate = Number(flightData.precipRateMmH || 0);
     const vsFpm = Number.isFinite(flightData.vsFpm) ? Number(flightData.vsFpm) : Number(flightData.vs || 0);
 
     const gTol = pax.gTolerance || 'mittel';
@@ -1396,6 +1419,13 @@ function _evaluateComfortBreach(flightData, pax) {
     // Wind-Hinweise unabhängig von POI/A-B, bewusst etwas später als "mäßiger Wind".
     const wWarn = 22;
     const wHard = 32;
+    // Böen-/Turbulenz-Hinweise aus SimConnect-Wetterdaten.
+    const gsWarn = 10;
+    const gsHard = 18;
+    const tWarn = 35;
+    const tHard = 60;
+    const pWarn = 1.5;
+    const pHard = 4.0;
     // Sinkflug: bei deutlichem Downrate-Hinweis darf der Passagier reagieren.
     const dWarn = -1500;
     const dHard = -2200;
@@ -1403,11 +1433,14 @@ function _evaluateComfortBreach(flightData, pax) {
     const gLevel = g >= gHard ? 'hard' : g >= gWarn ? 'warn' : null;
     const bLevel = bank >= bHard ? 'hard' : bank >= bWarn ? 'warn' : null;
     const wLevel = wind >= wHard ? 'hard' : wind >= wWarn ? 'warn' : null;
+    const gsLevel = gustSpread >= gsHard ? 'hard' : gustSpread >= gsWarn ? 'warn' : null;
+    const tLevel = turbulence >= tHard ? 'hard' : turbulence >= tWarn ? 'warn' : null;
+    const pLevel = precipRate >= pHard ? 'hard' : precipRate >= pWarn ? 'warn' : null;
     const dLevel = vsFpm <= dHard ? 'hard' : vsFpm <= dWarn ? 'warn' : null;
-    if (!gLevel && !bLevel && !wLevel && !dLevel) return null;
+    if (!gLevel && !bLevel && !wLevel && !gsLevel && !tLevel && !pLevel && !dLevel) return null;
 
-    const severity = (gLevel === 'hard' || bLevel === 'hard' || wLevel === 'hard' || dLevel === 'hard') ? 'hard' : 'warn';
-    return { severity, g, bank, wind, vsFpm, gLevel, bLevel, wLevel, dLevel };
+    const severity = (gLevel === 'hard' || bLevel === 'hard' || wLevel === 'hard' || gsLevel === 'hard' || tLevel === 'hard' || pLevel === 'hard' || dLevel === 'hard') ? 'hard' : 'warn';
+    return { severity, g, bank, wind, gustSpread, turbulence, precipRate, vsFpm, gLevel, bLevel, wLevel, gsLevel, tLevel, pLevel, dLevel };
 }
 
 function _comfortBreachPrompt(flightData, breach, count) {
@@ -1419,6 +1452,9 @@ function _comfortBreachPrompt(flightData, breach, count) {
     if (breach.gLevel) bits.push(`G-Last gerade ${breach.g.toFixed(2)}g`);
     if (breach.bLevel) bits.push(`Bank aktuell ${breach.bank.toFixed(0)}°`);
     if (breach.wLevel) bits.push(`Wind ${breach.wind.toFixed(0)} kts`);
+    if (breach.gsLevel) bits.push(`Böenspitzen +${Math.round(breach.gustSpread)} kts`);
+    if (breach.tLevel) bits.push(`Turbulenz ${Math.round(breach.turbulence)}%`);
+    if (breach.pLevel) bits.push(`Niederschlag ${breach.precipRate.toFixed(1)} mm/h`);
     if (breach.dLevel) bits.push(`Sinkflug ${Math.round(breach.vsFpm)} ft/min`);
     const level = breach.severity === 'hard' ? 'deutlich' : 'spürbar';
     const humor = breach.severity === 'hard'
@@ -1448,7 +1484,10 @@ function _maybePaxComfortFeedback(flightData) {
     _paxComfortBusy = true;
     _paxComfortLastAt = now;
     _paxComfortCount += 1;
-    _paxLog(`Komfort-Hinweis #${_paxComfortCount} | G ${breach.g.toFixed(2)} | Bank ${breach.bank.toFixed(0)}°`, 'event');
+    _paxLog(
+        `Komfort-Hinweis #${_paxComfortCount} | G ${breach.g.toFixed(2)} | Bank ${breach.bank.toFixed(0)}° | Wind ${breach.wind.toFixed(0)}kts | Böen+ ${Math.round(breach.gustSpread || 0)}kts | Turb ${Math.round(breach.turbulence || 0)}%`,
+        'event'
+    );
 
     const prompt = _comfortBreachPrompt(flightData, breach, _paxComfortCount);
     if (!prompt) { _paxComfortBusy = false; return; }
