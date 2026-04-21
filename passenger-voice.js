@@ -1070,8 +1070,7 @@ function _poiEntryPrompt(flightData) {
     const md    = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
     const altFt = Math.round(flightData?.mslFt || 0);
     const wx    = _weatherContext(flightData);
-    const noReqs = !pax.targetAltFt && !pax.targetDwellMin;
-    const reqHint = noReqs ? '' : ` Erinnere kurz an deine Anforderungen: ${pax.targetAltFt ? pax.targetAltFt + ' ft' : 'Höhe egal'}${pax.targetDwellMin ? ', ca. ' + pax.targetDwellMin + ' min' : ''}.`;
+    const reqHint = '';
     const inspHint = _inspectionEntryHint();
     const profHint = _professionalTaskHint('entry');
     const factHint = _targetFactHint();
@@ -1148,6 +1147,7 @@ function _poiTrainingZoneEntryPrompt(flightData) {
 
 Moment: Einflug ins Übungsgebiet. Jetzt startet die Übung.
 Gib die Startanweisung für die Durchführung in 1-2 klaren Schritten (Priorität und Sicherheitsfokus). Übungen: ${focus}. ${lineHint}
+Hänge kurz an: Nach Abschluss der Übung fliegen wir zurück Richtung Platz, falls Zeit bleibt mit kurzer Freiflug-Phase.
 Ton: Instruktor-Funkstil, knapp und präzise. Max 2 Sätze.${_toneHint()}`;
 }
 
@@ -1269,10 +1269,11 @@ function _greetingPrompt() {
     if (!ctx || !pax) return null;
     const wx = _weatherContext(window.lastLiveFlightData);
     const isPOI = _isPOIMission();
+    const trainingPlan = _activeAptTrainingPlan();
     const reqLine = isPOI
-        ? (pax.targetDwellMin > 0
-            ? `Bitte auch kurz deine Anforderungen nennen: ${pax.targetAltFt ? `am liebsten um die ${pax.targetAltFt} ft` : 'Höhe nach Absprache'}. Ich brauche etwa ${pax.targetDwellMin} Minuten am Ziel.`
-            : `Bitte auch kurz deine Anforderungen nennen: ${pax.targetAltFt ? `am liebsten um die ${pax.targetAltFt} ft` : 'Höhe nach Absprache'}. Ein Überflug reicht mir — kein fixer Zeitbedarf.`)
+        ? (trainingPlan
+            ? `Bitte nenne kurz das Übungsthema und wie wir es sicher und sauber abfliegen. Keine internen Parameter oder technischen Vorgaben zitieren.`
+            : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast. Keine internen Parameter oder technischen Vorgaben zitieren.`)
         : `Bitte erwähne nur Komfortpräferenzen für den Reiseflug (z.B. ruhige Kurven) und KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer.`;
     return `${ctx}
 
