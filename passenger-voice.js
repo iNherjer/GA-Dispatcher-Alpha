@@ -377,7 +377,6 @@ function _targetFactHint() {
 }
 
 function _activeAptTrainingPlan() {
-    if (_isPOIMission()) return null;
     const pax = window.activePassenger || null;
     if (!pax || typeof pax !== 'object') return null;
     const plan = pax.trainingPlan;
@@ -398,7 +397,7 @@ function _activeAptTrainingPlan() {
 let _paxPanel = null;
 let _paxBtn   = null;
 let _lastPaxText = '';
-const _AIRPORT_AT_TARGET_NM = 3.0;
+const _AIRPORT_AT_TARGET_NM = 4.0;
 
 function _isMapTableOpen() {
     const board = document.getElementById('mapTableOverlay');
@@ -1056,10 +1055,14 @@ function _poiEntryPrompt(flightData) {
     const inspHint = _inspectionEntryHint();
     const profHint = _professionalTaskHint('entry');
     const factHint = _targetFactHint();
+    const trainingPlan = _activeAptTrainingPlan();
+    const trainingHint = trainingPlan
+        ? ' Als Instruktor: gib stattdessen einen kurzen VFR-Hinweis (z.B. Luftraum-Orientierung, markante Geländepunkte, sauberes Scan-Muster). Kein Schwärmen über die Landschaft.'
+        : '';
     return `${ctx}
 
 Moment: Das Zielgebiet "${md?.poiName || 'Ziel'}" taucht gerade vor uns auf — wir sind auf ${altFt} ft.${wx ? ' ' + wx : ''}
-Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}${inspHint}${profHint}${factHint}
+Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}${inspHint}${profHint}${factHint}${trainingHint}
 1-2 Sätze, darf etwas begeisterter sein als sonst.${_toneHint()}`;
 }
 
@@ -1087,10 +1090,14 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     const announcedEta = 2; // bewusst knapper wegen Latenz durch Text+TTS
     const roundedDist = Math.max(0.5, Math.round(distNm * 10) / 10);
     const realEta = Math.max(1, Math.round(etaMin));
+    const trainingPlan = _activeAptTrainingPlan();
+    const trainingHint = trainingPlan
+        ? `Instruktor-Modus: Nenne statt Sightseeing eine knappe VFR-Hilfe (z.B. Landmarke zur Positionsbestimmung, sinnvoller Referenzpunkt für Ein-/Ausflug, Luftraum- oder Kurs-Hinweis), falls realistisch.`
+        : '';
     return `${ctx}
 
 Moment: Zielobjekt "${md.poiName || 'Ziel'}" wird im Anflug sichtbar. Distanz etwa ${roundedDist} NM, reale ETA ca. ${realEta} min, relative Lage ${clockPos}.
-Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".${factHint}
+Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".${factHint} ${trainingHint}
 Techniker-/Inspektionsrollen: knapp, professionell, kein Sightseeing-Ton. Max 2 Sätze.${_toneHint()}`;
 }
 
@@ -1238,10 +1245,14 @@ function _atTargetPrompt(flightData) {
         ? ' Falls es zu deiner Rolle passt, nenne direkt eine erste fachliche Beobachtung am Objekt (z.B. unauffaellig, Verdacht, klarer Schaden).'
         : '';
     const professionalProgressHint = _professionalTaskHint('progress');
+    const trainingPlan = _activeAptTrainingPlan();
+    const landingInstructorHint = (!isPOI && trainingPlan)
+        ? ' Als Instruktor im Anflug: bereite den Piloten kurz auf die Landung vor. Wenn realistisch, nenne 1-2 markante Landmarken zur VFR-Orientierung. Melde Wind/Wetter knapp und gib genau einen konkreten Lande-Tipp (z.B. stabiler Endanflug, Seitenwindkorrektur, Go-Around-Entscheidung).'
+        : '';
     return `${ctx}
 
 Moment: ${situation}${notes}
-Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv.${inspectionLiveHint}${professionalProgressHint} Max 2-3 Sätze.${_toneHint()}`;
+Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv.${inspectionLiveHint}${professionalProgressHint}${landingInstructorHint} Max 2-3 Sätze.${_toneHint()}`;
 }
 
 function _aptTrainingPrompt(flightData, distNm, progressRatio) {
@@ -1262,12 +1273,15 @@ function _aptTrainingPrompt(flightData, distNm, progressRatio) {
     const lineHint = plan.instructorLine
         ? `Wenn passend, baue diese Instruktor-Linie sinngemäß ein: "${plan.instructorLine}".`
         : '';
+    const landingPrepHint = plan.trigger === 'five_nm_before_landing'
+        ? 'Da wir im Endanflug-Setup sind: gib zusätzlich eine kurze Landevorbereitung mit Wind/Wetter-Hinweis, 1-2 realistischen Landmarken zur VFR-Orientierung und genau einem praktischen Tipp für die Landung. Sag klar: zuerst die Platzübung sauber durchführen, danach normal landen.'
+        : '';
     return `${ctx}
 
 Moment: Trainingsflug mit Instruktor. ${triggerLine}${wx ? ' ' + wx : ''}
 ${modeLine}
 ${focusLine}
-Gib dem Piloten jetzt eine kurze, konkrete Arbeitsanweisung (Reihenfolge oder Priorität), dann einen knappen Sicherheitsfokus.${lineHint}
+Gib dem Piloten jetzt eine kurze, konkrete Arbeitsanweisung (Reihenfolge oder Priorität), dann einen knappen Sicherheitsfokus.${lineHint} ${landingPrepHint}
 Ton: sachlich, ruhig, klar. Kein Sightseeing, kein romantischer Ton. Max 2 Sätze.${_toneHint()}`;
 }
 
@@ -1455,19 +1469,23 @@ function _haversineNm(lat1, lon1, lat2, lon2) {
 window.checkPaxPoiProximity = function(lat, lon, flightData) {
     if (!window.activePassenger) return;
     _maybePaxComfortFeedback(flightData);
-
-    if (_isPOIMission()) {
-        if (!_poiSatisfied && !_poiAborted) _tickPoiDwell(lat, lon, flightData);
-    } else {
-        const wps = (typeof routeWaypoints !== 'undefined') ? routeWaypoints : null;
-        if (!wps || wps.length < 2) return;
+    const trainingPlan = _activeAptTrainingPlan();
+    const wps = (typeof routeWaypoints !== 'undefined') ? routeWaypoints : null;
+    if (trainingPlan && wps && wps.length >= 2 && !_aptTrainingBriefDone) {
         const first = wps[0];
         const last = wps[wps.length - 1];
         const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
-
-        const trainingPlan = _activeAptTrainingPlan();
-        if (trainingPlan && !_aptTrainingBriefDone) {
-            if (trainingPlan.trigger === 'half_route') {
+        if (trainingPlan.trigger === 'half_route') {
+            if (_isPOIMission() && wps.length >= 3) {
+                const midWp = wps[Math.floor((wps.length - 1) / 2)];
+                const distToMidNm = _haversineNm(lat, lon, midWp.lat, midWp.lng ?? midWp.lon);
+                if (distToMidNm <= 2.2) {
+                    _aptTrainingBriefDone = true;
+                    _paxLog(`Training-Trigger half_route(POI) | distMid ${distToMidNm.toFixed(2)} NM`, 'event');
+                    const p = _aptTrainingPrompt(flightData, distNm, 0.50);
+                    if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                }
+            } else {
                 const totalNm = _haversineNm(first.lat, first.lng ?? first.lon, last.lat, last.lng ?? last.lon);
                 const doneNm = _haversineNm(first.lat, first.lng ?? first.lon, lat, lon);
                 const progress = totalNm > 1 ? (doneNm / totalNm) : 0;
@@ -1477,21 +1495,29 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
                     const p = _aptTrainingPrompt(flightData, distNm, progress);
                     if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 }
-            } else if (trainingPlan.trigger === 'five_nm_before_landing' && distNm <= 5.0) {
-                _aptTrainingBriefDone = true;
-                _paxLog(`Training-Trigger five_nm_before_landing | dist ${distNm.toFixed(2)} NM`, 'event');
-                const p = _aptTrainingPrompt(flightData, distNm, null);
-                if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
             }
+        } else if (trainingPlan.trigger === 'five_nm_before_landing' && distNm <= 5.0) {
+            _aptTrainingBriefDone = true;
+            _paxLog(`Training-Trigger five_nm_before_landing | dist ${distNm.toFixed(2)} NM`, 'event');
+            const p = _aptTrainingPrompt(flightData, distNm, null);
+            if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
         }
-        if (trainingPlan && _aptTrainingBriefDone) {
-            _trainingEvalBegin();
-            _trainingEvalTick(flightData || window.lastLiveFlightData || {});
-        }
+    }
+    if (trainingPlan && _aptTrainingBriefDone) {
+        _trainingEvalBegin();
+        _trainingEvalTick(flightData || window.lastLiveFlightData || {});
+    }
 
-        // Bei Trainingsflügen übernimmt die Instruktor-Ansage den Trigger,
-        // dadurch vermeiden wir doppelte "Landung"-Meldungen.
-        if (trainingPlan) return;
+    if (_isPOIMission()) {
+        if (!_poiSatisfied && !_poiAborted) _tickPoiDwell(lat, lon, flightData);
+    } else {
+        if (!wps || wps.length < 2) return;
+        const last = wps[wps.length - 1];
+        const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
+
+        // Bei pattern-Übungen am Platz übernimmt die Instruktor-Ansage den Trigger,
+        // dadurch vermeiden wir die vorgezogene 4-NM-Landungsmeldung.
+        if (trainingPlan && trainingPlan.mode === 'pattern') return;
 
         // Airport: early approach trigger (live mode fallback)
         if (_paxAtTargetDone) return;

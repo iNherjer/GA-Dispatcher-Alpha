@@ -144,12 +144,12 @@
                 window.triggerPaxAtTarget({ mslFt: curAlt, aglFt: 0, bankDeg: 0, gForce: 1.0, vsFpm: 0 });
         }
 
-        // Pax voice: Airport 3,0 NM vor Ziel (Anflug, nicht Landung)
+        // Pax voice: Airport 4,0 NM vor Ziel (Anflug, nicht Landung)
         if (!_isPOISim && !simAptAtTargetTriggered && simRouteCache.totalDist > 0 &&
-            simDistNM >= simRouteCache.totalDist - 3.0) {
+            simDistNM >= simRouteCache.totalDist - 4.0) {
             simAptAtTargetTriggered = true;
             const curAlt = Math.round(_alt(simDistNM, simRouteCache));
-            console.log('[SimPax] Airport-Anflug 3.0 NM vor Ziel → At-Target, alt:', curAlt, 'ft');
+            console.log('[SimPax] Airport-Anflug 4.0 NM vor Ziel → At-Target, alt:', curAlt, 'ft');
             if (typeof window.triggerPaxAtTarget === 'function')
                 window.triggerPaxAtTarget({ mslFt: curAlt, aglFt: 0, bankDeg: 0, gForce: 1.0, vsFpm: simTouchdownVs || 0 });
         }

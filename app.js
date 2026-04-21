@@ -205,6 +205,7 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'poi:water', classic: 'POI · Fluss/See/Küste', radioShort: 'POI WTR', radioFull: 'POI · Fluss/See/Küste' },
         { value: 'poi:mountain', classic: 'POI · Berg/Tal', radioShort: 'POI MTN', radioFull: 'POI · Berg/Tal' },
         { value: 'poi:city', classic: 'POI · Stadt/Turm', radioShort: 'POI CITY', radioFull: 'POI · Stadt/Turm' },
+        { value: 'poi:trn', classic: 'POI · Training (Platznah)', radioShort: 'POI TRN', radioFull: 'POI · Training (platznah)' },
         { value: 'poi:generic', classic: 'POI · Sonstige', radioShort: 'POI GEN', radioFull: 'POI · Sonstige' }
     ]
 };
@@ -2422,8 +2423,8 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
     return normalized;
 }
 
-function sanitizeTrainingPlan(rawPlan, isPOI, isAptTrainingMission) {
-    if (isPOI || !isAptTrainingMission) return null;
+function sanitizeTrainingPlan(rawPlan, isTrainingMission) {
+    if (!isTrainingMission) return null;
     if (!rawPlan || typeof rawPlan !== 'object') {
         return {
             mode: 'airwork',
@@ -2479,6 +2480,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
 
     const missionSel = missionPicker || { baseType: isPOI ? 'poi' : 'apt', category: 'all' };
     const isAptTrainingMission = !isPOI && missionSel.baseType === 'apt' && missionSel.category === 'trn';
+    const isPoiTrainingMission = isPOI && missionSel.baseType === 'poi' && missionSel.category === 'trn';
+    const isTrainingMission = isAptTrainingMission || isPoiTrainingMission;
     const poiThemesByCat = {
         bridge: ["Infrastruktur-Inspektion (Brücke/Viadukt)"],
         road: ["Infrastruktur-Inspektion (Straßen/Autobahnknoten)"],
@@ -2489,6 +2492,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         water: ["Natur- & Umweltschutz (Beobachtung)", "Wissenschaftliche Datenerfassung"],
         mountain: ["Natur- & Umweltschutz (Beobachtung)", "Luftbildfotografie (Medien/Immobilien)"],
         city: ["Lokales Event / Großveranstaltung von oben", "Luftbildfotografie (Medien/Immobilien)"],
+        trn: [
+            "Platznahes VFR-Training im Übungsgebiet (Orientierung, Luftraumbezug, saubere Verfahren)",
+            "Trainingsflug mit Instructor im Nahbereich des Startflugplatzes"
+        ],
         generic: poiCategories
     };
     const aptThemesByCat = {
@@ -2532,19 +2539,24 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             : '');
 
     const maxPaxLimit = paxText.split(' ')[0];
-    const targetMissionCat = isPOI
-        ? 'poi'
-        : ((missionSel.category && missionSel.category !== 'all') ? missionSel.category : 'std');
+    const targetMissionCat = (missionSel.category && missionSel.category !== 'all')
+        ? missionSel.category
+        : (isPOI ? 'poi' : 'std');
 
     const sanitizePassengerProfile = (passenger) => {
         if (!passenger || typeof passenger !== 'object') return null;
         const normalized = enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt);
         if (!normalized || typeof normalized !== 'object') return normalized;
-        normalized.trainingPlan = sanitizeTrainingPlan(passenger.trainingPlan, isPOI, isAptTrainingMission);
+        normalized.trainingPlan = sanitizeTrainingPlan(passenger.trainingPlan, isTrainingMission);
+        if (normalized.trainingPlan) {
+            normalized.targetAltFt = 0;
+            normalized.targetRadiusNm = 0;
+            normalized.targetDwellMin = 0;
+        }
         return normalized;
     };
     const enforceTrainingInstructorPayload = (payload) => {
-        if (!isAptTrainingMission || !payload || typeof payload !== 'object') return payload;
+        if (!isTrainingMission || !payload || typeof payload !== 'object') return payload;
         const normalized = { ...payload };
         normalized.pax = '1 PAX (Instruktor)';
         if (!normalized.cargo || /kein cargo|none|0 lbs/i.test(String(normalized.cargo))) {
@@ -2563,7 +2575,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
                 targetRadiusNm: 0,
                 targetDwellMin: 0,
                 greetingText: 'Morgen! Heute fliegen wir Training und ich gebe dir die Aufgaben unterwegs.',
-                trainingPlan: sanitizeTrainingPlan(null, false, true)
+                trainingPlan: sanitizeTrainingPlan(null, true)
             };
         } else if (!String(normalized.passenger.role || '').trim()) {
             normalized.passenger.role = 'Fluglehrer';
@@ -2571,26 +2583,27 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         return normalized;
     };
 
-    const poiAltRule = isPOI
+    const poiAltRule = (isPOI && !isTrainingMission)
         ? (Number.isFinite(poiTerrainFt)
             ? `POI-Einsatzparameter: targetAltFt (MSL) darf NICHT unter ${Math.round(poiTerrainFt + 500)} ft liegen, weil am POI mindestens 500 ft AGL gelten. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).`
             : "POI-Einsatzparameter: targetAltFt konservativ wählen; niemals so niedrig, dass es unter 500 ft AGL wäre. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).")
         : "A-B-REGEL: Kein POI-Arbeitsauftrag. targetAltFt MUSS 0 sein, targetRadiusNm MUSS 0 sein, targetDwellMin MUSS 0 sein.";
 
-    const trainingHardRules = isAptTrainingMission
-        ? `10. TRAININGSFLUG-PFLICHT: Das ist ein klarer Trainingsflug A->B mit Fluglehrer. Keine Charter-, Cargo- oder POI-Story.
+    const trainingHardRules = isTrainingMission
+        ? `10. TRAININGSFLUG-PFLICHT: Das ist ein klarer Trainingsflug mit Fluglehrer.${isPoiTrainingMission ? ` POI liegt im platznahen Übungsgebiet bei ${startName}, am Ende wieder Landung in ${startName}.` : ' Keine Charter-, Cargo- oder POI-Sightseeing-Story.'}
     11. TRAININGSINHALT MUSS KONKRET SEIN:
        - Wähle mode: "airwork" ODER "pattern".
        - Bei mode "airwork": Übungen in der Luft, z.B. Stall-Training, Steep Turns/Vollkreis, Slow Flight, Navigationsaufgabe.
          trigger MUSS "half_route" sein (Instruktor meldet sich auf halber Strecke).
        - Bei mode "pattern": Übungen platznah im Anflug/Platzrunde, z.B. Engine-Out-Approach, No-Flaps, Extra-Platzrunden, Touch-and-Go, Missed Approach.
          trigger MUSS "five_nm_before_landing" sein (Instruktor meldet sich 5 NM vor Ziel).
+         Wichtig: Die eigentliche Landung erfolgt ERST nach Abschluss der Übung am Platz.
        - Gib 2-4 konkrete Übungen in "focus" an und eine kurze Instruktor-Ansage in "instructorLine".
     12. TRAININGS-PAX: Es MUSS genau EIN Passagier mitfliegen: der Instruktor. pax MUSS "1 PAX (Instruktor)" oder gleichwertig sein.
         Der passenger darf NICHT null sein und role MUSS klar Instructor/Fluglehrer sein.
         cargo nur unkritisch (z.B. "Trainingsunterlagen"), kein echter Frachtauftrag.`
         : `10. KEIN TRAININGSDRIFT: Falls es kein Trainingsflug ist, darf KEIN Trainingsauftrag mit Fluglehrer, Übungen, Platzrunden-Drills oder Checkflug-Inhalten erzeugt werden.`;
-    const poiNoTrainingRule = isPOI
+    const poiNoTrainingRule = (isPOI && !isTrainingMission)
         ? `13. POI-GUARDRAIL: Bei POI-Missionen sind Trainingsinhalte strikt verboten (kein Instructor, keine Airwork-/Platzrunden-Aufgaben).`
         : '';
 
@@ -2608,7 +2621,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     ${categoryRule}
     ${isPOI ? `5. RUNDFLUG-REGELN: Start und Landung ist ${startName}. Am POI (${destName}) wird NICHT gelandet.` : `5. ROUTEN-REGELN: Normaler Streckenflug von ${startName} nach ${destName}.`}
     6. PASSAGIERE & FRACHT: Erfinde passend zur Mission, WER mitfliegt (maximal ${maxPaxLimit} Personen) und WAS transportiert wird. Wenn niemand mitfliegt, schreibe '0 PAX'.
-    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission.${isAptTrainingMission ? ' Bei Trainingsflug IMMER der Instruktor (nicht null).' : ' (oder null bei 0 PAX).'} greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. ${poiAltRule}
+    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission.${isTrainingMission ? ' Bei Trainingsflug IMMER der Instruktor (nicht null).' : ' (oder null bei 0 PAX).'} greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'. ${poiAltRule}
     8. AKTUELLES WETTER (als Realitätsanker einbauen, aber ohne überdramatisieren):
        Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
        Ziel (${destName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
@@ -3505,6 +3518,11 @@ async function generateMission() {
     const selectedPoiCategory = effectiveType === 'poi' ? (missionPicker.category || 'all') : 'all';
     const selectedAptCategory = effectiveType === 'apt' ? (missionPicker.category || 'all') : 'all';
     let searchMin = effectiveType === "poi" ? minNM / 2 : minNM, searchMax = effectiveType === "poi" ? maxNM / 2 : maxNM, dest = null;
+    if (effectiveType === 'poi' && selectedPoiCategory === 'trn') {
+        // Platznahes POI-Training: Übungsgebiet bewusst nahe am Startplatz halten.
+        searchMin = Math.max(3, Math.round(minNM * 0.2));
+        searchMax = Math.min(22, Math.max(searchMin + 2, Math.round(maxNM * 0.35)));
+    }
 
     if (targetDest) { dest = await getAirportData(targetDest); } else {
         if (effectiveType === "apt") { dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref); }
@@ -3526,10 +3544,14 @@ async function generateMission() {
     if (!dest && !targetDest && effectiveType === "poi" && typeof fallbackPOIs !== 'undefined') {
         dataSource = "Fallback POIs";
         let validPOIs = fallbackPOIs.filter(p => checkBearing(calcNav(start.lat, start.lon, p.lat, p.lon).brng, dirPref));
-        if (selectedPoiCategory !== 'all') {
+        if (selectedPoiCategory === 'trn') {
+            validPOIs = validPOIs.filter(p => calcNav(start.lat, start.lon, p.lat, p.lon).dist <= 25);
+        } else if (selectedPoiCategory !== 'all') {
             validPOIs = validPOIs.filter(p => classifyPOITitleCategory(p.n) === selectedPoiCategory);
         }
-        if (validPOIs.length === 0 && selectedPoiCategory !== 'all') {
+        if (validPOIs.length === 0 && selectedPoiCategory === 'trn') {
+            validPOIs = fallbackPOIs.filter(p => calcNav(start.lat, start.lon, p.lat, p.lon).dist <= 25);
+        } else if (validPOIs.length === 0 && selectedPoiCategory !== 'all') {
             validPOIs = fallbackPOIs.filter(p => classifyPOITitleCategory(p.n) === selectedPoiCategory);
         }
         if (validPOIs.length === 0) validPOIs = fallbackPOIs;
@@ -3537,6 +3559,9 @@ async function generateMission() {
         dest = balancedFallbackPoi ? balancedFallbackPoi.item : validPOIs[Math.floor(Math.random() * validPOIs.length)];
         dest.poiCategory = balancedFallbackPoi ? balancedFallbackPoi.category : classifyPOITitleCategory(dest.n);
         dest.icao = "POI";
+    }
+    if (dest && effectiveType === 'poi' && selectedPoiCategory === 'trn') {
+        dest.poiCategory = 'trn';
     }
 
     if (!dest) {
@@ -3640,7 +3665,7 @@ async function generateMission() {
                         targetRadiusNm: 0,
                         targetDwellMin: 0,
                         greetingText: 'Morgen! Heute fliegen wir Training und ich gebe dir die Aufgaben unterwegs.',
-                        trainingPlan: sanitizeTrainingPlan(null, false, true)
+                        trainingPlan: sanitizeTrainingPlan(null, true)
                     };
                 }
             }
