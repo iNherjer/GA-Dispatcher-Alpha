@@ -2247,7 +2247,13 @@ function updateFlightRecorder(lat, lon, alt) {
         if (!r.lowSpeedSince) {
             r.lowSpeedSince = now;
             if (Number.isFinite(smoothedVS)) r.touchdownVsFpm = smoothedVS;
-            if (typeof window.triggerPaxAtTarget === 'function') window.triggerPaxAtTarget(window.lastLiveFlightData || {});
+            // Fallback-AtTarget nur in Zielnähe zulassen, damit ein Absturz/Touchdown
+            // fern vom Ziel keine "4-NM-vor-Landung"-Meldung auslöst.
+            const dTargetNm = _distanceToMissionTargetNm(lat, lon);
+            const nearTargetForAtTarget = Number.isFinite(dTargetNm) ? dTargetNm <= 4.5 : false;
+            if (nearTargetForAtTarget && typeof window.triggerPaxAtTarget === 'function') {
+                window.triggerPaxAtTarget(window.lastLiveFlightData || {});
+            }
         }
         if ((now - r.lowSpeedSince) >= 5000) {
             addFlightTrackPoint(lat, lon, alt, now, true);
