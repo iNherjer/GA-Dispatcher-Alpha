@@ -1514,6 +1514,12 @@ window.triggerPaxGreeting = async function(lat, lon) {
 window.triggerPaxAtTarget = async function(flightData) {
     _paxLog(`triggerPaxAtTarget | tts:${_paxVoiceEnabled} done:${_paxAtTargetDone} pax:${!!window.activePassenger} alt:${flightData?.mslFt||0}ft`, 'state');
     if (_paxAtTargetDone || !window.activePassenger) return;
+    const trainingPlan = _activeAptTrainingPlan();
+    if (trainingPlan) {
+        _paxAtTargetDone = true;
+        _paxLog('AtTarget unterdrueckt: Trainingsmodus aktiv (eigene Trainings-Trigger steuern die Ansagen)', 'state');
+        return;
+    }
     _paxAtTargetDone = true;
     const prompt = _atTargetPrompt(flightData);
     if (!prompt) { _paxAtTargetDone = false; _paxLog('AtTarget: kein Prompt', 'warn'); return; }
