@@ -1572,7 +1572,7 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
     _maybePaxComfortFeedback(flightData);
     const trainingPlan = _activeAptTrainingPlan();
     const wps = (typeof routeWaypoints !== 'undefined') ? routeWaypoints : null;
-    if (trainingPlan && wps && wps.length >= 2 && !_aptTrainingBriefDone) {
+    if (trainingPlan && wps && wps.length >= 2) {
         const first = wps[0];
         const last = wps[wps.length - 1];
         const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
