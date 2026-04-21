@@ -1537,6 +1537,15 @@ function _haversineNm(lat1, lon1, lat2, lon2) {
     return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 3440.065;
 }
 
+function _trainingPoiCenterFromRoute(wps) {
+    if (!Array.isArray(wps) || wps.length < 3) return null;
+    const mid = wps[Math.floor((wps.length - 1) / 2)];
+    const lat = Number(mid?.lat);
+    const lon = Number(mid?.lng ?? mid?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+}
+
 // Called each GPS tick from sync.js + sim-route.js
 window.checkPaxPoiProximity = function(lat, lon, flightData) {
     if (!window.activePassenger) return;
@@ -1549,7 +1558,11 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
         const last = wps[wps.length - 1];
         const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
         if (isPoiMission) {
-            const dest = _getDestCoords() || { lat: last.lat, lon: (last.lng ?? last.lon) };
+            const dest = _getDestCoords() || _trainingPoiCenterFromRoute(wps);
+            if (!dest) {
+                _paxLog('POI-Training: kein gueltiger POI-Mittelpunkt fuer Trigger vorhanden', 'warn');
+                return;
+            }
             const distToDestNm = _haversineNm(lat, lon, dest.lat, dest.lon);
             const approaching = (_poiTrainingLastDistToDestNm == null)
                 ? true
