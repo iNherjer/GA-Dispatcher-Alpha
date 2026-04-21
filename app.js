@@ -2583,6 +2583,22 @@ function sanitizeTrainingPlan(rawPlan, isTrainingMission) {
     return { mode, trigger, focus, instructorLine: instructorLine || instructorFallback };
 }
 
+function formatPaxBriefingText(paxText, passenger) {
+    const base = String(paxText || '').trim();
+    const name = String(passenger?.name || '').trim();
+    if (!base || !name) return base;
+    if (/^\s*0\s*PAX\b/i.test(base)) return base;
+    if (base.toLowerCase().includes(name.toLowerCase())) return base;
+    const m = base.match(/^(.*)\(([^)]*)\)\s*$/);
+    if (m) {
+        const left = String(m[1] || '').trim();
+        const inner = String(m[2] || '').trim();
+        if (!inner) return `${left} (${name})`.trim();
+        return `${left} (${inner}: ${name})`.trim();
+    }
+    return `${base} (${name})`;
+}
+
 async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
     if (!aiToggleBtn || !aiToggleBtn.checked) return null;
@@ -3853,6 +3869,7 @@ async function generateMission() {
     window.activePassenger = (m && m.passenger) ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt) : null;
     try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch(e) {}
     if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
+    const paxBriefingText = formatPaxBriefingText(paxText, window.activePassenger);
 
     document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
     document.getElementById("mStory").innerText = m.s;
@@ -3872,7 +3889,7 @@ async function generateMission() {
     const wikiDestNameEl = document.getElementById('wikiDestNameDisplay');
     if (wikiDestNameEl) wikiDestNameEl.innerText = `${isPOI ? 'POI' : currentDestICAO} – ${dest.n}`;
 
-    document.getElementById("mPay").innerText = paxText; document.getElementById("mWeight").innerText = cargoText;
+    document.getElementById("mPay").innerText = paxBriefingText; document.getElementById("mWeight").innerText = cargoText;
     document.getElementById("mDistNote").innerText = `${totalDist} NM`;
     document.getElementById("mETENote").innerText = timeStr;
     const mHeadingNote = document.getElementById("mHeadingNote");
