@@ -116,6 +116,7 @@ let _paxComfortBusy   = false;
 let _paxWxMismatchDone = false;
 let _paxSpeechQueue   = Promise.resolve();
 let _aptTrainingBriefDone = false;
+let _aptTrainingLandingBriefDone = false;
 let _trainingEval = null;
 
 // POI dwell state machine
@@ -146,6 +147,7 @@ window.paxVoiceResetMission = function() {
     _paxWxMismatchDone = false;
     _paxSpeechQueue   = Promise.resolve();
     _aptTrainingBriefDone = false;
+    _aptTrainingLandingBriefDone = false;
     _trainingEval = {
         active: false,
         startedAt: 0,
@@ -1153,7 +1155,7 @@ Hänge kurz an: Nach Abschluss der Übung fliegen wir zurück Richtung Platz, fa
 Ton: Instruktor-Funkstil, knapp und präzise. Max 2 Sätze.${_toneHint()}`;
 }
 
-function _trainingLandingPrepPrompt(flightData, distNm, mode) {
+function _trainingLandingPrepPrompt(flightData, distNm, mode, placeLabel = 'Zielflugplatz') {
     const ctx = _baseContext();
     const plan = _activeAptTrainingPlan();
     if (!ctx || !plan) return null;
@@ -1165,7 +1167,7 @@ function _trainingLandingPrepPrompt(flightData, distNm, mode) {
         : `Wir sind etwa ${d} NM vor der Landung. Jetzt kurze, klare Landevorbereitung geben.`;
     return `${ctx}
 
-Moment: Rückanflug zum Startflugplatz.${wx ? ' ' + wx : ''}
+    Moment: Rückanflug zum ${placeLabel}.${wx ? ' ' + wx : ''}
 ${body} Nenne Wind/Wetter knapp und gib genau einen konkreten Tipp für den Anflug bzw. die Landung.
 Ton: sachlich, instruktiv, kein Offtopic. Max 2 Sätze.${_toneHint()}`;
 }
@@ -1592,32 +1594,41 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
                 if (trainingPlan.mode === 'pattern' && distNm <= 5.0) {
                     _poiTrainingLandingBriefDone = true;
                     _paxLog(`Training-Trigger poi_landing_pattern_5nm | distHome ${distNm.toFixed(2)} NM`, 'event');
-                    const p = _trainingLandingPrepPrompt(flightData, distNm, 'pattern');
+                    const p = _trainingLandingPrepPrompt(flightData, distNm, 'pattern', 'Startflugplatz');
                     if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 } else if (trainingPlan.mode !== 'pattern' && distNm <= 4.0) {
                     _poiTrainingLandingBriefDone = true;
                     _paxLog(`Training-Trigger poi_landing_4nm | distHome ${distNm.toFixed(2)} NM`, 'event');
-                    const p = _trainingLandingPrepPrompt(flightData, distNm, 'landing');
+                    const p = _trainingLandingPrepPrompt(flightData, distNm, 'landing', 'Startflugplatz');
                     if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 }
             }
-        } else if (trainingPlan.trigger === 'half_route') {
-            if (!isPoiMission) {
-                const totalNm = _haversineNm(first.lat, first.lng ?? first.lon, last.lat, last.lng ?? last.lon);
-                const doneNm = _haversineNm(first.lat, first.lng ?? first.lon, lat, lon);
-                const progress = totalNm > 1 ? (doneNm / totalNm) : 0;
-                if (progress >= 0.50) {
-                    _aptTrainingBriefDone = true;
-                    _paxLog(`Training-Trigger half_route | progress ${(progress * 100).toFixed(0)}%`, 'event');
-                    const p = _aptTrainingPrompt(flightData, distNm, progress);
+        } else {
+            // APT-Training: identisches Muster wie POI-Training.
+            // 1) Hauptbriefing bei ~50% Route
+            const totalNm = _haversineNm(first.lat, first.lng ?? first.lon, last.lat, last.lng ?? last.lon);
+            const doneNm = _haversineNm(first.lat, first.lng ?? first.lon, lat, lon);
+            const progress = totalNm > 1 ? (doneNm / totalNm) : 0;
+            if (!_aptTrainingBriefDone && progress >= 0.50) {
+                _aptTrainingBriefDone = true;
+                _paxLog(`Training-Trigger apt_half_route_50 | progress ${(progress * 100).toFixed(0)}%`, 'event');
+                const p = _aptTrainingPrompt(flightData, distNm, progress);
+                if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+            }
+            // 2) Landing-Call nach Modus: pattern 5NM, sonst 4NM
+            if (_aptTrainingBriefDone && !_aptTrainingLandingBriefDone) {
+                if (trainingPlan.mode === 'pattern' && distNm <= 5.0) {
+                    _aptTrainingLandingBriefDone = true;
+                    _paxLog(`Training-Trigger apt_landing_pattern_5nm | dist ${distNm.toFixed(2)} NM`, 'event');
+                    const p = _trainingLandingPrepPrompt(flightData, distNm, 'pattern', 'Zielflugplatz');
+                    if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                } else if (trainingPlan.mode !== 'pattern' && distNm <= 4.0) {
+                    _aptTrainingLandingBriefDone = true;
+                    _paxLog(`Training-Trigger apt_landing_4nm | dist ${distNm.toFixed(2)} NM`, 'event');
+                    const p = _trainingLandingPrepPrompt(flightData, distNm, 'landing', 'Zielflugplatz');
                     if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 }
             }
-        } else if (!isPoiMission && trainingPlan.trigger === 'five_nm_before_landing' && distNm <= 5.0) {
-            _aptTrainingBriefDone = true;
-            _paxLog(`Training-Trigger five_nm_before_landing | dist ${distNm.toFixed(2)} NM`, 'event');
-            const p = _aptTrainingPrompt(flightData, distNm, null);
-            if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
         }
     }
     if (trainingPlan && (_aptTrainingBriefDone || _poiTrainingZoneStartDone)) {
@@ -1632,9 +1643,9 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
         const last = wps[wps.length - 1];
         const distNm = _haversineNm(lat, lon, last.lat, last.lng ?? last.lon);
 
-        // Bei pattern-Übungen am Platz übernimmt die Instruktor-Ansage den Trigger,
-        // dadurch vermeiden wir die vorgezogene 4-NM-Landungsmeldung.
-        if (trainingPlan && trainingPlan.mode === 'pattern') return;
+        // Bei Trainingsflügen übernimmt die Trainingslogik die 5/4-NM-Landing-Ansage.
+        // Dadurch vermeiden wir doppelte Meldungen aus dem generischen Airport-Trigger.
+        if (trainingPlan) return;
 
         // Airport: early approach trigger (live mode fallback)
         if (_paxAtTargetDone) return;
