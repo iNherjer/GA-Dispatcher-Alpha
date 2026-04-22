@@ -3209,6 +3209,10 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     const cat = String(missionCat || '').toLowerCase();
     const aptSel = String(selectedAptCategory || 'all').toLowerCase();
     const poiSel = String(selectedPoiCategory || 'all').toLowerCase();
+    // Harte Picker-Regeln: explizite Kategorien nicht mischen.
+    if (!isPOI && (aptSel === 'club' || cat === 'club')) return 'club_utility';
+    if (!isPOI && (aptSel === 'cargo' || cat === 'cargo')) return 'cargo_fragile';
+    if (!isPOI && (aptSel === 'private')) return 'sightseeing_tour';
     const weighted = [];
     const pushMany = (id, n) => { for (let i = 0; i < n; i++) weighted.push(id); };
 
@@ -3250,7 +3254,6 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         }
         if (aptSel === 'club' || cat === 'club') {
             pushMany('club_utility', 3);
-            pushMany('sightseeing_tour', 1);
         }
     }
 
