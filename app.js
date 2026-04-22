@@ -284,6 +284,23 @@ const MISSION_ROLE_TASK_PROFILES = {
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'hoch', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
         storyCue: 'Fokus: ruhiger Rundflug mit angenehmem Tempo.'
     },
+    historian_guided_tour: {
+        id: 'historian_guided_tour',
+        label: 'Historiker-Rundflug',
+        appliesTo: ['poi'],
+        // Bewusst bestehende erlaubte Werte nutzen (kein Schema-Drift).
+        roleProfile: 'tour_guide_relaxed_v1',
+        taskDomain: 'sightseeing_tour',
+        personas: [
+            { name: 'Dr. Hannah Voss', role: 'Historikerin', gender: 'female', personality: 'kenntnisreich, ruhig, anschaulich' },
+            { name: 'Prof. Lukas Brenner', role: 'Historiker', gender: 'male', personality: 'präzise, erzählstark, gelassen' }
+        ],
+        greetingText: 'Hi, wir machen heute einen Geschichtsflug zum POI. Ich gebe dir unterwegs kurze historische Einordnungen, du fliegst bitte ruhig und stabil.',
+        paxText: '1 PAX (Historiker)',
+        cargoPool: ['Archivunterlagen und Karten (14 lbs)', 'Tablet mit historischen Luftbildern (9 lbs)'],
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
+        storyCue: 'Fokus: kurze, sachliche historische Einordnung waehrend des POI-Flugs.'
+    },
     mapping_survey: {
         id: 'mapping_survey',
         label: 'Mapping/Survey',
@@ -641,6 +658,10 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
         fire_watch: [
             { t: `Fire Watch: ${n}`, i: '🔥', cat: 'poi', s: `Im Gebiet ${n} wird Feuerwacht geflogen. Halte Ausschau nach Rauchfahnen, Hotspots und neuen Brandherden.`, payloadText: '1 PAX (Brandbeobachtung)', cargoText: 'Feuerlage-Mapset (10 lbs)' },
             { t: `Waldbrand-Frühwarnung: ${n}`, i: '🌲', cat: 'poi', s: `Für ${n} läuft ein Frühwarnflug wegen erhöhter Waldbrandgefahr. Fokus auf Hotspots und klare Meldungen.`, payloadText: '1 PAX (Einsatzbeobachter)', cargoText: 'IR-Kamera und Tablet (21 lbs)' }
+        ],
+        historian_guided_tour: [
+            { t: `Historikerflug: ${n}`, i: '📜', cat: 'poi', s: `Ein Historiker begleitet den Flug zu ${n} und gibt unterwegs kurze geschichtliche Einordnungen zu Ort, Nutzung und Entwicklung.`, payloadText: '1 PAX (Historiker)', cargoText: 'Archivunterlagen und Karten (14 lbs)' },
+            { t: `Zeitreise aus der Luft: ${n}`, i: '🏛️', cat: 'poi', s: `Für ${n} ist ein ruhiger Rundflug mit historischer Kontext-Erklärung geplant. Fokus liegt auf Orientierung und klaren Sichtachsen.`, payloadText: '1 PAX (Historikerin)', cargoText: 'Tablet mit historischen Luftbildern (9 lbs)' }
         ],
         sightseeing_tour: [
             { t: `Panorama-Rundflug: ${n}`, i: '🌤️', cat: 'poi', s: `Ein ruhiger Sightseeingflug über ${n} mit Fokus auf angenehme Fluglage und gute Aussicht.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Kleine Kamerataschen (12 lbs)' },
@@ -3601,6 +3622,9 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
     if (profile.id === 'news_coverage' && isPOI) {
         return '16. OPERATIONS-REGEL REPORTER POI: Luftbeobachtung am POI ist erlaubt; Auftrag bleibt sachlich, keine Touri-Rhetorik.';
     }
+    if (profile.id === 'historian_guided_tour' && isPOI) {
+        return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit 1-2 kurzen historischen Einordnungen im Briefing/Greeting. Kein SAR/Feuer/Inspektionsauftrag daraus machen.';
+    }
     return '';
 }
 
@@ -3614,11 +3638,10 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         telecom: 'mapping_survey',
         industry: 'mapping_survey',
         dam: 'mapping_survey',
-        city: 'news_coverage',
-        water: 'search_and_rescue',
-        // Berg/Tal soll kein impliziter SAR-Zwang sein:
-        // hier lieber freier Natur-/Sightseeing-/Science-Charakter.
-        mountain: 'auto',
+        city: 'historian_guided_tour',
+        water: 'historian_guided_tour',
+        mountain: 'historian_guided_tour',
+        castle: 'historian_guided_tour',
         fire: 'fire_watch',
         generic: 'mapping_survey'
     };
@@ -3647,6 +3670,16 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         if (/(bridge|road|telecom|industry|dam)/.test(poiSel + ' ' + cat)) {
             pushMany('mapping_survey', 2);
             pushMany('news_coverage', 1);
+        }
+        if (/(castle|city|mountain)/.test(poiSel + ' ' + cat)) {
+            pushMany('historian_guided_tour', 3);
+            pushMany('sightseeing_tour', 1);
+        }
+        if (/(water)/.test(poiSel + ' ' + cat)) {
+            pushMany('historian_guided_tour', 2);
+        }
+        if (/(telecom)/.test(poiSel + ' ' + cat)) {
+            pushMany('historian_guided_tour', 1);
         }
         if (/(water|generic|fire)/.test(poiSel + ' ' + cat)) {
             pushMany('search_and_rescue', 1);
@@ -3746,6 +3779,11 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     if (id === 'sightseeing_tour') {
         const positive = has(/ausflug|stadtetrip|stadttrip|sightseeing|panorama|kuchen|burger|wellness|romant|tour/);
         const negative = has(/aog|ersatzteil|organtransport|medicine|notfall|urgent|kurier|fracht|transport/);
+        return positive && !negative;
+    }
+    if (id === 'historian_guided_tour') {
+        const positive = has(/histor|geschichte|zeitreise|denkmal|kultur|stadtfuehr|stadtfuehrung|schloss|burg|turm|fluss|tal|berg/);
+        const negative = has(/sar|search|rescue|rettung|hotspot|brand|rauch|feuer|notfall/);
         return positive && !negative;
     }
     if (id === 'mapping_survey') {
@@ -3905,6 +3943,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         animal_transport: ['Tiertransport mit stressarmer, ruhiger Flugfuehrung'],
         news_coverage: ['Reporter-/Medieneinsatz mit sachlicher Lagebeobachtung'],
         sightseeing_tour: ['Entspannter Ausflugs- und Sightseeingflug'],
+        historian_guided_tour: ['Historiker-Rundflug mit kurzer, sachlicher Geschichtseinordnung am POI'],
         mapping_survey: ['Praeziser Mapping-/Survey-Flug mit stabilen Passes'],
         search_and_rescue: ['SAR-Suchflug mit strukturiertem Suchmuster und Lagebild'],
         fire_watch: ['Feuerwacht mit Fokus auf Rauchfahnen und Hotspots']
