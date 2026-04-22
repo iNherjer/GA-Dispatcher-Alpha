@@ -3461,6 +3461,29 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         if (!payload || typeof payload !== 'object') return payload;
         const p = { ...payload };
         p.story = stripPilotNameFromText(p.story || '');
+        const normalizeUrgency = (v) => (String(v || '').toLowerCase() === 'hoch' ? 'hoch' : 'niedrig');
+        const enforceUrgencyStoryConsistency = (storyText, urgencyRaw) => {
+            let s = String(storyText || '').trim();
+            const urgency = normalizeUrgency(urgencyRaw);
+            const hasTimeHint = /\b(zeitkrit|dringend|eilig|pünkt|puenkt|zeitnah|so bald wie moeglich|so schnell wie moeglich)\b/i.test(s);
+
+            if (urgency === 'hoch') {
+                if (!hasTimeHint) {
+                    s = `${s}${s ? ' ' : ''}Der Auftrag ist zeitkritisch, wir sollten pünktlich ankommen.`.trim();
+                }
+            } else {
+                s = s
+                    .replace(/\b(zeitkritisch|dringend|eilig|zeitnah)\b/gi, '')
+                    .replace(/\bso\s+bald\s+wie\s+m(?:oe|ö)glich\b/gi, '')
+                    .replace(/\bso\s+schnell\s+wie\s+m(?:oe|ö)glich\b/gi, '')
+                    .replace(/\bwir\s+m(?:ue|ü)ssen\s+(jetzt\s+)?(dringend|schnell|z(?:ue|ü)gig)\b[^.?!]*/gi, '')
+                    .replace(/\bp(?:ue|ü)nktlich\s+(am\s+ziel\s+)?(ankommen|sein)\b/gi, '')
+                    .replace(/\s{2,}/g, ' ')
+                    .replace(/\s+([,.;:!?])/g, '$1')
+                    .trim();
+            }
+            return s;
+        };
         if (!isPOI && String(forcedProfile?.id || '').toLowerCase() === 'news_coverage') {
             let s = String(p.story || '');
             const leakPatterns = [
@@ -3480,6 +3503,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
                 .trim();
             p.story = s || 'Du bringst den Reporter zum Zielplatz, dort startet die Berichterstattung am Boden.';
         }
+        p.story = enforceUrgencyStoryConsistency(p.story || '', p?.passenger?.urgencyPriority);
         if (p.passenger && typeof p.passenger === 'object') {
             p.passenger = { ...p.passenger };
             p.passenger.greetingText = stripPilotNameFromText(p.passenger.greetingText || '');
