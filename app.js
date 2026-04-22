@@ -262,7 +262,7 @@ const MISSION_ROLE_TASK_PROFILES = {
             { name: 'Mara Feld', role: 'Reporterin', gender: 'female', personality: 'neugierig, sachlich, schnell' },
             { name: 'Timo Berger', role: 'TV-Reporter', gender: 'male', personality: 'präzise, präsent, professionell' }
         ],
-        greetingText: 'Hi, ich sammle heute O-Töne und Fakten. Bring mich bitte pünktlich zum Ziel, dann kann ich vor Ort direkt loslegen.',
+        greetingText: 'Hi, ich sammle heute O-Töne und Fakten. Bring mich bitte zum Ziel, dann kann ich vor Ort direkt loslegen.',
         paxText: '1 PAX (Reporter)',
         cargoPool: ['Kamera- und Audio-Set (32 lbs)', 'Live-Übertragungsrucksack (26 lbs)'],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'mittel' },

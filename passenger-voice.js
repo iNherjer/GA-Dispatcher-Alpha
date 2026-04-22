@@ -1033,6 +1033,11 @@ function _baseContext() {
     const payload = document.getElementById('mPay')?.innerText?.trim() || '';
     const roleStyle = _roleStyleHint(pax.role, pax);
     const urgency = String(pax?.urgencyPriority || 'mittel').toLowerCase();
+    const urgencyLine = urgency === 'hoch'
+        ? 'ZEITRAHMEN: Auftrag ist zeitkritisch. Zeitdruck darf kurz und klar benannt werden.'
+        : (urgency === 'mittel'
+            ? 'ZEITRAHMEN: Normale Prioritaet. Keine Eile-Woerter oder Zeitdruck (nicht "schnell", "zuegig", "eilig", "puenktlich", "dringend").'
+            : 'ZEITRAHMEN: Niedrige Prioritaet. Kein Zeitdruck und keine Eile-Woerter.');
 
     const dialectProfile = _contextualDialectProfile(pax);
     const trainingPlan = _activeAptTrainingPlan();
@@ -1055,6 +1060,7 @@ AUFTRAG (kurz): ${storyShort || 'n/a'}
 STIL: ${roleStyle}
 ${trainingDiscipline}
 DRINGLICHKEIT: ${urgency}
+${urgencyLine}
 MISSION-CONTRACT: ${contractSummary || 'n/a'}
 CONTRACT-REGELN: ${contractRules || 'n/a'}
 REGION: ${dialectProfile.regionLabel} · Wortwahl ${dialectProfile.dialectHint} (${dialectProfile.strengthLabel})
@@ -1560,6 +1566,9 @@ function _greetingPrompt() {
         bankTolerance === 'niedrig'
     );
     const timingHintNeeded = (urgencyPriority === 'hoch');
+    const timingWordBan = timingHintNeeded
+        ? 'Wenn Zeit kritisch ist, nenne den Zeitbezug kurz und konkret.'
+        : 'Kein Zeitdruck: nutze KEINE Eile-Woerter (nicht "schnell", "zuegig", "eilig", "puenktlich", "dringend").';
     const reqLine = isPOI
         ? (trainingPlan
             ? `Bitte nenne kurz das Übungsthema und wie wir es sicher und sauber abfliegen. Keine internen Parameter oder technischen Vorgaben zitieren.`
@@ -1579,6 +1588,7 @@ Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in B
 Basistext für deine Begrüßung (frei adaptieren): "${pax.greetingText}"
 Du DARFST hier mit einer kurzen natürlichen Begrüßung beginnen (z.B. "Hi"), aber nur sehr knapp.
 ${reqLine}
+${timingWordBan}
 Max 3 Sätze.${_toneHint()}`;
 }
 
