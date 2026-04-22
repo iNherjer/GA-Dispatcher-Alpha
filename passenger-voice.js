@@ -228,18 +228,28 @@ function _isLandingPhaseEvent(eventLabel, text) {
     return /landung|anflug|endanflug|aufsetzen/.test(msg);
 }
 
+function _isTrainingLandingInstructorEvent(eventLabel, text) {
+    const ev = String(eventLabel || '').toLowerCase();
+    const msg = String(text || '').toLowerCase();
+    if (ev !== 'instruktor') return false;
+    if (!_activeAptTrainingPlan()) return false;
+    return /landung|anflug|endanflug|aufsetzen/.test(msg);
+}
+
 function _injectPattonvilleJuliusEasteregg(text, eventLabel) {
     const base = String(text || '').trim();
     if (!base) return base;
     if (_pattonvilleJuliusMentioned) return base;
-    if (_paxHumorLevel === 'subtle') return base;
     if (!_isPattonvilleMissionTarget()) return base;
     if (!_isLandingPhaseEvent(eventLabel, base)) return base;
     if (/\bjulius\b/i.test(base)) return base;
 
-    const easteregg = (_paxHumorLevel === 'bold')
-        ? 'Und wenn wir gleich in Pattonville aufsetzen, grüß den Julius von mir, alter Bekannter.'
-        : 'In Pattonville ist der Julius am Platz, ein alter Bekannter von mir.';
+    const juliusLines = [
+        'Und in Pattonville steht der Julius schon am Grill und tut so, als wäre das hier ein Fly-In-Fest.',
+        'Wenn wir in Pattonville aufsetzen, grüß den Julius, der hat meistens schon ein Kaltgetränk in Reichweite.',
+        'In Pattonville läuft garantiert der Julius rum, alter Bekannter und selbst ernannter Rampen-Entertainer.'
+    ];
+    const easteregg = juliusLines[Math.floor(Math.random() * juliusLines.length)] || juliusLines[0];
     _pattonvilleJuliusMentioned = true;
     _paxLog('Pattonville-Easteregg aktiv: Julius-Hinweis ergänzt', 'event');
     return `${base} ${easteregg}`.replace(/\s{2,}/g, ' ').trim();
@@ -250,7 +260,7 @@ function _injectPattonvilleReportingPointsHint(text, eventLabel) {
     if (!base) return base;
     if (_pattonvilleReportingPointsMentioned) return base;
     if (!_isPattonvilleMissionTarget()) return base;
-    if (!_isLandingPhaseEvent(eventLabel, base)) return base;
+    if (!_isTrainingLandingInstructorEvent(eventLabel, base)) return base;
     if (/(autokino|wasserturm|pflichtmeldepunkt|meldepunkt)/i.test(base)) return base;
 
     const hint = 'In Pattonville bitte auf die Pflichtmeldepunkte Autokino und Wasserturm achten, dort gilt lokal keine klassische Platzrunde.';
@@ -474,6 +484,8 @@ function _inspectionMissionMeta() {
     const story = String(_getMissionStory() || '').toLowerCase();
     const hay = `${role} ${title} ${story}`;
     const taskDomain = _activeTaskDomain();
+    // Rollenreinheit: Fire-Watch ist Beobachtung/Frühwarnung, keine Bauwerks-/Geo-Inspektion.
+    if (taskDomain === 'fire_watch') return null;
     const isInspectionByDomain = taskDomain === 'inspection_infra';
     const isInspectionByFallback = /(inspekt|pruef|prüfung|wartung|techn|statik|vermess|scan|check|schaden|fuge|mast|abspannung|brueck|bruck|autobahn|strass|funk|sendemast|stausee|staudamm|talsperre|wehr|sperrmauer)/.test(hay);
     const isInspection = isInspectionByDomain || isInspectionByFallback;
@@ -525,6 +537,10 @@ function _professionalRoleMeta() {
     if (taskDomain === 'media_photo' || taskDomain === 'inspection_infra' || taskDomain === 'training' || taskDomain === 'charter' || taskDomain === 'club_utility') {
         return null;
     }
+    // Operative Domains sollen nicht in wissenschaftliche Fallback-Hinweise driften.
+    if (/^(fire_watch|search_and_rescue|mapping_survey|news_coverage|medical_transfer|animal_transport|cargo_fragile|sightseeing_tour)$/.test(taskDomain)) {
+        return null;
+    }
     if (taskDomain === 'science_bio') {
         return {
             field: 'Biologie',
@@ -558,7 +574,7 @@ function _professionalRoleMeta() {
             result: ` Schließe mit einem biologischen Kurzfazit zu "${objectName}" ab (z.B. unauffaellig, Belastungshinweis, weiterer Beobachtungsbedarf).`
         };
     }
-    if (/(geolog|geomorph|hydrolog|vulkanolog|boden|gestein|erosion|rutsch|schicht)/.test(role + ' ' + story)) {
+    if (/\b(geolog|geomorph|hydrolog|vulkanolog|gestein|erosion|rutsch|hangstabil|sediment|bodenfeuchte|bodenprofil|bodenprobe)\b/.test(role + ' ' + story)) {
         return {
             field: 'Geowissenschaft',
             entry: ` Nenne kurz, welche geologischen Merkmale du an "${objectName}" prüfst (z.B. Erosion, Bruchkanten, Hangstabilitaet, Sedimente).`,
@@ -1042,7 +1058,9 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
 }
 
 const _PAX_TTS_VOICE_POOL = {
-    male: ['Charon', 'Puck', 'Fenrir'],
+    // "Fenrir" klingt in der Praxis teils uneindeutig; daher nicht mehr in der
+    // primären male-Reihe, um Gender-Mismatch-Eindruck zu reduzieren.
+    male: ['Charon', 'Puck'],
     female: ['Kore', 'Leda', 'Aoede']
 };
 
@@ -1094,6 +1112,44 @@ function _ttsVoiceCandidatesForSpeaker(pax) {
     }
     if (!dedup.includes(fallback)) dedup.push(fallback);
     return dedup;
+}
+
+function _roleConsistencyDebugEnabled() {
+    return localStorage.getItem('awm_role_consistency_debug') === '1';
+}
+
+window.paxVoiceSetRoleConsistencyDebug = function(on) {
+    const enabled = !!on;
+    localStorage.setItem('awm_role_consistency_debug', enabled ? '1' : '0');
+    _paxLog(`Role-Consistency Debug: ${enabled ? 'EIN' : 'AUS'}`, 'state');
+};
+
+function _logRoleConsistencyCheck(eventLabel) {
+    if (!_roleConsistencyDebugEnabled()) return;
+    const pax = window.activePassenger || {};
+    const contract = (typeof window !== 'undefined' ? (window.activeMissionContract || null) : null)
+        || (() => { try { return JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) { return null; } })();
+
+    const rp = String(pax.roleProfile || '').toLowerCase().trim();
+    const td = String(pax.taskDomain || '').toLowerCase().trim();
+    const cRp = String(contract?.roleProfile || '').toLowerCase().trim();
+    const cTd = String(contract?.taskDomain || '').toLowerCase().trim();
+    const cUrg = String(contract?.urgencyPriority || '').toLowerCase().trim();
+    const urg = String(pax.urgencyPriority || '').toLowerCase().trim();
+
+    const issues = [];
+    if (!pax?.name || !pax?.role) issues.push('Passagierprofil unvollständig (name/role fehlt)');
+    if (!rp || !td) issues.push('roleProfile/taskDomain am Passenger fehlt');
+    if (cRp && rp && cRp !== rp) issues.push(`roleProfile-Mismatch passenger=${rp} contract=${cRp}`);
+    if (cTd && td && cTd !== td) issues.push(`taskDomain-Mismatch passenger=${td} contract=${cTd}`);
+    if (cUrg && urg && cUrg !== urg) issues.push(`urgency-Mismatch passenger=${urg} contract=${cUrg}`);
+    if (td === 'training' && rp !== 'instructor_calm_precise_v1') issues.push(`training ohne instructor-roleProfile (${rp || 'n/a'})`);
+
+    if (issues.length) {
+        _paxLog(`[RoleCheck:${eventLabel}] WARN | ${issues.join(' | ')}`, 'warn');
+    } else {
+        _paxLog(`[RoleCheck:${eventLabel}] OK | roleProfile=${rp || 'n/a'} | taskDomain=${td || 'n/a'} | urgency=${urg || 'n/a'}`, 'state');
+    }
 }
 
 async function _playTextAsTTS(text, speaker = null) {
@@ -1169,6 +1225,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel) {
     } : null;
 
     _paxLog(`── ${eventLabel} ──`, 'event');
+    _logRoleConsistencyCheck(eventLabel);
     _paxLog(`PROMPT (voll): ${situationPrompt.replace(/\n+/g, ' ')}`, 'send');
     const spokenTextRaw = await _generateSpokenText(apiKey, situationPrompt);
     const spokenText = _injectPattonvilleJuliusEasteregg(
@@ -1242,6 +1299,7 @@ function _baseContext() {
     const contractRules = Array.isArray(contract?.constraints)
         ? contract.constraints.map(x => String(x || '').trim()).filter(Boolean).slice(0, 3).join(' | ')
         : '';
+    const roleGuard = `ROLLENFIX: Du sprichst ausschließlich als ${pax.name} (${pax.role}) in Ich-Form. Keine Rollenvermischung mit anderen Personen aus der Story.`;
     return `ROLLE: ${pax.name} (${pax.role}) · Persönlichkeit: ${pax.personality}
 FLUG: ${md.start || '?'} → ${md.poiName || md.dest || '?'} · ${md.dist || '?'} NM
 LOAD: ${cargo || 'n/a'}${payload ? ` · ${payload}` : ''}
@@ -1252,6 +1310,7 @@ DRINGLICHKEIT: ${urgency}
 ${urgencyLine}
 MISSION-CONTRACT: ${contractSummary || 'n/a'}
 CONTRACT-REGELN: ${contractRules || 'n/a'}
+${roleGuard}
 REGION: ${dialectProfile.regionLabel} · Wortwahl ${dialectProfile.dialectHint} (${dialectProfile.strengthLabel})
 REGELN: ${_dialectGlobalRules(dialectProfile, pax.role)}
 TASK-DOMAIN: ${_activeTaskDomain()}
@@ -1259,6 +1318,19 @@ AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anf
 }
 
 function _roleStyleHint(roleRaw, pax = null) {
+    const taskDomain = _activeTaskDomain();
+    if (taskDomain === 'fire_watch') {
+        return 'einsatznah, ruhig und präzise: Fokus auf Rauchentwicklung, Hotspots, Lagebild und klare Calls.';
+    }
+    if (taskDomain === 'search_and_rescue') {
+        return 'klar, strukturiert und einsatzorientiert: Suchmuster, Prioritäten und sichere Durchführung.';
+    }
+    if (taskDomain === 'mapping_survey') {
+        return 'technisch-präzise und ruhig: reproduzierbare Linien, stabile Fluglage, keine Offtopic-Kommentare.';
+    }
+    if (taskDomain === 'news_coverage') {
+        return 'sachlich beobachtend und professionell: kurze, nüchterne Lageeinschätzung ohne Show.';
+    }
     if (String(pax?.roleProfile || '').toLowerCase() === 'instructor_calm_precise_v1') {
         return 'klar, ruhig und didaktisch: kurze präzise Anweisungen mit Fokus auf Sicherheit und Trainingsziel.';
     }
@@ -1561,10 +1633,21 @@ Bitte den Piloten freundlich aber klar, die Höhe anzupassen. 1-2 Sätze.${_tone
 function _poiAltCorrectedPrompt(flightData) {
     const ctx = _baseContext();
     if (!ctx) return null;
+    const pax = window.activePassenger || {};
     const altFt = Math.round(flightData?.mslFt || 0);
+    const targetAlt = Math.round(Number(pax?.targetAltFt || 0));
+    let altLine = `Höhe passt jetzt — wir sind auf ${altFt} ft im Zielgebiet.`;
+    if (targetAlt > 0) {
+        const diff = altFt - targetAlt;
+        if (Math.abs(diff) <= 120) {
+            altLine = `Die geplanten ${targetAlt} ft passen jetzt, ich fange mit der Beobachtung an.`;
+        } else {
+            altLine = `Wir sind mit ${altFt} ft jetzt im Arbeitsband um die geplanten ${targetAlt} ft, ich starte die Beobachtung.`;
+        }
+    }
     return `${ctx}
 
-Moment: Höhe passt jetzt — wir sind auf ${altFt} ft im Zielgebiet. Sag dem Piloten kurz, dass es jetzt stimmt und du anfangen kannst. 1 Satz.${_toneHint()}`;
+Moment: ${altLine} Sag dem Piloten kurz, dass es jetzt stimmt und du anfangen kannst. 1 Satz.${_toneHint()}`;
 }
 
 function _poiSatisfiedPrompt(flightData) {
@@ -2231,7 +2314,9 @@ function _tickPoiDwell(lat, lon, flightData) {
     const clockPos = _relativeClockPos(targetBearing, hdg);
 
     const strict               = _paxStrictMode;
-    const altTolerance         = strict ? 200  : 600;
+    const taskDomain = _activeTaskDomain();
+    const tightAltitudeBand = /^(fire_watch|search_and_rescue|inspection_infra|mapping_survey)$/.test(taskDomain);
+    const altTolerance         = strict ? 200  : (tightAltitudeBand ? 300 : 600);
     const dwellRequired        = pax.targetDwellMin > 0 ? pax.targetDwellMin * 60 * (strict ? 1.0 : 0.5) : 0;
     const maxAttempts          = strict ? 2 : 3;
     const graceSec             = strict ? 15  : 25;
