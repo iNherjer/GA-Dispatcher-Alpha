@@ -3233,6 +3233,14 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     const id = String(profileId || 'auto').toLowerCase();
     if (!id || id === 'auto') return true;
+    const expectedProfile = getMissionTaskProfile(id, isPOI ? 'poi' : 'apt') || null;
+    const rp = String(missionLike?.passenger?.roleProfile || '').toLowerCase().trim();
+    const td = String(missionLike?.passenger?.taskDomain || '').toLowerCase().trim();
+    if (expectedProfile && (rp || td)) {
+        const rpOk = !expectedProfile.roleProfile || rp === String(expectedProfile.roleProfile || '').toLowerCase();
+        const tdOk = !expectedProfile.taskDomain || td === String(expectedProfile.taskDomain || '').toLowerCase();
+        if (rpOk && tdOk) return true;
+    }
     const t = normalizeMissionText(missionLike?.t || missionLike?.title || '');
     const s = normalizeMissionText(missionLike?.s || missionLike?.story || '');
     const hay = `${t} ${s}`;
