@@ -326,11 +326,62 @@
     }
 
     function _promptSimLog(record) {
-        if (!record || !record.track || record.track.length < 2) return;
+        if (!record || !record.track || record.track.length < 2) {
+            console.warn('[SimPax] Debrief übersprungen: ungültiger Record/Track');
+            return;
+        }
         const ok = confirm('Simulationsflug beendet.\n\nMöchtest du diesen Flug loggen und an die Pinwand hängen?');
         if (!ok) return;
+        let saved = false;
         if (typeof window.pinCompletedFlightRecord === 'function') {
-            window.pinCompletedFlightRecord(record, { openDebrief: true });
+            try {
+                window.pinCompletedFlightRecord(record, { openDebrief: true });
+                saved = true;
+            } catch (e) {
+                console.warn('[SimPax] pinCompletedFlightRecord fehlgeschlagen:', e?.message || e);
+            }
+        }
+        if (!saved) {
+            saved = _fallbackPinFlightRecord(record, true);
+        }
+        if (saved) {
+            console.log(`[SimPax] 🧾 Debrief gespeichert: ${record.depLabel} ➔ ${record.arrLabel} (${record.distanceNm} NM)`);
+        } else {
+            console.warn('[SimPax] Debrief konnte nicht gespeichert werden.');
+        }
+    }
+
+    function _fallbackPinFlightRecord(record, openDebrief) {
+        try {
+            const notes = JSON.parse(localStorage.getItem('ga_pinboard') || '[]');
+            const dep = record.depLabel || 'START';
+            const arr = record.arrLabel || 'LANDUNG';
+            const mins = Math.max(1, Math.round((record.durationSec || 0) / 60));
+            const avg = Number(record.avgGs || 0).toFixed(0);
+            const dist = Number(record.distanceNm || 0).toFixed(1);
+            const maxAlt = Math.round(record.maxAltFt || 0);
+            const td = Number.isFinite(record.touchdownVsFpm) ? `${Math.round(record.touchdownVsFpm)} fpm` : '-';
+            const dateText = record.dateLabel || new Date().toLocaleString('de-DE');
+
+            notes.push({
+                id: Date.now(),
+                type: 'flight_record',
+                flightRecord: record,
+                text: `🛬 <b>${dep} ➔ ${arr}</b><br><span style="font-size:11px; color:#555;">${dateText}</span><br><span style="font-size:11px;">${dist} NM • ${mins} min • Ø ${avg} kt<br>MAX ${maxAlt} ft • TD ${td}</span>`,
+                x: 35 + Math.random() * 15,
+                y: 20 + Math.random() * 15,
+                rot: Math.floor(Math.random() * 9) - 4
+            });
+            localStorage.setItem('ga_pinboard', JSON.stringify(notes));
+            if (typeof triggerCloudSave === 'function') triggerCloudSave();
+            if (openDebrief && typeof window.showFlightDebrief === 'function') window.showFlightDebrief(record);
+            if (document.getElementById('pinboardOverlay')?.classList.contains('active') && typeof renderNotes === 'function') {
+                renderNotes();
+            }
+            return true;
+        } catch (e) {
+            console.warn('[SimPax] fallback Debrief-Write fehlgeschlagen:', e?.message || e);
+            return false;
         }
     }
 
