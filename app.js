@@ -491,6 +491,74 @@ function classifyAptMissionCategory(ms) {
     return 'private';
 }
 
+function _offlineAptCategoryFallbacks(category = 'all') {
+    const cat = String(category || 'all').toLowerCase();
+    const byCat = {
+        private: [
+            { t: 'Panorama-Ausflug', i: '🌄', cat: 'std', s: 'Ein ruhiger Ausflugsflug mit Kaffee-Stop am Zielplatz. Fokus auf entspannte Anreise und schöne Aussicht.' },
+            { t: 'Wochenend-Trip', i: '🧳', cat: 'std', s: 'Du bringst zwei Freunde für einen kurzen City-Trip zum Ziel. Kein Zeitdruck, komfortabel und sauber fliegen.' }
+        ],
+        club: [
+            { t: 'Vereins-Shuttle', i: '🛩️', cat: 'std', s: 'Ein Vereinsmitglied muss zum Nachbarplatz, um Unterlagen für den Fliegerverein abzuholen.' },
+            { t: 'Fly-In Vorbereitung', i: '🎪', cat: 'std', s: 'Für das nächste Fly-In fehlen noch Banner und Material vom Partnerverein am Zielplatz.' }
+        ],
+        charter: [
+            { t: 'Business Charter', i: '🧑‍💼', cat: 'std', s: 'Ein Geschäftstermin am Ziel ist fix. Der Kunde braucht einen ruhigen, pünktlichen Charterflug.' },
+            { t: 'Executive Transfer', i: '💼', cat: 'std', s: 'Ein Projektleiter mit engem Terminplan reist per Charter. Stabiler Flug und klare Zeitplanung sind wichtig.' }
+        ],
+        cargo: [
+            { t: 'Kurierflug Dokumente', i: '📂', cat: 'std', s: 'Zeitkritische Dokumente müssen als Kurier zum Zielplatz. Kein Passagier an Bord.' },
+            { t: 'Ersatzteil-Transport', i: '🔧', cat: 'std', s: 'Ein Ersatzteil wird dringend für eine abgestellte Maschine benötigt. Reiner Frachtflug ohne PAX.' }
+        ],
+        trn: [
+            { t: 'Training: Airwork Basic', i: '🎓', cat: 'trn', s: 'Heute stehen saubere Airwork-Manöver an: stabile Kurven, Trimmarbeit und saubere Höhenhaltung.' },
+            { t: 'Training: Pattern & Landing', i: '🛬', cat: 'trn', s: 'Trainingsflug mit Platzrundenfokus am Zielplatz, inklusive Go-Around-Entscheidung und sauberem Endanflug.' }
+        ]
+    };
+    if (cat === 'all') {
+        return []
+            .concat(byCat.private, byCat.club, byCat.charter, byCat.cargo, byCat.trn)
+            .map(x => ({ ...x }));
+    }
+    return (byCat[cat] || []).map(x => ({ ...x }));
+}
+
+function _offlineAptProfileFallbacks(profileId = 'auto') {
+    const id = String(profileId || 'auto').toLowerCase();
+    const byProfile = {
+        medical_transfer: [
+            { t: 'Organtransport', i: '🚑', cat: 'std', s: 'Medizinischer Notfall: Ein Organtransport muss ohne Verzögerung zur Klinik am Ziel gebracht werden.' },
+            { t: 'Medicine Emergency', i: '💊', cat: 'std', s: 'Dringender Medizin-Transfer mit zeitkritischer Lieferung für die Notaufnahme am Zielort.' }
+        ],
+        cargo_fragile: [
+            { t: 'Fragile Lab Cargo', i: '🧪', cat: 'std', s: 'Empfindliche Laborgeräte werden als fragile Fracht transportiert. Sanfte Flugführung ist Pflicht.' },
+            { t: 'Art Transfer', i: '🖼️', cat: 'std', s: 'Zerbrechliches Kunstobjekt im Kurierflug. Harte Manöver und ruppige Landung vermeiden.' }
+        ],
+        animal_transport: [
+            { t: 'Tierrettung Transfer', i: '🐾', cat: 'std', s: 'Tiertransport für den Tierschutzverein. Ruhiger Flug, keine abrupten Lastwechsel.' },
+            { t: 'Horse-Vet Shuttle', i: '🐎', cat: 'std', s: 'Ein Tierarzt muss zu einem dringenden Einsatz auf ein Gestüt am Zielort.' }
+        ],
+        news_coverage: [
+            { t: 'Reporter Shuttle', i: '📰', cat: 'std', s: 'Ein Reporterteam wird zum Zielplatz geflogen, um dort am Boden über ein Ereignis zu berichten.' },
+            { t: 'Medien-Transfer', i: '🎥', cat: 'std', s: 'Kamerateam und Equipment müssen pünktlich am Ziel sein; die eigentliche Berichterstattung startet nach der Landung.' }
+        ],
+        sightseeing_tour: [
+            { t: 'Sightseeing Charter', i: '🌤️', cat: 'std', s: 'Entspannter Ausflugsflug mit Fokus auf Aussicht und angenehmer Fluglage.' },
+            { t: 'Panorama-Rundflug Transfer', i: '🏞️', cat: 'std', s: 'Ruhiger Tourflug zum Ziel mit anschließendem lokalen Ausflugsprogramm am Boden.' }
+        ]
+    };
+    return (byProfile[id] || []).map(x => ({ ...x }));
+}
+
+function buildOfflineAptMissionPool(selectedAptCategory = 'all', dispatchProfileId = 'auto') {
+    const categoryPool = _offlineAptCategoryFallbacks(selectedAptCategory);
+    const profilePool = _offlineAptProfileFallbacks(dispatchProfileId);
+    const combined = [...categoryPool, ...profilePool];
+    if (combined.length >= 2) return combined;
+    const topup = _offlineAptCategoryFallbacks('all');
+    return [...combined, ...topup].slice(0, 6);
+}
+
 function toggleNotes(event) {
     // Wenn wir auf einen Link, Button oder ein Pin-Icon klicken, umblättern hart blockieren
     if (event && event.target && (
@@ -5024,6 +5092,7 @@ async function generateMission() {
 
     const maxPax = Math.max(1, maxSeats - 1), randomPax = Math.floor(Math.random() * maxPax) + 1;
     let paxText = `${randomPax} PAX`, cargoText = `${Math.floor(Math.random() * 300) + 20} lbs`;
+    const aiModeEnabled = !!document.getElementById('aiToggle')?.checked;
 
     indicator.innerText = `Kontaktiere KI-Dispatcher...`;
     let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt, missionWeather, missionPickerResolved, missionFireHazard);
@@ -5059,7 +5128,7 @@ async function generateMission() {
             }
         } else if (typeof missions !== 'undefined') {
             // A->B-Missionen gleichmäßig über Kategorien rotieren (inkl. Trainingsflüge).
-            const availM = missions.filter(ms => {
+            const availDbMissions = missions.filter(ms => {
                 if (!ms || ms.cat === 'poi') return false;
                 if (dispatchProfileId !== 'auto' && selectedAptCategory === 'all') {
                     const inferred = classifyAptMissionCategory(ms);
@@ -5068,6 +5137,8 @@ async function generateMission() {
                 if (selectedAptCategory === 'all') return true;
                 return classifyAptMissionCategory(ms) === selectedAptCategory;
             });
+            const offlineFallbackMissions = buildOfflineAptMissionPool(selectedAptCategory, dispatchProfileId);
+            const availM = [...availDbMissions, ...offlineFallbackMissions];
             const profFilteredAvailM = (dispatchProfileId && dispatchProfileId !== 'auto')
                 ? availM.filter(ms => missionMatchesTaskProfile(ms, dispatchProfileId, false))
                 : availM;
@@ -5108,7 +5179,7 @@ async function generateMission() {
                 localStorage.setItem('ga_last_mission_cat', selectedCat);
             }
 
-            if (dataSource === "Generiert") dataSource = "GitHub Airport DB";
+            if (dataSource === "Generiert") dataSource = "Lokale DB";
             const aptCatOfMission = classifyAptMissionCategory(m || {});
             if (m.cat === "cargo" || aptCatOfMission === 'cargo') { paxText = "0 PAX"; }
             if (m.cat === "charter" || aptCatOfMission === 'charter' || selectedAptCategory === 'charter') {
@@ -5172,7 +5243,8 @@ async function generateMission() {
     };
 
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
-    window.activePassenger = (missionHasPassenger && m && m.passenger)
+    const isAiGeneratedMission = !!(m && typeof m._source === 'string' && /^Gemini\b/i.test(String(m._source)));
+    window.activePassenger = (aiModeEnabled && isAiGeneratedMission && missionHasPassenger && m && m.passenger)
         ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt)
         : null;
     const activeMissionContract = buildMissionContract({
