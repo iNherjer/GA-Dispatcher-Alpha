@@ -349,6 +349,12 @@
         } else {
             console.warn('[SimPax] Debrief konnte nicht gespeichert werden.');
         }
+        // Debrief im Sim-Modus immer anzeigen, auch wenn Pinboard-Write wegen Quota scheitert.
+        try {
+            if (typeof window.showFlightDebrief === 'function') window.showFlightDebrief(record);
+        } catch (e) {
+            console.warn('[SimPax] Debrief-Overlay fehlgeschlagen:', e?.message || e);
+        }
     }
 
     function _fallbackPinFlightRecord(record, openDebrief) {

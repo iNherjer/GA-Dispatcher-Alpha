@@ -469,9 +469,42 @@ window.pinCompletedFlightRecord = function(record, opts = {}) {
         for (let j = 0; j < recIdx.length; j++) recIdx[j] -= 1;
     }
 
-    localStorage.setItem('ga_pinboard', JSON.stringify(notes));
-    triggerCloudSave();
-    if (document.getElementById('pinboardOverlay')?.classList.contains('active')) renderNotes();
+    const _savePinboardWithPrune = (arr) => {
+        const tryWrite = (candidate) => {
+            localStorage.setItem('ga_pinboard', JSON.stringify(candidate));
+            return true;
+        };
+        try {
+            return tryWrite(arr);
+        } catch (e) {
+            const msg = String(e?.message || e);
+            if (!/quota/i.test(msg)) throw e;
+            // Quota-Fallback: zuerst alte flight_record-Notizen trimmen, dann harte Obergrenze auf Gesamtmenge.
+            const trimmed = Array.isArray(arr) ? arr.slice() : [];
+            const recIdx = [];
+            trimmed.forEach((n, i) => { if (n?.type === 'flight_record') recIdx.push(i); });
+            while (recIdx.length > 20) {
+                const idx = recIdx.shift();
+                trimmed.splice(idx, 1);
+                for (let j = 0; j < recIdx.length; j++) recIdx[j] -= 1;
+            }
+            while (trimmed.length > 120) trimmed.shift();
+            try {
+                return tryWrite(trimmed);
+            } catch (e2) {
+                console.warn('[Pinboard] Quota-Fallback fehlgeschlagen:', e2?.message || e2);
+                return false;
+            }
+        }
+    };
+
+    const saved = _savePinboardWithPrune(notes);
+    if (saved) {
+        triggerCloudSave();
+        if (document.getElementById('pinboardOverlay')?.classList.contains('active')) renderNotes();
+    } else {
+        console.warn('[Pinboard] FlightRecord konnte nicht gespeichert werden (Quota).');
+    }
 
     if (opts.openDebrief) {
         window.showFlightDebrief(record);
