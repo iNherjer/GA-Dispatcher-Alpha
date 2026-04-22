@@ -2663,9 +2663,11 @@ window.vpBuildWeatherDebugReport = function() {
         const p = missionSnap.passenger || {};
         lines.push(`- Zeit: ${vpFormatDebugTs(missionSnap.ts)}`);
         lines.push(`- Modus/Kategorie: ${missionSnap.mode || '?'} / ${missionSnap.category || '?'}`);
+        if (missionSnap.requestedCategory) lines.push(`- Gewählt: ${missionSnap.requestedCategory}`);
         lines.push(`- Mission: ${missionSnap.mission || 'n/a'}`);
         lines.push(`- Ziel: ${missionSnap.target || 'n/a'}`);
         lines.push(`- Quelle: ${missionSnap.source || 'n/a'}`);
+        if (missionSnap.poiSource) lines.push(`- POI-Fundquelle: ${missionSnap.poiSource}`);
         lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
         if (missionSnap.contract?.summary) lines.push(`- Contract: ${missionSnap.contract.summary}`);
         lines.push(`- PAX/Cargo: ${missionSnap.paxText || 'n/a'} | ${missionSnap.cargoText || 'n/a'}`);

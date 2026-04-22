@@ -2540,7 +2540,7 @@ async function findNominatimDamPOI(lat, lon) {
     if (candidates.length === 0) return null;
     candidates.sort((a, b) => (a.dNm - b.dNm) || (b.importance - a.importance));
     const pick = candidates[0];
-    return { icao: 'POI', n: pick.n, lat: pick.lat, lon: pick.lon, poiCategory: 'dam' };
+    return { icao: 'POI', n: pick.n, lat: pick.lat, lon: pick.lon, poiCategory: 'dam', poiSource: 'Nominatim (dam typed)' };
 }
 
 function _parseWktPoint(wkt) {
@@ -2629,7 +2629,7 @@ LIMIT 120
         candidates.sort((a, b) => a.dist - b.dist);
         const top = candidates.slice(0, Math.min(6, candidates.length));
         const pick = top[Math.floor(Math.random() * top.length)] || candidates[0];
-        return { icao: 'POI', n: pick.n, lat: pick.lat, lon: pick.lon, poiCategory: cat };
+        return { icao: 'POI', n: pick.n, lat: pick.lat, lon: pick.lon, poiCategory: cat, poiSource: `Wikidata typed (${cat})` };
     } catch (_) {
         return null;
     }
@@ -2704,7 +2704,8 @@ async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory 
                 n: poi.title,
                 lat: poi.lat,
                 lon: poi.lon,
-                poiCategory: balancedPoi ? balancedPoi.category : classifyPOITitleCategory(poi.title)
+                poiCategory: balancedPoi ? balancedPoi.category : classifyPOITitleCategory(poi.title),
+                poiSource: `Wikipedia GeoSearch${forceCat ? ` (forced:${forceCat})` : ''}`
             };
         }
     } catch (e) { }
@@ -5420,11 +5421,17 @@ async function generateMission() {
         if (validPOIs.length === 0 && selectedPoiCategory !== 'all') {
             validPOIs = fallbackPOIs.filter(p => poiTitleMatchesCategory(p.n, selectedPoiCategory));
         }
-        if (validPOIs.length === 0) validPOIs = fallbackPOIs;
+        // Bei expliziter Kategorie (z.B. water) nicht auf Fremdkategorien aufweichen.
+        if (validPOIs.length === 0 && selectedPoiCategory === 'all') validPOIs = fallbackPOIs;
+        if (validPOIs.length === 0 && selectedPoiCategory !== 'all') {
+            dest = null;
+        } else {
         const balancedFallbackPoi = pickBalancedByCategory(validPOIs, p => classifyPOITitleCategory(p.n), 'ga_poi_cat');
         dest = balancedFallbackPoi ? balancedFallbackPoi.item : validPOIs[Math.floor(Math.random() * validPOIs.length)];
         dest.poiCategory = balancedFallbackPoi ? balancedFallbackPoi.category : classifyPOITitleCategory(dest.n);
         dest.icao = "POI";
+            dest.poiSource = `Local fallback POIs${selectedPoiCategory !== 'all' ? ` (forced:${selectedPoiCategory})` : ''}`;
+        }
     }
     if (dest && effectiveType === 'poi' && selectedPoiCategory === 'trn') {
         dest.poiCategory = 'trn';
@@ -5589,13 +5596,16 @@ async function generateMission() {
     _ensureDispatchAlive();
 
     const poolCategory = isPOI ? (dest.poiCategory || classifyPOITitleCategory(dest.n)) : (m?.cat || 'std');
+    const poiSource = isPOI ? String(dest?.poiSource || dataSource || 'n/a') : '';
     const dispatchSnapshot = {
         mode: isPOI ? 'POI' : 'A-B',
         category: poolCategory,
+        requestedCategory: isPOI ? String(selectedPoiCategory || 'all') : String(selectedAptCategory || 'all'),
         profile: m?._requestedProfile || selectedMissionProfile || 'auto',
         appliedProfile: m?._appliedProfile || 'auto',
         mission: m?.t || 'n/a',
-        target: dest?.n || 'n/a'
+        target: dest?.n || 'n/a',
+        poiSource
     };
     console.debug('[DISPATCH]', dispatchSnapshot);
 
@@ -5608,6 +5618,7 @@ async function generateMission() {
         start: currentStartICAO,
         dest: currentDestICAO,
         poiName: isPOI ? dest.n : null,
+        poiSource: isPOI ? poiSource : null,
         mission: m.t,
         dist: totalDist,
         ac: selectedAC,
@@ -5646,6 +5657,7 @@ async function generateMission() {
             mission: dispatchSnapshot.mission,
             target: dispatchSnapshot.target,
             source: m?._source || dataSource || 'n/a',
+            poiSource: poiSource || null,
             story: String(m?.s || ''),
             narrativeGuard: m?._narrativeGuard || null,
             contract: activeMissionContract || null,
