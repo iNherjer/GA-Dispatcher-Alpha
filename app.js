@@ -3209,6 +3209,21 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     const cat = String(missionCat || '').toLowerCase();
     const aptSel = String(selectedAptCategory || 'all').toLowerCase();
     const poiSel = String(selectedPoiCategory || 'all').toLowerCase();
+    const poiCategoryProfileMap = {
+        bridge: 'mapping_survey',
+        road: 'mapping_survey',
+        telecom: 'mapping_survey',
+        industry: 'mapping_survey',
+        dam: 'mapping_survey',
+        city: 'news_coverage',
+        water: 'search_and_rescue',
+        mountain: 'search_and_rescue',
+        generic: 'mapping_survey'
+    };
+    // Harte Picker-Regeln: explizite Kategorien nicht mischen.
+    if (isPOI && poiSel !== 'all' && poiSel !== 'trn') {
+        return poiCategoryProfileMap[poiSel] || poiCategoryProfileMap[cat] || 'mapping_survey';
+    }
     // Harte Picker-Regeln: explizite Kategorien nicht mischen.
     if (!isPOI && (aptSel === 'club' || cat === 'club')) return 'club_utility';
     if (!isPOI && (aptSel === 'cargo' || cat === 'cargo')) return 'cargo_fragile';
