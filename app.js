@@ -3463,13 +3463,21 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         p.title = stripPilotNameFromText(p.title || '');
         p.story = stripPilotNameFromText(p.story || '');
         const normalizeUrgency = (v) => (String(v || '').toLowerCase() === 'hoch' ? 'hoch' : 'niedrig');
+        const normalizeCargoSensitivity = (v) => (String(v || '').toLowerCase() === 'hoch' ? 'hoch' : 'niedrig');
         const hasTimeHint = (txt) => /\b(zeitkrit|dringend|eilig|pünkt|puenkt|zeitnah|so bald wie moeglich|so schnell wie moeglich)\b/i.test(String(txt || ''));
+        const hasCargoSensitivityHint = (txt) => /\b(empfindlich(?:e|er|en)?|fragil(?:e|er|en)?|stoss(?:-|\s)?empfindlich(?:e|er|en)?|stoß(?:-|\s)?empfindlich(?:e|er|en)?|erschuetterungsarm|erschütterungsarm|vorsichtig\s+mit\s+der\s+fracht)\b/i.test(String(txt || ''));
         const stripTimePressure = (txt) => String(txt || '')
             .replace(/\b(zeitkritisch|dringend|eilig|zeitnah)\b/gi, '')
             .replace(/\bso\s+bald\s+wie\s+m(?:oe|ö)glich\b/gi, '')
             .replace(/\bso\s+schnell\s+wie\s+m(?:oe|ö)glich\b/gi, '')
             .replace(/\bwir\s+m(?:ue|ü)ssen\s+(jetzt\s+)?(dringend|schnell|z(?:ue|ü)gig)\b[^.?!]*/gi, '')
             .replace(/\bp(?:ue|ü)nktlich\s+(am\s+ziel\s+)?(ankommen|sein)\b/gi, '')
+            .replace(/\s{2,}/g, ' ')
+            .replace(/\s+([,.;:!?])/g, '$1')
+            .trim();
+        const stripCargoSensitivity = (txt) => String(txt || '')
+            .replace(/\b(empfindlich(?:e|er|en)?|fragil(?:e|er|en)?|stoss(?:-|\s)?empfindlich(?:e|er|en)?|stoß(?:-|\s)?empfindlich(?:e|er|en)?|erschuetterungsarm|erschütterungsarm)\b/gi, '')
+            .replace(/\b(vorsichtig|behutsam|sanft)\s+(mit|bei)\s+der\s+fracht\b/gi, '')
             .replace(/\s{2,}/g, ' ')
             .replace(/\s+([,.;:!?])/g, '$1')
             .trim();
@@ -3487,6 +3495,19 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             } else {
                 t = stripTimePressure(t);
                 s = stripTimePressure(s);
+            }
+            return { title: t, story: s };
+        };
+        const enforceCargoSensitivityConsistency = (titleText, storyText, cargoSensitivityRaw) => {
+            let t = String(titleText || '').trim();
+            let s = String(storyText || '').trim();
+            const cargoSensitivity = normalizeCargoSensitivity(cargoSensitivityRaw);
+            const cargoHintInTitle = hasCargoSensitivityHint(t);
+            const cargoHintInStory = hasCargoSensitivityHint(s);
+
+            if (cargoSensitivity !== 'hoch') {
+                if (cargoHintInTitle) t = stripCargoSensitivity(t);
+                if (cargoHintInStory) s = stripCargoSensitivity(s);
             }
             return { title: t, story: s };
         };
@@ -3512,6 +3533,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         const urgencySynced = enforceUrgencyConsistency(p.title || '', p.story || '', p?.passenger?.urgencyPriority);
         p.title = urgencySynced.title || p.title || '';
         p.story = urgencySynced.story || p.story || '';
+        const cargoSynced = enforceCargoSensitivityConsistency(p.title || '', p.story || '', p?.passenger?.cargoSensitivity);
+        p.title = cargoSynced.title || p.title || '';
+        p.story = cargoSynced.story || p.story || '';
         if (p.passenger && typeof p.passenger === 'object') {
             p.passenger = { ...p.passenger };
             p.passenger.greetingText = stripPilotNameFromText(p.passenger.greetingText || '');
