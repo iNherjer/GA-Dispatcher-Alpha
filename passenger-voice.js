@@ -980,11 +980,7 @@ function _normSpeakerGender(pax) {
     const raw = String(pax?.gender || '').trim().toLowerCase();
     if (/^(male|m|mann|maennlich|männlich)$/.test(raw)) return 'male';
     if (/^(female|f|frau|weiblich)$/.test(raw)) return 'female';
-
-    const role = String(pax?.role || '').toLowerCase();
-    const name = String(pax?.name || '').toLowerCase();
-    if (/\b(herr|mr\.?|mister)\b/.test(role) || /\b(herr|mr\.?|mister)\b/.test(name)) return 'male';
-    if (/\b(frau|ms\.?|mrs\.?|madam)\b/.test(role) || /\b(frau|ms\.?|mrs\.?|madam)\b/.test(name)) return 'female';
+    // Kein Guessing aus Name/Rolle: nur explizites gender-Feld verwenden.
     return 'female';
 }
 

@@ -3570,6 +3570,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         if (!passenger || typeof passenger !== 'object') return null;
         const normalized = enforcePoiPassengerAltitudeRule({ ...passenger, storyHint: String(storyText || '') }, isPOI, poiTerrainFt);
         if (!normalized || typeof normalized !== 'object') return normalized;
+        const gRaw = String(normalized.gender || '').trim().toLowerCase();
+        normalized.gender = (/^(male|m|mann|maennlich|männlich)$/.test(gRaw))
+            ? 'male'
+            : (/^(female|f|frau|weiblich)$/.test(gRaw) ? 'female' : 'male');
         delete normalized.storyHint;
         normalized.trainingPlan = sanitizeTrainingPlan(passenger.trainingPlan, isTrainingMission);
         if (isTrainingMission) {
@@ -3695,6 +3699,7 @@ REGELN:
 4) ${isPOI ? `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.` : `ROUTEN-REGEL: Normaler Streckenflug von ${startName} nach ${promptDestName}.`}
 5) Erfinde passende PAX/Fracht (max ${maxPaxLimit} Personen). Falls niemand mitfliegt: "0 PAX".
 6) Erfinde genau einen Hauptpassagier.${isTrainingMission ? ' Bei Training IMMER Instruktor (nicht null).' : ' (oder null bei 0 PAX).'}
+6b) passenger.gender ist PFLICHT und MUSS exakt "male" oder "female" sein (keine anderen Werte).
 7) Leite diese Felder datengetrieben aus Auftrag/Rolle/Fracht/Wetter ab:
    - gTolerance, bankTolerance, cargoSensitivity, stomachSensitivity, comfortPriority: jeweils niedrig|mittel|hoch
    - urgencyPriority: niedrig|hoch
