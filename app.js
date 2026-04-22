@@ -215,7 +215,7 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'poi:all+mapping_survey', classic: 'POI · Mapping/Survey', radioShort: 'POI MAP', radioFull: 'POI · Mapping/Survey' },
         { value: 'poi:all+news_coverage', classic: 'POI · Reporter', radioShort: 'POI NEWS', radioFull: 'POI · Reporter' },
         { value: 'poi:all+search_and_rescue', classic: 'POI · SAR/Rescue', radioShort: 'POI SAR', radioFull: 'POI · SAR/Rescue' },
-        { value: 'poi:all+fire_watch', classic: 'POI · Fire Watch', radioShort: 'POI FIRE', radioFull: 'POI · Fire Watch' }
+        { value: 'poi:fire+fire_watch', classic: 'POI · Fire Watch (Wald/Berg)', radioShort: 'POI FIRE', radioFull: 'POI · Fire Watch (Wald/Berg)' }
     ]
 };
 
@@ -2098,6 +2098,35 @@ function classifyPOITitleCategory(title) {
     return "generic";
 }
 
+function _isRemoteSettlementPOITitle(title) {
+    const t = normalizeMissionText(title);
+    const remoteHints = [
+        'hof', 'weiler', 'huette', 'huetten', 'hutte', 'huette', 'alm', 'alpe', 'alp',
+        'forsthaus', 'jagdhaus', 'ranch', 'cabin', 'lodge', 'farm', 'hamlet'
+    ];
+    const urbanHints = [
+        'stadt', 'city', 'zentrum', 'bahnhof', 'arena', 'stadion', 'industrie', 'fabrik',
+        'gewerbe', 'hafen', 'flugplatz', 'airport'
+    ];
+    if (urbanHints.some(k => t.includes(k))) return false;
+    return remoteHints.some(k => _hasWordToken(t, k) || t.includes(k));
+}
+
+function isFirePOITitle(title) {
+    const cat = classifyPOITitleCategory(title);
+    if (cat === 'mountain') return true;
+    const t = normalizeMissionText(title);
+    if (t.includes('wald') || t.includes('forst') || t.includes('heide') || t.includes('moor')) return true;
+    return _isRemoteSettlementPOITitle(title);
+}
+
+function poiTitleMatchesCategory(title, category) {
+    const wanted = String(category || '').toLowerCase();
+    if (!wanted || wanted === 'all') return true;
+    if (wanted === 'fire') return isFirePOITitle(title);
+    return classifyPOITitleCategory(title) === wanted;
+}
+
 function pickBalancedByCategory(items, categoryOf, storagePrefix) {
     if (!Array.isArray(items) || items.length === 0) return null;
     const countsKey = `${storagePrefix}_counts`;
@@ -2233,6 +2262,16 @@ async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory 
         }
         return score;
     };
+    const scoreFirePOITitle = (title) => {
+        const t = normalizeMissionText(title);
+        let score = 0;
+        if (classifyPOITitleCategory(title) === 'mountain') score += 4;
+        if (t.includes('wald') || t.includes('forst')) score += 3;
+        if (t.includes('berg') || t.includes('tal') || t.includes('schlucht')) score += 2;
+        if (_isRemoteSettlementPOITitle(title)) score += 1;
+        if (classifyPOITitleCategory(title) === 'city' || classifyPOITitleCategory(title) === 'castle') score -= 3;
+        return score;
+    };
 
     const forceCat = String(forcedCategory || '').trim().toLowerCase();
     const dist = Math.floor(Math.random() * (maxNM - minNM + 1)) + minNM;
@@ -2251,16 +2290,17 @@ async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory 
             const geosearch = data.query.geosearch;
             let poiPool = geosearch;
             if (forceCat && forceCat !== 'all') {
-                const forcedPool = geosearch.filter(p => classifyPOITitleCategory(p.title) === forceCat);
+                const forcedPool = geosearch.filter(p => poiTitleMatchesCategory(p.title, forceCat));
                 if (forcedPool.length > 0) poiPool = forcedPool;
             }
             let bestScore = -999;
+            const scoreFn = (forceCat === 'fire') ? scoreFirePOITitle : scorePOITitle;
             for (const p of poiPool) {
-                const s = scorePOITitle(p.title);
+                const s = scoreFn(p.title);
                 if (s > bestScore) bestScore = s;
             }
             if (bestScore > 0) {
-                poiPool = poiPool.filter(p => scorePOITitle(p.title) === bestScore);
+                poiPool = poiPool.filter(p => scoreFn(p.title) === bestScore);
             }
             const balancedPoi = pickBalancedByCategory(poiPool, p => classifyPOITitleCategory(p.title), 'ga_poi_cat');
             const poi = balancedPoi ? balancedPoi.item : poiPool[Math.floor(Math.random() * poiPool.length)];
@@ -3219,6 +3259,7 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         city: 'news_coverage',
         water: 'search_and_rescue',
         mountain: 'search_and_rescue',
+        fire: 'fire_watch',
         generic: 'mapping_survey'
     };
     // Harte Picker-Regeln: explizite Kategorien nicht mischen.
@@ -3247,7 +3288,7 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
             pushMany('mapping_survey', 2);
             pushMany('news_coverage', 1);
         }
-        if (/(water|mountain|generic)/.test(poiSel + ' ' + cat)) {
+        if (/(water|mountain|generic|fire)/.test(poiSel + ' ' + cat)) {
             pushMany('search_and_rescue', 1);
             pushMany('fire_watch', 1);
         }
@@ -3512,6 +3553,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         castle: ["Tourismus & Sightseeing", "Luftbildfotografie (Medien/Immobilien)"],
         water: ["Natur- & Umweltschutz (Beobachtung)", "Wissenschaftliche Datenerfassung"],
         mountain: ["Natur- & Umweltschutz (Beobachtung)", "Luftbildfotografie (Medien/Immobilien)"],
+        fire: ["Feuerwacht mit Fokus auf Rauchfahnen und Hotspots", "Natur- & Umweltschutz (Beobachtung)"],
         city: ["Lokales Event / Großveranstaltung von oben", "Luftbildfotografie (Medien/Immobilien)"],
         trn: [
             "Platznahes VFR-Training im Übungsgebiet (Orientierung, Luftraumbezug, saubere Verfahren)",
@@ -4663,7 +4705,7 @@ async function generateMission() {
     }
 
     const effectiveType = (forcePOI || missionPicker.baseType === "poi") ? "poi" : "apt";
-    const selectedPoiCategory = effectiveType === 'poi' ? (missionPicker.category || 'all') : 'all';
+    let selectedPoiCategory = effectiveType === 'poi' ? (missionPicker.category || 'all') : 'all';
     const selectedAptCategory = effectiveType === 'apt' ? (missionPicker.category || 'all') : 'all';
     const selectedMissionProfile = String(missionPicker.profile || 'auto').toLowerCase();
     const seededProfileId = (selectedMissionProfile === 'auto')
@@ -4675,6 +4717,11 @@ async function generateMission() {
         })
         : selectedMissionProfile;
     const dispatchProfileId = String(seededProfileId || 'auto').toLowerCase();
+    // POI-Category-Guard: Bei "all" und explizitem Fire-Watch-Profil vermeiden wir
+    // unpassende POI-Typen (z.B. Castle) und suchen primär in berg-/waldnahen Zielen.
+    if (effectiveType === 'poi' && selectedPoiCategory === 'all' && dispatchProfileId === 'fire_watch') {
+        selectedPoiCategory = 'fire';
+    }
     const missionPickerResolved = { ...missionPicker, profile: dispatchProfileId, profileRequested: selectedMissionProfile };
     // Guardrail: Bei POI-Missionen darf ein evtl. noch befülltes Zielfeld
     // (z.B. vom vorherigen A-B-Flug) NICHT als Ziel ausgewertet werden.
@@ -4727,10 +4774,10 @@ async function generateMission() {
         dataSource = "Fallback POIs";
         let validPOIs = fallbackPOIs.filter(p => checkBearing(calcNav(start.lat, start.lon, p.lat, p.lon).brng, dirPref));
         if (selectedPoiCategory !== 'all') {
-            validPOIs = validPOIs.filter(p => classifyPOITitleCategory(p.n) === selectedPoiCategory);
+            validPOIs = validPOIs.filter(p => poiTitleMatchesCategory(p.n, selectedPoiCategory));
         }
         if (validPOIs.length === 0 && selectedPoiCategory !== 'all') {
-            validPOIs = fallbackPOIs.filter(p => classifyPOITitleCategory(p.n) === selectedPoiCategory);
+            validPOIs = fallbackPOIs.filter(p => poiTitleMatchesCategory(p.n, selectedPoiCategory));
         }
         if (validPOIs.length === 0) validPOIs = fallbackPOIs;
         const balancedFallbackPoi = pickBalancedByCategory(validPOIs, p => classifyPOITitleCategory(p.n), 'ga_poi_cat');
@@ -4977,7 +5024,14 @@ async function generateMission() {
     const paxBriefingText = formatPaxBriefingText(paxText, window.activePassenger);
 
     document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
-    document.getElementById("mStory").innerText = m.s;
+    let storyForBriefing = String(m.s || '');
+    if (isPOI && Number(window.activePassenger?.targetAltFt || 0) > 0) {
+        const plannedAltFt = Math.round(Number(window.activePassenger.targetAltFt));
+        if (!new RegExp(`\\b${plannedAltFt}\\s*ft\\b`, 'i').test(storyForBriefing)) {
+            storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Arbeits-Hinweis: Für das Zielgebiet ist eine geplante Höhe von ungefähr ${plannedAltFt} ft vorgesehen.`;
+        }
+    }
+    document.getElementById("mStory").innerText = storyForBriefing;
     document.getElementById("mDepICAO").innerText = currentStartICAO;
     document.getElementById("mDepName").innerText = start.n;
     document.getElementById("mDepCoords").innerText = `${start.lat.toFixed(4)}, ${start.lon.toFixed(4)}`;

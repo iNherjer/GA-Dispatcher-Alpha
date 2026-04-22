@@ -1824,6 +1824,7 @@ function _greetingPrompt() {
     const isClubTechRole = /(mechan|wartung|techn|inspekt|ingenieur|facility|vereins|hangar)/.test(role);
     const taskDomain = String(pax?.taskDomain || '').toLowerCase();
     const isReporterApt = (!isPOI && taskDomain === 'news_coverage');
+    const targetAltFt = Math.round(Number(pax?.targetAltFt || 0));
     const comfortPolicy = _comfortFeedbackPolicy(pax);
     const urgencyPriority = _normUrgencyPriority(pax?.urgencyPriority);
     const stomachSensitivity = _normLevel3(pax?.stomachSensitivity || 'mittel');
@@ -1843,7 +1844,7 @@ function _greetingPrompt() {
     const reqLine = isPOI
         ? (trainingPlan
             ? `Bitte nenne kurz das Übungsthema und wie wir es sicher und sauber abfliegen. Keine internen Parameter oder technischen Vorgaben zitieren.`
-            : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast. Keine internen Parameter oder technischen Vorgaben zitieren.`)
+            : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast.${targetAltFt > 0 ? ` Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr ${targetAltFt} ft).` : ''} Keine internen Parameter oder technischen Vorgaben zitieren.`)
         : (isReporterApt
             ? (comfortHintNeeded
                 ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig. ${comfortContentRule}${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`
