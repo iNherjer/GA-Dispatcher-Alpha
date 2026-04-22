@@ -288,9 +288,8 @@ const MISSION_ROLE_TASK_PROFILES = {
         id: 'historian_guided_tour',
         label: 'Historiker-Rundflug',
         appliesTo: ['poi'],
-        // Bewusst bestehende erlaubte Werte nutzen (kein Schema-Drift).
-        roleProfile: 'tour_guide_relaxed_v1',
-        taskDomain: 'sightseeing_tour',
+        roleProfile: 'historian_storyteller_v1',
+        taskDomain: 'historian_guided_tour',
         personas: [
             { name: 'Dr. Hannah Voss', role: 'Historikerin', gender: 'female', personality: 'kenntnisreich, ruhig, anschaulich' },
             { name: 'Prof. Lukas Brenner', role: 'Historiker', gender: 'male', personality: 'präzise, erzählstark, gelassen' }
@@ -300,6 +299,38 @@ const MISSION_ROLE_TASK_PROFILES = {
         cargoPool: ['Archivunterlagen und Karten (14 lbs)', 'Tablet mit historischen Luftbildern (9 lbs)'],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
         storyCue: 'Fokus: kurze, sachliche historische Einordnung waehrend des POI-Flugs.'
+    },
+    science_bio: {
+        id: 'science_bio',
+        label: 'Biologie/Umwelt',
+        appliesTo: ['poi'],
+        roleProfile: 'science_field_v1',
+        taskDomain: 'science_bio',
+        personas: [
+            { name: 'Dr. Elena Kurz', role: 'Biologin', gender: 'female', personality: 'aufmerksam, sachlich, ruhig' },
+            { name: 'Dr. Paul Reiter', role: 'Ökologe', gender: 'male', personality: 'analytisch, präzise, gelassen' }
+        ],
+        greetingText: 'Hi, wir machen heute Umweltbeobachtung am POI. Bitte ruhig und stabil fliegen, damit die Beobachtung verwertbar ist.',
+        paxText: '1 PAX (Biologe)',
+        cargoPool: ['Umweltsensorik und Kamera (18 lbs)', 'Feldnotizen und GPS-Logger (9 lbs)'],
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
+        storyCue: 'Fokus: Natur-/Umweltbeobachtung mit klarer, sachlicher Einordnung.'
+    },
+    science_geo: {
+        id: 'science_geo',
+        label: 'Geologie/Relief',
+        appliesTo: ['poi'],
+        roleProfile: 'science_field_v1',
+        taskDomain: 'science_geo',
+        personas: [
+            { name: 'Dr. Mira Hahn', role: 'Geologin', gender: 'female', personality: 'präzise, ruhig, strukturiert' },
+            { name: 'Dr. Nils Vogt', role: 'Geomorphologe', gender: 'male', personality: 'analytisch, klar, professionell' }
+        ],
+        greetingText: 'Hi, wir schauen uns heute Relief, Erosion und Hangstruktur an. Bitte sauber und reproduzierbar fliegen.',
+        paxText: '1 PAX (Geologe)',
+        cargoPool: ['Geologie-Mapset und Tablet (12 lbs)', 'Kamera und Laser-Entfernungsmesser (14 lbs)'],
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
+        storyCue: 'Fokus: geologische/geomorphologische Beobachtung mit ruhiger Arbeitsweise.'
     },
     mapping_survey: {
         id: 'mapping_survey',
@@ -662,6 +693,14 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
         historian_guided_tour: [
             { t: `Historikerflug: ${n}`, i: '📜', cat: 'poi', s: `Ein Historiker begleitet den Flug zu ${n} und gibt unterwegs kurze geschichtliche Einordnungen zu Ort, Nutzung und Entwicklung.`, payloadText: '1 PAX (Historiker)', cargoText: 'Archivunterlagen und Karten (14 lbs)' },
             { t: `Zeitreise aus der Luft: ${n}`, i: '🏛️', cat: 'poi', s: `Für ${n} ist ein ruhiger Rundflug mit historischer Kontext-Erklärung geplant. Fokus liegt auf Orientierung und klaren Sichtachsen.`, payloadText: '1 PAX (Historikerin)', cargoText: 'Tablet mit historischen Luftbildern (9 lbs)' }
+        ],
+        science_bio: [
+            { t: `Umweltbeobachtung: ${n}`, i: '🧪', cat: 'poi', s: `Bei ${n} wird ein biologischer Beobachtungsflug durchgeführt. Fokus auf Vegetation, Gewässerrand und mögliche Stressindikatoren.`, payloadText: '1 PAX (Biologe)', cargoText: 'Umweltsensorik und Kamera (18 lbs)' },
+            { t: `Ökologie-Check: ${n}`, i: '🦉', cat: 'poi', s: `Für ${n} soll eine kurze ökologische Lageeinschätzung aus der Luft erstellt werden. Wir fliegen ruhig und dokumentieren sauber.`, payloadText: '1 PAX (Ökologin)', cargoText: 'Feldnotizen und GPS-Logger (9 lbs)' }
+        ],
+        science_geo: [
+            { t: `Geologie-Pass: ${n}`, i: '🪨', cat: 'poi', s: `Rund um ${n} werden Erosion, Hangformen und Reliefmerkmale aus der Luft beurteilt. Wir brauchen reproduzierbare Linien.`, payloadText: '1 PAX (Geologe)', cargoText: 'Geologie-Mapset und Tablet (12 lbs)' },
+            { t: `Relief-Analyse: ${n}`, i: '🏔️', cat: 'poi', s: `Für ${n} wird eine geomorphologische Kurzaufnahme geflogen, um markante Strukturen und mögliche Veränderungen zu bewerten.`, payloadText: '1 PAX (Geomorphologin)', cargoText: 'Kamera und Laser-Entfernungsmesser (14 lbs)' }
         ],
         sightseeing_tour: [
             { t: `Panorama-Rundflug: ${n}`, i: '🌤️', cat: 'poi', s: `Ein ruhiger Sightseeingflug über ${n} mit Fokus auf angenehme Fluglage und gute Aussicht.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Kleine Kamerataschen (12 lbs)' },
@@ -3136,6 +3175,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         'medical_sensitive_v1',
         'news_reporter_professional_v1',
         'tour_guide_relaxed_v1',
+        'historian_storyteller_v1',
         'photogrammetry_precision_v1',
         'cargo_fragile_highcare_v1',
         'rescue_coordination_v1',
@@ -3155,6 +3195,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         'medical_transfer',
         'news_coverage',
         'sightseeing_tour',
+        'historian_guided_tour',
         'mapping_survey',
         'cargo_fragile',
         'search_and_rescue',
@@ -3177,6 +3218,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         if (/(notarzt|notaerzt|sanitaet|rettung|mediz|arzt)/.test(hay)) return 'medical_sensitive_v1';
         if (/(report|journal|news|moderator|tv|presse)/.test(hay)) return 'news_reporter_professional_v1';
         if (/(tour|reiseleitung|stadtfuehr|guide|sightseeing)/.test(hay)) return 'tour_guide_relaxed_v1';
+        if (/(historiker|historikerin|geschichte|denkmal|zeitreise|kultur)/.test(hay)) return 'historian_storyteller_v1';
         if (/(mapping|survey|photogram|lidar|geodaten|vermessung)/.test(hay)) return 'photogrammetry_precision_v1';
         if (/(fragil|zerbrech|praezision|kunstwerk|laborgeraet|stoßempfind)/.test(hay)) return 'cargo_fragile_highcare_v1';
         if (/(sar|search|rescue|rettungseinsatz|suchmuster)/.test(hay)) return 'rescue_coordination_v1';
@@ -3196,6 +3238,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         if (roleProfile === 'medical_sensitive_v1') return 'medical_transfer';
         if (roleProfile === 'news_reporter_professional_v1') return 'news_coverage';
         if (roleProfile === 'tour_guide_relaxed_v1') return 'sightseeing_tour';
+        if (roleProfile === 'historian_storyteller_v1') return 'historian_guided_tour';
         if (roleProfile === 'photogrammetry_precision_v1') return 'mapping_survey';
         if (roleProfile === 'cargo_fragile_highcare_v1') return 'cargo_fragile';
         if (roleProfile === 'rescue_coordination_v1') return 'search_and_rescue';
@@ -3205,6 +3248,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         if (/(notarzt|notaerzt|mediz|sanitaet|blutkonserve|klinik|patient)/.test(hay)) return 'medical_transfer';
         if (/(report|news|presse|tv|journal|moderator)/.test(hay)) return 'news_coverage';
         if (/(sightseeing|tour|stadtfuehr|ausflug|panorama)/.test(hay)) return 'sightseeing_tour';
+        if (/(historiker|historikerin|geschichte|zeitreise|denkmal|kulturhistor)/.test(hay)) return 'historian_guided_tour';
         if (/(mapping|survey|photogram|lidar|geodaten|kartier)/.test(hay)) return 'mapping_survey';
         if (/(fragil|zerbrech|praezision|kunstwerk|stoß|stoss|erschuetter)/.test(hay)) return 'cargo_fragile';
         if (/(sar|search|rescue|rettung|suchmuster|vermisst)/.test(hay)) return 'search_and_rescue';
@@ -3628,68 +3672,71 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
     return '';
 }
 
+function _pickFromWeighted(values = [], fallback = 'auto') {
+    const src = Array.isArray(values) ? values.filter(Boolean) : [];
+    if (!src.length) return fallback;
+    return src[Math.floor(Math.random() * src.length)] || fallback;
+}
+
+function _poiCategoryTaskPool(category = 'generic') {
+    const c = String(category || 'generic').toLowerCase();
+    // Kategorie bleibt fix, Task rotiert innerhalb passender Missionsfamilien.
+    if (c === 'bridge' || c === 'road' || c === 'dam' || c === 'industry') {
+        return ['mapping_survey', 'mapping_survey', 'news_coverage', 'science_geo'];
+    }
+    if (c === 'telecom') {
+        return ['mapping_survey', 'mapping_survey', 'news_coverage', 'historian_guided_tour'];
+    }
+    if (c === 'castle' || c === 'city') {
+        return ['historian_guided_tour', 'historian_guided_tour', 'sightseeing_tour', 'news_coverage'];
+    }
+    if (c === 'water') {
+        return ['science_bio', 'science_bio', 'search_and_rescue', 'sightseeing_tour', 'historian_guided_tour'];
+    }
+    if (c === 'mountain') {
+        return ['science_geo', 'science_bio', 'sightseeing_tour', 'historian_guided_tour', 'search_and_rescue', 'mapping_survey'];
+    }
+    if (c === 'fire') {
+        return ['fire_watch', 'fire_watch', 'search_and_rescue', 'science_bio'];
+    }
+    if (c === 'generic') {
+        return ['mapping_survey', 'news_coverage', 'sightseeing_tour', 'historian_guided_tour'];
+    }
+    return ['mapping_survey', 'news_coverage'];
+}
+
 function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'all', selectedPoiCategory = 'all', missionCat = '' } = {}) {
     const cat = String(missionCat || '').toLowerCase();
     const aptSel = String(selectedAptCategory || 'all').toLowerCase();
     const poiSel = String(selectedPoiCategory || 'all').toLowerCase();
-    const poiCategoryProfileMap = {
-        bridge: 'mapping_survey',
-        road: 'mapping_survey',
-        telecom: 'mapping_survey',
-        industry: 'mapping_survey',
-        dam: 'mapping_survey',
-        city: 'historian_guided_tour',
-        water: 'historian_guided_tour',
-        mountain: 'historian_guided_tour',
-        castle: 'historian_guided_tour',
-        fire: 'fire_watch',
-        generic: 'mapping_survey'
-    };
-    // Harte Picker-Regeln: explizite Kategorien nicht mischen.
+
+    // Harte Picker-Regel fuer POI-Location-Filter:
+    // Kategorie fix, Task daraus passend rotieren.
     if (isPOI && poiSel !== 'all' && poiSel !== 'trn') {
-        return poiCategoryProfileMap[poiSel] || poiCategoryProfileMap[cat] || 'mapping_survey';
+        return _pickFromWeighted(_poiCategoryTaskPool(poiSel || cat), 'mapping_survey');
     }
-    // Harte Picker-Regeln: explizite Kategorien nicht mischen.
+
+    // Harte Picker-Regeln: explizite APT-Kategorien nicht mischen.
     if (!isPOI && (aptSel === 'club' || cat === 'club')) return 'club_utility';
     // "Cargo (ohne PAX)" bleibt bewusst ein eigener, neutraler Cargo-Flow.
     // "cargo_fragile" darf nur über den expliziten Fragile-Picker gewählt werden.
     if (!isPOI && (aptSel === 'cargo' || cat === 'cargo')) return 'auto';
     if (!isPOI && (aptSel === 'private')) return 'sightseeing_tour';
+
     const weighted = [];
     const pushMany = (id, n) => { for (let i = 0; i < n; i++) weighted.push(id); };
 
     if (isPOI) {
         if (poiSel === 'trn' || cat === 'trn') return 'auto';
-        // POI Default-Mix
+        // POI Default-Mix (all): breit, aber profilerhaltend.
         pushMany('mapping_survey', 3);
         pushMany('news_coverage', 2);
         pushMany('search_and_rescue', 2);
         pushMany('fire_watch', 2);
-        pushMany('sightseeing_tour', 1);
-        // Category-bias
-        if (/(bridge|road|telecom|industry|dam)/.test(poiSel + ' ' + cat)) {
-            pushMany('mapping_survey', 2);
-            pushMany('news_coverage', 1);
-        }
-        if (/(castle|city|mountain)/.test(poiSel + ' ' + cat)) {
-            pushMany('historian_guided_tour', 3);
-            pushMany('sightseeing_tour', 1);
-        }
-        if (/(water)/.test(poiSel + ' ' + cat)) {
-            pushMany('historian_guided_tour', 2);
-        }
-        if (/(telecom)/.test(poiSel + ' ' + cat)) {
-            pushMany('historian_guided_tour', 1);
-        }
-        if (/(water|generic|fire)/.test(poiSel + ' ' + cat)) {
-            pushMany('search_and_rescue', 1);
-            pushMany('fire_watch', 1);
-        }
-        if (/(mountain)/.test(poiSel + ' ' + cat)) {
-            pushMany('sightseeing_tour', 2);
-            pushMany('mapping_survey', 1);
-            pushMany('news_coverage', 1);
-        }
+        pushMany('sightseeing_tour', 2);
+        pushMany('historian_guided_tour', 2);
+        pushMany('science_bio', 1);
+        pushMany('science_geo', 1);
     } else {
         if (aptSel === 'trn' || cat === 'trn') return 'auto';
         if (aptSel === 'charter' || cat === 'charter') return 'auto';
@@ -3714,8 +3761,7 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         }
     }
 
-    if (!weighted.length) return 'auto';
-    return weighted[Math.floor(Math.random() * weighted.length)] || 'auto';
+    return _pickFromWeighted(weighted, 'auto');
 }
 
 function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '' } = {}) {
@@ -3783,6 +3829,16 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     }
     if (id === 'historian_guided_tour') {
         const positive = has(/histor|geschichte|zeitreise|denkmal|kultur|stadtfuehr|stadtfuehrung|schloss|burg|turm|fluss|tal|berg/);
+        const negative = has(/sar|search|rescue|rettung|hotspot|brand|rauch|feuer|notfall/);
+        return positive && !negative;
+    }
+    if (id === 'science_bio') {
+        const positive = has(/biolog|oekolog|ökolog|naturschutz|umwelt|vegetation|fauna|flora|habitat|gewasser|gewaesser/);
+        const negative = has(/sar|search|rescue|rettung|hotspot|brand|rauch|feuer|notfall/);
+        return positive && !negative;
+    }
+    if (id === 'science_geo') {
+        const positive = has(/geolog|geomorph|erosion|relief|hang|sediment|gestein|tal|berg|bruchkante/);
         const negative = has(/sar|search|rescue|rettung|hotspot|brand|rauch|feuer|notfall/);
         return positive && !negative;
     }
@@ -3944,6 +4000,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         news_coverage: ['Reporter-/Medieneinsatz mit sachlicher Lagebeobachtung'],
         sightseeing_tour: ['Entspannter Ausflugs- und Sightseeingflug'],
         historian_guided_tour: ['Historiker-Rundflug mit kurzer, sachlicher Geschichtseinordnung am POI'],
+        science_bio: ['Biologischer Beobachtungsflug mit ruhiger, sauberer Dokumentation'],
+        science_geo: ['Geologischer Beobachtungsflug mit Fokus auf Relief und Erosion'],
         mapping_survey: ['Praeziser Mapping-/Survey-Flug mit stabilen Passes'],
         search_and_rescue: ['SAR-Suchflug mit strukturiertem Suchmuster und Lagebild'],
         fire_watch: ['Feuerwacht mit Fokus auf Rauchfahnen und Hotspots']
@@ -4189,9 +4247,9 @@ Distanz: ${dist} NM
 Wetter Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
 Wetter Ziel (${promptDestName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
 Erlaubte roleProfile:
-["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1"]
+["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","historian_storyteller_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1"]
 Erlaubte taskDomain:
-["general","training","charter","inspection_infra","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced"]
+["general","training","charter","inspection_infra","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","historian_guided_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced"]
 </KONTEXT>
 
 <OUTPUT>
