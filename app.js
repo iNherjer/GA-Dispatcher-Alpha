@@ -3101,6 +3101,44 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     return weighted[Math.floor(Math.random() * weighted.length)] || 'auto';
 }
 
+function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
+    const id = String(profileId || 'auto').toLowerCase();
+    if (!id || id === 'auto') return true;
+    const t = normalizeMissionText(missionLike?.t || missionLike?.title || '');
+    const s = normalizeMissionText(missionLike?.s || missionLike?.story || '');
+    const hay = `${t} ${s}`;
+    const has = (re) => re.test(hay);
+
+    if (id === 'medical_transfer') {
+        return has(/organtransport|medicine emergency|medizin|medical|notfall|blut|plasma|anti serum|klinik|arzt|notarzt|labor kurier/);
+    }
+    if (id === 'cargo_fragile') {
+        return has(/aog|ersatzteil|fracht|transport|kurier|urgent mail|high priority courier|archive transport|art transfer|uhren|flower delivery|labor/);
+    }
+    if (id === 'animal_transport') {
+        return has(/hund|hunderettung|welpen|tier|tierarzt|horse vet|animal|tierrettung/);
+    }
+    if (id === 'news_coverage') {
+        if (isPOI) return has(/report|medien|kamera|dreh|event|lage|dokument|live|beobacht/);
+        return has(/report|medien|kamera|dreh|event|verkehr|stau|city|festival|skydiver/);
+    }
+    if (id === 'sightseeing_tour') {
+        const positive = has(/ausflug|stadtetrip|stadttrip|sightseeing|panorama|kuchen|burger|wellness|romant|tour/);
+        const negative = has(/aog|ersatzteil|organtransport|medicine|notfall|urgent|kurier|fracht|transport/);
+        return positive && !negative;
+    }
+    if (id === 'mapping_survey') {
+        return has(/scan|vermess|lidar|photogram|kartier|topo|mess|dokumentation/);
+    }
+    if (id === 'search_and_rescue') {
+        return has(/sar|search|rescue|rettung|vermisst|suchmuster|einsatz|lagebild|polizei support/);
+    }
+    if (id === 'fire_watch') {
+        return has(/brand|rauch|hotspot|feuer|waldbrand|fruhwarn|aufklar/);
+    }
+    return true;
+}
+
 function _pickUniqueTrainingItems(pool, count, used = new Set()) {
     const src = Array.isArray(pool) ? pool.filter(Boolean) : [];
     const shuffled = src
@@ -3232,6 +3270,16 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const isPoiTrainingMission = isPOI && missionSel.baseType === 'poi' && missionSel.category === 'trn';
     const isTrainingMission = isAptTrainingMission || isPoiTrainingMission;
     const forcedProfile = getMissionTaskProfile(missionSel.profile || 'auto', isPOI ? 'poi' : 'apt');
+    const profileThemeOverrides = {
+        medical_transfer: ['Medizinischer Transfer mit hoher Priorität und ruhigem Flug'],
+        cargo_fragile: ['Empfindliche Fracht sicher und erschuetterungsarm transportieren'],
+        animal_transport: ['Tiertransport mit stressarmer, ruhiger Flugfuehrung'],
+        news_coverage: ['Reporter-/Medieneinsatz mit sachlicher Lagebeobachtung'],
+        sightseeing_tour: ['Entspannter Ausflugs- und Sightseeingflug'],
+        mapping_survey: ['Praeziser Mapping-/Survey-Flug mit stabilen Passes'],
+        search_and_rescue: ['SAR-Suchflug mit strukturiertem Suchmuster und Lagebild'],
+        fire_watch: ['Feuerwacht mit Fokus auf Rauchfahnen und Hotspots']
+    };
     const poiThemesByCat = {
         bridge: ["Infrastruktur-Inspektion (Brücke/Viadukt)"],
         road: ["Infrastruktur-Inspektion (Straßen/Autobahnknoten)"],
@@ -3276,9 +3324,13 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ],
         all: aptCategories
     };
-    const themePool = isPOI
+    const themePoolBase = isPOI
         ? (poiThemesByCat[missionSel.category] || poiCategories)
         : (aptThemesByCat[missionSel.category] || aptCategories);
+    const forcedThemePool = (forcedProfile && forcedProfile.id !== 'auto')
+        ? (profileThemeOverrides[forcedProfile.id] || null)
+        : null;
+    const themePool = Array.isArray(forcedThemePool) && forcedThemePool.length ? forcedThemePool : themePoolBase;
     const randomTheme = themePool[Math.floor(Math.random() * themePool.length)];
     const categoryRule = isPOI
         ? (missionSel.category && missionSel.category !== 'all'
@@ -3294,6 +3346,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         : (isPOI ? 'poi' : 'std');
     const forcedProfileRule = (forcedProfile && forcedProfile.id !== 'auto')
         ? `14. PROFIL-FIX (zwingend): Setze passenger.roleProfile auf "${forcedProfile.roleProfile}" und passenger.taskDomain auf "${forcedProfile.taskDomain}". Rolle/Story daran ausrichten: ${forcedProfile.label}.`
+        : '';
+    const forcedProfileConsistencyRule = (forcedProfile && forcedProfile.id !== 'auto')
+        ? `15. KONSISTENZ-PFLICHT: Kein Themenmix gegen das Profil. Beispiel: Bei Sightseeing KEIN Ersatzteil-/Kurier-/Notfallauftrag; bei Reporter KEIN reiner Touri-Text; bei Mapping/SAR nur passende Einsatzinhalte.`
         : '';
 
     const sanitizePassengerProfile = (passenger, storyText = '') => {
@@ -3444,6 +3499,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     ${trainingHardRules}
     ${poiNoTrainingRule}
     ${forcedProfileRule}
+    ${forcedProfileConsistencyRule}
 
     Antworte AUSSCHLIESSLICH als JSON. Keine Markdown-Formatierung.
     Struktur: {
@@ -4440,6 +4496,10 @@ async function generateMission() {
     let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt, missionWeather, missionPicker);
     let missionFromLocalFallback = false;
     _ensureDispatchAlive();
+    if (m && selectedMissionProfile !== 'auto' && !missionMatchesTaskProfile(m, selectedMissionProfile, isPOI)) {
+        console.warn('[DISPATCH] KI-Mission nicht profilkonsistent, falle auf lokale Missionen zurueck.', { selectedMissionProfile, mission: m?.t || 'n/a' });
+        m = null;
+    }
 
     if (m) {
         dataSource = m._source;
@@ -4477,10 +4537,14 @@ async function generateMission() {
                 if (selectedAptCategory === 'all') return true;
                 return classifyAptMissionCategory(ms) === selectedAptCategory;
             });
-            if (availM.length === 0) {
+            const profFilteredAvailM = (selectedMissionProfile && selectedMissionProfile !== 'auto')
+                ? availM.filter(ms => missionMatchesTaskProfile(ms, selectedMissionProfile, false))
+                : availM;
+            const missionPoolByProfile = profFilteredAvailM.length ? profFilteredAvailM : availM;
+            if (missionPoolByProfile.length === 0) {
                 m = missions[0];
             } else {
-                const availCats = [...new Set(availM.map(ms => ms.cat || "std"))];
+                const availCats = [...new Set(missionPoolByProfile.map(ms => ms.cat || "std"))];
                 const catCounts = JSON.parse(localStorage.getItem('ga_mission_cat_counts') || '{}');
                 const lastCat = localStorage.getItem('ga_last_mission_cat') || '';
 
@@ -4491,7 +4555,7 @@ async function generateMission() {
                 }
                 const selectedCat = candidateCats[Math.floor(Math.random() * candidateCats.length)] || availCats[0];
 
-                const pool = availM.filter(ms => (ms.cat || "std") === selectedCat);
+                const pool = missionPoolByProfile.filter(ms => (ms.cat || "std") === selectedCat);
                 const historyByCat = JSON.parse(localStorage.getItem('ga_mission_history_by_cat') || '{}');
                 let catHistory = Array.isArray(historyByCat[selectedCat]) ? historyByCat[selectedCat] : [];
                 let freshM = pool.filter(ms => !catHistory.includes(ms.t));
