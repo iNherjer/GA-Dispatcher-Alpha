@@ -2362,9 +2362,29 @@ function classifyPOITitleCategory(title) {
     ) return "dam";
     if (t.includes("funkturm") || t.includes("fernsehturm") || t.includes("sendemast") || t.includes("funkmast") || t.includes("mast")) return "telecom";
     if (t.includes("industrie") || t.includes("werk") || t.includes("fabrik") || t.includes("kraftwerk") || t.includes("anlage") || t.includes("mine") || t.includes("tagebau")) return "industry";
-    if (t.includes("burg") || t.includes("schloss") || t.includes("ruine") || t.includes("festung") || t.includes("kloster") || t.includes("dom") || t.includes("monument") || t.includes("denkmal")) return "castle";
+    if (
+        _hasWordToken(t, "burg") ||
+        _hasWordToken(t, "schloss") ||
+        _hasWordToken(t, "ruine") ||
+        _hasWordToken(t, "festung") ||
+        _hasWordToken(t, "kloster") ||
+        _hasWordToken(t, "dom") ||
+        _hasWordToken(t, "monument") ||
+        _hasWordToken(t, "denkmal")
+    ) return "castle";
     if (t.includes("fluss") || t.includes("strom") || t.includes("kanal") || t.includes("see") || t.includes("talsperre") || t.includes("teich") || t.includes("insel") || t.includes("weiher") || t.includes("kueste") || t.includes("hafen") || t.includes("river") || t.includes("lake") || t.includes("bay") || t.includes("fjord") || t.includes("meer") || t.includes("rhein") || t.includes("donau") || t.includes("elbe") || t.includes("isar") || t.includes("neckar")) return "water";
-    if (t.includes("berg") || t.includes("spitze") || t.includes("horn") || t.includes("gipfel") || t.includes("kogel") || t.includes("wald") || t.includes("tal") || t.includes("schlucht") || t.includes("alpen") || t.includes("pass")) return "mountain";
+    if (
+        _hasWordToken(t, "berg") ||
+        _hasWordToken(t, "spitze") ||
+        _hasWordToken(t, "horn") ||
+        _hasWordToken(t, "gipfel") ||
+        _hasWordToken(t, "kogel") ||
+        _hasWordToken(t, "wald") ||
+        _hasWordToken(t, "tal") ||
+        _hasWordToken(t, "schlucht") ||
+        _hasWordToken(t, "alpen") ||
+        _hasWordToken(t, "pass")
+    ) return "mountain";
     if (t.includes("stadt") || t.includes("turm") || t.includes("park") || t.includes("stadion") || t.includes("arena") || t.includes("zentrum") || t.includes("city")) return "city";
     return "generic";
 }
@@ -2523,6 +2543,98 @@ async function findNominatimDamPOI(lat, lon) {
     return { icao: 'POI', n: pick.n, lat: pick.lat, lon: pick.lon, poiCategory: 'dam' };
 }
 
+function _parseWktPoint(wkt) {
+    const m = String(wkt || '').match(/Point\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+    if (!m) return null;
+    const lon = Number(m[1]);
+    const lat = Number(m[2]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+}
+
+function _wikidataTypeQidsForPoiCategory(category = '') {
+    const cat = String(category || '').toLowerCase();
+    if (cat === 'water') {
+        // reservoir, lake, river, sea, dam
+        return ['Q131681', 'Q23397', 'Q4022', 'Q165', 'Q12323'];
+    }
+    if (cat === 'mountain') {
+        // mountain, valley, mountain pass, mountain range
+        return ['Q8502', 'Q39816', 'Q133056', 'Q46831'];
+    }
+    if (cat === 'castle') {
+        // castle, fortress, ruins
+        return ['Q23413', 'Q1785071', 'Q839954'];
+    }
+    if (cat === 'dam') {
+        // dam, reservoir
+        return ['Q12323', 'Q131681'];
+    }
+    return [];
+}
+
+async function findWikidataTypedPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory) {
+    const cat = String(forcedCategory || '').toLowerCase();
+    const qids = _wikidataTypeQidsForPoiCategory(cat);
+    if (!qids.length) return null;
+
+    const radiusKm = Math.max(5, Math.min(350, Number(maxNM || 50) * 1.852));
+    const values = qids.map(q => `wd:${q}`).join(' ');
+    const query = `
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+SELECT ?item ?itemLabel ?coord ?distance WHERE {
+  VALUES ?wantedType { ${values} }
+  ?item wdt:P31/wdt:P279* ?wantedType ;
+        wdt:P625 ?coord .
+  SERVICE wikibase:around {
+    ?item wdt:P625 ?coord .
+    bd:serviceParam wikibase:center "Point(${Number(lon)} ${Number(lat)})"^^geo:wktLiteral .
+    bd:serviceParam wikibase:radius "${radiusKm}" .
+    bd:serviceParam wikibase:distance ?distance .
+  }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "de,en". }
+}
+ORDER BY ?distance
+LIMIT 120
+`.trim();
+
+    try {
+        const url = `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(query)}`;
+        const res = await fetch(url, { headers: { 'Accept': 'application/sparql-results+json' } });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const bindings = Array.isArray(data?.results?.bindings) ? data.results.bindings : [];
+        if (!bindings.length) return null;
+
+        const candidates = [];
+        for (const b of bindings) {
+            const label = String(b?.itemLabel?.value || '').trim();
+            const parsed = _parseWktPoint(b?.coord?.value || '');
+            if (!parsed || !label) continue;
+            const nav = calcNav(lat, lon, parsed.lat, parsed.lon);
+            if (!Number.isFinite(nav?.dist) || nav.dist < Number(minNM || 0) || nav.dist > Number(maxNM || 9999)) continue;
+            if (!checkBearing(nav.brng, dirPref)) continue;
+            candidates.push({
+                n: label,
+                lat: parsed.lat,
+                lon: parsed.lon,
+                dist: nav.dist
+            });
+        }
+        if (!candidates.length) return null;
+        candidates.sort((a, b) => a.dist - b.dist);
+        const top = candidates.slice(0, Math.min(6, candidates.length));
+        const pick = top[Math.floor(Math.random() * top.length)] || candidates[0];
+        return { icao: 'POI', n: pick.n, lat: pick.lat, lon: pick.lon, poiCategory: cat };
+    } catch (_) {
+        return null;
+    }
+}
+
 async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null) {
     const scoredKeywords = [
         "bruecke", "brucke", "bridge", "viadukt", "autobahn", "autobahnkreuz", "kreuz", "kreuzung", "dreieck", "strasse", "tunnel", "highway", "motorway", "interstate", "freeway", "interchange",
@@ -2546,6 +2658,12 @@ async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory 
         return score;
     };
     const forceCat = String(forcedCategory || '').trim().toLowerCase();
+    // Bei expliziter Kategorie bevorzugen wir typisierte Objekt-Datenquellen,
+    // damit z.B. "water" echte Gewaesser/Talsperren liefert.
+    if (forceCat && forceCat !== 'all' && forceCat !== 'fire' && forceCat !== 'trn') {
+        const typedPoi = await findWikidataTypedPOI(lat, lon, minNM, maxNM, dirPref, forceCat);
+        if (typedPoi) return typedPoi;
+    }
     const dist = Math.floor(Math.random() * (maxNM - minNM + 1)) + minNM;
     let minB = 0, maxB = 360;
     if (dirPref === 'N') { minB = 315; maxB = 405; } else if (dirPref === 'E') { minB = 45; maxB = 135; } else if (dirPref === 'S') { minB = 135; maxB = 225; } else if (dirPref === 'W') { minB = 225; maxB = 315; }
@@ -2563,7 +2681,12 @@ async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory 
             let poiPool = geosearch;
             if (forceCat && forceCat !== 'all') {
                 const forcedPool = geosearch.filter(p => poiTitleMatchesCategory(p.title, forceCat));
-                if (forcedPool.length > 0) poiPool = forcedPool;
+                if (forcedPool.length > 0) {
+                    poiPool = forcedPool;
+                } else {
+                    // Kein unpassender Rückfall bei explizitem Category-Picker.
+                    return null;
+                }
             }
             let bestScore = -999;
             const scoreFn = (forceCat === 'fire') ? scoreFirePOITitle : scorePOITitle;
