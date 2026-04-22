@@ -1817,16 +1817,20 @@ function _aptTrainingPrompt(flightData, distNm, progressRatio) {
     const focusLine = airworkFocus.length
         ? `Heutige Airwork-Übungen: ${airworkFocus.join(', ')}.`
         : 'Nenne jetzt 2-3 konkrete Airwork-Übungen (z.B. Slow Flight, Steep Turns, Stall Recovery, Höhen-/Kursführung).';
-    const lineHint = plan.instructorLine
-        ? `Wenn passend, baue diese Instruktor-Linie sinngemäß ein: "${plan.instructorLine}".`
+    const instructorLineRaw = String(plan.instructorLine || '').trim();
+    const lineLooksPattern = _isPatternFocusItem(instructorLineRaw);
+    // Halbzeit-Call strikt airwork: pattern-/landing-lastige Instructor-Lines hier NICHT einstreuen.
+    const lineHint = (instructorLineRaw && !lineLooksPattern)
+        ? `Wenn passend, baue diese Instruktor-Linie sinngemäß ein: "${instructorLineRaw}".`
         : '';
     const closeStepHint = `Schließe zwingend mit einem klaren nächsten Schritt ab, z.B.: "Danach zurück auf Kurs Richtung ${md.dest || 'Zielflugplatz'}."`;
+    const hardSeparationRule = 'In diesem Halbzeit-Call strikt verboten: Platzrunde, Fehlanflug/Missed Approach, Touch-and-Go, No-Flap-Landung, Endanflug/Landung. Diese Inhalte erst im 5-NM-Landing-Call.';
     return `${ctx}
 
 Moment: Trainingsflug mit Instruktor. ${triggerLine}${wx ? ' ' + wx : ''}
 ${modeLine}
 ${focusLine}
-Gib dem Piloten jetzt eine kurze, konkrete Airwork-Arbeitsanweisung (Reihenfolge oder Priorität), dann einen knappen Sicherheitsfokus.${lineHint} ${closeStepHint}
+Gib dem Piloten jetzt eine kurze, konkrete Airwork-Arbeitsanweisung (Reihenfolge oder Priorität), dann einen knappen Sicherheitsfokus. ${hardSeparationRule}${lineHint ? ' ' + lineHint : ''} ${closeStepHint}
 Ton: sachlich, ruhig, klar. Strikter Instruktor-Funkstil: keine Ortsgeschichte, keine Schwärmerei, kein Offtopic. Max 2 Sätze.${_toneHint()}`;
 }
 
