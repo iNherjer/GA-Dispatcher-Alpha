@@ -1620,23 +1620,32 @@ function _greetingPrompt() {
     const isReporterApt = (!isPOI && taskDomain === 'news_coverage');
     const comfortPolicy = _comfortFeedbackPolicy(pax);
     const urgencyPriority = _normUrgencyPriority(pax?.urgencyPriority);
+    const stomachSensitivity = _normLevel3(pax?.stomachSensitivity || 'mittel');
+    const cargoSensitivity = _normLevel3(pax?.cargoSensitivity || 'mittel');
     const comfortHintNeeded = !!comfortPolicy.proactiveAny;
+    const mandatoryStomachHint = (stomachSensitivity === 'hoch');
+    const preferCargoHint = (!mandatoryStomachHint && cargoSensitivity === 'hoch');
     const timingHintNeeded = (urgencyPriority === 'hoch');
     const timingWordBan = timingHintNeeded
         ? 'Zeitbezug nur kurz und konkret.'
         : 'Kein Zeitdruck kommunizieren.';
+    const comfortContentRule = mandatoryStomachHint
+        ? 'Der Komforthinweis MUSS explizit den empfindlichen Magen/Reisekrankheit benennen (z.B. mir wird schnell schlecht, ich vertrage keine Achterbahn-Manoever).'
+        : (preferCargoHint
+            ? 'Wenn Komforthinweis, dann bevorzugt mit Bezug auf empfindliche Fracht/verwackelungsarme Arbeit.'
+            : 'Wenn Komforthinweis, dann passend zum konkreten Risiko (Magen/Fracht/Taetigkeit an Bord).');
     const reqLine = isPOI
         ? (trainingPlan
             ? `Bitte nenne kurz das Übungsthema und wie wir es sicher und sauber abfliegen. Keine internen Parameter oder technischen Vorgaben zitieren.`
             : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast. Keine internen Parameter oder technischen Vorgaben zitieren.`)
         : (isReporterApt
             ? (comfortHintNeeded
-                ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig.${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`
+                ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig. ${comfortContentRule}${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`
                 : `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass), danach Fokus auf ${timingHintNeeded ? 'pünktliche ' : ''}Ankunft und Start der Arbeit am Boden. KEIN Komforthinweis. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`)
             : (isClubTechRole
             ? `Fokus auf den Auftrag und den Ablauf am Ziel. Komfortwünsche nur nennen, wenn sie wirklich wichtig sind. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
             : (comfortHintNeeded
-                ? `Nenne genau einen kurzen Komforthinweis NUR wenn er aufgrund von Magen/Fracht/Empfindlichkeit wirklich nötig ist.${timingHintNeeded ? ' Erwähne zusätzlich kurz den Zeitdruck.' : ''} Sonst Fokus auf Transportauftrag und Zielablauf am Boden. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
+                ? `Nenne genau einen kurzen Komforthinweis NUR wenn er aufgrund von Magen/Fracht/Empfindlichkeit wirklich nötig ist. ${comfortContentRule}${timingHintNeeded ? ' Erwähne zusätzlich kurz den Zeitdruck.' : ''} Sonst Fokus auf Transportauftrag und Zielablauf am Boden. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
                 : `Nenne KEINEN Komforthinweis. Fokus auf Transportauftrag und Ablauf nach Ankunft am Zielplatz.${timingHintNeeded ? ' Erwähne kurz, dass der Auftrag zeitkritisch ist.' : ''} KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`)));
     return `${ctx}
 
