@@ -3461,6 +3461,25 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         if (!payload || typeof payload !== 'object') return payload;
         const p = { ...payload };
         p.story = stripPilotNameFromText(p.story || '');
+        if (!isPOI && String(forcedProfile?.id || '').toLowerCase() === 'news_coverage') {
+            let s = String(p.story || '');
+            const leakPatterns = [
+                /\bund\s+ohne\s+kreisen\s+über\s+dem\s+ziel\b/gi,
+                /\bund\s+ohne\s+kreisen\s+ueber\s+dem\s+ziel\b/gi,
+                /\bohne\s+kreisen\s+über\s+dem\s+ziel\b/gi,
+                /\bohne\s+kreisen\s+ueber\s+dem\s+ziel\b/gi,
+                /\bkein(?:en|e|)\s+arbeitsauftrag\s+in\s+der\s+luft(?:\s+am\s+ziel)?\b/gi,
+                /\bkein(?:en|e|)\s+kreisen\b/gi,
+                /\bkein(?:en|e|)\s+verweilen(?:\/überflug|\/ueberflug)?(?:\s+als\s+missionsziel)?\b/gi
+            ];
+            leakPatterns.forEach((re) => { s = s.replace(re, ''); });
+            s = s
+                .replace(/\s{2,}/g, ' ')
+                .replace(/\s+([,.;:!?])/g, '$1')
+                .replace(/^[,.;:\-]\s*/g, '')
+                .trim();
+            p.story = s || 'Du bringst den Reporter zum Zielplatz, dort startet die Berichterstattung am Boden.';
+        }
         if (p.passenger && typeof p.passenger === 'object') {
             p.passenger = { ...p.passenger };
             p.passenger.greetingText = stripPilotNameFromText(p.passenger.greetingText || '');
@@ -3575,6 +3594,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     ${forcedProfileRule}
     ${forcedProfileConsistencyRule}
     ${forcedProfileOpsRule}
+    17. OUTPUT-HYGIENE: Interne Regel-/Verbotssaetze NICHT woertlich im story-Feld wiederholen (z.B. "kein Kreisen", "kein Verweilen/Überflug", "kein Arbeitsauftrag in der Luft"). Story immer positiv und natuerlich formulieren.
 
     Antworte AUSSCHLIESSLICH als JSON. Keine Markdown-Formatierung.
     Struktur: {
