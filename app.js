@@ -3554,56 +3554,85 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
         : `4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${promptDestName}" ganz natürlich ein.`;
 
-    const prompt = `Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen.
-    Erstelle ein realistisches Einsatzbriefing für diesen Flug:
-    Start: ${startName}
-    Ziel: ${promptDestName} ${isPOI ? '(POI / Wendepunkt)' : '(Zielflughafen)'}
-    Distanz (Gesamt): ${dist} NM
+    const prompt = `<INSTRUKTIONEN>
+Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen.
+Antwortsprache: Deutsch.
+Ton: alltagsnah, locker, glaubwürdig; keine Actionfilm-Rhetorik.
 
-    WICHTIGE REGELN:
-    1. Antworte IMMER auf Deutsch.
-    2. TONFALL: Entspannt, kumpelhaft und alltäglich. Keine übertriebene Dramatik, keine Actionfilm-Rhetorik! Fliegen ist Routine und macht Spaß.
-    3. THEMA VORGEGEBEN: Dein Auftrag MUSS sich zwingend um dieses Thema drehen: "${randomTheme}".
-    ${localKnowledgeRule}
-    ${categoryRule}
-    ${isPOI ? `5. RUNDFLUG-REGELN: Start und Landung ist ${startName}. Am POI (${promptDestName}) wird NICHT gelandet.` : `5. ROUTEN-REGELN: Normaler Streckenflug von ${startName} nach ${promptDestName}.`}
-    6. PASSAGIERE & FRACHT: Erfinde passend zur Mission, WER mitfliegt (maximal ${maxPaxLimit} Personen) und WAS transportiert wird. Wenn niemand mitfliegt, schreibe '0 PAX'.
-    7. PASSAGIER-CHARAKTER: Erfinde EINEN Hauptpassagier passend zur Mission.${isTrainingMission ? ' Bei Trainingsflug IMMER der Instruktor (nicht null).' : ' (oder null bei 0 PAX).'} greetingText: persönliche Begrüßung an den Piloten beim Motorstart (1-2 Sätze). gTolerance / bankTolerance: 'niedrig' | 'mittel' | 'hoch'.
-       Zusätzlich (datengetrieben, aus Rollen-/Auftragskontext ableiten):
-       - cargoSensitivity: wie empfindlich reagiert der Passagier auf Bewegung in Bezug auf die Fracht? ('niedrig'|'mittel'|'hoch')
-       - stomachSensitivity: wie empfindlich ist der Passagier gegenüber Turbulenz/Manövern? ('niedrig'|'mittel'|'hoch')
-       - comfortPriority: wie wichtig ist insgesamt ruhiges Fliegen in dieser Mission? ('niedrig'|'mittel'|'hoch')
-       - urgencyPriority: wie eilig ist der Auftrag insgesamt? ('niedrig'|'hoch')
-         * niedrig: kein Zeitdruck, keine Eile-Kommunikation
-         * hoch: zeitkritisch, pünktliche Ankunft wichtig
-       - roleProfile: Wähle GENAU einen Wert aus dieser Liste:
-         ["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1"]
-       - taskDomain: Wähle GENAU einen Wert aus dieser Liste:
-         ["general","training","charter","inspection_infra","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced"]
-       Nutze dafür den vollen Kontext (Rolle, Auftrag, Art der Fracht, Wetter, Missionsziel), keine starre Liste. ${poiAltRule}
-    8. AKTUELLES WETTER (als Realitätsanker einbauen, aber ohne überdramatisieren):
-       Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
-       Ziel (${promptDestName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
-    9. SPRACHSTIL PASSAGIER: Lege optional "dialectHint" fest:
-       - "neutral" für normales Deutsch
-       - oder leichte regionale Färbung (z.B. "leicht schwäbisch", "leicht bayrisch", "leicht norddeutsch"), wenn es zur Person passt.
-       Wichtig: nie starker Dialekt, immer verständlich.
-    9b. NAMENS-REGEL: Keine zusätzlichen Eigennamen im Briefing erfinden. Sprich den Piloten nur als "du" an, nie mit Namen.
-    ${trainingHardRules}
-    ${poiNoTrainingRule}
-    ${forcedProfileRule}
-    ${forcedProfileConsistencyRule}
-    ${forcedProfileOpsRule}
-    17. OUTPUT-HYGIENE: Interne Regel-/Verbotssaetze NICHT woertlich im story-Feld wiederholen (z.B. "kein Kreisen", "kein Verweilen/Überflug", "kein Arbeitsauftrag in der Luft"). Story immer positiv und natuerlich formulieren.
+REGELN:
+1) Thema-Pflicht: Der Auftrag MUSS zum Thema "${randomTheme}" passen.
+2) ${localKnowledgeRule}
+3) ${categoryRule || 'Kategorienkonsistenz beachten.'}
+4) ${isPOI ? `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.` : `ROUTEN-REGEL: Normaler Streckenflug von ${startName} nach ${promptDestName}.`}
+5) Erfinde passende PAX/Fracht (max ${maxPaxLimit} Personen). Falls niemand mitfliegt: "0 PAX".
+6) Erfinde genau einen Hauptpassagier.${isTrainingMission ? ' Bei Training IMMER Instruktor (nicht null).' : ' (oder null bei 0 PAX).'}
+7) Leite diese Felder datengetrieben aus Auftrag/Rolle/Fracht/Wetter ab:
+   - gTolerance, bankTolerance, cargoSensitivity, stomachSensitivity, comfortPriority: jeweils niedrig|mittel|hoch
+   - urgencyPriority: niedrig|hoch
+   - roleProfile aus erlaubter Liste
+   - taskDomain aus erlaubter Liste
+   ${poiAltRule}
+8) DRINGLICHKEITS-REGEL FÜR STORY:
+   - Wenn urgencyPriority = hoch: story MUSS genau einen kurzen Zeitkritik-Hinweis enthalten (z.B. "zeitkritisch", "müssen pünktlich ankommen").
+   - Wenn urgencyPriority = niedrig: story DARF keinen Zeitdruck erwähnen.
+9) Wetter als Realitätsanker nutzen, aber nicht überdramatisieren.
+10) Optional dialectHint: neutral oder leichte regionale Färbung; nie starker Dialekt.
+11) Keine zusätzlichen Eigennamen für den Piloten erfinden (nur "du").
+12) Interne Regel-/Verbotssätze NIE wörtlich im story-Feld wiederholen.
+13) Trennung strikt einhalten: Alles in <INSTRUKTIONEN> sind Arbeitsregeln und dürfen nicht als Storytext erscheinen.
+${trainingHardRules}
+${poiNoTrainingRule}
+${forcedProfileRule}
+${forcedProfileConsistencyRule}
+${forcedProfileOpsRule}
+</INSTRUKTIONEN>
 
-    Antworte AUSSCHLIESSLICH als JSON. Keine Markdown-Formatierung.
-    Struktur: {
-        "title": "Kreativer Titel",
-        "story": "Das Briefing (max 3-4 Sätze, lockerer Ton)",
-        "pax": "z.B. '2 PAX (Fotograf & Assistent)' oder '0 PAX'",
-        "cargo": "z.B. 'Kamera-Gimbal (80 lbs)' oder 'Reisegepäck (40 lbs)'",
-        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "dialectHint": "neutral oder leicht regional", "roleProfile": "aus erlaubter Liste", "taskDomain": "aus erlaubter Liste", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "cargoSensitivity": "niedrig|mittel|hoch", "stomachSensitivity": "niedrig|mittel|hoch", "comfortPriority": "niedrig|mittel|hoch", "urgencyPriority": "niedrig|hoch", "targetAltFt": 3500, "targetRadiusNm": 3.0, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten", "trainingPlan": { "mode": "airwork|pattern", "trigger": "half_route|five_nm_before_landing", "focus": ["Übung 1", "Übung 2"], "instructorLine": "Kurze konkrete Instruktoranweisung" } }
-    }`;
+<KONTEXT>
+Start: ${startName}
+Ziel: ${promptDestName} ${isPOI ? '(POI/Wendepunkt)' : '(Zielflughafen)'}
+Distanz: ${dist} NM
+Wetter Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
+Wetter Ziel (${promptDestName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
+Erlaubte roleProfile:
+["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1"]
+Erlaubte taskDomain:
+["general","training","charter","inspection_infra","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced"]
+</KONTEXT>
+
+<OUTPUT>
+Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
+{
+  "title": "Kreativer Titel",
+  "story": "Briefing, max 3-4 Sätze",
+  "pax": "z.B. '2 PAX (...)' oder '0 PAX'",
+  "cargo": "z.B. 'Kamera-Gimbal (80 lbs)'",
+  "passenger": {
+    "name": "Vollständiger Name",
+    "role": "Beruf/Rolle",
+    "gender": "male|female",
+    "personality": "3 Adjektive",
+    "dialectHint": "neutral oder leicht regional",
+    "roleProfile": "aus erlaubter Liste",
+    "taskDomain": "aus erlaubter Liste",
+    "gTolerance": "niedrig|mittel|hoch",
+    "bankTolerance": "niedrig|mittel|hoch",
+    "cargoSensitivity": "niedrig|mittel|hoch",
+    "stomachSensitivity": "niedrig|mittel|hoch",
+    "comfortPriority": "niedrig|mittel|hoch",
+    "urgencyPriority": "niedrig|hoch",
+    "targetAltFt": 3500,
+    "targetRadiusNm": 3.0,
+    "targetDwellMin": 2,
+    "greetingText": "Persönliche Begrüßung an den Piloten",
+    "trainingPlan": {
+      "mode": "airwork|pattern",
+      "trigger": "half_route|five_nm_before_landing",
+      "focus": ["Übung 1", "Übung 2"],
+      "instructorLine": "Kurze konkrete Instruktoranweisung"
+    }
+  }
+}
+</OUTPUT>`;
 
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
     const reqOptions = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
