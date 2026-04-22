@@ -136,6 +136,7 @@ let _paxSpeechQueue   = Promise.resolve();
 let _paxWrongStartActive = false;
 let _paxWrongStartContinueDone = false;
 let _paxOffDestLastAt = 0;
+let _pattonvilleJuliusMentioned = false;
 let _aptTrainingBriefDone = false;
 let _aptTrainingLandingBriefDone = false;
 const _UNIFIED_INSTRUCTOR_BASELINE = true;
@@ -173,6 +174,7 @@ window.paxVoiceResetMission = function() {
     _paxWrongStartActive = false;
     _paxWrongStartContinueDone = false;
     _paxOffDestLastAt = 0;
+    _pattonvilleJuliusMentioned = false;
     _aptTrainingBriefDone = false;
     _aptTrainingLandingBriefDone = false;
     _trainingEval = {
@@ -207,6 +209,39 @@ window.paxVoiceResetMission = function() {
     _poiTrainingZoneStartDone = false;
     _poiTrainingLandingBriefDone = false;
 };
+
+function _isPattonvilleMissionTarget() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const uiDest = document.getElementById('mDestName')?.innerText || '';
+    const wikiDest = document.getElementById('wikiDestNameDisplay')?.innerText || '';
+    const hay = `${String(md?.dest || '')} ${String(md?.poiName || '')} ${String(uiDest || '')} ${String(wikiDest || '')}`.toLowerCase();
+    return /\bpattonville\b/.test(hay);
+}
+
+function _isLandingPhaseEvent(eventLabel, text) {
+    const ev = String(eventLabel || '').toLowerCase();
+    const msg = String(text || '').toLowerCase();
+    if (/landung|verabschiedung/.test(ev)) return true;
+    // Trainings-Landing-Calls laufen über "Instruktor", daher zusätzlich Textheuristik.
+    return /landung|anflug|endanflug|aufsetzen/.test(msg);
+}
+
+function _injectPattonvilleJuliusEasteregg(text, eventLabel) {
+    const base = String(text || '').trim();
+    if (!base) return base;
+    if (_pattonvilleJuliusMentioned) return base;
+    if (_paxHumorLevel === 'subtle') return base;
+    if (!_isPattonvilleMissionTarget()) return base;
+    if (!_isLandingPhaseEvent(eventLabel, base)) return base;
+    if (/\bjulius\b/i.test(base)) return base;
+
+    const easteregg = (_paxHumorLevel === 'bold')
+        ? 'Und wenn wir gleich in Pattonville aufsetzen, grüß den Julius von mir, alter Bekannter.'
+        : 'In Pattonville ist der Julius am Platz, ein alter Bekannter von mir.';
+    _pattonvilleJuliusMentioned = true;
+    _paxLog('Pattonville-Easteregg aktiv: Julius-Hinweis ergänzt', 'event');
+    return `${base} ${easteregg}`.replace(/\s{2,}/g, ' ').trim();
+}
 
 function _trainingEvalBegin() {
     if (!_trainingEval) return;
@@ -1120,7 +1155,10 @@ async function _speakAndShowNow(situationPrompt, eventLabel) {
     _paxLog(`── ${eventLabel} ──`, 'event');
     _paxLog(`PROMPT (voll): ${situationPrompt.replace(/\n+/g, ' ')}`, 'send');
     const spokenTextRaw = await _generateSpokenText(apiKey, situationPrompt);
-    const spokenText = _normalizeSpokenText(spokenTextRaw);
+    const spokenText = _injectPattonvilleJuliusEasteregg(
+        _normalizeSpokenText(spokenTextRaw),
+        eventLabel
+    );
     if (!spokenText) { _paxLog('Kein Text von Gemini (API-Fehler oder leere Antwort)', 'warn'); return; }
 
     _lastSpokenText = spokenText;
