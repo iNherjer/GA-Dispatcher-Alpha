@@ -1945,6 +1945,7 @@ function addFlightTrackPoint(lat, lon, alt, now, force = false) {
         const prevLatLng = [prev[0], prev[1]];
         const dM = map && typeof map.distance === 'function' ? map.distance(prevLatLng, [lat, lon]) : 0;
         const dtMs = now - ((prev[3] || 0) + r.startTs);
+        if (dtMs < 1000) return; // max 1 Punkt/s
         if (dM < 180 && dtMs < 15000) return;
     }
     const relSec = Math.max(0, Math.round((now - r.startTs) / 1000));
@@ -1960,6 +1961,34 @@ function addFlightTrackPoint(lat, lon, alt, now, force = false) {
         for (let i = 0; i < r.track.length; i += 2) compact.push(r.track[i]);
         r.track = compact;
     }
+}
+
+function compactFlightTrackForStorage(track, maxPoints = 220) {
+    const src = Array.isArray(track) ? track : [];
+    if (src.length < 2) return src.slice();
+    // 1s-Bucket: nur erster Punkt je Sekunde behalten.
+    const bySec = [];
+    let lastSec = null;
+    for (const p of src) {
+        if (!Array.isArray(p) || p.length < 4) continue;
+        const sec = Number.isFinite(p[3]) ? Math.round(p[3]) : null;
+        if (sec == null) continue;
+        if (sec === lastSec) continue;
+        lastSec = sec;
+        bySec.push([
+            Number(Number(p[0]).toFixed(4)),
+            Number(Number(p[1]).toFixed(4)),
+            Math.round(Number(p[2]) / 10) * 10,
+            sec
+        ]);
+    }
+    if (bySec.length <= maxPoints) return bySec;
+    const step = Math.ceil(bySec.length / maxPoints);
+    const out = [];
+    for (let i = 0; i < bySec.length; i += step) out.push(bySec[i]);
+    const last = bySec[bySec.length - 1];
+    if (out.length && out[out.length - 1][3] !== last[3]) out.push(last);
+    return out;
 }
 
 function nearestAirportLabel(lat, lon) {
@@ -1988,9 +2017,7 @@ function _buildFlightRecordSnapshot(now) {
         return null;
     }
 
-    const track = r.track.length > 450
-        ? r.track.filter((_, i) => i % Math.ceil(r.track.length / 450) === 0)
-        : r.track.slice();
+    const track = compactFlightTrackForStorage(r.track, 220);
 
     const dep = track[0];
     const arr = track[track.length - 1];

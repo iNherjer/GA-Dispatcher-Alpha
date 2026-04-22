@@ -266,8 +266,9 @@ function togglePinboard(forceInternal) {
 }
 function addNote() {
     const text = prompt("Was möchtest du ans Brett pinnen?");
-    if (!text || text.trim() === "") return;
-    const newNote = { id: Date.now(), text: text, x: 30 + Math.random() * 15, y: 30 + Math.random() * 15, rot: Math.floor(Math.random() * 9) - 4 };
+    const clean = String(text || '').trim().slice(0, 250);
+    if (!clean) return;
+    const newNote = { id: Date.now(), text: clean, x: 30 + Math.random() * 15, y: 30 + Math.random() * 15, rot: Math.floor(Math.random() * 9) - 4 };
     
     if (currentBoardMode === 'group') {
         newNote.author = getGroupNick();
@@ -311,8 +312,9 @@ function editNote(id, isGroup) {
         const noteIndex = gNotes.findIndex(n => n.id === id);
         if (noteIndex > -1 && gNotes[noteIndex].author === getGroupNick()) {
             const newText = prompt("Notiz bearbeiten:", gNotes[noteIndex].text);
-            if (newText !== null && newText.trim() !== "") {
-                gNotes[noteIndex].text = newText;
+            const clean = String(newText || '').trim().slice(0, 250);
+            if (newText !== null && clean !== "") {
+                gNotes[noteIndex].text = clean;
                 renderNotes(); triggerGroupSave(true);
             }
         }
@@ -321,8 +323,9 @@ function editNote(id, isGroup) {
         const noteIndex = notes.findIndex(n => n.id === id);
         if (noteIndex > -1) {
             const newText = prompt("Notiz bearbeiten:", notes[noteIndex].text);
-            if (newText !== null && newText.trim() !== "") {
-                notes[noteIndex].text = newText;
+            const clean = String(newText || '').trim().slice(0, 250);
+            if (newText !== null && clean !== "") {
+                notes[noteIndex].text = clean;
                 localStorage.setItem('ga_pinboard', JSON.stringify(notes));
                 renderNotes(); triggerCloudSave();
             }

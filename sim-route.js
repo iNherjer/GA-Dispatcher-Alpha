@@ -287,6 +287,11 @@
             const dM = map.distance(simLastTrackPt, [lat, lon]);
             if (dM < 140) return;
         }
+        if (!force && simTrack.length) {
+            const prevSec = Number(simTrack[simTrack.length - 1][3] || 0);
+            const curSec = Math.max(0, Math.round((now - simStartTs) / 1000));
+            if (curSec <= prevSec) return; // max 1 Punkt/s
+        }
         const relSec = Math.max(0, Math.round((now - simStartTs) / 1000));
         simTrack.push([Number(lat.toFixed(5)), Number(lon.toFixed(5)), Math.round(alt || 0), relSec]);
         simLastTrackPt = [lat, lon];
@@ -295,6 +300,32 @@
             for (let i = 0; i < simTrack.length; i += 2) compact.push(simTrack[i]);
             simTrack = compact;
         }
+    }
+
+    function _compactSimTrack(track, maxPoints = 220) {
+        const src = Array.isArray(track) ? track : [];
+        if (src.length < 2) return src.slice();
+        const bySec = [];
+        let lastSec = null;
+        for (const p of src) {
+            if (!Array.isArray(p) || p.length < 4) continue;
+            const sec = Number.isFinite(p[3]) ? Math.round(p[3]) : null;
+            if (sec == null || sec === lastSec) continue;
+            lastSec = sec;
+            bySec.push([
+                Number(Number(p[0]).toFixed(4)),
+                Number(Number(p[1]).toFixed(4)),
+                Math.round(Number(p[2]) / 10) * 10,
+                sec
+            ]);
+        }
+        if (bySec.length <= maxPoints) return bySec;
+        const step = Math.ceil(bySec.length / maxPoints);
+        const out = [];
+        for (let i = 0; i < bySec.length; i += step) out.push(bySec[i]);
+        const last = bySec[bySec.length - 1];
+        if (out.length && out[out.length - 1][3] !== last[3]) out.push(last);
+        return out;
     }
 
     function _buildSimRecord() {
@@ -321,7 +352,7 @@
             touchdownVsFpm: Number.isFinite(simTouchdownVs) ? Math.round(simTouchdownVs) : null,
             maxClimbFpm: 0,
             maxDescentFpm: Number.isFinite(simTouchdownVs) ? Math.round(Math.min(simTouchdownVs, 0)) : 0,
-            track: simTrack.slice()
+            track: _compactSimTrack(simTrack, 220)
         };
     }
 
