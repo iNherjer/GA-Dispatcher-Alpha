@@ -2904,6 +2904,27 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         }
         return normalized;
     };
+    const stripPilotNameFromText = (text) => {
+        const s = String(text || '').trim();
+        if (!s) return s;
+        return s
+            .replace(/\b(Moin|Morgen|Hallo|Hi|Hey|Servus|Sali)\s*,\s*[A-ZÄÖÜ][a-zäöüß'-]{2,}\b/g, '$1')
+            .replace(/\bdanke\s+fuers\s+mitnehmen,\s*[A-ZÄÖÜ][a-zäöüß'-]{2,}\b/gi, 'danke fuers Mitnehmen')
+            .replace(/\bdanke\s+fürs\s+mitnehmen,\s*[A-ZÄÖÜ][a-zäöüß'-]{2,}\b/gi, 'danke fürs Mitnehmen')
+            .replace(/\bmit\s+[A-ZÄÖÜ][a-zäöüß'-]{2,}\s+raus\b/g, 'mit dir raus')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+    };
+    const sanitizeMissionPayloadText = (payload) => {
+        if (!payload || typeof payload !== 'object') return payload;
+        const p = { ...payload };
+        p.story = stripPilotNameFromText(p.story || '');
+        if (p.passenger && typeof p.passenger === 'object') {
+            p.passenger = { ...p.passenger };
+            p.passenger.greetingText = stripPilotNameFromText(p.passenger.greetingText || '');
+        }
+        return p;
+    };
     const enforceTrainingInstructorPayload = (payload) => {
         if (!isTrainingMission || !payload || typeof payload !== 'object') return payload;
         const normalized = { ...payload };
@@ -2996,6 +3017,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
        - "neutral" für normales Deutsch
        - oder leichte regionale Färbung (z.B. "leicht schwäbisch", "leicht bayrisch", "leicht norddeutsch"), wenn es zur Person passt.
        Wichtig: nie starker Dialekt, immer verständlich.
+    9b. NAMENS-REGEL: Keine zusätzlichen Eigennamen im Briefing erfinden. Sprich den Piloten nur als "du" an, nie mit Namen.
     ${trainingHardRules}
     ${poiNoTrainingRule}
 
@@ -3015,7 +3037,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         const resFlash3 = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, reqOptions);
         if (resFlash3.ok) {
             const data = await resFlash3.json();
-            const parsed = enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text)));
+            const parsed = sanitizeMissionPayloadText(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text))));
             incrementApiUsage('flash');
             return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: targetMissionCat, _source: "Gemini 3.0 Flash" };
         }
@@ -3025,7 +3047,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         const resFlash = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, reqOptions);
         if (resFlash.ok) {
             const data = await resFlash.json();
-            const parsed = enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text)));
+            const parsed = sanitizeMissionPayloadText(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text))));
             incrementApiUsage('flash');
             return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash" };
         }
@@ -3035,7 +3057,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         const resLite = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`, reqOptions);
         if (resLite.ok) {
             const data = await resLite.json();
-            const parsed = enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text)));
+            const parsed = sanitizeMissionPayloadText(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text))));
             incrementApiUsage('lite');
             return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash Lite" };
         }

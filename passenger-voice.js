@@ -939,7 +939,7 @@ Nur fliegerische Inhalte (Verfahren, Flugweg, Luftraum-Scan, Wind/Wetter, Maschi
 Kein Sightseeing, keine historischen/romantischen Zielbeschreibungen, keine Anekdoten über Orte.`
         : '';
     return `Du bist ${pax.name}, ${pax.role}. Persönlichkeit: ${pax.personality}.
-Flug: ${md.start || '?'} → ${md.poiName || md.dest || '?'} (${md.dist || '?'} NM, ${md.ac || 'GA-Flugzeug'}).
+Flug: ${md.start || '?'} → ${md.poiName || md.dest || '?'} (${md.dist || '?'} NM).
 Fracht/Beladung: ${cargo || 'n/a'}${payload ? ` · Passagiere: ${payload}` : ''}
 ${story ? `Auftrag: ${story}` : ''}
 Rollenstil: ${roleStyle}
@@ -1297,6 +1297,7 @@ function _toneHint() {
                 : 'Humor in normaler Dosis: freundlich und kurz.';
         return `
 Sprich den Piloten direkt an (per Du, kein Erzähler-Stil).
+Nenne den Piloten niemals beim Namen.
 Sprechbasis fuer ALLE Rollen: identisch ruhig, klar und praezise wie ein erfahrener Fluglehrer.
 Aussprache und Wortwahl durchgehend neutral-standardsprachlich (kein Dialekt, keine regionale Faerbung).
 Ich-Form. Kurze, saubere Saetze. Keine verschachtelten Formulierungen.
