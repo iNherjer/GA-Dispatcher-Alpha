@@ -195,6 +195,11 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'apt:charter', classic: 'APT · Charter', radioShort: 'APT CHR', radioFull: 'Airport · Charter' },
         { value: 'apt:cargo', classic: 'APT · Cargo (ohne PAX)', radioShort: 'APT CARGO', radioFull: 'Airport · Cargo (ohne PAX)' },
         { value: 'apt:trn', classic: 'APT · Training', radioShort: 'APT TRN', radioFull: 'Airport · Training' },
+        { value: 'apt:all+medical_transfer', classic: 'APT · Medizin-Transfer', radioShort: 'APT MED', radioFull: 'Airport · Medizin-Transfer' },
+        { value: 'apt:all+cargo_fragile', classic: 'APT · Fragile Fracht', radioShort: 'APT FRG', radioFull: 'Airport · Fragile Fracht' },
+        { value: 'apt:all+animal_transport', classic: 'APT · Tiertransport', radioShort: 'APT ANM', radioFull: 'Airport · Tiertransport' },
+        { value: 'apt:all+news_coverage', classic: 'APT · Reporter', radioShort: 'APT NEWS', radioFull: 'Airport · Reporter' },
+        { value: 'apt:all+sightseeing_tour', classic: 'APT · Sightseeing', radioShort: 'APT TOUR', radioFull: 'Airport · Sightseeing' },
         { value: 'poi:all', classic: 'POI (alle Kategorien)', radioShort: 'POI ALL', radioFull: 'POI (alle Kategorien)' },
         { value: 'poi:bridge', classic: 'POI · Brücken', radioShort: 'POI BRG', radioFull: 'POI · Brücken' },
         { value: 'poi:road', classic: 'POI · Straße/Autobahn', radioShort: 'POI ROAD', radioFull: 'POI · Straße/Autobahn' },
@@ -207,15 +212,10 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'poi:city', classic: 'POI · Stadt/Turm', radioShort: 'POI CITY', radioFull: 'POI · Stadt/Turm' },
         { value: 'poi:trn', classic: 'POI · Training (Platznah)', radioShort: 'POI TRN', radioFull: 'POI · Training (platznah)' },
         { value: 'poi:generic', classic: 'POI · Sonstige', radioShort: 'POI GEN', radioFull: 'POI · Sonstige' },
-        { value: 'apt:all+medical_transfer', classic: 'APT · Profil Medizin-Transfer', radioShort: 'APT MED', radioFull: 'Airport · Profil Medizin-Transfer' },
-        { value: 'apt:all+cargo_fragile', classic: 'APT · Profil Fragile Fracht', radioShort: 'APT FRG', radioFull: 'Airport · Profil Fragile Fracht' },
-        { value: 'apt:all+animal_transport', classic: 'APT · Profil Tiertransport', radioShort: 'APT ANM', radioFull: 'Airport · Profil Tiertransport' },
-        { value: 'apt:all+news_coverage', classic: 'APT · Profil Reporter', radioShort: 'APT NEWS', radioFull: 'Airport · Profil Reporter' },
-        { value: 'apt:all+sightseeing_tour', classic: 'APT · Profil Sightseeing', radioShort: 'APT TOUR', radioFull: 'Airport · Profil Sightseeing' },
-        { value: 'poi:all+mapping_survey', classic: 'POI · Profil Mapping/Survey', radioShort: 'POI MAP', radioFull: 'POI · Profil Mapping/Survey' },
-        { value: 'poi:all+news_coverage', classic: 'POI · Profil Reporter', radioShort: 'POI NEWS', radioFull: 'POI · Profil Reporter' },
-        { value: 'poi:all+search_and_rescue', classic: 'POI · Profil SAR/Rescue', radioShort: 'POI SAR', radioFull: 'POI · Profil SAR/Rescue' },
-        { value: 'poi:all+fire_watch', classic: 'POI · Profil Fire Watch', radioShort: 'POI FIRE', radioFull: 'POI · Profil Fire Watch' }
+        { value: 'poi:all+mapping_survey', classic: 'POI · Mapping/Survey', radioShort: 'POI MAP', radioFull: 'POI · Mapping/Survey' },
+        { value: 'poi:all+news_coverage', classic: 'POI · Reporter', radioShort: 'POI NEWS', radioFull: 'POI · Reporter' },
+        { value: 'poi:all+search_and_rescue', classic: 'POI · SAR/Rescue', radioShort: 'POI SAR', radioFull: 'POI · SAR/Rescue' },
+        { value: 'poi:all+fire_watch', classic: 'POI · Fire Watch', radioShort: 'POI FIRE', radioFull: 'POI · Fire Watch' }
     ]
 };
 
