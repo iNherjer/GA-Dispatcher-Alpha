@@ -1007,6 +1007,7 @@ async function restoreMissionState(state) {
 
 function resetApp() {
     if (!confirm("Möchtest du das aktuelle Briefing wirklich verwerfen und alles auf Anfang setzen?")) return;
+    _abortDispatchRun('Clear');
     localStorage.removeItem('ga_active_mission'); document.getElementById("briefingBox").style.display = "none";
     currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null;
     if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
@@ -1262,6 +1263,33 @@ function resetBtn(btn) {
         const label = rBtn.querySelector('.audio-btn-label');
         if (label) label.textContent = "DISPATCH";
     }
+}
+
+let _dispatchRunId = 0;
+let _dispatchState = { active: false, cancelled: false, runId: 0 };
+
+function _startDispatchRun() {
+    _dispatchRunId += 1;
+    _dispatchState = { active: true, cancelled: false, runId: _dispatchRunId };
+    return _dispatchRunId;
+}
+
+function _isDispatchRunAlive(runId) {
+    return !!(_dispatchState && _dispatchState.active && !_dispatchState.cancelled && _dispatchState.runId === runId);
+}
+
+function _abortDispatchRun(reason = 'Abbruch') {
+    if (!_dispatchState.active) return false;
+    _dispatchState.cancelled = true;
+    _dispatchState.active = false;
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = `Dispatch abgebrochen (${reason}).`;
+    const btn = document.getElementById('generateBtn');
+    resetBtn(btn);
+    if (window.meterInterval) clearInterval(window.meterInterval);
+    const needle = document.getElementById('meterNeedle');
+    if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`;
+    return true;
 }
 
 async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false) {
@@ -3837,6 +3865,15 @@ function renderAirspaceWarningsList() {
 }
 
 async function generateMission() {
+    const dispatchRunId = _startDispatchRun();
+    let _dispatchDeferredFinalize = false;
+    const _ensureDispatchAlive = () => {
+        if (_isDispatchRunAlive(dispatchRunId)) return;
+        const err = new Error('Dispatch abgebrochen');
+        err.name = 'AbortError';
+        throw err;
+    };
+    try {
     const btn = document.getElementById('generateBtn');
     const rBtn = document.getElementById('radioGenerateBtn');
     if (btn) { btn.disabled = true; btn.innerText = "Sucht Route & Daten..."; }
@@ -3875,6 +3912,7 @@ async function generateMission() {
 
     currentStartICAO = document.getElementById("startLoc").value.toUpperCase();
     const start = await getAirportData(currentStartICAO);
+    _ensureDispatchAlive();
     if (!start) {
         alert("Startplatz unbekannt!"); resetBtn(btn);
         if (window.meterInterval) clearInterval(window.meterInterval);
@@ -3919,15 +3957,17 @@ async function generateMission() {
         searchMax = Math.min(22, Math.max(searchMin + 2, Math.round(maxNM * 0.35)));
     }
 
-    if (targetDest) { dest = await getAirportData(targetDest); } else {
+    if (targetDest) { dest = await getAirportData(targetDest); _ensureDispatchAlive(); } else {
         if (effectiveType === "apt") {
             dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref);
+            _ensureDispatchAlive();
         } else if (selectedPoiCategory === 'trn') {
             // POI-Training nutzt absichtlich nur ein synthetisches Übungsgebiet, kein echtes Objekt.
             dest = pickRandomTrainingPoiNearAirport(start.lat, start.lon, dirPref, searchMin, searchMax);
             dataSource = "Training Area RNG";
         } else {
             dest = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory);
+            _ensureDispatchAlive();
         }
     }
 
@@ -3935,12 +3975,15 @@ async function generateMission() {
     // oder wenn Richtung/Region aktuell zu restriktiv sind.
     if (!dest && !targetDest && effectiveType === "apt") {
         dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, 'any', regionPref);
+        _ensureDispatchAlive();
     }
     if (!dest && !targetDest && effectiveType === "apt" && regionPref !== 'any') {
         dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, 'any', 'any');
+        _ensureDispatchAlive();
     }
     if (!dest && !targetDest && effectiveType === "apt") {
         dest = await findGithubAirport(start.lat, start.lon, 5, 350, 'any', 'any');
+        _ensureDispatchAlive();
     }
 
     if (!dest && !targetDest && effectiveType === "poi" && selectedPoiCategory === 'trn') {
@@ -3984,11 +4027,13 @@ async function generateMission() {
     let poiTerrainFt = null;
     if (isPOI && Number.isFinite(dest?.lat) && Number.isFinite(dest?.lon)) {
         poiTerrainFt = await fetchPoiTerrainElevationFt(dest.lat, dest.lon);
+        _ensureDispatchAlive();
     }
     const [depWeatherSnap, destWeatherSnap] = await Promise.all([
         fetchMissionWeatherSnapshot(currentStartICAO, start.lat, start.lon),
         fetchMissionWeatherSnapshot(isPOI ? 'POI' : currentDestICAO, dest.lat, dest.lon)
     ]);
+    _ensureDispatchAlive();
     const missionWeather = { dep: depWeatherSnap, dest: destWeatherSnap };
 
     const maxPax = Math.max(1, maxSeats - 1), randomPax = Math.floor(Math.random() * maxPax) + 1;
@@ -3996,6 +4041,7 @@ async function generateMission() {
 
     indicator.innerText = `Kontaktiere KI-Dispatcher...`;
     let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt, missionWeather, missionPicker);
+    _ensureDispatchAlive();
 
     if (m) {
         dataSource = m._source;
@@ -4088,6 +4134,7 @@ async function generateMission() {
     }
     if (!isPOI && selectedAptCategory === 'cargo') paxText = "0 PAX";
     if (!isPOI && selectedAptCategory === 'trn') paxText = "1 PAX (Instruktor)";
+    _ensureDispatchAlive();
 
     const poolCategory = isPOI ? (dest.poiCategory || classifyPOITitleCategory(dest.n)) : (m?.cat || 'std');
     const dispatchSnapshot = {
@@ -4197,7 +4244,9 @@ async function generateMission() {
     indicator.innerText = `Flugplan bereit (${dataSource}). Lade Infos...`;
     fetchRunwayDetails(start.lat, start.lon, 'mDepRwy', currentStartICAO);
 
+    _dispatchDeferredFinalize = true;
     setTimeout(() => {
+        if (!_isDispatchRunAlive(dispatchRunId)) return;
         if (!isPOI) fetchRunwayDetails(dest.lat, dest.lon, 'mDestRwy', currentDestICAO);
 
         fetchAreaDescription(start.lat, start.lon, 'wikiDepDescText', null, currentStartICAO, 'wikiDepImageContainer', 'wikiDepImage');
@@ -4249,7 +4298,28 @@ async function generateMission() {
         refreshGPSAfterDispatch();
         // Position im Profil auf Start zurücksetzen
         vpUpdatePosition(0);
+        if (_isDispatchRunAlive(dispatchRunId)) {
+            _dispatchState.active = false;
+        }
     }, 800);
+    } catch (e) {
+        if (e && e.name === 'AbortError') {
+            // Benutzerabbruch über Clear: kein zusätzlicher Fehlerdialog.
+        } else {
+            console.error('[Dispatch] Fehler:', e);
+            const indicator = document.getElementById('searchIndicator');
+            if (indicator) indicator.innerText = 'Fehler beim Dispatch. Bitte erneut versuchen.';
+            const btn = document.getElementById('generateBtn');
+            resetBtn(btn);
+            if (window.meterInterval) clearInterval(window.meterInterval);
+            const needle = document.getElementById('meterNeedle');
+            if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`;
+        }
+    } finally {
+        if (!_dispatchDeferredFinalize && _dispatchState.runId === dispatchRunId) {
+            _dispatchState.active = false;
+        }
+    }
 }
 
 
