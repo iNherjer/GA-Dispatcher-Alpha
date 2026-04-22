@@ -1299,6 +1299,10 @@ function _baseContext() {
     const contractRules = Array.isArray(contract?.constraints)
         ? contract.constraints.map(x => String(x || '').trim()).filter(Boolean).slice(0, 3).join(' | ')
         : '';
+    const fireHazard = md?.fireHazard || null;
+    const fireHazardLine = (_activeTaskDomain() === 'fire_watch' && Number.isFinite(Number(fireHazard?.level)))
+        ? `FEUERLAGE (DWD): Waldbrandgefahrenindex Stufe ${Math.round(Number(fireHazard.level))} von 5 (${String(fireHazard.label || 'n/a')})${fireHazard?.dateIso ? `, Stand ${fireHazard.dateIso}` : ''}.`
+        : '';
     const roleGuard = `ROLLENFIX: Du sprichst ausschließlich als ${pax.name} (${pax.role}) in Ich-Form. Keine Rollenvermischung mit anderen Personen aus der Story.`;
     return `ROLLE: ${pax.name} (${pax.role}) · Persönlichkeit: ${pax.personality}
 FLUG: ${md.start || '?'} → ${md.poiName || md.dest || '?'} · ${md.dist || '?'} NM
@@ -1310,6 +1314,7 @@ DRINGLICHKEIT: ${urgency}
 ${urgencyLine}
 MISSION-CONTRACT: ${contractSummary || 'n/a'}
 CONTRACT-REGELN: ${contractRules || 'n/a'}
+${fireHazardLine}
 ${roleGuard}
 REGION: ${dialectProfile.regionLabel} · Wortwahl ${dialectProfile.dialectHint} (${dialectProfile.strengthLabel})
 REGELN: ${_dialectGlobalRules(dialectProfile, pax.role)}
@@ -1818,6 +1823,7 @@ function _greetingPrompt() {
     const pax = window.activePassenger;
     if (!ctx || !pax) return null;
     const wx = _weatherContext(window.lastLiveFlightData);
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
     const isPOI = _isPOIMission();
     const trainingPlan = _activeAptTrainingPlan();
     const role = String(pax?.role || '').toLowerCase();
@@ -1844,7 +1850,7 @@ function _greetingPrompt() {
     const reqLine = isPOI
         ? (trainingPlan
             ? `Bitte nenne kurz das Übungsthema und wie wir es sicher und sauber abfliegen. Keine internen Parameter oder technischen Vorgaben zitieren.`
-            : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast.${targetAltFt > 0 ? ` Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr ${targetAltFt} ft).` : ''} Keine internen Parameter oder technischen Vorgaben zitieren.`)
+            : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast.${targetAltFt > 0 ? ` Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr ${targetAltFt} ft).` : ''}${(taskDomain === 'fire_watch' && Number.isFinite(Number(md?.fireHazard?.level))) ? ` Nenne bei der Einsatzlage kurz den offiziellen DWD-Waldbrandgefahrenindex (Stufe ${Math.round(Number(md.fireHazard.level))} von 5).` : ''} Keine internen Parameter oder technischen Vorgaben zitieren.`)
         : (isReporterApt
             ? (comfortHintNeeded
                 ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig. ${comfortContentRule}${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`

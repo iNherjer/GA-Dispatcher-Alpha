@@ -2120,6 +2120,18 @@ function isFirePOITitle(title) {
     return _isRemoteSettlementPOITitle(title);
 }
 
+function scoreFirePOITitle(title) {
+    const t = normalizeMissionText(title);
+    const cat = classifyPOITitleCategory(title);
+    let score = 0;
+    if (cat === 'mountain') score += 4;
+    if (t.includes('wald') || t.includes('forst')) score += 3;
+    if (t.includes('berg') || t.includes('tal') || t.includes('schlucht')) score += 2;
+    if (_isRemoteSettlementPOITitle(title)) score += 1;
+    if (cat === 'city' || cat === 'castle') score -= 3;
+    return score;
+}
+
 function poiTitleMatchesCategory(title, category) {
     const wanted = String(category || '').toLowerCase();
     if (!wanted || wanted === 'all') return true;
@@ -2262,17 +2274,6 @@ async function findWikipediaPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory 
         }
         return score;
     };
-    const scoreFirePOITitle = (title) => {
-        const t = normalizeMissionText(title);
-        let score = 0;
-        if (classifyPOITitleCategory(title) === 'mountain') score += 4;
-        if (t.includes('wald') || t.includes('forst')) score += 3;
-        if (t.includes('berg') || t.includes('tal') || t.includes('schlucht')) score += 2;
-        if (_isRemoteSettlementPOITitle(title)) score += 1;
-        if (classifyPOITitleCategory(title) === 'city' || classifyPOITitleCategory(title) === 'castle') score -= 3;
-        return score;
-    };
-
     const forceCat = String(forcedCategory || '').trim().toLowerCase();
     const dist = Math.floor(Math.random() * (maxNM - minNM + 1)) + minNM;
     let minB = 0, maxB = 360;
@@ -2600,6 +2601,168 @@ function parseRunwayFromWikitext(wikitext) {
 
 const _poiTerrainCache = new Map();
 const _missionWxCache = new Map();
+const _dwdWbiStationCache = { ts: 0, stations: [] };
+const _dwdWbiByStationCache = new Map();
+
+function _isLikelyGermanyLatLon(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+    return lat >= 46.0 && lat <= 56.3 && lon >= 5.0 && lon <= 15.8;
+}
+
+function _wbiRiskLabel(level) {
+    const l = Number(level || 0);
+    if (l <= 1) return 'sehr gering';
+    if (l === 2) return 'gering';
+    if (l === 3) return 'mittel';
+    if (l === 4) return 'hoch';
+    if (l >= 5) return 'sehr hoch';
+    return 'n/a';
+}
+
+function _formatWbiDate(yyyymmdd) {
+    const s = String(yyyymmdd || '');
+    if (!/^\d{8}$/.test(s)) return null;
+    return `${s.slice(6, 8)}.${s.slice(4, 6)}.${s.slice(0, 4)}`;
+}
+
+function _looksLikeWbiCsvText(txt) {
+    const t = String(txt || '').slice(0, 220).toLowerCase();
+    return t.includes('stationsindex;') || t.includes('stationsid;') || t.includes(';wbi');
+}
+
+async function _fetchTextMaybeGzip(urls = []) {
+    const list = Array.isArray(urls) ? urls.filter(Boolean) : [];
+    for (const url of list) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok || res.status === 204) continue;
+            const buf = await res.arrayBuffer();
+            if (!buf || buf.byteLength === 0) continue;
+
+            // Versuch 1: Direkttext (bei Proxy oft bereits entpackt).
+            try {
+                const direct = new TextDecoder('utf-8', { fatal: false }).decode(buf);
+                if (_looksLikeWbiCsvText(direct) || direct.includes('Stationsindex;')) return direct;
+            } catch (_) {}
+
+            // Versuch 2: gzip entpacken (Browser mit DecompressionStream).
+            if (typeof DecompressionStream !== 'undefined') {
+                try {
+                    const ds = new DecompressionStream('gzip');
+                    const stream = new Blob([buf]).stream().pipeThrough(ds);
+                    const unzipped = await new Response(stream).text();
+                    if (_looksLikeWbiCsvText(unzipped)) return unzipped;
+                } catch (_) {}
+            }
+
+            // Versuch 3: Latin-1 Fallback fuer Stationsliste.
+            try {
+                const latin = new TextDecoder('latin1', { fatal: false }).decode(buf);
+                if (_looksLikeWbiCsvText(latin) || latin.includes('Stationsindex;')) return latin;
+            } catch (_) {}
+        } catch (_) {}
+    }
+    return null;
+}
+
+async function fetchDwdWbiStations() {
+    const now = Date.now();
+    if (Array.isArray(_dwdWbiStationCache.stations) && _dwdWbiStationCache.stations.length > 50 && (now - _dwdWbiStationCache.ts) < 24 * 3600 * 1000) {
+        return _dwdWbiStationCache.stations;
+    }
+    const src = 'https://opendata.dwd.de/climate_environment/CDC/derived_germany/fire_danger_index/woodland/forecast/historical/derived_germany_fire_danger_index_woodland_forecast_historical_v2-3--0_stations_list.txt';
+    const txt = await _fetchTextMaybeGzip([
+        src,
+        `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(src)}`
+    ]);
+    if (!txt) return [];
+    const lines = txt.replace(/\r/g, '').split('\n').map(s => s.trim()).filter(Boolean);
+    const out = [];
+    for (const line of lines) {
+        if (!/^\d/.test(line)) continue;
+        const cols = line.split(';');
+        if (cols.length < 6) continue;
+        const id = parseInt(String(cols[0] || '').trim(), 10);
+        const lat = parseFloat(String(cols[2] || '').trim().replace(',', '.'));
+        const lon = parseFloat(String(cols[3] || '').trim().replace(',', '.'));
+        if (!Number.isFinite(id) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        out.push({
+            id,
+            lat,
+            lon,
+            name: String(cols[4] || '').trim(),
+            state: String(cols[5] || '').trim()
+        });
+    }
+    _dwdWbiStationCache.ts = now;
+    _dwdWbiStationCache.stations = out;
+    return out;
+}
+
+function findNearestDwdWbiStation(lat, lon, stations = []) {
+    const src = Array.isArray(stations) ? stations : [];
+    if (!src.length || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    let best = null;
+    let bestNm = Infinity;
+    for (const st of src) {
+        const dNm = calcNav(lat, lon, Number(st.lat), Number(st.lon)).dist;
+        if (!Number.isFinite(dNm)) continue;
+        if (dNm < bestNm) {
+            bestNm = dNm;
+            best = st;
+        }
+    }
+    if (!best) return null;
+    return { ...best, distanceNm: bestNm };
+}
+
+async function fetchDwdWbiForLocation(lat, lon) {
+    if (!_isLikelyGermanyLatLon(lat, lon)) return null;
+    const stations = await fetchDwdWbiStations();
+    const nearest = findNearestDwdWbiStation(lat, lon, stations);
+    if (!nearest) return null;
+    const stationKey = String(nearest.id);
+    if (_dwdWbiByStationCache.has(stationKey)) return _dwdWbiByStationCache.get(stationKey);
+
+    const fileUrl = `https://opendata.dwd.de/climate_environment/CDC/derived_germany/fire_danger_index/woodland/recomputed/recent/derived_germany_fire_danger_index_woodland_recomputed_recent_${nearest.id}_v2-3--0.csv.gz`;
+    const txt = await _fetchTextMaybeGzip([
+        fileUrl,
+        `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(fileUrl)}`
+    ]);
+    if (!txt) return null;
+
+    const lines = txt.replace(/\r/g, '').split('\n').map(s => s.trim()).filter(Boolean);
+    let bestDate = '';
+    let bestLevel = null;
+    for (const line of lines) {
+        if (!/^\d/.test(line)) continue;
+        const cols = line.split(';').map(s => String(s || '').trim());
+        if (cols.length < 3) continue;
+        const dateRaw = cols[1];
+        const date8 = dateRaw.slice(0, 8);
+        const level = parseInt(cols[2], 10);
+        if (!/^\d{8}$/.test(date8) || !Number.isFinite(level)) continue;
+        if (date8 >= bestDate) {
+            bestDate = date8;
+            bestLevel = level;
+        }
+    }
+    if (!bestDate || !Number.isFinite(bestLevel)) return null;
+
+    const out = {
+        source: 'DWD WBI',
+        stationId: nearest.id,
+        stationName: nearest.name || null,
+        state: nearest.state || null,
+        distanceNm: Math.round(Number(nearest.distanceNm || 0) * 10) / 10,
+        level: Math.max(1, Math.min(5, Math.round(bestLevel))),
+        label: _wbiRiskLabel(bestLevel),
+        date: bestDate,
+        dateIso: `${bestDate.slice(0, 4)}-${bestDate.slice(4, 6)}-${bestDate.slice(6, 8)}`
+    };
+    _dwdWbiByStationCache.set(stationKey, out);
+    return out;
+}
 
 async function fetchPoiTerrainElevationFt(lat, lon) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
@@ -3498,7 +3661,7 @@ function missionHasPassengerByPaxText(paxText) {
     return !/^\s*0\s*PAX\b/i.test(txt);
 }
 
-async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null) {
+async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null, missionFireHazard = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
     if (!aiToggleBtn || !aiToggleBtn.checked) return null;
     const apiKeyInput = document.getElementById('apiKeyInput');
@@ -3617,6 +3780,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         : '';
     const forcedProfileOpsRule = (forcedProfile && forcedProfile.id !== 'auto')
         ? _profileOpsRuleForPrompt(forcedProfile, isPOI)
+        : '';
+    const fireHazardRule = (forcedProfile?.id === 'fire_watch' && Number.isFinite(Number(missionFireHazard?.level)))
+        ? `16. FEUERLAGE-KONTEXT: Nutze den offiziellen DWD-Waldbrandgefahrenindex am Einsatzgebiet als Realitätsanker (Stufe ${Math.round(Number(missionFireHazard.level))} von 5, Risiko: ${String(missionFireHazard.label || '').trim() || 'n/a'}). Erwaehne den Index natuerlich und knapp in story/greetingText. Keine Dramatisierung.`
         : '';
 
     const sanitizePassengerProfile = (passenger, storyText = '') => {
@@ -3772,6 +3938,7 @@ ${poiNoTrainingRule}
 ${forcedProfileRule}
 ${forcedProfileConsistencyRule}
 ${forcedProfileOpsRule}
+${fireHazardRule}
 </INSTRUKTIONEN>
 
 <KONTEXT>
@@ -4730,6 +4897,7 @@ async function generateMission() {
         dataSource = "Generiert";
     }
     let searchMin = effectiveType === "poi" ? minNM / 2 : minNM, searchMax = effectiveType === "poi" ? maxNM / 2 : maxNM, dest = null;
+    let missionFireHazard = null;
     if (effectiveType === 'poi' && selectedPoiCategory === 'trn') {
         // Platznahes POI-Training: Übungsgebiet bewusst nahe am Startplatz halten.
         searchMin = Math.max(3, Math.round(minNM * 0.2));
@@ -4745,8 +4913,43 @@ async function generateMission() {
             dest = pickRandomTrainingPoiNearAirport(start.lat, start.lon, dirPref, searchMin, searchMax);
             dataSource = "Training Area RNG";
         } else {
-            dest = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory);
-            _ensureDispatchAlive();
+            if (selectedPoiCategory === 'fire') {
+                const fireCandidates = [];
+                for (let i = 0; i < 3; i++) {
+                    const c = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref, 'fire');
+                    _ensureDispatchAlive();
+                    if (c && Number.isFinite(c.lat) && Number.isFinite(c.lon)) fireCandidates.push(c);
+                }
+                const seen = new Set();
+                const dedup = [];
+                for (const c of fireCandidates) {
+                    const key = `${String(c.n || '').trim().toLowerCase()}|${Number(c.lat).toFixed(4)}|${Number(c.lon).toFixed(4)}`;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    dedup.push(c);
+                }
+                let bestPick = null;
+                for (const c of dedup) {
+                    const hz = await fetchDwdWbiForLocation(c.lat, c.lon);
+                    _ensureDispatchAlive();
+                    const fireScore = scoreFirePOITitle(c.n);
+                    const hazardLevel = Number.isFinite(Number(hz?.level)) ? Number(hz.level) : 0;
+                    const totalScore = (fireScore * 10) + (hazardLevel * 20) + Math.random();
+                    if (!bestPick || totalScore > bestPick.totalScore) {
+                        bestPick = { poi: c, fireHazard: hz || null, totalScore };
+                    }
+                }
+                if (bestPick && bestPick.poi) {
+                    dest = bestPick.poi;
+                    missionFireHazard = bestPick.fireHazard || null;
+                } else {
+                    dest = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory);
+                    _ensureDispatchAlive();
+                }
+            } else {
+                dest = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory);
+                _ensureDispatchAlive();
+            }
         }
     }
 
@@ -4788,6 +4991,10 @@ async function generateMission() {
     if (dest && effectiveType === 'poi' && selectedPoiCategory === 'trn') {
         dest.poiCategory = 'trn';
     }
+    if (!missionFireHazard && effectiveType === 'poi' && selectedPoiCategory === 'fire' && Number.isFinite(dest?.lat) && Number.isFinite(dest?.lon)) {
+        missionFireHazard = await fetchDwdWbiForLocation(dest.lat, dest.lon);
+        _ensureDispatchAlive();
+    }
 
     if (!dest) {
         indicator.innerText = "Fehler: Kein passendes Ziel gefunden.";
@@ -4819,7 +5026,7 @@ async function generateMission() {
     let paxText = `${randomPax} PAX`, cargoText = `${Math.floor(Math.random() * 300) + 20} lbs`;
 
     indicator.innerText = `Kontaktiere KI-Dispatcher...`;
-    let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt, missionWeather, missionPickerResolved);
+    let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt, missionWeather, missionPickerResolved, missionFireHazard);
     _ensureDispatchAlive();
     if (m && dispatchProfileId !== 'auto' && !missionMatchesTaskProfile(m, dispatchProfileId, isPOI)) {
         console.warn('[DISPATCH] KI-Mission nicht profilkonsistent, falle auf lokale Missionen zurueck.', { dispatchProfileId, mission: m?.t || 'n/a' });
@@ -4960,7 +5167,8 @@ async function generateMission() {
         dist: totalDist,
         ac: selectedAC,
         heading: nav.brng,
-        weatherBriefing: missionWeather
+        weatherBriefing: missionWeather,
+        fireHazard: missionFireHazard || null
     };
 
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
@@ -5012,7 +5220,8 @@ async function generateMission() {
                 targetAltFt: Number(p.targetAltFt || 0),
                 targetRadiusNm: Number(p.targetRadiusNm || 0),
                 targetDwellMin: Number(p.targetDwellMin || 0)
-            }
+            },
+            fireHazard: missionFireHazard || null
         };
         window.vpMissionDebugSnapshot = missionDebugSnapshot;
         localStorage.setItem('ga_mission_debug_snapshot', JSON.stringify(missionDebugSnapshot));
@@ -5029,6 +5238,13 @@ async function generateMission() {
         const plannedAltFt = Math.round(Number(window.activePassenger.targetAltFt));
         if (!new RegExp(`\\b${plannedAltFt}\\s*ft\\b`, 'i').test(storyForBriefing)) {
             storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Arbeits-Hinweis: Für das Zielgebiet ist eine geplante Höhe von ungefähr ${plannedAltFt} ft vorgesehen.`;
+        }
+    }
+    if (String(window.activePassenger?.taskDomain || '').toLowerCase() === 'fire_watch' && Number.isFinite(Number(missionFireHazard?.level))) {
+        const fireDate = _formatWbiDate(missionFireHazard?.date) || String(missionFireHazard?.dateIso || '').trim();
+        const fireLine = `Feuerlage-Hinweis (DWD): Waldbrandgefahrenindex Stufe ${Math.round(Number(missionFireHazard.level))} von 5 (${String(missionFireHazard.label || 'n/a')})${fireDate ? `, Stand ${fireDate}` : ''}.`;
+        if (!/waldbrandgefahrenindex|dwd/i.test(storyForBriefing)) {
+            storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${fireLine}`;
         }
     }
     document.getElementById("mStory").innerText = storyForBriefing;
