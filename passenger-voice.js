@@ -881,19 +881,48 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
     }
 }
 
+const _PAX_TTS_VOICE_POOL = {
+    male: ['Charon', 'Puck', 'Fenrir'],
+    female: ['Kore', 'Leda', 'Aoede']
+};
+
+function _hashStable(text) {
+    const s = String(text || '');
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return Math.abs(h >>> 0);
+}
+
+function _ttsVoiceCandidatesForSpeaker(pax) {
+    const gender = String(pax?.gender || '').toLowerCase() === 'male' ? 'male' : 'female';
+    const basePool = Array.isArray(_PAX_TTS_VOICE_POOL[gender]) ? _PAX_TTS_VOICE_POOL[gender].slice() : (gender === 'male' ? ['Charon'] : ['Kore']);
+    const fallback = gender === 'male' ? 'Charon' : 'Kore';
+    if (!basePool.includes(fallback)) basePool.push(fallback);
+
+    const seed = `${pax?.name || ''}|${pax?.role || ''}|${pax?.roleProfile || ''}|${pax?.taskDomain || ''}`;
+    const start = basePool.length ? (_hashStable(seed) % basePool.length) : 0;
+    const rotated = basePool.map((_, idx) => basePool[(start + idx) % basePool.length]);
+    const dedup = [];
+    const seen = new Set();
+    for (const v of rotated) {
+        const n = String(v || '').trim();
+        if (!n || seen.has(n)) continue;
+        seen.add(n);
+        dedup.push(n);
+    }
+    if (!dedup.includes(fallback)) dedup.push(fallback);
+    return dedup;
+}
+
 async function _playTextAsTTS(text, speaker = null) {
     const apiKey = _getApiKey();
     if (!apiKey) { _paxLog('Kein API-Key für TTS', 'warn'); return; }
     const pax = speaker || window.activePassenger || _lastSpokenSpeaker || null;
-    const voiceName = (pax?.gender === 'male') ? 'Charon' : 'Kore';
-    _paxLog(`TTS Stimme: ${voiceName} | Persona: ${pax?.name || 'unbekannt'}`, 'state');
-    const ttsPayload = {
-        contents: [{ role: 'user', parts: [{ text }] }],
-        generationConfig: {
-            responseModalities: ['AUDIO'],
-            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
-        }
-    };
+    const voiceCandidates = _ttsVoiceCandidatesForSpeaker(pax);
+    _paxLog(`TTS Stimmen: ${voiceCandidates.join(' -> ')} | Persona: ${pax?.name || 'unbekannt'}`, 'state');
     const ttsModels = (_paxTtsModelPref === '3.1')
         ? ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']
         : (_paxTtsModelPref === '2.5')
@@ -903,34 +932,44 @@ async function _playTextAsTTS(text, speaker = null) {
 
     let lastErr = null;
     for (const model of ttsModels) {
-    try {
-        const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ttsPayload) }
-        );
-        if (!res.ok) {
-            const errBody = await res.text().catch(() => '(unlesbar)');
-            _paxLog(`TTS ${model} HTTP ${res.status}: ${errBody.slice(0, 300)}`, 'warn');
-            lastErr = new Error(`TTS ${model} HTTP ${res.status}`);
-            continue;
+        for (const voiceName of voiceCandidates) {
+            const ttsPayload = {
+                contents: [{ role: 'user', parts: [{ text }] }],
+                generationConfig: {
+                    responseModalities: ['AUDIO'],
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
+                }
+            };
+            try {
+                const res = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+                    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ttsPayload) }
+                );
+                if (!res.ok) {
+                    const errBody = await res.text().catch(() => '(unlesbar)');
+                    _paxLog(`TTS ${model}/${voiceName} HTTP ${res.status}: ${errBody.slice(0, 220)}`, 'warn');
+                    lastErr = new Error(`TTS ${model}/${voiceName} HTTP ${res.status}`);
+                    continue;
+                }
+                const data     = await res.json();
+                const part     = data?.candidates?.[0]?.content?.parts?.[0];
+                const b64      = part?.inlineData?.data;
+                const mimeType = part?.inlineData?.mimeType || '';
+                if (!b64) {
+                    _paxLog(`TTS ${model}/${voiceName} ohne Audio-Daten`, 'warn');
+                    lastErr = new Error(`TTS ${model}/${voiceName}: Keine Audio-Daten`);
+                    continue;
+                }
+                _paxLog(`TTS Stimme aktiv: ${voiceName}`, 'state');
+                _paxLog(`TTS OK (${model}) | mime: ${mimeType} | ${b64.length} chars base64`, 'recv');
+                if (typeof incrementApiUsage === 'function') incrementApiUsage('flash');
+                await _paxDecodeAndPlay(b64, mimeType);
+                return;
+            } catch(e) {
+                lastErr = e;
+                _paxLog(`TTS ${model}/${voiceName} Fehler: ${e.message}`, 'warn');
+            }
         }
-        const data     = await res.json();
-        const part     = data?.candidates?.[0]?.content?.parts?.[0];
-        const b64      = part?.inlineData?.data;
-        const mimeType = part?.inlineData?.mimeType || '';
-        if (!b64) {
-            _paxLog(`TTS ${model} ohne Audio-Daten`, 'warn');
-            lastErr = new Error(`TTS ${model}: Keine Audio-Daten`);
-            continue;
-        }
-        _paxLog(`TTS OK (${model}) | mime: ${mimeType} | ${b64.length} chars base64`, 'recv');
-        if (typeof incrementApiUsage === 'function') incrementApiUsage('flash');
-        await _paxDecodeAndPlay(b64, mimeType);
-        return;
-    } catch(e) {
-        lastErr = e;
-        _paxLog(`TTS ${model} Fehler: ${e.message}`, 'warn');
-    }
     }
     if (lastErr) {
         _paxLog(`TTS Fehler: ${lastErr.message}`, 'warn');

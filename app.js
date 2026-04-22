@@ -3042,8 +3042,8 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     }
     const cargoPool = Array.isArray(profile.cargoPool) ? profile.cargoPool.filter(Boolean) : [];
     if (cargoPool.length) cargoText = cargoPool[Math.floor(Math.random() * cargoPool.length)];
-    if (profile.storyCue) {
-        const cue = String(profile.storyCue).trim();
+    const cue = _profileStoryCue(profile, isPOI);
+    if (cue) {
         const story = String(m.s || '').trim();
         if (cue && story && !story.toLowerCase().includes(cue.toLowerCase())) {
             m.s = `${story} ${cue}`.trim();
@@ -3053,6 +3053,32 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     }
     m.profileId = profile.id;
     return { mission: m, paxText, cargoText, appliedProfile: profile.id };
+}
+
+function _profileStoryCue(profile, isPOI = false) {
+    if (!profile || profile.id === 'auto') return '';
+    if (profile.id === 'news_coverage') {
+        return isPOI
+            ? 'Fokus: nüchterne Beobachtung und klare Lageeinschätzung aus der Luft.'
+            : 'Fokus: sachlicher Transportauftrag zum Zielort, dort Berichterstattung am Boden.';
+    }
+    if (profile.id === 'sightseeing_tour') {
+        return isPOI
+            ? 'Fokus: ruhiger Rundflug mit angenehmem Tempo und guter Sicht.'
+            : 'Fokus: entspannter Ausflugsflug mit pünktlicher Ankunft am Ziel.';
+    }
+    return String(profile.storyCue || '').trim();
+}
+
+function _profileOpsRuleForPrompt(profile, isPOI = false) {
+    if (!profile || profile.id === 'auto') return '';
+    if (profile.id === 'news_coverage' && !isPOI) {
+        return '16. OPERATIONS-REGEL REPORTER A-B: Dies ist ein reiner Transport zum Zielflugplatz. KEIN Arbeitsauftrag in der Luft am Ziel, KEIN Kreisen, KEIN Verweilen/Überflug als Missionsziel. Die eigentliche Berichterstattung findet nach der Landung am Boden statt.';
+    }
+    if (profile.id === 'news_coverage' && isPOI) {
+        return '16. OPERATIONS-REGEL REPORTER POI: Luftbeobachtung am POI ist erlaubt; Auftrag bleibt sachlich, keine Touri-Rhetorik.';
+    }
+    return '';
 }
 
 function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'all', selectedPoiCategory = 'all', missionCat = '' } = {}) {
@@ -3379,6 +3405,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const forcedProfileConsistencyRule = (forcedProfile && forcedProfile.id !== 'auto')
         ? `15. KONSISTENZ-PFLICHT: Kein Themenmix gegen das Profil. Beispiel: Bei Sightseeing KEIN Ersatzteil-/Kurier-/Notfallauftrag; bei Reporter KEIN reiner Touri-Text; bei Mapping/SAR nur passende Einsatzinhalte.`
         : '';
+    const forcedProfileOpsRule = (forcedProfile && forcedProfile.id !== 'auto')
+        ? _profileOpsRuleForPrompt(forcedProfile, isPOI)
+        : '';
 
     const sanitizePassengerProfile = (passenger, storyText = '') => {
         if (!passenger || typeof passenger !== 'object') return null;
@@ -3529,6 +3558,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     ${poiNoTrainingRule}
     ${forcedProfileRule}
     ${forcedProfileConsistencyRule}
+    ${forcedProfileOpsRule}
 
     Antworte AUSSCHLIESSLICH als JSON. Keine Markdown-Formatierung.
     Struktur: {
