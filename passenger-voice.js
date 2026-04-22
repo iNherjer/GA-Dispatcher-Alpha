@@ -1023,6 +1023,11 @@ function _speakAndShow(situationPrompt, eventLabel) {
 
 // ─── PROMPT BUILDERS ─────────────────────────────────────────────────────────
 
+function _normUrgencyPriority(v) {
+    const s = String(v || '').trim().toLowerCase();
+    return s === 'hoch' ? 'hoch' : 'niedrig';
+}
+
 function _baseContext() {
     const pax  = window.activePassenger;
     const md   = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
@@ -1032,12 +1037,10 @@ function _baseContext() {
     const cargo = document.getElementById('mWeight')?.innerText?.trim() || '';
     const payload = document.getElementById('mPay')?.innerText?.trim() || '';
     const roleStyle = _roleStyleHint(pax.role, pax);
-    const urgency = String(pax?.urgencyPriority || 'mittel').toLowerCase();
+    const urgency = _normUrgencyPriority(pax?.urgencyPriority);
     const urgencyLine = urgency === 'hoch'
         ? 'ZEITRAHMEN: Auftrag ist zeitkritisch. Zeitdruck darf kurz und klar benannt werden.'
-        : (urgency === 'mittel'
-            ? 'ZEITRAHMEN: Normale Prioritaet. Keine Eile-Woerter oder Zeitdruck (nicht "schnell", "zuegig", "eilig", "puenktlich", "dringend").'
-            : 'ZEITRAHMEN: Niedrige Prioritaet. Kein Zeitdruck und keine Eile-Woerter.');
+        : 'ZEITRAHMEN: Niedrige Prioritaet. Kein Zeitdruck und keine Eile-Woerter (nicht "schnell", "zuegig", "eilig", "puenktlich", "dringend").';
 
     const dialectProfile = _contextualDialectProfile(pax);
     const trainingPlan = _activeAptTrainingPlan();
@@ -1553,7 +1556,7 @@ function _greetingPrompt() {
     const taskDomain = String(pax?.taskDomain || '').toLowerCase();
     const isReporterApt = (!isPOI && taskDomain === 'news_coverage');
     const comfortPriority = String(pax?.comfortPriority || 'mittel').toLowerCase();
-    const urgencyPriority = String(pax?.urgencyPriority || 'mittel').toLowerCase();
+    const urgencyPriority = _normUrgencyPriority(pax?.urgencyPriority);
     const stomachSensitivity = String(pax?.stomachSensitivity || 'mittel').toLowerCase();
     const cargoSensitivity = String(pax?.cargoSensitivity || 'mittel').toLowerCase();
     const gTolerance = String(pax?.gTolerance || 'mittel').toLowerCase();
