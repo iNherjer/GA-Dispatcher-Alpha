@@ -206,17 +206,173 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'poi:mountain', classic: 'POI · Berg/Tal', radioShort: 'POI MTN', radioFull: 'POI · Berg/Tal' },
         { value: 'poi:city', classic: 'POI · Stadt/Turm', radioShort: 'POI CITY', radioFull: 'POI · Stadt/Turm' },
         { value: 'poi:trn', classic: 'POI · Training (Platznah)', radioShort: 'POI TRN', radioFull: 'POI · Training (platznah)' },
-        { value: 'poi:generic', classic: 'POI · Sonstige', radioShort: 'POI GEN', radioFull: 'POI · Sonstige' }
+        { value: 'poi:generic', classic: 'POI · Sonstige', radioShort: 'POI GEN', radioFull: 'POI · Sonstige' },
+        { value: 'apt:all+medical_transfer', classic: 'APT · Profil Medizin-Transfer', radioShort: 'APT MED', radioFull: 'Airport · Profil Medizin-Transfer' },
+        { value: 'apt:all+cargo_fragile', classic: 'APT · Profil Fragile Fracht', radioShort: 'APT FRG', radioFull: 'Airport · Profil Fragile Fracht' },
+        { value: 'apt:all+animal_transport', classic: 'APT · Profil Tiertransport', radioShort: 'APT ANM', radioFull: 'Airport · Profil Tiertransport' },
+        { value: 'apt:all+news_coverage', classic: 'APT · Profil Reporter', radioShort: 'APT NEWS', radioFull: 'Airport · Profil Reporter' },
+        { value: 'apt:all+sightseeing_tour', classic: 'APT · Profil Sightseeing', radioShort: 'APT TOUR', radioFull: 'Airport · Profil Sightseeing' },
+        { value: 'poi:all+mapping_survey', classic: 'POI · Profil Mapping/Survey', radioShort: 'POI MAP', radioFull: 'POI · Profil Mapping/Survey' },
+        { value: 'poi:all+news_coverage', classic: 'POI · Profil Reporter', radioShort: 'POI NEWS', radioFull: 'POI · Profil Reporter' },
+        { value: 'poi:all+search_and_rescue', classic: 'POI · Profil SAR/Rescue', radioShort: 'POI SAR', radioFull: 'POI · Profil SAR/Rescue' },
+        { value: 'poi:all+fire_watch', classic: 'POI · Profil Fire Watch', radioShort: 'POI FIRE', radioFull: 'POI · Profil Fire Watch' }
     ]
 };
 
 function parseMissionPickerValue(raw) {
     const value = String(raw || '').trim().toLowerCase();
-    if (value === 'apt') return { baseType: 'apt', category: 'all' };
-    if (value === 'poi') return { baseType: 'poi', category: 'all' };
-    if (value.startsWith('apt:')) return { baseType: 'apt', category: value.split(':')[1] || 'all' };
-    if (value.startsWith('poi:')) return { baseType: 'poi', category: value.split(':')[1] || 'all' };
-    return { baseType: 'apt', category: 'all' };
+    const [leftPart, rightPart] = value.split('+');
+    const profile = String(rightPart || 'auto').trim() || 'auto';
+    if (leftPart === 'apt') return { baseType: 'apt', category: 'all', profile };
+    if (leftPart === 'poi') return { baseType: 'poi', category: 'all', profile };
+    if (leftPart.startsWith('apt:')) return { baseType: 'apt', category: leftPart.split(':')[1] || 'all', profile };
+    if (leftPart.startsWith('poi:')) return { baseType: 'poi', category: leftPart.split(':')[1] || 'all', profile };
+    return { baseType: 'apt', category: 'all', profile: 'auto' };
+}
+
+const MISSION_ROLE_TASK_PROFILES = {
+    auto: {
+        id: 'auto',
+        label: 'Auto',
+        appliesTo: ['apt', 'poi']
+    },
+    medical_transfer: {
+        id: 'medical_transfer',
+        label: 'Medizin-Transfer',
+        appliesTo: ['apt'],
+        roleProfile: 'medical_sensitive_v1',
+        taskDomain: 'medical_transfer',
+        personas: [
+            { name: 'Dr. Lena Roth', role: 'Notärztin', gender: 'female', personality: 'fokussiert, ruhig, empathisch' },
+            { name: 'Dr. Jonas Weber', role: 'Notarzt', gender: 'male', personality: 'präzise, ruhig, professionell' }
+        ],
+        greetingText: 'Hi, danke fürs Fliegen. Wir haben medizinische Priorität und brauchen einen ruhigen, sauberen Flug.',
+        paxText: '1 PAX (Notarztteam)',
+        cargoPool: ['Kühlbox mit Blutkonserven (18 lbs)', 'Medizinischer Notfallkoffer (22 lbs)'],
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'hoch', comfortPriority: 'hoch' },
+        storyCue: 'Fokus: medizinische Priorität, ruhig und effizient fliegen.'
+    },
+    news_coverage: {
+        id: 'news_coverage',
+        label: 'Reporter-Einsatz',
+        appliesTo: ['apt', 'poi'],
+        roleProfile: 'news_reporter_professional_v1',
+        taskDomain: 'news_coverage',
+        personas: [
+            { name: 'Mara Feld', role: 'Reporterin', gender: 'female', personality: 'neugierig, sachlich, schnell' },
+            { name: 'Timo Berger', role: 'TV-Reporter', gender: 'male', personality: 'präzise, präsent, professionell' }
+        ],
+        greetingText: 'Hi, ich sammle heute O-Töne und Fakten. Gib mir bitte einen stabilen Flug für klare Ansagen.',
+        paxText: '1 PAX (Reporter)',
+        cargoPool: ['Kamera- und Audio-Set (32 lbs)', 'Live-Übertragungsrucksack (26 lbs)'],
+        tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel' },
+        storyCue: 'Fokus: nüchterne Beobachtung und klare Lageeinschätzung.'
+    },
+    sightseeing_tour: {
+        id: 'sightseeing_tour',
+        label: 'Sightseeing',
+        appliesTo: ['apt', 'poi'],
+        roleProfile: 'tour_guide_relaxed_v1',
+        taskDomain: 'sightseeing_tour',
+        personas: [
+            { name: 'Sophie Lang', role: 'Tour-Guide', gender: 'female', personality: 'freundlich, gelassen, kommunikativ' },
+            { name: 'Felix Braun', role: 'Stadtführer', gender: 'male', personality: 'locker, charmant, aufmerksam' }
+        ],
+        greetingText: 'Hi, heute gehts um entspannten Ausblick. Bitte eher weich fliegen, damit alle die Aussicht genießen.',
+        paxText: '2 PAX (Sightseeing-Gäste)',
+        cargoPool: ['Kleine Kamerataschen (12 lbs)', 'Tagesrucksäcke (15 lbs)'],
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'hoch', comfortPriority: 'hoch' },
+        storyCue: 'Fokus: ruhiger Rundflug mit angenehmem Tempo.'
+    },
+    mapping_survey: {
+        id: 'mapping_survey',
+        label: 'Mapping/Survey',
+        appliesTo: ['poi'],
+        roleProfile: 'photogrammetry_precision_v1',
+        taskDomain: 'mapping_survey',
+        personas: [
+            { name: 'Nina Eckert', role: 'Geodatentechnikerin', gender: 'female', personality: 'strukturiert, präzise, ruhig' },
+            { name: 'David Kern', role: 'Vermessungstechniker', gender: 'male', personality: 'genau, konzentriert, sachlich' }
+        ],
+        greetingText: 'Hi, ich brauche heute reproduzierbare Linien und einen ruhigen Plattformflug für saubere Daten.',
+        paxText: '1 PAX (Survey-Technik)',
+        cargoPool: ['Lidar-Scanner (65 lbs)', 'Photogrammetrie-Kamera (34 lbs)'],
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'mittel', comfortPriority: 'hoch' },
+        storyCue: 'Fokus: stabile Fluglage und präzise Passes.'
+    },
+    cargo_fragile: {
+        id: 'cargo_fragile',
+        label: 'Fragile Fracht',
+        appliesTo: ['apt'],
+        roleProfile: 'cargo_fragile_highcare_v1',
+        taskDomain: 'cargo_fragile',
+        personas: [
+            { name: 'Miriam Stahl', role: 'Logistik-Kurierin', gender: 'female', personality: 'gewissenhaft, direkt, professionell' },
+            { name: 'Ralf König', role: 'Frachtbegleiter', gender: 'male', personality: 'ruhig, organisiert, präzise' }
+        ],
+        greetingText: 'Hi, die Ladung ist empfindlich. Bitte möglichst ruhig und ohne harte Manöver.',
+        paxText: '1 PAX (Frachtbegleitung)',
+        cargoPool: ['Präzisionsoptik im Stoßschutz-Case (28 lbs)', 'Laborgerät in Schutzverpackung (35 lbs)'],
+        tolerances: { gTolerance: 'mittel', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'mittel', comfortPriority: 'hoch' },
+        storyCue: 'Fokus: sichere, erschütterungsarme Frachtführung.'
+    },
+    search_and_rescue: {
+        id: 'search_and_rescue',
+        label: 'Search and Rescue',
+        appliesTo: ['poi'],
+        roleProfile: 'rescue_coordination_v1',
+        taskDomain: 'search_and_rescue',
+        personas: [
+            { name: 'Lea Winter', role: 'SAR-Koordinatorin', gender: 'female', personality: 'klar, belastbar, fokussiert' },
+            { name: 'Jan Ritter', role: 'Rettungskoordinator', gender: 'male', personality: 'ruhig, strukturiert, entschlossen' }
+        ],
+        greetingText: 'Hi, wir arbeiten heute nach Suchmuster und klaren Calls. Stabilität und Übersicht sind entscheidend.',
+        paxText: '1 PAX (SAR-Koordination)',
+        cargoPool: ['Optik- und SAR-Kit (24 lbs)', 'Signalmittel und Kartenpaket (16 lbs)'],
+        tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel' },
+        storyCue: 'Fokus: Suchmuster, Lagebild und sichere Durchführung.'
+    },
+    fire_watch: {
+        id: 'fire_watch',
+        label: 'Fire Watch',
+        appliesTo: ['poi'],
+        roleProfile: 'fire_observer_ops_v1',
+        taskDomain: 'fire_watch',
+        personas: [
+            { name: 'Klara Stein', role: 'Brandbeobachterin', gender: 'female', personality: 'sachlich, wachsam, präzise' },
+            { name: 'Markus Adler', role: 'Einsatzbeobachter', gender: 'male', personality: 'ruhig, analytisch, professionell' }
+        ],
+        greetingText: 'Hi, wir halten heute nach Rauchfahnen und Hotspots Ausschau. Bitte möglichst sauber und stabil fliegen.',
+        paxText: '1 PAX (Brandbeobachtung)',
+        cargoPool: ['IR-Kamera und Tablet (21 lbs)', 'Feuerlage-Mapset (10 lbs)'],
+        tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel' },
+        storyCue: 'Fokus: Frühwarnung, Hotspots und klare Meldungen.'
+    },
+    animal_transport: {
+        id: 'animal_transport',
+        label: 'Tiertransport',
+        appliesTo: ['apt'],
+        roleProfile: 'general_passenger_v1',
+        taskDomain: 'animal_transport',
+        personas: [
+            { name: 'Eva Maurer', role: 'Tierpflegerin', gender: 'female', personality: 'einfühlsam, organisiert, ruhig' },
+            { name: 'Tom Falk', role: 'Tierschutz-Kurier', gender: 'male', personality: 'ruhig, verantwortungsvoll, freundlich' }
+        ],
+        greetingText: 'Hi, wir haben heute Tiere an Bord. Bitte möglichst ruhig fliegen, damit sie entspannt bleiben.',
+        paxText: '1 PAX (Tierbegleitung)',
+        cargoPool: ['Transportboxen mit Tierschutzbedarf (30 lbs)', 'Veterinärtasche und Tierfutter (18 lbs)'],
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'hoch', comfortPriority: 'hoch' },
+        storyCue: 'Fokus: stressarme Beförderung für Tiere.'
+    }
+};
+
+function getMissionTaskProfile(profileId, baseType) {
+    const id = String(profileId || 'auto').toLowerCase();
+    const mode = String(baseType || '').toLowerCase();
+    const profile = MISSION_ROLE_TASK_PROFILES[id] || MISSION_ROLE_TASK_PROFILES.auto;
+    if (!profile) return null;
+    if (!Array.isArray(profile.appliesTo) || profile.appliesTo.includes(mode)) return profile;
+    return MISSION_ROLE_TASK_PROFILES.auto;
 }
 
 function _missionPickerMode() {
@@ -2546,6 +2702,100 @@ async function fetchMissionWeatherSnapshot(icao, lat, lon) {
 
 function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) {
     if (!passenger || typeof passenger !== 'object') return passenger;
+    const ROLE_PROFILE_VALUES = new Set([
+        'general_passenger_v1',
+        'instructor_calm_precise_v1',
+        'charter_professional_neutral_v1',
+        'technical_inspector_v1',
+        'media_observer_v1',
+        'science_field_v1',
+        'vip_business_v1',
+        'club_utility_v1',
+        'medical_sensitive_v1',
+        'news_reporter_professional_v1',
+        'tour_guide_relaxed_v1',
+        'photogrammetry_precision_v1',
+        'cargo_fragile_highcare_v1',
+        'rescue_coordination_v1',
+        'fire_observer_ops_v1',
+        'club_student_v1'
+    ]);
+    const TASK_DOMAIN_VALUES = new Set([
+        'general',
+        'training',
+        'charter',
+        'inspection_infra',
+        'media_photo',
+        'science_bio',
+        'science_geo',
+        'science_general',
+        'club_utility',
+        'medical_transfer',
+        'news_coverage',
+        'sightseeing_tour',
+        'mapping_survey',
+        'cargo_fragile',
+        'search_and_rescue',
+        'fire_watch',
+        'animal_transport',
+        'club_training_basic',
+        'club_training_advanced'
+    ]);
+    const _normRoleProfile = (v, fallback = 'general_passenger_v1') => {
+        const s = String(v || '').trim().toLowerCase();
+        return ROLE_PROFILE_VALUES.has(s) ? s : fallback;
+    };
+    const _normTaskDomain = (v, fallback = 'general') => {
+        const s = String(v || '').trim().toLowerCase();
+        return TASK_DOMAIN_VALUES.has(s) ? s : fallback;
+    };
+    const _deriveRoleProfileFromRole = (roleRaw, storyRaw) => {
+        const hay = `${String(roleRaw || '').toLowerCase()} ${String(storyRaw || '').toLowerCase()}`;
+        if (/(fluglehrer|fluglehrerin|instructor|instruktor|checkpilot)/.test(hay)) return 'instructor_calm_precise_v1';
+        if (/(notarzt|notaerzt|sanitaet|rettung|mediz|arzt)/.test(hay)) return 'medical_sensitive_v1';
+        if (/(report|journal|news|moderator|tv|presse)/.test(hay)) return 'news_reporter_professional_v1';
+        if (/(tour|reiseleitung|stadtfuehr|guide|sightseeing)/.test(hay)) return 'tour_guide_relaxed_v1';
+        if (/(mapping|survey|photogram|lidar|geodaten|vermessung)/.test(hay)) return 'photogrammetry_precision_v1';
+        if (/(fragil|zerbrech|praezision|kunstwerk|laborgeraet|stoßempfind)/.test(hay)) return 'cargo_fragile_highcare_v1';
+        if (/(sar|search|rescue|rettungseinsatz|suchmuster)/.test(hay)) return 'rescue_coordination_v1';
+        if (/(brand|rauch|hotspot|fire watch|waldbrand)/.test(hay)) return 'fire_observer_ops_v1';
+        if (/(flugschueler|schueler|student|ausbildung)/.test(hay)) return 'club_student_v1';
+        if (/(berater|anwalt|architekt|projektleiter|unternehmer|geschaeft|business|vip)/.test(hay)) return 'vip_business_v1';
+        if (/(mechan|wartung|inspekt|techn|vermess|ingenieur|facility|pruef|prüfung|statik)/.test(hay)) return 'technical_inspector_v1';
+        if (/(foto|film|medien|report|journal|immobilien)/.test(hay)) return 'media_observer_v1';
+        if (/(wissenschaft|forschung|biolog|oekolog|ökolog|geolog|hydrolog|meteorolog|kartograf|analyst)/.test(hay)) return 'science_field_v1';
+        if (/(verein|stammtisch|hangar|ersatzteil)/.test(hay)) return 'club_utility_v1';
+        return 'general_passenger_v1';
+    };
+    const _deriveTaskDomain = (roleRaw, storyRaw, roleProfileRaw) => {
+        const roleProfile = _normRoleProfile(roleProfileRaw, '');
+        if (roleProfile === 'instructor_calm_precise_v1') return 'training';
+        if (roleProfile === 'charter_professional_neutral_v1') return 'charter';
+        if (roleProfile === 'medical_sensitive_v1') return 'medical_transfer';
+        if (roleProfile === 'news_reporter_professional_v1') return 'news_coverage';
+        if (roleProfile === 'tour_guide_relaxed_v1') return 'sightseeing_tour';
+        if (roleProfile === 'photogrammetry_precision_v1') return 'mapping_survey';
+        if (roleProfile === 'cargo_fragile_highcare_v1') return 'cargo_fragile';
+        if (roleProfile === 'rescue_coordination_v1') return 'search_and_rescue';
+        if (roleProfile === 'fire_observer_ops_v1') return 'fire_watch';
+        if (roleProfile === 'club_student_v1') return 'club_training_basic';
+        const hay = `${String(roleRaw || '').toLowerCase()} ${String(storyRaw || '').toLowerCase()}`;
+        if (/(notarzt|notaerzt|mediz|sanitaet|blutkonserve|klinik|patient)/.test(hay)) return 'medical_transfer';
+        if (/(report|news|presse|tv|journal|moderator)/.test(hay)) return 'news_coverage';
+        if (/(sightseeing|tour|stadtfuehr|ausflug|panorama)/.test(hay)) return 'sightseeing_tour';
+        if (/(mapping|survey|photogram|lidar|geodaten|kartier)/.test(hay)) return 'mapping_survey';
+        if (/(fragil|zerbrech|praezision|kunstwerk|stoß|stoss|erschuetter)/.test(hay)) return 'cargo_fragile';
+        if (/(sar|search|rescue|rettung|suchmuster|vermisst)/.test(hay)) return 'search_and_rescue';
+        if (/(brand|rauch|hotspot|waldbrand|feuerwacht)/.test(hay)) return 'fire_watch';
+        if (/(tiertransport|tierschutz|welpen|katze|hund|tierarzt|animal)/.test(hay)) return 'animal_transport';
+        if (/(biolog|oekolog|ökolog|ornitholog|naturschutz|umwelt)/.test(hay)) return 'science_bio';
+        if (/(geolog|hydrolog|erosion|hangstabil|gestein|sediment|rutsch)/.test(hay)) return 'science_geo';
+        if (/(wissenschaft|forschung|meteorolog|kartograf|analyst)/.test(hay)) return 'science_general';
+        if (/(inspekt|wartung|techn|vermess|brueck|bruck|autobahn|strass|funk|mast|damm|talsperre)/.test(hay)) return 'inspection_infra';
+        if (/(foto|film|medien|immobilien|report|journal)/.test(hay)) return 'media_photo';
+        if (/(verein|stammtisch|ersatzteil|mechaniker|hangar)/.test(hay)) return 'club_utility';
+        return 'general';
+    };
     const _normLevel = (v, fallback = 'mittel') => {
         const s = String(v || '').trim().toLowerCase();
         return (s === 'niedrig' || s === 'mittel' || s === 'hoch') ? s : fallback;
@@ -2558,6 +2808,14 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
     };
     const normalized = {
         ...passenger,
+        roleProfile: _normRoleProfile(
+            passenger.roleProfile,
+            _deriveRoleProfileFromRole(passenger.role, passenger.storyHint)
+        ),
+        taskDomain: _normTaskDomain(
+            passenger.taskDomain,
+            _deriveTaskDomain(passenger.role, passenger.storyHint, passenger.roleProfile)
+        ),
         targetAltFt: Number(passenger.targetAltFt) || 0,
         targetRadiusNm: Number(passenger.targetRadiusNm) || 0,
         targetDwellMin: Number(passenger.targetDwellMin) || 0,
@@ -2674,6 +2932,7 @@ function buildInstructorPassenger(trainingPlan = null) {
         targetRadiusNm: 0,
         targetDwellMin: 0,
         roleProfile: 'instructor_calm_precise_v1',
+        taskDomain: 'training',
         trainingPlan: sanitizeTrainingPlan(trainingPlan, true)
     };
 }
@@ -2717,11 +2976,129 @@ function buildCharterPassenger(basePassenger = null) {
         stomachSensitivity: String(base.stomachSensitivity || 'mittel').toLowerCase(),
         comfortPriority: String(base.comfortPriority || 'mittel').toLowerCase(),
         roleProfile: 'charter_professional_neutral_v1',
+        taskDomain: 'charter',
         targetAltFt: 0,
         targetRadiusNm: 0,
         targetDwellMin: 0,
         trainingPlan: null
     };
+}
+
+function _pickRandomProfilePersona(profileSpec) {
+    const list = Array.isArray(profileSpec?.personas) ? profileSpec.personas.filter(Boolean) : [];
+    if (!list.length) return null;
+    return { ...list[Math.floor(Math.random() * list.length)] };
+}
+
+function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, isPOI = false, storyHint = '') {
+    if (!profileSpec || !profileSpec.id || profileSpec.id === 'auto') {
+        return (basePassenger && typeof basePassenger === 'object') ? basePassenger : null;
+    }
+    const base = (basePassenger && typeof basePassenger === 'object') ? basePassenger : {};
+    const persona = _pickRandomProfilePersona(profileSpec) || {};
+    const tol = profileSpec.tolerances || {};
+    const merged = {
+        ...base,
+        name: String(persona.name || base.name || '').trim() || 'Alex Neumann',
+        role: String(persona.role || base.role || '').trim() || 'Passagier',
+        gender: (String(persona.gender || base.gender || '').toLowerCase() === 'female') ? 'female' : 'male',
+        personality: String(persona.personality || base.personality || 'ruhig, freundlich, professionell').trim(),
+        dialectHint: 'neutral',
+        greetingText: String(profileSpec.greetingText || base.greetingText || '').trim() || 'Hi, danke fürs Fliegen heute.',
+        roleProfile: String(profileSpec.roleProfile || base.roleProfile || 'general_passenger_v1').toLowerCase(),
+        taskDomain: String(profileSpec.taskDomain || base.taskDomain || 'general').toLowerCase(),
+        gTolerance: String(tol.gTolerance || base.gTolerance || 'mittel').toLowerCase(),
+        bankTolerance: String(tol.bankTolerance || base.bankTolerance || 'mittel').toLowerCase(),
+        cargoSensitivity: String(tol.cargoSensitivity || base.cargoSensitivity || 'mittel').toLowerCase(),
+        stomachSensitivity: String(tol.stomachSensitivity || base.stomachSensitivity || 'mittel').toLowerCase(),
+        comfortPriority: String(tol.comfortPriority || base.comfortPriority || 'mittel').toLowerCase(),
+        targetAltFt: isPOI ? Number(base.targetAltFt || 0) : 0,
+        targetRadiusNm: isPOI ? Number(base.targetRadiusNm || 0) : 0,
+        targetDwellMin: isPOI ? Number(base.targetDwellMin || 0) : 0,
+        trainingPlan: null,
+        storyHint: String(storyHint || '')
+    };
+    return merged;
+}
+
+function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, cargoText) {
+    const m = (mission && typeof mission === 'object') ? { ...mission } : {};
+    const baseType = isPOI ? 'poi' : 'apt';
+    const profile = getMissionTaskProfile(profileId, baseType);
+    if (!profile || profile.id === 'auto') {
+        return { mission: m, paxText, cargoText, appliedProfile: 'auto' };
+    }
+
+    const passenger = buildMissionProfilePassenger(m.passenger || null, profile, isPOI, m.s || '');
+    if (passenger) {
+        m.passenger = passenger;
+    }
+    if (profile.paxText) {
+        paxText = profile.paxText;
+    } else if (m.passenger?.role) {
+        paxText = `1 PAX (${m.passenger.role})`;
+    }
+    const cargoPool = Array.isArray(profile.cargoPool) ? profile.cargoPool.filter(Boolean) : [];
+    if (cargoPool.length) cargoText = cargoPool[Math.floor(Math.random() * cargoPool.length)];
+    if (profile.storyCue) {
+        const cue = String(profile.storyCue).trim();
+        const story = String(m.s || '').trim();
+        if (cue && story && !story.toLowerCase().includes(cue.toLowerCase())) {
+            m.s = `${story} ${cue}`.trim();
+        } else if (cue && !story) {
+            m.s = cue;
+        }
+    }
+    m.profileId = profile.id;
+    return { mission: m, paxText, cargoText, appliedProfile: profile.id };
+}
+
+function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'all', selectedPoiCategory = 'all', missionCat = '' } = {}) {
+    const cat = String(missionCat || '').toLowerCase();
+    const aptSel = String(selectedAptCategory || 'all').toLowerCase();
+    const poiSel = String(selectedPoiCategory || 'all').toLowerCase();
+    const weighted = [];
+    const pushMany = (id, n) => { for (let i = 0; i < n; i++) weighted.push(id); };
+
+    if (isPOI) {
+        if (poiSel === 'trn' || cat === 'trn') return 'auto';
+        // POI Default-Mix
+        pushMany('mapping_survey', 3);
+        pushMany('news_coverage', 2);
+        pushMany('search_and_rescue', 2);
+        pushMany('fire_watch', 2);
+        pushMany('sightseeing_tour', 1);
+        // Category-bias
+        if (/(bridge|road|telecom|industry|dam)/.test(poiSel + ' ' + cat)) {
+            pushMany('mapping_survey', 2);
+            pushMany('news_coverage', 1);
+        }
+        if (/(water|mountain|generic)/.test(poiSel + ' ' + cat)) {
+            pushMany('search_and_rescue', 1);
+            pushMany('fire_watch', 1);
+        }
+    } else {
+        if (aptSel === 'trn' || cat === 'trn') return 'auto';
+        if (aptSel === 'charter' || cat === 'charter') return 'auto';
+        // APT Default-Mix
+        pushMany('sightseeing_tour', 3);
+        pushMany('news_coverage', 2);
+        pushMany('cargo_fragile', 2);
+        pushMany('animal_transport', 2);
+        pushMany('medical_transfer', 1);
+        // Category-bias
+        if (aptSel === 'cargo' || cat === 'cargo') {
+            pushMany('cargo_fragile', 4);
+            pushMany('medical_transfer', 1);
+        }
+        if (aptSel === 'private' || aptSel === 'club' || cat === 'std' || cat === 'club') {
+            pushMany('sightseeing_tour', 2);
+            pushMany('animal_transport', 1);
+        }
+    }
+
+    if (!weighted.length) return 'auto';
+    return weighted[Math.floor(Math.random() * weighted.length)] || 'auto';
 }
 
 function _pickUniqueTrainingItems(pool, count, used = new Set()) {
@@ -2849,11 +3226,12 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         "Tierrettung / Tiertransport"
     ];
 
-    const missionSel = missionPicker || { baseType: isPOI ? 'poi' : 'apt', category: 'all' };
+    const missionSel = missionPicker || { baseType: isPOI ? 'poi' : 'apt', category: 'all', profile: 'auto' };
     const isAptTrainingMission = !isPOI && missionSel.baseType === 'apt' && missionSel.category === 'trn';
     const isAptCharterMission = !isPOI && missionSel.baseType === 'apt' && missionSel.category === 'charter';
     const isPoiTrainingMission = isPOI && missionSel.baseType === 'poi' && missionSel.category === 'trn';
     const isTrainingMission = isAptTrainingMission || isPoiTrainingMission;
+    const forcedProfile = getMissionTaskProfile(missionSel.profile || 'auto', isPOI ? 'poi' : 'apt');
     const poiThemesByCat = {
         bridge: ["Infrastruktur-Inspektion (Brücke/Viadukt)"],
         road: ["Infrastruktur-Inspektion (Straßen/Autobahnknoten)"],
@@ -2914,12 +3292,23 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const targetMissionCat = (missionSel.category && missionSel.category !== 'all')
         ? missionSel.category
         : (isPOI ? 'poi' : 'std');
+    const forcedProfileRule = (forcedProfile && forcedProfile.id !== 'auto')
+        ? `14. PROFIL-FIX (zwingend): Setze passenger.roleProfile auf "${forcedProfile.roleProfile}" und passenger.taskDomain auf "${forcedProfile.taskDomain}". Rolle/Story daran ausrichten: ${forcedProfile.label}.`
+        : '';
 
-    const sanitizePassengerProfile = (passenger) => {
+    const sanitizePassengerProfile = (passenger, storyText = '') => {
         if (!passenger || typeof passenger !== 'object') return null;
-        const normalized = enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt);
+        const normalized = enforcePoiPassengerAltitudeRule({ ...passenger, storyHint: String(storyText || '') }, isPOI, poiTerrainFt);
         if (!normalized || typeof normalized !== 'object') return normalized;
+        delete normalized.storyHint;
         normalized.trainingPlan = sanitizeTrainingPlan(passenger.trainingPlan, isTrainingMission);
+        if (isTrainingMission) {
+            normalized.roleProfile = 'instructor_calm_precise_v1';
+            normalized.taskDomain = 'training';
+        } else if (isAptCharterMission) {
+            normalized.roleProfile = 'charter_professional_neutral_v1';
+            normalized.taskDomain = 'charter';
+        }
         if (normalized.trainingPlan) {
             normalized.targetAltFt = 0;
             normalized.targetRadiusNm = 0;
@@ -2971,7 +3360,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             bankTolerance: String(aiPassenger.bankTolerance || personaPassenger.bankTolerance || 'mittel').toLowerCase(),
             cargoSensitivity: String(aiPassenger.cargoSensitivity || personaPassenger.cargoSensitivity || 'niedrig').toLowerCase(),
             stomachSensitivity: String(aiPassenger.stomachSensitivity || personaPassenger.stomachSensitivity || 'mittel').toLowerCase(),
-            comfortPriority: String(aiPassenger.comfortPriority || personaPassenger.comfortPriority || 'mittel').toLowerCase()
+            comfortPriority: String(aiPassenger.comfortPriority || personaPassenger.comfortPriority || 'mittel').toLowerCase(),
+            roleProfile: 'instructor_calm_precise_v1',
+            taskDomain: 'training'
         };
         return normalized;
     };
@@ -3037,6 +3428,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
        - cargoSensitivity: wie empfindlich reagiert der Passagier auf Bewegung in Bezug auf die Fracht? ('niedrig'|'mittel'|'hoch')
        - stomachSensitivity: wie empfindlich ist der Passagier gegenüber Turbulenz/Manövern? ('niedrig'|'mittel'|'hoch')
        - comfortPriority: wie wichtig ist insgesamt ruhiges Fliegen in dieser Mission? ('niedrig'|'mittel'|'hoch')
+       - roleProfile: Wähle GENAU einen Wert aus dieser Liste:
+         ["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1"]
+       - taskDomain: Wähle GENAU einen Wert aus dieser Liste:
+         ["general","training","charter","inspection_infra","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced"]
        Nutze dafür den vollen Kontext (Rolle, Auftrag, Art der Fracht, Wetter, Missionsziel), keine starre Liste. ${poiAltRule}
     8. AKTUELLES WETTER (als Realitätsanker einbauen, aber ohne überdramatisieren):
        Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
@@ -3048,6 +3443,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     9b. NAMENS-REGEL: Keine zusätzlichen Eigennamen im Briefing erfinden. Sprich den Piloten nur als "du" an, nie mit Namen.
     ${trainingHardRules}
     ${poiNoTrainingRule}
+    ${forcedProfileRule}
 
     Antworte AUSSCHLIESSLICH als JSON. Keine Markdown-Formatierung.
     Struktur: {
@@ -3055,7 +3451,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         "story": "Das Briefing (max 3-4 Sätze, lockerer Ton)",
         "pax": "z.B. '2 PAX (Fotograf & Assistent)' oder '0 PAX'",
         "cargo": "z.B. 'Kamera-Gimbal (80 lbs)' oder 'Reisegepäck (40 lbs)'",
-        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "dialectHint": "neutral oder leicht regional", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "cargoSensitivity": "niedrig|mittel|hoch", "stomachSensitivity": "niedrig|mittel|hoch", "comfortPriority": "niedrig|mittel|hoch", "targetAltFt": 3500, "targetRadiusNm": 3.0, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten", "trainingPlan": { "mode": "airwork|pattern", "trigger": "half_route|five_nm_before_landing", "focus": ["Übung 1", "Übung 2"], "instructorLine": "Kurze konkrete Instruktoranweisung" } }
+        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "dialectHint": "neutral oder leicht regional", "roleProfile": "aus erlaubter Liste", "taskDomain": "aus erlaubter Liste", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "cargoSensitivity": "niedrig|mittel|hoch", "stomachSensitivity": "niedrig|mittel|hoch", "comfortPriority": "niedrig|mittel|hoch", "targetAltFt": 3500, "targetRadiusNm": 3.0, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten", "trainingPlan": { "mode": "airwork|pattern", "trigger": "half_route|five_nm_before_landing", "focus": ["Übung 1", "Übung 2"], "instructorLine": "Kurze konkrete Instruktoranweisung" } }
     }`;
 
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
@@ -3067,7 +3463,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             const data = await resFlash3.json();
             const parsed = sanitizeMissionPayloadText(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text))));
             incrementApiUsage('flash');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: targetMissionCat, _source: "Gemini 3.0 Flash" };
+            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger, parsed.story), i: "📋", cat: targetMissionCat, _source: "Gemini 3.0 Flash" };
         }
     } catch (e) { }
 
@@ -3077,7 +3473,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             const data = await resFlash.json();
             const parsed = sanitizeMissionPayloadText(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text))));
             incrementApiUsage('flash');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash" };
+            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger, parsed.story), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash" };
         }
     } catch (e) { }
 
@@ -3087,7 +3483,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             const data = await resLite.json();
             const parsed = sanitizeMissionPayloadText(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text))));
             incrementApiUsage('lite');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash Lite" };
+            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger, parsed.story), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash Lite" };
         }
     } catch (e) { }
     return null;
@@ -3944,6 +4340,7 @@ async function generateMission() {
     const effectiveType = (forcePOI || missionPicker.baseType === "poi") ? "poi" : "apt";
     const selectedPoiCategory = effectiveType === 'poi' ? (missionPicker.category || 'all') : 'all';
     const selectedAptCategory = effectiveType === 'apt' ? (missionPicker.category || 'all') : 'all';
+    const selectedMissionProfile = String(missionPicker.profile || 'auto').toLowerCase();
     // Guardrail: Bei POI-Missionen darf ein evtl. noch befülltes Zielfeld
     // (z.B. vom vorherigen A-B-Flug) NICHT als Ziel ausgewertet werden.
     if (effectiveType === "poi" && targetDest) {
@@ -4041,6 +4438,7 @@ async function generateMission() {
 
     indicator.innerText = `Kontaktiere KI-Dispatcher...`;
     let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt, missionWeather, missionPicker);
+    let missionFromLocalFallback = false;
     _ensureDispatchAlive();
 
     if (m) {
@@ -4048,6 +4446,7 @@ async function generateMission() {
         if (m.pax) paxText = m.pax;
         if (m.cargo) cargoText = m.cargo;
     } else {
+        missionFromLocalFallback = true;
         indicator.innerText = `Lade Auftrag aus lokaler Datenbank...`;
         dataSource = "Lokale DB";
         if (isPOI) {
@@ -4071,6 +4470,10 @@ async function generateMission() {
             // A->B-Missionen gleichmäßig über Kategorien rotieren (inkl. Trainingsflüge).
             const availM = missions.filter(ms => {
                 if (!ms || ms.cat === 'poi') return false;
+                if (selectedMissionProfile !== 'auto' && selectedAptCategory === 'all') {
+                    const inferred = classifyAptMissionCategory(ms);
+                    if (inferred === 'trn') return false;
+                }
                 if (selectedAptCategory === 'all') return true;
                 return classifyAptMissionCategory(ms) === selectedAptCategory;
             });
@@ -4134,12 +4537,31 @@ async function generateMission() {
     }
     if (!isPOI && selectedAptCategory === 'cargo') paxText = "0 PAX";
     if (!isPOI && selectedAptCategory === 'trn') paxText = "1 PAX (Instruktor)";
+    {
+        const autoProfileId = (selectedMissionProfile === 'auto' && missionFromLocalFallback)
+            ? pickAutoMissionTaskProfileId({
+                isPOI,
+                selectedAptCategory,
+                selectedPoiCategory,
+                missionCat: String(m?.cat || '')
+            })
+            : 'auto';
+        const effectiveProfileId = (selectedMissionProfile === 'auto') ? autoProfileId : selectedMissionProfile;
+        const profApplied = applyMissionTaskProfileToMission(m, isPOI, effectiveProfileId, paxText, cargoText);
+        m = profApplied.mission || m;
+        paxText = profApplied.paxText || paxText;
+        cargoText = profApplied.cargoText || cargoText;
+        m._requestedProfile = selectedMissionProfile;
+        m._appliedProfile = profApplied.appliedProfile || effectiveProfileId || 'auto';
+    }
     _ensureDispatchAlive();
 
     const poolCategory = isPOI ? (dest.poiCategory || classifyPOITitleCategory(dest.n)) : (m?.cat || 'std');
     const dispatchSnapshot = {
         mode: isPOI ? 'POI' : 'A-B',
         category: poolCategory,
+        profile: m?._requestedProfile || selectedMissionProfile || 'auto',
+        appliedProfile: m?._appliedProfile || 'auto',
         mission: m?.t || 'n/a',
         target: dest?.n || 'n/a'
     };
@@ -4169,6 +4591,8 @@ async function generateMission() {
             ts: Date.now(),
             mode: dispatchSnapshot.mode,
             category: dispatchSnapshot.category,
+            profile: dispatchSnapshot.profile,
+            appliedProfile: dispatchSnapshot.appliedProfile,
             mission: dispatchSnapshot.mission,
             target: dispatchSnapshot.target,
             source: m?._source || dataSource || 'n/a',
@@ -4178,6 +4602,8 @@ async function generateMission() {
             passenger: {
                 name: p.name || null,
                 role: p.role || null,
+                roleProfile: p.roleProfile || 'general_passenger_v1',
+                taskDomain: p.taskDomain || 'general',
                 gTolerance: p.gTolerance || 'mittel',
                 bankTolerance: p.bankTolerance || 'mittel',
                 cargoSensitivity: p.cargoSensitivity || 'mittel',

@@ -305,6 +305,36 @@ function _getDestCoords() {
     return null;
 }
 
+function _normTaskDomain(value) {
+    const s = String(value || '').trim().toLowerCase();
+    const allowed = new Set([
+        'general',
+        'training',
+        'charter',
+        'inspection_infra',
+        'media_photo',
+        'science_bio',
+        'science_geo',
+        'science_general',
+        'club_utility',
+        'medical_transfer',
+        'news_coverage',
+        'sightseeing_tour',
+        'mapping_survey',
+        'cargo_fragile',
+        'search_and_rescue',
+        'fire_watch',
+        'animal_transport',
+        'club_training_basic',
+        'club_training_advanced'
+    ]);
+    return allowed.has(s) ? s : 'general';
+}
+
+function _activeTaskDomain() {
+    return _normTaskDomain(window.activePassenger?.taskDomain || '');
+}
+
 function _inspectionMissionMeta() {
     if (!_isPOIMission()) return null;
     const pax = window.activePassenger || {};
@@ -313,7 +343,10 @@ function _inspectionMissionMeta() {
     const title = String(md.mission || '').toLowerCase();
     const story = String(_getMissionStory() || '').toLowerCase();
     const hay = `${role} ${title} ${story}`;
-    const isInspection = /(inspekt|pruef|prüfung|wartung|techn|statik|vermess|scan|check|schaden|fuge|mast|abspannung|brueck|bruck|autobahn|strass|funk|sendemast|stausee|staudamm|talsperre|wehr|sperrmauer)/.test(hay);
+    const taskDomain = _activeTaskDomain();
+    const isInspectionByDomain = taskDomain === 'inspection_infra';
+    const isInspectionByFallback = /(inspekt|pruef|prüfung|wartung|techn|statik|vermess|scan|check|schaden|fuge|mast|abspannung|brueck|bruck|autobahn|strass|funk|sendemast|stausee|staudamm|talsperre|wehr|sperrmauer)/.test(hay);
+    const isInspection = isInspectionByDomain || isInspectionByFallback;
     if (!isInspection) return null;
     return {
         objectName: md.poiName || 'dem Objekt',
@@ -357,6 +390,35 @@ function _professionalRoleMeta() {
     const story = String(_getMissionStory() || '').toLowerCase();
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
     const objectName = md.poiName || 'dem Zielobjekt';
+    const taskDomain = _activeTaskDomain();
+
+    if (taskDomain === 'media_photo' || taskDomain === 'inspection_infra' || taskDomain === 'training' || taskDomain === 'charter' || taskDomain === 'club_utility') {
+        return null;
+    }
+    if (taskDomain === 'science_bio') {
+        return {
+            field: 'Biologie',
+            entry: ` Nenne kurz, welche Arten/Indikatoren du an "${objectName}" beobachtest (z.B. Vogelkolonien, Ufervegetation, Stoerfaktoren).`,
+            progress: ` Gib einen kurzen biologischen Zwischenstand zu "${objectName}" (Bestand, Aktivitaet, Auffaelligkeiten).`,
+            result: ` Schließe mit einem biologischen Kurzfazit zu "${objectName}" ab (z.B. unauffaellig, Belastungshinweis, weiterer Beobachtungsbedarf).`
+        };
+    }
+    if (taskDomain === 'science_geo') {
+        return {
+            field: 'Geowissenschaft',
+            entry: ` Nenne kurz, welche geologischen Merkmale du an "${objectName}" prüfst (z.B. Erosion, Bruchkanten, Hangstabilitaet, Sedimente).`,
+            progress: ` Gib einen kurzen geologischen Zwischenstand zu "${objectName}" (stabil, Erosionsspuren, Verdachtsstelle).`,
+            result: ` Schließe mit einem geologischen Kurzfazit zu "${objectName}" ab und nenne ggf. Bedarf fuer Nachmessung.`
+        };
+    }
+    if (taskDomain === 'science_general') {
+        return {
+            field: 'Forschung',
+            entry: ` Nenne kurz, welche Mess-/Beobachtungsaufgabe du an "${objectName}" durchführst.`,
+            progress: ` Gib einen knappen fachlichen Zwischenstand (Datenguete, erste Beobachtung, offene Punkte).`,
+            result: ` Schließe mit einem knappen fachlichen Ergebnis und dem naechsten sinnvollen Schritt ab.`
+        };
+    }
 
     if (/(biolog|oekolog|ökolog|ornitholog|umwelt|naturwacht|naturschutz)/.test(role + ' ' + story)) {
         return {
@@ -883,7 +945,8 @@ async function _speakAndShowNow(situationPrompt, eventLabel) {
         name: pax.name || '',
         role: pax.role || '',
         gender: pax.gender || '',
-        roleProfile: pax.roleProfile || ''
+        roleProfile: pax.roleProfile || '',
+        taskDomain: pax.taskDomain || ''
     } : null;
 
     _paxLog(`── ${eventLabel} ──`, 'event');
@@ -945,6 +1008,7 @@ STIL: ${roleStyle}
 ${trainingDiscipline}
 REGION: ${dialectProfile.regionLabel} · Wortwahl ${dialectProfile.dialectHint} (${dialectProfile.strengthLabel})
 REGELN: ${_dialectGlobalRules(dialectProfile, pax.role)}
+TASK-DOMAIN: ${_activeTaskDomain()}
 AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).`;
 }
 

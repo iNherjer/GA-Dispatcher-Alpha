@@ -2666,8 +2666,10 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Mission: ${missionSnap.mission || 'n/a'}`);
         lines.push(`- Ziel: ${missionSnap.target || 'n/a'}`);
         lines.push(`- Quelle: ${missionSnap.source || 'n/a'}`);
+        lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
         lines.push(`- PAX/Cargo: ${missionSnap.paxText || 'n/a'} | ${missionSnap.cargoText || 'n/a'}`);
         lines.push(`- Passenger: ${p.name || '?'} (${p.role || '?'})`);
+        lines.push(`- Role/Task: ${p.roleProfile || 'general_passenger_v1'} | ${p.taskDomain || 'general'}`);
         lines.push(`- Toleranzen: g=${p.gTolerance || 'mittel'} | bank=${p.bankTolerance || 'mittel'}`);
         lines.push(`- Sensitivität: cargo=${p.cargoSensitivity || 'mittel'} | magen=${p.stomachSensitivity || 'mittel'} | comfortPriority=${p.comfortPriority || 'mittel'}`);
         lines.push(`- POI-Parameter: alt=${Number(p.targetAltFt || 0)} ft | radius=${Number(p.targetRadiusNm || 0)} NM | dwell=${Number(p.targetDwellMin || 0)} min`);
