@@ -559,6 +559,109 @@ function buildOfflineAptMissionPool(selectedAptCategory = 'all', dispatchProfile
     return [...combined, ...topup].slice(0, 6);
 }
 
+function _offlinePoiCategoryFallbacks(category = 'all', poiName = 'Zielgebiet') {
+    const cat = String(category || 'all').toLowerCase();
+    const n = String(poiName || 'Zielgebiet');
+    const byCat = {
+        bridge: [
+            { t: `Brücken-Inspektion: ${n}`, i: '🌉', cat: 'poi', s: `Ein Technikteam dokumentiert mögliche Schäden an ${n}. Fliege ruhige Passes für klare Sichtfenster.`, payloadText: '1 PAX (Inspektion)', cargoText: 'Kamera-Gimbal (120 lbs)' },
+            { t: `Verkehrsmonitoring: ${n}`, i: '🚦', cat: 'poi', s: `Die Verkehrsleitung benötigt Luftbilder der Verkehrsströme rund um ${n}. Fokus auf Übersicht und saubere Kreise.`, payloadText: '1 PAX (Beobachter)', cargoText: 'Foto-Equipment (45 lbs)' }
+        ],
+        road: [
+            { t: `Trassen-Check: ${n}`, i: '🛣️', cat: 'poi', s: `Für ${n} sollen Engstellen und Baustellen dokumentiert werden. Fliege systematisch entlang der Haupttrasse.`, payloadText: '1 PAX (Straßenbau)', cargoText: 'Dokukit (35 lbs)' },
+            { t: `Stau-Lagebild: ${n}`, i: '🚗', cat: 'poi', s: `Ein Lagezentrum braucht ein aktuelles Verkehrsbild über ${n}. Klare, ruhige Reporting-Passes sind gefragt.`, payloadText: '1 PAX (Lagebeobachtung)', cargoText: 'Live-Link Set (40 lbs)' }
+        ],
+        dam: [
+            { t: `Dammkontrolle: ${n}`, i: '🧱', cat: 'poi', s: `Für ${n} wird eine Luftsichtkontrolle der Bauwerksstruktur angefordert. Bitte stabil und präzise anfliegen.`, payloadText: '1 PAX (Wasserbau)', cargoText: 'Messkoffer (60 lbs)' },
+            { t: `Hochwasser-Scan: ${n}`, i: '💧', cat: 'poi', s: `Die Behörde prüft Überläufe und Uferkanten bei ${n}. Fliege gleichmäßige Linien für belastbare Vergleichsbilder.`, payloadText: '1 PAX (Behörde)', cargoText: 'Sensorpaket (50 lbs)' }
+        ],
+        telecom: [
+            { t: `Funkmast-Prüfung: ${n}`, i: '📡', cat: 'poi', s: `An ${n} stehen Wartungsarbeiten an. Das Team braucht eine Sichtkontrolle aus der Luft vor dem Einsatz.`, payloadText: '1 PAX (Netztechnik)', cargoText: 'Richtantenne (35 lbs)' },
+            { t: `Signalabdeckung: ${n}`, i: '🛰️', cat: 'poi', s: `Die Netzqualität rund um ${n} soll gemessen werden. Halte ruhige Bahnen für konsistente Messreihen.`, payloadText: '1 PAX (Messflug)', cargoText: 'Spektrumanalysator (55 lbs)' }
+        ],
+        industry: [
+            { t: `Anlagen-Dokumentation: ${n}`, i: '🏭', cat: 'poi', s: `Für ${n} werden aktuelle Luftaufnahmen des Anlagenzustands benötigt. Fokus auf strukturierte Überflüge.`, payloadText: '1 PAX (Inspektion)', cargoText: 'Kamera-Set (70 lbs)' },
+            { t: `Sicherheitsbegehung Luft: ${n}`, i: '🦺', cat: 'poi', s: `Das Sicherheitsteam bewertet kritische Bereiche von ${n} aus der Luft. Fliege präzise und ohne Hektik.`, payloadText: '1 PAX (Safety)', cargoText: 'Checklisten & Tablet (20 lbs)' }
+        ],
+        castle: [
+            { t: `Denkmaldoku: ${n}`, i: '🏰', cat: 'poi', s: `Für ${n} werden aktuelle Luftbilder für den Denkmalschutz benötigt. Ruhige Kreise für saubere Perspektiven.`, payloadText: '1 PAX (Denkmalpflege)', cargoText: 'Fotoausrüstung (35 lbs)' },
+            { t: `Tourismus-Aufnahmen: ${n}`, i: '📸', cat: 'poi', s: `Der Tourismusverband plant neues Bildmaterial für ${n}. Fliege einen ruhigen Fotoeinsatz.`, payloadText: '1 PAX (Fotograf)', cargoText: 'Teleobjektive (40 lbs)' }
+        ],
+        water: [
+            { t: `Gewässerbeobachtung: ${n}`, i: '🌊', cat: 'poi', s: `Bei ${n} sollen Wasserstand und Uferentwicklung dokumentiert werden. Fokus auf klare, reproduzierbare Linien.`, payloadText: '1 PAX (Umweltamt)', cargoText: 'Sensorik (45 lbs)' },
+            { t: `Schifffahrtslage: ${n}`, i: '🚢', cat: 'poi', s: `Für ${n} wird ein aktuelles Lagebild der Schifffahrt benötigt. Halte ruhige Beobachtungsmuster.`, payloadText: '1 PAX (Lagezentrum)', cargoText: 'Beobachtungskit (30 lbs)' }
+        ],
+        mountain: [
+            { t: `Topo-Scan: ${n}`, i: '⛰️', cat: 'poi', s: `Für ${n} wird ein Vermessungsflug durchgeführt. Fliege ein sauberes Muster für belastbare Topodaten.`, payloadText: '1 PAX (Vermessung)', cargoText: 'Lidar-Scanner (180 lbs)' },
+            { t: `Forstlage: ${n}`, i: '🌲', cat: 'poi', s: `Im Gebiet ${n} soll der Waldzustand aus der Luft dokumentiert werden. Fokus auf klare Sichtachsen und stabile Höhe.`, payloadText: '1 PAX (Forst)', cargoText: 'Kamera/IR-Kit (65 lbs)' }
+        ],
+        city: [
+            { t: `Stadtlage-Report: ${n}`, i: '🏙️', cat: 'poi', s: `Für ${n} wird ein aktuelles Luft-Lagebild für Planung und Verkehrslenkung benötigt.`, payloadText: '1 PAX (Stadtplanung)', cargoText: 'Dokuset (25 lbs)' },
+            { t: `Event-Überblick: ${n}`, i: '🎤', cat: 'poi', s: `Rund um ${n} soll ein Event aus der Luft beobachtet werden. Ruhige Kreise und klare Meldepunkte.`, payloadText: '1 PAX (Koordination)', cargoText: 'Kamera-Set (30 lbs)' }
+        ],
+        generic: [
+            { t: `POI-Dokumentation: ${n}`, i: '📍', cat: 'poi', s: `Für ${n} wird eine strukturierte Luftdokumentation angefordert. Fliege präzise und stabil.`, payloadText: '1 PAX (Beobachter)', cargoText: 'Kamera-Set (25 lbs)' },
+            { t: `Luftlage vor Ort: ${n}`, i: '🗺️', cat: 'poi', s: `Ein kurzer Lageflug über ${n} soll die aktuelle Situation erfassen.`, payloadText: '1 PAX (Lagebeobachtung)', cargoText: 'Tablet & Karten (15 lbs)' }
+        ]
+    };
+    if (cat === 'all') {
+        return Object.values(byCat).flat().map(x => ({ ...x }));
+    }
+    return (byCat[cat] || byCat.generic || []).map(x => ({ ...x }));
+}
+
+function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet') {
+    const id = String(profileId || 'auto').toLowerCase();
+    const n = String(poiName || 'Zielgebiet');
+    const byProfile = {
+        mapping_survey: [
+            { t: `Mapping-Survey: ${n}`, i: '📏', cat: 'poi', s: `Für ${n} läuft ein Vermessungsflug mit Scan- und Kartierfokus. Fliege reproduzierbare Linien.`, payloadText: '1 PAX (Survey-Technik)', cargoText: 'Lidar-Scanner (180 lbs)' },
+            { t: `Photogrammetrie-Pass: ${n}`, i: '🛰️', cat: 'poi', s: `Ein Team erstellt ein neues Orthofoto-Mosaik von ${n}. Stabilität und exakte Passes sind entscheidend.`, payloadText: '1 PAX (Photogrammetrie)', cargoText: 'Photogrammetrie-Kamera (34 lbs)' }
+        ],
+        news_coverage: [
+            { t: `Reporter-POI: ${n}`, i: '📰', cat: 'poi', s: `Ein Reporterteam beobachtet die Lage rund um ${n} aus der Luft, bevor die Berichterstattung am Boden startet.`, payloadText: '1 PAX (Reporter)', cargoText: 'Live-Übertragungsrucksack (26 lbs)' },
+            { t: `Medienlage: ${n}`, i: '🎥', cat: 'poi', s: `Für ${n} wird eine nüchterne Luftbeobachtung für einen TV-Beitrag benötigt.`, payloadText: '1 PAX (TV-Reporter)', cargoText: 'Kamera- und Audio-Set (32 lbs)' }
+        ],
+        search_and_rescue: [
+            { t: `SAR-Suchmuster: ${n}`, i: '🛟', cat: 'poi', s: `Im Bereich ${n} wird eine vermisste Person gesucht. Fliege ein strukturiertes SAR-Suchmuster und melde Auffälligkeiten sofort.`, payloadText: '1 PAX (SAR-Koordination)', cargoText: 'Optik- und SAR-Kit (24 lbs)' },
+            { t: `Rettungsaufklärung: ${n}`, i: '🚨', cat: 'poi', s: `Für ${n} wird ein Luftlagebild für Rettungskräfte benötigt. Priorität liegt auf klaren Calls und Suchsektoren.`, payloadText: '1 PAX (Rettungskoordinator)', cargoText: 'Signalmittel und Kartenpaket (16 lbs)' }
+        ],
+        fire_watch: [
+            { t: `Fire Watch: ${n}`, i: '🔥', cat: 'poi', s: `Im Gebiet ${n} wird Feuerwacht geflogen. Halte Ausschau nach Rauchfahnen, Hotspots und neuen Brandherden.`, payloadText: '1 PAX (Brandbeobachtung)', cargoText: 'Feuerlage-Mapset (10 lbs)' },
+            { t: `Waldbrand-Frühwarnung: ${n}`, i: '🌲', cat: 'poi', s: `Für ${n} läuft ein Frühwarnflug wegen erhöhter Waldbrandgefahr. Fokus auf Hotspots und klare Meldungen.`, payloadText: '1 PAX (Einsatzbeobachter)', cargoText: 'IR-Kamera und Tablet (21 lbs)' }
+        ],
+        sightseeing_tour: [
+            { t: `Panorama-Rundflug: ${n}`, i: '🌤️', cat: 'poi', s: `Ein ruhiger Sightseeingflug über ${n} mit Fokus auf angenehme Fluglage und gute Aussicht.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Kleine Kamerataschen (12 lbs)' },
+            { t: `Aussichtsflug: ${n}`, i: '🏞️', cat: 'poi', s: `Die Gäste wünschen einen entspannten Rundflug über ${n}, ohne Hektik und mit weichen Manövern.`, payloadText: '2 PAX (Tour-Gäste)', cargoText: 'Tagesrucksäcke (15 lbs)' }
+        ]
+    };
+    return (byProfile[id] || []).map(x => ({ ...x }));
+}
+
+function buildOfflinePoiMissionPool(selectedPoiCategory = 'all', dispatchProfileId = 'auto', poiName = 'Zielgebiet') {
+    const categoryPool = _offlinePoiCategoryFallbacks(selectedPoiCategory, poiName);
+    const profilePool = _offlinePoiProfileFallbacks(dispatchProfileId, poiName);
+    const combined = [...profilePool, ...categoryPool];
+    if (combined.length >= 2) return combined;
+    const topup = _offlinePoiCategoryFallbacks('all', poiName);
+    return [...combined, ...topup].slice(0, 10);
+}
+
+function pickOfflineMissionFromPool(pool = [], historyKey = 'ga_offline_mission_history') {
+    const src = Array.isArray(pool) ? pool.filter(Boolean) : [];
+    if (!src.length) return null;
+    let history = [];
+    try { history = JSON.parse(localStorage.getItem(historyKey) || '[]'); } catch (_) { history = []; }
+    if (!Array.isArray(history)) history = [];
+    const fresh = src.filter(m => !history.includes(String(m.t || '')));
+    const effective = fresh.length ? fresh : src;
+    const pick = effective[Math.floor(Math.random() * effective.length)] || src[0];
+    history.push(String(pick.t || ''));
+    if (history.length > 16) history.shift();
+    try { localStorage.setItem(historyKey, JSON.stringify(history)); } catch (_) {}
+    return pick;
+}
+
 function toggleNotes(event) {
     // Wenn wir auf einen Link, Button oder ein Pin-Icon klicken, umblättern hart blockieren
     if (event && event.target && (
@@ -5124,7 +5227,11 @@ async function generateMission() {
                 cargoText = "Trainingsunterlagen (10 lbs)";
                 dataSource = "Lokale Training DB";
             } else {
-                m = generateDynamicPOIMission(dest.n, maxSeats, dest.poiCategory); paxText = m.payloadText; cargoText = m.cargoText; dataSource = "Wikipedia GeoSearch";
+                const offlinePoiPool = buildOfflinePoiMissionPool(selectedPoiCategory, dispatchProfileId, dest.n);
+                m = pickOfflineMissionFromPool(offlinePoiPool, 'ga_offline_poi_mission_history') || generateDynamicPOIMission(dest.n, maxSeats, dest.poiCategory);
+                paxText = m.payloadText || paxText;
+                cargoText = m.cargoText || cargoText;
+                dataSource = "Lokale POI DB";
             }
         } else if (typeof missions !== 'undefined') {
             // A->B-Missionen gleichmäßig über Kategorien rotieren (inkl. Trainingsflüge).
