@@ -1769,30 +1769,26 @@ function _aptTrainingPrompt(flightData, distNm, progressRatio) {
     if (!ctx || !plan) return null;
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
     const wx = _weatherContext(flightData);
-    const triggerLine = plan.trigger === 'half_route'
-        ? `Trigger: Halbe Strecke erreicht (${Math.round((progressRatio || 0.5) * 100)}%).`
-        : `Trigger: etwa ${Math.max(0.2, distNm || 0).toFixed(1)} NM vor ${md.dest || 'dem Zielflugplatz'}.`;
-    const modeLine = plan.mode === 'airwork'
-        ? 'Trainingsmodus AIRWORK: Übungen in der Luft, nicht platzrundenfokussiert.'
-        : 'Trainingsmodus PLATZARBEIT: Übungen für Anflug/Platzrunde.';
-    const focusLine = plan.focus.length
-        ? `Heutige Übungen: ${plan.focus.join(', ')}.`
-        : 'Nenne jetzt 2-3 konkrete Standardübungen passend zu diesem Modus.';
+    const triggerLine = `Trigger: Halbe Strecke erreicht (${Math.round((progressRatio || 0.5) * 100)}%).`;
+    // 50%-Call ist immer AIRWORK. Pattern-/Platzrundenanteile gehören in den
+    // Endanflug-Trigger (5/4 NM) am Zielflugplatz.
+    const airworkFocus = Array.isArray(plan.focus)
+        ? plan.focus.filter(item => !_isPatternFocusItem(item))
+        : [];
+    const modeLine = 'Trainingsmodus AIRWORK: Übungen in der Luft, nicht platzrundenfokussiert.';
+    const focusLine = airworkFocus.length
+        ? `Heutige Airwork-Übungen: ${airworkFocus.join(', ')}.`
+        : 'Nenne jetzt 2-3 konkrete Airwork-Übungen (z.B. Slow Flight, Steep Turns, Stall Recovery, Höhen-/Kursführung).';
     const lineHint = plan.instructorLine
         ? `Wenn passend, baue diese Instruktor-Linie sinngemäß ein: "${plan.instructorLine}".`
         : '';
-    const landingPrepHint = plan.trigger === 'five_nm_before_landing'
-        ? 'Da wir im Endanflug-Setup sind: gib zusätzlich eine kurze Landevorbereitung mit Wind/Wetter-Hinweis, optional 1 nüchterne Landmarke nur zur Navigation, und genau einen praktischen Tipp für die Landung. Sag klar: zuerst die Platzübung sauber durchführen, danach normal landen.'
-        : '';
-    const closeStepHint = plan.trigger === 'half_route'
-        ? `Schließe zwingend mit einem klaren nächsten Schritt ab, z.B.: "Danach zurück auf Kurs Richtung ${md.dest || 'Zielflugplatz'}."`
-        : 'Schließe zwingend mit einem klaren nächsten Schritt ab, z.B.: "Danach normal weiter im Anflug."';
+    const closeStepHint = `Schließe zwingend mit einem klaren nächsten Schritt ab, z.B.: "Danach zurück auf Kurs Richtung ${md.dest || 'Zielflugplatz'}."`;
     return `${ctx}
 
 Moment: Trainingsflug mit Instruktor. ${triggerLine}${wx ? ' ' + wx : ''}
 ${modeLine}
 ${focusLine}
-Gib dem Piloten jetzt eine kurze, konkrete Arbeitsanweisung (Reihenfolge oder Priorität), dann einen knappen Sicherheitsfokus.${lineHint} ${landingPrepHint} ${closeStepHint}
+Gib dem Piloten jetzt eine kurze, konkrete Airwork-Arbeitsanweisung (Reihenfolge oder Priorität), dann einen knappen Sicherheitsfokus.${lineHint} ${closeStepHint}
 Ton: sachlich, ruhig, klar. Strikter Instruktor-Funkstil: keine Ortsgeschichte, keine Schwärmerei, kein Offtopic. Max 2 Sätze.${_toneHint()}`;
 }
 
