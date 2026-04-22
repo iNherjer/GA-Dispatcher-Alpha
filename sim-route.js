@@ -132,7 +132,15 @@
             return;
         }
 
-        const _isPOISim = (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI');
+        const _isPOISim = (() => {
+            try {
+                if (typeof currentMissionData !== 'undefined' && currentMissionData && currentMissionData.poiName) return true;
+                if (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI') return true;
+                const destRwy = document.getElementById('destRwyContainer');
+                if (destRwy && destRwy.style.display === 'none') return true;
+            } catch (_) {}
+            return false;
+        })();
 
         // Pax voice: POI bei Streckenmitte (round-trip), echte Höhe übergeben
         if (_isPOISim && !simPoiAtTargetTriggered && simRouteCache.totalDist > 0 &&
