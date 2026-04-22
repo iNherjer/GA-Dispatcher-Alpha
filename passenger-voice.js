@@ -1039,8 +1039,8 @@ function _baseContext() {
     const roleStyle = _roleStyleHint(pax.role, pax);
     const urgency = _normUrgencyPriority(pax?.urgencyPriority);
     const urgencyLine = urgency === 'hoch'
-        ? 'ZEITRAHMEN: Auftrag ist zeitkritisch. Zeitdruck darf kurz und klar benannt werden.'
-        : 'ZEITRAHMEN: Niedrige Prioritaet. Kein Zeitdruck und keine Eile-Woerter (nicht "schnell", "zuegig", "eilig", "puenktlich", "dringend").';
+        ? 'ZEITRAHMEN: Zeitkritisch, Zeitdruck darf kurz genannt werden.'
+        : 'ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation.';
 
     const dialectProfile = _contextualDialectProfile(pax);
     const trainingPlan = _activeAptTrainingPlan();
@@ -1570,8 +1570,8 @@ function _greetingPrompt() {
     );
     const timingHintNeeded = (urgencyPriority === 'hoch');
     const timingWordBan = timingHintNeeded
-        ? 'Wenn Zeit kritisch ist, nenne den Zeitbezug kurz und konkret.'
-        : 'Kein Zeitdruck: nutze KEINE Eile-Woerter (nicht "schnell", "zuegig", "eilig", "puenktlich", "dringend").';
+        ? 'Zeitbezug nur kurz und konkret.'
+        : 'Kein Zeitdruck kommunizieren.';
     const reqLine = isPOI
         ? (trainingPlan
             ? `Bitte nenne kurz das Übungsthema und wie wir es sicher und sauber abfliegen. Keine internen Parameter oder technischen Vorgaben zitieren.`
