@@ -335,6 +335,69 @@ function _activeTaskDomain() {
     return _normTaskDomain(window.activePassenger?.taskDomain || '');
 }
 
+function _normLevel3(v) {
+    const s = String(v || '').trim().toLowerCase();
+    return (s === 'hoch' || s === 'mittel' || s === 'niedrig') ? s : 'mittel';
+}
+
+function _tolToSensitivityLevel(tol) {
+    const t = _normLevel3(tol);
+    if (t === 'niedrig') return 'hoch';
+    if (t === 'hoch') return 'niedrig';
+    return 'mittel';
+}
+
+function _levelRank(level) {
+    const l = _normLevel3(level);
+    return l === 'hoch' ? 3 : l === 'mittel' ? 2 : 1;
+}
+
+function _maxLevel(levels = []) {
+    let best = 'niedrig';
+    for (const lvl of levels) {
+        if (_levelRank(lvl) > _levelRank(best)) best = _normLevel3(lvl);
+    }
+    return best;
+}
+
+function _levelMode(level) {
+    const l = _normLevel3(level);
+    return l === 'hoch' ? 'proactive' : l === 'mittel' ? 'reactive' : 'silent';
+}
+
+function _comfortFeedbackPolicy(pax) {
+    const cargo = _normLevel3(pax?.cargoSensitivity || 'mittel');
+    const stomach = _normLevel3(pax?.stomachSensitivity || 'mittel');
+    const comfort = _normLevel3(pax?.comfortPriority || 'mittel');
+    const gSens = _tolToSensitivityLevel(pax?.gTolerance || 'mittel');
+    const bSens = _tolToSensitivityLevel(pax?.bankTolerance || 'mittel');
+
+    const motionLevel = _maxLevel([stomach, comfort]);
+    const weatherLevel = _maxLevel([motionLevel, cargo]);
+
+    const metricLevels = {
+        g: _maxLevel([motionLevel, gSens]),
+        bank: _maxLevel([motionLevel, bSens]),
+        wind: weatherLevel,
+        gust: weatherLevel,
+        turb: weatherLevel,
+        precip: weatherLevel,
+        descent: motionLevel
+    };
+    const metricModes = {
+        g: _levelMode(metricLevels.g),
+        bank: _levelMode(metricLevels.bank),
+        wind: _levelMode(metricLevels.wind),
+        gust: _levelMode(metricLevels.gust),
+        turb: _levelMode(metricLevels.turb),
+        precip: _levelMode(metricLevels.precip),
+        descent: _levelMode(metricLevels.descent)
+    };
+    const proactiveAny = Object.values(metricModes).some(m => m === 'proactive');
+    const reactiveAny = Object.values(metricModes).some(m => m === 'proactive' || m === 'reactive');
+    return { cargo, stomach, comfort, gSens, bSens, metricLevels, metricModes, proactiveAny, reactiveAny };
+}
+
 function _inspectionMissionMeta() {
     if (!_isPOIMission()) return null;
     const pax = window.activePassenger || {};
@@ -1555,19 +1618,9 @@ function _greetingPrompt() {
     const isClubTechRole = /(mechan|wartung|techn|inspekt|ingenieur|facility|vereins|hangar)/.test(role);
     const taskDomain = String(pax?.taskDomain || '').toLowerCase();
     const isReporterApt = (!isPOI && taskDomain === 'news_coverage');
-    const comfortPriority = String(pax?.comfortPriority || 'mittel').toLowerCase();
+    const comfortPolicy = _comfortFeedbackPolicy(pax);
     const urgencyPriority = _normUrgencyPriority(pax?.urgencyPriority);
-    const stomachSensitivity = String(pax?.stomachSensitivity || 'mittel').toLowerCase();
-    const cargoSensitivity = String(pax?.cargoSensitivity || 'mittel').toLowerCase();
-    const gTolerance = String(pax?.gTolerance || 'mittel').toLowerCase();
-    const bankTolerance = String(pax?.bankTolerance || 'mittel').toLowerCase();
-    const comfortHintNeeded = (
-        comfortPriority === 'hoch' ||
-        stomachSensitivity === 'hoch' ||
-        cargoSensitivity === 'hoch' ||
-        gTolerance === 'niedrig' ||
-        bankTolerance === 'niedrig'
-    );
+    const comfortHintNeeded = !!comfortPolicy.proactiveAny;
     const timingHintNeeded = (urgencyPriority === 'hoch');
     const timingWordBan = timingHintNeeded
         ? 'Zeitbezug nur kurz und konkret.'
@@ -1678,40 +1731,34 @@ function _evaluateComfortBreach(flightData, pax) {
     const turbulence = Number(flightData.turbulencePct || 0);
     const precipRate = Number(flightData.precipRateMmH || 0);
     const vsFpm = Number.isFinite(flightData.vsFpm) ? Number(flightData.vsFpm) : Number(flightData.vs || 0);
+    const policy = _comfortFeedbackPolicy(pax);
+    const chooseThreshold = (level, highPair, mediumPair) => {
+        const lvl = _normLevel3(level);
+        if (lvl === 'hoch') return { warn: highPair[0], hard: highPair[1] };
+        if (lvl === 'mittel') return { warn: mediumPair[0], hard: mediumPair[1] };
+        return null;
+    };
 
-    const gTol = pax.gTolerance || 'mittel';
-    const bankTol = pax.bankTolerance || 'mittel';
+    const gThr = chooseThreshold(policy.metricLevels.g, [1.45, 1.65], [1.8, 2.1]);
+    const bThr = chooseThreshold(policy.metricLevels.bank, [28, 38], [38, 50]);
+    // Wetterreaktionen: hoch = frueher, mittel = spaeter, niedrig = stumm.
+    const wThr = chooseThreshold(policy.metricLevels.wind, [20, 30], [24, 34]);
+    const gsThr = chooseThreshold(policy.metricLevels.gust, [8, 14], [12, 18]);
+    const tThr = chooseThreshold(policy.metricLevels.turb, [30, 50], [40, 65]);
+    const pThr = chooseThreshold(policy.metricLevels.precip, [1.0, 3.0], [2.0, 4.5]);
+    const dThr = chooseThreshold(policy.metricLevels.descent, [-1300, -2000], [-1600, -2400]);
 
-    const gWarn = gTol === 'niedrig' ? 1.45 : gTol === 'hoch' ? 2.2 : 1.8;
-    const gHard = gTol === 'niedrig' ? 1.65 : gTol === 'hoch' ? 2.6 : 2.1;
-
-    const bWarn = bankTol === 'niedrig' ? 28 : bankTol === 'hoch' ? 50 : 38;
-    const bHard = bankTol === 'niedrig' ? 38 : bankTol === 'hoch' ? 60 : 50;
-    // Wind-Hinweise unabhängig von POI/A-B, bewusst etwas später als "mäßiger Wind".
-    const wWarn = 22;
-    const wHard = 32;
-    // Böen-/Turbulenz-Hinweise aus SimConnect-Wetterdaten.
-    const gsWarn = 10;
-    const gsHard = 18;
-    const tWarn = 35;
-    const tHard = 60;
-    const pWarn = 1.5;
-    const pHard = 4.0;
-    // Sinkflug: bei deutlichem Downrate-Hinweis darf der Passagier reagieren.
-    const dWarn = -1500;
-    const dHard = -2200;
-
-    const gLevel = g >= gHard ? 'hard' : g >= gWarn ? 'warn' : null;
-    const bLevel = bank >= bHard ? 'hard' : bank >= bWarn ? 'warn' : null;
-    const wLevel = wind >= wHard ? 'hard' : wind >= wWarn ? 'warn' : null;
-    const gsLevel = gustSpread >= gsHard ? 'hard' : gustSpread >= gsWarn ? 'warn' : null;
-    const tLevel = turbulence >= tHard ? 'hard' : turbulence >= tWarn ? 'warn' : null;
-    const pLevel = precipRate >= pHard ? 'hard' : precipRate >= pWarn ? 'warn' : null;
-    const dLevel = vsFpm <= dHard ? 'hard' : vsFpm <= dWarn ? 'warn' : null;
+    const gLevel = gThr ? (g >= gThr.hard ? 'hard' : g >= gThr.warn ? 'warn' : null) : null;
+    const bLevel = bThr ? (bank >= bThr.hard ? 'hard' : bank >= bThr.warn ? 'warn' : null) : null;
+    const wLevel = wThr ? (wind >= wThr.hard ? 'hard' : wind >= wThr.warn ? 'warn' : null) : null;
+    const gsLevel = gsThr ? (gustSpread >= gsThr.hard ? 'hard' : gustSpread >= gsThr.warn ? 'warn' : null) : null;
+    const tLevel = tThr ? (turbulence >= tThr.hard ? 'hard' : turbulence >= tThr.warn ? 'warn' : null) : null;
+    const pLevel = pThr ? (precipRate >= pThr.hard ? 'hard' : precipRate >= pThr.warn ? 'warn' : null) : null;
+    const dLevel = dThr ? (vsFpm <= dThr.hard ? 'hard' : vsFpm <= dThr.warn ? 'warn' : null) : null;
     if (!gLevel && !bLevel && !wLevel && !gsLevel && !tLevel && !pLevel && !dLevel) return null;
 
     const severity = (gLevel === 'hard' || bLevel === 'hard' || wLevel === 'hard' || gsLevel === 'hard' || tLevel === 'hard' || pLevel === 'hard' || dLevel === 'hard') ? 'hard' : 'warn';
-    return { severity, g, bank, wind, gustSpread, turbulence, precipRate, vsFpm, gLevel, bLevel, wLevel, gsLevel, tLevel, pLevel, dLevel };
+    return { severity, g, bank, wind, gustSpread, turbulence, precipRate, vsFpm, gLevel, bLevel, wLevel, gsLevel, tLevel, pLevel, dLevel, policy };
 }
 
 function _comfortBreachPrompt(flightData, breach, count) {
@@ -1751,6 +1798,8 @@ function _maybePaxComfortFeedback(flightData, lat, lon) {
     if (onGround) return;
     const depDistNm = _distanceFromDepartureNm(Number(lat), Number(lon));
     if (Number.isFinite(depDistNm) && depDistNm < 2.0) return;
+    const comfortPolicy = _comfortFeedbackPolicy(window.activePassenger);
+    if (!comfortPolicy.reactiveAny) return;
 
     const now = Date.now();
     const cooldownMs = 90 * 1000;
@@ -1763,7 +1812,7 @@ function _maybePaxComfortFeedback(flightData, lat, lon) {
     _paxComfortLastAt = now;
     _paxComfortCount += 1;
     _paxLog(
-        `Komfort-Hinweis #${_paxComfortCount} | G ${breach.g.toFixed(2)} | Bank ${breach.bank.toFixed(0)}° | Wind ${breach.wind.toFixed(0)}kts | Böen+ ${Math.round(breach.gustSpread || 0)}kts | Turb ${Math.round(breach.turbulence || 0)}%`,
+        `Komfort-Hinweis #${_paxComfortCount} | G ${breach.g.toFixed(2)} | Bank ${breach.bank.toFixed(0)}° | Wind ${breach.wind.toFixed(0)}kts | Böen+ ${Math.round(breach.gustSpread || 0)}kts | Turb ${Math.round(breach.turbulence || 0)}% | Mode G:${breach.policy?.metricModes?.g || '-'} B:${breach.policy?.metricModes?.bank || '-'} W:${breach.policy?.metricModes?.wind || '-'} T:${breach.policy?.metricModes?.turb || '-'} D:${breach.policy?.metricModes?.descent || '-'}`,
         'event'
     );
 
