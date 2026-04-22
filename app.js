@@ -3616,7 +3616,9 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         dam: 'mapping_survey',
         city: 'news_coverage',
         water: 'search_and_rescue',
-        mountain: 'search_and_rescue',
+        // Berg/Tal soll kein impliziter SAR-Zwang sein:
+        // hier lieber freier Natur-/Sightseeing-/Science-Charakter.
+        mountain: 'auto',
         fire: 'fire_watch',
         generic: 'mapping_survey'
     };
@@ -3646,9 +3648,14 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
             pushMany('mapping_survey', 2);
             pushMany('news_coverage', 1);
         }
-        if (/(water|mountain|generic|fire)/.test(poiSel + ' ' + cat)) {
+        if (/(water|generic|fire)/.test(poiSel + ' ' + cat)) {
             pushMany('search_and_rescue', 1);
             pushMany('fire_watch', 1);
+        }
+        if (/(mountain)/.test(poiSel + ' ' + cat)) {
+            pushMany('sightseeing_tour', 2);
+            pushMany('mapping_survey', 1);
+            pushMany('news_coverage', 1);
         }
     } else {
         if (aptSel === 'trn' || cat === 'trn') return 'auto';
