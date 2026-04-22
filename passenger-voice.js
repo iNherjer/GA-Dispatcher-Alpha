@@ -530,6 +530,9 @@ function _targetFactHint() {
     if (!raw) return '';
     if (/warte auf daten|lade ziel-info|nicht geladen|keine regionalen/i.test(raw)) return '';
     const cleaned = raw.replace(/\s+/g, ' ').trim();
+    // Filter internal/source status text so it never leaks into spoken prompts.
+    if (/(wikipedia|wiki-daten|fetch-fehler)/i.test(cleaned)) return '';
+    if (/(konnte(n)?\s+nicht|nicht\s+abrufbar|nicht\s+geladen|fehler)/i.test(cleaned)) return '';
     const firstSentence = cleaned.split(/[.!?]/).map(s => s.trim()).filter(Boolean)[0] || '';
     if (!firstSentence || firstSentence.length < 28) return '';
     const clip = firstSentence.length > 180 ? `${firstSentence.slice(0, 177)}...` : firstSentence;
