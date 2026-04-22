@@ -3033,6 +3033,67 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
     return merged;
 }
 
+function _normUrgencyBinary(v) {
+    return String(v || '').toLowerCase() === 'hoch' ? 'hoch' : 'niedrig';
+}
+
+function _hasTimePressureText(txt) {
+    return /\b(zeitkrit|dringend|eilig|pünkt|puenkt|zeitnah|so bald wie moeglich|so schnell wie moeglich)\b/i.test(String(txt || ''));
+}
+
+function _stripTimePressureText(txt) {
+    return String(txt || '')
+        .replace(/\b(zeitkritisch|dringend|eilig|zeitnah)\b/gi, '')
+        .replace(/\bso\s+bald\s+wie\s+m(?:oe|ö)glich\b/gi, '')
+        .replace(/\bso\s+schnell\s+wie\s+m(?:oe|ö)glich\b/gi, '')
+        .replace(/\bwir\s+m(?:ue|ü)ssen\s+(jetzt\s+)?(dringend|schnell|z(?:ue|ü)gig)\b[^.?!]*/gi, '')
+        .replace(/\bp(?:ue|ü)nktlich\s+(am\s+ziel\s+)?(ankommen|sein)\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\s+([,.;:!?])/g, '$1')
+        .trim();
+}
+
+function _finalizeMissionNarrative(mission, profile, isPOI = false) {
+    const m = (mission && typeof mission === 'object') ? mission : {};
+    let title = String(m.t || m.title || '').trim();
+    let story = String(m.s || m.story || '').trim();
+    const urgency = _normUrgencyBinary(m?.passenger?.urgencyPriority);
+
+    // Interne Marker nie im Story-Text anzeigen.
+    story = story.replace(/\bFokus:\s*/gi, '').replace(/\s{2,}/g, ' ').trim();
+
+    if (urgency === 'hoch') {
+        if (!_hasTimePressureText(title) && !_hasTimePressureText(story)) {
+            story = `${story}${story ? ' ' : ''}Der Auftrag ist zeitkritisch, wir sollten pünktlich ankommen.`.trim();
+        }
+    } else {
+        title = _stripTimePressureText(title);
+        story = _stripTimePressureText(story);
+    }
+
+    if (String(profile?.id || '') === 'news_coverage' && !isPOI) {
+        story = story
+            .replace(/\bund\s+ohne\s+kreisen\s+über\s+dem\s+ziel\b/gi, '')
+            .replace(/\bund\s+ohne\s+kreisen\s+ueber\s+dem\s+ziel\b/gi, '')
+            .replace(/\bohne\s+kreisen\s+über\s+dem\s+ziel\b/gi, '')
+            .replace(/\bohne\s+kreisen\s+ueber\s+dem\s+ziel\b/gi, '')
+            .replace(/\bkein(?:en|e|)\s+arbeitsauftrag\s+in\s+der\s+luft(?:\s+am\s+ziel)?\b/gi, '')
+            .replace(/\bkein(?:en|e|)\s+kreisen\b/gi, '')
+            .replace(/\bkein(?:en|e|)\s+verweilen(?:\/überflug|\/ueberflug)?(?:\s+als\s+missionsziel)?\b/gi, '')
+            .replace(/\s{2,}/g, ' ')
+            .replace(/\s+([,.;:!?])/g, '$1')
+            .replace(/^[,.;:\-]\s*/g, '')
+            .trim();
+        if (!/berichterstattung\s+am\s+boden/i.test(story)) {
+            story = `${story}${story ? ' ' : ''}Am Ziel startet die Berichterstattung am Boden.`.trim();
+        }
+    }
+
+    m.t = title || m.t || '';
+    m.s = story || m.s || '';
+    return m;
+}
+
 function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, cargoText) {
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
     const baseType = isPOI ? 'poi' : 'apt';
@@ -3061,6 +3122,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
             m.s = cue;
         }
     }
+    _finalizeMissionNarrative(m, profile, isPOI);
     m.profileId = profile.id;
     return { mission: m, paxText, cargoText, appliedProfile: profile.id };
 }
@@ -3069,15 +3131,15 @@ function _profileStoryCue(profile, isPOI = false) {
     if (!profile || profile.id === 'auto') return '';
     if (profile.id === 'news_coverage') {
         return isPOI
-            ? 'Fokus: nüchterne Beobachtung und klare Lageeinschätzung aus der Luft.'
-            : 'Fokus: sachlicher Transportauftrag zum Zielort, dort Berichterstattung am Boden.';
+            ? 'Nüchterne Beobachtung und klare Lageeinschätzung aus der Luft.'
+            : 'Sachlicher Transportauftrag zum Zielort, dort Berichterstattung am Boden.';
     }
     if (profile.id === 'sightseeing_tour') {
         return isPOI
-            ? 'Fokus: ruhiger Rundflug mit angenehmem Tempo und guter Sicht.'
-            : 'Fokus: entspannter Ausflugsflug mit pünktlicher Ankunft am Ziel.';
+            ? 'Ruhiger Rundflug mit angenehmem Tempo und guter Sicht.'
+            : 'Entspannter Ausflugsflug mit angenehmem Ablauf am Ziel.';
     }
-    return String(profile.storyCue || '').trim();
+    return String(profile.storyCue || '').replace(/\bFokus:\s*/gi, '').trim();
 }
 
 function _profileOpsRuleForPrompt(profile, isPOI = false) {
