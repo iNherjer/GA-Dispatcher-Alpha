@@ -101,11 +101,27 @@ window.paxVoiceSetEnabled = function(on) {
     const wasOff = !_paxVoiceEnabled;
     _paxVoiceEnabled = !!on;
     localStorage.setItem('awm_pax_voice', on ? '1' : '0');
-    if (on && wasOff && _lastSpokenText && window.activePassenger) {
+    if (on && wasOff && _lastSpokenText && window.activePassenger && _missionHasPax()) {
         _paxLog('Voice aktiviert — lade TTS für letzte Nachricht nach', 'event');
         setTimeout(() => _playTextAsTTS(_lastSpokenText, _lastSpokenSpeaker || null), 400);
     }
 };
+
+function _missionHasPax() {
+    let paxText = '';
+    try {
+        const contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null');
+        paxText = String(contract?.paxText || '').trim();
+    } catch (_) {}
+    if (!paxText) {
+        const ui = document.getElementById('mPay');
+        paxText = String(ui?.innerText || '').trim();
+    }
+    if (!paxText) return true;
+    const m = paxText.match(/^\s*(\d+)\s*PAX\b/i);
+    if (m) return parseInt(m[1], 10) > 0;
+    return !/^\s*0\s*PAX\b/i.test(paxText);
+}
 
 // ─── PER-MISSION STATE ───────────────────────────────────────────────────────
 let _paxGreetingDone  = false;
@@ -1846,7 +1862,7 @@ Hinweis: Das ist Hinweis #${count} in diesem Flug. Maximal 1-2 Sätze.${_toneHin
 }
 
 function _maybePaxComfortFeedback(flightData, lat, lon) {
-    if (!window.activePassenger || !flightData) return;
+    if (!window.activePassenger || !_missionHasPax() || !flightData) return;
     if (!_paxGreetingDone || _paxAtTargetDone || _paxFarewellDone) return;
     if (_paxLandingPhaseAnnounced || _aptTrainingLandingBriefDone || _poiTrainingLandingBriefDone) return;
     if (_paxComfortBusy) return;
@@ -1930,7 +1946,7 @@ Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus d
 
 window.triggerPaxGreeting = async function(lat, lon) {
     _paxLog(`triggerPaxGreeting | tts:${_paxVoiceEnabled} done:${_paxGreetingDone} pax:${!!window.activePassenger} key:${!!_getApiKey()}`, 'state');
-    if (_paxGreetingDone || !window.activePassenger) return;
+    if (_paxGreetingDone || !window.activePassenger || !_missionHasPax()) return;
     _paxGreetingDone = true;
 
     // Location check: must be within 1 NM of the briefed departure airport
@@ -1961,7 +1977,7 @@ window.triggerPaxGreeting = async function(lat, lon) {
 
 window.triggerPaxAtTarget = async function(flightData) {
     _paxLog(`triggerPaxAtTarget | tts:${_paxVoiceEnabled} done:${_paxAtTargetDone} pax:${!!window.activePassenger} alt:${flightData?.mslFt||0}ft`, 'state');
-    if (_paxAtTargetDone || !window.activePassenger) return;
+    if (_paxAtTargetDone || !window.activePassenger || !_missionHasPax()) return;
     const trainingPlan = _activeAptTrainingPlan();
     if (trainingPlan) {
         _paxAtTargetDone = true;
@@ -1979,7 +1995,7 @@ window.triggerPaxAtTarget = async function(flightData) {
 
 window.triggerPaxFarewell = async function(record) {
     _paxLog(`triggerPaxFarewell | tts:${_paxVoiceEnabled} done:${_paxFarewellDone} pax:${!!window.activePassenger}`, 'state');
-    if (_paxFarewellDone || !window.activePassenger) return;
+    if (_paxFarewellDone || !window.activePassenger || !_missionHasPax()) return;
     _paxFarewellDone = true;
     const prompt = _farewellPrompt(record);
     if (!prompt) { _paxFarewellDone = false; _paxLog('Farewell: kein Prompt', 'warn'); return; }
@@ -1989,7 +2005,7 @@ window.triggerPaxFarewell = async function(record) {
 
 window.triggerPaxOffDestinationLanding = async function(distNm) {
     const now = Date.now();
-    if (!window.activePassenger) return;
+    if (!window.activePassenger || !_missionHasPax()) return;
     if ((now - _paxOffDestLastAt) < 90000) return;
     _paxOffDestLastAt = now;
     const p = _offDestinationLandingPrompt(distNm);
@@ -2026,7 +2042,7 @@ function _trainingPoiCenterFromRoute(wps) {
 
 // Called each GPS tick from sync.js + sim-route.js
 window.checkPaxPoiProximity = function(lat, lon, flightData) {
-    if (!window.activePassenger) return;
+    if (!window.activePassenger || !_missionHasPax()) return;
     const isPoiMission = _isPOIMission();
     _maybePaxComfortFeedback(flightData, lat, lon);
     _maybeWrongStartContinue(flightData || window.lastLiveFlightData || {});
@@ -2263,7 +2279,7 @@ function _tickPoiDwell(lat, lon, flightData) {
     const ttsModelEl = document.getElementById('awmPaxTtsModelSelect');
     if (ttsModelEl) ttsModelEl.value = _paxTtsModelPref;
 
-    if (!window.activePassenger) {
+    if (!window.activePassenger && _missionHasPax()) {
         const saved = localStorage.getItem('ga_active_passenger');
         if (saved) try { window.activePassenger = JSON.parse(saved); } catch(e) {}
     }

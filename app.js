@@ -1086,7 +1086,8 @@ async function restoreMissionState(state) {
 
     currentMissionData = state.currentMissionData; routeWaypoints = state.routeWaypoints;
     window._missionRouteWaypoints = state.missionRouteWaypoints || null;
-    window.activePassenger = state.activePassenger || null;
+    const restoredHasPassenger = missionHasPassengerByPaxText(state.mPay || '');
+    window.activePassenger = restoredHasPassenger ? (state.activePassenger || null) : null;
     currentStartICAO = state.currentStartICAO; currentDestICAO = state.currentDestICAO;
     currentSName = state.currentSName; currentDName = state.currentDName;
     currentDepFreq = state.currentDepFreq || ""; currentDestFreq = state.currentDestFreq || "";
@@ -3448,6 +3449,14 @@ function formatPaxBriefingText(paxText, passenger) {
     return `${base} (${name})`;
 }
 
+function missionHasPassengerByPaxText(paxText) {
+    const txt = String(paxText || '').trim();
+    if (!txt) return true;
+    const m = txt.match(/^\s*(\d+)\s*PAX\b/i);
+    if (m) return parseInt(m[1], 10) > 0;
+    return !/^\s*0\s*PAX\b/i.test(txt);
+}
+
 async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
     if (!aiToggleBtn || !aiToggleBtn.checked) return null;
@@ -4907,7 +4916,10 @@ async function generateMission() {
         weatherBriefing: missionWeather
     };
 
-    window.activePassenger = (m && m.passenger) ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt) : null;
+    const missionHasPassenger = missionHasPassengerByPaxText(paxText);
+    window.activePassenger = (missionHasPassenger && m && m.passenger)
+        ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt)
+        : null;
     const activeMissionContract = buildMissionContract({
         isPOI,
         requestedProfileId: m?._requestedProfile || selectedMissionProfile || 'auto',
