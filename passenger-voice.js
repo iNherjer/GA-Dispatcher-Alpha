@@ -1404,9 +1404,9 @@ function _toneHint() {
             ? 'Keine erneute Begrüßung am Satzanfang.'
             : 'Falls Begrüßung, dann sehr kurz.';
         const humorLine = _paxHumorLevel === 'subtle'
-            ? 'Humor nur sehr dezent.'
+            ? 'Humor praktisch aus: kein Witz, höchstens eine warme, natürliche Formulierung.'
             : _paxHumorLevel === 'bold'
-                ? 'Humor hörbar, aber professionell.'
+                ? 'Humor hörbar und klar: baue genau eine kurze, sympathische Pointe ein (max. ein Teilsatz), aber nur wenn der Moment nicht sicherheitskritisch ist.'
                 : 'Humor kurz und freundlich.';
         return `
 Direkt an den Piloten (Du-Form), nie mit Namen.
@@ -1416,6 +1416,7 @@ Natuerliche Umgangssprache erlaubt (z.B. "fuers", "zum", "beim", "ne Runde"), ab
 ${greetingLine}
 Keine dialektale Schreibweise/Lautschrift.
 ${humorLine}
+Bei Sicherheitsthemen, Warnungen, Notfaellen oder klarer Arbeitsanweisung: kein Humor.
 Locker, aber professionell und konsistent. Auf Deutsch.`;
     }
     const profile = _contextualDialectProfile(window.activePassenger || null);
@@ -1424,9 +1425,9 @@ Locker, aber professionell und konsistent. Auf Deutsch.`;
     const region = String(profile?.regionLabel || '').toLowerCase();
     const isSouthernRegion = /(baden|schwarzwald|wuerttemberg|schwaben|allgaeu|bayern|franken|berchtesgaden|schweiz|oesterreich)/.test(region);
     const humorLine = _paxHumorLevel === 'subtle'
-        ? 'Humor nur sehr dezent: höchstens eine kleine, freundliche Nuance.'
+        ? 'Humor praktisch aus: kein Witz, höchstens eine freundliche Nuance.'
         : _paxHumorLevel === 'bold'
-            ? 'Humor darf deutlich hörbar sein: eine kurze, freche, aber sympathische Pointe ist ausdrücklich okay.'
+            ? 'Humor darf deutlich hörbar sein: baue genau eine kurze, sympathische Pointe ein (max. ein Teilsatz), aber nur wenn der Moment nicht sicherheitskritisch ist.'
             : 'Humor in normaler Dosis: eine lockere, freundliche Pointe ist willkommen.';
     const greetingLine = _paxGreetingDone
         ? 'Keine erneute Begrüßung am Satzanfang (kein "Hi", "Hallo", "Moin", "Servus", "Sali"). Direkt mit dem Inhalt starten.'
@@ -1449,6 +1450,7 @@ ${greetingLine}
 ${moinLine}
 Keine Dialekt-Aussprache simulieren (keine Lautschrift). Keine Dialekt-Mischung.
 ${humorLine}
+Bei Sicherheitsthemen, Warnungen, Notfaellen oder klarer Arbeitsanweisung: kein Humor.
 Konstruktiv, menschlich, ermutigend. Auf Deutsch.`;
 }
 
