@@ -196,7 +196,7 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'apt:cargo', classic: 'APT · Cargo (ohne PAX)', radioShort: 'APT CARGO', radioFull: 'Airport · Cargo (ohne PAX)' },
         { value: 'apt:trn', classic: 'APT · Training', radioShort: 'APT TRN', radioFull: 'Airport · Training' },
         { value: 'apt:all+medical_transfer', classic: 'APT · Medizin-Transfer', radioShort: 'APT MED', radioFull: 'Airport · Medizin-Transfer' },
-        { value: 'apt:all+cargo_fragile', classic: 'APT · Fragile Fracht', radioShort: 'APT FRG', radioFull: 'Airport · Fragile Fracht' },
+        { value: 'apt:cargo+cargo_fragile', classic: 'APT · Cargo fragil', radioShort: 'APT FRG', radioFull: 'Airport · Cargo fragil' },
         { value: 'apt:all+animal_transport', classic: 'APT · Tiertransport', radioShort: 'APT ANM', radioFull: 'Airport · Tiertransport' },
         { value: 'apt:all+news_coverage', classic: 'APT · Reporter', radioShort: 'APT NEWS', radioFull: 'Airport · Reporter' },
         { value: 'apt:all+sightseeing_tour', classic: 'APT · Sightseeing', radioShort: 'APT TOUR', radioFull: 'Airport · Sightseeing' },
@@ -3226,7 +3226,9 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     }
     // Harte Picker-Regeln: explizite Kategorien nicht mischen.
     if (!isPOI && (aptSel === 'club' || cat === 'club')) return 'club_utility';
-    if (!isPOI && (aptSel === 'cargo' || cat === 'cargo')) return 'cargo_fragile';
+    // "Cargo (ohne PAX)" bleibt bewusst ein eigener, neutraler Cargo-Flow.
+    // "cargo_fragile" darf nur über den expliziten Fragile-Picker gewählt werden.
+    if (!isPOI && (aptSel === 'cargo' || cat === 'cargo')) return 'auto';
     if (!isPOI && (aptSel === 'private')) return 'sightseeing_tour';
     const weighted = [];
     const pushMany = (id, n) => { for (let i = 0; i < n; i++) weighted.push(id); };
@@ -3260,8 +3262,8 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         pushMany('club_utility', 1);
         // Category-bias
         if (aptSel === 'cargo' || cat === 'cargo') {
-            pushMany('cargo_fragile', 4);
-            pushMany('medical_transfer', 1);
+            pushMany('club_utility', 2);
+            pushMany('news_coverage', 1);
         }
         if (aptSel === 'private' || cat === 'std') {
             pushMany('sightseeing_tour', 2);
