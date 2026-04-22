@@ -551,12 +551,24 @@ function _offlineAptProfileFallbacks(profileId = 'auto') {
 }
 
 function buildOfflineAptMissionPool(selectedAptCategory = 'all', dispatchProfileId = 'auto') {
-    const categoryPool = _offlineAptCategoryFallbacks(selectedAptCategory);
-    const profilePool = _offlineAptProfileFallbacks(dispatchProfileId);
-    const combined = [...categoryPool, ...profilePool];
-    if (combined.length >= 2) return combined;
-    const topup = _offlineAptCategoryFallbacks('all');
-    return [...combined, ...topup].slice(0, 6);
+    const profileId = String(dispatchProfileId || 'auto').toLowerCase();
+    const aptCategories = ['private', 'club', 'charter', 'cargo', 'trn'];
+    const requestedCategory = String(selectedAptCategory || 'all').toLowerCase();
+    const rolledCategory = (requestedCategory === 'all')
+        ? aptCategories[Math.floor(Math.random() * aptCategories.length)]
+        : requestedCategory;
+    const categoryPool = _offlineAptCategoryFallbacks(rolledCategory);
+    const profilePool = _offlineAptProfileFallbacks(profileId);
+    // Wichtig: Bei explizitem Profil nicht mit Kategoriepool mischen.
+    // So bleibt das Auftragsthema konsistent (z.B. Medizin bleibt Medizin).
+    if (profileId !== 'auto' && profilePool.length >= 2) return profilePool;
+    if (profileId !== 'auto' && profilePool.length > 0) {
+        return [...profilePool, ..._offlineAptProfileFallbacks(profileId)].slice(0, 2);
+    }
+    // Bei AUTO strikt in einer (gewürfelten oder expliziten) Kategorie bleiben.
+    if (categoryPool.length >= 2) return categoryPool.slice(0, 2);
+    const fallbackCat = _offlineAptCategoryFallbacks('private');
+    return fallbackCat.slice(0, 2);
 }
 
 function _offlinePoiCategoryFallbacks(category = 'all', poiName = 'Zielgebiet') {
@@ -639,12 +651,24 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
 }
 
 function buildOfflinePoiMissionPool(selectedPoiCategory = 'all', dispatchProfileId = 'auto', poiName = 'Zielgebiet') {
-    const categoryPool = _offlinePoiCategoryFallbacks(selectedPoiCategory, poiName);
-    const profilePool = _offlinePoiProfileFallbacks(dispatchProfileId, poiName);
-    const combined = [...profilePool, ...categoryPool];
-    if (combined.length >= 2) return combined;
-    const topup = _offlinePoiCategoryFallbacks('all', poiName);
-    return [...combined, ...topup].slice(0, 10);
+    const profileId = String(dispatchProfileId || 'auto').toLowerCase();
+    const poiCategories = ['bridge', 'road', 'dam', 'telecom', 'industry', 'castle', 'water', 'mountain', 'city', 'generic'];
+    const requestedCategory = String(selectedPoiCategory || 'all').toLowerCase();
+    const rolledCategory = (requestedCategory === 'all')
+        ? poiCategories[Math.floor(Math.random() * poiCategories.length)]
+        : requestedCategory;
+    const categoryPool = _offlinePoiCategoryFallbacks(rolledCategory, poiName);
+    const profilePool = _offlinePoiProfileFallbacks(profileId, poiName);
+    // Wichtig: Bei explizitem Profil nicht mit Kategoriepool mischen.
+    // Verhindert Themenbruch wie "Fotoshooting + Hotspot-Suche".
+    if (profileId !== 'auto' && profilePool.length >= 2) return profilePool;
+    if (profileId !== 'auto' && profilePool.length > 0) {
+        return [...profilePool, ..._offlinePoiProfileFallbacks(profileId, poiName)].slice(0, 2);
+    }
+    // Bei AUTO strikt in einer (gewürfelten oder expliziten) Kategorie bleiben.
+    if (categoryPool.length >= 2) return categoryPool.slice(0, 2);
+    const fallbackCat = _offlinePoiCategoryFallbacks('generic', poiName);
+    return fallbackCat.slice(0, 2);
 }
 
 function pickOfflineMissionFromPool(pool = [], historyKey = 'ga_offline_mission_history') {
