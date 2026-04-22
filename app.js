@@ -249,7 +249,7 @@ const MISSION_ROLE_TASK_PROFILES = {
         greetingText: 'Hi, danke fürs Fliegen. Wir haben medizinische Priorität und brauchen einen ruhigen, sauberen Flug.',
         paxText: '1 PAX (Notarztteam)',
         cargoPool: ['Kühlbox mit Blutkonserven (18 lbs)', 'Medizinischer Notfallkoffer (22 lbs)'],
-        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'hoch', comfortPriority: 'hoch' },
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'hoch', comfortPriority: 'hoch', urgencyPriority: 'hoch' },
         storyCue: 'Fokus: medizinische Priorität, ruhig und effizient fliegen.'
     },
     news_coverage: {
@@ -262,10 +262,10 @@ const MISSION_ROLE_TASK_PROFILES = {
             { name: 'Mara Feld', role: 'Reporterin', gender: 'female', personality: 'neugierig, sachlich, schnell' },
             { name: 'Timo Berger', role: 'TV-Reporter', gender: 'male', personality: 'präzise, präsent, professionell' }
         ],
-        greetingText: 'Hi, ich sammle heute O-Töne und Fakten. Gib mir bitte einen stabilen Flug für klare Ansagen.',
+        greetingText: 'Hi, ich sammle heute O-Töne und Fakten. Bring mich bitte pünktlich zum Ziel, dann kann ich vor Ort direkt loslegen.',
         paxText: '1 PAX (Reporter)',
         cargoPool: ['Kamera- und Audio-Set (32 lbs)', 'Live-Übertragungsrucksack (26 lbs)'],
-        tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel' },
+        tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'mittel' },
         storyCue: 'Fokus: nüchterne Beobachtung und klare Lageeinschätzung.'
     },
     sightseeing_tour: {
@@ -281,7 +281,7 @@ const MISSION_ROLE_TASK_PROFILES = {
         greetingText: 'Hi, heute gehts um entspannten Ausblick. Bitte eher weich fliegen, damit alle die Aussicht genießen.',
         paxText: '2 PAX (Sightseeing-Gäste)',
         cargoPool: ['Kleine Kamerataschen (12 lbs)', 'Tagesrucksäcke (15 lbs)'],
-        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'hoch', comfortPriority: 'hoch' },
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'hoch', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
         storyCue: 'Fokus: ruhiger Rundflug mit angenehmem Tempo.'
     },
     mapping_survey: {
@@ -297,7 +297,7 @@ const MISSION_ROLE_TASK_PROFILES = {
         greetingText: 'Hi, ich brauche heute reproduzierbare Linien und einen ruhigen Plattformflug für saubere Daten.',
         paxText: '1 PAX (Survey-Technik)',
         cargoPool: ['Lidar-Scanner (65 lbs)', 'Photogrammetrie-Kamera (34 lbs)'],
-        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'mittel', comfortPriority: 'hoch' },
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'mittel' },
         storyCue: 'Fokus: stabile Fluglage und präzise Passes.'
     },
     cargo_fragile: {
@@ -313,7 +313,7 @@ const MISSION_ROLE_TASK_PROFILES = {
         greetingText: 'Hi, die Ladung ist empfindlich. Bitte möglichst ruhig und ohne harte Manöver.',
         paxText: '1 PAX (Frachtbegleitung)',
         cargoPool: ['Präzisionsoptik im Stoßschutz-Case (28 lbs)', 'Laborgerät in Schutzverpackung (35 lbs)'],
-        tolerances: { gTolerance: 'mittel', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'mittel', comfortPriority: 'hoch' },
+        tolerances: { gTolerance: 'mittel', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'mittel' },
         storyCue: 'Fokus: sichere, erschütterungsarme Frachtführung.'
     },
     search_and_rescue: {
@@ -329,7 +329,7 @@ const MISSION_ROLE_TASK_PROFILES = {
         greetingText: 'Hi, wir arbeiten heute nach Suchmuster und klaren Calls. Stabilität und Übersicht sind entscheidend.',
         paxText: '1 PAX (SAR-Koordination)',
         cargoPool: ['Optik- und SAR-Kit (24 lbs)', 'Signalmittel und Kartenpaket (16 lbs)'],
-        tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel' },
+        tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'hoch' },
         storyCue: 'Fokus: Suchmuster, Lagebild und sichere Durchführung.'
     },
     fire_watch: {
@@ -345,7 +345,7 @@ const MISSION_ROLE_TASK_PROFILES = {
         greetingText: 'Hi, wir halten heute nach Rauchfahnen und Hotspots Ausschau. Bitte möglichst sauber und stabil fliegen.',
         paxText: '1 PAX (Brandbeobachtung)',
         cargoPool: ['IR-Kamera und Tablet (21 lbs)', 'Feuerlage-Mapset (10 lbs)'],
-        tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel' },
+        tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'mittel' },
         storyCue: 'Fokus: Frühwarnung, Hotspots und klare Meldungen.'
     },
     animal_transport: {
@@ -361,7 +361,7 @@ const MISSION_ROLE_TASK_PROFILES = {
         greetingText: 'Hi, wir haben heute Tiere an Bord. Bitte möglichst ruhig fliegen, damit sie entspannt bleiben.',
         paxText: '1 PAX (Tierbegleitung)',
         cargoPool: ['Transportboxen mit Tierschutzbedarf (30 lbs)', 'Veterinärtasche und Tierfutter (18 lbs)'],
-        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'hoch', comfortPriority: 'hoch' },
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'hoch', comfortPriority: 'hoch', urgencyPriority: 'mittel' },
         storyCue: 'Fokus: stressarme Beförderung für Tiere.'
     }
 };
@@ -2826,7 +2826,8 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         bankTolerance: _normLevel(passenger.bankTolerance, 'mittel'),
         cargoSensitivity: _normLevel(passenger.cargoSensitivity, 'mittel'),
         stomachSensitivity: _normLevel(passenger.stomachSensitivity, _deriveStomachSensitivity(passenger.gTolerance)),
-        comfortPriority: _normLevel(passenger.comfortPriority, 'mittel')
+        comfortPriority: _normLevel(passenger.comfortPriority, 'mittel'),
+        urgencyPriority: _normLevel(passenger.urgencyPriority, 'mittel')
     };
 
     // A-B Flüge: keine Arbeitsvorgaben am Ziel (nur Komfort/Charakter).
@@ -2930,6 +2931,7 @@ function buildInstructorPassenger(trainingPlan = null) {
         cargoSensitivity: 'niedrig',
         stomachSensitivity: 'mittel',
         comfortPriority: 'mittel',
+        urgencyPriority: 'niedrig',
         targetAltFt: 0,
         targetRadiusNm: 0,
         targetDwellMin: 0,
@@ -2977,6 +2979,7 @@ function buildCharterPassenger(basePassenger = null) {
         cargoSensitivity: String(base.cargoSensitivity || 'mittel').toLowerCase(),
         stomachSensitivity: String(base.stomachSensitivity || 'mittel').toLowerCase(),
         comfortPriority: String(base.comfortPriority || 'mittel').toLowerCase(),
+        urgencyPriority: String(base.urgencyPriority || 'mittel').toLowerCase(),
         roleProfile: 'charter_professional_neutral_v1',
         taskDomain: 'charter',
         targetAltFt: 0,
@@ -3014,6 +3017,7 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
         cargoSensitivity: String(tol.cargoSensitivity || base.cargoSensitivity || 'mittel').toLowerCase(),
         stomachSensitivity: String(tol.stomachSensitivity || base.stomachSensitivity || 'mittel').toLowerCase(),
         comfortPriority: String(tol.comfortPriority || base.comfortPriority || 'mittel').toLowerCase(),
+        urgencyPriority: String(tol.urgencyPriority || base.urgencyPriority || 'mittel').toLowerCase(),
         targetAltFt: isPOI ? Number(base.targetAltFt || 0) : 0,
         targetRadiusNm: isPOI ? Number(base.targetRadiusNm || 0) : 0,
         targetDwellMin: isPOI ? Number(base.targetDwellMin || 0) : 0,
@@ -3133,12 +3137,13 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
     const profile = getMissionTaskProfile(appliedProfileId, isPOI ? 'poi' : 'apt') || getMissionTaskProfile('auto', isPOI ? 'poi' : 'apt');
     const taskDomain = String(passenger?.taskDomain || profile?.taskDomain || 'general').toLowerCase();
     const roleProfile = String(passenger?.roleProfile || profile?.roleProfile || 'general_passenger_v1').toLowerCase();
+    const urgencyPriority = String(passenger?.urgencyPriority || 'mittel').toLowerCase();
     const title = String(mission?.t || mission?.title || '').trim();
     const story = String(mission?.s || mission?.story || '').trim();
     const summaryBase = profile?.label || (isPOI ? 'POI-Einsatz' : 'A-B Einsatz');
     const summary = `${summaryBase} | ${isPOI ? 'POI' : 'A-B'} | cat:${String(category || 'std')}`;
     const constraints = [
-        `Rollenkonsistenz: roleProfile=${roleProfile}, taskDomain=${taskDomain}`,
+        `Rollenkonsistenz: roleProfile=${roleProfile}, taskDomain=${taskDomain}, urgency=${urgencyPriority}`,
         'Kein Themenmix zwischen Auftrag, PAX und Fracht',
         'Alle Folgeansagen bleiben im gleichen Auftragsrahmen'
     ];
@@ -3148,6 +3153,7 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
         summary,
         taskDomain,
         roleProfile,
+        urgencyPriority,
         paxText: String(paxText || ''),
         cargoText: String(cargoText || ''),
         missionTitle: title,
@@ -3474,6 +3480,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             cargoSensitivity: String(aiPassenger.cargoSensitivity || personaPassenger.cargoSensitivity || 'niedrig').toLowerCase(),
             stomachSensitivity: String(aiPassenger.stomachSensitivity || personaPassenger.stomachSensitivity || 'mittel').toLowerCase(),
             comfortPriority: String(aiPassenger.comfortPriority || personaPassenger.comfortPriority || 'mittel').toLowerCase(),
+            urgencyPriority: String(personaPassenger.urgencyPriority || 'niedrig').toLowerCase(),
             roleProfile: 'instructor_calm_precise_v1',
             taskDomain: 'training'
         };
@@ -3541,6 +3548,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
        - cargoSensitivity: wie empfindlich reagiert der Passagier auf Bewegung in Bezug auf die Fracht? ('niedrig'|'mittel'|'hoch')
        - stomachSensitivity: wie empfindlich ist der Passagier gegenüber Turbulenz/Manövern? ('niedrig'|'mittel'|'hoch')
        - comfortPriority: wie wichtig ist insgesamt ruhiges Fliegen in dieser Mission? ('niedrig'|'mittel'|'hoch')
+       - urgencyPriority: wie eilig ist der Auftrag insgesamt? ('niedrig'|'mittel'|'hoch')
+         * niedrig: entspannt, kein Zeitdruck
+         * mittel: normaler Auftrag
+         * hoch: zeitkritisch, pünktliche Ankunft wichtig
        - roleProfile: Wähle GENAU einen Wert aus dieser Liste:
          ["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1"]
        - taskDomain: Wähle GENAU einen Wert aus dieser Liste:
@@ -3566,7 +3577,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         "story": "Das Briefing (max 3-4 Sätze, lockerer Ton)",
         "pax": "z.B. '2 PAX (Fotograf & Assistent)' oder '0 PAX'",
         "cargo": "z.B. 'Kamera-Gimbal (80 lbs)' oder 'Reisegepäck (40 lbs)'",
-        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "dialectHint": "neutral oder leicht regional", "roleProfile": "aus erlaubter Liste", "taskDomain": "aus erlaubter Liste", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "cargoSensitivity": "niedrig|mittel|hoch", "stomachSensitivity": "niedrig|mittel|hoch", "comfortPriority": "niedrig|mittel|hoch", "targetAltFt": 3500, "targetRadiusNm": 3.0, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten", "trainingPlan": { "mode": "airwork|pattern", "trigger": "half_route|five_nm_before_landing", "focus": ["Übung 1", "Übung 2"], "instructorLine": "Kurze konkrete Instruktoranweisung" } }
+        "passenger": { "name": "Vollständiger Name", "role": "Beruf/Rolle", "gender": "male|female", "personality": "3 Adjektive", "dialectHint": "neutral oder leicht regional", "roleProfile": "aus erlaubter Liste", "taskDomain": "aus erlaubter Liste", "gTolerance": "niedrig|mittel|hoch", "bankTolerance": "niedrig|mittel|hoch", "cargoSensitivity": "niedrig|mittel|hoch", "stomachSensitivity": "niedrig|mittel|hoch", "comfortPriority": "niedrig|mittel|hoch", "urgencyPriority": "niedrig|mittel|hoch", "targetAltFt": 3500, "targetRadiusNm": 3.0, "targetDwellMin": 2, "greetingText": "Persönliche Begrüßung an den Piloten", "trainingPlan": { "mode": "airwork|pattern", "trigger": "half_route|five_nm_before_landing", "focus": ["Übung 1", "Übung 2"], "instructorLine": "Kurze konkrete Instruktoranweisung" } }
     }`;
 
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
@@ -4746,6 +4757,7 @@ async function generateMission() {
                 cargoSensitivity: p.cargoSensitivity || 'mittel',
                 stomachSensitivity: p.stomachSensitivity || 'mittel',
                 comfortPriority: p.comfortPriority || 'mittel',
+                urgencyPriority: p.urgencyPriority || 'mittel',
                 targetAltFt: Number(p.targetAltFt || 0),
                 targetRadiusNm: Number(p.targetRadiusNm || 0),
                 targetDwellMin: Number(p.targetDwellMin || 0)

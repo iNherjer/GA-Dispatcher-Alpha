@@ -2672,7 +2672,7 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Passenger: ${p.name || '?'} (${p.role || '?'})`);
         lines.push(`- Role/Task: ${p.roleProfile || 'general_passenger_v1'} | ${p.taskDomain || 'general'}`);
         lines.push(`- Toleranzen: g=${p.gTolerance || 'mittel'} | bank=${p.bankTolerance || 'mittel'}`);
-        lines.push(`- Sensitivität: cargo=${p.cargoSensitivity || 'mittel'} | magen=${p.stomachSensitivity || 'mittel'} | comfortPriority=${p.comfortPriority || 'mittel'}`);
+        lines.push(`- Sensitivität: cargo=${p.cargoSensitivity || 'mittel'} | magen=${p.stomachSensitivity || 'mittel'} | comfortPriority=${p.comfortPriority || 'mittel'} | urgency=${p.urgencyPriority || 'mittel'}`);
         lines.push(`- POI-Parameter: alt=${Number(p.targetAltFt || 0)} ft | radius=${Number(p.targetRadiusNm || 0)} NM | dwell=${Number(p.targetDwellMin || 0)} min`);
         if (missionSnap.story) lines.push(`- Story: ${String(missionSnap.story).replace(/\s+/g, ' ').trim()}`);
     }

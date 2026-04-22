@@ -1032,6 +1032,7 @@ function _baseContext() {
     const cargo = document.getElementById('mWeight')?.innerText?.trim() || '';
     const payload = document.getElementById('mPay')?.innerText?.trim() || '';
     const roleStyle = _roleStyleHint(pax.role, pax);
+    const urgency = String(pax?.urgencyPriority || 'mittel').toLowerCase();
 
     const dialectProfile = _contextualDialectProfile(pax);
     const trainingPlan = _activeAptTrainingPlan();
@@ -1053,6 +1054,7 @@ LOAD: ${cargo || 'n/a'}${payload ? ` · ${payload}` : ''}
 AUFTRAG (kurz): ${storyShort || 'n/a'}
 STIL: ${roleStyle}
 ${trainingDiscipline}
+DRINGLICHKEIT: ${urgency}
 MISSION-CONTRACT: ${contractSummary || 'n/a'}
 CONTRACT-REGELN: ${contractRules || 'n/a'}
 REGION: ${dialectProfile.regionLabel} · Wortwahl ${dialectProfile.dialectHint} (${dialectProfile.strengthLabel})
@@ -1540,16 +1542,35 @@ function _greetingPrompt() {
     const trainingPlan = _activeAptTrainingPlan();
     const role = String(pax?.role || '').toLowerCase();
     const isClubTechRole = /(mechan|wartung|techn|inspekt|ingenieur|facility|vereins|hangar)/.test(role);
+    const taskDomain = String(pax?.taskDomain || '').toLowerCase();
+    const isReporterApt = (!isPOI && taskDomain === 'news_coverage');
     const comfortPriority = String(pax?.comfortPriority || 'mittel').toLowerCase();
+    const urgencyPriority = String(pax?.urgencyPriority || 'mittel').toLowerCase();
+    const stomachSensitivity = String(pax?.stomachSensitivity || 'mittel').toLowerCase();
+    const cargoSensitivity = String(pax?.cargoSensitivity || 'mittel').toLowerCase();
+    const gTolerance = String(pax?.gTolerance || 'mittel').toLowerCase();
+    const bankTolerance = String(pax?.bankTolerance || 'mittel').toLowerCase();
+    const comfortHintNeeded = (
+        comfortPriority === 'hoch' ||
+        stomachSensitivity === 'hoch' ||
+        cargoSensitivity === 'hoch' ||
+        gTolerance === 'niedrig' ||
+        bankTolerance === 'niedrig'
+    );
+    const timingHintNeeded = (urgencyPriority === 'hoch');
     const reqLine = isPOI
         ? (trainingPlan
             ? `Bitte nenne kurz das Übungsthema und wie wir es sicher und sauber abfliegen. Keine internen Parameter oder technischen Vorgaben zitieren.`
             : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast. Keine internen Parameter oder technischen Vorgaben zitieren.`)
-        : (isClubTechRole
+        : (isReporterApt
+            ? (comfortHintNeeded
+                ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig.${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`
+                : `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass), danach Fokus auf ${timingHintNeeded ? 'pünktliche ' : ''}Ankunft und Start der Arbeit am Boden. KEIN Komforthinweis. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`)
+            : (isClubTechRole
             ? `Fokus auf den Auftrag und den Ablauf am Ziel. Komfortwünsche nur nennen, wenn sie wirklich wichtig sind. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
-            : (comfortPriority === 'hoch'
-                ? `Nenne genau einen kurzen Komforthinweis, weil ruhiges Fliegen hier wichtig ist. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
-                : `Komfortpräferenzen nur knapp und nur wenn nötig erwähnen. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`));
+            : (comfortHintNeeded
+                ? `Nenne genau einen kurzen Komforthinweis NUR wenn er aufgrund von Magen/Fracht/Empfindlichkeit wirklich nötig ist.${timingHintNeeded ? ' Erwähne zusätzlich kurz den Zeitdruck.' : ''} Sonst Fokus auf Transportauftrag und Zielablauf am Boden. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
+                : `Nenne KEINEN Komforthinweis. Fokus auf Transportauftrag und Ablauf nach Ankunft am Zielplatz.${timingHintNeeded ? ' Erwähne kurz, dass der Auftrag zeitkritisch ist.' : ''} KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`)));
     return `${ctx}
 
 Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.${wx ? ' ' + wx : ''}
