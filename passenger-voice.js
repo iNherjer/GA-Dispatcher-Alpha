@@ -931,13 +931,40 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
             const src = ctx.createBufferSource();
             src.buffer = buf;
             src.connect(input);
-            src.onended = () => resolve();
+            let done = false;
+            const finish = () => {
+                if (done) return;
+                done = true;
+                try { src.onended = null; } catch (_) {}
+                try { src.disconnect(); } catch (_) {}
+                try { noise.disconnect(); } catch (_) {}
+                resolve();
+            };
+            src.onended = () => finish();
+            src.onerror = () => finish();
 
             const t = ctx.currentTime + 0.1;
-            src.start(t);
-            noise.start(t);
-            noise.stop(t + buf.duration + 0.3);
-            _paxLog(`Intercom-Wiedergabe: ${buf.duration.toFixed(1)} s`, 'audio');
+            const watchdogMs = Math.max(6000, Math.round((buf.duration + 2.5) * 1000));
+            const watchdog = setTimeout(() => {
+                _paxLog(`Playback Watchdog: onended ausgeblieben nach ${watchdogMs} ms — Queue wird freigegeben`, 'warn');
+                finish();
+            }, watchdogMs);
+            const guardedFinish = () => {
+                clearTimeout(watchdog);
+                finish();
+            };
+            src.onended = guardedFinish;
+            src.onerror = guardedFinish;
+
+            try {
+                src.start(t);
+                noise.start(t);
+                noise.stop(t + buf.duration + 0.3);
+                _paxLog(`Intercom-Wiedergabe: ${buf.duration.toFixed(1)} s`, 'audio');
+            } catch (startErr) {
+                _paxLog(`Playback Startfehler: ${startErr?.message || startErr}`, 'warn');
+                guardedFinish();
+            }
         });
     } catch(e) {
         _paxLog(`Playback Fehler: ${e.message}`, 'warn');
