@@ -2669,7 +2669,7 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
         if (missionSnap.contract?.summary) lines.push(`- Contract: ${missionSnap.contract.summary}`);
         lines.push(`- PAX/Cargo: ${missionSnap.paxText || 'n/a'} | ${missionSnap.cargoText || 'n/a'}`);
-        lines.push(`- Passenger: ${p.name || '?'} (${p.role || '?'})`);
+        lines.push(`- Passenger: ${p.name || '?'} (${p.role || '?'}) | gender=${p.gender || 'n/a'}`);
         lines.push(`- Role/Task: ${p.roleProfile || 'general_passenger_v1'} | ${p.taskDomain || 'general'}`);
         lines.push(`- Toleranzen: g=${p.gTolerance || 'mittel'} | bank=${p.bankTolerance || 'mittel'}`);
         lines.push(`- Sensitivität: cargo=${p.cargoSensitivity || 'mittel'} | magen=${p.stomachSensitivity || 'mittel'} | comfortPriority=${p.comfortPriority || 'mittel'} | urgency=${p.urgencyPriority || 'mittel'}`);

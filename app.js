@@ -4941,6 +4941,7 @@ async function generateMission() {
             passenger: {
                 name: p.name || null,
                 role: p.role || null,
+                gender: p.gender || null,
                 roleProfile: p.roleProfile || 'general_passenger_v1',
                 taskDomain: p.taskDomain || 'general',
                 gTolerance: p.gTolerance || 'mittel',

@@ -984,6 +984,17 @@ function _normSpeakerGender(pax) {
     return 'female';
 }
 
+function _normalizeActivePassengerGender() {
+    if (!window.activePassenger || typeof window.activePassenger !== 'object') return;
+    const before = String(window.activePassenger.gender || '').trim();
+    const normalized = _normSpeakerGender(window.activePassenger);
+    window.activePassenger.gender = normalized;
+    if (before.toLowerCase() !== normalized) {
+        _paxLog(`Gender normalisiert: "${before || 'n/a'}" -> "${normalized}"`, 'state');
+    }
+    try { localStorage.setItem('ga_active_passenger', JSON.stringify(window.activePassenger)); } catch (_) {}
+}
+
 function _hashStable(text) {
     const s = String(text || '');
     let h = 2166136261;
@@ -2253,6 +2264,7 @@ function _tickPoiDwell(lat, lon, flightData) {
         const saved = localStorage.getItem('ga_active_passenger');
         if (saved) try { window.activePassenger = JSON.parse(saved); } catch(e) {}
     }
+    _normalizeActivePassengerGender();
 
     _injectPaxUI();
     _paxLog('System bereit', 'state');
