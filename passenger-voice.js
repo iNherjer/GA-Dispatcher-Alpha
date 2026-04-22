@@ -996,9 +996,17 @@ function _baseContext() {
 
     const dialectProfile = _contextualDialectProfile(pax);
     const trainingPlan = _activeAptTrainingPlan();
+    let contract = md?.missionContract || window.activeMissionContract || null;
+    if (!contract) {
+        try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) { contract = null; }
+    }
     const storyShort = String(story || '').trim().replace(/\s+/g, ' ').slice(0, 260);
     const trainingDiscipline = trainingPlan
         ? `TRAINING (${trainingPlan.mode}): Nur fliegerische Inhalte, prozedural, sicherheitsfokussiert. Kein Sightseeing/Ortsstory.`
+        : '';
+    const contractSummary = contract?.summary ? String(contract.summary).trim() : '';
+    const contractRules = Array.isArray(contract?.constraints)
+        ? contract.constraints.map(x => String(x || '').trim()).filter(Boolean).slice(0, 3).join(' | ')
         : '';
     return `ROLLE: ${pax.name} (${pax.role}) · Persönlichkeit: ${pax.personality}
 FLUG: ${md.start || '?'} → ${md.poiName || md.dest || '?'} · ${md.dist || '?'} NM
@@ -1006,6 +1014,8 @@ LOAD: ${cargo || 'n/a'}${payload ? ` · ${payload}` : ''}
 AUFTRAG (kurz): ${storyShort || 'n/a'}
 STIL: ${roleStyle}
 ${trainingDiscipline}
+MISSION-CONTRACT: ${contractSummary || 'n/a'}
+CONTRACT-REGELN: ${contractRules || 'n/a'}
 REGION: ${dialectProfile.regionLabel} · Wortwahl ${dialectProfile.dialectHint} (${dialectProfile.strengthLabel})
 REGELN: ${_dialectGlobalRules(dialectProfile, pax.role)}
 TASK-DOMAIN: ${_activeTaskDomain()}

@@ -2667,6 +2667,7 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Ziel: ${missionSnap.target || 'n/a'}`);
         lines.push(`- Quelle: ${missionSnap.source || 'n/a'}`);
         lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
+        if (missionSnap.contract?.summary) lines.push(`- Contract: ${missionSnap.contract.summary}`);
         lines.push(`- PAX/Cargo: ${missionSnap.paxText || 'n/a'} | ${missionSnap.cargoText || 'n/a'}`);
         lines.push(`- Passenger: ${p.name || '?'} (${p.role || '?'})`);
         lines.push(`- Role/Task: ${p.roleProfile || 'general_passenger_v1'} | ${p.taskDomain || 'general'}`);

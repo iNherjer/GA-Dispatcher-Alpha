@@ -1166,6 +1166,8 @@ function resetApp() {
     _abortDispatchRun('Clear');
     localStorage.removeItem('ga_active_mission'); document.getElementById("briefingBox").style.display = "none";
     currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null;
+    window.activeMissionContract = null;
+    localStorage.removeItem('ga_active_mission_contract');
     if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
     window._lastReplayRouteKey = '';
     vpAltWaypoints = []; vpSegmentAlts = [];
@@ -3101,6 +3103,33 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     return weighted[Math.floor(Math.random() * weighted.length)] || 'auto';
 }
 
+function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '' } = {}) {
+    const profile = getMissionTaskProfile(appliedProfileId, isPOI ? 'poi' : 'apt') || getMissionTaskProfile('auto', isPOI ? 'poi' : 'apt');
+    const taskDomain = String(passenger?.taskDomain || profile?.taskDomain || 'general').toLowerCase();
+    const roleProfile = String(passenger?.roleProfile || profile?.roleProfile || 'general_passenger_v1').toLowerCase();
+    const title = String(mission?.t || mission?.title || '').trim();
+    const story = String(mission?.s || mission?.story || '').trim();
+    const summaryBase = profile?.label || (isPOI ? 'POI-Einsatz' : 'A-B Einsatz');
+    const summary = `${summaryBase} | ${isPOI ? 'POI' : 'A-B'} | cat:${String(category || 'std')}`;
+    const constraints = [
+        `Rollenkonsistenz: roleProfile=${roleProfile}, taskDomain=${taskDomain}`,
+        'Kein Themenmix zwischen Auftrag, PAX und Fracht',
+        'Alle Folgeansagen bleiben im gleichen Auftragsrahmen'
+    ];
+    return {
+        requestedProfileId: String(requestedProfileId || 'auto').toLowerCase(),
+        appliedProfileId: String(appliedProfileId || 'auto').toLowerCase(),
+        summary,
+        taskDomain,
+        roleProfile,
+        paxText: String(paxText || ''),
+        cargoText: String(cargoText || ''),
+        missionTitle: title,
+        missionStory: story,
+        constraints
+    };
+}
+
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     const id = String(profileId || 'auto').toLowerCase();
     if (!id || id === 'auto') return true;
@@ -4397,6 +4426,16 @@ async function generateMission() {
     const selectedPoiCategory = effectiveType === 'poi' ? (missionPicker.category || 'all') : 'all';
     const selectedAptCategory = effectiveType === 'apt' ? (missionPicker.category || 'all') : 'all';
     const selectedMissionProfile = String(missionPicker.profile || 'auto').toLowerCase();
+    const seededProfileId = (selectedMissionProfile === 'auto')
+        ? pickAutoMissionTaskProfileId({
+            isPOI: effectiveType === 'poi',
+            selectedAptCategory,
+            selectedPoiCategory,
+            missionCat: ''
+        })
+        : selectedMissionProfile;
+    const dispatchProfileId = String(seededProfileId || 'auto').toLowerCase();
+    const missionPickerResolved = { ...missionPicker, profile: dispatchProfileId, profileRequested: selectedMissionProfile };
     // Guardrail: Bei POI-Missionen darf ein evtl. noch befülltes Zielfeld
     // (z.B. vom vorherigen A-B-Flug) NICHT als Ziel ausgewertet werden.
     if (effectiveType === "poi" && targetDest) {
@@ -4493,11 +4532,10 @@ async function generateMission() {
     let paxText = `${randomPax} PAX`, cargoText = `${Math.floor(Math.random() * 300) + 20} lbs`;
 
     indicator.innerText = `Kontaktiere KI-Dispatcher...`;
-    let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt, missionWeather, missionPicker);
-    let missionFromLocalFallback = false;
+    let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt, missionWeather, missionPickerResolved);
     _ensureDispatchAlive();
-    if (m && selectedMissionProfile !== 'auto' && !missionMatchesTaskProfile(m, selectedMissionProfile, isPOI)) {
-        console.warn('[DISPATCH] KI-Mission nicht profilkonsistent, falle auf lokale Missionen zurueck.', { selectedMissionProfile, mission: m?.t || 'n/a' });
+    if (m && dispatchProfileId !== 'auto' && !missionMatchesTaskProfile(m, dispatchProfileId, isPOI)) {
+        console.warn('[DISPATCH] KI-Mission nicht profilkonsistent, falle auf lokale Missionen zurueck.', { dispatchProfileId, mission: m?.t || 'n/a' });
         m = null;
     }
 
@@ -4506,7 +4544,6 @@ async function generateMission() {
         if (m.pax) paxText = m.pax;
         if (m.cargo) cargoText = m.cargo;
     } else {
-        missionFromLocalFallback = true;
         indicator.innerText = `Lade Auftrag aus lokaler Datenbank...`;
         dataSource = "Lokale DB";
         if (isPOI) {
@@ -4530,15 +4567,15 @@ async function generateMission() {
             // A->B-Missionen gleichmäßig über Kategorien rotieren (inkl. Trainingsflüge).
             const availM = missions.filter(ms => {
                 if (!ms || ms.cat === 'poi') return false;
-                if (selectedMissionProfile !== 'auto' && selectedAptCategory === 'all') {
+                if (dispatchProfileId !== 'auto' && selectedAptCategory === 'all') {
                     const inferred = classifyAptMissionCategory(ms);
                     if (inferred === 'trn') return false;
                 }
                 if (selectedAptCategory === 'all') return true;
                 return classifyAptMissionCategory(ms) === selectedAptCategory;
             });
-            const profFilteredAvailM = (selectedMissionProfile && selectedMissionProfile !== 'auto')
-                ? availM.filter(ms => missionMatchesTaskProfile(ms, selectedMissionProfile, false))
+            const profFilteredAvailM = (dispatchProfileId && dispatchProfileId !== 'auto')
+                ? availM.filter(ms => missionMatchesTaskProfile(ms, dispatchProfileId, false))
                 : availM;
             const missionPoolByProfile = profFilteredAvailM.length ? profFilteredAvailM : availM;
             if (missionPoolByProfile.length === 0) {
@@ -4602,15 +4639,7 @@ async function generateMission() {
     if (!isPOI && selectedAptCategory === 'cargo') paxText = "0 PAX";
     if (!isPOI && selectedAptCategory === 'trn') paxText = "1 PAX (Instruktor)";
     {
-        const autoProfileId = (selectedMissionProfile === 'auto' && missionFromLocalFallback)
-            ? pickAutoMissionTaskProfileId({
-                isPOI,
-                selectedAptCategory,
-                selectedPoiCategory,
-                missionCat: String(m?.cat || '')
-            })
-            : 'auto';
-        const effectiveProfileId = (selectedMissionProfile === 'auto') ? autoProfileId : selectedMissionProfile;
+        const effectiveProfileId = dispatchProfileId;
         const profApplied = applyMissionTaskProfileToMission(m, isPOI, effectiveProfileId, paxText, cargoText);
         m = profApplied.mission || m;
         paxText = profApplied.paxText || paxText;
@@ -4648,7 +4677,20 @@ async function generateMission() {
     };
 
     window.activePassenger = (m && m.passenger) ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt) : null;
+    const activeMissionContract = buildMissionContract({
+        isPOI,
+        requestedProfileId: m?._requestedProfile || selectedMissionProfile || 'auto',
+        appliedProfileId: m?._appliedProfile || dispatchProfileId || 'auto',
+        mission: m,
+        passenger: window.activePassenger,
+        paxText,
+        cargoText,
+        category: poolCategory
+    });
+    currentMissionData.missionContract = activeMissionContract;
+    window.activeMissionContract = activeMissionContract;
     try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch(e) {}
+    try { localStorage.setItem('ga_active_mission_contract', JSON.stringify(activeMissionContract)); } catch(e) {}
     try {
         const p = window.activePassenger || {};
         const missionDebugSnapshot = {
@@ -4661,6 +4703,7 @@ async function generateMission() {
             target: dispatchSnapshot.target,
             source: m?._source || dataSource || 'n/a',
             story: String(m?.s || ''),
+            contract: activeMissionContract || null,
             paxText: String(paxText || ''),
             cargoText: String(cargoText || ''),
             passenger: {
