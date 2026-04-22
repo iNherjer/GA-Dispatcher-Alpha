@@ -364,6 +364,22 @@ const MISSION_ROLE_TASK_PROFILES = {
         tolerances: { gTolerance: 'mittel', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
         storyCue: 'Fokus: sichere, erschütterungsarme Frachtführung.'
     },
+    club_utility: {
+        id: 'club_utility',
+        label: 'Vereins-/Utility-Flug',
+        appliesTo: ['apt'],
+        roleProfile: 'club_utility_v1',
+        taskDomain: 'club_utility',
+        personas: [
+            { name: 'Lena Hartig', role: 'Vereinskoordinatorin', gender: 'female', personality: 'pragmatisch, freundlich, organisiert' },
+            { name: 'Tobias Kern', role: 'Flugplatzkoordinator', gender: 'male', personality: 'ruhig, zuverlässig, lösungsorientiert' }
+        ],
+        greetingText: 'Hi, heute ist ein klassischer Vereins- und Utility-Flug. Bitte sauber und entspannt, wir haben einen klaren Ablauf.',
+        paxText: '1 PAX (Vereinskoordination)',
+        cargoPool: ['Werkzeug- und Dokumententasche (24 lbs)', 'Ersatzteilkiste (32 lbs)'],
+        tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'niedrig' },
+        storyCue: 'Fokus: verlässlicher Vereins-/Utility-Einsatz ohne Themenmix.'
+    },
     search_and_rescue: {
         id: 'search_and_rescue',
         label: 'Search and Rescue',
