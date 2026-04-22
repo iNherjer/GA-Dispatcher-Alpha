@@ -3041,43 +3041,38 @@ function _hasTimePressureText(txt) {
     return /\b(zeitkrit|dringend|eilig|pünkt|puenkt|zeitnah|so bald wie moeglich|so schnell wie moeglich)\b/i.test(String(txt || ''));
 }
 
-function _stripTimePressureText(txt) {
+function _hasCargoSensitivityText(txt) {
+    return /\b(empfindlich(?:e|er|en)?|fragil(?:e|er|en)?|stoss(?:-|\s)?empfindlich(?:e|er|en)?|stoß(?:-|\s)?empfindlich(?:e|er|en)?|erschuetterungsarm|erschütterungsarm|vorsichtig\s+mit\s+der\s+fracht)\b/i.test(String(txt || ''));
+}
+
+function _stripCargoSensitivityText(txt) {
     return String(txt || '')
-        .replace(/\b(zeitkritisch|dringend|eilig|zeitnah)\b/gi, '')
-        .replace(/\bso\s+bald\s+wie\s+m(?:oe|ö)glich\b/gi, '')
-        .replace(/\bso\s+schnell\s+wie\s+m(?:oe|ö)glich\b/gi, '')
-        .replace(/\bwir\s+m(?:ue|ü)ssen\s+(jetzt\s+)?(dringend|schnell|z(?:ue|ü)gig)\b[^.?!]*/gi, '')
-        .replace(/\bp(?:ue|ü)nktlich\s+(am\s+ziel\s+)?(ankommen|sein)\b/gi, '')
-        // Cleanup fuer typische Restfragmente nach Zeitdruck-Entfernung.
+        .replace(/\b(empfindlich(?:e|er|en)?|fragil(?:e|er|en)?|stoss(?:-|\s)?empfindlich(?:e|er|en)?|stoß(?:-|\s)?empfindlich(?:e|er|en)?|erschuetterungsarm|erschütterungsarm)\b/gi, '')
+        .replace(/\b(vorsichtig|behutsam|sanft)\s+(mit|bei)\s+der\s+fracht\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\s+([,.;:!?])/g, '$1')
+        .trim();
+}
+
+function _cleanupNarrativeArtifacts(txt) {
+    return String(txt || '')
+        .replace(/\bFokus:\s*/gi, '')
+        .replace(/<\s*\/?\s*(INSTRUKTIONEN|KONTEXT|OUTPUT)\s*>/gi, '')
+        .replace(/\b(OUTPUT-HYGIENE|KONSISTENZ-PFLICHT|PROFIL-FIX|OPERATIONS-REGEL)\b[^.?!]*/gi, '')
         .replace(/\bder\s+auftrag\s+ist\s*,?\s*wir\s+sollten\b/gi, '')
         .replace(/\bder\s+auftrag\s+ist\b\s*,?/gi, '')
         .replace(/\bwir\s+sollten\b\s*,?/gi, '')
         .replace(/(?:^|[.!?]\s*)[,;:]+/g, '. ')
         .replace(/\s{2,}/g, ' ')
         .replace(/\s+([,.;:!?])/g, '$1')
+        .replace(/^[,.;:\-]\s*/g, '')
         .trim();
 }
 
-function _finalizeMissionNarrative(mission, profile, isPOI = false) {
-    const m = (mission && typeof mission === 'object') ? mission : {};
-    let title = String(m.t || m.title || '').trim();
-    let story = String(m.s || m.story || '').trim();
-    const urgency = _normUrgencyBinary(m?.passenger?.urgencyPriority);
-
-    // Interne Marker nie im Story-Text anzeigen.
-    story = story.replace(/\bFokus:\s*/gi, '').replace(/\s{2,}/g, ' ').trim();
-
-    if (urgency === 'hoch') {
-        if (!_hasTimePressureText(title) && !_hasTimePressureText(story)) {
-            story = `${story}${story ? ' ' : ''}Der Auftrag ist zeitkritisch, wir sollten pünktlich ankommen.`.trim();
-        }
-    } else {
-        title = _stripTimePressureText(title);
-        story = _stripTimePressureText(story);
-    }
-
-    if (String(profile?.id || '') === 'news_coverage' && !isPOI) {
-        story = story
+function _enforceProfileNarrativeContract(storyText, profileId, isPOI = false) {
+    let s = _cleanupNarrativeArtifacts(storyText);
+    if (String(profileId || '') === 'news_coverage' && !isPOI) {
+        s = s
             .replace(/\bund\s+ohne\s+kreisen\s+über\s+dem\s+ziel\b/gi, '')
             .replace(/\bund\s+ohne\s+kreisen\s+ueber\s+dem\s+ziel\b/gi, '')
             .replace(/\bohne\s+kreisen\s+über\s+dem\s+ziel\b/gi, '')
@@ -3087,15 +3082,67 @@ function _finalizeMissionNarrative(mission, profile, isPOI = false) {
             .replace(/\bkein(?:en|e|)\s+verweilen(?:\/überflug|\/ueberflug)?(?:\s+als\s+missionsziel)?\b/gi, '')
             .replace(/\s{2,}/g, ' ')
             .replace(/\s+([,.;:!?])/g, '$1')
-            .replace(/^[,.;:\-]\s*/g, '')
             .trim();
-        if (!/berichterstattung\s+am\s+boden/i.test(story)) {
-            story = `${story}${story ? ' ' : ''}Am Ziel startet die Berichterstattung am Boden.`.trim();
+        if (!/berichterstattung\s+am\s+boden/i.test(s)) {
+            s = `${s}${s ? ' ' : ''}Am Ziel startet die Berichterstattung am Boden.`.trim();
         }
     }
+    return _cleanupNarrativeArtifacts(s);
+}
+
+function _stripTimePressureText(txt) {
+    return String(txt || '')
+        .replace(/\b(zeitkritisch|dringend|eilig|zeitnah)\b/gi, '')
+        .replace(/\bso\s+bald\s+wie\s+m(?:oe|ö)glich\b/gi, '')
+        .replace(/\bso\s+schnell\s+wie\s+m(?:oe|ö)glich\b/gi, '')
+        .replace(/\bwir\s+m(?:ue|ü)ssen\s+(jetzt\s+)?(dringend|schnell|z(?:ue|ü)gig)\b[^.?!]*/gi, '')
+        .replace(/\bp(?:ue|ü)nktlich\s+(am\s+ziel\s+)?(ankommen|sein)\b/gi, '')
+        .trim();
+}
+
+function _finalizeMissionNarrative(mission, profile, isPOI = false) {
+    const m = (mission && typeof mission === 'object') ? mission : {};
+    let title = _cleanupNarrativeArtifacts(String(m.t || m.title || '').trim());
+    let story = _cleanupNarrativeArtifacts(String(m.s || m.story || '').trim());
+    const urgency = _normUrgencyBinary(m?.passenger?.urgencyPriority);
+    const cargoSensitivity = String(m?.passenger?.cargoSensitivity || '').toLowerCase() === 'hoch' ? 'hoch' : 'niedrig';
+    const guard = {
+        urgency,
+        cargoSensitivity,
+        timeHintAdded: false,
+        timePressureStripped: false,
+        cargoHintStripped: false,
+        profileContractApplied: false
+    };
+
+    if (urgency === 'hoch') {
+        if (!_hasTimePressureText(title) && !_hasTimePressureText(story)) {
+            story = `${story}${story ? ' ' : ''}Der Auftrag ist zeitkritisch, wir sollten pünktlich ankommen.`.trim();
+            guard.timeHintAdded = true;
+        }
+    } else {
+        const before = `${title} ${story}`;
+        title = _stripTimePressureText(title);
+        story = _stripTimePressureText(story);
+        guard.timePressureStripped = before !== `${title} ${story}`;
+    }
+
+    if (cargoSensitivity !== 'hoch') {
+        const before = `${title} ${story}`;
+        if (_hasCargoSensitivityText(title)) title = _stripCargoSensitivityText(title);
+        if (_hasCargoSensitivityText(story)) story = _stripCargoSensitivityText(story);
+        guard.cargoHintStripped = before !== `${title} ${story}`;
+    }
+
+    const beforeProfile = story;
+    story = _enforceProfileNarrativeContract(story, String(profile?.id || ''), isPOI);
+    guard.profileContractApplied = beforeProfile !== story;
+    title = _cleanupNarrativeArtifacts(title);
+    story = _cleanupNarrativeArtifacts(story);
 
     m.t = title || m.t || '';
     m.s = story || m.s || '';
+    m._narrativeGuard = guard;
     return m;
 }
 
@@ -3537,80 +3584,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         const p = { ...payload };
         p.title = stripPilotNameFromText(p.title || '');
         p.story = stripPilotNameFromText(p.story || '');
-        const normalizeUrgency = (v) => (String(v || '').toLowerCase() === 'hoch' ? 'hoch' : 'niedrig');
-        const normalizeCargoSensitivity = (v) => (String(v || '').toLowerCase() === 'hoch' ? 'hoch' : 'niedrig');
-        const hasTimeHint = (txt) => /\b(zeitkrit|dringend|eilig|pünkt|puenkt|zeitnah|so bald wie moeglich|so schnell wie moeglich)\b/i.test(String(txt || ''));
-        const hasCargoSensitivityHint = (txt) => /\b(empfindlich(?:e|er|en)?|fragil(?:e|er|en)?|stoss(?:-|\s)?empfindlich(?:e|er|en)?|stoß(?:-|\s)?empfindlich(?:e|er|en)?|erschuetterungsarm|erschütterungsarm|vorsichtig\s+mit\s+der\s+fracht)\b/i.test(String(txt || ''));
-        const stripTimePressure = (txt) => String(txt || '')
-            .replace(/\b(zeitkritisch|dringend|eilig|zeitnah)\b/gi, '')
-            .replace(/\bso\s+bald\s+wie\s+m(?:oe|ö)glich\b/gi, '')
-            .replace(/\bso\s+schnell\s+wie\s+m(?:oe|ö)glich\b/gi, '')
-            .replace(/\bwir\s+m(?:ue|ü)ssen\s+(jetzt\s+)?(dringend|schnell|z(?:ue|ü)gig)\b[^.?!]*/gi, '')
-            .replace(/\bp(?:ue|ü)nktlich\s+(am\s+ziel\s+)?(ankommen|sein)\b/gi, '')
-            .replace(/\s{2,}/g, ' ')
-            .replace(/\s+([,.;:!?])/g, '$1')
-            .trim();
-        const stripCargoSensitivity = (txt) => String(txt || '')
-            .replace(/\b(empfindlich(?:e|er|en)?|fragil(?:e|er|en)?|stoss(?:-|\s)?empfindlich(?:e|er|en)?|stoß(?:-|\s)?empfindlich(?:e|er|en)?|erschuetterungsarm|erschütterungsarm)\b/gi, '')
-            .replace(/\b(vorsichtig|behutsam|sanft)\s+(mit|bei)\s+der\s+fracht\b/gi, '')
-            .replace(/\s{2,}/g, ' ')
-            .replace(/\s+([,.;:!?])/g, '$1')
-            .trim();
-        const enforceUrgencyConsistency = (titleText, storyText, urgencyRaw) => {
-            let t = String(titleText || '').trim();
-            let s = String(storyText || '').trim();
-            const urgency = normalizeUrgency(urgencyRaw);
-            const hintInTitle = hasTimeHint(t);
-            const hintInStory = hasTimeHint(s);
-
-            if (urgency === 'hoch') {
-                if (!hintInTitle && !hintInStory) {
-                    s = `${s}${s ? ' ' : ''}Der Auftrag ist zeitkritisch, wir sollten pünktlich ankommen.`.trim();
-                }
-            } else {
-                t = stripTimePressure(t);
-                s = stripTimePressure(s);
-            }
-            return { title: t, story: s };
-        };
-        const enforceCargoSensitivityConsistency = (titleText, storyText, cargoSensitivityRaw) => {
-            let t = String(titleText || '').trim();
-            let s = String(storyText || '').trim();
-            const cargoSensitivity = normalizeCargoSensitivity(cargoSensitivityRaw);
-            const cargoHintInTitle = hasCargoSensitivityHint(t);
-            const cargoHintInStory = hasCargoSensitivityHint(s);
-
-            if (cargoSensitivity !== 'hoch') {
-                if (cargoHintInTitle) t = stripCargoSensitivity(t);
-                if (cargoHintInStory) s = stripCargoSensitivity(s);
-            }
-            return { title: t, story: s };
-        };
-        if (!isPOI && String(forcedProfile?.id || '').toLowerCase() === 'news_coverage') {
-            let s = String(p.story || '');
-            const leakPatterns = [
-                /\bund\s+ohne\s+kreisen\s+über\s+dem\s+ziel\b/gi,
-                /\bund\s+ohne\s+kreisen\s+ueber\s+dem\s+ziel\b/gi,
-                /\bohne\s+kreisen\s+über\s+dem\s+ziel\b/gi,
-                /\bohne\s+kreisen\s+ueber\s+dem\s+ziel\b/gi,
-                /\bkein(?:en|e|)\s+arbeitsauftrag\s+in\s+der\s+luft(?:\s+am\s+ziel)?\b/gi,
-                /\bkein(?:en|e|)\s+kreisen\b/gi,
-                /\bkein(?:en|e|)\s+verweilen(?:\/überflug|\/ueberflug)?(?:\s+als\s+missionsziel)?\b/gi
-            ];
-            leakPatterns.forEach((re) => { s = s.replace(re, ''); });
-            s = s
-                .replace(/\s{2,}/g, ' ')
-                .replace(/\s+([,.;:!?])/g, '$1')
-                .replace(/^[,.;:\-]\s*/g, '')
-                .trim();
-            p.story = s || 'Du bringst den Reporter zum Zielplatz, dort startet die Berichterstattung am Boden.';
-        }
-        const urgencySynced = enforceUrgencyConsistency(p.title || '', p.story || '', p?.passenger?.urgencyPriority);
-        p.title = urgencySynced.title || p.title || '';
-        p.story = urgencySynced.story || p.story || '';
-        const cargoSynced = enforceCargoSensitivityConsistency(p.title || '', p.story || '', p?.passenger?.cargoSensitivity);
-        p.title = cargoSynced.title || p.title || '';
-        p.story = cargoSynced.story || p.story || '';
+        p.title = _cleanupNarrativeArtifacts(p.title || '');
+        p.story = _cleanupNarrativeArtifacts(p.story || '');
         if (p.passenger && typeof p.passenger === 'object') {
             p.passenger = { ...p.passenger };
             p.passenger.greetingText = stripPilotNameFromText(p.passenger.greetingText || '');
@@ -4929,6 +4904,7 @@ async function generateMission() {
             target: dispatchSnapshot.target,
             source: m?._source || dataSource || 'n/a',
             story: String(m?.s || ''),
+            narrativeGuard: m?._narrativeGuard || null,
             contract: activeMissionContract || null,
             paxText: String(paxText || ''),
             cargoText: String(cargoText || ''),
