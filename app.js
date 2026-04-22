@@ -3238,14 +3238,19 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         pushMany('cargo_fragile', 2);
         pushMany('animal_transport', 2);
         pushMany('medical_transfer', 1);
+        pushMany('club_utility', 1);
         // Category-bias
         if (aptSel === 'cargo' || cat === 'cargo') {
             pushMany('cargo_fragile', 4);
             pushMany('medical_transfer', 1);
         }
-        if (aptSel === 'private' || aptSel === 'club' || cat === 'std' || cat === 'club') {
+        if (aptSel === 'private' || cat === 'std') {
             pushMany('sightseeing_tour', 2);
             pushMany('animal_transport', 1);
+        }
+        if (aptSel === 'club' || cat === 'club') {
+            pushMany('club_utility', 3);
+            pushMany('sightseeing_tour', 1);
         }
     }
 
