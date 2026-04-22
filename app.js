@@ -3048,6 +3048,11 @@ function _stripTimePressureText(txt) {
         .replace(/\bso\s+schnell\s+wie\s+m(?:oe|ö)glich\b/gi, '')
         .replace(/\bwir\s+m(?:ue|ü)ssen\s+(jetzt\s+)?(dringend|schnell|z(?:ue|ü)gig)\b[^.?!]*/gi, '')
         .replace(/\bp(?:ue|ü)nktlich\s+(am\s+ziel\s+)?(ankommen|sein)\b/gi, '')
+        // Cleanup fuer typische Restfragmente nach Zeitdruck-Entfernung.
+        .replace(/\bder\s+auftrag\s+ist\s*,?\s*wir\s+sollten\b/gi, '')
+        .replace(/\bder\s+auftrag\s+ist\b\s*,?/gi, '')
+        .replace(/\bwir\s+sollten\b\s*,?/gi, '')
+        .replace(/(?:^|[.!?]\s*)[,;:]+/g, '. ')
         .replace(/\s{2,}/g, ' ')
         .replace(/\s+([,.;:!?])/g, '$1')
         .trim();
@@ -3132,7 +3137,7 @@ function _profileStoryCue(profile, isPOI = false) {
     if (profile.id === 'news_coverage') {
         return isPOI
             ? 'Nüchterne Beobachtung und klare Lageeinschätzung aus der Luft.'
-            : 'Sachlicher Transportauftrag zum Zielort, dort Berichterstattung am Boden.';
+            : '';
     }
     if (profile.id === 'sightseeing_tour') {
         return isPOI
