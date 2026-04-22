@@ -976,6 +976,18 @@ const _PAX_TTS_VOICE_POOL = {
     female: ['Kore', 'Leda', 'Aoede']
 };
 
+function _normSpeakerGender(pax) {
+    const raw = String(pax?.gender || '').trim().toLowerCase();
+    if (/^(male|m|mann|maennlich|männlich)$/.test(raw)) return 'male';
+    if (/^(female|f|frau|weiblich)$/.test(raw)) return 'female';
+
+    const role = String(pax?.role || '').toLowerCase();
+    const name = String(pax?.name || '').toLowerCase();
+    if (/\b(herr|mr\.?|mister)\b/.test(role) || /\b(herr|mr\.?|mister)\b/.test(name)) return 'male';
+    if (/\b(frau|ms\.?|mrs\.?|madam)\b/.test(role) || /\b(frau|ms\.?|mrs\.?|madam)\b/.test(name)) return 'female';
+    return 'female';
+}
+
 function _hashStable(text) {
     const s = String(text || '');
     let h = 2166136261;
@@ -987,7 +999,7 @@ function _hashStable(text) {
 }
 
 function _ttsVoiceCandidatesForSpeaker(pax) {
-    const gender = String(pax?.gender || '').toLowerCase() === 'male' ? 'male' : 'female';
+    const gender = _normSpeakerGender(pax);
     const basePool = Array.isArray(_PAX_TTS_VOICE_POOL[gender]) ? _PAX_TTS_VOICE_POOL[gender].slice() : (gender === 'male' ? ['Charon'] : ['Kore']);
     const fallback = gender === 'male' ? 'Charon' : 'Kore';
     if (!basePool.includes(fallback)) basePool.push(fallback);
@@ -1011,8 +1023,9 @@ async function _playTextAsTTS(text, speaker = null) {
     const apiKey = _getApiKey();
     if (!apiKey) { _paxLog('Kein API-Key für TTS', 'warn'); return; }
     const pax = speaker || window.activePassenger || _lastSpokenSpeaker || null;
+    const resolvedGender = _normSpeakerGender(pax);
     const voiceCandidates = _ttsVoiceCandidatesForSpeaker(pax);
-    _paxLog(`TTS Stimmen: ${voiceCandidates.join(' -> ')} | Persona: ${pax?.name || 'unbekannt'}`, 'state');
+    _paxLog(`TTS Stimmen: ${voiceCandidates.join(' -> ')} | Persona: ${pax?.name || 'unbekannt'} | Gender: ${resolvedGender} (raw: ${String(pax?.gender || 'n/a')})`, 'state');
     const ttsModels = (_paxTtsModelPref === '3.1')
         ? ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']
         : (_paxTtsModelPref === '2.5')
