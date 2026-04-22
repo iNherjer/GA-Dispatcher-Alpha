@@ -137,6 +137,7 @@ let _paxWrongStartActive = false;
 let _paxWrongStartContinueDone = false;
 let _paxOffDestLastAt = 0;
 let _pattonvilleJuliusMentioned = false;
+let _pattonvilleReportingPointsMentioned = false;
 let _aptTrainingBriefDone = false;
 let _aptTrainingLandingBriefDone = false;
 const _UNIFIED_INSTRUCTOR_BASELINE = true;
@@ -175,6 +176,7 @@ window.paxVoiceResetMission = function() {
     _paxWrongStartContinueDone = false;
     _paxOffDestLastAt = 0;
     _pattonvilleJuliusMentioned = false;
+    _pattonvilleReportingPointsMentioned = false;
     _aptTrainingBriefDone = false;
     _aptTrainingLandingBriefDone = false;
     _trainingEval = {
@@ -241,6 +243,20 @@ function _injectPattonvilleJuliusEasteregg(text, eventLabel) {
     _pattonvilleJuliusMentioned = true;
     _paxLog('Pattonville-Easteregg aktiv: Julius-Hinweis ergänzt', 'event');
     return `${base} ${easteregg}`.replace(/\s{2,}/g, ' ').trim();
+}
+
+function _injectPattonvilleReportingPointsHint(text, eventLabel) {
+    const base = String(text || '').trim();
+    if (!base) return base;
+    if (_pattonvilleReportingPointsMentioned) return base;
+    if (!_isPattonvilleMissionTarget()) return base;
+    if (!_isLandingPhaseEvent(eventLabel, base)) return base;
+    if (/(autokino|wasserturm|pflichtmeldepunkt|meldepunkt)/i.test(base)) return base;
+
+    const hint = 'In Pattonville bitte auf die Pflichtmeldepunkte Autokino und Wasserturm achten, dort gilt lokal keine klassische Platzrunde.';
+    _pattonvilleReportingPointsMentioned = true;
+    _paxLog('Pattonville-Local aktiv: Pflichtmeldepunkte ergänzt', 'event');
+    return `${base} ${hint}`.replace(/\s{2,}/g, ' ').trim();
 }
 
 function _trainingEvalBegin() {
@@ -1156,7 +1172,10 @@ async function _speakAndShowNow(situationPrompt, eventLabel) {
     _paxLog(`PROMPT (voll): ${situationPrompt.replace(/\n+/g, ' ')}`, 'send');
     const spokenTextRaw = await _generateSpokenText(apiKey, situationPrompt);
     const spokenText = _injectPattonvilleJuliusEasteregg(
-        _normalizeSpokenText(spokenTextRaw),
+        _injectPattonvilleReportingPointsHint(
+            _normalizeSpokenText(spokenTextRaw),
+            eventLabel
+        ),
         eventLabel
     );
     if (!spokenText) { _paxLog('Kein Text von Gemini (API-Fehler oder leere Antwort)', 'warn'); return; }
