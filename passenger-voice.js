@@ -933,21 +933,19 @@ function _baseContext() {
 
     const dialectProfile = _contextualDialectProfile(pax);
     const trainingPlan = _activeAptTrainingPlan();
+    const storyShort = String(story || '').trim().replace(/\s+/g, ' ').slice(0, 260);
     const trainingDiscipline = trainingPlan
-        ? `Trainingsmodus aktiv (${trainingPlan.mode}). Bleib strikt in der Instruktorrolle:
-Nur fliegerische Inhalte (Verfahren, Flugweg, Luftraum-Scan, Wind/Wetter, Maschinenführung, Sicherheit).
-Kein Sightseeing, keine historischen/romantischen Zielbeschreibungen, keine Anekdoten über Orte.`
+        ? `TRAINING (${trainingPlan.mode}): Nur fliegerische Inhalte, prozedural, sicherheitsfokussiert. Kein Sightseeing/Ortsstory.`
         : '';
-    return `Du bist ${pax.name}, ${pax.role}. Persönlichkeit: ${pax.personality}.
-Flug: ${md.start || '?'} → ${md.poiName || md.dest || '?'} (${md.dist || '?'} NM).
-Fracht/Beladung: ${cargo || 'n/a'}${payload ? ` · Passagiere: ${payload}` : ''}
-${story ? `Auftrag: ${story}` : ''}
-Rollenstil: ${roleStyle}
+    return `ROLLE: ${pax.name} (${pax.role}) · Persönlichkeit: ${pax.personality}
+FLUG: ${md.start || '?'} → ${md.poiName || md.dest || '?'} · ${md.dist || '?'} NM
+LOAD: ${cargo || 'n/a'}${payload ? ` · ${payload}` : ''}
+AUFTRAG (kurz): ${storyShort || 'n/a'}
+STIL: ${roleStyle}
 ${trainingDiscipline}
-Region am Ziel: ${dialectProfile.regionLabel}.
-Regionale Wortwahl: ${dialectProfile.dialectHint}. Intensität: ${dialectProfile.strengthLabel}. Halte die Wortwahl über alle Meldungen dieses Flugs konsistent.
-Globale Sprachregeln: ${_dialectGlobalRules(dialectProfile, pax.role)}
-Antworte NUR mit dem exakten gesprochenen Text — keine Anführungszeichen, keine Regieanweisungen, kein Markdown.`;
+REGION: ${dialectProfile.regionLabel} · Wortwahl ${dialectProfile.dialectHint} (${dialectProfile.strengthLabel})
+REGELN: ${_dialectGlobalRules(dialectProfile, pax.role)}
+AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).`;
 }
 
 function _roleStyleHint(roleRaw, pax = null) {
@@ -1288,30 +1286,22 @@ Erkläre dem Piloten verständnisvoll, dass wir die Mission abbrechen und zurüc
 function _toneHint() {
     if (_UNIFIED_INSTRUCTOR_BASELINE) {
         const greetingLine = _paxGreetingDone
-            ? 'Keine erneute Begrüßung am Satzanfang. Direkt mit dem Inhalt starten.'
-            : 'Wenn überhaupt, nur eine sehr kurze Begrüßung am Anfang (z.B. "Hi").';
+            ? 'Keine erneute Begrüßung am Satzanfang.'
+            : 'Falls Begrüßung, dann sehr kurz.';
         const humorLine = _paxHumorLevel === 'subtle'
             ? 'Humor nur sehr dezent.'
             : _paxHumorLevel === 'bold'
-                ? 'Humor darf hörbar sein, aber bleib professionell und klar.'
-                : 'Humor in normaler Dosis: freundlich und kurz.';
+                ? 'Humor hörbar, aber professionell.'
+                : 'Humor kurz und freundlich.';
         return `
-Sprich den Piloten direkt an (per Du, kein Erzähler-Stil).
-Nenne den Piloten niemals beim Namen.
-Sprechbasis fuer ALLE Rollen: identisch ruhig, klar und praezise wie ein erfahrener Fluglehrer.
-Aussprache und Wortwahl durchgehend neutral-standardsprachlich (kein Dialekt, keine regionale Faerbung).
-Ich-Form. Kurze, saubere Saetze. Keine verschachtelten Formulierungen.
-Vermeide Semikolon, Gedankenstrich, Klammern und ueberlange Saetze.
-Kein formelles Schriftdeutsch und kein Behoerdenton.
-Vermeide Formulierungen wie "Es freut mich sehr", "Wir werden uns", "Es ergibt sich", "bequem aus der Luft".
-Bevorzuge gesprochene, natuerliche Varianten wie "Freut mich", "wir schauen uns ... an", "passt", "okay".
-Nutze natuerliche Kurzformen wie "fuers", "zum", "beim" statt steifer Formen wie "fuer das", "zu dem", "bei dem", wenn es sprachlich passt.
-Bevorzuge alltagsnahe, lockere Kurzformen (z.B. "ne Runde", "nen kurzen Check"), aber ohne Slang zu uebertreiben.
+Direkt an den Piloten (Du-Form), nie mit Namen.
+Neutral-standardsprachlich, ruhig, klar, praezise.
+Ich-Form, kurze Saetze, kein Amtsdeutsch, kein Erzählerstil.
+Natuerliche Umgangssprache erlaubt (z.B. "fuers", "zum", "beim", "ne Runde"), aber nicht uebertreiben.
 ${greetingLine}
-Keine dialektale Schreibweise, keine Lautschrift, keine regionalen Fuelleworte.
+Keine dialektale Schreibweise/Lautschrift.
 ${humorLine}
-Auch bei lockerem Ton: professionell, freundlich, konsistent.
-Auf Deutsch.`;
+Locker, aber professionell und konsistent. Auf Deutsch.`;
     }
     const profile = _contextualDialectProfile(window.activePassenger || null);
     const roleProfile = String(window.activePassenger?.roleProfile || '').toLowerCase();
@@ -1333,20 +1323,18 @@ Auf Deutsch.`;
         ? 'Sprache: klar, natürlich und professionell. Kein Dialekt, keine regionale Färbung, keine saloppen Regionalwörter.'
         : 'Sprache: locker und einfach, kein steifes Hochdeutsch, kein Amtsdeutsch. Eher so, wie man im Cockpit wirklich redet.';
     const colloquialLine = isCharterNeutral
-        ? 'Wortwahl überwiegend standardnah halten; nur sehr sparsame Umgangssprache.'
-        : 'Gelegentlich leichte Umgangssprache ist okay (z.B. "grad"), aber in normaler Standardschreibung bleiben.';
+        ? 'Wortwahl überwiegend standardnah; Umgangssprache sparsam.'
+        : 'Leichte Umgangssprache okay (z.B. "grad"), aber normal schreiben.';
     return `
-Sprich den Piloten direkt an (per Du, kein Erzähler-Stil). Ton: persönlich, warmherzig und spontan, als würdest du live im Cockpit reagieren statt einen Text vorzulesen.
+Sprich den Piloten direkt an (Du-Form), nie mit Namen. Ton: persönlich, spontan, cockpitnah.
 ${registerLine}
-Ich-Form. Kurze natürliche Sätze, gern mit kleinen Einwürfen wie "ehrlich gesagt", "ui", "okay", "passt".
+Ich-Form. Kurze natürliche Sätze.
 ${colloquialLine}
 ${greetingLine}
 ${moinLine}
-Keine Dialekt-Aussprache simulieren: keine Lautschrift, keine absichtlich "verzogene" Schreibweise.
-Keine Dialekt-Mischung zwischen Regionen. Regionale Farbe nur über Wortwahl/Redewendungen, nicht über Phonetik.
+Keine Dialekt-Aussprache simulieren (keine Lautschrift). Keine Dialekt-Mischung.
 ${humorLine}
-Auch wenn etwas nicht ideal läuft: konstruktiv, menschlich und ermutigend bleiben.
-Auf Deutsch.`;
+Konstruktiv, menschlich, ermutigend. Auf Deutsch.`;
 }
 
 function _weatherContext(fd) {
