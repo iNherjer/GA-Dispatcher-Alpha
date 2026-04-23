@@ -2807,15 +2807,37 @@ function _poiParseTilePayload(payload) {
     }
     for (const e of lin) {
         const legacyType = String(e?.type || '').toLowerCase();
+        const isRoadLike = ['highway', 'motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'residential', 'service'].includes(legacyType);
+        const isHydroLike = ['river', 'stream', 'canal', 'ditch', 'drain', 'water', 'lake', 'reservoir', 'dam', 'weir'].includes(legacyType);
+        const isRailLike = ['railway', 'rail', 'tram', 'light_rail', 'subway'].includes(legacyType);
+        const isPowerLike = ['power', 'powerline', 'power_line', 'line', 'minor_line', 'cable'].includes(legacyType);
         const layer = String(e?.layer || '').toLowerCase() || (
-            legacyType === 'highway' ? 'road' :
-            legacyType === 'river' ? 'hydro' :
-            legacyType === 'railway' ? 'rail' : ''
+            isRoadLike ? 'road' :
+            isHydroLike ? 'hydro' :
+            isRailLike ? 'rail' :
+            isPowerLike ? 'power' : ''
         );
         const f = _poiFeatureFromTileNode({
             ...e,
             sourceKind: 'lin',
-            layer
+            layer,
+            highway: isRoadLike ? (String(e?.highway || '').toLowerCase() || legacyType) : String(e?.highway || '').toLowerCase(),
+            waterway: isHydroLike
+                ? (String(e?.waterway || '').toLowerCase() || (['dam', 'weir'].includes(legacyType) ? legacyType : (['river', 'stream', 'canal', 'ditch', 'drain'].includes(legacyType) ? legacyType : '')))
+                : String(e?.waterway || '').toLowerCase(),
+            water: isHydroLike
+                ? (String(e?.water || '').toLowerCase() || (['lake', 'reservoir'].includes(legacyType) ? legacyType : ''))
+                : String(e?.water || '').toLowerCase(),
+            natural: isHydroLike
+                ? (String(e?.natural || '').toLowerCase() || (['water', 'lake', 'reservoir'].includes(legacyType) ? 'water' : ''))
+                : String(e?.natural || '').toLowerCase(),
+            power: isPowerLike
+                ? (String(e?.power || '').toLowerCase() || (legacyType === 'power' ? 'line' : legacyType))
+                : String(e?.power || '').toLowerCase(),
+            railway: isRailLike ? (String(e?.railway || '').toLowerCase() || legacyType) : String(e?.railway || '').toLowerCase(),
+            man_made: (legacyType === 'bridge')
+                ? (String(e?.man_made || '').toLowerCase() || 'bridge')
+                : String(e?.man_made || '').toLowerCase()
         }, 'lin');
         if (f) out.push(f);
     }
@@ -2869,6 +2891,13 @@ function _poiFeatureMatchesCategory(feature, category) {
         _hasWordToken(n, 'rail') ||
         _hasWordToken(n, 'railway')
     );
+    const isTransportCorridor = (
+        isRoad ||
+        isRail ||
+        ['line', 'minor_line', 'cable'].includes(t.power) ||
+        t.layer === 'road' ||
+        t.layer === 'rail'
+    );
     const isTelecom = (
         ['tower', 'mast'].includes(t.man_made) ||
         ['tower', 'pole'].includes(t.power) ||
@@ -2889,16 +2918,19 @@ function _poiFeatureMatchesCategory(feature, category) {
     );
     const isMountain = (
         ['peak', 'valley', 'cliff', 'ridge', 'saddle'].includes(t.natural) ||
-        _hasWordToken(n, 'berg') ||
-        _hasWordToken(n, 'gipfel') ||
-        _hasWordToken(n, 'tal') ||
-        _hasWordToken(n, 'schlucht')
+        (
+            !isTransportCorridor && (
+                _hasWordToken(n, 'berg') ||
+                _hasWordToken(n, 'gipfel') ||
+                _hasWordToken(n, 'tal') ||
+                _hasWordToken(n, 'schlucht')
+            )
+        )
     );
     const isCastle = (
         ['castle', 'ruins', 'fort', 'monument'].includes(t.historic) ||
-        t.tourism === 'attraction' && (_hasWordToken(n, 'burg') || _hasWordToken(n, 'schloss')) ||
-        _hasWordToken(n, 'burg') ||
-        _hasWordToken(n, 'schloss')
+        (!isTransportCorridor && t.tourism === 'attraction' && (_hasWordToken(n, 'burg') || _hasWordToken(n, 'schloss'))) ||
+        (!isTransportCorridor && (_hasWordToken(n, 'burg') || _hasWordToken(n, 'schloss')))
     );
     const isCity = ['city', 'town', 'village', 'suburb'].includes(t.place);
     const isIndustry = (
@@ -2930,8 +2962,7 @@ function _poiFeatureMatchesCategory(feature, category) {
     );
     const isFire = (
         isMountain ||
-        _hasWordToken(n, 'wald') ||
-        _hasWordToken(n, 'forst') ||
+        (!isTransportCorridor && (_hasWordToken(n, 'wald') || _hasWordToken(n, 'forst'))) ||
         t.natural === 'wood' ||
         t.natural === 'heath'
     );
@@ -3178,9 +3209,13 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
 function _shouldIncludeCoreForPoiSearch(forcedCategory = null, dispatchProfileId = 'auto') {
     const cat = String(forcedCategory || '').toLowerCase();
     const profile = String(dispatchProfileId || 'auto').toLowerCase();
+    if (cat === 'trn') return false;
+    if (cat && cat !== 'all') return true;
     if (profile === 'inspection_infra') return true;
     if (profile === 'search_and_rescue') return true;
-    return ['telecom', 'road', 'dam', 'bridge', 'industry', 'infrastructure'].includes(cat);
+    if (profile === 'mapping_survey') return true;
+    if (profile === 'fire_watch') return true;
+    return false;
 }
 
 async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null, dispatchProfileId = 'auto', searchAnchor = null) {
