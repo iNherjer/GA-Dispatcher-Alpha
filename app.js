@@ -2772,6 +2772,31 @@ function _poiIsSettlementOnlyFeature(feature) {
     return classifyPOITitleCategory(name) === 'city';
 }
 
+function _poiIsNumericLikeName(name) {
+    const s = String(name || '').trim();
+    if (!s) return false;
+    const compact = s.replace(/\s+/g, '');
+    return /^[0-9]+([a-z])?$/i.test(compact);
+}
+
+function _poiIsCodeLikeName(name) {
+    const s = String(name || '').trim();
+    if (!s) return false;
+    // kurze technische IDs wie "M 401", "5200/30", "P259", "26 W6"
+    if (/^[A-Z]?\s*\d{1,5}(?:[\/.-]\d{1,5})?$/i.test(s)) return true;
+    if (/^\d{1,4}\s*[A-Z]\d{0,3}$/i.test(s)) return true;
+    if (/^[A-Z]{1,3}\s*\d{1,4}$/i.test(s)) return true;
+    return false;
+}
+
+function _poiLooksJunctionLabel(name) {
+    const s = String(name || '').trim();
+    if (!s) return false;
+    if (s.includes(' / ')) return true;
+    if (/^\s*[A-ZÄÖÜ][a-zäöüß.-]+\s*\/\s*[A-ZÄÖÜ][a-zäöüß.-]+\s*$/i.test(s)) return true;
+    return false;
+}
+
 function _poiFeatureFromTileNode(node, src = 'tile') {
     const lat = Number(node?.lat);
     const lon = Number(node?.lon);
@@ -3326,10 +3351,22 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const rawName = String(f?.name || '').trim();
         const name = _poiNormalizeFeatureName(rawName, wantedCat);
         const hasName = !!rawName;
+        const tf = f?.tags || {};
+        const railTag = String(tf.railway || '').toLowerCase();
+        const isRailOpPoint = ['signal', 'switch', 'level_crossing', 'crossing'].includes(railTag);
+        const isSarLikeProfile = (profileId === 'search_and_rescue');
+        const isInfraOpsProfile = (profileId === 'inspection_infra' || profileId === 'mapping_survey');
+
         if (forceCat === 'dam' && !hasName && String(f?.sourceKind || '') === 'lin') continue;
         if (forceCat === 'road' && _poiIsSettlementOnlyFeature(f)) continue;
+        if (forceCat === 'road' && !isSarLikeProfile) {
+            if (!hasName) continue;
+            if (String(f?.sourceKind || '') === 'poi' && !String(tf.highway || '').trim()) continue;
+            if (String(tf.highway || '').toLowerCase() === 'motorway_junction') continue;
+            if (_poiLooksJunctionLabel(name)) continue;
+            if (_poiIsCodeLikeName(name)) continue;
+        }
         if (forceCat === 'infrastructure' && !hasName) {
-            const tf = f?.tags || {};
             const strongInfra = (
                 !!tf.highway ||
                 !!tf.railway ||
@@ -3337,6 +3374,22 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
                 ['tower', 'mast', 'bridge'].includes(String(tf.man_made || '').toLowerCase())
             );
             if (!strongInfra) continue;
+        }
+        if (forceCat === 'infrastructure' && !isSarLikeProfile && !isInfraOpsProfile) {
+            if (!hasName) continue;
+            if (String(tf.highway || '').toLowerCase() === 'motorway_junction') continue;
+            if (_poiLooksJunctionLabel(name)) continue;
+            if (_poiIsCodeLikeName(name)) continue;
+        }
+        if (forceCat === 'rail' && !isSarLikeProfile && !isInfraOpsProfile) {
+            if (isRailOpPoint && !hasName) continue;
+            if (_poiIsNumericLikeName(name)) continue;
+            if (_poiIsCodeLikeName(name)) continue;
+        }
+        if (forceCat === 'telecom' && !isSarLikeProfile) {
+            if (!hasName && !String(tf.obstacle_type || '').includes('wind')) continue;
+            if (_poiIsNumericLikeName(name)) continue;
+            if (_poiIsCodeLikeName(name)) continue;
         }
         const dedupeKey = `${wantedCat}|${name.toLowerCase()}|${flat.toFixed(4)}|${flon.toFixed(4)}`;
         if (seen.has(dedupeKey)) continue;
@@ -3353,8 +3406,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const nameBonus = hasName ? 2.0 : -1.5;
         const unnamedInfraPenalty = (forceCat === 'infrastructure' && !hasName) ? 7 : 0;
         const unnamedTelecomPenalty = (forceCat === 'telecom' && !hasName) ? 5 : 0;
-        const railTag = String(f?.tags?.railway || '').toLowerCase();
-        const isRailPointOp = ['signal', 'switch', 'level_crossing', 'crossing'].includes(railTag);
+        const isRailPointOp = isRailOpPoint;
         const railOpPenalty = (
             forceCat === 'rail' &&
             isRailPointOp &&
@@ -3397,6 +3449,14 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     if (forceCat === 'telecom') {
         const namedTelecom = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n));
         if (namedTelecom.length >= 1) scoredCandidates = namedTelecom;
+    }
+    if (forceCat === 'road' && profileId !== 'search_and_rescue') {
+        const namedRoad = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n) && !_poiLooksJunctionLabel(c.n));
+        if (namedRoad.length >= 2) scoredCandidates = namedRoad;
+    }
+    if (forceCat === 'rail' && profileId !== 'search_and_rescue' && profileId !== 'inspection_infra' && profileId !== 'mapping_survey') {
+        const namedRail = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n) && !_poiIsNumericLikeName(c.n));
+        if (namedRail.length >= 2) scoredCandidates = namedRail;
     }
     if (!scoredCandidates.length) return null;
 
