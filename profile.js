@@ -720,6 +720,9 @@ function vpMarkTileKeysCovered(keys, source = 'unknown') {
 function vpProjectObsPoolToRoute(elevData) {
     vpHydrateObsPool();
     if (!Array.isArray(elevData) || elevData.length < 2) return { obs: [], lin: [] };
+    // Keep vertical profile readable: only features close to the route centerline.
+    const VP_PROFILE_OBS_LATERAL_MAX_NM = 1.0;
+    const VP_PROFILE_LIN_LATERAL_MAX_NM = 1.0;
 
     const obsSeed = [];
     const linSeed = [];
@@ -738,11 +741,12 @@ function vpProjectObsPoolToRoute(elevData) {
 
     for (const item of vpObsPool.obs.values()) {
         const { bestPt, bestD } = nearestOnRoute(item.lat, item.lon);
-        if (bestD > 3.6) continue;
+        if (bestD > VP_PROFILE_OBS_LATERAL_MAX_NM) continue;
         obsSeed.push({
             type: item.type || 'mast',
             hFt: Number(item.hFt || 0),
             distNM: bestPt.distNM,
+            lateralNM: Number(bestD || 0),
             elevFt: Number(item.elevFt || 0),
             groundElevFt: Number(bestPt.elevFt || 0),
             lat: Number(item.lat),
@@ -752,11 +756,12 @@ function vpProjectObsPoolToRoute(elevData) {
 
     for (const item of vpObsPool.lin.values()) {
         const { bestPt, bestD } = nearestOnRoute(item.lat, item.lon);
-        if (bestD > 2.8) continue;
+        if (bestD > VP_PROFILE_LIN_LATERAL_MAX_NM) continue;
         linSeed.push({
             type: item.type || 'linear',
             name: String(item.name || ''),
             distNM: bestPt.distNM,
+            lateralNM: Number(bestD || 0),
             lat: Number(item.lat),
             lon: Number(item.lon)
         });
@@ -3394,6 +3399,26 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
     const _linSrc = (vpMode === 'HDG' && typeof vpHdgLinearFeatures !== 'undefined' && vpHdgLinearFeatures.length > 0)
         ? vpHdgLinearFeatures
         : (typeof vpLinearFeatures !== 'undefined' ? vpLinearFeatures : []);
+    const _obsSrc = (vpMode === 'HDG' && typeof vpHdgObstacles !== 'undefined' && vpHdgObstacles.length > 0)
+        ? vpHdgObstacles
+        : (typeof vpObstacles !== 'undefined' ? vpObstacles : []);
+    const mastNearPowerline = (feat) => {
+        if (!feat || feat.type !== 'powerline') return false;
+        const fDist = Number(feat.distNM || 0);
+        for (const o of _obsSrc) {
+            const t = String(o?.type || '').toLowerCase();
+            if (!(t === 'mast' || t === 'power_tower' || t === 'tower')) continue;
+            const oLat = Number(o?.lateralNM || 999);
+            if (oLat > 0.5) continue;
+            const oDist = Number(o?.distNM || 0);
+            if (Math.abs(oDist - fDist) <= 0.8) return true;
+        }
+        return false;
+    };
+    const isRouteCrossingPowerline = (feat) => {
+        if (!feat || feat.type !== 'powerline') return false;
+        return Number(feat.lateralNM || 999) <= 0.15;
+    };
     if (typeof vpShowLinear !== 'undefined' && vpShowLinear && _linSrc.length > 0) {
         const getElevY = (dNM) => {
             for(let i=0; i<elevData.length-1; i++) {
@@ -3470,6 +3495,8 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
                     ctx.fillStyle = '#fff'; ctx.font = 'bold 7px Arial'; ctx.textAlign = 'center'; ctx.fillText(feat.name, px, labelY + 8);
                 }
             } else if (feat.type === 'powerline') {
+                const drawPowerline = isRouteCrossingPowerline(feat) || mastNearPowerline(feat);
+                if (!drawPowerline) continue;
                 // Stylized powerline marker: two pylons + top wire segment.
                 ctx.strokeStyle = 'rgba(90, 90, 90, 0.95)';
                 ctx.lineWidth = 1.2;
