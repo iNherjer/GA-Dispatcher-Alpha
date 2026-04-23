@@ -2631,6 +2631,7 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`- Hosted CORE Hits (split/legacy): ${dbg.hostedTileCoreHits || 0}/${dbg.hostedTileLegacyHits || 0}`);
     const poiDbg = (window.gaPoiTileDebug && typeof window.gaPoiTileDebug === 'object') ? window.gaPoiTileDebug : {};
     lines.push(`- POI Tile Req/Hits/Miss/Err: ${poiDbg.requests || 0}/${poiDbg.hits || 0}/${poiDbg.misses || 0}/${poiDbg.errors || 0}`);
+    lines.push(`- POI Cache Hits: ${poiDbg.cacheHits || 0}`);
     lines.push(`- POI Hits (split/legacy): ${poiDbg.splitHits || 0}/${poiDbg.legacyHits || 0}`);
     lines.push(`- POI Fallback-Nutzung: ${poiDbg.fallbackHits || 0}${poiDbg.lastSource ? ` (last: ${poiDbg.lastSource})` : ''}`);
     lines.push(`- Overpass 429/504: ${dbg.overpass429Count || 0}/${dbg.overpass504Count || 0}`);

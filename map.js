@@ -106,7 +106,7 @@ function tileBoundsFromKey(key, stepLat, stepLon) {
     };
 }
 
-function addSplitStripeOverlay(layerGroup, b, color = '#d500f9') {
+function addSplitStripeOverlay(layerGroup, b, color = '#ffd400') {
     if (!layerGroup || !b) return;
     const h = Number(b.north) - Number(b.south);
     const w = Number(b.east) - Number(b.west);
@@ -119,9 +119,9 @@ function addSplitStripeOverlay(layerGroup, b, color = '#d500f9') {
         const lonB = b.west + (w * Math.max(0, Math.min(1, f + 0.22)));
         L.polyline([[latA, lonA], [latB, lonB]], {
             color,
-            weight: 2,
-            opacity: 0.9,
-            dashArray: '6,4',
+            weight: 3,
+            opacity: 0.95,
+            dashArray: '8,5',
             interactive: false
         }).addTo(layerGroup);
     }
@@ -175,8 +175,6 @@ function renderObsTileOverlay() {
         const wasUsed = usedTs > 0 && (now - usedTs) <= VP_OBS_TILE_USED_RECENT_MS;
         const hasFailure = failedTs > 0 && (!loadedTs || failedTs >= loadedTs);
         const isHostedTile = src.includes('hosted') || src.includes('github');
-        // Backward-compat: older entries may be "...:hosted" without ":split".
-        const isHostedSplit = isHostedTile && !src.includes('legacy');
         const color = isLoading
             ? '#ff9a3d'
             : (hasFailure ? '#b71c1c' : (isDeferred ? '#ffd54f' : (isHostedTile ? '#d500f9' : (wasUsed ? '#4fcd73' : '#4da2ff'))));
@@ -190,8 +188,8 @@ function renderObsTileOverlay() {
             interactive: false
         });
         rect.addTo(vpObsTileDebugLayer);
-        if (!isLoading && !hasFailure && isHostedSplit) {
-            addSplitStripeOverlay(vpObsTileDebugLayer, b, '#f4b3ff');
+        if (!isLoading && !hasFailure && isHostedTile) {
+            addSplitStripeOverlay(vpObsTileDebugLayer, b, '#ffd400');
         }
     }
     if (!map.hasLayer(vpObsTileDebugLayer)) vpObsTileDebugLayer.addTo(map);

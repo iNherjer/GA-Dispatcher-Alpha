@@ -2499,6 +2499,7 @@ function _poiDebugState() {
         window.gaPoiTileDebug = {
             requests: 0,
             hits: 0,
+            cacheHits: 0,
             splitHits: 0,
             legacyHits: 0,
             fallbackHits: 0,
@@ -2784,11 +2785,17 @@ function _poiFeatureScore(feature, category) {
 
 async function _poiFetchTileFeatures(tileKey, options = null) {
     const includeCore = !!(options && options.includeCore);
+    const allowLegacyFallback = options && Object.prototype.hasOwnProperty.call(options, 'allowLegacyFallback')
+        ? !!options.allowLegacyFallback
+        : true;
     const now = Date.now();
     const dbg = _poiDebugState();
     const cacheKey = `${tileKey}|${includeCore ? '1' : '0'}`;
     const cached = _poiTileMemCache.get(cacheKey);
     if (cached && (now - Number(cached.ts || 0)) <= POI_TILE_CACHE_TTL_MS && Array.isArray(cached.features)) {
+        dbg.hits = Number(dbg.hits || 0) + 1;
+        dbg.cacheHits = Number(dbg.cacheHits || 0) + 1;
+        _poiDebugMarkSource(`cache:${String(cached.source || 'unknown')}`);
         return cached.features;
     }
     const b = _poiTileBoundsFromKey(tileKey);
@@ -2880,8 +2887,15 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
             seen.add(k);
             dedup.push(f);
         }
-        _poiTileMemCache.set(cacheKey, { ts: now, features: dedup });
+        const sourceTag = String(dbg.lastSource || 'worker');
+        _poiTileMemCache.set(cacheKey, { ts: now, features: dedup, source: sourceTag });
         return dedup;
+    }
+    if (!allowLegacyFallback) {
+        dbg.misses = Number(dbg.misses || 0) + 1;
+        _poiDebugMarkSource('split-only-miss');
+        _poiTileMemCache.set(cacheKey, { ts: now, features: [], source: 'split-only-miss' });
+        return [];
     }
     // 2) Fallback: legacy combined/obstacle tiles.
     for (const endpoint of POI_TILE_LEGACY_ENDPOINTS) {
@@ -2900,7 +2914,7 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
             if (!res.ok) continue;
             const payload = await res.json();
             const features = _poiParseTilePayload(payload);
-            _poiTileMemCache.set(cacheKey, { ts: now, features });
+            _poiTileMemCache.set(cacheKey, { ts: now, features, source: 'worker-legacy-fallback' });
             if (features.length) {
                 dbg.hits = Number(dbg.hits || 0) + 1;
                 dbg.legacyHits = Number(dbg.legacyHits || 0) + 1;
@@ -2914,7 +2928,7 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
     }
     dbg.misses = Number(dbg.misses || 0) + 1;
     _poiDebugMarkSource('none');
-    _poiTileMemCache.set(cacheKey, { ts: now, features: [] });
+    _poiTileMemCache.set(cacheKey, { ts: now, features: [], source: 'none' });
     return [];
 }
 
@@ -2929,6 +2943,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const forceCat = String(forcedCategory || '').toLowerCase();
     if (forceCat === 'trn') return null;
     const includeCore = _shouldIncludeCoreForPoiSearch(forceCat, dispatchProfileId);
+    const allowLegacyFallback = !forceCat || forceCat === 'all';
     const dbgStart = { ..._poiDebugState() };
     const tileKeys = _poiCollectTileKeysAround(lat, lon, Math.max(22, Number(maxNM || 40)));
     if (!tileKeys.length) return null;
@@ -2942,7 +2957,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             while (cursor < tileKeys.length) {
                 const idx = cursor++;
                 const key = tileKeys[idx];
-                const rows = await _poiFetchTileFeatures(key, { includeCore });
+                const rows = await _poiFetchTileFeatures(key, { includeCore, allowLegacyFallback });
                 if (rows && rows.length) features.push(...rows);
             }
         })());
@@ -3006,6 +3021,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const dbgEnd = { ..._poiDebugState() };
     const lookupDebug = {
         includeCore,
+        allowLegacyFallback,
         tileKeys: tileKeys.length,
         features: features.length,
         candidates: candidates.length,
@@ -3023,7 +3039,11 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         lat: pick.lat,
         lon: pick.lon,
         poiCategory: usedCat,
-        poiSource: `Hosted POI Tiles (tagged:${usedCat})`,
+        poiSource: (
+            lookupDebug.legacyHitsDelta > 0
+                ? `Hosted POI Tiles (legacy fallback, tagged:${usedCat})`
+                : `Hosted POI Tiles (split, tagged:${usedCat})`
+        ),
         poiLookup: {
             engine: 'hosted-poi-tiles',
             featureSourceKind: String(pick?.featureSourceKind || ''),
