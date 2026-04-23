@@ -155,6 +155,7 @@ let _poiSatisfied       = false;
 let _poiAborted         = false;
 let _poiEntryDone       = false; // entry comment fired once on radius entry
 let _poiInspectionOutcome = null; // keeps one consistent inspection result per mission
+let _sarSearchOutcome = null; // keeps one consistent SAR outcome per mission
 let _poiSightCallDone   = false; // early pre-arrival call before entering POI radius
 let _poiTrainingLastDistToDestNm = null; // trend helper: detect outbound vs. return leg
 let _poiTrainingPreBriefDone = false; // 4 NM before training area
@@ -205,6 +206,7 @@ window.paxVoiceResetMission = function() {
     _poiAborted       = false;
     _poiEntryDone     = false;
     _poiInspectionOutcome = null;
+    _sarSearchOutcome = null;
     _poiSightCallDone = false;
     _poiTrainingLastDistToDestNm = null;
     _poiTrainingPreBriefDone = false;
@@ -526,6 +528,22 @@ function _inspectionResultHint() {
     return ` Inspektionsfazit: Bei "${objectName}" konntest du keinen relevanten Schaden erkennen. Gib kurz Entwarnung.`;
 }
 
+function _getSarSearchOutcome() {
+    if (_sarSearchOutcome) return _sarSearchOutcome;
+    // Slight bias to "not found" for realism in random missions.
+    _sarSearchOutcome = (Math.random() < 0.38) ? 'found' : 'not_found';
+    return _sarSearchOutcome;
+}
+
+function _sarResultHint() {
+    if (_activeTaskDomain() !== 'search_and_rescue') return '';
+    const outcome = _getSarSearchOutcome();
+    if (outcome === 'found') {
+        return ' SAR-Fazit: Melde klar, dass du die vermisste Person entdeckt hast und die Koordinaten sofort an die Leitstelle weitergibst.';
+    }
+    return ' SAR-Fazit: Melde klar, dass wir in diesem Sektor keine Person finden konnten und die Leitstelle fuer weitere Suchabschnitte informiert wird.';
+}
+
 function _professionalRoleMeta() {
     const pax = window.activePassenger || {};
     const role = String(pax.role || '').toLowerCase();
@@ -608,6 +626,8 @@ function _professionalLandingToneHint() {
 }
 
 function _targetFactHint() {
+    const td = _activeTaskDomain();
+    if (/^(search_and_rescue|fire_watch|mapping_survey|news_coverage)$/.test(td)) return '';
     if (_activeAptTrainingPlan()) return '';
     const raw = document.getElementById('wikiDestDescText')?.innerText?.trim() || '';
     if (!raw) return '';
@@ -1518,7 +1538,11 @@ function _poiEntryPrompt(flightData) {
     const reqHint = '';
     const inspHint = _inspectionEntryHint();
     const profHint = _professionalTaskHint('entry');
-    const factHint = _targetFactHint();
+    const taskDomain = _activeTaskDomain();
+    const factHint = (taskDomain === 'search_and_rescue') ? '' : _targetFactHint();
+    const sarZoneGuard = (taskDomain === 'search_and_rescue')
+        ? ' Bleib strikt im Suchkorridor rund um das Zielobjekt. Keine entfernten Orts-/Gewaesserbezuege ausserhalb der Suchzone.'
+        : '';
     const trainingPlan = _activeAptTrainingPlan();
     const trainingHint = trainingPlan
         ? ' Als Instruktor: bleib strikt prozedural. Fokus auf Flugweg, Maschine, Luftraum-Scan und Sicherheitsverfahren. Keine Ortsfakten, keine Geschichte, kein Schwärmen.'
@@ -1526,8 +1550,8 @@ function _poiEntryPrompt(flightData) {
     return `${ctx}
 
 Moment: Das Zielgebiet "${md?.poiName || 'Ziel'}" taucht gerade vor uns auf — wir sind auf ${altFt} ft.${wx ? ' ' + wx : ''}
-Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}${inspHint}${profHint}${factHint}${trainingHint}
-1-2 Sätze, darf etwas begeisterter sein als sonst.${_toneHint()}`;
+Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}${inspHint}${profHint}${factHint}${sarZoneGuard}${trainingHint}
+${taskDomain === 'search_and_rescue' ? '1-2 Saetze, einsatznah und klar, keine Begeisterungsformel.' : '1-2 Sätze, darf etwas begeisterter sein als sonst.'}${_toneHint()}`;
 }
 
 function _bearingDeg(lat1, lon1, lat2, lon2) {
@@ -1551,7 +1575,8 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
     if (!ctx || !md) return null;
     if (_activeAptTrainingPlan()) return null;
-    const factHint = _targetFactHint();
+    const taskDomain = _activeTaskDomain();
+    const factHint = (taskDomain === 'search_and_rescue') ? '' : _targetFactHint();
     const announcedEta = 2; // bewusst knapper wegen Latenz durch Text+TTS
     const roundedDist = Math.max(0.5, Math.round(distNm * 10) / 10);
     const realEta = Math.max(1, Math.round(etaMin));
@@ -1564,11 +1589,17 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     const trainingHint = trainingPlan
         ? `Instruktor-Modus: Nur fliegerische Hinweise (Anflugstruktur, Luftraum-Scan, Kurs-/Höhenführung, Arbeitsverteilung im Cockpit). Landmarken nur als nüchterne Navigationsreferenz, keine Objektbeschreibung oder Ortsanekdoten.`
         : '';
+    const sarZoneGuard = (taskDomain === 'search_and_rescue')
+        ? ' Nur suchrelevante Referenzen in direkter Naehe des Zielobjekts nennen. Keine entfernten Orts-/Gewaesserbezuege.'
+        : '';
+    const roleTone = (taskDomain === 'search_and_rescue')
+        ? 'SAR-Rolle: knapp, klar, lageorientiert, kein Sightseeing-Ton. Max 2 Saetze.'
+        : 'Techniker-/Inspektionsrollen: knapp, professionell, kein Sightseeing-Ton. Max 2 Sätze.';
     return `${ctx}
 
 Moment: Zielobjekt "${md.poiName || 'Ziel'}" wird im Anflug sichtbar. Distanz etwa ${roundedDist} NM, reale ETA ca. ${realEta} min, relative Lage ${clockPos}.
-Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".${altBrief}${factHint} ${trainingHint}
-Techniker-/Inspektionsrollen: knapp, professionell, kein Sightseeing-Ton. Max 2 Sätze.${_toneHint()}`;
+Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".${altBrief}${factHint}${sarZoneGuard} ${trainingHint}
+${roleTone}${_toneHint()}`;
 }
 
 function _poiTrainingPreZonePrompt(flightData, distNm) {
@@ -1661,12 +1692,17 @@ function _poiSatisfiedPrompt(flightData) {
     if (!ctx || !pax) return null;
     const dwell = Math.round(_poiDwellSec / 60 * 10) / 10;
     const wx = _weatherContext(flightData);
+    const taskDomain = _activeTaskDomain();
     const inspResultHint = _inspectionResultHint();
     const profResultHint = _professionalTaskHint('result');
+    const sarResultHint = _sarResultHint();
+    const sarEndRule = (taskDomain === 'search_and_rescue')
+        ? ' Formuliere ein klares Einsatzende mit Leitstellenbezug. Kein neutraler "alles im Kasten"-Satz.'
+        : '';
     return `${ctx}
 
 Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}
-Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${inspResultHint}${profResultHint} 1-2 Sätze.${_toneHint()}`;
+Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${sarResultHint}${inspResultHint}${profResultHint}${sarEndRule} 1-2 Sätze.${_toneHint()}`;
 }
 
 function _poiAbortPrompt(flightData) {
