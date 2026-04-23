@@ -2117,6 +2117,36 @@ function getDestinationPoint(lat, lon, distNM, bearing) {
     return { lat: lat2 * 180 / Math.PI, lon: lon2 * 180 / Math.PI };
 }
 
+function randomBearingForDirection(dirPref = 'any') {
+    const d = String(dirPref || 'any').toUpperCase();
+    if (d === 'N') {
+        // North wraps around 0°.
+        return (Math.random() < 0.5)
+            ? (Math.random() * 45)
+            : (315 + Math.random() * 45);
+    }
+    if (d === 'E') return 45 + Math.random() * 90;
+    if (d === 'S') return 135 + Math.random() * 90;
+    if (d === 'W') return 225 + Math.random() * 90;
+    return Math.random() * 360;
+}
+
+function buildPoiRingSearchAnchor(startLat, startLon, minNm, maxNm, dirPref = 'any', localRadiusNm = 20) {
+    const minD = Math.max(1, Number(minNm) || 5);
+    const maxD = Math.max(minD + 0.5, Number(maxNm) || (minD + 20));
+    const distNm = minD + Math.random() * (maxD - minD);
+    const bearingDeg = randomBearingForDirection(dirPref);
+    const p = getDestinationPoint(startLat, startLon, distNm, bearingDeg);
+    return {
+        lat: Number(p.lat),
+        lon: Number(p.lon),
+        distNm: Number(distNm),
+        bearingDeg: Number(bearingDeg),
+        localRadiusNm: Math.max(8, Number(localRadiusNm) || 20),
+        strategy: 'ring-quadrant-anchor'
+    };
+}
+
 function pickRandomTrainingPoiNearAirport(startLat, startLon, dirPref, minNm = 4, maxNm = 18) {
     const safeMin = Math.max(2, Number(minNm) || 4);
     const safeMax = Math.max(safeMin + 1, Number(maxNm) || 18);
@@ -2476,6 +2506,72 @@ function pickBalancedByCategory(items, categoryOf, storagePrefix) {
     localStorage.setItem(countsKey, JSON.stringify(counts));
     localStorage.setItem(lastKey, selectedCat);
     return { item: picked, category: selectedCat };
+}
+
+function _poiAnchorBucketKey(anchor = null) {
+    if (!anchor || !Number.isFinite(Number(anchor.lat)) || !Number.isFinite(Number(anchor.lon))) return 'global';
+    // Coarse bucket to keep local rotation stable inside nearby anchors.
+    const qLat = Math.round(Number(anchor.lat) * 10) / 10;
+    const qLon = Math.round(Number(anchor.lon) * 10) / 10;
+    return `${qLat.toFixed(1)}|${qLon.toFixed(1)}`;
+}
+
+function _poiCandidateKindTag(p = null) {
+    const n = normalizeMissionText(String(p?.n || ''));
+    const layer = String(p?.featureLayer || '').toLowerCase();
+    const source = String(p?.featureSourceKind || '').toLowerCase();
+    if (layer === 'rail' || n.includes('bahn') || n.includes('rail') || n.includes('gleis')) return `rail:${source}`;
+    if (layer === 'road' || n.includes('autobahn') || n.includes('strasse') || n.includes('highway')) return `road:${source}`;
+    if (n.includes('mast') || n.includes('tower') || n.includes('funkturm') || n.includes('wind')) return `tower:${source}`;
+    if (n.includes('umspannwerk') || n.includes('kraftwerk') || n.includes('werk')) return `power:${source}`;
+    if (layer === 'hydro' || n.includes('fluss') || n.includes('river') || n.includes('kanal')) return `water:${source}`;
+    return `${layer || 'poi'}:${source}`;
+}
+
+function _pickPoiCandidateWithHistory(pool = [], category = 'generic', topN = 8, anchor = null) {
+    const src = Array.isArray(pool) ? pool.filter(Boolean) : [];
+    if (!src.length) return null;
+    const candidates = src.slice(0, Math.max(1, Number(topN || 8)));
+    const cat = String(category || 'generic').toLowerCase();
+    const anchorBucket = _poiAnchorBucketKey(anchor);
+    const historyKey = `ga_poi_target_history_${cat}`;
+    const localHistoryKey = `ga_poi_target_history_${cat}_${anchorBucket}`;
+    const localKindKey = `ga_poi_target_last_kind_${cat}_${anchorBucket}`;
+    let history = [];
+    let localHistory = [];
+    try { history = JSON.parse(localStorage.getItem(historyKey) || '[]'); } catch (_) { history = []; }
+    try { localHistory = JSON.parse(localStorage.getItem(localHistoryKey) || '[]'); } catch (_) { localHistory = []; }
+    if (!Array.isArray(history)) history = [];
+    if (!Array.isArray(localHistory)) localHistory = [];
+    const lastKind = String(localStorage.getItem(localKindKey) || '');
+
+    const sigOf = (p) => `${String(p?.n || '').toLowerCase()}|${Number(p?.lat || 0).toFixed(4)}|${Number(p?.lon || 0).toFixed(4)}`;
+    const bestRank = Number(candidates[0]?.rank || 0);
+    const scoreBand = candidates.filter(p => Number(p?.rank || -9999) >= (bestRank - 2.2));
+    const scorePool = scoreBand.length ? scoreBand : candidates;
+    let fresh = scorePool.filter(p => !localHistory.includes(sigOf(p)));
+    if (!fresh.length) fresh = scorePool.filter(p => !history.includes(sigOf(p)));
+    if (!fresh.length) {
+        fresh = scorePool;
+        history = [];
+        localHistory = [];
+    }
+    let diversified = fresh;
+    if (lastKind) {
+        const altKind = fresh.filter(p => _poiCandidateKindTag(p) !== lastKind);
+        if (altKind.length) diversified = altKind;
+    }
+    const pick = diversified[Math.floor(Math.random() * diversified.length)] || scorePool[0] || candidates[0];
+    const sig = sigOf(pick);
+    const kind = _poiCandidateKindTag(pick);
+    history.push(sig);
+    localHistory.push(sig);
+    if (history.length > 24) history.shift();
+    if (localHistory.length > 12) localHistory.shift();
+    try { localStorage.setItem(historyKey, JSON.stringify(history)); } catch (_) {}
+    try { localStorage.setItem(localHistoryKey, JSON.stringify(localHistory)); } catch (_) {}
+    try { localStorage.setItem(localKindKey, kind); } catch (_) {}
+    return pick;
 }
 
 function _nmToLatDeg(nm) {
@@ -3069,7 +3165,7 @@ function _shouldIncludeCoreForPoiSearch(forcedCategory = null, dispatchProfileId
     return ['telecom', 'road', 'dam', 'bridge', 'industry', 'infrastructure'].includes(cat);
 }
 
-async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null, dispatchProfileId = 'auto') {
+async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null, dispatchProfileId = 'auto', searchAnchor = null) {
     const forceCat = String(forcedCategory || '').toLowerCase();
     const profileId = String(dispatchProfileId || '').toLowerCase();
     const sarCorridorMode = profileId === 'search_and_rescue' && (!forceCat || forceCat === 'all');
@@ -3077,7 +3173,24 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const includeCore = _shouldIncludeCoreForPoiSearch(forceCat, dispatchProfileId);
     const allowLegacyFallback = !forceCat || forceCat === 'all';
     const dbgStart = { ..._poiDebugState() };
-    const tileKeys = _poiCollectTileKeysAround(lat, lon, Math.max(22, Number(maxNM || 40)));
+    const anchor = (searchAnchor && Number.isFinite(Number(searchAnchor.lat)) && Number.isFinite(Number(searchAnchor.lon)))
+        ? {
+            lat: Number(searchAnchor.lat),
+            lon: Number(searchAnchor.lon),
+            localRadiusNm: Math.max(8, Number(searchAnchor.localRadiusNm) || 20),
+            distNm: Number(searchAnchor.distNm || 0),
+            bearingDeg: Number(searchAnchor.bearingDeg || 0),
+            strategy: String(searchAnchor.strategy || 'ring-quadrant-anchor')
+        }
+        : {
+            lat: Number(lat),
+            lon: Number(lon),
+            localRadiusNm: Math.max(18, Math.min(26, Number(maxNM || 40) * 0.45)),
+            distNm: 0,
+            bearingDeg: 0,
+            strategy: 'route-centered'
+        };
+    const tileKeys = _poiCollectTileKeysAround(anchor.lat, anchor.lon, Math.max(anchor.localRadiusNm + 4, 18));
     if (!tileKeys.length) return null;
 
     const features = [];
@@ -3103,10 +3216,12 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const flat = Number(f?.lat);
         const flon = Number(f?.lon);
         if (!Number.isFinite(flat) || !Number.isFinite(flon)) continue;
-        const nav = calcNav(lat, lon, flat, flon);
-        if (!Number.isFinite(nav?.dist)) continue;
-        if (nav.dist < Number(minNM || 0) || nav.dist > Number(maxNM || 9999)) continue;
-        if (!checkBearing(nav.brng, dirPref)) continue;
+        const navStart = calcNav(lat, lon, flat, flon);
+        if (!Number.isFinite(navStart?.dist)) continue;
+        if (navStart.dist < Number(minNM || 0) || navStart.dist > Number(maxNM || 9999)) continue;
+        if (!checkBearing(navStart.brng, dirPref)) continue;
+        const navAnchor = calcNav(anchor.lat, anchor.lon, flat, flon);
+        if (!Number.isFinite(navAnchor?.dist) || navAnchor.dist > Number(anchor.localRadiusNm || 20)) continue;
 
         const inferredCat = _poiInferCategoryFromFeature(f);
         const wantedCat = (!forceCat || forceCat === 'all') ? inferredCat : forceCat;
@@ -3122,15 +3237,16 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         seen.add(dedupeKey);
 
         const baseScore = _poiFeatureScore(f, wantedCat);
-        const distPenalty = Math.min(80, Number(nav.dist || 0)) * 0.18;
+        const distPenalty = (Math.min(80, Number(navAnchor.dist || 0)) * 0.34) + (Math.min(120, Number(navStart.dist || 0)) * 0.06);
         const nameBonus = hasName ? 2.0 : -1.5;
         const rank = baseScore + nameBonus - distPenalty;
         candidates.push({
             n: name,
             lat: flat,
             lon: flon,
-            dist: nav.dist,
-            brng: nav.brng,
+            dist: navStart.dist,
+            brng: navStart.brng,
+            anchorDistNm: navAnchor.dist,
             category: wantedCat,
             score: baseScore,
             rank,
@@ -3149,9 +3265,11 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         pool = pool.filter(p => p.category === targetCat);
     }
     pool.sort((a, b) => (b.rank - a.rank) || (b.score - a.score) || (a.dist - b.dist));
-    const top = pool.slice(0, Math.min(8, pool.length));
-    const pick = top[0] || pool[0];
+    const top = pool.slice(0, Math.min(12, pool.length));
+    const pick = _pickPoiCandidateWithHistory(top, (top[0]?.category || forceCat || 'generic'), 12, anchor) || top[0] || pool[0];
     const usedCat = String((pick && pick.category) || forceCat || 'generic').toLowerCase();
+    const dbgBeforeFinalMark = { ..._poiDebugState() };
+    _poiDebugMarkSource(String(pick?.fetchSource || '').trim() || String(dbgBeforeFinalMark.lastSource || ''));
     const dbgEnd = { ..._poiDebugState() };
     const selectedFetchSource = String(pick?.fetchSource || '');
     let sourceLabel = `Hosted POI Tiles (split, tagged:${usedCat})`;
@@ -3165,6 +3283,12 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const lookupDebug = {
         includeCore,
         allowLegacyFallback,
+        anchorStrategy: anchor.strategy,
+        anchorDistNm: Number(anchor.distNm || 0),
+        anchorBearingDeg: Number(anchor.bearingDeg || 0),
+        anchorRadiusNm: Number(anchor.localRadiusNm || 0),
+        anchorLat: Number(anchor.lat || 0),
+        anchorLon: Number(anchor.lon || 0),
         tileKeys: tileKeys.length,
         features: features.length,
         candidates: candidates.length,
@@ -3194,6 +3318,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             featureSourceKind: String(pick?.featureSourceKind || ''),
             featureLayer: String(pick?.featureLayer || ''),
             selectedDistNm: Number(pick?.dist || 0),
+            selectedAnchorDistNm: Number(pick?.anchorDistNm || 0),
             selectedBrgDeg: Number(pick?.brng || 0),
             selectedHasName: !!pick?.hasName,
             ...lookupDebug
@@ -6098,7 +6223,8 @@ async function generateMission() {
         } else {
             // Primär: eigene gehostete, tag-basierte Tiles.
             // Fallback: bestehendes Wiki/Wikidata/Nominatim-System.
-            const taggedTilePoi = await findTaggedTilePOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory, dispatchProfileId);
+            const poiSearchAnchor = buildPoiRingSearchAnchor(start.lat, start.lon, searchMin, searchMax, dirPref, 20);
+            const taggedTilePoi = await findTaggedTilePOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory, dispatchProfileId, poiSearchAnchor);
             _ensureDispatchAlive();
             if (taggedTilePoi) {
                 dest = taggedTilePoi;
