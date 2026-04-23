@@ -2735,6 +2735,24 @@ function _poiNormalizeFeatureName(raw, fallbackCategory = 'poi') {
     return 'POI';
 }
 
+function _poiIsGenericFallbackName(name) {
+    const n = normalizeMissionText(name || '');
+    return (
+        n === 'poi' ||
+        n === 'zielgebiet' ||
+        n === 'staudamm talsperre' ||
+        n === 'gewasser' ||
+        n === 'gewaesser' ||
+        n === 'berg talgebiet' ||
+        n === 'funkmast funkturm windrad' ||
+        n === 'industrieanlage' ||
+        n === 'strassen verkehrsknoten' ||
+        n === 'infrastrukturkorridor' ||
+        n === 'stadtgebiet' ||
+        n === 'burg schloss'
+    );
+}
+
 function _poiFeatureFromTileNode(node, src = 'tile') {
     const lat = Number(node?.lat);
     const lon = Number(node?.lon);
@@ -3258,7 +3276,18 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     }
     if (!candidates.length) return null;
 
-    let pool = candidates;
+    // Wenn genug benannte Ziele vorhanden sind, bevorzugen wir diese strikt.
+    // Das reduziert generische Ziele wie "Gewässer"/"Wasserreservoir", die später
+    // häufig zu unpräzisen Story-Ortsnamen führen.
+    let scoredCandidates = candidates;
+    const namedCandidates = candidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n));
+    const forceStrictNamed = !!forceCat && forceCat !== 'all';
+    if (forceStrictNamed && namedCandidates.length >= 3) {
+        scoredCandidates = namedCandidates;
+    }
+    if (!scoredCandidates.length) return null;
+
+    let pool = scoredCandidates;
     if (!forceCat || forceCat === 'all') {
         const balanced = pickBalancedByCategory(pool, p => p.category || 'generic', 'ga_poi_tag_cat');
         const targetCat = balanced?.category || pool[0]?.category || 'generic';
@@ -5121,6 +5150,23 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             .replace(/\s{2,}/g, ' ')
             .trim();
     };
+    const sanitizeGenericPoiNarrative = (text) => {
+        let s = String(text || '').trim();
+        if (!s) return s;
+        const genericDest = /^(poi|zielgebiet|staudamm\/talsperre|gewaesser|gewasser|berg-\/talgebiet|funkmast\/funkturm\/windrad|industrieanlage|wasserreservoir)$/i.test(String(destName || '').trim());
+        if (!isPOI || !genericDest) return s;
+        s = s
+            .replace(/\b(?:bei|nahe|rund um|im bereich von|entlang(?:\s+der|\s+des)?)\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]*(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]*){0,3}\b/g, 'im Zielgebiet')
+            .replace(/\b(?:im|ins|am|an der|entlang der)\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]*tal\b/g, 'im Zielgebiet')
+            .replace(/\b(?:Donau|Rhein|Elbe|Isar|Neckar|Murgtal|Renchtal|Mühlbachtal)\b/gi, 'Zielgebiet')
+            .replace(/\s{2,}/g, ' ')
+            .replace(/\s+([,.;:!?])/g, '$1')
+            .trim();
+        if (!/\bZielgebiet\b/i.test(s)) {
+            s = `${s}${s ? ' ' : ''}Wir bleiben im markierten Zielgebiet.`;
+        }
+        return s;
+    };
     const sanitizeMissionPayloadText = (payload) => {
         if (!payload || typeof payload !== 'object') return payload;
         const p = { ...payload };
@@ -5128,9 +5174,12 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         p.story = stripPilotNameFromText(p.story || '');
         p.title = _cleanupNarrativeArtifacts(p.title || '');
         p.story = _cleanupNarrativeArtifacts(p.story || '');
+        p.title = sanitizeGenericPoiNarrative(p.title || '');
+        p.story = sanitizeGenericPoiNarrative(p.story || '');
         if (p.passenger && typeof p.passenger === 'object') {
             p.passenger = { ...p.passenger };
             p.passenger.greetingText = stripPilotNameFromText(p.passenger.greetingText || '');
+            p.passenger.greetingText = sanitizeGenericPoiNarrative(p.passenger.greetingText || '');
         }
         return p;
     };
@@ -5205,7 +5254,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const poiConsistencyRule = isPOI
         ? (poiHasCoords
             ? (poiNameIsGeneric
-                ? `4b. POI-KONSISTENZ (zwingend): Zielpunkt ist exakt bei ${poiLat.toFixed(5)}, ${poiLon.toFixed(5)}. Nenne KEINEN konkreten Orts-/Gewässernamen, wenn keiner vorgegeben ist; bleibe bei "das Zielgebiet"/"${promptDestName}".`
+                ? `4b. POI-KONSISTENZ (zwingend): Zielpunkt ist exakt bei ${poiLat.toFixed(5)}, ${poiLon.toFixed(5)}. Nenne KEINEN konkreten Orts-/Gewässernamen, wenn keiner vorgegeben ist; keine Formulierungen wie "bei <Ort>", "im <Tal>" oder konkrete Flussnamen. Bleibe strikt bei "das Zielgebiet"/"${promptDestName}".`
                 : `4b. POI-KONSISTENZ (zwingend): Ziel ist exakt "${promptDestName}" bei ${poiLat.toFixed(5)}, ${poiLon.toFixed(5)}. Story und Begrüßung dürfen KEINEN anderen Orts-/Gewässernamen als Primärziel nennen.`)
             : `4b. POI-KONSISTENZ (zwingend): Verwende exakt "${promptDestName}" als Zielbezug und nenne keinen alternativen Primär-Ortsnamen.`)
         : '';
