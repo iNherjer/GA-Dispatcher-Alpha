@@ -399,6 +399,8 @@ function _normTaskDomain(value) {
         'medical_transfer',
         'news_coverage',
         'sightseeing_tour',
+        'historian_guided_tour',
+        'poi_learning_guide',
         'mapping_survey',
         'cargo_fragile',
         'search_and_rescue',
@@ -490,6 +492,7 @@ function _inspectionMissionMeta() {
     if (taskDomain === 'fire_watch') return null;
     // Rollenreinheit: Historiker erzaehlt Kontext/Geschichte, keine technische Zustandspruefung.
     if (taskDomain === 'historian_guided_tour') return null;
+    if (taskDomain === 'poi_learning_guide') return null;
     const isInspectionByDomain = taskDomain === 'inspection_infra';
     const isInspectionByFallback = /(inspekt|pruef|prüfung|wartung|techn|statik|vermess|scan|check|schaden|fuge|mast|abspannung|brueck|bruck|autobahn|strass|funk|sendemast|stausee|staudamm|talsperre|wehr|sperrmauer)/.test(hay);
     const isInspection = isInspectionByDomain || isInspectionByFallback;
@@ -558,7 +561,7 @@ function _professionalRoleMeta() {
         return null;
     }
     // Operative Domains sollen nicht in wissenschaftliche Fallback-Hinweise driften.
-    if (/^(fire_watch|search_and_rescue|mapping_survey|news_coverage|medical_transfer|animal_transport|cargo_fragile|sightseeing_tour|historian_guided_tour)$/.test(taskDomain)) {
+    if (/^(fire_watch|search_and_rescue|mapping_survey|news_coverage|medical_transfer|animal_transport|cargo_fragile|sightseeing_tour|historian_guided_tour|poi_learning_guide)$/.test(taskDomain)) {
         return null;
     }
     if (taskDomain === 'science_bio') {
@@ -644,6 +647,11 @@ function _domainDriftGuard(mode = 'generic') {
         if (m === 'result') return ' Drift-Guard (Survey): Abschluss mit Datenguete und naechstem Vermessungsschritt. Keine Story-, Historiker- oder Sightseeing-Formulierungen.';
         if (m === 'progress') return ' Drift-Guard (Survey): Nur Messlogik, Linienfuehrung, Stabilitaet und Datenqualitaet. Keine Ortsanekdoten.';
         return ' Drift-Guard (Survey): Nur technisch-praezise Vermessungs-/Dokumentationssprache. Keine Begeisterungs- oder Tourismusformeln, keine Inspektionsdramatik.';
+    }
+    if (td === 'poi_learning_guide') {
+        if (m === 'result') return ' Drift-Guard (Lern-Guide): Abschluss mit 1-2 klaren Fakten/Einordnung und einem ruhigen Weiterflug-Hinweis. Keine Arbeitsanweisung, keine Einsatz-/Inspektionssprache.';
+        if (m === 'progress') return ' Drift-Guard (Lern-Guide): Nur Fakten, Kontext und Orientierung zum Ziel. Keine Checklisten, keine Mess-/Schadenssprache.';
+        return ' Drift-Guard (Lern-Guide): Bildungsorientiert und anschaulich. Keine Instruktoranweisungen, keine feste Arbeitshoehe verlangen, kein SAR-/Fire-/Inspektions-Ton.';
     }
     if (td === 'news_coverage') {
         if (m === 'result') return ' Drift-Guard (News): Abschluss als kurze sachliche Lagezusammenfassung. Kein Einsatzabschluss wie SAR, kein Touri-Ton.';
@@ -1387,6 +1395,9 @@ function _roleStyleHint(roleRaw, pax = null) {
     if (taskDomain === 'historian_guided_tour') {
         return 'anschaulich-historisch und bildungsorientiert: kurze, konkrete Einordnung mit Zeitbezug, keine Technik-Inspektion.';
     }
+    if (taskDomain === 'poi_learning_guide') {
+        return 'locker-bildend und faktenorientiert: kurze Orientierung, klare Einordnung, kein Anweisungsstil.';
+    }
     if (taskDomain === 'sightseeing_tour') {
         return 'locker, freundlich und kurz: passagiernah, fluessig, ohne Anweisungs- oder Instruktor-Ton.';
     }
@@ -1572,12 +1583,16 @@ function _poiEntryPrompt(flightData) {
     const reqHint = '';
     const taskDomain = _activeTaskDomain();
     const isHistorian = taskDomain === 'historian_guided_tour';
+    const isLearningGuide = taskDomain === 'poi_learning_guide';
     const inspHint = isHistorian ? '' : _inspectionEntryHint();
     const profHint = isHistorian ? '' : _professionalTaskHint('entry');
     const factHint = (taskDomain === 'search_and_rescue') ? '' : _targetFactHint();
     const driftGuard = _domainDriftGuard('entry');
     const historianHint = isHistorian
         ? ' Historiker-Rolle: Erzaehle 1 kurze historische Einordnung direkt zum Ort (Epoche, Nutzung oder lokales Ereignis). Keine Riss-/Technik-/Inspektionssprache.'
+        : '';
+    const learningGuideHint = isLearningGuide
+        ? ' Lern-Guide-Rolle: Nenne 1-2 kurze Fakten/Einordnungen direkt zum Ziel und fuehre den Piloten ruhig zum Punkt. Keine Arbeitsanweisung, keine Hoehenforderung, kein "ich suche nach Schaeden".'
         : '';
     const sarZoneGuard = (taskDomain === 'search_and_rescue')
         ? ' Bleib strikt im Suchkorridor rund um das Zielobjekt. Keine entfernten Orts-/Gewaesserbezuege ausserhalb der Suchzone.'
@@ -1589,7 +1604,7 @@ function _poiEntryPrompt(flightData) {
     return `${ctx}
 
 Moment: Das Zielgebiet "${md?.poiName || 'Ziel'}" taucht gerade vor uns auf — wir sind auf ${altFt} ft.${wx ? ' ' + wx : ''}
-Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}${inspHint}${profHint}${factHint}${historianHint}${sarZoneGuard}${trainingHint}
+${isLearningGuide ? 'Fuehre den Piloten jetzt kurz zum Ziel und gib direkt einen ersten Fakt oder Kontext zum Ort.' : 'Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.'}${reqHint}${inspHint}${profHint}${factHint}${historianHint}${learningGuideHint}${sarZoneGuard}${trainingHint}
 ${driftGuard}
 ${taskDomain === 'search_and_rescue' ? '1-2 Saetze, einsatznah und klar, keine Begeisterungsformel.' : '1-2 Sätze, darf etwas begeisterter sein als sonst.'}${_toneHint()}`;
 }
@@ -1617,6 +1632,7 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     if (_activeAptTrainingPlan()) return null;
     const taskDomain = _activeTaskDomain();
     const isHistorian = taskDomain === 'historian_guided_tour';
+    const isLearningGuide = taskDomain === 'poi_learning_guide';
     const factHint = (taskDomain === 'search_and_rescue') ? '' : _targetFactHint();
     const driftGuard = _domainDriftGuard('in_sight');
     const announcedEta = 2; // bewusst knapper wegen Latenz durch Text+TTS
@@ -1624,7 +1640,7 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     const realEta = Math.max(1, Math.round(etaMin));
     const pax = window.activePassenger || {};
     const targetAltFt = Number(pax?.targetAltFt || 0);
-    const altBrief = targetAltFt > 0
+    const altBrief = (!isLearningGuide && targetAltFt > 0)
         ? ` Nenne in derselben Meldung bitte kurz die geplante Arbeitsflughöhe: "${targetAltFt} Fuß".`
         : '';
     const trainingPlan = _activeAptTrainingPlan();
@@ -1637,15 +1653,22 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     const historianInSightHint = isHistorian
         ? ' Historiker-Rolle: knapp historisch einordnen (z.B. Epoche/Funktion/regionale Bedeutung), ohne technische Befundsprache.'
         : '';
+    const learningInSightHint = isLearningGuide
+        ? ' Lern-Guide-Rolle: Sage nicht "in Sicht", sondern orientiere den Piloten ruhig zur Position und nenne direkt einen kurzen Fakt zum Ziel.'
+        : '';
     const roleTone = (taskDomain === 'search_and_rescue')
         ? 'SAR-Rolle: knapp, klar, lageorientiert, kein Sightseeing-Ton. Max 2 Saetze.'
-        : (isHistorian
-            ? 'Historiker-Rolle: bildungsorientiert und anschaulich, kein Technik-/Inspektionston. Max 2 Saetze.'
-            : 'Techniker-/Inspektionsrollen: knapp, professionell, kein Sightseeing-Ton. Max 2 Sätze.');
+        : (isLearningGuide
+            ? 'Lern-Guide: bildend und klar, ohne Anweisungsstil oder Einsatzsprache. Max 2 Saetze.'
+            : (isHistorian
+                ? 'Historiker-Rolle: bildungsorientiert und anschaulich, kein Technik-/Inspektionston. Max 2 Saetze.'
+                : 'Techniker-/Inspektionsrollen: knapp, professionell, kein Sightseeing-Ton. Max 2 Sätze.'));
     return `${ctx}
 
 Moment: Zielobjekt "${md.poiName || 'Ziel'}" wird im Anflug sichtbar. Distanz etwa ${roundedDist} NM, reale ETA ca. ${realEta} min, relative Lage ${clockPos}.
-Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".${altBrief}${factHint}${sarZoneGuard}${historianInSightHint} ${trainingHint}
+${isLearningGuide
+        ? `Gib eine kurze Orientierung zur Lage in der 12-Uhr-Logik (${clockPos}) und nenne "ca. ${announcedEta} Minuten", dann direkt einen kurzen Fakt zum Ziel.`
+        : `Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".`}${altBrief}${factHint}${sarZoneGuard}${historianInSightHint}${learningInSightHint} ${trainingHint}
 ${driftGuard}
 ${roleTone}${_toneHint()}`;
 }
@@ -1742,6 +1765,7 @@ function _poiSatisfiedPrompt(flightData) {
     const wx = _weatherContext(flightData);
     const taskDomain = _activeTaskDomain();
     const isHistorian = taskDomain === 'historian_guided_tour';
+    const isLearningGuide = taskDomain === 'poi_learning_guide';
     const inspResultHint = _inspectionResultHint();
     const profResultHint = _professionalTaskHint('result');
     const sarResultHint = _sarResultHint();
@@ -1749,13 +1773,16 @@ function _poiSatisfiedPrompt(flightData) {
     const historianResultHint = isHistorian
         ? ' Historiker-Fazit: Schließe mit 1 konkreten historischen Takeaway zum Ort (zeitliche Einordnung oder Bedeutung) und einem klaren Weiterflug-Hinweis. Keine technische Zustandsbewertung.'
         : '';
+    const learningResultHint = isLearningGuide
+        ? ' Lern-Guide-Fazit: Schließe mit 1 konkreten Lernpunkt zum Ziel und einem lockeren Hinweis, dass wir zum naechsten Punkt weiterkoennen.'
+        : '';
     const sarEndRule = (taskDomain === 'search_and_rescue')
         ? ' Formuliere ein klares Einsatzende mit Leitstellenbezug. Kein neutraler "alles im Kasten"-Satz.'
         : '';
     return `${ctx}
 
 Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}
-Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${sarResultHint}${inspResultHint}${profResultHint}${historianResultHint}${sarEndRule}${driftGuard} 1-2 Sätze.${_toneHint()}`;
+Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${sarResultHint}${inspResultHint}${profResultHint}${historianResultHint}${learningResultHint}${sarEndRule}${driftGuard} 1-2 Sätze.${_toneHint()}`;
 }
 
 function _poiAbortPrompt(flightData) {
@@ -1906,6 +1933,7 @@ function _greetingPrompt() {
     const taskDomain = String(pax?.taskDomain || '').toLowerCase();
     const isReporterApt = (!isPOI && taskDomain === 'news_coverage');
     const isSightseeingApt = (!isPOI && taskDomain === 'sightseeing_tour');
+    const isLearningGuidePoi = (isPOI && taskDomain === 'poi_learning_guide');
     const targetAltFt = Math.round(Number(pax?.targetAltFt || 0));
     const comfortPolicy = _comfortFeedbackPolicy(pax);
     const urgencyPriority = _normUrgencyPriority(pax?.urgencyPriority);
@@ -1926,7 +1954,9 @@ function _greetingPrompt() {
     const reqLine = isPOI
         ? (trainingPlan
             ? `Bitte nenne kurz das Übungsthema und wie wir es sicher und sauber abfliegen. Keine internen Parameter oder technischen Vorgaben zitieren.`
-            : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast.${targetAltFt > 0 ? ` Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr ${targetAltFt} ft).` : ''}${(taskDomain === 'fire_watch' && Number.isFinite(Number(md?.fireHazard?.level))) ? ` Nenne bei der Einsatzlage kurz den offiziellen DWD-Waldbrandgefahrenindex (Stufe ${Math.round(Number(md.fireHazard.level))} von 5).` : ''} Keine internen Parameter oder technischen Vorgaben zitieren.`)
+            : (isLearningGuidePoi
+                ? `Bitte sag locker, dass du den Piloten zum Ziel fuehrst und dabei etwas ueber den Ort vermittelst. Keine Arbeitsanweisung, keine feste Arbeitshoehe, kein Komfort- oder Zeitdruckhinweis.`
+                : `Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast.${targetAltFt > 0 ? ` Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr ${targetAltFt} ft).` : ''}${(taskDomain === 'fire_watch' && Number.isFinite(Number(md?.fireHazard?.level))) ? ` Nenne bei der Einsatzlage kurz den offiziellen DWD-Waldbrandgefahrenindex (Stufe ${Math.round(Number(md.fireHazard.level))} von 5).` : ''} Keine internen Parameter oder technischen Vorgaben zitieren.`))
         : (isReporterApt
             ? (comfortHintNeeded
                 ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig. ${comfortContentRule}${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`

@@ -3521,7 +3521,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
         while (i < src.length) {
             const base = src[i];
             const type = String(base.type || '');
-            const thr = (type === 'river') ? 0.9 : (type === 'highway' ? 0.7 : 0.6);
+            const thr = (type === 'river') ? 1.5 : (type === 'highway' ? 0.7 : 0.6);
             let sumDist = Number(base.distNM || 0);
             let sumLat = Number(base.lat || 0);
             let sumLon = Number(base.lon || 0);

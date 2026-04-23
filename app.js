@@ -285,6 +285,22 @@ const MISSION_ROLE_TASK_PROFILES = {
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'niedrig', stomachSensitivity: 'hoch', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
         storyCue: 'Fokus: ruhiger Rundflug mit angenehmem Tempo.'
     },
+    tour_guide_knowledge: {
+        id: 'tour_guide_knowledge',
+        label: 'POI-Lern-Guide',
+        appliesTo: ['poi'],
+        roleProfile: 'tour_guide_learning_v1',
+        taskDomain: 'poi_learning_guide',
+        personas: [
+            { name: 'Mila Hartung', role: 'Lern-Guide', gender: 'female', personality: 'klar, neugierig, anschaulich' },
+            { name: 'Jonas Keller', role: 'Tour-Guide', gender: 'male', personality: 'ruhig, faktenstark, freundlich' }
+        ],
+        greetingText: 'Hi, heute geht es nur darum, dass du zum Ziel etwas lernst. Ich gebe dir kurze Fakten und Einordnung, ohne Extra-Wuensche.',
+        paxText: '1 PAX (Lern-Guide)',
+        cargoPool: ['Notizbuch und Reisefuehrer (4 lbs)', 'Tablet mit Ortsfakten (3 lbs)'],
+        tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'niedrig' },
+        storyCue: 'Fokus: reiner Bildungsflug am POI mit Fakten, Kontext und Orientierung ohne Arbeitsauftrag.'
+    },
     historian_guided_tour: {
         id: 'historian_guided_tour',
         label: 'Historiker-Rundflug',
@@ -3326,12 +3342,14 @@ function _shouldIncludeCoreForPoiSearch(forcedCategory = null, dispatchProfileId
     if (profile === 'search_and_rescue') return true;
     if (profile === 'mapping_survey') return true;
     if (profile === 'fire_watch') return true;
+    if (profile === 'tour_guide_knowledge') return true;
     return false;
 }
 
 async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null, dispatchProfileId = 'auto', searchAnchor = null) {
     const forceCat = String(forcedCategory || '').toLowerCase();
     const profileId = String(dispatchProfileId || '').toLowerCase();
+    const isKnowledgeGuideProfile = profileId === 'tour_guide_knowledge';
     const sarCorridorMode = profileId === 'search_and_rescue' && (!forceCat || forceCat === 'all');
     if (forceCat === 'trn') return null;
     const includeCore = _shouldIncludeCoreForPoiSearch(forceCat, dispatchProfileId);
@@ -3388,6 +3406,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         if (!Number.isFinite(navAnchor?.dist) || navAnchor.dist > Number(anchor.localRadiusNm || 20)) continue;
 
         const inferredCat = _poiInferCategoryFromFeature(f);
+        if (isKnowledgeGuideProfile && inferredCat === 'generic') continue;
         const wantedCat = (!forceCat || forceCat === 'all') ? inferredCat : forceCat;
         if (forceCat && forceCat !== 'all' && !_poiFeatureMatchesCategory(f, forceCat)) continue;
         if (sarCorridorMode && !_poiFeatureMatchesCategory(f, 'sar_corridor')) continue;
@@ -3438,6 +3457,10 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const dedupeKey = `${wantedCat}|${name.toLowerCase()}|${flat.toFixed(4)}|${flon.toFixed(4)}`;
         if (seen.has(dedupeKey)) continue;
         seen.add(dedupeKey);
+        if (isKnowledgeGuideProfile) {
+            if (!hasName || _poiIsGenericFallbackName(name)) continue;
+            if (_poiIsCodeLikeName(name) || _poiIsNumericLikeName(name) || _poiLooksJunctionLabel(name)) continue;
+        }
 
         const baseScore = _poiFeatureScore(f, wantedCat);
         const distMin = Number(minNM || 0);
@@ -3501,6 +3524,10 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     if (forceCat === 'rail' && profileId !== 'search_and_rescue' && profileId !== 'inspection_infra' && profileId !== 'mapping_survey') {
         const namedRail = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n) && !_poiIsNumericLikeName(c.n));
         if (namedRail.length >= 2) scoredCandidates = namedRail;
+    }
+    if (isKnowledgeGuideProfile) {
+        const educationalNamed = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n) && !_poiIsCodeLikeName(c.n) && !_poiIsNumericLikeName(c.n));
+        if (educationalNamed.length >= 1) scoredCandidates = educationalNamed;
     }
     if (!scoredCandidates.length) return null;
 
@@ -4417,6 +4444,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         'medical_sensitive_v1',
         'news_reporter_professional_v1',
         'tour_guide_relaxed_v1',
+        'tour_guide_learning_v1',
         'historian_storyteller_v1',
         'photogrammetry_precision_v1',
         'cargo_fragile_highcare_v1',
@@ -4437,6 +4465,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         'medical_transfer',
         'news_coverage',
         'sightseeing_tour',
+        'poi_learning_guide',
         'historian_guided_tour',
         'mapping_survey',
         'cargo_fragile',
@@ -4459,6 +4488,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         if (/(fluglehrer|fluglehrerin|instructor|instruktor|checkpilot)/.test(hay)) return 'instructor_calm_precise_v1';
         if (/(notarzt|notaerzt|sanitaet|rettung|mediz|arzt)/.test(hay)) return 'medical_sensitive_v1';
         if (/(report|journal|news|moderator|tv|presse)/.test(hay)) return 'news_reporter_professional_v1';
+        if (/(lern-?guide|wissensflug|bildungsflug|faktenflug|kulturguide|museum aus der luft|lerntour)/.test(hay)) return 'tour_guide_learning_v1';
         if (/(tour|reiseleitung|stadtfuehr|guide|sightseeing)/.test(hay)) return 'tour_guide_relaxed_v1';
         if (/(historiker|historikerin|geschichte|denkmal|zeitreise|kultur)/.test(hay)) return 'historian_storyteller_v1';
         if (/(mapping|survey|photogram|lidar|geodaten|vermessung)/.test(hay)) return 'photogrammetry_precision_v1';
@@ -4480,6 +4510,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         if (roleProfile === 'medical_sensitive_v1') return 'medical_transfer';
         if (roleProfile === 'news_reporter_professional_v1') return 'news_coverage';
         if (roleProfile === 'tour_guide_relaxed_v1') return 'sightseeing_tour';
+        if (roleProfile === 'tour_guide_learning_v1') return 'poi_learning_guide';
         if (roleProfile === 'historian_storyteller_v1') return 'historian_guided_tour';
         if (roleProfile === 'photogrammetry_precision_v1') return 'mapping_survey';
         if (roleProfile === 'cargo_fragile_highcare_v1') return 'cargo_fragile';
@@ -4490,6 +4521,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         if (/(notarzt|notaerzt|mediz|sanitaet|blutkonserve|klinik|patient)/.test(hay)) return 'medical_transfer';
         if (/(report|news|presse|tv|journal|moderator)/.test(hay)) return 'news_coverage';
         if (/(sightseeing|tour|stadtfuehr|ausflug|panorama)/.test(hay)) return 'sightseeing_tour';
+        if (/(lern-?guide|wissensflug|bildungsflug|faktenflug|geschichte am ziel|kulturelle einordnung)/.test(hay)) return 'poi_learning_guide';
         if (/(historiker|historikerin|geschichte|zeitreise|denkmal|kulturhistor)/.test(hay)) return 'historian_guided_tour';
         if (/(mapping|survey|photogram|lidar|geodaten|kartier)/.test(hay)) return 'mapping_survey';
         if (/(fragil|zerbrech|praezision|kunstwerk|stoß|stoss|erschuetter)/.test(hay)) return 'cargo_fragile';
@@ -4862,6 +4894,11 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
 
     const passenger = buildMissionProfilePassenger(m.passenger || null, profile, isPOI, m.s || '');
     if (passenger) {
+        if (profile.id === 'tour_guide_knowledge') {
+            passenger.targetAltFt = 0;
+            if (!(Number(passenger.targetRadiusNm) > 0)) passenger.targetRadiusNm = 3;
+            if (!(Number(passenger.targetDwellMin) > 0)) passenger.targetDwellMin = 4;
+        }
         m.passenger = passenger;
     }
     if (profile.paxText) {
@@ -4897,6 +4934,11 @@ function _profileStoryCue(profile, isPOI = false) {
             ? 'Ruhiger Rundflug mit angenehmem Tempo und guter Sicht.'
             : 'Entspannter Ausflugsflug mit angenehmem Ablauf am Ziel.';
     }
+    if (profile.id === 'tour_guide_knowledge') {
+        return isPOI
+            ? 'Bildungsflug am POI: kurze, klare Fakten und Einordnung ohne Arbeitsanweisungen, ohne Inspektionsauftrag.'
+            : '';
+    }
     if (profile.id === 'historian_guided_tour') {
         return isPOI
             ? 'Bildungsauftrag: historische Einordnung und lokale Geschichte am POI, ohne technischen Inspektionsfokus.'
@@ -4916,6 +4958,9 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
     if (profile.id === 'historian_guided_tour' && isPOI) {
         return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischen Fakten und lokaler Geschichte. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag daraus machen.';
     }
+    if (profile.id === 'tour_guide_knowledge' && isPOI) {
+        return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist reine Wissensvermittlung zum Ziel (Fakten, Orientierung, Einordnung). Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache.';
+    }
     return '';
 }
 
@@ -4929,28 +4974,28 @@ function _poiCategoryTaskPool(category = 'generic') {
     const c = String(category || 'generic').toLowerCase();
     // Kategorie bleibt fix, Task rotiert innerhalb passender Missionsfamilien.
     if (c === 'bridge' || c === 'road' || c === 'dam' || c === 'industry') {
-        return ['mapping_survey', 'mapping_survey', 'news_coverage', 'science_geo'];
+        return ['mapping_survey', 'mapping_survey', 'news_coverage', 'science_geo', 'tour_guide_knowledge'];
     }
     if (c === 'telecom') {
-        return ['mapping_survey', 'mapping_survey', 'news_coverage', 'historian_guided_tour'];
+        return ['mapping_survey', 'mapping_survey', 'news_coverage', 'historian_guided_tour', 'tour_guide_knowledge'];
     }
     if (c === 'infrastructure') {
-        return ['mapping_survey', 'mapping_survey', 'news_coverage', 'science_geo', 'search_and_rescue'];
+        return ['mapping_survey', 'mapping_survey', 'news_coverage', 'science_geo', 'search_and_rescue', 'tour_guide_knowledge'];
     }
     if (c === 'castle' || c === 'city') {
-        return ['historian_guided_tour', 'historian_guided_tour', 'sightseeing_tour', 'news_coverage'];
+        return ['historian_guided_tour', 'historian_guided_tour', 'tour_guide_knowledge', 'sightseeing_tour', 'news_coverage'];
     }
     if (c === 'water') {
-        return ['science_bio', 'science_bio', 'search_and_rescue', 'sightseeing_tour', 'historian_guided_tour'];
+        return ['science_bio', 'science_bio', 'search_and_rescue', 'sightseeing_tour', 'historian_guided_tour', 'tour_guide_knowledge'];
     }
     if (c === 'mountain') {
-        return ['science_geo', 'science_bio', 'sightseeing_tour', 'historian_guided_tour', 'search_and_rescue', 'mapping_survey'];
+        return ['science_geo', 'science_bio', 'sightseeing_tour', 'historian_guided_tour', 'search_and_rescue', 'mapping_survey', 'tour_guide_knowledge'];
     }
     if (c === 'fire') {
         return ['fire_watch', 'fire_watch', 'search_and_rescue', 'science_bio'];
     }
     if (c === 'generic') {
-        return ['mapping_survey', 'news_coverage', 'sightseeing_tour', 'historian_guided_tour'];
+        return ['mapping_survey', 'news_coverage', 'sightseeing_tour', 'historian_guided_tour', 'tour_guide_knowledge'];
     }
     return ['mapping_survey', 'news_coverage'];
 }
@@ -4985,6 +5030,7 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         pushMany('fire_watch', 2);
         pushMany('sightseeing_tour', 2);
         pushMany('historian_guided_tour', 2);
+        pushMany('tour_guide_knowledge', 2);
         pushMany('science_bio', 1);
         pushMany('science_geo', 1);
     } else {
@@ -5075,6 +5121,11 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     if (id === 'sightseeing_tour') {
         const positive = has(/ausflug|stadtetrip|stadttrip|sightseeing|panorama|kuchen|burger|wellness|romant|tour/);
         const negative = has(/aog|ersatzteil|organtransport|medicine|notfall|urgent|kurier|fracht|transport/);
+        return positive && !negative;
+    }
+    if (id === 'tour_guide_knowledge') {
+        const positive = has(/bildungsflug|wissensflug|lernflug|fakten|einordnung|hintergrund|geschichte des ortes|kultur|reiseguide|ortskunde/);
+        const negative = has(/sar|search|rescue|rettung|hotspot|brand|rauch|feuer|notfall|inspekt|schaden|riss|vermess/);
         return positive && !negative;
     }
     if (id === 'historian_guided_tour') {
@@ -5253,6 +5304,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         science_bio: ['Biologischer Beobachtungsflug mit ruhiger, sauberer Dokumentation'],
         science_geo: ['Geologischer Beobachtungsflug mit Fokus auf Relief und Erosion'],
         mapping_survey: ['Praeziser Mapping-/Survey-Flug mit stabilen Passes'],
+        tour_guide_knowledge: ['Bildungsflug zum POI: lernorientierte Fakten, Kontext und Orientierung ohne Arbeitsauftrag'],
         search_and_rescue: ['SAR-Suchflug entlang Trassen, Flussläufen und Bahnstrecken mit strukturiertem Muster und klarem Lagebild'],
         fire_watch: ['Feuerwacht mit Fokus auf Rauchfahnen und Hotspots']
     };
@@ -5530,9 +5582,9 @@ Distanz: ${dist} NM
 Wetter Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
 Wetter Ziel (${promptDestName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
 Erlaubte roleProfile:
-["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","historian_storyteller_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1"]
+["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","tour_guide_learning_v1","historian_storyteller_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1"]
 Erlaubte taskDomain:
-["general","training","charter","inspection_infra","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","historian_guided_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced"]
+["general","training","charter","inspection_infra","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","poi_learning_guide","historian_guided_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced"]
 </KONTEXT>
 
 <OUTPUT>
