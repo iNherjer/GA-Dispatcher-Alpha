@@ -3542,7 +3542,19 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const top = (forceCat === 'infrastructure' || forceCat === 'telecom')
         ? _poiLimitPerCluster(topRaw, 2)
         : topRaw;
-    const pick = _pickPoiCandidateWithHistory(top, (top[0]?.category || forceCat || 'generic'), 12, anchor) || top[0] || pool[0];
+    let pick = _pickPoiCandidateWithHistory(top, (top[0]?.category || forceCat || 'generic'), 12, anchor) || top[0] || pool[0];
+    if (isKnowledgeGuideProfile) {
+        const shortlist = top.slice(0, Math.min(8, top.length));
+        let contextualPick = null;
+        for (const cand of shortlist) {
+            const ctx = await _resolveEducationalPoiContext(cand.n, cand.lat, cand.lon);
+            if (!ctx?.ok) continue;
+            contextualPick = { ...cand, n: String(ctx.title || cand.n || '').trim() || cand.n };
+            break;
+        }
+        if (!contextualPick) return null;
+        pick = contextualPick;
+    }
     const usedCat = String((pick && pick.category) || forceCat || 'generic').toLowerCase();
     const dbgBeforeFinalMark = { ..._poiDebugState() };
     _poiDebugMarkSource(String(pick?.fetchSource || '').trim() || String(dbgBeforeFinalMark.lastSource || ''));
@@ -3700,6 +3712,62 @@ function _wikidataTypeQidsForPoiCategory(category = '') {
         return ['Q12323', 'Q131681'];
     }
     return [];
+}
+
+const _poiEducationalContextCache = new Map();
+
+function _isUsefulWikiExtract(text) {
+    const raw = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return false;
+    if (raw.length < 140) return false;
+    if (/(keine regionalen wikipedia-daten gefunden|artikel konnte nicht|wiki-daten konnten nicht geladen|nicht abrufbar)/i.test(raw)) return false;
+    return true;
+}
+
+async function _fetchWikiExtractByTitle(title) {
+    const t = String(title || '').trim();
+    if (!t) return null;
+    try {
+        const extRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=true&explaintext=true&exsentences=4&titles=${encodeURIComponent(t)}&format=json&origin=*`);
+        if (!extRes.ok) return null;
+        const extData = await extRes.json();
+        const pages = extData?.query?.pages || null;
+        if (!pages || typeof pages !== 'object') return null;
+        const pageId = Object.keys(pages)[0];
+        if (!pageId || pageId === '-1') return null;
+        const extract = String(pages?.[pageId]?.extract || '').trim();
+        return _isUsefulWikiExtract(extract) ? { title: t, extract } : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+async function _resolveEducationalPoiContext(title, lat, lon) {
+    const t = String(title || '').trim();
+    const latN = Number(lat);
+    const lonN = Number(lon);
+    const key = `${t.toLowerCase()}|${Number.isFinite(latN) ? latN.toFixed(4) : 'nan'}|${Number.isFinite(lonN) ? lonN.toFixed(4) : 'nan'}`;
+    if (_poiEducationalContextCache.has(key)) return _poiEducationalContextCache.get(key);
+
+    let best = await _fetchWikiExtractByTitle(t);
+    if (!best && Number.isFinite(latN) && Number.isFinite(lonN)) {
+        try {
+            const geoRes = await fetch(`https://de.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${latN}|${lonN}&gsradius=8000&gslimit=4&format=json&origin=*`);
+            if (geoRes.ok) {
+                const geoData = await geoRes.json();
+                const list = Array.isArray(geoData?.query?.geosearch) ? geoData.query.geosearch : [];
+                for (const item of list) {
+                    const cTitle = String(item?.title || '').trim();
+                    if (!cTitle) continue;
+                    const hit = await _fetchWikiExtractByTitle(cTitle);
+                    if (hit) { best = hit; break; }
+                }
+            }
+        } catch (_) {}
+    }
+    const out = best ? { ok: true, title: best.title, extract: best.extract } : { ok: false, title: t, extract: '' };
+    _poiEducationalContextCache.set(key, out);
+    return out;
 }
 
 async function findWikidataTypedPOI(lat, lon, minNM, maxNM, dirPref, forcedCategory) {
@@ -6641,6 +6709,31 @@ async function generateMission() {
     if (!missionFireHazard && effectiveType === 'poi' && selectedPoiCategory === 'fire' && Number.isFinite(dest?.lat) && Number.isFinite(dest?.lon)) {
         missionFireHazard = await fetchDwdWbiForLocation(dest.lat, dest.lon);
         _ensureDispatchAlive();
+    }
+    if (dest && effectiveType === 'poi' && dispatchProfileId === 'tour_guide_knowledge' && selectedPoiCategory !== 'trn') {
+        const contextOk = await _resolveEducationalPoiContext(dest.n, dest.lat, dest.lon);
+        _ensureDispatchAlive();
+        if (!contextOk?.ok) {
+            let replacement = null;
+            for (let i = 0; i < 3; i++) {
+                const retry = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory);
+                _ensureDispatchAlive();
+                if (!retry) continue;
+                const retryCtx = await _resolveEducationalPoiContext(retry.n, retry.lat, retry.lon);
+                _ensureDispatchAlive();
+                if (retryCtx?.ok) {
+                    replacement = { ...retry, n: String(retryCtx.title || retry.n || '').trim() || retry.n };
+                    break;
+                }
+            }
+            if (replacement) {
+                dest = replacement;
+            } else {
+                dest = null;
+            }
+        } else {
+            dest.n = String(contextOk.title || dest.n || '').trim() || dest.n;
+        }
     }
 
     if (!dest) {
