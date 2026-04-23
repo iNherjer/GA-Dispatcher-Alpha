@@ -4850,6 +4850,11 @@ function _profileStoryCue(profile, isPOI = false) {
             ? 'Ruhiger Rundflug mit angenehmem Tempo und guter Sicht.'
             : 'Entspannter Ausflugsflug mit angenehmem Ablauf am Ziel.';
     }
+    if (profile.id === 'historian_guided_tour') {
+        return isPOI
+            ? 'Bildungsauftrag: historische Einordnung und lokale Geschichte am POI, ohne technischen Inspektionsfokus.'
+            : 'Bildungsauftrag: historische Einordnung des Ziels mit ruhigem, stabilem Flugprofil.';
+    }
     return String(profile.storyCue || '').replace(/\bFokus:\s*/gi, '').trim();
 }
 
@@ -4862,7 +4867,7 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL REPORTER POI: Luftbeobachtung am POI ist erlaubt; Auftrag bleibt sachlich, keine Touri-Rhetorik.';
     }
     if (profile.id === 'historian_guided_tour' && isPOI) {
-        return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit 1-2 kurzen historischen Einordnungen im Briefing/Greeting. Kein SAR/Feuer/Inspektionsauftrag daraus machen.';
+        return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischen Fakten und lokaler Geschichte. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag daraus machen.';
     }
     return '';
 }
@@ -5197,7 +5202,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         animal_transport: ['Tiertransport mit stressarmer, ruhiger Flugfuehrung'],
         news_coverage: ['Reporter-/Medieneinsatz mit sachlicher Lagebeobachtung'],
         sightseeing_tour: ['Entspannter Ausflugs- und Sightseeingflug'],
-        historian_guided_tour: ['Historiker-Rundflug mit kurzer, sachlicher Geschichtseinordnung am POI'],
+        historian_guided_tour: ['Historiker-Rundflug mit Bildungsauftrag: historische Fakten, lokale Anekdoten und zeitliche Einordnung am POI'],
         science_bio: ['Biologischer Beobachtungsflug mit ruhiger, sauberer Dokumentation'],
         science_geo: ['Geologischer Beobachtungsflug mit Fokus auf Relief und Erosion'],
         mapping_survey: ['Praeziser Mapping-/Survey-Flug mit stabilen Passes'],

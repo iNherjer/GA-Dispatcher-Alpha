@@ -488,6 +488,8 @@ function _inspectionMissionMeta() {
     const taskDomain = _activeTaskDomain();
     // Rollenreinheit: Fire-Watch ist Beobachtung/Frühwarnung, keine Bauwerks-/Geo-Inspektion.
     if (taskDomain === 'fire_watch') return null;
+    // Rollenreinheit: Historiker erzaehlt Kontext/Geschichte, keine technische Zustandspruefung.
+    if (taskDomain === 'historian_guided_tour') return null;
     const isInspectionByDomain = taskDomain === 'inspection_infra';
     const isInspectionByFallback = /(inspekt|pruef|prüfung|wartung|techn|statik|vermess|scan|check|schaden|fuge|mast|abspannung|brueck|bruck|autobahn|strass|funk|sendemast|stausee|staudamm|talsperre|wehr|sperrmauer)/.test(hay);
     const isInspection = isInspectionByDomain || isInspectionByFallback;
@@ -556,7 +558,7 @@ function _professionalRoleMeta() {
         return null;
     }
     // Operative Domains sollen nicht in wissenschaftliche Fallback-Hinweise driften.
-    if (/^(fire_watch|search_and_rescue|mapping_survey|news_coverage|medical_transfer|animal_transport|cargo_fragile|sightseeing_tour)$/.test(taskDomain)) {
+    if (/^(fire_watch|search_and_rescue|mapping_survey|news_coverage|medical_transfer|animal_transport|cargo_fragile|sightseeing_tour|historian_guided_tour)$/.test(taskDomain)) {
         return null;
     }
     if (taskDomain === 'science_bio') {
@@ -623,6 +625,32 @@ function _professionalLandingToneHint() {
     const meta = _professionalRoleMeta();
     if (!meta) return '';
     return ' Ton bei Landung: sachlich, knapp und dankend. Kein Show-/Sightseeing-Ton.';
+}
+
+function _domainDriftGuard(mode = 'generic') {
+    const td = _activeTaskDomain();
+    const m = String(mode || 'generic').toLowerCase();
+    if (td === 'science_bio') {
+        if (m === 'result') return ' Drift-Guard (Bio): Abschluss nur als biologisches/ökologisches Fazit (Arten, Vegetation, Habitat, Stoerfaktoren). Keine Geologie-, Inspektions- oder Einsatzsprache.';
+        if (m === 'progress') return ' Drift-Guard (Bio): Bleib bei biologischer Beobachtung und Datenguete. Keine Technikpruefung, keine SAR-/Feuerlage.';
+        return ' Drift-Guard (Bio): Nur Bio/Umwelt-Inhalte (Flora/Fauna/Habitat/Ufervegetation). Keine Risse/Statik/Schadenssuche, keine Geologie, kein SAR-/Feuer-Ton.';
+    }
+    if (td === 'science_geo') {
+        if (m === 'result') return ' Drift-Guard (Geo): Abschluss nur als geologisches/geomorphologisches Fazit (Relief, Erosion, Hangstabilitaet, Sedimente). Keine Bio- oder Einsatzsprache.';
+        if (m === 'progress') return ' Drift-Guard (Geo): Bleib bei Relief/Erosion/Hangbeobachtung und Datenguete. Keine Arten-/Vegetationsanalyse, kein Medien-/Einsatz-Ton.';
+        return ' Drift-Guard (Geo): Nur geologische/geomorphologische Einordnung. Keine Arten-/Uferbiologie, keine Technikinspektion, kein SAR-/Feuer-Ton.';
+    }
+    if (td === 'mapping_survey') {
+        if (m === 'result') return ' Drift-Guard (Survey): Abschluss mit Datenguete und naechstem Vermessungsschritt. Keine Story-, Historiker- oder Sightseeing-Formulierungen.';
+        if (m === 'progress') return ' Drift-Guard (Survey): Nur Messlogik, Linienfuehrung, Stabilitaet und Datenqualitaet. Keine Ortsanekdoten.';
+        return ' Drift-Guard (Survey): Nur technisch-praezise Vermessungs-/Dokumentationssprache. Keine Begeisterungs- oder Tourismusformeln, keine Inspektionsdramatik.';
+    }
+    if (td === 'news_coverage') {
+        if (m === 'result') return ' Drift-Guard (News): Abschluss als kurze sachliche Lagezusammenfassung. Kein Einsatzabschluss wie SAR, kein Touri-Ton.';
+        if (m === 'progress') return ' Drift-Guard (News): Nenne nur beobachtbare Fakten/Lagepunkte. Keine technische Schadensbewertung.';
+        return ' Drift-Guard (News): Nuechtern und beobachtend, faktenbasiert. Keine Sightseeing-Sprache, keine Fachinspektion, keine Rollenmischung mit SAR/Fire.';
+    }
+    return '';
 }
 
 function _targetFactHint() {
@@ -1356,6 +1384,9 @@ function _roleStyleHint(roleRaw, pax = null) {
     if (taskDomain === 'news_coverage') {
         return 'sachlich beobachtend und professionell: kurze, nüchterne Lageeinschätzung ohne Show.';
     }
+    if (taskDomain === 'historian_guided_tour') {
+        return 'anschaulich-historisch und bildungsorientiert: kurze, konkrete Einordnung mit Zeitbezug, keine Technik-Inspektion.';
+    }
     if (String(pax?.roleProfile || '').toLowerCase() === 'instructor_calm_precise_v1') {
         return 'klar, ruhig und didaktisch: kurze präzise Anweisungen mit Fokus auf Sicherheit und Trainingsziel.';
     }
@@ -1536,10 +1567,15 @@ function _poiEntryPrompt(flightData) {
     const altFt = Math.round(flightData?.mslFt || 0);
     const wx    = _weatherContext(flightData);
     const reqHint = '';
-    const inspHint = _inspectionEntryHint();
-    const profHint = _professionalTaskHint('entry');
     const taskDomain = _activeTaskDomain();
+    const isHistorian = taskDomain === 'historian_guided_tour';
+    const inspHint = isHistorian ? '' : _inspectionEntryHint();
+    const profHint = isHistorian ? '' : _professionalTaskHint('entry');
     const factHint = (taskDomain === 'search_and_rescue') ? '' : _targetFactHint();
+    const driftGuard = _domainDriftGuard('entry');
+    const historianHint = isHistorian
+        ? ' Historiker-Rolle: Erzaehle 1 kurze historische Einordnung direkt zum Ort (Epoche, Nutzung oder lokales Ereignis). Keine Riss-/Technik-/Inspektionssprache.'
+        : '';
     const sarZoneGuard = (taskDomain === 'search_and_rescue')
         ? ' Bleib strikt im Suchkorridor rund um das Zielobjekt. Keine entfernten Orts-/Gewaesserbezuege ausserhalb der Suchzone.'
         : '';
@@ -1550,7 +1586,8 @@ function _poiEntryPrompt(flightData) {
     return `${ctx}
 
 Moment: Das Zielgebiet "${md?.poiName || 'Ziel'}" taucht gerade vor uns auf — wir sind auf ${altFt} ft.${wx ? ' ' + wx : ''}
-Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}${inspHint}${profHint}${factHint}${sarZoneGuard}${trainingHint}
+Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.${reqHint}${inspHint}${profHint}${factHint}${historianHint}${sarZoneGuard}${trainingHint}
+${driftGuard}
 ${taskDomain === 'search_and_rescue' ? '1-2 Saetze, einsatznah und klar, keine Begeisterungsformel.' : '1-2 Sätze, darf etwas begeisterter sein als sonst.'}${_toneHint()}`;
 }
 
@@ -1576,7 +1613,9 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     if (!ctx || !md) return null;
     if (_activeAptTrainingPlan()) return null;
     const taskDomain = _activeTaskDomain();
+    const isHistorian = taskDomain === 'historian_guided_tour';
     const factHint = (taskDomain === 'search_and_rescue') ? '' : _targetFactHint();
+    const driftGuard = _domainDriftGuard('in_sight');
     const announcedEta = 2; // bewusst knapper wegen Latenz durch Text+TTS
     const roundedDist = Math.max(0.5, Math.round(distNm * 10) / 10);
     const realEta = Math.max(1, Math.round(etaMin));
@@ -1592,13 +1631,19 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     const sarZoneGuard = (taskDomain === 'search_and_rescue')
         ? ' Nur suchrelevante Referenzen in direkter Naehe des Zielobjekts nennen. Keine entfernten Orts-/Gewaesserbezuege.'
         : '';
+    const historianInSightHint = isHistorian
+        ? ' Historiker-Rolle: knapp historisch einordnen (z.B. Epoche/Funktion/regionale Bedeutung), ohne technische Befundsprache.'
+        : '';
     const roleTone = (taskDomain === 'search_and_rescue')
         ? 'SAR-Rolle: knapp, klar, lageorientiert, kein Sightseeing-Ton. Max 2 Saetze.'
-        : 'Techniker-/Inspektionsrollen: knapp, professionell, kein Sightseeing-Ton. Max 2 Sätze.';
+        : (isHistorian
+            ? 'Historiker-Rolle: bildungsorientiert und anschaulich, kein Technik-/Inspektionston. Max 2 Saetze.'
+            : 'Techniker-/Inspektionsrollen: knapp, professionell, kein Sightseeing-Ton. Max 2 Sätze.');
     return `${ctx}
 
 Moment: Zielobjekt "${md.poiName || 'Ziel'}" wird im Anflug sichtbar. Distanz etwa ${roundedDist} NM, reale ETA ca. ${realEta} min, relative Lage ${clockPos}.
-Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".${altBrief}${factHint}${sarZoneGuard} ${trainingHint}
+Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".${altBrief}${factHint}${sarZoneGuard}${historianInSightHint} ${trainingHint}
+${driftGuard}
 ${roleTone}${_toneHint()}`;
 }
 
@@ -1693,16 +1738,21 @@ function _poiSatisfiedPrompt(flightData) {
     const dwell = Math.round(_poiDwellSec / 60 * 10) / 10;
     const wx = _weatherContext(flightData);
     const taskDomain = _activeTaskDomain();
+    const isHistorian = taskDomain === 'historian_guided_tour';
     const inspResultHint = _inspectionResultHint();
     const profResultHint = _professionalTaskHint('result');
     const sarResultHint = _sarResultHint();
+    const driftGuard = _domainDriftGuard('result');
+    const historianResultHint = isHistorian
+        ? ' Historiker-Fazit: Schließe mit 1 konkreten historischen Takeaway zum Ort (zeitliche Einordnung oder Bedeutung) und einem klaren Weiterflug-Hinweis. Keine technische Zustandsbewertung.'
+        : '';
     const sarEndRule = (taskDomain === 'search_and_rescue')
         ? ' Formuliere ein klares Einsatzende mit Leitstellenbezug. Kein neutraler "alles im Kasten"-Satz.'
         : '';
     return `${ctx}
 
 Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}
-Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${sarResultHint}${inspResultHint}${profResultHint}${sarEndRule} 1-2 Sätze.${_toneHint()}`;
+Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${sarResultHint}${inspResultHint}${profResultHint}${historianResultHint}${sarEndRule}${driftGuard} 1-2 Sätze.${_toneHint()}`;
 }
 
 function _poiAbortPrompt(flightData) {
@@ -1882,12 +1932,14 @@ function _greetingPrompt() {
             : (comfortHintNeeded
                 ? `Nenne genau einen kurzen Komforthinweis NUR wenn er aufgrund von Magen/Fracht/Empfindlichkeit wirklich nötig ist. ${comfortContentRule}${timingHintNeeded ? ' Erwähne zusätzlich kurz den Zeitdruck.' : ''} Sonst Fokus auf Transportauftrag und Zielablauf am Boden. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
                 : `Nenne KEINEN Komforthinweis. Fokus auf Transportauftrag und Ablauf nach Ankunft am Zielplatz.${timingHintNeeded ? ' Erwähne kurz, dass der Auftrag zeitkritisch ist.' : ''} KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`)));
+    const driftGuard = _domainDriftGuard('greeting');
     return `${ctx}
 
 Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.${wx ? ' ' + wx : ''}
 Basistext für deine Begrüßung (frei adaptieren): "${pax.greetingText}"
 Du DARFST hier mit einer kurzen natürlichen Begrüßung beginnen (z.B. "Hi"), aber nur sehr knapp.
 ${reqLine}
+${driftGuard}
 ${timingWordBan}
 Max 3 Sätze.${_toneHint()}`;
 }
@@ -1922,6 +1974,7 @@ function _atTargetPrompt(flightData) {
         ? ' Falls es zu deiner Rolle passt, nenne direkt eine erste fachliche Beobachtung am Objekt (z.B. unauffaellig, Verdacht, klarer Schaden).'
         : '';
     const professionalProgressHint = _professionalTaskHint('progress');
+    const driftGuard = _domainDriftGuard('progress');
     const trainingPlan = _activeAptTrainingPlan();
     const landingInstructorHint = (!isPOI && trainingPlan)
         ? ' Als Instruktor im Anflug: bereite den Piloten kurz auf die Landung vor. Wenn realistisch, nenne 1-2 markante Landmarken zur VFR-Orientierung. Melde Wind/Wetter knapp und gib genau einen konkreten Lande-Tipp (z.B. stabiler Endanflug, Seitenwindkorrektur, Go-Around-Entscheidung).'
@@ -1929,7 +1982,7 @@ function _atTargetPrompt(flightData) {
     return `${ctx}
 
 Moment: ${situation}${notes}
-Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv.${inspectionLiveHint}${professionalProgressHint}${landingInstructorHint} Max 2-3 Sätze.${_toneHint()}`;
+Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv.${inspectionLiveHint}${professionalProgressHint}${landingInstructorHint}${driftGuard} Max 2-3 Sätze.${_toneHint()}`;
 }
 
 function _aptTrainingPrompt(flightData, distNm, progressRatio) {
