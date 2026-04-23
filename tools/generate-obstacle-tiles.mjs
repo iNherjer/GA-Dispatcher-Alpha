@@ -20,7 +20,8 @@ const VP_OBS_TILE_STEP_LON = VP_OBS_TILE_EDGE_NM / 60;
 const DEFAULT_SERVERS = [
   'https://overpass-api.de/api/interpreter',
   'https://lz4.overpass-api.de/api/interpreter',
-  'https://z.overpass-api.de/api/interpreter'
+  'https://z.overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter'
 ];
 
 function parseArgs(argv) {
@@ -30,6 +31,7 @@ function parseArgs(argv) {
     tilesFile: '',
     out: 'obstacles/tiles',
     manifest: 'obstacles/manifest.v1.json',
+    failed: 'obstacles/failed-tiles.json',
     delayMs: 3200,
     retries: 2,
     force: false,
@@ -46,6 +48,7 @@ function parseArgs(argv) {
     if (a === '--tiles-file' && n) { args.tilesFile = n; i++; continue; }
     if (a === '--out' && n) { args.out = n; i++; continue; }
     if (a === '--manifest' && n) { args.manifest = n; i++; continue; }
+    if (a === '--failed' && n) { args.failed = n; i++; continue; }
     if (a === '--delay-ms' && n) { args.delayMs = Math.max(0, Number(n) || 0); i++; continue; }
     if (a === '--retries' && n) { args.retries = Math.max(1, Number(n) || 1); i++; continue; }
     if (a === '--max-tiles' && n) { args.maxTiles = Math.max(0, Number(n) || 0); i++; continue; }
@@ -72,6 +75,7 @@ Required (one of):
 Optional:
   --out obstacles/tiles
   --manifest obstacles/manifest.v1.json
+  --failed obstacles/failed-tiles.json
   --delay-ms 3200
   --retries 2
   --max-tiles 0
@@ -163,9 +167,11 @@ function extractFeatures(elements) {
       continue;
     }
     if (e.type === 'way' && Array.isArray(e.geometry) && e.tags) {
-      const featType = e.tags.highway ? 'highway' : (e.tags.waterway ? 'river' : '');
+      const powerTag = String(e.tags.power || '').toLowerCase();
+      const isPowerLine = (powerTag === 'line' || powerTag === 'minor_line' || powerTag === 'cable');
+      const featType = e.tags.highway ? 'highway' : (e.tags.waterway ? 'river' : (isPowerLine ? 'powerline' : ''));
       if (!featType) continue;
-      const name = String(e.tags.name || e.tags.ref || '');
+      const name = String(e.tags.name || e.tags.ref || e.tags.operator || '');
       if (!name && featType === 'highway') continue;
       const geom = e.geometry;
       const step = Math.max(1, Math.floor(geom.length / 12));
@@ -186,7 +192,7 @@ function extractFeatures(elements) {
 
 function buildOverpassQuery(bbox) {
   const box = `${bbox.south.toFixed(4)},${bbox.west.toFixed(4)},${bbox.north.toFixed(4)},${bbox.east.toFixed(4)}`;
-  return `[out:json][timeout:45][bbox:${box}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];way["highway"="motorway"];way["waterway"="river"];);out geom qt;`;
+  return `[out:json][timeout:45][bbox:${box}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];way["highway"="motorway"];way["waterway"="river"];way["power"~"line|minor_line|cable"];);out geom qt;`;
 }
 
 async function fetchTileFromOverpass(tileKey, servers, retries = 2) {
@@ -195,26 +201,49 @@ async function fetchTileFromOverpass(tileKey, servers, retries = 2) {
   const query = buildOverpassQuery(bounds);
 
   let attempt = 0;
+  let lastStatus = 0;
   let lastError = '';
+  let lastServer = '';
   while (attempt < retries) {
     const server = servers[attempt % servers.length];
+    lastServer = server;
     try {
       const res = await fetch(server, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json, text/plain, */*',
+          'User-Agent': 'GA-Dispatcher-Alpha-Obstacle-Workbench/1.0'
+        },
         body: `data=${encodeURIComponent(query)}`
       });
+      lastStatus = Number(res.status || 0);
+      const bodyText = await res.text().catch(() => '');
       if (res.status === 429 || res.status === 504) {
         const retryAfter = Number(res.headers.get('retry-after') || 0);
-        return { ok: false, status: res.status, error: `HTTP ${res.status}`, retryAfterSec: retryAfter };
+        return {
+          ok: false,
+          status: res.status,
+          error: `HTTP ${res.status}${bodyText ? `: ${bodyText.slice(0, 180).replace(/\s+/g, ' ')}` : ''}`,
+          retryAfterSec: retryAfter,
+          server
+        };
       }
       if (!res.ok) {
         attempt++;
-        lastError = `HTTP ${res.status}`;
+        lastError = `HTTP ${res.status}${bodyText ? `: ${bodyText.slice(0, 180).replace(/\s+/g, ' ')}` : ''}`;
         await sleep(1200);
         continue;
       }
-      const data = await res.json();
+      let data = null;
+      try {
+        data = bodyText ? JSON.parse(bodyText) : {};
+      } catch {
+        attempt++;
+        lastError = `Ungültiges JSON von Overpass (${res.status})`;
+        await sleep(1200);
+        continue;
+      }
       const features = extractFeatures(data && data.elements);
       return { ok: true, status: 200, server, features };
     } catch (e) {
@@ -224,7 +253,7 @@ async function fetchTileFromOverpass(tileKey, servers, retries = 2) {
     }
   }
 
-  return { ok: false, status: 0, error: lastError || 'fetch failed' };
+  return { ok: false, status: lastStatus || 0, error: lastError || 'fetch failed', server: lastServer };
 }
 
 async function ensureDir(dirPath) {
@@ -318,7 +347,7 @@ async function main() {
     console.log(`[Tiles] ${i + 1}/${tileKeys.length} fetch ${key} ...`);
     const res = await fetchTileFromOverpass(key, servers, args.retries);
     if (!res.ok) {
-      failed.push({ tile: key, status: res.status || 0, error: res.error || 'failed' });
+      failed.push({ tile: key, status: res.status || 0, error: res.error || 'failed', server: res.server || '' });
       if (res.status === 429 || res.status === 504) {
         const waitMs = Math.max(4000, (Number(res.retryAfterSec || 0) * 1000) || 8000);
         console.warn(`[Tiles] ${key} -> ${res.status}, warte ${(waitMs / 1000).toFixed(1)}s`);
@@ -345,7 +374,7 @@ async function main() {
     tiles: mergedTileList
   });
 
-  const failedPath = path.resolve(cwd, 'obstacles/failed-tiles.json');
+  const failedPath = path.resolve(cwd, args.failed);
   await fs.writeFile(failedPath, JSON.stringify({
     generatedAt: new Date().toISOString(),
     ok: ok.length,
@@ -363,4 +392,3 @@ main().catch(err => {
   console.error(`[Tiles] ERROR: ${err?.message || err}`);
   process.exit(1);
 });
-

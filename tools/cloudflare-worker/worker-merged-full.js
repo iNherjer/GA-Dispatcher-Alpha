@@ -1,5 +1,7 @@
 const OPENAIP_KEY = "049026a617e1380ac056e1fd3cc237ae";
 const DEFAULT_OBS_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles";
+const DEFAULT_OBS_CORE_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/core-tiles";
+const DEFAULT_OBS_POI_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/poi-tiles";
 
 const AIP_POPUP_ROUTES = {
   AT: "/at/en/vfr/",
@@ -50,25 +52,52 @@ function splitTileKey(tileKey) {
   return { latI: Math.trunc(latI), lonI: Math.trunc(lonI) };
 }
 
-function buildObstacleTileUrl(env, tileKey) {
+function normalizeObstacleLayer(raw) {
+  const layer = String(raw || "").trim().toLowerCase();
+  if (!layer || layer === "v1" || layer === "legacy") return "core";
+  if (layer === "core" || layer === "poi") return layer;
+  return null;
+}
+
+function buildObstacleTileUrl(base, tileKey) {
   const key = normalizeTileKey(tileKey);
   if (!key) return null;
   const parts = splitTileKey(key);
   if (!parts) return null;
-  const base = String((env && env.OBSTACLE_TILES_BASE) || DEFAULT_OBS_TILE_BASE).replace(/\/+$/, "");
-  return `${base}/${parts.latI}/${parts.lonI}.json`;
+  const cleanBase = String(base || "").replace(/\/+$/, "");
+  if (!cleanBase) return null;
+  return `${cleanBase}/${parts.latI}/${parts.lonI}.json`;
+}
+
+function buildObstacleTileCandidates(env, tileKey, layer) {
+  const legacyBase = String((env && env.OBSTACLE_TILES_BASE) || DEFAULT_OBS_TILE_BASE).replace(/\/+$/, "");
+  const coreBase = String((env && env.OBSTACLE_CORE_TILES_BASE) || legacyBase || DEFAULT_OBS_CORE_TILE_BASE).replace(/\/+$/, "");
+  const poiBase = String((env && env.OBSTACLE_POI_TILES_BASE) || DEFAULT_OBS_POI_TILE_BASE).replace(/\/+$/, "");
+
+  if (layer === "poi") {
+    const poiUrl = buildObstacleTileUrl(poiBase, tileKey);
+    return poiUrl ? [{ layer: "poi", sourceKind: "split", url: poiUrl }] : [];
+  }
+
+  const candidates = [];
+  const coreUrl = buildObstacleTileUrl(coreBase, tileKey);
+  if (coreUrl) candidates.push({ layer: "core", sourceKind: "split", url: coreUrl });
+  const legacyUrl = buildObstacleTileUrl(legacyBase, tileKey);
+  if (legacyUrl && legacyUrl !== coreUrl) candidates.push({ layer: "core", sourceKind: "legacy", url: legacyUrl });
+  return candidates;
 }
 
 async function handleObstacleTile(request, requestUrl, env) {
   const tileKey = normalizeTileKey(requestUrl.searchParams.get("tile"));
   if (!tileKey) return json({ ok: false, errorCode: "invalid_tile" }, 400);
+  const layer = normalizeObstacleLayer(requestUrl.searchParams.get("layer"));
+  if (!layer) return json({ ok: false, tile: tileKey, errorCode: "invalid_layer" }, 400);
   const refreshRaw = String(requestUrl.searchParams.get("refresh") || "").toLowerCase();
   const forceRefresh = refreshRaw === "1" || refreshRaw === "true" || refreshRaw === "yes";
+  const candidates = buildObstacleTileCandidates(env, tileKey, layer);
+  if (!candidates.length) return json({ ok: false, errorCode: "invalid_tile" }, 400);
 
-  const upstreamUrl = buildObstacleTileUrl(env, tileKey);
-  if (!upstreamUrl) return json({ ok: false, errorCode: "invalid_tile" }, 400);
-
-  const cacheKey = new Request(`https://cache.local/obstacles/tile?tile=${encodeURIComponent(tileKey)}`);
+  const cacheKey = new Request(`https://cache.local/obstacles/tile?tile=${encodeURIComponent(tileKey)}&layer=${encodeURIComponent(layer)}`);
   const cache = caches.default;
   const useCache = request.method === "GET" && !forceRefresh;
   if (useCache) {
@@ -76,23 +105,34 @@ async function handleObstacleTile(request, requestUrl, env) {
     if (hit) return hit;
   }
 
-  let upstream;
-  try {
-    upstream = await fetch(upstreamUrl, {
-      method: "GET",
-      headers: {
-        "User-Agent": "GA-Dispatcher-ObstacleTileProxy/1.0",
-        "Accept": "application/json"
-      },
-      redirect: "follow"
-    });
-  } catch (error) {
-    return json({ ok: false, tile: tileKey, errorCode: "upstream_failed", message: String(error?.message || error) }, 502);
+  let upstream = null;
+  let chosen = null;
+  let upstreamErr = null;
+  for (const c of candidates) {
+    try {
+      const res = await fetch(c.url, {
+        method: "GET",
+        headers: {
+          "User-Agent": "GA-Dispatcher-ObstacleTileProxy/1.0",
+          "Accept": "application/json"
+        },
+        redirect: "follow"
+      });
+      if (res.status === 404 || res.status === 204) continue;
+      upstream = res;
+      chosen = c;
+      break;
+    } catch (error) {
+      upstreamErr = error;
+    }
   }
 
-  if (upstream.status === 404 || upstream.status === 204) {
+  if (!upstream) {
+    if (upstreamErr) {
+      return json({ ok: false, tile: tileKey, layer, errorCode: "upstream_failed", message: String(upstreamErr?.message || upstreamErr) }, 502);
+    }
     const missRes = json(
-      { ok: false, tile: tileKey, errorCode: "not_found", forceRefresh },
+      { ok: false, tile: tileKey, layer, errorCode: "not_found", forceRefresh },
       404,
       { "Cache-Control": forceRefresh ? "no-store" : "public, max-age=900" }
     );
@@ -100,7 +140,7 @@ async function handleObstacleTile(request, requestUrl, env) {
     return missRes;
   }
   if (!upstream.ok) {
-    return json({ ok: false, tile: tileKey, errorCode: "upstream_error", status: upstream.status }, 502);
+    return json({ ok: false, tile: tileKey, layer, errorCode: "upstream_error", status: upstream.status }, 502);
   }
 
   const payloadText = await upstream.text();
@@ -108,20 +148,36 @@ async function handleObstacleTile(request, requestUrl, env) {
   try {
     payload = JSON.parse(payloadText);
   } catch {
-    return json({ ok: false, tile: tileKey, errorCode: "invalid_json" }, 502);
+    return json({ ok: false, tile: tileKey, layer, errorCode: "invalid_json" }, 502);
   }
 
-  const obs = Array.isArray(payload?.obs) ? payload.obs : [];
-  const lin = Array.isArray(payload?.lin) ? payload.lin : [];
-  const response = json({
+  const coreObj = payload && typeof payload.core === "object" ? payload.core : null;
+  const poiObj = payload && typeof payload.poi === "object" ? payload.poi : null;
+  const obs = Array.isArray(payload?.obs) ? payload.obs : (Array.isArray(coreObj?.obs) ? coreObj.obs : []);
+  const lin = Array.isArray(payload?.lin) ? payload.lin : (Array.isArray(coreObj?.lin) ? coreObj.lin : []);
+  const poi = Array.isArray(payload?.poi) ? payload.poi : (Array.isArray(poiObj?.poi) ? poiObj.poi : []);
+
+  const body = {
     ok: true,
     tile: tileKey,
-    source: "github-hosted",
+    layer,
+    source: chosen && chosen.sourceKind === "legacy" ? "github-hosted-legacy" : "github-hosted",
+    sourceKind: chosen ? chosen.sourceKind : "split",
     forceRefresh,
-    version: Number(payload?.version || 1),
-    updatedAt: payload?.updatedAt || null,
-    obs,
-    lin
+    version: Number(payload?.version || payload?.v || 1),
+    updatedAt: payload?.updatedAt || payload?.generatedAt || null
+  };
+  if (layer === "poi") {
+    body.poi = { poi };
+  } else {
+    body.core = { obs, lin };
+    // Legacy compatibility for clients expecting flat obs/lin.
+    body.obs = obs;
+    body.lin = lin;
+  }
+
+  const response = json({
+    ...body
   }, 200, { "Cache-Control": forceRefresh ? "no-store" : "public, max-age=3600" });
 
   if (useCache) await cache.put(cacheKey, response.clone());

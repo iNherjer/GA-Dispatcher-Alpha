@@ -115,7 +115,7 @@
   <div class="wrap">
     <div class="panel">
       <h1>Obstacle Tile Workbench</h1>
-      <div class="muted">Klick Tiles zum Auswählen. Queue läuft seriell. Repo-Push macht Commit + Push für neue Tiles.</div>
+      <div class="muted">Klick Tiles zum Auswählen. Queue lädt seriell und schreibt direkt Split-Tiles (`core` + `poi`). Repo-Push macht Commit + Push für neue Split-Tiles.</div>
 
       <div class="stat"><span>Geladen</span><strong id="stLoaded">0</strong></div>
       <div class="stat"><span>Stale (&gt; 3 Monate)</span><strong id="stStale">0</strong></div>
@@ -168,7 +168,8 @@
       selected: new Set(),
       repoSync: null,
       repoTiles: new Set(),
-      missingInRepoTiles: new Set()
+      missingInRepoTiles: new Set(),
+      lastFailedSig: ''
     };
 
     const logView = document.getElementById('logView');
@@ -329,8 +330,10 @@
             const loaded = state.loaded[key];
             const failed = state.failed[key];
             const info = loaded
-              ? (loaded.stale ? 'geladen, alt' : 'geladen')
-              : (failed ? `failed (${failed.status || 0})` : 'nicht geladen');
+              ? `${loaded.stale ? 'geladen, alt' : 'geladen'}${loaded.hasCore && loaded.hasPoi ? ' (core+poi)' : (loaded.hasCore ? ' (nur core)' : (loaded.hasPoi ? ' (nur poi)' : ''))}`
+              : (failed
+                ? `failed (${failed.status || 0}${failed.error ? `: ${String(failed.error).slice(0, 80)}` : ''})`
+                : 'nicht geladen');
             hint.textContent = `Tile ${key} • ${info}`;
           });
           rect.on('mouseout', () => {
@@ -382,6 +385,27 @@
       document.getElementById('btnRetryFailed').disabled = Object.keys(state.failed).length === 0;
     }
 
+    function logFailedSummary() {
+      const failedEntries = Object.entries(state.failed || {});
+      const sig = failedEntries
+        .map(([k, v]) => `${k}:${Number(v?.status || 0)}:${String(v?.error || '')}`)
+        .sort()
+        .join('|');
+      if (!sig || sig === state.lastFailedSig) return;
+      state.lastFailedSig = sig;
+
+      const sample = failedEntries.slice(0, 6);
+      log(`Fehlgeschlagene Tiles: ${failedEntries.length}`);
+      for (const [tile, meta] of sample) {
+        const status = Number(meta?.status || 0);
+        const err = String(meta?.error || 'unbekannter Fehler');
+        log(`- ${tile}: ${status ? `HTTP ${status}` : 'Fehler'} | ${err}`);
+      }
+      if (failedEntries.length > sample.length) {
+        log(`... und ${failedEntries.length - sample.length} weitere.`);
+      }
+    }
+
     async function refreshState(quiet = false) {
       try {
         const s = await api('/api/state');
@@ -398,6 +422,7 @@
 
         updateUi();
         renderGrid();
+        logFailedSummary();
         if (!quiet) log('Status aktualisiert');
       } catch (e) {
         log(`Status-Fehler: ${e.message || e}`);

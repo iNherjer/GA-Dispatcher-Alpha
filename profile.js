@@ -97,6 +97,8 @@ const VP_OBS_HOSTED_ENABLED = localStorage.getItem('ga_obs_hosted_enabled') !== 
 const VP_OBS_HOSTED_MISS_TTL_MS = 30 * 60 * 1000;
 const VP_OBS_HOSTED_TIMEOUT_MS = 2200;
 const VP_OBS_HOSTED_ENDPOINTS = [
+    './obstacles/core-tiles/{latI}/{lonI}.json',
+    './obstacles/core-tiles/{latI}/{lonI}.json.gz',
     'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
 ];
 const VP_PROFILE_FPS_IDLE = 10;
@@ -786,9 +788,11 @@ function vpExtractOverpassTileFeatures(elements) {
             continue;
         }
         if (e.type === 'way' && Array.isArray(e.geometry) && e.tags) {
-            const featType = e.tags.highway ? 'highway' : (e.tags.waterway ? 'river' : '');
+            const powerTag = String(e.tags.power || '').toLowerCase();
+            const isPowerLine = (powerTag === 'line' || powerTag === 'minor_line' || powerTag === 'cable');
+            const featType = e.tags.highway ? 'highway' : (e.tags.waterway ? 'river' : (isPowerLine ? 'powerline' : ''));
             if (!featType) continue;
-            const name = String(e.tags.name || e.tags.ref || '');
+            const name = String(e.tags.name || e.tags.ref || e.tags.operator || '');
             if (!name && featType === 'highway') continue;
             const geom = e.geometry;
             const step = Math.max(1, Math.floor(geom.length / 12));
@@ -810,8 +814,17 @@ function vpExtractOverpassTileFeatures(elements) {
 function vpParseHostedObstaclePayload(payload) {
     if (!payload || typeof payload !== 'object') return null;
     if (Array.isArray(payload.elements)) return vpExtractOverpassTileFeatures(payload.elements);
-    const obsIn = Array.isArray(payload.obs) ? payload.obs : (Array.isArray(payload.features && payload.features.obs) ? payload.features.obs : []);
-    const linIn = Array.isArray(payload.lin) ? payload.lin : (Array.isArray(payload.features && payload.features.lin) ? payload.features.lin : []);
+    const coreObj = (payload.core && typeof payload.core === 'object') ? payload.core : null;
+    const obsIn = Array.isArray(payload.obs)
+        ? payload.obs
+        : (Array.isArray(coreObj && coreObj.obs)
+            ? coreObj.obs
+            : (Array.isArray(payload.features && payload.features.obs) ? payload.features.obs : []));
+    const linIn = Array.isArray(payload.lin)
+        ? payload.lin
+        : (Array.isArray(coreObj && coreObj.lin)
+            ? coreObj.lin
+            : (Array.isArray(payload.features && payload.features.lin) ? payload.features.lin : []));
     const obs = [];
     const lin = [];
     for (const e of obsIn) {
@@ -884,7 +897,24 @@ async function vpFetchHostedObstacleTile(tileKey, signal) {
                 else signal.addEventListener('abort', onAbort, { once: true });
             }
             timer = setTimeout(() => ctrl.abort(), timeoutMs);
-            const url = `${endpoint}?tile=${encodeURIComponent(tileKey)}&lat_i=${encodeURIComponent(String(latI))}&lon_i=${encodeURIComponent(String(lonI))}&south=${encodeURIComponent(b.south.toFixed(5))}&west=${encodeURIComponent(b.west.toFixed(5))}&north=${encodeURIComponent(b.north.toFixed(5))}&east=${encodeURIComponent(b.east.toFixed(5))}&v=1`;
+            let url = '';
+            if (endpoint.includes('{latI}') || endpoint.includes('{lonI}')) {
+                url = endpoint
+                    .replaceAll('{latI}', encodeURIComponent(String(latI)))
+                    .replaceAll('{lonI}', encodeURIComponent(String(lonI)));
+            } else {
+                const u = new URL(endpoint);
+                u.searchParams.set('layer', 'core');
+                u.searchParams.set('tile', tileKey);
+                u.searchParams.set('lat_i', String(latI));
+                u.searchParams.set('lon_i', String(lonI));
+                u.searchParams.set('south', b.south.toFixed(5));
+                u.searchParams.set('west', b.west.toFixed(5));
+                u.searchParams.set('north', b.north.toFixed(5));
+                u.searchParams.set('east', b.east.toFixed(5));
+                u.searchParams.set('v', '3');
+                url = u.toString();
+            }
             if (dbg) dbg.hostedTileRequests = Number(dbg.hostedTileRequests || 0) + 1;
             const res = await fetch(url, { signal: ctrl.signal });
             if (res.status === 404 || res.status === 204) {
@@ -898,15 +928,23 @@ async function vpFetchHostedObstacleTile(tileKey, signal) {
                 continue;
             }
             const payload = await res.json();
+            const sourceKind = String((payload && payload.sourceKind) || '').toLowerCase();
             const features = vpParseHostedObstaclePayload(payload);
             if (!features) {
                 if (dbg) dbg.hostedTileErrors = Number(dbg.hostedTileErrors || 0) + 1;
                 continue;
             }
             vpClearHostedMiss(tileKey);
-            if (dbg) dbg.hostedTileHits = Number(dbg.hostedTileHits || 0) + 1;
+            if (dbg) {
+                dbg.hostedTileHits = Number(dbg.hostedTileHits || 0) + 1;
+                if (sourceKind === 'legacy') dbg.hostedTileLegacyHits = Number(dbg.hostedTileLegacyHits || 0) + 1;
+                else dbg.hostedTileCoreHits = Number(dbg.hostedTileCoreHits || 0) + 1;
+            }
             let src = endpoint;
-            try { src = new URL(endpoint).host + ':hosted'; } catch (_) {}
+            try {
+                const host = new URL(endpoint).host;
+                src = `${host}:hosted${sourceKind === 'legacy' ? ':legacy' : ':split'}`;
+            } catch (_) {}
             return { ok: true, features, src, hosted: true };
         } catch (e) {
             if (e && e.name === 'AbortError') {
@@ -970,7 +1008,7 @@ async function vpFetchOverpassTile(tileKey, signal, tileIndex = 0) {
     if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
     if (window.vpSetObsTileLoading) window.vpSetObsTileLoading(tileKey, true);
     const bbox = `${b.south.toFixed(4)},${b.west.toFixed(4)},${b.north.toFixed(4)},${b.east.toFixed(4)}`;
-    const query = `[out:json][timeout:45][bbox:${bbox}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];way["highway"="motorway"];way["waterway"="river"];);out geom qt;`;
+    const query = `[out:json][timeout:45][bbox:${bbox}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];way["highway"="motorway"];way["waterway"="river"];way["power"~"line|minor_line|cable"];);out geom qt;`;
 
     let retries = 1;
     let attempt = 0;
@@ -2145,6 +2183,8 @@ window.vpWeatherDebug = window.vpWeatherDebug || {
     overpassInFlightJoins: 0,
     hostedTileRequests: 0,
     hostedTileHits: 0,
+    hostedTileCoreHits: 0,
+    hostedTileLegacyHits: 0,
     hostedTileMisses: 0,
     hostedTileErrors: 0,
     overpassTileCoverageHits: 0,
@@ -2588,6 +2628,11 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push('Overpass Verbrauch');
     lines.push(`- Requests (Session): ${dbg.overpassRequests || 0}`);
     lines.push(`- Hosted Tile Req/Hits/Miss/Err: ${dbg.hostedTileRequests || 0}/${dbg.hostedTileHits || 0}/${dbg.hostedTileMisses || 0}/${dbg.hostedTileErrors || 0}`);
+    lines.push(`- Hosted CORE Hits (split/legacy): ${dbg.hostedTileCoreHits || 0}/${dbg.hostedTileLegacyHits || 0}`);
+    const poiDbg = (window.gaPoiTileDebug && typeof window.gaPoiTileDebug === 'object') ? window.gaPoiTileDebug : {};
+    lines.push(`- POI Tile Req/Hits/Miss/Err: ${poiDbg.requests || 0}/${poiDbg.hits || 0}/${poiDbg.misses || 0}/${poiDbg.errors || 0}`);
+    lines.push(`- POI Hits (split/legacy): ${poiDbg.splitHits || 0}/${poiDbg.legacyHits || 0}`);
+    lines.push(`- POI Fallback-Nutzung: ${poiDbg.fallbackHits || 0}${poiDbg.lastSource ? ` (last: ${poiDbg.lastSource})` : ''}`);
     lines.push(`- Overpass 429/504: ${dbg.overpass429Count || 0}/${dbg.overpass504Count || 0}`);
     lines.push(`- Cooldown-Skips: ${dbg.overpassCooldownSkips || 0}`);
     lines.push(`- Route-Guard-Skips: ${dbg.overpassRouteThrottleSkips || 0}`);
@@ -3359,7 +3404,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
                     ctx.font = feat.type === 'river' ? 'bold 8px Arial' : 'bold 7px Arial';
                     const tw = ctx.measureText(feat.name).width;
                     feat._render.tw = tw;
-                    let labelY = feat.type === 'river' ? py + 15 : py - 14;
+                    let labelY = feat.type === 'river' ? py + 15 : (feat.type === 'powerline' ? py - 20 : py - 14);
                     let collision = true, attempts = 0;
                     while(collision && attempts < 4) {
                         collision = false;
@@ -3403,6 +3448,32 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
                     const labelY = py + feat._render.labelYOffset;
                     ctx.fillStyle = '#1a73e8'; ctx.fillRect(px - feat._render.tw/2 - 2, labelY, feat._render.tw + 4, 10);
                     ctx.fillStyle = '#fff'; ctx.font = 'bold 7px Arial'; ctx.textAlign = 'center'; ctx.fillText(feat.name, px, labelY + 8);
+                }
+            } else if (feat.type === 'powerline') {
+                // Stylized powerline marker: two pylons + top wire segment.
+                ctx.strokeStyle = 'rgba(90, 90, 90, 0.95)';
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(px - 4, py + 4); ctx.lineTo(px - 4, py - 4);
+                ctx.moveTo(px + 4, py + 4); ctx.lineTo(px + 4, py - 4);
+                ctx.moveTo(px - 4, py - 4); ctx.lineTo(px + 4, py - 4);
+                ctx.stroke();
+
+                ctx.strokeStyle = 'rgba(230, 80, 80, 0.9)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(px - 6, py - 2);
+                ctx.quadraticCurveTo(px, py + 1, px + 6, py - 2);
+                ctx.stroke();
+
+                if (feat._render.drawName) {
+                    const labelY = py + feat._render.labelYOffset;
+                    ctx.fillStyle = '#7d2632';
+                    ctx.fillRect(px - feat._render.tw/2 - 2, labelY, feat._render.tw + 4, 10);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 7px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(feat.name, px, labelY + 8);
                 }
             }
         }
@@ -7164,13 +7235,13 @@ window.exportFor2DSim = function() {
         });
     }
 
-    // 6. Flüsse & Autobahnen
+    // 6. Lineare Features (Flüsse, Autobahnen, Stromtrassen)
     let linearFeatures = [];
     if (typeof vpLinearFeatures !== 'undefined' && vpLinearFeatures) {
         vpLinearFeatures.forEach(feat => {
             linearFeatures.push({
                 x: feat.distNM * NM_TO_M,
-                type: feat.type, // 'river' oder 'highway'
+                type: feat.type, // 'river' | 'highway' | 'powerline'
                 name: feat.name
             });
         });
@@ -7684,7 +7755,7 @@ function computeHdgObstacles(lat, lon, hdg, gs) {
     }
 }
 
-// ── Lineare Features (Straßen & Flüsse) entlang Heading ──
+// ── Lineare Features (Straßen, Flüsse, Stromtrassen) entlang Heading ──
 function computeHdgLinearFeatures(lat, lon, hdg, gs) {
     vpHdgLinearFeatures = [];
     if (!vpLinearFeatures || vpLinearFeatures.length === 0) return;

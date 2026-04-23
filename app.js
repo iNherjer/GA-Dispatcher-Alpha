@@ -2473,6 +2473,440 @@ function _buildViewBoxAround(lat, lon, radiusNm) {
     };
 }
 
+const POI_TILE_EDGE_NM = 25;
+const POI_TILE_STEP_LAT = POI_TILE_EDGE_NM / 60;
+const POI_TILE_STEP_LON = POI_TILE_EDGE_NM / 60;
+const POI_TILE_FETCH_PARALLEL = 4;
+const POI_TILE_MAX_KEYS = 36;
+const POI_TILE_CACHE_TTL_MS = 30 * 60 * 1000;
+const POI_TILE_POI_ENDPOINTS = [
+    './obstacles/poi-tiles/{latI}/{lonI}.json',
+    './obstacles/poi-tiles/{latI}/{lonI}.json.gz',
+    'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
+];
+const POI_TILE_LEGACY_ENDPOINTS = [
+    'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
+];
+const _poiTileMemCache = new Map();
+
+function _poiDebugState() {
+    if (!window.gaPoiTileDebug || typeof window.gaPoiTileDebug !== 'object') {
+        window.gaPoiTileDebug = {
+            requests: 0,
+            hits: 0,
+            splitHits: 0,
+            legacyHits: 0,
+            fallbackHits: 0,
+            misses: 0,
+            errors: 0,
+            lastSource: ''
+        };
+    }
+    return window.gaPoiTileDebug;
+}
+
+function _poiDebugMarkSource(src = '') {
+    const dbg = _poiDebugState();
+    dbg.lastSource = String(src || '');
+}
+
+function _poiTileKey(lat, lon) {
+    const latI = Math.floor((Number(lat) + 90) / POI_TILE_STEP_LAT);
+    const lonI = Math.floor((Number(lon) + 180) / POI_TILE_STEP_LON);
+    return `${latI}|${lonI}`;
+}
+
+function _poiTileBoundsFromKey(key) {
+    const [latI, lonI] = String(key || '').split('|').map(Number);
+    if (!Number.isFinite(latI) || !Number.isFinite(lonI)) return null;
+    const south = (latI * POI_TILE_STEP_LAT) - 90;
+    const west = (lonI * POI_TILE_STEP_LON) - 180;
+    return {
+        latI,
+        lonI,
+        south,
+        west,
+        north: south + POI_TILE_STEP_LAT,
+        east: west + POI_TILE_STEP_LON
+    };
+}
+
+function _poiCollectTileKeysAround(lat, lon, radiusNm) {
+    const out = [];
+    const center = _poiTileKey(lat, lon);
+    const [cLatI, cLonI] = center.split('|').map(Number);
+    const span = Math.max(1, Math.ceil(Number(radiusNm || 25) / POI_TILE_EDGE_NM) + 1);
+    for (let dy = -span; dy <= span; dy++) {
+        for (let dx = -span; dx <= span; dx++) {
+            out.push(`${cLatI + dy}|${cLonI + dx}`);
+        }
+    }
+    return out.slice(0, POI_TILE_MAX_KEYS);
+}
+
+function _poiNormalizeFeatureName(raw, fallbackCategory = 'poi') {
+    const n = String(raw || '').trim();
+    if (n) return n;
+    const c = String(fallbackCategory || 'poi').toLowerCase();
+    if (c === 'dam') return 'Staudamm/Talsperre';
+    if (c === 'water') return 'Gewässer';
+    if (c === 'telecom') return 'Funkmast/Funkturm';
+    if (c === 'road') return 'Straßen-/Verkehrsknoten';
+    if (c === 'mountain') return 'Berg-/Talgebiet';
+    if (c === 'castle') return 'Burg/Schloss';
+    if (c === 'industry') return 'Industrieanlage';
+    if (c === 'city') return 'Stadtgebiet';
+    if (c === 'bridge') return 'Brücke/Viadukt';
+    return 'POI';
+}
+
+function _poiFeatureFromTileNode(node, src = 'tile') {
+    const lat = Number(node?.lat);
+    const lon = Number(node?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return {
+        lat,
+        lon,
+        name: String(node?.name || node?.n || '').trim(),
+        sourceKind: String(node?.sourceKind || src),
+        rawType: String(node?.type || '').toLowerCase(),
+        tags: {
+            layer: String(node?.layer || '').toLowerCase(),
+            highway: String(node?.highway || '').toLowerCase(),
+            waterway: String(node?.waterway || '').toLowerCase(),
+            water: String(node?.water || '').toLowerCase(),
+            natural: String(node?.natural || '').toLowerCase(),
+            landuse: String(node?.landuse || '').toLowerCase(),
+            power: String(node?.power || '').toLowerCase(),
+            man_made: String(node?.man_made || '').toLowerCase(),
+            tourism: String(node?.tourism || '').toLowerCase(),
+            historic: String(node?.historic || '').toLowerCase(),
+            amenity: String(node?.amenity || '').toLowerCase(),
+            leisure: String(node?.leisure || '').toLowerCase(),
+            place: String(node?.place || '').toLowerCase()
+        }
+    };
+}
+
+function _poiParseTilePayload(payload) {
+    const out = [];
+    if (!payload || typeof payload !== 'object') return out;
+    const coreObj = (payload.core && typeof payload.core === 'object') ? payload.core : null;
+    const poiObj = (payload.poi && typeof payload.poi === 'object' && Array.isArray(payload.poi.poi))
+        ? payload.poi
+        : null;
+    const obs = Array.isArray(payload.obs) ? payload.obs : (Array.isArray(coreObj?.obs) ? coreObj.obs : []);
+    const lin = Array.isArray(payload.lin) ? payload.lin : (Array.isArray(coreObj?.lin) ? coreObj.lin : []);
+    const poi = Array.isArray(payload.poi) ? payload.poi : (Array.isArray(poiObj?.poi) ? poiObj.poi : []);
+
+    for (const e of obs) {
+        const f = _poiFeatureFromTileNode({
+            ...e,
+            sourceKind: 'obs',
+            layer: 'obs',
+            man_made: (String(e?.type || '').toLowerCase().includes('mast') || String(e?.type || '').toLowerCase().includes('tower')) ? 'tower' : '',
+            power: String(e?.type || '').toLowerCase().includes('power') ? 'tower' : ''
+        }, 'obs');
+        if (f) out.push(f);
+    }
+    for (const e of lin) {
+        const legacyType = String(e?.type || '').toLowerCase();
+        const layer = String(e?.layer || '').toLowerCase() || (
+            legacyType === 'highway' ? 'road' :
+            legacyType === 'river' ? 'hydro' : ''
+        );
+        const f = _poiFeatureFromTileNode({
+            ...e,
+            sourceKind: 'lin',
+            layer
+        }, 'lin');
+        if (f) out.push(f);
+    }
+    for (const e of poi) {
+        const f = _poiFeatureFromTileNode({ ...e, sourceKind: 'poi', layer: 'poi' }, 'poi');
+        if (f) out.push(f);
+    }
+    return out;
+}
+
+function _poiFeatureMatchesCategory(feature, category) {
+    const cat = String(category || '').toLowerCase();
+    if (!cat || cat === 'all') return true;
+    const t = feature?.tags || {};
+    const rawType = String(feature?.rawType || '').toLowerCase();
+    const n = normalizeMissionText(feature?.name || '');
+
+    const isWater = (
+        ['river', 'stream', 'canal', 'dam', 'weir'].includes(t.waterway) ||
+        t.natural === 'water' ||
+        ['lake', 'reservoir', 'pond', 'basin'].includes(t.water) ||
+        ['reservoir', 'basin'].includes(t.landuse) ||
+        t.layer === 'hydro'
+    );
+    const isDam = (
+        ['dam', 'weir'].includes(t.waterway) ||
+        ['reservoir', 'basin'].includes(t.landuse) ||
+        t.water === 'reservoir' ||
+        _hasWordToken(n, 'talsperre') ||
+        _hasWordToken(n, 'staudamm') ||
+        _hasWordToken(n, 'stausee') ||
+        _hasWordToken(n, 'damm')
+    );
+    const isRoad = (
+        !!t.highway ||
+        t.layer === 'road' ||
+        rawType === 'highway'
+    );
+    const isTelecom = (
+        ['tower', 'mast'].includes(t.man_made) ||
+        ['tower', 'pole'].includes(t.power) ||
+        rawType.includes('mast') ||
+        rawType.includes('tower')
+    );
+    const isBridge = (
+        t.man_made === 'bridge' ||
+        _hasWordToken(n, 'bruecke') ||
+        _hasWordToken(n, 'brucke') ||
+        _hasWordToken(n, 'bridge') ||
+        _hasWordToken(n, 'viadukt')
+    );
+    const isMountain = (
+        ['peak', 'valley', 'cliff', 'ridge', 'saddle'].includes(t.natural) ||
+        _hasWordToken(n, 'berg') ||
+        _hasWordToken(n, 'gipfel') ||
+        _hasWordToken(n, 'tal') ||
+        _hasWordToken(n, 'schlucht')
+    );
+    const isCastle = (
+        ['castle', 'ruins', 'fort', 'monument'].includes(t.historic) ||
+        t.tourism === 'attraction' && (_hasWordToken(n, 'burg') || _hasWordToken(n, 'schloss')) ||
+        _hasWordToken(n, 'burg') ||
+        _hasWordToken(n, 'schloss')
+    );
+    const isCity = ['city', 'town', 'village', 'suburb'].includes(t.place);
+    const isIndustry = (
+        ['industrial', 'quarry'].includes(t.landuse) ||
+        _hasWordToken(n, 'industrie') ||
+        _hasWordToken(n, 'werk') ||
+        _hasWordToken(n, 'fabrik')
+    );
+    const isFire = (
+        isMountain ||
+        _hasWordToken(n, 'wald') ||
+        _hasWordToken(n, 'forst') ||
+        t.natural === 'wood' ||
+        t.natural === 'heath'
+    );
+
+    if (cat === 'water') return isWater;
+    if (cat === 'dam') return isDam || isWater;
+    if (cat === 'road') return isRoad;
+    if (cat === 'telecom') return isTelecom;
+    if (cat === 'bridge') return isBridge;
+    if (cat === 'mountain') return isMountain;
+    if (cat === 'castle') return isCastle;
+    if (cat === 'city') return isCity;
+    if (cat === 'industry') return isIndustry;
+    if (cat === 'fire') return isFire;
+    return false;
+}
+
+function _poiInferCategoryFromFeature(feature) {
+    const order = ['dam', 'water', 'telecom', 'bridge', 'road', 'castle', 'mountain', 'industry', 'city', 'fire'];
+    for (const cat of order) {
+        if (_poiFeatureMatchesCategory(feature, cat)) return cat;
+    }
+    return classifyPOITitleCategory(feature?.name || '');
+}
+
+function _poiFeatureScore(feature, category) {
+    const cat = String(category || 'all').toLowerCase();
+    const t = feature?.tags || {};
+    const n = normalizeMissionText(feature?.name || '');
+    let score = 0;
+    if (cat === 'dam') {
+        if (['dam', 'weir'].includes(t.waterway)) score += 8;
+        if (t.water === 'reservoir') score += 6;
+        if (['reservoir', 'basin'].includes(t.landuse)) score += 5;
+    } else if (cat === 'water') {
+        if (['river', 'stream', 'canal'].includes(t.waterway)) score += 5;
+        if (t.natural === 'water') score += 5;
+        if (['lake', 'reservoir', 'pond'].includes(t.water)) score += 5;
+    } else if (cat === 'road') {
+        const major = ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link'];
+        if (major.includes(t.highway)) score += 6;
+        if (t.highway) score += 2;
+    } else if (cat === 'telecom') {
+        if (['tower', 'mast'].includes(t.man_made)) score += 7;
+        if (['tower', 'pole'].includes(t.power)) score += 4;
+    } else if (cat === 'mountain') {
+        if (['peak', 'valley', 'cliff', 'ridge'].includes(t.natural)) score += 6;
+    } else if (cat === 'castle') {
+        if (['castle', 'ruins', 'fort', 'monument'].includes(t.historic)) score += 7;
+    }
+    if (n) score += 1;
+    if (feature?.sourceKind === 'poi') score += 2;
+    if (feature?.sourceKind === 'obs') score -= 1;
+    return score;
+}
+
+async function _poiFetchTileFeatures(tileKey) {
+    const now = Date.now();
+    const dbg = _poiDebugState();
+    const cached = _poiTileMemCache.get(tileKey);
+    if (cached && (now - Number(cached.ts || 0)) <= POI_TILE_CACHE_TTL_MS && Array.isArray(cached.features)) {
+        return cached.features;
+    }
+    const b = _poiTileBoundsFromKey(tileKey);
+    if (!b) return [];
+    // 1) Prefer dedicated split POI tiles.
+    for (const endpoint of POI_TILE_POI_ENDPOINTS) {
+        try {
+            let url = '';
+            if (endpoint.includes('{latI}') || endpoint.includes('{lonI}')) {
+                url = endpoint
+                    .replaceAll('{latI}', encodeURIComponent(String(b.latI)))
+                    .replaceAll('{lonI}', encodeURIComponent(String(b.lonI)));
+            } else {
+                const u = new URL(endpoint);
+                u.searchParams.set('layer', 'poi');
+                u.searchParams.set('tile', tileKey);
+                u.searchParams.set('lat_i', String(b.latI));
+                u.searchParams.set('lon_i', String(b.lonI));
+                u.searchParams.set('south', b.south.toFixed(5));
+                u.searchParams.set('west', b.west.toFixed(5));
+                u.searchParams.set('north', b.north.toFixed(5));
+                u.searchParams.set('east', b.east.toFixed(5));
+                u.searchParams.set('v', '3');
+                url = u.toString();
+            }
+            dbg.requests = Number(dbg.requests || 0) + 1;
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const payload = await res.json();
+            const features = _poiParseTilePayload(payload);
+            _poiTileMemCache.set(tileKey, { ts: now, features });
+            if (features.length) {
+                dbg.hits = Number(dbg.hits || 0) + 1;
+                dbg.splitHits = Number(dbg.splitHits || 0) + 1;
+                _poiDebugMarkSource(String((payload && payload.sourceKind) || '').toLowerCase() === 'legacy'
+                    ? 'worker-poi-legacy'
+                    : (endpoint.includes('{latI}') ? 'local-poi-split' : 'worker-poi-split'));
+                return features;
+            }
+        } catch (_) {
+            dbg.errors = Number(dbg.errors || 0) + 1;
+        }
+    }
+    // 2) Fallback: legacy combined/obstacle tiles.
+    for (const endpoint of POI_TILE_LEGACY_ENDPOINTS) {
+        try {
+            const u = new URL(endpoint);
+            u.searchParams.set('tile', tileKey);
+            u.searchParams.set('lat_i', String(b.latI));
+            u.searchParams.set('lon_i', String(b.lonI));
+            u.searchParams.set('south', b.south.toFixed(5));
+            u.searchParams.set('west', b.west.toFixed(5));
+            u.searchParams.set('north', b.north.toFixed(5));
+            u.searchParams.set('east', b.east.toFixed(5));
+            u.searchParams.set('v', '2');
+            dbg.requests = Number(dbg.requests || 0) + 1;
+            const res = await fetch(u.toString());
+            if (!res.ok) continue;
+            const payload = await res.json();
+            const features = _poiParseTilePayload(payload);
+            _poiTileMemCache.set(tileKey, { ts: now, features });
+            if (features.length) {
+                dbg.hits = Number(dbg.hits || 0) + 1;
+                dbg.legacyHits = Number(dbg.legacyHits || 0) + 1;
+                dbg.fallbackHits = Number(dbg.fallbackHits || 0) + 1;
+                _poiDebugMarkSource('worker-legacy-fallback');
+            }
+            return features;
+        } catch (_) {
+            dbg.errors = Number(dbg.errors || 0) + 1;
+        }
+    }
+    dbg.misses = Number(dbg.misses || 0) + 1;
+    _poiDebugMarkSource('none');
+    _poiTileMemCache.set(tileKey, { ts: now, features: [] });
+    return [];
+}
+
+async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null) {
+    const forceCat = String(forcedCategory || '').toLowerCase();
+    if (forceCat === 'trn') return null;
+    const tileKeys = _poiCollectTileKeysAround(lat, lon, Math.max(22, Number(maxNM || 40)));
+    if (!tileKeys.length) return null;
+
+    const features = [];
+    let cursor = 0;
+    const workers = [];
+    const workerCount = Math.min(POI_TILE_FETCH_PARALLEL, tileKeys.length);
+    for (let i = 0; i < workerCount; i++) {
+        workers.push((async () => {
+            while (cursor < tileKeys.length) {
+                const idx = cursor++;
+                const key = tileKeys[idx];
+                const rows = await _poiFetchTileFeatures(key);
+                if (rows && rows.length) features.push(...rows);
+            }
+        })());
+    }
+    await Promise.all(workers);
+    if (!features.length) return null;
+
+    const candidates = [];
+    const seen = new Set();
+    for (const f of features) {
+        const flat = Number(f?.lat);
+        const flon = Number(f?.lon);
+        if (!Number.isFinite(flat) || !Number.isFinite(flon)) continue;
+        const nav = calcNav(lat, lon, flat, flon);
+        if (!Number.isFinite(nav?.dist)) continue;
+        if (nav.dist < Number(minNM || 0) || nav.dist > Number(maxNM || 9999)) continue;
+        if (!checkBearing(nav.brng, dirPref)) continue;
+
+        const inferredCat = _poiInferCategoryFromFeature(f);
+        const wantedCat = (!forceCat || forceCat === 'all') ? inferredCat : forceCat;
+        if (forceCat && forceCat !== 'all' && !_poiFeatureMatchesCategory(f, forceCat)) continue;
+
+        const name = _poiNormalizeFeatureName(f?.name, wantedCat);
+        const dedupeKey = `${wantedCat}|${name.toLowerCase()}|${flat.toFixed(4)}|${flon.toFixed(4)}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+
+        candidates.push({
+            n: name,
+            lat: flat,
+            lon: flon,
+            dist: nav.dist,
+            category: wantedCat,
+            score: _poiFeatureScore(f, wantedCat)
+        });
+    }
+    if (!candidates.length) return null;
+
+    let pool = candidates;
+    if (!forceCat || forceCat === 'all') {
+        const balanced = pickBalancedByCategory(pool, p => p.category || 'generic', 'ga_poi_tag_cat');
+        const targetCat = balanced?.category || pool[0]?.category || 'generic';
+        pool = pool.filter(p => p.category === targetCat);
+    }
+    pool.sort((a, b) => (b.score - a.score) || (a.dist - b.dist));
+    const top = pool.slice(0, Math.min(12, pool.length));
+    const pick = top[Math.floor(Math.random() * top.length)] || pool[0];
+    const usedCat = String((pick && pick.category) || forceCat || 'generic').toLowerCase();
+    return {
+        icao: 'POI',
+        n: pick.n,
+        lat: pick.lat,
+        lon: pick.lon,
+        poiCategory: usedCat,
+        poiSource: `Hosted POI Tiles (tagged:${usedCat})`
+    };
+}
+
 function _isDamLikeNominatimItem(item) {
     if (!item) return false;
     const hay = normalizeMissionText([
@@ -5352,7 +5786,13 @@ async function generateMission() {
             dest = pickRandomTrainingPoiNearAirport(start.lat, start.lon, dirPref, searchMin, searchMax);
             dataSource = "Training Area RNG";
         } else {
-            if (selectedPoiCategory === 'fire') {
+            // Primär: eigene gehostete, tag-basierte Tiles.
+            // Fallback: bestehendes Wiki/Wikidata/Nominatim-System.
+            const taggedTilePoi = await findTaggedTilePOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory);
+            _ensureDispatchAlive();
+            if (taggedTilePoi) {
+                dest = taggedTilePoi;
+            } else if (selectedPoiCategory === 'fire') {
                 const fireCandidates = [];
                 for (let i = 0; i < 3; i++) {
                     const c = await findWikipediaPOI(start.lat, start.lon, searchMin, searchMax, dirPref, 'fire');

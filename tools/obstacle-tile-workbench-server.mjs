@@ -12,9 +12,16 @@ const ROOT = path.resolve(__dirname, '..');
 const TOOLS_DIR = path.join(ROOT, 'tools');
 const HTML_PATH = path.join(TOOLS_DIR, 'obstacle-tile-workbench.html');
 const OBST_DIR = path.join(ROOT, 'obstacles');
-const TILE_DIR = path.join(OBST_DIR, 'tiles');
-const MANIFEST_PATH = path.join(OBST_DIR, 'manifest.v1.json');
-const FAILED_PATH = path.join(OBST_DIR, 'failed-tiles.json');
+const CORE_TILE_DIR = path.join(OBST_DIR, 'core-tiles');
+const POI_TILE_DIR = path.join(OBST_DIR, 'poi-tiles');
+const CORE_MANIFEST_PATH = path.join(OBST_DIR, 'core-manifest.v1.json');
+const POI_MANIFEST_PATH = path.join(OBST_DIR, 'poi-manifest.v1.json');
+const FAILED_PATH = path.join(OBST_DIR, 'failed-split-tiles.json');
+
+const WORKBENCH_TMP_DIR = path.join(ROOT, '.workbench-cache', 'obs-split');
+const WORKBENCH_TMP_OUT_DIR = path.join(WORKBENCH_TMP_DIR, 'combined-tiles');
+const WORKBENCH_TMP_MANIFEST = path.join(WORKBENCH_TMP_DIR, 'combined-manifest.v1.json');
+const WORKBENCH_TMP_FAILED = path.join(WORKBENCH_TMP_DIR, 'combined-failed-tiles.json');
 
 const TILE_STEP_DEG = 25 / 60;
 const STALE_AFTER_MS = 90 * 24 * 60 * 60 * 1000;
@@ -24,6 +31,10 @@ const queue = [];
 const queueSet = new Set();
 let processing = false;
 let currentTile = null;
+const WORKBENCH_RETRIES = Number(process.env.OBS_WORKBENCH_RETRIES || 4);
+const WORKBENCH_DELAY_MS = Number(process.env.OBS_WORKBENCH_DELAY_MS || 2200);
+const WORKBENCH_FAIL_COOLDOWN_MS = Number(process.env.OBS_WORKBENCH_FAIL_COOLDOWN_MS || 12000);
+const WORKBENCH_504_EXTRA_COOLDOWN_MS = Number(process.env.OBS_WORKBENCH_504_EXTRA_COOLDOWN_MS || 18000);
 const lastResults = new Map();
 let lastRepoSync = {
   ok: false,
@@ -37,7 +48,13 @@ let lastRepoSync = {
   missingInRepoSample: [],
   missingLocalSample: [],
   missingInRepoTiles: [],
-  remoteTiles: []
+  remoteTiles: [],
+  remoteCoreCount: 0,
+  remotePoiCount: 0,
+  localCoreCount: 0,
+  localPoiCount: 0,
+  localCompleteCount: 0,
+  remoteCompleteCount: 0
 };
 
 function sendJson(res, status, payload) {
@@ -57,9 +74,13 @@ function normalizeTileKey(v) {
   return s;
 }
 
-function tileToFile(tileKey) {
-  const [latI, lonI] = tileKey.split('|');
-  return path.join(TILE_DIR, latI, `${lonI}.json`);
+function tilePath(baseDir, tileKey) {
+  const [latI, lonI] = String(tileKey).split('|');
+  return path.join(baseDir, latI, `${lonI}.json`);
+}
+
+async function ensureDir(dirPath) {
+  await fs.mkdir(dirPath, { recursive: true });
 }
 
 async function readJsonSafe(filePath, fallback) {
@@ -69,6 +90,65 @@ async function readJsonSafe(filePath, fallback) {
   } catch (_) {
     return fallback;
   }
+}
+
+async function writeJson(filePath, obj) {
+  await ensureDir(path.dirname(filePath));
+  await fs.writeFile(filePath, JSON.stringify(obj, null, 2), 'utf8');
+}
+
+function defaultManifest() {
+  return {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    grid: { tileEdgeNm: 25, stepLatDeg: TILE_STEP_DEG, stepLonDeg: TILE_STEP_DEG },
+    regions: [],
+    tileCount: 0,
+    tiles: []
+  };
+}
+
+async function upsertManifestTile(manifestPath, tileKey) {
+  const m = await readJsonSafe(manifestPath, defaultManifest());
+  const tiles = new Set((Array.isArray(m.tiles) ? m.tiles : []).map(normalizeTileKey).filter(Boolean));
+  tiles.add(tileKey);
+  const out = {
+    ...defaultManifest(),
+    ...m,
+    generatedAt: new Date().toISOString(),
+    tileCount: tiles.size,
+    tiles: Array.from(tiles).sort()
+  };
+  await writeJson(manifestPath, out);
+}
+
+async function removeFailedTile(tileKey) {
+  const failedData = await readJsonSafe(FAILED_PATH, { generatedAt: new Date().toISOString(), failedTiles: [] });
+  const failedTiles = (Array.isArray(failedData.failedTiles) ? failedData.failedTiles : [])
+    .filter(item => normalizeTileKey(item && item.tile) !== tileKey);
+  await writeJson(FAILED_PATH, {
+    generatedAt: new Date().toISOString(),
+    failed: failedTiles.length,
+    failedTiles
+  });
+}
+
+async function upsertFailedTile(tileKey, info = {}) {
+  const failedData = await readJsonSafe(FAILED_PATH, { generatedAt: new Date().toISOString(), failedTiles: [] });
+  const rows = Array.isArray(failedData.failedTiles) ? failedData.failedTiles : [];
+  const keep = rows.filter(item => normalizeTileKey(item && item.tile) !== tileKey);
+  keep.push({
+    tile: tileKey,
+    status: Number(info.status || 0),
+    error: String(info.error || 'Tile-Load fehlgeschlagen'),
+    server: String(info.server || ''),
+    at: new Date().toISOString()
+  });
+  await writeJson(FAILED_PATH, {
+    generatedAt: new Date().toISOString(),
+    failed: keep.length,
+    failedTiles: keep
+  });
 }
 
 async function runCmd(bin, args, opts = {}) {
@@ -91,7 +171,14 @@ async function runCmd(bin, args, opts = {}) {
 }
 
 async function getTileGitStatus() {
-  const r = await runCmd('git', ['status', '--porcelain', '--', 'obstacles/tiles', 'obstacles/manifest.v1.json', 'obstacles/failed-tiles.json'], { cwd: ROOT });
+  const paths = [
+    'obstacles/core-tiles',
+    'obstacles/poi-tiles',
+    'obstacles/core-manifest.v1.json',
+    'obstacles/poi-manifest.v1.json',
+    'obstacles/failed-split-tiles.json'
+  ];
+  const r = await runCmd('git', ['status', '--porcelain', '--', ...paths], { cwd: ROOT });
   if (r.code !== 0) return { ok: false, lines: [], raw: (r.stderr || r.stdout || '').trim() };
   const lines = String(r.stdout || '')
     .split('\n')
@@ -121,7 +208,7 @@ async function getRemoteSyncState() {
   return { ok: true, behind, ahead };
 }
 
-async function collectLocalTileKeysFromFs() {
+async function collectLocalTileKeysFromFs(baseDir) {
   const out = new Set();
   async function walk(dir) {
     let entries = [];
@@ -137,28 +224,31 @@ async function collectLocalTileKeysFromFs() {
         continue;
       }
       if (!e.isFile() || !e.name.endsWith('.json')) continue;
-      const rel = path.relative(TILE_DIR, full);
+      const rel = path.relative(baseDir, full);
       const m = rel.match(/^(-?\d+)[/\\](-?\d+)\.json$/);
       if (!m) continue;
       const key = normalizeTileKey(`${m[1]}|${m[2]}`);
       if (key) out.add(key);
     }
   }
-  await walk(TILE_DIR);
+  await walk(baseDir);
   return out;
 }
 
-async function loadRemoteTilesFromOriginMain() {
-  const show = await runCmd('git', ['show', 'origin/main:obstacles/manifest.v1.json'], { cwd: ROOT });
-  if (show.code !== 0) {
-    return {
-      ok: false,
-      message: (show.stderr || show.stdout || '').trim() || 'Konnte origin/main Manifest nicht lesen'
-    };
+async function loadRemoteManifestTiles(manifestPathInRepo, fallbackPathInRepo = null) {
+  const show = await runCmd('git', ['show', `origin/main:${manifestPathInRepo}`], { cwd: ROOT });
+  let payloadText = String(show.stdout || '');
+  if (show.code !== 0 && fallbackPathInRepo) {
+    const fb = await runCmd('git', ['show', `origin/main:${fallbackPathInRepo}`], { cwd: ROOT });
+    if (fb.code !== 0) return { ok: false, message: (show.stderr || show.stdout || fb.stderr || fb.stdout || '').trim() || 'Manifest fehlt' };
+    payloadText = String(fb.stdout || '');
+  } else if (show.code !== 0) {
+    return { ok: false, message: (show.stderr || show.stdout || '').trim() || 'Manifest fehlt' };
   }
+
   let parsed = null;
   try {
-    parsed = JSON.parse(String(show.stdout || '{}'));
+    parsed = JSON.parse(payloadText || '{}');
   } catch (e) {
     return { ok: false, message: `Manifest JSON ungültig: ${String(e && e.message || e)}` };
   }
@@ -168,6 +258,12 @@ async function loadRemoteTilesFromOriginMain() {
     if (k) tiles.add(k);
   }
   return { ok: true, tiles };
+}
+
+function setIntersection(a, b) {
+  const out = new Set();
+  for (const k of a) if (b.has(k)) out.add(k);
+  return out;
 }
 
 async function runRepoSyncCheck() {
@@ -182,24 +278,30 @@ async function runRepoSyncCheck() {
     return lastRepoSync;
   }
 
-  const remoteRes = await loadRemoteTilesFromOriginMain();
-  if (!remoteRes.ok) {
+  const remoteCoreRes = await loadRemoteManifestTiles('obstacles/core-manifest.v1.json', 'obstacles/manifest.v1.json');
+  if (!remoteCoreRes.ok) {
     lastRepoSync = {
       ...lastRepoSync,
       ok: false,
       checkedAt: Date.now(),
-      message: remoteRes.message || 'Remote-Tiles konnten nicht gelesen werden'
+      message: remoteCoreRes.message || 'Remote-Core-Manifest konnte nicht gelesen werden'
     };
     return lastRepoSync;
   }
+  const remotePoiRes = await loadRemoteManifestTiles('obstacles/poi-manifest.v1.json');
+  const remotePoiTiles = remotePoiRes.ok ? remotePoiRes.tiles : new Set();
 
-  const localTiles = await collectLocalTileKeysFromFs();
-  const remoteTiles = remoteRes.tiles;
+  const localCoreTiles = await collectLocalTileKeysFromFs(CORE_TILE_DIR);
+  const localPoiTiles = await collectLocalTileKeysFromFs(POI_TILE_DIR);
+  const localCompleteTiles = setIntersection(localCoreTiles, localPoiTiles);
+
+  const remoteCoreTiles = remoteCoreRes.tiles;
+  const remoteCompleteTiles = setIntersection(remoteCoreTiles, remotePoiTiles);
 
   const missingInRepo = [];
-  for (const k of localTiles) if (!remoteTiles.has(k)) missingInRepo.push(k);
+  for (const k of localCompleteTiles) if (!remoteCompleteTiles.has(k)) missingInRepo.push(k);
   const missingLocal = [];
-  for (const k of remoteTiles) if (!localTiles.has(k)) missingLocal.push(k);
+  for (const k of remoteCompleteTiles) if (!localCompleteTiles.has(k)) missingLocal.push(k);
   missingInRepo.sort();
   missingLocal.sort();
 
@@ -208,27 +310,27 @@ async function runRepoSyncCheck() {
     checkedAt: Date.now(),
     message: 'Repo-Sync geprüft',
     remoteRef: 'origin/main',
-    remoteTileCount: remoteTiles.size,
-    localTileCount: localTiles.size,
+    remoteTileCount: remoteCompleteTiles.size,
+    localTileCount: localCompleteTiles.size,
     missingInRepoCount: missingInRepo.length,
     missingLocalCount: missingLocal.length,
     missingInRepoSample: missingInRepo.slice(0, 20),
     missingLocalSample: missingLocal.slice(0, 20),
     missingInRepoTiles: missingInRepo,
-    remoteTiles: Array.from(remoteTiles)
+    remoteTiles: Array.from(remoteCompleteTiles),
+    remoteCoreCount: remoteCoreTiles.size,
+    remotePoiCount: remotePoiTiles.size,
+    localCoreCount: localCoreTiles.size,
+    localPoiCount: localPoiTiles.size,
+    localCompleteCount: localCompleteTiles.size,
+    remoteCompleteCount: remoteCompleteTiles.size
   };
   return lastRepoSync;
 }
 
 async function collectTileState() {
-  const manifest = await readJsonSafe(MANIFEST_PATH, {
-    version: 1,
-    generatedAt: new Date().toISOString(),
-    grid: { tileEdgeNm: 25, stepLatDeg: TILE_STEP_DEG, stepLonDeg: TILE_STEP_DEG },
-    regions: [],
-    tileCount: 0,
-    tiles: []
-  });
+  const coreManifest = await readJsonSafe(CORE_MANIFEST_PATH, defaultManifest());
+  const poiManifest = await readJsonSafe(POI_MANIFEST_PATH, defaultManifest());
 
   const failedData = await readJsonSafe(FAILED_PATH, { failedTiles: [] });
   const failedMap = {};
@@ -238,30 +340,43 @@ async function collectTileState() {
     failedMap[key] = {
       status: Number(item.status || 0),
       error: String(item.error || ''),
-      at: Date.now()
+      at: item.at ? Date.parse(item.at) || Date.now() : Date.now()
     };
   }
 
   const loadedMap = {};
   const now = Date.now();
-  const seen = new Set();
-  for (const key of Array.isArray(manifest.tiles) ? manifest.tiles : []) {
-    const tileKey = normalizeTileKey(key);
-    if (!tileKey || seen.has(tileKey)) continue;
-    seen.add(tileKey);
-    const file = tileToFile(tileKey);
-    if (!existsSync(file)) continue;
-    try {
-      const st = await fs.stat(file);
-      const mtimeMs = Number(st.mtimeMs || 0);
-      loadedMap[tileKey] = {
-        mtimeMs,
-        stale: (now - mtimeMs) > STALE_AFTER_MS,
-        bytes: Number(st.size || 0)
-      };
-    } catch (_) {
-      // ignore unreadable file
-    }
+  const keys = new Set([
+    ...(Array.isArray(coreManifest.tiles) ? coreManifest.tiles : []),
+    ...(Array.isArray(poiManifest.tiles) ? poiManifest.tiles : [])
+  ].map(normalizeTileKey).filter(Boolean));
+
+  for (const tileKey of keys) {
+    const coreFile = tilePath(CORE_TILE_DIR, tileKey);
+    const poiFile = tilePath(POI_TILE_DIR, tileKey);
+    const hasCore = existsSync(coreFile);
+    const hasPoi = existsSync(poiFile);
+    if (!hasCore && !hasPoi) continue;
+
+    let coreStat = null;
+    let poiStat = null;
+    try { if (hasCore) coreStat = await fs.stat(coreFile); } catch (_) {}
+    try { if (hasPoi) poiStat = await fs.stat(poiFile); } catch (_) {}
+
+    const coreMtime = Number(coreStat?.mtimeMs || 0);
+    const poiMtime = Number(poiStat?.mtimeMs || 0);
+    const mtimeMs = Math.max(coreMtime, poiMtime);
+    const stale = ((hasCore && (now - coreMtime) > STALE_AFTER_MS) || (hasPoi && (now - poiMtime) > STALE_AFTER_MS));
+
+    loadedMap[tileKey] = {
+      mtimeMs,
+      stale,
+      bytes: Number(coreStat?.size || 0) + Number(poiStat?.size || 0),
+      bytesCore: Number(coreStat?.size || 0),
+      bytesPoi: Number(poiStat?.size || 0),
+      hasCore,
+      hasPoi
+    };
   }
 
   const recent = {};
@@ -281,8 +396,8 @@ async function collectTileState() {
     failed: failedMap,
     recent,
     manifest: {
-      generatedAt: manifest.generatedAt || null,
-      tileCount: Number(manifest.tileCount || Object.keys(loadedMap).length || 0)
+      generatedAt: coreManifest.generatedAt || null,
+      tileCount: Number(coreManifest.tileCount || Object.keys(loadedMap).length || 0)
     },
     repoSync: {
       ok: !!lastRepoSync.ok,
@@ -316,27 +431,81 @@ function enqueueTiles(tileKeys) {
 async function processOneTile(tileKey) {
   currentTile = tileKey;
   const startedAt = Date.now();
-  const cmd = ['tools/generate-obstacle-tiles.mjs', '--tiles', tileKey, '--force', '--delay-ms', '1000'];
+
+  const combinedFile = tilePath(WORKBENCH_TMP_OUT_DIR, tileKey);
+  const coreOut = tilePath(CORE_TILE_DIR, tileKey);
+  const poiOut = tilePath(POI_TILE_DIR, tileKey);
+
+  await ensureDir(WORKBENCH_TMP_OUT_DIR);
+
+  const cmd = [
+    'tools/generate-obstacle-tiles.mjs',
+    '--tiles', tileKey,
+    '--force',
+    '--delay-ms', String(WORKBENCH_DELAY_MS),
+    '--retries', String(WORKBENCH_RETRIES),
+    '--out', path.relative(ROOT, WORKBENCH_TMP_OUT_DIR),
+    '--manifest', path.relative(ROOT, WORKBENCH_TMP_MANIFEST),
+    '--failed', path.relative(ROOT, WORKBENCH_TMP_FAILED)
+  ];
   const run = await runCmd('node', cmd, { cwd: ROOT });
 
-  const failedData = await readJsonSafe(FAILED_PATH, { failedTiles: [] });
-  const failedSet = new Set(
-    (Array.isArray(failedData.failedTiles) ? failedData.failedTiles : [])
-      .map(x => normalizeTileKey(x && x.tile))
-      .filter(Boolean)
-  );
-  const file = tileToFile(tileKey);
-  const hasFile = existsSync(file);
-  const ok = hasFile && !failedSet.has(tileKey);
+  const failedData = await readJsonSafe(WORKBENCH_TMP_FAILED, { failedTiles: [] });
+  const failedItems = Array.isArray(failedData.failedTiles) ? failedData.failedTiles : [];
+  const failedItem = failedItems.find(x => normalizeTileKey(x && x.tile) === tileKey) || null;
+
+  const combinedExists = existsSync(combinedFile);
+  const failStatus = Number((failedItem && failedItem.status) || 0);
+  const failError = String((failedItem && failedItem.error) || '').trim();
+  const failServer = String((failedItem && failedItem.server) || '').trim();
+
+  let ok = false;
+  let message = 'Tile-Load fehlgeschlagen';
+
+  if (combinedExists && !failedItem) {
+    const splitCmd = [
+      'tools/split-combined-tile.mjs',
+      '--in', path.relative(ROOT, combinedFile),
+      '--core-out', path.relative(ROOT, coreOut),
+      '--poi-out', path.relative(ROOT, poiOut)
+    ];
+    const splitRun = await runCmd('node', splitCmd, { cwd: ROOT });
+    if (splitRun.code === 0 && existsSync(coreOut) && existsSync(poiOut)) {
+      await upsertManifestTile(CORE_MANIFEST_PATH, tileKey);
+      await upsertManifestTile(POI_MANIFEST_PATH, tileKey);
+      await removeFailedTile(tileKey);
+      ok = true;
+      message = 'Tile geladen, gesplittet und gespeichert';
+    } else {
+      await upsertFailedTile(tileKey, {
+        status: 0,
+        error: (splitRun.stderr || splitRun.stdout || 'Split fehlgeschlagen').trim()
+      });
+      message = (splitRun.stderr || splitRun.stdout || 'Split fehlgeschlagen').trim() || 'Split fehlgeschlagen';
+    }
+  } else {
+    await upsertFailedTile(tileKey, {
+      status: failStatus,
+      error: failError || (run.stderr || run.stdout || 'Tile-Load fehlgeschlagen').trim(),
+      server: failServer
+    });
+    const failMsg = [
+      failStatus ? `HTTP ${failStatus}` : '',
+      failError,
+      failServer ? `(Server: ${failServer})` : ''
+    ].filter(Boolean).join(' | ');
+    message = failMsg || (run.stderr && run.stderr.trim()) || (run.stdout && run.stdout.trim().split('\n').slice(-2).join(' | ')) || 'Tile-Load fehlgeschlagen';
+  }
 
   lastResults.set(tileKey, {
     ok,
     at: Date.now(),
     durationMs: Date.now() - startedAt,
     code: run.code,
-    message: ok
-      ? 'Tile geladen und gespeichert'
-      : ((run.stderr && run.stderr.trim()) || (run.stdout && run.stdout.trim().split('\n').slice(-2).join(' | ')) || 'Tile-Load fehlgeschlagen')
+    status: failStatus,
+    error: failError,
+    server: failServer,
+    message
   });
 }
 
@@ -350,13 +519,28 @@ async function processQueue() {
       if (!next) continue;
       try {
         await processOneTile(next);
+        const last = lastResults.get(next);
+        if (last && last.ok === false) {
+          const baseWait = WORKBENCH_FAIL_COOLDOWN_MS;
+          const extraWait = Number(last.status) === 504 ? WORKBENCH_504_EXTRA_COOLDOWN_MS : 0;
+          const waitMs = Math.max(0, baseWait + extraWait);
+          if (waitMs > 0) {
+            lastResults.set(next, {
+              ...last,
+              message: `${last.message} | Cooldown ${Math.round(waitMs / 1000)}s`
+            });
+            await new Promise(res => setTimeout(res, waitMs));
+          }
+        }
       } catch (err) {
+        const errMsg = `Interner Fehler: ${String(err && err.message || err)}`;
+        await upsertFailedTile(next, { status: 0, error: errMsg });
         lastResults.set(next, {
           ok: false,
           at: Date.now(),
           durationMs: 0,
           code: 1,
-          message: `Interner Fehler: ${String(err && err.message || err)}`
+          message: errMsg
         });
       } finally {
         currentTile = null;
@@ -398,12 +582,20 @@ async function handlePush() {
     return { ok: false, code: 500, step: 'status_before', message: before.raw || 'git status fehlgeschlagen' };
   }
 
-  const add = await runCmd('git', ['add', 'obstacles/tiles', 'obstacles/manifest.v1.json', 'obstacles/failed-tiles.json'], { cwd: ROOT });
+  const pushPaths = [
+    'obstacles/core-tiles',
+    'obstacles/poi-tiles',
+    'obstacles/core-manifest.v1.json',
+    'obstacles/poi-manifest.v1.json',
+    'obstacles/failed-split-tiles.json'
+  ];
+
+  const add = await runCmd('git', ['add', ...pushPaths], { cwd: ROOT });
   if (add.code !== 0) {
     return { ok: false, step: 'add', message: (add.stderr || add.stdout || '').trim() || 'git add failed' };
   }
 
-  const staged = await runCmd('git', ['diff', '--cached', '--name-only', '--', 'obstacles/tiles', 'obstacles/manifest.v1.json', 'obstacles/failed-tiles.json'], { cwd: ROOT });
+  const staged = await runCmd('git', ['diff', '--cached', '--name-only', '--', ...pushPaths], { cwd: ROOT });
   if (staged.code !== 0) {
     return { ok: false, code: 500, step: 'staged_list', message: (staged.stderr || staged.stdout || '').trim() || 'staged diff fehlgeschlagen' };
   }
@@ -412,7 +604,7 @@ async function handlePush() {
     return { ok: true, message: 'Keine neuen Tile-Änderungen zum Pushen.', stagedFiles: [] };
   }
 
-  const msg = `Update hosted obstacle tiles (${new Date().toISOString().slice(0, 19).replace('T', ' ')})`;
+  const msg = `Update hosted split obstacle tiles (${new Date().toISOString().slice(0, 19).replace('T', ' ')})`;
   const commit = await runCmd('git', ['commit', '-m', msg], { cwd: ROOT });
   if (commit.code !== 0) {
     return { ok: false, step: 'commit', message: (commit.stderr || commit.stdout || '').trim() || 'git commit failed' };

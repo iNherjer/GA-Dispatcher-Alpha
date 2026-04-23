@@ -4,7 +4,7 @@ Diese Worker-Datei ergänzt den bestehenden `ga-proxy` um:
 
 - `GET /api/aip-chart/resolve?icao=XXXX&country=YY`
 - `GET /api/aip-chart/file?url=<encoded>`
-- `GET /api/obstacles/tile?tile=<latIndex|lonIndex>`
+- `GET /api/obstacles/tile?tile=<latIndex|lonIndex>&layer=core|poi`
 
 ## Dateien
 
@@ -52,8 +52,10 @@ id = "<DEINE_KV_NAMESPACE_ID>"
 1. Endpunkte aus `aip-chart-worker.js` in euren Haupt-Worker übernehmen.
 2. CORS-Header für Browserzugriff beibehalten.
 3. Domain-Allowlist (`FILE_ALLOWED_HOSTS`) passend zu eurer Policy prüfen.
-4. Optional Worker-Variable setzen:
-   - `OBSTACLE_TILES_BASE=https://raw.githubusercontent.com/<owner>/<repo>/<branch>/obstacles/tiles`
+4. Optional Worker-Variablen setzen:
+   - `OBSTACLE_CORE_TILES_BASE=https://raw.githubusercontent.com/<owner>/<repo>/<branch>/obstacles/core-tiles`
+   - `OBSTACLE_POI_TILES_BASE=https://raw.githubusercontent.com/<owner>/<repo>/<branch>/obstacles/poi-tiles`
+   - `OBSTACLE_TILES_BASE=.../obstacles/tiles` (Legacy-Fallback fuer `layer=core`)
 4. Deployen und im Frontend testen:
    - `loadAipChartOverlay(ICAO, country)`
    - `startAipChartCalibration()`
