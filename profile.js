@@ -1437,6 +1437,7 @@ function triggerVerticalProfileUpdate() {
         try {
             // 1. Höhendaten (Blockierend, da alles andere darauf aufbaut)
             vpElevationData = await fetchRouteElevation(routeWaypoints, currentSignal);
+            if (!Array.isArray(vpElevationData)) vpElevationData = [];
             window.vpBgNeedsUpdate = true;
             
             window.vpElevationData = vpElevationData;
@@ -1659,7 +1660,8 @@ function triggerVerticalProfileUpdate() {
                     ? ((window.vpWeatherFallbackMode === 'openmeteo_to_metar') ? ' • Fallback METAR' : ' • Open-Meteo')
                     : ((window.vpWeatherFallbackMode === 'metar_to_openmeteo') ? ' • Fallback Open-Meteo' : ' • METAR');
                 const terrainInfo = window.vpElevationFallbackActive ? ' • Terrain Fallback' : '';
-                status.textContent = vpElevationData.length + ' Punkte & API-Daten geladen' + wxInfo + terrainInfo;
+                const elevCount = Array.isArray(vpElevationData) ? vpElevationData.length : 0;
+                status.textContent = elevCount + ' Punkte & API-Daten geladen' + wxInfo + terrainInfo;
             }
             
         } catch(e) {
