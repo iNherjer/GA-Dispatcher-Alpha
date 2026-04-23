@@ -2649,14 +2649,18 @@ function _poiFeatureMatchesCategory(feature, category) {
         ['reservoir', 'basin'].includes(t.landuse) ||
         t.layer === 'hydro'
     );
+    const damNameStrong = (
+        _hasWordToken(n, 'talsperre') ||
+        _hasWordToken(n, 'staudamm') ||
+        _hasWordToken(n, 'stausee') ||
+        _hasWordToken(n, 'sperrmauer') ||
+        _hasWordToken(n, 'reservoir')
+    );
     const isDam = (
         ['dam', 'weir'].includes(t.waterway) ||
         ['reservoir', 'basin'].includes(t.landuse) ||
         t.water === 'reservoir' ||
-        _hasWordToken(n, 'talsperre') ||
-        _hasWordToken(n, 'staudamm') ||
-        _hasWordToken(n, 'stausee') ||
-        _hasWordToken(n, 'damm')
+        (damNameStrong && !t.highway)
     );
     const isRoad = (
         !!t.highway ||
@@ -2720,7 +2724,7 @@ function _poiFeatureMatchesCategory(feature, category) {
     );
 
     if (cat === 'water') return isWater;
-    if (cat === 'dam') return isDam || isWater;
+    if (cat === 'dam') return isDam;
     if (cat === 'road') return isRoad;
     if (cat === 'telecom') return isTelecom;
     if (cat === 'bridge') return isBridge;
@@ -2749,6 +2753,7 @@ function _poiFeatureScore(feature, category) {
         if (['dam', 'weir'].includes(t.waterway)) score += 8;
         if (t.water === 'reservoir') score += 6;
         if (['reservoir', 'basin'].includes(t.landuse)) score += 5;
+        if (_hasWordToken(n, 'talsperre') || _hasWordToken(n, 'staudamm') || _hasWordToken(n, 'stausee') || _hasWordToken(n, 'sperrmauer') || _hasWordToken(n, 'reservoir')) score += 8;
     } else if (cat === 'water') {
         if (['river', 'stream', 'canal'].includes(t.waterway)) score += 5;
         if (t.natural === 'water') score += 5;
@@ -2960,18 +2965,28 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const wantedCat = (!forceCat || forceCat === 'all') ? inferredCat : forceCat;
         if (forceCat && forceCat !== 'all' && !_poiFeatureMatchesCategory(f, forceCat)) continue;
 
-        const name = _poiNormalizeFeatureName(f?.name, wantedCat);
+        const rawName = String(f?.name || '').trim();
+        const name = _poiNormalizeFeatureName(rawName, wantedCat);
+        const hasName = !!rawName;
+        if (forceCat === 'dam' && !hasName && String(f?.sourceKind || '') === 'lin') continue;
         const dedupeKey = `${wantedCat}|${name.toLowerCase()}|${flat.toFixed(4)}|${flon.toFixed(4)}`;
         if (seen.has(dedupeKey)) continue;
         seen.add(dedupeKey);
 
+        const baseScore = _poiFeatureScore(f, wantedCat);
+        const distPenalty = Math.min(80, Number(nav.dist || 0)) * 0.18;
+        const nameBonus = hasName ? 2.0 : -1.5;
+        const rank = baseScore + nameBonus - distPenalty;
         candidates.push({
             n: name,
             lat: flat,
             lon: flon,
             dist: nav.dist,
+            brng: nav.brng,
             category: wantedCat,
-            score: _poiFeatureScore(f, wantedCat),
+            score: baseScore,
+            rank,
+            hasName,
             featureSourceKind: String(f?.sourceKind || ''),
             featureLayer: String(f?.tags?.layer || '')
         });
@@ -2984,9 +2999,9 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const targetCat = balanced?.category || pool[0]?.category || 'generic';
         pool = pool.filter(p => p.category === targetCat);
     }
-    pool.sort((a, b) => (b.score - a.score) || (a.dist - b.dist));
-    const top = pool.slice(0, Math.min(12, pool.length));
-    const pick = top[Math.floor(Math.random() * top.length)] || pool[0];
+    pool.sort((a, b) => (b.rank - a.rank) || (b.score - a.score) || (a.dist - b.dist));
+    const top = pool.slice(0, Math.min(8, pool.length));
+    const pick = top[0] || pool[0];
     const usedCat = String((pick && pick.category) || forceCat || 'generic').toLowerCase();
     const dbgEnd = { ..._poiDebugState() };
     const lookupDebug = {
@@ -3013,6 +3028,9 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             engine: 'hosted-poi-tiles',
             featureSourceKind: String(pick?.featureSourceKind || ''),
             featureLayer: String(pick?.featureLayer || ''),
+            selectedDistNm: Number(pick?.dist || 0),
+            selectedBrgDeg: Number(pick?.brng || 0),
+            selectedHasName: !!pick?.hasName,
             ...lookupDebug
         }
     };
@@ -4642,7 +4660,7 @@ function missionHasPassengerByPaxText(paxText) {
     return !/^\s*0\s*PAX\b/i.test(txt);
 }
 
-async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null, missionFireHazard = null) {
+async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null, missionFireHazard = null, poiTargetMeta = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
     if (!aiToggleBtn || !aiToggleBtn.checked) return null;
     const apiKeyInput = document.getElementById('apiKeyInput');
@@ -4886,6 +4904,17 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ? `13. POI-GUARDRAIL: Bei POI-Missionen sind Trainingsinhalte strikt verboten (kein Instructor, keine Airwork-/Platzrunden-Aufgaben).`
         : '';
     const promptDestName = isPoiTrainingMission ? `Übungsgebiet nahe ${startName}` : destName;
+    const poiLat = Number(poiTargetMeta?.lat);
+    const poiLon = Number(poiTargetMeta?.lon);
+    const poiHasCoords = Number.isFinite(poiLat) && Number.isFinite(poiLon);
+    const poiNameIsGeneric = /^(poi|zielgebiet|staudamm\/talsperre|gewaesser|gewasser|berg-\/talgebiet|funkmast\/funkturm\/windrad|industrieanlage)$/i.test(String(promptDestName || '').trim());
+    const poiConsistencyRule = isPOI
+        ? (poiHasCoords
+            ? (poiNameIsGeneric
+                ? `4b. POI-KONSISTENZ (zwingend): Zielpunkt ist exakt bei ${poiLat.toFixed(5)}, ${poiLon.toFixed(5)}. Nenne KEINEN konkreten Orts-/Gewässernamen, wenn keiner vorgegeben ist; bleibe bei "das Zielgebiet"/"${promptDestName}".`
+                : `4b. POI-KONSISTENZ (zwingend): Ziel ist exakt "${promptDestName}" bei ${poiLat.toFixed(5)}, ${poiLon.toFixed(5)}. Story und Begrüßung dürfen KEINEN anderen Orts-/Gewässernamen als Primärziel nennen.`)
+            : `4b. POI-KONSISTENZ (zwingend): Verwende exakt "${promptDestName}" als Zielbezug und nenne keinen alternativen Primär-Ortsnamen.`)
+        : '';
     const localKnowledgeRule = isPoiTrainingMission
         ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
         : `4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${promptDestName}" ganz natürlich ein.`;
@@ -4899,6 +4928,7 @@ REGELN:
 1) Thema-Pflicht: Der Auftrag MUSS zum Thema "${randomTheme}" passen.
 2) ${localKnowledgeRule}
 3) ${categoryRule || 'Kategorienkonsistenz beachten.'}
+3b) ${poiConsistencyRule || 'Zielkonsistenz beachten.'}
 4) ${isPOI ? `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.` : `ROUTEN-REGEL: Normaler Streckenflug von ${startName} nach ${promptDestName}.`}
 5) Erfinde passende PAX/Fracht (max ${maxPaxLimit} Personen). Falls niemand mitfliegt: "0 PAX".
 6) Erfinde genau einen Hauptpassagier.${isTrainingMission ? ' Bei Training IMMER Instruktor (nicht null).' : ' (oder null bei 0 PAX).'}
@@ -6023,7 +6053,19 @@ async function generateMission() {
     const aiModeEnabled = !!document.getElementById('aiToggle')?.checked;
 
     indicator.innerText = `Kontaktiere KI-Dispatcher...`;
-    let m = await fetchGeminiMission(start.n, dest.n, totalDist, isPOI, paxText, cargoText, poiTerrainFt, missionWeather, missionPickerResolved, missionFireHazard);
+    let m = await fetchGeminiMission(
+        start.n,
+        dest.n,
+        totalDist,
+        isPOI,
+        paxText,
+        cargoText,
+        poiTerrainFt,
+        missionWeather,
+        missionPickerResolved,
+        missionFireHazard,
+        { lat: Number(dest?.lat), lon: Number(dest?.lon), name: String(dest?.n || '') }
+    );
     _ensureDispatchAlive();
     if (m && dispatchProfileId !== 'auto' && !missionMatchesTaskProfile(m, dispatchProfileId, isPOI)) {
         console.warn('[DISPATCH] KI-Mission nicht profilkonsistent, falle auf lokale Missionen zurueck.', { dispatchProfileId, mission: m?.t || 'n/a' });
@@ -6209,6 +6251,9 @@ async function generateMission() {
             appliedProfile: dispatchSnapshot.appliedProfile,
             mission: dispatchSnapshot.mission,
             target: dispatchSnapshot.target,
+            targetCoords: (isPOI && Number.isFinite(dest?.lat) && Number.isFinite(dest?.lon))
+                ? `${Number(dest.lat).toFixed(5)}, ${Number(dest.lon).toFixed(5)}`
+                : null,
             source: m?._source || dataSource || 'n/a',
             poiSource: poiSource || null,
             poiLookup: poiLookup || null,

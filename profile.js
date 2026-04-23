@@ -2711,6 +2711,7 @@ window.vpBuildWeatherDebugReport = function() {
         if (missionSnap.requestedCategory) lines.push(`- Gewählt: ${missionSnap.requestedCategory}`);
         lines.push(`- Mission: ${missionSnap.mission || 'n/a'}`);
         lines.push(`- Ziel: ${missionSnap.target || 'n/a'}`);
+        if (missionSnap.targetCoords) lines.push(`- Ziel-Koordinaten: ${missionSnap.targetCoords}`);
         lines.push(`- Quelle: ${missionSnap.source || 'n/a'}`);
         if (missionSnap.poiSource) lines.push(`- POI-Fundquelle: ${missionSnap.poiSource}`);
         if (missionSnap.poiLookup && typeof missionSnap.poiLookup === 'object') {
