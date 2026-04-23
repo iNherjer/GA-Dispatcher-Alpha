@@ -1305,7 +1305,6 @@ function _baseContext() {
         ? 'ZEITRAHMEN: Zeitkritisch, Zeitdruck darf kurz genannt werden.'
         : 'ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation.';
 
-    const dialectProfile = _contextualDialectProfile(pax);
     const trainingPlan = _activeAptTrainingPlan();
     let contract = md?.missionContract || window.activeMissionContract || null;
     if (!contract) {
@@ -1323,23 +1322,24 @@ function _baseContext() {
     const fireHazardLine = (_activeTaskDomain() === 'fire_watch' && Number.isFinite(Number(fireHazard?.level)))
         ? `FEUERLAGE (DWD): Waldbrandgefahrenindex Stufe ${Math.round(Number(fireHazard.level))} von 5 (${String(fireHazard.label || 'n/a')})${fireHazard?.dateIso ? `, Stand ${fireHazard.dateIso}` : ''}.`
         : '';
-    const roleGuard = `ROLLENFIX: Du sprichst ausschließlich als ${pax.name} (${pax.role}) in Ich-Form. Keine Rollenvermischung mit anderen Personen aus der Story.`;
-    return `ROLLE: ${pax.name} (${pax.role}) · Persönlichkeit: ${pax.personality}
+    const roleGuard = `ROLLENFIX: Sprich ausschließlich als ${pax.name} (${pax.role}) in Ich-Form. Keine Rollenvermischung.`;
+    const lines = [
+`ROLLE: ${pax.name} (${pax.role}) · Persönlichkeit: ${pax.personality}
 FLUG: ${md.start || '?'} → ${md.poiName || md.dest || '?'} · ${md.dist || '?'} NM
 LOAD: ${cargo || 'n/a'}${payload ? ` · ${payload}` : ''}
 AUFTRAG (kurz): ${storyShort || 'n/a'}
 STIL: ${roleStyle}
-${trainingDiscipline}
 DRINGLICHKEIT: ${urgency}
-${urgencyLine}
-MISSION-CONTRACT: ${contractSummary || 'n/a'}
-CONTRACT-REGELN: ${contractRules || 'n/a'}
-${fireHazardLine}
-${roleGuard}
-REGION: ${dialectProfile.regionLabel} · Wortwahl ${dialectProfile.dialectHint} (${dialectProfile.strengthLabel})
-REGELN: ${_dialectGlobalRules(dialectProfile, pax.role)}
-TASK-DOMAIN: ${_activeTaskDomain()}
-AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).`;
+${urgencyLine}`
+    ];
+    if (trainingDiscipline) lines.push(trainingDiscipline);
+    if (contractSummary) lines.push(`MISSION-CONTRACT: ${contractSummary}`);
+    if (contractRules) lines.push(`CONTRACT-REGELN: ${contractRules}`);
+    if (fireHazardLine) lines.push(fireHazardLine);
+    lines.push(roleGuard);
+    lines.push(`TASK-DOMAIN: ${_activeTaskDomain()}
+AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).`);
+    return lines.join('\n');
 }
 
 function _roleStyleHint(roleRaw, pax = null) {
@@ -1719,58 +1719,44 @@ Erkläre dem Piloten verständnisvoll, dass wir die Mission abbrechen und zurüc
 // Shared tone instruction appended to every prompt
 function _toneHint() {
     if (_UNIFIED_INSTRUCTOR_BASELINE) {
-        const greetingLine = _paxGreetingDone
-            ? 'Keine erneute Begrüßung am Satzanfang.'
-            : 'Falls Begrüßung, dann sehr kurz.';
+        const greetingLine = _paxGreetingDone ? 'Keine neue Begrüßung am Satzanfang.' : 'Begrüßung höchstens sehr kurz.';
         const humorLine = _paxHumorLevel === 'subtle'
-            ? 'Humor praktisch aus: kein Witz, höchstens eine warme, natürliche Formulierung.'
+            ? 'Kein Witz.'
             : _paxHumorLevel === 'bold'
-                ? 'Humor hörbar und klar: baue genau eine kurze, sympathische Pointe ein (max. ein Teilsatz), aber nur wenn der Moment nicht sicherheitskritisch ist.'
+                ? 'Genau eine kurze, sympathische Pointe (nur wenn nicht sicherheitskritisch).'
                 : 'Humor kurz und freundlich.';
         return `
-Direkt an den Piloten (Du-Form), nie mit Namen.
-Neutral-standardsprachlich, ruhig, klar, praezise.
-Ich-Form, kurze Saetze, kein Amtsdeutsch, kein Erzählerstil.
-Natuerliche Umgangssprache erlaubt (z.B. "fuers", "zum", "beim", "ne Runde"), aber nicht uebertreiben.
+Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze.
+Neutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch.
 ${greetingLine}
-Keine dialektale Schreibweise/Lautschrift.
 ${humorLine}
-Bei Sicherheitsthemen, Warnungen, Notfaellen oder klarer Arbeitsanweisung: kein Humor.
-Locker, aber professionell und konsistent. Auf Deutsch.`;
+Bei Sicherheit/Warnung/Arbeitsanweisung: kein Humor.
+Nur Deutsch, kein Markdown.`;
     }
-    const profile = _contextualDialectProfile(window.activePassenger || null);
     const roleProfile = String(window.activePassenger?.roleProfile || '').toLowerCase();
     const isCharterNeutral = roleProfile === 'charter_professional_neutral_v1';
-    const region = String(profile?.regionLabel || '').toLowerCase();
-    const isSouthernRegion = /(baden|schwarzwald|wuerttemberg|schwaben|allgaeu|bayern|franken|berchtesgaden|schweiz|oesterreich)/.test(region);
     const humorLine = _paxHumorLevel === 'subtle'
-        ? 'Humor praktisch aus: kein Witz, höchstens eine freundliche Nuance.'
+        ? 'Kein Witz.'
         : _paxHumorLevel === 'bold'
-            ? 'Humor darf deutlich hörbar sein: baue genau eine kurze, sympathische Pointe ein (max. ein Teilsatz), aber nur wenn der Moment nicht sicherheitskritisch ist.'
-            : 'Humor in normaler Dosis: eine lockere, freundliche Pointe ist willkommen.';
+            ? 'Genau eine kurze, sympathische Pointe (nur wenn nicht sicherheitskritisch).'
+            : 'Humor kurz und freundlich.';
     const greetingLine = _paxGreetingDone
-        ? 'Keine erneute Begrüßung am Satzanfang (kein "Hi", "Hallo", "Moin", "Servus", "Sali"). Direkt mit dem Inhalt starten.'
-        : 'Wenn überhaupt, nur eine sehr kurze Begrüßung am Anfang (z.B. "Hi").';
-    const moinLine = isSouthernRegion
-        ? 'In dieser Region KEIN "Moin" verwenden. Falls Begrüßung, dann eher neutral "Hi" oder "Hey".'
-        : 'Nutze "Moin" nur wenn es regional wirklich passt, sonst neutral bleiben.';
+        ? 'Keine neue Begrüßung am Satzanfang.'
+        : 'Begrüßung höchstens kurz (z.B. "Hi").';
     const registerLine = isCharterNeutral
-        ? 'Sprache: klar, natürlich und professionell. Kein Dialekt, keine regionale Färbung, keine saloppen Regionalwörter.'
-        : 'Sprache: locker und einfach, kein steifes Hochdeutsch, kein Amtsdeutsch. Eher so, wie man im Cockpit wirklich redet.';
+        ? 'Sprache klar und professionell.'
+        : 'Sprache cockpitnah und natürlich, ohne Amtsdeutsch.';
     const colloquialLine = isCharterNeutral
-        ? 'Wortwahl überwiegend standardnah; Umgangssprache sparsam.'
-        : 'Leichte Umgangssprache okay (z.B. "grad"), aber normal schreiben.';
+        ? 'Wortwahl standardnah.'
+        : 'Leichte Umgangssprache okay, normal schreiben.';
     return `
-Sprich den Piloten direkt an (Du-Form), nie mit Namen. Ton: persönlich, spontan, cockpitnah.
+Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze.
 ${registerLine}
-Ich-Form. Kurze natürliche Sätze.
 ${colloquialLine}
 ${greetingLine}
-${moinLine}
-Keine Dialekt-Aussprache simulieren (keine Lautschrift). Keine Dialekt-Mischung.
 ${humorLine}
-Bei Sicherheitsthemen, Warnungen, Notfaellen oder klarer Arbeitsanweisung: kein Humor.
-Konstruktiv, menschlich, ermutigend. Auf Deutsch.`;
+Bei Sicherheit/Warnung/Arbeitsanweisung: kein Humor.
+Nur Deutsch, kein Markdown.`;
 }
 
 function _weatherContext(fd) {
