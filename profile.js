@@ -81,6 +81,8 @@ const VP_OBS_POOL_MAX_OBS = 12000;
 const VP_OBS_POOL_MAX_LIN = 8000;
 const VP_OBS_POOL_TTL_MS = 0; // 0 = rolling cache ohne Zeitablauf
 const VP_OBS_POOL_MAX_BYTES = 2_400_000;
+const VP_OBS_COMBO_PREFIX = 'ga_obs_combo_';
+const VP_OBS_COMBO_MAX_ENTRIES = 14;
 const VP_OBS_TILE_COVERAGE_KEY = 'ga_obs_tile_cov_v1';
 const VP_OBS_TILE_EDGE_NM = 25;
 const VP_OBS_TILE_STEP_LAT = VP_OBS_TILE_EDGE_NM / 60; // ~0.4167°
@@ -442,20 +444,89 @@ function vpPersistObsPoolSoon() {
         try {
             vpPruneObsPool();
             const packed = vpEncodeObsPoolWithBudget();
-            vpTrimMapNewest(vpObsPool.obs, packed.obsCount);
-            vpTrimMapNewest(vpObsPool.lin, packed.linCount);
+            // Wichtig: Nur die persistierte Snapshot-Groesse begrenzen.
+            // Den RAM-Pool nicht auf Persist-Größe zusammenschrumpfen, sonst
+            // verschwinden nach Routenwechseln visuell Features "zufaellig".
             localStorage.setItem(VP_OBS_POOL_STORAGE_KEY, packed.raw);
             if (window.vpWeatherDebug) window.vpWeatherDebug.overpassTileCoverageEntries = vpObsTileCoverage.size;
         } catch (_) {
             try {
-                // Fallback: aggressiv trimmen und ein zweiter Versuch.
-                vpTrimMapNewest(vpObsPool.obs, 1200);
-                vpTrimMapNewest(vpObsPool.lin, 800);
-                const fallbackRaw = JSON.stringify({ obs: Array.from(vpObsPool.obs.values()), lin: Array.from(vpObsPool.lin.values()) });
+                // Fallback: kleiner Snapshot nur fuer Persistenz, RAM-Pool bleibt erhalten.
+                const obsSnapshot = Array.from(vpObsPool.obs.values())
+                    .sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0))
+                    .slice(0, 1200);
+                const linSnapshot = Array.from(vpObsPool.lin.values())
+                    .sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0))
+                    .slice(0, 800);
+                const fallbackRaw = JSON.stringify({ obs: obsSnapshot, lin: linSnapshot });
                 localStorage.setItem(VP_OBS_POOL_STORAGE_KEY, fallbackRaw);
             } catch (_) { }
         }
     }, 400);
+}
+
+function vpListObsComboKeys() {
+    const keys = [];
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith(VP_OBS_COMBO_PREFIX)) keys.push(k);
+        }
+    } catch (_) { }
+    return keys;
+}
+
+function vpReadObsComboTs(key) {
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return 0;
+        const parsed = JSON.parse(raw);
+        return Number(parsed && parsed.ts) || 0;
+    } catch (_) {
+        return 0;
+    }
+}
+
+function vpPruneObsComboRouteCache(maxEntries = VP_OBS_COMBO_MAX_ENTRIES) {
+    const keys = vpListObsComboKeys();
+    if (keys.length <= maxEntries) return 0;
+    const victims = keys
+        .map(k => ({ k, ts: vpReadObsComboTs(k) }))
+        .sort((a, b) => (a.ts - b.ts))
+        .slice(0, Math.max(0, keys.length - maxEntries));
+    let removed = 0;
+    for (const v of victims) {
+        try {
+            localStorage.removeItem(v.k);
+            removed++;
+        } catch (_) { }
+    }
+    return removed;
+}
+
+function vpStoreObsComboRouteCache(cacheKey, obs, lin) {
+    const key = `${VP_OBS_COMBO_PREFIX}${cacheKey}`;
+    const payload = JSON.stringify({ ts: Date.now(), obs: obs || [], lin: lin || [] });
+    try {
+        vpPruneObsComboRouteCache(VP_OBS_COMBO_MAX_ENTRIES - 1);
+        localStorage.setItem(key, payload);
+        vpPruneObsComboRouteCache(VP_OBS_COMBO_MAX_ENTRIES);
+        return true;
+    } catch (e) {
+        // Quota voll: alte Route-Caches aggressiv aufraeumen und einmal retry.
+        try {
+            vpPruneObsComboRouteCache(6);
+            localStorage.setItem(key, payload);
+            vpPruneObsComboRouteCache(VP_OBS_COMBO_MAX_ENTRIES);
+            return true;
+        } catch (_) {
+            if (window.vpWeatherDebug) {
+                window.vpWeatherDebug.lastGlobalErrorAt = Date.now();
+                window.vpWeatherDebug.lastGlobalErrorMsg = (e && e.message) ? e.message : 'obs combo cache persist failed';
+            }
+            return false;
+        }
+    }
 }
 
 function vpRememberObstacleData(obsArr, linArr) {
@@ -1519,7 +1590,11 @@ function triggerVerticalProfileUpdate() {
                         }
                     }
 
-                    if (forceOverpassReload || !obStr || tileProbe.missing.length > 0) {
+                    // Wichtig: Nicht nur auf "Key existiert" prüfen.
+                    // Wenn der Route-Cache leer/kaputt ist oder keine nutzbaren Daten
+                    // enthält, müssen wir trotzdem live nachladen.
+                    const mustRefetch = forceOverpassReload || !hasUsableCache || tileProbe.missing.length > 0;
+                    if (mustRefetch) {
                         const result = await fetchProfileObstacles(vpElevationData, currentSignal, cacheKey, forceOverpassReload);
                         if (result !== null) { 
                             vpObstacles = result.obs || [];
@@ -1531,7 +1606,7 @@ function triggerVerticalProfileUpdate() {
                                 vpMarkTileKeysCovered(result.loadedTileKeys, (result && result.source) ? result.source : 'overpass');
                             }
                             try {
-                                localStorage.setItem('ga_obs_combo_' + cacheKey, JSON.stringify({ ts: Date.now(), obs: vpObstacles, lin: vpLinearFeatures }));
+                                vpStoreObsComboRouteCache(cacheKey, vpObstacles, vpLinearFeatures);
                                 window._lastObsRouteKey = cacheKey;
                             } catch(e) {}
                             if (!forceOverpassReload && result && Array.isArray(result.deferredTileKeys) && result.deferredTileKeys.length > 0) {
@@ -2594,6 +2669,19 @@ function vpApproxStorageBytes(key) {
     }
 }
 
+function vpApproxStorageBytesByPrefix(prefix) {
+    let total = 0;
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k || !k.startsWith(prefix)) continue;
+            const raw = localStorage.getItem(k);
+            if (raw) total += raw.length * 2;
+        }
+    } catch (_) { }
+    return total;
+}
+
 function vpFormatBytes(bytes) {
     const b = Number(bytes || 0);
     if (b < 1024) return `${b} B`;
@@ -2675,8 +2763,11 @@ window.vpBuildWeatherDebugReport = function() {
     const rollingPoolBytes = vpApproxStorageBytes(VP_OBS_POOL_STORAGE_KEY);
     const rollingTileBytes = vpApproxStorageBytes(VP_OBS_TILE_COVERAGE_KEY);
     const rollingFailBytes = vpApproxStorageBytes(VP_OBS_TILE_FAILED_KEY);
+    const rollingComboBytes = vpApproxStorageBytesByPrefix(VP_OBS_COMBO_PREFIX);
+    const rollingComboCount = vpListObsComboKeys().length;
     const rollingTotalBytes = rollingPoolBytes + rollingTileBytes + rollingFailBytes;
     lines.push(`- Rolling Cache Größe: ${vpFormatBytes(rollingTotalBytes)} (Pool ${vpFormatBytes(rollingPoolBytes)}, Tiles ${vpFormatBytes(rollingTileBytes)}, Failed ${vpFormatBytes(rollingFailBytes)})`);
+    lines.push(`- Route-Cache (ga_obs_combo_*): ${rollingComboCount} Einträge, ${vpFormatBytes(rollingComboBytes)}`);
     lines.push('');
     lines.push('Trigger / Flows');
     lines.push(`- Profil-Fetches: ${dbg.profileRouteFetches || 0}`);
@@ -3720,14 +3811,18 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs 
             // Nabe wächst proportional mit
             ctx.beginPath(); ctx.arc(px, pyHub, Math.max(1.5, r * 0.15), 0, Math.PI * 2); ctx.fillStyle = '#ccc'; ctx.fill();
         } else {
-            // Normale Masten (ohne Rotoren) - mindestens 2px über dem Boden sichtbar
-            const pyTop = pyGround - Math.max(2, trueHeightPx);
+            // Normale Masten: dynamisch skalieren wie Windrad-Symbolik,
+            // aber bewusst nur 50% der visuellen Gesamtgröße.
+            const visualTotalHeight = trueHeightPx + 8;
+            const mastVisualHeight = Math.max(7, visualTotalHeight * 0.5);
+            const pyTop = pyRoot - mastVisualHeight;
             ctx.beginPath(); ctx.moveTo(px, pyRoot); ctx.lineTo(px, pyTop);
             ctx.strokeStyle = 'rgba(80, 80, 80, 0.9)'; ctx.lineWidth = 1.5; ctx.stroke();
 
             // ANIMATION: Blinkendes Licht
             const blink = 0.3 + 0.6 * (Math.sin(timeMs * 0.005 + obs.distNM * 50) * 0.5 + 0.5);
-            ctx.beginPath(); ctx.arc(px, pyTop, 2, 0, Math.PI * 2); ctx.fillStyle = `rgba(217, 56, 41, ${blink})`; ctx.fill();
+            const beaconR = Math.max(2, mastVisualHeight * 0.16);
+            ctx.beginPath(); ctx.arc(px, pyTop, beaconR, 0, Math.PI * 2); ctx.fillStyle = `rgba(217, 56, 41, ${blink})`; ctx.fill();
         }
 
         rawLabels.push({ x: px, yBase: pyRoot, count: obs.count || 1 });

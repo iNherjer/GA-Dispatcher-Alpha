@@ -2528,6 +2528,41 @@ function _poiCandidateKindTag(p = null) {
     return `${layer || 'poi'}:${source}`;
 }
 
+function _poiCandidateClusterTag(p = null) {
+    const raw = String(p?.n || '').trim();
+    const n = normalizeMissionText(raw);
+    const layer = String(p?.featureLayer || '').toLowerCase();
+    const source = String(p?.featureSourceKind || '').toLowerCase();
+    let base = n
+        .replace(/\banlage\s*\d+\b/g, 'anlage')
+        .replace(/\b(mast|tower|pole)\s*#?\s*\d+\b/g, '$1')
+        .replace(/\b(leitung|trasse)\s*#?\s*\d+\b/g, '$1')
+        .replace(/\bsegment\s*#?\s*\d+\b/g, 'segment')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!base) {
+        const qLat = (Math.round(Number(p?.lat || 0) * 20) / 20).toFixed(2);
+        const qLon = (Math.round(Number(p?.lon || 0) * 20) / 20).toFixed(2);
+        base = `${layer || 'poi'}@${qLat}|${qLon}`;
+    }
+    return `${base}|${layer || 'poi'}|${source}`;
+}
+
+function _poiLimitPerCluster(pool = [], maxPerCluster = 2) {
+    const src = Array.isArray(pool) ? pool.filter(Boolean) : [];
+    const cap = Math.max(1, Number(maxPerCluster || 2));
+    const out = [];
+    const counts = new Map();
+    for (const p of src) {
+        const ck = _poiCandidateClusterTag(p);
+        const used = Number(counts.get(ck) || 0);
+        if (used >= cap) continue;
+        counts.set(ck, used + 1);
+        out.push(p);
+    }
+    return out.length ? out : src;
+}
+
 function _pickPoiCandidateWithHistory(pool = [], category = 'generic', topN = 8, anchor = null) {
     const src = Array.isArray(pool) ? pool.filter(Boolean) : [];
     if (!src.length) return null;
@@ -2537,6 +2572,7 @@ function _pickPoiCandidateWithHistory(pool = [], category = 'generic', topN = 8,
     const historyKey = `ga_poi_target_history_${cat}`;
     const localHistoryKey = `ga_poi_target_history_${cat}_${anchorBucket}`;
     const localKindKey = `ga_poi_target_last_kind_${cat}_${anchorBucket}`;
+    const localClusterKey = `ga_poi_target_last_cluster_${cat}_${anchorBucket}`;
     let history = [];
     let localHistory = [];
     try { history = JSON.parse(localStorage.getItem(historyKey) || '[]'); } catch (_) { history = []; }
@@ -2544,6 +2580,8 @@ function _pickPoiCandidateWithHistory(pool = [], category = 'generic', topN = 8,
     if (!Array.isArray(history)) history = [];
     if (!Array.isArray(localHistory)) localHistory = [];
     const lastKind = String(localStorage.getItem(localKindKey) || '');
+    const lastCluster = String(localStorage.getItem(localClusterKey) || '');
+    const clusterSensitive = (cat === 'infrastructure' || cat === 'telecom');
 
     const sigOf = (p) => `${String(p?.n || '').toLowerCase()}|${Number(p?.lat || 0).toFixed(4)}|${Number(p?.lon || 0).toFixed(4)}`;
     const bestRank = Number(candidates[0]?.rank || 0);
@@ -2561,9 +2599,14 @@ function _pickPoiCandidateWithHistory(pool = [], category = 'generic', topN = 8,
         const altKind = fresh.filter(p => _poiCandidateKindTag(p) !== lastKind);
         if (altKind.length) diversified = altKind;
     }
+    if (clusterSensitive && lastCluster) {
+        const altCluster = diversified.filter(p => _poiCandidateClusterTag(p) !== lastCluster);
+        if (altCluster.length) diversified = altCluster;
+    }
     const pick = diversified[Math.floor(Math.random() * diversified.length)] || scorePool[0] || candidates[0];
     const sig = sigOf(pick);
     const kind = _poiCandidateKindTag(pick);
+    const cluster = _poiCandidateClusterTag(pick);
     history.push(sig);
     localHistory.push(sig);
     if (history.length > 24) history.shift();
@@ -2571,6 +2614,7 @@ function _pickPoiCandidateWithHistory(pool = [], category = 'generic', topN = 8,
     try { localStorage.setItem(historyKey, JSON.stringify(history)); } catch (_) {}
     try { localStorage.setItem(localHistoryKey, JSON.stringify(localHistory)); } catch (_) {}
     try { localStorage.setItem(localKindKey, kind); } catch (_) {}
+    try { localStorage.setItem(localClusterKey, cluster); } catch (_) {}
     return pick;
 }
 
@@ -3467,7 +3511,10 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         pool = pool.filter(p => p.category === targetCat);
     }
     pool.sort((a, b) => (b.rank - a.rank) || (b.score - a.score) || (a.dist - b.dist));
-    const top = pool.slice(0, Math.min(12, pool.length));
+    const topRaw = pool.slice(0, Math.min(12, pool.length));
+    const top = (forceCat === 'infrastructure' || forceCat === 'telecom')
+        ? _poiLimitPerCluster(topRaw, 2)
+        : topRaw;
     const pick = _pickPoiCandidateWithHistory(top, (top[0]?.category || forceCat || 'generic'), 12, anchor) || top[0] || pool[0];
     const usedCat = String((pick && pick.category) || forceCat || 'generic').toLowerCase();
     const dbgBeforeFinalMark = { ..._poiDebugState() };
