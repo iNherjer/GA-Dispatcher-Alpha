@@ -67,6 +67,14 @@ function generateDynamicPOIMission(poiName, maxSeats, forcedCategory = null) {
             { i: "🔥", t: `Gefahren-Abwehr: ${poiName}`, s: `Es gab eine Verpuffung in einem der Silos bei ${poiName}. Der Einsatzleiter der Feuerwehr ist an Bord und verschafft sich einen Überblick.`, p: "1 PAX (Einsatzleiter)", w: "Funk-Relais (50 lbs)" }
         ];
     }
+    else if (poiCat === "infrastructure" || normalizedName.includes("bahn") || normalizedName.includes("gleis") || normalizedName.includes("rail") || normalizedName.includes("railway") || normalizedName.includes("umspannwerk") || normalizedName.includes("hochspannung") || normalizedName.includes("freileitung") || normalizedName.includes("stromtrasse")) {
+        templates = [
+            { i: "🛠️", t: `Infrastruktur-Inspektion: ${poiName}`, s: `Ein Infrastruktur-Team prüft bei ${poiName} Straßen-, Bahn- und Energietrassen auf Schäden. Halte ruhige, reproduzierbare Überflüge.`, p: "1 PAX (Infrastruktur-Techniker)", w: "Inspektionskoffer und Tablet (42 lbs)" },
+            { i: "📐", t: `Trassen-Vermessung: ${poiName}`, s: `Für ${poiName} läuft ein Vermessungsflug entlang von Verkehrs- und Stromkorridoren. Fliege stabil mit klaren Sichtfenstern für die Auswertung.`, p: "1 PAX (Vermessung)", w: "Lidar- und Messpaket (88 lbs)" },
+            { i: "🚨", t: `Korridor-Kontrollflug: ${poiName}`, s: `Nach einem gemeldeten Vorfall soll der Abschnitt bei ${poiName} entlang Straße, Schiene und Trasse aus der Luft kontrolliert werden.`, p: "1 PAX (Kontrollingenieur)", w: "Dokukit und Wärmekamera (54 lbs)" },
+            { i: "🛰️", t: `Netz-Check: ${poiName}`, s: `Ein Technikteam bewertet die Netzinfrastruktur bei ${poiName} und braucht präzise Luftaufnahmen von Masten, Knoten und Trassenverlauf.`, p: "1 PAX (Netztechniker)", w: "Spektrumanalysator und Kamera (63 lbs)" }
+        ];
+    }
     else if (poiCat === "castle" || normalizedName.includes("burg") || normalizedName.includes("schloss") || normalizedName.includes("ruine") || normalizedName.includes("festung") || normalizedName.includes("kloster") || normalizedName.includes("dom") || normalizedName.includes("monument") || normalizedName.includes("denkmal")) {
         templates = [
             { i: "🏰", t: `Historik-Flug: ${poiName}`, s: `Ein Historiker benötigt hochauflösende Luftaufnahmen von ${poiName}, um alte Mauerstrukturen im Umland zu erkennen. Kreise mehrmals in ruhiger Höhe.`, p: paxGov, w: cargoMedia },

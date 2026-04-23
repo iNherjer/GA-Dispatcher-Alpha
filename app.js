@@ -206,6 +206,7 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'poi:dam', classic: 'POI · Staudamm/Talsperre', radioShort: 'POI DAM', radioFull: 'POI · Staudamm/Talsperre' },
         { value: 'poi:telecom', classic: 'POI · Funkmast/Funkturm', radioShort: 'POI TEL', radioFull: 'POI · Funkmast/Funkturm' },
         { value: 'poi:industry', classic: 'POI · Industrie/Anlagen', radioShort: 'POI IND', radioFull: 'POI · Industrie/Anlagen' },
+        { value: 'poi:infrastructure', classic: 'POI · Infrastruktur (Straße/Bahn/Strom)', radioShort: 'POI INF', radioFull: 'POI · Infrastruktur (Straße/Bahn/Strom)' },
         { value: 'poi:castle', classic: 'POI · Burg/Schloss', radioShort: 'POI CST', radioFull: 'POI · Burg/Schloss' },
         { value: 'poi:water', classic: 'POI · Fluss/See/Küste', radioShort: 'POI WTR', radioFull: 'POI · Fluss/See/Küste' },
         { value: 'poi:mountain', classic: 'POI · Berg/Tal', radioShort: 'POI MTN', radioFull: 'POI · Berg/Tal' },
@@ -659,6 +660,10 @@ function _offlinePoiCategoryFallbacks(category = 'all', poiName = 'Zielgebiet') 
             { t: `Anlagen-Dokumentation: ${n}`, i: '🏭', cat: 'poi', s: `Für ${n} werden aktuelle Luftaufnahmen des Anlagenzustands benötigt. Fokus auf strukturierte Überflüge.`, payloadText: '1 PAX (Inspektion)', cargoText: 'Kamera-Set (70 lbs)' },
             { t: `Sicherheitsbegehung Luft: ${n}`, i: '🦺', cat: 'poi', s: `Das Sicherheitsteam bewertet kritische Bereiche von ${n} aus der Luft. Fliege präzise und ohne Hektik.`, payloadText: '1 PAX (Safety)', cargoText: 'Checklisten & Tablet (20 lbs)' }
         ],
+        infrastructure: [
+            { t: `Infrastruktur-Inspektion: ${n}`, i: '🛠️', cat: 'poi', s: `Entlang ${n} werden Straße, Bahn und Energieinfrastruktur auf Auffälligkeiten geprüft. Fliege stabil mit klaren Beobachtungsfenstern.`, payloadText: '1 PAX (Infrastruktur-Techniker)', cargoText: 'Inspektionskoffer und Tablet (42 lbs)' },
+            { t: `Trassen-Vermessung: ${n}`, i: '📐', cat: 'poi', s: `Für ${n} ist ein Kontroll- und Vermessungsflug entlang von Trassen und Netzknoten geplant. Fokus auf saubere, reproduzierbare Linien.`, payloadText: '1 PAX (Vermessung)', cargoText: 'Lidar- und Messpaket (88 lbs)' }
+        ],
         castle: [
             { t: `Denkmaldoku: ${n}`, i: '🏰', cat: 'poi', s: `Für ${n} werden aktuelle Luftbilder für den Denkmalschutz benötigt. Ruhige Kreise für saubere Perspektiven.`, payloadText: '1 PAX (Denkmalpflege)', cargoText: 'Fotoausrüstung (35 lbs)' },
             { t: `Tourismus-Aufnahmen: ${n}`, i: '📸', cat: 'poi', s: `Der Tourismusverband plant neues Bildmaterial für ${n}. Fliege einen ruhigen Fotoeinsatz.`, payloadText: '1 PAX (Fotograf)', cargoText: 'Teleobjektive (40 lbs)' }
@@ -699,8 +704,8 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
             { t: `Medienlage: ${n}`, i: '🎥', cat: 'poi', s: `Für ${n} wird eine nüchterne Luftbeobachtung für einen TV-Beitrag benötigt.`, payloadText: '1 PAX (TV-Reporter)', cargoText: 'Kamera- und Audio-Set (32 lbs)' }
         ],
         search_and_rescue: [
-            { t: `SAR-Suchmuster: ${n}`, i: '🛟', cat: 'poi', s: `Im Bereich ${n} wird eine vermisste Person gesucht. Fliege ein strukturiertes SAR-Suchmuster und melde Auffälligkeiten sofort.`, payloadText: '1 PAX (SAR-Koordination)', cargoText: 'Optik- und SAR-Kit (24 lbs)' },
-            { t: `Rettungsaufklärung: ${n}`, i: '🚨', cat: 'poi', s: `Für ${n} wird ein Luftlagebild für Rettungskräfte benötigt. Priorität liegt auf klaren Calls und Suchsektoren.`, payloadText: '1 PAX (Rettungskoordinator)', cargoText: 'Signalmittel und Kartenpaket (16 lbs)' }
+            { t: `SAR-Suchmuster: ${n}`, i: '🛟', cat: 'poi', s: `Im Bereich ${n} wird entlang von Trassen, Flusslauf und Bahnstrecke gesucht. Fliege ein strukturiertes SAR-Suchmuster und melde Auffälligkeiten sofort.`, payloadText: '1 PAX (SAR-Koordination)', cargoText: 'Optik- und SAR-Kit (24 lbs)' },
+            { t: `Rettungsaufklärung: ${n}`, i: '🚨', cat: 'poi', s: `Für ${n} wird ein Luftlagebild möglicher Unfallkorridore an Straße, Fluss und Schiene benötigt. Priorität liegt auf klaren Calls und Suchsektoren.`, payloadText: '1 PAX (Rettungskoordinator)', cargoText: 'Signalmittel und Kartenpaket (16 lbs)' }
         ],
         fire_watch: [
             { t: `Fire Watch: ${n}`, i: '🔥', cat: 'poi', s: `Im Gebiet ${n} wird Feuerwacht geflogen. Halte Ausschau nach Rauchfahnen, Hotspots und neuen Brandherden.`, payloadText: '1 PAX (Brandbeobachtung)', cargoText: 'Feuerlage-Mapset (10 lbs)' },
@@ -728,7 +733,7 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
 
 function buildOfflinePoiMissionPool(selectedPoiCategory = 'all', dispatchProfileId = 'auto', poiName = 'Zielgebiet') {
     const profileId = String(dispatchProfileId || 'auto').toLowerCase();
-    const poiCategories = ['bridge', 'road', 'dam', 'telecom', 'industry', 'castle', 'water', 'mountain', 'city', 'generic'];
+    const poiCategories = ['bridge', 'road', 'dam', 'telecom', 'industry', 'infrastructure', 'castle', 'water', 'mountain', 'city', 'generic'];
     const requestedCategory = String(selectedPoiCategory || 'all').toLowerCase();
     const rolledCategory = (requestedCategory === 'all')
         ? poiCategories[Math.floor(Math.random() * poiCategories.length)]
@@ -2349,7 +2354,7 @@ function _hasWordToken(text, token) {
 function classifyPOITitleCategory(title) {
     const t = normalizeMissionText(title);
     if (t.includes("bruecke") || t.includes("brucke") || t.includes("bridge") || t.includes("viadukt") || t.includes("aquadukt") || t.includes("steg") || t.includes("pont") || t.includes("puente")) return "bridge";
-    if (t.includes("autobahn") || t.includes("kreuz") || t.includes("dreieck") || t.includes("kreuzung") || t.includes("strasse") || t.includes("highway") || t.includes("motorway") || t.includes("interstate") || t.includes("freeway") || t.includes("ring") || t.includes("junction") || t.includes("interchange") || t.includes("tunnel")) return "road";
+    if (t.includes("autobahn") || t.includes("kreuz") || t.includes("dreieck") || t.includes("kreuzung") || t.includes("strasse") || t.includes("highway") || t.includes("motorway") || t.includes("interstate") || t.includes("freeway") || t.includes("ring") || t.includes("junction") || t.includes("interchange") || t.includes("tunnel") || t.includes("bahn") || t.includes("rail") || t.includes("railway") || t.includes("gleis") || t.includes("bahnhof")) return "road";
     if (
         _hasWordToken(t, "staudamm") ||
         _hasWordToken(t, "talsperre") ||
@@ -2423,10 +2428,30 @@ function scoreFirePOITitle(title) {
     return score;
 }
 
+function _isInfrastructurePOITitle(title) {
+    const t = normalizeMissionText(title);
+    const byCategory = classifyPOITitleCategory(title);
+    if (byCategory === 'road' || byCategory === 'telecom' || byCategory === 'industry' || byCategory === 'bridge') return true;
+    return (
+        _hasWordToken(t, 'bahn') ||
+        _hasWordToken(t, 'bahnhof') ||
+        _hasWordToken(t, 'gleis') ||
+        _hasWordToken(t, 'schiene') ||
+        _hasWordToken(t, 'rail') ||
+        _hasWordToken(t, 'railway') ||
+        _hasWordToken(t, 'strom') ||
+        _hasWordToken(t, 'hochspannung') ||
+        _hasWordToken(t, 'freileitung') ||
+        _hasWordToken(t, 'umspannwerk') ||
+        _hasWordToken(t, 'kraftwerk')
+    );
+}
+
 function poiTitleMatchesCategory(title, category) {
     const wanted = String(category || '').toLowerCase();
     if (!wanted || wanted === 'all') return true;
     if (wanted === 'fire') return isFirePOITitle(title);
+    if (wanted === 'infrastructure') return _isInfrastructurePOITitle(title);
     return classifyPOITitleCategory(title) === wanted;
 }
 
@@ -2563,6 +2588,7 @@ function _poiNormalizeFeatureName(raw, fallbackCategory = 'poi') {
     if (c === 'industry') return 'Industrieanlage';
     if (c === 'city') return 'Stadtgebiet';
     if (c === 'bridge') return 'Brücke/Viadukt';
+    if (c === 'infrastructure') return 'Infrastrukturkorridor';
     return 'POI';
 }
 
@@ -2584,6 +2610,7 @@ function _poiFeatureFromTileNode(node, src = 'tile') {
             natural: String(node?.natural || '').toLowerCase(),
             landuse: String(node?.landuse || '').toLowerCase(),
             power: String(node?.power || '').toLowerCase(),
+            railway: String(node?.railway || '').toLowerCase(),
             man_made: String(node?.man_made || '').toLowerCase(),
             tourism: String(node?.tourism || '').toLowerCase(),
             historic: String(node?.historic || '').toLowerCase(),
@@ -2620,7 +2647,8 @@ function _poiParseTilePayload(payload) {
         const legacyType = String(e?.type || '').toLowerCase();
         const layer = String(e?.layer || '').toLowerCase() || (
             legacyType === 'highway' ? 'road' :
-            legacyType === 'river' ? 'hydro' : ''
+            legacyType === 'river' ? 'hydro' :
+            legacyType === 'railway' ? 'rail' : ''
         );
         const f = _poiFeatureFromTileNode({
             ...e,
@@ -2667,6 +2695,17 @@ function _poiFeatureMatchesCategory(feature, category) {
         !!t.highway ||
         t.layer === 'road' ||
         rawType === 'highway'
+    );
+    const isRail = (
+        !!t.railway ||
+        t.layer === 'rail' ||
+        rawType === 'railway' ||
+        _hasWordToken(n, 'bahn') ||
+        _hasWordToken(n, 'bahnhof') ||
+        _hasWordToken(n, 'gleis') ||
+        _hasWordToken(n, 'schiene') ||
+        _hasWordToken(n, 'rail') ||
+        _hasWordToken(n, 'railway')
     );
     const isTelecom = (
         ['tower', 'mast'].includes(t.man_made) ||
@@ -2716,6 +2755,17 @@ function _poiFeatureMatchesCategory(feature, category) {
         _hasWordToken(n, 'fabrik') ||
         _hasWordToken(n, 'anlage')
     );
+    const isInfrastructure = (
+        isRoad ||
+        isRail ||
+        isTelecom ||
+        isIndustry ||
+        isBridge ||
+        ['line', 'minor_line', 'cable'].includes(t.power) ||
+        _hasWordToken(n, 'strom') ||
+        _hasWordToken(n, 'hochspannung') ||
+        _hasWordToken(n, 'freileitung')
+    );
     const isFire = (
         isMountain ||
         _hasWordToken(n, 'wald') ||
@@ -2727,18 +2777,21 @@ function _poiFeatureMatchesCategory(feature, category) {
     if (cat === 'water') return isWater;
     if (cat === 'dam') return isDam;
     if (cat === 'road') return isRoad;
+    if (cat === 'rail') return isRail;
     if (cat === 'telecom') return isTelecom;
     if (cat === 'bridge') return isBridge;
     if (cat === 'mountain') return isMountain;
     if (cat === 'castle') return isCastle;
     if (cat === 'city') return isCity;
     if (cat === 'industry') return isIndustry;
+    if (cat === 'infrastructure') return isInfrastructure;
+    if (cat === 'sar_corridor') return (isRoad || isRail || isBridge || isWater || isInfrastructure);
     if (cat === 'fire') return isFire;
     return false;
 }
 
 function _poiInferCategoryFromFeature(feature) {
-    const order = ['dam', 'water', 'telecom', 'bridge', 'road', 'castle', 'mountain', 'industry', 'city', 'fire'];
+    const order = ['dam', 'water', 'telecom', 'bridge', 'road', 'castle', 'mountain', 'industry', 'city', 'infrastructure', 'fire'];
     for (const cat of order) {
         if (_poiFeatureMatchesCategory(feature, cat)) return cat;
     }
@@ -2763,10 +2816,25 @@ function _poiFeatureScore(feature, category) {
         const major = ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link'];
         if (major.includes(t.highway)) score += 6;
         if (t.highway) score += 2;
+    } else if (cat === 'rail') {
+        const majorRail = ['rail', 'light_rail', 'subway', 'tram'];
+        if (majorRail.includes(t.railway)) score += 7;
+        if (t.railway) score += 3;
     } else if (cat === 'telecom') {
         if (['tower', 'mast'].includes(t.man_made)) score += 7;
         if (['tower', 'pole'].includes(t.power)) score += 4;
         if (t.obstacle_type.includes('wind') || String(feature?.rawType || '').toLowerCase().includes('wind')) score += 6;
+    } else if (cat === 'infrastructure') {
+        const majorRoad = ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link'];
+        const majorRail = ['rail', 'light_rail', 'subway', 'tram'];
+        if (majorRoad.includes(t.highway)) score += 6;
+        if (t.highway) score += 2;
+        if (majorRail.includes(t.railway)) score += 7;
+        if (t.railway) score += 3;
+        if (['line', 'minor_line', 'cable'].includes(t.power)) score += 5;
+        if (['tower', 'pole'].includes(t.power)) score += 4;
+        if (['substation', 'plant', 'generator', 'transformer'].includes(t.power)) score += 5;
+        if (['tower', 'mast', 'bridge'].includes(t.man_made)) score += 4;
     } else if (cat === 'mountain') {
         if (['peak', 'valley', 'cliff', 'ridge'].includes(t.natural)) score += 6;
     } else if (cat === 'castle') {
@@ -2936,11 +3004,14 @@ function _shouldIncludeCoreForPoiSearch(forcedCategory = null, dispatchProfileId
     const cat = String(forcedCategory || '').toLowerCase();
     const profile = String(dispatchProfileId || 'auto').toLowerCase();
     if (profile === 'inspection_infra') return true;
-    return ['telecom', 'road', 'dam', 'bridge', 'industry'].includes(cat);
+    if (profile === 'search_and_rescue') return true;
+    return ['telecom', 'road', 'dam', 'bridge', 'industry', 'infrastructure'].includes(cat);
 }
 
 async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null, dispatchProfileId = 'auto') {
     const forceCat = String(forcedCategory || '').toLowerCase();
+    const profileId = String(dispatchProfileId || '').toLowerCase();
+    const sarCorridorMode = profileId === 'search_and_rescue' && (!forceCat || forceCat === 'all');
     if (forceCat === 'trn') return null;
     const includeCore = _shouldIncludeCoreForPoiSearch(forceCat, dispatchProfileId);
     const allowLegacyFallback = !forceCat || forceCat === 'all';
@@ -2979,6 +3050,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const inferredCat = _poiInferCategoryFromFeature(f);
         const wantedCat = (!forceCat || forceCat === 'all') ? inferredCat : forceCat;
         if (forceCat && forceCat !== 'all' && !_poiFeatureMatchesCategory(f, forceCat)) continue;
+        if (sarCorridorMode && !_poiFeatureMatchesCategory(f, 'sar_corridor')) continue;
 
         const rawName = String(f?.name || '').trim();
         const name = _poiNormalizeFeatureName(rawName, wantedCat);
@@ -4410,6 +4482,9 @@ function _poiCategoryTaskPool(category = 'generic') {
     if (c === 'telecom') {
         return ['mapping_survey', 'mapping_survey', 'news_coverage', 'historian_guided_tour'];
     }
+    if (c === 'infrastructure') {
+        return ['mapping_survey', 'mapping_survey', 'news_coverage', 'science_geo', 'search_and_rescue'];
+    }
     if (c === 'castle' || c === 'city') {
         return ['historian_guided_tour', 'historian_guided_tour', 'sightseeing_tour', 'news_coverage'];
     }
@@ -4726,7 +4801,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         science_bio: ['Biologischer Beobachtungsflug mit ruhiger, sauberer Dokumentation'],
         science_geo: ['Geologischer Beobachtungsflug mit Fokus auf Relief und Erosion'],
         mapping_survey: ['Praeziser Mapping-/Survey-Flug mit stabilen Passes'],
-        search_and_rescue: ['SAR-Suchflug mit strukturiertem Suchmuster und Lagebild'],
+        search_and_rescue: ['SAR-Suchflug entlang Trassen, Flussläufen und Bahnstrecken mit strukturiertem Muster und klarem Lagebild'],
         fire_watch: ['Feuerwacht mit Fokus auf Rauchfahnen und Hotspots']
     };
     const poiThemesByCat = {
@@ -4735,6 +4810,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         dam: ["Infrastruktur-Inspektion (Staudamm/Talsperre)"],
         telecom: ["Infrastruktur-Inspektion (Funkmast/Funkturm)"],
         industry: ["Infrastruktur-Inspektion (Industrieanlage)"],
+        infrastructure: ["Infrastruktur-Inspektion (Straße/Bahn/Strom)", "Kontroll- und Vermessungsflug entlang Verkehrs- und Energietrassen"],
         castle: ["Tourismus & Sightseeing", "Luftbildfotografie (Medien/Immobilien)"],
         water: ["Natur- & Umweltschutz (Beobachtung)", "Wissenschaftliche Datenerfassung"],
         mountain: ["Natur- & Umweltschutz (Beobachtung)", "Luftbildfotografie (Medien/Immobilien)"],
