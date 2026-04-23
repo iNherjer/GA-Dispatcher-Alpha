@@ -161,6 +161,7 @@ let _poiTrainingLastDistToDestNm = null; // trend helper: detect outbound vs. re
 let _poiTrainingPreBriefDone = false; // 4 NM before training area
 let _poiTrainingZoneStartDone = false; // when entering training area
 let _poiTrainingLandingBriefDone = false; // 5/4 NM before landing on return leg
+let _poiNarrativeMemory = { pre: '', entry: '', done: '' }; // anti-repeat memory across POI phases
 
 window.paxVoiceResetMission = function() {
     _paxGreetingDone  = false;
@@ -212,7 +213,46 @@ window.paxVoiceResetMission = function() {
     _poiTrainingPreBriefDone = false;
     _poiTrainingZoneStartDone = false;
     _poiTrainingLandingBriefDone = false;
+    _poiNarrativeMemory = { pre: '', entry: '', done: '' };
 };
+
+function _poiMemoryCompact(text) {
+    const s = String(text || '')
+        .replace(/\s+/g, ' ')
+        .replace(/\b(äh|aeh|halt|quasi|sozusagen)\b/gi, '')
+        .trim();
+    if (!s) return '';
+    const parts = s.split(/[.!?]/).map(x => x.trim()).filter(Boolean);
+    const first = parts[0] || s;
+    return first.length > 180 ? `${first.slice(0, 177)}...` : first;
+}
+
+function _capturePoiNarrativeMemory(eventLabel, spokenText) {
+    if (!_isPOIMission()) return;
+    const ev = String(eventLabel || '').toLowerCase();
+    const compact = _poiMemoryCompact(spokenText);
+    if (!compact) return;
+    if (ev.includes('objekt in sicht')) _poiNarrativeMemory.pre = compact;
+    else if (ev.includes('zielgebiet')) _poiNarrativeMemory.entry = compact;
+    else if (ev.includes('ziel erfüllt') || ev.includes('ziel erfuellt') || ev.includes('am ziel')) _poiNarrativeMemory.done = compact;
+}
+
+function _poiNoRepeatHint(stage = 'entry') {
+    if (!_isPOIMission()) return '';
+    const used = [];
+    if (stage === 'entry') {
+        if (_poiNarrativeMemory.pre) used.push(_poiNarrativeMemory.pre);
+    } else if (stage === 'result') {
+        if (_poiNarrativeMemory.pre) used.push(_poiNarrativeMemory.pre);
+        if (_poiNarrativeMemory.entry) used.push(_poiNarrativeMemory.entry);
+    } else {
+        if (_poiNarrativeMemory.pre) used.push(_poiNarrativeMemory.pre);
+        if (_poiNarrativeMemory.entry) used.push(_poiNarrativeMemory.entry);
+        if (_poiNarrativeMemory.done) used.push(_poiNarrativeMemory.done);
+    }
+    if (!used.length) return '';
+    return ` Bereits genannt (nicht wiederholen, nicht paraphrasieren): ${used.join(' | ')}. Liefere stattdessen neue, konkrete Zusatzinfos.`;
+}
 
 function _isPattonvilleMissionTarget() {
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
@@ -1295,6 +1335,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel) {
 
     _lastSpokenText = spokenText;
     _lastSpokenSpeaker = speakerSnapshot;
+    _capturePoiNarrativeMemory(eventLabel, spokenText);
     _showPaxMessage(spokenText, eventLabel);
 
     if (!_paxVoiceEnabled) {
@@ -1601,10 +1642,12 @@ function _poiEntryPrompt(flightData) {
     const trainingHint = trainingPlan
         ? ' Als Instruktor: bleib strikt prozedural. Fokus auf Flugweg, Maschine, Luftraum-Scan und Sicherheitsverfahren. Keine Ortsfakten, keine Geschichte, kein Schwärmen.'
         : '';
+    const noRepeatHint = _poiNoRepeatHint('entry');
     return `${ctx}
 
 Moment: Das Zielgebiet "${md?.poiName || 'Ziel'}" taucht gerade vor uns auf — wir sind auf ${altFt} ft.${wx ? ' ' + wx : ''}
 ${isLearningGuide ? 'Fuehre den Piloten jetzt kurz zum Ziel und gib direkt einen ersten Fakt oder Kontext zum Ort.' : 'Du siehst es zum ersten Mal aus der Luft. Zeig dem Piloten spontan was du erkennst.'}${reqHint}${inspHint}${profHint}${factHint}${historianHint}${learningGuideHint}${sarZoneGuard}${trainingHint}
+${noRepeatHint}
 ${driftGuard}
 ${taskDomain === 'search_and_rescue' ? '1-2 Saetze, einsatznah und klar, keine Begeisterungsformel.' : '1-2 Sätze, darf etwas begeisterter sein als sonst.'}${_toneHint()}`;
 }
@@ -1779,10 +1822,11 @@ function _poiSatisfiedPrompt(flightData) {
     const sarEndRule = (taskDomain === 'search_and_rescue')
         ? ' Formuliere ein klares Einsatzende mit Leitstellenbezug. Kein neutraler "alles im Kasten"-Satz.'
         : '';
+    const noRepeatHint = _poiNoRepeatHint('result');
     return `${ctx}
 
 Moment: Ich bin fertig am Ziel (${dwell} Minuten).${wx ? ' ' + wx : ''}
-Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${sarResultHint}${inspResultHint}${profResultHint}${historianResultHint}${learningResultHint}${sarEndRule}${driftGuard} 1-2 Sätze.${_toneHint()}`;
+Sag dem Piloten kurz, dass du fertig bist und wir weiterfliegen können.${sarResultHint}${inspResultHint}${profResultHint}${historianResultHint}${learningResultHint}${sarEndRule}${noRepeatHint}${driftGuard} 1-2 Sätze.${_toneHint()}`;
 }
 
 function _poiAbortPrompt(flightData) {
