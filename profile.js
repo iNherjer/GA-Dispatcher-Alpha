@@ -851,11 +851,12 @@ function vpExtractOverpassTileFeatures(elements) {
     for (const e of elements) {
         if (e.type === 'node' && Number.isFinite(e.lat) && Number.isFinite(e.lon)) {
             const isWind = e.tags && e.tags['generator:source'] === 'wind';
+            const isPowerTower = e.tags && String(e.tags.power || '').toLowerCase() === 'tower';
             const hRaw = (e.tags && e.tags.height) ? String(e.tags.height).replace(',', '.') : (isWind ? '120' : '50');
             const hMeter = parseFloat(hRaw);
             if (!Number.isFinite(hMeter) || hMeter < 30) continue;
             obs.push({
-                type: isWind ? 'wind' : 'mast',
+                type: isWind ? 'wind' : (isPowerTower ? 'power_tower' : 'mast'),
                 hFt: Math.round(hMeter * 3.28084),
                 elevFt: 0,
                 lat: Number(e.lat),
@@ -1084,7 +1085,7 @@ async function vpFetchOverpassTile(tileKey, signal, tileIndex = 0) {
     if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
     if (window.vpSetObsTileLoading) window.vpSetObsTileLoading(tileKey, true);
     const bbox = `${b.south.toFixed(4)},${b.west.toFixed(4)},${b.north.toFixed(4)},${b.east.toFixed(4)}`;
-    const query = `[out:json][timeout:45][bbox:${bbox}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];way["highway"="motorway"];way["waterway"="river"];way["power"~"line|minor_line|cable"];);out geom qt;`;
+    const query = `[out:json][timeout:45][bbox:${bbox}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];node["power"="tower"];way["highway"~"motorway|motorway_link|trunk|trunk_link|primary|primary_link"];way["waterway"~"river|canal"];way["power"~"line|minor_line|cable"];);out geom qt;`;
 
     let retries = 1;
     let attempt = 0;
@@ -1562,9 +1563,8 @@ function triggerVerticalProfileUpdate() {
 
                 const runner = (async () => {
                     const btnOb = document.getElementById('btnToggleObstacles');
-                    const btnLin = document.getElementById('btnToggleLinear');
                     if (btnOb) btnOb.classList.add('vp-loading-pulse');
-                    if (btnLin) btnLin.classList.add('vp-loading-pulse');
+                    vpSetLinearLoadingPulse(true);
 
                     // FIX: Kombinierter Cache für Hindernisse UND Flüsse/Autobahnen
                     const obStr = localStorage.getItem('ga_obs_combo_' + cacheKey);
@@ -1638,7 +1638,7 @@ function triggerVerticalProfileUpdate() {
                         }
                     }
                     if (btnOb) btnOb.classList.remove('vp-loading-pulse');
-                    if (btnLin) btnLin.classList.remove('vp-loading-pulse');
+                    vpSetLinearLoadingPulse(false);
                 })();
 
                 if (window.vpOverpassInFlight) window.vpOverpassInFlight.set(inflightKey, runner);
@@ -1670,7 +1670,7 @@ function triggerVerticalProfileUpdate() {
         } finally {
             const bC = document.getElementById('btnToggleClouds'); if(bC) bC.classList.remove('vp-loading-pulse');
             const bO = document.getElementById('btnToggleObstacles'); if(bO) bO.classList.remove('vp-loading-pulse');
-            const bL = document.getElementById('btnToggleLinear'); if(bL) bL.classList.remove('vp-loading-pulse');
+            vpSetLinearLoadingPulse(false);
             if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
         }
     }, 150); // Nur noch 150ms Debounce statt fast 3 Sekunden!
@@ -3491,12 +3491,76 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
     
     // 2. ECHTE FLÜSSE UND AUTOBAHNEN (Linear Features aus Overpass / HDG-Korridor)
     // Im HDG-Modus: vpHdgLinearFeatures (entlang Heading gefiltert), sonst Route-Daten
-    const _linSrc = (vpMode === 'HDG' && typeof vpHdgLinearFeatures !== 'undefined' && vpHdgLinearFeatures.length > 0)
+    const _linRaw = (vpMode === 'HDG' && typeof vpHdgLinearFeatures !== 'undefined' && vpHdgLinearFeatures.length > 0)
         ? vpHdgLinearFeatures
         : (typeof vpLinearFeatures !== 'undefined' ? vpLinearFeatures : []);
     const _obsSrc = (vpMode === 'HDG' && typeof vpHdgObstacles !== 'undefined' && vpHdgObstacles.length > 0)
         ? vpHdgObstacles
         : (typeof vpObstacles !== 'undefined' ? vpObstacles : []);
+    const majorRoadRx = /\b(A|B)\s?\d+\b/i;
+    const isMajorRoadFeature = (feat) => {
+        if (!feat || feat.type !== 'highway') return false;
+        const n = String(feat.name || '').trim();
+        if (!n) return false;
+        if (majorRoadRx.test(n)) return true; // Axx / Bxx
+        const low = n.toLowerCase();
+        return low.includes('autobahn') || low.includes('bundesstraße') || low.includes('bundesstrasse');
+    };
+    const isLinearTypeEnabled = (feat) => {
+        if (!feat) return false;
+        if (feat.type === 'highway') return !!vpShowRoads;
+        if (feat.type === 'river') return !!vpShowRivers;
+        if (feat.type === 'powerline') return !!vpShowPowerInfra;
+        return false;
+    };
+    // Nähe-Clustering für überlappende Features: sauberer, weniger Clutter.
+    const clusterLinearFeatures = (arr) => {
+        const src = Array.isArray(arr) ? arr.slice().sort((a, b) => Number(a.distNM || 0) - Number(b.distNM || 0)) : [];
+        const out = [];
+        let i = 0;
+        while (i < src.length) {
+            const base = src[i];
+            const type = String(base.type || '');
+            const thr = (type === 'river') ? 0.9 : (type === 'highway' ? 0.7 : 0.6);
+            let sumDist = Number(base.distNM || 0);
+            let sumLat = Number(base.lat || 0);
+            let sumLon = Number(base.lon || 0);
+            let cnt = 1;
+            let bestName = String(base.name || '');
+            let j = i + 1;
+            while (j < src.length) {
+                const cur = src[j];
+                if (String(cur.type || '') !== type) break;
+                if (Math.abs(Number(cur.distNM || 0) - Number(src[j - 1].distNM || 0)) > thr) break;
+                sumDist += Number(cur.distNM || 0);
+                sumLat += Number(cur.lat || 0);
+                sumLon += Number(cur.lon || 0);
+                cnt++;
+                if (!bestName && String(cur.name || '').trim()) bestName = String(cur.name || '');
+                j++;
+            }
+            out.push({
+                ...base,
+                name: bestName || String(base.name || ''),
+                distNM: sumDist / cnt,
+                lat: sumLat / cnt,
+                lon: sumLon / cnt,
+                count: cnt
+            });
+            i = j;
+        }
+        return out;
+    };
+    let _linSrc = _linRaw.filter(isLinearTypeEnabled);
+    _linSrc = _linSrc.filter((feat) => {
+        if (feat.type === 'highway') return isMajorRoadFeature(feat);
+        if (feat.type === 'river') {
+            const n = String(feat.name || '').toLowerCase();
+            if (n.includes('wassertret') || n.includes('kneipp') || n.includes('wasserspiel')) return false;
+        }
+        return true;
+    });
+    _linSrc = clusterLinearFeatures(_linSrc);
     const mastNearPowerline = (feat) => {
         if (!feat || feat.type !== 'powerline') return false;
         const fDist = Number(feat.distNM || 0);
@@ -3514,7 +3578,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
         if (!feat || feat.type !== 'powerline') return false;
         return Number(feat.lateralNM || 999) <= 0.15;
     };
-    if (typeof vpShowLinear !== 'undefined' && vpShowLinear && _linSrc.length > 0) {
+    if ((vpShowRoads || vpShowRivers || vpShowPowerInfra) && _linSrc.length > 0) {
         const getElevY = (dNM) => {
             for(let i=0; i<elevData.length-1; i++) {
                 if (dNM >= elevData[i].distNM && dNM <= elevData[i+1].distNM) {
@@ -3593,19 +3657,20 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
                 const drawPowerline = isRouteCrossingPowerline(feat) || mastNearPowerline(feat);
                 if (!drawPowerline) continue;
                 // Stylized powerline marker: two pylons + top wire segment.
-                ctx.strokeStyle = 'rgba(90, 90, 90, 0.95)';
-                ctx.lineWidth = 1.2;
+                // Deutlich größer + hellgrau für bessere Sichtbarkeit.
+                ctx.strokeStyle = 'rgba(210, 216, 224, 0.98)';
+                ctx.lineWidth = 1.4;
                 ctx.beginPath();
-                ctx.moveTo(px - 4, py + 4); ctx.lineTo(px - 4, py - 4);
-                ctx.moveTo(px + 4, py + 4); ctx.lineTo(px + 4, py - 4);
-                ctx.moveTo(px - 4, py - 4); ctx.lineTo(px + 4, py - 4);
+                ctx.moveTo(px - 8, py + 8); ctx.lineTo(px - 8, py - 8);
+                ctx.moveTo(px + 8, py + 8); ctx.lineTo(px + 8, py - 8);
+                ctx.moveTo(px - 8, py - 8); ctx.lineTo(px + 8, py - 8);
                 ctx.stroke();
 
-                ctx.strokeStyle = 'rgba(230, 80, 80, 0.9)';
-                ctx.lineWidth = 1;
+                ctx.strokeStyle = 'rgba(238, 241, 247, 0.95)';
+                ctx.lineWidth = 1.2;
                 ctx.beginPath();
-                ctx.moveTo(px - 6, py - 2);
-                ctx.quadraticCurveTo(px, py + 1, px + 6, py - 2);
+                ctx.moveTo(px - 12, py - 4);
+                ctx.quadraticCurveTo(px, py + 2, px + 12, py - 4);
                 ctx.stroke();
 
                 if (feat._render.drawName) {
@@ -3617,6 +3682,12 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
                     ctx.textAlign = 'center';
                     ctx.fillText(feat.name, px, labelY + 8);
                 }
+            }
+            if (Number(feat.count || 1) > 1) {
+                ctx.fillStyle = 'rgba(236, 239, 244, 0.95)';
+                ctx.font = 'bold 8px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('×' + String(feat.count), px, py + 12);
             }
         }
     }
@@ -3638,7 +3709,10 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
     
     // PERFORMANCE FIX: Kollisionen nur 1x pro Zoom-Stufe, maxAlt UND aktueller Route berechnen
     const routeKey = window._lastVpRouteKey || 'none';
-    const layoutKey = routeKey + '_' + zoomFactor.toFixed(2) + '_' + (maxAlt || 0).toFixed(0) + '_' + (window.vpShowLinear ? '1' : '0');
+    const layoutKey = routeKey + '_' + zoomFactor.toFixed(2) + '_' + (maxAlt || 0).toFixed(0)
+        + '_' + (vpShowRoads ? 'R1' : 'R0')
+        + '_' + (vpShowRivers ? 'V1' : 'V0')
+        + '_' + (vpShowPowerInfra ? 'P1' : 'P0');
     
     // Im HDG-Modus: kein Layout-Cache, immer neu berechnen (distNM ändert sich mit Kurs)
     const isHdgLm = lmOverride !== null;
@@ -3776,6 +3850,7 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs 
     
     for (const obs of vpObstacles) {
         if (obs.distNM < edgePad || obs.distNM > totalDist - edgePad) continue;
+        if (!vpShowPowerInfra && String(obs?.type || '').toLowerCase() === 'power_tower') continue;
         const px = xOf(obs.distNM);
         if (px < viewMinX || px > viewMaxX) continue; // CULLING
         const pyGround = getElevY(obs.distNM);
@@ -3813,18 +3888,40 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs 
             // Nabe wächst proportional mit
             ctx.beginPath(); ctx.arc(px, pyHub, Math.max(1.5, r * 0.15), 0, Math.PI * 2); ctx.fillStyle = '#ccc'; ctx.fill();
         } else {
-            // Normale Masten: dynamisch skalieren wie Windrad-Symbolik,
+            // Normale Masten/Türme: dynamisch skalieren wie Windrad-Symbolik,
             // aber bewusst nur 50% der visuellen Gesamtgröße.
             const visualTotalHeight = trueHeightPx + 8;
-            const mastVisualHeight = Math.max(7, visualTotalHeight * 0.5);
+            const obsType = String(obs?.type || '').toLowerCase();
+            const isPowerTower = (obsType === 'power_tower');
+            const mastVisualHeight = isPowerTower
+                ? Math.max(10, visualTotalHeight * 0.75)
+                : Math.max(7, visualTotalHeight * 0.5);
             const pyTop = pyRoot - mastVisualHeight;
-            ctx.beginPath(); ctx.moveTo(px, pyRoot); ctx.lineTo(px, pyTop);
-            ctx.strokeStyle = 'rgba(80, 80, 80, 0.9)'; ctx.lineWidth = 1.5; ctx.stroke();
 
-            // ANIMATION: Blinkendes Licht
+            if (isPowerTower) {
+                // Strommast: zweibeinige "Gitter"-Silhouette mit Querträger.
+                const halfW = Math.max(3, mastVisualHeight * 0.18);
+                const armY = pyTop + Math.max(2, mastVisualHeight * 0.22);
+                ctx.strokeStyle = 'rgba(214, 220, 228, 0.98)';
+                ctx.lineWidth = 1.4;
+                ctx.beginPath();
+                ctx.moveTo(px - halfW, pyRoot); ctx.lineTo(px - 1, pyTop);
+                ctx.moveTo(px + halfW, pyRoot); ctx.lineTo(px + 1, pyTop);
+                ctx.moveTo(px - halfW * 0.9, armY); ctx.lineTo(px + halfW * 0.9, armY);
+                ctx.stroke();
+            } else {
+                // Funk-/allg. Mast: klassische einzelne Mastsilhouette.
+                ctx.beginPath(); ctx.moveTo(px, pyRoot); ctx.lineTo(px, pyTop);
+                ctx.strokeStyle = 'rgba(80, 80, 80, 0.9)'; ctx.lineWidth = 1.5; ctx.stroke();
+            }
+
+            // ANIMATION: Blinklicht – Strommast etwas amber, sonst rot.
             const blink = 0.3 + 0.6 * (Math.sin(timeMs * 0.005 + obs.distNM * 50) * 0.5 + 0.5);
             const beaconR = Math.max(2, mastVisualHeight * 0.16);
-            ctx.beginPath(); ctx.arc(px, pyTop, beaconR, 0, Math.PI * 2); ctx.fillStyle = `rgba(217, 56, 41, ${blink})`; ctx.fill();
+            const beaconColor = isPowerTower
+                ? `rgba(255, 170, 70, ${blink})`
+                : `rgba(217, 56, 41, ${blink})`;
+            ctx.beginPath(); ctx.arc(px, pyTop, beaconR, 0, Math.PI * 2); ctx.fillStyle = beaconColor; ctx.fill();
         }
 
         rawLabels.push({ x: px, yBase: pyRoot, count: obs.count || 1 });
@@ -6953,8 +7050,37 @@ let vpWeatherRefreshTimer = null;
 let vpWeatherLastAutoRefreshAt = 0;
 let vpShowLandmarks = localStorage.getItem('ga_show_landmarks') !== 'false';
 let vpShowObstacles = localStorage.getItem('ga_show_obstacles') !== 'false';
-let vpShowLinear = localStorage.getItem('ga_show_linear') !== 'false';
+const _legacyShowLinear = localStorage.getItem('ga_show_linear');
+let vpShowRoads = (localStorage.getItem('ga_show_roads') ?? _legacyShowLinear ?? 'true') !== 'false';
+let vpShowRivers = (localStorage.getItem('ga_show_rivers') ?? _legacyShowLinear ?? 'true') !== 'false';
+let vpShowPowerInfra = (localStorage.getItem('ga_show_power') ?? _legacyShowLinear ?? 'true') !== 'false';
+let vpShowLinear = (vpShowRoads || vpShowRivers || vpShowPowerInfra);
 let vpAirspaceMode = parseInt(localStorage.getItem('ga_show_airspaces') || '1'); // 0=Off, 1=Bg, 2=Fg
+
+function vpSyncLinearMasterFlag() {
+    vpShowLinear = !!(vpShowRoads || vpShowRivers || vpShowPowerInfra);
+}
+
+function updateLinearButtons() {
+    const br = document.getElementById('btnToggleRoads');
+    if (br) br.classList.toggle('active', vpShowRoads);
+    const bv = document.getElementById('btnToggleRivers');
+    if (bv) bv.classList.toggle('active', vpShowRivers);
+    const bp = document.getElementById('btnTogglePower');
+    if (bp) bp.classList.toggle('active', vpShowPowerInfra);
+    const blin = document.getElementById('btnToggleLinear');
+    if (blin) blin.classList.toggle('active', vpShowLinear);
+}
+
+function vpSetLinearLoadingPulse(on) {
+    const ids = ['btnToggleLinear', 'btnToggleRoads', 'btnToggleRivers', 'btnTogglePower'];
+    for (const id of ids) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        if (on) el.classList.add('vp-loading-pulse');
+        else el.classList.remove('vp-loading-pulse');
+    }
+}
 
 function updateAirspaceBtn() {
     const btn = document.getElementById('btnToggleAirspaces');
@@ -7044,7 +7170,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateWindComponentsBtn();
     const bl = document.getElementById('btnToggleLandmarks'); if(bl) bl.classList.toggle('active', vpShowLandmarks);
     const bo = document.getElementById('btnToggleObstacles'); if(bo) bo.classList.toggle('active', vpShowObstacles);
-    const blin = document.getElementById('btnToggleLinear'); if(blin) blin.classList.toggle('active', vpShowLinear);
+    vpSyncLinearMasterFlag();
+    updateLinearButtons();
     updateAirspaceBtn(); // NEU
     ensureWeatherRefreshTimer();
 });
@@ -7186,16 +7313,61 @@ function vpToggleObstacles() {
 }
 
 function vpToggleLinearFeatures() {
-    vpShowLinear = !vpShowLinear;
+    const next = !vpShowLinear;
+    vpShowRoads = next;
+    vpShowRivers = next;
+    vpShowPowerInfra = next;
+    vpSyncLinearMasterFlag();
     localStorage.setItem('ga_show_linear', vpShowLinear);
-    const btn = document.getElementById('btnToggleLinear');
-    if (btn) btn.classList.toggle('active', vpShowLinear);
+    localStorage.setItem('ga_show_roads', vpShowRoads);
+    localStorage.setItem('ga_show_rivers', vpShowRivers);
+    localStorage.setItem('ga_show_power', vpShowPowerInfra);
+    updateLinearButtons();
     
     // FIX: Nur neu abfragen, wenn für die aktuelle Route noch nie geladen wurde!
     if (vpShowLinear && window._lastVpRouteKey && window._lastObsRouteKey !== window._lastVpRouteKey) {
         triggerVerticalProfileUpdate();
     } else {
         window.vpBgNeedsUpdate = true; 
+        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+    }
+}
+
+function vpToggleRoads() {
+    vpShowRoads = !vpShowRoads;
+    vpSyncLinearMasterFlag();
+    localStorage.setItem('ga_show_roads', vpShowRoads);
+    localStorage.setItem('ga_show_linear', vpShowLinear);
+    updateLinearButtons();
+    if (vpShowLinear && window._lastVpRouteKey && window._lastObsRouteKey !== window._lastVpRouteKey) triggerVerticalProfileUpdate();
+    else {
+        window.vpBgNeedsUpdate = true;
+        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+    }
+}
+
+function vpToggleRivers() {
+    vpShowRivers = !vpShowRivers;
+    vpSyncLinearMasterFlag();
+    localStorage.setItem('ga_show_rivers', vpShowRivers);
+    localStorage.setItem('ga_show_linear', vpShowLinear);
+    updateLinearButtons();
+    if (vpShowLinear && window._lastVpRouteKey && window._lastObsRouteKey !== window._lastVpRouteKey) triggerVerticalProfileUpdate();
+    else {
+        window.vpBgNeedsUpdate = true;
+        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+    }
+}
+
+function vpTogglePower() {
+    vpShowPowerInfra = !vpShowPowerInfra;
+    vpSyncLinearMasterFlag();
+    localStorage.setItem('ga_show_power', vpShowPowerInfra);
+    localStorage.setItem('ga_show_linear', vpShowLinear);
+    updateLinearButtons();
+    if ((vpShowLinear || vpShowObstacles) && window._lastVpRouteKey && window._lastObsRouteKey !== window._lastVpRouteKey) triggerVerticalProfileUpdate();
+    else {
+        window.vpBgNeedsUpdate = true;
         if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
     }
 }
