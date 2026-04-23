@@ -2919,6 +2919,12 @@ function _poiFeatureMatchesCategory(feature, category) {
         t.layer === 'rail'
     );
     const isTelecom = (
+        !(
+            t.highway === 'speed_camera' ||
+            t.amenity === 'speed_camera' ||
+            t.man_made === 'surveillance' ||
+            ['signal', 'switch', 'level_crossing'].includes(t.railway)
+        ) && (
         ['tower', 'mast'].includes(t.man_made) ||
         ['tower', 'pole'].includes(t.power) ||
         t.obstacle_type.includes('wind') ||
@@ -2928,6 +2934,7 @@ function _poiFeatureMatchesCategory(feature, category) {
         _hasWordToken(n, 'windrad') ||
         _hasWordToken(n, 'windkraft') ||
         _hasWordToken(n, 'windturbine')
+        )
     );
     const isBridge = (
         t.man_made === 'bridge' ||
@@ -3336,7 +3343,9 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const bandBonus = Math.max(-1.5, 2.5 - ((bandDeviation / distHalf) * 3.5));
         const distPenalty = (Math.min(80, Number(navAnchor.dist || 0)) * 0.30) + (Math.min(120, Number(navStart.dist || 0)) * 0.03);
         const nameBonus = hasName ? 2.0 : -1.5;
-        const rank = baseScore + nameBonus + bandBonus - distPenalty;
+        const unnamedInfraPenalty = (forceCat === 'infrastructure' && !hasName) ? 7 : 0;
+        const unnamedTelecomPenalty = (forceCat === 'telecom' && !hasName) ? 5 : 0;
+        const rank = baseScore + nameBonus + bandBonus - distPenalty - unnamedInfraPenalty - unnamedTelecomPenalty;
         candidates.push({
             n: name,
             lat: flat,
@@ -3366,7 +3375,11 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     }
     if (forceCat === 'infrastructure') {
         const namedInfra = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n));
-        if (namedInfra.length >= 2) scoredCandidates = namedInfra;
+        if (namedInfra.length >= 1) scoredCandidates = namedInfra;
+    }
+    if (forceCat === 'telecom') {
+        const namedTelecom = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n));
+        if (namedTelecom.length >= 1) scoredCandidates = namedTelecom;
     }
     if (!scoredCandidates.length) return null;
 
