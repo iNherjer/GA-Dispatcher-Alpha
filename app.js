@@ -2753,6 +2753,25 @@ function _poiIsGenericFallbackName(name) {
     );
 }
 
+function _poiIsSettlementOnlyFeature(feature) {
+    const t = feature?.tags || {};
+    const name = String(feature?.name || '').trim();
+    const placeKind = String(t.place || '').toLowerCase();
+    const isPlacePoint = ['city', 'town', 'village', 'suburb', 'hamlet', 'locality', 'neighbourhood', 'quarter'].includes(placeKind);
+    if (!isPlacePoint) return false;
+    const hasInfraTags = (
+        !!t.highway ||
+        !!t.railway ||
+        ['line', 'minor_line', 'cable', 'tower', 'pole', 'substation', 'plant', 'generator', 'transformer'].includes(String(t.power || '').toLowerCase()) ||
+        ['bridge', 'tower', 'mast'].includes(String(t.man_made || '').toLowerCase()) ||
+        ['dam', 'weir'].includes(String(t.waterway || '').toLowerCase()) ||
+        ['road', 'rail', 'power', 'hydro'].includes(String(t.layer || '').toLowerCase())
+    );
+    if (hasInfraTags) return false;
+    // Extra Guard: City-like names without infra tags should not satisfy road/infra selection.
+    return classifyPOITitleCategory(name) === 'city';
+}
+
 function _poiFeatureFromTileNode(node, src = 'tile') {
     const lat = Number(node?.lat);
     const lon = Number(node?.lon);
@@ -2880,6 +2899,7 @@ function _poiFeatureMatchesCategory(feature, category) {
         t.layer === 'road' ||
         rawType === 'highway'
     );
+    const isSettlementOnly = _poiIsSettlementOnlyFeature(feature);
     const isRail = (
         !!t.railway ||
         t.layer === 'rail' ||
@@ -2969,7 +2989,7 @@ function _poiFeatureMatchesCategory(feature, category) {
 
     if (cat === 'water') return isWater;
     if (cat === 'dam') return isDam;
-    if (cat === 'road') return isRoad;
+    if (cat === 'road') return isRoad && !isSettlementOnly;
     if (cat === 'rail') return isRail;
     if (cat === 'telecom') return isTelecom;
     if (cat === 'bridge') return isBridge;
@@ -2977,7 +2997,7 @@ function _poiFeatureMatchesCategory(feature, category) {
     if (cat === 'castle') return isCastle;
     if (cat === 'city') return isCity;
     if (cat === 'industry') return isIndustry;
-    if (cat === 'infrastructure') return isInfrastructure;
+    if (cat === 'infrastructure') return isInfrastructure && !isSettlementOnly;
     if (cat === 'sar_corridor') return (isRoad || isRail || isBridge || isWater || isInfrastructure);
     if (cat === 'fire') return isFire;
     return false;
@@ -3002,9 +3022,14 @@ function _poiFeatureScore(feature, category) {
         if (['reservoir', 'basin'].includes(t.landuse)) score += 5;
         if (_hasWordToken(n, 'talsperre') || _hasWordToken(n, 'staudamm') || _hasWordToken(n, 'stausee') || _hasWordToken(n, 'sperrmauer') || _hasWordToken(n, 'reservoir')) score += 8;
     } else if (cat === 'water') {
-        if (['river', 'stream', 'canal'].includes(t.waterway)) score += 5;
-        if (t.natural === 'water') score += 5;
-        if (['lake', 'reservoir', 'pond'].includes(t.water)) score += 5;
+        if (['dam', 'weir'].includes(t.waterway)) score += 8;
+        if (['lake', 'reservoir', 'pond'].includes(t.water)) score += 9;
+        if (['reservoir', 'basin'].includes(t.landuse)) score += 6;
+        if (t.natural === 'water') score += 7;
+        if (['river', 'stream', 'canal'].includes(t.waterway)) score += 4;
+        if (_hasWordToken(n, 'see') || _hasWordToken(n, 'weiher') || _hasWordToken(n, 'teich') || _hasWordToken(n, 'talsperre') || _hasWordToken(n, 'stausee')) score += 6;
+        if (['fire_water_pond', 'suction_point'].includes(String(t.water || '').toLowerCase())) score -= 7;
+        if (_hasWordToken(n, 'loeschwasser') || _hasWordToken(n, 'löschwasser')) score -= 5;
     } else if (cat === 'road') {
         const major = ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link'];
         if (major.includes(t.highway)) score += 6;
@@ -3028,6 +3053,7 @@ function _poiFeatureScore(feature, category) {
         if (['tower', 'pole'].includes(t.power)) score += 4;
         if (['substation', 'plant', 'generator', 'transformer'].includes(t.power)) score += 5;
         if (['tower', 'mast', 'bridge'].includes(t.man_made)) score += 4;
+        if (!_hasWordToken(n, 'anlage') && !_hasWordToken(n, 'mast') && !_hasWordToken(n, 'werk') && !_hasWordToken(n, 'umspannwerk') && !_hasWordToken(n, 'bahn') && !_hasWordToken(n, 'leitung') && !_hasWordToken(n, 'trasse')) score -= 2;
     } else if (cat === 'mountain') {
         if (['peak', 'valley', 'cliff', 'ridge'].includes(t.natural)) score += 6;
     } else if (cat === 'castle') {
@@ -3039,6 +3065,7 @@ function _poiFeatureScore(feature, category) {
         if (['wastewater_plant', 'waste_transfer_station', 'water_works'].includes(t.amenity)) score += 7;
     }
     if (n) score += 1;
+    if (!n && cat === 'infrastructure') score -= 4;
     if (feature?.sourceKind === 'poi') score += 2;
     if (feature?.sourceKind === 'obs') score -= 1;
     return score;
@@ -3285,14 +3312,31 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const name = _poiNormalizeFeatureName(rawName, wantedCat);
         const hasName = !!rawName;
         if (forceCat === 'dam' && !hasName && String(f?.sourceKind || '') === 'lin') continue;
+        if (forceCat === 'road' && _poiIsSettlementOnlyFeature(f)) continue;
+        if (forceCat === 'infrastructure' && !hasName) {
+            const tf = f?.tags || {};
+            const strongInfra = (
+                !!tf.highway ||
+                !!tf.railway ||
+                ['line', 'minor_line', 'cable', 'tower', 'pole', 'substation', 'plant', 'generator', 'transformer'].includes(String(tf.power || '').toLowerCase()) ||
+                ['tower', 'mast', 'bridge'].includes(String(tf.man_made || '').toLowerCase())
+            );
+            if (!strongInfra) continue;
+        }
         const dedupeKey = `${wantedCat}|${name.toLowerCase()}|${flat.toFixed(4)}|${flon.toFixed(4)}`;
         if (seen.has(dedupeKey)) continue;
         seen.add(dedupeKey);
 
         const baseScore = _poiFeatureScore(f, wantedCat);
-        const distPenalty = (Math.min(80, Number(navAnchor.dist || 0)) * 0.34) + (Math.min(120, Number(navStart.dist || 0)) * 0.06);
+        const distMin = Number(minNM || 0);
+        const distMax = Number(maxNM || 9999);
+        const distMid = (distMin + distMax) / 2;
+        const distHalf = Math.max(4, (distMax - distMin) / 2);
+        const bandDeviation = Math.abs(Number(navStart.dist || 0) - distMid);
+        const bandBonus = Math.max(-1.5, 2.5 - ((bandDeviation / distHalf) * 3.5));
+        const distPenalty = (Math.min(80, Number(navAnchor.dist || 0)) * 0.30) + (Math.min(120, Number(navStart.dist || 0)) * 0.03);
         const nameBonus = hasName ? 2.0 : -1.5;
-        const rank = baseScore + nameBonus - distPenalty;
+        const rank = baseScore + nameBonus + bandBonus - distPenalty;
         candidates.push({
             n: name,
             lat: flat,
@@ -3319,6 +3363,10 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const forceStrictNamed = !!forceCat && forceCat !== 'all';
     if (forceStrictNamed && namedCandidates.length >= 3) {
         scoredCandidates = namedCandidates;
+    }
+    if (forceCat === 'infrastructure') {
+        const namedInfra = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n));
+        if (namedInfra.length >= 2) scoredCandidates = namedInfra;
     }
     if (!scoredCandidates.length) return null;
 
