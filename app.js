@@ -3035,16 +3035,24 @@ function _poiFeatureScore(feature, category) {
         if (t.natural === 'water') score += 7;
         if (['river', 'stream', 'canal'].includes(t.waterway)) score += 4;
         if (_hasWordToken(n, 'see') || _hasWordToken(n, 'weiher') || _hasWordToken(n, 'teich') || _hasWordToken(n, 'talsperre') || _hasWordToken(n, 'stausee')) score += 6;
+        if (_hasWordToken(n, 'karsee') || _hasWordToken(n, 'stausee') || _hasWordToken(n, 'talsperre')) score += 4;
         if (['fire_water_pond', 'suction_point'].includes(String(t.water || '').toLowerCase())) score -= 7;
         if (_hasWordToken(n, 'loeschwasser') || _hasWordToken(n, 'löschwasser')) score -= 5;
+        if (!n && t.water === 'pond') score -= 3;
+        if (!n && ['reservoir', 'basin'].includes(t.landuse)) score -= 2;
     } else if (cat === 'road') {
         const major = ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary', 'secondary_link'];
         if (major.includes(t.highway)) score += 6;
         if (t.highway) score += 2;
+        if (t.highway === 'motorway_junction') score -= 5;
+        if (_hasWordToken(n, 'stadt') || _hasWordToken(n, 'zentrum') || _hasWordToken(n, 'city')) score -= 4;
+        if (String(n || '').includes(' / ')) score -= 3;
     } else if (cat === 'rail') {
         const majorRail = ['rail', 'light_rail', 'subway', 'tram'];
         if (majorRail.includes(t.railway)) score += 7;
         if (t.railway) score += 3;
+        if (['signal', 'switch', 'level_crossing', 'crossing'].includes(String(t.railway || '').toLowerCase())) score -= 4;
+        if (!n && ['signal', 'switch', 'level_crossing', 'crossing'].includes(String(t.railway || '').toLowerCase())) score -= 3;
     } else if (cat === 'telecom') {
         if (['tower', 'mast'].includes(t.man_made)) score += 7;
         if (['tower', 'pole'].includes(t.power)) score += 4;
@@ -3345,7 +3353,16 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const nameBonus = hasName ? 2.0 : -1.5;
         const unnamedInfraPenalty = (forceCat === 'infrastructure' && !hasName) ? 7 : 0;
         const unnamedTelecomPenalty = (forceCat === 'telecom' && !hasName) ? 5 : 0;
-        const rank = baseScore + nameBonus + bandBonus - distPenalty - unnamedInfraPenalty - unnamedTelecomPenalty;
+        const railTag = String(f?.tags?.railway || '').toLowerCase();
+        const isRailPointOp = ['signal', 'switch', 'level_crossing', 'crossing'].includes(railTag);
+        const railOpPenalty = (
+            forceCat === 'rail' &&
+            isRailPointOp &&
+            profileId !== 'search_and_rescue' &&
+            profileId !== 'inspection_infra' &&
+            profileId !== 'mapping_survey'
+        ) ? 7 : 0;
+        const rank = baseScore + nameBonus + bandBonus - distPenalty - unnamedInfraPenalty - unnamedTelecomPenalty - railOpPenalty;
         candidates.push({
             n: name,
             lat: flat,
