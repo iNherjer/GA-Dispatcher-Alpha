@@ -2638,6 +2638,8 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`- POI Tile Req/Hits/Miss/Err: ${poiDbg.requests || 0}/${poiDbg.hits || 0}/${poiDbg.misses || 0}/${poiDbg.errors || 0}`);
     lines.push(`- POI Cache Hits: ${poiDbg.cacheHits || 0}`);
     lines.push(`- POI Hits (split/legacy): ${poiDbg.splitHits || 0}/${poiDbg.legacyHits || 0}`);
+    lines.push(`- POI Split Quellen (lokal/worker): poi ${poiDbg.localPoiSplitHits || 0}/${poiDbg.workerPoiSplitHits || 0} | core ${poiDbg.localCoreSplitHits || 0}/${poiDbg.workerCoreSplitHits || 0}`);
+    lines.push(`- POI Cache Einträge (RAM): ${poiDbg.cacheEntries || 0} | split-only-miss: ${poiDbg.cacheMissSources || 0}`);
     lines.push(`- POI Fallback-Nutzung: ${poiDbg.fallbackHits || 0}${poiDbg.lastSource ? ` (last: ${poiDbg.lastSource})` : ''}`);
     lines.push(`- Overpass 429/504: ${dbg.overpass429Count || 0}/${dbg.overpass504Count || 0}`);
     lines.push(`- Cooldown-Skips: ${dbg.overpassCooldownSkips || 0}`);

@@ -175,10 +175,12 @@ function renderObsTileOverlay() {
         const wasUsed = usedTs > 0 && (now - usedTs) <= VP_OBS_TILE_USED_RECENT_MS;
         const hasFailure = failedTs > 0 && (!loadedTs || failedTs >= loadedTs);
         const isHostedTile = src.includes('hosted') || src.includes('github');
+        const isCoreTile = src.includes('core');
+        const wantsMagentaStripe = isHostedTile || isCoreTile;
         const color = isLoading
             ? '#ff9a3d'
-            : (hasFailure ? '#b71c1c' : (isDeferred ? '#ffd54f' : (isHostedTile ? '#d500f9' : (wasUsed ? '#4fcd73' : '#4da2ff'))));
-        const fillOpacity = isLoading ? 0.26 : (hasFailure ? 0.28 : (isDeferred ? 0.22 : (isHostedTile ? 0.2 : (wasUsed ? 0.14 : 0.1))));
+            : (hasFailure ? '#b71c1c' : (isDeferred ? '#ffd54f' : (wantsMagentaStripe ? '#d500f9' : (wasUsed ? '#4fcd73' : '#4da2ff'))));
+        const fillOpacity = isLoading ? 0.26 : (hasFailure ? 0.28 : (isDeferred ? 0.22 : (wantsMagentaStripe ? 0.2 : (wasUsed ? 0.14 : 0.1))));
         const strokeWeight = isLoading ? 2 : (hasFailure ? 2 : (isDeferred ? 2 : 1));
         const rect = L.rectangle([[b.south, b.west], [b.north, b.east]], {
             color,
@@ -188,7 +190,7 @@ function renderObsTileOverlay() {
             interactive: false
         });
         rect.addTo(vpObsTileDebugLayer);
-        if (!isLoading && !hasFailure && isHostedTile) {
+        if (!isLoading && !hasFailure && wantsMagentaStripe) {
             addSplitStripeOverlay(vpObsTileDebugLayer, b, '#ffd400');
         }
     }

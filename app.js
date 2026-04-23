@@ -2504,16 +2504,19 @@ const POI_TILE_STEP_LON = POI_TILE_EDGE_NM / 60;
 const POI_TILE_FETCH_PARALLEL = 4;
 const POI_TILE_MAX_KEYS = 36;
 const POI_TILE_CACHE_TTL_MS = 30 * 60 * 1000;
+const POI_TILE_WORKER_ENABLED = localStorage.getItem('ga_poi_worker_split_enabled') === 'true';
 const POI_TILE_POI_ENDPOINTS = [
     './obstacles/poi-tiles/{latI}/{lonI}.json',
-    './obstacles/poi-tiles/{latI}/{lonI}.json.gz',
-    'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
+    './obstacles/poi-tiles/{latI}/{lonI}.json.gz'
 ];
 const POI_TILE_CORE_ENDPOINTS = [
     './obstacles/core-tiles/{latI}/{lonI}.json',
-    './obstacles/core-tiles/{latI}/{lonI}.json.gz',
-    'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
+    './obstacles/core-tiles/{latI}/{lonI}.json.gz'
 ];
+if (POI_TILE_WORKER_ENABLED) {
+    POI_TILE_POI_ENDPOINTS.push('https://ga-proxy.einherjer.workers.dev/api/obstacles/tile');
+    POI_TILE_CORE_ENDPOINTS.push('https://ga-proxy.einherjer.workers.dev/api/obstacles/tile');
+}
 const POI_TILE_LEGACY_ENDPOINTS = [
     'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
 ];
@@ -2530,15 +2533,59 @@ function _poiDebugState() {
             fallbackHits: 0,
             misses: 0,
             errors: 0,
-            lastSource: ''
+            lastSource: '',
+            localPoiSplitHits: 0,
+            localCoreSplitHits: 0,
+            workerPoiSplitHits: 0,
+            workerCoreSplitHits: 0,
+            cacheMissSources: 0
         };
     }
+    window.gaPoiTileDebug.cacheEntries = _poiTileMemCache.size;
     return window.gaPoiTileDebug;
 }
 
 function _poiDebugMarkSource(src = '') {
     const dbg = _poiDebugState();
     dbg.lastSource = String(src || '');
+}
+
+function _poiDebugBumpSourceCounter(src = '') {
+    const dbg = _poiDebugState();
+    const s = String(src || '').toLowerCase();
+    if (s === 'local-poi-split') dbg.localPoiSplitHits = Number(dbg.localPoiSplitHits || 0) + 1;
+    else if (s === 'local-core-split') dbg.localCoreSplitHits = Number(dbg.localCoreSplitHits || 0) + 1;
+    else if (s === 'worker-poi-split') dbg.workerPoiSplitHits = Number(dbg.workerPoiSplitHits || 0) + 1;
+    else if (s === 'worker-core-split') dbg.workerCoreSplitHits = Number(dbg.workerCoreSplitHits || 0) + 1;
+    else if (s === 'split-only-miss') dbg.cacheMissSources = Number(dbg.cacheMissSources || 0) + 1;
+}
+
+function _poiTrackTileCoverage(tileKey, src = 'poi-unknown') {
+    try {
+        const cfg = (window.vpObsTileConfig && typeof window.vpObsTileConfig === 'object') ? window.vpObsTileConfig : null;
+        const storageKey = String(cfg?.storageKey || 'ga_obs_tile_cov_v1');
+        const now = Date.now();
+        let list = [];
+        try {
+            const raw = localStorage.getItem(storageKey);
+            const parsed = JSON.parse(raw || '[]');
+            list = Array.isArray(parsed) ? parsed : [];
+        } catch (_) {
+            list = [];
+        }
+        const idx = list.findIndex(e => e && e.k === tileKey);
+        const next = {
+            k: tileKey,
+            ts: now,
+            usedTs: now,
+            src: String(src || 'poi-unknown')
+        };
+        if (idx >= 0) list[idx] = { ...(list[idx] || {}), ...next };
+        else list.push(next);
+        if (list.length > 2200) list = list.slice(list.length - 2200);
+        localStorage.setItem(storageKey, JSON.stringify(list));
+        if (typeof window.vpNotifyObsTileCoverageChanged === 'function') window.vpNotifyObsTileCoverageChanged();
+    } catch (_) {}
 }
 
 function _poiTileKey(lat, lon) {
@@ -2601,6 +2648,7 @@ function _poiFeatureFromTileNode(node, src = 'tile') {
         lon,
         name: String(node?.name || node?.n || '').trim(),
         sourceKind: String(node?.sourceKind || src),
+        fetchSource: String(node?.fetchSource || ''),
         rawType: String(node?.type || '').toLowerCase(),
         tags: {
             layer: String(node?.layer || '').toLowerCase(),
@@ -2869,6 +2917,7 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
     const b = _poiTileBoundsFromKey(tileKey);
     if (!b) return [];
     let mergedFeatures = [];
+    let tileSourceTag = '';
     // 1) Prefer dedicated split POI tiles.
     for (const endpoint of POI_TILE_POI_ENDPOINTS) {
         try {
@@ -2894,14 +2943,18 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
             const res = await fetch(url);
             if (!res.ok) continue;
             const payload = await res.json();
-            const features = _poiParseTilePayload(payload);
+            let features = _poiParseTilePayload(payload);
             if (features.length) {
+                const fetchSource = String((payload && payload.sourceKind) || '').toLowerCase() === 'legacy'
+                    ? 'worker-poi-legacy'
+                    : (endpoint.includes('{latI}') ? 'local-poi-split' : 'worker-poi-split');
+                features = features.map(f => ({ ...f, fetchSource }));
                 mergedFeatures = mergedFeatures.concat(features);
                 dbg.hits = Number(dbg.hits || 0) + 1;
                 dbg.splitHits = Number(dbg.splitHits || 0) + 1;
-                _poiDebugMarkSource(String((payload && payload.sourceKind) || '').toLowerCase() === 'legacy'
-                    ? 'worker-poi-legacy'
-                    : (endpoint.includes('{latI}') ? 'local-poi-split' : 'worker-poi-split'));
+                tileSourceTag = fetchSource;
+                _poiDebugBumpSourceCounter(fetchSource);
+                _poiDebugMarkSource(fetchSource);
                 break;
             }
         } catch (_) {
@@ -2933,12 +2986,16 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
                 const res = await fetch(url);
                 if (!res.ok) continue;
                 const payload = await res.json();
-                const features = _poiParseTilePayload(payload);
+                let features = _poiParseTilePayload(payload);
                 if (features.length) {
+                    const fetchSource = endpoint.includes('{latI}') ? 'local-core-split' : 'worker-core-split';
+                    features = features.map(f => ({ ...f, fetchSource }));
                     mergedFeatures = mergedFeatures.concat(features);
                     dbg.hits = Number(dbg.hits || 0) + 1;
                     dbg.splitHits = Number(dbg.splitHits || 0) + 1;
-                    _poiDebugMarkSource(endpoint.includes('{latI}') ? 'local-core-split' : 'worker-core-split');
+                    if (!tileSourceTag) tileSourceTag = fetchSource;
+                    _poiDebugBumpSourceCounter(fetchSource);
+                    _poiDebugMarkSource(fetchSource);
                     break;
                 }
             } catch (_) {
@@ -2955,12 +3012,14 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
             seen.add(k);
             dedup.push(f);
         }
-        const sourceTag = String(dbg.lastSource || 'worker');
+        const sourceTag = String(tileSourceTag || dbg.lastSource || 'worker');
         _poiTileMemCache.set(cacheKey, { ts: now, features: dedup, source: sourceTag });
+        _poiTrackTileCoverage(tileKey, sourceTag);
         return dedup;
     }
     if (!allowLegacyFallback) {
         dbg.misses = Number(dbg.misses || 0) + 1;
+        _poiDebugBumpSourceCounter('split-only-miss');
         _poiDebugMarkSource('split-only-miss');
         _poiTileMemCache.set(cacheKey, { ts: now, features: [], source: 'split-only-miss' });
         return [];
@@ -2987,7 +3046,9 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
                 dbg.hits = Number(dbg.hits || 0) + 1;
                 dbg.legacyHits = Number(dbg.legacyHits || 0) + 1;
                 dbg.fallbackHits = Number(dbg.fallbackHits || 0) + 1;
+                _poiDebugBumpSourceCounter('worker-poi-legacy');
                 _poiDebugMarkSource('worker-legacy-fallback');
+                _poiTrackTileCoverage(tileKey, 'worker-legacy-fallback');
             }
             return features;
         } catch (_) {
@@ -3074,6 +3135,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             score: baseScore,
             rank,
             hasName,
+            fetchSource: String(f?.fetchSource || ''),
             featureSourceKind: String(f?.sourceKind || ''),
             featureLayer: String(f?.tags?.layer || '')
         });
@@ -3091,6 +3153,15 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const pick = top[0] || pool[0];
     const usedCat = String((pick && pick.category) || forceCat || 'generic').toLowerCase();
     const dbgEnd = { ..._poiDebugState() };
+    const selectedFetchSource = String(pick?.fetchSource || '');
+    let sourceLabel = `Hosted POI Tiles (split, tagged:${usedCat})`;
+    if (selectedFetchSource.startsWith('local-')) {
+        sourceLabel = `Local POI Tiles (split, tagged:${usedCat})`;
+    } else if (selectedFetchSource.includes('legacy')) {
+        sourceLabel = `Hosted POI Tiles (legacy fallback, tagged:${usedCat})`;
+    } else if (selectedFetchSource.startsWith('worker-')) {
+        sourceLabel = `Hosted POI Tiles (worker split, tagged:${usedCat})`;
+    }
     const lookupDebug = {
         includeCore,
         allowLegacyFallback,
@@ -3103,7 +3174,13 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         legacyHitsDelta: Math.max(0, Number(dbgEnd.legacyHits || 0) - Number(dbgStart.legacyHits || 0)),
         fallbackHitsDelta: Math.max(0, Number(dbgEnd.fallbackHits || 0) - Number(dbgStart.fallbackHits || 0)),
         errorsDelta: Math.max(0, Number(dbgEnd.errors || 0) - Number(dbgStart.errors || 0)),
-        lastSource: String(dbgEnd.lastSource || '')
+        lastSource: String(dbgEnd.lastSource || ''),
+        selectedFetchSource: selectedFetchSource || 'n/a',
+        localPoiSplitHits: Number(dbgEnd.localPoiSplitHits || 0),
+        localCoreSplitHits: Number(dbgEnd.localCoreSplitHits || 0),
+        workerPoiSplitHits: Number(dbgEnd.workerPoiSplitHits || 0),
+        workerCoreSplitHits: Number(dbgEnd.workerCoreSplitHits || 0),
+        cacheEntries: Number(dbgEnd.cacheEntries || 0)
     };
     return {
         icao: 'POI',
@@ -3111,11 +3188,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         lat: pick.lat,
         lon: pick.lon,
         poiCategory: usedCat,
-        poiSource: (
-            lookupDebug.legacyHitsDelta > 0
-                ? `Hosted POI Tiles (legacy fallback, tagged:${usedCat})`
-                : `Hosted POI Tiles (split, tagged:${usedCat})`
-        ),
+        poiSource: sourceLabel,
         poiLookup: {
             engine: 'hosted-poi-tiles',
             featureSourceKind: String(pick?.featureSourceKind || ''),
