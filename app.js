@@ -2484,6 +2484,11 @@ const POI_TILE_POI_ENDPOINTS = [
     './obstacles/poi-tiles/{latI}/{lonI}.json.gz',
     'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
 ];
+const POI_TILE_CORE_ENDPOINTS = [
+    './obstacles/core-tiles/{latI}/{lonI}.json',
+    './obstacles/core-tiles/{latI}/{lonI}.json.gz',
+    'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
+];
 const POI_TILE_LEGACY_ENDPOINTS = [
     'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
 ];
@@ -2550,7 +2555,7 @@ function _poiNormalizeFeatureName(raw, fallbackCategory = 'poi') {
     const c = String(fallbackCategory || 'poi').toLowerCase();
     if (c === 'dam') return 'Staudamm/Talsperre';
     if (c === 'water') return 'Gewässer';
-    if (c === 'telecom') return 'Funkmast/Funkturm';
+    if (c === 'telecom') return 'Funkmast/Funkturm/Windrad';
     if (c === 'road') return 'Straßen-/Verkehrsknoten';
     if (c === 'mountain') return 'Berg-/Talgebiet';
     if (c === 'castle') return 'Burg/Schloss';
@@ -2583,7 +2588,8 @@ function _poiFeatureFromTileNode(node, src = 'tile') {
             historic: String(node?.historic || '').toLowerCase(),
             amenity: String(node?.amenity || '').toLowerCase(),
             leisure: String(node?.leisure || '').toLowerCase(),
-            place: String(node?.place || '').toLowerCase()
+            place: String(node?.place || '').toLowerCase(),
+            obstacle_type: String(node?.obstacle_type || node?.type || '').toLowerCase()
         }
     };
 }
@@ -2660,8 +2666,13 @@ function _poiFeatureMatchesCategory(feature, category) {
     const isTelecom = (
         ['tower', 'mast'].includes(t.man_made) ||
         ['tower', 'pole'].includes(t.power) ||
+        t.obstacle_type.includes('wind') ||
         rawType.includes('mast') ||
-        rawType.includes('tower')
+        rawType.includes('tower') ||
+        rawType.includes('wind') ||
+        _hasWordToken(n, 'windrad') ||
+        _hasWordToken(n, 'windkraft') ||
+        _hasWordToken(n, 'windturbine')
     );
     const isBridge = (
         t.man_made === 'bridge' ||
@@ -2739,6 +2750,7 @@ function _poiFeatureScore(feature, category) {
     } else if (cat === 'telecom') {
         if (['tower', 'mast'].includes(t.man_made)) score += 7;
         if (['tower', 'pole'].includes(t.power)) score += 4;
+        if (t.obstacle_type.includes('wind') || String(feature?.rawType || '').toLowerCase().includes('wind')) score += 6;
     } else if (cat === 'mountain') {
         if (['peak', 'valley', 'cliff', 'ridge'].includes(t.natural)) score += 6;
     } else if (cat === 'castle') {
@@ -2750,15 +2762,18 @@ function _poiFeatureScore(feature, category) {
     return score;
 }
 
-async function _poiFetchTileFeatures(tileKey) {
+async function _poiFetchTileFeatures(tileKey, options = null) {
+    const includeCore = !!(options && options.includeCore);
     const now = Date.now();
     const dbg = _poiDebugState();
-    const cached = _poiTileMemCache.get(tileKey);
+    const cacheKey = `${tileKey}|${includeCore ? '1' : '0'}`;
+    const cached = _poiTileMemCache.get(cacheKey);
     if (cached && (now - Number(cached.ts || 0)) <= POI_TILE_CACHE_TTL_MS && Array.isArray(cached.features)) {
         return cached.features;
     }
     const b = _poiTileBoundsFromKey(tileKey);
     if (!b) return [];
+    let mergedFeatures = [];
     // 1) Prefer dedicated split POI tiles.
     for (const endpoint of POI_TILE_POI_ENDPOINTS) {
         try {
@@ -2785,18 +2800,68 @@ async function _poiFetchTileFeatures(tileKey) {
             if (!res.ok) continue;
             const payload = await res.json();
             const features = _poiParseTilePayload(payload);
-            _poiTileMemCache.set(tileKey, { ts: now, features });
             if (features.length) {
+                mergedFeatures = mergedFeatures.concat(features);
                 dbg.hits = Number(dbg.hits || 0) + 1;
                 dbg.splitHits = Number(dbg.splitHits || 0) + 1;
                 _poiDebugMarkSource(String((payload && payload.sourceKind) || '').toLowerCase() === 'legacy'
                     ? 'worker-poi-legacy'
                     : (endpoint.includes('{latI}') ? 'local-poi-split' : 'worker-poi-split'));
-                return features;
+                break;
             }
         } catch (_) {
             dbg.errors = Number(dbg.errors || 0) + 1;
         }
+    }
+    if (includeCore) {
+        for (const endpoint of POI_TILE_CORE_ENDPOINTS) {
+            try {
+                let url = '';
+                if (endpoint.includes('{latI}') || endpoint.includes('{lonI}')) {
+                    url = endpoint
+                        .replaceAll('{latI}', encodeURIComponent(String(b.latI)))
+                        .replaceAll('{lonI}', encodeURIComponent(String(b.lonI)));
+                } else {
+                    const u = new URL(endpoint);
+                    u.searchParams.set('layer', 'core');
+                    u.searchParams.set('tile', tileKey);
+                    u.searchParams.set('lat_i', String(b.latI));
+                    u.searchParams.set('lon_i', String(b.lonI));
+                    u.searchParams.set('south', b.south.toFixed(5));
+                    u.searchParams.set('west', b.west.toFixed(5));
+                    u.searchParams.set('north', b.north.toFixed(5));
+                    u.searchParams.set('east', b.east.toFixed(5));
+                    u.searchParams.set('v', '3');
+                    url = u.toString();
+                }
+                dbg.requests = Number(dbg.requests || 0) + 1;
+                const res = await fetch(url);
+                if (!res.ok) continue;
+                const payload = await res.json();
+                const features = _poiParseTilePayload(payload);
+                if (features.length) {
+                    mergedFeatures = mergedFeatures.concat(features);
+                    dbg.hits = Number(dbg.hits || 0) + 1;
+                    dbg.splitHits = Number(dbg.splitHits || 0) + 1;
+                    _poiDebugMarkSource(endpoint.includes('{latI}') ? 'local-core-split' : 'worker-core-split');
+                    break;
+                }
+            } catch (_) {
+                dbg.errors = Number(dbg.errors || 0) + 1;
+            }
+        }
+    }
+    if (mergedFeatures.length) {
+        const dedup = [];
+        const seen = new Set();
+        for (const f of mergedFeatures) {
+            const k = `${Number(f?.lat).toFixed(5)}|${Number(f?.lon).toFixed(5)}|${String(f?.name || '').toLowerCase()}|${String(f?.rawType || '').toLowerCase()}|${String(f?.sourceKind || '').toLowerCase()}`;
+            if (seen.has(k)) continue;
+            seen.add(k);
+            dedup.push(f);
+        }
+        _poiTileMemCache.set(cacheKey, { ts: now, features: dedup });
+        return dedup;
     }
     // 2) Fallback: legacy combined/obstacle tiles.
     for (const endpoint of POI_TILE_LEGACY_ENDPOINTS) {
@@ -2815,7 +2880,7 @@ async function _poiFetchTileFeatures(tileKey) {
             if (!res.ok) continue;
             const payload = await res.json();
             const features = _poiParseTilePayload(payload);
-            _poiTileMemCache.set(tileKey, { ts: now, features });
+            _poiTileMemCache.set(cacheKey, { ts: now, features });
             if (features.length) {
                 dbg.hits = Number(dbg.hits || 0) + 1;
                 dbg.legacyHits = Number(dbg.legacyHits || 0) + 1;
@@ -2829,13 +2894,21 @@ async function _poiFetchTileFeatures(tileKey) {
     }
     dbg.misses = Number(dbg.misses || 0) + 1;
     _poiDebugMarkSource('none');
-    _poiTileMemCache.set(tileKey, { ts: now, features: [] });
+    _poiTileMemCache.set(cacheKey, { ts: now, features: [] });
     return [];
 }
 
-async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null) {
+function _shouldIncludeCoreForPoiSearch(forcedCategory = null, dispatchProfileId = 'auto') {
+    const cat = String(forcedCategory || '').toLowerCase();
+    const profile = String(dispatchProfileId || 'auto').toLowerCase();
+    if (profile === 'inspection_infra') return true;
+    return ['telecom', 'road', 'dam', 'bridge', 'industry'].includes(cat);
+}
+
+async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory = null, dispatchProfileId = 'auto') {
     const forceCat = String(forcedCategory || '').toLowerCase();
     if (forceCat === 'trn') return null;
+    const includeCore = _shouldIncludeCoreForPoiSearch(forceCat, dispatchProfileId);
     const tileKeys = _poiCollectTileKeysAround(lat, lon, Math.max(22, Number(maxNM || 40)));
     if (!tileKeys.length) return null;
 
@@ -2848,7 +2921,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             while (cursor < tileKeys.length) {
                 const idx = cursor++;
                 const key = tileKeys[idx];
-                const rows = await _poiFetchTileFeatures(key);
+                const rows = await _poiFetchTileFeatures(key, { includeCore });
                 if (rows && rows.length) features.push(...rows);
             }
         })());
@@ -5788,7 +5861,7 @@ async function generateMission() {
         } else {
             // Primär: eigene gehostete, tag-basierte Tiles.
             // Fallback: bestehendes Wiki/Wikidata/Nominatim-System.
-            const taggedTilePoi = await findTaggedTilePOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory);
+            const taggedTilePoi = await findTaggedTilePOI(start.lat, start.lon, searchMin, searchMax, dirPref, selectedPoiCategory, dispatchProfileId);
             _ensureDispatchAlive();
             if (taggedTilePoi) {
                 dest = taggedTilePoi;

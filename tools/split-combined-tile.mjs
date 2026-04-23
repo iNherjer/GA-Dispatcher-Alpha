@@ -29,6 +29,13 @@ function compactCore(input) {
   const obsIn = Array.isArray(input?.obs) ? input.obs : [];
   const linIn = Array.isArray(input?.lin) ? input.lin : [];
   const commTowerNameRe = /(funk|radio|fernseh|tv|sender|tower|turm|antenne|mast)/i;
+  const majorHighway = new Set([
+    'motorway', 'motorway_link',
+    'trunk', 'trunk_link',
+    'primary', 'primary_link',
+    'secondary', 'secondary_link'
+  ]);
+  const majorWaterway = new Set(['river', 'canal']);
 
   function normalizeObstacleType(raw) {
     const t = String(raw || '').toLowerCase();
@@ -42,7 +49,7 @@ function compactCore(input) {
     const hFt = Math.max(0, Math.round(Number(e?.hFt || 0)));
     const name = String(e?.name || '');
     if (t === 'wind') return hFt >= 60;
-    if (t === 'power_tower') return hFt >= 150; // keep only larger transmission towers
+    if (t === 'power_tower') return hFt >= 200; // only clearly large high-voltage towers
     // Keep only clearly relevant comm towers or larger masts.
     return hFt >= 180 || (hFt >= 120 && commTowerNameRe.test(name));
   }
@@ -70,10 +77,20 @@ function compactCore(input) {
     .map(e => {
       const layer = String(e?.layer || '').toLowerCase();
       const rawType = String(e?.type || '').toLowerCase();
+      const highway = String(e?.highway || '').toLowerCase();
+      const waterway = String(e?.waterway || '').toLowerCase();
+      const power = String(e?.power || '').toLowerCase();
       let type = '';
-      if (rawType === 'highway' || layer === 'road') type = 'highway';
-      else if (rawType === 'river' || layer === 'hydro') type = 'river';
-      else if (rawType === 'powerline' || layer === 'powerline') type = 'powerline';
+      if (rawType === 'highway' || layer === 'road') {
+        if (!majorHighway.has(highway)) return null; // only major roads/highways
+        type = 'highway';
+      } else if (rawType === 'river' || layer === 'hydro') {
+        if (waterway && !majorWaterway.has(waterway)) return null; // avoid tiny streams/ditches
+        type = 'river';
+      } else if (rawType === 'powerline' || layer === 'powerline') {
+        if (power && !['line', 'minor_line', 'cable'].includes(power)) return null;
+        type = 'powerline';
+      }
       if (!type) return null; // Drop poi/man_made helper-lines from core.
       const lat = normCoord(e?.lat);
       const lon = normCoord(e?.lon);
@@ -103,10 +120,14 @@ function compactCore(input) {
   }
   const linOut = [];
   for (const arr of grouped.values()) {
-    const step = arr.length > 120 ? 4 : (arr.length > 60 ? 3 : (arr.length > 24 ? 2 : 1));
+    const step = arr.length > 200 ? 8 : (arr.length > 120 ? 6 : (arr.length > 60 ? 4 : (arr.length > 24 ? 2 : 1)));
     for (let i = 0; i < arr.length; i += step) linOut.push(arr[i]);
     if (arr.length > 1 && arr[arr.length - 1] !== arr[Math.floor((arr.length - 1) / step) * step]) linOut.push(arr[arr.length - 1]);
   }
+
+  // Final hard cap to keep core tiles predictable in dense urban areas.
+  const linCapped = linOut.slice(0, 12000);
+  const obsCapped = obs.slice(0, 2000);
 
   return {
     v: 1,
@@ -114,34 +135,105 @@ function compactCore(input) {
     source: String(input?.source || ''),
     generatedAt: String(input?.generatedAt || new Date().toISOString()),
     core: {
-      obs,
-      lin: linOut
+      obs: obsCapped,
+      lin: linCapped
     },
     counts: {
-      obs: obs.length,
-      lin: linOut.length
+      obs: obsCapped.length,
+      lin: linCapped.length
     }
   };
 }
 
 function compactPoi(input) {
   const poiIn = Array.isArray(input?.poi) ? input.poi : [];
-  const poi = poiIn
+  const keepNatural = new Set(['water', 'peak', 'valley', 'ridge', 'cliff', 'saddle', 'hill', 'cave_entrance', 'rock']);
+  const keepWater = new Set(['lake', 'reservoir', 'pond', 'basin']);
+  const keepTourism = new Set(['attraction', 'viewpoint', 'museum', 'theme_park', 'zoo', 'aquarium']);
+  const keepHistoric = new Set(['castle', 'ruins', 'fort', 'monument', 'memorial', 'archaeological_site']);
+  const keepManMade = new Set(['tower', 'mast', 'bridge', 'dam', 'lighthouse', 'water_tower', 'chimney', 'antenna']);
+  const keepPower = new Set(['tower']);
+  const keepPlace = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'neighbourhood']);
+  const keepLeisure = new Set(['nature_reserve', 'park', 'marina', 'stadium']);
+  const keepAmenity = new Set(['university', 'hospital', 'fire_station']);
+
+  const poiRaw = poiIn
     .map(e => ({
       name: String(e?.name || ''),
       lat: Number(e?.lat),
       lon: Number(e?.lon),
-      tourism: String(e?.tourism || ''),
-      historic: String(e?.historic || ''),
-      natural: String(e?.natural || ''),
-      water: String(e?.water || ''),
-      amenity: String(e?.amenity || ''),
-      leisure: String(e?.leisure || ''),
-      man_made: String(e?.man_made || ''),
-      power: String(e?.power || ''),
-      place: String(e?.place || '')
+      tourism: String(e?.tourism || '').toLowerCase(),
+      historic: String(e?.historic || '').toLowerCase(),
+      natural: String(e?.natural || '').toLowerCase(),
+      water: String(e?.water || '').toLowerCase(),
+      amenity: String(e?.amenity || '').toLowerCase(),
+      leisure: String(e?.leisure || '').toLowerCase(),
+      man_made: String(e?.man_made || '').toLowerCase(),
+      power: String(e?.power || '').toLowerCase(),
+      place: String(e?.place || '').toLowerCase()
     }))
-    .filter(e => Number.isFinite(e.lat) && Number.isFinite(e.lon));
+    .filter(e => Number.isFinite(e.lat) && Number.isFinite(e.lon))
+    .filter(e => {
+      return (
+        keepNatural.has(e.natural) ||
+        keepWater.has(e.water) ||
+        keepTourism.has(e.tourism) ||
+        keepHistoric.has(e.historic) ||
+        keepManMade.has(e.man_made) ||
+        keepPower.has(e.power) ||
+        keepPlace.has(e.place) ||
+        keepLeisure.has(e.leisure) ||
+        keepAmenity.has(e.amenity)
+      );
+    })
+    .map(e => ({
+      ...e,
+      lat: Math.round(e.lat * 1e5) / 1e5,
+      lon: Math.round(e.lon * 1e5) / 1e5,
+      name: e.name.slice(0, 80)
+    }));
+
+  // Dedupe identical/tag-identical points.
+  const poiDedup = [];
+  const seen = new Set();
+  for (const e of poiRaw) {
+    const k = `${e.name}|${e.lat}|${e.lon}|${e.tourism}|${e.historic}|${e.natural}|${e.water}|${e.amenity}|${e.leisure}|${e.man_made}|${e.power}|${e.place}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    poiDedup.push(e);
+  }
+
+  // Balanced cap per mission-relevant group to avoid single-tag domination.
+  const groups = {
+    place: [],
+    water: [],
+    mountain: [],
+    historic: [],
+    tower: [],
+    tourism: [],
+    other: []
+  };
+  for (const e of poiDedup) {
+    if (keepPlace.has(e.place)) groups.place.push(e);
+    else if (keepWater.has(e.water) || e.natural === 'water') groups.water.push(e);
+    else if (['peak', 'valley', 'ridge', 'cliff', 'saddle', 'hill'].includes(e.natural)) groups.mountain.push(e);
+    else if (keepHistoric.has(e.historic)) groups.historic.push(e);
+    else if (keepManMade.has(e.man_made) || keepPower.has(e.power)) groups.tower.push(e);
+    else if (keepTourism.has(e.tourism)) groups.tourism.push(e);
+    else groups.other.push(e);
+  }
+  const capPerGroup = {
+    place: 1200,
+    water: 900,
+    mountain: 900,
+    historic: 900,
+    tower: 1200,
+    tourism: 700,
+    other: 600
+  };
+  let poi = [];
+  for (const g of Object.keys(groups)) poi = poi.concat(groups[g].slice(0, capPerGroup[g] || 500));
+  poi = poi.slice(0, 5000);
 
   return {
     v: 1,

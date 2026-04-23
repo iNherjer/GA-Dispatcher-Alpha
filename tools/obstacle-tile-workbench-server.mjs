@@ -22,6 +22,7 @@ const WORKBENCH_TMP_DIR = path.join(ROOT, '.workbench-cache', 'obs-split');
 const WORKBENCH_TMP_OUT_DIR = path.join(WORKBENCH_TMP_DIR, 'combined-tiles');
 const WORKBENCH_TMP_MANIFEST = path.join(WORKBENCH_TMP_DIR, 'combined-manifest.v1.json');
 const WORKBENCH_TMP_FAILED = path.join(WORKBENCH_TMP_DIR, 'combined-failed-tiles.json');
+const WORKBENCH_PBF_PATH = String(process.env.OBS_WORKBENCH_PBF_PATH || '/private/tmp/freiburg-regbez-latest.osm.pbf').trim();
 
 const TILE_STEP_DEG = 25 / 60;
 const STALE_AFTER_MS = 90 * 24 * 60 * 60 * 1000;
@@ -386,6 +387,10 @@ async function collectTileState() {
     ok: true,
     root: ROOT,
     port: PORT,
+    sourceConfig: {
+      pbfPath: WORKBENCH_PBF_PATH,
+      pbfAvailable: !!WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH)
+    },
     processing,
     currentTile,
     queue: queue.slice(),
@@ -438,21 +443,45 @@ async function processOneTile(tileKey) {
 
   await ensureDir(WORKBENCH_TMP_OUT_DIR);
 
-  const cmd = [
-    'tools/generate-obstacle-tiles.mjs',
-    '--tiles', tileKey,
-    '--force',
-    '--delay-ms', String(WORKBENCH_DELAY_MS),
-    '--retries', String(WORKBENCH_RETRIES),
-    '--out', path.relative(ROOT, WORKBENCH_TMP_OUT_DIR),
-    '--manifest', path.relative(ROOT, WORKBENCH_TMP_MANIFEST),
-    '--failed', path.relative(ROOT, WORKBENCH_TMP_FAILED)
-  ];
-  const run = await runCmd('node', cmd, { cwd: ROOT });
+  let run = { code: 1, stdout: '', stderr: '' };
+  let loadSource = 'pbf';
+  let pbfErrorText = '';
+  let failedItem = null;
+  const pbfExists = !!WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH);
 
-  const failedData = await readJsonSafe(WORKBENCH_TMP_FAILED, { failedTiles: [] });
-  const failedItems = Array.isArray(failedData.failedTiles) ? failedData.failedTiles : [];
-  const failedItem = failedItems.find(x => normalizeTileKey(x && x.tile) === tileKey) || null;
+  if (pbfExists) {
+    const pbfCmd = [
+      'tools/dryrun_pbf_combined_chunk.py',
+      '--pbf', WORKBENCH_PBF_PATH,
+      '--tile', tileKey,
+      '--out', path.relative(ROOT, combinedFile)
+    ];
+    run = await runCmd('python3', pbfCmd, { cwd: ROOT });
+    if (run.code !== 0) {
+      pbfErrorText = (run.stderr || run.stdout || '').trim();
+      loadSource = 'overpass';
+    }
+  } else {
+    loadSource = 'overpass';
+    pbfErrorText = `PBF nicht gefunden: ${WORKBENCH_PBF_PATH}`;
+  }
+
+  if (loadSource === 'overpass') {
+    const cmd = [
+      'tools/generate-obstacle-tiles.mjs',
+      '--tiles', tileKey,
+      '--force',
+      '--delay-ms', String(WORKBENCH_DELAY_MS),
+      '--retries', String(WORKBENCH_RETRIES),
+      '--out', path.relative(ROOT, WORKBENCH_TMP_OUT_DIR),
+      '--manifest', path.relative(ROOT, WORKBENCH_TMP_MANIFEST),
+      '--failed', path.relative(ROOT, WORKBENCH_TMP_FAILED)
+    ];
+    run = await runCmd('node', cmd, { cwd: ROOT });
+    const failedData = await readJsonSafe(WORKBENCH_TMP_FAILED, { failedTiles: [] });
+    const failedItems = Array.isArray(failedData.failedTiles) ? failedData.failedTiles : [];
+    failedItem = failedItems.find(x => normalizeTileKey(x && x.tile) === tileKey) || null;
+  }
 
   const combinedExists = existsSync(combinedFile);
   const failStatus = Number((failedItem && failedItem.status) || 0);
@@ -475,7 +504,7 @@ async function processOneTile(tileKey) {
       await upsertManifestTile(POI_MANIFEST_PATH, tileKey);
       await removeFailedTile(tileKey);
       ok = true;
-      message = 'Tile geladen, gesplittet und gespeichert';
+      message = `Tile geladen (${loadSource}), gesplittet und gespeichert`;
     } else {
       await upsertFailedTile(tileKey, {
         status: 0,
@@ -495,7 +524,15 @@ async function processOneTile(tileKey) {
       failServer ? `(Server: ${failServer})` : ''
     ].filter(Boolean).join(' | ');
     message = failMsg || (run.stderr && run.stderr.trim()) || (run.stdout && run.stdout.trim().split('\n').slice(-2).join(' | ')) || 'Tile-Load fehlgeschlagen';
+    if (loadSource === 'overpass' && pbfErrorText) {
+      message = `PBF fehlgeschlagen -> Overpass Fallback | ${message}${pbfErrorText ? ` | PBF: ${pbfErrorText.slice(0, 180)}` : ''}`;
+    } else if (loadSource === 'overpass' && !pbfExists) {
+      message = `PBF fehlt -> Overpass Fallback | ${message}`;
+    }
   }
+
+  // Rohdaten aus dem Zwischenschritt immer wieder entfernen.
+  try { await fs.unlink(combinedFile); } catch (_) {}
 
   lastResults.set(tileKey, {
     ok,

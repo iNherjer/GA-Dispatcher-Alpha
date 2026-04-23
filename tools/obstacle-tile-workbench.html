@@ -115,7 +115,7 @@
   <div class="wrap">
     <div class="panel">
       <h1>Obstacle Tile Workbench</h1>
-      <div class="muted">Klick Tiles zum Auswählen. Queue lädt seriell und schreibt direkt Split-Tiles (`core` + `poi`). Repo-Push macht Commit + Push für neue Split-Tiles.</div>
+      <div class="muted">Klick Tiles zum Auswählen. Queue lädt seriell und schreibt direkt Split-Tiles (`core` + `poi`). Primärquelle ist OSM-PBF, Overpass nur Fallback. Repo-Push macht Commit + Push für neue Split-Tiles.</div>
 
       <div class="stat"><span>Geladen</span><strong id="stLoaded">0</strong></div>
       <div class="stat"><span>Stale (&gt; 3 Monate)</span><strong id="stStale">0</strong></div>
@@ -169,7 +169,8 @@
       repoSync: null,
       repoTiles: new Set(),
       missingInRepoTiles: new Set(),
-      lastFailedSig: ''
+      lastFailedSig: '',
+      sourceConfigSig: ''
     };
 
     const logView = document.getElementById('logView');
@@ -415,6 +416,14 @@
         state.currentTile = s.currentTile || null;
         state.recent = s.recent || {};
         state.repoSync = s.repoSync || state.repoSync || null;
+        const sourceCfg = s.sourceConfig || {};
+        const srcSig = `${sourceCfg.pbfPath || ''}|${sourceCfg.pbfAvailable ? 1 : 0}`;
+        if (srcSig !== state.sourceConfigSig) {
+          state.sourceConfigSig = srcSig;
+          const pbfPath = String(sourceCfg.pbfPath || '-');
+          const pbfAvail = !!sourceCfg.pbfAvailable;
+          log(`Quelle: ${pbfAvail ? 'PBF primär aktiv' : 'PBF fehlt -> Overpass Fallback'} | ${pbfPath}`);
+        }
 
         for (const key of Array.from(state.selected)) {
           if (!/^[-0-9]+\|[-0-9]+$/.test(key)) state.selected.delete(key);
