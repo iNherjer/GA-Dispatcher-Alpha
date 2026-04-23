@@ -106,6 +106,26 @@ function tileBoundsFromKey(key, stepLat, stepLon) {
     };
 }
 
+function addSplitStripeOverlay(layerGroup, b, color = '#d500f9') {
+    if (!layerGroup || !b) return;
+    const h = Number(b.north) - Number(b.south);
+    const w = Number(b.east) - Number(b.west);
+    if (!(h > 0) || !(w > 0)) return;
+    const stripes = [0.16, 0.34, 0.52, 0.70, 0.88];
+    for (const f of stripes) {
+        const latA = b.south + (h * Math.max(0, Math.min(1, f - 0.22)));
+        const lonA = b.west + (w * Math.max(0, Math.min(1, f - 0.22)));
+        const latB = b.south + (h * Math.max(0, Math.min(1, f + 0.22)));
+        const lonB = b.west + (w * Math.max(0, Math.min(1, f + 0.22)));
+        L.polyline([[latA, lonA], [latB, lonB]], {
+            color,
+            weight: 1,
+            opacity: 0.55,
+            interactive: false
+        }).addTo(layerGroup);
+    }
+}
+
 function renderObsTileOverlay() {
     if (!map) return;
     if (!vpObsTileDebugLayer) vpObsTileDebugLayer = L.layerGroup();
@@ -154,6 +174,7 @@ function renderObsTileOverlay() {
         const wasUsed = usedTs > 0 && (now - usedTs) <= VP_OBS_TILE_USED_RECENT_MS;
         const hasFailure = failedTs > 0 && (!loadedTs || failedTs >= loadedTs);
         const isHostedTile = src.includes('hosted') || src.includes('github');
+        const isHostedSplit = isHostedTile && src.includes('split');
         const color = isLoading
             ? '#ff9a3d'
             : (hasFailure ? '#b71c1c' : (isDeferred ? '#ffd54f' : (isHostedTile ? '#d500f9' : (wasUsed ? '#4fcd73' : '#4da2ff'))));
@@ -167,6 +188,9 @@ function renderObsTileOverlay() {
             interactive: false
         });
         rect.addTo(vpObsTileDebugLayer);
+        if (!isLoading && !hasFailure && isHostedSplit) {
+            addSplitStripeOverlay(vpObsTileDebugLayer, b, '#f4b3ff');
+        }
     }
     if (!map.hasLayer(vpObsTileDebugLayer)) vpObsTileDebugLayer.addTo(map);
 }

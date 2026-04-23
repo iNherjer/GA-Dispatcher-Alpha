@@ -2713,6 +2713,24 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Ziel: ${missionSnap.target || 'n/a'}`);
         lines.push(`- Quelle: ${missionSnap.source || 'n/a'}`);
         if (missionSnap.poiSource) lines.push(`- POI-Fundquelle: ${missionSnap.poiSource}`);
+        if (missionSnap.poiLookup && typeof missionSnap.poiLookup === 'object') {
+            const lk = missionSnap.poiLookup;
+            const srcBits = [];
+            if (lk.engine) srcBits.push(String(lk.engine));
+            if (lk.lastSource) srcBits.push(`last=${String(lk.lastSource)}`);
+            if (typeof lk.includeCore === 'boolean') srcBits.push(`core=${lk.includeCore ? 'on' : 'off'}`);
+            if (Number.isFinite(Number(lk.tileKeys))) srcBits.push(`tiles=${Number(lk.tileKeys)}`);
+            if (Number.isFinite(Number(lk.features))) srcBits.push(`features=${Number(lk.features)}`);
+            if (Number.isFinite(Number(lk.candidates))) srcBits.push(`candidates=${Number(lk.candidates)}`);
+            if (Number.isFinite(Number(lk.requestsDelta))) srcBits.push(`reqΔ=${Number(lk.requestsDelta)}`);
+            if (Number.isFinite(Number(lk.splitHitsDelta))) srcBits.push(`splitΔ=${Number(lk.splitHitsDelta)}`);
+            if (Number.isFinite(Number(lk.legacyHitsDelta))) srcBits.push(`legacyΔ=${Number(lk.legacyHitsDelta)}`);
+            if (Number.isFinite(Number(lk.fallbackHitsDelta))) srcBits.push(`fallbackΔ=${Number(lk.fallbackHitsDelta)}`);
+            if (Number.isFinite(Number(lk.errorsDelta))) srcBits.push(`errΔ=${Number(lk.errorsDelta)}`);
+            if (lk.featureSourceKind) srcBits.push(`featSrc=${String(lk.featureSourceKind)}`);
+            if (lk.featureLayer) srcBits.push(`featLayer=${String(lk.featureLayer)}`);
+            lines.push(`- POI-Lookup: ${srcBits.join(' | ')}`);
+        }
         lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
         if (missionSnap.contract?.summary) lines.push(`- Contract: ${missionSnap.contract.summary}`);
         lines.push(`- PAX/Cargo: ${missionSnap.paxText || 'n/a'} | ${missionSnap.cargoText || 'n/a'}`);

@@ -35,6 +35,7 @@ function compactCore(input) {
     'primary', 'primary_link',
     'secondary', 'secondary_link'
   ]);
+  const majorRail = new Set(['rail', 'light_rail', 'narrow_gauge']);
   const majorWaterway = new Set(['river', 'canal']);
 
   function normalizeObstacleType(raw) {
@@ -78,12 +79,16 @@ function compactCore(input) {
       const layer = String(e?.layer || '').toLowerCase();
       const rawType = String(e?.type || '').toLowerCase();
       const highway = String(e?.highway || '').toLowerCase();
+      const railway = String(e?.railway || '').toLowerCase();
       const waterway = String(e?.waterway || '').toLowerCase();
       const power = String(e?.power || '').toLowerCase();
       let type = '';
       if (rawType === 'highway' || layer === 'road') {
         if (!majorHighway.has(highway)) return null; // only major roads/highways
         type = 'highway';
+      } else if (rawType === 'railway' || layer === 'rail') {
+        if (!majorRail.has(railway)) return null; // keep main rail corridors only
+        type = 'railway';
       } else if (rawType === 'river' || layer === 'hydro') {
         if (waterway && !majorWaterway.has(waterway)) return null; // avoid tiny streams/ditches
         type = 'river';
@@ -96,8 +101,8 @@ function compactCore(input) {
       const lon = normCoord(e?.lon);
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
       const name = String(e?.name || '').trim();
-      // Unnamed roads/powerlines add much volume with low value in profile.
-      if (!name && (type === 'highway' || type === 'powerline')) return null;
+      // Unnamed roads add huge volume with low value; keep unnamed power/rail for infra context.
+      if (!name && type === 'highway') return null;
       return { type, name: name.slice(0, 64), lat, lon };
     })
     .filter(Boolean);
@@ -149,13 +154,19 @@ function compactPoi(input) {
   const poiIn = Array.isArray(input?.poi) ? input.poi : [];
   const keepNatural = new Set(['water', 'peak', 'valley', 'ridge', 'cliff', 'saddle', 'hill', 'cave_entrance', 'rock']);
   const keepWater = new Set(['lake', 'reservoir', 'pond', 'basin']);
+  const keepLanduse = new Set(['industrial', 'quarry', 'brownfield', 'landfill', 'reservoir', 'basin']);
+  const keepRailway = new Set(['station', 'halt', 'tram_stop', 'subway_entrance', 'level_crossing', 'crossing', 'junction', 'switch', 'signal']);
+  const keepHighwayPoi = new Set(['motorway_junction', 'trunk_junction']);
   const keepTourism = new Set(['attraction', 'viewpoint', 'museum', 'theme_park', 'zoo', 'aquarium']);
   const keepHistoric = new Set(['castle', 'ruins', 'fort', 'monument', 'memorial', 'archaeological_site']);
-  const keepManMade = new Set(['tower', 'mast', 'bridge', 'dam', 'lighthouse', 'water_tower', 'chimney', 'antenna']);
-  const keepPower = new Set(['tower']);
+  const keepManMade = new Set([
+    'tower', 'mast', 'bridge', 'dam', 'lighthouse', 'water_tower', 'chimney', 'antenna',
+    'water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo'
+  ]);
+  const keepPower = new Set(['tower', 'substation', 'plant', 'generator', 'transformer']);
   const keepPlace = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'neighbourhood']);
   const keepLeisure = new Set(['nature_reserve', 'park', 'marina', 'stadium']);
-  const keepAmenity = new Set(['university', 'hospital', 'fire_station']);
+  const keepAmenity = new Set(['university', 'hospital', 'fire_station', 'wastewater_plant', 'waste_transfer_station', 'water_works', 'fuel', 'bus_station']);
 
   const poiRaw = poiIn
     .map(e => ({
@@ -166,10 +177,13 @@ function compactPoi(input) {
       historic: String(e?.historic || '').toLowerCase(),
       natural: String(e?.natural || '').toLowerCase(),
       water: String(e?.water || '').toLowerCase(),
+      landuse: String(e?.landuse || '').toLowerCase(),
       amenity: String(e?.amenity || '').toLowerCase(),
       leisure: String(e?.leisure || '').toLowerCase(),
       man_made: String(e?.man_made || '').toLowerCase(),
       power: String(e?.power || '').toLowerCase(),
+      railway: String(e?.railway || '').toLowerCase(),
+      highway: String(e?.highway || '').toLowerCase(),
       place: String(e?.place || '').toLowerCase()
     }))
     .filter(e => Number.isFinite(e.lat) && Number.isFinite(e.lon))
@@ -177,6 +191,9 @@ function compactPoi(input) {
       return (
         keepNatural.has(e.natural) ||
         keepWater.has(e.water) ||
+        keepLanduse.has(e.landuse) ||
+        keepRailway.has(e.railway) ||
+        keepHighwayPoi.has(e.highway) ||
         keepTourism.has(e.tourism) ||
         keepHistoric.has(e.historic) ||
         keepManMade.has(e.man_made) ||
@@ -197,7 +214,7 @@ function compactPoi(input) {
   const poiDedup = [];
   const seen = new Set();
   for (const e of poiRaw) {
-    const k = `${e.name}|${e.lat}|${e.lon}|${e.tourism}|${e.historic}|${e.natural}|${e.water}|${e.amenity}|${e.leisure}|${e.man_made}|${e.power}|${e.place}`;
+    const k = `${e.name}|${e.lat}|${e.lon}|${e.tourism}|${e.historic}|${e.natural}|${e.water}|${e.landuse}|${e.amenity}|${e.leisure}|${e.man_made}|${e.power}|${e.railway}|${e.highway}|${e.place}`;
     if (seen.has(k)) continue;
     seen.add(k);
     poiDedup.push(e);
@@ -208,6 +225,9 @@ function compactPoi(input) {
     place: [],
     water: [],
     mountain: [],
+    road: [],
+    rail: [],
+    industry: [],
     historic: [],
     tower: [],
     tourism: [],
@@ -217,6 +237,9 @@ function compactPoi(input) {
     if (keepPlace.has(e.place)) groups.place.push(e);
     else if (keepWater.has(e.water) || e.natural === 'water') groups.water.push(e);
     else if (['peak', 'valley', 'ridge', 'cliff', 'saddle', 'hill'].includes(e.natural)) groups.mountain.push(e);
+    else if (keepHighwayPoi.has(e.highway)) groups.road.push(e);
+    else if (keepRailway.has(e.railway)) groups.rail.push(e);
+    else if (keepLanduse.has(e.landuse) || ['substation', 'plant', 'generator', 'transformer'].includes(e.power) || ['water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo', 'chimney'].includes(e.man_made) || keepAmenity.has(e.amenity)) groups.industry.push(e);
     else if (keepHistoric.has(e.historic)) groups.historic.push(e);
     else if (keepManMade.has(e.man_made) || keepPower.has(e.power)) groups.tower.push(e);
     else if (keepTourism.has(e.tourism)) groups.tourism.push(e);
@@ -226,6 +249,9 @@ function compactPoi(input) {
     place: 1200,
     water: 900,
     mountain: 900,
+    road: 800,
+    rail: 900,
+    industry: 1000,
     historic: 900,
     tower: 1200,
     tourism: 700,

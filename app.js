@@ -2696,10 +2696,20 @@ function _poiFeatureMatchesCategory(feature, category) {
     );
     const isCity = ['city', 'town', 'village', 'suburb'].includes(t.place);
     const isIndustry = (
-        ['industrial', 'quarry'].includes(t.landuse) ||
+        ['industrial', 'quarry', 'brownfield', 'landfill'].includes(t.landuse) ||
+        ['substation', 'plant', 'generator', 'transformer'].includes(t.power) ||
+        ['water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo', 'chimney'].includes(t.man_made) ||
+        ['wastewater_plant', 'waste_transfer_station', 'water_works'].includes(t.amenity) ||
+        _hasWordToken(n, 'umspannwerk') ||
+        _hasWordToken(n, 'wasserwerk') ||
+        _hasWordToken(n, 'klaerwerk') ||
+        _hasWordToken(n, 'klärwerk') ||
+        _hasWordToken(n, 'kraftwerk') ||
+        _hasWordToken(n, 'heizkraftwerk') ||
         _hasWordToken(n, 'industrie') ||
         _hasWordToken(n, 'werk') ||
-        _hasWordToken(n, 'fabrik')
+        _hasWordToken(n, 'fabrik') ||
+        _hasWordToken(n, 'anlage')
     );
     const isFire = (
         isMountain ||
@@ -2755,6 +2765,11 @@ function _poiFeatureScore(feature, category) {
         if (['peak', 'valley', 'cliff', 'ridge'].includes(t.natural)) score += 6;
     } else if (cat === 'castle') {
         if (['castle', 'ruins', 'fort', 'monument'].includes(t.historic)) score += 7;
+    } else if (cat === 'industry') {
+        if (['industrial', 'quarry', 'brownfield', 'landfill'].includes(t.landuse)) score += 6;
+        if (['substation', 'plant', 'generator', 'transformer'].includes(t.power)) score += 8;
+        if (['water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo', 'chimney'].includes(t.man_made)) score += 7;
+        if (['wastewater_plant', 'waste_transfer_station', 'water_works'].includes(t.amenity)) score += 7;
     }
     if (n) score += 1;
     if (feature?.sourceKind === 'poi') score += 2;
@@ -2909,6 +2924,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const forceCat = String(forcedCategory || '').toLowerCase();
     if (forceCat === 'trn') return null;
     const includeCore = _shouldIncludeCoreForPoiSearch(forceCat, dispatchProfileId);
+    const dbgStart = { ..._poiDebugState() };
     const tileKeys = _poiCollectTileKeysAround(lat, lon, Math.max(22, Number(maxNM || 40)));
     if (!tileKeys.length) return null;
 
@@ -2955,7 +2971,9 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             lon: flon,
             dist: nav.dist,
             category: wantedCat,
-            score: _poiFeatureScore(f, wantedCat)
+            score: _poiFeatureScore(f, wantedCat),
+            featureSourceKind: String(f?.sourceKind || ''),
+            featureLayer: String(f?.tags?.layer || '')
         });
     }
     if (!candidates.length) return null;
@@ -2970,13 +2988,33 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const top = pool.slice(0, Math.min(12, pool.length));
     const pick = top[Math.floor(Math.random() * top.length)] || pool[0];
     const usedCat = String((pick && pick.category) || forceCat || 'generic').toLowerCase();
+    const dbgEnd = { ..._poiDebugState() };
+    const lookupDebug = {
+        includeCore,
+        tileKeys: tileKeys.length,
+        features: features.length,
+        candidates: candidates.length,
+        requestsDelta: Math.max(0, Number(dbgEnd.requests || 0) - Number(dbgStart.requests || 0)),
+        hitsDelta: Math.max(0, Number(dbgEnd.hits || 0) - Number(dbgStart.hits || 0)),
+        splitHitsDelta: Math.max(0, Number(dbgEnd.splitHits || 0) - Number(dbgStart.splitHits || 0)),
+        legacyHitsDelta: Math.max(0, Number(dbgEnd.legacyHits || 0) - Number(dbgStart.legacyHits || 0)),
+        fallbackHitsDelta: Math.max(0, Number(dbgEnd.fallbackHits || 0) - Number(dbgStart.fallbackHits || 0)),
+        errorsDelta: Math.max(0, Number(dbgEnd.errors || 0) - Number(dbgStart.errors || 0)),
+        lastSource: String(dbgEnd.lastSource || '')
+    };
     return {
         icao: 'POI',
         n: pick.n,
         lat: pick.lat,
         lon: pick.lon,
         poiCategory: usedCat,
-        poiSource: `Hosted POI Tiles (tagged:${usedCat})`
+        poiSource: `Hosted POI Tiles (tagged:${usedCat})`,
+        poiLookup: {
+            engine: 'hosted-poi-tiles',
+            featureSourceKind: String(pick?.featureSourceKind || ''),
+            featureLayer: String(pick?.featureLayer || ''),
+            ...lookupDebug
+        }
     };
 }
 
@@ -6110,6 +6148,7 @@ async function generateMission() {
 
     const poolCategory = isPOI ? (dest.poiCategory || classifyPOITitleCategory(dest.n)) : (m?.cat || 'std');
     const poiSource = isPOI ? String(dest?.poiSource || dataSource || 'n/a') : '';
+    const poiLookup = isPOI && dest && typeof dest.poiLookup === 'object' ? dest.poiLookup : null;
     const dispatchSnapshot = {
         mode: isPOI ? 'POI' : 'A-B',
         category: poolCategory,
@@ -6118,7 +6157,8 @@ async function generateMission() {
         appliedProfile: m?._appliedProfile || 'auto',
         mission: m?.t || 'n/a',
         target: dest?.n || 'n/a',
-        poiSource
+        poiSource,
+        poiLookup
     };
     console.debug('[DISPATCH]', dispatchSnapshot);
 
@@ -6171,6 +6211,7 @@ async function generateMission() {
             target: dispatchSnapshot.target,
             source: m?._source || dataSource || 'n/a',
             poiSource: poiSource || null,
+            poiLookup: poiLookup || null,
             story: String(m?.s || ''),
             narrativeGuard: m?._narrativeGuard || null,
             contract: activeMissionContract || null,

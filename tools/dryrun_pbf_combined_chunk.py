@@ -78,6 +78,7 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
         AND refs IS NOT NULL
         AND (
           tags['highway'] IS NOT NULL
+          OR tags['railway'] IS NOT NULL
           OR tags['waterway'] IS NOT NULL
           OR tags['natural'] = 'water'
           OR tags['water'] IS NOT NULL
@@ -123,6 +124,7 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
     SELECT
       CASE
         WHEN tags['highway'] IS NOT NULL THEN 'road'
+        WHEN tags['railway'] IS NOT NULL THEN 'rail'
         WHEN tags['waterway'] IS NOT NULL OR tags['natural']='water' OR tags['water'] IS NOT NULL OR tags['landuse'] IN ('reservoir','basin') THEN 'hydro'
         WHEN tags['power'] IN ('line','minor_line','cable') THEN 'powerline'
         WHEN tags['man_made'] IN ('bridge','tower','mast') THEN 'man_made'
@@ -132,8 +134,10 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
       CAST(lat AS DOUBLE) AS lat,
       CAST(lon AS DOUBLE) AS lon,
       tags['highway'] AS highway,
+      tags['railway'] AS railway,
       tags['waterway'] AS waterway,
       tags['power'] AS power,
+      tags['man_made'] AS man_made,
       tags['natural'] AS natural,
       tags['water'] AS water,
       tags['landuse'] AS landuse,
@@ -153,12 +157,15 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
       CAST(lon AS DOUBLE) AS lon,
       tags['natural'] AS natural,
       tags['water'] AS water,
+      tags['landuse'] AS landuse,
       tags['tourism'] AS tourism,
       tags['historic'] AS historic,
       tags['amenity'] AS amenity,
       tags['leisure'] AS leisure,
       tags['man_made'] AS man_made,
       tags['power'] AS power,
+      tags['railway'] AS railway,
+      tags['highway'] AS highway,
       tags['place'] AS place
     FROM ST_ReadOSM('{pbf_path}')
     WHERE kind='node'
@@ -169,10 +176,13 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
         OR tags['historic'] IS NOT NULL
         OR tags['natural'] IS NOT NULL
         OR tags['water'] IS NOT NULL
+        OR tags['landuse'] IN ('industrial','quarry','brownfield','landfill','reservoir','basin')
         OR tags['amenity'] IS NOT NULL
         OR tags['leisure'] IS NOT NULL
         OR tags['man_made'] IS NOT NULL
-        OR tags['power'] IN ('tower','line','minor_line','cable')
+        OR tags['power'] IS NOT NULL
+        OR tags['railway'] IS NOT NULL
+        OR tags['highway'] IN ('motorway_junction','trunk_junction','crossing','traffic_signals')
         OR tags['place'] IS NOT NULL
       )
     """
@@ -197,15 +207,17 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
 
     lines = []
     for r in way_rows:
-        (layer, name, lat, lon, highway, waterway, power, natural, water, landuse, tourism, historic, amenity, leisure) = r
+        (layer, name, lat, lon, highway, railway, waterway, power, man_made, natural, water, landuse, tourism, historic, amenity, leisure) = r
         lines.append({
             "layer": layer,
             "name": name or "",
             "lat": float(lat),
             "lon": float(lon),
             "highway": highway,
+            "railway": railway,
             "waterway": waterway,
             "power": power,
+            "man_made": man_made,
             "natural": natural,
             "water": water,
             "landuse": landuse,
@@ -217,19 +229,22 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
 
     poi = []
     for r in poi_rows:
-        (name, lat, lon, natural, water, tourism, historic, amenity, leisure, man_made, power, place) = r
+        (name, lat, lon, natural, water, landuse, tourism, historic, amenity, leisure, man_made, power, railway, highway, place) = r
         poi.append({
             "name": name or "",
             "lat": float(lat),
             "lon": float(lon),
             "natural": natural,
             "water": water,
+            "landuse": landuse,
             "tourism": tourism,
             "historic": historic,
             "amenity": amenity,
             "leisure": leisure,
             "man_made": man_made,
             "power": power,
+            "railway": railway,
+            "highway": highway,
             "place": place,
         })
 
@@ -246,8 +261,8 @@ def chunk_extract(con, pbf_path: str, bounds: Dict[str, float]) -> Dict[str, Any
         return out
 
     obs = dedupe(obs, ["type", "name", "lat", "lon"])
-    lines = dedupe(lines, ["layer", "name", "lat", "lon", "highway", "waterway", "power"])
-    poi = dedupe(poi, ["name", "lat", "lon", "tourism", "historic", "natural", "water", "man_made", "power", "place"])
+    lines = dedupe(lines, ["layer", "name", "lat", "lon", "highway", "railway", "waterway", "power", "man_made"])
+    poi = dedupe(poi, ["name", "lat", "lon", "tourism", "historic", "natural", "water", "landuse", "man_made", "power", "railway", "highway", "place"])
 
     return {
         "obs": obs,
