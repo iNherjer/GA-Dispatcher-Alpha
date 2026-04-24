@@ -1723,8 +1723,18 @@ function triggerVerticalProfileUpdate() {
 
                 const now = Date.now();
                 const tileProbe = vpGetRouteTileCoverageProbe(vpElevationData);
+                let hasRouteComboCache = false;
+                try {
+                    const comboRaw = localStorage.getItem('ga_obs_combo_' + cacheKey);
+                    if (comboRaw) {
+                        const combo = JSON.parse(comboRaw);
+                        const obs = Array.isArray(combo && combo.obs) ? combo.obs : [];
+                        const lin = Array.isArray(combo && combo.lin) ? combo.lin : [];
+                        hasRouteComboCache = (obs.length > 0 || lin.length > 0);
+                    }
+                } catch (_) { }
                 const lastSuccessAt = Number((window.vpOverpassRouteLastSuccess && window.vpOverpassRouteLastSuccess[cacheKey]) || 0);
-                if (!forceOverpassReload && tileProbe.missing.length === 0 && lastSuccessAt > 0 && (now - lastSuccessAt) < VP_OVERPASS_MIN_REQUERY_MS) {
+                if (!forceOverpassReload && hasRouteComboCache && tileProbe.missing.length === 0 && lastSuccessAt > 0 && (now - lastSuccessAt) < VP_OVERPASS_MIN_REQUERY_MS) {
                     if (window.vpWeatherDebug) window.vpWeatherDebug.overpassRouteThrottleSkips += 1;
                     console.log(`[Overpass] Route-Guard aktiv (${Math.ceil((VP_OVERPASS_MIN_REQUERY_MS - (now - lastSuccessAt)) / 1000)}s Rest), nutze Bestand.`);
                     return;
@@ -1734,7 +1744,7 @@ function triggerVerticalProfileUpdate() {
                     if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred('__RESET__', false);
                     const seeded = vpProjectObsPoolToRoute(vpElevationData);
                     vpLogRouteFeatureStats('tile-cache-hit', cacheKey, seeded.obs || [], seeded.lin || []);
-                    if ((seeded.obs && seeded.obs.length) || (seeded.lin && seeded.lin.length)) {
+                    if (hasRouteComboCache && ((seeded.obs && seeded.obs.length) || (seeded.lin && seeded.lin.length))) {
                         vpObstacles = seeded.obs || [];
                         vpLinearFeatures = seeded.lin || [];
                         window._lastObsRouteKey = cacheKey;
@@ -1744,6 +1754,9 @@ function triggerVerticalProfileUpdate() {
                         if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
                         console.log('[Overpass] Route vollständig im Tile-Cache. Kein Netz-Request nötig.');
                         return;
+                    }
+                    if (!hasRouteComboCache) {
+                        console.log('[Overpass] Coverage vollständig, aber kein Route-Combo-Cache vorhanden -> Tile-Refresh wird erzwungen.');
                     }
                 } else if (!forceOverpassReload && tileProbe.missing.length > 0) {
                     if (window.vpWeatherDebug) window.vpWeatherDebug.overpassTileCoverageMisses += 1;
