@@ -1162,6 +1162,7 @@ async function vpFetchHostedObstacleTile(tileKey, signal) {
         let timer = null;
         let onAbort = null;
         try {
+            const isLocalStaticEndpoint = endpoint.includes('./obstacles/core-tiles/');
             ctrl = new AbortController();
             if (signal) {
                 onAbort = () => ctrl.abort();
@@ -1204,6 +1205,14 @@ async function vpFetchHostedObstacleTile(tileKey, signal) {
             const features = vpParseHostedObstaclePayload(payload);
             if (!features) {
                 if (dbg) dbg.hostedTileErrors = Number(dbg.hostedTileErrors || 0) + 1;
+                continue;
+            }
+            const obsCount = Array.isArray(features.obs) ? features.obs.length : 0;
+            const linCount = Array.isArray(features.lin) ? features.lin.length : 0;
+            // Lokale Split-Tiles koennen vereinzelt als leere Platzhalter vorliegen.
+            // Diese nicht als "ok" akzeptieren, damit Worker/Overpass nachgeladen wird.
+            if (isLocalStaticEndpoint && (obsCount + linCount) === 0) {
+                if (dbg) dbg.hostedTileMisses = Number(dbg.hostedTileMisses || 0) + 1;
                 continue;
             }
             vpClearHostedMiss(tileKey);
