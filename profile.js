@@ -1376,7 +1376,7 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
 
     // Phase 1: Hosted-Tiles parallel laden (schnell), Overpass erst danach.
     let overpassCandidates = readyKeys.slice();
-    if (!forceNetwork && readyKeys.length > 0) {
+    if (readyKeys.length > 0) {
         const hostedBatchSize = Math.min(VP_OBS_HOSTED_MAX_PER_PASS, readyKeys.length);
         const hostedKeys = readyKeys.slice(0, hostedBatchSize);
         hostedAttemptCount = hostedKeys.length;
