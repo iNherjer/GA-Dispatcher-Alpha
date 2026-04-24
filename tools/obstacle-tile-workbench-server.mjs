@@ -904,7 +904,7 @@ const server = http.createServer(async (req, res) => {
     // Re-queue all tiles that still exist only as .json (not yet .json.gz) — migration helper.
     if (req.method === 'POST' && url.pathname === '/api/requeue-legacy-json') {
       const tiles = [];
-      for (const [latI, lonI] of iterateTileFiles(CORE_TILE_DIR, '.json')) {
+      for await (const [latI, lonI] of iterateTileFiles(CORE_TILE_DIR, '.json')) {
         const key = `${latI}|${lonI}`;
         if (!existsSync(tileGzPath(CORE_TILE_DIR, key))) tiles.push(key);
       }
@@ -918,7 +918,7 @@ const server = http.createServer(async (req, res) => {
       const maxAge = Number(body && body.maxAgeDays) || 0; // 0 = all
       const now = Date.now();
       const tiles = [];
-      for (const [latI, lonI] of iterateTileFiles(CORE_TILE_DIR, '.json.gz')) {
+      for await (const [latI, lonI] of iterateTileFiles(CORE_TILE_DIR, '.json.gz')) {
         const key = `${latI}|${lonI}`;
         if (maxAge > 0) {
           const gzp = tileGzPath(CORE_TILE_DIR, key);
