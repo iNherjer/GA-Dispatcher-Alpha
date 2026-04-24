@@ -20,17 +20,23 @@ try {
   if (existsSync(cfgPath)) _cfg = JSON.parse(await fs.readFile(cfgPath, 'utf8'));
 } catch (_) {}
 
+// Resolve a path from config: relative paths are resolved relative to __dirname (tools/),
+// NOT cwd — so the server works regardless of where it is launched from.
+function resolveCfgPath(val, defaultPath) {
+  if (process.env[val.envKey]) return path.resolve(process.env[val.envKey]);
+  if (val.cfgVal) return path.resolve(__dirname, val.cfgVal);
+  return defaultPath;
+}
+
 // repoRoot: where the git repo + obstacles/ dir live (env > config > default: parent of tools/)
-const ROOT = path.resolve(
-  process.env.OBS_WORKBENCH_REPO_ROOT ||
-  _cfg.repoRoot ||
+const ROOT = resolveCfgPath(
+  { envKey: 'OBS_WORKBENCH_REPO_ROOT', cfgVal: _cfg.repoRoot },
   path.resolve(__dirname, '..')
 );
 
 // cacheDir: where PBFs and tmp files are stored — can be on external drive
-const CACHE_BASE = path.resolve(
-  process.env.OBS_WORKBENCH_CACHE_DIR ||
-  _cfg.cacheDir ||
+const CACHE_BASE = resolveCfgPath(
+  { envKey: 'OBS_WORKBENCH_CACHE_DIR', cfgVal: _cfg.cacheDir },
   path.join(__dirname, 'workbench-cache')
 );
 
