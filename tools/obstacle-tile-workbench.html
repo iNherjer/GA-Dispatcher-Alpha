@@ -115,7 +115,7 @@
   <div class="wrap">
     <div class="panel">
       <h1>Obstacle Tile Workbench</h1>
-      <div class="muted">Klick Tiles zum Auswählen. Queue lädt seriell und schreibt direkt Split-Tiles (`core` + `poi`). Primärquelle ist OSM-PBF, Overpass nur Fallback. Repo-Push macht Commit + Push für neue Split-Tiles.</div>
+      <div class="muted">Klick: Tile auswählen. Shift+Klick: Bereich — erstes Tile setzt Anker (Cyan), zweites Shift+Klick wählt alle Tiles dazwischen aus. Queue lädt seriell, schreibt Split-Tiles (core + poi). PBF primär, Overpass Fallback.</div>
 
       <div class="stat"><span>Geladen</span><strong id="stLoaded">0</strong></div>
       <div class="stat"><span>Stale (&gt; 3 Monate)</span><strong id="stStale">0</strong></div>
@@ -125,6 +125,7 @@
       <div class="stat"><span>Aktuelles Tile</span><strong id="stCurrent">-</strong></div>
       <div class="stat"><span>Repo fehlt (lokal vorhanden)</span><strong id="stRepoMissing">0</strong></div>
       <div class="stat"><span>Lokal fehlt (im Repo)</span><strong id="stLocalMissing">0</strong></div>
+      <div class="stat" id="statPbfRow"><span>PBF Downloads</span><strong id="stPbf">-</strong></div>
 
       <div class="buttons">
         <button id="btnRefresh">Status neu laden</button>
@@ -144,6 +145,7 @@
         <span><i class="dot" style="background:#ffd54a"></i> Gelb: in Queue</span>
         <span><i class="dot" style="background:#59ff7d"></i> Grün: wird gerade geladen</span>
         <span><i class="dot" style="background:#56b8ff"></i> Blau: ausgewählt</span>
+        <span><i class="dot" style="background:#00ffee"></i> Cyan: Shift-Anker (Bereichsstart)</span>
       </div>
 
       <div class="queue" id="queueView">Queue: -</div>
@@ -166,6 +168,7 @@
       currentTile: null,
       recent: {},
       selected: new Set(),
+      shiftAnchor: null,
       repoSync: null,
       repoTiles: new Set(),
       missingInRepoTiles: new Set(),
@@ -189,6 +192,38 @@
       else state.selected.add(key);
       updateUi();
       renderGrid();
+    }
+
+    function handleTileClick(key, shiftHeld) {
+      if (!/^[-0-9]+\|[-0-9]+$/.test(String(key || ''))) return;
+      if (shiftHeld) {
+        if (!state.shiftAnchor) {
+          state.shiftAnchor = key;
+          log(`Bereichsstart: ${key} — Shift+Klick zweites Tile zum Auswählen`);
+          updateUi();
+          renderGrid();
+        } else {
+          const [lat0, lon0] = state.shiftAnchor.split('|').map(Number);
+          const [lat1, lon1] = key.split('|').map(Number);
+          const latMin = Math.min(lat0, lat1);
+          const latMax = Math.max(lat0, lat1);
+          const lonMin = Math.min(lon0, lon1);
+          const lonMax = Math.max(lon0, lon1);
+          for (let latI = latMin; latI <= latMax; latI++) {
+            for (let lonI = lonMin; lonI <= lonMax; lonI++) {
+              state.selected.add(`${latI}|${lonI}`);
+            }
+          }
+          const count = (latMax - latMin + 1) * (lonMax - lonMin + 1);
+          log(`Bereich ausgewählt: ${count} Tiles (${state.shiftAnchor} → ${key})`);
+          state.shiftAnchor = null;
+          updateUi();
+          renderGrid();
+        }
+      } else {
+        state.shiftAnchor = null;
+        toggleTileSelection(key);
+      }
     }
 
     function normLon180(v) {
@@ -276,6 +311,14 @@
         color = '#56b8ff';
         weight = Math.max(weight, 2);
       }
+      if (state.shiftAnchor === key) {
+        color = '#00ffee';
+        fill = '#00ffee';
+        fillOpacity = 0.25;
+        weight = 3;
+        dashArray = '5 3';
+        opacity = 1;
+      }
 
       return { color, fillColor: fill, opacity, fillOpacity, weight, dashArray };
     }
@@ -322,10 +365,11 @@
           rect = L.rectangle(bounds, style);
           rect.on('click', (ev) => {
             lastRectClickAt = Date.now();
+            const shiftHeld = !!(ev && ev.originalEvent && ev.originalEvent.shiftKey);
             if (ev && ev.originalEvent) {
               try { L.DomEvent.stop(ev.originalEvent); } catch (_) {}
             }
-            toggleTileSelection(key);
+            handleTileClick(key, shiftHeld);
           });
           rect.on('mouseover', () => {
             const loaded = state.loaded[key];
@@ -384,6 +428,12 @@
       document.getElementById('btnClearSelection').disabled = state.selected.size === 0;
       document.getElementById('btnClearQueue').disabled = state.queue.length === 0;
       document.getElementById('btnRetryFailed').disabled = Object.keys(state.failed).length === 0;
+
+      if (state.shiftAnchor) {
+        hint.textContent = `Shift-Anker: ${state.shiftAnchor} — Shift+Klick zweites Tile für Bereich`;
+      } else {
+        hint.textContent = `Tile: ${state.currentTile || '-'}`;
+      }
     }
 
     function logFailedSummary() {
@@ -432,6 +482,35 @@
         updateUi();
         renderGrid();
         logFailedSummary();
+
+        // PBF download summary
+        const downloads = s.downloads || {};
+        const dlEntries = Object.entries(downloads);
+        if (dlEntries.length === 0) {
+          document.getElementById('stPbf').textContent = '-';
+        } else {
+          const ready = dlEntries.filter(([, v]) => v.status === 'ready').length;
+          const downloading = dlEntries.filter(([, v]) => v.status === 'downloading');
+          const errors = dlEntries.filter(([, v]) => v.status === 'error').length;
+          let parts = [];
+          if (ready) parts.push(`${ready} bereit`);
+          if (downloading.length) {
+            const d = downloading[0][1];
+            const pct = d.total > 0 ? Math.round(d.downloaded / d.total * 100) : 0;
+            parts.push(`${downloading.length} lädt${downloading.length === 1 && d.total > 0 ? ` (${pct}%)` : ''}`);
+            // log newly started downloads
+            for (const [id, info] of downloading) {
+              if (!state._knownDownloads) state._knownDownloads = new Set();
+              if (!state._knownDownloads.has(id)) {
+                state._knownDownloads.add(id);
+                log(`PBF Download gestartet: ${info.name} (${id})`);
+              }
+            }
+          }
+          if (errors) parts.push(`${errors} Fehler`);
+          document.getElementById('stPbf').textContent = parts.join(', ') || '-';
+        }
+
         if (!quiet) log('Status aktualisiert');
       } catch (e) {
         log(`Status-Fehler: ${e.message || e}`);
@@ -526,7 +605,8 @@
     map.on('click', (ev) => {
       if ((Date.now() - lastRectClickAt) < 180) return;
       const key = tileKeyFromLatLon(ev.latlng.lat, ev.latlng.lng);
-      toggleTileSelection(key);
+      const shiftHeld = !!(ev && ev.originalEvent && ev.originalEvent.shiftKey);
+      handleTileClick(key, shiftHeld);
     });
 
     refreshState(true);

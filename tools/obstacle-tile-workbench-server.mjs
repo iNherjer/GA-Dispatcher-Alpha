@@ -4,7 +4,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promises as fs } from 'node:fs';
 import { existsSync } from 'node:fs';
+import { createWriteStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+import { Readable, Transform } from 'node:stream';
 import { spawn } from 'node:child_process';
+import { findRegionsForTile } from './pbf-region-registry.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,11 +26,17 @@ const WORKBENCH_TMP_DIR = path.join(ROOT, '.workbench-cache', 'obs-split');
 const WORKBENCH_TMP_OUT_DIR = path.join(WORKBENCH_TMP_DIR, 'combined-tiles');
 const WORKBENCH_TMP_MANIFEST = path.join(WORKBENCH_TMP_DIR, 'combined-manifest.v1.json');
 const WORKBENCH_TMP_FAILED = path.join(WORKBENCH_TMP_DIR, 'combined-failed-tiles.json');
-const WORKBENCH_PBF_PATH = String(process.env.OBS_WORKBENCH_PBF_PATH || '/private/tmp/freiburg-regbez-latest.osm.pbf').trim();
+const WORKBENCH_PBF_PATH = String(process.env.OBS_WORKBENCH_PBF_PATH || '').trim();
+
+const PBF_CACHE_DIR = path.join(ROOT, '.workbench-cache', 'pbf');
+const PBF_CACHE_TTL_MS = Number(process.env.OBS_WORKBENCH_PBF_TTL_DAYS || 7) * 24 * 60 * 60 * 1000;
 
 const TILE_STEP_DEG = 25 / 60;
 const STALE_AFTER_MS = 90 * 24 * 60 * 60 * 1000;
 const PORT = Number(process.env.OBS_WORKBENCH_PORT || 8788);
+
+const pbfDownloads = new Map(); // regionId -> { status, downloaded, total, url, name, path }
+const pbfDownloadPromises = new Map(); // regionId -> Promise (dedup concurrent downloads)
 
 const queue = [];
 const queueSet = new Set();
@@ -169,6 +179,99 @@ async function runCmd(bin, args, opts = {}) {
       resolve({ code: 1, stdout, stderr: `${stderr}\n${String(err && err.message || err)}` });
     });
   });
+}
+
+async function downloadPbfRegion(region) {
+  await ensureDir(PBF_CACHE_DIR);
+  const targetPath = path.join(PBF_CACHE_DIR, `${region.id}.osm.pbf`);
+  const tmpPath = targetPath + '.tmp';
+  pbfDownloads.set(region.id, { status: 'downloading', downloaded: 0, total: 0, url: region.url, name: region.name, path: targetPath });
+  try {
+    const res = await fetch(region.url, { redirect: 'follow' });
+    if (!res.ok) throw new Error(`HTTP ${res.status} von ${region.url}`);
+    const total = Number(res.headers.get('content-length') || 0);
+    let downloaded = 0;
+    pbfDownloads.set(region.id, { status: 'downloading', downloaded, total, url: region.url, name: region.name, path: targetPath });
+    const fileStream = createWriteStream(tmpPath);
+    const progress = new Transform({
+      transform(chunk, _enc, cb) {
+        downloaded += chunk.length;
+        pbfDownloads.set(region.id, { status: 'downloading', downloaded, total, url: region.url, name: region.name, path: targetPath });
+        cb(null, chunk);
+      }
+    });
+    await pipeline(Readable.fromWeb(res.body), progress, fileStream);
+    await fs.rename(tmpPath, targetPath);
+    pbfDownloads.set(region.id, { status: 'ready', downloaded, total, url: region.url, name: region.name, path: targetPath });
+    return targetPath;
+  } catch (err) {
+    pbfDownloads.set(region.id, { status: 'error', error: String(err.message || err), url: region.url, name: region.name, path: targetPath });
+    try { await fs.unlink(tmpPath); } catch (_) {}
+    throw err;
+  }
+}
+
+async function ensurePbfRegion(region) {
+  const targetPath = path.join(PBF_CACHE_DIR, `${region.id}.osm.pbf`);
+  if (existsSync(targetPath)) {
+    const stat = await fs.stat(targetPath);
+    if ((Date.now() - stat.mtimeMs) < PBF_CACHE_TTL_MS) {
+      pbfDownloads.set(region.id, { status: 'ready', ...(pbfDownloads.get(region.id) || {}), path: targetPath });
+      return targetPath;
+    }
+  }
+  if (pbfDownloadPromises.has(region.id)) return pbfDownloadPromises.get(region.id);
+  const promise = downloadPbfRegion(region).finally(() => pbfDownloadPromises.delete(region.id));
+  pbfDownloadPromises.set(region.id, promise);
+  return promise;
+}
+
+async function resolvePbfPathsForTile(tileKey) {
+  // If a manual PBF path is configured, use it exclusively (backward compat)
+  if (WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH)) {
+    return [WORKBENCH_PBF_PATH];
+  }
+  const regions = findRegionsForTile(tileKey);
+  if (!regions.length) return [];
+  const paths = [];
+  for (const region of regions) {
+    try {
+      const p = await ensurePbfRegion(region);
+      paths.push(p);
+    } catch (err) {
+      console.error(`[PBF] Download fehlgeschlagen für ${region.name}: ${err.message || err}`);
+    }
+  }
+  return paths;
+}
+
+function mergeCombinedChunks(chunks, tileMeta) {
+  const obsMap = new Map();
+  const linMap = new Map();
+  const poiMap = new Map();
+  for (const c of chunks) {
+    for (const e of (c.obs || [])) {
+      const k = `${e.type}|${Math.round((e.lat || 0) * 1e4)}|${Math.round((e.lon || 0) * 1e4)}`;
+      if (!obsMap.has(k)) obsMap.set(k, e);
+    }
+    for (const e of (c.lin || [])) {
+      const k = `${e.layer || e.type || ''}|${e.name || ''}|${Math.round((e.lat || 0) * 1e4)}|${Math.round((e.lon || 0) * 1e4)}`;
+      if (!linMap.has(k)) linMap.set(k, e);
+    }
+    for (const e of (c.poi || [])) {
+      const k = `${e.name || ''}|${Math.round((e.lat || 0) * 1e4)}|${Math.round((e.lon || 0) * 1e4)}`;
+      if (!poiMap.has(k)) poiMap.set(k, e);
+    }
+  }
+  return {
+    v: 1,
+    tile: tileMeta.tile || '',
+    source: chunks.map(c => c.source || '').filter(Boolean).join('+') || '',
+    generatedAt: new Date().toISOString(),
+    obs: Array.from(obsMap.values()),
+    lin: Array.from(linMap.values()),
+    poi: Array.from(poiMap.values())
+  };
 }
 
 async function getTileGitStatus() {
@@ -391,6 +494,7 @@ async function collectTileState() {
       pbfPath: WORKBENCH_PBF_PATH,
       pbfAvailable: !!WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH)
     },
+    downloads: Object.fromEntries(pbfDownloads),
     processing,
     currentTile,
     queue: queue.slice(),
@@ -447,41 +551,47 @@ async function processOneTile(tileKey) {
   let loadSource = 'pbf';
   let pbfErrorText = '';
   let failedItem = null;
-  const pbfExists = !!WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH);
 
-  if (pbfExists) {
-    const pbfCmd = [
-      'tools/dryrun_pbf_combined_chunk.py',
-      '--pbf', WORKBENCH_PBF_PATH,
-      '--tile', tileKey,
-      '--out', path.relative(ROOT, combinedFile)
-    ];
-    run = await runCmd('python3', pbfCmd, { cwd: ROOT });
-    if (run.code !== 0) {
-      pbfErrorText = (run.stderr || run.stdout || '').trim();
-      loadSource = 'overpass';
-    } else {
-      // PBF ran successfully — check if it produced any features.
-      // 0 obs+lin+poi means the tile is outside the PBF coverage area; fall back to Overpass.
-      try {
-        const raw = await fs.readFile(combinedFile, 'utf8');
-        const data = JSON.parse(raw);
-        const total = (Array.isArray(data.obs) ? data.obs.length : 0)
-          + (Array.isArray(data.lin) ? data.lin.length : 0)
-          + (Array.isArray(data.poi) ? data.poi.length : 0);
-        if (total === 0) {
-          loadSource = 'overpass';
-          pbfErrorText = 'PBF lieferte keine Features (Tile außerhalb PBF-Abdeckung?)';
-          await fs.unlink(combinedFile).catch(() => {});
-        }
-      } catch (_) {
-        loadSource = 'overpass';
-        pbfErrorText = 'PBF-Ausgabe konnte nicht gelesen werden';
+  const pbfPaths = await resolvePbfPathsForTile(tileKey);
+
+  if (pbfPaths.length > 0) {
+    const chunkResults = [];
+    for (const pbfPath of pbfPaths) {
+      const pbfCmd = [
+        'tools/dryrun_pbf_combined_chunk.py',
+        '--pbf', pbfPath,
+        '--tile', tileKey,
+        '--out', path.relative(ROOT, combinedFile) + `.pbf-${path.basename(pbfPath, '.osm.pbf')}.tmp`
+      ];
+      const tmpOut = path.resolve(ROOT, pbfCmd[pbfCmd.indexOf('--out') + 1]);
+      const r = await runCmd('python3', pbfCmd, { cwd: ROOT });
+      if (r.code === 0 && existsSync(tmpOut)) {
+        try {
+          const raw = await fs.readFile(tmpOut, 'utf8');
+          chunkResults.push(JSON.parse(raw));
+        } catch (_) {}
+        try { await fs.unlink(tmpOut); } catch (_) {}
+      } else {
+        run = r;
       }
+    }
+    if (chunkResults.length > 0) {
+      const merged = mergeCombinedChunks(chunkResults, { tile: tileKey });
+      const total = merged.obs.length + merged.lin.length + merged.poi.length;
+      if (total > 0) {
+        await ensureDir(path.dirname(combinedFile));
+        await fs.writeFile(combinedFile, JSON.stringify(merged));
+      } else {
+        loadSource = 'overpass';
+        pbfErrorText = 'PBF lieferte keine Features (Tile außerhalb PBF-Abdeckung?)';
+      }
+    } else {
+      loadSource = 'overpass';
+      pbfErrorText = (run.stderr || run.stdout || '').trim() || 'PBF-Extraktion fehlgeschlagen';
     }
   } else {
     loadSource = 'overpass';
-    pbfErrorText = `PBF nicht gefunden: ${WORKBENCH_PBF_PATH}`;
+    pbfErrorText = 'Keine PBF-Region für dieses Tile gefunden';
   }
 
   if (loadSource === 'overpass') {
@@ -543,8 +653,8 @@ async function processOneTile(tileKey) {
     ].filter(Boolean).join(' | ');
     message = failMsg || (run.stderr && run.stderr.trim()) || (run.stdout && run.stdout.trim().split('\n').slice(-2).join(' | ')) || 'Tile-Load fehlgeschlagen';
     if (loadSource === 'overpass' && pbfErrorText) {
-      message = `PBF fehlgeschlagen -> Overpass Fallback | ${message}${pbfErrorText ? ` | PBF: ${pbfErrorText.slice(0, 180)}` : ''}`;
-    } else if (loadSource === 'overpass' && !pbfExists) {
+      message = `PBF fehlgeschlagen -> Overpass Fallback | ${message} | PBF: ${pbfErrorText.slice(0, 180)}`;
+    } else if (loadSource === 'overpass') {
       message = `PBF fehlt -> Overpass Fallback | ${message}`;
     }
   }
