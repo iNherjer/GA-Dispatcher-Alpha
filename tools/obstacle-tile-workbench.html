@@ -131,6 +131,7 @@
         <button id="btnRefresh">Status neu laden</button>
         <button id="btnClearSelection">Auswahl leeren</button>
         <button id="btnEnqueue">Auswahl laden</button>
+        <button id="btnEnqueueAndPush" title="Ausgewählte Tiles neu laden und danach automatisch pushen">Auswahl laden + pushen</button>
         <button id="btnRetryFailed">Failed erneut laden</button>
         <button id="btnClearQueue">Queue leeren</button>
         <button id="btnMigrateLegacy" title="Alle .json-Tiles (ohne .gz) neu laden und konvertieren">Legacy .json → .gz</button>
@@ -427,6 +428,7 @@
       hint.textContent = `Tile: ${state.currentTile || '-'}`;
 
       document.getElementById('btnEnqueue').disabled = state.selected.size === 0;
+      document.getElementById('btnEnqueueAndPush').disabled = state.selected.size === 0;
       document.getElementById('btnClearSelection').disabled = state.selected.size === 0;
       document.getElementById('btnClearQueue').disabled = state.queue.length === 0;
       document.getElementById('btnRetryFailed').disabled = Object.keys(state.failed).length === 0;
@@ -554,6 +556,19 @@
       try {
         const out = await api('/api/enqueue', 'POST', { tiles });
         log(`In Queue: ${out.added.join(', ') || '-'} `);
+        state.selected.clear();
+        await refreshState(true);
+      } catch (e) {
+        log(`Queue-Fehler: ${e.message || e}`);
+      }
+    });
+
+    document.getElementById('btnEnqueueAndPush').addEventListener('click', async () => {
+      const tiles = Array.from(state.selected);
+      if (!tiles.length) return;
+      try {
+        const out = await api('/api/enqueue', 'POST', { tiles, autoPush: true });
+        log(`In Queue (+ Auto-Push): ${out.added.join(', ') || '-'} `);
         state.selected.clear();
         await refreshState(true);
       } catch (e) {

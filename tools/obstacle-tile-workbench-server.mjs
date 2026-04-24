@@ -63,6 +63,7 @@ const queue = [];
 const queueSet = new Set();
 let processing = false;
 let currentTile = null;
+let autoPushWhenDone = false; // set via enqueue autoPush:true
 const WORKBENCH_RETRIES = Number(process.env.OBS_WORKBENCH_RETRIES || 4);
 const WORKBENCH_DELAY_MS = Number(process.env.OBS_WORKBENCH_DELAY_MS || 2200);
 const WORKBENCH_FAIL_COOLDOWN_MS = Number(process.env.OBS_WORKBENCH_FAIL_COOLDOWN_MS || 12000);
@@ -762,6 +763,15 @@ async function processQueue() {
   } finally {
     processing = false;
     currentTile = null;
+    if (autoPushWhenDone) {
+      autoPushWhenDone = false;
+      console.log('[Tile-Workbench] Queue leer — Auto-Push gestartet...');
+      handlePush().then(r => {
+        console.log(`[Tile-Workbench] Auto-Push: ${r.ok ? 'OK' : 'Fehler — ' + r.message}`);
+      }).catch(e => {
+        console.error('[Tile-Workbench] Auto-Push Fehler:', e);
+      });
+    }
   }
 }
 
@@ -885,6 +895,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/enqueue') {
       const body = await parseBody(req);
+      if (body && body.autoPush) autoPushWhenDone = true;
       const added = enqueueTiles(body && body.tiles);
       return sendJson(res, 200, {
         ok: true,
