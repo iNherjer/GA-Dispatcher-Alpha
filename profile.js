@@ -844,6 +844,145 @@ function vpProjectObsPoolToRoute(elevData) {
     };
 }
 
+function vpEstimateObstacleDisplayStats(obsArr) {
+    const src = Array.isArray(obsArr) ? obsArr : [];
+    const byType = { wind: 0, mast: 0, power_tower: 0, other: 0 };
+    let displayable = 0;
+    if (!vpShowObstacles) return { total: src.length, displayable: 0, byType };
+    for (const o of src) {
+        const t = String(o?.type || '').toLowerCase();
+        if (t === 'power_tower' && !vpShowPowerInfra) continue;
+        displayable++;
+        if (t === 'wind') byType.wind++;
+        else if (t === 'mast' || t === 'tower') byType.mast++;
+        else if (t === 'power_tower') byType.power_tower++;
+        else byType.other++;
+    }
+    return { total: src.length, displayable, byType };
+}
+
+function vpEstimateLinearDisplayStats(linArr, obsArr) {
+    const src = Array.isArray(linArr) ? linArr : [];
+    const obs = Array.isArray(obsArr) ? obsArr : [];
+    const majorRoadRx = /\b(A|B)\s?\d+\b/i;
+    const isMajorRoadFeature = (feat) => {
+        if (!feat || feat.type !== 'highway') return false;
+        const n = String(feat.name || '').trim();
+        if (!n) return false;
+        if (majorRoadRx.test(n)) return true;
+        const low = n.toLowerCase();
+        return low.includes('autobahn') || low.includes('bundesstraße') || low.includes('bundesstrasse');
+    };
+    const isLinearTypeEnabled = (feat) => {
+        if (!feat) return false;
+        if (feat.type === 'highway') return !!vpShowRoads;
+        if (feat.type === 'river') return !!vpShowRivers;
+        if (feat.type === 'powerline') return !!vpShowPowerInfra;
+        return false;
+    };
+    const clusterLinearFeatures = (arr) => {
+        const inArr = Array.isArray(arr) ? arr.slice().sort((a, b) => Number(a.distNM || 0) - Number(b.distNM || 0)) : [];
+        const out = [];
+        let i = 0;
+        while (i < inArr.length) {
+            const base = inArr[i];
+            const type = String(base.type || '');
+            const thr = (type === 'river') ? 1.5 : (type === 'highway' ? 0.7 : 0.6);
+            let sumDist = Number(base.distNM || 0);
+            let sumLat = Number(base.lat || 0);
+            let sumLon = Number(base.lon || 0);
+            let cnt = 1;
+            let bestName = String(base.name || '');
+            let j = i + 1;
+            while (j < inArr.length) {
+                const cur = inArr[j];
+                if (String(cur.type || '') !== type) break;
+                if (Math.abs(Number(cur.distNM || 0) - Number(inArr[j - 1].distNM || 0)) > thr) break;
+                sumDist += Number(cur.distNM || 0);
+                sumLat += Number(cur.lat || 0);
+                sumLon += Number(cur.lon || 0);
+                cnt++;
+                if (!bestName && String(cur.name || '').trim()) bestName = String(cur.name || '');
+                j++;
+            }
+            out.push({
+                ...base,
+                name: bestName || String(base.name || ''),
+                distNM: sumDist / cnt,
+                lat: sumLat / cnt,
+                lon: sumLon / cnt,
+                count: cnt
+            });
+            i = j;
+        }
+        return out;
+    };
+    const mastNearPowerline = (feat) => {
+        if (!feat || feat.type !== 'powerline') return false;
+        const fDist = Number(feat.distNM || 0);
+        for (const o of obs) {
+            const t = String(o?.type || '').toLowerCase();
+            if (!(t === 'mast' || t === 'power_tower' || t === 'tower')) continue;
+            const oLat = Number(o?.lateralNM || 999);
+            if (oLat > 0.5) continue;
+            const oDist = Number(o?.distNM || 0);
+            if (Math.abs(oDist - fDist) <= 0.8) return true;
+        }
+        return false;
+    };
+    const isRouteCrossingPowerline = (feat) => Number(feat?.lateralNM || 999) <= 0.15;
+
+    let filtered = src.filter(isLinearTypeEnabled);
+    filtered = filtered.filter((feat) => {
+        if (feat.type === 'highway') return isMajorRoadFeature(feat);
+        if (feat.type === 'river') {
+            const n = String(feat.name || '').toLowerCase();
+            if (n.includes('wassertret') || n.includes('kneipp') || n.includes('wasserspiel')) return false;
+        }
+        return true;
+    });
+    const clustered = clusterLinearFeatures(filtered);
+    const byType = { highway: 0, river: 0, powerline: 0 };
+    let displayable = 0;
+    for (const feat of clustered) {
+        if (feat.type === 'powerline' && !(isRouteCrossingPowerline(feat) || mastNearPowerline(feat))) continue;
+        displayable++;
+        if (feat.type === 'highway') byType.highway++;
+        else if (feat.type === 'river') byType.river++;
+        else if (feat.type === 'powerline') byType.powerline++;
+    }
+    return { total: src.length, filtered: filtered.length, clustered: clustered.length, displayable, byType };
+}
+
+function vpLogRouteFeatureStats(sourceTag, cacheKey, obsArr, linArr) {
+    try {
+        const obsStats = vpEstimateObstacleDisplayStats(obsArr);
+        const linStats = vpEstimateLinearDisplayStats(linArr, obsArr);
+        const sig = [
+            String(sourceTag || ''),
+            String(cacheKey || ''),
+            String(obsStats.total),
+            String(obsStats.displayable),
+            String(linStats.total),
+            String(linStats.displayable),
+            String(linStats.clustered),
+            String(obsStats.byType.wind),
+            String(obsStats.byType.mast),
+            String(obsStats.byType.power_tower),
+            String(linStats.byType.highway),
+            String(linStats.byType.river),
+            String(linStats.byType.powerline)
+        ].join('|');
+        if (window._vpLastRouteFeatureStatsSig === sig) return;
+        window._vpLastRouteFeatureStatsSig = sig;
+        console.log(
+            `[Overpass] Route-Stats (${sourceTag || 'n/a'}) | core-found obs=${obsStats.total} lin=${linStats.total} ` +
+            `| display obs=${obsStats.displayable} (wind ${obsStats.byType.wind}, mast ${obsStats.byType.mast}, pwrTower ${obsStats.byType.power_tower}) ` +
+            `lin=${linStats.displayable}/${linStats.clustered} (road ${linStats.byType.highway}, river ${linStats.byType.river}, power ${linStats.byType.powerline})`
+        );
+    } catch (_) { }
+}
+
 function vpExtractOverpassTileFeatures(elements) {
     const obs = [];
     const lin = [];
@@ -1529,6 +1668,7 @@ function triggerVerticalProfileUpdate() {
                 if (!forceOverpassReload && tileProbe.total > 0 && tileProbe.missing.length === 0) {
                     if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred('__RESET__', false);
                     const seeded = vpProjectObsPoolToRoute(vpElevationData);
+                    vpLogRouteFeatureStats('tile-cache-hit', cacheKey, seeded.obs || [], seeded.lin || []);
                     if ((seeded.obs && seeded.obs.length) || (seeded.lin && seeded.lin.length)) {
                         vpObstacles = seeded.obs || [];
                         vpLinearFeatures = seeded.lin || [];
@@ -1574,6 +1714,7 @@ function triggerVerticalProfileUpdate() {
                             const cached = JSON.parse(obStr); 
                             vpObstacles = cached.obs || [];
                             vpLinearFeatures = cached.lin || [];
+                            vpLogRouteFeatureStats('route-cache-combo', cacheKey, vpObstacles, vpLinearFeatures);
                             window._lastObsRouteKey = cacheKey; 
                             hasUsableCache = (vpObstacles.length > 0 || vpLinearFeatures.length > 0);
                             vpRememberObstacleData(vpObstacles, vpLinearFeatures);
@@ -1586,6 +1727,7 @@ function triggerVerticalProfileUpdate() {
                         if ((seeded.obs && seeded.obs.length) || (seeded.lin && seeded.lin.length)) {
                             vpObstacles = seeded.obs || [];
                             vpLinearFeatures = seeded.lin || [];
+                            vpLogRouteFeatureStats('pool-seed', cacheKey, vpObstacles, vpLinearFeatures);
                             window.vpBgNeedsUpdate = true;
                             if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
                         }
@@ -1600,6 +1742,7 @@ function triggerVerticalProfileUpdate() {
                         if (result !== null) { 
                             vpObstacles = result.obs || [];
                             vpLinearFeatures = result.lin || [];
+                            vpLogRouteFeatureStats('network-merge', cacheKey, vpObstacles, vpLinearFeatures);
                             window.vpBgNeedsUpdate = true; // FIX: Garantiert, dass der Hintergrund nach dem finalen Fetch aktualisiert wird
                             window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
                             vpRememberObstacleData(vpObstacles, vpLinearFeatures);
