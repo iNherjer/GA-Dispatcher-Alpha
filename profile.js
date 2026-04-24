@@ -529,20 +529,23 @@ function vpStoreObsComboRouteCache(cacheKey, obs, lin) {
     }
 }
 
-function vpRememberObstacleData(obsArr, linArr) {
+function vpRememberObstacleData(obsArr, linArr, tileKey = '') {
     vpHydrateObsPool();
     const now = Date.now();
+    const fallbackTileKey = (typeof tileKey === 'string' && tileKey) ? tileKey : '';
     if (Array.isArray(obsArr)) {
         for (const item of obsArr) {
             const key = vpObsKey(item);
             if (!key) continue;
+            const tk = String(item?.tileKey || fallbackTileKey || vpObsTileKey(item?.lat, item?.lon) || '');
             vpObsPool.obs.set(key, {
                 ts: now,
                 type: item.type || 'mast',
                 hFt: Number(item.hFt || 0),
                 elevFt: Number(item.elevFt || 0),
                 lat: Number(item.lat),
-                lon: Number(item.lon)
+                lon: Number(item.lon),
+                tileKey: tk
             });
         }
     }
@@ -550,12 +553,14 @@ function vpRememberObstacleData(obsArr, linArr) {
         for (const item of linArr) {
             const key = vpLinKey(item);
             if (!key) continue;
+            const tk = String(item?.tileKey || fallbackTileKey || vpObsTileKey(item?.lat, item?.lon) || '');
             vpObsPool.lin.set(key, {
                 ts: now,
                 type: item.type || 'linear',
                 name: String(item.name || ''),
                 lat: Number(item.lat),
-                lon: Number(item.lon)
+                lon: Number(item.lon),
+                tileKey: tk
             });
         }
     }
@@ -813,6 +818,7 @@ function vpProjectObsPoolToRoute(elevData) {
     for (const item of vpObsPool.obs.values()) {
         const { bestPt, bestD } = nearestOnRoute(item.lat, item.lon);
         if (bestD > VP_PROFILE_OBS_LATERAL_MAX_NM) continue;
+        const tileKey = String(item.tileKey || vpObsTileKey(item.lat, item.lon) || '');
         obsSeed.push({
             type: item.type || 'mast',
             hFt: Number(item.hFt || 0),
@@ -821,20 +827,23 @@ function vpProjectObsPoolToRoute(elevData) {
             elevFt: Number(item.elevFt || 0),
             groundElevFt: Number(bestPt.elevFt || 0),
             lat: Number(item.lat),
-            lon: Number(item.lon)
+            lon: Number(item.lon),
+            tileKey
         });
     }
 
     for (const item of vpObsPool.lin.values()) {
         const { bestPt, bestD } = nearestOnRoute(item.lat, item.lon);
         if (bestD > VP_PROFILE_LIN_LATERAL_MAX_NM) continue;
+        const tileKey = String(item.tileKey || vpObsTileKey(item.lat, item.lon) || '');
         linSeed.push({
             type: item.type || 'linear',
             name: String(item.name || ''),
             distNM: bestPt.distNM,
             lateralNM: Number(bestD || 0),
             lat: Number(item.lat),
-            lon: Number(item.lon)
+            lon: Number(item.lon),
+            tileKey
         });
     }
 
@@ -958,6 +967,25 @@ function vpLogRouteFeatureStats(sourceTag, cacheKey, obsArr, linArr) {
     try {
         const obsStats = vpEstimateObstacleDisplayStats(obsArr);
         const linStats = vpEstimateLinearDisplayStats(linArr, obsArr);
+        const tileCounts = new Map();
+        const acc = (arr, kind) => {
+            if (!Array.isArray(arr)) return;
+            for (const f of arr) {
+                const tk = String(f?.tileKey || vpObsTileKey(f?.lat, f?.lon) || '?');
+                const prev = tileCounts.get(tk) || { obs: 0, lin: 0 };
+                if (kind === 'obs') prev.obs += 1;
+                else prev.lin += 1;
+                tileCounts.set(tk, prev);
+            }
+        };
+        acc(obsArr, 'obs');
+        acc(linArr, 'lin');
+        const tileSummary = Array.from(tileCounts.entries())
+            .sort((a, b) => ((b[1].obs + b[1].lin) - (a[1].obs + a[1].lin)))
+            .slice(0, 12)
+            .map(([k, v]) => `${k}:o${v.obs}/l${v.lin}`)
+            .join(', ');
+        const tileMore = Math.max(0, tileCounts.size - 12);
         const sig = [
             String(sourceTag || ''),
             String(cacheKey || ''),
@@ -971,14 +999,17 @@ function vpLogRouteFeatureStats(sourceTag, cacheKey, obsArr, linArr) {
             String(obsStats.byType.power_tower),
             String(linStats.byType.highway),
             String(linStats.byType.river),
-            String(linStats.byType.powerline)
+            String(linStats.byType.powerline),
+            String(tileSummary),
+            String(tileCounts.size)
         ].join('|');
         if (window._vpLastRouteFeatureStatsSig === sig) return;
         window._vpLastRouteFeatureStatsSig = sig;
         console.log(
             `[Overpass] Route-Stats (${sourceTag || 'n/a'}) | core-found obs=${obsStats.total} lin=${linStats.total} ` +
             `| display obs=${obsStats.displayable} (wind ${obsStats.byType.wind}, mast ${obsStats.byType.mast}, pwrTower ${obsStats.byType.power_tower}) ` +
-            `lin=${linStats.displayable}/${linStats.clustered} (road ${linStats.byType.highway}, river ${linStats.byType.river}, power ${linStats.byType.powerline})`
+            `lin=${linStats.displayable}/${linStats.clustered} (road ${linStats.byType.highway}, river ${linStats.byType.river}, power ${linStats.byType.powerline}) ` +
+            `| tiles core [${tileSummary || '-'}${tileMore > 0 ? `, +${tileMore} more` : ''}]`
         );
     } catch (_) { }
 }
@@ -1324,7 +1355,7 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
                     vpClearTileFailed(key);
                     vpClearTileBackoff(key);
                     if (res.src) usedServers.add(res.src);
-                    if (res.features) vpRememberObstacleData(res.features.obs || [], res.features.lin || []);
+                    if (res.features) vpRememberObstacleData(res.features.obs || [], res.features.lin || [], key);
                     vpMarkTileKeysCovered([key], res.src || 'hosted');
                     loadedTileKeys.push(key);
                     hostedLoadedCount++;
@@ -1409,7 +1440,7 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
         vpClearTileBackoff(tileKey);
         if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
         if (res.src) usedServers.add(res.src);
-        if (res.features) vpRememberObstacleData(res.features.obs || [], res.features.lin || []);
+        if (res.features) vpRememberObstacleData(res.features.obs || [], res.features.lin || [], tileKey);
         vpMarkTileKeysCovered([tileKey], res.src || 'overpass');
         loadedTileKeys.push(tileKey);
         vpMarkOverpassSuccess();
@@ -1477,7 +1508,7 @@ async function fetchGpsObstacles(lat, lon) {
                 hostedOk.add(key);
                 vpClearTileFailed(key);
                 vpClearTileBackoff(key);
-                vpRememberObstacleData(res.features?.obs || [], res.features?.lin || []);
+                vpRememberObstacleData(res.features?.obs || [], res.features?.lin || [], key);
                 vpMarkTileKeysCovered([key], res.src || 'gps-hosted');
             }
         }
@@ -1491,7 +1522,7 @@ async function fetchGpsObstacles(lat, lon) {
                 if (res && res.ok) {
                     vpClearTileFailed(tileKey);
                     vpClearTileBackoff(tileKey);
-                    vpRememberObstacleData(res.features?.obs || [], res.features?.lin || []);
+                    vpRememberObstacleData(res.features?.obs || [], res.features?.lin || [], tileKey);
                     vpMarkTileKeysCovered([tileKey], res.src || 'gps-overpass');
                     vpMarkOverpassSuccess();
                 } else if (res && res.cooldown) {
@@ -7557,7 +7588,7 @@ window.retryFailedOverpassChunks = async function() {
         const tileKey = tileKeys[i];
         const res = await vpFetchObstacleTile(tileKey, null, i, { preferOverpass: true });
         if (res && res.ok) {
-            vpRememberObstacleData(res.features?.obs || [], res.features?.lin || []);
+            vpRememberObstacleData(res.features?.obs || [], res.features?.lin || [], tileKey);
             vpMarkTileKeysCovered([tileKey], res.src || 'overpass-retry');
             vpClearTileFailed(tileKey);
             vpMarkOverpassSuccess();
