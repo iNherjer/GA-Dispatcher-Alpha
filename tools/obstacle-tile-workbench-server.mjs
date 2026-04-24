@@ -460,6 +460,24 @@ async function processOneTile(tileKey) {
     if (run.code !== 0) {
       pbfErrorText = (run.stderr || run.stdout || '').trim();
       loadSource = 'overpass';
+    } else {
+      // PBF ran successfully — check if it produced any features.
+      // 0 obs+lin+poi means the tile is outside the PBF coverage area; fall back to Overpass.
+      try {
+        const raw = await fs.readFile(combinedFile, 'utf8');
+        const data = JSON.parse(raw);
+        const total = (Array.isArray(data.obs) ? data.obs.length : 0)
+          + (Array.isArray(data.lin) ? data.lin.length : 0)
+          + (Array.isArray(data.poi) ? data.poi.length : 0);
+        if (total === 0) {
+          loadSource = 'overpass';
+          pbfErrorText = 'PBF lieferte keine Features (Tile außerhalb PBF-Abdeckung?)';
+          await fs.unlink(combinedFile).catch(() => {});
+        }
+      } catch (_) {
+        loadSource = 'overpass';
+        pbfErrorText = 'PBF-Ausgabe konnte nicht gelesen werden';
+      }
     }
   } else {
     loadSource = 'overpass';
