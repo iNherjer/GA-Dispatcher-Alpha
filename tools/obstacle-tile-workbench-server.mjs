@@ -12,8 +12,29 @@ import { findRegionsForTile } from './pbf-region-registry.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT = path.resolve(__dirname, '..');
-const TOOLS_DIR = path.join(ROOT, 'tools');
+
+// --- Portable config: read workbench.config.json from same dir as server ---
+let _cfg = {};
+try {
+  const cfgPath = path.join(__dirname, 'workbench.config.json');
+  if (existsSync(cfgPath)) _cfg = JSON.parse(await fs.readFile(cfgPath, 'utf8'));
+} catch (_) {}
+
+// repoRoot: where the git repo + obstacles/ dir live (env > config > default: parent of tools/)
+const ROOT = path.resolve(
+  process.env.OBS_WORKBENCH_REPO_ROOT ||
+  _cfg.repoRoot ||
+  path.resolve(__dirname, '..')
+);
+
+// cacheDir: where PBFs and tmp files are stored — can be on external drive
+const CACHE_BASE = path.resolve(
+  process.env.OBS_WORKBENCH_CACHE_DIR ||
+  _cfg.cacheDir ||
+  path.join(__dirname, 'workbench-cache')
+);
+
+const TOOLS_DIR = path.join(__dirname);   // tools are always next to the server file
 const HTML_PATH = path.join(TOOLS_DIR, 'obstacle-tile-workbench.html');
 const OBST_DIR = path.join(ROOT, 'obstacles');
 const CORE_TILE_DIR = path.join(OBST_DIR, 'core-tiles');
@@ -22,13 +43,13 @@ const CORE_MANIFEST_PATH = path.join(OBST_DIR, 'core-manifest.v1.json');
 const POI_MANIFEST_PATH = path.join(OBST_DIR, 'poi-manifest.v1.json');
 const FAILED_PATH = path.join(OBST_DIR, 'failed-split-tiles.json');
 
-const WORKBENCH_TMP_DIR = path.join(ROOT, '.workbench-cache', 'obs-split');
+const WORKBENCH_TMP_DIR = path.join(CACHE_BASE, 'obs-split');
 const WORKBENCH_TMP_OUT_DIR = path.join(WORKBENCH_TMP_DIR, 'combined-tiles');
 const WORKBENCH_TMP_MANIFEST = path.join(WORKBENCH_TMP_DIR, 'combined-manifest.v1.json');
 const WORKBENCH_TMP_FAILED = path.join(WORKBENCH_TMP_DIR, 'combined-failed-tiles.json');
 const WORKBENCH_PBF_PATH = String(process.env.OBS_WORKBENCH_PBF_PATH || '').trim();
 
-const PBF_CACHE_DIR = path.join(ROOT, '.workbench-cache', 'pbf');
+const PBF_CACHE_DIR = path.join(CACHE_BASE, 'pbf');
 const PBF_CACHE_TTL_MS = Number(process.env.OBS_WORKBENCH_PBF_TTL_DAYS || 7) * 24 * 60 * 60 * 1000;
 
 const TILE_STEP_DEG = 25 / 60;
@@ -930,5 +951,8 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[Tile-Workbench] läuft auf http://127.0.0.1:${PORT}`);
-  console.log(`[Tile-Workbench] Root: ${ROOT}`);
+  console.log(`[Tile-Workbench] Repo-Root:  ${ROOT}`);
+  console.log(`[Tile-Workbench] Cache-Dir:  ${CACHE_BASE}`);
+  console.log(`[Tile-Workbench] Tiles-Out:  ${OBST_DIR}`);
+  console.log(`[Tile-Workbench] PBF-Cache:  ${PBF_CACHE_DIR}`);
 });

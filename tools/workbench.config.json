@@ -1,0 +1,9 @@
+{
+  "_comment": "GA Dispatcher – Tile Workbench Konfiguration",
+
+  "repoRoot": "..",
+  "_repoRoot_help": "Pfad zum Git-Repo-Root (wo obstacles/ und .git/ liegen). Relativ zum tools/-Ordner oder absolut.",
+
+  "cacheDir": "./workbench-cache",
+  "_cacheDir_help": "Wo PBF-Dateien und Zwischenergebnisse gespeichert werden. Kann auf externer Festplatte liegen, z.B. '/Volumes/MeineLaufwerk/GA-Cache'."
+}
