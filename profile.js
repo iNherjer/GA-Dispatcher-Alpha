@@ -986,6 +986,23 @@ function vpLogRouteFeatureStats(sourceTag, cacheKey, obsArr, linArr) {
             .map(([k, v]) => `${k}:o${v.obs}/l${v.lin}`)
             .join(', ');
         const tileMore = Math.max(0, tileCounts.size - 12);
+        const routeTileKeys = Array.from(vpCollectRouteTileKeys(Array.isArray(vpElevationData) ? vpElevationData : []));
+        const routeTileSet = new Set(routeTileKeys);
+        const featureTileSet = new Set(tileCounts.keys());
+        const routeWithFeatures = routeTileKeys.filter(k => featureTileSet.has(k));
+        const routeWithoutFeatures = routeTileKeys.filter(k => !featureTileSet.has(k));
+        vpHydrateObsTileCoverage();
+        const covBySrc = new Map();
+        for (const key of routeTileKeys) {
+            const meta = vpObsTileCoverage.get(key);
+            const src = String((meta && meta.src) || 'none');
+            covBySrc.set(src, Number(covBySrc.get(src) || 0) + 1);
+        }
+        const covSummary = Array.from(covBySrc.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([k, v]) => `${k}:${v}`)
+            .join(', ');
+        const noDataSample = routeWithoutFeatures.slice(0, 8).join(', ');
         const sig = [
             String(sourceTag || ''),
             String(cacheKey || ''),
@@ -1001,7 +1018,12 @@ function vpLogRouteFeatureStats(sourceTag, cacheKey, obsArr, linArr) {
             String(linStats.byType.river),
             String(linStats.byType.powerline),
             String(tileSummary),
-            String(tileCounts.size)
+            String(tileCounts.size),
+            String(routeTileSet.size),
+            String(routeWithFeatures.length),
+            String(routeWithoutFeatures.length),
+            String(covSummary),
+            String(noDataSample)
         ].join('|');
         if (window._vpLastRouteFeatureStatsSig === sig) return;
         window._vpLastRouteFeatureStatsSig = sig;
@@ -1009,7 +1031,10 @@ function vpLogRouteFeatureStats(sourceTag, cacheKey, obsArr, linArr) {
             `[Overpass] Route-Stats (${sourceTag || 'n/a'}) | core-found obs=${obsStats.total} lin=${linStats.total} ` +
             `| display obs=${obsStats.displayable} (wind ${obsStats.byType.wind}, mast ${obsStats.byType.mast}, pwrTower ${obsStats.byType.power_tower}) ` +
             `lin=${linStats.displayable}/${linStats.clustered} (road ${linStats.byType.highway}, river ${linStats.byType.river}, power ${linStats.byType.powerline}) ` +
-            `| tiles core [${tileSummary || '-'}${tileMore > 0 ? `, +${tileMore} more` : ''}]`
+            `| tiles core [${tileSummary || '-'}${tileMore > 0 ? `, +${tileMore} more` : ''}] ` +
+            `| route-tiles ${routeTileSet.size} (feat ${routeWithFeatures.length}, empty ${routeWithoutFeatures.length}) ` +
+            `| coverage [${covSummary || '-'}]` +
+            `${noDataSample ? ` | empty-sample [${noDataSample}]` : ''}`
         );
     } catch (_) { }
 }
