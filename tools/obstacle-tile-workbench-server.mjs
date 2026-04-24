@@ -8,7 +8,7 @@ import { createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
 import { spawn } from 'node:child_process';
-import { gunzipSync } from 'node:zlib';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { findRegionsForTile } from './pbf-region-registry.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -380,6 +380,81 @@ function mergeCombinedChunks(chunks, tileMeta) {
   };
 }
 
+function mergeCorePayload(existingCore, incomingCore) {
+  const exObs = Array.isArray(existingCore?.core?.obs) ? existingCore.core.obs : [];
+  const exLin = Array.isArray(existingCore?.core?.lin) ? existingCore.core.lin : [];
+  const inObs = Array.isArray(incomingCore?.core?.obs) ? incomingCore.core.obs : [];
+  const inLin = Array.isArray(incomingCore?.core?.lin) ? incomingCore.core.lin : [];
+
+  const obsMap = new Map();
+  const linMap = new Map();
+
+  const obsKey = (e) => `${String(e?.type || '')}|${Math.round(Number(e?.lat || 0) * 1e5)}|${Math.round(Number(e?.lon || 0) * 1e5)}|${Math.round(Number(e?.hFt || 0))}`;
+  const linKey = (e) => `${String(e?.type || '')}|${String(e?.name || '')}|${Math.round(Number(e?.lat || 0) * 1e5)}|${Math.round(Number(e?.lon || 0) * 1e5)}`;
+
+  for (const e of exObs) obsMap.set(obsKey(e), e);
+  for (const e of inObs) obsMap.set(obsKey(e), e);
+  for (const e of exLin) linMap.set(linKey(e), e);
+  for (const e of inLin) linMap.set(linKey(e), e);
+
+  const obs = Array.from(obsMap.values());
+  const lin = Array.from(linMap.values());
+  return {
+    v: 1,
+    tile: String(incomingCore?.tile || existingCore?.tile || ''),
+    source: String(incomingCore?.source || existingCore?.source || ''),
+    generatedAt: String(incomingCore?.generatedAt || new Date().toISOString()),
+    core: { obs, lin },
+    counts: { obs: obs.length, lin: lin.length }
+  };
+}
+
+function mergePoiPayload(existingPoi, incomingPoi) {
+  const exPoi = Array.isArray(existingPoi?.poi?.poi)
+    ? existingPoi.poi.poi
+    : (Array.isArray(existingPoi?.poi) ? existingPoi.poi : []);
+  const inPoi = Array.isArray(incomingPoi?.poi?.poi)
+    ? incomingPoi.poi.poi
+    : (Array.isArray(incomingPoi?.poi) ? incomingPoi.poi : []);
+
+  const poiMap = new Map();
+  const poiKey = (e) => [
+    String(e?.name || ''),
+    Math.round(Number(e?.lat || 0) * 1e5),
+    Math.round(Number(e?.lon || 0) * 1e5),
+    String(e?.tourism || ''),
+    String(e?.historic || ''),
+    String(e?.natural || ''),
+    String(e?.water || ''),
+    String(e?.landuse || ''),
+    String(e?.amenity || ''),
+    String(e?.leisure || ''),
+    String(e?.man_made || ''),
+    String(e?.power || ''),
+    String(e?.railway || ''),
+    String(e?.highway || ''),
+    String(e?.place || '')
+  ].join('|');
+
+  for (const e of exPoi) poiMap.set(poiKey(e), e);
+  for (const e of inPoi) poiMap.set(poiKey(e), e);
+
+  const poi = Array.from(poiMap.values());
+  return {
+    v: 1,
+    tile: String(incomingPoi?.tile || existingPoi?.tile || ''),
+    source: String(incomingPoi?.source || existingPoi?.source || ''),
+    generatedAt: String(incomingPoi?.generatedAt || new Date().toISOString()),
+    poi: { poi },
+    counts: { poi: poi.length }
+  };
+}
+
+async function writeGzJson(filePath, payload) {
+  await ensureDir(path.dirname(filePath));
+  await fs.writeFile(filePath, gzipSync(JSON.stringify(payload)));
+}
+
 async function getTileGitStatus() {
   const paths = [
     'obstacles/core-tiles',
@@ -652,6 +727,12 @@ async function processOneTile(tileKey) {
   const combinedFile = tilePath(WORKBENCH_TMP_OUT_DIR, tileKey);
   const coreOut = tileGzPath(CORE_TILE_DIR, tileKey);
   const poiOut = tileGzPath(POI_TILE_DIR, tileKey);
+  const coreLegacyOut = tilePath(CORE_TILE_DIR, tileKey);
+  const poiLegacyOut = tilePath(POI_TILE_DIR, tileKey);
+  const prevCoreFile = existsSync(coreOut) ? coreOut : (existsSync(coreLegacyOut) ? coreLegacyOut : '');
+  const prevPoiFile = existsSync(poiOut) ? poiOut : (existsSync(poiLegacyOut) ? poiLegacyOut : '');
+  const prevCorePayload = prevCoreFile ? await readJsonMaybeGz(prevCoreFile, null) : null;
+  const prevPoiPayload = prevPoiFile ? await readJsonMaybeGz(prevPoiFile, null) : null;
 
   await ensureDir(WORKBENCH_TMP_OUT_DIR);
 
@@ -728,8 +809,14 @@ async function processOneTile(tileKey) {
     ];
     const splitRun = await runCmd('node', splitCmd, { cwd: ROOT });
     if (splitRun.code === 0 && existsSync(coreOut) && existsSync(poiOut)) {
-      const corePayload = await readJsonMaybeGz(coreOut, { counts: { obs: 0, lin: 0 } });
-      const poiPayload = await readJsonMaybeGz(poiOut, { counts: { poi: 0 } });
+      const corePayloadRaw = await readJsonMaybeGz(coreOut, { counts: { obs: 0, lin: 0 } });
+      const poiPayloadRaw = await readJsonMaybeGz(poiOut, { counts: { poi: 0 } });
+      const corePayload = prevCorePayload ? mergeCorePayload(prevCorePayload, corePayloadRaw) : corePayloadRaw;
+      const poiPayload = prevPoiPayload ? mergePoiPayload(prevPoiPayload, poiPayloadRaw) : poiPayloadRaw;
+      if (prevCorePayload || prevPoiPayload) {
+        await writeGzJson(coreOut, corePayload);
+        await writeGzJson(poiOut, poiPayload);
+      }
       const outObs = Number(corePayload?.counts?.obs || 0);
       const outLin = Number(corePayload?.counts?.lin || 0);
       const outPoi = Number(poiPayload?.counts?.poi || 0);
@@ -742,8 +829,14 @@ async function processOneTile(tileKey) {
         failedItem = ov.failedItem;
         if (!failedItem && existsSync(combinedFile)) {
           const splitRun2 = await runCmd('node', splitCmd, { cwd: ROOT });
-          const corePayload2 = await readJsonMaybeGz(coreOut, { counts: { obs: 0, lin: 0 } });
-          const poiPayload2 = await readJsonMaybeGz(poiOut, { counts: { poi: 0 } });
+          const corePayload2Raw = await readJsonMaybeGz(coreOut, { counts: { obs: 0, lin: 0 } });
+          const poiPayload2Raw = await readJsonMaybeGz(poiOut, { counts: { poi: 0 } });
+          const corePayload2 = prevCorePayload ? mergeCorePayload(prevCorePayload, corePayload2Raw) : corePayload2Raw;
+          const poiPayload2 = prevPoiPayload ? mergePoiPayload(prevPoiPayload, poiPayload2Raw) : poiPayload2Raw;
+          if (prevCorePayload || prevPoiPayload) {
+            await writeGzJson(coreOut, corePayload2);
+            await writeGzJson(poiOut, poiPayload2);
+          }
           const outTotal2 = Number(corePayload2?.counts?.obs || 0) + Number(corePayload2?.counts?.lin || 0) + Number(poiPayload2?.counts?.poi || 0);
           if (splitRun2.code === 0 && existsSync(coreOut) && existsSync(poiOut) && outTotal2 > 0) {
             await upsertManifestTile(CORE_MANIFEST_PATH, tileKey);

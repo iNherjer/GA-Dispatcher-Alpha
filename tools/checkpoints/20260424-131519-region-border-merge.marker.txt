@@ -1,0 +1,5 @@
+checkpoint: region-border-merge
+created_at: 2026-04-24T11:15:19Z
+branch: main
+head: 7ff7e28
+note: pre-change marker before partial-tile merge/complement logic
