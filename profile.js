@@ -1833,9 +1833,8 @@ function triggerVerticalProfileUpdate() {
                             window.vpBgNeedsUpdate = true; // FIX: Garantiert, dass der Hintergrund nach dem finalen Fetch aktualisiert wird
                             window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
                             vpRememberObstacleData(vpObstacles, vpLinearFeatures);
-                            if (result && Array.isArray(result.loadedTileKeys) && result.loadedTileKeys.length > 0) {
-                                vpMarkTileKeysCovered(result.loadedTileKeys, (result && result.source) ? result.source : 'overpass');
-                            }
+                            // Do not overwrite per-tile source metadata with an aggregated route source label.
+                            // fetchProfileObstacles() already marks each loaded tile individually (hosted/overpass).
                             try {
                                 vpStoreObsComboRouteCache(cacheKey, vpObstacles, vpLinearFeatures);
                                 window._lastObsRouteKey = cacheKey;

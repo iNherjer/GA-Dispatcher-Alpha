@@ -55,7 +55,7 @@ const WORKBENCH_TMP_OUT_DIR = path.join(WORKBENCH_TMP_DIR, 'combined-tiles');
 const WORKBENCH_TMP_MANIFEST = path.join(WORKBENCH_TMP_DIR, 'combined-manifest.v1.json');
 const WORKBENCH_TMP_FAILED = path.join(WORKBENCH_TMP_DIR, 'combined-failed-tiles.json');
 const WORKBENCH_PBF_PATH = String(process.env.OBS_WORKBENCH_PBF_PATH || '').trim();
-const WORKBENCH_PBF_MAX_REGIONS = Math.max(1, Number(process.env.OBS_WORKBENCH_PBF_MAX_REGIONS || 1));
+const WORKBENCH_PBF_MAX_REGIONS = Math.max(1, Number(process.env.OBS_WORKBENCH_PBF_MAX_REGIONS || _cfg.pbfMaxRegions || 3));
 
 const PBF_CACHE_DIR = path.join(CACHE_BASE, 'pbf');
 const PBF_CACHE_TTL_MS = Number(process.env.OBS_WORKBENCH_PBF_TTL_DAYS || 7) * 24 * 60 * 60 * 1000;
@@ -241,18 +241,35 @@ async function downloadPbfRegion(region) {
   try {
     const res = await fetch(region.url, { redirect: 'follow' });
     if (!res.ok) throw new Error(`HTTP ${res.status} von ${region.url}`);
+    const ctype = String(res.headers.get('content-type') || '').toLowerCase();
+    if (ctype.includes('text/html')) {
+      throw new Error(`Ungueltiger PBF-Download (HTML statt PBF): ${region.url} -> ${String(res.url || '')}`);
+    }
     const total = Number(res.headers.get('content-length') || 0);
     let downloaded = 0;
+    const sniffChunks = [];
+    let sniffBytes = 0;
     pbfDownloads.set(region.id, { status: 'downloading', downloaded, total, url: region.url, name: region.name, path: targetPath });
     const fileStream = createWriteStream(tmpPath);
     const progress = new Transform({
       transform(chunk, _enc, cb) {
         downloaded += chunk.length;
+        if (sniffBytes < 1024) {
+          const max = Math.min(chunk.length, 1024 - sniffBytes);
+          if (max > 0) {
+            sniffChunks.push(chunk.subarray(0, max));
+            sniffBytes += max;
+          }
+        }
         pbfDownloads.set(region.id, { status: 'downloading', downloaded, total, url: region.url, name: region.name, path: targetPath });
         cb(null, chunk);
       }
     });
     await pipeline(Readable.fromWeb(res.body), progress, fileStream);
+    const sniffText = Buffer.concat(sniffChunks).toString('utf8').trimStart().toLowerCase();
+    if (sniffText.startsWith('<!doctype html') || sniffText.startsWith('<html')) {
+      throw new Error(`Ungueltiger PBF-Inhalt (HTML-Body): ${region.url} -> ${String(res.url || '')}`);
+    }
     await fs.rename(tmpPath, targetPath);
     pbfDownloads.set(region.id, { status: 'ready', downloaded, total, url: region.url, name: region.name, path: targetPath });
     return targetPath;

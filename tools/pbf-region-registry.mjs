@@ -8,7 +8,7 @@ const TILE_STEP_DEG = 25 / 60;
 export const REGIONS = [
   // ── German Bundesländer (state-level, preferred over full country) ──────────
   { id: 'de-bw', name: 'Baden-Württemberg',        bbox: [47.53,  7.51, 49.80, 10.50], sizeMb:  500, url: `${BASE}/europe/germany/baden-wuerttemberg-latest.osm.pbf` },
-  { id: 'de-by', name: 'Bayern',                   bbox: [47.27,  8.98, 50.57, 13.84], sizeMb: 1200, url: `${BASE}/europe/germany/bavaria-latest.osm.pbf` },
+  { id: 'de-by', name: 'Bayern',                   bbox: [47.27,  8.98, 50.57, 13.84], sizeMb: 1200, url: `${BASE}/europe/germany/bayern-latest.osm.pbf` },
   { id: 'de-be', name: 'Berlin',                   bbox: [52.34, 13.09, 52.68, 13.76], sizeMb:   25, url: `${BASE}/europe/germany/berlin-latest.osm.pbf` },
   { id: 'de-bb', name: 'Brandenburg',              bbox: [51.36, 11.27, 53.56, 14.77], sizeMb:  130, url: `${BASE}/europe/germany/brandenburg-latest.osm.pbf` },
   { id: 'de-hb', name: 'Bremen',                   bbox: [52.85,  8.48, 53.61,  9.01], sizeMb:    7, url: `${BASE}/europe/germany/bremen-latest.osm.pbf` },
@@ -37,9 +37,8 @@ export const REGIONS = [
   { id: 'hr',    name: 'Croatia',                  bbox: [42.38, 13.49, 46.55, 19.45], sizeMb:  150, url: `${BASE}/europe/croatia-latest.osm.pbf` },
   { id: 'pl',    name: 'Poland',                   bbox: [49.00, 14.12, 54.84, 24.15], sizeMb: 1400, url: `${BASE}/europe/poland-latest.osm.pbf` },
   { id: 'dk',    name: 'Denmark',                  bbox: [54.56,  8.07, 57.75, 15.20], sizeMb:  100, url: `${BASE}/europe/denmark-latest.osm.pbf` },
-  { id: 'fr-ge', name: 'France/Grand-Est',         bbox: [47.40,  5.90, 49.52,  8.24], sizeMb:  100, url: `${BASE}/europe/france/grand-est-latest.osm.pbf` },
-  { id: 'fr-bfc',name: 'France/Bourgogne-FC',      bbox: [46.23,  5.36, 48.40,  7.09], sizeMb:   80, url: `${BASE}/europe/france/bourgogne-franche-comte-latest.osm.pbf` },
-  { id: 'fr',    name: 'France (full)',             bbox: [41.34, -5.14, 51.09,  9.56], sizeMb: 4000, url: `${BASE}/europe/france-latest.osm.pbf` },
+  { id: 'fr-ge', name: 'France/Lorraine',          bbox: [47.40,  5.90, 49.52,  8.24], sizeMb:  170, url: `${BASE}/europe/france/lorraine-latest.osm.pbf` },
+  { id: 'fr-bfc',name: 'France/Franche-Comte',     bbox: [46.23,  5.36, 48.40,  7.09], sizeMb:  122, url: `${BASE}/europe/france/franche-comte-latest.osm.pbf` },
   { id: 'it',    name: 'Italy',                    bbox: [36.62,  6.62, 47.09, 18.52], sizeMb: 1500, url: `${BASE}/europe/italy-latest.osm.pbf` },
   { id: 'es',    name: 'Spain',                    bbox: [35.95, -9.39, 43.79,  4.33], sizeMb: 1200, url: `${BASE}/europe/spain-latest.osm.pbf` },
   { id: 'pt',    name: 'Portugal',                 bbox: [36.96, -9.50, 42.15, -6.19], sizeMb:  200, url: `${BASE}/europe/portugal-latest.osm.pbf` },
