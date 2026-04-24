@@ -1814,9 +1814,10 @@ function triggerVerticalProfileUpdate() {
                     // Wichtig: Nicht nur auf "Key existiert" prüfen.
                     // Wenn der Route-Cache leer/kaputt ist oder keine nutzbaren Daten
                     // enthält, müssen wir trotzdem live nachladen.
-                    const mustRefetch = forceOverpassReload || !hasUsableCache || tileProbe.missing.length > 0;
+                    const forceFullTileReload = (!forceOverpassReload && !hasRouteComboCache && tileProbe.total > 0 && tileProbe.missing.length === 0);
+                    const mustRefetch = forceOverpassReload || forceFullTileReload || !hasUsableCache || tileProbe.missing.length > 0;
                     if (mustRefetch) {
-                        const result = await fetchProfileObstacles(vpElevationData, currentSignal, cacheKey, forceOverpassReload);
+                        const result = await fetchProfileObstacles(vpElevationData, currentSignal, cacheKey, (forceOverpassReload || forceFullTileReload));
                         if (result !== null) { 
                             vpObstacles = result.obs || [];
                             vpLinearFeatures = result.lin || [];
