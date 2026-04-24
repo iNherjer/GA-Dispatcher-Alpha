@@ -8,6 +8,7 @@ import { createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
 import { spawn } from 'node:child_process';
+import { gunzipSync } from 'node:zlib';
 import { findRegionsForTile } from './pbf-region-registry.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -54,6 +55,7 @@ const WORKBENCH_TMP_OUT_DIR = path.join(WORKBENCH_TMP_DIR, 'combined-tiles');
 const WORKBENCH_TMP_MANIFEST = path.join(WORKBENCH_TMP_DIR, 'combined-manifest.v1.json');
 const WORKBENCH_TMP_FAILED = path.join(WORKBENCH_TMP_DIR, 'combined-failed-tiles.json');
 const WORKBENCH_PBF_PATH = String(process.env.OBS_WORKBENCH_PBF_PATH || '').trim();
+const WORKBENCH_PBF_MAX_REGIONS = Math.max(1, Number(process.env.OBS_WORKBENCH_PBF_MAX_REGIONS || 1));
 
 const PBF_CACHE_DIR = path.join(CACHE_BASE, 'pbf');
 const PBF_CACHE_TTL_MS = Number(process.env.OBS_WORKBENCH_PBF_TTL_DAYS || 7) * 24 * 60 * 60 * 1000;
@@ -277,22 +279,59 @@ async function ensurePbfRegion(region) {
 }
 
 async function resolvePbfPathsForTile(tileKey) {
-  // If a manual PBF path is configured, use it exclusively (backward compat)
-  if (WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH)) {
-    return [WORKBENCH_PBF_PATH];
-  }
-  const regions = findRegionsForTile(tileKey);
-  if (!regions.length) return [];
   const paths = [];
+  const seen = new Set();
+  // Manual path is preferred when present, but no longer exclusive.
+  if (WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH)) {
+    const rp = path.resolve(WORKBENCH_PBF_PATH);
+    paths.push(rp);
+    seen.add(rp);
+  }
+  const regions = findRegionsForTile(tileKey).slice(0, WORKBENCH_PBF_MAX_REGIONS);
   for (const region of regions) {
     try {
       const p = await ensurePbfRegion(region);
-      paths.push(p);
+      const rp = path.resolve(p);
+      if (!seen.has(rp)) {
+        paths.push(rp);
+        seen.add(rp);
+      }
     } catch (err) {
       console.error(`[PBF] Download fehlgeschlagen für ${region.name}: ${err.message || err}`);
     }
   }
   return paths;
+}
+
+async function runOverpassToCombined(tileKey, combinedFile) {
+  const cmd = [
+    'tools/generate-obstacle-tiles.mjs',
+    '--tiles', tileKey,
+    '--force',
+    '--delay-ms', String(WORKBENCH_DELAY_MS),
+    '--retries', String(WORKBENCH_RETRIES),
+    '--out', path.relative(ROOT, WORKBENCH_TMP_OUT_DIR),
+    '--manifest', path.relative(ROOT, WORKBENCH_TMP_MANIFEST),
+    '--failed', path.relative(ROOT, WORKBENCH_TMP_FAILED)
+  ];
+  const run = await runCmd('node', cmd, { cwd: ROOT });
+  const failedData = await readJsonSafe(WORKBENCH_TMP_FAILED, { failedTiles: [] });
+  const failedItems = Array.isArray(failedData.failedTiles) ? failedData.failedTiles : [];
+  const failedItem = failedItems.find(x => normalizeTileKey(x && x.tile) === tileKey) || null;
+  const combinedExists = existsSync(combinedFile);
+  return { run, failedItem, combinedExists };
+}
+
+async function readJsonMaybeGz(filePath, fallback = null) {
+  try {
+    const raw = await fs.readFile(filePath);
+    const text = String(filePath).endsWith('.gz')
+      ? gunzipSync(raw).toString('utf8')
+      : raw.toString('utf8');
+    return JSON.parse(text);
+  } catch (_) {
+    return fallback;
+  }
 }
 
 function mergeCombinedChunks(chunks, tileMeta) {
@@ -377,9 +416,9 @@ async function collectLocalTileKeysFromFs(baseDir) {
         await walk(full);
         continue;
       }
-      if (!e.isFile() || !e.name.endsWith('.json')) continue;
+      if (!e.isFile() || !(e.name.endsWith('.json') || e.name.endsWith('.json.gz'))) continue;
       const rel = path.relative(baseDir, full);
-      const m = rel.match(/^(-?\d+)[/\\](-?\d+)\.json$/);
+      const m = rel.match(/^(-?\d+)[/\\](-?\d+)\.json(?:\.gz)?$/);
       if (!m) continue;
       const key = normalizeTileKey(`${m[1]}|${m[2]}`);
       if (key) out.add(key);
@@ -620,7 +659,10 @@ async function processOneTile(tileKey) {
       if (r.code === 0 && existsSync(tmpOut)) {
         try {
           const raw = await fs.readFile(tmpOut, 'utf8');
-          chunkResults.push(JSON.parse(raw));
+          const parsed = JSON.parse(raw);
+          const cnt = parsed && parsed.counts ? parsed.counts : {};
+          const totalRaw = Number(cnt.obs || 0) + Number(cnt.lin || 0) + Number(cnt.poi || 0);
+          if (totalRaw > 0) chunkResults.push(parsed);
         } catch (_) {}
         try { await fs.unlink(tmpOut); } catch (_) {}
       } else {
@@ -647,20 +689,9 @@ async function processOneTile(tileKey) {
   }
 
   if (loadSource === 'overpass') {
-    const cmd = [
-      'tools/generate-obstacle-tiles.mjs',
-      '--tiles', tileKey,
-      '--force',
-      '--delay-ms', String(WORKBENCH_DELAY_MS),
-      '--retries', String(WORKBENCH_RETRIES),
-      '--out', path.relative(ROOT, WORKBENCH_TMP_OUT_DIR),
-      '--manifest', path.relative(ROOT, WORKBENCH_TMP_MANIFEST),
-      '--failed', path.relative(ROOT, WORKBENCH_TMP_FAILED)
-    ];
-    run = await runCmd('node', cmd, { cwd: ROOT });
-    const failedData = await readJsonSafe(WORKBENCH_TMP_FAILED, { failedTiles: [] });
-    const failedItems = Array.isArray(failedData.failedTiles) ? failedData.failedTiles : [];
-    failedItem = failedItems.find(x => normalizeTileKey(x && x.tile) === tileKey) || null;
+    const ov = await runOverpassToCombined(tileKey, combinedFile);
+    run = ov.run;
+    failedItem = ov.failedItem;
   }
 
   const combinedExists = existsSync(combinedFile);
@@ -680,14 +711,61 @@ async function processOneTile(tileKey) {
     ];
     const splitRun = await runCmd('node', splitCmd, { cwd: ROOT });
     if (splitRun.code === 0 && existsSync(coreOut) && existsSync(poiOut)) {
-      await upsertManifestTile(CORE_MANIFEST_PATH, tileKey);
-      await upsertManifestTile(POI_MANIFEST_PATH, tileKey);
-      await removeFailedTile(tileKey);
-      // Delete old plain .json counterparts (migrating to .json.gz)
-      try { await fs.unlink(tilePath(CORE_TILE_DIR, tileKey)); } catch (_) {}
-      try { await fs.unlink(tilePath(POI_TILE_DIR, tileKey)); } catch (_) {}
-      ok = true;
-      message = `Tile geladen (${loadSource}), gesplittet und gespeichert`;
+      const corePayload = await readJsonMaybeGz(coreOut, { counts: { obs: 0, lin: 0 } });
+      const poiPayload = await readJsonMaybeGz(poiOut, { counts: { poi: 0 } });
+      const outObs = Number(corePayload?.counts?.obs || 0);
+      const outLin = Number(corePayload?.counts?.lin || 0);
+      const outPoi = Number(poiPayload?.counts?.poi || 0);
+      const outTotal = outObs + outLin + outPoi;
+
+      if (outTotal === 0 && loadSource === 'pbf') {
+        // PBF raw data had no mission-relevant output after split; try Overpass once.
+        const ov = await runOverpassToCombined(tileKey, combinedFile);
+        run = ov.run;
+        failedItem = ov.failedItem;
+        if (!failedItem && existsSync(combinedFile)) {
+          const splitRun2 = await runCmd('node', splitCmd, { cwd: ROOT });
+          const corePayload2 = await readJsonMaybeGz(coreOut, { counts: { obs: 0, lin: 0 } });
+          const poiPayload2 = await readJsonMaybeGz(poiOut, { counts: { poi: 0 } });
+          const outTotal2 = Number(corePayload2?.counts?.obs || 0) + Number(corePayload2?.counts?.lin || 0) + Number(poiPayload2?.counts?.poi || 0);
+          if (splitRun2.code === 0 && existsSync(coreOut) && existsSync(poiOut) && outTotal2 > 0) {
+            await upsertManifestTile(CORE_MANIFEST_PATH, tileKey);
+            await upsertManifestTile(POI_MANIFEST_PATH, tileKey);
+            await removeFailedTile(tileKey);
+            try { await fs.unlink(tilePath(CORE_TILE_DIR, tileKey)); } catch (_) {}
+            try { await fs.unlink(tilePath(POI_TILE_DIR, tileKey)); } catch (_) {}
+            ok = true;
+            message = 'Tile geladen (PBF→Overpass Fallback), gesplittet und gespeichert';
+          } else {
+            await upsertFailedTile(tileKey, {
+              status: Number((failedItem && failedItem.status) || 0),
+              error: 'Split ergab leere Core/POI-Ausgabe (PBF + Overpass)'
+            });
+            message = 'Split ergab leere Core/POI-Ausgabe (PBF + Overpass)';
+          }
+        } else {
+          await upsertFailedTile(tileKey, {
+            status: Number((failedItem && failedItem.status) || 0),
+            error: String((failedItem && failedItem.error) || 'Overpass-Fallback fehlgeschlagen')
+          });
+          message = `PBF lieferte keine verwertbaren Core/POI-Daten, Overpass-Fallback fehlgeschlagen`;
+        }
+      } else if (outTotal === 0) {
+        await upsertFailedTile(tileKey, {
+          status: 0,
+          error: 'Split ergab leere Core/POI-Ausgabe'
+        });
+        message = 'Split ergab leere Core/POI-Ausgabe';
+      } else {
+        await upsertManifestTile(CORE_MANIFEST_PATH, tileKey);
+        await upsertManifestTile(POI_MANIFEST_PATH, tileKey);
+        await removeFailedTile(tileKey);
+        // Delete old plain .json counterparts (migrating to .json.gz)
+        try { await fs.unlink(tilePath(CORE_TILE_DIR, tileKey)); } catch (_) {}
+        try { await fs.unlink(tilePath(POI_TILE_DIR, tileKey)); } catch (_) {}
+        ok = true;
+        message = `Tile geladen (${loadSource}), gesplittet und gespeichert`;
+      }
     } else {
       await upsertFailedTile(tileKey, {
         status: 0,
@@ -934,18 +1012,27 @@ const server = http.createServer(async (req, res) => {
       const body = await parseBody(req);
       const maxAge = Number(body && body.maxAgeDays) || 0; // 0 = all
       const now = Date.now();
+      const seen = new Set();
       const tiles = [];
-      for await (const [latI, lonI] of iterateTileFiles(CORE_TILE_DIR, '.json.gz')) {
-        const key = `${latI}|${lonI}`;
-        if (maxAge > 0) {
-          const gzp = tileGzPath(CORE_TILE_DIR, key);
-          try {
-            const st = await fs.stat(gzp);
-            if (now - st.mtimeMs < maxAge * 86400_000) continue; // still fresh
-          } catch (_) {}
+      const collectSuffix = async (suffix) => {
+        for await (const [latI, lonI] of iterateTileFiles(CORE_TILE_DIR, suffix)) {
+          const key = `${latI}|${lonI}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          if (maxAge > 0) {
+            const gzp = tileGzPath(CORE_TILE_DIR, key);
+            const jp = tilePath(CORE_TILE_DIR, key);
+            const probePath = existsSync(gzp) ? gzp : jp;
+            try {
+              const st = await fs.stat(probePath);
+              if (now - st.mtimeMs < maxAge * 86400_000) continue; // still fresh
+            } catch (_) {}
+          }
+          tiles.push(key);
         }
-        tiles.push(key);
-      }
+      };
+      await collectSuffix('.json.gz');
+      await collectSuffix('.json');
       const added = enqueueTiles(tiles);
       return sendJson(res, 200, { ok: true, found: tiles.length, added: added.length, queueLength: queue.length });
     }
