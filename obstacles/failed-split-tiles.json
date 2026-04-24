@@ -1,5 +1,13 @@
 {
-  "generatedAt": "2026-04-24T16:45:51.222Z",
-  "failed": 0,
-  "failedTiles": []
+  "generatedAt": "2026-04-24T19:25:57.428Z",
+  "failed": 1,
+  "failedTiles": [
+    {
+      "tile": "342|446",
+      "status": 504,
+      "error": "HTTP 504: <?xml version=\"1.0\" encoding=\"UTF-8\"?> <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"> <html xmlns=\"http://www.w3.",
+      "server": "https://overpass-api.de/api/interpreter",
+      "at": "2026-04-24T19:20:36.059Z"
+    }
+  ]
 }
