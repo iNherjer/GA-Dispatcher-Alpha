@@ -1192,6 +1192,7 @@ async function vpFetchHostedObstacleTile(tileKey, signal) {
             const res = await fetch(url, { signal: ctrl.signal });
             if (res.status === 404 || res.status === 204) {
                 if (dbg) dbg.hostedTileMisses = Number(dbg.hostedTileMisses || 0) + 1;
+                if (isLocalStaticEndpoint) continue;
                 vpMarkHostedMiss(tileKey, res.status);
                 return { ok: false, status: res.status, src: endpoint, hostedMiss: true };
             }
