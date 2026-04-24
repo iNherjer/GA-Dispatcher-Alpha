@@ -99,6 +99,23 @@ async function ensureDir(dirPath) {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
+// Yields [latI, lonI] pairs for all tile files with the given suffix under baseDir.
+async function* iterateTileFiles(baseDir, suffix) {
+  let latDirs;
+  try { latDirs = await fs.readdir(baseDir); } catch { return; }
+  for (const latI of latDirs) {
+    const latDir = path.join(baseDir, latI);
+    let files;
+    try { files = await fs.readdir(latDir); } catch { continue; }
+    for (const f of files) {
+      if (!f.endsWith(suffix)) continue;
+      const lonI = f.slice(0, -suffix.length);
+      if (!/^\d+$/.test(lonI)) continue;
+      yield [latI, lonI];
+    }
+  }
+}
+
 async function readJsonSafe(filePath, fallback) {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
@@ -861,6 +878,38 @@ const server = http.createServer(async (req, res) => {
       queue.length = 0;
       queueSet.clear();
       return sendJson(res, 200, { ok: true, queueLength: 0, processing, currentTile });
+    }
+
+    // Re-queue all tiles that still exist only as .json (not yet .json.gz) — migration helper.
+    if (req.method === 'POST' && url.pathname === '/api/requeue-legacy-json') {
+      const tiles = [];
+      for (const [latI, lonI] of iterateTileFiles(CORE_TILE_DIR, '.json')) {
+        const key = `${latI}|${lonI}`;
+        if (!existsSync(tileGzPath(CORE_TILE_DIR, key))) tiles.push(key);
+      }
+      const added = enqueueTiles(tiles);
+      return sendJson(res, 200, { ok: true, found: tiles.length, added: added.length, queueLength: queue.length });
+    }
+
+    // Re-queue all already-loaded tiles to force a full refresh (useful after PBF update).
+    if (req.method === 'POST' && url.pathname === '/api/requeue-all-loaded') {
+      const body = await parseBody(req);
+      const maxAge = Number(body && body.maxAgeDays) || 0; // 0 = all
+      const now = Date.now();
+      const tiles = [];
+      for (const [latI, lonI] of iterateTileFiles(CORE_TILE_DIR, '.json.gz')) {
+        const key = `${latI}|${lonI}`;
+        if (maxAge > 0) {
+          const gzp = tileGzPath(CORE_TILE_DIR, key);
+          try {
+            const st = await fs.stat(gzp);
+            if (now - st.mtimeMs < maxAge * 86400_000) continue; // still fresh
+          } catch (_) {}
+        }
+        tiles.push(key);
+      }
+      const added = enqueueTiles(tiles);
+      return sendJson(res, 200, { ok: true, found: tiles.length, added: added.length, queueLength: queue.length });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/push') {

@@ -133,6 +133,8 @@
         <button id="btnEnqueue">Auswahl laden</button>
         <button id="btnRetryFailed">Failed erneut laden</button>
         <button id="btnClearQueue">Queue leeren</button>
+        <button id="btnMigrateLegacy" title="Alle .json-Tiles (ohne .gz) neu laden und konvertieren">Legacy .json → .gz</button>
+        <button id="btnRefreshAll" title="Alle vorhandenen Tiles neu generieren (z.B. nach PBF-Update)">Alle Tiles aktualisieren</button>
         <button id="btnPush">Neue Ergebnisse pushen</button>
         <button id="btnRepoSync">Repo-Sync prüfen</button>
       </div>
@@ -598,6 +600,32 @@
         log(`Push-Fehler: ${e.message || e}`);
       }
     });
+    document.getElementById('btnMigrateLegacy').addEventListener('click', async () => {
+      if (!confirm('Alle alten .json-Tiles (ohne .gz-Variante) werden neu eingereiht und als .json.gz gespeichert. Fortfahren?')) return;
+      try {
+        const out = await api('/api/requeue-legacy-json', 'POST', {});
+        log(`Legacy-Migration: ${out.found} gefunden, ${out.added} eingereiht`);
+        await refreshState(true);
+      } catch (e) {
+        log(`Migration-Fehler: ${e.message || e}`);
+      }
+    });
+
+    document.getElementById('btnRefreshAll').addEventListener('click', async () => {
+      const input = prompt('Alle Tiles aktualisieren — nur Tiles älter als X Tage (0 = alle):', '90');
+      if (input === null) return;
+      const maxAgeDays = Math.max(0, parseInt(input, 10) || 0);
+      const msg = maxAgeDays > 0 ? `Tiles älter als ${maxAgeDays} Tage werden neu geladen. Fortfahren?` : 'ALLE vorhandenen Tiles werden neu geladen. Das kann sehr lange dauern. Fortfahren?';
+      if (!confirm(msg)) return;
+      try {
+        const out = await api('/api/requeue-all-loaded', 'POST', { maxAgeDays });
+        log(`Aktualisierung: ${out.found} Tiles gefunden, ${out.added} eingereiht`);
+        await refreshState(true);
+      } catch (e) {
+        log(`Aktualisierungs-Fehler: ${e.message || e}`);
+      }
+    });
+
     document.getElementById('btnRepoSync').addEventListener('click', runRepoSyncCheck);
 
     map.on('moveend zoomend', () => renderGrid());
