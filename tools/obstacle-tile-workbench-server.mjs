@@ -90,6 +90,11 @@ function tilePath(baseDir, tileKey) {
   return path.join(baseDir, latI, `${lonI}.json`);
 }
 
+function tileGzPath(baseDir, tileKey) {
+  const [latI, lonI] = String(tileKey).split('|');
+  return path.join(baseDir, latI, `${lonI}.json.gz`);
+}
+
 async function ensureDir(dirPath) {
   await fs.mkdir(dirPath, { recursive: true });
 }
@@ -456,8 +461,10 @@ async function collectTileState() {
   ].map(normalizeTileKey).filter(Boolean));
 
   for (const tileKey of keys) {
-    const coreFile = tilePath(CORE_TILE_DIR, tileKey);
-    const poiFile = tilePath(POI_TILE_DIR, tileKey);
+    const coreGz = tileGzPath(CORE_TILE_DIR, tileKey);
+    const poiGz = tileGzPath(POI_TILE_DIR, tileKey);
+    const coreFile = existsSync(coreGz) ? coreGz : tilePath(CORE_TILE_DIR, tileKey);
+    const poiFile = existsSync(poiGz) ? poiGz : tilePath(POI_TILE_DIR, tileKey);
     const hasCore = existsSync(coreFile);
     const hasPoi = existsSync(poiFile);
     if (!hasCore && !hasPoi) continue;
@@ -542,8 +549,8 @@ async function processOneTile(tileKey) {
   const startedAt = Date.now();
 
   const combinedFile = tilePath(WORKBENCH_TMP_OUT_DIR, tileKey);
-  const coreOut = tilePath(CORE_TILE_DIR, tileKey);
-  const poiOut = tilePath(POI_TILE_DIR, tileKey);
+  const coreOut = tileGzPath(CORE_TILE_DIR, tileKey);
+  const poiOut = tileGzPath(POI_TILE_DIR, tileKey);
 
   await ensureDir(WORKBENCH_TMP_OUT_DIR);
 
@@ -631,6 +638,9 @@ async function processOneTile(tileKey) {
       await upsertManifestTile(CORE_MANIFEST_PATH, tileKey);
       await upsertManifestTile(POI_MANIFEST_PATH, tileKey);
       await removeFailedTile(tileKey);
+      // Delete old plain .json counterparts (migrating to .json.gz)
+      try { await fs.unlink(tilePath(CORE_TILE_DIR, tileKey)); } catch (_) {}
+      try { await fs.unlink(tilePath(POI_TILE_DIR, tileKey)); } catch (_) {}
       ok = true;
       message = `Tile geladen (${loadSource}), gesplittet und gespeichert`;
     } else {

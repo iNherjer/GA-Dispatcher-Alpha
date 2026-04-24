@@ -99,9 +99,9 @@ const VP_OBS_HOSTED_ENABLED = localStorage.getItem('ga_obs_hosted_enabled') !== 
 const VP_OBS_HOSTED_MISS_TTL_MS = 30 * 60 * 1000;
 const VP_OBS_HOSTED_TIMEOUT_MS = 2200;
 const VP_OBS_HOSTED_ENDPOINTS = [
-    './obstacles/tiles/{latI}/{lonI}.json',
-    './obstacles/core-tiles/{latI}/{lonI}.json',
     './obstacles/core-tiles/{latI}/{lonI}.json.gz',
+    './obstacles/core-tiles/{latI}/{lonI}.json',
+    './obstacles/tiles/{latI}/{lonI}.json',
     'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
 ];
 const VP_PROFILE_FPS_IDLE = 10;
@@ -1202,7 +1202,13 @@ async function vpFetchHostedObstacleTile(tileKey, signal) {
                 if (dbg) dbg.hostedTileErrors = Number(dbg.hostedTileErrors || 0) + 1;
                 continue;
             }
-            const payload = await res.json();
+            let payload;
+            if (url.endsWith('.gz')) {
+                const ds = new DecompressionStream('gzip');
+                payload = await new Response(res.body.pipeThrough(ds)).json();
+            } else {
+                payload = await res.json();
+            }
             const sourceKind = String((payload && payload.sourceKind) || '').toLowerCase();
             const features = vpParseHostedObstaclePayload(payload);
             if (!features) {

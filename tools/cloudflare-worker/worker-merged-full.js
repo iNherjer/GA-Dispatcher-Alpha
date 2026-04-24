@@ -74,16 +74,25 @@ function buildObstacleTileCandidates(env, tileKey, layer) {
   const coreBase = String((env && env.OBSTACLE_CORE_TILES_BASE) || legacyBase || DEFAULT_OBS_CORE_TILE_BASE).replace(/\/+$/, "");
   const poiBase = String((env && env.OBSTACLE_POI_TILES_BASE) || DEFAULT_OBS_POI_TILE_BASE).replace(/\/+$/, "");
 
+  function gz(url) { return url ? url.replace(/\.json$/, ".json.gz") : null; }
+
   if (layer === "poi") {
     const poiUrl = buildObstacleTileUrl(poiBase, tileKey);
-    return poiUrl ? [{ layer: "poi", sourceKind: "split", url: poiUrl }] : [];
+    const candidates = [];
+    if (poiUrl) candidates.push({ layer: "poi", sourceKind: "split", url: gz(poiUrl), compressed: true });
+    if (poiUrl) candidates.push({ layer: "poi", sourceKind: "split", url: poiUrl });
+    return candidates;
   }
 
   const candidates = [];
   const coreUrl = buildObstacleTileUrl(coreBase, tileKey);
+  if (coreUrl) candidates.push({ layer: "core", sourceKind: "split", url: gz(coreUrl), compressed: true });
   if (coreUrl) candidates.push({ layer: "core", sourceKind: "split", url: coreUrl });
   const legacyUrl = buildObstacleTileUrl(legacyBase, tileKey);
-  if (legacyUrl && legacyUrl !== coreUrl) candidates.push({ layer: "core", sourceKind: "legacy", url: legacyUrl });
+  if (legacyUrl && legacyUrl !== coreUrl) {
+    candidates.push({ layer: "core", sourceKind: "legacy", url: gz(legacyUrl), compressed: true });
+    candidates.push({ layer: "core", sourceKind: "legacy", url: legacyUrl });
+  }
   return candidates;
 }
 
@@ -122,7 +131,20 @@ async function handleObstacleTile(request, requestUrl, env) {
       if (res.status === 404 || res.status === 204) continue;
       if (!res.ok) continue;
       let p;
-      try { p = JSON.parse(await res.text()); } catch { continue; }
+      try {
+        let text;
+        if (c.compressed) {
+          const buf = await res.arrayBuffer();
+          const ds = new DecompressionStream("gzip");
+          const writer = ds.writable.getWriter();
+          writer.write(new Uint8Array(buf));
+          writer.close();
+          text = await new Response(ds.readable).text();
+        } else {
+          text = await res.text();
+        }
+        p = JSON.parse(text);
+      } catch { continue; }
       const cObj = p && typeof p.core === "object" ? p.core : null;
       const pObj = p && typeof p.poi === "object" ? p.poi : null;
       const o = Array.isArray(p?.obs) ? p.obs : (Array.isArray(cObj?.obs) ? cObj.obs : []);

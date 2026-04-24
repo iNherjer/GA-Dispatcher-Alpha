@@ -1,13 +1,6 @@
 {
-  "generatedAt": "2026-04-21T06:47:36.506Z",
-  "ok": 0,
-  "failed": 1,
-  "failedTiles": [
-    {
-      "tile": "342|459",
-      "status": 429,
-      "error": "HTTP 429: <?xml version=\"1.0\" encoding=\"UTF-8\"?> <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"> <html xmlns=\"http://www.w3.",
-      "server": "https://overpass-api.de/api/interpreter"
-    }
-  ]
+  "generatedAt": "2026-04-21T07:18:01.620Z",
+  "ok": 1,
+  "failed": 0,
+  "failedTiles": []
 }

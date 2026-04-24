@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { gzipSync } from 'node:zlib';
 
 function parseArgs(argv) {
   const args = {
@@ -282,8 +283,8 @@ async function main() {
   await fs.mkdir(path.dirname(args.coreOut), { recursive: true });
   await fs.mkdir(path.dirname(args.poiOut), { recursive: true });
 
-  await fs.writeFile(args.coreOut, JSON.stringify(core));
-  await fs.writeFile(args.poiOut, JSON.stringify(poi));
+  await fs.writeFile(args.coreOut, gzipSync(JSON.stringify(core)));
+  await fs.writeFile(args.poiOut, gzipSync(JSON.stringify(poi)));
 
   console.log(JSON.stringify({
     ok: true,
