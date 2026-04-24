@@ -9,7 +9,7 @@ import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
 import { spawn } from 'node:child_process';
 import { gunzipSync, gzipSync } from 'node:zlib';
-import { findRegionsForTile } from './pbf-region-registry.mjs';
+import { REGIONS, findRegionsForTile } from './pbf-region-registry.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,6 +63,13 @@ const PBF_CACHE_TTL_MS = Number(process.env.OBS_WORKBENCH_PBF_TTL_DAYS || 7) * 2
 const TILE_STEP_DEG = 25 / 60;
 const STALE_AFTER_MS = 90 * 24 * 60 * 60 * 1000;
 const PORT = Number(process.env.OBS_WORKBENCH_PORT || 8788);
+const LAT_TILE_COUNT = Math.round(180 / TILE_STEP_DEG);
+const LON_TILE_COUNT = Math.round(360 / TILE_STEP_DEG);
+
+const REGION_BY_ID = new Map(REGIONS.map(r => [String(r.id), r]));
+const tileRegionMetaCache = new Map();
+const regionPolyCache = new Map(); // regionId -> { mode:'poly'|'bbox', polygon?:{outers,holes,bbox} }
+const regionTileCache = new Map(); // regionId -> string[] tiles matching region coverage
 
 const pbfDownloads = new Map(); // regionId -> { status, downloaded, total, url, name, path }
 const pbfDownloadPromises = new Map(); // regionId -> Promise (dedup concurrent downloads)
@@ -76,6 +83,7 @@ const WORKBENCH_RETRIES = Number(process.env.OBS_WORKBENCH_RETRIES || 4);
 const WORKBENCH_DELAY_MS = Number(process.env.OBS_WORKBENCH_DELAY_MS || 2200);
 const WORKBENCH_FAIL_COOLDOWN_MS = Number(process.env.OBS_WORKBENCH_FAIL_COOLDOWN_MS || 12000);
 const WORKBENCH_504_EXTRA_COOLDOWN_MS = Number(process.env.OBS_WORKBENCH_504_EXTRA_COOLDOWN_MS || 18000);
+const WORKBENCH_CACHE_RECOVERY_RETRY_MS = Number(process.env.OBS_WORKBENCH_CACHE_RECOVERY_RETRY_MS || 10000);
 const lastResults = new Map();
 let lastRepoSync = {
   ok: false,
@@ -98,6 +106,64 @@ let lastRepoSync = {
   remoteCompleteCount: 0
 };
 
+class CacheUnavailableError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'CacheUnavailableError';
+    this.code = 'CACHE_UNAVAILABLE';
+  }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms || 0))));
+}
+
+function looksLikeCacheUnavailable(text) {
+  const s = String(text || '').toLowerCase();
+  if (!s) return false;
+  const cacheHint = s.includes('/volumes/') || s.includes('obs-split') || s.includes('workbench-cache') || s.includes('/pbf/');
+  return (
+    cacheHint ||
+    s.includes('operation not permitted') ||
+    s.includes('input/output error') ||
+    s.includes('eio') ||
+    s.includes('enospc') ||
+    s.includes('read-only file system') ||
+    s.includes('erofs') ||
+    (cacheHint && s.includes('no such file or directory'))
+  );
+}
+
+async function isCacheWritable() {
+  try {
+    await ensureDir(CACHE_BASE);
+    const probe = path.join(CACHE_BASE, '.wb_cache_probe');
+    await fs.writeFile(probe, String(Date.now()), 'utf8');
+    await fs.unlink(probe).catch(() => {});
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function assertCacheWritableOrThrow(context = '') {
+  const ok = await isCacheWritable();
+  if (ok) return;
+  throw new CacheUnavailableError(`Cache-Pfad nicht verfügbar${context ? ` (${context})` : ''}: ${CACHE_BASE}`);
+}
+
+async function waitForCacheRecovery() {
+  while (true) {
+    const ok = await isCacheWritable();
+    if (ok) {
+      console.log(`[Tile-Workbench] Cache wieder verfügbar: ${CACHE_BASE}`);
+      return;
+    }
+    console.warn(`[Tile-Workbench] Cache nicht verfügbar, neuer Check in ${Math.round(WORKBENCH_CACHE_RECOVERY_RETRY_MS / 1000)}s: ${CACHE_BASE}`);
+    await sleep(WORKBENCH_CACHE_RECOVERY_RETRY_MS);
+  }
+}
+
 function sendJson(res, status, payload) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -113,6 +179,228 @@ function normalizeTileKey(v) {
   const s = String(v || '').trim();
   if (!/^-?\d+\|-?\d+$/.test(s)) return null;
   return s;
+}
+
+function tileBoundsFromIndices(latI, lonI) {
+  const south = -90 + latI * TILE_STEP_DEG;
+  const north = south + TILE_STEP_DEG;
+  const west = -180 + lonI * TILE_STEP_DEG;
+  const east = west + TILE_STEP_DEG;
+  return { south, west, north, east };
+}
+
+function bboxIntersects(a, b) {
+  return !(a.north <= b.south || a.south >= b.north || a.east <= b.west || a.west >= b.east);
+}
+
+function getRegionMetaForTile(tileKey) {
+  const key = normalizeTileKey(tileKey);
+  if (!key) return { count: 0, ids: [] };
+  if (tileRegionMetaCache.has(key)) return tileRegionMetaCache.get(key);
+  const ids = findRegionsForTile(key).map(r => String(r.id));
+  const meta = { count: ids.length, ids };
+  tileRegionMetaCache.set(key, meta);
+  return meta;
+}
+
+function pointInRing(lon, lat, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    const intersects = ((yi > lat) !== (yj > lat)) && (lon < ((xj - xi) * (lat - yi)) / ((yj - yi) || 1e-12) + xi);
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+function pointInPoly(lon, lat, poly) {
+  let inOuter = false;
+  for (const ring of poly.outers) {
+    if (pointInRing(lon, lat, ring)) { inOuter = true; break; }
+  }
+  if (!inOuter) return false;
+  for (const ring of poly.holes) {
+    if (pointInRing(lon, lat, ring)) return false;
+  }
+  return true;
+}
+
+function orient(a, b, c) {
+  return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+}
+
+function onSegment(a, b, c) {
+  return Math.min(a[0], b[0]) <= c[0] && c[0] <= Math.max(a[0], b[0]) &&
+         Math.min(a[1], b[1]) <= c[1] && c[1] <= Math.max(a[1], b[1]);
+}
+
+function segmentsIntersect(a, b, c, d) {
+  const o1 = orient(a, b, c);
+  const o2 = orient(a, b, d);
+  const o3 = orient(c, d, a);
+  const o4 = orient(c, d, b);
+  if ((o1 > 0) !== (o2 > 0) && (o3 > 0) !== (o4 > 0)) return true;
+  if (Math.abs(o1) < 1e-12 && onSegment(a, b, c)) return true;
+  if (Math.abs(o2) < 1e-12 && onSegment(a, b, d)) return true;
+  if (Math.abs(o3) < 1e-12 && onSegment(c, d, a)) return true;
+  if (Math.abs(o4) < 1e-12 && onSegment(c, d, b)) return true;
+  return false;
+}
+
+function parsePolyText(text) {
+  const lines = String(text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (lines.length < 3) return null;
+  const rings = [];
+  let i = 1; // first line is name
+  while (i < lines.length) {
+    const header = lines[i++];
+    if (header.toUpperCase() === 'END') break;
+    const isHole = header.startsWith('!');
+    const ring = [];
+    while (i < lines.length) {
+      const line = lines[i++];
+      if (line.toUpperCase() === 'END') break;
+      const parts = line.split(/\s+/).filter(Boolean);
+      if (parts.length < 2) continue;
+      const lon = Number(parts[0]);
+      const lat = Number(parts[1]);
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
+      ring.push([lon, lat]);
+    }
+    if (ring.length >= 3) rings.push({ isHole, ring });
+  }
+  if (rings.length === 0) return null;
+  const outers = rings.filter(r => !r.isHole).map(r => r.ring);
+  const holes = rings.filter(r => r.isHole).map(r => r.ring);
+  if (outers.length === 0) return null;
+  let minLat = Infinity, minLon = Infinity, maxLat = -Infinity, maxLon = -Infinity;
+  for (const ring of [...outers, ...holes]) {
+    for (const [lon, lat] of ring) {
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+    }
+  }
+  return {
+    outers,
+    holes,
+    bbox: { south: minLat, west: minLon, north: maxLat, east: maxLon }
+  };
+}
+
+function tileIntersectsPolygon(tile, poly) {
+  if (!bboxIntersects(tile, poly.bbox)) return false;
+
+  const tileCorners = [
+    [tile.west, tile.south],
+    [tile.east, tile.south],
+    [tile.east, tile.north],
+    [tile.west, tile.north]
+  ];
+  const tileEdges = [
+    [tileCorners[0], tileCorners[1]],
+    [tileCorners[1], tileCorners[2]],
+    [tileCorners[2], tileCorners[3]],
+    [tileCorners[3], tileCorners[0]]
+  ];
+
+  for (const [lon, lat] of tileCorners) {
+    if (pointInPoly(lon, lat, poly)) return true;
+  }
+  for (const ring of [...poly.outers, ...poly.holes]) {
+    for (const [lon, lat] of ring) {
+      if (lat >= tile.south && lat <= tile.north && lon >= tile.west && lon <= tile.east) return true;
+    }
+  }
+  for (const ring of [...poly.outers, ...poly.holes]) {
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i];
+      const b = ring[(i + 1) % ring.length];
+      for (const [c, d] of tileEdges) {
+        if (segmentsIntersect(a, b, c, d)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function getRegionPolyUrl(region) {
+  const url = String(region?.url || '');
+  if (!url) return '';
+  if (url.endsWith('.osm.pbf')) return url.slice(0, -8) + '.poly';
+  return '';
+}
+
+async function ensureRegionPolygon(region) {
+  const regionId = String(region?.id || '').trim();
+  if (!regionId) return { mode: 'bbox' };
+  if (regionPolyCache.has(regionId)) return regionPolyCache.get(regionId);
+
+  const polyUrl = getRegionPolyUrl(region);
+  if (!polyUrl) {
+    const fallback = { mode: 'bbox' };
+    regionPolyCache.set(regionId, fallback);
+    return fallback;
+  }
+
+  const polyPath = path.join(PBF_CACHE_DIR, `${regionId}.poly`);
+  let parsed = null;
+  try {
+    if (existsSync(polyPath)) {
+      const txt = await fs.readFile(polyPath, 'utf8');
+      parsed = parsePolyText(txt);
+    }
+  } catch (_) {}
+
+  if (!parsed) {
+    try {
+      await ensureDir(PBF_CACHE_DIR);
+      const res = await fetch(polyUrl, { redirect: 'follow' });
+      if (res.ok) {
+        const txt = await res.text();
+        parsed = parsePolyText(txt);
+        if (parsed) {
+          await fs.writeFile(polyPath, txt, 'utf8');
+        }
+      }
+    } catch (_) {}
+  }
+
+  const out = parsed ? { mode: 'poly', polygon: parsed } : { mode: 'bbox' };
+  regionPolyCache.set(regionId, out);
+  return out;
+}
+
+async function collectRegionTileKeys(region) {
+  if (!region || !Array.isArray(region.bbox) || region.bbox.length !== 4) return [];
+  const regionId = String(region.id || '').trim();
+  if (regionId && regionTileCache.has(regionId)) {
+    return regionTileCache.get(regionId).slice();
+  }
+  const [south, west, north, east] = region.bbox.map(Number);
+  if (![south, west, north, east].every(Number.isFinite)) return [];
+
+  const latMin = Math.max(0, Math.floor((Math.min(south, north) + 90) / TILE_STEP_DEG) - 1);
+  const latMax = Math.min(LAT_TILE_COUNT - 1, Math.floor((Math.max(south, north) + 90) / TILE_STEP_DEG) + 1);
+  const lonMin = Math.max(0, Math.floor((Math.min(west, east) + 180) / TILE_STEP_DEG) - 1);
+  const lonMax = Math.min(LON_TILE_COUNT - 1, Math.floor((Math.max(west, east) + 180) / TILE_STEP_DEG) + 1);
+
+  const coverage = await ensureRegionPolygon(region);
+  const poly = coverage.mode === 'poly' ? coverage.polygon : null;
+  const regionBounds = { south: Math.min(south, north), west: Math.min(west, east), north: Math.max(south, north), east: Math.max(west, east) };
+  const out = [];
+  for (let latI = latMin; latI <= latMax; latI++) {
+    for (let lonI = lonMin; lonI <= lonMax; lonI++) {
+      const tileBounds = tileBoundsFromIndices(latI, lonI);
+      if (!bboxIntersects(tileBounds, regionBounds)) continue;
+      if (poly && !tileIntersectsPolygon(tileBounds, poly)) continue;
+      out.push(`${latI}|${lonI}`);
+    }
+  }
+  if (regionId) regionTileCache.set(regionId, out.slice());
+  return out;
 }
 
 function tilePath(baseDir, tileKey) {
@@ -654,6 +942,11 @@ async function collectTileState() {
     const poiMtime = Number(poiStat?.mtimeMs || 0);
     const mtimeMs = Math.max(coreMtime, poiMtime);
     const stale = ((hasCore && (now - coreMtime) > STALE_AFTER_MS) || (hasPoi && (now - poiMtime) > STALE_AFTER_MS));
+    const regionMeta = getRegionMetaForTile(tileKey);
+    const partialCoveragePossible = !WORKBENCH_PBF_PATH && regionMeta.count > WORKBENCH_PBF_MAX_REGIONS;
+    const partialReason = partialCoveragePossible
+      ? `Tile schneidet ${regionMeta.count} Regionen (Limit ${WORKBENCH_PBF_MAX_REGIONS})`
+      : '';
 
     loadedMap[tileKey] = {
       mtimeMs,
@@ -662,7 +955,11 @@ async function collectTileState() {
       bytesCore: Number(coreStat?.size || 0),
       bytesPoi: Number(poiStat?.size || 0),
       hasCore,
-      hasPoi
+      hasPoi,
+      regionOverlapCount: Number(regionMeta.count || 0),
+      regionOverlapIds: Array.isArray(regionMeta.ids) ? regionMeta.ids.slice(0, 8) : [],
+      partialCoveragePossible,
+      partialReason
     };
   }
 
@@ -675,8 +972,22 @@ async function collectTileState() {
     port: PORT,
     sourceConfig: {
       pbfPath: WORKBENCH_PBF_PATH,
-      pbfAvailable: !!WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH)
+      pbfAvailable: !!WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH),
+      cacheDir: CACHE_BASE,
+      cacheRecoveryRetrySec: Math.round(WORKBENCH_CACHE_RECOVERY_RETRY_MS / 1000)
     },
+    gapConfig: {
+      mode: 'region-overlap-limit',
+      maxRegionsPerTile: WORKBENCH_PBF_MAX_REGIONS,
+      enabled: !WORKBENCH_PBF_PATH
+    },
+    regions: REGIONS.map(r => ({
+      id: String(r.id),
+      name: String(r.name),
+      sizeMb: Number(r.sizeMb || 0),
+      bbox: Array.isArray(r.bbox) ? r.bbox.map(Number) : [],
+      coverage: (regionPolyCache.get(String(r.id)) || {}).mode || 'unknown'
+    })),
     downloads: Object.fromEntries(pbfDownloads),
     processing,
     currentTile,
@@ -720,7 +1031,37 @@ function enqueueTiles(tileKeys) {
   return added;
 }
 
+async function listRegionTiles(regionIds) {
+  const selected = [];
+  const tileSet = new Set();
+  for (const rawId of Array.isArray(regionIds) ? regionIds : []) {
+    const id = String(rawId || '').trim();
+    if (!id) continue;
+    const region = REGION_BY_ID.get(id);
+    if (!region) continue;
+    selected.push(region);
+    const keys = await collectRegionTileKeys(region);
+    for (const tileKey of keys) tileSet.add(tileKey);
+  }
+  return {
+    selectedRegions: selected.map(r => ({ id: r.id, name: r.name, sizeMb: Number(r.sizeMb || 0), bbox: r.bbox })),
+    tiles: Array.from(tileSet).sort()
+  };
+}
+
+async function enqueueRegions(regionIds) {
+  const listed = await listRegionTiles(regionIds);
+  const added = enqueueTiles(listed.tiles);
+  return {
+    selectedRegions: listed.selectedRegions,
+    tiles: listed.tiles,
+    foundTiles: listed.tiles.length,
+    added
+  };
+}
+
 async function processOneTile(tileKey) {
+  await assertCacheWritableOrThrow('before-tile');
   currentTile = tileKey;
   const startedAt = Date.now();
 
@@ -740,6 +1081,19 @@ async function processOneTile(tileKey) {
   let loadSource = 'pbf';
   let pbfErrorText = '';
   let failedItem = null;
+  const failRecord = async (info = {}) => {
+    const probeText = [
+      String(info.error || ''),
+      String(info.server || ''),
+      String(run.stderr || ''),
+      String(run.stdout || ''),
+      String(pbfErrorText || '')
+    ].join(' | ');
+    if (looksLikeCacheUnavailable(probeText)) {
+      throw new CacheUnavailableError(`Cache/Datenträgerproblem während Tile ${tileKey}: ${probeText.slice(0, 220)}`);
+    }
+    await upsertFailedTile(tileKey, info);
+  };
 
   const pbfPaths = await resolvePbfPathsForTile(tileKey);
 
@@ -847,21 +1201,21 @@ async function processOneTile(tileKey) {
             ok = true;
             message = 'Tile geladen (PBF→Overpass Fallback), gesplittet und gespeichert';
           } else {
-            await upsertFailedTile(tileKey, {
+            await failRecord({
               status: Number((failedItem && failedItem.status) || 0),
               error: 'Split ergab leere Core/POI-Ausgabe (PBF + Overpass)'
             });
             message = 'Split ergab leere Core/POI-Ausgabe (PBF + Overpass)';
           }
         } else {
-          await upsertFailedTile(tileKey, {
+          await failRecord({
             status: Number((failedItem && failedItem.status) || 0),
             error: String((failedItem && failedItem.error) || 'Overpass-Fallback fehlgeschlagen')
           });
           message = `PBF lieferte keine verwertbaren Core/POI-Daten, Overpass-Fallback fehlgeschlagen`;
         }
       } else if (outTotal === 0) {
-        await upsertFailedTile(tileKey, {
+        await failRecord({
           status: 0,
           error: 'Split ergab leere Core/POI-Ausgabe'
         });
@@ -877,14 +1231,14 @@ async function processOneTile(tileKey) {
         message = `Tile geladen (${loadSource}), gesplittet und gespeichert`;
       }
     } else {
-      await upsertFailedTile(tileKey, {
+      await failRecord({
         status: 0,
         error: (splitRun.stderr || splitRun.stdout || 'Split fehlgeschlagen').trim()
       });
       message = (splitRun.stderr || splitRun.stdout || 'Split fehlgeschlagen').trim() || 'Split fehlgeschlagen';
     }
   } else {
-    await upsertFailedTile(tileKey, {
+    await failRecord({
       status: failStatus,
       error: failError || (run.stderr || run.stdout || 'Tile-Load fehlgeschlagen').trim(),
       server: failServer
@@ -941,6 +1295,24 @@ async function processQueue() {
           }
         }
       } catch (err) {
+        const errText = String(err && err.message || err || '');
+        if ((err && err.code === 'CACHE_UNAVAILABLE') || looksLikeCacheUnavailable(errText)) {
+          const msg = `Cache offline – Tile ${next} wird pausiert und automatisch erneut versucht`;
+          await removeFailedTile(next).catch(() => {});
+          lastResults.set(next, {
+            ok: false,
+            at: Date.now(),
+            durationMs: 0,
+            code: 1,
+            message: msg
+          });
+          if (!queueSet.has(next)) {
+            queue.unshift(next);
+            queueSet.add(next);
+          }
+          await waitForCacheRecovery();
+          continue;
+        }
         const errMsg = `Interner Fehler: ${String(err && err.message || err)}`;
         await upsertFailedTile(next, { status: 0, error: errMsg });
         lastResults.set(next, {
@@ -1097,6 +1469,32 @@ const server = http.createServer(async (req, res) => {
         queueLength: queue.length,
         processing,
         currentTile
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/enqueue-region') {
+      const body = await parseBody(req);
+      if (body && body.autoPush) autoPushWhenDone = true;
+      const out = await enqueueRegions(body && body.regionIds);
+      return sendJson(res, 200, {
+        ok: true,
+        selectedRegions: out.selectedRegions,
+        foundTiles: Number(out.foundTiles || 0),
+        added: out.added,
+        queueLength: queue.length,
+        processing,
+        currentTile
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/region-tiles') {
+      const body = await parseBody(req);
+      const out = await listRegionTiles(body && body.regionIds);
+      return sendJson(res, 200, {
+        ok: true,
+        selectedRegions: out.selectedRegions,
+        tiles: out.tiles,
+        foundTiles: Number(out.tiles.length || 0)
       });
     }
 

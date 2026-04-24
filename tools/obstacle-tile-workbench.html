@@ -93,6 +93,29 @@
       max-height: 140px;
       overflow: auto;
     }
+    .region-box {
+      margin: 10px 0;
+      border: 1px solid #2f4358;
+      border-radius: 8px;
+      padding: 8px;
+      background: #0f1722;
+    }
+    .region-box select {
+      width: 100%;
+      min-height: 110px;
+      border: 1px solid #3f5670;
+      border-radius: 6px;
+      background: #101b28;
+      color: var(--text);
+      padding: 6px;
+      font-size: 12px;
+    }
+    .region-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
     .hint {
       position: absolute;
       right: 10px;
@@ -123,9 +146,20 @@
       <div class="stat"><span>Ausgewählt</span><strong id="stSelected">0</strong></div>
       <div class="stat"><span>Queue</span><strong id="stQueue">0</strong></div>
       <div class="stat"><span>Aktuelles Tile</span><strong id="stCurrent">-</strong></div>
+      <div class="stat"><span>Lückenverdacht</span><strong id="stPartial">0</strong></div>
       <div class="stat"><span>Repo fehlt (lokal vorhanden)</span><strong id="stRepoMissing">0</strong></div>
       <div class="stat"><span>Lokal fehlt (im Repo)</span><strong id="stLocalMissing">0</strong></div>
       <div class="stat" id="statPbfRow"><span>PBF Downloads</span><strong id="stPbf">-</strong></div>
+
+      <div class="region-box">
+        <div class="muted" style="margin-bottom:6px;">Region(en) wählen und komplett in die Queue legen</div>
+        <select id="regionSelect" multiple></select>
+        <div class="region-actions">
+          <button id="btnMarkRegionTiles" title="Markiert nur Tiles, die laut Regionskontur (poly) oder BBox zur Region gehören">Region markieren</button>
+          <button id="btnEnqueueRegion">Region laden</button>
+          <button id="btnEnqueueRegionAndPush" title="Ausgewählte Regionen laden und danach automatisch pushen">Region laden + pushen</button>
+        </div>
+      </div>
 
       <div class="buttons">
         <button id="btnRefresh">Status neu laden</button>
@@ -148,6 +182,7 @@
         <span><i class="dot" style="background:#ffd54a"></i> Gelb: in Queue</span>
         <span><i class="dot" style="background:#59ff7d"></i> Grün: wird gerade geladen</span>
         <span><i class="dot" style="background:#56b8ff"></i> Blau: ausgewählt</span>
+        <span><i class="dot" style="background:#ffe066"></i> Gelb/Magenta gestrichelt: Lückenverdacht (Region-Overlap &gt; Limit)</span>
         <span><i class="dot" style="background:#00ffee"></i> Cyan: Shift-Anker (Bereichsstart)</span>
       </div>
 
@@ -176,7 +211,9 @@
       repoTiles: new Set(),
       missingInRepoTiles: new Set(),
       lastFailedSig: '',
-      sourceConfigSig: ''
+      sourceConfigSig: '',
+      regions: [],
+      regionsSig: ''
     };
 
     const logView = document.getElementById('logView');
@@ -267,6 +304,7 @@
       const isSelected = state.selected.has(key);
       const failed = !!state.failed[key] || (state.recent[key] && state.recent[key].ok === false);
       const loaded = state.loaded[key];
+      const partial = !!(loaded && loaded.partialCoveragePossible);
       const repoKnown = state.repoTiles && state.repoTiles.size > 0;
       const repoMissing = repoKnown && !state.repoTiles.has(key);
       const blinkOn = (Math.floor(Date.now() / 450) % 2) === 0;
@@ -291,6 +329,14 @@
         fill = loaded.stale ? '#ff9d2e' : '#ff3cf7';
         fillOpacity = loaded.stale ? 0.22 : 0.28;
         opacity = 0.9;
+      }
+      if (loaded && partial) {
+        color = '#ffe066';
+        fill = '#ff3cf7';
+        fillOpacity = 0.22;
+        opacity = 0.95;
+        weight = 2;
+        dashArray = '6 4';
       }
       if (failed) {
         color = '#ff3d3d';
@@ -382,7 +428,10 @@
               : (failed
                 ? `failed (${failed.status || 0}${failed.error ? `: ${String(failed.error).slice(0, 80)}` : ''})`
                 : 'nicht geladen');
-            hint.textContent = `Tile ${key} • ${info}`;
+            const partialHint = loaded && loaded.partialCoveragePossible
+              ? ` • Lückenverdacht (${loaded.partialReason || `Overlap ${loaded.regionOverlapCount || 0}`})`
+              : '';
+            hint.textContent = `Tile ${key} • ${info}${partialHint}`;
           });
           rect.on('mouseout', () => {
             hint.textContent = `Tile: ${state.currentTile || '-'}`;
@@ -409,9 +458,37 @@
       return json;
     }
 
+    function renderRegionOptions() {
+      const sel = document.getElementById('regionSelect');
+      const sig = (state.regions || []).map(r => `${r.id}:${r.name}:${r.sizeMb}`).join('|');
+      if (sig === state.regionsSig) return;
+      state.regionsSig = sig;
+      sel.innerHTML = '';
+      const regions = Array.isArray(state.regions) ? state.regions.slice() : [];
+      regions.sort((a, b) => {
+        const aPref = String(a.id || '').startsWith('de-') ? 0 : 1;
+        const bPref = String(b.id || '').startsWith('de-') ? 0 : 1;
+        if (aPref !== bPref) return aPref - bPref;
+        const aSize = Number(a.sizeMb || 0);
+        const bSize = Number(b.sizeMb || 0);
+        if (aSize !== bSize) return aSize - bSize;
+        return String(a.name || '').localeCompare(String(b.name || ''));
+      });
+      for (const r of regions) {
+        const opt = document.createElement('option');
+        const size = Number(r.sizeMb || 0);
+        const cov = String(r.coverage || 'unknown');
+        const covLabel = cov === 'poly' ? 'poly' : (cov === 'bbox' ? 'bbox' : 'auto');
+        opt.value = String(r.id || '');
+        opt.textContent = `${r.name} (${r.id}) • ${size} MB • ${covLabel}`;
+        sel.appendChild(opt);
+      }
+    }
+
     function updateUi() {
       const loadedCount = Object.keys(state.loaded).length;
       const staleCount = Object.values(state.loaded).filter(v => v && v.stale).length;
+      const partialCount = Object.values(state.loaded).filter(v => v && v.partialCoveragePossible).length;
       const failedCount = Object.keys(state.failed).length;
       const repoMissing = state.repoSync ? Number(state.repoSync.missingInRepoCount || 0) : 0;
       const localMissing = state.repoSync ? Number(state.repoSync.missingLocalCount || 0) : 0;
@@ -422,6 +499,7 @@
       document.getElementById('stSelected').textContent = String(state.selected.size);
       document.getElementById('stQueue').textContent = String(state.queue.length);
       document.getElementById('stCurrent').textContent = state.currentTile || '-';
+      document.getElementById('stPartial').textContent = String(partialCount);
       document.getElementById('stRepoMissing').textContent = String(repoMissing);
       document.getElementById('stLocalMissing').textContent = String(localMissing);
       queueView.textContent = state.queue.length ? `Queue: ${state.queue.join(', ')}` : 'Queue: -';
@@ -432,6 +510,11 @@
       document.getElementById('btnClearSelection').disabled = state.selected.size === 0;
       document.getElementById('btnClearQueue').disabled = state.queue.length === 0;
       document.getElementById('btnRetryFailed').disabled = Object.keys(state.failed).length === 0;
+      const regionSelect = document.getElementById('regionSelect');
+      const hasRegionSelection = Array.from(regionSelect.selectedOptions || []).length > 0;
+      document.getElementById('btnMarkRegionTiles').disabled = !hasRegionSelection;
+      document.getElementById('btnEnqueueRegion').disabled = !hasRegionSelection;
+      document.getElementById('btnEnqueueRegionAndPush').disabled = !hasRegionSelection;
 
       if (state.shiftAnchor) {
         hint.textContent = `Shift-Anker: ${state.shiftAnchor} — Shift+Klick zweites Tile für Bereich`;
@@ -469,6 +552,7 @@
         state.queue = s.queue || [];
         state.currentTile = s.currentTile || null;
         state.recent = s.recent || {};
+        state.regions = Array.isArray(s.regions) ? s.regions : state.regions;
         state.repoSync = s.repoSync || state.repoSync || null;
         const sourceCfg = s.sourceConfig || {};
         const srcSig = `${sourceCfg.pbfPath || ''}|${sourceCfg.pbfAvailable ? 1 : 0}`;
@@ -483,6 +567,7 @@
           if (!/^[-0-9]+\|[-0-9]+$/.test(key)) state.selected.delete(key);
         }
 
+        renderRegionOptions();
         updateUi();
         renderGrid();
         logFailedSummary();
@@ -573,6 +658,53 @@
         await refreshState(true);
       } catch (e) {
         log(`Queue-Fehler: ${e.message || e}`);
+      }
+    });
+
+    document.getElementById('regionSelect').addEventListener('change', updateUi);
+
+    function getSelectedRegionIds() {
+      return Array.from(document.getElementById('regionSelect').selectedOptions || [])
+        .map(o => String(o.value || ''))
+        .filter(Boolean);
+    }
+
+    document.getElementById('btnMarkRegionTiles').addEventListener('click', async () => {
+      const regionIds = getSelectedRegionIds();
+      if (!regionIds.length) return;
+      try {
+        const out = await api('/api/region-tiles', 'POST', { regionIds });
+        const tiles = Array.isArray(out.tiles) ? out.tiles : [];
+        state.selected = new Set(tiles);
+        log(`Region-Markierung: ${regionIds.join(', ')} | passende Tiles: ${tiles.length}`);
+        updateUi();
+        renderGrid();
+      } catch (e) {
+        log(`Region-Markierung Fehler: ${e.message || e}`);
+      }
+    });
+
+    document.getElementById('btnEnqueueRegion').addEventListener('click', async () => {
+      const regionIds = getSelectedRegionIds();
+      if (!regionIds.length) return;
+      try {
+        const out = await api('/api/enqueue-region', 'POST', { regionIds });
+        log(`Region-Queue: ${regionIds.join(', ')} | Tiles gefunden: ${out.foundTiles} | neu eingereiht: ${Array.isArray(out.added) ? out.added.length : 0}`);
+        await refreshState(true);
+      } catch (e) {
+        log(`Region-Queue-Fehler: ${e.message || e}`);
+      }
+    });
+
+    document.getElementById('btnEnqueueRegionAndPush').addEventListener('click', async () => {
+      const regionIds = getSelectedRegionIds();
+      if (!regionIds.length) return;
+      try {
+        const out = await api('/api/enqueue-region', 'POST', { regionIds, autoPush: true });
+        log(`Region-Queue (+ Auto-Push): ${regionIds.join(', ')} | Tiles gefunden: ${out.foundTiles} | neu eingereiht: ${Array.isArray(out.added) ? out.added.length : 0}`);
+        await refreshState(true);
+      } catch (e) {
+        log(`Region-Queue-Fehler: ${e.message || e}`);
       }
     });
 
