@@ -99,6 +99,7 @@ const VP_OBS_HOSTED_ENABLED = localStorage.getItem('ga_obs_hosted_enabled') !== 
 const VP_OBS_HOSTED_MISS_TTL_MS = 30 * 60 * 1000;
 const VP_OBS_HOSTED_TIMEOUT_MS = 2200;
 const VP_OBS_HOSTED_ENDPOINTS = [
+    './obstacles/tiles/{latI}/{lonI}.json',
     './obstacles/core-tiles/{latI}/{lonI}.json',
     './obstacles/core-tiles/{latI}/{lonI}.json.gz',
     'https://ga-proxy.einherjer.workers.dev/api/obstacles/tile'
@@ -1162,7 +1163,7 @@ async function vpFetchHostedObstacleTile(tileKey, signal) {
         let timer = null;
         let onAbort = null;
         try {
-            const isLocalStaticEndpoint = endpoint.includes('./obstacles/core-tiles/');
+            const isLocalStaticEndpoint = endpoint.includes('./obstacles/core-tiles/') || endpoint.includes('./obstacles/tiles/');
             ctrl = new AbortController();
             if (signal) {
                 onAbort = () => ctrl.abort();

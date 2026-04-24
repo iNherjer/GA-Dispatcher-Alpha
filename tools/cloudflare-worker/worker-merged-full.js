@@ -105,9 +105,10 @@ async function handleObstacleTile(request, requestUrl, env) {
     if (hit) return hit;
   }
 
-  let upstream = null;
   let chosen = null;
   let upstreamErr = null;
+  let payload = null;
+  let obs = [], lin = [], poi = [];
   for (const c of candidates) {
     try {
       const res = await fetch(c.url, {
@@ -119,15 +120,27 @@ async function handleObstacleTile(request, requestUrl, env) {
         redirect: "follow"
       });
       if (res.status === 404 || res.status === 204) continue;
-      upstream = res;
+      if (!res.ok) continue;
+      let p;
+      try { p = JSON.parse(await res.text()); } catch { continue; }
+      const cObj = p && typeof p.core === "object" ? p.core : null;
+      const pObj = p && typeof p.poi === "object" ? p.poi : null;
+      const o = Array.isArray(p?.obs) ? p.obs : (Array.isArray(cObj?.obs) ? cObj.obs : []);
+      const l = Array.isArray(p?.lin) ? p.lin : (Array.isArray(cObj?.lin) ? cObj.lin : []);
+      const pi = Array.isArray(p?.poi) ? p.poi : (Array.isArray(pObj?.poi) ? pObj.poi : []);
+      if (layer !== "poi" && o.length === 0 && l.length === 0) continue;
       chosen = c;
+      payload = p;
+      obs = o;
+      lin = l;
+      poi = pi;
       break;
     } catch (error) {
       upstreamErr = error;
     }
   }
 
-  if (!upstream) {
+  if (!chosen) {
     if (upstreamErr) {
       return json({ ok: false, tile: tileKey, layer, errorCode: "upstream_failed", message: String(upstreamErr?.message || upstreamErr) }, 502);
     }
@@ -139,23 +152,6 @@ async function handleObstacleTile(request, requestUrl, env) {
     if (useCache) await cache.put(cacheKey, missRes.clone());
     return missRes;
   }
-  if (!upstream.ok) {
-    return json({ ok: false, tile: tileKey, layer, errorCode: "upstream_error", status: upstream.status }, 502);
-  }
-
-  const payloadText = await upstream.text();
-  let payload;
-  try {
-    payload = JSON.parse(payloadText);
-  } catch {
-    return json({ ok: false, tile: tileKey, layer, errorCode: "invalid_json" }, 502);
-  }
-
-  const coreObj = payload && typeof payload.core === "object" ? payload.core : null;
-  const poiObj = payload && typeof payload.poi === "object" ? payload.poi : null;
-  const obs = Array.isArray(payload?.obs) ? payload.obs : (Array.isArray(coreObj?.obs) ? coreObj.obs : []);
-  const lin = Array.isArray(payload?.lin) ? payload.lin : (Array.isArray(coreObj?.lin) ? coreObj.lin : []);
-  const poi = Array.isArray(payload?.poi) ? payload.poi : (Array.isArray(poiObj?.poi) ? poiObj.poi : []);
 
   const body = {
     ok: true,
