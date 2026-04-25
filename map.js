@@ -3,7 +3,12 @@ if (!document.getElementById('route-anim-style')) {
     const style = document.createElement('style');
     style.id = 'route-anim-style';
     // -20 lässt die Striche der Linie vorwärts (Richtung Ziel) fließen
-    style.innerHTML = `@keyframes routeDashAnim { to { stroke-dashoffset: -20; } } .animated-route-line { animation: routeDashAnim 1.5s linear infinite; }`;
+    style.innerHTML = `
+        @keyframes routeDashAnim { to { stroke-dashoffset: -20; } }
+        .animated-route-line { animation: routeDashAnim 1.5s linear infinite; }
+        .low-fps-mode .animated-route-line { animation: none !important; stroke-dasharray: none !important; }
+        .low-fps-mode .live-plane-marker .live-plane-inner { filter: none !important; }
+    `;
     document.head.appendChild(style);
 }
 /* =========================================================
@@ -32,7 +37,8 @@ const MAP_HINT_DEFAULTS = {
     traffic: true,
     telemetry: true,
     nextLeg: true,
-    compass: true
+    compass: true,
+    lowFps: false
 };
 window.mapHints = window.mapHints || { ...MAP_HINT_DEFAULTS };
 let vpObsTileDebugLayer = null;
@@ -257,6 +263,21 @@ window.isMapHintEnabled = function(key) {
     return window.mapHints[key] !== false;
 };
 
+window.isLowFpsMode = function() {
+    return window.isMapHintEnabled('lowFps');
+};
+
+function applyLowFpsModeUi() {
+    const on = window.isLowFpsMode();
+    document.body.classList.toggle('low-fps-mode', on);
+    if (typeof polyline !== 'undefined' && polyline && typeof polyline.setStyle === 'function') {
+        polyline.setStyle({ dashArray: on ? null : '10,10' });
+    }
+    if (typeof window.updateLivePlanePerformanceMode === 'function') {
+        window.updateLivePlanePerformanceMode(on);
+    }
+}
+
 function applyMapHintEffects(key) {
     if (key === 'weather') {
         window.vpShowMapMetar = window.mapHints.weather !== false;
@@ -295,6 +316,9 @@ function applyMapHintEffects(key) {
     if (key === 'magentaLine' && window.mapHints.magentaLine === false) {
         if (typeof window.clearLiveToWpLine === 'function') window.clearLiveToWpLine();
     }
+    if (key === 'lowFps') {
+        applyLowFpsModeUi();
+    }
 }
 
 function refreshMapHintMenuUi() {
@@ -306,7 +330,8 @@ function refreshMapHintMenuUi() {
         traffic: '✈️ Traffic',
         telemetry: '📟 Telemetrie',
         nextLeg: '🧭 Wegpunkt-Info',
-        compass: '🔵 Kompassscheibe'
+        compass: '🔵 Kompassscheibe',
+        lowFps: '🐢 Low FPS Mode'
     };
     const ids = {
         magentaLine: 'hintToggleMagentaLine',
@@ -316,7 +341,8 @@ function refreshMapHintMenuUi() {
         traffic: 'hintToggleTraffic',
         telemetry: 'hintToggleTelemetry',
         nextLeg: 'hintToggleNextLeg',
-        compass: 'hintToggleCompass'
+        compass: 'hintToggleCompass',
+        lowFps: 'hintToggleLowFps'
     };
     Object.keys(ids).forEach(key => {
         const btn = document.getElementById(ids[key]);
@@ -1187,10 +1213,20 @@ function renderMainRoute() {
         return;
     }
 
+    const lowFpsMode = window.isLowFpsMode && window.isLowFpsMode();
     if (!polyline) {
-        polyline = L.polyline(routeWaypoints, { color: '#ff4444', weight: 8, dashArray: '10,10', className: 'animated-route-line', interactive: false }).addTo(map);
+        polyline = L.polyline(routeWaypoints, {
+            color: '#ff4444',
+            weight: 8,
+            dashArray: lowFpsMode ? null : '10,10',
+            className: 'animated-route-line',
+            interactive: false
+        }).addTo(map);
     } else {
         polyline.setLatLngs(routeWaypoints);
+        if (typeof polyline.setStyle === 'function') {
+            polyline.setStyle({ dashArray: lowFpsMode ? null : '10,10' });
+        }
     }
 
     if (!window.hitBoxPolyline) {
@@ -2657,6 +2693,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyMapHintEffects('windBarbs');
     applyMapHintEffects('cloudFields');
     applyMapHintEffects('traffic');
+    applyMapHintEffects('lowFps');
 
     document.addEventListener('click', (e) => {
         const menu = document.getElementById('mapHintsMenu');

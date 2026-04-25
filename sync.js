@@ -176,6 +176,11 @@ function isMapHintOn(key, fallback = true) {
     return fallback;
 }
 
+function isLowFpsModeActive() {
+    if (typeof window.isMapHintEnabled === 'function') return window.isMapHintEnabled('lowFps');
+    return localStorage.getItem('ga_map_hint_lowFps') === 'true';
+}
+
 window.clearLiveToWpLine = function() {
     if (liveToWpLine) {
         try { liveToWpLine.remove(); } catch (e) {}
@@ -185,6 +190,10 @@ window.clearLiveToWpLine = function() {
 
 function toggleAutoFollow() {
     isAutoFollow = !isAutoFollow;
+    if (isAutoFollow) {
+        lastAutoFollowPanAt = 0;
+        lastAutoFollowPanPos = null;
+    }
     const btn = document.getElementById('autoFollowBtn');
     if (btn) {
         btn.style.background = isAutoFollow ? 'var(--blue)' : '#666';
@@ -742,6 +751,9 @@ function resetSyncTimer() {
 // Globale Variablen für das Live-Tracking
 let liveGpsSocket = null;
 let liveGpsMarker = null;
+let lastAutoFollowPanAt = 0;
+let lastAutoFollowPanPos = null;
+let lastLivePlaneHeadingUpdateAt = 0;
 let gpsWatchdog;
 let gpsReconnectDelay = 2000; // Start: 2s, wächst bei wiederholtem Fehlschlag
 let liveNextLegIndex = 0;
@@ -751,6 +763,12 @@ const liveFreqLookupPending = {};
 const MIN_TRACKER_VERSION_CODE = 211;
 const MIN_TRACKER_VERSION_LABEL = 'v211';
 let trackerVersionPromptShown = false;
+
+window.updateLivePlanePerformanceMode = function(forceState = null) {
+    const on = (typeof forceState === 'boolean') ? forceState : isLowFpsModeActive();
+    const el = liveGpsMarker && typeof liveGpsMarker.getElement === 'function' ? liveGpsMarker.getElement() : null;
+    if (el) el.classList.toggle('low-fps-plane', !!on);
+};
 
 function _extractTrackerVersionCode(pkt) {
     if (!pkt || typeof pkt !== 'object') return null;
@@ -1525,8 +1543,20 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     }
 
     // --- FEATURE 2: AUTO-FOLLOW ---
+    const lowFpsMode = isLowFpsModeActive();
     if (isAutoFollow) {
-        map.panTo([lat, lon]);
+        if (!lowFpsMode) {
+            map.panTo([lat, lon]);
+        } else {
+            const movedM = lastAutoFollowPanPos ? map.distance(lastAutoFollowPanPos, [lat, lon]) : Number.POSITIVE_INFINITY;
+            const canPanByTime = (now - lastAutoFollowPanAt) >= 320;
+            const canPanByDist = movedM >= 45;
+            if (canPanByTime && canPanByDist) {
+                map.panTo([lat, lon], { animate: false });
+                lastAutoFollowPanAt = now;
+                lastAutoFollowPanPos = [lat, lon];
+            }
+        }
     }
 
     // --- FEATURE 3: TELEMETRY (GS & VS) ---
@@ -1781,6 +1811,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         // Initiale Rotation setzen
         const svgEl = liveGpsMarker.getElement()?.querySelector('svg');
         if (svgEl) svgEl.style.transform = `rotate(${hdg}deg)`;
+        if (typeof window.updateLivePlanePerformanceMode === 'function') window.updateLivePlanePerformanceMode(lowFpsMode);
         const planeEl = liveGpsMarker.getElement();
         if (planeEl) planeEl.style.pointerEvents = (typeof measureMode !== 'undefined' && measureMode) ? 'none' : 'auto';
 
@@ -1802,9 +1833,13 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         });
     } else {
         liveGpsMarker.setLatLng([lat, lon]);
-        // Nur CSS-Transform updaten statt innerHTML neu zu bauen → GPU-beschleunigt, kein Reflow
-        const svgEl = liveGpsMarker.getElement()?.querySelector('svg');
-        if (svgEl) svgEl.style.transform = `rotate(${hdg}deg)`;
+        // Im Low-FPS-Mode die Heading-Rotation leicht drosseln, um Repaint-Spitzen zu vermeiden.
+        if (!lowFpsMode || (now - lastLivePlaneHeadingUpdateAt) >= 120) {
+            const svgEl = liveGpsMarker.getElement()?.querySelector('svg');
+            if (svgEl) svgEl.style.transform = `rotate(${hdg}deg)`;
+            lastLivePlaneHeadingUpdateAt = now;
+        }
+        if (typeof window.updateLivePlanePerformanceMode === 'function') window.updateLivePlanePerformanceMode(lowFpsMode);
         const planeEl = liveGpsMarker.getElement();
         if (planeEl) planeEl.style.pointerEvents = (typeof measureMode !== 'undefined' && measureMode) ? 'none' : 'auto';
     }
@@ -2404,6 +2439,9 @@ window.toggleTrafficMap = function(forceState = null) {
 // Sim-Modus: Flugzeug-Icon, Trail und Profil zurücksetzen
 window.hideLivePlane = function () {
     if (liveGpsMarker) { liveGpsMarker.remove(); liveGpsMarker = null; }
+    lastAutoFollowPanAt = 0;
+    lastAutoFollowPanPos = null;
+    lastLivePlaneHeadingUpdateAt = 0;
     if (liveSnailTrail) { liveSnailTrail.setLatLngs([]); }
     if (liveToWpLine) { liveToWpLine.remove(); liveToWpLine = null; }
     // Prediction-Vektoren entfernen
