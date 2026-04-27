@@ -1181,7 +1181,7 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
 }
 
 window.onload = () => {
-    const savedTheme = localStorage.getItem('ga_theme') || 'retro';
+    const savedTheme = localStorage.getItem('ga_theme') || 'classic';
     setTheme(savedTheme);
     applySavedPanelTheme();
     setTimeout(() => { loadGlobalAirports(); }, 2000);
