@@ -5917,8 +5917,7 @@ function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, 
 
 window.vpToggleTrafficProfile = function() {
     window.vpTrafficProfileVisible = !window.vpTrafficProfileVisible;
-    const btn = document.getElementById('btnToggleTrafficProfile');
-    if (btn) btn.classList.toggle('active', window.vpTrafficProfileVisible);
+    updateTrafficProfileBtn();
 };
 
 function renderMapProfileFrames(timeMs) {
@@ -7290,13 +7289,21 @@ function vpSyncLinearMasterFlag() {
     vpShowLinear = !!(vpShowRoads || vpShowRivers || vpShowPowerInfra);
 }
 
+function vpToggleStatusText(on) {
+    return on ? 'An' : 'Aus';
+}
+
+function updateVpToggleBtn(id, on, label) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.classList.toggle('active', !!on);
+    btn.textContent = `${label} (${vpToggleStatusText(on)})`;
+}
+
 function updateLinearButtons() {
-    const br = document.getElementById('btnToggleRoads');
-    if (br) br.classList.toggle('active', vpShowRoads);
-    const bv = document.getElementById('btnToggleRivers');
-    if (bv) bv.classList.toggle('active', vpShowRivers);
-    const bp = document.getElementById('btnTogglePower');
-    if (bp) bp.classList.toggle('active', vpShowPowerInfra);
+    updateVpToggleBtn('btnToggleRoads', vpShowRoads, '🛣️ Straßen');
+    updateVpToggleBtn('btnToggleRivers', vpShowRivers, '🌊 Flüsse');
+    updateVpToggleBtn('btnTogglePower', vpShowPowerInfra, '⚡ Strom');
     const blin = document.getElementById('btnToggleLinear');
     if (blin) blin.classList.toggle('active', vpShowLinear);
 }
@@ -7315,9 +7322,9 @@ function updateAirspaceBtn() {
     const btn = document.getElementById('btnToggleAirspaces');
     if (!btn) return;
     btn.classList.toggle('active', vpAirspaceMode !== 0);
-    if (vpAirspaceMode === 1) btn.innerHTML = '🛡️<span style="font-size:8px;vertical-align:sub;">BG</span>';
-    else if (vpAirspaceMode === 2) btn.innerHTML = '🛡️<span style="font-size:8px;vertical-align:super;">FG</span>';
-    else btn.innerHTML = '🛡️<span style="font-size:8px;vertical-align:sub;">OFF</span>';
+    if (vpAirspaceMode === 1) btn.textContent = '🛡️ Lufträume (An · BG)';
+    else if (vpAirspaceMode === 2) btn.textContent = '🛡️ Lufträume (An · FG)';
+    else btn.textContent = '🛡️ Lufträume (Aus)';
 }
 
 function updateWeatherSourceBtn() {
@@ -7343,6 +7350,22 @@ function updateWindComponentsBtn() {
     if (!btn) return;
     btn.classList.toggle('active', vpShowWindComponents);
     btn.textContent = `💨 Windkomponenten (${vpShowWindComponents ? 'An' : 'Aus'})`;
+}
+
+function updateCloudsBtn() {
+    updateVpToggleBtn('btnToggleClouds', vpShowClouds, '⛅ Wolken');
+}
+
+function updateLandmarksBtn() {
+    updateVpToggleBtn('btnToggleLandmarks', vpShowLandmarks, '🏙️ Städte');
+}
+
+function updateObstaclesBtn() {
+    updateVpToggleBtn('btnToggleObstacles', vpShowObstacles, '🗼 Hindernisse');
+}
+
+function updateTrafficProfileBtn() {
+    updateVpToggleBtn('btnToggleTrafficProfile', !!window.vpTrafficProfileVisible, '📡 Traffic');
 }
 
 function ensureWeatherRefreshTimer() {
@@ -7392,16 +7415,17 @@ function updateWeatherRenderModeBtn() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const bc = document.getElementById('btnToggleClouds'); if(bc) bc.classList.toggle('active', vpShowClouds);
+    updateCloudsBtn();
     updateWeatherSourceBtn();
     updateWeatherRenderModeBtn();
     updateIsobarsBtn();
     updateWindComponentsBtn();
-    const bl = document.getElementById('btnToggleLandmarks'); if(bl) bl.classList.toggle('active', vpShowLandmarks);
-    const bo = document.getElementById('btnToggleObstacles'); if(bo) bo.classList.toggle('active', vpShowObstacles);
+    updateLandmarksBtn();
+    updateObstaclesBtn();
     vpSyncLinearMasterFlag();
     updateLinearButtons();
     updateAirspaceBtn(); // NEU
+    updateTrafficProfileBtn();
     ensureWeatherRefreshTimer();
 });
 function vpChangeAlt(delta) {
@@ -7454,8 +7478,7 @@ function vpResetYAxis() {
 function vpToggleClouds() {
     vpShowClouds = !vpShowClouds;
     localStorage.setItem('ga_show_clouds', vpShowClouds);
-    const btn = document.getElementById('btnToggleClouds');
-    if (btn) btn.classList.toggle('active', vpShowClouds);
+    updateCloudsBtn();
     
     if (vpShowClouds && window._lastVpRouteKey) {
         triggerVerticalProfileUpdate();
@@ -7513,8 +7536,7 @@ function vpToggleWindComponents() {
 function vpToggleLandmarks() {
     vpShowLandmarks = !vpShowLandmarks;
     localStorage.setItem('ga_show_landmarks', vpShowLandmarks);
-    const btn = document.getElementById('btnToggleLandmarks');
-    if (btn) btn.classList.toggle('active', vpShowLandmarks);
+    updateLandmarksBtn();
     
     if (vpShowLandmarks && window._lastVpRouteKey) {
         localStorage.removeItem('ga_lms_' + window._lastVpRouteKey);
@@ -7529,8 +7551,7 @@ function vpToggleLandmarks() {
 function vpToggleObstacles() {
     vpShowObstacles = !vpShowObstacles;
     localStorage.setItem('ga_show_obstacles', vpShowObstacles);
-    const btn = document.getElementById('btnToggleObstacles');
-    if (btn) btn.classList.toggle('active', vpShowObstacles);
+    updateObstaclesBtn();
     
     // FIX: Nur neu abfragen, wenn für die aktuelle Route noch nie geladen wurde!
     if (vpShowObstacles && window._lastVpRouteKey && window._lastObsRouteKey !== window._lastVpRouteKey) {
