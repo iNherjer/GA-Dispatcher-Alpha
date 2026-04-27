@@ -81,7 +81,7 @@ const VP_OVERPASS_TILE_FAIL_MAX_MS = 8 * 60 * 1000;
 const VP_OVERPASS_STATE_STORAGE_KEY = 'ga_overpass_state_v1';
 const VP_OBS_POOL_STORAGE_KEY = 'ga_obs_pool_v1';
 const VP_OBS_POOL_MAX_OBS = 12000;
-const VP_OBS_POOL_MAX_LIN = 8000;
+const VP_OBS_POOL_MAX_LIN = 60000;
 const VP_OBS_POOL_TTL_MS = 0; // 0 = rolling cache ohne Zeitablauf
 const VP_OBS_POOL_MAX_BYTES = 2_400_000;
 const VP_OBS_COMBO_PREFIX = 'ga_obs_combo_';
@@ -360,6 +360,39 @@ function vpTrimTimedMap(mapObj, maxEntries) {
     for (let i = 0; i < Math.min(maxEntries, arr.length); i++) mapObj.set(arr[i][0], arr[i][1]);
 }
 
+function vpTrimLinearMapFairByTile(mapObj, maxEntries) {
+    if (!mapObj || mapObj.size <= maxEntries) return;
+    const entries = Array.from(mapObj.entries());
+    const byTile = new Map();
+    for (const it of entries) {
+        const v = it[1] || {};
+        const tk = String(v.tileKey || '');
+        if (!byTile.has(tk)) byTile.set(tk, []);
+        byTile.get(tk).push(it);
+    }
+
+    // Fair + robust: pro Tile nach Timestamp sortieren und dann round-robin ziehen.
+    const groups = Array.from(byTile.values()).map(group =>
+        group.slice().sort((a, b) => Number((b[1] && b[1].ts) || 0) - Number((a[1] && a[1].ts) || 0))
+    );
+    const idx = new Array(groups.length).fill(0);
+    const keep = [];
+    while (keep.length < maxEntries) {
+        let progressed = false;
+        for (let gi = 0; gi < groups.length && keep.length < maxEntries; gi++) {
+            const arr = groups[gi];
+            const pos = idx[gi];
+            if (pos >= arr.length) continue;
+            keep.push(arr[pos]);
+            idx[gi] = pos + 1;
+            progressed = true;
+        }
+        if (!progressed) break;
+    }
+    mapObj.clear();
+    for (const [k, v] of keep.slice(0, maxEntries)) mapObj.set(k, v);
+}
+
 function vpTrimMapNewest(mapObj, keepCount) {
     if (!mapObj) return;
     const arr = Array.from(mapObj.entries());
@@ -379,7 +412,7 @@ function vpPruneObsPool(now = Date.now()) {
         }
     }
     vpTrimTimedMap(vpObsPool.obs, VP_OBS_POOL_MAX_OBS);
-    vpTrimTimedMap(vpObsPool.lin, VP_OBS_POOL_MAX_LIN);
+    vpTrimLinearMapFairByTile(vpObsPool.lin, VP_OBS_POOL_MAX_LIN);
 }
 
 function vpEncodeObsPoolWithBudget() {
@@ -569,7 +602,7 @@ function vpRememberObstacleData(obsArr, linArr, tileKey = '') {
         }
     }
     vpTrimTimedMap(vpObsPool.obs, VP_OBS_POOL_MAX_OBS);
-    vpTrimTimedMap(vpObsPool.lin, VP_OBS_POOL_MAX_LIN);
+    vpTrimLinearMapFairByTile(vpObsPool.lin, VP_OBS_POOL_MAX_LIN);
     vpPersistObsPoolSoon();
 }
 
@@ -1900,7 +1933,10 @@ function triggerVerticalProfileUpdate() {
                     const forceFullTileReload = (!forceOverpassReload && !hasRouteComboCache && tileProbe.total > 0 && tileProbe.missing.length === 0);
                     const mustRefetch = forceOverpassReload || forceFullTileReload || !hasUsableCache || weakLinearCoverage || tileProbe.missing.length > 0;
                     if (mustRefetch) {
-                        const result = await fetchProfileObstacles(vpElevationData, currentSignal, cacheKey, (forceOverpassReload || forceFullTileReload));
+                        // Bei verdächtig dünner Linear-Coverage immer echten Netz-Reload forcieren.
+                        // Sonst landen wir in einem Cache-Loop mit denselben "leeren" Lin-Tiles.
+                        const forceNetReload = forceOverpassReload || forceFullTileReload || weakLinearCoverage;
+                        const result = await fetchProfileObstacles(vpElevationData, currentSignal, cacheKey, forceNetReload);
                         if (result !== null) { 
                             vpObstacles = result.obs || [];
                             vpLinearFeatures = result.lin || [];
