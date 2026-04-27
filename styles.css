@@ -4852,7 +4852,6 @@ body:not(.theme-retro):not(.theme-navcom) .emergency-reset-inner {
     border: 1px solid rgba(255, 255, 255, 0.34);
 }
 
-body:not(.theme-retro):not(.theme-navcom) #map,
 body:not(.theme-retro):not(.theme-navcom) .aero-info-box,
 body:not(.theme-retro):not(.theme-navcom) .log-entry,
 body:not(.theme-retro):not(.theme-navcom) .mission-note-page,
@@ -4864,6 +4863,17 @@ body:not(.theme-retro):not(.theme-navcom) .pin-modal-box {
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.10),
         0 14px 34px rgba(0, 0, 0, 0.18);
+}
+
+body:not(.theme-retro):not(.theme-navcom) #mapArea #map {
+    background: #d9e6ec;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 18px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+}
+
+body:not(.theme-retro):not(.theme-navcom) #mapArea #map.leaflet-container {
+    background: #d9e6ec;
 }
 
 body:not(.theme-retro):not(.theme-navcom) .aero-info-box {
