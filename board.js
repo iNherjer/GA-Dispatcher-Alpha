@@ -1460,7 +1460,38 @@ function _bugGetRouteSnapshot() {
         destName: String((typeof currentDName !== 'undefined' ? currentDName : '') || ''),
         waypointCount: points.length,
         waypoints: points,
-        mission: (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') ? currentMissionData : null
+        mission: _bugGetMissionSnapshot()
+    };
+}
+
+function _bugGetMissionSnapshot() {
+    let mission = (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object')
+        ? currentMissionData
+        : null;
+
+    if (!mission) {
+        try {
+            const raw = localStorage.getItem('ga_active_mission');
+            const parsed = raw ? JSON.parse(raw) : null;
+            if (parsed && typeof parsed.currentMissionData === 'object') {
+                mission = parsed.currentMissionData;
+            }
+        } catch (_) {}
+    }
+
+    if (!mission) return null;
+
+    const distNum = Number(mission.dist);
+    const headingNum = Number(mission.heading);
+    return {
+        start: String(mission.start || (typeof currentStartICAO !== 'undefined' ? currentStartICAO : '') || ''),
+        dest: String(mission.dest || (typeof currentDestICAO !== 'undefined' ? currentDestICAO : '') || ''),
+        poiName: mission.poiName ? String(mission.poiName).slice(0, 120) : null,
+        mission: String(mission.mission || '').slice(0, 260),
+        dist: Number.isFinite(distNum) ? Number(distNum.toFixed(1)) : null,
+        ac: String(mission.ac || (typeof selectedAC !== 'undefined' ? selectedAC : '') || '').slice(0, 80),
+        heading: Number.isFinite(headingNum) ? Math.round(headingNum) : null,
+        weatherBriefing: (mission.weatherBriefing && typeof mission.weatherBriefing === 'object') ? mission.weatherBriefing : null
     };
 }
 
@@ -1554,6 +1585,7 @@ window.sendBugReport = async function() {
             url: String(location.href || ''),
             referrer: String(document.referrer || ''),
             theme: String(localStorage.getItem('ga_theme') || ''),
+            missionSnapshot: _bugGetMissionSnapshot(),
             route: includeRoute ? _bugGetRouteSnapshot() : null,
             localStorageSafe: _bugSafeLocalStorageDump()
         }

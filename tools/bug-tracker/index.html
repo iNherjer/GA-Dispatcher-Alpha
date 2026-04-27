@@ -440,6 +440,9 @@
       const logs = Array.isArray(detail.logs) ? detail.logs : [];
       const transcripts = Array.isArray(detail.transcripts) ? detail.transcripts : [];
       const ctx = detail.context && typeof detail.context === "object" ? detail.context : {};
+      const missionSnapshot = (ctx && typeof ctx.missionSnapshot === "object" && ctx.missionSnapshot)
+        ? ctx.missionSnapshot
+        : ((ctx.route && typeof ctx.route.mission === "object" && ctx.route.mission) ? ctx.route.mission : null);
 
       const logsText = logs.length
         ? logs.map(l => `${l.ts || ""} [${l.level || "log"}] ${l.msg || ""}`.trim()).join("\n")
@@ -448,12 +451,14 @@
         ? transcripts.map(t => `${t.ts || ""} ${t.type || ""} ${t.msg || ""}`.trim()).join("\n")
         : "— keine Transcripts —";
       const ctxText = Object.keys(ctx).length ? JSON.stringify(ctx, null, 2) : "— kein Context —";
+      const missionText = missionSnapshot ? JSON.stringify(missionSnapshot, null, 2) : "— kein Mission Snapshot —";
 
       return `
         <div style="display:grid; gap:8px;">
           <div style="font-size:12px; color:#9ab0cc;">Report ID: ${escapeHtml(detail.id || "")}</div>
           <div style="font-size:12px; color:#9ab0cc;">Status: ${escapeHtml(detail.status || "")} | Created: ${escapeHtml(fmtDate(detail.createdAt || ""))}</div>
           <div style="font-size:12px; color:#9ab0cc;">Logs: ${logs.length} | Transcripts: ${transcripts.length}</div>
+          <pre class="msg" style="max-height:200px;"><strong>MISSION SNAPSHOT</strong>\n${escapeHtml(missionText)}</pre>
           <pre class="msg" style="max-height:260px;"><strong>LOGS</strong>\n${escapeHtml(logsText)}</pre>
           <pre class="msg" style="max-height:220px;"><strong>TRANSCRIPTS</strong>\n${escapeHtml(txText)}</pre>
           <pre class="msg" style="max-height:240px;"><strong>CONTEXT</strong>\n${escapeHtml(ctxText)}</pre>
