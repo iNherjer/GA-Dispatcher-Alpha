@@ -1519,22 +1519,19 @@ function setDrumCounter(elementId, valueStr) {
     };
     const displayValue = normalizeDisplayValue();
     const renderFallback = () => {
-        container.innerHTML = `<span class="theme-color-text" style="font-weight:bold;">${displayValue}</span>`;
+        container.textContent = displayValue;
         container.dataset.lastVal = displayValue;
     };
 
     try {
         if (!document.body.classList.contains('theme-retro')) {
-            if (container.dataset.lastVal !== displayValue) {
-                let span = container.querySelector('span');
-                if (!span) {
-                    renderFallback();
-                    updateDynamicColors(); // Nur einmalig beim Erstellen formatieren!
-                } else {
-                    span.textContent = displayValue;
-                    container.dataset.lastVal = displayValue;
-                }
+            // Im Modern-Design immer als reinen Text rendern, damit keine Drum-HTML
+            // (aus vorherigem Retro-Render) in UI-Elemente wie TAS/ALT/VS hineinragt.
+            if (container.textContent !== displayValue || container.querySelector('.drum-window')) {
+                container.textContent = displayValue;
             }
+            container.dataset.lastVal = displayValue;
+            if (window.drumCache && window.drumCache[elementId]) delete window.drumCache[elementId];
             return;
         }
 
