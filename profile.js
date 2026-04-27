@@ -1790,22 +1790,28 @@ function triggerVerticalProfileUpdate() {
 
                 if (!forceOverpassReload && tileProbe.total > 0 && tileProbe.missing.length === 0) {
                     if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred('__RESET__', false);
-                    const seeded = vpProjectObsPoolToRoute(vpElevationData);
-                    vpLogRouteFeatureStats('tile-cache-hit', cacheKey, seeded.obs || [], seeded.lin || []);
-                    const seededHasObs = !!(seeded.obs && seeded.obs.length);
-                    const seededHasLin = !!(seeded.lin && seeded.lin.length);
-                    if (hasRouteComboCache && (!needsObsNow || seededHasObs) && (!needsLinNow || seededHasLin)) {
-                        vpObstacles = seeded.obs || [];
-                        vpLinearFeatures = seeded.lin || [];
-                        window._lastObsRouteKey = cacheKey;
-                        window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
-                        if (window.vpWeatherDebug) window.vpWeatherDebug.overpassTileCoverageHits += 1;
-                        window.vpBgNeedsUpdate = true;
-                        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
-                        console.log('[Overpass] Route vollständig im Tile-Cache. Kein Netz-Request nötig.');
-                        return;
-                    }
-                    if (!hasRouteComboCache) {
+                    const comboRawFast = localStorage.getItem('ga_obs_combo_' + cacheKey);
+                    if (comboRawFast) {
+                        try {
+                            const comboFast = JSON.parse(comboRawFast);
+                            const cObs = Array.isArray(comboFast && comboFast.obs) ? comboFast.obs : [];
+                            const cLin = Array.isArray(comboFast && comboFast.lin) ? comboFast.lin : [];
+                            const comboFastUsable = (!needsObsNow || cObs.length > 0) && (!needsLinNow || cLin.length > 0);
+                            if (comboFastUsable) {
+                                vpObstacles = cObs;
+                                vpLinearFeatures = cLin;
+                                vpLogRouteFeatureStats('route-cache-combo-fast', cacheKey, vpObstacles, vpLinearFeatures);
+                                window._lastObsRouteKey = cacheKey;
+                                window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
+                                if (window.vpWeatherDebug) window.vpWeatherDebug.overpassTileCoverageHits += 1;
+                                window.vpBgNeedsUpdate = true;
+                                if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+                                console.log('[Overpass] Route vollständig im Tile-Cache. Nutze Route-Combo-Cache.');
+                                return;
+                            }
+                            console.warn('[Overpass] Route-Combo-Cache unvollständig -> Refetch-Prüfung läuft.');
+                        } catch (_) { }
+                    } else {
                         console.log('[Overpass] Coverage vollständig, aber kein Route-Combo-Cache vorhanden -> Tile-Refresh wird erzwungen.');
                     }
                 } else if (!forceOverpassReload && tileProbe.missing.length > 0) {
@@ -1850,6 +1856,20 @@ function triggerVerticalProfileUpdate() {
                         } catch(e) { vpObstacles = []; vpLinearFeatures = []; }
                     }
 
+                    let weakLinearCoverage = false;
+                    if (!forceOverpassReload && needsLinNow && Array.isArray(vpLinearFeatures) && vpLinearFeatures.length > 0) {
+                        const routeTileCount = vpCollectRouteTileKeys(vpElevationData).size;
+                        const linTileSet = new Set(
+                            vpLinearFeatures
+                                .map(f => String(f && f.tileKey || ''))
+                                .filter(Boolean)
+                        );
+                        weakLinearCoverage = routeTileCount >= 8 && linTileSet.size <= 2;
+                        if (weakLinearCoverage) {
+                            console.warn(`[Overpass] Linear-Coverage verdächtig dünn (${linTileSet.size}/${routeTileCount} Tiles) -> erzwinge Refetch.`);
+                        }
+                    }
+
                     if (!hasUsableCache) {
                         const seeded = vpProjectObsPoolToRoute(vpElevationData);
                         if ((seeded.obs && seeded.obs.length) || (seeded.lin && seeded.lin.length)) {
@@ -1865,7 +1885,7 @@ function triggerVerticalProfileUpdate() {
                     // Wenn der Route-Cache leer/kaputt ist oder keine nutzbaren Daten
                     // enthält, müssen wir trotzdem live nachladen.
                     const forceFullTileReload = (!forceOverpassReload && !hasRouteComboCache && tileProbe.total > 0 && tileProbe.missing.length === 0);
-                    const mustRefetch = forceOverpassReload || forceFullTileReload || !hasUsableCache || tileProbe.missing.length > 0;
+                    const mustRefetch = forceOverpassReload || forceFullTileReload || !hasUsableCache || weakLinearCoverage || tileProbe.missing.length > 0;
                     if (mustRefetch) {
                         const result = await fetchProfileObstacles(vpElevationData, currentSignal, cacheKey, (forceOverpassReload || forceFullTileReload));
                         if (result !== null) { 
