@@ -1393,6 +1393,216 @@ window.closeTransferModal = function() {
     document.getElementById('transferModalOverlay').style.display = 'none';
 };
 
+const BUG_REPORT_ENDPOINT = 'https://ga-proxy.einherjer.workers.dev/api/problem-reports';
+
+function _bugNowLabel() {
+    return new Date().toLocaleString('de-DE');
+}
+
+function _bugDetectDeviceType() {
+    const ua = String(navigator.userAgent || '').toLowerCase();
+    const w = window.innerWidth || 0;
+    const touch = Number(navigator.maxTouchPoints || 0);
+    if (/ipad|tablet/.test(ua)) return 'tablet';
+    if (/mobi|iphone|android/.test(ua)) return 'mobile';
+    if (touch > 0 && w > 720 && w <= 1100) return 'tablet';
+    return 'desktop';
+}
+
+function _bugSafeLocalStorageDump() {
+    const out = {};
+    const SENSITIVE = /(key|token|pin|secret|pass|auth)/i;
+    const ALLOW_EXACT = new Set([
+        'ga_theme',
+        'ga_panel_theme',
+        'ga_weather_source',
+        'ga_weather_render_mode',
+        'ga_ai_enabled',
+        'awm_warn_terrain',
+        'awm_read_freq',
+        'awm_volume',
+        'awm_voice_pack'
+    ]);
+    const ALLOW_PREFIX = [
+        'ga_show_',
+        'ga_map_hint_'
+    ];
+    try {
+        const maxItems = Math.min(localStorage.length || 0, 260);
+        for (let i = 0; i < maxItems; i++) {
+            const k = localStorage.key(i);
+            if (!k) continue;
+            const isAllowed = ALLOW_EXACT.has(k) || ALLOW_PREFIX.some(p => k.startsWith(p));
+            if (!isAllowed) continue;
+            if (SENSITIVE.test(k)) {
+                out[k] = '[redacted]';
+                continue;
+            }
+            let v = '';
+            try { v = localStorage.getItem(k) || ''; } catch (_) { v = ''; }
+            out[k] = v.length > 220 ? `${v.slice(0, 220)}...` : v;
+        }
+    } catch (_) {}
+    return out;
+}
+
+function _bugGetRouteSnapshot() {
+    const route = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
+    const points = route.slice(0, 220).map(p => ({
+        lat: Number((Number(p?.lat) || 0).toFixed(6)),
+        lon: Number((Number(p?.lng ?? p?.lon) || 0).toFixed(6)),
+        name: String(p?.name || '').slice(0, 30)
+    }));
+    return {
+        startIcao: String((typeof currentStartICAO !== 'undefined' ? currentStartICAO : '') || ''),
+        destIcao: String((typeof currentDestICAO !== 'undefined' ? currentDestICAO : '') || ''),
+        startName: String((typeof currentSName !== 'undefined' ? currentSName : '') || ''),
+        destName: String((typeof currentDName !== 'undefined' ? currentDName : '') || ''),
+        waypointCount: points.length,
+        waypoints: points,
+        mission: (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') ? currentMissionData : null
+    };
+}
+
+function _bugGetPaxTranscripts() {
+    if (typeof window.paxVoiceGetLogEntries === 'function') {
+        try {
+            const arr = window.paxVoiceGetLogEntries();
+            if (Array.isArray(arr)) return arr.slice(0, 250);
+        } catch (_) {}
+    }
+    const raw = document.getElementById('paxLogBody')?.textContent || '';
+    return raw
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .slice(0, 250)
+        .map(line => ({ ts: '', type: 'log', msg: line }));
+}
+
+function _bugGetDebugLogs() {
+    if (typeof window.gaGetDebugLogs === 'function') {
+        try {
+            const arr = window.gaGetDebugLogs();
+            if (Array.isArray(arr)) return arr.slice(0, 700);
+        } catch (_) {}
+    }
+    return [];
+}
+
+function _bugGetWeatherDebugText() {
+    const text = document.getElementById('weatherDebugBody')?.textContent || '';
+    return text.trim().slice(0, 22000);
+}
+
+window.openBugReportModal = function() {
+    const ov = document.getElementById('bugReportModalOverlay');
+    if (!ov) return;
+
+    const msgEl = document.getElementById('bugReportMessage');
+    const stEl = document.getElementById('bugReportStatus');
+
+    if (msgEl && !msgEl.value.trim()) {
+        msgEl.value = 'Kurze Repro:\n1) ...\n2) ...\n3) ...\n\nErwartet:\n...\n\nPassiert:\n...';
+    }
+    if (stEl) stEl.textContent = '';
+    ov.style.display = 'flex';
+};
+
+window.closeBugReportModal = function() {
+    const ov = document.getElementById('bugReportModalOverlay');
+    if (!ov) return;
+    ov.style.display = 'none';
+};
+
+window.sendBugReport = async function() {
+    const msgEl = document.getElementById('bugReportMessage');
+    const stEl = document.getElementById('bugReportStatus');
+    const btn = document.getElementById('bugReportSendBtn');
+    const includeDebug = !!document.getElementById('bugIncludeDebug')?.checked;
+    const includePax = !!document.getElementById('bugIncludePax')?.checked;
+    const includeRoute = !!document.getElementById('bugIncludeRoute')?.checked;
+
+    const message = String(msgEl?.value || '').trim().slice(0, 5000) || 'Kein Freitext angegeben.';
+    const firstLine = message.split('\n').map(s => s.trim()).find(Boolean) || '';
+    const title = (firstLine || `Problembericht ${_bugNowLabel()}`).slice(0, 180);
+
+    const swVersion = document.getElementById('swVersionDisplay')?.innerText?.trim() || '';
+    const weatherDebug = includeDebug ? _bugGetWeatherDebugText() : '';
+    const logs = includeDebug ? _bugGetDebugLogs() : [];
+    if (weatherDebug) {
+        logs.push({ ts: new Date().toISOString(), level: 'state', msg: `[WeatherDebugPanel]\n${weatherDebug}` });
+    }
+
+    const payload = {
+        title,
+        message,
+        source: 'vfr-multitool-web',
+        appVersion: swVersion,
+        logs,
+        transcripts: includePax ? _bugGetPaxTranscripts() : [],
+        context: {
+            deviceType: _bugDetectDeviceType(),
+            browser: String(navigator.userAgent || ''),
+            platform: String(navigator.platform || ''),
+            language: String(navigator.language || ''),
+            languages: Array.isArray(navigator.languages) ? navigator.languages.slice(0, 8) : [],
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+            online: !!navigator.onLine,
+            viewport: { w: window.innerWidth || 0, h: window.innerHeight || 0, dpr: window.devicePixelRatio || 1 },
+            screen: { w: window.screen?.width || 0, h: window.screen?.height || 0 },
+            url: String(location.href || ''),
+            referrer: String(document.referrer || ''),
+            theme: String(localStorage.getItem('ga_theme') || ''),
+            route: includeRoute ? _bugGetRouteSnapshot() : null,
+            localStorageSafe: _bugSafeLocalStorageDump()
+        }
+    };
+
+    let body = JSON.stringify(payload);
+    if (body.length > 300000) {
+        payload.logs = Array.isArray(payload.logs) ? payload.logs.slice(-260) : [];
+        payload.transcripts = Array.isArray(payload.transcripts) ? payload.transcripts.slice(-120) : [];
+        if (payload.context && typeof payload.context === 'object') {
+            payload.context.localStorageSafe = { trimmed: 'true' };
+        }
+        body = JSON.stringify(payload);
+    }
+
+    if (btn) btn.disabled = true;
+    if (stEl) stEl.textContent = 'Sende Bericht...';
+
+    try {
+        const res = await fetch(BUG_REPORT_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.ok) {
+            throw new Error(data?.error || `HTTP ${res.status}`);
+        }
+        if (stEl) stEl.textContent = `✅ Gesendet (ID: ${data.id || 'ok'})`;
+        setTimeout(() => {
+            if (msgEl) msgEl.value = '';
+            closeBugReportModal();
+        }, 900);
+    } catch (err) {
+        console.error('[BugReport] Send failed:', err);
+        if (stEl) stEl.textContent = `❌ Senden fehlgeschlagen: ${err?.message || err}`;
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+};
+
+(() => {
+    const ov = document.getElementById('bugReportModalOverlay');
+    if (!ov) return;
+    ov.addEventListener('click', (e) => {
+        if (e.target === ov) closeBugReportModal();
+    });
+})();
+
 function formatMSFSCoords(lat, lon) {
     const latDir = lat >= 0 ? 'N' : 'S';
     const lonDir = lon >= 0 ? 'E' : 'W';

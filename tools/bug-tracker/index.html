@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GA Bug Tracker</title>
+  <style>
+    :root {
+      --bg: #0f131a;
+      --panel: #171d26;
+      --panel-alt: #1c2430;
+      --border: #2f3b4e;
+      --text: #dbe6f6;
+      --muted: #91a2bb;
+      --accent: #54b0ff;
+      --ok: #6ed18a;
+      --new: #f2c14f;
+      --danger: #ff7e7e;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      background: radial-gradient(1200px 700px at 90% -10%, #243247 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      width: min(1200px, 96vw);
+      margin: 18px auto 32px;
+    }
+
+    .toolbar {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr auto auto;
+      gap: 10px;
+      align-items: end;
+      position: sticky;
+      top: 12px;
+      z-index: 20;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .field label {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: .2px;
+    }
+
+    input, button {
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--panel-alt);
+      color: var(--text);
+      font: inherit;
+      padding: 9px 10px;
+    }
+
+    input:focus, button:focus {
+      outline: 2px solid #2f7dbd;
+      outline-offset: 1px;
+    }
+
+    button {
+      cursor: pointer;
+      background: linear-gradient(180deg, #2b3747, #222c3a);
+      white-space: nowrap;
+    }
+
+    button:hover { filter: brightness(1.08); }
+
+    .status {
+      margin: 12px 0;
+      color: var(--muted);
+      font-size: 13px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .status strong { color: var(--text); }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .item {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .title {
+      font-weight: 700;
+      font-size: 16px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .pill {
+      font-size: 11px;
+      color: #1a1e25;
+      background: var(--new);
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-weight: 700;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 12px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .msg {
+      white-space: pre-wrap;
+      background: #121822;
+      border: 1px solid #253248;
+      border-radius: 6px;
+      margin: 0;
+      padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: #c7d5ea;
+      max-height: 220px;
+      overflow: auto;
+    }
+
+    .ctx {
+      color: #adc0d9;
+      font-size: 12px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .ack-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      border-top: 1px solid #233044;
+      padding-top: 8px;
+    }
+
+    .ack {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ok);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .danger { color: var(--danger); }
+    .empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 26px 8px;
+      border: 1px dashed #30405a;
+      border-radius: 8px;
+      background: rgba(24, 34, 48, 0.6);
+    }
+
+    @media (max-width: 980px) {
+      .toolbar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="toolbar">
+      <div class="field">
+        <label for="apiBase">API URL</label>
+        <input id="apiBase" value="https://ga-proxy.einherjer.workers.dev/api/problem-reports" />
+      </div>
+      <div class="field">
+        <label for="token">Admin Token</label>
+        <input id="token" type="password" placeholder="optional" />
+      </div>
+      <div class="field">
+        <label for="ackedBy">Quittiert von</label>
+        <input id="ackedBy" placeholder="z. B. Jo" />
+      </div>
+      <button id="refreshBtn">Aktualisieren</button>
+      <button id="autoBtn">Auto: Ein</button>
+    </div>
+
+    <div class="status" id="statusLine">
+      <span>Offen: <strong id="countOpen">0</strong></span>
+      <span>Neu: <strong id="countNew">0</strong></span>
+      <span id="lastSync">Noch kein Sync</span>
+      <span id="errorLine" class="danger"></span>
+    </div>
+
+    <div class="list" id="list"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEYS = {
+      apiBase: "ga_bugtracker_api_base",
+      token: "ga_bugtracker_admin_token",
+      ackedBy: "ga_bugtracker_acked_by",
+      seen: "ga_bugtracker_seen_ids"
+    };
+
+    const state = {
+      auto: true,
+      timer: null,
+      items: [],
+      seen: new Set(),
+      details: {}
+    };
+
+    const el = {
+      apiBase: document.getElementById("apiBase"),
+      token: document.getElementById("token"),
+      ackedBy: document.getElementById("ackedBy"),
+      refreshBtn: document.getElementById("refreshBtn"),
+      autoBtn: document.getElementById("autoBtn"),
+      list: document.getElementById("list"),
+      countOpen: document.getElementById("countOpen"),
+      countNew: document.getElementById("countNew"),
+      lastSync: document.getElementById("lastSync"),
+      errorLine: document.getElementById("errorLine")
+    };
+
+    function loadPrefs() {
+      const savedApi = localStorage.getItem(STORAGE_KEYS.apiBase);
+      if (savedApi) el.apiBase.value = savedApi;
+      el.token.value = localStorage.getItem(STORAGE_KEYS.token) || "";
+      el.ackedBy.value = localStorage.getItem(STORAGE_KEYS.ackedBy) || "";
+      try {
+        const seenRaw = JSON.parse(localStorage.getItem(STORAGE_KEYS.seen) || "[]");
+        state.seen = new Set(Array.isArray(seenRaw) ? seenRaw : []);
+      } catch {
+        state.seen = new Set();
+      }
+    }
+
+    function savePrefs() {
+      localStorage.setItem(STORAGE_KEYS.apiBase, el.apiBase.value.trim());
+      localStorage.setItem(STORAGE_KEYS.token, el.token.value.trim());
+      localStorage.setItem(STORAGE_KEYS.ackedBy, el.ackedBy.value.trim());
+      localStorage.setItem(STORAGE_KEYS.seen, JSON.stringify(Array.from(state.seen).slice(-4000)));
+    }
+
+    function authHeaders() {
+      const headers = { "Content-Type": "application/json" };
+      const t = el.token.value.trim();
+      if (t) headers["x-bug-admin-token"] = t;
+      return headers;
+    }
+
+    async function fetchOpen() {
+      const base = el.apiBase.value.trim().replace(/\/+$/, "");
+      const url = `${base}?status=open&limit=120`;
+      const res = await fetch(url, { headers: authHeaders(), cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      return Array.isArray(data.items) ? data.items : [];
+    }
+
+    async function ack(id) {
+      const base = el.apiBase.value.trim().replace(/\/+$/, "");
+      const url = `${base}/${encodeURIComponent(id)}/ack`;
+      const payload = {
+        ackedBy: el.ackedBy.value.trim(),
+        note: "Behoben via GA Bug Tracker"
+      };
+      const res = await fetch(url, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    }
+
+    async function fetchDetail(id) {
+      const base = el.apiBase.value.trim().replace(/\/+$/, "");
+      const url = `${base}/${encodeURIComponent(id)}`;
+      const res = await fetch(url, { headers: authHeaders(), cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data && typeof data === "object" ? data : {};
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return "unbekannt";
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return iso;
+      return d.toLocaleString("de-DE");
+    }
+
+    function markVisibleAsSeen() {
+      for (const item of state.items) state.seen.add(item.id);
+      savePrefs();
+    }
+
+    function render() {
+      el.countOpen.textContent = String(state.items.length);
+      const newCount = state.items.filter(item => !state.seen.has(item.id)).length;
+      el.countNew.textContent = String(newCount);
+
+      if (!state.items.length) {
+        el.list.innerHTML = '<div class="empty">Keine offenen Bugs.</div>';
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+
+      for (const item of state.items) {
+        const card = document.createElement("article");
+        card.className = "item";
+
+        const isNew = !state.seen.has(item.id);
+        const ctx = item.context || {};
+        const browser = ctx.browser || ctx.userAgent || "";
+        const device = ctx.deviceType || ctx.device || "";
+
+        card.innerHTML = `
+          <div class="item-top">
+            <div class="title">
+              <span>${escapeHtml(item.title || "Ohne Titel")}</span>
+              ${isNew ? '<span class="pill">NEU</span>' : ""}
+            </div>
+            <div class="meta">
+              <span>${escapeHtml(item.id || "")}</span>
+              <span>${escapeHtml(fmtDate(item.createdAt))}</span>
+            </div>
+          </div>
+          <div class="meta">
+            <span>Quelle: ${escapeHtml(item.source || "-")}</span>
+            <span>Version: ${escapeHtml(item.appVersion || "-")}</span>
+            <span>Logs: ${Number(item.logCount || 0)}</span>
+            <span>Transcripts: ${Number(item.transcriptCount || 0)}</span>
+          </div>
+          <div class="ctx">
+            ${device ? `<span>Gerät: ${escapeHtml(device)}</span>` : ""}
+            ${browser ? `<span>Browser: ${escapeHtml(String(browser).slice(0, 120))}</span>` : ""}
+          </div>
+          <pre class="msg">${escapeHtml(item.message || "—")}</pre>
+          <div class="ack-row">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <label class="ack">
+                <input type="checkbox" data-id="${escapeHtml(item.id || "")}">
+                Behoben
+              </label>
+              <button type="button" data-details="${escapeHtml(item.id || "")}" style="padding:6px 10px; font-size:12px;">Details</button>
+            </div>
+            <small style="color:#7f93ad">Abhaken quittiert den Report und blendet ihn aus.</small>
+          </div>
+          <div data-detail-box="${escapeHtml(item.id || "")}" style="display:none; margin-top:8px; border-top:1px dashed #2b3b53; padding-top:8px;"></div>
+        `;
+
+        const checkbox = card.querySelector('input[type="checkbox"]');
+        checkbox.addEventListener("change", async (ev) => {
+          if (!ev.target.checked) return;
+          ev.target.disabled = true;
+          try {
+            await ack(item.id);
+            state.items = state.items.filter(x => x.id !== item.id);
+            state.seen.add(item.id);
+            savePrefs();
+            render();
+          } catch (error) {
+            ev.target.checked = false;
+            ev.target.disabled = false;
+            setError(`Quittieren fehlgeschlagen (${item.id}): ${error.message}`);
+          }
+        });
+
+        const detailsBtn = card.querySelector('button[data-details]');
+        const detailsBox = card.querySelector('div[data-detail-box]');
+        detailsBtn.addEventListener("click", async () => {
+          if (!detailsBox) return;
+          const currentlyHidden = detailsBox.style.display === "none";
+          if (!currentlyHidden) {
+            detailsBox.style.display = "none";
+            detailsBtn.textContent = "Details";
+            return;
+          }
+
+          detailsBtn.disabled = true;
+          detailsBtn.textContent = "Lade...";
+          try {
+            const detail = state.details[item.id] || await fetchDetail(item.id);
+            state.details[item.id] = detail;
+            detailsBox.innerHTML = renderDetailHtml(detail);
+            detailsBox.style.display = "block";
+            detailsBtn.textContent = "Details aus";
+          } catch (error) {
+            detailsBox.innerHTML = `<div class="danger" style="font-size:12px;">Details konnten nicht geladen werden: ${escapeHtml(error.message)}</div>`;
+            detailsBox.style.display = "block";
+            detailsBtn.textContent = "Details";
+          } finally {
+            detailsBtn.disabled = false;
+          }
+        });
+
+        frag.appendChild(card);
+      }
+
+      el.list.innerHTML = "";
+      el.list.appendChild(frag);
+    }
+
+    function renderDetailHtml(detail) {
+      const logs = Array.isArray(detail.logs) ? detail.logs : [];
+      const transcripts = Array.isArray(detail.transcripts) ? detail.transcripts : [];
+      const ctx = detail.context && typeof detail.context === "object" ? detail.context : {};
+
+      const logsText = logs.length
+        ? logs.map(l => `${l.ts || ""} [${l.level || "log"}] ${l.msg || ""}`.trim()).join("\n")
+        : "— keine Logs —";
+      const txText = transcripts.length
+        ? transcripts.map(t => `${t.ts || ""} ${t.type || ""} ${t.msg || ""}`.trim()).join("\n")
+        : "— keine Transcripts —";
+      const ctxText = Object.keys(ctx).length ? JSON.stringify(ctx, null, 2) : "— kein Context —";
+
+      return `
+        <div style="display:grid; gap:8px;">
+          <div style="font-size:12px; color:#9ab0cc;">Report ID: ${escapeHtml(detail.id || "")}</div>
+          <div style="font-size:12px; color:#9ab0cc;">Status: ${escapeHtml(detail.status || "")} | Created: ${escapeHtml(fmtDate(detail.createdAt || ""))}</div>
+          <div style="font-size:12px; color:#9ab0cc;">Logs: ${logs.length} | Transcripts: ${transcripts.length}</div>
+          <pre class="msg" style="max-height:260px;"><strong>LOGS</strong>\n${escapeHtml(logsText)}</pre>
+          <pre class="msg" style="max-height:220px;"><strong>TRANSCRIPTS</strong>\n${escapeHtml(txText)}</pre>
+          <pre class="msg" style="max-height:240px;"><strong>CONTEXT</strong>\n${escapeHtml(ctxText)}</pre>
+        </div>
+      `;
+    }
+
+    function escapeHtml(v) {
+      return String(v == null ? "" : v)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function setError(msg) {
+      el.errorLine.textContent = msg || "";
+    }
+
+    async function refresh() {
+      savePrefs();
+      setError("");
+      el.refreshBtn.disabled = true;
+      try {
+        state.items = await fetchOpen();
+        render();
+        el.lastSync.textContent = `Letzter Sync: ${new Date().toLocaleTimeString("de-DE")}`;
+        markVisibleAsSeen();
+      } catch (error) {
+        setError(`Laden fehlgeschlagen: ${error.message}`);
+      } finally {
+        el.refreshBtn.disabled = false;
+      }
+    }
+
+    function applyAuto() {
+      if (state.timer) {
+        clearInterval(state.timer);
+        state.timer = null;
+      }
+      if (state.auto) {
+        state.timer = setInterval(refresh, 15000);
+      }
+      el.autoBtn.textContent = `Auto: ${state.auto ? "Ein" : "Aus"}`;
+    }
+
+    el.refreshBtn.addEventListener("click", refresh);
+    el.autoBtn.addEventListener("click", () => {
+      state.auto = !state.auto;
+      applyAuto();
+    });
+    el.apiBase.addEventListener("change", savePrefs);
+    el.token.addEventListener("change", savePrefs);
+    el.ackedBy.addEventListener("change", savePrefs);
+
+    loadPrefs();
+    applyAuto();
+    refresh();
+  </script>
+</body>
+</html>

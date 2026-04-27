@@ -38,6 +38,9 @@ window.paxVoiceOpenLog  = function() {
     if (lbl) lbl.textContent = _paxStrictMode ? 'STRENG' : 'EASY';
     _paxLogRender();
 };
+window.paxVoiceGetLogEntries = function() {
+    return _paxLogEntries.map(e => ({ ts: e.ts, type: e.type, msg: e.msg }));
+};
 
 // ─── MAP ZONES ────────────────────────────────────────────────────────────────
 let _paxZonesLayer   = null;

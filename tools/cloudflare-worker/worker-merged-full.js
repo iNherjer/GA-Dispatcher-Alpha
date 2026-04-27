@@ -40,6 +40,231 @@ function hasSyncKvBinding(env) {
   return !!(env && env.GA_SYNC_KV && typeof env.GA_SYNC_KV.get === "function" && typeof env.GA_SYNC_KV.put === "function");
 }
 
+const BUG_REPORT_PREFIX = "bug:report:";
+const BUG_OPEN_PREFIX = "bug:open:";
+const BUG_REPORT_TTL = 180 * 24 * 60 * 60; // 180 Tage
+const BUG_MAX_BODY_BYTES = 350 * 1024;
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function safeJsonParse(raw, fallback = null) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function trimText(value, maxLen = 2000) {
+  return String(value == null ? "" : value).trim().slice(0, maxLen);
+}
+
+function normalizeReportPayload(input) {
+  const payload = input && typeof input === "object" ? input : {};
+  return {
+    title: trimText(payload.title || payload.summary || "Ohne Titel", 180),
+    message: trimText(payload.message || payload.description || "", 8000),
+    appVersion: trimText(payload.appVersion || "", 80),
+    source: trimText(payload.source || "web", 80),
+    context: payload.context && typeof payload.context === "object" ? payload.context : {},
+    logs: Array.isArray(payload.logs) ? payload.logs.slice(0, 600) : [],
+    transcripts: Array.isArray(payload.transcripts) ? payload.transcripts.slice(0, 200) : []
+  };
+}
+
+function getBugAdminTokenFromRequest(request, requestUrl) {
+  const auth = request.headers.get("authorization") || "";
+  if (/^Bearer\s+/i.test(auth)) return auth.replace(/^Bearer\s+/i, "").trim();
+  const hdrToken = request.headers.get("x-bug-admin-token");
+  if (hdrToken) return hdrToken.trim();
+  const qsToken = requestUrl.searchParams.get("token");
+  if (qsToken) return qsToken.trim();
+  return "";
+}
+
+function isBugAdminAuthorized(request, requestUrl, env) {
+  const expected = trimText(env && env.BUG_TRACKER_ADMIN_TOKEN, 240);
+  if (!expected) return true; // Falls kein Secret gesetzt ist, bleibt die Admin-API offen.
+  const provided = getBugAdminTokenFromRequest(request, requestUrl);
+  return !!provided && provided === expected;
+}
+
+function buildBugReportStorageKeys(id, createdAt) {
+  const createdMs = Number.isFinite(Date.parse(createdAt)) ? Date.parse(createdAt) : Date.now();
+  const reversed = String(9999999999999 - createdMs).padStart(13, "0");
+  return {
+    reportKey: `${BUG_REPORT_PREFIX}${id}`,
+    openKey: `${BUG_OPEN_PREFIX}${reversed}:${id}`
+  };
+}
+
+function projectBugListItem(report) {
+  return {
+    id: report.id,
+    createdAt: report.createdAt,
+    title: report.title,
+    message: report.message,
+    appVersion: report.appVersion || "",
+    source: report.source || "",
+    status: report.status || "open",
+    context: report.context || {},
+    logCount: Array.isArray(report.logs) ? report.logs.length : 0,
+    transcriptCount: Array.isArray(report.transcripts) ? report.transcripts.length : 0
+  };
+}
+
+async function handleProblemReports(request, requestUrl, env) {
+  if (!hasSyncKvBinding(env)) {
+    return json({
+      error: "Sync KV binding missing (GA_SYNC_KV). Add KV binding in worker settings or wrangler.toml."
+    }, 503);
+  }
+
+  const pathParts = requestUrl.pathname.split("/").filter(Boolean);
+  // /api/problem-reports
+  // /api/problem-reports/:id
+  // /api/problem-reports/:id/ack
+  const reportId = pathParts[2] || "";
+  const subAction = pathParts[3] || "";
+
+  if (request.method === "POST" && !reportId) {
+    const rawBody = await request.text();
+    if (rawBody.length > BUG_MAX_BODY_BYTES) {
+      return json({ ok: false, error: "Zu groß" }, 413);
+    }
+    const incoming = safeJsonParse(rawBody, null);
+    if (!incoming || typeof incoming !== "object") {
+      return json({ ok: false, error: "Ungültiges JSON" }, 400);
+    }
+
+    const normalized = normalizeReportPayload(incoming);
+    const createdAt = nowIso();
+    const id = trimText(incoming.id, 80) || crypto.randomUUID();
+    const keys = buildBugReportStorageKeys(id, createdAt);
+    const report = {
+      id,
+      createdAt,
+      updatedAt: createdAt,
+      status: "open",
+      ackedAt: null,
+      ackedBy: "",
+      ackNote: "",
+      openKey: keys.openKey,
+      ...normalized
+    };
+
+    try {
+      await env.GA_SYNC_KV.put(keys.reportKey, JSON.stringify(report), { expirationTtl: BUG_REPORT_TTL });
+      await env.GA_SYNC_KV.put(keys.openKey, JSON.stringify({
+        id,
+        createdAt,
+        title: report.title,
+        source: report.source,
+        appVersion: report.appVersion
+      }), { expirationTtl: BUG_REPORT_TTL });
+    } catch (error) {
+      return json({ ok: false, error: "KV-Write fehlgeschlagen", message: String(error?.message || error) }, 502);
+    }
+
+    return json({ ok: true, id, createdAt }, 201);
+  }
+
+  // Ab hier: Admin-Operationen
+  if (!isBugAdminAuthorized(request, requestUrl, env)) {
+    return json({ ok: false, error: "Unauthorized" }, 401);
+  }
+
+  if (request.method === "GET" && !reportId) {
+    const status = trimText(requestUrl.searchParams.get("status") || "open", 20).toLowerCase();
+    const limitRaw = Number.parseInt(requestUrl.searchParams.get("limit") || "50", 10);
+    const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 50, 1), 200);
+
+    if (status !== "open") {
+      return json({ ok: false, error: "Nur status=open wird aktuell unterstützt" }, 400);
+    }
+
+    let list;
+    try {
+      list = await env.GA_SYNC_KV.list({ prefix: BUG_OPEN_PREFIX, limit });
+    } catch (error) {
+      return json({ ok: false, error: "KV-List fehlgeschlagen", message: String(error?.message || error) }, 502);
+    }
+
+    const items = [];
+    for (const key of list.keys || []) {
+      const id = String(key.name || "").split(":").pop();
+      if (!id) continue;
+      let rawReport = null;
+      try {
+        rawReport = await env.GA_SYNC_KV.get(`${BUG_REPORT_PREFIX}${id}`);
+      } catch {
+        continue;
+      }
+      if (!rawReport) continue;
+      const report = safeJsonParse(rawReport, null);
+      if (!report || report.status !== "open") continue;
+      items.push(projectBugListItem(report));
+    }
+
+    return json({
+      ok: true,
+      status: "open",
+      count: items.length,
+      items
+    }, 200, { "Cache-Control": "no-store" });
+  }
+
+  if (request.method === "GET" && reportId) {
+    let rawReport = null;
+    try {
+      rawReport = await env.GA_SYNC_KV.get(`${BUG_REPORT_PREFIX}${reportId}`);
+    } catch (error) {
+      return json({ ok: false, error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+    }
+    if (!rawReport) return json({ ok: false, error: "Nicht gefunden" }, 404);
+    return new Response(rawReport, { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+  }
+
+  if (request.method === "POST" && reportId && subAction === "ack") {
+    const rawBody = await request.text();
+    const payload = safeJsonParse(rawBody, {});
+    const ackedBy = trimText(payload && payload.ackedBy, 80);
+    const ackNote = trimText(payload && payload.note, 600);
+
+    const reportKey = `${BUG_REPORT_PREFIX}${reportId}`;
+    let rawReport = null;
+    try {
+      rawReport = await env.GA_SYNC_KV.get(reportKey);
+    } catch (error) {
+      return json({ ok: false, error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+    }
+    if (!rawReport) return json({ ok: false, error: "Nicht gefunden" }, 404);
+
+    const report = safeJsonParse(rawReport, null);
+    if (!report) return json({ ok: false, error: "Datenformat ungültig" }, 500);
+    if (report.status === "acked") return json({ ok: true, id: reportId, alreadyAcked: true });
+
+    report.status = "acked";
+    report.ackedAt = nowIso();
+    report.updatedAt = report.ackedAt;
+    report.ackedBy = ackedBy;
+    report.ackNote = ackNote;
+
+    try {
+      await env.GA_SYNC_KV.put(reportKey, JSON.stringify(report), { expirationTtl: BUG_REPORT_TTL });
+      if (report.openKey) await env.GA_SYNC_KV.delete(report.openKey);
+    } catch (error) {
+      return json({ ok: false, error: "KV-Write fehlgeschlagen", message: String(error?.message || error) }, 502);
+    }
+
+    return json({ ok: true, id: reportId, ackedAt: report.ackedAt });
+  }
+
+  return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+}
+
 function normalizeTileKey(raw) {
   const v = String(raw || "").trim();
   if (!/^-?\d+\|-?\d+$/.test(v)) return null;
@@ -658,7 +883,14 @@ export default {
     }
 
     // ==========================================
-    // 5. OPENAIP PROXY (Catch-All für Snapping)
+    // 5. PROBLEM REPORTS (Mini Bugtracker API)
+    // ==========================================
+    if (requestUrl.pathname === "/api/problem-reports" || requestUrl.pathname.startsWith("/api/problem-reports/")) {
+      return handleProblemReports(request, requestUrl, env);
+    }
+
+    // ==========================================
+    // 6. OPENAIP PROXY (Catch-All für Snapping)
     // ==========================================
     let targetPath = requestUrl.pathname;
     if (targetPath.includes("/v1/")) {

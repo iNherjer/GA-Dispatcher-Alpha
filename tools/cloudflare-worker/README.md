@@ -5,6 +5,10 @@ Diese Worker-Datei ergänzt den bestehenden `ga-proxy` um:
 - `GET /api/aip-chart/resolve?icao=XXXX&country=YY`
 - `GET /api/aip-chart/file?url=<encoded>`
 - `GET /api/obstacles/tile?tile=<latIndex|lonIndex>&layer=core|poi`
+- `POST /api/problem-reports` (öffentlich, Report anlegen)
+- `GET /api/problem-reports?status=open&limit=120` (Admin, offene Reports)
+- `GET /api/problem-reports/:id` (Admin, voller Report)
+- `POST /api/problem-reports/:id/ack` (Admin, als behoben quittieren)
 
 ## Dateien
 
@@ -36,6 +40,9 @@ Wenn `--env production` Fehler über `.../workers/services/.../environments/prod
 Hinweis:
 - Der Worker nutzt `env.GA_SYNC_KV`; dafür muss ein KV-Binding `GA_SYNC_KV` im Worker vorhanden sein.
 - Ohne dieses Binding liefert `/api/sync/*` einen `503` mit Hinweistext.
+- Für den Bugtracker kann optional ein Secret gesetzt werden:
+  - `BUG_TRACKER_ADMIN_TOKEN` (als Worker Secret, nicht als plain var)
+  - Wenn kein Secret gesetzt ist, sind List/Detail/Ack-Endpoints offen.
 
 ## Pflicht-Binding für Sync
 
@@ -56,7 +63,9 @@ id = "<DEINE_KV_NAMESPACE_ID>"
    - `OBSTACLE_CORE_TILES_BASE=https://raw.githubusercontent.com/<owner>/<repo>/<branch>/obstacles/core-tiles`
    - `OBSTACLE_POI_TILES_BASE=https://raw.githubusercontent.com/<owner>/<repo>/<branch>/obstacles/poi-tiles`
    - `OBSTACLE_TILES_BASE=.../obstacles/tiles` (Legacy-Fallback fuer `layer=core`)
-4. Deployen und im Frontend testen:
+5. Optional Bugtracker-Secret setzen:
+   - `npx wrangler secret put BUG_TRACKER_ADMIN_TOKEN`
+6. Deployen und im Frontend testen:
    - `loadAipChartOverlay(ICAO, country)`
    - `startAipChartCalibration()`
    - `setAipChartOpacity(value)`
