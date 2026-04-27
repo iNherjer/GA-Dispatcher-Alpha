@@ -63,6 +63,9 @@ let vpDescentRate = 500; // ft/min descent rate (configurable)
 let vpLandmarks = [];
 let vpObstacles = [];
 let vpLinearFeatures = [];
+const VP_POWERLINE_ROUTE_CROSS_NM = 0.35;
+const VP_POWERLINE_MAST_LATERAL_NM = 0.8;
+const VP_POWERLINE_MAST_MATCH_DIST_NM = 1.4;
 window.vpElevationFallbackActive = false;
 window.vpTerrainElevationSource = 'terrarium';
 const VP_OVERPASS_SERVERS = [
@@ -934,13 +937,13 @@ function vpEstimateLinearDisplayStats(linArr, obsArr) {
             const t = String(o?.type || '').toLowerCase();
             if (!(t === 'mast' || t === 'power_tower' || t === 'tower')) continue;
             const oLat = Number(o?.lateralNM || 999);
-            if (oLat > 0.5) continue;
+            if (oLat > VP_POWERLINE_MAST_LATERAL_NM) continue;
             const oDist = Number(o?.distNM || 0);
-            if (Math.abs(oDist - fDist) <= 0.8) return true;
+            if (Math.abs(oDist - fDist) <= VP_POWERLINE_MAST_MATCH_DIST_NM) return true;
         }
         return false;
     };
-    const isRouteCrossingPowerline = (feat) => Number(feat?.lateralNM || 999) <= 0.15;
+    const isRouteCrossingPowerline = (feat) => Number(feat?.lateralNM || 999) <= VP_POWERLINE_ROUTE_CROSS_NM;
 
     let filtered = src.filter(isLinearTypeEnabled);
     filtered = filtered.filter((feat) => {
@@ -1047,10 +1050,12 @@ function vpExtractOverpassTileFeatures(elements) {
     for (const e of elements) {
         if (e.type === 'node' && Number.isFinite(e.lat) && Number.isFinite(e.lon)) {
             const isWind = e.tags && e.tags['generator:source'] === 'wind';
-            const isPowerTower = e.tags && String(e.tags.power || '').toLowerCase() === 'tower';
-            const hRaw = (e.tags && e.tags.height) ? String(e.tags.height).replace(',', '.') : (isWind ? '120' : '50');
+            const powerTag = e.tags ? String(e.tags.power || '').toLowerCase() : '';
+            const isPowerTower = (powerTag === 'tower' || powerTag === 'pole');
+            const hRaw = (e.tags && e.tags.height) ? String(e.tags.height).replace(',', '.') : (isWind ? '120' : (isPowerTower ? '25' : '50'));
             const hMeter = parseFloat(hRaw);
-            if (!Number.isFinite(hMeter) || hMeter < 30) continue;
+            const minHeightM = isPowerTower ? 18 : 30;
+            if (!Number.isFinite(hMeter) || hMeter < minHeightM) continue;
             obs.push({
                 type: isWind ? 'wind' : (isPowerTower ? 'power_tower' : 'mast'),
                 hFt: Math.round(hMeter * 3.28084),
@@ -1297,7 +1302,7 @@ async function vpFetchOverpassTile(tileKey, signal, tileIndex = 0) {
     if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
     if (window.vpSetObsTileLoading) window.vpSetObsTileLoading(tileKey, true);
     const bbox = `${b.south.toFixed(4)},${b.west.toFixed(4)},${b.north.toFixed(4)},${b.east.toFixed(4)}`;
-    const query = `[out:json][timeout:45][bbox:${bbox}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];node["power"="tower"];way["highway"~"motorway|motorway_link|trunk|trunk_link|primary|primary_link"];way["waterway"~"river|canal"];way["power"~"line|minor_line|cable"];);out geom qt;`;
+    const query = `[out:json][timeout:45][bbox:${bbox}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];node["power"~"tower|pole"];way["highway"~"motorway|motorway_link|trunk|trunk_link|primary|primary_link"];way["waterway"~"river|canal"];way["power"~"line|minor_line|cable"];);out geom qt;`;
 
     let retries = 1;
     let attempt = 0;
@@ -1728,6 +1733,8 @@ function triggerVerticalProfileUpdate() {
 
             const fetchOverpass = async () => {
                 if (!vpShowObstacles && !vpShowLinear) return;
+                const needsObsNow = !!vpShowObstacles;
+                const needsLinNow = !!vpShowLinear;
 
                 const now = Date.now();
                 const tileProbe = vpGetRouteTileCoverageProbe(vpElevationData);
@@ -1738,7 +1745,7 @@ function triggerVerticalProfileUpdate() {
                         const combo = JSON.parse(comboRaw);
                         const obs = Array.isArray(combo && combo.obs) ? combo.obs : [];
                         const lin = Array.isArray(combo && combo.lin) ? combo.lin : [];
-                        hasRouteComboCache = (obs.length > 0 || lin.length > 0);
+                        hasRouteComboCache = (!needsObsNow || obs.length > 0) && (!needsLinNow || lin.length > 0);
                     }
                 } catch (_) { }
                 const lastSuccessAt = Number((window.vpOverpassRouteLastSuccess && window.vpOverpassRouteLastSuccess[cacheKey]) || 0);
@@ -1752,7 +1759,9 @@ function triggerVerticalProfileUpdate() {
                     if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred('__RESET__', false);
                     const seeded = vpProjectObsPoolToRoute(vpElevationData);
                     vpLogRouteFeatureStats('tile-cache-hit', cacheKey, seeded.obs || [], seeded.lin || []);
-                    if (hasRouteComboCache && ((seeded.obs && seeded.obs.length) || (seeded.lin && seeded.lin.length))) {
+                    const seededHasObs = !!(seeded.obs && seeded.obs.length);
+                    const seededHasLin = !!(seeded.lin && seeded.lin.length);
+                    if (hasRouteComboCache && (!needsObsNow || seededHasObs) && (!needsLinNow || seededHasLin)) {
                         vpObstacles = seeded.obs || [];
                         vpLinearFeatures = seeded.lin || [];
                         window._lastObsRouteKey = cacheKey;
@@ -1802,7 +1811,7 @@ function triggerVerticalProfileUpdate() {
                             vpLinearFeatures = cached.lin || [];
                             vpLogRouteFeatureStats('route-cache-combo', cacheKey, vpObstacles, vpLinearFeatures);
                             window._lastObsRouteKey = cacheKey; 
-                            hasUsableCache = (vpObstacles.length > 0 || vpLinearFeatures.length > 0);
+                            hasUsableCache = (!needsObsNow || vpObstacles.length > 0) && (!needsLinNow || vpLinearFeatures.length > 0);
                             vpRememberObstacleData(vpObstacles, vpLinearFeatures);
                             window.vpBgNeedsUpdate = true; // <--- FIX: Redraw nach Laden aus Cache erzwingen
                         } catch(e) { vpObstacles = []; vpLinearFeatures = []; }
@@ -3797,15 +3806,15 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             const t = String(o?.type || '').toLowerCase();
             if (!(t === 'mast' || t === 'power_tower' || t === 'tower')) continue;
             const oLat = Number(o?.lateralNM || 999);
-            if (oLat > 0.5) continue;
+            if (oLat > VP_POWERLINE_MAST_LATERAL_NM) continue;
             const oDist = Number(o?.distNM || 0);
-            if (Math.abs(oDist - fDist) <= 0.8) return true;
+            if (Math.abs(oDist - fDist) <= VP_POWERLINE_MAST_MATCH_DIST_NM) return true;
         }
         return false;
     };
     const isRouteCrossingPowerline = (feat) => {
         if (!feat || feat.type !== 'powerline') return false;
-        return Number(feat.lateralNM || 999) <= 0.15;
+        return Number(feat.lateralNM || 999) <= VP_POWERLINE_ROUTE_CROSS_NM;
     };
     if ((vpShowRoads || vpShowRivers || vpShowPowerInfra) && _linSrc.length > 0) {
         const getElevY = (dNM) => {
@@ -4049,6 +4058,28 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs 
     if (obsOverride !== null) { const _orig = vpObstacles; vpObstacles = obsOverride; const r = vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs, null); vpObstacles = _orig; return r; }
     if (!vpObstacles || vpObstacles.length === 0) return;
     const edgePad = Math.min(1.0, totalDist * 0.02);
+    const activeLin = (vpMode === 'HDG' && Array.isArray(window.vpHdgLinearFeatures) && window.vpHdgLinearFeatures.length > 0)
+        ? window.vpHdgLinearFeatures
+        : (Array.isArray(vpLinearFeatures) ? vpLinearFeatures : []);
+    const isLikelyPowerTower = (obs) => {
+        const t = String(obs?.type || '').toLowerCase();
+        if (t === 'power_tower') return true;
+        if (!(t === 'mast' || t === 'tower')) return false;
+        const oDist = Number(obs?.distNM || NaN);
+        const oLat = Number(obs?.lateralNM || 999);
+        if (!Number.isFinite(oDist)) return false;
+        for (const feat of activeLin) {
+            if (String(feat?.type || '').toLowerCase() !== 'powerline') continue;
+            const fDist = Number(feat?.distNM || NaN);
+            const fLat = Number(feat?.lateralNM || 999);
+            if (!Number.isFinite(fDist)) continue;
+            if (Math.abs(fDist - oDist) <= VP_POWERLINE_MAST_MATCH_DIST_NM &&
+                (oLat <= VP_POWERLINE_MAST_LATERAL_NM || fLat <= VP_POWERLINE_MAST_LATERAL_NM)) {
+                return true;
+            }
+        }
+        return false;
+    };
     
     const getElevY = (dNM) => {
         if (!elevData || elevData.length < 2) return yOf(0);
@@ -4121,7 +4152,7 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs 
             // aber bewusst nur 50% der visuellen Gesamtgröße.
             const visualTotalHeight = trueHeightPx + 8;
             const obsType = String(obs?.type || '').toLowerCase();
-            const isPowerTower = (obsType === 'power_tower');
+            const isPowerTower = (obsType === 'power_tower') || isLikelyPowerTower(obs);
             const mastVisualHeight = isPowerTower
                 ? Math.max(10, visualTotalHeight * 0.75)
                 : Math.max(7, visualTotalHeight * 0.5);
