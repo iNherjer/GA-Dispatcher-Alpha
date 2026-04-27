@@ -1796,7 +1796,20 @@ function triggerVerticalProfileUpdate() {
                             const comboFast = JSON.parse(comboRawFast);
                             const cObs = Array.isArray(comboFast && comboFast.obs) ? comboFast.obs : [];
                             const cLin = Array.isArray(comboFast && comboFast.lin) ? comboFast.lin : [];
-                            const comboFastUsable = (!needsObsNow || cObs.length > 0) && (!needsLinNow || cLin.length > 0);
+                            let comboSparseLin = false;
+                            if (needsLinNow && cLin.length > 0) {
+                                const routeTileCount = vpCollectRouteTileKeys(vpElevationData).size;
+                                const linTileSet = new Set(
+                                    cLin
+                                        .map(f => String(f && f.tileKey || ''))
+                                        .filter(Boolean)
+                                );
+                                comboSparseLin = routeTileCount >= 8 && linTileSet.size <= 2;
+                                if (comboSparseLin) {
+                                    console.warn(`[Overpass] Route-Combo-Cache wirkt zu dünn (${linTileSet.size}/${routeTileCount} Lin-Tiles) -> Refetch statt Fast-Cache.`);
+                                }
+                            }
+                            const comboFastUsable = (!needsObsNow || cObs.length > 0) && (!needsLinNow || cLin.length > 0) && !comboSparseLin;
                             if (comboFastUsable) {
                                 vpObstacles = cObs;
                                 vpLinearFeatures = cLin;
