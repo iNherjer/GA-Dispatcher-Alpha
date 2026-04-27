@@ -1503,7 +1503,7 @@ window.openBugReportModal = function() {
     const stEl = document.getElementById('bugReportStatus');
 
     if (msgEl && !msgEl.value.trim()) {
-        msgEl.value = 'Kurze Repro:\n1) ...\n2) ...\n3) ...\n\nErwartet:\n...\n\nPassiert:\n...';
+        msgEl.value = 'was ist passiert?';
     }
     if (stEl) stEl.textContent = '';
     ov.style.display = 'flex';
