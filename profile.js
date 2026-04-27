@@ -802,7 +802,7 @@ function vpProjectObsPoolToRoute(elevData) {
     if (!Array.isArray(elevData) || elevData.length < 2) return { obs: [], lin: [] };
     // Keep vertical profile readable: only features close to the route centerline.
     const VP_PROFILE_OBS_LATERAL_MAX_NM = 1.0;
-    const VP_PROFILE_LIN_LATERAL_MAX_NM = 1.0;
+    const VP_PROFILE_LIN_LATERAL_MAX_NM = 1.25;
 
     const obsSeed = [];
     const linSeed = [];
@@ -851,9 +851,42 @@ function vpProjectObsPoolToRoute(elevData) {
         });
     }
 
+    const compactLinSeed = (() => {
+        // Nur fast identische Nachbarn zusammenfassen:
+        // gleiche Art, nahezu gleiche Distanz/Lateral und (wenn vorhanden) gleicher Name.
+        // Wichtig: Unbenannte Flüsse nicht global "wegfalten".
+        const out = [];
+        const sorted = linSeed.slice().sort((a, b) => Number(a.distNM || 0) - Number(b.distNM || 0));
+        for (const cur of sorted) {
+            if (!out.length) { out.push(cur); continue; }
+            const prev = out[out.length - 1];
+            const sameType = String(prev.type || '') === String(cur.type || '');
+            if (!sameType) { out.push(cur); continue; }
+
+            const pName = String(prev.name || '').trim().toLowerCase();
+            const cName = String(cur.name || '').trim().toLowerCase();
+            const bothNamed = !!pName && !!cName;
+            const sameName = bothNamed && pName === cName;
+            const sameTile = String(prev.tileKey || '') === String(cur.tileKey || '') && !!String(cur.tileKey || '');
+            const dDist = Math.abs(Number(prev.distNM || 0) - Number(cur.distNM || 0));
+            const dLat = Math.abs(Number(prev.lateralNM || 0) - Number(cur.lateralNM || 0));
+
+            if (bothNamed) {
+                if (sameName && dDist <= 0.35) continue;
+                out.push(cur);
+                continue;
+            }
+
+            // Unbenannte Features nur innerhalb desselben Tiles und sehr engem Fenster deduplizieren.
+            if (sameTile && dDist <= 0.12 && dLat <= 0.08) continue;
+            out.push(cur);
+        }
+        return out;
+    })();
+
     return {
         obs: deduplicateFeatures(obsSeed),
-        lin: linSeed.sort((a, b) => a.distNM - b.distNM).filter((f, idx, arr) => idx === 0 || arr[idx - 1].name !== f.name || Math.abs(arr[idx - 1].distNM - f.distNM) > 1.0)
+        lin: compactLinSeed
     };
 }
 
