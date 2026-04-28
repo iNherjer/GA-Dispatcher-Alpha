@@ -49,6 +49,23 @@ function changeThemeFromSlider(val) {
     else if (v === 2) setTheme('navcom');
 }
 
+function setSettingsPanelOpen(open, persist = true) {
+    const shell = document.querySelector('.settings-shell');
+    const panel = document.getElementById('settingsPanel');
+    const btn = document.getElementById('settingsToggleBtn');
+    const chevron = document.getElementById('settingsToggleChevron');
+    if (!shell || !panel) return;
+    shell.classList.toggle('is-open', !!open);
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (chevron) chevron.innerText = '▾';
+    if (persist) localStorage.setItem('ga_settings_open', open ? 'true' : 'false');
+}
+
+function toggleSettingsPanel() {
+    const shell = document.querySelector('.settings-shell');
+    setSettingsPanelOpen(!(shell && shell.classList.contains('is-open')));
+}
+
 function setTheme(mode) {
     const wasNavcom = document.body.classList.contains('theme-navcom');
     document.body.classList.remove('theme-retro', 'theme-navcom');
@@ -1183,6 +1200,7 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
 window.onload = () => {
     const savedTheme = localStorage.getItem('ga_theme') || 'classic';
     setTheme(savedTheme);
+    setSettingsPanelOpen(localStorage.getItem('ga_settings_open') === 'true', false);
     applySavedPanelTheme();
     setTimeout(() => { loadGlobalAirports(); }, 2000);
 
