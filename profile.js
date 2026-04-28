@@ -65,6 +65,7 @@ let vpObstacles = [];
 let vpLinearFeatures = [];
 const VP_LINEAR_ROUTE_CROSS_NM = 0.35;
 const VP_PROFILE_OBS_LATERAL_MAX_NM = 0.5;
+const VP_PROFILE_WIND_LATERAL_MAX_NM = 0.8;
 const VP_PROFILE_LIN_LATERAL_MAX_NM = 0.6;
 // Linear icon style in vertical profile:
 // - 'r2f1'  => new road/river style (R2/F1)
@@ -259,14 +260,14 @@ async function updateGpsCities(lat, lon) {
 window.updateGpsCities = updateGpsCities;
 
 
-// Helfer zum Entdoppeln von Hindernissen (nimmt das höchste in einem 0.5 NM Fenster)
+// Helfer zum Entdoppeln von Hindernissen (nimmt das höchste in einem engen Fenster)
 function deduplicateFeatures(features) {
     const buckets = {};
     for (const f of (Array.isArray(features) ? features : [])) {
         if (!f || !Number.isFinite(Number(f.distNM))) continue;
         const t = String(f.type || '').toLowerCase();
         const typeGroup = (t === 'wind') ? 'wind' : ((t === 'power_tower') ? 'power_tower' : 'mast');
-        const bIdx = Math.floor(Number(f.distNM) / 0.5);
+        const bIdx = Math.floor(Number(f.distNM) / 0.35);
         const key = `${typeGroup}|${bIdx}`;
         if (!buckets[key]) buckets[key] = [];
         buckets[key].push(f);
@@ -895,7 +896,9 @@ function vpProjectObsPoolToRoute(elevData) {
 
     for (const item of vpObsPool.obs.values()) {
         const { bestPt, bestD } = nearestOnRoute(item.lat, item.lon);
-        if (bestD > VP_PROFILE_OBS_LATERAL_MAX_NM) continue;
+        const obsType = String(item?.type || '').toLowerCase();
+        const obsLateralMax = (obsType === 'wind') ? VP_PROFILE_WIND_LATERAL_MAX_NM : VP_PROFILE_OBS_LATERAL_MAX_NM;
+        if (bestD > obsLateralMax) continue;
         const tileKey = String(item.tileKey || vpObsTileKey(item.lat, item.lon) || '');
         obsSeed.push({
             type: item.type || 'mast',
@@ -1013,7 +1016,7 @@ function vpEstimateLinearDisplayStats(linArr, _obsArr) {
         while (i < inArr.length) {
             const base = inArr[i];
             const type = String(base.type || '');
-            const thr = (type === 'river') ? 1.0 : (type === 'highway' ? 0.5 : 0.45);
+            const thr = (type === 'river') ? 0.8 : (type === 'highway' ? 0.35 : 0.3);
             let sumDist = Number(base.distNM || 0);
             let sumLat = Number(base.lat || 0);
             let sumLon = Number(base.lon || 0);
@@ -3901,7 +3904,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             const base = src[i];
             const type = String(base.type || '');
             const lineKind = String(base.lineKind || '');
-            const thr = (type === 'river') ? 1.0 : (type === 'highway' ? 0.5 : 0.45);
+            const thr = (type === 'river') ? 0.8 : (type === 'highway' ? 0.35 : 0.3);
             let sumDist = Number(base.distNM || 0);
             let sumLat = Number(base.lat || 0);
             let sumLon = Number(base.lon || 0);
@@ -3974,7 +3977,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
                 const py = getElevY(d);
                 const lt = String(lm?.type || '').toLowerCase();
                 const prio = (lt === 'apt') ? 120 : ((lt === 'city') ? 110 : 102);
-                reserveBox(px - 18, px + 18, py - 22, py + 22, prio);
+                reserveBox(px - 12, px + 12, py - 16, py + 14, prio);
             }
         }
         if (Array.isArray(vpObstacles) && vpObstacles.length > 0) {
@@ -3990,7 +3993,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
                 if (t === 'wind') prio = 100;
                 else if (t === 'power_tower') prio = 84;
                 else if (h >= 700) prio = 96;
-                reserveBox(px - 12, px + 12, py - 26, py + 16, prio);
+                reserveBox(px - 8, px + 8, py - 18, py + 10, prio);
             }
         }
 
@@ -4008,8 +4011,8 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             const py = getElevY(Number(feat?.distNM || 0));
             if (px < viewMinX - 50 || px > viewMaxX + 50) continue;
 
-            const boxHalfW = (type === 'river') ? 8 : (type === 'highway' ? 7 : 9);
-            const boxHalfH = (type === 'river') ? 6 : (type === 'highway' ? 6 : 8);
+            const boxHalfW = (type === 'river') ? 6 : (type === 'highway' ? 5 : 7);
+            const boxHalfH = (type === 'river') ? 5 : (type === 'highway' ? 4 : 6);
             const box = { l: px - boxHalfW, r: px + boxHalfW, t: py - boxHalfH, b: py + boxHalfH };
 
             if (collidesWithHigher(box, prio)) continue;
@@ -4530,7 +4533,7 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs 
     // 2. Labels abhängig vom Zoom/Pixelabstand clustern
     rawLabels.sort((a, b) => a.x - b.x);
     let clusters = [];
-    const MIN_LABEL_DIST = 22; 
+    const MIN_LABEL_DIST = 16; 
 
     for (const lbl of rawLabels) {
         if (clusters.length === 0) {
@@ -4569,7 +4572,7 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs 
         
         if (window.vpLandmarkOccupiedX) {
             for (const occ of window.vpLandmarkOccupiedX) {
-                if (minX < occ.maxX + 4 && maxX > occ.minX - 4) {
+                if (minX < occ.maxX + 2 && maxX > occ.minX - 2) {
                     collision = true; break;
                 }
             }
