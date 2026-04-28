@@ -428,11 +428,6 @@ input[type=range]::-webkit-slider-thumb {
     background: #33cc33;
 }
 
-body:not(.theme-retro) #boxRoute,
-body.theme-navcom #boxRoute {
-    display: none;
-}
-
 .logbook {
     margin-top: 25px;
     border-top: 2px solid #333;
@@ -849,6 +844,7 @@ body.theme-retro .briefing {
 }
 
 body.theme-retro .flightplan-container {
+    display: none !important;
     position: relative;
     z-index: 1;
 }
