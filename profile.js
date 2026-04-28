@@ -63,7 +63,14 @@ let vpDescentRate = 500; // ft/min descent rate (configurable)
 let vpLandmarks = [];
 let vpObstacles = [];
 let vpLinearFeatures = [];
-const VP_POWERLINE_ROUTE_CROSS_NM = 0.35;
+const VP_LINEAR_ROUTE_CROSS_NM = 0.35;
+const VP_PROFILE_OBS_LATERAL_MAX_NM = 0.5;
+const VP_PROFILE_LIN_LATERAL_MAX_NM = 0.6;
+// Linear icon style in vertical profile:
+// - 'r2f1'  => new road/river style (R2/F1)
+// - 'legacy' => previous symbols for quick rollback
+const VP_PROFILE_LINEAR_ICON_STYLE = 'r2f1';
+const VP_DECLUTTER_COLLISION_PAD_PX = 0;
 const VP_POWERLINE_MAST_LATERAL_NM = 0.8;
 const VP_POWERLINE_MAST_MATCH_DIST_NM = 1.4;
 window.vpElevationFallbackActive = false;
@@ -134,6 +141,37 @@ const vpObsPool = {
     obs: new Map(),
     lin: new Map()
 };
+
+function vpInferRoadKindFromText(ref, name, highwayTag = '') {
+    const txt = `${String(ref || '')} ${String(name || '')}`.toUpperCase();
+    const hw = String(highwayTag || '').toLowerCase();
+    if (/\bA\s*\d+\b/.test(txt) || hw === 'motorway' || hw === 'motorway_link') return 'motorway';
+    if (/\bB\s*\d+\b/.test(txt) || hw === 'trunk' || hw === 'trunk_link' || hw === 'primary' || hw === 'primary_link') return 'bundesstrasse';
+    return 'road_minor';
+}
+
+function vpLinearPriority(feat) {
+    const t = String(feat?.type || '').toLowerCase();
+    const k = String(feat?.lineKind || '').toLowerCase();
+    if (t === 'highway') {
+        if (k === 'motorway') return 80;
+        if (k === 'bundesstrasse') return 68;
+        return 58;
+    }
+    if (t === 'river') return 62;
+    if (t === 'powerline') {
+        if (k === 'line') return 40;
+        if (k === 'minor_line') return 28;
+        if (k === 'cable') return 20;
+        return 34;
+    }
+    return 10;
+}
+
+function vpBoxesOverlap(a, b, pad = 0) {
+    if (!a || !b) return false;
+    return (a.l < b.r + pad && a.r > b.l - pad && a.t < b.b + pad && a.b > b.t - pad);
+}
 const vpObsTileCoverage = new Map();
 const vpObsTileFailed = new Map();
 const vpObsHostedMissCache = new Map();
@@ -223,20 +261,23 @@ window.updateGpsCities = updateGpsCities;
 
 // Helfer zum Entdoppeln von Hindernissen (nimmt das höchste in einem 0.5 NM Fenster)
 function deduplicateFeatures(features) {
-    let buckets = {};
-    features.forEach(f => {
-        let bIdx = Math.floor(f.distNM / 0.5);
-        if (!buckets[bIdx]) buckets[bIdx] = [];
-        buckets[bIdx].push(f);
-    });
-    let final = [];
-    for (let k in buckets) {
-        buckets[k].sort((a,b) => b.hFt - a.hFt);
-        let rep = buckets[k][0];
-        rep.count = buckets[k].length;
+    const buckets = {};
+    for (const f of (Array.isArray(features) ? features : [])) {
+        if (!f || !Number.isFinite(Number(f.distNM))) continue;
+        const t = String(f.type || '').toLowerCase();
+        const typeGroup = (t === 'wind') ? 'wind' : ((t === 'power_tower') ? 'power_tower' : 'mast');
+        const bIdx = Math.floor(Number(f.distNM) / 0.5);
+        const key = `${typeGroup}|${bIdx}`;
+        if (!buckets[key]) buckets[key] = [];
+        buckets[key].push(f);
+    }
+    const final = [];
+    for (const k in buckets) {
+        buckets[k].sort((a, b) => Number(b.hFt || 0) - Number(a.hFt || 0));
+        const rep = { ...buckets[k][0], count: buckets[k].length };
         final.push(rep);
     }
-    return final;
+    return final.sort((a, b) => Number(a.distNM || 0) - Number(b.distNM || 0));
 }
 
 function vpHydrateOverpassState() {
@@ -349,7 +390,8 @@ function vpLinKey(item) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
     const t = String(item.type || 'lin');
     const n = String(item.name || '').slice(0, 48);
-    return `${t}|${n}|${lat.toFixed(4)}|${lon.toFixed(4)}`;
+    const k = String(item.lineKind || '').slice(0, 24);
+    return `${t}|${k}|${n}|${lat.toFixed(4)}|${lon.toFixed(4)}`;
 }
 
 function vpTrimTimedMap(mapObj, maxEntries) {
@@ -466,6 +508,7 @@ function vpHydrateObsPool() {
                 ts: Number(item.ts || 0),
                 type: item.type || 'linear',
                 name: String(item.name || ''),
+                lineKind: String(item.lineKind || ''),
                 lat: Number(item.lat),
                 lon: Number(item.lon)
             });
@@ -595,6 +638,7 @@ function vpRememberObstacleData(obsArr, linArr, tileKey = '') {
                 ts: now,
                 type: item.type || 'linear',
                 name: String(item.name || ''),
+                lineKind: String(item.lineKind || ''),
                 lat: Number(item.lat),
                 lon: Number(item.lon),
                 tileKey: tk
@@ -833,9 +877,6 @@ function vpMarkTileKeysCovered(keys, source = 'unknown') {
 function vpProjectObsPoolToRoute(elevData) {
     vpHydrateObsPool();
     if (!Array.isArray(elevData) || elevData.length < 2) return { obs: [], lin: [] };
-    // Keep vertical profile readable: only features close to the route centerline.
-    const VP_PROFILE_OBS_LATERAL_MAX_NM = 1.0;
-    const VP_PROFILE_LIN_LATERAL_MAX_NM = 1.25;
 
     const obsSeed = [];
     const linSeed = [];
@@ -873,9 +914,14 @@ function vpProjectObsPoolToRoute(elevData) {
         const { bestPt, bestD } = nearestOnRoute(item.lat, item.lon);
         if (bestD > VP_PROFILE_LIN_LATERAL_MAX_NM) continue;
         const tileKey = String(item.tileKey || vpObsTileKey(item.lat, item.lon) || '');
+        const rawKind = String(item.lineKind || '');
+        const inferredKind = (String(item.type || '').toLowerCase() === 'highway' && !rawKind)
+            ? vpInferRoadKindFromText('', String(item.name || ''), '')
+            : rawKind;
         linSeed.push({
             type: item.type || 'linear',
             name: String(item.name || ''),
+            lineKind: inferredKind,
             distNM: bestPt.distNM,
             lateralNM: Number(bestD || 0),
             lat: Number(item.lat),
@@ -895,6 +941,8 @@ function vpProjectObsPoolToRoute(elevData) {
             const prev = out[out.length - 1];
             const sameType = String(prev.type || '') === String(cur.type || '');
             if (!sameType) { out.push(cur); continue; }
+            const sameLineKind = String(prev.lineKind || '') === String(cur.lineKind || '');
+            if (!sameLineKind) { out.push(cur); continue; }
 
             const pName = String(prev.name || '').trim().toLowerCase();
             const cName = String(cur.name || '').trim().toLowerCase();
@@ -940,9 +988,8 @@ function vpEstimateObstacleDisplayStats(obsArr) {
     return { total: src.length, displayable, byType };
 }
 
-function vpEstimateLinearDisplayStats(linArr, obsArr) {
+function vpEstimateLinearDisplayStats(linArr, _obsArr) {
     const src = Array.isArray(linArr) ? linArr : [];
-    const obs = Array.isArray(obsArr) ? obsArr : [];
     const majorRoadRx = /\b(A|B)\s?\d+\b/i;
     const isMajorRoadFeature = (feat) => {
         if (!feat || feat.type !== 'highway') return false;
@@ -966,7 +1013,7 @@ function vpEstimateLinearDisplayStats(linArr, obsArr) {
         while (i < inArr.length) {
             const base = inArr[i];
             const type = String(base.type || '');
-            const thr = (type === 'river') ? 1.5 : (type === 'highway' ? 0.7 : 0.6);
+            const thr = (type === 'river') ? 1.0 : (type === 'highway' ? 0.5 : 0.45);
             let sumDist = Number(base.distNM || 0);
             let sumLat = Number(base.lat || 0);
             let sumLon = Number(base.lon || 0);
@@ -996,20 +1043,7 @@ function vpEstimateLinearDisplayStats(linArr, obsArr) {
         }
         return out;
     };
-    const mastNearPowerline = (feat) => {
-        if (!feat || feat.type !== 'powerline') return false;
-        const fDist = Number(feat.distNM || 0);
-        for (const o of obs) {
-            const t = String(o?.type || '').toLowerCase();
-            if (!(t === 'mast' || t === 'power_tower' || t === 'tower')) continue;
-            const oLat = Number(o?.lateralNM || 999);
-            if (oLat > VP_POWERLINE_MAST_LATERAL_NM) continue;
-            const oDist = Number(o?.distNM || 0);
-            if (Math.abs(oDist - fDist) <= VP_POWERLINE_MAST_MATCH_DIST_NM) return true;
-        }
-        return false;
-    };
-    const isRouteCrossingPowerline = (feat) => Number(feat?.lateralNM || 999) <= VP_POWERLINE_ROUTE_CROSS_NM;
+    const isRouteCrossingLinear = (feat) => Number(feat?.lateralNM || 999) <= VP_LINEAR_ROUTE_CROSS_NM;
 
     let filtered = src.filter(isLinearTypeEnabled);
     filtered = filtered.filter((feat) => {
@@ -1024,7 +1058,7 @@ function vpEstimateLinearDisplayStats(linArr, obsArr) {
     const byType = { highway: 0, river: 0, powerline: 0 };
     let displayable = 0;
     for (const feat of clustered) {
-        if (feat.type === 'powerline' && !(isRouteCrossingPowerline(feat) || mastNearPowerline(feat))) continue;
+        if (!isRouteCrossingLinear(feat)) continue;
         displayable++;
         if (feat.type === 'highway') byType.highway++;
         else if (feat.type === 'river') byType.river++;
@@ -1136,7 +1170,11 @@ function vpExtractOverpassTileFeatures(elements) {
             const isPowerLine = (powerTag === 'line' || powerTag === 'minor_line' || powerTag === 'cable');
             const featType = e.tags.highway ? 'highway' : (e.tags.waterway ? 'river' : (isPowerLine ? 'powerline' : ''));
             if (!featType) continue;
+            const refTxt = String(e.tags.ref || '');
             const name = String(e.tags.name || e.tags.ref || e.tags.operator || '');
+            const roadKind = featType === 'highway'
+                ? vpInferRoadKindFromText(refTxt, name, String(e.tags.highway || ''))
+                : '';
             if (!name && featType === 'highway') continue;
             const geom = e.geometry;
             const step = Math.max(1, Math.floor(geom.length / 12));
@@ -1146,6 +1184,7 @@ function vpExtractOverpassTileFeatures(elements) {
                 lin.push({
                     type: featType,
                     name,
+                    lineKind: isPowerLine ? powerTag : roadKind,
                     lat: Number(g.lat),
                     lon: Number(g.lon)
                 });
@@ -1191,6 +1230,7 @@ function vpParseHostedObstaclePayload(payload) {
         lin.push({
             type: String(e.type || 'linear'),
             name: String(e.name || ''),
+            lineKind: String(e.lineKind || e.power || e.powerTag || ''),
             lat,
             lon
         });
@@ -3834,12 +3874,11 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
     const _linRaw = (vpMode === 'HDG' && typeof vpHdgLinearFeatures !== 'undefined' && vpHdgLinearFeatures.length > 0)
         ? vpHdgLinearFeatures
         : (typeof vpLinearFeatures !== 'undefined' ? vpLinearFeatures : []);
-    const _obsSrc = (vpMode === 'HDG' && typeof vpHdgObstacles !== 'undefined' && vpHdgObstacles.length > 0)
-        ? vpHdgObstacles
-        : (typeof vpObstacles !== 'undefined' ? vpObstacles : []);
     const majorRoadRx = /\b(A|B)\s?\d+\b/i;
     const isMajorRoadFeature = (feat) => {
         if (!feat || feat.type !== 'highway') return false;
+        const kind = String(feat.lineKind || '').toLowerCase();
+        if (kind === 'motorway' || kind === 'bundesstrasse') return true;
         const n = String(feat.name || '').trim();
         if (!n) return false;
         if (majorRoadRx.test(n)) return true; // Axx / Bxx
@@ -3861,7 +3900,8 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
         while (i < src.length) {
             const base = src[i];
             const type = String(base.type || '');
-            const thr = (type === 'river') ? 1.5 : (type === 'highway' ? 0.7 : 0.6);
+            const lineKind = String(base.lineKind || '');
+            const thr = (type === 'river') ? 1.0 : (type === 'highway' ? 0.5 : 0.45);
             let sumDist = Number(base.distNM || 0);
             let sumLat = Number(base.lat || 0);
             let sumLon = Number(base.lon || 0);
@@ -3871,6 +3911,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             while (j < src.length) {
                 const cur = src[j];
                 if (String(cur.type || '') !== type) break;
+                if (String(cur.lineKind || '') !== lineKind) break;
                 if (Math.abs(Number(cur.distNM || 0) - Number(src[j - 1].distNM || 0)) > thr) break;
                 sumDist += Number(cur.distNM || 0);
                 sumLat += Number(cur.lat || 0);
@@ -3901,23 +3942,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
         return true;
     });
     _linSrc = clusterLinearFeatures(_linSrc);
-    const mastNearPowerline = (feat) => {
-        if (!feat || feat.type !== 'powerline') return false;
-        const fDist = Number(feat.distNM || 0);
-        for (const o of _obsSrc) {
-            const t = String(o?.type || '').toLowerCase();
-            if (!(t === 'mast' || t === 'power_tower' || t === 'tower')) continue;
-            const oLat = Number(o?.lateralNM || 999);
-            if (oLat > VP_POWERLINE_MAST_LATERAL_NM) continue;
-            const oDist = Number(o?.distNM || 0);
-            if (Math.abs(oDist - fDist) <= VP_POWERLINE_MAST_MATCH_DIST_NM) return true;
-        }
-        return false;
-    };
-    const isRouteCrossingPowerline = (feat) => {
-        if (!feat || feat.type !== 'powerline') return false;
-        return Number(feat.lateralNM || 999) <= VP_POWERLINE_ROUTE_CROSS_NM;
-    };
+    _linSrc = _linSrc.filter((feat) => Number(feat?.lateralNM || 999) <= VP_LINEAR_ROUTE_CROSS_NM);
     if ((vpShowRoads || vpShowRivers || vpShowPowerInfra) && _linSrc.length > 0) {
         const getElevY = (dNM) => {
             for(let i=0; i<elevData.length-1; i++) {
@@ -3929,6 +3954,70 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             return yOf(elevData[elevData.length-1].elevFt);
         };
 
+        // Declutter mit Prioritäten (ausgezoomt dynamisch reduzieren)
+        const occupied = [];
+        const reserveBox = (l, r, t, b, prio) => occupied.push({ l, r, t, b, prio: Number(prio || 0) });
+        const collidesWithHigher = (box, prio) => {
+            for (const occ of occupied) {
+                if (occ.prio >= prio && vpBoxesOverlap(box, occ, VP_DECLUTTER_COLLISION_PAD_PX)) return true;
+            }
+            return false;
+        };
+
+        // Blocker aus höchsten Prioritäten vorbereiten: Flugplätze > Städte > Windräder/hohe Türme > Strommasten
+        if (Array.isArray(vpLandmarks) && vpLandmarks.length > 0) {
+            for (const lm of vpLandmarks) {
+                const d = Number(lm?.distNM || NaN);
+                if (!Number.isFinite(d)) continue;
+                const px = xOf(d);
+                if (px < viewMinX - 80 || px > viewMaxX + 80) continue;
+                const py = getElevY(d);
+                const lt = String(lm?.type || '').toLowerCase();
+                const prio = (lt === 'apt') ? 120 : ((lt === 'city') ? 110 : 102);
+                reserveBox(px - 18, px + 18, py - 22, py + 22, prio);
+            }
+        }
+        if (Array.isArray(vpObstacles) && vpObstacles.length > 0) {
+            for (const obs of deduplicateFeatures(vpObstacles)) {
+                const d = Number(obs?.distNM || NaN);
+                if (!Number.isFinite(d)) continue;
+                const px = xOf(d);
+                if (px < viewMinX - 80 || px > viewMaxX + 80) continue;
+                const py = getElevY(d);
+                const t = String(obs?.type || '').toLowerCase();
+                const h = Number(obs?.hFt || 0);
+                let prio = 92; // hoher Turm
+                if (t === 'wind') prio = 100;
+                else if (t === 'power_tower') prio = 84;
+                else if (h >= 700) prio = 96;
+                reserveBox(px - 12, px + 12, py - 26, py + 16, prio);
+            }
+        }
+
+        const linCandidates = _linSrc.slice().sort((a, b) => {
+            const pa = vpLinearPriority(a);
+            const pb = vpLinearPriority(b);
+            if (pb !== pa) return pb - pa;
+            return Number(a.distNM || 0) - Number(b.distNM || 0);
+        });
+        const _linRender = [];
+        for (const feat of linCandidates) {
+            const type = String(feat?.type || '').toLowerCase();
+            const prio = vpLinearPriority(feat);
+            const px = xOf(Number(feat?.distNM || 0));
+            const py = getElevY(Number(feat?.distNM || 0));
+            if (px < viewMinX - 50 || px > viewMaxX + 50) continue;
+
+            const boxHalfW = (type === 'river') ? 8 : (type === 'highway' ? 7 : 9);
+            const boxHalfH = (type === 'river') ? 6 : (type === 'highway' ? 6 : 8);
+            const box = { l: px - boxHalfW, r: px + boxHalfW, t: py - boxHalfH, b: py + boxHalfH };
+
+            if (collidesWithHigher(box, prio)) continue;
+
+            _linRender.push(feat);
+            reserveBox(box.l, box.r, box.t, box.b, prio);
+        }
+
         // PERFORMANCE FIX: Layout nur 1x pro Zoom-Stufe, maxAlt UND aktueller Route berechnen!
         const routeKey = window._lastVpRouteKey || 'none';
         // Im HDG-Modus: Cache-Key enthält Heading → wird bei Kursänderung invalidiert
@@ -3937,14 +4026,14 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             : (routeKey + '_' + zoomFactor.toFixed(2) + '_' + (maxAlt || 0).toFixed(0));
 
         // Neu berechnen, wenn sich der Cache-Key ändert ODER die Features noch keine Render-Daten haben
-        if (!window._vpLinearLayouts || window._vpLinearLayouts.key !== layoutKey || (_linSrc.length > 0 && !_linSrc[0]._render)) {
+        if (!window._vpLinearLayouts || window._vpLinearLayouts.key !== layoutKey || (_linRender.length > 0 && !_linRender[0]._render)) {
             let occupiedSigns = [];
-            for (const feat of _linSrc) {
+            for (const feat of _linRender) {
                 const px = xOf(feat.distNM);
                 const py = getElevY(feat.distNM);
                 feat._render = { px, py, drawName: false, labelY: 0, tw: 0 };
                 
-                if (feat.name && zoomFactor >= 1.2) {
+                if (feat.name && zoomFactor >= 1.2 && feat.type !== 'powerline') {
                     ctx.font = feat.type === 'river' ? 'bold 8px Arial' : 'bold 7px Arial';
                     const tw = ctx.measureText(feat.name).width;
                     feat._render.tw = tw;
@@ -3970,7 +4059,7 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
         }
 
         // NUR NOCH ZEICHNEN (mit weichem Culling)
-        for (const feat of _linSrc) {
+        for (const feat of _linRender) {
             if (!feat._render) continue;
             
             // FIX: X und Y live berechnen, damit Schilder mit der Bodenlinie wandern
@@ -3979,39 +4068,157 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
             if (px < viewMinX - 50 || px > viewMaxX + 50) continue;
             
             if (feat.type === 'river') {
-                ctx.fillStyle = '#3498db'; ctx.beginPath();
-                ctx.moveTo(px - 4, py - 1); ctx.lineTo(px - 2, py + 5); ctx.lineTo(px + 2, py + 5); ctx.lineTo(px + 4, py - 1); ctx.fill();
+                if (VP_PROFILE_LINEAR_ICON_STYLE === 'r2f1') {
+                    // F1+: Doppelwelle mit "eingeschnittenem" Unterzug fürs Terrain-Gefühl
+                    ctx.strokeStyle = 'rgba(8, 34, 68, 0.42)';
+                    ctx.lineWidth = 2.5;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(px - 7.3, py + 4.2);
+                    ctx.quadraticCurveTo(px - 5.8, py + 2.6, px - 4.4, py + 4.2);
+                    ctx.quadraticCurveTo(px - 3.0, py + 5.8, px - 1.6, py + 4.2);
+                    ctx.quadraticCurveTo(px - 0.2, py + 2.6, px + 1.2, py + 4.2);
+                    ctx.quadraticCurveTo(px + 2.6, py + 5.8, px + 4.0, py + 4.2);
+                    ctx.quadraticCurveTo(px + 5.4, py + 2.6, px + 7.1, py + 4.2);
+                    ctx.stroke();
+
+                    // Hauptwasserlauf
+                    ctx.strokeStyle = '#61b6ff';
+                    ctx.lineWidth = 1.25;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(px - 7.2, py + 0.4);
+                    ctx.quadraticCurveTo(px - 5.8, py - 1.2, px - 4.4, py + 0.4);
+                    ctx.quadraticCurveTo(px - 3.0, py + 2.0, px - 1.6, py + 0.4);
+                    ctx.quadraticCurveTo(px - 0.2, py - 1.2, px + 1.2, py + 0.4);
+                    ctx.quadraticCurveTo(px + 2.6, py + 2.0, px + 4.0, py + 0.4);
+                    ctx.quadraticCurveTo(px + 5.4, py - 1.2, px + 7.0, py + 0.4);
+                    ctx.stroke();
+
+                    ctx.strokeStyle = '#c8ebff';
+                    ctx.lineWidth = 1.0;
+                    ctx.beginPath();
+                    ctx.moveTo(px - 7.2, py + 2.8);
+                    ctx.quadraticCurveTo(px - 5.8, py + 1.3, px - 4.4, py + 2.8);
+                    ctx.quadraticCurveTo(px - 3.0, py + 4.3, px - 1.6, py + 2.8);
+                    ctx.quadraticCurveTo(px - 0.2, py + 1.3, px + 1.2, py + 2.8);
+                    ctx.quadraticCurveTo(px + 2.6, py + 4.3, px + 4.0, py + 2.8);
+                    ctx.quadraticCurveTo(px + 5.4, py + 1.3, px + 7.0, py + 2.8);
+                    ctx.stroke();
+                } else {
+                    // legacy river icon
+                    ctx.fillStyle = '#3498db';
+                    ctx.beginPath();
+                    ctx.moveTo(px - 4, py - 1);
+                    ctx.lineTo(px - 2, py + 5);
+                    ctx.lineTo(px + 2, py + 5);
+                    ctx.lineTo(px + 4, py - 1);
+                    ctx.fill();
+                }
                 if (feat._render.drawName) {
                     const labelY = py + feat._render.labelYOffset;
-                    ctx.fillStyle = '#3498db'; ctx.font = 'bold 8px Arial'; ctx.textAlign = 'center'; ctx.fillText(feat.name, px, labelY + 8);
+                    ctx.fillStyle = '#3498db';
+                    ctx.font = 'bold 8px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(feat.name, px, labelY + 8);
                 }
             } else if (feat.type === 'highway') {
-                ctx.fillStyle = '#555'; ctx.fillRect(px - 3, py - 2, 6, 4);
-                ctx.fillStyle = '#f2c12e'; ctx.fillRect(px - 1, py - 1, 2, 2);
+                if (VP_PROFILE_LINEAR_ICON_STYLE === 'r2f1') {
+                    // R2: Double-Lane hell
+                    ctx.strokeStyle = '#cfd6e5';
+                    ctx.lineWidth = 1.8;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(px - 7.2, py - 1.2);
+                    ctx.lineTo(px + 7.2, py - 1.2);
+                    ctx.stroke();
+
+                    ctx.strokeStyle = '#aeb9cf';
+                    ctx.beginPath();
+                    ctx.moveTo(px - 7.2, py + 1.8);
+                    ctx.lineTo(px + 7.2, py + 1.8);
+                    ctx.stroke();
+
+                    ctx.strokeStyle = '#fff2be';
+                    ctx.lineWidth = 0.95;
+                    ctx.beginPath();
+                    ctx.moveTo(px - 3.8, py + 0.3); ctx.lineTo(px - 2.1, py + 0.3);
+                    ctx.moveTo(px - 0.8, py + 0.3); ctx.lineTo(px + 0.9, py + 0.3);
+                    ctx.moveTo(px + 2.2, py + 0.3); ctx.lineTo(px + 3.9, py + 0.3);
+                    ctx.stroke();
+                } else {
+                    // legacy road icon
+                    ctx.fillStyle = '#555';
+                    ctx.fillRect(px - 3, py - 2, 6, 4);
+                    ctx.fillStyle = '#f2c12e';
+                    ctx.fillRect(px - 1, py - 1, 2, 2);
+                }
                 if (feat._render.drawName) {
                     const labelY = py + feat._render.labelYOffset;
-                    ctx.fillStyle = '#1a73e8'; ctx.fillRect(px - feat._render.tw/2 - 2, labelY, feat._render.tw + 4, 10);
-                    ctx.fillStyle = '#fff'; ctx.font = 'bold 7px Arial'; ctx.textAlign = 'center'; ctx.fillText(feat.name, px, labelY + 8);
+                    ctx.fillStyle = '#1a73e8';
+                    ctx.fillRect(px - feat._render.tw/2 - 2, labelY, feat._render.tw + 4, 10);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 7px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(feat.name, px, labelY + 8);
                 }
             } else if (feat.type === 'powerline') {
-                const drawPowerline = isRouteCrossingPowerline(feat) || mastNearPowerline(feat);
-                if (!drawPowerline) continue;
-                // Stylized powerline marker: two pylons + top wire segment.
-                // Deutlich größer + hellgrau für bessere Sichtbarkeit.
-                ctx.strokeStyle = 'rgba(210, 216, 224, 0.98)';
-                ctx.lineWidth = 1.4;
-                ctx.beginPath();
-                ctx.moveTo(px - 8, py + 8); ctx.lineTo(px - 8, py - 8);
-                ctx.moveTo(px + 8, py + 8); ctx.lineTo(px + 8, py - 8);
-                ctx.moveTo(px - 8, py - 8); ctx.lineTo(px + 8, py - 8);
-                ctx.stroke();
+                const lineKind = String(feat.lineKind || '').toLowerCase();
+                const isCable = lineKind === 'cable';
+                const isMajor = lineKind === 'line' || (!lineKind && VP_PROFILE_LINEAR_ICON_STYLE === 'r2f1');
 
-                ctx.strokeStyle = 'rgba(238, 241, 247, 0.95)';
-                ctx.lineWidth = 1.2;
-                ctx.beginPath();
-                ctx.moveTo(px - 12, py - 4);
-                ctx.quadraticCurveTo(px, py + 2, px + 12, py - 4);
-                ctx.stroke();
+                if (isCable) {
+                    // Kabel: eher schlank/diskret, ohne hohe Masten
+                    ctx.strokeStyle = 'rgba(198, 228, 255, 0.9)';
+                    ctx.lineWidth = 1.0;
+                    ctx.setLineDash([2.2, 1.8]);
+                    ctx.beginPath();
+                    ctx.moveTo(px - 8.2, py - 1.6);
+                    ctx.quadraticCurveTo(px, py + 1.6, px + 8.2, py - 1.6);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = 'rgba(236, 246, 255, 0.9)';
+                    ctx.beginPath();
+                    ctx.arc(px, py + 0.4, 0.9, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    // Freileitung: major/minor visuell unterscheiden
+                    const poleH = isMajor ? 8 : 6.6;
+                    const wireY = isMajor ? -4.8 : -3.8;
+                    const sagY = isMajor ? 0.8 : 0.4;
+                    const poleStroke = isMajor ? 'rgba(220, 236, 255, 0.96)' : 'rgba(190, 222, 248, 0.92)';
+                    const wireStroke = isMajor ? 'rgba(240, 248, 255, 0.96)' : 'rgba(211, 235, 255, 0.9)';
+                    const boltStroke = isMajor ? '#ffd85f' : '#bfe7ff';
+
+                    ctx.strokeStyle = poleStroke;
+                    ctx.lineWidth = isMajor ? 1.05 : 0.95;
+                    ctx.beginPath();
+                    ctx.moveTo(px - 8, py + 8); ctx.lineTo(px - 8, py - poleH);
+                    ctx.moveTo(px + 8, py + 8); ctx.lineTo(px + 8, py - poleH);
+                    ctx.stroke();
+
+                    ctx.strokeStyle = wireStroke;
+                    ctx.lineWidth = isMajor ? 1.1 : 0.95;
+                    ctx.beginPath();
+                    ctx.moveTo(px - 7.6, py + wireY);
+                    ctx.quadraticCurveTo(px, py + sagY, px + 7.6, py + wireY);
+                    if (isMajor) {
+                        ctx.moveTo(px - 7.1, py + wireY - 1.6);
+                        ctx.quadraticCurveTo(px, py + sagY - 1.6, px + 7.1, py + wireY - 1.6);
+                    }
+                    ctx.stroke();
+
+                    ctx.strokeStyle = boltStroke;
+                    ctx.lineWidth = 1;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(px + 0.5, py - 3.4);
+                    ctx.lineTo(px - 1.1, py + 0.2);
+                    ctx.lineTo(px + 1.4, py + 0.2);
+                    ctx.lineTo(px - 0.2, py + 4.1);
+                    ctx.stroke();
+                }
 
                 if (feat._render.drawName) {
                     const labelY = py + feat._render.labelYOffset;
@@ -4036,6 +4243,17 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
 function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFactor, maxAlt, lmOverride = null) {
     const _landmarks = lmOverride !== null ? lmOverride : vpLandmarks;
     if (!_landmarks || _landmarks.length === 0) return;
+    const lmPrio = (lm) => {
+        const t = String(lm?.type || '').toLowerCase();
+        if (t === 'apt') return 3;
+        if (t === 'city') return 2;
+        return 1;
+    };
+    const lmOrdered = _landmarks.slice().sort((a, b) => {
+        const dp = lmPrio(b) - lmPrio(a);
+        if (dp) return dp;
+        return Number(b?.pop || 0) - Number(a?.pop || 0);
+    });
     const getElevY = (dNM) => {
         if (!elevData || elevData.length < 2) return yOf(0);
         for(let i=0; i<elevData.length-1; i++) {
@@ -4065,7 +4283,7 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
         const edgePad = Math.min(2.5, totalDist * 0.05);
         ctx.font = `bold ${(zoomFactor >= 1.5 ? 10 : 8)}px Arial`; // Setup für measureText
 
-        for (const lm of _landmarks) {
+        for (const lm of lmOrdered) {
             lm._render = null;
             if (lm.distNM < edgePad || lm.distNM > totalDist - edgePad) continue;
             
@@ -4130,12 +4348,12 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
     ctx.textBaseline = 'top';
     
     let viewMinX = -Infinity, viewMaxX = Infinity;
-    if (ctx.canvas.id === 'mapProfileCanvasBg') {
+    if (ctx.canvas && (ctx.canvas.id === 'mapProfileCanvasBg' || ctx.canvas.id === 'mapProfileCanvas')) {
         const sc = document.getElementById('mapProfileScroll');
         if (sc) { viewMinX = sc.scrollLeft - 100; viewMaxX = sc.scrollLeft + sc.clientWidth + 100; }
     }
 
-    for (const lm of _landmarks) {
+    for (const lm of lmOrdered) {
         if (!lm._render) continue;
 
         // FIX: X und Y Pixel in Echtzeit anhand der aktuellen Skalierung berechnen
@@ -4159,6 +4377,8 @@ function vpDrawLandmarks(ctx, xOf, yOf, elevData, totalDist, isDarkTheme, zoomFa
 function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs = 0, obsOverride = null) {
     if (obsOverride !== null) { const _orig = vpObstacles; vpObstacles = obsOverride; const r = vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs, null); vpObstacles = _orig; return r; }
     if (!vpObstacles || vpObstacles.length === 0) return;
+    const obsToDraw = deduplicateFeatures(vpObstacles);
+    if (!obsToDraw.length) return;
     const edgePad = Math.min(1.0, totalDist * 0.02);
     const activeLin = (vpMode === 'HDG' && Array.isArray(window.vpHdgLinearFeatures) && window.vpHdgLinearFeatures.length > 0)
         ? window.vpHdgLinearFeatures
@@ -4210,7 +4430,7 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs 
     // 1. Alle Masten zeichnen und Label-Positionen sammeln
     let rawLabels = [];
     
-    for (const obs of vpObstacles) {
+    for (const obs of obsToDraw) {
         if (obs.distNM < edgePad || obs.distNM > totalDist - edgePad) continue;
         if (!vpShowPowerInfra && String(obs?.type || '').toLowerCase() === 'power_tower') continue;
         const px = xOf(obs.distNM);
@@ -4218,8 +4438,8 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs 
         const pyGround = getElevY(obs.distNM);
         const trueHeightPx = Math.abs(yOf(obs.hFt) - yOf(0));
         
-        // Der Mast steckt 8 Pixel tief im Boden
-        const pyRoot = pyGround + 8; 
+        // Der Mast steckt leicht im Boden (vorher tiefer), wirkt dadurch etwas höher aufgesetzt
+        const pyRoot = pyGround + 6; 
 
         if (obs.type === 'wind') {
             // FIX: Die "echte" sichtbare Länge ist die Höhe über Grund PLUS die 8px im Boden!
@@ -4261,20 +4481,36 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs 
             const pyTop = pyRoot - mastVisualHeight;
 
             if (isPowerTower) {
-                // Strommast: zweibeinige "Gitter"-Silhouette mit Querträger.
-                const halfW = Math.max(3, mastVisualHeight * 0.18);
-                const armY = pyTop + Math.max(2, mastVisualHeight * 0.22);
-                ctx.strokeStyle = 'rgba(214, 220, 228, 0.98)';
-                ctx.lineWidth = 1.4;
+                // A3: technischer Strommast (ohne Bodenstrich)
+                const halfW = Math.max(2.8, mastVisualHeight * 0.17);
+                const armYTop = pyTop + Math.max(1.6, mastVisualHeight * 0.24);
+                const armYMid = pyTop + Math.max(3.0, mastVisualHeight * 0.5);
+                const pyBase = pyRoot - 0.8; // kein sichtbarer Bodenstrich
+                ctx.strokeStyle = 'rgba(214, 228, 245, 0.98)';
+                ctx.lineWidth = 1.2;
                 ctx.beginPath();
-                ctx.moveTo(px - halfW, pyRoot); ctx.lineTo(px - 1, pyTop);
-                ctx.moveTo(px + halfW, pyRoot); ctx.lineTo(px + 1, pyTop);
-                ctx.moveTo(px - halfW * 0.9, armY); ctx.lineTo(px + halfW * 0.9, armY);
+                ctx.moveTo(px - halfW, pyBase); ctx.lineTo(px - 0.9, pyTop);
+                ctx.moveTo(px + halfW, pyBase); ctx.lineTo(px + 0.9, pyTop);
+                ctx.moveTo(px - halfW * 1.02, armYTop); ctx.lineTo(px + halfW * 1.02, armYTop);
+                ctx.moveTo(px - halfW * 0.72, armYMid); ctx.lineTo(px + halfW * 0.72, armYMid);
+                ctx.moveTo(px - halfW * 0.9, armYTop); ctx.lineTo(px - halfW * 1.22, armYTop + 1.1);
+                ctx.moveTo(px + halfW * 0.9, armYTop); ctx.lineTo(px + halfW * 1.22, armYTop + 1.1);
                 ctx.stroke();
             } else {
-                // Funk-/allg. Mast: klassische einzelne Mastsilhouette.
-                ctx.beginPath(); ctx.moveTo(px, pyRoot); ctx.lineTo(px, pyTop);
-                ctx.strokeStyle = 'rgba(80, 80, 80, 0.9)'; ctx.lineWidth = 1.5; ctx.stroke();
+                // A1: allgemeiner Turm/Mast (feines Gitter)
+                const halfW = Math.max(2.5, mastVisualHeight * 0.16);
+                const armY1 = pyTop + Math.max(1.6, mastVisualHeight * 0.26);
+                const armY2 = pyTop + Math.max(2.8, mastVisualHeight * 0.52);
+                const armY3 = pyTop + Math.max(3.8, mastVisualHeight * 0.75);
+                ctx.strokeStyle = 'rgba(220, 236, 255, 0.96)';
+                ctx.lineWidth = 1.1;
+                ctx.beginPath();
+                ctx.moveTo(px - halfW, pyRoot); ctx.lineTo(px, pyTop);
+                ctx.moveTo(px + halfW, pyRoot); ctx.lineTo(px, pyTop);
+                ctx.moveTo(px - halfW * 0.72, armY1); ctx.lineTo(px + halfW * 0.72, armY1);
+                ctx.moveTo(px - halfW * 0.55, armY2); ctx.lineTo(px + halfW * 0.55, armY2);
+                ctx.moveTo(px - halfW * 0.42, armY3); ctx.lineTo(px + halfW * 0.42, armY3);
+                ctx.stroke();
             }
 
             // ANIMATION: Blinklicht – Strommast etwas amber, sonst rot.
@@ -6291,10 +6527,8 @@ function renderMapProfileFrames(timeMs) {
         // WÄLDER UND FLÜSSE GENERIEREN
         vpDrawTerrainCover(bgCtx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFactor, maxAlt);
 
-        if (vpShowLandmarks) {
-            const lmOverride = isHdgMode ? vpHdgLandmarks : null;
-            vpDrawLandmarks(bgCtx, xOf, yOf, elevData, totalDist, true, zoomFactor, maxAlt, lmOverride);
-        }
+        // Landmarken werden im Vordergrund gezeichnet (Top-Priorität),
+        // damit Hindernisse/Linears dahinter liegen dürfen.
 
         bgCtx.textAlign = 'right';
         const altStep = maxAlt > 6000 ? 2000 : (maxAlt > 3000 ? 1000 : 500);
@@ -6543,6 +6777,11 @@ function renderMapProfileFrames(timeMs) {
             // Zentrierung: immer -252.45 (unabhaengig von Spiegelung)
             // Beweis: path-Center (252.45, 92.35) → translate(-252.45,-92.35) → (0,0) → scale → (0,0) → an liveX,liveY ✓
             fgCtx.translate(-252.45, -92.35);
+            fgCtx.strokeStyle = '#000';
+            fgCtx.lineWidth = 32;
+            fgCtx.lineJoin = 'round';
+            fgCtx.lineCap = 'round';
+            fgCtx.stroke(sideViewPath);
             fgCtx.fill(sideViewPath);
             
             fgCtx.restore();
@@ -6681,6 +6920,12 @@ function renderMapProfileFrames(timeMs) {
             fgCtx.stroke();
             fgCtx.restore();
         }
+    }
+
+    // Top-Priorität: Landmarken (Apt/City) bewusst über dem Hindernis-Layer
+    if (vpShowLandmarks) {
+        const lmOverride = isHdgMode ? vpHdgLandmarks : null;
+        vpDrawLandmarks(fgCtx, xOf, yOf, elevData, totalDist, true, zoomFactor, maxAlt, lmOverride);
     }
 
     fgCtx.restore();
