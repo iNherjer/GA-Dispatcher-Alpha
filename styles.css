@@ -1574,6 +1574,7 @@ body.theme-retro .retro-switch-container:active .retro-switch {
    ========================================================================== */
 .settings-shell {
     margin-top: 25px;
+    margin-bottom: 36px;
 }
 
 .settings-toggle-btn {
@@ -4418,6 +4419,16 @@ body.theme-navcom .btn-menu:active {
 }
 .telemetry-box.tele-hint-off {
     display: none !important;
+}
+
+.leaflet-control-layers,
+.leaflet-control-layers-expanded {
+    z-index: 100220 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+    z-index: 100220 !important;
 }
 .next-leg-nav-btn {
     border: 1px solid rgba(255,255,255,0.22);
