@@ -2658,7 +2658,8 @@ const POI_TILE_STEP_LON = POI_TILE_EDGE_NM / 60;
 const POI_TILE_FETCH_PARALLEL = 4;
 const POI_TILE_MAX_KEYS = 36;
 const POI_TILE_CACHE_TTL_MS = 30 * 60 * 1000;
-const POI_TILE_WORKER_ENABLED = localStorage.getItem('ga_poi_worker_split_enabled') === 'true';
+// Default ON: split-worker als Standardquelle nutzen, außer explizit deaktiviert.
+const POI_TILE_WORKER_ENABLED = localStorage.getItem('ga_poi_worker_split_enabled') !== 'false';
 const POI_TILE_POI_ENDPOINTS = [
     './obstacles/poi-tiles/{latI}/{lonI}.json',
     './obstacles/poi-tiles/{latI}/{lonI}.json.gz'
@@ -2950,6 +2951,24 @@ function _poiParseTilePayload(payload) {
     return out;
 }
 
+async function _poiReadTilePayload(url, res) {
+    const isGz = String(url || '').toLowerCase().endsWith('.gz');
+    if (!isGz) return await res.json();
+
+    // Manche Hosts liefern *.json.gz ohne Content-Encoding-Header.
+    // In dem Fall den Body explizit entpacken.
+    const enc = String(res.headers.get('content-encoding') || '').toLowerCase();
+    if (enc.includes('gzip')) return await res.json();
+
+    if (typeof DecompressionStream !== 'undefined' && res.body) {
+        const ds = new DecompressionStream('gzip');
+        return await new Response(res.body.pipeThrough(ds)).json();
+    }
+
+    // Fallback (falls Browser kein DecompressionStream hat): normal versuchen.
+    return await res.json();
+}
+
 function _poiFeatureMatchesCategory(feature, category) {
     const cat = String(category || '').toLowerCase();
     if (!cat || cat === 'all') return true;
@@ -3212,7 +3231,7 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
             dbg.requests = Number(dbg.requests || 0) + 1;
             const res = await fetch(url);
             if (!res.ok) continue;
-            const payload = await res.json();
+            const payload = await _poiReadTilePayload(url, res);
             let features = _poiParseTilePayload(payload);
             if (features.length) {
                 const fetchSource = String((payload && payload.sourceKind) || '').toLowerCase() === 'legacy'
@@ -3255,7 +3274,7 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
                 dbg.requests = Number(dbg.requests || 0) + 1;
                 const res = await fetch(url);
                 if (!res.ok) continue;
-                const payload = await res.json();
+                const payload = await _poiReadTilePayload(url, res);
                 let features = _poiParseTilePayload(payload);
                 if (features.length) {
                     const fetchSource = endpoint.includes('{latI}') ? 'local-core-split' : 'worker-core-split';
@@ -3309,7 +3328,7 @@ async function _poiFetchTileFeatures(tileKey, options = null) {
             dbg.requests = Number(dbg.requests || 0) + 1;
             const res = await fetch(u.toString());
             if (!res.ok) continue;
-            const payload = await res.json();
+            const payload = await _poiReadTilePayload(u.toString(), res);
             const features = _poiParseTilePayload(payload);
             _poiTileMemCache.set(cacheKey, { ts: now, features, source: 'worker-legacy-fallback' });
             if (features.length) {
@@ -3351,7 +3370,11 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const sarCorridorMode = profileId === 'search_and_rescue' && (!forceCat || forceCat === 'all');
     if (forceCat === 'trn') return null;
     const includeCore = _shouldIncludeCoreForPoiSearch(forceCat, dispatchProfileId);
-    const allowLegacyFallback = !forceCat || forceCat === 'all';
+    const allowLegacyFallback =
+        !forceCat ||
+        forceCat === 'all' ||
+        forceCat === 'telecom' ||
+        forceCat === 'infrastructure';
     const dbgStart = { ..._poiDebugState() };
     const anchor = (searchAnchor && Number.isFinite(Number(searchAnchor.lat)) && Number.isFinite(Number(searchAnchor.lon)))
         ? {
