@@ -320,6 +320,30 @@ input[type=range]::-webkit-slider-thumb {
     word-wrap: break-word;
 }
 
+.briefing,
+.briefing * {
+    min-width: 0;
+}
+
+.briefing #mTitle,
+.briefing .story,
+.briefing .note-manifest,
+.briefing .note-manifest div,
+.briefing .note-manifest span,
+.briefing .box-title,
+.briefing .copy-box,
+.briefing .rwy-info,
+.briefing .wiki-title,
+.briefing .wiki-info-note,
+.briefing #wikiDepNameDisplay,
+.briefing #wikiDestNameDisplay,
+.briefing #mDepName,
+.briefing #mDestName {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
 .aero-info-box {
     background: #1e252b;
     padding: 14px 12px;
@@ -333,6 +357,8 @@ input[type=range]::-webkit-slider-thumb {
     font-weight: bold;
     text-transform: uppercase;
     font-size: 15px;
+    display: block;
+    min-width: 0;
 }
 
 .copy-box {
@@ -1430,6 +1456,7 @@ body.theme-retro .wiki-info-note {
     font-size: 16px;
     font-weight: bold;
     color: #fff;
+    display: inline;
 }
 
 body.theme-retro .note-manifest {
