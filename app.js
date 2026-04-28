@@ -1458,6 +1458,15 @@ async function restoreMissionState(state) {
 function resetApp() {
     if (!confirm("Möchtest du das aktuelle Briefing wirklich verwerfen und alles auf Anfang setzen?")) return;
     _abortDispatchRun('Clear');
+    if (window.meterInterval) {
+        clearInterval(window.meterInterval);
+        window.meterInterval = null;
+    }
+    const needle = document.getElementById('meterNeedle');
+    if (needle) needle.style.transform = 'translateX(-50%) rotate(-45deg)';
+    const led = document.getElementById('meterLed');
+    if (led) led.classList.remove('led-green', 'led-blue', 'led-red', 'led-flash3');
+    document.querySelectorAll('.marker-light').forEach(l => l.classList.remove('blinking', 'on'));
     localStorage.removeItem('ga_active_mission'); document.getElementById("briefingBox").style.display = "none";
     currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null;
     window.activeMissionContract = null;

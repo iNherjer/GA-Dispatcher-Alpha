@@ -29,6 +29,12 @@ let lastTrailPoint = null;
 let isAutoFollow = true;
 let lastGpsTickDetails = null;
 let lastTelemetryUpdateAt = 0;
+const PLANE_ICON_COLOR_KEY = 'ga_plane_color';
+const PLANE_ICON_SIZE_KEY = 'ga_plane_size';
+const PLANE_ICON_DEFAULT_COLOR = '#f2c12e';
+const PLANE_ICON_DEFAULT_SIZE = 40;
+const PLANE_ICON_MIN_SIZE = 20;
+const PLANE_ICON_MAX_SIZE = 100;
 
 // --- PREDICTION VECTORS ---
 let predictionLine = null;
@@ -179,6 +185,74 @@ function isMapHintOn(key, fallback = true) {
 function isLowFpsModeActive() {
     if (typeof window.isMapHintEnabled === 'function') return window.isMapHintEnabled('lowFps');
     return localStorage.getItem('ga_map_hint_lowFps') === 'true';
+}
+
+function normalizePlaneIconColor(value) {
+    const v = String(value || '').trim();
+    return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v) ? v : null;
+}
+
+function normalizePlaneIconSize(value) {
+    const n = parseInt(value, 10);
+    if (!Number.isFinite(n)) return null;
+    return Math.min(PLANE_ICON_MAX_SIZE, Math.max(PLANE_ICON_MIN_SIZE, n));
+}
+
+function getCurrentPlaneIconDefaults() {
+    const rootStyle = getComputedStyle(document.documentElement);
+    const colorCss = normalizePlaneIconColor(rootStyle.getPropertyValue('--plane-color').trim());
+    const sizeCss = normalizePlaneIconSize(rootStyle.getPropertyValue('--plane-size'));
+    return {
+        color: colorCss || PLANE_ICON_DEFAULT_COLOR,
+        size: sizeCss || PLANE_ICON_DEFAULT_SIZE
+    };
+}
+
+function applyPlaneIconSettings({ color, size, persist = false } = {}) {
+    const defaults = getCurrentPlaneIconDefaults();
+    const nextColor = normalizePlaneIconColor(color) || defaults.color;
+    const nextSize = normalizePlaneIconSize(size) || defaults.size;
+    document.documentElement.style.setProperty('--plane-color', nextColor);
+    document.documentElement.style.setProperty('--plane-size', `${nextSize}px`);
+    if (persist) {
+        localStorage.setItem(PLANE_ICON_COLOR_KEY, nextColor);
+        localStorage.setItem(PLANE_ICON_SIZE_KEY, String(nextSize));
+    }
+
+    const colorPicker = document.getElementById('vpPlaneColorPicker');
+    if (colorPicker && colorPicker.value !== nextColor) colorPicker.value = nextColor;
+
+    const sizeSlider = document.getElementById('vpPlaneSizeSlider');
+    if (sizeSlider) sizeSlider.value = String(nextSize);
+
+    const sizeLabel = document.getElementById('vpPlaneSizeValue');
+    if (sizeLabel) sizeLabel.textContent = `${nextSize} px`;
+}
+
+function initPlaneIconSettingsUi() {
+    const defaults = getCurrentPlaneIconDefaults();
+    const storedColor = normalizePlaneIconColor(localStorage.getItem(PLANE_ICON_COLOR_KEY));
+    const storedSize = normalizePlaneIconSize(localStorage.getItem(PLANE_ICON_SIZE_KEY));
+    applyPlaneIconSettings({
+        color: storedColor || defaults.color,
+        size: storedSize || defaults.size
+    });
+
+    const colorPicker = document.getElementById('vpPlaneColorPicker');
+    if (colorPicker && !colorPicker.dataset.boundPlaneIcon) {
+        colorPicker.dataset.boundPlaneIcon = '1';
+        colorPicker.addEventListener('input', (e) => {
+            applyPlaneIconSettings({ color: e.target.value, persist: true });
+        });
+    }
+
+    const sizeSlider = document.getElementById('vpPlaneSizeSlider');
+    if (sizeSlider && !sizeSlider.dataset.boundPlaneIcon) {
+        sizeSlider.dataset.boundPlaneIcon = '1';
+        sizeSlider.addEventListener('input', (e) => {
+            applyPlaneIconSettings({ size: e.target.value, persist: true });
+        });
+    }
 }
 
 window.clearLiveToWpLine = function() {
@@ -1806,31 +1880,16 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         liveGpsMarker = L.marker([lat, lon], {
             icon: planeIcon,
             zIndexOffset: 9999,
-            interactive: !(typeof measureMode !== 'undefined' && measureMode)
+            interactive: false
         }).addTo(map);
         // Initiale Rotation setzen
         const svgEl = liveGpsMarker.getElement()?.querySelector('svg');
         if (svgEl) svgEl.style.transform = `rotate(${hdg}deg)`;
         if (typeof window.updateLivePlanePerformanceMode === 'function') window.updateLivePlanePerformanceMode(lowFpsMode);
         const planeEl = liveGpsMarker.getElement();
-        if (planeEl) planeEl.style.pointerEvents = (typeof measureMode !== 'undefined' && measureMode) ? 'none' : 'auto';
+        if (planeEl) planeEl.style.pointerEvents = 'none';
 
         map.on('dragstart', () => { if (isAutoFollow) toggleAutoFollow(); });
-
-        const popupDiv = document.createElement('div');
-        popupDiv.style.minWidth = '120px';
-        popupDiv.innerHTML = `
-            <div style="font-weight:bold; margin-bottom:8px; color:#333;">Plane Settings</div>
-            <label style="font-size:10px; color:#666; margin-bottom:2px;">COLOR</label>
-            <input type="color" id="planeColorPicker" value="${getComputedStyle(document.documentElement).getPropertyValue('--plane-color').trim() || '#E63946'}" style="width:100%; height:30px; border:1px solid #ccc; background:none; cursor:pointer; margin-bottom:8px;">
-            <label style="font-size:10px; color:#666; margin-bottom:2px;">SIZE</label>
-            <input type="range" id="planeSizeSlider" min="20" max="100" value="${parseInt(getComputedStyle(document.documentElement).getPropertyValue('--plane-size')) || 40}" style="width:100%; cursor:pointer;">
-        `;
-        liveGpsMarker.bindPopup(popupDiv);
-        liveGpsMarker.on('popupopen', () => {
-            document.getElementById('planeColorPicker')?.addEventListener('input', (e) => document.documentElement.style.setProperty('--plane-color', e.target.value));
-            document.getElementById('planeSizeSlider')?.addEventListener('input', (e) => document.documentElement.style.setProperty('--plane-size', e.target.value + 'px'));
-        });
     } else {
         liveGpsMarker.setLatLng([lat, lon]);
         // Im Low-FPS-Mode die Heading-Rotation leicht drosseln, um Repaint-Spitzen zu vermeiden.
@@ -1841,7 +1900,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         }
         if (typeof window.updateLivePlanePerformanceMode === 'function') window.updateLivePlanePerformanceMode(lowFpsMode);
         const planeEl = liveGpsMarker.getElement();
-        if (planeEl) planeEl.style.pointerEvents = (typeof measureMode !== 'undefined' && measureMode) ? 'none' : 'auto';
+        if (planeEl) planeEl.style.pointerEvents = 'none';
     }
 
     // --- ICON B: HÖHENPROFIL ---
@@ -2464,6 +2523,7 @@ window.hideLivePlane = function () {
 // Auto-Start & Login on app load
 document.addEventListener('DOMContentLoaded', () => {
     _updateMissionRuntimeUi();
+    initPlaneIconSettingsUi();
     // Felder aus dem bestätigten Speicher vorbefüllen
     const savedId = localStorage.getItem('ga_saved_id') || localStorage.getItem('ga_sync_id');
     const savedPin = localStorage.getItem('ga_saved_pin') || localStorage.getItem('ga_sync_pin');

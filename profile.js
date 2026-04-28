@@ -6514,7 +6514,7 @@ function renderMapProfileFrames(timeMs) {
             
             // CSS Variablen auslesen
             const rootStyle = getComputedStyle(document.documentElement);
-            const planeColor = rootStyle.getPropertyValue('--plane-color').trim() || '#E63946';
+            const planeColor = rootStyle.getPropertyValue('--plane-color').trim() || '#f2c12e';
             const planeSizePx = parseInt(rootStyle.getPropertyValue('--plane-size')) || 40;
 
             fgCtx.save();
