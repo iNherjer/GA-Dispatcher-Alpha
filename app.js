@@ -6682,15 +6682,27 @@ async function generateMission() {
 
     if (!dest && !targetDest && effectiveType === "poi" && selectedPoiCategory !== 'trn' && typeof fallbackPOIs !== 'undefined') {
         dataSource = "Fallback POIs";
-        let validPOIs = fallbackPOIs.filter(p => checkBearing(calcNav(start.lat, start.lon, p.lat, p.lon).brng, dirPref));
+        const fallbackWithNav = fallbackPOIs
+            .map(p => {
+                const nav = calcNav(start.lat, start.lon, p.lat, p.lon);
+                return { ...p, _distNm: Number(nav?.dist || 0), _brng: Number(nav?.brng || 0) };
+            })
+            .filter(p =>
+                Number.isFinite(p._distNm) &&
+                p._distNm >= searchMin &&
+                p._distNm <= searchMax &&
+                checkBearing(p._brng, dirPref)
+            );
+        let validPOIs = fallbackWithNav.slice();
         if (selectedPoiCategory !== 'all') {
             validPOIs = validPOIs.filter(p => poiTitleMatchesCategory(p.n, selectedPoiCategory));
         }
         if (validPOIs.length === 0 && selectedPoiCategory !== 'all') {
-            validPOIs = fallbackPOIs.filter(p => poiTitleMatchesCategory(p.n, selectedPoiCategory));
+            // Nicht auf globale Fernziele aufweichen: Kategorie-Fallback bleibt im Ring.
+            validPOIs = fallbackWithNav.filter(p => poiTitleMatchesCategory(p.n, selectedPoiCategory));
         }
         // Bei expliziter Kategorie (z.B. water) nicht auf Fremdkategorien aufweichen.
-        if (validPOIs.length === 0 && selectedPoiCategory === 'all') validPOIs = fallbackPOIs;
+        if (validPOIs.length === 0 && selectedPoiCategory === 'all') validPOIs = fallbackWithNav;
         if (validPOIs.length === 0 && selectedPoiCategory !== 'all') {
             dest = null;
         } else {
