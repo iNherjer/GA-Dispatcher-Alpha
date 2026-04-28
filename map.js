@@ -369,6 +369,12 @@ window.toggleMapHintsMenu = function(force) {
     const nextOpen = typeof force === 'boolean' ? force : !isOpen;
     menu.style.display = nextOpen ? 'block' : 'none';
     if (nextOpen) refreshMapHintMenuUi();
+    if (!nextOpen) {
+        const planeMenu = document.getElementById('vpPlaneIconMenu');
+        if (planeMenu) planeMenu.style.display = 'none';
+        const planeBtn = document.getElementById('btnTogglePlaneIconMenu');
+        if (planeBtn) planeBtn.classList.remove('active');
+    }
 };
 
 function escapePopupText(v) {
