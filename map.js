@@ -1731,6 +1731,10 @@ function getTasForRouteEstimate() {
     return parseInt(document.getElementById('tasSlider')?.value || 160, 10) || 160;
 }
 
+function getDirectToPrivateStoryText() {
+    return 'Direct-To Modus aktiv: Story-Briefing ausgesetzt.';
+}
+
 function renderGpsStartBriefing(destAirport, startPoint) {
     const nav = calcNav(startPoint.lat, startPoint.lng, destAirport.lat, destAirport.lon);
     const tas = getTasForRouteEstimate();
@@ -1739,8 +1743,8 @@ function renderGpsStartBriefing(destAirport, startPoint) {
     const destLinks = document.getElementById('wikiDestLinks');
     const destSwitchRow = document.getElementById('destSwitchRow');
 
-    document.getElementById('mTitle').innerHTML = '🧭 Direct To';
-    document.getElementById('mStory').innerText = `Direktflug per Karte zu ${destAirport.icao}${destAirport.name ? ' – ' + destAirport.name : ''}. Start ist die aktuelle GPS-Position des Trackers.`;
+    document.getElementById('mTitle').innerHTML = '👤 Privater Flug';
+    document.getElementById('mStory').innerText = getDirectToPrivateStoryText();
     document.getElementById('mDepICAO').innerText = 'GPS';
     document.getElementById('mDepName').innerText = 'Live GPS Position';
     document.getElementById('mDepCoords').innerText = `${startPoint.lat.toFixed(4)}, ${startPoint.lng.toFixed(4)}`;
@@ -1845,7 +1849,7 @@ async function applyAirportDirectTo(airport, options = {}) {
         start: currentStartICAO || 'GPS',
         dest: currentDestICAO,
         poiName: null,
-        mission: 'Direct To',
+        mission: 'Privater Flug',
         dist: nav.dist,
         ac: typeof selectedAC !== 'undefined' ? selectedAC : 'N/A',
         heading: nav.brng
@@ -1863,12 +1867,12 @@ async function applyAirportDirectTo(airport, options = {}) {
     if (destLocRadioEl) destLocRadioEl.value = currentDestICAO || '';
 
     if (useExistingStart && typeof populateBriefingUI === 'function') {
-        const title = '🧭 Ziel geändert';
-        const story = `Das Ziel wurde per Karte auf ${destAirport.icao}${destAirport.name ? ' – ' + destAirport.name : ''} gesetzt. Der bisherige Startplatz bleibt erhalten.`;
-        const pax = document.getElementById('mPay')?.innerText || 'N/A';
-        const cargo = document.getElementById('mWeight')?.innerText || 'N/A';
+        const title = '👤 Privater Flug';
+        const story = getDirectToPrivateStoryText();
+        const pax = 'N/A';
+        const cargo = 'N/A';
         const destData = { icao: destAirport.icao, n: destAirport.name, lat: destAirport.lat, lon: destAirport.lon };
-        currentMissionData.mission = 'Ziel geändert';
+        currentMissionData.mission = 'Privater Flug';
         populateBriefingUI(title, story, pax, cargo, false, routeWaypoints, startData, destData);
     } else {
         renderGpsStartBriefing(destAirport, startPoint);
@@ -3467,11 +3471,11 @@ function handleFreeflightMapClick(e) {
 
     const apt = findNearestAirport(e.latlng, getAirportTapRadiusPx(34));
     if (apt) {
-        freeflightDirectTo(apt.icao, apt.lat, apt.lon);
+        freeflightDirectTo(apt.icao, apt.lat, apt.lon, apt.name);
     }
 }
 
-window.freeflightDirectTo = function(icao, lat, lon) {
+window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
     if (ffContextPopup) { map.closePopup(ffContextPopup); ffContextPopup = null; }
     // GPS-Start aktualisieren falls verfuegbar
     if (isGpsLive()) {
@@ -3486,10 +3490,38 @@ window.freeflightDirectTo = function(icao, lat, lon) {
         { lat: startWp.lat, lng: startWp.lng },
         { lat: lat, lng: lon }
     ];
-    currentSName = startName;
-    currentDName = icao;
-    if (typeof currentStartICAO !== 'undefined') currentStartICAO = startName;
+    const isLiveGpsStart = startWp.name === 'GPS';
+    const isAirportStart = Boolean(startWp.icao);
+    currentSName = isLiveGpsStart ? 'Live GPS Position' : (isAirportStart ? startName : 'Kartenstart');
+    currentDName = destName || icao;
+    if (typeof currentStartICAO !== 'undefined') {
+        currentStartICAO = isAirportStart ? startWp.icao : 'GPS';
+    }
     if (typeof currentDestICAO !== 'undefined') currentDestICAO = icao;
+    const directNav = calcNav(startWp.lat, startWp.lng, lat, lon);
+    currentMissionData = {
+        start: currentStartICAO || 'GPS',
+        dest: currentDestICAO,
+        poiName: null,
+        mission: 'Privater Flug',
+        dist: directNav.dist,
+        ac: typeof selectedAC !== 'undefined' ? selectedAC : 'N/A',
+        heading: directNav.brng
+    };
+    if (typeof populateBriefingUI === 'function') {
+        const startData = { lat: startWp.lat, lon: startWp.lng, n: currentSName, icao: currentStartICAO };
+        const destData = { lat: lat, lon: lon, n: currentDName, icao: currentDestICAO };
+        populateBriefingUI(
+            '👤 Privater Flug',
+            getDirectToPrivateStoryText(),
+            'N/A',
+            'N/A',
+            false,
+            routeWaypoints,
+            startData,
+            destData
+        );
+    }
 
     // Freeflight-Modus sauber beenden (ohne Route wiederherzustellen)
     clearFreeflightRoute();
