@@ -14,6 +14,54 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#080808">
     <meta name="mobile-web-app-capable" content="yes">
+    <style>
+        /* Pre-paint guard: verhindert weißen Flash vor dem Laden von styles.css */
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: #080808;
+            color: #e7eef7;
+        }
+        #bootSplash {
+            position: fixed;
+            inset: 0;
+            z-index: 100500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(8, 8, 8, 0.94);
+        }
+        #bootSplash .boot-splash-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        #bootSplash .boot-splash-title {
+            font: 700 24px/1.1 "Segoe UI", Roboto, sans-serif;
+            text-transform: uppercase;
+            color: #9ecbff;
+            letter-spacing: 0;
+        }
+        #bootSplash .boot-splash-dots {
+            display: inline-flex;
+            gap: 8px;
+        }
+        #bootSplash .boot-splash-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #e7eef7;
+            opacity: 0.28;
+            animation: bootDotPulse 0.95s infinite ease-in-out;
+        }
+        #bootSplash .boot-splash-dots span:nth-child(2) { animation-delay: 0.15s; }
+        #bootSplash .boot-splash-dots span:nth-child(3) { animation-delay: 0.30s; }
+        @keyframes bootDotPulse {
+            0%, 100% { transform: translateY(0); opacity: 0.25; }
+            50% { transform: translateY(-2px); opacity: 1; }
+        }
+    </style>
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
