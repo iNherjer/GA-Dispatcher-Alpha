@@ -19,7 +19,17 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="boot-splash-active">
+
+<div id="bootSplash" class="boot-splash" aria-live="polite" aria-label="App wird geladen">
+    <div class="boot-splash-inner">
+        <div class="boot-splash-title">VFR Multitool</div>
+        <div class="boot-splash-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+    </div>
+</div>
+<script>
+    window.__bootSplashShownAt = performance.now();
+</script>
 
 <div class="container">
     <div class="glareshield"></div>

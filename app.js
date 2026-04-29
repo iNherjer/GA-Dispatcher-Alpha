@@ -1240,6 +1240,27 @@ window.restoreMainViewFromStorage = function restoreMainViewFromStorage() {
     saveLastMainView(GA_VIEW_MAIN);
 };
 
+window.hideBootSplash = function hideBootSplash() {
+    const splash = document.getElementById('bootSplash');
+    if (!splash || splash.dataset.hidden === '1' || splash.dataset.hiding === '1') return;
+
+    const BOOT_SPLASH_MIN_VISIBLE_MS = 500;
+    const shownAt = Number(window.__bootSplashShownAt) || performance.now();
+    const elapsed = performance.now() - shownAt;
+    const waitMs = Math.max(0, BOOT_SPLASH_MIN_VISIBLE_MS - elapsed);
+    splash.dataset.hiding = '1';
+
+    setTimeout(() => {
+        if (!splash || splash.dataset.hidden === '1') return;
+        splash.dataset.hidden = '1';
+        splash.classList.add('is-hidden');
+        document.body.classList.remove('boot-splash-active');
+        setTimeout(() => {
+            if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+        }, 260);
+    }, waitMs);
+};
+
 window.onload = () => {
     const savedTheme = localStorage.getItem('ga_theme') || 'classic';
     setTheme(savedTheme);
@@ -1332,6 +1353,12 @@ window.onload = () => {
     setTimeout(() => {
         if (typeof window.restoreMainViewFromStorage === 'function') window.restoreMainViewFromStorage();
     }, 0);
+
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            if (typeof window.hideBootSplash === 'function') window.hideBootSplash();
+        });
+    });
 };
 
 function saveApiKey() { localStorage.setItem('ga_gemini_key', document.getElementById('apiKeyInput').value.trim()); }
