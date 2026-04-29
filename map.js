@@ -2473,6 +2473,10 @@ function toggleMapTable(forceInternal) {
             exitMapFullscreenMode();
             if (typeof _closeFloatingMenus === 'function') _closeFloatingMenus();
         }
+
+        if (typeof window.persistMainViewFromOverlays === 'function') {
+            window.persistMainViewFromOverlays();
+        }
     } catch (error) {
         console.error('Map table toggle failed:', error);
         unlockBodyScroll();

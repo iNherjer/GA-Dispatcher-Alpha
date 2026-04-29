@@ -1197,13 +1197,55 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
     knob.addEventListener('touchstart', onStart, { passive: false });
 }
 
+const GA_LAST_VIEW_KEY = 'ga_last_view';
+const GA_VIEW_MAIN = 'main';
+const GA_VIEW_MAP = 'map';
+const GA_VIEW_PINBOARD = 'pinboard';
+
+function saveLastMainView(view) {
+    if (![GA_VIEW_MAIN, GA_VIEW_MAP, GA_VIEW_PINBOARD].includes(view)) return;
+    try {
+        localStorage.setItem(GA_LAST_VIEW_KEY, view);
+    } catch (_) {}
+}
+
+function getLastMainView() {
+    try {
+        const view = localStorage.getItem(GA_LAST_VIEW_KEY);
+        if ([GA_VIEW_MAIN, GA_VIEW_MAP, GA_VIEW_PINBOARD].includes(view)) return view;
+    } catch (_) {}
+    return GA_VIEW_MAIN;
+}
+
+window.persistMainViewFromOverlays = function persistMainViewFromOverlays() {
+    const mapOpen = !!document.getElementById('mapTableOverlay')?.classList.contains('active');
+    const pinboardOpen = !!document.getElementById('pinboardOverlay')?.classList.contains('active');
+    const view = pinboardOpen ? GA_VIEW_PINBOARD : (mapOpen ? GA_VIEW_MAP : GA_VIEW_MAIN);
+    saveLastMainView(view);
+    return view;
+};
+
+window.restoreMainViewFromStorage = function restoreMainViewFromStorage() {
+    const view = getLastMainView();
+    if (view === GA_VIEW_MAP && typeof toggleMapTable === 'function') {
+        const mapOpen = !!document.getElementById('mapTableOverlay')?.classList.contains('active');
+        if (!mapOpen) toggleMapTable();
+        return;
+    }
+    if (view === GA_VIEW_PINBOARD && typeof togglePinboard === 'function') {
+        const pinboardOpen = !!document.getElementById('pinboardOverlay')?.classList.contains('active');
+        if (!pinboardOpen) togglePinboard();
+        return;
+    }
+    saveLastMainView(GA_VIEW_MAIN);
+};
+
 window.onload = () => {
     const savedTheme = localStorage.getItem('ga_theme') || 'classic';
     setTheme(savedTheme);
     setSettingsPanelOpen(localStorage.getItem('ga_settings_open') === 'true', false);
     applySavedPanelTheme();
     setTimeout(() => { loadGlobalAirports(); }, 2000);
-
     const lastDest = localStorage.getItem('last_icao_dest');
     if (lastDest) document.getElementById('startLoc').value = lastDest;
 
@@ -1286,6 +1328,10 @@ window.onload = () => {
         if (inpU) inpU.value = gNick;
         if (stat) { stat.innerText = "Verbunden als " + gNick; stat.style.color = "var(--green)"; }
     }
+
+    setTimeout(() => {
+        if (typeof window.restoreMainViewFromStorage === 'function') window.restoreMainViewFromStorage();
+    }, 0);
 };
 
 function saveApiKey() { localStorage.setItem('ga_gemini_key', document.getElementById('apiKeyInput').value.trim()); }

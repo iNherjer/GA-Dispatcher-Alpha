@@ -254,6 +254,9 @@ function togglePinboard(forceInternal) {
         if (typeof setDrawerState === 'function') {
             setDrawerState(board, board.classList.contains('active') ? 'open' : 'closed');
         }
+        if (typeof window.persistMainViewFromOverlays === 'function') {
+            window.persistMainViewFromOverlays();
+        }
     } catch (error) {
         console.error('Pinboard toggle failed:', error);
         unlockBodyScroll();
