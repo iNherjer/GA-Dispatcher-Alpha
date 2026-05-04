@@ -1589,6 +1589,10 @@ function vpGetVfrAmpelWindowModeLabel(mode) {
     return 'SR/SS';
 }
 
+function vpGetNextVfrAmpelWindowMode(mode) {
+    return vpNormalizeVfrAmpelWindowMode(mode) === 'utc6' ? 'sun' : 'utc6';
+}
+
 function vpFormatHmUtc(ts) {
     try {
         return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
@@ -1904,6 +1908,12 @@ function vpUpdateVfrUi() {
     }
     const ampelWindowSelect = document.getElementById('vfrAmpelWindowSelect');
     if (ampelWindowSelect) ampelWindowSelect.value = vpVfrIndexState.ampelWindowMode;
+    const ampelWindowBtn = document.getElementById('vfrAmpelWindowCycleBtn');
+    if (ampelWindowBtn) {
+        ampelWindowBtn.textContent = `Zeitfenster: ${vpGetVfrAmpelWindowModeLabel(vpVfrIndexState.ampelWindowMode)}`;
+        ampelWindowBtn.style.background = vpNormalizeVfrAmpelWindowMode(vpVfrIndexState.ampelWindowMode) === 'utc6' ? '#2f5f94' : '#2E8B57';
+        ampelWindowBtn.style.color = '#fff';
+    }
 
     const status = document.getElementById('vfrIndexStatus');
     if (status) {
@@ -1980,6 +1990,11 @@ window.vpSetVfrAmpelWindowMode = async function(value) {
     } else if (map) {
         vpRefreshVfrLayerFromCache();
     }
+};
+
+window.vpCycleVfrAmpelWindowMode = async function() {
+    const next = vpGetNextVfrAmpelWindowMode(vpVfrIndexState.ampelWindowMode);
+    await window.vpSetVfrAmpelWindowMode(next);
 };
 
 function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
@@ -2070,8 +2085,19 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
             const fb = vpBuildAmpelSlotFallback(vpVfrIndexState.ampelWindowMode, parts);
             tl = { slots: fb.slots };
         }
+        // Fehlende Timeline-Felder robust mit aktuellem Zell-Sample auffuellen,
+        // damit die Boxen nicht auf neutrale D4-Klassen kippen.
+        const tlForAmpel = {
+            slots: (Array.isArray(tl.slots) ? tl.slots : []).map((slot) => ({
+                ...slot,
+                parts: {
+                    ...parts,
+                    ...(slot && slot.parts ? slot.parts : {})
+                }
+            }))
+        };
         const ampelNowRatio = Number.isFinite(nowRatio) ? nowRatio : fallbackNowRatio;
-        const ampelHtml = vpBuildSectorAmpelHtml(tl, ampelNowRatio, sectorCat);
+        const ampelHtml = vpBuildSectorAmpelHtml(tlForAmpel, ampelNowRatio, sectorCat);
         if (ampelHtml && vpVfrIndexState.showSectorAmpel !== false) {
             const marker = L.marker([sample.lat, sample.lon], {
                 icon: L.divIcon({
