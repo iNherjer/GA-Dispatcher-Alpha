@@ -1364,29 +1364,39 @@ function vpBuildTimelineKeyCandidates(lat, lon) {
     return Array.from(new Set(out));
 }
 
-function vpBuildSectorAmpelHtml(sectorTl, nowRatio) {
+function vpBuildSectorAmpelHtml(sectorTl, nowRatio, currentCat = null) {
     if (!sectorTl || !Array.isArray(sectorTl.slots) || sectorTl.slots.length !== 3) return '';
     const slots = sectorTl.slots;
-    const pointerLeft = 10 + (Math.max(0, Math.min(1, Number(nowRatio || 0))) * 80);
-    const mk = (s, fallback) => {
+    const nowNorm = Math.max(0, Math.min(1, Number(nowRatio || 0)));
+    const pointerLeft = 10 + (nowNorm * 80);
+    const pointerIdx = Math.max(0, Math.min(2, Math.round(nowNorm * 2)));
+    const mk = (s, fallback, forcedCat = null) => {
         const cat = vpClassifyVfrByModel((s && s.parts) || {}, vpVfrIndexState.vfrModel);
-        const letter = String((cat && cat.letter) || fallback || '?').slice(0, 1);
-        const color = (cat && cat.color) || '#9a9a9a';
+        const viewCat = forcedCat || cat;
+        const letter = String((viewCat && viewCat.letter) || fallback || '?').slice(0, 1);
+        const color = (viewCat && viewCat.color) || '#9a9a9a';
         const modelLabel = vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label;
-        const score = Number(cat && cat.score);
+        const score = Number(viewCat && viewCat.score);
         const scoreTxt = Number.isFinite(score) ? ` • Score ${Math.round(score)}` : '';
-        const title = `${(s && s.label) || ''} ${(s && s.timeLabel) || ''} • ${(cat && cat.label) || ''}${scoreTxt} • ${modelLabel}`;
+        const title = `${(s && s.label) || ''} ${(s && s.timeLabel) || ''} • ${(viewCat && viewCat.label) || ''}${scoreTxt} • ${modelLabel}`;
         return `<div title="${escapePopupText(title)}" style="width:20px; height:14px; border:1px solid ${color}; border-radius:3px; background:${color}; color:#111; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; line-height:1;">${escapePopupText(letter)}</div>`;
     };
+    const forced = [null, null, null];
+    if (currentCat && typeof currentCat === 'object') {
+        const slotNowCat = vpClassifyVfrByModel((slots[pointerIdx] && slots[pointerIdx].parts) || {}, vpVfrIndexState.vfrModel);
+        const curLetter = String(currentCat.letter || '').slice(0, 1);
+        const slotLetter = String((slotNowCat && slotNowCat.letter) || '').slice(0, 1);
+        if (curLetter && slotLetter && curLetter !== slotLetter) forced[pointerIdx] = currentCat;
+    }
     return `<div style="pointer-events:none; width:72px; height:26px; border-radius:4px; background:rgba(12,17,24,0.38); box-shadow:0 1px 5px rgba(0,0,0,0.32); backdrop-filter:blur(1.5px);">
         <div style="position:relative; height:8px;">
             <div style="position:absolute; left:10%; right:10%; top:3px; height:1px; background:rgba(208,220,236,0.45);"></div>
             <div style="position:absolute; left:${pointerLeft.toFixed(1)}%; top:1px; transform:translateX(-50%); width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-top:6px solid rgba(228,239,252,0.95);"></div>
         </div>
         <div style="display:flex; align-items:center; justify-content:center; gap:4px; padding:0 4px;">
-            ${mk(slots[0], 'M')}
-            ${mk(slots[1], 'M')}
-            ${mk(slots[2], 'A')}
+            ${mk(slots[0], 'M', forced[0])}
+            ${mk(slots[1], 'M', forced[1])}
+            ${mk(slots[2], 'A', forced[2])}
         </div>
     </div>`;
 }
@@ -1644,6 +1654,19 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
             const forced = vpMapVfrCategory(Math.max(0, Math.min(100, Math.round(scoreOverride))));
             cat = { ...forced, score: Math.max(0, Math.min(100, Math.round(scoreOverride))), mode: 'internal' };
         }
+        let sectorCat = cat;
+        let tl = null;
+        if (byKey) {
+            const cands = vpBuildTimelineKeyCandidates(sample.lat, sample.lon);
+            for (const key of cands) {
+                if (byKey[key]) { tl = byKey[key]; break; }
+            }
+        }
+        // Im GAFOR-Modell soll die Sektorfarbe am aktuellen (Jetzt-)Wert haengen.
+        if (vpNormalizeVfrModel(vpVfrIndexState.vfrModel) === 'gafor_like') {
+            sectorCat = cat;
+        }
+
         const south = Math.max(-89.5, sample.lat - halfLat);
         const north = Math.min(89.5, sample.lat + halfLat);
         const west = Math.max(-179.5, sample.lon - halfLon);
@@ -1663,10 +1686,10 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
         const innerRing = [[iSouth, iWest], [iNorth, iWest], [iNorth, iEast], [iSouth, iEast]];
         const cell = L.polygon([outerRing, innerRing], {
             stroke: true,
-            color: cat.color,
+            color: sectorCat.color,
             weight: 1.2,
             opacity: 1,
-            fillColor: cat.color,
+            fillColor: sectorCat.color,
             fillOpacity: 0.45,
             fillRule: 'evenodd',
             interactive: false
@@ -1679,17 +1702,10 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
         const visTxt = Number.isFinite(visKm) ? `${(visKm / 1000).toFixed(1)} km` : '--';
         const cbm = Number(parts.cloudBaseM);
         const cbTxt = Number.isFinite(cbm) ? `${Math.round(cbm * 3.28084)} ft AGL` : '--';
-        const pop = `${cat.label}${scoreTxt} • Wind ${windTxt} • VIS ${visTxt} • Base ${cbTxt} • ${modelName}`;
+        const pop = `${sectorCat.label}${scoreTxt} • Wind ${windTxt} • VIS ${visTxt} • Base ${cbTxt} • ${modelName}`;
         cell.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
         cell.addTo(layer);
 
-        let tl = null;
-        if (byKey) {
-            const cands = vpBuildTimelineKeyCandidates(sample.lat, sample.lon);
-            for (const key of cands) {
-                if (byKey[key]) { tl = byKey[key]; break; }
-            }
-        }
         if (!tl) {
             // Fallback: Ampel trotzdem anzeigen, auf Basis des aktuellen Zell-Scores.
             tl = {
@@ -1700,7 +1716,7 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
                 ]
             };
         }
-        const ampelHtml = vpBuildSectorAmpelHtml(tl, nowRatio);
+        const ampelHtml = vpBuildSectorAmpelHtml(tl, nowRatio, sectorCat);
         if (ampelHtml && vpVfrIndexState.showSectorAmpel !== false) {
             const marker = L.marker([sample.lat, sample.lon], {
                 icon: L.divIcon({
