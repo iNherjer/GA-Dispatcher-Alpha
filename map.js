@@ -2987,9 +2987,8 @@ function renderMainRoute() {
     });
 
     renderRouteLegLabels();
-    const hasMissionContext = !!currentMissionData;
     updateRoutePerformance(); updateMiniMap();
-    if (!hasMissionContext && routeWaypoints.length >= 2 && typeof triggerVerticalProfileUpdate === 'function') {
+    if (routeWaypoints.length >= 2 && typeof triggerVerticalProfileUpdate === 'function') {
         triggerVerticalProfileUpdate();
     }
     scheduleWeatherMarkerDodging(true);
