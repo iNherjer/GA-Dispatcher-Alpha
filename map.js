@@ -45,6 +45,20 @@ window.mapHints = window.mapHints || { ...MAP_HINT_DEFAULTS };
 const VP_VFR_INDEX_MIN_UPDATE_MS = 15 * 60 * 1000;
 const VP_VFR_INDEX_MAX_POINTS = 72;
 const VP_VFR_INDEX_MIN_VISIBLE_ZOOM = 8;
+const VP_VFR_MODEL_META = {
+    internal: {
+        label: 'Intern (multi-factor)',
+        summary: 'Nutzt zusaetzlich Wind, Niederschlag und Wettercode.',
+        pros: 'Sensitiver bei riskantem Flugwetter.',
+        cons: 'Kann konservativer als offizieller GAFOR sein.'
+    },
+    gafor_like: {
+        label: 'GAFOR-aehnlich',
+        summary: 'Nutzt primaer Sicht + Wolkenbasis.',
+        pros: 'Besser mit GAFOR-Logik vergleichbar.',
+        cons: 'Kein offizieller GAFOR und ohne Gebiets-Bezugshoehen.'
+    }
+};
 const VP_VFR_INDEX_COUNTRIES = [
     { code: 'DE', name: 'Deutschland' },
     { code: 'AT', name: 'Oesterreich' },
@@ -103,6 +117,7 @@ const vpVfrCountryBoundsCache = new Map();
 let vpVfrIndexLayer = null;
 const vpVfrIndexState = {
     selectedCountry: localStorage.getItem('ga_vfr_index_country') || 'auto',
+    vfrModel: localStorage.getItem('ga_vfr_index_model') || 'internal',
     showSectorAmpel: localStorage.getItem('ga_vfr_sector_ampel') !== 'false',
     plannedCountry: '',
     activeCountry: '',
@@ -474,6 +489,16 @@ function vpNormalizeVfrCountrySelection(value) {
     return vpGetVfrCountryMeta(raw) ? raw : 'auto';
 }
 
+function vpNormalizeVfrModel(value) {
+    const raw = String(value || 'internal').trim().toLowerCase();
+    return Object.prototype.hasOwnProperty.call(VP_VFR_MODEL_META, raw) ? raw : 'internal';
+}
+
+function vpGetVfrModelMeta(value) {
+    const key = vpNormalizeVfrModel(value);
+    return VP_VFR_MODEL_META[key] || VP_VFR_MODEL_META.internal;
+}
+
 function vpIcaoPrefixToCountry(icao) {
     const key = String(icao || '').trim().toUpperCase();
     if (key.length < 2) return '';
@@ -657,6 +682,85 @@ function vpMapVfrCategory(score) {
     return { key: 'poor', label: 'kritisch', color: '#d8abab', letter: 'I' };
 }
 
+function vpClassifyInternalVfr(parts = {}) {
+    const score = vpComputeVfrIndexScoreFromParts(parts);
+    const cat = vpMapVfrCategory(score);
+    return { ...cat, score: Math.round(score), mode: 'internal' };
+}
+
+function vpClassifyGaforLike(parts = {}) {
+    const visM = Number(parts.visibility);
+    const cloudBaseM = Number(parts.cloudBaseM);
+    const visKm = Number.isFinite(visM) ? (visM / 1000) : null;
+    const cloudBaseFt = Number.isFinite(cloudBaseM) ? (cloudBaseM * 3.28084) : null;
+
+    const classFromVis = (km) => {
+        if (!Number.isFinite(km)) return null;
+        if (km >= 10) return 'C';
+        if (km >= 8) return 'O';
+        if (km >= 5) return 'D';
+        if (km >= 1.5) return 'M';
+        return 'X';
+    };
+    const classFromCloud = (ft) => {
+        if (!Number.isFinite(ft)) return null;
+        if (ft >= 5000) return 'C';
+        if (ft >= 2000) return 'O';
+        if (ft >= 1000) return 'D';
+        if (ft >= 500) return 'M';
+        return 'X';
+    };
+    const rank = { C: 0, O: 1, D: 2, M: 3, X: 4 };
+    const visClass = classFromVis(visKm);
+    const cloudClass = classFromCloud(cloudBaseFt);
+
+    if (!visClass && !cloudClass) return vpClassifyInternalVfr(parts);
+
+    const classes = [visClass, cloudClass].filter(Boolean);
+    let worst = classes[0];
+    classes.forEach(c => {
+        if (rank[c] > rank[worst]) worst = c;
+    });
+
+    const labels = {
+        C: { key: 'gafor_c', label: 'GAFOR C (frei)', color: '#8fcfa7', letter: 'C' },
+        O: { key: 'gafor_o', label: 'GAFOR O (offen)', color: '#b8dca7', letter: 'O' },
+        D: { key: 'gafor_d', label: 'GAFOR D (schwierig)', color: '#ddcf9e', letter: 'D' },
+        M: { key: 'gafor_m', label: 'GAFOR M (kritisch)', color: '#e2be97', letter: 'M' },
+        X: { key: 'gafor_x', label: 'GAFOR X (geschlossen)', color: '#d7a3a3', letter: 'X' }
+    };
+    const cat = labels[worst] || labels.M;
+    return {
+        ...cat,
+        score: Math.max(0, 100 - (rank[worst] * 25)),
+        mode: 'gafor_like',
+        visKm,
+        cloudBaseFt,
+        visClass,
+        cloudClass
+    };
+}
+
+function vpClassifyVfrByModel(parts = {}, mode = null) {
+    const activeMode = vpNormalizeVfrModel(mode || vpVfrIndexState.vfrModel);
+    if (activeMode === 'gafor_like') return vpClassifyGaforLike(parts);
+    return vpClassifyInternalVfr(parts);
+}
+
+function vpSampleToParts(sample = {}) {
+    return {
+        cloudLow: sample.cloudLowPct,
+        cloudMid: sample.cloudMidPct,
+        precipitation: sample.precipitationMm,
+        rain: sample.rainMm,
+        snow: sample.snowfallCm,
+        wind: sample.wspd,
+        visibility: sample.visibilityM,
+        weatherCode: sample.weatherCode,
+        cloudBaseM: sample.cloudBaseM
+    };
+}
+
 function vpEnsureVfrLayer() {
     if (!map) return null;
     if (!vpVfrIndexLayer) vpVfrIndexLayer = L.layerGroup();
@@ -725,9 +829,13 @@ function vpBuildSectorAmpelHtml(sectorTl, nowRatio) {
     const slots = sectorTl.slots;
     const pointerLeft = 10 + (Math.max(0, Math.min(1, Number(nowRatio || 0))) * 80);
     const mk = (s, fallback) => {
-        const letter = String((s && s.letter) || fallback || '?').slice(0, 1);
-        const color = (s && s.color) || '#9a9a9a';
-        const title = `${(s && s.label) || ''} ${(s && s.timeLabel) || ''} • ${(s && s.catLabel) || ''} • Score ${(s && s.score) || 0}`;
+        const cat = vpClassifyVfrByModel((s && s.parts) || {}, vpVfrIndexState.vfrModel);
+        const letter = String((cat && cat.letter) || fallback || '?').slice(0, 1);
+        const color = (cat && cat.color) || '#9a9a9a';
+        const modelLabel = vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label;
+        const score = Number(cat && cat.score);
+        const scoreTxt = Number.isFinite(score) ? ` • Score ${Math.round(score)}` : '';
+        const title = `${(s && s.label) || ''} ${(s && s.timeLabel) || ''} • ${(cat && cat.label) || ''}${scoreTxt} • ${modelLabel}`;
         return `<div title="${escapePopupText(title)}" style="width:20px; height:14px; border:1px solid rgba(82,92,102,0.65); border-radius:3px; background:${color}; color:#111; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; line-height:1;">${escapePopupText(letter)}</div>`;
     };
     return `<div style="pointer-events:none; width:72px; height:26px; border-radius:4px; background:rgba(12,17,24,0.38); box-shadow:0 1px 5px rgba(0,0,0,0.32); backdrop-filter:blur(1.5px);">
@@ -762,7 +870,8 @@ function vpExtractHourlyLocations(tlData) {
                     snowfall: tlData.hourly.snowfall && tlData.hourly.snowfall[i],
                     wind_speed_10m: tlData.hourly.wind_speed_10m && tlData.hourly.wind_speed_10m[i],
                     visibility: tlData.hourly.visibility && tlData.hourly.visibility[i],
-                    weather_code: tlData.hourly.weather_code && tlData.hourly.weather_code[i]
+                    weather_code: tlData.hourly.weather_code && tlData.hourly.weather_code[i],
+                    cloud_base: tlData.hourly.cloud_base && tlData.hourly.cloud_base[i]
                 }
             });
         }
@@ -802,7 +911,7 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints) {
     const slotLabels = slots.map(s => s.label);
     const hourlyVars = [
         'cloud_cover_low', 'cloud_cover_mid', 'precipitation', 'rain',
-        'snowfall', 'wind_speed_10m', 'visibility', 'weather_code'
+        'snowfall', 'wind_speed_10m', 'visibility', 'weather_code', 'cloud_base'
     ];
     const byKey = Object.create(null);
     const chunkSize = 16;
@@ -823,7 +932,7 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints) {
             if (!Array.isArray(times) || times.length === 0) continue;
             const slotOut = slotTargetsSec.map((targetSec, slotIdx) => {
                 const hIdx = vpPickNearestTimeIndex(times, targetSec);
-                const score = vpComputeVfrIndexScoreFromParts({
+                const parts = {
                     cloudLow: hourly.cloud_cover_low && hourly.cloud_cover_low[hIdx],
                     cloudMid: hourly.cloud_cover_mid && hourly.cloud_cover_mid[hIdx],
                     precipitation: hourly.precipitation && hourly.precipitation[hIdx],
@@ -831,15 +940,12 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints) {
                     snow: hourly.snowfall && hourly.snowfall[hIdx],
                     wind: hourly.wind_speed_10m && hourly.wind_speed_10m[hIdx],
                     visibility: hourly.visibility && hourly.visibility[hIdx],
-                    weatherCode: hourly.weather_code && hourly.weather_code[hIdx]
-                });
-                const cat = vpMapVfrCategory(score);
+                    weatherCode: hourly.weather_code && hourly.weather_code[hIdx],
+                    cloudBaseM: hourly.cloud_base && hourly.cloud_base[hIdx]
+                };
                 return {
                     label: slotLabels[slotIdx],
-                    score: Math.round(score),
-                    color: cat.color,
-                    letter: cat.letter,
-                    catLabel: cat.label,
+                    parts,
                     timeLabel: vpFormatHm(slots[slotIdx].targetMs)
                 };
             });
@@ -882,6 +988,7 @@ function vpPopulateVfrCountrySelect() {
 
 function vpUpdateVfrUi() {
     vpPopulateVfrCountrySelect();
+    vpVfrIndexState.vfrModel = vpNormalizeVfrModel(vpVfrIndexState.vfrModel);
     vpVfrIndexState.plannedCountry = vpInferPlanningCountryCode();
     const plannedMeta = vpGetVfrCountryMeta(vpVfrIndexState.plannedCountry);
     const active = vpResolveActiveVfrCountry();
@@ -895,6 +1002,13 @@ function vpUpdateVfrUi() {
     if (planningLabel) {
         const plannedName = plannedMeta ? `${plannedMeta.code} - ${plannedMeta.name}` : 'unbekannt';
         planningLabel.textContent = `Planungsland: ${plannedName}`;
+    }
+    const modelSelect = document.getElementById('vfrModelSelect');
+    if (modelSelect) modelSelect.value = vpVfrIndexState.vfrModel;
+    const modelInfo = document.getElementById('vfrModelInfo');
+    if (modelInfo) {
+        const meta = vpGetVfrModelMeta(vpVfrIndexState.vfrModel);
+        modelInfo.innerHTML = `<span style="color:#c6d8ea;">${escapePopupText(meta.summary)}</span><br>+ ${escapePopupText(meta.pros)}<br>- ${escapePopupText(meta.cons)}`;
     }
 
     const status = document.getElementById('vfrIndexStatus');
@@ -913,10 +1027,10 @@ function vpUpdateVfrUi() {
             status.style.color = '#f38f8f';
         } else if (vpVfrIndexState.lastUpdatedAt > 0) {
             const t = new Date(vpVfrIndexState.lastUpdatedAt).toLocaleTimeString();
-            status.textContent = `Status: ${active} - ${vpVfrIndexState.lastPointCount} Punkte (${t})`;
+            status.textContent = `Status: ${active} - ${vpVfrIndexState.lastPointCount} Punkte (${t}) - ${vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label}`;
             status.style.color = '#95d89d';
         } else {
-            status.textContent = `Status: ${active} bereit`;
+            status.textContent = `Status: ${active} bereit - ${vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label}`;
             status.style.color = '#9bb5d1';
         }
     }
@@ -954,6 +1068,15 @@ window.vpToggleVfrAmpel = function() {
     }
 };
 
+window.vpSetVfrModel = function(value) {
+    vpVfrIndexState.vfrModel = vpNormalizeVfrModel(value);
+    localStorage.setItem('ga_vfr_index_model', vpVfrIndexState.vfrModel);
+    vpUpdateVfrUi();
+    if (window.mapHints.vfrIndex !== false && map) {
+        vpRefreshVfrLayerFromCache();
+    }
+};
+
 function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
     if (!map) return;
     const layer = vpEnsureVfrLayer();
@@ -972,9 +1095,13 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
     const byKey = (timelines && timelines.byKey) ? timelines.byKey : null;
     samples.forEach(sample => {
         if (!sample || !Number.isFinite(sample.lat) || !Number.isFinite(sample.lon)) return;
+        const parts = vpSampleToParts(sample);
         const scoreOverride = Number(sample.vfrScoreOverride);
-        const score = Number.isFinite(scoreOverride) ? Math.max(0, Math.min(100, Math.round(scoreOverride))) : vpComputeVfrIndexScore(sample);
-        const cat = vpMapVfrCategory(score);
+        let cat = vpClassifyVfrByModel(parts, vpVfrIndexState.vfrModel);
+        if (Number.isFinite(scoreOverride) && vpNormalizeVfrModel(vpVfrIndexState.vfrModel) === 'internal') {
+            const forced = vpMapVfrCategory(Math.max(0, Math.min(100, Math.round(scoreOverride))));
+            cat = { ...forced, score: Math.max(0, Math.min(100, Math.round(scoreOverride))), mode: 'internal' };
+        }
         const south = Math.max(-89.5, sample.lat - halfLat);
         const north = Math.min(89.5, sample.lat + halfLat);
         const west = Math.max(-179.5, sample.lon - halfLon);
@@ -988,7 +1115,13 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
         });
         const windNum = Number(sample.wspd);
         const windTxt = Number.isFinite(windNum) ? `${Math.round(windNum)} kt` : '--';
-        const pop = `${cat.label} • Score ${score} • Wind ${windTxt}`;
+        const modelName = vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label;
+        const scoreTxt = Number.isFinite(Number(cat.score)) ? ` • Score ${Math.round(Number(cat.score))}` : '';
+        const visKm = Number(parts.visibility);
+        const visTxt = Number.isFinite(visKm) ? `${(visKm / 1000).toFixed(1)} km` : '--';
+        const cbm = Number(parts.cloudBaseM);
+        const cbTxt = Number.isFinite(cbm) ? `${Math.round(cbm * 3.28084)} ft AGL` : '--';
+        const pop = `${cat.label}${scoreTxt} • Wind ${windTxt} • VIS ${visTxt} • Base ${cbTxt} • ${modelName}`;
         cell.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
         cell.addTo(layer);
 
@@ -1003,9 +1136,9 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
             // Fallback: Ampel trotzdem anzeigen, auf Basis des aktuellen Zell-Scores.
             tl = {
                 slots: [
-                    { label: 'Morgen', letter: cat.letter, color: cat.color, catLabel: cat.label, score },
-                    { label: 'Mittag', letter: cat.letter, color: cat.color, catLabel: cat.label, score },
-                    { label: 'Abend', letter: cat.letter, color: cat.color, catLabel: cat.label, score }
+                    { label: 'Morgen', parts, timeLabel: '--:--' },
+                    { label: 'Mittag', parts, timeLabel: '--:--' },
+                    { label: 'Abend', parts, timeLabel: '--:--' }
                 ]
             };
         }
@@ -1110,10 +1243,20 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
                 }
                 if (!tl || !Array.isArray(tl.slots) || tl.slots.length < 1) return;
                 const slot = tl.slots[Math.min(slotIdx, tl.slots.length - 1)] || tl.slots[0];
-                const slotScore = Number(slot && slot.score);
+                const slotCat = vpClassifyVfrByModel((slot && slot.parts) || {}, vpVfrIndexState.vfrModel);
+                const slotScore = Number(slotCat && slotCat.score);
                 fallback.push({
                     lat: p.lat,
                     lon: p.lon,
+                    cloudBaseM: Number(slot && slot.parts && slot.parts.cloudBaseM),
+                    visibilityM: Number(slot && slot.parts && slot.parts.visibility),
+                    weatherCode: Number(slot && slot.parts && slot.parts.weatherCode),
+                    cloudLowPct: Number(slot && slot.parts && slot.parts.cloudLow),
+                    cloudMidPct: Number(slot && slot.parts && slot.parts.cloudMid),
+                    precipitationMm: Number(slot && slot.parts && slot.parts.precipitation),
+                    rainMm: Number(slot && slot.parts && slot.parts.rain),
+                    snowfallCm: Number(slot && slot.parts && slot.parts.snow),
+                    wspd: Number(slot && slot.parts && slot.parts.wind),
                     vfrScoreOverride: Number.isFinite(slotScore) ? slotScore : 60
                 });
             });
@@ -3497,6 +3640,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadMapHintSettings();
     vpEnsureVfrAutoTimer();
     vpVfrIndexState.selectedCountry = vpNormalizeVfrCountrySelection(localStorage.getItem('ga_vfr_index_country') || 'auto');
+    vpVfrIndexState.vfrModel = vpNormalizeVfrModel(localStorage.getItem('ga_vfr_index_model') || 'internal');
     // Bestehenden Wetter-Status übernehmen, falls vorhanden
     window.vpShowMapMetar = window.mapHints.weather !== false;
     // Traffic-Status übernehmen

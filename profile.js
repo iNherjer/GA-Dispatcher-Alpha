@@ -40,18 +40,37 @@ let vpWeatherData = null;
 let vpProfileFastTimeout = null;
 let vpProfileSlowTimeout = null;
 let globalCities = null;
+let globalCitiesLoadPromise = null;
 
 async function loadGlobalCities() {
-    if (globalCities) return;
-    if (typeof window.GLOBAL_CITIES_DATA !== 'undefined') {
-        globalCities = window.GLOBAL_CITIES_DATA;
+    if (Array.isArray(globalCities)) return;
+    if (globalCitiesLoadPromise) {
+        await globalCitiesLoadPromise;
         return;
     }
+    globalCitiesLoadPromise = (async () => {
+        if (Array.isArray(window.GLOBAL_CITIES_DATA)) {
+            globalCities = window.GLOBAL_CITIES_DATA;
+            return;
+        }
+        try {
+            // Lazy-Load: city dataset erst bei tatsächlichem Bedarf laden.
+            const res = await fetch('./cities.json', { cache: 'default' });
+            if (res.ok) {
+                const parsed = await res.json();
+                globalCities = Array.isArray(parsed) ? parsed : [];
+            } else {
+                globalCities = [];
+            }
+        } catch (_) {
+            globalCities = [];
+        }
+    })();
     try {
-        const res = await fetch('./cities.json');
-        if (res.ok) globalCities = await res.json();
-        else globalCities = []; 
-    } catch (e) { globalCities = []; }
+        await globalCitiesLoadPromise;
+    } finally {
+        globalCitiesLoadPromise = null;
+    }
 }
 
 let vpZoomLevel = 100; // 100 = full route, 10 = 10% view
@@ -3467,6 +3486,7 @@ async function vpFetchOpenMeteoPoint(lat, lon, { signal, includePressure = false
         'cloud_cover_low',
         'cloud_cover_mid',
         'cloud_cover_high',
+        'cloud_base',
         'precipitation',
         'rain',
         'snowfall',
@@ -3541,6 +3561,7 @@ async function vpFetchOpenMeteoPoint(lat, lon, { signal, includePressure = false
         cloudLowPct: lowPct,
         cloudMidPct: midPct,
         cloudHighPct: highPct,
+        cloudBaseM: vpGetHourlyAt(data.hourly, 'cloud_base', idx),
         precipitationMm: vpGetHourlyAt(data.hourly, 'precipitation', idx) ?? 0,
         rainMm: vpGetHourlyAt(data.hourly, 'rain', idx) ?? 0,
         snowfallCm: vpGetHourlyAt(data.hourly, 'snowfall', idx) ?? 0,
@@ -8625,9 +8646,10 @@ async function generateHdgProfile(lat, lon, hdg, alt, gs) {
 // ── Landmarks (Städte & Airports) entlang Heading ────────
 function computeHdgLandmarks(lat, lon, hdg, gs) {
     vpHdgLandmarks = [];
-    if (!window.GLOBAL_CITIES_DATA && typeof globalCities === 'undefined') return;
 
-    const cities = window.GLOBAL_CITIES_DATA || (typeof globalCities !== 'undefined' ? globalCities : []);
+    const cities = Array.isArray(window.GLOBAL_CITIES_DATA)
+        ? window.GLOBAL_CITIES_DATA
+        : (Array.isArray(globalCities) ? globalCities : []);
     const airports = (typeof globalAirports !== 'undefined' && globalAirports) ? Object.values(globalAirports) : [];
     const totalMin = VP_HDG_LOOKBACK_MIN + VP_HDG_LOOKAHEAD_MIN;
     const totalNM  = gs * (totalMin / 60);
