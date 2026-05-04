@@ -51,6 +51,9 @@ window.mapHintSubmenus = window.mapHintSubmenus || { ...MAP_HINT_SUBMENU_DEFAULT
 const VP_VFR_INDEX_MIN_UPDATE_MS = 15 * 60 * 1000;
 const VP_VFR_INDEX_MAX_POINTS = 72;
 const VP_VFR_INDEX_MIN_VISIBLE_ZOOM = 8;
+const VP_GAFOR_REF_TERRAIN_Z = 10;
+const VP_GAFOR_REF_MAX_SAMPLES = 1400;
+const VP_GAFOR_REF_CACHE_MAX = 420;
 const VP_VFR_MODEL_META = {
     internal: {
         label: 'Intern (multi-factor)',
@@ -62,7 +65,7 @@ const VP_VFR_MODEL_META = {
         label: 'GAFOR-aehnlich',
         summary: 'Nutzt primaer Sicht + Wolkenbasis.',
         pros: 'Besser mit GAFOR-Logik vergleichbar.',
-        cons: 'Kein offizieller GAFOR und ohne Gebiets-Bezugshoehen.'
+        cons: 'Keine amtliche GAFOR-Quelle, nur modellbasierte Naeherung.'
     }
 };
 const VP_VFR_INDEX_COUNTRIES = [
@@ -120,6 +123,7 @@ const VP_VFR_COUNTRY_FALLBACK_BOUNDS = {
     IS: { minLat: 63.1, maxLat: 66.7, minLon: -24.8, maxLon: -13.0 }
 };
 const vpVfrCountryBoundsCache = new Map();
+const vpGaforSectorRefCache = new Map();
 let vpVfrIndexLayer = null;
 const vpVfrIndexState = {
     selectedCountry: localStorage.getItem('ga_vfr_index_country') || 'auto',
@@ -1157,6 +1161,162 @@ function vpBuildVfrGridPoints(bounds) {
     return { points: reduced, latStep, lonStep };
 }
 
+function vpGaforCacheSet(cache, key, value, maxSize = VP_GAFOR_REF_CACHE_MAX) {
+    cache.set(key, value);
+    if (cache.size > maxSize) {
+        const oldest = cache.keys().next().value;
+        if (oldest) cache.delete(oldest);
+    }
+}
+
+function vpWrapLon(lon) {
+    let out = Number(lon);
+    if (!Number.isFinite(out)) out = 0;
+    while (out < -180) out += 360;
+    while (out >= 180) out -= 360;
+    return out;
+}
+
+function vpClampMercatorLat(lat) {
+    const v = Number(lat);
+    if (!Number.isFinite(v)) return 0;
+    return Math.max(-85.05112878, Math.min(85.05112878, v));
+}
+
+function vpWorldXFromLon(lon, z) {
+    const worldPx = (1 << z) * 256;
+    return ((vpWrapLon(lon) + 180) / 360) * worldPx;
+}
+
+function vpWorldYFromLat(lat, z) {
+    const clamped = vpClampMercatorLat(lat);
+    const rad = clamped * (Math.PI / 180);
+    const sin = Math.sin(rad);
+    const worldPx = (1 << z) * 256;
+    const merc = Math.log((1 + sin) / Math.max(1e-12, 1 - sin));
+    return (0.5 - (merc / (4 * Math.PI))) * worldPx;
+}
+
+function vpTerrariumFtAtPixel(imageData, px, py) {
+    const src = imageData && imageData.data;
+    if (!src) return null;
+    const x = Math.max(0, Math.min(255, Math.floor(px)));
+    const y = Math.max(0, Math.min(255, Math.floor(py)));
+    const idx = (y * 256 + x) * 4;
+    const r = src[idx];
+    const g = src[idx + 1];
+    const b = src[idx + 2];
+    if (![r, g, b].every(Number.isFinite)) return null;
+    const elevM = (r * 256 + g + b / 256) - 32768;
+    return Math.max(0, elevM * 3.28084);
+}
+
+async function vpComputeSectorTerrainReferenceFt(lat, lon, latStep, lonStep, z = VP_GAFOR_REF_TERRAIN_Z) {
+    const cacheKey = `${Number(lat).toFixed(4)}|${Number(lon).toFixed(4)}|${Number(latStep).toFixed(4)}|${Number(lonStep).toFixed(4)}|${z}`;
+    const cached = vpGaforSectorRefCache.get(cacheKey);
+    if (cached) return cached;
+
+    const promise = (async () => {
+        const halfLat = Math.max(0.12, Number(latStep || 0.4) * 0.48);
+        const halfLon = Math.max(0.12, Number(lonStep || 0.4) * 0.48);
+        const south = Math.max(-85.0, Number(lat) - halfLat);
+        const north = Math.min(85.0, Number(lat) + halfLat);
+        const west = vpWrapLon(Number(lon) - halfLon);
+        const east = vpWrapLon(Number(lon) + halfLon);
+
+        const westX = vpWorldXFromLon(west, z);
+        const eastX = vpWorldXFromLon(east, z);
+        const northY = vpWorldYFromLat(north, z);
+        const southY = vpWorldYFromLat(south, z);
+        const worldPx = (1 << z) * 256;
+        const xSegments = (eastX >= westX)
+            ? [{ minX: westX, maxX: eastX }]
+            : [{ minX: westX, maxX: worldPx - 1e-6 }, { minX: 0, maxX: eastX }];
+        const minY = Math.max(0, Math.min(northY, southY));
+        const maxY = Math.min(worldPx - 1e-6, Math.max(northY, southY));
+        const spanX = xSegments.reduce((sum, seg) => sum + Math.max(0, (seg.maxX - seg.minX)), 0);
+        const spanY = Math.max(1, maxY - minY);
+        const totalPixels = Math.max(1, spanX * spanY);
+        const stride = Math.max(1, Math.ceil(Math.sqrt(totalPixels / VP_GAFOR_REF_MAX_SAMPLES)));
+
+        let maxFt = null;
+        const tileCache = new Map();
+        const readTile = async (tileX, tileY) => {
+            const n = 1 << z;
+            if (tileY < 0 || tileY >= n) return null;
+            const xNorm = ((tileX % n) + n) % n;
+            const k = `${xNorm}|${tileY}`;
+            if (tileCache.has(k)) return tileCache.get(k);
+            const img = await terrainAvoidLoadTileImageData(z, xNorm, tileY).catch(() => null);
+            tileCache.set(k, img);
+            return img;
+        };
+
+        for (const seg of xSegments) {
+            const tMinX = Math.floor(seg.minX / 256);
+            const tMaxX = Math.floor((seg.maxX - 1e-6) / 256);
+            const tMinY = Math.floor(minY / 256);
+            const tMaxY = Math.floor((maxY - 1e-6) / 256);
+            for (let ty = tMinY; ty <= tMaxY; ty++) {
+                const rowStartY = Math.max(0, Math.floor(ty === tMinY ? (minY - ty * 256) : 0));
+                const rowEndY = Math.min(255, Math.floor(ty === tMaxY ? (maxY - ty * 256) : 255));
+                for (let tx = tMinX; tx <= tMaxX; tx++) {
+                    const colStartX = Math.max(0, Math.floor(tx === tMinX ? (seg.minX - tx * 256) : 0));
+                    const colEndX = Math.min(255, Math.floor(tx === tMaxX ? (seg.maxX - tx * 256) : 255));
+                    const img = await readTile(tx, ty);
+                    if (!img) continue;
+                    for (let py = rowStartY; py <= rowEndY; py += stride) {
+                        for (let px = colStartX; px <= colEndX; px += stride) {
+                            const ft = vpTerrariumFtAtPixel(img, px, py);
+                            if (!Number.isFinite(ft)) continue;
+                            if (!Number.isFinite(maxFt) || ft > maxFt) maxFt = ft;
+                        }
+                    }
+                }
+            }
+        }
+
+        const centerTileX = Math.floor(vpWorldXFromLon(lon, z) / 256);
+        const centerTileY = Math.floor(vpWorldYFromLat(lat, z) / 256);
+        const centerImg = await readTile(centerTileX, centerTileY);
+        let terrainFtAtPoint = null;
+        if (centerImg) {
+            const centerPx = Math.floor(vpWorldXFromLon(lon, z) - (centerTileX * 256));
+            const centerPy = Math.floor(vpWorldYFromLat(lat, z) - (centerTileY * 256));
+            terrainFtAtPoint = vpTerrariumFtAtPixel(centerImg, centerPx, centerPy);
+        }
+
+        return {
+            sectorRefFt: Number.isFinite(maxFt) ? Math.max(0, Math.round(maxFt)) : null,
+            terrainPointFt: Number.isFinite(terrainFtAtPoint) ? Math.max(0, Math.round(terrainFtAtPoint)) : null
+        };
+    })();
+
+    vpGaforCacheSet(vpGaforSectorRefCache, cacheKey, promise);
+    try {
+        const resolved = await promise;
+        vpGaforCacheSet(vpGaforSectorRefCache, cacheKey, resolved);
+        return resolved;
+    } catch (e) {
+        vpGaforSectorRefCache.delete(cacheKey);
+        throw e;
+    }
+}
+
+async function vpBuildSectorReferenceMap(points, latStep, lonStep) {
+    const out = Object.create(null);
+    if (!Array.isArray(points) || points.length === 0) return out;
+    const jobs = points.map(async (p) => {
+        if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lon)) return;
+        const ref = await vpComputeSectorTerrainReferenceFt(p.lat, p.lon, latStep, lonStep).catch(() => null);
+        if (!ref) return;
+        const keys = vpBuildTimelineKeyCandidates(p.lat, p.lon);
+        keys.forEach(k => { out[k] = ref; });
+    });
+    await Promise.all(jobs);
+    return out;
+}
+
 function vpComputeVfrIndexScore(sample) {
     if (!sample) return 0;
     return vpComputeVfrIndexScoreFromParts({
@@ -1222,77 +1382,110 @@ function vpClassifyGaforLike(parts = {}) {
     const visMRaw = Number(parts.visibility);
     const visKm = (Number.isFinite(visMRaw) && visMRaw > 0) ? (visMRaw / 1000) : null;
     const cloudBaseMRaw = Number(parts.cloudBaseM);
-    const cloudBaseFt = (Number.isFinite(cloudBaseMRaw) && cloudBaseMRaw > 0) ? (cloudBaseMRaw * 3.28084) : null;
+    const cloudBaseFtAgl = (Number.isFinite(cloudBaseMRaw) && cloudBaseMRaw > 0) ? (cloudBaseMRaw * 3.28084) : null;
+    const sectorRefFt = Number(parts.sectorRefFt);
+    const terrainPointFt = Number(parts.terrainPointFt);
     const cloudLow = Number(parts.cloudLow || 0);
     const cloudMid = Number(parts.cloudMid || 0);
     const cloudTotal = Number(parts.cloudTotal || 0);
-    // GAFOR nutzt Untergrenze nur fuer BKN/OVC.
-    // Wir setzen hier bewusst erst ab dichter Bedeckung an (>=6/8), um
-    // nicht zu frueh in strengere Klassen zu rutschen.
     const coverForCeiling = Math.max(cloudLow, cloudMid, cloudTotal);
-    const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 75;
-
-    const classFromVis = (km) => {
-        if (!Number.isFinite(km)) return null;
-        if (km >= 8) return 'C';
-        if (km >= 6) return 'O';
-        if (km >= 4) return 'D';
-        if (km >= 1.5) return 'M';
-        return 'X';
-    };
-    const classFromCloud = (ft) => {
-        if (!hasCeilingCondition) return null;
-        if (!Number.isFinite(ft)) return null;
-        if (ft >= 3500) return 'C';
-        if (ft >= 1800) return 'O';
-        if (ft >= 900) return 'D';
-        if (ft >= 400) return 'M';
-        return 'X';
-    };
+    // Ceiling erst ab BKN/OVC (>=5/8) bewerten.
+    const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 62.5;
+    let cloudAboveRefFt = cloudBaseFtAgl;
+    if (Number.isFinite(cloudBaseFtAgl) && hasCeilingCondition && Number.isFinite(sectorRefFt) && Number.isFinite(terrainPointFt)) {
+        cloudAboveRefFt = cloudBaseFtAgl + terrainPointFt - sectorRefFt;
+    }
     const labels = {
-        C: { key: 'gafor_c', label: 'GAFOR C (frei)', color: '#6aaeff', letter: 'C' },
-        O: { key: 'gafor_o', label: 'GAFOR O (offen)', color: '#8ecb4b', letter: 'O' },
-        D: { key: 'gafor_d', label: 'GAFOR D (schwierig)', color: '#e0c93b', letter: 'D' },
-        M: { key: 'gafor_m', label: 'GAFOR M (kritisch)', color: '#e08a3b', letter: 'M' },
-        X: { key: 'gafor_x', label: 'GAFOR X (geschlossen)', color: '#d14a4a', letter: 'X' }
+        C: { key: 'gafor_c', label: 'GAFOR C (frei)', color: '#6aaeff', letter: 'C', code: 'C' },
+        O: { key: 'gafor_o', label: 'GAFOR O (offen)', color: '#8ecb4b', letter: 'O', code: 'O' },
+        D1: { key: 'gafor_d', label: 'GAFOR D1 (schwierig)', color: '#e0c93b', letter: 'D', code: 'D1' },
+        D3: { key: 'gafor_d', label: 'GAFOR D3 (schwierig)', color: '#e0c93b', letter: 'D', code: 'D3' },
+        D4: { key: 'gafor_d', label: 'GAFOR D4 (schwierig)', color: '#e0c93b', letter: 'D', code: 'D4' },
+        M2: { key: 'gafor_m', label: 'GAFOR M2 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M2' },
+        M5: { key: 'gafor_m', label: 'GAFOR M5 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M5' },
+        M6: { key: 'gafor_m', label: 'GAFOR M6 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M6' },
+        M7: { key: 'gafor_m', label: 'GAFOR M7 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M7' },
+        M8: { key: 'gafor_m', label: 'GAFOR M8 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M8' },
+        X: { key: 'gafor_x', label: 'GAFOR X (geschlossen)', color: '#d14a4a', letter: 'X', code: 'X' }
     };
-    const rank = { C: 0, O: 1, D: 2, M: 3, X: 4 };
-    const visClass = classFromVis(visKm);
-    const cloudClass = classFromCloud(cloudBaseFt);
+    const majorRank = { C: 0, O: 1, D: 2, M: 3, X: 4 };
 
-    // Im GAFOR-Modus niemals auf V/M/I-Klassen zurueckfallen.
-    // Fehlen Sicht- und Ceiling-Daten komplett, bleiben wir neutral bei D.
-    if (!visClass && !cloudClass) {
+    const visKnown = Number.isFinite(visKm);
+    const cloudKnown = hasCeilingCondition && Number.isFinite(cloudAboveRefFt);
+    if (!visKnown && !cloudKnown) {
+        const neutral = labels.D4;
         return {
-            ...labels.D,
+            ...neutral,
             score: 55,
             mode: 'gafor_like',
             visKm,
-            cloudBaseFt,
+            cloudBaseFtAgl,
+            cloudAboveRefFt,
+            sectorRefFt: Number.isFinite(sectorRefFt) ? sectorRefFt : null,
+            terrainPointFt: Number.isFinite(terrainPointFt) ? terrainPointFt : null,
             coverForCeiling,
             hasCeilingCondition,
-            visClass,
-            cloudClass
+            visClass: null,
+            cloudClass: null
         };
     }
 
-    const classes = [visClass, cloudClass].filter(Boolean);
-    let worst = classes[0];
-    classes.forEach(c => {
-        if (rank[c] > rank[worst]) worst = c;
-    });
+    const visBand = !visKnown ? null : (
+        visKm < 1.5 ? 'x'
+            : visKm < 5 ? 'v15_5'
+                : visKm < 8 ? 'v5_8'
+                    : visKm < 10 ? 'v8_10'
+                        : 'v10_plus'
+    );
+    const cloudBand = !cloudKnown ? null : (
+        cloudAboveRefFt < 500 ? 'c_below_500'
+            : cloudAboveRefFt < 1000 ? 'c500_1000'
+                : cloudAboveRefFt < 2000 ? 'c1000_2000'
+                    : cloudAboveRefFt >= 5000 ? 'c5000_plus'
+                        : 'c2000_5000'
+    );
 
-    const cat = labels[worst] || labels.M;
+    const fullMatrix = {
+        v15_5: { c_below_500: 'X', c500_1000: 'M8', c1000_2000: 'M7', c2000_5000: 'M6', c5000_plus: 'M6' },
+        v5_8: { c_below_500: 'X', c500_1000: 'M5', c1000_2000: 'D4', c2000_5000: 'D3', c5000_plus: 'D3' },
+        v8_10: { c_below_500: 'X', c500_1000: 'M2', c1000_2000: 'D1', c2000_5000: 'O', c5000_plus: 'O' },
+        v10_plus: { c_below_500: 'X', c500_1000: 'M2', c1000_2000: 'D1', c2000_5000: 'O', c5000_plus: 'C' }
+    };
+
+    let code = null;
+    if (visBand === 'x' || cloudBand === 'c_below_500') {
+        code = 'X';
+    } else if (visBand && cloudBand && fullMatrix[visBand] && fullMatrix[visBand][cloudBand]) {
+        code = fullMatrix[visBand][cloudBand];
+    } else if (visBand && !cloudBand) {
+        if (visBand === 'v10_plus') code = 'C';
+        else if (visBand === 'v8_10') code = 'O';
+        else if (visBand === 'v5_8') code = 'D3';
+        else if (visBand === 'v15_5') code = 'M6';
+    } else if (!visBand && cloudBand) {
+        if (cloudBand === 'c5000_plus') code = 'C';
+        else if (cloudBand === 'c2000_5000') code = 'O';
+        else if (cloudBand === 'c1000_2000') code = 'D1';
+        else if (cloudBand === 'c500_1000') code = 'M2';
+        else code = 'X';
+    }
+    if (!code || !labels[code]) code = 'D4';
+
+    const cat = labels[code];
+    const major = String(cat.letter || 'D');
     return {
         ...cat,
-        score: Math.max(0, 100 - (rank[worst] * 25)),
+        score: Math.max(0, 100 - ((majorRank[major] || 2) * 25)),
         mode: 'gafor_like',
         visKm,
-        cloudBaseFt,
+        cloudBaseFtAgl,
+        cloudAboveRefFt,
+        sectorRefFt: Number.isFinite(sectorRefFt) ? sectorRefFt : null,
+        terrainPointFt: Number.isFinite(terrainPointFt) ? terrainPointFt : null,
         coverForCeiling,
         hasCeilingCondition,
-        visClass,
-        cloudClass
+        visClass: visBand,
+        cloudClass: cloudBand
     };
 }
 
@@ -1313,7 +1506,9 @@ function vpSampleToParts(sample = {}) {
         wind: sample.wspd,
         visibility: sample.visibilityM,
         weatherCode: sample.weatherCode,
-        cloudBaseM: sample.cloudBaseM
+        cloudBaseM: sample.cloudBaseM,
+        sectorRefFt: sample.sectorRefFt,
+        terrainPointFt: sample.terrainPointFt
     };
 }
 
@@ -1389,22 +1584,22 @@ function vpBuildSectorAmpelHtml(sectorTl, nowRatio, currentCat = null) {
     const mk = (s, fallback, forcedCat = null) => {
         const cat = vpClassifyVfrByModel((s && s.parts) || {}, vpVfrIndexState.vfrModel);
         const viewCat = forcedCat || cat;
-        const letter = String((viewCat && viewCat.letter) || fallback || '?').slice(0, 1);
+        const letter = String((viewCat && (viewCat.code || viewCat.letter)) || fallback || '?').slice(0, 2);
         const color = (viewCat && viewCat.color) || '#9a9a9a';
         const modelLabel = vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label;
         const score = Number(viewCat && viewCat.score);
         const scoreTxt = Number.isFinite(score) ? ` • Score ${Math.round(score)}` : '';
         const title = `${(s && s.label) || ''} ${(s && s.timeLabel) || ''} • ${(viewCat && viewCat.label) || ''}${scoreTxt} • ${modelLabel}`;
-        return `<div title="${escapePopupText(title)}" style="width:20px; height:14px; border:1px solid ${color}; border-radius:3px; background:${color}; color:#111; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; line-height:1;">${escapePopupText(letter)}</div>`;
+        return `<div title="${escapePopupText(title)}" style="width:22px; height:14px; border:1px solid ${color}; border-radius:3px; background:${color}; color:#111; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; line-height:1;">${escapePopupText(letter)}</div>`;
     };
     const forced = [null, null, null];
     if (currentCat && typeof currentCat === 'object') {
         const slotNowCat = vpClassifyVfrByModel((slots[pointerIdx] && slots[pointerIdx].parts) || {}, vpVfrIndexState.vfrModel);
-        const curLetter = String(currentCat.letter || '').slice(0, 1);
-        const slotLetter = String((slotNowCat && slotNowCat.letter) || '').slice(0, 1);
-        if (curLetter && slotLetter && curLetter !== slotLetter) forced[pointerIdx] = currentCat;
+        const curCode = String(currentCat.code || currentCat.letter || '').slice(0, 2);
+        const slotCode = String((slotNowCat && (slotNowCat.code || slotNowCat.letter)) || '').slice(0, 2);
+        if (curCode && slotCode && curCode !== slotCode) forced[pointerIdx] = currentCat;
     }
-    return `<div style="pointer-events:none; width:72px; height:26px; border-radius:4px; background:rgba(12,17,24,0.38); box-shadow:0 1px 5px rgba(0,0,0,0.32); backdrop-filter:blur(1.5px);">
+    return `<div style="pointer-events:none; width:84px; height:26px; border-radius:4px; background:rgba(12,17,24,0.38); box-shadow:0 1px 5px rgba(0,0,0,0.32); backdrop-filter:blur(1.5px);">
         <div style="position:relative; height:8px;">
             <div style="position:absolute; left:10%; right:10%; top:3px; height:1px; background:rgba(208,220,236,0.45);"></div>
             <div style="position:absolute; left:${pointerLeft.toFixed(1)}%; top:1px; transform:translateX(-50%); width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-top:6px solid rgba(228,239,252,0.95);"></div>
@@ -1718,7 +1913,12 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
         const visTxt = Number.isFinite(visKm) ? `${(visKm / 1000).toFixed(1)} km` : '--';
         const cbm = Number(parts.cloudBaseM);
         const cbTxt = Number.isFinite(cbm) ? `${Math.round(cbm * 3.28084)} ft AGL` : '--';
-        const pop = `${sectorCat.label}${scoreTxt} • Wind ${windTxt} • VIS ${visTxt} • Base ${cbTxt} • ${modelName}`;
+        const codeTxt = sectorCat && sectorCat.code ? ` (${sectorCat.code})` : '';
+        const refFt = Number(sectorCat && sectorCat.sectorRefFt);
+        const cbRefFt = Number(sectorCat && sectorCat.cloudAboveRefFt);
+        const refTxt = Number.isFinite(refFt) ? `${Math.round(refFt)} ft` : '--';
+        const cbRefTxt = Number.isFinite(cbRefFt) ? `${Math.round(cbRefFt)} ft` : '--';
+        const pop = `${sectorCat.label}${codeTxt}${scoreTxt} • Wind ${windTxt} • VIS ${visTxt} • Base ${cbTxt} • Base ueber Ref ${cbRefTxt} • Ref ${refTxt} • ${modelName}`;
         cell.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
         cell.addTo(layer);
 
@@ -1738,8 +1938,8 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
                 icon: L.divIcon({
                     className: 'vp-vfr-sector-ampel',
                     html: ampelHtml,
-                    iconSize: [72, 26],
-                    iconAnchor: [36, 13]
+                    iconSize: [84, 26],
+                    iconAnchor: [42, 13]
                 }),
                 interactive: false,
                 keyboard: false,
@@ -1810,6 +2010,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
             includePressure: false,
             maxConcurrency: 3
         });
+        const sectorRefs = await vpBuildSectorReferenceMap(grid.points, grid.latStep, grid.lonStep);
         let timelines = null;
         try {
             timelines = await vpFetchVfrSectorTimelines(bounds, grid.points);
@@ -1817,7 +2018,39 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
             console.warn('[VFR-Index] Timeline-Forecast fehlgeschlagen, nutze Fallback:', timelineErr);
             timelines = null;
         }
+        if (timelines && timelines.byKey) {
+            grid.points.forEach((p) => {
+                const keys = vpBuildTimelineKeyCandidates(p.lat, p.lon);
+                let ref = null;
+                for (const k of keys) {
+                    if (sectorRefs[k]) { ref = sectorRefs[k]; break; }
+                }
+                if (!ref) return;
+                for (const k of keys) {
+                    const rec = timelines.byKey[k];
+                    if (!rec || !Array.isArray(rec.slots)) continue;
+                    rec.slots.forEach((slot) => {
+                        if (!slot || !slot.parts) return;
+                        slot.parts.sectorRefFt = ref.sectorRefFt;
+                        slot.parts.terrainPointFt = ref.terrainPointFt;
+                    });
+                }
+            });
+        }
         let valid = Array.isArray(samples) ? samples.filter(s => s && Number.isFinite(s.lat) && Number.isFinite(s.lon)) : [];
+        valid = valid.map((s) => {
+            const keys = vpBuildTimelineKeyCandidates(s.lat, s.lon);
+            let ref = null;
+            for (const k of keys) {
+                if (sectorRefs[k]) { ref = sectorRefs[k]; break; }
+            }
+            if (!ref) return s;
+            return {
+                ...s,
+                sectorRefFt: ref.sectorRefFt,
+                terrainPointFt: ref.terrainPointFt
+            };
+        });
         if (valid.length === 0 && timelines && timelines.byKey) {
             const fallback = [];
             const nowRatio = Number(timelines.nowRatio);
