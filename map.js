@@ -145,9 +145,9 @@ window.vpObsTileLoadingKeys = window.vpObsTileLoadingKeys || new Set();
 window.vpObsTileDeferredKeys = window.vpObsTileDeferredKeys || new Set();
 const TERRAIN_AVOID_WARN_DEFAULT_FT = 900;
 const TERRAIN_AVOID_SAFE_DEFAULT_FT = 2200;
-const TERRAIN_AVOID_WARN_MIN_FT = 200;
+const TERRAIN_AVOID_WARN_MIN_FT = 0;
 const TERRAIN_AVOID_WARN_MAX_FT = 3000;
-const TERRAIN_AVOID_SAFE_MIN_FT = 700;
+const TERRAIN_AVOID_SAFE_MIN_FT = 0;
 const TERRAIN_AVOID_SAFE_MAX_FT = 5000;
 const TERRAIN_AVOID_MIN_UPDATE_MS = 1000;
 const TERRAIN_AVOID_STALE_GPS_MS = 30000;
@@ -552,16 +552,22 @@ window.toggleMapHintsMenu = function(force) {
 };
 
 function clampTerrainAvoidThresholds() {
-    terrainAvoidWarnFt = Math.round(Math.max(TERRAIN_AVOID_WARN_MIN_FT, Math.min(TERRAIN_AVOID_WARN_MAX_FT, Number(terrainAvoidWarnFt) || TERRAIN_AVOID_WARN_DEFAULT_FT)));
-    terrainAvoidSafeFt = Math.round(Math.max(TERRAIN_AVOID_SAFE_MIN_FT, Math.min(TERRAIN_AVOID_SAFE_MAX_FT, Number(terrainAvoidSafeFt) || TERRAIN_AVOID_SAFE_DEFAULT_FT)));
-    if (terrainAvoidSafeFt < terrainAvoidWarnFt + 300) {
-        terrainAvoidSafeFt = Math.min(TERRAIN_AVOID_SAFE_MAX_FT, terrainAvoidWarnFt + 300);
+    const warnRaw = Number(terrainAvoidWarnFt);
+    const safeRaw = Number(terrainAvoidSafeFt);
+    const warnNorm = Number.isFinite(warnRaw) ? warnRaw : TERRAIN_AVOID_WARN_DEFAULT_FT;
+    const safeNorm = Number.isFinite(safeRaw) ? safeRaw : TERRAIN_AVOID_SAFE_DEFAULT_FT;
+    terrainAvoidWarnFt = Math.round(Math.max(TERRAIN_AVOID_WARN_MIN_FT, Math.min(TERRAIN_AVOID_WARN_MAX_FT, warnNorm)));
+    terrainAvoidSafeFt = Math.round(Math.max(TERRAIN_AVOID_SAFE_MIN_FT, Math.min(TERRAIN_AVOID_SAFE_MAX_FT, safeNorm)));
+    if (terrainAvoidSafeFt < terrainAvoidWarnFt) {
+        terrainAvoidSafeFt = terrainAvoidWarnFt;
     }
 }
 
 function loadTerrainAvoidSettings() {
-    terrainAvoidWarnFt = Number(localStorage.getItem('ga_terrain_avoid_warn_ft')) || TERRAIN_AVOID_WARN_DEFAULT_FT;
-    terrainAvoidSafeFt = Number(localStorage.getItem('ga_terrain_avoid_safe_ft')) || TERRAIN_AVOID_SAFE_DEFAULT_FT;
+    const warnStored = Number(localStorage.getItem('ga_terrain_avoid_warn_ft'));
+    const safeStored = Number(localStorage.getItem('ga_terrain_avoid_safe_ft'));
+    terrainAvoidWarnFt = Number.isFinite(warnStored) ? warnStored : TERRAIN_AVOID_WARN_DEFAULT_FT;
+    terrainAvoidSafeFt = Number.isFinite(safeStored) ? safeStored : TERRAIN_AVOID_SAFE_DEFAULT_FT;
     clampTerrainAvoidThresholds();
 }
 
