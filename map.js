@@ -676,7 +676,10 @@ window.terrainAvoidHandleFlightState = function() {
         return;
     }
     const st = terrainAvoidReadFlightState();
-    if (terrainAvoidPausedReason === 'sim-end' && !window.simModeActive && !st.airborne) {
+    if (terrainAvoidPausedReason === 'sim-end' && !terrainAvoidCanActivate()) {
+        terrainAvoidPausedReason = '';
+    }
+    if (terrainAvoidPausedReason === 'sim-end' && terrainAvoidCanActivate() && !window.simModeActive && !st.airborne) {
         if (map && terrainAvoidOverlayLayer && map.hasLayer(terrainAvoidOverlayLayer)) {
             map.removeLayer(terrainAvoidOverlayLayer);
         }
@@ -949,7 +952,10 @@ window.scheduleTerrainAvoidOverlayUpdate = function(forceFetch = false) {
     ensureTerrainAvoidOverlayLayer();
     if (!terrainAvoidOverlayLayer) return;
     const st = terrainAvoidReadFlightState();
-    if (window.mapHints && window.mapHints.terrainAvoid !== false && terrainAvoidPausedReason === 'sim-end' && !window.simModeActive) {
+    if (terrainAvoidPausedReason === 'sim-end' && !terrainAvoidCanActivate()) {
+        terrainAvoidPausedReason = '';
+    }
+    if (window.mapHints && window.mapHints.terrainAvoid !== false && terrainAvoidPausedReason === 'sim-end' && terrainAvoidCanActivate() && !window.simModeActive) {
         if (map.hasLayer(terrainAvoidOverlayLayer)) map.removeLayer(terrainAvoidOverlayLayer);
         updateTerrainAvoidThresholdUi();
         return;
@@ -964,7 +970,7 @@ window.scheduleTerrainAvoidOverlayUpdate = function(forceFetch = false) {
         if (window.simModeActive || st.airborne) {
             terrainAvoidPausedReason = '';
             map.addLayer(terrainAvoidOverlayLayer);
-        } else if (terrainAvoidPausedReason !== 'landed' && terrainAvoidPausedReason !== 'sim-end') {
+        } else if (terrainAvoidPausedReason !== 'landed' && !(terrainAvoidPausedReason === 'sim-end' && terrainAvoidCanActivate())) {
             terrainAvoidPausedReason = '';
             map.addLayer(terrainAvoidOverlayLayer);
         }
