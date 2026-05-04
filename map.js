@@ -582,7 +582,8 @@ function updateTerrainAvoidThresholdUi() {
     if (safeLabel) safeLabel.textContent = `${Math.round(terrainAvoidSafeFt)} ft`;
     if (statusLabel) {
         const on = window.mapHints && window.mapHints.terrainAvoid !== false;
-        const available = terrainAvoidCanActivate();
+        const available = terrainAvoidCanRenderNow();
+        const liveSource = terrainAvoidCanActivate();
         if (!on) {
             statusLabel.textContent = 'Live-Layer aus';
             statusLabel.style.color = '#9a9a9a';
@@ -593,8 +594,11 @@ function updateTerrainAvoidThresholdUi() {
             statusLabel.textContent = 'Pausiert nach Sim-Ende - startet in neuer SIM oder in der Luft';
             statusLabel.style.color = '#d2ab7a';
         } else if (!available || terrainAvoidPausedReason === 'source') {
-            statusLabel.textContent = 'Pausiert - wartet auf SIM/Tracker';
+            statusLabel.textContent = 'Pausiert - keine Referenzhöhe';
             statusLabel.style.color = '#d2ab7a';
+        } else if (!liveSource) {
+            statusLabel.textContent = 'Planungsmodus aktiv (CRZ-Höhe)';
+            statusLabel.style.color = '#9fc3e3';
         } else {
             statusLabel.textContent = 'Live-Layer aktiv';
             statusLabel.style.color = '#9fe3b3';
@@ -617,6 +621,11 @@ function terrainAvoidCanActivate() {
     return !!(window.simModeActive || window.liveTrackerConnected);
 }
 
+function terrainAvoidCanRenderNow() {
+    const alt = getTerrainAvoidAircraftAltFt();
+    return terrainAvoidCanActivate() || Number.isFinite(alt);
+}
+
 function terrainAvoidReadFlightState() {
     const fd = window.lastLiveFlightData || {};
     const hasOnGround = typeof fd.onGround === 'boolean';
@@ -634,7 +643,7 @@ function terrainAvoidReadFlightState() {
 
 window.terrainAvoidHandleFlightState = function() {
     if (!window.mapHints || window.mapHints.terrainAvoid === false) return;
-    if (!terrainAvoidCanActivate()) {
+    if (!terrainAvoidCanRenderNow()) {
         terrainAvoidWasAirborne = false;
         terrainAvoidPausedReason = 'source';
         if (map && terrainAvoidOverlayLayer && map.hasLayer(terrainAvoidOverlayLayer)) {
@@ -679,7 +688,7 @@ window.terrainAvoidHandleFlightState = function() {
         updateTerrainAvoidThresholdUi();
         return;
     }
-    if (!terrainAvoidPausedReason && map && terrainAvoidOverlayLayer && !map.hasLayer(terrainAvoidOverlayLayer) && window.simModeActive) {
+    if (!terrainAvoidPausedReason && map && terrainAvoidOverlayLayer && !map.hasLayer(terrainAvoidOverlayLayer) && terrainAvoidCanRenderNow()) {
         terrainAvoidPausedReason = '';
         map.addLayer(terrainAvoidOverlayLayer);
         window.scheduleTerrainAvoidOverlayUpdate(true);
@@ -857,7 +866,7 @@ function ensureTerrainAvoidOverlayLayer() {
                 finalize();
                 return tile;
             }
-            if (!terrainAvoidCanActivate()) {
+            if (!terrainAvoidCanRenderNow()) {
                 finalize();
                 return tile;
             }
@@ -882,9 +891,9 @@ function ensureTerrainAvoidOverlayLayer() {
 
 window.setTerrainAvoidOverlayEnabled = function(next, opts = {}) {
     let enable = !!next;
-    if (enable && !terrainAvoidCanActivate()) {
+    if (enable && !terrainAvoidCanRenderNow()) {
         enable = true;
-        if (!opts.silent && typeof showMapToast === 'function') showMapToast('Terrain Avoid nur mit Sim oder verbundenem Tracker verfügbar.', 2200);
+        if (!opts.silent && typeof showMapToast === 'function') showMapToast('Terrain Avoid braucht eine Referenzhöhe (Live oder geplante CRZ).', 2200);
     }
     if (window.mapHints) window.mapHints.terrainAvoid = enable;
     if (!opts.skipPersist) saveMapHintSetting('terrainAvoid');
@@ -893,17 +902,17 @@ window.setTerrainAvoidOverlayEnabled = function(next, opts = {}) {
     if (!map) return;
     ensureTerrainAvoidOverlayLayer();
     if (!terrainAvoidOverlayLayer) return;
-    if (enable && terrainAvoidCanActivate() && !map.hasLayer(terrainAvoidOverlayLayer)) terrainAvoidOverlayLayer.addTo(map);
+    if (enable && terrainAvoidCanRenderNow() && !map.hasLayer(terrainAvoidOverlayLayer)) terrainAvoidOverlayLayer.addTo(map);
     if (!enable && map.hasLayer(terrainAvoidOverlayLayer)) map.removeLayer(terrainAvoidOverlayLayer);
     if (enable) {
         const st = terrainAvoidReadFlightState();
         terrainAvoidWasAirborne = !!st.airborne;
-        terrainAvoidPausedReason = terrainAvoidCanActivate() ? '' : 'source';
+        terrainAvoidPausedReason = terrainAvoidCanRenderNow() ? '' : 'source';
     } else {
         terrainAvoidWasAirborne = false;
         terrainAvoidPausedReason = '';
     }
-    if (enable && terrainAvoidCanActivate()) window.scheduleTerrainAvoidOverlayUpdate(true);
+    if (enable && terrainAvoidCanRenderNow()) window.scheduleTerrainAvoidOverlayUpdate(true);
     else if (typeof terrainAvoidOverlayLayer.redraw === 'function') terrainAvoidOverlayLayer.redraw();
     updateTerrainAvoidThresholdUi();
 };
@@ -929,18 +938,19 @@ window.scheduleTerrainAvoidOverlayUpdate = function(forceFetch = false) {
         updateTerrainAvoidThresholdUi();
         return;
     }
-    if (window.mapHints && window.mapHints.terrainAvoid !== false && !terrainAvoidCanActivate()) {
+    if (window.mapHints && window.mapHints.terrainAvoid !== false && !terrainAvoidCanRenderNow()) {
         terrainAvoidPausedReason = 'source';
         if (map.hasLayer(terrainAvoidOverlayLayer)) map.removeLayer(terrainAvoidOverlayLayer);
         updateTerrainAvoidThresholdUi();
         return;
     }
-    if (window.mapHints && window.mapHints.terrainAvoid !== false && terrainAvoidCanActivate() && !map.hasLayer(terrainAvoidOverlayLayer)) {
+    if (window.mapHints && window.mapHints.terrainAvoid !== false && terrainAvoidCanRenderNow() && !map.hasLayer(terrainAvoidOverlayLayer)) {
         if (window.simModeActive || st.airborne) {
             terrainAvoidPausedReason = '';
             map.addLayer(terrainAvoidOverlayLayer);
         } else if (terrainAvoidPausedReason !== 'landed' && terrainAvoidPausedReason !== 'sim-end') {
             terrainAvoidPausedReason = '';
+            map.addLayer(terrainAvoidOverlayLayer);
         }
     }
     const curAltFt = getTerrainAvoidAircraftAltFt();
@@ -3654,7 +3664,7 @@ function initMapBase() {
         return btn;
     };
     fsControl.addTo(map);
-    if (window.mapHints && window.mapHints.terrainAvoid !== false && terrainAvoidCanActivate() && terrainAvoidOverlayLayer) {
+    if (window.mapHints && window.mapHints.terrainAvoid !== false && terrainAvoidCanRenderNow() && terrainAvoidOverlayLayer) {
         terrainAvoidOverlayLayer.addTo(map);
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
     }
