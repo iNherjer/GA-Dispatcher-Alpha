@@ -1247,18 +1247,6 @@ function vpClassifyGaforLike(parts = {}) {
         if (ft >= 500) return 'M';
         return 'X';
     };
-    const rank = { C: 0, O: 1, D: 2, M: 3, X: 4 };
-    const visClass = classFromVis(visKm);
-    const cloudClass = classFromCloud(cloudBaseFt);
-
-    if (!visClass && !cloudClass) return vpClassifyInternalVfr(parts);
-
-    const classes = [visClass, cloudClass].filter(Boolean);
-    let worst = classes[0];
-    classes.forEach(c => {
-        if (rank[c] > rank[worst]) worst = c;
-    });
-
     const labels = {
         C: { key: 'gafor_c', label: 'GAFOR C (frei)', color: '#6aaeff', letter: 'C' },
         O: { key: 'gafor_o', label: 'GAFOR O (offen)', color: '#8ecb4b', letter: 'O' },
@@ -1266,6 +1254,32 @@ function vpClassifyGaforLike(parts = {}) {
         M: { key: 'gafor_m', label: 'GAFOR M (kritisch)', color: '#e08a3b', letter: 'M' },
         X: { key: 'gafor_x', label: 'GAFOR X (geschlossen)', color: '#d14a4a', letter: 'X' }
     };
+    const rank = { C: 0, O: 1, D: 2, M: 3, X: 4 };
+    const visClass = classFromVis(visKm);
+    const cloudClass = classFromCloud(cloudBaseFt);
+
+    // Im GAFOR-Modus niemals auf V/M/I-Klassen zurueckfallen.
+    // Fehlen Sicht- und Ceiling-Daten komplett, bleibt die Ausgabe konservativ bei M.
+    if (!visClass && !cloudClass) {
+        return {
+            ...labels.M,
+            score: 40,
+            mode: 'gafor_like',
+            visKm,
+            cloudBaseFt,
+            coverForCeiling,
+            hasCeilingCondition,
+            visClass,
+            cloudClass
+        };
+    }
+
+    const classes = [visClass, cloudClass].filter(Boolean);
+    let worst = classes[0];
+    classes.forEach(c => {
+        if (rank[c] > rank[worst]) worst = c;
+    });
+
     const cat = labels[worst] || labels.M;
     return {
         ...cat,
