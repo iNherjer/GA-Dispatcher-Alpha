@@ -3630,12 +3630,10 @@ function initMapBase() {
         }
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
-        if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(false);
     });
     map.on('zoomend', function() {
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
-        if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(false);
         if (window.mapHints.vfrIndex !== false) {
             vpRefreshVfrLayerFromCache();
             vpScheduleVfrOverlayUpdate(false);
