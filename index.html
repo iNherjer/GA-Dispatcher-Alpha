@@ -829,6 +829,20 @@
                     <button id="hintToggleWeather" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('weather')">🌤️ Wetter (An)</button>
                     <button id="hintToggleWindBarbs" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('windBarbs')">🪁 Windbarben (An)</button>
                     <button id="hintToggleCloudFields" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('cloudFields')">☁️ Wolkenfelder (An)</button>
+                    <button id="hintToggleVfrIndex" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('vfrIndex')">🧭 VFR-Index (Aus)</button>
+                    <div id="vfrIndexMenuBlock" style="margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
+                        <div id="vfrPlanningCountryLabel" style="font-size:10px; color:#9bb5d1; margin-bottom:5px;">Planungsland: –</div>
+                        <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Lade-Land (Europa)</div>
+                        <select id="vfrCountrySelect" onchange="window.vpSetVfrCountry && vpSetVfrCountry(this.value)" style="width:100%; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:6px;">
+                            <option value="auto">Auto (Planungsland)</option>
+                        </select>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                            <button id="vfrRefreshBtn" class="pb-btn" onclick="window.vpRefreshVfrIndex && vpRefreshVfrIndex()" style="display:block; flex:1; margin:0; text-align:center;">↻ Refresh</button>
+                            <span id="vfrNextFetchHint" style="font-size:10px; color:#9a9a9a; white-space:nowrap;">min. 15 min</span>
+                        </div>
+                        <button id="vfrAmpelToggleBtn" class="pb-btn" onclick="window.vpToggleVfrAmpel && vpToggleVfrAmpel()" style="display:block; width:100%; margin:0 0 4px 0; text-align:center;">Ampel (An)</button>
+                        <div id="vfrIndexStatus" style="font-size:10px; color:#9bb5d1;">Status: Aus</div>
+                    </div>
                     <button id="hintToggleTraffic" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('traffic')">✈️ Traffic (An)</button>
                     <button id="hintToggleTelemetry" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('telemetry')">📟 Telemetrie (An)</button>
                     <button id="hintToggleNextLeg" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('nextLeg')">🧭 Wegpunkt-Info (An)</button>

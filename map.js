@@ -34,6 +34,7 @@ const MAP_HINT_DEFAULTS = {
     weather: true,
     windBarbs: true,
     cloudFields: true,
+    vfrIndex: false,
     traffic: true,
     telemetry: true,
     nextLeg: true,
@@ -41,6 +42,81 @@ const MAP_HINT_DEFAULTS = {
     lowFps: false
 };
 window.mapHints = window.mapHints || { ...MAP_HINT_DEFAULTS };
+const VP_VFR_INDEX_MIN_UPDATE_MS = 15 * 60 * 1000;
+const VP_VFR_INDEX_MAX_POINTS = 72;
+const VP_VFR_INDEX_MIN_VISIBLE_ZOOM = 8;
+const VP_VFR_INDEX_COUNTRIES = [
+    { code: 'DE', name: 'Deutschland' },
+    { code: 'AT', name: 'Oesterreich' },
+    { code: 'CH', name: 'Schweiz' },
+    { code: 'FR', name: 'Frankreich' },
+    { code: 'IT', name: 'Italien' },
+    { code: 'ES', name: 'Spanien' },
+    { code: 'PT', name: 'Portugal' },
+    { code: 'NL', name: 'Niederlande' },
+    { code: 'BE', name: 'Belgien' },
+    { code: 'DK', name: 'Daenemark' },
+    { code: 'PL', name: 'Polen' },
+    { code: 'CZ', name: 'Tschechien' },
+    { code: 'SK', name: 'Slowakei' },
+    { code: 'HU', name: 'Ungarn' },
+    { code: 'SI', name: 'Slowenien' },
+    { code: 'HR', name: 'Kroatien' },
+    { code: 'RO', name: 'Rumaenien' },
+    { code: 'BG', name: 'Bulgarien' },
+    { code: 'GR', name: 'Griechenland' },
+    { code: 'SE', name: 'Schweden' },
+    { code: 'NO', name: 'Norwegen' },
+    { code: 'FI', name: 'Finnland' },
+    { code: 'IE', name: 'Irland' },
+    { code: 'GB', name: 'Grossbritannien' },
+    { code: 'IS', name: 'Island' }
+];
+const VP_VFR_COUNTRY_FALLBACK_BOUNDS = {
+    DE: { minLat: 47.2, maxLat: 55.2, minLon: 5.3, maxLon: 15.6 },
+    AT: { minLat: 46.2, maxLat: 49.1, minLon: 9.4, maxLon: 17.3 },
+    CH: { minLat: 45.7, maxLat: 47.9, minLon: 5.8, maxLon: 10.7 },
+    FR: { minLat: 42.0, maxLat: 51.2, minLon: -5.8, maxLon: 8.7 },
+    IT: { minLat: 36.5, maxLat: 47.2, minLon: 6.1, maxLon: 18.7 },
+    ES: { minLat: 36.0, maxLat: 43.9, minLon: -9.5, maxLon: 3.6 },
+    PT: { minLat: 36.8, maxLat: 42.3, minLon: -9.6, maxLon: -6.0 },
+    NL: { minLat: 50.7, maxLat: 53.8, minLon: 3.2, maxLon: 7.3 },
+    BE: { minLat: 49.4, maxLat: 51.8, minLon: 2.4, maxLon: 6.4 },
+    DK: { minLat: 54.4, maxLat: 57.9, minLon: 8.0, maxLon: 12.8 },
+    PL: { minLat: 48.8, maxLat: 54.9, minLon: 14.0, maxLon: 24.4 },
+    CZ: { minLat: 48.4, maxLat: 51.2, minLon: 12.0, maxLon: 18.9 },
+    SK: { minLat: 47.7, maxLat: 49.7, minLon: 16.8, maxLon: 22.8 },
+    HU: { minLat: 45.7, maxLat: 48.7, minLon: 16.0, maxLon: 22.9 },
+    SI: { minLat: 45.3, maxLat: 46.9, minLon: 13.2, maxLon: 16.7 },
+    HR: { minLat: 42.3, maxLat: 46.7, minLon: 13.4, maxLon: 19.4 },
+    RO: { minLat: 43.6, maxLat: 48.4, minLon: 20.1, maxLon: 29.8 },
+    BG: { minLat: 41.1, maxLat: 44.3, minLon: 22.3, maxLon: 28.8 },
+    GR: { minLat: 34.7, maxLat: 41.9, minLon: 19.3, maxLon: 28.3 },
+    SE: { minLat: 55.1, maxLat: 69.2, minLon: 11.0, maxLon: 24.3 },
+    NO: { minLat: 57.8, maxLat: 71.5, minLon: 4.0, maxLon: 31.5 },
+    FI: { minLat: 59.5, maxLat: 70.2, minLon: 19.0, maxLon: 31.8 },
+    IE: { minLat: 51.3, maxLat: 55.5, minLon: -10.8, maxLon: -5.2 },
+    GB: { minLat: 49.8, maxLat: 59.3, minLon: -8.8, maxLon: 2.1 },
+    IS: { minLat: 63.1, maxLat: 66.7, minLon: -24.8, maxLon: -13.0 }
+};
+const vpVfrCountryBoundsCache = new Map();
+let vpVfrIndexLayer = null;
+const vpVfrIndexState = {
+    selectedCountry: localStorage.getItem('ga_vfr_index_country') || 'auto',
+    showSectorAmpel: localStorage.getItem('ga_vfr_sector_ampel') !== 'false',
+    plannedCountry: '',
+    activeCountry: '',
+    inFlight: false,
+    lastFetchAtByCountry: {},
+    lastUpdatedAt: 0,
+    lastPointCount: 0,
+    lastError: '',
+    timeline: null,
+    lastRenderedSamples: [],
+    lastGridLatStep: 0.4,
+    lastGridLonStep: 0.4
+};
+let vpVfrAutoTimer = null;
 let vpObsTileDebugLayer = null;
 window.vpObsTileOverlayEnabled = localStorage.getItem('ga_debug_obs_tile_overlay') === 'true';
 const VP_OBS_TILE_USED_RECENT_MS = 5 * 60 * 1000;
@@ -285,6 +361,13 @@ function applyMapHintEffects(key) {
         if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
     }
+    if (key === 'vfrIndex') {
+        if (window.mapHints.vfrIndex === false) {
+            vpClearVfrLayer();
+            vpVfrIndexState.timeline = null;
+        } else vpScheduleVfrOverlayUpdate(false);
+        vpUpdateVfrUi();
+    }
     if (key === 'windBarbs' || key === 'cloudFields') {
         // Sofortige visuelle Reaktion ohne zusätzlichen Quellen-Toggle.
         if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
@@ -327,6 +410,7 @@ function refreshMapHintMenuUi() {
         weather: '🌤️ Wetter',
         windBarbs: '🪁 Windbarben',
         cloudFields: '☁️ Wolkenfelder',
+        vfrIndex: '🧭 VFR-Index',
         traffic: '✈️ Traffic',
         telemetry: '📟 Telemetrie',
         nextLeg: '🧭 Wegpunkt-Info',
@@ -338,6 +422,7 @@ function refreshMapHintMenuUi() {
         weather: 'hintToggleWeather',
         windBarbs: 'hintToggleWindBarbs',
         cloudFields: 'hintToggleCloudFields',
+        vfrIndex: 'hintToggleVfrIndex',
         traffic: 'hintToggleTraffic',
         telemetry: 'hintToggleTelemetry',
         nextLeg: 'hintToggleNextLeg',
@@ -352,6 +437,7 @@ function refreshMapHintMenuUi() {
         btn.style.background = on ? '#2E8B57' : '#444';
         btn.style.color = '#fff';
     });
+    vpUpdateVfrUi();
 }
 
 window.toggleMapHint = function(key) {
@@ -376,6 +462,707 @@ window.toggleMapHintsMenu = function(force) {
         if (planeBtn) planeBtn.classList.remove('active');
     }
 };
+
+function vpGetVfrCountryMeta(code) {
+    const key = String(code || '').toUpperCase();
+    return VP_VFR_INDEX_COUNTRIES.find(c => c.code === key) || null;
+}
+
+function vpNormalizeVfrCountrySelection(value) {
+    const raw = String(value || 'auto').trim().toUpperCase();
+    if (!raw || raw === 'AUTO') return 'auto';
+    return vpGetVfrCountryMeta(raw) ? raw : 'auto';
+}
+
+function vpIcaoPrefixToCountry(icao) {
+    const key = String(icao || '').trim().toUpperCase();
+    if (key.length < 2) return '';
+    const p2 = key.slice(0, 2);
+    const map2 = {
+        ED: 'DE', ET: 'DE', LO: 'AT', LS: 'CH', LF: 'FR', LI: 'IT',
+        LE: 'ES', LP: 'PT', EH: 'NL', EB: 'BE', EK: 'DK', EP: 'PL',
+        LK: 'CZ', LZ: 'SK', LH: 'HU', LJ: 'SI', LD: 'HR', LR: 'RO',
+        LB: 'BG', LG: 'GR', EN: 'NO', ES: 'SE', EF: 'FI', EI: 'IE',
+        EG: 'GB', BI: 'IS'
+    };
+    return map2[p2] || '';
+}
+
+function vpComputeCountryBoundsFromAirports(countryCode) {
+    const code = String(countryCode || '').toUpperCase();
+    if (!code) return null;
+    if (vpVfrCountryBoundsCache.has(code)) return vpVfrCountryBoundsCache.get(code);
+
+    let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+    let count = 0;
+    if (typeof globalAirports === 'object' && globalAirports) {
+        for (const icao in globalAirports) {
+            const apt = globalAirports[icao];
+            if (!apt) continue;
+            const cc = String(apt.country || '').toUpperCase();
+            if (cc !== code) continue;
+            const lat = Number(apt.lat);
+            const lon = Number(apt.lon ?? apt.lng);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+            minLat = Math.min(minLat, lat);
+            maxLat = Math.max(maxLat, lat);
+            minLon = Math.min(minLon, lon);
+            maxLon = Math.max(maxLon, lon);
+            count += 1;
+        }
+    }
+
+    let bounds = null;
+    if (count >= 3 && Number.isFinite(minLat) && Number.isFinite(minLon)) {
+        const padLat = 0.35;
+        const midLat = (minLat + maxLat) * 0.5;
+        const cosLat = Math.max(0.25, Math.abs(Math.cos((midLat * Math.PI) / 180)));
+        const padLon = Math.min(1.1, Math.max(0.35, 0.35 / cosLat));
+        bounds = {
+            minLat: Math.max(-89.5, minLat - padLat),
+            maxLat: Math.min(89.5, maxLat + padLat),
+            minLon: Math.max(-179.5, minLon - padLon),
+            maxLon: Math.min(179.5, maxLon + padLon)
+        };
+    } else {
+        bounds = VP_VFR_COUNTRY_FALLBACK_BOUNDS[code] || null;
+    }
+
+    vpVfrCountryBoundsCache.set(code, bounds || null);
+    return bounds || null;
+}
+
+function vpGetVfrCountryBounds(countryCode) {
+    const code = String(countryCode || '').toUpperCase();
+    if (!code) return null;
+    return vpComputeCountryBoundsFromAirports(code);
+}
+
+function vpInferPlanningCountryCode() {
+    const dep = vpIcaoPrefixToCountry(typeof currentStartICAO !== 'undefined' ? currentStartICAO : '');
+    const dest = vpIcaoPrefixToCountry(typeof currentDestICAO !== 'undefined' ? currentDestICAO : '');
+    if (dep && dest && dep === dest) return dep;
+    if (dep && vpGetVfrCountryMeta(dep)) return dep;
+
+    if (Array.isArray(routeWaypoints) && routeWaypoints.length > 0) {
+        let sumLat = 0, sumLon = 0, n = 0;
+        routeWaypoints.forEach(p => {
+            const lat = Number(p && p.lat);
+            const lon = Number(p && (p.lng ?? p.lon));
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+            sumLat += lat;
+            sumLon += lon;
+            n += 1;
+        });
+        if (n > 0) {
+            const cLat = sumLat / n;
+            const cLon = sumLon / n;
+            for (const item of VP_VFR_INDEX_COUNTRIES) {
+                const b = vpGetVfrCountryBounds(item.code);
+                if (!b) continue;
+                if (cLat >= b.minLat && cLat <= b.maxLat && cLon >= b.minLon && cLon <= b.maxLon) return item.code;
+            }
+        }
+    }
+
+    if (dest && vpGetVfrCountryMeta(dest)) return dest;
+    return 'DE';
+}
+
+function vpResolveActiveVfrCountry() {
+    const sel = vpNormalizeVfrCountrySelection(vpVfrIndexState.selectedCountry);
+    if (sel !== 'auto') return sel;
+    const planned = vpInferPlanningCountryCode();
+    return vpGetVfrCountryMeta(planned) ? planned : 'DE';
+}
+
+function vpBuildVfrGridPoints(bounds) {
+    if (!bounds) return { points: [], latStep: 0.4, lonStep: 0.4 };
+    const latSpan = Math.max(0.4, Math.abs(bounds.maxLat - bounds.minLat));
+    const lonSpan = Math.max(0.4, Math.abs(bounds.maxLon - bounds.minLon));
+    const midLat = (bounds.minLat + bounds.maxLat) * 0.5;
+    const cosLat = Math.max(0.25, Math.abs(Math.cos((midLat * Math.PI) / 180)));
+    const lonSpanAdj = lonSpan * cosLat;
+    const target = VP_VFR_INDEX_MAX_POINTS;
+    const rows = Math.max(4, Math.round(Math.sqrt(target * (latSpan / Math.max(0.2, lonSpanAdj)))));
+    const cols = Math.max(4, Math.round(target / rows));
+    let latStep = Math.max(0.24, latSpan / rows);
+    let lonStep = Math.max(0.24, lonSpan / cols);
+    const pts = [];
+    for (let lat = bounds.minLat + (latStep * 0.5); lat <= bounds.maxLat + 1e-9; lat += latStep) {
+        const clampedLat = Math.max(-89.5, Math.min(89.5, lat));
+        for (let lon = bounds.minLon + (lonStep * 0.5); lon <= bounds.maxLon + 1e-9; lon += lonStep) {
+            const normLon = Math.max(-179.5, Math.min(179.5, lon));
+            pts.push({ lat: Number(clampedLat.toFixed(4)), lon: Number(normLon.toFixed(4)) });
+        }
+    }
+    const reduced = pts.length > target
+        ? pts.filter((_, idx) => (idx % Math.ceil(pts.length / target)) === 0).slice(0, target)
+        : pts;
+    return { points: reduced, latStep, lonStep };
+}
+
+function vpComputeVfrIndexScore(sample) {
+    if (!sample) return 0;
+    return vpComputeVfrIndexScoreFromParts({
+        cloudLow: sample.cloudLowPct,
+        cloudMid: sample.cloudMidPct,
+        precipitation: sample.precipitationMm,
+        rain: sample.rainMm,
+        snow: sample.snowfallCm,
+        wind: sample.wspd,
+        visibility: sample.visibilityM,
+        weatherCode: sample.weatherCode
+    });
+}
+
+function vpComputeVfrIndexScoreFromParts(parts = {}) {
+    let score = 100;
+    const low = Number(parts.cloudLow || 0);
+    const mid = Number(parts.cloudMid || 0);
+    const cloud = Math.max(low, mid);
+    const precip = Number(parts.precipitation || parts.rain || 0);
+    const snow = Number(parts.snow || 0);
+    const wind = Number(parts.wind || 0);
+    const vis = Number(parts.visibility || 0);
+    const wx = Number(parts.weatherCode);
+
+    if (cloud > 90) score -= 42;
+    else if (cloud > 75) score -= 32;
+    else if (cloud > 60) score -= 20;
+    else if (cloud > 45) score -= 10;
+
+    if (precip > 2.5) score -= 34;
+    else if (precip > 1.2) score -= 22;
+    else if (precip > 0.5) score -= 12;
+    else if (precip > 0.2) score -= 6;
+
+    if (snow > 0.1) score -= 30;
+    if (wind > 35) score -= 30;
+    else if (wind > 25) score -= 20;
+    else if (wind > 18) score -= 10;
+    if (vis > 0 && vis < 3000) score -= 36;
+    else if (vis > 0 && vis < 5000) score -= 24;
+    else if (vis > 0 && vis < 8000) score -= 12;
+    if (wx === 45 || wx === 48) score -= 22;
+    if (wx === 95 || wx === 96 || wx === 99) score -= 30;
+    if (wx === 65 || wx === 67 || wx === 75 || wx === 82 || wx === 86) score -= 16;
+
+    return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function vpMapVfrCategory(score) {
+    if (score >= 75) return { key: 'good', label: 'VFR gut', color: '#9acfa8', letter: 'V' };
+    if (score >= 55) return { key: 'marginal', label: 'grenzwertig', color: '#dfcf9d', letter: 'M' };
+    return { key: 'poor', label: 'kritisch', color: '#d8abab', letter: 'I' };
+}
+
+function vpEnsureVfrLayer() {
+    if (!map) return null;
+    if (!vpVfrIndexLayer) vpVfrIndexLayer = L.layerGroup();
+    return vpVfrIndexLayer;
+}
+
+function vpClearVfrLayer() {
+    if (!map || !vpVfrIndexLayer) return;
+    vpVfrIndexLayer.clearLayers();
+    if (map.hasLayer(vpVfrIndexLayer)) map.removeLayer(vpVfrIndexLayer);
+}
+
+function vpFormatVfrRemaining(ms) {
+    const left = Math.max(0, Number(ms || 0));
+    const min = Math.ceil(left / 60000);
+    return `${min}m`;
+}
+
+function vpPickNearestTimeIndex(unixTimes, targetSec) {
+    if (!Array.isArray(unixTimes) || unixTimes.length === 0) return 0;
+    let best = 0;
+    let diff = Infinity;
+    for (let i = 0; i < unixTimes.length; i++) {
+        const t = Number(unixTimes[i]);
+        if (!Number.isFinite(t)) continue;
+        const d = Math.abs(t - targetSec);
+        if (d < diff) {
+            diff = d;
+            best = i;
+        }
+    }
+    return best;
+}
+
+function vpFormatHm(ts) {
+    try {
+        return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (_) {
+        return '--:--';
+    }
+}
+
+function vpPointKey(lat, lon) {
+    return `${Number(lat).toFixed(4)}|${Number(lon).toFixed(4)}`;
+}
+
+function vpRoundToStep(value, step) {
+    const s = Number(step);
+    if (!Number.isFinite(s) || s <= 0) return Number(value || 0);
+    return Math.round((Number(value || 0) / s)) * s;
+}
+
+function vpBuildTimelineKeyCandidates(lat, lon) {
+    const out = [];
+    const push = (a, b) => out.push(vpPointKey(a, b));
+    push(lat, lon);
+    push(Number(lat).toFixed(3), Number(lon).toFixed(3));
+    // Open-Meteo sample cache quantisiert auf 0.05° (siehe profile.js),
+    // deshalb bieten wir zusätzlich den 0.05-Grid-Key an.
+    push(vpRoundToStep(lat, 0.05), vpRoundToStep(lon, 0.05));
+    return Array.from(new Set(out));
+}
+
+function vpBuildSectorAmpelHtml(sectorTl, nowRatio) {
+    if (!sectorTl || !Array.isArray(sectorTl.slots) || sectorTl.slots.length !== 3) return '';
+    const slots = sectorTl.slots;
+    const pointerLeft = 10 + (Math.max(0, Math.min(1, Number(nowRatio || 0))) * 80);
+    const mk = (s, fallback) => {
+        const letter = String((s && s.letter) || fallback || '?').slice(0, 1);
+        const color = (s && s.color) || '#9a9a9a';
+        const title = `${(s && s.label) || ''} ${(s && s.timeLabel) || ''} • ${(s && s.catLabel) || ''} • Score ${(s && s.score) || 0}`;
+        return `<div title="${escapePopupText(title)}" style="width:20px; height:14px; border:1px solid rgba(82,92,102,0.65); border-radius:3px; background:${color}; color:#111; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; line-height:1;">${escapePopupText(letter)}</div>`;
+    };
+    return `<div style="pointer-events:none; width:72px; height:26px; border-radius:4px; background:rgba(12,17,24,0.38); box-shadow:0 1px 5px rgba(0,0,0,0.32); backdrop-filter:blur(1.5px);">
+        <div style="position:relative; height:8px;">
+            <div style="position:absolute; left:10%; right:10%; top:3px; height:1px; background:rgba(208,220,236,0.45);"></div>
+            <div style="position:absolute; left:${pointerLeft.toFixed(1)}%; top:1px; transform:translateX(-50%); width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-top:6px solid rgba(228,239,252,0.95);"></div>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:4px; padding:0 4px;">
+            ${mk(slots[0], 'M')}
+            ${mk(slots[1], 'M')}
+            ${mk(slots[2], 'A')}
+        </div>
+    </div>`;
+}
+
+function vpExtractHourlyLocations(tlData) {
+    let locations = [];
+    if (Array.isArray(tlData)) {
+        locations = tlData;
+    } else if (tlData && tlData.hourly && Array.isArray(tlData.hourly.time) && Array.isArray(tlData.hourly.time[0])) {
+        const count = tlData.hourly.time.length;
+        for (let i = 0; i < count; i++) {
+            locations.push({
+                latitude: Array.isArray(tlData.latitude) ? tlData.latitude[i] : tlData.latitude,
+                longitude: Array.isArray(tlData.longitude) ? tlData.longitude[i] : tlData.longitude,
+                hourly: {
+                    time: tlData.hourly.time[i] || [],
+                    cloud_cover_low: tlData.hourly.cloud_cover_low && tlData.hourly.cloud_cover_low[i],
+                    cloud_cover_mid: tlData.hourly.cloud_cover_mid && tlData.hourly.cloud_cover_mid[i],
+                    precipitation: tlData.hourly.precipitation && tlData.hourly.precipitation[i],
+                    rain: tlData.hourly.rain && tlData.hourly.rain[i],
+                    snowfall: tlData.hourly.snowfall && tlData.hourly.snowfall[i],
+                    wind_speed_10m: tlData.hourly.wind_speed_10m && tlData.hourly.wind_speed_10m[i],
+                    visibility: tlData.hourly.visibility && tlData.hourly.visibility[i],
+                    weather_code: tlData.hourly.weather_code && tlData.hourly.weather_code[i]
+                }
+            });
+        }
+    } else {
+        locations = [tlData];
+    }
+    return locations;
+}
+
+async function vpFetchVfrSectorTimelines(bounds, gridPoints) {
+    if (!bounds || !Array.isArray(gridPoints) || gridPoints.length === 0) return null;
+    const centerLat = (bounds.minLat + bounds.maxLat) * 0.5;
+    const centerLon = (bounds.minLon + bounds.maxLon) * 0.5;
+    const sunriseUrl = `https://api.open-meteo.com/v1/forecast?latitude=${centerLat.toFixed(4)}&longitude=${centerLon.toFixed(4)}&daily=${encodeURIComponent('sunrise,sunset')}&forecast_days=1&timezone=auto`;
+    const sunRes = await fetch(sunriseUrl);
+    if (!sunRes.ok) throw new Error(`sunrise HTTP ${sunRes.status}`);
+    const sunData = await sunRes.json();
+    const srIso = sunData?.daily?.sunrise?.[0];
+    const ssIso = sunData?.daily?.sunset?.[0];
+    let srMs = Date.parse(srIso || '');
+    let ssMs = Date.parse(ssIso || '');
+    if (!Number.isFinite(srMs) || !Number.isFinite(ssMs) || ssMs <= srMs) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth();
+        const d = now.getDate();
+        srMs = new Date(y, m, d, 6, 0, 0).getTime();
+        ssMs = new Date(y, m, d, 18, 0, 0).getTime();
+    }
+    const dayMs = Math.max(2 * 3600 * 1000, ssMs - srMs);
+    const slots = [
+        { key: 'morning', label: 'Morgen', targetMs: srMs + dayMs * 0.2 },
+        { key: 'noon', label: 'Mittag', targetMs: srMs + dayMs * 0.5 },
+        { key: 'evening', label: 'Abend', targetMs: srMs + dayMs * 0.8 }
+    ];
+    const slotTargetsSec = slots.map(s => Math.round(s.targetMs / 1000));
+    const slotLabels = slots.map(s => s.label);
+    const hourlyVars = [
+        'cloud_cover_low', 'cloud_cover_mid', 'precipitation', 'rain',
+        'snowfall', 'wind_speed_10m', 'visibility', 'weather_code'
+    ];
+    const byKey = Object.create(null);
+    const chunkSize = 16;
+    for (let start = 0; start < gridPoints.length; start += chunkSize) {
+        const chunk = gridPoints.slice(start, start + chunkSize);
+        const latArg = chunk.map(p => Number(p.lat).toFixed(4)).join(',');
+        const lonArg = chunk.map(p => Number(p.lon).toFixed(4)).join(',');
+        const timelineUrl = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(latArg)}&longitude=${encodeURIComponent(lonArg)}&hourly=${encodeURIComponent(hourlyVars.join(','))}&forecast_hours=24&timezone=auto&timeformat=unixtime`;
+        const tlRes = await fetch(timelineUrl);
+        if (!tlRes.ok) throw new Error(`timeline HTTP ${tlRes.status}`);
+        const tlData = await tlRes.json();
+        const locations = vpExtractHourlyLocations(tlData);
+        for (let i = 0; i < chunk.length; i++) {
+            const p = chunk[i];
+            const loc = locations[i] || locations[0];
+            const hourly = loc && loc.hourly;
+            const times = hourly && hourly.time;
+            if (!Array.isArray(times) || times.length === 0) continue;
+            const slotOut = slotTargetsSec.map((targetSec, slotIdx) => {
+                const hIdx = vpPickNearestTimeIndex(times, targetSec);
+                const score = vpComputeVfrIndexScoreFromParts({
+                    cloudLow: hourly.cloud_cover_low && hourly.cloud_cover_low[hIdx],
+                    cloudMid: hourly.cloud_cover_mid && hourly.cloud_cover_mid[hIdx],
+                    precipitation: hourly.precipitation && hourly.precipitation[hIdx],
+                    rain: hourly.rain && hourly.rain[hIdx],
+                    snow: hourly.snowfall && hourly.snowfall[hIdx],
+                    wind: hourly.wind_speed_10m && hourly.wind_speed_10m[hIdx],
+                    visibility: hourly.visibility && hourly.visibility[hIdx],
+                    weatherCode: hourly.weather_code && hourly.weather_code[hIdx]
+                });
+                const cat = vpMapVfrCategory(score);
+                return {
+                    label: slotLabels[slotIdx],
+                    score: Math.round(score),
+                    color: cat.color,
+                    letter: cat.letter,
+                    catLabel: cat.label,
+                    timeLabel: vpFormatHm(slots[slotIdx].targetMs)
+                };
+            });
+            const keys = vpBuildTimelineKeyCandidates(p.lat, p.lon);
+            const latFromResp = Number(loc && loc.latitude);
+            const lonFromResp = Number(loc && loc.longitude);
+            if (Number.isFinite(latFromResp) && Number.isFinite(lonFromResp)) {
+                vpBuildTimelineKeyCandidates(latFromResp, lonFromResp).forEach(k => keys.push(k));
+            }
+            Array.from(new Set(keys)).forEach(k => { byKey[k] = { slots: slotOut }; });
+        }
+    }
+    const now = Date.now();
+    const nowRatio = Math.max(0, Math.min(1, (now - srMs) / Math.max(1, (ssMs - srMs))));
+    return {
+        byKey,
+        sunriseMs: srMs,
+        sunsetMs: ssMs,
+        nowRatio
+    };
+}
+
+function vpPopulateVfrCountrySelect() {
+    const select = document.getElementById('vfrCountrySelect');
+    if (!select) return;
+    const expected = VP_VFR_INDEX_COUNTRIES.length + 1;
+    if (select.options.length === expected) return;
+    select.innerHTML = '';
+    const autoOpt = document.createElement('option');
+    autoOpt.value = 'auto';
+    autoOpt.textContent = 'Auto (Planungsland)';
+    select.appendChild(autoOpt);
+    VP_VFR_INDEX_COUNTRIES.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.code;
+        opt.textContent = `${item.code} - ${item.name}`;
+        select.appendChild(opt);
+    });
+}
+
+function vpUpdateVfrUi() {
+    vpPopulateVfrCountrySelect();
+    vpVfrIndexState.plannedCountry = vpInferPlanningCountryCode();
+    const plannedMeta = vpGetVfrCountryMeta(vpVfrIndexState.plannedCountry);
+    const active = vpResolveActiveVfrCountry();
+    vpVfrIndexState.activeCountry = active;
+
+    const select = document.getElementById('vfrCountrySelect');
+    if (select) {
+        select.value = vpNormalizeVfrCountrySelection(vpVfrIndexState.selectedCountry);
+    }
+    const planningLabel = document.getElementById('vfrPlanningCountryLabel');
+    if (planningLabel) {
+        const plannedName = plannedMeta ? `${plannedMeta.code} - ${plannedMeta.name}` : 'unbekannt';
+        planningLabel.textContent = `Planungsland: ${plannedName}`;
+    }
+
+    const status = document.getElementById('vfrIndexStatus');
+    if (status) {
+        if (window.mapHints.vfrIndex === false) {
+            status.textContent = 'Status: Aus';
+            status.style.color = '#9bb5d1';
+        } else if (map && Number(map.getZoom()) < VP_VFR_INDEX_MIN_VISIBLE_ZOOM) {
+            status.textContent = `Status: ausgeblendet (Zoom < ${VP_VFR_INDEX_MIN_VISIBLE_ZOOM})`;
+            status.style.color = '#9bb5d1';
+        } else if (vpVfrIndexState.inFlight) {
+            status.textContent = `Status: Lade ${active}...`;
+            status.style.color = '#f1c64a';
+        } else if (vpVfrIndexState.lastError) {
+            status.textContent = `Status: Fehler - ${vpVfrIndexState.lastError}`;
+            status.style.color = '#f38f8f';
+        } else if (vpVfrIndexState.lastUpdatedAt > 0) {
+            const t = new Date(vpVfrIndexState.lastUpdatedAt).toLocaleTimeString();
+            status.textContent = `Status: ${active} - ${vpVfrIndexState.lastPointCount} Punkte (${t})`;
+            status.style.color = '#95d89d';
+        } else {
+            status.textContent = `Status: ${active} bereit`;
+            status.style.color = '#9bb5d1';
+        }
+    }
+
+    const nextHint = document.getElementById('vfrNextFetchHint');
+    const lastFetch = Number(vpVfrIndexState.lastFetchAtByCountry[active] || 0);
+    const rem = Math.max(0, VP_VFR_INDEX_MIN_UPDATE_MS - (Date.now() - lastFetch));
+    if (nextHint) nextHint.textContent = rem > 0 ? `auto in ${vpFormatVfrRemaining(rem)}` : 'auto bereit';
+
+    const refreshBtn = document.getElementById('vfrRefreshBtn');
+    if (refreshBtn) refreshBtn.disabled = !!vpVfrIndexState.inFlight;
+    const ampelBtn = document.getElementById('vfrAmpelToggleBtn');
+    if (ampelBtn) {
+        const on = vpVfrIndexState.showSectorAmpel !== false;
+        ampelBtn.textContent = `Ampel (${on ? 'An' : 'Aus'})`;
+        ampelBtn.style.background = on ? '#2E8B57' : '#444';
+        ampelBtn.style.color = '#fff';
+    }
+    const block = document.getElementById('vfrIndexMenuBlock');
+    if (block) block.style.opacity = (window.mapHints.vfrIndex === false) ? '0.72' : '1';
+}
+window.vpUpdateVfrUi = vpUpdateVfrUi;
+
+window.vpToggleVfrAmpel = function() {
+    vpVfrIndexState.showSectorAmpel = !(vpVfrIndexState.showSectorAmpel !== false);
+    localStorage.setItem('ga_vfr_sector_ampel', String(vpVfrIndexState.showSectorAmpel !== false));
+    vpUpdateVfrUi();
+    if (window.mapHints.vfrIndex !== false && map) {
+        vpRenderVfrCells(
+            Array.isArray(vpVfrIndexState.lastRenderedSamples) ? vpVfrIndexState.lastRenderedSamples : [],
+            Number(vpVfrIndexState.lastGridLatStep || 0.4),
+            Number(vpVfrIndexState.lastGridLonStep || 0.4),
+            vpVfrIndexState.timeline || null
+        );
+    }
+};
+
+function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
+    if (!map) return;
+    const layer = vpEnsureVfrLayer();
+    if (!layer) return;
+    vpVfrIndexState.lastRenderedSamples = Array.isArray(samples) ? samples.slice() : [];
+    vpVfrIndexState.lastGridLatStep = Number(latStep || 0.4);
+    vpVfrIndexState.lastGridLonStep = Number(lonStep || 0.4);
+    layer.clearLayers();
+    if (Number(map.getZoom()) < VP_VFR_INDEX_MIN_VISIBLE_ZOOM) {
+        if (map.hasLayer(layer)) map.removeLayer(layer);
+        return;
+    }
+    const halfLat = Math.max(0.12, latStep * 0.48);
+    const halfLon = Math.max(0.12, lonStep * 0.48);
+    const nowRatio = Number(timelines && timelines.nowRatio);
+    const byKey = (timelines && timelines.byKey) ? timelines.byKey : null;
+    samples.forEach(sample => {
+        if (!sample || !Number.isFinite(sample.lat) || !Number.isFinite(sample.lon)) return;
+        const scoreOverride = Number(sample.vfrScoreOverride);
+        const score = Number.isFinite(scoreOverride) ? Math.max(0, Math.min(100, Math.round(scoreOverride))) : vpComputeVfrIndexScore(sample);
+        const cat = vpMapVfrCategory(score);
+        const south = Math.max(-89.5, sample.lat - halfLat);
+        const north = Math.min(89.5, sample.lat + halfLat);
+        const west = Math.max(-179.5, sample.lon - halfLon);
+        const east = Math.min(179.5, sample.lon + halfLon);
+        const cell = L.rectangle([[south, west], [north, east]], {
+            color: cat.color,
+            weight: 1,
+            fillColor: cat.color,
+            fillOpacity: 0.34,
+            interactive: false
+        });
+        const windNum = Number(sample.wspd);
+        const windTxt = Number.isFinite(windNum) ? `${Math.round(windNum)} kt` : '--';
+        const pop = `${cat.label} • Score ${score} • Wind ${windTxt}`;
+        cell.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
+        cell.addTo(layer);
+
+        let tl = null;
+        if (byKey) {
+            const cands = vpBuildTimelineKeyCandidates(sample.lat, sample.lon);
+            for (const key of cands) {
+                if (byKey[key]) { tl = byKey[key]; break; }
+            }
+        }
+        if (!tl) {
+            // Fallback: Ampel trotzdem anzeigen, auf Basis des aktuellen Zell-Scores.
+            tl = {
+                slots: [
+                    { label: 'Morgen', letter: cat.letter, color: cat.color, catLabel: cat.label, score },
+                    { label: 'Mittag', letter: cat.letter, color: cat.color, catLabel: cat.label, score },
+                    { label: 'Abend', letter: cat.letter, color: cat.color, catLabel: cat.label, score }
+                ]
+            };
+        }
+        const ampelHtml = vpBuildSectorAmpelHtml(tl, nowRatio);
+        if (ampelHtml && vpVfrIndexState.showSectorAmpel !== false) {
+            const marker = L.marker([sample.lat, sample.lon], {
+                icon: L.divIcon({
+                    className: 'vp-vfr-sector-ampel',
+                    html: ampelHtml,
+                    iconSize: [72, 26],
+                    iconAnchor: [36, 13]
+                }),
+                interactive: false,
+                keyboard: false,
+                zIndexOffset: 1250
+            });
+            marker.addTo(layer);
+        }
+    });
+    if (!map.hasLayer(layer)) layer.addTo(map);
+}
+
+window.vpRefreshVfrIndex = async function() {
+    if (typeof window.renderVfrIndexOverlay === 'function') {
+        await window.renderVfrIndexOverlay(true);
+    }
+};
+
+window.vpSetVfrCountry = async function(value) {
+    vpVfrIndexState.selectedCountry = vpNormalizeVfrCountrySelection(value);
+    localStorage.setItem('ga_vfr_index_country', vpVfrIndexState.selectedCountry);
+    vpUpdateVfrUi();
+    if (window.mapHints.vfrIndex !== false && typeof window.renderVfrIndexOverlay === 'function') {
+        await window.renderVfrIndexOverlay(true);
+    }
+};
+
+window.renderVfrIndexOverlay = async function(forceFetch = false) {
+    if (!map) return;
+    vpUpdateVfrUi();
+    if (window.mapHints.vfrIndex === false) {
+        vpClearVfrLayer();
+        vpUpdateVfrUi();
+        return;
+    }
+    const active = vpResolveActiveVfrCountry();
+    const bounds = vpGetVfrCountryBounds(active);
+    if (!bounds) {
+        vpVfrIndexState.lastError = 'keine Landesgrenzen';
+        vpClearVfrLayer();
+        vpUpdateVfrUi();
+        return;
+    }
+
+    const lastFetch = Number(vpVfrIndexState.lastFetchAtByCountry[active] || 0);
+    const elapsed = Date.now() - lastFetch;
+    const hasCachedSamples = Array.isArray(vpVfrIndexState.lastRenderedSamples) && vpVfrIndexState.lastRenderedSamples.length > 0;
+    if (!forceFetch && lastFetch > 0 && elapsed < VP_VFR_INDEX_MIN_UPDATE_MS && hasCachedSamples) {
+        if (Array.isArray(vpVfrIndexState.lastRenderedSamples) && vpVfrIndexState.lastRenderedSamples.length > 0) {
+            vpRenderVfrCells(
+                vpVfrIndexState.lastRenderedSamples,
+                Number(vpVfrIndexState.lastGridLatStep || 0.4),
+                Number(vpVfrIndexState.lastGridLonStep || 0.4),
+                vpVfrIndexState.timeline || null
+            );
+        }
+        vpUpdateVfrUi();
+        return;
+    }
+    if (vpVfrIndexState.inFlight) return;
+    vpVfrIndexState.inFlight = true;
+    vpVfrIndexState.lastError = '';
+    vpUpdateVfrUi();
+
+    try {
+        const grid = vpBuildVfrGridPoints(bounds);
+        if (!grid.points.length) throw new Error('keine Rasterpunkte');
+        const samples = await window.fetchOpenMeteoWeatherPoints(grid.points, {
+            includePressure: false,
+            maxConcurrency: 3
+        });
+        let timelines = null;
+        try {
+            timelines = await vpFetchVfrSectorTimelines(bounds, grid.points);
+        } catch (timelineErr) {
+            console.warn('[VFR-Index] Timeline-Forecast fehlgeschlagen, nutze Fallback:', timelineErr);
+            timelines = null;
+        }
+        let valid = Array.isArray(samples) ? samples.filter(s => s && Number.isFinite(s.lat) && Number.isFinite(s.lon)) : [];
+        if (valid.length === 0 && timelines && timelines.byKey) {
+            const fallback = [];
+            const nowRatio = Number(timelines.nowRatio);
+            const slotIdx = Number.isFinite(nowRatio) ? Math.max(0, Math.min(2, Math.round(nowRatio * 2))) : 1;
+            grid.points.forEach(p => {
+                const cands = vpBuildTimelineKeyCandidates(p.lat, p.lon);
+                let tl = null;
+                for (const key of cands) {
+                    if (timelines.byKey[key]) {
+                        tl = timelines.byKey[key];
+                        break;
+                    }
+                }
+                if (!tl || !Array.isArray(tl.slots) || tl.slots.length < 1) return;
+                const slot = tl.slots[Math.min(slotIdx, tl.slots.length - 1)] || tl.slots[0];
+                const slotScore = Number(slot && slot.score);
+                fallback.push({
+                    lat: p.lat,
+                    lon: p.lon,
+                    vfrScoreOverride: Number.isFinite(slotScore) ? slotScore : 60
+                });
+            });
+            valid = fallback;
+        }
+        if (valid.length === 0) throw new Error('keine Wetterdaten fuer Raster');
+        vpRenderVfrCells(valid, grid.latStep, grid.lonStep, timelines);
+        vpVfrIndexState.lastFetchAtByCountry[active] = Date.now();
+        vpVfrIndexState.lastUpdatedAt = Date.now();
+        vpVfrIndexState.lastPointCount = valid.length;
+        vpVfrIndexState.lastError = '';
+        vpVfrIndexState.timeline = timelines;
+    } catch (e) {
+        vpVfrIndexState.lastError = (e && e.message) ? e.message : 'unknown';
+        vpClearVfrLayer();
+        vpVfrIndexState.timeline = null;
+    } finally {
+        vpVfrIndexState.inFlight = false;
+        vpUpdateVfrUi();
+    }
+};
+
+function vpScheduleVfrOverlayUpdate(forceFetch = false) {
+    if (window.mapHints.vfrIndex === false) return;
+    if (typeof window.renderVfrIndexOverlay === 'function') {
+        window.renderVfrIndexOverlay(forceFetch);
+    }
+}
+
+function vpEnsureVfrAutoTimer() {
+    if (vpVfrAutoTimer) return;
+    vpVfrAutoTimer = setInterval(() => {
+        if (window.mapHints.vfrIndex === false) return;
+        if (!map) return;
+        vpScheduleVfrOverlayUpdate(false);
+        vpUpdateVfrUi();
+    }, 60 * 1000);
+}
+
+function vpRefreshVfrLayerFromCache() {
+    if (!map || window.mapHints.vfrIndex === false) return;
+    vpRenderVfrCells(
+        Array.isArray(vpVfrIndexState.lastRenderedSamples) ? vpVfrIndexState.lastRenderedSamples : [],
+        Number(vpVfrIndexState.lastGridLatStep || 0.4),
+        Number(vpVfrIndexState.lastGridLonStep || 0.4),
+        vpVfrIndexState.timeline || null
+    );
+    vpUpdateVfrUi();
+}
 
 function escapePopupText(v) {
     return String(v ?? '')
@@ -1541,6 +2328,10 @@ function renderMainRoute() {
         triggerVerticalProfileUpdate();
     }
     scheduleWeatherMarkerDodging(true);
+    vpUpdateVfrUi();
+    if (window.mapHints.vfrIndex !== false && vpNormalizeVfrCountrySelection(vpVfrIndexState.selectedCountry) === 'auto') {
+        vpScheduleVfrOverlayUpdate(false);
+    }
 }
 
 window.openRouteWaypointAirportInfo = function (index) {
@@ -2166,6 +2957,10 @@ function initMapBase() {
     map.on('zoomend', function() {
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
+        if (window.mapHints.vfrIndex !== false) {
+            vpRefreshVfrLayerFromCache();
+            vpScheduleVfrOverlayUpdate(false);
+        }
     });
     
     const fsControl = L.control({ position: 'topleft' });
@@ -2211,6 +3006,8 @@ function initMapBase() {
         map._routeLegLabelsBound = true;
     }
     if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
+    vpUpdateVfrUi();
+    if (window.mapHints.vfrIndex !== false) vpScheduleVfrOverlayUpdate(false);
 }
 
 function updateMap(lat1, lon1, lat2, lon2, s, d) {
@@ -2698,6 +3495,8 @@ window.toggleMapMetars = function() {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadMapHintSettings();
+    vpEnsureVfrAutoTimer();
+    vpVfrIndexState.selectedCountry = vpNormalizeVfrCountrySelection(localStorage.getItem('ga_vfr_index_country') || 'auto');
     // Bestehenden Wetter-Status übernehmen, falls vorhanden
     window.vpShowMapMetar = window.mapHints.weather !== false;
     // Traffic-Status übernehmen
@@ -2706,8 +3505,10 @@ document.addEventListener('DOMContentLoaded', () => {
     applyMapHintEffects('weather');
     applyMapHintEffects('windBarbs');
     applyMapHintEffects('cloudFields');
+    applyMapHintEffects('vfrIndex');
     applyMapHintEffects('traffic');
     applyMapHintEffects('lowFps');
+    vpUpdateVfrUi();
 
     document.addEventListener('click', (e) => {
         const menu = document.getElementById('mapHintsMenu');
