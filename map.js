@@ -1376,7 +1376,7 @@ function vpBuildSectorAmpelHtml(sectorTl, nowRatio) {
         const score = Number(cat && cat.score);
         const scoreTxt = Number.isFinite(score) ? ` • Score ${Math.round(score)}` : '';
         const title = `${(s && s.label) || ''} ${(s && s.timeLabel) || ''} • ${(cat && cat.label) || ''}${scoreTxt} • ${modelLabel}`;
-        return `<div title="${escapePopupText(title)}" style="width:20px; height:14px; border:1px solid rgba(82,92,102,0.65); border-radius:3px; background:${color}; color:#111; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; line-height:1;">${escapePopupText(letter)}</div>`;
+        return `<div title="${escapePopupText(title)}" style="width:20px; height:14px; border:1px solid ${color}; border-radius:3px; background:${color}; color:#111; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; line-height:1;">${escapePopupText(letter)}</div>`;
     };
     return `<div style="pointer-events:none; width:72px; height:26px; border-radius:4px; background:rgba(12,17,24,0.38); box-shadow:0 1px 5px rgba(0,0,0,0.32); backdrop-filter:blur(1.5px);">
         <div style="position:relative; height:8px;">
@@ -1664,7 +1664,8 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
         const cell = L.polygon([outerRing, innerRing], {
             stroke: true,
             color: cat.color,
-            weight: 1,
+            weight: 1.2,
+            opacity: 1,
             fillColor: cat.color,
             fillOpacity: 0.45,
             fillRule: 'evenodd',
