@@ -689,10 +689,16 @@ function vpClassifyInternalVfr(parts = {}) {
 }
 
 function vpClassifyGaforLike(parts = {}) {
-    const visM = Number(parts.visibility);
-    const cloudBaseM = Number(parts.cloudBaseM);
-    const visKm = Number.isFinite(visM) ? (visM / 1000) : null;
-    const cloudBaseFt = Number.isFinite(cloudBaseM) ? (cloudBaseM * 3.28084) : null;
+    const visMRaw = Number(parts.visibility);
+    const visKm = (Number.isFinite(visMRaw) && visMRaw > 0) ? (visMRaw / 1000) : null;
+    const cloudBaseMRaw = Number(parts.cloudBaseM);
+    const cloudBaseFt = (Number.isFinite(cloudBaseMRaw) && cloudBaseMRaw > 0) ? (cloudBaseMRaw * 3.28084) : null;
+    const cloudLow = Number(parts.cloudLow || 0);
+    const cloudMid = Number(parts.cloudMid || 0);
+    const cloudTotal = Number(parts.cloudTotal || 0);
+    // GAFOR nutzt Untergrenze nur fuer BKN/OVC (>=5/8). Das naehern wir hier an.
+    const coverForCeiling = Math.max(cloudLow, cloudMid, cloudTotal);
+    const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 62;
 
     const classFromVis = (km) => {
         if (!Number.isFinite(km)) return null;
@@ -703,6 +709,7 @@ function vpClassifyGaforLike(parts = {}) {
         return 'X';
     };
     const classFromCloud = (ft) => {
+        if (!hasCeilingCondition) return null;
         if (!Number.isFinite(ft)) return null;
         if (ft >= 5000) return 'C';
         if (ft >= 2000) return 'O';
@@ -736,6 +743,8 @@ function vpClassifyGaforLike(parts = {}) {
         mode: 'gafor_like',
         visKm,
         cloudBaseFt,
+        coverForCeiling,
+        hasCeilingCondition,
         visClass,
         cloudClass
     };
@@ -751,6 +760,7 @@ function vpSampleToParts(sample = {}) {
     return {
         cloudLow: sample.cloudLowPct,
         cloudMid: sample.cloudMidPct,
+        cloudTotal: sample.cloudTotalPct,
         precipitation: sample.precipitationMm,
         rain: sample.rainMm,
         snow: sample.snowfallCm,
@@ -865,6 +875,7 @@ function vpExtractHourlyLocations(tlData) {
                     time: tlData.hourly.time[i] || [],
                     cloud_cover_low: tlData.hourly.cloud_cover_low && tlData.hourly.cloud_cover_low[i],
                     cloud_cover_mid: tlData.hourly.cloud_cover_mid && tlData.hourly.cloud_cover_mid[i],
+                    cloud_cover: tlData.hourly.cloud_cover && tlData.hourly.cloud_cover[i],
                     precipitation: tlData.hourly.precipitation && tlData.hourly.precipitation[i],
                     rain: tlData.hourly.rain && tlData.hourly.rain[i],
                     snowfall: tlData.hourly.snowfall && tlData.hourly.snowfall[i],
@@ -910,7 +921,7 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints) {
     const slotTargetsSec = slots.map(s => Math.round(s.targetMs / 1000));
     const slotLabels = slots.map(s => s.label);
     const hourlyVars = [
-        'cloud_cover_low', 'cloud_cover_mid', 'precipitation', 'rain',
+        'cloud_cover', 'cloud_cover_low', 'cloud_cover_mid', 'precipitation', 'rain',
         'snowfall', 'wind_speed_10m', 'visibility', 'weather_code', 'cloud_base'
     ];
     const byKey = Object.create(null);
@@ -935,6 +946,7 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints) {
                 const parts = {
                     cloudLow: hourly.cloud_cover_low && hourly.cloud_cover_low[hIdx],
                     cloudMid: hourly.cloud_cover_mid && hourly.cloud_cover_mid[hIdx],
+                    cloudTotal: hourly.cloud_cover && hourly.cloud_cover[hIdx],
                     precipitation: hourly.precipitation && hourly.precipitation[hIdx],
                     rain: hourly.rain && hourly.rain[hIdx],
                     snow: hourly.snowfall && hourly.snowfall[hIdx],
@@ -1253,6 +1265,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
                     weatherCode: Number(slot && slot.parts && slot.parts.weatherCode),
                     cloudLowPct: Number(slot && slot.parts && slot.parts.cloudLow),
                     cloudMidPct: Number(slot && slot.parts && slot.parts.cloudMid),
+                    cloudTotalPct: Number(slot && slot.parts && slot.parts.cloudTotal),
                     precipitationMm: Number(slot && slot.parts && slot.parts.precipitation),
                     rainMm: Number(slot && slot.parts && slot.parts.rain),
                     snowfallCm: Number(slot && slot.parts && slot.parts.snow),
