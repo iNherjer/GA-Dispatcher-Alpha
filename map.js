@@ -730,11 +730,11 @@ function vpClassifyGaforLike(parts = {}) {
     });
 
     const labels = {
-        C: { key: 'gafor_c', label: 'GAFOR C (frei)', color: '#8fcfa7', letter: 'C' },
-        O: { key: 'gafor_o', label: 'GAFOR O (offen)', color: '#b8dca7', letter: 'O' },
-        D: { key: 'gafor_d', label: 'GAFOR D (schwierig)', color: '#ddcf9e', letter: 'D' },
-        M: { key: 'gafor_m', label: 'GAFOR M (kritisch)', color: '#e2be97', letter: 'M' },
-        X: { key: 'gafor_x', label: 'GAFOR X (geschlossen)', color: '#d7a3a3', letter: 'X' }
+        C: { key: 'gafor_c', label: 'GAFOR C (frei)', color: '#3f7ed8', letter: 'C' },
+        O: { key: 'gafor_o', label: 'GAFOR O (offen)', color: '#8ecb4b', letter: 'O' },
+        D: { key: 'gafor_d', label: 'GAFOR D (schwierig)', color: '#e0c93b', letter: 'D' },
+        M: { key: 'gafor_m', label: 'GAFOR M (kritisch)', color: '#e08a3b', letter: 'M' },
+        X: { key: 'gafor_x', label: 'GAFOR X (geschlossen)', color: '#d14a4a', letter: 'X' }
     };
     const cat = labels[worst] || labels.M;
     return {
@@ -1118,11 +1118,26 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
         const north = Math.min(89.5, sample.lat + halfLat);
         const west = Math.max(-179.5, sample.lon - halfLon);
         const east = Math.min(179.5, sample.lon + halfLon);
-        const cell = L.rectangle([[south, west], [north, east]], {
+        const latSpan = Math.max(1e-6, north - south);
+        const lonSpan = Math.max(1e-6, east - west);
+        // Randring mit ca. 12% Flaechenanteil:
+        // innerArea ~= 88% => inset ~3.1% je Seite (1 - (1-2t)^2 = 0.12).
+        const insetRatio = 0.031;
+        const insetLat = Math.max(0.0008, latSpan * insetRatio);
+        const insetLon = Math.max(0.0008, lonSpan * insetRatio);
+        const iSouth = Math.min(north, south + insetLat);
+        const iNorth = Math.max(south, north - insetLat);
+        const iWest = Math.min(east, west + insetLon);
+        const iEast = Math.max(west, east - insetLon);
+        const outerRing = [[south, west], [south, east], [north, east], [north, west]];
+        const innerRing = [[iSouth, iWest], [iNorth, iWest], [iNorth, iEast], [iSouth, iEast]];
+        const cell = L.polygon([outerRing, innerRing], {
+            stroke: true,
             color: cat.color,
             weight: 1,
             fillColor: cat.color,
-            fillOpacity: 0.34,
+            fillOpacity: 0.45,
+            fillRule: 'evenodd',
             interactive: false
         });
         const windNum = Number(sample.wspd);
