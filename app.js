@@ -1736,6 +1736,8 @@ function handleSliderChange(type, val) {
 
         // Direkter Render-Aufruf! KEIN 3-Sekunden triggerVerticalProfileUpdate() mehr!
         if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+        // Terrain-Avoid Overlay an die geänderte CRZ-Höhe koppeln.
+        if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         // Lufträume nur prüfen, wenn wir nicht gerade aktiv ziehen
         if (!window.vpUIInteractionActive && typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
     }
