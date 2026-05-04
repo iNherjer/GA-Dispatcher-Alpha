@@ -596,6 +596,9 @@ function updateTerrainAvoidThresholdUi() {
         } else if (!available || terrainAvoidPausedReason === 'source') {
             statusLabel.textContent = 'Pausiert - keine Referenzhöhe';
             statusLabel.style.color = '#d2ab7a';
+        } else if (terrainAvoidUsingPlanningFallback()) {
+            statusLabel.textContent = 'CRZ-Fallback aktiv (Live-Höhe fehlt)';
+            statusLabel.style.color = '#9fc3e3';
         } else if (!liveSource) {
             statusLabel.textContent = 'Planungsmodus aktiv (CRZ-Höhe)';
             statusLabel.style.color = '#9fc3e3';
@@ -642,11 +645,15 @@ function getTerrainAvoidPlanningAltFt() {
     return null;
 }
 
-function terrainAvoidCanRenderNow() {
-    if (terrainAvoidCanActivate()) {
-        return Number.isFinite(getTerrainAvoidLiveAltFt());
-    }
+function terrainAvoidUsingPlanningFallback() {
+    if (!terrainAvoidCanActivate()) return false;
+    const liveAlt = getTerrainAvoidLiveAltFt();
+    if (Number.isFinite(liveAlt)) return false;
     return Number.isFinite(getTerrainAvoidPlanningAltFt());
+}
+
+function terrainAvoidCanRenderNow() {
+    return Number.isFinite(getTerrainAvoidAircraftAltFt());
 }
 
 function terrainAvoidReadFlightState() {
@@ -723,7 +730,8 @@ window.terrainAvoidHandleFlightState = function() {
 };
 
 function getTerrainAvoidAircraftAltFt() {
-    if (terrainAvoidCanActivate()) return getTerrainAvoidLiveAltFt();
+    const liveAlt = terrainAvoidCanActivate() ? getTerrainAvoidLiveAltFt() : null;
+    if (Number.isFinite(liveAlt)) return liveAlt;
     return getTerrainAvoidPlanningAltFt();
 }
 
