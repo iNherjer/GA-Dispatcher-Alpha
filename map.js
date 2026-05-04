@@ -1226,25 +1226,27 @@ function vpClassifyGaforLike(parts = {}) {
     const cloudLow = Number(parts.cloudLow || 0);
     const cloudMid = Number(parts.cloudMid || 0);
     const cloudTotal = Number(parts.cloudTotal || 0);
-    // GAFOR nutzt Untergrenze nur fuer BKN/OVC (>=5/8). Das naehern wir hier an.
+    // GAFOR nutzt Untergrenze nur fuer BKN/OVC.
+    // Wir setzen hier bewusst erst ab dichter Bedeckung an (>=6/8), um
+    // nicht zu frueh in strengere Klassen zu rutschen.
     const coverForCeiling = Math.max(cloudLow, cloudMid, cloudTotal);
-    const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 62;
+    const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 75;
 
     const classFromVis = (km) => {
         if (!Number.isFinite(km)) return null;
-        if (km >= 10) return 'C';
-        if (km >= 8) return 'O';
-        if (km >= 5) return 'D';
+        if (km >= 8) return 'C';
+        if (km >= 6) return 'O';
+        if (km >= 4) return 'D';
         if (km >= 1.5) return 'M';
         return 'X';
     };
     const classFromCloud = (ft) => {
         if (!hasCeilingCondition) return null;
         if (!Number.isFinite(ft)) return null;
-        if (ft >= 5000) return 'C';
-        if (ft >= 2000) return 'O';
-        if (ft >= 1000) return 'D';
-        if (ft >= 500) return 'M';
+        if (ft >= 3500) return 'C';
+        if (ft >= 1800) return 'O';
+        if (ft >= 900) return 'D';
+        if (ft >= 400) return 'M';
         return 'X';
     };
     const labels = {
@@ -1259,11 +1261,11 @@ function vpClassifyGaforLike(parts = {}) {
     const cloudClass = classFromCloud(cloudBaseFt);
 
     // Im GAFOR-Modus niemals auf V/M/I-Klassen zurueckfallen.
-    // Fehlen Sicht- und Ceiling-Daten komplett, bleibt die Ausgabe konservativ bei M.
+    // Fehlen Sicht- und Ceiling-Daten komplett, bleiben wir neutral bei D.
     if (!visClass && !cloudClass) {
         return {
-            ...labels.M,
-            score: 40,
+            ...labels.D,
+            score: 55,
             mode: 'gafor_like',
             visKm,
             cloudBaseFt,
