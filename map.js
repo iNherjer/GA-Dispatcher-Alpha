@@ -730,7 +730,7 @@ function vpClassifyGaforLike(parts = {}) {
     });
 
     const labels = {
-        C: { key: 'gafor_c', label: 'GAFOR C (frei)', color: '#3f7ed8', letter: 'C' },
+        C: { key: 'gafor_c', label: 'GAFOR C (frei)', color: '#6aaeff', letter: 'C' },
         O: { key: 'gafor_o', label: 'GAFOR O (offen)', color: '#8ecb4b', letter: 'O' },
         D: { key: 'gafor_d', label: 'GAFOR D (schwierig)', color: '#e0c93b', letter: 'D' },
         M: { key: 'gafor_m', label: 'GAFOR M (kritisch)', color: '#e08a3b', letter: 'M' },
