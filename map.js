@@ -621,9 +621,32 @@ function terrainAvoidCanActivate() {
     return !!(window.simModeActive || window.liveTrackerConnected);
 }
 
+function getTerrainAvoidLiveAltFt() {
+    if (window.simModeActive) {
+        const altSim = Number(window.lastLiveGpsPos?.alt ?? window.lastLiveFlightData?.mslFt);
+        return Number.isFinite(altSim) ? Math.max(0, altSim) : null;
+    }
+    if (window.liveTrackerConnected) {
+        if (typeof isGpsLive === 'function' && !isGpsLive(TERRAIN_AVOID_STALE_GPS_MS)) return null;
+        const altLive = Number(window.lastLiveGpsPos?.alt ?? window.lastLiveFlightData?.mslFt);
+        return Number.isFinite(altLive) ? Math.max(0, altLive) : null;
+    }
+    return null;
+}
+
+function getTerrainAvoidPlanningAltFt() {
+    const altMap = Number(document.getElementById('altSliderMap')?.value);
+    if (Number.isFinite(altMap) && altMap > 0) return altMap;
+    const altPlan = Number(document.getElementById('altSlider')?.value);
+    if (Number.isFinite(altPlan) && altPlan > 0) return altPlan;
+    return null;
+}
+
 function terrainAvoidCanRenderNow() {
-    const alt = getTerrainAvoidAircraftAltFt();
-    return terrainAvoidCanActivate() || Number.isFinite(alt);
+    if (terrainAvoidCanActivate()) {
+        return Number.isFinite(getTerrainAvoidLiveAltFt());
+    }
+    return Number.isFinite(getTerrainAvoidPlanningAltFt());
 }
 
 function terrainAvoidReadFlightState() {
@@ -697,15 +720,8 @@ window.terrainAvoidHandleFlightState = function() {
 };
 
 function getTerrainAvoidAircraftAltFt() {
-    if (typeof isGpsLive === 'function' && isGpsLive(TERRAIN_AVOID_STALE_GPS_MS)) {
-        const altLive = Number(window.lastLiveGpsPos && window.lastLiveGpsPos.alt);
-        if (Number.isFinite(altLive)) return Math.max(0, altLive);
-    }
-    const altMap = Number(document.getElementById('altSliderMap')?.value);
-    if (Number.isFinite(altMap) && altMap > 0) return altMap;
-    const altPlan = Number(document.getElementById('altSlider')?.value);
-    if (Number.isFinite(altPlan) && altPlan > 0) return altPlan;
-    return null;
+    if (terrainAvoidCanActivate()) return getTerrainAvoidLiveAltFt();
+    return getTerrainAvoidPlanningAltFt();
 }
 
 function terrainAvoidLerpByte(a, b, t) {
