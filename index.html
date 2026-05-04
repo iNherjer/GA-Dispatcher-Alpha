@@ -830,7 +830,8 @@
                     <button id="hintToggleWindBarbs" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('windBarbs')">🪁 Windbarben (An)</button>
                     <button id="hintToggleCloudFields" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('cloudFields')">☁️ Wolkenfelder (An)</button>
                     <button id="hintToggleVfrIndex" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('vfrIndex')">🧭 VFR-Index (Aus)</button>
-                    <div id="vfrIndexMenuBlock" style="margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
+                    <button id="btnToggleVfrIndexMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('vfrIndexMenu', event)" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">▸ GAFOR / VFR-Index Optionen</button>
+                    <div id="vfrIndexMenuBlock" style="display:none; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
                         <div id="vfrPlanningCountryLabel" style="font-size:10px; color:#9bb5d1; margin-bottom:5px;">Planungsland: –</div>
                         <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Lade-Land (Europa)</div>
                         <select id="vfrCountrySelect" onchange="window.vpSetVfrCountry && vpSetVfrCountry(this.value)" style="width:100%; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:6px;">
@@ -848,6 +849,22 @@
                         <div id="vfrModelInfo" style="font-size:10px; line-height:1.35; color:#a9c1db; margin:0 0 5px 0;"></div>
                         <button id="vfrAmpelToggleBtn" class="pb-btn" onclick="window.vpToggleVfrAmpel && vpToggleVfrAmpel()" style="display:block; width:100%; margin:0 0 4px 0; text-align:center;">Ampel (An)</button>
                         <div id="vfrIndexStatus" style="font-size:10px; color:#9bb5d1;">Status: Aus</div>
+                    </div>
+                    <button id="hintToggleTerrainAvoid" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('terrainAvoid')">🏔️ Terrain Avoid (Aus)</button>
+                    <button id="btnToggleTerrainAvoidMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('terrainAvoidMenu', event)" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">▸ Terrain Avoid Optionen</button>
+                    <div id="terrainAvoidMenuBlock" style="display:none; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
+                        <div style="font-size:10px; color:#8d8d8d; margin-bottom:5px;">Clearance-Schwellen</div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:3px;">
+                            <label for="terrainAvoidWarnSlider" style="font-size:10px; color:#a8a8a8;">Warnung bis</label>
+                            <span id="terrainAvoidWarnValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">900 ft</span>
+                        </div>
+                        <input id="terrainAvoidWarnSlider" type="range" min="200" max="3000" step="100" value="900" style="width:100%; cursor:pointer; margin-bottom:6px;" oninput="window.setTerrainAvoidThreshold && setTerrainAvoidThreshold('warn', this.value)">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:3px;">
+                            <label for="terrainAvoidSafeSlider" style="font-size:10px; color:#a8a8a8;">Schwarz ab</label>
+                            <span id="terrainAvoidSafeValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">2200 ft</span>
+                        </div>
+                        <input id="terrainAvoidSafeSlider" type="range" min="700" max="5000" step="100" value="2200" style="width:100%; cursor:pointer; margin-bottom:4px;" oninput="window.setTerrainAvoidThreshold && setTerrainAvoidThreshold('safe', this.value)">
+                        <div id="terrainAvoidStatus" style="font-size:10px; color:#9a9a9a;">Live-Layer aus</div>
                     </div>
                     <button id="hintToggleTraffic" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('traffic')">✈️ Traffic (An)</button>
                     <button id="hintToggleTelemetry" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('telemetry')">📟 Telemetrie (An)</button>
@@ -1189,6 +1206,14 @@
         if (planeMenu) planeMenu.style.display = 'none';
         const planeBtn = document.getElementById('btnTogglePlaneIconMenu');
         if (planeBtn) planeBtn.classList.remove('active');
+        const vfrMenu = document.getElementById('vfrIndexMenuBlock');
+        if (vfrMenu) vfrMenu.style.display = 'none';
+        const vfrBtn = document.getElementById('btnToggleVfrIndexMenu');
+        if (vfrBtn) vfrBtn.classList.remove('active');
+        const terrMenu = document.getElementById('terrainAvoidMenuBlock');
+        if (terrMenu) terrMenu.style.display = 'none';
+        const terrBtn = document.getElementById('btnToggleTerrainAvoidMenu');
+        if (terrBtn) terrBtn.classList.remove('active');
     }
 
     // ── Zahnrad-Untermenü Höhenprofil ──────────────────────────────────────────
@@ -1215,6 +1240,14 @@
             if (planeMenu) planeMenu.style.display = 'none';
             const planeBtn = document.getElementById('btnTogglePlaneIconMenu');
             if (planeBtn) planeBtn.classList.remove('active');
+            const vfrMenu = document.getElementById('vfrIndexMenuBlock');
+            if (vfrMenu) vfrMenu.style.display = 'none';
+            const terrMenu = document.getElementById('terrainAvoidMenuBlock');
+            if (terrMenu) terrMenu.style.display = 'none';
+            const vfrBtn = document.getElementById('btnToggleVfrIndexMenu');
+            if (vfrBtn) vfrBtn.classList.remove('active');
+            const terrBtn = document.getElementById('btnToggleTerrainAvoidMenu');
+            if (terrBtn) terrBtn.classList.remove('active');
         }
     }
     function toggleVpPlaneIconMenu(e) {

@@ -35,6 +35,7 @@ const MAP_HINT_DEFAULTS = {
     windBarbs: true,
     cloudFields: true,
     vfrIndex: false,
+    terrainAvoid: false,
     traffic: true,
     telemetry: true,
     nextLeg: true,
@@ -42,6 +43,11 @@ const MAP_HINT_DEFAULTS = {
     lowFps: false
 };
 window.mapHints = window.mapHints || { ...MAP_HINT_DEFAULTS };
+const MAP_HINT_SUBMENU_DEFAULTS = {
+    vfrIndexMenu: false,
+    terrainAvoidMenu: false
+};
+window.mapHintSubmenus = window.mapHintSubmenus || { ...MAP_HINT_SUBMENU_DEFAULTS };
 const VP_VFR_INDEX_MIN_UPDATE_MS = 15 * 60 * 1000;
 const VP_VFR_INDEX_MAX_POINTS = 72;
 const VP_VFR_INDEX_MIN_VISIBLE_ZOOM = 8;
@@ -137,6 +143,23 @@ window.vpObsTileOverlayEnabled = localStorage.getItem('ga_debug_obs_tile_overlay
 const VP_OBS_TILE_USED_RECENT_MS = 5 * 60 * 1000;
 window.vpObsTileLoadingKeys = window.vpObsTileLoadingKeys || new Set();
 window.vpObsTileDeferredKeys = window.vpObsTileDeferredKeys || new Set();
+const TERRAIN_AVOID_WARN_DEFAULT_FT = 900;
+const TERRAIN_AVOID_SAFE_DEFAULT_FT = 2200;
+const TERRAIN_AVOID_WARN_MIN_FT = 200;
+const TERRAIN_AVOID_WARN_MAX_FT = 3000;
+const TERRAIN_AVOID_SAFE_MIN_FT = 700;
+const TERRAIN_AVOID_SAFE_MAX_FT = 5000;
+const TERRAIN_AVOID_MIN_UPDATE_MS = 1300;
+const TERRAIN_AVOID_STALE_GPS_MS = 30000;
+const TERRAIN_AVOID_TILE_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+const TERRAIN_AVOID_SOURCE_MAX_Z = 13;
+const TERRAIN_AVOID_TILE_CACHE_MAX = 180;
+let terrainAvoidOverlayLayer = null;
+let terrainAvoidRefreshTimer = null;
+let terrainAvoidLastRenderAt = 0;
+let terrainAvoidWarnFt = TERRAIN_AVOID_WARN_DEFAULT_FT;
+let terrainAvoidSafeFt = TERRAIN_AVOID_SAFE_DEFAULT_FT;
+const terrainAvoidTileCache = new Map();
 
 function updateObsTileOverlayButtonUi() {
     const btn = document.getElementById('btnToggleObsTileOverlay');
@@ -383,6 +406,11 @@ function applyMapHintEffects(key) {
         } else vpScheduleVfrOverlayUpdate(false);
         vpUpdateVfrUi();
     }
+    if (key === 'terrainAvoid') {
+        if (typeof window.setTerrainAvoidOverlayEnabled === 'function') {
+            window.setTerrainAvoidOverlayEnabled(window.mapHints.terrainAvoid !== false, { skipPersist: true, silent: true });
+        }
+    }
     if (key === 'windBarbs' || key === 'cloudFields') {
         // Sofortige visuelle Reaktion ohne zusätzlichen Quellen-Toggle.
         if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
@@ -419,6 +447,37 @@ function applyMapHintEffects(key) {
     }
 }
 
+function setMapHintSubmenuOpen(key, open) {
+    const ids = {
+        vfrIndexMenu: { btn: 'btnToggleVfrIndexMenu', panel: 'vfrIndexMenuBlock', label: 'GAFOR / VFR-Index Optionen' },
+        terrainAvoidMenu: { btn: 'btnToggleTerrainAvoidMenu', panel: 'terrainAvoidMenuBlock', label: 'Terrain Avoid Optionen' }
+    };
+    const meta = ids[key];
+    if (!meta) return;
+    const panel = document.getElementById(meta.panel);
+    const btn = document.getElementById(meta.btn);
+    const isOpen = !!open;
+    if (window.mapHintSubmenus) window.mapHintSubmenus[key] = isOpen;
+    if (panel) panel.style.display = isOpen ? 'block' : 'none';
+    if (btn) {
+        btn.textContent = `${isOpen ? '▾' : '▸'} ${meta.label}`;
+        btn.classList.toggle('active', isOpen);
+    }
+}
+
+function closeAllMapHintSubmenus() {
+    Object.keys(MAP_HINT_SUBMENU_DEFAULTS).forEach(k => setMapHintSubmenuOpen(k, false));
+}
+
+window.toggleMapHintSubmenu = function(key, evt) {
+    if (evt && typeof evt.stopPropagation === 'function') evt.stopPropagation();
+    if (!(key in MAP_HINT_SUBMENU_DEFAULTS)) return;
+    const nowOpen = !!(window.mapHintSubmenus && window.mapHintSubmenus[key]);
+    Object.keys(MAP_HINT_SUBMENU_DEFAULTS).forEach(k => {
+        setMapHintSubmenuOpen(k, k === key ? !nowOpen : false);
+    });
+};
+
 function refreshMapHintMenuUi() {
     const labels = {
         magentaLine: '🟣 Direkt-Linie',
@@ -426,6 +485,7 @@ function refreshMapHintMenuUi() {
         windBarbs: '🪁 Windbarben',
         cloudFields: '☁️ Wolkenfelder',
         vfrIndex: '🧭 VFR-Index',
+        terrainAvoid: '🏔️ Terrain Avoid',
         traffic: '✈️ Traffic',
         telemetry: '📟 Telemetrie',
         nextLeg: '🧭 Wegpunkt-Info',
@@ -438,6 +498,7 @@ function refreshMapHintMenuUi() {
         windBarbs: 'hintToggleWindBarbs',
         cloudFields: 'hintToggleCloudFields',
         vfrIndex: 'hintToggleVfrIndex',
+        terrainAvoid: 'hintToggleTerrainAvoid',
         traffic: 'hintToggleTraffic',
         telemetry: 'hintToggleTelemetry',
         nextLeg: 'hintToggleNextLeg',
@@ -452,7 +513,12 @@ function refreshMapHintMenuUi() {
         btn.style.background = on ? '#2E8B57' : '#444';
         btn.style.color = '#fff';
     });
+    Object.keys(MAP_HINT_SUBMENU_DEFAULTS).forEach(k => {
+        const isOpen = !!(window.mapHintSubmenus && window.mapHintSubmenus[k]);
+        setMapHintSubmenuOpen(k, isOpen);
+    });
     vpUpdateVfrUi();
+    updateTerrainAvoidThresholdUi();
 }
 
 window.toggleMapHint = function(key) {
@@ -471,11 +537,260 @@ window.toggleMapHintsMenu = function(force) {
     menu.style.display = nextOpen ? 'block' : 'none';
     if (nextOpen) refreshMapHintMenuUi();
     if (!nextOpen) {
+        closeAllMapHintSubmenus();
         const planeMenu = document.getElementById('vpPlaneIconMenu');
         if (planeMenu) planeMenu.style.display = 'none';
         const planeBtn = document.getElementById('btnTogglePlaneIconMenu');
         if (planeBtn) planeBtn.classList.remove('active');
     }
+};
+
+function clampTerrainAvoidThresholds() {
+    terrainAvoidWarnFt = Math.round(Math.max(TERRAIN_AVOID_WARN_MIN_FT, Math.min(TERRAIN_AVOID_WARN_MAX_FT, Number(terrainAvoidWarnFt) || TERRAIN_AVOID_WARN_DEFAULT_FT)));
+    terrainAvoidSafeFt = Math.round(Math.max(TERRAIN_AVOID_SAFE_MIN_FT, Math.min(TERRAIN_AVOID_SAFE_MAX_FT, Number(terrainAvoidSafeFt) || TERRAIN_AVOID_SAFE_DEFAULT_FT)));
+    if (terrainAvoidSafeFt < terrainAvoidWarnFt + 300) {
+        terrainAvoidSafeFt = Math.min(TERRAIN_AVOID_SAFE_MAX_FT, terrainAvoidWarnFt + 300);
+    }
+}
+
+function loadTerrainAvoidSettings() {
+    terrainAvoidWarnFt = Number(localStorage.getItem('ga_terrain_avoid_warn_ft')) || TERRAIN_AVOID_WARN_DEFAULT_FT;
+    terrainAvoidSafeFt = Number(localStorage.getItem('ga_terrain_avoid_safe_ft')) || TERRAIN_AVOID_SAFE_DEFAULT_FT;
+    clampTerrainAvoidThresholds();
+}
+
+function saveTerrainAvoidSettings() {
+    localStorage.setItem('ga_terrain_avoid_warn_ft', String(Math.round(terrainAvoidWarnFt)));
+    localStorage.setItem('ga_terrain_avoid_safe_ft', String(Math.round(terrainAvoidSafeFt)));
+}
+
+function updateTerrainAvoidThresholdUi() {
+    const warnSlider = document.getElementById('terrainAvoidWarnSlider');
+    const safeSlider = document.getElementById('terrainAvoidSafeSlider');
+    const warnLabel = document.getElementById('terrainAvoidWarnValue');
+    const safeLabel = document.getElementById('terrainAvoidSafeValue');
+    const statusLabel = document.getElementById('terrainAvoidStatus');
+    if (warnSlider) warnSlider.value = String(Math.round(terrainAvoidWarnFt));
+    if (safeSlider) safeSlider.value = String(Math.round(terrainAvoidSafeFt));
+    if (warnLabel) warnLabel.textContent = `${Math.round(terrainAvoidWarnFt)} ft`;
+    if (safeLabel) safeLabel.textContent = `${Math.round(terrainAvoidSafeFt)} ft`;
+    if (statusLabel) {
+        const on = window.mapHints && window.mapHints.terrainAvoid !== false;
+        const available = terrainAvoidCanActivate();
+        if (!available) {
+            statusLabel.textContent = 'Nur in SIM oder mit Tracker';
+            statusLabel.style.color = '#d2ab7a';
+        } else {
+            statusLabel.textContent = on ? 'Live-Layer aktiv' : 'Live-Layer aus';
+            statusLabel.style.color = on ? '#9fe3b3' : '#9a9a9a';
+        }
+    }
+}
+
+window.setTerrainAvoidThreshold = function(kind, value) {
+    if (kind === 'warn') terrainAvoidWarnFt = Number(value);
+    if (kind === 'safe') terrainAvoidSafeFt = Number(value);
+    clampTerrainAvoidThresholds();
+    saveTerrainAvoidSettings();
+    updateTerrainAvoidThresholdUi();
+    if (window.mapHints && window.mapHints.terrainAvoid !== false) {
+        window.scheduleTerrainAvoidOverlayUpdate(true);
+    }
+};
+
+function terrainAvoidCanActivate() {
+    return !!(window.simModeActive || window.liveTrackerConnected);
+}
+
+function getTerrainAvoidAircraftAltFt() {
+    if (typeof isGpsLive === 'function' && isGpsLive(TERRAIN_AVOID_STALE_GPS_MS)) {
+        const altLive = Number(window.lastLiveGpsPos && window.lastLiveGpsPos.alt);
+        if (Number.isFinite(altLive)) return Math.max(0, altLive);
+    }
+    const altMap = Number(document.getElementById('altSliderMap')?.value);
+    if (Number.isFinite(altMap) && altMap > 0) return altMap;
+    const altPlan = Number(document.getElementById('altSlider')?.value);
+    if (Number.isFinite(altPlan) && altPlan > 0) return altPlan;
+    return null;
+}
+
+function terrainAvoidLerpByte(a, b, t) {
+    const clamped = Math.max(0, Math.min(1, t));
+    return Math.round(a + ((b - a) * clamped));
+}
+
+function getTerrainAvoidRgbaBytes(clearanceFt) {
+    if (!Number.isFinite(clearanceFt)) return [0, 0, 0, 0];
+    if (clearanceFt <= 0) return [255, 52, 52, 208];
+    if (clearanceFt <= terrainAvoidWarnFt) {
+        const t = clearanceFt / Math.max(1, terrainAvoidWarnFt);
+        return [255, terrainAvoidLerpByte(52, 184, t), terrainAvoidLerpByte(52, 0, t), 194];
+    }
+    if (clearanceFt >= terrainAvoidSafeFt) return [0, 0, 0, 182];
+    const t = (clearanceFt - terrainAvoidWarnFt) / Math.max(1, terrainAvoidSafeFt - terrainAvoidWarnFt);
+    return [terrainAvoidLerpByte(255, 0, t), terrainAvoidLerpByte(184, 0, t), 0, terrainAvoidLerpByte(186, 178, t)];
+}
+
+function terrainAvoidResolveSourceTile(coords) {
+    const z = Math.max(0, Number(coords && coords.z) || 0);
+    const srcZ = Math.min(TERRAIN_AVOID_SOURCE_MAX_Z, z);
+    const scale = Math.max(1, 1 << Math.max(0, z - srcZ));
+    const x = Number(coords && coords.x) || 0;
+    const y = Number(coords && coords.y) || 0;
+    const srcXRaw = Math.floor(x / scale);
+    const srcYRaw = Math.floor(y / scale);
+    const subX = ((x % scale) + scale) % scale;
+    const subY = ((y % scale) + scale) % scale;
+    const n = 1 << srcZ;
+    if (srcYRaw < 0 || srcYRaw >= n) return null;
+    const srcX = ((srcXRaw % n) + n) % n;
+    return { srcZ, srcX, srcY: srcYRaw, scale, subX, subY };
+}
+
+function terrainAvoidLoadTileImageData(z, x, y) {
+    const key = `${z}/${x}/${y}`;
+    if (terrainAvoidTileCache.has(key)) return Promise.resolve(terrainAvoidTileCache.get(key));
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = 256;
+            c.height = 256;
+            const ctx = c.getContext('2d', { willReadFrequently: true });
+            if (!ctx) {
+                reject(new Error('terrain-ctx-missing'));
+                return;
+            }
+            ctx.drawImage(img, 0, 0, 256, 256);
+            const imageData = ctx.getImageData(0, 0, 256, 256);
+            if (terrainAvoidTileCache.size >= TERRAIN_AVOID_TILE_CACHE_MAX) {
+                const oldest = terrainAvoidTileCache.keys().next().value;
+                if (oldest) terrainAvoidTileCache.delete(oldest);
+            }
+            terrainAvoidTileCache.set(key, imageData);
+            resolve(imageData);
+        };
+        img.onerror = () => reject(new Error(`terrain-tile-load-failed:${key}`));
+        img.src = TERRAIN_AVOID_TILE_URL.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+    });
+}
+
+function ensureTerrainAvoidOverlayLayer() {
+    if (terrainAvoidOverlayLayer || typeof L === 'undefined') return;
+    const TerrainAvoidGridLayer = L.GridLayer.extend({
+        createTile: function(coords, done) {
+            const tile = L.DomUtil.create('canvas', 'leaflet-tile');
+            const size = this.getTileSize();
+            tile.width = size.x;
+            tile.height = size.y;
+            const ctx = tile.getContext('2d', { willReadFrequently: true });
+            const finalize = () => { if (typeof done === 'function') done(null, tile); };
+            if (!ctx) {
+                finalize();
+                return tile;
+            }
+            if (window.mapHints && window.mapHints.terrainAvoid === false) {
+                finalize();
+                return tile;
+            }
+            if (!terrainAvoidCanActivate()) {
+                finalize();
+                return tile;
+            }
+            const aircraftAltFt = getTerrainAvoidAircraftAltFt();
+            if (!Number.isFinite(aircraftAltFt)) {
+                finalize();
+                return tile;
+            }
+            const spec = terrainAvoidResolveSourceTile(coords);
+            if (!spec) {
+                finalize();
+                return tile;
+            }
+            terrainAvoidLoadTileImageData(spec.srcZ, spec.srcX, spec.srcY).then((srcImage) => {
+                const src = srcImage && srcImage.data ? srcImage.data : null;
+                if (!src) {
+                    finalize();
+                    return;
+                }
+                const out = ctx.createImageData(size.x, size.y);
+                const outData = out.data;
+                for (let py = 0; py < size.y; py++) {
+                    const srcPy = spec.scale === 1 ? py : Math.min(255, Math.floor(((spec.subY * 256) + py) / spec.scale));
+                    for (let px = 0; px < size.x; px++) {
+                        const srcPx = spec.scale === 1 ? px : Math.min(255, Math.floor(((spec.subX * 256) + px) / spec.scale));
+                        const srcIdx = (srcPy * 256 + srcPx) * 4;
+                        const r = src[srcIdx];
+                        const g = src[srcIdx + 1];
+                        const b = src[srcIdx + 2];
+                        const elevM = (r * 256 + g + b / 256) - 32768;
+                        const terrainFt = Math.max(0, Math.round(elevM * 3.28084));
+                        const rgba = getTerrainAvoidRgbaBytes(aircraftAltFt - terrainFt);
+                        const outIdx = (py * size.x + px) * 4;
+                        outData[outIdx] = rgba[0];
+                        outData[outIdx + 1] = rgba[1];
+                        outData[outIdx + 2] = rgba[2];
+                        outData[outIdx + 3] = rgba[3];
+                    }
+                }
+                ctx.putImageData(out, 0, 0);
+                finalize();
+            }).catch(() => finalize());
+            return tile;
+        }
+    });
+    terrainAvoidOverlayLayer = new TerrainAvoidGridLayer({
+        tileSize: 256,
+        opacity: 1,
+        updateWhenIdle: true,
+        updateWhenZooming: false,
+        keepBuffer: 1,
+        zIndex: 430
+    });
+}
+
+window.setTerrainAvoidOverlayEnabled = function(next, opts = {}) {
+    let enable = !!next;
+    if (enable && !terrainAvoidCanActivate()) {
+        enable = false;
+        if (!opts.silent && typeof showMapToast === 'function') showMapToast('Terrain Avoid nur mit Sim oder verbundenem Tracker verfügbar.', 2200);
+    }
+    if (window.mapHints) window.mapHints.terrainAvoid = enable;
+    if (!opts.skipPersist) saveMapHintSetting('terrainAvoid');
+    if (typeof refreshMapHintMenuUi === 'function') refreshMapHintMenuUi();
+    updateTerrainAvoidThresholdUi();
+    if (!map) return;
+    ensureTerrainAvoidOverlayLayer();
+    if (!terrainAvoidOverlayLayer) return;
+    if (enable && !map.hasLayer(terrainAvoidOverlayLayer)) terrainAvoidOverlayLayer.addTo(map);
+    if (!enable && map.hasLayer(terrainAvoidOverlayLayer)) map.removeLayer(terrainAvoidOverlayLayer);
+    if (enable) window.scheduleTerrainAvoidOverlayUpdate(true);
+    else if (typeof terrainAvoidOverlayLayer.redraw === 'function') terrainAvoidOverlayLayer.redraw();
+};
+
+window.scheduleTerrainAvoidOverlayUpdate = function(forceFetch = false) {
+    if (!map) return;
+    updateTerrainAvoidThresholdUi();
+    ensureTerrainAvoidOverlayLayer();
+    if (!terrainAvoidOverlayLayer) return;
+    if (window.mapHints && window.mapHints.terrainAvoid !== false && !terrainAvoidCanActivate()) {
+        if (window.mapHints) window.mapHints.terrainAvoid = false;
+        saveMapHintSetting('terrainAvoid');
+        if (map.hasLayer(terrainAvoidOverlayLayer)) map.removeLayer(terrainAvoidOverlayLayer);
+        if (typeof refreshMapHintMenuUi === 'function') refreshMapHintMenuUi();
+        updateTerrainAvoidThresholdUi();
+        return;
+    }
+    if (terrainAvoidRefreshTimer) clearTimeout(terrainAvoidRefreshTimer);
+    const delay = forceFetch ? 80 : 260;
+    terrainAvoidRefreshTimer = setTimeout(() => {
+        if (!terrainAvoidOverlayLayer || !map.hasLayer(terrainAvoidOverlayLayer)) return;
+        const now = Date.now();
+        if (!forceFetch && (now - terrainAvoidLastRenderAt) < TERRAIN_AVOID_MIN_UPDATE_MS) return;
+        terrainAvoidLastRenderAt = now;
+        if (typeof terrainAvoidOverlayLayer.redraw === 'function') terrainAvoidOverlayLayer.redraw();
+    }, delay);
 };
 
 function vpGetVfrCountryMeta(code) {
@@ -2996,6 +3311,7 @@ function initMapBase() {
     const dfsIcaoOverlay = L.tileLayer('https://secais.dfs.de/static-maps/icao500/tiles/{z}/{x}/{y}.png', {
         attribution: '© DFS Deutsche Flugsicherung', maxNativeZoom: 11, opacity: 1.0
     });
+    ensureTerrainAvoidOverlayLayer();
 
     topoMap.setOpacity(0.5);
     map = L.map('map', { layers: [topoMap, aeroOverlay], attributionControl: false }).setView([51.1657, 10.4515], 6);
@@ -3023,7 +3339,8 @@ function initMapBase() {
     const overlayMaps = {
         "🗺️ DFS ICAO Karte 1:500k": dfsIcaoOverlay,
         "🛩️ VFR Lufträume (Overlay)": aeroOverlay,
-        "🌧️ Wetterradar (Niederschlag)": radarOverlay
+        "🌧️ Wetterradar (Niederschlag)": radarOverlay,
+        "🏔️ Terrain Avoid (Live)": terrainAvoidOverlayLayer
     };
     
     const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed: true }).addTo(map);
@@ -3107,6 +3424,12 @@ function initMapBase() {
             topoMap.setOpacity(1.0);
         }
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'true');
+        if (e.name === "🏔️ Terrain Avoid (Live)") {
+            if (typeof window.setTerrainAvoidOverlayEnabled === 'function') {
+                window.setTerrainAvoidOverlayEnabled(true);
+            }
+            if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
+        }
     });
     
     map.on('overlayremove', function (e) {
@@ -3114,6 +3437,11 @@ function initMapBase() {
             topoMap.setOpacity(1.0);
         }
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'false');
+        if (e.name === "🏔️ Terrain Avoid (Live)") {
+            if (typeof window.setTerrainAvoidOverlayEnabled === 'function') {
+                window.setTerrainAvoidOverlayEnabled(false);
+            }
+        }
     });
     
     let fetchTimeout = null;
@@ -3124,10 +3452,12 @@ function initMapBase() {
         }
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
+        if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(false);
     });
     map.on('zoomend', function() {
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
+        if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(false);
         if (window.mapHints.vfrIndex !== false) {
             vpRefreshVfrLayerFromCache();
             vpScheduleVfrOverlayUpdate(false);
@@ -3155,6 +3485,10 @@ function initMapBase() {
         return btn;
     };
     fsControl.addTo(map);
+    if (window.mapHints && window.mapHints.terrainAvoid !== false && terrainAvoidCanActivate() && terrainAvoidOverlayLayer) {
+        terrainAvoidOverlayLayer.addTo(map);
+        if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
+    }
     map.on('click', function (e) {
         if (handleAipCalibrationMapClick(e)) return;
         if (isMapUiClickTarget(e.originalEvent)) return;
@@ -3666,6 +4000,7 @@ window.toggleMapMetars = function() {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadMapHintSettings();
+    loadTerrainAvoidSettings();
     vpEnsureVfrAutoTimer();
     vpVfrIndexState.selectedCountry = vpNormalizeVfrCountrySelection(localStorage.getItem('ga_vfr_index_country') || 'auto');
     vpVfrIndexState.vfrModel = vpNormalizeVfrModel(localStorage.getItem('ga_vfr_index_model') || 'internal');
@@ -3678,6 +4013,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyMapHintEffects('windBarbs');
     applyMapHintEffects('cloudFields');
     applyMapHintEffects('vfrIndex');
+    applyMapHintEffects('terrainAvoid');
     applyMapHintEffects('traffic');
     applyMapHintEffects('lowFps');
     vpUpdateVfrUi();

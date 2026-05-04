@@ -825,6 +825,7 @@ function resetSyncTimer() {
 // Globale Variablen für das Live-Tracking
 let liveGpsSocket = null;
 let liveGpsMarker = null;
+window.liveTrackerConnected = false;
 let lastAutoFollowPanAt = 0;
 let lastAutoFollowPanPos = null;
 let lastLivePlaneHeadingUpdateAt = 0;
@@ -1445,6 +1446,8 @@ window.connectToLiveGPS = async function(syncId) {
     liveGpsSocket.onopen = () => {
         console.log(`[GPS] ✅ Verbunden! Warte auf Flugzeug-Daten...`);
         gpsReconnectDelay = 2000; // Erfolg → Backoff zurücksetzen
+        window.liveTrackerConnected = true;
+        if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         // Dem Server mitteilen, in welchen Raum wir wollen (mit PIN!)
         liveGpsSocket.send(JSON.stringify({ type: 'join', syncId: syncId, pin: getSyncPin() }));
 
@@ -1521,6 +1524,8 @@ window.connectToLiveGPS = async function(syncId) {
 
     liveGpsSocket.onclose = () => {
         clearTimeout(gpsWatchdog);
+        window.liveTrackerConnected = false;
+        if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         const ind = document.getElementById('liveGpsIndicator');
         if (ind) {
             ind.innerHTML = '🛰️ OFF';
@@ -1540,6 +1545,8 @@ window.connectToLiveGPS = async function(syncId) {
 
     liveGpsSocket.onerror = () => {
         clearTimeout(gpsWatchdog);
+        window.liveTrackerConnected = false;
+        if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         const ind = document.getElementById('liveGpsIndicator');
         if (ind) { 
             ind.innerHTML = '🛰️ OFF'; 
@@ -1597,6 +1604,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     const simGsNow = Number(window.lastLiveFlightData?.gsKts ?? window.lastLiveFlightData?.gs);
     const curGs = Number.isFinite(simGsNow) ? simGsNow : smoothedGS;
     window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now, gs: curGs };
+    if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(false);
     window.updateCompassHeading(hdg);
 
     // --- FEATURE 1: SNAIL TRAIL ---
