@@ -149,17 +149,23 @@ const TERRAIN_AVOID_WARN_MIN_FT = 200;
 const TERRAIN_AVOID_WARN_MAX_FT = 3000;
 const TERRAIN_AVOID_SAFE_MIN_FT = 700;
 const TERRAIN_AVOID_SAFE_MAX_FT = 5000;
-const TERRAIN_AVOID_MIN_UPDATE_MS = 1300;
+const TERRAIN_AVOID_MIN_UPDATE_MS = 1000;
 const TERRAIN_AVOID_STALE_GPS_MS = 30000;
 const TERRAIN_AVOID_TILE_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 const TERRAIN_AVOID_SOURCE_MAX_Z = 13;
 const TERRAIN_AVOID_TILE_CACHE_MAX = 180;
+const TERRAIN_AVOID_RENDER_TILE_CACHE_MAX = 280;
+const TERRAIN_AVOID_MIN_ALT_DELTA_FT = 18;
 let terrainAvoidOverlayLayer = null;
 let terrainAvoidRefreshTimer = null;
 let terrainAvoidLastRenderAt = 0;
+let terrainAvoidLastRenderAltFt = null;
 let terrainAvoidWarnFt = TERRAIN_AVOID_WARN_DEFAULT_FT;
 let terrainAvoidSafeFt = TERRAIN_AVOID_SAFE_DEFAULT_FT;
+let terrainAvoidWasAirborne = false;
+let terrainAvoidPausedReason = '';
 const terrainAvoidTileCache = new Map();
+const terrainAvoidRenderedTileCache = new Map();
 
 function updateObsTileOverlayButtonUi() {
     const btn = document.getElementById('btnToggleObsTileOverlay');
@@ -577,12 +583,21 @@ function updateTerrainAvoidThresholdUi() {
     if (statusLabel) {
         const on = window.mapHints && window.mapHints.terrainAvoid !== false;
         const available = terrainAvoidCanActivate();
-        if (!available) {
-            statusLabel.textContent = 'Nur in SIM oder mit Tracker';
+        if (!on) {
+            statusLabel.textContent = 'Live-Layer aus';
+            statusLabel.style.color = '#9a9a9a';
+        } else if (terrainAvoidPausedReason === 'landed') {
+            statusLabel.textContent = 'Pausiert am Boden - startet in der Luft';
+            statusLabel.style.color = '#d2ab7a';
+        } else if (terrainAvoidPausedReason === 'sim-end') {
+            statusLabel.textContent = 'Pausiert nach Sim-Ende - startet in neuer SIM oder in der Luft';
+            statusLabel.style.color = '#d2ab7a';
+        } else if (!available || terrainAvoidPausedReason === 'source') {
+            statusLabel.textContent = 'Pausiert - wartet auf SIM/Tracker';
             statusLabel.style.color = '#d2ab7a';
         } else {
-            statusLabel.textContent = on ? 'Live-Layer aktiv' : 'Live-Layer aus';
-            statusLabel.style.color = on ? '#9fe3b3' : '#9a9a9a';
+            statusLabel.textContent = 'Live-Layer aktiv';
+            statusLabel.style.color = '#9fe3b3';
         }
     }
 }
@@ -601,6 +616,76 @@ window.setTerrainAvoidThreshold = function(kind, value) {
 function terrainAvoidCanActivate() {
     return !!(window.simModeActive || window.liveTrackerConnected);
 }
+
+function terrainAvoidReadFlightState() {
+    const fd = window.lastLiveFlightData || {};
+    const hasOnGround = typeof fd.onGround === 'boolean';
+    const onGround = hasOnGround ? !!fd.onGround : false;
+    const gs = Number(window.lastLiveGpsPos?.gs ?? fd.gsKts ?? fd.gs);
+    const agl = Number(fd.aglFt);
+    const airborne = hasOnGround
+        ? (!onGround || (Number.isFinite(gs) && gs > 45))
+        : ((Number.isFinite(agl) && agl > 180) || (Number.isFinite(gs) && gs > 45));
+    const landed = hasOnGround
+        ? (onGround && (!Number.isFinite(gs) || gs <= 28))
+        : (Number.isFinite(agl) && agl <= 60 && (!Number.isFinite(gs) || gs <= 30));
+    return { hasOnGround, onGround, gs, agl, airborne, landed };
+}
+
+window.terrainAvoidHandleFlightState = function() {
+    if (!window.mapHints || window.mapHints.terrainAvoid === false) return;
+    if (!terrainAvoidCanActivate()) {
+        terrainAvoidWasAirborne = false;
+        terrainAvoidPausedReason = 'source';
+        if (map && terrainAvoidOverlayLayer && map.hasLayer(terrainAvoidOverlayLayer)) {
+            map.removeLayer(terrainAvoidOverlayLayer);
+        }
+        updateTerrainAvoidThresholdUi();
+        return;
+    }
+    const st = terrainAvoidReadFlightState();
+    if (terrainAvoidPausedReason === 'sim-end' && !window.simModeActive && !st.airborne) {
+        if (map && terrainAvoidOverlayLayer && map.hasLayer(terrainAvoidOverlayLayer)) {
+            map.removeLayer(terrainAvoidOverlayLayer);
+        }
+        updateTerrainAvoidThresholdUi();
+        return;
+    }
+    if (window.simModeActive && (terrainAvoidPausedReason === 'source' || terrainAvoidPausedReason === 'sim-end' || terrainAvoidPausedReason === 'landed')) {
+        terrainAvoidPausedReason = '';
+        if (map && terrainAvoidOverlayLayer && !map.hasLayer(terrainAvoidOverlayLayer)) {
+            map.addLayer(terrainAvoidOverlayLayer);
+            window.scheduleTerrainAvoidOverlayUpdate(true);
+        }
+        updateTerrainAvoidThresholdUi();
+        return;
+    }
+    if (st.airborne) {
+        terrainAvoidWasAirborne = true;
+        if (terrainAvoidPausedReason) terrainAvoidPausedReason = '';
+        if (map && terrainAvoidOverlayLayer && !map.hasLayer(terrainAvoidOverlayLayer)) {
+            map.addLayer(terrainAvoidOverlayLayer);
+            window.scheduleTerrainAvoidOverlayUpdate(true);
+        }
+        updateTerrainAvoidThresholdUi();
+        return;
+    }
+    if (terrainAvoidWasAirborne && st.landed) {
+        terrainAvoidWasAirborne = false;
+        terrainAvoidPausedReason = 'landed';
+        if (map && terrainAvoidOverlayLayer && map.hasLayer(terrainAvoidOverlayLayer)) {
+            map.removeLayer(terrainAvoidOverlayLayer);
+        }
+        updateTerrainAvoidThresholdUi();
+        return;
+    }
+    if (!terrainAvoidPausedReason && map && terrainAvoidOverlayLayer && !map.hasLayer(terrainAvoidOverlayLayer) && window.simModeActive) {
+        terrainAvoidPausedReason = '';
+        map.addLayer(terrainAvoidOverlayLayer);
+        window.scheduleTerrainAvoidOverlayUpdate(true);
+        updateTerrainAvoidThresholdUi();
+    }
+};
 
 function getTerrainAvoidAircraftAltFt() {
     if (typeof isGpsLive === 'function' && isGpsLive(TERRAIN_AVOID_STALE_GPS_MS)) {
@@ -676,6 +761,79 @@ function terrainAvoidLoadTileImageData(z, x, y) {
     });
 }
 
+function terrainAvoidStoreRenderedTile(tileKey, imageData, width, height) {
+    terrainAvoidRenderedTileCache.set(tileKey, { imageData, width, height, ts: Date.now() });
+    if (terrainAvoidRenderedTileCache.size > TERRAIN_AVOID_RENDER_TILE_CACHE_MAX) {
+        const oldest = terrainAvoidRenderedTileCache.keys().next().value;
+        if (oldest) terrainAvoidRenderedTileCache.delete(oldest);
+    }
+}
+
+function terrainAvoidPaintTileCanvas(canvas, coords, aircraftAltFt, done) {
+    const ctx = canvas && typeof canvas.getContext === 'function'
+        ? canvas.getContext('2d', { willReadFrequently: true })
+        : null;
+    const finalize = () => { if (typeof done === 'function') done(); };
+    if (!ctx || !coords || !Number.isFinite(aircraftAltFt)) {
+        finalize();
+        return;
+    }
+    const size = { x: canvas.width || 256, y: canvas.height || 256 };
+    const spec = terrainAvoidResolveSourceTile(coords);
+    if (!spec) {
+        finalize();
+        return;
+    }
+    const tileKey = `${coords.z}/${coords.x}/${coords.y}`;
+    terrainAvoidLoadTileImageData(spec.srcZ, spec.srcX, spec.srcY).then((srcImage) => {
+        const src = srcImage && srcImage.data ? srcImage.data : null;
+        if (!src) {
+            finalize();
+            return;
+        }
+        const out = ctx.createImageData(size.x, size.y);
+        const outData = out.data;
+        for (let py = 0; py < size.y; py++) {
+            const srcPy = spec.scale === 1 ? py : Math.min(255, Math.floor(((spec.subY * 256) + py) / spec.scale));
+            for (let px = 0; px < size.x; px++) {
+                const srcPx = spec.scale === 1 ? px : Math.min(255, Math.floor(((spec.subX * 256) + px) / spec.scale));
+                const srcIdx = (srcPy * 256 + srcPx) * 4;
+                const r = src[srcIdx];
+                const g = src[srcIdx + 1];
+                const b = src[srcIdx + 2];
+                const elevM = (r * 256 + g + b / 256) - 32768;
+                const terrainFt = Math.max(0, Math.round(elevM * 3.28084));
+                const rgba = getTerrainAvoidRgbaBytes(aircraftAltFt - terrainFt);
+                const outIdx = (py * size.x + px) * 4;
+                outData[outIdx] = rgba[0];
+                outData[outIdx + 1] = rgba[1];
+                outData[outIdx + 2] = rgba[2];
+                outData[outIdx + 3] = rgba[3];
+            }
+        }
+        ctx.putImageData(out, 0, 0);
+        terrainAvoidStoreRenderedTile(tileKey, out, size.x, size.y);
+        finalize();
+    }).catch(() => finalize());
+}
+
+function terrainAvoidRepaintVisibleTiles(aircraftAltFt) {
+    if (!terrainAvoidOverlayLayer || !map || !map.hasLayer(terrainAvoidOverlayLayer)) return false;
+    if (!Number.isFinite(aircraftAltFt)) return false;
+    const tiles = terrainAvoidOverlayLayer._tiles || null;
+    if (!tiles) return false;
+    let paintedAny = false;
+    Object.keys(tiles).forEach((key) => {
+        const rec = tiles[key];
+        const canvas = rec && rec.el;
+        const coords = rec && rec.coords;
+        if (!canvas || !coords) return;
+        paintedAny = true;
+        terrainAvoidPaintTileCanvas(canvas, coords, aircraftAltFt);
+    });
+    return paintedAny;
+}
+
 function ensureTerrainAvoidOverlayLayer() {
     if (terrainAvoidOverlayLayer || typeof L === 'undefined') return;
     const TerrainAvoidGridLayer = L.GridLayer.extend({
@@ -685,10 +843,15 @@ function ensureTerrainAvoidOverlayLayer() {
             tile.width = size.x;
             tile.height = size.y;
             const ctx = tile.getContext('2d', { willReadFrequently: true });
+            const tileKey = `${coords.z}/${coords.x}/${coords.y}`;
             const finalize = () => { if (typeof done === 'function') done(null, tile); };
             if (!ctx) {
                 finalize();
                 return tile;
+            }
+            const cachedRendered = terrainAvoidRenderedTileCache.get(tileKey);
+            if (cachedRendered && cachedRendered.width === size.x && cachedRendered.height === size.y && cachedRendered.imageData) {
+                try { ctx.putImageData(cachedRendered.imageData, 0, 0); } catch (_) { }
             }
             if (window.mapHints && window.mapHints.terrainAvoid === false) {
                 finalize();
@@ -703,40 +866,7 @@ function ensureTerrainAvoidOverlayLayer() {
                 finalize();
                 return tile;
             }
-            const spec = terrainAvoidResolveSourceTile(coords);
-            if (!spec) {
-                finalize();
-                return tile;
-            }
-            terrainAvoidLoadTileImageData(spec.srcZ, spec.srcX, spec.srcY).then((srcImage) => {
-                const src = srcImage && srcImage.data ? srcImage.data : null;
-                if (!src) {
-                    finalize();
-                    return;
-                }
-                const out = ctx.createImageData(size.x, size.y);
-                const outData = out.data;
-                for (let py = 0; py < size.y; py++) {
-                    const srcPy = spec.scale === 1 ? py : Math.min(255, Math.floor(((spec.subY * 256) + py) / spec.scale));
-                    for (let px = 0; px < size.x; px++) {
-                        const srcPx = spec.scale === 1 ? px : Math.min(255, Math.floor(((spec.subX * 256) + px) / spec.scale));
-                        const srcIdx = (srcPy * 256 + srcPx) * 4;
-                        const r = src[srcIdx];
-                        const g = src[srcIdx + 1];
-                        const b = src[srcIdx + 2];
-                        const elevM = (r * 256 + g + b / 256) - 32768;
-                        const terrainFt = Math.max(0, Math.round(elevM * 3.28084));
-                        const rgba = getTerrainAvoidRgbaBytes(aircraftAltFt - terrainFt);
-                        const outIdx = (py * size.x + px) * 4;
-                        outData[outIdx] = rgba[0];
-                        outData[outIdx + 1] = rgba[1];
-                        outData[outIdx + 2] = rgba[2];
-                        outData[outIdx + 3] = rgba[3];
-                    }
-                }
-                ctx.putImageData(out, 0, 0);
-                finalize();
-            }).catch(() => finalize());
+            terrainAvoidPaintTileCanvas(tile, coords, aircraftAltFt, finalize);
             return tile;
         }
     });
@@ -753,7 +883,7 @@ function ensureTerrainAvoidOverlayLayer() {
 window.setTerrainAvoidOverlayEnabled = function(next, opts = {}) {
     let enable = !!next;
     if (enable && !terrainAvoidCanActivate()) {
-        enable = false;
+        enable = true;
         if (!opts.silent && typeof showMapToast === 'function') showMapToast('Terrain Avoid nur mit Sim oder verbundenem Tracker verfügbar.', 2200);
     }
     if (window.mapHints) window.mapHints.terrainAvoid = enable;
@@ -763,10 +893,29 @@ window.setTerrainAvoidOverlayEnabled = function(next, opts = {}) {
     if (!map) return;
     ensureTerrainAvoidOverlayLayer();
     if (!terrainAvoidOverlayLayer) return;
-    if (enable && !map.hasLayer(terrainAvoidOverlayLayer)) terrainAvoidOverlayLayer.addTo(map);
+    if (enable && terrainAvoidCanActivate() && !map.hasLayer(terrainAvoidOverlayLayer)) terrainAvoidOverlayLayer.addTo(map);
     if (!enable && map.hasLayer(terrainAvoidOverlayLayer)) map.removeLayer(terrainAvoidOverlayLayer);
-    if (enable) window.scheduleTerrainAvoidOverlayUpdate(true);
+    if (enable) {
+        const st = terrainAvoidReadFlightState();
+        terrainAvoidWasAirborne = !!st.airborne;
+        terrainAvoidPausedReason = terrainAvoidCanActivate() ? '' : 'source';
+    } else {
+        terrainAvoidWasAirborne = false;
+        terrainAvoidPausedReason = '';
+    }
+    if (enable && terrainAvoidCanActivate()) window.scheduleTerrainAvoidOverlayUpdate(true);
     else if (typeof terrainAvoidOverlayLayer.redraw === 'function') terrainAvoidOverlayLayer.redraw();
+    updateTerrainAvoidThresholdUi();
+};
+
+window.terrainAvoidPauseForSimEnd = function() {
+    if (!window.mapHints || window.mapHints.terrainAvoid === false) return;
+    terrainAvoidWasAirborne = false;
+    terrainAvoidPausedReason = 'sim-end';
+    if (map && terrainAvoidOverlayLayer && map.hasLayer(terrainAvoidOverlayLayer)) {
+        map.removeLayer(terrainAvoidOverlayLayer);
+    }
+    updateTerrainAvoidThresholdUi();
 };
 
 window.scheduleTerrainAvoidOverlayUpdate = function(forceFetch = false) {
@@ -774,22 +923,42 @@ window.scheduleTerrainAvoidOverlayUpdate = function(forceFetch = false) {
     updateTerrainAvoidThresholdUi();
     ensureTerrainAvoidOverlayLayer();
     if (!terrainAvoidOverlayLayer) return;
-    if (window.mapHints && window.mapHints.terrainAvoid !== false && !terrainAvoidCanActivate()) {
-        if (window.mapHints) window.mapHints.terrainAvoid = false;
-        saveMapHintSetting('terrainAvoid');
+    const st = terrainAvoidReadFlightState();
+    if (window.mapHints && window.mapHints.terrainAvoid !== false && terrainAvoidPausedReason === 'sim-end' && !window.simModeActive) {
         if (map.hasLayer(terrainAvoidOverlayLayer)) map.removeLayer(terrainAvoidOverlayLayer);
-        if (typeof refreshMapHintMenuUi === 'function') refreshMapHintMenuUi();
         updateTerrainAvoidThresholdUi();
         return;
     }
+    if (window.mapHints && window.mapHints.terrainAvoid !== false && !terrainAvoidCanActivate()) {
+        terrainAvoidPausedReason = 'source';
+        if (map.hasLayer(terrainAvoidOverlayLayer)) map.removeLayer(terrainAvoidOverlayLayer);
+        updateTerrainAvoidThresholdUi();
+        return;
+    }
+    if (window.mapHints && window.mapHints.terrainAvoid !== false && terrainAvoidCanActivate() && !map.hasLayer(terrainAvoidOverlayLayer)) {
+        if (window.simModeActive || st.airborne) {
+            terrainAvoidPausedReason = '';
+            map.addLayer(terrainAvoidOverlayLayer);
+        } else if (terrainAvoidPausedReason !== 'landed' && terrainAvoidPausedReason !== 'sim-end') {
+            terrainAvoidPausedReason = '';
+        }
+    }
+    const curAltFt = getTerrainAvoidAircraftAltFt();
     if (terrainAvoidRefreshTimer) clearTimeout(terrainAvoidRefreshTimer);
-    const delay = forceFetch ? 80 : 260;
+    const delay = forceFetch ? 30 : 60;
     terrainAvoidRefreshTimer = setTimeout(() => {
         if (!terrainAvoidOverlayLayer || !map.hasLayer(terrainAvoidOverlayLayer)) return;
         const now = Date.now();
         if (!forceFetch && (now - terrainAvoidLastRenderAt) < TERRAIN_AVOID_MIN_UPDATE_MS) return;
+        if (!forceFetch && Number.isFinite(curAltFt) && Number.isFinite(terrainAvoidLastRenderAltFt)) {
+            const dAlt = Math.abs(curAltFt - terrainAvoidLastRenderAltFt);
+            if (dAlt < TERRAIN_AVOID_MIN_ALT_DELTA_FT) return;
+        }
         terrainAvoidLastRenderAt = now;
-        if (typeof terrainAvoidOverlayLayer.redraw === 'function') terrainAvoidOverlayLayer.redraw();
+        terrainAvoidLastRenderAltFt = Number.isFinite(curAltFt) ? curAltFt : terrainAvoidLastRenderAltFt;
+        if (!terrainAvoidRepaintVisibleTiles(curAltFt) && typeof terrainAvoidOverlayLayer.redraw === 'function') {
+            terrainAvoidOverlayLayer.redraw();
+        }
     }, delay);
 };
 

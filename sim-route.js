@@ -58,6 +58,7 @@
         simAptAtTargetTriggered = false;
         window.simModeActive = true;
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
+        if (typeof window.terrainAvoidHandleFlightState === 'function') window.terrainAvoidHandleFlightState();
         if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
         console.log('[SimPax] Sim gestartet — paxVoiceEnabled:', localStorage.getItem('awm_pax_voice'), '| activePassenger:', !!window.activePassenger);
         simLastTick     = Date.now();
@@ -268,6 +269,7 @@
     function _stop() {
         simActive = false;
         window.simModeActive = false;
+        if (typeof window.terrainAvoidPauseForSimEnd === 'function') window.terrainAvoidPauseForSimEnd();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         clearInterval(simInterval);
         simInterval = null;
