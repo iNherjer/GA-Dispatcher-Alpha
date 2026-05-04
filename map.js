@@ -51,6 +51,7 @@ window.mapHintSubmenus = window.mapHintSubmenus || { ...MAP_HINT_SUBMENU_DEFAULT
 const VP_VFR_INDEX_MIN_UPDATE_MS = 15 * 60 * 1000;
 const VP_VFR_INDEX_MAX_POINTS = 72;
 const VP_VFR_INDEX_MIN_VISIBLE_ZOOM = 8;
+const VP_VFR_AMPEL_MODE_DEFAULT = 'sun';
 const VP_GAFOR_REF_TERRAIN_Z = 10;
 const VP_GAFOR_REF_MAX_SAMPLES = 1400;
 const VP_GAFOR_REF_CACHE_MAX = 420;
@@ -129,6 +130,7 @@ const vpVfrIndexState = {
     selectedCountry: localStorage.getItem('ga_vfr_index_country') || 'auto',
     vfrModel: localStorage.getItem('ga_vfr_index_model') || 'internal',
     showSectorAmpel: localStorage.getItem('ga_vfr_sector_ampel') !== 'false',
+    ampelWindowMode: localStorage.getItem('ga_vfr_ampel_window_mode') || VP_VFR_AMPEL_MODE_DEFAULT,
     plannedCountry: '',
     activeCountry: '',
     inFlight: false,
@@ -1575,6 +1577,122 @@ function vpBuildTimelineKeyCandidates(lat, lon) {
     return Array.from(new Set(out));
 }
 
+function vpNormalizeVfrAmpelWindowMode(value) {
+    const v = String(value || '').trim().toLowerCase();
+    if (v === 'utc6') return 'utc6';
+    return 'sun';
+}
+
+function vpGetVfrAmpelWindowModeLabel(mode) {
+    const m = vpNormalizeVfrAmpelWindowMode(mode);
+    if (m === 'utc6') return 'UTC 6h-Block';
+    return 'SR/SS';
+}
+
+function vpFormatHmUtc(ts) {
+    try {
+        return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+    } catch (_) {
+        return '--:--';
+    }
+}
+
+function vpBuildUtc6AmpelPlan(nowMs = Date.now()) {
+    const now = new Date(nowMs);
+    const y = now.getUTCFullYear();
+    const mon = now.getUTCMonth();
+    const d = now.getUTCDate();
+    const hour = now.getUTCHours();
+    const blockStartHour = Math.floor(hour / 6) * 6;
+    const blockStartMs = Date.UTC(y, mon, d, blockStartHour, 0, 0, 0);
+    const blockEndMs = blockStartMs + (6 * 3600 * 1000);
+    const slots = [];
+    for (let i = 0; i < 3; i++) {
+        const sMs = blockStartMs + (i * 2 * 3600 * 1000);
+        const eMs = sMs + (2 * 3600 * 1000);
+        slots.push({
+            key: `utc6_${i}`,
+            label: `${String((blockStartHour + i * 2) % 24).padStart(2, '0')}-${String((blockStartHour + i * 2 + 2) % 24).padStart(2, '0')}Z`,
+            targetMs: sMs + (3600 * 1000),
+            timeLabel: `${vpFormatHmUtc(sMs)}-${vpFormatHmUtc(eMs)}Z`
+        });
+    }
+    const nowRatio = Math.max(0, Math.min(1, (nowMs - blockStartMs) / Math.max(1, blockEndMs - blockStartMs)));
+    return {
+        mode: 'utc6',
+        slots,
+        nowRatio,
+        blockStartMs,
+        blockEndMs,
+        queryTimezone: 'GMT',
+        queryPastHours: 6,
+        queryForecastHours: 6
+    };
+}
+
+function vpBuildSunAmpelPlan(srMs, ssMs, nowMs = Date.now()) {
+    const dayMs = Math.max(2 * 3600 * 1000, ssMs - srMs);
+    const slots = [
+        { key: 'morning', label: 'Morgen', targetMs: srMs + dayMs * 0.2 },
+        { key: 'noon', label: 'Mittag', targetMs: srMs + dayMs * 0.5 },
+        { key: 'evening', label: 'Abend', targetMs: srMs + dayMs * 0.8 }
+    ].map(s => ({ ...s, timeLabel: vpFormatHm(s.targetMs) }));
+    const minTargetMs = Math.min(...slots.map(s => Number(s.targetMs)));
+    const maxTargetMs = Math.max(...slots.map(s => Number(s.targetMs)));
+    // Plus 1h Puffer, damit der naechste Stundenstempel sicher im Datensatz liegt.
+    const dynPastHours = Math.max(0, Math.min(36, Math.ceil((nowMs - minTargetMs) / (3600 * 1000)) + 1));
+    const dynForecastHours = Math.max(0, Math.min(36, Math.ceil((maxTargetMs - nowMs) / (3600 * 1000)) + 1));
+    const nowRatio = Math.max(0, Math.min(1, (nowMs - srMs) / Math.max(1, (ssMs - srMs))));
+    return {
+        mode: 'sun',
+        slots,
+        nowRatio,
+        queryTimezone: 'auto',
+        queryPastHours: dynPastHours,
+        queryForecastHours: dynForecastHours,
+        sunriseMs: srMs,
+        sunsetMs: ssMs
+    };
+}
+
+function vpBuildAmpelSlotFallback(mode, parts = {}) {
+    const activeMode = vpNormalizeVfrAmpelWindowMode(mode || vpVfrIndexState.ampelWindowMode);
+    if (activeMode === 'utc6') {
+        const plan = vpBuildUtc6AmpelPlan(Date.now());
+        return {
+            slots: plan.slots.map(s => ({ label: s.label, parts, timeLabel: s.timeLabel })),
+            nowRatio: plan.nowRatio
+        };
+    }
+    return {
+        slots: [
+            { label: 'Morgen', parts, timeLabel: '--:--' },
+            { label: 'Mittag', parts, timeLabel: '--:--' },
+            { label: 'Abend', parts, timeLabel: '--:--' }
+        ],
+        nowRatio: 0.5
+    };
+}
+
+function vpRefreshTimelineClockInPlace(timeline) {
+    if (!timeline || typeof timeline !== 'object') return { blockChanged: false };
+    const mode = vpNormalizeVfrAmpelWindowMode(timeline.ampelMode || vpVfrIndexState.ampelWindowMode);
+    if (mode === 'utc6') {
+        const plan = vpBuildUtc6AmpelPlan(Date.now());
+        const oldStart = Number(timeline.blockStartMs);
+        timeline.nowRatio = plan.nowRatio;
+        const changed = Number.isFinite(oldStart) && oldStart !== plan.blockStartMs;
+        return { blockChanged: changed };
+    }
+    const sr = Number(timeline.sunriseMs);
+    const ss = Number(timeline.sunsetMs);
+    if (Number.isFinite(sr) && Number.isFinite(ss) && ss > sr) {
+        const now = Date.now();
+        timeline.nowRatio = Math.max(0, Math.min(1, (now - sr) / Math.max(1, ss - sr)));
+    }
+    return { blockChanged: false };
+}
+
 function vpBuildSectorAmpelHtml(sectorTl, nowRatio, currentCat = null) {
     if (!sectorTl || !Array.isArray(sectorTl.slots) || sectorTl.slots.length !== 3) return '';
     const slots = sectorTl.slots;
@@ -1643,32 +1761,35 @@ function vpExtractHourlyLocations(tlData) {
     return locations;
 }
 
-async function vpFetchVfrSectorTimelines(bounds, gridPoints) {
+async function vpFetchVfrSectorTimelines(bounds, gridPoints, ampelMode = null) {
     if (!bounds || !Array.isArray(gridPoints) || gridPoints.length === 0) return null;
+    const activeAmpelMode = vpNormalizeVfrAmpelWindowMode(ampelMode || vpVfrIndexState.ampelWindowMode);
     const centerLat = (bounds.minLat + bounds.maxLat) * 0.5;
     const centerLon = (bounds.minLon + bounds.maxLon) * 0.5;
-    const sunriseUrl = `https://api.open-meteo.com/v1/forecast?latitude=${centerLat.toFixed(4)}&longitude=${centerLon.toFixed(4)}&daily=${encodeURIComponent('sunrise,sunset')}&forecast_days=1&timezone=auto`;
-    const sunRes = await fetch(sunriseUrl);
-    if (!sunRes.ok) throw new Error(`sunrise HTTP ${sunRes.status}`);
-    const sunData = await sunRes.json();
-    const srIso = sunData?.daily?.sunrise?.[0];
-    const ssIso = sunData?.daily?.sunset?.[0];
-    let srMs = Date.parse(srIso || '');
-    let ssMs = Date.parse(ssIso || '');
-    if (!Number.isFinite(srMs) || !Number.isFinite(ssMs) || ssMs <= srMs) {
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = now.getMonth();
-        const d = now.getDate();
-        srMs = new Date(y, m, d, 6, 0, 0).getTime();
-        ssMs = new Date(y, m, d, 18, 0, 0).getTime();
+    let slotPlan = null;
+    if (activeAmpelMode === 'utc6') {
+        slotPlan = vpBuildUtc6AmpelPlan(Date.now());
+    } else {
+        const sunriseUrl = `https://api.open-meteo.com/v1/forecast?latitude=${centerLat.toFixed(4)}&longitude=${centerLon.toFixed(4)}&daily=${encodeURIComponent('sunrise,sunset')}&forecast_days=1&timezone=auto`;
+        const sunRes = await fetch(sunriseUrl);
+        if (!sunRes.ok) throw new Error(`sunrise HTTP ${sunRes.status}`);
+        const sunData = await sunRes.json();
+        const srIso = sunData?.daily?.sunrise?.[0];
+        const ssIso = sunData?.daily?.sunset?.[0];
+        let srMs = Date.parse(srIso || '');
+        let ssMs = Date.parse(ssIso || '');
+        if (!Number.isFinite(srMs) || !Number.isFinite(ssMs) || ssMs <= srMs) {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = now.getMonth();
+            const d = now.getDate();
+            srMs = new Date(y, m, d, 6, 0, 0).getTime();
+            ssMs = new Date(y, m, d, 18, 0, 0).getTime();
+        }
+        slotPlan = vpBuildSunAmpelPlan(srMs, ssMs, Date.now());
     }
-    const dayMs = Math.max(2 * 3600 * 1000, ssMs - srMs);
-    const slots = [
-        { key: 'morning', label: 'Morgen', targetMs: srMs + dayMs * 0.2 },
-        { key: 'noon', label: 'Mittag', targetMs: srMs + dayMs * 0.5 },
-        { key: 'evening', label: 'Abend', targetMs: srMs + dayMs * 0.8 }
-    ];
+    const slots = (slotPlan && Array.isArray(slotPlan.slots)) ? slotPlan.slots : [];
+    if (slots.length !== 3) throw new Error('ungueltiger Ampel-Zeitplan');
     const slotTargetsSec = slots.map(s => Math.round(s.targetMs / 1000));
     const slotLabels = slots.map(s => s.label);
     const hourlyVars = [
@@ -1681,7 +1802,11 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints) {
         const chunk = gridPoints.slice(start, start + chunkSize);
         const latArg = chunk.map(p => Number(p.lat).toFixed(4)).join(',');
         const lonArg = chunk.map(p => Number(p.lon).toFixed(4)).join(',');
-        const timelineUrl = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(latArg)}&longitude=${encodeURIComponent(lonArg)}&hourly=${encodeURIComponent(hourlyVars.join(','))}&forecast_hours=24&timezone=auto&timeformat=unixtime`;
+        let timelineUrl = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(latArg)}&longitude=${encodeURIComponent(lonArg)}&hourly=${encodeURIComponent(hourlyVars.join(','))}&timezone=${encodeURIComponent(slotPlan.queryTimezone || 'auto')}&timeformat=unixtime`;
+        const pastHours = Math.max(0, Math.round(Number(slotPlan.queryPastHours || 0)));
+        const forecastHours = Math.max(0, Math.round(Number(slotPlan.queryForecastHours || 0)));
+        if (pastHours > 0) timelineUrl += `&past_hours=${pastHours}`;
+        if (forecastHours > 0) timelineUrl += `&forecast_hours=${forecastHours}`;
         const tlRes = await fetch(timelineUrl);
         if (!tlRes.ok) throw new Error(`timeline HTTP ${tlRes.status}`);
         const tlData = await tlRes.json();
@@ -1709,7 +1834,7 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints) {
                 return {
                     label: slotLabels[slotIdx],
                     parts,
-                    timeLabel: vpFormatHm(slots[slotIdx].targetMs)
+                    timeLabel: String(slots[slotIdx].timeLabel || vpFormatHm(slots[slotIdx].targetMs))
                 };
             });
             const keys = vpBuildTimelineKeyCandidates(p.lat, p.lon);
@@ -1721,13 +1846,16 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints) {
             Array.from(new Set(keys)).forEach(k => { byKey[k] = { slots: slotOut }; });
         }
     }
-    const now = Date.now();
-    const nowRatio = Math.max(0, Math.min(1, (now - srMs) / Math.max(1, (ssMs - srMs))));
+    const nowRatio = Number.isFinite(Number(slotPlan && slotPlan.nowRatio)) ? Number(slotPlan.nowRatio) : 0.5;
     return {
         byKey,
-        sunriseMs: srMs,
-        sunsetMs: ssMs,
-        nowRatio
+        sunriseMs: Number(slotPlan && slotPlan.sunriseMs),
+        sunsetMs: Number(slotPlan && slotPlan.sunsetMs),
+        blockStartMs: Number(slotPlan && slotPlan.blockStartMs),
+        blockEndMs: Number(slotPlan && slotPlan.blockEndMs),
+        ampelMode: activeAmpelMode,
+        nowRatio,
+        slotsMeta: slots.map(s => ({ label: s.label, timeLabel: s.timeLabel }))
     };
 }
 
@@ -1752,6 +1880,7 @@ function vpPopulateVfrCountrySelect() {
 function vpUpdateVfrUi() {
     vpPopulateVfrCountrySelect();
     vpVfrIndexState.vfrModel = vpNormalizeVfrModel(vpVfrIndexState.vfrModel);
+    vpVfrIndexState.ampelWindowMode = vpNormalizeVfrAmpelWindowMode(vpVfrIndexState.ampelWindowMode);
     vpVfrIndexState.plannedCountry = vpInferPlanningCountryCode();
     const plannedMeta = vpGetVfrCountryMeta(vpVfrIndexState.plannedCountry);
     const active = vpResolveActiveVfrCountry();
@@ -1773,6 +1902,8 @@ function vpUpdateVfrUi() {
         const meta = vpGetVfrModelMeta(vpVfrIndexState.vfrModel);
         modelInfo.innerHTML = `<span style="color:#c6d8ea;">${escapePopupText(meta.summary)}</span><br>+ ${escapePopupText(meta.pros)}<br>- ${escapePopupText(meta.cons)}`;
     }
+    const ampelWindowSelect = document.getElementById('vfrAmpelWindowSelect');
+    if (ampelWindowSelect) ampelWindowSelect.value = vpVfrIndexState.ampelWindowMode;
 
     const status = document.getElementById('vfrIndexStatus');
     if (status) {
@@ -1790,10 +1921,10 @@ function vpUpdateVfrUi() {
             status.style.color = '#f38f8f';
         } else if (vpVfrIndexState.lastUpdatedAt > 0) {
             const t = new Date(vpVfrIndexState.lastUpdatedAt).toLocaleTimeString();
-            status.textContent = `Status: ${active} - ${vpVfrIndexState.lastPointCount} Punkte (${t}) - ${vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label}`;
+            status.textContent = `Status: ${active} - ${vpVfrIndexState.lastPointCount} Punkte (${t}) - ${vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label} - ${vpGetVfrAmpelWindowModeLabel(vpVfrIndexState.ampelWindowMode)}`;
             status.style.color = '#95d89d';
         } else {
-            status.textContent = `Status: ${active} bereit - ${vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label}`;
+            status.textContent = `Status: ${active} bereit - ${vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label} - ${vpGetVfrAmpelWindowModeLabel(vpVfrIndexState.ampelWindowMode)}`;
             status.style.color = '#9bb5d1';
         }
     }
@@ -1840,6 +1971,17 @@ window.vpSetVfrModel = function(value) {
     }
 };
 
+window.vpSetVfrAmpelWindowMode = async function(value) {
+    vpVfrIndexState.ampelWindowMode = vpNormalizeVfrAmpelWindowMode(value);
+    localStorage.setItem('ga_vfr_ampel_window_mode', vpVfrIndexState.ampelWindowMode);
+    vpUpdateVfrUi();
+    if (window.mapHints.vfrIndex !== false && typeof window.renderVfrIndexOverlay === 'function') {
+        await window.renderVfrIndexOverlay(true);
+    } else if (map) {
+        vpRefreshVfrLayerFromCache();
+    }
+};
+
 function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
     if (!map) return;
     const layer = vpEnsureVfrLayer();
@@ -1855,6 +1997,7 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
     const halfLat = Math.max(0.12, latStep * 0.48);
     const halfLon = Math.max(0.12, lonStep * 0.48);
     const nowRatio = Number(timelines && timelines.nowRatio);
+    const fallbackNowRatio = Number(vpBuildAmpelSlotFallback(vpVfrIndexState.ampelWindowMode, {}).nowRatio || 0.5);
     const byKey = (timelines && timelines.byKey) ? timelines.byKey : null;
     samples.forEach(sample => {
         if (!sample || !Number.isFinite(sample.lat) || !Number.isFinite(sample.lon)) return;
@@ -1924,15 +2067,11 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
 
         if (!tl) {
             // Fallback: Ampel trotzdem anzeigen, auf Basis des aktuellen Zell-Scores.
-            tl = {
-                slots: [
-                    { label: 'Morgen', parts, timeLabel: '--:--' },
-                    { label: 'Mittag', parts, timeLabel: '--:--' },
-                    { label: 'Abend', parts, timeLabel: '--:--' }
-                ]
-            };
+            const fb = vpBuildAmpelSlotFallback(vpVfrIndexState.ampelWindowMode, parts);
+            tl = { slots: fb.slots };
         }
-        const ampelHtml = vpBuildSectorAmpelHtml(tl, nowRatio, sectorCat);
+        const ampelNowRatio = Number.isFinite(nowRatio) ? nowRatio : fallbackNowRatio;
+        const ampelHtml = vpBuildSectorAmpelHtml(tl, ampelNowRatio, sectorCat);
         if (ampelHtml && vpVfrIndexState.showSectorAmpel !== false) {
             const marker = L.marker([sample.lat, sample.lon], {
                 icon: L.divIcon({
@@ -1986,7 +2125,9 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
     const lastFetch = Number(vpVfrIndexState.lastFetchAtByCountry[active] || 0);
     const elapsed = Date.now() - lastFetch;
     const hasCachedSamples = Array.isArray(vpVfrIndexState.lastRenderedSamples) && vpVfrIndexState.lastRenderedSamples.length > 0;
-    if (!forceFetch && lastFetch > 0 && elapsed < VP_VFR_INDEX_MIN_UPDATE_MS && hasCachedSamples) {
+    const cachedClock = vpRefreshTimelineClockInPlace(vpVfrIndexState.timeline);
+    const cacheBlockChanged = !!(cachedClock && cachedClock.blockChanged);
+    if (!forceFetch && !cacheBlockChanged && lastFetch > 0 && elapsed < VP_VFR_INDEX_MIN_UPDATE_MS && hasCachedSamples) {
         if (Array.isArray(vpVfrIndexState.lastRenderedSamples) && vpVfrIndexState.lastRenderedSamples.length > 0) {
             vpRenderVfrCells(
                 vpVfrIndexState.lastRenderedSamples,
@@ -2013,7 +2154,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         const sectorRefs = await vpBuildSectorReferenceMap(grid.points, grid.latStep, grid.lonStep);
         let timelines = null;
         try {
-            timelines = await vpFetchVfrSectorTimelines(bounds, grid.points);
+            timelines = await vpFetchVfrSectorTimelines(bounds, grid.points, vpVfrIndexState.ampelWindowMode);
         } catch (timelineErr) {
             console.warn('[VFR-Index] Timeline-Forecast fehlgeschlagen, nutze Fallback:', timelineErr);
             timelines = null;
@@ -2122,6 +2263,7 @@ function vpEnsureVfrAutoTimer() {
 
 function vpRefreshVfrLayerFromCache() {
     if (!map || window.mapHints.vfrIndex === false) return;
+    vpRefreshTimelineClockInPlace(vpVfrIndexState.timeline);
     vpRenderVfrCells(
         Array.isArray(vpVfrIndexState.lastRenderedSamples) ? vpVfrIndexState.lastRenderedSamples : [],
         Number(vpVfrIndexState.lastGridLatStep || 0.4),
@@ -4482,6 +4624,7 @@ document.addEventListener('DOMContentLoaded', () => {
     vpEnsureVfrAutoTimer();
     vpVfrIndexState.selectedCountry = vpNormalizeVfrCountrySelection(localStorage.getItem('ga_vfr_index_country') || 'auto');
     vpVfrIndexState.vfrModel = vpNormalizeVfrModel(localStorage.getItem('ga_vfr_index_model') || 'internal');
+    vpVfrIndexState.ampelWindowMode = vpNormalizeVfrAmpelWindowMode(localStorage.getItem('ga_vfr_ampel_window_mode') || VP_VFR_AMPEL_MODE_DEFAULT);
     // Bestehenden Wetter-Status übernehmen, falls vorhanden
     window.vpShowMapMetar = window.mapHints.weather !== false;
     // Traffic-Status übernehmen

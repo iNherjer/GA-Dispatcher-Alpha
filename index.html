@@ -847,6 +847,11 @@
                             <option value="gafor_like">GAFOR-aehnlich</option>
                         </select>
                         <div id="vfrModelInfo" style="font-size:10px; line-height:1.35; color:#a9c1db; margin:0 0 5px 0;"></div>
+                        <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Ampel-Zeitfenster</div>
+                        <select id="vfrAmpelWindowSelect" onchange="window.vpSetVfrAmpelWindowMode && vpSetVfrAmpelWindowMode(this.value)" style="width:100%; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:5px;">
+                            <option value="sun">SR/SS (Morgen/Mittag/Abend)</option>
+                            <option value="utc6">UTC 6h-Block (3x2h)</option>
+                        </select>
                         <button id="vfrAmpelToggleBtn" class="pb-btn" onclick="window.vpToggleVfrAmpel && vpToggleVfrAmpel()" style="display:block; width:100%; margin:0 0 4px 0; text-align:center;">Ampel (An)</button>
                         <div id="vfrIndexStatus" style="font-size:10px; color:#9bb5d1;">Status: Aus</div>
                     </div>
