@@ -58,41 +58,23 @@ const VP_GAFOR_REF_CACHE_MAX = 420;
 const VP_MOSMIX_PROXY_URL = 'https://ga-proxy.einherjer.workers.dev/api/mosmix';
 const VP_MOSMIX_ACTIVE_COUNTRIES = new Set(['DE']);
 const VP_GAFOR_SECTOR_MODE_COUNTRIES = new Set(['DE']);
-const VP_GAFOR_SECTOR_GRID_DE = {
-    latEdges: [47.2, 48.4, 49.6, 50.8, 52.0, 53.2, 54.2, 55.2],
-    lonEdges: [5.3, 7.5, 9.7, 11.9, 13.7, 15.6],
-    idsSouthToNorth: [
-        ['50', '61', '62', '73', '75'],
-        ['44', '45', '53', '56', '64'],
-        ['34', '36', '24', '25', '26'],
-        ['32', '33', '20', '22', '23'],
-        ['07', '08', '15', '17', '18'],
-        ['05', '06', '11', '13', '14'],
-        ['02', '03', '04', '12', '16']
-    ]
-};
-const VP_GAFOR_SECTOR_NODE_WARP_DE = {
-    lat: [
-        [0.10, 0.06, 0.03, 0.02, 0.04, 0.07],
-        [0.08, 0.04, 0.02, 0.00, 0.02, 0.05],
-        [0.04, 0.02, 0.00, -0.02, -0.01, 0.03],
-        [0.03, 0.01, -0.01, -0.03, -0.02, 0.01],
-        [0.02, 0.00, -0.02, -0.04, -0.03, 0.00],
-        [0.00, -0.02, -0.04, -0.05, -0.03, -0.01],
-        [-0.10, -0.06, -0.03, -0.01, -0.02, -0.08],
-        [-0.24, -0.17, -0.09, -0.03, -0.05, -0.20]
-    ],
-    lon: [
-        [-0.16, -0.14, -0.07, 0.00, 0.08, 0.20],
-        [-0.18, -0.12, -0.06, 0.01, 0.09, 0.21],
-        [-0.15, -0.10, -0.04, 0.03, 0.10, 0.20],
-        [-0.12, -0.08, -0.01, 0.05, 0.10, 0.16],
-        [-0.10, -0.06, 0.00, 0.05, 0.09, 0.14],
-        [-0.10, -0.07, -0.01, 0.04, 0.08, 0.12],
-        [-0.14, -0.10, -0.04, 0.02, 0.07, 0.10],
-        [-0.18, -0.14, -0.06, 0.02, 0.09, 0.12]
-    ]
-};
+const VP_GAFOR_SECTOR_PROJ_COS_LAT_DE = Math.cos((51.2 * Math.PI) / 180);
+const VP_GAFOR_SECTOR_DOMAIN_DE = [
+    [55.05, 8.20],
+    [54.80, 14.90],
+    [52.20, 15.00],
+    [48.00, 13.80],
+    [47.40, 12.00],
+    [47.45, 7.45],
+    [47.95, 7.40],
+    [48.85, 7.32],
+    [49.70, 7.05],
+    [50.55, 6.18],
+    [51.55, 6.06],
+    [52.70, 6.28],
+    [53.80, 6.70],
+    [55.05, 8.20]
+];
 const VP_GAFOR_SECTOR_META_DE = {
     '02': { name: 'Nordfriesland-Dithmarschen', refFt: 100 },
     '03': { name: 'Schleswig-Holsteinische Geest', refFt: 200 },
@@ -127,8 +109,61 @@ const VP_GAFOR_SECTOR_META_DE = {
     '61': { name: 'Schwarzwald', refFt: 4000 },
     '62': { name: 'Schwaebische Alb', refFt: 3000 },
     '64': { name: 'Oberpfaelzer Wald', refFt: 2400 },
+    '71': { name: 'Westliches Alpenvorland', refFt: 2100 },
     '73': { name: 'Westliche Donauniederung', refFt: 1700 },
-    '75': { name: 'Oestliche Donau-/Naabniederung', refFt: 1600 }
+    '75': { name: 'Oestliche Donau-/Naabniederung', refFt: 1600 },
+    '83': { name: 'Alpenrand Ost', refFt: 3000 },
+    '84': { name: 'Suedostbayerischer Alpenrand', refFt: 3200 }
+};
+const VP_GAFOR_SECTOR_SEEDS_DE = [
+    { id: '02', lat: 54.72, lon: 8.65 },
+    { id: '03', lat: 54.34, lon: 10.05 },
+    { id: '04', lat: 54.35, lon: 11.55 },
+    { id: '12', lat: 54.60, lon: 14.00 },
+    { id: '05', lat: 53.30, lon: 8.00 },
+    { id: '06', lat: 53.00, lon: 10.05 },
+    { id: '11', lat: 53.72, lon: 12.45 },
+    { id: '13', lat: 53.25, lon: 12.40 },
+    { id: '14', lat: 53.08, lon: 14.15 },
+    { id: '07', lat: 52.38, lon: 7.70 },
+    { id: '08', lat: 52.20, lon: 10.05 },
+    { id: '15', lat: 52.23, lon: 11.65 },
+    { id: '17', lat: 52.05, lon: 13.05 },
+    { id: '18', lat: 52.00, lon: 14.55 },
+    { id: '32', lat: 51.70, lon: 7.05 },
+    { id: '33', lat: 51.35, lon: 8.65 },
+    { id: '20', lat: 51.18, lon: 11.05 },
+    { id: '22', lat: 51.00, lon: 12.65 },
+    { id: '23', lat: 50.85, lon: 14.10 },
+    { id: '34', lat: 50.48, lon: 6.88 },
+    { id: '36', lat: 50.26, lon: 8.44 },
+    { id: '24', lat: 50.35, lon: 10.75 },
+    { id: '25', lat: 50.18, lon: 12.70 },
+    { id: '26', lat: 50.05, lon: 14.48 },
+    { id: '44', lat: 49.58, lon: 7.15 },
+    { id: '45', lat: 49.68, lon: 8.85 },
+    { id: '53', lat: 49.20, lon: 10.05 },
+    { id: '56', lat: 49.18, lon: 11.55 },
+    { id: '64', lat: 49.16, lon: 13.20 },
+    { id: '50', lat: 48.55, lon: 7.92 },
+    { id: '61', lat: 48.05, lon: 8.75 },
+    { id: '62', lat: 48.20, lon: 10.18 },
+    { id: '71', lat: 47.72, lon: 9.05 },
+    { id: '73', lat: 48.55, lon: 11.65 },
+    { id: '75', lat: 48.64, lon: 13.20 },
+    { id: '83', lat: 47.78, lon: 12.35 },
+    { id: '84', lat: 47.74, lon: 13.38 },
+    { id: '16', lat: 51.52, lon: 14.02 }
+];
+const VP_GAFOR_SECTOR_WEIGHT_SCALE_DE = 0.00018;
+const VP_GAFOR_SECTOR_BIAS_FT_DE = {
+    // Berg- und Mittelgebirgsregionen bewusst etwas hervorheben.
+    '61': 520, '62': 700, '64': 550, '36': 450, '44': 40,
+    '53': 300, '56': 280, '24': 220, '25': 200, '26': 240,
+    '71': 260, '73': 220, '75': 250, '83': 520, '84': 680,
+    // Tiefland- und Beckenbereiche leicht zuruecknehmen.
+    '50': 350, '45': -180, '34': -180, '32': -120, '05': -100,
+    '06': -90, '11': -80, '12': -100, '13': -70, '14': -70
 };
 const VP_VFR_MODEL_META = {
     internal: {
@@ -206,6 +241,7 @@ const VP_VFR_COUNTRY_FALLBACK_BOUNDS = {
 };
 const vpVfrCountryBoundsCache = new Map();
 const vpGaforSectorRefCache = new Map();
+const vpGaforSectorDefsCache = new Map();
 let vpVfrIndexLayer = null;
 const vpVfrIndexState = {
     selectedCountry: localStorage.getItem('ga_vfr_index_country') || 'auto',
@@ -1283,90 +1319,219 @@ function vpBuildVfrGridPoints(bounds) {
 function vpBuildGaforSectorDefs(countryCode) {
     const cc = String(countryCode || '').toUpperCase();
     if (cc !== 'DE') return [];
-    const latEdges = VP_GAFOR_SECTOR_GRID_DE.latEdges;
-    const lonEdges = VP_GAFOR_SECTOR_GRID_DE.lonEdges;
-    const ids = VP_GAFOR_SECTOR_GRID_DE.idsSouthToNorth;
-    const rowCount = ids.length;
-    const colCount = ids[0] ? ids[0].length : 0;
-    const nodeLatWarp = VP_GAFOR_SECTOR_NODE_WARP_DE.lat;
-    const nodeLonWarp = VP_GAFOR_SECTOR_NODE_WARP_DE.lon;
-    const nodeGrid = [];
-    for (let r = 0; r <= rowCount; r++) {
-        const row = [];
-        for (let c = 0; c <= colCount; c++) {
-            let lat = Number(latEdges[r] || latEdges[Math.max(0, Math.min(latEdges.length - 1, r))]);
-            let lon = Number(lonEdges[c] || lonEdges[Math.max(0, Math.min(lonEdges.length - 1, c))]);
-            const latShift = Number(nodeLatWarp[r] && nodeLatWarp[r][c]);
-            const lonShift = Number(nodeLonWarp[r] && nodeLonWarp[r][c]);
-            if (Number.isFinite(latShift)) lat += latShift;
-            if (Number.isFinite(lonShift)) lon += lonShift;
-            row.push([Number(lat.toFixed(4)), Number(lon.toFixed(4))]);
-        }
-        nodeGrid.push(row);
+    const cached = vpGaforSectorDefsCache.get(cc);
+    if (Array.isArray(cached) && cached.length) {
+        return cached.map((item) => ({
+            ...item,
+            polygon: Array.isArray(item.polygon) ? item.polygon.map((p) => [p[0], p[1]]) : []
+        }));
     }
 
-    const buildSectorPolygon = (id, r, c) => {
-        const tl = nodeGrid[r][c];
-        const tr = nodeGrid[r][c + 1];
-        const br = nodeGrid[r + 1][c + 1];
-        const bl = nodeGrid[r + 1][c];
-        const midTop = [Number(((tl[0] + tr[0]) * 0.5).toFixed(4)), Number(((tl[1] + tr[1]) * 0.5).toFixed(4))];
-        const midRight = [Number(((tr[0] + br[0]) * 0.5).toFixed(4)), Number(((tr[1] + br[1]) * 0.5).toFixed(4))];
-        const midBottom = [Number(((bl[0] + br[0]) * 0.5).toFixed(4)), Number(((bl[1] + br[1]) * 0.5).toFixed(4))];
-        const midLeft = [Number(((tl[0] + bl[0]) * 0.5).toFixed(4)), Number(((tl[1] + bl[1]) * 0.5).toFixed(4))];
-
-        // Kuesten- und Alpenrandbereiche leicht konturieren, damit die Geometrie
-        // nicht kachelartig wirkt.
-        if (id === '02' || id === '03') midTop[0] = Number((midTop[0] - 0.15).toFixed(4));
-        if (id === '04' || id === '12' || id === '16') midTop[0] = Number((midTop[0] - 0.12).toFixed(4));
-        if (id === '50' || id === '61') midBottom[0] = Number((midBottom[0] + 0.10).toFixed(4));
-        if (id === '62' || id === '73' || id === '75') midBottom[0] = Number((midBottom[0] + 0.14).toFixed(4));
-        if (id === '32' || id === '34' || id === '44') midLeft[1] = Number((midLeft[1] - 0.10).toFixed(4));
-        if (id === '23' || id === '26' || id === '64') midRight[1] = Number((midRight[1] + 0.10).toFixed(4));
-
-        return [tl, midTop, tr, midRight, br, midBottom, bl, midLeft];
-    };
-
-    const polygonCenter = (poly) => {
+    const toXY = (lat, lon) => ({
+        x: Number(lon) * VP_GAFOR_SECTOR_PROJ_COS_LAT_DE,
+        y: Number(lat)
+    });
+    const toLatLon = (xy) => ([
+        Number(Number(xy && xy.y).toFixed(4)),
+        Number((Number(xy && xy.x) / VP_GAFOR_SECTOR_PROJ_COS_LAT_DE).toFixed(4))
+    ]);
+    const clipPolygonByHalfPlane = (poly, nx, ny, c) => {
         const pts = Array.isArray(poly) ? poly : [];
-        let sumLat = 0;
-        let sumLon = 0;
-        let n = 0;
+        if (pts.length < 3) return [];
+        const out = [];
+        const eps = 1e-9;
+        const signedDistance = (p) => ((nx * p.x) + (ny * p.y) - c);
+        for (let i = 0; i < pts.length; i++) {
+            const s = pts[i];
+            const e = pts[(i + 1) % pts.length];
+            const ds = signedDistance(s);
+            const de = signedDistance(e);
+            const sIn = ds <= eps;
+            const eIn = de <= eps;
+            if (sIn && eIn) {
+                out.push({ x: e.x, y: e.y });
+            } else if (sIn && !eIn) {
+                const den = ds - de;
+                if (Math.abs(den) > 1e-12) {
+                    const t = ds / den;
+                    out.push({
+                        x: s.x + ((e.x - s.x) * t),
+                        y: s.y + ((e.y - s.y) * t)
+                    });
+                }
+            } else if (!sIn && eIn) {
+                const den = ds - de;
+                if (Math.abs(den) > 1e-12) {
+                    const t = ds / den;
+                    out.push({
+                        x: s.x + ((e.x - s.x) * t),
+                        y: s.y + ((e.y - s.y) * t)
+                    });
+                }
+                out.push({ x: e.x, y: e.y });
+            }
+        }
+        return out;
+    };
+    const polygonAreaAbs = (poly) => {
+        const pts = Array.isArray(poly) ? poly : [];
+        if (pts.length < 3) return 0;
+        let sum = 0;
+        for (let i = 0; i < pts.length; i++) {
+            const a = pts[i];
+            const b = pts[(i + 1) % pts.length];
+            sum += (a.x * b.y) - (b.x * a.y);
+        }
+        return Math.abs(sum) * 0.5;
+    };
+    const cleanupPolygon = (poly) => {
+        const pts = Array.isArray(poly) ? poly : [];
+        if (pts.length < 3) return [];
+        const out = [];
+        const eps2 = 1e-10;
         pts.forEach((p) => {
-            const lat = Number(p && p[0]);
-            const lon = Number(p && p[1]);
-            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-            sumLat += lat;
-            sumLon += lon;
-            n += 1;
+            const last = out[out.length - 1];
+            if (!last) {
+                out.push({ x: p.x, y: p.y });
+                return;
+            }
+            const dx = p.x - last.x;
+            const dy = p.y - last.y;
+            if ((dx * dx) + (dy * dy) > eps2) out.push({ x: p.x, y: p.y });
         });
-        if (n < 1) return { lat: 0, lon: 0 };
+        if (out.length > 1) {
+            const first = out[0];
+            const last = out[out.length - 1];
+            const dx = first.x - last.x;
+            const dy = first.y - last.y;
+            if ((dx * dx) + (dy * dy) <= eps2) out.pop();
+        }
+        return out.length >= 3 ? out : [];
+    };
+    const polygonCentroidXY = (poly) => {
+        const pts = Array.isArray(poly) ? poly : [];
+        if (pts.length < 3) return null;
+        let twiceArea = 0;
+        let cx = 0;
+        let cy = 0;
+        for (let i = 0; i < pts.length; i++) {
+            const a = pts[i];
+            const b = pts[(i + 1) % pts.length];
+            const cross = (a.x * b.y) - (b.x * a.y);
+            twiceArea += cross;
+            cx += (a.x + b.x) * cross;
+            cy += (a.y + b.y) * cross;
+        }
+        if (Math.abs(twiceArea) < 1e-10) {
+            let sx = 0;
+            let sy = 0;
+            let n = 0;
+            pts.forEach((p) => {
+                if (!p) return;
+                sx += Number(p.x);
+                sy += Number(p.y);
+                n += 1;
+            });
+            if (n < 1) return null;
+            return { x: sx / n, y: sy / n };
+        }
         return {
-            lat: Number((sumLat / n).toFixed(4)),
-            lon: Number((sumLon / n).toFixed(4))
+            x: cx / (3 * twiceArea),
+            y: cy / (3 * twiceArea)
         };
     };
+    const pointInPolygonXY = (point, poly) => {
+        if (!point || !Array.isArray(poly) || poly.length < 3) return false;
+        const x = Number(point.x);
+        const y = Number(point.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+        let inside = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const xi = Number(poly[i] && poly[i].x);
+            const yi = Number(poly[i] && poly[i].y);
+            const xj = Number(poly[j] && poly[j].x);
+            const yj = Number(poly[j] && poly[j].y);
+            if (!Number.isFinite(xi) || !Number.isFinite(yi) || !Number.isFinite(xj) || !Number.isFinite(yj)) continue;
+            const intersects = ((yi > y) !== (yj > y))
+                && (x < (((xj - xi) * (y - yi)) / ((yj - yi) || 1e-12)) + xi);
+            if (intersects) inside = !inside;
+        }
+        return inside;
+    };
 
-    const out = [];
-    for (let r = 0; r < ids.length; r++) {
-        for (let c = 0; c < ids[r].length; c++) {
-            const id = String(ids[r][c] || '').trim();
-            if (!id) continue;
-            const meta = VP_GAFOR_SECTOR_META_DE[id];
-            if (!meta) continue;
-            const polygon = buildSectorPolygon(id, r, c);
-            const center = polygonCenter(polygon);
-            out.push({
-                key: `${id}_${r}_${c}`,
+    const domain = VP_GAFOR_SECTOR_DOMAIN_DE
+        .map((p) => toXY(p[0], p[1]));
+    const seeds = VP_GAFOR_SECTOR_SEEDS_DE
+        .map((seed) => {
+            const meta = VP_GAFOR_SECTOR_META_DE[String(seed && seed.id || '')] || null;
+            if (!meta) return null;
+            const id = String(seed.id);
+            const lat = Number(seed && seed.lat);
+            const lon = Number(seed && seed.lon);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+            const xy = toXY(lat, lon);
+            const refFt = Number(meta.refFt);
+            const manualBiasFt = Number(VP_GAFOR_SECTOR_BIAS_FT_DE[id] || 0);
+            const terrainWeight = ((refFt - 900) + manualBiasFt) * VP_GAFOR_SECTOR_WEIGHT_SCALE_DE;
+            return {
                 id,
                 name: meta.name,
-                refFt: Number(meta.refFt),
-                polygon,
-                center,
-                probe: { lat: center.lat, lon: center.lon }
-            });
+                refFt,
+                lat,
+                lon,
+                x: xy.x,
+                y: xy.y,
+                weight: Number.isFinite(terrainWeight) ? terrainWeight : 0
+            };
+        })
+        .filter(Boolean);
+
+    const out = [];
+    seeds.forEach((seedA) => {
+        let cell = domain.map((p) => ({ x: p.x, y: p.y }));
+        for (let i = 0; i < seeds.length; i++) {
+            const seedB = seeds[i];
+            if (!seedB || seedB.id === seedA.id) continue;
+            const nx = 2 * (seedB.x - seedA.x);
+            const ny = 2 * (seedB.y - seedA.y);
+            const c = (
+                (seedB.x * seedB.x) + (seedB.y * seedB.y) - (seedA.x * seedA.x) - (seedA.y * seedA.y)
+                + Number(seedA.weight || 0)
+                - Number(seedB.weight || 0)
+            );
+            cell = clipPolygonByHalfPlane(cell, nx, ny, c);
+            if (cell.length < 3) break;
         }
-    }
+        cell = cleanupPolygon(cell);
+        if (cell.length < 3 || polygonAreaAbs(cell) < 1e-5) return;
+        const polygon = cell.map(toLatLon);
+        const centroidXY = polygonCentroidXY(cell) || { x: seedA.x, y: seedA.y };
+        const centroidLL = toLatLon(centroidXY);
+        const useSeedProbe = pointInPolygonXY({ x: seedA.x, y: seedA.y }, cell);
+        const probeLL = useSeedProbe ? [seedA.lat, seedA.lon] : centroidLL;
+        const center = {
+            lat: Number(centroidLL[0]),
+            lon: Number(centroidLL[1])
+        };
+        out.push({
+            key: `${seedA.id}_own`,
+            id: seedA.id,
+            name: seedA.name,
+            refFt: Number(seedA.refFt),
+            polygon,
+            center,
+            probe: {
+                lat: Number(Number(probeLL[0]).toFixed(4)),
+                lon: Number(Number(probeLL[1]).toFixed(4))
+            }
+        });
+    });
+
+    out.sort((a, b) => Number(a.id) - Number(b.id));
+    vpGaforSectorDefsCache.set(cc, out.map((item) => ({
+        ...item,
+        polygon: Array.isArray(item.polygon) ? item.polygon.map((p) => [p[0], p[1]]) : []
+    })));
     return out;
 }
 
