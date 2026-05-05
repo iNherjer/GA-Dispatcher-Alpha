@@ -71,6 +71,28 @@ const VP_GAFOR_SECTOR_GRID_DE = {
         ['02', '03', '04', '12', '16']
     ]
 };
+const VP_GAFOR_SECTOR_NODE_WARP_DE = {
+    lat: [
+        [0.10, 0.06, 0.03, 0.02, 0.04, 0.07],
+        [0.08, 0.04, 0.02, 0.00, 0.02, 0.05],
+        [0.04, 0.02, 0.00, -0.02, -0.01, 0.03],
+        [0.03, 0.01, -0.01, -0.03, -0.02, 0.01],
+        [0.02, 0.00, -0.02, -0.04, -0.03, 0.00],
+        [0.00, -0.02, -0.04, -0.05, -0.03, -0.01],
+        [-0.10, -0.06, -0.03, -0.01, -0.02, -0.08],
+        [-0.24, -0.17, -0.09, -0.03, -0.05, -0.20]
+    ],
+    lon: [
+        [-0.16, -0.14, -0.07, 0.00, 0.08, 0.20],
+        [-0.18, -0.12, -0.06, 0.01, 0.09, 0.21],
+        [-0.15, -0.10, -0.04, 0.03, 0.10, 0.20],
+        [-0.12, -0.08, -0.01, 0.05, 0.10, 0.16],
+        [-0.10, -0.06, 0.00, 0.05, 0.09, 0.14],
+        [-0.10, -0.07, -0.01, 0.04, 0.08, 0.12],
+        [-0.14, -0.10, -0.04, 0.02, 0.07, 0.10],
+        [-0.18, -0.14, -0.06, 0.02, 0.09, 0.12]
+    ]
+};
 const VP_GAFOR_SECTOR_META_DE = {
     '02': { name: 'Nordfriesland-Dithmarschen', refFt: 100 },
     '03': { name: 'Schleswig-Holsteinische Geest', refFt: 200 },
@@ -1264,6 +1286,67 @@ function vpBuildGaforSectorDefs(countryCode) {
     const latEdges = VP_GAFOR_SECTOR_GRID_DE.latEdges;
     const lonEdges = VP_GAFOR_SECTOR_GRID_DE.lonEdges;
     const ids = VP_GAFOR_SECTOR_GRID_DE.idsSouthToNorth;
+    const rowCount = ids.length;
+    const colCount = ids[0] ? ids[0].length : 0;
+    const nodeLatWarp = VP_GAFOR_SECTOR_NODE_WARP_DE.lat;
+    const nodeLonWarp = VP_GAFOR_SECTOR_NODE_WARP_DE.lon;
+    const nodeGrid = [];
+    for (let r = 0; r <= rowCount; r++) {
+        const row = [];
+        for (let c = 0; c <= colCount; c++) {
+            let lat = Number(latEdges[r] || latEdges[Math.max(0, Math.min(latEdges.length - 1, r))]);
+            let lon = Number(lonEdges[c] || lonEdges[Math.max(0, Math.min(lonEdges.length - 1, c))]);
+            const latShift = Number(nodeLatWarp[r] && nodeLatWarp[r][c]);
+            const lonShift = Number(nodeLonWarp[r] && nodeLonWarp[r][c]);
+            if (Number.isFinite(latShift)) lat += latShift;
+            if (Number.isFinite(lonShift)) lon += lonShift;
+            row.push([Number(lat.toFixed(4)), Number(lon.toFixed(4))]);
+        }
+        nodeGrid.push(row);
+    }
+
+    const buildSectorPolygon = (id, r, c) => {
+        const tl = nodeGrid[r][c];
+        const tr = nodeGrid[r][c + 1];
+        const br = nodeGrid[r + 1][c + 1];
+        const bl = nodeGrid[r + 1][c];
+        const midTop = [Number(((tl[0] + tr[0]) * 0.5).toFixed(4)), Number(((tl[1] + tr[1]) * 0.5).toFixed(4))];
+        const midRight = [Number(((tr[0] + br[0]) * 0.5).toFixed(4)), Number(((tr[1] + br[1]) * 0.5).toFixed(4))];
+        const midBottom = [Number(((bl[0] + br[0]) * 0.5).toFixed(4)), Number(((bl[1] + br[1]) * 0.5).toFixed(4))];
+        const midLeft = [Number(((tl[0] + bl[0]) * 0.5).toFixed(4)), Number(((tl[1] + bl[1]) * 0.5).toFixed(4))];
+
+        // Kuesten- und Alpenrandbereiche leicht konturieren, damit die Geometrie
+        // nicht kachelartig wirkt.
+        if (id === '02' || id === '03') midTop[0] = Number((midTop[0] - 0.15).toFixed(4));
+        if (id === '04' || id === '12' || id === '16') midTop[0] = Number((midTop[0] - 0.12).toFixed(4));
+        if (id === '50' || id === '61') midBottom[0] = Number((midBottom[0] + 0.10).toFixed(4));
+        if (id === '62' || id === '73' || id === '75') midBottom[0] = Number((midBottom[0] + 0.14).toFixed(4));
+        if (id === '32' || id === '34' || id === '44') midLeft[1] = Number((midLeft[1] - 0.10).toFixed(4));
+        if (id === '23' || id === '26' || id === '64') midRight[1] = Number((midRight[1] + 0.10).toFixed(4));
+
+        return [tl, midTop, tr, midRight, br, midBottom, bl, midLeft];
+    };
+
+    const polygonCenter = (poly) => {
+        const pts = Array.isArray(poly) ? poly : [];
+        let sumLat = 0;
+        let sumLon = 0;
+        let n = 0;
+        pts.forEach((p) => {
+            const lat = Number(p && p[0]);
+            const lon = Number(p && p[1]);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+            sumLat += lat;
+            sumLon += lon;
+            n += 1;
+        });
+        if (n < 1) return { lat: 0, lon: 0 };
+        return {
+            lat: Number((sumLat / n).toFixed(4)),
+            lon: Number((sumLon / n).toFixed(4))
+        };
+    };
+
     const out = [];
     for (let r = 0; r < ids.length; r++) {
         for (let c = 0; c < ids[r].length; c++) {
@@ -1271,25 +1354,16 @@ function vpBuildGaforSectorDefs(countryCode) {
             if (!id) continue;
             const meta = VP_GAFOR_SECTOR_META_DE[id];
             if (!meta) continue;
-            const minLat = Number(latEdges[r]);
-            const maxLat = Number(latEdges[r + 1]);
-            const minLon = Number(lonEdges[c]);
-            const maxLon = Number(lonEdges[c + 1]);
-            const centerLat = (minLat + maxLat) * 0.5;
-            const centerLon = (minLon + maxLon) * 0.5;
+            const polygon = buildSectorPolygon(id, r, c);
+            const center = polygonCenter(polygon);
             out.push({
                 key: `${id}_${r}_${c}`,
                 id,
                 name: meta.name,
                 refFt: Number(meta.refFt),
-                polygon: [
-                    [minLat, minLon],
-                    [minLat, maxLon],
-                    [maxLat, maxLon],
-                    [maxLat, minLon]
-                ],
-                center: { lat: Number(centerLat.toFixed(4)), lon: Number(centerLon.toFixed(4)) },
-                probe: { lat: Number(centerLat.toFixed(4)), lon: Number(centerLon.toFixed(4)) }
+                polygon,
+                center,
+                probe: { lat: center.lat, lon: center.lon }
             });
         }
     }
