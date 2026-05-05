@@ -484,6 +484,18 @@ function closeAllMapHintSubmenus() {
     Object.keys(MAP_HINT_SUBMENU_DEFAULTS).forEach(k => setMapHintSubmenuOpen(k, false));
 }
 
+function positionMapHintsMenuInViewport() {
+    const menu = document.getElementById('mapHintsMenu');
+    const btn = document.getElementById('mapHintsBtn');
+    if (!menu || !btn || menu.style.display !== 'block') return;
+    const openInViewport = (typeof window._openFloatingMenuInViewport === 'function')
+        ? window._openFloatingMenuInViewport
+        : (typeof _openFloatingMenuInViewport === 'function' ? _openFloatingMenuInViewport : null);
+    if (openInViewport) {
+        openInViewport(menu, btn, false);
+    }
+}
+
 window.toggleMapHintSubmenu = function(key, evt) {
     if (evt && typeof evt.stopPropagation === 'function') evt.stopPropagation();
     if (!(key in MAP_HINT_SUBMENU_DEFAULTS)) return;
@@ -491,6 +503,7 @@ window.toggleMapHintSubmenu = function(key, evt) {
     Object.keys(MAP_HINT_SUBMENU_DEFAULTS).forEach(k => {
         setMapHintSubmenuOpen(k, k === key ? !nowOpen : false);
     });
+    positionMapHintsMenuInViewport();
 };
 
 function refreshMapHintMenuUi() {
@@ -534,6 +547,7 @@ function refreshMapHintMenuUi() {
     });
     vpUpdateVfrUi();
     updateTerrainAvoidThresholdUi();
+    positionMapHintsMenuInViewport();
 }
 
 window.toggleMapHint = function(key) {
@@ -546,11 +560,21 @@ window.toggleMapHint = function(key) {
 
 window.toggleMapHintsMenu = function(force) {
     const menu = document.getElementById('mapHintsMenu');
+    const btn = document.getElementById('mapHintsBtn');
     if (!menu) return;
     const isOpen = menu.style.display === 'block';
     const nextOpen = typeof force === 'boolean' ? force : !isOpen;
-    menu.style.display = nextOpen ? 'block' : 'none';
-    if (nextOpen) refreshMapHintMenuUi();
+    if (nextOpen) {
+        refreshMapHintMenuUi();
+        if (btn) {
+            menu.style.display = 'block';
+            positionMapHintsMenuInViewport();
+        } else {
+            menu.style.display = 'block';
+        }
+    } else {
+        menu.style.display = 'none';
+    }
     if (!nextOpen) {
         closeAllMapHintSubmenus();
         const planeMenu = document.getElementById('vpPlaneIconMenu');
@@ -3412,6 +3436,27 @@ function renderMainRoute() {
                             
                             const titleEl = document.getElementById("mTitle");
                             const storyEl = document.getElementById("mStory");
+
+                            // Freiflug-/Planungsmodus: POI verschieben, aber KEINE neue Mission erzeugen.
+                            const selectedTypeRaw = String(
+                                document.getElementById('targetType')?.value ||
+                                localStorage.getItem('ga_target_type') ||
+                                ''
+                            ).toLowerCase();
+                            let isPlanningOnlyMode = selectedTypeRaw.includes('+freeflight_planning');
+                            if (!isPlanningOnlyMode && typeof parseMissionPickerValue === 'function') {
+                                const parsed = parseMissionPickerValue(selectedTypeRaw);
+                                isPlanningOnlyMode = String(parsed?.profile || '').toLowerCase() === 'freeflight_planning';
+                            }
+                            if (isPlanningOnlyMode) {
+                                if (titleEl) titleEl.innerHTML = '🧭 Freiflug · POI-Ziel';
+                                if (storyEl) storyEl.innerText = 'Kein Missionsauftrag erstellt. Das POI-Ziel wurde im Freiflug-/Planungsmodus verschoben.';
+                                if (typeof currentMissionData !== 'undefined' && currentMissionData) {
+                                    currentMissionData.mission = 'Freiflug · POI-Ziel';
+                                }
+                                window.debouncedSaveMissionState();
+                                return;
+                            }
                             
                             if (titleEl) titleEl.innerHTML = "🔄 Auftrag wird umgeschrieben...";
                             if (storyEl) storyEl.innerText = "Dispatcher passt die Story an das neue Ziel an...";
