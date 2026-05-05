@@ -2611,7 +2611,7 @@ const VP_METAR_PREFETCH_FAR_NM = 150;
 const VP_METAR_PREFETCH_CELL_DEG = 1.6;
 const VP_METAR_PREFETCH_MAX_CHUNKS = 2;
 const VP_METAR_PREFETCH_MIN_INTERVAL_MS = 3 * 60 * 1000;
-const VP_OM_CACHE_STORAGE_KEY = 'ga_om_cache_v1';
+const VP_OM_CACHE_STORAGE_KEY = 'ga_om_cache_v2';
 const VP_OM_CACHE_MAX_ENTRIES = 900;
 const VP_OM_COORD_STEP_BASE = 0.05;     // ~3 NM
 const VP_OM_COORD_STEP_PRESS = 0.075;   // ~4-5 NM
@@ -3386,7 +3386,7 @@ function vpBuildOpenMeteoCacheKey(includePressure, lat, lon) {
     const step = includePressure ? VP_OM_COORD_STEP_PRESS : VP_OM_COORD_STEP_BASE;
     const latQ = vpQuantizeCoord(lat, step);
     const lonQ = vpQuantizeCoord(lon, step);
-    return `${includePressure ? 'p3' : 'b3'}|${latQ.toFixed(3)}|${lonQ.toFixed(3)}`;
+    return `${includePressure ? 'p4' : 'b4'}|${latQ.toFixed(3)}|${lonQ.toFixed(3)}`;
 }
 
 function vpHydrateOpenMeteoCache() {
