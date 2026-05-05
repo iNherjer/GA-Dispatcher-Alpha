@@ -1443,13 +1443,18 @@ function vpClassifyGaforLike(parts = {}) {
     const cloudMid = Number(parts.cloudMid || 0);
     const cloudTotal = Number(parts.cloudTotal || 0);
     const coverForCeiling = Math.max(cloudLow, cloudMid, cloudTotal);
+    const lowMidCoverForCeiling = Math.max(cloudLow, cloudMid);
     // Ceiling erst ab BKN/OVC (>=5/8) bewerten.
     const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 62.5;
+    const hasDenseLowMidWithoutBase = Number.isFinite(lowMidCoverForCeiling)
+        && lowMidCoverForCeiling >= 62.5
+        && !Number.isFinite(cloudBaseFtAgl);
     let cloudAboveRefFt = cloudBaseFtAgl;
     if (Number.isFinite(cloudBaseFtAgl) && hasCeilingCondition && Number.isFinite(sectorRefFt) && Number.isFinite(terrainPointFt)) {
         cloudAboveRefFt = cloudBaseFtAgl + terrainPointFt - sectorRefFt;
     }
     const labels = {
+        UNKNOWN: { key: 'gafor_unknown', label: 'GAFOR unklar', color: '#9aa3ad', letter: '?', code: '?' },
         C: { key: 'gafor_c', label: 'GAFOR C (frei)', color: '#6aaeff', letter: 'C', code: 'C' },
         O: { key: 'gafor_o', label: 'GAFOR O (offen)', color: '#8ecb4b', letter: 'O', code: 'O' },
         D1: { key: 'gafor_d', label: 'GAFOR D1 (schwierig)', color: '#e0c93b', letter: 'D', code: 'D1' },
@@ -1467,17 +1472,24 @@ function vpClassifyGaforLike(parts = {}) {
     const visKnown = Number.isFinite(visKm);
     const cloudKnown = hasCeilingCondition && Number.isFinite(cloudAboveRefFt);
     if (!visKnown && !cloudKnown) {
-        const neutral = labels.D4;
+        const neutral = labels.UNKNOWN;
         return {
             ...neutral,
-            score: 55,
+            score: null,
             mode: 'gafor_like',
+            dataQuality: 'unknown',
+            ceilingQuality: hasDenseLowMidWithoutBase ? 'unknown_dense_cloud' : 'unknown',
+            displayCode: '?',
+            dataWarning: hasDenseLowMidWithoutBase
+                ? 'Sicht und Wolkenbasis fehlen; dichte Low/Mid-Bewoelkung erkannt.'
+                : 'Sicht und Wolkenbasis fehlen.',
             visKm,
             cloudBaseFtAgl,
             cloudAboveRefFt,
             sectorRefFt: Number.isFinite(sectorRefFt) ? sectorRefFt : null,
             terrainPointFt: Number.isFinite(terrainPointFt) ? terrainPointFt : null,
             coverForCeiling,
+            lowMidCoverForCeiling,
             hasCeilingCondition,
             visClass: null,
             cloudClass: null
@@ -1527,16 +1539,31 @@ function vpClassifyGaforLike(parts = {}) {
 
     const cat = labels[code];
     const major = String(cat.letter || 'D');
+    const dataQuality = hasDenseLowMidWithoutBase ? 'estimated' : 'valid';
+    const displayCode = dataQuality === 'valid'
+        ? cat.code
+        : (String(cat.code || cat.letter || '?').length > 1
+            ? `${String(cat.letter || cat.code || '?').slice(0, 1)}?`
+            : `${String(cat.code || cat.letter || '?').slice(0, 1)}?`);
+    const dataWarning = hasDenseLowMidWithoutBase
+        ? 'Wolkenbasis fehlt trotz BKN/OVC Low/Mid-Bewoelkung; Klasse nur aus Sicht/Restdaten abgeleitet.'
+        : '';
     return {
         ...cat,
+        label: dataQuality === 'valid' ? cat.label : `${cat.label} (unsicher)`,
         score: Math.max(0, 100 - ((majorRank[major] || 2) * 25)),
         mode: 'gafor_like',
+        dataQuality,
+        ceilingQuality: cloudKnown ? 'valid' : (hasDenseLowMidWithoutBase ? 'unknown_dense_cloud' : 'not_relevant'),
+        displayCode,
+        dataWarning,
         visKm,
         cloudBaseFtAgl,
         cloudAboveRefFt,
         sectorRefFt: Number.isFinite(sectorRefFt) ? sectorRefFt : null,
         terrainPointFt: Number.isFinite(terrainPointFt) ? terrainPointFt : null,
         coverForCeiling,
+        lowMidCoverForCeiling,
         hasCeilingCondition,
         visClass: visBand,
         cloudClass: cloudBand
@@ -1758,19 +1785,23 @@ function vpBuildSectorAmpelHtml(sectorTl, nowRatio, currentCat = null) {
     const mk = (s, fallback, forcedCat = null) => {
         const cat = vpClassifyVfrByModel((s && s.parts) || {}, vpVfrIndexState.vfrModel);
         const viewCat = forcedCat || cat;
-        const letter = String((viewCat && (viewCat.code || viewCat.letter)) || fallback || '?').slice(0, 2);
+        const letter = String((viewCat && (viewCat.displayCode || viewCat.code || viewCat.letter)) || fallback || '?').slice(0, 2);
         const color = (viewCat && viewCat.color) || '#9a9a9a';
+        const uncertain = viewCat && viewCat.dataQuality && viewCat.dataQuality !== 'valid';
         const modelLabel = vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label;
         const score = Number(viewCat && viewCat.score);
         const scoreTxt = Number.isFinite(score) ? ` • Score ${Math.round(score)}` : '';
-        const title = `${(s && s.label) || ''} ${(s && s.timeLabel) || ''} • ${(viewCat && viewCat.label) || ''}${scoreTxt} • ${modelLabel}`;
-        return `<div title="${escapePopupText(title)}" style="width:22px; height:14px; border:1px solid ${color}; border-radius:3px; background:${color}; color:#111; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; line-height:1;">${escapePopupText(letter)}</div>`;
+        const warnTxt = (viewCat && viewCat.dataWarning) ? ` • ${viewCat.dataWarning}` : '';
+        const title = `${(s && s.label) || ''} ${(s && s.timeLabel) || ''} • ${(viewCat && viewCat.label) || ''}${scoreTxt} • ${modelLabel}${warnTxt}`;
+        const bg = uncertain ? 'rgba(238,242,247,0.82)' : color;
+        const borderStyle = uncertain ? 'dashed' : 'solid';
+        return `<div title="${escapePopupText(title)}" style="width:22px; height:14px; border:1px ${borderStyle} ${color}; border-radius:3px; background:${bg}; color:#111; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; line-height:1;">${escapePopupText(letter)}</div>`;
     };
     const forced = [null, null, null];
     if (currentCat && typeof currentCat === 'object') {
         const slotNowCat = vpClassifyVfrByModel((slots[pointerIdx] && slots[pointerIdx].parts) || {}, vpVfrIndexState.vfrModel);
-        const curCode = String(currentCat.code || currentCat.letter || '').slice(0, 2);
-        const slotCode = String((slotNowCat && (slotNowCat.code || slotNowCat.letter)) || '').slice(0, 2);
+        const curCode = String(currentCat.displayCode || currentCat.code || currentCat.letter || '').slice(0, 2);
+        const slotCode = String((slotNowCat && (slotNowCat.displayCode || slotNowCat.code || slotNowCat.letter)) || '').slice(0, 2);
         if (curCode && slotCode && curCode !== slotCode) forced[pointerIdx] = currentCat;
     }
     return `<div style="pointer-events:none; width:84px; height:26px; border-radius:4px; background:rgba(12,17,24,0.38); box-shadow:0 1px 5px rgba(0,0,0,0.32); backdrop-filter:blur(1.5px);">
@@ -2116,10 +2147,11 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
             stroke: true,
             color: sectorCat.color,
             weight: 1.2,
-            opacity: 1,
+            opacity: sectorCat.dataQuality && sectorCat.dataQuality !== 'valid' ? 0.78 : 1,
             fillColor: sectorCat.color,
-            fillOpacity: 0.45,
+            fillOpacity: sectorCat.dataQuality && sectorCat.dataQuality !== 'valid' ? 0.20 : 0.45,
             fillRule: 'evenodd',
+            dashArray: sectorCat.dataQuality && sectorCat.dataQuality !== 'valid' ? '4 4' : null,
             interactive: false
         });
         const windNum = Number(sample.wspd);
@@ -2130,12 +2162,13 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
         const visTxt = Number.isFinite(visKm) ? `${(visKm / 1000).toFixed(1)} km` : '--';
         const cbm = Number(parts.cloudBaseM);
         const cbTxt = Number.isFinite(cbm) ? `${Math.round(cbm * 3.28084)} ft AGL` : '--';
-        const codeTxt = sectorCat && sectorCat.code ? ` (${sectorCat.code})` : '';
+        const codeTxt = sectorCat && (sectorCat.displayCode || sectorCat.code) ? ` (${sectorCat.displayCode || sectorCat.code})` : '';
         const refFt = Number(sectorCat && sectorCat.sectorRefFt);
         const cbRefFt = Number(sectorCat && sectorCat.cloudAboveRefFt);
         const refTxt = Number.isFinite(refFt) ? `${Math.round(refFt)} ft` : '--';
         const cbRefTxt = Number.isFinite(cbRefFt) ? `${Math.round(cbRefFt)} ft` : '--';
-        const pop = `${sectorCat.label}${codeTxt}${scoreTxt} • Wind ${windTxt} • VIS ${visTxt} • Base ${cbTxt} • Base ueber Ref ${cbRefTxt} • Ref ${refTxt} • ${modelName}`;
+        const qualityTxt = sectorCat && sectorCat.dataWarning ? ` • ${sectorCat.dataWarning}` : '';
+        const pop = `${sectorCat.label}${codeTxt}${scoreTxt} • Wind ${windTxt} • VIS ${visTxt} • Base ${cbTxt} • Base ueber Ref ${cbRefTxt} • Ref ${refTxt} • ${modelName}${qualityTxt}`;
         cell.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
         cell.addTo(layer);
 
