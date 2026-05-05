@@ -203,10 +203,13 @@ const MISSION_PICKER_STORAGE_KEY = 'ga_mission_picker_mode';
 const MISSION_PICKER_OPTIONS = {
     basic: [
         { value: 'apt', classic: 'Flugplatz (A ➔ B)', radioShort: 'APT', radioFull: 'Airport (alle Kategorien)' },
-        { value: 'poi', classic: 'POI (Rundflug)', radioShort: 'POI', radioFull: 'POI (alle Kategorien)' }
+        { value: 'poi', classic: 'POI (Rundflug)', radioShort: 'POI', radioFull: 'POI (alle Kategorien)' },
+        { value: 'apt+freeflight_planning', classic: 'APT · Freiflug/Planung', radioShort: 'APT FREE', radioFull: 'Airport · Freiflug/Planung' },
+        { value: 'poi+freeflight_planning', classic: 'POI · Freiflug/Planung', radioShort: 'POI FREE', radioFull: 'POI · Freiflug/Planung' }
     ],
     full: [
         { value: 'apt:all', classic: 'APT (alle Kategorien)', radioShort: 'APT ALL', radioFull: 'Airport (alle Kategorien)' },
+        { value: 'apt:all+freeflight_planning', classic: 'APT · Freiflug/Planung', radioShort: 'APT FREE', radioFull: 'Airport · Freiflug/Planung' },
         { value: 'apt:club', classic: 'APT · Verein', radioShort: 'APT CLUB', radioFull: 'Airport · Verein' },
         { value: 'apt:private', classic: 'APT · Privat', radioShort: 'APT PRIV', radioFull: 'Airport · Privat' },
         { value: 'apt:charter', classic: 'APT · Charter', radioShort: 'APT CHR', radioFull: 'Airport · Charter' },
@@ -218,6 +221,7 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'apt:all+news_coverage', classic: 'APT · Reporter', radioShort: 'APT NEWS', radioFull: 'Airport · Reporter' },
         { value: 'apt:all+sightseeing_tour', classic: 'APT · Sightseeing', radioShort: 'APT TOUR', radioFull: 'Airport · Sightseeing' },
         { value: 'poi:all', classic: 'POI (alle Kategorien)', radioShort: 'POI ALL', radioFull: 'POI (alle Kategorien)' },
+        { value: 'poi:all+freeflight_planning', classic: 'POI · Freiflug/Planung', radioShort: 'POI FREE', radioFull: 'POI · Freiflug/Planung' },
         { value: 'poi:bridge', classic: 'POI · Brücken', radioShort: 'POI BRG', radioFull: 'POI · Brücken' },
         { value: 'poi:road', classic: 'POI · Straße/Autobahn', radioShort: 'POI ROAD', radioFull: 'POI · Straße/Autobahn' },
         { value: 'poi:dam', classic: 'POI · Staudamm/Talsperre', radioShort: 'POI DAM', radioFull: 'POI · Staudamm/Talsperre' },
@@ -254,6 +258,19 @@ const MISSION_ROLE_TASK_PROFILES = {
         id: 'auto',
         label: 'Auto',
         appliesTo: ['apt', 'poi']
+    },
+    freeflight_planning: {
+        id: 'freeflight_planning',
+        label: 'Freiflug/Planung',
+        appliesTo: ['apt', 'poi'],
+        roleProfile: 'none',
+        taskDomain: 'freeflight_planning',
+        personas: [],
+        greetingText: '',
+        paxText: '',
+        cargoPool: [],
+        tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'niedrig', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'niedrig' },
+        storyCue: 'Kein Missionsauftrag: reiner Freiflug-/Planungsmodus.'
     },
     medical_transfer: {
         id: 'medical_transfer',
@@ -498,9 +515,13 @@ function _populateMissionTypeSelects(mode, preferredValue = null) {
     let normalizedTarget = currentClassic;
 
     if (mode === 'basic') {
-        normalizedTarget = parsed.baseType;
+        const withProfile = (parsed.profile && parsed.profile !== 'auto') ? `${parsed.baseType}+${parsed.profile}` : '';
+        normalizedTarget = _optionByValue(mode, withProfile) ? withProfile : parsed.baseType;
     } else if (!String(normalizedTarget).includes(':')) {
-        normalizedTarget = `${parsed.baseType}:all`;
+        const withProfile = (parsed.profile && parsed.profile !== 'auto')
+            ? `${parsed.baseType}:all+${parsed.profile}`
+            : `${parsed.baseType}:all`;
+        normalizedTarget = _optionByValue(mode, withProfile) ? withProfile : `${parsed.baseType}:all`;
     }
 
     const options = MISSION_PICKER_OPTIONS[mode] || MISSION_PICKER_OPTIONS.basic;
@@ -552,7 +573,17 @@ function setMissionTypeSelection(value) {
     const parsed = parseMissionPickerValue(value);
     let normalized = String(value || '').trim().toLowerCase();
     if (!_optionByValue(mode, normalized)) {
-        normalized = mode === 'full' ? `${parsed.baseType}:all` : parsed.baseType;
+        if (mode === 'full') {
+            const withProfile = (parsed.profile && parsed.profile !== 'auto')
+                ? `${parsed.baseType}:all+${parsed.profile}`
+                : `${parsed.baseType}:all`;
+            normalized = _optionByValue(mode, withProfile) ? withProfile : `${parsed.baseType}:all`;
+        } else {
+            const withProfile = (parsed.profile && parsed.profile !== 'auto')
+                ? `${parsed.baseType}+${parsed.profile}`
+                : '';
+            normalized = _optionByValue(mode, withProfile) ? withProfile : parsed.baseType;
+        }
     }
     if (!_optionByValue(mode, normalized)) return;
     classic.value = normalized;
@@ -572,7 +603,7 @@ function toggleMissionPickerMode() {
     if (indicator) {
         indicator.innerText = nextMode === 'full'
             ? 'Mission Picker: Kategorien aktiviert'
-            : 'Mission Picker: Basisansicht (APT/POI)';
+            : 'Mission Picker: Basisansicht (APT/POI/Freiflug)';
         setTimeout(() => {
             if (indicator.innerText.includes('Mission Picker:')) indicator.innerText = 'System bereit.';
         }, 1600);
@@ -6901,139 +6932,158 @@ async function generateMission() {
     let paxText = `${randomPax} PAX`, cargoText = `${Math.floor(Math.random() * 300) + 20} lbs`;
     const aiModeEnabled = !!document.getElementById('aiToggle')?.checked;
 
-    indicator.innerText = `Kontaktiere KI-Dispatcher...`;
-    let m = await fetchGeminiMission(
-        start.n,
-        dest.n,
-        totalDist,
-        isPOI,
-        paxText,
-        cargoText,
-        poiTerrainFt,
-        missionWeather,
-        missionPickerResolved,
-        missionFireHazard,
-        { lat: Number(dest?.lat), lon: Number(dest?.lon), name: String(dest?.n || '') }
-    );
-    _ensureDispatchAlive();
-    if (m && dispatchProfileId !== 'auto' && !missionMatchesTaskProfile(m, dispatchProfileId, isPOI)) {
-        console.warn('[DISPATCH] KI-Mission nicht profilkonsistent, falle auf lokale Missionen zurueck.', { dispatchProfileId, mission: m?.t || 'n/a' });
-        m = null;
-    }
-
-    if (m) {
-        dataSource = m._source;
-        if (m.pax) paxText = m.pax;
-        if (m.cargo) cargoText = m.cargo;
+    const isPlanningOnlyMode = dispatchProfileId === 'freeflight_planning';
+    let m = null;
+    if (isPlanningOnlyMode) {
+        indicator.innerText = `Planungsmodus aktiv: erstelle Freiflug-Briefing...`;
+        dataSource = "Freiflug/Planung";
+        m = {
+            i: '🧭',
+            t: isPOI ? 'Freiflug · POI-Ziel' : 'Freiflug · APT-Ziel',
+            s: isPOI
+                ? 'Kein Missionsauftrag erstellt. Das POI-Ziel wurde fuer einen freien Flug bzw. zur reinen Planung generiert.'
+                : 'Kein Missionsauftrag erstellt. Das APT-Ziel wurde fuer einen freien Flug bzw. zur reinen Planung generiert.',
+            cat: isPOI ? String(dest?.poiCategory || 'poi') : 'freeflight',
+            _requestedProfile: 'freeflight_planning',
+            _appliedProfile: 'freeflight_planning'
+        };
+        paxText = '-';
+        cargoText = '-';
     } else {
-        indicator.innerText = `Lade Auftrag aus lokaler Datenbank...`;
-        dataSource = "Lokale DB";
-        if (isPOI) {
-            if (selectedPoiCategory === 'trn') {
-                const fallbackPlan = sanitizeTrainingPlan(null, true);
-                const instructor = buildInstructorPassenger(fallbackPlan);
-                m = {
-                    i: '🧑‍✈️',
-                    t: 'Trainingsflug im Übungsgebiet',
-                    s: 'Heute trainieren wir Verfahren und Flugpraezision im platznahen Uebungsgebiet. Ich gebe dir die Uebungsschritte unterwegs, wir arbeiten sauber nach Verfahren und landen danach wieder am Startplatz.',
-                    cat: 'trn',
-                    passenger: instructor
-                };
-                paxText = "1 PAX (Instruktor)";
-                cargoText = "Trainingsunterlagen (10 lbs)";
-                dataSource = "Lokale Training DB";
-            } else {
-                const offlinePoiPool = buildOfflinePoiMissionPool(selectedPoiCategory, dispatchProfileId, dest.n);
-                m = pickOfflineMissionFromPool(offlinePoiPool, 'ga_offline_poi_mission_history') || generateDynamicPOIMission(dest.n, maxSeats, dest.poiCategory);
-                paxText = m.payloadText || paxText;
-                cargoText = m.cargoText || cargoText;
-                dataSource = "Lokale POI DB";
-            }
-        } else if (typeof missions !== 'undefined') {
-            // A->B-Missionen gleichmäßig über Kategorien rotieren (inkl. Trainingsflüge).
-            const availDbMissions = missions.filter(ms => {
-                if (!ms || ms.cat === 'poi') return false;
-                if (dispatchProfileId !== 'auto' && selectedAptCategory === 'all') {
-                    const inferred = classifyAptMissionCategory(ms);
-                    if (inferred === 'trn') return false;
-                }
-                if (selectedAptCategory === 'all') return true;
-                return classifyAptMissionCategory(ms) === selectedAptCategory;
-            });
-            const offlineFallbackMissions = buildOfflineAptMissionPool(selectedAptCategory, dispatchProfileId);
-            const availM = [...availDbMissions, ...offlineFallbackMissions];
-            const profFilteredAvailM = (dispatchProfileId && dispatchProfileId !== 'auto')
-                ? availM.filter(ms => missionMatchesTaskProfile(ms, dispatchProfileId, false))
-                : availM;
-            const missionPoolByProfile = profFilteredAvailM.length ? profFilteredAvailM : availM;
-            if (missionPoolByProfile.length === 0) {
-                m = missions[0];
-            } else {
-                const availCats = [...new Set(missionPoolByProfile.map(ms => ms.cat || "std"))];
-                const catCounts = JSON.parse(localStorage.getItem('ga_mission_cat_counts') || '{}');
-                const lastCat = localStorage.getItem('ga_last_mission_cat') || '';
+        indicator.innerText = `Kontaktiere KI-Dispatcher...`;
+        m = await fetchGeminiMission(
+            start.n,
+            dest.n,
+            totalDist,
+            isPOI,
+            paxText,
+            cargoText,
+            poiTerrainFt,
+            missionWeather,
+            missionPickerResolved,
+            missionFireHazard,
+            { lat: Number(dest?.lat), lon: Number(dest?.lon), name: String(dest?.n || '') }
+        );
+        _ensureDispatchAlive();
+        if (m && dispatchProfileId !== 'auto' && !missionMatchesTaskProfile(m, dispatchProfileId, isPOI)) {
+            console.warn('[DISPATCH] KI-Mission nicht profilkonsistent, falle auf lokale Missionen zurueck.', { dispatchProfileId, mission: m?.t || 'n/a' });
+            m = null;
+        }
 
-                const minCount = Math.min(...availCats.map(cat => parseInt(catCounts[cat] || 0, 10)));
-                let candidateCats = availCats.filter(cat => parseInt(catCounts[cat] || 0, 10) === minCount);
-                if (candidateCats.length > 1 && candidateCats.includes(lastCat)) {
-                    candidateCats = candidateCats.filter(cat => cat !== lastCat);
-                }
-                const selectedCat = candidateCats[Math.floor(Math.random() * candidateCats.length)] || availCats[0];
-
-                const pool = missionPoolByProfile.filter(ms => (ms.cat || "std") === selectedCat);
-                const historyByCat = JSON.parse(localStorage.getItem('ga_mission_history_by_cat') || '{}');
-                let catHistory = Array.isArray(historyByCat[selectedCat]) ? historyByCat[selectedCat] : [];
-                let freshM = pool.filter(ms => !catHistory.includes(ms.t));
-
-                if (freshM.length === 0) {
-                    freshM = pool;
-                    catHistory = [];
-                }
-
-                m = freshM[Math.floor(Math.random() * freshM.length)] || pool[0] || missions[0];
-
-                catHistory.push(m.t);
-                if (catHistory.length > 20) catHistory.shift();
-                historyByCat[selectedCat] = catHistory;
-                localStorage.setItem('ga_mission_history_by_cat', JSON.stringify(historyByCat));
-
-                catCounts[selectedCat] = parseInt(catCounts[selectedCat] || 0, 10) + 1;
-                localStorage.setItem('ga_mission_cat_counts', JSON.stringify(catCounts));
-                localStorage.setItem('ga_last_mission_cat', selectedCat);
-            }
-
-            if (dataSource === "Generiert") dataSource = "Lokale DB";
-            const aptCatOfMission = classifyAptMissionCategory(m || {});
-            if (m.cat === "cargo" || aptCatOfMission === 'cargo') { paxText = "0 PAX"; }
-            if (m.cat === "charter" || aptCatOfMission === 'charter' || selectedAptCategory === 'charter') {
-                if (!m.passenger || typeof m.passenger !== 'object') {
-                    m.passenger = buildCharterPassenger(null);
+        if (m) {
+            dataSource = m._source;
+            if (m.pax) paxText = m.pax;
+            if (m.cargo) cargoText = m.cargo;
+        } else {
+            indicator.innerText = `Lade Auftrag aus lokaler Datenbank...`;
+            dataSource = "Lokale DB";
+            if (isPOI) {
+                if (selectedPoiCategory === 'trn') {
+                    const fallbackPlan = sanitizeTrainingPlan(null, true);
+                    const instructor = buildInstructorPassenger(fallbackPlan);
+                    m = {
+                        i: '🧑‍✈️',
+                        t: 'Trainingsflug im Übungsgebiet',
+                        s: 'Heute trainieren wir Verfahren und Flugpraezision im platznahen Uebungsgebiet. Ich gebe dir die Uebungsschritte unterwegs, wir arbeiten sauber nach Verfahren und landen danach wieder am Startplatz.',
+                        cat: 'trn',
+                        passenger: instructor
+                    };
+                    paxText = "1 PAX (Instruktor)";
+                    cargoText = "Trainingsunterlagen (10 lbs)";
+                    dataSource = "Lokale Training DB";
                 } else {
-                    m.passenger = buildCharterPassenger(m.passenger);
+                    const offlinePoiPool = buildOfflinePoiMissionPool(selectedPoiCategory, dispatchProfileId, dest.n);
+                    m = pickOfflineMissionFromPool(offlinePoiPool, 'ga_offline_poi_mission_history') || generateDynamicPOIMission(dest.n, maxSeats, dest.poiCategory);
+                    paxText = m.payloadText || paxText;
+                    cargoText = m.cargoText || cargoText;
+                    dataSource = "Lokale POI DB";
                 }
-                if (!paxText || /^\s*0\s*PAX\b/i.test(String(paxText))) {
-                    paxText = `1 PAX (${m.passenger.role})`;
+            } else if (typeof missions !== 'undefined') {
+                // A->B-Missionen gleichmäßig über Kategorien rotieren (inkl. Trainingsflüge).
+                const availDbMissions = missions.filter(ms => {
+                    if (!ms || ms.cat === 'poi') return false;
+                    if (dispatchProfileId !== 'auto' && selectedAptCategory === 'all') {
+                        const inferred = classifyAptMissionCategory(ms);
+                        if (inferred === 'trn') return false;
+                    }
+                    if (selectedAptCategory === 'all') return true;
+                    return classifyAptMissionCategory(ms) === selectedAptCategory;
+                });
+                const offlineFallbackMissions = buildOfflineAptMissionPool(selectedAptCategory, dispatchProfileId);
+                const availM = [...availDbMissions, ...offlineFallbackMissions];
+                const profFilteredAvailM = (dispatchProfileId && dispatchProfileId !== 'auto')
+                    ? availM.filter(ms => missionMatchesTaskProfile(ms, dispatchProfileId, false))
+                    : availM;
+                const missionPoolByProfile = profFilteredAvailM.length ? profFilteredAvailM : availM;
+                if (missionPoolByProfile.length === 0) {
+                    m = missions[0];
+                } else {
+                    const availCats = [...new Set(missionPoolByProfile.map(ms => ms.cat || "std"))];
+                    const catCounts = JSON.parse(localStorage.getItem('ga_mission_cat_counts') || '{}');
+                    const lastCat = localStorage.getItem('ga_last_mission_cat') || '';
+
+                    const minCount = Math.min(...availCats.map(cat => parseInt(catCounts[cat] || 0, 10)));
+                    let candidateCats = availCats.filter(cat => parseInt(catCounts[cat] || 0, 10) === minCount);
+                    if (candidateCats.length > 1 && candidateCats.includes(lastCat)) {
+                        candidateCats = candidateCats.filter(cat => cat !== lastCat);
+                    }
+                    const selectedCat = candidateCats[Math.floor(Math.random() * candidateCats.length)] || availCats[0];
+
+                    const pool = missionPoolByProfile.filter(ms => (ms.cat || "std") === selectedCat);
+                    const historyByCat = JSON.parse(localStorage.getItem('ga_mission_history_by_cat') || '{}');
+                    let catHistory = Array.isArray(historyByCat[selectedCat]) ? historyByCat[selectedCat] : [];
+                    let freshM = pool.filter(ms => !catHistory.includes(ms.t));
+
+                    if (freshM.length === 0) {
+                        freshM = pool;
+                        catHistory = [];
+                    }
+
+                    m = freshM[Math.floor(Math.random() * freshM.length)] || pool[0] || missions[0];
+
+                    catHistory.push(m.t);
+                    if (catHistory.length > 20) catHistory.shift();
+                    historyByCat[selectedCat] = catHistory;
+                    localStorage.setItem('ga_mission_history_by_cat', JSON.stringify(historyByCat));
+
+                    catCounts[selectedCat] = parseInt(catCounts[selectedCat] || 0, 10) + 1;
+                    localStorage.setItem('ga_mission_cat_counts', JSON.stringify(catCounts));
+                    localStorage.setItem('ga_last_mission_cat', selectedCat);
                 }
-            }
-            if (m.cat === "trn" || aptCatOfMission === 'trn' || selectedAptCategory === 'trn') {
-                paxText = "1 PAX (Instruktor)";
-                if (!cargoText || /kein cargo|none|0 lbs/i.test(String(cargoText))) cargoText = "Trainingsunterlagen (10 lbs)";
-                if (!m.passenger || typeof m.passenger !== 'object') {
-                    m.passenger = buildInstructorPassenger(null);
+
+                if (dataSource === "Generiert") dataSource = "Lokale DB";
+                const aptCatOfMission = classifyAptMissionCategory(m || {});
+                if (m.cat === "cargo" || aptCatOfMission === 'cargo') { paxText = "0 PAX"; }
+                if (m.cat === "charter" || aptCatOfMission === 'charter' || selectedAptCategory === 'charter') {
+                    if (!m.passenger || typeof m.passenger !== 'object') {
+                        m.passenger = buildCharterPassenger(null);
+                    } else {
+                        m.passenger = buildCharterPassenger(m.passenger);
+                    }
+                    if (!paxText || /^\s*0\s*PAX\b/i.test(String(paxText))) {
+                        paxText = `1 PAX (${m.passenger.role})`;
+                    }
+                }
+                if (m.cat === "trn" || aptCatOfMission === 'trn' || selectedAptCategory === 'trn') {
+                    paxText = "1 PAX (Instruktor)";
+                    if (!cargoText || /kein cargo|none|0 lbs/i.test(String(cargoText))) cargoText = "Trainingsunterlagen (10 lbs)";
+                    if (!m.passenger || typeof m.passenger !== 'object') {
+                        m.passenger = buildInstructorPassenger(null);
+                    }
                 }
             }
         }
-    }
-    if (!isPOI && selectedAptCategory === 'cargo') paxText = "0 PAX";
-    if (!isPOI && selectedAptCategory === 'trn') paxText = "1 PAX (Instruktor)";
-    {
-        const effectiveProfileId = dispatchProfileId;
-        const profApplied = applyMissionTaskProfileToMission(m, isPOI, effectiveProfileId, paxText, cargoText);
-        m = profApplied.mission || m;
-        paxText = profApplied.paxText || paxText;
-        cargoText = profApplied.cargoText || cargoText;
-        m._requestedProfile = selectedMissionProfile;
-        m._appliedProfile = profApplied.appliedProfile || effectiveProfileId || 'auto';
+        if (!isPOI && selectedAptCategory === 'cargo') paxText = "0 PAX";
+        if (!isPOI && selectedAptCategory === 'trn') paxText = "1 PAX (Instruktor)";
+        {
+            const effectiveProfileId = dispatchProfileId;
+            const profApplied = applyMissionTaskProfileToMission(m, isPOI, effectiveProfileId, paxText, cargoText);
+            m = profApplied.mission || m;
+            paxText = profApplied.paxText || paxText;
+            cargoText = profApplied.cargoText || cargoText;
+            m._requestedProfile = selectedMissionProfile;
+            m._appliedProfile = profApplied.appliedProfile || effectiveProfileId || 'auto';
+        }
     }
     _ensureDispatchAlive();
 
