@@ -144,6 +144,8 @@ const vpVfrIndexState = {
     lastGridLonStep: 0.4
 };
 let vpVfrAutoTimer = null;
+let vpVfrOverlayTimer = null;
+let vpVfrOverlayScheduledForce = false;
 let vpObsTileDebugLayer = null;
 window.vpObsTileOverlayEnabled = localStorage.getItem('ga_debug_obs_tile_overlay') === 'true';
 const VP_OBS_TILE_USED_RECENT_MS = 5 * 60 * 1000;
@@ -171,6 +173,7 @@ let terrainAvoidSafeFt = TERRAIN_AVOID_SAFE_DEFAULT_FT;
 let terrainAvoidWasAirborne = false;
 let terrainAvoidPausedReason = '';
 const terrainAvoidTileCache = new Map();
+const terrainAvoidTileInFlightCache = new Map();
 const terrainAvoidRenderedTileCache = new Map();
 
 function updateObsTileOverlayButtonUi() {
@@ -783,7 +786,8 @@ function terrainAvoidResolveSourceTile(coords) {
 function terrainAvoidLoadTileImageData(z, x, y) {
     const key = `${z}/${x}/${y}`;
     if (terrainAvoidTileCache.has(key)) return Promise.resolve(terrainAvoidTileCache.get(key));
-    return new Promise((resolve, reject) => {
+    if (terrainAvoidTileInFlightCache.has(key)) return terrainAvoidTileInFlightCache.get(key);
+    const promise = new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = () => {
@@ -807,6 +811,12 @@ function terrainAvoidLoadTileImageData(z, x, y) {
         img.onerror = () => reject(new Error(`terrain-tile-load-failed:${key}`));
         img.src = TERRAIN_AVOID_TILE_URL.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
     });
+    terrainAvoidTileInFlightCache.set(key, promise);
+    promise.then(
+        () => terrainAvoidTileInFlightCache.delete(key),
+        () => terrainAvoidTileInFlightCache.delete(key)
+    );
+    return promise;
 }
 
 function terrainAvoidStoreRenderedTile(tileKey, imageData, width, height) {
@@ -1305,17 +1315,35 @@ async function vpComputeSectorTerrainReferenceFt(lat, lon, latStep, lonStep, z =
     }
 }
 
-async function vpBuildSectorReferenceMap(points, latStep, lonStep) {
+async function vpRunLimited(items, limit, worker) {
+    const list = Array.isArray(items) ? items : [];
+    const max = Math.max(1, Math.min(Number(limit) || 1, list.length || 1));
+    let cursor = 0;
+    const runners = [];
+    for (let i = 0; i < max; i++) {
+        runners.push((async () => {
+            while (cursor < list.length) {
+                const idx = cursor++;
+                await worker(list[idx], idx);
+            }
+        })());
+    }
+    await Promise.all(runners);
+}
+
+async function vpBuildSectorReferenceMap(points, latStep, lonStep, options = {}) {
     const out = Object.create(null);
     if (!Array.isArray(points) || points.length === 0) return out;
-    const jobs = points.map(async (p) => {
+    const signal = options && options.signal;
+    const maxConcurrency = Math.max(1, Math.min(Number(options && options.maxConcurrency) || 4, 6));
+    await vpRunLimited(points, maxConcurrency, async (p) => {
+        if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
         if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lon)) return;
         const ref = await vpComputeSectorTerrainReferenceFt(p.lat, p.lon, latStep, lonStep).catch(() => null);
         if (!ref) return;
         const keys = vpBuildTimelineKeyCandidates(p.lat, p.lon);
         keys.forEach(k => { out[k] = ref; });
     });
-    await Promise.all(jobs);
     return out;
 }
 
@@ -1977,7 +2005,14 @@ window.vpSetVfrModel = function(value) {
     localStorage.setItem('ga_vfr_index_model', vpVfrIndexState.vfrModel);
     vpUpdateVfrUi();
     if (window.mapHints.vfrIndex !== false && map) {
-        vpRefreshVfrLayerFromCache();
+        const needsTerrainRefs = vpVfrIndexState.vfrModel === 'gafor_like'
+            && Array.isArray(vpVfrIndexState.lastRenderedSamples)
+            && vpVfrIndexState.lastRenderedSamples.some(s => s && !Number.isFinite(Number(s.sectorRefFt)));
+        if (needsTerrainRefs && typeof window.renderVfrIndexOverlay === 'function') {
+            window.renderVfrIndexOverlay(true);
+        } else {
+            vpRefreshVfrLayerFromCache();
+        }
     }
 };
 
@@ -2173,11 +2208,14 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
     try {
         const grid = vpBuildVfrGridPoints(bounds);
         if (!grid.points.length) throw new Error('keine Rasterpunkte');
+        const activeVfrModel = vpNormalizeVfrModel(vpVfrIndexState.vfrModel);
         const samples = await window.fetchOpenMeteoWeatherPoints(grid.points, {
             includePressure: false,
             maxConcurrency: 3
         });
-        const sectorRefs = await vpBuildSectorReferenceMap(grid.points, grid.latStep, grid.lonStep);
+        const sectorRefs = activeVfrModel === 'gafor_like'
+            ? await vpBuildSectorReferenceMap(grid.points, grid.latStep, grid.lonStep, { maxConcurrency: 4 })
+            : Object.create(null);
         let timelines = null;
         try {
             timelines = await vpFetchVfrSectorTimelines(bounds, grid.points, vpVfrIndexState.ampelWindowMode);
@@ -2272,9 +2310,16 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
 
 function vpScheduleVfrOverlayUpdate(forceFetch = false) {
     if (window.mapHints.vfrIndex === false) return;
-    if (typeof window.renderVfrIndexOverlay === 'function') {
-        window.renderVfrIndexOverlay(forceFetch);
-    }
+    vpVfrOverlayScheduledForce = vpVfrOverlayScheduledForce || !!forceFetch;
+    if (vpVfrOverlayTimer) clearTimeout(vpVfrOverlayTimer);
+    vpVfrOverlayTimer = setTimeout(() => {
+        vpVfrOverlayTimer = null;
+        const scheduledForce = !!vpVfrOverlayScheduledForce;
+        vpVfrOverlayScheduledForce = false;
+        if (typeof window.renderVfrIndexOverlay === 'function') {
+            window.renderVfrIndexOverlay(scheduledForce);
+        }
+    }, forceFetch ? 120 : 650);
 }
 
 function vpEnsureVfrAutoTimer() {
