@@ -1443,11 +1443,14 @@ function vpClassifyGaforLike(parts = {}) {
     const cloudMid = Number(parts.cloudMid || 0);
     const cloudTotal = Number(parts.cloudTotal || 0);
     const coverForCeiling = Math.max(cloudLow, cloudMid, cloudTotal);
-    const lowMidCoverForCeiling = Math.max(cloudLow, cloudMid);
+    const lowCoverForCeiling = cloudLow;
     // Ceiling erst ab BKN/OVC (>=5/8) bewerten.
     const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 62.5;
-    const hasDenseLowMidWithoutBase = Number.isFinite(lowMidCoverForCeiling)
-        && lowMidCoverForCeiling >= 62.5
+    // Open-Meteo liefert cloud_base oft leer. Ein sichtbares '?' nur setzen,
+    // wenn wirklich die tiefe Wolkenschicht dicht genug ist; Mid-Cloud allein
+    // ist fuer GAFOR-Ceiling als Unsicherheitsausloeser zu breit.
+    const hasDenseLowWithoutBase = Number.isFinite(lowCoverForCeiling)
+        && lowCoverForCeiling >= 75
         && !Number.isFinite(cloudBaseFtAgl);
     let cloudAboveRefFt = cloudBaseFtAgl;
     if (Number.isFinite(cloudBaseFtAgl) && hasCeilingCondition && Number.isFinite(sectorRefFt) && Number.isFinite(terrainPointFt)) {
@@ -1478,10 +1481,10 @@ function vpClassifyGaforLike(parts = {}) {
             score: null,
             mode: 'gafor_like',
             dataQuality: 'unknown',
-            ceilingQuality: hasDenseLowMidWithoutBase ? 'unknown_dense_cloud' : 'unknown',
+            ceilingQuality: hasDenseLowWithoutBase ? 'unknown_dense_low_cloud' : 'unknown',
             displayCode: '?',
-            dataWarning: hasDenseLowMidWithoutBase
-                ? 'Sicht und Wolkenbasis fehlen; dichte Low/Mid-Bewoelkung erkannt.'
+            dataWarning: hasDenseLowWithoutBase
+                ? 'Sicht und Wolkenbasis fehlen; dichte Low-Bewoelkung erkannt.'
                 : 'Sicht und Wolkenbasis fehlen.',
             visKm,
             cloudBaseFtAgl,
@@ -1489,7 +1492,7 @@ function vpClassifyGaforLike(parts = {}) {
             sectorRefFt: Number.isFinite(sectorRefFt) ? sectorRefFt : null,
             terrainPointFt: Number.isFinite(terrainPointFt) ? terrainPointFt : null,
             coverForCeiling,
-            lowMidCoverForCeiling,
+            lowCoverForCeiling,
             hasCeilingCondition,
             visClass: null,
             cloudClass: null
@@ -1539,14 +1542,14 @@ function vpClassifyGaforLike(parts = {}) {
 
     const cat = labels[code];
     const major = String(cat.letter || 'D');
-    const dataQuality = hasDenseLowMidWithoutBase ? 'estimated' : 'valid';
+    const dataQuality = hasDenseLowWithoutBase ? 'estimated' : 'valid';
     const displayCode = dataQuality === 'valid'
         ? cat.code
         : (String(cat.code || cat.letter || '?').length > 1
             ? `${String(cat.letter || cat.code || '?').slice(0, 1)}?`
             : `${String(cat.code || cat.letter || '?').slice(0, 1)}?`);
-    const dataWarning = hasDenseLowMidWithoutBase
-        ? 'Wolkenbasis fehlt trotz BKN/OVC Low/Mid-Bewoelkung; Klasse nur aus Sicht/Restdaten abgeleitet.'
+    const dataWarning = hasDenseLowWithoutBase
+        ? 'Wolkenbasis fehlt trotz dichter Low-Bewoelkung; Klasse nur aus Sicht/Restdaten abgeleitet.'
         : '';
     return {
         ...cat,
@@ -1554,7 +1557,7 @@ function vpClassifyGaforLike(parts = {}) {
         score: Math.max(0, 100 - ((majorRank[major] || 2) * 25)),
         mode: 'gafor_like',
         dataQuality,
-        ceilingQuality: cloudKnown ? 'valid' : (hasDenseLowMidWithoutBase ? 'unknown_dense_cloud' : 'not_relevant'),
+        ceilingQuality: cloudKnown ? 'valid' : (hasDenseLowWithoutBase ? 'unknown_dense_low_cloud' : 'not_relevant'),
         displayCode,
         dataWarning,
         visKm,
@@ -1563,7 +1566,7 @@ function vpClassifyGaforLike(parts = {}) {
         sectorRefFt: Number.isFinite(sectorRefFt) ? sectorRefFt : null,
         terrainPointFt: Number.isFinite(terrainPointFt) ? terrainPointFt : null,
         coverForCeiling,
-        lowMidCoverForCeiling,
+        lowCoverForCeiling,
         hasCeilingCondition,
         visClass: visBand,
         cloudClass: cloudBand
