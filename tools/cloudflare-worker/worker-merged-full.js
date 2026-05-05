@@ -25,6 +25,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "*"
 };
 
+const MOSMIX_STATION_CATALOG_URL = "https://www.dwd.de/EN/ourservices/met_application_mosmix/mosmix_stations.cfg?view=nasPublication&nn=495490";
+const MOSMIX_SINGLE_BASE = "https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_L/single_stations";
+const MOSMIX_MAX_POINTS = 90;
+const MOSMIX_MAX_STATIONS = 80;
+const MOSMIX_MAX_TARGETS = 6;
+const MOSMIX_NEAREST_MAX_KM = 95;
+const MOSMIX_ELEMENTS = ["VV", "N05", "Nl", "Nm", "Nh", "N", "RR1c", "WPc11"];
+let mosmixStationCatalogCache = null;
+let mosmixStationCatalogAt = 0;
+let mosmixStationDataCache = new Map();
+
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -55,6 +66,34 @@ function safeJsonParse(raw, fallback = null) {
   } catch {
     return fallback;
   }
+}
+
+function clampNumber(value, min, max, fallback = null) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function dwdMinuteCoordToDecimal(value) {
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) return null;
+  const sign = raw < 0 ? -1 : 1;
+  const abs = Math.abs(raw);
+  const deg = Math.trunc(abs);
+  const min = (abs - deg) * 100;
+  if (!Number.isFinite(min) || min < 0 || min >= 60.5) return raw;
+  return sign * (deg + (min / 60));
+}
+
+function distanceKm(aLat, aLon, bLat, bLon) {
+  const toRad = Math.PI / 180;
+  const lat1 = Number(aLat) * toRad;
+  const lat2 = Number(bLat) * toRad;
+  const dLat = (Number(bLat) - Number(aLat)) * toRad;
+  const dLon = (Number(bLon) - Number(aLon)) * toRad;
+  const x = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * (Math.sin(dLon / 2) ** 2);
+  return 6371 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(Math.max(0, 1 - x)));
 }
 
 function trimText(value, maxLen = 2000) {
@@ -263,6 +302,311 @@ async function handleProblemReports(request, requestUrl, env) {
   }
 
   return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+}
+
+function parseMosmixStationCatalog(text) {
+  const stations = [];
+  const lines = String(text || "").split(/\r?\n/);
+  for (const line of lines) {
+    const m = /^(\S{4,5})\s+(\S{4})\s+(.{20})\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+)/.exec(line);
+    if (!m) continue;
+    const lat = dwdMinuteCoordToDecimal(m[4]);
+    const lon = dwdMinuteCoordToDecimal(m[5]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    stations.push({
+      id: m[1],
+      icao: m[2] === "----" ? "" : m[2],
+      name: String(m[3] || "").trim(),
+      lat,
+      lon,
+      elevM: Number.parseInt(m[6], 10)
+    });
+  }
+  return stations;
+}
+
+async function getMosmixStationCatalog() {
+  const now = Date.now();
+  if (Array.isArray(mosmixStationCatalogCache) && mosmixStationCatalogCache.length && (now - mosmixStationCatalogAt) < 12 * 60 * 60 * 1000) {
+    return mosmixStationCatalogCache;
+  }
+  const res = await fetch(MOSMIX_STATION_CATALOG_URL, {
+    headers: {
+      "User-Agent": "GA-Dispatcher-MOSMIX/1.0",
+      "Accept": "text/plain,*/*"
+    },
+    redirect: "follow"
+  });
+  if (!res.ok) throw new Error(`MOSMIX station catalog HTTP ${res.status}`);
+  const text = await res.text();
+  const stations = parseMosmixStationCatalog(text);
+  if (!stations.length) throw new Error("MOSMIX station catalog empty");
+  mosmixStationCatalogCache = stations;
+  mosmixStationCatalogAt = now;
+  return stations;
+}
+
+function findNearestMosmixStation(stations, lat, lon) {
+  let best = null;
+  let bestKm = Infinity;
+  for (const st of stations || []) {
+    const km = distanceKm(lat, lon, st.lat, st.lon);
+    if (km < bestKm) {
+      best = st;
+      bestKm = km;
+    }
+  }
+  if (!best || bestKm > MOSMIX_NEAREST_MAX_KM) return null;
+  return { ...best, distKm: Math.round(bestKm * 10) / 10 };
+}
+
+function readZipU16(bytes, offset) {
+  return bytes[offset] | (bytes[offset + 1] << 8);
+}
+
+function readZipU32(bytes, offset) {
+  return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+}
+
+async function inflateRawZipEntry(data) {
+  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function extractFirstKmlFromKmz(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer);
+  let eocd = -1;
+  for (let i = bytes.length - 22; i >= 0 && i > bytes.length - 66000; i--) {
+    if (readZipU32(bytes, i) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) throw new Error("KMZ central directory missing");
+  const count = readZipU16(bytes, eocd + 10);
+  let ptr = readZipU32(bytes, eocd + 16);
+  for (let i = 0; i < count && ptr < bytes.length - 46; i++) {
+    if (readZipU32(bytes, ptr) !== 0x02014b50) break;
+    const method = readZipU16(bytes, ptr + 10);
+    const compressedSize = readZipU32(bytes, ptr + 20);
+    const nameLen = readZipU16(bytes, ptr + 28);
+    const extraLen = readZipU16(bytes, ptr + 30);
+    const commentLen = readZipU16(bytes, ptr + 32);
+    const localOffset = readZipU32(bytes, ptr + 42);
+    const name = new TextDecoder("utf-8").decode(bytes.slice(ptr + 46, ptr + 46 + nameLen));
+    ptr += 46 + nameLen + extraLen + commentLen;
+    if (!/\.kml$/i.test(name)) continue;
+    if (readZipU32(bytes, localOffset) !== 0x04034b50) continue;
+    const localNameLen = readZipU16(bytes, localOffset + 26);
+    const localExtraLen = readZipU16(bytes, localOffset + 28);
+    const start = localOffset + 30 + localNameLen + localExtraLen;
+    const compressed = bytes.slice(start, start + compressedSize);
+    let raw;
+    if (method === 0) raw = compressed;
+    else if (method === 8) raw = await inflateRawZipEntry(compressed);
+    else throw new Error(`KMZ compression method ${method} unsupported`);
+    return new TextDecoder("iso-8859-1").decode(raw);
+  }
+  throw new Error("KMZ contains no KML entry");
+}
+
+function parseMosmixValues(raw) {
+  return String(raw || "").trim().split(/\s+/).map(v => {
+    if (!v || v === "-" || v === "--") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  });
+}
+
+function extractMosmixElement(xml, name) {
+  const re = new RegExp(`<dwd:Forecast\\s+[^>]*dwd:elementName=["']${name}["'][^>]*>[\\s\\S]*?<dwd:value>([\\s\\S]*?)<\\/dwd:value>`, "i");
+  const m = re.exec(xml);
+  return m ? parseMosmixValues(m[1]) : [];
+}
+
+function parseMosmixKml(xml) {
+  const times = [];
+  const timeRe = /<dwd:TimeStep>([^<]+)<\/dwd:TimeStep>/g;
+  let tm;
+  while ((tm = timeRe.exec(xml)) !== null) {
+    const ms = Date.parse(tm[1]);
+    if (Number.isFinite(ms)) times.push(Math.round(ms / 1000));
+  }
+  if (!times.length) throw new Error("MOSMIX forecast has no time steps");
+  const elements = {};
+  for (const name of MOSMIX_ELEMENTS) {
+    elements[name] = extractMosmixElement(xml, name);
+  }
+  return { times, elements };
+}
+
+async function fetchMosmixStationData(stationId) {
+  const id = String(stationId || "").trim();
+  if (!/^[A-Z0-9]{4,5}$/.test(id)) throw new Error("invalid MOSMIX station id");
+  const now = Date.now();
+  const mem = mosmixStationDataCache.get(id);
+  if (mem && (now - mem.ts) < 45 * 60 * 1000) return mem.data;
+
+  const cache = (typeof caches !== "undefined" && caches && caches.default) ? caches.default : null;
+  const cacheKey = new Request(`https://cache.local/mosmix/station/${encodeURIComponent(id)}`);
+  const hit = cache ? await cache.match(cacheKey) : null;
+  if (hit) {
+    const data = await hit.json();
+    mosmixStationDataCache.set(id, { ts: now, data });
+    return data;
+  }
+
+  const url = `${MOSMIX_SINGLE_BASE}/${encodeURIComponent(id)}/kml/MOSMIX_L_LATEST_${encodeURIComponent(id)}.kmz`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "GA-Dispatcher-MOSMIX/1.0",
+      "Accept": "application/vnd.google-earth.kmz,application/zip,*/*"
+    },
+    redirect: "follow"
+  });
+  if (!res.ok) throw new Error(`MOSMIX station ${id} HTTP ${res.status}`);
+  const xml = await extractFirstKmlFromKmz(await res.arrayBuffer());
+  const data = parseMosmixKml(xml);
+  mosmixStationDataCache.set(id, { ts: now, data });
+  while (mosmixStationDataCache.size > MOSMIX_MAX_STATIONS) {
+    const oldest = mosmixStationDataCache.keys().next().value;
+    if (!oldest) break;
+    mosmixStationDataCache.delete(oldest);
+  }
+  if (cache) await cache.put(cacheKey, json(data, 200, { "Cache-Control": "public, max-age=1800" }));
+  return data;
+}
+
+function pickNearestMosmixIndex(times, targetSec) {
+  if (!Array.isArray(times) || !times.length) return -1;
+  const target = Number.isFinite(Number(targetSec)) ? Number(targetSec) : Math.round(Date.now() / 1000);
+  let best = 0;
+  let diff = Infinity;
+  for (let i = 0; i < times.length; i++) {
+    const t = Number(times[i]);
+    if (!Number.isFinite(t)) continue;
+    const d = Math.abs(t - target);
+    if (d < diff) {
+      best = i;
+      diff = d;
+    }
+  }
+  return best;
+}
+
+function mosmixValueAt(stationData, key, idx) {
+  const arr = stationData && stationData.elements && stationData.elements[key];
+  if (!Array.isArray(arr) || idx < 0 || idx >= arr.length) return null;
+  const n = Number(arr[idx]);
+  return Number.isFinite(n) ? n : null;
+}
+
+function buildMosmixParts(stationData, idx) {
+  if (!stationData || idx < 0) return null;
+  return {
+    time: Number(stationData.times[idx]),
+    visibilityM: mosmixValueAt(stationData, "VV", idx),
+    n05Pct: mosmixValueAt(stationData, "N05", idx),
+    lowCloudPct: mosmixValueAt(stationData, "Nl", idx),
+    midCloudPct: mosmixValueAt(stationData, "Nm", idx),
+    highCloudPct: mosmixValueAt(stationData, "Nh", idx),
+    totalCloudPct: mosmixValueAt(stationData, "N", idx),
+    precipitationMm: mosmixValueAt(stationData, "RR1c", idx),
+    weatherCode: mosmixValueAt(stationData, "WPc11", idx)
+  };
+}
+
+async function runLimited(items, limit, worker) {
+  const out = new Array(items.length);
+  let cursor = 0;
+  const n = Math.max(1, Math.min(Number(limit) || 4, items.length || 1));
+  const runners = Array.from({ length: n }, async () => {
+    while (cursor < items.length) {
+      const idx = cursor++;
+      out[idx] = await worker(items[idx], idx);
+    }
+  });
+  await Promise.all(runners);
+  return out;
+}
+
+function parseMosmixRequestPayload(raw) {
+  const payload = raw && typeof raw === "object" ? raw : {};
+  const points = Array.isArray(payload.points) ? payload.points : [];
+  const targets = Array.isArray(payload.targets) ? payload.targets : [];
+  return {
+    points: points.slice(0, MOSMIX_MAX_POINTS).map((p, idx) => ({
+      idx,
+      lat: clampNumber(p && p.lat, -90, 90, null),
+      lon: clampNumber(p && (p.lon ?? p.lng), -180, 180, null)
+    })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon)),
+    targets: targets.slice(0, MOSMIX_MAX_TARGETS).map(t => Math.round(Number(t))).filter(Number.isFinite)
+  };
+}
+
+async function handleMosmixProxy(request, requestUrl) {
+  let payload = null;
+  if (request.method === "POST") {
+    payload = safeJsonParse(await request.text(), null);
+  } else {
+    const pointsRaw = String(requestUrl.searchParams.get("points") || "");
+    const targetsRaw = String(requestUrl.searchParams.get("targets") || "");
+    payload = {
+      points: pointsRaw.split(";").map(pair => {
+        const [lat, lon] = pair.split(",").map(Number);
+        return { lat, lon };
+      }),
+      targets: targetsRaw.split(",").map(Number)
+    };
+  }
+  const parsed = parseMosmixRequestPayload(payload);
+  if (!parsed.points.length) return json({ ok: false, errorCode: "invalid_points" }, 400);
+  const targets = parsed.targets.length ? parsed.targets : [Math.round(Date.now() / 1000)];
+  const stations = await getMosmixStationCatalog();
+
+  const nearestByPoint = parsed.points.map(p => ({ point: p, station: findNearestMosmixStation(stations, p.lat, p.lon) }));
+  const stationIds = Array.from(new Set(nearestByPoint.map(x => x.station && x.station.id).filter(Boolean))).slice(0, MOSMIX_MAX_STATIONS);
+  const stationDataById = Object.create(null);
+  await runLimited(stationIds, 8, async (id) => {
+    try {
+      stationDataById[id] = await fetchMosmixStationData(id);
+    } catch (error) {
+      stationDataById[id] = { error: String(error?.message || error) };
+    }
+  });
+
+  const points = nearestByPoint.map(({ point, station }) => {
+    if (!station) return { lat: point.lat, lon: point.lon, ok: false, errorCode: "no_station_nearby" };
+    const stationData = stationDataById[station.id];
+    if (!stationData || stationData.error) {
+      return { lat: point.lat, lon: point.lon, ok: false, station, errorCode: "station_unavailable", message: stationData && stationData.error };
+    }
+    const currentIdx = pickNearestMosmixIndex(stationData.times, Math.round(Date.now() / 1000));
+    return {
+      lat: point.lat,
+      lon: point.lon,
+      ok: true,
+      station,
+      source: "DWD MOSMIX_L",
+      current: buildMosmixParts(stationData, currentIdx),
+      targets: targets.map(target => {
+        const idx = pickNearestMosmixIndex(stationData.times, target);
+        return {
+          target,
+          ...buildMosmixParts(stationData, idx)
+        };
+      })
+    };
+  });
+
+  return json({
+    ok: true,
+    source: "DWD MOSMIX_L",
+    attribution: "Datenbasis: Deutscher Wetterdienst (DWD), MOSMIX_L; eigene Verarbeitung",
+    generatedAt: nowIso(),
+    count: points.length,
+    points
+  }, 200, { "Cache-Control": "public, max-age=300" });
 }
 
 function normalizeTileKey(raw) {
@@ -883,14 +1227,21 @@ export default {
     }
 
     // ==========================================
-    // 5. PROBLEM REPORTS (Mini Bugtracker API)
+    // 5. MOSMIX PROXY (DWD Open Data, reduced JSON)
+    // ==========================================
+    if (requestUrl.pathname === "/api/mosmix" && (request.method === "GET" || request.method === "POST")) {
+      return handleMosmixProxy(request, requestUrl);
+    }
+
+    // ==========================================
+    // 6. PROBLEM REPORTS (Mini Bugtracker API)
     // ==========================================
     if (requestUrl.pathname === "/api/problem-reports" || requestUrl.pathname.startsWith("/api/problem-reports/")) {
       return handleProblemReports(request, requestUrl, env);
     }
 
     // ==========================================
-    // 6. OPENAIP PROXY (Catch-All für Snapping)
+    // 7. OPENAIP PROXY (Catch-All für Snapping)
     // ==========================================
     let targetPath = requestUrl.pathname;
     if (targetPath.includes("/v1/")) {

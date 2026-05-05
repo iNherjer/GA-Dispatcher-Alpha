@@ -55,6 +55,8 @@ const VP_VFR_AMPEL_MODE_DEFAULT = 'sun';
 const VP_GAFOR_REF_TERRAIN_Z = 10;
 const VP_GAFOR_REF_MAX_SAMPLES = 1400;
 const VP_GAFOR_REF_CACHE_MAX = 420;
+const VP_MOSMIX_PROXY_URL = 'https://ga-proxy.einherjer.workers.dev/api/mosmix';
+const VP_MOSMIX_ACTIVE_COUNTRIES = new Set(['DE']);
 const VP_VFR_MODEL_META = {
     internal: {
         label: 'Intern (multi-factor)',
@@ -1433,7 +1435,10 @@ function vpClassifyInternalVfr(parts = {}) {
 }
 
 function vpClassifyGaforLike(parts = {}) {
-    const visMRaw = Number(parts.visibility);
+    const mosmixVisibilityM = Number(parts.mosmixVisibilityM);
+    const visMRaw = Number.isFinite(mosmixVisibilityM) && mosmixVisibilityM > 0
+        ? mosmixVisibilityM
+        : Number(parts.visibility);
     const visKm = (Number.isFinite(visMRaw) && visMRaw > 0) ? (visMRaw / 1000) : null;
     const cloudBaseMRaw = Number(parts.cloudBaseM);
     const cloudBaseFtAgl = (Number.isFinite(cloudBaseMRaw) && cloudBaseMRaw > 0) ? (cloudBaseMRaw * 3.28084) : null;
@@ -1442,8 +1447,11 @@ function vpClassifyGaforLike(parts = {}) {
     const cloudLow = Number(parts.cloudLow || 0);
     const cloudMid = Number(parts.cloudMid || 0);
     const cloudTotal = Number(parts.cloudTotal || 0);
+    const mosmixN05Pct = Number(parts.mosmixN05Pct);
+    const mosmixLowCloudPct = Number(parts.mosmixLowCloudPct);
     const coverForCeiling = Math.max(cloudLow, cloudMid, cloudTotal);
-    const lowCoverForCeiling = cloudLow;
+    const lowCoverForCeiling = Number.isFinite(mosmixLowCloudPct) ? mosmixLowCloudPct : cloudLow;
+    const mosmixHasBknBelow500 = Number.isFinite(mosmixN05Pct) && mosmixN05Pct >= 62.5;
     // Ceiling erst ab BKN/OVC (>=5/8) bewerten.
     const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 62.5;
     // Open-Meteo liefert cloud_base oft leer. Ein sichtbares '?' nur setzen,
@@ -1451,7 +1459,8 @@ function vpClassifyGaforLike(parts = {}) {
     // ist fuer GAFOR-Ceiling als Unsicherheitsausloeser zu breit.
     const hasDenseLowWithoutBase = Number.isFinite(lowCoverForCeiling)
         && lowCoverForCeiling >= 75
-        && !Number.isFinite(cloudBaseFtAgl);
+        && !Number.isFinite(cloudBaseFtAgl)
+        && !mosmixHasBknBelow500;
     let cloudAboveRefFt = cloudBaseFtAgl;
     if (Number.isFinite(cloudBaseFtAgl) && hasCeilingCondition && Number.isFinite(sectorRefFt) && Number.isFinite(terrainPointFt)) {
         cloudAboveRefFt = cloudBaseFtAgl + terrainPointFt - sectorRefFt;
@@ -1473,7 +1482,7 @@ function vpClassifyGaforLike(parts = {}) {
     const majorRank = { C: 0, O: 1, D: 2, M: 3, X: 4 };
 
     const visKnown = Number.isFinite(visKm);
-    const cloudKnown = hasCeilingCondition && Number.isFinite(cloudAboveRefFt);
+    const cloudKnown = mosmixHasBknBelow500 || (hasCeilingCondition && Number.isFinite(cloudAboveRefFt));
     if (!visKnown && !cloudKnown) {
         const neutral = labels.UNKNOWN;
         return {
@@ -1493,6 +1502,10 @@ function vpClassifyGaforLike(parts = {}) {
             terrainPointFt: Number.isFinite(terrainPointFt) ? terrainPointFt : null,
             coverForCeiling,
             lowCoverForCeiling,
+            mosmixN05Pct: Number.isFinite(mosmixN05Pct) ? mosmixN05Pct : null,
+            mosmixLowCloudPct: Number.isFinite(mosmixLowCloudPct) ? mosmixLowCloudPct : null,
+            visSource: Number.isFinite(mosmixVisibilityM) ? 'mosmix' : 'openmeteo',
+            cloudSource: null,
             hasCeilingCondition,
             visClass: null,
             cloudClass: null
@@ -1507,7 +1520,8 @@ function vpClassifyGaforLike(parts = {}) {
                         : 'v10_plus'
     );
     const cloudBand = !cloudKnown ? null : (
-        cloudAboveRefFt < 500 ? 'c_below_500'
+        mosmixHasBknBelow500 ? 'c_below_500'
+            : cloudAboveRefFt < 500 ? 'c_below_500'
             : cloudAboveRefFt < 1000 ? 'c500_1000'
                 : cloudAboveRefFt < 2000 ? 'c1000_2000'
                     : cloudAboveRefFt >= 5000 ? 'c5000_plus'
@@ -1551,13 +1565,14 @@ function vpClassifyGaforLike(parts = {}) {
     const dataWarning = hasDenseLowWithoutBase
         ? 'Wolkenbasis fehlt trotz dichter Low-Bewoelkung; Klasse nur aus Sicht/Restdaten abgeleitet.'
         : '';
+    const cloudSource = mosmixHasBknBelow500 ? 'mosmix_n05' : (Number.isFinite(cloudAboveRefFt) ? 'openmeteo_cloud_base' : null);
     return {
         ...cat,
         label: dataQuality === 'valid' ? cat.label : `${cat.label} (unsicher)`,
         score: Math.max(0, 100 - ((majorRank[major] || 2) * 25)),
         mode: 'gafor_like',
         dataQuality,
-        ceilingQuality: cloudKnown ? 'valid' : (hasDenseLowWithoutBase ? 'unknown_dense_low_cloud' : 'not_relevant'),
+        ceilingQuality: mosmixHasBknBelow500 ? 'mosmix_n05' : (cloudKnown ? 'valid' : (hasDenseLowWithoutBase ? 'unknown_dense_low_cloud' : 'not_relevant')),
         displayCode,
         dataWarning,
         visKm,
@@ -1567,6 +1582,10 @@ function vpClassifyGaforLike(parts = {}) {
         terrainPointFt: Number.isFinite(terrainPointFt) ? terrainPointFt : null,
         coverForCeiling,
         lowCoverForCeiling,
+        mosmixN05Pct: Number.isFinite(mosmixN05Pct) ? mosmixN05Pct : null,
+        mosmixLowCloudPct: Number.isFinite(mosmixLowCloudPct) ? mosmixLowCloudPct : null,
+        visSource: Number.isFinite(mosmixVisibilityM) ? 'mosmix' : 'openmeteo',
+        cloudSource,
         hasCeilingCondition,
         visClass: visBand,
         cloudClass: cloudBand
@@ -1591,6 +1610,11 @@ function vpSampleToParts(sample = {}) {
         visibility: sample.visibilityM,
         weatherCode: sample.weatherCode,
         cloudBaseM: sample.cloudBaseM,
+        mosmixVisibilityM: sample.mosmixVisibilityM,
+        mosmixN05Pct: sample.mosmixN05Pct,
+        mosmixLowCloudPct: sample.mosmixLowCloudPct,
+        mosmixStation: sample.mosmixStation,
+        mosmixStationDistKm: sample.mosmixStationDistKm,
         sectorRefFt: sample.sectorRefFt,
         terrainPointFt: sample.terrainPointFt
     };
@@ -1657,6 +1681,118 @@ function vpBuildTimelineKeyCandidates(lat, lon) {
     // deshalb bieten wir zusätzlich den 0.05-Grid-Key an.
     push(vpRoundToStep(lat, 0.05), vpRoundToStep(lon, 0.05));
     return Array.from(new Set(out));
+}
+
+function vpMosmixTargetsFromTimeline(timelines) {
+    const nowSec = Math.round(Date.now() / 1000);
+    const targets = [nowSec];
+    if (timelines && Array.isArray(timelines.slotsMeta)) {
+        timelines.slotsMeta.forEach(s => {
+            const t = Number(s && s.targetSec);
+            if (Number.isFinite(t)) targets.push(Math.round(t));
+        });
+    }
+    return Array.from(new Set(targets)).slice(0, 4);
+}
+
+async function vpFetchMosmixGridForecast(points, timelines, countryCode) {
+    const cc = String(countryCode || '').toUpperCase();
+    if (!VP_MOSMIX_ACTIVE_COUNTRIES.has(cc)) return null;
+    if (!Array.isArray(points) || points.length === 0) return null;
+    const targets = vpMosmixTargetsFromTimeline(timelines);
+    const res = await fetch(VP_MOSMIX_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({
+            points: points.map(p => ({ lat: Number(p.lat), lon: Number(p.lon) })),
+            targets
+        })
+    });
+    if (!res.ok) throw new Error(`MOSMIX HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data || data.ok !== true || !Array.isArray(data.points)) return null;
+    const byKey = Object.create(null);
+    data.points.forEach((item) => {
+        if (!item || item.ok !== true || !Number.isFinite(Number(item.lat)) || !Number.isFinite(Number(item.lon))) return;
+        const current = item.current && typeof item.current === 'object' ? item.current : null;
+        const station = item.station && typeof item.station === 'object' ? item.station : null;
+        const rec = {
+            station,
+            current,
+            targets: Array.isArray(item.targets) ? item.targets : []
+        };
+        vpBuildTimelineKeyCandidates(item.lat, item.lon).forEach(k => { byKey[k] = rec; });
+    });
+    return {
+        byKey,
+        attribution: data.attribution || 'Datenbasis: Deutscher Wetterdienst (DWD), MOSMIX_L; eigene Verarbeitung'
+    };
+}
+
+function vpMosmixPartsFromValue(value, rec) {
+    if (!value || typeof value !== 'object') return {};
+    return {
+        mosmixVisibilityM: Number(value.visibilityM),
+        mosmixN05Pct: Number(value.n05Pct),
+        mosmixLowCloudPct: Number(value.lowCloudPct),
+        mosmixMidCloudPct: Number(value.midCloudPct),
+        mosmixTotalCloudPct: Number(value.totalCloudPct),
+        mosmixPrecipitationMm: Number(value.precipitationMm),
+        mosmixWeatherCode: Number(value.weatherCode),
+        mosmixStation: rec && rec.station ? String(rec.station.icao || rec.station.id || rec.station.name || '') : '',
+        mosmixStationDistKm: rec && rec.station ? Number(rec.station.distKm) : null,
+        mosmixTime: Number(value.time)
+    };
+}
+
+function vpNearestMosmixTarget(rec, targetSec) {
+    if (!rec || !Array.isArray(rec.targets) || rec.targets.length === 0) return rec && rec.current;
+    const target = Number(targetSec);
+    if (!Number.isFinite(target)) return rec.current || rec.targets[0];
+    let best = rec.targets[0];
+    let bestDiff = Infinity;
+    rec.targets.forEach(item => {
+        const t = Number(item && (item.target || item.time));
+        if (!Number.isFinite(t)) return;
+        const d = Math.abs(t - target);
+        if (d < bestDiff) {
+            best = item;
+            bestDiff = d;
+        }
+    });
+    return best || rec.current || null;
+}
+
+function vpMergeMosmixIntoSamples(samples, mosmix) {
+    if (!mosmix || !mosmix.byKey || !Array.isArray(samples)) return samples;
+    return samples.map(sample => {
+        if (!sample || !Number.isFinite(Number(sample.lat)) || !Number.isFinite(Number(sample.lon))) return sample;
+        let rec = null;
+        const keys = vpBuildTimelineKeyCandidates(sample.lat, sample.lon);
+        for (const k of keys) {
+            if (mosmix.byKey[k]) { rec = mosmix.byKey[k]; break; }
+        }
+        if (!rec) return sample;
+        return {
+            ...sample,
+            ...vpMosmixPartsFromValue(rec.current, rec)
+        };
+    });
+}
+
+function vpMergeMosmixIntoTimelines(timelines, mosmix) {
+    if (!timelines || !timelines.byKey || !mosmix || !mosmix.byKey) return;
+    Object.keys(timelines.byKey).forEach(key => {
+        const rec = mosmix.byKey[key];
+        const tl = timelines.byKey[key];
+        if (!rec || !tl || !Array.isArray(tl.slots)) return;
+        tl.slots.forEach((slot, idx) => {
+            if (!slot || !slot.parts) return;
+            const meta = Array.isArray(timelines.slotsMeta) ? timelines.slotsMeta[idx] : null;
+            const targetSec = Number(meta && meta.targetSec);
+            Object.assign(slot.parts, vpMosmixPartsFromValue(vpNearestMosmixTarget(rec, targetSec), rec));
+        });
+    });
 }
 
 function vpNormalizeVfrAmpelWindowMode(value) {
@@ -1945,7 +2081,7 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints, ampelMode = null) {
         blockEndMs: Number(slotPlan && slotPlan.blockEndMs),
         ampelMode: activeAmpelMode,
         nowRatio,
-        slotsMeta: slots.map(s => ({ label: s.label, timeLabel: s.timeLabel }))
+        slotsMeta: slots.map(s => ({ label: s.label, timeLabel: s.timeLabel, targetSec: Math.round(Number(s.targetMs || 0) / 1000) }))
     };
 }
 
@@ -2161,8 +2297,9 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
         const windTxt = Number.isFinite(windNum) ? `${Math.round(windNum)} kt` : '--';
         const modelName = vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label;
         const scoreTxt = Number.isFinite(Number(cat.score)) ? ` • Score ${Math.round(Number(cat.score))}` : '';
-        const visKm = Number(parts.visibility);
-        const visTxt = Number.isFinite(visKm) ? `${(visKm / 1000).toFixed(1)} km` : '--';
+        const catVisKm = Number(sectorCat && sectorCat.visKm);
+        const visM = Number.isFinite(catVisKm) ? catVisKm * 1000 : Number(parts.visibility);
+        const visTxt = Number.isFinite(visM) ? `${(visM / 1000).toFixed(1)} km` : '--';
         const cbm = Number(parts.cloudBaseM);
         const cbTxt = Number.isFinite(cbm) ? `${Math.round(cbm * 3.28084)} ft AGL` : '--';
         const codeTxt = sectorCat && (sectorCat.displayCode || sectorCat.code) ? ` (${sectorCat.displayCode || sectorCat.code})` : '';
@@ -2170,8 +2307,15 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
         const cbRefFt = Number(sectorCat && sectorCat.cloudAboveRefFt);
         const refTxt = Number.isFinite(refFt) ? `${Math.round(refFt)} ft` : '--';
         const cbRefTxt = Number.isFinite(cbRefFt) ? `${Math.round(cbRefFt)} ft` : '--';
+        const mxN05 = Number(parts.mosmixN05Pct);
+        const mxLow = Number(parts.mosmixLowCloudPct);
+        const mxStation = String(parts.mosmixStation || '').trim();
+        const mxDist = Number(parts.mosmixStationDistKm);
+        const mxTxt = (Number.isFinite(mxN05) || Number.isFinite(mxLow) || mxStation)
+            ? ` • MOSMIX ${mxStation || ''}${Number.isFinite(mxDist) ? ` ${Math.round(mxDist)}km` : ''} N05 ${Number.isFinite(mxN05) ? `${Math.round(mxN05)}%` : '--'} Low ${Number.isFinite(mxLow) ? `${Math.round(mxLow)}%` : '--'}`
+            : '';
         const qualityTxt = sectorCat && sectorCat.dataWarning ? ` • ${sectorCat.dataWarning}` : '';
-        const pop = `${sectorCat.label}${codeTxt}${scoreTxt} • Wind ${windTxt} • VIS ${visTxt} • Base ${cbTxt} • Base ueber Ref ${cbRefTxt} • Ref ${refTxt} • ${modelName}${qualityTxt}`;
+        const pop = `${sectorCat.label}${codeTxt}${scoreTxt} • Wind ${windTxt} • VIS ${visTxt} • Base ${cbTxt} • Base ueber Ref ${cbRefTxt} • Ref ${refTxt} • ${modelName}${mxTxt}${qualityTxt}`;
         cell.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
         cell.addTo(layer);
 
@@ -2283,6 +2427,13 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
             console.warn('[VFR-Index] Timeline-Forecast fehlgeschlagen, nutze Fallback:', timelineErr);
             timelines = null;
         }
+        let mosmix = null;
+        try {
+            mosmix = await vpFetchMosmixGridForecast(grid.points, timelines, active);
+        } catch (mosmixErr) {
+            console.warn('[VFR-Index] MOSMIX-Zusatzdaten nicht verfuegbar:', mosmixErr);
+            mosmix = null;
+        }
         if (timelines && timelines.byKey) {
             grid.points.forEach((p) => {
                 const keys = vpBuildTimelineKeyCandidates(p.lat, p.lon);
@@ -2301,6 +2452,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
                     });
                 }
             });
+            vpMergeMosmixIntoTimelines(timelines, mosmix);
         }
         let valid = Array.isArray(samples) ? samples.filter(s => s && Number.isFinite(s.lat) && Number.isFinite(s.lon)) : [];
         valid = valid.map((s) => {
@@ -2316,6 +2468,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
                 terrainPointFt: ref.terrainPointFt
             };
         });
+        valid = vpMergeMosmixIntoSamples(valid, mosmix);
         if (valid.length === 0 && timelines && timelines.byKey) {
             const fallback = [];
             const nowRatio = Number(timelines.nowRatio);
@@ -2342,6 +2495,11 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
                     cloudLowPct: Number(slot && slot.parts && slot.parts.cloudLow),
                     cloudMidPct: Number(slot && slot.parts && slot.parts.cloudMid),
                     cloudTotalPct: Number(slot && slot.parts && slot.parts.cloudTotal),
+                    mosmixVisibilityM: Number(slot && slot.parts && slot.parts.mosmixVisibilityM),
+                    mosmixN05Pct: Number(slot && slot.parts && slot.parts.mosmixN05Pct),
+                    mosmixLowCloudPct: Number(slot && slot.parts && slot.parts.mosmixLowCloudPct),
+                    mosmixStation: slot && slot.parts && slot.parts.mosmixStation,
+                    mosmixStationDistKm: Number(slot && slot.parts && slot.parts.mosmixStationDistKm),
                     precipitationMm: Number(slot && slot.parts && slot.parts.precipitation),
                     rainMm: Number(slot && slot.parts && slot.parts.rain),
                     snowfallCm: Number(slot && slot.parts && slot.parts.snow),
