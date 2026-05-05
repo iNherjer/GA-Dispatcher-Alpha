@@ -1594,18 +1594,74 @@ window.sendBugReport = async function() {
         }
     };
 
-    let body = JSON.stringify(payload);
-    if (body.length > 300000) {
-        payload.logs = Array.isArray(payload.logs) ? payload.logs.slice(-260) : [];
-        payload.transcripts = Array.isArray(payload.transcripts) ? payload.transcripts.slice(-120) : [];
-        if (payload.context && typeof payload.context === 'object') {
-            payload.context.localStorageSafe = { trimmed: 'true' };
+    const MAX_REPORT_BYTES = 320 * 1024; // Worker-Limit liegt bei ~350 KiB.
+    const enc = new TextEncoder();
+    const _measureBytes = (obj) => enc.encode(JSON.stringify(obj)).length;
+    const _clone = (obj) => JSON.parse(JSON.stringify(obj));
+    const _trimEntryText = (entry, maxLen) => {
+        if (!entry || typeof entry !== 'object') return entry;
+        const out = { ...entry };
+        if (typeof out.msg === 'string' && out.msg.length > maxLen) out.msg = `${out.msg.slice(0, maxLen)}...`;
+        return out;
+    };
+
+    const report = _clone(payload);
+    let bytes = _measureBytes(report);
+
+    if (bytes > MAX_REPORT_BYTES) {
+        // 1) Große Weather-Debug-Dump-Einträge entfernen.
+        if (Array.isArray(report.logs)) {
+            report.logs = report.logs.filter((e) => !(e && typeof e.msg === 'string' && e.msg.startsWith('[WeatherDebugPanel]')));
         }
-        body = JSON.stringify(payload);
+        bytes = _measureBytes(report);
+    }
+    if (bytes > MAX_REPORT_BYTES) {
+        // 2) Logs + Transcripts deutlich kürzen.
+        report.logs = Array.isArray(report.logs)
+            ? report.logs.slice(-180).map((e) => _trimEntryText(e, 420))
+            : [];
+        report.transcripts = Array.isArray(report.transcripts)
+            ? report.transcripts.slice(-80).map((e) => _trimEntryText(e, 280))
+            : [];
+        bytes = _measureBytes(report);
+    }
+    if (bytes > MAX_REPORT_BYTES) {
+        // 3) Route auf Meta reduzieren.
+        if (report.context && report.context.route && typeof report.context.route === 'object') {
+            const wpCount = Number(report.context.route.waypointCount || 0);
+            report.context.route = { waypointCount: wpCount, trimmed: true };
+        }
+        if (report.context && typeof report.context === 'object') {
+            report.context.localStorageSafe = { trimmed: 'true' };
+        }
+        bytes = _measureBytes(report);
+    }
+    if (bytes > MAX_REPORT_BYTES) {
+        // 4) Nur Kern-Context behalten.
+        const c = (report.context && typeof report.context === 'object') ? report.context : {};
+        report.context = {
+            deviceType: c.deviceType || '',
+            timezone: c.timezone || '',
+            online: !!c.online,
+            viewport: c.viewport || null,
+            missionSnapshot: c.missionSnapshot || null,
+            route: c.route || null,
+            trimmed: true
+        };
+        bytes = _measureBytes(report);
+    }
+    if (bytes > MAX_REPORT_BYTES) {
+        // 5) Letzter Fallback: Logs/Transcripts ganz entfernen + Nachricht kürzen.
+        report.logs = [];
+        report.transcripts = [];
+        report.message = String(report.message || '').slice(0, 1400);
+        bytes = _measureBytes(report);
     }
 
+    const body = JSON.stringify(report);
+
     if (btn) btn.disabled = true;
-    if (stEl) stEl.textContent = 'Sende Bericht...';
+    if (stEl) stEl.textContent = bytes > (260 * 1024) ? 'Sende Bericht (komprimiert)...' : 'Sende Bericht...';
 
     try {
         const res = await fetch(BUG_REPORT_ENDPOINT, {

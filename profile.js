@@ -3491,7 +3491,9 @@ async function vpFetchOpenMeteoPoint(lat, lon, { signal, includePressure = false
         'rain',
         'snowfall',
         'wind_speed_10m',
-        'wind_direction_10m'
+        'wind_direction_10m',
+        'visibility',
+        'weather_code'
     ];
     if (includePressure) {
         VP_OM_PRESSURE_LEVELS.forEach(level => {
@@ -3567,6 +3569,8 @@ async function vpFetchOpenMeteoPoint(lat, lon, { signal, includePressure = false
         snowfallCm: vpGetHourlyAt(data.hourly, 'snowfall', idx) ?? 0,
         wspd: vpGetHourlyAt(data.hourly, 'wind_speed_10m', idx) ?? 0,
         wdir: vpGetHourlyAt(data.hourly, 'wind_direction_10m', idx) ?? 0,
+        visibilityM: vpGetHourlyAt(data.hourly, 'visibility', idx),
+        weatherCode: vpGetHourlyAt(data.hourly, 'weather_code', idx),
         pressureProfile
     };
 

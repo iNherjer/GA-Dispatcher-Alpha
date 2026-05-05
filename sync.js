@@ -1472,6 +1472,7 @@ window.connectToLiveGPS = async function(syncId) {
                 updateLivePlanePosition(data.lat, data.lon, data.alt, data.hdg);
                 if (data.flight && typeof data.flight === 'object') {
                     window.lastLiveFlightData = data.flight;
+                    if (typeof window.terrainAvoidHandleFlightState === 'function') window.terrainAvoidHandleFlightState();
                 }
 
                 // Traffic-Daten die im GPS-Paket eingebettet sind (Relay-kompatibler Weg)
@@ -1605,6 +1606,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     const curGs = Number.isFinite(simGsNow) ? simGsNow : smoothedGS;
     window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now, gs: curGs };
     if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(false);
+    if (typeof window.terrainAvoidHandleFlightState === 'function') window.terrainAvoidHandleFlightState();
     window.updateCompassHeading(hdg);
 
     // --- FEATURE 1: SNAIL TRAIL ---
