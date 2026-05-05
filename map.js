@@ -57,6 +57,57 @@ const VP_GAFOR_REF_MAX_SAMPLES = 1400;
 const VP_GAFOR_REF_CACHE_MAX = 420;
 const VP_MOSMIX_PROXY_URL = 'https://ga-proxy.einherjer.workers.dev/api/mosmix';
 const VP_MOSMIX_ACTIVE_COUNTRIES = new Set(['DE']);
+const VP_GAFOR_SECTOR_MODE_COUNTRIES = new Set(['DE']);
+const VP_GAFOR_SECTOR_GRID_DE = {
+    latEdges: [47.2, 48.4, 49.6, 50.8, 52.0, 53.2, 54.2, 55.2],
+    lonEdges: [5.3, 7.5, 9.7, 11.9, 13.7, 15.6],
+    idsSouthToNorth: [
+        ['50', '61', '62', '73', '75'],
+        ['44', '45', '53', '56', '64'],
+        ['34', '36', '24', '25', '26'],
+        ['32', '33', '20', '22', '23'],
+        ['07', '08', '15', '17', '18'],
+        ['05', '06', '11', '13', '14'],
+        ['02', '03', '04', '12', '16']
+    ]
+};
+const VP_GAFOR_SECTOR_META_DE = {
+    '02': { name: 'Nordfriesland-Dithmarschen', refFt: 100 },
+    '03': { name: 'Schleswig-Holsteinische Geest', refFt: 200 },
+    '04': { name: 'Schleswig-Holsteinisches Huegelland', refFt: 300 },
+    '05': { name: 'Nordwestliches Niedersachsen', refFt: 200 },
+    '06': { name: 'Lueneburger Heide', refFt: 400 },
+    '07': { name: 'Westliches Niedersachsen', refFt: 300 },
+    '08': { name: 'Hannover und Braunschweig', refFt: 600 },
+    '11': { name: 'Mecklenburgisches Tiefland', refFt: 300 },
+    '12': { name: 'Vorpommern', refFt: 200 },
+    '13': { name: 'Westliche Meckl. Seenplatte und Prignitz', refFt: 400 },
+    '14': { name: 'Oestliche Meckl. Seenplatte und Uckermark', refFt: 400 },
+    '15': { name: 'Altmark', refFt: 400 },
+    '16': { name: 'Flaeming', refFt: 600 },
+    '17': { name: 'Havelland', refFt: 300 },
+    '18': { name: 'Barnim und Oderbruch', refFt: 400 },
+    '20': { name: 'Magdeburger Boerde und noerdl. Harzvorland', refFt: 700 },
+    '22': { name: 'Leipziger Tieflandsbucht/Elbe-Elster', refFt: 600 },
+    '23': { name: 'Niederlausitzer Heiden', refFt: 600 },
+    '24': { name: 'Thueringer Becken', refFt: 1400 },
+    '25': { name: 'Mittelsaechsisches Huegelland', refFt: 1300 },
+    '26': { name: 'Oberlausitz und Lausitzer Gebirge', refFt: 1500 },
+    '32': { name: 'Muensterland', refFt: 500 },
+    '33': { name: 'Ruhrgebiet und Ostwestfalen', refFt: 800 },
+    '34': { name: 'Niederrheinische Bucht', refFt: 700 },
+    '36': { name: 'Sauerland', refFt: 2400 },
+    '44': { name: 'Rheinpfalz und Saarland', refFt: 1900 },
+    '45': { name: 'Rhein-Main Gebiet und Wetterau', refFt: 800 },
+    '50': { name: 'Suedlicher Oberrheingraben', refFt: 1100 },
+    '53': { name: 'Oberer/mittlerer Neckarraum', refFt: 1700 },
+    '56': { name: 'Mittelfranken', refFt: 1700 },
+    '61': { name: 'Schwarzwald', refFt: 4000 },
+    '62': { name: 'Schwaebische Alb', refFt: 3000 },
+    '64': { name: 'Oberpfaelzer Wald', refFt: 2400 },
+    '73': { name: 'Westliche Donauniederung', refFt: 1700 },
+    '75': { name: 'Oestliche Donau-/Naabniederung', refFt: 1600 }
+};
 const VP_VFR_MODEL_META = {
     internal: {
         label: 'Intern (multi-factor)',
@@ -69,6 +120,12 @@ const VP_VFR_MODEL_META = {
         summary: 'Nutzt primaer Sicht + Wolkenbasis.',
         pros: 'Besser mit GAFOR-Logik vergleichbar.',
         cons: 'Keine amtliche GAFOR-Quelle, nur modellbasierte Naeherung.'
+    },
+    gafor_sector: {
+        label: 'GAFOR-Sektor (DE, beta)',
+        summary: 'Eigene grobe DE-Sektoren mit fixer Bezugshoehe je Gebiet.',
+        pros: 'Naeher an sektorbasiertem GAFOR-Verhalten, worker-schonend.',
+        cons: 'Polygone vereinfacht, weiterhin keine amtliche GAFOR-Quelle.'
     }
 };
 const VP_VFR_INDEX_COUNTRIES = [
@@ -142,6 +199,8 @@ const vpVfrIndexState = {
     lastError: '',
     timeline: null,
     lastRenderedSamples: [],
+    lastRenderedSectors: [],
+    lastRenderMode: 'grid',
     lastGridLatStep: 0.4,
     lastGridLonStep: 0.4
 };
@@ -1199,6 +1258,121 @@ function vpBuildVfrGridPoints(bounds) {
     return { points: reduced, latStep, lonStep };
 }
 
+function vpBuildGaforSectorDefs(countryCode) {
+    const cc = String(countryCode || '').toUpperCase();
+    if (cc !== 'DE') return [];
+    const latEdges = VP_GAFOR_SECTOR_GRID_DE.latEdges;
+    const lonEdges = VP_GAFOR_SECTOR_GRID_DE.lonEdges;
+    const ids = VP_GAFOR_SECTOR_GRID_DE.idsSouthToNorth;
+    const out = [];
+    for (let r = 0; r < ids.length; r++) {
+        for (let c = 0; c < ids[r].length; c++) {
+            const id = String(ids[r][c] || '').trim();
+            if (!id) continue;
+            const meta = VP_GAFOR_SECTOR_META_DE[id];
+            if (!meta) continue;
+            const minLat = Number(latEdges[r]);
+            const maxLat = Number(latEdges[r + 1]);
+            const minLon = Number(lonEdges[c]);
+            const maxLon = Number(lonEdges[c + 1]);
+            const centerLat = (minLat + maxLat) * 0.5;
+            const centerLon = (minLon + maxLon) * 0.5;
+            out.push({
+                key: `${id}_${r}_${c}`,
+                id,
+                name: meta.name,
+                refFt: Number(meta.refFt),
+                polygon: [
+                    [minLat, minLon],
+                    [minLat, maxLon],
+                    [maxLat, maxLon],
+                    [maxLat, minLon]
+                ],
+                center: { lat: Number(centerLat.toFixed(4)), lon: Number(centerLon.toFixed(4)) },
+                probe: { lat: Number(centerLat.toFixed(4)), lon: Number(centerLon.toFixed(4)) }
+            });
+        }
+    }
+    return out;
+}
+
+function vpBuildGaforSectorProbePoints(sectors) {
+    if (!Array.isArray(sectors)) return [];
+    return sectors
+        .map(s => s && s.probe)
+        .filter(p => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon)))
+        .map(p => ({ lat: Number(p.lat), lon: Number(p.lon) }));
+}
+
+function vpCodeRank(code) {
+    const c = String(code || '').toUpperCase();
+    const rank = {
+        C: 0, O: 1, D1: 2, D3: 3, D4: 4,
+        M2: 5, M5: 6, M6: 7, M7: 8, M8: 9, X: 10, '?': 11
+    };
+    return Object.prototype.hasOwnProperty.call(rank, c) ? rank[c] : 11;
+}
+
+function vpGetTimelineRecordForPoint(timelines, point) {
+    if (!timelines || !timelines.byKey || !point) return null;
+    const keys = vpBuildTimelineKeyCandidates(point.lat, point.lon);
+    for (const k of keys) {
+        if (timelines.byKey[k]) return timelines.byKey[k];
+    }
+    return null;
+}
+
+function vpBuildGaforSectorEntries(sectors, samplesByKey, timelines, nowRatio) {
+    const out = [];
+    const safeNowRatio = Number.isFinite(Number(nowRatio)) ? Number(nowRatio) : 0.5;
+    const nowIdx = Math.max(0, Math.min(2, Math.round(safeNowRatio * 2)));
+    sectors.forEach((sector) => {
+        const probe = sector && sector.probe;
+        if (!probe) return;
+        const pKey = vpPointKey(probe.lat, probe.lon);
+        const sample = samplesByKey[pKey] || null;
+        const baseParts = vpSampleToParts({
+            ...(sample || {}),
+            sectorRefFt: Number(sector.refFt),
+            terrainPointFt: Number(sector.refFt)
+        });
+        let tl = vpGetTimelineRecordForPoint(timelines, probe);
+        if (!tl || !Array.isArray(tl.slots) || tl.slots.length !== 3) {
+            const fb = vpBuildAmpelSlotFallback(vpVfrIndexState.ampelWindowMode, baseParts);
+            tl = { slots: fb.slots };
+        }
+        const slots = (tl.slots || []).map((slot) => {
+            const parts = {
+                ...baseParts,
+                ...(slot && slot.parts ? slot.parts : {}),
+                sectorRefFt: Number(sector.refFt),
+                terrainPointFt: Number(sector.refFt)
+            };
+            const cat = vpClassifyGaforLike(parts);
+            return { slot, parts, cat };
+        });
+        let current = slots[nowIdx] && slots[nowIdx].cat ? slots[nowIdx].cat : null;
+        if (!current) {
+            current = slots
+                .map(s => s.cat)
+                .filter(Boolean)
+                .sort((a, b) => vpCodeRank(a.code) - vpCodeRank(b.code))[0] || vpClassifyGaforLike(baseParts);
+        }
+        out.push({
+            sector,
+            baseParts,
+            currentCat: current,
+            timeline: {
+                slots: slots.map(({ slot, parts }) => ({
+                    ...(slot || {}),
+                    parts
+                }))
+            }
+        });
+    });
+    return out;
+}
+
 function vpGaforCacheSet(cache, key, value, maxSize = VP_GAFOR_REF_CACHE_MAX) {
     cache.set(key, value);
     if (cache.size > maxSize) {
@@ -1594,7 +1768,7 @@ function vpClassifyGaforLike(parts = {}) {
 
 function vpClassifyVfrByModel(parts = {}, mode = null) {
     const activeMode = vpNormalizeVfrModel(mode || vpVfrIndexState.vfrModel);
-    if (activeMode === 'gafor_like') return vpClassifyGaforLike(parts);
+    if (activeMode === 'gafor_like' || activeMode === 'gafor_sector') return vpClassifyGaforLike(parts);
     return vpClassifyInternalVfr(parts);
 }
 
@@ -2153,7 +2327,8 @@ function vpUpdateVfrUi() {
             status.style.color = '#f38f8f';
         } else if (vpVfrIndexState.lastUpdatedAt > 0) {
             const t = new Date(vpVfrIndexState.lastUpdatedAt).toLocaleTimeString();
-            status.textContent = `Status: ${active} - ${vpVfrIndexState.lastPointCount} Punkte (${t}) - ${vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label} - ${vpGetVfrAmpelWindowModeLabel(vpVfrIndexState.ampelWindowMode)}`;
+            const countLabel = vpVfrIndexState.lastRenderMode === 'gafor_sector' ? 'Sektoren' : 'Punkte';
+            status.textContent = `Status: ${active} - ${vpVfrIndexState.lastPointCount} ${countLabel} (${t}) - ${vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label} - ${vpGetVfrAmpelWindowModeLabel(vpVfrIndexState.ampelWindowMode)}`;
             status.style.color = '#95d89d';
         } else {
             status.textContent = `Status: ${active} bereit - ${vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label} - ${vpGetVfrAmpelWindowModeLabel(vpVfrIndexState.ampelWindowMode)}`;
@@ -2185,12 +2360,7 @@ window.vpToggleVfrAmpel = function() {
     localStorage.setItem('ga_vfr_sector_ampel', String(vpVfrIndexState.showSectorAmpel !== false));
     vpUpdateVfrUi();
     if (window.mapHints.vfrIndex !== false && map) {
-        vpRenderVfrCells(
-            Array.isArray(vpVfrIndexState.lastRenderedSamples) ? vpVfrIndexState.lastRenderedSamples : [],
-            Number(vpVfrIndexState.lastGridLatStep || 0.4),
-            Number(vpVfrIndexState.lastGridLonStep || 0.4),
-            vpVfrIndexState.timeline || null
-        );
+        vpRefreshVfrLayerFromCache();
     }
 };
 
@@ -2199,10 +2369,11 @@ window.vpSetVfrModel = function(value) {
     localStorage.setItem('ga_vfr_index_model', vpVfrIndexState.vfrModel);
     vpUpdateVfrUi();
     if (window.mapHints.vfrIndex !== false && map) {
+        const needsSectorSource = vpVfrIndexState.vfrModel === 'gafor_sector';
         const needsTerrainRefs = vpVfrIndexState.vfrModel === 'gafor_like'
             && Array.isArray(vpVfrIndexState.lastRenderedSamples)
             && vpVfrIndexState.lastRenderedSamples.some(s => s && !Number.isFinite(Number(s.sectorRefFt)));
-        if (needsTerrainRefs && typeof window.renderVfrIndexOverlay === 'function') {
+        if ((needsTerrainRefs || needsSectorSource) && typeof window.renderVfrIndexOverlay === 'function') {
             window.renderVfrIndexOverlay(true);
         } else {
             vpRefreshVfrLayerFromCache();
@@ -2231,6 +2402,8 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
     const layer = vpEnsureVfrLayer();
     if (!layer) return;
     vpVfrIndexState.lastRenderedSamples = Array.isArray(samples) ? samples.slice() : [];
+    vpVfrIndexState.lastRenderedSectors = [];
+    vpVfrIndexState.lastRenderMode = 'grid';
     vpVfrIndexState.lastGridLatStep = Number(latStep || 0.4);
     vpVfrIndexState.lastGridLonStep = Number(lonStep || 0.4);
     layer.clearLayers();
@@ -2355,6 +2528,69 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
     if (!map.hasLayer(layer)) layer.addTo(map);
 }
 
+function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
+    const layer = vpEnsureVfrLayer();
+    if (!layer || !map) return;
+    layer.clearLayers();
+    const entries = Array.isArray(sectorEntries) ? sectorEntries : [];
+    vpVfrIndexState.lastRenderedSectors = entries.map(e => ({ ...e }));
+    vpVfrIndexState.lastRenderMode = 'gafor_sector';
+    const modelName = vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label;
+    const ampelNowRatio = Number.isFinite(Number(nowRatio)) ? Number(nowRatio) : 0.5;
+
+    entries.forEach((entry) => {
+        const sector = entry && entry.sector;
+        const cat = entry && entry.currentCat;
+        const timeline = entry && entry.timeline;
+        if (!sector || !Array.isArray(sector.polygon) || !cat) return;
+        const color = cat.color || '#9a9a9a';
+        const uncertain = cat.dataQuality && cat.dataQuality !== 'valid';
+        const poly = L.polygon(sector.polygon, {
+            stroke: true,
+            color,
+            weight: 1.25,
+            opacity: uncertain ? 0.8 : 1,
+            fillColor: color,
+            fillOpacity: uncertain ? 0.22 : 0.46,
+            dashArray: uncertain ? '4 4' : null,
+            interactive: false
+        });
+
+        const codeTxt = cat && (cat.displayCode || cat.code) ? ` (${cat.displayCode || cat.code})` : '';
+        const visTxt = Number.isFinite(Number(cat.visKm)) ? `${Number(cat.visKm).toFixed(1)} km` : '--';
+        const mxN05 = Number(entry && entry.baseParts && entry.baseParts.mosmixN05Pct);
+        const mxLow = Number(entry && entry.baseParts && entry.baseParts.mosmixLowCloudPct);
+        const mxStation = String(entry && entry.baseParts && entry.baseParts.mosmixStation || '').trim();
+        const mxDist = Number(entry && entry.baseParts && entry.baseParts.mosmixStationDistKm);
+        const mxTxt = (Number.isFinite(mxN05) || Number.isFinite(mxLow) || mxStation)
+            ? ` • MOSMIX ${mxStation || ''}${Number.isFinite(mxDist) ? ` ${Math.round(mxDist)}km` : ''} N05 ${Number.isFinite(mxN05) ? `${Math.round(mxN05)}%` : '--'} Low ${Number.isFinite(mxLow) ? `${Math.round(mxLow)}%` : '--'}`
+            : '';
+        const qualityTxt = cat.dataWarning ? ` • ${cat.dataWarning}` : '';
+        const pop = `${sector.id} ${sector.name} • Ref ${Math.round(Number(sector.refFt) || 0)} ft • ${cat.label}${codeTxt} • VIS ${visTxt} • ${modelName}${mxTxt}${qualityTxt}`;
+        poly.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
+        poly.addTo(layer);
+
+        if (vpVfrIndexState.showSectorAmpel !== false && timeline && Array.isArray(timeline.slots) && timeline.slots.length === 3) {
+            const ampelHtml = vpBuildSectorAmpelHtml(timeline, ampelNowRatio, cat);
+            if (ampelHtml) {
+                const marker = L.marker([sector.center.lat, sector.center.lon], {
+                    icon: L.divIcon({
+                        className: 'vp-vfr-sector-ampel',
+                        html: ampelHtml,
+                        iconSize: [84, 26],
+                        iconAnchor: [42, 13]
+                    }),
+                    interactive: false,
+                    keyboard: false,
+                    zIndexOffset: 1260
+                });
+                marker.addTo(layer);
+            }
+        }
+    });
+    if (!map.hasLayer(layer)) layer.addTo(map);
+}
+
 window.vpRefreshVfrIndex = async function() {
     if (typeof window.renderVfrIndexOverlay === 'function') {
         await window.renderVfrIndexOverlay(true);
@@ -2386,14 +2622,23 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         vpUpdateVfrUi();
         return;
     }
+    const activeVfrModel = vpNormalizeVfrModel(vpVfrIndexState.vfrModel);
+    const sectorMode = activeVfrModel === 'gafor_sector';
 
     const lastFetch = Number(vpVfrIndexState.lastFetchAtByCountry[active] || 0);
     const elapsed = Date.now() - lastFetch;
-    const hasCachedSamples = Array.isArray(vpVfrIndexState.lastRenderedSamples) && vpVfrIndexState.lastRenderedSamples.length > 0;
+    const hasCachedSamples = sectorMode
+        ? (Array.isArray(vpVfrIndexState.lastRenderedSectors) && vpVfrIndexState.lastRenderedSectors.length > 0)
+        : (Array.isArray(vpVfrIndexState.lastRenderedSamples) && vpVfrIndexState.lastRenderedSamples.length > 0);
     const cachedClock = vpRefreshTimelineClockInPlace(vpVfrIndexState.timeline);
     const cacheBlockChanged = !!(cachedClock && cachedClock.blockChanged);
     if (!forceFetch && !cacheBlockChanged && lastFetch > 0 && elapsed < VP_VFR_INDEX_MIN_UPDATE_MS && hasCachedSamples) {
-        if (Array.isArray(vpVfrIndexState.lastRenderedSamples) && vpVfrIndexState.lastRenderedSamples.length > 0) {
+        if (sectorMode) {
+            vpRenderGaforSectorCells(
+                vpVfrIndexState.lastRenderedSectors,
+                Number(vpVfrIndexState.timeline && vpVfrIndexState.timeline.nowRatio)
+            );
+        } else if (Array.isArray(vpVfrIndexState.lastRenderedSamples) && vpVfrIndexState.lastRenderedSamples.length > 0) {
             vpRenderVfrCells(
                 vpVfrIndexState.lastRenderedSamples,
                 Number(vpVfrIndexState.lastGridLatStep || 0.4),
@@ -2410,9 +2655,14 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
     vpUpdateVfrUi();
 
     try {
-        const grid = vpBuildVfrGridPoints(bounds);
+        if (sectorMode && !VP_GAFOR_SECTOR_MODE_COUNTRIES.has(active)) {
+            throw new Error('Sektor-Modell aktuell nur fuer DE verfuegbar');
+        }
+        const sectors = sectorMode ? vpBuildGaforSectorDefs(active) : [];
+        const grid = sectorMode
+            ? { points: vpBuildGaforSectorProbePoints(sectors), latStep: 0.6, lonStep: 0.8 }
+            : vpBuildVfrGridPoints(bounds);
         if (!grid.points.length) throw new Error('keine Rasterpunkte');
-        const activeVfrModel = vpNormalizeVfrModel(vpVfrIndexState.vfrModel);
         const samples = await window.fetchOpenMeteoWeatherPoints(grid.points, {
             includePressure: false,
             maxConcurrency: 3
@@ -2434,7 +2684,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
             console.warn('[VFR-Index] MOSMIX-Zusatzdaten nicht verfuegbar:', mosmixErr);
             mosmix = null;
         }
-        if (timelines && timelines.byKey) {
+        if (timelines && timelines.byKey && !sectorMode) {
             grid.points.forEach((p) => {
                 const keys = vpBuildTimelineKeyCandidates(p.lat, p.lon);
                 let ref = null;
@@ -2452,24 +2702,26 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
                     });
                 }
             });
-            vpMergeMosmixIntoTimelines(timelines, mosmix);
         }
+        if (timelines && timelines.byKey) vpMergeMosmixIntoTimelines(timelines, mosmix);
         let valid = Array.isArray(samples) ? samples.filter(s => s && Number.isFinite(s.lat) && Number.isFinite(s.lon)) : [];
-        valid = valid.map((s) => {
-            const keys = vpBuildTimelineKeyCandidates(s.lat, s.lon);
-            let ref = null;
-            for (const k of keys) {
-                if (sectorRefs[k]) { ref = sectorRefs[k]; break; }
-            }
-            if (!ref) return s;
-            return {
-                ...s,
-                sectorRefFt: ref.sectorRefFt,
-                terrainPointFt: ref.terrainPointFt
-            };
-        });
+        if (!sectorMode) {
+            valid = valid.map((s) => {
+                const keys = vpBuildTimelineKeyCandidates(s.lat, s.lon);
+                let ref = null;
+                for (const k of keys) {
+                    if (sectorRefs[k]) { ref = sectorRefs[k]; break; }
+                }
+                if (!ref) return s;
+                return {
+                    ...s,
+                    sectorRefFt: ref.sectorRefFt,
+                    terrainPointFt: ref.terrainPointFt
+                };
+            });
+        }
         valid = vpMergeMosmixIntoSamples(valid, mosmix);
-        if (valid.length === 0 && timelines && timelines.byKey) {
+        if (!sectorMode && valid.length === 0 && timelines && timelines.byKey) {
             const fallback = [];
             const nowRatio = Number(timelines.nowRatio);
             const slotIdx = Number.isFinite(nowRatio) ? Math.max(0, Math.min(2, Math.round(nowRatio * 2))) : 1;
@@ -2509,11 +2761,25 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
             });
             valid = fallback;
         }
-        if (valid.length === 0) throw new Error('keine Wetterdaten fuer Raster');
-        vpRenderVfrCells(valid, grid.latStep, grid.lonStep, timelines);
+        if (sectorMode) {
+            const byPoint = Object.create(null);
+            valid.forEach(v => {
+                if (!v || !Number.isFinite(Number(v.lat)) || !Number.isFinite(Number(v.lon))) return;
+                byPoint[vpPointKey(v.lat, v.lon)] = v;
+            });
+            const sectorEntries = vpBuildGaforSectorEntries(sectors, byPoint, timelines, Number(timelines && timelines.nowRatio));
+            if (!sectorEntries.length) throw new Error('keine Sektordaten verfuegbar');
+            vpRenderGaforSectorCells(sectorEntries, Number(timelines && timelines.nowRatio));
+            vpVfrIndexState.lastRenderedSamples = [];
+            vpVfrIndexState.lastRenderMode = 'gafor_sector';
+            vpVfrIndexState.lastPointCount = sectorEntries.length;
+        } else {
+            if (valid.length === 0) throw new Error('keine Wetterdaten fuer Raster');
+            vpRenderVfrCells(valid, grid.latStep, grid.lonStep, timelines);
+            vpVfrIndexState.lastPointCount = valid.length;
+        }
         vpVfrIndexState.lastFetchAtByCountry[active] = Date.now();
         vpVfrIndexState.lastUpdatedAt = Date.now();
-        vpVfrIndexState.lastPointCount = valid.length;
         vpVfrIndexState.lastError = '';
         vpVfrIndexState.timeline = timelines;
     } catch (e) {
@@ -2553,12 +2819,19 @@ function vpEnsureVfrAutoTimer() {
 function vpRefreshVfrLayerFromCache() {
     if (!map || window.mapHints.vfrIndex === false) return;
     vpRefreshTimelineClockInPlace(vpVfrIndexState.timeline);
-    vpRenderVfrCells(
-        Array.isArray(vpVfrIndexState.lastRenderedSamples) ? vpVfrIndexState.lastRenderedSamples : [],
-        Number(vpVfrIndexState.lastGridLatStep || 0.4),
-        Number(vpVfrIndexState.lastGridLonStep || 0.4),
-        vpVfrIndexState.timeline || null
-    );
+    if (vpVfrIndexState.lastRenderMode === 'gafor_sector') {
+        vpRenderGaforSectorCells(
+            Array.isArray(vpVfrIndexState.lastRenderedSectors) ? vpVfrIndexState.lastRenderedSectors : [],
+            Number(vpVfrIndexState.timeline && vpVfrIndexState.timeline.nowRatio)
+        );
+    } else {
+        vpRenderVfrCells(
+            Array.isArray(vpVfrIndexState.lastRenderedSamples) ? vpVfrIndexState.lastRenderedSamples : [],
+            Number(vpVfrIndexState.lastGridLatStep || 0.4),
+            Number(vpVfrIndexState.lastGridLonStep || 0.4),
+            vpVfrIndexState.timeline || null
+        );
+    }
     vpUpdateVfrUi();
 }
 
