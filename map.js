@@ -1898,26 +1898,33 @@ function vpParseMetarVisibilityM(rawText) {
     const raw = String(rawText || '').toUpperCase();
     if (!raw) return null;
     if (/\bCAVOK\b/.test(raw)) return 10000;
-    const sm = raw.match(/\b(\d+)?\s?(\d\/\d)?SM\b/);
-    if (sm) {
-        const whole = Number(sm[1] || 0);
-        let frac = 0;
-        if (sm[2]) {
-            const [a, b] = String(sm[2]).split('/').map(Number);
-            if (Number.isFinite(a) && Number.isFinite(b) && b > 0) frac = a / b;
-        }
+    if (/\bP6SM\b/.test(raw)) return 10000;
+    const smFrac = raw.match(/\b(?:(\d+)\s+)?(\d\/\d)SM\b/);
+    if (smFrac) {
+        const whole = Number(smFrac[1] || 0);
+        const [a, b] = String(smFrac[2] || '').split('/').map(Number);
+        const frac = (Number.isFinite(a) && Number.isFinite(b) && b > 0) ? (a / b) : 0;
         const miles = whole + frac;
         if (Number.isFinite(miles) && miles > 0) return Math.round(miles * 1609.34);
     }
-    const m = raw.match(/\b(\d{4})\b/);
-    if (m) {
+    const smWhole = raw.match(/\b(\d+)SM\b/);
+    if (smWhole) {
+        const miles = Number(smWhole[1]);
+        if (Number.isFinite(miles) && miles >= 0) return Math.round(miles * 1609.34);
+    }
+    // ICAO-Sichtweite als eigenes Token (z. B. 9999, 4500, 0800NDV).
+    // Wichtig: Keine generische 4-stellige Zahl verwenden (QNH/Temp/Zeit o. ae.).
+    const tokens = raw.split(/\s+/).map(t => t.trim()).filter(Boolean);
+    for (const tok of tokens) {
+        const m = tok.match(/^(\d{4})(?:NDV)?$/);
+        if (!m) continue;
         const vis = Number(m[1]);
         if (Number.isFinite(vis) && vis >= 0) return vis;
     }
     return null;
 }
 
-function vpBuildMetarPointHints(point, maxDistNm = 70) {
+function vpBuildMetarPointHints(point, maxDistNm = 35) {
     const lat = Number(point && point.lat);
     const lon = Number(point && point.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return {};
@@ -2357,6 +2364,12 @@ function vpWorstInternalMajor(majors = []) {
     return out;
 }
 
+function vpInternalMajorFromRank(rank) {
+    const r = Math.max(0, Math.min(4, Number(rank) || 0));
+    const codes = ['C', 'O', 'D', 'M', 'X'];
+    return codes[r] || 'D';
+}
+
 function vpMapVfrCategory(score) {
     const major = vpInternalMajorFromScore(score);
     const labels = {
@@ -2429,7 +2442,16 @@ function vpClassifyInternalVfr(parts = {}) {
     const metarByCeiling = vpInternalMajorFromCeilingFt(parts.metarCeilingFtAgl);
     const metarMajor = vpWorstInternalMajor([metarByCat, metarByVis, metarByCeiling]);
 
-    let major = vpWorstInternalMajor([visMajor, cloudMajor, wxMajor, metarMajor, scoreMajor]) || scoreMajor || 'D';
+    const baseMajor = vpWorstInternalMajor([visMajor, cloudMajor, wxMajor, scoreMajor]) || scoreMajor || 'D';
+    let major = baseMajor;
+    // METAR nur als konservative Korrektur, aber maximal eine Klasse strenger,
+    // damit ein entfernter/zeitversetzter Report das Modell nicht komplett ueberfaehrt.
+    if (metarMajor) {
+        const baseRank = vpInternalMajorRank(baseMajor);
+        const metarRank = vpInternalMajorRank(metarMajor);
+        const boundedRank = Math.min(metarRank, Math.min(4, baseRank + 1));
+        major = vpWorstInternalMajor([baseMajor, vpInternalMajorFromRank(boundedRank)]) || baseMajor;
+    }
     if (hasDenseLowWithoutBase) major = vpWorstInternalMajor([major, 'D']) || 'D';
     const baseCat = vpMapVfrCategory(score);
     const cat = { ...baseCat, code: major, letter: major, displayCode: major };
