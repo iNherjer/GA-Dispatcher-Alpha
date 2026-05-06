@@ -171,19 +171,25 @@ const VP_GAFOR_SECTOR_BIAS_FT_DE = {
 };
 const VP_VFR_MODEL_META = {
     internal: {
-        label: 'Intern (multi-factor)',
+        label: 'Eigenes Modell (Kacheln)',
         summary: 'Nutzt zusaetzlich Wind, Niederschlag und Wettercode.',
         pros: 'Sensitiver bei riskantem Flugwetter.',
         cons: 'Kann konservativer als die sektornahe Bewertung sein.'
     },
+    internal_sector: {
+        label: 'Eigenes Modell (Sektoren)',
+        summary: 'Gleiche Modelllogik wie intern, aber auf Sektoren gerechnet.',
+        pros: 'Sektoransicht mit eigener Modellbewertung.',
+        cons: 'Polygone vereinfacht, sektorbezogene Aggregation.'
+    },
     gafor_like: {
-        label: 'VFR-Index (klassisch)',
+        label: 'VFR-Index klassisch (Kacheln)',
         summary: 'Nutzt primaer Sicht + Wolkenbasis.',
         pros: 'Gut mit klassischer VFR-Logik vergleichbar.',
         cons: 'Keine amtliche Quelle, nur modellbasierte Naeherung.'
     },
     gafor_sector: {
-        label: 'VFR-Index Sektoren (DE, beta)',
+        label: 'VFR-Index klassisch (Sektoren)',
         summary: 'Eigene grobe DE-Sektoren mit fixer Bezugshoehe je Gebiet.',
         pros: 'Naeher am sektorbasierten Verhalten, worker-schonend.',
         cons: 'Polygone vereinfacht, weiterhin keine amtliche Quelle.'
@@ -2344,6 +2350,7 @@ function vpClassifyGaforLike(parts = {}) {
 function vpClassifyVfrByModel(parts = {}, mode = null) {
     const activeMode = vpNormalizeVfrModel(mode || vpVfrIndexState.vfrModel);
     if (activeMode === 'gafor_like' || activeMode === 'gafor_sector') return vpClassifyGaforLike(parts);
+    if (activeMode === 'internal_sector') return vpClassifyInternalVfr(parts);
     return vpClassifyInternalVfr(parts);
 }
 
@@ -2948,7 +2955,7 @@ window.vpSetVfrModel = function(value) {
     localStorage.setItem('ga_vfr_index_model', vpVfrIndexState.vfrModel);
     vpUpdateVfrUi();
     if (window.mapHints.vfrIndex !== false && map) {
-        const needsSectorSource = vpVfrIndexState.vfrModel === 'gafor_sector';
+        const needsSectorSource = (vpVfrIndexState.vfrModel === 'gafor_sector' || vpVfrIndexState.vfrModel === 'internal_sector');
         const needsTerrainRefs = vpVfrIndexState.vfrModel === 'gafor_like'
             && Array.isArray(vpVfrIndexState.lastRenderedSamples)
             && vpVfrIndexState.lastRenderedSamples.some(s => s && !Number.isFinite(Number(s.sectorRefFt)));
@@ -3134,11 +3141,23 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
         if (!sector || !Array.isArray(sector.polygon) || !cat) return;
         const color = cat.color || '#9a9a9a';
         const uncertain = cat.dataQuality && cat.dataQuality !== 'valid';
-        const poly = L.polygon(sector.polygon, {
+        const baseOpacity = uncertain ? 0.36 : 0.48;
+        const coreOpacity = uncertain ? 0.52 : 0.68;
+        const coreWeight = Math.max(2, Math.round(lineWidthPx * 0.55));
+        const polyBase = L.polygon(sector.polygon, {
             stroke: true,
             color,
             weight: lineWidthPx,
-            opacity: uncertain ? 0.72 : 0.85,
+            opacity: baseOpacity,
+            fill: false,
+            dashArray: null,
+            interactive: false
+        });
+        const polyCore = L.polygon(sector.polygon, {
+            stroke: true,
+            color,
+            weight: coreWeight,
+            opacity: coreOpacity,
             fill: false,
             dashArray: null,
             interactive: false
@@ -3155,8 +3174,9 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
             : '';
         const qualityTxt = cat.dataWarning ? ` • ${cat.dataWarning}` : '';
         const pop = `${sector.id} ${sector.name} • Ref ${Math.round(Number(sector.refFt) || 0)} ft • ${cat.label}${codeTxt} • VIS ${visTxt} • ${modelName}${mxTxt}${qualityTxt}`;
-        poly.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
-        poly.addTo(layer);
+        polyBase.addTo(layer);
+        polyCore.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
+        polyCore.addTo(layer);
 
         if (vpVfrIndexState.showSectorAmpel !== false && timeline && Array.isArray(timeline.slots) && timeline.slots.length === 3) {
             const ampelHtml = vpBuildSectorAmpelHtml(timeline, ampelNowRatio, cat);
@@ -3211,7 +3231,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         return;
     }
     const activeVfrModel = vpNormalizeVfrModel(vpVfrIndexState.vfrModel);
-    const sectorMode = activeVfrModel === 'gafor_sector';
+    const sectorMode = (activeVfrModel === 'gafor_sector' || activeVfrModel === 'internal_sector');
 
     const lastFetch = Number(vpVfrIndexState.lastFetchAtByCountry[active] || 0);
     const elapsed = Date.now() - lastFetch;
