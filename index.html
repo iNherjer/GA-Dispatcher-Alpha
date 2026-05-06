@@ -830,7 +830,7 @@
                     <button id="hintToggleWindBarbs" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('windBarbs')">🪁 Windbarben (An)</button>
                     <button id="hintToggleCloudFields" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('cloudFields')">☁️ Wolkenfelder (An)</button>
                     <button id="hintToggleVfrIndex" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('vfrIndex')">🧭 VFR-Index (Aus)</button>
-                    <button id="btnToggleVfrIndexMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('vfrIndexMenu', event)" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">▸ GAFOR / VFR-Index Optionen</button>
+                    <button id="btnToggleVfrIndexMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('vfrIndexMenu', event)" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">▸ VFR-Index Optionen</button>
                     <div id="vfrIndexMenuBlock" style="display:none; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
                         <div id="vfrPlanningCountryLabel" style="font-size:10px; color:#9bb5d1; margin-bottom:5px;">Planungsland: –</div>
                         <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Lade-Land (Europa)</div>
@@ -844,8 +844,8 @@
                         <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Modell</div>
                         <select id="vfrModelSelect" onchange="window.vpSetVfrModel && vpSetVfrModel(this.value)" style="width:100%; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:4px;">
                             <option value="internal">Intern (multi-factor)</option>
-                            <option value="gafor_like">GAFOR-aehnlich</option>
-                            <option value="gafor_sector">GAFOR-Sektor (DE, beta)</option>
+                            <option value="gafor_like">VFR-Index (klassisch)</option>
+                            <option value="gafor_sector">VFR-Index Sektoren (DE, beta)</option>
                         </select>
                         <div id="vfrModelInfo" style="font-size:10px; line-height:1.35; color:#a9c1db; margin:0 0 5px 0;"></div>
                         <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Ampel-Zeitfenster</div>

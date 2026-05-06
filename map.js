@@ -174,19 +174,19 @@ const VP_VFR_MODEL_META = {
         label: 'Intern (multi-factor)',
         summary: 'Nutzt zusaetzlich Wind, Niederschlag und Wettercode.',
         pros: 'Sensitiver bei riskantem Flugwetter.',
-        cons: 'Kann konservativer als offizieller GAFOR sein.'
+        cons: 'Kann konservativer als die sektornahe Bewertung sein.'
     },
     gafor_like: {
-        label: 'GAFOR-aehnlich',
+        label: 'VFR-Index (klassisch)',
         summary: 'Nutzt primaer Sicht + Wolkenbasis.',
-        pros: 'Besser mit GAFOR-Logik vergleichbar.',
-        cons: 'Keine amtliche GAFOR-Quelle, nur modellbasierte Naeherung.'
+        pros: 'Gut mit klassischer VFR-Logik vergleichbar.',
+        cons: 'Keine amtliche Quelle, nur modellbasierte Naeherung.'
     },
     gafor_sector: {
-        label: 'GAFOR-Sektor (DE, beta)',
+        label: 'VFR-Index Sektoren (DE, beta)',
         summary: 'Eigene grobe DE-Sektoren mit fixer Bezugshoehe je Gebiet.',
-        pros: 'Naeher an sektorbasiertem GAFOR-Verhalten, worker-schonend.',
-        cons: 'Polygone vereinfacht, weiterhin keine amtliche GAFOR-Quelle.'
+        pros: 'Naeher am sektorbasierten Verhalten, worker-schonend.',
+        cons: 'Polygone vereinfacht, weiterhin keine amtliche Quelle.'
     }
 };
 const VP_VFR_INDEX_COUNTRIES = [
@@ -588,7 +588,7 @@ function applyMapHintEffects(key) {
 
 function setMapHintSubmenuOpen(key, open) {
     const ids = {
-        vfrIndexMenu: { btn: 'btnToggleVfrIndexMenu', panel: 'vfrIndexMenuBlock', label: 'GAFOR / VFR-Index Optionen' },
+        vfrIndexMenu: { btn: 'btnToggleVfrIndexMenu', panel: 'vfrIndexMenuBlock', label: 'VFR-Index Optionen' },
         terrainAvoidMenu: { btn: 'btnToggleTerrainAvoidMenu', panel: 'terrainAvoidMenuBlock', label: 'Terrain Avoid Optionen' }
     };
     const meta = ids[key];
@@ -1575,7 +1575,7 @@ async function vpEnsureGaforSectorDataset(countryCode) {
             entry.status = 'error';
             entry.data = null;
             entry.errorAt = Date.now();
-            console.warn('[GAFOR] Dataset nicht verfuegbar, nutze internes Modell:', err && err.message ? err.message : err);
+            console.warn('[VFR-Index] Dataset nicht verfuegbar, nutze internes Modell:', err && err.message ? err.message : err);
             return null;
         }
     })();
@@ -2197,7 +2197,7 @@ function vpClassifyGaforLike(parts = {}) {
     const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 62.5;
     // Open-Meteo liefert cloud_base oft leer. Ein sichtbares '?' nur setzen,
     // wenn wirklich die tiefe Wolkenschicht dicht genug ist; Mid-Cloud allein
-    // ist fuer GAFOR-Ceiling als Unsicherheitsausloeser zu breit.
+    // ist fuer Ceiling-Bewertung als Unsicherheitsausloeser zu breit.
     const hasDenseLowWithoutBase = Number.isFinite(lowCoverForCeiling)
         && lowCoverForCeiling >= 75
         && !Number.isFinite(cloudBaseFtAgl)
@@ -2207,18 +2207,18 @@ function vpClassifyGaforLike(parts = {}) {
         cloudAboveRefFt = cloudBaseFtAgl + terrainPointFt - sectorRefFt;
     }
     const labels = {
-        UNKNOWN: { key: 'gafor_unknown', label: 'GAFOR unklar', color: '#9aa3ad', letter: '?', code: '?' },
-        C: { key: 'gafor_c', label: 'GAFOR C (frei)', color: '#6aaeff', letter: 'C', code: 'C' },
-        O: { key: 'gafor_o', label: 'GAFOR O (offen)', color: '#8ecb4b', letter: 'O', code: 'O' },
-        D1: { key: 'gafor_d', label: 'GAFOR D1 (schwierig)', color: '#e0c93b', letter: 'D', code: 'D1' },
-        D3: { key: 'gafor_d', label: 'GAFOR D3 (schwierig)', color: '#e0c93b', letter: 'D', code: 'D3' },
-        D4: { key: 'gafor_d', label: 'GAFOR D4 (schwierig)', color: '#e0c93b', letter: 'D', code: 'D4' },
-        M2: { key: 'gafor_m', label: 'GAFOR M2 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M2' },
-        M5: { key: 'gafor_m', label: 'GAFOR M5 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M5' },
-        M6: { key: 'gafor_m', label: 'GAFOR M6 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M6' },
-        M7: { key: 'gafor_m', label: 'GAFOR M7 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M7' },
-        M8: { key: 'gafor_m', label: 'GAFOR M8 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M8' },
-        X: { key: 'gafor_x', label: 'GAFOR X (geschlossen)', color: '#d14a4a', letter: 'X', code: 'X' }
+        UNKNOWN: { key: 'gafor_unknown', label: 'VFR-Index unklar', color: '#9aa3ad', letter: '?', code: '?' },
+        C: { key: 'gafor_c', label: 'VFR-Index C (frei)', color: '#6aaeff', letter: 'C', code: 'C' },
+        O: { key: 'gafor_o', label: 'VFR-Index O (offen)', color: '#8ecb4b', letter: 'O', code: 'O' },
+        D1: { key: 'gafor_d', label: 'VFR-Index D1 (schwierig)', color: '#e0c93b', letter: 'D', code: 'D1' },
+        D3: { key: 'gafor_d', label: 'VFR-Index D3 (schwierig)', color: '#e0c93b', letter: 'D', code: 'D3' },
+        D4: { key: 'gafor_d', label: 'VFR-Index D4 (schwierig)', color: '#e0c93b', letter: 'D', code: 'D4' },
+        M2: { key: 'gafor_m', label: 'VFR-Index M2 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M2' },
+        M5: { key: 'gafor_m', label: 'VFR-Index M5 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M5' },
+        M6: { key: 'gafor_m', label: 'VFR-Index M6 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M6' },
+        M7: { key: 'gafor_m', label: 'VFR-Index M7 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M7' },
+        M8: { key: 'gafor_m', label: 'VFR-Index M8 (kritisch)', color: '#e08a3b', letter: 'M', code: 'M8' },
+        X: { key: 'gafor_x', label: 'VFR-Index X (geschlossen)', color: '#d14a4a', letter: 'X', code: 'X' }
     };
     const majorRank = { C: 0, O: 1, D: 2, M: 3, X: 4 };
 
@@ -2964,6 +2964,64 @@ window.vpCycleVfrAmpelWindowMode = async function() {
     await window.vpSetVfrAmpelWindowMode(next);
 };
 
+function vpHatchPatternIdForColor(color) {
+    return `vp-vfr-hatch-${String(color || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')}`;
+}
+
+function vpEnsureVfrHatchPattern(color) {
+    if (!map || !color) return null;
+    const pane = map.getPanes && map.getPanes().overlayPane;
+    const svg = pane && pane.querySelector ? pane.querySelector('svg') : null;
+    if (!svg) return null;
+    const ns = 'http://www.w3.org/2000/svg';
+    let defs = svg.querySelector('#vp-vfr-hatch-defs');
+    if (!defs) {
+        defs = document.createElementNS(ns, 'defs');
+        defs.setAttribute('id', 'vp-vfr-hatch-defs');
+        svg.insertBefore(defs, svg.firstChild || null);
+    }
+    const id = vpHatchPatternIdForColor(color);
+    if (defs.querySelector(`#${id}`)) return id;
+
+    const pattern = document.createElementNS(ns, 'pattern');
+    pattern.setAttribute('id', id);
+    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+    pattern.setAttribute('width', '8');
+    pattern.setAttribute('height', '8');
+    pattern.setAttribute('patternTransform', 'rotate(30)');
+
+    const bg = document.createElementNS(ns, 'rect');
+    bg.setAttribute('x', '0');
+    bg.setAttribute('y', '0');
+    bg.setAttribute('width', '8');
+    bg.setAttribute('height', '8');
+    bg.setAttribute('fill', color);
+    bg.setAttribute('fill-opacity', '0.08');
+    pattern.appendChild(bg);
+
+    const stripe = document.createElementNS(ns, 'path');
+    stripe.setAttribute('d', 'M 0 0 L 0 8');
+    stripe.setAttribute('stroke', color);
+    stripe.setAttribute('stroke-width', '1.2');
+    stripe.setAttribute('stroke-opacity', '0.34');
+    pattern.appendChild(stripe);
+
+    defs.appendChild(pattern);
+    return id;
+}
+
+function vpApplySectorHatch(polyLayer, color) {
+    if (!polyLayer || !color) return;
+    const el = typeof polyLayer.getElement === 'function' ? polyLayer.getElement() : null;
+    if (!el) return;
+    const patternId = vpEnsureVfrHatchPattern(color);
+    if (!patternId) return;
+    el.setAttribute('fill', `url(#${patternId})`);
+    el.setAttribute('fill-opacity', '1');
+}
+
 function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
     if (!map) return;
     const layer = vpEnsureVfrLayer();
@@ -3000,7 +3058,7 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
                 if (byKey[key]) { tl = byKey[key]; break; }
             }
         }
-        // Im GAFOR-Modell soll die Sektorfarbe am aktuellen (Jetzt-)Wert haengen.
+        // Im klassischen Modell soll die Sektorfarbe am aktuellen (Jetzt-)Wert haengen.
         if (vpNormalizeVfrModel(vpVfrIndexState.vfrModel) === 'gafor_like') {
             sectorCat = cat;
         }
@@ -3115,11 +3173,11 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
         const poly = L.polygon(sector.polygon, {
             stroke: true,
             color,
-            weight: 1.25,
-            opacity: uncertain ? 0.8 : 1,
+            weight: uncertain ? 1.45 : 1.7,
+            opacity: uncertain ? 0.82 : 0.96,
             fillColor: color,
-            fillOpacity: uncertain ? 0.22 : 0.46,
-            dashArray: uncertain ? '4 4' : null,
+            fillOpacity: 0.15,
+            dashArray: uncertain ? '6 6' : '8 6',
             interactive: false
         });
 
@@ -3136,6 +3194,7 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
         const pop = `${sector.id} ${sector.name} • Ref ${Math.round(Number(sector.refFt) || 0)} ft • ${cat.label}${codeTxt} • VIS ${visTxt} • ${modelName}${mxTxt}${qualityTxt}`;
         poly.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
         poly.addTo(layer);
+        vpApplySectorHatch(poly, color);
 
         if (vpVfrIndexState.showSectorAmpel !== false && timeline && Array.isArray(timeline.slots) && timeline.slots.length === 3) {
             const ampelHtml = vpBuildSectorAmpelHtml(timeline, ampelNowRatio, cat);
