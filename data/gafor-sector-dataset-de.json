@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-06T14:16:25.922Z",
+  "generatedAt": "2026-05-06T14:39:15.528Z",
   "sectors": {
     "10": [
       [
@@ -1578,328 +1578,328 @@
       "name": "Weser-Leine Bergland",
       "refFt": 1400,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 51.7899,
+        "lon": 9.5222
       }
     },
     "11": {
       "name": "Mecklenburgisches Tiefland",
       "refFt": 300,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 54.2299,
+        "lon": 12.216
       }
     },
     "12": {
       "name": "Vorpommern",
       "refFt": 200,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 54.1089,
+        "lon": 13.8614
       }
     },
     "13": {
       "name": "Westliche Mecklenburgische Seenplatte und Prignitz",
       "refFt": 400,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 53.3357,
+        "lon": 11.7695
       }
     },
     "14": {
       "name": "Oestliche Mecklenburgische Seenplatte und Uckermark",
       "refFt": 400,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 53.2673,
+        "lon": 13.1696
       }
     },
     "15": {
       "name": "Altmark",
       "refFt": 400,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 52.589,
+        "lon": 11.651
       }
     },
     "16": {
       "name": "Flaeming",
       "refFt": 600,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 52.0356,
+        "lon": 12.7908
       }
     },
     "17": {
       "name": "Havelland",
       "refFt": 300,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 52.4113,
+        "lon": 13.0682
       }
     },
     "18": {
       "name": "Barnim und Oderbruch",
       "refFt": 400,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 52.5976,
+        "lon": 14.0305
       }
     },
     "19": {
       "name": "Dahme-Spree-Gebiet und Gubener Waldland",
       "refFt": 400,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 52.0136,
+        "lon": 13.9821
       }
     },
     "20": {
       "name": "Magdeburger Boerde und noerdl. Harzvorland",
       "refFt": 700,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 52.0212,
+        "lon": 11.4584
       }
     },
     "21": {
       "name": "Harz",
       "refFt": 2300,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 51.6835,
+        "lon": 11.0011
       }
     },
     "22": {
       "name": "Leipziger Tieflandsbucht und Elbe-Elster Niederung",
       "refFt": 600,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 51.5533,
+        "lon": 12.4313
       }
     },
     "23": {
       "name": "Niederlausitzer Heiden",
       "refFt": 600,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 51.5068,
+        "lon": 14.1565
       }
     },
     "24": {
       "name": "Thueringer Becken",
       "refFt": 1400,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 51.1724,
+        "lon": 11.2143
       }
     },
     "25": {
       "name": "Mittelsaechsisches Huegelland",
       "refFt": 1300,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 51.0535,
+        "lon": 12.8881
       }
     },
     "26": {
       "name": "Oberlausitz und Lausitzer Gebirge",
       "refFt": 1500,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 51.0869,
+        "lon": 14.3124
       }
     },
     "27": {
       "name": "Thueringer Wald",
       "refFt": 2800,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 50.6391,
+        "lon": 10.611
       }
     },
     "28": {
       "name": "Erzgebirge",
       "refFt": 2800,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 50.7144,
+        "lon": 13.0762
       }
     },
     "31": {
       "name": "Niederrheinisches Tiefland",
       "refFt": 400,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 51.4381,
+        "lon": 6.3126
       }
     },
     "32": {
       "name": "Muensterland",
       "refFt": 500,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 51.9348,
+        "lon": 7.4075
       }
     },
     "33": {
       "name": "Ruhrgebiet und Ostwestfalen",
       "refFt": 800,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 51.5859,
+        "lon": 7.7878
       }
     },
     "34": {
       "name": "Niederrheinische Bucht",
       "refFt": 700,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 50.8262,
+        "lon": 6.5912
       }
     },
     "35": {
       "name": "Bergisches Land",
       "refFt": 1400,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 51.0346,
+        "lon": 7.354
       }
     },
     "36": {
       "name": "Sauerland",
       "refFt": 2400,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 51.2071,
+        "lon": 8.1857
       }
     },
     "37": {
       "name": "Eifel",
       "refFt": 2000,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 50.4094,
+        "lon": 6.6645
       }
     },
     "38": {
       "name": "Neuwieder Becken",
       "refFt": 1900,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 50.3626,
+        "lon": 7.4343
       }
     },
     "39": {
       "name": "Westerwald",
       "refFt": 1900,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 50.6095,
+        "lon": 7.965
       }
     },
     "41": {
       "name": "Hunsrueck",
       "refFt": 2300,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 49.8747,
+        "lon": 7.0226
       }
     },
     "42": {
       "name": "Taunus",
       "refFt": 2000,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 50.3142,
+        "lon": 8.2551
       }
     },
     "43": {
       "name": "Nordhessisches Bergland und Vogelsberg",
       "refFt": 2000,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 50.9867,
+        "lon": 9.5316
       }
     },
     "00": {
       "name": "Deutsche Bucht",
       "refFt": 0,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 54.4894,
+        "lon": 7.2235
       }
     },
     "01": {
       "name": "Ostfriesland",
       "refFt": 200,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 53.7016,
+        "lon": 7.8858
       }
     },
     "02": {
       "name": "Nordfriesland-Dithmarschen",
       "refFt": 100,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 54.5482,
+        "lon": 8.4463
       }
     },
     "03": {
       "name": "Schleswig-Holsteinische Geest",
       "refFt": 200,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 54.0296,
+        "lon": 9.6521
       }
     },
     "04": {
       "name": "Schleswig-Holsteinisches Huegelland",
       "refFt": 300,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 53.98,
+        "lon": 10.4883
       }
     },
     "05": {
       "name": "Nordwestliches Niedersachsen",
       "refFt": 200,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 53.4299,
+        "lon": 8.7376
       }
     },
     "06": {
       "name": "Lueneburger Heide",
       "refFt": 400,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 53.0061,
+        "lon": 10.2603
       }
     },
     "07": {
       "name": "Westliches Niedersachsen",
       "refFt": 300,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 52.4927,
+        "lon": 8.2095
       }
     },
     "08": {
       "name": "Hannover und Braunschweig",
       "refFt": 600,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 52.3682,
+        "lon": 10.1033
       }
     },
     "09": {
       "name": "Teutoburger Wald",
       "refFt": 700,
       "probe": {
-        "lat": 51,
-        "lon": 10
+        "lat": 52.1168,
+        "lon": 8.4199
       }
     }
   }
