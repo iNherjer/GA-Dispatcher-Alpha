@@ -156,6 +156,10 @@ const VP_GAFOR_SECTOR_SEEDS_DE = [
     { id: '16', lat: 51.52, lon: 14.02 }
 ];
 const VP_GAFOR_SECTOR_WEIGHT_SCALE_DE = 0.00018;
+const VP_GAFOR_SECTOR_POLY_OVERRIDE_KEY = 'ga_gafor_sector_poly_overrides_v1';
+const VP_GAFOR_SECTOR_DATASET_URL_DE = './data/gafor-sector-dataset-de.json';
+const VP_GAFOR_SECTOR_DATASET_ERROR_RETRY_MS = 15000;
+const VP_GAFOR_SECTOR_ID_COLLATOR = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 const VP_GAFOR_SECTOR_BIAS_FT_DE = {
     // Berg- und Mittelgebirgsregionen bewusst etwas hervorheben.
     '61': 520, '62': 700, '64': 550, '36': 450, '44': 40,
@@ -242,6 +246,7 @@ const VP_VFR_COUNTRY_FALLBACK_BOUNDS = {
 const vpVfrCountryBoundsCache = new Map();
 const vpGaforSectorRefCache = new Map();
 const vpGaforSectorDefsCache = new Map();
+const vpGaforSectorDatasetCache = Object.create(null);
 let vpVfrIndexLayer = null;
 const vpVfrIndexState = {
     selectedCountry: localStorage.getItem('ga_vfr_index_country') || 'auto',
@@ -1316,10 +1321,277 @@ function vpBuildVfrGridPoints(bounds) {
     return { points: reduced, latStep, lonStep };
 }
 
+function vpNormalizeSectorPolygon(poly) {
+    if (!Array.isArray(poly) || poly.length < 3) return null;
+    const out = [];
+    poly.forEach((p) => {
+        const lat = Number(Array.isArray(p) ? p[0] : p && p.lat);
+        const lon = Number(Array.isArray(p) ? p[1] : p && (p.lon ?? p.lng));
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        out.push([Number(lat.toFixed(4)), Number(lon.toFixed(4))]);
+    });
+    if (out.length < 3) return null;
+    const dedup = [];
+    out.forEach((p) => {
+        const prev = dedup[dedup.length - 1];
+        if (!prev || Math.abs(prev[0] - p[0]) > 1e-5 || Math.abs(prev[1] - p[1]) > 1e-5) dedup.push(p);
+    });
+    if (dedup.length > 2) {
+        const first = dedup[0];
+        const last = dedup[dedup.length - 1];
+        if (Math.abs(first[0] - last[0]) < 1e-5 && Math.abs(first[1] - last[1]) < 1e-5) dedup.pop();
+    }
+    return dedup.length >= 3 ? dedup : null;
+}
+
+function vpReadGaforSectorPolygonOverrides() {
+    let parsed = null;
+    try {
+        parsed = JSON.parse(localStorage.getItem(VP_GAFOR_SECTOR_POLY_OVERRIDE_KEY) || '{}');
+    } catch (_) {
+        parsed = {};
+    }
+    const src = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed.sectors && typeof parsed.sectors === 'object' ? parsed.sectors : parsed)
+        : {};
+    const out = Object.create(null);
+    Object.keys(src).forEach((id) => {
+        const norm = vpNormalizeSectorPolygon(src[id]);
+        if (norm) out[String(id)] = norm;
+    });
+    return out;
+}
+
+function vpWriteGaforSectorPolygonOverrides(overrides) {
+    const clean = Object.create(null);
+    const src = overrides && typeof overrides === 'object' ? overrides : {};
+    Object.keys(src).forEach((id) => {
+        const norm = vpNormalizeSectorPolygon(src[id]);
+        if (norm) clean[String(id)] = norm;
+    });
+    localStorage.setItem(VP_GAFOR_SECTOR_POLY_OVERRIDE_KEY, JSON.stringify({
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        sectors: clean
+    }));
+    vpGaforSectorDefsCache.clear();
+}
+
+function vpGaforSectorOverrideSignature(overrides) {
+    const src = overrides && typeof overrides === 'object' ? overrides : {};
+    const keys = Object.keys(src).sort();
+    if (!keys.length) return 'none';
+    return keys.map((id) => {
+        const poly = src[id];
+        return `${id}:${Array.isArray(poly) ? poly.length : 0}:${JSON.stringify(poly)}`;
+    }).join('|');
+}
+
+function vpComputeSectorCenterFromPolygon(poly) {
+    const pts = Array.isArray(poly) ? poly : [];
+    if (pts.length < 3) return null;
+    const toX = (lon) => Number(lon) * VP_GAFOR_SECTOR_PROJ_COS_LAT_DE;
+    let twiceArea = 0;
+    let cx = 0;
+    let cy = 0;
+    for (let i = 0; i < pts.length; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % pts.length];
+        const ay = Number(a && a[0]);
+        const ax = toX(Number(a && a[1]));
+        const by = Number(b && b[0]);
+        const bx = toX(Number(b && b[1]));
+        if (!Number.isFinite(ax) || !Number.isFinite(ay) || !Number.isFinite(bx) || !Number.isFinite(by)) continue;
+        const cross = (ax * by) - (bx * ay);
+        twiceArea += cross;
+        cx += (ax + bx) * cross;
+        cy += (ay + by) * cross;
+    }
+    if (Math.abs(twiceArea) < 1e-10) {
+        let sLat = 0;
+        let sLon = 0;
+        let n = 0;
+        pts.forEach((p) => {
+            const lat = Number(p && p[0]);
+            const lon = Number(p && p[1]);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+            sLat += lat;
+            sLon += lon;
+            n += 1;
+        });
+        if (n < 1) return null;
+        return {
+            lat: Number((sLat / n).toFixed(4)),
+            lon: Number((sLon / n).toFixed(4))
+        };
+    }
+    const centerX = cx / (3 * twiceArea);
+    const centerY = cy / (3 * twiceArea);
+    return {
+        lat: Number(centerY.toFixed(4)),
+        lon: Number((centerX / VP_GAFOR_SECTOR_PROJ_COS_LAT_DE).toFixed(4))
+    };
+}
+
+function vpIsNumericSectorId(id) {
+    return /^\d+$/.test(String(id || ''));
+}
+
+function vpSortSectorIds(ids) {
+    const cmp = (a, b) => {
+        const an = vpIsNumericSectorId(a);
+        const bn = vpIsNumericSectorId(b);
+        if (an !== bn) return an ? -1 : 1;
+        return VP_GAFOR_SECTOR_ID_COLLATOR.compare(String(a), String(b));
+    };
+    return [...(Array.isArray(ids) ? ids : [])].sort((a, b) => {
+        return cmp(a, b);
+    });
+}
+
+function vpCompareSectorIds(a, b) {
+    const an = vpIsNumericSectorId(a);
+    const bn = vpIsNumericSectorId(b);
+    if (an !== bn) return an ? -1 : 1;
+    return VP_GAFOR_SECTOR_ID_COLLATOR.compare(String(a), String(b));
+}
+
+function vpNormalizeSectorProbePoint(probe, fallbackCenter = null) {
+    const pLat = Number(probe && (probe.lat ?? probe[0]));
+    const pLon = Number(probe && (probe.lon ?? probe.lng ?? probe[1]));
+    if (Number.isFinite(pLat) && Number.isFinite(pLon)) {
+        return {
+            lat: Number(pLat.toFixed(4)),
+            lon: Number(pLon.toFixed(4))
+        };
+    }
+    if (fallbackCenter && Number.isFinite(Number(fallbackCenter.lat)) && Number.isFinite(Number(fallbackCenter.lon))) {
+        return {
+            lat: Number(Number(fallbackCenter.lat).toFixed(4)),
+            lon: Number(Number(fallbackCenter.lon).toFixed(4))
+        };
+    }
+    return null;
+}
+
+function vpNormalizeGaforSectorDataset(raw, countryCode = 'DE') {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const cc = String(countryCode || '').toUpperCase();
+    const metaSrc = raw.sectorMeta && typeof raw.sectorMeta === 'object' && !Array.isArray(raw.sectorMeta)
+        ? raw.sectorMeta
+        : {};
+    const source = raw.sectors;
+    const byId = Object.create(null);
+
+    const upsert = (idRaw, itemRaw) => {
+        const id = String(idRaw || '').trim();
+        if (!id) return;
+        const item = itemRaw && typeof itemRaw === 'object' && !Array.isArray(itemRaw)
+            ? itemRaw
+            : { polygon: itemRaw };
+        const poly = vpNormalizeSectorPolygon(item && item.polygon);
+        if (!poly) return;
+        const center = vpComputeSectorCenterFromPolygon(poly)
+            || { lat: Number(poly[0][0]), lon: Number(poly[0][1]) };
+        const datasetMeta = metaSrc[id] && typeof metaSrc[id] === 'object' ? metaSrc[id] : {};
+        const defaultMeta = cc === 'DE' ? (VP_GAFOR_SECTOR_META_DE[id] || {}) : {};
+        const name = String(
+            item.name
+            || datasetMeta.name
+            || defaultMeta.name
+            || (`Sektor ${id}`)
+        );
+        const refCandidate = Number(item.refFt ?? datasetMeta.refFt ?? defaultMeta.refFt);
+        const refFt = Number.isFinite(refCandidate) ? refCandidate : 900;
+        const probe = vpNormalizeSectorProbePoint(
+            item.probe ?? datasetMeta.probe,
+            center
+        ) || { lat: Number(center.lat), lon: Number(center.lon) };
+        byId[id] = {
+            id,
+            name,
+            refFt: Number(refFt),
+            polygon: poly.map((p) => [p[0], p[1]]),
+            center: { lat: Number(center.lat), lon: Number(center.lon) },
+            probe: { lat: Number(probe.lat), lon: Number(probe.lon) }
+        };
+    };
+
+    if (Array.isArray(source)) {
+        source.forEach((item) => {
+            if (!item || typeof item !== 'object') return;
+            upsert(item.id, item);
+        });
+    } else if (source && typeof source === 'object') {
+        Object.keys(source).forEach((id) => upsert(id, source[id]));
+    } else {
+        return null;
+    }
+
+    const ids = vpSortSectorIds(Object.keys(byId));
+    if (!ids.length) return null;
+    const signature = [
+        String(raw.version || ''),
+        String(raw.updatedAt || raw.generatedAt || ''),
+        ids.join(',')
+    ].join('|');
+    return {
+        signature,
+        sectors: ids.map((id) => byId[id])
+    };
+}
+
+async function vpEnsureGaforSectorDataset(countryCode) {
+    const cc = String(countryCode || '').toUpperCase();
+    if (cc !== 'DE') return null;
+    const now = Date.now();
+    const current = vpGaforSectorDatasetCache[cc];
+    if (current && current.status === 'ready') return current.data;
+    if (current && current.status === 'error') {
+        const age = Math.max(0, now - Number(current.errorAt || 0));
+        if (age < VP_GAFOR_SECTOR_DATASET_ERROR_RETRY_MS) return null;
+    }
+    if (current && current.status === 'loading' && current.promise) return current.promise;
+
+    const entry = { status: 'loading', data: null, promise: null, errorAt: 0 };
+    entry.promise = (async () => {
+        try {
+            const res = await fetch(VP_GAFOR_SECTOR_DATASET_URL_DE, {
+                method: 'GET',
+                cache: 'no-store',
+                credentials: 'same-origin'
+            });
+            if (!res || !res.ok) throw new Error(`dataset_http_${res ? res.status : 'no_response'}`);
+            const parsed = await res.json();
+            const normalized = vpNormalizeGaforSectorDataset(parsed, cc);
+            if (!normalized || !Array.isArray(normalized.sectors) || normalized.sectors.length < 1) {
+                throw new Error('dataset_empty_or_invalid');
+            }
+            entry.status = 'ready';
+            entry.data = normalized;
+            vpGaforSectorDefsCache.clear();
+            return normalized;
+        } catch (err) {
+            entry.status = 'error';
+            entry.data = null;
+            entry.errorAt = Date.now();
+            console.warn('[GAFOR] Dataset nicht verfuegbar, nutze internes Modell:', err && err.message ? err.message : err);
+            return null;
+        }
+    })();
+    vpGaforSectorDatasetCache[cc] = entry;
+    return entry.promise;
+}
+
 function vpBuildGaforSectorDefs(countryCode) {
     const cc = String(countryCode || '').toUpperCase();
     if (cc !== 'DE') return [];
-    const cached = vpGaforSectorDefsCache.get(cc);
+    const overrides = vpReadGaforSectorPolygonOverrides();
+    const datasetEntry = vpGaforSectorDatasetCache[cc];
+    const dataset = datasetEntry && datasetEntry.status === 'ready' ? datasetEntry.data : null;
+    const datasetSignature = dataset && dataset.signature ? dataset.signature : 'internal';
+    const cacheKey = `${cc}|${datasetSignature}|${vpGaforSectorOverrideSignature(overrides)}`;
+    const cached = vpGaforSectorDefsCache.get(cacheKey);
     if (Array.isArray(cached) && cached.length) {
         return cached.map((item) => ({
             ...item,
@@ -1459,76 +1731,132 @@ function vpBuildGaforSectorDefs(countryCode) {
         return inside;
     };
 
-    const domain = VP_GAFOR_SECTOR_DOMAIN_DE
-        .map((p) => toXY(p[0], p[1]));
-    const seeds = VP_GAFOR_SECTOR_SEEDS_DE
-        .map((seed) => {
-            const meta = VP_GAFOR_SECTOR_META_DE[String(seed && seed.id || '')] || null;
-            if (!meta) return null;
-            const id = String(seed.id);
-            const lat = Number(seed && seed.lat);
-            const lon = Number(seed && seed.lon);
-            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-            const xy = toXY(lat, lon);
-            const refFt = Number(meta.refFt);
-            const manualBiasFt = Number(VP_GAFOR_SECTOR_BIAS_FT_DE[id] || 0);
-            const terrainWeight = ((refFt - 900) + manualBiasFt) * VP_GAFOR_SECTOR_WEIGHT_SCALE_DE;
-            return {
-                id,
-                name: meta.name,
-                refFt,
-                lat,
-                lon,
-                x: xy.x,
-                y: xy.y,
-                weight: Number.isFinite(terrainWeight) ? terrainWeight : 0
-            };
-        })
-        .filter(Boolean);
-
     const out = [];
-    seeds.forEach((seedA) => {
-        let cell = domain.map((p) => ({ x: p.x, y: p.y }));
-        for (let i = 0; i < seeds.length; i++) {
-            const seedB = seeds[i];
-            if (!seedB || seedB.id === seedA.id) continue;
-            const nx = 2 * (seedB.x - seedA.x);
-            const ny = 2 * (seedB.y - seedA.y);
-            const c = (
-                (seedB.x * seedB.x) + (seedB.y * seedB.y) - (seedA.x * seedA.x) - (seedA.y * seedA.y)
-                + Number(seedA.weight || 0)
-                - Number(seedB.weight || 0)
-            );
-            cell = clipPolygonByHalfPlane(cell, nx, ny, c);
-            if (cell.length < 3) break;
-        }
-        cell = cleanupPolygon(cell);
-        if (cell.length < 3 || polygonAreaAbs(cell) < 1e-5) return;
-        const polygon = cell.map(toLatLon);
-        const centroidXY = polygonCentroidXY(cell) || { x: seedA.x, y: seedA.y };
-        const centroidLL = toLatLon(centroidXY);
-        const useSeedProbe = pointInPolygonXY({ x: seedA.x, y: seedA.y }, cell);
-        const probeLL = useSeedProbe ? [seedA.lat, seedA.lon] : centroidLL;
-        const center = {
-            lat: Number(centroidLL[0]),
-            lon: Number(centroidLL[1])
-        };
-        out.push({
-            key: `${seedA.id}_own`,
-            id: seedA.id,
-            name: seedA.name,
-            refFt: Number(seedA.refFt),
-            polygon,
-            center,
-            probe: {
-                lat: Number(Number(probeLL[0]).toFixed(4)),
-                lon: Number(Number(probeLL[1]).toFixed(4))
-            }
+    if (dataset && Array.isArray(dataset.sectors) && dataset.sectors.length > 0) {
+        dataset.sectors.forEach((ds) => {
+            if (!ds || !ds.id) return;
+            const norm = vpNormalizeSectorPolygon(ds.polygon);
+            if (!norm) return;
+            const center = vpComputeSectorCenterFromPolygon(norm)
+                || (ds.center && Number.isFinite(Number(ds.center.lat)) && Number.isFinite(Number(ds.center.lon))
+                    ? { lat: Number(ds.center.lat), lon: Number(ds.center.lon) }
+                    : { lat: Number(norm[0][0]), lon: Number(norm[0][1]) });
+            const probe = vpNormalizeSectorProbePoint(ds.probe, center) || { lat: Number(center.lat), lon: Number(center.lon) };
+            const meta = VP_GAFOR_SECTOR_META_DE[String(ds.id)] || {};
+            const refFt = Number(ds.refFt);
+            out.push({
+                key: `${ds.id}_dataset`,
+                id: String(ds.id),
+                name: String(ds.name || meta.name || (`Sektor ${ds.id}`)),
+                refFt: Number.isFinite(refFt) ? Number(refFt) : Number(meta.refFt || 900),
+                polygon: norm.map((p) => [p[0], p[1]]),
+                center: { lat: Number(center.lat), lon: Number(center.lon) },
+                probe: { lat: Number(probe.lat), lon: Number(probe.lon) }
+            });
         });
-    });
+    } else {
+        const domain = VP_GAFOR_SECTOR_DOMAIN_DE
+            .map((p) => toXY(p[0], p[1]));
+        const seeds = VP_GAFOR_SECTOR_SEEDS_DE
+            .map((seed) => {
+                const meta = VP_GAFOR_SECTOR_META_DE[String(seed && seed.id || '')] || null;
+                if (!meta) return null;
+                const id = String(seed.id);
+                const lat = Number(seed && seed.lat);
+                const lon = Number(seed && seed.lon);
+                if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+                const xy = toXY(lat, lon);
+                const refFt = Number(meta.refFt);
+                const manualBiasFt = Number(VP_GAFOR_SECTOR_BIAS_FT_DE[id] || 0);
+                const terrainWeight = ((refFt - 900) + manualBiasFt) * VP_GAFOR_SECTOR_WEIGHT_SCALE_DE;
+                return {
+                    id,
+                    name: meta.name,
+                    refFt,
+                    lat,
+                    lon,
+                    x: xy.x,
+                    y: xy.y,
+                    weight: Number.isFinite(terrainWeight) ? terrainWeight : 0
+                };
+            })
+            .filter(Boolean);
 
-    out.sort((a, b) => Number(a.id) - Number(b.id));
-    vpGaforSectorDefsCache.set(cc, out.map((item) => ({
+        seeds.forEach((seedA) => {
+            let cell = domain.map((p) => ({ x: p.x, y: p.y }));
+            for (let i = 0; i < seeds.length; i++) {
+                const seedB = seeds[i];
+                if (!seedB || seedB.id === seedA.id) continue;
+                const nx = 2 * (seedB.x - seedA.x);
+                const ny = 2 * (seedB.y - seedA.y);
+                const c = (
+                    (seedB.x * seedB.x) + (seedB.y * seedB.y) - (seedA.x * seedA.x) - (seedA.y * seedA.y)
+                    + Number(seedA.weight || 0)
+                    - Number(seedB.weight || 0)
+                );
+                cell = clipPolygonByHalfPlane(cell, nx, ny, c);
+                if (cell.length < 3) break;
+            }
+            cell = cleanupPolygon(cell);
+            if (cell.length < 3 || polygonAreaAbs(cell) < 1e-5) return;
+            const polygon = cell.map(toLatLon);
+            const centroidXY = polygonCentroidXY(cell) || { x: seedA.x, y: seedA.y };
+            const centroidLL = toLatLon(centroidXY);
+            const useSeedProbe = pointInPolygonXY({ x: seedA.x, y: seedA.y }, cell);
+            const probeLL = useSeedProbe ? [seedA.lat, seedA.lon] : centroidLL;
+            const center = {
+                lat: Number(centroidLL[0]),
+                lon: Number(centroidLL[1])
+            };
+            out.push({
+                key: `${seedA.id}_own`,
+                id: seedA.id,
+                name: seedA.name,
+                refFt: Number(seedA.refFt),
+                polygon,
+                center,
+                probe: {
+                    lat: Number(Number(probeLL[0]).toFixed(4)),
+                    lon: Number(Number(probeLL[1]).toFixed(4))
+                }
+            });
+        });
+    }
+
+    if (overrides && Object.keys(overrides).length > 0) {
+        const byId = Object.create(null);
+        out.forEach((entry) => { byId[entry.id] = entry; });
+        Object.keys(overrides).forEach((id) => {
+            const norm = vpNormalizeSectorPolygon(overrides[id]);
+            const meta = VP_GAFOR_SECTOR_META_DE[id];
+            if (!norm) return;
+            const center = vpComputeSectorCenterFromPolygon(norm)
+                || (byId[id] && byId[id].center)
+                || { lat: Number(norm[0][0]), lon: Number(norm[0][1]) };
+            const base = byId[id] || {
+                key: `${id}_manual`,
+                id,
+                name: `Sektor ${id}`,
+                refFt: 900
+            };
+            const mergedName = String((meta && meta.name) || base.name || `Sektor ${id}`);
+            const mergedRef = Number((meta && meta.refFt) ?? base.refFt ?? 900);
+            byId[id] = {
+                ...base,
+                name: mergedName,
+                refFt: Number.isFinite(mergedRef) ? mergedRef : 900,
+                polygon: norm.map((p) => [p[0], p[1]]),
+                center: { lat: Number(center.lat), lon: Number(center.lon) },
+                probe: { lat: Number(center.lat), lon: Number(center.lon) }
+            };
+        });
+        out.length = 0;
+        vpSortSectorIds(Object.keys(byId)).forEach((id) => out.push(byId[id]));
+    }
+
+    out.sort((a, b) => vpCompareSectorIds(a && a.id, b && b.id));
+    if (vpGaforSectorDefsCache.size > 16) vpGaforSectorDefsCache.clear();
+    vpGaforSectorDefsCache.set(cacheKey, out.map((item) => ({
         ...item,
         polygon: Array.isArray(item.polygon) ? item.polygon.map((p) => [p[0], p[1]]) : []
     })));
@@ -2896,6 +3224,9 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
     try {
         if (sectorMode && !VP_GAFOR_SECTOR_MODE_COUNTRIES.has(active)) {
             throw new Error('Sektor-Modell aktuell nur fuer DE verfuegbar');
+        }
+        if (sectorMode) {
+            await vpEnsureGaforSectorDataset(active);
         }
         const sectors = sectorMode ? vpBuildGaforSectorDefs(active) : [];
         const grid = sectorMode

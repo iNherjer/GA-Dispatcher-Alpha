@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v588';
+const CACHE = 'ga-dispatcher-v590';
 
 const STATIC = [
     './',
@@ -15,6 +15,7 @@ const STATIC = [
     './missions.js',
     './passenger-voice.js',
     './airports.json',
+    './data/gafor-sector-dataset-de.json',
     './manifest.json',
     './Icon.PNG',
     './IconDRK.PNG',
@@ -121,6 +122,10 @@ const NETWORK_ONLY = [
     'tile.openstreetmap.org'
 ];
 
+const NETWORK_FIRST_PATHS = [
+    '/data/gafor-sector-dataset-de.json'
+];
+
 // ── Install: statische Dateien vorab cachen ──────────────────────────────────
 self.addEventListener('install', e => {
     e.waitUntil(
@@ -146,6 +151,24 @@ self.addEventListener('fetch', e => {
 
     // Leaflet-Kacheln immer live holen
     if (url.hostname.includes('tile.') || url.pathname.includes('/tiles/')) return;
+
+    // Dataset immer bevorzugt frisch vom Netz holen (mit Cache-Fallback)
+    if (NETWORK_FIRST_PATHS.some(p => url.pathname.endsWith(p))) {
+        e.respondWith(
+            fetch(e.request).then(response => {
+                if (response && response.status === 200 && e.request.method === 'GET') {
+                    const clone = response.clone();
+                    caches.open(CACHE).then(cache => cache.put(e.request, clone));
+                }
+                return response;
+            }).catch(async () => {
+                const cached = await caches.match(e.request);
+                if (cached) return cached;
+                throw new Error('dataset_unavailable_offline');
+            })
+        );
+        return;
+    }
 
     e.respondWith(
         caches.match(e.request).then(cached => {
