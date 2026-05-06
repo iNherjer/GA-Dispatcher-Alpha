@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="EDTWSmokeMarker" guid="{2A09B598-8B4A-44D5-8735-5B1B947C2D4A}">
+    <LODS>
+        <LOD ModelFile="EDTWSmokeMarker_LOD00.gltf" MinSize="0.0000"/>
+    </LODS>
+    <CompileBehaviors>
+        <Include ModelBehaviorFile="Asobo\Generic\FX.xml"/>
+        <Component ID="EDTW_SMOKE_LARGE" Node="EDTW_marker_node">
+            <UseTemplate Name="ASOBO_GT_FX">
+                <FX_GUID>{C9747EAE-5970-477A-81D7-2FC96CE0C3EA}</FX_GUID>
+                <FX_NAME>LANDING_GR_LG_SMOKE</FX_NAME>
+                <FX_CODE>1</FX_CODE>
+                <FX_MIN_EMISSION_TIME>-1</FX_MIN_EMISSION_TIME>
+            </UseTemplate>
+        </Component>
+    </CompileBehaviors>
+</ModelInfo>

@@ -113,6 +113,133 @@ function normalizeReportPayload(input) {
   };
 }
 
+function normalizeOneLine(value, maxLen = 200) {
+  return trimText(value, maxLen).replace(/\s+/g, " ");
+}
+
+function safePreview(value, maxLen = 300) {
+  if (value == null) return "";
+  if (typeof value === "string") return normalizeOneLine(value, maxLen);
+  try {
+    return normalizeOneLine(JSON.stringify(value), maxLen);
+  } catch {
+    return normalizeOneLine(String(value), maxLen);
+  }
+}
+
+function buildBugMailText(report) {
+  const ctx = report && typeof report.context === "object" ? report.context : {};
+  const lines = [
+    "Neuer Bug-Report eingegangen.",
+    "",
+    `ID: ${normalizeOneLine(report.id, 120)}`,
+    `Zeitpunkt (UTC): ${normalizeOneLine(report.createdAt, 60)}`,
+    `Titel: ${normalizeOneLine(report.title || "Ohne Titel", 220)}`,
+    `Quelle: ${normalizeOneLine(report.source || "web", 60)}`,
+    `Version: ${normalizeOneLine(report.appVersion || "-", 80)}`
+  ];
+
+  const device = normalizeOneLine(ctx.deviceType || ctx.platform || "", 120);
+  const browser = normalizeOneLine(ctx.browser || ctx.userAgent || "", 260);
+  const mission = normalizeOneLine(ctx.missionName || ctx.missionId || "", 160);
+  const route = normalizeOneLine(ctx.routeSummary || "", 260);
+  if (device) lines.push(`Gerät: ${device}`);
+  if (browser) lines.push(`Browser: ${browser}`);
+  if (mission) lines.push(`Mission: ${mission}`);
+  if (route) lines.push(`Route: ${route}`);
+
+  const msg = trimText(report.message || "", 3500);
+  if (msg) {
+    lines.push("", "Beschreibung:", msg);
+  }
+
+  const logs = Array.isArray(report.logs) ? report.logs : [];
+  const transcripts = Array.isArray(report.transcripts) ? report.transcripts : [];
+  lines.push("", `Anlagen: logs=${logs.length}, transcripts=${transcripts.length}`);
+  if (logs.length) {
+    lines.push("Log-Vorschau:");
+    for (const entry of logs.slice(0, 6)) {
+      lines.push(`- ${safePreview(entry, 240)}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+async function sendBugReportNotifications(report, env) {
+  const webhookUrl = trimText(env && env.BUG_REPORT_NOTIFY_WEBHOOK_URL, 2000);
+  const resendApiKey = trimText(env && env.RESEND_API_KEY, 400);
+  const notifyEmailTo = trimText(env && env.BUG_REPORT_NOTIFY_EMAIL_TO, 400);
+  const notifyEmailFrom = trimText(env && env.BUG_REPORT_NOTIFY_EMAIL_FROM, 200);
+  const subjectPrefix = normalizeOneLine((env && env.BUG_REPORT_NOTIFY_SUBJECT_PREFIX) || "[GA Dispatcher]", 80);
+  const mailSubject = `${subjectPrefix} Neuer Bugreport: ${normalizeOneLine(report.title || "Ohne Titel", 120)}`.slice(0, 240);
+  const mailText = buildBugMailText(report);
+
+  if (webhookUrl) {
+    try {
+      const webhookRes = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({
+          event: "bug_report_created",
+          report: {
+            id: report.id,
+            createdAt: report.createdAt,
+            title: report.title,
+            message: trimText(report.message || "", 1200),
+            source: report.source || "web",
+            appVersion: report.appVersion || "",
+            status: report.status || "open",
+            context: report.context || {},
+            logCount: Array.isArray(report.logs) ? report.logs.length : 0,
+            transcriptCount: Array.isArray(report.transcripts) ? report.transcripts.length : 0
+          },
+          mailDraft: {
+            subject: mailSubject,
+            text: mailText
+          }
+        })
+      });
+      if (!webhookRes.ok) {
+        const bodyPreview = trimText(await webhookRes.text(), 300);
+        console.error("Bug notify webhook failed:", webhookRes.status, bodyPreview);
+      }
+    } catch (error) {
+      console.error("Bug notify webhook error:", String(error?.message || error));
+    }
+  }
+
+  const hasResendConfig = !!(resendApiKey || notifyEmailTo || notifyEmailFrom);
+  if (hasResendConfig) {
+    if (!resendApiKey || !notifyEmailTo || !notifyEmailFrom) {
+      console.warn("Bug mail notify skipped: incomplete Resend config (need RESEND_API_KEY + BUG_REPORT_NOTIFY_EMAIL_TO + BUG_REPORT_NOTIFY_EMAIL_FROM).");
+      return;
+    }
+
+    try {
+      const resendRes = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Authorization": `Bearer ${resendApiKey}`
+        },
+        body: JSON.stringify({
+          from: notifyEmailFrom,
+          to: [notifyEmailTo],
+          subject: mailSubject,
+          text: mailText
+        })
+      });
+      if (!resendRes.ok) {
+        const bodyPreview = trimText(await resendRes.text(), 500);
+        console.error("Bug mail notify failed:", resendRes.status, bodyPreview);
+      }
+    } catch (error) {
+      console.error("Bug mail notify error:", String(error?.message || error));
+    }
+  }
+}
+
 function getBugAdminTokenFromRequest(request, requestUrl) {
   const auth = request.headers.get("authorization") || "";
   if (/^Bearer\s+/i.test(auth)) return auth.replace(/^Bearer\s+/i, "").trim();
@@ -154,7 +281,7 @@ function projectBugListItem(report) {
   };
 }
 
-async function handleProblemReports(request, requestUrl, env) {
+async function handleProblemReports(request, requestUrl, env, ctx) {
   if (!hasSyncKvBinding(env)) {
     return json({
       error: "Sync KV binding missing (GA_SYNC_KV). Add KV binding in worker settings or wrangler.toml."
@@ -205,6 +332,12 @@ async function handleProblemReports(request, requestUrl, env) {
       }), { expirationTtl: BUG_REPORT_TTL });
     } catch (error) {
       return json({ ok: false, error: "KV-Write fehlgeschlagen", message: String(error?.message || error) }, 502);
+    }
+
+    if (ctx && typeof ctx.waitUntil === "function") {
+      ctx.waitUntil(sendBugReportNotifications(report, env));
+    } else {
+      await sendBugReportNotifications(report, env);
     }
 
     return json({ ok: true, id, createdAt }, 201);
@@ -1237,7 +1370,7 @@ export default {
     // 6. PROBLEM REPORTS (Mini Bugtracker API)
     // ==========================================
     if (requestUrl.pathname === "/api/problem-reports" || requestUrl.pathname.startsWith("/api/problem-reports/")) {
-      return handleProblemReports(request, requestUrl, env);
+      return handleProblemReports(request, requestUrl, env, ctx);
     }
 
     // ==========================================

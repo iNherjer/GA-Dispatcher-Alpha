@@ -43,6 +43,15 @@ Hinweis:
 - Für den Bugtracker kann optional ein Secret gesetzt werden:
   - `BUG_TRACKER_ADMIN_TOKEN` (als Worker Secret, nicht als plain var)
   - Wenn kein Secret gesetzt ist, sind List/Detail/Ack-Endpoints offen.
+- Für Benachrichtigungen bei neuen Bug-Reports:
+  - Option A (E-Mail über Resend):
+    - Secret: `RESEND_API_KEY`
+    - Secret: `BUG_REPORT_NOTIFY_EMAIL_TO` (Empfänger)
+    - Secret: `BUG_REPORT_NOTIFY_EMAIL_FROM` (Absender, z. B. `GA Dispatcher <bugs@deinedomain.tld>`)
+    - Optional: `BUG_REPORT_NOTIFY_SUBJECT_PREFIX` (Default: `[GA Dispatcher]`)
+  - Option B (Webhook, z. B. Zapier/Make/Discord/Slack):
+    - Secret: `BUG_REPORT_NOTIFY_WEBHOOK_URL`
+  - Beide Optionen können parallel aktiv sein.
 
 ## Pflicht-Binding für Sync
 
@@ -65,7 +74,14 @@ id = "<DEINE_KV_NAMESPACE_ID>"
    - `OBSTACLE_TILES_BASE=.../obstacles/tiles` (Legacy-Fallback fuer `layer=core`)
 5. Optional Bugtracker-Secret setzen:
    - `npx wrangler secret put BUG_TRACKER_ADMIN_TOKEN`
-6. Deployen und im Frontend testen:
+6. Optional Benachrichtigungen setzen:
+   - `npx wrangler secret put RESEND_API_KEY`
+   - `npx wrangler secret put BUG_REPORT_NOTIFY_EMAIL_TO`
+   - `npx wrangler secret put BUG_REPORT_NOTIFY_EMAIL_FROM`
+   - `npx wrangler secret put BUG_REPORT_NOTIFY_WEBHOOK_URL`
+   - Optional als normale Var in `wrangler.toml`:
+     - `BUG_REPORT_NOTIFY_SUBJECT_PREFIX = "[GA Dispatcher]"`
+7. Deployen und im Frontend testen:
    - `loadAipChartOverlay(ICAO, country)`
    - `startAipChartCalibration()`
    - `setAipChartOpacity(value)`

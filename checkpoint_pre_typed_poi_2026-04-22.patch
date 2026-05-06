@@ -1,0 +1,363 @@
+diff --git a/ga-tracker-client/.DS_Store b/ga-tracker-client/.DS_Store
+index 5008ddf..685139e 100644
+Binary files a/ga-tracker-client/.DS_Store and b/ga-tracker-client/.DS_Store differ
+diff --git a/ga-tracker-client/package.json b/ga-tracker-client/package.json
+index 261a09d..fae62c2 100755
+--- a/ga-tracker-client/package.json
++++ b/ga-tracker-client/package.json
+@@ -4,10 +4,21 @@
+   "description": "MSFS to WebSocket GPS Tracker Bridge",
+   "main": "tracker.js",
+   "scripts": {
+-    "start": "node tracker.js"
++    "start": "node tracker.js",
++    "smoke-test:edtw": "node spawn-edtw-smoke-test.js",
++    "build:smoke-test": "pkg spawn-edtw-smoke-test.js --target node20-win-x64 --output dist/edtw-smoke-test.exe"
++  },
++  "pkg": {
++    "scripts": "spawn-edtw-smoke-test.js",
++    "assets": [],
++    "targets": ["node20-win-x64"],
++    "outputPath": "dist"
+   },
+   "dependencies": {
+     "node-simconnect": "^4.0.0",
+     "ws": "^8.19.0"
++  },
++  "devDependencies": {
++    "@yao-pkg/pkg": "^6.18.1"
+   }
+ }
+diff --git a/obstacles/failed-tiles.json b/obstacles/failed-tiles.json
+index bd7c4a6..24ddcf5 100644
+--- a/obstacles/failed-tiles.json
++++ b/obstacles/failed-tiles.json
+@@ -1,13 +1,6 @@
+ {
+-  "generatedAt": "2026-04-21T06:47:36.506Z",
+-  "ok": 0,
+-  "failed": 1,
+-  "failedTiles": [
+-    {
+-      "tile": "342|459",
+-      "status": 429,
+-      "error": "HTTP 429: <?xml version=\"1.0\" encoding=\"UTF-8\"?> <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"> <html xmlns=\"http://www.w3.",
+-      "server": "https://overpass-api.de/api/interpreter"
+-    }
+-  ]
++  "generatedAt": "2026-04-21T07:18:01.620Z",
++  "ok": 1,
++  "failed": 0,
++  "failedTiles": []
+ }
+\ No newline at end of file
+diff --git a/obstacles/manifest.v1.json b/obstacles/manifest.v1.json
+index 16d9ac1..15d09a2 100644
+--- a/obstacles/manifest.v1.json
++++ b/obstacles/manifest.v1.json
+@@ -1,13 +1,13 @@
+ {
+   "version": 1,
+-  "generatedAt": "2026-04-21T06:47:36.501Z",
++  "generatedAt": "2026-04-21T07:18:01.620Z",
+   "grid": {
+     "tileEdgeNm": 25,
+     "stepLatDeg": 0.4166666666666667,
+     "stepLonDeg": 0.4166666666666667
+   },
+   "regions": [],
+-  "tileCount": 185,
++  "tileCount": 197,
+   "tiles": [
+     "330|450",
+     "330|451",
+@@ -142,6 +142,7 @@
+     "337|462",
+     "337|463",
+     "337|464",
++    "338|446",
+     "338|447",
+     "338|448",
+     "338|449",
+@@ -156,6 +157,8 @@
+     "338|458",
+     "338|459",
+     "338|460",
++    "338|461",
++    "339|447",
+     "339|448",
+     "339|449",
+     "339|450",
+@@ -169,6 +172,8 @@
+     "339|458",
+     "339|459",
+     "339|460",
++    "339|461",
++    "340|448",
+     "340|450",
+     "340|451",
+     "340|452",
+@@ -180,6 +185,8 @@
+     "340|458",
+     "340|459",
+     "340|460",
++    "340|461",
++    "341|449",
+     "341|450",
+     "341|452",
+     "341|453",
+@@ -190,9 +197,14 @@
+     "341|458",
+     "341|459",
+     "341|460",
++    "342|452",
++    "342|453",
+     "342|454",
+     "342|455",
+     "342|456",
+-    "342|458"
++    "342|457",
++    "342|458",
++    "342|460",
++    "342|461"
+   ]
+ }
+\ No newline at end of file
+diff --git a/tools/generate-obstacle-tiles.mjs b/tools/generate-obstacle-tiles.mjs
+index a191f1b..d8952bf 100644
+--- a/tools/generate-obstacle-tiles.mjs
++++ b/tools/generate-obstacle-tiles.mjs
+@@ -20,7 +20,8 @@ const VP_OBS_TILE_STEP_LON = VP_OBS_TILE_EDGE_NM / 60;
+ const DEFAULT_SERVERS = [
+   'https://overpass-api.de/api/interpreter',
+   'https://lz4.overpass-api.de/api/interpreter',
+-  'https://z.overpass-api.de/api/interpreter'
++  'https://z.overpass-api.de/api/interpreter',
++  'https://overpass.kumi.systems/api/interpreter'
+ ];
+ 
+ function parseArgs(argv) {
+@@ -195,26 +196,49 @@ async function fetchTileFromOverpass(tileKey, servers, retries = 2) {
+   const query = buildOverpassQuery(bounds);
+ 
+   let attempt = 0;
++  let lastStatus = 0;
+   let lastError = '';
++  let lastServer = '';
+   while (attempt < retries) {
+     const server = servers[attempt % servers.length];
++    lastServer = server;
+     try {
+       const res = await fetch(server, {
+         method: 'POST',
+-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
++        headers: {
++          'Content-Type': 'application/x-www-form-urlencoded',
++          'Accept': 'application/json, text/plain, */*',
++          'User-Agent': 'GA-Dispatcher-Alpha-Obstacle-Workbench/1.0'
++        },
+         body: `data=${encodeURIComponent(query)}`
+       });
++      lastStatus = Number(res.status || 0);
++      const bodyText = await res.text().catch(() => '');
+       if (res.status === 429 || res.status === 504) {
+         const retryAfter = Number(res.headers.get('retry-after') || 0);
+-        return { ok: false, status: res.status, error: `HTTP ${res.status}`, retryAfterSec: retryAfter };
++        return {
++          ok: false,
++          status: res.status,
++          error: `HTTP ${res.status}${bodyText ? `: ${bodyText.slice(0, 180).replace(/\s+/g, ' ')}` : ''}`,
++          retryAfterSec: retryAfter,
++          server
++        };
+       }
+       if (!res.ok) {
+         attempt++;
+-        lastError = `HTTP ${res.status}`;
++        lastError = `HTTP ${res.status}${bodyText ? `: ${bodyText.slice(0, 180).replace(/\s+/g, ' ')}` : ''}`;
++        await sleep(1200);
++        continue;
++      }
++      let data = null;
++      try {
++        data = bodyText ? JSON.parse(bodyText) : {};
++      } catch {
++        attempt++;
++        lastError = `Ungültiges JSON von Overpass (${res.status})`;
+         await sleep(1200);
+         continue;
+       }
+-      const data = await res.json();
+       const features = extractFeatures(data && data.elements);
+       return { ok: true, status: 200, server, features };
+     } catch (e) {
+@@ -224,7 +248,7 @@ async function fetchTileFromOverpass(tileKey, servers, retries = 2) {
+     }
+   }
+ 
+-  return { ok: false, status: 0, error: lastError || 'fetch failed' };
++  return { ok: false, status: lastStatus || 0, error: lastError || 'fetch failed', server: lastServer };
+ }
+ 
+ async function ensureDir(dirPath) {
+@@ -318,7 +342,7 @@ async function main() {
+     console.log(`[Tiles] ${i + 1}/${tileKeys.length} fetch ${key} ...`);
+     const res = await fetchTileFromOverpass(key, servers, args.retries);
+     if (!res.ok) {
+-      failed.push({ tile: key, status: res.status || 0, error: res.error || 'failed' });
++      failed.push({ tile: key, status: res.status || 0, error: res.error || 'failed', server: res.server || '' });
+       if (res.status === 429 || res.status === 504) {
+         const waitMs = Math.max(4000, (Number(res.retryAfterSec || 0) * 1000) || 8000);
+         console.warn(`[Tiles] ${key} -> ${res.status}, warte ${(waitMs / 1000).toFixed(1)}s`);
+@@ -363,4 +387,3 @@ main().catch(err => {
+   console.error(`[Tiles] ERROR: ${err?.message || err}`);
+   process.exit(1);
+ });
+-
+diff --git a/tools/obstacle-tile-workbench-server.mjs b/tools/obstacle-tile-workbench-server.mjs
+index f244de0..d6d3117 100644
+--- a/tools/obstacle-tile-workbench-server.mjs
++++ b/tools/obstacle-tile-workbench-server.mjs
+@@ -24,6 +24,10 @@ const queue = [];
+ const queueSet = new Set();
+ let processing = false;
+ let currentTile = null;
++const WORKBENCH_RETRIES = Number(process.env.OBS_WORKBENCH_RETRIES || 4);
++const WORKBENCH_DELAY_MS = Number(process.env.OBS_WORKBENCH_DELAY_MS || 2200);
++const WORKBENCH_FAIL_COOLDOWN_MS = Number(process.env.OBS_WORKBENCH_FAIL_COOLDOWN_MS || 12000);
++const WORKBENCH_504_EXTRA_COOLDOWN_MS = Number(process.env.OBS_WORKBENCH_504_EXTRA_COOLDOWN_MS || 18000);
+ const lastResults = new Map();
+ let lastRepoSync = {
+   ok: false,
+@@ -316,27 +320,47 @@ function enqueueTiles(tileKeys) {
+ async function processOneTile(tileKey) {
+   currentTile = tileKey;
+   const startedAt = Date.now();
+-  const cmd = ['tools/generate-obstacle-tiles.mjs', '--tiles', tileKey, '--force', '--delay-ms', '1000'];
++  const cmd = [
++    'tools/generate-obstacle-tiles.mjs',
++    '--tiles', tileKey,
++    '--force',
++    '--delay-ms', String(WORKBENCH_DELAY_MS),
++    '--retries', String(WORKBENCH_RETRIES)
++  ];
+   const run = await runCmd('node', cmd, { cwd: ROOT });
+ 
+   const failedData = await readJsonSafe(FAILED_PATH, { failedTiles: [] });
++  const failedItems = Array.isArray(failedData.failedTiles) ? failedData.failedTiles : [];
+   const failedSet = new Set(
+-    (Array.isArray(failedData.failedTiles) ? failedData.failedTiles : [])
++    failedItems
+       .map(x => normalizeTileKey(x && x.tile))
+       .filter(Boolean)
+   );
++  const failedItem = failedItems.find(x => normalizeTileKey(x && x.tile) === tileKey) || null;
+   const file = tileToFile(tileKey);
+   const hasFile = existsSync(file);
+   const ok = hasFile && !failedSet.has(tileKey);
+ 
++  const failStatus = Number((failedItem && failedItem.status) || 0);
++  const failError = String((failedItem && failedItem.error) || '').trim();
++  const failServer = String((failedItem && failedItem.server) || '').trim();
++  const failMsg = [
++    failStatus ? `HTTP ${failStatus}` : '',
++    failError,
++    failServer ? `(Server: ${failServer})` : ''
++  ].filter(Boolean).join(' | ');
++
+   lastResults.set(tileKey, {
+     ok,
+     at: Date.now(),
+     durationMs: Date.now() - startedAt,
+     code: run.code,
++    status: failStatus,
++    error: failError,
++    server: failServer,
+     message: ok
+       ? 'Tile geladen und gespeichert'
+-      : ((run.stderr && run.stderr.trim()) || (run.stdout && run.stdout.trim().split('\n').slice(-2).join(' | ')) || 'Tile-Load fehlgeschlagen')
++      : (failMsg || (run.stderr && run.stderr.trim()) || (run.stdout && run.stdout.trim().split('\n').slice(-2).join(' | ')) || 'Tile-Load fehlgeschlagen')
+   });
+ }
+ 
+@@ -350,6 +374,19 @@ async function processQueue() {
+       if (!next) continue;
+       try {
+         await processOneTile(next);
++        const last = lastResults.get(next);
++        if (last && last.ok === false) {
++          const baseWait = WORKBENCH_FAIL_COOLDOWN_MS;
++          const extraWait = Number(last.status) === 504 ? WORKBENCH_504_EXTRA_COOLDOWN_MS : 0;
++          const waitMs = Math.max(0, baseWait + extraWait);
++          if (waitMs > 0) {
++            lastResults.set(next, {
++              ...last,
++              message: `${last.message} | Cooldown ${Math.round(waitMs / 1000)}s`
++            });
++            await new Promise(res => setTimeout(res, waitMs));
++          }
++        }
+       } catch (err) {
+         lastResults.set(next, {
+           ok: false,
+diff --git a/tools/obstacle-tile-workbench.html b/tools/obstacle-tile-workbench.html
+index 5c3d9b4..86eee22 100644
+--- a/tools/obstacle-tile-workbench.html
++++ b/tools/obstacle-tile-workbench.html
+@@ -168,7 +168,8 @@
+       selected: new Set(),
+       repoSync: null,
+       repoTiles: new Set(),
+-      missingInRepoTiles: new Set()
++      missingInRepoTiles: new Set(),
++      lastFailedSig: ''
+     };
+ 
+     const logView = document.getElementById('logView');
+@@ -330,7 +331,9 @@
+             const failed = state.failed[key];
+             const info = loaded
+               ? (loaded.stale ? 'geladen, alt' : 'geladen')
+-              : (failed ? `failed (${failed.status || 0})` : 'nicht geladen');
++              : (failed
++                ? `failed (${failed.status || 0}${failed.error ? `: ${String(failed.error).slice(0, 80)}` : ''})`
++                : 'nicht geladen');
+             hint.textContent = `Tile ${key} • ${info}`;
+           });
+           rect.on('mouseout', () => {
+@@ -382,6 +385,27 @@
+       document.getElementById('btnRetryFailed').disabled = Object.keys(state.failed).length === 0;
+     }
+ 
++    function logFailedSummary() {
++      const failedEntries = Object.entries(state.failed || {});
++      const sig = failedEntries
++        .map(([k, v]) => `${k}:${Number(v?.status || 0)}:${String(v?.error || '')}`)
++        .sort()
++        .join('|');
++      if (!sig || sig === state.lastFailedSig) return;
++      state.lastFailedSig = sig;
++
++      const sample = failedEntries.slice(0, 6);
++      log(`Fehlgeschlagene Tiles: ${failedEntries.length}`);
++      for (const [tile, meta] of sample) {
++        const status = Number(meta?.status || 0);
++        const err = String(meta?.error || 'unbekannter Fehler');
++        log(`- ${tile}: ${status ? `HTTP ${status}` : 'Fehler'} | ${err}`);
++      }
++      if (failedEntries.length > sample.length) {
++        log(`... und ${failedEntries.length - sample.length} weitere.`);
++      }
++    }
++
+     async function refreshState(quiet = false) {
+       try {
+         const s = await api('/api/state');
+@@ -398,6 +422,7 @@
+ 
+         updateUi();
+         renderGrid();
++        logFailedSummary();
+         if (!quiet) log('Status aktualisiert');
+       } catch (e) {
+         log(`Status-Fehler: ${e.message || e}`);

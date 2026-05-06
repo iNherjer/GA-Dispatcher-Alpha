@@ -1,0 +1,177 @@
+{
+  "asset": {
+    "extensions": {
+      "ASOBO_asset_optimized": {
+        "BoundingBoxMax": [
+          6,
+          16,
+          16
+        ],
+        "BoundingBoxMin": [
+          -6,
+          -1.5,
+          -1.5
+        ],
+        "MajorVersion": 4,
+        "MinorVersion": 4,
+        "UseCheckerboardMaterialForMissingTextures": true,
+        "UseOnlyFilenameForImageURI": true
+      },
+      "ASOBO_normal_map_convention": {
+        "tangent_space_convention": "DirectX"
+      }
+    },
+    "generator": "GA Dispatcher Asobo-like minimal glTF",
+    "version": "2.0"
+  },
+  "buffers": [
+    {
+      "byteLength": 2808,
+      "uri": "EDTWSmokeMarker_LOD00.bin"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 2592,
+      "byteStride": 36,
+      "name": "BufferViewVertexND",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 216,
+      "byteOffset": 2592,
+      "name": "BufferViewIndex",
+      "target": 34963
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 72,
+      "max": [
+        6,
+        16,
+        16
+      ],
+      "min": [
+        -6,
+        -1.5,
+        -1.5
+      ],
+      "name": "_vertices#0_POSITION",
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 12,
+      "componentType": 5120,
+      "count": 72,
+      "name": "_vertices#0_TANGENT",
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 16,
+      "componentType": 5120,
+      "count": 72,
+      "name": "_vertices#0_NORMAL",
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 20,
+      "componentType": 5122,
+      "count": 72,
+      "name": "_vertices#0_TEXCOORD_0",
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 24,
+      "componentType": 5122,
+      "count": 72,
+      "name": "_vertices#0_TEXCOORD_1",
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 28,
+      "componentType": 5123,
+      "count": 72,
+      "name": "_vertices#0_COLOR_0",
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5123,
+      "count": 108,
+      "name": "_indices#0",
+      "type": "SCALAR"
+    }
+  ],
+  "extensionsUsed": [
+    "ASOBO_normal_map_convention",
+    "ASOBO_asset_optimized"
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "EDTW_marker_orange",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          1,
+          0.28,
+          0.02,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 0.5
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "EDTW_marker_mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "TANGENT": 1,
+            "NORMAL": 2,
+            "TEXCOORD_0": 3,
+            "TEXCOORD_1": 4,
+            "COLOR_0": 5
+          },
+          "extras": {
+            "ASOBO_primitive": {
+              "PrimitiveCount": 36,
+              "VertexType": "VTX",
+              "VertexVersion": 2
+            }
+          },
+          "indices": 6,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "EDTW_marker_node"
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ]
+}

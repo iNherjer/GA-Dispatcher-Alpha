@@ -4,6 +4,6 @@
   "repoRoot": "..",
   "_repoRoot_help": "Pfad zum Git-Repo-Root. '..' funktioniert solange tools/ im Repo liegt (Normalfall).",
 
-  "cacheDir": "./workbench-cache",
-  "_cacheDir_help": "Wo PBF-Dateien und Zwischenergebnisse gespeichert werden. Auf externe Platte auslagern um Speicher zu sparen, z.B. '/Volumes/MeineLaufwerk/GA-Cache'. Relativ oder absolut."
+  "cacheDir": "/Volumes/ggg/tools/workbench-cache",
+  "_cacheDir_help": "/Volumes/ggg/tools/workbench-cache"
 }

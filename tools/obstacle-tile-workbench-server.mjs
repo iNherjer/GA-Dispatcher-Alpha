@@ -55,7 +55,11 @@ const WORKBENCH_TMP_OUT_DIR = path.join(WORKBENCH_TMP_DIR, 'combined-tiles');
 const WORKBENCH_TMP_MANIFEST = path.join(WORKBENCH_TMP_DIR, 'combined-manifest.v1.json');
 const WORKBENCH_TMP_FAILED = path.join(WORKBENCH_TMP_DIR, 'combined-failed-tiles.json');
 const WORKBENCH_PBF_PATH = String(process.env.OBS_WORKBENCH_PBF_PATH || '').trim();
-const WORKBENCH_PBF_MAX_REGIONS = Math.max(1, Number(process.env.OBS_WORKBENCH_PBF_MAX_REGIONS || _cfg.pbfMaxRegions || 3));
+const WORKBENCH_PBF_MAX_REGIONS = Math.max(1, Number(process.env.OBS_WORKBENCH_PBF_MAX_REGIONS || _cfg.pbfMaxRegions || 6));
+const WORKBENCH_PBF_THIN_EXTEND = String(process.env.OBS_WORKBENCH_PBF_THIN_EXTEND || '1') !== '0';
+const WORKBENCH_PBF_THIN_OBS_MAX = Math.max(0, Number(process.env.OBS_WORKBENCH_PBF_THIN_OBS_MAX || 1));
+const WORKBENCH_PBF_THIN_LIN_MAX = Math.max(0, Number(process.env.OBS_WORKBENCH_PBF_THIN_LIN_MAX || 250));
+const WORKBENCH_PBF_THIN_POI_MAX = Math.max(0, Number(process.env.OBS_WORKBENCH_PBF_THIN_POI_MAX || 250));
 
 const PBF_CACHE_DIR = path.join(CACHE_BASE, 'pbf');
 const PBF_CACHE_TTL_MS = Number(process.env.OBS_WORKBENCH_PBF_TTL_DAYS || 7) * 24 * 60 * 60 * 1000;
@@ -76,6 +80,7 @@ const pbfDownloadPromises = new Map(); // regionId -> Promise (dedup concurrent 
 
 const queue = [];
 const queueSet = new Set();
+const queueFreshSet = new Set();
 let processing = false;
 let currentTile = null;
 let autoPushWhenDone = false; // set via enqueue autoPush:true
@@ -84,9 +89,14 @@ const WORKBENCH_DELAY_MS = Number(process.env.OBS_WORKBENCH_DELAY_MS || 2200);
 const WORKBENCH_FAIL_COOLDOWN_MS = Number(process.env.OBS_WORKBENCH_FAIL_COOLDOWN_MS || 12000);
 const WORKBENCH_504_EXTRA_COOLDOWN_MS = Number(process.env.OBS_WORKBENCH_504_EXTRA_COOLDOWN_MS || 18000);
 const WORKBENCH_CACHE_RECOVERY_RETRY_MS = Number(process.env.OBS_WORKBENCH_CACHE_RECOVERY_RETRY_MS || 10000);
+const WORKBENCH_PROCESS_LOG_MAX = Math.max(20, Number(process.env.OBS_WORKBENCH_PROCESS_LOG_MAX || 250));
+const WORKBENCH_REPO_SYNC_TIMEOUT_MS = Math.max(5000, Number(process.env.OBS_WORKBENCH_REPO_SYNC_TIMEOUT_MS || 25000));
 const lastResults = new Map();
 let lastRepoSync = {
   ok: false,
+  running: false,
+  phase: 'idle',
+  startedAt: 0,
   checkedAt: 0,
   message: 'Noch nicht geprüft.',
   remoteRef: 'origin/main',
@@ -105,6 +115,41 @@ let lastRepoSync = {
   localCompleteCount: 0,
   remoteCompleteCount: 0
 };
+let repoSyncPromise = null;
+let processSeq = 0;
+const processLog = [];
+const currentProgress = {
+  tile: null,
+  phase: 'idle',
+  source: '',
+  pbfRegions: [],
+  relevantRegionCount: 0,
+  lowCoverage: false,
+  thinDetected: false,
+  thinExtended: false,
+  message: '',
+  startedAt: 0,
+  updatedAt: 0
+};
+
+function pushProcessEvent(event, details = {}) {
+  processSeq += 1;
+  const entry = {
+    seq: processSeq,
+    ts: Date.now(),
+    event: String(event || 'event'),
+    ...details
+  };
+  processLog.push(entry);
+  if (processLog.length > WORKBENCH_PROCESS_LOG_MAX) {
+    processLog.splice(0, processLog.length - WORKBENCH_PROCESS_LOG_MAX);
+  }
+  return entry;
+}
+
+function setCurrentProgress(patch = {}) {
+  Object.assign(currentProgress, patch, { updatedAt: Date.now() });
+}
 
 class CacheUnavailableError extends Error {
   constructor(message) {
@@ -122,14 +167,17 @@ function looksLikeCacheUnavailable(text) {
   const s = String(text || '').toLowerCase();
   if (!s) return false;
   const cacheHint = s.includes('/volumes/') || s.includes('obs-split') || s.includes('workbench-cache') || s.includes('/pbf/');
+  const hasEioCode = /(^|[^a-z0-9])eio([^a-z0-9]|$)/.test(s);
   return (
-    cacheHint ||
     s.includes('operation not permitted') ||
     s.includes('input/output error') ||
-    s.includes('eio') ||
+    hasEioCode ||
     s.includes('enospc') ||
     s.includes('read-only file system') ||
     s.includes('erofs') ||
+    s.includes('cache-pfad nicht verfügbar') ||
+    (cacheHint && s.includes('enoent')) ||
+    (cacheHint && s.includes('not a directory')) ||
     (cacheHint && s.includes('no such file or directory'))
   );
 }
@@ -504,18 +552,42 @@ async function upsertFailedTile(tileKey, info = {}) {
 
 async function runCmd(bin, args, opts = {}) {
   return await new Promise((resolve) => {
+    let settled = false;
     const child = spawn(bin, args, {
       cwd: opts.cwd || ROOT,
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: opts.env ? { ...process.env, ...opts.env } : process.env
     });
     let stdout = '';
     let stderr = '';
+    let timer = null;
+    const timeoutMs = Number(opts.timeoutMs || 0);
+    if (timeoutMs > 0) {
+      timer = setTimeout(() => {
+        if (settled) return;
+        stderr += `\nTimeout nach ${Math.round(timeoutMs / 1000)}s: ${bin} ${args.join(' ')}`;
+        try { child.kill('SIGTERM'); } catch (_) {}
+        setTimeout(() => {
+          if (!settled) {
+            try { child.kill('SIGKILL'); } catch (_) {}
+          }
+        }, 1500).unref?.();
+      }, timeoutMs);
+      timer.unref?.();
+    }
     child.stdout.on('data', d => { stdout += String(d); });
     child.stderr.on('data', d => { stderr += String(d); });
     child.on('close', (code) => {
-      resolve({ code: Number(code || 0), stdout, stderr });
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      const timedOut = timeoutMs > 0 && /Timeout nach \d+s:/.test(stderr);
+      resolve({ code: timedOut ? 124 : Number(code || 0), stdout, stderr, timedOut });
     });
     child.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
       resolve({ code: 1, stdout, stderr: `${stderr}\n${String(err && err.message || err)}` });
     });
   });
@@ -583,29 +655,106 @@ async function ensurePbfRegion(region) {
   return promise;
 }
 
+async function resolveRelevantRegionsForTile(tileKey) {
+  const key = normalizeTileKey(tileKey);
+  if (!key) return [];
+  const [latI, lonI] = key.split('|').map(Number);
+  if (!Number.isFinite(latI) || !Number.isFinite(lonI)) return [];
+  const tileBounds = tileBoundsFromIndices(latI, lonI);
+  const bboxCandidates = findRegionsForTile(key);
+  if (!bboxCandidates.length) return [];
+
+  const filtered = [];
+  for (const region of bboxCandidates) {
+    const coverage = await ensureRegionPolygon(region);
+    const poly = coverage.mode === 'poly' ? coverage.polygon : null;
+    if (poly && !tileIntersectsPolygon(tileBounds, poly)) continue;
+    filtered.push(region);
+  }
+  return filtered.length > 0 ? filtered : bboxCandidates;
+}
+
 async function resolvePbfPathsForTile(tileKey) {
-  const paths = [];
+  const selectedPaths = [];
+  const remainingPaths = [];
   const seen = new Set();
+  const selectedRegionIds = [];
+  const remainingRegionIds = [];
   // Manual path is preferred when present, but no longer exclusive.
   if (WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH)) {
     const rp = path.resolve(WORKBENCH_PBF_PATH);
-    paths.push(rp);
+    selectedPaths.push(rp);
     seen.add(rp);
   }
-  const regions = findRegionsForTile(tileKey).slice(0, WORKBENCH_PBF_MAX_REGIONS);
-  for (const region of regions) {
+  const regions = await resolveRelevantRegionsForTile(tileKey);
+  const selectedRegions = regions.slice(0, WORKBENCH_PBF_MAX_REGIONS);
+  const remainingRegions = regions.slice(WORKBENCH_PBF_MAX_REGIONS);
+  for (const region of selectedRegions) {
     try {
       const p = await ensurePbfRegion(region);
       const rp = path.resolve(p);
       if (!seen.has(rp)) {
-        paths.push(rp);
+        selectedPaths.push(rp);
         seen.add(rp);
       }
+      selectedRegionIds.push(String(region.id || ''));
     } catch (err) {
       console.error(`[PBF] Download fehlgeschlagen für ${region.name}: ${err.message || err}`);
     }
   }
-  return paths;
+  for (const region of remainingRegions) {
+    try {
+      const p = await ensurePbfRegion(region);
+      const rp = path.resolve(p);
+      if (!seen.has(rp)) {
+        remainingPaths.push(rp);
+        seen.add(rp);
+      }
+      remainingRegionIds.push(String(region.id || ''));
+    } catch (err) {
+      console.error(`[PBF] Download fehlgeschlagen für ${region.name}: ${err.message || err}`);
+    }
+  }
+  return {
+    selectedPaths,
+    remainingPaths,
+    selectedRegionIds,
+    remainingRegionIds,
+    relevantRegionCount: regions.length
+  };
+}
+
+function isThinCombinedPayload(payload) {
+  const obs = Array.isArray(payload?.obs) ? payload.obs.length : 0;
+  const lin = Array.isArray(payload?.lin) ? payload.lin.length : 0;
+  const poi = Array.isArray(payload?.poi) ? payload.poi.length : 0;
+  return obs <= WORKBENCH_PBF_THIN_OBS_MAX && lin <= WORKBENCH_PBF_THIN_LIN_MAX && poi <= WORKBENCH_PBF_THIN_POI_MAX;
+}
+
+async function extractPbfChunksForTile(tileKey, pbfPaths, combinedFile) {
+  let run = { code: 1, stdout: '', stderr: '' };
+  const chunkResults = [];
+  for (const pbfPath of pbfPaths) {
+    const pbfCmd = [
+      'tools/dryrun_pbf_combined_chunk.py',
+      '--pbf', pbfPath,
+      '--tile', tileKey,
+      '--out', path.relative(ROOT, combinedFile) + `.pbf-${path.basename(pbfPath, '.osm.pbf')}.tmp`
+    ];
+    const tmpOut = path.resolve(ROOT, pbfCmd[pbfCmd.indexOf('--out') + 1]);
+    const r = await runCmd('python3', pbfCmd, { cwd: ROOT });
+    if (r.code === 0 && existsSync(tmpOut)) {
+      try {
+        const raw = await fs.readFile(tmpOut, 'utf8');
+        const parsed = JSON.parse(raw);
+        chunkResults.push(parsed);
+      } catch (_) {}
+      try { await fs.unlink(tmpOut); } catch (_) {}
+    } else {
+      run = r;
+    }
+  }
+  return { run, chunkResults };
 }
 
 async function runOverpassToCombined(tileKey, combinedFile) {
@@ -639,6 +788,21 @@ async function readJsonMaybeGz(filePath, fallback = null) {
   }
 }
 
+function getTileCounts(corePayload, poiPayload) {
+  return {
+    obs: Number(corePayload?.counts?.obs || 0),
+    lin: Number(corePayload?.counts?.lin || 0),
+    poi: Number(poiPayload?.counts?.poi || 0)
+  };
+}
+
+function getTileDataStatus(corePayload, poiPayload) {
+  const explicit = String(corePayload?.meta?.dataStatus || poiPayload?.meta?.dataStatus || '').trim();
+  if (explicit === 'empty' || explicit === 'loaded') return explicit;
+  const counts = getTileCounts(corePayload, poiPayload);
+  return (counts.obs + counts.lin + counts.poi) === 0 ? 'empty' : 'loaded';
+}
+
 function mergeCombinedChunks(chunks, tileMeta) {
   const obsMap = new Map();
   const linMap = new Map();
@@ -662,6 +826,11 @@ function mergeCombinedChunks(chunks, tileMeta) {
     tile: tileMeta.tile || '',
     source: chunks.map(c => c.source || '').filter(Boolean).join('+') || '',
     generatedAt: new Date().toISOString(),
+    counts: {
+      obs: obsMap.size,
+      lin: linMap.size,
+      poi: poiMap.size
+    },
     obs: Array.from(obsMap.values()),
     lin: Array.from(linMap.values()),
     poi: Array.from(poiMap.values())
@@ -809,10 +978,18 @@ async function collectLocalTileKeysFromFs(baseDir) {
 }
 
 async function loadRemoteManifestTiles(manifestPathInRepo, fallbackPathInRepo = null) {
-  const show = await runCmd('git', ['show', `origin/main:${manifestPathInRepo}`], { cwd: ROOT });
+  const show = await runCmd('git', ['show', `origin/main:${manifestPathInRepo}`], {
+    cwd: ROOT,
+    timeoutMs: 8000,
+    env: { GIT_TERMINAL_PROMPT: '0' }
+  });
   let payloadText = String(show.stdout || '');
   if (show.code !== 0 && fallbackPathInRepo) {
-    const fb = await runCmd('git', ['show', `origin/main:${fallbackPathInRepo}`], { cwd: ROOT });
+    const fb = await runCmd('git', ['show', `origin/main:${fallbackPathInRepo}`], {
+      cwd: ROOT,
+      timeoutMs: 8000,
+      env: { GIT_TERMINAL_PROMPT: '0' }
+    });
     if (fb.code !== 0) return { ok: false, message: (show.stderr || show.stdout || fb.stderr || fb.stdout || '').trim() || 'Manifest fehlt' };
     payloadText = String(fb.stdout || '');
   } else if (show.code !== 0) {
@@ -840,65 +1017,126 @@ function setIntersection(a, b) {
 }
 
 async function runRepoSyncCheck() {
-  const fetched = await runCmd('git', ['fetch', 'origin', 'main'], { cwd: ROOT });
-  if (fetched.code !== 0) {
-    lastRepoSync = {
+  if (lastRepoSync.running) {
+    return {
       ...lastRepoSync,
       ok: false,
-      checkedAt: Date.now(),
-      message: (fetched.stderr || fetched.stdout || '').trim() || 'git fetch fehlgeschlagen'
+      message: 'Repo-Sync läuft bereits.'
     };
-    return lastRepoSync;
   }
-
-  const remoteCoreRes = await loadRemoteManifestTiles('obstacles/core-manifest.v1.json', 'obstacles/manifest.v1.json');
-  if (!remoteCoreRes.ok) {
-    lastRepoSync = {
-      ...lastRepoSync,
-      ok: false,
-      checkedAt: Date.now(),
-      message: remoteCoreRes.message || 'Remote-Core-Manifest konnte nicht gelesen werden'
-    };
-    return lastRepoSync;
-  }
-  const remotePoiRes = await loadRemoteManifestTiles('obstacles/poi-manifest.v1.json');
-  const remotePoiTiles = remotePoiRes.ok ? remotePoiRes.tiles : new Set();
-
-  const localCoreTiles = await collectLocalTileKeysFromFs(CORE_TILE_DIR);
-  const localPoiTiles = await collectLocalTileKeysFromFs(POI_TILE_DIR);
-  const localCompleteTiles = setIntersection(localCoreTiles, localPoiTiles);
-
-  const remoteCoreTiles = remoteCoreRes.tiles;
-  const remoteCompleteTiles = setIntersection(remoteCoreTiles, remotePoiTiles);
-
-  const missingInRepo = [];
-  for (const k of localCompleteTiles) if (!remoteCompleteTiles.has(k)) missingInRepo.push(k);
-  const missingLocal = [];
-  for (const k of remoteCompleteTiles) if (!localCompleteTiles.has(k)) missingLocal.push(k);
-  missingInRepo.sort();
-  missingLocal.sort();
 
   lastRepoSync = {
-    ok: true,
+    ...lastRepoSync,
+    ok: false,
+    running: true,
+    phase: 'fetch',
+    startedAt: Date.now(),
     checkedAt: Date.now(),
-    message: 'Repo-Sync geprüft',
-    remoteRef: 'origin/main',
-    remoteTileCount: remoteCompleteTiles.size,
-    localTileCount: localCompleteTiles.size,
-    missingInRepoCount: missingInRepo.length,
-    missingLocalCount: missingLocal.length,
-    missingInRepoSample: missingInRepo.slice(0, 20),
-    missingLocalSample: missingLocal.slice(0, 20),
-    missingInRepoTiles: missingInRepo,
-    remoteTiles: Array.from(remoteCompleteTiles),
-    remoteCoreCount: remoteCoreTiles.size,
-    remotePoiCount: remotePoiTiles.size,
-    localCoreCount: localCoreTiles.size,
-    localPoiCount: localPoiTiles.size,
-    localCompleteCount: localCompleteTiles.size,
-    remoteCompleteCount: remoteCompleteTiles.size
+    message: 'Repo-Sync: fetch origin/main...'
   };
-  return lastRepoSync;
+
+  try {
+    const fetched = await runCmd('git', ['fetch', '--no-tags', 'origin', 'main'], {
+      cwd: ROOT,
+      timeoutMs: WORKBENCH_REPO_SYNC_TIMEOUT_MS,
+      env: { GIT_TERMINAL_PROMPT: '0' }
+    });
+    if (fetched.code !== 0) {
+      lastRepoSync = {
+        ...lastRepoSync,
+        ok: false,
+        running: false,
+        phase: 'failed',
+        checkedAt: Date.now(),
+        message: (fetched.stderr || fetched.stdout || '').trim() || 'git fetch fehlgeschlagen'
+      };
+      return lastRepoSync;
+    }
+
+    lastRepoSync = {
+      ...lastRepoSync,
+      phase: 'remote-manifest',
+      checkedAt: Date.now(),
+      message: 'Repo-Sync: Remote-Manifeste lesen...'
+    };
+    const remoteCoreRes = await loadRemoteManifestTiles('obstacles/core-manifest.v1.json', 'obstacles/manifest.v1.json');
+    if (!remoteCoreRes.ok) {
+      lastRepoSync = {
+        ...lastRepoSync,
+        ok: false,
+        running: false,
+        phase: 'failed',
+        checkedAt: Date.now(),
+        message: remoteCoreRes.message || 'Remote-Core-Manifest konnte nicht gelesen werden'
+      };
+      return lastRepoSync;
+    }
+    const remotePoiRes = await loadRemoteManifestTiles('obstacles/poi-manifest.v1.json');
+    const remotePoiTiles = remotePoiRes.ok ? remotePoiRes.tiles : new Set();
+
+    lastRepoSync = {
+      ...lastRepoSync,
+      phase: 'local-scan',
+      checkedAt: Date.now(),
+      message: 'Repo-Sync: lokale Tiles prüfen...'
+    };
+    const localCoreTiles = await collectLocalTileKeysFromFs(CORE_TILE_DIR);
+    const localPoiTiles = await collectLocalTileKeysFromFs(POI_TILE_DIR);
+    const localCompleteTiles = setIntersection(localCoreTiles, localPoiTiles);
+
+    const remoteCoreTiles = remoteCoreRes.tiles;
+    const remoteCompleteTiles = setIntersection(remoteCoreTiles, remotePoiTiles);
+
+    const missingInRepo = [];
+    for (const k of localCompleteTiles) if (!remoteCompleteTiles.has(k)) missingInRepo.push(k);
+    const missingLocal = [];
+    for (const k of remoteCompleteTiles) if (!localCompleteTiles.has(k)) missingLocal.push(k);
+    missingInRepo.sort();
+    missingLocal.sort();
+
+    lastRepoSync = {
+      ok: true,
+      running: false,
+      phase: 'done',
+      startedAt: Number(lastRepoSync.startedAt || 0),
+      checkedAt: Date.now(),
+      message: 'Repo-Sync geprüft',
+      remoteRef: 'origin/main',
+      remoteTileCount: remoteCompleteTiles.size,
+      localTileCount: localCompleteTiles.size,
+      missingInRepoCount: missingInRepo.length,
+      missingLocalCount: missingLocal.length,
+      missingInRepoSample: missingInRepo.slice(0, 20),
+      missingLocalSample: missingLocal.slice(0, 20),
+      missingInRepoTiles: missingInRepo,
+      remoteTiles: Array.from(remoteCompleteTiles),
+      remoteCoreCount: remoteCoreTiles.size,
+      remotePoiCount: remotePoiTiles.size,
+      localCoreCount: localCoreTiles.size,
+      localPoiCount: localPoiTiles.size,
+      localCompleteCount: localCompleteTiles.size,
+      remoteCompleteCount: remoteCompleteTiles.size
+    };
+    return lastRepoSync;
+  } catch (e) {
+    lastRepoSync = {
+      ...lastRepoSync,
+      ok: false,
+      running: false,
+      phase: 'failed',
+      checkedAt: Date.now(),
+      message: `Repo-Sync Fehler: ${String(e && e.message || e)}`
+    };
+    return lastRepoSync;
+  }
+}
+
+function startRepoSyncJob() {
+  if (repoSyncPromise && lastRepoSync.running) return repoSyncPromise;
+  repoSyncPromise = runRepoSyncCheck().finally(() => {
+    repoSyncPromise = null;
+  });
+  return repoSyncPromise;
 }
 
 async function collectTileState() {
@@ -937,6 +1175,11 @@ async function collectTileState() {
     let poiStat = null;
     try { if (hasCore) coreStat = await fs.stat(coreFile); } catch (_) {}
     try { if (hasPoi) poiStat = await fs.stat(poiFile); } catch (_) {}
+    const corePayload = hasCore ? await readJsonMaybeGz(coreFile, null) : null;
+    const poiPayload = hasPoi ? await readJsonMaybeGz(poiFile, null) : null;
+    const counts = getTileCounts(corePayload, poiPayload);
+    const totalCount = counts.obs + counts.lin + counts.poi;
+    const dataStatus = hasCore && hasPoi ? getTileDataStatus(corePayload, poiPayload) : 'partial';
 
     const coreMtime = Number(coreStat?.mtimeMs || 0);
     const poiMtime = Number(poiStat?.mtimeMs || 0);
@@ -956,6 +1199,10 @@ async function collectTileState() {
       bytesPoi: Number(poiStat?.size || 0),
       hasCore,
       hasPoi,
+      dataStatus,
+      empty: dataStatus === 'empty',
+      counts,
+      totalCount,
       regionOverlapCount: Number(regionMeta.count || 0),
       regionOverlapIds: Array.isArray(regionMeta.ids) ? regionMeta.ids.slice(0, 8) : [],
       partialCoveragePossible,
@@ -974,7 +1221,14 @@ async function collectTileState() {
       pbfPath: WORKBENCH_PBF_PATH,
       pbfAvailable: !!WORKBENCH_PBF_PATH && existsSync(WORKBENCH_PBF_PATH),
       cacheDir: CACHE_BASE,
-      cacheRecoveryRetrySec: Math.round(WORKBENCH_CACHE_RECOVERY_RETRY_MS / 1000)
+      cacheRecoveryRetrySec: Math.round(WORKBENCH_CACHE_RECOVERY_RETRY_MS / 1000),
+      pbfMaxRegions: WORKBENCH_PBF_MAX_REGIONS,
+      pbfThinExtend: WORKBENCH_PBF_THIN_EXTEND,
+      pbfThinThresholds: {
+        obsMax: WORKBENCH_PBF_THIN_OBS_MAX,
+        linMax: WORKBENCH_PBF_THIN_LIN_MAX,
+        poiMax: WORKBENCH_PBF_THIN_POI_MAX
+      }
     },
     gapConfig: {
       mode: 'region-overlap-limit',
@@ -992,21 +1246,30 @@ async function collectTileState() {
     processing,
     currentTile,
     queue: queue.slice(),
+    queueFresh: queue.filter(k => queueFreshSet.has(k)),
     queueLength: queue.length,
     tileStepDeg: TILE_STEP_DEG,
     staleAfterDays: 90,
     loaded: loadedMap,
     failed: failedMap,
     recent,
+    processSeq,
+    processLogTail: processLog.slice(-80),
+    currentProgress: { ...currentProgress },
     manifest: {
       generatedAt: coreManifest.generatedAt || null,
       tileCount: Number(coreManifest.tileCount || Object.keys(loadedMap).length || 0)
     },
     repoSync: {
       ok: !!lastRepoSync.ok,
+      running: !!lastRepoSync.running,
+      phase: String(lastRepoSync.phase || 'idle'),
+      startedAt: Number(lastRepoSync.startedAt || 0),
       checkedAt: Number(lastRepoSync.checkedAt || 0),
       message: String(lastRepoSync.message || ''),
       remoteRef: String(lastRepoSync.remoteRef || 'origin/main'),
+      remoteTiles: Array.isArray(lastRepoSync.remoteTiles) ? lastRepoSync.remoteTiles : [],
+      missingInRepoTiles: Array.isArray(lastRepoSync.missingInRepoTiles) ? lastRepoSync.missingInRepoTiles : [],
       remoteTileCount: Number(lastRepoSync.remoteTileCount || 0),
       localTileCount: Number(lastRepoSync.localTileCount || 0),
       missingInRepoCount: Number(lastRepoSync.missingInRepoCount || 0),
@@ -1017,14 +1280,20 @@ async function collectTileState() {
   };
 }
 
-function enqueueTiles(tileKeys) {
+function enqueueTiles(tileKeys, options = {}) {
+  const fresh = !!(options && options.fresh);
   const added = [];
   for (const raw of Array.isArray(tileKeys) ? tileKeys : []) {
     const key = normalizeTileKey(raw);
     if (!key) continue;
-    if (queueSet.has(key) || key === currentTile) continue;
+    if (queueSet.has(key)) {
+      if (fresh) queueFreshSet.add(key);
+      continue;
+    }
+    if (key === currentTile) continue;
     queue.push(key);
     queueSet.add(key);
+    if (fresh) queueFreshSet.add(key);
     added.push(key);
   }
   if (added.length > 0) processQueue();
@@ -1060,10 +1329,23 @@ async function enqueueRegions(regionIds) {
   };
 }
 
-async function processOneTile(tileKey) {
+async function processOneTile(tileKey, options = {}) {
   await assertCacheWritableOrThrow('before-tile');
   currentTile = tileKey;
   const startedAt = Date.now();
+  const freshReload = !!(options && options.freshReload);
+  setCurrentProgress({
+    tile: tileKey,
+    phase: 'preparing',
+    source: '',
+    pbfRegions: [],
+    relevantRegionCount: 0,
+    lowCoverage: false,
+    thinDetected: false,
+    thinExtended: false,
+    message: freshReload ? 'Starte Tile-Verarbeitung (frisch laden)' : 'Starte Tile-Verarbeitung',
+    startedAt
+  });
 
   const combinedFile = tilePath(WORKBENCH_TMP_OUT_DIR, tileKey);
   const coreOut = tileGzPath(CORE_TILE_DIR, tileKey);
@@ -1072,8 +1354,8 @@ async function processOneTile(tileKey) {
   const poiLegacyOut = tilePath(POI_TILE_DIR, tileKey);
   const prevCoreFile = existsSync(coreOut) ? coreOut : (existsSync(coreLegacyOut) ? coreLegacyOut : '');
   const prevPoiFile = existsSync(poiOut) ? poiOut : (existsSync(poiLegacyOut) ? poiLegacyOut : '');
-  const prevCorePayload = prevCoreFile ? await readJsonMaybeGz(prevCoreFile, null) : null;
-  const prevPoiPayload = prevPoiFile ? await readJsonMaybeGz(prevPoiFile, null) : null;
+  const prevCorePayload = (!freshReload && prevCoreFile) ? await readJsonMaybeGz(prevCoreFile, null) : null;
+  const prevPoiPayload = (!freshReload && prevPoiFile) ? await readJsonMaybeGz(prevPoiFile, null) : null;
 
   await ensureDir(WORKBENCH_TMP_OUT_DIR);
 
@@ -1095,52 +1377,121 @@ async function processOneTile(tileKey) {
     await upsertFailedTile(tileKey, info);
   };
 
-  const pbfPaths = await resolvePbfPathsForTile(tileKey);
+  const pbfResolution = await resolvePbfPathsForTile(tileKey);
+  const pbfPaths = Array.isArray(pbfResolution?.selectedPaths) ? pbfResolution.selectedPaths : [];
+  const pbfRemainingPaths = Array.isArray(pbfResolution?.remainingPaths) ? pbfResolution.remainingPaths : [];
+  const pbfRegionIds = Array.isArray(pbfResolution?.selectedRegionIds) ? pbfResolution.selectedRegionIds.filter(Boolean) : [];
+  const pbfRemainingRegionIds = Array.isArray(pbfResolution?.remainingRegionIds) ? pbfResolution.remainingRegionIds.filter(Boolean) : [];
+  const relevantRegionCount = Number(pbfResolution?.relevantRegionCount || 0);
+  const lowCoverage = relevantRegionCount > pbfRegionIds.length;
+  setCurrentProgress({
+    phase: 'source-select',
+    source: pbfPaths.length > 0 ? 'pbf' : 'overpass',
+    pbfRegions: pbfRegionIds.slice(),
+    relevantRegionCount,
+    lowCoverage,
+    message: `Quelle gewählt (${pbfPaths.length > 0 ? 'PBF' : 'Overpass'})`
+  });
+  pushProcessEvent('tile-start', {
+    tile: tileKey,
+    freshReload,
+    pbfRegions: pbfRegionIds.slice(),
+    pbfRegionsExtra: pbfRemainingRegionIds.slice(),
+    relevantRegionCount,
+    lowCoverage,
+    source: pbfPaths.length > 0 ? 'pbf' : 'overpass'
+  });
 
   if (pbfPaths.length > 0) {
-    const chunkResults = [];
-    for (const pbfPath of pbfPaths) {
-      const pbfCmd = [
-        'tools/dryrun_pbf_combined_chunk.py',
-        '--pbf', pbfPath,
-        '--tile', tileKey,
-        '--out', path.relative(ROOT, combinedFile) + `.pbf-${path.basename(pbfPath, '.osm.pbf')}.tmp`
-      ];
-      const tmpOut = path.resolve(ROOT, pbfCmd[pbfCmd.indexOf('--out') + 1]);
-      const r = await runCmd('python3', pbfCmd, { cwd: ROOT });
-      if (r.code === 0 && existsSync(tmpOut)) {
-        try {
-          const raw = await fs.readFile(tmpOut, 'utf8');
-          const parsed = JSON.parse(raw);
-          const cnt = parsed && parsed.counts ? parsed.counts : {};
-          const totalRaw = Number(cnt.obs || 0) + Number(cnt.lin || 0) + Number(cnt.poi || 0);
-          if (totalRaw > 0) chunkResults.push(parsed);
-        } catch (_) {}
-        try { await fs.unlink(tmpOut); } catch (_) {}
-      } else {
-        run = r;
-      }
-    }
+    setCurrentProgress({
+      phase: 'load-pbf',
+      source: 'pbf',
+      message: `Lade aus PBF (${pbfRegionIds.join(', ') || 'manuell'})`
+    });
+    pushProcessEvent('pbf-load-start', {
+      tile: tileKey,
+      pbfRegions: pbfRegionIds.slice(),
+      pbfRegionsExtra: pbfRemainingRegionIds.slice(),
+      lowCoverage
+    });
+    const extracted = await extractPbfChunksForTile(tileKey, pbfPaths, combinedFile);
+    let chunkResults = extracted.chunkResults;
+    run = extracted.run;
     if (chunkResults.length > 0) {
-      const merged = mergeCombinedChunks(chunkResults, { tile: tileKey });
+      let merged = mergeCombinedChunks(chunkResults, { tile: tileKey });
+      const thinDetected = isThinCombinedPayload(merged);
+      setCurrentProgress({
+        thinDetected,
+        message: `PBF Rohdaten: obs=${merged.obs.length}, lin=${merged.lin.length}, poi=${merged.poi.length}`
+      });
+      if (thinDetected) {
+        pushProcessEvent('coverage-check', {
+          tile: tileKey,
+          lowCoverage,
+          thinDetected,
+          counts: { obs: merged.obs.length, lin: merged.lin.length, poi: merged.poi.length }
+        });
+      }
+      if (WORKBENCH_PBF_THIN_EXTEND && pbfRemainingPaths.length > 0 && thinDetected) {
+        setCurrentProgress({
+          phase: 'load-pbf-extend',
+          thinExtended: true,
+          message: `Niedrige Abdeckung erkannt, erweitere mit ${pbfRemainingRegionIds.join(', ') || 'zusätzlichen Regionen'}`
+        });
+        pushProcessEvent('pbf-thin-extend', {
+          tile: tileKey,
+          pbfRegionsExtra: pbfRemainingRegionIds.slice()
+        });
+        const extra = await extractPbfChunksForTile(tileKey, pbfRemainingPaths, combinedFile);
+        if (extra.chunkResults.length > 0) {
+          chunkResults = chunkResults.concat(extra.chunkResults);
+          merged = mergeCombinedChunks(chunkResults, { tile: tileKey });
+          setCurrentProgress({
+            message: `Erweiterte Rohdaten: obs=${merged.obs.length}, lin=${merged.lin.length}, poi=${merged.poi.length}`
+          });
+        }
+      }
       const total = merged.obs.length + merged.lin.length + merged.poi.length;
-      if (total > 0) {
-        await ensureDir(path.dirname(combinedFile));
-        await fs.writeFile(combinedFile, JSON.stringify(merged));
-      } else {
-        loadSource = 'overpass';
-        pbfErrorText = 'PBF lieferte keine Features (Tile außerhalb PBF-Abdeckung?)';
+      await ensureDir(path.dirname(combinedFile));
+      await fs.writeFile(combinedFile, JSON.stringify(merged));
+      if (total === 0) {
+        setCurrentProgress({
+          message: 'PBF lieferte keine Features; leerer Tile wird gespeichert'
+        });
       }
     } else {
       loadSource = 'overpass';
       pbfErrorText = (run.stderr || run.stdout || '').trim() || 'PBF-Extraktion fehlgeschlagen';
+      pushProcessEvent('overpass-fallback', {
+        tile: tileKey,
+        reason: pbfErrorText
+      });
+      setCurrentProgress({
+        phase: 'fallback-overpass',
+        source: 'overpass',
+        message: pbfErrorText
+      });
     }
   } else {
     loadSource = 'overpass';
     pbfErrorText = 'Keine PBF-Region für dieses Tile gefunden';
+    pushProcessEvent('overpass-fallback', {
+      tile: tileKey,
+      reason: pbfErrorText
+    });
+    setCurrentProgress({
+      phase: 'fallback-overpass',
+      source: 'overpass',
+      message: pbfErrorText
+    });
   }
 
   if (loadSource === 'overpass') {
+    setCurrentProgress({
+      phase: 'load-overpass',
+      source: 'overpass',
+      message: `Fallback lädt ${tileKey} via Overpass`
+    });
     const ov = await runOverpassToCombined(tileKey, combinedFile);
     run = ov.run;
     failedItem = ov.failedItem;
@@ -1153,6 +1504,10 @@ async function processOneTile(tileKey) {
 
   let ok = false;
   let message = 'Tile-Load fehlgeschlagen';
+  let finalObs = 0;
+  let finalLin = 0;
+  let finalPoi = 0;
+  let dataStatus = 'failed';
 
   if (combinedExists && !failedItem) {
     const splitCmd = [
@@ -1167,69 +1522,37 @@ async function processOneTile(tileKey) {
       const poiPayloadRaw = await readJsonMaybeGz(poiOut, { counts: { poi: 0 } });
       const corePayload = prevCorePayload ? mergeCorePayload(prevCorePayload, corePayloadRaw) : corePayloadRaw;
       const poiPayload = prevPoiPayload ? mergePoiPayload(prevPoiPayload, poiPayloadRaw) : poiPayloadRaw;
-      if (prevCorePayload || prevPoiPayload) {
-        await writeGzJson(coreOut, corePayload);
-        await writeGzJson(poiOut, poiPayload);
-      }
       const outObs = Number(corePayload?.counts?.obs || 0);
       const outLin = Number(corePayload?.counts?.lin || 0);
       const outPoi = Number(poiPayload?.counts?.poi || 0);
       const outTotal = outObs + outLin + outPoi;
-
-      if (outTotal === 0 && loadSource === 'pbf') {
-        // PBF raw data had no mission-relevant output after split; try Overpass once.
-        const ov = await runOverpassToCombined(tileKey, combinedFile);
-        run = ov.run;
-        failedItem = ov.failedItem;
-        if (!failedItem && existsSync(combinedFile)) {
-          const splitRun2 = await runCmd('node', splitCmd, { cwd: ROOT });
-          const corePayload2Raw = await readJsonMaybeGz(coreOut, { counts: { obs: 0, lin: 0 } });
-          const poiPayload2Raw = await readJsonMaybeGz(poiOut, { counts: { poi: 0 } });
-          const corePayload2 = prevCorePayload ? mergeCorePayload(prevCorePayload, corePayload2Raw) : corePayload2Raw;
-          const poiPayload2 = prevPoiPayload ? mergePoiPayload(prevPoiPayload, poiPayload2Raw) : poiPayload2Raw;
-          if (prevCorePayload || prevPoiPayload) {
-            await writeGzJson(coreOut, corePayload2);
-            await writeGzJson(poiOut, poiPayload2);
-          }
-          const outTotal2 = Number(corePayload2?.counts?.obs || 0) + Number(corePayload2?.counts?.lin || 0) + Number(poiPayload2?.counts?.poi || 0);
-          if (splitRun2.code === 0 && existsSync(coreOut) && existsSync(poiOut) && outTotal2 > 0) {
-            await upsertManifestTile(CORE_MANIFEST_PATH, tileKey);
-            await upsertManifestTile(POI_MANIFEST_PATH, tileKey);
-            await removeFailedTile(tileKey);
-            try { await fs.unlink(tilePath(CORE_TILE_DIR, tileKey)); } catch (_) {}
-            try { await fs.unlink(tilePath(POI_TILE_DIR, tileKey)); } catch (_) {}
-            ok = true;
-            message = 'Tile geladen (PBF→Overpass Fallback), gesplittet und gespeichert';
-          } else {
-            await failRecord({
-              status: Number((failedItem && failedItem.status) || 0),
-              error: 'Split ergab leere Core/POI-Ausgabe (PBF + Overpass)'
-            });
-            message = 'Split ergab leere Core/POI-Ausgabe (PBF + Overpass)';
-          }
-        } else {
-          await failRecord({
-            status: Number((failedItem && failedItem.status) || 0),
-            error: String((failedItem && failedItem.error) || 'Overpass-Fallback fehlgeschlagen')
-          });
-          message = `PBF lieferte keine verwertbaren Core/POI-Daten, Overpass-Fallback fehlgeschlagen`;
+      finalObs = outObs;
+      finalLin = outLin;
+      finalPoi = outPoi;
+      dataStatus = outTotal === 0 ? 'empty' : 'loaded';
+      const meta = {
+        dataStatus,
+        rawCounts: {
+          obs: Number(corePayload?.meta?.rawCounts?.obs || outObs),
+          lin: Number(corePayload?.meta?.rawCounts?.lin || outLin),
+          poi: Number(poiPayload?.meta?.rawCounts?.poi || outPoi)
         }
-      } else if (outTotal === 0) {
-        await failRecord({
-          status: 0,
-          error: 'Split ergab leere Core/POI-Ausgabe'
-        });
-        message = 'Split ergab leere Core/POI-Ausgabe';
-      } else {
-        await upsertManifestTile(CORE_MANIFEST_PATH, tileKey);
-        await upsertManifestTile(POI_MANIFEST_PATH, tileKey);
-        await removeFailedTile(tileKey);
-        // Delete old plain .json counterparts (migrating to .json.gz)
-        try { await fs.unlink(tilePath(CORE_TILE_DIR, tileKey)); } catch (_) {}
-        try { await fs.unlink(tilePath(POI_TILE_DIR, tileKey)); } catch (_) {}
-        ok = true;
-        message = `Tile geladen (${loadSource}), gesplittet und gespeichert`;
-      }
+      };
+      corePayload.meta = meta;
+      poiPayload.meta = meta;
+      await writeGzJson(coreOut, corePayload);
+      await writeGzJson(poiOut, poiPayload);
+
+      await upsertManifestTile(CORE_MANIFEST_PATH, tileKey);
+      await upsertManifestTile(POI_MANIFEST_PATH, tileKey);
+      await removeFailedTile(tileKey);
+      // Delete old plain .json counterparts (migrating to .json.gz)
+      try { await fs.unlink(tilePath(CORE_TILE_DIR, tileKey)); } catch (_) {}
+      try { await fs.unlink(tilePath(POI_TILE_DIR, tileKey)); } catch (_) {}
+      ok = true;
+      message = outTotal === 0
+        ? `Tile geladen (${loadSource}), leerer Split gespeichert`
+        : `Tile geladen (${loadSource}), gesplittet und gespeichert`;
     } else {
       await failRecord({
         status: 0,
@@ -1267,6 +1590,26 @@ async function processOneTile(tileKey) {
     status: failStatus,
     error: failError,
     server: failServer,
+    dataStatus,
+    counts: { obs: finalObs, lin: finalLin, poi: finalPoi },
+    message
+  });
+  setCurrentProgress({
+    phase: ok ? 'done' : 'failed',
+    source: loadSource,
+    message,
+    thinDetected: currentProgress.thinDetected,
+    thinExtended: currentProgress.thinExtended
+  });
+  pushProcessEvent('tile-done', {
+    tile: tileKey,
+    freshReload,
+    ok,
+    source: loadSource,
+    pbfRegions: pbfRegionIds.slice(),
+    lowCoverage,
+    dataStatus,
+    counts: { obs: finalObs, lin: finalLin, poi: finalPoi },
     message
   });
 }
@@ -1277,10 +1620,12 @@ async function processQueue() {
   try {
     while (queue.length > 0) {
       const next = queue.shift();
+      const nextFresh = queueFreshSet.has(next);
       queueSet.delete(next);
+      queueFreshSet.delete(next);
       if (!next) continue;
       try {
-        await processOneTile(next);
+        await processOneTile(next, { freshReload: nextFresh });
         const last = lastResults.get(next);
         if (last && last.ok === false) {
           const baseWait = WORKBENCH_FAIL_COOLDOWN_MS;
@@ -1298,6 +1643,13 @@ async function processQueue() {
         const errText = String(err && err.message || err || '');
         if ((err && err.code === 'CACHE_UNAVAILABLE') || looksLikeCacheUnavailable(errText)) {
           const msg = `Cache offline – Tile ${next} wird pausiert und automatisch erneut versucht`;
+          pushProcessEvent('cache-offline', { tile: next, message: msg });
+          setCurrentProgress({
+            tile: next,
+            phase: 'cache-wait',
+            source: '',
+            message: msg
+          });
           await removeFailedTile(next).catch(() => {});
           lastResults.set(next, {
             ok: false,
@@ -1309,11 +1661,19 @@ async function processQueue() {
           if (!queueSet.has(next)) {
             queue.unshift(next);
             queueSet.add(next);
+            if (nextFresh) queueFreshSet.add(next);
           }
           await waitForCacheRecovery();
           continue;
         }
         const errMsg = `Interner Fehler: ${String(err && err.message || err)}`;
+        pushProcessEvent('tile-error', { tile: next, message: errMsg });
+        setCurrentProgress({
+          tile: next,
+          phase: 'failed',
+          source: '',
+          message: errMsg
+        });
         await upsertFailedTile(next, { status: 0, error: errMsg });
         lastResults.set(next, {
           ok: false,
@@ -1324,11 +1684,35 @@ async function processQueue() {
         });
       } finally {
         currentTile = null;
+        if (queue.length === 0) {
+          setCurrentProgress({
+            tile: null,
+            phase: 'idle',
+            source: '',
+            pbfRegions: [],
+            relevantRegionCount: 0,
+            lowCoverage: false,
+            thinDetected: false,
+            thinExtended: false,
+            message: 'Queue leer'
+          });
+        }
       }
     }
   } finally {
     processing = false;
     currentTile = null;
+    setCurrentProgress({
+      tile: null,
+      phase: 'idle',
+      source: '',
+      pbfRegions: [],
+      relevantRegionCount: 0,
+      lowCoverage: false,
+      thinDetected: false,
+      thinExtended: false,
+      message: queue.length > 0 ? `Queue pausiert (${queue.length} offen)` : 'Queue leer'
+    });
     if (autoPushWhenDone) {
       autoPushWhenDone = false;
       console.log('[Tile-Workbench] Queue leer — Auto-Push gestartet...');
@@ -1462,10 +1846,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/enqueue') {
       const body = await parseBody(req);
       if (body && body.autoPush) autoPushWhenDone = true;
-      const added = enqueueTiles(body && body.tiles);
+      const fresh = !!(body && body.fresh);
+      const added = enqueueTiles(body && body.tiles, { fresh });
       return sendJson(res, 200, {
         ok: true,
         added,
+        fresh,
         queueLength: queue.length,
         processing,
         currentTile
@@ -1501,18 +1887,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/clear-queue') {
       queue.length = 0;
       queueSet.clear();
+      queueFreshSet.clear();
       return sendJson(res, 200, { ok: true, queueLength: 0, processing, currentTile });
-    }
-
-    // Re-queue all tiles that still exist only as .json (not yet .json.gz) — migration helper.
-    if (req.method === 'POST' && url.pathname === '/api/requeue-legacy-json') {
-      const tiles = [];
-      for await (const [latI, lonI] of iterateTileFiles(CORE_TILE_DIR, '.json')) {
-        const key = `${latI}|${lonI}`;
-        if (!existsSync(tileGzPath(CORE_TILE_DIR, key))) tiles.push(key);
-      }
-      const added = enqueueTiles(tiles);
-      return sendJson(res, 200, { ok: true, found: tiles.length, added: added.length, queueLength: queue.length });
     }
 
     // Re-queue all already-loaded tiles to force a full refresh (useful after PBF update).
@@ -1551,8 +1927,19 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/repo-sync') {
-      const out = await runRepoSyncCheck();
-      return sendJson(res, out.ok ? 200 : 500, out);
+      startRepoSyncJob();
+      return sendJson(res, 202, {
+        ok: true,
+        started: true,
+        repoSync: lastRepoSync
+      });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/repo-sync') {
+      return sendJson(res, lastRepoSync.ok || lastRepoSync.running ? 200 : 500, {
+        ok: !!lastRepoSync.ok || !!lastRepoSync.running,
+        ...lastRepoSync
+      });
     }
 
     return sendJson(res, 404, { ok: false, error: 'not_found' });

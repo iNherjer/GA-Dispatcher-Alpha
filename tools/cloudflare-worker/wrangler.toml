@@ -9,6 +9,7 @@ legacy_env = true
 OBSTACLE_TILES_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles"
 OBSTACLE_CORE_TILES_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/core-tiles"
 OBSTACLE_POI_TILES_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/poi-tiles"
+BUG_REPORT_NOTIFY_SUBJECT_PREFIX = "[GA Dispatcher]"
 
 # Wichtig:
 # - GA_SYNC_KV muss als KV Binding vorhanden sein (Dashboard oder wrangler.toml).

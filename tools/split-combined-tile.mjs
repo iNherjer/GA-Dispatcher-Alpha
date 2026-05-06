@@ -134,12 +134,22 @@ function compactCore(input) {
   // Final hard cap to keep core tiles predictable in dense urban areas.
   const linCapped = linOut.slice(0, 12000);
   const obsCapped = obs.slice(0, 2000);
+  const rawCounts = input?.counts || {};
+  const rawTotal = Number(rawCounts.obs || 0) + Number(rawCounts.lin || 0) + Number(rawCounts.poi || 0);
 
   return {
     v: 1,
     tile: String(input?.tile || ''),
     source: String(input?.source || ''),
     generatedAt: String(input?.generatedAt || new Date().toISOString()),
+    meta: {
+      dataStatus: rawTotal === 0 ? 'empty' : 'loaded',
+      rawCounts: {
+        obs: Number(rawCounts.obs || 0),
+        lin: Number(rawCounts.lin || 0),
+        poi: Number(rawCounts.poi || 0)
+      }
+    },
     core: {
       obs: obsCapped,
       lin: linCapped
@@ -261,12 +271,22 @@ function compactPoi(input) {
   let poi = [];
   for (const g of Object.keys(groups)) poi = poi.concat(groups[g].slice(0, capPerGroup[g] || 500));
   poi = poi.slice(0, 5000);
+  const rawCounts = input?.counts || {};
+  const rawTotal = Number(rawCounts.obs || 0) + Number(rawCounts.lin || 0) + Number(rawCounts.poi || 0);
 
   return {
     v: 1,
     tile: String(input?.tile || ''),
     source: String(input?.source || ''),
     generatedAt: String(input?.generatedAt || new Date().toISOString()),
+    meta: {
+      dataStatus: rawTotal === 0 ? 'empty' : 'loaded',
+      rawCounts: {
+        obs: Number(rawCounts.obs || 0),
+        lin: Number(rawCounts.lin || 0),
+        poi: Number(rawCounts.poi || 0)
+      }
+    },
     poi: { poi },
     counts: { poi: poi.length }
   };

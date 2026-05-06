@@ -1,0 +1,34 @@
+{
+  "content": [
+    {
+      "path": "manifest.json",
+      "size": 301,
+      "date": "134219374301613300"
+    },
+    {
+      "path": "SimObjects/Misc/EDTWSmokeMarker/sim.cfg",
+      "size": 262,
+      "date": "134219281346925900"
+    },
+    {
+      "path": "SimObjects/Misc/EDTWSmokeMarker/model/model.cfg",
+      "size": 36,
+      "date": "134219242846290350"
+    },
+    {
+      "path": "SimObjects/Misc/EDTWSmokeMarker/model/EDTWSmokeMarker.xml",
+      "size": 737,
+      "date": "134219374302079180"
+    },
+    {
+      "path": "SimObjects/Misc/EDTWSmokeMarker/model/EDTWSmokeMarker_LOD00.gltf",
+      "size": 3374,
+      "date": "134219281768073660"
+    },
+    {
+      "path": "SimObjects/Misc/EDTWSmokeMarker/model/EDTWSmokeMarker_LOD00.bin",
+      "size": 2808,
+      "date": "134219281768062000"
+    }
+  ]
+}

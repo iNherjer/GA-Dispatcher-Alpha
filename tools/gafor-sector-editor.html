@@ -1,0 +1,2516 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GAFOR Sektor Topologie Editor (Extern)</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    html, body { margin: 0; height: 100%; background: #0a0f14; color: #e7eef7; font-family: "Segoe UI", Arial, sans-serif; }
+    .layout { display: grid; grid-template-columns: 360px 1fr; height: 100%; }
+    .panel { border-right: 1px solid #233243; padding: 10px; overflow: auto; }
+    .title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .muted { color: #9cb0c6; font-size: 12px; line-height: 1.4; }
+    .row { margin: 8px 0; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .btn {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #395171;
+      background: #1a2a3a;
+      color: #e7eef7;
+      border-radius: 6px;
+      padding: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      letter-spacing: 0;
+    }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .btn.ok { background: #1c603c; border-color: #2f8d58; }
+    .btn.warn { background: #624513; border-color: #9f7520; }
+    .btn.danger { background: #5e1d1d; border-color: #9f2f2f; }
+    .btn.on { background: #2e8b57; border-color: #49b876; }
+    select, input[type="file"], input[type="text"], input[type="password"], input[type="number"] {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #395171;
+      background: #0f1a25;
+      color: #e7eef7;
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 13px;
+    }
+    #map { height: 100%; }
+    #map.draw-crosshair,
+    #map.draw-crosshair .leaflet-container,
+    #map.draw-crosshair .leaflet-pane {
+      cursor: crosshair !important;
+    }
+    #map.overlay-place-crosshair,
+    #map.overlay-place-crosshair .leaflet-container,
+    #map.overlay-place-crosshair .leaflet-pane {
+      cursor: crosshair !important;
+    }
+    .status {
+      margin-top: 8px;
+      background: #121d2a;
+      border: 1px solid #2e4158;
+      border-radius: 6px;
+      padding: 8px;
+      color: #b6cae1;
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: pre-line;
+    }
+    .mono {
+      margin-top: 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #9db4cc;
+      word-break: break-all;
+    }
+    .range-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #c7d5e8;
+      margin-bottom: 4px;
+    }
+    .range-label .val {
+      color: #eef5ff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+    }
+    input[type="range"] {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .sector-id-label {
+      color: #111;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1;
+      text-align: center;
+      text-shadow: 0 0 2px rgba(255, 255, 255, 0.96), 0 0 7px rgba(255, 255, 255, 0.92);
+      pointer-events: none;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="panel">
+      <div class="title">GAFOR Sektor Topologie Editor (Extern)</div>
+      <div class="muted">
+        Gemeinsame Grenzen bleiben verbunden: Wenn du einen Knoten ziehst, wandern benachbarte Sektoren mit.
+        Rechtsklick auf Knoten entfernt ihn (wenn moeglich). Insert-Modus: Klick auf Segment fuegt Knoten ein.
+        Loesen-Modus: Klick auf Knoten loest ihn im aktiven Sektor. Snap kann Knoten beim Loslassen verbinden.
+      </div>
+
+      <div class="row">
+        <button id="btnLoadDefault" class="btn">Default-Polygone aus App laden</button>
+      </div>
+      <div class="row">
+        <select id="sectorSelect"></select>
+      </div>
+      <div class="row">
+        <select id="idTargetSelect"></select>
+      </div>
+      <div class="row grid2">
+        <button id="btnSwapIds" class="btn">IDs tauschen</button>
+        <button id="btnMoveToId" class="btn warn">Aktive auf Ziel-ID</button>
+      </div>
+      <div class="row grid2">
+        <button id="btnDraw" class="btn warn">Neu zeichnen</button>
+        <button id="btnInsertMode" class="btn">Insert auf Grenze</button>
+      </div>
+      <div class="row">
+        <button id="btnSplitMode" class="btn warn">Kante ziehen (2 Nodes)</button>
+      </div>
+      <div class="row grid2">
+        <button id="btnDetachMode" class="btn">Loesen (aktiv)</button>
+        <button id="btnSnapToggle" class="btn on">Snap beim Loslassen</button>
+      </div>
+      <div class="row">
+        <button id="btnDeleteSegMode" class="btn danger">Linie loeschen / zusammenfuehren</button>
+      </div>
+      <div class="row">
+        <button id="btnEditAll" class="btn">Global Edit (alle Nodes)</button>
+      </div>
+      <div class="row grid2">
+        <button id="btnUndo" class="btn">Undo</button>
+        <button id="btnCancel" class="btn">Abbrechen</button>
+      </div>
+      <div class="row grid2">
+        <button id="btnApplyToOverrides" class="btn ok">In App speichern</button>
+        <button id="btnResetActive" class="btn danger">Aktiven reset</button>
+      </div>
+      <div class="row grid2">
+        <button id="btnExportDataset" class="btn">Export Datenbasis</button>
+        <button id="btnExportOverrides" class="btn">Export Overrides</button>
+      </div>
+      <div class="row">
+        <label class="range-label">Referenzhoehe (ft)</label>
+        <input id="metaRefFt" type="number" min="0" max="20000" step="50" value="900">
+      </div>
+      <div class="row grid2">
+        <input id="metaProbeLat" type="number" step="0.0001" placeholder="Messpunkt Lat">
+        <input id="metaProbeLon" type="number" step="0.0001" placeholder="Messpunkt Lon">
+      </div>
+      <div class="row grid2">
+        <button id="btnProbeFromCenter" class="btn">Messpunkt = Sektormitte</button>
+        <button id="btnMetaApply" class="btn">Messpunkt/Ref speichern</button>
+      </div>
+      <div class="row">
+        <input id="ghRepo" type="text" placeholder="GitHub Repo, z.B. owner/repo">
+      </div>
+      <div class="row grid2">
+        <input id="ghBranch" type="text" value="main" placeholder="Branch">
+        <input id="ghPath" type="text" value="data/gafor-sector-dataset-de.json" placeholder="Dateipfad im Repo">
+      </div>
+      <div class="row">
+        <input id="ghToken" type="password" placeholder="GitHub Token (optional bei lokalem Editor-Server)">
+      </div>
+      <div class="row grid2">
+        <button id="btnPublishGithub" class="btn ok">Dataset zu GitHub pushen</button>
+        <button id="btnCopyDatasetJson" class="btn">Dataset JSON kopieren</button>
+      </div>
+      <div class="row grid2">
+        <button id="btnSaveDraft" class="btn">Entwurf speichern</button>
+        <button id="btnLoadDraft" class="btn">Entwurf laden</button>
+      </div>
+      <div class="row grid2">
+        <button id="btnBackupNow" class="btn">Backup jetzt</button>
+        <button id="btnLoadBackup" class="btn">Backup laden</button>
+      </div>
+      <div class="row grid2">
+        <button id="btnImportPrompt" class="btn">Import JSON</button>
+        <button id="btnResetAll" class="btn danger">Alle reset</button>
+      </div>
+      <div class="row">
+        <button id="btnResetComplete" class="btn danger">Komplett reset (alles leer)</button>
+      </div>
+      <div class="row">
+        <input id="importFile" type="file" accept=".json,application/json">
+      </div>
+      <div class="row">
+        <input id="overlayFile" type="file" accept="image/*">
+      </div>
+      <div class="row grid2">
+        <button id="btnOverlayCenter" class="btn">Overlay auf Mitte</button>
+        <button id="btnOverlayClear" class="btn danger">Overlay entfernen</button>
+      </div>
+      <div class="row">
+        <button id="btnOverlayPlaceMode" class="btn">Overlay per Klick verschieben</button>
+      </div>
+      <div class="row">
+        <label class="range-label">Overlay Breite <span id="overlayWidthVal" class="val"></span></label>
+        <input id="overlayWidth" type="range" min="20" max="1200" step="10" value="420">
+      </div>
+      <div class="row">
+        <label class="range-label">Overlay Hoehe <span id="overlayHeightVal" class="val"></span></label>
+        <input id="overlayHeight" type="range" min="20" max="1200" step="10" value="320">
+      </div>
+      <div class="row">
+        <label class="range-label">Overlay Rotation <span id="overlayRotationVal" class="val"></span></label>
+        <input id="overlayRotation" type="range" min="-180" max="180" step="1" value="0">
+      </div>
+      <div class="row">
+        <label class="range-label">Overlay Transparenz <span id="overlayOpacityVal" class="val"></span></label>
+        <input id="overlayOpacity" type="range" min="0" max="100" step="1" value="45">
+      </div>
+
+      <div id="status" class="status">Status: Initialisiere...</div>
+      <div class="mono" id="meta"></div>
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <iframe id="appProbeFrame" src="../index.html" style="display:none;" tabindex="-1" aria-hidden="true"></iframe>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const STORAGE_KEY = 'ga_gafor_sector_poly_overrides_v1';
+    const DRAFT_STORAGE_KEY = 'ga_gafor_sector_editor_draft_v1';
+    const BACKUP_STORAGE_KEY = 'ga_gafor_sector_editor_backups_v1';
+    const BACKUP_LIMIT = 25;
+    const PUBLISH_CFG_STORAGE_KEY = 'ga_gafor_sector_editor_publish_cfg_v1';
+    const LAST_DATASET_STORAGE_KEY = 'ga_gafor_sector_editor_last_dataset_v1';
+    const DEFAULT_PUBLISH_REPO = 'iNherjer/GA-Dispatcher-Alpha';
+    const DEFAULT_PUBLISH_BRANCH = 'main';
+    const DEFAULT_PUBLISH_PATH = 'data/gafor-sector-dataset-de.json';
+    const META = {
+      '00': 'Deutsche Bucht', '01': 'Ostfriesland', '02': 'Nordfriesland-Dithmarschen',
+      '03': 'Schleswig-Holsteinische Geest', '04': 'Schleswig-Holsteinisches Huegelland',
+      '05': 'Nordwestliches Niedersachsen', '06': 'Lueneburger Heide', '07': 'Westliches Niedersachsen',
+      '08': 'Hannover und Braunschweig', '09': 'Teutoburger Wald', '10': 'Weser-Leine Bergland',
+      '11': 'Mecklenburgisches Tiefland', '12': 'Vorpommern',
+      '13': 'Westliche Mecklenburgische Seenplatte und Prignitz', '14': 'Oestliche Mecklenburgische Seenplatte und Uckermark',
+      '15': 'Altmark', '16': 'Flaeming', '17': 'Havelland', '18': 'Barnim und Oderbruch',
+      '19': 'Dahme-Spree-Gebiet und Gubener Waldland', '20': 'Magdeburger Boerde und noerdl. Harzvorland',
+      '21': 'Harz', '22': 'Leipziger Tieflandsbucht und Elbe-Elster Niederung', '23': 'Niederlausitzer Heiden',
+      '24': 'Thueringer Becken', '25': 'Mittelsaechsisches Huegelland', '26': 'Oberlausitz und Lausitzer Gebirge',
+      '27': 'Thueringer Wald', '28': 'Erzgebirge', '31': 'Niederrheinisches Tiefland',
+      '32': 'Muensterland', '33': 'Ruhrgebiet und Ostwestfalen', '34': 'Niederrheinische Bucht',
+      '35': 'Bergisches Land', '36': 'Sauerland', '37': 'Eifel', '38': 'Neuwieder Becken',
+      '39': 'Westerwald', '41': 'Hunsrueck', '42': 'Taunus',
+      '43': 'Nordhessisches Bergland und Vogelsberg', '44': 'Rheinpfalz und Saarland',
+      '45': 'Rhein-Main Gebiet und Wetterau', '46': 'Odenwald und Spessart', '47': 'Rhoen',
+      '50': 'Suedlicher Oberrheingraben', '51': 'Mittlerer Oberrheingraben', '52': 'Kraichgau',
+      '53': 'Oberer und mittlerer Neckarraum', '54': 'Mainfranken und noerdliches Unterfranken',
+      '55': 'Kocher-Jagst-Gebiet und Frankenhoehe', '56': 'Mittelfranken', '57': 'Oberfranken',
+      '58': 'Frankenwald und Fichtelgebirge', '61': 'Schwarzwald', '62': 'Schwaebische Alb',
+      '63': 'Fraenkische Alb', '64': 'Oberpfaelzer Wald', '71': 'Bodenseeraum',
+      '72': 'Schwaebische Hochebene', '73': 'Westliche Donauniederung', '74': 'Suedbayerisches Huegelland',
+      '75': 'Oestliche Donau- und Naabniederung', '76': 'Bayerischer Wald',
+      '81': 'Westliches Alpenvorland', '82': 'Oestliches Alpenvorland',
+      '83': 'Allgaeuer Alpen', '84': 'Oestliche Bayerische Alpen', '86': 'Suedostbayerische Alpen'
+    };
+    const IDS = Object.keys(META).sort((a, b) => Number(a) - Number(b));
+    const ID_COLLATOR = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
+
+    function isNumericId(id) {
+      return /^\d+$/.test(String(id || ''));
+    }
+
+    function sortSectorIds(list) {
+      return [...list].sort((a, b) => {
+        const an = isNumericId(a);
+        const bn = isNumericId(b);
+        if (an !== bn) return an ? -1 : 1;
+        return ID_COLLATOR.compare(String(a), String(b));
+      });
+    }
+
+    function allSectorIds() {
+      const set = new Set([...IDS, ...Object.keys(state.topo.sectors || {})]);
+      return sortSectorIds(Array.from(set));
+    }
+
+    function sectorLabel(id) {
+      return `${id} ${META[id] || '(temporaer)'}`;
+    }
+
+    function nextTemporarySectorId() {
+      const used = new Set(Object.keys(state.topo.sectors || {}));
+      for (let i = 1; i <= 9999; i++) {
+        const id = `neu${i}`;
+        if (!used.has(id)) return id;
+      }
+      return `neu_${Date.now()}`;
+    }
+    const DEFAULT_MODEL = {
+      projCosLat: Math.cos((51.2 * Math.PI) / 180),
+      weightScale: 0.00018,
+      domain: [
+        [55.05, 8.20], [54.80, 14.90], [52.20, 15.00], [48.00, 13.80], [47.40, 12.00],
+        [47.45, 7.45], [47.95, 7.40], [48.85, 7.32], [49.70, 7.05], [50.55, 6.18],
+        [51.55, 6.06], [52.70, 6.28], [53.80, 6.70], [55.05, 8.20]
+      ],
+      seeds: [
+        { id: '00', lat: 54.93, lon: 7.15 }, { id: '01', lat: 53.95, lon: 7.50 }, { id: '02', lat: 54.72, lon: 8.65 },
+        { id: '03', lat: 54.34, lon: 10.05 }, { id: '04', lat: 54.35, lon: 11.55 }, { id: '05', lat: 53.30, lon: 8.00 },
+        { id: '06', lat: 53.00, lon: 10.05 }, { id: '07', lat: 52.38, lon: 7.70 }, { id: '08', lat: 52.20, lon: 10.05 },
+        { id: '09', lat: 52.05, lon: 8.65 }, { id: '10', lat: 51.65, lon: 9.65 }, { id: '11', lat: 53.72, lon: 12.45 },
+        { id: '12', lat: 54.60, lon: 14.00 }, { id: '13', lat: 53.25, lon: 12.40 }, { id: '14', lat: 53.08, lon: 14.15 },
+        { id: '15', lat: 52.23, lon: 11.65 }, { id: '16', lat: 51.52, lon: 14.02 }, { id: '17', lat: 52.05, lon: 13.05 },
+        { id: '18', lat: 52.00, lon: 14.55 }, { id: '19', lat: 51.45, lon: 13.90 }, { id: '20', lat: 51.18, lon: 11.05 },
+        { id: '21', lat: 51.72, lon: 10.62 }, { id: '22', lat: 51.00, lon: 12.65 }, { id: '23', lat: 50.85, lon: 14.10 },
+        { id: '24', lat: 50.35, lon: 10.75 }, { id: '25', lat: 50.18, lon: 12.70 }, { id: '26', lat: 50.05, lon: 14.48 },
+        { id: '27', lat: 50.62, lon: 11.20 }, { id: '28', lat: 50.42, lon: 12.95 }, { id: '31', lat: 51.85, lon: 6.38 },
+        { id: '32', lat: 51.70, lon: 7.05 }, { id: '33', lat: 51.35, lon: 8.65 }, { id: '34', lat: 50.48, lon: 6.88 },
+        { id: '35', lat: 51.05, lon: 7.35 }, { id: '36', lat: 50.26, lon: 8.44 }, { id: '37', lat: 50.35, lon: 6.35 },
+        { id: '38', lat: 50.23, lon: 7.48 }, { id: '39', lat: 50.42, lon: 8.05 }, { id: '41', lat: 49.78, lon: 7.05 },
+        { id: '42', lat: 50.20, lon: 8.20 }, { id: '43', lat: 50.72, lon: 9.55 }, { id: '44', lat: 49.58, lon: 7.15 },
+        { id: '45', lat: 49.68, lon: 8.85 }, { id: '46', lat: 49.70, lon: 9.35 }, { id: '47', lat: 50.43, lon: 10.03 },
+        { id: '50', lat: 48.55, lon: 7.92 }, { id: '51', lat: 49.10, lon: 8.10 }, { id: '52', lat: 49.00, lon: 8.95 },
+        { id: '53', lat: 49.20, lon: 10.05 }, { id: '54', lat: 49.88, lon: 10.18 }, { id: '55', lat: 49.62, lon: 10.65 },
+        { id: '56', lat: 49.18, lon: 11.55 }, { id: '57', lat: 50.00, lon: 11.62 }, { id: '58', lat: 50.22, lon: 12.20 },
+        { id: '61', lat: 48.05, lon: 8.75 }, { id: '62', lat: 48.20, lon: 10.18 }, { id: '63', lat: 49.15, lon: 11.95 },
+        { id: '64', lat: 49.16, lon: 13.20 }, { id: '71', lat: 47.67, lon: 9.18 }, { id: '72', lat: 48.05, lon: 10.10 },
+        { id: '73', lat: 48.55, lon: 11.65 }, { id: '74', lat: 48.18, lon: 11.80 }, { id: '75', lat: 48.64, lon: 13.20 },
+        { id: '76', lat: 48.95, lon: 13.35 }, { id: '81', lat: 47.75, lon: 10.35 }, { id: '82', lat: 47.78, lon: 12.02 },
+        { id: '83', lat: 47.35, lon: 10.30 }, { id: '84', lat: 47.36, lon: 12.35 }, { id: '86', lat: 47.30, lon: 13.05 }
+      ],
+      refFt: {
+        '00': 0, '01': 200, '02': 100, '03': 200, '04': 300, '05': 200, '06': 400, '07': 300, '08': 600,
+        '09': 700, '10': 1400, '11': 300, '12': 200, '13': 400, '14': 400, '15': 400, '16': 600, '17': 300,
+        '18': 400, '19': 400, '20': 700, '21': 2300, '22': 600, '23': 600, '24': 1400, '25': 1300, '26': 1500,
+        '27': 2800, '28': 2800, '31': 400, '32': 500, '33': 800, '34': 700, '35': 1400, '36': 2400, '37': 2000,
+        '38': 1900, '39': 1900, '41': 2300, '42': 2000, '43': 2000, '44': 1900, '45': 800, '46': 1800, '47': 2800,
+        '50': 1100, '51': 800, '52': 700, '53': 1900, '54': 1400, '55': 1900, '56': 1700, '57': 1900, '58': 2700,
+        '61': 4000, '62': 3000, '63': 2000, '64': 2400, '71': 2100, '72': 2400, '73': 1700, '74': 1800, '75': 1600,
+        '76': 3000, '81': 3300, '82': 2500, '83': 3000, '84': 3500, '86': 3600
+      },
+      biasFt: {
+        '61': 520, '62': 700, '64': 550, '36': 450, '44': 40, '53': 300, '56': 280, '24': 220, '25': 200,
+        '26': 240, '71': 260, '73': 220, '75': 250, '83': 520, '84': 680, '50': 350, '45': -180, '34': -180,
+        '32': -120, '05': -100, '06': -90, '11': -80, '12': -100, '13': -70, '14': -70
+      }
+    };
+
+    const state = {
+      map: null,
+      layer: null,
+      polyLayers: {},
+      labelLayers: {},
+      baseById: {},
+      topo: { nodes: {}, sectors: {} },
+      activeId: '50',
+      editScope: 'active', // active | global
+      mode: 'edit', // edit | insert | draw | split-line | detach | delete-segment
+      snapEnabled: true,
+      notice: '',
+      splitPick: [],
+      overlay: {
+        url: '',
+        centerLat: 51.0,
+        centerLon: 10.5,
+        widthKm: 420,
+        heightKm: 320,
+        rotationDeg: 0,
+        opacity: 0.45,
+        layer: null,
+        svg: null,
+        image: null
+      },
+      overlayPlaceMode: false,
+      drawPoints: [],
+      undo: [],
+      sectorMeta: {}
+    };
+
+    const el = {
+      sector: document.getElementById('sectorSelect'),
+      idTarget: document.getElementById('idTargetSelect'),
+      status: document.getElementById('status'),
+      meta: document.getElementById('meta'),
+      btnLoadDefault: document.getElementById('btnLoadDefault'),
+      btnSwapIds: document.getElementById('btnSwapIds'),
+      btnMoveToId: document.getElementById('btnMoveToId'),
+      btnDraw: document.getElementById('btnDraw'),
+      btnInsertMode: document.getElementById('btnInsertMode'),
+      btnSplitMode: document.getElementById('btnSplitMode'),
+      btnDetachMode: document.getElementById('btnDetachMode'),
+      btnSnapToggle: document.getElementById('btnSnapToggle'),
+      btnDeleteSegMode: document.getElementById('btnDeleteSegMode'),
+      btnEditAll: document.getElementById('btnEditAll'),
+      btnUndo: document.getElementById('btnUndo'),
+      btnCancel: document.getElementById('btnCancel'),
+      btnApplyToOverrides: document.getElementById('btnApplyToOverrides'),
+      btnResetActive: document.getElementById('btnResetActive'),
+      btnExportDataset: document.getElementById('btnExportDataset'),
+      btnExportOverrides: document.getElementById('btnExportOverrides'),
+      metaRefFt: document.getElementById('metaRefFt'),
+      metaProbeLat: document.getElementById('metaProbeLat'),
+      metaProbeLon: document.getElementById('metaProbeLon'),
+      btnProbeFromCenter: document.getElementById('btnProbeFromCenter'),
+      btnMetaApply: document.getElementById('btnMetaApply'),
+      ghRepo: document.getElementById('ghRepo'),
+      ghBranch: document.getElementById('ghBranch'),
+      ghPath: document.getElementById('ghPath'),
+      ghToken: document.getElementById('ghToken'),
+      btnPublishGithub: document.getElementById('btnPublishGithub'),
+      btnCopyDatasetJson: document.getElementById('btnCopyDatasetJson'),
+      btnSaveDraft: document.getElementById('btnSaveDraft'),
+      btnLoadDraft: document.getElementById('btnLoadDraft'),
+      btnBackupNow: document.getElementById('btnBackupNow'),
+      btnLoadBackup: document.getElementById('btnLoadBackup'),
+      btnImportPrompt: document.getElementById('btnImportPrompt'),
+      btnResetAll: document.getElementById('btnResetAll'),
+      btnResetComplete: document.getElementById('btnResetComplete'),
+      importFile: document.getElementById('importFile'),
+      overlayFile: document.getElementById('overlayFile'),
+      btnOverlayCenter: document.getElementById('btnOverlayCenter'),
+      btnOverlayClear: document.getElementById('btnOverlayClear'),
+      btnOverlayPlaceMode: document.getElementById('btnOverlayPlaceMode'),
+      overlayWidth: document.getElementById('overlayWidth'),
+      overlayHeight: document.getElementById('overlayHeight'),
+      overlayRotation: document.getElementById('overlayRotation'),
+      overlayOpacity: document.getElementById('overlayOpacity'),
+      overlayWidthVal: document.getElementById('overlayWidthVal'),
+      overlayHeightVal: document.getElementById('overlayHeightVal'),
+      overlayRotationVal: document.getElementById('overlayRotationVal'),
+      overlayOpacityVal: document.getElementById('overlayOpacityVal'),
+      probe: document.getElementById('appProbeFrame')
+    };
+
+    function setStatus(text) { el.status.textContent = `Status: ${text}`; }
+    function coordKey(lat, lon) { return `${Number(lat).toFixed(4)}|${Number(lon).toFixed(4)}`; }
+    function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+    function normPoly(poly) {
+      if (!Array.isArray(poly) || poly.length < 3) return null;
+      const out = [];
+      for (const p of poly) {
+        const lat = Number(Array.isArray(p) ? p[0] : p && p.lat);
+        const lon = Number(Array.isArray(p) ? p[1] : p && (p.lon ?? p.lng));
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        out.push([Number(lat.toFixed(4)), Number(lon.toFixed(4))]);
+      }
+      if (out.length < 3) return null;
+      const dedup = [];
+      for (const p of out) {
+        const prev = dedup[dedup.length - 1];
+        if (!prev || Math.abs(prev[0] - p[0]) > 1e-5 || Math.abs(prev[1] - p[1]) > 1e-5) dedup.push(p);
+      }
+      if (dedup.length > 2) {
+        const a = dedup[0];
+        const b = dedup[dedup.length - 1];
+        if (Math.abs(a[0] - b[0]) < 1e-5 && Math.abs(a[1] - b[1]) < 1e-5) dedup.pop();
+      }
+      return dedup.length >= 3 ? dedup : null;
+    }
+
+    function buildDefaultPolygonsLocally() {
+      const proj = DEFAULT_MODEL.projCosLat;
+      const toXY = (lat, lon) => ({ x: Number(lon) * proj, y: Number(lat) });
+      const toLatLon = (xy) => [Number(Number(xy.y).toFixed(4)), Number((Number(xy.x) / proj).toFixed(4))];
+      const domain = DEFAULT_MODEL.domain.map((p) => toXY(p[0], p[1]));
+      const seeds = DEFAULT_MODEL.seeds
+        .filter((s) => META[s.id])
+        .map((s) => {
+          const xy = toXY(s.lat, s.lon);
+          const ref = Number(DEFAULT_MODEL.refFt[s.id] || 900);
+          const bias = Number(DEFAULT_MODEL.biasFt[s.id] || 0);
+          const weight = ((ref - 900) + bias) * DEFAULT_MODEL.weightScale;
+          return { ...s, x: xy.x, y: xy.y, weight };
+        });
+
+      function clip(poly, nx, ny, c) {
+        if (!Array.isArray(poly) || poly.length < 3) return [];
+        const out = [];
+        const eps = 1e-9;
+        const sd = (p) => ((nx * p.x) + (ny * p.y) - c);
+        for (let i = 0; i < poly.length; i++) {
+          const s = poly[i];
+          const e = poly[(i + 1) % poly.length];
+          const ds = sd(s);
+          const de = sd(e);
+          const sIn = ds <= eps;
+          const eIn = de <= eps;
+          if (sIn && eIn) out.push({ x: e.x, y: e.y });
+          else if (sIn && !eIn) {
+            const den = ds - de;
+            if (Math.abs(den) > 1e-12) {
+              const t = ds / den;
+              out.push({ x: s.x + ((e.x - s.x) * t), y: s.y + ((e.y - s.y) * t) });
+            }
+          } else if (!sIn && eIn) {
+            const den = ds - de;
+            if (Math.abs(den) > 1e-12) {
+              const t = ds / den;
+              out.push({ x: s.x + ((e.x - s.x) * t), y: s.y + ((e.y - s.y) * t) });
+            }
+            out.push({ x: e.x, y: e.y });
+          }
+        }
+        return out;
+      }
+
+      function clean(poly) {
+        if (!Array.isArray(poly) || poly.length < 3) return [];
+        const out = [];
+        for (const p of poly) {
+          const last = out[out.length - 1];
+          if (!last) { out.push({ x: p.x, y: p.y }); continue; }
+          const dx = p.x - last.x;
+          const dy = p.y - last.y;
+          if ((dx * dx) + (dy * dy) > 1e-10) out.push({ x: p.x, y: p.y });
+        }
+        if (out.length > 1) {
+          const a = out[0], b = out[out.length - 1];
+          const dx = a.x - b.x, dy = a.y - b.y;
+          if ((dx * dx) + (dy * dy) <= 1e-10) out.pop();
+        }
+        return out.length >= 3 ? out : [];
+      }
+
+      const out = {};
+      for (const a of seeds) {
+        let cell = domain.map((p) => ({ x: p.x, y: p.y }));
+        for (const b of seeds) {
+          if (!b || b.id === a.id) continue;
+          const nx = 2 * (b.x - a.x);
+          const ny = 2 * (b.y - a.y);
+          const c = ((b.x * b.x) + (b.y * b.y) - (a.x * a.x) - (a.y * a.y)) + a.weight - b.weight;
+          cell = clip(cell, nx, ny, c);
+          if (cell.length < 3) break;
+        }
+        cell = clean(cell);
+        if (cell.length < 3) continue;
+        const poly = normPoly(cell.map(toLatLon));
+        if (poly) out[a.id] = poly;
+      }
+      return out;
+    }
+
+    function readAppOverrides() {
+      let parsed = {};
+      try { parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (_) {}
+      const src = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed.sectors && typeof parsed.sectors === 'object' ? parsed.sectors : parsed)
+        : {};
+      const out = {};
+      for (const id of Object.keys(src)) {
+        if (!META[id]) continue;
+        const poly = normPoly(src[id]);
+        if (poly) out[id] = poly;
+      }
+      return out;
+    }
+
+    function writeAppOverrides(polysById) {
+      const sectors = {};
+      for (const id of Object.keys(polysById || {})) {
+        if (!META[id]) continue;
+        const poly = normPoly(polysById[id]);
+        if (poly) sectors[id] = poly;
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        sectors
+      }));
+    }
+
+    function buildTopologyFromPolys(polysById) {
+      const nodes = {};
+      const nodeIdByKey = {};
+      const sectors = {};
+      let nodeSeq = 1;
+
+      function addNode(lat, lon) {
+        const k = coordKey(lat, lon);
+        if (nodeIdByKey[k]) return nodeIdByKey[k];
+        const id = `n${nodeSeq++}`;
+        nodeIdByKey[k] = id;
+        nodes[id] = { lat: Number(lat.toFixed(4)), lon: Number(lon.toFixed(4)) };
+        return id;
+      }
+
+      const ids = sortSectorIds(Object.keys(polysById || {}));
+      for (const id of ids) {
+        const poly = normPoly(polysById[id]);
+        if (!poly) continue;
+        const ring = [];
+        for (const p of poly) {
+          const nid = addNode(p[0], p[1]);
+          const prev = ring[ring.length - 1];
+          if (prev !== nid) ring.push(nid);
+        }
+        if (ring.length >= 3) sectors[id] = { ring };
+      }
+      return { nodes, sectors };
+    }
+
+    function polygonsFromTopology() {
+      const out = {};
+      for (const id of Object.keys(state.topo.sectors)) {
+        const ring = state.topo.sectors[id].ring || [];
+        const poly = [];
+        for (const nid of ring) {
+          const n = state.topo.nodes[nid];
+          if (!n) continue;
+          poly.push([Number(n.lat.toFixed(4)), Number(n.lon.toFixed(4))]);
+        }
+        const norm = normPoly(poly);
+        if (norm) out[id] = norm;
+      }
+      return out;
+    }
+
+    function pushUndo() {
+      state.undo.push(deepClone({
+        topo: state.topo,
+        mode: state.mode,
+        drawPoints: state.drawPoints,
+        splitPick: state.splitPick,
+        sectorMeta: state.sectorMeta
+      }));
+      if (state.undo.length > 80) state.undo.shift();
+    }
+
+    function normalizeRingInPlace(ring) {
+      if (!Array.isArray(ring) || ring.length < 2) return ring;
+      for (let i = ring.length - 1; i > 0; i--) {
+        if (ring[i] === ring[i - 1]) ring.splice(i, 1);
+      }
+      if (ring.length > 2 && ring[0] === ring[ring.length - 1]) ring.pop();
+      return ring;
+    }
+
+    function sectorsUsingNode(nid) {
+      const out = [];
+      for (const sid of Object.keys(state.topo.sectors)) {
+        const ring = state.topo.sectors[sid].ring || [];
+        if (ring.includes(nid)) out.push(sid);
+      }
+      return out;
+    }
+
+    function editableSectorIds() {
+      if (state.editScope === 'global') return Object.keys(state.topo.sectors);
+      return [state.activeId];
+    }
+
+    function nearestSegment(latlng, opts = {}) {
+      let best = null;
+      const p = state.map.latLngToContainerPoint(latlng);
+      const sids = Array.isArray(opts.sids) && opts.sids.length ? opts.sids : editableSectorIds();
+      const excludeNodeId = opts.excludeNodeId || null;
+      const maxPx = Number.isFinite(opts.maxPx) ? opts.maxPx : 18;
+      for (const sid of sids) {
+        const sec = state.topo.sectors[sid];
+        if (!sec || !Array.isArray(sec.ring) || sec.ring.length < 2) continue;
+        const ring = sec.ring;
+        for (let i = 0; i < ring.length; i++) {
+          if (excludeNodeId && (ring[i] === excludeNodeId || ring[(i + 1) % ring.length] === excludeNodeId)) continue;
+          const a = state.topo.nodes[ring[i]];
+          const b = state.topo.nodes[ring[(i + 1) % ring.length]];
+          if (!a || !b) continue;
+          const pa = state.map.latLngToContainerPoint([a.lat, a.lon]);
+          const pb = state.map.latLngToContainerPoint([b.lat, b.lon]);
+          const vx = pb.x - pa.x;
+          const vy = pb.y - pa.y;
+          const wx = p.x - pa.x;
+          const wy = p.y - pa.y;
+          const c1 = (vx * wx) + (vy * wy);
+          const c2 = (vx * vx) + (vy * vy);
+          const t = c2 > 1e-9 ? Math.max(0, Math.min(1, c1 / c2)) : 0;
+          const qx = pa.x + (t * vx);
+          const qy = pa.y + (t * vy);
+          const dx = p.x - qx;
+          const dy = p.y - qy;
+          const d = Math.sqrt((dx * dx) + (dy * dy));
+          if (!best || d < best.d) {
+            best = { sid, i, d, t, a: ring[i], b: ring[(i + 1) % ring.length], lat: a.lat + ((b.lat - a.lat) * t), lon: a.lon + ((b.lon - a.lon) * t) };
+          }
+        }
+      }
+      return best && best.d <= maxPx ? best : null;
+    }
+
+    function nearestNode(latlng, opts = {}) {
+      const p = state.map.latLngToContainerPoint(latlng);
+      const excludeNodeId = opts.excludeNodeId || null;
+      const maxPx = Number.isFinite(opts.maxPx) ? opts.maxPx : 16;
+      let ids = [];
+      if (Array.isArray(opts.nodeIds) && opts.nodeIds.length) ids = opts.nodeIds;
+      else ids = Object.keys(state.topo.nodes);
+      let best = null;
+      for (const nid of ids) {
+        if (!nid || nid === excludeNodeId) continue;
+        const n = state.topo.nodes[nid];
+        if (!n) continue;
+        const pn = state.map.latLngToContainerPoint([n.lat, n.lon]);
+        const dx = p.x - pn.x;
+        const dy = p.y - pn.y;
+        const d = Math.sqrt((dx * dx) + (dy * dy));
+        if (!best || d < best.d) best = { nid, d, lat: n.lat, lon: n.lon };
+      }
+      return best && best.d <= maxPx ? best : null;
+    }
+
+    function mergeNodeInto(sourceId, targetId) {
+      if (!sourceId || !targetId || sourceId === targetId) return false;
+      if (!state.topo.nodes[sourceId] || !state.topo.nodes[targetId]) return false;
+      for (const sid of Object.keys(state.topo.sectors)) {
+        const ring = state.topo.sectors[sid].ring || [];
+        let changed = false;
+        for (let i = 0; i < ring.length; i++) {
+          if (ring[i] === sourceId) {
+            ring[i] = targetId;
+            changed = true;
+          }
+        }
+        if (changed) normalizeRingInPlace(ring);
+      }
+      delete state.topo.nodes[sourceId];
+      return true;
+    }
+
+    function attachNodeToSharedEdge(nodeId, seg) {
+      if (!nodeId || !seg || !seg.a || !seg.b) return false;
+      const node = state.topo.nodes[nodeId];
+      if (!node) return false;
+      node.lat = Number(seg.lat.toFixed(4));
+      node.lon = Number(seg.lon.toFixed(4));
+      let inserted = false;
+      const refs = allSegmentsUsingEdge(seg.a, seg.b);
+      for (const ref of refs) {
+        const ring = state.topo.sectors[ref.sid].ring || [];
+        if (ring.includes(nodeId)) continue;
+        ring.splice(ref.i + 1, 0, nodeId);
+        normalizeRingInPlace(ring);
+        inserted = true;
+      }
+      return inserted;
+    }
+
+    function detachNodeFromActiveSector(nodeId) {
+      if (!nodeId) return false;
+      const sec = state.topo.sectors[state.activeId];
+      if (!sec || !Array.isArray(sec.ring) || !sec.ring.includes(nodeId)) return false;
+      const usedBy = sectorsUsingNode(nodeId);
+      if (usedBy.length <= 1) return false;
+      const src = state.topo.nodes[nodeId];
+      if (!src) return false;
+      const cloneId = `n${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+      state.topo.nodes[cloneId] = { lat: src.lat, lon: src.lon };
+      const ring = sec.ring;
+      for (let i = 0; i < ring.length; i++) {
+        if (ring[i] === nodeId) ring[i] = cloneId;
+      }
+      normalizeRingInPlace(ring);
+      return true;
+    }
+
+    function snapNodeAtDragEnd(nodeId) {
+      if (!state.snapEnabled) return null;
+      const node = state.topo.nodes[nodeId];
+      if (!node) return null;
+      const ll = L.latLng(node.lat, node.lon);
+      const nearNode = nearestNode(ll, { excludeNodeId: nodeId, maxPx: 16 });
+      if (nearNode && mergeNodeInto(nodeId, nearNode.nid)) return `an Knoten ${nearNode.nid} gesnappt`;
+      const nearSeg = nearestSegment(ll, { excludeNodeId: nodeId, maxPx: 14 });
+      if (nearSeg && attachNodeToSharedEdge(nodeId, nearSeg)) return `an Grenze ${nearSeg.sid} angeheftet`;
+      return null;
+    }
+
+    function allSegmentsUsingEdge(a, b) {
+      const hits = [];
+      for (const sid of Object.keys(state.topo.sectors)) {
+        const ring = state.topo.sectors[sid].ring || [];
+        for (let i = 0; i < ring.length; i++) {
+          const u = ring[i];
+          const v = ring[(i + 1) % ring.length];
+          if ((u === a && v === b) || (u === b && v === a)) hits.push({ sid, i, u, v });
+        }
+      }
+      return hits;
+    }
+
+    function insertNodeOnSharedEdge(seg) {
+      if (!seg) return false;
+      pushUndo();
+      const newId = `n${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+      state.topo.nodes[newId] = { lat: Number(seg.lat.toFixed(4)), lon: Number(seg.lon.toFixed(4)) };
+      const refs = allSegmentsUsingEdge(seg.a, seg.b);
+      for (const ref of refs) {
+        const ring = state.topo.sectors[ref.sid].ring;
+        ring.splice(ref.i + 1, 0, newId);
+      }
+      return true;
+    }
+
+    function removeNodeFromActive(index) {
+      const sec = state.topo.sectors[state.activeId];
+      if (!sec) return;
+      const ring = sec.ring;
+      if (ring.length <= 3) return;
+      const nid = ring[index];
+      pushUndo();
+      ring.splice(index, 1);
+
+      // Wenn der Knoten in keinem Sektor mehr verwendet wird, aus Knotenliste entfernen.
+      let used = false;
+      for (const sid of Object.keys(state.topo.sectors)) {
+        if ((state.topo.sectors[sid].ring || []).includes(nid)) { used = true; break; }
+      }
+      if (!used) delete state.topo.nodes[nid];
+    }
+
+    function removeSegmentFromSector(seg, sid) {
+      if (!seg) return false;
+      const sectorId = sid || state.activeId;
+      const sec = state.topo.sectors[sectorId];
+      if (!sec || !Array.isArray(sec.ring) || sec.ring.length <= 3) return false;
+      const ring = sec.ring;
+      const removeIdx = (seg.i + 1) % ring.length;
+      const nid = ring[removeIdx];
+      if (!nid) return false;
+
+      const before = ring.slice();
+      ring.splice(removeIdx, 1);
+      normalizeRingInPlace(ring);
+      if (ring.length < 3) {
+        sec.ring = before;
+        return false;
+      }
+
+      let used = false;
+      for (const sid of Object.keys(state.topo.sectors)) {
+        const r = state.topo.sectors[sid].ring || [];
+        if (r.includes(nid)) { used = true; break; }
+      }
+      if (!used) delete state.topo.nodes[nid];
+      return true;
+    }
+
+    function cleanupOrphanNodes() {
+      const used = new Set();
+      for (const sid of Object.keys(state.topo.sectors)) {
+        const ring = state.topo.sectors[sid].ring || [];
+        for (const nid of ring) used.add(nid);
+      }
+      for (const nid of Object.keys(state.topo.nodes)) {
+        if (!used.has(nid)) delete state.topo.nodes[nid];
+      }
+    }
+
+    function ringEdges(ring) {
+      const out = [];
+      const n = Array.isArray(ring) ? ring.length : 0;
+      if (n < 2) return out;
+      for (let i = 0; i < n; i++) out.push({ u: ring[i], v: ring[(i + 1) % n] });
+      return out;
+    }
+
+    function ringSignedArea(ring) {
+      if (!Array.isArray(ring) || ring.length < 3) return 0;
+      let sum = 0;
+      for (let i = 0; i < ring.length; i++) {
+        const a = state.topo.nodes[ring[i]];
+        const b = state.topo.nodes[ring[(i + 1) % ring.length]];
+        if (!a || !b) continue;
+        sum += (a.lon * b.lat) - (b.lon * a.lat);
+      }
+      return 0.5 * sum;
+    }
+
+    function traceLoopFromDirectedEdges(edges) {
+      const byStart = new Map();
+      const used = new Array(edges.length).fill(false);
+      for (let i = 0; i < edges.length; i++) {
+        const e = edges[i];
+        if (!byStart.has(e.u)) byStart.set(e.u, []);
+        byStart.get(e.u).push(i);
+      }
+
+      const loops = [];
+      for (let startIdx = 0; startIdx < edges.length; startIdx++) {
+        if (used[startIdx]) continue;
+        const loop = [];
+        let idx = startIdx;
+        let curr = edges[idx].u;
+        let prev = null;
+        const guard = (edges.length * 3) + 10;
+        let steps = 0;
+        const startNode = curr;
+
+        while (steps++ < guard) {
+          loop.push(curr);
+          const candidates = (byStart.get(curr) || []).filter((ei) => !used[ei]);
+          if (!candidates.length) break;
+          let nextIdx = candidates[0];
+          if (candidates.length > 1 && prev) {
+            const alt = candidates.find((ei) => edges[ei].v !== prev);
+            if (alt != null) nextIdx = alt;
+          }
+          used[nextIdx] = true;
+          const e = edges[nextIdx];
+          prev = curr;
+          curr = e.v;
+          if (curr === startNode) {
+            if (loop.length >= 3) loops.push(loop.slice());
+            break;
+          }
+        }
+      }
+      if (!loops.length) return null;
+      loops.sort((a, b) => Math.abs(ringSignedArea(b)) - Math.abs(ringSignedArea(a)));
+      return normalizeRingInPlace(loops[0].slice());
+    }
+
+    function mergeAcrossSharedSegment(seg, preferredSid) {
+      if (!seg) return { ok: false, reason: 'Kein Segment.' };
+      const refs = allSegmentsUsingEdge(seg.a, seg.b);
+      const uniqueSids = Array.from(new Set(refs.map((r) => r.sid)));
+      if (uniqueSids.length < 2) return { ok: false, reason: 'Segment ist keine gemeinsame Grenze mit einem Nachbarsektor.' };
+      if (uniqueSids.length > 2) return { ok: false, reason: 'Segment wird von mehr als zwei Sektoren genutzt.' };
+
+      let keepSid = uniqueSids[0];
+      if (preferredSid && uniqueSids.includes(preferredSid)) keepSid = preferredSid;
+      const removeSid = uniqueSids.find((sid) => sid !== keepSid);
+
+      const a = state.topo.sectors[keepSid];
+      const b = state.topo.sectors[removeSid];
+      if (!a || !b) return { ok: false, reason: 'Sektoren fehlen in Topologie.' };
+
+      const raw = [...ringEdges(a.ring), ...ringEdges(b.ring)];
+      const byUnd = new Map();
+      for (const e of raw) {
+        const k = e.u < e.v ? `${e.u}|${e.v}` : `${e.v}|${e.u}`;
+        if (!byUnd.has(k)) byUnd.set(k, []);
+        byUnd.get(k).push(e);
+      }
+      const boundary = [];
+      for (const entries of byUnd.values()) {
+        if (entries.length === 2) {
+          const e1 = entries[0];
+          const e2 = entries[1];
+          if (e1.u === e2.v && e1.v === e2.u) continue; // innere gemeinsame Kante
+        }
+        boundary.push(...entries);
+      }
+      const mergedRing = traceLoopFromDirectedEdges(boundary);
+      if (!mergedRing || mergedRing.length < 3) {
+        return { ok: false, reason: 'Zusammenfuehren nicht eindeutig (Boundary-Loop fehlgeschlagen).' };
+      }
+      state.topo.sectors[keepSid].ring = mergedRing;
+      delete state.topo.sectors[removeSid];
+      delete state.sectorMeta[removeSid];
+      ensureSectorMeta(keepSid);
+      cleanupOrphanNodes();
+      return { ok: true, keepSid, mergedSector: removeSid };
+    }
+
+    function removeNodeEverywhere(nid) {
+      const refs = [];
+      for (const sid of Object.keys(state.topo.sectors)) {
+        const ring = state.topo.sectors[sid].ring || [];
+        for (let i = 0; i < ring.length; i++) {
+          if (ring[i] === nid) refs.push({ sid, i });
+        }
+      }
+      if (!refs.length) return false;
+      for (const ref of refs) {
+        const ring = state.topo.sectors[ref.sid].ring || [];
+        if (ring.length <= 3) return false;
+      }
+      pushUndo();
+      for (const ref of refs) {
+        const ring = state.topo.sectors[ref.sid].ring || [];
+        const at = ring.indexOf(nid);
+        if (at >= 0) ring.splice(at, 1);
+      }
+      delete state.topo.nodes[nid];
+      return true;
+    }
+
+    function polygonLatLngsForSectorId(id) {
+      const sec = state.topo.sectors[id];
+      if (!sec) return [];
+      const out = [];
+      for (const nid of sec.ring || []) {
+        const n = state.topo.nodes[nid];
+        if (!n) continue;
+        out.push([n.lat, n.lon]);
+      }
+      return out;
+    }
+
+    function polygonCenter(latlngs) {
+      if (!Array.isArray(latlngs) || !latlngs.length) return null;
+      let lat = 0;
+      let lon = 0;
+      for (const p of latlngs) {
+        lat += Number(p[0]) || 0;
+        lon += Number(p[1]) || 0;
+      }
+      return [lat / latlngs.length, lon / latlngs.length];
+    }
+
+    function defaultRefFtForSector(id) {
+      const candidate = Number(DEFAULT_MODEL && DEFAULT_MODEL.refFt && DEFAULT_MODEL.refFt[id]);
+      return Number.isFinite(candidate) ? Math.max(0, Math.round(candidate)) : 900;
+    }
+
+    function defaultProbeForSector(id) {
+      const poly = polygonLatLngsForSectorId(id);
+      const center = polygonCenter(poly) || [51.0, 10.0];
+      return {
+        lat: Number(Number(center[0]).toFixed(4)),
+        lon: Number(Number(center[1]).toFixed(4))
+      };
+    }
+
+    function canonicalSectorName(id, fallbackName = '') {
+      if (META[id]) return String(META[id]);
+      const fb = String(fallbackName || '').trim();
+      return fb || `Sektor ${id}`;
+    }
+
+    function normalizedSectorMetaForId(id, fallbackCenter = null) {
+      const current = state.sectorMeta[id] || {};
+      const center = fallbackCenter || defaultProbeForSector(id);
+      const refCandidate = Number(current.refFt);
+      const latCandidate = Number(current && current.probe && current.probe.lat);
+      const lonCandidate = Number(current && current.probe && current.probe.lon);
+      return {
+        name: canonicalSectorName(id, current.name),
+        refFt: Number.isFinite(refCandidate) ? Math.max(0, Math.round(refCandidate)) : defaultRefFtForSector(id),
+        probe: {
+          lat: Number(Number(Number.isFinite(latCandidate) ? latCandidate : center.lat).toFixed(4)),
+          lon: Number(Number(Number.isFinite(lonCandidate) ? lonCandidate : center.lon).toFixed(4))
+        }
+      };
+    }
+
+    function ensureSectorMeta(id) {
+      if (!id) return null;
+      const center = defaultProbeForSector(id);
+      state.sectorMeta[id] = normalizedSectorMetaForId(id, center);
+      return state.sectorMeta[id];
+    }
+
+    function syncMetaInputsForActive() {
+      if (!state.activeId) return;
+      const meta = ensureSectorMeta(state.activeId);
+      if (!meta) return;
+      el.metaRefFt.value = String(meta.refFt);
+      el.metaProbeLat.value = String(Number(meta.probe.lat).toFixed(4));
+      el.metaProbeLon.value = String(Number(meta.probe.lon).toFixed(4));
+    }
+
+    function applyMetaInputsToActive() {
+      if (!state.activeId) return false;
+      const fallback = defaultProbeForSector(state.activeId);
+      const refCandidate = Number(el.metaRefFt.value);
+      const latCandidate = Number(el.metaProbeLat.value);
+      const lonCandidate = Number(el.metaProbeLon.value);
+      state.sectorMeta[state.activeId] = {
+        name: canonicalSectorName(state.activeId),
+        refFt: Number.isFinite(refCandidate) ? Math.max(0, Math.round(refCandidate)) : defaultRefFtForSector(state.activeId),
+        probe: {
+          lat: Number(Number(Number.isFinite(latCandidate) ? latCandidate : fallback.lat).toFixed(4)),
+          lon: Number(Number(Number.isFinite(lonCandidate) ? lonCandidate : fallback.lon).toFixed(4))
+        }
+      };
+      syncMetaInputsForActive();
+      return true;
+    }
+
+    function updateLabelForSector(sid) {
+      const label = state.labelLayers[sid];
+      if (!label) return;
+      const center = polygonCenter(polygonLatLngsForSectorId(sid));
+      if (center) label.setLatLng(center);
+    }
+
+    function updatePolygonsForNode(nid) {
+      for (const sid of Object.keys(state.topo.sectors)) {
+        const sec = state.topo.sectors[sid];
+        if (!sec || !(sec.ring || []).includes(nid)) continue;
+        const polyLayer = state.polyLayers[sid];
+        if (polyLayer) polyLayer.setLatLngs(polygonLatLngsForSectorId(sid));
+        updateLabelForSector(sid);
+      }
+    }
+
+    function render() {
+      state.layer.clearLayers();
+      state.polyLayers = {};
+      state.labelLayers = {};
+      const polys = polygonsFromTopology();
+
+      const sectorIds = sortSectorIds(Object.keys(polys));
+      for (const id of sectorIds) {
+        const poly = polys[id];
+        if (!poly) continue;
+        const active = id === state.activeId;
+        const showAsActive = state.editScope === 'active' && active;
+        const layer = L.polygon(poly, {
+          color: showAsActive ? '#eeff33' : '#d7ff00',
+          weight: showAsActive ? 5.6 : 3.4,
+          opacity: showAsActive ? 1 : 0.9,
+          fillColor: showAsActive ? '#eeff33' : '#d7ff00',
+          fillOpacity: showAsActive ? 0.12 : 0.05,
+          dashArray: showAsActive ? null : '4 4',
+          interactive: false
+        }).addTo(state.layer);
+        state.polyLayers[id] = layer;
+
+        const center = polygonCenter(poly);
+        if (center) {
+          const label = L.marker(center, {
+            interactive: false,
+            keyboard: false,
+            icon: L.divIcon({
+              className: 'sector-id-label',
+              html: id,
+              iconSize: [24, 14],
+              iconAnchor: [12, 7]
+            })
+          }).addTo(state.layer);
+          state.labelLayers[id] = label;
+        }
+      }
+
+      if (state.mode !== 'draw') {
+        const nodeIds = [];
+        if (state.editScope === 'global') {
+          nodeIds.push(...Object.keys(state.topo.nodes));
+        } else {
+          const sec = state.topo.sectors[state.activeId];
+          if (sec) nodeIds.push(...sec.ring);
+        }
+
+        const seen = new Set();
+        for (const nid of nodeIds) {
+          if (seen.has(nid)) continue;
+          seen.add(nid);
+          const n = state.topo.nodes[nid];
+          if (!n) continue;
+          const inActive = !!(state.topo.sectors[state.activeId] && (state.topo.sectors[state.activeId].ring || []).includes(nid));
+          const isSplitSelected = state.mode === 'split-line' && state.splitPick.includes(nid);
+          const nodeBg = isSplitSelected ? '#ff8a65' : (inActive ? '#ffe86b' : '#c7d5e8');
+          const nodeBorder = isSplitSelected ? '#4a1600' : '#111';
+          const nodeHalo = isSplitSelected ? '#ff5a1f' : '#ffb300';
+          const marker = L.marker([n.lat, n.lon], {
+            draggable: state.mode !== 'split-line',
+            icon: L.divIcon({
+              className: 'node-handle',
+              html: `<div style="width:10px;height:10px;border:2px solid ${nodeBorder};background:${nodeBg};border-radius:50%;box-shadow:0 0 0 1px ${nodeHalo};"></div>`,
+              iconSize: [14, 14],
+              iconAnchor: [7, 7]
+            })
+          });
+          marker.on('dragstart', () => pushUndo());
+          marker.on('drag', (ev) => {
+            const ll = ev.target.getLatLng();
+            n.lat = Number(ll.lat.toFixed(4));
+            n.lon = Number(ll.lng.toFixed(4));
+            updatePolygonsForNode(nid);
+          });
+          marker.on('dragend', () => {
+            const snapInfo = snapNodeAtDragEnd(nid);
+            state.notice = snapInfo ? `Snap: ${snapInfo}` : '';
+            render();
+          });
+          marker.on('click', (ev) => {
+            if (state.mode === 'split-line') {
+              if (ev && ev.originalEvent) ev.originalEvent.preventDefault();
+              if (!inActive) {
+                state.notice = 'Split geht nur mit Nodes aus dem aktiven Sektor.';
+                render();
+                return;
+              }
+              if (state.splitPick.includes(nid)) {
+                state.splitPick = state.splitPick.filter((x) => x !== nid);
+                state.notice = `Node ${nid} abgewaehlt.`;
+                render();
+                return;
+              }
+              state.splitPick.push(nid);
+              if (state.splitPick.length < 2) {
+                state.notice = `Node 1 gesetzt (${nid}). Waehle Node 2.`;
+                render();
+                return;
+              }
+              const [a, b] = state.splitPick.slice(-2);
+              const requestedTargetId = String(el.idTarget.value || '');
+              let targetId = requestedTargetId;
+              let targetAutoNote = '';
+              if (!targetId || targetId === state.activeId || state.topo.sectors[targetId]) {
+                const tmpId = nextTemporarySectorId();
+                targetAutoNote = requestedTargetId
+                  ? ` (Ziel ${requestedTargetId} belegt/ungueltig, nutze ${tmpId})`
+                  : ` (keine Ziel-ID gewaehlt, nutze ${tmpId})`;
+                targetId = tmpId;
+              }
+              pushUndo();
+              const split = splitActiveSectorByNodes(a, b, targetId);
+              if (!split.ok) {
+                state.undo.pop();
+                state.notice = `Split fehlgeschlagen: ${split.reason}`;
+              } else {
+                state.notice = `Neue Trennlinie gesetzt. Zweitflaeche auf ID ${targetId}.${targetAutoNote}`;
+              }
+              state.splitPick = [];
+              populateSectorSelect();
+              render();
+              return;
+            }
+            if (state.mode !== 'detach') return;
+            if (ev && ev.originalEvent) ev.originalEvent.preventDefault();
+            pushUndo();
+            const detached = detachNodeFromActiveSector(nid);
+            if (!detached) {
+              state.undo.pop();
+              state.notice = 'Loesen nicht moeglich: Node ist bereits exklusiv oder nicht im aktiven Sektor.';
+            } else {
+              state.notice = 'Node im aktiven Sektor geloest. Jetzt verschieben und bei Bedarf snappen.';
+            }
+            render();
+          });
+          marker.on('contextmenu', (ev) => {
+            if (ev && ev.originalEvent) ev.originalEvent.preventDefault();
+            if (state.editScope === 'global') {
+              if (!removeNodeEverywhere(nid)) setStatus('Node kann hier nicht geloescht werden (Min. 3 Punkte pro Sektor).');
+            } else {
+              const sec = state.topo.sectors[state.activeId];
+              const idx = sec ? sec.ring.indexOf(nid) : -1;
+              if (idx >= 0) removeNodeFromActive(idx);
+            }
+            render();
+          });
+          marker.addTo(state.layer);
+        }
+      }
+
+      if (state.mode === 'draw' && state.drawPoints.length > 0) {
+        L.polyline(state.drawPoints, { color: '#ffd84d', weight: 2.4, dashArray: '6 4' }).addTo(state.layer);
+      }
+
+      refreshUi();
+    }
+
+    function refreshUi() {
+      const nodeCount = Object.keys(state.topo.nodes).length;
+      const sectorCount = Object.keys(state.topo.sectors).length;
+      const modeText = state.mode === 'draw' ? `Zeichnen ${state.activeId} (${state.drawPoints.length} Punkte)` :
+        state.mode === 'insert' ? `Insert-Modus ${state.activeId}` :
+        state.mode === 'split-line' ? `Split-Modus ${state.activeId} (${state.splitPick.length}/2 Nodes)` :
+        state.mode === 'delete-segment' ? `Linie-loeschen Modus ${state.activeId}` :
+        state.mode === 'detach' ? `Loesen-Modus ${state.activeId}` : `Edit-Modus ${state.activeId}`;
+      const scopeText = state.editScope === 'global' ? 'Global' : 'Aktiv';
+      const snapText = state.snapEnabled ? 'ON' : 'OFF';
+      const noticeText = state.notice ? `\n${state.notice}` : '';
+      setStatus(`${modeText} | Scope: ${scopeText} | Snap: ${snapText}\nSektoren: ${sectorCount} | Nodes: ${nodeCount} | Undo: ${state.undo.length}${noticeText}`);
+      el.btnDraw.classList.toggle('on', state.mode === 'draw');
+      el.btnInsertMode.classList.toggle('on', state.mode === 'insert');
+      el.btnSplitMode.classList.toggle('on', state.mode === 'split-line');
+      el.btnDetachMode.classList.toggle('on', state.mode === 'detach');
+      el.btnDeleteSegMode.classList.toggle('on', state.mode === 'delete-segment');
+      el.btnSnapToggle.classList.toggle('on', state.snapEnabled);
+      el.btnEditAll.classList.toggle('on', state.editScope === 'global');
+      el.btnOverlayPlaceMode.classList.toggle('on', state.overlayPlaceMode);
+      const overlayText = state.overlay.url
+        ? `Overlay: ON (${Math.round(state.overlay.widthKm)}x${Math.round(state.overlay.heightKm)} km, ${Math.round(state.overlay.rotationDeg)} deg, ${Math.round(state.overlay.opacity * 100)}%, ${state.overlay.centerLat.toFixed(4)}/${state.overlay.centerLon.toFixed(4)})`
+        : 'Overlay: OFF';
+      const backupCount = readBackups().length;
+      el.meta.textContent = `StorageKey: ${STORAGE_KEY}\nDraftKey: ${DRAFT_STORAGE_KEY}\nBackupKey: ${BACKUP_STORAGE_KEY} (${backupCount})\nAktiv: ${sectorLabel(state.activeId)}\nScope: ${scopeText}\nSnap: ${snapText}\n${overlayText}`;
+      syncMetaInputsForActive();
+      const mapEl = document.getElementById('map');
+      if (mapEl) mapEl.classList.toggle('draw-crosshair', state.mode === 'draw');
+      if (mapEl) mapEl.classList.toggle('overlay-place-crosshair', state.overlayPlaceMode);
+    }
+
+    function populateSectorSelect() {
+      const ids = allSectorIds();
+      if (!state.activeId || !ids.includes(state.activeId)) {
+        state.activeId = ids.find((id) => !!state.topo.sectors[id]) || ids[0] || '';
+      }
+      el.sector.innerHTML = '';
+      ids.forEach((id) => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        const used = !!state.topo.sectors[id];
+        opt.textContent = `${sectorLabel(id)} ${used ? '[da]' : '[leer]'}`;
+        el.sector.appendChild(opt);
+      });
+      el.sector.value = state.activeId;
+
+      const prevTarget = el.idTarget.value;
+      el.idTarget.innerHTML = '';
+      const ordered = ids.filter((id) => id !== state.activeId);
+      ordered.forEach((id) => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        const isFree = !state.topo.sectors[id];
+        opt.textContent = `${sectorLabel(id)} ${isFree ? '[frei]' : '[belegt]'}`;
+        el.idTarget.appendChild(opt);
+      });
+      if (prevTarget && prevTarget !== state.activeId && ids.includes(prevTarget)) el.idTarget.value = prevTarget;
+      if (!el.idTarget.value && el.idTarget.options.length) el.idTarget.value = el.idTarget.options[0].value;
+      syncMetaInputsForActive();
+    }
+
+    function firstFreeSectorId(exclude = []) {
+      const ex = new Set(exclude || []);
+      for (const id of allSectorIds()) {
+        if (ex.has(id)) continue;
+        if (!state.topo.sectors[id]) return id;
+      }
+      return null;
+    }
+
+    function swapSectorIds(aId, bId) {
+      if (!aId || !bId || aId === bId) return false;
+      const a = state.topo.sectors[aId] || null;
+      const b = state.topo.sectors[bId] || null;
+      state.topo.sectors[aId] = b || undefined;
+      state.topo.sectors[bId] = a || undefined;
+      if (!state.topo.sectors[aId]) delete state.topo.sectors[aId];
+      if (!state.topo.sectors[bId]) delete state.topo.sectors[bId];
+      const metaA = state.sectorMeta[aId];
+      const metaB = state.sectorMeta[bId];
+      if (metaB) state.sectorMeta[aId] = metaB;
+      else delete state.sectorMeta[aId];
+      if (metaA) state.sectorMeta[bId] = metaA;
+      else delete state.sectorMeta[bId];
+      if (state.sectorMeta[aId]) state.sectorMeta[aId].name = canonicalSectorName(aId, state.sectorMeta[aId].name);
+      if (state.sectorMeta[bId]) state.sectorMeta[bId].name = canonicalSectorName(bId, state.sectorMeta[bId].name);
+      return true;
+    }
+
+    function moveActiveSectorToId(targetId) {
+      const fromId = state.activeId;
+      if (!fromId || !targetId || fromId === targetId) return { ok: false, reason: 'Bitte unterschiedliche IDs waehlen.' };
+      const from = state.topo.sectors[fromId];
+      if (!from) return { ok: false, reason: `Aktiver Sektor ${fromId} ist leer.` };
+      if (state.topo.sectors[targetId]) return { ok: false, reason: `Ziel-ID ${targetId} ist belegt. Nutze IDs tauschen.` };
+      state.topo.sectors[targetId] = from;
+      delete state.topo.sectors[fromId];
+      if (state.sectorMeta[fromId]) {
+        state.sectorMeta[targetId] = state.sectorMeta[fromId];
+        delete state.sectorMeta[fromId];
+        state.sectorMeta[targetId].name = canonicalSectorName(targetId, state.sectorMeta[targetId].name);
+      } else {
+        ensureSectorMeta(targetId);
+      }
+      state.activeId = targetId;
+      return { ok: true };
+    }
+
+    function kmToLatDeg(km) {
+      return Number(km) / 110.574;
+    }
+
+    function kmToLonDeg(km, latDeg) {
+      const c = Math.cos((Number(latDeg) * Math.PI) / 180);
+      const safe = Math.max(0.1, Math.abs(c));
+      return Number(km) / (111.320 * safe);
+    }
+
+    function overlayBoundsFromState() {
+      const o = state.overlay;
+      const halfLat = kmToLatDeg(o.heightKm / 2);
+      const halfLon = kmToLonDeg(o.widthKm / 2, o.centerLat);
+      return L.latLngBounds(
+        [o.centerLat - halfLat, o.centerLon - halfLon],
+        [o.centerLat + halfLat, o.centerLon + halfLon]
+      );
+    }
+
+    function buildOverlaySvg(url) {
+      const svgNs = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNs, 'svg');
+      svg.setAttribute('xmlns', svgNs);
+      svg.setAttribute('viewBox', '0 0 100 100');
+      svg.setAttribute('preserveAspectRatio', 'none');
+      svg.setAttribute('overflow', 'visible');
+
+      const image = document.createElementNS(svgNs, 'image');
+      image.setAttribute('x', '0');
+      image.setAttribute('y', '0');
+      image.setAttribute('width', '100');
+      image.setAttribute('height', '100');
+      image.setAttribute('preserveAspectRatio', 'none');
+      image.setAttribute('href', url);
+      image.style.opacity = String(state.overlay.opacity);
+      image.style.pointerEvents = 'none';
+      image.setAttribute('transform', `rotate(${state.overlay.rotationDeg} 50 50)`);
+      svg.appendChild(image);
+      return { svg, image };
+    }
+
+    function ensureOverlayLayer() {
+      const o = state.overlay;
+      if (!o.url || !state.map) return;
+      const bounds = overlayBoundsFromState();
+      if (!o.layer) {
+        const built = buildOverlaySvg(o.url);
+        o.svg = built.svg;
+        o.image = built.image;
+        o.layer = L.svgOverlay(o.svg, bounds, { interactive: false, opacity: 1 }).addTo(state.map);
+      } else {
+        o.layer.setBounds(bounds);
+      }
+      if (o.image) {
+        o.image.setAttribute('href', o.url);
+        o.image.style.opacity = String(o.opacity);
+        o.image.setAttribute('transform', `rotate(${o.rotationDeg} 50 50)`);
+      }
+    }
+
+    function removeOverlayLayer() {
+      const o = state.overlay;
+      if (o.layer && state.map) state.map.removeLayer(o.layer);
+      o.layer = null;
+      o.svg = null;
+      o.image = null;
+      o.url = '';
+      if (el.overlayFile) el.overlayFile.value = '';
+    }
+
+    function syncOverlayUiValues() {
+      el.overlayWidth.value = String(Math.round(state.overlay.widthKm));
+      el.overlayHeight.value = String(Math.round(state.overlay.heightKm));
+      el.overlayRotation.value = String(Math.round(state.overlay.rotationDeg));
+      el.overlayOpacity.value = String(Math.round(state.overlay.opacity * 100));
+      el.overlayWidthVal.textContent = `${Math.round(state.overlay.widthKm)} km`;
+      el.overlayHeightVal.textContent = `${Math.round(state.overlay.heightKm)} km`;
+      el.overlayRotationVal.textContent = `${Math.round(state.overlay.rotationDeg)} deg`;
+      el.overlayOpacityVal.textContent = `${Math.round(state.overlay.opacity * 100)} %`;
+    }
+
+    function updateOverlayFromUi() {
+      state.overlay.widthKm = Number(el.overlayWidth.value || 420);
+      state.overlay.heightKm = Number(el.overlayHeight.value || 320);
+      state.overlay.rotationDeg = Number(el.overlayRotation.value || 0);
+      state.overlay.opacity = Math.max(0, Math.min(1, Number(el.overlayOpacity.value || 45) / 100));
+      syncOverlayUiValues();
+      ensureOverlayLayer();
+    }
+
+    function ringPathInclusive(ring, startIdx, endIdx) {
+      const out = [];
+      const n = ring.length;
+      let i = startIdx;
+      for (let guard = 0; guard < n + 2; guard++) {
+        out.push(ring[i]);
+        if (i === endIdx) break;
+        i = (i + 1) % n;
+      }
+      return out;
+    }
+
+    function splitActiveSectorByNodes(aNodeId, bNodeId, targetId) {
+      const sid = state.activeId;
+      const sec = state.topo.sectors[sid];
+      if (!sec || !Array.isArray(sec.ring)) return { ok: false, reason: 'Aktiver Sektor fehlt.' };
+      if (!aNodeId || !bNodeId || aNodeId === bNodeId) return { ok: false, reason: 'Bitte zwei unterschiedliche Nodes waehlen.' };
+      if (!targetId || targetId === sid) return { ok: false, reason: 'Bitte eine andere Ziel-ID waehlen.' };
+      if (state.topo.sectors[targetId]) return { ok: false, reason: `Ziel-ID ${targetId} ist belegt. Nutze IDs tauschen.` };
+      const ring = sec.ring.slice();
+      if (ring.length < 4) return { ok: false, reason: 'Zu wenige Knoten zum Teilen.' };
+      const ia = ring.indexOf(aNodeId);
+      const ib = ring.indexOf(bNodeId);
+      if (ia < 0 || ib < 0) return { ok: false, reason: 'Nodes liegen nicht im aktiven Sektor.' };
+      if (ia === ib) return { ok: false, reason: 'Bitte zwei unterschiedliche Nodes waehlen.' };
+      const n = ring.length;
+      if ((ia + 1) % n === ib || (ib + 1) % n === ia) return { ok: false, reason: 'Benachbarte Nodes erzeugen keine neue Trennlinie.' };
+
+      const pathAB = ringPathInclusive(ring, ia, ib);
+      const pathBA = ringPathInclusive(ring, ib, ia);
+      const ring1 = normalizeRingInPlace(pathAB.slice());
+      const ring2 = normalizeRingInPlace(pathBA.slice());
+      if (!ring1 || !ring2 || ring1.length < 3 || ring2.length < 3) {
+        return { ok: false, reason: 'Split ist geometrisch ungueltig.' };
+      }
+      state.topo.sectors[sid].ring = ring1;
+      state.topo.sectors[targetId] = { ring: ring2 };
+      ensureSectorMeta(sid);
+      ensureSectorMeta(targetId);
+      return { ok: true };
+    }
+
+    async function loadDefaultPolygonsFromApp() {
+      const existingCount = Object.keys(state.topo.sectors || {}).length;
+      if (existingCount > 0) {
+        const ok = confirm(`Aktuell sind ${existingCount} Sektoren geladen.\nVor dem Laden der Default-Polygone wird ein Backup erstellt.\nJetzt fortfahren?`);
+        if (!ok) {
+          setStatus('Default-Laden abgebrochen.');
+          return false;
+        }
+        createBackupSnapshot('vor_default_laden');
+      }
+      setStatus('Lade Default-Polygone aus App...');
+      const localBase = buildDefaultPolygonsLocally();
+      const win = el.probe.contentWindow;
+      const started = Date.now();
+      while (Date.now() - started < 7000) {
+        try {
+          if (win && typeof win.vpBuildGaforSectorDefs === 'function') {
+            const sectors = win.vpBuildGaforSectorDefs('DE');
+            if (Array.isArray(sectors) && sectors.length > 0) {
+              const byId = {};
+              for (const s of sectors) {
+                const id = String(s && s.id || '');
+                if (!META[id]) continue;
+                const poly = normPoly(s && s.polygon);
+                if (poly) byId[id] = poly;
+              }
+              if (Object.keys(byId).length >= 20) {
+                const mergedBase = { ...localBase, ...byId };
+                state.baseById = mergedBase;
+                const merged = { ...mergedBase, ...readAppOverrides() };
+                state.topo = buildTopologyFromPolys(merged);
+                state.sectorMeta = {};
+                for (const sid of Object.keys(state.topo.sectors || {})) ensureSectorMeta(sid);
+                state.undo = [];
+                state.mode = 'edit';
+                state.drawPoints = [];
+                render();
+                setStatus(`Default geladen (App: ${Object.keys(byId).length}, gesamt: ${Object.keys(mergedBase).length}).`);
+                return true;
+              }
+            }
+          }
+        } catch (_) {}
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      // Fallback: lokales Default-Modell (gleiche Berechnungslogik) ohne iframe-Abhaengigkeit.
+      if (Object.keys(localBase).length >= 20) {
+        state.baseById = localBase;
+        const merged = { ...localBase, ...readAppOverrides() };
+        state.topo = buildTopologyFromPolys(merged);
+        state.sectorMeta = {};
+        for (const sid of Object.keys(state.topo.sectors || {})) ensureSectorMeta(sid);
+        state.undo = [];
+        state.mode = 'edit';
+        state.drawPoints = [];
+        render();
+        setStatus(`Default lokal geladen (${Object.keys(localBase).length} Sektoren).`);
+        return true;
+      }
+      setStatus('Fehler: Konnte Default nicht laden (App + lokal fehlgeschlagen).');
+      return false;
+    }
+
+    function exportJsonFile(name, obj) {
+      const text = JSON.stringify(obj, null, 2);
+      const blob = new Blob([text], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function buildDatasetPayloadFromState() {
+      const sectors = polygonsFromTopology();
+      const sectorMeta = {};
+      for (const id of Object.keys(sectors)) {
+        const center = polygonCenter(sectors[id]) || [51.0, 10.0];
+        const fallback = {
+          lat: Number(Number(center[0]).toFixed(4)),
+          lon: Number(Number(center[1]).toFixed(4))
+        };
+        const meta = normalizedSectorMetaForId(id, fallback);
+        sectorMeta[id] = {
+          name: String(meta.name || META[id] || `Sektor ${id}`),
+          refFt: Number(meta.refFt),
+          probe: {
+            lat: Number(Number(meta.probe.lat).toFixed(4)),
+            lon: Number(Number(meta.probe.lon).toFixed(4))
+          }
+        };
+      }
+      return {
+        version: 1,
+        generatedAt: new Date().toISOString(),
+        sectors,
+        sectorMeta
+      };
+    }
+
+    function exportDataset() {
+      applyMetaInputsToActive();
+      const payload = buildDatasetPayloadFromState();
+      persistLastDataset(payload);
+      exportJsonFile(`gafor-sector-dataset-de-${Date.now()}.json`, payload);
+    }
+
+    function encodeUtf8Base64(text) {
+      const bytes = new TextEncoder().encode(String(text || ''));
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      return btoa(binary);
+    }
+
+    function encodeGithubPath(path) {
+      return String(path || '')
+        .split('/')
+        .filter((p) => p.length > 0)
+        .map((p) => encodeURIComponent(p))
+        .join('/');
+    }
+
+    function normalizeGithubRepoInput(raw) {
+      const input = String(raw || '').trim();
+      if (!input) return '';
+      let candidate = input;
+      const mHttp = input.match(/^https?:\/\/github\.com\/([^/\s]+)\/([^/\s]+?)(?:\.git)?(?:\/.*)?$/i);
+      if (mHttp) candidate = `${mHttp[1]}/${mHttp[2]}`;
+      const mSsh = input.match(/^git@github\.com:([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i);
+      if (mSsh) candidate = `${mSsh[1]}/${mSsh[2]}`;
+      candidate = candidate.replace(/\.git$/i, '').replace(/^\/+|\/+$/g, '');
+      const mPlain = candidate.match(/^([^/\s]+)\/([^/\s]+)$/);
+      return mPlain ? `${mPlain[1]}/${mPlain[2]}` : '';
+    }
+
+    function persistLastDataset(payload) {
+      try {
+        localStorage.setItem(LAST_DATASET_STORAGE_KEY, JSON.stringify({
+          version: 1,
+          updatedAt: new Date().toISOString(),
+          dataset: payload
+        }));
+      } catch (_) {}
+    }
+
+    function savePublishConfig() {
+      const normalizedRepo = normalizeGithubRepoInput(el.ghRepo.value);
+      const cfg = {
+        repo: normalizedRepo || String(el.ghRepo.value || '').trim(),
+        branch: String(el.ghBranch.value || DEFAULT_PUBLISH_BRANCH).trim() || DEFAULT_PUBLISH_BRANCH,
+        path: String(el.ghPath.value || DEFAULT_PUBLISH_PATH).trim() || DEFAULT_PUBLISH_PATH
+      };
+      if (normalizedRepo) el.ghRepo.value = normalizedRepo;
+      localStorage.setItem(PUBLISH_CFG_STORAGE_KEY, JSON.stringify(cfg));
+    }
+
+    function loadPublishConfig() {
+      let cfg = null;
+      try { cfg = JSON.parse(localStorage.getItem(PUBLISH_CFG_STORAGE_KEY) || 'null'); } catch (_) {}
+      el.ghRepo.value = (cfg && cfg.repo) ? String(cfg.repo) : DEFAULT_PUBLISH_REPO;
+      el.ghBranch.value = (cfg && cfg.branch) ? String(cfg.branch) : DEFAULT_PUBLISH_BRANCH;
+      el.ghPath.value = (cfg && cfg.path) ? String(cfg.path) : DEFAULT_PUBLISH_PATH;
+    }
+
+    async function loadPublishConfigFromServer() {
+      if (!runningFromHttp()) return false;
+      try {
+        const res = await fetch('/api/config', { method: 'GET' });
+        if (!res.ok) return false;
+        const cfg = await res.json();
+        const repo = normalizeGithubRepoInput(cfg && cfg.repo);
+        const branch = String(cfg && cfg.branch || '').trim();
+        const p = String(cfg && cfg.path || '').trim();
+        if (repo) el.ghRepo.value = repo;
+        if (branch) el.ghBranch.value = branch;
+        if (p) el.ghPath.value = p;
+        savePublishConfig();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    async function saveDraftToServer(payload) {
+      const res = await fetch('/api/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draft: payload })
+      });
+      const out = await parseJsonSafe(res);
+      if (!res.ok || !out || !out.ok) {
+        const msg = out && out.message ? String(out.message) : `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+      return out;
+    }
+
+    async function loadDraftFromServer() {
+      const res = await fetch('/api/draft', { method: 'GET' });
+      const out = await parseJsonSafe(res);
+      if (!res.ok || !out || !out.ok) {
+        const msg = out && out.message ? String(out.message) : `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+      return out;
+    }
+
+    async function copyDatasetJsonToClipboard() {
+      applyMetaInputsToActive();
+      const payload = buildDatasetPayloadFromState();
+      persistLastDataset(payload);
+      const json = JSON.stringify(payload, null, 2);
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(json);
+        return true;
+      }
+      const ta = document.createElement('textarea');
+      ta.value = json;
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return !!ok;
+    }
+
+    function runningFromHttp() {
+      return location && (location.protocol === 'http:' || location.protocol === 'https:');
+    }
+
+    async function parseJsonSafe(res) {
+      try { return await res.json(); } catch (_) { return null; }
+    }
+
+    async function publishDatasetToLocalApi(payload) {
+      const branch = String(el.ghBranch.value || DEFAULT_PUBLISH_BRANCH).trim() || DEFAULT_PUBLISH_BRANCH;
+      const filePath = String(el.ghPath.value || DEFAULT_PUBLISH_PATH).trim() || DEFAULT_PUBLISH_PATH;
+      const res = await fetch('/api/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dataset: payload,
+          branch,
+          path: filePath
+        })
+      });
+      const out = await parseJsonSafe(res);
+      if (!res.ok || !out || !out.ok) {
+        const msg = out && out.message ? String(out.message) : `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+      savePublishConfig();
+      return {
+        mode: 'local',
+        branch: String(out.branch || branch),
+        path: String(out.path || filePath),
+        commitMessage: String(out.commitMessage || ''),
+        pushed: !!out.pushed,
+        noChanges: !!out.noChanges
+      };
+    }
+
+    async function publishDatasetToGithub() {
+      applyMetaInputsToActive();
+      const repo = normalizeGithubRepoInput(el.ghRepo.value);
+      const branch = String(el.ghBranch.value || DEFAULT_PUBLISH_BRANCH).trim() || DEFAULT_PUBLISH_BRANCH;
+      const filePath = String(el.ghPath.value || DEFAULT_PUBLISH_PATH).trim() || DEFAULT_PUBLISH_PATH;
+      const token = String(el.ghToken.value || '').trim();
+      if (!repo) throw new Error('Repo-Format ungueltig. Nutze owner/repo oder GitHub-URL.');
+      el.ghRepo.value = repo;
+      if (!token) throw new Error('Bitte GitHub Token eingeben (repo contents write).');
+      const encodedPath = encodeGithubPath(filePath);
+      if (!encodedPath) throw new Error('Dateipfad ist leer.');
+      const headers = {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${token}`,
+        'X-GitHub-Api-Version': '2022-11-28'
+      };
+      const getUrl = `https://api.github.com/repos/${repo}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`;
+      let sha = null;
+      const getRes = await fetch(getUrl, { headers });
+      if (getRes.ok) {
+        const data = await getRes.json();
+        if (data && data.sha) sha = String(data.sha);
+      } else if (getRes.status !== 404) {
+        let msg = `GitHub GET fehlgeschlagen (${getRes.status}).`;
+        try {
+          const err = await getRes.json();
+          if (err && err.message) msg += ` ${err.message}`;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+
+      const payload = buildDatasetPayloadFromState();
+      persistLastDataset(payload);
+      const jsonText = `${JSON.stringify(payload, null, 2)}\n`;
+      const body = {
+        message: `Update GAFOR dataset (${new Date().toISOString()})`,
+        content: encodeUtf8Base64(jsonText),
+        branch
+      };
+      if (sha) body.sha = sha;
+      const putUrl = `https://api.github.com/repos/${repo}/contents/${encodedPath}`;
+      const putRes = await fetch(putUrl, {
+        method: 'PUT',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if (!putRes.ok) {
+        let msg = `GitHub PUT fehlgeschlagen (${putRes.status}).`;
+        try {
+          const err = await putRes.json();
+          if (err && err.message) msg += ` ${err.message}`;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+      const out = await putRes.json();
+      savePublishConfig();
+      const commitUrl = out && out.commit && out.commit.html_url ? String(out.commit.html_url) : '';
+      return { mode: 'github', commitUrl };
+    }
+
+    async function publishDataset() {
+      const payload = buildDatasetPayloadFromState();
+      persistLastDataset(payload);
+      let localErr = null;
+      if (runningFromHttp()) {
+        try {
+          return await publishDatasetToLocalApi(payload);
+        } catch (err) {
+          localErr = err;
+        }
+      }
+      const token = String(el.ghToken.value || '').trim();
+      if (!token) {
+        if (localErr) {
+          throw new Error(`Lokal-Push nicht verfuegbar (${localErr.message}). Ohne lokalen Server bitte GitHub Token eingeben.`);
+        }
+        throw new Error('Bitte GitHub Token eingeben (repo contents write).');
+      }
+      return publishDatasetToGithub();
+    }
+
+    function exportOverrides() {
+      const base = state.baseById || {};
+      const now = polygonsFromTopology();
+      const out = {};
+      for (const id of Object.keys(now)) {
+        const a = JSON.stringify(normPoly(now[id]) || []);
+        const b = JSON.stringify(normPoly(base[id]) || []);
+        if (a !== b) out[id] = now[id];
+      }
+      exportJsonFile(`gafor-sector-overrides-de-${Date.now()}.json`, {
+        version: 1,
+        generatedAt: new Date().toISOString(),
+        sectors: out
+      });
+    }
+
+    function buildDraftPayload() {
+      const canPersistOverlayImage = !!(state.overlay.url && state.overlay.url.startsWith('data:image/') && state.overlay.url.length <= 1500000);
+      return {
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        activeId: state.activeId,
+        editScope: state.editScope,
+        overlaySettings: {
+          centerLat: state.overlay.centerLat,
+          centerLon: state.overlay.centerLon,
+          widthKm: state.overlay.widthKm,
+          heightKm: state.overlay.heightKm,
+          rotationDeg: state.overlay.rotationDeg,
+          opacity: state.overlay.opacity
+        },
+        overlayDataUrl: canPersistOverlayImage ? state.overlay.url : '',
+        sectorMeta: deepClone(state.sectorMeta || {}),
+        sectors: polygonsFromTopology()
+      };
+    }
+
+    function applyDraftPayload(parsed, opts = {}) {
+      const sourceName = String(opts.sourceName || 'Entwurf');
+      const silent = !!opts.silent;
+      if (!parsed || typeof parsed !== 'object') {
+        if (!silent) setStatus(`${sourceName} ungueltig.`);
+        return false;
+      }
+      if (!importIntoTopology(parsed, { includeBaseFallback: false })) {
+        if (!silent) setStatus(`${sourceName} gefunden, aber Import fehlgeschlagen.`);
+        return false;
+      }
+      const nextActive = String(parsed.activeId || '');
+      if (nextActive && state.topo.sectors[nextActive]) state.activeId = nextActive;
+      state.editScope = parsed.editScope === 'global' ? 'global' : 'active';
+      if (parsed.overlaySettings && typeof parsed.overlaySettings === 'object') {
+        const o = parsed.overlaySettings;
+        if (Number.isFinite(Number(o.centerLat))) state.overlay.centerLat = Number(o.centerLat);
+        if (Number.isFinite(Number(o.centerLon))) state.overlay.centerLon = Number(o.centerLon);
+        if (Number.isFinite(Number(o.widthKm))) state.overlay.widthKm = Number(o.widthKm);
+        if (Number.isFinite(Number(o.heightKm))) state.overlay.heightKm = Number(o.heightKm);
+        if (Number.isFinite(Number(o.rotationDeg))) state.overlay.rotationDeg = Number(o.rotationDeg);
+        if (Number.isFinite(Number(o.opacity))) state.overlay.opacity = Math.max(0, Math.min(1, Number(o.opacity)));
+        if (parsed.overlayDataUrl && typeof parsed.overlayDataUrl === 'string' && parsed.overlayDataUrl.startsWith('data:image/')) {
+          state.overlay.url = parsed.overlayDataUrl;
+        }
+        syncOverlayUiValues();
+        ensureOverlayLayer();
+      }
+      if (parsed.sectorMeta && typeof parsed.sectorMeta === 'object' && !Array.isArray(parsed.sectorMeta)) {
+        state.sectorMeta = deepClone(parsed.sectorMeta);
+      }
+      populateSectorSelect();
+      render();
+      if (!silent) setStatus(`${sourceName} geladen (${Object.keys((parsed && parsed.sectors) || {}).length} Sektoren).`);
+      return true;
+    }
+
+    function readBackups() {
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem(BACKUP_STORAGE_KEY) || '[]'); } catch (_) {}
+      if (!Array.isArray(list)) return [];
+      return list.filter((x) => x && typeof x === 'object' && x.draft && typeof x.draft === 'object');
+    }
+
+    function writeBackups(list) {
+      const trimmed = (Array.isArray(list) ? list : []).slice(0, BACKUP_LIMIT);
+      localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(trimmed));
+    }
+
+    function createBackupSnapshot(reason, draftPayload = null) {
+      const draft = draftPayload || buildDraftPayload();
+      const sectorCount = Object.keys((draft && draft.sectors) || {}).length;
+      if (!sectorCount) return false;
+      const entry = {
+        id: `b_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+        ts: new Date().toISOString(),
+        reason: String(reason || 'backup'),
+        sectorCount,
+        draft
+      };
+      const list = readBackups();
+      list.unshift(entry);
+      writeBackups(list);
+      return true;
+    }
+
+    function loadBackupInteractive() {
+      const list = readBackups();
+      if (!list.length) {
+        setStatus('Kein Backup vorhanden.');
+        return false;
+      }
+      const top = list.slice(0, 12);
+      const menu = top.map((b, i) => {
+        const d = new Date(b.ts || Date.now());
+        const t = `${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE')}`;
+        return `${i + 1}) ${t} | ${b.reason || '-'} | ${b.sectorCount || 0} Sektoren`;
+      }).join('\n');
+      const answer = prompt(`Backup laden (1-${top.length})?\n${menu}`, '1');
+      if (answer == null) return false;
+      const idx = Number(String(answer).trim());
+      if (!Number.isFinite(idx) || idx < 1 || idx > top.length) {
+        setStatus('Backup-Auswahl ungueltig.');
+        return false;
+      }
+      const chosen = top[idx - 1];
+      if (!chosen || !chosen.draft) {
+        setStatus('Backup-Inhalt ungueltig.');
+        return false;
+      }
+      const ok = applyDraftPayload(chosen.draft, { sourceName: `Backup ${idx}` });
+      if (ok) localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(chosen.draft));
+      return ok;
+    }
+
+    async function saveDraftLocally() {
+      const payload = buildDraftPayload();
+      const canPersistOverlayImage = !!payload.overlayDataUrl;
+      createBackupSnapshot('vor_draft_speichern', payload);
+      if (runningFromHttp()) {
+        try {
+          await saveDraftToServer(payload);
+          localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+          const ovNote = canPersistOverlayImage ? 'inkl. Overlay-Bild' : 'ohne Overlay-Bild';
+          setStatus(`Entwurf gespeichert (Server + lokal, ${Object.keys(payload.sectors || {}).length} Sektoren, ${ovNote}).`);
+          return;
+        } catch (err) {
+          localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+          const ovNote = canPersistOverlayImage ? 'inkl. Overlay-Bild' : 'ohne Overlay-Bild';
+          setStatus(`Entwurf lokal gespeichert (Server fehlgeschlagen: ${err && err.message ? err.message : err}) (${Object.keys(payload.sectors || {}).length} Sektoren, ${ovNote}).`);
+          return;
+        }
+      }
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+      const ovNote = canPersistOverlayImage ? 'inkl. Overlay-Bild' : 'ohne Overlay-Bild';
+      setStatus(`Entwurf lokal gespeichert (${Object.keys(payload.sectors || {}).length} Sektoren, ${ovNote}).`);
+    }
+
+    async function loadDraftLocally(opts = {}) {
+      const silent = !!opts.silent;
+      if (runningFromHttp()) {
+        try {
+          const out = await loadDraftFromServer();
+          const parsed = out && out.draft;
+          const ok = applyDraftPayload(parsed, { sourceName: 'Server-Entwurf', silent });
+          if (!ok) return false;
+          localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(parsed));
+          return true;
+        } catch (_) {
+          // Fallback auf Browser-lokalen Draft
+        }
+      }
+      let parsed = null;
+      try { parsed = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY) || 'null'); } catch (_) {}
+      if (!parsed || typeof parsed !== 'object') {
+        if (!silent) setStatus('Kein lokaler Entwurf gefunden.');
+        return false;
+      }
+      return applyDraftPayload(parsed, { sourceName: 'Lokaler Entwurf', silent });
+    }
+
+    function importIntoTopology(parsed, opts = {}) {
+      const includeBaseFallback = !!opts.includeBaseFallback;
+      const src = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed.sectors && typeof parsed.sectors === 'object' ? parsed.sectors : parsed)
+        : null;
+      if (!src) return false;
+      const merged = {};
+      for (const id of IDS) {
+        const fromSrc = normPoly(src[id]);
+        if (fromSrc) merged[id] = fromSrc;
+        else if (includeBaseFallback) {
+          const fromBase = normPoly(state.baseById[id]);
+          if (fromBase) merged[id] = fromBase;
+        }
+      }
+      for (const id of Object.keys(src)) {
+        if (IDS.includes(id)) continue;
+        const fromSrc = normPoly(src[id]);
+        if (fromSrc) merged[id] = fromSrc;
+      }
+      state.topo = buildTopologyFromPolys(merged);
+      if (parsed && parsed.sectorMeta && typeof parsed.sectorMeta === 'object' && !Array.isArray(parsed.sectorMeta)) {
+        state.sectorMeta = deepClone(parsed.sectorMeta);
+      }
+      state.undo = [];
+      state.mode = 'edit';
+      state.drawPoints = [];
+      render();
+      return true;
+    }
+
+    function finishDrawModeLikeButton() {
+      if (state.mode !== 'draw') return false;
+      const poly = normPoly(state.drawPoints);
+      if (!poly) {
+        setStatus('Zu wenige Punkte zum Schliessen.');
+        return false;
+      }
+      pushUndo();
+      state.topo = buildTopologyFromPolys({ ...polygonsFromTopology(), [state.activeId]: poly });
+      state.mode = 'edit';
+      state.overlayPlaceMode = false;
+      state.notice = '';
+      state.drawPoints = [];
+      state.splitPick = [];
+      render();
+      return true;
+    }
+
+    function initMap() {
+      state.map = L.map('map', { zoomControl: true }).setView([51.0, 10.5], 6);
+      state.layer = L.layerGroup().addTo(state.map);
+      const c0 = state.map.getCenter();
+      state.overlay.centerLat = Number(c0.lat.toFixed(5));
+      state.overlay.centerLon = Number(c0.lng.toFixed(5));
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(state.map);
+
+      state.map.on('click', (e) => {
+        if (state.overlayPlaceMode && state.overlay.url) {
+          state.overlay.centerLat = Number(e.latlng.lat.toFixed(5));
+          state.overlay.centerLon = Number(e.latlng.lng.toFixed(5));
+          ensureOverlayLayer();
+          state.notice = 'Overlay verschoben.';
+          render();
+          return;
+        }
+        if (state.mode === 'draw') {
+          state.drawPoints.push([Number(e.latlng.lat.toFixed(4)), Number(e.latlng.lng.toFixed(4))]);
+          render();
+          return;
+        }
+        if (state.mode === 'insert') {
+          const seg = nearestSegment(e.latlng);
+          if (!seg) { state.notice = 'Kein Segment in Klicknaehe gefunden.'; render(); return; }
+          if (insertNodeOnSharedEdge(seg)) {
+            state.notice = `Neuer Node auf Grenze ${seg.sid} eingefuegt.`;
+            render();
+          }
+          return;
+        }
+        if (state.mode === 'delete-segment') {
+          const seg = nearestSegment(e.latlng, { sids: editableSectorIds(), maxPx: 22 });
+          if (!seg) { state.notice = 'Keine Linie in Klicknaehe gefunden.'; render(); return; }
+          pushUndo();
+          const refs = allSegmentsUsingEdge(seg.a, seg.b);
+          const sharedWithOther = new Set(refs.map((r) => r.sid)).size > 1;
+          if (sharedWithOther) {
+            const mergeIds = sortSectorIds(Array.from(new Set(refs.map((r) => r.sid))));
+            const defaultKeep = mergeIds.includes(state.activeId) ? state.activeId : seg.sid;
+            const ask = prompt(`Sektoren ${mergeIds.join(' + ')} zusammenfuehren.\nWelche ID soll bleiben?`, defaultKeep);
+            if (ask == null) {
+              state.undo.pop();
+              state.notice = 'Zusammenfuehren abgebrochen.';
+              render();
+              return;
+            }
+            const keepSid = String(ask).trim();
+            if (!mergeIds.includes(keepSid)) {
+              state.undo.pop();
+              state.notice = `Ungueltige ID. Erlaubt: ${mergeIds.join(', ')}`;
+              render();
+              return;
+            }
+            const merged = mergeAcrossSharedSegment(seg, keepSid);
+            if (merged.ok) {
+              state.activeId = merged.keepSid;
+              populateSectorSelect();
+              state.notice = `Sektor ${merged.mergedSector} in ${merged.keepSid} zusammengefuehrt.`;
+            }
+            else {
+              state.undo.pop();
+              state.notice = `Zusammenfuehren fehlgeschlagen: ${merged.reason}`;
+            }
+          } else if (removeSegmentFromSector(seg, seg.sid)) {
+            state.notice = `Linie im Sektor ${seg.sid} geloescht.`;
+          } else {
+            state.undo.pop();
+            state.notice = 'Linie konnte nicht geloescht werden (mind. Dreieck muss bleiben).';
+          }
+          render();
+        }
+      });
+
+      state.map.on('contextmenu', (e) => {
+        if (state.mode !== 'draw') return;
+        if (e && e.originalEvent) e.originalEvent.preventDefault();
+        const ok = finishDrawModeLikeButton();
+        if (ok) {
+          state.notice = 'Zeichnen beendet (Rechtsklick).';
+          render();
+        }
+      });
+    }
+
+    function bindUi() {
+      populateSectorSelect();
+
+      el.sector.onchange = () => {
+        state.activeId = el.sector.value;
+        state.mode = 'edit';
+        state.overlayPlaceMode = false;
+        state.notice = '';
+        state.drawPoints = [];
+        state.splitPick = [];
+        populateSectorSelect();
+        render();
+      };
+
+      el.btnSwapIds.onclick = () => {
+        const targetId = String(el.idTarget.value || '');
+        if (!targetId || targetId === state.activeId) {
+          state.notice = 'Bitte eine gueltige Ziel-ID waehlen.';
+          render();
+          return;
+        }
+        pushUndo();
+        if (!swapSectorIds(state.activeId, targetId)) {
+          state.undo.pop();
+          state.notice = 'IDs konnten nicht getauscht werden.';
+          render();
+          return;
+        }
+        state.notice = `IDs getauscht: ${state.activeId} <-> ${targetId}`;
+        populateSectorSelect();
+        render();
+      };
+
+      el.btnMoveToId.onclick = () => {
+        const targetId = String(el.idTarget.value || '');
+        if (!targetId || targetId === state.activeId) {
+          state.notice = 'Bitte eine gueltige Ziel-ID waehlen.';
+          render();
+          return;
+        }
+        pushUndo();
+        const moved = moveActiveSectorToId(targetId);
+        if (!moved.ok) {
+          state.undo.pop();
+          state.notice = moved.reason;
+          render();
+          return;
+        }
+        state.notice = `Sektor auf ID ${state.activeId} gelegt.`;
+        populateSectorSelect();
+        render();
+      };
+
+      el.btnLoadDefault.onclick = loadDefaultPolygonsFromApp;
+      loadPublishConfig();
+      loadPublishConfigFromServer();
+      el.ghRepo.onchange = savePublishConfig;
+      el.ghBranch.onchange = savePublishConfig;
+      el.ghPath.onchange = savePublishConfig;
+
+      el.btnMetaApply.onclick = () => {
+        applyMetaInputsToActive();
+        state.notice = 'Messpunkt/Referenzhoehe gespeichert.';
+        render();
+      };
+
+      el.btnProbeFromCenter.onclick = () => {
+        const center = defaultProbeForSector(state.activeId);
+        el.metaProbeLat.value = String(Number(center.lat).toFixed(4));
+        el.metaProbeLon.value = String(Number(center.lon).toFixed(4));
+        applyMetaInputsToActive();
+        state.notice = 'Messpunkt auf Sektormitte gesetzt.';
+        render();
+      };
+
+      el.btnCopyDatasetJson.onclick = async () => {
+        try {
+          const ok = await copyDatasetJsonToClipboard();
+          setStatus(ok ? 'Dataset JSON in Zwischenablage kopiert.' : 'Kopieren nicht moeglich.');
+        } catch (err) {
+          setStatus(`Kopieren fehlgeschlagen: ${err && err.message ? err.message : err}`);
+        }
+      };
+
+      el.btnPublishGithub.onclick = async () => {
+        const prev = el.btnPublishGithub.disabled;
+        el.btnPublishGithub.disabled = true;
+        setStatus('Publiziere Dataset...');
+        try {
+          const out = await publishDataset();
+          if (out && out.mode === 'local') {
+            if (out.noChanges) {
+              setStatus(`Lokaler Push: keine Aenderungen (${out.path}, ${out.branch}).`);
+            } else if (out.pushed) {
+              const msgTxt = out.commitMessage ? ` Commit: ${out.commitMessage}` : '';
+              setStatus(`Lokaler Push erfolgreich (origin/${out.branch}, ${out.path}).${msgTxt}`);
+            } else {
+              setStatus(`Lokal gespeichert (${out.path}, ${out.branch}), Push ohne Uebertragung.`);
+            }
+          } else {
+            const urlTxt = out && out.commitUrl ? ` Commit: ${out.commitUrl}` : '';
+            setStatus(`GitHub Push erfolgreich (${el.ghRepo.value}@${el.ghBranch.value}).${urlTxt}`);
+          }
+        } catch (err) {
+          setStatus(`Publish fehlgeschlagen: ${err && err.message ? err.message : err}`);
+        } finally {
+          el.btnPublishGithub.disabled = prev;
+        }
+      };
+
+      syncOverlayUiValues();
+      el.overlayWidth.oninput = updateOverlayFromUi;
+      el.overlayHeight.oninput = updateOverlayFromUi;
+      el.overlayRotation.oninput = updateOverlayFromUi;
+      el.overlayOpacity.oninput = updateOverlayFromUi;
+
+      el.overlayFile.onchange = async (ev) => {
+        const file = ev.target.files && ev.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          state.overlay.url = String(reader.result || '');
+          const c = state.map.getCenter();
+          state.overlay.centerLat = Number(c.lat.toFixed(5));
+          state.overlay.centerLon = Number(c.lng.toFixed(5));
+          ensureOverlayLayer();
+          state.notice = `Overlay geladen: ${file.name}`;
+          render();
+        };
+        reader.readAsDataURL(file);
+      };
+
+      el.btnOverlayCenter.onclick = () => {
+        const c = state.map.getCenter();
+        state.overlay.centerLat = Number(c.lat.toFixed(5));
+        state.overlay.centerLon = Number(c.lng.toFixed(5));
+        ensureOverlayLayer();
+        state.notice = 'Overlay auf Kartenmitte gesetzt.';
+        render();
+      };
+
+      el.btnOverlayClear.onclick = () => {
+        removeOverlayLayer();
+        state.overlayPlaceMode = false;
+        state.notice = 'Overlay entfernt.';
+        render();
+      };
+
+      el.btnOverlayPlaceMode.onclick = () => {
+        if (!state.overlay.url) {
+          state.notice = 'Bitte zuerst ein Overlay-Bild laden.';
+          render();
+          return;
+        }
+        state.overlayPlaceMode = !state.overlayPlaceMode;
+        state.notice = state.overlayPlaceMode
+          ? 'Overlay-Place aktiv: Klick auf Karte setzt die Overlay-Position.'
+          : 'Overlay-Place deaktiviert.';
+        render();
+      };
+
+      el.btnDraw.onclick = () => {
+        if (state.mode === 'draw') {
+          finishDrawModeLikeButton();
+          return;
+        }
+        state.mode = 'draw';
+        state.overlayPlaceMode = false;
+        state.notice = '';
+        state.drawPoints = [];
+        state.splitPick = [];
+        render();
+      };
+
+      el.btnInsertMode.onclick = () => {
+        state.mode = state.mode === 'insert' ? 'edit' : 'insert';
+        state.overlayPlaceMode = false;
+        state.notice = '';
+        state.splitPick = [];
+        render();
+      };
+
+      el.btnSplitMode.onclick = () => {
+        state.mode = state.mode === 'split-line' ? 'edit' : 'split-line';
+        state.overlayPlaceMode = false;
+        state.notice = '';
+        state.drawPoints = [];
+        state.splitPick = [];
+        render();
+      };
+
+      el.btnDetachMode.onclick = () => {
+        state.mode = state.mode === 'detach' ? 'edit' : 'detach';
+        state.overlayPlaceMode = false;
+        state.notice = '';
+        state.drawPoints = [];
+        state.splitPick = [];
+        render();
+      };
+
+      el.btnDeleteSegMode.onclick = () => {
+        state.mode = state.mode === 'delete-segment' ? 'edit' : 'delete-segment';
+        state.overlayPlaceMode = false;
+        state.notice = '';
+        state.drawPoints = [];
+        state.splitPick = [];
+        render();
+      };
+
+      el.btnSnapToggle.onclick = () => {
+        state.snapEnabled = !state.snapEnabled;
+        state.notice = '';
+        render();
+      };
+
+      el.btnEditAll.onclick = () => {
+        state.editScope = state.editScope === 'global' ? 'active' : 'global';
+        state.mode = 'edit';
+        state.overlayPlaceMode = false;
+        state.notice = '';
+        state.drawPoints = [];
+        state.splitPick = [];
+        render();
+      };
+
+      el.btnUndo.onclick = () => {
+        const snap = state.undo.pop();
+        if (!snap) return;
+        state.topo = snap.topo;
+        state.mode = snap.mode;
+        state.drawPoints = snap.drawPoints;
+        state.splitPick = snap.splitPick || [];
+        state.sectorMeta = snap.sectorMeta || {};
+        render();
+      };
+
+      el.btnCancel.onclick = () => {
+        state.mode = 'edit';
+        state.overlayPlaceMode = false;
+        state.notice = '';
+        state.drawPoints = [];
+        state.splitPick = [];
+        render();
+      };
+
+      el.btnApplyToOverrides.onclick = () => {
+        writeAppOverrides(polygonsFromTopology());
+        setStatus('In App-Overrides gespeichert.');
+      };
+
+      el.btnResetActive.onclick = () => {
+        const base = normPoly(state.baseById[state.activeId]);
+        if (!base) return;
+        pushUndo();
+        const merged = { ...polygonsFromTopology(), [state.activeId]: base };
+        state.topo = buildTopologyFromPolys(merged);
+        state.mode = 'edit';
+        state.overlayPlaceMode = false;
+        state.notice = '';
+        state.drawPoints = [];
+        state.splitPick = [];
+        render();
+      };
+
+      el.btnResetAll.onclick = () => {
+        if (!Object.keys(state.baseById).length) return;
+        pushUndo();
+        state.topo = buildTopologyFromPolys(state.baseById);
+        state.sectorMeta = {};
+        for (const sid of Object.keys(state.topo.sectors || {})) ensureSectorMeta(sid);
+        state.mode = 'edit';
+        state.overlayPlaceMode = false;
+        state.notice = '';
+        state.drawPoints = [];
+        state.splitPick = [];
+        populateSectorSelect();
+        render();
+      };
+
+      el.btnResetComplete.onclick = () => {
+        const ok = confirm('Komplett-Reset?\nAlle aktuellen Sektoren, Undo und lokale Entwurfs-/Override-Daten werden geloescht.');
+        if (!ok) return;
+        state.topo = { nodes: {}, sectors: {} };
+        state.sectorMeta = {};
+        state.undo = [];
+        state.mode = 'edit';
+        state.overlayPlaceMode = false;
+        state.notice = 'Komplett-Reset ausgefuehrt. Leerer Startzustand.';
+        state.drawPoints = [];
+        state.splitPick = [];
+        state.activeId = IDS[0] || '00';
+        removeOverlayLayer();
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+        localStorage.removeItem(STORAGE_KEY);
+        populateSectorSelect();
+        render();
+      };
+
+      el.btnExportDataset.onclick = exportDataset;
+      el.btnExportOverrides.onclick = exportOverrides;
+      el.btnBackupNow.onclick = () => {
+        const ok = createBackupSnapshot('manuell');
+        if (ok) setStatus('Backup gespeichert.');
+        else setStatus('Backup nicht gespeichert (keine Sektoren vorhanden).');
+      };
+      el.btnLoadBackup.onclick = () => { loadBackupInteractive(); };
+      el.btnSaveDraft.onclick = async () => {
+        try { await saveDraftLocally(); } catch (err) { setStatus(`Entwurf speichern fehlgeschlagen: ${err && err.message ? err.message : err}`); }
+      };
+      el.btnLoadDraft.onclick = async () => {
+        try {
+          const ok = await loadDraftLocally();
+          if (!ok && runningFromHttp()) {
+            setStatus('Kein Entwurf im Server-Storage gefunden. Falls dein alter Entwurf aus file:// stammt, bitte einmal als JSON exportieren und hier importieren.');
+          }
+        } catch (err) {
+          setStatus(`Entwurf laden fehlgeschlagen: ${err && err.message ? err.message : err}`);
+        }
+      };
+
+      el.btnImportPrompt.onclick = () => {
+        const raw = prompt('Sektor JSON einfuegen');
+        if (!raw) return;
+        try {
+          if (!importIntoTopology(JSON.parse(raw))) setStatus('Import fehlgeschlagen.');
+          else setStatus('Import erfolgreich.');
+        } catch (_) { setStatus('JSON ungueltig.'); }
+      };
+
+      el.importFile.onchange = async (ev) => {
+        const file = ev.target.files && ev.target.files[0];
+        if (!file) return;
+        const text = await file.text();
+        try {
+          if (!importIntoTopology(JSON.parse(text))) setStatus('Import fehlgeschlagen.');
+          else setStatus('Import erfolgreich.');
+        } catch (_) { setStatus('JSON ungueltig.'); }
+      };
+    }
+
+    async function init() {
+      initMap();
+      bindUi();
+      render();
+      const restored = await loadDraftLocally({ silent: true });
+      if (restored) {
+        setStatus('Entwurf automatisch geladen.');
+      } else {
+        setStatus('Kein Entwurf auto-geladen. Default wird nur per Button geladen.');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

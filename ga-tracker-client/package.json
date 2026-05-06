@@ -4,10 +4,21 @@
   "description": "MSFS to WebSocket GPS Tracker Bridge",
   "main": "tracker.js",
   "scripts": {
-    "start": "node tracker.js"
+    "start": "node tracker.js",
+    "smoke-test:edtw": "node spawn-edtw-smoke-test.js",
+    "build:smoke-test": "pkg spawn-edtw-smoke-test.js --target node20-win-x64 --output dist/edtw-smoke-test.exe"
+  },
+  "pkg": {
+    "scripts": "spawn-edtw-smoke-test.js",
+    "assets": [],
+    "targets": ["node20-win-x64"],
+    "outputPath": "dist"
   },
   "dependencies": {
     "node-simconnect": "^4.0.0",
     "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.18.1"
   }
 }

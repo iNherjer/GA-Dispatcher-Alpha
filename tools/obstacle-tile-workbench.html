@@ -141,6 +141,7 @@
       <div class="muted">Klick: Tile auswählen. Shift+Klick: Bereich — erstes Tile setzt Anker (Cyan), zweites Shift+Klick wählt alle Tiles dazwischen aus. Queue lädt seriell, schreibt Split-Tiles (core + poi). PBF primär, Overpass Fallback.</div>
 
       <div class="stat"><span>Geladen</span><strong id="stLoaded">0</strong></div>
+      <div class="stat"><span>Davon leer</span><strong id="stEmpty">0</strong></div>
       <div class="stat"><span>Stale (&gt; 3 Monate)</span><strong id="stStale">0</strong></div>
       <div class="stat"><span>Fehlgeschlagen</span><strong id="stFailed">0</strong></div>
       <div class="stat"><span>Ausgewählt</span><strong id="stSelected">0</strong></div>
@@ -165,10 +166,10 @@
         <button id="btnRefresh">Status neu laden</button>
         <button id="btnClearSelection">Auswahl leeren</button>
         <button id="btnEnqueue">Auswahl laden</button>
+        <button id="btnEnqueueFresh" title="Lädt ausgewählte Tiles frisch und ersetzt vorhandene Daten (ohne Merge)">Auswahl frisch laden</button>
         <button id="btnEnqueueAndPush" title="Ausgewählte Tiles neu laden und danach automatisch pushen">Auswahl laden + pushen</button>
         <button id="btnRetryFailed">Failed erneut laden</button>
         <button id="btnClearQueue">Queue leeren</button>
-        <button id="btnMigrateLegacy" title="Alle .json-Tiles (ohne .gz) neu laden und konvertieren">Legacy .json → .gz</button>
         <button id="btnRefreshAll" title="Alle vorhandenen Tiles neu generieren (z.B. nach PBF-Update)">Alle Tiles aktualisieren</button>
         <button id="btnPush">Neue Ergebnisse pushen</button>
         <button id="btnRepoSync">Repo-Sync prüfen</button>
@@ -176,6 +177,7 @@
 
       <div class="legend">
         <span><i class="dot" style="background:#ff3cf7"></i> Magenta: geladen und frisch</span>
+        <span><i class="dot" style="background:#8bd3ff"></i> Hellblau: leer, aber erfolgreich geprüft</span>
         <span><i class="dot" style="background:#ff9d2e"></i> Orange: geladen, aber &gt; 3 Monate alt</span>
         <span><i class="dot" style="background:#ff3d3d"></i> Rot: fehlgeschlagen (Retry per Klick oder Button)</span>
         <span><i class="dot" style="background:#ff5d5d"></i> Rot blinkend: lokal geladen, aber im Repo fehlend</span>
@@ -203,6 +205,7 @@
       loaded: {},
       failed: {},
       queue: [],
+      queueFresh: new Set(),
       currentTile: null,
       recent: {},
       selected: new Set(),
@@ -213,7 +216,8 @@
       lastFailedSig: '',
       sourceConfigSig: '',
       regions: [],
-      regionsSig: ''
+      regionsSig: '',
+      lastProcessSeq: 0
     };
 
     const logView = document.getElementById('logView');
@@ -224,6 +228,56 @@
     function log(msg) {
       const t = new Date().toLocaleTimeString();
       logView.textContent = `[${t}] ${msg}\n` + logView.textContent;
+    }
+
+    function yn(v) {
+      return v ? 'y' : 'n';
+    }
+
+    function fmtRegions(list) {
+      const arr = Array.isArray(list) ? list.filter(Boolean) : [];
+      return arr.length ? arr.join(' ') : '-';
+    }
+
+    function formatProcessEvent(entry) {
+      const ev = String(entry && entry.event || '');
+      const tile = String(entry && entry.tile || '-');
+      const fresh = !!(entry && entry.freshReload);
+      const regs = fmtRegions(entry && entry.pbfRegions);
+      if (ev === 'tile-start') {
+        return `Workbench: aktuell lädt ${tile}${fresh ? ' [fresh]' : ''} | PBF ${regs} | niedrige Abdeckung erkannt (${yn(entry && entry.lowCoverage)})`;
+      }
+      if (ev === 'pbf-thin-extend') {
+        return `Workbench: ${tile} Thin-Extend aktiv | extra PBF ${fmtRegions(entry && entry.pbfRegionsExtra)}`;
+      }
+      if (ev === 'overpass-fallback') {
+        return `Workbench: ${tile} Fallback Overpass | Grund: ${String(entry && entry.reason || '-')}`;
+      }
+      if (ev === 'tile-done') {
+        const c = entry && entry.counts || {};
+        const total = Number(c.obs || 0) + Number(c.lin || 0) + Number(c.poi || 0);
+        const status = entry && entry.ok
+          ? (entry.dataStatus === 'empty' ? 'leer geprüft' : 'fertig')
+          : 'fehlerhaft';
+        return `Workbench: ${tile}${fresh ? ' [fresh]' : ''} ${status} | src=${entry && entry.source || '-'} | counts=${total} (obs ${Number(c.obs || 0)}, lin ${Number(c.lin || 0)}, poi ${Number(c.poi || 0)})`;
+      }
+      if (ev === 'cache-offline') {
+        return `Workbench: Cache offline bei ${tile}, Retry läuft automatisch`;
+      }
+      return `Workbench: ${ev || 'event'} ${tile !== '-' ? `(${tile})` : ''}`;
+    }
+
+    function consumeProcessEvents(s) {
+      const entries = Array.isArray(s && s.processLogTail) ? s.processLogTail : [];
+      let maxSeq = Number(state.lastProcessSeq || 0);
+      for (const e of entries) {
+        const seq = Number(e && e.seq || 0);
+        if (!seq || seq <= Number(state.lastProcessSeq || 0)) continue;
+        log(formatProcessEvent(e));
+        if (seq > maxSeq) maxSeq = seq;
+      }
+      const remoteSeq = Number(s && s.processSeq || 0);
+      state.lastProcessSeq = Math.max(maxSeq, remoteSeq);
     }
 
     function toggleTileSelection(key) {
@@ -325,9 +379,10 @@
         dashArray = '4 3';
       }
       if (loaded) {
-        color = loaded.stale ? '#ff9d2e' : '#ff3cf7';
-        fill = loaded.stale ? '#ff9d2e' : '#ff3cf7';
-        fillOpacity = loaded.stale ? 0.22 : 0.28;
+        const isEmpty = loaded.dataStatus === 'empty' || loaded.empty;
+        color = isEmpty ? '#8bd3ff' : (loaded.stale ? '#ff9d2e' : '#ff3cf7');
+        fill = isEmpty ? '#8bd3ff' : (loaded.stale ? '#ff9d2e' : '#ff3cf7');
+        fillOpacity = isEmpty ? 0.14 : (loaded.stale ? 0.22 : 0.28);
         opacity = 0.9;
       }
       if (loaded && partial) {
@@ -423,8 +478,10 @@
           rect.on('mouseover', () => {
             const loaded = state.loaded[key];
             const failed = state.failed[key];
+            const c = loaded && loaded.counts ? loaded.counts : {};
+            const countText = loaded ? ` • counts ${Number(c.obs || 0) + Number(c.lin || 0) + Number(c.poi || 0)} (obs ${Number(c.obs || 0)}, lin ${Number(c.lin || 0)}, poi ${Number(c.poi || 0)})` : '';
             const info = loaded
-              ? `${loaded.stale ? 'geladen, alt' : 'geladen'}${loaded.hasCore && loaded.hasPoi ? ' (core+poi)' : (loaded.hasCore ? ' (nur core)' : (loaded.hasPoi ? ' (nur poi)' : ''))}`
+              ? `${loaded.dataStatus === 'empty' || loaded.empty ? 'leer geprüft' : (loaded.stale ? 'geladen, alt' : 'geladen')}${loaded.hasCore && loaded.hasPoi ? ' (core+poi)' : (loaded.hasCore ? ' (nur core)' : (loaded.hasPoi ? ' (nur poi)' : ''))}${countText}`
               : (failed
                 ? `failed (${failed.status || 0}${failed.error ? `: ${String(failed.error).slice(0, 80)}` : ''})`
                 : 'nicht geladen');
@@ -445,17 +502,29 @@
       }
     }
 
-    async function api(path, method = 'GET', body = null) {
-      const res = await fetch(path, {
-        method,
-        headers: body ? { 'Content-Type': 'application/json' } : undefined,
-        body: body ? JSON.stringify(body) : undefined
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || json.ok === false) {
-        throw new Error(json.message || json.error || `HTTP ${res.status}`);
+    async function api(path, method = 'GET', body = null, options = {}) {
+      const timeoutMs = Number(options.timeoutMs || 0);
+      const allowNotOk = !!options.allowNotOk;
+      const controller = timeoutMs > 0 ? new AbortController() : null;
+      let timer = null;
+      if (controller) {
+        timer = setTimeout(() => controller.abort(), timeoutMs);
       }
-      return json;
+      try {
+        const res = await fetch(path, {
+          method,
+          headers: body ? { 'Content-Type': 'application/json' } : undefined,
+          body: body ? JSON.stringify(body) : undefined,
+          signal: controller ? controller.signal : undefined
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!allowNotOk && (!res.ok || json.ok === false)) {
+          throw new Error(json.message || json.error || `HTTP ${res.status}`);
+        }
+        return json;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
     }
 
     function renderRegionOptions() {
@@ -487,6 +556,7 @@
 
     function updateUi() {
       const loadedCount = Object.keys(state.loaded).length;
+      const emptyCount = Object.values(state.loaded).filter(v => v && (v.dataStatus === 'empty' || v.empty)).length;
       const staleCount = Object.values(state.loaded).filter(v => v && v.stale).length;
       const partialCount = Object.values(state.loaded).filter(v => v && v.partialCoveragePossible).length;
       const failedCount = Object.keys(state.failed).length;
@@ -494,6 +564,7 @@
       const localMissing = state.repoSync ? Number(state.repoSync.missingLocalCount || 0) : 0;
 
       document.getElementById('stLoaded').textContent = String(loadedCount);
+      document.getElementById('stEmpty').textContent = String(emptyCount);
       document.getElementById('stStale').textContent = String(staleCount);
       document.getElementById('stFailed').textContent = String(failedCount);
       document.getElementById('stSelected').textContent = String(state.selected.size);
@@ -502,10 +573,13 @@
       document.getElementById('stPartial').textContent = String(partialCount);
       document.getElementById('stRepoMissing').textContent = String(repoMissing);
       document.getElementById('stLocalMissing').textContent = String(localMissing);
-      queueView.textContent = state.queue.length ? `Queue: ${state.queue.join(', ')}` : 'Queue: -';
+      queueView.textContent = state.queue.length
+        ? `Queue: ${state.queue.map(k => state.queueFresh.has(k) ? `${k} [fresh]` : k).join(', ')}`
+        : 'Queue: -';
       hint.textContent = `Tile: ${state.currentTile || '-'}`;
 
       document.getElementById('btnEnqueue').disabled = state.selected.size === 0;
+      document.getElementById('btnEnqueueFresh').disabled = state.selected.size === 0;
       document.getElementById('btnEnqueueAndPush').disabled = state.selected.size === 0;
       document.getElementById('btnClearSelection').disabled = state.selected.size === 0;
       document.getElementById('btnClearQueue').disabled = state.queue.length === 0;
@@ -550,6 +624,7 @@
         state.loaded = s.loaded || {};
         state.failed = s.failed || {};
         state.queue = s.queue || [];
+        state.queueFresh = new Set(Array.isArray(s.queueFresh) ? s.queueFresh : []);
         state.currentTile = s.currentTile || null;
         state.recent = s.recent || {};
         state.regions = Array.isArray(s.regions) ? s.regions : state.regions;
@@ -562,6 +637,7 @@
           const pbfAvail = !!sourceCfg.pbfAvailable;
           log(`Quelle: ${pbfAvail ? 'PBF primär aktiv' : 'PBF fehlt -> Overpass Fallback'} | ${pbfPath}`);
         }
+        consumeProcessEvents(s);
 
         for (const key of Array.from(state.selected)) {
           if (!/^[-0-9]+\|[-0-9]+$/.test(key)) state.selected.delete(key);
@@ -607,23 +683,56 @@
     }
 
     async function runRepoSyncCheck() {
+      const btn = document.getElementById('btnRepoSync');
       try {
+        btn.disabled = true;
+        btn.textContent = 'Repo-Sync läuft...';
         log('Repo-Sync gestartet...');
-        const out = await api('/api/repo-sync', 'POST', {});
-        state.repoSync = out || null;
-        state.repoTiles = new Set(Array.isArray(out && out.remoteTiles) ? out.remoteTiles : []);
-        state.missingInRepoTiles = new Set(Array.isArray(out && out.missingInRepoTiles) ? out.missingInRepoTiles : []);
-        const missRepo = Number(out && out.missingInRepoCount || 0);
-        const missLocal = Number(out && out.missingLocalCount || 0);
-        log(`Repo-Sync: missingInRepo=${missRepo}, missingLocal=${missLocal}`);
-        const sampleA = Array.isArray(out && out.missingInRepoSample) ? out.missingInRepoSample : [];
-        const sampleB = Array.isArray(out && out.missingLocalSample) ? out.missingLocalSample : [];
-        if (sampleA.length) log(`Missing in Repo: ${sampleA.join(', ')}`);
-        if (sampleB.length) log(`Missing lokal: ${sampleB.join(', ')}`);
-        updateUi();
-        renderGrid();
+        try {
+          await api('/api/repo-sync', 'POST', {}, { timeoutMs: 15000, allowNotOk: true });
+        } catch (e) {
+          if (!(e && e.name === 'AbortError')) throw e;
+          // If starting the job timed out, continue by probing current repo-sync state.
+          const probe = await api('/api/repo-sync', 'GET', null, { timeoutMs: 5000, allowNotOk: true });
+          if (!(probe && (probe.running || probe.phase))) throw e;
+          log('Repo-Sync Start-Antwort verzögert; Status wird weiter abgefragt...');
+        }
+        let lastPhase = '';
+        for (let i = 0; i < 45; i++) {
+          const out = await api('/api/repo-sync', 'GET', null, { timeoutMs: 5000, allowNotOk: true });
+          state.repoSync = out || null;
+          if (out && out.phase && out.phase !== lastPhase) {
+            lastPhase = out.phase;
+            log(out.message || `Repo-Sync: ${out.phase}`);
+          }
+          if (out && out.ok === false && !out.running) {
+            throw new Error(out.message || 'Repo-Sync fehlgeschlagen');
+          }
+          if (!out || !out.running) {
+            state.repoTiles = new Set(Array.isArray(out && out.remoteTiles) ? out.remoteTiles : []);
+            state.missingInRepoTiles = new Set(Array.isArray(out && out.missingInRepoTiles) ? out.missingInRepoTiles : []);
+            const missRepo = Number(out && out.missingInRepoCount || 0);
+            const missLocal = Number(out && out.missingLocalCount || 0);
+            log(`Repo-Sync: missingInRepo=${missRepo}, missingLocal=${missLocal}`);
+            const sampleA = Array.isArray(out && out.missingInRepoSample) ? out.missingInRepoSample : [];
+            const sampleB = Array.isArray(out && out.missingLocalSample) ? out.missingLocalSample : [];
+            if (sampleA.length) log(`Missing in Repo: ${sampleA.join(', ')}`);
+            if (sampleB.length) log(`Missing lokal: ${sampleB.join(', ')}`);
+            updateUi();
+            renderGrid();
+            return;
+          }
+          await new Promise(res => setTimeout(res, 1000));
+        }
+        throw new Error('Timeout: Repo-Sync läuft länger als 45s.');
       } catch (e) {
-        log(`Repo-Sync-Fehler: ${e.message || e}`);
+        const msg = e && e.name === 'AbortError'
+          ? 'Timeout; Workbench-Server antwortet nicht.'
+          : (e.message || e);
+        log(`Repo-Sync-Fehler: ${msg}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Repo-Sync prüfen';
       }
     }
 
@@ -645,6 +754,20 @@
         await refreshState(true);
       } catch (e) {
         log(`Queue-Fehler: ${e.message || e}`);
+      }
+    });
+
+    document.getElementById('btnEnqueueFresh').addEventListener('click', async () => {
+      const tiles = Array.from(state.selected);
+      if (!tiles.length) return;
+      if (!confirm('Auswahl frisch laden? Vorhandene Tile-Daten werden ohne Merge ersetzt.')) return;
+      try {
+        const out = await api('/api/enqueue', 'POST', { tiles, fresh: true });
+        log(`Frisch in Queue: ${out.added.join(', ') || '-'} `);
+        state.selected.clear();
+        await refreshState(true);
+      } catch (e) {
+        log(`Fresh-Queue-Fehler: ${e.message || e}`);
       }
     });
 
@@ -747,17 +870,6 @@
         log(`Push-Fehler: ${e.message || e}`);
       }
     });
-    document.getElementById('btnMigrateLegacy').addEventListener('click', async () => {
-      if (!confirm('Alle alten .json-Tiles (ohne .gz-Variante) werden neu eingereiht und als .json.gz gespeichert. Fortfahren?')) return;
-      try {
-        const out = await api('/api/requeue-legacy-json', 'POST', {});
-        log(`Legacy-Migration: ${out.found} gefunden, ${out.added} eingereiht`);
-        await refreshState(true);
-      } catch (e) {
-        log(`Migration-Fehler: ${e.message || e}`);
-      }
-    });
-
     document.getElementById('btnRefreshAll').addEventListener('click', async () => {
       const input = prompt('Alle Tiles aktualisieren — nur Tiles älter als X Tage (0 = alle):', '90');
       if (input === null) return;

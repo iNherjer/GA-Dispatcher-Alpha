@@ -172,15 +172,15 @@ const VP_GAFOR_SECTOR_BIAS_FT_DE = {
 const VP_VFR_MODEL_META = {
     internal: {
         label: 'Eigenes Modell (Kacheln)',
-        summary: 'Nutzt zusaetzlich Wind, Niederschlag und Wettercode.',
-        pros: 'Sensitiver bei riskantem Flugwetter.',
-        cons: 'Kann konservativer als die sektornahe Bewertung sein.'
+        summary: 'Eigene Logik auf C/O/D/M/X mit robusten Open-Meteo/MOSMIX-Daten.',
+        pros: 'Konsistente Buchstabenklassen bei stabiler Datenbasis.',
+        cons: 'Optionaler METAR-Einfluss nur, wenn lokale METAR-Daten vorliegen.'
     },
     internal_sector: {
         label: 'Eigenes Modell (Sektoren)',
-        summary: 'Gleiche Modelllogik wie intern, aber auf Sektoren gerechnet.',
-        pros: 'Sektoransicht mit eigener Modellbewertung.',
-        cons: 'Polygone vereinfacht, sektorbezogene Aggregation.'
+        summary: 'Eigene C/O/D/M/X-Logik auf einem Messpunkt pro Sektor.',
+        pros: 'Sektoransicht mit worker-schonender, konsistenter Einstufung.',
+        cons: 'METAR wird nur als Zusatz genutzt, wenn bereits lokal verfuegbar.'
     },
     gafor_like: {
         label: 'VFR-Index klassisch (Kacheln)',
@@ -1894,6 +1894,121 @@ function vpCodeRank(code) {
     return Object.prototype.hasOwnProperty.call(rank, c) ? rank[c] : 11;
 }
 
+function vpParseMetarVisibilityM(rawText) {
+    const raw = String(rawText || '').toUpperCase();
+    if (!raw) return null;
+    if (/\bCAVOK\b/.test(raw)) return 10000;
+    const sm = raw.match(/\b(\d+)?\s?(\d\/\d)?SM\b/);
+    if (sm) {
+        const whole = Number(sm[1] || 0);
+        let frac = 0;
+        if (sm[2]) {
+            const [a, b] = String(sm[2]).split('/').map(Number);
+            if (Number.isFinite(a) && Number.isFinite(b) && b > 0) frac = a / b;
+        }
+        const miles = whole + frac;
+        if (Number.isFinite(miles) && miles > 0) return Math.round(miles * 1609.34);
+    }
+    const m = raw.match(/\b(\d{4})\b/);
+    if (m) {
+        const vis = Number(m[1]);
+        if (Number.isFinite(vis) && vis >= 0) return vis;
+    }
+    return null;
+}
+
+function vpBuildMetarPointHints(point, maxDistNm = 70) {
+    const lat = Number(point && point.lat);
+    const lon = Number(point && point.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return {};
+    const maxNm = Math.max(10, Number(maxDistNm) || 70);
+    const candidates = [];
+
+    if (Array.isArray(window.vpWeatherData)) {
+        window.vpWeatherData.forEach((zone) => {
+            if (!zone) return;
+            const icao = String(zone.icao || '').trim().toUpperCase();
+            const zLat = Number(zone.stnLat);
+            const zLon = Number(zone.stnLon);
+            if (!icao || !Number.isFinite(zLat) || !Number.isFinite(zLon)) return;
+            if (/^OM\d+$/i.test(icao)) return;
+            candidates.push({
+                icao,
+                lat: zLat,
+                lon: zLon,
+                fltCat: String(zone.fltCat || '').toUpperCase(),
+                clouds: Array.isArray(zone.clouds) ? zone.clouds : [],
+                raw: String(zone.raw || '')
+            });
+        });
+    }
+
+    if (typeof gpsState !== 'undefined' && gpsState && gpsState.metarCache && typeof gpsState.metarCache === 'object') {
+        Object.keys(gpsState.metarCache).forEach((key) => {
+            const entry = gpsState.metarCache[key];
+            const data = entry && Array.isArray(entry.data) ? entry.data[0] : null;
+            if (!data) return;
+            const icao = String(data.icaoId || key || '').trim().toUpperCase();
+            const zLat = Number(data.lat);
+            const zLon = Number(data.lon);
+            if (!icao || !Number.isFinite(zLat) || !Number.isFinite(zLon)) return;
+            if (/^OM\d+$/i.test(icao)) return;
+            const seen = candidates.some((c) => c.icao === icao);
+            if (seen) return;
+            const clouds = [];
+            const raw = String(data.rawOb || '');
+            const cloudRegex = /(FEW|SCT|BKN|OVC|VV)(\d{3})/gi;
+            let match;
+            while ((match = cloudRegex.exec(raw)) !== null) {
+                clouds.push({ type: String(match[1] || '').toUpperCase(), baseAgl: Number(match[2]) * 100 });
+            }
+            candidates.push({
+                icao,
+                lat: zLat,
+                lon: zLon,
+                fltCat: String(data.fltcat || data.fltCat || '').toUpperCase(),
+                clouds,
+                raw
+            });
+        });
+    }
+
+    let best = null;
+    let bestDistNm = Infinity;
+    candidates.forEach((cand) => {
+        const cLat = Number(cand.lat);
+        const cLon = Number(cand.lon);
+        if (!Number.isFinite(cLat) || !Number.isFinite(cLon)) return;
+        const nav = calcNav(lat, lon, cLat, cLon);
+        const distNm = Number(nav && nav.dist);
+        if (!Number.isFinite(distNm) || distNm > maxNm) return;
+        if (distNm < bestDistNm) {
+            best = cand;
+            bestDistNm = distNm;
+        }
+    });
+    if (!best) return {};
+
+    let metarCeilingFtAgl = null;
+    (Array.isArray(best.clouds) ? best.clouds : []).forEach((c) => {
+        if (!c) return;
+        const type = String(c.type || '').toUpperCase();
+        if (!['BKN', 'OVC', 'VV'].includes(type)) return;
+        const base = Number(c.baseAgl);
+        if (!Number.isFinite(base) || base < 0) return;
+        if (!Number.isFinite(metarCeilingFtAgl) || base < metarCeilingFtAgl) metarCeilingFtAgl = base;
+    });
+
+    const metarVisibilityM = vpParseMetarVisibilityM(best.raw);
+    return {
+        metarFlightCat: String(best.fltCat || '').toUpperCase(),
+        metarCeilingFtAgl: Number.isFinite(metarCeilingFtAgl) ? metarCeilingFtAgl : null,
+        metarVisibilityM: Number.isFinite(metarVisibilityM) ? metarVisibilityM : null,
+        metarStation: String(best.icao || ''),
+        metarDistKm: Number.isFinite(bestDistNm) ? (bestDistNm * 1.852) : null
+    };
+}
+
 function vpGetTimelineRecordForPoint(timelines, point) {
     if (!timelines || !timelines.byKey || !point) return null;
     const keys = vpBuildTimelineKeyCandidates(point.lat, point.lon);
@@ -1903,17 +2018,21 @@ function vpGetTimelineRecordForPoint(timelines, point) {
     return null;
 }
 
-function vpBuildGaforSectorEntries(sectors, samplesByKey, timelines, nowRatio) {
+function vpBuildGaforSectorEntries(sectors, samplesByKey, timelines, nowRatio, modelMode = null) {
     const out = [];
     const safeNowRatio = Number.isFinite(Number(nowRatio)) ? Number(nowRatio) : 0.5;
     const nowIdx = Math.max(0, Math.min(2, Math.round(safeNowRatio * 2)));
+    const activeMode = vpNormalizeVfrModel(modelMode || vpVfrIndexState.vfrModel);
+    const isClassic = (activeMode === 'gafor_like' || activeMode === 'gafor_sector');
     sectors.forEach((sector) => {
         const probe = sector && sector.probe;
         if (!probe) return;
         const pKey = vpPointKey(probe.lat, probe.lon);
         const sample = samplesByKey[pKey] || null;
+        const metarHints = vpBuildMetarPointHints(probe);
         const baseParts = vpSampleToParts({
             ...(sample || {}),
+            ...metarHints,
             sectorRefFt: Number(sector.refFt),
             terrainPointFt: Number(sector.refFt)
         });
@@ -1929,15 +2048,21 @@ function vpBuildGaforSectorEntries(sectors, samplesByKey, timelines, nowRatio) {
                 sectorRefFt: Number(sector.refFt),
                 terrainPointFt: Number(sector.refFt)
             };
-            const cat = vpClassifyGaforLike(parts);
+            const cat = vpClassifyVfrByModel(parts, activeMode);
             return { slot, parts, cat };
         });
         let current = slots[nowIdx] && slots[nowIdx].cat ? slots[nowIdx].cat : null;
         if (!current) {
-            current = slots
-                .map(s => s.cat)
-                .filter(Boolean)
-                .sort((a, b) => vpCodeRank(a.code) - vpCodeRank(b.code))[0] || vpClassifyGaforLike(baseParts);
+            const candidates = slots.map(s => s.cat).filter(Boolean);
+            if (candidates.length) {
+                if (isClassic) {
+                    current = candidates.sort((a, b) => vpCodeRank(a.code) - vpCodeRank(b.code))[0];
+                } else {
+                    current = candidates.sort((a, b) => Number(a.score || 0) - Number(b.score || 0))[0];
+                }
+            } else {
+                current = vpClassifyVfrByModel(baseParts, activeMode);
+            }
         }
         out.push({
             sector,
@@ -2177,16 +2302,169 @@ function vpComputeVfrIndexScoreFromParts(parts = {}) {
     return Math.max(0, Math.min(100, Math.round(score)));
 }
 
+function vpInternalMajorRank(code) {
+    const c = String(code || '').toUpperCase();
+    const rank = { C: 0, O: 1, D: 2, M: 3, X: 4 };
+    return Object.prototype.hasOwnProperty.call(rank, c) ? rank[c] : 2;
+}
+
+function vpInternalMajorFromScore(score) {
+    const s = Number(score);
+    if (!Number.isFinite(s)) return 'D';
+    if (s >= 90) return 'C';
+    if (s >= 74) return 'O';
+    if (s >= 58) return 'D';
+    if (s >= 38) return 'M';
+    return 'X';
+}
+
+function vpInternalMajorFromVisKm(visKm) {
+    const v = Number(visKm);
+    if (!Number.isFinite(v)) return null;
+    if (v < 1.5) return 'X';
+    if (v < 5) return 'M';
+    if (v < 8) return 'D';
+    if (v < 10) return 'O';
+    return 'C';
+}
+
+function vpInternalMajorFromCeilingFt(ceilingFt) {
+    const c = Number(ceilingFt);
+    if (!Number.isFinite(c)) return null;
+    if (c < 500) return 'X';
+    if (c < 1000) return 'M';
+    if (c < 2000) return 'D';
+    if (c < 5000) return 'O';
+    return 'C';
+}
+
+function vpInternalMajorFromMetarFlightCat(fltCat) {
+    const cat = String(fltCat || '').trim().toUpperCase();
+    if (cat === 'LIFR') return 'X';
+    if (cat === 'IFR') return 'M';
+    if (cat === 'MVFR') return 'D';
+    if (cat === 'VFR') return 'O';
+    return null;
+}
+
+function vpWorstInternalMajor(majors = []) {
+    let out = null;
+    (Array.isArray(majors) ? majors : [majors]).forEach((m) => {
+        const code = String(m || '').toUpperCase();
+        if (!['C', 'O', 'D', 'M', 'X'].includes(code)) return;
+        if (!out || vpInternalMajorRank(code) > vpInternalMajorRank(out)) out = code;
+    });
+    return out;
+}
+
 function vpMapVfrCategory(score) {
-    if (score >= 75) return { key: 'good', label: 'VFR gut', color: '#9acfa8', letter: 'V' };
-    if (score >= 55) return { key: 'marginal', label: 'grenzwertig', color: '#dfcf9d', letter: 'M' };
-    return { key: 'poor', label: 'kritisch', color: '#d8abab', letter: 'I' };
+    const major = vpInternalMajorFromScore(score);
+    const labels = {
+        C: { key: 'vfr_c', label: 'VFR-Index C (intern)', color: '#6aaeff', letter: 'C', code: 'C' },
+        O: { key: 'vfr_o', label: 'VFR-Index O (intern)', color: '#8ecb4b', letter: 'O', code: 'O' },
+        D: { key: 'vfr_d', label: 'VFR-Index D (intern)', color: '#e0c93b', letter: 'D', code: 'D' },
+        M: { key: 'vfr_m', label: 'VFR-Index M (intern)', color: '#e08a3b', letter: 'M', code: 'M' },
+        X: { key: 'vfr_x', label: 'VFR-Index X (intern)', color: '#d14a4a', letter: 'X', code: 'X' }
+    };
+    const cat = labels[major] || labels.D;
+    return { ...cat, displayCode: cat.code };
 }
 
 function vpClassifyInternalVfr(parts = {}) {
     const score = vpComputeVfrIndexScoreFromParts(parts);
-    const cat = vpMapVfrCategory(score);
-    return { ...cat, score: Math.round(score), mode: 'internal' };
+    const scoreMajor = vpInternalMajorFromScore(score);
+
+    const mosmixVisibilityM = Number(parts.mosmixVisibilityM);
+    const visMRaw = Number.isFinite(mosmixVisibilityM) && mosmixVisibilityM > 0
+        ? mosmixVisibilityM
+        : Number(parts.visibility);
+    const visKm = (Number.isFinite(visMRaw) && visMRaw > 0) ? (visMRaw / 1000) : null;
+
+    const cloudBaseMRaw = Number(parts.cloudBaseM);
+    const cloudBaseFtAgl = (Number.isFinite(cloudBaseMRaw) && cloudBaseMRaw > 0) ? (cloudBaseMRaw * 3.28084) : null;
+    const sectorRefFt = Number(parts.sectorRefFt);
+    const terrainPointFt = Number(parts.terrainPointFt);
+    const cloudLow = Number(parts.cloudLow || 0);
+    const cloudMid = Number(parts.cloudMid || 0);
+    const cloudTotal = Number(parts.cloudTotal || 0);
+    const mosmixN05Pct = Number(parts.mosmixN05Pct);
+    const mosmixLowCloudPct = Number(parts.mosmixLowCloudPct);
+    const coverForCeiling = Math.max(cloudLow, cloudMid, cloudTotal);
+    const lowCoverForCeiling = Number.isFinite(mosmixLowCloudPct) ? mosmixLowCloudPct : cloudLow;
+    const mosmixHasBknBelow500 = Number.isFinite(mosmixN05Pct) && mosmixN05Pct >= 62.5;
+    const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 62.5;
+    const hasDenseLowWithoutBase = Number.isFinite(lowCoverForCeiling)
+        && lowCoverForCeiling >= 75
+        && !Number.isFinite(cloudBaseFtAgl)
+        && !mosmixHasBknBelow500;
+    let cloudAboveRefFt = cloudBaseFtAgl;
+    if (Number.isFinite(cloudBaseFtAgl) && hasCeilingCondition && Number.isFinite(sectorRefFt) && Number.isFinite(terrainPointFt)) {
+        cloudAboveRefFt = cloudBaseFtAgl + terrainPointFt - sectorRefFt;
+    }
+
+    const visMajor = vpInternalMajorFromVisKm(visKm);
+    const cloudMajor = mosmixHasBknBelow500
+        ? 'X'
+        : (hasCeilingCondition ? vpInternalMajorFromCeilingFt(cloudAboveRefFt) : null);
+
+    let wxMajor = null;
+    const wx = Number(parts.weatherCode);
+    const precip = Number(parts.precipitation || parts.rain || 0);
+    const snow = Number(parts.snow || 0);
+    const wind = Number(parts.wind || 0);
+    if (wx === 95 || wx === 96 || wx === 99) wxMajor = vpWorstInternalMajor([wxMajor, 'X']);
+    if (wx === 45 || wx === 48) wxMajor = vpWorstInternalMajor([wxMajor, 'M']);
+    if ([65, 67, 75, 82, 86].includes(wx)) wxMajor = vpWorstInternalMajor([wxMajor, 'M']);
+    if (precip > 2.5 || snow > 0.2) wxMajor = vpWorstInternalMajor([wxMajor, 'M']);
+    else if (precip > 1.2 || snow > 0.05) wxMajor = vpWorstInternalMajor([wxMajor, 'D']);
+    if (wind > 35) wxMajor = vpWorstInternalMajor([wxMajor, 'M']);
+    else if (wind > 25) wxMajor = vpWorstInternalMajor([wxMajor, 'D']);
+
+    const metarFlightCat = String(parts.metarFlightCat || '').trim().toUpperCase();
+    const metarByCat = vpInternalMajorFromMetarFlightCat(metarFlightCat);
+    const metarVisibilityM = Number(parts.metarVisibilityM);
+    const metarByVis = (Number.isFinite(metarVisibilityM) && metarVisibilityM > 0)
+        ? vpInternalMajorFromVisKm(metarVisibilityM / 1000)
+        : null;
+    const metarByCeiling = vpInternalMajorFromCeilingFt(parts.metarCeilingFtAgl);
+    const metarMajor = vpWorstInternalMajor([metarByCat, metarByVis, metarByCeiling]);
+
+    let major = vpWorstInternalMajor([visMajor, cloudMajor, wxMajor, metarMajor, scoreMajor]) || scoreMajor || 'D';
+    if (hasDenseLowWithoutBase) major = vpWorstInternalMajor([major, 'D']) || 'D';
+    const baseCat = vpMapVfrCategory(score);
+    const cat = { ...baseCat, code: major, letter: major, displayCode: major };
+    const labels = {
+        C: 'VFR-Index C (intern)',
+        O: 'VFR-Index O (intern)',
+        D: 'VFR-Index D (intern)',
+        M: 'VFR-Index M (intern)',
+        X: 'VFR-Index X (intern)'
+    };
+    cat.label = labels[major] || labels.D;
+    cat.key = `vfr_${String(major || 'd').toLowerCase()}`;
+    cat.color = (vpMapVfrCategory(major === 'C' ? 95 : major === 'O' ? 80 : major === 'D' ? 62 : major === 'M' ? 45 : 20).color || cat.color);
+
+    let dataQuality = 'valid';
+    if (!Number.isFinite(visKm) && !Number.isFinite(cloudAboveRefFt) && !mosmixHasBknBelow500 && !metarMajor) {
+        dataQuality = hasDenseLowWithoutBase || wxMajor ? 'estimated' : 'fallback';
+    } else if (hasDenseLowWithoutBase) {
+        dataQuality = 'estimated';
+    }
+    return {
+        ...cat,
+        score: Math.round(score),
+        mode: 'internal',
+        dataQuality,
+        dataWarning: hasDenseLowWithoutBase
+            ? 'Wolkenbasis fehlt trotz dichter Low-Bewoelkung; Einstufung konservativ abgesichert.'
+            : '',
+        visKm: Number.isFinite(visKm) ? visKm : null,
+        cloudBaseFtAgl: Number.isFinite(cloudBaseFtAgl) ? cloudBaseFtAgl : null,
+        cloudAboveRefFt: Number.isFinite(cloudAboveRefFt) ? cloudAboveRefFt : null,
+        metarFlightCat: metarFlightCat || null,
+        metarStation: parts.metarStation ? String(parts.metarStation) : null,
+        metarDistKm: Number.isFinite(Number(parts.metarDistKm)) ? Number(parts.metarDistKm) : null
+    };
 }
 
 function vpClassifyGaforLike(parts = {}) {
@@ -2371,6 +2649,11 @@ function vpSampleToParts(sample = {}) {
         mosmixLowCloudPct: sample.mosmixLowCloudPct,
         mosmixStation: sample.mosmixStation,
         mosmixStationDistKm: sample.mosmixStationDistKm,
+        metarFlightCat: sample.metarFlightCat,
+        metarVisibilityM: sample.metarVisibilityM,
+        metarCeilingFtAgl: sample.metarCeilingFtAgl,
+        metarStation: sample.metarStation,
+        metarDistKm: sample.metarDistKm,
         sectorRefFt: sample.sectorRefFt,
         terrainPointFt: sample.terrainPointFt
     };
@@ -3378,7 +3661,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
                 if (!v || !Number.isFinite(Number(v.lat)) || !Number.isFinite(Number(v.lon))) return;
                 byPoint[vpPointKey(v.lat, v.lon)] = v;
             });
-            const sectorEntries = vpBuildGaforSectorEntries(sectors, byPoint, timelines, Number(timelines && timelines.nowRatio));
+            const sectorEntries = vpBuildGaforSectorEntries(sectors, byPoint, timelines, Number(timelines && timelines.nowRatio), activeVfrModel);
             if (!sectorEntries.length) throw new Error('keine Sektordaten verfuegbar');
             vpRenderGaforSectorCells(sectorEntries, Number(timelines && timelines.nowRatio));
             vpVfrIndexState.lastRenderedSamples = [];

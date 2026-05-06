@@ -1,0 +1,24 @@
+{
+  "content": [
+    {
+      "path": "ContentInfo/Mcbk-volcano-kyushu/ContentHistory.json",
+      "size": 58,
+      "date": 133519556069398102
+    },
+    {
+      "path": "ContentInfo/Mcbk-volcano-kyushu/Thumbnail.jpg",
+      "size": 13520,
+      "date": 133223250259442429
+    },
+    {
+      "path": "scenery/mycompany/Mcbk-volcano-kyushu.bgl",
+      "size": 6220,
+      "date": 133519556069338088
+    },
+    {
+      "path": "scenery/mycompany/modelLib.BGL",
+      "size": 11528,
+      "date": 133519556069054279
+    }
+  ]
+}
