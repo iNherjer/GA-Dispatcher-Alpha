@@ -3139,8 +3139,7 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
             color,
             weight: lineWidthPx,
             opacity: uncertain ? 0.72 : 0.85,
-            fillColor: color,
-            fillOpacity: 0.5,
+            fill: false,
             dashArray: null,
             interactive: false
         });
