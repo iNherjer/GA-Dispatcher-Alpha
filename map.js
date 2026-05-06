@@ -252,6 +252,7 @@ const vpVfrIndexState = {
     selectedCountry: localStorage.getItem('ga_vfr_index_country') || 'auto',
     vfrModel: localStorage.getItem('ga_vfr_index_model') || 'internal',
     showSectorAmpel: localStorage.getItem('ga_vfr_sector_ampel') !== 'false',
+    sectorLineWidthPx: Number(localStorage.getItem('ga_vfr_sector_line_width_px') || 20),
     ampelWindowMode: localStorage.getItem('ga_vfr_ampel_window_mode') || VP_VFR_AMPEL_MODE_DEFAULT,
     plannedCountry: '',
     activeCountry: '',
@@ -299,6 +300,7 @@ let terrainAvoidPausedReason = '';
 const terrainAvoidTileCache = new Map();
 const terrainAvoidTileInFlightCache = new Map();
 const terrainAvoidRenderedTileCache = new Map();
+vpVfrIndexState.sectorLineWidthPx = Math.max(2, Math.min(40, Number.isFinite(Number(vpVfrIndexState.sectorLineWidthPx)) ? Number(vpVfrIndexState.sectorLineWidthPx) : 20));
 
 function updateObsTileOverlayButtonUi() {
     const btn = document.getElementById('btnToggleObsTileOverlay');
@@ -1186,6 +1188,12 @@ function vpNormalizeVfrCountrySelection(value) {
 function vpNormalizeVfrModel(value) {
     const raw = String(value || 'internal').trim().toLowerCase();
     return Object.prototype.hasOwnProperty.call(VP_VFR_MODEL_META, raw) ? raw : 'internal';
+}
+
+function vpNormalizeVfrSectorLineWidth(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 20;
+    return Math.max(2, Math.min(40, Math.round(n)));
 }
 
 function vpGetVfrModelMeta(value) {
@@ -2864,6 +2872,10 @@ function vpUpdateVfrUi() {
     }
     const modelSelect = document.getElementById('vfrModelSelect');
     if (modelSelect) modelSelect.value = vpVfrIndexState.vfrModel;
+    const sectorWidthSlider = document.getElementById('vfrSectorLineWidthSlider');
+    const sectorWidthLabel = document.getElementById('vfrSectorLineWidthValue');
+    if (sectorWidthSlider) sectorWidthSlider.value = String(vpNormalizeVfrSectorLineWidth(vpVfrIndexState.sectorLineWidthPx));
+    if (sectorWidthLabel) sectorWidthLabel.textContent = `${vpNormalizeVfrSectorLineWidth(vpVfrIndexState.sectorLineWidthPx)} px`;
     const modelInfo = document.getElementById('vfrModelInfo');
     if (modelInfo) {
         const meta = vpGetVfrModelMeta(vpVfrIndexState.vfrModel);
@@ -2948,6 +2960,15 @@ window.vpSetVfrModel = function(value) {
     }
 };
 
+window.vpSetVfrSectorLineWidth = function(value) {
+    vpVfrIndexState.sectorLineWidthPx = vpNormalizeVfrSectorLineWidth(value);
+    localStorage.setItem('ga_vfr_sector_line_width_px', String(vpVfrIndexState.sectorLineWidthPx));
+    vpUpdateVfrUi();
+    if (window.mapHints.vfrIndex !== false && map) {
+        vpRefreshVfrLayerFromCache();
+    }
+};
+
 window.vpSetVfrAmpelWindowMode = async function(value) {
     vpVfrIndexState.ampelWindowMode = vpNormalizeVfrAmpelWindowMode(value);
     localStorage.setItem('ga_vfr_ampel_window_mode', vpVfrIndexState.ampelWindowMode);
@@ -2963,64 +2984,6 @@ window.vpCycleVfrAmpelWindowMode = async function() {
     const next = vpGetNextVfrAmpelWindowMode(vpVfrIndexState.ampelWindowMode);
     await window.vpSetVfrAmpelWindowMode(next);
 };
-
-function vpHatchPatternIdForColor(color) {
-    return `vp-vfr-hatch-${String(color || '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')}`;
-}
-
-function vpEnsureVfrHatchPattern(color) {
-    if (!map || !color) return null;
-    const pane = map.getPanes && map.getPanes().overlayPane;
-    const svg = pane && pane.querySelector ? pane.querySelector('svg') : null;
-    if (!svg) return null;
-    const ns = 'http://www.w3.org/2000/svg';
-    let defs = svg.querySelector('#vp-vfr-hatch-defs');
-    if (!defs) {
-        defs = document.createElementNS(ns, 'defs');
-        defs.setAttribute('id', 'vp-vfr-hatch-defs');
-        svg.insertBefore(defs, svg.firstChild || null);
-    }
-    const id = vpHatchPatternIdForColor(color);
-    if (defs.querySelector(`#${id}`)) return id;
-
-    const pattern = document.createElementNS(ns, 'pattern');
-    pattern.setAttribute('id', id);
-    pattern.setAttribute('patternUnits', 'userSpaceOnUse');
-    pattern.setAttribute('width', '8');
-    pattern.setAttribute('height', '8');
-    pattern.setAttribute('patternTransform', 'rotate(30)');
-
-    const bg = document.createElementNS(ns, 'rect');
-    bg.setAttribute('x', '0');
-    bg.setAttribute('y', '0');
-    bg.setAttribute('width', '8');
-    bg.setAttribute('height', '8');
-    bg.setAttribute('fill', color);
-    bg.setAttribute('fill-opacity', '0.08');
-    pattern.appendChild(bg);
-
-    const stripe = document.createElementNS(ns, 'path');
-    stripe.setAttribute('d', 'M 0 0 L 0 8');
-    stripe.setAttribute('stroke', color);
-    stripe.setAttribute('stroke-width', '1.2');
-    stripe.setAttribute('stroke-opacity', '0.34');
-    pattern.appendChild(stripe);
-
-    defs.appendChild(pattern);
-    return id;
-}
-
-function vpApplySectorHatch(polyLayer, color) {
-    if (!polyLayer || !color) return;
-    const el = typeof polyLayer.getElement === 'function' ? polyLayer.getElement() : null;
-    if (!el) return;
-    const patternId = vpEnsureVfrHatchPattern(color);
-    if (!patternId) return;
-    el.setAttribute('fill', `url(#${patternId})`);
-    el.setAttribute('fill-opacity', '1');
-}
 
 function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
     if (!map) return;
@@ -3162,6 +3125,7 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
     vpVfrIndexState.lastRenderMode = 'gafor_sector';
     const modelName = vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label;
     const ampelNowRatio = Number.isFinite(Number(nowRatio)) ? Number(nowRatio) : 0.5;
+    const lineWidthPx = vpNormalizeVfrSectorLineWidth(vpVfrIndexState.sectorLineWidthPx);
 
     entries.forEach((entry) => {
         const sector = entry && entry.sector;
@@ -3173,11 +3137,11 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
         const poly = L.polygon(sector.polygon, {
             stroke: true,
             color,
-            weight: uncertain ? 1.45 : 1.7,
-            opacity: uncertain ? 0.82 : 0.96,
+            weight: lineWidthPx,
+            opacity: uncertain ? 0.72 : 0.85,
             fillColor: color,
-            fillOpacity: 0.15,
-            dashArray: uncertain ? '6 6' : '8 6',
+            fillOpacity: 0.5,
+            dashArray: null,
             interactive: false
         });
 
@@ -3194,7 +3158,6 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
         const pop = `${sector.id} ${sector.name} • Ref ${Math.round(Number(sector.refFt) || 0)} ft • ${cat.label}${codeTxt} • VIS ${visTxt} • ${modelName}${mxTxt}${qualityTxt}`;
         poly.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
         poly.addTo(layer);
-        vpApplySectorHatch(poly, color);
 
         if (vpVfrIndexState.showSectorAmpel !== false && timeline && Array.isArray(timeline.slots) && timeline.slots.length === 3) {
             const ampelHtml = vpBuildSectorAmpelHtml(timeline, ampelNowRatio, cat);
