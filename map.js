@@ -171,7 +171,7 @@ const VP_GAFOR_SECTOR_BIAS_FT_DE = {
 };
 const VP_VFR_REF_FINE_TRIM_FT_DE = {
     // Leichte sektorbezogene Referenz-Feinjustierung aus Drift-Beobachtungen.
-    '00': -120, '01': -120, '02': -80, '07': -80, '09': -80,
+    '00': -180, '01': -180, '02': -140, '03': -120, '04': -120, '05': -110, '06': -100, '07': -80, '09': -80, '11': -100, '12': -110,
     '14': 120, '33': 220, '35': 200, '37': 220, '38': 200, '41': 180, '44': 160
 };
 const VP_VFR_MODEL_META = {
@@ -2146,6 +2146,7 @@ function vpBuildSectorMetarGuardrail(samplePoints, mode = null, sectorRefFt = nu
     const refRaw = Number(sectorRefFt);
     const refFactor = vpSectorRegionalRefFactor(sectorRefFt);
     const isFlatland = Number.isFinite(refRaw) && refRaw <= 900;
+    const isVeryLowland = Number.isFinite(refRaw) && refRaw <= 400;
     const isHighland = Number.isFinite(refRaw) && refRaw >= 2400;
 
     const stationAgg = new Map();
@@ -2180,13 +2181,13 @@ function vpBuildSectorMetarGuardrail(samplePoints, mode = null, sectorRefFt = nu
     const nearest = rows[0];
     const strongCount = rows.filter(r => vpInternalMajorRank(r.major) >= vpInternalMajorRank('M')).length;
     const moderateCount = rows.filter(r => vpInternalMajorRank(r.major) >= vpInternalMajorRank('D')).length;
-    const needModerateCount = isFlatland ? 1 : (isHighland ? 2 : (refFactor >= 0.6 ? 1 : 2));
-    const nearDnm = (isHighland ? 24 : 28) + (8 * refFactor);
+    const needModerateCount = isVeryLowland ? 3 : (isFlatland ? 2 : (isHighland ? 2 : (refFactor >= 0.6 ? 1 : 2)));
+    const nearDnm = (isHighland ? 24 : (isVeryLowland ? 20 : 28)) + (8 * refFactor);
 
     // Sehr defensiv: M nur bei klarer METAR-Haeufung, D bei wiederholten D-/M-/X-Signalen.
-    if (nearest && nearest.major === 'X' && Number(nearest.distNm) <= 10 && strongCount >= 2) {
+    if (nearest && nearest.major === 'X' && Number(nearest.distNm) <= 10 && strongCount >= (isVeryLowland ? 3 : 2)) {
         floorMajor = 'M';
-    } else if (nearest && vpInternalMajorRank(nearest.major) >= vpInternalMajorRank('M') && Number(nearest.distNm) <= 18 && strongCount >= 2) {
+    } else if (nearest && vpInternalMajorRank(nearest.major) >= vpInternalMajorRank('M') && Number(nearest.distNm) <= 18 && strongCount >= (isVeryLowland ? 3 : 2)) {
         floorMajor = 'M';
     } else if (nearest && vpInternalMajorRank(nearest.major) >= vpInternalMajorRank('D') && Number(nearest.distNm) <= nearDnm && moderateCount >= needModerateCount) {
         floorMajor = 'D';
@@ -2656,6 +2657,14 @@ function vpEstimateCloudBaseFtFromTempDew(parts = {}) {
     if (!Number.isFinite(tempC) || !Number.isFinite(dewC)) return null;
     // Nutzer-Formel: (T - Td) * 400 ft AGL (vereinfachte Annaeherung).
     const spreadC = Math.max(0, tempC - dewC);
+    const windKt = Number(parts.wind);
+    const rh = Number(parts.rh2mPct);
+    const ref = Number(parts.sectorRefFt);
+    // Maritime Dämpfung: bei flachen Kuestensektoren und starkem Wind
+    // fuehrt die reine Spread-Formel sonst zu zu konservativen Basen.
+    if (Number.isFinite(ref) && ref <= 900 && Number.isFinite(windKt) && windKt >= 10 && Number.isFinite(rh) && rh >= 85 && spreadC <= 2.0) {
+        return null;
+    }
     return spreadC * 400;
 }
 
@@ -2680,7 +2689,9 @@ function vpEstimateFogRiskMajor(parts = {}, visKm = null) {
     const pressure = Number(parts.mslPressureHpa);
 
     if (!Number.isFinite(spreadC) && !Number.isFinite(rh)) return { major: null, reason: '' };
-    if (Number.isFinite(visKm) && visKm > 10) return { major: null, reason: '' };
+    if (Number.isFinite(visKm) && visKm > 6) return { major: null, reason: '' };
+    // Kein Nebel-Proxy ohne echte Feuchte-Indizien.
+    if (!(Number.isFinite(spreadC) && spreadC <= 2.5) && !(Number.isFinite(rh) && rh >= 90)) return { major: null, reason: '' };
 
     let score = 0;
     if (Number.isFinite(spreadC)) {
@@ -2702,8 +2713,8 @@ function vpEstimateFogRiskMajor(parts = {}, visKm = null) {
         else if (visKm <= 6) score += 1;
     }
 
-    if (score >= 7 && Number.isFinite(visKm) && visKm <= 2.0) return { major: 'M', reason: 'Nebelrisiko hoch' };
-    if (score >= 6 && Number.isFinite(visKm) && visKm <= 5) return { major: 'D', reason: 'Nebelrisiko' };
+    if (score >= 8 && Number.isFinite(visKm) && visKm <= 1.5) return { major: 'M', reason: 'Nebelrisiko hoch' };
+    if (score >= 7 && Number.isFinite(visKm) && visKm <= 4) return { major: 'D', reason: 'Nebelrisiko' };
     return { major: null, reason: '' };
 }
 
@@ -4110,8 +4121,8 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
         if (!sector || !Array.isArray(sector.polygon) || !cat) return;
         const color = cat.color || '#9a9a9a';
         const uncertain = cat.dataQuality && cat.dataQuality !== 'valid';
-        const baseOpacity = uncertain ? 0.36 : 0.48;
-        const coreOpacity = uncertain ? 0.52 : 0.68;
+        const baseOpacity = uncertain ? 0.16 : 0.22;
+        const coreOpacity = uncertain ? 0.24 : 0.34;
         const coreWeight = Math.max(2, Math.round(lineWidthPx * 0.55));
         const polyBase = L.polygon(sector.polygon, {
             stroke: true,
