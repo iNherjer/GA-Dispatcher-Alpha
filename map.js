@@ -51,6 +51,8 @@ window.mapHintSubmenus = window.mapHintSubmenus || { ...MAP_HINT_SUBMENU_DEFAULT
 const VP_VFR_INDEX_MIN_UPDATE_MS = 30 * 60 * 1000;
 const VP_VFR_INDEX_MAX_POINTS = 72;
 const VP_VFR_INDEX_MIN_VISIBLE_ZOOM = 8;
+const VP_VFR_SECTOR_BORDER_MIN_VISIBLE_ZOOM = Math.max(0, VP_VFR_INDEX_MIN_VISIBLE_ZOOM - 2);
+const VP_VFR_SECTOR_AMPEL_MIN_VISIBLE_ZOOM = VP_VFR_INDEX_MIN_VISIBLE_ZOOM;
 const VP_VFR_AMPEL_MODE_DEFAULT = 'sun';
 const VP_GAFOR_REF_TERRAIN_Z = 10;
 const VP_GAFOR_REF_MAX_SAMPLES = 1400;
@@ -1302,6 +1304,15 @@ function vpNormalizeVfrModel(value) {
     if (raw === 'gafor_like') return 'gafor_sector';
     if (raw === 'internal_sector') return 'robust_sector';
     return 'robust_sector';
+}
+
+function vpIsSectorRenderModel(mode = null) {
+    const m = vpNormalizeVfrModel(mode || vpVfrIndexState.vfrModel);
+    return m === 'gafor_sector' || m === 'robust_sector';
+}
+
+function vpGetVfrMinVisibleZoomForModel(mode = null) {
+    return vpIsSectorRenderModel(mode) ? VP_VFR_SECTOR_BORDER_MIN_VISIBLE_ZOOM : VP_VFR_INDEX_MIN_VISIBLE_ZOOM;
 }
 
 function vpNormalizeVfrSectorLineWidth(value) {
@@ -4028,8 +4039,8 @@ function vpUpdateVfrUi() {
         if (window.mapHints.vfrIndex === false) {
             status.textContent = 'Status: Aus';
             status.style.color = '#9bb5d1';
-        } else if (map && Number(map.getZoom()) < VP_VFR_INDEX_MIN_VISIBLE_ZOOM) {
-            status.textContent = `Status: ausgeblendet (Zoom < ${VP_VFR_INDEX_MIN_VISIBLE_ZOOM})`;
+        } else if (map && Number(map.getZoom()) < vpGetVfrMinVisibleZoomForModel(vpVfrIndexState.vfrModel)) {
+            status.textContent = `Status: ausgeblendet (Zoom < ${vpGetVfrMinVisibleZoomForModel(vpVfrIndexState.vfrModel)})`;
             status.style.color = '#9bb5d1';
         } else if (vpVfrIndexState.inFlight) {
             status.textContent = `Status: Lade ${active}...`;
@@ -4257,6 +4268,12 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
     const layer = vpEnsureVfrLayer();
     if (!layer || !map) return;
     layer.clearLayers();
+    const zoom = Number(map.getZoom());
+    if (!Number.isFinite(zoom) || zoom < VP_VFR_SECTOR_BORDER_MIN_VISIBLE_ZOOM) {
+        if (map.hasLayer(layer)) map.removeLayer(layer);
+        return;
+    }
+    const showAmpelForZoom = zoom >= VP_VFR_SECTOR_AMPEL_MIN_VISIBLE_ZOOM;
     const entries = Array.isArray(sectorEntries) ? sectorEntries : [];
     vpVfrIndexState.lastRenderedSectors = entries.map(e => ({ ...e }));
     vpVfrIndexState.lastRenderMode = 'gafor_sector';
@@ -4339,7 +4356,7 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
         polyCore.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
         polyCore.addTo(layer);
 
-        if (vpVfrIndexState.showSectorAmpel !== false && timeline && Array.isArray(timeline.slots) && timeline.slots.length === 3) {
+        if (showAmpelForZoom && vpVfrIndexState.showSectorAmpel !== false && timeline && Array.isArray(timeline.slots) && timeline.slots.length === 3) {
             const ampelHtml = vpBuildSectorAmpelHtml(timeline, ampelNowRatio, cat);
             if (ampelHtml) {
                 const marker = L.marker([sector.center.lat, sector.center.lon], {
