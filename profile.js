@@ -2536,6 +2536,24 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
             const hasRain = /\b(-|\+)?(RA|DZ|SH|SHRA)\b/i.test(raw);
             const hasSnow = /\b(-|\+)?(SN|SG|PL|SHSN)\b/i.test(raw);
             const hasTS = /\b(-|\+)?(TS|TSRA|CB)\b/i.test(raw);
+            const metarFltCat = closestMetar.fltcat || closestMetar.fltCat || "VFR";
+            if (clouds.length === 0) {
+                const estimatedCloud = vpBuildTempDewCloudLayer({
+                    tempC: closestMetar.temp,
+                    dewPointC: closestMetar.dewp,
+                    windKt: closestMetar.wspd,
+                    terrainFt: stnElevFt,
+                    fltCat: metarFltCat,
+                    hasRain,
+                    hasSnow,
+                    raw,
+                    source: 'metar_temp_dew'
+                });
+                if (estimatedCloud) {
+                    clouds.push(estimatedCloud);
+                    lowestBase = estimatedCloud.baseMsl;
+                }
+            }
             const mslPressureRaw = Number(closestMetar.mslp ?? closestMetar.slp ?? closestMetar.altim);
             const mslPressureHpa = (Number.isFinite(mslPressureRaw) && mslPressureRaw >= 850 && mslPressureRaw <= 1100)
                 ? mslPressureRaw
@@ -2571,7 +2589,7 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
                 lowestBase: lowestBase !== Infinity ? lowestBase : 5000,
                 weather: { hasRain, hasSnow, hasTS }, visuals: visuals,
                 stnLat: closestMetar.lat, stnLon: closestMetar.lon,
-                fltCat: closestMetar.fltcat || closestMetar.fltCat || "VFR",
+                fltCat: metarFltCat,
                 raw: raw,
                 wdir: closestMetar.wdir, 
                 wspd: closestMetar.wspd,
@@ -3317,6 +3335,74 @@ function vpCoverageToCloudType(coveragePct) {
     return 'FEW';
 }
 
+function vpEstimateCloudBaseFtFromTempDewProfile(parts = {}) {
+    const tempC = Number(parts.tempC ?? parts.temp2mC);
+    const dewC = Number(parts.dewPointC ?? parts.dewPoint2mC);
+    if (!Number.isFinite(tempC) || !Number.isFinite(dewC)) return null;
+
+    const spreadC = Math.max(0, tempC - dewC);
+    const windKtRaw = Number(parts.windKt ?? parts.wind);
+    const windKt = Number.isFinite(windKtRaw) ? Math.max(0, Math.min(30, windKtRaw)) : 0;
+    const rh = Number(parts.rhPct ?? parts.rh2mPct);
+
+    let windBoost = 1 + (windKt / 30) * 0.85;
+    if (Number.isFinite(rh)) {
+        if (rh >= 97) windBoost -= 0.22;
+        else if (rh >= 93) windBoost -= 0.12;
+        else if (rh >= 88) windBoost -= 0.06;
+    }
+    windBoost = Math.max(1.0, Math.min(1.9, windBoost));
+
+    const spreadWeight = spreadC <= 2.5 ? 1.0 : (spreadC <= 4.0 ? 0.65 : 0.35);
+    const effBoost = 1 + ((windBoost - 1) * spreadWeight);
+    return spreadC * 400 * effBoost;
+}
+
+function vpBuildTempDewCloudLayer(parts = {}) {
+    const baseAglRaw = vpEstimateCloudBaseFtFromTempDewProfile(parts);
+    if (!Number.isFinite(baseAglRaw)) return null;
+
+    const raw = String(parts.raw || '').toUpperCase();
+    const fltCat = String(parts.fltCat || '').toUpperCase();
+    const wxCode = Number(parts.weatherCode);
+    const coveragePct = Number(parts.coveragePct);
+    const lowCloudPct = Number(parts.lowCloudPct);
+    const rh = Number(parts.rhPct ?? parts.rh2mPct);
+    const tempC = Number(parts.tempC ?? parts.temp2mC);
+    const dewC = Number(parts.dewPointC ?? parts.dewPoint2mC);
+    const spreadC = (Number.isFinite(tempC) && Number.isFinite(dewC)) ? Math.max(0, tempC - dewC) : null;
+    const hasPrecip = !!(parts.hasRain || parts.hasSnow || /\b(-|\+)?(RA|DZ|SN|SG|PL|SH|SHRA|SHSN)\b/i.test(raw));
+    const hasFogMist = /\b(FG|BR|HZ|FU|MIFG|BCFG|PRFG|VCFG)\b/i.test(raw) || wxCode === 45 || wxCode === 48;
+    const clearToken = /\b(CAVOK|NSC|SKC|CLR)\b/i.test(raw);
+    const nonVfr = ['MVFR', 'IFR', 'LIFR'].includes(fltCat);
+    const moist = (Number.isFinite(rh) && rh >= 88) || (Number.isFinite(spreadC) && spreadC <= 3.5);
+    const cloudyCoverage = Number.isFinite(lowCloudPct)
+        ? lowCloudPct >= 35
+        : (Number.isFinite(coveragePct) && coveragePct >= 55);
+
+    if (clearToken && !nonVfr && !hasPrecip && !hasFogMist) return null;
+    if (!nonVfr && !hasPrecip && !hasFogMist && !cloudyCoverage && !moist) return null;
+
+    let typeCoverage = Number.isFinite(lowCloudPct) ? lowCloudPct : (Number.isFinite(coveragePct) ? coveragePct : null);
+    if (!Number.isFinite(typeCoverage)) {
+        if (fltCat === 'LIFR' || fltCat === 'IFR' || hasFogMist) typeCoverage = 88;
+        else if (fltCat === 'MVFR' || hasPrecip) typeCoverage = 68;
+        else if (moist) typeCoverage = 45;
+        else typeCoverage = 30;
+    }
+
+    const terrainFt = Number(parts.terrainFt);
+    const baseAgl = Math.round(Math.max(0, Math.min(15000, baseAglRaw)));
+    const baseMsl = Math.round((Number.isFinite(terrainFt) ? terrainFt : 0) + baseAgl);
+    return {
+        type: vpCoverageToCloudType(typeCoverage),
+        baseAgl,
+        baseMsl,
+        source: String(parts.source || 'temp_dew_spread'),
+        estimated: true
+    };
+}
+
 function vpBucketCloudForLevel(level, lowPct, midPct, highPct) {
     if (level >= 900) return lowPct;
     if (level >= 700) return midPct;
@@ -3690,6 +3776,23 @@ async function fetchRouteWeatherOpenMeteo(routePts, elevData, signal) {
         const hasRain = (sample.rainMm || 0) > 0.1 || (sample.precipitationMm || 0) > 0.25;
         const hasSnow = (sample.snowfallCm || 0) > 0.05;
         const hasTS = false;
+        const estimatedCloud = vpBuildTempDewCloudLayer({
+            temp2mC: sample.temp2mC,
+            dewPoint2mC: sample.dewPoint2mC,
+            rh2mPct: sample.rh2mPct,
+            windKt: sample.wspd,
+            terrainFt: pt.elevFt || 0,
+            lowCloudPct: sample.cloudLowPct,
+            coveragePct: sample.cloudTotalPct,
+            weatherCode: sample.weatherCode,
+            hasRain,
+            hasSnow,
+            source: 'openmeteo_temp_dew'
+        });
+        if (estimatedCloud && (!Number.isFinite(lowestBase) || estimatedCloud.baseMsl < lowestBase - 500)) {
+            clouds.unshift(estimatedCloud);
+            lowestBase = estimatedCloud.baseMsl;
+        }
         const visuals = { puffs: [], drops: [], flashes: [] };
         if (clouds.length) for (let c = 0; c < 25; c++) visuals.puffs.push({ x: Math.random(), y: Math.random(), r: Math.random(), op: Math.random() });
         if (hasRain || hasSnow) for (let d = 0; d < 110; d++) visuals.drops.push({ x: Math.random(), y: Math.random(), spd: Math.random() });
@@ -8406,7 +8509,9 @@ function vpCloneClouds(list) {
         type: c.type,
         baseAgl: c.baseAgl,
         baseMsl: c.baseMsl,
-        topMsl: c.topMsl
+        topMsl: c.topMsl,
+        source: c.source || null,
+        estimated: !!c.estimated
     }));
 }
 
