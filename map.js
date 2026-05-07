@@ -4158,6 +4158,37 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
     const modelName = vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label;
     const ampelNowRatio = Number.isFinite(Number(nowRatio)) ? Number(nowRatio) : 0.5;
     const lineWidthPx = vpNormalizeVfrSectorLineWidth(vpVfrIndexState.sectorLineWidthPx);
+    const insetPolygonByPixels = (poly, insetPx) => {
+        const inset = Math.max(0, Number(insetPx) || 0);
+        if (!Array.isArray(poly) || poly.length < 3 || inset <= 0) return Array.isArray(poly) ? poly.slice() : [];
+        const latLngs = poly
+            .map((p) => L.latLng(Number(p && p[0]), Number(p && p[1])))
+            .filter((ll) => Number.isFinite(ll.lat) && Number.isFinite(ll.lng));
+        if (latLngs.length < 3) return poly.slice();
+
+        const pts = latLngs.map((ll) => map.latLngToLayerPoint(ll));
+        const center = pts.reduce((acc, pt) => {
+            acc.x += pt.x;
+            acc.y += pt.y;
+            return acc;
+        }, { x: 0, y: 0 });
+        center.x /= pts.length;
+        center.y /= pts.length;
+
+        const insetPts = pts.map((pt) => {
+            const dx = center.x - pt.x;
+            const dy = center.y - pt.y;
+            const dist = Math.hypot(dx, dy);
+            if (!Number.isFinite(dist) || dist <= 1) return pt;
+            const move = Math.min(inset, Math.max(0, dist - 1));
+            const t = move / dist;
+            return L.point(pt.x + dx * t, pt.y + dy * t);
+        });
+
+        return insetPts
+            .map((pt) => map.layerPointToLatLng(pt))
+            .map((ll) => [Number(ll.lat), Number(ll.lng)]);
+    };
 
     entries.forEach((entry) => {
         const sector = entry && entry.sector;
@@ -4169,22 +4200,22 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
         const baseOpacity = uncertain ? 0.16 : 0.22;
         const coreOpacity = uncertain ? 0.24 : 0.34;
         const coreWeight = Math.max(2, Math.round(lineWidthPx * 0.55));
-        const polyBase = L.polygon(sector.polygon, {
-            stroke: true,
-            color,
-            weight: lineWidthPx,
-            opacity: baseOpacity,
-            fill: false,
-            dashArray: null,
+        const innerBase = insetPolygonByPixels(sector.polygon, lineWidthPx);
+        const innerCore = insetPolygonByPixels(sector.polygon, coreWeight);
+        const polyBase = L.polygon([sector.polygon, innerBase], {
+            stroke: false,
+            fill: true,
+            fillColor: color,
+            fillOpacity: baseOpacity,
+            fillRule: 'evenodd',
             interactive: false
         });
-        const polyCore = L.polygon(sector.polygon, {
-            stroke: true,
-            color,
-            weight: coreWeight,
-            opacity: coreOpacity,
-            fill: false,
-            dashArray: null,
+        const polyCore = L.polygon([sector.polygon, innerCore], {
+            stroke: false,
+            fill: true,
+            fillColor: color,
+            fillOpacity: coreOpacity,
+            fillRule: 'evenodd',
             interactive: false
         });
 
