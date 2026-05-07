@@ -2168,7 +2168,8 @@ function vpBuildSectorMetarGuardrail(samplePoints, mode = null, sectorRefFt = nu
         stationAgg.set(cand.icao, {
             icao: cand.icao,
             distNm: bestNm,
-            major
+            major,
+            visKm: (Number.isFinite(visibilityM) && visibilityM > 0) ? (visibilityM / 1000) : null
         });
     });
 
@@ -2179,6 +2180,9 @@ function vpBuildSectorMetarGuardrail(samplePoints, mode = null, sectorRefFt = nu
 
     let floorMajor = null;
     const nearest = rows[0];
+    const nearestVisKm = Number(nearest && nearest.visKm);
+    const nearestVisGood = Number.isFinite(nearestVisKm) && nearestVisKm >= 8;
+    const nearestVisPoor = Number.isFinite(nearestVisKm) && nearestVisKm < 5;
     const strongCount = rows.filter(r => vpInternalMajorRank(r.major) >= vpInternalMajorRank('M')).length;
     const moderateCount = rows.filter(r => vpInternalMajorRank(r.major) >= vpInternalMajorRank('D')).length;
     const needModerateCount = isVeryLowland ? 3 : (isFlatland ? 2 : (isHighland ? 2 : (refFactor >= 0.6 ? 1 : 2)));
@@ -2187,9 +2191,9 @@ function vpBuildSectorMetarGuardrail(samplePoints, mode = null, sectorRefFt = nu
     // Sehr defensiv: M nur bei klarer METAR-Haeufung, D bei wiederholten D-/M-/X-Signalen.
     if (nearest && nearest.major === 'X' && Number(nearest.distNm) <= 10 && strongCount >= (isVeryLowland ? 3 : 2)) {
         floorMajor = 'M';
-    } else if (nearest && vpInternalMajorRank(nearest.major) >= vpInternalMajorRank('M') && Number(nearest.distNm) <= 18 && strongCount >= (isVeryLowland ? 3 : 2)) {
+    } else if (nearest && vpInternalMajorRank(nearest.major) >= vpInternalMajorRank('M') && Number(nearest.distNm) <= 18 && strongCount >= (isVeryLowland ? 3 : 2) && (!isVeryLowland || nearestVisPoor)) {
         floorMajor = 'M';
-    } else if (nearest && vpInternalMajorRank(nearest.major) >= vpInternalMajorRank('D') && Number(nearest.distNm) <= nearDnm && moderateCount >= needModerateCount) {
+    } else if (nearest && vpInternalMajorRank(nearest.major) >= vpInternalMajorRank('D') && Number(nearest.distNm) <= nearDnm && moderateCount >= needModerateCount && (!isVeryLowland || !nearestVisGood)) {
         floorMajor = 'D';
     }
 
@@ -2657,15 +2661,27 @@ function vpEstimateCloudBaseFtFromTempDew(parts = {}) {
     if (!Number.isFinite(tempC) || !Number.isFinite(dewC)) return null;
     // Nutzer-Formel: (T - Td) * 400 ft AGL (vereinfachte Annaeherung).
     const spreadC = Math.max(0, tempC - dewC);
-    const windKt = Number(parts.wind);
+    const windKtRaw = Number(parts.wind);
+    const windKt = Number.isFinite(windKtRaw) ? Math.max(0, Math.min(30, windKtRaw)) : 0;
     const rh = Number(parts.rh2mPct);
     const ref = Number(parts.sectorRefFt);
-    // Maritime Dämpfung: bei flachen Kuestensektoren und starkem Wind
-    // fuehrt die reine Spread-Formel sonst zu zu konservativen Basen.
-    if (Number.isFinite(ref) && ref <= 900 && Number.isFinite(windKt) && windKt >= 10 && Number.isFinite(rh) && rh >= 85 && spreadC <= 2.0) {
-        return null;
+
+    // Dynamische Abschwaechung: bei mehr Wind wird die rein statische
+    // T/Td-Basis weniger streng (Mischung/Advektion), besonders im Flachland.
+    const windBoostRaw = 1 + (windKt / 30) * 0.85; // 1.00 .. 1.85
+    let windBoost = windBoostRaw;
+    if (Number.isFinite(rh)) {
+        if (rh >= 97) windBoost -= 0.22;
+        else if (rh >= 93) windBoost -= 0.12;
+        else if (rh >= 88) windBoost -= 0.06;
     }
-    return spreadC * 400;
+    if (Number.isFinite(ref) && ref <= 900) windBoost += 0.08;
+    windBoost = Math.max(1.0, Math.min(1.9, windBoost));
+
+    // Bei kleinem Spread greift die Wind-Abschwaechung staerker.
+    const spreadWeight = spreadC <= 2.5 ? 1.0 : (spreadC <= 4.0 ? 0.65 : 0.35);
+    const effBoost = 1 + ((windBoost - 1) * spreadWeight);
+    return spreadC * 400 * effBoost;
 }
 
 function vpResolveCloudBaseFtAgl(parts = {}) {
