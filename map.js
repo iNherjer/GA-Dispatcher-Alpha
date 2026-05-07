@@ -169,6 +169,11 @@ const VP_GAFOR_SECTOR_BIAS_FT_DE = {
     '50': 350, '45': -180, '34': -180, '32': -120, '05': -100,
     '06': -90, '11': -80, '12': -100, '13': -70, '14': -70
 };
+const VP_VFR_REF_FINE_TRIM_FT_DE = {
+    // Leichte sektorbezogene Referenz-Feinjustierung aus Drift-Beobachtungen.
+    '00': -120, '01': -120, '02': -80, '07': -80, '09': -80,
+    '14': 120, '33': 220, '35': 200, '37': 220, '38': 200, '41': 180, '44': 160
+};
 const VP_VFR_MODEL_META = {
     internal: {
         label: 'Eigenes Modell (Kacheln)',
@@ -193,6 +198,12 @@ const VP_VFR_MODEL_META = {
         summary: 'Eigene grobe DE-Sektoren mit fixer Bezugshoehe je Gebiet.',
         pros: 'Naeher am sektorbasierten Verhalten, worker-schonend.',
         cons: 'Polygone vereinfacht, weiterhin keine amtliche Quelle.'
+    },
+    robust_sector: {
+        label: 'VFR-Index robust (Sektoren)',
+        summary: 'Klassische Matrix plus konservative Ereignisregeln aus Open-Meteo und MOSMIX.',
+        pros: 'Reagiert strenger auf Schauer, Gewitter und Niederschlag.',
+        cons: 'Modellnaeherung, keine amtliche Einstufung.'
     }
 };
 const VP_VFR_INDEX_COUNTRIES = [
@@ -1878,11 +1889,95 @@ function vpBuildGaforSectorDefs(countryCode) {
 }
 
 function vpBuildGaforSectorProbePoints(sectors) {
+    return vpBuildGaforSectorProbePointsByModel(sectors, null);
+}
+
+function vpVfrSectorUseMultiPoint(mode = null) {
+    const m = vpNormalizeVfrModel(mode || vpVfrIndexState.vfrModel);
+    return m === 'internal_sector' || m === 'robust_sector';
+}
+
+function vpGetSectorSamplePoints(sector, modelMode = null) {
+    const useMulti = vpVfrSectorUseMultiPoint(modelMode);
+    const probe = sector && sector.probe;
+    if (!probe || !Number.isFinite(Number(probe.lat)) || !Number.isFinite(Number(probe.lon))) return [];
+    if (!useMulti) return [{ lat: Number(probe.lat), lon: Number(probe.lon), role: 'probe' }];
+
+    const points = [];
+    const push = (lat, lon, role = 'aux') => {
+        const a = Number(lat);
+        const b = Number(lon);
+        if (!Number.isFinite(a) || !Number.isFinite(b)) return;
+        const key = vpPointKey(a, b);
+        if (points.some(p => vpPointKey(p.lat, p.lon) === key)) return;
+        points.push({ lat: a, lon: b, role });
+    };
+
+    push(probe.lat, probe.lon, 'probe');
+    const center = sector && sector.center;
+    if (center && Number.isFinite(Number(center.lat)) && Number.isFinite(Number(center.lon))) {
+        push(center.lat, center.lon, 'center');
+    }
+    const poly = Array.isArray(sector && sector.polygon) ? sector.polygon : [];
+    if (poly.length > 0) {
+        const pLat = Number(probe.lat);
+        const pLon = Number(probe.lon);
+        let best = null;
+        let bestDist = -1;
+        poly.forEach((v) => {
+            const lat = Number(v && v[0]);
+            const lon = Number(v && v[1]);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+            const nav = calcNav(pLat, pLon, lat, lon);
+            const d = Number(nav && nav.dist);
+            if (!Number.isFinite(d)) return;
+            if (d > bestDist) {
+                bestDist = d;
+                best = { lat, lon };
+            }
+        });
+        if (best) {
+            // Nicht direkt auf die Kante, sondern etwas Richtung Sektor-Innenraum.
+            const edgeMix = 0.62;
+            const edgeLat = (pLat * (1 - edgeMix)) + (best.lat * edgeMix);
+            const edgeLon = (pLon * (1 - edgeMix)) + (best.lon * edgeMix);
+            push(edgeLat, edgeLon, 'edge');
+        }
+    }
+    return points.slice(0, 3);
+}
+
+function vpBuildGaforSectorProbePointsByModel(sectors, modelMode = null) {
     if (!Array.isArray(sectors)) return [];
-    return sectors
-        .map(s => s && s.probe)
-        .filter(p => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon)))
-        .map(p => ({ lat: Number(p.lat), lon: Number(p.lon) }));
+    const out = [];
+    const seen = new Set();
+    sectors.forEach((s) => {
+        const samples = vpGetSectorSamplePoints(s, modelMode);
+        samples.forEach((p) => {
+            const key = vpPointKey(p.lat, p.lon);
+            if (seen.has(key)) return;
+            seen.add(key);
+            out.push({ lat: Number(p.lat), lon: Number(p.lon) });
+        });
+    });
+    return out;
+}
+
+function vpPickWorstCategory(cats, mode = null) {
+    const list = Array.isArray(cats) ? cats.filter(Boolean) : [];
+    if (!list.length) return null;
+    const activeMode = vpNormalizeVfrModel(mode || vpVfrIndexState.vfrModel);
+    const isCodeMode = (activeMode === 'gafor_like' || activeMode === 'gafor_sector' || activeMode === 'robust_sector');
+    if (isCodeMode) {
+        return list.reduce((worst, cur) => {
+            if (!worst) return cur;
+            return vpCodeRank(cur && cur.code) > vpCodeRank(worst && worst.code) ? cur : worst;
+        }, null);
+    }
+    return list.reduce((worst, cur) => {
+        if (!worst) return cur;
+        return Number(cur && cur.score) < Number(worst && worst.score) ? cur : worst;
+    }, null);
 }
 
 function vpCodeRank(code) {
@@ -1924,28 +2019,38 @@ function vpParseMetarVisibilityM(rawText) {
     return null;
 }
 
-function vpBuildMetarPointHints(point, maxDistNm = 35) {
-    const lat = Number(point && point.lat);
-    const lon = Number(point && point.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return {};
-    const maxNm = Math.max(10, Number(maxDistNm) || 70);
+function vpCollectMetarCandidates() {
     const candidates = [];
+    const seen = new Set();
+    const pushCandidate = (cand) => {
+        if (!cand) return;
+        const icao = String(cand.icao || '').trim().toUpperCase();
+        const lat = Number(cand.lat);
+        const lon = Number(cand.lon);
+        if (!icao || !Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        if (/^OM\d+$/i.test(icao)) return;
+        if (seen.has(icao)) return;
+        seen.add(icao);
+        candidates.push({
+            icao,
+            lat,
+            lon,
+            fltCat: String(cand.fltCat || '').toUpperCase(),
+            clouds: Array.isArray(cand.clouds) ? cand.clouds : [],
+            raw: String(cand.raw || '')
+        });
+    };
 
     if (Array.isArray(window.vpWeatherData)) {
         window.vpWeatherData.forEach((zone) => {
             if (!zone) return;
-            const icao = String(zone.icao || '').trim().toUpperCase();
-            const zLat = Number(zone.stnLat);
-            const zLon = Number(zone.stnLon);
-            if (!icao || !Number.isFinite(zLat) || !Number.isFinite(zLon)) return;
-            if (/^OM\d+$/i.test(icao)) return;
-            candidates.push({
-                icao,
-                lat: zLat,
-                lon: zLon,
-                fltCat: String(zone.fltCat || '').toUpperCase(),
-                clouds: Array.isArray(zone.clouds) ? zone.clouds : [],
-                raw: String(zone.raw || '')
+            pushCandidate({
+                icao: zone.icao,
+                lat: zone.stnLat,
+                lon: zone.stnLon,
+                fltCat: zone.fltCat,
+                clouds: zone.clouds,
+                raw: zone.raw
             });
         });
     }
@@ -1955,13 +2060,6 @@ function vpBuildMetarPointHints(point, maxDistNm = 35) {
             const entry = gpsState.metarCache[key];
             const data = entry && Array.isArray(entry.data) ? entry.data[0] : null;
             if (!data) return;
-            const icao = String(data.icaoId || key || '').trim().toUpperCase();
-            const zLat = Number(data.lat);
-            const zLon = Number(data.lon);
-            if (!icao || !Number.isFinite(zLat) || !Number.isFinite(zLon)) return;
-            if (/^OM\d+$/i.test(icao)) return;
-            const seen = candidates.some((c) => c.icao === icao);
-            if (seen) return;
             const clouds = [];
             const raw = String(data.rawOb || '');
             const cloudRegex = /(FEW|SCT|BKN|OVC|VV)(\d{3})/gi;
@@ -1969,16 +2067,38 @@ function vpBuildMetarPointHints(point, maxDistNm = 35) {
             while ((match = cloudRegex.exec(raw)) !== null) {
                 clouds.push({ type: String(match[1] || '').toUpperCase(), baseAgl: Number(match[2]) * 100 });
             }
-            candidates.push({
-                icao,
-                lat: zLat,
-                lon: zLon,
-                fltCat: String(data.fltcat || data.fltCat || '').toUpperCase(),
+            pushCandidate({
+                icao: data.icaoId || key,
+                lat: data.lat,
+                lon: data.lon,
+                fltCat: data.fltcat || data.fltCat,
                 clouds,
                 raw
             });
         });
     }
+    return candidates;
+}
+
+function vpMetarCeilingFtFromClouds(clouds) {
+    let metarCeilingFtAgl = null;
+    (Array.isArray(clouds) ? clouds : []).forEach((c) => {
+        if (!c) return;
+        const type = String(c.type || '').toUpperCase();
+        if (!['BKN', 'OVC', 'VV'].includes(type)) return;
+        const base = Number(c.baseAgl);
+        if (!Number.isFinite(base) || base < 0) return;
+        if (!Number.isFinite(metarCeilingFtAgl) || base < metarCeilingFtAgl) metarCeilingFtAgl = base;
+    });
+    return Number.isFinite(metarCeilingFtAgl) ? metarCeilingFtAgl : null;
+}
+
+function vpBuildMetarPointHints(point, maxDistNm = 35) {
+    const lat = Number(point && point.lat);
+    const lon = Number(point && point.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return {};
+    const maxNm = Math.max(10, Number(maxDistNm) || 70);
+    const candidates = vpCollectMetarCandidates();
 
     let best = null;
     let bestDistNm = Infinity;
@@ -1996,15 +2116,7 @@ function vpBuildMetarPointHints(point, maxDistNm = 35) {
     });
     if (!best) return {};
 
-    let metarCeilingFtAgl = null;
-    (Array.isArray(best.clouds) ? best.clouds : []).forEach((c) => {
-        if (!c) return;
-        const type = String(c.type || '').toUpperCase();
-        if (!['BKN', 'OVC', 'VV'].includes(type)) return;
-        const base = Number(c.baseAgl);
-        if (!Number.isFinite(base) || base < 0) return;
-        if (!Number.isFinite(metarCeilingFtAgl) || base < metarCeilingFtAgl) metarCeilingFtAgl = base;
-    });
+    const metarCeilingFtAgl = vpMetarCeilingFtFromClouds(best.clouds);
 
     const metarVisibilityM = vpParseMetarVisibilityM(best.raw);
     return {
@@ -2016,6 +2128,120 @@ function vpBuildMetarPointHints(point, maxDistNm = 35) {
     };
 }
 
+function vpCategoryMajor(cat) {
+    const code = String(cat && (cat.code || cat.displayCode || cat.letter) || '').toUpperCase();
+    if (code === 'C' || code === 'O' || code === 'X') return code;
+    if (code.startsWith('D')) return 'D';
+    if (code.startsWith('M')) return 'M';
+    return '?';
+}
+
+function vpBuildSectorMetarGuardrail(samplePoints, mode = null, sectorRefFt = null) {
+    const activeMode = vpNormalizeVfrModel(mode || vpVfrIndexState.vfrModel);
+    if (!(activeMode === 'internal_sector' || activeMode === 'robust_sector')) return null;
+    const points = Array.isArray(samplePoints) ? samplePoints.filter(Boolean) : [];
+    if (!points.length) return null;
+    const candidates = vpCollectMetarCandidates();
+    if (!candidates.length) return null;
+    const refRaw = Number(sectorRefFt);
+    const refFactor = vpSectorRegionalRefFactor(sectorRefFt);
+    const isFlatland = Number.isFinite(refRaw) && refRaw <= 900;
+    const isHighland = Number.isFinite(refRaw) && refRaw >= 2400;
+
+    const stationAgg = new Map();
+    candidates.forEach((cand) => {
+        let bestNm = Infinity;
+        points.forEach((p) => {
+            const nav = calcNav(Number(p.lat), Number(p.lon), Number(cand.lat), Number(cand.lon));
+            const d = Number(nav && nav.dist);
+            if (Number.isFinite(d) && d < bestNm) bestNm = d;
+        });
+        if (!Number.isFinite(bestNm) || bestNm > 45) return;
+        const visibilityM = vpParseMetarVisibilityM(cand.raw);
+        const ceilingFtAgl = vpMetarCeilingFtFromClouds(cand.clouds);
+        const byCat = vpInternalMajorFromMetarFlightCat(cand.fltCat);
+        const byVis = (Number.isFinite(visibilityM) && visibilityM > 0) ? vpInternalMajorFromVisKm(visibilityM / 1000) : null;
+        const byCeiling = vpInternalMajorFromCeilingFt(ceilingFtAgl);
+        const major = vpWorstInternalMajor([byCat, byVis, byCeiling]);
+        if (!major) return;
+        stationAgg.set(cand.icao, {
+            icao: cand.icao,
+            distNm: bestNm,
+            major
+        });
+    });
+
+    const rows = Array.from(stationAgg.values())
+        .sort((a, b) => Number(a.distNm) - Number(b.distNm))
+        .slice(0, 4);
+    if (!rows.length) return null;
+
+    let floorMajor = null;
+    const nearest = rows[0];
+    const strongCount = rows.filter(r => vpInternalMajorRank(r.major) >= vpInternalMajorRank('M')).length;
+    const moderateCount = rows.filter(r => vpInternalMajorRank(r.major) >= vpInternalMajorRank('D')).length;
+    const needModerateCount = isFlatland ? 1 : (isHighland ? 2 : (refFactor >= 0.6 ? 1 : 2));
+    const nearDnm = (isHighland ? 24 : 28) + (8 * refFactor);
+
+    // Sehr defensiv: M nur bei klarer METAR-Haeufung, D bei wiederholten D-/M-/X-Signalen.
+    if (nearest && nearest.major === 'X' && Number(nearest.distNm) <= 10 && strongCount >= 2) {
+        floorMajor = 'M';
+    } else if (nearest && vpInternalMajorRank(nearest.major) >= vpInternalMajorRank('M') && Number(nearest.distNm) <= 18 && strongCount >= 2) {
+        floorMajor = 'M';
+    } else if (nearest && vpInternalMajorRank(nearest.major) >= vpInternalMajorRank('D') && Number(nearest.distNm) <= nearDnm && moderateCount >= needModerateCount) {
+        floorMajor = 'D';
+    }
+
+    if (!floorMajor) return null;
+    return {
+        floorMajor,
+        nearestIcao: nearest && nearest.icao ? String(nearest.icao) : '',
+        nearestKm: nearest ? (Number(nearest.distNm) * 1.852) : null
+    };
+}
+
+function vpApplySectorMetarGuardrail(cat, guardrail, mode = null) {
+    if (!cat || !guardrail || !guardrail.floorMajor) return cat;
+    const activeMode = vpNormalizeVfrModel(mode || vpVfrIndexState.vfrModel);
+    const floorRank = vpInternalMajorRank(guardrail.floorMajor);
+    const curMajor = vpCategoryMajor(cat);
+    const curRank = vpInternalMajorRank(curMajor);
+    if (!Number.isFinite(floorRank) || !Number.isFinite(curRank) || curRank >= floorRank) return cat;
+    const boundedRank = Math.min(floorRank, Math.min(4, curRank + 1));
+    if (boundedRank <= curRank) return cat;
+    const rankToMajor = ['C', 'O', 'D', 'M', 'X'];
+    const floorMajor = rankToMajor[Math.max(0, Math.min(4, boundedRank))] || guardrail.floorMajor;
+
+    let next = { ...cat };
+    if (activeMode === 'robust_sector') {
+        const colors = { C: '#6aaeff', O: '#8ecb4b', D: '#e0c93b', M: '#e08a3b', X: '#d14a4a' };
+        const code = vpRepresentativeCodeFromMajor(floorMajor);
+        next = {
+            ...next,
+            key: `robust_${String(floorMajor || 'd').toLowerCase()}`,
+            letter: floorMajor,
+            code,
+            displayCode: code,
+            color: colors[floorMajor] || next.color,
+            label: `VFR-Index ${floorMajor} (robust)`
+        };
+    } else if (activeMode === 'internal_sector') {
+        const colors = { C: '#6aaeff', O: '#8ecb4b', D: '#e0c93b', M: '#e08a3b', X: '#d14a4a' };
+        next = {
+            ...next,
+            key: `vfr_${String(floorMajor || 'd').toLowerCase()}`,
+            letter: floorMajor,
+            code: floorMajor,
+            displayCode: floorMajor,
+            color: colors[floorMajor] || next.color,
+            label: `VFR-Index ${floorMajor} (intern)`
+        };
+    }
+    const note = `METAR-Guardrail ${guardrail.floorMajor}${guardrail.nearestIcao ? ` (${guardrail.nearestIcao})` : ''}`;
+    next.dataWarning = (next.dataWarning ? `${next.dataWarning} • ` : '') + note;
+    return next;
+}
+
 function vpGetTimelineRecordForPoint(timelines, point) {
     if (!timelines || !timelines.byKey || !point) return null;
     const keys = vpBuildTimelineKeyCandidates(point.lat, point.lon);
@@ -2025,56 +2251,95 @@ function vpGetTimelineRecordForPoint(timelines, point) {
     return null;
 }
 
-function vpBuildGaforSectorEntries(sectors, samplesByKey, timelines, nowRatio, modelMode = null) {
+function vpBuildGaforSectorEntries(sectors, samplesByKey, timelines, nowRatio, modelMode = null, terrainRefsByPoint = null) {
     const out = [];
     const safeNowRatio = Number.isFinite(Number(nowRatio)) ? Number(nowRatio) : 0.5;
     const nowIdx = Math.max(0, Math.min(2, Math.round(safeNowRatio * 2)));
     const activeMode = vpNormalizeVfrModel(modelMode || vpVfrIndexState.vfrModel);
-    const isClassic = (activeMode === 'gafor_like' || activeMode === 'gafor_sector');
     sectors.forEach((sector) => {
-        const probe = sector && sector.probe;
-        if (!probe) return;
-        const pKey = vpPointKey(probe.lat, probe.lon);
-        const sample = samplesByKey[pKey] || null;
-        const metarHints = vpBuildMetarPointHints(probe);
-        const baseParts = vpSampleToParts({
-            ...(sample || {}),
-            ...metarHints,
-            sectorRefFt: Number(sector.refFt),
-            terrainPointFt: Number(sector.refFt)
-        });
-        let tl = vpGetTimelineRecordForPoint(timelines, probe);
-        if (!tl || !Array.isArray(tl.slots) || tl.slots.length !== 3) {
-            const fb = vpBuildAmpelSlotFallback(vpVfrIndexState.ampelWindowMode, baseParts);
-            tl = { slots: fb.slots };
-        }
-        const slots = (tl.slots || []).map((slot) => {
-            const parts = {
-                ...baseParts,
-                ...(slot && slot.parts ? slot.parts : {}),
+        const samplePoints = vpGetSectorSamplePoints(sector, activeMode);
+        if (!samplePoints.length) return;
+        const metarGuardrail = vpBuildSectorMetarGuardrail(samplePoints, activeMode, Number(sector && sector.refFt));
+        const perPoint = samplePoints.map((point) => {
+            const pKey = vpPointKey(point.lat, point.lon);
+            const sample = samplesByKey[pKey] || null;
+            const metarHints = vpBuildMetarPointHints(point);
+            let terrainPointFt = Number(sector.refFt);
+            const terrainRef = terrainRefsByPoint && terrainRefsByPoint[pKey];
+            if (terrainRef && Number.isFinite(Number(terrainRef.terrainPointFt))) {
+                terrainPointFt = Number(terrainRef.terrainPointFt);
+            }
+            const baseParts = vpSampleToParts({
+                ...(sample || {}),
+                ...metarHints,
+                sectorId: String(sector && sector.id || ''),
+                countryCode: String(vpVfrIndexState && vpVfrIndexState.country || ''),
                 sectorRefFt: Number(sector.refFt),
-                terrainPointFt: Number(sector.refFt)
-            };
-            const cat = vpClassifyVfrByModel(parts, activeMode);
-            return { slot, parts, cat };
+                terrainPointFt
+            });
+            let tl = vpGetTimelineRecordForPoint(timelines, point);
+            if (!tl || !Array.isArray(tl.slots) || tl.slots.length !== 3) {
+                const fb = vpBuildAmpelSlotFallback(vpVfrIndexState.ampelWindowMode, baseParts);
+                tl = { slots: fb.slots };
+            }
+            const slots = (tl.slots || []).map((slot) => {
+                const parts = {
+                    ...baseParts,
+                    ...(slot && slot.parts ? slot.parts : {}),
+                    sectorId: String(sector && sector.id || ''),
+                    countryCode: String(vpVfrIndexState && vpVfrIndexState.country || ''),
+                    sectorRefFt: Number(sector.refFt),
+                    terrainPointFt
+                };
+                const catRaw = vpClassifyVfrByModel(parts, activeMode);
+                const cat = vpApplySectorMetarGuardrail(catRaw, metarGuardrail, activeMode);
+                return { slot, parts, cat };
+            });
+            return { point, baseParts, slots };
         });
-        let current = slots[nowIdx] && slots[nowIdx].cat ? slots[nowIdx].cat : null;
-        if (!current) {
-            const candidates = slots.map(s => s.cat).filter(Boolean);
-            if (candidates.length) {
-                if (isClassic) {
-                    current = candidates.sort((a, b) => vpCodeRank(a.code) - vpCodeRank(b.code))[0];
-                } else {
-                    current = candidates.sort((a, b) => Number(a.score || 0) - Number(b.score || 0))[0];
-                }
-            } else {
-                current = vpClassifyVfrByModel(baseParts, activeMode);
+        const slotCount = Math.max(0, ...perPoint.map(p => Array.isArray(p.slots) ? p.slots.length : 0));
+        const slots = [];
+        for (let i = 0; i < slotCount; i++) {
+            const candidates = [];
+            perPoint.forEach((pp) => {
+                const rec = pp && pp.slots && pp.slots[i];
+                if (!rec || !rec.cat) return;
+                candidates.push({ ...rec, point: pp.point });
+            });
+            const worstCat = vpPickWorstCategory(candidates.map(c => c.cat), activeMode);
+            let worstRec = null;
+            if (worstCat) {
+                worstRec = candidates.find(c => c.cat === worstCat)
+                    || candidates.sort((a, b) => vpCodeRank(b.cat && b.cat.code) - vpCodeRank(a.cat && a.cat.code))[0]
+                    || null;
+            }
+            if (worstRec) {
+                slots.push({
+                    slot: worstRec.slot,
+                    parts: worstRec.parts,
+                    cat: worstRec.cat,
+                    point: worstRec.point
+                });
             }
         }
+        let current = slots[nowIdx] && slots[nowIdx].cat ? slots[nowIdx].cat : null;
+        if (!current) {
+            current = vpPickWorstCategory(slots.map(s => s.cat).filter(Boolean), activeMode);
+        }
+        if (!current) {
+            const fallbackBase = perPoint[0] && perPoint[0].baseParts ? perPoint[0].baseParts : vpSampleToParts({});
+            current = vpClassifyVfrByModel(fallbackBase, activeMode);
+        }
+        current = vpApplySectorMetarGuardrail(current, metarGuardrail, activeMode);
+        const currentRec = slots.find(s => s && s.cat === current) || null;
+        const baseParts = currentRec && currentRec.parts
+            ? currentRec.parts
+            : (perPoint[0] && perPoint[0].baseParts ? perPoint[0].baseParts : vpSampleToParts({}));
         out.push({
             sector,
             baseParts,
             currentCat: current,
+            samplePoints,
             timeline: {
                 slots: slots.map(({ slot, parts }) => ({
                     ...(slot || {}),
@@ -2370,6 +2635,79 @@ function vpInternalMajorFromRank(rank) {
     return codes[r] || 'D';
 }
 
+function vpHasReliableMosmixN05(parts = {}, visKm = null, precipMm = 0, wxCandidates = [], lowCoverPct = null) {
+    const n05 = Number(parts.mosmixN05Pct);
+    if (!Number.isFinite(n05)) return false;
+    const stationDistKm = Number(parts.mosmixStationDistKm);
+    const nearStation = !Number.isFinite(stationDistKm) || stationDistKm <= 32;
+    if (n05 >= 82.5 && nearStation) return true;
+    const wxSupportCodes = new Set([45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 80, 81, 82, 85, 86, 95, 96, 99]);
+    const wxSupport = Array.isArray(wxCandidates) && wxCandidates.some(c => wxSupportCodes.has(Number(c)));
+    const support = (Number.isFinite(visKm) && visKm <= 8)
+        || (Number.isFinite(precipMm) && precipMm >= 0.2)
+        || wxSupport
+        || (Number.isFinite(lowCoverPct) && lowCoverPct >= 75);
+    return n05 >= 62.5 && nearStation && support;
+}
+
+function vpEstimateCloudBaseFtFromTempDew(parts = {}) {
+    const tempC = Number(parts.temp2mC);
+    const dewC = Number(parts.dewPoint2mC);
+    if (!Number.isFinite(tempC) || !Number.isFinite(dewC)) return null;
+    // Nutzer-Formel: (T - Td) * 400 ft AGL (vereinfachte Annaeherung).
+    const spreadC = Math.max(0, tempC - dewC);
+    return spreadC * 400;
+}
+
+function vpResolveCloudBaseFtAgl(parts = {}) {
+    const cloudBaseResolved = vpResolveCloudBaseFtAgl(parts);
+    const cloudBaseFtAgl = Number(cloudBaseResolved.valueFt);
+    const cloudBaseSource = cloudBaseResolved.source;
+    if (Number.isFinite(cloudBaseFtAgl)) return { valueFt: cloudBaseFtAgl, source: 'openmeteo_cloud_base' };
+    const tdDerived = vpEstimateCloudBaseFtFromTempDew(parts);
+    if (Number.isFinite(tdDerived)) return { valueFt: tdDerived, source: 'temp_dew_spread' };
+    return { valueFt: null, source: null };
+}
+
+function vpEstimateFogRiskMajor(parts = {}, visKm = null) {
+    const wxCandidates = [Number(parts.weatherCode), Number(parts.mosmixWeatherCode)].filter(Number.isFinite);
+    if (wxCandidates.some(c => c === 45 || c === 48)) return { major: 'M', reason: 'Nebelcode' };
+
+    const tempC = Number(parts.temp2mC);
+    const dewC = Number(parts.dewPoint2mC);
+    const spreadC = (Number.isFinite(tempC) && Number.isFinite(dewC)) ? Math.max(0, tempC - dewC) : null;
+    const rh = Number(parts.rh2mPct);
+    const windKt = Number(parts.wind);
+    const pressure = Number(parts.mslPressureHpa);
+
+    if (!Number.isFinite(spreadC) && !Number.isFinite(rh)) return { major: null, reason: '' };
+    if (Number.isFinite(visKm) && visKm > 10) return { major: null, reason: '' };
+
+    let score = 0;
+    if (Number.isFinite(spreadC)) {
+        if (spreadC <= 0.8) score += 3;
+        else if (spreadC <= 1.5) score += 2;
+        else if (spreadC <= 2.5) score += 1;
+    }
+    if (Number.isFinite(rh)) {
+        if (rh >= 97) score += 2;
+        else if (rh >= 93) score += 1;
+    }
+    if (Number.isFinite(windKt)) {
+        if (windKt <= 4) score += 2;
+        else if (windKt <= 8) score += 1;
+    }
+    if (Number.isFinite(pressure) && pressure >= 1020) score += 1;
+    if (Number.isFinite(visKm)) {
+        if (visKm <= 3) score += 2;
+        else if (visKm <= 6) score += 1;
+    }
+
+    if (score >= 7 && Number.isFinite(visKm) && visKm <= 2.0) return { major: 'M', reason: 'Nebelrisiko hoch' };
+    if (score >= 6 && Number.isFinite(visKm) && visKm <= 5) return { major: 'D', reason: 'Nebelrisiko' };
+    return { major: null, reason: '' };
+}
+
 function vpMapVfrCategory(score) {
     const major = vpInternalMajorFromScore(score);
     const labels = {
@@ -2393,9 +2731,11 @@ function vpClassifyInternalVfr(parts = {}) {
         : Number(parts.visibility);
     const visKm = (Number.isFinite(visMRaw) && visMRaw > 0) ? (visMRaw / 1000) : null;
 
-    const cloudBaseMRaw = Number(parts.cloudBaseM);
-    const cloudBaseFtAgl = (Number.isFinite(cloudBaseMRaw) && cloudBaseMRaw > 0) ? (cloudBaseMRaw * 3.28084) : null;
-    const sectorRefFt = Number(parts.sectorRefFt);
+    const cloudBaseResolved = vpResolveCloudBaseFtAgl(parts);
+    const cloudBaseFtAgl = Number(cloudBaseResolved.valueFt);
+    const cloudBaseSource = cloudBaseResolved.source;
+    const sectorRefFtRaw = Number(parts.sectorRefFt);
+    const sectorRefFt = vpAdjustedSectorRefFt(parts);
     const terrainPointFt = Number(parts.terrainPointFt);
     const cloudLow = Number(parts.cloudLow || 0);
     const cloudMid = Number(parts.cloudMid || 0);
@@ -2404,7 +2744,14 @@ function vpClassifyInternalVfr(parts = {}) {
     const mosmixLowCloudPct = Number(parts.mosmixLowCloudPct);
     const coverForCeiling = Math.max(cloudLow, cloudMid, cloudTotal);
     const lowCoverForCeiling = Number.isFinite(mosmixLowCloudPct) ? mosmixLowCloudPct : cloudLow;
-    const mosmixHasBknBelow500 = Number.isFinite(mosmixN05Pct) && mosmixN05Pct >= 62.5;
+    const wxForN05 = [Number(parts.weatherCode), Number(parts.mosmixWeatherCode)].filter(Number.isFinite);
+    const precipForN05 = Math.max(
+        0,
+        Number(parts.precipitation || parts.rain || 0),
+        Number(parts.mosmixPrecipitationMm || 0)
+    );
+    const mosmixHasBknBelow500 = vpHasReliableMosmixN05(parts, visKm, precipForN05, wxForN05, lowCoverForCeiling);
+    const fogRisk = vpEstimateFogRiskMajor(parts, visKm);
     const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 62.5;
     const hasDenseLowWithoutBase = Number.isFinite(lowCoverForCeiling)
         && lowCoverForCeiling >= 75
@@ -2432,6 +2779,7 @@ function vpClassifyInternalVfr(parts = {}) {
     else if (precip > 1.2 || snow > 0.05) wxMajor = vpWorstInternalMajor([wxMajor, 'D']);
     if (wind > 35) wxMajor = vpWorstInternalMajor([wxMajor, 'M']);
     else if (wind > 25) wxMajor = vpWorstInternalMajor([wxMajor, 'D']);
+    if (fogRisk && fogRisk.major) wxMajor = vpWorstInternalMajor([wxMajor, fogRisk.major]);
 
     const metarFlightCat = String(parts.metarFlightCat || '').trim().toUpperCase();
     const metarByCat = vpInternalMajorFromMetarFlightCat(metarFlightCat);
@@ -2479,10 +2827,15 @@ function vpClassifyInternalVfr(parts = {}) {
         dataQuality,
         dataWarning: hasDenseLowWithoutBase
             ? 'Wolkenbasis fehlt trotz dichter Low-Bewoelkung; Einstufung konservativ abgesichert.'
-            : '',
+            : (cloudBaseSource === 'temp_dew_spread'
+                ? 'Wolkenbasis aus Temperatur/Taupunkt geschaetzt.'
+                : (fogRisk && fogRisk.reason ? fogRisk.reason : '')),
         visKm: Number.isFinite(visKm) ? visKm : null,
         cloudBaseFtAgl: Number.isFinite(cloudBaseFtAgl) ? cloudBaseFtAgl : null,
         cloudAboveRefFt: Number.isFinite(cloudAboveRefFt) ? cloudAboveRefFt : null,
+        cloudBaseSource: cloudBaseSource || null,
+        sectorRefFtRaw: Number.isFinite(sectorRefFtRaw) ? sectorRefFtRaw : null,
+        sectorRefTrimFt: vpRefFineTrimFt(parts),
         metarFlightCat: metarFlightCat || null,
         metarStation: parts.metarStation ? String(parts.metarStation) : null,
         metarDistKm: Number.isFinite(Number(parts.metarDistKm)) ? Number(parts.metarDistKm) : null
@@ -2497,7 +2850,8 @@ function vpClassifyGaforLike(parts = {}) {
     const visKm = (Number.isFinite(visMRaw) && visMRaw > 0) ? (visMRaw / 1000) : null;
     const cloudBaseMRaw = Number(parts.cloudBaseM);
     const cloudBaseFtAgl = (Number.isFinite(cloudBaseMRaw) && cloudBaseMRaw > 0) ? (cloudBaseMRaw * 3.28084) : null;
-    const sectorRefFt = Number(parts.sectorRefFt);
+    const sectorRefFtRaw = Number(parts.sectorRefFt);
+    const sectorRefFt = vpAdjustedSectorRefFt(parts);
     const terrainPointFt = Number(parts.terrainPointFt);
     const cloudLow = Number(parts.cloudLow || 0);
     const cloudMid = Number(parts.cloudMid || 0);
@@ -2506,7 +2860,13 @@ function vpClassifyGaforLike(parts = {}) {
     const mosmixLowCloudPct = Number(parts.mosmixLowCloudPct);
     const coverForCeiling = Math.max(cloudLow, cloudMid, cloudTotal);
     const lowCoverForCeiling = Number.isFinite(mosmixLowCloudPct) ? mosmixLowCloudPct : cloudLow;
-    const mosmixHasBknBelow500 = Number.isFinite(mosmixN05Pct) && mosmixN05Pct >= 62.5;
+    const wxForN05 = [Number(parts.weatherCode), Number(parts.mosmixWeatherCode)].filter(Number.isFinite);
+    const precipForN05 = Math.max(
+        0,
+        Number(parts.precipitation || parts.rain || 0),
+        Number(parts.mosmixPrecipitationMm || 0)
+    );
+    const mosmixHasBknBelow500 = vpHasReliableMosmixN05(parts, visKm, precipForN05, wxForN05, lowCoverForCeiling);
     // Ceiling erst ab BKN/OVC (>=5/8) bewerten.
     const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 62.5;
     // Open-Meteo liefert cloud_base oft leer. Ein sichtbares '?' nur setzen,
@@ -2553,7 +2913,10 @@ function vpClassifyGaforLike(parts = {}) {
             visKm,
             cloudBaseFtAgl,
             cloudAboveRefFt,
+            cloudBaseSource: cloudBaseSource || null,
             sectorRefFt: Number.isFinite(sectorRefFt) ? sectorRefFt : null,
+            sectorRefFtRaw: Number.isFinite(sectorRefFtRaw) ? sectorRefFtRaw : null,
+            sectorRefTrimFt: vpRefFineTrimFt(parts),
             terrainPointFt: Number.isFinite(terrainPointFt) ? terrainPointFt : null,
             coverForCeiling,
             lowCoverForCeiling,
@@ -2608,6 +2971,12 @@ function vpClassifyGaforLike(parts = {}) {
         else code = 'X';
     }
     if (!code || !labels[code]) code = 'D4';
+    if (fogRisk && fogRisk.major) {
+        const curMajor = vpMajorFromGaforCode(code);
+        if (vpMajorSeverity(fogRisk.major) > vpMajorSeverity(curMajor)) {
+            code = vpRepresentativeCodeFromMajor(fogRisk.major);
+        }
+    }
 
     const cat = labels[code];
     const major = String(cat.letter || 'D');
@@ -2619,8 +2988,12 @@ function vpClassifyGaforLike(parts = {}) {
             : `${String(cat.code || cat.letter || '?').slice(0, 1)}?`);
     const dataWarning = hasDenseLowWithoutBase
         ? 'Wolkenbasis fehlt trotz dichter Low-Bewoelkung; Klasse nur aus Sicht/Restdaten abgeleitet.'
-        : '';
-    const cloudSource = mosmixHasBknBelow500 ? 'mosmix_n05' : (Number.isFinite(cloudAboveRefFt) ? 'openmeteo_cloud_base' : null);
+        : (cloudBaseSource === 'temp_dew_spread'
+            ? 'Wolkenbasis aus Temperatur/Taupunkt geschaetzt.'
+            : (fogRisk && fogRisk.reason ? fogRisk.reason : ''));
+    const cloudSource = mosmixHasBknBelow500
+        ? 'mosmix_n05'
+        : (Number.isFinite(cloudAboveRefFt) ? (cloudBaseSource || 'openmeteo_cloud_base') : null);
     return {
         ...cat,
         label: dataQuality === 'valid' ? cat.label : `${cat.label} (unsicher)`,
@@ -2633,7 +3006,10 @@ function vpClassifyGaforLike(parts = {}) {
         visKm,
         cloudBaseFtAgl,
         cloudAboveRefFt,
+        cloudBaseSource: cloudBaseSource || null,
         sectorRefFt: Number.isFinite(sectorRefFt) ? sectorRefFt : null,
+        sectorRefFtRaw: Number.isFinite(sectorRefFtRaw) ? sectorRefFtRaw : null,
+        sectorRefTrimFt: vpRefFineTrimFt(parts),
         terrainPointFt: Number.isFinite(terrainPointFt) ? terrainPointFt : null,
         coverForCeiling,
         lowCoverForCeiling,
@@ -2647,9 +3023,241 @@ function vpClassifyGaforLike(parts = {}) {
     };
 }
 
+function vpMajorFromGaforCode(code) {
+    const c = String(code || '').toUpperCase();
+    if (c === 'C' || c === 'O' || c === 'X') return c;
+    if (c.startsWith('D')) return 'D';
+    if (c.startsWith('M')) return 'M';
+    return '?';
+}
+
+function vpRepresentativeCodeFromMajor(major) {
+    const m = String(major || '').toUpperCase();
+    if (m === 'C') return 'C';
+    if (m === 'O') return 'O';
+    if (m === 'D') return 'D3';
+    if (m === 'M') return 'M5';
+    if (m === 'X') return 'X';
+    return '?';
+}
+
+function vpMajorSeverity(major) {
+    const m = String(major || '').toUpperCase();
+    const map = { C: 0, O: 1, D: 2, M: 3, X: 4 };
+    return Object.prototype.hasOwnProperty.call(map, m) ? map[m] : 2;
+}
+
+function vpMajorFromSeverity(level) {
+    const n = Math.max(0, Math.min(4, Math.round(Number(level) || 0)));
+    const arr = ['C', 'O', 'D', 'M', 'X'];
+    return arr[n] || 'D';
+}
+
+function vpSectorRefTuneFactor(refFt) {
+    const ref = Number(refFt);
+    if (!Number.isFinite(ref)) return 0;
+    const norm = (ref - 800) / 2400;
+    return Math.max(0, Math.min(1, norm));
+}
+
+function vpSectorRegionalRefFactor(refFt) {
+    const ref = Number(refFt);
+    let f = vpSectorRefTuneFactor(refFt);
+    if (Number.isFinite(ref)) {
+        if (ref <= 900) f += 0.22;          // Flachland etwas strenger kalibrieren.
+        else if (ref <= 1400) f += 0.10;    // leichtes Huegelland moderat strenger.
+        else if (ref >= 2800) f -= 0.10;    // hohe Berglagen nicht ueberziehen.
+        else if (ref >= 2200) f -= 0.05;
+    }
+    return Math.max(0, Math.min(1, f));
+}
+
+function vpRefFineTrimFt(parts = {}) {
+    const country = String((parts && parts.countryCode) || (vpVfrIndexState && vpVfrIndexState.country) || '').toUpperCase();
+    if (country !== 'DE') return 0;
+    const sidRaw = String(parts && parts.sectorId || '').trim();
+    const sid = sidRaw ? sidRaw.padStart(2, '0') : '';
+    let trim = Number(VP_VFR_REF_FINE_TRIM_FT_DE[sid] || 0);
+
+    // Dynamischer Mikro-Trim: nur kleine Korrektur fuer feuchte Flachland-/trockene Hochlagen.
+    const ref = Number(parts && parts.sectorRefFt);
+    const tempC = Number(parts && parts.temp2mC);
+    const dewC = Number(parts && parts.dewPoint2mC);
+    const rh = Number(parts && parts.rh2mPct);
+    const spread = (Number.isFinite(tempC) && Number.isFinite(dewC)) ? Math.max(0, tempC - dewC) : null;
+    if (Number.isFinite(ref) && ref <= 1200 && Number.isFinite(rh) && Number.isFinite(spread) && rh >= 93 && spread <= 1.5) {
+        trim += 80;
+    }
+    if (Number.isFinite(ref) && ref >= 2200 && Number.isFinite(rh) && Number.isFinite(spread) && rh <= 55 && spread >= 4.0) {
+        trim -= 80;
+    }
+    return Math.max(-300, Math.min(300, trim));
+}
+
+function vpAdjustedSectorRefFt(parts = {}) {
+    const ref = Number(parts && parts.sectorRefFt);
+    if (!Number.isFinite(ref)) return ref;
+    return ref + vpRefFineTrimFt(parts);
+}
+
+function vpClassifyRobustSector(parts = {}) {
+    const base = vpClassifyGaforLike(parts);
+    const labels = {
+        C: { key: 'robust_c', label: 'VFR-Index C (robust)', color: '#6aaeff', letter: 'C' },
+        O: { key: 'robust_o', label: 'VFR-Index O (robust)', color: '#8ecb4b', letter: 'O' },
+        D: { key: 'robust_d', label: 'VFR-Index D (robust)', color: '#e0c93b', letter: 'D' },
+        M: { key: 'robust_m', label: 'VFR-Index M (robust)', color: '#e08a3b', letter: 'M' },
+        X: { key: 'robust_x', label: 'VFR-Index X (robust)', color: '#d14a4a', letter: 'X' },
+        '?': { key: 'robust_unknown', label: 'VFR-Index unklar (robust)', color: '#9aa3ad', letter: '?', code: '?' }
+    };
+
+    const baseMajor = vpMajorFromGaforCode(base && (base.code || base.displayCode || base.letter));
+    if (baseMajor === '?') {
+        return {
+            ...base,
+            mode: 'robust_sector',
+            key: labels['?'].key,
+            label: labels['?'].label,
+            color: labels['?'].color,
+            letter: '?',
+            code: '?',
+            displayCode: '?',
+            score: Number.isFinite(Number(base.score)) ? Number(base.score) : null,
+            dataQuality: base && base.dataQuality ? base.dataQuality : 'unknown'
+        };
+    }
+
+    const wxCandidates = [Number(parts.weatherCode), Number(parts.mosmixWeatherCode)].filter(Number.isFinite);
+    const wxWorst = wxCandidates.length ? Math.max(...wxCandidates) : null;
+    const precipOm = Number(parts.precipitation || parts.rain || 0);
+    const precipMx = Number(parts.mosmixPrecipitationMm || 0);
+    const precipMax = Math.max(0, Number.isFinite(precipOm) ? precipOm : 0, Number.isFinite(precipMx) ? precipMx : 0);
+    const visKm = Number(base && base.visKm);
+    const n05 = Number(parts.mosmixN05Pct);
+    const lowCloud = Number(parts.mosmixLowCloudPct);
+    const lowCloudFallback = Number(parts.cloudLow || 0);
+    const lowCover = Number.isFinite(lowCloud) ? lowCloud : lowCloudFallback;
+    const refFactor = vpSectorRegionalRefFactor(vpAdjustedSectorRefFt(parts));
+    const metarFlightCat = String(parts.metarFlightCat || '').trim().toUpperCase();
+    const metarByCat = vpInternalMajorFromMetarFlightCat(metarFlightCat);
+    const metarVisibilityM = Number(parts.metarVisibilityM);
+    const metarByVis = (Number.isFinite(metarVisibilityM) && metarVisibilityM > 0)
+        ? vpInternalMajorFromVisKm(metarVisibilityM / 1000)
+        : null;
+    const metarByCeiling = vpInternalMajorFromCeilingFt(parts.metarCeilingFtAgl);
+    const metarMajor = vpWorstInternalMajor([metarByCat, metarByVis, metarByCeiling]);
+    const metarDistKm = Number(parts.metarDistKm);
+    const mosmixSignalsMissing = (
+        !Number.isFinite(Number(parts.mosmixVisibilityM))
+        && !Number.isFinite(Number(parts.mosmixN05Pct))
+        && !Number.isFinite(Number(parts.mosmixWeatherCode))
+        && !Number.isFinite(Number(parts.mosmixPrecipitationMm))
+    );
+
+    let downgrade = 0;
+    const reasons = [];
+    const pushReason = (txt) => { if (txt && reasons.length < 3) reasons.push(txt); };
+
+    if (wxCandidates.some(c => c === 95 || c === 96 || c === 99)) {
+        downgrade = Math.max(downgrade, 2);
+        pushReason('Gewitter-Hinweis');
+    } else if (wxCandidates.some(c => [82, 86, 67, 65, 75].includes(c))) {
+        downgrade = Math.max(downgrade, 2);
+        pushReason('starker Schauer/Niederschlag');
+    } else if (wxCandidates.some(c => [80, 81, 61, 63, 71, 73, 51, 53, 55, 56, 57, 66].includes(c))) {
+        downgrade = Math.max(downgrade, 1);
+        pushReason('Schauer-/Niederschlags-Signal');
+    } else if (Number.isFinite(wxWorst) && wxWorst >= 45 && wxWorst <= 48) {
+        downgrade = Math.max(downgrade, 1);
+        pushReason('Nebel-Signal');
+    }
+
+    if (precipMax >= 1.8) {
+        downgrade = Math.max(downgrade, 2);
+        pushReason(`Niederschlag ${precipMax.toFixed(1)} mm`);
+    } else if (precipMax >= 0.3) {
+        downgrade = Math.max(downgrade, 1);
+        pushReason(`Niederschlag ${precipMax.toFixed(1)} mm`);
+    }
+
+    const n05Threshold = Math.max(50, 62.5 - (refFactor * 8));
+    if (Number.isFinite(n05) && n05 >= n05Threshold) {
+        downgrade = Math.max(downgrade, 1);
+        pushReason(`N05 ${Math.round(n05)}%`);
+    }
+    if (Number.isFinite(lowCover) && lowCover >= 92 && Number.isFinite(visKm) && visKm <= 8) {
+        downgrade = Math.max(downgrade, 2);
+        pushReason('tiefe Bewoelkung + eingeschraenkte Sicht');
+    }
+
+    // Referenzhoehe nur als sanfter Abstimmfaktor: max +1 Klasse.
+    if (refFactor >= 0.45 && ['C', 'O'].includes(baseMajor)) {
+        const hasModerateSignal = (
+            (Number.isFinite(precipMax) && precipMax >= 0.2)
+            || (Number.isFinite(n05) && n05 >= n05Threshold)
+            || wxCandidates.some(c => [80, 81, 61, 63, 71, 73, 51, 53, 55, 56, 57, 66].includes(c))
+        );
+        if (hasModerateSignal) {
+            downgrade = Math.max(downgrade, 1);
+            pushReason(`Ref-Faktor ${Math.round(refFactor * 100)}%`);
+        }
+    }
+
+    let forcedMajor = null;
+    if (Number.isFinite(visKm)) {
+        if (visKm < 2.0) forcedMajor = 'X';
+        else if (visKm < (4.5 + (0.4 * refFactor))) forcedMajor = 'M';
+        else if (visKm < (6.5 + (0.6 * refFactor))) forcedMajor = 'D';
+    }
+    // X-Risk Gate: Wenn MOSMIX fuer den Punkt fehlt, METAR in der Naehe aber klar
+    // schlechter ist, nicht auf C/O stehen bleiben.
+    if (mosmixSignalsMissing && metarMajor && Number.isFinite(metarDistKm)) {
+        const mRank = vpInternalMajorRank(metarMajor);
+        if (metarDistKm <= 20 && mRank >= vpInternalMajorRank('X')) {
+            downgrade = Math.max(downgrade, 2);
+            forcedMajor = vpWorstInternalMajor([forcedMajor, 'M']) || 'M';
+            pushReason(`X-Risk METAR ${Math.round(metarDistKm)}km`);
+        } else if (metarDistKm <= 25 && mRank >= vpInternalMajorRank('M')) {
+            downgrade = Math.max(downgrade, 1);
+            forcedMajor = vpWorstInternalMajor([forcedMajor, 'M']) || 'M';
+            pushReason(`METAR-Risk ${Math.round(metarDistKm)}km`);
+        } else if (metarDistKm <= 35 && mRank >= vpInternalMajorRank('D')) {
+            downgrade = Math.max(downgrade, 1);
+            pushReason(`METAR-Hinweis ${Math.round(metarDistKm)}km`);
+        }
+    }
+
+    const baseSeverity = vpMajorSeverity(baseMajor);
+    const downgradedSeverity = Math.min(4, baseSeverity + downgrade);
+    let finalSeverity = downgradedSeverity;
+    if (forcedMajor) finalSeverity = Math.max(finalSeverity, vpMajorSeverity(forcedMajor));
+    const hasHarshWxSignal = wxCandidates.some(c => [95, 96, 99, 65, 67, 75, 82, 86].includes(c)) || precipMax >= 1.8;
+    if (finalSeverity >= 4 && Number.isFinite(visKm) && visKm >= 4.5 && !hasHarshWxSignal) {
+        finalSeverity = 3;
+        pushReason('X auf M begrenzt (kein starkes X-Signal)');
+    }
+    const finalMajor = vpMajorFromSeverity(finalSeverity);
+    const finalCode = vpRepresentativeCodeFromMajor(finalMajor);
+    const style = labels[finalMajor] || labels.D;
+
+    return {
+        ...base,
+        ...style,
+        code: finalCode,
+        displayCode: finalCode,
+        score: Math.max(0, 100 - (finalSeverity * 25)),
+        mode: 'robust_sector',
+        dataQuality: base && base.dataQuality ? base.dataQuality : 'valid',
+        dataWarning: reasons.length
+            ? `${String(base && base.dataWarning || '').trim()}${base && base.dataWarning ? ' • ' : ''}${reasons.join(' • ')}`
+            : (base && base.dataWarning ? base.dataWarning : '')
+    };
+}
+
 function vpClassifyVfrByModel(parts = {}, mode = null) {
     const activeMode = vpNormalizeVfrModel(mode || vpVfrIndexState.vfrModel);
     if (activeMode === 'gafor_like' || activeMode === 'gafor_sector') return vpClassifyGaforLike(parts);
+    if (activeMode === 'robust_sector') return vpClassifyRobustSector(parts);
     if (activeMode === 'internal_sector') return vpClassifyInternalVfr(parts);
     return vpClassifyInternalVfr(parts);
 }
@@ -2665,10 +3273,18 @@ function vpSampleToParts(sample = {}) {
         wind: sample.wspd,
         visibility: sample.visibilityM,
         weatherCode: sample.weatherCode,
+        temp2mC: sample.temp2mC,
+        dewPoint2mC: sample.dewPoint2mC,
+        rh2mPct: sample.rh2mPct,
+        mslPressureHpa: sample.mslPressureHpa,
+        sectorId: sample.sectorId,
+        countryCode: sample.countryCode,
         cloudBaseM: sample.cloudBaseM,
         mosmixVisibilityM: sample.mosmixVisibilityM,
         mosmixN05Pct: sample.mosmixN05Pct,
         mosmixLowCloudPct: sample.mosmixLowCloudPct,
+        mosmixPrecipitationMm: sample.mosmixPrecipitationMm,
+        mosmixWeatherCode: sample.mosmixWeatherCode,
         mosmixStation: sample.mosmixStation,
         mosmixStationDistKm: sample.mosmixStationDistKm,
         metarFlightCat: sample.metarFlightCat,
@@ -2761,32 +3377,67 @@ async function vpFetchMosmixGridForecast(points, timelines, countryCode) {
     if (!VP_MOSMIX_ACTIVE_COUNTRIES.has(cc)) return null;
     if (!Array.isArray(points) || points.length === 0) return null;
     const targets = vpMosmixTargetsFromTimeline(timelines);
-    const res = await fetch(VP_MOSMIX_PROXY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: JSON.stringify({
-            points: points.map(p => ({ lat: Number(p.lat), lon: Number(p.lon) })),
-            targets
-        })
-    });
-    if (!res.ok) throw new Error(`MOSMIX HTTP ${res.status}`);
-    const data = await res.json();
-    if (!data || data.ok !== true || !Array.isArray(data.points)) return null;
+    const cleanPoints = points
+        .map(p => ({ lat: Number(p && p.lat), lon: Number(p && p.lon) }))
+        .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+    if (!cleanPoints.length) return null;
+
+    async function fetchBatch(batchPoints, attempt = 0) {
+        const res = await fetch(VP_MOSMIX_PROXY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ points: batchPoints, targets })
+        });
+        if (!res.ok) {
+            if (attempt < 1 && (res.status === 429 || res.status >= 500)) {
+                await new Promise(r => setTimeout(r, 220 + (attempt * 260)));
+                return fetchBatch(batchPoints, attempt + 1);
+            }
+            throw new Error(`MOSMIX HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (!data || data.ok !== true || !Array.isArray(data.points)) {
+            if (attempt < 1) {
+                await new Promise(r => setTimeout(r, 220 + (attempt * 260)));
+                return fetchBatch(batchPoints, attempt + 1);
+            }
+            return null;
+        }
+        return data;
+    }
+
+    const batchSize = 28;
+    const datasets = [];
+    for (let i = 0; i < cleanPoints.length; i += batchSize) {
+        const batch = cleanPoints.slice(i, i + batchSize);
+        try {
+            const data = await fetchBatch(batch, 0);
+            if (data) datasets.push(data);
+        } catch (e) {
+            console.warn('[VFR-Index] MOSMIX-Batch fehlgeschlagen:', e);
+        }
+    }
+    if (!datasets.length) return null;
+
     const byKey = Object.create(null);
-    data.points.forEach((item) => {
-        if (!item || item.ok !== true || !Number.isFinite(Number(item.lat)) || !Number.isFinite(Number(item.lon))) return;
-        const current = item.current && typeof item.current === 'object' ? item.current : null;
-        const station = item.station && typeof item.station === 'object' ? item.station : null;
-        const rec = {
-            station,
-            current,
-            targets: Array.isArray(item.targets) ? item.targets : []
-        };
-        vpBuildTimelineKeyCandidates(item.lat, item.lon).forEach(k => { byKey[k] = rec; });
+    let attr = '';
+    datasets.forEach((data) => {
+        if (!attr && data && data.attribution) attr = String(data.attribution);
+        (Array.isArray(data && data.points) ? data.points : []).forEach((item) => {
+            if (!item || item.ok !== true || !Number.isFinite(Number(item.lat)) || !Number.isFinite(Number(item.lon))) return;
+            const current = item.current && typeof item.current === 'object' ? item.current : null;
+            const station = item.station && typeof item.station === 'object' ? item.station : null;
+            const rec = {
+                station,
+                current,
+                targets: Array.isArray(item.targets) ? item.targets : []
+            };
+            vpBuildTimelineKeyCandidates(item.lat, item.lon).forEach(k => { byKey[k] = rec; });
+        });
     });
     return {
         byKey,
-        attribution: data.attribution || 'Datenbasis: Deutscher Wetterdienst (DWD), MOSMIX_L; eigene Verarbeitung'
+        attribution: attr || 'Datenbasis: Deutscher Wetterdienst (DWD), MOSMIX_L; eigene Verarbeitung'
     };
 }
 
@@ -3036,9 +3687,12 @@ function vpExtractHourlyLocations(tlData) {
                     rain: tlData.hourly.rain && tlData.hourly.rain[i],
                     snowfall: tlData.hourly.snowfall && tlData.hourly.snowfall[i],
                     wind_speed_10m: tlData.hourly.wind_speed_10m && tlData.hourly.wind_speed_10m[i],
+                    temperature_2m: tlData.hourly.temperature_2m && tlData.hourly.temperature_2m[i],
+                    dew_point_2m: tlData.hourly.dew_point_2m && tlData.hourly.dew_point_2m[i],
+                    relative_humidity_2m: tlData.hourly.relative_humidity_2m && tlData.hourly.relative_humidity_2m[i],
+                    pressure_msl: tlData.hourly.pressure_msl && tlData.hourly.pressure_msl[i],
                     visibility: tlData.hourly.visibility && tlData.hourly.visibility[i],
-                    weather_code: tlData.hourly.weather_code && tlData.hourly.weather_code[i],
-                    cloud_base: tlData.hourly.cloud_base && tlData.hourly.cloud_base[i]
+                    weather_code: tlData.hourly.weather_code && tlData.hourly.weather_code[i]
                 }
             });
         }
@@ -3081,7 +3735,8 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints, ampelMode = null) {
     const slotLabels = slots.map(s => s.label);
     const hourlyVars = [
         'cloud_cover', 'cloud_cover_low', 'cloud_cover_mid', 'precipitation', 'rain',
-        'snowfall', 'wind_speed_10m', 'visibility', 'weather_code', 'cloud_base'
+        'snowfall', 'wind_speed_10m', 'temperature_2m', 'dew_point_2m',
+        'relative_humidity_2m', 'pressure_msl', 'visibility', 'weather_code'
     ];
     const byKey = Object.create(null);
     const chunkSize = 16;
@@ -3089,7 +3744,7 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints, ampelMode = null) {
         const chunk = gridPoints.slice(start, start + chunkSize);
         const latArg = chunk.map(p => Number(p.lat).toFixed(4)).join(',');
         const lonArg = chunk.map(p => Number(p.lon).toFixed(4)).join(',');
-        let timelineUrl = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(latArg)}&longitude=${encodeURIComponent(lonArg)}&hourly=${encodeURIComponent(hourlyVars.join(','))}&timezone=${encodeURIComponent(slotPlan.queryTimezone || 'auto')}&timeformat=unixtime`;
+        let timelineUrl = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(latArg)}&longitude=${encodeURIComponent(lonArg)}&hourly=${encodeURIComponent(hourlyVars.join(','))}&timezone=${encodeURIComponent(slotPlan.queryTimezone || 'auto')}&timeformat=unixtime&wind_speed_unit=kn`;
         const pastHours = Math.max(0, Math.round(Number(slotPlan.queryPastHours || 0)));
         const forecastHours = Math.max(0, Math.round(Number(slotPlan.queryForecastHours || 0)));
         if (pastHours > 0) timelineUrl += `&past_hours=${pastHours}`;
@@ -3114,9 +3769,13 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints, ampelMode = null) {
                     rain: hourly.rain && hourly.rain[hIdx],
                     snow: hourly.snowfall && hourly.snowfall[hIdx],
                     wind: hourly.wind_speed_10m && hourly.wind_speed_10m[hIdx],
+                    temp2mC: hourly.temperature_2m && hourly.temperature_2m[hIdx],
+                    dewPoint2mC: hourly.dew_point_2m && hourly.dew_point_2m[hIdx],
+                    rh2mPct: hourly.relative_humidity_2m && hourly.relative_humidity_2m[hIdx],
+                    mslPressureHpa: hourly.pressure_msl && hourly.pressure_msl[hIdx],
                     visibility: hourly.visibility && hourly.visibility[hIdx],
                     weatherCode: hourly.weather_code && hourly.weather_code[hIdx],
-                    cloudBaseM: hourly.cloud_base && hourly.cloud_base[hIdx]
+                    cloudBaseM: null
                 };
                 return {
                     label: slotLabels[slotIdx],
@@ -3260,7 +3919,11 @@ window.vpSetVfrModel = function(value) {
     localStorage.setItem('ga_vfr_index_model', vpVfrIndexState.vfrModel);
     vpUpdateVfrUi();
     if (window.mapHints.vfrIndex !== false && map) {
-        const needsSectorSource = (vpVfrIndexState.vfrModel === 'gafor_sector' || vpVfrIndexState.vfrModel === 'internal_sector');
+        const needsSectorSource = (
+            vpVfrIndexState.vfrModel === 'gafor_sector'
+            || vpVfrIndexState.vfrModel === 'internal_sector'
+            || vpVfrIndexState.vfrModel === 'robust_sector'
+        );
         const needsTerrainRefs = vpVfrIndexState.vfrModel === 'gafor_like'
             && Array.isArray(vpVfrIndexState.lastRenderedSamples)
             && vpVfrIndexState.lastRenderedSamples.some(s => s && !Number.isFinite(Number(s.sectorRefFt)));
@@ -3536,7 +4199,11 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         return;
     }
     const activeVfrModel = vpNormalizeVfrModel(vpVfrIndexState.vfrModel);
-    const sectorMode = (activeVfrModel === 'gafor_sector' || activeVfrModel === 'internal_sector');
+    const sectorMode = (
+        activeVfrModel === 'gafor_sector'
+        || activeVfrModel === 'internal_sector'
+        || activeVfrModel === 'robust_sector'
+    );
 
     const lastFetch = Number(vpVfrIndexState.lastFetchAtByCountry[active] || 0);
     const elapsed = Date.now() - lastFetch;
@@ -3583,8 +4250,13 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
             includePressure: false,
             maxConcurrency: 3
         });
-        const sectorRefs = activeVfrModel === 'gafor_like'
+        const needsGaforLikeRefs = activeVfrModel === 'gafor_like';
+        const needsSectorProbeTerrain = sectorMode;
+        const sectorRefs = needsGaforLikeRefs
             ? await vpBuildSectorReferenceMap(grid.points, grid.latStep, grid.lonStep, { maxConcurrency: 4 })
+            : Object.create(null);
+        const sectorProbeTerrainRefs = needsSectorProbeTerrain
+            ? await vpBuildSectorReferenceMap(grid.points, 0.08, 0.08, { maxConcurrency: 2 })
             : Object.create(null);
         let timelines = null;
         try {
@@ -3672,6 +4344,10 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
                     rainMm: Number(slot && slot.parts && slot.parts.rain),
                     snowfallCm: Number(slot && slot.parts && slot.parts.snow),
                     wspd: Number(slot && slot.parts && slot.parts.wind),
+                    temp2mC: Number(slot && slot.parts && slot.parts.temp2mC),
+                    dewPoint2mC: Number(slot && slot.parts && slot.parts.dewPoint2mC),
+                    rh2mPct: Number(slot && slot.parts && slot.parts.rh2mPct),
+                    mslPressureHpa: Number(slot && slot.parts && slot.parts.mslPressureHpa),
                     vfrScoreOverride: Number.isFinite(slotScore) ? slotScore : 60
                 });
             });
@@ -3683,7 +4359,14 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
                 if (!v || !Number.isFinite(Number(v.lat)) || !Number.isFinite(Number(v.lon))) return;
                 byPoint[vpPointKey(v.lat, v.lon)] = v;
             });
-            const sectorEntries = vpBuildGaforSectorEntries(sectors, byPoint, timelines, Number(timelines && timelines.nowRatio), activeVfrModel);
+            const sectorEntries = vpBuildGaforSectorEntries(
+                sectors,
+                byPoint,
+                timelines,
+                Number(timelines && timelines.nowRatio),
+                activeVfrModel,
+                sectorProbeTerrainRefs
+            );
             if (!sectorEntries.length) throw new Error('keine Sektordaten verfuegbar');
             vpRenderGaforSectorCells(sectorEntries, Number(timelines && timelines.nowRatio));
             vpVfrIndexState.lastRenderedSamples = [];
