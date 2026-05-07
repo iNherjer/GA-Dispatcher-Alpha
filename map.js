@@ -269,7 +269,7 @@ const VP_VFR_PERSIST_CACHE_KEY = 'ga_vfr_overlay_cache_v1';
 const VP_VFR_PERSIST_MAX_AGE_MS = 30 * 60 * 1000;
 const vpVfrIndexState = {
     selectedCountry: localStorage.getItem('ga_vfr_index_country') || 'auto',
-    vfrModel: localStorage.getItem('ga_vfr_index_model') || 'internal',
+    vfrModel: localStorage.getItem('ga_vfr_index_model') || 'robust_sector',
     showSectorAmpel: localStorage.getItem('ga_vfr_sector_ampel') !== 'false',
     sectorLineWidthPx: Number(localStorage.getItem('ga_vfr_sector_line_width_px') || 20),
     ampelWindowMode: localStorage.getItem('ga_vfr_ampel_window_mode') || VP_VFR_AMPEL_MODE_DEFAULT,
@@ -1294,8 +1294,14 @@ function vpNormalizeVfrCountrySelection(value) {
 }
 
 function vpNormalizeVfrModel(value) {
-    const raw = String(value || 'internal').trim().toLowerCase();
-    return Object.prototype.hasOwnProperty.call(VP_VFR_MODEL_META, raw) ? raw : 'internal';
+    const raw = String(value || 'robust_sector').trim().toLowerCase();
+    if (raw === 'internal') return 'internal';
+    if (raw === 'gafor_sector') return 'gafor_sector';
+    if (raw === 'robust_sector') return 'robust_sector';
+    // Legacy-Mappings fuer alte Auswahlwerte.
+    if (raw === 'gafor_like') return 'gafor_sector';
+    if (raw === 'internal_sector') return 'robust_sector';
+    return 'robust_sector';
 }
 
 function vpNormalizeVfrSectorLineWidth(value) {
@@ -1306,7 +1312,7 @@ function vpNormalizeVfrSectorLineWidth(value) {
 
 function vpGetVfrModelMeta(value) {
     const key = vpNormalizeVfrModel(value);
-    return VP_VFR_MODEL_META[key] || VP_VFR_MODEL_META.internal;
+    return VP_VFR_MODEL_META[key] || VP_VFR_MODEL_META.robust_sector;
 }
 
 function vpIcaoPrefixToCountry(icao) {
@@ -7019,7 +7025,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTerrainAvoidSettings();
     vpEnsureVfrAutoTimer();
     vpVfrIndexState.selectedCountry = vpNormalizeVfrCountrySelection(localStorage.getItem('ga_vfr_index_country') || 'auto');
-    vpVfrIndexState.vfrModel = vpNormalizeVfrModel(localStorage.getItem('ga_vfr_index_model') || 'internal');
+    vpVfrIndexState.vfrModel = vpNormalizeVfrModel(localStorage.getItem('ga_vfr_index_model') || 'robust_sector');
     vpVfrIndexState.ampelWindowMode = vpNormalizeVfrAmpelWindowMode(localStorage.getItem('ga_vfr_ampel_window_mode') || VP_VFR_AMPEL_MODE_DEFAULT);
     // Bestehenden Wetter-Status übernehmen, falls vorhanden
     window.vpShowMapMetar = window.mapHints.weather !== false;
