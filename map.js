@@ -3398,6 +3398,28 @@ function vpClassifyRobustSector(parts = {}) {
         pushReason('M auf D begrenzt (schwaches M-Signal)');
     }
 
+    // Wenn ein naher METAR klar VFR meldet, vermeiden wir ein schwaches M-Overtriggern.
+    // Das greift bewusst nur ohne starke Risiko-Signale.
+    const metarSupportsVfr = (
+        metarMajor
+        && vpInternalMajorRank(metarMajor) <= vpInternalMajorRank('O')
+        && Number.isFinite(metarDistKm)
+        && metarDistKm <= 30
+    );
+    const weakMWithGoodMetar = (
+        finalSeverity >= 3
+        && finalSeverity < 4
+        && Number.isFinite(visKm) && visKm >= 7
+        && precipMax < 0.3
+        && !hasHarshWxSignal
+        && (!Number.isFinite(n05) || n05 < 70)
+        && (!Number.isFinite(lowCover) || lowCover < 92)
+    );
+    if (metarSupportsVfr && weakMWithGoodMetar) {
+        finalSeverity = 2;
+        pushReason(`METAR-VFR stabilisiert (${Math.round(metarDistKm)}km)`);
+    }
+
     if (finalSeverity >= 4 && Number.isFinite(visKm) && visKm >= 4.5 && !hasHarshWxSignal) {
         finalSeverity = 3;
         pushReason('X auf M begrenzt (kein starkes X-Signal)');
