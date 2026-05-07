@@ -868,14 +868,15 @@
                         <div style="font-size:10px; color:#8d8d8d; margin-bottom:5px;">Clearance-Schwellen</div>
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:3px;">
                             <label for="terrainAvoidWarnSlider" style="font-size:10px; color:#a8a8a8;">Warnung bis</label>
-                            <span id="terrainAvoidWarnValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">900 ft</span>
+                            <span id="terrainAvoidWarnValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">500 ft</span>
                         </div>
-                        <input id="terrainAvoidWarnSlider" type="range" min="0" max="3000" step="100" value="900" style="width:100%; cursor:pointer; margin-bottom:6px;" oninput="window.setTerrainAvoidThreshold && setTerrainAvoidThreshold('warn', this.value)">
+                        <input id="terrainAvoidWarnSlider" type="range" min="0" max="3000" step="100" value="500" style="width:100%; cursor:pointer; margin-bottom:6px;" oninput="window.setTerrainAvoidThreshold && setTerrainAvoidThreshold('warn', this.value)">
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:3px;">
                             <label for="terrainAvoidSafeSlider" style="font-size:10px; color:#a8a8a8;">Schwarz ab</label>
-                            <span id="terrainAvoidSafeValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">2200 ft</span>
+                            <span id="terrainAvoidSafeValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">1000 ft</span>
                         </div>
-                        <input id="terrainAvoidSafeSlider" type="range" min="0" max="5000" step="100" value="2200" style="width:100%; cursor:pointer; margin-bottom:4px;" oninput="window.setTerrainAvoidThreshold && setTerrainAvoidThreshold('safe', this.value)">
+                        <input id="terrainAvoidSafeSlider" type="range" min="0" max="5000" step="100" value="1000" style="width:100%; cursor:pointer; margin-bottom:4px;" oninput="window.setTerrainAvoidThreshold && setTerrainAvoidThreshold('safe', this.value)">
+                        <button id="terrainAvoidResetBtn" class="pb-btn" onclick="window.resetTerrainAvoidThresholds && resetTerrainAvoidThresholds()" style="display:block; width:100%; margin:0 0 4px 0; text-align:center;">↺ Defaults (500 / 1000)</button>
                         <div id="terrainAvoidStatus" style="font-size:10px; color:#9a9a9a;">Live-Layer aus</div>
                     </div>
                     <button id="hintToggleTraffic" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('traffic')">✈️ Traffic (An)</button>

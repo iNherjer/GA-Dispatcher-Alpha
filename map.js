@@ -299,8 +299,8 @@ window.vpObsTileOverlayEnabled = localStorage.getItem('ga_debug_obs_tile_overlay
 const VP_OBS_TILE_USED_RECENT_MS = 5 * 60 * 1000;
 window.vpObsTileLoadingKeys = window.vpObsTileLoadingKeys || new Set();
 window.vpObsTileDeferredKeys = window.vpObsTileDeferredKeys || new Set();
-const TERRAIN_AVOID_WARN_DEFAULT_FT = 900;
-const TERRAIN_AVOID_SAFE_DEFAULT_FT = 2200;
+const TERRAIN_AVOID_WARN_DEFAULT_FT = 500;
+const TERRAIN_AVOID_SAFE_DEFAULT_FT = 1000;
 const TERRAIN_AVOID_WARN_MIN_FT = 0;
 const TERRAIN_AVOID_WARN_MAX_FT = 3000;
 const TERRAIN_AVOID_SAFE_MIN_FT = 0;
@@ -887,6 +887,17 @@ function updateTerrainAvoidThresholdUi() {
 window.setTerrainAvoidThreshold = function(kind, value) {
     if (kind === 'warn') terrainAvoidWarnFt = Number(value);
     if (kind === 'safe') terrainAvoidSafeFt = Number(value);
+    clampTerrainAvoidThresholds();
+    saveTerrainAvoidSettings();
+    updateTerrainAvoidThresholdUi();
+    if (window.mapHints && window.mapHints.terrainAvoid !== false) {
+        window.scheduleTerrainAvoidOverlayUpdate(true);
+    }
+};
+
+window.resetTerrainAvoidThresholds = function() {
+    terrainAvoidWarnFt = TERRAIN_AVOID_WARN_DEFAULT_FT;
+    terrainAvoidSafeFt = TERRAIN_AVOID_SAFE_DEFAULT_FT;
     clampTerrainAvoidThresholds();
     saveTerrainAvoidSettings();
     updateTerrainAvoidThresholdUi();
