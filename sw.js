@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v608';
+const CACHE = 'ga-dispatcher-v610';
 
 const STATIC = [
     './',
@@ -119,7 +119,10 @@ const NETWORK_ONLY = [
     'api.open-meteo.com',
     'nominatim.openstreetmap.org',
     'opensky-network.org',
-    'tile.openstreetmap.org'
+    'tile.openstreetmap.org',
+    'maps.dwd.de',
+    'brz-maps.dwd.de',
+    'mapservices.weather.noaa.gov'
 ];
 
 const NETWORK_FIRST_PATHS = [

@@ -6335,6 +6335,8 @@ function updateRoutePerformance() {
 function initMapBase() {
     if (map) return;
     const radarActive = localStorage.getItem('ga_radar_active') === 'true';
+    const dwdWarningsActive = localStorage.getItem('ga_dwd_warnings_active') === 'true';
+    const awcSigmetActive = localStorage.getItem('ga_awc_sigmet_active') === 'true';
     
     // Base Maps
     const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: 'OpenTopoMap' });
@@ -6352,10 +6354,55 @@ function initMapBase() {
     const dfsIcaoOverlay = L.tileLayer('https://secais.dfs.de/static-maps/icao500/tiles/{z}/{x}/{y}.png', {
         attribution: '© DFS Deutsche Flugsicherung', maxNativeZoom: 11, opacity: 1.0
     });
+    const dwdWarningsOverlay = L.tileLayer.wms('https://maps.dwd.de/geoproxy_warnungen/service', {
+        layers: 'Warnungen_Gemeinden_vereinigt',
+        styles: '',
+        format: 'image/png',
+        transparent: true,
+        version: '1.3.0',
+        opacity: 0.62,
+        attribution: 'Warnungen © Deutscher Wetterdienst'
+    });
+    const AwcArcgisOverlay = L.GridLayer.extend({
+        createTile(coords) {
+            const tile = L.DomUtil.create('img', 'leaflet-tile');
+            const size = this.getTileSize();
+            const bounds = this._tileCoordsToBounds(coords);
+            const crs = (this._map && this._map.options && this._map.options.crs) || L.CRS.EPSG3857;
+            const sw = crs.project(bounds.getSouthWest());
+            const ne = crs.project(bounds.getNorthEast());
+            const params = new URLSearchParams({
+                bbox: [sw.x, sw.y, ne.x, ne.y].join(','),
+                bboxSR: '3857',
+                imageSR: '3857',
+                size: `${size.x},${size.y}`,
+                dpi: '96',
+                format: 'png32',
+                transparent: 'true',
+                layers: this.options.arcgisLayers,
+                f: 'image',
+                t: String(Math.floor(Date.now() / (10 * 60 * 1000)))
+            });
+            tile.alt = '';
+            tile.decoding = 'async';
+            tile.referrerPolicy = 'no-referrer-when-downgrade';
+            tile.src = `${this.options.serviceUrl}/export?${params.toString()}`;
+            return tile;
+        }
+    });
+    const awcSigmetOverlay = new AwcArcgisOverlay({
+        serviceUrl: 'https://mapservices.weather.noaa.gov/vector/rest/services/aviation/awc_aviation_weather/MapServer',
+        arcgisLayers: 'show:112',
+        opacity: 0.72,
+        attribution: 'SIGMET © NOAA/NWS Aviation Weather Center'
+    });
     ensureTerrainAvoidOverlayLayer();
 
     topoMap.setOpacity(0.5);
-    map = L.map('map', { layers: [topoMap, aeroOverlay], attributionControl: false }).setView([51.1657, 10.4515], 6);
+    const startupLayers = [topoMap, aeroOverlay];
+    if (dwdWarningsActive) startupLayers.push(dwdWarningsOverlay);
+    if (awcSigmetActive) startupLayers.push(awcSigmetOverlay);
+    map = L.map('map', { layers: startupLayers, attributionControl: false }).setView([51.1657, 10.4515], 6);
     
     const baseMaps = {
         "⛰️ Topografie (Mit Text)": topoMap,
@@ -6381,6 +6428,8 @@ function initMapBase() {
         "🗺️ DFS ICAO Karte 1:500k": dfsIcaoOverlay,
         "🛩️ VFR Lufträume (Overlay)": aeroOverlay,
         "🌧️ Wetterradar (Niederschlag)": radarOverlay,
+        "⚠️ DWD Warnungen (Test)": dwdWarningsOverlay,
+        "🌩️ AWC SIGMET (Test)": awcSigmetOverlay,
         "🏔️ Terrain Avoid (Live)": terrainAvoidOverlayLayer
     };
     
@@ -6465,6 +6514,8 @@ function initMapBase() {
             topoMap.setOpacity(1.0);
         }
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'true');
+        if (e.name === "⚠️ DWD Warnungen (Test)") localStorage.setItem('ga_dwd_warnings_active', 'true');
+        if (e.name === "🌩️ AWC SIGMET (Test)") localStorage.setItem('ga_awc_sigmet_active', 'true');
         if (e.name === "🏔️ Terrain Avoid (Live)") {
             if (typeof window.setTerrainAvoidOverlayEnabled === 'function') {
                 window.setTerrainAvoidOverlayEnabled(true);
@@ -6478,6 +6529,8 @@ function initMapBase() {
             topoMap.setOpacity(1.0);
         }
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'false');
+        if (e.name === "⚠️ DWD Warnungen (Test)") localStorage.setItem('ga_dwd_warnings_active', 'false');
+        if (e.name === "🌩️ AWC SIGMET (Test)") localStorage.setItem('ga_awc_sigmet_active', 'false');
         if (e.name === "🏔️ Terrain Avoid (Live)") {
             if (typeof window.setTerrainAvoidOverlayEnabled === 'function') {
                 window.setTerrainAvoidOverlayEnabled(false);
