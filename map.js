@@ -48,7 +48,7 @@ const MAP_HINT_SUBMENU_DEFAULTS = {
     terrainAvoidMenu: false
 };
 window.mapHintSubmenus = window.mapHintSubmenus || { ...MAP_HINT_SUBMENU_DEFAULTS };
-const VP_VFR_INDEX_MIN_UPDATE_MS = 15 * 60 * 1000;
+const VP_VFR_INDEX_MIN_UPDATE_MS = 30 * 60 * 1000;
 const VP_VFR_INDEX_MAX_POINTS = 72;
 const VP_VFR_INDEX_MIN_VISIBLE_ZOOM = 8;
 const VP_VFR_AMPEL_MODE_DEFAULT = 'sun';
@@ -265,6 +265,8 @@ const vpGaforSectorRefCache = new Map();
 const vpGaforSectorDefsCache = new Map();
 const vpGaforSectorDatasetCache = Object.create(null);
 let vpVfrIndexLayer = null;
+const VP_VFR_PERSIST_CACHE_KEY = 'ga_vfr_overlay_cache_v1';
+const VP_VFR_PERSIST_MAX_AGE_MS = 30 * 60 * 1000;
 const vpVfrIndexState = {
     selectedCountry: localStorage.getItem('ga_vfr_index_country') || 'auto',
     vfrModel: localStorage.getItem('ga_vfr_index_model') || 'internal',
@@ -279,6 +281,8 @@ const vpVfrIndexState = {
     lastPointCount: 0,
     lastError: '',
     timeline: null,
+    timelineCooldownUntilMs: 0,
+    timelineLastErrorAt: 0,
     lastRenderedSamples: [],
     lastRenderedSectors: [],
     lastRenderMode: 'grid',
@@ -318,6 +322,93 @@ const terrainAvoidTileCache = new Map();
 const terrainAvoidTileInFlightCache = new Map();
 const terrainAvoidRenderedTileCache = new Map();
 vpVfrIndexState.sectorLineWidthPx = Math.max(2, Math.min(40, Number.isFinite(Number(vpVfrIndexState.sectorLineWidthPx)) ? Number(vpVfrIndexState.sectorLineWidthPx) : 20));
+
+function vpBuildPersistVfrCacheKey(country, model, ampelMode) {
+    const c = String(country || '').toUpperCase();
+    const m = vpNormalizeVfrModel(model || vpVfrIndexState.vfrModel);
+    const a = vpNormalizeVfrAmpelWindowMode(ampelMode || vpVfrIndexState.ampelWindowMode);
+    return `${c}|${m}|${a}`;
+}
+
+function vpReadPersistVfrStore() {
+    try {
+        const raw = localStorage.getItem(VP_VFR_PERSIST_CACHE_KEY);
+        const parsed = JSON.parse(raw || '{}');
+        const entries = parsed && typeof parsed.entries === 'object' && parsed.entries ? parsed.entries : {};
+        return { entries };
+    } catch (_) {
+        return { entries: {} };
+    }
+}
+
+function vpWritePersistVfrStore(store) {
+    const payload = {
+        savedAt: Date.now(),
+        entries: (store && store.entries && typeof store.entries === 'object') ? store.entries : {}
+    };
+    localStorage.setItem(VP_VFR_PERSIST_CACHE_KEY, JSON.stringify(payload));
+}
+
+function vpPersistCurrentVfrOverlay(activeCountry, model, ampelMode) {
+    const key = vpBuildPersistVfrCacheKey(activeCountry, model, ampelMode);
+    if (!key) return;
+    const entry = {
+        ts: Date.now(),
+        country: String(activeCountry || '').toUpperCase(),
+        model: vpNormalizeVfrModel(model || vpVfrIndexState.vfrModel),
+        ampelMode: vpNormalizeVfrAmpelWindowMode(ampelMode || vpVfrIndexState.ampelWindowMode),
+        lastFetchAt: Number(vpVfrIndexState.lastFetchAtByCountry[activeCountry] || Date.now()),
+        lastUpdatedAt: Number(vpVfrIndexState.lastUpdatedAt || Date.now()),
+        lastPointCount: Number(vpVfrIndexState.lastPointCount || 0),
+        lastRenderMode: String(vpVfrIndexState.lastRenderMode || 'grid'),
+        lastGridLatStep: Number(vpVfrIndexState.lastGridLatStep || 0.4),
+        lastGridLonStep: Number(vpVfrIndexState.lastGridLonStep || 0.4),
+        timeline: vpVfrIndexState.timeline || null,
+        lastRenderedSamples: Array.isArray(vpVfrIndexState.lastRenderedSamples) ? vpVfrIndexState.lastRenderedSamples : [],
+        lastRenderedSectors: Array.isArray(vpVfrIndexState.lastRenderedSectors) ? vpVfrIndexState.lastRenderedSectors : []
+    };
+    try {
+        const store = vpReadPersistVfrStore();
+        store.entries[key] = entry;
+        vpWritePersistVfrStore(store);
+    } catch (_) {
+        // Fallback bei localStorage-Quota: ohne Timeline erneut probieren.
+        try {
+            const store = vpReadPersistVfrStore();
+            store.entries[key] = { ...entry, timeline: null };
+            vpWritePersistVfrStore(store);
+        } catch (__) {
+            // persist optional
+        }
+    }
+}
+
+function vpTryHydrateVfrOverlayFromPersist(activeCountry, model, ampelMode) {
+    const key = vpBuildPersistVfrCacheKey(activeCountry, model, ampelMode);
+    if (!key) return false;
+    const store = vpReadPersistVfrStore();
+    const entry = store.entries && store.entries[key];
+    if (!entry || typeof entry !== 'object') return false;
+    const ts = Number(entry.ts || entry.lastUpdatedAt || entry.lastFetchAt || 0);
+    if (!Number.isFinite(ts) || ts <= 0) return false;
+    if ((Date.now() - ts) > VP_VFR_PERSIST_MAX_AGE_MS) return false;
+    const isSector = String(entry.lastRenderMode || '') === 'gafor_sector';
+    const hasPayload = isSector
+        ? (Array.isArray(entry.lastRenderedSectors) && entry.lastRenderedSectors.length > 0)
+        : (Array.isArray(entry.lastRenderedSamples) && entry.lastRenderedSamples.length > 0);
+    if (!hasPayload) return false;
+    vpVfrIndexState.lastRenderedSamples = Array.isArray(entry.lastRenderedSamples) ? entry.lastRenderedSamples : [];
+    vpVfrIndexState.lastRenderedSectors = Array.isArray(entry.lastRenderedSectors) ? entry.lastRenderedSectors : [];
+    vpVfrIndexState.lastRenderMode = isSector ? 'gafor_sector' : 'grid';
+    vpVfrIndexState.lastGridLatStep = Number(entry.lastGridLatStep || 0.4);
+    vpVfrIndexState.lastGridLonStep = Number(entry.lastGridLonStep || 0.4);
+    vpVfrIndexState.timeline = entry.timeline || null;
+    vpVfrIndexState.lastPointCount = Number(entry.lastPointCount || (isSector ? vpVfrIndexState.lastRenderedSectors.length : vpVfrIndexState.lastRenderedSamples.length));
+    vpVfrIndexState.lastUpdatedAt = Number(entry.lastUpdatedAt || ts);
+    vpVfrIndexState.lastFetchAtByCountry[activeCountry] = Number(entry.lastFetchAt || ts);
+    vpVfrIndexState.lastError = '';
+    return true;
+}
 
 function updateObsTileOverlayButtonUi() {
     const btn = document.getElementById('btnToggleObsTileOverlay');
@@ -3862,6 +3953,14 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints, ampelMode = null) {
     };
 }
 
+function vpGetTimelineHttpStatus(err) {
+    const msg = String(err && err.message || '');
+    const m = msg.match(/\bHTTP\s+(\d{3})\b/i);
+    if (!m) return null;
+    const code = Number(m[1]);
+    return Number.isFinite(code) ? code : null;
+}
+
 function vpPopulateVfrCountrySelect() {
     const select = document.getElementById('vfrCountrySelect');
     if (!select) return;
@@ -4292,6 +4391,12 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         || activeVfrModel === 'internal_sector'
         || activeVfrModel === 'robust_sector'
     );
+    if (!forceFetch) {
+        const hydrated = vpTryHydrateVfrOverlayFromPersist(active, activeVfrModel, vpVfrIndexState.ampelWindowMode);
+        if (hydrated) {
+            vpRefreshVfrLayerFromCache();
+        }
+    }
 
     const lastFetch = Number(vpVfrIndexState.lastFetchAtByCountry[active] || 0);
     const elapsed = Date.now() - lastFetch;
@@ -4347,11 +4452,27 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
             ? await vpBuildSectorReferenceMap(grid.points, 0.08, 0.08, { maxConcurrency: 2 })
             : Object.create(null);
         let timelines = null;
-        try {
-            timelines = await vpFetchVfrSectorTimelines(bounds, grid.points, vpVfrIndexState.ampelWindowMode);
-        } catch (timelineErr) {
-            console.warn('[VFR-Index] Timeline-Forecast fehlgeschlagen, nutze Fallback:', timelineErr);
-            timelines = null;
+        const prevTimeline = (vpVfrIndexState.timeline && vpVfrIndexState.timeline.byKey) ? vpVfrIndexState.timeline : null;
+        const nowMs = Date.now();
+        const cooldownUntilMs = Number(vpVfrIndexState.timelineCooldownUntilMs || 0);
+        const timelineCooldownActive = Number.isFinite(cooldownUntilMs) && cooldownUntilMs > nowMs;
+        if (!timelineCooldownActive) {
+            try {
+                timelines = await vpFetchVfrSectorTimelines(bounds, grid.points, vpVfrIndexState.ampelWindowMode);
+                vpVfrIndexState.timelineCooldownUntilMs = 0;
+            } catch (timelineErr) {
+                const status = vpGetTimelineHttpStatus(timelineErr);
+                vpVfrIndexState.timelineLastErrorAt = nowMs;
+                if (status === 429) {
+                    // API-Drosselung: fuer kurze Zeit nicht erneut anfragen und zuletzt gueltige Timeline nutzen.
+                    vpVfrIndexState.timelineCooldownUntilMs = nowMs + (4 * 60 * 1000);
+                }
+                console.warn('[VFR-Index] Timeline-Forecast fehlgeschlagen, nutze Fallback:', timelineErr);
+                timelines = null;
+            }
+        }
+        if (!timelines && prevTimeline) {
+            timelines = vpRefreshTimelineClockInPlace(prevTimeline) || prevTimeline;
         }
         let mosmix = null;
         try {
@@ -4468,11 +4589,16 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         vpVfrIndexState.lastFetchAtByCountry[active] = Date.now();
         vpVfrIndexState.lastUpdatedAt = Date.now();
         vpVfrIndexState.lastError = '';
-        vpVfrIndexState.timeline = timelines;
+        if (timelines && timelines.byKey) {
+            vpVfrIndexState.timeline = timelines;
+        }
+        vpPersistCurrentVfrOverlay(active, activeVfrModel, vpVfrIndexState.ampelWindowMode);
     } catch (e) {
         vpVfrIndexState.lastError = (e && e.message) ? e.message : 'unknown';
         vpClearVfrLayer();
-        vpVfrIndexState.timeline = null;
+        if (!(vpVfrIndexState.timeline && vpVfrIndexState.timeline.byKey)) {
+            vpVfrIndexState.timeline = null;
+        }
     } finally {
         vpVfrIndexState.inFlight = false;
         vpUpdateVfrUi();
