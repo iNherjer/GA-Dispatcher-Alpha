@@ -3260,12 +3260,41 @@ function vpClassifyRobustSector(parts = {}) {
     let finalSeverity = downgradedSeverity;
     if (forcedMajor) finalSeverity = Math.max(finalSeverity, vpMajorSeverity(forcedMajor));
     const hasHarshWxSignal = wxCandidates.some(c => [95, 96, 99, 65, 67, 75, 82, 86].includes(c)) || precipMax >= 1.8;
+
+    // D -> M nur bei belastbaren M-Signalen. Bei guter Sicht und schwachen Signalen
+    // bleibt die Klasse auf D, um M-Ueberhaeufigkeit zu vermeiden.
+    const weakMContext = (
+        baseSeverity <= 2
+        && finalSeverity >= 3
+        && Number.isFinite(visKm) && visKm >= 8
+        && downgrade <= 1
+        && !hasHarshWxSignal
+        && precipMax < 0.8
+        && (!Number.isFinite(n05) || n05 < 55)
+        && (!Number.isFinite(lowCover) || lowCover < 85)
+        && forcedMajor !== 'M'
+    );
+    if (weakMContext) {
+        finalSeverity = 2;
+        pushReason('M auf D begrenzt (schwaches M-Signal)');
+    }
+
     if (finalSeverity >= 4 && Number.isFinite(visKm) && visKm >= 4.5 && !hasHarshWxSignal) {
         finalSeverity = 3;
         pushReason('X auf M begrenzt (kein starkes X-Signal)');
     }
     const finalMajor = vpMajorFromSeverity(finalSeverity);
-    const finalCode = vpRepresentativeCodeFromMajor(finalMajor);
+    const strongMSignal = (
+        hasHarshWxSignal
+        || precipMax >= 0.8
+        || (Number.isFinite(n05) && n05 >= 70)
+        || (Number.isFinite(lowCover) && lowCover >= 90 && Number.isFinite(visKm) && visKm <= 6)
+        || (Number.isFinite(visKm) && visKm < 4.5)
+        || (forcedMajor === 'M' && Number.isFinite(visKm) && visKm < 5.5)
+    );
+    const finalCode = (finalMajor === 'M')
+        ? (strongMSignal ? 'M5' : 'M2')
+        : vpRepresentativeCodeFromMajor(finalMajor);
     const style = labels[finalMajor] || labels.D;
 
     return {
