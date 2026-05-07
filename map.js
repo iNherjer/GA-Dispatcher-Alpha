@@ -2660,9 +2660,8 @@ function vpEstimateCloudBaseFtFromTempDew(parts = {}) {
 }
 
 function vpResolveCloudBaseFtAgl(parts = {}) {
-    const cloudBaseResolved = vpResolveCloudBaseFtAgl(parts);
-    const cloudBaseFtAgl = Number(cloudBaseResolved.valueFt);
-    const cloudBaseSource = cloudBaseResolved.source;
+    const cloudBaseMRaw = Number(parts.cloudBaseM);
+    const cloudBaseFtAgl = (Number.isFinite(cloudBaseMRaw) && cloudBaseMRaw > 0) ? (cloudBaseMRaw * 3.28084) : null;
     if (Number.isFinite(cloudBaseFtAgl)) return { valueFt: cloudBaseFtAgl, source: 'openmeteo_cloud_base' };
     const tdDerived = vpEstimateCloudBaseFtFromTempDew(parts);
     if (Number.isFinite(tdDerived)) return { valueFt: tdDerived, source: 'temp_dew_spread' };
