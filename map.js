@@ -2848,8 +2848,9 @@ function vpClassifyGaforLike(parts = {}) {
         ? mosmixVisibilityM
         : Number(parts.visibility);
     const visKm = (Number.isFinite(visMRaw) && visMRaw > 0) ? (visMRaw / 1000) : null;
-    const cloudBaseMRaw = Number(parts.cloudBaseM);
-    const cloudBaseFtAgl = (Number.isFinite(cloudBaseMRaw) && cloudBaseMRaw > 0) ? (cloudBaseMRaw * 3.28084) : null;
+    const cloudBaseResolved = vpResolveCloudBaseFtAgl(parts);
+    const cloudBaseFtAgl = Number(cloudBaseResolved.valueFt);
+    const cloudBaseSource = cloudBaseResolved.source;
     const sectorRefFtRaw = Number(parts.sectorRefFt);
     const sectorRefFt = vpAdjustedSectorRefFt(parts);
     const terrainPointFt = Number(parts.terrainPointFt);
@@ -2867,6 +2868,7 @@ function vpClassifyGaforLike(parts = {}) {
         Number(parts.mosmixPrecipitationMm || 0)
     );
     const mosmixHasBknBelow500 = vpHasReliableMosmixN05(parts, visKm, precipForN05, wxForN05, lowCoverForCeiling);
+    const fogRisk = vpEstimateFogRiskMajor(parts, visKm);
     // Ceiling erst ab BKN/OVC (>=5/8) bewerten.
     const hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 62.5;
     // Open-Meteo liefert cloud_base oft leer. Ein sichtbares '?' nur setzen,
