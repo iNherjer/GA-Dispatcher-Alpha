@@ -6253,20 +6253,39 @@ window.confirmAirportDirectTo = async function(icao, lat, lon, encodedName = '')
 };
 
 function scheduleRouteDerivedDataRefresh(options = {}) {
-    const profileDelayMs = Number.isFinite(Number(options.profileDelayMs)) ? Number(options.profileDelayMs) : 350;
-    const airspaceDelayMs = Number.isFinite(Number(options.airspaceDelayMs)) ? Number(options.airspaceDelayMs) : 900;
+    const profileDelayMs = Number.isFinite(Number(options.profileDelayMs)) ? Number(options.profileDelayMs) : 2200;
+    const airspaceDelayMs = Number.isFinite(Number(options.airspaceDelayMs)) ? Number(options.airspaceDelayMs) : 2800;
+    const deferWhileBusyMs = 700;
+    const routeUiBusy = () => {
+        const mapMoving = !!(
+            window.vpMapInteractionActive ||
+            (map && map.dragging && map.dragging._draggable && map.dragging._draggable._moving) ||
+            (map && map._panAnim && map._panAnim._inProgress)
+        );
+        return !!(window.vpUIInteractionActive || mapMoving);
+    };
 
     if (window.routeProfileRefreshTimeout) clearTimeout(window.routeProfileRefreshTimeout);
-    window.routeProfileRefreshTimeout = setTimeout(() => {
+    const runProfileRefresh = () => {
+        if (routeUiBusy()) {
+            window.routeProfileRefreshTimeout = setTimeout(runProfileRefresh, deferWhileBusyMs);
+            return;
+        }
         window.routeProfileRefreshTimeout = null;
         if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
-    }, profileDelayMs);
+    };
+    window.routeProfileRefreshTimeout = setTimeout(runProfileRefresh, profileDelayMs);
 
     if (window.airspaceFetchTimeout) clearTimeout(window.airspaceFetchTimeout);
-    window.airspaceFetchTimeout = setTimeout(() => {
+    const runAirspaceRefresh = () => {
+        if (routeUiBusy()) {
+            window.airspaceFetchTimeout = setTimeout(runAirspaceRefresh, deferWhileBusyMs);
+            return;
+        }
         window.airspaceFetchTimeout = null;
         if (typeof fetchRouteAirspaces === 'function') fetchRouteAirspaces(routeWaypoints);
-    }, airspaceDelayMs);
+    };
+    window.airspaceFetchTimeout = setTimeout(runAirspaceRefresh, airspaceDelayMs);
 }
 
 function updateRoutePerformance() {
@@ -6445,6 +6464,18 @@ function initMapBase() {
     if (dwdWarningsActive) startupLayers.push(dwdWarningsOverlay);
     if (awcSigmetActive) startupLayers.push(awcSigmetOverlay);
     map = L.map('map', { layers: startupLayers, attributionControl: false }).setView([51.1657, 10.4515], 6);
+    const markMapInteraction = () => {
+        window.vpMapInteractionActive = true;
+        if (window._vpMapInteractionTimeout) clearTimeout(window._vpMapInteractionTimeout);
+    };
+    const clearMapInteractionSoon = () => {
+        if (window._vpMapInteractionTimeout) clearTimeout(window._vpMapInteractionTimeout);
+        window._vpMapInteractionTimeout = setTimeout(() => {
+            window.vpMapInteractionActive = false;
+        }, 450);
+    };
+    map.on('dragstart zoomstart movestart', markMapInteraction);
+    map.on('dragend zoomend moveend', clearMapInteractionSoon);
     
     const baseMaps = {
         "⛰️ Topografie (Mit Text)": topoMap,

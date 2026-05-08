@@ -1768,8 +1768,6 @@ function triggerVerticalProfileUpdate() {
         
         if (window._lastVpRouteKey !== cacheKey) {
             vpAltWaypoints = []; vpSegmentAlts = []; vpHighResData = null; vpZoomLevel = 100;
-            vpWeatherData = null;
-            window._lastWeatherSourceKey = null;
             // Hindernisse/Linear-Features nicht hart leeren:
             // bis neue Route-Daten da sind, bleibt die letzte Darstellung sichtbar.
             if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
@@ -1818,13 +1816,33 @@ function triggerVerticalProfileUpdate() {
                     return;
                 }
                 const weatherRouteKey = vpBuildElevationRouteKey(routeWaypoints, 5);
+                const weatherCoveragePoints = routeWaypoints.map(p => ({
+                    lat: Number(p && p.lat),
+                    lon: Number((p && (p.lng ?? p.lon)))
+                })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+                const weatherCoverageKey = vpBuildCoverageKeyFromPoints(weatherCoveragePoints, 0.1);
                 const weatherSrcCacheKey = vpGetWeatherSourceCacheKey();
                 const nowTs = Date.now();
                 const maxAgeMs = (vpWeatherSource === 'metar') ? VP_METAR_ROUTE_CACHE_TTL_MS : 5 * 60 * 1000;
                 const isFresh = (nowTs - Number(window._lastWeatherFetchAt || 0)) < maxAgeMs;
-                
-                // Wetter nur dann skippen, wenn Route+Quelle gleich UND Daten noch frisch sind.
-                if (window._lastWetterRouteKey === weatherRouteKey && window._lastWeatherSourceKey === weatherSrcCacheKey && vpWeatherData && isFresh) {
+                const currentRouteNm = Array.isArray(vpElevationData) && vpElevationData.length > 0
+                    ? Number(vpElevationData[vpElevationData.length - 1].distNM || 0)
+                    : 0;
+                const lastRouteNm = Number(window._lastWetterRouteNm || 0);
+                const routeDeltaNm = Math.abs(currentRouteNm - lastRouteNm);
+                const sameCoverage = !!weatherCoverageKey && weatherCoverageKey === window._lastWetterCoverageKey;
+                const sameExactRoute = window._lastWetterRouteKey === weatherRouteKey;
+                const canReuseByCoverage = sameCoverage && routeDeltaNm <= 8;
+                const weatherCacheReusable = (sameExactRoute || canReuseByCoverage)
+                    && window._lastWeatherSourceKey === weatherSrcCacheKey
+                    && vpWeatherData
+                    && isFresh;
+
+                // Wetter nur dann skippen, wenn Quelle gleich, Daten frisch und Route/Gebiet relevant gleich.
+                if (weatherCacheReusable) {
+                    if (!sameExactRoute && canReuseByCoverage) {
+                        vpWeatherDebugEvent(`Wetter-Fetch übersprungen (Coverage gleich, ΔDist ${routeDeltaNm.toFixed(1)} NM)`);
+                    }
                     window.vpBgNeedsUpdate = true; 
                     if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
                     return;
@@ -1843,6 +1861,8 @@ function triggerVerticalProfileUpdate() {
                     vpWeatherData = nextWeatherData;
                 }
                 window._lastWetterRouteKey = weatherRouteKey; // Cache-Key merken
+                window._lastWetterCoverageKey = weatherCoverageKey;
+                window._lastWetterRouteNm = currentRouteNm;
                 window._lastWeatherSourceKey = vpGetWeatherSourceCacheKey();
                 window._lastWeatherFetchAt = Date.now();
                 if (btnCl) btnCl.classList.remove('vp-loading-pulse');
@@ -8010,6 +8030,8 @@ function vpToggleWeatherSource() {
     // veralteten OM/METAR-Labels bis zum nächsten Fetch sichtbar bleiben.
     vpWeatherData = null;
     window._lastWetterRouteKey = null;
+    window._lastWetterCoverageKey = null;
+    window._lastWetterRouteNm = 0;
     window._lastWeatherSourceKey = null;
     updateWeatherSourceBtn();
     window.vpBgNeedsUpdate = true;
