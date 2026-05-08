@@ -5192,6 +5192,41 @@ function _pickFromWeighted(values = [], fallback = 'auto') {
     return src[Math.floor(Math.random() * src.length)] || fallback;
 }
 
+function _pickFromWeightedWithRecentGuard(values = [], storageKey = '', { fallback = 'auto', recentLimit = 3 } = {}) {
+    const src = Array.isArray(values) ? values.filter(Boolean) : [];
+    if (!src.length) return fallback;
+
+    const unique = [...new Set(src)];
+    if (!storageKey || unique.length <= 1) return _pickFromWeighted(src, fallback);
+
+    const guardLimit = Math.max(1, Math.min(parseInt(recentLimit, 10) || 1, unique.length - 1));
+    let history = [];
+    try {
+        const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        if (Array.isArray(parsed)) history = parsed.map(x => String(x || '')).filter(Boolean);
+    } catch (_) {
+        history = [];
+    }
+
+    const recent = new Set(history.slice(-guardLimit));
+    let pool = src.filter(id => !recent.has(String(id)));
+    if (!pool.length) {
+        pool = src;
+        history = [];
+    }
+
+    const selected = _pickFromWeighted(pool, fallback);
+    try {
+        const nextHistory = history
+            .filter(id => unique.includes(id))
+            .concat(selected)
+            .slice(-Math.max(unique.length, guardLimit + 1));
+        localStorage.setItem(storageKey, JSON.stringify(nextHistory));
+    } catch (_) {}
+
+    return selected;
+}
+
 function _poiCategoryTaskPool(category = 'generic') {
     const c = String(category || 'generic').toLowerCase();
     // Kategorie bleibt fix, Task rotiert innerhalb passender Missionsfamilien.
@@ -5277,6 +5312,13 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         if (aptSel === 'club' || cat === 'club') {
             pushMany('club_utility', 3);
         }
+    }
+
+    if (!isPOI && aptSel === 'all' && (!cat || cat === 'all')) {
+        return _pickFromWeightedWithRecentGuard(weighted, 'ga_apt_auto_profile_history', {
+            fallback: 'auto',
+            recentLimit: 4
+        });
     }
 
     return _pickFromWeighted(weighted, 'auto');
