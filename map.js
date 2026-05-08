@@ -5884,9 +5884,6 @@ function renderMainRoute() {
 
     renderRouteLegLabels();
     updateRoutePerformance(); updateMiniMap();
-    if (routeWaypoints.length >= 2 && typeof triggerVerticalProfileUpdate === 'function') {
-        triggerVerticalProfileUpdate();
-    }
     scheduleWeatherMarkerDodging(true);
     vpUpdateVfrUi();
     if (window.mapHints.vfrIndex !== false && vpNormalizeVfrCountrySelection(vpVfrIndexState.selectedCountry) === 'auto') {
@@ -6233,7 +6230,9 @@ async function applyAirportDirectTo(airport, options = {}) {
             map.fitBounds(bounds, { padding: [60, 60] });
         }
         if (typeof updateMiniMap === 'function') updateMiniMap();
-        if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
+        if (typeof scheduleRouteDerivedDataRefresh === 'function') {
+            scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800 });
+        }
         if (typeof refreshGPSAfterDispatch === 'function') refreshGPSAfterDispatch();
         if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
     }
@@ -6252,6 +6251,23 @@ window.confirmAirportDirectTo = async function(icao, lat, lon, encodedName = '')
     const forceGpsStart = isGpsLive();
     return applyAirportDirectTo({ icao, name, lat, lon }, { forceGpsStart });
 };
+
+function scheduleRouteDerivedDataRefresh(options = {}) {
+    const profileDelayMs = Number.isFinite(Number(options.profileDelayMs)) ? Number(options.profileDelayMs) : 350;
+    const airspaceDelayMs = Number.isFinite(Number(options.airspaceDelayMs)) ? Number(options.airspaceDelayMs) : 900;
+
+    if (window.routeProfileRefreshTimeout) clearTimeout(window.routeProfileRefreshTimeout);
+    window.routeProfileRefreshTimeout = setTimeout(() => {
+        window.routeProfileRefreshTimeout = null;
+        if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
+    }, profileDelayMs);
+
+    if (window.airspaceFetchTimeout) clearTimeout(window.airspaceFetchTimeout);
+    window.airspaceFetchTimeout = setTimeout(() => {
+        window.airspaceFetchTimeout = null;
+        if (typeof fetchRouteAirspaces === 'function') fetchRouteAirspaces(routeWaypoints);
+    }, airspaceDelayMs);
+}
 
 function updateRoutePerformance() {
     if (routeWaypoints.length < 2 || !currentMissionData) return;
@@ -6352,14 +6368,7 @@ function updateRoutePerformance() {
     const hrs = Math.floor(totalTime / 60), mins = totalTime % 60;
     const mETENote = document.getElementById("mETENote"); if (mETENote) mETENote.innerText = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} Min.`;
 
-    // Trigger Airspace Check
-    if (window.airspaceFetchTimeout) clearTimeout(window.airspaceFetchTimeout);
-    window.airspaceFetchTimeout = setTimeout(() => {
-        fetchRouteAirspaces(routeWaypoints);
-    }, 800);
-
-    // Trigger Vertical Profile Update
-    triggerVerticalProfileUpdate();
+    scheduleRouteDerivedDataRefresh();
 
     window.debouncedSaveMissionState();
     if (gpsState.visible && gpsState.mode === 'FPL') renderGPS();
@@ -6931,8 +6940,10 @@ function updateMiniMap() {
     const miniContainer = document.getElementById('miniMap');
     if (!miniContainer || miniContainer.offsetParent === null) return;
 
-    // Verzögerung, um UI-Blockierung zu vermeiden
-    setTimeout(() => {
+    // Verzögerung + Debounce, um Route-Edits nicht mit MiniMap-Arbeit zu stapeln.
+    if (window._miniMapUpdateTimeout) clearTimeout(window._miniMapUpdateTimeout);
+    window._miniMapUpdateTimeout = setTimeout(() => {
+        window._miniMapUpdateTimeout = null;
         if (!miniMap) {
             miniMap = L.map('miniMap', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: false });
             L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png').addTo(miniMap);
@@ -7970,22 +7981,16 @@ window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
     // Hauptroute rendern (regulaerer Bearbeitungsmodus)
     if (polyline) polyline.setStyle({ opacity: 1 });
     renderMainRoute();
-    updateRoutePerformance();
 
-    // Lufträume, Landmarks, Hindernisse/Flüsse explizit laden —
-    // updateRoutePerformance() gibt früh zurück wenn kein currentMissionData gesetzt ist
-    // (Direct-To aus leerer Karte), daher hier direkt triggern.
+    // Lufträume, Landmarks, Hindernisse/Flüsse explizit nachladen.
     const _ffCacheKey = routeWaypoints.map(p =>
         `${(p.lat || 0).toFixed(4)},${((p.lng || p.lon) || 0).toFixed(4)}`).join('|');
     // Cache-Keys zurücksetzen damit ein voller Neu-Fetch stattfindet
     if (window._lastLmRouteKey  !== _ffCacheKey) window._lastLmRouteKey  = null;
     if (window._lastObsRouteKey !== _ffCacheKey) window._lastObsRouteKey = null;
-    // Airspaces
-    if (window.airspaceFetchTimeout) clearTimeout(window.airspaceFetchTimeout);
-    window.airspaceFetchTimeout = setTimeout(() => {
-        if (typeof fetchRouteAirspaces === 'function') fetchRouteAirspaces(routeWaypoints);
-    }, 800);
-    if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
+    if (typeof scheduleRouteDerivedDataRefresh === 'function') {
+        scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800 });
+    }
 
     // Elevation, Frequenz & Pisten für beide Airports via OpenAIP laden
     const startIcao = startWp.icao || null;
