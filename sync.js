@@ -834,6 +834,11 @@ let gpsReconnectDelay = 2000; // Start: 2s, wächst bei wiederholtem Fehlschlag
 let liveNextLegIndex = 0;
 let liveNextRouteKey = '';
 let liveActiveWpIndex = null; // null = automatisch (aus Leg), sonst manuell gewählter Ziel-Wegpunkt
+let liveCurrentNavFetchAt = 0;
+let liveCurrentNavFetchKey = '';
+let liveCurrentNavData = [];
+let liveCurrentAirportCacheKey = '';
+let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
 const MIN_TRACKER_VERSION_CODE = 211;
 const MIN_TRACKER_VERSION_LABEL = 'v211';
@@ -910,6 +915,7 @@ window.stepLiveNextLegPreview = function(delta, ev) {
 function hideNextWpTelemetry() {
     const box = document.getElementById('liveNextWpBox');
     if (box) box.style.display = 'none';
+    hideCurrentInfoTelemetry();
     setNextLegButtonStates(0, 0);
     if (liveToWpLine) {
         try { liveToWpLine.remove(); } catch (e) {}
@@ -1210,6 +1216,280 @@ function getRegionalFisFrequency(lat, lon) {
         if (primary?.value) return `${primary.value}`;
     }
     return '';
+}
+
+function stripNavFrequencyFromName(s) {
+    return String(s || '').replace(/\s*\(\d{3}(?:[.,]\d{1,3})?\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function currentInfoCardinalFromBearing(brng) {
+    const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    const n = Number(brng);
+    if (!Number.isFinite(n)) return '';
+    return dirs[Math.round((((n % 360) + 360) % 360) / 45) % dirs.length];
+}
+
+function currentInfoNm(dist) {
+    const n = Number(dist);
+    if (!Number.isFinite(n)) return '--';
+    if (n < 1) return n.toFixed(1);
+    return String(Math.round(n));
+}
+
+function addCurrentNavCandidate(list, seen, label, lat, lon, kind = 'NAV') {
+    const la = Number(lat), lo = Number(lon);
+    const cleanLabel = stripNavFrequencyFromName(label).replace(/^APT\s+/i, '').replace(/^RPP\s+/i, '').trim();
+    if (!cleanLabel || !Number.isFinite(la) || !Number.isFinite(lo)) return;
+    const key = `${kind}:${cleanLabel.toUpperCase()}:${la.toFixed(4)}:${lo.toFixed(4)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    list.push({ label: cleanLabel, lat: la, lon: lo, kind });
+}
+
+function parseCurrentNavLabel(nav) {
+    const raw = String(nav?.name || '').trim();
+    if (!raw) return null;
+    if (/^APT\s+/i.test(raw)) {
+        const label = stripNavFrequencyFromName(raw.replace(/^APT\s+/i, ''));
+        return { label, kind: 'APT' };
+    }
+    if (/^RPP\s+/i.test(raw) || nav?.type === 'RPP') {
+        const label = stripNavFrequencyFromName(raw.replace(/^RPP\s+/i, ''));
+        return { label, kind: 'RPP' };
+    }
+    const ident = raw.match(/\[([^\]]+)\]/);
+    if (ident) return { label: ident[1].trim().split(/\s+/)[0], kind: 'VOR' };
+    return { label: stripNavFrequencyFromName(raw), kind: 'NAV' };
+}
+
+function currentInfoReadFreq(item) {
+    if (!item) return '';
+    if (item.frequency !== undefined && item.frequency !== null) {
+        return (typeof item.frequency === 'object' && item.frequency.value) ? item.frequency.value : item.frequency;
+    }
+    if (Array.isArray(item.frequencies) && item.frequencies.length > 0) {
+        return item.frequencies[0]?.value || item.frequencies[0] || '';
+    }
+    return '';
+}
+
+function currentInfoCoords(item) {
+    const c = item?.geometry?.coordinates;
+    return Array.isArray(c) && c.length >= 2 ? { lat: Number(c[1]), lng: Number(c[0]) } : null;
+}
+
+function maybeRefreshCurrentNavData(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || typeof fetch !== 'function') return;
+    const now = Date.now();
+    const key = `${lat.toFixed(1)}_${lon.toFixed(1)}`;
+    if (key === liveCurrentNavFetchKey && now - liveCurrentNavFetchAt < 45000) return;
+    liveCurrentNavFetchAt = now;
+    liveCurrentNavFetchKey = key;
+
+    const w = Math.max(-180, lon - 0.65);
+    const s = Math.max(-90, lat - 0.45);
+    const e = Math.min(180, lon + 0.65);
+    const n = Math.min(90, lat + 0.45);
+    const bbox = `${w},${s},${e},${n}`;
+    const proxy = 'https://ga-proxy.einherjer.workers.dev';
+
+    Promise.all([
+        fetch(`${proxy}/api/navaids?bbox=${bbox}&limit=250&t=${Date.now()}`),
+        fetch(`${proxy}/api/reporting-points?bbox=${bbox}&limit=250&t=${Date.now()}`),
+        fetch(`${proxy}/api/airports?bbox=${bbox}&limit=250&t=${Date.now()}`)
+    ]).then(async ([navRes, repRes, aptRes]) => {
+        if (!navRes.ok || !repRes.ok || !aptRes.ok) return;
+        const [navJson, repJson, aptJson] = await Promise.all([navRes.json(), repRes.json(), aptRes.json()]);
+        const next = [];
+
+        (navJson.items || []).forEach(i => {
+            const c = currentInfoCoords(i);
+            if (!c) return;
+            const freqVal = currentInfoReadFreq(i);
+            const freq = freqVal ? ` (${freqVal})` : '';
+            const idVal = i.identifier || i.designator || '';
+            const ident = idVal ? ` [${idVal}]` : '';
+            next.push({ name: `${i.name || 'NAV'}${ident}${freq}`, lat: c.lat, lng: c.lng });
+        });
+
+        (repJson.items || []).forEach(i => {
+            const c = currentInfoCoords(i);
+            if (!c) return;
+            next.push({
+                name: `RPP ${i.name || ''}`.trim(),
+                lat: c.lat,
+                lng: c.lng,
+                type: 'RPP',
+                rppAirportIcao: (typeof extractRppAirportIcao === 'function') ? extractRppAirportIcao(i) : ''
+            });
+        });
+
+        (aptJson.items || []).forEach(i => {
+            const c = currentInfoCoords(i);
+            if (!c) return;
+            const freqVal = currentInfoReadFreq(i);
+            const freq = freqVal ? ` (${freqVal})` : '';
+            const displayName = i.icaoCode || i.name || 'APT';
+            next.push({ name: `APT ${displayName}${freq}`, lat: c.lat, lng: c.lng });
+        });
+
+        liveCurrentNavData = next;
+    }).catch(() => {});
+}
+
+function getCurrentNearbyAirportCandidates(lat, lon) {
+    if (typeof globalAirports !== 'object' || !globalAirports) return [];
+    const key = `${lat.toFixed(1)}_${lon.toFixed(1)}`;
+    if (key === liveCurrentAirportCacheKey) return liveCurrentAirportCandidates;
+
+    liveCurrentAirportCacheKey = key;
+    liveCurrentAirportCandidates = [];
+    for (const aptKey in globalAirports) {
+        const apt = globalAirports[aptKey];
+        const aLat = Number(apt?.lat), aLon = Number(apt?.lon);
+        if (!Number.isFinite(aLat) || !Number.isFinite(aLon)) continue;
+        if (Math.abs(aLat - lat) > 0.8 || Math.abs(aLon - lon) > 1.2) continue;
+        const icao = String(apt?.icao || aptKey || '').trim().toUpperCase();
+        liveCurrentAirportCandidates.push({ label: icao || apt?.name || 'APT', lat: aLat, lon: aLon });
+    }
+    return liveCurrentAirportCandidates;
+}
+
+function findNearestCurrentReference(lat, lon) {
+    if (typeof calcNav !== 'function') return null;
+    const candidates = [];
+    const seen = new Set();
+    const mapNavItems = (typeof cachedNavData !== 'undefined' && Array.isArray(cachedNavData)) ? cachedNavData : [];
+    const navItems = [...mapNavItems, ...liveCurrentNavData];
+
+    navItems.forEach(nav => {
+        const parsed = parseCurrentNavLabel(nav);
+        if (!parsed) return;
+        addCurrentNavCandidate(candidates, seen, parsed.label, nav.lat, nav.lng ?? nav.lon, parsed.kind);
+    });
+
+    getCurrentNearbyAirportCandidates(lat, lon).forEach(apt => {
+        addCurrentNavCandidate(candidates, seen, apt.label, apt.lat, apt.lon, 'APT');
+    });
+
+    let best = null;
+    for (const c of candidates) {
+        const nav = calcNav(c.lat, c.lon, lat, lon);
+        if (!Number.isFinite(nav?.dist)) continue;
+        if (!best || nav.dist < best.dist) best = { ...c, dist: nav.dist, brngFromRef: nav.brng };
+    }
+
+    if (!navItems.length || !best || best.dist > 35) maybeRefreshCurrentNavData(lat, lon);
+    return best;
+}
+
+function currentAirspacePriority(as) {
+    const t = as?.type;
+    if (t === 4) return 0;                 // CTR
+    if (as?.icaoClass === 2 || as?.icaoClass === 3 || t === 0) return 1;
+    if (t === 5 || t === 27) return 2;     // TMZ
+    if (t === 6 || t === 28) return 3;     // RMZ
+    if (t === 7 || t === 26) return 4;     // TMA/CTA
+    return 8;
+}
+
+function compactCurrentFrequencyLabel(rawName) {
+    const raw = String(rawName || '').trim();
+    const up = raw.toUpperCase();
+    if (/XPDR|SQK|SQUAWK|TRANSP/.test(up)) return 'SQWK';
+    if (/\b(TWR|TOWER|TURM)\b/.test(up)) return 'TWR';
+    if (/\b(APP|APPROACH|ANFLUG)\b/.test(up)) return 'APP';
+    if (/\b(ATIS)\b/.test(up)) return 'ATIS';
+    if (/\b(RADIO|CTAF|UNICOM)\b/.test(up)) return 'RADIO';
+    if (/\b(FIS|INFO|INFORMATION)\b/.test(up)) return 'INFO';
+    return raw || 'INFO';
+}
+
+function pickCurrentAirspaceFrequency(lat, lon, alt) {
+    if (typeof activeAirspaces === 'undefined' || !Array.isArray(activeAirspaces)) return null;
+    if (typeof isPointInsideAirspace !== 'function') return null;
+
+    const terrainFt = Number(window.lastLiveTerrainFt) || 0;
+    const hasAlt = Number.isFinite(Number(alt));
+    const hits = [];
+
+    for (const as of activeAirspaces) {
+        if (!as?.geometry || as.type === 33) continue;
+        if (!Array.isArray(as.frequencies) || as.frequencies.length === 0) continue;
+        if (!isPointInsideAirspace(as, lat, lon)) continue;
+
+        if (hasAlt && typeof getAirspaceVerticalBandFt === 'function') {
+            const band = getAirspaceVerticalBandFt(as, terrainFt);
+            if (!band) continue;
+            if (alt < band.lowerFt - 200 || alt > band.upperFt + 200) continue;
+        }
+
+        const primary = (typeof pickPreferredAirspaceFrequency === 'function')
+            ? pickPreferredAirspaceFrequency(as.frequencies, as.type)
+            : (as.frequencies.find(f => f.primary) || as.frequencies[0]);
+        if (!primary?.value) continue;
+        hits.push({ as, primary, priority: currentAirspacePriority(as) });
+    }
+
+    if (!hits.length) return null;
+    hits.sort((a, b) => a.priority - b.priority);
+    const hit = hits[0];
+    const label = compactCurrentFrequencyLabel(hit.primary.name);
+    const source = (typeof getAirspaceDisplayName === 'function') ? getAirspaceDisplayName(hit.as) : (hit.as.name || 'Luftraum');
+    return {
+        value: `${label}: ${hit.primary.value}`,
+        source,
+        color: (typeof getAirspaceStyle === 'function') ? getAirspaceStyle(hit.as).color : '#9fd3ff'
+    };
+}
+
+function getCurrentFrequencyInfo(lat, lon, alt) {
+    const airspaceFreq = pickCurrentAirspaceFrequency(lat, lon, alt);
+    if (airspaceFreq) return airspaceFreq;
+    const fis = getRegionalFisFrequency(lat, lon);
+    return fis ? { value: `FIS ${fis}`, source: 'Offenes Gebiet', color: '#66cccc' } : null;
+}
+
+function hideCurrentInfoTelemetry() {
+    const box = document.getElementById('liveCurrentBox');
+    if (box) box.style.display = 'none';
+}
+
+function updateCurrentInfoTelemetry(lat, lon, alt = null) {
+    const box = document.getElementById('liveCurrentBox');
+    const posEl = document.getElementById('currentPosRef');
+    const freqEl = document.getElementById('currentFreqValue');
+    const sourceEl = document.getElementById('currentFreqSource');
+    if (!box || !posEl || !freqEl || !sourceEl) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        hideCurrentInfoTelemetry();
+        return;
+    }
+
+    const shouldShow = window.simModeActive || isMapHintOn('currentInfo', true);
+    box.style.display = shouldShow ? 'block' : 'none';
+    if (!shouldShow) return;
+
+    const ref = findNearestCurrentReference(lat, lon);
+    if (ref) {
+        const dir = currentInfoCardinalFromBearing(ref.brngFromRef);
+        posEl.textContent = `${currentInfoNm(ref.dist)} NM ${dir} ${ref.label}`.replace(/\s+/g, ' ').trim();
+    } else {
+        posEl.textContent = 'Position aktiv';
+    }
+
+    const freq = getCurrentFrequencyInfo(lat, lon, alt);
+    if (freq) {
+        freqEl.textContent = freq.value;
+        freqEl.style.color = freq.color || '#9fd3ff';
+        sourceEl.textContent = freq.source || '';
+    } else {
+        freqEl.textContent = '—';
+        freqEl.style.color = '#777';
+        sourceEl.textContent = '';
+    }
+
+    box.style.display = 'block';
 }
 
 function normalizeTextToken(s) {
@@ -1666,6 +1946,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
                 // AGL wird in updateLivePlanePosition weiter unten gesetzt (nach bestIdx-Suche)
             }
             updateNextWpTelemetry(lat, lon);
+            updateCurrentInfoTelemetry(lat, lon, alt);
             // Smoothed GS/VS for prediction (EMA α=0.3)
             smoothedGS = smoothedGS === 0 ? gs : smoothedGS * 0.7 + gs * 0.3;
             smoothedVS = smoothedVS === 0 ? vs : smoothedVS * 0.7 + vs * 0.3;
@@ -1685,6 +1966,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     } else {
         lastGpsTickDetails = { lat, lon, alt, t: now };
         updateNextWpTelemetry(lat, lon);
+        updateCurrentInfoTelemetry(lat, lon, alt);
     }
 
     // --- PREDICTION VECTORS ---
@@ -2556,16 +2838,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 800);
     }
 
+    const currentBox = document.getElementById('liveCurrentBox');
     const nextBox = document.getElementById('liveNextWpBox');
-    if (nextBox) {
+    [currentBox, nextBox].filter(Boolean).forEach(navBox => {
         ['pointerdown', 'click', 'touchstart', 'mousedown'].forEach(evt => {
-            nextBox.addEventListener(evt, e => {
+            navBox.addEventListener(evt, e => {
                 if (typeof e.stopPropagation === 'function') e.stopPropagation();
             }, { passive: false });
         });
-    }
+    });
 
     initTelemetryBoxDrag(document.getElementById('liveTelemetryBox'), 'ga_tele_pos');
+    initTelemetryBoxDrag(document.getElementById('liveCurrentBox'), 'ga_current_pos');
     initTelemetryBoxDrag(document.getElementById('liveNextWpBox'), 'ga_nextwp_pos');
 
     buildCompassSvg();
@@ -2594,6 +2878,7 @@ function initTelemetryBoxDrag(el, storageKey) {
 
     const DEFAULT_STYLES = {
         liveTelemetryBox: { top: '10px', left: '50%', transform: 'translateX(-50%)', right: 'auto' },
+        liveCurrentBox:   { top: '10px', left: 'calc(50% - 230px)', transform: 'none', right: 'auto' },
         liveNextWpBox:    { top: '10px', left: 'calc(50% + 128px)', transform: 'none', right: 'auto' }
     };
 

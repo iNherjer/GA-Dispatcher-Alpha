@@ -4573,6 +4573,19 @@ body.theme-navcom .btn-menu:active {
         height: 16px !important;
         font-size: 9px !important;
     }
+    #liveCurrentBox:not(.tele-dragged) {
+        top: 92px !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        width: 232px !important;
+        min-width: 232px !important;
+        padding: 7px 8px !important;
+    }
+    #liveCurrentBox .tele-val {
+        font-size: 12px !important;
+        letter-spacing: 0.2px !important;
+    }
 }
 
 /* ==========================================================================

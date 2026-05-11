@@ -881,6 +881,7 @@
                     </div>
                     <button id="hintToggleTraffic" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('traffic')">✈️ Traffic (An)</button>
                     <button id="hintToggleTelemetry" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('telemetry')">📟 Telemetrie (An)</button>
+                    <button id="hintToggleCurrentInfo" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('currentInfo')">📍 Aktuell (An)</button>
                     <button id="hintToggleNextLeg" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('nextLeg')">🧭 Wegpunkt-Info (An)</button>
                     <button id="hintToggleCompass" class="pb-btn" style="display:block; width:100%; margin:0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('compass')">🔵 Kompassscheibe (An)</button>
                     <button id="hintToggleLowFps" class="pb-btn" style="display:block; width:100%; margin:6px 0 0 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('lowFps')">🐢 Low FPS Mode (Aus)</button>
@@ -1006,6 +1007,15 @@
                     <div style="display:flex; justify-content:space-between; gap:16px;">
                         <span>ALT:</span><span><span id="teleAGL" class="tele-val" style="color:#ffcc44;">—</span> <span class="tele-unit">FT</span></span>
                     </div>
+                </div>
+                <div id="liveCurrentBox" class="telemetry-box" style="display:none; top:10px; left:calc(50% - 230px); transform:none; right:auto; width:154px; min-width:154px; pointer-events:auto; padding:8px 9px; cursor:grab;" title="Ziehen zum Verschieben · Doppelklick zum Zurücksetzen">
+                    <div style="font-size:11px; color:#8ec5ff; letter-spacing:0.4px; margin-bottom:3px;">AKTUELL</div>
+                    <div id="currentPosRef" class="tele-val" style="font-size:14px; color:#fff; margin-bottom:4px; white-space:normal;">—</div>
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px;">
+                        <span style="font-size:11px; color:#aaa;">FREQ</span>
+                        <span id="currentFreqValue" class="tele-val" style="font-size:13px; color:#9fd3ff; text-align:right; line-height:1.1; overflow-wrap:anywhere;">—</span>
+                    </div>
+                    <div id="currentFreqSource" style="font-size:10px; color:#777; text-align:right; line-height:1.15; min-height:11px;"></div>
                 </div>
                 <div id="liveNextWpBox" class="telemetry-box" style="display:none; top:10px; left:calc(50% + 128px); transform:none; right:auto; width:138px; min-width:138px; pointer-events:auto; padding:8px 9px; cursor:grab;" title="Ziehen zum Verschieben · Doppelklick zum Zurücksetzen">
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">

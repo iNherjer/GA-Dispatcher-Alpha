@@ -38,6 +38,7 @@ const MAP_HINT_DEFAULTS = {
     terrainAvoid: false,
     traffic: true,
     telemetry: true,
+    currentInfo: true,
     nextLeg: true,
     compass: true,
     lowFps: false
@@ -682,6 +683,10 @@ function applyMapHintEffects(key) {
         const box = document.getElementById('liveTelemetryBox');
         if (box) box.classList.toggle('tele-hint-off', !window.mapHints.telemetry);
     }
+    if (key === 'currentInfo') {
+        const box = document.getElementById('liveCurrentBox');
+        if (box) box.classList.toggle('tele-hint-off', !window.mapHints.currentInfo);
+    }
     if (key === 'nextLeg') {
         const box = document.getElementById('liveNextWpBox');
         if (box) box.classList.toggle('tele-hint-off', !window.mapHints.nextLeg);
@@ -752,6 +757,7 @@ function refreshMapHintMenuUi() {
         terrainAvoid: '🏔️ Terrain Avoid',
         traffic: '✈️ Traffic',
         telemetry: '📟 Telemetrie',
+        currentInfo: '📍 Aktuell',
         nextLeg: '🧭 Wegpunkt-Info',
         compass: '🔵 Kompassscheibe',
         lowFps: '🐢 Low FPS Mode'
@@ -765,6 +771,7 @@ function refreshMapHintMenuUi() {
         terrainAvoid: 'hintToggleTerrainAvoid',
         traffic: 'hintToggleTraffic',
         telemetry: 'hintToggleTelemetry',
+        currentInfo: 'hintToggleCurrentInfo',
         nextLeg: 'hintToggleNextLeg',
         compass: 'hintToggleCompass',
         lowFps: 'hintToggleLowFps'
