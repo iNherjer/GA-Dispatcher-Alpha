@@ -1,4 +1,4 @@
-const { open, SimConnectDataType } = require('node-simconnect');
+const { open, SimConnectDataType, SimConnectPeriod } = require('node-simconnect');
 const WebSocket = require('ws');
 const readline = require('readline');
 const fs = require('fs');
@@ -104,7 +104,10 @@ function connectSimConnect(getWs, syncId, pin) {
       console.log("✈️ MSFS gefunden! Warte auf Positionsdaten...");
 
       let lastSent = 0;
-      const SEND_INTERVAL_MS = 66; 
+      let lastFlightLog = 0;
+      const SEND_INTERVAL_MS = 100;
+      const GPS_SOURCE_INTERVAL_FRAMES = 3;
+      const TRAFFIC_POLL_MS = 5000;
       const DEF_ID = 206;
       const REQ_ID = 206;
       const EVT_PAUSE_EX1 = 910;
@@ -231,7 +234,16 @@ function connectSimConnect(getWs, syncId, pin) {
       addOptionalVar('IS PAUSED', 'Bool', 'simPausedA');
       addOptionalVar('SIM IS PAUSED', 'Bool', 'simPausedB');
 
-      handle.requestDataOnSimObject(REQ_ID, DEF_ID, 0, 2, 0, 0, 0, 0);
+      handle.requestDataOnSimObject(
+        REQ_ID,
+        DEF_ID,
+        0,
+        SimConnectPeriod.VISUAL_FRAME,
+        0,
+        0,
+        GPS_SOURCE_INTERVAL_FRAMES,
+        0
+      );
 
       handle.on('simObjectData', (recv) => {
         if (recv.requestID === REQ_ID) {
@@ -350,7 +362,10 @@ function connectSimConnect(getWs, syncId, pin) {
                   latestTrafficSnapshot = null; // einmalig senden, dann löschen
                 }
                 ws.send(JSON.stringify(gpsMsg));
-                console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | GS ${flight.gsKts ?? '?'}kts | OnG ${flight.onGround ? 'Y' : 'N'} | Pause ${flight.simPaused ? 'Y' : 'N'}(${flight.pauseFlags ?? 0}) | Sim ${flight.simRunning ? 'RUN' : 'STOP'} | Menu ${flight.inMenuOrMap ? 'Y' : 'N'} | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipRateMmH ?? '?'}mm/h | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
+                if (now - lastFlightLog >= 1000) {
+                  lastFlightLog = now;
+                  console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | GS ${flight.gsKts ?? '?'}kts | OnG ${flight.onGround ? 'Y' : 'N'} | Pause ${flight.simPaused ? 'Y' : 'N'}(${flight.pauseFlags ?? 0}) | Sim ${flight.simRunning ? 'RUN' : 'STOP'} | Menu ${flight.inMenuOrMap ? 'Y' : 'N'} | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipRateMmH ?? '?'}mm/h | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
+                }
               } else if (lat === 0) {
                  process.stdout.write("."); 
               }
@@ -397,7 +412,8 @@ function connectSimConnect(getWs, syncId, pin) {
         } catch(e) { /* Lesefehler ignorieren */ }
       });
 
-      // Traffic alle 2 Sekunden abfragen
+      // Traffic bewusst moderat abfragen; andere SimConnect-Clients (z.B. Motion-Rigs)
+      // reagieren empfindlich auf unnötig dichte Object-Enumeration.
       const trafficInterval = setInterval(() => {
         const ws = getWs();
         if (!ws || ws.readyState !== 1 /*OPEN*/) return;
@@ -429,7 +445,7 @@ function connectSimConnect(getWs, syncId, pin) {
           if (nearest.length > 0)
             console.log(`[TRAFFIC] ${all.length} gesamt → ${moving.length} fliegend → ${nearest.length} gesendet`);
         }, 500);
-      }, 2000);
+      }, TRAFFIC_POLL_MS);
 
       handle.on('close', () => {
         clearInterval(runtimePollInterval);
