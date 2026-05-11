@@ -292,6 +292,7 @@ const vpVfrIndexState = {
     lastGridLatStep: 0.4,
     lastGridLonStep: 0.4
 };
+window.vpVfrIndexState = vpVfrIndexState;
 let vpVfrAutoTimer = null;
 let vpVfrOverlayTimer = null;
 let vpVfrOverlayScheduledForce = false;
@@ -4174,9 +4175,18 @@ window.vpCycleVfrAmpelWindowMode = async function() {
 };
 
 function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
-    if (!map) return;
+    const perf = window.gaPerfStart ? window.gaPerfStart('VFR render grid cells', {
+        count: Array.isArray(samples) ? samples.length : 0
+    }) : null;
+    if (!map) {
+        if (window.gaPerfEnd) window.gaPerfEnd(perf, { status: 'no-map' });
+        return;
+    }
     const layer = vpEnsureVfrLayer();
-    if (!layer) return;
+    if (!layer) {
+        if (window.gaPerfEnd) window.gaPerfEnd(perf, { status: 'no-layer' });
+        return;
+    }
     vpVfrIndexState.lastRenderedSamples = Array.isArray(samples) ? samples.slice() : [];
     vpVfrIndexState.lastRenderedSectors = [];
     vpVfrIndexState.lastRenderMode = 'grid';
@@ -4185,6 +4195,7 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
     layer.clearLayers();
     if (Number(map.getZoom()) < VP_VFR_INDEX_MIN_VISIBLE_ZOOM) {
         if (map.hasLayer(layer)) map.removeLayer(layer);
+        if (window.gaPerfEnd) window.gaPerfEnd(perf, { status: 'hidden-by-zoom', zoom: map.getZoom() });
         return;
     }
     const halfLat = Math.max(0.12, latStep * 0.48);
@@ -4302,15 +4313,24 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
         }
     });
     if (!map.hasLayer(layer)) layer.addTo(map);
+    if (window.gaPerfEnd) window.gaPerfEnd(perf, { layerCount: layer && layer.getLayers ? layer.getLayers().length : null });
 }
 
 function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
+    const perf = window.gaPerfStart ? window.gaPerfStart('VFR render sector cells', {
+        count: Array.isArray(sectorEntries) ? sectorEntries.length : 0,
+        zoom: map && map.getZoom ? map.getZoom() : null
+    }) : null;
     const layer = vpEnsureVfrLayer();
-    if (!layer || !map) return;
+    if (!layer || !map) {
+        if (window.gaPerfEnd) window.gaPerfEnd(perf, { status: !map ? 'no-map' : 'no-layer' });
+        return;
+    }
     layer.clearLayers();
     const zoom = Number(map.getZoom());
     if (!Number.isFinite(zoom) || zoom < VP_VFR_SECTOR_BORDER_MIN_VISIBLE_ZOOM) {
         if (map.hasLayer(layer)) map.removeLayer(layer);
+        if (window.gaPerfEnd) window.gaPerfEnd(perf, { status: 'hidden-by-zoom', zoom });
         return;
     }
     const showAmpelForZoom = zoom >= VP_VFR_SECTOR_AMPEL_MIN_VISIBLE_ZOOM;
@@ -4415,6 +4435,7 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
         }
     });
     if (!map.hasLayer(layer)) layer.addTo(map);
+    if (window.gaPerfEnd) window.gaPerfEnd(perf, { layerCount: layer && layer.getLayers ? layer.getLayers().length : null });
 }
 
 window.vpRefreshVfrIndex = async function() {
@@ -4433,11 +4454,22 @@ window.vpSetVfrCountry = async function(value) {
 };
 
 window.renderVfrIndexOverlay = async function(forceFetch = false) {
-    if (!map) return;
+    const renderPerf = window.gaPerfStart ? window.gaPerfStart('VFR render overlay', { forceFetch: !!forceFetch }) : null;
+    let renderPerfDone = false;
+    const finishRenderPerf = (status, extra = {}) => {
+        if (renderPerfDone) return;
+        renderPerfDone = true;
+        if (window.gaPerfEnd) window.gaPerfEnd(renderPerf, { status, ...extra });
+    };
+    if (!map) {
+        finishRenderPerf('no-map');
+        return;
+    }
     vpUpdateVfrUi();
     if (window.mapHints.vfrIndex === false) {
         vpClearVfrLayer();
         vpUpdateVfrUi();
+        finishRenderPerf('disabled');
         return;
     }
     const active = vpResolveActiveVfrCountry();
@@ -4446,6 +4478,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         vpVfrIndexState.lastError = 'keine Landesgrenzen';
         vpClearVfrLayer();
         vpUpdateVfrUi();
+        finishRenderPerf('no-bounds', { active });
         return;
     }
     const activeVfrModel = vpNormalizeVfrModel(vpVfrIndexState.vfrModel);
@@ -4483,9 +4516,13 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
             );
         }
         vpUpdateVfrUi();
+        finishRenderPerf('cache-hit', { active, model: activeVfrModel, elapsedMs: elapsed });
         return;
     }
-    if (vpVfrIndexState.inFlight) return;
+    if (vpVfrIndexState.inFlight) {
+        finishRenderPerf('already-in-flight', { active, model: activeVfrModel });
+        return;
+    }
     vpVfrIndexState.inFlight = true;
     vpVfrIndexState.lastError = '';
     vpUpdateVfrUi();
@@ -4494,35 +4531,48 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         if (sectorMode && !VP_GAFOR_SECTOR_MODE_COUNTRIES.has(active)) {
             throw new Error('Sektor-Modell aktuell nur fuer DE verfuegbar');
         }
+        if (window.gaDebugPush) window.gaDebugPush('vfr', '[VFR] render start', { active, model: activeVfrModel, forceFetch: !!forceFetch });
         if (sectorMode) {
+            const datasetPerf = window.gaPerfStart ? window.gaPerfStart('VFR sector dataset', { active }) : null;
             await vpEnsureGaforSectorDataset(active);
+            if (window.gaPerfEnd) window.gaPerfEnd(datasetPerf);
         }
         const sectors = sectorMode ? vpBuildGaforSectorDefs(active) : [];
         const grid = sectorMode
             ? { points: vpBuildGaforSectorProbePoints(sectors), latStep: 0.6, lonStep: 0.8 }
             : vpBuildVfrGridPoints(bounds);
         if (!grid.points.length) throw new Error('keine Rasterpunkte');
+        if (window.gaDebugPush) window.gaDebugPush('vfr', '[VFR] grid ready', { active, model: activeVfrModel, points: grid.points.length, sectors: sectors.length });
+        const samplesPerf = window.gaPerfStart ? window.gaPerfStart('VFR Open-Meteo samples', { points: grid.points.length }) : null;
         const samples = await window.fetchOpenMeteoWeatherPoints(grid.points, {
             includePressure: false,
             maxConcurrency: 3
         });
+        if (window.gaPerfEnd) window.gaPerfEnd(samplesPerf, { samples: Array.isArray(samples) ? samples.length : 0 });
         const needsGaforLikeRefs = activeVfrModel === 'gafor_like';
         const needsSectorProbeTerrain = sectorMode;
+        const refPerf = window.gaPerfStart ? window.gaPerfStart('VFR terrain references', { needsGaforLikeRefs, needsSectorProbeTerrain }) : null;
         const sectorRefs = needsGaforLikeRefs
             ? await vpBuildSectorReferenceMap(grid.points, grid.latStep, grid.lonStep, { maxConcurrency: 4 })
             : Object.create(null);
         const sectorProbeTerrainRefs = needsSectorProbeTerrain
             ? await vpBuildSectorReferenceMap(grid.points, 0.08, 0.08, { maxConcurrency: 2 })
             : Object.create(null);
+        if (window.gaPerfEnd) window.gaPerfEnd(refPerf, {
+            sectorRefs: sectorRefs ? Object.keys(sectorRefs).length : 0,
+            probeRefs: sectorProbeTerrainRefs ? Object.keys(sectorProbeTerrainRefs).length : 0
+        });
         let timelines = null;
         const prevTimeline = (vpVfrIndexState.timeline && vpVfrIndexState.timeline.byKey) ? vpVfrIndexState.timeline : null;
         const nowMs = Date.now();
         const cooldownUntilMs = Number(vpVfrIndexState.timelineCooldownUntilMs || 0);
         const timelineCooldownActive = Number.isFinite(cooldownUntilMs) && cooldownUntilMs > nowMs;
         if (!timelineCooldownActive) {
+            const timelinePerf = window.gaPerfStart ? window.gaPerfStart('VFR timeline forecast', { points: grid.points.length }) : null;
             try {
                 timelines = await vpFetchVfrSectorTimelines(bounds, grid.points, vpVfrIndexState.ampelWindowMode);
                 vpVfrIndexState.timelineCooldownUntilMs = 0;
+                if (window.gaPerfEnd) window.gaPerfEnd(timelinePerf, { ok: true });
             } catch (timelineErr) {
                 const status = vpGetTimelineHttpStatus(timelineErr);
                 vpVfrIndexState.timelineLastErrorAt = nowMs;
@@ -4532,17 +4582,23 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
                 }
                 console.warn('[VFR-Index] Timeline-Forecast fehlgeschlagen, nutze Fallback:', timelineErr);
                 timelines = null;
+                if (window.gaPerfEnd) window.gaPerfEnd(timelinePerf, { ok: false, status });
             }
+        } else if (window.gaDebugPush) {
+            window.gaDebugPush('vfr', '[VFR] timeline cooldown active', { remainingMs: Math.round(cooldownUntilMs - nowMs) });
         }
         if (!timelines && prevTimeline) {
             timelines = vpRefreshTimelineClockInPlace(prevTimeline) || prevTimeline;
         }
         let mosmix = null;
+        const mosmixPerf = window.gaPerfStart ? window.gaPerfStart('VFR MOSMIX forecast', { points: grid.points.length }) : null;
         try {
             mosmix = await vpFetchMosmixGridForecast(grid.points, timelines, active);
+            if (window.gaPerfEnd) window.gaPerfEnd(mosmixPerf, { ok: !!mosmix });
         } catch (mosmixErr) {
             console.warn('[VFR-Index] MOSMIX-Zusatzdaten nicht verfuegbar:', mosmixErr);
             mosmix = null;
+            if (window.gaPerfEnd) window.gaPerfEnd(mosmixPerf, { ok: false });
         }
         if (timelines && timelines.byKey && !sectorMode) {
             grid.points.forEach((p) => {
@@ -4626,6 +4682,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
             valid = fallback;
         }
         if (sectorMode) {
+            const sectorBuildPerf = window.gaPerfStart ? window.gaPerfStart('VFR build sector entries', { sectors: sectors.length }) : null;
             const byPoint = Object.create(null);
             valid.forEach(v => {
                 if (!v || !Number.isFinite(Number(v.lat)) || !Number.isFinite(Number(v.lon))) return;
@@ -4639,6 +4696,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
                 activeVfrModel,
                 sectorProbeTerrainRefs
             );
+            if (window.gaPerfEnd) window.gaPerfEnd(sectorBuildPerf, { entries: sectorEntries.length });
             if (!sectorEntries.length) throw new Error('keine Sektordaten verfuegbar');
             vpRenderGaforSectorCells(sectorEntries, Number(timelines && timelines.nowRatio));
             vpVfrIndexState.lastRenderedSamples = [];
@@ -4656,15 +4714,19 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
             vpVfrIndexState.timeline = timelines;
         }
         vpPersistCurrentVfrOverlay(active, activeVfrModel, vpVfrIndexState.ampelWindowMode);
+        finishRenderPerf('done', { active, model: activeVfrModel, pointCount: vpVfrIndexState.lastPointCount });
     } catch (e) {
         vpVfrIndexState.lastError = (e && e.message) ? e.message : 'unknown';
         vpClearVfrLayer();
         if (!(vpVfrIndexState.timeline && vpVfrIndexState.timeline.byKey)) {
             vpVfrIndexState.timeline = null;
         }
+        if (window.gaDebugPush) window.gaDebugPush('vfr-error', '[VFR] render failed', { message: vpVfrIndexState.lastError });
+        finishRenderPerf('error', { active, model: activeVfrModel, message: vpVfrIndexState.lastError });
     } finally {
         vpVfrIndexState.inFlight = false;
         vpUpdateVfrUi();
+        finishRenderPerf('finally', { active, model: activeVfrModel });
     }
 };
 
@@ -4710,6 +4772,40 @@ function vpRefreshVfrLayerFromCache() {
     }
     vpUpdateVfrUi();
 }
+
+window.gaRunVfrFreezeProbe = async function(iterations = 1) {
+    if (!map) return false;
+    const cycles = Math.max(1, Math.min(4, Math.round(Number(iterations) || 1)));
+    const originalZoom = map.getZoom ? map.getZoom() : null;
+    const originalCenter = map.getCenter ? map.getCenter() : null;
+    const zooms = [6, 8, 10, 7, 9];
+    if (window.gaDebugPush) window.gaDebugPush('probe', '[PROBE] VFR freeze probe start', { cycles, originalZoom });
+    const probePerf = window.gaPerfStart ? window.gaPerfStart('VFR freeze probe', { cycles }) : null;
+    try {
+        for (let c = 0; c < cycles; c++) {
+            for (const z of zooms) {
+                const stepPerf = window.gaPerfStart ? window.gaPerfStart('VFR freeze probe step', { cycle: c + 1, zoom: z }) : null;
+                if (map.setZoom && Number.isFinite(z)) map.setZoom(z, { animate: false });
+                if (map.invalidateSize) map.invalidateSize(false);
+                if (window.mapHints && window.mapHints.vfrIndex !== false) vpRefreshVfrLayerFromCache();
+                await new Promise(r => setTimeout(r, 120));
+                if (window.gaPerfEnd) window.gaPerfEnd(stepPerf, {
+                    layerCount: vpVfrIndexLayer && vpVfrIndexLayer.getLayers ? vpVfrIndexLayer.getLayers().length : null
+                });
+            }
+        }
+    } finally {
+        if (originalCenter && map.setView && Number.isFinite(Number(originalZoom))) {
+            map.setView(originalCenter, originalZoom, { animate: false });
+            if (window.mapHints && window.mapHints.vfrIndex !== false) vpRefreshVfrLayerFromCache();
+        }
+        if (window.gaPerfEnd) window.gaPerfEnd(probePerf, {
+            layerCount: vpVfrIndexLayer && vpVfrIndexLayer.getLayers ? vpVfrIndexLayer.getLayers().length : null
+        });
+        if (window.gaDebugPush) window.gaDebugPush('probe', '[PROBE] VFR freeze probe done');
+    }
+    return true;
+};
 
 function escapePopupText(v) {
     return String(v ?? '')

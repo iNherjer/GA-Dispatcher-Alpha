@@ -32,6 +32,26 @@ window.vpBgNeedsUpdate = true;
 window.vpAnimFrameId = null;
 window.vpAnimFrameMeta = window.vpAnimFrameMeta || { lastPaintMs: 0, lastTargetFps: 0 };
 window._vpLastScrollLeft = 0;
+window._vpProfileRenderTimer = null;
+window.vpScheduleProfileRender = function(reason = 'profile', delayMs = 50) {
+    window.vpBgNeedsUpdate = true;
+    if (window.gaDebugPush) window.gaDebugPush('profile-render', '[Profile] render scheduled', { reason: String(reason || ''), delayMs: Number(delayMs || 0) });
+    if (window._vpProfileRenderTimer) clearTimeout(window._vpProfileRenderTimer);
+    window._vpProfileRenderTimer = setTimeout(() => {
+        window._vpProfileRenderTimer = null;
+        if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+    }, Math.max(0, Number(delayMs || 0)));
+};
+window.vpProfilePerfWarn = function(label, t0, extra = null, warnMs = 120) {
+    const now = performance && performance.now ? performance.now() : Date.now();
+    const durationMs = Math.round((now - Number(t0 || now)) * 10) / 10;
+    if (durationMs >= warnMs) {
+        const payload = { durationMs, ...(extra || {}) };
+        if (window.gaDebugPush) window.gaDebugPush(durationMs >= 250 ? 'perf-warn' : 'perf', `[PERF] ${label}`, payload);
+        if (durationMs >= 250) console.warn('[PERF]', label, payload);
+    }
+    return durationMs;
+};
 /* =========================================================
    VERTICAL PROFILE (Höhenprofil) ENGINE
    ========================================================= */
@@ -110,9 +130,11 @@ const VP_OBS_POOL_STORAGE_KEY = 'ga_obs_pool_v1';
 const VP_OBS_POOL_MAX_OBS = 12000;
 const VP_OBS_POOL_MAX_LIN = 60000;
 const VP_OBS_POOL_TTL_MS = 0; // 0 = rolling cache ohne Zeitablauf
-const VP_OBS_POOL_MAX_BYTES = 2_400_000;
+const VP_OBS_POOL_PERSIST_MAX_OBS = 2500;
+const VP_OBS_POOL_PERSIST_MAX_LIN = 5000;
+const VP_OBS_POOL_MAX_BYTES = 650_000;
 const VP_OBS_COMBO_PREFIX = 'ga_obs_combo_';
-const VP_OBS_COMBO_MAX_ENTRIES = 14;
+const VP_OBS_COMBO_MAX_ENTRIES = 8;
 const VP_OBS_TILE_COVERAGE_KEY = 'ga_obs_tile_cov_v1';
 const VP_OBS_TILE_EDGE_NM = 25;
 const VP_OBS_TILE_STEP_LAT = VP_OBS_TILE_EDGE_NM / 60; // ~0.4167°
@@ -128,6 +150,7 @@ const VP_OBS_HOSTED_MAX_PER_PASS = 36;
 const VP_OBS_HOSTED_ENABLED = localStorage.getItem('ga_obs_hosted_enabled') !== 'false';
 const VP_OBS_HOSTED_MISS_TTL_MS = 30 * 60 * 1000;
 const VP_OBS_HOSTED_TIMEOUT_MS = 2200;
+const VP_ROUTE_STATS_HEAVY_FEATURE_LIMIT = 14000;
 const VP_OBS_HOSTED_ENDPOINTS = [
     './obstacles/core-tiles/{latI}/{lonI}.json.gz',
     './obstacles/core-tiles/{latI}/{lonI}.json',
@@ -158,6 +181,10 @@ let vpObsTileCoveragePersistTimer = null;
 let vpObsTileFailedHydrated = false;
 let vpObsTileFailedPersistTimer = null;
 const vpObsPool = {
+    obs: new Map(),
+    lin: new Map()
+};
+const vpObsPoolTileIndex = {
     obs: new Map(),
     lin: new Map()
 };
@@ -414,16 +441,64 @@ function vpLinKey(item) {
     return `${t}|${k}|${n}|${lat.toFixed(4)}|${lon.toFixed(4)}`;
 }
 
+function vpIndexObsPoolEntry(kind, key, item) {
+    const idx = kind === 'obs' ? vpObsPoolTileIndex.obs : vpObsPoolTileIndex.lin;
+    if (!idx || !key || !item) return;
+    const tileKey = String(item.tileKey || vpObsTileKey(item.lat, item.lon) || '');
+    if (!tileKey) return;
+    let set = idx.get(tileKey);
+    if (!set) {
+        set = new Set();
+        idx.set(tileKey, set);
+    }
+    set.add(key);
+}
+
+function vpRebuildObsPoolTileIndex() {
+    vpObsPoolTileIndex.obs.clear();
+    vpObsPoolTileIndex.lin.clear();
+    for (const [key, item] of vpObsPool.obs.entries()) vpIndexObsPoolEntry('obs', key, item);
+    for (const [key, item] of vpObsPool.lin.entries()) vpIndexObsPoolEntry('lin', key, item);
+}
+
+function vpGetObsPoolCandidates(kind, tileKeys) {
+    const pool = kind === 'obs' ? vpObsPool.obs : vpObsPool.lin;
+    const idx = kind === 'obs' ? vpObsPoolTileIndex.obs : vpObsPoolTileIndex.lin;
+    if (!pool || !idx || !tileKeys || !tileKeys.size) return [];
+    const out = [];
+    for (const tileKey of tileKeys) {
+        const keys = idx.get(tileKey);
+        if (!keys || !keys.size) continue;
+        for (const key of keys) {
+            const item = pool.get(key);
+            if (!item) {
+                keys.delete(key);
+                continue;
+            }
+            const currentTile = String(item.tileKey || vpObsTileKey(item.lat, item.lon) || '');
+            if (currentTile !== tileKey) {
+                keys.delete(key);
+                vpIndexObsPoolEntry(kind, key, item);
+                continue;
+            }
+            out.push(item);
+        }
+        if (!keys.size) idx.delete(tileKey);
+    }
+    return out;
+}
+
 function vpTrimTimedMap(mapObj, maxEntries) {
-    if (!mapObj || mapObj.size <= maxEntries) return;
+    if (!mapObj || mapObj.size <= maxEntries) return false;
     const arr = Array.from(mapObj.entries());
     arr.sort((a, b) => Number(b[1].ts || 0) - Number(a[1].ts || 0));
     mapObj.clear();
     for (let i = 0; i < Math.min(maxEntries, arr.length); i++) mapObj.set(arr[i][0], arr[i][1]);
+    return true;
 }
 
 function vpTrimLinearMapFairByTile(mapObj, maxEntries) {
-    if (!mapObj || mapObj.size <= maxEntries) return;
+    if (!mapObj || mapObj.size <= maxEntries) return false;
     const entries = Array.from(mapObj.entries());
     const byTile = new Map();
     for (const it of entries) {
@@ -453,6 +528,7 @@ function vpTrimLinearMapFairByTile(mapObj, maxEntries) {
     }
     mapObj.clear();
     for (const [k, v] of keep.slice(0, maxEntries)) mapObj.set(k, v);
+    return true;
 }
 
 function vpTrimMapNewest(mapObj, keepCount) {
@@ -463,37 +539,52 @@ function vpTrimMapNewest(mapObj, keepCount) {
     for (let i = 0; i < Math.min(keepCount, arr.length); i++) mapObj.set(arr[i][0], arr[i][1]);
 }
 
+function vpTakeNewestValues(mapObj, keepCount) {
+    if (!mapObj || keepCount <= 0) return [];
+    return Array.from(mapObj.values())
+        .sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0))
+        .slice(0, keepCount);
+}
+
 function vpPruneObsPool(now = Date.now()) {
     const ttl = VP_OBS_POOL_TTL_MS;
+    let changed = false;
     if (ttl > 0) {
         for (const [k, v] of vpObsPool.obs.entries()) {
-            if (!v || !Number(v.ts) || (now - Number(v.ts)) > ttl) vpObsPool.obs.delete(k);
+            if (!v || !Number(v.ts) || (now - Number(v.ts)) > ttl) {
+                vpObsPool.obs.delete(k);
+                changed = true;
+            }
         }
         for (const [k, v] of vpObsPool.lin.entries()) {
-            if (!v || !Number(v.ts) || (now - Number(v.ts)) > ttl) vpObsPool.lin.delete(k);
+            if (!v || !Number(v.ts) || (now - Number(v.ts)) > ttl) {
+                vpObsPool.lin.delete(k);
+                changed = true;
+            }
         }
     }
-    vpTrimTimedMap(vpObsPool.obs, VP_OBS_POOL_MAX_OBS);
-    vpTrimLinearMapFairByTile(vpObsPool.lin, VP_OBS_POOL_MAX_LIN);
+    changed = vpTrimTimedMap(vpObsPool.obs, VP_OBS_POOL_MAX_OBS) || changed;
+    changed = vpTrimLinearMapFairByTile(vpObsPool.lin, VP_OBS_POOL_MAX_LIN) || changed;
+    if (changed) vpRebuildObsPoolTileIndex();
 }
 
 function vpEncodeObsPoolWithBudget() {
-    const obsArr = Array.from(vpObsPool.obs.values()).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
-    const linArr = Array.from(vpObsPool.lin.values()).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
-    let obsCount = Math.min(obsArr.length, VP_OBS_POOL_MAX_OBS);
-    let linCount = Math.min(linArr.length, VP_OBS_POOL_MAX_LIN);
+    const obsArr = vpTakeNewestValues(vpObsPool.obs, VP_OBS_POOL_PERSIST_MAX_OBS);
+    const linArr = vpTakeNewestValues(vpObsPool.lin, VP_OBS_POOL_PERSIST_MAX_LIN);
+    let obsCount = Math.min(obsArr.length, VP_OBS_POOL_PERSIST_MAX_OBS);
+    let linCount = Math.min(linArr.length, VP_OBS_POOL_PERSIST_MAX_LIN);
     let raw = '';
 
     while (true) {
         const payload = { obs: obsArr.slice(0, obsCount), lin: linArr.slice(0, linCount) };
         raw = JSON.stringify(payload);
         if (raw.length <= VP_OBS_POOL_MAX_BYTES) return { raw, obsCount, linCount };
-        if (obsCount <= 250 && linCount <= 150) return { raw, obsCount, linCount };
+        if (obsCount <= 200 && linCount <= 400) return { raw, obsCount, linCount };
 
-        if (obsCount >= linCount && obsCount > 250) {
-            obsCount = Math.max(250, obsCount - Math.max(150, Math.floor(obsCount * 0.15)));
-        } else if (linCount > 150) {
-            linCount = Math.max(150, linCount - Math.max(100, Math.floor(linCount * 0.15)));
+        if (linCount > 400) {
+            linCount = Math.max(400, Math.floor(linCount * 0.65));
+        } else if (obsCount > 200) {
+            obsCount = Math.max(200, Math.floor(obsCount * 0.65));
         } else {
             return { raw, obsCount, linCount };
         }
@@ -512,28 +603,33 @@ function vpHydrateObsPool() {
         for (const item of obs) {
             const key = vpObsKey(item);
             if (!key) continue;
-            vpObsPool.obs.set(key, {
+            const entry = {
                 ts: Number(item.ts || 0),
                 type: item.type || 'mast',
                 hFt: Number(item.hFt || 0),
                 elevFt: Number(item.elevFt || 0),
                 lat: Number(item.lat),
-                lon: Number(item.lon)
-            });
+                lon: Number(item.lon),
+                tileKey: String(item.tileKey || vpObsTileKey(item.lat, item.lon) || '')
+            };
+            vpObsPool.obs.set(key, entry);
         }
         for (const item of lin) {
             const key = vpLinKey(item);
             if (!key) continue;
-            vpObsPool.lin.set(key, {
+            const entry = {
                 ts: Number(item.ts || 0),
                 type: item.type || 'linear',
                 name: String(item.name || ''),
                 lineKind: String(item.lineKind || ''),
                 lat: Number(item.lat),
-                lon: Number(item.lon)
-            });
+                lon: Number(item.lon),
+                tileKey: String(item.tileKey || vpObsTileKey(item.lat, item.lon) || '')
+            };
+            vpObsPool.lin.set(key, entry);
         }
         vpPruneObsPool();
+        vpRebuildObsPoolTileIndex();
     } catch (_) { }
 }
 
@@ -541,6 +637,10 @@ function vpPersistObsPoolSoon() {
     if (vpObsPoolPersistTimer) return;
     vpObsPoolPersistTimer = setTimeout(() => {
         vpObsPoolPersistTimer = null;
+        const perf = window.gaPerfStart ? window.gaPerfStart('Overpass persist obs pool', {
+            obs: vpObsPool.obs ? vpObsPool.obs.size : 0,
+            lin: vpObsPool.lin ? vpObsPool.lin.size : 0
+        }) : null;
         try {
             vpPruneObsPool();
             const packed = vpEncodeObsPoolWithBudget();
@@ -549,6 +649,7 @@ function vpPersistObsPoolSoon() {
             // verschwinden nach Routenwechseln visuell Features "zufaellig".
             localStorage.setItem(VP_OBS_POOL_STORAGE_KEY, packed.raw);
             if (window.vpWeatherDebug) window.vpWeatherDebug.overpassTileCoverageEntries = vpObsTileCoverage.size;
+            if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: true, bytes: packed.raw.length, obs: packed.obsCount, lin: packed.linCount });
         } catch (_) {
             try {
                 // Fallback: kleiner Snapshot nur fuer Persistenz, RAM-Pool bleibt erhalten.
@@ -560,7 +661,10 @@ function vpPersistObsPoolSoon() {
                     .slice(0, 800);
                 const fallbackRaw = JSON.stringify({ obs: obsSnapshot, lin: linSnapshot });
                 localStorage.setItem(VP_OBS_POOL_STORAGE_KEY, fallbackRaw);
-            } catch (_) { }
+                if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: true, fallback: true, bytes: fallbackRaw.length });
+            } catch (_) {
+                if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: false });
+            }
         }
     }, 400);
 }
@@ -605,12 +709,17 @@ function vpPruneObsComboRouteCache(maxEntries = VP_OBS_COMBO_MAX_ENTRIES) {
 }
 
 function vpStoreObsComboRouteCache(cacheKey, obs, lin) {
+    const perf = window.gaPerfStart ? window.gaPerfStart('Overpass store combo cache', {
+        obs: Array.isArray(obs) ? obs.length : 0,
+        lin: Array.isArray(lin) ? lin.length : 0
+    }) : null;
     const key = `${VP_OBS_COMBO_PREFIX}${cacheKey}`;
     const payload = JSON.stringify({ ts: Date.now(), obs: obs || [], lin: lin || [] });
     try {
         vpPruneObsComboRouteCache(VP_OBS_COMBO_MAX_ENTRIES - 1);
         localStorage.setItem(key, payload);
         vpPruneObsComboRouteCache(VP_OBS_COMBO_MAX_ENTRIES);
+        if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: true, bytes: payload.length });
         return true;
     } catch (e) {
         // Quota voll: alte Route-Caches aggressiv aufraeumen und einmal retry.
@@ -618,18 +727,25 @@ function vpStoreObsComboRouteCache(cacheKey, obs, lin) {
             vpPruneObsComboRouteCache(6);
             localStorage.setItem(key, payload);
             vpPruneObsComboRouteCache(VP_OBS_COMBO_MAX_ENTRIES);
+            if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: true, retry: true, bytes: payload.length });
             return true;
         } catch (_) {
             if (window.vpWeatherDebug) {
                 window.vpWeatherDebug.lastGlobalErrorAt = Date.now();
                 window.vpWeatherDebug.lastGlobalErrorMsg = (e && e.message) ? e.message : 'obs combo cache persist failed';
             }
+            if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: false, bytes: payload.length });
             return false;
         }
     }
 }
 
 function vpRememberObstacleData(obsArr, linArr, tileKey = '') {
+    const perf = window.gaPerfStart ? window.gaPerfStart('Overpass remember obstacle data', {
+        obs: Array.isArray(obsArr) ? obsArr.length : 0,
+        lin: Array.isArray(linArr) ? linArr.length : 0,
+        tileKey: String(tileKey || '')
+    }) : null;
     vpHydrateObsPool();
     const now = Date.now();
     const fallbackTileKey = (typeof tileKey === 'string' && tileKey) ? tileKey : '';
@@ -638,7 +754,7 @@ function vpRememberObstacleData(obsArr, linArr, tileKey = '') {
             const key = vpObsKey(item);
             if (!key) continue;
             const tk = String(item?.tileKey || fallbackTileKey || vpObsTileKey(item?.lat, item?.lon) || '');
-            vpObsPool.obs.set(key, {
+            const entry = {
                 ts: now,
                 type: item.type || 'mast',
                 hFt: Number(item.hFt || 0),
@@ -646,7 +762,9 @@ function vpRememberObstacleData(obsArr, linArr, tileKey = '') {
                 lat: Number(item.lat),
                 lon: Number(item.lon),
                 tileKey: tk
-            });
+            };
+            vpObsPool.obs.set(key, entry);
+            vpIndexObsPoolEntry('obs', key, entry);
         }
     }
     if (Array.isArray(linArr)) {
@@ -654,7 +772,7 @@ function vpRememberObstacleData(obsArr, linArr, tileKey = '') {
             const key = vpLinKey(item);
             if (!key) continue;
             const tk = String(item?.tileKey || fallbackTileKey || vpObsTileKey(item?.lat, item?.lon) || '');
-            vpObsPool.lin.set(key, {
+            const entry = {
                 ts: now,
                 type: item.type || 'linear',
                 name: String(item.name || ''),
@@ -662,15 +780,23 @@ function vpRememberObstacleData(obsArr, linArr, tileKey = '') {
                 lat: Number(item.lat),
                 lon: Number(item.lon),
                 tileKey: tk
-            });
+            };
+            vpObsPool.lin.set(key, entry);
+            vpIndexObsPoolEntry('lin', key, entry);
         }
     }
-    vpTrimTimedMap(vpObsPool.obs, VP_OBS_POOL_MAX_OBS);
-    vpTrimLinearMapFairByTile(vpObsPool.lin, VP_OBS_POOL_MAX_LIN);
+    const trimmedObs = vpTrimTimedMap(vpObsPool.obs, VP_OBS_POOL_MAX_OBS);
+    const trimmedLin = vpTrimLinearMapFairByTile(vpObsPool.lin, VP_OBS_POOL_MAX_LIN);
+    if (trimmedObs || trimmedLin) vpRebuildObsPoolTileIndex();
     vpPersistObsPoolSoon();
+    if (window.gaPerfEnd) window.gaPerfEnd(perf, {
+        obsPool: vpObsPool.obs ? vpObsPool.obs.size : 0,
+        linPool: vpObsPool.lin ? vpObsPool.lin.size : 0
+    });
 }
 
 function vpObsTileKey(lat, lon) {
+    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return '';
     const latI = Math.floor((Number(lat) + 90) / VP_OBS_TILE_STEP_LAT);
     const lonI = Math.floor((Number(lon) + 180) / VP_OBS_TILE_STEP_LON);
     return `${latI}|${lonI}`;
@@ -700,6 +826,25 @@ function vpCollectRouteTileKeys(elevData) {
         set.add(vpObsTileKey(p.lat, p.lon));
     }
     return set;
+}
+
+function vpExpandObsTileKeys(keys, radius = 1) {
+    const out = new Set();
+    const r = Math.max(0, Math.floor(Number(radius) || 0));
+    if (!keys || typeof keys[Symbol.iterator] !== 'function') return out;
+    for (const key of keys) {
+        const parts = String(key || '').split('|');
+        if (parts.length < 2) continue;
+        const latI = Number(parts[0]);
+        const lonI = Number(parts[1]);
+        if (!Number.isFinite(latI) || !Number.isFinite(lonI)) continue;
+        for (let dy = -r; dy <= r; dy++) {
+            for (let dx = -r; dx <= r; dx++) {
+                out.add(`${latI + dy}|${lonI + dx}`);
+            }
+        }
+    }
+    return out;
 }
 
 function vpHydrateObsTileCoverage() {
@@ -895,30 +1040,102 @@ function vpMarkTileKeysCovered(keys, source = 'unknown') {
 }
 
 function vpProjectObsPoolToRoute(elevData) {
+    const perf = window.gaPerfStart ? window.gaPerfStart('Overpass project pool to route', {
+        routePoints: Array.isArray(elevData) ? elevData.length : 0,
+        obsPool: vpObsPool && vpObsPool.obs ? vpObsPool.obs.size : 0,
+        linPool: vpObsPool && vpObsPool.lin ? vpObsPool.lin.size : 0
+    }) : null;
     vpHydrateObsPool();
-    if (!Array.isArray(elevData) || elevData.length < 2) return { obs: [], lin: [] };
+    if (!Array.isArray(elevData) || elevData.length < 2) {
+        if (window.gaPerfEnd) window.gaPerfEnd(perf, { status: 'no-route' });
+        return { obs: [], lin: [] };
+    }
 
     const obsSeed = [];
     const linSeed = [];
+    const maxRouteSamples = 900;
+    const stride = elevData.length > maxRouteSamples ? Math.ceil(elevData.length / maxRouteSamples) : 1;
+    const routeSamples = stride <= 1
+        ? elevData
+        : elevData.filter((_, idx) => idx % stride === 0 || idx === elevData.length - 1);
+    const routeTileKeys = vpCollectRouteTileKeys(elevData);
+    const candidateTileKeys = vpExpandObsTileKeys(routeTileKeys, 1);
+    const obsCandidates = vpGetObsPoolCandidates('obs', candidateTileKeys);
+    const linCandidates = vpGetObsPoolCandidates('lin', candidateTileKeys);
+    let obsChecked = 0;
+    let obsSkippedTile = 0;
+    let obsSkippedBounds = 0;
+    let linChecked = 0;
+    let linSkippedTile = 0;
+    let linSkippedBounds = 0;
+    const routeLats = routeSamples.map(p => Number(p && p.lat)).filter(Number.isFinite);
+    const routeLons = routeSamples.map(p => Number(p && p.lon)).filter(Number.isFinite);
+    const midLat = routeLats.length ? routeLats.reduce((sum, v) => sum + v, 0) / routeLats.length : 51;
+    const lonNmFactor = Math.max(8, 60 * Math.cos(midLat * Math.PI / 180));
+    const latNmFactor = 60;
+    const maxLateralNm = Math.max(VP_PROFILE_WIND_LATERAL_MAX_NM, VP_PROFILE_OBS_LATERAL_MAX_NM, VP_PROFILE_LIN_LATERAL_MAX_NM);
+    const latPad = Math.max(0.04, (maxLateralNm + 2) / latNmFactor);
+    const lonPad = Math.max(0.04, (maxLateralNm + 2) / lonNmFactor);
+    const routeBounds = routeLats.length && routeLons.length ? {
+        minLat: Math.min(...routeLats) - latPad,
+        maxLat: Math.max(...routeLats) + latPad,
+        minLon: Math.min(...routeLons) - lonPad,
+        maxLon: Math.max(...routeLons) + lonPad
+    } : null;
+    const metricRouteSamples = routeSamples
+        .filter(p => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon)))
+        .map(p => ({
+            p,
+            x: Number(p.lon) * lonNmFactor,
+            y: Number(p.lat) * latNmFactor
+        }));
+    const isInRouteBounds = (lat, lon) => {
+        if (!routeBounds) return true;
+        return lat >= routeBounds.minLat && lat <= routeBounds.maxLat && lon >= routeBounds.minLon && lon <= routeBounds.maxLon;
+    };
+    const resolveTileKey = (item) => {
+        const lat = Number(item && item.lat);
+        const lon = Number(item && item.lon);
+        return String(vpObsTileKey(lat, lon) || item?.tileKey || '');
+    };
     const nearestOnRoute = (lat, lon) => {
-        let bestPt = elevData[0];
-        let bestD = Infinity;
-        for (const ep of elevData) {
-            const d = calcNav(lat, lon, ep.lat, ep.lon).dist;
-            if (d < bestD) {
-                bestD = d;
-                bestPt = ep;
+        const x = Number(lon) * lonNmFactor;
+        const y = Number(lat) * latNmFactor;
+        let best = metricRouteSamples[0];
+        let bestD2 = Infinity;
+        for (const ep of metricRouteSamples) {
+            const dx = x - ep.x;
+            const dy = y - ep.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < bestD2) {
+                bestD2 = d2;
+                best = ep;
             }
         }
-        return { bestPt, bestD };
+        return { bestPt: (best && best.p) || routeSamples[0] || elevData[0], bestD: Math.sqrt(bestD2) };
     };
 
-    for (const item of vpObsPool.obs.values()) {
-        const { bestPt, bestD } = nearestOnRoute(item.lat, item.lon);
+    for (const item of obsCandidates) {
+        const lat = Number(item && item.lat);
+        const lon = Number(item && item.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            obsSkippedBounds++;
+            continue;
+        }
+        if (!isInRouteBounds(lat, lon)) {
+            obsSkippedBounds++;
+            continue;
+        }
+        const tileKey = resolveTileKey(item);
+        if (candidateTileKeys.size && tileKey && !candidateTileKeys.has(tileKey)) {
+            obsSkippedTile++;
+            continue;
+        }
+        obsChecked++;
+        const { bestPt, bestD } = nearestOnRoute(lat, lon);
         const obsType = String(item?.type || '').toLowerCase();
         const obsLateralMax = (obsType === 'wind') ? VP_PROFILE_WIND_LATERAL_MAX_NM : VP_PROFILE_OBS_LATERAL_MAX_NM;
         if (bestD > obsLateralMax) continue;
-        const tileKey = String(item.tileKey || vpObsTileKey(item.lat, item.lon) || '');
         obsSeed.push({
             type: item.type || 'mast',
             hFt: Number(item.hFt || 0),
@@ -926,16 +1143,31 @@ function vpProjectObsPoolToRoute(elevData) {
             lateralNM: Number(bestD || 0),
             elevFt: Number(item.elevFt || 0),
             groundElevFt: Number(bestPt.elevFt || 0),
-            lat: Number(item.lat),
-            lon: Number(item.lon),
+            lat,
+            lon,
             tileKey
         });
     }
 
-    for (const item of vpObsPool.lin.values()) {
-        const { bestPt, bestD } = nearestOnRoute(item.lat, item.lon);
+    for (const item of linCandidates) {
+        const lat = Number(item && item.lat);
+        const lon = Number(item && item.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            linSkippedBounds++;
+            continue;
+        }
+        if (!isInRouteBounds(lat, lon)) {
+            linSkippedBounds++;
+            continue;
+        }
+        const tileKey = resolveTileKey(item);
+        if (candidateTileKeys.size && tileKey && !candidateTileKeys.has(tileKey)) {
+            linSkippedTile++;
+            continue;
+        }
+        linChecked++;
+        const { bestPt, bestD } = nearestOnRoute(lat, lon);
         if (bestD > VP_PROFILE_LIN_LATERAL_MAX_NM) continue;
-        const tileKey = String(item.tileKey || vpObsTileKey(item.lat, item.lon) || '');
         const rawKind = String(item.lineKind || '');
         const inferredKind = (String(item.type || '').toLowerCase() === 'highway' && !rawKind)
             ? vpInferRoadKindFromText('', String(item.name || ''), '')
@@ -946,8 +1178,8 @@ function vpProjectObsPoolToRoute(elevData) {
             lineKind: inferredKind,
             distNM: bestPt.distNM,
             lateralNM: Number(bestD || 0),
-            lat: Number(item.lat),
-            lon: Number(item.lon),
+            lat,
+            lon,
             tileKey
         });
     }
@@ -987,10 +1219,27 @@ function vpProjectObsPoolToRoute(elevData) {
         return out;
     })();
 
-    return {
+    const out = {
         obs: deduplicateFeatures(obsSeed),
         lin: compactLinSeed
     };
+    if (window.gaPerfEnd) window.gaPerfEnd(perf, {
+        routeSamples: routeSamples.length,
+        stride,
+        routeTiles: routeTileKeys.size,
+        candidateTiles: candidateTileKeys.size,
+        obsCandidates: obsCandidates.length,
+        linCandidates: linCandidates.length,
+        obsChecked,
+        obsSkippedTile,
+        obsSkippedBounds,
+        linChecked,
+        linSkippedTile,
+        linSkippedBounds,
+        obs: out.obs.length,
+        lin: out.lin.length
+    });
+    return out;
 }
 
 function vpEstimateObstacleDisplayStats(obsArr) {
@@ -1089,18 +1338,61 @@ function vpEstimateLinearDisplayStats(linArr, _obsArr) {
     return { total: src.length, filtered: filtered.length, clustered: clustered.length, displayable, byType };
 }
 
+function vpEstimateLinearDisplayStatsLight(linArr) {
+    const src = Array.isArray(linArr) ? linArr : [];
+    const byType = { highway: 0, river: 0, powerline: 0 };
+    let displayable = 0;
+    const maxScan = Math.min(src.length, 16000);
+    const step = src.length > maxScan ? Math.ceil(src.length / maxScan) : 1;
+    for (let i = 0; i < src.length; i += step) {
+        const feat = src[i];
+        if (!feat) continue;
+        const type = String(feat.type || '');
+        if (type === 'highway') byType.highway++;
+        else if (type === 'river') byType.river++;
+        else if (type === 'powerline') byType.powerline++;
+        if (Number(feat.lateralNM || 999) <= VP_LINEAR_ROUTE_CROSS_NM) displayable++;
+    }
+    const factor = step > 1 ? step : 1;
+    return {
+        total: src.length,
+        filtered: null,
+        clustered: null,
+        displayable: Math.round(displayable * factor),
+        byType: {
+            highway: Math.round(byType.highway * factor),
+            river: Math.round(byType.river * factor),
+            powerline: Math.round(byType.powerline * factor)
+        },
+        sampled: step > 1
+    };
+}
+
 function vpLogRouteFeatureStats(sourceTag, cacheKey, obsArr, linArr) {
+    let perf = null;
     try {
+        perf = window.gaPerfStart ? window.gaPerfStart('Overpass route stats', {
+            sourceTag: String(sourceTag || 'n/a'),
+            obs: Array.isArray(obsArr) ? obsArr.length : 0,
+            lin: Array.isArray(linArr) ? linArr.length : 0
+        }) : null;
         const obsStats = vpEstimateObstacleDisplayStats(obsArr);
-        const linStats = vpEstimateLinearDisplayStats(linArr, obsArr);
+        const linTotal = Array.isArray(linArr) ? linArr.length : 0;
+        const heavyStats = linTotal > VP_ROUTE_STATS_HEAVY_FEATURE_LIMIT;
+        const linStats = heavyStats
+            ? vpEstimateLinearDisplayStatsLight(linArr)
+            : vpEstimateLinearDisplayStats(linArr, obsArr);
         const tileCounts = new Map();
         const acc = (arr, kind) => {
             if (!Array.isArray(arr)) return;
-            for (const f of arr) {
+            const maxScan = heavyStats ? Math.min(arr.length, 12000) : arr.length;
+            const step = arr.length > maxScan ? Math.ceil(arr.length / maxScan) : 1;
+            for (let i = 0; i < arr.length; i += step) {
+                const f = arr[i];
                 const tk = String(f?.tileKey || vpObsTileKey(f?.lat, f?.lon) || '?');
                 const prev = tileCounts.get(tk) || { obs: 0, lin: 0 };
-                if (kind === 'obs') prev.obs += 1;
-                else prev.lin += 1;
+                if (kind === 'obs') prev.obs += step;
+                else prev.lin += step;
                 tileCounts.set(tk, prev);
             }
         };
@@ -1151,10 +1443,13 @@ function vpLogRouteFeatureStats(sourceTag, cacheKey, obsArr, linArr) {
             String(covSummary),
             String(noDataSample)
         ].join('|');
-        if (window._vpLastRouteFeatureStatsSig === sig) return;
+        if (window._vpLastRouteFeatureStatsSig === sig) {
+            if (window.gaPerfEnd) window.gaPerfEnd(perf, { heavyStats, skipped: 'duplicate' });
+            return;
+        }
         window._vpLastRouteFeatureStatsSig = sig;
         console.log(
-            `[Overpass] Route-Stats (${sourceTag || 'n/a'}) | core-found obs=${obsStats.total} lin=${linStats.total} ` +
+            `[Overpass] Route-Stats (${sourceTag || 'n/a'}${heavyStats ? ':light' : ''}) | core-found obs=${obsStats.total} lin=${linStats.total} ` +
             `| display obs=${obsStats.displayable} (wind ${obsStats.byType.wind}, mast ${obsStats.byType.mast}, pwrTower ${obsStats.byType.power_tower}) ` +
             `lin=${linStats.displayable}/${linStats.clustered} (road ${linStats.byType.highway}, river ${linStats.byType.river}, power ${linStats.byType.powerline}) ` +
             `| tiles core [${tileSummary || '-'}${tileMore > 0 ? `, +${tileMore} more` : ''}] ` +
@@ -1162,7 +1457,15 @@ function vpLogRouteFeatureStats(sourceTag, cacheKey, obsArr, linArr) {
             `| coverage [${covSummary || '-'}]` +
             `${noDataSample ? ` | empty-sample [${noDataSample}]` : ''}`
         );
-    } catch (_) { }
+        if (window.gaPerfEnd) window.gaPerfEnd(perf, { heavyStats });
+    } catch (err) {
+        if (window.gaPerfEnd) {
+            window.gaPerfEnd(perf, {
+                ok: false,
+                message: err && err.message ? String(err.message) : 'route stats failed'
+            });
+        }
+    }
 }
 
 function vpExtractOverpassTileFeatures(elements) {
@@ -1514,6 +1817,8 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
     const failedTileKeys = [];
     let hostedLoadedCount = 0;
     let hostedAttemptCount = 0;
+    let latestSeededProjection = null;
+    let obsPoolProjectionDirty = true;
 
     // Phase 1: Hosted-Tiles parallel laden (schnell), Overpass erst danach.
     let overpassCandidates = readyKeys.slice();
@@ -1524,13 +1829,18 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
         if (hostedKeys.length > 0) {
             const hostedResMap = await vpFetchHostedTilesParallel(hostedKeys, signal, { concurrency: VP_OBS_HOSTED_PARALLELISM });
             const hostedMissKeys = [];
+            const hostedObsBatch = [];
+            const hostedLinBatch = [];
             for (const key of hostedKeys) {
                 const res = hostedResMap.get(key);
                 if (res && res.ok) {
                     vpClearTileFailed(key);
                     vpClearTileBackoff(key);
                     if (res.src) usedServers.add(res.src);
-                    if (res.features) vpRememberObstacleData(res.features.obs || [], res.features.lin || [], key);
+                    if (res.features) {
+                        (res.features.obs || []).forEach(item => hostedObsBatch.push({ ...item, tileKey: String(item && item.tileKey || key) }));
+                        (res.features.lin || []).forEach(item => hostedLinBatch.push({ ...item, tileKey: String(item && item.tileKey || key) }));
+                    }
                     vpMarkTileKeysCovered([key], res.src || 'hosted');
                     loadedTileKeys.push(key);
                     hostedLoadedCount++;
@@ -1538,16 +1848,23 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
                     hostedMissKeys.push(key);
                 }
             }
+            if (hostedObsBatch.length || hostedLinBatch.length) {
+                vpRememberObstacleData(hostedObsBatch, hostedLinBatch);
+                obsPoolProjectionDirty = true;
+            }
             const hostedKeySet = new Set(hostedKeys);
             overpassCandidates = hostedMissKeys.concat(readyKeys.filter(k => !hostedKeySet.has(k)));
             if (hostedLoadedCount > 0) {
                 const seededHosted = vpProjectObsPoolToRoute(elevData);
+                latestSeededProjection = seededHosted;
+                obsPoolProjectionDirty = false;
                 requestAnimationFrame(() => {
                     if (signal && signal.aborted) return;
                     vpObstacles = seededHosted.obs || [];
                     vpLinearFeatures = seededHosted.lin || [];
                     window.vpBgNeedsUpdate = true;
-                    if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+                    if (typeof window.vpScheduleProfileRender === 'function') window.vpScheduleProfileRender('overpass-hosted-seed', 80);
+                    else if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
                 });
             }
         }
@@ -1569,7 +1886,9 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
         if (deferredTileKeys.length > 0) window.vpSetObsTileDeferred(deferredTileKeys, true);
     }
     if (!toLoad.length) {
-        const seeded = vpProjectObsPoolToRoute(elevData);
+        const seeded = (!obsPoolProjectionDirty && latestSeededProjection)
+            ? latestSeededProjection
+            : vpProjectObsPoolToRoute(elevData);
         const sourceLabelNoOp = usedServers.size > 0 ? Array.from(usedServers).join(',') : 'tile-cache';
         return {
             obs: seeded.obs || [],
@@ -1615,19 +1934,27 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
         vpClearTileBackoff(tileKey);
         if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
         if (res.src) usedServers.add(res.src);
-        if (res.features) vpRememberObstacleData(res.features.obs || [], res.features.lin || [], tileKey);
+        if (res.features) {
+            vpRememberObstacleData(res.features.obs || [], res.features.lin || [], tileKey);
+            obsPoolProjectionDirty = true;
+        }
         vpMarkTileKeysCovered([tileKey], res.src || 'overpass');
         loadedTileKeys.push(tileKey);
         vpMarkOverpassSuccess();
 
-        const seededLive = vpProjectObsPoolToRoute(elevData);
-        requestAnimationFrame(() => {
-            if (signal && signal.aborted) return;
-            vpObstacles = seededLive.obs || [];
-            vpLinearFeatures = seededLive.lin || [];
-            window.vpBgNeedsUpdate = true;
-            if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
-        });
+        if (i < toLoad.length - 1) {
+            const seededLive = vpProjectObsPoolToRoute(elevData);
+            latestSeededProjection = seededLive;
+            obsPoolProjectionDirty = false;
+            requestAnimationFrame(() => {
+                if (signal && signal.aborted) return;
+                vpObstacles = seededLive.obs || [];
+                vpLinearFeatures = seededLive.lin || [];
+                window.vpBgNeedsUpdate = true;
+                if (typeof window.vpScheduleProfileRender === 'function') window.vpScheduleProfileRender('overpass-live-seed', 80);
+                else if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+            });
+        }
 
         if (i < toLoad.length - 1) await new Promise(r => setTimeout(r, interDelayMs));
     }
@@ -1639,7 +1966,9 @@ async function fetchProfileObstacles(elevData, signal, routeCacheKey = '', force
     }
     if (typeof window.updateOverpassErrorUI === 'function') window.updateOverpassErrorUI();
 
-    const seededFinal = vpProjectObsPoolToRoute(elevData);
+    const seededFinal = (!obsPoolProjectionDirty && latestSeededProjection)
+        ? latestSeededProjection
+        : vpProjectObsPoolToRoute(elevData);
     vpObstacles = seededFinal.obs || [];
     vpLinearFeatures = seededFinal.lin || [];
     const sourceLabel = usedServers.size > 0 ? Array.from(usedServers).join(',') : 'tile-cache';
@@ -1933,7 +2262,8 @@ function triggerVerticalProfileUpdate() {
                                 window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
                                 if (window.vpWeatherDebug) window.vpWeatherDebug.overpassTileCoverageHits += 1;
                                 window.vpBgNeedsUpdate = true;
-                                if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+                                if (typeof window.vpScheduleProfileRender === 'function') window.vpScheduleProfileRender('overpass-route-cache-fast', 50);
+                                else if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
                                 console.log('[Overpass] Route vollständig im Tile-Cache. Nutze Route-Combo-Cache.');
                                 return;
                             }
@@ -1967,6 +2297,17 @@ function triggerVerticalProfileUpdate() {
                     const btnOb = document.getElementById('btnToggleObstacles');
                     if (btnOb) btnOb.classList.add('vp-loading-pulse');
                     vpSetLinearLoadingPulse(true);
+                    const routeTileCount = vpCollectRouteTileKeys(vpElevationData).size;
+                    const isLinearCoverageWeak = (features) => {
+                        if (!needsLinNow) return false;
+                        if (!Array.isArray(features) || features.length === 0) return true;
+                        const linTileSet = new Set(
+                            features
+                                .map(f => String(f && f.tileKey || ''))
+                                .filter(Boolean)
+                        );
+                        return routeTileCount >= 8 && linTileSet.size <= 2;
+                    };
 
                     // FIX: Kombinierter Cache für Hindernisse UND Flüsse/Autobahnen
                     const obStr = localStorage.getItem('ga_obs_combo_' + cacheKey);
@@ -1986,33 +2327,39 @@ function triggerVerticalProfileUpdate() {
 
                     let weakLinearCoverage = false;
                     if (!forceOverpassReload && needsLinNow && Array.isArray(vpLinearFeatures) && vpLinearFeatures.length > 0) {
-                        const routeTileCount = vpCollectRouteTileKeys(vpElevationData).size;
-                        const linTileSet = new Set(
-                            vpLinearFeatures
-                                .map(f => String(f && f.tileKey || ''))
-                                .filter(Boolean)
-                        );
-                        weakLinearCoverage = routeTileCount >= 8 && linTileSet.size <= 2;
+                        weakLinearCoverage = isLinearCoverageWeak(vpLinearFeatures);
                         if (weakLinearCoverage) {
-                            console.warn(`[Overpass] Linear-Coverage verdächtig dünn (${linTileSet.size}/${routeTileCount} Tiles) -> erzwinge Refetch.`);
+                            console.warn(`[Overpass] Linear-Coverage verdächtig dünn -> erzwinge Refetch.`);
                         }
                     }
 
                     if (!hasUsableCache) {
                         const seeded = vpProjectObsPoolToRoute(vpElevationData);
+                        const seededObsOk = !needsObsNow || (Array.isArray(seeded.obs) && seeded.obs.length > 0);
+                        const seededLinOk = !needsLinNow || (Array.isArray(seeded.lin) && seeded.lin.length > 0);
                         if ((seeded.obs && seeded.obs.length) || (seeded.lin && seeded.lin.length)) {
                             vpObstacles = seeded.obs || [];
                             vpLinearFeatures = seeded.lin || [];
                             vpLogRouteFeatureStats('pool-seed', cacheKey, vpObstacles, vpLinearFeatures);
+                            hasUsableCache = seededObsOk && seededLinOk;
+                            weakLinearCoverage = !forceOverpassReload && isLinearCoverageWeak(vpLinearFeatures);
                             window.vpBgNeedsUpdate = true;
-                            if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+                            if (typeof window.vpScheduleProfileRender === 'function') window.vpScheduleProfileRender('overpass-pool-seed', 80);
+                            else if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+                            if (!weakLinearCoverage && tileProbe.total > 0 && tileProbe.missing.length === 0) {
+                                try {
+                                    vpStoreObsComboRouteCache(cacheKey, vpObstacles, vpLinearFeatures);
+                                    window._lastObsRouteKey = cacheKey;
+                                    window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
+                                } catch (_) {}
+                            }
                         }
                     }
 
                     // Wichtig: Nicht nur auf "Key existiert" prüfen.
                     // Wenn der Route-Cache leer/kaputt ist oder keine nutzbaren Daten
                     // enthält, müssen wir trotzdem live nachladen.
-                    const forceFullTileReload = (!forceOverpassReload && !hasRouteComboCache && tileProbe.total > 0 && tileProbe.missing.length === 0);
+                    const forceFullTileReload = (!forceOverpassReload && !hasRouteComboCache && !hasUsableCache && tileProbe.total > 0 && tileProbe.missing.length === 0);
                     const mustRefetch = forceOverpassReload || forceFullTileReload || !hasUsableCache || weakLinearCoverage || tileProbe.missing.length > 0;
                     if (mustRefetch) {
                         // Bei verdächtig dünner Linear-Coverage immer echten Netz-Reload forcieren.
@@ -2025,7 +2372,6 @@ function triggerVerticalProfileUpdate() {
                             vpLogRouteFeatureStats('network-merge', cacheKey, vpObstacles, vpLinearFeatures);
                             window.vpBgNeedsUpdate = true; // FIX: Garantiert, dass der Hintergrund nach dem finalen Fetch aktualisiert wird
                             window.vpOverpassRouteLastSuccess[cacheKey] = Date.now();
-                            vpRememberObstacleData(vpObstacles, vpLinearFeatures);
                             // Do not overwrite per-tile source metadata with an aggregated route source label.
                             // fetchProfileObstacles() already marks each loaded tile individually (hosted/overpass).
                             try {
@@ -2093,7 +2439,8 @@ function triggerVerticalProfileUpdate() {
             const bC = document.getElementById('btnToggleClouds'); if(bC) bC.classList.remove('vp-loading-pulse');
             const bO = document.getElementById('btnToggleObstacles'); if(bO) bO.classList.remove('vp-loading-pulse');
             vpSetLinearLoadingPulse(false);
-            if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
+            if (typeof window.vpScheduleProfileRender === 'function') window.vpScheduleProfileRender('profile-fetch-final', 40);
+            else if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
         }
     }, 150); // Nur noch 150ms Debounce statt fast 3 Sekunden!
 }
@@ -4088,17 +4435,22 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
         }
         return out;
     };
-    let _linSrc = _linRaw.filter(isLinearTypeEnabled);
-    _linSrc = _linSrc.filter((feat) => {
-        if (feat.type === 'highway') return isMajorRoadFeature(feat);
+    let _linSrc = [];
+    for (const feat of _linRaw) {
+        if (!isLinearTypeEnabled(feat)) continue;
+        if (Number(feat?.lateralNM || 999) > VP_LINEAR_ROUTE_CROSS_NM) continue;
+        const d = Number(feat?.distNM || NaN);
+        if (!Number.isFinite(d)) continue;
+        const px = xOf(d);
+        if (px < viewMinX - 80 || px > viewMaxX + 80) continue;
+        if (feat.type === 'highway' && !isMajorRoadFeature(feat)) continue;
         if (feat.type === 'river') {
             const n = String(feat.name || '').toLowerCase();
-            if (n.includes('wassertret') || n.includes('kneipp') || n.includes('wasserspiel')) return false;
+            if (n.includes('wassertret') || n.includes('kneipp') || n.includes('wasserspiel')) continue;
         }
-        return true;
-    });
+        _linSrc.push(feat);
+    }
     _linSrc = clusterLinearFeatures(_linSrc);
-    _linSrc = _linSrc.filter((feat) => Number(feat?.lateralNM || 999) <= VP_LINEAR_ROUTE_CROSS_NM);
     if ((vpShowRoads || vpShowRivers || vpShowPowerInfra) && _linSrc.length > 0) {
         const getElevY = (dNM) => {
             for(let i=0; i<elevData.length-1; i++) {
@@ -6446,6 +6798,7 @@ window.vpToggleTrafficProfile = function() {
 };
 
 function renderMapProfileFrames(timeMs) {
+    const frameT0 = performance && performance.now ? performance.now() : Date.now();
     const mapTable = document.getElementById('mapTableOverlay');
     if (!mapTable || !mapTable.classList.contains('active') || (typeof vpMapProfileVisible !== 'undefined' && !vpMapProfileVisible)) {
         window.vpAnimFrameId = null; 
@@ -6623,7 +6976,9 @@ function renderMapProfileFrames(timeMs) {
     // =======================================================
     // LAYER 1: STATISCHER HINTERGRUND
     // =======================================================
-    if (window.vpBgNeedsUpdate || bgCanvas.width !== targetW || bgCanvas.height !== targetH) {
+    const needsBgRender = window.vpBgNeedsUpdate || bgCanvas.width !== targetW || bgCanvas.height !== targetH;
+    if (needsBgRender) {
+        const bgT0 = performance && performance.now ? performance.now() : Date.now();
         if (bgCanvas.width !== targetW || bgCanvas.height !== targetH) {
             bgCanvas.width = targetW; 
             bgCanvas.height = targetH;
@@ -6740,6 +7095,14 @@ function renderMapProfileFrames(timeMs) {
         bgCtx.strokeRect(padLeft, padTop, plotW, plotH);
         bgCtx.restore();
         window.vpBgNeedsUpdate = false;
+        if (window.vpProfilePerfWarn) {
+            window.vpProfilePerfWarn('Profile map background render', bgT0, {
+                elevPoints: Array.isArray(elevData) ? elevData.length : 0,
+                width: Math.round(baseWidth),
+                height: Math.round(containerHeight),
+                zoomFactor: Math.round(zoomFactor * 100) / 100
+            }, 90);
+        }
     }
 
     // =======================================================
@@ -6765,7 +7128,17 @@ function renderMapProfileFrames(timeMs) {
 
     if (vpShowObstacles) {
         const obsSrc = isHdgMode ? vpHdgObstacles : vpObstacles;
-        if (obsSrc && obsSrc.length > 0) vpDrawObstacles(fgCtx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs, obsSrc);
+        if (obsSrc && obsSrc.length > 0) {
+            const obsT0 = performance && performance.now ? performance.now() : Date.now();
+            vpDrawObstacles(fgCtx, xOf, yOf, totalDist, zoomFactor, elevData, timeMs, obsSrc);
+            if (window.vpProfilePerfWarn) {
+                window.vpProfilePerfWarn('Profile map obstacles render', obsT0, {
+                    obs: Array.isArray(obsSrc) ? obsSrc.length : 0,
+                    lin: Array.isArray(vpLinearFeatures) ? vpLinearFeatures.length : 0,
+                    zoomFactor: Math.round(zoomFactor * 100) / 100
+                }, 90);
+            }
+        }
     }
     if (vpShowClouds) {
         if (vpWeatherRenderMode === 'abstrakt' || vpWeatherRenderMode === 'pro') vpDrawAnimatedWeatherPro(fgCtx, xOf, yOf, totalDist, elevData, timeMs, viewMinX, viewMaxX);
@@ -7086,6 +7459,12 @@ function renderMapProfileFrames(timeMs) {
 
     fgCtx.restore();
 
+    if (needsBgRender && window.vpProfilePerfWarn) {
+        window.vpProfilePerfWarn('Profile map frame render', frameT0, {
+            bg: true,
+            elevPoints: Array.isArray(elevData) ? elevData.length : 0
+        }, 120);
+    }
     window.vpAnimFrameId = requestAnimationFrame(renderMapProfileFrames);
 }
 

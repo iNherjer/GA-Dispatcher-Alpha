@@ -861,6 +861,10 @@
                         <button id="vfrAmpelWindowCycleBtn" class="pb-btn" onclick="window.vpCycleVfrAmpelWindowMode && vpCycleVfrAmpelWindowMode()" style="display:block; width:100%; margin:0 0 5px 0; text-align:center;">Zeitfenster: SR/SS</button>
                         <button id="vfrAmpelToggleBtn" class="pb-btn" onclick="window.vpToggleVfrAmpel && vpToggleVfrAmpel()" style="display:block; width:100%; margin:0 0 4px 0; text-align:center;">Ampel (An)</button>
                         <div id="vfrIndexStatus" style="font-size:10px; color:#9bb5d1;">Status: Aus</div>
+                        <div style="display:flex; gap:5px; margin-top:6px;">
+                            <button class="pb-btn" onclick="window.gaDownloadDebugSnapshot && gaDownloadDebugSnapshot()" style="display:block; flex:1; margin:0; text-align:center; font-size:10px;">Debug JSON</button>
+                            <button class="pb-btn" onclick="window.gaRunVfrFreezeProbe && gaRunVfrFreezeProbe()" style="display:block; flex:1; margin:0; text-align:center; font-size:10px;">Freeze Probe</button>
+                        </div>
                     </div>
                     <button id="hintToggleTerrainAvoid" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('terrainAvoid')">🏔️ Terrain Avoid (Aus)</button>
                     <button id="btnToggleTerrainAvoidMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('terrainAvoidMenu', event)" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">▸ Terrain Avoid Optionen</button>
@@ -1124,6 +1128,7 @@
 
         const MAX = 700;
         const buffer = [];
+        const activePerf = [];
         const originals = {
             log: console.log.bind(console),
             info: console.info.bind(console),
@@ -1141,12 +1146,13 @@
             return '[unserializable]';
         }
 
-        function push(level, args) {
+        function push(level, args, extra = null) {
             const entry = {
                 ts: new Date().toISOString(),
                 level,
                 msg: Array.from(args || []).map(fmtArg).join(' ')
             };
+            if (extra && typeof extra === 'object') entry.extra = extra;
             buffer.push(entry);
             if (buffer.length > MAX) buffer.splice(0, buffer.length - MAX);
         }
@@ -1159,6 +1165,161 @@
 
         window.gaGetDebugLogs = function() { return buffer.slice(); };
         window.gaClearDebugLogs = function() { buffer.length = 0; };
+        window.gaDebugPush = function(level, msg, extra = null) {
+            push(level || 'info', [msg], extra);
+        };
+        window.gaPerfStart = function(label, extra = null) {
+            const token = {
+                label: String(label || 'task'),
+                t0: (performance && performance.now) ? performance.now() : Date.now(),
+                extra
+            };
+            activePerf.push(token);
+            return token;
+        };
+        window.gaPerfEnd = function(token, extra = null) {
+            if (!token) return null;
+            const activeIdx = activePerf.indexOf(token);
+            if (activeIdx >= 0) activePerf.splice(activeIdx, 1);
+            const now = (performance && performance.now) ? performance.now() : Date.now();
+            const durationMs = Math.round((now - Number(token.t0 || now)) * 10) / 10;
+            const payload = { durationMs, ...(token.extra || {}), ...(extra || {}) };
+            push(durationMs >= 250 ? 'perf-warn' : 'perf', [`[PERF] ${token.label}`], payload);
+            if (durationMs >= 700) originals.warn('[PERF]', token.label, payload);
+            return durationMs;
+        };
+        window.gaGetActivePerf = function() {
+            const now = (performance && performance.now) ? performance.now() : Date.now();
+            return activePerf.map((item) => ({
+                label: item.label,
+                ageMs: Math.round((now - Number(item.t0 || now)) * 10) / 10,
+                extra: item.extra || null
+            }));
+        };
+        window.gaGetLastFreeze = function() {
+            for (let i = buffer.length - 1; i >= 0; i--) {
+                if (buffer[i] && buffer[i].level === 'freeze') return buffer[i];
+            }
+            return null;
+        };
+        window.gaGetDebugSnapshot = function() {
+            return {
+                ts: new Date().toISOString(),
+                href: location.href,
+                userAgent: navigator.userAgent,
+                visibilityState: document.visibilityState,
+                memory: performance && performance.memory ? {
+                    usedJSHeapSize: performance.memory.usedJSHeapSize,
+                    totalJSHeapSize: performance.memory.totalJSHeapSize,
+                    jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
+                } : null,
+                map: (typeof map !== 'undefined' && map) ? {
+                    zoom: map.getZoom ? map.getZoom() : null,
+                    center: map.getCenter ? map.getCenter() : null
+                } : null,
+                vfrState: window.vpVfrIndexState ? {
+                    model: window.vpVfrIndexState.vfrModel,
+                    inFlight: window.vpVfrIndexState.inFlight,
+                    lastError: window.vpVfrIndexState.lastError,
+                    lastPointCount: window.vpVfrIndexState.lastPointCount,
+                    lastRenderMode: window.vpVfrIndexState.lastRenderMode,
+                    lastUpdatedAt: window.vpVfrIndexState.lastUpdatedAt
+                } : null,
+                activePerf: window.gaGetActivePerf(),
+                logs: buffer.slice()
+            };
+        };
+        window.gaDownloadDebugSnapshot = function() {
+            const blob = new Blob([JSON.stringify(window.gaGetDebugSnapshot(), null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `ga-debug-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                URL.revokeObjectURL(a.href);
+                a.remove();
+            }, 1000);
+        };
+
+        let lastFrameTs = performance && performance.now ? performance.now() : Date.now();
+        let lastFreezeLogTs = 0;
+        function watchFrame(ts) {
+            const now = Number(ts || ((performance && performance.now) ? performance.now() : Date.now()));
+            const gap = now - lastFrameTs;
+            if (gap > 350 && (now - lastFreezeLogTs) > 1500) {
+                lastFreezeLogTs = now;
+                const active = window.gaGetActivePerf ? window.gaGetActivePerf() : [];
+                const recent = buffer.slice(-8).map((entry) => ({
+                    ts: entry.ts,
+                    level: entry.level,
+                    msg: entry.msg,
+                    extra: entry.extra || null
+                }));
+                const payload = {
+                    gapMs: Math.round(gap),
+                    visibilityState: document.visibilityState,
+                    activePerf: active,
+                    recent
+                };
+                push('freeze', ['[FREEZE] main thread gap'], payload);
+                if (gap >= 700) {
+                    originals.warn('[FREEZE] main thread gap', Math.round(gap), 'ms', payload);
+                } else if (originals.debug) {
+                    originals.debug('[FREEZE] short main thread gap', Math.round(gap), 'ms', payload);
+                }
+            }
+            lastFrameTs = now;
+            requestAnimationFrame(watchFrame);
+        }
+        requestAnimationFrame(watchFrame);
+
+        if ('PerformanceObserver' in window) {
+            try {
+                const obs = new PerformanceObserver((list) => {
+                    list.getEntries().forEach((entry) => {
+                        push('longtask', ['[LONGTASK] browser task'], {
+                            name: entry.name,
+                            durationMs: Math.round(Number(entry.duration || 0) * 10) / 10,
+                            startTime: Math.round(Number(entry.startTime || 0) * 10) / 10
+                        });
+                    });
+                });
+                obs.observe({ entryTypes: ['longtask'] });
+            } catch (_) {}
+        }
+
+        const nativeFetch = window.fetch ? window.fetch.bind(window) : null;
+        if (nativeFetch && !window.__gaFetchDebugInstalled) {
+            window.__gaFetchDebugInstalled = true;
+            const isExpectedLocalObstacleMiss = (url, status = 0) => {
+                const u = String(url || '');
+                if (!u.includes('./obstacles/')) return false;
+                if (!u.includes('/core-tiles/') && !u.includes('/poi-tiles/') && !u.includes('/tiles/')) return false;
+                return status === 0 || status === 404 || status === 204;
+            };
+            window.fetch = async function(input, init) {
+                const url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+                const t0 = (performance && performance.now) ? performance.now() : Date.now();
+                try {
+                    const res = await nativeFetch(input, init);
+                    const dt = Math.round((((performance && performance.now) ? performance.now() : Date.now()) - t0) * 10) / 10;
+                    if ((dt >= 1500 || !res.ok) && !isExpectedLocalObstacleMiss(url, res.status)) {
+                        push(res.ok ? 'fetch-slow' : 'fetch-error', ['[FETCH]', url], { durationMs: dt, status: res.status });
+                    }
+                    return res;
+                } catch (err) {
+                    const dt = Math.round((((performance && performance.now) ? performance.now() : Date.now()) - t0) * 10) / 10;
+                    if (!isExpectedLocalObstacleMiss(url, 0)) {
+                        push('fetch-error', ['[FETCH]', url, err], { durationMs: dt });
+                    }
+                    throw err;
+                }
+            };
+        }
+
+        window.addEventListener('error', (e) => push('error-event', ['[ERROR]', e.message || e.error], { filename: e.filename, lineno: e.lineno, colno: e.colno }));
+        window.addEventListener('unhandledrejection', (e) => push('rejection', ['[REJECTION]', e.reason]));
     })();
 </script>
 

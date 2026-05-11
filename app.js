@@ -1727,13 +1727,23 @@ window.throttledRenderProfiles = function() {
     if (vpRenderPending) return;
     vpRenderPending = true;
     requestAnimationFrame(() => {
+        const perf = window.gaPerfStart ? window.gaPerfStart('Profile render batch') : null;
         const mapTable = document.getElementById('mapTableOverlay');
         const mapTableOpen = !!(mapTable && mapTable.classList.contains('active'));
 
         // Stabilitaet vor Micro-Optimierung: das Hauptprofil immer frisch halten,
         // auch wenn Drawer-/Overlay-Zustaende kurzzeitig hinterherhaengen.
-        if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
-        if (mapTableOpen && typeof renderMapProfile === 'function') renderMapProfile();
+        if (document.getElementById('verticalProfileCanvas')) {
+            const smallPerf = window.gaPerfStart ? window.gaPerfStart('Profile render small canvas') : null;
+            renderVerticalProfile('verticalProfileCanvas');
+            if (window.gaPerfEnd) window.gaPerfEnd(smallPerf);
+        }
+        if (mapTableOpen && typeof renderMapProfile === 'function') {
+            const mapPerf = window.gaPerfStart ? window.gaPerfStart('Profile render map canvas schedule') : null;
+            renderMapProfile();
+            if (window.gaPerfEnd) window.gaPerfEnd(mapPerf);
+        }
+        if (window.gaPerfEnd) window.gaPerfEnd(perf, { mapTableOpen });
         vpRenderPending = false;
     });
 };
