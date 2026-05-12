@@ -6009,8 +6009,8 @@ body.theme-ops1940 .preset-row {
 }
 
 body.theme-ops1940 .preset-row .btn-preset {
-    --ops-toggle-top-off: 31.4%;
-    --ops-toggle-top-on: 26.1%;
+    --ops-toggle-top-off: 26.6%;
+    --ops-toggle-top-on: 21.3%;
     position: relative;
     min-height: 188px;
     display: flex;
@@ -7231,6 +7231,8 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
     }
 
     body.theme-ops1940 .preset-row .btn-preset {
+        --ops-toggle-top-off: 21.8%;
+        --ops-toggle-top-on: 16.7%;
         min-height: 154px;
         padding: 8px 6px 4px;
         font-size: 10px;
