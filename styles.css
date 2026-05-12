@@ -6009,6 +6009,8 @@ body.theme-ops1940 .preset-row {
 }
 
 body.theme-ops1940 .preset-row .btn-preset {
+    --ops-toggle-top-off: 31.4%;
+    --ops-toggle-top-on: 26.1%;
     position: relative;
     min-height: 188px;
     display: flex;
@@ -6042,7 +6044,7 @@ body.theme-ops1940 .preset-row .btn-preset::after {
     content: '';
     position: absolute;
     left: 50%;
-    top: 59px;
+    top: var(--ops-toggle-top-off);
     width: 72px;
     height: 72px;
     background-image: var(--ops-switch-lever-down);
@@ -6060,7 +6062,7 @@ body.theme-ops1940 .preset-row .btn-preset.active::before {
 
 body.theme-ops1940 .preset-row .btn-preset.active::after {
     background-image: var(--ops-switch-lever-down);
-    top: 49px;
+    top: var(--ops-toggle-top-on);
     transform: translateX(-50%) rotate(180deg);
     filter: brightness(1.08);
 }
@@ -7228,13 +7230,12 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
     }
 
     body.theme-ops1940 .preset-row .btn-preset::after {
-        top: 46px;
         width: 58px;
         height: 58px;
     }
 
     body.theme-ops1940 .preset-row .btn-preset.active::after {
-        top: 46px;
+        top: var(--ops-toggle-top-on);
     }
 
     body.theme-ops1940 .slider-container {
