@@ -5888,9 +5888,9 @@ body.theme-ops1940 .region-de { left: 50%; top: 34px; transform: translateX(-50%
 body.theme-ops1940 .region-int { right: 24px; top: 50%; transform: translateY(-50%); }
 
 body.theme-ops1940 .dir-n { top: 26px; left: 50%; transform: translateX(-50%); }
-body.theme-ops1940 .dir-e { right: 12px; top: 50%; transform: translateY(-50%); }
+body.theme-ops1940 .dir-e { right: 22px; top: 50%; transform: translateY(-50%); }
 body.theme-ops1940 .dir-s { bottom: 14px; left: 50%; transform: translateX(-50%); }
-body.theme-ops1940 .dir-w { left: 12px; top: 50%; transform: translateY(-50%); }
+body.theme-ops1940 .dir-w { left: 22px; top: 50%; transform: translateY(-50%); }
 
 body.theme-ops1940 .ops-dir-random {
     left: auto;
@@ -6009,8 +6009,8 @@ body.theme-ops1940 .preset-row {
 }
 
 body.theme-ops1940 .preset-row .btn-preset {
-    --ops-toggle-top-off: 26.6%;
-    --ops-toggle-top-on: 21.3%;
+    --ops-toggle-top-off: 27.3%;
+    --ops-toggle-top-on: 20.6%;
     position: relative;
     min-height: 188px;
     display: flex;
@@ -6994,6 +6994,13 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
     box-shadow: inset 0 1px 0 rgba(255, 241, 194, 0.08);
 }
 
+body.theme-ops1940 .container[class*="ops1940-olive-"] #classicInputs .grid-2 > div::before,
+body.theme-ops1940 .container[class*="ops1940-olive-"] #classicInputs .grid-3 > div::before,
+body.theme-ops1940 .container[class*="ops1940-olive-"] .slider-container::before,
+body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row::before {
+    content: none;
+}
+
 body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-command-panel::after,
 body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-mech-selector::after,
 body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row::after,
@@ -7010,7 +7017,7 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .slider-container::after 
         var(--ops-screw-r17),
         var(--ops-screw-r73),
         var(--ops-screw-r41),
-        var(--ops-screw-r0);
+        var(--ops-screw-r17);
     background-size:
         var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
         var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
@@ -7169,9 +7176,9 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
         font-size: 11px;
     }
 
-    body.theme-ops1940 .dir-n { top: 22px; }
+    body.theme-ops1940 .dir-n { top: 30px; }
     body.theme-ops1940 .dir-e { right: 10px; }
-    body.theme-ops1940 .dir-s { bottom: 14px; }
+    body.theme-ops1940 .dir-s { bottom: 24px; }
     body.theme-ops1940 .dir-w { left: 10px; }
 
     body.theme-ops1940 .ops-dir-random {
@@ -7231,8 +7238,8 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
     }
 
     body.theme-ops1940 .preset-row .btn-preset {
-        --ops-toggle-top-off: 21.8%;
-        --ops-toggle-top-on: 16.7%;
+        --ops-toggle-top-off: 22.8%;
+        --ops-toggle-top-on: 15.8%;
         min-height: 154px;
         padding: 8px 6px 4px;
         font-size: 10px;
