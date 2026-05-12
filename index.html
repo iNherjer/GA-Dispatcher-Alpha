@@ -91,12 +91,41 @@
     <div id="searchIndicator">System bereit.</div>
     
     <div id="classicInputs">
-        <div class="grid-2">
+        <div class="ops-command-panel" aria-label="Ops 1940 Missionsauswahl">
+            <div class="ops-picto-card ops-picto-dep" data-focus="opsDepInput" title="Start bearbeiten">
+                <span class="ops-picto-label">DEP</span>
+                <span class="ops-picto-symbol ops-symbol-dep" aria-hidden="true"></span>
+                <input type="text" class="ops-picto-field" id="opsDepInput" value="EDTW" maxlength="4" onfocus="this.select()" onclick="event.stopPropagation(); this.select()" oninput="syncOpsTextField('startLoc', this.value)" aria-label="Startplatz">
+            </div>
+            <div class="ops-picto-card ops-picto-dest" data-focus="opsDestInput" title="Ziel bearbeiten">
+                <span class="ops-picto-label" data-ops-label-action="swap-route" title="DEP und DEST tauschen">DEST</span>
+                <span class="ops-picto-symbol ops-symbol-dest" aria-hidden="true"></span>
+                <input type="text" class="ops-picto-field" id="opsDestInput" placeholder="RNDM" maxlength="4" onfocus="this.select()" onclick="event.stopPropagation(); this.select()" oninput="syncOpsTextField('destLoc', this.value)" aria-label="Zielplatz">
+            </div>
+            <div class="ops-picto-card ops-picto-type type-apt" onclick="if(!event.target.matches('input, select, option')) cycleOpsSelect('targetType', 'opsTypeSelect')" title="Klicken: Typ weiterblättern">
+                <span class="ops-picto-label" data-ops-label-action="toggle-picker" title="Mission-Picker umschalten">TYPE</span>
+                <span class="ops-picto-symbol ops-symbol-type" aria-hidden="true"></span>
+                <select class="ops-picto-field ops-picto-select" id="opsTypeSelect" onclick="event.stopPropagation()" onchange="syncOpsSelectField('targetType', this.value)" aria-label="Missionsart"></select>
+            </div>
+            <div class="ops-picto-card ops-picto-range range-auto" id="opsRangeCard" onclick="if(!event.target.matches('input, select, option')) cycleOpsSelect('distRange', 'opsRangeSelect')" title="Klicken: Distanz weiterblättern">
+                <span class="ops-picto-label">RANGE</span>
+                <span class="ops-picto-symbol ops-symbol-range" aria-hidden="true"></span>
+                <span class="ops-range-radar" aria-hidden="true">
+                    <span class="ops-range-ring ring-1"></span>
+                    <span class="ops-range-ring ring-2"></span>
+                    <span class="ops-range-ring ring-3"></span>
+                    <span class="ops-range-plane"></span>
+                </span>
+                <select class="ops-picto-field ops-picto-select" id="opsRangeSelect" onclick="event.stopPropagation()" onchange="syncOpsSelectField('distRange', this.value)" aria-label="Distanz"></select>
+            </div>
+        </div>
+
+        <div class="grid-2 ops-route-fields">
             <div><label>Start</label><input type="text" id="startLoc" value="EDTW" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); syncToNavCom('startLocRadio', this.value)"></div>
             <div><label>Ziel (Opt.)</label><input type="text" id="destLoc" placeholder="Zufall" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); syncToNavCom('destLocRadio', this.value)"></div>
         </div>
         
-        <div class="grid-2">
+        <div class="grid-2 ops-type-fields">
             <div><label id="targetTypeLabel" onclick="toggleMissionPickerMode()" title="Mission-Picker umschalten" style="cursor:pointer; user-select:none;">Typ</label><select id="targetType" onchange="setMissionTypeSelection(this.value)">
                 <option value="apt">Flugplatz (A ➔ B)</option>
                 <option value="poi">POI (Rundflug)</option>
@@ -109,7 +138,7 @@
             </select></div>
         </div>
         
-        <div class="grid-3">
+        <div class="grid-3 ops-filter-fields">
             <div><label>Region</label><select id="regionFilter" onchange="syncToNavCom('regionFilterRadio', this.value)">
                 <option value="any">Europaweit</option>
                 <option value="de" selected>Nur DE</option>
@@ -127,10 +156,29 @@
             </select></div>
         </div>
 
+        <div class="ops-selector-panel" aria-label="Ops 1940 Filterauswahl">
+            <div class="ops-mech-selector ops-region-selector">
+                <span class="ops-selector-label">REGION</span>
+                <button type="button" class="ops-selector-knob" id="opsRegionKnob" onclick="cycleOpsSelect('regionFilter')" title="Region weiterdrehen"></button>
+                <button type="button" class="ops-selector-choice region-any" onclick="setOpsOption('regionFilter', 'any')">ALL</button>
+                <button type="button" class="ops-selector-choice region-de" onclick="setOpsOption('regionFilter', 'de')">DE</button>
+                <button type="button" class="ops-selector-choice region-int" onclick="setOpsOption('regionFilter', 'int')">INT</button>
+            </div>
+            <div class="ops-mech-selector ops-direction-selector">
+                <span class="ops-selector-label">RICHTUNG</span>
+                <button type="button" class="ops-selector-knob" id="opsDirectionKnob" onclick="setOpsOption('dirPref', 'any')" title="Mitte: Richtung zufällig"></button>
+                <button type="button" class="ops-dir-choice dir-n" onclick="setOpsOption('dirPref', 'N')">N</button>
+                <button type="button" class="ops-dir-choice dir-e" onclick="setOpsOption('dirPref', 'E')">O</button>
+                <button type="button" class="ops-dir-choice dir-s" onclick="setOpsOption('dirPref', 'S')">S</button>
+                <button type="button" class="ops-dir-choice dir-w" onclick="setOpsOption('dirPref', 'W')">W</button>
+                <button type="button" class="ops-dir-random" onclick="setOpsOption('dirPref', 'any')">RND</button>
+            </div>
+        </div>
+
         <div class="preset-row">
-            <button class="btn-preset" onclick="applyPreset(115, 9, 4, 'C172')">C172</button>
-            <button class="btn-preset" onclick="applyPreset(160, 14, 4, 'PA-24')">Comanche</button>
-            <button class="btn-preset" onclick="applyPreset(220, 25, 6, 'AERO')">Aerostar</button>
+            <button class="btn-preset" data-aircraft="C172" onclick="applyPreset(115, 9, 4, 'C172')">C172</button>
+            <button class="btn-preset" data-aircraft="PA-24" onclick="applyPreset(160, 14, 4, 'PA-24')">Comanche</button>
+            <button class="btn-preset" data-aircraft="AERO" onclick="applyPreset(220, 25, 6, 'AERO')">Aerostar</button>
         </div>
 
         <div class="slider-container">
@@ -413,6 +461,8 @@
 
     <div class="notes-stack" id="notesStack" onclick="toggleNotes(event)">
             <div class="paperclip"></div>
+            <button class="ops-briefing-nav ops-prev" type="button" onclick="turnOpsBriefingPage(event, -1)" title="Vorherige Briefing-Seite">‹ Zurück</button>
+            <button class="ops-briefing-nav ops-next" type="button" onclick="turnOpsBriefingPage(event, 1)" title="Nächste Briefing-Seite">Weiter ›</button>
             
             <div class="mission-note-page front-note" id="notePage1">
                 <div class="briefing-save-pin" onclick="pinCurrentFlight(); event.stopPropagation();" title="Flug ans Hangar-Board heften">📌</div>
@@ -701,12 +751,13 @@
     </div>
 
     <div class="theme-switch-wrapper" style="flex-direction: column; align-items: center; border-top: 2px dashed #444; margin-top: 30px; padding-top: 15px;">
-        <div style="display: flex; justify-content: space-between; width: 150px; font-size: 10px; font-weight: bold; text-transform: uppercase;">
+        <div style="display: flex; justify-content: space-between; width: 210px; font-size: 10px; font-weight: bold; text-transform: uppercase;">
             <span id="lbl-classic" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(0)">Modern</span>
             <span id="lbl-retro" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(1)">Analog</span>
             <span id="lbl-navcom" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(2)">NavCom</span>
+            <span id="lbl-ops1940" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(3)">Ops 1940</span>
         </div>
-        <input type="range" id="themeSlider" min="0" max="2" value="0" style="width: 150px; margin-top: 10px; cursor: pointer;" oninput="changeThemeFromSlider(this.value)">
+        <input type="range" id="themeSlider" min="0" max="3" value="0" style="width: 210px; margin-top: 10px; cursor: pointer;" oninput="changeThemeFromSlider(this.value)">
     </div>
         </div>
     </div>

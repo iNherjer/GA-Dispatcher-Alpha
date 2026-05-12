@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v619';
+const CACHE = 'ga-dispatcher-v640';
 
 const STATIC = [
     './',
@@ -25,6 +25,31 @@ const STATIC = [
     './board.jpg',
     './map.jpg',
     './pinicon.png',
+    './assets/ui/ops1940/ops1940-texture-atlas.png',
+    './assets/ui/ops1940/ops1940-desk-bg.png',
+    './assets/ui/ops1940/ops1940-bomber-atlas.png',
+    './assets/ui/ops1940/ops1940-bomber-panel-bg.png',
+    './assets/ui/ops1940/ops1940-controls-atlas.png',
+    './assets/ui/ops1940/ops1940-pictograms-v2.png',
+    './assets/ui/ops1940/ops1940-switchgear-atlas.png',
+    './assets/ui/ops1940/ops1940-picto-dep-square.png',
+    './assets/ui/ops1940/ops1940-picto-dest-square.png',
+    './assets/ui/ops1940/ops1940-picto-type-apt-square.png',
+    './assets/ui/ops1940/ops1940-picto-type-poi-square.png',
+    './assets/ui/ops1940/ops1940-picto-range-square.png',
+    './assets/ui/ops1940/ops1940-switch-base-square.png',
+    './assets/ui/ops1940/ops1940-switch-lever-down.png',
+    './assets/ui/ops1940/ops1940-switch-lever-up.png',
+    './assets/ui/ops1940/ops1940-selector-knob-square.png',
+    './assets/ui/ops1940/ops1940-panel-route-selector.png',
+    './assets/ui/ops1940/ops1940-panel-region.png',
+    './assets/ui/ops1940/ops1940-panel-direction.png',
+    './assets/ui/ops1940/ops1940-panel-aircraft.png',
+    './assets/ui/ops1940/ops1940-panel-slider.png',
+    './assets/ui/ops1940/ops1940-screw-cross-r0.png',
+    './assets/ui/ops1940/ops1940-screw-cross-r17.png',
+    './assets/ui/ops1940/ops1940-screw-cross-r41.png',
+    './assets/ui/ops1940/ops1940-screw-cross-r73.png',
     './taws-alert.m4a',
     './audio-warnings/aw-achtung.m4a',
     './audio-warnings/aw-in.m4a',

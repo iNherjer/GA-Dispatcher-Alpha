@@ -47,6 +47,7 @@ function changeThemeFromSlider(val) {
     if (v === 0) setTheme('classic');
     else if (v === 1) setTheme('retro');
     else if (v === 2) setTheme('navcom');
+    else if (v === 3) setTheme('ops1940');
 }
 
 function setSettingsPanelOpen(open, persist = true) {
@@ -68,15 +69,17 @@ function toggleSettingsPanel() {
 
 function setTheme(mode) {
     const wasNavcom = document.body.classList.contains('theme-navcom');
-    document.body.classList.remove('theme-retro', 'theme-navcom');
+    document.body.classList.remove('theme-retro', 'theme-navcom', 'theme-ops1940');
     const lblClassic = document.getElementById('lbl-classic');
     const lblRetro = document.getElementById('lbl-retro');
     const lblNavcom = document.getElementById('lbl-navcom');
+    const lblOps1940 = document.getElementById('lbl-ops1940');
     const slider = document.getElementById('themeSlider');
 
     if (lblClassic) lblClassic.style.color = '#888';
     if (lblRetro) lblRetro.style.color = '#888';
     if (lblNavcom) lblNavcom.style.color = '#888';
+    if (lblOps1940) lblOps1940.style.color = '#888';
 
     if (mode === 'retro') {
         document.body.classList.add('theme-retro');
@@ -88,14 +91,21 @@ function setTheme(mode) {
         localStorage.setItem('ga_theme', 'navcom');
         if (slider) slider.value = 2;
         if (lblNavcom) lblNavcom.style.color = '#33ff33';
+    } else if (mode === 'ops1940') {
+        document.body.classList.add('theme-ops1940');
+        localStorage.setItem('ga_theme', 'ops1940');
+        if (slider) slider.value = 3;
+        if (lblOps1940) lblOps1940.style.color = '#d0a44f';
     } else {
         localStorage.setItem('ga_theme', 'classic');
         if (slider) slider.value = 0;
         if (lblClassic) lblClassic.style.color = '#4da6ff';
     }
+    applySavedPanelTheme();
     updateDynamicColors();
     refreshAllDrums();
     syncGPSWithTheme(mode, wasNavcom);
+    if (typeof updateOps1940Panel === 'function') updateOps1940Panel();
 
     // --- NEU: Wetter-Widgets beim Theme-Wechsel sofort neu rendern ---
     if (typeof currentStartICAO !== 'undefined' && currentStartICAO) {
@@ -590,6 +600,7 @@ function setMissionTypeSelection(value) {
     radio.value = normalized;
     localStorage.setItem('ga_target_type', normalized);
     _setNavcomTypeOptionsExpanded(false);
+    if (typeof updateOps1940Panel === 'function') updateOps1940Panel();
 }
 
 function toggleMissionPickerMode() {
@@ -599,6 +610,7 @@ function toggleMissionPickerMode() {
     _setMissionPickerMode(nextMode);
     refreshMissionPickerOptions(currentValue);
     localStorage.setItem('ga_target_type', document.getElementById('targetType')?.value || 'apt');
+    if (typeof updateOps1940Panel === 'function') updateOps1940Panel();
     const indicator = document.getElementById('searchIndicator');
     if (indicator) {
         indicator.innerText = nextMode === 'full'
@@ -832,6 +844,36 @@ function pickOfflineMissionFromPool(pool = [], historyKey = 'ga_offline_mission_
     return pick;
 }
 
+const MISSION_NOTE_IDS = ['notePage1', 'notePage2', 'notePage3', 'notePage4', 'notePage5'];
+const MISSION_NOTE_CLASSES = ['front-note', 'back-note', 'third-note', 'fourth-note', 'fifth-note'];
+
+function setMissionNoteFrontIndex(frontIdx = 0) {
+    const pages = MISSION_NOTE_IDS.map(id => document.getElementById(id)).filter(Boolean);
+    if (pages.length < 2) return;
+    const normalizedIdx = ((frontIdx % pages.length) + pages.length) % pages.length;
+    for (let i = 0; i < pages.length; i++) {
+        const pageIdx = (normalizedIdx + i) % pages.length;
+        pages[pageIdx].className = 'mission-note-page ' + MISSION_NOTE_CLASSES[i];
+    }
+}
+
+function turnMissionNotePage(direction = 1) {
+    const pages = MISSION_NOTE_IDS.map(id => document.getElementById(id)).filter(Boolean);
+    if (pages.length < 2) return;
+    let frontIdx = pages.findIndex(p => p.classList.contains('front-note'));
+    if (frontIdx < 0) frontIdx = 0;
+    const step = direction < 0 ? -1 : 1;
+    setMissionNoteFrontIndex(frontIdx + step);
+}
+
+function turnOpsBriefingPage(event, direction = 1) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    turnMissionNotePage(direction);
+}
+
 function toggleNotes(event) {
     // Wenn wir auf einen Link, Button oder ein Pin-Icon klicken, umblättern hart blockieren
     if (event && event.target && (
@@ -841,10 +883,6 @@ function toggleNotes(event) {
         event.target.classList.contains('briefing-export-pin') ||
         event.target.classList.contains('briefing-pdf-pin')
     )) return;
-
-    const pages = ['notePage1', 'notePage2', 'notePage3', 'notePage4', 'notePage5'].map(id => document.getElementById(id)).filter(Boolean);
-    if (pages.length < 2) return;
-    const classes = ['front-note', 'back-note', 'third-note', 'fourth-note', 'fifth-note'];
 
     let forward = true;
     if (event && event.target && event.target.classList.contains('paperclip')) {
@@ -857,21 +895,7 @@ function toggleNotes(event) {
         if (event.clientX < window.innerWidth / 2) forward = false;
     }
 
-    // Find current front page index
-    let frontIdx = pages.findIndex(p => p.classList.contains('front-note'));
-    if (frontIdx < 0) frontIdx = 0;
-
-    if (forward) {
-        frontIdx = (frontIdx + 1) % pages.length;
-    } else {
-        frontIdx = (frontIdx - 1 + pages.length) % pages.length;
-    }
-
-    // Assign classes in order starting from frontIdx
-    for (let i = 0; i < pages.length; i++) {
-        let pageIdx = (frontIdx + i) % pages.length;
-        pages[pageIdx].className = 'mission-note-page ' + classes[i];
-    }
+    turnMissionNotePage(forward ? 1 : -1);
 }
 
 function toggleWikiPhoto(event, containerId) {
@@ -1012,35 +1036,67 @@ function toggleWikiPhoto(event, containerId) {
 
 function updateDynamicColors() {
     const isNavcom = document.body.classList.contains('theme-navcom');
+    const isOps1940 = document.body.classList.contains('theme-ops1940');
     const isRetro = document.body.classList.contains('theme-retro') && !isNavcom;
 
-    const primColor = isNavcom ? '#33ff33' : (isRetro ? 'var(--piper-white)' : 'var(--blue)');
-    const titleColor = isNavcom ? '#33ff33' : (isRetro ? 'var(--piper-white)' : 'var(--blue)');
-    const hlColor = isNavcom ? '#33ff33' : (isRetro ? 'var(--piper-yellow)' : 'var(--green)');
+    const primColor = isNavcom ? '#33ff33' : (isOps1940 ? '#e2c27b' : (isRetro ? 'var(--piper-white)' : 'var(--blue)'));
+    const titleColor = isNavcom ? '#33ff33' : (isOps1940 ? '#d0a44f' : (isRetro ? 'var(--piper-white)' : 'var(--blue)'));
+    const hlColor = isNavcom ? '#33ff33' : (isOps1940 ? '#f5d78a' : (isRetro ? 'var(--piper-yellow)' : 'var(--green)'));
 
     const mainTitle = document.getElementById('mainTitle');
-    if (mainTitle) mainTitle.style.color = isRetro || isNavcom ? '' : titleColor;
-    document.querySelectorAll('.theme-color-text').forEach(el => el.style.color = isRetro || isNavcom ? '' : primColor);
+    if (mainTitle) mainTitle.style.color = isRetro || isNavcom || isOps1940 ? '' : titleColor;
+    document.querySelectorAll('.theme-color-text').forEach(el => el.style.color = isRetro || isNavcom || isOps1940 ? '' : primColor);
     document.querySelectorAll('.theme-green-text').forEach(el => el.style.color = hlColor);
 }
 
 function applySavedPanelTheme() {
-    const savedPanel = localStorage.getItem('ga_panel_theme') || 'panel-med';
     const panel = document.querySelector('.container');
-    if (panel) {
-        panel.classList.remove('panel-med', 'panel-creme', 'panel-light', 'panel-dark');
-        panel.classList.add(savedPanel);
+    if (!panel) return;
+
+    const retroThemes = ['panel-med', 'panel-creme', 'panel-light', 'panel-dark'];
+    const opsThemes = ['ops1940-olive-1', 'ops1940-olive-2', 'ops1940-olive-3', 'ops1940-olive-4'];
+
+    panel.classList.remove(...retroThemes, ...opsThemes);
+
+    if (document.body.classList.contains('theme-ops1940')) {
+        const savedOps = localStorage.getItem('ga_ops1940_panel_theme');
+        panel.classList.add((savedOps && opsThemes.includes(savedOps)) ? savedOps : 'ops1940-olive-1');
+        return;
     }
+
+    const savedPanel = localStorage.getItem('ga_panel_theme') || 'panel-med';
+    if (retroThemes.includes(savedPanel)) panel.classList.add(savedPanel);
 }
 
 function cyclePanelColor() {
-    if (!document.body.classList.contains('theme-retro')) return;
     const panel = document.querySelector('.container');
+    if (!panel) return;
+
+    if (document.body.classList.contains('theme-ops1940')) {
+        const opsThemes = ['ops1940-olive-1', 'ops1940-olive-2', 'ops1940-olive-3', 'ops1940-olive-4'];
+        let currentIndex = -1;
+        for (let i = 0; i < opsThemes.length; i++) {
+            if (panel.classList.contains(opsThemes[i])) {
+                currentIndex = i;
+                panel.classList.remove(opsThemes[i]);
+                break;
+            }
+        }
+        const nextTheme = opsThemes[(currentIndex + 1) % opsThemes.length];
+        panel.classList.add(nextTheme);
+        localStorage.setItem('ga_ops1940_panel_theme', nextTheme);
+        return;
+    }
+
+    if (!document.body.classList.contains('theme-retro')) return;
+
     const themes = ['panel-med', 'panel-creme', 'panel-light', 'panel-dark'];
     let currentIndex = 0;
     for (let i = 0; i < themes.length; i++) {
         if (panel.classList.contains(themes[i])) {
-            currentIndex = i; panel.classList.remove(themes[i]); break;
+            currentIndex = i;
+            panel.classList.remove(themes[i]);
+            break;
         }
     }
     const nextTheme = themes[(currentIndex + 1) % themes.length];
@@ -1228,6 +1284,340 @@ function initDragKnob(knobId, displayId, sliderId, min, max, type) {
     knob.addEventListener('touchstart', onStart, { passive: false });
 }
 
+function focusOpsControl(controlId) {
+    const control = document.getElementById(controlId);
+    if (!control) return;
+    control.focus();
+    if (typeof control.select === 'function') control.select();
+    if (control.tagName === 'SELECT') control.click();
+}
+
+function getSelectedOptionText(selectId, fallback = '') {
+    const select = document.getElementById(selectId);
+    if (!select) return fallback;
+    const option = select.options[select.selectedIndex];
+    return (option?.textContent || fallback).trim();
+}
+
+function compactOpsLabel(text, maxLength = 13) {
+    const normalized = String(text || '')
+        .replace(/\s*\([^)]*\)/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!normalized) return '----';
+    return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1)}.` : normalized;
+}
+
+function updateOpsRangeCard(value) {
+    const card = document.getElementById('opsRangeCard');
+    if (!card) return;
+    card.classList.remove('range-auto', 'range-short', 'range-medium', 'range-long');
+    card.classList.add(`range-${['short', 'medium', 'long'].includes(value) ? value : 'auto'}`);
+}
+
+function updateOpsTypeCard(value) {
+    const card = document.querySelector('.ops-picto-type');
+    if (!card) return;
+    const parsed = typeof parseMissionPickerValue === 'function' ? parseMissionPickerValue(value || 'apt') : { baseType: value };
+    const isPoi = String(parsed.baseType || value || '').startsWith('poi');
+    card.classList.toggle('type-poi', isPoi);
+    card.classList.toggle('type-apt', !isPoi);
+}
+
+function syncOpsSelectOptions(sourceId, targetId, maxLabelLength = 18) {
+    const source = document.getElementById(sourceId);
+    const target = document.getElementById(targetId);
+    if (!source || !target) return;
+    const signature = Array.from(source.options).map(opt => `${opt.value}:${opt.textContent}`).join('|');
+    if (target.dataset.optionSignature !== signature) {
+        target.innerHTML = '';
+        Array.from(source.options).forEach(opt => {
+            const clone = document.createElement('option');
+            clone.value = opt.value;
+            clone.textContent = compactOpsLabel(opt.textContent, maxLabelLength).toUpperCase();
+            target.appendChild(clone);
+        });
+        target.dataset.optionSignature = signature;
+    }
+    target.value = source.value;
+}
+
+function syncOpsTextField(classicId, value) {
+    const classic = document.getElementById(classicId);
+    if (!classic) return;
+    const next = String(value || '').toUpperCase();
+    classic.value = next;
+    if (classicId === 'startLoc') syncToNavCom('startLocRadio', next);
+    if (classicId === 'destLoc') syncToNavCom('destLocRadio', next);
+    updateOps1940Panel();
+}
+
+function syncOpsSelectField(classicId, value) {
+    const classic = document.getElementById(classicId);
+    if (!classic) return;
+    if (classicId === 'targetType') {
+        setMissionTypeSelection(value);
+    } else {
+        classic.value = value;
+        if (classicId === 'distRange') syncToNavCom('distRangeRadio', value);
+        if (classicId === 'regionFilter') syncToNavCom('regionFilterRadio', value);
+        if (classicId === 'dirPref') syncToNavCom('dirPrefRadio', value);
+    }
+    updateOps1940Panel();
+}
+
+function setOpsOption(selectId, value) {
+    syncOpsSelectField(selectId, value);
+}
+
+function cycleOpsSelect(sourceId, targetId) {
+    const source = document.getElementById(sourceId);
+    const target = document.getElementById(targetId);
+    if (!source) return;
+    if (target) syncOpsSelectOptions(sourceId, targetId);
+    if (!source.options.length) return;
+    const selectedIndex = source.selectedIndex >= 0
+        ? source.selectedIndex
+        : Array.from(source.options).findIndex(opt => opt.value === source.value);
+    const nextIndex = ((selectedIndex >= 0 ? selectedIndex : 0) + 1) % source.options.length;
+    const nextValue = source.options[nextIndex].value;
+    syncOpsSelectField(sourceId, nextValue);
+}
+
+function cycleOpsMissionType(event) {
+    if (event?.target?.matches?.('select, input')) return;
+    cycleOpsSelect('targetType', 'opsTypeSelect');
+}
+
+function cycleOpsRange(event) {
+    if (event?.target?.matches?.('select, input')) return;
+    cycleOpsSelect('distRange', 'opsRangeSelect');
+}
+
+function updateOpsSelectorDials() {
+    const regionValue = document.getElementById('regionFilter')?.value || 'de';
+    const directionValue = document.getElementById('dirPref')?.value || 'any';
+    const regionKnob = document.getElementById('opsRegionKnob');
+    const directionKnob = document.getElementById('opsDirectionKnob');
+    const regionAngles = { any: -95, de: 0, int: 95 };
+    const directionAngles = { N: 0, E: 90, S: 180, W: 270, any: 45 };
+
+    if (regionKnob) {
+        regionKnob.style.setProperty('--ops-switch-angle', `${regionAngles[regionValue] ?? 0}deg`);
+        regionKnob.dataset.value = regionValue;
+    }
+    if (directionKnob) {
+        directionKnob.style.setProperty('--ops-switch-angle', `${directionAngles[directionValue] ?? 0}deg`);
+        directionKnob.dataset.value = directionValue;
+    }
+
+    document.querySelectorAll('.ops-selector-choice, .ops-dir-choice, .ops-dir-random').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`.ops-selector-choice.region-${regionValue === 'any' ? 'any' : regionValue}`)?.classList.add('active');
+    document.querySelector(`.ops-dir-choice.dir-${String(directionValue).toLowerCase()}`)?.classList.add('active');
+    if (directionValue === 'any') document.querySelector('.ops-dir-random')?.classList.add('active');
+}
+
+function updateOpsAircraftSwitches() {
+    document.querySelectorAll('.preset-row .btn-preset[data-aircraft]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.aircraft === selectedAC);
+    });
+}
+
+function updateOps1940Panel() {
+    const dep = document.getElementById('startLoc')?.value?.trim().toUpperCase() || '----';
+    const destRaw = document.getElementById('destLoc')?.value?.trim().toUpperCase();
+    const dist = document.getElementById('distRange')?.value || 'any';
+
+    const depInput = document.getElementById('opsDepInput');
+    const destInput = document.getElementById('opsDestInput');
+
+    if (depInput && depInput.value !== dep) depInput.value = dep;
+    if (destInput && destInput.value !== (destRaw || '')) destInput.value = destRaw || '';
+    syncOpsSelectOptions('targetType', 'opsTypeSelect', 18);
+    syncOpsSelectOptions('distRange', 'opsRangeSelect', 15);
+    updateOpsTypeCard(document.getElementById('targetType')?.value || 'apt');
+    updateOpsRangeCard(dist);
+    updateOpsSelectorDials();
+    updateOpsAircraftSwitches();
+    updateOpsRotaryReadouts();
+}
+
+function initOps1940Panel() {
+    ['startLoc', 'destLoc', 'targetType', 'distRange', 'maxSeats'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || el.dataset.opsPanelBound === '1') return;
+        el.addEventListener('input', updateOps1940Panel);
+        el.addEventListener('change', updateOps1940Panel);
+        el.dataset.opsPanelBound = '1';
+    });
+
+    const depInput = document.getElementById('opsDepInput');
+    if (depInput && depInput.dataset.opsSyncBound !== '1') {
+        depInput.addEventListener('input', () => syncOpsTextField('startLoc', depInput.value));
+        depInput.dataset.opsSyncBound = '1';
+    }
+    const destInput = document.getElementById('opsDestInput');
+    if (destInput && destInput.dataset.opsSyncBound !== '1') {
+        destInput.addEventListener('input', () => syncOpsTextField('destLoc', destInput.value));
+        destInput.dataset.opsSyncBound = '1';
+    }
+    const typeSelect = document.getElementById('opsTypeSelect');
+    if (typeSelect && typeSelect.dataset.opsSyncBound !== '1') {
+        typeSelect.addEventListener('change', () => syncOpsSelectField('targetType', typeSelect.value));
+        typeSelect.dataset.opsSyncBound = '1';
+    }
+    const rangeSelect = document.getElementById('opsRangeSelect');
+    if (rangeSelect && rangeSelect.dataset.opsSyncBound !== '1') {
+        rangeSelect.addEventListener('change', () => syncOpsSelectField('distRange', rangeSelect.value));
+        rangeSelect.dataset.opsSyncBound = '1';
+    }
+    document.querySelectorAll('.ops-picto-card[data-focus], .ops-picto-card[data-cycle]').forEach(card => {
+        if (card.dataset.opsCardBound === '1') return;
+        card.addEventListener('click', event => {
+            if (event.target?.matches?.('input, select, option')) return;
+            const focusTarget = card.dataset.focus;
+            if (focusTarget) focusOpsControl(focusTarget);
+            if (card.dataset.cycle === 'type') cycleOpsMissionType(event);
+            if (card.dataset.cycle === 'range') cycleOpsRange(event);
+        });
+        card.dataset.opsCardBound = '1';
+    });
+    document.querySelectorAll('.ops-picto-label[data-ops-label-action]').forEach(label => {
+        if (label.dataset.opsLabelBound === '1') return;
+        label.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (label.dataset.opsLabelAction === 'swap-route') {
+                swapDepDest();
+                updateOps1940Panel();
+            }
+            if (label.dataset.opsLabelAction === 'toggle-picker') {
+                toggleMissionPickerMode();
+                updateOps1940Panel();
+            }
+        });
+        label.dataset.opsLabelBound = '1';
+    });
+    updateOps1940Panel();
+}
+
+function getOpsRotaryConfigs() {
+    return [
+        { sliderId: 'gphSlider', label: 'GPH', type: 'gph', min: 5, max: 35, format: value => String(value).padStart(2, '0') },
+        { sliderId: 'tasSlider', label: 'TAS', type: 'tas', min: 80, max: 260, format: value => String(value) },
+        { sliderId: 'altSlider', label: 'ALT', type: 'alt', min: 1500, max: 13500, format: value => String(value) },
+        { sliderId: 'rateSlider', label: 'V/S', type: 'rate', min: 200, max: 1500, format: value => String(value) }
+    ];
+}
+
+function setOpsRotaryAngle(knob, slider, config) {
+    if (!knob || !slider || !config) return;
+    const min = Number(slider.min || config.min);
+    const max = Number(slider.max || config.max);
+    const value = Number(slider.value || min);
+    const pct = max > min ? (value - min) / (max - min) : 0;
+    const angle = -132 + (Math.max(0, Math.min(1, pct)) * 264);
+    knob.style.setProperty('--ops-angle', `${angle.toFixed(1)}deg`);
+    const readout = knob.querySelector('.ops-rotary-readout');
+    if (readout) readout.textContent = config.format ? config.format(value) : String(value);
+}
+
+function updateOpsRotaryReadouts() {
+    getOpsRotaryConfigs().forEach(config => {
+        const slider = document.getElementById(config.sliderId);
+        const knob = document.querySelector(`.ops-rotary-control[data-slider="${config.sliderId}"]`);
+        setOpsRotaryAngle(knob, slider, config);
+    });
+}
+
+function initOpsRotaryControls() {
+    getOpsRotaryConfigs().forEach(config => {
+        const slider = document.getElementById(config.sliderId);
+        const container = slider?.closest('.slider-container');
+        if (!slider || !container || container.querySelector(`.ops-rotary-control[data-slider="${config.sliderId}"]`)) return;
+
+        const knob = document.createElement('button');
+        knob.type = 'button';
+        knob.className = 'ops-rotary-control';
+        knob.dataset.slider = config.sliderId;
+        knob.title = `${config.label} ziehen`;
+        knob.innerHTML = `
+            <span class="ops-rotary-scale" aria-hidden="true"></span>
+            <span class="ops-rotary-knob" aria-hidden="true"></span>
+            <span class="ops-rotary-label">${config.label}</span>
+            <span class="ops-rotary-readout"></span>
+        `;
+        container.prepend(knob);
+
+        let isDragging = false;
+        let startY = 0;
+        let startX = 0;
+        let startVal = 0;
+
+        const moveToValue = (value) => {
+            const min = Number(slider.min || config.min);
+            const max = Number(slider.max || config.max);
+            const step = Number(slider.step || 1);
+            let next = Math.max(min, Math.min(max, value));
+            next = Math.round(next / step) * step;
+            slider.value = String(next);
+            setOpsRotaryAngle(knob, slider, config);
+            if (config.type === 'rate') handleRateChange(next);
+            else handleSliderChange(config.type, next);
+            if (gpsState.visible && gpsState.mode === 'FPL') refreshGPSAfterDispatch();
+        };
+
+        const onMove = (event) => {
+            if (!isDragging) return;
+            const point = event.touches ? event.touches[0] : event;
+            const range = Number(slider.max || config.max) - Number(slider.min || config.min);
+            const delta = (startY - point.clientY) + ((point.clientX - startX) * 0.55);
+            moveToValue(startVal + (delta * (range / 160)));
+            event.preventDefault();
+        };
+
+        const onEnd = () => {
+            if (!isDragging) return;
+            isDragging = false;
+            window.vpUIInteractionActive = false;
+            knob.classList.remove('is-dragging');
+            document.body.style.cursor = '';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('mouseup', onEnd);
+            document.removeEventListener('touchend', onEnd);
+            document.removeEventListener('touchcancel', onEnd);
+            if (config.type === 'alt' || config.type === 'rate') {
+                if (typeof renderVerticalProfile === 'function') renderVerticalProfile('verticalProfileCanvas');
+                if (typeof renderMapProfile === 'function') renderMapProfile();
+                if (typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+            }
+        };
+
+        const onStart = (event) => {
+            const point = event.touches ? event.touches[0] : event;
+            isDragging = true;
+            window.vpUIInteractionActive = true;
+            startY = point.clientY;
+            startX = point.clientX;
+            startVal = Number(slider.value || slider.min || config.min);
+            knob.classList.add('is-dragging');
+            document.body.style.cursor = 'ns-resize';
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('touchmove', onMove, { passive: false });
+            document.addEventListener('mouseup', onEnd);
+            document.addEventListener('touchend', onEnd);
+            document.addEventListener('touchcancel', onEnd);
+            event.preventDefault();
+        };
+
+        knob.addEventListener('mousedown', onStart);
+        knob.addEventListener('touchstart', onStart, { passive: false });
+        slider.addEventListener('input', () => setOpsRotaryAngle(knob, slider, config));
+        setOpsRotaryAngle(knob, slider, config);
+    });
+}
+
 const GA_LAST_VIEW_KEY = 'ga_last_view';
 const GA_VIEW_MAIN = 'main';
 const GA_VIEW_MAP = 'map';
@@ -1352,6 +1742,8 @@ window.onload = () => {
     initDragKnob('tasDragKnob', 'tasRadioDisplay', 'tasSlider', 80, 260, 'tas');
     initDragKnob('gphDragKnob', 'gphRadioDisplay', 'gphSlider', 5, 35, 'gph');
     initDragKnob('altDragKnob', 'altRadioDisplay', 'altSlider', 1500, 13500, 'alt');
+    initOpsRotaryControls();
+    initOps1940Panel();
     syncToNavCom('altRadioDisplay', document.getElementById('altSlider') ? document.getElementById('altSlider').value : '4500');
 
     if (aiToggleBtn && aiToggleBtn.checked) {
@@ -1603,8 +1995,7 @@ function resetApp() {
 
     const destLocEl = document.getElementById('destLoc');
     const destLocRadioEl = document.getElementById('destLocRadio');
-    const p1 = document.getElementById('notePage1'), p2 = document.getElementById('notePage2'), p3 = document.getElementById('notePage3');
-    if (p1 && p2 && p3) { p1.className = 'mission-note-page front-note'; p2.className = 'mission-note-page back-note'; p3.className = 'mission-note-page third-note'; }
+    setMissionNoteFrontIndex(0);
     if (destLocEl) destLocEl.value = '';
     if (destLocRadioEl) destLocRadioEl.value = '';
 
@@ -1782,6 +2173,7 @@ function handleSliderChange(type, val) {
         // Lufträume nur prüfen, wenn wir nicht gerade aktiv ziehen
         if (!window.vpUIInteractionActive && typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
     }
+    if (typeof updateOpsRotaryReadouts === 'function') updateOpsRotaryReadouts();
 }
 
 function handleRateChange(val) {
@@ -1805,6 +2197,7 @@ function handleRateChange(val) {
     // Re-render profiles
     if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
     if (!window.vpUIInteractionActive && typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
+    if (typeof updateOpsRotaryReadouts === 'function') updateOpsRotaryReadouts();
 }
 
 function recalculatePerformance() {
@@ -1830,6 +2223,8 @@ function applyPreset(t, g, s, n) {
     syncToNavCom('tasRadio', t);
     syncToNavCom('gphRadio', g);
     syncToNavCom('maxSeatsRadio', s);
+    if (typeof updateOpsAircraftSwitches === 'function') updateOpsAircraftSwitches();
+    updateOps1940Panel();
 }
 
 function copyCoords(elementId) {
@@ -6723,8 +7118,7 @@ async function generateMission() {
     }
     document.getElementById("briefingBox").style.display = "none";
 
-    const page1 = document.getElementById('notePage1'), page2 = document.getElementById('notePage2');
-    if (page1 && page2) { page1.classList.replace('back-note', 'front-note'); page2.classList.replace('front-note', 'back-note'); }
+    setMissionNoteFrontIndex(0);
 
     document.getElementById("mDepRwy").innerText = "Sucht Pisten-Infos..."; document.getElementById("mDepRwy").style.color = "#fff";
     document.getElementById("mDestRwy").innerText = "Sucht Pisten-Infos..."; document.getElementById("mDestRwy").style.color = "#fff";
