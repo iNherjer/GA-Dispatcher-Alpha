@@ -6045,8 +6045,8 @@ body.theme-ops1940 .preset-row .btn-preset::after {
     position: absolute;
     left: 50%;
     top: var(--ops-toggle-top-off);
-    width: 72px;
-    height: 72px;
+    width: 90px;
+    height: 90px;
     background-image: var(--ops-switch-lever-down);
     background-size: contain;
     background-position: center;
@@ -6998,6 +6998,9 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-command-panel::after
 body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-mech-selector::after,
 body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row::after,
 body.theme-ops1940 .container[class*="ops1940-olive-"] .slider-container::after {
+    --ops-panel-corner-radius: 10px;
+    --ops-overlay-screw-size: 22px;
+    --ops-overlay-screw-inset: calc(var(--ops-panel-corner-radius) + 4px);
     content: '';
     position: absolute;
     inset: 0;
@@ -7008,12 +7011,16 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .slider-container::after 
         var(--ops-screw-r73),
         var(--ops-screw-r41),
         var(--ops-screw-r0);
-    background-size: 12px 12px, 12px 12px, 12px 12px, 12px 12px;
+    background-size:
+        var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
+        var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
+        var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
+        var(--ops-overlay-screw-size) var(--ops-overlay-screw-size);
     background-position:
-        6px 6px,
-        calc(100% - 6px) 6px,
-        6px calc(100% - 6px),
-        calc(100% - 6px) calc(100% - 6px);
+        var(--ops-overlay-screw-inset) var(--ops-overlay-screw-inset),
+        calc(100% - var(--ops-overlay-screw-inset)) var(--ops-overlay-screw-inset),
+        var(--ops-overlay-screw-inset) calc(100% - var(--ops-overlay-screw-inset)),
+        calc(100% - var(--ops-overlay-screw-inset)) calc(100% - var(--ops-overlay-screw-inset));
     background-repeat: no-repeat;
     opacity: 0.9;
 }
@@ -7197,12 +7204,18 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
     body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-mech-selector::after,
     body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row::after,
     body.theme-ops1940 .container[class*="ops1940-olive-"] .slider-container::after {
-        background-size: 10px 10px, 10px 10px, 10px 10px, 10px 10px;
+        --ops-overlay-screw-size: 18px;
+        --ops-overlay-screw-inset: 12px;
+        background-size:
+            var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
+            var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
+            var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
+            var(--ops-overlay-screw-size) var(--ops-overlay-screw-size);
         background-position:
-            5px 5px,
-            calc(100% - 5px) 5px,
-            5px calc(100% - 5px),
-            calc(100% - 5px) calc(100% - 5px);
+            var(--ops-overlay-screw-inset) var(--ops-overlay-screw-inset),
+            calc(100% - var(--ops-overlay-screw-inset)) var(--ops-overlay-screw-inset),
+            var(--ops-overlay-screw-inset) calc(100% - var(--ops-overlay-screw-inset)),
+            calc(100% - var(--ops-overlay-screw-inset)) calc(100% - var(--ops-overlay-screw-inset));
         opacity: 0.88;
     }
 
@@ -7213,12 +7226,13 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
 
     body.theme-ops1940 .preset-row {
         gap: 6px;
-        padding: 8px;
+        margin: 8px 0 8px;
+        padding: 6px 8px 5px;
     }
 
     body.theme-ops1940 .preset-row .btn-preset {
-        min-height: 172px;
-        padding: 8px 6px 8px;
+        min-height: 154px;
+        padding: 8px 6px 4px;
         font-size: 10px;
         letter-spacing: 0.2px;
     }
@@ -7230,8 +7244,8 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
     }
 
     body.theme-ops1940 .preset-row .btn-preset::after {
-        width: 58px;
-        height: 58px;
+        width: 87px;
+        height: 87px;
     }
 
     body.theme-ops1940 .preset-row .btn-preset.active::after {
