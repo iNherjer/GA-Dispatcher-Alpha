@@ -8,6 +8,7 @@
     font-weight: bold;
     font-display: swap;
 }
+
 @font-face {
     font-family: 'MS33558';
     src: url('./MS33558.ttf') format('truetype');
@@ -6710,7 +6711,7 @@ body.theme-ops1940 .btn-preset,
 body.theme-ops1940 .pb-btn,
 body.theme-ops1940 .pb-tab {
     min-height: 34px;
-    border-radius: 2px;
+    border-radius: 6px;
     border: 1px solid #030302;
     border-top-color: #3c3123;
     color: #ead8ab;
@@ -6959,7 +6960,7 @@ body.theme-ops1940 .btn-log,
 body.theme-ops1940 .btn-menu {
     position: relative;
     overflow: hidden;
-    border-radius: 4px;
+    border-radius: 8px;
     border: 1px solid #030302;
     border-top-color: #4c3928;
     border-bottom-width: 4px;
@@ -7495,7 +7496,7 @@ body.theme-ops1940 .briefing-photo-attachment {
 }
 
 body.theme-ops1940 .settings-toggle-btn {
-    border-radius: 4px;
+    border-radius: 8px;
     border: 1px solid #050403;
     color: #ead8ab;
     background:
@@ -8100,5 +8101,280 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
         min-width: 84px;
         padding: 7px 9px;
         font-size: 11px;
+    }
+}
+
+/* ==========================================================================
+   25. SETTINGS MENU ORDERING & MANUAL MISSION CONTROL
+   ========================================================================== */
+.settings-panel-inner {
+    display: grid;
+    gap: 12px;
+    padding-top: 12px;
+}
+
+.settings-panel-inner .api-settings,
+.settings-panel-inner .theme-switch-wrapper {
+    margin-top: 0 !important;
+}
+
+.settings-panel-inner .api-settings {
+    padding: 14px;
+    border-top: 0;
+}
+
+.settings-section {
+    box-sizing: border-box;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 10px;
+    background: rgba(18, 22, 28, 0.72);
+}
+
+.settings-section-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.settings-section-title {
+    margin: 0;
+    color: var(--blue);
+    font-size: 12px;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+
+.settings-section-kicker {
+    margin-bottom: 2px;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 9px;
+    line-height: 1.2;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+
+.settings-section-actions,
+.settings-section-status,
+.settings-form-row,
+.settings-action-row,
+.settings-sync-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.settings-section-actions,
+.settings-section-status {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.settings-form-row,
+.settings-action-row,
+.settings-sync-row {
+    margin-bottom: 8px;
+}
+
+.settings-form-row > input,
+.settings-action-row > *,
+.settings-sync-row > * {
+    min-width: 0;
+}
+
+.settings-sync-row > div {
+    min-width: 0;
+}
+
+.mission-control-row {
+    flex-wrap: wrap;
+}
+
+.mission-control-row .btn-preset {
+    flex: 1 1 112px !important;
+    min-width: 0;
+}
+
+.mission-auto-start-btn {
+    color: #10151d;
+    border-color: #4a6b8a;
+    background: linear-gradient(180deg, #9fd3ff, #4f8fcb);
+    font-weight: 900;
+}
+
+.mission-auto-start-btn.is-off {
+    color: #ffe9b5;
+    border-color: #7a4b19;
+    background: linear-gradient(180deg, #4b3218, #241608);
+}
+
+.mission-auto-start-btn.is-on {
+    color: #08120d;
+    border-color: #37764a;
+    background: linear-gradient(180deg, #95e6ad, #4aa368);
+}
+
+.map-mission-btn {
+    color: #08120d !important;
+    border-color: #2d6b40 !important;
+    background: linear-gradient(180deg, #8fe0a8, #3f9a5b) !important;
+    font-weight: 900;
+}
+
+.map-mission-btn.is-active {
+    color: #ffe2df !important;
+    border-color: #7d312d !important;
+    background: linear-gradient(180deg, #74342d, #321411) !important;
+}
+
+@media (max-width: 520px) {
+    .settings-section-head,
+    .settings-form-row,
+    .settings-action-row,
+    .settings-sync-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .settings-section-actions,
+    .settings-section-status {
+        justify-content: flex-start;
+    }
+
+    .mission-control-row .btn-preset {
+        flex-basis: 100% !important;
+    }
+}
+
+body.theme-ops1940 .settings-panel {
+    margin-top: 10px;
+    padding: 8px;
+}
+
+body.theme-ops1940 .settings-panel-inner {
+    gap: 10px;
+    padding-top: 0;
+}
+
+body.theme-ops1940 .settings-section {
+    padding: 10px !important;
+    border: 1px solid rgba(208, 164, 79, 0.28);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(255, 243, 202, 0.055), rgba(0, 0, 0, 0.34)),
+        repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 24px),
+        linear-gradient(180deg, var(--ops-olive-hi, #4f5942), var(--ops-olive-mid, #333a2d) 58%, var(--ops-olive-lo, #1a1f17));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 235, 176, 0.08),
+        inset 0 -8px 14px rgba(0, 0, 0, 0.38),
+        0 4px 10px rgba(0, 0, 0, 0.44);
+}
+
+body.theme-ops1940 .settings-section-head {
+    margin-bottom: 8px;
+    padding-bottom: 7px;
+    border-bottom: 1px solid rgba(208, 164, 79, 0.22);
+}
+
+body.theme-ops1940 .settings-section-kicker {
+    color: rgba(234, 216, 171, 0.58);
+    font-family: 'MS33558', 'Courier New', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+}
+
+body.theme-ops1940 .settings-section-title {
+    color: #f2ca67;
+    font-family: 'MS33558', 'Courier New', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 0 #000;
+}
+
+body.theme-ops1940 .settings-section-status {
+    color: rgba(234, 216, 171, 0.74);
+    font-family: 'Courier New', monospace;
+}
+
+body.theme-ops1940 .settings-form-row,
+body.theme-ops1940 .settings-action-row,
+body.theme-ops1940 .settings-sync-row,
+body.theme-ops1940 .mission-control-row {
+    gap: 6px;
+}
+
+body.theme-ops1940 .settings-section input {
+    margin-bottom: 0;
+    border-color: rgba(208, 164, 79, 0.28);
+}
+
+body.theme-ops1940 .mission-control-row {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+body.theme-ops1940 .mission-control-row .btn-preset {
+    height: 38px !important;
+    min-height: 38px;
+    font-size: 10px;
+    white-space: normal;
+}
+
+body.theme-ops1940 .mission-auto-start-btn.is-on {
+    color: #10200f;
+    border-color: #91b36b;
+    background:
+        linear-gradient(180deg, #d5e7a5, #7d9a52 58%, #31401f),
+        var(--ops-atlas);
+    background-size: auto, 200% 200%;
+}
+
+body.theme-ops1940 .mission-auto-start-btn.is-off {
+    color: #ffd9a8;
+    border-color: #7a321f;
+    background:
+        linear-gradient(180deg, #6a2d20, #31110c 64%, #090302),
+        var(--ops-atlas);
+    background-size: auto, 200% 200%;
+}
+
+body.theme-ops1940 .settings-section .api-hint {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(208, 164, 79, 0.16);
+}
+
+body.theme-ops1940 .settings-theme-section {
+    align-items: stretch !important;
+}
+
+body.theme-ops1940 .settings-theme-section .settings-section-kicker {
+    text-align: center;
+}
+
+body.theme-ops1940 .map-mission-btn {
+    color: #10200f !important;
+    border-color: #91b36b !important;
+    background:
+        linear-gradient(180deg, #d5e7a5, #7d9a52 58%, #31401f),
+        var(--ops-atlas) !important;
+    background-size: auto, 200% 200% !important;
+}
+
+body.theme-ops1940 .map-mission-btn.is-active {
+    color: #ffd9a8 !important;
+    border-color: #7a321f !important;
+    background:
+        linear-gradient(180deg, #6a2d20, #31110c 64%, #090302),
+        var(--ops-atlas) !important;
+    background-size: auto, 200% 200% !important;
+}
+
+@media (max-width: 520px) {
+    body.theme-ops1940 .mission-control-row {
+        grid-template-columns: 1fr;
     }
 }

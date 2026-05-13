@@ -644,11 +644,15 @@
             <span class="settings-toggle-chevron" id="settingsToggleChevron">▾</span>
         </button>
         <div class="settings-panel" id="settingsPanel">
+        <div class="settings-panel-inner">
 
-    <div class="api-settings">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <label style="margin: 0;">🤖 KI-Dispatcher (Gemini API)</label>
-            <div style="display: flex; align-items: center; gap: 15px;">
+    <div class="api-settings settings-section">
+        <div class="settings-section-head">
+            <div>
+                <div class="settings-section-kicker">Aufträge</div>
+                <label class="settings-section-title">KI-Dispatcher</label>
+            </div>
+            <div class="settings-section-actions">
                 <div class="analog-meter api-fuel-meter" title="API Quota (Täglich)">
                     <div class="meter-face">
                         <div class="meter-scale api-scale"></div>
@@ -674,24 +678,25 @@
         </div>
     </div>
 
-    <div class="api-settings" style="margin-top: 15px; padding-top: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <label style="margin: 0;">🆔 Pilot Identity & Sync</label>
+    <div class="api-settings settings-section" style="margin-top: 15px; padding-top: 15px;">
+        <div class="settings-section-head">
+            <div>
+                <div class="settings-section-kicker">Cloud & Mission</div>
+                <label class="settings-section-title">Pilot Identity & Sync</label>
                 <!-- Login Status Indicator -->
                 <div id="loginIndicator" style="display: flex; align-items: center; gap: 5px; font-size: 10px; margin-left: 5px;">
                     <span id="loginLed" style="width: 8px; height: 8px; border-radius: 50%; background: #d93829; box-shadow: 0 0 5px #d93829;"></span>
                     <span id="loginText" style="color: #888;">Offline</span>
                 </div>
             </div>
-            <div style="display: flex; align-items: center;">
+            <div class="settings-section-status">
                 <span id="syncTrafficIndicator" style="font-size: 13px; margin-right: 6px; opacity: 0; transition: opacity 0.3s;"></span>
                 <span id="syncStatus" style="font-size: 10px; color: #888;">Warte auf Login</span>
                 <span id="liveGpsIndicator" style="color: #666; margin-left: 10px; font-size: 14px; font-weight: bold; transition: color 0.3s;" title="Live GPS Status">🛰️ OFF</span>
             </div>
         </div>
         
-        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <div class="settings-form-row">
             <input type="text" id="syncIdInput" placeholder="Pilot-ID" style="flex: 2; margin: 0; font-family: monospace;" oninput="saveSyncId()" autocomplete="off" spellcheck="false" data-1p-ignore>
             <input type="password" id="syncPinInput" placeholder="PIN" maxlength="8" style="flex: 1; margin: 0; font-family: monospace; text-align: center;" oninput="saveSyncId()" autocomplete="off" spellcheck="false" data-1p-ignore>
         </div>
@@ -699,7 +704,7 @@
             🔑 Login
         </button>
 
-        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <div class="settings-sync-row">
             <label class="switch" style="transform: scale(0.6); margin: 0; transform-origin: left;">
                 <input type="checkbox" id="syncToggle" onchange="saveSyncToggle()" disabled>
                 <span class="slider"></span>
@@ -716,9 +721,10 @@
             <label style="margin:0; font-size:12px;">🎯 Missionsstatus</label>
             <span id="missionRuntimeStatus" style="font-size:10px; color:#888;">Wartet auf Boden-Stabilisierung</span>
         </div>
-        <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <div class="mission-control-row" style="display:flex; gap:8px; margin-bottom:8px;">
             <button class="btn-preset" id="missionStartBtn" style="flex:1; margin:0; height:36px; background:#1f3b2a; color:#80e0a0; border-color:#2a5a3a;" onclick="window.manualMissionStart && manualMissionStart()">▶ Mission Start</button>
             <button class="btn-preset" id="missionEndBtn" style="flex:1; margin:0; height:36px; background:#3b2020; color:#ffb4b4; border-color:#6b3d3d;" onclick="window.manualMissionEnd && manualMissionEnd()">■ Mission Ende</button>
+            <button class="btn-preset mission-auto-start-btn" id="missionAutoStartBtn" style="flex:1; margin:0; height:36px;" onclick="window.toggleMissionAutoStart && toggleMissionAutoStart()">AUTO START: AN</button>
         </div>
         
         <div class="api-hint" id="loginHint">
@@ -726,16 +732,19 @@
         </div>
     </div>
 
-    <div class="api-settings" style="margin-top: 15px; padding-top: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <label style="margin: 0;">👥 Crew Board (Multiplayer)</label>
+    <div class="api-settings settings-section" style="margin-top: 15px; padding-top: 15px;">
+        <div class="settings-section-head">
+            <div>
+                <div class="settings-section-kicker">Crew</div>
+                <label class="settings-section-title">Crew Board</label>
+            </div>
             <span id="groupStatus" style="font-size: 10px; color: #888;">Nicht verbunden</span>
         </div>
-        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <div class="settings-form-row">
             <input type="text" id="groupNameInput" placeholder="Crew-Code (z.B. EDTK)" style="flex: 2; margin: 0; font-family: monospace;" autocomplete="off" spellcheck="false">
             <input type="text" id="groupNickInput" placeholder="Anzeigename (Opt.)" style="flex: 2; margin: 0; font-family: monospace;" autocomplete="off" spellcheck="false">
         </div>
-        <div style="display: flex; gap: 8px;">
+        <div class="settings-action-row">
             <button class="btn-preset sync-req-btn" id="joinGroupBtn" style="flex: 1; margin: 0; height: 42px; background: #333; color: #4da6ff;" onclick="joinGroup()" disabled>🤝 Beitreten / Update</button>
             <button class="btn-preset" style="flex: 1; margin: 0; height: 42px; background: #332222; color: #ff4444; border-color: #552222;" onclick="leaveGroup()">🚪 Verlassen</button>
         </div>
@@ -750,7 +759,8 @@
         </div>
     </div>
 
-    <div class="theme-switch-wrapper" style="flex-direction: column; align-items: center; border-top: 2px dashed #444; margin-top: 30px; padding-top: 15px;">
+    <div class="theme-switch-wrapper settings-section settings-theme-section" style="flex-direction: column; align-items: center; border-top: 2px dashed #444; margin-top: 30px; padding-top: 15px;">
+        <div class="settings-section-kicker">Darstellung</div>
         <div style="display: flex; justify-content: space-between; width: 210px; font-size: 10px; font-weight: bold; text-transform: uppercase;">
             <span id="lbl-classic" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(0)">Modern</span>
             <span id="lbl-retro" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(1)">Analog</span>
@@ -759,6 +769,7 @@
         </div>
         <input type="range" id="themeSlider" min="0" max="3" value="0" style="width: 210px; margin-top: 10px; cursor: pointer;" oninput="changeThemeFromSlider(this.value)">
     </div>
+        </div>
         </div>
     </div>
 </div>
@@ -1034,6 +1045,7 @@
                 </div>
             </div>
             <button class="pb-btn" id="freeflightBtn" onclick="toggleFreeflightMode()" style="background:#444; color:#fff;">✈️ Direct To (Aus)</button>
+            <button class="pb-btn map-mission-btn" id="mapMissionToggleBtn" onclick="window.toggleManualMissionRuntime && toggleManualMissionRuntime()" style="display:none;">▶ Mission starten</button>
             <button class="pb-btn close" onclick="document.body.classList.remove('map-is-fullscreen'); document.documentElement.classList.remove('map-is-fullscreen'); toggleMapTable()">❌ Schließen</button>
         </div>
         </div><!-- /#mapToolbarInner -->
