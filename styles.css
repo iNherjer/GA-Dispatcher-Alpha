@@ -3153,11 +3153,22 @@ body.theme-ops1940 .route-weather-source {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    filter: saturate(0.95) contrast(0.98);
+    filter: saturate(1.08) contrast(1.03);
+}
+
+.route-tool-static-map-vfr {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.88;
 }
 
 .route-tool-static-map-marker {
     position: absolute;
+    z-index: 3;
     width: 15px;
     height: 15px;
     transform: translate(-50%, -50%);
@@ -3165,6 +3176,117 @@ body.theme-ops1940 .route-weather-source {
     background: var(--drawer-good);
     border: 2px solid #101820;
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55), 0 3px 10px rgba(0, 0, 0, 0.45);
+}
+
+.route-tool-vfr-map-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background:
+        linear-gradient(135deg, rgba(72, 149, 239, 0.08), transparent 55%),
+        radial-gradient(circle at 52% 48%, rgba(255, 255, 255, 0.08), transparent 28%);
+}
+
+.route-tool-vfr-map-overlay svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.route-tool-vfr-airspace {
+    fill: none;
+    stroke: rgba(25, 85, 190, 0.82);
+    stroke-width: 3.5;
+    stroke-dasharray: 12 8;
+}
+
+.route-tool-vfr-airspace-low {
+    stroke: rgba(25, 85, 190, 0.58);
+    stroke-width: 3;
+}
+
+.route-tool-vfr-circuit-fill {
+    fill: rgba(255, 219, 64, 0.13);
+}
+
+.route-tool-vfr-circuit {
+    fill: none;
+    stroke: rgba(255, 224, 60, 0.98);
+    stroke-width: 4;
+    stroke-dasharray: 9 5;
+    filter: drop-shadow(0 1px 2px rgba(6, 21, 43, 0.65));
+}
+
+.route-tool-vfr-circuit-arrow,
+.route-tool-vfr-runway-center {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.95);
+    stroke-width: 3;
+    stroke-linecap: round;
+}
+
+.route-tool-vfr-runway-shadow {
+    stroke: rgba(5, 10, 18, 0.86);
+    stroke-width: 13;
+    stroke-linecap: round;
+}
+
+.route-tool-vfr-runway {
+    stroke: rgba(245, 245, 240, 0.94);
+    stroke-width: 8;
+    stroke-linecap: round;
+}
+
+.route-tool-vfr-runway-center {
+    stroke-dasharray: 10 8;
+    stroke-width: 2;
+}
+
+.route-tool-vfr-place-dot {
+    fill: var(--drawer-danger);
+    stroke: #fff;
+    stroke-width: 3;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
+}
+
+.route-tool-vfr-label,
+.route-tool-vfr-pattern-label,
+.route-tool-map-badge {
+    font-family: var(--drawer-font-mono);
+    font-weight: 900;
+    letter-spacing: 0;
+}
+
+.route-tool-vfr-label {
+    fill: rgba(255, 255, 255, 0.96);
+    stroke: rgba(8, 24, 54, 0.8);
+    stroke-width: 2;
+    paint-order: stroke;
+    font-size: 17px;
+}
+
+.route-tool-vfr-pattern-label {
+    fill: rgba(255, 255, 255, 0.96);
+    stroke: rgba(8, 24, 54, 0.82);
+    stroke-width: 2;
+    paint-order: stroke;
+    font-size: 12px;
+}
+
+.route-tool-map-badge {
+    position: absolute;
+    right: 7px;
+    top: 7px;
+    z-index: 4;
+    padding: 3px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 5px;
+    background: rgba(18, 56, 128, 0.78);
+    color: #fff;
+    font-size: 10px;
+    line-height: 1;
+    box-shadow: 0 2px 7px rgba(0, 0, 0, 0.38);
 }
 
 .route-tool-place-facts {

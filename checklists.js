@@ -644,6 +644,45 @@
             });
     }
 
+    function runwayHeadingFromRows(rows) {
+        const list = Array.isArray(rows) ? rows : [];
+        for (const row of list) {
+            const ident = String(row?.ident || '');
+            const match = ident.match(/\b([0-3]?\d)(?:[LRC])?(?:\s*[/\\-]\s*([0-3]?\d)(?:[LRC])?)?/i);
+            if (!match) continue;
+            const first = Number(match[1]);
+            const second = Number(match[2]);
+            const value = Number.isFinite(second) && second > 0 ? second : first;
+            if (Number.isFinite(value) && value >= 1 && value <= 36) return (value % 36) * 10;
+        }
+        return 90;
+    }
+
+    function renderVfrPlaceOverlay(rwyRows) {
+        const heading = runwayHeadingFromRows(rwyRows);
+        const patternLabel = rwyRows?.length ? 'Platzrunde' : 'Platzrunde schematisch';
+        return `
+            <div class="route-tool-vfr-map-overlay" aria-hidden="true">
+                <svg viewBox="0 0 320 190" role="img" focusable="false">
+                    <path class="route-tool-vfr-airspace" d="M25 36 C88 8 137 24 190 13 C235 4 284 21 306 49"/>
+                    <path class="route-tool-vfr-airspace route-tool-vfr-airspace-low" d="M10 154 C76 126 123 143 183 124 C242 106 278 125 312 102"/>
+                    <g transform="rotate(${heading} 160 95)">
+                        <path class="route-tool-vfr-circuit-fill" d="M76 49 H244 V141 H76 Z"/>
+                        <path class="route-tool-vfr-circuit" d="M76 49 H244 V141 H76 Z"/>
+                        <path class="route-tool-vfr-circuit-arrow" d="M244 95 l-14 -7 m14 7 l-14 7"/>
+                        <path class="route-tool-vfr-circuit-arrow" d="M76 95 l14 -7 m-14 7 l14 7"/>
+                        <line class="route-tool-vfr-runway-shadow" x1="104" y1="95" x2="216" y2="95"/>
+                        <line class="route-tool-vfr-runway" x1="104" y1="95" x2="216" y2="95"/>
+                        <line class="route-tool-vfr-runway-center" x1="112" y1="95" x2="208" y2="95"/>
+                    </g>
+                    <circle class="route-tool-vfr-place-dot" cx="160" cy="95" r="7"/>
+                    <text class="route-tool-vfr-label" x="14" y="22">VFR</text>
+                    <text class="route-tool-vfr-pattern-label" x="160" y="180" text-anchor="middle">${escapeHtml(patternLabel)}</text>
+                </svg>
+            </div>
+        `;
+    }
+
     function getAipUrlForAirport(apt) {
         if (!apt?.icao || apt.icao === 'GPS' || apt.icao === 'POI') return '';
         try {
@@ -1651,6 +1690,7 @@ ${routeLines}`;
         if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
         return {
             url: `https://a.tile.opentopomap.org/${zoom}/${x}/${y}.png`,
+            vfrUrl: `https://nwy-tiles-api.prod.newaydata.com/tiles/${zoom}/${x}/${y}.png?path=latest/aero/latest`,
             pctX: Math.max(0, Math.min(100, (xFloat - x) * 100)),
             pctY: Math.max(0, Math.min(100, (yFloat - y) * 100))
         };
@@ -1665,7 +1705,7 @@ ${routeLines}`;
         const mapId = placeMapId(label, apt);
         const wxId = placeWeatherId(label, apt);
         const hasCoords = Number.isFinite(apt?.lat) && Number.isFinite(apt?.lon);
-        const tile = hasCoords ? staticMapTile(apt.lat, apt.lon) : null;
+        const tile = hasCoords ? staticMapTile(apt.lat, apt.lon, 12) : null;
         return `
             <div class="route-tool-place-card">
                 <div class="route-tool-place-head">
@@ -1679,7 +1719,10 @@ ${routeLines}`;
                     <div id="${escapeAttr(mapId)}" class="route-tool-mini-map" data-lat="${escapeAttr(apt?.lat)}" data-lon="${escapeAttr(apt?.lon)}">
                         ${tile ? `
                             <img class="route-tool-static-map-img" src="${escapeAttr(tile.url)}" alt="" loading="lazy">
+                            <img class="route-tool-static-map-vfr" src="${escapeAttr(tile.vfrUrl)}" alt="" loading="lazy">
                             <span class="route-tool-static-map-marker" style="left:${tile.pctX.toFixed(1)}%;top:${tile.pctY.toFixed(1)}%"></span>
+                            ${renderVfrPlaceOverlay(rwyRows)}
+                            <span class="route-tool-map-badge">VFR</span>
                         ` : '<span>Keine Kartenposition</span>'}
                     </div>
                     <div class="route-tool-place-facts">
