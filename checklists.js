@@ -15,6 +15,7 @@
     const MAX_TEXT_LENGTH = 220;
     const ROUTE_TOOLS_PROXY = 'https://ga-proxy.einherjer.workers.dev';
     const TOOL_CACHE_TTL_MS = 4 * 60 * 1000;
+    const WEATHER_AI_CACHE_TTL_MS = 12 * 60 * 1000;
     const NEAREST_CACHE_TTL_MS = 2 * 60 * 1000;
     const NEAREST_RADIUS_NM = 50;
     const NEAREST_MOVE_REFRESH_NM = 3;
@@ -149,7 +150,7 @@
     };
 
     const toolState = {
-        weather: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null },
+        weather: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null, aiKey: '', aiUpdatedAt: 0, aiLoading: false },
         radio: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null },
         place: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null },
         nearest: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null, origin: null },
@@ -804,16 +805,23 @@
             const metar = Array.isArray(entry?.data) ? entry.data[0] : null;
             if (!metar) return null;
             const raw = metar.rawOb || metar.raw || '';
+            const temp = Number(metar.temp);
+            const dew = Number(metar.dewp ?? metar.dewpoint);
+            const rh = Number.isFinite(temp) && Number.isFinite(dew) ? relativeHumidityFromTempDew(temp, dew) : null;
             return {
                 source: 'METAR',
                 station: metar.icaoId || code,
                 raw,
                 cat: metar.fltCat || '',
+                observedAt: metar.obsTime || metar.reportTime || metar.receiptTime || entry?.ts || entry?.updatedAt || Date.now(),
                 wind: metar.wdir ? `${metar.wdir}°/${metar.wspd || 0} kt` : '',
                 vis: raw.includes(' 9999 ') ? '>10 km' : (metar.visib ? `${metar.visib} sm` : ''),
                 clouds: formatMetarClouds(raw) || metar.cover || '',
                 wx: metar.wxString || 'NIL',
-                temp: metar.temp != null ? `${metar.temp}°C` : ''
+                temp: Number.isFinite(temp) ? `${Math.round(temp)}°C` : '',
+                dew: Number.isFinite(dew) ? `${Math.round(dew)}°C` : '',
+                rh: Number.isFinite(rh) ? `${rh}%` : '',
+                pressure: parseQnhFromMetar(raw)
             };
         } catch (_) {
             return null;
@@ -835,6 +843,7 @@
                         source: 'Kartenwetter',
                         station: zone.icao || '',
                         cat: zone.fltCat || '',
+                        observedAt: zone.obsTime || zone.reportTime || Date.now(),
                         wind: zone.wdir ? `${zone.wdir}°/${zone.wspd || 0} kt` : '',
                         vis: zone.visib ? `${zone.visib}` : '',
                         clouds: formatKnownCloudLayers(zone.clouds) || (Array.isArray(zone.clouds) ? `${zone.clouds.length} Layer` : ''),
@@ -863,6 +872,26 @@
         const pct = Number(value);
         if (!Number.isFinite(pct)) return null;
         return Math.max(0, Math.min(8, Math.round(pct / 12.5)));
+    }
+
+    function relativeHumidityFromTempDew(tempC, dewC) {
+        const t = Number(tempC);
+        const d = Number(dewC);
+        if (!Number.isFinite(t) || !Number.isFinite(d)) return null;
+        const saturation = Math.exp((17.625 * t) / (243.04 + t));
+        const actual = Math.exp((17.625 * d) / (243.04 + d));
+        return Math.max(0, Math.min(100, Math.round((actual / saturation) * 100)));
+    }
+
+    function parseQnhFromMetar(raw) {
+        const text = String(raw || '');
+        const qnh = text.match(/\bQ(\d{4})\b/);
+        if (qnh) return `${Number(qnh[1])} hPa`;
+        const alt = text.match(/\bA(\d{4})\b/);
+        if (!alt) return '';
+        const inHg = Number(alt[1]) / 100;
+        if (!Number.isFinite(inHg)) return '';
+        return `${Math.round(inHg * 33.8639)} hPa`;
     }
 
     function formatMetarClouds(raw) {
@@ -953,14 +982,23 @@
 
     function weatherFromOpenMeteo(om) {
         if (!om) return null;
+        const temp = Number(om.temp2mC);
+        const dew = Number(om.dewPoint2mC);
+        const rh = Number(om.rh2mPct);
+        const pressure = Number(om.mslPressureHpa);
         return {
             source: 'Open-Meteo',
             station: '',
             cat: '',
+            observedAt: om.time || Date.now(),
             wind: Number.isFinite(Number(om.wspd)) ? `${Math.round(Number(om.wdir || 0))}°/${Math.round(Number(om.wspd))} kt` : '',
             vis: Number.isFinite(Number(om.visibilityM)) ? `${Math.round(Number(om.visibilityM) / 1000)} km` : '',
             clouds: formatOpenMeteoClouds(om),
-            wx: wxCodeText(om.weatherCode, om.precipitationMm, om.rainMm, om.snowfallCm)
+            wx: wxCodeText(om.weatherCode, om.precipitationMm, om.rainMm, om.snowfallCm),
+            temp: Number.isFinite(temp) ? `${Math.round(temp)}°C` : '',
+            dew: Number.isFinite(dew) ? `${Math.round(dew)}°C` : '',
+            rh: Number.isFinite(rh) ? `${Math.round(rh)}%` : '',
+            pressure: Number.isFinite(pressure) ? `${Math.round(pressure)} hPa` : ''
         };
     }
 
@@ -969,7 +1007,7 @@
         if (!cached) return openMeteo;
         if (!openMeteo) return cached;
         const merged = { ...openMeteo, ...cached };
-        ['wind', 'vis', 'clouds', 'wx'].forEach(key => {
+        ['wind', 'vis', 'clouds', 'wx', 'temp', 'dew', 'rh', 'pressure', 'observedAt'].forEach(key => {
             if (!merged[key] || merged[key] === 'NIL' || merged[key] === '—') merged[key] = openMeteo[key] || merged[key];
         });
         if (openMeteo.source && cached.source && cached.source !== openMeteo.source) {
@@ -1001,10 +1039,216 @@
         return { tone: 'good', label: 'Unauffällig', text: 'Die automatisch gefundenen Daten zeigen keine groben roten Flaggen. Trotzdem bitte offizielles Wetterbriefing prüfen.' };
     }
 
+    function weatherDateMs(value) {
+        if (!value) return 0;
+        if (typeof value === 'number') return value > 1e12 ? value : value * 1000;
+        if (/^\d+$/.test(String(value))) {
+            const numeric = Number(value);
+            return numeric > 1e12 ? numeric : numeric * 1000;
+        }
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function formatUtcWeatherTime(value) {
+        const ms = weatherDateMs(value) || Date.now();
+        const date = new Date(ms);
+        if (!Number.isFinite(date.getTime())) return '';
+        return `${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')} Z`;
+    }
+
+    function formatWeatherAge(value) {
+        const ms = weatherDateMs(value);
+        if (!ms) return '';
+        const ageMin = Math.max(0, Math.round((Date.now() - ms) / 60000));
+        if (ageMin < 90) return `${ageMin} min alt`;
+        const ageHours = Math.round(ageMin / 60);
+        return `${ageHours} h alt`;
+    }
+
+    function weatherCardTone(row) {
+        if (!row?.source || row.source === 'Keine Daten') return 'warn';
+        const rank = weatherRiskRank(row);
+        if (rank >= 3) return 'bad';
+        if (rank === 2) return 'warn';
+        if (rank === 1) return 'watch';
+        return 'good';
+    }
+
+    function weatherBadgeLabel(row) {
+        if (!row?.source || row.source === 'Keine Daten') return '?';
+        const cat = String(row?.cat || '').toUpperCase();
+        if (cat) return cat === 'VFR' ? 'V' : cat.slice(0, 1);
+        const tone = weatherCardTone(row);
+        if (tone === 'good') return 'V';
+        if (tone === 'watch') return '?';
+        return '!';
+    }
+
+    function weatherStationTitle(row) {
+        const station = String(row?.station || '').trim().toUpperCase();
+        const name = String(row?.name || row?.label || station || 'Wetterpunkt').trim();
+        if (station && !name.toUpperCase().includes(station)) return `${name} (${station})`;
+        return name || station || 'Wetterpunkt';
+    }
+
+    function weatherSourceTitle(row) {
+        const source = String(row?.source || 'Wetter').split('+')[0].trim().toUpperCase();
+        const label = source.includes('METAR') ? 'METAR' : (source.includes('OPEN') ? 'Modell' : source || 'Wetter');
+        return `${label} from ${formatUtcWeatherTime(row?.observedAt)}`;
+    }
+
+    function renderWeatherFact(label, value, options = {}) {
+        if (!value) return '';
+        const className = options.danger ? ' route-weather-value is-danger' : ' route-weather-value';
+        return `
+            <div class="route-weather-row">
+                <span class="route-weather-label">${escapeHtml(label)}</span>
+                <span class="${className.trim()}">${escapeHtml(value)}</span>
+            </div>
+        `;
+    }
+
+    function renderWeatherStation(row) {
+        const tone = weatherCardTone(row);
+        const observedAt = row?.observedAt || row?.generatedAt;
+        const tempParts = [row?.temp, row?.dew].filter(Boolean).join(' / ');
+        const tempLine = [tempParts, row?.rh].filter(Boolean).join(', ');
+        const wxDanger = weatherRiskRank(row) >= 2;
+        return `
+            <section class="route-weather-station">
+                <h3 class="route-weather-station-title">${escapeHtml(weatherStationTitle(row))}</h3>
+                <article class="route-weather-card is-${escapeAttr(tone)}">
+                    <div class="route-weather-card-head">
+                        <div>
+                            <div class="route-weather-card-title">${escapeHtml(weatherSourceTitle(row))}</div>
+                            ${formatWeatherAge(observedAt) ? `<div class="route-weather-card-age">${escapeHtml(formatWeatherAge(observedAt))}</div>` : ''}
+                        </div>
+                        <span class="route-weather-badge">${escapeHtml(weatherBadgeLabel(row))}</span>
+                    </div>
+                    <div class="route-weather-facts">
+                        ${renderWeatherFact('Wind', row?.wind || '—')}
+                        ${renderWeatherFact('Temperatur', tempLine)}
+                        ${renderWeatherFact('Luftdruck', row?.pressure)}
+                        ${renderWeatherFact('Sichtweite', row?.vis || '—')}
+                        ${renderWeatherFact('Wolken', row?.clouds || '—', { danger: wxDanger && /BKN|OVC|VV|8\/8|5-7\/8/i.test(String(row?.clouds || '')) })}
+                        ${renderWeatherFact('WX', row?.wx && row.wx !== 'NIL' ? row.wx : 'NIL', { danger: wxDanger && row?.wx && row.wx !== 'NIL' })}
+                    </div>
+                    <div class="route-weather-source">${escapeHtml(row?.source || 'Keine Daten')}${row?.station ? ` · ${escapeHtml(row.station)}` : ''}</div>
+                </article>
+            </section>
+        `;
+    }
+
+    function getGeminiApiKey() {
+        try {
+            const input = document.getElementById('apiKeyInput');
+            return String(input?.value || localStorage.getItem('ga_gemini_key') || '').trim();
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function weatherAiCacheKey(routeKey, rows) {
+        const compact = (rows || []).map(r => [
+            r.label, r.name, r.source, r.station, r.wind, r.vis, r.clouds, r.wx, r.cat
+        ].map(v => String(v || '').slice(0, 80)).join('/')).join('|');
+        return `wx-ai:${routeKey}:${compact}`;
+    }
+
+    function weatherAiPrompt(rows, assessment) {
+        const routeLines = rows.map(r => (
+            `${r.label} ${r.name || ''}: Quelle ${r.source || 'keine'}, Station ${r.station || '-'}, Wind ${r.wind || '-'}, Sicht ${r.vis || '-'}, Wolken ${r.clouds || '-'}, Wx ${r.wx || '-'}, Kategorie ${r.cat || '-'}`
+        )).join('\n');
+        return `Du bist ein vorsichtiger VFR-Briefing-Assistent für Privatpiloten. Schreibe auf Deutsch eine kurze, laienverständliche Wetter-Einschätzung entlang einer geplanten Route.
+
+Regeln:
+- Maximal 4 Sätze, keine Markdown-Liste.
+- Keine Freigabe zum Fliegen erteilen, keine Rechtsberatung.
+- Sage klar, was kritisch sein könnte und was zusätzlich offiziell geprüft werden muss.
+- Wenn Daten fehlen oder widersprüchlich sind, sage das deutlich.
+- Nutze einfache Sprache, aber fachlich korrekt.
+
+Regelbasierte Vorbewertung: ${assessment?.label || '-'}: ${assessment?.text || '-'}
+
+Daten:
+${routeLines}`;
+    }
+
+    async function fetchGeminiWeatherText(rows, assessment, signal) {
+        const apiKey = getGeminiApiKey();
+        if (!apiKey || !rows?.length) return null;
+        const payload = {
+            contents: [{ parts: [{ text: weatherAiPrompt(rows, assessment) }] }],
+            generationConfig: {
+                temperature: 0.25,
+                maxOutputTokens: 260
+            }
+        };
+        const options = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        };
+        if (signal) options.signal = signal;
+        const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
+        for (const model of models) {
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, options);
+                if (!res.ok) continue;
+                const data = await res.json();
+                const text = String(data?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+                if (text) {
+                    if (typeof incrementApiUsage === 'function') {
+                        try { incrementApiUsage(model.includes('lite') ? 'lite' : 'flash'); } catch (_) {}
+                    }
+                    return { text: text.replace(/\s+/g, ' '), source: model };
+                }
+            } catch (error) {
+                if (error?.name === 'AbortError') throw error;
+            }
+        }
+        return null;
+    }
+
+    async function maybeGenerateWeatherAi(entry, routeKey, rows, assessment, signal, force = false) {
+        const apiKey = getGeminiApiKey();
+        if (!apiKey || !rows?.length) return;
+        const aiKey = weatherAiCacheKey(routeKey, rows);
+        const ai = entry.data?.ai || {};
+        if (!force && entry.aiKey === aiKey && (Date.now() - entry.aiUpdatedAt) < WEATHER_AI_CACHE_TTL_MS && (ai.text || ai.error)) return;
+        entry.aiKey = aiKey;
+        entry.aiLoading = true;
+        entry.data.ai = { ...ai, loading: true, error: '', text: force ? '' : (ai.text || ''), source: ai.source || '' };
+        if (state.view === 'weather') render();
+        try {
+            const result = await fetchGeminiWeatherText(rows, assessment, signal);
+            if (result?.text) {
+                entry.data.ai = { loading: false, error: '', text: result.text, source: result.source };
+                entry.aiUpdatedAt = Date.now();
+            } else {
+                entry.data.ai = { loading: false, error: 'KI-Einschätzung nicht verfügbar.', text: '', source: '' };
+                entry.aiUpdatedAt = Date.now();
+            }
+        } catch (error) {
+            if (error?.name !== 'AbortError') {
+                entry.data.ai = { loading: false, error: 'KI-Einschätzung konnte nicht geladen werden.', text: '', source: '' };
+                entry.aiUpdatedAt = Date.now();
+            }
+        } finally {
+            entry.aiLoading = false;
+            if (entry.data?.ai?.loading) entry.data.ai.loading = false;
+            if (state.view === 'weather') render();
+        }
+    }
+
     async function ensureWeatherTool(force = false) {
         const key = getRouteKey();
         const entry = toolState.weather;
-        if (!force && isCacheFresh(entry, key)) return;
+        if (!force && isCacheFresh(entry, key)) {
+            await maybeGenerateWeatherAi(entry, key, entry.data?.rows || [], entry.data?.assessment || null, null, false);
+            return;
+        }
         if (entry.loading && entry.key === key && !force) return;
         abortToolRequest('weather');
         entry.loading = true;
@@ -1032,10 +1276,14 @@
                 const icao = idx === 0 ? dep.icao : (idx === samples.length - 1 ? dest.icao : '');
                 const cached = weatherFromMetarCache(icao) || nearestCachedWeatherPoint(p.lat, p.lon);
                 const fromOm = weatherFromOpenMeteo(openMeteo[idx]);
-                return { label, name: p.name || icao || label, lat: p.lat, lon: p.lon, ...mergeWeatherSources(cached, fromOm) };
+                return { label, name: p.name || icao || label, lat: p.lat, lon: p.lon, generatedAt: Date.now(), ...mergeWeatherSources(cached, fromOm) };
             });
-            entry.data = { rows, assessment: buildWeatherAssessment(rows), generatedAt: Date.now() };
+            const assessment = buildWeatherAssessment(rows);
+            entry.data = { rows, assessment, generatedAt: Date.now(), ai: null };
             entry.updatedAt = Date.now();
+            entry.loading = false;
+            if (state.view === 'weather') render();
+            await maybeGenerateWeatherAi(entry, key, rows, assessment, entry.controller?.signal, force);
         } catch (error) {
             if (error?.name !== 'AbortError') entry.error = 'Wetterdaten konnten nicht geladen werden.';
         } finally {
@@ -1051,26 +1299,23 @@
         const data = entry.data;
         const rows = data?.rows || [];
         const assessment = data?.assessment;
-        const body = rows.length ? rows.map(row => `
-            <div class="route-tool-row">
-                <div class="route-tool-row-main">
-                    <div class="route-tool-row-title">${escapeHtml(row.label)} · ${escapeHtml(row.name || '')}</div>
-                    <div class="route-tool-row-meta">${escapeHtml(row.source || 'Keine Daten')}${row.station ? ` · ${escapeHtml(row.station)}` : ''}</div>
-                    <div class="route-tool-mini-grid">
-                        <span>Wind <b>${escapeHtml(row.wind || '—')}</b></span>
-                        <span>Sicht <b>${escapeHtml(row.vis || '—')}</b></span>
-                        <span>Wolken <b>${escapeHtml(row.clouds || '—')}</b></span>
-                        <span>Wx <b>${escapeHtml(row.wx || '—')}</b></span>
-                    </div>
-                </div>
-            </div>
-        `).join('') : renderToolEmpty(entry.loading ? 'Wetter wird sparsam geladen...' : 'Keine Route für Wetterübersicht gefunden.');
+        const ai = data?.ai || null;
+        const body = rows.length
+            ? rows.map(row => renderWeatherStation(row)).join('')
+            : renderToolEmpty(entry.loading ? 'Wetter wird sparsam geladen...' : 'Keine Route für Wetterübersicht gefunden.');
         bodyEl.innerHTML = `
             ${toolTopline('weather')}
             ${assessment ? `
                 <div class="route-tool-summary is-${escapeAttr(assessment.tone)}">
                     <div class="route-tool-summary-label">${escapeHtml(assessment.label)}</div>
                     <div class="route-tool-summary-text">${escapeHtml(assessment.text)}</div>
+                </div>
+            ` : ''}
+            ${ai && (ai.loading || ai.text || ai.error) ? `
+                <div class="route-tool-ai">
+                    <div class="route-tool-summary-label">KI-Einschätzung</div>
+                    <div class="route-tool-summary-text">${escapeHtml(ai.loading ? 'KI formuliert die Lage...' : (ai.text || ai.error || ''))}</div>
+                    ${ai.source ? `<div class="route-tool-row-meta">${escapeHtml(ai.source)}</div>` : ''}
                 </div>
             ` : ''}
             ${entry.error ? `<div class="route-tool-warning">${escapeHtml(entry.error)}</div>` : ''}

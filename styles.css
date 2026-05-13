@@ -2747,6 +2747,7 @@ body.theme-retro .api-fuel-meter .api-scale {
 
 .route-tool-section,
 .route-tool-summary,
+.route-tool-ai,
 .route-tool-place-card,
 .route-tool-nearest {
     border: 1px solid var(--drawer-border-soft);
@@ -2789,6 +2790,15 @@ body.theme-retro .api-fuel-meter .api-scale {
     margin-bottom: 10px;
 }
 
+.route-tool-ai {
+    padding: 12px;
+    margin-bottom: 10px;
+    border-color: color-mix(in srgb, var(--drawer-accent) 34%, transparent);
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--drawer-accent) 14%, transparent), transparent),
+        var(--drawer-surface);
+}
+
 .route-tool-summary.is-good {
     border-color: color-mix(in srgb, var(--drawer-good) 42%, transparent);
     background: color-mix(in srgb, var(--drawer-good) 16%, transparent);
@@ -2815,6 +2825,165 @@ body.theme-retro .api-fuel-meter .api-scale {
     font-size: 13px;
     font-weight: 650;
     line-height: 1.38;
+}
+
+.route-weather-station {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.route-weather-station-title {
+    margin: 6px 2px 0;
+    color: var(--drawer-accent);
+    font-family: var(--drawer-font-main);
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.18;
+    text-align: center;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    overflow-wrap: anywhere;
+}
+
+.route-weather-card {
+    overflow: hidden;
+    border: 1px solid var(--drawer-border-soft);
+    border-top: 5px solid var(--drawer-good);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--drawer-heading) 92%, var(--drawer-panel-bg));
+    box-shadow: 0 2px 7px color-mix(in srgb, #000 18%, transparent);
+    color: #121212;
+}
+
+.route-weather-card.is-watch {
+    border-top-color: var(--drawer-accent);
+}
+
+.route-weather-card.is-warn {
+    border-top-color: var(--drawer-warn);
+}
+
+.route-weather-card.is-bad {
+    border-top-color: var(--drawer-danger);
+}
+
+.route-weather-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 12px 4px;
+}
+
+.route-weather-card-title {
+    color: #050505;
+    font-family: var(--drawer-font-main);
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.15;
+}
+
+.route-weather-card-age,
+.route-weather-source {
+    color: #666;
+    font-size: 14px;
+    font-weight: 750;
+    line-height: 1.25;
+}
+
+.route-weather-card-age {
+    margin-top: 4px;
+}
+
+.route-weather-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    border: 2px solid color-mix(in srgb, #000 58%, transparent);
+    border-radius: 50%;
+    background: var(--drawer-good);
+    color: #fff;
+    font-family: var(--drawer-font-main);
+    font-size: 20px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.route-weather-card.is-watch .route-weather-badge {
+    background: var(--drawer-accent);
+}
+
+.route-weather-card.is-warn .route-weather-badge {
+    background: var(--drawer-warn);
+}
+
+.route-weather-card.is-bad .route-weather-badge {
+    background: var(--drawer-danger);
+}
+
+.route-weather-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 8px 12px 10px;
+}
+
+.route-weather-row {
+    display: grid;
+    grid-template-columns: minmax(86px, 0.44fr) minmax(0, 1fr);
+    gap: 8px;
+    align-items: baseline;
+}
+
+.route-weather-label {
+    color: #6f6f6f;
+    font-family: var(--drawer-font-main);
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.route-weather-value {
+    min-width: 0;
+    color: #050505;
+    font-family: var(--drawer-font-main);
+    font-size: 17px;
+    font-weight: 850;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.route-weather-value.is-danger {
+    color: #d60000;
+}
+
+.route-weather-source {
+    border-top: 1px solid color-mix(in srgb, #000 12%, transparent);
+    padding: 8px 12px 10px;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+body.theme-ops1940 .route-weather-card {
+    background: #efe1bf;
+    color: #261b10;
+}
+
+body.theme-ops1940 .route-weather-card-title,
+body.theme-ops1940 .route-weather-value {
+    color: #1c130b;
+}
+
+body.theme-ops1940 .route-weather-label,
+body.theme-ops1940 .route-weather-card-age,
+body.theme-ops1940 .route-weather-source {
+    color: #5f4930;
 }
 
 .route-tool-row {
