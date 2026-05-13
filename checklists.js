@@ -16,6 +16,7 @@
     const ROUTE_TOOLS_PROXY = 'https://ga-proxy.einherjer.workers.dev';
     const TOOL_CACHE_TTL_MS = 4 * 60 * 1000;
     const WEATHER_AI_CACHE_TTL_MS = 12 * 60 * 1000;
+    const WEATHER_METAR_RADIUS_NM = 70;
     const NEAREST_CACHE_TTL_MS = 2 * 60 * 1000;
     const NEAREST_RADIUS_NM = 50;
     const NEAREST_MOVE_REFRESH_NM = 3;
@@ -797,35 +798,120 @@
         return out;
     }
 
+    function metarToWeather(metar, fallbackCode = '', distNm = null) {
+        if (!metar || typeof metar !== 'object') return null;
+        const code = String(metar.icaoId || fallbackCode || '').trim().toUpperCase();
+        const raw = metar.rawOb || metar.raw || '';
+        const temp = Number(metar.temp);
+        const dew = Number(metar.dewp ?? metar.dewpoint);
+        const rh = Number.isFinite(temp) && Number.isFinite(dew) ? relativeHumidityFromTempDew(temp, dew) : null;
+        const hasWindDir = metar.wdir !== undefined && metar.wdir !== null && String(metar.wdir).trim() !== '';
+        const windDir = hasWindDir ? String(metar.wdir).toUpperCase() : '';
+        const wind = windDir
+            ? `${windDir === 'VRB' ? 'VRB' : `${metar.wdir}°`}/${metar.wspd || 0}${metar.wgst ? `G${metar.wgst}` : ''} kt`
+            : '';
+        const source = Number.isFinite(Number(distNm)) ? `METAR nahe ${fmtNm(distNm)} NM` : 'METAR';
+        return {
+            source,
+            station: code,
+            raw,
+            cat: metar.fltCat || metar.fltcat || '',
+            observedAt: metar.obsTime || metar.reportTime || metar.receiptTime || Date.now(),
+            wind,
+            vis: /\b9999\b/.test(raw) ? '>10 km' : (metar.visib ? `${metar.visib} sm` : ''),
+            clouds: formatMetarClouds(raw) || metar.cover || '',
+            wx: metar.wxString || 'NIL',
+            temp: Number.isFinite(temp) ? `${Math.round(temp)}°C` : '',
+            dew: Number.isFinite(dew) ? `${Math.round(dew)}°C` : '',
+            rh: Number.isFinite(rh) ? `${rh}%` : '',
+            pressure: parseQnhFromMetar(raw) || formatMetarPressure(metar)
+        };
+    }
+
     function weatherFromMetarCache(icao) {
         const code = String(icao || '').trim().toUpperCase();
         if (!code) return null;
         try {
             const entry = (typeof gpsState !== 'undefined' && gpsState?.metarCache) ? gpsState.metarCache[code] : null;
             const metar = Array.isArray(entry?.data) ? entry.data[0] : null;
-            if (!metar) return null;
-            const raw = metar.rawOb || metar.raw || '';
-            const temp = Number(metar.temp);
-            const dew = Number(metar.dewp ?? metar.dewpoint);
-            const rh = Number.isFinite(temp) && Number.isFinite(dew) ? relativeHumidityFromTempDew(temp, dew) : null;
-            return {
-                source: 'METAR',
-                station: metar.icaoId || code,
-                raw,
-                cat: metar.fltCat || '',
-                observedAt: metar.obsTime || metar.reportTime || metar.receiptTime || entry?.ts || entry?.updatedAt || Date.now(),
-                wind: metar.wdir ? `${metar.wdir}°/${metar.wspd || 0} kt` : '',
-                vis: raw.includes(' 9999 ') ? '>10 km' : (metar.visib ? `${metar.visib} sm` : ''),
-                clouds: formatMetarClouds(raw) || metar.cover || '',
-                wx: metar.wxString || 'NIL',
-                temp: Number.isFinite(temp) ? `${Math.round(temp)}°C` : '',
-                dew: Number.isFinite(dew) ? `${Math.round(dew)}°C` : '',
-                rh: Number.isFinite(rh) ? `${rh}%` : '',
-                pressure: parseQnhFromMetar(raw)
-            };
+            return metarToWeather(metar, code);
         } catch (_) {
             return null;
         }
+    }
+
+    function parseMetarPayload(payload) {
+        if (Array.isArray(payload)) return payload;
+        if (payload && Array.isArray(payload.data)) return payload.data;
+        if (payload && Array.isArray(payload.results)) return payload.results;
+        if (payload && typeof payload.contents === 'string') {
+            try {
+                const nested = JSON.parse(payload.contents);
+                if (Array.isArray(nested)) return nested;
+                if (nested && Array.isArray(nested.data)) return nested.data;
+            } catch (_) {}
+        }
+        return [];
+    }
+
+    function cacheMetarsForWidgets(metars) {
+        if (!Array.isArray(metars) || typeof gpsState === 'undefined' || !gpsState?.metarCache) return;
+        metars.forEach(m => {
+            const code = String(m?.icaoId || '').trim().toUpperCase();
+            if (!code) return;
+            gpsState.metarCache[code] = { data: [m], isFallback: false, foundIcao: code, updatedAt: Date.now() };
+        });
+    }
+
+    async function fetchRouteMetarsForWeather(points, signal) {
+        const bounds = routeBounds(points, WEATHER_METAR_RADIUS_NM);
+        if (!bounds) return [];
+        const src = `https://aviationweather.gov/api/data/metar?bbox=${bounds.minLat},${bounds.minLon},${bounds.maxLat},${bounds.maxLon}&format=json&t=${Date.now()}`;
+        const payload = await fetchJson(`${ROUTE_TOOLS_PROXY}/api/metar?src=${encodeURIComponent(src)}`, signal);
+        const metars = parseMetarPayload(payload)
+            .filter(m => m && Number.isFinite(Number(m.lat)) && Number.isFinite(Number(m.lon)));
+        cacheMetarsForWidgets(metars);
+        return metars;
+    }
+
+    function cachedMetarList() {
+        try {
+            if (typeof gpsState === 'undefined' || !gpsState?.metarCache) return [];
+            const out = [];
+            Object.values(gpsState.metarCache).forEach(entry => {
+                const data = Array.isArray(entry?.data) ? entry.data : [];
+                data.forEach(m => {
+                    if (m && Number.isFinite(Number(m.lat)) && Number.isFinite(Number(m.lon))) out.push(m);
+                });
+            });
+            return out;
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function nearestMetarWeatherPoint(lat, lon, metars = [], maxNm = WEATHER_METAR_RADIUS_NM) {
+        const all = [];
+        const seen = new Set();
+        [...(Array.isArray(metars) ? metars : []), ...cachedMetarList()].forEach(m => {
+            const key = String(m?.icaoId || m?.rawOb || m?.raw || `${m?.lat},${m?.lon}`).trim();
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            all.push(m);
+        });
+        let best = null;
+        let bestDist = Infinity;
+        all.forEach(m => {
+            const mLat = Number(m?.lat), mLon = Number(m?.lon);
+            if (!Number.isFinite(mLat) || !Number.isFinite(mLon)) return;
+            const nav = navBetween(lat, lon, mLat, mLon);
+            if (nav.dist < bestDist) {
+                bestDist = nav.dist;
+                best = m;
+            }
+        });
+        if (!best || bestDist > maxNm) return null;
+        return metarToWeather(best, best.icaoId, bestDist);
     }
 
     function nearestCachedWeatherPoint(lat, lon) {
@@ -892,6 +978,14 @@
         const inHg = Number(alt[1]) / 100;
         if (!Number.isFinite(inHg)) return '';
         return `${Math.round(inHg * 33.8639)} hPa`;
+    }
+
+    function formatMetarPressure(metar) {
+        const p = Number(metar?.mslp ?? metar?.slp ?? metar?.altim);
+        if (!Number.isFinite(p)) return '';
+        if (p >= 850 && p <= 1100) return `${Math.round(p)} hPa`;
+        if (p >= 25 && p <= 33) return `${Math.round(p * 33.8639)} hPa`;
+        return '';
     }
 
     function formatMetarClouds(raw) {
@@ -1258,6 +1352,14 @@ ${routeLines}`;
         if (state.view === 'weather') render();
         try {
             const samples = pickRouteSamplePoints(5);
+            let routeMetars = [];
+            if (samples.length) {
+                try {
+                    routeMetars = await fetchRouteMetarsForWeather(samples, entry.controller.signal);
+                } catch (_) {
+                    routeMetars = [];
+                }
+            }
             let openMeteo = [];
             if (samples.length && typeof window.fetchOpenMeteoWeatherPoints === 'function') {
                 try {
@@ -1274,7 +1376,7 @@ ${routeLines}`;
             const rows = samples.map((p, idx) => {
                 const label = idx === 0 ? 'Start' : (idx === samples.length - 1 ? 'Ziel' : `Route ${idx}`);
                 const icao = idx === 0 ? dep.icao : (idx === samples.length - 1 ? dest.icao : '');
-                const cached = weatherFromMetarCache(icao) || nearestCachedWeatherPoint(p.lat, p.lon);
+                const cached = weatherFromMetarCache(icao) || nearestMetarWeatherPoint(p.lat, p.lon, routeMetars) || nearestCachedWeatherPoint(p.lat, p.lon);
                 const fromOm = weatherFromOpenMeteo(openMeteo[idx]);
                 return { label, name: p.name || icao || label, lat: p.lat, lon: p.lon, generatedAt: Date.now(), ...mergeWeatherSources(cached, fromOm) };
             });
