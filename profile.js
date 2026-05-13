@@ -2980,11 +2980,12 @@ const VP_OM_LEVEL_DEFAULT_FT = {
     500: 18200
 };
 const VP_STD_MSL_PRESSURE_HPA = 1013.25;
-const VP_OM_CACHE_TTL_MS = 15 * 60 * 1000;
+const VP_OM_CACHE_TTL_MS = 30 * 60 * 1000;
 const VP_OM_STALE_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
 const VP_OM_COOLDOWN_MS = 15 * 60 * 1000;
+const VP_OM_DAILY_LIMIT_STORAGE_KEY = 'ga_om_daily_limit_until_v1';
 const VP_METAR_RECOVERY_PROBE_MS = 2 * 60 * 1000;
-const VP_METAR_ROUTE_CACHE_TTL_MS = 10 * 60 * 1000;
+const VP_METAR_ROUTE_CACHE_TTL_MS = 30 * 60 * 1000;
 const VP_METAR_ROUTE_CACHE_MAX = 24;
 const VP_METAR_FAIL_COOLDOWN_MS = 4 * 60 * 1000;
 const VP_METAR_FAIL_COOLDOWN_SOFT_MS = 45 * 1000;
@@ -3001,14 +3002,19 @@ const VP_OM_CACHE_STORAGE_KEY = 'ga_om_cache_v2';
 const VP_OM_CACHE_MAX_ENTRIES = 900;
 const VP_OM_COORD_STEP_BASE = 0.05;     // ~3 NM
 const VP_OM_COORD_STEP_PRESS = 0.075;   // ~4-5 NM
-const VP_WEATHER_AUTO_FALLBACK_DEFAULT = false;
+const VP_HDG_WEATHER_CHUNK_CACHE_TTL_MS = 30 * 60 * 1000;
+const VP_HDG_WEATHER_CHUNK_CACHE_MAX = 80;
+const VP_WEATHER_AUTO_FALLBACK_DEFAULT = true;
 const vpOpenMeteoPointCache = new Map();
+const vpOpenMeteoPointInFlight = new Map();
 const vpMetarChunkCache = new Map();
 const vpMetarProxyBackoff = new Map();
 const vpMetarPrefetchInFlight = new Set();
+const vpHdgWeatherChunkCache = new Map();
 let vpOmCacheHydrated = false;
 let vpOmCachePersistTimer = null;
 const vpMetarRouteCache = new Map();
+window.vpOpenMeteoDailyLimitUntil = Number(localStorage.getItem(VP_OM_DAILY_LIMIT_STORAGE_KEY) || 0);
 window.vpWeatherFallbackActive = false;
 window.vpWeatherFallbackMode = 'none'; // none | openmeteo_to_metar | metar_to_openmeteo
 window.vpWeatherAutoFallbackFrom = null; // metar | null
@@ -3045,6 +3051,8 @@ window.vpWeatherDebug = window.vpWeatherDebug || {
     lastErrorMsg: '',
     openMeteo429Count: 0,
     last429At: 0,
+    openMeteoDailyLimitCount: 0,
+    openMeteoDailyLimitUntil: Number(window.vpOpenMeteoDailyLimitUntil || 0),
     elevation429Count: 0,
     lastElevation429At: 0,
     overpassRequests: 0,
@@ -3265,10 +3273,58 @@ function vpBuildApproxElevationProfile(interpolated) {
 }
 
 function vpIsOpenMeteoCoolingDown(now = Date.now()) {
+    const dailyUntil = Number(window.vpOpenMeteoDailyLimitUntil || 0);
+    if (dailyUntil > now) return true;
     const last429 = Number(window.vpWeatherDebug?.last429At || 0);
     return last429 > 0 && (now - last429) < VP_OM_COOLDOWN_MS;
 }
 window.vpIsOpenMeteoCoolingDown = vpIsOpenMeteoCoolingDown;
+
+function vpNextUtcMidnightMs(now = Date.now()) {
+    const d = new Date(now);
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 10, 0);
+}
+
+function vpLooksLikeDailyOpenMeteoLimit(text) {
+    return /daily\s+api\s+request\s+limit|try\s+again\s+tomorrow|daily\s+limit/i.test(String(text || ''));
+}
+
+function vpSetOpenMeteoDailyLimit(untilMs = vpNextUtcMidnightMs(), reason = 'daily limit') {
+    const until = Math.max(Date.now() + VP_OM_COOLDOWN_MS, Number(untilMs || 0));
+    window.vpOpenMeteoDailyLimitUntil = Math.max(Number(window.vpOpenMeteoDailyLimitUntil || 0), until);
+    try { localStorage.setItem(VP_OM_DAILY_LIMIT_STORAGE_KEY, String(window.vpOpenMeteoDailyLimitUntil)); } catch (_) {}
+    if (window.vpWeatherDebug) {
+        window.vpWeatherDebug.openMeteoDailyLimitCount += 1;
+        window.vpWeatherDebug.openMeteoDailyLimitUntil = window.vpOpenMeteoDailyLimitUntil;
+        window.vpWeatherDebug.last429At = Date.now();
+    }
+    vpSetWeatherFallbackMode('openmeteo_to_metar', `openmeteo daily limit: ${reason}`);
+    vpWeatherDebugEvent(`Open-Meteo daily limit until ${vpFormatDebugTs(window.vpOpenMeteoDailyLimitUntil)}`);
+}
+
+function vpRecordOpenMeteo429Text(text = '', context = '') {
+    const dbg = window.vpWeatherDebug;
+    if (dbg) {
+        dbg.openMeteo429Count += 1;
+        dbg.last429At = Date.now();
+    }
+    if (vpLooksLikeDailyOpenMeteoLimit(text)) {
+        vpSetOpenMeteoDailyLimit(vpNextUtcMidnightMs(), context || text || '429');
+    } else {
+        vpWeatherDebugEvent(`Open-Meteo 429 rate limit${context ? ` (${context})` : ''}`);
+    }
+}
+
+window.vpRecordOpenMeteo429FromResponse = async function(res, context = '') {
+    let text = '';
+    try { text = await res.clone().text(); } catch (_) {}
+    vpRecordOpenMeteo429Text(text, context);
+    return text;
+};
+
+window.vpIsOpenMeteoDailyLimited = function(now = Date.now()) {
+    return Number(window.vpOpenMeteoDailyLimitUntil || 0) > now;
+};
 
 function vpIsOpenMeteoDisplayActive() {
     const fbMode = String(window.vpWeatherFallbackMode || 'none');
@@ -3498,7 +3554,7 @@ window.vpBuildWeatherDebugReport = function() {
         : (fbMode === 'metar_to_openmeteo' ? ' (Fallback OPEN-METEO aktiv)' : '');
     lines.push(`Quelle aktiv: ${(window.vpWeatherSource || 'metar').toUpperCase()}${fbLabel}`);
     lines.push(`Terrain Quelle: ${(window.vpTerrainElevationSource || 'terrarium').toUpperCase()}${window.vpElevationFallbackActive ? ' (Fallback aktiv)' : ''}`);
-    lines.push(`Refresh Intervall: 15 min`);
+    lines.push(`Refresh Intervall: 30 min`);
     lines.push('');
     lines.push('Open-Meteo Verbrauch');
     lines.push(`- Netzwerk-Requests (Session): ${approxCalls}`);
@@ -3507,6 +3563,7 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`- Cache Hit/Miss: ${hit}/${miss} (Hitrate ${hitRate}%)`);
     lines.push(`- Cache Einträge (RAM): ${cacheTotal}/${VP_OM_CACHE_MAX_ENTRIES}`);
     lines.push(`- Cache Hydrate/Persist: ${dbg.cacheHydratedEntries || 0} geladen, ${dbg.cachePersistWrites || 0} gespeichert`);
+    lines.push(`- HDG Wetter-Chunk-Cache: ${vpHdgWeatherChunkCache.size}/${VP_HDG_WEATHER_CHUNK_CACHE_MAX}`);
     lines.push(`- METAR Chunk-Cache (RAM): ${vpMetarChunkCache.size}/${VP_METAR_CHUNK_CACHE_MAX}`);
     lines.push(`- METAR Proxy-Cooldowns: ${vpMetarProxyBackoff.size}`);
     lines.push('');
@@ -3574,6 +3631,7 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`- METAR Route-Cache: ${vpMetarRouteCache.size}/${VP_METAR_ROUTE_CACHE_MAX}`);
     lines.push(`- Letzter Fallback: ${vpFormatDebugTs(dbg.fallbackLastAt)}${dbg.fallbackLastReason ? ` (${dbg.fallbackLastReason})` : ''}`);
     lines.push(`- Open-Meteo 429: ${dbg.openMeteo429Count || 0} (letzter: ${vpFormatDebugTs(dbg.last429At)})`);
+    lines.push(`- Open-Meteo Tageslimit: ${window.vpIsOpenMeteoDailyLimited && window.vpIsOpenMeteoDailyLimited() ? `Ja bis ${vpFormatDebugTs(Number(window.vpOpenMeteoDailyLimitUntil || 0))}` : 'Nein'} (Treffer: ${dbg.openMeteoDailyLimitCount || 0})`);
     lines.push(`- Elevation 429: ${dbg.elevation429Count || 0} (letzter: ${vpFormatDebugTs(dbg.lastElevation429At)})`);
     lines.push(`- Cooldown aktiv: ${vpIsOpenMeteoCoolingDown() ? 'Ja' : 'Nein'}`);
     lines.push(`- Terrain Fallback: ${dbg.elevationFallbackCount || 0} (letzter: ${vpFormatDebugTs(dbg.lastElevationFallbackAt)}${dbg.lastElevationFallbackReason ? ` / ${dbg.lastElevationFallbackReason}` : ''})`);
@@ -3946,7 +4004,13 @@ async function vpFetchOpenMeteoPoint(lat, lon, { signal, includePressure = false
         return null;
     }
     if (window.vpWeatherDebug) window.vpWeatherDebug.openMeteoCacheMisses += 1;
+    const inFlight = vpOpenMeteoPointInFlight.get(cacheKey);
+    if (inFlight) {
+        if (window.vpWeatherDebug) window.vpWeatherDebug.openMeteoCacheHits += 1;
+        return inFlight;
+    }
 
+    const loadPromise = (async () => {
     const hourlyVars = [
         'pressure_msl',
         'cloud_cover',
@@ -3977,10 +4041,8 @@ async function vpFetchOpenMeteoPoint(lat, lon, { signal, includePressure = false
     if (window.vpWeatherDebug) window.vpWeatherDebug.openMeteoNetworkRequests += 1;
     const res = await fetch(url, { signal });
     if (!res.ok) {
-        if (res.status === 429 && window.vpWeatherDebug) {
-            window.vpWeatherDebug.openMeteo429Count += 1;
-            window.vpWeatherDebug.last429At = Date.now();
-            vpWeatherDebugEvent('Open-Meteo 429 rate limit');
+        if (res.status === 429) {
+            await window.vpRecordOpenMeteo429FromResponse?.(res, 'point forecast');
         }
         throw new Error(`Open-Meteo HTTP ${res.status}`);
     }
@@ -4050,6 +4112,13 @@ async function vpFetchOpenMeteoPoint(lat, lon, { signal, includePressure = false
     vpSchedulePersistOpenMeteoCache();
     if (window.vpWeatherDebug) window.vpWeatherDebug.lastSuccessAt = Date.now();
     return sample;
+    })();
+    vpOpenMeteoPointInFlight.set(cacheKey, loadPromise);
+    try {
+        return await loadPromise;
+    } finally {
+        vpOpenMeteoPointInFlight.delete(cacheKey);
+    }
 }
 
 window.fetchOpenMeteoWeatherPoints = async function(points, { signal, includePressure = false, maxConcurrency = 6 } = {}) {
@@ -4212,12 +4281,7 @@ async function fetchRouteWeather(routePts, elevData, signal) {
     const metarRouteKey = vpBuildMetarRouteCacheKey(routePts, elevData);
     if (source === 'openmeteo') {
         if (vpIsOpenMeteoCoolingDown()) {
-            if (!autoFallback) {
-                vpSetWeatherFallbackMode('none', 'auto fallback disabled');
-                vpWeatherDebugEvent('OM cooldown, no METAR fallback (auto fallback disabled)');
-                return null;
-            }
-            vpSetWeatherFallbackMode('openmeteo_to_metar', 'openmeteo cooldown after 429');
+            vpSetWeatherFallbackMode('openmeteo_to_metar', window.vpIsOpenMeteoDailyLimited?.() ? 'openmeteo daily limit' : 'openmeteo cooldown after 429');
             const metar = await fetchRouteWeatherMetar(routePts, elevData, signal, { fastFail: false });
             if (Array.isArray(metar) && metar.length > 0) vpSetMetarRouteCache(metarRouteKey, metar);
             return metar;
@@ -4233,7 +4297,7 @@ async function fetchRouteWeather(routePts, elevData, signal) {
             console.warn('[Wetter] Open-Meteo fehlgeschlagen, Fallback auf METAR:', e);
             vpWeatherDebugSetError(e, 'openmeteo route');
         }
-        if (!autoFallback) {
+        if (!autoFallback && !window.vpIsOpenMeteoDailyLimited?.()) {
             vpSetWeatherFallbackMode('none', 'auto fallback disabled');
             vpWeatherDebugEvent('OM failed/incomplete, no METAR fallback (auto fallback disabled)');
             return null;
@@ -4270,12 +4334,14 @@ async function fetchRouteWeather(routePts, elevData, signal) {
         } else {
             vpSetWeatherFallbackMode('metar_to_openmeteo', 'metar cooldown active');
         }
-        try {
-            const omCd = await fetchRouteWeatherOpenMeteo(routePts, elevData, signal);
-            if (vpHasUsableOpenMeteoRouteData(omCd)) return omCd;
-        } catch (e) {
-            if (e && e.name === 'AbortError') throw e;
-            vpWeatherDebugSetError(e, 'metar cooldown openmeteo fallback');
+        if (!vpIsOpenMeteoCoolingDown(now)) {
+            try {
+                const omCd = await fetchRouteWeatherOpenMeteo(routePts, elevData, signal);
+                if (vpHasUsableOpenMeteoRouteData(omCd)) return omCd;
+            } catch (e) {
+                if (e && e.name === 'AbortError') throw e;
+                vpWeatherDebugSetError(e, 'metar cooldown openmeteo fallback');
+            }
         }
     }
 
@@ -4308,18 +4374,22 @@ async function fetchRouteWeather(routePts, elevData, signal) {
     vpWeatherDebugEvent('METAR leer/failed -> versuche Open-Meteo Fallback');
     try { console.warn('[Wetter] METAR fehlgeschlagen, versuche Open-Meteo Fallback...'); } catch (_) {}
 
-    try {
-        const om = await fetchRouteWeatherOpenMeteo(routePts, elevData, signal);
-        if (vpHasUsableOpenMeteoRouteData(om)) {
-            window.vpWeatherAutoFallbackFrom = 'metar';
-            vpSetWeatherFallbackMode('metar_to_openmeteo', 'metar unavailable');
-            vpWeatherDebugEvent('METAR -> OPEN-METEO auto fallback aktiv');
-            return om;
+    if (!vpIsOpenMeteoCoolingDown()) {
+        try {
+            const om = await fetchRouteWeatherOpenMeteo(routePts, elevData, signal);
+            if (vpHasUsableOpenMeteoRouteData(om)) {
+                window.vpWeatherAutoFallbackFrom = 'metar';
+                vpSetWeatherFallbackMode('metar_to_openmeteo', 'metar unavailable');
+                vpWeatherDebugEvent('METAR -> OPEN-METEO auto fallback aktiv');
+                return om;
+            }
+            vpWeatherDebugEvent('Open-Meteo Fallback lieferte keine verwertbaren Zonen');
+        } catch (e) {
+            if (e && e.name === 'AbortError') throw e;
+            vpWeatherDebugSetError(e, 'metar fallback openmeteo route');
         }
-        vpWeatherDebugEvent('Open-Meteo Fallback lieferte keine verwertbaren Zonen');
-    } catch (e) {
-        if (e && e.name === 'AbortError') throw e;
-        vpWeatherDebugSetError(e, 'metar fallback openmeteo route');
+    } else {
+        vpWeatherDebugEvent('Open-Meteo Fallback wegen Cooldown/Tageslimit uebersprungen');
     }
 
     vpSetWeatherFallbackMode('metar_to_openmeteo', 'metar unavailable');
@@ -9019,6 +9089,38 @@ function vpConvertHdgWeatherZonesToMinutes(zonesNm, gs) {
     }));
 }
 
+function vpGetHdgWeatherChunkCache(key, now = Date.now()) {
+    if (!key) return null;
+    const entry = vpHdgWeatherChunkCache.get(key);
+    if (!entry || !Array.isArray(entry.zones)) return null;
+    if ((now - Number(entry.ts || 0)) > VP_HDG_WEATHER_CHUNK_CACHE_TTL_MS) {
+        vpHdgWeatherChunkCache.delete(key);
+        return null;
+    }
+    return entry.zones.map(z => ({
+        ...z,
+        clouds: vpCloneClouds(z.clouds),
+        pressureProfile: vpClonePressureProfile(z.pressureProfile)
+    }));
+}
+
+function vpSetHdgWeatherChunkCache(key, zones, now = Date.now()) {
+    if (!key || !Array.isArray(zones) || zones.length === 0) return;
+    vpHdgWeatherChunkCache.set(key, {
+        ts: now,
+        zones: zones.map(z => ({
+            ...z,
+            clouds: vpCloneClouds(z.clouds),
+            pressureProfile: vpClonePressureProfile(z.pressureProfile)
+        }))
+    });
+    if (vpHdgWeatherChunkCache.size <= VP_HDG_WEATHER_CHUNK_CACHE_MAX) return;
+    const stale = Array.from(vpHdgWeatherChunkCache.entries())
+        .sort((a, b) => Number((a[1] && a[1].ts) || 0) - Number((b[1] && b[1].ts) || 0))
+        .slice(0, Math.max(1, vpHdgWeatherChunkCache.size - VP_HDG_WEATHER_CHUNK_CACHE_MAX));
+    stale.forEach(([k]) => vpHdgWeatherChunkCache.delete(k));
+}
+
 async function vpUpdateHdgWeather(lat, lon, hdg, gs, dHdg, dPos) {
     const weatherNeeded = vpShowClouds || vpShowIsobars || vpShowWindComponents;
     if (!weatherNeeded || !Array.isArray(vpHdgElevData) || vpHdgElevData.length < 2) return;
@@ -9054,6 +9156,18 @@ async function vpUpdateHdgWeather(lat, lon, hdg, gs, dHdg, dPos) {
     const routePts = elevNm.map(p => ({ lat: p.lat, lon: p.lon, lng: p.lon }));
     if (routePts.length < 2) return;
     const coverageKey = vpBuildCoverageKeyFromPoints(routePts, 0.1);
+    const hdgChunkKey = `${window.vpWeatherSource || vpWeatherSource || 'metar'}:${coverageKey || 'none'}`;
+    const cachedZonesNm = vpGetHdgWeatherChunkCache(hdgChunkKey, now);
+    if (cachedZonesNm) {
+        const zonesMin = vpConvertHdgWeatherZonesToMinutes(cachedZonesNm, gs);
+        const blendAlpha = mediumTurn ? 0.34 : 0.46;
+        vpWeatherData = vpBlendHdgWeatherZones(vpWeatherData, zonesMin, blendAlpha);
+        vpHdgWeatherLastSignature = signature;
+        vpHdgWeatherCoverageKey = coverageKey;
+        vpHdgWeatherLastHardRefreshTs = now;
+        window.vpBgNeedsUpdate = true;
+        return;
+    }
     const areaChanged = !!coverageKey && coverageKey !== vpHdgWeatherCoverageKey;
     const refreshDue = (now - vpHdgWeatherLastHardRefreshTs) >= VP_OM_CACHE_TTL_MS;
     if (!areaChanged && !refreshDue) {
@@ -9082,6 +9196,7 @@ async function vpUpdateHdgWeather(lat, lon, hdg, gs, dHdg, dPos) {
         const zonesNm = await fetchRouteWeather(routePts, elevNm, signal);
         if (signal.aborted || vpMode !== 'HDG') return;
         if (!Array.isArray(zonesNm) || zonesNm.length === 0) return;
+        vpSetHdgWeatherChunkCache(hdgChunkKey, zonesNm, now);
 
         const zonesMin = vpConvertHdgWeatherZonesToMinutes(zonesNm, gs);
         const blendAlpha = highTurn ? 0.24 : (mediumTurn ? 0.34 : 0.46);

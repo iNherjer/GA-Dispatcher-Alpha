@@ -3953,7 +3953,12 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints, ampelMode = null) {
     } else {
         const sunriseUrl = `https://api.open-meteo.com/v1/forecast?latitude=${centerLat.toFixed(4)}&longitude=${centerLon.toFixed(4)}&daily=${encodeURIComponent('sunrise,sunset')}&forecast_days=1&timezone=auto`;
         const sunRes = await fetch(sunriseUrl);
-        if (!sunRes.ok) throw new Error(`sunrise HTTP ${sunRes.status}`);
+        if (!sunRes.ok) {
+            if (sunRes.status === 429 && typeof window.vpRecordOpenMeteo429FromResponse === 'function') {
+                await window.vpRecordOpenMeteo429FromResponse(sunRes, 'vfr sunrise');
+            }
+            throw new Error(`sunrise HTTP ${sunRes.status}`);
+        }
         const sunData = await sunRes.json();
         const srIso = sunData?.daily?.sunrise?.[0];
         const ssIso = sunData?.daily?.sunset?.[0];
@@ -3990,7 +3995,12 @@ async function vpFetchVfrSectorTimelines(bounds, gridPoints, ampelMode = null) {
         if (pastHours > 0) timelineUrl += `&past_hours=${pastHours}`;
         if (forecastHours > 0) timelineUrl += `&forecast_hours=${forecastHours}`;
         const tlRes = await fetch(timelineUrl);
-        if (!tlRes.ok) throw new Error(`timeline HTTP ${tlRes.status}`);
+        if (!tlRes.ok) {
+            if (tlRes.status === 429 && typeof window.vpRecordOpenMeteo429FromResponse === 'function') {
+                await window.vpRecordOpenMeteo429FromResponse(tlRes, 'vfr timeline');
+            }
+            throw new Error(`timeline HTTP ${tlRes.status}`);
+        }
         const tlData = await tlRes.json();
         const locations = vpExtractHourlyLocations(tlData);
         for (let i = 0; i < chunk.length; i++) {
