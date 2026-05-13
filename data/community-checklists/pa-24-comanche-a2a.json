@@ -1,0 +1,192 @@
+{
+  "id": "pa-24-comanche-a2a",
+  "title": "PA-24 Comanche A2A",
+  "chapters": [
+    {
+      "id": "before-engine-start",
+      "title": "Before Engine Start",
+      "items": [
+        { "id": "preflight", "text": "Preflight: COMPLETE" },
+        { "id": "passengers", "text": "Passengers: BRIEFED" },
+        { "id": "seat-belts", "text": "Seat belts: SECURE" },
+        { "id": "controls-lock", "text": "Controls lock: REMOVED" },
+        { "id": "parking-brake", "text": "Parking brake: SET" },
+        { "id": "gear-switch", "text": "Gear switch: DOWN" },
+        { "id": "flaps", "text": "Flaps: UP" },
+        { "id": "radios", "text": "Radios: OFF" },
+        { "id": "autopilot-master", "text": "Autopilot master: OFF" },
+        { "id": "avionics-master", "text": "Avionics master: OFF" },
+        { "id": "all-electrical-switches", "text": "All electrical switches: OFF" },
+        { "id": "circuit-breakers", "text": "Circuit breakers: IN" },
+        { "id": "rotating-beacon", "text": "Rotating beacon: ON" }
+      ]
+    },
+    {
+      "id": "engine-start",
+      "title": "Engine Start",
+      "items": [
+        { "id": "fuel-selectors", "text": "Fuel selectors: DESIRED TANK" },
+        { "id": "mixture", "text": "Mixture: RICH" },
+        { "id": "throttle", "text": "Throttle: CRACKED" },
+        { "id": "prop", "text": "Prop: FULL FORWARD" },
+        { "id": "carb-heat", "text": "Carb heat: OFF" },
+        { "id": "master-switch", "text": "Master switch: ON" },
+        { "id": "fuel-pump-on", "text": "Fuel pump: ON" },
+        { "id": "fuel-pressure", "text": "Fuel pressure: CHECK" },
+        { "id": "fuel-pump-off", "text": "Fuel pump: OFF" },
+        { "id": "primer", "text": "Primer: 1-5 STROKES" },
+        { "id": "mags", "text": "Mags: BOTH" },
+        { "id": "prop-area", "text": "Prop area: CLEAR" },
+        { "id": "starter", "text": "Starter: ENGAGE" },
+        { "id": "oil-pressure", "text": "Oil pressure: CHECK" },
+        { "id": "mixture-lean", "text": "Mixture: LEAN AS REQUIRED" }
+      ]
+    },
+    {
+      "id": "taxi",
+      "title": "Taxi",
+      "items": [
+        { "id": "primer", "text": "Primer: LOCKED" },
+        { "id": "avionics-master", "text": "Avionics master: ON" },
+        { "id": "ammeter", "text": "Ammeter: CHECK" },
+        { "id": "radios", "text": "Radios: ON" },
+        { "id": "transponder", "text": "Transponder: AS REQUIRED" },
+        { "id": "altimeter", "text": "Altimeter: SET" },
+        { "id": "heading-indicator", "text": "Heading indicator: SET" },
+        { "id": "landing-gear-lamp", "text": "Landing gear lamp: GREEN" },
+        { "id": "nav-lights", "text": "Nav lights: AS REQUIRED" },
+        { "id": "parking-brake", "text": "Parking brake: RELEASE" },
+        { "id": "brakes-initial-roll", "text": "Brakes on initial roll: TEST" }
+      ]
+    },
+    {
+      "id": "run-up",
+      "title": "Run-Up",
+      "items": [
+        { "id": "position", "text": "Position: INTO WIND" },
+        { "id": "brakes", "text": "Brakes: HOLD" },
+        { "id": "fuel-quantity", "text": "Fuel quantity: CHECK" },
+        { "id": "fuel-selectors", "text": "Fuel selectors: DESIRED TANK" },
+        { "id": "mixture", "text": "Mixture: AS REQUIRED" },
+        { "id": "throttle", "text": "Throttle: 2000 RPM" },
+        { "id": "engine-instruments", "text": "Engine instruments: CHECK (oil press, oil temp, fuel press, ammeter, vacuum, CHT, EGT)" },
+        { "id": "magnetos", "text": "Magnetos: CHECK" },
+        { "id": "mag-drop", "text": "Magnetos max drop: 125 RPM; max diff: 50 RPM" },
+        { "id": "prop", "text": "Prop: CYCLE x 3, then REDUCE to 1500 RPM and CHECK steady" },
+        { "id": "carb-heat", "text": "Carb heat: CHECK" }
+      ]
+    },
+    {
+      "id": "before-takeoff",
+      "title": "Before Takeoff",
+      "items": [
+        { "id": "control", "text": "Control: FREE & CORRECT" },
+        { "id": "elevator-trim", "text": "Elevator trim: NEUTRAL" },
+        { "id": "rudder-trim", "text": "Rudder trim: AS REQUIRED" },
+        { "id": "door", "text": "Door: LATCHED" },
+        { "id": "flaps", "text": "Flaps: SET AS DESIRED" },
+        { "id": "fuel-selectors", "text": "Fuel selectors: DESIRED TANK" },
+        { "id": "fuel-pump", "text": "Fuel pump: ON" },
+        { "id": "mixture", "text": "Mixture: FULL RICH" },
+        { "id": "prop", "text": "Prop: FULL FORWARD" },
+        { "id": "carb-heat", "text": "Carb heat: OFF" },
+        { "id": "engine-gauges", "text": "Engine gauges: CHECK" },
+        { "id": "pitot-heat", "text": "Pitot heat: AS REQUIRED" },
+        { "id": "strobes", "text": "Strobes: ON" },
+        { "id": "landing-lights", "text": "Landing lights: AS REQUIRED" }
+      ]
+    },
+    {
+      "id": "takeoff",
+      "title": "Takeoff",
+      "items": [
+        { "id": "throttle", "text": "Throttle: FULL OPEN" },
+        { "id": "airspeed-indicator", "text": "Airspeed indicator: ALIVE" },
+        { "id": "engine-gauges", "text": "Engine gauges: CHECK" },
+        { "id": "rotate", "text": "Rotate: 85 MPH" },
+        { "id": "positive-climb", "text": "Positive climb: VERIFY" },
+        { "id": "gear", "text": "Gear: UP" },
+        { "id": "flaps", "text": "Flaps: UP" },
+        { "id": "airspeed", "text": "Airspeed: Vy 105 MPH" },
+        { "id": "emergency-landing-area", "text": "Emerg. landing area: VERIFY" }
+      ]
+    },
+    {
+      "id": "climb",
+      "title": "Climb",
+      "items": [
+        { "id": "fuel-pump", "text": "Fuel pump: OFF at 1000 ft AGL" },
+        { "id": "power", "text": "Power: Do not reduce until 1000 ft AGL; throttle as engine temps tolerate; prop 2400 RPM MAX" },
+        { "id": "cht", "text": "CHT: CHECK" },
+        { "id": "mixture", "text": "Mixture: LEAN AS REQUIRED" }
+      ]
+    },
+    {
+      "id": "cruise",
+      "title": "Cruise",
+      "items": [
+        { "id": "throttle", "text": "Throttle: SET" },
+        { "id": "prop", "text": "Prop: SET" },
+        { "id": "mixture", "text": "Mixture: LEAN AS REQUIRED" },
+        { "id": "fuel-pump", "text": "Fuel pump: VERIFY OFF" },
+        { "id": "fuel-pressure", "text": "Fuel pressure: CHECK" },
+        { "id": "engine-gauges", "text": "Engine gauges: CHECK" }
+      ]
+    },
+    {
+      "id": "approach",
+      "title": "Approach",
+      "items": [
+        { "id": "autopilot-master", "text": "Autopilot master: OFF" },
+        { "id": "fuel-pump", "text": "Fuel pump: ON" },
+        { "id": "fuel-selectors", "text": "Fuel selectors: DESIRED TANK" },
+        { "id": "fuel-levels", "text": "Fuel levels: CHECK" },
+        { "id": "fuel-pressure", "text": "Fuel pressure: CHECK" },
+        { "id": "mixture", "text": "Mixture: RICH; airport > 4,000 ft: LEAN AS REQUIRED" },
+        { "id": "prop", "text": "Prop: FULL FORWARD" },
+        { "id": "carb-heat", "text": "Carb heat: AS REQUIRED" },
+        { "id": "airspeed", "text": "Airspeed: 120 MPH" },
+        { "id": "gear", "text": "Gear: DOWN" },
+        { "id": "flaps", "text": "Flaps: AS DESIRED" },
+        { "id": "gump", "text": "G.U.M.P.: CHECK" }
+      ]
+    },
+    {
+      "id": "landing",
+      "title": "Landing",
+      "items": [
+        { "id": "gear-indicator-lamp", "text": "Gear indicator lamp: GREEN" },
+        { "id": "flaps", "text": "Flaps: DOWN; if windy flaps AS REQUIRED and add 5 MPH" },
+        { "id": "airspeed", "text": "Airspeed: 90 MPH" }
+      ]
+    },
+    {
+      "id": "after-landing",
+      "title": "After Landing",
+      "items": [
+        { "id": "flaps", "text": "Flaps: UP" },
+        { "id": "strobes", "text": "Strobes: OFF" },
+        { "id": "fuel-pump", "text": "Fuel pump: OFF" },
+        { "id": "mixture", "text": "Mixture: LEAN AS REQUIRED" },
+        { "id": "trim", "text": "Trim: NEUTRAL" }
+      ]
+    },
+    {
+      "id": "shutdown",
+      "title": "Shutdown",
+      "items": [
+        { "id": "parking-brake", "text": "Parking brake: SET" },
+        { "id": "radios", "text": "Radios: OFF" },
+        { "id": "transponder", "text": "Transponder: OFF" },
+        { "id": "avionics-master", "text": "Avionics master: OFF" },
+        { "id": "master-switch", "text": "Master switch: OFF" },
+        { "id": "throttle", "text": "Throttle: CLOSED" },
+        { "id": "mixture", "text": "Mixture: IDLE CUTOFF" },
+        { "id": "magnetos", "text": "Magnetos: OFF" },
+        { "id": "control-wheel", "text": "Control wheel: SECURE" },
+        { "id": "doors-windows", "text": "Doors / windows: CLOSED" },
+        { "id": "tie-downs", "text": "Tie-downs: SECURE" }
+      ]
+    }
+  ]
+}

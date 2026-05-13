@@ -1,0 +1,410 @@
+{
+  "version": 1,
+  "checklist": {
+    "title": "PA-24 Comanche A2A",
+    "chapters": [
+      {
+        "title": "Before Engine Start",
+        "items": [
+          {
+            "text": "Preflight: COMPLETE"
+          },
+          {
+            "text": "Passengers: BRIEFED"
+          },
+          {
+            "text": "Seat belts: SECURE"
+          },
+          {
+            "text": "Controls lock: REMOVED"
+          },
+          {
+            "text": "Parking brake: SET"
+          },
+          {
+            "text": "Gear switch: DOWN"
+          },
+          {
+            "text": "Flaps: UP"
+          },
+          {
+            "text": "Radios: OFF"
+          },
+          {
+            "text": "Autopilot master: OFF"
+          },
+          {
+            "text": "Avionics master: OFF"
+          },
+          {
+            "text": "All electrical switches: OFF"
+          },
+          {
+            "text": "Circuit breakers: IN"
+          },
+          {
+            "text": "Rotating beacon: ON"
+          }
+        ]
+      },
+      {
+        "title": "Engine Start",
+        "items": [
+          {
+            "text": "Fuel selectors: DESIRED TANK"
+          },
+          {
+            "text": "Mixture: RICH"
+          },
+          {
+            "text": "Throttle: CRACKED"
+          },
+          {
+            "text": "Prop: FULL FORWARD"
+          },
+          {
+            "text": "Carb heat: OFF"
+          },
+          {
+            "text": "Master switch: ON"
+          },
+          {
+            "text": "Fuel pump: ON"
+          },
+          {
+            "text": "Fuel pressure: CHECK"
+          },
+          {
+            "text": "Fuel pump: OFF"
+          },
+          {
+            "text": "Primer: 1-5 STROKES"
+          },
+          {
+            "text": "Mags: BOTH"
+          },
+          {
+            "text": "Prop area: CLEAR"
+          },
+          {
+            "text": "Starter: ENGAGE"
+          },
+          {
+            "text": "Oil pressure: CHECK"
+          },
+          {
+            "text": "Mixture: LEAN AS REQUIRED"
+          }
+        ]
+      },
+      {
+        "title": "Taxi",
+        "items": [
+          {
+            "text": "Primer: LOCKED"
+          },
+          {
+            "text": "Avionics master: ON"
+          },
+          {
+            "text": "Ammeter: CHECK"
+          },
+          {
+            "text": "Radios: ON"
+          },
+          {
+            "text": "Transponder: AS REQUIRED"
+          },
+          {
+            "text": "Altimeter: SET"
+          },
+          {
+            "text": "Heading indicator: SET"
+          },
+          {
+            "text": "Landing gear lamp: GREEN"
+          },
+          {
+            "text": "Nav lights: AS REQUIRED"
+          },
+          {
+            "text": "Parking brake: RELEASE"
+          },
+          {
+            "text": "Brakes on initial roll: TEST"
+          }
+        ]
+      },
+      {
+        "title": "Run-Up",
+        "items": [
+          {
+            "text": "Position: INTO WIND"
+          },
+          {
+            "text": "Brakes: HOLD"
+          },
+          {
+            "text": "Fuel quantity: CHECK"
+          },
+          {
+            "text": "Fuel selectors: DESIRED TANK"
+          },
+          {
+            "text": "Mixture: AS REQUIRED"
+          },
+          {
+            "text": "Throttle: 2000 RPM"
+          },
+          {
+            "text": "Engine instruments: CHECK (oil press, oil temp, fuel press, ammeter, vacuum, CHT, EGT)"
+          },
+          {
+            "text": "Magnetos: CHECK"
+          },
+          {
+            "text": "Magnetos max drop: 125 RPM; max diff: 50 RPM"
+          },
+          {
+            "text": "Prop: CYCLE x 3, then REDUCE to 1500 RPM and CHECK steady"
+          },
+          {
+            "text": "Carb heat: CHECK"
+          }
+        ]
+      },
+      {
+        "title": "Before Takeoff",
+        "items": [
+          {
+            "text": "Control: FREE & CORRECT"
+          },
+          {
+            "text": "Elevator trim: NEUTRAL"
+          },
+          {
+            "text": "Rudder trim: AS REQUIRED"
+          },
+          {
+            "text": "Door: LATCHED"
+          },
+          {
+            "text": "Flaps: SET AS DESIRED"
+          },
+          {
+            "text": "Fuel selectors: DESIRED TANK"
+          },
+          {
+            "text": "Fuel pump: ON"
+          },
+          {
+            "text": "Mixture: FULL RICH"
+          },
+          {
+            "text": "Prop: FULL FORWARD"
+          },
+          {
+            "text": "Carb heat: OFF"
+          },
+          {
+            "text": "Engine gauges: CHECK"
+          },
+          {
+            "text": "Pitot heat: AS REQUIRED"
+          },
+          {
+            "text": "Strobes: ON"
+          },
+          {
+            "text": "Landing lights: AS REQUIRED"
+          }
+        ]
+      },
+      {
+        "title": "Takeoff",
+        "items": [
+          {
+            "text": "Throttle: FULL OPEN"
+          },
+          {
+            "text": "Airspeed indicator: ALIVE"
+          },
+          {
+            "text": "Engine gauges: CHECK"
+          },
+          {
+            "text": "Rotate: 85 MPH"
+          },
+          {
+            "text": "Positive climb: VERIFY"
+          },
+          {
+            "text": "Gear: UP"
+          },
+          {
+            "text": "Flaps: UP"
+          },
+          {
+            "text": "Airspeed: Vy 105 MPH"
+          },
+          {
+            "text": "Emerg. landing area: VERIFY"
+          }
+        ]
+      },
+      {
+        "title": "Climb",
+        "items": [
+          {
+            "text": "Fuel pump: OFF at 1000 ft AGL"
+          },
+          {
+            "text": "Power: Do not reduce until 1000 ft AGL; throttle as engine temps tolerate; prop 2400 RPM MAX"
+          },
+          {
+            "text": "CHT: CHECK"
+          },
+          {
+            "text": "Mixture: LEAN AS REQUIRED"
+          }
+        ]
+      },
+      {
+        "title": "Cruise",
+        "items": [
+          {
+            "text": "Throttle: SET"
+          },
+          {
+            "text": "Prop: SET"
+          },
+          {
+            "text": "Mixture: LEAN AS REQUIRED"
+          },
+          {
+            "text": "Fuel pump: VERIFY OFF"
+          },
+          {
+            "text": "Fuel pressure: CHECK"
+          },
+          {
+            "text": "Engine gauges: CHECK"
+          }
+        ]
+      },
+      {
+        "title": "Approach",
+        "items": [
+          {
+            "text": "Autopilot master: OFF"
+          },
+          {
+            "text": "Fuel pump: ON"
+          },
+          {
+            "text": "Fuel selectors: DESIRED TANK"
+          },
+          {
+            "text": "Fuel levels: CHECK"
+          },
+          {
+            "text": "Fuel pressure: CHECK"
+          },
+          {
+            "text": "Mixture: RICH; airport > 4,000 ft: LEAN AS REQUIRED"
+          },
+          {
+            "text": "Prop: FULL FORWARD"
+          },
+          {
+            "text": "Carb heat: AS REQUIRED"
+          },
+          {
+            "text": "Airspeed: 120 MPH"
+          },
+          {
+            "text": "Gear: DOWN"
+          },
+          {
+            "text": "Flaps: AS DESIRED"
+          },
+          {
+            "text": "G.U.M.P.: CHECK"
+          }
+        ]
+      },
+      {
+        "title": "Landing",
+        "items": [
+          {
+            "text": "Gear indicator lamp: GREEN"
+          },
+          {
+            "text": "Flaps: DOWN; if windy flaps AS REQUIRED and add 5 MPH"
+          },
+          {
+            "text": "Airspeed: 90 MPH"
+          }
+        ]
+      },
+      {
+        "title": "After Landing",
+        "items": [
+          {
+            "text": "Flaps: UP"
+          },
+          {
+            "text": "Strobes: OFF"
+          },
+          {
+            "text": "Fuel pump: OFF"
+          },
+          {
+            "text": "Mixture: LEAN AS REQUIRED"
+          },
+          {
+            "text": "Trim: NEUTRAL"
+          }
+        ]
+      },
+      {
+        "title": "Shutdown",
+        "items": [
+          {
+            "text": "Parking brake: SET"
+          },
+          {
+            "text": "Radios: OFF"
+          },
+          {
+            "text": "Transponder: OFF"
+          },
+          {
+            "text": "Avionics master: OFF"
+          },
+          {
+            "text": "Master switch: OFF"
+          },
+          {
+            "text": "Throttle: CLOSED"
+          },
+          {
+            "text": "Mixture: IDLE CUTOFF"
+          },
+          {
+            "text": "Magnetos: OFF"
+          },
+          {
+            "text": "Control wheel: SECURE"
+          },
+          {
+            "text": "Doors / windows: CLOSED"
+          },
+          {
+            "text": "Tie-downs: SECURE"
+          }
+        ]
+      }
+    ]
+  }
+}

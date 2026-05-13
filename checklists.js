@@ -984,7 +984,12 @@
     function decodeShareCode(raw) {
         let code = String(raw || '').trim();
         if (!code) throw new Error('empty');
+        if (code.startsWith('{')) {
+            const payload = JSON.parse(code);
+            return payload?.checklist || payload;
+        }
         if (code.startsWith(SHARE_PREFIX)) code = code.slice(SHARE_PREFIX.length);
+        code = code.replace(/\s+/g, '');
         const payload = JSON.parse(decodeUtf8Base64(code));
         return payload?.checklist || payload;
     }

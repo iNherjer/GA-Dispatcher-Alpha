@@ -1,0 +1,338 @@
+{
+  "id": "pa-24-250-comanche-1958-1960",
+  "title": "PA-24-250 Comanche (1958-1960)",
+  "chapters": [
+    {
+      "id": "before-starting",
+      "title": "Before Starting",
+      "items": [
+        { "id": "external-visual-inspection", "text": "External visual inspection: Complete" },
+        { "id": "fuel-quantity-in-tanks", "text": "Fuel quantity in tanks: Checked" },
+        { "id": "oil-level", "text": "Oil level: Checked (7-9 qt)" },
+        { "id": "control-lock", "text": "Control lock: Unlocked, Free" },
+        { "id": "documents", "text": "Documents: Onboard" },
+        { "id": "ignition-key", "text": "Ignition Key: Off" },
+        { "id": "avionics-master", "text": "Avionics Master (or Radios): Off" },
+        { "id": "landing-gear-selector", "text": "Landing Gear Selector: Down" },
+        { "id": "master-switch-on", "text": "Master Switch: On" },
+        { "id": "fuel-gauges", "text": "Fuel Gauges: Check Each Tank" },
+        { "id": "lights", "text": "Landing, Nav, Beacon, Cabin Lights: Check" },
+        { "id": "flaps-down", "text": "Flaps: Down" },
+        { "id": "master-switch-off", "text": "Master Switch: Off" },
+        { "id": "oxygen-quantity", "text": "Oxygen Quantity (If Equipped & Req): Adequate" }
+      ]
+    },
+    {
+      "id": "starting-the-engine",
+      "title": "Starting The Engine",
+      "items": [
+        { "id": "parking-brake", "text": "Parking brake: Set" },
+        { "id": "belts-and-harness", "text": "Belts and Harness: Fastened & Adjusted" },
+        { "id": "avionics-master", "text": "Avionics Master (Or Radios): Off" },
+        { "id": "fuel-selector", "text": "Fuel Selector: Desired Tank" },
+        { "id": "circuit-breakers", "text": "Circuit Breakers: CHECK: In" },
+        { "id": "carburetor-heat", "text": "Carburetor Heat: Full Cold" },
+        { "id": "alternate-static-source", "text": "Alternate Static Source (If Installed): Closed" },
+        { "id": "controls", "text": "Controls: Free & Correct" },
+        { "id": "door", "text": "Door: Latched" },
+        { "id": "throttle-crack", "text": "Throttle: 1/4 in Open (1/2 in When Hot)" },
+        { "id": "mixture", "text": "Mixture: Full Rich" },
+        { "id": "prop-control", "text": "Prop Control: Full Forward - Increase RPM" },
+        { "id": "beacon-light", "text": "Beacon Light: On" },
+        { "id": "master-switch", "text": "Master Switch: On" },
+        { "id": "electric-fuel-pump", "text": "Electric Fuel Pump: On (Listen / Check Pressure) - Off" },
+        { "id": "prime", "text": "Prime: 3 - 5 times (As necessary), Lock" },
+        { "id": "magnetos", "text": "Magnetos: Both" },
+        { "id": "prop-clear", "text": "Prop: Clear" },
+        { "id": "starter", "text": "Starter: Engage (Max 15 Seconds)" },
+        { "id": "after-fire-note", "text": "Immediately after the engine fires" },
+        { "id": "oil-pressure", "text": "Oil pressure: Check Green within 30 sec" },
+        { "id": "oil-pressure-cutoff", "text": "Mixture to Cutoff if oil pressure does not go Green" },
+        { "id": "throttle-1000", "text": "Throttle: 1000 RPM" },
+        { "id": "engine-stops", "text": "If engine stops: Mixture Cutoff (pull)" }
+      ]
+    },
+    {
+      "id": "before-taxi",
+      "title": "Before Taxi",
+      "items": [
+        { "id": "flaps", "text": "Flaps: Retract" },
+        { "id": "primer", "text": "Primer: Check In and Locked" },
+        { "id": "landing-gear-selector", "text": "Landing Gear Selector: Center Off Position" },
+        { "id": "landing-gear-indicator", "text": "Landing Gear Indicator light: Check Green" },
+        { "id": "avionics-master", "text": "Avionics Master (Or Radios): On" },
+        { "id": "transponder", "text": "Transponder: Set 1200 - Standby" },
+        { "id": "artificial-horizon", "text": "Artificial horizon: Set" },
+        { "id": "rate-of-climb", "text": "Rate-of-Climb Indicator: Check Zero" },
+        { "id": "altimeter", "text": "Altimeter: Field Height" },
+        { "id": "pitot-heat", "text": "Pitot Heat: On, Check Ammeter Discharge, Off" },
+        { "id": "parking-brake", "text": "Parking brake: Free" }
+      ]
+    },
+    {
+      "id": "taxi",
+      "title": "Taxi",
+      "items": [
+        { "id": "warmup-note", "text": "Note: Allow the engine to warm between 800-1200 RPM for 2-4 minutes before runup" },
+        { "id": "brakes", "text": "Brakes: CHECK" },
+        { "id": "steering", "text": "Steering: CHECK" }
+      ]
+    },
+    {
+      "id": "run-up",
+      "title": "Run Up",
+      "items": [
+        { "id": "parking-brake", "text": "Parking brake: Set" },
+        { "id": "controls", "text": "Controls: Free and Correct" },
+        { "id": "mixture", "text": "Mixture: Full Rich" },
+        { "id": "prop", "text": "Prop: Full Forward" },
+        { "id": "oil-temp-pressure", "text": "Oil temp & Pressure: Check Green" },
+        { "id": "throttle-2000", "text": "Throttle: 2000 RPM" },
+        { "id": "static-test-caution", "text": "Caution: Do not exceed 2200 rpm in routine static test." },
+        { "id": "mag-check", "text": "Mag Check @ 15 in Hg" },
+        { "id": "mag-drop", "text": "Max Speed drop M1 & M2: 175 RPM" },
+        { "id": "mag-difference", "text": "Max Difference between M1 & M2: 50 RPM" },
+        { "id": "carburetor-heat", "text": "Carburetor Heat: CHECK" },
+        { "id": "carb-heat-caution", "text": "Caution: Avoid prolonged ground ops with Carb Heat on as the air is unfiltered" },
+        { "id": "vacuum", "text": "Vacuum: 5.0 in Hg +.1 or -.2 in" },
+        { "id": "ammeter", "text": "Ammeter: Check Charging" },
+        { "id": "prop-cycle", "text": "Prop: Cycle as needed to Circ. Oil and Governor (3X)" },
+        { "id": "normal-drop", "text": "Normal Drop: 300-400 rpm" },
+        { "id": "reduce-1500", "text": "Reduce to 1500 RPM: make sure it holds steady" },
+        { "id": "rpm-drop-caution", "text": "Caution: Do not exceed 500 rpm drop for > few seconds" },
+        { "id": "throttle-idle", "text": "Throttle to Idle: CHECK" },
+        { "id": "throttle-1000", "text": "Throttle: 1000 RPM" }
+      ]
+    },
+    {
+      "id": "before-take-off",
+      "title": "Before Take Off",
+      "items": [
+        { "id": "door", "text": "Door: Closed & Locked" },
+        { "id": "seat-belts", "text": "Seat belts: Locked and Tight" },
+        { "id": "fuel-selector", "text": "Fuel Selector: Leave on Previously Selected Tank" },
+        { "id": "fuel-pump", "text": "Fuel pump: On" },
+        { "id": "flaps", "text": "Flaps: As Desired" },
+        { "id": "rudder-elevator-trim", "text": "Rudder and Elevator trim: Set" },
+        { "id": "engine-gauges", "text": "Engine Gauges: Normal" },
+        { "id": "strobe-lights", "text": "Strobe Lights: On" },
+        { "id": "takeoff-warm-note", "text": "Note: Engine is warm enough for takeoff when throttle can be opened without engine faltering" }
+      ]
+    },
+    {
+      "id": "take-off",
+      "title": "Take Off",
+      "items": [
+        { "id": "compass-flight-instruments", "text": "Compass & Flight Instruments: CHECK runway heading" },
+        { "id": "transponder", "text": "Transponder: ALT & 1200 (or ATC)" },
+        { "id": "pitot-tube-heater", "text": "Pitot tube heater: On (if required)" },
+        { "id": "mixture", "text": "Mixture: Rich (or as appropriate >4000 ft)" },
+        { "id": "throttle", "text": "Throttle: Smoothly Fully Forward" },
+        { "id": "accelerate-vr", "text": "Accelerate to VR: Approx. 85 MPH (74 kt)" },
+        { "id": "normal-takeoff", "text": "Take off (Normal): Pull back lightly on Yoke" },
+        { "id": "short-takeoff", "text": "Short Takeoff: Approx. 65-75 MPH (56-65 kt)" },
+        { "id": "brakes", "text": "Brakes: Tap after wheels leave ground" },
+        { "id": "landing-gear", "text": "Landing Gear: Retract" },
+        { "id": "landing-gear-indicator", "text": "Landing Gear Indicator: Amber" },
+        { "id": "flaps", "text": "Flaps: Retract (>84 mph & >200 ft)" }
+      ]
+    },
+    {
+      "id": "after-take-off",
+      "title": "After Take Off",
+      "items": [
+        { "id": "climb", "text": "Climb" },
+        { "id": "vx", "text": "Best Angle-of-Climb Speed (VX): 84 MPH" },
+        { "id": "vy", "text": "Best Rate-of-Climb Speed (VY): 105 MPH" },
+        { "id": "enroute-climb-speed", "text": "Best En-Route Rate-of-Climb Speed: 120 MPH" },
+        { "id": "cht", "text": "Cylinder Head Temperature: Maintain in Green" },
+        { "id": "prop", "text": "Prop: 2400 rpm above 1000 ft AGL" },
+        { "id": "power", "text": "Power: As required above 1000 ft AGL" },
+        { "id": "fuel-pump", "text": "Fuel pump: Off - Check Pressure Gauge is Green" },
+        { "id": "landing-gear-selector", "text": "Landing Gear Selector: Center Off Position" },
+        { "id": "rudder-trim", "text": "Rudder Trim: Neutral" },
+        { "id": "elevator-trim", "text": "Elevator Trim: Set" }
+      ]
+    },
+    {
+      "id": "enroute",
+      "title": "Enroute",
+      "items": [
+        { "id": "power", "text": "Power: Set Per Power Table in Section 5 (Performance)" },
+        { "id": "normal-max-cruise-power", "text": "Normal Max Cruise Power: 75%" },
+        { "id": "mixture", "text": "Mixture: Lean appropriately above 3000 ft" },
+        { "id": "fuel-tank", "text": "Fuel Tank: Switch every 30 min" },
+        { "id": "fuel-pump-on", "text": "Fuel Pump: On" },
+        { "id": "fuel-tank-selector", "text": "Fuel Tank Selector: Switch to opposite Tank" },
+        { "id": "fuel-pump-off", "text": "Fuel Pump: Off" },
+        { "id": "fuel-pressure-gauge", "text": "Fuel Pressure Gauge: Check for Pressure" }
+      ]
+    },
+    {
+      "id": "descent",
+      "title": "Descent",
+      "items": [
+        { "id": "propeller", "text": "Propeller: Cruise RPM" },
+        { "id": "manifold-pressure", "text": "Manifold Pressure: 15 to 17 in Hg" },
+        { "id": "airspeed", "text": "Airspeed: Maintain Cylinder Head Temp in Green" },
+        { "id": "clear-engine", "text": "Clear the engine approx. every 30 sec by opening the throttle slowly to prevent fouling. Avoid CHT drops below 100 C" }
+      ]
+    },
+    {
+      "id": "landing",
+      "title": "Landing",
+      "items": [
+        { "id": "pattern-entry", "text": "Pattern Entry" },
+        { "id": "seat-belts", "text": "Seat Belts: Check & Secure" },
+        { "id": "fuel", "text": "Fuel: Fullest Tank" },
+        { "id": "mixture", "text": "Mixture: Full Rich (As Required >4000 ft)" },
+        { "id": "prop", "text": "Prop: Full Forward" },
+        { "id": "carb-heat", "text": "Carb Heat: On as appropriate" },
+        { "id": "pattern-airspeed", "text": "Airspeed: 120 MPH" },
+        { "id": "downwind", "text": "Downwind" },
+        { "id": "landing-gear", "text": "Landing Gear: Down (max. 148 mph / 129 kt) and Green" },
+        { "id": "brakes", "text": "Brakes: Check" },
+        { "id": "fuel-pump", "text": "Fuel Pump: On" },
+        { "id": "landing-lights", "text": "Landing Lights: On" },
+        { "id": "flaps-rest-1", "text": "Flaps: Rest 1 passing threshold at < 125 mph" },
+        { "id": "base", "text": "Base" },
+        { "id": "base-airspeed", "text": "Airspeed: 95 MPH" },
+        { "id": "flaps-rest-2", "text": "Flaps: Rest 2" },
+        { "id": "final-approach", "text": "Final Approach" },
+        { "id": "final-airspeed", "text": "Airspeed: 90 MPH" },
+        { "id": "final-flaps", "text": "Flaps: As Required" },
+        { "id": "approach-note", "text": "Note: Approach with engine power; Avoid floating in at idle" },
+        { "id": "short-runway", "text": "Short Runway Landings - Final Approach" },
+        { "id": "short-runway-airspeed", "text": "Airspeed: 84 MPH" }
+      ]
+    },
+    {
+      "id": "go-around",
+      "title": "Go Around",
+      "items": [
+        { "id": "prop", "text": "Prop: Check Full Forward (Full Fine Pitch)" },
+        { "id": "throttle", "text": "Throttle: (Slowly) Full Forward" },
+        { "id": "landing-gear", "text": "Landing Gear: Retract when positive rate of climb established" },
+        { "id": "flaps", "text": "Flaps: Retract Gradually w/Inc. Altitude" }
+      ]
+    },
+    {
+      "id": "after-landing",
+      "title": "After Landing",
+      "items": [
+        { "id": "fuel-pump", "text": "Fuel Pump: Off" },
+        { "id": "flaps", "text": "Flaps: Retract" },
+        { "id": "strobes", "text": "Strobes (NOT Rotating Beacon): Off" },
+        { "id": "mixture", "text": "Mixture: Lean as required" }
+      ]
+    },
+    {
+      "id": "engine-shut-down",
+      "title": "Engine Shut Down",
+      "items": [
+        { "id": "parking-brake", "text": "Parking Brake: Set" },
+        { "id": "transponder-radios", "text": "Transponder and Radios: Off" },
+        { "id": "throttle-1800", "text": "Throttle: 1800 RPM for 15 - 20 Seconds." },
+        { "id": "throttle-1200", "text": "Throttle: 1200 RPM for 10 - 20 Seconds" },
+        { "id": "mixture", "text": "Mixture: Pull Out / Idle Cutoff" },
+        { "id": "magnetos", "text": "Magnetos: Off" },
+        { "id": "ignition-key", "text": "Ignition Key: Remove" },
+        { "id": "electrical-switches", "text": "All Electrical Switches: Off, starting from R/H Side" }
+      ]
+    },
+    {
+      "id": "before-leaving-aircraft",
+      "title": "Before Leaving Aircraft",
+      "items": [
+        { "id": "fuel-tank", "text": "Fuel Tank: Off" },
+        { "id": "flight-controls", "text": "Flight Controls: Lock" },
+        { "id": "cabin-fresh-air", "text": "Cabin Fresh Air Inlets: Close" },
+        { "id": "operating-hours", "text": "Operating Hours: Note" },
+        { "id": "pitot-cover", "text": "Pitot Cover: Install" },
+        { "id": "tie-downs", "text": "Tie-Downs: Secure" }
+      ]
+    },
+    {
+      "id": "speeds-ias",
+      "title": "Speeds (IAS)",
+      "items": [
+        { "id": "vglide", "text": "Vglide: 105 MPH" },
+        { "id": "vr", "text": "VR: 85 MPH" },
+        { "id": "vle", "text": "VLE: 148 MPH" },
+        { "id": "vy", "text": "Vy: 105 MPH" },
+        { "id": "vlo", "text": "VLO: 148 MPH" },
+        { "id": "vx", "text": "Vx: 84 MPH" },
+        { "id": "vlo-recommended", "text": "VLO - Recommended: 125 MPH" },
+        { "id": "vfe", "text": "VFE: 125 MPH" },
+        { "id": "vno", "text": "VNO: 181 MPH" },
+        { "id": "vfe-recommended", "text": "VFE - Recommended: 100 MPH" },
+        { "id": "vne", "text": "VNE (3000 lbf): 203 MPH" },
+        { "id": "vapprch-full", "text": "VAPPRCH-Full Flaps &LG: 90 MPH" },
+        { "id": "vs0", "text": "VS0 (3000 lbf): 64 MPH" },
+        { "id": "vapprch-no-flaps", "text": "VAPPRCH-No Flaps or LG: 95 MPH" },
+        { "id": "vs1", "text": "VS1 (3000 lbf): 71 MPH" },
+        { "id": "va-3000", "text": "VA (3000 lbf): 144 MPH" },
+        { "id": "mgw-cruise", "text": "MGW Cruise: 3000 lbf" },
+        { "id": "va-1900", "text": "VA (1900 lbf): 120 MPH" },
+        { "id": "empty-wt", "text": "Empty Wt: 1741 lbf" },
+        { "id": "xwind", "text": "Max Demonstrated X-Wind: 17 KTS" },
+        { "id": "useful-load", "text": "Useful Load Cruise: 1259 lbf" },
+        { "id": "mgw-note", "text": "MGW assumes full tip tanks, else 2800 lb" }
+      ]
+    },
+    {
+      "id": "engine-fire-when-starting",
+      "title": "Engine Fire When Starting",
+      "items": [
+        { "id": "mixture", "text": "Mixture: Pull Out" },
+        { "id": "throttle", "text": "Throttle: Pull Out" },
+        { "id": "battery", "text": "Battery: Off" },
+        { "id": "plane", "text": "Plane: Leave" }
+      ]
+    },
+    {
+      "id": "engine-failure-in-flight",
+      "title": "Engine Failure In Flight",
+      "items": [
+        { "id": "best-glide-speed", "text": "Best Glide Speed: 105 MPH" },
+        { "id": "restart", "text": "Restart" },
+        { "id": "fuel-pump", "text": "Fuel Pump: On" },
+        { "id": "fuel-selector", "text": "Fuel Selector: Switch to Fullest Tank" },
+        { "id": "carb-heat", "text": "Carb Heat: On (Pull)" },
+        { "id": "mixture", "text": "Mixture: Full Rich (Push)" },
+        { "id": "magnetos", "text": "Magnetos: Check M1+M2" },
+        { "id": "prop-not-turning", "text": "If Prop is not turning" },
+        { "id": "prop", "text": "Prop: Full Forward" },
+        { "id": "throttle", "text": "Throttle: 1/10 (first click)" },
+        { "id": "primer", "text": "Primer: 3-5 Times" },
+        { "id": "starter", "text": "Starter: Push" },
+        { "id": "fuel-pump-stays-on", "text": "Fuel Pump: Stays On" },
+        { "id": "land", "text": "Land: Nearest Airfield" }
+      ]
+    },
+    {
+      "id": "engine-fire-in-flight",
+      "title": "Engine Fire In Flight",
+      "items": [
+        { "id": "mixture", "text": "Mixture: Pull Out" },
+        { "id": "heating-ventilation", "text": "Heating / Ventilation: Off" }
+      ]
+    },
+    {
+      "id": "landing-without-motor",
+      "title": "Landing Without Motor",
+      "items": [
+        { "id": "seat-belt", "text": "Seat Belt: Pull Tight" },
+        { "id": "landing-field", "text": "Landing Field: Search" },
+        { "id": "radio", "text": "Radio (121.5 if Center is unknown): Explain Emergency" },
+        { "id": "best-glide-speed", "text": "Best Glide Speed: 105 MPH" },
+        { "id": "gear-note", "text": "Note: Extend Landing Gear only when landing on firm ground is ENSURED" },
+        { "id": "mixture", "text": "Mixture: Off (Pull out)" },
+        { "id": "magnetos", "text": "Magnetos: Off" },
+        { "id": "fuel-selector", "text": "Fuel Selector: Off" },
+        { "id": "electrical-switches", "text": "All Electrical Switches: Off" },
+        { "id": "doors", "text": "Doors: Unlock" }
+      ]
+    }
+  ]
+}
