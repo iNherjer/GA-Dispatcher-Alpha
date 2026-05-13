@@ -1129,8 +1129,8 @@
         if (worst >= 3) return { tone: 'bad', label: 'Anspruchsvoll', text: 'Es gibt deutliche Warnzeichen wie IFR/LIFR, Gewitter, Nebel oder sehr tiefe Wolken. Für VFR wäre das keine entspannte Lage.' };
         if (worst === 2) return { tone: 'warn', label: 'Genau prüfen', text: 'Die Lage ist gemischt: Sicht, Wolken oder Niederschlag können einzelne Abschnitte schwierig machen. Plane Ausweichoptionen ein.' };
         if (worst === 1) return { tone: 'watch', label: 'Beobachten', text: 'Grundsätzlich wirkt die Lage brauchbar, aber Wolken oder lokale Wetterzeichen verdienen Aufmerksamkeit.' };
-        if (missing >= Math.ceil(rows.length / 2)) return { tone: 'warn', label: 'Daten dünn', text: 'Es sind zu wenige automatische Wetterdaten entlang der Route vorhanden. Nutze zusätzlich offizielle Quellen.' };
-        return { tone: 'good', label: 'Unauffällig', text: 'Die automatisch gefundenen Daten zeigen keine groben roten Flaggen. Trotzdem bitte offizielles Wetterbriefing prüfen.' };
+        if (missing >= Math.ceil(rows.length / 2)) return { tone: 'warn', label: 'Daten dünn', text: 'Es sind nur wenige automatische Wetterpunkte entlang der Route vorhanden. Für die Simulation lieber konservativ planen.' };
+        return { tone: 'good', label: 'Unauffällig', text: 'Die automatisch gefundenen Daten zeigen keine groben roten Flaggen. Für die Simulation wirkt die Lage gut planbar.' };
     }
 
     function weatherDateMs(value) {
@@ -1254,14 +1254,16 @@
         const routeLines = rows.map(r => (
             `${r.label} ${r.name || ''}: Quelle ${r.source || 'keine'}, Station ${r.station || '-'}, Wind ${r.wind || '-'}, Sicht ${r.vis || '-'}, Wolken ${r.clouds || '-'}, Wx ${r.wx || '-'}, Kategorie ${r.cat || '-'}`
         )).join('\n');
-        return `Du bist ein vorsichtiger VFR-Briefing-Assistent für Privatpiloten. Schreibe auf Deutsch eine kurze, laienverständliche Wetter-Einschätzung entlang einer geplanten Route.
+        return `Du bist der Wetter-Briefer in einem VFR-Flugsimulator. Schreibe auf Deutsch ein kompaktes, pilotisch klingendes Sim-Wetterbriefing entlang der geplanten Route.
 
 Regeln:
-- Maximal 4 Sätze, keine Markdown-Liste.
-- Keine Freigabe zum Fliegen erteilen, keine Rechtsberatung.
-- Sage klar, was kritisch sein könnte und was zusätzlich offiziell geprüft werden muss.
+- 4 bis 6 kurze Sätze, keine Markdown-Liste.
+- Klinge wie ein Briefing vor dem virtuellen Abflug: Gesamtbild, Start, Enroute, Ziel, Auffälligkeiten.
+- Nenne konkrete fliegerische Punkte: Wind, Sicht, Wolkenbasis/Bedeckung, Niederschlag/WX, kritische Abschnitte.
+- Gib eine einfache Sim-Empfehlung, z.B. Route entspannt, Wolken/Schauer im Auge behalten, Ausweichplatz im Kopf behalten, Höhe anpassen.
 - Wenn Daten fehlen oder widersprüchlich sind, sage das deutlich.
-- Nutze einfache Sprache, aber fachlich korrekt.
+- Kein Hinweis auf offizielle Wetterdaten, Behördenbriefing, Rechtslage oder reale Flugfreigabe.
+- Nutze einfache Sprache, aber fachlich korrekt und cockpitnah.
 
 Regelbasierte Vorbewertung: ${assessment?.label || '-'}: ${assessment?.text || '-'}
 
