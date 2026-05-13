@@ -1653,6 +1653,13 @@ body.theme-retro .retro-switch-container:active .retro-switch {
 .settings-shell {
     margin-top: 25px;
     margin-bottom: 36px;
+    position: relative;
+    z-index: 20;
+    isolation: isolate;
+}
+
+.settings-shell.is-open {
+    z-index: 120100;
 }
 
 .settings-toggle-btn {
@@ -1828,7 +1835,8 @@ body.theme-retro .api-fuel-meter .api-scale {
     right: 0;
     bottom: 0;
     background: var(--drawer-bg);
-    z-index: 9999;
+    z-index: 120000;
+    isolation: isolate;
     display: flex;
     flex-direction: column;
     opacity: 0;
@@ -1859,6 +1867,7 @@ body.theme-retro .api-fuel-meter .api-scale {
 
 #mapTableOverlay.active,
 #pinboardOverlay.active {
+    z-index: 120000;
     transform: translate3d(0, 0, 0);
 }
 
@@ -2985,7 +2994,7 @@ body.map-is-fullscreen #mapTableOverlay {
     width: 100vw !important;
     height: 100vh !important;
     height: 100dvh !important;
-    z-index: 99999 !important;
+    z-index: 120000 !important;
     border-radius: 0 !important;
     display: flex !important;
     flex-direction: column !important;
@@ -3127,7 +3136,7 @@ body.map-is-fullscreen .map-profile-strip {
         background: transparent;
         top: 0 !important;
         bottom: 0 !important;
-        z-index: 1;
+        z-index: 120000;
         opacity: 0;
         pointer-events: none;
         position: fixed;
@@ -4884,7 +4893,7 @@ body.theme-navcom .pb-tab.active { background: #33ff33; color: #000; box-shadow:
 .pin-modal-overlay {
     position: fixed; top:0; left:0; right:0; bottom:0;
     background: rgba(0,0,0,0.85);
-    z-index: 100000;
+    z-index: 130000;
     display: none; justify-content: center; align-items: center;
     backdrop-filter: blur(4px);
 }
