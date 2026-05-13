@@ -5,6 +5,7 @@
     const PROGRESS_STORAGE_KEY = 'ga_checklist_progress_v1';
     const UI_STORAGE_KEY = 'ga_checklist_ui_v1';
     const VISIBLE_STORAGE_KEY = 'ga_checklist_visible_v1';
+    const ORDER_STORAGE_KEY = 'ga_checklist_order_v1';
     const COMMUNITY_SUBS_KEY = 'ga_checklist_community_subs_v1';
     const COMMUNITY_META_KEY = 'ga_checklist_community_meta_v1';
     const COMMUNITY_CACHE_KEY = 'ga_checklist_community_cache_v1';
@@ -12,6 +13,11 @@
     const MAX_CHAPTERS = 20;
     const MAX_ITEMS = 300;
     const MAX_TEXT_LENGTH = 220;
+    const ROUTE_TOOLS_PROXY = 'https://ga-proxy.einherjer.workers.dev';
+    const TOOL_CACHE_TTL_MS = 4 * 60 * 1000;
+    const NEAREST_CACHE_TTL_MS = 2 * 60 * 1000;
+    const NEAREST_RADIUS_NM = 50;
+    const NEAREST_MOVE_REFRESH_NM = 3;
 
     const BUILTIN_CHECKLISTS = [
         {
@@ -118,6 +124,7 @@
     let customLists = [];
     let progressByChecklist = {};
     let visibilityPrefs = {};
+    let checklistOrderPrefs = [];
     let communitySubscriptions = {};
     let communityMeta = [];
     let communityCache = {};
@@ -134,8 +141,21 @@
         editorMode: '',
         statusText: '',
         statusTone: '',
-        actionMenuOpen: false
+        actionMenuOpen: false,
+        nearestMenuKey: '',
+        radioAirportMenuKey: '',
+        placeInfoAirport: null,
+        placeInfoReturn: 'place'
     };
+
+    const toolState = {
+        weather: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null },
+        radio: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null },
+        place: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null },
+        nearest: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null, origin: null },
+        airportInfo: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null }
+    };
+    const miniMaps = new Map();
 
     function readJson(key, fallback) {
         try {
@@ -301,12 +321,32 @@
             .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
     }
 
-    function allChecklists() {
+    function baseChecklists() {
         return [
             ...BUILTIN_CHECKLISTS,
             ...customLists.slice().sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0)),
             ...subscribedCommunityLists()
         ];
+    }
+
+    function orderedChecklistIds(list = baseChecklists()) {
+        const ids = list.map(checklist => checklist.id);
+        const valid = new Set(ids);
+        const ordered = checklistOrderPrefs.filter(id => valid.has(id));
+        ids.forEach(id => {
+            if (!ordered.includes(id)) ordered.push(id);
+        });
+        return ordered;
+    }
+
+    function sortChecklistsByPreference(list) {
+        const order = orderedChecklistIds(list);
+        const rank = new Map(order.map((id, index) => [id, index]));
+        return list.slice().sort((a, b) => (rank.get(a.id) ?? 9999) - (rank.get(b.id) ?? 9999));
+    }
+
+    function allChecklists() {
+        return sortChecklistsByPreference(baseChecklists());
     }
 
     function visibleChecklists() {
@@ -327,6 +367,25 @@
     function setChecklistVisible(id, visible) {
         visibilityPrefs[id] = !!visible;
         writeJson(VISIBLE_STORAGE_KEY, visibilityPrefs);
+        saveChecklistOrder();
+    }
+
+    function saveChecklistOrder() {
+        const ids = orderedChecklistIds();
+        checklistOrderPrefs = ids;
+        writeJson(ORDER_STORAGE_KEY, checklistOrderPrefs);
+    }
+
+    function moveChecklistOrder(id, dir) {
+        const ids = orderedChecklistIds();
+        const index = ids.indexOf(id);
+        const next = index + dir;
+        if (index < 0 || next < 0 || next >= ids.length) return false;
+        const [item] = ids.splice(index, 1);
+        ids.splice(next, 0, item);
+        checklistOrderPrefs = ids;
+        writeJson(ORDER_STORAGE_KEY, checklistOrderPrefs);
+        return true;
     }
 
     function loadStateFromStorage() {
@@ -336,6 +395,8 @@
         if (!progressByChecklist || typeof progressByChecklist !== 'object') progressByChecklist = {};
         visibilityPrefs = readJson(VISIBLE_STORAGE_KEY, {});
         if (!visibilityPrefs || typeof visibilityPrefs !== 'object') visibilityPrefs = {};
+        const rawOrder = readJson(ORDER_STORAGE_KEY, []);
+        checklistOrderPrefs = Array.isArray(rawOrder) ? rawOrder.map(id => String(id || '')).filter(Boolean) : [];
         communitySubscriptions = readJson(COMMUNITY_SUBS_KEY, {});
         if (!communitySubscriptions || typeof communitySubscriptions !== 'object') communitySubscriptions = {};
         const rawMeta = readJson(COMMUNITY_META_KEY, []);
@@ -402,6 +463,217 @@
         if (titleEl) titleEl.textContent = text || 'Kartenwerkzeuge';
     }
 
+    function getRoutePoints() {
+        try {
+            if (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) {
+                return routeWaypoints
+                    .map(wp => ({
+                        lat: Number(wp?.lat),
+                        lon: Number(wp?.lng ?? wp?.lon),
+                        name: wp?.name || ''
+                    }))
+                    .filter(wp => Number.isFinite(wp.lat) && Number.isFinite(wp.lon));
+            }
+        } catch (_) {}
+        return [];
+    }
+
+    function getRouteKey() {
+        const pts = getRoutePoints();
+        if (pts.length < 1) return 'no-route';
+        return pts.map(p => `${p.lat.toFixed(4)},${p.lon.toFixed(4)}`).join('|');
+    }
+
+    function getLiveAircraftPosition(maxAgeMs = 30000) {
+        const pos = window.lastLiveGpsPos;
+        if (!pos || !Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) return null;
+        const t = Number(pos.t || 0);
+        if (t && Date.now() - t > maxAgeMs) return null;
+        return { lat: Number(pos.lat), lon: Number(pos.lon), t };
+    }
+
+    function navBetween(lat1, lon1, lat2, lon2) {
+        try {
+            if (typeof calcNav === 'function') return calcNav(lat1, lon1, lat2, lon2);
+        } catch (_) {}
+        const r = 3440.065;
+        const toRad = d => d * Math.PI / 180;
+        const p1 = toRad(lat1), p2 = toRad(lat2);
+        const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dLon / 2) ** 2;
+        const dist = Math.round(r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10;
+        const y = Math.sin(dLon) * Math.cos(p2);
+        const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dLon);
+        const brng = Math.round((Math.atan2(y, x) * 180 / Math.PI + 360) % 360);
+        return { dist, brng };
+    }
+
+    function fmtNm(value) {
+        try {
+            if (typeof formatNm === 'function') return formatNm(value);
+        } catch (_) {}
+        const n = Number(value);
+        return Number.isFinite(n) ? (Math.round(n * 10) / 10).toFixed(1) : '0.0';
+    }
+
+    function compassFromBearing(brng) {
+        const dirs = ['N', 'NO', 'O', 'SO', 'S', 'SW', 'W', 'NW'];
+        const n = Number(brng);
+        if (!Number.isFinite(n)) return '';
+        return dirs[Math.round((((n % 360) + 360) % 360) / 45) % 8];
+    }
+
+    function routeBounds(points, padNm = 8) {
+        const pts = Array.isArray(points) ? points : getRoutePoints();
+        if (!pts.length) return null;
+        let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+        pts.forEach(p => {
+            minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat);
+            minLon = Math.min(minLon, p.lon); maxLon = Math.max(maxLon, p.lon);
+        });
+        const midLat = (minLat + maxLat) * 0.5;
+        const padLat = padNm / 60;
+        const padLon = padNm / (60 * Math.max(0.25, Math.cos(midLat * Math.PI / 180)));
+        return {
+            minLat: Math.max(-89.5, minLat - padLat),
+            maxLat: Math.min(89.5, maxLat + padLat),
+            minLon: Math.max(-180, minLon - padLon),
+            maxLon: Math.min(180, maxLon + padLon)
+        };
+    }
+
+    function airportFromGlobal(icao) {
+        const code = String(icao || '').trim().toUpperCase();
+        if (!code || code === 'GPS' || code === 'POI') return null;
+        try {
+            const apt = (typeof globalAirports !== 'undefined' && globalAirports) ? globalAirports[code] : null;
+            if (!apt) return { icao: code, name: code, lat: NaN, lon: NaN };
+            return normalizeToolAirport({ ...apt, icao: code });
+        } catch (_) {
+            return { icao: code, name: code, lat: NaN, lon: NaN };
+        }
+    }
+
+    function normalizeToolAirport(input) {
+        if (!input) return null;
+        const coords = input.geometry?.coordinates;
+        const lat = Number(input.lat ?? input.latitude ?? (Array.isArray(coords) ? coords[1] : NaN));
+        const lon = Number(input.lon ?? input.lng ?? input.longitude ?? (Array.isArray(coords) ? coords[0] : NaN));
+        const icao = String(input.icao || input.icaoCode || input.ident || input.code || input.designator || '').trim().toUpperCase();
+        const elevRaw = input.elevation;
+        const elev = typeof elevRaw === 'object' && elevRaw
+            ? (elevRaw.unit === 1 ? Number(elevRaw.value) : Math.round(Number(elevRaw.value) * 3.28084))
+            : Number(elevRaw);
+        return {
+            icao,
+            name: input.name || input.n || input.title || icao || 'Flugplatz',
+            lat,
+            lon,
+            elevation: Number.isFinite(elev) ? elev : null,
+            country: input.country || input.iso_country || input.cc || ''
+        };
+    }
+
+    function getCurrentAirport(kind) {
+        const isDest = kind === 'dest';
+        let icao = '';
+        try {
+            const rawIcao = isDest ? currentDestICAO : currentStartICAO;
+            icao = rawIcao == null ? '' : String(rawIcao).trim().toUpperCase();
+            if (icao === 'UNDEFINED' || icao === 'NULL') icao = '';
+        } catch (_) {}
+        const route = getRoutePoints();
+        const wp = isDest ? route[route.length - 1] : route[0];
+        const fromDb = airportFromGlobal(icao);
+        if (fromDb && Number.isFinite(fromDb.lat) && Number.isFinite(fromDb.lon)) return fromDb;
+        let name = '';
+        try {
+            const rawName = isDest ? currentDName : currentSName;
+            name = rawName == null ? '' : String(rawName).trim();
+            if (/^(undefined|null)$/i.test(name)) name = '';
+        } catch (_) {}
+        return {
+            icao: icao || '',
+            name: name || wp?.name || icao || (isDest ? 'Ziel' : 'Start'),
+            lat: Number(wp?.lat),
+            lon: Number(wp?.lon),
+            elevation: fromDb?.elevation ?? null,
+            country: fromDb?.country || ''
+        };
+    }
+
+    function getFreqLines(icao) {
+        const code = String(icao || '').trim().toUpperCase();
+        if (!code) return [];
+        try {
+            const cached = (typeof freqCache !== 'undefined' && freqCache) ? freqCache[code] : null;
+            if (Array.isArray(cached)) {
+                return cached
+                    .filter(f => f && (f.value || typeof f === 'string'))
+                    .map(f => typeof f === 'string' ? { label: 'Freq', value: f } : { label: f.label || f.name || 'Freq', value: f.value });
+            }
+        } catch (_) {}
+        return [];
+    }
+
+    function getRunwayText(icao) {
+        const code = String(icao || '').trim().toUpperCase();
+        if (!code) return '';
+        try {
+            const raw = (typeof runwayCache !== 'undefined' && runwayCache) ? runwayCache[code] : '';
+            return String(raw || '').replace(/<br\s*\/?>/ig, '\n');
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function parseRunwayRows(text) {
+        return String(text || '')
+            .split(/\s*(?:\n|\|)\s*/)
+            .map(line => line.trim())
+            .filter(Boolean)
+            .slice(0, 6)
+            .map(line => {
+                const parts = line.split(/\s+[–-]\s+/);
+                return {
+                    ident: parts[0] || line,
+                    detail: parts.slice(1).join(' – ') || ''
+                };
+            });
+    }
+
+    function getAipUrlForAirport(apt) {
+        if (!apt?.icao || apt.icao === 'GPS' || apt.icao === 'POI') return '';
+        try {
+            if (typeof getAipPopupUrl === 'function') return getAipPopupUrl(apt.icao, apt.country || '');
+        } catch (_) {}
+        return '';
+    }
+
+    function abortToolRequest(name) {
+        const entry = toolState[name];
+        if (entry?.controller) {
+            try { entry.controller.abort(); } catch (_) {}
+        }
+        if (entry) entry.controller = null;
+    }
+
+    function abortOtherToolRequests(activeName) {
+        Object.keys(toolState).forEach(name => {
+            if (name !== activeName) abortToolRequest(name);
+        });
+    }
+
+    function isCacheFresh(entry, key, ttl = TOOL_CACHE_TTL_MS) {
+        return !!(entry && entry.key === key && entry.data && Date.now() - entry.updatedAt < ttl);
+    }
+
+    async function fetchJson(url, signal) {
+        const res = await fetch(url, { signal, cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+    }
+
     function setDrawerOpen(open) {
         if (!drawerEl) return;
         drawerEl.classList.toggle('is-open', !!open);
@@ -420,6 +692,11 @@
         else if (state.view === 'viewer') renderViewer();
         else if (state.view === 'editor') renderEditor();
         else if (state.view === 'import') renderImport();
+        else if (state.view === 'weather') renderWeatherTool();
+        else if (state.view === 'radio') renderRadioTool();
+        else if (state.view === 'place') renderPlaceTool();
+        else if (state.view === 'nearest') renderNearestTool();
+        else if (state.view === 'airport-info') renderAirportInfoTool();
         else renderHome();
         renderStatus();
     }
@@ -427,17 +704,659 @@
     function renderHome() {
         setTitle('Kartenwerkzeuge');
         const count = visibleChecklists().length;
+        const live = getLiveAircraftPosition();
+        const route = getRoutePoints();
         bodyEl.innerHTML = `
             <div class="checklist-tool-grid">
                 <button class="checklist-tool-tile" type="button" data-action="open-list">
                     <span>
-                        <span class="checklist-tool-name">Checklists</span>
+                        <span class="checklist-tool-name">Checklist</span>
                         <span class="checklist-tool-count">${count} sichtbar · ${communityMeta.length} Community</span>
+                    </span>
+                    <span class="checklist-tool-arrow" aria-hidden="true">›</span>
+                </button>
+                <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="weather">
+                    <span>
+                        <span class="checklist-tool-name">Wetter</span>
+                        <span class="checklist-tool-count">${route.length >= 2 ? 'Route · sparsame Übersicht' : 'Route planen für Enroute-Wetter'}</span>
+                    </span>
+                    <span class="checklist-tool-arrow" aria-hidden="true">›</span>
+                </button>
+                <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="radio">
+                    <span>
+                        <span class="checklist-tool-name">Radio</span>
+                        <span class="checklist-tool-count">${route.length >= 2 ? 'Start · Enroute · Ziel' : 'Frequenzen nach Route'}</span>
+                    </span>
+                    <span class="checklist-tool-arrow" aria-hidden="true">›</span>
+                </button>
+                <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="place">
+                    <span>
+                        <span class="checklist-tool-name">Platz</span>
+                        <span class="checklist-tool-count">Start und Ziel · AIP Links</span>
+                    </span>
+                    <span class="checklist-tool-arrow" aria-hidden="true">›</span>
+                </button>
+                <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="nearest">
+                    <span>
+                        <span class="checklist-tool-name">Nearest</span>
+                        <span class="checklist-tool-count">${live ? '50 NM um Flugzeug' : 'braucht Live-Position'}</span>
                     </span>
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
             </div>
         `;
+    }
+
+    function toolTopline(tool, label = 'Zurück') {
+        return `
+            <div class="checklist-topline route-tool-topline">
+                <button class="checklist-back-btn" type="button" data-action="home">${label}</button>
+                <button class="checklist-action-btn" type="button" data-action="refresh-tool" data-tool="${escapeAttr(tool)}">Aktualisieren</button>
+            </div>
+        `;
+    }
+
+    function renderToolEmpty(text) {
+        return `<div class="route-tool-empty">${escapeHtml(text)}</div>`;
+    }
+
+    function openTool(tool, force = false) {
+        const valid = new Set(['weather', 'radio', 'place', 'nearest']);
+        if (!valid.has(tool)) return;
+        abortOtherToolRequests(tool);
+        state.view = tool;
+        state.actionMenuOpen = false;
+        state.nearestMenuKey = '';
+        state.radioAirportMenuKey = '';
+        state.placeInfoAirport = null;
+        state.placeInfoReturn = tool;
+        setStatus('');
+        render();
+        if (tool === 'weather') ensureWeatherTool(force);
+        if (tool === 'radio') ensureRadioTool(force);
+        if (tool === 'place') ensurePlaceTool(force);
+        if (tool === 'nearest') ensureNearestTool(force);
+    }
+
+    function pickRouteSamplePoints(maxSamples = 5) {
+        const pts = getRoutePoints();
+        if (pts.length <= maxSamples) return pts;
+        const out = [pts[0]];
+        const interiorSlots = maxSamples - 2;
+        for (let i = 1; i <= interiorSlots; i += 1) {
+            const idx = Math.round((i / (interiorSlots + 1)) * (pts.length - 1));
+            out.push(pts[idx]);
+        }
+        out.push(pts[pts.length - 1]);
+        return out;
+    }
+
+    function weatherFromMetarCache(icao) {
+        const code = String(icao || '').trim().toUpperCase();
+        if (!code) return null;
+        try {
+            const entry = (typeof gpsState !== 'undefined' && gpsState?.metarCache) ? gpsState.metarCache[code] : null;
+            const metar = Array.isArray(entry?.data) ? entry.data[0] : null;
+            if (!metar) return null;
+            const raw = metar.rawOb || metar.raw || '';
+            return {
+                source: 'METAR',
+                station: metar.icaoId || code,
+                raw,
+                cat: metar.fltCat || '',
+                wind: metar.wdir ? `${metar.wdir}°/${metar.wspd || 0} kt` : '',
+                vis: raw.includes(' 9999 ') ? '>10 km' : (metar.visib ? `${metar.visib} sm` : ''),
+                clouds: metar.cover || '',
+                wx: metar.wxString || 'NIL',
+                temp: metar.temp != null ? `${metar.temp}°C` : ''
+            };
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function nearestCachedWeatherPoint(lat, lon) {
+        try {
+            if (typeof vpWeatherData === 'undefined' || !Array.isArray(vpWeatherData)) return null;
+            let best = null;
+            let bestDist = Infinity;
+            vpWeatherData.forEach(zone => {
+                const zLat = Number(zone?.stnLat), zLon = Number(zone?.stnLon);
+                if (!Number.isFinite(zLat) || !Number.isFinite(zLon)) return;
+                const nav = navBetween(lat, lon, zLat, zLon);
+                if (nav.dist < bestDist) {
+                    bestDist = nav.dist;
+                    best = {
+                        source: 'Kartenwetter',
+                        station: zone.icao || '',
+                        cat: zone.fltCat || '',
+                        wind: zone.wdir ? `${zone.wdir}°/${zone.wspd || 0} kt` : '',
+                        vis: zone.visib ? `${zone.visib}` : '',
+                        clouds: Array.isArray(zone.clouds) ? `${zone.clouds.length} Layer` : '',
+                        wx: zone.wxString || '',
+                        distNm: bestDist
+                    };
+                }
+            });
+            return best && bestDist <= 45 ? best : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function weatherRiskRank(sample) {
+        const cat = String(sample?.cat || '').toUpperCase();
+        if (cat === 'LIFR' || cat === 'IFR') return 3;
+        if (cat === 'MVFR') return 2;
+        const raw = `${sample?.wx || ''} ${sample?.raw || ''}`.toUpperCase();
+        if (/TS|FZ|SN|FG|BKN00|OVC00/.test(raw)) return 3;
+        if (/RA|SH|BR|HZ|BKN0[0-2]|OVC0[0-2]/.test(raw)) return 2;
+        if (/BKN|OVC|SCT0[0-3]/.test(raw)) return 1;
+        return 0;
+    }
+
+    function buildWeatherAssessment(rows) {
+        const ranks = rows.map(weatherRiskRank);
+        const worst = Math.max(0, ...ranks);
+        const missing = rows.filter(r => !r.source || r.source === 'Keine Daten').length;
+        if (!rows.length) return { tone: 'warn', label: 'Keine Route', text: 'Plane zuerst eine Route, dann kann ich das Wetter entlang der Strecke zusammenfassen.' };
+        if (worst >= 3) return { tone: 'bad', label: 'Anspruchsvoll', text: 'Es gibt deutliche Warnzeichen wie IFR/LIFR, Gewitter, Nebel oder sehr tiefe Wolken. Für VFR wäre das keine entspannte Lage.' };
+        if (worst === 2) return { tone: 'warn', label: 'Genau prüfen', text: 'Die Lage ist gemischt: Sicht, Wolken oder Niederschlag können einzelne Abschnitte schwierig machen. Plane Ausweichoptionen ein.' };
+        if (worst === 1) return { tone: 'watch', label: 'Beobachten', text: 'Grundsätzlich wirkt die Lage brauchbar, aber Wolken oder lokale Wetterzeichen verdienen Aufmerksamkeit.' };
+        if (missing >= Math.ceil(rows.length / 2)) return { tone: 'warn', label: 'Daten dünn', text: 'Es sind zu wenige automatische Wetterdaten entlang der Route vorhanden. Nutze zusätzlich offizielle Quellen.' };
+        return { tone: 'good', label: 'Unauffällig', text: 'Die automatisch gefundenen Daten zeigen keine groben roten Flaggen. Trotzdem bitte offizielles Wetterbriefing prüfen.' };
+    }
+
+    async function ensureWeatherTool(force = false) {
+        const key = getRouteKey();
+        const entry = toolState.weather;
+        if (!force && isCacheFresh(entry, key)) return;
+        if (entry.loading && entry.key === key && !force) return;
+        abortToolRequest('weather');
+        entry.loading = true;
+        entry.key = key;
+        entry.error = '';
+        entry.controller = new AbortController();
+        if (state.view === 'weather') render();
+        try {
+            const samples = pickRouteSamplePoints(5);
+            let openMeteo = [];
+            if (samples.length && typeof window.fetchOpenMeteoWeatherPoints === 'function') {
+                try {
+                    openMeteo = await window.fetchOpenMeteoWeatherPoints(
+                        samples.map(p => ({ lat: p.lat, lon: p.lon })),
+                        { signal: entry.controller.signal, includePressure: false, maxConcurrency: 2 }
+                    );
+                } catch (_) {
+                    openMeteo = [];
+                }
+            }
+            const dep = getCurrentAirport('dep');
+            const dest = getCurrentAirport('dest');
+            const rows = samples.map((p, idx) => {
+                const label = idx === 0 ? 'Start' : (idx === samples.length - 1 ? 'Ziel' : `Route ${idx}`);
+                const icao = idx === 0 ? dep.icao : (idx === samples.length - 1 ? dest.icao : '');
+                const cached = weatherFromMetarCache(icao) || nearestCachedWeatherPoint(p.lat, p.lon);
+                const om = openMeteo.find(s => s && Math.abs(Number(s.lat) - p.lat) < 0.02 && Math.abs(Number(s.lon) - p.lon) < 0.02);
+                const fromOm = om ? {
+                    source: 'Open-Meteo',
+                    station: '',
+                    cat: '',
+                    wind: Number.isFinite(Number(om.wspd)) ? `${Math.round(Number(om.wdir || 0))}°/${Math.round(Number(om.wspd))} kt` : '',
+                    vis: Number.isFinite(Number(om.visibilityM)) ? `${Math.round(Number(om.visibilityM) / 1000)} km` : '',
+                    clouds: [om.cloudLowPct, om.cloudMidPct, om.cloudHighPct].some(v => Number.isFinite(Number(v)))
+                        ? `low ${Math.round(Number(om.cloudLowPct || 0))}% · mid ${Math.round(Number(om.cloudMidPct || 0))}%`
+                        : '',
+                    wx: Number.isFinite(Number(om.weatherCode)) ? `Code ${om.weatherCode}` : ''
+                } : null;
+                return { label, name: p.name || icao || label, lat: p.lat, lon: p.lon, ...(cached || fromOm || { source: 'Keine Daten' }) };
+            });
+            entry.data = { rows, assessment: buildWeatherAssessment(rows), generatedAt: Date.now() };
+            entry.updatedAt = Date.now();
+        } catch (error) {
+            if (error?.name !== 'AbortError') entry.error = 'Wetterdaten konnten nicht geladen werden.';
+        } finally {
+            entry.loading = false;
+            entry.controller = null;
+            if (state.view === 'weather') render();
+        }
+    }
+
+    function renderWeatherTool() {
+        setTitle('Wetter');
+        const entry = toolState.weather;
+        const data = entry.data;
+        const rows = data?.rows || [];
+        const assessment = data?.assessment;
+        const body = rows.length ? rows.map(row => `
+            <div class="route-tool-row">
+                <div class="route-tool-row-main">
+                    <div class="route-tool-row-title">${escapeHtml(row.label)} · ${escapeHtml(row.name || '')}</div>
+                    <div class="route-tool-row-meta">${escapeHtml(row.source || 'Keine Daten')}${row.station ? ` · ${escapeHtml(row.station)}` : ''}</div>
+                    <div class="route-tool-mini-grid">
+                        <span>Wind <b>${escapeHtml(row.wind || '—')}</b></span>
+                        <span>Sicht <b>${escapeHtml(row.vis || '—')}</b></span>
+                        <span>Wolken <b>${escapeHtml(row.clouds || '—')}</b></span>
+                        <span>Wx <b>${escapeHtml(row.wx || '—')}</b></span>
+                    </div>
+                </div>
+            </div>
+        `).join('') : renderToolEmpty(entry.loading ? 'Wetter wird sparsam geladen...' : 'Keine Route für Wetterübersicht gefunden.');
+        bodyEl.innerHTML = `
+            ${toolTopline('weather')}
+            ${assessment ? `
+                <div class="route-tool-summary is-${escapeAttr(assessment.tone)}">
+                    <div class="route-tool-summary-label">${escapeHtml(assessment.label)}</div>
+                    <div class="route-tool-summary-text">${escapeHtml(assessment.text)}</div>
+                </div>
+            ` : ''}
+            ${entry.error ? `<div class="route-tool-warning">${escapeHtml(entry.error)}</div>` : ''}
+            <div class="route-tool-list">${body}</div>
+        `;
+    }
+
+    function airspaceFreqRows() {
+        try {
+            if (typeof activeAirspaces === 'undefined' || !Array.isArray(activeAirspaces)) return [];
+            return activeAirspaces
+                .filter(as => Array.isArray(as?.frequencies) && as.frequencies.length > 0)
+                .slice(0, 18)
+                .map(as => ({
+                    title: as.name || 'Luftraum',
+                    meta: `Enroute · ${as.type === 33 ? 'FIS' : 'Luftraum'}`,
+                    values: as.frequencies.slice(0, 3).map(f => `${f.name || f.label || 'INFO'} ${f.value}`).join(' · ')
+                }));
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function distancePointToRouteNm(lat, lon, routePts) {
+        if (!routePts.length) return Infinity;
+        let best = Infinity;
+        routePts.forEach(p => { best = Math.min(best, navBetween(lat, lon, p.lat, p.lon).dist); });
+        return best;
+    }
+
+    async function fetchRouteOpenAip(path, bounds, limit, signal) {
+        if (!bounds) return [];
+        const bbox = `${bounds.minLon},${bounds.minLat},${bounds.maxLon},${bounds.maxLat}`;
+        const data = await fetchJson(`${ROUTE_TOOLS_PROXY}/api/${path}?bbox=${encodeURIComponent(bbox)}&limit=${limit}&t=${Date.now()}`, signal);
+        return Array.isArray(data?.items) ? data.items : [];
+    }
+
+    async function ensureRadioTool(force = false) {
+        const key = getRouteKey();
+        const entry = toolState.radio;
+        if (!force && isCacheFresh(entry, key)) return;
+        if (entry.loading && entry.key === key && !force) return;
+        abortToolRequest('radio');
+        entry.loading = true;
+        entry.key = key;
+        entry.error = '';
+        entry.controller = new AbortController();
+        if (state.view === 'radio') render();
+        try {
+            const route = getRoutePoints();
+            const dep = getCurrentAirport('dep');
+            const dest = getCurrentAirport('dest');
+            if (dep.icao && typeof fetchAirportFreq === 'function' && !getFreqLines(dep.icao).length) fetchAirportFreq(dep.icao, null, 'dep').catch(() => null);
+            if (dest.icao && typeof fetchAirportFreq === 'function' && !getFreqLines(dest.icao).length) fetchAirportFreq(dest.icao, null, 'dest').catch(() => null);
+            if (route.length >= 2 && typeof fetchRouteAirspaces === 'function') {
+                try {
+                    const hasAirspaces = typeof activeAirspaces !== 'undefined' && Array.isArray(activeAirspaces) && activeAirspaces.length;
+                    if (force || !hasAirspaces) await fetchRouteAirspaces(route.map(p => ({ lat: p.lat, lng: p.lon })));
+                } catch (_) {}
+            }
+            const bounds = routeBounds(route, 10);
+            let airports = [];
+            let navaids = [];
+            if (bounds && route.length >= 2) {
+                const [aptItems, navItems] = await Promise.all([
+                    fetchRouteOpenAip('airports', bounds, 120, entry.controller.signal).catch(() => []),
+                    fetchRouteOpenAip('navaids', bounds, 120, entry.controller.signal).catch(() => [])
+                ]);
+                airports = aptItems.map(normalizeToolAirport)
+                    .filter(a => a?.icao && Number.isFinite(a.lat) && Number.isFinite(a.lon) && a.icao !== dep.icao && a.icao !== dest.icao)
+                    .map(a => ({ ...a, routeDist: distancePointToRouteNm(a.lat, a.lon, route) }))
+                    .filter(a => a.routeDist <= 8)
+                    .sort((a, b) => a.routeDist - b.routeDist)
+                    .slice(0, 10);
+                airports.forEach(a => {
+                    if (typeof fetchAirportFreq === 'function' && a.icao && !getFreqLines(a.icao).length) {
+                        fetchAirportFreq(a.icao, null, null).catch(() => null);
+                    }
+                });
+                if (airports.length) setTimeout(() => { if (state.view === 'radio') render(); }, 1100);
+                navaids = navItems
+                    .filter(n => n?.geometry?.coordinates)
+                    .map(n => {
+                        const lat = Number(n.geometry.coordinates[1]), lon = Number(n.geometry.coordinates[0]);
+                        const freq = n.frequency?.value || n.frequency || n.frequencies?.[0]?.value || '';
+                        return { name: n.name || n.identifier || 'Funkfeuer', ident: n.identifier || n.designator || '', lat, lon, freq, routeDist: distancePointToRouteNm(lat, lon, route) };
+                    })
+                    .filter(n => Number.isFinite(n.lat) && Number.isFinite(n.lon) && n.routeDist <= 12)
+                    .sort((a, b) => a.routeDist - b.routeDist)
+                    .slice(0, 10);
+            }
+            entry.data = { dep, dest, airports, navaids, generatedAt: Date.now() };
+            entry.updatedAt = Date.now();
+        } catch (error) {
+            if (error?.name !== 'AbortError') entry.error = 'Radio-Daten konnten nicht geladen werden.';
+        } finally {
+            entry.loading = false;
+            entry.controller = null;
+            if (state.view === 'radio') render();
+        }
+    }
+
+    function renderFreqBlock(label, apt) {
+        const freqs = getFreqLines(apt?.icao);
+        const heading = apt?.icao ? `${label} · ${apt.icao}` : label;
+        return `
+            <div class="route-tool-section">
+                <div class="route-tool-section-title">${escapeHtml(heading)}</div>
+                <div class="route-tool-section-sub">${escapeHtml(apt?.name || '')}</div>
+                ${freqs.length ? freqs.map(f => `<div class="route-tool-freq"><span>${escapeHtml(f.label)}</span><b>${escapeHtml(f.value)}</b></div>`).join('') : renderToolEmpty('Noch keine Frequenzen im Cache. Aktualisieren lädt nach.')}
+            </div>
+        `;
+    }
+
+    function renderRadioTool() {
+        setTitle('Radio');
+        const entry = toolState.radio;
+        const data = entry.data;
+        const airRows = airspaceFreqRows();
+        bodyEl.innerHTML = `
+            ${toolTopline('radio')}
+            ${entry.error ? `<div class="route-tool-warning">${escapeHtml(entry.error)}</div>` : ''}
+            ${data ? renderFreqBlock('Start', data.dep) : ''}
+            <div class="route-tool-section">
+                <div class="route-tool-section-title">Enroute / FIS</div>
+                ${airRows.length ? airRows.map(r => `
+                    <div class="route-tool-row">
+                        <div class="route-tool-row-main">
+                            <div class="route-tool-row-title">${escapeHtml(r.title)}</div>
+                            <div class="route-tool-row-meta">${escapeHtml(r.meta)}</div>
+                            <div class="route-tool-row-value">${escapeHtml(r.values)}</div>
+                        </div>
+                    </div>
+                `).join('') : renderToolEmpty(entry.loading ? 'Lufträume/FIS werden geladen...' : 'Keine Enroute-Frequenzen gefunden.')}
+            </div>
+            <div class="route-tool-section">
+                <div class="route-tool-section-title">Plätze entlang der Route</div>
+                ${data?.airports?.length ? data.airports.map(a => {
+                    const freqs = getFreqLines(a.icao).slice(0, 3);
+                    const key = `radio_${a.icao}_${Math.round(a.routeDist * 10)}`;
+                    const open = state.radioAirportMenuKey === key;
+                    const encoded = encodeURIComponent(JSON.stringify(a));
+                    return `<div class="route-tool-row route-tool-radio-airport">
+                        <button class="route-tool-airport-main" type="button" data-action="radio-airport-menu" data-key="${escapeAttr(key)}">
+                            <span>
+                                <span class="route-tool-row-title">${escapeHtml(a.icao)} · ${escapeHtml(a.name)}</span>
+                                <span class="route-tool-row-meta">${fmtNm(a.routeDist)} NM neben Route</span>
+                            </span>
+                            <span class="checklist-tool-arrow" aria-hidden="true">›</span>
+                        </button>
+                        ${freqs.length ? `<div class="route-tool-radio-freqs">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('')}</div>` : '<div class="route-tool-row-meta">Frequenzen werden bei Bedarf geladen.</div>'}
+                        ${open ? `
+                            <div class="route-tool-context">
+                                <button class="checklist-mini-btn primary" type="button" data-action="nearest-direct" data-airport="${escapeAttr(encoded)}">Direct To</button>
+                                <button class="checklist-mini-btn" type="button" data-action="airport-info" data-airport="${escapeAttr(encoded)}">Info</button>
+                            </div>
+                        ` : ''}
+                    </div>`;
+                }).join('') : renderToolEmpty(entry.loading ? 'Nahe Plätze werden geladen...' : 'Keine nahen Plätze gefunden.')}
+            </div>
+            <div class="route-tool-section">
+                <div class="route-tool-section-title">Funkfeuer</div>
+                ${data?.navaids?.length ? data.navaids.map(n => `<div class="route-tool-row"><div class="route-tool-row-title">${escapeHtml(n.ident || '')} ${escapeHtml(n.name)}</div><div class="route-tool-row-meta">${fmtNm(n.routeDist)} NM neben Route${n.freq ? ` · ${escapeHtml(n.freq)}` : ''}</div></div>`).join('') : renderToolEmpty(entry.loading ? 'Funkfeuer werden geladen...' : 'Keine Funkfeuer entlang der Route gefunden.')}
+            </div>
+            ${data ? renderFreqBlock('Ziel', data.dest) : renderToolEmpty(entry.loading ? 'Radio-Daten werden geladen...' : 'Keine Radio-Daten.')}
+        `;
+    }
+
+    function ensurePlaceTool(force = false) {
+        const key = `${getCurrentAirport('dep').icao}|${getCurrentAirport('dest').icao}|${getRouteKey()}`;
+        const entry = toolState.place;
+        if (!force && isCacheFresh(entry, key, TOOL_CACHE_TTL_MS)) return;
+        entry.key = key;
+        entry.updatedAt = Date.now();
+        entry.data = { dep: getCurrentAirport('dep'), dest: getCurrentAirport('dest') };
+        const airports = [entry.data.dep, entry.data.dest].filter(a => a?.icao && /^[A-Z0-9]{4}$/.test(a.icao));
+        airports.forEach((apt, idx) => {
+            if (typeof fetchAirportFreq === 'function' && !getFreqLines(apt.icao).length) fetchAirportFreq(apt.icao, null, idx === 0 ? 'dep' : 'dest').catch(() => null);
+            if (typeof fetchRunwayDetails === 'function' && !getRunwayText(apt.icao) && Number.isFinite(apt.lat) && Number.isFinite(apt.lon)) {
+                const id = `routeToolHiddenRwy_${apt.icao}`;
+                let hidden = document.getElementById(id);
+                if (!hidden) {
+                    hidden = document.createElement('div');
+                    hidden.id = id;
+                    hidden.style.display = 'none';
+                    document.body.appendChild(hidden);
+                }
+                fetchRunwayDetails(apt.lat, apt.lon, id, apt.icao).catch(() => null);
+            }
+        });
+        if (state.view === 'place') setTimeout(() => { if (state.view === 'place') render(); }, 800);
+    }
+
+    function placeMapId(label, apt) {
+        const raw = `${label}_${apt?.icao || apt?.name || ''}_${Number(apt?.lat || 0).toFixed(3)}_${Number(apt?.lon || 0).toFixed(3)}`;
+        return `routeToolMap_${raw.replace(/[^\w-]/g, '_')}`;
+    }
+
+    function placeWeatherId(label, apt) {
+        const raw = `${label}_${apt?.icao || apt?.name || ''}_${Number(apt?.lat || 0).toFixed(3)}_${Number(apt?.lon || 0).toFixed(3)}`;
+        return `routeToolWx_${raw.replace(/[^\w-]/g, '_')}`;
+    }
+
+    function placeCard(label, apt, detailAction = true) {
+        const coords = Number.isFinite(apt?.lat) && Number.isFinite(apt?.lon) ? `${apt.lat.toFixed(4)}, ${apt.lon.toFixed(4)}` : '—';
+        const freqs = getFreqLines(apt?.icao).slice(0, 5);
+        const rwy = getRunwayText(apt?.icao);
+        const rwyRows = parseRunwayRows(rwy);
+        const aip = getAipUrlForAirport(apt);
+        const mapId = placeMapId(label, apt);
+        const wxId = placeWeatherId(label, apt);
+        const hasCoords = Number.isFinite(apt?.lat) && Number.isFinite(apt?.lon);
+        return `
+            <div class="route-tool-place-card">
+                <div class="route-tool-place-head">
+                    <div>
+                        <div class="route-tool-place-label">${escapeHtml(label)}</div>
+                        <div class="route-tool-place-title">${escapeHtml(apt?.icao || '—')} · ${escapeHtml(apt?.name || '—')}</div>
+                    </div>
+                    ${detailAction && apt?.icao ? `<button class="checklist-mini-btn route-tool-inline-btn" type="button" data-action="airport-info" data-airport="${escapeAttr(encodeURIComponent(JSON.stringify(apt)))}">Info</button>` : ''}
+                </div>
+                <div class="route-tool-place-visual">
+                    <div id="${escapeAttr(mapId)}" class="route-tool-mini-map" data-lat="${escapeAttr(apt?.lat)}" data-lon="${escapeAttr(apt?.lon)}">
+                        ${hasCoords ? '' : '<span>Keine Kartenposition</span>'}
+                    </div>
+                    <div class="route-tool-place-facts">
+                        <div class="route-tool-place-chip"><span>Koordinaten</span><b>${escapeHtml(coords)}</b></div>
+                        <div class="route-tool-place-chip"><span>Elevation</span><b>${apt?.elevation != null ? `${Math.round(apt.elevation)} ft` : '—'}</b></div>
+                    </div>
+                </div>
+                <div class="route-tool-place-block">
+                    <div class="route-tool-place-block-title">Wetter</div>
+                    <div id="${escapeAttr(wxId)}" class="route-tool-weather-widget">Wetter lädt bei Bedarf…</div>
+                </div>
+                <div class="route-tool-place-block">
+                    <div class="route-tool-place-block-title">Pisten</div>
+                    ${rwyRows.length ? rwyRows.map(row => `<div class="route-tool-runway-row"><span>${escapeHtml(row.ident)}</span><b>${escapeHtml(row.detail || 'Details offen')}</b></div>`).join('') : renderToolEmpty('Keine Pistendaten im Cache.')}
+                </div>
+                <div class="route-tool-place-block">
+                    <div class="route-tool-place-block-title">Frequenzen</div>
+                    ${freqs.length ? `<div class="route-tool-frequency-chips">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('')}</div>` : renderToolEmpty('Keine Frequenzen im Cache.')}
+                </div>
+                ${aip ? `<a class="route-tool-link" href="${escapeAttr(aip)}" target="_blank" rel="noopener noreferrer">AIP öffnen ↗</a>` : ''}
+            </div>
+        `;
+    }
+
+    function renderPlaceEnhancements() {
+        const cards = Array.from(bodyEl.querySelectorAll('.route-tool-mini-map'));
+        cards.forEach(el => {
+            const lat = Number(el.dataset.lat);
+            const lon = Number(el.dataset.lon);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+            if (typeof L === 'undefined') return;
+            if (miniMaps.has(el.id)) {
+                const existing = miniMaps.get(el.id);
+                try {
+                    existing.invalidateSize();
+                    existing.setView([lat, lon], 12);
+                } catch (_) {}
+                return;
+            }
+            try {
+                const m = L.map(el.id, {
+                    zoomControl: false,
+                    attributionControl: false,
+                    dragging: false,
+                    scrollWheelZoom: false,
+                    doubleClickZoom: false,
+                    boxZoom: false,
+                    keyboard: false,
+                    tap: false
+                }).setView([lat, lon], 12);
+                L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 15 }).addTo(m);
+                L.circleMarker([lat, lon], { radius: 5, color: '#101820', weight: 2, fillColor: '#7ee787', fillOpacity: 1 }).addTo(m);
+                miniMaps.set(el.id, m);
+                setTimeout(() => { try { m.invalidateSize(); } catch (_) {} }, 60);
+            } catch (_) {}
+        });
+
+        Array.from(bodyEl.querySelectorAll('.route-tool-weather-widget')).forEach(el => {
+            if (el.dataset.loaded === 'true') return;
+            const card = el.closest('.route-tool-place-card');
+            const title = card?.querySelector('.route-tool-place-title')?.textContent || '';
+            const code = (title.match(/\b[A-Z0-9]{4}\b/) || [''])[0];
+            const mapEl = card?.querySelector('.route-tool-mini-map');
+            const lat = Number(mapEl?.dataset.lat);
+            const lon = Number(mapEl?.dataset.lon);
+            if (typeof loadMetarWidget === 'function') {
+                el.dataset.loaded = 'true';
+                loadMetarWidget(code || null, el.id, lat, lon, true);
+            }
+        });
+    }
+
+    function renderPlaceTool() {
+        setTitle('Platz');
+        ensurePlaceTool(false);
+        const data = toolState.place.data || { dep: getCurrentAirport('dep'), dest: getCurrentAirport('dest') };
+        bodyEl.innerHTML = `
+            ${toolTopline('place')}
+            ${placeCard('Start', data.dep)}
+            ${placeCard('Ziel', data.dest)}
+        `;
+        setTimeout(renderPlaceEnhancements, 0);
+    }
+
+    async function ensureNearestTool(force = false) {
+        const origin = getLiveAircraftPosition();
+        const entry = toolState.nearest;
+        if (!origin) {
+            abortToolRequest('nearest');
+            entry.data = null;
+            entry.error = 'Keine frische Live-Position. Nearest nutzt bewusst nicht die Karte als Ersatz für das Flugzeug.';
+            entry.loading = false;
+            if (state.view === 'nearest') render();
+            return;
+        }
+        const originKey = `${origin.lat.toFixed(2)},${origin.lon.toFixed(2)}`;
+        const movedNm = entry.origin ? navBetween(entry.origin.lat, entry.origin.lon, origin.lat, origin.lon).dist : Infinity;
+        const key = `nearest:${originKey}`;
+        if (!force && isCacheFresh(entry, entry.key, NEAREST_CACHE_TTL_MS) && movedNm < NEAREST_MOVE_REFRESH_NM) return;
+        if (entry.loading && !force) return;
+        abortToolRequest('nearest');
+        entry.loading = true;
+        entry.key = key;
+        entry.origin = origin;
+        entry.error = '';
+        entry.controller = new AbortController();
+        if (state.view === 'nearest') render();
+        try {
+            const b = routeBounds([{ lat: origin.lat, lon: origin.lon }], NEAREST_RADIUS_NM);
+            const items = await fetchRouteOpenAip('airports', b, 250, entry.controller.signal);
+            const airports = items.map(normalizeToolAirport)
+                .filter(a => a?.icao && Number.isFinite(a.lat) && Number.isFinite(a.lon))
+                .map(a => ({ ...a, nav: navBetween(origin.lat, origin.lon, a.lat, a.lon) }))
+                .filter(a => a.nav.dist <= NEAREST_RADIUS_NM)
+                .sort((a, b) => a.nav.dist - b.nav.dist)
+                .slice(0, 30);
+            entry.data = { origin, airports, generatedAt: Date.now() };
+            entry.updatedAt = Date.now();
+        } catch (error) {
+            if (error?.name !== 'AbortError') entry.error = 'Nearest konnte nicht geladen werden.';
+        } finally {
+            entry.loading = false;
+            entry.controller = null;
+            if (state.view === 'nearest') render();
+        }
+    }
+
+    function renderNearestTool() {
+        setTitle('Nearest');
+        const entry = toolState.nearest;
+        const airports = entry.data?.airports || [];
+        const list = entry.error && !entry.loading ? ''
+            : airports.length ? airports.map((apt, index) => {
+            const key = `${apt.icao}_${index}`;
+            const open = state.nearestMenuKey === key;
+            const encoded = encodeURIComponent(JSON.stringify(apt));
+            return `
+                <div class="route-tool-nearest">
+                    <button class="route-tool-nearest-main" type="button" data-action="nearest-menu" data-key="${escapeAttr(key)}">
+                        <span>
+                            <span class="route-tool-row-title">${escapeHtml(apt.icao)} · ${escapeHtml(apt.name)}</span>
+                            <span class="route-tool-row-meta">${fmtNm(apt.nav.dist)} NM · ${apt.nav.brng}° ${compassFromBearing(apt.nav.brng)}</span>
+                        </span>
+                        <span class="checklist-tool-arrow" aria-hidden="true">›</span>
+                    </button>
+                    ${open ? `
+                        <div class="route-tool-context">
+                            <button class="checklist-mini-btn primary" type="button" data-action="nearest-direct" data-airport="${escapeAttr(encoded)}">Direct To</button>
+                            <button class="checklist-mini-btn" type="button" data-action="airport-info" data-airport="${escapeAttr(encoded)}">Info</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('') : renderToolEmpty(entry.loading ? 'Nearest wird geladen...' : 'Keine Flugplätze im Umkreis von 50 NM gefunden.');
+        bodyEl.innerHTML = `
+            ${toolTopline('nearest')}
+            ${entry.error && !entry.loading ? `<div class="route-tool-warning">${escapeHtml(entry.error)}</div>` : ''}
+            <div class="route-tool-list">${list}</div>
+        `;
+    }
+
+    function decodeAirportDataset(button) {
+        try {
+            return normalizeToolAirport(JSON.parse(decodeURIComponent(button.dataset.airport || '')));
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function renderAirportInfoTool() {
+        setTitle('Platz Info');
+        const apt = state.placeInfoAirport;
+        if (!apt) {
+            state.view = 'place';
+            renderPlaceTool();
+            return;
+        }
+        ensurePlaceTool(false);
+        bodyEl.innerHTML = `
+            <div class="checklist-topline route-tool-topline">
+                <button class="checklist-back-btn" type="button" data-action="open-tool" data-tool="${escapeAttr(state.placeInfoReturn || 'place')}">Zurück</button>
+                <button class="checklist-action-btn" type="button" data-action="nearest-direct" data-airport="${escapeAttr(encodeURIComponent(JSON.stringify(apt)))}">Direct To</button>
+            </div>
+            ${placeCard('Info', apt, false)}
+        `;
+        setTimeout(renderPlaceEnhancements, 0);
     }
 
     function renderList() {
@@ -475,6 +1394,8 @@
         const ownRows = customLists.length
             ? customLists.map(checklist => managerRow(checklist, 'toggle-visible')).join('')
             : '<div class="checklist-manager-empty">Noch keine eigenen Checklisten.</div>';
+        const visibleRows = visibleChecklists().map((checklist, index, arr) => reorderRow(checklist, index, arr.length)).join('')
+            || '<div class="checklist-manager-empty">Keine sichtbaren Checklisten.</div>';
         const ownIds = customCommunityIds();
         const communityRows = communityMeta.filter(meta => !ownIds.has(meta.id)).map(meta => {
             const subscribed = !!communitySubscriptions[meta.id];
@@ -495,6 +1416,10 @@
                 <button class="checklist-action-btn" type="button" data-action="refresh-community">Community aktualisieren</button>
             </div>
             <div class="checklist-manager-section">
+                <div class="checklist-manager-title">REIHENFOLGE</div>
+                ${visibleRows}
+            </div>
+            <div class="checklist-manager-section">
                 <div class="checklist-manager-title">STANDARD</div>
                 ${builtinRows}
             </div>
@@ -508,6 +1433,21 @@
             </div>
         `;
         maybePullCommunity(true);
+    }
+
+    function reorderRow(checklist, index, total) {
+        return `
+            <div class="checklist-manager-row checklist-order-row">
+                <div class="checklist-manager-main">
+                    <div class="checklist-manager-name">${escapeHtml(checklist.title)}</div>
+                    <div class="checklist-manager-meta">${sourceLabel(checklist)} · Position ${index + 1}/${total}</div>
+                </div>
+                <div class="checklist-order-buttons">
+                    <button class="checklist-mini-btn" type="button" data-action="move-checklist-order" data-id="${escapeAttr(checklist.id)}" data-dir="-1" ${index === 0 ? 'disabled' : ''}>↑</button>
+                    <button class="checklist-mini-btn" type="button" data-action="move-checklist-order" data-id="${escapeAttr(checklist.id)}" data-dir="1" ${index === total - 1 ? 'disabled' : ''}>↓</button>
+                </div>
+            </div>
+        `;
     }
 
     function managerRow(checklist, action) {
@@ -1394,12 +2334,20 @@
         const itemIndex = Number(button.dataset.itemIndex);
         const dir = Number(button.dataset.dir || 0);
         if (action === 'home') {
+            abortOtherToolRequests('');
             state.view = 'home';
             state.editorDraft = null;
             state.actionMenuOpen = false;
+            state.nearestMenuKey = '';
+            state.placeInfoAirport = null;
             setStatus('');
             render();
+        } else if (action === 'open-tool') {
+            openTool(button.dataset.tool || '', false);
+        } else if (action === 'refresh-tool') {
+            openTool(button.dataset.tool || state.view, true);
         } else if (action === 'open-list') {
+            abortOtherToolRequests('');
             openList();
         } else if (action === 'open-checklist') {
             openChecklist(id).catch(() => setStatus('Checkliste nicht erreichbar.', 'error'));
@@ -1410,6 +2358,11 @@
             render();
         } else if (action === 'refresh-community') {
             maybePullCommunity(true);
+        } else if (action === 'move-checklist-order') {
+            if (moveChecklistOrder(id, dir)) {
+                setStatus('Reihenfolge gespeichert.', 'good');
+                render();
+            }
         } else if (action === 'tab') {
             state.activeChapterId = id;
             persistUiState();
@@ -1462,6 +2415,54 @@
             duplicateItem(chapterIndex, itemIndex);
         } else if (action === 'delete-item') {
             deleteItem(chapterIndex, itemIndex);
+        } else if (action === 'nearest-menu') {
+            state.nearestMenuKey = state.nearestMenuKey === button.dataset.key ? '' : (button.dataset.key || '');
+            render();
+        } else if (action === 'radio-airport-menu') {
+            state.radioAirportMenuKey = state.radioAirportMenuKey === button.dataset.key ? '' : (button.dataset.key || '');
+            render();
+        } else if (action === 'nearest-direct') {
+            const apt = decodeAirportDataset(button);
+            if (!apt) return;
+            setStatus(`Direct To ${apt.icao}...`);
+            Promise.resolve()
+                .then(() => {
+                    if (typeof applyAirportDirectTo === 'function') {
+                        const forceGpsStart = typeof isGpsLive === 'function' ? isGpsLive() : !!getLiveAircraftPosition();
+                        return applyAirportDirectTo(apt, { forceGpsStart });
+                    }
+                    if (typeof window.confirmAirportDirectTo === 'function') {
+                        return window.confirmAirportDirectTo(apt.icao, apt.lat, apt.lon, encodeURIComponent(apt.name || apt.icao));
+                    }
+                    throw new Error('direct_to_unavailable');
+                })
+                .then(ok => setStatus(ok === false ? 'Direct To abgebrochen.' : `Direct To ${apt.icao} aktiv.`, ok === false ? 'warn' : 'good'))
+                .catch(() => setStatus('Direct To nicht verfügbar.', 'error'));
+        } else if (action === 'airport-info') {
+            const apt = decodeAirportDataset(button);
+            if (!apt) return;
+            state.placeInfoAirport = apt;
+            state.placeInfoReturn = (state.view === 'nearest' || state.view === 'radio') ? state.view : 'place';
+            state.view = 'airport-info';
+            state.nearestMenuKey = '';
+            state.radioAirportMenuKey = '';
+            setStatus('');
+            if (typeof fetchAirportFreq === 'function' && apt.icao && !getFreqLines(apt.icao).length) {
+                fetchAirportFreq(apt.icao, null, null).catch(() => null);
+            }
+            if (typeof fetchRunwayDetails === 'function' && apt.icao && !getRunwayText(apt.icao) && Number.isFinite(apt.lat) && Number.isFinite(apt.lon)) {
+                const rid = `routeToolHiddenRwy_${apt.icao}`;
+                let hidden = document.getElementById(rid);
+                if (!hidden) {
+                    hidden = document.createElement('div');
+                    hidden.id = rid;
+                    hidden.style.display = 'none';
+                    document.body.appendChild(hidden);
+                }
+                fetchRunwayDetails(apt.lat, apt.lon, rid, apt.icao).catch(() => null);
+            }
+            render();
+            setTimeout(() => { if (state.view === 'airport-info') render(); }, 900);
         }
     }
 
@@ -1534,6 +2535,10 @@
         if (nextOpen) {
             if (state.view === 'list' || state.view === 'manager') maybePullCommunity(false);
             if (state.view === 'list') maybePullKvChecklists();
+            if (state.view === 'weather') ensureWeatherTool(false);
+            if (state.view === 'radio') ensureRadioTool(false);
+            if (state.view === 'place') ensurePlaceTool(false);
+            if (state.view === 'nearest') ensureNearestTool(false);
         }
     };
 

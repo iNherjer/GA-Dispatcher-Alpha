@@ -2124,7 +2124,7 @@ body.theme-retro .api-fuel-meter .api-scale {
     top: 0;
     right: 0;
     bottom: 0;
-    z-index: 5200;
+    z-index: 130500;
     width: calc(var(--checklist-panel-width) + var(--checklist-handle-hit));
     pointer-events: none;
 }
@@ -2323,6 +2323,11 @@ body.theme-retro .api-fuel-meter .api-scale {
     cursor: pointer;
 }
 
+.checklist-tool-tile.compact {
+    min-height: 76px;
+    padding: 14px 16px;
+}
+
 .checklist-tool-name {
     display: block;
     font-size: 22px;
@@ -2358,6 +2363,17 @@ body.theme-retro .api-fuel-meter .api-scale {
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
+}
+
+.checklist-back-btn {
+    background: rgba(154, 38, 38, 0.95);
+    border-color: rgba(255, 148, 148, 0.62);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.checklist-back-btn:hover {
+    background: rgba(186, 48, 48, 0.98);
 }
 
 .checklist-action-btn {
@@ -2509,6 +2525,29 @@ body.theme-retro .api-fuel-meter .api-scale {
     margin-bottom: 7px;
 }
 
+.checklist-order-row {
+    background: rgba(35, 74, 107, 0.28);
+    border-color: rgba(126, 189, 244, 0.28);
+}
+
+.checklist-order-buttons {
+    display: flex;
+    gap: 5px;
+    flex: 0 0 auto;
+}
+
+.checklist-order-buttons .checklist-mini-btn {
+    min-width: 38px;
+    width: 38px;
+    min-height: 34px;
+    padding: 0;
+}
+
+.checklist-order-buttons .checklist-mini-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
 .checklist-manager-row input[type="checkbox"],
 .checklist-publish-row input[type="checkbox"] {
     width: 22px;
@@ -2628,6 +2667,386 @@ body.theme-retro .api-fuel-meter .api-scale {
     text-decoration: line-through;
 }
 
+.route-tool-topline {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding-bottom: 8px;
+    background: linear-gradient(180deg, rgba(10, 12, 15, 0.98), rgba(10, 12, 15, 0.82));
+}
+
+.route-tool-list,
+.route-tool-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.route-tool-section,
+.route-tool-summary,
+.route-tool-place-card,
+.route-tool-nearest {
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.055);
+}
+
+.route-tool-section {
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.route-tool-section-title,
+.route-tool-summary-label,
+.route-tool-place-label {
+    color: #9ecbff;
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.route-tool-section-sub,
+.route-tool-row-meta,
+.route-tool-footnote,
+.route-tool-empty {
+    color: #9fb5cc;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.route-tool-summary {
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+.route-tool-summary.is-good {
+    border-color: rgba(130, 230, 167, 0.36);
+    background: rgba(47, 118, 76, 0.18);
+}
+
+.route-tool-summary.is-watch {
+    border-color: rgba(145, 203, 255, 0.34);
+    background: rgba(47, 88, 132, 0.18);
+}
+
+.route-tool-summary.is-warn {
+    border-color: rgba(255, 211, 122, 0.38);
+    background: rgba(122, 95, 35, 0.18);
+}
+
+.route-tool-summary.is-bad {
+    border-color: rgba(255, 130, 130, 0.42);
+    background: rgba(128, 42, 42, 0.2);
+}
+
+.route-tool-summary-text {
+    margin-top: 5px;
+    color: #eef4fb;
+    font-size: 13px;
+    line-height: 1.38;
+}
+
+.route-tool-row {
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.18);
+    padding: 10px;
+}
+
+.route-tool-row-title,
+.route-tool-place-title {
+    color: #f4f8fc;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.route-tool-row-value {
+    margin-top: 5px;
+    color: #ffe19a;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.route-tool-radio-freqs,
+.route-tool-frequency-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.route-tool-radio-freqs span,
+.route-tool-frequency-chips span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(255, 225, 154, 0.12);
+    border: 1px solid rgba(255, 225, 154, 0.34);
+    color: #f7d88c;
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.route-tool-radio-freqs b,
+.route-tool-frequency-chips b {
+    color: #fff;
+    margin-left: 4px;
+}
+
+.route-tool-mini-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.route-tool-mini-grid span,
+.route-tool-place-meta {
+    color: #c4d4e4;
+    font-size: 11px;
+    line-height: 1.35;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.route-tool-mini-grid b,
+.route-tool-place-meta b {
+    color: #fff;
+    font-weight: 800;
+}
+
+.route-tool-freq {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 30px;
+    align-items: center;
+    border-radius: 6px;
+    padding: 6px 8px;
+    margin-top: 7px;
+    background: rgba(0, 0, 0, 0.2);
+    color: #cfe1f3;
+    font-size: 12px;
+}
+
+.route-tool-freq b {
+    color: #ffe19a;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.route-tool-place-card {
+    padding: 12px;
+    margin-bottom: 10px;
+    background:
+        linear-gradient(135deg, rgba(46, 83, 116, 0.28), rgba(18, 28, 38, 0.3)),
+        rgba(255, 255, 255, 0.055);
+}
+
+.route-tool-place-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 9px;
+}
+
+.route-tool-inline-btn {
+    flex: 0 0 auto;
+    min-height: 34px;
+}
+
+.route-tool-place-visual {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.route-tool-mini-map {
+    min-height: 138px;
+    border: 1px solid rgba(158, 203, 255, 0.26);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.24);
+    color: #9fb5cc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+}
+
+.route-tool-mini-map .leaflet-control-container {
+    display: none;
+}
+
+.route-tool-place-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.route-tool-place-chip {
+    min-height: 58px;
+    padding: 9px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.route-tool-place-chip span,
+.route-tool-place-block-title {
+    display: block;
+    color: #9ecbff;
+    font-family: monospace;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.route-tool-place-chip b {
+    display: block;
+    margin-top: 5px;
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.route-tool-place-block {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.route-tool-weather-widget {
+    margin-top: 8px;
+    min-height: 64px;
+    color: #9fb5cc;
+    font-size: 11px;
+}
+
+.route-tool-runway-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    margin-top: 7px;
+    padding: 7px 8px;
+    border-radius: 7px;
+    background: rgba(77, 166, 255, 0.1);
+    border: 1px solid rgba(77, 166, 255, 0.22);
+}
+
+.route-tool-runway-row span {
+    color: #fff;
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.route-tool-runway-row b {
+    color: #cfe1f3;
+    font-size: 11px;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.route-tool-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    margin-top: 9px;
+    padding: 0 10px;
+    border-radius: 8px;
+    background: rgba(35, 94, 167, 0.74);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.route-tool-nearest {
+    overflow: hidden;
+}
+
+.route-tool-nearest-main {
+    width: 100%;
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.route-tool-airport-main {
+    width: 100%;
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.route-tool-radio-airport {
+    border: 1px solid rgba(158, 203, 255, 0.16);
+}
+
+.route-tool-context {
+    display: flex;
+    gap: 8px;
+    padding: 8px 0 0;
+}
+
+.route-tool-nearest .route-tool-context {
+    padding: 0 10px 10px;
+}
+
+.route-tool-warning {
+    margin-bottom: 10px;
+    border: 1px solid rgba(255, 211, 122, 0.34);
+    border-radius: 8px;
+    background: rgba(122, 95, 35, 0.18);
+    color: #ffd37a;
+    font-size: 12px;
+    line-height: 1.35;
+    padding: 10px;
+}
+
+.route-tool-empty {
+    padding: 8px 0;
+}
+
+.route-tool-footnote {
+    margin-top: 10px;
+}
+
+.route-tool-footnote.compact {
+    margin-top: 7px;
+}
+
 .checklist-editor-field {
     margin-bottom: 12px;
 }
@@ -2731,8 +3150,24 @@ body.theme-retro .api-fuel-meter .api-scale {
         min-height: 86px;
     }
 
+    .checklist-tool-tile.compact {
+        min-height: 72px;
+    }
+
     .checklist-row {
         min-height: 58px;
+    }
+
+    .route-tool-mini-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .route-tool-place-visual {
+        grid-template-columns: 1fr;
+    }
+
+    .route-tool-context {
+        flex-direction: column;
     }
 }
 
