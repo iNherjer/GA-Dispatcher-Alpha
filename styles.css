@@ -4541,22 +4541,23 @@ body.theme-navcom {
     --navlog-border: #888;
     --drawer-font: 'Share Tech Mono', 'Courier New', monospace;
     --drawer-font-mono: 'Share Tech Mono', 'Courier New', monospace;
-    --drawer-panel-bg: rgba(9, 13, 10, 0.96);
-    --drawer-text: #dbffdb;
-    --drawer-heading: #f2fff2;
-    --drawer-muted: #8edc8e;
-    --drawer-accent: #33ff33;
-    --drawer-accent-2: #d4ffd4;
-    --drawer-border: rgba(51, 255, 51, 0.36);
-    --drawer-border-soft: rgba(51, 255, 51, 0.2);
-    --drawer-surface: rgba(51, 255, 51, 0.06);
-    --drawer-surface-strong: rgba(51, 255, 51, 0.1);
-    --drawer-row-bg: rgba(0, 0, 0, 0.32);
-    --drawer-good: #73ff73;
-    --drawer-warn: #ffee78;
-    --drawer-danger: #ff8e8e;
-    --drawer-back-bg: rgba(130, 32, 32, 0.96);
-    --drawer-back-border: rgba(255, 110, 110, 0.7);
+    --drawer-panel-bg: rgba(31, 35, 39, 0.97);
+    --drawer-panel-shadow: -18px 0 36px rgba(0, 0, 0, 0.68);
+    --drawer-text: #d8dde2;
+    --drawer-heading: #f3f5f6;
+    --drawer-muted: #a3adb6;
+    --drawer-accent: #7f8b96;
+    --drawer-accent-2: #d6b56b;
+    --drawer-border: rgba(158, 169, 180, 0.34);
+    --drawer-border-soft: rgba(158, 169, 180, 0.2);
+    --drawer-surface: rgba(255, 255, 255, 0.055);
+    --drawer-surface-strong: rgba(255, 255, 255, 0.09);
+    --drawer-row-bg: rgba(8, 10, 12, 0.34);
+    --drawer-good: #9cb28f;
+    --drawer-warn: #d6b56b;
+    --drawer-danger: #d78272;
+    --drawer-back-bg: rgba(108, 37, 34, 0.96);
+    --drawer-back-border: rgba(212, 118, 105, 0.72);
     font-family: 'Arial', sans-serif;
 }
 
@@ -5819,7 +5820,7 @@ body.theme-retro .mission-note-page:not(.front-note) .retro-switch-container {
 .pb-tab:hover { background: #222; color: #ccc; }
 .pb-tab.active { background: #4da6ff; color: #000; }
 body.theme-retro .pb-tab.active { background: var(--piper-yellow); color: #111; }
-body.theme-navcom .pb-tab.active { background: #33ff33; color: #000; box-shadow: inset 0 0 5px rgba(0,0,0,0.5); }
+body.theme-navcom .pb-tab.active { background: #4a5056; color: #f1f3f4; box-shadow: inset 0 0 5px rgba(0,0,0,0.62); }
 .pin-modal-overlay {
     position: fixed; top:0; left:0; right:0; bottom:0;
     background: rgba(0,0,0,0.85);
