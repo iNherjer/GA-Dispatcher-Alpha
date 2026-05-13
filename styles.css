@@ -5235,6 +5235,7 @@ body.theme-ops1940 {
     --ops-switch-lever-up: url('assets/ui/ops1940/ops1940-switch-lever-up.png');
     --ops-selector-knob: url('assets/ui/ops1940/ops1940-selector-knob-square.png');
     --ops-panel-route: url('assets/ui/ops1940/ops1940-panel-route-selector.png');
+    --ops-panel-route-mobile: url('assets/ui/ops1940/ops1940-panel-route-selector-mobile.png');
     --ops-panel-region: url('assets/ui/ops1940/ops1940-panel-region.png');
     --ops-panel-direction: url('assets/ui/ops1940/ops1940-panel-direction.png');
     --ops-panel-aircraft: url('assets/ui/ops1940/ops1940-panel-aircraft.png');
@@ -7215,7 +7216,7 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
 
     body.theme-ops1940 .dir-n { top: calc(14% + 2px); }
     body.theme-ops1940 .dir-e { right: 8%; }
-    body.theme-ops1940 .dir-s { bottom: 14%; }
+    body.theme-ops1940 .dir-s { bottom: calc(14% - 2px); }
     body.theme-ops1940 .dir-w { left: 8%; }
 
     body.theme-ops1940 .ops-dir-random {
@@ -7237,7 +7238,38 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
     body.theme-ops1940 .region-int { right: 8%; top: calc(66% + 2px); transform: translateY(-50%); }
 
     body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-command-panel {
-        background-size: auto, 100% 114%, auto;
+        background-image:
+            linear-gradient(180deg, rgba(255, 244, 206, 0.08), rgba(0, 0, 0, 0.36)),
+            var(--ops-panel-route-mobile),
+            linear-gradient(180deg, var(--ops-olive-hi), var(--ops-olive-mid) 56%, var(--ops-olive-lo));
+        background-size: auto, 100% 100%, auto;
+    }
+
+    body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-command-panel::after {
+        --ops-overlay-screw-size: 18px;
+        --ops-overlay-screw-inset: 5.2%;
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+        background-image:
+            var(--ops-screw-r17),
+            var(--ops-screw-r73),
+            var(--ops-screw-r41),
+            var(--ops-screw-r17);
+        background-size:
+            var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
+            var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
+            var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
+            var(--ops-overlay-screw-size) var(--ops-overlay-screw-size);
+        background-position:
+            var(--ops-overlay-screw-inset) var(--ops-overlay-screw-inset),
+            calc(100% - var(--ops-overlay-screw-inset)) var(--ops-overlay-screw-inset),
+            var(--ops-overlay-screw-inset) calc(100% - var(--ops-overlay-screw-inset)),
+            calc(100% - var(--ops-overlay-screw-inset)) calc(100% - var(--ops-overlay-screw-inset));
+        background-repeat: no-repeat;
+        opacity: 0.88;
     }
 
     body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row {
@@ -7283,7 +7315,7 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
     }
 
     body.theme-ops1940 .preset-row .btn-preset {
-        --ops-toggle-top-off: calc(22.8% + 3px);
+        --ops-toggle-top-off: calc(22.8% + 5px);
         --ops-toggle-top-on: 15.8%;
         min-height: 154px;
         padding: 8px 6px 4px;
