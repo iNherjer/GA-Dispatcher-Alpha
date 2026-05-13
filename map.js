@@ -4566,7 +4566,8 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         const prevTimeline = (vpVfrIndexState.timeline && vpVfrIndexState.timeline.byKey) ? vpVfrIndexState.timeline : null;
         const nowMs = Date.now();
         const cooldownUntilMs = Number(vpVfrIndexState.timelineCooldownUntilMs || 0);
-        const timelineCooldownActive = Number.isFinite(cooldownUntilMs) && cooldownUntilMs > nowMs;
+        const openMeteoCooldownActive = typeof window.vpIsOpenMeteoCoolingDown === 'function' && window.vpIsOpenMeteoCoolingDown(nowMs);
+        const timelineCooldownActive = (Number.isFinite(cooldownUntilMs) && cooldownUntilMs > nowMs) || openMeteoCooldownActive;
         if (!timelineCooldownActive) {
             const timelinePerf = window.gaPerfStart ? window.gaPerfStart('VFR timeline forecast', { points: grid.points.length }) : null;
             try {
@@ -4585,7 +4586,10 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
                 if (window.gaPerfEnd) window.gaPerfEnd(timelinePerf, { ok: false, status });
             }
         } else if (window.gaDebugPush) {
-            window.gaDebugPush('vfr', '[VFR] timeline cooldown active', { remainingMs: Math.round(cooldownUntilMs - nowMs) });
+            window.gaDebugPush('vfr', '[VFR] timeline cooldown active', {
+                remainingMs: Math.max(0, Math.round(cooldownUntilMs - nowMs)),
+                openMeteoCooldown: !!openMeteoCooldownActive
+            });
         }
         if (!timelines && prevTimeline) {
             timelines = vpRefreshTimelineClockInPlace(prevTimeline) || prevTimeline;

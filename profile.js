@@ -2981,6 +2981,7 @@ const VP_OM_LEVEL_DEFAULT_FT = {
 };
 const VP_STD_MSL_PRESSURE_HPA = 1013.25;
 const VP_OM_CACHE_TTL_MS = 15 * 60 * 1000;
+const VP_OM_STALE_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
 const VP_OM_COOLDOWN_MS = 15 * 60 * 1000;
 const VP_METAR_RECOVERY_PROBE_MS = 2 * 60 * 1000;
 const VP_METAR_ROUTE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -3023,6 +3024,8 @@ window.vpWeatherDebug = window.vpWeatherDebug || {
     openMeteoBatchPoints: 0,
     openMeteoCacheHits: 0,
     openMeteoCacheMisses: 0,
+    openMeteoStaleCacheHits: 0,
+    openMeteoCooldownSkips: 0,
     cacheHydratedEntries: 0,
     cachePersistWrites: 0,
     cachePersistErrors: 0,
@@ -3930,6 +3933,17 @@ async function vpFetchOpenMeteoPoint(lat, lon, { signal, includePressure = false
     if (cached && (now - cached.ts) < VP_OM_CACHE_TTL_MS) {
         if (window.vpWeatherDebug) window.vpWeatherDebug.openMeteoCacheHits += 1;
         return cached.data;
+    }
+    if (vpIsOpenMeteoCoolingDown(now)) {
+        if (cached && (now - cached.ts) < VP_OM_STALE_CACHE_TTL_MS) {
+            if (window.vpWeatherDebug) {
+                window.vpWeatherDebug.openMeteoCacheHits += 1;
+                window.vpWeatherDebug.openMeteoStaleCacheHits += 1;
+            }
+            return cached.data;
+        }
+        if (window.vpWeatherDebug) window.vpWeatherDebug.openMeteoCooldownSkips += 1;
+        return null;
     }
     if (window.vpWeatherDebug) window.vpWeatherDebug.openMeteoCacheMisses += 1;
 
