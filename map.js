@@ -3698,6 +3698,40 @@ function vpMergeMosmixIntoSamples(samples, mosmix) {
     });
 }
 
+function vpBuildSamplesFromMosmix(points, mosmix) {
+    if (!mosmix || !mosmix.byKey || !Array.isArray(points)) return [];
+    const out = [];
+    points.forEach(p => {
+        const lat = Number(p && p.lat);
+        const lon = Number(p && p.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        let rec = null;
+        const keys = vpBuildTimelineKeyCandidates(lat, lon);
+        for (const k of keys) {
+            if (mosmix.byKey[k]) {
+                rec = mosmix.byKey[k];
+                break;
+            }
+        }
+        const current = rec && rec.current;
+        if (!current) return;
+        const parts = vpMosmixPartsFromValue(current, rec);
+        out.push({
+            lat,
+            lon,
+            cloudLowPct: Number(current.lowCloudPct),
+            cloudMidPct: Number(current.midCloudPct),
+            cloudTotalPct: Number(current.totalCloudPct),
+            precipitationMm: Number(current.precipitationMm),
+            visibilityM: Number(current.visibilityM),
+            weatherCode: Number(current.weatherCode),
+            ...parts,
+            source: 'mosmix'
+        });
+    });
+    return out;
+}
+
 function vpMergeMosmixIntoTimelines(timelines, mosmix) {
     if (!timelines || !timelines.byKey || !mosmix || !mosmix.byKey) return;
     Object.keys(timelines.byKey).forEach(key => {
@@ -4641,6 +4675,12 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
             });
         }
         valid = vpMergeMosmixIntoSamples(valid, mosmix);
+        if (valid.length === 0 && mosmix && mosmix.byKey) {
+            valid = vpBuildSamplesFromMosmix(grid.points, mosmix);
+            if (window.gaDebugPush && valid.length) {
+                window.gaDebugPush('vfr', '[VFR] using MOSMIX-only fallback samples', { points: valid.length });
+            }
+        }
         if (!sectorMode && valid.length === 0 && timelines && timelines.byKey) {
             const fallback = [];
             const nowRatio = Number(timelines.nowRatio);
