@@ -3004,6 +3004,7 @@ const VP_OM_COORD_STEP_BASE = 0.05;     // ~3 NM
 const VP_OM_COORD_STEP_PRESS = 0.075;   // ~4-5 NM
 const VP_HDG_WEATHER_CHUNK_CACHE_TTL_MS = 30 * 60 * 1000;
 const VP_HDG_WEATHER_CHUNK_CACHE_MAX = 80;
+const VP_HDG_WEATHER_COVERAGE_STEP_DEG = 0.25;
 const VP_WEATHER_AUTO_FALLBACK_DEFAULT = true;
 const vpOpenMeteoPointCache = new Map();
 const vpOpenMeteoPointInFlight = new Map();
@@ -3563,7 +3564,7 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`- Cache Hit/Miss: ${hit}/${miss} (Hitrate ${hitRate}%)`);
     lines.push(`- Cache Einträge (RAM): ${cacheTotal}/${VP_OM_CACHE_MAX_ENTRIES}`);
     lines.push(`- Cache Hydrate/Persist: ${dbg.cacheHydratedEntries || 0} geladen, ${dbg.cachePersistWrites || 0} gespeichert`);
-    lines.push(`- HDG Wetter-Chunk-Cache: ${vpHdgWeatherChunkCache.size}/${VP_HDG_WEATHER_CHUNK_CACHE_MAX}`);
+    lines.push(`- HDG Wetter-Chunk-Cache: ${vpHdgWeatherChunkCache.size}/${VP_HDG_WEATHER_CHUNK_CACHE_MAX} (${VP_HDG_WEATHER_COVERAGE_STEP_DEG}° Raster)`);
     lines.push(`- METAR Chunk-Cache (RAM): ${vpMetarChunkCache.size}/${VP_METAR_CHUNK_CACHE_MAX}`);
     lines.push(`- METAR Proxy-Cooldowns: ${vpMetarProxyBackoff.size}`);
     lines.push('');
@@ -9155,7 +9156,7 @@ async function vpUpdateHdgWeather(lat, lon, hdg, gs, dHdg, dPos) {
     }));
     const routePts = elevNm.map(p => ({ lat: p.lat, lon: p.lon, lng: p.lon }));
     if (routePts.length < 2) return;
-    const coverageKey = vpBuildCoverageKeyFromPoints(routePts, 0.1);
+    const coverageKey = vpBuildCoverageKeyFromPoints(routePts, VP_HDG_WEATHER_COVERAGE_STEP_DEG);
     const hdgChunkKey = `${window.vpWeatherSource || vpWeatherSource || 'metar'}:${coverageKey || 'none'}`;
     const cachedZonesNm = vpGetHdgWeatherChunkCache(hdgChunkKey, now);
     if (cachedZonesNm) {
