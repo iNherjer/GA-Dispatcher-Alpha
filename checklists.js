@@ -709,6 +709,7 @@
         bodyEl.innerHTML = `
             <div class="checklist-tool-grid">
                 <button class="checklist-tool-tile" type="button" data-action="open-list">
+                    <span class="checklist-tool-icon" aria-hidden="true">✅</span>
                     <span>
                         <span class="checklist-tool-name">Checklist</span>
                         <span class="checklist-tool-count">${count} sichtbar · ${communityMeta.length} Community</span>
@@ -716,6 +717,7 @@
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
                 <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="weather">
+                    <span class="checklist-tool-icon" aria-hidden="true">🌦️</span>
                     <span>
                         <span class="checklist-tool-name">Wetter</span>
                         <span class="checklist-tool-count">${route.length >= 2 ? 'Route · sparsame Übersicht' : 'Route planen für Enroute-Wetter'}</span>
@@ -723,6 +725,7 @@
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
                 <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="radio">
+                    <span class="checklist-tool-icon" aria-hidden="true">📻</span>
                     <span>
                         <span class="checklist-tool-name">Radio</span>
                         <span class="checklist-tool-count">${route.length >= 2 ? 'Start · Enroute · Ziel' : 'Frequenzen nach Route'}</span>
@@ -730,6 +733,7 @@
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
                 <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="place">
+                    <span class="checklist-tool-icon" aria-hidden="true">🛬</span>
                     <span>
                         <span class="checklist-tool-name">Platz</span>
                         <span class="checklist-tool-count">Start und Ziel · AIP Links</span>
@@ -737,6 +741,7 @@
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
                 <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="nearest">
+                    <span class="checklist-tool-icon" aria-hidden="true">📍</span>
                     <span>
                         <span class="checklist-tool-name">Nearest</span>
                         <span class="checklist-tool-count">${live ? '50 NM um Flugzeug' : 'braucht Live-Position'}</span>
@@ -806,7 +811,7 @@
                 cat: metar.fltCat || '',
                 wind: metar.wdir ? `${metar.wdir}°/${metar.wspd || 0} kt` : '',
                 vis: raw.includes(' 9999 ') ? '>10 km' : (metar.visib ? `${metar.visib} sm` : ''),
-                clouds: metar.cover || '',
+                clouds: formatMetarClouds(raw) || metar.cover || '',
                 wx: metar.wxString || 'NIL',
                 temp: metar.temp != null ? `${metar.temp}°C` : ''
             };
@@ -832,7 +837,7 @@
                         cat: zone.fltCat || '',
                         wind: zone.wdir ? `${zone.wdir}°/${zone.wspd || 0} kt` : '',
                         vis: zone.visib ? `${zone.visib}` : '',
-                        clouds: Array.isArray(zone.clouds) ? `${zone.clouds.length} Layer` : '',
+                        clouds: formatKnownCloudLayers(zone.clouds) || (Array.isArray(zone.clouds) ? `${zone.clouds.length} Layer` : ''),
                         wx: zone.wxString || '',
                         distNm: bestDist
                     };
@@ -842,6 +847,135 @@
         } catch (_) {
             return null;
         }
+    }
+
+    function cloudCoverToOctas(cover) {
+        const c = String(cover || '').toUpperCase();
+        if (c === 'SKC' || c === 'CLR' || c === 'NSC' || c === 'NCD') return '0/8';
+        if (c === 'FEW') return '1-2/8';
+        if (c === 'SCT') return '3-4/8';
+        if (c === 'BKN') return '5-7/8';
+        if (c === 'OVC' || c === 'VV') return '8/8';
+        return '';
+    }
+
+    function pctToOctas(value) {
+        const pct = Number(value);
+        if (!Number.isFinite(pct)) return null;
+        return Math.max(0, Math.min(8, Math.round(pct / 12.5)));
+    }
+
+    function formatMetarClouds(raw) {
+        const text = String(raw || '');
+        const layers = [];
+        const re = /\b(FEW|SCT|BKN|OVC|VV)(\d{3})\b/g;
+        let match;
+        while ((match = re.exec(text)) !== null && layers.length < 3) {
+            const cover = match[1].toUpperCase();
+            const ft = Number(match[2]) * 100;
+            layers.push(`${cover} ${cloudCoverToOctas(cover)} ${ft} ft AGL`);
+        }
+        if (!layers.length && /\b(SKC|CLR|NSC|NCD)\b/.test(text)) return '0/8 keine relevanten Wolken';
+        return layers.join(' · ');
+    }
+
+    function formatKnownCloudLayers(clouds) {
+        if (!Array.isArray(clouds) || !clouds.length) return '';
+        return clouds.slice(0, 3).map(c => {
+            const cover = String(c.type || c.cover || '').toUpperCase();
+            const octas = cloudCoverToOctas(cover) || (Number.isFinite(Number(c.cloudPct)) ? `${pctToOctas(c.cloudPct)}/8` : '');
+            const base = Number(c.baseAgl ?? c.baseFt ?? c.baseMsl);
+            const suffix = Number.isFinite(base) ? ` ca. ${Math.round(base / 100) * 100} ft` : '';
+            return `${cover || 'Layer'} ${octas}${suffix}`.trim();
+        }).join(' · ');
+    }
+
+    function wxCodeText(code, precipMm = 0, rainMm = 0, snowCm = 0) {
+        const c = Number(code);
+        if (!Number.isFinite(c)) {
+            if (Number(precipMm) > 0 || Number(rainMm) > 0) return 'Niederschlag';
+            if (Number(snowCm) > 0) return 'Schnee';
+            return '';
+        }
+        const map = {
+            0: 'NIL', 1: 'überwiegend klar', 2: 'teilweise bewölkt', 3: 'bedeckt',
+            45: 'Nebel', 48: 'Nebel/Reif',
+            51: 'leichter Sprühregen', 53: 'Sprühregen', 55: 'starker Sprühregen',
+            56: 'gefrierender Sprühregen', 57: 'starker gefrierender Sprühregen',
+            61: 'leichter Regen', 63: 'Regen', 65: 'starker Regen',
+            66: 'gefrierender Regen', 67: 'starker gefrierender Regen',
+            71: 'leichter Schnee', 73: 'Schnee', 75: 'starker Schnee',
+            77: 'Schneekörner', 80: 'leichte Schauer', 81: 'Schauer', 82: 'starke Schauer',
+            85: 'leichte Schneeschauer', 86: 'Schneeschauer',
+            95: 'Gewitter', 96: 'Gewitter/Hagel', 99: 'starkes Gewitter/Hagel'
+        };
+        return map[c] || `Wx ${c}`;
+    }
+
+    function formatOpenMeteoClouds(om) {
+        if (!om) return '';
+        if (Array.isArray(om.pressureProfile) && om.pressureProfile.length) {
+            const pts = om.pressureProfile
+                .filter(p => Number.isFinite(Number(p.geopotentialFt)) && Number.isFinite(Number(p.cloudPct)))
+                .sort((a, b) => Number(a.geopotentialFt) - Number(b.geopotentialFt));
+            const layers = [];
+            let start = null;
+            let cover = [];
+            pts.forEach((p, idx) => {
+                const cloudy = Number(p.cloudPct) >= 20;
+                if (cloudy && !start) {
+                    start = { idx, baseFt: Number(p.geopotentialFt) };
+                    cover = [Number(p.cloudPct)];
+                } else if (cloudy) {
+                    cover.push(Number(p.cloudPct));
+                } else if (start) {
+                    const avg = cover.reduce((a, b) => a + b, 0) / Math.max(1, cover.length);
+                    layers.push(`${pctToOctas(avg)}/8 ca. ${Math.round(start.baseFt / 100) * 100} ft MSL`);
+                    start = null;
+                    cover = [];
+                }
+            });
+            if (start) {
+                const avg = cover.reduce((a, b) => a + b, 0) / Math.max(1, cover.length);
+                layers.push(`${pctToOctas(avg)}/8 ca. ${Math.round(start.baseFt / 100) * 100} ft MSL`);
+            }
+            if (layers.length) return layers.slice(0, 3).join(' · ');
+        }
+        const parts = [
+            ['low', om.cloudLowPct, '< 6500 ft'],
+            ['mid', om.cloudMidPct, '6500-20000 ft'],
+            ['high', om.cloudHighPct, '> 20000 ft']
+        ].filter(([, pct]) => Number.isFinite(Number(pct)) && Number(pct) >= 10);
+        return parts.length
+            ? parts.map(([name, pct, band]) => `${name} ${pctToOctas(pct)}/8 ${band}`).join(' · ')
+            : '0/8 kaum Wolken';
+    }
+
+    function weatherFromOpenMeteo(om) {
+        if (!om) return null;
+        return {
+            source: 'Open-Meteo',
+            station: '',
+            cat: '',
+            wind: Number.isFinite(Number(om.wspd)) ? `${Math.round(Number(om.wdir || 0))}°/${Math.round(Number(om.wspd))} kt` : '',
+            vis: Number.isFinite(Number(om.visibilityM)) ? `${Math.round(Number(om.visibilityM) / 1000)} km` : '',
+            clouds: formatOpenMeteoClouds(om),
+            wx: wxCodeText(om.weatherCode, om.precipitationMm, om.rainMm, om.snowfallCm)
+        };
+    }
+
+    function mergeWeatherSources(cached, openMeteo) {
+        if (!cached && !openMeteo) return { source: 'Keine Daten' };
+        if (!cached) return openMeteo;
+        if (!openMeteo) return cached;
+        const merged = { ...openMeteo, ...cached };
+        ['wind', 'vis', 'clouds', 'wx'].forEach(key => {
+            if (!merged[key] || merged[key] === 'NIL' || merged[key] === '—') merged[key] = openMeteo[key] || merged[key];
+        });
+        if (openMeteo.source && cached.source && cached.source !== openMeteo.source) {
+            merged.source = `${cached.source} + ${openMeteo.source}`;
+        }
+        return merged;
     }
 
     function weatherRiskRank(sample) {
@@ -885,7 +1019,7 @@
                 try {
                     openMeteo = await window.fetchOpenMeteoWeatherPoints(
                         samples.map(p => ({ lat: p.lat, lon: p.lon })),
-                        { signal: entry.controller.signal, includePressure: false, maxConcurrency: 2 }
+                        { signal: entry.controller.signal, includePressure: true, maxConcurrency: 2 }
                     );
                 } catch (_) {
                     openMeteo = [];
@@ -897,19 +1031,8 @@
                 const label = idx === 0 ? 'Start' : (idx === samples.length - 1 ? 'Ziel' : `Route ${idx}`);
                 const icao = idx === 0 ? dep.icao : (idx === samples.length - 1 ? dest.icao : '');
                 const cached = weatherFromMetarCache(icao) || nearestCachedWeatherPoint(p.lat, p.lon);
-                const om = openMeteo.find(s => s && Math.abs(Number(s.lat) - p.lat) < 0.02 && Math.abs(Number(s.lon) - p.lon) < 0.02);
-                const fromOm = om ? {
-                    source: 'Open-Meteo',
-                    station: '',
-                    cat: '',
-                    wind: Number.isFinite(Number(om.wspd)) ? `${Math.round(Number(om.wdir || 0))}°/${Math.round(Number(om.wspd))} kt` : '',
-                    vis: Number.isFinite(Number(om.visibilityM)) ? `${Math.round(Number(om.visibilityM) / 1000)} km` : '',
-                    clouds: [om.cloudLowPct, om.cloudMidPct, om.cloudHighPct].some(v => Number.isFinite(Number(v)))
-                        ? `low ${Math.round(Number(om.cloudLowPct || 0))}% · mid ${Math.round(Number(om.cloudMidPct || 0))}%`
-                        : '',
-                    wx: Number.isFinite(Number(om.weatherCode)) ? `Code ${om.weatherCode}` : ''
-                } : null;
-                return { label, name: p.name || icao || label, lat: p.lat, lon: p.lon, ...(cached || fromOm || { source: 'Keine Daten' }) };
+                const fromOm = weatherFromOpenMeteo(openMeteo[idx]);
+                return { label, name: p.name || icao || label, lat: p.lat, lon: p.lon, ...mergeWeatherSources(cached, fromOm) };
             });
             entry.data = { rows, assessment: buildWeatherAssessment(rows), generatedAt: Date.now() };
             entry.updatedAt = Date.now();
@@ -1050,13 +1173,37 @@
         }
     }
 
-    function renderFreqBlock(label, apt) {
+    function renderAirportContext(key, apt) {
+        if (!apt?.icao) return '';
+        const encoded = encodeURIComponent(JSON.stringify(apt));
+        return state.radioAirportMenuKey === key ? `
+            <div class="route-tool-context">
+                <button class="checklist-mini-btn primary" type="button" data-action="nearest-direct" data-airport="${escapeAttr(encoded)}">Direct To</button>
+                <button class="checklist-mini-btn" type="button" data-action="airport-info" data-airport="${escapeAttr(encoded)}">Info</button>
+            </div>
+        ` : '';
+    }
+
+    function renderFreqBlock(label, apt, menuKey = '') {
         const freqs = getFreqLines(apt?.icao);
         const heading = apt?.icao ? `${label} · ${apt.icao}` : label;
+        const key = menuKey || `radio_${String(label || '').toLowerCase()}_${apt?.icao || 'none'}`;
+        const canOpenMenu = !!apt?.icao;
         return `
             <div class="route-tool-section">
-                <div class="route-tool-section-title">${escapeHtml(heading)}</div>
-                <div class="route-tool-section-sub">${escapeHtml(apt?.name || '')}</div>
+                ${canOpenMenu ? `
+                    <button class="route-tool-airport-main route-tool-airport-main-heading" type="button" data-action="radio-airport-menu" data-key="${escapeAttr(key)}">
+                        <span>
+                            <span class="route-tool-section-title">${escapeHtml(heading)}</span>
+                            <span class="route-tool-section-sub">${escapeHtml(apt?.name || '')}</span>
+                        </span>
+                        <span class="checklist-tool-arrow" aria-hidden="true">›</span>
+                    </button>
+                    ${renderAirportContext(key, apt)}
+                ` : `
+                    <div class="route-tool-section-title">${escapeHtml(heading)}</div>
+                    <div class="route-tool-section-sub">${escapeHtml(apt?.name || '')}</div>
+                `}
                 ${freqs.length ? freqs.map(f => `<div class="route-tool-freq"><span>${escapeHtml(f.label)}</span><b>${escapeHtml(f.value)}</b></div>`).join('') : renderToolEmpty('Noch keine Frequenzen im Cache. Aktualisieren lädt nach.')}
             </div>
         `;
@@ -1070,7 +1217,7 @@
         bodyEl.innerHTML = `
             ${toolTopline('radio')}
             ${entry.error ? `<div class="route-tool-warning">${escapeHtml(entry.error)}</div>` : ''}
-            ${data ? renderFreqBlock('Start', data.dep) : ''}
+            ${data ? renderFreqBlock('Start', data.dep, `radio_start_${data.dep?.icao || 'none'}`) : ''}
             <div class="route-tool-section">
                 <div class="route-tool-section-title">Enroute / FIS</div>
                 ${airRows.length ? airRows.map(r => `
@@ -1089,7 +1236,6 @@
                     const freqs = getFreqLines(a.icao).slice(0, 3);
                     const key = `radio_${a.icao}_${Math.round(a.routeDist * 10)}`;
                     const open = state.radioAirportMenuKey === key;
-                    const encoded = encodeURIComponent(JSON.stringify(a));
                     return `<div class="route-tool-row route-tool-radio-airport">
                         <button class="route-tool-airport-main" type="button" data-action="radio-airport-menu" data-key="${escapeAttr(key)}">
                             <span>
@@ -1099,12 +1245,7 @@
                             <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                         </button>
                         ${freqs.length ? `<div class="route-tool-radio-freqs">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${escapeHtml(f.value)}</b></span>`).join('')}</div>` : '<div class="route-tool-row-meta">Frequenzen werden bei Bedarf geladen.</div>'}
-                        ${open ? `
-                            <div class="route-tool-context">
-                                <button class="checklist-mini-btn primary" type="button" data-action="nearest-direct" data-airport="${escapeAttr(encoded)}">Direct To</button>
-                                <button class="checklist-mini-btn" type="button" data-action="airport-info" data-airport="${escapeAttr(encoded)}">Info</button>
-                            </div>
-                        ` : ''}
+                        ${open ? renderAirportContext(key, a) : ''}
                     </div>`;
                 }).join('') : renderToolEmpty(entry.loading ? 'Nahe Plätze werden geladen...' : 'Keine nahen Plätze gefunden.')}
             </div>
@@ -1112,7 +1253,7 @@
                 <div class="route-tool-section-title">Funkfeuer</div>
                 ${data?.navaids?.length ? data.navaids.map(n => `<div class="route-tool-row"><div class="route-tool-row-title">${escapeHtml(n.ident || '')} ${escapeHtml(n.name)}</div><div class="route-tool-row-meta">${fmtNm(n.routeDist)} NM neben Route${n.freq ? ` · ${escapeHtml(n.freq)}` : ''}</div></div>`).join('') : renderToolEmpty(entry.loading ? 'Funkfeuer werden geladen...' : 'Keine Funkfeuer entlang der Route gefunden.')}
             </div>
-            ${data ? renderFreqBlock('Ziel', data.dest) : renderToolEmpty(entry.loading ? 'Radio-Daten werden geladen...' : 'Keine Radio-Daten.')}
+            ${data ? renderFreqBlock('Ziel', data.dest, `radio_dest_${data.dest?.icao || 'none'}`) : renderToolEmpty(entry.loading ? 'Radio-Daten werden geladen...' : 'Keine Radio-Daten.')}
         `;
     }
 
@@ -1151,6 +1292,21 @@
         return `routeToolWx_${raw.replace(/[^\w-]/g, '_')}`;
     }
 
+    function staticMapTile(lat, lon, zoom = 11) {
+        const φ = Number(lat) * Math.PI / 180;
+        const n = 2 ** zoom;
+        const xFloat = ((Number(lon) + 180) / 360) * n;
+        const yFloat = (1 - Math.log(Math.tan(φ) + (1 / Math.cos(φ))) / Math.PI) / 2 * n;
+        const x = Math.floor(xFloat);
+        const y = Math.floor(yFloat);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+        return {
+            url: `https://a.tile.opentopomap.org/${zoom}/${x}/${y}.png`,
+            pctX: Math.max(0, Math.min(100, (xFloat - x) * 100)),
+            pctY: Math.max(0, Math.min(100, (yFloat - y) * 100))
+        };
+    }
+
     function placeCard(label, apt, detailAction = true) {
         const coords = Number.isFinite(apt?.lat) && Number.isFinite(apt?.lon) ? `${apt.lat.toFixed(4)}, ${apt.lon.toFixed(4)}` : '—';
         const freqs = getFreqLines(apt?.icao).slice(0, 5);
@@ -1160,6 +1316,7 @@
         const mapId = placeMapId(label, apt);
         const wxId = placeWeatherId(label, apt);
         const hasCoords = Number.isFinite(apt?.lat) && Number.isFinite(apt?.lon);
+        const tile = hasCoords ? staticMapTile(apt.lat, apt.lon) : null;
         return `
             <div class="route-tool-place-card">
                 <div class="route-tool-place-head">
@@ -1171,7 +1328,10 @@
                 </div>
                 <div class="route-tool-place-visual">
                     <div id="${escapeAttr(mapId)}" class="route-tool-mini-map" data-lat="${escapeAttr(apt?.lat)}" data-lon="${escapeAttr(apt?.lon)}">
-                        ${hasCoords ? '' : '<span>Keine Kartenposition</span>'}
+                        ${tile ? `
+                            <img class="route-tool-static-map-img" src="${escapeAttr(tile.url)}" alt="" loading="lazy">
+                            <span class="route-tool-static-map-marker" style="left:${tile.pctX.toFixed(1)}%;top:${tile.pctY.toFixed(1)}%"></span>
+                        ` : '<span>Keine Kartenposition</span>'}
                     </div>
                     <div class="route-tool-place-facts">
                         <div class="route-tool-place-chip"><span>Koordinaten</span><b>${escapeHtml(coords)}</b></div>
@@ -1196,38 +1356,6 @@
     }
 
     function renderPlaceEnhancements() {
-        const cards = Array.from(bodyEl.querySelectorAll('.route-tool-mini-map'));
-        cards.forEach(el => {
-            const lat = Number(el.dataset.lat);
-            const lon = Number(el.dataset.lon);
-            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-            if (typeof L === 'undefined') return;
-            if (miniMaps.has(el.id)) {
-                const existing = miniMaps.get(el.id);
-                try {
-                    existing.invalidateSize();
-                    existing.setView([lat, lon], 12);
-                } catch (_) {}
-                return;
-            }
-            try {
-                const m = L.map(el.id, {
-                    zoomControl: false,
-                    attributionControl: false,
-                    dragging: false,
-                    scrollWheelZoom: false,
-                    doubleClickZoom: false,
-                    boxZoom: false,
-                    keyboard: false,
-                    tap: false
-                }).setView([lat, lon], 12);
-                L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 15 }).addTo(m);
-                L.circleMarker([lat, lon], { radius: 5, color: '#101820', weight: 2, fillColor: '#7ee787', fillOpacity: 1 }).addTo(m);
-                miniMaps.set(el.id, m);
-                setTimeout(() => { try { m.invalidateSize(); } catch (_) {} }, 60);
-            } catch (_) {}
-        });
-
         Array.from(bodyEl.querySelectorAll('.route-tool-weather-widget')).forEach(el => {
             if (el.dataset.loaded === 'true') return;
             const card = el.closest('.route-tool-place-card');
