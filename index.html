@@ -1043,6 +1043,22 @@
     </div>
     <div class="pinboard-scroll-area">
         <div class="maptable-content" style="flex-direction: column;">
+            <div id="mapSideDrawer" class="map-side-drawer" aria-label="Kartenwerkzeuge">
+                <button id="mapSideDrawerHandle" class="map-side-drawer-handle" type="button" onclick="window.gaChecklistToggleDrawer && gaChecklistToggleDrawer()" aria-expanded="false" title="Kartenwerkzeuge">
+                    <span aria-hidden="true"></span>
+                </button>
+                <div class="map-side-drawer-panel">
+                    <div class="map-side-drawer-head">
+                        <div>
+                            <div class="map-side-drawer-kicker">TOOLS</div>
+                            <div id="checklistDrawerTitle" class="map-side-drawer-title">Kartenwerkzeuge</div>
+                        </div>
+                        <button class="map-side-drawer-close" type="button" onclick="window.gaChecklistToggleDrawer && gaChecklistToggleDrawer(false)" title="Schließen">×</button>
+                    </div>
+                    <div id="checklistDrawerStatus" class="map-side-drawer-status" aria-live="polite"></div>
+                    <div id="checklistDrawerBody" class="map-side-drawer-body"></div>
+                </div>
+            </div>
             <div id="mapArea" style="position: relative; flex:1; display:flex; align-items:center; justify-content:center; width:100%; min-height:0; overflow:hidden;">
                 <div id="map"></div>
                 <!-- Karten-Overlay: Auto-Follow Button -->
@@ -1382,6 +1398,7 @@
 <script src="cities.js"></script>
 <script src="taws.js"></script>
 <script src="sync.js"></script>
+<script src="checklists.js"></script>
 <script src="profile.js"></script>
 <script src="map.js"></script>
 <script src="app.js"></script>

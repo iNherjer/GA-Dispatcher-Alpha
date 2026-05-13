@@ -5,6 +5,9 @@ Diese Worker-Datei ergänzt den bestehenden `ga-proxy` um:
 - `GET /api/aip-chart/resolve?icao=XXXX&country=YY`
 - `GET /api/aip-chart/file?url=<encoded>`
 - `GET /api/obstacles/tile?tile=<latIndex|lonIndex>&layer=core|poi`
+- `GET /api/checklists/community` (öffentliche Checklist-Metadaten)
+- `GET /api/checklists/community/:id` (öffentliche Checklist-Definition)
+- `POST /api/checklists/community` (mit `X-Pilot-ID`/`X-Pilot-PIN`, veröffentlichen oder entfernen)
 - `POST /api/problem-reports` (öffentlich, Report anlegen)
 - `GET /api/problem-reports?status=open&limit=120` (Admin, offene Reports)
 - `GET /api/problem-reports/:id` (Admin, voller Report)
@@ -39,7 +42,9 @@ Wenn `--env production` Fehler über `.../workers/services/.../environments/prod
 
 Hinweis:
 - Der Worker nutzt `env.GA_SYNC_KV`; dafür muss ein KV-Binding `GA_SYNC_KV` im Worker vorhanden sein.
-- Ohne dieses Binding liefert `/api/sync/*` einen `503` mit Hinweistext.
+- Ohne dieses Binding liefern `/api/sync/*` und `/api/checklists/community*` einen `503` mit Hinweistext.
+- Die Checklist-Community nutzt vorhandene Sync-Profile zur PIN-Prüfung. Veröffentlichte Records speichern `ownerId`, Titel, Kapitel/Punkte, Zähler und Version, aber niemals den PIN.
+- `POST /api/checklists/community` erwartet `{ "action": "publish", "checklist": { ... } }` oder `{ "action": "unpublish", "id": "..." }`.
 - Für den Bugtracker kann optional ein Secret gesetzt werden:
   - `BUG_TRACKER_ADMIN_TOKEN` (als Worker Secret, nicht als plain var)
   - Wenn kein Secret gesetzt ist, sind List/Detail/Ack-Endpoints offen.

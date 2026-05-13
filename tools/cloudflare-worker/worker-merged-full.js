@@ -56,6 +56,12 @@ const BUG_OPEN_PREFIX = "bug:open:";
 const BUG_REPORT_TTL = 180 * 24 * 60 * 60; // 180 Tage
 const BUG_MAX_BODY_BYTES = 350 * 1024;
 
+const COMMUNITY_CHECKLIST_PREFIX = "checklist:community:";
+const COMMUNITY_CHECKLIST_INDEX_PREFIX = "checklist:community:index:";
+const COMMUNITY_CHECKLIST_MAX_BODY_BYTES = 160 * 1024;
+const COMMUNITY_CHECKLIST_MAX_CHAPTERS = 20;
+const COMMUNITY_CHECKLIST_MAX_ITEMS = 300;
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -115,6 +121,251 @@ function normalizeReportPayload(input) {
 
 function normalizeOneLine(value, maxLen = 200) {
   return trimText(value, maxLen).replace(/\s+/g, " ");
+}
+
+function normalizeCommunityId(value) {
+  return normalizeOneLine(value, 96).replace(/[^\w:-]/g, "_").slice(0, 96);
+}
+
+function communityChecklistKey(id) {
+  return `${COMMUNITY_CHECKLIST_PREFIX}${id}`;
+}
+
+function reverseTimestampKey(value) {
+  const ts = Number.isFinite(Number(value)) ? Number(value) : Date.now();
+  return String(9999999999999 - Math.max(0, Math.min(9999999999999, ts))).padStart(13, "0");
+}
+
+function communityIndexKey(id, updatedAt) {
+  return `${COMMUNITY_CHECKLIST_INDEX_PREFIX}${reverseTimestampKey(updatedAt)}:${id}`;
+}
+
+function communityPublicMeta(record) {
+  const chapterCount = Array.isArray(record.chapters) ? record.chapters.length : Number(record.chapterCount || 0);
+  const itemCount = Array.isArray(record.chapters)
+    ? record.chapters.reduce((sum, chapter) => sum + (Array.isArray(chapter.items) ? chapter.items.length : 0), 0)
+    : Number(record.itemCount || 0);
+  return {
+    id: normalizeCommunityId(record.id),
+    title: normalizeOneLine(record.title || "Community Checkliste", 96),
+    updatedAt: Number(record.updatedAt || 0),
+    version: Number(record.version || 1),
+    chapterCount,
+    itemCount
+  };
+}
+
+function communityPublicDetail(record) {
+  const meta = communityPublicMeta(record);
+  return {
+    ...meta,
+    chapters: (Array.isArray(record.chapters) ? record.chapters : []).map(chapter => ({
+      id: normalizeCommunityId(chapter.id || `chapter-${meta.id}`),
+      title: normalizeOneLine(chapter.title || "Kapitel", 64),
+      items: (Array.isArray(chapter.items) ? chapter.items : []).map(item => ({
+        id: normalizeCommunityId(item.id || `item-${meta.id}`),
+        text: normalizeOneLine(item.text || "", 220)
+      })).filter(item => item.text)
+    })).filter(chapter => chapter.items.length)
+  };
+}
+
+function normalizeCommunityChecklist(input, fallbackId = "") {
+  const payload = input && typeof input === "object" ? input : {};
+  const id = normalizeCommunityId(payload.id || fallbackId);
+  if (!id) throw new Error("missing_id");
+  const title = normalizeOneLine(payload.title, 96);
+  if (!title) throw new Error("missing_title");
+  const rawChapters = Array.isArray(payload.chapters) ? payload.chapters : [];
+  if (!rawChapters.length) throw new Error("missing_chapters");
+
+  let itemTotal = 0;
+  const chapters = [];
+  for (let chapterIndex = 0; chapterIndex < rawChapters.length && chapters.length < COMMUNITY_CHECKLIST_MAX_CHAPTERS; chapterIndex += 1) {
+    const rawChapter = rawChapters[chapterIndex] || {};
+    const chapterTitle = normalizeOneLine(rawChapter.title || `Kapitel ${chapterIndex + 1}`, 64);
+    const rawItems = Array.isArray(rawChapter.items) ? rawChapter.items : [];
+    const items = [];
+    for (let itemIndex = 0; itemIndex < rawItems.length && itemTotal < COMMUNITY_CHECKLIST_MAX_ITEMS; itemIndex += 1) {
+      const rawItem = rawItems[itemIndex] || {};
+      const text = normalizeOneLine(rawItem.text, 220);
+      if (!text) continue;
+      items.push({
+        id: normalizeCommunityId(rawItem.id || `item-${chapterIndex + 1}-${itemIndex + 1}`),
+        text
+      });
+      itemTotal += 1;
+    }
+    if (items.length) {
+      chapters.push({
+        id: normalizeCommunityId(rawChapter.id || `chapter-${chapterIndex + 1}`),
+        title: chapterTitle,
+        items
+      });
+    }
+  }
+
+  if (!chapters.length || itemTotal < 1) throw new Error("missing_items");
+  return {
+    id,
+    title,
+    chapters,
+    chapterCount: chapters.length,
+    itemCount: itemTotal
+  };
+}
+
+async function verifyChecklistCommunityAuth(request, env) {
+  const ownerId = normalizeOneLine(request.headers.get("X-Pilot-ID"), 160);
+  const pin = trimText(request.headers.get("X-Pilot-PIN"), 160);
+  if (!ownerId || !pin) return { ok: false, response: json({ error: "Pilot-ID/PIN fehlen" }, 401) };
+
+  let rawProfile = null;
+  try {
+    rawProfile = await env.GA_SYNC_KV.get(ownerId);
+  } catch (error) {
+    return { ok: false, response: json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502) };
+  }
+
+  const profile = rawProfile ? safeJsonParse(rawProfile, null) : null;
+  if (!profile || profile.pin !== pin) {
+    return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
+  }
+
+  return { ok: true, ownerId };
+}
+
+async function getCommunityRecord(env, id) {
+  const raw = await env.GA_SYNC_KV.get(communityChecklistKey(id));
+  return raw ? safeJsonParse(raw, null) : null;
+}
+
+async function handleCommunityChecklists(request, requestUrl, env) {
+  if (!hasSyncKvBinding(env) || typeof env.GA_SYNC_KV.delete !== "function" || typeof env.GA_SYNC_KV.list !== "function") {
+    return json({ error: "Sync KV binding missing (GA_SYNC_KV)." }, 503);
+  }
+
+  const pathParts = requestUrl.pathname.split("/").filter(Boolean);
+  const id = normalizeCommunityId(pathParts[3] || "");
+
+  if (request.method === "GET") {
+    if (id) {
+      let record = null;
+      try {
+        record = await getCommunityRecord(env, id);
+      } catch (error) {
+        return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+      }
+      if (!record) return json({ error: "Community-Checkliste nicht gefunden" }, 404);
+      return json({ ok: true, checklist: communityPublicDetail(record) }, 200, { "Cache-Control": "no-store" });
+    }
+
+    const limit = clampNumber(requestUrl.searchParams.get("limit"), 1, 120, 80);
+    let listed = null;
+    try {
+      listed = await env.GA_SYNC_KV.list({ prefix: COMMUNITY_CHECKLIST_INDEX_PREFIX, limit });
+    } catch (error) {
+      return json({ error: "KV-List fehlgeschlagen", message: String(error?.message || error) }, 502);
+    }
+
+    const items = [];
+    for (const key of listed.keys || []) {
+      try {
+        const rawMeta = await env.GA_SYNC_KV.get(key.name);
+        const meta = rawMeta ? safeJsonParse(rawMeta, null) : null;
+        if (meta && meta.id && meta.title) items.push(communityPublicMeta(meta));
+      } catch (error) {
+        console.error("Community checklist index read failed:", key.name, String(error?.message || error));
+      }
+    }
+    return json({ ok: true, count: items.length, items }, 200, { "Cache-Control": "no-store" });
+  }
+
+  if (request.method === "POST") {
+    const rawBody = await request.text();
+    if (rawBody.length > COMMUNITY_CHECKLIST_MAX_BODY_BYTES) {
+      return json({ error: "Zu groß" }, 413);
+    }
+
+    const incoming = safeJsonParse(rawBody, null);
+    if (!incoming || typeof incoming !== "object") {
+      return json({ error: "Ungültiges JSON" }, 400);
+    }
+
+    const auth = await verifyChecklistCommunityAuth(request, env);
+    if (!auth.ok) return auth.response;
+
+    const action = normalizeOneLine(incoming.action || "publish", 40).toLowerCase();
+    if (action === "unpublish") {
+      const targetId = normalizeCommunityId(incoming.id);
+      if (!targetId) return json({ error: "ID fehlt" }, 400);
+      let existing = null;
+      try {
+        existing = await getCommunityRecord(env, targetId);
+      } catch (error) {
+        return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+      }
+      if (!existing) return json({ ok: true, id: targetId, unpublished: true, alreadyGone: true }, 200);
+      if (existing.ownerId !== auth.ownerId) return json({ error: "Nur der Ersteller darf diese Checkliste ändern" }, 403);
+
+      try {
+        await env.GA_SYNC_KV.delete(communityChecklistKey(targetId));
+        if (existing.indexKey) await env.GA_SYNC_KV.delete(existing.indexKey);
+      } catch (error) {
+        return json({ error: "KV-Delete fehlgeschlagen", message: String(error?.message || error) }, 502);
+      }
+      return json({ ok: true, id: targetId, unpublished: true }, 200);
+    }
+
+    if (action !== "publish") {
+      return json({ error: "Unbekannte Aktion" }, 400);
+    }
+
+    let normalized = null;
+    try {
+      normalized = normalizeCommunityChecklist(incoming.checklist);
+    } catch (error) {
+      return json({ error: "Checkliste ungültig", code: String(error?.message || error) }, 400);
+    }
+
+    let existing = null;
+    try {
+      existing = await getCommunityRecord(env, normalized.id);
+    } catch (error) {
+      return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+    }
+    if (existing && existing.ownerId !== auth.ownerId) {
+      return json({ error: "Nur der Ersteller darf diese Checkliste ändern" }, 403);
+    }
+
+    const updatedAt = Date.now();
+    const version = existing ? Number(existing.version || 1) + 1 : 1;
+    const indexKey = communityIndexKey(normalized.id, updatedAt);
+    const record = {
+      id: normalized.id,
+      ownerId: auth.ownerId,
+      title: normalized.title,
+      chapters: normalized.chapters,
+      chapterCount: normalized.chapterCount,
+      itemCount: normalized.itemCount,
+      updatedAt,
+      version,
+      indexKey
+    };
+    const meta = communityPublicMeta(record);
+
+    try {
+      await env.GA_SYNC_KV.put(communityChecklistKey(normalized.id), JSON.stringify(record));
+      if (existing?.indexKey && existing.indexKey !== indexKey) await env.GA_SYNC_KV.delete(existing.indexKey);
+      await env.GA_SYNC_KV.put(indexKey, JSON.stringify(meta));
+    } catch (error) {
+      return json({ error: "KV-Write fehlgeschlagen", message: String(error?.message || error) }, 502);
+    }
+
+    return json({ ok: true, id: normalized.id, updatedAt, version }, 200);
+  }
+
+  return new Response("Method not allowed", { status: 405, headers: corsHeaders });
 }
 
 function safePreview(value, maxLen = 300) {
@@ -1367,14 +1618,21 @@ export default {
     }
 
     // ==========================================
-    // 6. PROBLEM REPORTS (Mini Bugtracker API)
+    // 6. CHECKLIST COMMUNITY API
+    // ==========================================
+    if (requestUrl.pathname === "/api/checklists/community" || requestUrl.pathname.startsWith("/api/checklists/community/")) {
+      return handleCommunityChecklists(request, requestUrl, env);
+    }
+
+    // ==========================================
+    // 7. PROBLEM REPORTS (Mini Bugtracker API)
     // ==========================================
     if (requestUrl.pathname === "/api/problem-reports" || requestUrl.pathname.startsWith("/api/problem-reports/")) {
       return handleProblemReports(request, requestUrl, env, ctx);
     }
 
     // ==========================================
-    // 7. OPENAIP PROXY (Catch-All für Snapping)
+    // 8. OPENAIP PROXY (Catch-All für Snapping)
     // ==========================================
     let targetPath = requestUrl.pathname;
     if (targetPath.includes("/v1/")) {

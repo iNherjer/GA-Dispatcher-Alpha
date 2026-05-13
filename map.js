@@ -7043,6 +7043,7 @@ function toggleMapTable(forceInternal) {
                 }
             }, 500);
         } else {
+            if (typeof window.gaChecklistCloseDrawer === 'function') window.gaChecklistCloseDrawer();
             unlockBodyScroll();
             exitMapFullscreenMode();
             if (typeof _closeFloatingMenus === 'function') _closeFloatingMenus();
