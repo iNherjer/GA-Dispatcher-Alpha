@@ -6711,7 +6711,7 @@ body.theme-ops1940 .btn-preset,
 body.theme-ops1940 .pb-btn,
 body.theme-ops1940 .pb-tab {
     min-height: 34px;
-    border-radius: 6px;
+    border-radius: 2px;
     border: 1px solid #030302;
     border-top-color: #3c3123;
     color: #ead8ab;
@@ -6960,7 +6960,7 @@ body.theme-ops1940 .btn-log,
 body.theme-ops1940 .btn-menu {
     position: relative;
     overflow: hidden;
-    border-radius: 8px;
+    border-radius: 4px;
     border: 1px solid #030302;
     border-top-color: #4c3928;
     border-bottom-width: 4px;
@@ -7496,7 +7496,7 @@ body.theme-ops1940 .briefing-photo-attachment {
 }
 
 body.theme-ops1940 .settings-toggle-btn {
-    border-radius: 8px;
+    border-radius: 4px;
     border: 1px solid #050403;
     color: #ead8ab;
     background:
@@ -8308,7 +8308,12 @@ body.theme-ops1940 .mission-control-row {
 
 body.theme-ops1940 .settings-section input {
     margin-bottom: 0;
+    border-radius: 8px;
     border-color: rgba(208, 164, 79, 0.28);
+}
+
+body.theme-ops1940 .settings-section select {
+    border-radius: 8px !important;
 }
 
 body.theme-ops1940 .mission-control-row {

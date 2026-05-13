@@ -703,6 +703,11 @@
         <button class="btn-preset sync-req-btn" id="loginSyncBtn" style="width: 100%; margin-top: 8px; margin-bottom: 12px; height: 42px; background: #333; color: #4caf50; font-weight: bold;" onclick="triggerLoginFlow()">
             🔑 Login
         </button>
+        <div class="tracker-download" style="margin: 0 0 12px 0; display: flex; justify-content: center;">
+            <a href="https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/VFRMultitool/VFR-Multitool-Tracker.exe" target="_blank" class="btn-preset" style="font-size: 0.85em; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 8px 16px; background: rgba(77, 166, 255, 0.1); border: 1px solid var(--blue); color: var(--blue); border-radius: 6px; font-weight: bold; transition: all 0.2s; width: 100%; justify-content: center;">
+                <span>📥</span> PC-Tracker (.exe) laden
+            </a>
+        </div>
 
         <div class="settings-sync-row">
             <label class="switch" style="transform: scale(0.6); margin: 0; transform-origin: left;">
@@ -722,8 +727,6 @@
             <span id="missionRuntimeStatus" style="font-size:10px; color:#888;">Wartet auf Boden-Stabilisierung</span>
         </div>
         <div class="mission-control-row" style="display:flex; gap:8px; margin-bottom:8px;">
-            <button class="btn-preset" id="missionStartBtn" style="flex:1; margin:0; height:36px; background:#1f3b2a; color:#80e0a0; border-color:#2a5a3a;" onclick="window.manualMissionStart && manualMissionStart()">▶ Mission Start</button>
-            <button class="btn-preset" id="missionEndBtn" style="flex:1; margin:0; height:36px; background:#3b2020; color:#ffb4b4; border-color:#6b3d3d;" onclick="window.manualMissionEnd && manualMissionEnd()">■ Mission Ende</button>
             <button class="btn-preset mission-auto-start-btn" id="missionAutoStartBtn" style="flex:1; margin:0; height:36px;" onclick="window.toggleMissionAutoStart && toggleMissionAutoStart()">AUTO START: AN</button>
         </div>
         
@@ -750,12 +753,6 @@
         </div>
         <div class="api-hint">
             Tritt einer Gruppe bei. Dein Anzeigename (oder deine Pilot-ID) erscheint auf dem Board.
-        </div>
-        <!-- Feature: Tracker Download -->
-        <div class="tracker-download" style="margin-top: 12px; display: flex; justify-content: center;">
-            <a href="https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/VFRMultitool/VFR-Multitool-Tracker.exe" target="_blank" class="btn-preset" style="font-size: 0.85em; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 8px 16px; background: rgba(77, 166, 255, 0.1); border: 1px solid var(--blue); color: var(--blue); border-radius: 6px; font-weight: bold; transition: all 0.2s; width: 100%; justify-content: center;">
-                <span>📥</span> PC-Tracker (.exe) laden
-            </a>
         </div>
     </div>
 
