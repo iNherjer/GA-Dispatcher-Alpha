@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v647';
+const CACHE = 'ga-dispatcher-v649';
 
 const STATIC = [
     './',
@@ -41,6 +41,7 @@ const STATIC = [
     './assets/ui/ops1940/ops1940-switch-lever-down.png',
     './assets/ui/ops1940/ops1940-switch-lever-up.png',
     './assets/ui/ops1940/ops1940-selector-knob-square.png',
+    './assets/ui/ops1940/ops1940-reset-button-cap.png',
     './assets/ui/ops1940/ops1940-panel-route-selector.png',
     './assets/ui/ops1940/ops1940-panel-route-selector-mobile.png',
     './assets/ui/ops1940/ops1940-panel-region.png',

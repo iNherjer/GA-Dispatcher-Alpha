@@ -2000,6 +2000,7 @@ function resetApp() {
     if (destLocRadioEl) destLocRadioEl.value = '';
 
     document.getElementById('searchIndicator').innerText = "System bereit."; setDrumCounter('distDrum', 0); recalculatePerformance();
+    setDispatchLampState('idle');
     if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
     const rBtn = document.getElementById('radioGenerateBtn');
     if (rBtn) rBtn.classList.remove('active');
@@ -2252,6 +2253,35 @@ function resetBtn(btn) {
     }
 }
 
+function setDispatchLampState(state = 'idle', dataSource = '') {
+    const btn = document.getElementById('generateBtn');
+    if (!btn) return;
+    const classes = [
+        'dispatch-lamp-working',
+        'dispatch-lamp-ai-g3',
+        'dispatch-lamp-ai-g25',
+        'dispatch-lamp-ai-lite',
+        'dispatch-lamp-local',
+        'dispatch-lamp-error'
+    ];
+    btn.classList.remove(...classes);
+
+    if (state === 'working') {
+        btn.classList.add('dispatch-lamp-working');
+        return;
+    }
+    if (state === 'error') {
+        btn.classList.add('dispatch-lamp-error');
+        return;
+    }
+    if (state === 'done') {
+        if (dataSource === "Gemini 3.0 Flash") btn.classList.add('dispatch-lamp-ai-g3');
+        else if (dataSource === "Gemini 2.5 Flash") btn.classList.add('dispatch-lamp-ai-g25');
+        else if (dataSource === "Gemini 2.5 Flash Lite") btn.classList.add('dispatch-lamp-ai-lite');
+        else btn.classList.add('dispatch-lamp-local');
+    }
+}
+
 let _dispatchRunId = 0;
 let _dispatchState = { active: false, cancelled: false, runId: 0 };
 
@@ -2276,6 +2306,7 @@ function _abortDispatchRun(reason = 'Abbruch') {
     if (window.meterInterval) clearInterval(window.meterInterval);
     const needle = document.getElementById('meterNeedle');
     if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`;
+    setDispatchLampState('idle');
     return true;
 }
 
@@ -7114,6 +7145,7 @@ async function generateMission() {
     const btn = document.getElementById('generateBtn');
     const rBtn = document.getElementById('radioGenerateBtn');
     if (btn) { btn.disabled = true; btn.innerText = "Sucht Route & Daten..."; }
+    setDispatchLampState('working');
     if (rBtn) {
         rBtn.classList.add('disabled');
         rBtn.style.pointerEvents = 'none';
@@ -7150,6 +7182,7 @@ async function generateMission() {
     const start = await getAirportData(currentStartICAO);
     _ensureDispatchAlive();
     if (!start) {
+        setDispatchLampState('error');
         alert("Startplatz unbekannt!"); resetBtn(btn);
         if (window.meterInterval) clearInterval(window.meterInterval);
         if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`; return;
@@ -7353,6 +7386,7 @@ async function generateMission() {
     }
 
     if (!dest) {
+        setDispatchLampState('error');
         indicator.innerText = "Fehler: Kein passendes Ziel gefunden.";
         if (effectiveType === "apt" && (!globalAirports || Object.keys(globalAirports).length === 0)) {
             indicator.innerText = "Fehler: Airport-Daten nicht geladen (airports.json).";
@@ -7726,6 +7760,7 @@ async function generateMission() {
         loadMetarWidget(isPOI ? null : currentDestICAO, 'metarContainerDest', dest.lat, dest.lon);
 
         indicator.innerText = `Briefing komplett.`; resetBtn(btn);
+        setDispatchLampState('done', dataSource);
         const rBtnLed = document.getElementById('radioGenerateBtn');
         if (rBtnLed) rBtnLed.classList.add('active');
 
@@ -7766,6 +7801,7 @@ async function generateMission() {
             if (indicator) indicator.innerText = 'Fehler beim Dispatch. Bitte erneut versuchen.';
             const btn = document.getElementById('generateBtn');
             resetBtn(btn);
+            setDispatchLampState('error');
             if (window.meterInterval) clearInterval(window.meterInterval);
             const needle = document.getElementById('meterNeedle');
             if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`;

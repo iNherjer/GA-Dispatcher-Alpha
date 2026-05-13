@@ -2831,6 +2831,19 @@ body.theme-retro .wp-data {
 @media (max-width: 767px) {
     #navStationLabel { display: none; }
 
+    #mapTableOverlay #mapToolbarInner {
+        gap: 4px;
+    }
+
+    #mapTableOverlay #mapToolbarInner > div {
+        gap: 4px !important;
+    }
+
+    #mapTableOverlay .pinboard-header .pb-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+
     #mapTableOverlay .pinboard-scroll-area {
         padding: 0 !important;
     }
@@ -5244,6 +5257,7 @@ body.theme-ops1940 {
     --ops-screw-r17: url('assets/ui/ops1940/ops1940-screw-cross-r17.png');
     --ops-screw-r41: url('assets/ui/ops1940/ops1940-screw-cross-r41.png');
     --ops-screw-r73: url('assets/ui/ops1940/ops1940-screw-cross-r73.png');
+    --ops-reset-cap: url('assets/ui/ops1940/ops1940-reset-button-cap.png');
     --ops-panel: #11100d;
     --ops-brass: #b88935;
     --ops-brass-hi: #f1d28a;
@@ -6370,15 +6384,60 @@ body.theme-ops1940 #generateBtn {
 body.theme-ops1940 #generateBtn::before {
     content: '';
     display: inline-block;
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
     margin-right: 8px;
-    vertical-align: -7px;
+    vertical-align: -4px;
     border-radius: 50%;
-    background: var(--ops-controls-atlas);
-    background-size: 400% 400%;
-    background-position: 0% 66.666%;
-    box-shadow: 0 0 12px rgba(255, 55, 27, 0.38);
+    border: 1px solid rgba(15, 12, 10, 0.9);
+    background:
+        radial-gradient(circle at 35% 32%, rgba(255, 244, 210, 0.32), rgba(120, 28, 20, 0.92) 48%, rgba(35, 9, 7, 1) 92%);
+    box-shadow:
+        inset 0 1px 1px rgba(255, 230, 170, 0.28),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(52, 31, 16, 0.45);
+}
+
+body.theme-ops1940 #generateBtn.dispatch-lamp-working::before {
+    background: radial-gradient(circle at 36% 32%, rgba(255, 248, 220, 0.58), #ff5c43 34%, #7f130b 75%, #2b0806 100%);
+    box-shadow:
+        inset 0 1px 1px rgba(255, 232, 180, 0.45),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.75),
+        0 0 11px rgba(255, 64, 40, 0.72);
+    animation: opsLampBlink 0.72s steps(2, end) infinite;
+}
+
+body.theme-ops1940 #generateBtn.dispatch-lamp-ai-g3::before {
+    background: linear-gradient(135deg, #4da6ff 50%, #00ff41 50%);
+    box-shadow:
+        -3px 0 10px rgba(77, 166, 255, 0.8),
+        3px 0 10px rgba(0, 255, 65, 0.7),
+        inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+body.theme-ops1940 #generateBtn.dispatch-lamp-ai-g25::before {
+    background: radial-gradient(circle at 36% 32%, #dbefff 0 26%, #4da6ff 52%, #0e3d72 100%);
+    box-shadow: 0 0 10px rgba(77, 166, 255, 0.86), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+body.theme-ops1940 #generateBtn.dispatch-lamp-ai-lite::before {
+    background: radial-gradient(circle at 36% 32%, #e8ffe8 0 26%, #00ff41 52%, #0b4d1f 100%);
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.84), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+body.theme-ops1940 #generateBtn.dispatch-lamp-local::before,
+body.theme-ops1940 #generateBtn.dispatch-lamp-error::before {
+    background: radial-gradient(circle at 36% 32%, #ffd9d1 0 24%, #d93829 48%, #5c0907 100%);
+    box-shadow: 0 0 10px rgba(217, 56, 41, 0.82), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+body.theme-ops1940 #generateBtn.dispatch-lamp-error::before {
+    animation: opsLampBlink 0.84s steps(2, end) infinite;
+}
+
+@keyframes opsLampBlink {
+    0%, 100% { opacity: 1; filter: brightness(1.02); }
+    50% { opacity: 0.32; filter: brightness(0.72); }
 }
 
 body.theme-ops1940 .btn-main:hover,
@@ -6421,11 +6480,34 @@ body.theme-ops1940 .emergency-reset {
 }
 
 body.theme-ops1940 .emergency-reset-inner {
+    position: relative;
+    z-index: 2;
+    overflow: hidden;
+    width: 50px;
+    height: 50px;
+    transform: translateY(1px);
     border-radius: 50%;
-    color: #fff0cc;
-    background: rgba(8, 7, 6, 0.28);
-    border: 1px solid rgba(37, 7, 5, 0.7);
-    box-shadow: inset 0 1px 0 rgba(255, 225, 195, 0.14);
+    color: #ffe9de;
+    font-size: 17px;
+    border: 1px solid rgba(45, 9, 6, 0.95);
+    background: var(--ops-reset-cap);
+    background-size: 150% 150%;
+    background-position: center;
+    background-repeat: no-repeat;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 236, 214, 0.38),
+        inset 0 -2px 4px rgba(46, 8, 6, 0.45),
+        0 4px 7px rgba(0, 0, 0, 0.62);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.88);
+}
+
+body.theme-ops1940 .emergency-reset-inner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0) 42%);
+    pointer-events: none;
 }
 
 body.theme-ops1940 .analog-meter {
