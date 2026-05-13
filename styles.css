@@ -2992,6 +2992,56 @@ body.theme-ops1940 .route-weather-source {
     padding: 10px;
 }
 
+.route-tool-locatable-row,
+.route-tool-warning-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 34px;
+    gap: 8px;
+    align-items: center;
+}
+
+.route-tool-warning-row {
+    border: 1px solid color-mix(in srgb, var(--airspace-color, var(--drawer-warn)) 34%, transparent);
+}
+
+.route-tool-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.route-tool-locate-btn {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in srgb, var(--drawer-accent) 45%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--drawer-accent) 18%, var(--drawer-row-bg));
+    color: var(--drawer-heading);
+    font-family: var(--drawer-font-mono);
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.route-tool-locate-btn:hover {
+    background: color-mix(in srgb, var(--drawer-accent) 30%, var(--drawer-row-bg));
+}
+
+.route-tool-airspace-dot {
+    width: 9px;
+    height: 9px;
+    display: inline-block;
+    margin-right: 5px;
+    border-radius: 50%;
+    background: var(--airspace-color, var(--drawer-warn));
+    box-shadow: 0 0 8px color-mix(in srgb, var(--airspace-color, var(--drawer-warn)) 55%, transparent);
+    vertical-align: middle;
+}
+
 .route-tool-row-title,
 .route-tool-place-title {
     color: var(--drawer-heading);
@@ -3430,6 +3480,24 @@ body.theme-ops1940 .route-weather-source {
 
 .route-tool-nearest .route-tool-context {
     padding: 0 10px 10px;
+}
+
+.route-tool-map-focus-pulse {
+    animation: route-tool-map-focus-pulse 1.05s ease-in-out infinite;
+    filter: drop-shadow(0 0 8px rgba(255, 51, 79, 0.85));
+}
+
+@keyframes route-tool-map-focus-pulse {
+    0%,
+    100% {
+        opacity: 0.55;
+        stroke-width: 2;
+    }
+
+    50% {
+        opacity: 1;
+        stroke-width: 5;
+    }
 }
 
 .route-tool-warning {

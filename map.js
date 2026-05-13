@@ -6804,6 +6804,7 @@ function initMapBase() {
     map.on('click', function (e) {
         if (handleAipCalibrationMapClick(e)) return;
         if (isMapUiClickTarget(e.originalEvent)) return;
+        if (typeof window.gaClearRouteToolMapFocus === 'function') window.gaClearRouteToolMapFocus();
         if (freeflightMode) { handleFreeflightMapClick(e); return; }
         if (measureMode) { addMeasurePoint(e.latlng); return; }
 

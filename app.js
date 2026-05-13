@@ -6499,6 +6499,7 @@ async function fetchAirportFreq(icao, elementId, type) {
    ========================================================= */
 let activeAirspaces = [];
 let airspaceMapLayers = [];
+let routeToolFocusLayer = null;
 let highlightedAirspaceIdx = -1; // track which airspace is toggled on
 let vpHighlightPulseIdx = -1; // airspace index pulsing in profile canvas
 let vpPulseAnimFrame = null; // requestAnimationFrame ID
@@ -6539,6 +6540,20 @@ function clearAirspaceMapLayers() {
     if (typeof renderMapProfile === 'function') renderMapProfile();
     if (document.getElementById('verticalProfileCanvas')) renderVerticalProfile('verticalProfileCanvas');
 }
+
+function clearRouteToolPointFocus() {
+    if (map && routeToolFocusLayer) {
+        map.removeLayer(routeToolFocusLayer);
+    }
+    routeToolFocusLayer = null;
+}
+
+function clearRouteToolMapFocus() {
+    clearRouteToolPointFocus();
+    if (highlightedAirspaceIdx !== -1 || airspaceMapLayers.length) clearAirspaceMapLayers();
+}
+
+window.gaClearRouteToolMapFocus = clearRouteToolMapFocus;
 
 function toggleAirspaceHighlight(idx) {
     if (!activeAirspaces[idx]) return;
@@ -6584,6 +6599,63 @@ function toggleAirspaceHighlight(idx) {
     vpHighlightPulseIdx = idx;
     vpStartHighlightPulse();
 }
+
+function getAirspaceLeafletBounds(airspace) {
+    if (!airspace?.geometry || typeof L === 'undefined') return null;
+    const bounds = L.latLngBounds([]);
+    const addRing = (ring) => {
+        if (!Array.isArray(ring)) return;
+        ring.forEach(c => {
+            if (!Array.isArray(c) || c.length < 2) return;
+            const lat = Number(c[1]);
+            const lon = Number(c[0]);
+            if (Number.isFinite(lat) && Number.isFinite(lon)) bounds.extend([lat, lon]);
+        });
+    };
+    if (airspace.geometry.type === 'Polygon') {
+        addRing(airspace.geometry.coordinates?.[0]);
+    } else if (airspace.geometry.type === 'MultiPolygon') {
+        airspace.geometry.coordinates.forEach(poly => addRing(poly?.[0]));
+    }
+    return bounds.isValid() ? bounds : null;
+}
+
+window.gaFocusAirspaceOnMap = function(idx) {
+    const numericIdx = Number(idx);
+    const airspace = activeAirspaces[numericIdx];
+    if (!airspace || !map) return false;
+    clearRouteToolPointFocus();
+    if (highlightedAirspaceIdx !== numericIdx) toggleAirspaceHighlight(numericIdx);
+    const bounds = getAirspaceLeafletBounds(airspace);
+    if (bounds) {
+        map.fitBounds(bounds.pad(0.18), {
+            padding: [48, 48],
+            maxZoom: 12,
+            animate: true,
+            duration: 0.45
+        });
+    }
+    return true;
+};
+
+window.gaFocusAirportOnMap = function(airport) {
+    const lat = Number(airport?.lat);
+    const lon = Number(airport?.lon ?? airport?.lng);
+    if (!map || !Number.isFinite(lat) || !Number.isFinite(lon) || typeof L === 'undefined') return false;
+    clearRouteToolMapFocus();
+    routeToolFocusLayer = L.circleMarker([lat, lon], {
+        radius: 13,
+        color: '#ffffff',
+        weight: 3,
+        fillColor: '#ff334f',
+        fillOpacity: 0.72,
+        className: 'route-tool-map-focus-pulse'
+    }).addTo(map);
+    const label = `${airport?.icao || ''}${airport?.name ? ` · ${airport.name}` : ''}`.trim();
+    if (label) routeToolFocusLayer.bindTooltip(label, { permanent: false, sticky: true, className: 'airspace-tooltip' });
+    map.setView([lat, lon], Math.max(map.getZoom() || 10, 12), { animate: true });
+    return true;
+};
 
 // Erkennt Fallschirmsprunggebiete an Namen wie "PARA SCHWENNINGEN", "PARA ROTTWEIL"
 function isParaAirspace(a) {

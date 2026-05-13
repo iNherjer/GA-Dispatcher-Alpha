@@ -153,6 +153,7 @@
     const toolState = {
         weather: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null, aiKey: '', aiUpdatedAt: 0, aiLoading: false },
         radio: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null },
+        warnings: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null },
         place: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null },
         nearest: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null, origin: null },
         airportInfo: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null }
@@ -735,6 +736,7 @@
         else if (state.view === 'import') renderImport();
         else if (state.view === 'weather') renderWeatherTool();
         else if (state.view === 'radio') renderRadioTool();
+        else if (state.view === 'warnings') renderWarningsTool();
         else if (state.view === 'place') renderPlaceTool();
         else if (state.view === 'nearest') renderNearestTool();
         else if (state.view === 'airport-info') renderAirportInfoTool();
@@ -773,6 +775,14 @@
                     </span>
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
+                <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="warnings">
+                    <span class="checklist-tool-icon" aria-hidden="true">⚠️</span>
+                    <span>
+                        <span class="checklist-tool-name">Warnungen</span>
+                        <span class="checklist-tool-count">${route.length >= 2 ? `${getProblemAirspaces().length || 'Route'} · Lufträume` : 'Route planen für Lufträume'}</span>
+                    </span>
+                    <span class="checklist-tool-arrow" aria-hidden="true">›</span>
+                </button>
                 <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="place">
                     <span class="checklist-tool-icon" aria-hidden="true">🛬</span>
                     <span>
@@ -807,7 +817,7 @@
     }
 
     function openTool(tool, force = false) {
-        const valid = new Set(['weather', 'radio', 'place', 'nearest']);
+        const valid = new Set(['weather', 'radio', 'warnings', 'place', 'nearest']);
         if (!valid.has(tool)) return;
         abortOtherToolRequests(tool);
         state.view = tool;
@@ -820,6 +830,7 @@
         render();
         if (tool === 'weather') ensureWeatherTool(force);
         if (tool === 'radio') ensureRadioTool(force);
+        if (tool === 'warnings') ensureWarningsTool(force);
         if (tool === 'place') ensurePlaceTool(force);
         if (tool === 'nearest') ensureNearestTool(force);
     }
@@ -1470,16 +1481,125 @@ ${routeLines}`;
         try {
             if (typeof activeAirspaces === 'undefined' || !Array.isArray(activeAirspaces)) return [];
             return activeAirspaces
-                .filter(as => Array.isArray(as?.frequencies) && as.frequencies.length > 0)
+                .map((as, idx) => ({ as, idx }))
+                .filter(row => Array.isArray(row.as?.frequencies) && row.as.frequencies.length > 0)
                 .slice(0, 18)
-                .map(as => ({
-                    title: as.name || 'Luftraum',
-                    meta: `Enroute · ${as.type === 33 ? 'FIS' : 'Luftraum'}`,
-                    values: as.frequencies.slice(0, 3).map(f => `${f.name || f.label || 'INFO'} ${f.value}`).join(' · ')
+                .map(row => ({
+                    idx: row.idx,
+                    title: row.as.name || 'Luftraum',
+                    meta: `Enroute · ${row.as.type === 33 ? 'FIS' : 'Luftraum'}`,
+                    values: row.as.frequencies.slice(0, 3).map(f => `${f.name || f.label || 'INFO'} ${f.value}`).join(' · ')
                 }));
         } catch (_) {
             return [];
         }
+    }
+
+    function getProblemAirspaces() {
+        try {
+            if (typeof activeAirspaces === 'undefined' || !Array.isArray(activeAirspaces)) return [];
+            return activeAirspaces
+                .map((as, idx) => ({ as, idx }))
+                .filter(row => row.as && row.as.type !== 33);
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function airspaceStyleForDrawer(as) {
+        if (typeof getAirspaceStyle === 'function') return getAirspaceStyle(as);
+        return { color: 'var(--drawer-warn)', icon: '⚠️', category: 'Luftraum' };
+    }
+
+    function airspaceNameForDrawer(as) {
+        if (typeof getAirspaceDisplayName === 'function') return getAirspaceDisplayName(as);
+        return as?.name || 'Luftraum';
+    }
+
+    function formatAirspaceLimit(lim) {
+        if (!lim) return '?';
+        const value = lim.value;
+        if (lim.referenceDatum === 0 && Number(value) === 0) return 'GND';
+        if (lim.unit === 6) return `FL ${value}`;
+        const unit = lim.unit === 1 ? 'FT' : (lim.unit === 0 ? 'M' : '');
+        const datum = lim.referenceDatum === 1 ? ' MSL' : (lim.referenceDatum === 0 ? ' AGL' : '');
+        return `${value} ${unit}${datum}`.trim();
+    }
+
+    function airspaceLimitText(as) {
+        if (!as?.lowerLimit && !as?.upperLimit) return '';
+        return `${formatAirspaceLimit(as.lowerLimit)} – ${formatAirspaceLimit(as.upperLimit)}`;
+    }
+
+    function airspaceFrequencyText(as) {
+        const freqs = Array.isArray(as?.frequencies) ? as.frequencies : [];
+        return freqs.slice(0, 3).map(f => `${f.name || f.label || 'INFO'} ${f.value}`).join(' · ');
+    }
+
+    function locateButton(action, attrs = '', label = 'Auf Karte zeigen') {
+        return `<button class="route-tool-locate-btn" type="button" data-action="${escapeAttr(action)}" ${attrs} title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}">🔎</button>`;
+    }
+
+    async function ensureWarningsTool(force = false) {
+        const route = getRoutePoints();
+        const entry = toolState.warnings;
+        const key = `warnings:${getRouteKey()}:${window._activeAirspacesVersion || 0}`;
+        if (!route.length || route.length < 2) {
+            entry.data = null;
+            entry.error = 'Keine Route. Warnungen werden entlang der geplanten Route bewertet.';
+            entry.loading = false;
+            if (state.view === 'warnings') render();
+            return;
+        }
+        if (!force && isCacheFresh(entry, key)) return;
+        if (entry.loading && !force) return;
+        abortToolRequest('warnings');
+        entry.loading = true;
+        entry.key = key;
+        entry.error = '';
+        if (state.view === 'warnings') render();
+        try {
+            const hasAirspaces = typeof activeAirspaces !== 'undefined' && Array.isArray(activeAirspaces) && activeAirspaces.length;
+            if ((force || !hasAirspaces) && typeof fetchRouteAirspaces === 'function') {
+                await fetchRouteAirspaces(route.map(p => ({ lat: p.lat, lng: p.lon })));
+            }
+            entry.data = { count: getProblemAirspaces().length, generatedAt: Date.now() };
+            entry.updatedAt = Date.now();
+            entry.key = `warnings:${getRouteKey()}:${window._activeAirspacesVersion || 0}`;
+        } catch (_) {
+            entry.error = 'Luftraum-Warnungen konnten nicht geladen werden.';
+        } finally {
+            entry.loading = false;
+            if (state.view === 'warnings') render();
+        }
+    }
+
+    function renderWarningsTool() {
+        setTitle('Warnungen');
+        const entry = toolState.warnings;
+        const rows = getProblemAirspaces();
+        const list = rows.length ? rows.map(row => {
+            const style = airspaceStyleForDrawer(row.as);
+            const limit = airspaceLimitText(row.as);
+            const freqs = airspaceFrequencyText(row.as);
+            return `
+                <div class="route-tool-row route-tool-warning-row" style="--airspace-color:${escapeAttr(style.color || 'var(--drawer-warn)')}">
+                    <div class="route-tool-row-main">
+                        <div class="route-tool-row-title"><span class="route-tool-airspace-dot"></span>${escapeHtml(style.icon || '⚠️')} ${escapeHtml(airspaceNameForDrawer(row.as))}</div>
+                        <div class="route-tool-row-meta">${escapeHtml(style.category || 'Luftraum')}${limit ? ` · ${escapeHtml(limit)}` : ''}</div>
+                        ${freqs ? `<div class="route-tool-row-value">${escapeHtml(freqs)}</div>` : ''}
+                    </div>
+                    <div class="route-tool-row-actions">
+                        ${locateButton('locate-airspace', `data-as-idx="${escapeAttr(row.idx)}"`, 'Luftraum auf Karte zeigen')}
+                    </div>
+                </div>
+            `;
+        }).join('') : renderToolEmpty(entry.loading ? 'Lufträume werden geladen...' : 'Keine problematischen Lufträume entlang der Route gefunden.');
+        bodyEl.innerHTML = `
+            ${toolTopline('warnings')}
+            ${entry.error && !entry.loading ? `<div class="route-tool-warning">${escapeHtml(entry.error)}</div>` : ''}
+            <div class="route-tool-list">${list}</div>
+        `;
     }
 
     function distancePointToRouteNm(lat, lon, routePts) {
@@ -1568,6 +1688,7 @@ ${routeLines}`;
             <div class="route-tool-context">
                 <button class="checklist-mini-btn primary" type="button" data-action="nearest-direct" data-airport="${escapeAttr(encoded)}">Direct To</button>
                 <button class="checklist-mini-btn" type="button" data-action="airport-info" data-airport="${escapeAttr(encoded)}">Info</button>
+                <button class="checklist-mini-btn" type="button" data-action="locate-airport" data-airport="${escapeAttr(encoded)}">🔎 Karte</button>
             </div>
         ` : '';
     }
@@ -1609,11 +1730,14 @@ ${routeLines}`;
             <div class="route-tool-section">
                 <div class="route-tool-section-title">Enroute / FIS</div>
                 ${airRows.length ? airRows.map(r => `
-                    <div class="route-tool-row">
+                    <div class="route-tool-row route-tool-locatable-row">
                         <div class="route-tool-row-main">
                             <div class="route-tool-row-title">${escapeHtml(r.title)}</div>
                             <div class="route-tool-row-meta">${escapeHtml(r.meta)}</div>
                             <div class="route-tool-row-value">${escapeHtml(r.values)}</div>
+                        </div>
+                        <div class="route-tool-row-actions">
+                            ${locateButton('locate-airspace', `data-as-idx="${escapeAttr(r.idx)}"`, 'Luftraum auf Karte zeigen')}
                         </div>
                     </div>
                 `).join('') : renderToolEmpty(entry.loading ? 'Lufträume/FIS werden geladen...' : 'Keine Enroute-Frequenzen gefunden.')}
@@ -1840,6 +1964,7 @@ ${routeLines}`;
                         <div class="route-tool-context">
                             <button class="checklist-mini-btn primary" type="button" data-action="nearest-direct" data-airport="${escapeAttr(encoded)}">Direct To</button>
                             <button class="checklist-mini-btn" type="button" data-action="airport-info" data-airport="${escapeAttr(encoded)}">Info</button>
+                            <button class="checklist-mini-btn" type="button" data-action="locate-airport" data-airport="${escapeAttr(encoded)}">🔎 Karte</button>
                         </div>
                     ` : ''}
                 </div>
@@ -2958,6 +3083,27 @@ ${routeLines}`;
                 })
                 .then(ok => setStatus(ok === false ? 'Direct To abgebrochen.' : `Direct To ${apt.icao} aktiv.`, ok === false ? 'warn' : 'good'))
                 .catch(() => setStatus('Direct To nicht verfügbar.', 'error'));
+        } else if (action === 'locate-airport') {
+            const apt = decodeAirportDataset(button);
+            if (!apt) return;
+            if (typeof window.gaFocusAirportOnMap === 'function') {
+                window.gaFocusAirportOnMap(apt);
+                setStatus(`${apt.icao || 'Platz'} auf Karte markiert.`, 'good');
+            } else {
+                setStatus('Kartenfokus nicht verfügbar.', 'error');
+            }
+        } else if (action === 'locate-airspace') {
+            const idx = Number(button.dataset.asIdx);
+            if (!Number.isInteger(idx)) return;
+            if (typeof window.gaFocusAirspaceOnMap === 'function') {
+                const ok = window.gaFocusAirspaceOnMap(idx);
+                setStatus(ok === false ? 'Luftraum nicht verfügbar.' : 'Luftraum auf Karte markiert.', ok === false ? 'error' : 'good');
+            } else if (typeof toggleAirspaceHighlight === 'function') {
+                toggleAirspaceHighlight(idx);
+                setStatus('Luftraum markiert.', 'good');
+            } else {
+                setStatus('Kartenfokus nicht verfügbar.', 'error');
+            }
         } else if (action === 'airport-info') {
             const apt = decodeAirportDataset(button);
             if (!apt) return;
