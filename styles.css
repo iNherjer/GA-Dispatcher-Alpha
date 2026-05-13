@@ -5142,12 +5142,12 @@ body.theme-navcom .btn-menu:active {
 
 .leaflet-control-layers,
 .leaflet-control-layers-expanded {
-    z-index: 100220 !important;
+    z-index: 2500 !important;
 }
 
 .leaflet-top,
 .leaflet-bottom {
-    z-index: 100220 !important;
+    z-index: 2500 !important;
 }
 .next-leg-nav-btn {
     border: 1px solid rgba(255,255,255,0.22);
