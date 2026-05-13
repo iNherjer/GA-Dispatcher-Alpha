@@ -1399,7 +1399,7 @@ function updateOpsSelectorDials() {
     const directionValue = document.getElementById('dirPref')?.value || 'any';
     const regionKnob = document.getElementById('opsRegionKnob');
     const directionKnob = document.getElementById('opsDirectionKnob');
-    const regionAngles = { any: -95, de: 0, int: 95 };
+    const regionAngles = { any: -120, de: 0, int: 120 };
     const directionAngles = { N: 0, E: 90, S: 180, W: 270, any: 45 };
 
     if (regionKnob) {
@@ -2285,7 +2285,8 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
 
     // Zwingt das Widget ins "Modern"-Design, auch wenn das Retro-Theme aktiv ist (wichtig für Karten-Popups)
     const isRetro = !forceModern && document.body.classList.contains('theme-retro');
-    if (isRetro) {
+    const isOps1940 = !forceModern && document.body.classList.contains('theme-ops1940');
+    if (isRetro || isOps1940) {
         container.style.boxShadow = 'none';
         container.style.background = 'transparent';
         container.innerHTML = '<div style="padding:20px; text-align:center; color:#555; font-family: \'Caveat\', cursive; font-size:22px; transform: rotate(-1deg);">Sucht lokales Wetter...</div>';
@@ -2598,11 +2599,13 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
             let fVal = isMini ? 12 : 15;
             let fLbl = isMini ? 9 : 10;
             let pPad = isMini ? '10px' : '15px 15px 20px 15px';
+            const weatherFont = isOps1940 ? "'Caveat', cursive" : "'Courier New', Courier, monospace";
+            const weatherOuterFont = isOps1940 ? "'Caveat', cursive" : "'Arial', sans-serif";
             const rawTextSafe = raw && raw.trim() ? raw : 'RAW nicht verfügbar';
             const miniDecoded = `${visib} · ${wx} · ${temp} / ${dewp} · ${cover}`;
 
             container.innerHTML = `
-                <div style="${isMini ? 'background:none; border:none; box-shadow:none; padding:4px 0;' : `background:#f0eada; border-radius:12px; padding:${pPad}; border: 3px solid #c2bba8; box-shadow: 0 4px 8px rgba(0,0,0,0.2), inset 0 2px 5px rgba(255,255,255,0.5);`} font-family: 'Arial', sans-serif; color: #333; position:relative; overflow:hidden;">
+                <div style="${isMini ? 'background:none; border:none; box-shadow:none; padding:4px 0;' : `background:#f0eada; border-radius:12px; padding:${pPad}; border: 3px solid #c2bba8; box-shadow: 0 4px 8px rgba(0,0,0,0.2), inset 0 2px 5px rgba(255,255,255,0.5);`} font-family:${weatherOuterFont}; color: #333; position:relative; overflow:hidden;">
 
                     ${!isMini ? `
                     <div style="position:absolute; top:6px; left:6px; width:6px; height:6px; background:#ddd; border-radius:50%; box-shadow: inset 0 0 2px #555;"></div>
@@ -2611,14 +2614,14 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
                     <div style="position:absolute; bottom:6px; left:6px; width:6px; height:6px; background:#ddd; border-radius:50%; box-shadow: inset 0 0 2px #555;"></div>
                     ` : ''}
 
-                    <div style="color: #8a1a12; font-size: 14px; font-weight: bold; margin-bottom: ${isMini?6:12}px; ${isMini ? '' : 'border-bottom: 2px dashed #c2bba8;'} padding-bottom: ${isMini?0:8}px; font-family: 'Courier New', Courier, monospace; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.5px;">
+                    <div style="color: #8a1a12; font-size: 14px; font-weight: bold; margin-bottom: ${isMini?6:12}px; ${isMini ? '' : 'border-bottom: 2px dashed #c2bba8;'} padding-bottom: ${isMini?0:8}px; font-family:${weatherFont}; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.5px;">
                         <span>${modernHeaderText}</span>
                         <span style="color:${catColor}; font-size:14px; padding: 2px 8px; border: 2px solid ${catColor}; border-radius: 4px; background: rgba(255,255,255,0.7); box-shadow: 0 1px 2px rgba(0,0,0,0.1);">${catText}</span>
                     </div>
-                    ${!isMini ? `<div style="background:#e6e0ce; color:#333; font-family: 'Courier New', Courier, monospace; padding:10px; border-radius:4px; font-size:11.5px; margin-bottom:18px; border: 1px inset #c2bba8; line-height: 1.4; letter-spacing: 0.5px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">${rawTextSafe}</div>` : ''}
-                    ${isMini ? `<div style="background:#ece6d6; color:#2f2f2f; font-family:'Courier New', Courier, monospace; padding:6px 8px; border-radius:4px; font-size:10px; margin-bottom:8px; border:1px solid #c8c0ac; line-height:1.35; word-break:break-word;">${rawTextSafe}<br><span style="color:#555;">${miniDecoded}</span></div>` : ''}
+                    ${!isMini ? `<div style="background:#e6e0ce; color:#333; font-family:${weatherFont}; padding:10px; border-radius:4px; font-size:11.5px; margin-bottom:18px; border: 1px inset #c2bba8; line-height: 1.4; letter-spacing: 0.5px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">${rawTextSafe}</div>` : ''}
+                    ${isMini ? `<div style="background:#ece6d6; color:#2f2f2f; font-family:${weatherFont}; padding:6px 8px; border-radius:4px; font-size:10px; margin-bottom:8px; border:1px solid #c8c0ac; line-height:1.35; word-break:break-word;">${rawTextSafe}<br><span style="color:#555;">${miniDecoded}</span></div>` : ''}
                     <div style="display:flex; justify-content: space-between; align-items: center; gap: 8px;">
-                        <div style="display:flex; flex-direction:column; gap:${gap}px; font-family: 'Courier New', Courier, monospace; flex-shrink: 1; min-width: 0;">
+                        <div style="display:flex; flex-direction:column; gap:${gap}px; font-family:${weatherFont}; flex-shrink: 1; min-width: 0;">
                             <div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">WIND</div><div style="color:#1a73e8; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${windText}</div></div>
                             ${!isMini ? `
                             <div style="display:flex; gap:12px;">
@@ -2647,7 +2650,8 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
     } catch (err) {
         console.error("METAR fetch error:", err);
         const isRetro = document.body.classList.contains('theme-retro');
-        if (isRetro) {
+        const isOps1940 = document.body.classList.contains('theme-ops1940');
+        if (isRetro || isOps1940) {
             container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-family: 'Caveat', cursive; font-size:20px; transform: rotate(-1deg);">Fehler beim Laden des METARs: <br/>${err.message || err}</div>`;
         } else {
             container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-size:12px; background:#1a1a1a;">Fehler beim Laden des METARs: <br/>${err.message || err}</div>`;

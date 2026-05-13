@@ -5883,13 +5883,13 @@ body.theme-ops1940 .ops-dir-choice.active {
     text-shadow: 0 0 8px rgba(242, 202, 103, 0.45);
 }
 
-body.theme-ops1940 .region-any { left: 24px; top: 50%; transform: translateY(-50%); }
+body.theme-ops1940 .region-any { left: 14px; top: 50%; transform: translateY(-50%); }
 body.theme-ops1940 .region-de { left: 50%; top: 34px; transform: translateX(-50%); }
-body.theme-ops1940 .region-int { right: 24px; top: 50%; transform: translateY(-50%); }
+body.theme-ops1940 .region-int { right: 14px; top: 50%; transform: translateY(-50%); }
 
 body.theme-ops1940 .dir-n { top: 26px; left: 50%; transform: translateX(-50%); }
 body.theme-ops1940 .dir-e { right: 22px; top: 50%; transform: translateY(-50%); }
-body.theme-ops1940 .dir-s { bottom: 14px; left: 50%; transform: translateX(-50%); }
+body.theme-ops1940 .dir-s { bottom: 26px; left: 50%; transform: translateX(-50%); }
 body.theme-ops1940 .dir-w { left: 22px; top: 50%; transform: translateY(-50%); }
 
 body.theme-ops1940 .ops-dir-random {
@@ -6106,6 +6106,11 @@ body.theme-ops1940 .pb-tab:active {
     box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.72);
 }
 
+body.theme-ops1940 .preset-row .btn-preset:active {
+    transform: none;
+    box-shadow: inset 0 1px 0 rgba(255, 235, 176, 0.2), 0 0 0 1px rgba(242, 202, 103, 0.26), 0 5px 10px rgba(0, 0, 0, 0.56);
+}
+
 body.theme-ops1940 .pb-tab.active {
     color: #201406;
     background:
@@ -6264,6 +6269,7 @@ body.theme-ops1940 .slider-label {
 
 body.theme-ops1940 .drum-readout-container {
     min-width: 68px;
+    margin-right: 14px;
     justify-content: center;
     padding: 5px 9px;
     border-radius: 3px;
@@ -6611,7 +6617,7 @@ body.theme-ops1940 .mission-note-page {
     background-size: auto, auto, auto, 200% 200%;
     background-position: 0 8px, 18px 0, center, left bottom;
     box-shadow: inset 0 1px 0 rgba(255, 252, 230, 0.75), 0 8px 18px rgba(0, 0, 0, 0.52);
-    font-family: 'Courier New', monospace;
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 13px;
     font-style: normal;
     line-height: 1.48;
@@ -6726,8 +6732,18 @@ body.theme-ops1940 .note-manifest,
 body.theme-ops1940 #briefingNavLog,
 body.theme-ops1940 #routeAirspacesContainer {
     color: #21170e !important;
-    font-family: 'Courier New', monospace !important;
+    font-family: 'Courier Prime', 'Courier New', monospace !important;
     font-style: normal;
+}
+
+body.theme-ops1940 .note-manifest strong {
+    color: #8d1f14 !important;
+    font-family: 'Courier Prime', 'Courier New', monospace !important;
+}
+
+body.theme-ops1940 .note-manifest span {
+    color: #111 !important;
+    font-family: 'Courier Prime', 'Courier New', monospace !important;
 }
 
 body.theme-ops1940 .story {
@@ -7001,7 +7017,6 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row::before {
     content: none;
 }
 
-body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-command-panel::after,
 body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-mech-selector::after,
 body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row::after,
 body.theme-ops1940 .container[class*="ops1940-olive-"] .slider-container::after {
@@ -7116,6 +7131,14 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
         grid-template-columns: 1fr;
     }
 
+    body.theme-ops1940 #classicInputs .grid-2 > div {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        overflow-x: clip;
+    }
+
     body.theme-ops1940 .ops-command-panel {
         grid-template-columns: repeat(2, minmax(0, 152px));
         justify-content: center;
@@ -7145,18 +7168,32 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
     }
 
     body.theme-ops1940 .ops-selector-panel {
+        width: 100%;
+        max-width: 100%;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
+        box-sizing: border-box;
     }
 
     body.theme-ops1940 .ops-mech-selector {
-        min-height: 194px;
+        min-height: 0;
+        aspect-ratio: 1 / 1;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
         padding: 10px;
+        box-sizing: border-box;
+        overflow: hidden;
     }
 
     body.theme-ops1940 .ops-selector-knob {
-        width: 114px;
-        height: 114px;
-        margin: -57px 0 0 -57px;
+        width: 58%;
+        height: auto;
+        aspect-ratio: 1 / 1;
+        margin: 0;
+        left: 50%;
+        top: 52%;
+        transform: translate(-50%, -50%) rotate(var(--ops-switch-angle));
     }
 
     body.theme-ops1940 .ops-selector-choice,
@@ -7176,10 +7213,10 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
         font-size: 11px;
     }
 
-    body.theme-ops1940 .dir-n { top: 30px; }
-    body.theme-ops1940 .dir-e { right: 10px; }
-    body.theme-ops1940 .dir-s { bottom: 24px; }
-    body.theme-ops1940 .dir-w { left: 10px; }
+    body.theme-ops1940 .dir-n { top: calc(14% + 2px); }
+    body.theme-ops1940 .dir-e { right: 8%; }
+    body.theme-ops1940 .dir-s { bottom: 14%; }
+    body.theme-ops1940 .dir-w { left: 8%; }
 
     body.theme-ops1940 .ops-dir-random {
         right: 46px;
@@ -7195,24 +7232,23 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
         height: 8px;
     }
 
-    body.theme-ops1940 .region-any { left: 12px; top: 50%; transform: translateY(-50%); }
-    body.theme-ops1940 .region-de { left: 50%; top: 34px; transform: translateX(-50%); }
-    body.theme-ops1940 .region-int { right: 12px; top: 50%; transform: translateY(-50%); }
+    body.theme-ops1940 .region-any { left: 8%; top: calc(66% + 2px); transform: translateY(-50%); }
+    body.theme-ops1940 .region-de { left: 50%; top: 18%; transform: translateX(-50%); }
+    body.theme-ops1940 .region-int { right: 8%; top: calc(66% + 2px); transform: translateY(-50%); }
 
     body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-command-panel {
         background-size: auto, 100% 114%, auto;
     }
 
     body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row {
-        background-size: auto, 100% 114%, auto;
+        background-size: auto, 100% 100%, auto;
     }
 
-    body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-command-panel::after,
     body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-mech-selector::after,
     body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row::after,
     body.theme-ops1940 .container[class*="ops1940-olive-"] .slider-container::after {
         --ops-overlay-screw-size: 18px;
-        --ops-overlay-screw-inset: 12px;
+        --ops-overlay-screw-inset: 5.2%;
         background-size:
             var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
             var(--ops-overlay-screw-size) var(--ops-overlay-screw-size),
@@ -7224,6 +7260,15 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
             var(--ops-overlay-screw-inset) calc(100% - var(--ops-overlay-screw-inset)),
             calc(100% - var(--ops-overlay-screw-inset)) calc(100% - var(--ops-overlay-screw-inset));
         opacity: 0.88;
+    }
+
+    body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row::after {
+        z-index: 0;
+    }
+
+    body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
+        position: relative;
+        z-index: 3;
     }
 
     body.theme-ops1940 .container[class*="ops1940-olive-"] .ops-selector-choice,
@@ -7238,7 +7283,7 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
     }
 
     body.theme-ops1940 .preset-row .btn-preset {
-        --ops-toggle-top-off: 22.8%;
+        --ops-toggle-top-off: calc(22.8% + 3px);
         --ops-toggle-top-on: 15.8%;
         min-height: 154px;
         padding: 8px 6px 4px;
