@@ -7852,14 +7852,32 @@ function shouldAutoStartMapFullscreen() {
 /* =========================================================
    8. POLAROID MINIMAP
    ========================================================= */
-function updateMiniMap() {
+function updateMiniMap(attempt = 0) {
     const miniContainer = document.getElementById('miniMap');
-    if (!miniContainer || miniContainer.offsetParent === null) return;
+    if (!miniContainer) return;
+
+    const scheduleRetry = (attempt = 0) => {
+        if (attempt >= 8) return;
+        if (window._miniMapRetryTimeout) clearTimeout(window._miniMapRetryTimeout);
+        window._miniMapRetryTimeout = setTimeout(() => updateMiniMap(attempt + 1), 120);
+    };
+
+    const hasLayout = miniContainer.offsetParent !== null && miniContainer.clientWidth > 0 && miniContainer.clientHeight > 0;
+    if (typeof L === 'undefined' || !hasLayout) {
+        scheduleRetry(Number(attempt) || 0);
+        return;
+    }
 
     // Verzögerung + Debounce, um Route-Edits nicht mit MiniMap-Arbeit zu stapeln.
     if (window._miniMapUpdateTimeout) clearTimeout(window._miniMapUpdateTimeout);
     window._miniMapUpdateTimeout = setTimeout(() => {
         window._miniMapUpdateTimeout = null;
+        const ready = miniContainer.offsetParent !== null && miniContainer.clientWidth > 0 && miniContainer.clientHeight > 0;
+        if (typeof L === 'undefined' || !ready) {
+            scheduleRetry(Number(attempt) || 0);
+            return;
+        }
+
         if (!miniMap) {
             miniMap = L.map('miniMap', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: false });
             L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png').addTo(miniMap);
@@ -7881,7 +7899,16 @@ function updateMiniMap() {
             const destMarker = L.circleMarker(routeWaypoints[routeWaypoints.length - 1], { radius: 5, color: '#111', weight: 2, fillColor: '#ff4444', fillOpacity: 1 }).addTo(miniMap);
 
             miniMapMarkers.push(startMarker, destMarker);
-            setTimeout(() => { miniMap.invalidateSize(); miniMap.fitBounds(L.latLngBounds(routeWaypoints), { padding: [15, 15] }); }, 50);
+            requestAnimationFrame(() => {
+                miniMap.invalidateSize();
+                miniMap.fitBounds(L.latLngBounds(routeWaypoints), { padding: [15, 15] });
+                setTimeout(() => {
+                    if (miniMap) {
+                        miniMap.invalidateSize();
+                        miniMap.fitBounds(L.latLngBounds(routeWaypoints), { padding: [15, 15] });
+                    }
+                }, 250);
+            });
         }
     }, 100); // Kurze Verzögerung vor dem Start
 }
