@@ -764,7 +764,7 @@ function applyMapHintEffects(key) {
 function setMapHintSubmenuOpen(key, open) {
     const ids = {
         weatherMenu: { btn: 'btnToggleWeatherMenu', panel: 'weatherMenuBlock', label: 'Wetter' },
-        vfrIndexMenu: { btn: 'btnToggleVfrIndexMenu', panel: 'vfrIndexMenuBlock', label: 'VFR-Index Optionen' },
+        vfrIndexMenu: { btn: 'btnToggleVfrIndexMenu', panel: 'vfrIndexMenuBlock', label: 'VFR-Index' },
         terrainAvoidMenu: { btn: 'btnToggleTerrainAvoidMenu', panel: 'terrainAvoidMenuBlock', label: 'Terrain Avoid Optionen' }
     };
     const meta = ids[key];
@@ -775,7 +775,7 @@ function setMapHintSubmenuOpen(key, open) {
     if (window.mapHintSubmenus) window.mapHintSubmenus[key] = isOpen;
     if (panel) panel.style.display = isOpen ? 'block' : 'none';
     if (btn) {
-        btn.textContent = key === 'weatherMenu'
+        btn.textContent = key === 'weatherMenu' || key === 'vfrIndexMenu'
             ? (isOpen ? '▾' : '▸')
             : `${isOpen ? '▾' : '▸'} ${meta.label}`;
         btn.classList.toggle('active', isOpen);
@@ -4201,10 +4201,10 @@ function vpUpdateVfrUi() {
         } else if (vpVfrIndexState.lastUpdatedAt > 0) {
             const t = new Date(vpVfrIndexState.lastUpdatedAt).toLocaleTimeString();
             const countLabel = vpVfrIndexState.lastRenderMode === 'gafor_sector' ? 'Sektoren' : 'Punkte';
-            status.textContent = `Status: ${active} - ${vpVfrIndexState.lastPointCount} ${countLabel} (${t}) - ${vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label} - ${vpGetVfrAmpelWindowModeLabel(vpVfrIndexState.ampelWindowMode)}`;
+            status.textContent = `${active} - ${vpVfrIndexState.lastPointCount} ${countLabel} (${t})`;
             status.style.color = '#95d89d';
         } else {
-            status.textContent = `Status: ${active} bereit - ${vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label} - ${vpGetVfrAmpelWindowModeLabel(vpVfrIndexState.ampelWindowMode)}`;
+            status.textContent = `Status: ${active} bereit`;
             status.style.color = '#9bb5d1';
         }
     }

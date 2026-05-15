@@ -891,12 +891,14 @@
                         <button id="btnToggleMapWeatherSource" class="pb-btn" onclick="window.toggleMapWeatherSource && toggleMapWeatherSource()" title="Datenquelle für Karten-Wetter: METAR oder Open-Meteo" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">🌐 Kartenquelle: METAR</button>
                         <button id="hintToggleWindBarbs" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('windBarbs')">🪁 Windbarben (An)</button>
                         <button id="hintToggleCloudFields" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('cloudFields')">☁️ Wolkenfelder (An)</button>
-                        <button id="hintToggleVfrIndex" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('vfrIndex')">🧭 VFR-Index (Aus)</button>
-                        <button id="btnToggleVfrIndexMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('vfrIndexMenu', event)" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">▸ VFR-Index Optionen</button>
-                        <div id="vfrIndexMenuBlock" style="display:none; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
-                        <div id="vfrPlanningCountryLabel" style="font-size:10px; color:#9bb5d1; margin-bottom:5px;">Planungsland: –</div>
+                        <div style="display:flex; width:100%; margin:0 0 6px 0; gap:2px;">
+                            <button id="hintToggleVfrIndex" class="pb-btn" style="display:block; flex:1 1 auto; min-width:0; margin:0; text-align:left; border-top-right-radius:0; border-bottom-right-radius:0;" onclick="window.toggleMapHint && toggleMapHint('vfrIndex')">🧭 VFR-Index (Aus)</button>
+                            <button id="btnToggleVfrIndexMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('vfrIndexMenu', event)" title="VFR-Index Optionen" style="display:block; flex:0 0 42px; margin:0; text-align:center; border-top-left-radius:0; border-bottom-left-radius:0;">▸</button>
+                        </div>
+                        <div id="vfrIndexMenuBlock" style="display:none; box-sizing:border-box; max-width:100%; min-width:0; overflow:hidden; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
+                        <div id="vfrPlanningCountryLabel" style="font-size:10px; color:#9bb5d1; margin-bottom:5px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Planungsland: –</div>
                         <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Lade-Land (Europa)</div>
-                        <select id="vfrCountrySelect" onchange="window.vpSetVfrCountry && vpSetVfrCountry(this.value)" style="width:100%; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:6px;">
+                        <select id="vfrCountrySelect" onchange="window.vpSetVfrCountry && vpSetVfrCountry(this.value)" style="display:block; width:100%; max-width:100%; min-width:0; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:6px;">
                             <option value="auto">Auto (Planungsland)</option>
                         </select>
                         <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
@@ -904,29 +906,25 @@
                             <span id="vfrNextFetchHint" style="font-size:10px; color:#9a9a9a; white-space:nowrap;">min. 15 min</span>
                         </div>
                         <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Modell</div>
-                        <select id="vfrModelSelect" onchange="window.vpSetVfrModel && vpSetVfrModel(this.value)" style="width:100%; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:4px;">
-                            <option value="robust_sector">VFR-Index robust (Sektoren)</option>
-                            <option value="internal">Eigenes Modell (Kacheln)</option>
-                            <option value="gafor_sector">VFR-Index klassisch (Sektoren)</option>
+                        <select id="vfrModelSelect" onchange="window.vpSetVfrModel && vpSetVfrModel(this.value)" style="display:block; width:100%; max-width:100%; min-width:0; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:4px;">
+                            <option value="robust_sector">Robust</option>
+                            <option value="internal">Kacheln</option>
+                            <option value="gafor_sector">Klassisch</option>
                         </select>
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin:3px 0 3px 0;">
                             <label for="vfrSectorLineWidthSlider" style="font-size:10px; color:#a8a8a8;">Sektorlinienbreite</label>
                             <span id="vfrSectorLineWidthValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">20 px</span>
                         </div>
-                        <input id="vfrSectorLineWidthSlider" type="range" min="2" max="40" step="1" value="20" style="width:100%; cursor:pointer; margin-bottom:6px;" oninput="window.vpSetVfrSectorLineWidth && vpSetVfrSectorLineWidth(this.value)">
-                        <div id="vfrModelInfo" style="font-size:10px; line-height:1.35; color:#a9c1db; margin:0 0 5px 0;"></div>
+                        <input id="vfrSectorLineWidthSlider" type="range" min="2" max="40" step="1" value="20" style="display:block; width:100%; max-width:100%; box-sizing:border-box; cursor:pointer; margin-bottom:6px;" oninput="window.vpSetVfrSectorLineWidth && vpSetVfrSectorLineWidth(this.value)">
+                        <div id="vfrModelInfo" style="font-size:10px; line-height:1.35; color:#a9c1db; margin:0 0 5px 0; max-width:100%; overflow:hidden;"></div>
                         <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Ampel-Zeitfenster</div>
-                        <select id="vfrAmpelWindowSelect" onchange="window.vpSetVfrAmpelWindowMode && vpSetVfrAmpelWindowMode(this.value)" style="width:100%; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:5px;">
-                            <option value="sun">SR/SS (Morgen/Mittag/Abend)</option>
-                            <option value="utc6">UTC 6h-Block (3x2h)</option>
+                        <select id="vfrAmpelWindowSelect" onchange="window.vpSetVfrAmpelWindowMode && vpSetVfrAmpelWindowMode(this.value)" style="display:block; width:100%; max-width:100%; min-width:0; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:5px;">
+                            <option value="sun">SR/SS</option>
+                            <option value="utc6">UTC 6h</option>
                         </select>
                         <button id="vfrAmpelWindowCycleBtn" class="pb-btn" onclick="window.vpCycleVfrAmpelWindowMode && vpCycleVfrAmpelWindowMode()" style="display:block; width:100%; margin:0 0 5px 0; text-align:center;">Zeitfenster: SR/SS</button>
                         <button id="vfrAmpelToggleBtn" class="pb-btn" onclick="window.vpToggleVfrAmpel && vpToggleVfrAmpel()" style="display:block; width:100%; margin:0 0 4px 0; text-align:center;">Ampel (An)</button>
-                        <div id="vfrIndexStatus" style="font-size:10px; color:#9bb5d1;">Status: Aus</div>
-                        <div style="display:flex; gap:5px; margin-top:6px;">
-                            <button class="pb-btn" onclick="window.gaDownloadDebugSnapshot && gaDownloadDebugSnapshot()" style="display:block; flex:1; margin:0; text-align:center; font-size:10px;">Debug JSON</button>
-                            <button class="pb-btn" onclick="window.gaRunVfrFreezeProbe && gaRunVfrFreezeProbe()" style="display:block; flex:1; margin:0; text-align:center; font-size:10px;">Freeze Probe</button>
-                        </div>
+                        <div id="vfrIndexStatus" style="font-size:10px; color:#9bb5d1; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Status: Aus</div>
                         </div>
                     </div>
                     <button id="hintToggleTerrainAvoid" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('terrainAvoid')">🏔️ Terrain Avoid (Aus)</button>
