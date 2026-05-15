@@ -967,7 +967,6 @@ function hideNextWpTelemetry() {
     const box = document.getElementById('liveNextWpBox');
     if (box) box.style.display = 'none';
     hideCurrentInfoTelemetry();
-    hideRouteProgressBar();
     setNextLegButtonStates(0, 0);
     if (liveToWpLine) {
         try { liveToWpLine.remove(); } catch (e) {}
@@ -1006,6 +1005,51 @@ function routeProgressLegDistanceNm(a, b) {
     if (!a || !b || !Number.isFinite(a.lat) || !Number.isFinite(aLon) || !Number.isFinite(b.lat) || !Number.isFinite(bLon)) return 0;
     const nav = calcNav(a.lat, aLon, b.lat, bLon);
     return Number.isFinite(nav?.dist) ? nav.dist : 0;
+}
+
+function routeProgressShortIdent(value) {
+    const ident = String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return /^[A-Z0-9]{2,4}$/.test(ident) ? ident : '';
+}
+
+function findRouteProgressPositionReference(lat, lon) {
+    if (typeof calcNav !== 'function' || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const candidates = [];
+    const seen = new Set();
+    const mapNavItems = (typeof cachedNavData !== 'undefined' && Array.isArray(cachedNavData)) ? cachedNavData : [];
+    const navItems = [...mapNavItems, ...liveCurrentNavData];
+
+    navItems.forEach(nav => {
+        const parsed = parseCurrentNavLabel(nav);
+        if (!parsed || (parsed.kind !== 'APT' && parsed.kind !== 'VOR')) return;
+        const ident = routeProgressShortIdent(parsed.label);
+        if (!ident) return;
+        addCurrentNavCandidate(candidates, seen, ident, nav.lat, nav.lng ?? nav.lon, parsed.kind);
+    });
+
+    getCurrentNearbyAirportCandidates(lat, lon).forEach(apt => {
+        const ident = routeProgressShortIdent(apt.label);
+        if (ident) addCurrentNavCandidate(candidates, seen, ident, apt.lat, apt.lon, 'APT');
+    });
+
+    let best = null;
+    for (const c of candidates) {
+        const nav = calcNav(c.lat, c.lon, lat, lon);
+        if (!Number.isFinite(nav?.dist)) continue;
+        if (!best || nav.dist < best.dist) best = { ...c, dist: nav.dist, brngFromRef: nav.brng };
+    }
+
+    if (!navItems.length || !best || best.dist > 35) maybeRefreshCurrentNavData(lat, lon);
+    return best && best.dist <= 35 ? best : null;
+}
+
+function formatRouteProgressPosition(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '--';
+    const ref = findRouteProgressPositionReference(lat, lon);
+    const ident = routeProgressShortIdent(ref?.label);
+    if (!ref || !ident) return '--';
+    const dir = currentInfoCardinalFromBearing(ref.brngFromRef);
+    return `${currentInfoNm(ref.dist)} NM ${dir} ${ident}`.replace(/\s+/g, ' ').trim();
 }
 
 function getRouteProgressDistanceNm(lat, lon, wpIdx, fallbackInfo = null) {
@@ -1072,6 +1116,7 @@ window.refreshRouteProgressBar = function() {
         const pos = window.lastLiveGpsPos;
         if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lon)) {
             updateRouteProgressTargetLabels();
+            updateRouteProgressBar(null, null, null, null);
             return;
         }
         updateRouteProgressBar(pos.lat, pos.lon, pos.gs, null);
@@ -1090,20 +1135,20 @@ function updateRouteProgressBar(lat, lon, gsKts = null, nextInfo = null) {
     if (!bar) return;
 
     updateRouteProgressTargetLabels();
-    const hintOn = window.simModeActive || isMapHintOn('routeProgress', true);
+    const hintOn = isMapHintOn('routeProgress', true);
     bar.classList.toggle('route-progress-hidden', !hintOn);
     if (!hintOn) {
         bar.style.display = 'none';
         return;
     }
 
-    lastRouteProgressContext = { lat, lon, gs: gsKts, nextInfo };
+    const hasPosition = Number.isFinite(lat) && Number.isFinite(lon);
+    if (hasPosition) lastRouteProgressContext = { lat, lon, gs: gsKts, nextInfo };
+    const posEl = document.getElementById('routeProgressPos');
+    if (posEl) posEl.textContent = formatRouteProgressPosition(lat, lon);
+
     const wpIdx = getLiveRouteTargetIndex(nextInfo);
     const distNm = getRouteProgressDistanceNm(lat, lon, wpIdx, nextInfo);
-    if (!Number.isFinite(distNm)) {
-        bar.style.display = 'none';
-        return;
-    }
 
     const gs = Number.isFinite(Number(gsKts)) ? Number(gsKts) : Number(window.lastLiveGpsPos?.gs ?? smoothedGS);
     const minutes = getRouteProgressMinutes(distNm, gs);
@@ -1809,7 +1854,6 @@ function updateNextWpTelemetry(lat, lon) {
     if (!box || !nameEl || !courseEl || !distEl) return;
     if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2 || typeof calcNav !== 'function') {
         box.style.display = 'none';
-        hideRouteProgressBar();
         if (liveToWpLine) {
             try { liveToWpLine.remove(); } catch (e) {}
             liveToWpLine = null;
