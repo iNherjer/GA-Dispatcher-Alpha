@@ -883,12 +883,17 @@
                 <div id="mapHintsMenu" style="display:none; position:absolute; top:38px; right:0; min-width:210px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
                     <button id="hintToggleSnapping" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="toggleSnapMode()">🧲 Snapping (Aus)</button>
                     <button id="hintToggleMagentaLine" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('magentaLine')">🟣 Direkt-Linie (An)</button>
-                    <button id="hintToggleWeather" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('weather')">🌤️ Wetter (An)</button>
-                    <button id="hintToggleWindBarbs" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('windBarbs')">🪁 Windbarben (An)</button>
-                    <button id="hintToggleCloudFields" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('cloudFields')">☁️ Wolkenfelder (An)</button>
-                    <button id="hintToggleVfrIndex" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('vfrIndex')">🧭 VFR-Index (Aus)</button>
-                    <button id="btnToggleVfrIndexMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('vfrIndexMenu', event)" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">▸ VFR-Index Optionen</button>
-                    <div id="vfrIndexMenuBlock" style="display:none; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
+                    <div style="display:flex; width:100%; margin:0 0 6px 0; gap:2px;">
+                        <button id="hintToggleWeather" class="pb-btn" style="display:block; flex:1 1 auto; min-width:0; margin:0; text-align:left; border-top-right-radius:0; border-bottom-right-radius:0;" onclick="window.toggleMapHint && toggleMapHint('weather')">🌤️ Wetter (An)</button>
+                        <button id="btnToggleWeatherMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('weatherMenu', event)" title="Wetter-Optionen" style="display:block; flex:0 0 42px; margin:0; text-align:center; border-top-left-radius:0; border-bottom-left-radius:0;">▸</button>
+                    </div>
+                    <div id="weatherMenuBlock" style="display:none; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
+                        <button id="btnToggleMapWeatherSource" class="pb-btn" onclick="window.toggleMapWeatherSource && toggleMapWeatherSource()" title="Datenquelle für Karten-Wetter: METAR oder Open-Meteo" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">🌐 Kartenquelle: METAR</button>
+                        <button id="hintToggleWindBarbs" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('windBarbs')">🪁 Windbarben (An)</button>
+                        <button id="hintToggleCloudFields" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('cloudFields')">☁️ Wolkenfelder (An)</button>
+                        <button id="hintToggleVfrIndex" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('vfrIndex')">🧭 VFR-Index (Aus)</button>
+                        <button id="btnToggleVfrIndexMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('vfrIndexMenu', event)" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">▸ VFR-Index Optionen</button>
+                        <div id="vfrIndexMenuBlock" style="display:none; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
                         <div id="vfrPlanningCountryLabel" style="font-size:10px; color:#9bb5d1; margin-bottom:5px;">Planungsland: –</div>
                         <div style="font-size:10px; color:#8d8d8d; margin-bottom:4px;">Lade-Land (Europa)</div>
                         <select id="vfrCountrySelect" onchange="window.vpSetVfrCountry && vpSetVfrCountry(this.value)" style="width:100%; box-sizing:border-box; background:#181818; color:#e2e2e2; border:1px solid #3c3c3c; border-radius:4px; padding:4px 6px; font-size:11px; margin-bottom:6px;">
@@ -921,6 +926,7 @@
                         <div style="display:flex; gap:5px; margin-top:6px;">
                             <button class="pb-btn" onclick="window.gaDownloadDebugSnapshot && gaDownloadDebugSnapshot()" style="display:block; flex:1; margin:0; text-align:center; font-size:10px;">Debug JSON</button>
                             <button class="pb-btn" onclick="window.gaRunVfrFreezeProbe && gaRunVfrFreezeProbe()" style="display:block; flex:1; margin:0; text-align:center; font-size:10px;">Freeze Probe</button>
+                        </div>
                         </div>
                     </div>
                     <button id="hintToggleTerrainAvoid" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('terrainAvoid')">🏔️ Terrain Avoid (Aus)</button>

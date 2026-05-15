@@ -2138,9 +2138,7 @@ function triggerVerticalProfileUpdate() {
             // 3. PARALLELER FETCH: Wetter & Overpass
             const fetchWetter = async () => {
                 const needsProfileWeather = vpShowClouds || vpShowIsobars || vpShowWindComponents;
-                const needsMapMetar = (typeof window.vpShowMapMetar !== 'undefined' && window.vpShowMapMetar);
-                const metarSourceSelected = vpWeatherSource === 'metar';
-                if (!needsProfileWeather && !needsMapMetar && !metarSourceSelected) {
+                if (!needsProfileWeather) {
                     vpWeatherDebugEvent('Wetter-Fetch übersprungen (keine aktive Wetterdarstellung)');
                     return;
                 }
@@ -2423,6 +2421,7 @@ function triggerVerticalProfileUpdate() {
 
             // Führe beide schweren Netzwerk-Tasks parallel aus
             await Promise.all([fetchWetter(), fetchOverpass()]);
+            if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
             if (status) {
                 const wxInfo = (vpWeatherSource === 'openmeteo')
                     ? ((window.vpWeatherFallbackMode === 'openmeteo_to_metar') ? ' • Fallback METAR' : ' • Open-Meteo')
@@ -4275,10 +4274,14 @@ async function fetchRouteWeatherOpenMeteo(routePts, elevData, signal) {
     return zones;
 }
 
-async function fetchRouteWeather(routePts, elevData, signal) {
+async function fetchRouteWeather(routePts, elevData, signal, options = {}) {
     vpWeatherDebugEvent('fetchRouteWeather dispatch');
-    const source = window.vpWeatherSource || localStorage.getItem('ga_weather_source') || 'metar';
-    const autoFallback = vpIsWeatherAutoFallbackEnabled();
+    const source = String(options.source || window.vpWeatherSource || localStorage.getItem('ga_weather_source') || 'metar').toLowerCase() === 'openmeteo'
+        ? 'openmeteo'
+        : 'metar';
+    const autoFallback = typeof options.autoFallback === 'boolean'
+        ? options.autoFallback
+        : vpIsWeatherAutoFallbackEnabled();
     const metarRouteKey = vpBuildMetarRouteCacheKey(routePts, elevData);
     if (source === 'openmeteo') {
         if (vpIsOpenMeteoCoolingDown()) {
@@ -4317,6 +4320,11 @@ async function fetchRouteWeather(routePts, elevData, signal) {
     }
 
     if (vpIsMetarCoolingDown(now)) {
+        if (!autoFallback) {
+            vpSetWeatherFallbackMode('none', 'auto fallback disabled');
+            vpWeatherDebugEvent('METAR cooldown, no OM fallback (auto fallback disabled)');
+            return null;
+        }
         const probeDue = (now - Number(window.vpMetarRecoveryProbeAt || 0)) >= VP_METAR_RECOVERY_PROBE_MS;
         if (probeDue) {
             window.vpMetarRecoveryProbeAt = now;
@@ -8371,10 +8379,13 @@ function ensureWeatherRefreshTimer() {
     vpWeatherRefreshTimer = setInterval(() => {
         const now = Date.now();
         if (routeWaypoints && routeWaypoints.length >= 2) {
-            const weatherNeeded = (vpShowClouds || vpShowIsobars || vpShowWindComponents || (window.mapHints && window.mapHints.weather !== false));
-            if (weatherNeeded && vpWeatherSource === 'openmeteo' && (now - vpWeatherLastAutoRefreshAt) >= (15 * 60 * 1000)) {
+            const profileWeatherNeeded = (vpShowClouds || vpShowIsobars || vpShowWindComponents);
+            const mapWeatherNeeded = !!(window.mapHints && window.mapHints.weather !== false);
+            const mapWeatherSource = String(window.vpMapWeatherSource || localStorage.getItem('ga_map_weather_source') || 'metar').toLowerCase() === 'openmeteo' ? 'openmeteo' : 'metar';
+            const openMeteoRefreshNeeded = (profileWeatherNeeded && vpWeatherSource === 'openmeteo') || (mapWeatherNeeded && mapWeatherSource === 'openmeteo');
+            if (openMeteoRefreshNeeded && (now - vpWeatherLastAutoRefreshAt) >= (15 * 60 * 1000)) {
                 vpWeatherLastAutoRefreshAt = now;
-                if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
+                if (profileWeatherNeeded && vpWeatherSource === 'openmeteo' && typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
                 if (window.vpWeatherFallbackMode !== 'openmeteo_to_metar' && !vpIsOpenMeteoCoolingDown() && typeof window.scheduleMapWeatherOverlayUpdate === 'function') {
                     window.scheduleMapWeatherOverlayUpdate(true);
                 }
@@ -8501,9 +8512,9 @@ function vpToggleWeatherSource() {
     window.vpBgNeedsUpdate = true;
     window.vpWeatherAutoFallbackFrom = null;
     vpSetWeatherFallbackMode('none', 'manual source toggle');
-    if (typeof window.resetMapWeatherVisualsForSourceSwitch === 'function') window.resetMapWeatherVisualsForSourceSwitch();
     if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
-    if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
+    const mapWeatherSource = String(window.vpMapWeatherSource || localStorage.getItem('ga_map_weather_source') || 'metar').toLowerCase() === 'openmeteo' ? 'openmeteo' : 'metar';
+    if (mapWeatherSource === 'metar' && typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
     if (window._lastVpRouteKey) triggerVerticalProfileUpdate();
     else if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
     ensureWeatherRefreshTimer();

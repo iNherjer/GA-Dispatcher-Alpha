@@ -68,6 +68,7 @@ const MAP_HINT_DEFAULTS = {
 };
 window.mapHints = window.mapHints || { ...MAP_HINT_DEFAULTS };
 const MAP_HINT_SUBMENU_DEFAULTS = {
+    weatherMenu: false,
     vfrIndexMenu: false,
     terrainAvoidMenu: false
 };
@@ -668,6 +669,39 @@ function applyLowFpsModeUi() {
     }
 }
 
+function normalizeMapWeatherSource(value) {
+    return String(value || '').toLowerCase() === 'openmeteo' ? 'openmeteo' : 'metar';
+}
+
+function getMapWeatherSource() {
+    return normalizeMapWeatherSource(window.vpMapWeatherSource || localStorage.getItem('ga_map_weather_source') || localStorage.getItem('ga_weather_source'));
+}
+
+function updateMapWeatherSourceBtn() {
+    const btn = document.getElementById('btnToggleMapWeatherSource');
+    if (!btn) return;
+    const isOpenMeteo = getMapWeatherSource() === 'openmeteo';
+    btn.classList.toggle('active', isOpenMeteo);
+    btn.textContent = `🌐 Kartenquelle: ${isOpenMeteo ? 'OPEN METEO' : 'METAR'}`;
+    btn.title = isOpenMeteo
+        ? 'Karte nutzt Open-Meteo (klicken = METAR)'
+        : 'Karte nutzt METAR (klicken = Open-Meteo)';
+}
+
+window.toggleMapWeatherSource = function() {
+    const next = getMapWeatherSource() === 'metar' ? 'openmeteo' : 'metar';
+    window.vpMapWeatherSource = next;
+    localStorage.setItem('ga_map_weather_source', next);
+    wxMapWeatherData = null;
+    wxMapWeatherLastKey = '';
+    wxMapWeatherLastFetchAt = 0;
+    updateMapWeatherSourceBtn();
+    if (typeof window.resetMapWeatherVisualsForSourceSwitch === 'function') window.resetMapWeatherVisualsForSourceSwitch();
+    if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers(true);
+    if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
+    refreshMapHintMenuUi();
+};
+
 function applyMapHintEffects(key) {
     if (key === 'weather') {
         window.vpShowMapMetar = window.mapHints.weather !== false;
@@ -729,6 +763,7 @@ function applyMapHintEffects(key) {
 
 function setMapHintSubmenuOpen(key, open) {
     const ids = {
+        weatherMenu: { btn: 'btnToggleWeatherMenu', panel: 'weatherMenuBlock', label: 'Wetter' },
         vfrIndexMenu: { btn: 'btnToggleVfrIndexMenu', panel: 'vfrIndexMenuBlock', label: 'VFR-Index Optionen' },
         terrainAvoidMenu: { btn: 'btnToggleTerrainAvoidMenu', panel: 'terrainAvoidMenuBlock', label: 'Terrain Avoid Optionen' }
     };
@@ -740,7 +775,9 @@ function setMapHintSubmenuOpen(key, open) {
     if (window.mapHintSubmenus) window.mapHintSubmenus[key] = isOpen;
     if (panel) panel.style.display = isOpen ? 'block' : 'none';
     if (btn) {
-        btn.textContent = `${isOpen ? '▾' : '▸'} ${meta.label}`;
+        btn.textContent = key === 'weatherMenu'
+            ? (isOpen ? '▾' : '▸')
+            : `${isOpen ? '▾' : '▸'} ${meta.label}`;
         btn.classList.toggle('active', isOpen);
     }
 }
@@ -766,7 +803,10 @@ window.toggleMapHintSubmenu = function(key, evt) {
     if (!(key in MAP_HINT_SUBMENU_DEFAULTS)) return;
     const nowOpen = !!(window.mapHintSubmenus && window.mapHintSubmenus[key]);
     Object.keys(MAP_HINT_SUBMENU_DEFAULTS).forEach(k => {
-        setMapHintSubmenuOpen(k, k === key ? !nowOpen : false);
+        let nextOpen = k === key ? !nowOpen : false;
+        if (key === 'vfrIndexMenu' && k === 'weatherMenu') nextOpen = true;
+        if (key === 'weatherMenu' && nowOpen && k === 'vfrIndexMenu') nextOpen = false;
+        setMapHintSubmenuOpen(k, nextOpen);
     });
     positionMapHintsMenuInViewport();
 };
@@ -815,6 +855,7 @@ function refreshMapHintMenuUi() {
     });
     vpUpdateVfrUi();
     updateTerrainAvoidThresholdUi();
+    updateMapWeatherSourceBtn();
     positionMapHintsMenuInViewport();
 }
 
@@ -7989,6 +8030,13 @@ async function fetchOpenAIPData() {
    WETTER MARKER AUF DER KARTE (VFR / IFR)
    ========================================================= */
 window.vpShowMapMetar = localStorage.getItem('ga_show_map_metar') !== 'false';
+window.vpMapWeatherSource = normalizeMapWeatherSource(localStorage.getItem('ga_map_weather_source') || localStorage.getItem('ga_weather_source') || 'metar');
+let wxMapWeatherData = null;
+let wxMapWeatherFetchController = null;
+let wxMapWeatherInFlight = false;
+let wxMapWeatherLastKey = '';
+let wxMapWeatherLastFetchAt = 0;
+const WX_MAP_METAR_CACHE_TTL_MS = 10 * 60 * 1000;
 
 window.toggleMapMetars = function() {
     const next = !window.vpShowMapMetar;
@@ -8097,6 +8145,7 @@ window.resetMapWeatherVisualsForSourceSwitch = function() {
         }
     } catch (_) {}
     wxOverlayLastKey = '';
+    wxMapWeatherLastKey = '';
     clearMapOpenMeteoOverlays();
     if (Array.isArray(wxMapMarkers)) {
         wxMapMarkers.forEach(m => { try { map && map.removeLayer(m); } catch (_) {} });
@@ -8371,21 +8420,61 @@ function getMapWeatherGridPoints(cols = 8, rows = 6) {
     };
 }
 
+function buildMapWeatherRouteKey() {
+    if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return '';
+    const src = getMapWeatherSource();
+    const routeKey = (typeof vpBuildElevationRouteKey === 'function')
+        ? vpBuildElevationRouteKey(routeWaypoints, 5)
+        : routeWaypoints.map(p => `${Number(p.lat || 0).toFixed(3)},${Number((p.lng ?? p.lon) || 0).toFixed(3)}`).join('|');
+    return `${src}:${routeKey}`;
+}
+
+async function ensureMapWeatherData(forceFetch = false) {
+    if (getMapWeatherSource() !== 'metar') return null;
+    if (!window.vpShowMapMetar || window.mapHints.weather === false) return null;
+    if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return null;
+    if (typeof fetchRouteWeather !== 'function') return null;
+
+    const now = Date.now();
+    const key = buildMapWeatherRouteKey();
+    if (!forceFetch && key && key === wxMapWeatherLastKey && Array.isArray(wxMapWeatherData) && wxMapWeatherData.length > 0 && (now - wxMapWeatherLastFetchAt) < WX_MAP_METAR_CACHE_TTL_MS) {
+        return wxMapWeatherData;
+    }
+    if (wxMapWeatherInFlight) return wxMapWeatherData;
+
+    if (wxMapWeatherFetchController) wxMapWeatherFetchController.abort();
+    wxMapWeatherFetchController = new AbortController();
+    const signal = wxMapWeatherFetchController.signal;
+    wxMapWeatherInFlight = true;
+
+    try {
+        const elev = (typeof vpElevationData !== 'undefined' && Array.isArray(vpElevationData)) ? vpElevationData : [];
+        const next = await fetchRouteWeather(routeWaypoints, elev, signal, { source: 'metar', autoFallback: false });
+        if (signal.aborted) return wxMapWeatherData;
+        wxMapWeatherData = Array.isArray(next) ? next : null;
+        wxMapWeatherLastKey = key;
+        wxMapWeatherLastFetchAt = Date.now();
+        if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers(false);
+        return wxMapWeatherData;
+    } catch (e) {
+        if (!e || e.name !== 'AbortError') console.warn('[MapWX] METAR Kartenwetter fehlgeschlagen:', e);
+        return wxMapWeatherData;
+    } finally {
+        wxMapWeatherInFlight = false;
+    }
+}
+
 window.scheduleMapWeatherOverlayUpdate = function(forceFetch = false) {
     if (wxOverlayFetchTimer) clearTimeout(wxOverlayFetchTimer);
     wxOverlayFetchTimer = setTimeout(() => {
+        if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers(forceFetch);
         if (typeof window.renderMapWeatherOverlays === 'function') window.renderMapWeatherOverlays(forceFetch);
     }, forceFetch ? 180 : 900);
 };
 
 window.renderMapWeatherOverlays = async function(forceFetch = false) {
     if (!map) return;
-    const fbMode = String(window.vpWeatherFallbackMode || 'none');
-    const openMeteoSourceSelected = (
-        (window.vpWeatherSource === 'openmeteo' && fbMode !== 'openmeteo_to_metar')
-        || fbMode === 'metar_to_openmeteo'
-    );
-    if (!openMeteoSourceSelected) {
+    if (getMapWeatherSource() !== 'openmeteo') {
         clearMapOpenMeteoOverlays();
         return;
     }
@@ -8408,7 +8497,7 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
         clearMapOpenMeteoOverlays();
         return;
     }
-    const gridKey = `${grid.key}|${showWind ? 1 : 0}|${showCloud ? 1 : 0}`;
+    const gridKey = `${getMapWeatherSource()}:${grid.key}|${showWind ? 1 : 0}|${showCloud ? 1 : 0}`;
     if (!forceFetch && gridKey === wxOverlayLastKey) return;
     const now = Date.now();
     const minInterval = forceFetch ? WX_OVERLAY_MIN_INTERVAL_FORCE_MS : WX_OVERLAY_MIN_INTERVAL_MS;
@@ -8534,25 +8623,26 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
     });
 };
 
-window.renderWeatherMarkers = function() {
+window.renderWeatherMarkers = function(forceFetch = false) {
     if (!map) return;
     wxMapMarkers.forEach(m => map.removeLayer(m));
     wxMapMarkers = [];
 
-    const fbMode = String(window.vpWeatherFallbackMode || 'none');
-    const openMeteoSourceSelected = (
-        (window.vpWeatherSource === 'openmeteo' && fbMode !== 'openmeteo_to_metar')
-        || fbMode === 'metar_to_openmeteo'
-    );
-    if (openMeteoSourceSelected) {
-        if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
+    const mapWeatherSource = getMapWeatherSource();
+    if (mapWeatherSource === 'openmeteo') {
         return;
     }
 
     if (!window.vpShowMapMetar) return;
-    if (typeof vpWeatherData === 'undefined' || !vpWeatherData || vpWeatherData.length === 0) return;
-    const sourceNow = window.vpWeatherSource || 'metar';
-    const metarDisplayMode = (sourceNow === 'metar' && fbMode !== 'metar_to_openmeteo') || fbMode === 'openmeteo_to_metar';
+    if (window.mapHints && window.mapHints.weather === false) return;
+    if (forceFetch) ensureMapWeatherData(true);
+    const sourceData = (Array.isArray(wxMapWeatherData) && wxMapWeatherData.length > 0)
+        ? wxMapWeatherData
+        : ((window.vpWeatherSource === 'metar' && typeof vpWeatherData !== 'undefined' && Array.isArray(vpWeatherData)) ? vpWeatherData : null);
+    if (!sourceData || sourceData.length === 0) {
+        ensureMapWeatherData(forceFetch);
+        return;
+    }
     const cloudsToggleEnabled = (typeof localStorage !== 'undefined')
         ? (localStorage.getItem('ga_show_clouds') !== 'false')
         : true;
@@ -8560,8 +8650,8 @@ window.renderWeatherMarkers = function() {
 
     let seenIcao = new Set();
 
-    vpWeatherData.forEach((zone, markerIndex) => {
-        if (metarDisplayMode && /^OM\d+$/i.test(String(zone && zone.icao || ''))) return;
+    sourceData.forEach((zone, markerIndex) => {
+        if (/^OM\d+$/i.test(String(zone && zone.icao || ''))) return;
         const zLat = Number(zone && zone.stnLat);
         const zLon = Number(zone && zone.stnLon);
         if (!zone.icao || !Number.isFinite(zLat) || !Number.isFinite(zLon) || seenIcao.has(zone.icao)) return;
