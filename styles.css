@@ -6484,7 +6484,7 @@ body.map-drawing-active #map.leaflet-dragging {
 }
 
 :root {
-    --route-progress-height: 34px;
+    --route-progress-height: 40px;
 }
 
 .route-progress-bar {
@@ -6493,22 +6493,22 @@ body.map-drawing-active #map.leaflet-dragging {
     left: 0;
     right: 0;
     z-index: 4200;
-    height: var(--route-progress-height, 34px);
-    min-height: var(--route-progress-height, 34px);
+    height: var(--route-progress-height, 40px);
+    min-height: var(--route-progress-height, 40px);
     box-sizing: border-box;
     display: grid;
     grid-template-columns: repeat(5, max-content);
     align-items: center;
     justify-content: space-evenly;
     gap: 16px;
-    padding: 6px max(10px, env(safe-area-inset-left)) 4px max(10px, env(safe-area-inset-right));
+    padding: 8px max(10px, env(safe-area-inset-left)) 7px max(10px, env(safe-area-inset-right));
     background: #000;
     border-bottom: 1px solid rgba(142, 197, 255, 0.28);
     color: #fff;
     font-family: 'Courier New', monospace;
     box-shadow: 0 4px 14px rgba(0,0,0,0.35);
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     overscroll-behavior-x: contain;
     scrollbar-width: thin;
     pointer-events: auto;
@@ -6535,8 +6535,7 @@ body.map-drawing-active #map.leaflet-dragging {
     gap: 7px;
     padding: 0 10px;
     border-right: 1px solid rgba(255,255,255,0.13);
-    line-height: 1.1;
-    transform: translateY(1px);
+    line-height: 1.25;
 }
 
 .route-progress-item:first-child {
@@ -6556,8 +6555,8 @@ body.map-drawing-active #map.leaflet-dragging {
     border: none;
     background: transparent;
     color: #8ec5ff;
-    padding: 2px 0;
-    font: 700 11px/1 'Courier New', monospace;
+    padding: 0;
+    font: 700 11px/1.2 'Courier New', monospace;
     letter-spacing: 0;
     cursor: pointer;
     white-space: nowrap;
@@ -6590,16 +6589,16 @@ body.map-drawing-active #map.leaflet-dragging {
 
 @media (max-width: 767px) {
     :root {
-        --route-progress-height: 31px;
+        --route-progress-height: 38px;
     }
 
     .route-progress-bar {
         grid-template-columns: repeat(5, max-content);
         justify-content: flex-start;
         gap: 12px;
-        min-height: 31px;
-        padding-top: 5px;
-        padding-bottom: 3px;
+        min-height: 38px;
+        padding-top: 7px;
+        padding-bottom: 7px;
     }
 
     .route-progress-item {
