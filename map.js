@@ -45,6 +45,11 @@ const mapDrawState = {
     buttonDrag: null
 };
 let routeLegLabelMarkers = [];
+const ROUTE_LEG_LABEL_MODE_KEY = 'ga_route_leg_label_mode';
+const ROUTE_LEG_LABEL_MODES = ['distance', 'duration', 'both'];
+let routeLegLabelMode = ROUTE_LEG_LABEL_MODES.includes(localStorage.getItem(ROUTE_LEG_LABEL_MODE_KEY))
+    ? localStorage.getItem(ROUTE_LEG_LABEL_MODE_KEY)
+    : 'distance';
 const AIP_POPUP_ROUTES = {
     AT: '/at/en/vfr/',
     DE: '/de/en/vfr/',
@@ -856,6 +861,7 @@ function refreshMapHintMenuUi() {
     vpUpdateVfrUi();
     updateTerrainAvoidThresholdUi();
     updateMapWeatherSourceBtn();
+    updateRouteLegLabelModeButton();
     positionMapHintsMenuInViewport();
 }
 
@@ -6312,6 +6318,42 @@ function formatNm(value) {
     return (Math.round(n * 10) / 10).toFixed(1);
 }
 
+function formatLegDurationMinutes(distNm) {
+    const speedKts = Math.max(1, getTasForRouteEstimate());
+    const dist = Number(distNm);
+    if (!Number.isFinite(dist) || dist <= 0) return '0 min';
+    const minutes = Math.max(1, Math.round((dist / speedKts) * 60));
+    return `${minutes} min`;
+}
+
+function getRouteLegLabelDetail(nav) {
+    const distText = `${formatNm(nav.dist)} NM`;
+    const durationText = formatLegDurationMinutes(nav.dist);
+    if (routeLegLabelMode === 'duration') return durationText;
+    if (routeLegLabelMode === 'both') return `${distText} / ${durationText}`;
+    return distText;
+}
+
+function updateRouteLegLabelModeButton() {
+    const btn = document.getElementById('routeLegLabelModeBtn');
+    if (!btn) return;
+    const labels = {
+        distance: 'Distanz',
+        duration: 'Dauer',
+        both: 'Distanz + Dauer'
+    };
+    btn.textContent = `📏 Legs: ${labels[routeLegLabelMode] || labels.distance}`;
+    btn.title = 'Leg-Anzeige wechseln: Distanz, Dauer oder beides. Dauer basiert auf dem Speed-Setting im Hauptmenü.';
+}
+
+window.cycleRouteLegLabelMode = function() {
+    const currentIdx = ROUTE_LEG_LABEL_MODES.indexOf(routeLegLabelMode);
+    routeLegLabelMode = ROUTE_LEG_LABEL_MODES[(currentIdx + 1) % ROUTE_LEG_LABEL_MODES.length] || 'distance';
+    localStorage.setItem(ROUTE_LEG_LABEL_MODE_KEY, routeLegLabelMode);
+    updateRouteLegLabelModeButton();
+    renderRouteLegLabels();
+};
+
 function renderRouteLegLabels() {
     clearRouteLegLabels();
     if (!map || !routeWaypoints || routeWaypoints.length < 2) return;
@@ -6332,7 +6374,7 @@ function renderRouteLegLabels() {
         const html = `
             <div class="route-leg-label" style="transform: translate(-50%, -50%) rotate(${angle}deg); --leg-fz:${fontSize}px; --leg-gap:${gap}px;">
                 <div class="route-leg-course">${nav.brng}°</div>
-                <div class="route-leg-dist">${formatNm(nav.dist)} NM</div>
+                <div class="route-leg-detail">${getRouteLegLabelDetail(nav)}</div>
             </div>
         `;
 
@@ -8113,6 +8155,7 @@ window.toggleMapMetars = function() {
 document.addEventListener('DOMContentLoaded', () => {
     loadMapHintSettings();
     loadTerrainAvoidSettings();
+    updateRouteLegLabelModeButton();
     vpEnsureVfrAutoTimer();
     vpVfrIndexState.selectedCountry = vpNormalizeVfrCountrySelection(localStorage.getItem('ga_vfr_index_country') || 'auto');
     vpVfrIndexState.vfrModel = vpNormalizeVfrModel(localStorage.getItem('ga_vfr_index_model') || 'robust_sector');

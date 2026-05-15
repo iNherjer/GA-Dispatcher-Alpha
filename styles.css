@@ -4379,7 +4379,7 @@ body.map-is-fullscreen .map-profile-strip {
     padding: 1px 4px;
     white-space: nowrap;
     line-height: 1.1;
-    min-width: 50px;
+    min-width: 68px;
     height: calc(var(--leg-fz, 11px) * 2 + var(--leg-gap, 7px) * 2 + 4px);
 }
 
@@ -4391,12 +4391,14 @@ body.map-is-fullscreen .map-profile-strip {
     font-size: var(--leg-fz, 11px);
 }
 
+.route-leg-detail,
 .route-leg-dist {
     position: absolute;
     left: 50%;
     top: calc(50% + var(--leg-gap, 7px));
     transform: translate(-50%, 0);
     font-size: var(--leg-fz, 11px);
+    white-space: nowrap;
 }
 
 body.theme-retro .route-leg-label {

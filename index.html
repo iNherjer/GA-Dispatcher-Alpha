@@ -155,7 +155,7 @@
                 <option value="S">Süden</option>
                 <option value="W">Westen</option>
             </select></div>
-            <div><label>Sitze</label><select id="maxSeats" onchange="syncToNavCom('maxSeatsRadio', this.value)">
+            <div><label>Sitze</label><select id="maxSeats" onchange="syncToNavCom('maxSeatsRadio', this.value); window.persistMainPerformanceSetting && persistMainPerformanceSetting('maxSeats', this.value)">
                 <option value="2">2</option><option value="4" selected>4</option><option value="6">6</option>
             </select></div>
         </div>
@@ -386,7 +386,7 @@
 
                 <div class="xpdr-pax" style="text-align: center; border-left: 2px solid #222; padding-left: 10px;">
                     <span class="lcd-label">PAX</span>
-                    <select id="maxSeatsRadio" class="lcd-input" style="width:30px;" onchange="document.getElementById('maxSeats').value = this.value">
+                    <select id="maxSeatsRadio" class="lcd-input" style="width:30px;" onchange="document.getElementById('maxSeats').value = this.value; window.persistMainPerformanceSetting && persistMainPerformanceSetting('maxSeats', this.value); window.updateOps1940Panel && updateOps1940Panel();">
                         <option value="2">2</option><option value="4" selected>4</option><option value="6">6</option>
                     </select>
                 </div>
@@ -954,6 +954,7 @@
                     <button id="hintToggleTelemetry" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('telemetry')">📟 Telemetrie (An)</button>
                     <button id="hintToggleCurrentInfo" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('currentInfo')">📍 Aktuell (An)</button>
                     <button id="hintToggleNextLeg" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('nextLeg')">🧭 Wegpunkt-Info (An)</button>
+                    <button id="routeLegLabelModeBtn" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.cycleRouteLegLabelMode && cycleRouteLegLabelMode()">📏 Legs: Distanz</button>
                     <button id="hintToggleCompass" class="pb-btn" style="display:block; width:100%; margin:0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('compass')">🔵 Kompassscheibe (An)</button>
                     <button id="hintToggleLowFps" class="pb-btn" style="display:block; width:100%; margin:6px 0 0 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('lowFps')">🐢 Low FPS Mode (Aus)</button>
                     <div style="height:1px; background:#2f2f2f; margin:7px 0;"></div>

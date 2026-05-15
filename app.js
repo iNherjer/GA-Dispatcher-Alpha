@@ -19,6 +19,60 @@ window.formatAsLimit = function(lim) {
 
 // V77: Globale Flag – true, solange der Nutzer irgendeinen Slider/Knob berührt
 window.vpUIInteractionActive = false;
+const MAIN_PERF_SETTING_KEYS = {
+    tas: 'ga_perf_tas',
+    gph: 'ga_perf_gph',
+    alt: 'ga_perf_alt',
+    rate: 'ga_perf_rate',
+    maxSeats: 'ga_perf_max_seats',
+    aircraft: 'ga_perf_aircraft'
+};
+
+function clampMainPerfSetting(value, min, max, step = 1, fallback = min) {
+    let n = parseInt(value, 10);
+    if (!Number.isFinite(n)) n = fallback;
+    n = Math.max(min, Math.min(max, n));
+    if (step > 1) n = Math.round(n / step) * step;
+    return Math.max(min, Math.min(max, n));
+}
+
+function persistMainPerformanceSetting(type, value) {
+    const key = MAIN_PERF_SETTING_KEYS[type];
+    if (!key) return;
+    localStorage.setItem(key, String(value));
+}
+window.persistMainPerformanceSetting = persistMainPerformanceSetting;
+
+function applyPersistedMainPerformanceSettings() {
+    const tas = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.tas), 80, 260, 5, 115);
+    const gph = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.gph), 5, 35, 1, 9);
+    const alt = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.alt), 1500, 13500, 100, 4500);
+    const rate = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.rate), 200, 1500, 50, 500);
+    const seats = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.maxSeats), 1, 6, 1, 4);
+    const aircraft = localStorage.getItem(MAIN_PERF_SETTING_KEYS.aircraft);
+
+    const tasSlider = document.getElementById('tasSlider');
+    const gphSlider = document.getElementById('gphSlider');
+    const altSlider = document.getElementById('altSlider');
+    const rateSlider = document.getElementById('rateSlider');
+    const maxSeatsEl = document.getElementById('maxSeats');
+    const altMapInput = document.getElementById('altMapInput');
+    const rateMapInput = document.getElementById('rateMapInput');
+
+    if (tasSlider) tasSlider.value = tas;
+    if (gphSlider) gphSlider.value = gph;
+    if (altSlider) altSlider.value = alt;
+    if (rateSlider) rateSlider.value = rate;
+    if (maxSeatsEl) maxSeatsEl.value = seats;
+    if (altMapInput) altMapInput.textContent = alt;
+    if (rateMapInput) rateMapInput.textContent = rate;
+    if (Number.isFinite(rate)) {
+        vpClimbRate = rate;
+        vpDescentRate = rate;
+    }
+    if (['C172', 'PA-24', 'AERO'].includes(aircraft)) selectedAC = aircraft;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Erkennt, wenn der Nutzer an einem klassischen Slider zieht
     document.querySelectorAll('input[type="range"]').forEach(slider => {
@@ -1683,6 +1737,7 @@ function bootAppOnce() {
     setTheme(savedTheme);
     setSettingsPanelOpen(localStorage.getItem('ga_settings_open') === 'true', false);
     applySavedPanelTheme();
+    applyPersistedMainPerformanceSettings();
     setTimeout(() => { loadGlobalAirports(); }, 2000);
     const lastDest = localStorage.getItem('last_icao_dest');
     if (lastDest) document.getElementById('startLoc').value = lastDest;
@@ -2172,6 +2227,7 @@ window.activateFastRender = function() {
 
 function handleSliderChange(type, val) {
     let drumVal = val;
+    if (type === 'tas' || type === 'gph' || type === 'alt') persistMainPerformanceSetting(type, val);
     if (type === 'gph') {
         drumVal = val.toString().padStart(2, '0');
         syncToNavCom('gphRadioDisplay', drumVal);
@@ -2191,11 +2247,13 @@ function handleSliderChange(type, val) {
         // Lufträume nur prüfen, wenn wir nicht gerade aktiv ziehen
         if (!window.vpUIInteractionActive && typeof renderAirspaceWarningsList === 'function') renderAirspaceWarningsList();
     }
+    if (type === 'tas' && typeof renderRouteLegLabels === 'function') renderRouteLegLabels();
     if (typeof updateOpsRotaryReadouts === 'function') updateOpsRotaryReadouts();
 }
 
 function handleRateChange(val) {
     val = parseInt(val);
+    persistMainPerformanceSetting('rate', val);
     vpClimbRate = val;
     vpDescentRate = val;
     // Sync displays
@@ -2237,6 +2295,8 @@ function refreshAllDrums() {
 function applyPreset(t, g, s, n) {
     document.getElementById('tasSlider').value = t; document.getElementById('gphSlider').value = g;
     document.getElementById('maxSeats').value = s; selectedAC = n;
+    persistMainPerformanceSetting('maxSeats', s);
+    persistMainPerformanceSetting('aircraft', n);
     handleSliderChange('tas', t); handleSliderChange('gph', g);
     syncToNavCom('tasRadio', t);
     syncToNavCom('gphRadio', g);
