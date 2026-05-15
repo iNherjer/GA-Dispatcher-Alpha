@@ -6471,6 +6471,106 @@ body.map-drawing-active #map.leaflet-dragging {
     display: none !important;
 }
 
+.route-progress-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 4200;
+    min-height: 34px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+    gap: 0;
+    padding: 5px max(10px, env(safe-area-inset-left)) 5px max(10px, env(safe-area-inset-right));
+    background: rgba(11, 16, 22, 0.86);
+    border-bottom: 1px solid rgba(142, 197, 255, 0.28);
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    pointer-events: auto;
+}
+
+.route-progress-bar.route-progress-hidden {
+    display: none !important;
+}
+
+.route-progress-item {
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 7px;
+    border-right: 1px solid rgba(255,255,255,0.13);
+    line-height: 1.1;
+}
+
+.route-progress-item:last-child {
+    border-right: none;
+}
+
+.route-progress-label {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    color: #8ec5ff;
+    padding: 2px 0;
+    font: 700 11px/1 'Courier New', monospace;
+    letter-spacing: 0;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.route-progress-label:hover,
+.route-progress-label:focus-visible {
+    color: #fff;
+    outline: none;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.route-progress-target {
+    color: #ffcc44;
+}
+
+.route-progress-value {
+    min-width: 0;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 767px) {
+    .route-progress-bar {
+        min-height: 31px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+    }
+
+    .route-progress-item {
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 0 4px;
+    }
+
+    .route-progress-label {
+        font-size: 9px;
+    }
+
+    .route-progress-value {
+        max-width: 100%;
+        font-size: 13px;
+    }
+}
+
 .leaflet-control-layers,
 .leaflet-control-layers-expanded {
     z-index: 2500 !important;

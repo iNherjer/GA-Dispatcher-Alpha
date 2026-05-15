@@ -954,6 +954,7 @@
                     <button id="hintToggleTelemetry" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('telemetry')">📟 Telemetrie (An)</button>
                     <button id="hintToggleCurrentInfo" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('currentInfo')">📍 Aktuell (An)</button>
                     <button id="hintToggleNextLeg" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('nextLeg')">🧭 Wegpunkt-Info (An)</button>
+                    <button id="hintToggleRouteProgress" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('routeProgress')">⏱ Route-Leiste (An)</button>
                     <button id="routeLegLabelModeBtn" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.cycleRouteLegLabelMode && cycleRouteLegLabelMode()">📏 Legs: Distanz</button>
                     <button id="hintToggleCompass" class="pb-btn" style="display:block; width:100%; margin:0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('compass')">🔵 Kompassscheibe (An)</button>
                     <button id="hintToggleLowFps" class="pb-btn" style="display:block; width:100%; margin:6px 0 0 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('lowFps')">🐢 Low FPS Mode (Aus)</button>
@@ -1103,6 +1104,20 @@
                     </div>
                     <div class="map-draw-menu-row">
                         <input id="mapDrawWeightInput" type="range" min="2" max="18" value="5" step="1" oninput="window.setMapDrawWeight && setMapDrawWeight(this.value)">
+                    </div>
+                </div>
+                <div id="routeProgressBar" class="route-progress-bar" style="display:none;" aria-live="polite">
+                    <div class="route-progress-item">
+                        <button id="routeProgressDstLabel" class="route-progress-label" type="button" onclick="window.toggleRouteProgressTarget && toggleRouteProgressTarget()" title="Zwischen nächstem Wegpunkt und Routenende umschalten">DST <span class="route-progress-target">WPT</span></button>
+                        <span id="routeProgressDst" class="route-progress-value">--.- NM</span>
+                    </div>
+                    <div class="route-progress-item">
+                        <button id="routeProgressEtaLabel" class="route-progress-label" type="button" onclick="window.toggleRouteProgressTarget && toggleRouteProgressTarget()" title="Zwischen nächstem Wegpunkt und Routenende umschalten">ETA <span class="route-progress-target">WPT</span></button>
+                        <span id="routeProgressEta" class="route-progress-value">--:--</span>
+                    </div>
+                    <div class="route-progress-item">
+                        <button id="routeProgressDurLabel" class="route-progress-label" type="button" onclick="window.toggleRouteProgressTarget && toggleRouteProgressTarget()" title="Zwischen nächstem Wegpunkt und Routenende umschalten">DUR <span class="route-progress-target">WPT</span></button>
+                        <span id="routeProgressDur" class="route-progress-value">--</span>
                     </div>
                 </div>
                 <!-- AWM Frequenz-Banner: erscheint bei Luftraum-Warnung, bleibt bis zum Antippen -->

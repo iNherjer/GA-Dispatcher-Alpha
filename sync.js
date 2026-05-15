@@ -881,6 +881,9 @@ let gpsReconnectDelay = 2000; // Start: 2s, wächst bei wiederholtem Fehlschlag
 let liveNextLegIndex = 0;
 let liveNextRouteKey = '';
 let liveActiveWpIndex = null; // null = automatisch (aus Leg), sonst manuell gewählter Ziel-Wegpunkt
+const ROUTE_PROGRESS_TARGET_KEY = 'ga_route_progress_target';
+let routeProgressTarget = localStorage.getItem(ROUTE_PROGRESS_TARGET_KEY) === 'end' ? 'end' : 'wpt';
+let lastRouteProgressContext = null;
 let liveCurrentNavFetchAt = 0;
 let liveCurrentNavFetchKey = '';
 let liveCurrentNavData = [];
@@ -955,7 +958,8 @@ window.stepLiveNextLegPreview = function(delta, ev) {
 
     const pos = window.lastLiveGpsPos;
     if (pos && Number.isFinite(pos.lat) && Number.isFinite(pos.lon)) {
-        updateNextWpTelemetry(pos.lat, pos.lon);
+        const nextInfo = updateNextWpTelemetry(pos.lat, pos.lon);
+        updateRouteProgressBar(pos.lat, pos.lon, pos.gs, nextInfo);
     }
 };
 
@@ -963,6 +967,7 @@ function hideNextWpTelemetry() {
     const box = document.getElementById('liveNextWpBox');
     if (box) box.style.display = 'none';
     hideCurrentInfoTelemetry();
+    hideRouteProgressBar();
     setNextLegButtonStates(0, 0);
     if (liveToWpLine) {
         try { liveToWpLine.remove(); } catch (e) {}
@@ -970,6 +975,145 @@ function hideNextWpTelemetry() {
     }
     liveActiveWpIndex = null;
     hideCompassRose();
+}
+
+function hideRouteProgressBar() {
+    const bar = document.getElementById('routeProgressBar');
+    if (bar) bar.style.display = 'none';
+}
+
+function routeProgressTargetLabel() {
+    return routeProgressTarget === 'end' ? 'END' : 'WPT';
+}
+
+function updateRouteProgressTargetLabels() {
+    document.querySelectorAll('#routeProgressBar .route-progress-target').forEach(el => {
+        el.textContent = routeProgressTargetLabel();
+    });
+}
+
+function getLiveRouteTargetIndex(fallbackInfo = null) {
+    if (fallbackInfo && Number.isFinite(Number(fallbackInfo.wpIdx))) {
+        return clampLiveWpIndex(fallbackInfo.wpIdx);
+    }
+    const autoWpIdx = clampLiveWpIndex(liveNextLegIndex + 1);
+    return (liveActiveWpIndex == null) ? autoWpIdx : clampLiveWpIndex(liveActiveWpIndex);
+}
+
+function routeProgressLegDistanceNm(a, b) {
+    const aLon = a?.lng ?? a?.lon;
+    const bLon = b?.lng ?? b?.lon;
+    if (!a || !b || !Number.isFinite(a.lat) || !Number.isFinite(aLon) || !Number.isFinite(b.lat) || !Number.isFinite(bLon)) return 0;
+    const nav = calcNav(a.lat, aLon, b.lat, bLon);
+    return Number.isFinite(nav?.dist) ? nav.dist : 0;
+}
+
+function getRouteProgressDistanceNm(lat, lon, wpIdx, fallbackInfo = null) {
+    if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2 || typeof calcNav !== 'function') return null;
+    const safeWpIdx = clampLiveWpIndex(wpIdx);
+    const wp = routeWaypoints[safeWpIdx];
+    const wpLon = wp?.lng ?? wp?.lon;
+    if (!wp || !Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(wp.lat) || !Number.isFinite(wpLon)) return null;
+
+    const directToWp = (fallbackInfo && Number(fallbackInfo.wpIdx) === safeWpIdx && Number.isFinite(Number(fallbackInfo.distToWpNm)))
+        ? Number(fallbackInfo.distToWpNm)
+        : calcNav(lat, lon, wp.lat, wpLon).dist;
+
+    if (!Number.isFinite(directToWp)) return null;
+    if (routeProgressTarget !== 'end') return Math.max(0, directToWp);
+
+    let remaining = Math.max(0, directToWp);
+    for (let i = safeWpIdx; i < routeWaypoints.length - 1; i++) {
+        remaining += routeProgressLegDistanceNm(routeWaypoints[i], routeWaypoints[i + 1]);
+    }
+    return remaining;
+}
+
+function formatRouteProgressDistance(distNm) {
+    const n = Number(distNm);
+    if (!Number.isFinite(n)) return '--.- NM';
+    if (n >= 100) return `${Math.round(n)} NM`;
+    return `${n.toFixed(1)} NM`;
+}
+
+function formatRouteProgressDuration(minutes) {
+    const n = Number(minutes);
+    if (!Number.isFinite(n)) return '--';
+    const mins = Math.max(0, Math.round(n));
+    if (mins < 1) return '<1 MIN';
+    if (mins < 60) return `${mins} MIN`;
+    const h = Math.floor(mins / 60);
+    const m = String(mins % 60).padStart(2, '0');
+    return `${h}:${m} H`;
+}
+
+function formatRouteProgressEta(minutes) {
+    const n = Number(minutes);
+    if (!Number.isFinite(n)) return '--:--';
+    const eta = new Date(Date.now() + Math.max(0, n) * 60000);
+    return `${String(eta.getHours()).padStart(2, '0')}:${String(eta.getMinutes()).padStart(2, '0')}`;
+}
+
+function getRouteProgressMinutes(distNm, gsKts) {
+    const gs = Number(gsKts);
+    const dist = Number(distNm);
+    if (!Number.isFinite(gs) || gs < 5 || !Number.isFinite(dist)) return null;
+    return (dist / gs) * 60;
+}
+
+window.toggleRouteProgressTarget = function() {
+    routeProgressTarget = routeProgressTarget === 'wpt' ? 'end' : 'wpt';
+    localStorage.setItem(ROUTE_PROGRESS_TARGET_KEY, routeProgressTarget);
+    window.refreshRouteProgressBar();
+};
+
+window.refreshRouteProgressBar = function() {
+    if (!lastRouteProgressContext) {
+        const pos = window.lastLiveGpsPos;
+        if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lon)) {
+            updateRouteProgressTargetLabels();
+            return;
+        }
+        updateRouteProgressBar(pos.lat, pos.lon, pos.gs, null);
+        return;
+    }
+    updateRouteProgressBar(
+        lastRouteProgressContext.lat,
+        lastRouteProgressContext.lon,
+        lastRouteProgressContext.gs,
+        lastRouteProgressContext.nextInfo
+    );
+};
+
+function updateRouteProgressBar(lat, lon, gsKts = null, nextInfo = null) {
+    const bar = document.getElementById('routeProgressBar');
+    if (!bar) return;
+
+    updateRouteProgressTargetLabels();
+    const hintOn = window.simModeActive || isMapHintOn('routeProgress', true);
+    bar.classList.toggle('route-progress-hidden', !hintOn);
+    if (!hintOn) {
+        bar.style.display = 'none';
+        return;
+    }
+
+    lastRouteProgressContext = { lat, lon, gs: gsKts, nextInfo };
+    const wpIdx = getLiveRouteTargetIndex(nextInfo);
+    const distNm = getRouteProgressDistanceNm(lat, lon, wpIdx, nextInfo);
+    if (!Number.isFinite(distNm)) {
+        bar.style.display = 'none';
+        return;
+    }
+
+    const gs = Number.isFinite(Number(gsKts)) ? Number(gsKts) : Number(window.lastLiveGpsPos?.gs ?? smoothedGS);
+    const minutes = getRouteProgressMinutes(distNm, gs);
+    const distEl = document.getElementById('routeProgressDst');
+    const etaEl = document.getElementById('routeProgressEta');
+    const durEl = document.getElementById('routeProgressDur');
+    if (distEl) distEl.textContent = formatRouteProgressDistance(distNm);
+    if (etaEl) etaEl.textContent = formatRouteProgressEta(minutes);
+    if (durEl) durEl.textContent = formatRouteProgressDuration(minutes);
+    bar.style.display = 'grid';
 }
 
 // ── Compass Rose ──────────────────────────────────────────────────────────────
@@ -1665,6 +1809,7 @@ function updateNextWpTelemetry(lat, lon) {
     if (!box || !nameEl || !courseEl || !distEl) return;
     if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2 || typeof calcNav !== 'function') {
         box.style.display = 'none';
+        hideRouteProgressBar();
         if (liveToWpLine) {
             try { liveToWpLine.remove(); } catch (e) {}
             liveToWpLine = null;
@@ -1717,9 +1862,11 @@ function updateNextWpTelemetry(lat, lon) {
     liveNextLegIndex = legIdx;
 
     const wp  = routeWaypoints[wpIdx];
-    const nav = calcNav(lat, lon, wp.lat, wp.lng || wp.lon);
+    const wpLon = wp.lng ?? wp.lon;
+    const nav = calcNav(lat, lon, wp.lat, wpLon);
     const crs = `${String(nav.brng).padStart(3, '0')}°`;
     const dist = nav.dist.toFixed(1);
+    const nextInfo = { wpIdx, maxWp, distToWpNm: nav.dist, brng: nav.brng };
 
     const wpName = getWpDisplayName(wpIdx);
     const freqInfo = getWpFrequencyText(wpIdx);
@@ -1748,6 +1895,7 @@ function updateNextWpTelemetry(lat, lon) {
         }
         window.updateCompassInstruments(nav.brng, inboundBrng, xteNm);
     }
+    return nextInfo;
 }
 
 // Diese Funktion aufrufen, sobald eine Route per Sync ID geladen wurde (z.B. connectToLiveGPS("4815"))
@@ -1992,7 +2140,8 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
                 }
                 // AGL wird in updateLivePlanePosition weiter unten gesetzt (nach bestIdx-Suche)
             }
-            updateNextWpTelemetry(lat, lon);
+            const nextInfo = updateNextWpTelemetry(lat, lon);
+            updateRouteProgressBar(lat, lon, gs, nextInfo);
             updateCurrentInfoTelemetry(lat, lon, alt);
             // Smoothed GS/VS for prediction (EMA α=0.3)
             smoothedGS = smoothedGS === 0 ? gs : smoothedGS * 0.7 + gs * 0.3;
@@ -2012,7 +2161,8 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         }
     } else {
         lastGpsTickDetails = { lat, lon, alt, t: now };
-        updateNextWpTelemetry(lat, lon);
+        const nextInfo = updateNextWpTelemetry(lat, lon);
+        updateRouteProgressBar(lat, lon, curGs, nextInfo);
         updateCurrentInfoTelemetry(lat, lon, alt);
     }
 

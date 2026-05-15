@@ -68,6 +68,7 @@ const MAP_HINT_DEFAULTS = {
     telemetry: true,
     currentInfo: true,
     nextLeg: true,
+    routeProgress: true,
     compass: true,
     lowFps: false
 };
@@ -754,6 +755,11 @@ function applyMapHintEffects(key) {
         const box = document.getElementById('liveNextWpBox');
         if (box) box.classList.toggle('tele-hint-off', !window.mapHints.nextLeg);
     }
+    if (key === 'routeProgress') {
+        const bar = document.getElementById('routeProgressBar');
+        if (bar) bar.classList.toggle('route-progress-hidden', !window.mapHints.routeProgress);
+        if (typeof window.refreshRouteProgressBar === 'function') window.refreshRouteProgressBar();
+    }
     if (key === 'compass') {
         const wrap = document.getElementById('compassRoseWrap');
         if (wrap) wrap.classList.toggle('compass-hint-off', !window.mapHints.compass);
@@ -828,6 +834,7 @@ function refreshMapHintMenuUi() {
         telemetry: '📟 Telemetrie',
         currentInfo: '📍 Aktuell',
         nextLeg: '🧭 Wegpunkt-Info',
+        routeProgress: '⏱ Route-Leiste',
         compass: '🔵 Kompassscheibe',
         lowFps: '🐢 Low FPS Mode'
     };
@@ -842,6 +849,7 @@ function refreshMapHintMenuUi() {
         telemetry: 'hintToggleTelemetry',
         currentInfo: 'hintToggleCurrentInfo',
         nextLeg: 'hintToggleNextLeg',
+        routeProgress: 'hintToggleRouteProgress',
         compass: 'hintToggleCompass',
         lowFps: 'hintToggleLowFps'
     };
@@ -8171,6 +8179,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyMapHintEffects('vfrIndex');
     applyMapHintEffects('terrainAvoid');
     applyMapHintEffects('traffic');
+    applyMapHintEffects('routeProgress');
     applyMapHintEffects('lowFps');
     vpUpdateVfrUi();
 
