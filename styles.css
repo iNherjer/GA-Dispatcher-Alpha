@@ -6497,10 +6497,10 @@ body.map-drawing-active #map.leaflet-dragging {
     min-height: var(--route-progress-height, 40px);
     box-sizing: border-box;
     display: grid;
-    grid-template-columns: repeat(5, max-content);
+    grid-template-columns: max-content minmax(max-content, 1fr) minmax(max-content, 1fr) minmax(max-content, 1fr) max-content;
     align-items: center;
-    justify-content: space-evenly;
-    gap: 16px;
+    justify-content: stretch;
+    gap: 0;
     padding: 8px max(10px, env(safe-area-inset-left)) 7px max(10px, env(safe-area-inset-right));
     background: #000;
     border-bottom: 1px solid rgba(142, 197, 255, 0.28);
@@ -6539,10 +6539,15 @@ body.map-drawing-active #map.leaflet-dragging {
 }
 
 .route-progress-item:first-child {
+    justify-content: flex-start;
+}
+
+.route-progress-item:first-child {
     padding-left: 0;
 }
 
 .route-progress-item:last-child {
+    justify-content: flex-end;
     padding-right: 0;
 }
 
@@ -6593,9 +6598,9 @@ body.map-drawing-active #map.leaflet-dragging {
     }
 
     .route-progress-bar {
-        grid-template-columns: repeat(5, max-content);
-        justify-content: flex-start;
-        gap: 12px;
+        grid-template-columns: max-content minmax(max-content, 1fr) minmax(max-content, 1fr) minmax(max-content, 1fr) max-content;
+        justify-content: stretch;
+        gap: 0;
         min-height: 38px;
         padding-top: 7px;
         padding-bottom: 7px;
