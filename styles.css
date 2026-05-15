@@ -4383,6 +4383,7 @@ body.map-is-fullscreen .map-profile-strip {
     padding: 1px 4px;
     white-space: nowrap;
     line-height: 1.1;
+    width: var(--leg-w, 68px);
     min-width: 68px;
     height: calc(var(--leg-fz, 11px) * 2 + var(--leg-gap, 7px) * 2 + 4px);
 }

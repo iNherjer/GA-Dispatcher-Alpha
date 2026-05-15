@@ -6342,6 +6342,12 @@ function getRouteLegLabelDetail(nav) {
     return distText;
 }
 
+function getRouteLegLabelWidthPx(detailText, fontSize) {
+    const minWidth = routeLegLabelMode === 'both' ? 108 : 68;
+    const textWidth = Math.ceil(String(detailText || '').length * fontSize * 0.62) + 18;
+    return Math.max(minWidth, textWidth);
+}
+
 function updateRouteLegLabelModeButton() {
     const btn = document.getElementById('routeLegLabelModeBtn');
     if (!btn) return;
@@ -6378,11 +6384,13 @@ function renderRouteLegLabels() {
         const midLat = (p1.lat + p2.lat) / 2;
         const midLng = ((p1.lng || p1.lon) + (p2.lng || p2.lon)) / 2;
         const angle = getLegScreenAngle(p1, p2).toFixed(1);
+        const detailText = getRouteLegLabelDetail(nav);
+        const labelWidth = getRouteLegLabelWidthPx(detailText, fontSize);
 
         const html = `
-            <div class="route-leg-label" style="transform: translate(-50%, -50%) rotate(${angle}deg); --leg-fz:${fontSize}px; --leg-gap:${gap}px;">
+            <div class="route-leg-label" style="transform: translate(-50%, -50%) rotate(${angle}deg); --leg-fz:${fontSize}px; --leg-gap:${gap}px; --leg-w:${labelWidth}px;">
                 <div class="route-leg-course">${nav.brng}°</div>
-                <div class="route-leg-detail">${getRouteLegLabelDetail(nav)}</div>
+                <div class="route-leg-detail">${detailText}</div>
             </div>
         `;
 
