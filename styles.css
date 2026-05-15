@@ -6497,17 +6497,20 @@ body.map-drawing-active #map.leaflet-dragging {
     min-height: var(--route-progress-height, 34px);
     box-sizing: border-box;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(5, max-content);
     align-items: center;
-    gap: 0;
+    justify-content: space-evenly;
+    gap: 16px;
     padding: 6px max(10px, env(safe-area-inset-left)) 4px max(10px, env(safe-area-inset-right));
-    background: rgba(11, 16, 22, 0.86);
+    background: #000;
     border-bottom: 1px solid rgba(142, 197, 255, 0.28);
     color: #fff;
     font-family: 'Courier New', monospace;
     box-shadow: 0 4px 14px rgba(0,0,0,0.35);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
     pointer-events: auto;
 }
 
@@ -6515,8 +6518,17 @@ body.map-drawing-active #map.leaflet-dragging {
     display: none !important;
 }
 
+.route-progress-bar::-webkit-scrollbar {
+    height: 4px;
+}
+
+.route-progress-bar::-webkit-scrollbar-thumb {
+    background: rgba(142, 197, 255, 0.45);
+    border-radius: 999px;
+}
+
 .route-progress-item {
-    min-width: 0;
+    min-width: max-content;
     display: flex;
     align-items: baseline;
     justify-content: center;
@@ -6568,14 +6580,12 @@ body.map-drawing-active #map.leaflet-dragging {
 }
 
 .route-progress-value {
-    min-width: 0;
+    min-width: max-content;
     color: #fff;
     font-size: 15px;
     font-weight: 700;
     text-transform: uppercase;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 @media (max-width: 767px) {
@@ -6584,7 +6594,9 @@ body.map-drawing-active #map.leaflet-dragging {
     }
 
     .route-progress-bar {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(5, max-content);
+        justify-content: flex-start;
+        gap: 12px;
         min-height: 31px;
         padding-top: 5px;
         padding-bottom: 3px;
