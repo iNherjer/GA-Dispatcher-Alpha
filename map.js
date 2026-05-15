@@ -881,6 +881,7 @@ window.toggleMapHintsMenu = function(force) {
         } else {
             menu.style.display = 'block';
         }
+        if (typeof window.gaBringMapOverlayToFront === 'function') window.gaBringMapOverlayToFront(menu);
     } else {
         menu.style.display = 'none';
     }
@@ -5619,6 +5620,18 @@ function isMapUiClickTarget(evt) {
     );
 }
 
+window.gaMapOverlayZ = window.gaMapOverlayZ || 130500;
+
+function bringMapOverlayToFront(...items) {
+    window.gaMapOverlayZ = Math.max(130500, Number(window.gaMapOverlayZ) || 130500) + 1;
+    items.forEach(item => {
+        const el = typeof item === 'string' ? document.getElementById(item) : item;
+        if (el && el.style) el.style.zIndex = String(window.gaMapOverlayZ);
+    });
+}
+
+window.gaBringMapOverlayToFront = bringMapOverlayToFront;
+
 function ensureMapDrawLayer() {
     if (!map || mapDrawState.layer) return;
     mapDrawState.layer = L.layerGroup().addTo(map);
@@ -5766,6 +5779,7 @@ function toggleMapToolRail(evt) {
         if (mapDrawState.enabled) toggleMapDrawMode(false);
         if (measureMode) toggleMeasureMode();
     }
+    if (mapDrawState.panelOpen) bringMapOverlayToFront('mapDrawRail');
     syncMapDrawUi();
     if (mapDrawState.menuOpen) {
         positionMapDrawMenuNearButton();
@@ -5781,6 +5795,7 @@ function toggleMapDrawSettingsMenu(evt) {
     if (Date.now() < mapDrawState.justDraggedUntil || Date.now() < mapDrawState.suppressButtonClickUntil) return;
     mapDrawState.panelOpen = true;
     mapDrawState.menuOpen = !mapDrawState.menuOpen;
+    if (mapDrawState.menuOpen) bringMapOverlayToFront('mapDrawRail', 'mapDrawMenu');
     syncMapDrawUi();
     if (mapDrawState.menuOpen) {
         positionMapDrawMenuNearButton();

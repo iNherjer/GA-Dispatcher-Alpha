@@ -6163,7 +6163,7 @@ body.theme-navcom .btn-menu:active {
     position: absolute;
     top: 92px;
     right: 18px;
-    z-index: 130810;
+    z-index: 100110;
     width: 46px;
     pointer-events: auto;
 }
@@ -6251,7 +6251,7 @@ body.theme-navcom .btn-menu:active {
     position: absolute;
     top: 144px;
     right: 18px;
-    z-index: 130820;
+    z-index: 100120;
     width: var(--map-draw-controls-width);
     display: none;
     box-sizing: border-box;
