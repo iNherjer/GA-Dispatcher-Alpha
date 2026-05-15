@@ -885,6 +885,32 @@ async function getImageAsBase64(url) {
     } catch (e) { return null; }
 }
 
+function loadScriptOnce(src, globalName) {
+    if (globalName && window[globalName]) return Promise.resolve(window[globalName]);
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) {
+            existing.addEventListener('load', () => resolve(globalName ? window[globalName] : true), { once: true });
+            existing.addEventListener('error', reject, { once: true });
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = () => resolve(globalName ? window[globalName] : true);
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
+async function ensureBriefingPdfLibraries() {
+    await Promise.all([
+        loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', 'html2canvas'),
+        loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf')
+    ]);
+    return !!(window.html2canvas && window.jspdf);
+}
+
 function stripEmojis(text) {
     return text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').trim();
 }
@@ -1321,11 +1347,18 @@ window.generateBriefingPDF = async function() {
     if (!currentMissionData || document.getElementById("briefingBox").style.display !== "block") {
         alert('Kein aktives Briefing vorhanden.'); return;
     }
-    if (!window.jspdf) {
-        alert('PDF-Bibliothek nicht geladen. Bitte Seite neu laden.'); return;
-    }
 
     const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = '\uD83D\uDCC4 Lade PDF-Export...';
+
+    try {
+        await ensureBriefingPdfLibraries();
+    } catch (e) {
+        if (indicator) indicator.innerText = 'PDF-Bibliothek konnte nicht geladen werden.';
+        alert('PDF-Bibliothek konnte nicht geladen werden. Bitte Verbindung prüfen und erneut versuchen.');
+        return;
+    }
+
     if (indicator) indicator.innerText = '\uD83D\uDCC4 Erstelle Briefing Pack PDF...';
 
     try {

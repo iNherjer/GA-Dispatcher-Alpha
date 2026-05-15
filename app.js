@@ -1948,16 +1948,30 @@ async function restoreMissionState(state) {
     }, 200);
 
     if (currentStartICAO && currentStartICAO !== 'GPS') {
-        getAirportData(currentStartICAO).then(d => {
-            if (d) fetchRunwayDetails(d.lat, d.lon, 'mDepRwy', currentStartICAO);
-        });
+        const depPoint = routeWaypoints && routeWaypoints.length > 0 ? routeWaypoints[0] : null;
+        const depLat = Number(depPoint?.lat);
+        const depLon = Number(depPoint?.lng ?? depPoint?.lon);
+        if (Number.isFinite(depLat) && Number.isFinite(depLon)) {
+            fetchRunwayDetails(depLat, depLon, 'mDepRwy', currentStartICAO);
+        } else {
+            getAirportData(currentStartICAO).then(d => {
+                if (d) fetchRunwayDetails(d.lat, d.lon, 'mDepRwy', currentStartICAO);
+            });
+        }
     } else if (currentStartICAO === 'GPS') {
         document.getElementById("mDepRwy").innerText = "Live-Start";
     }
     if (currentDestICAO && currentDestICAO !== currentStartICAO && !state.isPOI) {
-        getAirportData(currentDestICAO).then(d => {
-            if (d) fetchRunwayDetails(d.lat, d.lon, 'mDestRwy', currentDestICAO);
-        });
+        const destPoint = routeWaypoints && routeWaypoints.length > 1 ? routeWaypoints[routeWaypoints.length - 1] : null;
+        const destLat = Number(destPoint?.lat);
+        const destLon = Number(destPoint?.lng ?? destPoint?.lon);
+        if (Number.isFinite(destLat) && Number.isFinite(destLon)) {
+            fetchRunwayDetails(destLat, destLon, 'mDestRwy', currentDestICAO);
+        } else {
+            getAirportData(currentDestICAO).then(d => {
+                if (d) fetchRunwayDetails(d.lat, d.lon, 'mDestRwy', currentDestICAO);
+            });
+        }
     }
 
     // --- NEU: Restore METAR Widgets ---
