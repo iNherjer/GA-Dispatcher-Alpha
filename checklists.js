@@ -20,6 +20,7 @@
     const NEAREST_CACHE_TTL_MS = 2 * 60 * 1000;
     const NEAREST_RADIUS_NM = 50;
     const NEAREST_MOVE_REFRESH_NM = 3;
+    const PLACE_MAP_MODE_KEY = 'ga_route_tool_place_map_mode';
 
     const BUILTIN_CHECKLISTS = [
         {
@@ -159,6 +160,8 @@
         airportInfo: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null }
     };
     const miniMaps = new Map();
+    let expandedPlaceMap = null;
+    let expandedPlaceMapEl = null;
 
     function readJson(key, fallback) {
         try {
@@ -645,45 +648,6 @@
             });
     }
 
-    function runwayHeadingFromRows(rows) {
-        const list = Array.isArray(rows) ? rows : [];
-        for (const row of list) {
-            const ident = String(row?.ident || '');
-            const match = ident.match(/\b([0-3]?\d)(?:[LRC])?(?:\s*[/\\-]\s*([0-3]?\d)(?:[LRC])?)?/i);
-            if (!match) continue;
-            const first = Number(match[1]);
-            const second = Number(match[2]);
-            const value = Number.isFinite(second) && second > 0 ? second : first;
-            if (Number.isFinite(value) && value >= 1 && value <= 36) return (value % 36) * 10;
-        }
-        return 90;
-    }
-
-    function renderVfrPlaceOverlay(rwyRows) {
-        const heading = runwayHeadingFromRows(rwyRows);
-        const patternLabel = rwyRows?.length ? 'Platzrunde' : 'Platzrunde schematisch';
-        return `
-            <div class="route-tool-vfr-map-overlay" aria-hidden="true">
-                <svg viewBox="0 0 320 190" role="img" focusable="false">
-                    <path class="route-tool-vfr-airspace" d="M25 36 C88 8 137 24 190 13 C235 4 284 21 306 49"/>
-                    <path class="route-tool-vfr-airspace route-tool-vfr-airspace-low" d="M10 154 C76 126 123 143 183 124 C242 106 278 125 312 102"/>
-                    <g transform="rotate(${heading} 160 95)">
-                        <path class="route-tool-vfr-circuit-fill" d="M76 49 H244 V141 H76 Z"/>
-                        <path class="route-tool-vfr-circuit" d="M76 49 H244 V141 H76 Z"/>
-                        <path class="route-tool-vfr-circuit-arrow" d="M244 95 l-14 -7 m14 7 l-14 7"/>
-                        <path class="route-tool-vfr-circuit-arrow" d="M76 95 l14 -7 m-14 7 l14 7"/>
-                        <line class="route-tool-vfr-runway-shadow" x1="104" y1="95" x2="216" y2="95"/>
-                        <line class="route-tool-vfr-runway" x1="104" y1="95" x2="216" y2="95"/>
-                        <line class="route-tool-vfr-runway-center" x1="112" y1="95" x2="208" y2="95"/>
-                    </g>
-                    <circle class="route-tool-vfr-place-dot" cx="160" cy="95" r="7"/>
-                    <text class="route-tool-vfr-label" x="14" y="22">VFR</text>
-                    <text class="route-tool-vfr-pattern-label" x="160" y="180" text-anchor="middle">${escapeHtml(patternLabel)}</text>
-                </svg>
-            </div>
-        `;
-    }
-
     function getAipUrlForAirport(apt) {
         if (!apt?.icao || apt.icao === 'GPS' || apt.icao === 'POI') return '';
         try {
@@ -728,6 +692,7 @@
 
     function render() {
         if (!bodyEl) return;
+        destroyPlaceMiniMaps();
         if (state.view === 'home') renderHome();
         else if (state.view === 'list') renderList();
         else if (state.view === 'manager') renderManager();
@@ -1804,20 +1769,177 @@ ${routeLines}`;
         return `routeToolWx_${raw.replace(/[^\w-]/g, '_')}`;
     }
 
-    function staticMapTile(lat, lon, zoom = 11) {
-        const φ = Number(lat) * Math.PI / 180;
-        const n = 2 ** zoom;
-        const xFloat = ((Number(lon) + 180) / 360) * n;
-        const yFloat = (1 - Math.log(Math.tan(φ) + (1 / Math.cos(φ))) / Math.PI) / 2 * n;
-        const x = Math.floor(xFloat);
-        const y = Math.floor(yFloat);
-        if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    function getPlaceMapMode() {
+        try {
+            const value = localStorage.getItem(PLACE_MAP_MODE_KEY);
+            return value === 'sat' ? 'sat' : 'vfr';
+        } catch (_) {
+            return 'vfr';
+        }
+    }
+
+    function setPlaceMapMode(mode) {
+        const safeMode = mode === 'sat' ? 'sat' : 'vfr';
+        try { localStorage.setItem(PLACE_MAP_MODE_KEY, safeMode); } catch (_) {}
+        miniMaps.forEach(entry => setPlaceMapEntryMode(entry, safeMode));
+        if (expandedPlaceMap) setPlaceMapEntryMode(expandedPlaceMap, safeMode);
+        updatePlaceMapModeButtons(safeMode);
+    }
+
+    function updatePlaceMapModeButtons(mode = getPlaceMapMode()) {
+        if (!bodyEl) return;
+        bodyEl.querySelectorAll('[data-action="place-map-mode"]').forEach(btn => {
+            const active = btn.dataset.mode === mode;
+            btn.classList.toggle('is-active', active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        if (expandedPlaceMapEl) {
+            expandedPlaceMapEl.querySelectorAll('[data-place-map-modal-mode]').forEach(btn => {
+                const active = btn.dataset.placeMapModalMode === mode;
+                btn.classList.toggle('is-active', active);
+                btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+        }
+    }
+
+    function makePlaceMapLayers() {
+        if (typeof L === 'undefined') return null;
         return {
-            url: `https://a.tile.opentopomap.org/${zoom}/${x}/${y}.png`,
-            vfrUrl: `https://nwy-tiles-api.prod.newaydata.com/tiles/${zoom}/${x}/${y}.png?path=latest/aero/latest`,
-            pctX: Math.max(0, Math.min(100, (xFloat - x) * 100)),
-            pctY: Math.max(0, Math.min(100, (yFloat - y) * 100))
+            topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: 'OpenTopoMap',
+                maxZoom: 17
+            }),
+            sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Esri',
+                maxZoom: 18
+            }),
+            aero: L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
+                attribution: 'AeroData / Navigraph',
+                opacity: 0.68,
+                maxNativeZoom: 12,
+                maxZoom: 17
+            })
         };
+    }
+
+    function setPlaceMapEntryMode(entry, mode = getPlaceMapMode()) {
+        if (!entry?.map || !entry.layers) return;
+        const { map, layers } = entry;
+        [layers.topo, layers.sat, layers.aero].forEach(layer => {
+            if (layer && map.hasLayer(layer)) map.removeLayer(layer);
+        });
+        if (mode === 'sat') {
+            layers.sat.addTo(map);
+        } else {
+            layers.topo.addTo(map);
+            layers.aero.addTo(map);
+        }
+        entry.mode = mode;
+    }
+
+    function destroyPlaceMiniMaps() {
+        miniMaps.forEach(entry => {
+            try { entry.map.remove(); } catch (_) {}
+        });
+        miniMaps.clear();
+    }
+
+    function buildPlaceLeafletMap(el, apt, options = {}) {
+        if (!el || typeof L === 'undefined') return null;
+        const lat = Number(apt?.lat ?? el.dataset.lat);
+        const lon = Number(apt?.lon ?? el.dataset.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+            el.textContent = 'Keine Kartenposition';
+            return null;
+        }
+        const interactive = !!options.interactive;
+        const map = L.map(el, {
+            zoomControl: interactive,
+            dragging: interactive,
+            scrollWheelZoom: interactive,
+            doubleClickZoom: interactive,
+            boxZoom: interactive,
+            keyboard: interactive,
+            tap: interactive,
+            attributionControl: false
+        });
+        const layers = makePlaceMapLayers();
+        if (!layers) {
+            el.textContent = 'Karte nicht verfügbar';
+            return null;
+        }
+        const entry = { map, layers, mode: '', apt };
+        setPlaceMapEntryMode(entry, getPlaceMapMode());
+        L.circleMarker([lat, lon], {
+            radius: options.markerRadius || 6,
+            color: '#101820',
+            weight: 2,
+            fillColor: '#ffda3a',
+            fillOpacity: 1
+        }).addTo(map);
+        map.setView([lat, lon], options.zoom || 13);
+        setTimeout(() => map.invalidateSize(), 80);
+        return entry;
+    }
+
+    function initPlaceMiniMaps() {
+        if (!bodyEl) return;
+        bodyEl.querySelectorAll('.route-tool-place-map-host[data-airport]').forEach(el => {
+            if (!el.id || miniMaps.has(el.id)) return;
+            const apt = decodeAirportDataset(el);
+            const entry = buildPlaceLeafletMap(el, apt, { zoom: 13, markerRadius: 5 });
+            if (entry) miniMaps.set(el.id, entry);
+        });
+        updatePlaceMapModeButtons();
+    }
+
+    function closeExpandedPlaceMap() {
+        if (expandedPlaceMap) {
+            try { expandedPlaceMap.map.remove(); } catch (_) {}
+        }
+        expandedPlaceMap = null;
+        if (expandedPlaceMapEl) expandedPlaceMapEl.remove();
+        expandedPlaceMapEl = null;
+    }
+
+    function openExpandedPlaceMap(apt) {
+        if (!apt) return;
+        closeExpandedPlaceMap();
+        const title = `${apt.icao || 'Platz'} · ${apt.name || 'Karte'}`;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'route-tool-map-modal';
+        wrapper.innerHTML = `
+            <div class="route-tool-map-modal-panel" role="dialog" aria-modal="true" aria-label="${escapeAttr(title)}">
+                <div class="route-tool-map-modal-head">
+                    <div>
+                        <div class="route-tool-place-label">Kartenausschnitt</div>
+                        <div class="route-tool-place-title">${escapeHtml(title)}</div>
+                    </div>
+                    <div class="route-tool-map-modal-actions">
+                        <button class="route-tool-map-toggle" type="button" data-place-map-modal-mode="vfr">VFR</button>
+                        <button class="route-tool-map-toggle" type="button" data-place-map-modal-mode="sat">Sat</button>
+                        <button class="route-tool-map-close" type="button" aria-label="Karte schließen">×</button>
+                    </div>
+                </div>
+                <div id="routeToolExpandedPlaceMap" class="route-tool-expanded-map"></div>
+            </div>
+        `;
+        document.body.appendChild(wrapper);
+        expandedPlaceMapEl = wrapper;
+        const mapHost = wrapper.querySelector('#routeToolExpandedPlaceMap');
+        expandedPlaceMap = buildPlaceLeafletMap(mapHost, apt, { interactive: true, zoom: 14, markerRadius: 7 });
+        wrapper.addEventListener('click', (event) => {
+            if (event.target === wrapper || event.target.closest('.route-tool-map-close')) {
+                closeExpandedPlaceMap();
+                return;
+            }
+            const modeButton = event.target.closest('[data-place-map-modal-mode]');
+            if (modeButton) {
+                setPlaceMapMode(modeButton.dataset.placeMapModalMode);
+                setPlaceMapEntryMode(expandedPlaceMap, getPlaceMapMode());
+            }
+        });
+        updatePlaceMapModeButtons();
     }
 
     function placeCard(label, apt, detailAction = true) {
@@ -1829,7 +1951,8 @@ ${routeLines}`;
         const mapId = placeMapId(label, apt);
         const wxId = placeWeatherId(label, apt);
         const hasCoords = Number.isFinite(apt?.lat) && Number.isFinite(apt?.lon);
-        const tile = hasCoords ? staticMapTile(apt.lat, apt.lon, 12) : null;
+        const encoded = encodeURIComponent(JSON.stringify(apt || {}));
+        const mode = getPlaceMapMode();
         return `
             <div class="route-tool-place-card">
                 <div class="route-tool-place-head">
@@ -1837,17 +1960,18 @@ ${routeLines}`;
                         <div class="route-tool-place-label">${escapeHtml(label)}</div>
                         <div class="route-tool-place-title">${escapeHtml(apt?.icao || '—')} · ${escapeHtml(apt?.name || '—')}</div>
                     </div>
-                    ${detailAction && apt?.icao ? `<button class="checklist-mini-btn route-tool-inline-btn" type="button" data-action="airport-info" data-airport="${escapeAttr(encodeURIComponent(JSON.stringify(apt)))}">Info</button>` : ''}
+                    ${detailAction && apt?.icao ? `<button class="checklist-mini-btn route-tool-inline-btn" type="button" data-action="airport-info" data-airport="${escapeAttr(encoded)}">Info</button>` : ''}
                 </div>
                 <div class="route-tool-place-visual">
-                    <div id="${escapeAttr(mapId)}" class="route-tool-mini-map" data-lat="${escapeAttr(apt?.lat)}" data-lon="${escapeAttr(apt?.lon)}">
-                        ${tile ? `
-                            <img class="route-tool-static-map-img" src="${escapeAttr(tile.url)}" alt="" loading="lazy">
-                            <img class="route-tool-static-map-vfr" src="${escapeAttr(tile.vfrUrl)}" alt="" loading="lazy">
-                            <span class="route-tool-static-map-marker" style="left:${tile.pctX.toFixed(1)}%;top:${tile.pctY.toFixed(1)}%"></span>
-                            ${renderVfrPlaceOverlay(rwyRows)}
-                            <span class="route-tool-map-badge">VFR</span>
-                        ` : '<span>Keine Kartenposition</span>'}
+                    <div class="route-tool-place-map-shell">
+                        <div class="route-tool-place-map-toolbar">
+                            <button class="route-tool-map-toggle ${mode === 'vfr' ? 'is-active' : ''}" type="button" data-action="place-map-mode" data-mode="vfr" aria-pressed="${mode === 'vfr' ? 'true' : 'false'}">VFR</button>
+                            <button class="route-tool-map-toggle ${mode === 'sat' ? 'is-active' : ''}" type="button" data-action="place-map-mode" data-mode="sat" aria-pressed="${mode === 'sat' ? 'true' : 'false'}">Sat</button>
+                            ${hasCoords ? `<button class="route-tool-map-expand" type="button" data-action="place-map-expand" data-airport="${escapeAttr(encoded)}" aria-label="Karte vergrößern">⛶</button>` : ''}
+                        </div>
+                        <div id="${escapeAttr(mapId)}" class="route-tool-mini-map route-tool-place-map-host" data-airport="${escapeAttr(encoded)}" data-lat="${escapeAttr(apt?.lat)}" data-lon="${escapeAttr(apt?.lon)}">
+                            <span>${hasCoords ? 'Karte lädt…' : 'Keine Kartenposition'}</span>
+                        </div>
                     </div>
                     <div class="route-tool-place-facts">
                         <div class="route-tool-place-chip"><span>Koordinaten</span><b>${escapeHtml(coords)}</b></div>
@@ -1872,6 +1996,7 @@ ${routeLines}`;
     }
 
     function renderPlaceEnhancements() {
+        initPlaceMiniMaps();
         Array.from(bodyEl.querySelectorAll('.route-tool-weather-widget')).forEach(el => {
             if (el.dataset.loaded === 'true') return;
             const card = el.closest('.route-tool-place-card');
@@ -3066,6 +3191,12 @@ ${routeLines}`;
         } else if (action === 'radio-airport-menu') {
             state.radioAirportMenuKey = state.radioAirportMenuKey === button.dataset.key ? '' : (button.dataset.key || '');
             render();
+        } else if (action === 'place-map-mode') {
+            setPlaceMapMode(button.dataset.mode || 'vfr');
+        } else if (action === 'place-map-expand') {
+            const apt = decodeAirportDataset(button);
+            if (!apt) return;
+            openExpandedPlaceMap(apt);
         } else if (action === 'nearest-direct') {
             const apt = decodeAirportDataset(button);
             if (!apt) return;
