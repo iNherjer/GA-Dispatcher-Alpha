@@ -1065,6 +1065,12 @@ function formatRouteProgressPosition(lat, lon) {
     return `${currentInfoNm(ref.dist)} NM ${dir} ${ident}`.replace(/\s+/g, ' ').trim();
 }
 
+function formatRouteProgressFrequency(lat, lon, alt = null) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '--';
+    const freq = getCurrentFrequencyInfo(lat, lon, alt);
+    return freq?.value ? String(freq.value).toUpperCase() : '--';
+}
+
 function getRouteProgressDistanceNm(lat, lon, wpIdx, fallbackInfo = null) {
     if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2 || typeof calcNav !== 'function') return null;
     const safeWpIdx = clampLiveWpIndex(wpIdx);
@@ -1160,6 +1166,8 @@ function updateRouteProgressBar(lat, lon, gsKts = null, nextInfo = null) {
     if (hasPosition) lastRouteProgressContext = { lat, lon, gs: gsKts, nextInfo };
     const posEl = document.getElementById('routeProgressPos');
     if (posEl) posEl.textContent = formatRouteProgressPosition(lat, lon);
+    const freqEl = document.getElementById('routeProgressFreq');
+    if (freqEl) freqEl.textContent = formatRouteProgressFrequency(lat, lon, window.lastLiveGpsPos?.alt);
 
     const wpIdx = getLiveRouteTargetIndex(nextInfo);
     const distNm = getRouteProgressDistanceNm(lat, lon, wpIdx, nextInfo);

@@ -6497,7 +6497,7 @@ body.map-drawing-active #map.leaflet-dragging {
     min-height: var(--route-progress-height, 34px);
     box-sizing: border-box;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     align-items: center;
     gap: 0;
     padding: 6px max(10px, env(safe-area-inset-left)) 4px max(10px, env(safe-area-inset-right));
@@ -6584,7 +6584,7 @@ body.map-drawing-active #map.leaflet-dragging {
     }
 
     .route-progress-bar {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         min-height: 31px;
         padding-top: 5px;
         padding-bottom: 3px;
