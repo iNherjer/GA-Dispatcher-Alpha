@@ -994,8 +994,6 @@ function updateRouteProgressTargetLabels() {
 
 function setRouteProgressLayoutVisible(visible) {
     const on = !!visible;
-    const area = document.getElementById('mapArea');
-    if (area) area.classList.toggle('route-progress-visible', on);
     document.body.classList.toggle('route-progress-visible', on);
     if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') {
         requestAnimationFrame(() => {
