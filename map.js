@@ -38,8 +38,10 @@ const mapDrawState = {
     lastLayerPoint: null,
     lastEraseAt: 0,
     suppressButtonClickUntil: 0,
+    suppressMapClickUntil: 0,
     justDraggedUntil: 0,
     lastTapToggleAt: 0,
+    activeDrawPointerId: null,
     buttonDrag: null
 };
 let routeLegLabelMarkers = [];
@@ -5649,8 +5651,9 @@ function resetMapDrawGesture() {
     mapDrawState.isDrawing = false;
     mapDrawState.lastLayerPoint = null;
     mapDrawState.lineStart = null;
+    mapDrawState.activeDrawPointerId = null;
     clearMapDrawPreview();
-    if (map && map.dragging && mapDrawState.enabled) map.dragging.enable();
+    if (map && map.dragging && !mapDrawState.enabled) map.dragging.enable();
 }
 
 function toggleMapDrawMode(force) {
@@ -5666,9 +5669,11 @@ function toggleMapDrawMode(force) {
         if (measureMode) toggleMeasureMode();
         if (typeof freeflightMode !== 'undefined' && freeflightMode) toggleFreeflightMode();
         if (map && typeof map.closePopup === 'function') map.closePopup();
+        if (map && map.dragging) map.dragging.disable();
     } else {
         resetMapDrawGesture();
         mapDrawState.menuOpen = false;
+        if (map && map.dragging) map.dragging.enable();
     }
     syncMapDrawUi();
 }
@@ -5857,6 +5862,7 @@ function eraseMapDrawingAt(latlng, silent = false) {
 
 function handleMapDrawMapClick(e) {
     if (!mapDrawState.enabled) return false;
+    if (Date.now() < mapDrawState.suppressMapClickUntil) return true;
     if (isMapUiClickTarget(e.originalEvent)) return true;
     if (mapDrawState.tool === 'eraser') {
         if (Date.now() - mapDrawState.lastEraseAt < 250) return true;
@@ -5937,11 +5943,70 @@ function finishMapDrawFreehand() {
     mapDrawState.drawingPoints = [];
     mapDrawState.isDrawing = false;
     mapDrawState.lastLayerPoint = null;
-    if (map && map.dragging) map.dragging.enable();
+    mapDrawState.activeDrawPointerId = null;
+    if (map && map.dragging && !mapDrawState.enabled) map.dragging.enable();
+}
+
+function getMapDrawPointerLatLng(evt) {
+    if (!map || !evt || typeof map.mouseEventToLatLng !== 'function') return null;
+    return map.mouseEventToLatLng(evt);
+}
+
+function stopMapDrawPointerEvent(evt) {
+    if (!evt) return;
+    evt.preventDefault();
+    evt.stopPropagation();
+    if (typeof evt.stopImmediatePropagation === 'function') evt.stopImmediatePropagation();
+    if (typeof L !== 'undefined' && L.DomEvent) L.DomEvent.stop(evt);
+}
+
+function handleMapDrawPointerDown(evt) {
+    if (!mapDrawState.enabled || !evt || evt.pointerType === 'mouse') return;
+    if (evt.isPrimary === false) return;
+    if (isMapUiClickTarget(evt)) return;
+    const latlng = getMapDrawPointerLatLng(evt);
+    if (!latlng) return;
+    mapDrawState.activeDrawPointerId = evt.pointerId;
+    mapDrawState.suppressMapClickUntil = Date.now() + 500;
+    if (map && map.dragging) map.dragging.disable();
+    stopMapDrawPointerEvent(evt);
+
+    const drawEvt = { latlng, originalEvent: evt };
+    if (mapDrawState.tool === 'line') {
+        handleMapDrawMapClick(drawEvt);
+        return;
+    }
+    handleMapDrawMouseDown(drawEvt);
+}
+
+function handleMapDrawPointerMove(evt) {
+    if (!mapDrawState.enabled || !evt || evt.pointerType === 'mouse') return;
+    if (mapDrawState.activeDrawPointerId !== evt.pointerId) return;
+    const latlng = getMapDrawPointerLatLng(evt);
+    if (!latlng) return;
+    mapDrawState.suppressMapClickUntil = Date.now() + 500;
+    stopMapDrawPointerEvent(evt);
+    handleMapDrawMouseMove({ latlng, originalEvent: evt });
+}
+
+function handleMapDrawPointerUp(evt) {
+    if (!evt || evt.pointerType === 'mouse') return;
+    if (mapDrawState.activeDrawPointerId !== evt.pointerId) return;
+    mapDrawState.suppressMapClickUntil = Date.now() + 500;
+    stopMapDrawPointerEvent(evt);
+    finishMapDrawFreehand();
+    mapDrawState.activeDrawPointerId = null;
 }
 
 function bindMapDrawEvents() {
     if (!map || map._mapDrawEventsBound) return;
+    const container = map.getContainer && map.getContainer();
+    if (container) {
+        container.addEventListener('pointerdown', handleMapDrawPointerDown, { capture: true, passive: false });
+        container.addEventListener('pointermove', handleMapDrawPointerMove, { capture: true, passive: false });
+        container.addEventListener('pointerup', handleMapDrawPointerUp, { capture: true, passive: false });
+        container.addEventListener('pointercancel', handleMapDrawPointerUp, { capture: true, passive: false });
+    }
     map.on('mousedown', handleMapDrawMouseDown);
     map.on('touchstart', handleMapDrawMouseDown);
     map.on('mousemove', handleMapDrawMouseMove);

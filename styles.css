@@ -6433,6 +6433,9 @@ body.theme-navcom .btn-menu:active {
 
 body.map-drawing-active #map {
     cursor: crosshair;
+    touch-action: none !important;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 body.map-drawing-active #map.leaflet-dragging {
