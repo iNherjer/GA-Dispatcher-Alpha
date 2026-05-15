@@ -1107,26 +1107,21 @@
                     </div>
                 </div>
                 <div id="routeProgressBar" class="route-progress-bar" style="display:none;" aria-live="polite">
-                    <div class="route-progress-side route-progress-side-left">
-                        <div class="route-progress-item">
-                            <span class="route-progress-label route-progress-static-label">POS</span>
-                            <span id="routeProgressPos" class="route-progress-value">--</span>
-                        </div>
-                        <div class="route-progress-item">
-                            <button id="routeProgressDstLabel" class="route-progress-label" type="button" onclick="window.toggleRouteProgressTarget && toggleRouteProgressTarget()" title="Zwischen nächstem Wegpunkt und Routenende umschalten">DST <span class="route-progress-target">WPT</span></button>
-                            <span id="routeProgressDst" class="route-progress-value">--.- NM</span>
-                        </div>
+                    <div class="route-progress-item">
+                        <span class="route-progress-label route-progress-static-label">POS</span>
+                        <span id="routeProgressPos" class="route-progress-value">--</span>
                     </div>
-                    <div class="route-progress-handle-gap" aria-hidden="true"></div>
-                    <div class="route-progress-side route-progress-side-right">
-                        <div class="route-progress-item">
-                            <button id="routeProgressEtaLabel" class="route-progress-label" type="button" onclick="window.toggleRouteProgressTarget && toggleRouteProgressTarget()" title="Zwischen nächstem Wegpunkt und Routenende umschalten">ETA <span class="route-progress-target">WPT</span></button>
-                            <span id="routeProgressEta" class="route-progress-value">--:--</span>
-                        </div>
-                        <div class="route-progress-item">
-                            <button id="routeProgressDurLabel" class="route-progress-label" type="button" onclick="window.toggleRouteProgressTarget && toggleRouteProgressTarget()" title="Zwischen nächstem Wegpunkt und Routenende umschalten">DUR <span class="route-progress-target">WPT</span></button>
-                            <span id="routeProgressDur" class="route-progress-value">--</span>
-                        </div>
+                    <div class="route-progress-item">
+                        <button id="routeProgressDstLabel" class="route-progress-label" type="button" onclick="window.toggleRouteProgressTarget && toggleRouteProgressTarget()" title="Zwischen nächstem Wegpunkt und Routenende umschalten">DST <span class="route-progress-target">WPT</span></button>
+                        <span id="routeProgressDst" class="route-progress-value">--.- NM</span>
+                    </div>
+                    <div class="route-progress-item">
+                        <button id="routeProgressEtaLabel" class="route-progress-label" type="button" onclick="window.toggleRouteProgressTarget && toggleRouteProgressTarget()" title="Zwischen nächstem Wegpunkt und Routenende umschalten">ETA <span class="route-progress-target">WPT</span></button>
+                        <span id="routeProgressEta" class="route-progress-value">--:--</span>
+                    </div>
+                    <div class="route-progress-item">
+                        <button id="routeProgressDurLabel" class="route-progress-label" type="button" onclick="window.toggleRouteProgressTarget && toggleRouteProgressTarget()" title="Zwischen nächstem Wegpunkt und Routenende umschalten">DUR <span class="route-progress-target">WPT</span></button>
+                        <span id="routeProgressDur" class="route-progress-value">--</span>
                     </div>
                 </div>
                 <!-- AWM Frequenz-Banner: erscheint bei Luftraum-Warnung, bleibt bis zum Antippen -->

@@ -979,6 +979,7 @@ function hideNextWpTelemetry() {
 function hideRouteProgressBar() {
     const bar = document.getElementById('routeProgressBar');
     if (bar) bar.style.display = 'none';
+    setRouteProgressLayoutVisible(false);
 }
 
 function routeProgressTargetLabel() {
@@ -989,6 +990,18 @@ function updateRouteProgressTargetLabels() {
     document.querySelectorAll('#routeProgressBar .route-progress-target').forEach(el => {
         el.textContent = routeProgressTargetLabel();
     });
+}
+
+function setRouteProgressLayoutVisible(visible) {
+    const on = !!visible;
+    const area = document.getElementById('mapArea');
+    if (area) area.classList.toggle('route-progress-visible', on);
+    document.body.classList.toggle('route-progress-visible', on);
+    if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') {
+        requestAnimationFrame(() => {
+            try { map.invalidateSize({ pan: false }); } catch (_) { map.invalidateSize(); }
+        });
+    }
 }
 
 function getLiveRouteTargetIndex(fallbackInfo = null) {
@@ -1137,6 +1150,7 @@ function updateRouteProgressBar(lat, lon, gsKts = null, nextInfo = null) {
     updateRouteProgressTargetLabels();
     const hintOn = isMapHintOn('routeProgress', true);
     bar.classList.toggle('route-progress-hidden', !hintOn);
+    setRouteProgressLayoutVisible(hintOn);
     if (!hintOn) {
         bar.style.display = 'none';
         return;

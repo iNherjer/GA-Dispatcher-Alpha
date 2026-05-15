@@ -2145,6 +2145,11 @@ body.theme-retro .api-fuel-meter .api-scale {
     width: 100%;
     min-height: 0;
     overflow: hidden;
+    box-sizing: border-box;
+}
+
+#mapArea.route-progress-visible {
+    padding-top: var(--route-progress-height);
 }
 
 #map {
@@ -3985,6 +3990,10 @@ body.map-is-fullscreen #mapArea {
     padding: 0 !important;
 }
 
+body.map-is-fullscreen #mapArea.route-progress-visible {
+    padding-top: var(--route-progress-height) !important;
+}
+
 body.map-is-fullscreen #mapArea #map {
     border-radius: 0 !important;
     border: none !important;
@@ -4071,6 +4080,9 @@ body.map-is-fullscreen #mapToolbarToggleRow {
     transform: translate(-50%, 100%);
     z-index: 100001;
     pointer-events: auto;
+}
+body.map-is-fullscreen.route-progress-visible #mapToolbarToggleRow {
+    transform: translate(-50%, calc(100% + var(--route-progress-height, 34px)));
 }
 #mapToolbarToggle {
     background: rgba(26, 26, 26, 0.72);
@@ -6471,16 +6483,21 @@ body.map-drawing-active #map.leaflet-dragging {
     display: none !important;
 }
 
+:root {
+    --route-progress-height: 34px;
+}
+
 .route-progress-bar {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     z-index: 4200;
-    min-height: 34px;
+    height: var(--route-progress-height, 34px);
+    min-height: var(--route-progress-height, 34px);
     box-sizing: border-box;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 104px minmax(0, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     align-items: center;
     gap: 0;
     padding: 6px max(10px, env(safe-area-inset-left)) 4px max(10px, env(safe-area-inset-right));
@@ -6498,27 +6515,6 @@ body.map-drawing-active #map.leaflet-dragging {
     display: none !important;
 }
 
-.route-progress-side {
-    min-width: 0;
-    display: flex;
-    align-items: baseline;
-    gap: 0;
-}
-
-.route-progress-side-left {
-    justify-content: flex-start;
-}
-
-.route-progress-side-right {
-    justify-content: flex-end;
-}
-
-.route-progress-handle-gap {
-    min-width: 104px;
-    align-self: stretch;
-    pointer-events: none;
-}
-
 .route-progress-item {
     min-width: 0;
     display: flex;
@@ -6531,16 +6527,15 @@ body.map-drawing-active #map.leaflet-dragging {
     transform: translateY(1px);
 }
 
-.route-progress-side-left .route-progress-item:first-child {
+.route-progress-item:first-child {
     padding-left: 0;
 }
 
-.route-progress-side-right .route-progress-item:last-child {
+.route-progress-item:last-child {
     padding-right: 0;
 }
 
-.route-progress-side-left .route-progress-item:last-child,
-.route-progress-side-right .route-progress-item:last-child {
+.route-progress-item:last-child {
     border-right: none;
 }
 
@@ -6584,20 +6579,15 @@ body.map-drawing-active #map.leaflet-dragging {
 }
 
 @media (max-width: 767px) {
+    :root {
+        --route-progress-height: 31px;
+    }
+
     .route-progress-bar {
-        grid-template-columns: minmax(0, 1fr) 58px minmax(0, 1fr);
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         min-height: 31px;
         padding-top: 5px;
         padding-bottom: 3px;
-    }
-
-    .route-progress-side {
-        align-items: center;
-        gap: 0;
-    }
-
-    .route-progress-handle-gap {
-        min-width: 58px;
     }
 
     .route-progress-item {
