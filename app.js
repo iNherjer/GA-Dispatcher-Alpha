@@ -1120,13 +1120,6 @@ window.drumCache = {};
 /* =========================================================
    PWA UPDATE TRIGGER & SOFT AUTO SYNC EVENTS
    ========================================================= */
-let isRefreshing = false;
-if ('serviceWorker' in navigator && /^https?:$/i.test(window.location.protocol)) {
-    // Erzwingt einen automatischen Reload, sobald ein Update (neue sw.js Version) installiert wurde
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!isRefreshing) { isRefreshing = true; window.location.reload(); }
-    });
-}
 // SOFT AUTO SYNC: Lädt beim Öffnen, Speichert beim Schließen (oder in den Hintergrund wischen)
 window.addEventListener('visibilitychange', () => {
     const t = document.getElementById('syncToggle');
@@ -1682,7 +1675,10 @@ window.hideBootSplash = function hideBootSplash() {
     }, waitMs);
 };
 
-window.onload = () => {
+function bootAppOnce() {
+    if (window.__gaAppBooted) return;
+    window.__gaAppBooted = true;
+
     const savedTheme = localStorage.getItem('ga_theme') || 'classic';
     setTheme(savedTheme);
     setSettingsPanelOpen(localStorage.getItem('ga_settings_open') === 'true', false);
@@ -1782,7 +1778,14 @@ window.onload = () => {
             if (typeof window.hideBootSplash === 'function') window.hideBootSplash();
         });
     });
-};
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootAppOnce, { once: true });
+} else {
+    setTimeout(bootAppOnce, 0);
+}
+window.addEventListener('load', bootAppOnce, { once: true });
 
 function saveApiKey() { localStorage.setItem('ga_gemini_key', document.getElementById('apiKeyInput').value.trim()); }
 function saveAiToggle() { const t = document.getElementById('aiToggle'); if (t) localStorage.setItem('ga_ai_enabled', t.checked); }

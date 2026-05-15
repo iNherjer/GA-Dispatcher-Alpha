@@ -64,9 +64,12 @@
     </style>
     <link rel="apple-touch-icon" href="IconDRK.PNG">
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
-    <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript>
+        <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+        <link rel="stylesheet" href="styles.css">
+    </noscript>
 </head>
 <body class="boot-splash-active">
 
@@ -1426,7 +1429,7 @@
     })();
 </script>
 
-<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="vendor/leaflet/leaflet.js"></script>
 <script defer src="datenbank.js"></script>
 <script defer src="missions.js"></script>
 <script defer src="taws.js"></script>

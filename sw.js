@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v681';
+const CACHE = 'ga-dispatcher-v682';
 
 const STATIC = [
     './',
@@ -19,7 +19,12 @@ const STATIC = [
     './icon-192.png',
     './icon-512.png',
     './Icon.PNG',
-    './IconDRK.PNG'
+    './IconDRK.PNG',
+    './vendor/leaflet/leaflet.css',
+    './vendor/leaflet/leaflet.js',
+    './vendor/leaflet/images/layers.png',
+    './vendor/leaflet/images/layers-2x.png',
+    './vendor/leaflet/images/marker-icon.png'
 ];
 
 // API-Domains – immer vom Netz holen, nie cachen
