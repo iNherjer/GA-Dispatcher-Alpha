@@ -5624,10 +5624,18 @@ window.gaMapOverlayZ = window.gaMapOverlayZ || 130500;
 
 function bringMapOverlayToFront(...items) {
     window.gaMapOverlayZ = Math.max(130500, Number(window.gaMapOverlayZ) || 130500) + 1;
+    let drawerWasRequested = false;
     items.forEach(item => {
         const el = typeof item === 'string' ? document.getElementById(item) : item;
-        if (el && el.style) el.style.zIndex = String(window.gaMapOverlayZ);
+        if (!el || !el.style) return;
+        if (el.id === 'mapSideDrawer') drawerWasRequested = true;
+        el.style.zIndex = String(window.gaMapOverlayZ);
     });
+    const drawer = document.getElementById('mapSideDrawer');
+    if (drawer && drawer.classList.contains('is-open') && !drawerWasRequested) {
+        window.gaMapOverlayZ += 1;
+        drawer.style.zIndex = String(window.gaMapOverlayZ);
+    }
 }
 
 window.gaBringMapOverlayToFront = bringMapOverlayToFront;

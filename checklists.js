@@ -683,6 +683,9 @@
     function setDrawerOpen(open) {
         if (!drawerEl) return;
         drawerEl.classList.toggle('is-open', !!open);
+        if (open && typeof window.gaBringMapOverlayToFront === 'function') {
+            window.gaBringMapOverlayToFront(drawerEl);
+        }
         if (handleEl) handleEl.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
 
