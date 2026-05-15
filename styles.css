@@ -3217,6 +3217,10 @@ body.theme-ops1940 .route-weather-source {
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--drawer-accent) 22%, transparent);
 }
 
+.route-tool-map-toggle[aria-pressed="false"] {
+    opacity: 0.72;
+}
+
 .route-tool-map-expand,
 .route-tool-map-close {
     width: 30px;

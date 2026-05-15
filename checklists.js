@@ -1769,33 +1769,51 @@ ${routeLines}`;
         return `routeToolWx_${raw.replace(/[^\w-]/g, '_')}`;
     }
 
-    function getPlaceMapMode() {
+    function getPlaceMapState() {
+        const fallback = { sat: false, vfr: true };
         try {
             const value = localStorage.getItem(PLACE_MAP_MODE_KEY);
-            return value === 'sat' ? 'sat' : 'vfr';
+            if (!value) return fallback;
+            if (value === 'sat') return { sat: true, vfr: true };
+            if (value === 'vfr') return fallback;
+            const parsed = JSON.parse(value);
+            return {
+                sat: !!parsed?.sat,
+                vfr: parsed?.vfr !== false
+            };
         } catch (_) {
-            return 'vfr';
+            return fallback;
         }
     }
 
-    function setPlaceMapMode(mode) {
-        const safeMode = mode === 'sat' ? 'sat' : 'vfr';
-        try { localStorage.setItem(PLACE_MAP_MODE_KEY, safeMode); } catch (_) {}
-        miniMaps.forEach(entry => setPlaceMapEntryMode(entry, safeMode));
-        if (expandedPlaceMap) setPlaceMapEntryMode(expandedPlaceMap, safeMode);
-        updatePlaceMapModeButtons(safeMode);
+    function setPlaceMapState(nextState) {
+        const state = {
+            sat: !!nextState?.sat,
+            vfr: nextState?.vfr !== false
+        };
+        try { localStorage.setItem(PLACE_MAP_MODE_KEY, JSON.stringify(state)); } catch (_) {}
+        miniMaps.forEach(entry => setPlaceMapEntryState(entry, state));
+        if (expandedPlaceMap) setPlaceMapEntryState(expandedPlaceMap, state);
+        updatePlaceMapModeButtons(state);
     }
 
-    function updatePlaceMapModeButtons(mode = getPlaceMapMode()) {
+    function togglePlaceMapLayer(layer) {
+        const state = getPlaceMapState();
+        if (layer === 'sat') state.sat = !state.sat;
+        else state.vfr = !state.vfr;
+        setPlaceMapState(state);
+    }
+
+    function updatePlaceMapModeButtons(state = getPlaceMapState()) {
         if (!bodyEl) return;
-        bodyEl.querySelectorAll('[data-action="place-map-mode"]').forEach(btn => {
-            const active = btn.dataset.mode === mode;
+        bodyEl.querySelectorAll('[data-action="place-map-layer"]').forEach(btn => {
+            const active = btn.dataset.layer === 'sat' ? !!state.sat : !!state.vfr;
             btn.classList.toggle('is-active', active);
             btn.setAttribute('aria-pressed', active ? 'true' : 'false');
         });
         if (expandedPlaceMapEl) {
-            expandedPlaceMapEl.querySelectorAll('[data-place-map-modal-mode]').forEach(btn => {
-                const active = btn.dataset.placeMapModalMode === mode;
+            expandedPlaceMapEl.querySelectorAll('[data-place-map-modal-layer]').forEach(btn => {
+                const active = btn.dataset.placeMapModalLayer === 'sat' ? !!state.sat : !!state.vfr;
                 btn.classList.toggle('is-active', active);
                 btn.setAttribute('aria-pressed', active ? 'true' : 'false');
             });
@@ -1822,19 +1840,21 @@ ${routeLines}`;
         };
     }
 
-    function setPlaceMapEntryMode(entry, mode = getPlaceMapMode()) {
+    function setPlaceMapEntryState(entry, state = getPlaceMapState()) {
         if (!entry?.map || !entry.layers) return;
         const { map, layers } = entry;
         [layers.topo, layers.sat, layers.aero].forEach(layer => {
             if (layer && map.hasLayer(layer)) map.removeLayer(layer);
         });
-        if (mode === 'sat') {
+        if (state.sat) {
             layers.sat.addTo(map);
         } else {
             layers.topo.addTo(map);
+        }
+        if (state.vfr) {
             layers.aero.addTo(map);
         }
-        entry.mode = mode;
+        entry.state = { sat: !!state.sat, vfr: !!state.vfr };
     }
 
     function destroyPlaceMiniMaps() {
@@ -1868,8 +1888,8 @@ ${routeLines}`;
             el.textContent = 'Karte nicht verfügbar';
             return null;
         }
-        const entry = { map, layers, mode: '', apt };
-        setPlaceMapEntryMode(entry, getPlaceMapMode());
+        const entry = { map, layers, state: getPlaceMapState(), apt };
+        setPlaceMapEntryState(entry, getPlaceMapState());
         L.circleMarker([lat, lon], {
             radius: options.markerRadius || 6,
             color: '#101820',
@@ -1916,8 +1936,8 @@ ${routeLines}`;
                         <div class="route-tool-place-title">${escapeHtml(title)}</div>
                     </div>
                     <div class="route-tool-map-modal-actions">
-                        <button class="route-tool-map-toggle" type="button" data-place-map-modal-mode="vfr">VFR</button>
-                        <button class="route-tool-map-toggle" type="button" data-place-map-modal-mode="sat">Sat</button>
+                        <button class="route-tool-map-toggle" type="button" data-place-map-modal-layer="vfr">VFR</button>
+                        <button class="route-tool-map-toggle" type="button" data-place-map-modal-layer="sat">Sat</button>
                         <button class="route-tool-map-close" type="button" aria-label="Karte schließen">×</button>
                     </div>
                 </div>
@@ -1933,10 +1953,9 @@ ${routeLines}`;
                 closeExpandedPlaceMap();
                 return;
             }
-            const modeButton = event.target.closest('[data-place-map-modal-mode]');
-            if (modeButton) {
-                setPlaceMapMode(modeButton.dataset.placeMapModalMode);
-                setPlaceMapEntryMode(expandedPlaceMap, getPlaceMapMode());
+            const layerButton = event.target.closest('[data-place-map-modal-layer]');
+            if (layerButton) {
+                togglePlaceMapLayer(layerButton.dataset.placeMapModalLayer);
             }
         });
         updatePlaceMapModeButtons();
@@ -1952,7 +1971,7 @@ ${routeLines}`;
         const wxId = placeWeatherId(label, apt);
         const hasCoords = Number.isFinite(apt?.lat) && Number.isFinite(apt?.lon);
         const encoded = encodeURIComponent(JSON.stringify(apt || {}));
-        const mode = getPlaceMapMode();
+        const mapState = getPlaceMapState();
         return `
             <div class="route-tool-place-card">
                 <div class="route-tool-place-head">
@@ -1965,8 +1984,8 @@ ${routeLines}`;
                 <div class="route-tool-place-visual">
                     <div class="route-tool-place-map-shell">
                         <div class="route-tool-place-map-toolbar">
-                            <button class="route-tool-map-toggle ${mode === 'vfr' ? 'is-active' : ''}" type="button" data-action="place-map-mode" data-mode="vfr" aria-pressed="${mode === 'vfr' ? 'true' : 'false'}">VFR</button>
-                            <button class="route-tool-map-toggle ${mode === 'sat' ? 'is-active' : ''}" type="button" data-action="place-map-mode" data-mode="sat" aria-pressed="${mode === 'sat' ? 'true' : 'false'}">Sat</button>
+                            <button class="route-tool-map-toggle ${mapState.vfr ? 'is-active' : ''}" type="button" data-action="place-map-layer" data-layer="vfr" aria-pressed="${mapState.vfr ? 'true' : 'false'}">VFR</button>
+                            <button class="route-tool-map-toggle ${mapState.sat ? 'is-active' : ''}" type="button" data-action="place-map-layer" data-layer="sat" aria-pressed="${mapState.sat ? 'true' : 'false'}">Sat</button>
                             ${hasCoords ? `<button class="route-tool-map-expand" type="button" data-action="place-map-expand" data-airport="${escapeAttr(encoded)}" aria-label="Karte vergrößern">⛶</button>` : ''}
                         </div>
                         <div id="${escapeAttr(mapId)}" class="route-tool-mini-map route-tool-place-map-host" data-airport="${escapeAttr(encoded)}" data-lat="${escapeAttr(apt?.lat)}" data-lon="${escapeAttr(apt?.lon)}">
@@ -3191,8 +3210,8 @@ ${routeLines}`;
         } else if (action === 'radio-airport-menu') {
             state.radioAirportMenuKey = state.radioAirportMenuKey === button.dataset.key ? '' : (button.dataset.key || '');
             render();
-        } else if (action === 'place-map-mode') {
-            setPlaceMapMode(button.dataset.mode || 'vfr');
+        } else if (action === 'place-map-layer') {
+            togglePlaceMapLayer(button.dataset.layer || 'vfr');
         } else if (action === 'place-map-expand') {
             const apt = decodeAirportDataset(button);
             if (!apt) return;
