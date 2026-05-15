@@ -876,14 +876,12 @@
         <div id="mapToolbarInner">
         <span id="navStationLabel" style="color: #fff; font-weight: bold; font-family: monospace;">NAV STATION (KARTENTISCH)</span>
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-            <button class="pb-btn" id="snapBtn" onclick="toggleSnapMode()">🧲 Snapping (Aus)</button>
-            <button class="pb-btn" id="measureBtn" onclick="toggleMeasureMode()">📏 Messen (Aus)</button>
-            <button class="pb-btn" onclick="clearMeasure()">🗑️ Zirkel löschen</button>
             <button class="pb-btn" onclick="resetMainRoute()">🔄 Route Reset</button>
             <button class="pb-btn" id="vpToggleBtn" onclick="toggleMapProfile()" style="background:#2E8B57; color:#fff; font-weight:bold;">📊 Profil (An)</button>
             <div style="position:relative; display:inline-flex; align-items:center;">
                 <button class="pb-btn" id="mapHintsBtn" onclick="window.toggleMapHintsMenu && toggleMapHintsMenu()">⚙️ Anzeige</button>
                 <div id="mapHintsMenu" style="display:none; position:absolute; top:38px; right:0; min-width:210px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
+                    <button id="hintToggleSnapping" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="toggleSnapMode()">🧲 Snapping (Aus)</button>
                     <button id="hintToggleMagentaLine" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('magentaLine')">🟣 Direkt-Linie (An)</button>
                     <button id="hintToggleWeather" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('weather')">🌤️ Wetter (An)</button>
                     <button id="hintToggleWindBarbs" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('windBarbs')">🪁 Windbarben (An)</button>
@@ -1074,6 +1072,28 @@
                 <button id="autoFollowBtn" onclick="toggleAutoFollow()" class="map-overlay-btn" title="Auto-Follow (Karten-Zentrierung)">
                     🎯
                 </button>
+                <div id="mapDrawRail" class="map-draw-rail">
+                    <button id="mapDrawFloatingBtn" class="map-draw-floating-btn" type="button" title="Werkzeugleiste" onclick="window.toggleMapToolRail && toggleMapToolRail(event)">✎</button>
+                    <div id="mapDrawToolStack" class="map-draw-tool-stack" aria-label="Kartenwerkzeuge">
+                        <button id="mapToolPen" class="map-draw-tool-btn" type="button" title="Stift" onclick="window.activateMapDrawTool && activateMapDrawTool('pen', event)">✎</button>
+                        <button id="mapToolEraser" class="map-draw-tool-btn" type="button" title="Radierer" onclick="window.activateMapDrawTool && activateMapDrawTool('eraser', event)">⌫</button>
+                        <button id="mapToolSettings" class="map-draw-tool-btn" type="button" title="Farben & Größe" onclick="window.toggleMapDrawSettingsMenu && window.toggleMapDrawSettingsMenu()">🎨</button>
+                        <button id="mapToolMeasure" class="map-draw-tool-btn" type="button" title="Maßband" onclick="window.activateMapDrawTool && activateMapDrawTool('measure', event)">📏</button>
+                        <button id="mapToolMeasureClear" class="map-draw-tool-btn" type="button" title="Messen löschen" onclick="window.activateMapDrawTool && activateMapDrawTool('measureClear', event)">🗑</button>
+                    </div>
+                </div>
+                <div id="mapDrawMenu" class="map-draw-menu" aria-label="Stift-Einstellungen">
+                    <div class="map-draw-swatches" aria-label="Schnellfarben">
+                        <button type="button" style="--swatch:#ff3b30;" onclick="window.setMapDrawColor && setMapDrawColor('#ff3b30')" title="Rot"></button>
+                        <button type="button" style="--swatch:#f2c12e;" onclick="window.setMapDrawColor && setMapDrawColor('#f2c12e')" title="Gelb"></button>
+                        <button type="button" style="--swatch:#44ff44;" onclick="window.setMapDrawColor && setMapDrawColor('#44ff44')" title="Grün"></button>
+                        <button type="button" style="--swatch:#4da6ff;" onclick="window.setMapDrawColor && setMapDrawColor('#4da6ff')" title="Blau"></button>
+                        <button type="button" style="--swatch:#ffffff;" onclick="window.setMapDrawColor && setMapDrawColor('#ffffff')" title="Weiß"></button>
+                    </div>
+                    <div class="map-draw-menu-row">
+                        <input id="mapDrawWeightInput" type="range" min="2" max="18" value="5" step="1" oninput="window.setMapDrawWeight && setMapDrawWeight(this.value)">
+                    </div>
+                </div>
                 <!-- AWM Frequenz-Banner: erscheint bei Luftraum-Warnung, bleibt bis zum Antippen -->
                 <div id="awmFreqBanner" style="display:none; position:absolute; top:0; left:0; right:0; z-index:5000; pointer-events:auto; border-radius:0 0 6px 6px; overflow-y:auto; max-height:44vh;"></div>
                 <!-- Live Telemetrie – oben mittig -->

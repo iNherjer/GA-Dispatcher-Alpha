@@ -21,6 +21,27 @@ const startIcon = hitBoxIcon('#44ff44'), destIcon = hitBoxIcon('#ff4444');
 const wpIcon = L.divIcon({ className: 'custom-pin', html: `<div class="pin-hitbox" style="cursor: move;"><div class="pin-dot" style="background-color: #fdfd86;"></div></div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
 const poiIcon = L.divIcon({ className: 'custom-pin', html: `<div class="pin-hitbox" style="cursor: move;"><div class="pin-dot" style="background-color: #b266ff; border: 2px solid #fff;"></div></div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
 const measureIcon = L.divIcon({ className: 'custom-pin', html: `<div class="pin-hitbox" style="cursor: move;"><div class="pin-dot" style="background-color: #fff; width: 12px; height: 12px; min-width: 12px; min-height: 12px;"></div></div>`, iconSize: [34, 34], iconAnchor: [17, 17] });
+const mapDrawState = {
+    enabled: false,
+    panelOpen: false,
+    menuOpen: false,
+    tool: 'freehand',
+    color: localStorage.getItem('ga_map_draw_color') || '#ff3b30',
+    weight: Math.max(2, Math.min(18, parseInt(localStorage.getItem('ga_map_draw_weight') || '5', 10) || 5)),
+    layer: null,
+    drawings: [],
+    lineStart: null,
+    previewLine: null,
+    drawingLine: null,
+    drawingPoints: [],
+    isDrawing: false,
+    lastLayerPoint: null,
+    lastEraseAt: 0,
+    suppressButtonClickUntil: 0,
+    justDraggedUntil: 0,
+    lastTapToggleAt: 0,
+    buttonDrag: null
+};
 let routeLegLabelMarkers = [];
 const AIP_POPUP_ROUTES = {
     AT: '/at/en/vfr/',
@@ -785,6 +806,7 @@ function refreshMapHintMenuUi() {
         btn.style.background = on ? '#2E8B57' : '#444';
         btn.style.color = '#fff';
     });
+    updateSnapButtonUI();
     Object.keys(MAP_HINT_SUBMENU_DEFAULTS).forEach(k => {
         const isOpen = !!(window.mapHintSubmenus && window.mapHintSubmenus[k]);
         setMapHintSubmenuOpen(k, isOpen);
@@ -5541,6 +5563,10 @@ function isMapUiClickTarget(evt) {
     return Boolean(
         t.closest('.leaflet-control') ||
         t.closest('.map-overlay-btn') ||
+        t.closest('.map-draw-rail') ||
+        t.closest('.map-draw-floating-btn') ||
+        t.closest('.map-draw-tool-stack') ||
+        t.closest('.map-draw-menu') ||
         t.closest('.pb-btn') ||
         t.closest('#vpSettingsMenu') ||
         t.closest('#awmFreqBanner') ||
@@ -5549,6 +5575,584 @@ function isMapUiClickTarget(evt) {
         t.closest('.leaflet-tooltip')
     );
 }
+
+function ensureMapDrawLayer() {
+    if (!map || mapDrawState.layer) return;
+    mapDrawState.layer = L.layerGroup().addTo(map);
+}
+
+function getMapDrawStyle(extra = {}) {
+    return {
+        color: mapDrawState.color,
+        weight: mapDrawState.weight,
+        opacity: 0.95,
+        lineCap: 'round',
+        lineJoin: 'round',
+        interactive: false,
+        ...extra
+    };
+}
+
+function syncMapDrawUi() {
+    const rail = document.getElementById('mapDrawRail');
+    const floatingBtn = document.getElementById('mapDrawFloatingBtn');
+    const toolStack = document.getElementById('mapDrawToolStack');
+    const penBtn = document.getElementById('mapToolPen');
+    const eraserToolBtn = document.getElementById('mapToolEraser');
+    const settingsToolBtn = document.getElementById('mapToolSettings');
+    const measureToolBtn = document.getElementById('mapToolMeasure');
+    const menu = document.getElementById('mapDrawMenu');
+    const weightInput = document.getElementById('mapDrawWeightInput');
+    document.body.classList.toggle('map-drawing-active', mapDrawState.enabled);
+
+    if (rail) {
+        rail.style.display = 'block';
+        rail.style.visibility = 'visible';
+        rail.style.pointerEvents = 'auto';
+    }
+    if (floatingBtn) {
+        floatingBtn.classList.toggle('active', mapDrawState.panelOpen);
+    }
+    if (toolStack) toolStack.classList.toggle('open', mapDrawState.panelOpen);
+    if (penBtn) penBtn.classList.toggle('active', mapDrawState.enabled && mapDrawState.tool !== 'eraser');
+    if (eraserToolBtn) eraserToolBtn.classList.toggle('active', mapDrawState.enabled && mapDrawState.tool === 'eraser');
+    if (settingsToolBtn) settingsToolBtn.classList.toggle('active', mapDrawState.menuOpen);
+    if (measureToolBtn) measureToolBtn.classList.toggle('active', !!measureMode);
+    if (menu) {
+        const shouldOpen = mapDrawState.menuOpen;
+        menu.classList.toggle('open', shouldOpen);
+        menu.style.display = shouldOpen ? 'block' : 'none';
+        menu.style.visibility = shouldOpen ? 'visible' : 'hidden';
+        menu.style.pointerEvents = shouldOpen ? 'auto' : 'none';
+    }
+    if (weightInput) weightInput.value = String(mapDrawState.weight);
+
+    const mapEl = document.getElementById('map');
+    if (mapEl) mapEl.style.cursor = mapDrawState.enabled ? 'crosshair' : '';
+    positionMapDrawToolStack();
+}
+
+function clearMapDrawPreview() {
+    if (!map || !mapDrawState.layer) return;
+    if (mapDrawState.previewLine) {
+        mapDrawState.layer.removeLayer(mapDrawState.previewLine);
+        mapDrawState.previewLine = null;
+    }
+}
+
+function resetMapDrawGesture() {
+    if (mapDrawState.drawingLine && mapDrawState.layer) {
+        mapDrawState.layer.removeLayer(mapDrawState.drawingLine);
+    }
+    mapDrawState.drawingLine = null;
+    mapDrawState.drawingPoints = [];
+    mapDrawState.isDrawing = false;
+    mapDrawState.lastLayerPoint = null;
+    mapDrawState.lineStart = null;
+    clearMapDrawPreview();
+    if (map && map.dragging && mapDrawState.enabled) map.dragging.enable();
+}
+
+function toggleMapDrawMode(force) {
+    const next = typeof force === 'boolean' ? force : !mapDrawState.enabled;
+    if (mapDrawState.enabled === next) {
+        syncMapDrawUi();
+        return;
+    }
+    mapDrawState.enabled = next;
+    mapDrawState.menuOpen = next ? mapDrawState.menuOpen : false;
+    if (next) {
+        ensureMapDrawLayer();
+        if (measureMode) toggleMeasureMode();
+        if (typeof freeflightMode !== 'undefined' && freeflightMode) toggleFreeflightMode();
+        if (map && typeof map.closePopup === 'function') map.closePopup();
+    } else {
+        resetMapDrawGesture();
+        mapDrawState.menuOpen = false;
+    }
+    syncMapDrawUi();
+}
+
+function toggleMapDrawMenu(force) {
+    if (!mapDrawState.panelOpen) return;
+    mapDrawState.menuOpen = typeof force === 'boolean' ? force : !mapDrawState.menuOpen;
+    syncMapDrawUi();
+    if (mapDrawState.menuOpen) {
+        positionMapDrawMenuNearButton();
+        requestAnimationFrame(positionMapDrawMenuNearButton);
+    }
+}
+
+function openMapDrawMenu(evt) {
+    if (evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+    }
+    if (Date.now() < mapDrawState.justDraggedUntil || Date.now() < mapDrawState.suppressButtonClickUntil) return;
+    mapDrawState.panelOpen = true;
+    mapDrawState.menuOpen = true;
+    syncMapDrawUi();
+    positionMapDrawMenuNearButton();
+    requestAnimationFrame(positionMapDrawMenuNearButton);
+}
+
+function closeMapDrawMenu(evt) {
+    if (evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+    }
+    mapDrawState.menuOpen = false;
+    // Schutz gegen direktes Wiederöffnen durch denselben Klickzyklus.
+    mapDrawState.suppressButtonClickUntil = Date.now() + 220;
+    syncMapDrawUi();
+}
+
+function toggleMapToolRail(evt) {
+    if (evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+    }
+    if (Date.now() < mapDrawState.justDraggedUntil || Date.now() < mapDrawState.suppressButtonClickUntil) return;
+    const wasPanelOpen = !!mapDrawState.panelOpen;
+    mapDrawState.panelOpen = !mapDrawState.panelOpen;
+    if (!mapDrawState.panelOpen) mapDrawState.menuOpen = false;
+    if (wasPanelOpen && !mapDrawState.panelOpen) {
+        if (mapDrawState.enabled) toggleMapDrawMode(false);
+        if (measureMode) toggleMeasureMode();
+    }
+    syncMapDrawUi();
+    if (mapDrawState.menuOpen) {
+        positionMapDrawMenuNearButton();
+        requestAnimationFrame(positionMapDrawMenuNearButton);
+    }
+}
+
+function toggleMapDrawSettingsMenu(evt) {
+    if (evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+    }
+    if (Date.now() < mapDrawState.justDraggedUntil || Date.now() < mapDrawState.suppressButtonClickUntil) return;
+    mapDrawState.panelOpen = true;
+    mapDrawState.menuOpen = !mapDrawState.menuOpen;
+    syncMapDrawUi();
+    if (mapDrawState.menuOpen) {
+        positionMapDrawMenuNearButton();
+        requestAnimationFrame(positionMapDrawMenuNearButton);
+    }
+}
+
+function activateMapDrawTool(kind, evt) {
+    if (evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+    }
+    if (kind === 'pen') {
+        if (mapDrawState.enabled && mapDrawState.tool === 'freehand') {
+            toggleMapDrawMode(false);
+        } else {
+            if (!mapDrawState.enabled) toggleMapDrawMode(true);
+            setMapDrawTool('freehand');
+        }
+    } else if (kind === 'eraser') {
+        if (mapDrawState.enabled && mapDrawState.tool === 'eraser') {
+            toggleMapDrawMode(false);
+        } else {
+            if (!mapDrawState.enabled) toggleMapDrawMode(true);
+            setMapDrawTool('eraser');
+        }
+    } else if (kind === 'measure') {
+        if (measureMode) {
+            toggleMeasureMode();
+        } else {
+            toggleMeasureMode();
+            if (mapDrawState.enabled) toggleMapDrawMode(false);
+        }
+        mapDrawState.menuOpen = false;
+    } else if (kind === 'measureClear') {
+        clearMeasure();
+    }
+    syncMapDrawUi();
+}
+
+function setMapDrawColor(color) {
+    if (!/^#[0-9a-f]{6}$/i.test(String(color || ''))) return;
+    mapDrawState.color = color;
+    localStorage.setItem('ga_map_draw_color', color);
+    syncMapDrawUi();
+}
+
+function setMapDrawWeight(value) {
+    const weight = Math.max(2, Math.min(18, parseInt(value, 10) || 5));
+    mapDrawState.weight = weight;
+    localStorage.setItem('ga_map_draw_weight', String(weight));
+    syncMapDrawUi();
+}
+
+function setMapDrawTool(tool) {
+    if (tool !== 'freehand' && tool !== 'line' && tool !== 'eraser') return;
+    resetMapDrawGesture();
+    mapDrawState.tool = tool;
+    syncMapDrawUi();
+    if (tool === 'line') showMapToast('Linie: Startpunkt tippen, dann Endpunkt tippen', 2200);
+    if (tool === 'eraser') showMapToast('Radierer: Strich antippen zum Löschen', 2200);
+}
+
+function clearMapDrawings() {
+    resetMapDrawGesture();
+    if (mapDrawState.layer) mapDrawState.layer.clearLayers();
+    mapDrawState.drawings = [];
+    showMapToast('Zeichnungen gelöscht', 1600);
+}
+
+function getMapDrawLayerPointDistance(latlng, layer) {
+    if (!map || !layer || typeof layer.getLatLngs !== 'function') return Infinity;
+    const target = map.latLngToLayerPoint(latlng);
+    const rawLatLngs = layer.getLatLngs();
+    const segments = Array.isArray(rawLatLngs[0]) ? rawLatLngs.flat() : rawLatLngs;
+    if (!segments || segments.length === 0) return Infinity;
+
+    let best = Infinity;
+    for (let i = 0; i < segments.length; i++) {
+        const p = map.latLngToLayerPoint(segments[i]);
+        best = Math.min(best, target.distanceTo(p));
+        if (i === 0) continue;
+        const a = map.latLngToLayerPoint(segments[i - 1]);
+        const b = p;
+        const abx = b.x - a.x;
+        const aby = b.y - a.y;
+        const lenSq = abx * abx + aby * aby;
+        if (lenSq <= 0) continue;
+        const t = Math.max(0, Math.min(1, ((target.x - a.x) * abx + (target.y - a.y) * aby) / lenSq));
+        const proj = L.point(a.x + t * abx, a.y + t * aby);
+        best = Math.min(best, target.distanceTo(proj));
+    }
+    return best;
+}
+
+function eraseMapDrawingAt(latlng, silent = false) {
+    if (!mapDrawState.layer || mapDrawState.drawings.length === 0) {
+        if (!silent) showMapToast('Keine Zeichnung zum Löschen', 1200);
+        return false;
+    }
+    let bestLayer = null;
+    let bestDist = Infinity;
+    mapDrawState.drawings.forEach(layer => {
+        const dist = getMapDrawLayerPointDistance(latlng, layer);
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestLayer = layer;
+        }
+    });
+    const threshold = Math.max(14, mapDrawState.weight + 10);
+    if (!bestLayer || bestDist > threshold) {
+        if (!silent) showMapToast('Kein Strich getroffen', 1100);
+        return false;
+    }
+    mapDrawState.layer.removeLayer(bestLayer);
+    mapDrawState.drawings = mapDrawState.drawings.filter(layer => layer !== bestLayer);
+    if (!silent) showMapToast('Strich gelöscht', 1000);
+    return true;
+}
+
+function handleMapDrawMapClick(e) {
+    if (!mapDrawState.enabled) return false;
+    if (isMapUiClickTarget(e.originalEvent)) return true;
+    if (mapDrawState.tool === 'eraser') {
+        if (Date.now() - mapDrawState.lastEraseAt < 250) return true;
+        eraseMapDrawingAt(e.latlng);
+        return true;
+    }
+    if (mapDrawState.tool !== 'line') return true;
+    ensureMapDrawLayer();
+    if (!mapDrawState.lineStart) {
+        mapDrawState.lineStart = e.latlng;
+        clearMapDrawPreview();
+        showMapToast('Endpunkt setzen', 1400);
+        return true;
+    }
+    const line = L.polyline([mapDrawState.lineStart, e.latlng], getMapDrawStyle()).addTo(mapDrawState.layer);
+    mapDrawState.drawings.push(line);
+    mapDrawState.lineStart = null;
+    clearMapDrawPreview();
+    return true;
+}
+
+function handleMapDrawMouseDown(e) {
+    if (!mapDrawState.enabled || (mapDrawState.tool !== 'freehand' && mapDrawState.tool !== 'eraser')) return;
+    if (isMapUiClickTarget(e.originalEvent)) return;
+    if (e.originalEvent && e.originalEvent.button && e.originalEvent.button !== 0) return;
+    if (mapDrawState.tool === 'eraser') {
+        if (eraseMapDrawingAt(e.latlng, true)) mapDrawState.lastEraseAt = Date.now();
+        if (e.originalEvent) L.DomEvent.stop(e.originalEvent);
+        return;
+    }
+    ensureMapDrawLayer();
+    mapDrawState.isDrawing = true;
+    mapDrawState.drawingPoints = [e.latlng];
+    mapDrawState.lastLayerPoint = map.latLngToLayerPoint(e.latlng);
+    mapDrawState.drawingLine = L.polyline(mapDrawState.drawingPoints, getMapDrawStyle()).addTo(mapDrawState.layer);
+    if (map.dragging) map.dragging.disable();
+    if (e.originalEvent) L.DomEvent.stop(e.originalEvent);
+}
+
+function handleMapDrawMouseMove(e) {
+    if (!mapDrawState.enabled) return;
+    if (mapDrawState.tool === 'eraser') {
+        const pressed = !e.originalEvent || e.originalEvent.buttons === 1 || (e.originalEvent.touches && e.originalEvent.touches.length > 0);
+        if (pressed) {
+            if (eraseMapDrawingAt(e.latlng, true)) mapDrawState.lastEraseAt = Date.now();
+            if (e.originalEvent) L.DomEvent.stop(e.originalEvent);
+        }
+        return;
+    }
+    if (mapDrawState.tool === 'line' && mapDrawState.lineStart) {
+        ensureMapDrawLayer();
+        if (!mapDrawState.previewLine) {
+            mapDrawState.previewLine = L.polyline([mapDrawState.lineStart, e.latlng], getMapDrawStyle({ opacity: 0.65, dashArray: '8,8' })).addTo(mapDrawState.layer);
+        } else {
+            mapDrawState.previewLine.setLatLngs([mapDrawState.lineStart, e.latlng]);
+        }
+        return;
+    }
+    if (!mapDrawState.isDrawing || !mapDrawState.drawingLine) return;
+    const nextPoint = map.latLngToLayerPoint(e.latlng);
+    if (mapDrawState.lastLayerPoint && nextPoint.distanceTo(mapDrawState.lastLayerPoint) < 4) return;
+    mapDrawState.drawingPoints.push(e.latlng);
+    mapDrawState.lastLayerPoint = nextPoint;
+    mapDrawState.drawingLine.setLatLngs(mapDrawState.drawingPoints);
+    if (e.originalEvent) L.DomEvent.stop(e.originalEvent);
+}
+
+function finishMapDrawFreehand() {
+    if (!mapDrawState.isDrawing) return;
+    if (mapDrawState.drawingLine) {
+        if (mapDrawState.drawingPoints.length > 1) {
+            mapDrawState.drawings.push(mapDrawState.drawingLine);
+        } else if (mapDrawState.layer) {
+            mapDrawState.layer.removeLayer(mapDrawState.drawingLine);
+        }
+    }
+    mapDrawState.drawingLine = null;
+    mapDrawState.drawingPoints = [];
+    mapDrawState.isDrawing = false;
+    mapDrawState.lastLayerPoint = null;
+    if (map && map.dragging) map.dragging.enable();
+}
+
+function bindMapDrawEvents() {
+    if (!map || map._mapDrawEventsBound) return;
+    map.on('mousedown', handleMapDrawMouseDown);
+    map.on('touchstart', handleMapDrawMouseDown);
+    map.on('mousemove', handleMapDrawMouseMove);
+    map.on('touchmove', handleMapDrawMouseMove);
+    map.on('mouseup', finishMapDrawFreehand);
+    map.on('touchend', finishMapDrawFreehand);
+    document.addEventListener('mouseup', finishMapDrawFreehand);
+    document.addEventListener('touchend', finishMapDrawFreehand);
+    map._mapDrawEventsBound = true;
+}
+
+function positionMapDrawToolStack() {
+    const rail = document.getElementById('mapDrawRail');
+    const button = document.getElementById('mapDrawFloatingBtn');
+    const stack = document.getElementById('mapDrawToolStack');
+    const area = document.getElementById('mapArea');
+    if (!rail || !button || !stack || !area) return;
+    if (!mapDrawState.panelOpen) {
+        stack.classList.remove('flip-down');
+        return;
+    }
+    const areaRect = area.getBoundingClientRect();
+    const railRect = rail.getBoundingClientRect();
+    const estimatedStackHeight = Math.max(46, stack.scrollHeight || (5 * 46));
+    const spaceAbove = railRect.top - areaRect.top;
+    const minNeeded = estimatedStackHeight + 58;
+    stack.classList.toggle('flip-down', spaceAbove < minNeeded);
+}
+
+function positionMapDrawMenuNearButton() {
+    const button = document.getElementById('mapDrawFloatingBtn');
+    const settingsButton = document.getElementById('mapToolSettings');
+    const anchor = settingsButton || button;
+    const menu = document.getElementById('mapDrawMenu');
+    const area = document.getElementById('mapArea');
+    if (!anchor || !menu || !area) return;
+    if (!mapDrawState.menuOpen) return;
+    const btnRect = anchor.getBoundingClientRect();
+    const areaRect = area.getBoundingClientRect();
+    const margin = 12;
+    const wasHidden = menu.style.display === 'none';
+    if (wasHidden) {
+        menu.style.display = 'block';
+        menu.style.visibility = 'hidden';
+    }
+    const gap = 6;
+    const swatchesEl = menu.querySelector('.map-draw-swatches');
+    const preferredWidth = Math.max(220, swatchesEl ? swatchesEl.offsetWidth : 220);
+    const menuWidth = Math.min(preferredWidth, areaRect.width - (margin * 2));
+    menu.style.width = `${menuWidth}px`;
+    menu.style.maxHeight = '';
+    const measuredHeight = Math.max(96, menu.offsetHeight || 160);
+    if (wasHidden) {
+        menu.style.display = 'none';
+        menu.style.visibility = 'hidden';
+    }
+    const maxLeft = Math.max(margin, areaRect.width - menuWidth - margin);
+    const maxTop = Math.max(margin, areaRect.height - measuredHeight - margin);
+    const btnLeft = btnRect.left - areaRect.left;
+    const btnRight = btnRect.right - areaRect.left;
+    const btnTop = btnRect.top - areaRect.top;
+    const rightSpace = areaRect.width - btnRight;
+    const leftSpace = btnLeft;
+    let preferredLeft = btnRight + gap;
+    if (rightSpace < (menuWidth + gap + margin) && leftSpace >= (menuWidth + gap + margin)) {
+        preferredLeft = btnLeft - menuWidth - gap;
+    } else if (rightSpace < (menuWidth + gap + margin) && leftSpace < (menuWidth + gap + margin)) {
+        preferredLeft = btnLeft + (anchor.offsetWidth / 2) - (menuWidth / 2);
+    }
+    const left = Math.max(margin, Math.min(maxLeft, preferredLeft));
+    const top = Math.max(margin, Math.min(maxTop, btnTop));
+    menu.style.left = `${left}px`;
+    menu.style.right = 'auto';
+    menu.style.top = `${top}px`;
+}
+
+function clampMapDrawFloatingButtonPosition() {
+    const rail = document.getElementById('mapDrawRail');
+    const button = document.getElementById('mapDrawFloatingBtn');
+    const area = document.getElementById('mapArea');
+    if (!rail || !button || !area || !rail.style.left || !rail.style.top) return;
+    const areaRect = area.getBoundingClientRect();
+    const railWidth = rail.offsetWidth || 46;
+    const railHeight = rail.offsetHeight || 46;
+    const left = Math.max(8, Math.min(areaRect.width - railWidth - 8, parseFloat(rail.style.left) || 8));
+    const top = Math.max(8, Math.min(areaRect.height - railHeight - 8, parseFloat(rail.style.top) || 8));
+    rail.style.left = `${left}px`;
+    rail.style.top = `${top}px`;
+    rail.style.right = 'auto';
+    positionMapDrawToolStack();
+    if (mapDrawState.menuOpen) positionMapDrawMenuNearButton();
+}
+
+function initMapDrawFloatingButton() {
+    const rail = document.getElementById('mapDrawRail');
+    const button = document.getElementById('mapDrawFloatingBtn');
+    const area = document.getElementById('mapArea');
+    if (!rail || !button || !area || button.dataset.drawBound === '1') return;
+    const dragThresholdPx = 8;
+    const saved = (() => {
+        try { return JSON.parse(localStorage.getItem('ga_map_draw_button_pos') || 'null'); } catch (e) { return null; }
+    })();
+    if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+        rail.style.left = `${saved.left}px`;
+        rail.style.top = `${saved.top}px`;
+        rail.style.right = 'auto';
+        requestAnimationFrame(() => {
+            clampMapDrawFloatingButtonPosition();
+            positionMapDrawToolStack();
+        });
+    }
+
+    button.addEventListener('pointerdown', (evt) => {
+        if (evt.button !== 0) return;
+        const rect = rail.getBoundingClientRect();
+        const areaRect = area.getBoundingClientRect();
+        mapDrawState.buttonDrag = {
+            pointerId: evt.pointerId,
+            startX: evt.clientX,
+            startY: evt.clientY,
+            offsetX: evt.clientX - rect.left,
+            offsetY: evt.clientY - rect.top,
+            areaRect,
+            moved: false
+        };
+        mapDrawState.suppressButtonClickUntil = 0;
+        button.classList.add('is-dragging');
+        button.setPointerCapture(evt.pointerId);
+        evt.stopPropagation();
+    });
+
+    button.addEventListener('pointermove', (evt) => {
+        const drag = mapDrawState.buttonDrag;
+        if (!drag || drag.pointerId !== evt.pointerId) return;
+        const movedPx = Math.hypot(evt.clientX - drag.startX, evt.clientY - drag.startY);
+        if (movedPx < dragThresholdPx && !drag.moved) return;
+        drag.moved = true;
+        const railWidth = rail.offsetWidth || 46;
+        const railHeight = rail.offsetHeight || 46;
+        const left = Math.max(8, Math.min(drag.areaRect.width - railWidth - 8, evt.clientX - drag.areaRect.left - drag.offsetX));
+        const top = Math.max(8, Math.min(drag.areaRect.height - railHeight - 8, evt.clientY - drag.areaRect.top - drag.offsetY));
+        rail.style.left = `${left}px`;
+        rail.style.top = `${top}px`;
+        rail.style.right = 'auto';
+        positionMapDrawToolStack();
+        if (mapDrawState.menuOpen) positionMapDrawMenuNearButton();
+        evt.stopPropagation();
+        evt.preventDefault();
+    });
+
+    button.addEventListener('pointerup', (evt) => {
+        const drag = mapDrawState.buttonDrag;
+        if (!drag || drag.pointerId !== evt.pointerId) return;
+        button.classList.remove('is-dragging');
+        if (button.hasPointerCapture && button.hasPointerCapture(evt.pointerId)) button.releasePointerCapture(evt.pointerId);
+        mapDrawState.buttonDrag = null;
+        const left = parseFloat(rail.style.left);
+        const top = parseFloat(rail.style.top);
+        if (Number.isFinite(left) && Number.isFinite(top)) {
+            localStorage.setItem('ga_map_draw_button_pos', JSON.stringify({ left, top }));
+        }
+        if (drag.moved) {
+            mapDrawState.suppressButtonClickUntil = Date.now() + 350;
+            mapDrawState.justDraggedUntil = Date.now() + 350;
+        } else {
+            mapDrawState.suppressButtonClickUntil = 0;
+            mapDrawState.justDraggedUntil = 0;
+        }
+        evt.stopPropagation();
+    });
+
+    button.addEventListener('pointercancel', (evt) => {
+        const drag = mapDrawState.buttonDrag;
+        if (!drag || drag.pointerId !== evt.pointerId) return;
+        button.classList.remove('is-dragging');
+        if (button.hasPointerCapture && button.hasPointerCapture(evt.pointerId)) button.releasePointerCapture(evt.pointerId);
+        mapDrawState.buttonDrag = null;
+        mapDrawState.suppressButtonClickUntil = Date.now() + 350;
+        mapDrawState.justDraggedUntil = Date.now() + 350;
+    });
+
+    window.addEventListener('resize', () => {
+        clampMapDrawFloatingButtonPosition();
+        positionMapDrawToolStack();
+    });
+    button.dataset.drawBound = '1';
+    syncMapDrawUi();
+}
+
+window.toggleMapDrawMode = toggleMapDrawMode;
+window.toggleMapToolRail = toggleMapToolRail;
+window.activateMapDrawTool = activateMapDrawTool;
+window.toggleMapDrawSettingsMenu = toggleMapDrawSettingsMenu;
+window.openMapDrawMenu = openMapDrawMenu;
+window.closeMapDrawMenu = closeMapDrawMenu;
+window.openMapDrawMenuFromButton = function(evt) {
+    if (evt) evt.stopPropagation();
+    if (!mapDrawState.enabled) return;
+    if (Date.now() >= mapDrawState.suppressButtonClickUntil) toggleMapDrawMenu();
+};
+window.toggleMapDrawMenu = function(force) {
+    toggleMapDrawMenu(force);
+    if (mapDrawState.menuOpen) {
+        positionMapDrawMenuNearButton();
+        requestAnimationFrame(positionMapDrawMenuNearButton);
+    }
+};
+window.setMapDrawColor = setMapDrawColor;
+window.setMapDrawWeight = setMapDrawWeight;
+window.setMapDrawTool = setMapDrawTool;
+window.clearMapDrawings = clearMapDrawings;
 
 function ensureRouteLegLabelPane() {
     if (!map) return;
@@ -5623,10 +6227,19 @@ function renderRouteLegLabels() {
 function toggleMeasureMode() {
     measureMode = !measureMode; const btn = document.getElementById('measureBtn');
     if (measureMode) {
-        btn.innerText = '📏 Messen (An)'; btn.style.background = 'var(--piper-yellow)'; btn.style.color = '#000';
+        if (mapDrawState.enabled) toggleMapDrawMode(false);
+        if (btn) {
+            btn.innerText = '📏 Messen (An)';
+            btn.style.background = 'var(--piper-yellow)';
+            btn.style.color = '#000';
+        }
         document.getElementById('map').style.cursor = 'crosshair';
     } else {
-        btn.innerText = '📏 Messen (Aus)'; btn.style.background = '#444'; btn.style.color = '#fff';
+        if (btn) {
+            btn.innerText = '📏 Messen (Aus)';
+            btn.style.background = '#444';
+            btn.style.color = '#fff';
+        }
         document.getElementById('map').style.cursor = '';
     }
     if (map && typeof map.closePopup === 'function') map.closePopup();
@@ -5639,6 +6252,7 @@ function toggleMeasureMode() {
             if (el) el.style.pointerEvents = measureMode ? 'none' : 'auto';
         } catch (e) { }
     }
+    if (typeof syncMapDrawUi === 'function') syncMapDrawUi();
 }
 
 function addMeasurePoint(latlng) {
@@ -5666,6 +6280,7 @@ function clearMeasure() {
     if (measurePolyline) map.removeLayer(measurePolyline);
     if (measureTooltip) { map.removeLayer(measureTooltip); measureTooltip = null; }
     measureMarkers.forEach(m => map.removeLayer(m)); measurePoints = []; measureMarkers = [];
+    if (typeof syncMapDrawUi === 'function') syncMapDrawUi();
 }
 
 window.removeRouteWaypoint = function (index) { routeWaypoints.splice(index, 1); renderMainRoute(); };
@@ -6807,6 +7422,9 @@ function initMapBase() {
         return btn;
     };
     fsControl.addTo(map);
+    bindMapDrawEvents();
+    ensureMapDrawLayer();
+    syncMapDrawUi();
     if (window.mapHints && window.mapHints.terrainAvoid !== false && terrainAvoidCanRenderNow() && terrainAvoidOverlayLayer) {
         terrainAvoidOverlayLayer.addTo(map);
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
@@ -6814,6 +7432,7 @@ function initMapBase() {
     map.on('click', function (e) {
         if (handleAipCalibrationMapClick(e)) return;
         if (isMapUiClickTarget(e.originalEvent)) return;
+        if (handleMapDrawMapClick(e)) return;
         if (typeof window.gaClearRouteToolMapFocus === 'function') window.gaClearRouteToolMapFocus();
         if (freeflightMode) { handleFreeflightMapClick(e); return; }
         if (measureMode) { addMeasurePoint(e.latlng); return; }
@@ -7059,6 +7678,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const btn = document.getElementById('mapToolbarToggle');
         if (btn) btn.textContent = '▼';
     }
+    initMapDrawFloatingButton();
 });
 
 function toggleMapTable(forceInternal) {
@@ -7218,16 +7838,19 @@ function toggleSnapMode() {
 
 function updateSnapButtonUI() {
     const btn = document.getElementById('snapBtn');
-    if (!btn) return;
-    if (snapMode) {
-        btn.innerText = '🧲 Snapping (An)';
-        btn.style.background = '#4da6ff';
-        btn.style.color = '#fff';
-    } else {
-        btn.innerText = '🧲 Snapping (Aus)';
-        btn.style.background = '#444';
-        btn.style.color = '#fff';
-    }
+    const hintBtn = document.getElementById('hintToggleSnapping');
+    [btn, hintBtn].forEach((el) => {
+        if (!el) return;
+        if (snapMode) {
+            el.innerText = '🧲 Snapping (An)';
+            el.style.background = '#4da6ff';
+            el.style.color = '#fff';
+        } else {
+            el.innerText = '🧲 Snapping (Aus)';
+            el.style.background = '#444';
+            el.style.color = '#fff';
+        }
+    });
 }
 
 async function fetchOpenAIPData() {
@@ -8011,6 +8634,7 @@ function toggleFreeflightMode() {
     freeflightMode = !freeflightMode;
     const btn = document.getElementById('freeflightBtn');
     if (freeflightMode) {
+        if (mapDrawState.enabled) toggleMapDrawMode(false);
         btn.innerText = '✈️ Direct To (An)';
         btn.classList.add('active');
         if (measureMode) toggleMeasureMode();
