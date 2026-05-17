@@ -4580,7 +4580,8 @@ body.theme-retro .wp-data {
         width: 130px !important;
     }
 
-    body.theme-retro .notes-stack {
+    body.theme-retro .notes-stack,
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .notes-stack {
         min-width: 0;
     }
 }
@@ -5858,7 +5859,8 @@ body.theme-navcom .discord-link:hover {
     }
 
     /* --- Zettelstapel: bis an die Container-Kante (Retro + NavCom) --- */
-    body.theme-retro .notes-stack {
+    body.theme-retro .notes-stack,
+    body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .notes-stack {
         margin-left: -14px;
         margin-right: -14px;
     }
@@ -6168,8 +6170,10 @@ body.theme-navcom .btn-menu:active {
 
 .map-draw-rail {
     position: absolute;
-    top: 92px;
-    right: 18px;
+    left: 18px;
+    right: auto;
+    top: auto;
+    bottom: 18px;
     z-index: 100110;
     width: 46px;
     pointer-events: auto;
@@ -6908,11 +6912,11 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) {
     --warn: #ffd166;
     --red: #ff5b68;
     --green: #68f2a0;
-    --navlog-text: #eff7ff;
-    --navlog-heading: #9ad6ff;
-    --navlog-data: #ffd166;
-    --navlog-freq: #7ec7ff;
-    --navlog-border: rgba(255, 255, 255, 0.18);
+    --navlog-text: #111;
+    --navlog-heading: #0b1f65;
+    --navlog-data: #d93829;
+    --navlog-freq: #0b1f65;
+    --navlog-border: #888;
     --glass-surface: rgba(14, 25, 37, 0.58);
     --glass-surface-strong: rgba(20, 34, 48, 0.76);
     --glass-line: rgba(255, 255, 255, 0.22);
@@ -7244,16 +7248,165 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .api-hint {
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .notes-stack {
-    gap: 12px;
+    display: grid;
+    grid-template-areas: "stack";
+    position: relative;
+    margin-bottom: 25px;
+    gap: 0;
+    cursor: pointer;
+    min-width: 250px;
+    min-height: 400px;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page {
-    padding: 18px;
+    grid-area: stack;
+    background-color: #fdf5e6;
+    background-image: repeating-linear-gradient(transparent, transparent 23px, #a6bccc 24px);
+    background-size: 100% 24px;
+    background-position: 0 4px;
+    padding: 15px 15px 15px 25px;
+    border-radius: 2px 6px 4px 2px;
+    border: 1px solid #d3cbb8;
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    display: block !important;
+    opacity: 1 !important;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 15px;
+    width: 1px;
+    background-color: rgba(220, 50, 50, 0.4);
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .front-note {
+    z-index: 2;
+    transform: rotate(-1.5deg) !important;
+    box-shadow: 3px 5px 12px rgba(0, 0, 0, 0.6);
+    opacity: 1;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .back-note {
+    z-index: 1;
+    transform: rotate(2deg) translate(8px, 6px) !important;
+    box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.5);
+    filter: brightness(0.85);
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .third-note {
+    z-index: 0;
+    transform: rotate(-3deg) translate(14px, 12px) !important;
+    box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.4);
+    filter: brightness(0.7);
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .fourth-note {
+    z-index: -1;
+    transform: rotate(1deg) translate(2px, 18px) !important;
+    box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.3);
+    filter: brightness(0.6);
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .fifth-note {
+    z-index: -2;
+    transform: rotate(-2deg) translate(-4px, 24px) !important;
+    box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.2);
+    filter: brightness(0.5);
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .paperclip {
+    display: block;
+    position: absolute;
+    top: -18px;
+    left: 20px;
+    width: 25px;
+    height: 60px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 60'%3E%3Cpath d='M10 40 V12 a4 4 0 0 1 8 0 v32 a6 6 0 0 1-12 0 V10 a8 8 0 0 1 16 0 v32' fill='none' stroke='%23889' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    z-index: 10;
+    filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.5));
+    transform: rotate(-15deg);
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .page-number {
+    display: block;
+    position: absolute;
+    bottom: 5px;
+    right: 10px;
+    font-family: 'Caveat', cursive;
+    font-size: 18px;
+    color: #0b1f65;
+    opacity: 0.6;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #mTitle,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .wiki-title {
+    display: block;
+    font-family: 'Caveat', cursive;
+    font-size: 28px;
+    color: #0b1f65;
+    text-shadow: none;
+    margin-bottom: 8px;
+    margin-top: 25px;
+    transform: rotate(-1deg);
+    line-height: 1.2;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #mStory,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .wiki-info-note {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    font-weight: bold;
+    color: #222;
+    line-height: 24px;
+    border: none;
+    padding-bottom: 0;
+    margin-bottom: 0;
+    text-shadow: none;
+    letter-spacing: -0.5px;
+    font-style: normal;
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .note-manifest {
-    gap: 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.13);
+    display: block;
+    margin-top: 24px;
+    padding-top: 0;
+    border-top: none;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .note-manifest div {
+    line-height: 24px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    font-weight: bold;
+    color: #222;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .note-manifest strong {
+    display: inline;
+    font-size: 14px;
+    color: #d93829;
+    margin-right: 5px;
+    text-transform: uppercase;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .note-manifest span {
+    font-size: 14px;
+    font-weight: bold;
+    color: #222;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page:not(.front-note) .briefing-photo-attachment,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page:not(.front-note) a,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page:not(.front-note) button,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-note-page:not(.front-note) .retro-switch-container {
+    pointer-events: none;
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .theme-switch-wrapper {
