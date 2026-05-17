@@ -63,7 +63,7 @@ function startTracker(syncId, pin) {
       _reconnecting = false;
       clearWsTimers();
       ws.send(JSON.stringify({ type: 'join', syncId: syncId, pin: pin }));
-      console.log(`📡 Verbunden mit ID: ${syncId} (Auth aktiv)`);
+      console.log(`📡 Verbunden mit Pilot-ID: ${syncId} (Auth aktiv)`);
       pingInterval = setInterval(() => {
         try {
           if (ws.readyState !== WebSocket.OPEN) return;
@@ -468,9 +468,9 @@ function connectSimConnect(getWs, syncId, pin) {
 }
 
 function askCredentials() {
-  rl.question("Bitte gib deine Sync ID ein (z.B. Foxtrot-Mike-764): ", (idAnswer) => {
+  rl.question("Bitte gib deine Pilot-ID ein (z.B. Foxtrot-Mike-764): ", (idAnswer) => {
     const finalId = idAnswer.trim();
-    if (!finalId) { console.log("Fehler: Keine ID eingegeben."); return process.exit(1); }
+    if (!finalId) { console.log("Fehler: Keine Pilot-ID eingegeben."); return process.exit(1); }
     
     rl.question("Bitte gib deinen 4-stelligen PIN ein: ", (pinAnswer) => {
       const finalPin = pinAnswer.trim();
@@ -499,7 +499,7 @@ function main() {
   if (savedId && savedPin) {
     console.log("=====================================");
     console.log(` Gespeicherte Pilot-Daten gefunden:`);
-    console.log(` ID:  [ ${savedId} ]`);
+    console.log(` Pilot-ID: [ ${savedId} ]`);
     console.log(` PIN: [ **** ]`);
     console.log("=====================================\n");
     
@@ -510,18 +510,18 @@ function main() {
     const countdownInterval = setInterval(() => {
       if (timeLeft > 0) {
         // \r überschreibt die aktuelle Zeile im Terminal, so entsteht die Animation
-        process.stdout.write(`\r🚀 Autostart in ${timeLeft} Sekunden... (Drücke ENTER zum Ändern der ID/PIN)   `);
+        process.stdout.write(`\r🚀 Autostart in ${timeLeft} Sekunden... (Drücke ENTER zum Ändern der Pilot-ID/PIN)   `);
         timeLeft--;
       } else {
         clearInterval(countdownInterval);
         if (!timerCompleted) {
           timerCompleted = true;
-          console.log(`\n\n✅ Starte automatisch mit ID: ${savedId}`);
+          console.log(`\n\n✅ Starte automatisch mit Pilot-ID: ${savedId}`);
           startTracker(savedId, savedPin);
         }
       }
     }, 1000);
-    process.stdout.write(`\r🚀 Autostart in 5 Sekunden... (Drücke ENTER zum Ändern der ID/PIN)   `);
+    process.stdout.write(`\r🚀 Autostart in 5 Sekunden... (Drücke ENTER zum Ändern der Pilot-ID/PIN)   `);
 
     // Lauscht auf die ENTER Taste
     rl.once('line', () => {
