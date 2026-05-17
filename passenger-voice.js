@@ -753,6 +753,14 @@ function _isMapTableOpen() {
     return !!(board && board.classList.contains('active'));
 }
 
+function _refreshPaxWidgetVisibility() {
+    const widget = document.getElementById('paxVoiceWidget');
+    if (!widget) return;
+    const shouldShow = (!!window.activePassenger && _missionHasPax()) || !!_lastPaxText;
+    widget.style.display = shouldShow ? 'flex' : 'none';
+    if (shouldShow) _ensurePaxWidgetOnScreen(true);
+}
+
 function _injectPaxUI() {
     if (document.getElementById('paxVoiceWidget')) return;
 
@@ -962,6 +970,10 @@ function _showPaxMessage(text, eventLabel) {
     clearTimeout(widget._autoClose);
     widget._autoClose = setTimeout(_closePaxPanel, 18000);
 }
+
+window.paxVoiceRefreshWidget = function() {
+    _refreshPaxWidgetVisibility();
+};
 
 function _togglePaxPanel() {
     const panel = document.getElementById('paxVoicePanel');
@@ -2595,5 +2607,6 @@ function _tickPoiDwell(lat, lon, flightData) {
     _normalizeActivePassengerGender();
 
     _injectPaxUI();
+    _refreshPaxWidgetVisibility();
     _paxLog('System bereit', 'state');
 }());

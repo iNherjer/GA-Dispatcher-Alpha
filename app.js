@@ -1953,6 +1953,7 @@ async function restoreMissionState(state) {
     window._missionRouteWaypoints = state.missionRouteWaypoints || null;
     const restoredHasPassenger = missionHasPassengerByPaxText(state.mPay || '');
     window.activePassenger = restoredHasPassenger ? (state.activePassenger || null) : null;
+    if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
     currentStartICAO = state.currentStartICAO; currentDestICAO = state.currentDestICAO;
     currentSName = state.currentSName; currentDName = state.currentDName;
     currentDepFreq = state.currentDepFreq || ""; currentDestFreq = state.currentDestFreq || "";
@@ -7759,6 +7760,7 @@ async function generateMission() {
     window.activePassenger = (aiModeEnabled && isAiGeneratedMission && missionHasPassenger && m && m.passenger)
         ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt)
         : null;
+    if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
     const activeMissionContract = buildMissionContract({
         isPOI,
         requestedProfileId: m?._requestedProfile || selectedMissionProfile || 'auto',

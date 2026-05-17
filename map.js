@@ -749,7 +749,11 @@ function applyMapHintEffects(key) {
     }
     if (key === 'currentInfo') {
         const box = document.getElementById('liveCurrentBox');
-        if (box) box.classList.toggle('tele-hint-off', !window.mapHints.currentInfo);
+        const on = window.mapHints.currentInfo !== false;
+        if (box) {
+            box.classList.toggle('tele-hint-off', !on);
+            if (!on) box.style.display = 'none';
+        }
     }
     if (key === 'nextLeg') {
         const box = document.getElementById('liveNextWpBox');

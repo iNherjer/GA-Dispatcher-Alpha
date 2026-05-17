@@ -1722,7 +1722,7 @@ function updateCurrentInfoTelemetry(lat, lon, alt = null) {
         return;
     }
 
-    const shouldShow = window.simModeActive || isMapHintOn('currentInfo', true);
+    const shouldShow = isMapHintOn('currentInfo', true);
     box.style.display = shouldShow ? 'block' : 'none';
     if (!shouldShow) return;
 
