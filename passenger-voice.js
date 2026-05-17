@@ -374,8 +374,11 @@ function _trainingEvalSummary() {
 let _paxStrictMode = (localStorage.getItem('awm_pax_strict') === '1');
 let _paxHumorLevel = (localStorage.getItem('awm_pax_humor') || 'normal');
 if (!['subtle', 'normal', 'bold'].includes(_paxHumorLevel)) _paxHumorLevel = 'normal';
-let _paxTtsModelPref = (localStorage.getItem('awm_pax_tts_model') || 'auto');
-if (!['auto', '3.1', '2.5'].includes(_paxTtsModelPref)) _paxTtsModelPref = 'auto';
+function _normalizePaxTtsModelPref(mode) {
+    return (mode === '2.5' || mode === 'auto') ? mode : 'auto';
+}
+let _paxTtsModelPref = _normalizePaxTtsModelPref(localStorage.getItem('awm_pax_tts_model') || 'auto');
+localStorage.setItem('awm_pax_tts_model', _paxTtsModelPref);
 
 window.paxVoiceSetMode = function(strict) {
     _paxStrictMode = !!strict;
@@ -393,7 +396,7 @@ window.paxVoiceSetHumor = function(level) {
 };
 
 window.paxVoiceSetTtsModel = function(mode) {
-    const next = (mode === '3.1' || mode === '2.5' || mode === 'auto') ? mode : 'auto';
+    const next = _normalizePaxTtsModelPref(mode);
     _paxTtsModelPref = next;
     localStorage.setItem('awm_pax_tts_model', next);
     const el = document.getElementById('awmPaxTtsModelSelect');
@@ -1258,11 +1261,7 @@ async function _playTextAsTTS(text, speaker = null) {
     const resolvedGender = _normSpeakerGender(pax);
     const voiceCandidates = _ttsVoiceCandidatesForSpeaker(pax);
     _paxLog(`TTS Stimmen: ${voiceCandidates.join(' -> ')} | Persona: ${pax?.name || 'unbekannt'} | Gender: ${resolvedGender} (raw: ${String(pax?.gender || 'n/a')})`, 'state');
-    const ttsModels = (_paxTtsModelPref === '3.1')
-        ? ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']
-        : (_paxTtsModelPref === '2.5')
-            ? ['gemini-2.5-flash-preview-tts']
-            : ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts'];
+    const ttsModels = ['gemini-2.5-flash-preview-tts'];
     _paxLog(`TTS-Modelle: ${ttsModels.join(' -> ')} | Modus: ${_paxTtsModelPref}`, 'state');
 
     let lastErr = null;
