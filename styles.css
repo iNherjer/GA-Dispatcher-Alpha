@@ -6884,7 +6884,10 @@ body.map-drawing-active #map.leaflet-dragging {
 
 /* ── Passenger voice widget — always on top in map fullscreen ── */
 #paxVoiceWidget {
-    z-index: 100200 !important;
+    z-index: 100110 !important;
+}
+#mapTableOverlay #paxVoiceWidget {
+    z-index: 100115 !important;
 }
 body.map-is-fullscreen #paxVoiceWidget {
     bottom: 80px;

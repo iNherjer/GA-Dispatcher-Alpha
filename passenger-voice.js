@@ -217,6 +217,9 @@ window.paxVoiceResetMission = function() {
     _poiTrainingZoneStartDone = false;
     _poiTrainingLandingBriefDone = false;
     _poiNarrativeMemory = { pre: '', entry: '', done: '' };
+    _lastPaxText = '';
+    _closePaxPanel();
+    _refreshPaxWidgetVisibility();
 };
 
 function _poiMemoryCompact(text) {
@@ -753,10 +756,20 @@ function _isMapTableOpen() {
     return !!(board && board.classList.contains('active'));
 }
 
+function _syncPaxWidgetHost() {
+    const widget = document.getElementById('paxVoiceWidget');
+    if (!widget) return;
+    const mapOverlay = document.getElementById('mapTableOverlay');
+    const useMapOverlay = !!(document.body.classList.contains('maptable-open') && mapOverlay && mapOverlay.classList.contains('active'));
+    const host = useMapOverlay ? mapOverlay : document.body;
+    if (widget.parentElement !== host) host.appendChild(widget);
+}
+
 function _refreshPaxWidgetVisibility() {
     const widget = document.getElementById('paxVoiceWidget');
     if (!widget) return;
-    const shouldShow = (!!window.activePassenger && _missionHasPax()) || !!_lastPaxText;
+    _syncPaxWidgetHost();
+    const shouldShow = !!_lastPaxText;
     widget.style.display = shouldShow ? 'flex' : 'none';
     if (shouldShow) _ensurePaxWidgetOnScreen(true);
 }
@@ -837,6 +850,8 @@ function _injectPaxUI() {
     _initPaxWidgetDrag(widget, btn);
     window.addEventListener('resize', _ensurePaxWidgetOnScreen);
     window.addEventListener('orientationchange', _ensurePaxWidgetOnScreen);
+    const classObserver = new MutationObserver(() => _syncPaxWidgetHost());
+    classObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 }
 
 function _initPaxWidgetDrag(widget, btn) {
