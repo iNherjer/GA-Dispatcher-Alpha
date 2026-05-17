@@ -746,6 +746,7 @@ let _paxPanel = null;
 let _paxBtn   = null;
 let _lastPaxText = '';
 const _AIRPORT_AT_TARGET_NM = 4.0;
+const _PAX_WIDGET_POS_KEY = 'ga_pax_widget_pos';
 
 function _isMapTableOpen() {
     const board = document.getElementById('mapTableOverlay');
@@ -831,8 +832,6 @@ function _injectPaxUI() {
 }
 
 function _initPaxWidgetDrag(widget, btn) {
-    const STORAGE_KEY = 'ga_pax_widget_pos';
-
     function applyPos(top, left) {
         widget.style.top    = top + 'px';
         widget.style.left   = left + 'px';
@@ -840,7 +839,7 @@ function _initPaxWidgetDrag(widget, btn) {
         widget.style.right  = 'auto';
     }
 
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(_PAX_WIDGET_POS_KEY);
     if (saved) {
         try {
             const { top, left } = JSON.parse(saved);
@@ -850,6 +849,7 @@ function _initPaxWidgetDrag(widget, btn) {
             widget.style.right  = 'auto';
         } catch(e) {}
     }
+    requestAnimationFrame(() => _ensurePaxWidgetOnScreen(true));
 
     let _dragging = false, _startX, _startY, _startLeft, _startTop;
     let _ignoreClickUntil = 0;
@@ -884,7 +884,7 @@ function _initPaxWidgetDrag(widget, btn) {
     const onPointerDone = (e) => {
         if (btn.hasPointerCapture(e.pointerId)) btn.releasePointerCapture(e.pointerId);
         if (_dragging) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ top: widget.style.top, left: widget.style.left }));
+            localStorage.setItem(_PAX_WIDGET_POS_KEY, JSON.stringify({ top: widget.style.top, left: widget.style.left }));
             _dragging = false;
             _ignoreClickUntil = Date.now() + 250;
             e.stopImmediatePropagation();
@@ -895,13 +895,12 @@ function _initPaxWidgetDrag(widget, btn) {
 
     // Override click to ignore drag-end
     btn.addEventListener('click', e => {
-        if (!_isMapTableOpen()) return;
         if (_dragging || Date.now() < _ignoreClickUntil) { e.stopImmediatePropagation(); return; }
         _togglePaxPanel();
     }, true);
 }
 
-function _ensurePaxWidgetOnScreen() {
+function _ensurePaxWidgetOnScreen(persist = false) {
     const widget = document.getElementById('paxVoiceWidget');
     const panel = document.getElementById('paxVoicePanel');
     const btn = document.getElementById('paxVoiceBtn');
@@ -924,6 +923,9 @@ function _ensurePaxWidgetOnScreen() {
     widget.style.left = left + 'px';
     widget.style.bottom = 'auto';
     widget.style.right = 'auto';
+    if (persist) {
+        localStorage.setItem(_PAX_WIDGET_POS_KEY, JSON.stringify({ top: widget.style.top, left: widget.style.left }));
+    }
 }
 
 function _showPaxMessage(text, eventLabel) {
@@ -942,6 +944,7 @@ function _showPaxMessage(text, eventLabel) {
     if (textEl) textEl.textContent = text;
 
     widget.style.display = 'flex';
+    _ensurePaxWidgetOnScreen(true);
 
     // Auto-open panel only in text-only mode (voice off)
     if (panel && !_paxVoiceEnabled) {

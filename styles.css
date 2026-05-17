@@ -6886,10 +6886,6 @@ body.map-drawing-active #map.leaflet-dragging {
 #paxVoiceWidget {
     z-index: 100200 !important;
 }
-body:not(.maptable-open) #paxVoiceWidget {
-    display: none !important;
-    pointer-events: none !important;
-}
 body.map-is-fullscreen #paxVoiceWidget {
     bottom: 80px;
 }

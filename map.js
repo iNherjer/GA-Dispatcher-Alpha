@@ -6161,19 +6161,40 @@ function positionMapDrawMenuNearButton() {
     menu.style.top = `${top}px`;
 }
 
+function getMapDrawFloatingDefaultPosition(areaRect, railWidth, railHeight) {
+    const margin = 18;
+    return {
+        left: margin,
+        top: Math.max(margin, areaRect.height - railHeight - margin)
+    };
+}
+
+function isMapDrawFloatingAreaUsable(areaRect, railWidth, railHeight) {
+    return areaRect.width >= railWidth + 16 && areaRect.height >= railHeight + 16;
+}
+
+function applyMapDrawFloatingButtonPosition(rail, left, top) {
+    rail.style.left = `${left}px`;
+    rail.style.top = `${top}px`;
+    rail.style.right = 'auto';
+    rail.style.bottom = 'auto';
+}
+
 function clampMapDrawFloatingButtonPosition() {
     const rail = document.getElementById('mapDrawRail');
     const button = document.getElementById('mapDrawFloatingBtn');
     const area = document.getElementById('mapArea');
-    if (!rail || !button || !area || !rail.style.left || !rail.style.top) return;
+    if (!rail || !button || !area) return;
     const areaRect = area.getBoundingClientRect();
     const railWidth = rail.offsetWidth || 46;
     const railHeight = rail.offsetHeight || 46;
-    const left = Math.max(8, Math.min(areaRect.width - railWidth - 8, parseFloat(rail.style.left) || 8));
-    const top = Math.max(8, Math.min(areaRect.height - railHeight - 8, parseFloat(rail.style.top) || 8));
-    rail.style.left = `${left}px`;
-    rail.style.top = `${top}px`;
-    rail.style.right = 'auto';
+    if (!isMapDrawFloatingAreaUsable(areaRect, railWidth, railHeight)) return;
+    const fallback = getMapDrawFloatingDefaultPosition(areaRect, railWidth, railHeight);
+    const rawLeft = Number.isFinite(parseFloat(rail.style.left)) ? parseFloat(rail.style.left) : fallback.left;
+    const rawTop = Number.isFinite(parseFloat(rail.style.top)) ? parseFloat(rail.style.top) : fallback.top;
+    const left = Math.max(8, Math.min(areaRect.width - railWidth - 8, rawLeft));
+    const top = Math.max(8, Math.min(areaRect.height - railHeight - 8, rawTop));
+    applyMapDrawFloatingButtonPosition(rail, left, top);
     positionMapDrawToolStack();
     if (mapDrawState.menuOpen) positionMapDrawMenuNearButton();
 }
@@ -6188,10 +6209,19 @@ function initMapDrawFloatingButton() {
         try { return JSON.parse(localStorage.getItem('ga_map_draw_button_pos') || 'null'); } catch (e) { return null; }
     })();
     if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
-        rail.style.left = `${saved.left}px`;
-        rail.style.top = `${saved.top}px`;
-        rail.style.right = 'auto';
+        applyMapDrawFloatingButtonPosition(rail, saved.left, saved.top);
         requestAnimationFrame(() => {
+            clampMapDrawFloatingButtonPosition();
+            positionMapDrawToolStack();
+        });
+    } else {
+        requestAnimationFrame(() => {
+            const areaRect = area.getBoundingClientRect();
+            const railWidth = rail.offsetWidth || 46;
+            const railHeight = rail.offsetHeight || 46;
+            if (!isMapDrawFloatingAreaUsable(areaRect, railWidth, railHeight)) return;
+            const pos = getMapDrawFloatingDefaultPosition(areaRect, railWidth, railHeight);
+            applyMapDrawFloatingButtonPosition(rail, pos.left, pos.top);
             clampMapDrawFloatingButtonPosition();
             positionMapDrawToolStack();
         });
@@ -6226,9 +6256,7 @@ function initMapDrawFloatingButton() {
         const railHeight = rail.offsetHeight || 46;
         const left = Math.max(8, Math.min(drag.areaRect.width - railWidth - 8, evt.clientX - drag.areaRect.left - drag.offsetX));
         const top = Math.max(8, Math.min(drag.areaRect.height - railHeight - 8, evt.clientY - drag.areaRect.top - drag.offsetY));
-        rail.style.left = `${left}px`;
-        rail.style.top = `${top}px`;
-        rail.style.right = 'auto';
+        applyMapDrawFloatingButtonPosition(rail, left, top);
         positionMapDrawToolStack();
         if (mapDrawState.menuOpen) positionMapDrawMenuNearButton();
         evt.stopPropagation();

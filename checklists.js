@@ -731,7 +731,7 @@
                     <span class="checklist-tool-icon" aria-hidden="true">🌦️</span>
                     <span>
                         <span class="checklist-tool-name">Wetter</span>
-                        <span class="checklist-tool-count">${route.length >= 2 ? 'Route · sparsame Übersicht' : 'Route planen für Enroute-Wetter'}</span>
+                        <span class="checklist-tool-count">${route.length >= 2 ? 'Übersicht • Route' : 'Route planen für Enroute-Wetter'}</span>
                     </span>
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
