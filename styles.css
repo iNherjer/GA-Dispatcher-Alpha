@@ -7092,7 +7092,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .api-settings {
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .slider-container {
-    padding: 12px 13px;
+    padding: 9px 13px;
     margin-bottom: 0;
 }
 
@@ -7115,17 +7115,33 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .drum-readout-cont
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range] {
-    height: 7px;
-    margin: 13px 0 2px;
+    height: 16px;
+    margin: 8px 0 1px;
     padding: 0;
-    background: linear-gradient(90deg, rgba(126, 199, 255, 0.95), rgba(104, 242, 160, 0.86));
+    background: transparent;
     border: 0;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range]::-webkit-slider-runnable-track {
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(126, 199, 255, 0.95), rgba(104, 242, 160, 0.86));
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.24);
+}
+
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range]::-moz-range-track {
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(126, 199, 255, 0.95), rgba(104, 242, 160, 0.86));
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.24);
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range]::-webkit-slider-thumb {
-    width: 24px;
-    height: 24px;
+    width: 13px;
+    height: 13px;
+    margin-top: -2px;
     background: #f8fcff;
     border: 1px solid rgba(255, 255, 255, 0.9);
     box-shadow:
