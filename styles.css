@@ -7115,7 +7115,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .drum-readout-cont
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range] {
-    height: 16px;
+    height: 26px;
     margin: 8px 0 1px;
     padding: 0;
     background: transparent;
@@ -7125,14 +7125,14 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range] 
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range]::-webkit-slider-runnable-track {
-    height: 10px;
+    height: 20px;
     border-radius: 999px;
     background: linear-gradient(90deg, rgba(126, 199, 255, 0.95), rgba(104, 242, 160, 0.86));
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.24);
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) input[type=range]::-moz-range-track {
-    height: 10px;
+    height: 20px;
     border-radius: 999px;
     background: linear-gradient(90deg, rgba(126, 199, 255, 0.95), rgba(104, 242, 160, 0.86));
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.24);
