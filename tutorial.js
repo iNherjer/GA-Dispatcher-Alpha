@@ -504,6 +504,14 @@
     function createTutorialDom() {
         let root = document.getElementById('gaTutorialOverlay');
         let windowRoot = document.getElementById('gaTutorialWindow');
+        if (root && !root.querySelector('#gaTutorialSpotlight')) {
+            root.remove();
+            root = null;
+        }
+        if (windowRoot && !windowRoot.querySelector('.ga-tut-window')) {
+            windowRoot.remove();
+            windowRoot = null;
+        }
         if (root && windowRoot) return root;
 
         if (!root) {

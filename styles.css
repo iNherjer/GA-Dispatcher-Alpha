@@ -10068,6 +10068,18 @@ body.theme-ops1940 .map-mission-btn.is-active {
     display: block;
 }
 
+#gaTutorialWindow {
+    position: fixed;
+    inset: 0;
+    z-index: 220002;
+    display: none;
+    pointer-events: none;
+}
+
+#gaTutorialWindow.active {
+    display: block;
+}
+
 #gaTutorialOverlay .ga-tut-dim {
     position: absolute;
     inset: 0;
@@ -10089,7 +10101,9 @@ body.theme-ops1940 .map-mission-btn.is-active {
     opacity: 1;
 }
 
-#gaTutorialOverlay .ga-tut-window {
+#gaTutorialOverlay .ga-tut-window,
+#gaTutorialWindow .ga-tut-window,
+.ga-tut-window {
     position: fixed;
     left: 50%;
     top: 50%;
@@ -10104,8 +10118,10 @@ body.theme-ops1940 .map-mission-btn.is-active {
     box-shadow: 0 20px 44px rgba(0, 0, 0, 0.55);
     color: #d8e8fb;
     font-family: 'Arial', sans-serif;
-    z-index: 220002;
+    z-index: 220003;
     pointer-events: auto;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 #gaTutorialOverlay.ga-tut-freeview .ga-tut-dim {
@@ -10118,7 +10134,9 @@ body.theme-ops1940 .map-mission-btn.is-active {
     box-shadow: none;
 }
 
-#gaTutorialOverlay .ga-tut-head {
+#gaTutorialOverlay .ga-tut-head,
+#gaTutorialWindow .ga-tut-head,
+.ga-tut-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -10127,13 +10145,17 @@ body.theme-ops1940 .map-mission-btn.is-active {
     padding: 10px 12px;
 }
 
-#gaTutorialOverlay .ga-tut-title {
+#gaTutorialOverlay .ga-tut-title,
+#gaTutorialWindow .ga-tut-title,
+.ga-tut-title {
     font-size: 14px;
     font-weight: 700;
     color: #f5fbff;
 }
 
-#gaTutorialOverlay .ga-tut-close {
+#gaTutorialOverlay .ga-tut-close,
+#gaTutorialWindow .ga-tut-close,
+.ga-tut-close {
     border: 1px solid #47617f;
     border-radius: 6px;
     background: #1b2735;
@@ -10143,26 +10165,36 @@ body.theme-ops1940 .map-mission-btn.is-active {
     cursor: pointer;
 }
 
-#gaTutorialOverlay .ga-tut-body {
+#gaTutorialOverlay .ga-tut-body,
+#gaTutorialWindow .ga-tut-body,
+.ga-tut-body {
     overflow: auto;
     padding: 12px;
     font-size: 13px;
     line-height: 1.45;
 }
 
-#gaTutorialOverlay .ga-tut-body p {
+#gaTutorialOverlay .ga-tut-body p,
+#gaTutorialWindow .ga-tut-body p,
+.ga-tut-body p {
     margin: 0 0 8px 0;
 }
 
-#gaTutorialOverlay .ga-tut-body p:last-child {
+#gaTutorialOverlay .ga-tut-body p:last-child,
+#gaTutorialWindow .ga-tut-body p:last-child,
+.ga-tut-body p:last-child {
     margin-bottom: 0;
 }
 
-#gaTutorialOverlay .ga-tut-body a {
+#gaTutorialOverlay .ga-tut-body a,
+#gaTutorialWindow .ga-tut-body a,
+.ga-tut-body a {
     color: #8dc7ff;
 }
 
-#gaTutorialOverlay .ga-tut-foot {
+#gaTutorialOverlay .ga-tut-foot,
+#gaTutorialWindow .ga-tut-foot,
+.ga-tut-foot {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -10171,19 +10203,25 @@ body.theme-ops1940 .map-mission-btn.is-active {
     padding: 10px 12px;
 }
 
-#gaTutorialOverlay .ga-tut-counter {
+#gaTutorialOverlay .ga-tut-counter,
+#gaTutorialWindow .ga-tut-counter,
+.ga-tut-counter {
     color: #9fb8d1;
     font-size: 12px;
     font-family: monospace;
 }
 
-#gaTutorialOverlay .ga-tut-actions {
+#gaTutorialOverlay .ga-tut-actions,
+#gaTutorialWindow .ga-tut-actions,
+.ga-tut-actions {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-#gaTutorialOverlay .ga-tut-btn {
+#gaTutorialOverlay .ga-tut-btn,
+#gaTutorialWindow .ga-tut-btn,
+.ga-tut-btn {
     border: 1px solid #4a6582;
     border-radius: 7px;
     background: #1a2734;
@@ -10194,18 +10232,24 @@ body.theme-ops1940 .map-mission-btn.is-active {
     cursor: pointer;
 }
 
-#gaTutorialOverlay .ga-tut-btn:disabled {
+#gaTutorialOverlay .ga-tut-btn:disabled,
+#gaTutorialWindow .ga-tut-btn:disabled,
+.ga-tut-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
 }
 
-#gaTutorialOverlay .ga-tut-btn-primary {
+#gaTutorialOverlay .ga-tut-btn-primary,
+#gaTutorialWindow .ga-tut-btn-primary,
+.ga-tut-btn-primary {
     background: linear-gradient(180deg, #4c93d7, #2f6fa8);
     color: #fff;
     border-color: #5ea5ea;
 }
 
-#gaTutorialOverlay .ga-tut-btn-ghost {
+#gaTutorialOverlay .ga-tut-btn-ghost,
+#gaTutorialWindow .ga-tut-btn-ghost,
+.ga-tut-btn-ghost {
     background: #162231;
 }
 
@@ -10266,7 +10310,9 @@ body.theme-ops1940 .map-mission-btn.is-active {
 }
 
 @media (max-width: 700px) {
-    #gaTutorialOverlay .ga-tut-window {
+    #gaTutorialOverlay .ga-tut-window,
+    #gaTutorialWindow .ga-tut-window,
+    .ga-tut-window {
         top: auto;
         left: 50%;
         bottom: 8px;
