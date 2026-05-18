@@ -7,8 +7,15 @@
         steps: [],
         index: 0,
         cleanup: [],
-        previousUiState: null
+        previousUiState: null,
+        demoBriefing: null
     };
+
+    const BRIEFING_DEMO_IDS = [
+        'mTitle', 'mStory', 'mDepICAO', 'mDepName', 'mDepCoords', 'mDepRwy',
+        'mDestICAO', 'mDestName', 'mDestCoords', 'mDestRwy', 'mPay', 'mWeight',
+        'mDistNote', 'mHeadingNote', 'mETENote'
+    ];
 
     function isElementVisible(el) {
         if (!el) return false;
@@ -81,6 +88,71 @@
         const pin = document.getElementById('pinboardOverlay');
         const open = !!(pin && pin.classList.contains('active'));
         if (!open && typeof window.togglePinboard === 'function') window.togglePinboard(true);
+    }
+
+    function activateTutorialDemoBriefing() {
+        const box = document.getElementById('briefingBox');
+        if (!box || box.style.display === 'block' || state.demoBriefing) return;
+
+        const snapshot = {
+            boxDisplay: box.style.display || '',
+            values: {}
+        };
+        BRIEFING_DEMO_IDS.forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            snapshot.values[id] = {
+                text: el.innerText,
+                html: el.innerHTML
+            };
+        });
+        state.demoBriefing = snapshot;
+
+        const setText = (id, text) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = text;
+        };
+        const setHtml = (id, html) => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = html;
+        };
+
+        setHtml('mTitle', '🧪 Demo Briefing (Tutorial)');
+        setText('mStory', 'Dieses Demo-Briefing wird nur im Tutorial angezeigt und danach wieder entfernt.');
+        setText('mDepICAO', 'EDTW');
+        setText('mDepName', 'Wing Field');
+        setText('mDepCoords', '48.02, 8.53');
+        setText('mDepRwy', 'RWY 09/27');
+        setText('mDestICAO', 'EDNY');
+        setText('mDestName', 'Friedrichshafen');
+        setText('mDestCoords', '47.67, 9.51');
+        setText('mDestRwy', 'RWY 06/24');
+        setText('mPay', '4 PAX');
+        setText('mWeight', '~ 240 kg');
+        setText('mDistNote', '82 NM');
+        setText('mHeadingNote', 'Kurs 132°');
+        setText('mETENote', '0h 43m');
+        box.style.display = 'block';
+    }
+
+    function deactivateTutorialDemoBriefing() {
+        const box = document.getElementById('briefingBox');
+        const snap = state.demoBriefing;
+        if (!snap) return;
+
+        BRIEFING_DEMO_IDS.forEach((id) => {
+            const el = document.getElementById(id);
+            const prev = snap.values[id];
+            if (!el || !prev) return;
+            el.innerHTML = prev.html;
+        });
+        if (box) box.style.display = snap.boxDisplay;
+        state.demoBriefing = null;
+    }
+
+    function syncBriefingModeForStep(step) {
+        if (step && step.useDemoBriefing) activateTutorialDemoBriefing();
+        else deactivateTutorialDemoBriefing();
     }
 
     function ensureMapHintsMenuOpen() {
@@ -209,7 +281,7 @@
             },
             {
                 title: 'Start & Ziel',
-                selector: '#startLoc',
+                selector: ['#startLoc', '#startLocRadio', '#opsDepInput'],
                 body: `
                     <p>Hier legst du den <strong>Startplatz</strong> und optional den <strong>Zielplatz</strong> fest.</p>
                     <p>Wenn das Zielfeld leer bleibt, wird beim Generieren ein passendes Ziel <strong>random</strong> gewählt.</p>
@@ -222,7 +294,7 @@
             },
             {
                 title: 'Distanz, Richtung, Region',
-                selector: '#distRange',
+                selector: ['#distRange', '#distRangeRadio', '#opsRangeSelect', '#dirPref', '#regionFilter'],
                 body: `
                     <p>Über <strong>Distanz</strong>, <strong>Richtung</strong> und <strong>Region</strong> steuerst du den Suchraum.</p>
                     <p>Mit <strong>Egal / Zufall</strong> bleibt die Auswahl random, mit festen Werten wird gezielt gefiltert.</p>
@@ -235,7 +307,7 @@
             },
             {
                 title: 'Mission Type',
-                selector: '#targetType',
+                selector: ['#targetType', '#targetTypeRadio', '#opsTypeSelect'],
                 body: `
                     <p>Bei <strong>Typ</strong> wählst du z.B. <strong>APT</strong> (Flugplatz zu Flugplatz) oder <strong>POI</strong> (Rundflug/Ort).</p>
                     <p>Je nach Picker-Modus sind zusätzlich Freeflight/Profil-Varianten möglich. Die groben Missionstypen regeln, ob eher klassischer Transfer, Rundflug oder freies Planen erzeugt wird.</p>
@@ -248,7 +320,7 @@
             },
             {
                 title: 'Flugzeug-Parameter',
-                selector: '#gphSlider',
+                selector: ['#gphSlider', '#tasSlider', '#maxSeats', '#gphDragKnob', '#tasDragKnob', '.preset-row'],
                 body: `
                     <p>Die Parameter <strong>Sitze, GPH, TAS, ALT und V/S</strong> fließen direkt in die Berechnung ein.</p>
                     <p>Sie beeinflussen das Briefing, z.B. Nutzlast/Payload, ETE, Distanz- und Performance-Hinweise.</p>
@@ -274,9 +346,10 @@
             {
                 title: 'Briefing verstehen',
                 selector: ['#briefingBox', '#generateBtn', '#radioGenerateBtn'],
+                useDemoBriefing: true,
                 body: `
                     <p>Im <strong>Briefing</strong> findest du alle wichtigen Fluginfos: Strecke, Kurs, ETE, Payload/Fracht, Wetter/Frequenzen und Missionsdetails.</p>
-                    <p>Falls noch kein Briefing sichtbar ist, erst einen Auftrag generieren und dann diesen Schritt erneut ansehen.</p>
+                    <p>Wenn noch kein Flug erzeugt wurde, zeigt das Tutorial hier automatisch ein Demo-Briefing mit Beispielwerten.</p>
                 `,
                 beforeEnter: () => {
                     ensureMapClosed();
@@ -286,6 +359,7 @@
             {
                 title: 'Briefing speichern/exportieren',
                 selector: ['.briefing-pdf-pin', '.briefing-save-pin', '#importHubBtn'],
+                useDemoBriefing: true,
                 body: `
                     <p>Im Briefing kannst du direkt <strong>PDF</strong> erstellen, Flüge an die <strong>Pinnwand</strong> pinnen oder über den Transfer-Hub exportieren/importieren.</p>
                     <p>So sicherst du Flüge oder gibst sie auf andere Geräte weiter.</p>
@@ -316,6 +390,8 @@
                     <p>Nach der Landung werden Missionen automatisch beendet.</p>
                 `,
                 beforeEnter: () => {
+                    ensurePinboardClosed();
+                    ensureMapClosed();
                     ensureSettingsOpen();
                 }
             },
@@ -334,6 +410,7 @@
             {
                 title: 'Seiten-Menü im EFB',
                 selector: '#mapHintsMenu',
+                windowPlacement: 'top-left',
                 body: `
                     <p>Hier findest du Infos und Overlays wie Wetter, Plätze, Lufträume, Traffic und mehr.</p>
                     <p>Das Menü ist jetzt hervorgehoben. Öffne es und probiere die Optionen aus.</p>
@@ -359,6 +436,7 @@
             {
                 title: 'Voice-Warnungen',
                 selector: '#mapVoiceMenu',
+                windowPlacement: 'top-left',
                 body: `
                     <p>Im <strong>🎙️ Voice</strong>-Menü aktivierst du Audio-Warnungen für Terrain und Lufträume.</p>
                     <p>Zusätzlich gibt es Wegpunkt- und Funk-Ansagen.</p>
@@ -518,6 +596,7 @@
 
         localStorage.setItem(TUTORIAL_LAST_STEP_KEY, String(state.index || 0));
         document.querySelectorAll('.ga-tut-target').forEach((el) => el.classList.remove('ga-tut-target'));
+        deactivateTutorialDemoBriefing();
 
         restoreUiState();
     }
@@ -543,6 +622,7 @@
         if (!root) return;
         const step = state.steps[state.index];
         if (!step) return;
+        syncBriefingModeForStep(step);
 
         if (typeof step.beforeEnter === 'function') {
             try { step.beforeEnter(); } catch (err) { console.warn('[Tutorial] beforeEnter failed', err); }
@@ -591,18 +671,18 @@
         const step = state.steps[state.index];
         if (!step || !step.selector) {
             spot.classList.remove('active');
-            positionTutorialWindow(null, win);
+            positionTutorialWindow(null, win, step);
             return;
         }
         const target = getTarget(step.selector);
         if (step.freeView) {
             spot.classList.remove('active');
-            positionTutorialWindow(target, win);
+            positionTutorialWindow(target, win, step);
             return;
         }
         if (!target || !isElementVisible(target)) {
             spot.classList.remove('active');
-            positionTutorialWindow(null, win);
+            positionTutorialWindow(null, win, step);
             return;
         }
 
@@ -619,10 +699,10 @@
         spot.style.height = `${Math.max(24, height)}px`;
         spot.classList.add('active');
         target.classList.add('ga-tut-target');
-        positionTutorialWindow(target, win);
+        positionTutorialWindow(target, win, step);
     }
 
-    function positionTutorialWindow(target, winEl) {
+    function positionTutorialWindow(target, winEl, step) {
         const win = winEl || document.querySelector('#gaTutorialOverlay .ga-tut-window');
         if (!win) return;
         const pad = 12;
@@ -650,13 +730,22 @@
         }
 
         const tr = target.getBoundingClientRect();
+        const placement = String(step?.windowPlacement || '').toLowerCase();
+
+        if (placement === 'top-left') {
+            win.style.left = `${pad}px`;
+            win.style.top = `${pad}px`;
+            win.style.transform = 'none';
+            return;
+        }
 
         if (vw <= 700) {
             const placeTop = tr.top > (vh * 0.45);
-            const y = placeTop ? pad : (vh - h - pad);
+            const mobileBottomSafe = Math.max(74, pad + 52);
+            const y = placeTop ? pad : (vh - h - mobileBottomSafe);
             const x = Math.max(pad, Math.min(vw - w - pad, (vw - w) / 2));
             win.style.left = `${x}px`;
-            win.style.top = `${y}px`;
+            win.style.top = `${Math.max(pad, y)}px`;
             win.style.transform = 'none';
             return;
         }
