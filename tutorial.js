@@ -432,8 +432,10 @@
             },
             {
                 title: 'Seiten-Menü im EFB',
-                selector: '#mapSideDrawer',
+                selector: '#mapSideDrawer .map-side-drawer-panel',
                 windowPlacement: 'top-right',
+                focusDelay: 280,
+                settleDelay: 680,
                 body: `
                     <p>Das ist das <strong>Seiten-Menü</strong> im Kartentisch.</p>
                     <p>Hier findest du u.a. Checklisten, Wetter, Funk/Radio, Platzinfos, Warnungen und weitere EFB-Tools.</p>
@@ -448,6 +450,8 @@
                 title: 'Anzeige-Menü',
                 selector: '#mapHintsMenu',
                 windowPlacement: 'top-left',
+                focusDelay: 260,
+                settleDelay: 620,
                 body: `
                     <p>Hier steuerst du die Karten-Overlays (z.B. Wetter, Traffic, Telemetrie, Kompass, Terrain Avoid).</p>
                     <p>Das ist getrennt vom Seiten-Menü und regelt primär die Darstellung.</p>
@@ -475,6 +479,8 @@
                 title: 'Voice-Warnungen',
                 selector: '#mapVoiceMenu',
                 windowPlacement: 'top-left',
+                focusDelay: 260,
+                settleDelay: 620,
                 body: `
                     <p>Im <strong>🎙️ Voice</strong>-Menü aktivierst du Audio-Warnungen für Terrain und Lufträume.</p>
                     <p>Zusätzlich gibt es Wegpunkt- und Funk-Ansagen.</p>
@@ -569,7 +575,7 @@
             ['click', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend'].forEach((evtName) => {
                 windowBox.addEventListener(evtName, (evt) => {
                     evt.stopPropagation();
-                }, { capture: true });
+                });
             });
         }
 
@@ -717,14 +723,17 @@
             try { step.afterRender(); } catch (err) { console.warn('[Tutorial] afterRender failed', err); }
         }
 
+        const focusDelay = Number.isFinite(Number(step.focusDelay)) ? Math.max(0, Number(step.focusDelay)) : 80;
+        const settleDelay = Number.isFinite(Number(step.settleDelay)) ? Math.max(focusDelay + 40, Number(step.settleDelay)) : 360;
+
         setTimeout(() => {
             focusTarget(step);
             updateSpotlight();
-        }, 80);
+        }, focusDelay);
 
         setTimeout(() => {
             updateSpotlight();
-        }, 360);
+        }, settleDelay);
     }
 
     function focusTarget(step) {

@@ -10254,9 +10254,9 @@ body.theme-ops1940 .map-mission-btn.is-active {
 }
 
 .ga-tut-target {
-    position: relative !important;
-    z-index: 220001 !important;
-    box-shadow: 0 0 0 2px rgba(122, 198, 255, 0.85), 0 0 16px rgba(122, 198, 255, 0.35) !important;
+    outline: 2px solid rgba(122, 198, 255, 0.85) !important;
+    outline-offset: 0 !important;
+    box-shadow: 0 0 16px rgba(122, 198, 255, 0.35) !important;
     border-radius: 8px;
 }
 
