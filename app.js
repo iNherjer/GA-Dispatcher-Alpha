@@ -1903,7 +1903,8 @@ function saveMissionState() {
         vpAltWaypoints: typeof vpAltWaypoints !== 'undefined' ? vpAltWaypoints : [],
         vpSegmentAlts: typeof vpSegmentAlts !== 'undefined' ? vpSegmentAlts : [],
         vpElevationData: typeof vpElevationData !== 'undefined' ? vpElevationData : null,
-        activePassenger: window.activePassenger || null
+        activePassenger: window.activePassenger || null,
+        activeMissionContract: window.activeMissionContract || currentMissionData?.missionContract || null
     };
     localStorage.setItem('ga_active_mission', JSON.stringify(state));
     triggerCloudSave();
@@ -1952,7 +1953,41 @@ async function restoreMissionState(state) {
     currentMissionData = state.currentMissionData; routeWaypoints = state.routeWaypoints;
     window._missionRouteWaypoints = state.missionRouteWaypoints || null;
     const restoredHasPassenger = missionHasPassengerByPaxText(state.mPay || '');
-    window.activePassenger = restoredHasPassenger ? (state.activePassenger || null) : null;
+    let restoredPassenger = null;
+    if (restoredHasPassenger) {
+        restoredPassenger = (state.activePassenger && typeof state.activePassenger === 'object') ? state.activePassenger : null;
+        if (!restoredPassenger) {
+            try {
+                const lsPassenger = JSON.parse(localStorage.getItem('ga_active_passenger') || 'null');
+                if (lsPassenger && typeof lsPassenger === 'object') restoredPassenger = lsPassenger;
+            } catch (_) {}
+        }
+    }
+    window.activePassenger = restoredPassenger;
+
+    let restoredMissionContract = (state.activeMissionContract && typeof state.activeMissionContract === 'object')
+        ? state.activeMissionContract
+        : ((state.currentMissionData?.missionContract && typeof state.currentMissionData.missionContract === 'object')
+            ? state.currentMissionData.missionContract
+            : null);
+    if (!restoredMissionContract) {
+        try {
+            const lsContract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null');
+            if (lsContract && typeof lsContract === 'object') restoredMissionContract = lsContract;
+        } catch (_) {}
+    }
+    window.activeMissionContract = restoredMissionContract || null;
+    if (currentMissionData && typeof currentMissionData === 'object') {
+        currentMissionData.missionContract = window.activeMissionContract;
+    }
+    try {
+        if (window.activePassenger) localStorage.setItem('ga_active_passenger', JSON.stringify(window.activePassenger));
+        else localStorage.removeItem('ga_active_passenger');
+    } catch (_) {}
+    try {
+        if (window.activeMissionContract) localStorage.setItem('ga_active_mission_contract', JSON.stringify(window.activeMissionContract));
+        else localStorage.removeItem('ga_active_mission_contract');
+    } catch (_) {}
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
     currentStartICAO = state.currentStartICAO; currentDestICAO = state.currentDestICAO;
     currentSName = state.currentSName; currentDName = state.currentDName;

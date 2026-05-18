@@ -337,6 +337,14 @@ function editNote(id, isGroup) {
 }
 function pinCurrentFlight() {
     if (document.getElementById("briefingBox").style.display !== "block" || !currentMissionData) return;
+    let pinnedMissionContract = window.activeMissionContract || currentMissionData?.missionContract || null;
+    if (!pinnedMissionContract) {
+        try {
+            pinnedMissionContract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null');
+        } catch (_) {
+            pinnedMissionContract = null;
+        }
+    }
     const state = {
         mTitle: document.getElementById('mTitle').innerHTML, mStory: document.getElementById('mStory').innerText,
         mDepICAO: document.getElementById("mDepICAO").innerText, mDepName: document.getElementById("mDepName").innerText,
@@ -355,10 +363,15 @@ function pinCurrentFlight() {
         isPOI: document.getElementById("destRwyContainer").style.display === "none",
         currentMissionData: currentMissionData, routeWaypoints: routeWaypoints, currentStartICAO: currentStartICAO,
         currentDestICAO: currentDestICAO, currentSName: currentSName, currentDName: currentDName,
-        currentDepFreq: currentDepFreq, currentDestFreq: currentDestFreq, freqCache: freqCache,
+        currentDepFreq: currentDepFreq, currentDestFreq: currentDestFreq,
+        currentDepElev: currentDepElev, currentDestElev: currentDestElev,
+        missionRouteWaypoints: window._missionRouteWaypoints || null,
+        freqCache: freqCache,
         vpAltWaypoints: typeof vpAltWaypoints !== 'undefined' ? vpAltWaypoints : [],
         vpSegmentAlts: typeof vpSegmentAlts !== 'undefined' ? vpSegmentAlts : [],
-        vpElevationData: typeof vpElevationData !== 'undefined' ? vpElevationData : null
+        vpElevationData: typeof vpElevationData !== 'undefined' ? vpElevationData : null,
+        activePassenger: window.activePassenger || null,
+        activeMissionContract: pinnedMissionContract || null
     };
     const routeText = `${currentStartICAO} ➔ ${currentDestICAO === "POI" ? currentMissionData.poiName : currentDestICAO}`;
     pendingPinNote = {
@@ -605,6 +618,9 @@ function loadPinnedFlight(id, isGroup) {
         note = notes.find(n => n.id === id);
     }
     if (note && note.flightData) {
+        try {
+            localStorage.setItem('ga_active_mission', JSON.stringify(note.flightData));
+        } catch (_) {}
         restoreMissionState(note.flightData);
         togglePinboard();
         setTimeout(() => { if (map && routeWaypoints.length >= 2) { map.fitBounds(L.latLngBounds(routeWaypoints), { padding: [40, 40] }); updateMiniMap(); } }, 300);
