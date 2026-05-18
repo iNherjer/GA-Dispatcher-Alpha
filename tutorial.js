@@ -162,6 +162,10 @@
         window.toggleMapHintsMenu(true);
     }
 
+    function ensureMapHintsMenuClosed() {
+        if (typeof window.toggleMapHintsMenu === 'function') window.toggleMapHintsMenu(false);
+    }
+
     function ensureMapVoiceMenuOpen() {
         const menu = document.getElementById('mapVoiceMenu');
         if (!menu || menu.style.display === 'block') return;
@@ -169,12 +173,31 @@
         else if (typeof window.toggleMapVoiceMenu === 'undefined' && typeof toggleMapVoiceMenu === 'function') toggleMapVoiceMenu();
     }
 
-    function closeTransientMapMenus() {
-        if (typeof window.toggleMapHintsMenu === 'function') window.toggleMapHintsMenu(false);
+    function ensureMapVoiceMenuClosed() {
         const voice = document.getElementById('mapVoiceMenu');
         if (voice) voice.style.display = 'none';
+    }
+
+    function ensureChecklistDrawerOpen() {
+        const drawer = document.getElementById('mapSideDrawer');
+        const open = !!(drawer && drawer.classList.contains('is-open'));
+        if (!open && typeof window.gaChecklistToggleDrawer === 'function') window.gaChecklistToggleDrawer(true);
+    }
+
+    function ensureChecklistDrawerClosed() {
+        if (typeof window.gaChecklistCloseDrawer === 'function') window.gaChecklistCloseDrawer();
+    }
+
+    function closeMapTransientUi() {
+        ensureMapHintsMenuClosed();
+        ensureMapVoiceMenuClosed();
+        ensureChecklistDrawerClosed();
         const vp = document.getElementById('vpSettingsMenu');
         if (vp) vp.style.display = 'none';
+    }
+
+    function closeTransientMapMenus() {
+        closeMapTransientUi();
     }
 
     function ensureMapDrawToolsVisible() {
@@ -212,11 +235,11 @@
             },
             {
                 title: 'Designs',
-                selector: '#settingsPanel',
-                freeView: true,
+                selector: '.settings-theme-section',
+                windowPlacement: 'top-left',
                 body: `
                     <p>Im Bereich <strong>Darstellung</strong> kannst du zwischen mehreren Looks wechseln: Modern, Analog, NavCom und Ops 1940.</p>
-                    <p>Teste die Themes direkt hier im Tutorial. In diesem Schritt bleibt die Ansicht extra offen, damit du alles sehen und bedienen kannst.</p>
+                    <p>Teste die Themes direkt hier im Tutorial.</p>
                 `,
                 beforeEnter: () => {
                     ensureSettingsOpen();
@@ -409,14 +432,29 @@
             },
             {
                 title: 'Seiten-Menü im EFB',
-                selector: '#mapHintsMenu',
-                windowPlacement: 'top-left',
+                selector: '#mapSideDrawer',
+                windowPlacement: 'top-right',
                 body: `
-                    <p>Hier findest du Infos und Overlays wie Wetter, Plätze, Lufträume, Traffic und mehr.</p>
-                    <p>Das Menü ist jetzt hervorgehoben. Öffne es und probiere die Optionen aus.</p>
+                    <p>Das ist das <strong>Seiten-Menü</strong> im Kartentisch.</p>
+                    <p>Hier findest du u.a. Checklisten, Wetter, Funk/Radio, Platzinfos, Warnungen und weitere EFB-Tools.</p>
                 `,
                 beforeEnter: () => {
                     ensureMapOpen();
+                    closeMapTransientUi();
+                    setTimeout(ensureChecklistDrawerOpen, 120);
+                }
+            },
+            {
+                title: 'Anzeige-Menü',
+                selector: '#mapHintsMenu',
+                windowPlacement: 'top-left',
+                body: `
+                    <p>Hier steuerst du die Karten-Overlays (z.B. Wetter, Traffic, Telemetrie, Kompass, Terrain Avoid).</p>
+                    <p>Das ist getrennt vom Seiten-Menü und regelt primär die Darstellung.</p>
+                `,
+                beforeEnter: () => {
+                    ensureMapOpen();
+                    closeMapTransientUi();
                     setTimeout(ensureMapHintsMenuOpen, 120);
                 }
             },
@@ -443,6 +481,7 @@
                 `,
                 beforeEnter: () => {
                     ensureMapOpen();
+                    closeMapTransientUi();
                     setTimeout(ensureMapVoiceMenuOpen, 120);
                 }
             },
@@ -464,31 +503,41 @@
 
     function createTutorialDom() {
         let root = document.getElementById('gaTutorialOverlay');
-        if (root) return root;
+        let windowRoot = document.getElementById('gaTutorialWindow');
+        if (root && windowRoot) return root;
 
-        root = document.createElement('div');
-        root.id = 'gaTutorialOverlay';
-        root.innerHTML = `
-            <div class="ga-tut-dim" aria-hidden="true"></div>
-            <div id="gaTutorialSpotlight" class="ga-tut-spotlight" aria-hidden="true"></div>
-            <div class="ga-tut-window" role="dialog" aria-modal="true" aria-labelledby="gaTutTitle">
-                <div class="ga-tut-head">
-                    <div id="gaTutTitle" class="ga-tut-title">Tutorial</div>
-                    <button type="button" id="gaTutCloseBtn" class="ga-tut-close" aria-label="Tutorial schließen">✕</button>
-                </div>
-                <div id="gaTutBody" class="ga-tut-body"></div>
-                <div class="ga-tut-foot">
-                    <div id="gaTutCounter" class="ga-tut-counter">1 / 1</div>
-                    <div class="ga-tut-actions">
-                        <button type="button" id="gaTutSkipBtn" class="ga-tut-btn ga-tut-btn-ghost">Zum Ende</button>
-                        <button type="button" id="gaTutPrevBtn" class="ga-tut-btn ga-tut-btn-ghost">Zurück</button>
-                        <button type="button" id="gaTutNextBtn" class="ga-tut-btn ga-tut-btn-primary">Weiter</button>
+        if (!root) {
+            root = document.createElement('div');
+            root.id = 'gaTutorialOverlay';
+            root.innerHTML = `
+                <div class="ga-tut-dim" aria-hidden="true"></div>
+                <div id="gaTutorialSpotlight" class="ga-tut-spotlight" aria-hidden="true"></div>
+            `;
+            document.body.appendChild(root);
+        }
+
+        if (!windowRoot) {
+            windowRoot = document.createElement('div');
+            windowRoot.id = 'gaTutorialWindow';
+            windowRoot.innerHTML = `
+                <div class="ga-tut-window" role="dialog" aria-modal="true" aria-labelledby="gaTutTitle">
+                    <div class="ga-tut-head">
+                        <div id="gaTutTitle" class="ga-tut-title">Tutorial</div>
+                        <button type="button" id="gaTutCloseBtn" class="ga-tut-close" aria-label="Tutorial schließen">✕</button>
+                    </div>
+                    <div id="gaTutBody" class="ga-tut-body"></div>
+                    <div class="ga-tut-foot">
+                        <div id="gaTutCounter" class="ga-tut-counter">1 / 1</div>
+                        <div class="ga-tut-actions">
+                            <button type="button" id="gaTutSkipBtn" class="ga-tut-btn ga-tut-btn-ghost">Zum Ende</button>
+                            <button type="button" id="gaTutPrevBtn" class="ga-tut-btn ga-tut-btn-ghost">Zurück</button>
+                            <button type="button" id="gaTutNextBtn" class="ga-tut-btn ga-tut-btn-primary">Weiter</button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
-
-        document.body.appendChild(root);
+            `;
+            document.body.appendChild(windowRoot);
+        }
 
         const onResize = () => {
             if (!state.active) return;
@@ -501,10 +550,20 @@
             window.removeEventListener('scroll', onResize, true);
         });
 
-        const closeBtn = root.querySelector('#gaTutCloseBtn');
-        const skipBtn = root.querySelector('#gaTutSkipBtn');
-        const prevBtn = root.querySelector('#gaTutPrevBtn');
-        const nextBtn = root.querySelector('#gaTutNextBtn');
+        const closeBtn = windowRoot.querySelector('#gaTutCloseBtn');
+        const skipBtn = windowRoot.querySelector('#gaTutSkipBtn');
+        const prevBtn = windowRoot.querySelector('#gaTutPrevBtn');
+        const nextBtn = windowRoot.querySelector('#gaTutNextBtn');
+        const windowBox = windowRoot.querySelector('.ga-tut-window');
+
+        if (windowBox && !windowBox.dataset.bound) {
+            windowBox.dataset.bound = '1';
+            ['click', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend'].forEach((evtName) => {
+                windowBox.addEventListener(evtName, (evt) => {
+                    evt.stopPropagation();
+                }, { capture: true });
+            });
+        }
 
         closeBtn.addEventListener('click', () => stopTutorial(true));
         skipBtn.addEventListener('click', () => {
@@ -575,8 +634,10 @@
 
         captureUiState();
         const root = createTutorialDom();
+        const windowRoot = document.getElementById('gaTutorialWindow');
         state.active = true;
         root.classList.add('active');
+        if (windowRoot) windowRoot.classList.add('active');
         document.body.classList.add('ga-tutorial-active');
 
         renderStep();
@@ -587,7 +648,9 @@
         state.active = false;
 
         const root = document.getElementById('gaTutorialOverlay');
+        const windowRoot = document.getElementById('gaTutorialWindow');
         if (root) root.classList.remove('active');
+        if (windowRoot) windowRoot.classList.remove('active');
         document.body.classList.remove('ga-tutorial-active');
 
         if (markSeen) {
@@ -619,7 +682,8 @@
 
     function renderStep() {
         const root = document.getElementById('gaTutorialOverlay');
-        if (!root) return;
+        const windowRoot = document.getElementById('gaTutorialWindow');
+        if (!root || !windowRoot) return;
         const step = state.steps[state.index];
         if (!step) return;
         syncBriefingModeForStep(step);
@@ -628,11 +692,11 @@
             try { step.beforeEnter(); } catch (err) { console.warn('[Tutorial] beforeEnter failed', err); }
         }
 
-        const titleEl = root.querySelector('#gaTutTitle');
-        const bodyEl = root.querySelector('#gaTutBody');
-        const counterEl = root.querySelector('#gaTutCounter');
-        const prevBtn = root.querySelector('#gaTutPrevBtn');
-        const nextBtn = root.querySelector('#gaTutNextBtn');
+        const titleEl = windowRoot.querySelector('#gaTutTitle');
+        const bodyEl = windowRoot.querySelector('#gaTutBody');
+        const counterEl = windowRoot.querySelector('#gaTutCounter');
+        const prevBtn = windowRoot.querySelector('#gaTutPrevBtn');
+        const nextBtn = windowRoot.querySelector('#gaTutNextBtn');
         root.classList.toggle('ga-tut-freeview', !!step.freeView);
 
         if (titleEl) titleEl.textContent = step.title || 'Tutorial';
@@ -664,9 +728,10 @@
 
     function updateSpotlight() {
         const root = document.getElementById('gaTutorialOverlay');
+        const windowRoot = document.getElementById('gaTutorialWindow');
         const spot = document.getElementById('gaTutorialSpotlight');
-        const win = root ? root.querySelector('.ga-tut-window') : null;
-        if (!root || !spot) return;
+        const win = windowRoot ? windowRoot.querySelector('.ga-tut-window') : null;
+        if (!root || !spot || !win) return;
         document.querySelectorAll('.ga-tut-target').forEach((el) => el.classList.remove('ga-tut-target'));
         const step = state.steps[state.index];
         if (!step || !step.selector) {
@@ -703,7 +768,7 @@
     }
 
     function positionTutorialWindow(target, winEl, step) {
-        const win = winEl || document.querySelector('#gaTutorialOverlay .ga-tut-window');
+        const win = winEl || document.querySelector('#gaTutorialWindow .ga-tut-window');
         if (!win) return;
         const pad = 12;
         const gap = 12;
@@ -734,6 +799,12 @@
 
         if (placement === 'top-left') {
             win.style.left = `${pad}px`;
+            win.style.top = `${pad}px`;
+            win.style.transform = 'none';
+            return;
+        }
+        if (placement === 'top-right') {
+            win.style.left = `${Math.max(pad, vw - w - pad)}px`;
             win.style.top = `${pad}px`;
             win.style.transform = 'none';
             return;
