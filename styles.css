@@ -6768,6 +6768,93 @@ body.map-drawing-active #map.leaflet-dragging {
     pointer-events: none;
 }
 
+.mission-start-banner {
+    position: absolute;
+    left: 50%;
+    bottom: 118px;
+    transform: translateX(-50%);
+    z-index: 10005;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: min(560px, calc(100% - 32px));
+    min-height: 58px;
+    padding: 10px 12px 10px 16px;
+    border: 1px solid rgba(142, 197, 255, 0.32);
+    border-radius: 8px;
+    background: rgba(10, 18, 28, 0.92);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #e8f4ff;
+    pointer-events: auto;
+}
+.mission-start-banner-body {
+    flex: 1;
+    min-width: 0;
+}
+.mission-start-banner-kicker {
+    font-size: 10px;
+    line-height: 1.1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8ec5ff;
+}
+.mission-start-banner-text {
+    margin-top: 3px;
+    font-size: 13px;
+    line-height: 1.25;
+    color: rgba(232, 244, 255, 0.88);
+    overflow-wrap: anywhere;
+}
+.mission-start-banner-btn {
+    flex: 0 0 auto;
+    min-width: 132px;
+    height: 38px;
+    border: 1px solid rgba(68, 255, 204, 0.5);
+    border-radius: 7px;
+    background: rgba(34, 98, 86, 0.86);
+    color: #eafff9;
+    font-weight: 800;
+    font-size: 12px;
+    letter-spacing: 0;
+    cursor: pointer;
+}
+.mission-start-banner-btn:hover {
+    background: rgba(43, 126, 108, 0.95);
+}
+.mission-start-banner-close {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(232, 244, 255, 0.72);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+.mission-start-banner-close:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 640px) {
+    .mission-start-banner {
+        bottom: 104px;
+        gap: 8px;
+        padding: 10px;
+    }
+    .mission-start-banner-btn {
+        min-width: 104px;
+        font-size: 11px;
+    }
+    .mission-start-banner-text {
+        font-size: 12px;
+    }
+}
+
 /* ==========================================================================
    ELEVATION / TPA TOOLTIP
    ========================================================================== */

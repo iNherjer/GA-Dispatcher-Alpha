@@ -38,7 +38,7 @@ const PLANE_ICON_MAX_SIZE = 100;
 const MISSION_AUTO_START_KEY = 'ga_mission_auto_start_enabled';
 
 function isMissionAutoStartEnabled() {
-    return localStorage.getItem(MISSION_AUTO_START_KEY) !== 'false';
+    return localStorage.getItem(MISSION_AUTO_START_KEY) === 'true';
 }
 
 function setMissionAutoStartEnabled(enabled) {
@@ -108,7 +108,7 @@ let missionRuntime = {
 };
 
 let missionSmokeCommandSeq = 0;
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260519-4';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260519-5';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -804,6 +804,7 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.error = null;
         }
         if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        _updateMissionRuntimeUi();
         return;
     }
     const fs = _activeFireScenario();
@@ -942,13 +943,65 @@ window.fireMissionSmokeDebugSummary = function() {
     return parts.join(' | ');
 };
 
+function _missionStartUiKey() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (!md) return '';
+    const fs = md.fireScenario || {};
+    return String(fs.missionId || md.missionId || md.id || `${md.start || ''}-${md.dest || ''}-${md.mission || ''}`).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 96);
+}
+
+function _hasValidMissionForStart() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
+    return !!(md && wps.length >= 2 && !window.simModeActive);
+}
+
+function _missionStartBannerDismissKey() {
+    return `ga_mission_start_banner_dismissed_${_missionStartUiKey() || 'none'}`;
+}
+
+function _missionStartBannerDismissed() {
+    try {
+        const key = _missionStartUiKey();
+        return !!key && localStorage.getItem(_missionStartBannerDismissKey()) === '1';
+    } catch (_) {
+        return false;
+    }
+}
+
+window.dismissMissionStartBanner = function() {
+    try {
+        if (_missionStartUiKey()) localStorage.setItem(_missionStartBannerDismissKey(), '1');
+    } catch (_) {}
+    _updateMissionRuntimeUi();
+};
+
+function _updateMissionStartBanner(autoStartEnabled) {
+    const banner = document.getElementById('missionStartBanner');
+    if (!banner) return;
+    const textEl = document.getElementById('missionStartBannerText');
+    const valid = _hasValidMissionForStart();
+    const trackerConnected = !!window.liveTrackerConnected;
+    const show = valid && trackerConnected && !missionRuntime.active && !autoStartEnabled && !_missionStartBannerDismissed();
+    banner.style.display = show ? 'flex' : 'none';
+    if (!show) return;
+    const scene = window.missionSceneStatus || {};
+    let text = 'Tracker verbunden. Bereit zum Start.';
+    if (scene.spawned) text = `Start-Szene steht (${scene.spawnedCount || '?'} Objekte).`;
+    else if (scene.spawnRequested) text = 'Start-Szene wird vorbereitet.';
+    else if (scene.blockReason) text = `Start bereit. Szene wartet: ${scene.blockReason}.`;
+    else if (_missionLooksLikeFireWatch()) text = 'Tracker verbunden. Feuerwehr-Szene wird vorbereitet.';
+    if (textEl) textEl.textContent = text;
+}
+
 function _updateMissionRuntimeUi() {
     const autoStartEnabled = isMissionAutoStartEnabled();
+    const validMission = _hasValidMissionForStart();
     const st = document.getElementById('missionRuntimeStatus');
     if (st) {
         st.textContent = missionRuntime.active
             ? (missionRuntime.manual || !autoStartEnabled ? 'Aktiv (manuell)' : 'Aktiv')
-            : (!autoStartEnabled ? 'Manuell bereit' : (missionRuntime.armed ? 'Scharf (bereit)' : 'Wartet auf Boden-Stabilisierung'));
+            : (!autoStartEnabled ? (validMission ? 'Start bereit' : 'Manuell bereit') : (missionRuntime.armed ? 'Scharf (bereit)' : 'Wartet auf Boden-Stabilisierung'));
         st.style.color = missionRuntime.active ? '#4caf50' : (!autoStartEnabled ? '#8ec5ff' : (missionRuntime.armed ? '#f2c12e' : '#888'));
     }
     const bStart = document.getElementById('missionStartBtn');
@@ -967,11 +1020,12 @@ function _updateMissionRuntimeUi() {
         bAuto.classList.toggle('is-off', !autoStartEnabled);
     }
     if (bMap) {
-        bMap.style.display = autoStartEnabled ? 'none' : 'inline-flex';
+        bMap.style.display = (!autoStartEnabled && (validMission || missionRuntime.active)) ? 'inline-flex' : 'none';
         bMap.textContent = missionRuntime.active ? '■ Mission stoppen' : '▶ Mission starten';
         bMap.title = missionRuntime.active ? 'Mission manuell stoppen' : 'Mission manuell starten';
         bMap.classList.toggle('is-active', missionRuntime.active);
     }
+    _updateMissionStartBanner(autoStartEnabled);
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
 }
 
@@ -2838,6 +2892,7 @@ window.connectToLiveGPS = async function(syncId) {
         console.log(`[GPS] ✅ Verbunden! Warte auf Flugzeug-Daten...`);
         gpsReconnectDelay = 2000; // Erfolg → Backoff zurücksetzen
         window.liveTrackerConnected = true;
+        _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         // Dem Server mitteilen, in welchen Raum wir wollen (mit PIN!)
         liveGpsSocket.send(JSON.stringify({ type: 'join', syncId: syncId, pin: getSyncPin() }));
@@ -2928,6 +2983,7 @@ window.connectToLiveGPS = async function(syncId) {
     liveGpsSocket.onclose = () => {
         clearTimeout(gpsWatchdog);
         window.liveTrackerConnected = false;
+        _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         const ind = document.getElementById('liveGpsIndicator');
         if (ind) {
@@ -2949,6 +3005,7 @@ window.connectToLiveGPS = async function(syncId) {
     liveGpsSocket.onerror = () => {
         clearTimeout(gpsWatchdog);
         window.liveTrackerConnected = false;
+        _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         const ind = document.getElementById('liveGpsIndicator');
         if (ind) { 
