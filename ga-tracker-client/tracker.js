@@ -12,10 +12,11 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v214';
-const TRACKER_VERSION_CODE = 214;
+const TRACKER_VERSION = 'v215';
+const TRACKER_VERSION_CODE = 215;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
+const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
 const TRACKER_DEBUG_FILE = path.join(process.pkg ? path.dirname(process.execPath) : __dirname, 'ga-tracker-debug.txt');
 
 function debugLog(line) {
@@ -82,6 +83,37 @@ function buildSmokeFieldPositions(lat, lon, altFt, hdg, count, radiusM) {
     });
   }
   return out;
+}
+
+function buildSpawnPlanForSite(site, defaults, kind, siteIndex) {
+  const title = String(site?.objectTitle || site?.title || defaults.title || '').trim();
+  const lat = toFiniteNumber(site?.lat, null);
+  const lon = toFiniteNumber(site?.lon, null);
+  const baseAltFt = toFiniteNumber(site?.altFt ?? site?.alt, defaults.altFt);
+  const altOffsetFt = toFiniteNumber(site?.altOffsetFt, defaults.altOffsetFt || 0) || 0;
+  const altFt = Number.isFinite(baseAltFt) ? baseAltFt + altOffsetFt : null;
+  const hdg = toFiniteNumber(site?.hdg ?? site?.heading, defaults.hdg || 0);
+  const count = clampInt(site?.count ?? defaults.count ?? 1, 1, kind === 'fire' ? 6 : 20);
+  const radiusM = Math.max(0, toFiniteNumber(site?.radiusM ?? defaults.radiusM, 0) || 0);
+  if (!title || !Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(altFt)) return [];
+  return buildSmokeFieldPositions(lat, lon, altFt, hdg, count, radiusM).map((p) => ({
+    ...p,
+    title,
+    kind,
+    siteIndex,
+    siteId: String(site?.siteId || `${kind}-${siteIndex}`),
+    label: String(site?.label || `${kind} ${siteIndex}`),
+    baseAltFt,
+    altOffsetFt
+  }));
+}
+
+function countByKind(items) {
+  return items.reduce((acc, item) => {
+    const key = item?.kind || 'object';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
 }
 
 function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null) {
@@ -167,6 +199,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const spawnMissionSmoke = async (command) => {
     const missionId = String(command?.missionId || 'active');
     const title = String(command?.objectTitle || command?.title || MISSION_SMOKE_DEFAULT_TITLE).trim() || MISSION_SMOKE_DEFAULT_TITLE;
+    const fireTitle = String(command?.fireObjectTitle || MISSION_FIRE_DEFAULT_TITLE).trim() || MISSION_FIRE_DEFAULT_TITLE;
     const lat = toFiniteNumber(command?.lat, null);
     const lon = toFiniteNumber(command?.lon, null);
     const altFt = toFiniteNumber(command?.altFt ?? command?.alt, null);
@@ -174,28 +207,42 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const count = clampInt(command?.count ?? 5, 1, 20);
     const radiusM = Math.max(0, toFiniteNumber(command?.radiusM ?? command?.['radius-m'], 120) || 0);
     const commandId = command?.commandId || null;
+    const smokeSites = Array.isArray(command?.sites) ? command.sites : [];
+    const fireSites = Array.isArray(command?.fireSites) ? command.fireSites : [];
+    let positions = [];
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(altFt)) {
-      debugLog(`SPAWN_INVALID mission=${missionId} title="${title}" lat=${lat} lon=${lon} altFt=${altFt}`);
-      sendAck({ type: 'mission_smoke_spawn_ack', commandId, missionId, status: 'error', error: 'invalid lat/lon/altFt' });
+    if (smokeSites.length > 0) {
+      smokeSites.forEach((site, idx) => {
+        positions.push(...buildSpawnPlanForSite(site, { title, altFt, hdg, count, radiusM }, 'smoke', idx + 1));
+      });
+    } else if (Number.isFinite(lat) && Number.isFinite(lon) && Number.isFinite(altFt)) {
+      positions = buildSpawnPlanForSite({ lat, lon, altFt, hdg, count, radiusM, objectTitle: title, siteId: 'smoke-1', label: 'Rauchentwicklung' }, { title, altFt, hdg, count, radiusM }, 'smoke', 1);
+    }
+
+    fireSites.forEach((site, idx) => {
+      positions.push(...buildSpawnPlanForSite(site, { title: fireTitle, altFt, hdg, count: 1, radiusM: 0, altOffsetFt: -80 }, 'fire', idx + 1));
+    });
+
+    if (positions.length === 0) {
+      debugLog(`SPAWN_INVALID mission=${missionId} title="${title}" lat=${lat} lon=${lon} altFt=${altFt} smokeSites=${smokeSites.length} fireSites=${fireSites.length}`);
+      sendAck({ type: 'mission_smoke_spawn_ack', commandId, missionId, status: 'error', error: 'invalid spawn sites/lat/lon/altFt' });
       return;
     }
 
     await clearMission(missionId, 'replace-before-spawn');
-    const positions = buildSmokeFieldPositions(lat, lon, altFt, hdg, count, radiusM);
     const objects = [];
-    console.log(`🔥 Smoke Mission ${missionId}: spawn ${positions.length}x "${title}" bei ${lat.toFixed(5)}, ${lon.toFixed(5)} / ${Math.round(altFt)} ft`);
-    debugLog(`SPAWN_START mission=${missionId} title="${title}" lat=${lat} lon=${lon} altFt=${altFt} hdg=${hdg} count=${positions.length} radiusM=${radiusM}`);
+    console.log(`🔥 Smoke Mission ${missionId}: spawn ${positions.length} Objekte (${JSON.stringify(countByKind(positions))})`);
+    debugLog(`SPAWN_START mission=${missionId} extent=${command?.extent || 'n/a'} title="${title}" fireTitle="${fireTitle}" count=${positions.length} byKind=${JSON.stringify(countByKind(positions))}`);
 
     for (const p of positions) {
       try {
-        const objectId = await spawnObject(title, p, 5000);
-        objects.push({ objectId, title, ...p });
-        console.log(`  OK Smoke ${p.index}/${positions.length}: objectId=${objectId}`);
-        debugLog(`SPAWN_OK mission=${missionId} index=${p.index}/${positions.length} objectId=${objectId} lat=${p.lat} lon=${p.lon}`);
+        const objectId = await spawnObject(p.title, p, 5000);
+        objects.push({ objectId, ...p });
+        console.log(`  OK ${p.kind} site=${p.siteIndex} obj=${p.index}: objectId=${objectId}`);
+        debugLog(`SPAWN_OK mission=${missionId} kind=${p.kind} site=${p.siteIndex} index=${p.index} objectId=${objectId} title="${p.title}" lat=${p.lat} lon=${p.lon} altFt=${p.altFt}`);
       } catch (err) {
-        console.warn(`  ✗ Smoke ${p.index}/${positions.length}: ${err?.message || err}`);
-        debugLog(`SPAWN_ERROR mission=${missionId} index=${p.index}/${positions.length} error=${err?.message || err}`);
+        console.warn(`  ✗ ${p.kind} site=${p.siteIndex} obj=${p.index}: ${err?.message || err}`);
+        debugLog(`SPAWN_ERROR mission=${missionId} kind=${p.kind} site=${p.siteIndex} index=${p.index} title="${p.title}" error=${err?.message || err}`);
       }
     }
 
@@ -208,7 +255,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       objectTitle: title,
       requested: positions.length,
       spawned: objects.length,
-      objects: objects.map(o => ({ objectId: o.objectId, index: o.index }))
+      requestedByKind: countByKind(positions),
+      spawnedByKind: countByKind(objects),
+      sites: [...new Set(positions.map(p => `${p.kind}:${p.siteId}`))],
+      objects: objects.map(o => ({ objectId: o.objectId, index: o.index, kind: o.kind, siteIndex: o.siteIndex }))
     });
   };
 
@@ -230,7 +280,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     handleCommand(command) {
       const type = String(command?.type || command?.command || '').trim();
       if (type === 'mission_smoke_spawn') {
-        debugLog(`COMMAND mission_smoke_spawn mission=${command?.missionId || 'active'} title="${command?.objectTitle || command?.title || MISSION_SMOKE_DEFAULT_TITLE}"`);
+        debugLog(`COMMAND mission_smoke_spawn mission=${command?.missionId || 'active'} title="${command?.objectTitle || command?.title || MISSION_SMOKE_DEFAULT_TITLE}" sites=${Array.isArray(command?.sites) ? command.sites.length : 0} fireSites=${Array.isArray(command?.fireSites) ? command.fireSites.length : 0}`);
         spawnMissionSmoke(command).catch(err => {
           console.warn(`⚠️  Smoke spawn failed: ${err?.message || err}`);
           sendAck({ type: 'mission_smoke_spawn_ack', commandId: command?.commandId || null, missionId: command?.missionId || 'active', status: 'error', error: err?.message || String(err) });

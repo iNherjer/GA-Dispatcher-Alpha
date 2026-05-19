@@ -121,6 +121,15 @@ function _normalizeFireTruthOverride(value) {
     return null;
 }
 
+function _normalizeFireExtentOverride(value) {
+    const s = String(value || '').trim().toLowerCase();
+    if (/^(false_alarm|falsealarm|fehlalarm|0)$/.test(s)) return 'false_alarm';
+    if (/^(single_smoke|single|one|1|rauch|smoke)$/.test(s)) return 'single_smoke';
+    if (/^(multi_smoke|multi|two|2)$/.test(s)) return 'multi_smoke';
+    if (/^(major_fire|major|three|3|fire|brand)$/.test(s)) return 'major_fire';
+    return null;
+}
+
 function _initFireMissionDebugFromUrl() {
     try {
         const params = new URLSearchParams(window.location.search || '');
@@ -133,6 +142,11 @@ function _initFireMissionDebugFromUrl() {
             if (override) localStorage.setItem('ga_fire_truth_override', override);
             else localStorage.removeItem('ga_fire_truth_override');
         }
+        if (params.has('fireExtent')) {
+            const override = _normalizeFireExtentOverride(params.get('fireExtent'));
+            if (override) localStorage.setItem('ga_fire_extent_override', override);
+            else localStorage.removeItem('ga_fire_extent_override');
+        }
     } catch (_) {}
 }
 _initFireMissionDebugFromUrl();
@@ -143,6 +157,10 @@ window.fireMissionDebugEnabled = function() {
 
 window.fireMissionTruthOverride = function() {
     try { return _normalizeFireTruthOverride(localStorage.getItem('ga_fire_truth_override')); } catch (_) { return null; }
+};
+
+window.fireMissionExtentOverride = function() {
+    try { return _normalizeFireExtentOverride(localStorage.getItem('ga_fire_extent_override')); } catch (_) { return null; }
 };
 
 window.missionRuntimeIsActive = function() {
@@ -162,6 +180,40 @@ function _persistMissionSmokeState() {
             localStorage.setItem('ga_active_mission', JSON.stringify({ currentMissionData }));
         }
     } catch (_) {}
+}
+
+function _defaultFireSmokeSite(fs) {
+    const target = fs?.target || {};
+    const smoke = fs?.smoke || {};
+    const lat = Number(smoke.lat ?? target.lat);
+    const lon = Number(smoke.lon ?? target.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return {
+        siteId: 'smoke-1',
+        label: 'Rauchentwicklung',
+        objectTitle: smoke.objectTitle || 'Chimney_Smoke_V1',
+        lat,
+        lon,
+        altFt: Number.isFinite(Number(smoke.altFt ?? target.altFt)) ? Number(smoke.altFt ?? target.altFt) : 0,
+        hdg: Number.isFinite(Number(smoke.hdg)) ? Number(smoke.hdg) : 0,
+        count: 8,
+        radiusM: 35
+    };
+}
+
+function _ensureFireSmokeSites(fs) {
+    if (!fs || !fs.smoke) return;
+    if (Array.isArray(fs.smoke.sites) && fs.smoke.sites.length > 0) return;
+    const site = _defaultFireSmokeSite(fs);
+    if (!site) return;
+    fs.smoke.sites = [site];
+    fs.smoke.count = site.count;
+    fs.smoke.radiusM = site.radiusM;
+    fs.extent = fs.extent === 'false_alarm' ? 'single_smoke' : (fs.extent || 'single_smoke');
+    fs.smokeSiteCount = 1;
+    if (!fs.fire || typeof fs.fire !== 'object') {
+        fs.fire = { enabled: false, objectTitle: 'VO_Fire_R1_40', altOffsetFt: -80, sites: [] };
+    }
 }
 
 window.sendTrackerCommand = function(command = {}) {
@@ -206,18 +258,25 @@ window.sendTrackerCommand = function(command = {}) {
 window.missionSmokeEnsureSpawned = function(reason = 'mission-active') {
     const fs = _activeFireScenario();
     if (!fs || fs.truth !== 'fire' || !fs.smoke || fs.smoke.spawned) return false;
+    _ensureFireSmokeSites(fs);
     if (fs.smoke.spawnRequestedAt && (Date.now() - fs.smoke.spawnRequestedAt) < 15000) return false;
+    const smokeSites = Array.isArray(fs.smoke.sites) ? fs.smoke.sites : [];
+    const fireSites = (fs.fire?.enabled && Array.isArray(fs.fire.sites)) ? fs.fire.sites : [];
     const commandId = window.sendTrackerCommand({
         type: 'mission_smoke_spawn',
         missionId: fs.missionId,
         reason,
+        extent: fs.extent || 'single_smoke',
         objectTitle: fs.smoke.objectTitle || 'Chimney_Smoke_V1',
+        fireObjectTitle: fs.fire?.objectTitle || 'VO_Fire_R1_40',
         lat: fs.smoke.lat,
         lon: fs.smoke.lon,
         altFt: fs.smoke.altFt,
         hdg: fs.smoke.hdg || 0,
         count: fs.smoke.count || 5,
-        radiusM: fs.smoke.radiusM || 120
+        radiusM: fs.smoke.radiusM || 120,
+        sites: smokeSites,
+        fireSites
     });
     if (!commandId) return false;
     fs.smoke.spawnRequestedAt = Date.now();
@@ -252,6 +311,8 @@ function _handleTrackerAck(ack) {
         fs.smoke.spawnAckAt = Date.now();
         fs.smoke.spawned = ack.status === 'ok';
         fs.smoke.spawnedCount = Number(ack.spawned || 0);
+        fs.smoke.spawnedByKind = ack.spawnedByKind || null;
+        fs.smoke.requestedByKind = ack.requestedByKind || null;
         fs.smoke.spawnError = ack.status === 'ok' ? null : (ack.error || ack.status || 'spawn_failed');
     } else if (ack.type === 'mission_smoke_clear_ack') {
         fs.smoke.clearAckAt = Date.now();
@@ -267,6 +328,8 @@ window.fireMissionDebugForceSmoke = function(reason = 'debug-force-smoke') {
     if (!fs || !fs.smoke) return false;
     fs.truth = 'fire';
     fs.debugOverride = 'force_fire_runtime';
+    fs.extent = fs.extent && fs.extent !== 'false_alarm' ? fs.extent : 'single_smoke';
+    _ensureFireSmokeSites(fs);
     fs.smoke.spawned = false;
     fs.smoke.spawnRequestedAt = 0;
     fs.smoke.spawnError = null;
@@ -290,8 +353,12 @@ window.fireMissionSmokeDebugSummary = function() {
     const ack = window.missionSmokeStatus?.lastAck || null;
     const parts = [
         `truth=${fs.truth || 'n/a'}${fs.debugOverride ? ` (${fs.debugOverride})` : ''}`,
+        `extent=${fs.extent || 'n/a'}`,
+        `sites=${Array.isArray(smoke.sites) ? smoke.sites.length : 0}`,
+        fs.fire?.enabled ? `fireSites=${Array.isArray(fs.fire.sites) ? fs.fire.sites.length : 0}` : '',
         `requested=${smoke.spawnRequestedAt ? new Date(smoke.spawnRequestedAt).toLocaleTimeString('de-DE') : 'nein'}`,
         `spawned=${smoke.spawned ? `ja (${smoke.spawnedCount || '?'})` : 'nein'}`,
+        smoke.spawnedByKind ? `kind=${Object.entries(smoke.spawnedByKind).map(([k, v]) => `${k}:${v}`).join(',')}` : '',
         smoke.spawnError ? `error=${smoke.spawnError}` : '',
         ack ? `lastAck=${ack.type || '?'}:${ack.status || '?'}` : 'lastAck=keins'
     ].filter(Boolean);

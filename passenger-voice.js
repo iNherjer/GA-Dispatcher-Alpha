@@ -1333,7 +1333,10 @@ window.fireMissionReportSmokeVisible = function() {
     if (ctx.fs.truth === 'fire') {
         ctx.fs.state = 'smoke_confirmed';
         ctx.fs.smokeConfirmedAt = Date.now();
-        _fireSpeakText(`${_fireVectorLine(ctx)} Bestaetigt, das passt zur gemeldeten Rauchentwicklung. Bitte weiter im Zielgebiet kreisen, Lagebild sammeln: Ausdehnung, Ursprung, Windrichtung und ob Personen oder Gebaeude betroffen sein koennten. Ich informiere Leitstelle und Einsatzkraefte.`, 'Rauch bestaetigt');
+        const multiHint = Number(ctx.fs.smokeSiteCount || ctx.fs.smoke?.sites?.length || 0) > 1
+            ? 'Achte darauf, ob es mehrere getrennte Rauchpunkte oder Brandherde sind. '
+            : '';
+        _fireSpeakText(`${_fireVectorLine(ctx)} Bestaetigt, das passt zur gemeldeten Rauchentwicklung. ${multiHint}Bitte weiter im Zielgebiet kreisen, Lagebild sammeln: Ausdehnung, Ursprung, Windrichtung und ob Personen oder Gebaeude betroffen sein koennten. Ich informiere Leitstelle und Einsatzkraefte.`, 'Rauch bestaetigt');
         _firePersistState();
         return;
     }

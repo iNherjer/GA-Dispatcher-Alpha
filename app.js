@@ -6235,6 +6235,74 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
     };
 }
 
+function pickFireWatchExtent(truth, hazardLevel) {
+    if (truth !== 'fire') return 'false_alarm';
+    const h = Number.isFinite(Number(hazardLevel)) ? Number(hazardLevel) : 3;
+    const r = Math.random();
+    if (h >= 4) {
+        if (r < 0.22) return 'major_fire';
+        if (r < 0.58) return 'multi_smoke';
+        return 'single_smoke';
+    }
+    if (h >= 3) {
+        if (r < 0.12) return 'major_fire';
+        if (r < 0.42) return 'multi_smoke';
+        return 'single_smoke';
+    }
+    if (r < 0.05) return 'major_fire';
+    if (r < 0.25) return 'multi_smoke';
+    return 'single_smoke';
+}
+
+function fireWatchSiteCountForExtent(extent) {
+    if (extent === 'major_fire') return 3;
+    if (extent === 'multi_smoke') return 2;
+    if (extent === 'single_smoke') return 1;
+    return 0;
+}
+
+function buildFireWatchSmokeSites(dest, altFt, heading, extent) {
+    const siteCount = fireWatchSiteCountForExtent(extent);
+    if (!siteCount) return [];
+    const baseBearing = Number.isFinite(Number(heading)) ? Number(heading) : Math.random() * 360;
+    const sites = [];
+    for (let i = 0; i < siteCount; i++) {
+        const bearing = (baseBearing + 55 + i * 125 + Math.random() * 55) % 360;
+        const distM = i === 0 ? Math.random() * 35 : (260 + i * 170 + Math.random() * 160);
+        const p = getDestinationPoint(Number(dest.lat), Number(dest.lon), distM / 1852, bearing);
+        const denseMajor = extent === 'major_fire';
+        sites.push({
+            siteId: `smoke-${i + 1}`,
+            label: siteCount === 1 ? 'Rauchentwicklung' : `Rauchentwicklung ${i + 1}`,
+            objectTitle: 'Chimney_Smoke_V1',
+            lat: Number(p.lat),
+            lon: Number(p.lon),
+            altFt,
+            hdg: Math.round((baseBearing + i * 35) % 360),
+            count: denseMajor ? 9 : 8,
+            radiusM: denseMajor ? 55 : 35
+        });
+    }
+    return sites;
+}
+
+function buildFireWatchFireSites(smokeSites, extent) {
+    if (!Array.isArray(smokeSites) || smokeSites.length === 0) return [];
+    const n = extent === 'major_fire' ? Math.min(2, smokeSites.length) : (extent === 'multi_smoke' ? 1 : 0);
+    return smokeSites.slice(0, n).map((site, idx) => ({
+        siteId: `fire-${idx + 1}`,
+        smokeSiteId: site.siteId,
+        objectTitle: 'VO_Fire_R1_40',
+        lat: site.lat,
+        lon: site.lon,
+        altFt: site.altFt,
+        altOffsetFt: -80,
+        hdg: site.hdg || 0,
+        count: 1,
+        radiusM: 0
+    }));
+}
+
 function buildFireWatchScenario({ isPOI = false, mission = null, passenger = null, dest = null, poiTerrainFt = null, heading = 0, fireHazard = null } = {}) {
     const taskDomain = String(passenger?.taskDomain || mission?.passenger?.taskDomain || '').toLowerCase();
     const profileId = String(mission?.profileId || mission?._appliedProfile || mission?._requestedProfile || '').toLowerCase();
@@ -6254,19 +6322,30 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
         ? window.fireMissionTruthOverride()
         : null;
     const truth = debugTruthOverride || (Math.random() < fireProbability ? 'fire' : 'false_alarm');
+    const debugExtentOverride = (typeof window.fireMissionExtentOverride === 'function')
+        ? window.fireMissionExtentOverride()
+        : null;
+    const extent = (truth === 'fire' && debugExtentOverride && debugExtentOverride !== 'false_alarm')
+        ? debugExtentOverride
+        : pickFireWatchExtent(truth, hazardLevel);
     const altFt = Number.isFinite(Number(poiTerrainFt))
         ? Math.max(0, Math.round(Number(poiTerrainFt)))
         : Math.max(0, Math.round(Number(dest.elevation ?? currentDestElev ?? currentDepElev ?? 0)));
     const missionId = `fire-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const smokeSites = buildFireWatchSmokeSites(dest, altFt, heading, extent);
+    const fireSites = buildFireWatchFireSites(smokeSites, extent);
 
     return {
         enabled: true,
         type: 'fire_watch',
         missionId,
         truth,
+        extent,
+        smokeSiteCount: smokeSites.length,
+        fireSiteCount: fireSites.length,
         state: 'enroute',
         createdAt: Date.now(),
-        debugOverride: debugTruthOverride || null,
+        debugOverride: [debugTruthOverride || null, debugExtentOverride || null].filter(Boolean).join(',') || null,
         fireProbability: Math.round(fireProbability * 100) / 100,
         paxAwarenessRangeNm: 4,
         confirmRangeNm: 2,
@@ -6285,11 +6364,18 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
             lon: Number(dest.lon),
             altFt,
             hdg: Number.isFinite(Number(heading)) ? Math.round(Number(heading)) : 0,
-            count: 5,
-            radiusM: 120,
+            count: smokeSites[0]?.count || 0,
+            radiusM: smokeSites[0]?.radiusM || 0,
+            sites: smokeSites,
             spawned: false,
             spawnRequestedAt: 0,
             clearRequestedAt: 0
+        },
+        fire: {
+            enabled: fireSites.length > 0,
+            objectTitle: 'VO_Fire_R1_40',
+            altOffsetFt: -80,
+            sites: fireSites
         },
         observations: []
     };
