@@ -108,6 +108,8 @@ let missionRuntime = {
 };
 
 let missionSmokeCommandSeq = 0;
+const FIRE_DEBUG_SYNC_BUILD = 'fire-debug-20260519-2';
+window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
 window.missionSmokeStatus = {
     lastCommandAt: 0,
     lastAckAt: 0,
@@ -472,6 +474,7 @@ window.missionSmokeEnsureSpawned = function(reason = 'mission-active') {
     const fs = _activeFireScenario();
     if (!fs || fs.truth !== 'fire' || !fs.smoke || fs.smoke.spawned) return false;
     _ensureFireSmokeSites(fs);
+    if (fs.smoke.spawnSuppressed && !String(reason || '').startsWith('debug-force')) return false;
     if (fs.smoke.spawnRequestedAt && (Date.now() - fs.smoke.spawnRequestedAt) < 15000) return false;
     const smokeSites = Array.isArray(fs.smoke.sites) ? fs.smoke.sites : [];
     const fireSites = (fs.fire?.enabled && Array.isArray(fs.fire.sites)) ? fs.fire.sites : [];
@@ -520,6 +523,10 @@ window.missionSmokeClear = function(reason = 'mission-end') {
         reason
     });
     if (!commandId) return false;
+    if (String(reason || '').startsWith('debug-')) {
+        fs.smoke.spawnSuppressed = true;
+        fs.smoke.suppressedAt = Date.now();
+    }
     fs.smoke.clearRequestedAt = Date.now();
     fs.smoke.clearCommandId = commandId;
     _persistMissionSmokeState();
@@ -578,6 +585,7 @@ function _forceFireMissionDebugSpawn(reason = 'debug-force-smoke', options = {})
     _applyFireRuntimeOverrides(fs, { forceRebuild: true });
     fs.smoke.spawned = false;
     fs.smoke.spawnRequestedAt = 0;
+    fs.smoke.spawnSuppressed = false;
     fs.smoke.spawnError = null;
     fs.smoke.cleared = false;
     _persistMissionSmokeState();
@@ -631,6 +639,7 @@ window.fireMissionSmokeDebugSummary = function() {
     const smoke = fs.smoke || {};
     const ack = window.missionSmokeStatus?.lastAck || null;
     const parts = [
+        `build=${FIRE_DEBUG_SYNC_BUILD}`,
         `truth=${fs.truth || 'n/a'}${fs.debugOverride ? ` (${fs.debugOverride})` : ''}`,
         `extent=${fs.extent || 'n/a'}`,
         `mode=${smoke.spawnMode || (typeof window.fireMissionSpawnMode === 'function' ? window.fireMissionSpawnMode() : 'target')}`,
@@ -642,6 +651,7 @@ window.fireMissionSmokeDebugSummary = function() {
         `requested=${smoke.spawnRequestedAt ? new Date(smoke.spawnRequestedAt).toLocaleTimeString('de-DE') : 'nein'}`,
         `spawned=${smoke.spawned ? `ja (${smoke.spawnedCount || '?'})` : 'nein'}`,
         smoke.teleported ? `teleported=${smoke.teleported}` : '',
+        smoke.spawnSuppressed ? 'suppressed=1' : '',
         smoke.requestedByKind ? `req=${Object.entries(smoke.requestedByKind).map(([k, v]) => `${k}:${v}`).join(',')}` : '',
         smoke.spawnedByKind ? `kind=${Object.entries(smoke.spawnedByKind).map(([k, v]) => `${k}:${v}`).join(',')}` : '',
         smoke.spawnError ? `error=${smoke.spawnError}` : '',
