@@ -1127,6 +1127,12 @@ function _fireVectorLine(ctx) {
     return `Zielgebiet ${dist} NM entfernt, Peilung ${ctx.bearingText}, etwa ${ctx.clockPos}${alt}.`;
 }
 
+function _fireShortVector(ctx) {
+    if (!ctx?.hasPosition) return 'Zielgebiet voraus';
+    const dist = Math.max(0, _fireRound(ctx.distNm, 1)).toFixed(1).replace('.', ',');
+    return `ca. ${dist} NM, etwa ${ctx.clockPos}`;
+}
+
 function _fireRemainingSearchText(ctx) {
     const req = Number(ctx?.fs?.searchDwellSec || 180);
     const leftSec = Math.max(0, req - Number(ctx?.inTargetAreaSec || 0));
@@ -1215,7 +1221,9 @@ function _fireMissionAwarenessTick(flightData, distNm = null) {
     fs.awarenessDone = true;
     fs.state = fs.state || 'search';
     _fireRecordObservation('awareness_range', ctx, 'pax awareness range reached');
-    const text = `${_fireVectorLine(ctx)} Wir sind jetzt im gemeldeten Bereich. Bitte Augen raus: wenn du Rauch siehst, melde "Rauch in Sicht", wenn nichts zu sehen ist, melde "Kein Rauch sichtbar".`;
+    const text = fs.truth === 'fire'
+        ? `${_fireVectorLine(ctx)} Ich glaube, ich sehe da schon etwas, ${_fireShortVector(ctx)}. Noch nicht sauber bestaetigt; Feuer oder Rauch kann im Sim etwas spaet rendern. Geh naeher ran und melde "Rauch in Sicht", sobald du es klar hast.`
+        : `${_fireVectorLine(ctx)} Wir sind jetzt im gemeldeten Bereich. Ich sehe noch nichts Eindeutiges. Bitte Augen raus: wenn du Rauch siehst, melde "Rauch in Sicht", wenn nichts zu sehen ist, melde "Kein Rauch sichtbar".`;
     _fireSpeakText(text, 'Feuermeldung');
 }
 
