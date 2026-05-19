@@ -769,9 +769,12 @@ function _refreshPaxWidgetVisibility() {
     const widget = document.getElementById('paxVoiceWidget');
     if (!widget) return;
     _syncPaxWidgetHost();
-    const shouldShow = !!_lastPaxText;
+    const shouldShow = !!_lastPaxText || !!_fireScenario();
     widget.style.display = shouldShow ? 'flex' : 'none';
-    if (shouldShow) _ensurePaxWidgetOnScreen(true);
+    if (shouldShow) {
+        _refreshFireMissionMenu();
+        _ensurePaxWidgetOnScreen(true);
+    }
 }
 
 function _injectPaxUI() {
@@ -836,9 +839,22 @@ function _injectPaxUI() {
     const textEl = document.createElement('div');
     textEl.id = 'paxVoiceText';
 
+    const fireMenu = document.createElement('div');
+    fireMenu.id = 'paxFireMissionMenu';
+    fireMenu.style.cssText = `
+        display:none; margin-top:10px; padding-top:9px; border-top:1px solid #244562;
+        grid-template-columns:1fr; gap:6px;
+    `;
+    fireMenu.innerHTML = `
+        <button type="button" class="pax-fire-btn" onclick="window.fireMissionReportSmokeVisible && fireMissionReportSmokeVisible()">Rauch in Sicht</button>
+        <button type="button" class="pax-fire-btn" onclick="window.fireMissionReportNoSmoke && fireMissionReportNoSmoke()">Kein Rauch sichtbar</button>
+        <button type="button" class="pax-fire-btn" onclick="window.fireMissionPositionReport && fireMissionPositionReport()">Position / Suchrichtung</button>
+    `;
+
     panel.appendChild(closeBtn);
     panel.appendChild(nameEl);
     panel.appendChild(textEl);
+    panel.appendChild(fireMenu);
 
     widget.appendChild(panel);
     widget.appendChild(btn);
@@ -965,6 +981,7 @@ function _showPaxMessage(text, eventLabel) {
     const pax = window.activePassenger;
     if (nameEl) nameEl.textContent = pax ? `${pax.name} · ${eventLabel}` : eventLabel;
     if (textEl) textEl.textContent = text;
+    _refreshFireMissionMenu();
 
     widget.style.display = 'flex';
     _ensurePaxWidgetOnScreen(true);
@@ -998,6 +1015,7 @@ function _togglePaxPanel() {
     const isOpen = panel.style.display !== 'none';
     panel.style.display = isOpen ? 'none' : 'block';
     if (!isOpen) {
+        _refreshFireMissionMenu();
         _ensurePaxWidgetOnScreen();
         if (badge) badge.style.display = 'none';
         if (btn) btn.classList.remove('pax-has-new');
@@ -1012,6 +1030,293 @@ function _closePaxPanel() {
     if (badge) badge.style.display = 'none';
     if (btn) btn.classList.remove('pax-has-new');
 }
+
+function _fireScenario() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
+    const fs = md?.fireScenario;
+    return (fs && typeof fs === 'object' && fs.enabled && fs.type === 'fire_watch') ? fs : null;
+}
+
+function _fireTarget(fs = _fireScenario()) {
+    if (fs?.target && Number.isFinite(Number(fs.target.lat)) && Number.isFinite(Number(fs.target.lon))) {
+        return {
+            name: fs.target.name || 'Zielgebiet',
+            lat: Number(fs.target.lat),
+            lon: Number(fs.target.lon),
+            altFt: Number.isFinite(Number(fs.target.altFt)) ? Number(fs.target.altFt) : null
+        };
+    }
+    const dest = _getDestCoords();
+    if (!dest) return null;
+    return { name: (typeof currentMissionData !== 'undefined' ? currentMissionData?.poiName : null) || 'Zielgebiet', lat: dest.lat, lon: dest.lon, altFt: null };
+}
+
+function _firePersistState() {
+    try {
+        if (typeof saveMissionState === 'function') saveMissionState();
+        else if (typeof debouncedSaveMissionState === 'function') debouncedSaveMissionState();
+    } catch (_) {}
+}
+
+function _fireRound(value, digits = 1) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    const f = Math.pow(10, digits);
+    return Math.round(n * f) / f;
+}
+
+function _fireMissionContext(flightData = null) {
+    const fs = _fireScenario();
+    const target = _fireTarget(fs);
+    const pos = window.lastLiveGpsPos || {};
+    const fd = flightData || window.lastLiveFlightData || {};
+    const lat = Number(pos.lat);
+    const lon = Number(pos.lon);
+    if (!fs || !target || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+        return { fs, target, hasPosition: false };
+    }
+    const distNm = _haversineNm(lat, lon, target.lat, target.lon);
+    const bearingDeg = _bearingDeg(lat, lon, target.lat, target.lon);
+    const hdg = Number(fd.hdg || fd.heading || fd.trackDeg || fd.trkDeg || pos.hdg || bearingDeg);
+    const mslFt = Number(fd.mslFt ?? pos.alt ?? fd.alt);
+    const aglFt = Number(fd.aglFt);
+    const now = Date.now();
+    const areaNm = Number(fs.targetAreaNm || window.activePassenger?.targetRadiusNm || 1.5) || 1.5;
+    if (distNm <= areaNm) {
+        if (!fs.targetAreaEnteredAt) fs.targetAreaEnteredAt = now;
+    } else if (fs.targetAreaEnteredAt && !fs.searchStartedAt) {
+        fs.searchStartedAt = fs.targetAreaEnteredAt;
+    }
+    const inTargetAreaSec = fs.targetAreaEnteredAt ? Math.max(0, (now - fs.targetAreaEnteredAt) / 1000) : 0;
+    return {
+        fs,
+        target,
+        hasPosition: true,
+        lat,
+        lon,
+        distNm,
+        bearingDeg,
+        bearingText: `${Math.round(bearingDeg).toString().padStart(3, '0')} Grad`,
+        clockPos: _relativeClockPos(bearingDeg, hdg),
+        hdg,
+        mslFt: Number.isFinite(mslFt) ? Math.round(mslFt) : null,
+        aglFt: Number.isFinite(aglFt) ? Math.round(aglFt) : null,
+        areaNm,
+        inTargetArea: distNm <= areaNm,
+        inConfirmRange: distNm <= (Number(fs.confirmRangeNm || 2) || 2),
+        inAwarenessRange: distNm <= (Number(fs.paxAwarenessRangeNm || 4) || 4),
+        inTargetAreaSec
+    };
+}
+
+function _fireVectorLine(ctx) {
+    if (!ctx?.hasPosition) return 'Mir fehlen gerade Live-Positionsdaten vom Tracker.';
+    const dist = Math.max(0, _fireRound(ctx.distNm, 1)).toFixed(1).replace('.', ',');
+    const alt = ctx.mslFt != null ? `, aktuelle Hoehe ${ctx.mslFt} ft MSL${ctx.aglFt != null ? ` / ${ctx.aglFt} ft AGL` : ''}` : '';
+    return `Zielgebiet ${dist} NM entfernt, Peilung ${ctx.bearingText}, etwa ${ctx.clockPos}${alt}.`;
+}
+
+function _fireRemainingSearchText(ctx) {
+    const req = Number(ctx?.fs?.searchDwellSec || 180);
+    const leftSec = Math.max(0, req - Number(ctx?.inTargetAreaSec || 0));
+    const min = Math.max(1, Math.ceil(leftSec / 60));
+    return `noch etwa ${min} Minute${min === 1 ? '' : 'n'} Suchzeit`;
+}
+
+function _fireRecordObservation(kind, ctx, note = '') {
+    const fs = ctx?.fs || _fireScenario();
+    if (!fs) return;
+    if (!Array.isArray(fs.observations)) fs.observations = [];
+    fs.observations.push({
+        at: Date.now(),
+        kind,
+        state: fs.state || 'enroute',
+        distNm: ctx?.hasPosition ? _fireRound(ctx.distNm, 2) : null,
+        bearingDeg: ctx?.hasPosition ? Math.round(ctx.bearingDeg) : null,
+        mslFt: ctx?.mslFt ?? null,
+        aglFt: ctx?.aglFt ?? null,
+        note
+    });
+    if (fs.observations.length > 20) fs.observations.splice(0, fs.observations.length - 20);
+    _firePersistState();
+}
+
+function _fireSpeakText(text, eventLabel = 'Feuerwache') {
+    const clean = _normalizeSpokenText(text);
+    if (!clean) return;
+    const pax = window.activePassenger || null;
+    const speakerSnapshot = pax ? {
+        name: pax.name || '',
+        role: pax.role || '',
+        gender: pax.gender || '',
+        roleProfile: pax.roleProfile || '',
+        taskDomain: pax.taskDomain || ''
+    } : null;
+    _lastSpokenText = clean;
+    _lastSpokenSpeaker = speakerSnapshot;
+    _capturePoiNarrativeMemory(eventLabel, clean);
+    _showPaxMessage(clean, eventLabel);
+    if (!_paxVoiceEnabled) return;
+    const run = async () => {
+        try { await _playTextAsTTS(clean, speakerSnapshot); }
+        catch (e) { _paxLog(`Fire-Mission TTS Fehler: ${e.message || e}`, 'warn'); }
+    };
+    _paxSpeechQueue = _paxSpeechQueue.then(run, run);
+}
+
+function _refreshFireMissionMenu() {
+    const menu = document.getElementById('paxFireMissionMenu');
+    if (!menu) return;
+    const fs = _fireScenario();
+    const active = !!fs;
+    menu.style.display = active ? 'grid' : 'none';
+    if (!active) return;
+    const nameEl = document.getElementById('paxVoiceName');
+    const textEl = document.getElementById('paxVoiceText');
+    if (nameEl && !nameEl.textContent) {
+        const pax = window.activePassenger;
+        nameEl.textContent = pax ? `${pax.name} · Feuerwache` : 'Feuerwache';
+    }
+    if (textEl && !textEl.textContent) {
+        textEl.textContent = 'Feuermeldung aktiv. Du kannst Sichtungen ueber das Missionsmenue melden.';
+    }
+}
+
+function _fireMissionAwarenessTick(flightData, distNm = null) {
+    const fs = _fireScenario();
+    if (!fs || fs.awarenessDone) return;
+    const ctx = _fireMissionContext(flightData);
+    const dist = Number.isFinite(Number(distNm)) ? Number(distNm) : ctx.distNm;
+    if (!Number.isFinite(dist) || dist > (Number(fs.paxAwarenessRangeNm || 4) || 4)) return;
+    fs.awarenessDone = true;
+    fs.state = fs.state || 'search';
+    _fireRecordObservation('awareness_range', ctx, 'pax awareness range reached');
+    const text = `${_fireVectorLine(ctx)} Wir sind jetzt im gemeldeten Bereich. Bitte Augen raus: wenn du Rauch siehst, melde "Rauch in Sicht", wenn nichts zu sehen ist, melde "Kein Rauch sichtbar".`;
+    _fireSpeakText(text, 'Feuermeldung');
+}
+
+function _fireHasObservation(fs, kind) {
+    return Array.isArray(fs?.observations) && fs.observations.some(o => o?.kind === kind);
+}
+
+function _tickFireMissionSearch(flightData, distNm = null) {
+    const fs = _fireScenario();
+    if (!fs) return false;
+    _fireMissionAwarenessTick(flightData, distNm);
+    const ctx = _fireMissionContext(flightData);
+    if (!ctx.hasPosition) return true;
+
+    if (ctx.inTargetArea && !fs.targetAreaAnnounced) {
+        fs.targetAreaAnnounced = true;
+        fs.state = fs.state === 'enroute' ? 'searching' : (fs.state || 'searching');
+        _fireRecordObservation('target_area_entry', ctx, 'entered fire search area');
+        _fireSpeakText(`${_fireVectorLine(ctx)} Zielgebiet erreicht. Halte ein sauberes Suchmuster und nutze das Menue fuer "Rauch in Sicht" oder "Kein Rauch sichtbar".`, 'Zielgebiet');
+        _firePersistState();
+    }
+
+    if (fs.state === 'smoke_confirmed' && fs.smokeConfirmedAt && !fs.assessmentComplete) {
+        const elapsed = (Date.now() - fs.smokeConfirmedAt) / 1000;
+        if (elapsed >= Number(fs.assessmentDwellSec || 240)) {
+            fs.assessmentComplete = true;
+            fs.state = 'assessment_complete';
+            _poiSatisfied = true;
+            _paxAtTargetDone = true;
+            _fireRecordObservation('assessment_complete', ctx, 'fire assessment dwell complete');
+            _fireSpeakText(`${_fireVectorLine(ctx)} Das Lagebild reicht: Rauch bestaetigt, Position und Umgebung dokumentiert. Ich gebe die Daten an Leitstelle und Einsatzkraefte weiter; du kannst den Rueckflug vorbereiten.`, 'Lagebild komplett');
+            _firePersistState();
+        }
+    }
+
+    const noSmokeReported = _fireHasObservation(fs, 'pilot_no_smoke');
+    const searchDone = ctx.inTargetArea && Number(ctx.inTargetAreaSec || 0) >= Number(fs.searchDwellSec || 180);
+    if (searchDone && noSmokeReported && fs.truth === 'false_alarm' && fs.state !== 'false_alarm_rtb') {
+        fs.state = 'false_alarm_rtb';
+        _poiSatisfied = true;
+        _paxAtTargetDone = true;
+        _fireRecordObservation('false_alarm_complete', ctx, 'search dwell complete without smoke');
+        _fireSpeakText(`${_fireVectorLine(ctx)} Suchzeit komplett und weiterhin keine Rauchentwicklung sichtbar. Ich werte das als wahrscheinliche Fehlmeldung und melde Rueckflugbereitschaft.`, 'Fehlmeldung');
+        _firePersistState();
+    }
+    return true;
+}
+
+window.fireMissionPositionReport = function() {
+    const ctx = _fireMissionContext();
+    if (!ctx.fs) {
+        _fireSpeakText('Hier ist keine aktive Feuerwache geladen.', 'Feuerwache');
+        return;
+    }
+    _fireRecordObservation('position_report', ctx);
+    if (!ctx.hasPosition) {
+        _fireSpeakText('Ich habe gerade keine Live-Position vom Tracker. Sobald die GPS-Daten wieder laufen, gebe ich dir Richtung und Entfernung zum Zielgebiet.', 'Feuerwache');
+        return;
+    }
+    const action = ctx.inTargetArea
+        ? `Wir sind im Suchgebiet, halte den Orbit stabil. ${_fireRemainingSearchText(ctx)}.`
+        : `Flieg weiter Richtung ${ctx.bearingText}; das Ziel liegt etwa ${ctx.clockPos}.`;
+    _fireSpeakText(`${_fireVectorLine(ctx)} ${action}`, 'Suchrichtung');
+};
+
+window.fireMissionReportNoSmoke = function() {
+    const ctx = _fireMissionContext();
+    if (!ctx.fs) {
+        _fireSpeakText('Hier ist keine aktive Feuerwache geladen.', 'Feuerwache');
+        return;
+    }
+    _fireRecordObservation('pilot_no_smoke', ctx);
+    if (!ctx.hasPosition) {
+        _fireSpeakText('Verstanden, noch kein Rauch sichtbar. Mir fehlen gerade die Live-Daten fuer eine Suchrichtung; pruefe bitte Tracker-Verbindung und halte den letzten Zielpunkt.', 'Kein Rauch');
+        return;
+    }
+    if (!ctx.inTargetArea) {
+        ctx.fs.state = 'search_enroute';
+        _fireSpeakText(`Verstanden, noch nichts sichtbar. ${_fireVectorLine(ctx)} Such weiter in Richtung ${ctx.bearingText}; wir sind noch nicht sauber im Zielgebiet.`, 'Kein Rauch');
+        _firePersistState();
+        return;
+    }
+    const dwellDone = Number(ctx.inTargetAreaSec || 0) >= Number(ctx.fs.searchDwellSec || 180);
+    if (dwellDone && ctx.fs.truth === 'false_alarm') {
+        ctx.fs.state = 'false_alarm_rtb';
+        _fireSpeakText(`${_fireVectorLine(ctx)} Keine Rauchentwicklung feststellbar nach der Suchzeit. Ich melde wahrscheinliche Fehlmeldung, Einsatzkraefte bleiben informiert, und wir koennen den Rueckflug planen.`, 'Fehlmeldung');
+        _firePersistState();
+        return;
+    }
+    ctx.fs.state = 'searching';
+    const hint = ctx.fs.truth === 'fire'
+        ? 'Die Meldung bleibt offen; Rauch kann im Gelande oder unter der Sichtlinie liegen. Kreis weiter, versuch verschiedene Blickwinkel und halte den Zielpunkt im Auge.'
+        : 'Die Meldung bleibt offen. Such weiter im Zielgebiet, bis die Aufenthaltszeit sauber voll ist.';
+    _fireSpeakText(`${_fireVectorLine(ctx)} Verstanden, noch nichts bestaetigt. ${hint} ${_fireRemainingSearchText(ctx)}.`, 'Kein Rauch');
+    _firePersistState();
+};
+
+window.fireMissionReportSmokeVisible = function() {
+    const ctx = _fireMissionContext();
+    if (!ctx.fs) {
+        _fireSpeakText('Hier ist keine aktive Feuerwache geladen.', 'Feuerwache');
+        return;
+    }
+    _fireRecordObservation('pilot_smoke_visible', ctx);
+    if (!ctx.hasPosition) {
+        _fireSpeakText('Rauchmeldung aufgenommen. Mir fehlen gerade Live-Positionsdaten, daher kann ich Entfernung und Zielbezug noch nicht bestaetigen.', 'Rauchmeldung');
+        return;
+    }
+    if (!ctx.inConfirmRange) {
+        ctx.fs.state = 'reported_smoke_unconfirmed';
+        _fireSpeakText(`Rauchmeldung aufgenommen. ${_fireVectorLine(ctx)} Aus der Entfernung kann ich das noch nicht sicher zuordnen. Geh naeher ans Zielgebiet, dann bestaetigen wir Lage und Ursache.`, 'Rauchmeldung');
+        _firePersistState();
+        return;
+    }
+    if (ctx.fs.truth === 'fire') {
+        ctx.fs.state = 'smoke_confirmed';
+        ctx.fs.smokeConfirmedAt = Date.now();
+        _fireSpeakText(`${_fireVectorLine(ctx)} Bestaetigt, das passt zur gemeldeten Rauchentwicklung. Bitte weiter im Zielgebiet kreisen, Lagebild sammeln: Ausdehnung, Ursprung, Windrichtung und ob Personen oder Gebaeude betroffen sein koennten. Ich informiere Leitstelle und Einsatzkraefte.`, 'Rauch bestaetigt');
+        _firePersistState();
+        return;
+    }
+    ctx.fs.state = 'reported_smoke_unconfirmed';
+    _fireSpeakText(`${_fireVectorLine(ctx)} Ich kann das aus den Zielinformationen noch nicht eindeutig bestaetigen. Halte den Orbit und pruefe, ob es wirklich Rauch ist oder Dunst, Staub beziehungsweise Schattenwurf.`, 'Rauch pruefen');
+    _firePersistState();
+};
 
 // ─── TWO-STEP PIPELINE ───────────────────────────────────────────────────────
 
@@ -2509,6 +2814,9 @@ function _tickPoiDwell(lat, lon, flightData) {
 
     const strict               = _paxStrictMode;
     const taskDomain = _activeTaskDomain();
+    if (taskDomain === 'fire_watch' && _tickFireMissionSearch(flightData, distNm)) {
+        return;
+    }
     const tightAltitudeBand = /^(fire_watch|search_and_rescue|inspection_infra|mapping_survey)$/.test(taskDomain);
     const altTolerance         = strict ? 200  : (tightAltitudeBand ? 300 : 600);
     const dwellRequired        = pax.targetDwellMin > 0 ? pax.targetDwellMin * 60 * (strict ? 1.0 : 0.5) : 0;

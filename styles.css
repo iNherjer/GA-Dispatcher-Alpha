@@ -6899,6 +6899,25 @@ body.map-is-fullscreen #paxVoiceWidget {
 #paxVoiceBtn.pax-has-new {
     animation: paxBlink 1.2s ease-in-out infinite;
 }
+.pax-fire-btn {
+    width: 100%;
+    min-height: 32px;
+    padding: 7px 9px;
+    border: 1px solid #355f82;
+    border-radius: 6px;
+    background: #142b43;
+    color: #d8edff;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+.pax-fire-btn:hover,
+.pax-fire-btn:focus-visible {
+    background: #1c3c5c;
+    border-color: #4da6ff;
+    outline: none;
+}
 
 /* ==========================================================================
    23. MODERN LIQUID GLASS THEME

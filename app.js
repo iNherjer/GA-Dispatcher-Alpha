@@ -6235,6 +6235,62 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
     };
 }
 
+function buildFireWatchScenario({ isPOI = false, mission = null, passenger = null, dest = null, poiTerrainFt = null, heading = 0, fireHazard = null } = {}) {
+    const taskDomain = String(passenger?.taskDomain || mission?.passenger?.taskDomain || '').toLowerCase();
+    const profileId = String(mission?.profileId || mission?._appliedProfile || mission?._requestedProfile || '').toLowerCase();
+    const titleStory = normalizeMissionText(`${mission?.t || ''} ${mission?.s || ''}`);
+    const isFireMission = isPOI && (
+        taskDomain === 'fire_watch' ||
+        profileId === 'fire_watch' ||
+        /(brand|rauch|hotspot|feuer|waldbrand|feuerwacht|fire watch)/.test(titleStory)
+    );
+    if (!isFireMission || !dest || !Number.isFinite(Number(dest.lat)) || !Number.isFinite(Number(dest.lon))) return null;
+
+    const hazardLevel = Number(fireHazard?.level);
+    const fireProbability = Number.isFinite(hazardLevel)
+        ? Math.max(0.25, Math.min(0.82, 0.18 + hazardLevel * 0.13))
+        : 0.55;
+    const truth = Math.random() < fireProbability ? 'fire' : 'false_alarm';
+    const altFt = Number.isFinite(Number(poiTerrainFt))
+        ? Math.max(0, Math.round(Number(poiTerrainFt)))
+        : Math.max(0, Math.round(Number(dest.elevation ?? currentDestElev ?? currentDepElev ?? 0)));
+    const missionId = `fire-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    return {
+        enabled: true,
+        type: 'fire_watch',
+        missionId,
+        truth,
+        state: 'enroute',
+        createdAt: Date.now(),
+        fireProbability: Math.round(fireProbability * 100) / 100,
+        paxAwarenessRangeNm: 4,
+        confirmRangeNm: 2,
+        targetAreaNm: Number(passenger?.targetRadiusNm || 1.5) || 1.5,
+        searchDwellSec: Math.max(120, Math.round(Number(passenger?.targetDwellMin || 3) * 60)),
+        assessmentDwellSec: 240,
+        target: {
+            name: String(dest.n || dest.name || 'Zielgebiet'),
+            lat: Number(dest.lat),
+            lon: Number(dest.lon),
+            altFt
+        },
+        smoke: {
+            objectTitle: 'Chimney_Smoke_V1',
+            lat: Number(dest.lat),
+            lon: Number(dest.lon),
+            altFt,
+            hdg: Number.isFinite(Number(heading)) ? Math.round(Number(heading)) : 0,
+            count: 5,
+            radiusM: 120,
+            spawned: false,
+            spawnRequestedAt: 0,
+            clearRequestedAt: 0
+        },
+        observations: []
+    };
+}
+
 function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     const id = String(profileId || 'auto').toLowerCase();
     if (!id || id === 'auto') return true;
@@ -8121,7 +8177,8 @@ async function generateMission() {
 
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
     const isAiGeneratedMission = !!(m && typeof m._source === 'string' && /^Gemini\b/i.test(String(m._source)));
-    window.activePassenger = (aiModeEnabled && isAiGeneratedMission && missionHasPassenger && m && m.passenger)
+    const forceFireWatchPassenger = !!(missionHasPassenger && m && m.passenger && String(m.passenger.taskDomain || '').toLowerCase() === 'fire_watch');
+    window.activePassenger = ((aiModeEnabled && isAiGeneratedMission && missionHasPassenger && m && m.passenger) || forceFireWatchPassenger)
         ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt)
         : null;
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
@@ -8135,8 +8192,21 @@ async function generateMission() {
         cargoText,
         category: poolCategory
     });
+    const fireScenario = buildFireWatchScenario({
+        isPOI,
+        mission: m,
+        passenger: window.activePassenger || m?.passenger || null,
+        dest,
+        poiTerrainFt,
+        heading: nav.brng,
+        fireHazard: missionFireHazard
+    });
+    if (fireScenario) currentMissionData.fireScenario = fireScenario;
     currentMissionData.missionContract = activeMissionContract;
     window.activeMissionContract = activeMissionContract;
+    if (fireScenario && typeof window.paxVoiceRefreshWidget === 'function') {
+        window.paxVoiceRefreshWidget();
+    }
     try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch(e) {}
     try { localStorage.setItem('ga_active_mission_contract', JSON.stringify(activeMissionContract)); } catch(e) {}
     try {

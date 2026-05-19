@@ -1,7 +1,8 @@
-const { open, SimConnectDataType, SimConnectPeriod } = require('node-simconnect');
+const { open, SimConnectDataType, SimConnectPeriod, InitPosition } = require('node-simconnect');
 const WebSocket = require('ws');
 const readline = require('readline');
 const fs = require('fs');
+const path = require('path');
 
 /**
  * GA TRACKER CLIENT - MSFS 2024 Edition
@@ -11,18 +12,259 @@ const fs = require('fs');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v212';
-const TRACKER_VERSION_CODE = 212;
+const TRACKER_VERSION = 'v213';
+const TRACKER_VERSION_CODE = 213;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
+const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
+const TRACKER_DEBUG_FILE = path.join(process.pkg ? path.dirname(process.execPath) : __dirname, 'ga-tracker-debug.txt');
+
+function debugLog(line) {
+  try {
+    const ts = new Date().toISOString();
+    fs.appendFileSync(TRACKER_DEBUG_FILE, `[${ts}] ${line}\n`, 'utf8');
+  } catch (_) {}
+}
+
+function toFiniteNumber(value, fallback = null) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function clampInt(value, min, max) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+
+function buildInitPos(lat, lon, altFt, hdg, onGround = true) {
+  const pos = new InitPosition();
+  pos.latitude = lat;
+  pos.longitude = lon;
+  pos.altitude = altFt;
+  pos.heading = hdg;
+  pos.onGround = onGround;
+  pos.airspeed = 0;
+  return pos;
+}
+
+function offsetLatLonMeters(lat, lon, northM, eastM) {
+  const earthRadiusM = 6371000;
+  const latRad = lat * Math.PI / 180;
+  const dLat = northM / earthRadiusM;
+  const dLon = eastM / (earthRadiusM * Math.cos(latRad));
+  return {
+    lat: lat + dLat * 180 / Math.PI,
+    lon: lon + dLon * 180 / Math.PI
+  };
+}
+
+function buildSmokeFieldPositions(lat, lon, altFt, hdg, count, radiusM) {
+  const n = clampInt(count, 1, 20);
+  const radius = Math.max(0, Number(radiusM) || 0);
+  const out = [{ index: 1, lat, lon, altFt, hdg, offsetNorthM: 0, offsetEastM: 0, radiusM: 0, bearingDeg: null }];
+  if (n === 1 || radius <= 0) return out;
+  for (let i = 1; i < n; i++) {
+    const bearingDeg = (hdg + ((i - 1) * 360 / (n - 1))) % 360;
+    const rad = bearingDeg * Math.PI / 180;
+    const northM = Math.cos(rad) * radius;
+    const eastM = Math.sin(rad) * radius;
+    const p = offsetLatLonMeters(lat, lon, northM, eastM);
+    out.push({
+      index: i + 1,
+      lat: p.lat,
+      lon: p.lon,
+      altFt,
+      hdg,
+      offsetNorthM: Math.round(northM * 10) / 10,
+      offsetEastM: Math.round(eastM * 10) / 10,
+      radiusM: radius,
+      bearingDeg: Math.round(bearingDeg * 10) / 10
+    });
+  }
+  return out;
+}
+
+function createMissionSmokeController(handle, getWs, syncId, pin) {
+  const missions = new Map();
+  const pendingAssign = new Map();
+  const lastExceptions = [];
+  let nextReqId = 9300;
+
+  const sendAck = (payload) => {
+    const ws = getWs();
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    try {
+      debugLog(`ACK ${payload?.type || 'unknown'} mission=${payload?.missionId || 'n/a'} status=${payload?.status || 'n/a'} spawned=${payload?.spawned ?? ''} cleared=${payload?.cleared ?? ''} error=${payload?.error || ''}`);
+      ws.send(JSON.stringify({
+        type: 'gps',
+        syncId,
+        pin,
+        trackerVersion: TRACKER_VERSION,
+        trackerVersionCode: TRACKER_VERSION_CODE,
+        trackerAck: {
+          source: 'tracker',
+          ...payload,
+          at: Date.now()
+        }
+      }));
+    } catch (_) {}
+  };
+
+  const waitForAssignedObject = (requestId, timeoutMs = 5000) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pendingAssign.delete(requestId);
+      const hint = lastExceptions.length ? lastExceptions.splice(0).join(', ') : 'keine Antwort vom Sim';
+      reject(new Error(hint));
+    }, timeoutMs);
+    pendingAssign.set(requestId, (objectId) => {
+      clearTimeout(timer);
+      resolve(objectId);
+    });
+  });
+
+  const spawnObject = async (title, pos, timeoutMs = 5000) => {
+    const requestId = nextReqId++;
+    const waitPromise = waitForAssignedObject(requestId, timeoutMs);
+    handle.aICreateSimulatedObject(title, buildInitPos(pos.lat, pos.lon, pos.altFt, pos.hdg, true), requestId);
+    return waitPromise;
+  };
+
+  const clearMission = async (missionId, reason = 'clear') => {
+    const key = String(missionId || 'active');
+    const rec = missions.get(key);
+    if (!rec || !Array.isArray(rec.objects) || rec.objects.length === 0) {
+      debugLog(`CLEAR_NOOP mission=${key} reason=${reason}`);
+      sendAck({ type: 'mission_smoke_clear_ack', missionId: key, status: 'noop', reason });
+      return { cleared: 0 };
+    }
+    let cleared = 0;
+    debugLog(`CLEAR_START mission=${key} reason=${reason} objects=${rec.objects.length}`);
+    for (const obj of rec.objects) {
+      try {
+        handle.aIRemoveObject(obj.objectId, nextReqId++);
+        cleared++;
+      } catch (err) {
+        console.warn(`⚠️  Smoke clear objectId=${obj.objectId}: ${err?.message || err}`);
+        debugLog(`CLEAR_ERROR mission=${key} objectId=${obj.objectId} error=${err?.message || err}`);
+      }
+    }
+    missions.delete(key);
+    console.log(`🔥 Smoke Mission ${key}: ${cleared} Objekte entfernt (${reason}).`);
+    debugLog(`CLEAR_OK mission=${key} cleared=${cleared} reason=${reason}`);
+    sendAck({ type: 'mission_smoke_clear_ack', missionId: key, status: 'ok', cleared, reason });
+    return { cleared };
+  };
+
+  const spawnMissionSmoke = async (command) => {
+    const missionId = String(command?.missionId || 'active');
+    const title = String(command?.objectTitle || command?.title || MISSION_SMOKE_DEFAULT_TITLE).trim() || MISSION_SMOKE_DEFAULT_TITLE;
+    const lat = toFiniteNumber(command?.lat, null);
+    const lon = toFiniteNumber(command?.lon, null);
+    const altFt = toFiniteNumber(command?.altFt ?? command?.alt, null);
+    const hdg = toFiniteNumber(command?.hdg ?? command?.heading, 0);
+    const count = clampInt(command?.count ?? 5, 1, 20);
+    const radiusM = Math.max(0, toFiniteNumber(command?.radiusM ?? command?.['radius-m'], 120) || 0);
+    const commandId = command?.commandId || null;
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(altFt)) {
+      debugLog(`SPAWN_INVALID mission=${missionId} title="${title}" lat=${lat} lon=${lon} altFt=${altFt}`);
+      sendAck({ type: 'mission_smoke_spawn_ack', commandId, missionId, status: 'error', error: 'invalid lat/lon/altFt' });
+      return;
+    }
+
+    await clearMission(missionId, 'replace-before-spawn');
+    const positions = buildSmokeFieldPositions(lat, lon, altFt, hdg, count, radiusM);
+    const objects = [];
+    console.log(`🔥 Smoke Mission ${missionId}: spawn ${positions.length}x "${title}" bei ${lat.toFixed(5)}, ${lon.toFixed(5)} / ${Math.round(altFt)} ft`);
+    debugLog(`SPAWN_START mission=${missionId} title="${title}" lat=${lat} lon=${lon} altFt=${altFt} hdg=${hdg} count=${positions.length} radiusM=${radiusM}`);
+
+    for (const p of positions) {
+      try {
+        const objectId = await spawnObject(title, p, 5000);
+        objects.push({ objectId, title, ...p });
+        console.log(`  OK Smoke ${p.index}/${positions.length}: objectId=${objectId}`);
+        debugLog(`SPAWN_OK mission=${missionId} index=${p.index}/${positions.length} objectId=${objectId} lat=${p.lat} lon=${p.lon}`);
+      } catch (err) {
+        console.warn(`  ✗ Smoke ${p.index}/${positions.length}: ${err?.message || err}`);
+        debugLog(`SPAWN_ERROR mission=${missionId} index=${p.index}/${positions.length} error=${err?.message || err}`);
+      }
+    }
+
+    missions.set(missionId, { missionId, title, spawnedAt: Date.now(), command: { ...command }, objects, positions });
+    sendAck({
+      type: 'mission_smoke_spawn_ack',
+      commandId,
+      missionId,
+      status: objects.length > 0 ? 'ok' : 'error',
+      objectTitle: title,
+      requested: positions.length,
+      spawned: objects.length,
+      objects: objects.map(o => ({ objectId: o.objectId, index: o.index }))
+    });
+  };
+
+  handle.on('assignedObjectID', (recv) => {
+    const fn = pendingAssign.get(recv.requestID);
+    if (fn) {
+      pendingAssign.delete(recv.requestID);
+      fn(recv.objectID);
+    }
+  });
+
+  handle.on('exception', (recv) => {
+    const name = recv.exceptionName || String(recv.exception);
+    lastExceptions.push(name);
+    if (pendingAssign.size > 0) console.warn(`[SimConnect Exception] ${name} sendId=${recv.sendId}`);
+  });
+
+  return {
+    handleCommand(command) {
+      const type = String(command?.type || command?.command || '').trim();
+      if (type === 'mission_smoke_spawn') {
+        debugLog(`COMMAND mission_smoke_spawn mission=${command?.missionId || 'active'} title="${command?.objectTitle || command?.title || MISSION_SMOKE_DEFAULT_TITLE}"`);
+        spawnMissionSmoke(command).catch(err => {
+          console.warn(`⚠️  Smoke spawn failed: ${err?.message || err}`);
+          sendAck({ type: 'mission_smoke_spawn_ack', commandId: command?.commandId || null, missionId: command?.missionId || 'active', status: 'error', error: err?.message || String(err) });
+        });
+        return true;
+      }
+      if (type === 'mission_smoke_clear') {
+        debugLog(`COMMAND mission_smoke_clear mission=${command?.missionId || 'active'}`);
+        clearMission(command?.missionId || 'active', 'command').catch(err => {
+          sendAck({ type: 'mission_smoke_clear_ack', commandId: command?.commandId || null, missionId: command?.missionId || 'active', status: 'error', error: err?.message || String(err) });
+        });
+        return true;
+      }
+      return false;
+    },
+    clearAll(reason = 'shutdown') {
+      return Promise.all([...missions.keys()].map(id => clearMission(id, reason)));
+    }
+  };
+}
 
 function startTracker(syncId, pin) {
+  debugLog(`START ${TRACKER_DISPLAY_NAME} debugFile=${TRACKER_DEBUG_FILE}`);
   let _reconnecting = false;
   let _reconnectTimer = null;
   let _simStarted = false;
   let _wsAttempt = 0;
   let _currentWs = null;
+  let _trackerCommandHandler = null;
 
   const getWs = () => _currentWs;
+  const setTrackerCommandHandler = (handler) => { _trackerCommandHandler = handler; };
+  const handleTrackerMessage = (raw) => {
+    if (!_trackerCommandHandler) return;
+    let data = null;
+    try { data = JSON.parse(String(raw || '')); } catch (_) { return; }
+    const command = data?.trackerCommand || (data?.target === 'tracker' ? data : null);
+    if (!command || typeof command !== 'object') return;
+    if (data.syncId && String(data.syncId) !== String(syncId)) return;
+    if (data.pin && String(data.pin) !== String(pin)) return;
+    if (command.pin && String(command.pin) !== String(pin)) return;
+    _trackerCommandHandler(command);
+  };
   const scheduleReconnect = (reason, delayMs = 5000) => {
     if (_reconnectTimer) return;
     _reconnecting = false;
@@ -78,10 +320,11 @@ function startTracker(syncId, pin) {
       }, 25000);
       if (!_simStarted) {
         _simStarted = true;
-        connectSimConnect(getWs, syncId, pin);
+        connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler);
       }
     });
     ws.on('pong', () => { awaitingPong = false; });
+    ws.on('message', handleTrackerMessage);
 
     ws.on('error', (err) => {
       console.error("❌ WebSocket-Fehler:", err.message);
@@ -98,10 +341,14 @@ function startTracker(syncId, pin) {
   connect();
 }
 
-function connectSimConnect(getWs, syncId, pin) {
+function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) {
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       console.log("✈️ MSFS gefunden! Warte auf Positionsdaten...");
+      const missionSmokeController = createMissionSmokeController(handle, getWs, syncId, pin);
+      if (typeof setTrackerCommandHandler === 'function') {
+        setTrackerCommandHandler((command) => missionSmokeController.handleCommand(command));
+      }
 
       let lastSent = 0;
       let lastFlightLog = 0;
@@ -448,13 +695,14 @@ function connectSimConnect(getWs, syncId, pin) {
       }, TRAFFIC_POLL_MS);
 
       handle.on('close', () => {
+        if (typeof setTrackerCommandHandler === 'function') setTrackerCommandHandler(null);
         clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);
         // Nur reconnecten wenn WS noch offen ist, sonst wartet WS-Reconnect auf SimConnect-Neustart
         const ws = getWs();
         if (ws && ws.readyState === WebSocket.OPEN) {
           console.warn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-          setTimeout(() => connectSimConnect(getWs, syncId, pin), 5000);
+          setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler), 5000);
         }
       });
     })
@@ -462,7 +710,7 @@ function connectSimConnect(getWs, syncId, pin) {
       const ws = getWs();
       if (ws && ws.readyState === WebSocket.OPEN) {
         console.warn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin), 5000);
+        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler), 5000);
       }
     });
 }
