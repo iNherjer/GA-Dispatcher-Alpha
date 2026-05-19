@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v218';
-const TRACKER_VERSION_CODE = 218;
+const TRACKER_VERSION = 'v219';
+const TRACKER_VERSION_CODE = 219;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -139,6 +139,25 @@ function normalizeHeading(value) {
   return ((n % 360) + 360) % 360;
 }
 
+function uniqueStrings(values) {
+  const out = [];
+  for (const value of values || []) {
+    const s = String(value || '').trim();
+    if (s && !out.includes(s)) out.push(s);
+  }
+  return out;
+}
+
+function buildTitleCandidates(title, extra = []) {
+  const base = String(title || '').trim();
+  const candidates = [base, ...(Array.isArray(extra) ? extra : [])];
+  const paren = base.match(/\(([^)]+)\)/);
+  if (paren) candidates.push(paren[1], base.replace(/\s*\([^)]+\)\s*/g, ' ').trim());
+  if (/termac/i.test(base)) candidates.push(base.replace(/termac/ig, 'Tarmac'));
+  if (/tarmac/i.test(base)) candidates.push(base.replace(/tarmac/ig, 'Termac'));
+  return uniqueStrings(candidates);
+}
+
 function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null) {
   const missions = new Map();
   const scenes = new Map();
@@ -214,14 +233,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       const hint = lastExceptions.length ? lastExceptions.splice(0).join(', ') : 'keine Antwort vom Sim';
       reject(new Error(hint));
     }, timeoutMs);
-    pendingAssign.set(requestId, (objectId) => {
-      clearTimeout(timer);
-      resolve(objectId);
-    });
+    pendingAssign.set(requestId, { resolve, reject, timer });
   });
 
   const spawnObject = async (title, pos, timeoutMs = 5000) => {
     const requestId = nextReqId++;
+    lastExceptions.length = 0;
     const waitPromise = waitForAssignedObject(requestId, timeoutMs);
     handle.aICreateSimulatedObject(title, buildInitPos(pos.lat, pos.lon, pos.altFt, pos.hdg, true), requestId);
     return waitPromise;
@@ -232,6 +249,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       kind: 'vehicle',
       label: 'Feuerwehrfahrzeug',
       objectTitle: MISSION_SCENE_VEHICLE_TITLE,
+      titleCandidates: [
+        MISSION_SCENE_VEHICLE_TITLE,
+        'FIREFIGHTING_DEFAULT',
+        'Car Bush Firefighting',
+        'Car_Bush_Firefighting'
+      ],
       forwardM: 22,
       rightM: -12,
       headingMode: 'face_aircraft',
@@ -241,6 +264,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       kind: 'person',
       label: 'Einweiserin',
       objectTitle: MISSION_SCENE_PERSON_TITLE,
+      titleCandidates: [
+        MISSION_SCENE_PERSON_TITLE,
+        'Tarmac_Female_Summer_Asian'
+      ],
       forwardM: 14,
       rightM: -5,
       headingMode: 'face_aircraft',
@@ -260,6 +287,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const items = Array.isArray(command?.items) && command.items.length > 0 ? command.items : defaultSceneItems();
     return items.map((item, idx) => {
       const title = String(item?.objectTitle || item?.title || '').trim();
+      const titleCandidates = buildTitleCandidates(title, item?.titleCandidates || item?.objectTitleCandidates || item?.titles || []);
       const forwardM = toFiniteNumber(item?.forwardM ?? item?.forward, 0);
       const rightM = toFiniteNumber(item?.rightM ?? item?.right, 0);
       const rel = buildRelativePosition(base, forwardM, rightM);
@@ -273,6 +301,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         kind: String(item?.kind || `scene-${idx + 1}`),
         label: String(item?.label || item?.kind || `Scene ${idx + 1}`),
         title,
+        titleCandidates,
         lat: rel.lat,
         lon: rel.lon,
         altFt: base.altFt + altOffsetFt,
@@ -326,14 +355,27 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     console.log(`🚒 Scene ${sceneId}: spawn ${positions.length} Objekte (${JSON.stringify(countByKind(positions))})`);
     debugLog(`SCENE_SPAWN_START scene=${sceneId} count=${positions.length} byKind=${JSON.stringify(countByKind(positions))}`);
     for (const p of positions) {
-      try {
-        const objectId = await spawnObject(p.title, p, 5000);
-        objects.push({ objectId, ...p });
-        console.log(`  OK scene ${p.kind}: objectId=${objectId}`);
-        debugLog(`SCENE_SPAWN_OK scene=${sceneId} kind=${p.kind} index=${p.index} objectId=${objectId} title="${p.title}" lat=${p.lat} lon=${p.lon} altFt=${p.altFt} hdg=${p.hdg} forwardM=${p.forwardM} rightM=${p.rightM}`);
-      } catch (err) {
-        console.warn(`  ✗ scene ${p.kind}: ${err?.message || err}`);
-        debugLog(`SCENE_SPAWN_ERROR scene=${sceneId} kind=${p.kind} title="${p.title}" error=${err?.message || err}`);
+      const candidates = p.titleCandidates?.length ? p.titleCandidates : [p.title];
+      let spawned = false;
+      let lastError = null;
+      for (const candidate of candidates) {
+        try {
+          debugLog(`SCENE_TRY scene=${sceneId} kind=${p.kind} title="${candidate}"`);
+          const objectId = await spawnObject(candidate, p, 2200);
+          const spawnedObj = { objectId, ...p, title: candidate, requestedTitle: p.title };
+          objects.push(spawnedObj);
+          console.log(`  OK scene ${p.kind}: objectId=${objectId} title="${candidate}"`);
+          debugLog(`SCENE_SPAWN_OK scene=${sceneId} kind=${p.kind} index=${p.index} objectId=${objectId} title="${candidate}" requestedTitle="${p.title}" lat=${p.lat} lon=${p.lon} altFt=${p.altFt} hdg=${p.hdg} forwardM=${p.forwardM} rightM=${p.rightM}`);
+          spawned = true;
+          break;
+        } catch (err) {
+          lastError = err;
+          console.warn(`  ✗ scene ${p.kind} title="${candidate}": ${err?.message || err}`);
+          debugLog(`SCENE_TRY_ERROR scene=${sceneId} kind=${p.kind} title="${candidate}" error=${err?.message || err}`);
+        }
+      }
+      if (!spawned) {
+        debugLog(`SCENE_SPAWN_ERROR scene=${sceneId} kind=${p.kind} title="${p.title}" candidates=${JSON.stringify(candidates)} error=${lastError?.message || lastError || 'all candidates failed'}`);
       }
     }
     scenes.set(sceneId, { sceneId, spawnedAt: Date.now(), command: { ...command }, objects, positions });
@@ -467,17 +509,26 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   };
 
   handle.on('assignedObjectID', (recv) => {
-    const fn = pendingAssign.get(recv.requestID);
-    if (fn) {
+    const pending = pendingAssign.get(recv.requestID);
+    if (pending) {
       pendingAssign.delete(recv.requestID);
-      fn(recv.objectID);
+      clearTimeout(pending.timer);
+      pending.resolve(recv.objectID);
     }
   });
 
   handle.on('exception', (recv) => {
     const name = recv.exceptionName || String(recv.exception);
     lastExceptions.push(name);
-    if (pendingAssign.size > 0) console.warn(`[SimConnect Exception] ${name} sendId=${recv.sendId}`);
+    if (pendingAssign.size > 0) {
+      console.warn(`[SimConnect Exception] ${name} sendId=${recv.sendId}`);
+      const [requestId, pending] = pendingAssign.entries().next().value || [];
+      if (pending) {
+        pendingAssign.delete(requestId);
+        clearTimeout(pending.timer);
+        pending.reject(new Error(name));
+      }
+    }
   });
 
   return {

@@ -2,7 +2,9 @@
 setlocal
 cd /d "%~dp0"
 
-set "APP_URL=https://inherjer.github.io/GA-Dispatcher-Alpha/?swBypass=1^&fireDebug=1^&sceneDebug=1^&sceneAuto=1^&testBuild=scene-v1"
+set "SCENE_VEHICLE=Car Bush Firefighting (FIREFIGHTING_DEFAULT)"
+set "SCENE_PERSON=Termac_Female_Summer_Asian"
+set "APP_URL=https://inherjer.github.io/GA-Dispatcher-Alpha/?swBypass=1^&fireDebug=1^&sceneDebug=1^&sceneAuto=1^&sceneVehicle=%SCENE_VEHICLE%^&scenePerson=%SCENE_PERSON%^&testBuild=scene-v2"
 set "TRACKER_EXE=%~dp0VFR-Multitool-Tracker.exe"
 
 title GA Dispatcher Scene Test
@@ -11,8 +13,12 @@ echo GA Dispatcher - Scene Test
 echo ============================================
 echo.
 echo Dieser Test spawnt beim Missionsstart vorne links am Flugzeug:
-echo - Car Bush Firefighting (FIREFIGHTING_DEFAULT)
-echo - Termac_Female_Summer_Asian
+echo - %SCENE_VEHICLE%
+echo - %SCENE_PERSON%
+echo.
+echo Falls CREATE_OBJECT_FAILED kommt:
+echo Die beiden Namen oben in dieser BAT koennen direkt angepasst werden.
+echo Der Tracker probiert automatisch auch ein paar Namensvarianten.
 echo.
 echo Position:
 echo Feuerwehrfahrzeug ca. 22 m vor und 12 m links vom Flugzeug.

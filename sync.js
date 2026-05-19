@@ -108,7 +108,7 @@ let missionRuntime = {
 };
 
 let missionSmokeCommandSeq = 0;
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260519-1';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260519-2';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
 window.missionSmokeStatus = {
     lastCommandAt: 0,
@@ -157,6 +157,33 @@ function _normalizeFireObjectTitle(value) {
     const s = String(value || '').trim();
     if (!s || /^(default|auto|none|off)$/i.test(s)) return '';
     return s.length <= 96 ? s : s.slice(0, 96);
+}
+
+function _sceneTitleCandidates(title, extra = []) {
+    const out = [];
+    const add = (value) => {
+        const s = String(value || '').trim();
+        if (s && !out.includes(s)) out.push(s);
+    };
+    add(title);
+    (Array.isArray(extra) ? extra : []).forEach(add);
+    const base = String(title || '').trim();
+    const paren = base.match(/\(([^)]+)\)/);
+    if (paren) {
+        add(paren[1]);
+        add(base.replace(/\s*\([^)]+\)\s*/g, ' ').trim());
+    }
+    if (/termac/i.test(base)) add(base.replace(/termac/ig, 'Tarmac'));
+    if (/tarmac/i.test(base)) add(base.replace(/tarmac/ig, 'Termac'));
+    return out;
+}
+
+function _sceneObjectTitleOverride(key, fallback) {
+    try {
+        return _normalizeFireObjectTitle(localStorage.getItem(`ga_scene_${key}_title`)) || fallback;
+    } catch (_) {
+        return fallback;
+    }
 }
 
 function _normalizeFireNumber(value, min, max) {
@@ -221,6 +248,18 @@ function _initFireMissionDebugFromUrl() {
         if (params.has('sceneAuto')) {
             const raw = String(params.get('sceneAuto') || '').toLowerCase();
             localStorage.setItem('ga_scene_auto_spawn', raw === '0' || raw === 'false' || raw === 'off' ? '0' : '1');
+        }
+        const sceneVehicleRaw = params.get('sceneVehicle') ?? params.get('sceneVehicleTitle') ?? params.get('vehicleTitle');
+        if (sceneVehicleRaw !== null) {
+            const title = _normalizeFireObjectTitle(sceneVehicleRaw);
+            if (title) localStorage.setItem('ga_scene_vehicle_title', title);
+            else localStorage.removeItem('ga_scene_vehicle_title');
+        }
+        const scenePersonRaw = params.get('scenePerson') ?? params.get('scenePersonTitle') ?? params.get('personTitle');
+        if (scenePersonRaw !== null) {
+            const title = _normalizeFireObjectTitle(scenePersonRaw);
+            if (title) localStorage.setItem('ga_scene_person_title', title);
+            else localStorage.removeItem('ga_scene_person_title');
         }
     } catch (_) {}
 }
@@ -566,6 +605,8 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     const pos = window.lastLiveGpsPos || {};
     if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) return false;
     const sceneId = _missionSceneId();
+    const vehicleTitle = _sceneObjectTitleOverride('vehicle', 'Car Bush Firefighting (FIREFIGHTING_DEFAULT)');
+    const personTitle = _sceneObjectTitleOverride('person', 'Termac_Female_Summer_Asian');
     const commandId = window.sendTrackerCommand({
         type: 'mission_scene_spawn',
         sceneId,
@@ -578,7 +619,8 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
             {
                 kind: 'vehicle',
                 label: 'Feuerwehrfahrzeug',
-                objectTitle: 'Car Bush Firefighting (FIREFIGHTING_DEFAULT)',
+                objectTitle: vehicleTitle,
+                titleCandidates: _sceneTitleCandidates(vehicleTitle, ['FIREFIGHTING_DEFAULT', 'Car Bush Firefighting', 'Car_Bush_Firefighting']),
                 forwardM: 22,
                 rightM: -12,
                 headingMode: 'face_aircraft',
@@ -587,7 +629,8 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
             {
                 kind: 'person',
                 label: 'Einweiserin',
-                objectTitle: 'Termac_Female_Summer_Asian',
+                objectTitle: personTitle,
+                titleCandidates: _sceneTitleCandidates(personTitle, ['Tarmac_Female_Summer_Asian']),
                 forwardM: 14,
                 rightM: -5,
                 headingMode: 'face_aircraft',
