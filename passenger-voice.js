@@ -769,7 +769,7 @@ function _refreshPaxWidgetVisibility() {
     const widget = document.getElementById('paxVoiceWidget');
     if (!widget) return;
     _syncPaxWidgetHost();
-    const shouldShow = !!_lastPaxText || !!_fireScenario();
+    const shouldShow = !!_lastPaxText || (!!_fireScenario() && _fireMissionRuntimeActive());
     widget.style.display = shouldShow ? 'flex' : 'none';
     if (shouldShow) {
         _refreshFireMissionMenu();
@@ -1042,6 +1042,11 @@ function _fireScenario() {
     return (fs && typeof fs === 'object' && fs.enabled && fs.type === 'fire_watch') ? fs : null;
 }
 
+function _fireMissionRuntimeActive() {
+    if (typeof window.missionRuntimeIsActive === 'function') return !!window.missionRuntimeIsActive();
+    try { return typeof missionRuntime !== 'undefined' && !!missionRuntime.active; } catch (_) { return false; }
+}
+
 function _fireTarget(fs = _fireScenario()) {
     if (fs?.target && Number.isFinite(Number(fs.target.lat)) && Number.isFinite(Number(fs.target.lon))) {
         return {
@@ -1173,7 +1178,7 @@ function _refreshFireMissionMenu() {
     const menu = document.getElementById('paxFireMissionMenu');
     if (!menu) return;
     const fs = _fireScenario();
-    const active = !!fs;
+    const active = !!fs && _fireMissionRuntimeActive();
     menu.style.display = active ? 'grid' : 'none';
     const debugBox = document.getElementById('paxFireMissionDebug');
     const debugStatus = document.getElementById('paxFireMissionDebugStatus');
@@ -1220,6 +1225,7 @@ function _fireHasObservation(fs, kind) {
 function _tickFireMissionSearch(flightData, distNm = null) {
     const fs = _fireScenario();
     if (!fs) return false;
+    if (!_fireMissionRuntimeActive()) return true;
     _fireMissionAwarenessTick(flightData, distNm);
     const ctx = _fireMissionContext(flightData);
     if (!ctx.hasPosition) return true;

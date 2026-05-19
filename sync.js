@@ -138,11 +138,15 @@ function _initFireMissionDebugFromUrl() {
 _initFireMissionDebugFromUrl();
 
 window.fireMissionDebugEnabled = function() {
-    try { return localStorage.getItem('ga_fire_debug') === '1'; } catch (_) { return false; }
+    try { return localStorage.getItem('ga_fire_debug') === '1' || !!window.fireMissionTruthOverride(); } catch (_) { return false; }
 };
 
 window.fireMissionTruthOverride = function() {
     try { return _normalizeFireTruthOverride(localStorage.getItem('ga_fire_truth_override')); } catch (_) { return null; }
+};
+
+window.missionRuntimeIsActive = function() {
+    return !!missionRuntime.active;
 };
 
 function _activeFireScenario() {
@@ -324,6 +328,7 @@ function _updateMissionRuntimeUi() {
         bMap.title = missionRuntime.active ? 'Mission manuell stoppen' : 'Mission manuell starten';
         bMap.classList.toggle('is-active', missionRuntime.active);
     }
+    if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
 }
 
 function _resetMissionRuntime() {
