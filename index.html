@@ -1488,6 +1488,28 @@
     })();
 </script>
 
+<script>
+    (() => {
+        try {
+            const params = new URLSearchParams(window.location.search || '');
+            if (!params.has('swBypass')) return;
+            const freshUrl = new URL(window.location.href);
+            freshUrl.searchParams.delete('swBypass');
+            freshUrl.searchParams.set('fireCacheFresh', '1');
+            const reloadKey = `ga-sw-bypass:${freshUrl.search}`;
+            if (sessionStorage.getItem(reloadKey) === '1') return;
+            sessionStorage.setItem(reloadKey, '1');
+            const unregisterSw = ('serviceWorker' in navigator)
+                ? navigator.serviceWorker.getRegistrations().then(regs => Promise.all(regs.map(reg => reg.unregister())))
+                : Promise.resolve();
+            const clearCaches = ('caches' in window)
+                ? caches.keys().then(keys => Promise.all(keys.map(key => caches.delete(key))))
+                : Promise.resolve();
+            Promise.allSettled([unregisterSw, clearCaches]).finally(() => window.location.replace(freshUrl.toString()));
+        } catch (_) {}
+    })();
+</script>
+
 <script defer src="vendor/leaflet/leaflet.js"></script>
 <script defer src="datenbank.js"></script>
 <script defer src="missions.js"></script>
@@ -1636,7 +1658,9 @@
     window.addEventListener('orientationchange', _closeFloatingMenus);
 
     // Service Worker mit Auto-Reload bei Updates
-    if ('serviceWorker' in navigator && /^https?:$/i.test(window.location.protocol)) {
+    const _swParams = new URLSearchParams(window.location.search || '');
+    const _skipSwForDebug = _swParams.has('fireDebug') || _swParams.has('fireCacheFresh') || _swParams.has('noSw');
+    if (!_skipSwForDebug && 'serviceWorker' in navigator && /^https?:$/i.test(window.location.protocol)) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js').then(reg => {
                 console.log('[PWA] Service Worker registriert:', reg.scope);

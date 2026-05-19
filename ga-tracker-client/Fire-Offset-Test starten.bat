@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-set "APP_URL=https://inherjer.github.io/GA-Dispatcher-Alpha/?fireDebug=1^&fireTruth=fire^&fireExtent=major_fire^&fireSpawnMode=target^&fireTest=offset_ladder^&fireCount=1^&fireRadius=0"
+set "APP_URL=https://inherjer.github.io/GA-Dispatcher-Alpha/?swBypass=1^&fireDebug=1^&fireTruth=fire^&fireExtent=major_fire^&fireSpawnMode=target^&fireTest=offset_ladder^&fireCount=1^&fireRadius=0^&testBuild=fire-offset-v2"
 set "TRACKER_EXE=%~dp0VFR-Multitool-Tracker.exe"
 
 title GA Dispatcher Fire Offset Test
