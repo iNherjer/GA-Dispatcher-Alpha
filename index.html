@@ -678,7 +678,8 @@
             </div>
         </div>
         <input type="text" style="display:none;" aria-hidden="true" autocomplete="username">
-        <input type="password" id="apiKeyInput" placeholder="Optional. Leer = Lokale Datenbank" onchange="saveApiKey()" autocomplete="new-password">
+        <input type="password" id="apiKeyInput" placeholder="Optional. Leer = Lokale Datenbank" onchange="saveApiKey(true)" autocomplete="new-password">
+        <div id="apiKeyStatus" style="font-size:11px; margin-top:6px; color:#888;" aria-live="polite">Noch nicht geprüft.</div>
         <div class="api-hint">
             <strong>Tipp:</strong> Mehr Abwechslung? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Gemini API-Key</a> benutzen um dynamische Missionen generieren zu lassen. <br>
             <span style="opacity: 0.7;">🔒 Sicher: Der Key wird ausschließlich lokal in deinem Browser gespeichert.</span>

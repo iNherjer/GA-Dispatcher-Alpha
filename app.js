@@ -1743,7 +1743,35 @@ function bootAppOnce() {
     if (lastDest) document.getElementById('startLoc').value = lastDest;
 
     const savedKey = localStorage.getItem('ga_gemini_key');
-    if (savedKey) document.getElementById('apiKeyInput').value = savedKey;
+    if (savedKey) {
+        document.getElementById('apiKeyInput').value = savedKey;
+        const cache = _readApiKeyValidationCache();
+        const sameKey = cache && cache.sig === _apiKeyValidationSignature(savedKey);
+        const ageMs = sameKey ? (Date.now() - Number(cache.ts || 0)) : Number.POSITIVE_INFINITY;
+        if (sameKey && Number.isFinite(ageMs) && ageMs >= 0 && ageMs < API_KEY_VALIDATION_TTL_MS) {
+            const minutesAgo = Math.max(1, Math.round(ageMs / 60000));
+            if (cache.ok === true) {
+                setApiKeyValidationStatus(`API-Key zuletzt vor ${minutesAgo} min geprueft (ok).`, 'ok');
+            } else {
+                setApiKeyValidationStatus(`Letzte API-Key Pruefung vor ${minutesAgo} min fehlgeschlagen.`, 'error');
+            }
+        } else {
+            queueApiKeyValidation(savedKey);
+        }
+    } else {
+        setApiKeyValidationStatus('Kein API-Key gesetzt. Lokale Missionsdatenbank aktiv.', 'neutral');
+    }
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    if (apiKeyInput && !apiKeyInput.dataset.validationBound) {
+        apiKeyInput.addEventListener('input', () => {
+            saveApiKey(false);
+            if (_apiKeyValidationDebounceTimer) clearTimeout(_apiKeyValidationDebounceTimer);
+            _apiKeyValidationDebounceTimer = setTimeout(() => {
+                queueApiKeyValidation(apiKeyInput.value);
+            }, 700);
+        });
+        apiKeyInput.dataset.validationBound = '1';
+    }
 
     const aiEnabled = localStorage.getItem('ga_ai_enabled');
     const aiToggleBtn = document.getElementById('aiToggle');
@@ -1842,7 +1870,140 @@ if (document.readyState === 'loading') {
 }
 window.addEventListener('load', bootAppOnce, { once: true });
 
-function saveApiKey() { localStorage.setItem('ga_gemini_key', document.getElementById('apiKeyInput').value.trim()); }
+let _apiKeyValidationRunId = 0;
+let _apiKeyValidationDebounceTimer = null;
+const API_KEY_VALIDATION_CACHE_KEY = 'ga_gemini_key_validation';
+const API_KEY_VALIDATION_TTL_MS = 24 * 60 * 60 * 1000;
+
+function _apiKeyValidationSignature(rawKey) {
+    const key = String(rawKey || '').trim();
+    if (!key) return '';
+    const prefix = key.slice(0, 6);
+    const suffix = key.slice(-4);
+    return `${prefix}|${suffix}|${key.length}`;
+}
+
+function _readApiKeyValidationCache() {
+    try {
+        const raw = localStorage.getItem(API_KEY_VALIDATION_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return null;
+        return parsed;
+    } catch (_) {
+        return null;
+    }
+}
+
+function _writeApiKeyValidationCache(payload) {
+    try {
+        localStorage.setItem(API_KEY_VALIDATION_CACHE_KEY, JSON.stringify(payload));
+    } catch (_) {}
+}
+
+function _clearApiKeyValidationCache() {
+    try { localStorage.removeItem(API_KEY_VALIDATION_CACHE_KEY); } catch (_) {}
+}
+
+function setApiKeyValidationStatus(message, tone = 'neutral') {
+    const statusEl = document.getElementById('apiKeyStatus');
+    if (!statusEl) return;
+    const colorByTone = {
+        neutral: '#888',
+        pending: '#f2c12e',
+        ok: '#4caf50',
+        error: '#ff6b6b'
+    };
+    statusEl.textContent = String(message || '').trim();
+    statusEl.style.color = colorByTone[tone] || colorByTone.neutral;
+}
+
+async function queueApiKeyValidation(rawKey) {
+    const apiKey = String(rawKey || '').trim();
+    const keySig = _apiKeyValidationSignature(apiKey);
+    const runId = ++_apiKeyValidationRunId;
+    if (!apiKey) {
+        _clearApiKeyValidationCache();
+        setApiKeyValidationStatus('Kein API-Key gesetzt. Lokale Missionsdatenbank aktiv.', 'neutral');
+        return { ok: null, reason: 'empty' };
+    }
+
+    setApiKeyValidationStatus('Pruefe API-Key...', 'pending');
+
+    const controller = new AbortController();
+    const timeoutMs = 8000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=${encodeURIComponent(apiKey)}`;
+        const res = await fetch(url, {
+            method: 'GET',
+            cache: 'no-store',
+            signal: controller.signal
+        });
+
+        if (runId !== _apiKeyValidationRunId) return { ok: null, reason: 'stale' };
+
+        if (res.ok) {
+            _writeApiKeyValidationCache({
+                sig: keySig,
+                ts: Date.now(),
+                ok: true,
+                status: res.status
+            });
+            setApiKeyValidationStatus('API-Key ist gueltig und einsatzbereit.', 'ok');
+            return { ok: true };
+        }
+
+        let apiMessage = '';
+        try {
+            const payload = await res.json();
+            apiMessage = String(payload?.error?.message || '').trim();
+        } catch (_) {}
+        const suffix = apiMessage ? ` (${apiMessage})` : '';
+        if (res.status === 400 || res.status === 401 || res.status === 403) {
+            setApiKeyValidationStatus(`API-Key ungueltig oder ohne Gemini-Berechtigung${suffix}`, 'error');
+        } else {
+            setApiKeyValidationStatus(`API-Key Pruefung fehlgeschlagen (HTTP ${res.status})${suffix}`, 'error');
+        }
+        _writeApiKeyValidationCache({
+            sig: keySig,
+            ts: Date.now(),
+            ok: false,
+            status: res.status,
+            message: apiMessage
+        });
+        return { ok: false, status: res.status, message: apiMessage };
+    } catch (err) {
+        if (runId !== _apiKeyValidationRunId) return { ok: null, reason: 'stale' };
+        const timedOut = err && err.name === 'AbortError';
+        setApiKeyValidationStatus(timedOut ? 'API-Key Pruefung Zeitlimit erreicht. Bitte erneut versuchen.' : 'API-Key Pruefung fehlgeschlagen (Netzwerk/CORS).', 'error');
+        _writeApiKeyValidationCache({
+            sig: keySig,
+            ts: Date.now(),
+            ok: false,
+            status: 0,
+            message: String(err?.message || err || '')
+        });
+        return { ok: false, status: 0, message: String(err?.message || err || '') };
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+function saveApiKey(shouldValidate = true) {
+    const input = document.getElementById('apiKeyInput');
+    if (!input) return;
+    const key = input.value.trim();
+    const previousKey = String(localStorage.getItem('ga_gemini_key') || '').trim();
+    localStorage.setItem('ga_gemini_key', key);
+    if (key !== previousKey) {
+        _clearApiKeyValidationCache();
+        if (!key) setApiKeyValidationStatus('Kein API-Key gesetzt. Lokale Missionsdatenbank aktiv.', 'neutral');
+        else setApiKeyValidationStatus('API-Key geaendert. Warte auf Pruefung...', 'neutral');
+    }
+    if (shouldValidate) queueApiKeyValidation(key);
+}
 function saveAiToggle() { const t = document.getElementById('aiToggle'); if (t) localStorage.setItem('ga_ai_enabled', t.checked); }
 
 /* =========================================================
