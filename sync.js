@@ -282,19 +282,148 @@ function _defaultFireSmokeSite(fs) {
     };
 }
 
+function _runtimeFireSiteCountForExtent(extent) {
+    if (extent === 'major_fire') return 3;
+    if (extent === 'multi_smoke') return 2;
+    if (extent === 'single_smoke') return 1;
+    return 0;
+}
+
+function _runtimeDestinationPoint(lat, lon, distNm, bearing) {
+    const r = 3440.065;
+    const lat1 = lat * Math.PI / 180;
+    const lon1 = lon * Math.PI / 180;
+    const brng = bearing * Math.PI / 180;
+    const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distNm / r) + Math.cos(lat1) * Math.sin(distNm / r) * Math.cos(brng));
+    const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(distNm / r) * Math.cos(lat1), Math.cos(distNm / r) - Math.sin(lat1) * Math.sin(lat2));
+    return { lat: lat2 * 180 / Math.PI, lon: lon2 * 180 / Math.PI };
+}
+
+function _runtimeBuildFireSmokeSites(fs, extent) {
+    const siteCount = _runtimeFireSiteCountForExtent(extent);
+    if (!siteCount) return [];
+    const target = fs?.target || {};
+    const smoke = fs?.smoke || {};
+    const lat = Number(smoke.lat ?? target.lat);
+    const lon = Number(smoke.lon ?? target.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
+    const altFt = Number.isFinite(Number(smoke.altFt ?? target.altFt)) ? Math.max(0, Math.round(Number(smoke.altFt ?? target.altFt))) : 0;
+    const baseBearing = Number.isFinite(Number(smoke.hdg)) ? Number(smoke.hdg) : 0;
+    const sites = [];
+    for (let i = 0; i < siteCount; i++) {
+        const bearing = (baseBearing + 55 + i * 125 + Math.random() * 55) % 360;
+        const distM = i === 0 ? Math.random() * 35 : (260 + i * 170 + Math.random() * 160);
+        const p = _runtimeDestinationPoint(lat, lon, distM / 1852, bearing);
+        const denseMajor = extent === 'major_fire';
+        sites.push({
+            siteId: `smoke-${i + 1}`,
+            label: siteCount === 1 ? 'Rauchentwicklung' : `Rauchentwicklung ${i + 1}`,
+            objectTitle: smoke.objectTitle || 'Chimney_Smoke_V1',
+            lat: Number(p.lat),
+            lon: Number(p.lon),
+            altFt,
+            hdg: Math.round((baseBearing + i * 35) % 360),
+            count: denseMajor ? 9 : 8,
+            radiusM: denseMajor ? 55 : 35
+        });
+    }
+    return sites;
+}
+
+function _runtimeBuildFireSites(smokeSites, extent, fireConfig = {}) {
+    if (!Array.isArray(smokeSites) || smokeSites.length === 0) return [];
+    const n = extent === 'major_fire' ? Math.min(2, smokeSites.length) : (extent === 'multi_smoke' ? 1 : 0);
+    if (!n && fireConfig.testMode !== 'offset_ladder') return [];
+    const objectTitle = String(fireConfig.objectTitle || 'VO_Fire_R1_40').trim() || 'VO_Fire_R1_40';
+    const altOffsetFt = Number.isFinite(Number(fireConfig.altOffsetFt)) ? Math.round(Number(fireConfig.altOffsetFt)) : 0;
+    const count = Number.isFinite(Number(fireConfig.count)) ? Math.max(1, Math.min(6, Math.round(Number(fireConfig.count)))) : (extent === 'major_fire' ? 2 : 1);
+    const radiusM = Number.isFinite(Number(fireConfig.radiusM)) ? Math.max(0, Math.min(80, Math.round(Number(fireConfig.radiusM)))) : (count > 1 ? 8 : 0);
+    if (fireConfig.testMode === 'offset_ladder') {
+        const base = smokeSites[0];
+        const offsets = [80, 40, 0, -40, -80, -120];
+        return offsets.map((offset, idx) => {
+            const sideM = (idx - (offsets.length - 1) / 2) * 55;
+            const p = _runtimeDestinationPoint(Number(base.lat), Number(base.lon), Math.abs(sideM) / 1852, sideM >= 0 ? 90 : 270);
+            return {
+                siteId: `fire-offset-${offset}`,
+                smokeSiteId: base.siteId,
+                label: `Fire Offset ${offset} ft`,
+                objectTitle,
+                lat: Number(p.lat),
+                lon: Number(p.lon),
+                altFt: base.altFt,
+                altOffsetFt: offset,
+                hdg: base.hdg || 0,
+                count: 1,
+                radiusM: 0
+            };
+        });
+    }
+    return smokeSites.slice(0, n).map((site, idx) => ({
+        siteId: `fire-${idx + 1}`,
+        smokeSiteId: site.siteId,
+        objectTitle,
+        lat: site.lat,
+        lon: site.lon,
+        altFt: site.altFt,
+        altOffsetFt,
+        hdg: site.hdg || 0,
+        count,
+        radiusM
+    }));
+}
+
+function _applyFireRuntimeOverrides(fs, { forceRebuild = false } = {}) {
+    if (!fs || !fs.smoke) return;
+    const fireConfig = (typeof window.fireMissionFireOverride === 'function') ? (window.fireMissionFireOverride() || {}) : {};
+    const extentOverride = (typeof window.fireMissionExtentOverride === 'function') ? window.fireMissionExtentOverride() : null;
+    let extent = fs.extent || 'single_smoke';
+    if (fs.truth === 'fire' && extentOverride && extentOverride !== 'false_alarm') extent = extentOverride;
+    if (fs.truth === 'fire' && fireConfig.testMode === 'offset_ladder' && extent !== 'multi_smoke' && extent !== 'major_fire') {
+        extent = 'major_fire';
+    }
+    fs.extent = extent;
+
+    const expectedSmokeSites = _runtimeFireSiteCountForExtent(extent);
+    const currentSmokeSites = Array.isArray(fs.smoke.sites) ? fs.smoke.sites : [];
+    const mustRebuildSmoke = forceRebuild || currentSmokeSites.length !== expectedSmokeSites || fireConfig.testMode === 'offset_ladder';
+    if (expectedSmokeSites > 0 && mustRebuildSmoke) {
+        const rebuilt = _runtimeBuildFireSmokeSites(fs, extent);
+        if (rebuilt.length > 0) {
+            fs.smoke.sites = rebuilt;
+            fs.smoke.count = rebuilt[0]?.count || fs.smoke.count || 0;
+            fs.smoke.radiusM = rebuilt[0]?.radiusM || fs.smoke.radiusM || 0;
+            fs.smokeSiteCount = rebuilt.length;
+        }
+    }
+
+    if (!fs.fire || typeof fs.fire !== 'object') fs.fire = {};
+    const fireSites = fs.truth === 'fire' ? _runtimeBuildFireSites(fs.smoke.sites || [], extent, fireConfig) : [];
+    fs.fire.enabled = fireSites.length > 0;
+    fs.fire.objectTitle = String(fireConfig.objectTitle || fs.fire.objectTitle || 'VO_Fire_R1_40').trim() || 'VO_Fire_R1_40';
+    fs.fire.altOffsetFt = Number.isFinite(Number(fireConfig.altOffsetFt)) ? Math.round(Number(fireConfig.altOffsetFt)) : (Number.isFinite(Number(fs.fire.altOffsetFt)) ? Math.round(Number(fs.fire.altOffsetFt)) : 0);
+    fs.fire.count = Number.isFinite(Number(fireConfig.count)) ? Math.round(Number(fireConfig.count)) : (fs.fire.count || null);
+    fs.fire.radiusM = Number.isFinite(Number(fireConfig.radiusM)) ? Math.round(Number(fireConfig.radiusM)) : (fs.fire.radiusM || null);
+    fs.fire.testMode = fireConfig.testMode || null;
+    fs.fire.sites = fireSites;
+    fs.fireSiteCount = fireSites.length;
+}
+
 function _ensureFireSmokeSites(fs) {
     if (!fs || !fs.smoke) return;
-    if (Array.isArray(fs.smoke.sites) && fs.smoke.sites.length > 0) return;
-    const site = _defaultFireSmokeSite(fs);
-    if (!site) return;
-    fs.smoke.sites = [site];
-    fs.smoke.count = site.count;
-    fs.smoke.radiusM = site.radiusM;
-    fs.extent = fs.extent === 'false_alarm' ? 'single_smoke' : (fs.extent || 'single_smoke');
-    fs.smokeSiteCount = 1;
+    if (!Array.isArray(fs.smoke.sites) || fs.smoke.sites.length === 0) {
+        const site = _defaultFireSmokeSite(fs);
+        if (!site) return;
+        fs.smoke.sites = [site];
+        fs.smoke.count = site.count;
+        fs.smoke.radiusM = site.radiusM;
+        fs.extent = fs.extent === 'false_alarm' ? 'single_smoke' : (fs.extent || 'single_smoke');
+        fs.smokeSiteCount = 1;
+    }
     if (!fs.fire || typeof fs.fire !== 'object') {
         fs.fire = { enabled: false, objectTitle: 'VO_Fire_R1_40', altOffsetFt: 0, sites: [] };
     }
+    _applyFireRuntimeOverrides(fs);
 }
 
 window.sendTrackerCommand = function(command = {}) {
@@ -421,6 +550,7 @@ window.fireMissionDebugForceSmoke = function(reason = 'debug-force-smoke') {
     fs.debugOverride = 'force_fire_runtime';
     fs.extent = fs.extent && fs.extent !== 'false_alarm' ? fs.extent : 'single_smoke';
     _ensureFireSmokeSites(fs);
+    _applyFireRuntimeOverrides(fs, { forceRebuild: true });
     fs.smoke.spawned = false;
     fs.smoke.spawnRequestedAt = 0;
     fs.smoke.spawnError = null;
