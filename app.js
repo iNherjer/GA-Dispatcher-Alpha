@@ -6289,12 +6289,13 @@ function buildFireWatchSmokeSites(dest, altFt, heading, extent) {
 function buildFireWatchFireSites(smokeSites, extent, fireConfig = {}) {
     if (!Array.isArray(smokeSites) || smokeSites.length === 0) return [];
     const n = extent === 'major_fire' ? Math.min(2, smokeSites.length) : (extent === 'multi_smoke' ? 1 : 0);
-    if (!n) return [];
+    const ladderTest = fireConfig.testMode === 'offset_ladder' || fireConfig.testMode === 'fire_only_ladder';
+    if (!n && !ladderTest) return [];
     const objectTitle = String(fireConfig.objectTitle || 'VO_Fire_R1_40').trim() || 'VO_Fire_R1_40';
     const altOffsetFt = Number.isFinite(Number(fireConfig.altOffsetFt)) ? Math.round(Number(fireConfig.altOffsetFt)) : 0;
     const count = Number.isFinite(Number(fireConfig.count)) ? Math.max(1, Math.min(6, Math.round(Number(fireConfig.count)))) : (extent === 'major_fire' ? 2 : 1);
     const radiusM = Number.isFinite(Number(fireConfig.radiusM)) ? Math.max(0, Math.min(80, Math.round(Number(fireConfig.radiusM)))) : (count > 1 ? 8 : 0);
-    if (fireConfig.testMode === 'offset_ladder') {
+    if (ladderTest) {
         const base = smokeSites[0];
         const offsets = [80, 40, 0, -40, -80, -120];
         return offsets.map((offset, idx) => {
