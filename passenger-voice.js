@@ -139,6 +139,7 @@ let _paxSpeechQueue   = Promise.resolve();
 let _paxWrongStartActive = false;
 let _paxWrongStartContinueDone = false;
 let _paxOffDestLastAt = 0;
+let _paxBoardingDone = false;
 let _pattonvilleJuliusMentioned = false;
 let _pattonvilleReportingPointsMentioned = false;
 let _aptTrainingBriefDone = false;
@@ -180,6 +181,7 @@ window.paxVoiceResetMission = function() {
     _paxWrongStartActive = false;
     _paxWrongStartContinueDone = false;
     _paxOffDestLastAt = 0;
+    _paxBoardingDone = false;
     _pattonvilleJuliusMentioned = false;
     _pattonvilleReportingPointsMentioned = false;
     _aptTrainingBriefDone = false;
@@ -218,6 +220,7 @@ window.paxVoiceResetMission = function() {
     _poiTrainingLandingBriefDone = false;
     _poiNarrativeMemory = { pre: '', entry: '', done: '' };
     _lastPaxText = '';
+    try { _paxPreparedAudio.clear(); } catch (_) {}
     _closePaxPanel();
     _refreshPaxWidgetVisibility();
 };
@@ -1589,6 +1592,176 @@ function _ttsVoiceCandidatesForSpeaker(pax) {
     return dedup;
 }
 
+const _paxPreparedAudio = new Map();
+
+function _paxMissionAudioKey(kind) {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const fs = md?.fireScenario || {};
+    const key = String(fs.missionId || md?.missionId || md?.id || `${md?.start || ''}-${md?.dest || ''}-${md?.mission || ''}`).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 96) || 'active';
+    return `${kind}:${key}`;
+}
+
+function _speakerSnapshotForActivePax() {
+    const pax = window.activePassenger || null;
+    return pax ? {
+        name: pax.name || '',
+        role: pax.role || '',
+        gender: pax.gender || '',
+        roleProfile: pax.roleProfile || '',
+        taskDomain: pax.taskDomain || ''
+    } : null;
+}
+
+function _extractWeightLbs(text) {
+    const s = String(text || '');
+    let total = 0;
+    const lbMatches = s.matchAll(/(\d+(?:[.,]\d+)?)\s*(?:lb|lbs|pound|pounds|pfund)\b/ig);
+    for (const m of lbMatches) {
+        const n = Number(String(m[1]).replace(',', '.'));
+        if (Number.isFinite(n)) total += n;
+    }
+    const kgMatches = s.matchAll(/(\d+(?:[.,]\d+)?)\s*(?:kg|kilogramm|kilograms?)\b/ig);
+    for (const m of kgMatches) {
+        const n = Number(String(m[1]).replace(',', '.'));
+        if (Number.isFinite(n)) total += n * 2.20462;
+    }
+    return total > 0 ? Math.round(total) : 0;
+}
+
+function _extractPaxCount(text) {
+    const m = String(text || '').match(/^\s*(\d+)\s*PAX\b/i);
+    return m ? Math.max(0, parseInt(m[1], 10) || 0) : (_missionHasPax() ? 1 : 0);
+}
+
+function _buildBoardingText() {
+    let contract = null;
+    try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) {}
+    contract = contract || window.activeMissionContract || (typeof currentMissionData !== 'undefined' ? currentMissionData?.missionContract : null) || {};
+    const paxText = String(contract.paxText || document.getElementById('mPay')?.innerText || '').trim();
+    const cargoText = String(contract.cargoText || document.getElementById('mWeight')?.innerText || '').trim();
+    const pax = window.activePassenger || {};
+    const paxCount = _extractPaxCount(paxText);
+    const paxWeight = paxCount > 0 ? paxCount * 185 : 0;
+    const cargoWeight = _extractWeightLbs(cargoText);
+    const total = paxWeight + cargoWeight;
+    const cargoClean = cargoText && !/^[-–—]$/.test(cargoText) ? cargoText : 'kein zusaetzliches Gepaeck';
+    const role = pax.role ? ` als ${pax.role}` : '';
+    const paxPart = paxCount > 1 ? `${paxCount} Personen sind an Bord` : `ich bin${role} an Bord`;
+    const weightPart = total > 0
+        ? `Zusammen rechnen wir grob mit ${total} Pfund Zuladung, davon etwa ${cargoWeight || 0} Pfund Ausruestung.`
+        : 'Gewicht ist im Rahmen, ohne auffaellige Zusatzlast.';
+    return `Boarding und Verladen abgeschlossen. ${paxPart}, ${cargoClean} ist verstaut. ${weightPart} Von meiner Seite bereit zum Start.`;
+}
+
+async function _requestTTSAudio(text, speaker = null) {
+    const apiKey = _getApiKey();
+    if (!apiKey) { _paxLog('Kein API-Key für TTS', 'warn'); return null; }
+    const pax = speaker || window.activePassenger || _lastSpokenSpeaker || null;
+    const resolvedGender = _normSpeakerGender(pax);
+    const voiceCandidates = _ttsVoiceCandidatesForSpeaker(pax);
+    _paxLog(`TTS Stimmen: ${voiceCandidates.join(' -> ')} | Persona: ${pax?.name || 'unbekannt'} | Gender: ${resolvedGender} (raw: ${String(pax?.gender || 'n/a')})`, 'state');
+    const ttsModels = ['gemini-2.5-flash-preview-tts'];
+    _paxLog(`TTS-Modelle: ${ttsModels.join(' -> ')} | Modus: ${_paxTtsModelPref}`, 'state');
+
+    let lastErr = null;
+    for (const model of ttsModels) {
+        for (const voiceName of voiceCandidates) {
+            const ttsPayload = {
+                contents: [{ role: 'user', parts: [{ text }] }],
+                generationConfig: {
+                    responseModalities: ['AUDIO'],
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
+                }
+            };
+            try {
+                const res = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+                    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ttsPayload) }
+                );
+                if (!res.ok) {
+                    const errBody = await res.text().catch(() => '(unlesbar)');
+                    _paxLog(`TTS ${model}/${voiceName} HTTP ${res.status}: ${errBody.slice(0, 220)}`, 'warn');
+                    lastErr = new Error(`TTS ${model}/${voiceName} HTTP ${res.status}`);
+                    continue;
+                }
+                const data = await res.json();
+                const part = data?.candidates?.[0]?.content?.parts?.[0];
+                const b64 = part?.inlineData?.data;
+                const mimeType = part?.inlineData?.mimeType || '';
+                if (!b64) {
+                    _paxLog(`TTS ${model}/${voiceName} ohne Audio-Daten`, 'warn');
+                    lastErr = new Error(`TTS ${model}/${voiceName}: Keine Audio-Daten`);
+                    continue;
+                }
+                _paxLog(`TTS Stimme aktiv: ${voiceName}`, 'state');
+                _paxLog(`TTS OK (${model}) | mime: ${mimeType} | ${b64.length} chars base64`, 'recv');
+                if (typeof incrementApiUsage === 'function') incrementApiUsage('flash');
+                return { text, speaker: pax, b64, mimeType, voiceName, model };
+            } catch(e) {
+                lastErr = e;
+                _paxLog(`TTS ${model}/${voiceName} Fehler: ${e.message}`, 'warn');
+            }
+        }
+    }
+    if (lastErr) _paxLog(`TTS Fehler: ${lastErr.message}`, 'warn');
+    return null;
+}
+
+function _prepareTextAsTTS(key, text, speaker = null) {
+    if (!key || !text || !_paxVoiceEnabled || !_getApiKey()) return Promise.resolve(null);
+    const existing = _paxPreparedAudio.get(key);
+    if (existing?.audio || existing?.promise) return existing.promise || Promise.resolve(existing.audio);
+    const promise = _requestTTSAudio(text, speaker).then(audio => {
+        const rec = _paxPreparedAudio.get(key) || {};
+        rec.audio = audio;
+        rec.promise = null;
+        rec.text = text;
+        rec.speaker = speaker;
+        _paxPreparedAudio.set(key, rec);
+        return audio;
+    }).catch(err => {
+        _paxLog(`TTS Preload Fehler (${key}): ${err?.message || err}`, 'warn');
+        const rec = _paxPreparedAudio.get(key) || {};
+        rec.promise = null;
+        _paxPreparedAudio.set(key, rec);
+        return null;
+    });
+    _paxPreparedAudio.set(key, { text, speaker, promise, audio: null });
+    _paxLog(`TTS Preload gestartet: ${key}`, 'state');
+    return promise;
+}
+
+function _rememberAndShowPrepared(text, speaker, eventLabel) {
+    _lastSpokenText = text;
+    _lastSpokenSpeaker = speaker;
+    _capturePoiNarrativeMemory(eventLabel, text);
+    _showPaxMessage(text, eventLabel);
+}
+
+function _speakPreparedText(key, text, speaker, eventLabel) {
+    const run = async () => {
+        _paxLog(`Queue ▶ Start | Event: ${eventLabel}`, 'state');
+        try {
+            _paxLog(`── ${eventLabel} ──`, 'event');
+            _rememberAndShowPrepared(text, speaker, eventLabel);
+            if (!_paxVoiceEnabled) {
+                _paxLog('TTS übersprungen (Stimme deaktiviert) — Text gespeichert', 'state');
+                return;
+            }
+            const rec = _paxPreparedAudio.get(key);
+            const audio = rec?.audio || await (rec?.promise || _prepareTextAsTTS(key, text, speaker));
+            if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType);
+            else await _playTextAsTTS(text, speaker);
+        } catch (e) {
+            _paxLog(`Prepared Speech Fehler: ${e.message || e}`, 'warn');
+        } finally {
+            _paxLog(`Queue ✓ Ende | Event: ${eventLabel}`, 'state');
+        }
+    };
+    _paxSpeechQueue = _paxSpeechQueue.then(run, run);
+    return _paxSpeechQueue;
+}
+
 function _roleConsistencyDebugEnabled() {
     return localStorage.getItem('awm_role_consistency_debug') === '1';
 }
@@ -1628,59 +1801,8 @@ function _logRoleConsistencyCheck(eventLabel) {
 }
 
 async function _playTextAsTTS(text, speaker = null) {
-    const apiKey = _getApiKey();
-    if (!apiKey) { _paxLog('Kein API-Key für TTS', 'warn'); return; }
-    const pax = speaker || window.activePassenger || _lastSpokenSpeaker || null;
-    const resolvedGender = _normSpeakerGender(pax);
-    const voiceCandidates = _ttsVoiceCandidatesForSpeaker(pax);
-    _paxLog(`TTS Stimmen: ${voiceCandidates.join(' -> ')} | Persona: ${pax?.name || 'unbekannt'} | Gender: ${resolvedGender} (raw: ${String(pax?.gender || 'n/a')})`, 'state');
-    const ttsModels = ['gemini-2.5-flash-preview-tts'];
-    _paxLog(`TTS-Modelle: ${ttsModels.join(' -> ')} | Modus: ${_paxTtsModelPref}`, 'state');
-
-    let lastErr = null;
-    for (const model of ttsModels) {
-        for (const voiceName of voiceCandidates) {
-            const ttsPayload = {
-                contents: [{ role: 'user', parts: [{ text }] }],
-                generationConfig: {
-                    responseModalities: ['AUDIO'],
-                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
-                }
-            };
-            try {
-                const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-                    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ttsPayload) }
-                );
-                if (!res.ok) {
-                    const errBody = await res.text().catch(() => '(unlesbar)');
-                    _paxLog(`TTS ${model}/${voiceName} HTTP ${res.status}: ${errBody.slice(0, 220)}`, 'warn');
-                    lastErr = new Error(`TTS ${model}/${voiceName} HTTP ${res.status}`);
-                    continue;
-                }
-                const data     = await res.json();
-                const part     = data?.candidates?.[0]?.content?.parts?.[0];
-                const b64      = part?.inlineData?.data;
-                const mimeType = part?.inlineData?.mimeType || '';
-                if (!b64) {
-                    _paxLog(`TTS ${model}/${voiceName} ohne Audio-Daten`, 'warn');
-                    lastErr = new Error(`TTS ${model}/${voiceName}: Keine Audio-Daten`);
-                    continue;
-                }
-                _paxLog(`TTS Stimme aktiv: ${voiceName}`, 'state');
-                _paxLog(`TTS OK (${model}) | mime: ${mimeType} | ${b64.length} chars base64`, 'recv');
-                if (typeof incrementApiUsage === 'function') incrementApiUsage('flash');
-                await _paxDecodeAndPlay(b64, mimeType);
-                return;
-            } catch(e) {
-                lastErr = e;
-                _paxLog(`TTS ${model}/${voiceName} Fehler: ${e.message}`, 'warn');
-            }
-        }
-    }
-    if (lastErr) {
-        _paxLog(`TTS Fehler: ${lastErr.message}`, 'warn');
-    }
+    const audio = await _requestTTSAudio(text, speaker);
+    if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType);
 }
 
 async function _speakAndShowNow(situationPrompt, eventLabel) {
@@ -1735,6 +1857,85 @@ function _speakAndShow(situationPrompt, eventLabel) {
     _paxSpeechQueue = _paxSpeechQueue.then(run, run);
     return _paxSpeechQueue;
 }
+
+function _distanceFromDepartureNm(lat, lon) {
+    const wp0 = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints) && routeWaypoints.length > 0)
+        ? routeWaypoints[0] : null;
+    const wpLat = Number(wp0?.lat);
+    const wpLon = Number(wp0?.lng ?? wp0?.lon);
+    const curLat = Number(lat);
+    const curLon = Number(lon);
+    if (!wp0 || !Number.isFinite(wpLat) || !Number.isFinite(wpLon) || !Number.isFinite(curLat) || !Number.isFinite(curLon)) return null;
+    const dLat  = (wpLat - curLat) * Math.PI / 180;
+    const dLon  = (wpLon - curLon) * Math.PI / 180;
+    const a     = Math.sin(dLat/2)**2 + Math.cos(curLat*Math.PI/180) * Math.cos(wpLat*Math.PI/180) * Math.sin(dLon/2)**2;
+    return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 3440.065;
+}
+
+window.paxVoicePrepareBoarding = function() {
+    if (!window.activePassenger || !_missionHasPax()) return null;
+    const key = _paxMissionAudioKey('boarding');
+    const text = _buildBoardingText();
+    const speaker = _speakerSnapshotForActivePax();
+    _prepareTextAsTTS(key, text, speaker);
+    return { key, text, speaker };
+};
+
+window.paxVoicePlayBoarding = async function() {
+    if (_paxBoardingDone) return true;
+    const prepared = window.paxVoicePrepareBoarding();
+    if (!prepared) return false;
+    await _speakPreparedText(prepared.key, prepared.text, prepared.speaker, 'Boarding');
+    _paxBoardingDone = true;
+    return true;
+};
+
+window.paxVoiceBoardingDone = function() {
+    return !!_paxBoardingDone;
+};
+
+window.paxVoicePrepareGreeting = function(lat = null, lon = null) {
+    if (_paxGreetingDone || !window.activePassenger || !_missionHasPax()) return Promise.resolve(null);
+    const distNm = _distanceFromDepartureNm(lat, lon);
+    if (Number.isFinite(distNm) && distNm > 1.0) {
+        _paxLog(`Greeting Preload übersprungen: ${distNm.toFixed(1)} NM vom Startplatz`, 'state');
+        return Promise.resolve(null);
+    }
+    const prompt = _greetingPrompt();
+    if (!prompt) return Promise.resolve(null);
+    const key = _paxMissionAudioKey('greeting');
+    const existing = _paxPreparedAudio.get(key);
+    if (existing?.text || existing?.textPromise) return existing.textPromise || Promise.resolve(existing);
+    const speaker = _speakerSnapshotForActivePax();
+    const textPromise = (async () => {
+        const apiKey = _getApiKey();
+        if (!apiKey) return null;
+        try {
+            _paxLog('Greeting Preload → API-Call', 'event');
+            _logRoleConsistencyCheck('Begrüßung');
+            const spokenTextRaw = await _generateSpokenText(apiKey, prompt);
+            const spokenText = _injectPattonvilleJuliusEasteregg(
+                _injectPattonvilleReportingPointsHint(
+                    _normalizeSpokenText(spokenTextRaw),
+                    'Begrüßung'
+                ),
+                'Begrüßung'
+            );
+            if (!spokenText) return null;
+            _paxPreparedAudio.set(key, { text: spokenText, speaker, audio: null, promise: null });
+            _prepareTextAsTTS(key, spokenText, speaker);
+            return _paxPreparedAudio.get(key) || null;
+        } catch (e) {
+            _paxLog(`Greeting Preload Fehler: ${e.message || e}`, 'warn');
+            const rec = _paxPreparedAudio.get(key) || {};
+            rec.textPromise = null;
+            _paxPreparedAudio.set(key, rec);
+            return null;
+        }
+    })();
+    _paxPreparedAudio.set(key, { prompt, speaker, textPromise, audio: null, promise: null });
+    return textPromise;
+};
 
 // ─── PROMPT BUILDERS ─────────────────────────────────────────────────────────
 
@@ -2627,13 +2828,8 @@ window.triggerPaxGreeting = async function(lat, lon) {
     _paxGreetingDone = true;
 
     // Location check: must be within 1 NM of the briefed departure airport
-    const wp0 = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints) && routeWaypoints.length > 0)
-        ? routeWaypoints[0] : null;
-    if (wp0 && Number.isFinite(lat) && Number.isFinite(lon)) {
-        const dLat  = (wp0.lat - lat) * Math.PI / 180;
-        const dLon  = ((wp0.lng ?? wp0.lon) - lon) * Math.PI / 180;
-        const a     = Math.sin(dLat/2)**2 + Math.cos(lat*Math.PI/180) * Math.cos(wp0.lat*Math.PI/180) * Math.sin(dLon/2)**2;
-        const distNm = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 3440.065;
+    const distNm = _distanceFromDepartureNm(lat, lon);
+    if (Number.isFinite(distNm)) {
         _paxLog(`Greeting Standort-Check: ${distNm.toFixed(2)} NM vom Startplatz`, 'state');
         if (distNm > 1.0) {
             _paxLog(`Falsche Position (${distNm.toFixed(1)} NM) → Falsche-Ort-Meldung`, 'warn');
@@ -2648,8 +2844,16 @@ window.triggerPaxGreeting = async function(lat, lon) {
 
     const prompt = _greetingPrompt();
     if (!prompt) { _paxGreetingDone = false; _paxLog('Greeting: kein Prompt (Mission-Daten fehlen?)', 'warn'); return; }
-    _paxLog('Greeting → API-Call', 'event');
-    await _speakAndShow(prompt, 'Begrüßung');
+    const key = _paxMissionAudioKey('greeting');
+    let prepared = _paxPreparedAudio.get(key) || null;
+    if (prepared?.textPromise) prepared = await prepared.textPromise;
+    if (prepared?.text) {
+        _paxLog('Greeting → Prepared Audio/Text', 'event');
+        await _speakPreparedText(key, prepared.text, prepared.speaker || _speakerSnapshotForActivePax(), 'Begrüßung');
+    } else {
+        _paxLog('Greeting → API-Call', 'event');
+        await _speakAndShow(prompt, 'Begrüßung');
+    }
 };
 
 window.triggerPaxAtTarget = async function(flightData) {

@@ -1087,7 +1087,7 @@
                 </div>
             </div>
             <button class="pb-btn" id="freeflightBtn" onclick="toggleFreeflightMode()" style="background:#444; color:#fff;">✈️ Direct To (Aus)</button>
-            <button class="pb-btn map-mission-btn" id="mapMissionToggleBtn" onclick="window.toggleManualMissionRuntime && toggleManualMissionRuntime()" style="display:none;">▶ Mission starten</button>
+            <button class="pb-btn map-mission-btn" id="mapMissionToggleBtn" onclick="window.handleMissionStartBannerAction ? handleMissionStartBannerAction() : (window.toggleManualMissionRuntime && toggleManualMissionRuntime())" style="display:none;">▶ Mission starten</button>
             <button class="pb-btn close" onclick="document.body.classList.remove('map-is-fullscreen'); document.documentElement.classList.remove('map-is-fullscreen'); toggleMapTable()">❌ Schließen</button>
         </div>
         </div><!-- /#mapToolbarInner -->
@@ -1221,7 +1221,7 @@
                         <div class="mission-start-banner-kicker">Mission bereit</div>
                         <div id="missionStartBannerText" class="mission-start-banner-text">Tracker verbunden. Szene wird vorbereitet.</div>
                     </div>
-                    <button type="button" class="mission-start-banner-btn" onclick="window.manualMissionStart && manualMissionStart()">Mission beginnen</button>
+                    <button type="button" class="mission-start-banner-btn" id="missionStartBannerBtn" onclick="window.handleMissionStartBannerAction && handleMissionStartBannerAction()">Mission beginnen</button>
                 </div>
             </div>
             <div id="profileResizeHandle" class="profile-resize-handle" title="Ziehen zum Ändern der Profilhöhe"></div>
@@ -1522,14 +1522,14 @@
 <script defer src="datenbank.js"></script>
 <script defer src="missions.js"></script>
 <script defer src="taws.js"></script>
-<script defer src="sync.js?v=scene-debug-20260519-5"></script>
+<script defer src="sync.js?v=scene-debug-20260519-6"></script>
 <script defer src="checklists.js"></script>
 <script defer src="profile.js"></script>
 <script defer src="map.js"></script>
-<script defer src="app.js?v=scene-debug-20260519-5"></script>
+<script defer src="app.js?v=scene-debug-20260519-6"></script>
 <script defer src="board.js"></script>
 <script defer src="sim-route.js"></script>
-<script defer src="passenger-voice.js?v=scene-debug-20260519-5"></script>
+<script defer src="passenger-voice.js?v=scene-debug-20260519-6"></script>
 <script defer src="tutorial.js"></script>
 <script>
     function _openFloatingMenuInViewport(menu, btn, preferAbove = false) {

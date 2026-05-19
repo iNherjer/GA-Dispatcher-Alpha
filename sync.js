@@ -108,7 +108,7 @@ let missionRuntime = {
 };
 
 let missionSmokeCommandSeq = 0;
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260519-5';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260519-6';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -960,6 +960,40 @@ function _missionStartBannerDismissKey() {
     return `ga_mission_start_banner_dismissed_${_missionStartUiKey() || 'none'}`;
 }
 
+function _missionStartPhaseKey() {
+    const key = _missionStartUiKey();
+    return key ? `ga_mission_start_phase_${key}` : '';
+}
+
+function _missionStartPhase() {
+    try {
+        const key = _missionStartPhaseKey();
+        return key && localStorage.getItem(key) === 'boarded' ? 'boarded' : 'boarding';
+    } catch (_) {
+        return 'boarding';
+    }
+}
+
+function _setMissionStartPhase(phase) {
+    try {
+        const key = _missionStartPhaseKey();
+        if (!key) return;
+        localStorage.setItem(key, phase === 'boarded' ? 'boarded' : 'boarding');
+    } catch (_) {}
+}
+
+function _clearMissionStartPhase() {
+    try {
+        const key = _missionStartPhaseKey();
+        if (key) localStorage.removeItem(key);
+    } catch (_) {}
+}
+
+function _missionStartGroundReady() {
+    const gate = _missionSceneFlightGate(window.lastLiveFlightData || {});
+    return !!(gate && gate.canStage);
+}
+
 function _missionStartBannerDismissed() {
     try {
         const key = _missionStartUiKey();
@@ -980,29 +1014,42 @@ function _updateMissionStartBanner(autoStartEnabled) {
     const banner = document.getElementById('missionStartBanner');
     if (!banner) return;
     const textEl = document.getElementById('missionStartBannerText');
+    const btn = document.getElementById('missionStartBannerBtn');
     const valid = _hasValidMissionForStart();
     const trackerConnected = !!window.liveTrackerConnected;
-    const show = valid && trackerConnected && !missionRuntime.active && !autoStartEnabled && !_missionStartBannerDismissed();
+    const groundReady = _missionStartGroundReady();
+    const phase = _missionStartPhase();
+    const show = valid && trackerConnected && groundReady && !missionRuntime.active && !autoStartEnabled && !_missionStartBannerDismissed();
     banner.style.display = show ? 'flex' : 'none';
     if (!show) return;
     const scene = window.missionSceneStatus || {};
-    let text = 'Tracker verbunden. Bereit zum Start.';
-    if (scene.spawned) text = `Start-Szene steht (${scene.spawnedCount || '?'} Objekte).`;
-    else if (scene.spawnRequested) text = 'Start-Szene wird vorbereitet.';
-    else if (scene.blockReason) text = `Start bereit. Szene wartet: ${scene.blockReason}.`;
-    else if (_missionLooksLikeFireWatch()) text = 'Tracker verbunden. Feuerwehr-Szene wird vorbereitet.';
+    let text = phase === 'boarded'
+        ? 'Boarding abgeschlossen. Mission kann gestartet werden.'
+        : 'Tracker verbunden. Boarding und Verladen bereit.';
+    if (phase !== 'boarded') {
+        if (scene.spawned) text = `Start-Szene steht (${scene.spawnedCount || '?'} Objekte). Boarding bereit.`;
+        else if (scene.spawnRequested) text = 'Start-Szene wird vorbereitet. Boarding bereit.';
+        else if (scene.blockReason) text = `Boarding bereit. Szene wartet: ${scene.blockReason}.`;
+        else if (_missionLooksLikeFireWatch()) text = 'Feuerwehr-Szene wird vorbereitet. Boarding bereit.';
+        if (typeof window.paxVoicePrepareBoarding === 'function') {
+            try { window.paxVoicePrepareBoarding(); } catch (_) {}
+        }
+    }
     if (textEl) textEl.textContent = text;
+    if (btn) btn.textContent = phase === 'boarded' ? 'Mission starten' : 'Boarding und Verladen beginnen';
 }
 
 function _updateMissionRuntimeUi() {
     const autoStartEnabled = isMissionAutoStartEnabled();
     const validMission = _hasValidMissionForStart();
+    const groundReady = _missionStartGroundReady();
+    const phase = _missionStartPhase();
     const st = document.getElementById('missionRuntimeStatus');
     if (st) {
         st.textContent = missionRuntime.active
             ? (missionRuntime.manual || !autoStartEnabled ? 'Aktiv (manuell)' : 'Aktiv')
-            : (!autoStartEnabled ? (validMission ? 'Start bereit' : 'Manuell bereit') : (missionRuntime.armed ? 'Scharf (bereit)' : 'Wartet auf Boden-Stabilisierung'));
-        st.style.color = missionRuntime.active ? '#4caf50' : (!autoStartEnabled ? '#8ec5ff' : (missionRuntime.armed ? '#f2c12e' : '#888'));
+            : (!autoStartEnabled ? (validMission && groundReady ? (phase === 'boarded' ? 'Mission startbereit' : 'Boarding bereit') : 'Wartet auf Boden') : (missionRuntime.armed ? 'Scharf (bereit)' : 'Wartet auf Boden-Stabilisierung'));
+        st.style.color = missionRuntime.active ? '#4caf50' : (!autoStartEnabled ? (groundReady ? '#8ec5ff' : '#888') : (missionRuntime.armed ? '#f2c12e' : '#888'));
     }
     const bStart = document.getElementById('missionStartBtn');
     const bEnd = document.getElementById('missionEndBtn');
@@ -1020,9 +1067,10 @@ function _updateMissionRuntimeUi() {
         bAuto.classList.toggle('is-off', !autoStartEnabled);
     }
     if (bMap) {
-        bMap.style.display = (!autoStartEnabled && (validMission || missionRuntime.active)) ? 'inline-flex' : 'none';
-        bMap.textContent = missionRuntime.active ? '■ Mission stoppen' : '▶ Mission starten';
-        bMap.title = missionRuntime.active ? 'Mission manuell stoppen' : 'Mission manuell starten';
+        bMap.style.display = (!autoStartEnabled && (missionRuntime.active || (validMission && groundReady))) ? 'inline-flex' : 'none';
+        bMap.textContent = missionRuntime.active ? '■ Mission stoppen' : (phase === 'boarded' ? '▶ Mission starten' : 'Boarding');
+        bMap.title = missionRuntime.active ? 'Mission manuell stoppen' : (phase === 'boarded' ? 'Mission manuell starten' : 'Boarding und Verladen beginnen');
+        bMap.disabled = !missionRuntime.active && (!validMission || !groundReady);
         bMap.classList.toggle('is-active', missionRuntime.active);
     }
     _updateMissionStartBanner(autoStartEnabled);
@@ -1073,6 +1121,7 @@ function _isAtMissionTarget(lat, lon, thresholdNm = 1.2) {
 window.missionRuntimeReset = function() {
     if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('mission-runtime-reset');
     if (typeof window.missionSceneClear === 'function') window.missionSceneClear('mission-runtime-reset');
+    _clearMissionStartPhase();
     Object.assign(window.missionSceneStatus, {
         spawned: false,
         spawnedCount: 0,
@@ -1085,7 +1134,42 @@ window.missionRuntimeReset = function() {
     resetFlightRecorder();
 };
 
+window.startMissionBoarding = async function() {
+    if (missionRuntime.active) return true;
+    if (!_hasValidMissionForStart() || !_missionStartGroundReady()) {
+        _updateMissionRuntimeUi();
+        return false;
+    }
+    const bannerBtn = document.getElementById('missionStartBannerBtn');
+    const mapBtn = document.getElementById('mapMissionToggleBtn');
+    const oldBannerText = bannerBtn ? bannerBtn.textContent : '';
+    if (bannerBtn) {
+        bannerBtn.disabled = true;
+        bannerBtn.textContent = 'Boarding läuft...';
+    }
+    if (mapBtn) mapBtn.disabled = true;
+    try {
+        if (typeof window.paxVoicePlayBoarding === 'function') {
+            await window.paxVoicePlayBoarding();
+        }
+        _setMissionStartPhase('boarded');
+        const pos = window.lastLiveGpsPos || {};
+        if (typeof window.paxVoicePrepareGreeting === 'function') {
+            try { window.paxVoicePrepareGreeting(pos.lat, pos.lon); } catch (_) {}
+        }
+        return true;
+    } finally {
+        if (bannerBtn) {
+            bannerBtn.disabled = false;
+            bannerBtn.textContent = oldBannerText || 'Mission starten';
+        }
+        if (mapBtn) mapBtn.disabled = false;
+        _updateMissionRuntimeUi();
+    }
+};
+
 window.manualMissionStart = function() {
+    _setMissionStartPhase('boarded');
     missionRuntime.armed = true;
     missionRuntime.active = true;
     missionRuntime.manual = true;
@@ -1123,6 +1207,18 @@ window.manualMissionEnd = function() {
 window.toggleManualMissionRuntime = function() {
     if (missionRuntime.active) window.manualMissionEnd();
     else window.manualMissionStart();
+};
+
+window.handleMissionStartBannerAction = async function() {
+    if (missionRuntime.active) {
+        window.manualMissionEnd();
+        return;
+    }
+    if (_missionStartPhase() !== 'boarded') {
+        await window.startMissionBoarding();
+        return;
+    }
+    window.manualMissionStart();
 };
 
 // --- LIVE TRAFFIC ---
