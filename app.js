@@ -27,6 +27,157 @@ const MAIN_PERF_SETTING_KEYS = {
     maxSeats: 'ga_perf_max_seats',
     aircraft: 'ga_perf_aircraft'
 };
+const AIRCRAFT_PRESET_STORAGE_KEY = 'ga_aircraft_presets_v1';
+const AIRCRAFT_PRESET_DEFAULTS = {
+    'C172': { name: 'C172', tas: 115, gph: 9, pax: 4 },
+    'PA-24': { name: 'Comanche', tas: 160, gph: 14, pax: 4 },
+    'AERO': { name: 'Aerostar', tas: 220, gph: 25, pax: 6 }
+};
+const AIRCRAFT_PRESET_SLOT_ORDER = ['C172', 'PA-24', 'AERO'];
+let aircraftPresets = {};
+let activeAircraftPresetSettingsSlot = 'C172';
+
+function sanitizeAircraftPresetName(slotId, value) {
+    const fallback = AIRCRAFT_PRESET_DEFAULTS[slotId]?.name || slotId;
+    const text = String(value || '').trim().replace(/\s+/g, ' ');
+    return text ? text.slice(0, 20) : fallback;
+}
+
+function normalizeAircraftPreset(slotId, source) {
+    const defaults = AIRCRAFT_PRESET_DEFAULTS[slotId] || AIRCRAFT_PRESET_DEFAULTS['C172'];
+    const preset = source && typeof source === 'object' ? source : {};
+    return {
+        name: sanitizeAircraftPresetName(slotId, preset.name ?? defaults.name),
+        tas: clampMainPerfSetting(preset.tas, 80, 260, 5, defaults.tas),
+        gph: clampMainPerfSetting(preset.gph, 5, 35, 1, defaults.gph),
+        pax: clampMainPerfSetting(preset.pax, 1, 6, 1, defaults.pax)
+    };
+}
+
+function buildDefaultAircraftPresets() {
+    const out = {};
+    AIRCRAFT_PRESET_SLOT_ORDER.forEach(slotId => {
+        out[slotId] = normalizeAircraftPreset(slotId, AIRCRAFT_PRESET_DEFAULTS[slotId]);
+    });
+    return out;
+}
+
+function saveAircraftPresets() {
+    try {
+        localStorage.setItem(AIRCRAFT_PRESET_STORAGE_KEY, JSON.stringify(aircraftPresets));
+    } catch (_) {}
+}
+
+function loadAircraftPresets() {
+    const defaults = buildDefaultAircraftPresets();
+    let parsed = {};
+    try {
+        parsed = JSON.parse(localStorage.getItem(AIRCRAFT_PRESET_STORAGE_KEY) || '{}') || {};
+    } catch (_) {
+        parsed = {};
+    }
+    aircraftPresets = {};
+    AIRCRAFT_PRESET_SLOT_ORDER.forEach(slotId => {
+        aircraftPresets[slotId] = normalizeAircraftPreset(slotId, parsed[slotId] || defaults[slotId]);
+    });
+    saveAircraftPresets();
+}
+
+function getAircraftPreset(slotId) {
+    const resolvedSlot = AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId) ? slotId : 'C172';
+    if (!aircraftPresets[resolvedSlot]) {
+        aircraftPresets[resolvedSlot] = normalizeAircraftPreset(resolvedSlot, AIRCRAFT_PRESET_DEFAULTS[resolvedSlot]);
+    }
+    return aircraftPresets[resolvedSlot];
+}
+
+function setAircraftPresetStatus(msg, color = '#888') {
+    const el = document.getElementById('aircraftPresetStatus');
+    if (!el) return;
+    el.innerText = String(msg || '');
+    el.style.color = color;
+}
+
+function updateNavComAircraftButtons() {
+    const slotToNavButtonId = {
+        'C172': 'btnAC-C172',
+        'PA-24': 'btnAC-PA24',
+        'AERO': 'btnAC-AERO'
+    };
+    Object.values(slotToNavButtonId).forEach(btnId => {
+        document.getElementById(btnId)?.classList.remove('active');
+    });
+    const activeBtnId = slotToNavButtonId[selectedAC];
+    if (activeBtnId) document.getElementById(activeBtnId)?.classList.add('active');
+}
+
+function updateAircraftPresetButtonsUI() {
+    AIRCRAFT_PRESET_SLOT_ORDER.forEach(slotId => {
+        const preset = getAircraftPreset(slotId);
+        document.querySelectorAll(`.btn-preset[data-aircraft-slot="${slotId}"]`).forEach(btn => {
+            btn.textContent = preset.name;
+            btn.title = `${preset.name} · ${preset.tas} TAS · ${String(preset.gph).padStart(2, '0')} GPH · ${preset.pax} PAX`;
+        });
+        document.querySelectorAll(`.audio-btn[data-aircraft-slot="${slotId}"]`).forEach(btn => {
+            const led = btn.querySelector('.audio-led');
+            btn.textContent = preset.name;
+            if (led) btn.appendChild(led);
+            btn.title = `${preset.name} · ${preset.tas} TAS · ${String(preset.gph).padStart(2, '0')} GPH · ${preset.pax} PAX`;
+        });
+    });
+    if (typeof updateOpsAircraftSwitches === 'function') updateOpsAircraftSwitches();
+    updateNavComAircraftButtons();
+}
+
+function selectAircraftPresetSlotFromSettings(slotId) {
+    if (!AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId)) slotId = 'C172';
+    activeAircraftPresetSettingsSlot = slotId;
+    const preset = getAircraftPreset(slotId);
+    const slotSelect = document.getElementById('aircraftPresetSlot');
+    const nameInput = document.getElementById('aircraftPresetName');
+    const tasInput = document.getElementById('aircraftPresetTas');
+    const gphInput = document.getElementById('aircraftPresetGph');
+    const paxInput = document.getElementById('aircraftPresetPax');
+    if (slotSelect && slotSelect.value !== slotId) slotSelect.value = slotId;
+    if (nameInput) nameInput.value = preset.name;
+    if (tasInput) tasInput.value = String(preset.tas);
+    if (gphInput) gphInput.value = String(preset.gph);
+    if (paxInput) paxInput.value = String(preset.pax);
+    setAircraftPresetStatus(`Slot ${slotId} geladen`, '#9aa3ad');
+}
+window.selectAircraftPresetSlotFromSettings = selectAircraftPresetSlotFromSettings;
+
+function saveAircraftPresetFromSettings() {
+    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
+    const defaults = AIRCRAFT_PRESET_DEFAULTS[slotId] || AIRCRAFT_PRESET_DEFAULTS['C172'];
+    const nameInput = document.getElementById('aircraftPresetName');
+    const tasInput = document.getElementById('aircraftPresetTas');
+    const gphInput = document.getElementById('aircraftPresetGph');
+    const paxInput = document.getElementById('aircraftPresetPax');
+
+    const candidate = {
+        name: nameInput?.value ?? defaults.name,
+        tas: tasInput?.value ?? defaults.tas,
+        gph: gphInput?.value ?? defaults.gph,
+        pax: paxInput?.value ?? defaults.pax
+    };
+    const next = normalizeAircraftPreset(slotId, candidate);
+    aircraftPresets[slotId] = next;
+    saveAircraftPresets();
+    updateAircraftPresetButtonsUI();
+    selectAircraftPresetSlotFromSettings(slotId);
+    setAircraftPresetStatus(`Preset ${slotId} gespeichert`, '#4caf50');
+    if (selectedAC === slotId) {
+        applyPreset(next.tas, next.gph, next.pax, slotId);
+    }
+}
+window.saveAircraftPresetFromSettings = saveAircraftPresetFromSettings;
+
+function applyAircraftPresetSlot(slotId) {
+    const preset = getAircraftPreset(slotId);
+    applyPreset(preset.tas, preset.gph, preset.pax, slotId);
+}
+window.applyAircraftPresetSlot = applyAircraftPresetSlot;
 
 function clampMainPerfSetting(value, min, max, step = 1, fallback = min) {
     let n = parseInt(value, 10);
@@ -70,7 +221,9 @@ function applyPersistedMainPerformanceSettings() {
         vpClimbRate = rate;
         vpDescentRate = rate;
     }
-    if (['C172', 'PA-24', 'AERO'].includes(aircraft)) selectedAC = aircraft;
+    if (AIRCRAFT_PRESET_SLOT_ORDER.includes(aircraft)) selectedAC = aircraft;
+    updateAircraftPresetButtonsUI();
+    selectAircraftPresetSlotFromSettings(selectedAC);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -202,17 +355,18 @@ function syncToNavCom(radioId, value) {
 }
 
 function applyNavComPreset(t, g, s, n, btnElement) {
+    if (arguments.length === 1 && typeof t === 'string') {
+        applyAircraftPresetSlot(t);
+        return;
+    }
     applyPreset(t, g, s, n);
-    document.getElementById('btnAC-C172').classList.remove('active');
-    document.getElementById('btnAC-PA24').classList.remove('active');
-    document.getElementById('btnAC-AERO').classList.remove('active');
-    btnElement.classList.add('active');
     document.getElementById('tasSlider').value = t;
     document.getElementById('gphSlider').value = g;
     handleSliderChange('tas', t);
     handleSliderChange('gph', g);
     syncToNavCom('tasRadioDisplay', t);
     syncToNavCom('gphRadioDisplay', g.toString().padStart(2, '0'));
+    updateNavComAircraftButtons();
     saveAudioButtonStates();
 }
 
@@ -1737,6 +1891,7 @@ function bootAppOnce() {
     setTheme(savedTheme);
     setSettingsPanelOpen(localStorage.getItem('ga_settings_open') === 'true', false);
     applySavedPanelTheme();
+    loadAircraftPresets();
     applyPersistedMainPerformanceSettings();
     setTimeout(() => { loadGlobalAirports(); }, 2000);
     const lastDest = localStorage.getItem('last_icao_dest');
@@ -2491,15 +2646,19 @@ function refreshAllDrums() {
 
 function applyPreset(t, g, s, n) {
     document.getElementById('tasSlider').value = t; document.getElementById('gphSlider').value = g;
-    document.getElementById('maxSeats').value = s; selectedAC = n;
+    document.getElementById('maxSeats').value = s;
+    if (AIRCRAFT_PRESET_SLOT_ORDER.includes(n)) selectedAC = n;
     persistMainPerformanceSetting('maxSeats', s);
-    persistMainPerformanceSetting('aircraft', n);
+    persistMainPerformanceSetting('aircraft', selectedAC);
     handleSliderChange('tas', t); handleSliderChange('gph', g);
     syncToNavCom('tasRadio', t);
     syncToNavCom('gphRadio', g);
     syncToNavCom('maxSeatsRadio', s);
+    updateNavComAircraftButtons();
+    selectAircraftPresetSlotFromSettings(selectedAC);
     if (typeof updateOpsAircraftSwitches === 'function') updateOpsAircraftSwitches();
     updateOps1940Panel();
+    saveAudioButtonStates();
 }
 
 function copyCoords(elementId) {
@@ -8250,12 +8409,15 @@ function saveAudioButtonStates() {
 
 function restoreAudioButtonStates() {
     const saved = JSON.parse(localStorage.getItem('ga_navcom_buttons') || '{}');
+    const aircraftButtonIds = new Set(['btnAC-C172', 'btnAC-PA24', 'btnAC-AERO']);
     for (const [id, active] of Object.entries(saved)) {
+        if (aircraftButtonIds.has(id)) continue;
         const btn = document.getElementById(id);
         if (!btn) continue;
         if (active) btn.classList.add('active');
         else btn.classList.remove('active');
     }
+    updateNavComAircraftButtons();
     if (saved['btnToggleGPS']) {
         gpsState.visible = true;
         const mod = document.getElementById('kln90bModule');

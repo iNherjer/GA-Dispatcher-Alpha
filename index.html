@@ -180,9 +180,9 @@
         </div>
 
         <div class="preset-row">
-            <button class="btn-preset" data-aircraft="C172" onclick="applyPreset(115, 9, 4, 'C172')">C172</button>
-            <button class="btn-preset" data-aircraft="PA-24" onclick="applyPreset(160, 14, 4, 'PA-24')">Comanche</button>
-            <button class="btn-preset" data-aircraft="AERO" onclick="applyPreset(220, 25, 6, 'AERO')">Aerostar</button>
+            <button class="btn-preset" data-aircraft="C172" data-aircraft-slot="C172" onclick="applyAircraftPresetSlot('C172')">C172</button>
+            <button class="btn-preset" data-aircraft="PA-24" data-aircraft-slot="PA-24" onclick="applyAircraftPresetSlot('PA-24')">Comanche</button>
+            <button class="btn-preset" data-aircraft="AERO" data-aircraft-slot="AERO" onclick="applyAircraftPresetSlot('AERO')">Aerostar</button>
         </div>
 
         <div class="slider-container">
@@ -251,9 +251,9 @@
                 </div>
                 
                 <div class="audio-btn-grid">
-                    <div class="audio-btn active" id="btnAC-C172" onclick="applyNavComPreset(115, 9, 4, 'C172', this)">C172<div class="audio-led"></div></div>
-                    <div class="audio-btn" id="btnAC-PA24" onclick="applyNavComPreset(160, 14, 4, 'PA-24', this)">PA24<div class="audio-led"></div></div>
-                    <div class="audio-btn" id="btnAC-AERO" onclick="applyNavComPreset(220, 25, 6, 'AERO', this)">AERO<div class="audio-led"></div></div>
+                    <div class="audio-btn active" id="btnAC-C172" data-aircraft-slot="C172" onclick="applyAircraftPresetSlot('C172')">C172<div class="audio-led"></div></div>
+                    <div class="audio-btn" id="btnAC-PA24" data-aircraft-slot="PA-24" onclick="applyAircraftPresetSlot('PA-24')">PA24<div class="audio-led"></div></div>
+                    <div class="audio-btn" id="btnAC-AERO" data-aircraft-slot="AERO" onclick="applyAircraftPresetSlot('AERO')">AERO<div class="audio-led"></div></div>
                     <div class="audio-btn" id="btnToggleAI" onclick="toggleNavComAI(this)">KI Mode<div class="audio-led"></div></div>
                     
                     <div class="audio-btn" id="navcomSaveBtn" onclick="triggerCloudSave('manual')">☁️ SAVE<div class="audio-led"></div></div>
@@ -761,6 +761,35 @@
         </div>
         <div class="api-hint">
             Tritt einer Gruppe bei. Dein Anzeigename (oder deine Pilot-ID) erscheint auf dem Board.
+        </div>
+    </div>
+
+    <div class="api-settings settings-section" style="margin-top: 15px; padding-top: 15px;">
+        <div class="settings-section-head">
+            <div>
+                <div class="settings-section-kicker">Aircraft</div>
+                <label class="settings-section-title">Presets</label>
+            </div>
+            <span id="aircraftPresetStatus" style="font-size: 10px; color: #888;">Slot wählen und speichern</span>
+        </div>
+        <div class="settings-form-row">
+            <select id="aircraftPresetSlot" onchange="selectAircraftPresetSlotFromSettings(this.value)" style="flex: 1;">
+                <option value="C172">C172</option>
+                <option value="PA-24">Comanche</option>
+                <option value="AERO">Aerostar</option>
+            </select>
+            <input type="text" id="aircraftPresetName" placeholder="Name" maxlength="20" style="flex: 2;" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="settings-form-row">
+            <input type="number" id="aircraftPresetTas" placeholder="TAS" min="80" max="260" step="5" style="flex: 1;">
+            <input type="number" id="aircraftPresetGph" placeholder="GPH" min="5" max="35" step="1" style="flex: 1;">
+            <input type="number" id="aircraftPresetPax" placeholder="PAX" min="1" max="6" step="1" style="flex: 1;">
+        </div>
+        <div class="settings-action-row">
+            <button class="btn-preset sync-req-btn" style="flex: 1; margin: 0; height: 42px; background: #333; color: #f2c12e;" onclick="saveAircraftPresetFromSettings()">💾 Preset speichern</button>
+        </div>
+        <div class="api-hint">
+            Slot auswählen, Name und Werte bearbeiten und speichern. Gilt für die drei Flugzeug-Buttons im Hauptpanel und NavCom.
         </div>
     </div>
 
