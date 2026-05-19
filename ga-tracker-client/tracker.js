@@ -12,13 +12,13 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v219';
-const TRACKER_VERSION_CODE = 219;
+const TRACKER_VERSION = 'v220';
+const TRACKER_VERSION_CODE = 220;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
-const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting (FIREFIGHTING_DEFAULT)';
-const MISSION_SCENE_PERSON_TITLE = 'Termac_Female_Summer_Asian';
+const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting';
+const MISSION_SCENE_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const TRACKER_DEBUG_FILE = path.join(process.pkg ? path.dirname(process.execPath) : __dirname, 'ga-tracker-debug.txt');
 const TELEPORT_DEF_ID = 9361;
 
@@ -251,8 +251,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       objectTitle: MISSION_SCENE_VEHICLE_TITLE,
       titleCandidates: [
         MISSION_SCENE_VEHICLE_TITLE,
+        'Car Bush Firefighting (FIREFIGHTING_DEFAULT)',
         'FIREFIGHTING_DEFAULT',
-        'Car Bush Firefighting',
         'Car_Bush_Firefighting'
       ],
       forwardM: 22,
@@ -266,6 +266,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       objectTitle: MISSION_SCENE_PERSON_TITLE,
       titleCandidates: [
         MISSION_SCENE_PERSON_TITLE,
+        'Termac_Female_Summer_Asian',
         'Tarmac_Female_Summer_Asian'
       ],
       forwardM: 14,
@@ -316,12 +317,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }).filter(p => p.title && Number.isFinite(p.lat) && Number.isFinite(p.lon) && Number.isFinite(p.altFt));
   };
 
-  const clearScene = async (sceneId, reason = 'clear') => {
+  const clearScene = async (sceneId, reason = 'clear', commandId = null) => {
     const key = String(sceneId || 'mission-scene');
     const rec = scenes.get(key);
     if (!rec || !Array.isArray(rec.objects) || rec.objects.length === 0) {
       debugLog(`SCENE_CLEAR_NOOP scene=${key} reason=${reason}`);
-      sendAck({ type: 'mission_scene_clear_ack', sceneId: key, status: 'noop', reason });
+      sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: key, status: 'noop', reason });
       return { cleared: 0 };
     }
     let cleared = 0;
@@ -337,7 +338,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     scenes.delete(key);
     console.log(`🚒 Scene ${key}: ${cleared} Objekte entfernt (${reason}).`);
     debugLog(`SCENE_CLEAR_OK scene=${key} cleared=${cleared} reason=${reason}`);
-    sendAck({ type: 'mission_scene_clear_ack', sceneId: key, status: 'ok', cleared, reason });
+    sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: key, status: 'ok', cleared, reason });
     return { cleared };
   };
 
@@ -350,7 +351,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       sendAck({ type: 'mission_scene_spawn_ack', commandId, sceneId, status: 'error', error: 'invalid scene base/items' });
       return;
     }
-    await clearScene(sceneId, 'replace-before-scene');
+    await clearScene(sceneId, 'replace-before-scene', commandId);
     const objects = [];
     console.log(`🚒 Scene ${sceneId}: spawn ${positions.length} Objekte (${JSON.stringify(countByKind(positions))})`);
     debugLog(`SCENE_SPAWN_START scene=${sceneId} count=${positions.length} byKind=${JSON.stringify(countByKind(positions))}`);
@@ -559,7 +560,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
       if (type === 'mission_scene_clear') {
         debugLog(`COMMAND mission_scene_clear scene=${command?.sceneId || 'mission-scene'}`);
-        clearScene(command?.sceneId || 'mission-scene', 'command').catch(err => {
+        clearScene(command?.sceneId || 'mission-scene', 'command', command?.commandId || null).catch(err => {
           sendAck({ type: 'mission_scene_clear_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
         });
         return true;
