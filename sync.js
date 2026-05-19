@@ -108,7 +108,7 @@ let missionRuntime = {
 };
 
 let missionSmokeCommandSeq = 0;
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260519-3';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260519-4';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -330,28 +330,43 @@ function _activeFireScenario() {
     return (fs && typeof fs === 'object' && fs.enabled) ? fs : null;
 }
 
+function _missionLooksLikeFireWatch() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const pax = window.activePassenger || md?.missionContract?.passenger || {};
+    const contract = md?.missionContract || window.activeMissionContract || {};
+    const taskDomain = String(pax?.taskDomain || contract?.taskDomain || contract?.domain || '').toLowerCase();
+    const profile = String(md?.profile || md?.appliedProfile || contract?.profile || contract?.appliedProfile || contract?.appliedProfileId || contract?.requestedProfileId || contract?.taskProfile || '').toLowerCase();
+    const missionText = String(`${md?.mission || ''} ${md?.poiName || ''} ${contract?.title || ''} ${contract?.story || ''} ${contract?.missionTitle || ''} ${contract?.missionStory || ''}`).toLowerCase();
+    return taskDomain === 'fire_watch'
+        || profile === 'fire_watch'
+        || /\bfire_watch\b/.test(missionText)
+        || /(waldbrand|brand|rauch|feuer|hotspot|fire watch)/i.test(missionText);
+}
+
 function _missionSceneAutoAllowed() {
     const fs = _activeFireScenario();
     if (fs && fs.enabled) return true;
+    if (_missionLooksLikeFireWatch()) return true;
     return (typeof window.missionSceneAutoSpawnEnabled === 'function') && window.missionSceneAutoSpawnEnabled();
 }
 
 function _missionSceneFlightGate(flightData = null) {
     const fd = flightData || window.lastLiveFlightData || {};
     const pos = window.lastLiveGpsPos || {};
+    const hasPosition = Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon));
     const gs = Number.isFinite(Number(fd.gsKts)) ? Number(fd.gsKts)
         : (Number.isFinite(Number(fd.gs)) ? Number(fd.gs)
             : (Number.isFinite(Number(pos.gs)) ? Number(pos.gs) : 0));
     const agl = Number.isFinite(Number(fd.aglFt)) ? Math.max(0, Number(fd.aglFt)) : null;
     const hasOnGroundFlag = typeof fd.onGround === 'boolean';
-    const onGround = hasOnGroundFlag ? !!fd.onGround : (Number.isFinite(agl) ? agl <= 25 : false);
+    const nearGround = Number.isFinite(agl) && agl <= 80;
+    const onGround = hasOnGroundFlag ? !!fd.onGround : nearGround;
+    const groundLike = onGround || nearGround;
     const paused = !!fd.simPaused || Number(fd.pauseFlags || 0) > 0;
     const inMenuOrMap = !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
-    const airborne = hasOnGroundFlag
-        ? (!onGround && (gs > 20 || !Number.isFinite(agl) || agl > 35))
-        : ((Number.isFinite(agl) && agl > 80) || gs > 45);
-    const canStage = onGround && !paused && !inMenuOrMap && gs < 45 && (!Number.isFinite(agl) || agl <= 45);
-    return { gs, agl, onGround, paused, inMenuOrMap, airborne, canStage };
+    const airborne = !groundLike && ((hasOnGroundFlag && !onGround && gs > 35) || (Number.isFinite(agl) && agl > 120) || gs > 70);
+    const canStage = hasPosition && groundLike && !paused && !inMenuOrMap && gs < 60;
+    return { gs, agl, hasPosition, onGround, nearGround, groundLike, paused, inMenuOrMap, airborne, canStage };
 }
 
 function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
@@ -360,6 +375,8 @@ function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
     const status = window.missionSceneStatus || {};
     const gate = _missionSceneFlightGate(flightData);
     const hasScene = !!(status.spawned || status.spawnRequested);
+    status.lastGate = gate;
+    status.blockReason = '';
 
     if (hasScene && gate.airborne && status.autoClearedFor !== sceneId) {
         if (window.missionSceneClear('airborne-auto-clear')) {
@@ -368,10 +385,38 @@ function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
         return;
     }
 
-    if (!_missionSceneAutoAllowed() || !gate.canStage) return;
-    if (status.autoClearedFor === sceneId) return;
-    if (status.sceneId === sceneId && (status.spawned || status.spawnRequested)) return;
-    if (status.lastCommand?.type === 'mission_scene_spawn' && (Date.now() - Number(status.lastCommandAt || 0)) < 12000) return;
+    if (!_missionSceneAutoAllowed()) {
+        status.blockReason = 'no_fire_mission';
+        return;
+    }
+    if (!gate.hasPosition) {
+        status.blockReason = 'no_live_position';
+        return;
+    }
+    if (gate.paused || gate.inMenuOrMap) {
+        status.blockReason = 'sim_paused_or_menu';
+        return;
+    }
+    if (!gate.groundLike) {
+        status.blockReason = 'not_on_ground';
+        return;
+    }
+    if (gate.gs >= 60) {
+        status.blockReason = 'too_fast_for_stage';
+        return;
+    }
+    if (status.autoClearedFor === sceneId) {
+        status.blockReason = 'already_airborne_cleared';
+        return;
+    }
+    if (status.sceneId === sceneId && (status.spawned || status.spawnRequested)) {
+        status.blockReason = status.spawned ? 'already_spawned' : 'spawn_pending';
+        return;
+    }
+    if (status.lastCommand?.type === 'mission_scene_spawn' && (Date.now() - Number(status.lastCommandAt || 0)) < 12000) {
+        status.blockReason = 'spawn_cooldown';
+        return;
+    }
 
     window.missionSceneSpawn(reason);
 }
@@ -863,6 +908,8 @@ window.fireMissionSmokeDebugSummary = function() {
     const sceneParts = [
         scene.spawnRequested ? 'scenePending=1' : '',
         scene.spawned ? `sceneSpawned=${scene.spawnedCount || '?'}` : '',
+        scene.blockReason ? `sceneGate=${scene.blockReason}` : '',
+        scene.lastGate ? `sceneGround=${scene.lastGate.groundLike ? 'Y' : 'N'} agl=${scene.lastGate.agl == null ? '?' : Math.round(scene.lastGate.agl)} gs=${Math.round(Number(scene.lastGate.gs || 0))}` : '',
         scene.lastCommandAt ? `sceneReq=${new Date(scene.lastCommandAt).toLocaleTimeString('de-DE')}` : '',
         scene.lastAck ? `sceneAck=${scene.lastAck.type || '?'}:${scene.lastAck.status || '?'}` : '',
         scene.spawnedByKind ? `sceneKind=${Object.entries(scene.spawnedByKind).map(([k, v]) => `${k}:${v}`).join(',')}` : '',
