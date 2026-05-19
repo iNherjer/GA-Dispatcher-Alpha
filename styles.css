@@ -6918,6 +6918,25 @@ body.map-is-fullscreen #paxVoiceWidget {
     border-color: #4da6ff;
     outline: none;
 }
+.pax-fire-debug {
+    margin-top: 3px;
+    padding-top: 7px;
+    border-top: 1px dashed #355f82;
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+.pax-fire-debug-status {
+    color: #9fc5e8;
+    font-family: monospace;
+    font-size: 10px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+.pax-fire-debug-btn {
+    min-height: 28px;
+    font-size: 11px;
+    background: #203449;
+}
 
 /* ==========================================================================
    23. MODERN LIQUID GLASS THEME

@@ -114,6 +114,37 @@ window.missionSmokeStatus = {
     lastAck: null
 };
 
+function _normalizeFireTruthOverride(value) {
+    const s = String(value || '').trim().toLowerCase();
+    if (/^(fire|smoke|rauch|true|1|yes|ja)$/.test(s)) return 'fire';
+    if (/^(false_alarm|falsealarm|no_smoke|kein_rauch|none|false|0|no|nein)$/.test(s)) return 'false_alarm';
+    return null;
+}
+
+function _initFireMissionDebugFromUrl() {
+    try {
+        const params = new URLSearchParams(window.location.search || '');
+        if (params.has('fireDebug')) {
+            const raw = String(params.get('fireDebug') || '').toLowerCase();
+            localStorage.setItem('ga_fire_debug', raw === '0' || raw === 'false' || raw === 'off' ? '0' : '1');
+        }
+        if (params.has('fireTruth')) {
+            const override = _normalizeFireTruthOverride(params.get('fireTruth'));
+            if (override) localStorage.setItem('ga_fire_truth_override', override);
+            else localStorage.removeItem('ga_fire_truth_override');
+        }
+    } catch (_) {}
+}
+_initFireMissionDebugFromUrl();
+
+window.fireMissionDebugEnabled = function() {
+    try { return localStorage.getItem('ga_fire_debug') === '1'; } catch (_) { return false; }
+};
+
+window.fireMissionTruthOverride = function() {
+    try { return _normalizeFireTruthOverride(localStorage.getItem('ga_fire_truth_override')); } catch (_) { return null; }
+};
+
 function _activeFireScenario() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const fs = md?.fireScenario;
@@ -132,17 +163,38 @@ function _persistMissionSmokeState() {
 window.sendTrackerCommand = function(command = {}) {
     const ws = liveGpsSocket;
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const fs = _activeFireScenario();
+    const pos = window.lastLiveGpsPos || {};
+    const lat = Number.isFinite(Number(pos.lat)) ? Number(pos.lat)
+        : (Number.isFinite(Number(command.lat)) ? Number(command.lat)
+            : (Number.isFinite(Number(fs?.target?.lat)) ? Number(fs.target.lat) : null));
+    const lon = Number.isFinite(Number(pos.lon)) ? Number(pos.lon)
+        : (Number.isFinite(Number(command.lon)) ? Number(command.lon)
+            : (Number.isFinite(Number(fs?.target?.lon)) ? Number(fs.target.lon) : null));
+    const alt = Number.isFinite(Number(pos.alt)) ? Number(pos.alt)
+        : (Number.isFinite(Number(command.altFt)) ? Number(command.altFt)
+            : (Number.isFinite(Number(fs?.target?.altFt)) ? Number(fs.target.altFt) : 0));
+    const hdg = Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg)
+        : (Number.isFinite(Number(command.hdg ?? command.heading)) ? Number(command.hdg ?? command.heading) : 0);
     const commandId = command.commandId || `cmd-${Date.now()}-${++missionSmokeCommandSeq}`;
     const payload = {
         type: 'gps',
         syncId: getSyncId(),
         pin: getSyncPin(),
+        target: 'tracker',
+        commandOnly: true,
         trackerCommand: {
             ...command,
             commandId,
             pin: getSyncPin()
         }
     };
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        payload.lat = lat;
+        payload.lon = lon;
+        payload.alt = Math.round(Number.isFinite(alt) ? alt : 0);
+        payload.hdg = Math.round(Number.isFinite(hdg) ? hdg : 0);
+    }
     ws.send(JSON.stringify(payload));
     return commandId;
 };
@@ -203,7 +255,44 @@ function _handleTrackerAck(ack) {
         fs.smoke.cleared = ack.status === 'ok' || ack.status === 'noop';
     }
     _persistMissionSmokeState();
+    if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
 }
+
+window.fireMissionDebugForceSmoke = function(reason = 'debug-force-smoke') {
+    const fs = _activeFireScenario();
+    if (!fs || !fs.smoke) return false;
+    fs.truth = 'fire';
+    fs.debugOverride = 'force_fire_runtime';
+    fs.smoke.spawned = false;
+    fs.smoke.spawnRequestedAt = 0;
+    fs.smoke.spawnError = null;
+    fs.smoke.cleared = false;
+    _persistMissionSmokeState();
+    const sent = window.missionSmokeEnsureSpawned(reason);
+    if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+    return sent;
+};
+
+window.fireMissionDebugClearSmoke = function(reason = 'debug-clear-smoke') {
+    const sent = window.missionSmokeClear(reason);
+    if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+    return sent;
+};
+
+window.fireMissionSmokeDebugSummary = function() {
+    const fs = _activeFireScenario();
+    if (!fs) return 'Keine Fire-Mission aktiv.';
+    const smoke = fs.smoke || {};
+    const ack = window.missionSmokeStatus?.lastAck || null;
+    const parts = [
+        `truth=${fs.truth || 'n/a'}${fs.debugOverride ? ` (${fs.debugOverride})` : ''}`,
+        `requested=${smoke.spawnRequestedAt ? new Date(smoke.spawnRequestedAt).toLocaleTimeString('de-DE') : 'nein'}`,
+        `spawned=${smoke.spawned ? `ja (${smoke.spawnedCount || '?'})` : 'nein'}`,
+        smoke.spawnError ? `error=${smoke.spawnError}` : '',
+        ack ? `lastAck=${ack.type || '?'}:${ack.status || '?'}` : 'lastAck=keins'
+    ].filter(Boolean);
+    return parts.join(' | ');
+};
 
 function _updateMissionRuntimeUi() {
     const autoStartEnabled = isMissionAutoStartEnabled();
@@ -2112,11 +2201,10 @@ window.connectToLiveGPS = async function(syncId) {
             }
             if (data.trackerAck) {
                 _handleTrackerAck(data.trackerAck);
+                if (data.commandAckOnly) return;
                 if (!Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon))) return;
             }
-            if (data.trackerCommand && (!Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon)))) {
-                return;
-            }
+            if (data.trackerCommand || data.commandOnly) return;
             if (data.type === 'gps') {
                 if (!Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon))) return;
                 _maybePromptTrackerUpdate(data);

@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v213';
-const TRACKER_VERSION_CODE = 213;
+const TRACKER_VERSION = 'v214';
+const TRACKER_VERSION_CODE = 214;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const TRACKER_DEBUG_FILE = path.join(process.pkg ? path.dirname(process.execPath) : __dirname, 'ga-tracker-debug.txt');
@@ -84,7 +84,7 @@ function buildSmokeFieldPositions(lat, lon, altFt, hdg, count, radiusM) {
   return out;
 }
 
-function createMissionSmokeController(handle, getWs, syncId, pin) {
+function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null) {
   const missions = new Map();
   const pendingAssign = new Map();
   const lastExceptions = [];
@@ -94,19 +94,28 @@ function createMissionSmokeController(handle, getWs, syncId, pin) {
     const ws = getWs();
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     try {
-      debugLog(`ACK ${payload?.type || 'unknown'} mission=${payload?.missionId || 'n/a'} status=${payload?.status || 'n/a'} spawned=${payload?.spawned ?? ''} cleared=${payload?.cleared ?? ''} error=${payload?.error || ''}`);
-      ws.send(JSON.stringify({
+      const lastGps = typeof getLastGpsMsg === 'function' ? getLastGpsMsg() : null;
+      const msg = {
         type: 'gps',
         syncId,
         pin,
         trackerVersion: TRACKER_VERSION,
         trackerVersionCode: TRACKER_VERSION_CODE,
+        commandAckOnly: true,
         trackerAck: {
           source: 'tracker',
           ...payload,
           at: Date.now()
         }
-      }));
+      };
+      if (lastGps && Number.isFinite(Number(lastGps.lat)) && Number.isFinite(Number(lastGps.lon))) {
+        msg.lat = Number(lastGps.lat);
+        msg.lon = Number(lastGps.lon);
+        msg.alt = Number.isFinite(Number(lastGps.alt)) ? Math.round(Number(lastGps.alt)) : 0;
+        msg.hdg = Number.isFinite(Number(lastGps.hdg)) ? Math.round(Number(lastGps.hdg)) : 0;
+      }
+      debugLog(`ACK ${payload?.type || 'unknown'} mission=${payload?.missionId || 'n/a'} status=${payload?.status || 'n/a'} spawned=${payload?.spawned ?? ''} cleared=${payload?.cleared ?? ''} error=${payload?.error || ''}`);
+      ws.send(JSON.stringify(msg));
     } catch (_) {}
   };
 
@@ -345,7 +354,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       console.log("✈️ MSFS gefunden! Warte auf Positionsdaten...");
-      const missionSmokeController = createMissionSmokeController(handle, getWs, syncId, pin);
+      let lastGpsMsg = null;
+      const missionSmokeController = createMissionSmokeController(handle, getWs, syncId, pin, () => lastGpsMsg);
       if (typeof setTrackerCommandHandler === 'function') {
         setTrackerCommandHandler((command) => missionSmokeController.handleCommand(command));
       }
@@ -608,6 +618,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
                   gpsMsg.traffic = latestTrafficSnapshot;
                   latestTrafficSnapshot = null; // einmalig senden, dann löschen
                 }
+                lastGpsMsg = { lat: gpsMsg.lat, lon: gpsMsg.lon, alt: gpsMsg.alt, hdg: gpsMsg.hdg };
                 ws.send(JSON.stringify(gpsMsg));
                 if (now - lastFlightLog >= 1000) {
                   lastFlightLog = now;

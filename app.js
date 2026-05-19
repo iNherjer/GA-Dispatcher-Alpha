@@ -6250,7 +6250,10 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
     const fireProbability = Number.isFinite(hazardLevel)
         ? Math.max(0.25, Math.min(0.82, 0.18 + hazardLevel * 0.13))
         : 0.55;
-    const truth = Math.random() < fireProbability ? 'fire' : 'false_alarm';
+    const debugTruthOverride = (typeof window.fireMissionTruthOverride === 'function')
+        ? window.fireMissionTruthOverride()
+        : null;
+    const truth = debugTruthOverride || (Math.random() < fireProbability ? 'fire' : 'false_alarm');
     const altFt = Number.isFinite(Number(poiTerrainFt))
         ? Math.max(0, Math.round(Number(poiTerrainFt)))
         : Math.max(0, Math.round(Number(dest.elevation ?? currentDestElev ?? currentDepElev ?? 0)));
@@ -6263,6 +6266,7 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
         truth,
         state: 'enroute',
         createdAt: Date.now(),
+        debugOverride: debugTruthOverride || null,
         fireProbability: Math.round(fireProbability * 100) / 100,
         paxAwarenessRangeNm: 4,
         confirmRangeNm: 2,

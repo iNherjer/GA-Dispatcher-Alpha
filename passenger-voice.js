@@ -849,6 +849,11 @@ function _injectPaxUI() {
         <button type="button" class="pax-fire-btn" onclick="window.fireMissionReportSmokeVisible && fireMissionReportSmokeVisible()">Rauch in Sicht</button>
         <button type="button" class="pax-fire-btn" onclick="window.fireMissionReportNoSmoke && fireMissionReportNoSmoke()">Kein Rauch sichtbar</button>
         <button type="button" class="pax-fire-btn" onclick="window.fireMissionPositionReport && fireMissionPositionReport()">Position / Suchrichtung</button>
+        <div id="paxFireMissionDebug" class="pax-fire-debug" style="display:none;">
+            <div id="paxFireMissionDebugStatus" class="pax-fire-debug-status"></div>
+            <button type="button" class="pax-fire-btn pax-fire-debug-btn" onclick="window.fireMissionDebugForceSmoke && fireMissionDebugForceSmoke()">Test: Rauch erzwingen</button>
+            <button type="button" class="pax-fire-btn pax-fire-debug-btn" onclick="window.fireMissionDebugClearSmoke && fireMissionDebugClearSmoke()">Test: Rauch entfernen</button>
+        </div>
     `;
 
     panel.appendChild(closeBtn);
@@ -1170,6 +1175,15 @@ function _refreshFireMissionMenu() {
     const fs = _fireScenario();
     const active = !!fs;
     menu.style.display = active ? 'grid' : 'none';
+    const debugBox = document.getElementById('paxFireMissionDebug');
+    const debugStatus = document.getElementById('paxFireMissionDebugStatus');
+    const debugActive = active && typeof window.fireMissionDebugEnabled === 'function' && window.fireMissionDebugEnabled();
+    if (debugBox) debugBox.style.display = debugActive ? 'grid' : 'none';
+    if (debugStatus && debugActive) {
+        debugStatus.textContent = typeof window.fireMissionSmokeDebugSummary === 'function'
+            ? window.fireMissionSmokeDebugSummary()
+            : 'Debug aktiv.';
+    }
     if (!active) return;
     const nameEl = document.getElementById('paxVoiceName');
     const textEl = document.getElementById('paxVoiceText');
@@ -1181,6 +1195,10 @@ function _refreshFireMissionMenu() {
         textEl.textContent = 'Feuermeldung aktiv. Du kannst Sichtungen ueber das Missionsmenue melden.';
     }
 }
+
+window.fireMissionRefreshDebugStatus = function() {
+    _refreshFireMissionMenu();
+};
 
 function _fireMissionAwarenessTick(flightData, distNm = null) {
     const fs = _fireScenario();
