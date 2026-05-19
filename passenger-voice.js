@@ -853,6 +853,8 @@ function _injectPaxUI() {
             <div id="paxFireMissionDebugStatus" class="pax-fire-debug-status"></div>
             <button type="button" class="pax-fire-btn pax-fire-debug-btn" onclick="window.fireMissionDebugForceSmokeAndFire && fireMissionDebugForceSmokeAndFire()">Test: Rauch + Feuer</button>
             <button type="button" class="pax-fire-btn pax-fire-debug-btn" onclick="window.fireMissionDebugForceFireOnly && fireMissionDebugForceFireOnly()">Test: Nur Feuer</button>
+            <button type="button" class="pax-fire-btn pax-fire-debug-btn" onclick="window.missionSceneSpawn && missionSceneSpawn('debug-scene-spawn')">Test: Feuerwehr Szene</button>
+            <button type="button" class="pax-fire-btn pax-fire-debug-btn" onclick="window.missionSceneClear && missionSceneClear('debug-scene-clear')">Test: Szene entfernen</button>
             <button type="button" class="pax-fire-btn pax-fire-debug-btn" onclick="window.fireMissionDebugClearSmoke && fireMissionDebugClearSmoke()">Test: Rauch entfernen</button>
         </div>
     `;

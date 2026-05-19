@@ -108,9 +108,15 @@ let missionRuntime = {
 };
 
 let missionSmokeCommandSeq = 0;
-const FIRE_DEBUG_SYNC_BUILD = 'fire-debug-20260519-2';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260519-1';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
 window.missionSmokeStatus = {
+    lastCommandAt: 0,
+    lastAckAt: 0,
+    lastAck: null
+};
+window.missionSceneStatus = {
+    sceneId: null,
     lastCommandAt: 0,
     lastAckAt: 0,
     lastAck: null
@@ -208,12 +214,28 @@ function _initFireMissionDebugFromUrl() {
             if (testMode) localStorage.setItem('ga_fire_test_mode', testMode);
             else localStorage.removeItem('ga_fire_test_mode');
         }
+        if (params.has('sceneDebug')) {
+            const raw = String(params.get('sceneDebug') || '').toLowerCase();
+            localStorage.setItem('ga_scene_debug', raw === '0' || raw === 'false' || raw === 'off' ? '0' : '1');
+        }
+        if (params.has('sceneAuto')) {
+            const raw = String(params.get('sceneAuto') || '').toLowerCase();
+            localStorage.setItem('ga_scene_auto_spawn', raw === '0' || raw === 'false' || raw === 'off' ? '0' : '1');
+        }
     } catch (_) {}
 }
 _initFireMissionDebugFromUrl();
 
 window.fireMissionDebugEnabled = function() {
-    try { return localStorage.getItem('ga_fire_debug') === '1' || !!window.fireMissionTruthOverride(); } catch (_) { return false; }
+    try { return localStorage.getItem('ga_fire_debug') === '1' || localStorage.getItem('ga_scene_debug') === '1' || !!window.fireMissionTruthOverride(); } catch (_) { return false; }
+};
+
+window.missionSceneDebugEnabled = function() {
+    try { return localStorage.getItem('ga_scene_debug') === '1'; } catch (_) { return false; }
+};
+
+window.missionSceneAutoSpawnEnabled = function() {
+    try { return localStorage.getItem('ga_scene_auto_spawn') === '1'; } catch (_) { return false; }
 };
 
 window.fireMissionTruthOverride = function() {
@@ -533,10 +555,90 @@ window.missionSmokeClear = function(reason = 'mission-end') {
     return true;
 };
 
+function _missionSceneId() {
+    const fs = _activeFireScenario();
+    const missionId = fs?.missionId || (typeof currentMissionData !== 'undefined' ? (currentMissionData?.id || currentMissionData?.missionId || currentMissionData?.t || '') : '');
+    const key = missionId ? String(missionId).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 80) : 'active';
+    return `scene-${key || 'active'}`;
+}
+
+window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
+    const pos = window.lastLiveGpsPos || {};
+    if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) return false;
+    const sceneId = _missionSceneId();
+    const commandId = window.sendTrackerCommand({
+        type: 'mission_scene_spawn',
+        sceneId,
+        reason,
+        lat: Number(pos.lat),
+        lon: Number(pos.lon),
+        altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
+        hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
+        items: [
+            {
+                kind: 'vehicle',
+                label: 'Feuerwehrfahrzeug',
+                objectTitle: 'Car Bush Firefighting (FIREFIGHTING_DEFAULT)',
+                forwardM: 22,
+                rightM: -12,
+                headingMode: 'face_aircraft',
+                altOffsetFt: 0
+            },
+            {
+                kind: 'person',
+                label: 'Einweiserin',
+                objectTitle: 'Termac_Female_Summer_Asian',
+                forwardM: 14,
+                rightM: -5,
+                headingMode: 'face_aircraft',
+                altOffsetFt: 0
+            }
+        ]
+    });
+    if (!commandId) return false;
+    window.missionSceneStatus.sceneId = sceneId;
+    window.missionSceneStatus.lastCommandAt = Date.now();
+    window.missionSceneStatus.lastCommand = { type: 'mission_scene_spawn', commandId, reason };
+    if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+    return true;
+};
+
+window.missionSceneClear = function(reason = 'scene-debug-clear') {
+    const sceneId = window.missionSceneStatus?.sceneId || _missionSceneId();
+    const commandId = window.sendTrackerCommand({
+        type: 'mission_scene_clear',
+        sceneId,
+        reason
+    });
+    if (!commandId) return false;
+    window.missionSceneStatus.sceneId = sceneId;
+    window.missionSceneStatus.lastCommandAt = Date.now();
+    window.missionSceneStatus.lastCommand = { type: 'mission_scene_clear', commandId, reason };
+    if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+    return true;
+};
+
 function _handleTrackerAck(ack) {
     if (!ack || typeof ack !== 'object') return;
     window.missionSmokeStatus.lastAckAt = Date.now();
     window.missionSmokeStatus.lastAck = ack;
+    if (ack.type === 'mission_scene_spawn_ack' || ack.type === 'mission_scene_clear_ack') {
+        window.missionSceneStatus.lastAckAt = Date.now();
+        window.missionSceneStatus.lastAck = ack;
+        if (ack.sceneId) window.missionSceneStatus.sceneId = ack.sceneId;
+        if (ack.type === 'mission_scene_spawn_ack') {
+            window.missionSceneStatus.spawned = ack.status === 'ok';
+            window.missionSceneStatus.spawnedCount = Number(ack.spawned || 0);
+            window.missionSceneStatus.spawnedByKind = ack.spawnedByKind || null;
+            window.missionSceneStatus.error = ack.status === 'ok' ? null : (ack.error || ack.status || 'scene_spawn_failed');
+        } else {
+            window.missionSceneStatus.spawned = false;
+            window.missionSceneStatus.cleared = ack.status === 'ok' || ack.status === 'noop';
+            window.missionSceneStatus.clearedCount = Number(ack.cleared || 0);
+        }
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return;
+    }
     const fs = _activeFireScenario();
     if (!fs || !fs.smoke || (ack.missionId && ack.missionId !== fs.missionId)) return;
     if (ack.type === 'mission_smoke_spawn_ack') {
@@ -635,7 +737,14 @@ window.fireMissionDebugClearSmoke = function(reason = 'debug-clear-smoke') {
 
 window.fireMissionSmokeDebugSummary = function() {
     const fs = _activeFireScenario();
-    if (!fs) return 'Keine Fire-Mission aktiv.';
+    const scene = window.missionSceneStatus || {};
+    const sceneParts = [
+        scene.lastCommandAt ? `sceneReq=${new Date(scene.lastCommandAt).toLocaleTimeString('de-DE')}` : '',
+        scene.lastAck ? `sceneAck=${scene.lastAck.type || '?'}:${scene.lastAck.status || '?'}` : '',
+        scene.spawnedByKind ? `sceneKind=${Object.entries(scene.spawnedByKind).map(([k, v]) => `${k}:${v}`).join(',')}` : '',
+        scene.error ? `sceneError=${scene.error}` : ''
+    ].filter(Boolean);
+    if (!fs) return sceneParts.length ? `build=${FIRE_DEBUG_SYNC_BUILD} | ${sceneParts.join(' | ')}` : 'Keine Fire-Mission aktiv.';
     const smoke = fs.smoke || {};
     const ack = window.missionSmokeStatus?.lastAck || null;
     const parts = [
@@ -654,6 +763,7 @@ window.fireMissionSmokeDebugSummary = function() {
         smoke.spawnSuppressed ? 'suppressed=1' : '',
         smoke.requestedByKind ? `req=${Object.entries(smoke.requestedByKind).map(([k, v]) => `${k}:${v}`).join(',')}` : '',
         smoke.spawnedByKind ? `kind=${Object.entries(smoke.spawnedByKind).map(([k, v]) => `${k}:${v}`).join(',')}` : '',
+        ...sceneParts,
         smoke.spawnError ? `error=${smoke.spawnError}` : '',
         ack ? `lastAck=${ack.type || '?'}:${ack.status || '?'}` : 'lastAck=keins'
     ].filter(Boolean);
@@ -736,6 +846,7 @@ function _isAtMissionTarget(lat, lon, thresholdNm = 1.2) {
 
 window.missionRuntimeReset = function() {
     if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('mission-runtime-reset');
+    if (typeof window.missionSceneClear === 'function') window.missionSceneClear('mission-runtime-reset');
     _resetMissionRuntime();
     resetFlightRecorder();
 };
@@ -753,11 +864,15 @@ window.manualMissionStart = function() {
         setTimeout(() => window.triggerPaxGreeting(pos.lat, pos.lon), 200);
     }
     if (typeof window.missionSmokeEnsureSpawned === 'function') window.missionSmokeEnsureSpawned('manual-mission-start');
+    if (typeof window.missionSceneAutoSpawnEnabled === 'function' && window.missionSceneAutoSpawnEnabled() && typeof window.missionSceneSpawn === 'function') {
+        setTimeout(() => window.missionSceneSpawn('manual-mission-start'), 900);
+    }
     _updateMissionRuntimeUi();
 };
 
 window.manualMissionEnd = function() {
     if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('manual-mission-end');
+    if (typeof window.missionSceneClear === 'function') window.missionSceneClear('manual-mission-end');
     const pos = window.lastLiveGpsPos;
     const shouldFinalize = !!(flightRecorder && (flightRecorder.active || flightRecorder.hadAirbornePhase || (Array.isArray(flightRecorder.track) && flightRecorder.track.length > 1)));
     missionRuntime.active = false;
@@ -2556,6 +2671,9 @@ window.connectToLiveGPS = async function(syncId) {
         if (missionRuntime.active && typeof window.missionSmokeEnsureSpawned === 'function') {
             setTimeout(() => window.missionSmokeEnsureSpawned('websocket-open'), 500);
         }
+        if (missionRuntime.active && typeof window.missionSceneAutoSpawnEnabled === 'function' && window.missionSceneAutoSpawnEnabled() && typeof window.missionSceneSpawn === 'function') {
+            setTimeout(() => window.missionSceneSpawn('websocket-open'), 900);
+        }
     };
 
     liveGpsSocket.onmessage = (event) => {
@@ -3370,6 +3488,9 @@ function updateFlightRecorder(lat, lon, alt) {
             setTimeout(() => window.triggerPaxGreeting(lat, lon), 300);
         }
         if (typeof window.missionSmokeEnsureSpawned === 'function') window.missionSmokeEnsureSpawned('auto-mission-start');
+        if (typeof window.missionSceneAutoSpawnEnabled === 'function' && window.missionSceneAutoSpawnEnabled() && typeof window.missionSceneSpawn === 'function') {
+            setTimeout(() => window.missionSceneSpawn('auto-mission-start'), 900);
+        }
         _updateMissionRuntimeUi();
     }
 

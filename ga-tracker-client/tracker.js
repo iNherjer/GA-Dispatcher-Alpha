@@ -12,11 +12,13 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v217';
-const TRACKER_VERSION_CODE = 217;
+const TRACKER_VERSION = 'v218';
+const TRACKER_VERSION_CODE = 218;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
+const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting (FIREFIGHTING_DEFAULT)';
+const MISSION_SCENE_PERSON_TITLE = 'Termac_Female_Summer_Asian';
 const TRACKER_DEBUG_FILE = path.join(process.pkg ? path.dirname(process.execPath) : __dirname, 'ga-tracker-debug.txt');
 const TELEPORT_DEF_ID = 9361;
 
@@ -121,8 +123,25 @@ function countByKind(items) {
   }, {});
 }
 
+function buildRelativePosition(base, forwardM, rightM) {
+  const hdgRad = Number(base.hdg || 0) * Math.PI / 180;
+  const fwd = Number(forwardM) || 0;
+  const right = Number(rightM) || 0;
+  const northM = Math.cos(hdgRad) * fwd + (-Math.sin(hdgRad)) * right;
+  const eastM = Math.sin(hdgRad) * fwd + Math.cos(hdgRad) * right;
+  const p = offsetLatLonMeters(Number(base.lat), Number(base.lon), northM, eastM);
+  return { ...p, northM, eastM };
+}
+
+function normalizeHeading(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return ((n % 360) + 360) % 360;
+}
+
 function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null) {
   const missions = new Map();
+  const scenes = new Map();
   const pendingAssign = new Map();
   const lastExceptions = [];
   let nextReqId = 9300;
@@ -206,6 +225,129 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const waitPromise = waitForAssignedObject(requestId, timeoutMs);
     handle.aICreateSimulatedObject(title, buildInitPos(pos.lat, pos.lon, pos.altFt, pos.hdg, true), requestId);
     return waitPromise;
+  };
+
+  const defaultSceneItems = () => ([
+    {
+      kind: 'vehicle',
+      label: 'Feuerwehrfahrzeug',
+      objectTitle: MISSION_SCENE_VEHICLE_TITLE,
+      forwardM: 22,
+      rightM: -12,
+      headingMode: 'face_aircraft',
+      altOffsetFt: 0
+    },
+    {
+      kind: 'person',
+      label: 'Einweiserin',
+      objectTitle: MISSION_SCENE_PERSON_TITLE,
+      forwardM: 14,
+      rightM: -5,
+      headingMode: 'face_aircraft',
+      altOffsetFt: 0
+    }
+  ]);
+
+  const buildScenePlan = (command) => {
+    const lastGps = typeof getLastGpsMsg === 'function' ? getLastGpsMsg() : null;
+    const base = {
+      lat: toFiniteNumber(command?.lat, toFiniteNumber(command?.aircraftLat, toFiniteNumber(lastGps?.lat, null))),
+      lon: toFiniteNumber(command?.lon, toFiniteNumber(command?.aircraftLon, toFiniteNumber(lastGps?.lon, null))),
+      altFt: toFiniteNumber(command?.altFt ?? command?.alt, toFiniteNumber(command?.aircraftAltFt ?? command?.aircraftAlt, toFiniteNumber(lastGps?.alt, null))),
+      hdg: toFiniteNumber(command?.hdg ?? command?.heading, toFiniteNumber(command?.aircraftHdg ?? command?.aircraftHeading, toFiniteNumber(lastGps?.hdg, 0)))
+    };
+    if (!Number.isFinite(base.lat) || !Number.isFinite(base.lon) || !Number.isFinite(base.altFt)) return [];
+    const items = Array.isArray(command?.items) && command.items.length > 0 ? command.items : defaultSceneItems();
+    return items.map((item, idx) => {
+      const title = String(item?.objectTitle || item?.title || '').trim();
+      const forwardM = toFiniteNumber(item?.forwardM ?? item?.forward, 0);
+      const rightM = toFiniteNumber(item?.rightM ?? item?.right, 0);
+      const rel = buildRelativePosition(base, forwardM, rightM);
+      const altOffsetFt = toFiniteNumber(item?.altOffsetFt, 0) || 0;
+      const mode = String(item?.headingMode || '').trim().toLowerCase();
+      const hdg = mode === 'face_aircraft'
+        ? normalizeHeading(base.hdg + 180)
+        : normalizeHeading(Number.isFinite(Number(item?.hdg ?? item?.heading)) ? Number(item?.hdg ?? item?.heading) : base.hdg + toFiniteNumber(item?.hdgOffsetDeg, 0));
+      return {
+        index: idx + 1,
+        kind: String(item?.kind || `scene-${idx + 1}`),
+        label: String(item?.label || item?.kind || `Scene ${idx + 1}`),
+        title,
+        lat: rel.lat,
+        lon: rel.lon,
+        altFt: base.altFt + altOffsetFt,
+        hdg,
+        baseAltFt: base.altFt,
+        altOffsetFt,
+        forwardM,
+        rightM,
+        northM: Math.round(rel.northM * 10) / 10,
+        eastM: Math.round(rel.eastM * 10) / 10
+      };
+    }).filter(p => p.title && Number.isFinite(p.lat) && Number.isFinite(p.lon) && Number.isFinite(p.altFt));
+  };
+
+  const clearScene = async (sceneId, reason = 'clear') => {
+    const key = String(sceneId || 'mission-scene');
+    const rec = scenes.get(key);
+    if (!rec || !Array.isArray(rec.objects) || rec.objects.length === 0) {
+      debugLog(`SCENE_CLEAR_NOOP scene=${key} reason=${reason}`);
+      sendAck({ type: 'mission_scene_clear_ack', sceneId: key, status: 'noop', reason });
+      return { cleared: 0 };
+    }
+    let cleared = 0;
+    debugLog(`SCENE_CLEAR_START scene=${key} reason=${reason} objects=${rec.objects.length}`);
+    for (const obj of rec.objects) {
+      try {
+        handle.aIRemoveObject(obj.objectId, nextReqId++);
+        cleared++;
+      } catch (err) {
+        debugLog(`SCENE_CLEAR_ERROR scene=${key} objectId=${obj.objectId} error=${err?.message || err}`);
+      }
+    }
+    scenes.delete(key);
+    console.log(`🚒 Scene ${key}: ${cleared} Objekte entfernt (${reason}).`);
+    debugLog(`SCENE_CLEAR_OK scene=${key} cleared=${cleared} reason=${reason}`);
+    sendAck({ type: 'mission_scene_clear_ack', sceneId: key, status: 'ok', cleared, reason });
+    return { cleared };
+  };
+
+  const spawnMissionScene = async (command) => {
+    const sceneId = String(command?.sceneId || 'mission-scene');
+    const commandId = command?.commandId || null;
+    const positions = buildScenePlan(command);
+    if (positions.length === 0) {
+      debugLog(`SCENE_SPAWN_INVALID scene=${sceneId}`);
+      sendAck({ type: 'mission_scene_spawn_ack', commandId, sceneId, status: 'error', error: 'invalid scene base/items' });
+      return;
+    }
+    await clearScene(sceneId, 'replace-before-scene');
+    const objects = [];
+    console.log(`🚒 Scene ${sceneId}: spawn ${positions.length} Objekte (${JSON.stringify(countByKind(positions))})`);
+    debugLog(`SCENE_SPAWN_START scene=${sceneId} count=${positions.length} byKind=${JSON.stringify(countByKind(positions))}`);
+    for (const p of positions) {
+      try {
+        const objectId = await spawnObject(p.title, p, 5000);
+        objects.push({ objectId, ...p });
+        console.log(`  OK scene ${p.kind}: objectId=${objectId}`);
+        debugLog(`SCENE_SPAWN_OK scene=${sceneId} kind=${p.kind} index=${p.index} objectId=${objectId} title="${p.title}" lat=${p.lat} lon=${p.lon} altFt=${p.altFt} hdg=${p.hdg} forwardM=${p.forwardM} rightM=${p.rightM}`);
+      } catch (err) {
+        console.warn(`  ✗ scene ${p.kind}: ${err?.message || err}`);
+        debugLog(`SCENE_SPAWN_ERROR scene=${sceneId} kind=${p.kind} title="${p.title}" error=${err?.message || err}`);
+      }
+    }
+    scenes.set(sceneId, { sceneId, spawnedAt: Date.now(), command: { ...command }, objects, positions });
+    sendAck({
+      type: 'mission_scene_spawn_ack',
+      commandId,
+      sceneId,
+      status: objects.length > 0 ? 'ok' : 'error',
+      requested: positions.length,
+      spawned: objects.length,
+      requestedByKind: countByKind(positions),
+      spawnedByKind: countByKind(objects),
+      objects: objects.map(o => ({ objectId: o.objectId, index: o.index, kind: o.kind }))
+    });
   };
 
   const clearMission = async (missionId, reason = 'clear') => {
@@ -356,10 +498,28 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         });
         return true;
       }
+      if (type === 'mission_scene_spawn') {
+        debugLog(`COMMAND mission_scene_spawn scene=${command?.sceneId || 'mission-scene'} items=${Array.isArray(command?.items) ? command.items.length : 0}`);
+        spawnMissionScene(command).catch(err => {
+          console.warn(`⚠️  Scene spawn failed: ${err?.message || err}`);
+          sendAck({ type: 'mission_scene_spawn_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
+        });
+        return true;
+      }
+      if (type === 'mission_scene_clear') {
+        debugLog(`COMMAND mission_scene_clear scene=${command?.sceneId || 'mission-scene'}`);
+        clearScene(command?.sceneId || 'mission-scene', 'command').catch(err => {
+          sendAck({ type: 'mission_scene_clear_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
+        });
+        return true;
+      }
       return false;
     },
     clearAll(reason = 'shutdown') {
-      return Promise.all([...missions.keys()].map(id => clearMission(id, reason)));
+      return Promise.all([
+        ...[...missions.keys()].map(id => clearMission(id, reason)),
+        ...[...scenes.keys()].map(id => clearScene(id, reason))
+      ]);
     }
   };
 }
