@@ -6286,20 +6286,46 @@ function buildFireWatchSmokeSites(dest, altFt, heading, extent) {
     return sites;
 }
 
-function buildFireWatchFireSites(smokeSites, extent) {
+function buildFireWatchFireSites(smokeSites, extent, fireConfig = {}) {
     if (!Array.isArray(smokeSites) || smokeSites.length === 0) return [];
     const n = extent === 'major_fire' ? Math.min(2, smokeSites.length) : (extent === 'multi_smoke' ? 1 : 0);
+    if (!n) return [];
+    const objectTitle = String(fireConfig.objectTitle || 'VO_Fire_R1_40').trim() || 'VO_Fire_R1_40';
+    const altOffsetFt = Number.isFinite(Number(fireConfig.altOffsetFt)) ? Math.round(Number(fireConfig.altOffsetFt)) : 0;
+    const count = Number.isFinite(Number(fireConfig.count)) ? Math.max(1, Math.min(6, Math.round(Number(fireConfig.count)))) : (extent === 'major_fire' ? 2 : 1);
+    const radiusM = Number.isFinite(Number(fireConfig.radiusM)) ? Math.max(0, Math.min(80, Math.round(Number(fireConfig.radiusM)))) : (count > 1 ? 8 : 0);
+    if (fireConfig.testMode === 'offset_ladder') {
+        const base = smokeSites[0];
+        const offsets = [80, 40, 0, -40, -80, -120];
+        return offsets.map((offset, idx) => {
+            const sideM = (idx - (offsets.length - 1) / 2) * 55;
+            const p = getDestinationPoint(Number(base.lat), Number(base.lon), Math.abs(sideM) / 1852, sideM >= 0 ? 90 : 270);
+            return {
+                siteId: `fire-offset-${offset}`,
+                smokeSiteId: base.siteId,
+                label: `Fire Offset ${offset} ft`,
+                objectTitle,
+                lat: Number(p.lat),
+                lon: Number(p.lon),
+                altFt: base.altFt,
+                altOffsetFt: offset,
+                hdg: base.hdg || 0,
+                count: 1,
+                radiusM: 0
+            };
+        });
+    }
     return smokeSites.slice(0, n).map((site, idx) => ({
         siteId: `fire-${idx + 1}`,
         smokeSiteId: site.siteId,
-        objectTitle: 'VO_Fire_R1_40',
+        objectTitle,
         lat: site.lat,
         lon: site.lon,
         altFt: site.altFt,
-        altOffsetFt: -80,
+        altOffsetFt,
         hdg: site.hdg || 0,
-        count: 1,
-        radiusM: 0
+        count,
+        radiusM
     }));
 }
 
@@ -6333,7 +6359,12 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
         : Math.max(0, Math.round(Number(dest.elevation ?? currentDestElev ?? currentDepElev ?? 0)));
     const missionId = `fire-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const smokeSites = buildFireWatchSmokeSites(dest, altFt, heading, extent);
-    const fireSites = buildFireWatchFireSites(smokeSites, extent);
+    const fireConfig = (typeof window.fireMissionFireOverride === 'function')
+        ? (window.fireMissionFireOverride() || {})
+        : {};
+    const fireSites = buildFireWatchFireSites(smokeSites, extent, fireConfig);
+    const fireObjectTitle = String(fireConfig.objectTitle || 'VO_Fire_R1_40').trim() || 'VO_Fire_R1_40';
+    const fireAltOffsetFt = Number.isFinite(Number(fireConfig.altOffsetFt)) ? Math.round(Number(fireConfig.altOffsetFt)) : 0;
 
     return {
         enabled: true,
@@ -6373,8 +6404,11 @@ function buildFireWatchScenario({ isPOI = false, mission = null, passenger = nul
         },
         fire: {
             enabled: fireSites.length > 0,
-            objectTitle: 'VO_Fire_R1_40',
-            altOffsetFt: -80,
+            objectTitle: fireObjectTitle,
+            altOffsetFt: fireAltOffsetFt,
+            count: Number.isFinite(Number(fireConfig.count)) ? Math.round(Number(fireConfig.count)) : null,
+            radiusM: Number.isFinite(Number(fireConfig.radiusM)) ? Math.round(Number(fireConfig.radiusM)) : null,
+            testMode: fireConfig.testMode || null,
             sites: fireSites
         },
         observations: []

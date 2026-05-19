@@ -137,6 +137,25 @@ function _normalizeFireSpawnMode(value) {
     return null;
 }
 
+function _normalizeFireTestMode(value) {
+    const s = String(value || '').trim().toLowerCase();
+    if (/^(offset_ladder|ladder|hoehenleiter|height_ladder|alt_ladder)$/.test(s)) return 'offset_ladder';
+    if (/^(off|none|0|false)$/.test(s)) return '';
+    return null;
+}
+
+function _normalizeFireObjectTitle(value) {
+    const s = String(value || '').trim();
+    if (!s || /^(default|auto|none|off)$/i.test(s)) return '';
+    return s.length <= 96 ? s : s.slice(0, 96);
+}
+
+function _normalizeFireNumber(value, min, max) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(min, Math.min(max, n));
+}
+
 function _initFireMissionDebugFromUrl() {
     try {
         const params = new URLSearchParams(window.location.search || '');
@@ -159,6 +178,33 @@ function _initFireMissionDebugFromUrl() {
             if (mode) localStorage.setItem('ga_fire_spawn_mode', mode);
             else localStorage.removeItem('ga_fire_spawn_mode');
         }
+        const fireObjectRaw = params.get('fireObject') ?? params.get('fireAsset') ?? params.get('fireTitle');
+        if (fireObjectRaw !== null) {
+            const title = _normalizeFireObjectTitle(fireObjectRaw);
+            if (title) localStorage.setItem('ga_fire_object_override', title);
+            else localStorage.removeItem('ga_fire_object_override');
+        }
+        const fireAltRaw = params.get('fireAltOffsetFt') ?? params.get('fireAltOffset') ?? params.get('fireOffsetFt') ?? params.get('fireOffset');
+        if (fireAltRaw !== null) {
+            const altOffsetFt = _normalizeFireNumber(fireAltRaw, -250, 250);
+            if (Number.isFinite(altOffsetFt)) localStorage.setItem('ga_fire_alt_offset_ft', String(Math.round(altOffsetFt)));
+            else localStorage.removeItem('ga_fire_alt_offset_ft');
+        }
+        if (params.has('fireCount')) {
+            const count = _normalizeFireNumber(params.get('fireCount'), 1, 6);
+            if (Number.isFinite(count)) localStorage.setItem('ga_fire_count', String(Math.round(count)));
+            else localStorage.removeItem('ga_fire_count');
+        }
+        if (params.has('fireRadius')) {
+            const radius = _normalizeFireNumber(params.get('fireRadius'), 0, 80);
+            if (Number.isFinite(radius)) localStorage.setItem('ga_fire_radius_m', String(Math.round(radius)));
+            else localStorage.removeItem('ga_fire_radius_m');
+        }
+        if (params.has('fireTest')) {
+            const testMode = _normalizeFireTestMode(params.get('fireTest'));
+            if (testMode) localStorage.setItem('ga_fire_test_mode', testMode);
+            else localStorage.removeItem('ga_fire_test_mode');
+        }
     } catch (_) {}
 }
 _initFireMissionDebugFromUrl();
@@ -177,6 +223,25 @@ window.fireMissionExtentOverride = function() {
 
 window.fireMissionSpawnMode = function() {
     try { return _normalizeFireSpawnMode(localStorage.getItem('ga_fire_spawn_mode')) || 'target'; } catch (_) { return 'target'; }
+};
+
+window.fireMissionFireOverride = function() {
+    try {
+        const title = _normalizeFireObjectTitle(localStorage.getItem('ga_fire_object_override'));
+        const altOffsetFt = _normalizeFireNumber(localStorage.getItem('ga_fire_alt_offset_ft'), -250, 250);
+        const count = _normalizeFireNumber(localStorage.getItem('ga_fire_count'), 1, 6);
+        const radiusM = _normalizeFireNumber(localStorage.getItem('ga_fire_radius_m'), 0, 80);
+        const testMode = _normalizeFireTestMode(localStorage.getItem('ga_fire_test_mode'));
+        return {
+            objectTitle: title || null,
+            altOffsetFt: Number.isFinite(altOffsetFt) ? Math.round(altOffsetFt) : null,
+            count: Number.isFinite(count) ? Math.round(count) : null,
+            radiusM: Number.isFinite(radiusM) ? Math.round(radiusM) : null,
+            testMode: testMode || null
+        };
+    } catch (_) {
+        return {};
+    }
 };
 
 window.missionRuntimeIsActive = function() {
@@ -228,7 +293,7 @@ function _ensureFireSmokeSites(fs) {
     fs.extent = fs.extent === 'false_alarm' ? 'single_smoke' : (fs.extent || 'single_smoke');
     fs.smokeSiteCount = 1;
     if (!fs.fire || typeof fs.fire !== 'object') {
-        fs.fire = { enabled: false, objectTitle: 'VO_Fire_R1_40', altOffsetFt: -80, sites: [] };
+        fs.fire = { enabled: false, objectTitle: 'VO_Fire_R1_40', altOffsetFt: 0, sites: [] };
     }
 }
 
@@ -383,9 +448,12 @@ window.fireMissionSmokeDebugSummary = function() {
         `mode=${smoke.spawnMode || (typeof window.fireMissionSpawnMode === 'function' ? window.fireMissionSpawnMode() : 'target')}`,
         `sites=${Array.isArray(smoke.sites) ? smoke.sites.length : 0}`,
         fs.fire?.enabled ? `fireSites=${Array.isArray(fs.fire.sites) ? fs.fire.sites.length : 0}` : '',
+        fs.fire?.enabled ? `fire=${fs.fire.objectTitle || 'VO_Fire_R1_40'}@${Number.isFinite(Number(fs.fire.altOffsetFt)) ? Math.round(Number(fs.fire.altOffsetFt)) : 0}ft` : '',
+        fs.fire?.testMode ? `fireTest=${fs.fire.testMode}` : '',
         `requested=${smoke.spawnRequestedAt ? new Date(smoke.spawnRequestedAt).toLocaleTimeString('de-DE') : 'nein'}`,
         `spawned=${smoke.spawned ? `ja (${smoke.spawnedCount || '?'})` : 'nein'}`,
         smoke.teleported ? `teleported=${smoke.teleported}` : '',
+        smoke.requestedByKind ? `req=${Object.entries(smoke.requestedByKind).map(([k, v]) => `${k}:${v}`).join(',')}` : '',
         smoke.spawnedByKind ? `kind=${Object.entries(smoke.spawnedByKind).map(([k, v]) => `${k}:${v}`).join(',')}` : '',
         smoke.spawnError ? `error=${smoke.spawnError}` : '',
         ack ? `lastAck=${ack.type || '?'}:${ack.status || '?'}` : 'lastAck=keins'

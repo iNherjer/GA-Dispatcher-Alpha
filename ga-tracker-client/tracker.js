@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v216';
-const TRACKER_VERSION_CODE = 216;
+const TRACKER_VERSION = 'v217';
+const TRACKER_VERSION_CODE = 217;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -265,7 +265,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
 
     fireSites.forEach((site, idx) => {
-      positions.push(...buildSpawnPlanForSite(site, { title: fireTitle, altFt, hdg, count: 1, radiusM: 0, altOffsetFt: -80 }, 'fire', idx + 1));
+      positions.push(...buildSpawnPlanForSite(site, { title: fireTitle, altFt, hdg, count: 1, radiusM: 0, altOffsetFt: 0 }, 'fire', idx + 1));
     });
 
     if (positions.length === 0) {
@@ -287,7 +287,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         const objectId = await spawnObject(p.title, spawnPos, 5000);
         objects.push({ objectId, ...p, spawnedAt: { ...spawnPos }, teleported: !usePrewarm });
         console.log(`  OK ${p.kind} site=${p.siteIndex} obj=${p.index}: objectId=${objectId}`);
-        debugLog(`SPAWN_OK mission=${missionId} kind=${p.kind} site=${p.siteIndex} index=${p.index} objectId=${objectId} title="${p.title}" spawnLat=${spawnPos.lat} spawnLon=${spawnPos.lon} targetLat=${p.lat} targetLon=${p.lon} targetAltFt=${p.altFt}`);
+        debugLog(`SPAWN_OK mission=${missionId} kind=${p.kind} site=${p.siteIndex} index=${p.index} objectId=${objectId} title="${p.title}" spawnLat=${spawnPos.lat} spawnLon=${spawnPos.lon} targetLat=${p.lat} targetLon=${p.lon} targetAltFt=${p.altFt} baseAltFt=${p.baseAltFt} altOffsetFt=${p.altOffsetFt}`);
       } catch (err) {
         console.warn(`  ✗ ${p.kind} site=${p.siteIndex} obj=${p.index}: ${err?.message || err}`);
         debugLog(`SPAWN_ERROR mission=${missionId} kind=${p.kind} site=${p.siteIndex} index=${p.index} title="${p.title}" error=${err?.message || err}`);
