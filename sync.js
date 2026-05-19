@@ -550,12 +550,30 @@ function _handleTrackerAck(ack) {
     if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
 }
 
-window.fireMissionDebugForceSmoke = function(reason = 'debug-force-smoke') {
+function _setFireDebugStorageOptions(options = {}) {
+    try {
+        localStorage.setItem('ga_fire_debug', '1');
+        localStorage.setItem('ga_fire_truth_override', 'fire');
+        if (options.extent) localStorage.setItem('ga_fire_extent_override', options.extent);
+        if (Object.prototype.hasOwnProperty.call(options, 'testMode')) {
+            const mode = _normalizeFireTestMode(options.testMode);
+            if (mode) localStorage.setItem('ga_fire_test_mode', mode);
+            else localStorage.removeItem('ga_fire_test_mode');
+        }
+        if (options.spawnMode) localStorage.setItem('ga_fire_spawn_mode', options.spawnMode);
+        if (Number.isFinite(Number(options.fireAltOffsetFt))) localStorage.setItem('ga_fire_alt_offset_ft', String(Math.round(Number(options.fireAltOffsetFt))));
+        if (Number.isFinite(Number(options.fireCount))) localStorage.setItem('ga_fire_count', String(Math.round(Number(options.fireCount))));
+        if (Number.isFinite(Number(options.fireRadiusM))) localStorage.setItem('ga_fire_radius_m', String(Math.round(Number(options.fireRadiusM))));
+    } catch (_) {}
+}
+
+function _forceFireMissionDebugSpawn(reason = 'debug-force-smoke', options = {}) {
     const fs = _activeFireScenario();
     if (!fs || !fs.smoke) return false;
+    _setFireDebugStorageOptions(options);
     fs.truth = 'fire';
-    fs.debugOverride = 'force_fire_runtime';
-    fs.extent = fs.extent && fs.extent !== 'false_alarm' ? fs.extent : 'single_smoke';
+    fs.debugOverride = options.debugOverride || 'force_fire_runtime';
+    fs.extent = options.extent || (fs.extent && fs.extent !== 'false_alarm' ? fs.extent : 'single_smoke');
     _ensureFireSmokeSites(fs);
     _applyFireRuntimeOverrides(fs, { forceRebuild: true });
     fs.smoke.spawned = false;
@@ -566,6 +584,39 @@ window.fireMissionDebugForceSmoke = function(reason = 'debug-force-smoke') {
     const sent = window.missionSmokeEnsureSpawned(reason);
     if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
     return sent;
+}
+
+window.fireMissionDebugForceSmoke = function(reason = 'debug-force-smoke') {
+    return _forceFireMissionDebugSpawn(reason, {
+        debugOverride: 'force_smoke_runtime',
+        extent: 'single_smoke',
+        testMode: '',
+        spawnMode: typeof window.fireMissionSpawnMode === 'function' ? window.fireMissionSpawnMode() : 'target'
+    });
+};
+
+window.fireMissionDebugForceSmokeAndFire = function(reason = 'debug-force-smoke-fire') {
+    return _forceFireMissionDebugSpawn(reason, {
+        debugOverride: 'force_smoke_fire_runtime',
+        extent: 'major_fire',
+        testMode: 'offset_ladder',
+        spawnMode: 'target',
+        fireAltOffsetFt: 0,
+        fireCount: 1,
+        fireRadiusM: 0
+    });
+};
+
+window.fireMissionDebugForceFireOnly = function(reason = 'debug-force-fire-only') {
+    return _forceFireMissionDebugSpawn(reason, {
+        debugOverride: 'force_fire_only_runtime',
+        extent: 'major_fire',
+        testMode: 'fire_only_ladder',
+        spawnMode: 'target',
+        fireAltOffsetFt: 0,
+        fireCount: 1,
+        fireRadiusM: 0
+    });
 };
 
 window.fireMissionDebugClearSmoke = function(reason = 'debug-clear-smoke') {
