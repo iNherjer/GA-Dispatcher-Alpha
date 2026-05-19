@@ -1,4 +1,4 @@
-const { open, SimConnectDataType, SimConnectPeriod, InitPosition } = require('node-simconnect');
+const { open, SimConnectDataType, SimConnectPeriod, InitPosition, RawBuffer } = require('node-simconnect');
 const WebSocket = require('ws');
 const readline = require('readline');
 const fs = require('fs');
@@ -12,12 +12,13 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v215';
-const TRACKER_VERSION_CODE = 215;
+const TRACKER_VERSION = 'v216';
+const TRACKER_VERSION_CODE = 216;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
 const TRACKER_DEBUG_FILE = path.join(process.pkg ? path.dirname(process.execPath) : __dirname, 'ga-tracker-debug.txt');
+const TELEPORT_DEF_ID = 9361;
 
 function debugLog(line) {
   try {
@@ -35,6 +36,10 @@ function clampInt(value, min, max) {
   const n = Math.round(Number(value));
   if (!Number.isFinite(n)) return min;
   return Math.max(min, Math.min(max, n));
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
 }
 
 function buildInitPos(lat, lon, altFt, hdg, onGround = true) {
@@ -121,6 +126,39 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const pendingAssign = new Map();
   const lastExceptions = [];
   let nextReqId = 9300;
+  let teleportDefReady = false;
+
+  const ensureTeleportDefinition = () => {
+    if (teleportDefReady) return true;
+    try {
+      handle.addToDataDefinition(TELEPORT_DEF_ID, 'PLANE LATITUDE', 'degrees', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(TELEPORT_DEF_ID, 'PLANE LONGITUDE', 'degrees', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(TELEPORT_DEF_ID, 'PLANE ALTITUDE', 'feet', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(TELEPORT_DEF_ID, 'PLANE HEADING DEGREES TRUE', 'degrees', SimConnectDataType.FLOAT64);
+      teleportDefReady = true;
+      debugLog('TELEPORT_DEF_READY');
+      return true;
+    } catch (err) {
+      debugLog(`TELEPORT_DEF_ERROR ${err?.message || err}`);
+      return false;
+    }
+  };
+
+  const teleportObject = (objectId, pos) => {
+    if (!ensureTeleportDefinition()) return false;
+    try {
+      const buf = new RawBuffer(32);
+      buf.writeFloat64(Number(pos.lat));
+      buf.writeFloat64(Number(pos.lon));
+      buf.writeFloat64(Number(pos.altFt));
+      buf.writeFloat64(Number(pos.hdg || 0));
+      handle.setDataOnSimObject(TELEPORT_DEF_ID, objectId, { buffer: buf, arrayCount: 0, tagged: false });
+      return true;
+    } catch (err) {
+      debugLog(`TELEPORT_ERROR objectId=${objectId} error=${err?.message || err}`);
+      return false;
+    }
+  };
 
   const sendAck = (payload) => {
     const ws = getWs();
@@ -209,6 +247,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const commandId = command?.commandId || null;
     const smokeSites = Array.isArray(command?.sites) ? command.sites : [];
     const fireSites = Array.isArray(command?.fireSites) ? command.fireSites : [];
+    const spawnMode = String(command?.spawnMode || '').trim().toLowerCase();
+    const prewarmLat = toFiniteNumber(command?.prewarmLat, null);
+    const prewarmLon = toFiniteNumber(command?.prewarmLon, null);
+    const prewarmAltFt = toFiniteNumber(command?.prewarmAltFt ?? command?.prewarmAlt, null);
+    const prewarmHdg = toFiniteNumber(command?.prewarmHdg ?? command?.prewarmHeading, hdg);
+    const usePrewarm = spawnMode === 'prewarm' && Number.isFinite(prewarmLat) && Number.isFinite(prewarmLon) && Number.isFinite(prewarmAltFt);
+    const prewarmDelayMs = clampInt(command?.prewarmDelayMs ?? 1400, 100, 5000);
     let positions = [];
 
     if (smokeSites.length > 0) {
@@ -231,18 +276,33 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
     await clearMission(missionId, 'replace-before-spawn');
     const objects = [];
-    console.log(`🔥 Smoke Mission ${missionId}: spawn ${positions.length} Objekte (${JSON.stringify(countByKind(positions))})`);
-    debugLog(`SPAWN_START mission=${missionId} extent=${command?.extent || 'n/a'} title="${title}" fireTitle="${fireTitle}" count=${positions.length} byKind=${JSON.stringify(countByKind(positions))}`);
+    console.log(`🔥 Smoke Mission ${missionId}: spawn ${positions.length} Objekte (${JSON.stringify(countByKind(positions))}) mode=${usePrewarm ? 'prewarm' : 'target'}`);
+    debugLog(`SPAWN_START mission=${missionId} extent=${command?.extent || 'n/a'} mode=${usePrewarm ? 'prewarm' : 'target'} title="${title}" fireTitle="${fireTitle}" count=${positions.length} byKind=${JSON.stringify(countByKind(positions))}`);
 
     for (const p of positions) {
       try {
-        const objectId = await spawnObject(p.title, p, 5000);
-        objects.push({ objectId, ...p });
+        const spawnPos = usePrewarm
+          ? { lat: prewarmLat, lon: prewarmLon, altFt: prewarmAltFt, hdg: prewarmHdg }
+          : p;
+        const objectId = await spawnObject(p.title, spawnPos, 5000);
+        objects.push({ objectId, ...p, spawnedAt: { ...spawnPos }, teleported: !usePrewarm });
         console.log(`  OK ${p.kind} site=${p.siteIndex} obj=${p.index}: objectId=${objectId}`);
-        debugLog(`SPAWN_OK mission=${missionId} kind=${p.kind} site=${p.siteIndex} index=${p.index} objectId=${objectId} title="${p.title}" lat=${p.lat} lon=${p.lon} altFt=${p.altFt}`);
+        debugLog(`SPAWN_OK mission=${missionId} kind=${p.kind} site=${p.siteIndex} index=${p.index} objectId=${objectId} title="${p.title}" spawnLat=${spawnPos.lat} spawnLon=${spawnPos.lon} targetLat=${p.lat} targetLon=${p.lon} targetAltFt=${p.altFt}`);
       } catch (err) {
         console.warn(`  ✗ ${p.kind} site=${p.siteIndex} obj=${p.index}: ${err?.message || err}`);
         debugLog(`SPAWN_ERROR mission=${missionId} kind=${p.kind} site=${p.siteIndex} index=${p.index} title="${p.title}" error=${err?.message || err}`);
+      }
+    }
+
+    let teleported = 0;
+    if (usePrewarm && objects.length > 0) {
+      debugLog(`PREWARM_WAIT mission=${missionId} delayMs=${prewarmDelayMs} objects=${objects.length}`);
+      await sleep(prewarmDelayMs);
+      for (const obj of objects) {
+        const ok = teleportObject(obj.objectId, obj);
+        obj.teleported = ok;
+        if (ok) teleported++;
+        debugLog(`TELEPORT_${ok ? 'OK' : 'FAIL'} mission=${missionId} objectId=${obj.objectId} kind=${obj.kind} site=${obj.siteIndex} lat=${obj.lat} lon=${obj.lon} altFt=${obj.altFt}`);
       }
     }
 
@@ -253,8 +313,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       missionId,
       status: objects.length > 0 ? 'ok' : 'error',
       objectTitle: title,
+      spawnMode: usePrewarm ? 'prewarm' : 'target',
       requested: positions.length,
       spawned: objects.length,
+      teleported,
       requestedByKind: countByKind(positions),
       spawnedByKind: countByKind(objects),
       sites: [...new Set(positions.map(p => `${p.kind}:${p.siteId}`))],

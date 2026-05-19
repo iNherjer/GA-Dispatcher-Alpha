@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-set "APP_URL=https://inherjer.github.io/GA-Dispatcher-Alpha/?fireDebug=1^&fireTruth=fire^&fireExtent=major_fire"
+set "APP_URL=https://inherjer.github.io/GA-Dispatcher-Alpha/?fireDebug=1^&fireTruth=fire^&fireExtent=major_fire^&fireSpawnMode=prewarm"
 set "TRACKER_EXE=%~dp0VFR-Multitool-Tracker.exe"
 
 title GA Dispatcher Fire Smoke Test
@@ -12,7 +12,8 @@ echo ============================================
 echo.
 echo Die Tracker-EXE braucht keine extra Argumente.
 echo Diese BAT startet den Tracker und oeffnet die App
-echo mit fireDebug=1, fireTruth=fire und fireExtent=major_fire.
+echo mit fireDebug=1, fireTruth=fire, fireExtent=major_fire
+echo und fireSpawnMode=prewarm.
 echo.
 
 if not exist "%TRACKER_EXE%" (
