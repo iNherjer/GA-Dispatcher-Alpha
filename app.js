@@ -36,6 +36,11 @@ const AIRCRAFT_PRESET_DEFAULTS = {
 const AIRCRAFT_PRESET_SLOT_ORDER = ['C172', 'PA-24', 'AERO'];
 let aircraftPresets = {};
 let activeAircraftPresetSettingsSlot = 'C172';
+const AIRCRAFT_PRESET_SLOT_LABELS = {
+    'C172': 'Slot 1',
+    'PA-24': 'Slot 2',
+    'AERO': 'Slot 3'
+};
 
 function sanitizeAircraftPresetName(slotId, value) {
     const fallback = AIRCRAFT_PRESET_DEFAULTS[slotId]?.name || slotId;
@@ -98,6 +103,10 @@ function setAircraftPresetStatus(msg, color = '#888') {
     el.style.color = color;
 }
 
+function getAircraftPresetSlotLabel(slotId) {
+    return AIRCRAFT_PRESET_SLOT_LABELS[slotId] || String(slotId || '');
+}
+
 function updateNavComAircraftButtons() {
     const slotToNavButtonId = {
         'C172': 'btnAC-C172',
@@ -143,7 +152,7 @@ function selectAircraftPresetSlotFromSettings(slotId) {
     if (tasInput) tasInput.value = String(preset.tas);
     if (gphInput) gphInput.value = String(preset.gph);
     if (paxInput) paxInput.value = String(preset.pax);
-    setAircraftPresetStatus(`Slot ${slotId} geladen`, '#9aa3ad');
+    setAircraftPresetStatus(`${getAircraftPresetSlotLabel(slotId)} geladen`, '#9aa3ad');
 }
 window.selectAircraftPresetSlotFromSettings = selectAircraftPresetSlotFromSettings;
 
@@ -166,7 +175,7 @@ function saveAircraftPresetFromSettings() {
     saveAircraftPresets();
     updateAircraftPresetButtonsUI();
     selectAircraftPresetSlotFromSettings(slotId);
-    setAircraftPresetStatus(`Preset ${slotId} gespeichert`, '#4caf50');
+    setAircraftPresetStatus(`${getAircraftPresetSlotLabel(slotId)} gespeichert`, '#4caf50');
     if (selectedAC === slotId) {
         applyPreset(next.tas, next.gph, next.pax, slotId);
     }
