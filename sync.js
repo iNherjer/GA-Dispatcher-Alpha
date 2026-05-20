@@ -137,9 +137,10 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-13';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-14';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
+const MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE = 'Tarmac_Male_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
 window.missionSmokeStatus = {
     lastCommandAt: 0,
@@ -814,6 +815,62 @@ function _missionSceneId() {
     return `scene-${key || 'active'}`;
 }
 
+function _missionScenePaxCount() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const text = [
+        md?.paxText,
+        md?.missionContract?.paxText,
+        window.activeMissionContract?.paxText,
+        document.getElementById('mPay')?.innerText
+    ].filter(Boolean).join(' ');
+    const match = String(text || '').match(/(\d+)\s*PAX/i);
+    if (match) return Math.max(0, Math.min(6, parseInt(match[1], 10) || 0));
+    if (/kein\s+pax|0\s*pax|\bno\s+pax\b|^\s*-\s*$/i.test(String(text || ''))) return 0;
+    return window.activePassenger ? 1 : 1;
+}
+
+function _missionSceneBoarderCount() {
+    return Math.max(1, Math.min(2, _missionScenePaxCount()));
+}
+
+function _missionScenePassengerGender() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const raw = String(window.activePassenger?.gender || md?.passenger?.gender || md?.missionContract?.passenger?.gender || '').toLowerCase();
+    if (raw === 'male' || raw === 'female') return raw;
+    const roleText = String(`${window.activePassenger?.role || ''} ${md?.paxText || ''} ${document.getElementById('mPay')?.innerText || ''}`).toLowerCase();
+    if (/(frau|female|reporterin|fotografin|biologin|geologin|historikerin|koordinatorin|beobachterin|instruktorin|passagierin)/i.test(roleText)) return 'female';
+    return 'male';
+}
+
+function _missionScenePersonCandidates(gender = 'female', preferredTitle = '') {
+    const preferred = _sceneObjectTitleOverride('person', preferredTitle || MISSION_SCENE_DEFAULT_PERSON_TITLE);
+    const female = [
+        preferred,
+        MISSION_SCENE_DEFAULT_PERSON_TITLE,
+        'Termac_Female_Summer_Asian',
+        'Tarmac_Female_Summer_Asian'
+    ];
+    const male = [
+        preferredTitle && /male/i.test(preferredTitle) ? preferredTitle : MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE,
+        MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE,
+        'Termac_Male_Summer_Asian',
+        'Tarmac_Male_Summer_Caucasian',
+        'Tarmac_Male_Summer_Black',
+        MISSION_SCENE_DEFAULT_PERSON_TITLE,
+        'Termac_Female_Summer_Asian'
+    ];
+    return _sceneTitleCandidates(gender === 'male' ? MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE : MISSION_SCENE_DEFAULT_PERSON_TITLE, gender === 'male' ? male : female);
+}
+
+function _missionSceneHeadingOffsetBetween(fromPoint, toPoint, fallbackDeg = 0) {
+    const forwardDelta = Number(toPoint?.forwardM) - Number(fromPoint?.forwardM);
+    const rightDelta = Number(toPoint?.rightM) - Number(fromPoint?.rightM);
+    if (!Number.isFinite(forwardDelta) || !Number.isFinite(rightDelta) || (Math.abs(forwardDelta) < 0.01 && Math.abs(rightDelta) < 0.01)) {
+        return fallbackDeg;
+    }
+    return Math.round(Math.atan2(rightDelta, forwardDelta) * 180 / Math.PI);
+}
+
 window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     const pos = window.lastLiveGpsPos || {};
     const gate = _missionSceneFlightGate(window.lastLiveFlightData || {});
@@ -837,6 +894,45 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     const boardingConfig = _missionSceneBoardingConfig();
     const personSpawn = boardingConfig.spawn || { forwardM: 16, rightM: -8, altOffsetFt: 0 };
     const cargoPoint = boardingConfig.cargo || { forwardM: 4, rightM: 4, altOffsetFt: 0 };
+    const boarderCount = _missionSceneBoarderCount();
+    const primaryGender = _missionScenePassengerGender();
+    const secondaryGender = primaryGender === 'male' ? 'female' : 'male';
+    const vehicleCrewOne = { forwardM: 20, rightM: -15 };
+    const vehicleCrewTwo = { forwardM: 19, rightM: -9 };
+    const personItems = [
+        {
+            kind: 'person_boarder_1',
+            label: 'Boarding Pax 1',
+            objectTitle: primaryGender === 'male' ? MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE : personTitle,
+            titleCandidates: _missionScenePersonCandidates(primaryGender, personTitle),
+            forwardM: Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16,
+            rightM: Number.isFinite(Number(personSpawn.rightM)) ? Number(personSpawn.rightM) : -8,
+            headingMode: 'face_aircraft',
+            altOffsetFt: Number.isFinite(Number(personSpawn.altOffsetFt)) ? Number(personSpawn.altOffsetFt) : 0
+        },
+        {
+            kind: boarderCount >= 2 ? 'person_boarder_2' : 'person_idle_1',
+            label: boarderCount >= 2 ? 'Boarding Pax 2' : 'Crew Fahrzeug 1',
+            objectTitle: secondaryGender === 'male' ? MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE : MISSION_SCENE_DEFAULT_PERSON_TITLE,
+            titleCandidates: _missionScenePersonCandidates(secondaryGender),
+            forwardM: vehicleCrewOne.forwardM,
+            rightM: vehicleCrewOne.rightM,
+            headingMode: 'with_aircraft',
+            hdgOffsetDeg: _missionSceneHeadingOffsetBetween(vehicleCrewOne, vehicleCrewTwo, 70),
+            altOffsetFt: 0
+        },
+        {
+            kind: 'person_idle_2',
+            label: 'Crew Fahrzeug 2',
+            objectTitle: primaryGender === 'male' ? MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE : MISSION_SCENE_DEFAULT_PERSON_TITLE,
+            titleCandidates: _missionScenePersonCandidates(primaryGender),
+            forwardM: vehicleCrewTwo.forwardM,
+            rightM: vehicleCrewTwo.rightM,
+            headingMode: 'with_aircraft',
+            hdgOffsetDeg: _missionSceneHeadingOffsetBetween(vehicleCrewTwo, vehicleCrewOne, 250),
+            altOffsetFt: 0
+        }
+    ];
     const commandId = window.sendTrackerCommand({
         type: 'mission_scene_spawn',
         sceneId,
@@ -845,6 +941,8 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
         lon: Number(pos.lon),
         altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
         hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
+        boarderCount,
+        passengerCount: _missionScenePaxCount(),
         items: [
             {
                 kind: 'vehicle',
@@ -865,18 +963,8 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
                 rightM: Number.isFinite(Number(cargoPoint.rightM)) ? Number(cargoPoint.rightM) : 4,
                 headingMode: 'with_aircraft',
                 altOffsetFt: Number.isFinite(Number(cargoPoint.altOffsetFt)) ? Number(cargoPoint.altOffsetFt) : 0
-            },
-            {
-                kind: 'person',
-                label: 'Einweiserin',
-                objectTitle: personTitle,
-                titleCandidates: _sceneTitleCandidates(personTitle, ['Tarmac_Female_Summer_Asian', 'Termac_Female_Summer_Asian']),
-                forwardM: Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16,
-                rightM: Number.isFinite(Number(personSpawn.rightM)) ? Number(personSpawn.rightM) : -8,
-                headingMode: 'face_aircraft',
-                altOffsetFt: Number.isFinite(Number(personSpawn.altOffsetFt)) ? Number(personSpawn.altOffsetFt) : 0
             }
-        ]
+        ].concat(personItems)
     });
     if (!commandId) return false;
     window.missionSceneStatus.sceneId = sceneId;
@@ -1042,6 +1130,8 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
         removeCargoAtWaypoint: true,
         cargoHoldMs: 2600,
         cargoObjectKind: 'cargo',
+        boarderCount: _missionSceneBoarderCount(),
+        passengerCount: _missionScenePaxCount(),
         openDoor: boardingConfig.openDoor !== false,
         doorProfile: boardingConfig.doorProfile || 'default',
         doorIndex: 1
@@ -2274,8 +2364,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 229;
-const MIN_TRACKER_VERSION_LABEL = 'v229';
+const MIN_TRACKER_VERSION_CODE = 230;
+const MIN_TRACKER_VERSION_LABEL = 'v230';
 let trackerVersionPromptShown = false;
 
 window.updateLivePlanePerformanceMode = function(forceState = null) {

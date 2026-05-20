@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v229';
-const TRACKER_VERSION_CODE = 229;
+const TRACKER_VERSION = 'v230';
+const TRACKER_VERSION_CODE = 230;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -509,7 +509,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return Number.isFinite(total) ? total : 0;
   };
 
-  const buildBoardingPath = (command, rec, person) => {
+  const buildBoardingPath = (command, rec, person, options = {}) => {
     const profileName = String(command?.profile || command?.pathProfile || 'ga_right_cockpit_v1').trim();
     const profile = sceneBoardingProfiles[profileName] || sceneBoardingProfiles.ga_right_cockpit_v1;
     const appPath = commandBoardingPath(command);
@@ -522,7 +522,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     let points = appPath
       ? appPath.map((pt, index) => normalizeBoardingPathPoint(pt, index === 0 ? defaultStart : profile[Math.min(index, profile.length - 1)]))
       : [defaultStart, ...profile.slice(1).map(pt => normalizeBoardingPathPoint(pt))];
-    if (command?.spawnPoint && points[0]) {
+    if (options.startAtPerson && points[0]) {
+      points[0] = normalizeBoardingPathPoint(defaultStart, points[0]);
+    } else if (command?.spawnPoint && points[0]) {
       points[0] = normalizeBoardingPathPoint(command.spawnPoint, points[0]);
     }
     if (command?.targetPoint && points.length >= 2) {
@@ -549,18 +551,30 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: 'noop', error: 'no_scene' });
       return;
     }
-    const person = rec.objects.find(o => String(o?.kind || '').toLowerCase() === 'person') || rec.objects.find(o => /female|male|human|person|tarmac/i.test(String(o?.title || o?.requestedTitle || '')));
-    if (!person || !person.objectId) {
+
+    const requestedBoarders = clampInt(command?.boarderCount ?? command?.passengerCount ?? 1, 1, 3);
+    const explicitBoarders = rec.objects
+      .filter(o => /^person_boarder/i.test(String(o?.kind || '')) && o?.objectId)
+      .sort((a, b) => String(a.kind || '').localeCompare(String(b.kind || '')));
+    const fallbackPerson = rec.objects.find(o => String(o?.kind || '').toLowerCase() === 'person')
+      || rec.objects.find(o => /female|male|human|person|tarmac/i.test(String(o?.title || o?.requestedTitle || '')));
+    const boarders = (explicitBoarders.length ? explicitBoarders : (fallbackPerson ? [fallbackPerson] : [])).slice(0, requestedBoarders);
+    if (!boarders.length) {
       debugLog(`SCENE_BOARDING_NOOP scene=${sceneId} reason=no_person`);
       sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: 'noop', error: 'no_person' });
       return;
     }
-    const path = buildBoardingPath(command, rec, person);
-    if (path.length < 2) {
+
+    const boarderPlans = boarders.map((person, index) => ({
+      person,
+      path: buildBoardingPath(command, rec, person, { startAtPerson: index > 0 })
+    })).filter(plan => Array.isArray(plan.path) && plan.path.length >= 2);
+    if (!boarderPlans.length) {
       debugLog(`SCENE_BOARDING_ERROR scene=${sceneId} reason=invalid_path`);
       sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: 'error', error: 'invalid_path' });
       return;
     }
+
     const requestedDurationMs = clampInt(command?.durationMs ?? 18000, 3000, 45000);
     const finalHoldMs = clampInt(command?.finalHoldMs ?? 450, 0, 2000);
     const removePerson = command?.removePerson !== false;
@@ -570,7 +584,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const doorEnabled = command?.openDoor === true || command?.door === true;
     const doorIndex = clampInt(command?.doorIndex ?? 1, 0, 8);
     const doorProfile = resolveDoorProfile(command);
-    const distanceM = pathDistanceM(path);
+    const primaryPath = boarderPlans[0].path;
+    const distanceM = Math.max(...boarderPlans.map(plan => pathDistanceM(plan.path)));
     const speedMps = Math.max(0.25, speedKts * 0.514444);
     const durationMs = clampInt(Math.max(requestedDurationMs, (distanceM / speedMps) * 1000 + cargoHoldMs + 8500), 3000, 45000);
     const pathSource = commandBoardingPath(command) ? 'app' : (command?.profile || command?.pathProfile || 'ga_right_cockpit_v1');
@@ -591,51 +606,68 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         return false;
       }
     };
-    const cargoPathIndex = clampInt(command?.cargoPathIndex ?? command?.cargoIndex ?? 1, 1, Math.max(1, path.length - 2));
-    debugLog(`SCENE_BOARDING_START scene=${sceneId} objectId=${person.objectId} path=${pathSource} durationMs=${durationMs} waypoints=${path.length - 1} speedKts=${speedKts} door=${doorEnabled ? 1 : 0} doorProfile=${doorProfile} aircraftSlot=${command?.aircraftSlot || ''} aircraftName="${command?.aircraftName || ''}" cargo=${cargo?.objectId || 0} cargoPathIndex=${cargoPathIndex}`);
-    console.log(`🚶 Scene ${sceneId}: Boarding-Animation startet (${Math.round(durationMs / 1000)}s).`);
+    const cargoPathIndex = clampInt(command?.cargoPathIndex ?? command?.cargoIndex ?? 1, 1, Math.max(1, primaryPath.length - 2));
+    debugLog(`SCENE_BOARDING_START scene=${sceneId} boarders=${boarderPlans.length} objectIds=${boarderPlans.map(p => p.person.objectId).join(',')} path=${pathSource} durationMs=${durationMs} waypoints=${primaryPath.length - 1} speedKts=${speedKts} door=${doorEnabled ? 1 : 0} doorProfile=${doorProfile} aircraftSlot=${command?.aircraftSlot || ''} aircraftName="${command?.aircraftName || ''}" cargo=${cargo?.objectId || 0} cargoPathIndex=${cargoPathIndex}`);
+    console.log(`🚶 Scene ${sceneId}: Boarding-Animation startet (${boarderPlans.length} Pax, ${Math.round(durationMs / 1000)}s).`);
 
     if (doorEnabled) {
       await setUserAircraftDoor(true, doorIndex, 'boarding-open', doorProfile);
       await sleep(350);
     }
-    let cargoRouteDistanceM = 0;
-    for (let i = 0; i < cargoPathIndex; i++) {
-      cargoRouteDistanceM += Math.hypot(Number(path[i + 1]?.northM) - Number(path[i]?.northM), Number(path[i + 1]?.eastM) - Number(path[i]?.eastM));
-    }
+
+    const cargoRouteDistanceForPath = (path) => {
+      let total = 0;
+      for (let i = 0; i < cargoPathIndex && i < path.length - 1; i++) {
+        total += Math.hypot(Number(path[i + 1]?.northM) - Number(path[i]?.northM), Number(path[i + 1]?.eastM) - Number(path[i]?.eastM));
+      }
+      return total;
+    };
+    const cargoRouteDistanceM = Math.max(...boarderPlans.map(plan => cargoRouteDistanceForPath(plan.path)));
     const cargoRouteMs = Math.max(0, (cargoRouteDistanceM / speedMps) * 1000);
     const cargoArrivalSlackMs = clampInt(command?.cargoArrivalSlackMs ?? 1800, 0, 6000);
-    const canSplitAtCargo = removeCargoAtWaypoint && cargo && path.length >= 3 && cargoPathIndex < path.length - 1;
+    const canSplitAtCargo = removeCargoAtWaypoint && cargo && primaryPath.length >= 3 && cargoPathIndex < primaryPath.length - 1;
     let routeSent = false;
+    let routeSentCount = 0;
     if (canSplitAtCargo) {
-      routeSent = sendWaypointRoute(person.objectId, path.slice(1, cargoPathIndex + 1), speedKts);
+      routeSentCount = boarderPlans.reduce((count, plan) => {
+        const sent = sendWaypointRoute(plan.person.objectId, plan.path.slice(1, cargoPathIndex + 1), speedKts);
+        return count + (sent ? 1 : 0);
+      }, 0);
+      routeSent = routeSentCount > 0;
       if (routeSent) {
-        const continuePoints = path.slice(cargoPathIndex + 1);
         const cargoDelayMs = clampInt((cargoRouteMs * 1.2) + cargoArrivalSlackMs + cargoHoldMs, 1200, Math.max(1500, durationMs - finalHoldMs - 500));
         setTimeout(() => {
           removeCargoObject('route-cargo-hold');
-          if (continuePoints.length) {
-            const continued = sendWaypointRoute(person.objectId, continuePoints, speedKts);
-            debugLog(`SCENE_BOARDING_CONTINUE scene=${sceneId} objectId=${person.objectId} points=${continuePoints.length} status=${continued ? 'ok' : 'failed'}`);
-          }
+          boarderPlans.forEach((plan) => {
+            const continuePoints = plan.path.slice(cargoPathIndex + 1);
+            if (!continuePoints.length) return;
+            const continued = sendWaypointRoute(plan.person.objectId, continuePoints, speedKts);
+            debugLog(`SCENE_BOARDING_CONTINUE scene=${sceneId} objectId=${plan.person.objectId} points=${continuePoints.length} status=${continued ? 'ok' : 'failed'}`);
+          });
         }, cargoDelayMs);
-        debugLog(`SCENE_CARGO_HOLD_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} routeMs=${Math.round(cargoRouteMs)} slackMs=${cargoArrivalSlackMs} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs} cargoPathIndex=${cargoPathIndex}`);
+        debugLog(`SCENE_CARGO_HOLD_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} routeMs=${Math.round(cargoRouteMs)} slackMs=${cargoArrivalSlackMs} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs} cargoPathIndex=${cargoPathIndex} routeSent=${routeSentCount}/${boarderPlans.length}`);
       }
     }
     if (!routeSent) {
-      routeSent = sendWaypointRoute(person.objectId, path.slice(1), speedKts);
-      if (routeSent && removeCargoAtWaypoint && cargo && path.length >= 2) {
+      routeSentCount = boarderPlans.reduce((count, plan) => {
+        const sent = sendWaypointRoute(plan.person.objectId, plan.path.slice(1), speedKts);
+        return count + (sent ? 1 : 0);
+      }, 0);
+      routeSent = routeSentCount > 0;
+      if (routeSent && removeCargoAtWaypoint && cargo && primaryPath.length >= 2) {
         const cargoDelayMs = clampInt((cargoRouteMs * 1.2) + cargoArrivalSlackMs + cargoHoldMs, 1200, Math.max(1500, durationMs - finalHoldMs - 500));
         setTimeout(() => removeCargoObject('route-cargo-waypoint'), cargoDelayMs);
         debugLog(`SCENE_CARGO_REMOVE_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} routeMs=${Math.round(cargoRouteMs)} slackMs=${cargoArrivalSlackMs} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs}`);
       }
     }
+
     if (!routeSent && command?.fallbackTeleport === true) {
+      const plan = boarderPlans[0];
       const segments = [];
       let totalDist = 0;
-      for (let i = 0; i < path.length - 1; i++) {
-        const from = path[i];
-        const to = path[i + 1];
+      for (let i = 0; i < plan.path.length - 1; i++) {
+        const from = plan.path[i];
+        const to = plan.path[i + 1];
         const dist = Math.hypot(Number(to.northM) - Number(from.northM), Number(to.eastM) - Number(from.eastM));
         totalDist += dist;
         segments.push({ from, to, dist });
@@ -649,7 +681,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         const hdg = headingBetweenOffsets(segment.from, segment.to, rec?.command?.hdg || 0);
         for (let i = 1; i <= steps; i++) {
           const t = i / steps;
-          teleportObject(person.objectId, {
+          teleportObject(plan.person.objectId, {
             lat: lerp(segment.from.lat, segment.to.lat, t),
             lon: lerp(segment.from.lon, segment.to.lon, t),
             altFt: lerp(segment.from.altFt, segment.to.altFt, t),
@@ -666,22 +698,25 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       await sleep(Math.max(500, durationMs - finalHoldMs));
     }
     if (finalHoldMs > 0) await sleep(finalHoldMs);
+
     let removed = 0;
     if (removePerson) {
-      try {
-        handle.aIRemoveObject(person.objectId, nextReqId++);
-        removed = 1;
-        rec.objects = rec.objects.filter(o => o.objectId !== person.objectId);
-      } catch (err) {
-        debugLog(`SCENE_BOARDING_REMOVE_ERROR scene=${sceneId} objectId=${person.objectId} error=${err?.message || err}`);
+      for (const plan of boarderPlans) {
+        try {
+          handle.aIRemoveObject(plan.person.objectId, nextReqId++);
+          removed++;
+          rec.objects = rec.objects.filter(o => o.objectId !== plan.person.objectId);
+        } catch (err) {
+          debugLog(`SCENE_BOARDING_REMOVE_ERROR scene=${sceneId} objectId=${plan.person.objectId} error=${err?.message || err}`);
+        }
       }
     }
     if (doorEnabled) {
       await sleep(300);
       await setUserAircraftDoor(false, doorIndex, 'boarding-close', doorProfile);
     }
-    debugLog(`SCENE_BOARDING_OK scene=${sceneId} objectId=${person.objectId} routeSent=${routeSent ? 1 : 0} removed=${removed}`);
-    sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: routeSent ? 'ok' : 'error', routeSent: routeSent ? 1 : 0, removed, cargoRemoved, boarded: routeSent ? 1 : 0, durationMs, error: routeSent ? '' : 'waypoint_route_failed' });
+    debugLog(`SCENE_BOARDING_OK scene=${sceneId} boarders=${boarderPlans.length} routeSent=${routeSent ? 1 : 0} routeSentCount=${routeSentCount} removed=${removed}`);
+    sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: routeSent ? 'ok' : 'error', routeSent: routeSent ? 1 : 0, routeSentCount, removed, cargoRemoved, boarded: routeSent ? boarderPlans.length : 0, durationMs, error: routeSent ? '' : 'waypoint_route_failed' });
   };
 
   const clearScene = async (sceneId, reason = 'clear', commandId = null) => {
