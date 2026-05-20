@@ -495,6 +495,13 @@
                             <div class="photo-caption">Route Map</div>
                         </div>
                     </div>
+                    <div id="missionAcceptPanel" class="mission-accept-panel" style="display:none;" onclick="event.stopPropagation();">
+                        <div class="mission-accept-body">
+                            <div class="mission-accept-kicker">Entwurf bereit</div>
+                            <div id="missionAcceptText" class="mission-accept-text">Mission pruefen und akzeptieren, dann wird die Zielszene vorbereitet.</div>
+                        </div>
+                        <button type="button" id="missionAcceptBtn" class="mission-accept-btn" onclick="window.acceptMissionDraft && acceptMissionDraft()">Mission akzeptieren</button>
+                    </div>
                 </div>
             </div>
 
@@ -1563,12 +1570,12 @@
 <script defer src="datenbank.js"></script>
 <script defer src="missions.js"></script>
 <script defer src="taws.js?v=scene-debug-20260520-11"></script>
-<script defer src="data/mission-scene-assets.js?v=scene-assets-20260520-04"></script>
-<script defer src="sync.js?v=scene-assets-20260520-04"></script>
+<script defer src="data/mission-scene-assets.js?v=scene-assets-20260520-05"></script>
+<script defer src="sync.js?v=scene-assets-20260520-05"></script>
 <script defer src="checklists.js"></script>
-<script defer src="profile.js?v=scene-assets-20260520-04"></script>
+<script defer src="profile.js?v=scene-assets-20260520-05"></script>
 <script defer src="map.js"></script>
-<script defer src="app.js?v=scene-assets-20260520-04"></script>
+<script defer src="app.js?v=scene-assets-20260520-05"></script>
 <script defer src="board.js"></script>
 <script defer src="sim-route.js?v=scene-debug-20260520-11"></script>
 <script defer src="passenger-voice.js?v=scene-debug-20260520-11"></script>

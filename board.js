@@ -337,6 +337,10 @@ function editNote(id, isGroup) {
 }
 function pinCurrentFlight() {
     if (document.getElementById("briefingBox").style.display !== "block" || !currentMissionData) return;
+    if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending()) {
+        alert("Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann speichern oder mit der Crew teilen.");
+        return;
+    }
     let pinnedMissionContract = window.activeMissionContract || currentMissionData?.missionContract || null;
     if (!pinnedMissionContract) {
         try {
@@ -618,6 +622,10 @@ function loadPinnedFlight(id, isGroup) {
         note = notes.find(n => n.id === id);
     }
     if (note && note.flightData) {
+        if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending(note.flightData)) {
+            alert("Dieser angepinnte Flug ist nur ein Entwurf und kann nicht geladen werden.");
+            return;
+        }
         try {
             localStorage.setItem('ga_active_mission', JSON.stringify(note.flightData));
         } catch (_) {}
@@ -768,6 +776,10 @@ function makeDraggable(element, noteId, isGroup) {
 // V80: MISSION EXPORT / IMPORT / PDF-BRIEFING
 // =========================================================
 window.exportMission = function() {
+    if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending()) {
+        alert("Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann exportieren.");
+        return;
+    }
     const data = localStorage.getItem('ga_active_mission');
     if (!data) { alert("Kein aktiver Flug zum Exportieren."); return; }
     const code = btoa(encodeURIComponent(data));
@@ -782,6 +794,10 @@ window.importMission = function() {
     try {
         const decoded = decodeURIComponent(atob(code));
         const state = JSON.parse(decoded);
+        if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending(state)) {
+            alert("Dieser Flug-Code enthaelt nur einen Entwurf. Bitte auf dem erzeugenden Rechner erst akzeptieren und dann erneut exportieren.");
+            return;
+        }
         localStorage.setItem('ga_active_mission', JSON.stringify(state));
         restoreMissionState(state);
         alert("✅ Flug erfolgreich geladen!");
@@ -1363,6 +1379,10 @@ window.generateBriefingPDF = async function() {
     if (!currentMissionData || document.getElementById("briefingBox").style.display !== "block") {
         alert('Kein aktives Briefing vorhanden.'); return;
     }
+    if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending()) {
+        alert('Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann als Briefing Pack exportieren.');
+        return;
+    }
 
     const indicator = document.getElementById('searchIndicator');
     if (indicator) indicator.innerText = '\uD83D\uDCC4 Lade PDF-Export...';
@@ -1765,6 +1785,10 @@ function parseMSFSCoords(coordStr) {
 
 window.exportMSFS = function() {
     if (!currentMissionData || routeWaypoints.length < 2) { alert("Kein aktiver Flugplan!"); return; }
+    if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending()) {
+        alert("Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann als MSFS-Plan exportieren.");
+        return;
+    }
     const activeData = localStorage.getItem('ga_active_mission');
     const secretBackup = activeData ? btoa(encodeURIComponent(activeData)) : "";
     const cruiseAlt = document.getElementById('altSlider')?.value || 4500;
@@ -1803,6 +1827,10 @@ window.importMSFS = function(event) {
             try {
                 const decoded = decodeURIComponent(atob(backupMatch[1]));
                 const state = JSON.parse(decoded);
+                if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending(state)) {
+                    alert("Der MSFS-Plan enthaelt nur einen Dispatcher-Entwurf. Bitte erst akzeptieren und neu exportieren.");
+                    return;
+                }
                 localStorage.setItem('ga_active_mission', JSON.stringify(state));
                 restoreMissionState(state);
                 closeTransferModal();

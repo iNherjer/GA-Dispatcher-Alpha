@@ -2375,7 +2375,12 @@ function bootAppOnce() {
     const activeMission = localStorage.getItem('ga_active_mission');
     if (activeMission) {
         setTimeout(() => {
-            restoreMissionState(JSON.parse(activeMission));
+            const parsedMission = JSON.parse(activeMission);
+            if (isMissionDraftPending(parsedMission)) {
+                clearDraftMissionPersistence('startup-draft-rejected');
+                return;
+            }
+            restoreMissionState(parsedMission);
             // Clear destination input on initial load to allow easy random route generation
             const dInp = document.getElementById('destLoc');
             if (dInp) dInp.value = '';
@@ -2591,8 +2596,40 @@ window.debouncedSaveMissionState = function() {
     }, 800);
 };
 
+function _missionDataFromStateCandidate(candidate) {
+    if (!candidate) return null;
+    if (candidate.currentMissionData && typeof candidate.currentMissionData === 'object') return candidate.currentMissionData;
+    return (typeof candidate === 'object') ? candidate : null;
+}
+
+function isMissionDraftPending(candidate = currentMissionData) {
+    const md = _missionDataFromStateCandidate(candidate);
+    if (!md || typeof md !== 'object') return false;
+    if (md.sceneAccepted === false) return true;
+    const status = String(md.sceneCompositionStatus || '').toLowerCase();
+    return status === 'draft' || status === 'composing';
+}
+window.isMissionDraftPending = isMissionDraftPending;
+
+function clearDraftMissionPersistence(reason = 'draft') {
+    try { localStorage.removeItem('ga_active_mission'); } catch (_) {}
+    try { localStorage.removeItem('ga_active_mission_contract'); } catch (_) {}
+    try { localStorage.removeItem('ga_active_passenger'); } catch (_) {}
+    try { console.debug('[MISSION DRAFT] Persistenz blockiert:', reason); } catch (_) {}
+    if (reason === 'new-mission-draft' && typeof window.triggerCloudSave === 'function') {
+        setTimeout(() => {
+            try { window.triggerCloudSave(true); } catch (_) {}
+        }, 0);
+    }
+}
+window.clearDraftMissionPersistence = clearDraftMissionPersistence;
+
 function saveMissionState() {
     if (document.getElementById("briefingBox").style.display !== "block") return;
+    if (isMissionDraftPending()) {
+        clearDraftMissionPersistence('saveMissionState');
+        return;
+    }
 
     const imgDepEl = document.getElementById("wikiDepImage");
     const imgDepUrl = (imgDepEl && imgDepEl.style.backgroundImage !== 'url("")') ? imgDepEl.style.backgroundImage : "";
@@ -2646,6 +2683,12 @@ function saveMissionState() {
 }
 
 async function restoreMissionState(state) {
+    if (isMissionDraftPending(state)) {
+        clearDraftMissionPersistence('restore-draft-rejected');
+        const indicator = document.getElementById('searchIndicator');
+        if (indicator) indicator.innerText = 'Entwurf verworfen: Mission muss zuerst akzeptiert werden.';
+        return;
+    }
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
     document.getElementById("mDepICAO").innerText = state.mDepICAO; document.getElementById("mDepName").innerText = state.mDepName;
     document.getElementById("mDepCoords").innerText = state.mDepCoords; document.getElementById("mDepRwy").innerText = "Sucht Pisten...";
@@ -2760,8 +2803,10 @@ async function restoreMissionState(state) {
     if (destLocRadioEl) destLocRadioEl.value = (currentDestICAO && currentDestICAO !== currentStartICAO) ? currentDestICAO : '';
 
     document.getElementById("briefingBox").style.display = "block";
+    if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
     renderMainRoute(); setDrumCounter('distDrum', state.currentMissionData.dist);
     recalculatePerformance(); document.getElementById('searchIndicator').innerText = "📋 Gespeichertes Briefing geladen.";
+    if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
 
     gpsState.mode = 'FPL';
     gpsState.subPage = 0;
@@ -2809,6 +2854,7 @@ async function restoreMissionState(state) {
 
     const destP = routeWaypoints && routeWaypoints.length > 1 ? routeWaypoints[routeWaypoints.length - 1] : null;
     loadMetarWidget(state.isPOI ? null : currentDestICAO, 'metarContainerDest', destP?.lat, destP?.lng || destP?.lon);
+    if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
 
 }
 
@@ -2828,6 +2874,7 @@ function resetApp() {
     currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null;
     window.activeMissionContract = null;
     localStorage.removeItem('ga_active_mission_contract');
+    if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
     if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
     window._lastReplayRouteKey = '';
     vpAltWaypoints = []; vpSegmentAlts = [];
@@ -6619,14 +6666,19 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     return _pickFromWeighted(weighted, 'auto');
 }
 
-function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '' } = {}) {
+function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true } = {}) {
     const profile = getMissionTaskProfile(appliedProfileId, isPOI ? 'poi' : 'apt') || getMissionTaskProfile('auto', isPOI ? 'poi' : 'apt');
     const taskDomain = String(passenger?.taskDomain || profile?.taskDomain || 'general').toLowerCase();
     const roleProfile = String(passenger?.roleProfile || profile?.roleProfile || 'general_passenger_v1').toLowerCase();
     const urgencyPriority = (String(passenger?.urgencyPriority || '').toLowerCase() === 'hoch') ? 'hoch' : 'niedrig';
     const title = String(mission?.t || mission?.title || '').trim();
     const story = String(mission?.s || mission?.story || '').trim();
-    const targetScene = sanitizeMissionTargetSceneSpec(mission?.targetScene || passenger?.targetScene || null, { isPOI, taskDomain });
+    const rawTargetScene = targetSceneOverride !== undefined ? targetSceneOverride : (mission?.targetScene || passenger?.targetScene || null);
+    const targetScene = sanitizeMissionTargetSceneSpec(rawTargetScene, { isPOI, taskDomain });
+    const sceneIntent = sanitizeMissionSceneIntentSpec(
+        sceneIntentOverride !== undefined ? sceneIntentOverride : (mission?.sceneIntent || passenger?.sceneIntent || null),
+        { isPOI, taskDomain }
+    );
     const summaryBase = profile?.label || (isPOI ? 'POI-Einsatz' : 'A-B Einsatz');
     const summary = `${summaryBase} | ${isPOI ? 'POI' : 'A-B'} | cat:${String(category || 'std')}`;
     const constraints = [
@@ -6645,6 +6697,8 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
         cargoText: String(cargoText || ''),
         missionTitle: title,
         missionStory: story,
+        sceneIntent,
+        sceneAccepted: !!sceneAccepted,
         targetScene,
         constraints
     };
@@ -7007,7 +7061,7 @@ function missionSceneTargetKindCatalog() {
         none: { roles: [] },
         fire_watch: { roles: ['vfx.smoke', 'vfx.fire'] },
         road_incident: { roles: ['vehicle.car', 'vehicle.emergency.medical', 'marker.cone'] },
-        sar_water: { roles: ['sar.liferaft', 'watercraft.boat'] },
+        sar_water: { roles: ['sar.liferaft', 'watercraft.small_boat', 'watercraft.service_ship'] },
         sar_land: { roles: ['vehicle.emergency.medical', 'vehicle.quad', 'cargo.container'] },
         medical_pickup: { roles: ['vehicle.emergency.medical', 'cargo.small_box'] },
         cargo_site: { roles: ['vehicle.truck', 'cargo.container', 'cargo.pallet_medium'] },
@@ -7016,10 +7070,11 @@ function missionSceneTargetKindCatalog() {
         erosion_damage: { roles: ['nature.log', 'debris.light'] },
         debris_field: { roles: ['debris.light', 'cargo.small_box'] },
         infra_bridge: { roles: ['vehicle.truck', 'marker.cone'] },
-        infra_dam: { roles: ['marker.cone', 'utility.generator', 'watercraft.boat'] },
+        infra_dam: { roles: ['marker.cone', 'utility.generator', 'watercraft.small_boat'] },
         industry_site: { roles: ['vehicle.truck', 'cargo.container', 'utility.generator'] },
-        water_pollution: { roles: ['watercraft.boat', 'nature.log'] },
-        wildlife_site: { roles: ['nature.log', 'debris.light'] },
+        water_pollution: { roles: ['watercraft.small_boat', 'nature.log', 'animal.waterfowl'] },
+        water_context: { roles: ['watercraft.small_boat', 'nature.log', 'animal.waterfowl'] },
+        wildlife_site: { roles: ['nature.log', 'animal.wildlife', 'animal.grazing', 'animal.waterfowl', 'debris.light'] },
         media_site: { roles: ['vehicle.van', 'cargo.small_box'] },
         event_site: { roles: ['vehicle.bus', 'vehicle.van', 'marker.cone'] },
         survey_context: { roles: ['marker.cone', 'nature.log', 'debris.light'] }
@@ -7035,8 +7090,9 @@ function missionSceneTargetPresetCatalog() {
         erosion_debris: { kind: 'erosion_damage', features: ['logs', 'debris', 'cones'] },
         bridge_worksite: { kind: 'infra_bridge', features: ['utility_truck', 'generator', 'cones'] },
         industry_smoke: { kind: 'industry_site', features: ['smoke_light', 'cargo_material', 'utility_truck'] },
-        water_sar_ship: { kind: 'sar_water', features: ['liferaft', 'watercraft'] },
-        event_traffic: { kind: 'event_site', features: ['bus', 'road_vehicles', 'cones'] }
+        water_sar_ship: { kind: 'sar_water', features: ['liferaft', 'service_ship'] },
+        event_traffic: { kind: 'event_site', features: ['bus', 'road_vehicles', 'cones'] },
+        wildlife_herd: { kind: 'wildlife_site', features: ['wildlife_animals', 'animal_herd'] }
     };
 }
 
@@ -7058,7 +7114,15 @@ function missionSceneTargetFeatureCatalog() {
         debris: { roles: ['debris.light', 'cargo.small_box', 'cargo.pallet_small'] },
         logs: { roles: ['nature.log', 'material.log'] },
         liferaft: { roles: ['sar.liferaft'] },
-        watercraft: { roles: ['watercraft.boat', 'watercraft.ship'] },
+        watercraft: { roles: ['watercraft.small_boat'] },
+        service_ship: { roles: ['watercraft.service_ship', 'watercraft.ship'] },
+        waterfowl: { roles: ['animal.waterfowl', 'animal.bird'] },
+        wildlife_animals: { roles: ['animal.wildlife', 'animal.deer'] },
+        animal_herd: { roles: ['animal.grazing'] },
+        tent: { roles: ['camp.tent'] },
+        parked_vehicle: { roles: ['vehicle.car'] },
+        small_equipment: { roles: ['cargo.small_box'] },
+        campfire: { roles: ['vfx.fire'] },
         bus: { roles: ['vehicle.bus'] },
         smoke_light: { roles: ['vfx.smoke'] },
         fire_small: { roles: ['vfx.fire'] }
@@ -7089,7 +7153,12 @@ function normalizeMissionTargetSceneKind(value) {
         dam: 'infra_dam',
         industry: 'industry_site',
         water: 'water_pollution',
+        water_context: 'water_context',
+        shoreline: 'water_context',
+        waterline: 'water_context',
         wildlife: 'wildlife_site',
+        animals: 'wildlife_site',
+        nature: 'wildlife_site',
         media: 'media_site',
         event: 'event_site',
         survey: 'survey_context',
@@ -7157,7 +7226,63 @@ function normalizeMissionTargetSceneFeature(value) {
         log: 'logs',
         raft: 'liferaft',
         boat: 'watercraft',
-        ship: 'watercraft',
+        boats: 'watercraft',
+        small_boat: 'watercraft',
+        small_watercraft: 'watercraft',
+        ship: 'service_ship',
+        ships: 'service_ship',
+        service_ship: 'service_ship',
+        work_ship: 'service_ship',
+        coast_guard: 'service_ship',
+        kuestenwache: 'service_ship',
+        kustwache: 'service_ship',
+        arbeitsschiff: 'service_ship',
+        birds: 'waterfowl',
+        bird: 'waterfowl',
+        waterfowl: 'waterfowl',
+        wasservoegel: 'waterfowl',
+        wasservogel: 'waterfowl',
+        enten: 'waterfowl',
+        ente: 'waterfowl',
+        ducks: 'waterfowl',
+        duck: 'waterfowl',
+        geese: 'waterfowl',
+        goose: 'waterfowl',
+        wildlife_animals: 'wildlife_animals',
+        wildlife: 'wildlife_animals',
+        wildtiere: 'wildlife_animals',
+        wildtier: 'wildlife_animals',
+        animals: 'wildlife_animals',
+        animal: 'wildlife_animals',
+        herd: 'animal_herd',
+        herde: 'animal_herd',
+        grazing: 'animal_herd',
+        weidetiere: 'animal_herd',
+        camp: 'tent',
+        camping: 'tent',
+        tent: 'tent',
+        tents: 'tent',
+        zelt: 'tent',
+        zelte: 'tent',
+        ufercamp: 'tent',
+        shore_camp: 'tent',
+        shore_car: 'parked_vehicle',
+        shore_vehicle: 'parked_vehicle',
+        parking_car: 'parked_vehicle',
+        parked_car: 'parked_vehicle',
+        parked_vehicle: 'parked_vehicle',
+        parkendes_auto: 'parked_vehicle',
+        auto_am_ufer: 'parked_vehicle',
+        box: 'small_equipment',
+        boxes: 'small_equipment',
+        equipment: 'small_equipment',
+        ausruestung: 'small_equipment',
+        picknick: 'small_equipment',
+        picnic: 'small_equipment',
+        lagerfeuer: 'campfire',
+        campfire: 'campfire',
+        firepit: 'campfire',
+        feuerstelle: 'campfire',
         bus_shuttle: 'bus',
         smoke: 'smoke_light',
         light_smoke: 'smoke_light',
@@ -7223,7 +7348,7 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '' } 
         .filter(role => role && allowedRoles.has(role))
         .slice(0, 8);
     const featureRoles = features.flatMap(feature => Array.isArray(featureCatalog[feature]?.roles) ? featureCatalog[feature].roles : []);
-    const fallbackRoles = [...new Set((Array.isArray(spec.roles) ? spec.roles : []).concat(featureRoles))].slice(0, 12);
+    const derivedRoles = [...new Set(featureRoles)].filter(role => allowedRoles.has(role)).slice(0, 12);
     const densityRaw = String(src.density || '').trim().toLowerCase();
     const density = /^(sparse|normal|busy|none)$/.test(densityRaw) ? densityRaw : (kind === 'none' ? 'none' : 'normal');
     const layoutRaw = String(src.layout || src.arrangement || '').trim().toLowerCase();
@@ -7234,11 +7359,75 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '' } 
         kind,
         features,
         requirements,
-        roles: roles.length ? roles : fallbackRoles,
+        roles: roles.length ? roles : derivedRoles,
         density,
         layout,
         notes
     };
+}
+
+function sanitizeMissionSceneIntentSpec(raw, { isPOI = false, taskDomain = '' } = {}) {
+    const task = String(taskDomain || '').toLowerCase();
+    if (!isPOI) {
+        return {
+            summary: 'A-B-Flug ohne Zielszene.',
+            environment: '',
+            visibleIdeas: [],
+            avoid: [],
+            densityHint: 'none',
+            notes: ''
+        };
+    }
+    let src = raw;
+    if (typeof src === 'string') {
+        src = { summary: src };
+    } else if (!src || typeof src !== 'object') {
+        src = {};
+    }
+    const cleanText = (value, max = 220) => String(value || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, max);
+    const cleanList = (value, maxItems = 8, maxChars = 90) => {
+        const arr = Array.isArray(value) ? value : (value ? [value] : []);
+        return arr
+            .map(item => cleanText(typeof item === 'object' ? (item.summary || item.name || item.feature || item.notes || JSON.stringify(item)) : item, maxChars))
+            .filter(Boolean)
+            .slice(0, maxItems);
+    };
+    const densityRaw = String(src.densityHint || src.density || '').trim().toLowerCase();
+    const densityHint = /^(none|sparse|normal|busy)$/.test(densityRaw)
+        ? densityRaw
+        : (task === 'fire_watch' ? 'normal' : 'sparse');
+    const summary = cleanText(src.summary || src.scene || src.description || src.intent || src.notes || '', 260);
+    return {
+        summary,
+        environment: cleanText(src.environment || src.terrain || src.setting || src.context || '', 120),
+        visibleIdeas: cleanList(src.visibleIdeas || src.visible || src.objects || src.groundContext || src.sceneElements || [], 10, 100),
+        avoid: cleanList(src.avoid || src.doNotAdd || src.exclude || [], 8, 90),
+        densityHint,
+        notes: cleanText(src.notes || src.reason || src.rationale || '', 220)
+    };
+}
+
+function buildMissionSceneIntentPromptGuide(isPOI, forcedProfile = null) {
+    if (!isPOI) {
+        return `17. SCENE-INTENT: Gib sceneIntent.summary als "A-B-Flug ohne Zielszene" aus, densityHint="none", visibleIdeas=[] und avoid=[]. Keine targetScene erzeugen.`;
+    }
+    const forced = forcedProfile?.taskDomain ? String(forcedProfile.taskDomain).toLowerCase() : '';
+    const profileHint = forced
+        ? `Profilkontext: ${forced}.`
+        : 'Profilkontext aus Story und passenger.taskDomain ableiten.';
+    return `17. SCENE-INTENT-PFLICHT: Gib KEINE fertige targetScene aus. Gib stattdessen ein Objekt "sceneIntent" aus: eine knappe Klartext-Beschreibung dessen, was am Ziel aus Missionskontext wirklich sichtbar sein sollte.
+${profileHint}
+sceneIntent Felder:
+- summary: 1-2 Saetze, was im Zielgebiet visuell plausibel ist.
+- environment: kurzer Landschafts-/Umgebungstyp, z.B. Wald, Seeufer, Baustelle, Strasse, Industrie, leer.
+- visibleIdeas: 0-8 konkrete sichtbare Ideen als Klartext, z.B. "zwei kleine private Boote am Ufer", "ein Zelt und kleine Ausruestung", "Strommast mit Baustellenfahrzeug", "nur natuerliches Ufer und Wasservoegel". Keine Asset-Namen, keine Kategorien.
+- avoid: Dinge, die NICHT auftauchen sollen, wenn sie unplausibel waeren, z.B. "keine Kuestenwache", "keine Einsatzfahrzeuge", "keine Deko".
+- densityHint: none|sparse|normal|busy.
+- notes: kurzer Grund.
+Wichtig: Keine Standard-Deko. Bei Lern-/Sightseeing-Fluegen darf sceneIntent sehr sparsam oder "none" sein. Kleine Kontextdetails sind erlaubt, wenn sie aus dem Text entstehen: Enten, Zelt, parkendes Auto, Holz, Kisten, Lagerfeuer, Tiere, Baufahrzeuge, Strommast, Unfallfahrzeuge usw.`;
 }
 
 function buildMissionTargetScenePromptGuide(isPOI, forcedProfile = null) {
@@ -7267,18 +7456,348 @@ function buildMissionTargetScenePromptGuide(isPOI, forcedProfile = null) {
         ? 'fire_watch'
         : (forced === 'search_and_rescue'
             ? 'sar_water oder sar_land'
-            : (forced === 'mapping_survey' ? 'construction_site, powerline_inspection, erosion_damage, infra_bridge, infra_dam oder survey_context' : 'passend zum Kontext'));
+            : (forced === 'mapping_survey' ? 'construction_site, powerline_inspection, erosion_damage, infra_bridge, infra_dam oder survey_context' : (forced === 'poi_learning_guide' || forced === 'sightseeing_tour' ? 'none oder sehr sparsam water_context/wildlife_site' : 'passend zum Kontext')));
     return isPOI
-        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Nutze "none" nur bei reinen Sightseeing-/Historien-/Lernflügen ohne sichtbaren Boden-Kontext. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site, Strommast -> powerline_inspection, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Baustelle mit Strommast => kind="construction_site", features=["powerline"] oder preset="construction_powerline". Empfehlung fuer dieses Profil: ${defaultHint}.
+        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Die KI entscheidet bewusst, was im Ziel wirklich sichtbar und plausibel ist. Nutze "none" bei reinen Sightseeing-/Historien-/Lernfluegen ohne konkreten sichtbaren Boden-Kontext; fuege keine Deko hinzu, nur weil ein POI eine Kategorie hat. Bei Lern-/Sightseeing-Fluegen: sehr sparsam bleiben, density meist "sparse", count meist 0-3; keine Einsatzfahrzeuge, keine grossen Schiffe, keine Marker/Cones, ausser sie sind im Kontext wirklich sichtbar. Kleine Bausteine wie tent, parked_vehicle, small_equipment, campfire, waterfowl, logs oder watercraft sind kontextfreie Vokabeln: nutze sie ueberall dort, wo sie aus der Missionslage plausibel sind (Wald, SAR, Ufer, Baustelle, Unfall, POI), nicht nur in einer festen Katalog-Szene. Erfinde keine festen Sonder-Szenen; beschreibe stattdessen genau die sichtbaren Einzelobjekte. Wasser-Kontext: water_context nur fuer Ufer/Treibgut/kleine zivile Boote/Wasservoegel. watercraft meint kleine zivile Boote. service_ship/grosse Schiffe nur bei Hafen, SAR, Kuestenwache, Arbeitsschiff oder klarer Textgrundlage. Natur-Kontext: wildlife_site darf passende lokale Tiere, Wasservoegel oder kleine Herden bekommen, aber keine exotischen Tiere ohne klaren Grund. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site, Strommast -> powerline_inspection, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Wald-SAR => kind="sar_land", requirements=[{"feature":"tent","count":1},{"feature":"small_equipment","count":2}], Seeufer-Lernkontext => kind="water_context", requirements=[{"feature":"waterfowl","count":2},{"feature":"parked_vehicle","count":1}] oder nur ["logs"]. Empfehlung fuer dieses Profil: ${defaultHint}.
 Erlaubte targetScene.kind:
 ${lines.join('\n')}
 Erlaubte targetScene.preset (optional):
 ${presetLines.join('\n')}
 Erlaubte targetScene.features / requirements[].feature (optional, additiv):
 ${featureLines.join('\n')}
-layout optional: cluster|scattered|line|roadside|waterline|perimeter|mixed. density: sparse|normal|busy.`
+requirements[].count ist keine Fuellmenge, sondern eine bewusste sichtbare Menge. Wenn unsicher, lieber weniger oder keine Objekte. layout optional: cluster|scattered|line|roadside|waterline|perimeter|mixed. density: sparse|normal|busy.`
         : `17. TARGET-SCENE: Bei A-B-Missionen targetScene.kind immer "none" setzen.`;
 }
+
+function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDomain = '' } = {}) {
+    if (!isPOI) return sanitizeMissionTargetSceneSpec(null, { isPOI, taskDomain });
+    const intent = sanitizeMissionSceneIntentSpec(sceneIntent, { isPOI, taskDomain });
+    const text = [
+        intent.summary,
+        intent.environment,
+        intent.notes,
+        ...(Array.isArray(intent.visibleIdeas) ? intent.visibleIdeas : [])
+    ].join(' ').toLowerCase();
+    const task = String(taskDomain || '').toLowerCase();
+    const has = (re) => re.test(text);
+    let kind = 'none';
+    if (task === 'fire_watch' || has(/waldbrand|rauch|feuer|brandherd|hotspot/)) kind = 'fire_watch';
+    else if (has(/sar|rettung|vermisst|notfall|rettungsinsel|liferaft/)) kind = has(/wasser|see|fluss|ufer|boot|insel/) ? 'sar_water' : 'sar_land';
+    else if (has(/unfall|crash|kollision|verkehr|strasse|straße|fahrzeugschaden/)) kind = 'road_incident';
+    else if (has(/baustell|kran|bagger|bulldozer|bauarbeiten|materiallager/)) kind = 'construction_site';
+    else if (has(/strommast|freileitung|powerline|leitung|pylon|mast/)) kind = 'powerline_inspection';
+    else if (has(/erosion|uferbruch|hangrutsch|abrutsch|treibholz|bruchkante/)) kind = 'erosion_damage';
+    else if (has(/bruecke|brücke|viadukt/)) kind = 'infra_bridge';
+    else if (has(/damm|talsperre|staudamm/)) kind = 'infra_dam';
+    else if (has(/industrie|werk|fabrik|container|generator/)) kind = 'industry_site';
+    else if (has(/wasser|see|fluss|ufer|boot|boote|ente|enten|wasservogel|treibgut/)) kind = 'water_context';
+    else if (has(/tier|tiere|wild|herde|reh|hirsch|elch|weide|natur/)) kind = 'wildlife_site';
+    else if (has(/event|veranstaltung|bus|shuttle|menschenmenge/)) kind = 'event_site';
+    else if (has(/survey|vermessung|inspektion|kontrolle|referenz/)) kind = 'survey_context';
+
+    const featureTests = [
+        ['construction_crane', /kran/],
+        ['earthmoving', /bagger|bulldozer|erdbeweg/],
+        ['construction_truck', /lkw|truck|baustellenfahrzeug/],
+        ['cargo_material', /palette|paletten|container|baumaterial|material/],
+        ['powerline', /strommast|freileitung|powerline|leitung|pylon|mast/],
+        ['generator', /generator|stromaggregat/],
+        ['road_vehicles', /auto|autos|fahrzeug|fahrzeuge|van|transporter/],
+        ['emergency_response', /rettung|polizei|feuerwehr|ambulanz|einsatz/],
+        ['people', /person|personen|crew|team|menschen/],
+        ['cones', /kegel|absperr|marker|markierung/],
+        ['debris', /debris|truemmer|trümmer|schutt|kisten|karton|ausruestung|ausrüstung/],
+        ['logs', /holz|log|baumstamm|treibholz/],
+        ['liferaft', /rettungsinsel|liferaft/],
+        ['watercraft', /boot|boote|kleines boot|private boote/],
+        ['service_ship', /schiff|kuestenwache|küstenwache|arbeitsschiff|service/],
+        ['waterfowl', /ente|enten|wasservogel|wasservoegel|vogel|voegel|gans|gaense/],
+        ['wildlife_animals', /wildtier|wildtiere|reh|hirsch|elch/],
+        ['animal_herd', /herde|weidetiere|weide/],
+        ['tent', /zelt|zelte|camp|camping|biwak/],
+        ['parked_vehicle', /parkendes auto|auto am ufer|parkendes fahrzeug|parkt/],
+        ['small_equipment', /ausruestung|ausrüstung|picknick|box|kiste|karton|kleine sachen/],
+        ['campfire', /lagerfeuer|feuerstelle|campfire/],
+        ['bus', /bus|shuttle/],
+        ['smoke_light', /rauch|rauchfahne|qualm/],
+        ['fire_small', /feuer|brandherd|flamme/]
+    ];
+    const features = [...new Set(featureTests.filter(([, re]) => has(re)).map(([feature]) => feature))].slice(0, 8);
+    const requirements = features.slice(0, 6).map(feature => ({
+        feature,
+        count: /waterfowl|animal_herd|people|road_vehicles/.test(feature) ? 2 : 1,
+        placement: '',
+        notes: ''
+    }));
+    return sanitizeMissionTargetSceneSpec({
+        kind,
+        features,
+        requirements,
+        density: intent.densityHint || (kind === 'none' ? 'none' : 'sparse'),
+        layout: has(/ufer|wasser|see|fluss/) ? 'waterline' : '',
+        notes: intent.summary || intent.notes || ''
+    }, { isPOI, taskDomain });
+}
+
+async function composeMissionTargetSceneWithGemini({ missionData = null, missionContract = null, passenger = null } = {}) {
+    const md = missionData || currentMissionData || {};
+    const contract = missionContract || window.activeMissionContract || md.missionContract || {};
+    const pax = passenger || window.activePassenger || {};
+    const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
+    const taskDomain = String(pax.taskDomain || contract.taskDomain || '').toLowerCase();
+    const sceneIntent = sanitizeMissionSceneIntentSpec(md.sceneIntent || contract.sceneIntent || null, { isPOI, taskDomain });
+    const fallback = deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI, taskDomain });
+    const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
+    const baseDebug = {
+        source: 'local-fallback',
+        sceneIntent,
+        fallback,
+        promptVersion: 'scene-composer-v1'
+    };
+    if (!isPOI) {
+        return {
+            targetScene: fallback,
+            debug: {
+                ...baseDebug,
+                source: 'local-none'
+            }
+        };
+    }
+    if (!apiKey) {
+        return {
+            targetScene: fallback,
+            debug: {
+                ...baseDebug,
+                error: 'missing_api_key'
+            }
+        };
+    }
+
+    const forcedProfile = { taskDomain };
+    const sceneGuide = buildMissionTargetScenePromptGuide(true, forcedProfile);
+    const prompt = `<INSTRUKTIONEN>
+Du bist Scene Composer fuer einen MSFS-Missionsgenerator.
+Aufgabe: Erzeuge aus der Missionsbeschreibung und sceneIntent eine konkrete, sparsame targetScene.
+Antwortsprache intern egal, aber JSON-Felder muessen exakt passen.
+
+Regeln:
+1. Szene muss aus dem Kontext entstehen, nicht aus Standard-Deko.
+2. Keine grossen Einsatzmittel, Schiffe, Kegel, Personen oder Fahrzeuge, wenn sceneIntent/Story sie nicht tragen.
+3. Kleine Primitive wie Zelt, parkendes Auto, Wasservoegel, Holz, Kisten, Lagerfeuer, Tiere, Baufahrzeuge und Strommasten duerfen frei kombiniert werden, wenn plausibel.
+4. Bei Lern-/Sightseeing-Fluegen lieber sparse oder none; 0-3 sichtbare Akzente sind oft genug.
+5. requirements[].count ist bewusst und klein: einzelne Dinge einzeln nennen, keine Fuellmengen.
+6. Wenn sceneIntent.avoid etwas verbietet, respektieren.
+7. Gib AUSSCHLIESSLICH JSON aus.
+
+${sceneGuide}
+</INSTRUKTIONEN>
+
+<KONTEXT>
+Mission: ${String(md.mission || contract.missionTitle || '').slice(0, 140)}
+Story: ${String(contract.missionStory || md.story || '').slice(0, 900)}
+Ziel: ${String(md.targetName || md.poiName || '').slice(0, 140)}
+Koordinaten: ${Number(md.targetLat || 0).toFixed(5)}, ${Number(md.targetLon || 0).toFixed(5)}
+taskDomain: ${taskDomain || 'general'}
+roleProfile: ${String(pax.roleProfile || contract.roleProfile || 'general_passenger_v1')}
+PAX: ${String(contract.paxText || '').slice(0, 160)}
+Cargo: ${String(contract.cargoText || '').slice(0, 160)}
+sceneIntent: ${JSON.stringify(sceneIntent)}
+</KONTEXT>
+
+<OUTPUT>
+{
+  "targetScene": {
+    "kind": "none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context",
+    "preset": "",
+    "features": ["optional"],
+    "requirements": [{"feature": "tent", "count": 1, "placement": "am Ufer", "notes": "nur wenn plausibel"}],
+    "roles": [],
+    "density": "none|sparse|normal|busy",
+    "layout": "cluster|scattered|line|roadside|waterline|perimeter|mixed oder leer",
+    "notes": "kurzer Grund"
+  }
+}
+</OUTPUT>`;
+
+    const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
+    const reqOptions = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
+    const models = [
+        ['gemini-3-flash-preview', 'Gemini 3.0 Flash Scene Composer', 'flash'],
+        ['gemini-2.5-flash', 'Gemini 2.5 Flash Scene Composer', 'flash'],
+        ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite Scene Composer', 'lite']
+    ];
+    let lastError = '';
+    for (const [model, source, usageKey] of models) {
+        try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, reqOptions);
+            if (!res.ok) {
+                lastError = `http_${res.status}_${model}`;
+                continue;
+            }
+            const data = await res.json();
+            const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+            const parsed = JSON.parse(rawText);
+            const targetScene = sanitizeMissionTargetSceneSpec(parsed.targetScene || parsed, { isPOI, taskDomain });
+            incrementApiUsage(usageKey);
+            return {
+                targetScene,
+                debug: {
+                    source,
+                    sceneIntent,
+                    aiRaw: parsed.targetScene || parsed,
+                    normalized: targetScene,
+                    fallback,
+                    promptVersion: 'scene-composer-v1'
+                }
+            };
+        } catch (err) {
+            lastError = err?.message || String(err || 'unknown');
+        }
+    }
+    return {
+        targetScene: fallback,
+        debug: {
+            ...baseDebug,
+            error: lastError || 'composer_failed'
+        }
+    };
+}
+
+function updateMissionAcceptanceUi() {
+    const panel = document.getElementById('missionAcceptPanel');
+    if (!panel) return;
+    const btn = document.getElementById('missionAcceptBtn');
+    const text = document.getElementById('missionAcceptText');
+    const md = currentMissionData || null;
+    const needsAccept = !!(md && md.sceneAccepted === false);
+    panel.style.display = needsAccept ? 'flex' : 'none';
+    if (!needsAccept) return;
+    const composing = md.sceneCompositionStatus === 'composing';
+    if (btn) {
+        btn.disabled = composing;
+        btn.textContent = composing ? 'Szene wird gebaut...' : 'Mission akzeptieren';
+    }
+    if (text) {
+        const intent = sanitizeMissionSceneIntentSpec(md.sceneIntent || md.missionContract?.sceneIntent || null, {
+            isPOI: !!md.poiName,
+            taskDomain: md.missionContract?.taskDomain || window.activePassenger?.taskDomain || ''
+        });
+        text.textContent = composing
+            ? 'Scene Composer baut die konkrete Zielszene fuer den Tracker.'
+            : (intent.summary || 'Mission als Entwurf. Beim Akzeptieren wird die Zielszene vorbereitet.');
+    }
+}
+window.updateMissionAcceptanceUi = updateMissionAcceptanceUi;
+
+function applyMissionTargetSceneComposition(composition = {}, reason = 'accept') {
+    if (!currentMissionData) return false;
+    const taskDomain = currentMissionData.missionContract?.taskDomain || window.activePassenger?.taskDomain || '';
+    const isPOI = !!currentMissionData.poiName;
+    const targetScene = sanitizeMissionTargetSceneSpec(composition.targetScene || null, { isPOI, taskDomain });
+    currentMissionData.targetScene = targetScene;
+    currentMissionData.sceneAccepted = true;
+    currentMissionData.sceneCompositionStatus = composition.debug?.error ? 'accepted_fallback' : 'accepted';
+    currentMissionData.targetSceneComposerDebug = composition.debug || null;
+    currentMissionData.targetSceneAiRaw = composition.debug?.aiRaw || currentMissionData.targetSceneAiRaw || null;
+    currentMissionData.targetSceneAiNormalized = targetScene;
+    if (currentMissionData.missionContract && typeof currentMissionData.missionContract === 'object') {
+        currentMissionData.missionContract.targetScene = targetScene;
+        currentMissionData.missionContract.sceneAccepted = true;
+        currentMissionData.missionContract.sceneIntent = sanitizeMissionSceneIntentSpec(
+            currentMissionData.sceneIntent || currentMissionData.missionContract.sceneIntent || null,
+            { isPOI, taskDomain }
+        );
+        window.activeMissionContract = currentMissionData.missionContract;
+    }
+    try { localStorage.setItem('ga_active_mission_contract', JSON.stringify(window.activeMissionContract || currentMissionData.missionContract || null)); } catch (_) {}
+    try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch (_) {}
+    const debugInfo = {
+        sceneAccepted: true,
+        sceneCompositionStatus: currentMissionData.sceneCompositionStatus,
+        sceneIntent: currentMissionData.sceneIntent || currentMissionData.missionContract?.sceneIntent || null,
+        sceneComposer: composition.debug || null,
+        composerReason: reason,
+        aiRequested: currentMissionData.targetSceneAiRaw || null,
+        aiNormalized: targetScene,
+        contractTargetScene: targetScene,
+        missionContext: {
+            source: currentMissionData.source || 'n/a',
+            mode: currentMissionData.poiName ? 'POI' : 'A-B',
+            profile: currentMissionData.missionContract?.appliedProfileId || 'auto',
+            taskDomain,
+            mission: currentMissionData.mission || '',
+            target: currentMissionData.targetName || currentMissionData.poiName || '',
+            poi: !!currentMissionData.poiName
+        }
+    };
+    if (typeof window.gaMissionSceneDebugRecordAi === 'function') {
+        window.gaMissionSceneDebugRecordAi(debugInfo);
+    } else {
+        window.gaMissionSceneDebug = { ...(window.gaMissionSceneDebug || {}), ...debugInfo, ts: Date.now() };
+    }
+    try {
+        const snapshotRaw = localStorage.getItem('ga_mission_debug_snapshot');
+        const snapshot = snapshotRaw ? JSON.parse(snapshotRaw) : (window.vpMissionDebugSnapshot || {});
+        snapshot.sceneAccepted = true;
+        snapshot.sceneCompositionStatus = currentMissionData.sceneCompositionStatus;
+        snapshot.targetScene = targetScene;
+        snapshot.targetSceneComposerDebug = composition.debug || null;
+        snapshot.targetSceneDebug = {
+            ...(snapshot.targetSceneDebug || {}),
+            aiRequested: currentMissionData.targetSceneAiRaw || null,
+            aiNormalized: targetScene,
+            contractTargetScene: targetScene
+        };
+        window.vpMissionDebugSnapshot = snapshot;
+        localStorage.setItem('ga_mission_debug_snapshot', JSON.stringify(snapshot));
+    } catch (_) {}
+    saveMissionState();
+    updateMissionAcceptanceUi();
+    if (typeof window.refreshMissionRuntimeUi === 'function') window.refreshMissionRuntimeUi();
+    if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
+    return true;
+}
+
+window.acceptMissionDraft = async function() {
+    if (!currentMissionData || currentMissionData.sceneAccepted !== false) {
+        updateMissionAcceptanceUi();
+        return true;
+    }
+    currentMissionData.sceneCompositionStatus = 'composing';
+    updateMissionAcceptanceUi();
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = 'Scene Composer baut Zielszene...';
+    try {
+        const composition = await composeMissionTargetSceneWithGemini({
+            missionData: currentMissionData,
+            missionContract: currentMissionData.missionContract || window.activeMissionContract || null,
+            passenger: window.activePassenger || null
+        });
+        applyMissionTargetSceneComposition(composition, 'mission-accepted');
+        if (indicator) {
+            indicator.innerText = composition?.debug?.error
+                ? 'Mission akzeptiert. Zielszene per Fallback vorbereitet.'
+                : 'Mission akzeptiert. Zielszene bereit.';
+        }
+        return true;
+    } catch (err) {
+        const fallback = {
+            targetScene: deriveMissionTargetSceneFromIntent(currentMissionData.sceneIntent || null, {
+                isPOI: !!currentMissionData.poiName,
+                taskDomain: currentMissionData.missionContract?.taskDomain || window.activePassenger?.taskDomain || ''
+            }),
+            debug: {
+                source: 'local-fallback',
+                error: err?.message || String(err || 'composer_failed'),
+                sceneIntent: currentMissionData.sceneIntent || null,
+                promptVersion: 'scene-composer-v1'
+            }
+        };
+        applyMissionTargetSceneComposition(fallback, 'mission-accepted-error-fallback');
+        if (indicator) indicator.innerText = 'Mission akzeptiert. Scene Composer Fehler, Fallback genutzt.';
+        return true;
+    }
+};
 
 async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null, missionFireHazard = null, poiTargetMeta = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
@@ -7408,7 +7927,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const fireHazardRule = (forcedProfile?.id === 'fire_watch' && Number.isFinite(Number(missionFireHazard?.level)))
         ? `16. FEUERLAGE-KONTEXT: Nutze den offiziellen DWD-Waldbrandgefahrenindex am Einsatzgebiet als Realitätsanker (Stufe ${Math.round(Number(missionFireHazard.level))} von 5, Risiko: ${String(missionFireHazard.label || '').trim() || 'n/a'}). Erwaehne den Index natuerlich und knapp in story/greetingText. Keine Dramatisierung.`
         : '';
-    const targetSceneRule = buildMissionTargetScenePromptGuide(isPOI, forcedProfile);
+    const sceneIntentRule = buildMissionSceneIntentPromptGuide(isPOI, forcedProfile);
 
     const sanitizePassengerProfile = (passenger, storyText = '') => {
         if (!passenger || typeof passenger !== 'object') return null;
@@ -7596,7 +8115,7 @@ ${forcedProfileRule}
 ${forcedProfileConsistencyRule}
 ${forcedProfileOpsRule}
 ${fireHazardRule}
-${targetSceneRule}
+${sceneIntentRule}
 </INSTRUKTIONEN>
 
 <KONTEXT>
@@ -7618,15 +8137,13 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
   "story": "Briefing, max 3-4 Sätze",
   "pax": "z.B. '2 PAX (...)' oder '0 PAX'",
   "cargo": "z.B. 'Kamera-Gimbal (80 lbs)'",
-  "targetScene": {
-    "kind": "none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|wildlife_site|media_site|event_site|survey_context",
-    "preset": "optional, z.B. construction_powerline oder leer",
-    "features": ["optional, z.B. powerline", "debris", "generator"],
-    "requirements": [{"feature": "powerline", "count": 2, "placement": "am Rand der Baustelle", "notes": "sichtbare Freileitung"}],
-    "roles": ["z.B. construction.crane", "vehicle.truck"],
-    "density": "none|sparse|normal|busy",
-    "layout": "cluster|scattered|line|roadside|waterline|perimeter|mixed oder leer",
-    "notes": "kurzer Grund, was am Boden sichtbar sein soll"
+  "sceneIntent": {
+    "summary": "Kurze Klartextbeschreibung, was am Ziel sichtbar sein soll oder warum nichts gespawnt werden sollte",
+    "environment": "z.B. Seeufer, Wald, Baustelle, Strasse, leer",
+    "visibleIdeas": ["konkrete Ideen als Klartext, keine Asset-Namen"],
+    "avoid": ["unpassende Dinge, die nicht auftauchen sollen"],
+    "densityHint": "none|sparse|normal|busy",
+    "notes": "kurzer Grund"
   },
   "passenger": {
     "name": "Vollständiger Name",
@@ -7658,17 +8175,26 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
 
     const buildGeminiMissionResult = (parsed, sourceLabel) => {
         const passenger = sanitizePassengerProfile(parsed.passenger, parsed.story);
-        const targetScene = sanitizeMissionTargetSceneSpec(parsed.targetScene, { isPOI, taskDomain: passenger?.taskDomain || parsed.passenger?.taskDomain });
+        const sceneIntent = sanitizeMissionSceneIntentSpec(
+            parsed.sceneIntent || parsed.targetSceneIntent || parsed.sceneDescription || parsed.targetScene || null,
+            { isPOI, taskDomain: passenger?.taskDomain || parsed.passenger?.taskDomain }
+        );
+        const draftTargetScene = sanitizeMissionTargetSceneSpec(null, { isPOI, taskDomain: passenger?.taskDomain || parsed.passenger?.taskDomain });
         return {
             t: parsed.title,
             s: parsed.story,
             pax: parsed.pax,
             cargo: parsed.cargo,
-            targetScene,
+            sceneIntent,
+            targetScene: draftTargetScene,
+            sceneCompositionStatus: 'draft',
             targetSceneDebug: {
                 source: sourceLabel,
+                sceneIntentRaw: parsed.sceneIntent || parsed.targetSceneIntent || parsed.sceneDescription || null,
+                sceneIntent,
                 aiRaw: parsed.targetScene || null,
-                normalized: targetScene
+                normalized: draftTargetScene,
+                pendingComposer: true
             },
             passenger,
             i: "📋",
@@ -9015,9 +9541,27 @@ async function generateMission() {
     const hrs = Math.floor(totalMinutes / 60), mins = totalMinutes % 60;
     const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} Min.`;
 
+    const missionTaskDomain = String(m?.passenger?.taskDomain || '').toLowerCase();
+    let missionSceneIntent = sanitizeMissionSceneIntentSpec(
+        m?.sceneIntent || m?.targetSceneDebug?.sceneIntent || m?.targetScene || m?.s || '',
+        { isPOI, taskDomain: missionTaskDomain }
+    );
+    if (isPOI && !missionSceneIntent.summary && (!missionSceneIntent.visibleIdeas || missionSceneIntent.visibleIdeas.length === 0)) {
+        missionSceneIntent = sanitizeMissionSceneIntentSpec(m?.s || '', { isPOI, taskDomain: missionTaskDomain });
+    }
+    const missionNeedsAccept = !isPlanningOnlyMode;
+    const initialTargetScene = sanitizeMissionTargetSceneSpec(
+        missionNeedsAccept ? null : (m?.targetScene || null),
+        { isPOI, taskDomain: missionTaskDomain }
+    );
+    if (missionNeedsAccept) {
+        clearDraftMissionPersistence('new-mission-draft');
+    }
+
     currentMissionData = {
         start: currentStartICAO,
         dest: currentDestICAO,
+        isPOI,
         poiName: isPOI ? dest.n : null,
         poiSource: isPOI ? poiSource : null,
         targetName: dest.n,
@@ -9031,9 +9575,18 @@ async function generateMission() {
         heading: nav.brng,
         weatherBriefing: missionWeather,
         fireHazard: missionFireHazard || null,
-        targetScene: sanitizeMissionTargetSceneSpec(m?.targetScene || null, { isPOI, taskDomain: m?.passenger?.taskDomain }),
+        source: dataSource || null,
+        sceneIntent: missionSceneIntent,
+        sceneAccepted: !missionNeedsAccept,
+        sceneCompositionStatus: missionNeedsAccept ? 'draft' : 'accepted',
+        targetScene: initialTargetScene,
+        targetSceneDraftRaw: m?.targetScene || null,
         targetSceneAiRaw: m?.targetSceneDebug?.aiRaw || null,
-        targetSceneAiNormalized: m?.targetSceneDebug?.normalized || null
+        targetSceneAiNormalized: initialTargetScene,
+        sceneIntentDebug: {
+            aiRaw: m?.targetSceneDebug?.sceneIntentRaw || m?.sceneIntent || null,
+            normalized: missionSceneIntent
+        }
     };
 
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
@@ -9051,7 +9604,10 @@ async function generateMission() {
         passenger: window.activePassenger,
         paxText,
         cargoText,
-        category: poolCategory
+        category: poolCategory,
+        targetSceneOverride: initialTargetScene,
+        sceneIntentOverride: missionSceneIntent,
+        sceneAccepted: !missionNeedsAccept
     });
     const fireScenario = buildFireWatchScenario({
         isPOI,
@@ -9068,6 +9624,9 @@ async function generateMission() {
     window.activeMissionContract = activeMissionContract;
     {
         const sceneDebugInfo = {
+            sceneAccepted: currentMissionData.sceneAccepted,
+            sceneCompositionStatus: currentMissionData.sceneCompositionStatus,
+            sceneIntent: currentMissionData.sceneIntent || null,
             aiRequested: m?.targetSceneDebug?.aiRaw || null,
             aiNormalized: m?.targetSceneDebug?.normalized || currentMissionData.targetScene || null,
             contractTargetScene: activeMissionContract.targetScene || null,
@@ -9091,8 +9650,12 @@ async function generateMission() {
     if (fireScenario && typeof window.paxVoiceRefreshWidget === 'function') {
         window.paxVoiceRefreshWidget();
     }
-    try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch(e) {}
-    try { localStorage.setItem('ga_active_mission_contract', JSON.stringify(activeMissionContract)); } catch(e) {}
+    if (missionNeedsAccept) {
+        clearDraftMissionPersistence('draft-contract-not-persisted');
+    } else {
+        try { localStorage.setItem('ga_active_passenger', window.activePassenger ? JSON.stringify(window.activePassenger) : ''); } catch(e) {}
+        try { localStorage.setItem('ga_active_mission_contract', JSON.stringify(activeMissionContract)); } catch(e) {}
+    }
     try {
         const p = window.activePassenger || {};
         const missionDebugSnapshot = {
@@ -9112,8 +9675,12 @@ async function generateMission() {
             story: String(m?.s || ''),
             narrativeGuard: m?._narrativeGuard || null,
             contract: activeMissionContract || null,
+            sceneAccepted: currentMissionData.sceneAccepted,
+            sceneCompositionStatus: currentMissionData.sceneCompositionStatus,
+            sceneIntent: currentMissionData.sceneIntent || null,
             targetScene: currentMissionData.targetScene || null,
             targetSceneDebug: {
+                sceneIntentRaw: m?.targetSceneDebug?.sceneIntentRaw || m?.sceneIntent || null,
                 aiRequested: m?.targetSceneDebug?.aiRaw || null,
                 aiNormalized: m?.targetSceneDebug?.normalized || null,
                 contractTargetScene: currentMissionData.targetScene || null
@@ -9260,6 +9827,7 @@ async function generateMission() {
         else document.getElementById('mkI').classList.add('on');
 
         window.debouncedSaveMissionState();
+        if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
         refreshGPSAfterDispatch();
         // Position im Profil auf Start zurücksetzen
         vpUpdatePosition(0);

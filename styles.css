@@ -6840,6 +6840,82 @@ body.map-drawing-active #map.leaflet-dragging {
     background: rgba(255, 255, 255, 0.1);
 }
 
+.mission-accept-panel {
+    margin-top: 12px;
+    padding: 9px 10px;
+    border: 1px solid rgba(70, 130, 180, 0.28);
+    border-radius: 7px;
+    background: rgba(36, 72, 104, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 100%;
+}
+.mission-accept-body {
+    min-width: 0;
+    flex: 1;
+}
+.mission-accept-kicker {
+    font-size: 9px;
+    line-height: 1.15;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #32628c;
+    font-weight: 800;
+}
+.mission-accept-text {
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.25;
+    color: rgba(20, 30, 38, 0.78);
+    overflow-wrap: anywhere;
+}
+.mission-accept-btn {
+    flex: 0 0 auto;
+    min-width: 126px;
+    max-width: 42%;
+    min-height: 32px;
+    padding: 6px 10px;
+    border: 1px solid rgba(25, 103, 82, 0.46);
+    border-radius: 6px;
+    background: rgba(32, 116, 91, 0.88);
+    color: #f4fffb;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0;
+    line-height: 1.15;
+    cursor: pointer;
+    white-space: normal;
+}
+.mission-accept-btn:hover:not(:disabled) {
+    background: rgba(39, 136, 108, 0.96);
+}
+.mission-accept-btn:disabled {
+    cursor: wait;
+    opacity: 0.72;
+}
+
+body.theme-ops1940 .mission-accept-panel,
+body.theme-retro .mission-accept-panel {
+    gap: 8px;
+    padding: 8px;
+}
+body.theme-ops1940 .mission-accept-kicker,
+body.theme-retro .mission-accept-kicker {
+    font-size: 8px;
+    letter-spacing: 0.04em;
+}
+body.theme-ops1940 .mission-accept-text,
+body.theme-retro .mission-accept-text {
+    font-size: 10px;
+}
+body.theme-ops1940 .mission-accept-btn,
+body.theme-retro .mission-accept-btn {
+    min-width: 112px;
+    font-size: 10px;
+    padding: 5px 8px;
+}
+
 @media (max-width: 640px) {
     .mission-start-banner {
         bottom: 104px;
@@ -6852,6 +6928,14 @@ body.map-drawing-active #map.leaflet-dragging {
     }
     .mission-start-banner-text {
         font-size: 12px;
+    }
+    .mission-accept-panel {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .mission-accept-btn {
+        max-width: none;
+        width: 100%;
     }
 }
 

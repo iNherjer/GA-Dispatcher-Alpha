@@ -22,7 +22,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         sar_water: {
             label: 'SAR Wasser / Rettungsinsel',
-            roles: ['sar.liferaft', 'watercraft.boat', 'watercraft.ship'],
+            roles: ['sar.liferaft', 'watercraft.small_boat', 'watercraft.service_ship'],
             useFor: ['search_and_rescue']
         },
         sar_land: {
@@ -67,7 +67,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         infra_dam: {
             label: 'Staudamm / Wasserbauwerk',
-            roles: ['marker.cone', 'utility.generator', 'vehicle.truck', 'watercraft.boat'],
+            roles: ['marker.cone', 'utility.generator', 'vehicle.truck', 'watercraft.small_boat'],
             useFor: ['inspection_infra', 'science_geo', 'mapping_survey']
         },
         industry_site: {
@@ -77,12 +77,17 @@ window.MISSION_SCENE_ASSETS = {
         },
         water_pollution: {
             label: 'Gewässerbeobachtung / Verschmutzung',
-            roles: ['watercraft.boat', 'nature.log', 'marker.cone'],
+            roles: ['watercraft.small_boat', 'nature.log', 'animal.waterfowl', 'marker.cone'],
             useFor: ['science_bio', 'science_general', 'news_coverage']
+        },
+        water_context: {
+            label: 'Wasser-/Uferkontext ohne Einsatzlage',
+            roles: ['watercraft.small_boat', 'nature.log', 'animal.waterfowl'],
+            useFor: ['poi_learning_guide', 'sightseeing_tour', 'science_bio', 'science_general']
         },
         wildlife_site: {
             label: 'Natur-/Wildtierbeobachtung ohne Einsatzfahrzeuge',
-            roles: ['nature.log', 'debris.light'],
+            roles: ['nature.log', 'animal.wildlife', 'animal.grazing', 'animal.waterfowl', 'debris.light'],
             useFor: ['science_bio', 'sightseeing_tour']
         },
         media_site: {
@@ -135,7 +140,7 @@ window.MISSION_SCENE_ASSETS = {
         water_sar_ship: {
             label: 'SAR Wasser mit Rettungsinsel und Schiff/Boot',
             kind: 'sar_water',
-            features: ['liferaft', 'watercraft'],
+            features: ['liferaft', 'service_ship'],
             useFor: ['search_and_rescue']
         },
         event_traffic: {
@@ -143,6 +148,12 @@ window.MISSION_SCENE_ASSETS = {
             kind: 'event_site',
             features: ['bus', 'road_vehicles', 'cones'],
             useFor: ['news_coverage', 'sightseeing_tour']
+        },
+        wildlife_herd: {
+            label: 'Naturbeobachtung mit kleiner Tiergruppe',
+            kind: 'wildlife_site',
+            features: ['wildlife_animals', 'animal_herd'],
+            useFor: ['science_bio', 'sightseeing_tour']
         }
     },
     targetSceneFeatures: {
@@ -203,8 +214,40 @@ window.MISSION_SCENE_ASSETS = {
             roles: ['sar.liferaft']
         },
         watercraft: {
-            label: 'Boote/Schiffe',
-            roles: ['watercraft.boat', 'watercraft.ship']
+            label: 'kleine zivile Boote / Wasseraktivitaet',
+            roles: ['watercraft.small_boat']
+        },
+        service_ship: {
+            label: 'grosses Arbeits-/Service-Schiff',
+            roles: ['watercraft.service_ship', 'watercraft.ship']
+        },
+        waterfowl: {
+            label: 'Wasservoegel / Entenartige am See',
+            roles: ['animal.waterfowl', 'animal.bird']
+        },
+        wildlife_animals: {
+            label: 'lokale Wildtiere',
+            roles: ['animal.wildlife', 'animal.deer']
+        },
+        animal_herd: {
+            label: 'kleine Tierherde / Weidetiere',
+            roles: ['animal.grazing']
+        },
+        tent: {
+            label: 'Zelt / kleines Camp-Element',
+            roles: ['camp.tent']
+        },
+        parked_vehicle: {
+            label: 'parkendes ziviles Fahrzeug',
+            roles: ['vehicle.car']
+        },
+        small_equipment: {
+            label: 'kleine Ausruestung / Kisten / Picknick',
+            roles: ['cargo.small_box']
+        },
+        campfire: {
+            label: 'kleines Lagerfeuer / Feuerstelle',
+            roles: ['vfx.fire']
         },
         bus: {
             label: 'Bus/Shuttle',
@@ -334,7 +377,13 @@ window.MISSION_SCENE_ASSETS = {
         ],
         'watercraft.boat': [
             'Fishing Boat Red Modular',
-            'Fishing Boat White Modular',
+            'Fishing Boat White Modular'
+        ],
+        'watercraft.small_boat': [
+            'Fishing Boat Red Modular',
+            'Fishing Boat White Modular'
+        ],
+        'watercraft.service_ship': [
             'Microsoft_Ships_AbeilleBourbon_1.0',
             'Microsoft_Ships_AbeilleBourbon_10.0',
             'Microsoft_Ships_AbeilleBourbon_11.0',
@@ -354,6 +403,63 @@ window.MISSION_SCENE_ASSETS = {
             'FishingShip03',
             'Microsoft_Ships_Atlantic_1',
             'Microsoft_Ships_BcFerriesKuper_1'
+        ],
+        'animal.waterfowl': [
+            'Goose',
+            'Seagull',
+            'Flamingo'
+        ],
+        'animal.bird': [
+            'Goose',
+            'Seagull',
+            'Flamingo'
+        ],
+        'animal.deer': [
+            'OHemionusFemale',
+            'OHemionusFemaleVariation1',
+            'OHemionusJuvenile',
+            'OHemionusMale',
+            'CElaphusCanadensisFemale',
+            'CElaphusCanadensisJuvenile',
+            'CElaphusCanadensisMale',
+            'AAlcesFemale',
+            'AAlcesJuvenile',
+            'AAlcesMale'
+        ],
+        'animal.grazing': [
+            'ALerviaFemale',
+            'ALerviaJuvenile',
+            'ALerviaMale',
+            'BTaurusPrimigeniusFemale',
+            'BTaurusPrimigeniusJuvenile',
+            'BFrontalisMale',
+            'CHircusHircusFemale',
+            'CHircusHircusJuvenile',
+            'ECaballusFemale',
+            'ECaballusMale'
+        ],
+        'animal.wildlife': [
+            'OHemionusFemale',
+            'OHemionusJuvenile',
+            'AAlcesFemale',
+            'AAlcesJuvenile',
+            'CElaphusCanadensisFemale',
+            'RTarandusGroenlandicusFemale',
+            'CLupusLupusFemale',
+            'UArctosArctosFemale'
+        ],
+        'camp.tent': [
+            'LFPB_AS_Tent_01',
+            'LFPB_AS_Tent_Dome_Blue',
+            'LFPB_AS_Tent_Dome_Orange',
+            'LFPB_AS_Tent_Dome_Red',
+            'LFPB_AS_Tent_Storage'
+        ],
+        'camp.trailer': [
+            'MICROSOFT_ASSET_GlidersTrailerGlobal',
+            'MICROSOFT_ASSET_GlidersTrailerType1_Regular_BlueGray',
+            'MICROSOFT_ASSET_GlidersTrailerType2_Modern_BlueLine',
+            'MICROSOFT_ASSET_GlidersTrailerType3_Big_Green'
         ],
         'sar.liferaft': [
             'LifeRaft'
