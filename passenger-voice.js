@@ -1127,15 +1127,62 @@ function _fireMissionContext(flightData = null) {
 
 function _fireVectorLine(ctx) {
     if (!ctx?.hasPosition) return 'Mir fehlen gerade Live-Positionsdaten vom Tracker.';
-    const dist = Math.max(0, _fireRound(ctx.distNm, 1)).toFixed(1).replace('.', ',');
-    const alt = ctx.mslFt != null ? `, aktuelle Hoehe ${ctx.mslFt} ft MSL${ctx.aglFt != null ? ` / ${ctx.aglFt} ft AGL` : ''}` : '';
-    return `Zielgebiet ${dist} NM entfernt, Peilung ${ctx.bearingText}, etwa ${ctx.clockPos}${alt}.`;
+    return `Zielgebiet ${_fireDistanceSpeak(ctx.distNm)}, Richtung ${_fireBearingSpeak(ctx.bearingDeg)}, ${ctx.clockPos}.`;
 }
 
 function _fireShortVector(ctx) {
     if (!ctx?.hasPosition) return 'Zielgebiet voraus';
-    const dist = Math.max(0, _fireRound(ctx.distNm, 1)).toFixed(1).replace('.', ',');
-    return `ca. ${dist} NM, etwa ${ctx.clockPos}`;
+    return `${_fireDistanceSpeak(ctx.distNm)}, ${ctx.clockPos}`;
+}
+
+function _fireDistanceSpeak(distNm) {
+    const n = Math.max(0, Number(distNm));
+    if (!Number.isFinite(n)) return 'in unbekannter Entfernung';
+    if (n < 0.75) return 'unter 1 Meile';
+    const miles = Math.max(1, Math.round(n));
+    return `circa ${miles} Meile${miles === 1 ? '' : 'n'}`;
+}
+
+function _fireBearingSpeak(bearingDeg) {
+    const n = Math.round((((Number(bearingDeg) || 0) % 360) + 360) % 360);
+    const digits = n.toString().padStart(3, '0').split('');
+    const words = {
+        '0': 'null',
+        '1': 'eins',
+        '2': 'zwei',
+        '3': 'drei',
+        '4': 'vier',
+        '5': 'fünf',
+        '6': 'sechs',
+        '7': 'sieben',
+        '8': 'acht',
+        '9': 'neun'
+    };
+    return `${digits.map(d => words[d] || d).join(' ')} Grad`;
+}
+
+function _fireSmokeSourceCount(fs) {
+    const raw = Number(fs?.smokeSiteCount || fs?.smoke?.sites?.length || 0);
+    if (Number.isFinite(raw) && raw > 0) return Math.max(1, Math.round(raw));
+    if (fs?.extent === 'major_fire') return 3;
+    if (fs?.extent === 'multi_smoke') return 2;
+    if (fs?.truth === 'fire') return 1;
+    return 0;
+}
+
+function _fireAssessmentText(fs) {
+    if (!fs || fs.truth !== 'fire') {
+        return 'Ich kann keine belastbare Rauchentwicklung bestaetigen. Das fuehre ich als wahrscheinliche Fehlmeldung und gebe es so weiter.';
+    }
+    const count = _fireSmokeSourceCount(fs);
+    const sourceText = count === 1 ? 'eine Rauchentwicklung' : `${count} getrennte Rauchentwicklungen`;
+    if (fs.extent === 'major_fire') {
+        return `Ich zaehle ${sourceText}; Lagebild: mehrere aktive Punkte in einem kleinen Bereich, Rauch driftet vom Ursprung weg. Ich melde Position, Ausdehnung und moegliche Brandherde an die Leitstelle.`;
+    }
+    if (fs.extent === 'multi_smoke') {
+        return `Ich zaehle ${sourceText}; Lagebild: getrennte Rauchpunkte, vermutlich ein zusammenhaengender Einsatzbereich. Ich melde Positionen und Ausdehnung an die Leitstelle.`;
+    }
+    return `Ich zaehle ${sourceText}; Lagebild: lokaler Rauchpunkt, Ursprung noch eingrenzen. Ich melde Position und erste Einschaetzung an die Leitstelle.`;
 }
 
 function _fireRemainingSearchText(ctx) {
@@ -1209,7 +1256,7 @@ function _refreshFireMissionMenu() {
         nameEl.textContent = pax ? `${pax.name} · Feuerwache` : 'Feuerwache';
     }
     if (textEl && !textEl.textContent) {
-        textEl.textContent = 'Feuermeldung aktiv. Du kannst Sichtungen ueber das Missionsmenue melden.';
+        textEl.textContent = 'Feuermeldung aktiv. Lagebeobachtung laeuft.';
     }
 }
 
@@ -1227,8 +1274,8 @@ function _fireMissionAwarenessTick(flightData, distNm = null) {
     fs.state = fs.state || 'search';
     _fireRecordObservation('awareness_range', ctx, 'pax awareness range reached');
     const text = fs.truth === 'fire'
-        ? `${_fireVectorLine(ctx)} Ich glaube, ich sehe da schon etwas, ${_fireShortVector(ctx)}. Noch nicht sauber bestaetigt; Feuer oder Rauch kann im Sim etwas spaet rendern. Geh naeher ran und melde "Rauch in Sicht", sobald du es klar hast.`
-        : `${_fireVectorLine(ctx)} Wir sind jetzt im gemeldeten Bereich. Ich sehe noch nichts Eindeutiges. Bitte Augen raus: wenn du Rauch siehst, melde "Rauch in Sicht", wenn nichts zu sehen ist, melde "Kein Rauch sichtbar".`;
+        ? `${_fireVectorLine(ctx)} Ich glaube, da vorn ist etwas zu sehen. Ich beobachte weiter und gleiche es mit der gemeldeten Position ab.`
+        : `${_fireVectorLine(ctx)} Wir sind im gemeldeten Bereich. Ich sehe noch nichts Eindeutiges; wir suchen weiter und pruefen das Zielgebiet aus mehreren Blickwinkeln.`;
     _fireSpeakText(text, 'Feuermeldung');
 }
 
@@ -1248,7 +1295,7 @@ function _tickFireMissionSearch(flightData, distNm = null) {
         fs.targetAreaAnnounced = true;
         fs.state = fs.state === 'enroute' ? 'searching' : (fs.state || 'searching');
         _fireRecordObservation('target_area_entry', ctx, 'entered fire search area');
-        _fireSpeakText(`${_fireVectorLine(ctx)} Zielgebiet erreicht. Halte ein sauberes Suchmuster und nutze das Menue fuer "Rauch in Sicht" oder "Kein Rauch sichtbar".`, 'Zielgebiet');
+        _fireSpeakText(`${_fireVectorLine(ctx)} Zielgebiet erreicht. Halte ein ruhiges Suchmuster; ich uebernehme die Beobachtung und gleiche Rauch, Ursprung und Ausdehnung ab.`, 'Zielgebiet');
         _firePersistState();
     }
 
@@ -1260,7 +1307,7 @@ function _tickFireMissionSearch(flightData, distNm = null) {
             _poiSatisfied = true;
             _paxAtTargetDone = true;
             _fireRecordObservation('assessment_complete', ctx, 'fire assessment dwell complete');
-            _fireSpeakText(`${_fireVectorLine(ctx)} Das Lagebild reicht: Rauch bestaetigt, Position und Umgebung dokumentiert. Ich gebe die Daten an Leitstelle und Einsatzkraefte weiter; du kannst den Rueckflug vorbereiten.`, 'Lagebild komplett');
+            _fireSpeakText(`Aufgabe abgeschlossen. ${_fireAssessmentText(fs)} Die wichtigsten Punkte sind dokumentiert; du kannst den Rueckflug vorbereiten.`, 'Lagebild komplett');
             _firePersistState();
         }
     }
@@ -1272,7 +1319,7 @@ function _tickFireMissionSearch(flightData, distNm = null) {
         _poiSatisfied = true;
         _paxAtTargetDone = true;
         _fireRecordObservation('false_alarm_complete', ctx, 'search dwell complete without smoke');
-        _fireSpeakText(`${_fireVectorLine(ctx)} Suchzeit komplett und weiterhin keine Rauchentwicklung sichtbar. Ich werte das als wahrscheinliche Fehlmeldung und melde Rueckflugbereitschaft.`, 'Fehlmeldung');
+        _fireSpeakText(`Suchzeit komplett. Ich kann keine belastbare Rauchentwicklung bestaetigen; ich melde wahrscheinliche Fehlmeldung und Rueckflugbereitschaft.`, 'Fehlmeldung');
         _firePersistState();
     }
     return true;
@@ -1290,8 +1337,8 @@ window.fireMissionPositionReport = function() {
         return;
     }
     const action = ctx.inTargetArea
-        ? `Wir sind im Suchgebiet, halte den Orbit stabil. ${_fireRemainingSearchText(ctx)}.`
-        : `Flieg weiter Richtung ${ctx.bearingText}; das Ziel liegt etwa ${ctx.clockPos}.`;
+        ? `Wir sind im Suchgebiet; halte den Orbit stabil. ${_fireRemainingSearchText(ctx)}.`
+        : `Weiter Richtung Zielgebiet, ${ctx.clockPos}.`;
     _fireSpeakText(`${_fireVectorLine(ctx)} ${action}`, 'Suchrichtung');
 };
 
@@ -1306,23 +1353,33 @@ window.fireMissionReportNoSmoke = function() {
         _fireSpeakText('Verstanden, noch kein Rauch sichtbar. Mir fehlen gerade die Live-Daten fuer eine Suchrichtung; pruefe bitte Tracker-Verbindung und halte den letzten Zielpunkt.', 'Kein Rauch');
         return;
     }
+    if (ctx.fs.state === 'smoke_confirmed' || ctx.fs.state === 'assessment_complete') {
+        _fireSpeakText(`Verstanden, aus deiner Perspektive ist das gerade nicht klar sichtbar. Ich halte die bestaetigte Lage weiter fest: ${_fireAssessmentText(ctx.fs)} Halte den Orbit, ich beobachte weiter.`, 'Kein Rauch');
+        _firePersistState();
+        return;
+    }
+    if (ctx.fs.state === 'false_alarm_rtb') {
+        _fireSpeakText('Passt, weiterhin keine bestaetigte Rauchentwicklung. Die Meldung bleibt als wahrscheinliche Fehlmeldung dokumentiert; Rueckflug ist vorbereitet.', 'Fehlmeldung');
+        _firePersistState();
+        return;
+    }
     if (!ctx.inTargetArea) {
         ctx.fs.state = 'search_enroute';
-        _fireSpeakText(`Verstanden, noch nichts sichtbar. ${_fireVectorLine(ctx)} Such weiter in Richtung ${ctx.bearingText}; wir sind noch nicht sauber im Zielgebiet.`, 'Kein Rauch');
+        _fireSpeakText(`Verstanden, noch nichts sichtbar. ${_fireVectorLine(ctx)} Weiter zum Zielgebiet, dort pruefen wir aus der Naehe.`, 'Kein Rauch');
         _firePersistState();
         return;
     }
     const dwellDone = Number(ctx.inTargetAreaSec || 0) >= Number(ctx.fs.searchDwellSec || 180);
     if (dwellDone && ctx.fs.truth === 'false_alarm') {
         ctx.fs.state = 'false_alarm_rtb';
-        _fireSpeakText(`${_fireVectorLine(ctx)} Keine Rauchentwicklung feststellbar nach der Suchzeit. Ich melde wahrscheinliche Fehlmeldung, Einsatzkraefte bleiben informiert, und wir koennen den Rueckflug planen.`, 'Fehlmeldung');
+        _fireSpeakText(`Keine Rauchentwicklung feststellbar nach der Suchzeit. Ich melde wahrscheinliche Fehlmeldung; Rueckflug kann geplant werden.`, 'Fehlmeldung');
         _firePersistState();
         return;
     }
     ctx.fs.state = 'searching';
     const hint = ctx.fs.truth === 'fire'
-        ? 'Die Meldung bleibt offen; Rauch kann im Gelande oder unter der Sichtlinie liegen. Kreis weiter, versuch verschiedene Blickwinkel und halte den Zielpunkt im Auge.'
-        : 'Die Meldung bleibt offen. Such weiter im Zielgebiet, bis die Aufenthaltszeit sauber voll ist.';
+        ? 'Die Meldung bleibt offen; Rauch kann im Gelaende oder unter der Sichtlinie liegen. Halte ein ruhiges Suchmuster, ich pruefe weiter.'
+        : 'Ich kann ebenfalls nichts bestaetigen. Wir halten die Suchzeit noch sauber durch.';
     _fireSpeakText(`${_fireVectorLine(ctx)} Verstanden, noch nichts bestaetigt. ${hint} ${_fireRemainingSearchText(ctx)}.`, 'Kein Rauch');
     _firePersistState();
 };
@@ -1338,24 +1395,31 @@ window.fireMissionReportSmokeVisible = function() {
         _fireSpeakText('Rauchmeldung aufgenommen. Mir fehlen gerade Live-Positionsdaten, daher kann ich Entfernung und Zielbezug noch nicht bestaetigen.', 'Rauchmeldung');
         return;
     }
+    if (ctx.fs.state === 'assessment_complete') {
+        _fireSpeakText(`Ja, die Lage ist bereits abgeschlossen dokumentiert. ${_fireAssessmentText(ctx.fs)} Rueckflug kann vorbereitet werden.`, 'Rauch bestaetigt');
+        _firePersistState();
+        return;
+    }
+    if (ctx.fs.state === 'false_alarm_rtb') {
+        _fireSpeakText('Ich kann das weiter nicht zur gemeldeten Position passend bestaetigen. Moeglich waere Dunst, Staub oder Schatten; ich lasse es als unbestaetigte Sichtung bei der Fehlmeldung stehen.', 'Rauch pruefen');
+        _firePersistState();
+        return;
+    }
     if (!ctx.inConfirmRange) {
         ctx.fs.state = 'reported_smoke_unconfirmed';
-        _fireSpeakText(`Rauchmeldung aufgenommen. ${_fireVectorLine(ctx)} Aus der Entfernung kann ich das noch nicht sicher zuordnen. Geh naeher ans Zielgebiet, dann bestaetigen wir Lage und Ursache.`, 'Rauchmeldung');
+        _fireSpeakText(`Rauchmeldung aufgenommen. ${_fireVectorLine(ctx)} Aus der Entfernung kann ich das noch nicht sicher zuordnen; naeher am Zielgebiet pruefe ich es mit.`, 'Rauchmeldung');
         _firePersistState();
         return;
     }
     if (ctx.fs.truth === 'fire') {
         ctx.fs.state = 'smoke_confirmed';
-        ctx.fs.smokeConfirmedAt = Date.now();
-        const multiHint = Number(ctx.fs.smokeSiteCount || ctx.fs.smoke?.sites?.length || 0) > 1
-            ? 'Achte darauf, ob es mehrere getrennte Rauchpunkte oder Brandherde sind. '
-            : '';
-        _fireSpeakText(`${_fireVectorLine(ctx)} Bestaetigt, das passt zur gemeldeten Rauchentwicklung. ${multiHint}Bitte weiter im Zielgebiet kreisen, Lagebild sammeln: Ausdehnung, Ursprung, Windrichtung und ob Personen oder Gebaeude betroffen sein koennten. Ich informiere Leitstelle und Einsatzkraefte.`, 'Rauch bestaetigt');
+        if (!ctx.fs.smokeConfirmedAt) ctx.fs.smokeConfirmedAt = Date.now();
+        _fireSpeakText(`Bestaetigt, das passt zur gemeldeten Rauchentwicklung. ${_fireAssessmentText(ctx.fs)} Halte den Orbit stabil; ich sammle das Lagebild und gebe Bescheid, wenn die Aufgabe abgeschlossen ist.`, 'Rauch bestaetigt');
         _firePersistState();
         return;
     }
     ctx.fs.state = 'reported_smoke_unconfirmed';
-    _fireSpeakText(`${_fireVectorLine(ctx)} Ich kann das aus den Zielinformationen noch nicht eindeutig bestaetigen. Halte den Orbit und pruefe, ob es wirklich Rauch ist oder Dunst, Staub beziehungsweise Schattenwurf.`, 'Rauch pruefen');
+    _fireSpeakText(`${_fireVectorLine(ctx)} Ich kann das zur Meldung noch nicht bestaetigen. Wir pruefen weiter, ob es Rauch ist oder nur Dunst, Staub beziehungsweise Schattenwurf.`, 'Rauch pruefen');
     _firePersistState();
 };
 
