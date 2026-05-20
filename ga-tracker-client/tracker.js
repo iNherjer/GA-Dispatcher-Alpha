@@ -1,4 +1,4 @@
-const { open, SimConnectDataType, SimConnectPeriod, InitPosition, RawBuffer, Waypoint, SimConnectConstants } = require('node-simconnect');
+const { open, SimConnectDataType, SimConnectPeriod, InitPosition, RawBuffer, Waypoint, SimConnectConstants, EventFlag } = require('node-simconnect');
 const WebSocket = require('ws');
 const readline = require('readline');
 const fs = require('fs');
@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v230';
-const TRACKER_VERSION_CODE = 230;
+const TRACKER_VERSION = 'v231';
+const TRACKER_VERSION_CODE = 231;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -280,10 +280,27 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const sendDoorClientEvent = (eventId, value, label, reason) => {
     try {
       if (typeof handle.transmitClientEventEx === 'function') {
-        handle.transmitClientEventEx(SimConnectConstants.OBJECT_ID_USER, eventId, 0, 0, value, 0, 0, 0, 0);
+        handle.transmitClientEventEx(
+          SimConnectConstants.OBJECT_ID_USER,
+          eventId,
+          1,
+          EventFlag.EVENT_FLAG_GROUPID_IS_PRIORITY,
+          value,
+          0,
+          0,
+          0,
+          0
+        );
       } else {
-        handle.transmitClientEvent(SimConnectConstants.OBJECT_ID_USER, eventId, value, 0, 0);
+        handle.transmitClientEvent(
+          SimConnectConstants.OBJECT_ID_USER,
+          eventId,
+          value,
+          1,
+          EventFlag.EVENT_FLAG_GROUPID_IS_PRIORITY
+        );
       }
+      console.log(`🚪 Door event: ${label}=${value} (${reason})`);
       debugLog(`DOOR_EVENT_SENT label=${label} value=${value} reason=${reason}`);
       return true;
     } catch (err) {
@@ -379,6 +396,42 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const waitPromise = waitForAssignedObject(requestId, timeoutMs);
     handle.aICreateSimulatedObject(title, buildInitPos(pos.lat, pos.lon, pos.altFt, pos.hdg, true), requestId);
     return waitPromise;
+  };
+
+  const removeSceneObject = (rec, obj, reason = 'scene-remove') => {
+    if (!obj || !obj.objectId) return false;
+    try {
+      handle.aIRemoveObject(obj.objectId, nextReqId++);
+      if (rec && Array.isArray(rec.objects)) {
+        rec.objects = rec.objects.filter(o => o.objectId !== obj.objectId);
+      }
+      debugLog(`SCENE_OBJECT_REMOVE scene=${rec?.sceneId || 'n/a'} kind=${obj.kind || ''} objectId=${obj.objectId} reason=${reason}`);
+      return true;
+    } catch (err) {
+      debugLog(`SCENE_OBJECT_REMOVE_ERROR scene=${rec?.sceneId || 'n/a'} kind=${obj.kind || ''} objectId=${obj.objectId} reason=${reason} error=${err?.message || err}`);
+      return false;
+    }
+  };
+
+  const spawnSceneObjectFromPlan = async (sceneId, plan, timeoutMs = 2600) => {
+    const candidates = plan.titleCandidates?.length ? plan.titleCandidates : [plan.title];
+    let lastError = null;
+    for (const candidate of candidates) {
+      try {
+        debugLog(`SCENE_TRY scene=${sceneId} kind=${plan.kind} title="${candidate}"`);
+        const objectId = await spawnObject(candidate, plan, timeoutMs);
+        const spawnedObj = { objectId, ...plan, title: candidate, requestedTitle: plan.title };
+        console.log(`  OK scene ${plan.kind}: objectId=${objectId} title="${candidate}"`);
+        debugLog(`SCENE_SPAWN_OK scene=${sceneId} kind=${plan.kind} index=${plan.index} objectId=${objectId} title="${candidate}" requestedTitle="${plan.title}" lat=${plan.lat} lon=${plan.lon} altFt=${plan.altFt} hdg=${plan.hdg} forwardM=${plan.forwardM} rightM=${plan.rightM}`);
+        return spawnedObj;
+      } catch (err) {
+        lastError = err;
+        console.warn(`  ✗ scene ${plan.kind} title="${candidate}": ${err?.message || err}`);
+        debugLog(`SCENE_TRY_ERROR scene=${sceneId} kind=${plan.kind} title="${candidate}" error=${err?.message || err}`);
+      }
+    }
+    debugLog(`SCENE_SPAWN_ERROR scene=${sceneId} kind=${plan.kind} title="${plan.title}" candidates=${JSON.stringify(candidates)} error=${lastError?.message || lastError || 'all candidates failed'}`);
+    return null;
   };
 
   const defaultSceneItems = () => ([
@@ -507,6 +560,67 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       total += Math.hypot(Number(b?.northM) - Number(a?.northM), Number(b?.eastM) - Number(a?.eastM));
     }
     return Number.isFinite(total) ? total : 0;
+  };
+
+  const relativeScenePoint = (base, point, fallback = {}) => {
+    const normalized = normalizeBoardingPathPoint(point, fallback);
+    const rel = buildRelativePosition(base, normalized.forwardM, normalized.rightM);
+    return {
+      ...normalized,
+      lat: rel.lat,
+      lon: rel.lon,
+      altFt: base.altFt + (Number(normalized.altOffsetFt) || 0),
+      hdg: normalizeHeading(base.hdg),
+      northM: rel.northM,
+      eastM: rel.eastM
+    };
+  };
+
+  const buildRelativeSceneRoute = (command, rec, rawPoints, fallbackPoints = []) => {
+    const base = sceneBaseFromCommand(command, rec);
+    const source = Array.isArray(rawPoints) && rawPoints.length >= 2 ? rawPoints : fallbackPoints;
+    return source.map((point, index) => relativeScenePoint(base, point, fallbackPoints[index] || point));
+  };
+
+  const vehicleParkPoint = (command = {}) => normalizeBoardingPathPoint(command?.vehiclePoint || command?.vehicleParkPoint, { forwardM: 22, rightM: -12 });
+
+  const defaultVehicleDeparturePath = (command = {}) => {
+    const park = vehicleParkPoint(command);
+    return [
+      park,
+      { forwardM: 10, rightM: -18 },
+      { forwardM: -8, rightM: -18 },
+      { forwardM: -22, rightM: -14 }
+    ];
+  };
+
+  const startVehicleDeparture = (command, rec, sceneId) => {
+    if (command?.vehicleDeparture === false) return false;
+    const vehicle = rec?.objects?.find(o => String(o?.kind || '').toLowerCase() === 'vehicle' && o.objectId);
+    if (!vehicle) {
+      debugLog(`SCENE_VEHICLE_DEPART_NOOP scene=${sceneId} reason=no_vehicle`);
+      return false;
+    }
+    const route = buildRelativeSceneRoute(command, rec, command?.vehicleDeparturePath, defaultVehicleDeparturePath(command));
+    if (route.length < 2) {
+      debugLog(`SCENE_VEHICLE_DEPART_NOOP scene=${sceneId} reason=invalid_route`);
+      return false;
+    }
+    const speedKts = Math.max(2, Math.min(12, Number(command?.vehicleSpeedKts || command?.vehicleDepartureSpeedKts || 7) || 7));
+    const routeSent = sendWaypointRoute(vehicle.objectId, route.slice(1), speedKts);
+    debugLog(`SCENE_VEHICLE_DEPART scene=${sceneId} objectId=${vehicle.objectId} status=${routeSent ? 'ok' : 'failed'} points=${route.length - 1} speedKts=${speedKts}`);
+    if (!routeSent) return false;
+    const idlePeople = rec.objects.filter(o => /^person_idle/i.test(String(o?.kind || '')) && o.objectId);
+    if (idlePeople.length) {
+      setTimeout(() => {
+        idlePeople.forEach(obj => removeSceneObject(rec, obj, 'vehicle-depart-idle-clear'));
+      }, 900);
+    }
+    const removeDelayMs = clampInt((pathDistanceM(route) / Math.max(0.5, speedKts * 0.514444)) * 1000 + 1500, 2500, 24000);
+    setTimeout(() => {
+      removeSceneObject(rec, vehicle, 'vehicle-depart-hidden');
+    }, removeDelayMs);
+    return true;
   };
 
   const buildBoardingPath = (command, rec, person, options = {}) => {
@@ -715,8 +829,150 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       await sleep(300);
       await setUserAircraftDoor(false, doorIndex, 'boarding-close', doorProfile);
     }
-    debugLog(`SCENE_BOARDING_OK scene=${sceneId} boarders=${boarderPlans.length} routeSent=${routeSent ? 1 : 0} routeSentCount=${routeSentCount} removed=${removed}`);
-    sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: routeSent ? 'ok' : 'error', routeSent: routeSent ? 1 : 0, routeSentCount, removed, cargoRemoved, boarded: routeSent ? boarderPlans.length : 0, durationMs, error: routeSent ? '' : 'waypoint_route_failed' });
+    const vehicleDeparture = routeSent ? startVehicleDeparture(command, rec, sceneId) : false;
+    debugLog(`SCENE_BOARDING_OK scene=${sceneId} boarders=${boarderPlans.length} routeSent=${routeSent ? 1 : 0} routeSentCount=${routeSentCount} removed=${removed} vehicleDeparture=${vehicleDeparture ? 1 : 0}`);
+    sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: routeSent ? 'ok' : 'error', routeSent: routeSent ? 1 : 0, routeSentCount, removed, cargoRemoved, boarded: routeSent ? boarderPlans.length : 0, vehicleDeparture: vehicleDeparture ? 1 : 0, durationMs, error: routeSent ? '' : 'waypoint_route_failed' });
+  };
+
+  const animateMissionSceneDeboarding = async (command) => {
+    const sceneId = String(command?.sceneId || 'mission-scene');
+    const commandId = command?.commandId || null;
+    const rec = scenes.get(sceneId) || { sceneId, command: { ...command }, objects: [], positions: [] };
+    rec.sceneId = sceneId;
+    rec.command = { ...(rec.command || {}), ...command };
+    if (!Array.isArray(rec.objects)) rec.objects = [];
+    scenes.set(sceneId, rec);
+
+    const pathSource = commandBoardingPath(command) ? 'app' : (command?.profile || command?.pathProfile || 'ga_right_cockpit_v1');
+    const normalPath = buildBoardingPath(command, rec, { forwardM: command?.spawnPoint?.forwardM ?? 16, rightM: command?.spawnPoint?.rightM ?? -8 });
+    if (!Array.isArray(normalPath) || normalPath.length < 2) {
+      debugLog(`SCENE_DEBOARDING_ERROR scene=${sceneId} reason=invalid_path`);
+      sendAck({ type: 'mission_scene_deboarding_ack', commandId, sceneId, status: 'error', error: 'invalid_path' });
+      return;
+    }
+    const reversePath = normalPath.slice().reverse();
+    const vehiclePoint = vehicleParkPoint(command);
+    const vehicleRouteForward = defaultVehicleDeparturePath(command);
+    const vehicleReturnRoute = buildRelativeSceneRoute(command, rec, command?.vehicleReturnPath, vehicleRouteForward.slice().reverse());
+    const vehicleStart = vehicleReturnRoute[0];
+    const vehiclePark = vehicleReturnRoute[vehicleReturnRoute.length - 1] || relativeScenePoint(sceneBaseFromCommand(command, rec), vehiclePoint, vehiclePoint);
+    const vehicleTitle = String(command?.vehicleTitle || command?.vehicleObjectTitle || MISSION_SCENE_VEHICLE_TITLE).trim() || MISSION_SCENE_VEHICLE_TITLE;
+    const vehiclePlan = {
+      index: 1,
+      kind: 'vehicle_return',
+      label: 'Rueckkehr Feuerwehrfahrzeug',
+      title: vehicleTitle,
+      titleCandidates: buildTitleCandidates(vehicleTitle, command?.vehicleTitleCandidates || ['Car Bush Firefighting', 'Car Bush Firefighting (FIREFIGHTING_DEFAULT)', 'FIREFIGHTING_DEFAULT', 'Car_Bush_Firefighting']),
+      lat: vehicleStart.lat,
+      lon: vehicleStart.lon,
+      altFt: vehicleStart.altFt,
+      hdg: headingBetweenOffsets(vehicleStart, vehicleReturnRoute[1] || vehiclePark, command?.hdg || 0),
+      baseAltFt: sceneBaseFromCommand(command, rec).altFt,
+      altOffsetFt: vehicleStart.altOffsetFt || 0,
+      forwardM: vehicleStart.forwardM,
+      rightM: vehicleStart.rightM,
+      northM: vehicleStart.northM,
+      eastM: vehicleStart.eastM
+    };
+    console.log(`🚒 Scene ${sceneId}: Deboarding-Sequenz startet.`);
+    const vehicle = await spawnSceneObjectFromPlan(sceneId, vehiclePlan, 3000);
+    if (!vehicle) {
+      sendAck({ type: 'mission_scene_deboarding_ack', commandId, sceneId, status: 'error', error: 'vehicle_spawn_failed' });
+      return;
+    }
+    rec.objects.push(vehicle);
+
+    const vehicleSpeedKts = Math.max(2, Math.min(12, Number(command?.vehicleSpeedKts || command?.vehicleReturnSpeedKts || 7) || 7));
+    const vehicleRouteSent = sendWaypointRoute(vehicle.objectId, vehicleReturnRoute.slice(1), vehicleSpeedKts);
+    const vehicleArrivalMs = clampInt((pathDistanceM(vehicleReturnRoute) / Math.max(0.5, vehicleSpeedKts * 0.514444)) * 1000 + 1200, 2500, 24000);
+    debugLog(`SCENE_DEBOARDING_VEHICLE scene=${sceneId} objectId=${vehicle.objectId} routeSent=${vehicleRouteSent ? 1 : 0} arrivalMs=${vehicleArrivalMs}`);
+    await sleep(vehicleRouteSent ? vehicleArrivalMs : 1200);
+
+    const doorEnabled = command?.openDoor === true || command?.door === true;
+    const doorProfile = resolveDoorProfile(command);
+    const doorIndex = clampInt(command?.doorIndex ?? 1, 0, 8);
+    if (doorEnabled) {
+      await setUserAircraftDoor(true, doorIndex, 'deboarding-open', doorProfile);
+      await sleep(450);
+    }
+
+    const requestedBoarders = clampInt(command?.boarderCount ?? command?.passengerCount ?? 1, 1, 3);
+    const personTitles = Array.isArray(command?.personTitleCandidates) ? command.personTitleCandidates : [];
+    const primaryPersonTitle = String(command?.personTitle || command?.personObjectTitle || MISSION_SCENE_PERSON_TITLE).trim() || MISSION_SCENE_PERSON_TITLE;
+    const personPlans = [];
+    const start = reversePath[0];
+    for (let i = 0; i < requestedBoarders; i++) {
+      const offset = i * 0.8;
+      const baseStart = {
+        ...start,
+        rightM: Number(start.rightM || 0) + offset
+      };
+      const absStart = relativeScenePoint(sceneBaseFromCommand(command, rec), baseStart, start);
+      personPlans.push({
+        index: i + 2,
+        kind: `person_deboard_${i + 1}`,
+        label: `Deboarding Pax ${i + 1}`,
+        title: primaryPersonTitle,
+        titleCandidates: buildTitleCandidates(primaryPersonTitle, personTitles.length ? personTitles : [MISSION_SCENE_PERSON_TITLE, 'Tarmac_Male_Summer_Asian', 'Termac_Female_Summer_Asian', 'Termac_Male_Summer_Asian']),
+        lat: absStart.lat,
+        lon: absStart.lon,
+        altFt: absStart.altFt,
+        hdg: headingBetweenOffsets(reversePath[0], reversePath[1] || vehiclePark, command?.hdg || 0),
+        baseAltFt: sceneBaseFromCommand(command, rec).altFt,
+        altOffsetFt: absStart.altOffsetFt || 0,
+        forwardM: absStart.forwardM,
+        rightM: absStart.rightM,
+        northM: absStart.northM,
+        eastM: absStart.eastM
+      });
+    }
+
+    const people = [];
+    for (const plan of personPlans) {
+      const obj = await spawnSceneObjectFromPlan(sceneId, plan, 3000);
+      if (obj) {
+        rec.objects.push(obj);
+        people.push(obj);
+      }
+    }
+    if (!people.length) {
+      if (doorEnabled) await setUserAircraftDoor(false, doorIndex, 'deboarding-close-no-pax', doorProfile);
+      sendAck({ type: 'mission_scene_deboarding_ack', commandId, sceneId, status: 'error', error: 'person_spawn_failed', vehicleRouteSent: vehicleRouteSent ? 1 : 0 });
+      return;
+    }
+
+    const routeToVehicle = reversePath.concat([vehiclePark]);
+    const walkSpeedKts = Math.max(2.8, Math.min(4.5, Number(command?.walkSpeedKts || 3.3) || 3.3));
+    let routeSentCount = 0;
+    people.forEach((person, index) => {
+      const personRoute = index === 0 ? routeToVehicle : routeToVehicle.map((pt, ptIndex) => {
+        if (ptIndex === 0) return pt;
+        return {
+          ...pt,
+          rightM: Number(pt.rightM || 0) + (index * 0.8)
+        };
+      });
+      const absRoute = buildRelativeSceneRoute(command, rec, personRoute, personRoute);
+      const sent = sendWaypointRoute(person.objectId, absRoute.slice(1), walkSpeedKts);
+      routeSentCount += sent ? 1 : 0;
+    });
+    const walkMs = clampInt((pathDistanceM(routeToVehicle) / Math.max(0.5, walkSpeedKts * 0.514444)) * 1000 + 1200, 3000, 36000);
+    debugLog(`SCENE_DEBOARDING_WALK scene=${sceneId} people=${people.length} routeSent=${routeSentCount}/${people.length} walkMs=${walkMs} path=${pathSource}`);
+    await sleep(walkMs);
+    if (doorEnabled) {
+      await setUserAircraftDoor(false, doorIndex, 'deboarding-close', doorProfile);
+    }
+    sendAck({
+      type: 'mission_scene_deboarding_ack',
+      commandId,
+      sceneId,
+      status: routeSentCount > 0 ? 'ok' : 'error',
+      vehicleRouteSent: vehicleRouteSent ? 1 : 0,
+      routeSentCount,
+      deboarded: routeSentCount,
+      durationMs: vehicleArrivalMs + walkMs,
+      error: routeSentCount > 0 ? '' : 'waypoint_route_failed'
+    });
   };
 
   const clearScene = async (sceneId, reason = 'clear', commandId = null) => {
@@ -971,6 +1227,15 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         animateMissionSceneBoarding(command).catch(err => {
           console.warn(`⚠️  Scene boarding failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_boarding_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
+        });
+        return true;
+      }
+      if (type === 'mission_scene_deboarding') {
+        const pathCount = Array.isArray(command?.path) ? command.path.length : (Array.isArray(command?.boardingPath) ? command.boardingPath.length : (Array.isArray(command?.waypoints) ? command.waypoints.length : 0));
+        debugLog(`COMMAND mission_scene_deboarding scene=${command?.sceneId || 'mission-scene'} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} pathPoints=${pathCount} boarderCount=${command?.boarderCount ?? ''} door=${command?.openDoor === true || command?.door === true ? 1 : 0} doorProfile=${command?.doorProfile || command?.aircraftDoorProfile || ''} aircraftSlot=${command?.aircraftSlot || ''} aircraftName="${command?.aircraftName || ''}"`);
+        animateMissionSceneDeboarding(command).catch(err => {
+          console.warn(`⚠️  Scene deboarding failed: ${err?.message || err}`);
+          sendAck({ type: 'mission_scene_deboarding_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
         });
         return true;
       }
@@ -1230,6 +1495,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
       addOptionalVar('AMBIENT TURBULENCE', 'percent', 'turbulencePct');
       addOptionalVar('IS PAUSED', 'Bool', 'simPausedA');
       addOptionalVar('SIM IS PAUSED', 'Bool', 'simPausedB');
+      addOptionalVar('BRAKE PARKING POSITION', 'Bool', 'parkingBrake');
 
       handle.requestDataOnSimObject(
         REQ_ID,
@@ -1301,6 +1567,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
               const turbulencePct = raw.turbulencePct;
               const simPausedA = raw.simPausedA;
               const simPausedB = raw.simPausedB;
+              const parkingBrake = raw.parkingBrake;
               const simPausedFromVar = Number.isFinite(simPausedA)
                 ? (simPausedA > 0.5)
                 : (Number.isFinite(simPausedB) ? (simPausedB > 0.5) : false);
@@ -1339,6 +1606,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
                   simRunning: runtimeState.simRunning,
                   dialogMode: runtimeState.dialogMode,
                   inMenuOrMap: isInMenuOrMap(),
+                  parkingBrake: Number.isFinite(parkingBrake) ? parkingBrake > 0.5 : null,
                   aoaDeg:   Number.isFinite(aoaDeg) ? Math.round(aoaDeg * 10) / 10 : null,
                   stallState: Number.isFinite(stallState) ? (stallState > 0.5) : false
                 };
