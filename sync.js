@@ -38,7 +38,46 @@ const PLANE_ICON_MAX_SIZE = 100;
 const MISSION_AUTO_START_KEY = 'ga_mission_auto_start_enabled';
 const BOARDING_MARKER_STORAGE_KEY = 'ga_boarding_marker_enabled';
 const BOARDING_MARKER_TITLE = 'Cone_Medium';
-const BOARDING_CARGO_TITLE = 'CoffeeCup';
+const BOARDING_CARGO_FALLBACK_TITLE = 'CoffeeCup';
+const MISSION_SCENE_ASSET_POOLS = {
+    cargo: [
+        'Cardboard',
+        'Pallet01_03',
+        'Pallet01_02',
+        'Pallet01_01',
+        'Rice_Bag_50',
+        BOARDING_CARGO_FALLBACK_TITLE
+    ],
+    fireCargo: [
+        'Drop_Container',
+        'Rice_Bag_50',
+        'Pallet01_03',
+        'Pallet01_02',
+        'Cardboard',
+        BOARDING_CARGO_FALLBACK_TITLE
+    ],
+    sarCargo: [
+        'LifeRaft',
+        'Drop_Container',
+        'Cardboard',
+        BOARDING_CARGO_FALLBACK_TITLE
+    ],
+    vehicles: [
+        'Microsoft_Van_EUR',
+        'Microsoft_Quad',
+        'Microsoft_Car_EUR_01',
+        'Microsoft_Car_EUR_02',
+        'Microsoft_Car_EUR_03',
+        'Microsoft_Car_EUR_04',
+        'Microsoft_Minicar_01'
+    ],
+    material: [
+        'Log',
+        'Pallet01_03',
+        'Pallet01_02',
+        'Pallet01_01'
+    ]
+};
 let boardingMarkerRefreshTimer = null;
 
 function isMissionAutoStartEnabled() {
@@ -137,7 +176,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-16';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-17';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE = 'Tarmac_Male_Summer_Asian';
@@ -833,6 +872,83 @@ function _missionSceneBoarderCount() {
     return Math.max(1, Math.min(2, _missionScenePaxCount()));
 }
 
+function _missionSceneTaskDomain() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const fs = _activeFireScenario();
+    if (fs && fs.enabled && fs.type === 'fire_watch') return 'fire_watch';
+    const raw = [
+        window.activePassenger?.taskDomain,
+        md?.passenger?.taskDomain,
+        md?.missionContract?.taskDomain,
+        md?.taskDomain,
+        md?.appliedProfile,
+        md?.missionContract?.appliedProfileId,
+        md?.missionContract?.requestedProfileId,
+        md?.cat,
+        md?.category
+    ].filter(Boolean).join(' ').toLowerCase();
+    if (/(fire_watch|fire observer|fire_observer|waldbrand|feuerwacht|rauch|brand|hotspot)/.test(raw)) return 'fire_watch';
+    if (/(search_and_rescue|rescue|sar|rettung|seenot|liferaft)/.test(raw)) return 'search_and_rescue';
+    if (/(cargo|freight|fracht|fragile|pallet)/.test(raw)) return 'cargo';
+    if (/(mapping|photogrammetry|survey|inspection|science|bio|geo)/.test(raw)) return 'survey';
+    return raw || 'general';
+}
+
+function _sceneAssetCandidates(primary, extras = []) {
+    const out = [];
+    const add = (value) => {
+        const s = String(value || '').trim();
+        if (!s || out.includes(s)) return;
+        out.push(s);
+        if (s.includes('_')) out.push(s.replace(/_/g, ' '));
+        if (/\s/.test(s)) out.push(s.replace(/\s+/g, '_'));
+    };
+    add(primary);
+    (Array.isArray(extras) ? extras : []).forEach(add);
+    return [...new Set(out.filter(Boolean))];
+}
+
+function _missionSceneCargoAsset() {
+    const taskDomain = _missionSceneTaskDomain();
+    const pool = taskDomain === 'fire_watch'
+        ? MISSION_SCENE_ASSET_POOLS.fireCargo
+        : (taskDomain === 'search_and_rescue'
+            ? MISSION_SCENE_ASSET_POOLS.sarCargo
+            : MISSION_SCENE_ASSET_POOLS.cargo);
+    const preferred = _sceneObjectTitleOverride('cargo', pool[0] || BOARDING_CARGO_FALLBACK_TITLE);
+    return {
+        title: preferred,
+        candidates: _sceneAssetCandidates(preferred, pool.concat(MISSION_SCENE_ASSET_POOLS.cargo, [BOARDING_CARGO_FALLBACK_TITLE])),
+        taskDomain
+    };
+}
+
+function _missionSceneVehicleAsset() {
+    const taskDomain = _missionSceneTaskDomain();
+    if (taskDomain === 'fire_watch' || taskDomain === 'search_and_rescue') {
+        const title = _sceneObjectTitleOverride('vehicle', MISSION_SCENE_DEFAULT_VEHICLE_TITLE);
+        return {
+            title,
+            candidates: _sceneTitleCandidates(title, [
+                'Car Bush Firefighting',
+                'Car Bush Firefighting (FIREFIGHTING_DEFAULT)',
+                'FIREFIGHTING_DEFAULT',
+                'Car_Bush_Firefighting',
+                ...MISSION_SCENE_ASSET_POOLS.vehicles
+            ])
+        };
+    }
+    const preferred = _sceneObjectTitleOverride('vehicle', MISSION_SCENE_ASSET_POOLS.vehicles[0]);
+    return {
+        title: preferred,
+        candidates: _sceneAssetCandidates(preferred, MISSION_SCENE_ASSET_POOLS.vehicles.concat([
+            MISSION_SCENE_DEFAULT_VEHICLE_TITLE,
+            'Car Bush Firefighting',
+            'FIREFIGHTING_DEFAULT'
+        ]))
+    };
+}
+
 function _missionScenePassengerGender() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const raw = String(window.activePassenger?.gender || md?.passenger?.gender || md?.missionContract?.passenger?.gender || '').toLowerCase();
@@ -931,8 +1047,10 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
         return false;
     }
     const sceneId = _missionSceneId();
-    const vehicleTitle = _sceneObjectTitleOverride('vehicle', MISSION_SCENE_DEFAULT_VEHICLE_TITLE);
+    const vehicleAsset = _missionSceneVehicleAsset();
+    const vehicleTitle = vehicleAsset.title;
     const personTitle = _sceneObjectTitleOverride('person', MISSION_SCENE_DEFAULT_PERSON_TITLE);
+    const cargoAsset = _missionSceneCargoAsset();
     const boardingConfig = _missionSceneBoardingConfig();
     const personSpawn = boardingConfig.spawn || { forwardM: 16, rightM: -8, altOffsetFt: 0 };
     const cargoPoint = boardingConfig.cargo || { forwardM: 4, rightM: 4, altOffsetFt: 0 };
@@ -991,7 +1109,7 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
                 kind: 'vehicle',
                 label: 'Feuerwehrfahrzeug',
                 objectTitle: vehicleTitle,
-                titleCandidates: _sceneTitleCandidates(vehicleTitle, ['Car Bush Firefighting', 'Car Bush Firefighting (FIREFIGHTING_DEFAULT)', 'FIREFIGHTING_DEFAULT', 'Car_Bush_Firefighting']),
+                titleCandidates: vehicleAsset.candidates,
                 forwardM: vehiclePoint.forwardM,
                 rightM: vehiclePoint.rightM,
                 headingMode: 'face_aircraft',
@@ -999,9 +1117,9 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
             },
             {
                 kind: 'cargo',
-                label: 'Cargo Platzhalter',
-                objectTitle: BOARDING_CARGO_TITLE,
-                titleCandidates: _sceneTitleCandidates(BOARDING_CARGO_TITLE, [BOARDING_CARGO_TITLE, 'Coffee_Cup', 'Coffee Cup']),
+                label: cargoAsset.taskDomain === 'fire_watch' ? 'Firefighter Cargo' : 'Cargo',
+                objectTitle: cargoAsset.title,
+                titleCandidates: cargoAsset.candidates,
                 forwardM: Number.isFinite(Number(cargoPoint.forwardM)) ? Number(cargoPoint.forwardM) : 4,
                 rightM: Number.isFinite(Number(cargoPoint.rightM)) ? Number(cargoPoint.rightM) : 4,
                 headingMode: 'with_aircraft',
