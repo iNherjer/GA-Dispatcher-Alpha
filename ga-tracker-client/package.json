@@ -8,7 +8,7 @@
     "smoke-test:edtw": "node spawn-edtw-smoke-test.js",
     "asset-scan": "node msfs-asset-scanner.js",
     "build:smoke-test": "pkg spawn-edtw-smoke-test.js --target node20-win-x64 --output dist/edtw-smoke-test.exe",
-    "build:asset-scanner": "pkg msfs-asset-scanner.js --target node18-win-x64 --output dist/MSFS2024-Asset-Scanner.exe"
+    "build:asset-scanner": "pkg msfs-asset-scanner.js --target node18-win-x64 --output MSFS2024-Asset-Scanner.exe"
   },
   "pkg": {
     "scripts": "spawn-edtw-smoke-test.js",

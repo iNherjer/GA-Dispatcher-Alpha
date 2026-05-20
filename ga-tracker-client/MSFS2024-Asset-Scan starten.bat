@@ -1,5 +1,6 @@
 @echo off
 setlocal
+chcp 65001 >nul
 cd /d "%~dp0"
 
 set "SCANNER_EXE=%~dp0MSFS2024-Asset-Scanner.exe"
@@ -14,6 +15,7 @@ echo StreamedPackages, Community2024 und Community.
 echo.
 echo Ausgabe neben dieser BAT/EXE:
 echo - msfs2024-simobjects.json
+echo - msfs2024-simobjects-catalog.json
 echo - msfs2024-simobjects.csv
 echo - msfs2024-simobjects-debug.txt
 echo - msfs2024-simobjects-scene-candidates.txt
@@ -29,8 +31,33 @@ if not exist "%SCANNER_EXE%" (
     exit /b 1
 )
 
-echo Starte Scan...
-"%SCANNER_EXE%"
+if not "%~1"=="" (
+    echo Starte Scan mit manuellem Pfad:
+    echo %~1
+    echo.
+    "%SCANNER_EXE%" --packages="%~1"
+) else (
+    echo Starte Auto-Scan...
+    "%SCANNER_EXE%"
+)
+
+if errorlevel 2 (
+    echo.
+    echo Auto-Scan hat keinen Packages-Ordner gefunden.
+    echo Du kannst den MSFS Packages-Ordner hier einfuegen.
+    echo Beispiele:
+    echo   D:\MSFS2024\Packages
+    echo   C:\Users\DEINNAME\AppData\Local\Packages\Microsoft.Limitless_8wekyb3d8bbwe\LocalCache\Packages
+    echo.
+    set /p "PACKAGES_PATH=Packages-Pfad oder leer lassen zum Abbrechen: "
+    if not "%PACKAGES_PATH%"=="" (
+        echo.
+        echo Starte Scan mit:
+        echo %PACKAGES_PATH%
+        echo.
+        "%SCANNER_EXE%" --packages="%PACKAGES_PATH%"
+    )
+)
 
 echo.
 echo Scan beendet. Falls keine Packages gefunden wurden:
