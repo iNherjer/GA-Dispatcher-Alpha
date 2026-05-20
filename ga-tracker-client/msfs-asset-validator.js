@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const readline = require('readline');
 const {
   open,
   Protocol,
@@ -10,7 +11,7 @@ const {
   InitPosition
 } = require('node-simconnect');
 
-const TOOL_VERSION = 'v1';
+const TOOL_VERSION = 'v2';
 const APP_NAME = 'GA-MSFS-Asset-Validator';
 const OUT_BASENAME = 'msfs2024-spawn-validation';
 const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
@@ -185,13 +186,15 @@ const options = {
   keepOk: hasArg(['keep-ok', 'keepOk']),
   includeRisky: hasArg(['include-risky', 'includeRisky']),
   dryRun: hasArg(['dry-run', 'dryRun']),
-  allowZero: hasArg(['allow-zero', 'allowZero'])
+  allowZero: hasArg(['allow-zero', 'allowZero']),
+  manualReview: hasArg(['manual-review', 'manualReview', 'review'])
 };
 
 let handle = null;
 let requestSeq = 0;
 let pendingSpawn = null;
 let activeObjectIds = [];
+let abortRequested = false;
 const debugLines = [];
 const results = [];
 
@@ -681,10 +684,26 @@ async function validateCandidate(item, index, userPos) {
     try {
       const objectId = await spawnTitle(title, initPos, options.timeoutMs);
       activeObjectIds.push(objectId);
-      if (options.holdMs > 0) await sleep(options.holdMs);
+      console.log(`  ACK ${item.role} | "${title}" objectId=${objectId}`);
+
+      let visualStatus = 'unverified';
+      let visualNote = '';
+      if (options.manualReview) {
+        const review = await askManualReview(item, title, objectId, spawnPos);
+        visualStatus = review.visualStatus;
+        visualNote = review.visualNote;
+        if (review.abort) abortRequested = true;
+      } else if (options.holdMs > 0) {
+        await sleep(options.holdMs);
+      }
+
       if (!options.keepOk) await removeObject(objectId);
       const result = {
-        status: 'ok',
+        status: 'accepted',
+        createStatus: 'simconnect_ack',
+        validationLevel: visualStatus === 'visible' ? 'manual_visual_confirmed' : 'simconnect_ack_unverified',
+        visualStatus,
+        visualNote,
         role: item.role,
         title: item.record.title,
         spawnedTitle: title,
@@ -700,7 +719,6 @@ async function validateCandidate(item, index, userPos) {
         path: item.record.path,
         spawnPos
       };
-      console.log(`  OK  ${item.role} | "${title}" objectId=${objectId}`);
       return result;
     } catch (err) {
       const error = err?.message || String(err);
@@ -712,6 +730,10 @@ async function validateCandidate(item, index, userPos) {
 
   return {
     status: 'failed',
+    createStatus: 'failed',
+    validationLevel: 'create_failed',
+    visualStatus: 'not_spawned',
+    visualNote: '',
     role: item.role,
     title: item.record.title,
     spawnedTitle: '',
@@ -731,6 +753,34 @@ async function validateCandidate(item, index, userPos) {
   };
 }
 
+function askQuestion(prompt) {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(prompt, (answer) => {
+      rl.close();
+      resolve(String(answer || '').trim());
+    });
+  });
+}
+
+async function askManualReview(item, title, objectId, spawnPos) {
+  console.log(
+    `      Sichttest: ${round1(spawnPos.forwardM)}m vorne, ${round1(spawnPos.rightM)}m rechts. ` +
+    `Objekt bleibt bis zur Eingabe stehen.`
+  );
+  const answer = (await askQuestion('      [j] sichtbar/nutzbar, [n] nicht sichtbar/falsch, [u] unsicher, [q] abbrechen: ')).toLowerCase();
+  if (answer.startsWith('j') || answer.startsWith('y')) {
+    return { visualStatus: 'visible', visualNote: 'manual yes', abort: false };
+  }
+  if (answer.startsWith('n')) {
+    return { visualStatus: 'rejected', visualNote: 'manual no', abort: false };
+  }
+  if (answer.startsWith('q')) {
+    return { visualStatus: 'unverified', visualNote: 'manual abort', abort: true };
+  }
+  return { visualStatus: 'uncertain', visualNote: `manual ${answer || 'uncertain'}`, abort: false };
+}
+
 function csvEscape(value) {
   const s = value === null || value === undefined
     ? ''
@@ -740,8 +790,11 @@ function csvEscape(value) {
 }
 
 function writeOutputs(sourceCatalog, selected, userPos) {
-  const ok = results.filter((r) => r.status === 'ok');
-  const failed = results.filter((r) => r.status !== 'ok');
+  const accepted = results.filter((r) => r.status === 'accepted' || r.status === 'ok');
+  const visualConfirmed = accepted.filter((r) => r.visualStatus === 'visible');
+  const visualRejected = accepted.filter((r) => r.visualStatus === 'rejected');
+  const visualUncertain = accepted.filter((r) => r.visualStatus === 'uncertain');
+  const realFailed = results.filter((r) => r.status !== 'accepted' && r.status !== 'ok');
   const payload = {
     tool: APP_NAME,
     version: TOOL_VERSION,
@@ -752,8 +805,12 @@ function writeOutputs(sourceCatalog, selected, userPos) {
     stats: {
       selected: selected.length,
       tested: results.length,
-      ok: ok.length,
-      failed: failed.length
+      accepted: accepted.length,
+      ok: accepted.length,
+      visualConfirmed: visualConfirmed.length,
+      visualRejected: visualRejected.length,
+      visualUncertain: visualUncertain.length,
+      failed: realFailed.length
     },
     results
   };
@@ -761,6 +818,10 @@ function writeOutputs(sourceCatalog, selected, userPos) {
 
   const headers = [
     'status',
+    'createStatus',
+    'validationLevel',
+    'visualStatus',
+    'visualNote',
     'role',
     'title',
     'spawnedTitle',
@@ -782,12 +843,18 @@ function writeOutputs(sourceCatalog, selected, userPos) {
   fs.writeFileSync(csvPath, `${lines.join('\n')}\n`, 'utf8');
 
   const grouped = {};
-  for (const result of ok) {
+  const catalogMode = options.manualReview ? 'manual_visual_confirmed' : 'simconnect_ack_unverified';
+  const catalogResults = options.manualReview
+    ? accepted.filter((result) => result.visualStatus === 'visible')
+    : accepted;
+  for (const result of catalogResults) {
     if (!grouped[result.role]) grouped[result.role] = [];
     grouped[result.role].push({
       title: result.spawnedTitle,
       catalogTitle: result.title,
       role: result.role,
+      validationLevel: result.validationLevel,
+      visualStatus: result.visualStatus || 'unverified',
       roleHints: result.roleHints,
       kind: result.kind,
       category: result.category,
@@ -802,6 +869,7 @@ function writeOutputs(sourceCatalog, selected, userPos) {
     version: TOOL_VERSION,
     createdAt: payload.createdAt,
     sourceCatalog,
+    catalogMode,
     stats: payload.stats,
     roles: grouped
   }, null, 2), 'utf8');
@@ -835,6 +903,7 @@ async function main() {
   console.log(`Output  : ${outputDir}`);
   console.log(`Roles   : ${options.roles.join(', ')}`);
   console.log(`Limit   : ${options.perRole}/role, max ${options.max}`);
+  console.log(`Mode    : ${options.manualReview ? 'manual visual review' : 'SimConnect ACK scan (visual unverified)'}`);
   console.log('');
 
   if (!fileExists(options.catalogPath)) {
@@ -876,16 +945,22 @@ async function main() {
     const result = await validateCandidate(item, i, userPos);
     results.push(result);
     writeOutputs(options.catalogPath, selected, userPos);
+    if (abortRequested) {
+      console.log('Manueller Sichttest abgebrochen.');
+      break;
+    }
     if (options.pauseMs > 0) await sleep(options.pauseMs);
   }
 
   if (!options.keepOk) await cleanupAll();
   writeOutputs(options.catalogPath, selected, userPos);
 
-  const ok = results.filter((r) => r.status === 'ok').length;
-  const failed = results.length - ok;
+  const accepted = results.filter((r) => r.status === 'accepted' || r.status === 'ok').length;
+  const visible = results.filter((r) => r.visualStatus === 'visible').length;
+  const rejected = results.filter((r) => r.visualStatus === 'rejected').length;
+  const failed = results.filter((r) => r.status !== 'accepted' && r.status !== 'ok').length;
   console.log('');
-  console.log(`Fertig: ${ok} OK, ${failed} fehlgeschlagen.`);
+  console.log(`Fertig: ${accepted} SimConnect-ACK, ${visible} sichtbar bestaetigt, ${rejected} visuell abgelehnt, ${failed} fehlgeschlagen.`);
   console.log(`JSON : ${jsonPath}`);
   console.log(`CSV  : ${csvPath}`);
   console.log(`Kurz : ${curatedPath}`);

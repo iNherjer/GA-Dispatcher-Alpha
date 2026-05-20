@@ -53,14 +53,33 @@ if "%CATALOG_PATH%"=="" (
 )
 
 echo.
-echo Starte Validation mit:
+echo Katalog:
 echo %CATALOG_PATH%
 echo.
-echo Tipp: Erst mit --dry-run testen:
-echo MSFS2024-Asset-Validator.exe --catalog="%CATALOG_PATH%" --dry-run
+echo Modus waehlen:
+echo   1 = schneller SimConnect-ACK Scan
+echo       Prueft nur, ob der Titel per SimConnect angenommen wird.
+echo   2 = manueller Sichttest einzeln
+echo       Objekt bleibt stehen, du bestaetigst sichtbar/nicht sichtbar per Taste.
+echo   3 = Dry-Run Kandidatenliste ohne SimConnect
 echo.
+set /p "VALIDATION_MODE=Modus [1]: "
+if "%VALIDATION_MODE%"=="" set "VALIDATION_MODE=1"
 
-"%VALIDATOR_EXE%" --catalog="%CATALOG_PATH%" --per-role=12 --max=160 --timeout-ms=2200 --hold-ms=450 --pause-ms=180
+if "%VALIDATION_MODE%"=="2" (
+    echo.
+    echo Optional Rollenfilter, z.B. cargo.container,vehicle.car,person.ground_crew
+    set /p "ROLE_FILTER=Rollenfilter oder leer fuer Standard: "
+    if "%ROLE_FILTER%"=="" (
+        "%VALIDATOR_EXE%" --catalog="%CATALOG_PATH%" --per-role=12 --max=160 --timeout-ms=2200 --manual-review --hold-ms=0 --pause-ms=120 --offset-m=35 --spacing-m=12
+    ) else (
+        "%VALIDATOR_EXE%" --catalog="%CATALOG_PATH%" --roles="%ROLE_FILTER%" --per-role=24 --max=160 --timeout-ms=2200 --manual-review --hold-ms=0 --pause-ms=120 --offset-m=35 --spacing-m=12
+    )
+) else if "%VALIDATION_MODE%"=="3" (
+    "%VALIDATOR_EXE%" --catalog="%CATALOG_PATH%" --per-role=12 --max=160 --dry-run
+) else (
+    "%VALIDATOR_EXE%" --catalog="%CATALOG_PATH%" --per-role=12 --max=160 --timeout-ms=2200 --hold-ms=450 --pause-ms=180 --offset-m=35 --spacing-m=12
+)
 
 echo.
 echo Validation beendet.
