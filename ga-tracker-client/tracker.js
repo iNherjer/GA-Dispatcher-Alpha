@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v233';
-const TRACKER_VERSION_CODE = 233;
+const TRACKER_VERSION = 'v234';
+const TRACKER_VERSION_CODE = 234;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -762,7 +762,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const finalHoldMs = clampInt(command?.finalHoldMs ?? 450, 0, 2000);
     const removePerson = command?.removePerson !== false;
     const removeCargoAtWaypoint = command?.removeCargoAtWaypoint !== false;
-    const cargoHoldMs = clampInt(command?.cargoHoldMs ?? command?.cargoPauseMs ?? 2600, 0, 9000);
+    const cargoHoldMs = clampInt(command?.cargoHoldMs ?? command?.cargoPauseMs ?? 0, 0, 9000);
     const speedKts = Math.max(0.5, toFiniteNumber(command?.speedKts ?? command?.walkSpeedKts, 3.1) || 3.1);
     const doorEnabled = command?.openDoor === true || command?.door === true;
     const doorIndex = clampInt(command?.doorIndex ?? 1, 0, 8);
@@ -807,8 +807,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     };
     const cargoRouteDistanceM = Math.max(...boarderPlans.map(plan => cargoRouteDistanceForPath(plan.path)));
     const cargoRouteMs = Math.max(0, (cargoRouteDistanceM / speedMps) * 1000);
-    const cargoArrivalSlackMs = clampInt(command?.cargoArrivalSlackMs ?? 1800, 0, 6000);
-    const canSplitAtCargo = removeCargoAtWaypoint && cargo && primaryPath.length >= 3 && cargoPathIndex < primaryPath.length - 1;
+    const cargoArrivalSlackMs = clampInt(command?.cargoArrivalSlackMs ?? 250, 0, 6000);
+    const cargoTimingFactor = Math.max(0.7, Math.min(1.4, Number(command?.cargoTimingFactor || 1) || 1));
+    const splitCargoRoute = command?.splitCargoRoute === true || command?.stopAtCargo === true;
+    const canSplitAtCargo = splitCargoRoute && removeCargoAtWaypoint && cargo && primaryPath.length >= 3 && cargoPathIndex < primaryPath.length - 1;
     let routeSent = false;
     let routeSentCount = 0;
     if (canSplitAtCargo) {
@@ -818,7 +820,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }, 0);
       routeSent = routeSentCount > 0;
       if (routeSent) {
-        const cargoDelayMs = clampInt((cargoRouteMs * 1.2) + cargoArrivalSlackMs + cargoHoldMs, 1200, Math.max(1500, durationMs - finalHoldMs - 500));
+        const cargoDelayMs = clampInt((cargoRouteMs * cargoTimingFactor) + cargoArrivalSlackMs + cargoHoldMs, 1200, Math.max(1500, durationMs - finalHoldMs - 500));
         setTimeout(() => {
           removeCargoObject('route-cargo-hold');
           const restartDelayMs = clampInt(command?.cargoRestartDelayMs ?? 850, 250, 2500);
@@ -835,7 +837,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
             }, restartDelayMs);
           });
         }, cargoDelayMs);
-        debugLog(`SCENE_CARGO_HOLD_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} routeMs=${Math.round(cargoRouteMs)} slackMs=${cargoArrivalSlackMs} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs} cargoPathIndex=${cargoPathIndex} routeSent=${routeSentCount}/${boarderPlans.length}`);
+        debugLog(`SCENE_CARGO_HOLD_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} routeMs=${Math.round(cargoRouteMs)} timingFactor=${cargoTimingFactor} slackMs=${cargoArrivalSlackMs} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs} cargoPathIndex=${cargoPathIndex} routeSent=${routeSentCount}/${boarderPlans.length}`);
       }
     }
     if (!routeSent) {
@@ -845,9 +847,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }, 0);
       routeSent = routeSentCount > 0;
       if (routeSent && removeCargoAtWaypoint && cargo && primaryPath.length >= 2) {
-        const cargoDelayMs = clampInt((cargoRouteMs * 1.2) + cargoArrivalSlackMs + cargoHoldMs, 1200, Math.max(1500, durationMs - finalHoldMs - 500));
+        const cargoDelayMs = clampInt((cargoRouteMs * cargoTimingFactor) + cargoArrivalSlackMs + cargoHoldMs, 400, Math.max(800, durationMs - finalHoldMs - 500));
         setTimeout(() => removeCargoObject('route-cargo-waypoint'), cargoDelayMs);
-        debugLog(`SCENE_CARGO_REMOVE_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} routeMs=${Math.round(cargoRouteMs)} slackMs=${cargoArrivalSlackMs} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs}`);
+        debugLog(`SCENE_CARGO_REMOVE_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} routeMs=${Math.round(cargoRouteMs)} timingFactor=${cargoTimingFactor} slackMs=${cargoArrivalSlackMs} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs} splitCargoRoute=${splitCargoRoute ? 1 : 0}`);
       }
     }
 

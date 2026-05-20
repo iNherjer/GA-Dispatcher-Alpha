@@ -137,7 +137,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-15';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-16';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE = 'Tarmac_Male_Summer_Asian';
@@ -901,7 +901,10 @@ function _missionSceneCommonSceneCommandFields() {
         vehicleReturnPath: _missionSceneVehicleDeparturePath().slice().reverse(),
         vehicleSpeedKts: 7,
         vehicleBoardDelayMs: 2800,
-        cargoRestartDelayMs: 850,
+        splitCargoRoute: false,
+        cargoArrivalSlackMs: 250,
+        cargoTimingFactor: 1,
+        cargoRestartDelayMs: 0,
         cargoRestartSpeedKts: 2.1,
         walkSpeedKts: Number.isFinite(Number(boardingConfig.walkSpeedKts)) ? Number(boardingConfig.walkSpeedKts) : 3.3,
         openDoor: boardingConfig.openDoor !== false,
@@ -1161,7 +1164,10 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
         finalHoldMs: 450,
         removePerson: true,
         removeCargoAtWaypoint: true,
-        cargoHoldMs: 2600,
+        splitCargoRoute: false,
+        cargoArrivalSlackMs: 250,
+        cargoTimingFactor: 1,
+        cargoHoldMs: 0,
         cargoObjectKind: 'cargo'
     };
     if (Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon))) {
@@ -2460,8 +2466,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 233;
-const MIN_TRACKER_VERSION_LABEL = 'v233';
+const MIN_TRACKER_VERSION_CODE = 234;
+const MIN_TRACKER_VERSION_LABEL = 'v234';
 let trackerVersionPromptShown = false;
 
 window.updateLivePlanePerformanceMode = function(forceState = null) {
