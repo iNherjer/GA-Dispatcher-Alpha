@@ -109,7 +109,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-7';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-8';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -135,6 +135,38 @@ window.missionSceneStatus = {
     autoSpawnedFor: null,
     autoClearedFor: null
 };
+
+function _missionSceneBoardingConfig() {
+    const fallback = {
+        spawn: { forwardM: 16, rightM: -8, altOffsetFt: 0 },
+        target: { forwardM: 4.5, rightM: 8.5, altOffsetFt: 0 },
+        path: [
+            { forwardM: 16, rightM: -8, altOffsetFt: 0 },
+            { forwardM: 4.5, rightM: 8.5, altOffsetFt: 0 }
+        ],
+        walkSpeedKts: 2.2,
+        durationMs: 23000,
+        openDoor: true
+    };
+    try {
+        if (typeof window.getMissionSceneBoardingConfig === 'function') {
+            const cfg = window.getMissionSceneBoardingConfig();
+            if (cfg && typeof cfg === 'object') {
+                const spawn = cfg.spawn || cfg.person || fallback.spawn;
+                const target = cfg.target || fallback.target;
+                const path = Array.isArray(cfg.path) && cfg.path.length >= 2 ? cfg.path : [spawn, target];
+                return {
+                    ...fallback,
+                    ...cfg,
+                    spawn: { ...fallback.spawn, ...spawn },
+                    target: { ...fallback.target, ...target },
+                    path: path.map(point => ({ ...point }))
+                };
+            }
+        }
+    } catch (_) {}
+    return fallback;
+}
 
 function _normalizeFireTruthOverride(value) {
     const s = String(value || '').trim().toLowerCase();
@@ -761,6 +793,8 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     const sceneId = _missionSceneId();
     const vehicleTitle = _sceneObjectTitleOverride('vehicle', MISSION_SCENE_DEFAULT_VEHICLE_TITLE);
     const personTitle = _sceneObjectTitleOverride('person', MISSION_SCENE_DEFAULT_PERSON_TITLE);
+    const boardingConfig = _missionSceneBoardingConfig();
+    const personSpawn = boardingConfig.spawn || { forwardM: 16, rightM: -8, altOffsetFt: 0 };
     const commandId = window.sendTrackerCommand({
         type: 'mission_scene_spawn',
         sceneId,
@@ -785,10 +819,10 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
                 label: 'Einweiserin',
                 objectTitle: personTitle,
                 titleCandidates: _sceneTitleCandidates(personTitle, ['Tarmac_Female_Summer_Asian', 'Termac_Female_Summer_Asian']),
-                forwardM: 16,
-                rightM: -8,
+                forwardM: Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16,
+                rightM: Number.isFinite(Number(personSpawn.rightM)) ? Number(personSpawn.rightM) : -8,
                 headingMode: 'face_aircraft',
-                altOffsetFt: 0
+                altOffsetFt: Number.isFinite(Number(personSpawn.altOffsetFt)) ? Number(personSpawn.altOffsetFt) : 0
             }
         ]
     });
@@ -870,15 +904,21 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
     if (!window.missionSceneStatus?.spawned) return { status: 'no_scene' };
     const pos = window.lastLiveGpsPos || {};
     const sceneId = status.sceneId || _missionSceneId();
+    const boardingConfig = _missionSceneBoardingConfig();
     const command = {
         type: 'mission_scene_boarding',
         sceneId,
         reason,
-        profile: 'ga_right_cockpit_v1',
-        durationMs: 23000,
-        walkSpeedKts: 2.2,
+        profile: 'app_preset',
+        path: Array.isArray(boardingConfig.path) && boardingConfig.path.length >= 2 ? boardingConfig.path : [boardingConfig.spawn, boardingConfig.target],
+        spawnPoint: boardingConfig.spawn,
+        targetPoint: boardingConfig.target,
+        durationMs: Number.isFinite(Number(boardingConfig.durationMs)) ? Number(boardingConfig.durationMs) : 23000,
+        walkSpeedKts: Number.isFinite(Number(boardingConfig.walkSpeedKts)) ? Number(boardingConfig.walkSpeedKts) : 2.2,
         finalHoldMs: 450,
-        removePerson: true
+        removePerson: true,
+        openDoor: boardingConfig.openDoor !== false,
+        doorIndex: 1
     };
     if (Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon))) {
         command.lat = Number(pos.lat);
@@ -1641,6 +1681,24 @@ function flashSyncIndicator(direction) {
     ind.style.opacity = '1';
     setTimeout(() => { ind.style.opacity = '0'; }, 800);
 }
+function getAircraftPresetsForSync() {
+    try {
+        return JSON.parse(localStorage.getItem('ga_aircraft_presets_v1') || '{}') || {};
+    } catch (_) {
+        return {};
+    }
+}
+function applyAircraftPresetsFromSync(data) {
+    if (!data || typeof data !== 'object') return;
+    try {
+        localStorage.setItem('ga_aircraft_presets_v1', JSON.stringify(data));
+        if (typeof window.loadAircraftPresets === 'function') window.loadAircraftPresets();
+        if (typeof window.updateAircraftPresetButtonsUI === 'function') window.updateAircraftPresetButtonsUI();
+        if (typeof window.selectAircraftPresetSlotFromSettings === 'function') {
+            window.selectAircraftPresetSlotFromSettings(window.activeAircraftPresetSettingsSlot || window.selectedAC || 'C172');
+        }
+    } catch (_) {}
+}
 function setLastSyncedPayload() {
     const payloadToCompare = {
         pinboard: JSON.parse(localStorage.getItem('ga_pinboard') || '[]'),
@@ -1649,7 +1707,8 @@ function setLastSyncedPayload() {
         groupName: getGroupName(),
         groupNick: getGroupNick(),
         knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
-        newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]')
+        newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
+        aircraftPresets: getAircraftPresetsForSync()
     };
     lastSyncedPayloadStr = JSON.stringify(payloadToCompare);
 }
@@ -1674,7 +1733,8 @@ async function triggerCloudSave(immediate = false) {
         groupName: getGroupName(),
         groupNick: getGroupNick(),
         knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
-        newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]')
+        newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
+        aircraftPresets: getAircraftPresetsForSync()
     };
 
     const currentPayloadStr = JSON.stringify(payloadToCompare);
@@ -1760,6 +1820,7 @@ async function forceSyncLoad() {
         }
         if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
         if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
+        if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
 
         if (data.groupName !== undefined) {
             updateGroupUIFromSync(data.groupName, data.groupNick);
@@ -1809,6 +1870,7 @@ async function silentSyncLoad() {
             }
             if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
             if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
+            if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
 
             if (data.groupName !== undefined) {
                 updateGroupUIFromSync(data.groupName, data.groupNick);
@@ -1972,7 +2034,8 @@ async function checkCloudAfterIdle() {
                 groupName: getGroupName(),
                 groupNick: getGroupNick(),
                 knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
-                newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]')
+                newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
+                aircraftPresets: getAircraftPresetsForSync()
             };
             const currentPayloadStr = JSON.stringify(payloadToCompare);
             const hasLocalUnsavedChanges = (currentPayloadStr !== lastSyncedPayloadStr);
@@ -1995,6 +2058,7 @@ async function checkCloudAfterIdle() {
                 }
                 if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
                 if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
+                if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
                 if (data.groupName !== undefined) {
                     updateGroupUIFromSync(data.groupName, data.groupNick);
                 }

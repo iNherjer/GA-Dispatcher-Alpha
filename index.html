@@ -788,8 +788,50 @@
         <div class="settings-action-row">
             <button class="btn-preset sync-req-btn" style="flex: 1; margin: 0; height: 42px; background: #333; color: #f2c12e;" onclick="saveAircraftPresetFromSettings()">💾 Preset speichern</button>
         </div>
+        <div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <div>
+                    <div class="settings-section-kicker">Boarding Szene</div>
+                    <div style="font-size: 10px; color: #9aa3ad;">Relative Punkte zum Flugzeug</div>
+                </div>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 10px; color: #ccd3da;">
+                    <input type="checkbox" id="boardingDoorOpenToggle" onchange="setBoardingDoorOption(this.checked)" checked>
+                    Tür
+                </label>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px;">
+                    <div style="display: flex; justify-content: space-between; gap: 6px; align-items: center; margin-bottom: 6px;">
+                        <strong style="font-size: 10px; color: #f2c12e;">Spawn</strong>
+                        <span id="boardingSpawnReadout" style="font-size: 9px; color: #ccd3da; text-align: right;">-</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
+                        <span></span><button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach vorn" onclick="nudgeBoardingPresetPoint('spawn','forwardM',1)">↑</button><span></span>
+                        <button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach links" onclick="nudgeBoardingPresetPoint('spawn','rightM',-1)">←</button>
+                        <button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach hinten" onclick="nudgeBoardingPresetPoint('spawn','forwardM',-1)">↓</button>
+                        <button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach rechts" onclick="nudgeBoardingPresetPoint('spawn','rightM',1)">→</button>
+                    </div>
+                </div>
+                <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px;">
+                    <div style="display: flex; justify-content: space-between; gap: 6px; align-items: center; margin-bottom: 6px;">
+                        <strong style="font-size: 10px; color: #4da6ff;">Boarding</strong>
+                        <span id="boardingTargetReadout" style="font-size: 9px; color: #ccd3da; text-align: right;">-</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
+                        <span></span><button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach vorn" onclick="nudgeBoardingPresetPoint('target','forwardM',1)">↑</button><span></span>
+                        <button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach links" onclick="nudgeBoardingPresetPoint('target','rightM',-1)">←</button>
+                        <button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach hinten" onclick="nudgeBoardingPresetPoint('target','forwardM',-1)">↓</button>
+                        <button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach rechts" onclick="nudgeBoardingPresetPoint('target','rightM',1)">→</button>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-action-row" style="margin-top: 8px;">
+                <button class="btn-preset" style="flex: 1; margin: 0; height: 34px; background: #2c3036; color: #ccd3da;" onclick="resetBoardingPresetConfig()">Reset</button>
+                <button class="btn-preset" style="flex: 1; margin: 0; height: 34px; background: #253044; color: #8bbcff;" onclick="previewBoardingPresetScene()">Szene neu setzen</button>
+            </div>
+        </div>
         <div class="api-hint">
-            Slot auswählen, Name und Werte bearbeiten und speichern. Gilt für die drei Flugzeug-Buttons im Hauptpanel und NavCom.
+            Slot auswählen, Name und Werte bearbeiten und speichern. Boarding-Punkte werden pro Slot gespeichert und mit der Pilot-ID synchronisiert.
         </div>
     </div>
 
@@ -1521,15 +1563,15 @@
 <script defer src="vendor/leaflet/leaflet.js"></script>
 <script defer src="datenbank.js"></script>
 <script defer src="missions.js"></script>
-<script defer src="taws.js?v=scene-debug-20260520-7"></script>
-<script defer src="sync.js?v=scene-debug-20260520-7"></script>
+<script defer src="taws.js?v=scene-debug-20260520-8"></script>
+<script defer src="sync.js?v=scene-debug-20260520-8"></script>
 <script defer src="checklists.js"></script>
 <script defer src="profile.js"></script>
 <script defer src="map.js"></script>
-<script defer src="app.js?v=scene-debug-20260520-7"></script>
+<script defer src="app.js?v=scene-debug-20260520-8"></script>
 <script defer src="board.js"></script>
-<script defer src="sim-route.js?v=scene-debug-20260520-7"></script>
-<script defer src="passenger-voice.js?v=scene-debug-20260520-7"></script>
+<script defer src="sim-route.js?v=scene-debug-20260520-8"></script>
+<script defer src="passenger-voice.js?v=scene-debug-20260520-8"></script>
 <script defer src="tutorial.js"></script>
 <script>
     function _openFloatingMenuInViewport(menu, btn, preferAbove = false) {

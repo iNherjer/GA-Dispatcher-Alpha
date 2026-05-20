@@ -33,9 +33,18 @@ const AIRCRAFT_PRESET_DEFAULTS = {
     'PA-24': { name: 'Comanche', tas: 160, gph: 14, pax: 4 },
     'AERO': { name: 'Aerostar', tas: 220, gph: 25, pax: 6 }
 };
+const AIRCRAFT_BOARDING_DEFAULT = {
+    spawn: { forwardM: 16, rightM: -8 },
+    target: { forwardM: 4.5, rightM: 8.5 },
+    walkSpeedKts: 2.2,
+    durationMs: 23000,
+    openDoor: true
+};
 const AIRCRAFT_PRESET_SLOT_ORDER = ['C172', 'PA-24', 'AERO'];
 let aircraftPresets = {};
 let activeAircraftPresetSettingsSlot = 'C172';
+window.activeAircraftPresetSettingsSlot = activeAircraftPresetSettingsSlot;
+let aircraftPresetCloudSyncTimer = null;
 const AIRCRAFT_PRESET_SLOT_LABELS = {
     'C172': 'Slot 1',
     'PA-24': 'Slot 2',
@@ -48,6 +57,43 @@ function sanitizeAircraftPresetName(slotId, value) {
     return text ? text.slice(0, 20) : fallback;
 }
 
+function clampBoardingOffset(value, fallback = 0) {
+    let n = Number(value);
+    if (!Number.isFinite(n)) n = fallback;
+    n = Math.max(-45, Math.min(45, n));
+    return Math.round(n * 2) / 2;
+}
+
+function normalizeBoardingPoint(source, fallback) {
+    const src = source && typeof source === 'object' ? source : {};
+    const fb = fallback && typeof fallback === 'object' ? fallback : { forwardM: 0, rightM: 0 };
+    return {
+        forwardM: clampBoardingOffset(src.forwardM ?? src.forward ?? src.x, fb.forwardM),
+        rightM: clampBoardingOffset(src.rightM ?? src.right ?? src.y, fb.rightM),
+        altOffsetFt: clampMainPerfSetting(src.altOffsetFt ?? src.altOffset ?? 0, -20, 20, 1, 0)
+    };
+}
+
+function normalizeAircraftBoardingConfig(source) {
+    const src = source && typeof source === 'object' ? source : {};
+    const rawPath = Array.isArray(src.path) ? src.path : (Array.isArray(src.waypoints) ? src.waypoints : null);
+    const spawn = normalizeBoardingPoint(src.spawn || src.person || rawPath?.[0], AIRCRAFT_BOARDING_DEFAULT.spawn);
+    const targetFallback = rawPath && rawPath.length >= 2 ? rawPath[rawPath.length - 1] : AIRCRAFT_BOARDING_DEFAULT.target;
+    const target = normalizeBoardingPoint(src.target || src.boarding || targetFallback, AIRCRAFT_BOARDING_DEFAULT.target);
+    const path = (rawPath && rawPath.length >= 2 ? rawPath : [spawn, target])
+        .map((point, index) => normalizeBoardingPoint(point, index === 0 ? spawn : target))
+        .filter(point => Number.isFinite(point.forwardM) && Number.isFinite(point.rightM));
+    const usablePath = path.length >= 2 ? path : [spawn, target];
+    return {
+        spawn,
+        target,
+        path: usablePath,
+        walkSpeedKts: Math.max(0.5, Math.min(4, Number(src.walkSpeedKts ?? src.speedKts ?? AIRCRAFT_BOARDING_DEFAULT.walkSpeedKts) || AIRCRAFT_BOARDING_DEFAULT.walkSpeedKts)),
+        durationMs: clampMainPerfSetting(src.durationMs ?? AIRCRAFT_BOARDING_DEFAULT.durationMs, 8000, 45000, 500, AIRCRAFT_BOARDING_DEFAULT.durationMs),
+        openDoor: src.openDoor !== false
+    };
+}
+
 function normalizeAircraftPreset(slotId, source) {
     const defaults = AIRCRAFT_PRESET_DEFAULTS[slotId] || AIRCRAFT_PRESET_DEFAULTS['C172'];
     const preset = source && typeof source === 'object' ? source : {};
@@ -55,7 +101,8 @@ function normalizeAircraftPreset(slotId, source) {
         name: sanitizeAircraftPresetName(slotId, preset.name ?? defaults.name),
         tas: clampMainPerfSetting(preset.tas, 80, 260, 5, defaults.tas),
         gph: clampMainPerfSetting(preset.gph, 5, 35, 1, defaults.gph),
-        pax: clampMainPerfSetting(preset.pax, 1, 6, 1, defaults.pax)
+        pax: clampMainPerfSetting(preset.pax, 1, 6, 1, defaults.pax),
+        boarding: normalizeAircraftBoardingConfig(preset.boarding || preset.boardingScene || defaults.boarding)
     };
 }
 
@@ -72,6 +119,7 @@ function saveAircraftPresets() {
         localStorage.setItem(AIRCRAFT_PRESET_STORAGE_KEY, JSON.stringify(aircraftPresets));
     } catch (_) {}
 }
+window.saveAircraftPresets = saveAircraftPresets;
 
 function loadAircraftPresets() {
     const defaults = buildDefaultAircraftPresets();
@@ -87,6 +135,7 @@ function loadAircraftPresets() {
     });
     saveAircraftPresets();
 }
+window.loadAircraftPresets = loadAircraftPresets;
 
 function getAircraftPreset(slotId) {
     const resolvedSlot = AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId) ? slotId : 'C172';
@@ -102,6 +151,101 @@ function setAircraftPresetStatus(msg, color = '#888') {
     el.innerText = String(msg || '');
     el.style.color = color;
 }
+
+function formatBoardingMeters(value) {
+    return `${Math.abs(Number(value) || 0).toFixed(1).replace('.', ',')} m`;
+}
+
+function describeBoardingPoint(point) {
+    const forward = Number(point?.forwardM || 0);
+    const right = Number(point?.rightM || 0);
+    const fLabel = forward >= 0 ? `vorn ${formatBoardingMeters(forward)}` : `hinten ${formatBoardingMeters(forward)}`;
+    const rLabel = right >= 0 ? `rechts ${formatBoardingMeters(right)}` : `links ${formatBoardingMeters(right)}`;
+    return `${fLabel} / ${rLabel}`;
+}
+
+function updateBoardingPresetEditorUI(config = null) {
+    const cfg = normalizeAircraftBoardingConfig(config || getAircraftPreset(activeAircraftPresetSettingsSlot).boarding);
+    const spawnReadout = document.getElementById('boardingSpawnReadout');
+    const targetReadout = document.getElementById('boardingTargetReadout');
+    const doorToggle = document.getElementById('boardingDoorOpenToggle');
+    if (spawnReadout) spawnReadout.textContent = describeBoardingPoint(cfg.spawn);
+    if (targetReadout) targetReadout.textContent = describeBoardingPoint(cfg.target);
+    if (doorToggle) doorToggle.checked = cfg.openDoor !== false;
+}
+
+function scheduleAircraftPresetCloudSync() {
+    const toggle = document.getElementById('syncToggle');
+    if (!toggle || !toggle.checked || typeof triggerCloudSave !== 'function') return;
+    clearTimeout(aircraftPresetCloudSyncTimer);
+    aircraftPresetCloudSyncTimer = setTimeout(() => {
+        try { triggerCloudSave(true); } catch (_) {}
+    }, 1200);
+}
+
+function updateAircraftPresetBoarding(slotId, updater, statusText) {
+    const resolvedSlot = AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId) ? slotId : 'C172';
+    const preset = getAircraftPreset(resolvedSlot);
+    const boarding = normalizeAircraftBoardingConfig(preset.boarding);
+    updater(boarding);
+    boarding.spawn = normalizeBoardingPoint(boarding.spawn, AIRCRAFT_BOARDING_DEFAULT.spawn);
+    boarding.target = normalizeBoardingPoint(boarding.target, AIRCRAFT_BOARDING_DEFAULT.target);
+    boarding.path = [boarding.spawn, boarding.target];
+    aircraftPresets[resolvedSlot] = normalizeAircraftPreset(resolvedSlot, { ...preset, boarding });
+    saveAircraftPresets();
+    updateBoardingPresetEditorUI(aircraftPresets[resolvedSlot].boarding);
+    updateAircraftPresetButtonsUI();
+    setAircraftPresetStatus(statusText || `${getAircraftPresetSlotLabel(resolvedSlot)} Boarding gespeichert`, '#4caf50');
+    scheduleAircraftPresetCloudSync();
+}
+
+function nudgeBoardingPresetPoint(pointKey, axis, delta) {
+    if (!['spawn', 'target'].includes(pointKey) || !['forwardM', 'rightM'].includes(axis)) return;
+    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
+    updateAircraftPresetBoarding(slotId, (boarding) => {
+        boarding[pointKey][axis] = clampBoardingOffset(Number(boarding[pointKey][axis] || 0) + Number(delta || 0), boarding[pointKey][axis]);
+    }, `${getAircraftPresetSlotLabel(slotId)} ${pointKey === 'spawn' ? 'Spawn' : 'Boarding'} angepasst`);
+}
+window.nudgeBoardingPresetPoint = nudgeBoardingPresetPoint;
+
+function resetBoardingPresetConfig() {
+    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
+    updateAircraftPresetBoarding(slotId, (boarding) => {
+        boarding.spawn = { ...AIRCRAFT_BOARDING_DEFAULT.spawn };
+        boarding.target = { ...AIRCRAFT_BOARDING_DEFAULT.target };
+        boarding.walkSpeedKts = AIRCRAFT_BOARDING_DEFAULT.walkSpeedKts;
+        boarding.durationMs = AIRCRAFT_BOARDING_DEFAULT.durationMs;
+        boarding.openDoor = AIRCRAFT_BOARDING_DEFAULT.openDoor;
+    }, `${getAircraftPresetSlotLabel(slotId)} Boarding reset`);
+}
+window.resetBoardingPresetConfig = resetBoardingPresetConfig;
+
+function setBoardingDoorOption(enabled) {
+    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
+    updateAircraftPresetBoarding(slotId, (boarding) => {
+        boarding.openDoor = !!enabled;
+    }, `${getAircraftPresetSlotLabel(slotId)} Tür ${enabled ? 'aktiv' : 'aus'}`);
+}
+window.setBoardingDoorOption = setBoardingDoorOption;
+
+function previewBoardingPresetScene() {
+    if (typeof window.missionSceneClear === 'function') window.missionSceneClear('boarding-preset-preview-clear');
+    setTimeout(() => {
+        if (typeof window.missionSceneSpawn === 'function') window.missionSceneSpawn('boarding-preset-preview');
+    }, 450);
+}
+window.previewBoardingPresetScene = previewBoardingPresetScene;
+
+function getMissionSceneBoardingConfig(slotId = selectedAC) {
+    const cfg = normalizeAircraftBoardingConfig(getAircraftPreset(slotId).boarding);
+    return {
+        ...cfg,
+        spawn: { ...cfg.spawn },
+        target: { ...cfg.target },
+        path: (cfg.path && cfg.path.length >= 2 ? cfg.path : [cfg.spawn, cfg.target]).map(point => ({ ...point }))
+    };
+}
+window.getMissionSceneBoardingConfig = getMissionSceneBoardingConfig;
 
 function getAircraftPresetSlotLabel(slotId) {
     return AIRCRAFT_PRESET_SLOT_LABELS[slotId] || String(slotId || '');
@@ -137,10 +281,12 @@ function updateAircraftPresetButtonsUI() {
     if (typeof updateOpsAircraftSwitches === 'function') updateOpsAircraftSwitches();
     updateNavComAircraftButtons();
 }
+window.updateAircraftPresetButtonsUI = updateAircraftPresetButtonsUI;
 
 function selectAircraftPresetSlotFromSettings(slotId) {
     if (!AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId)) slotId = 'C172';
     activeAircraftPresetSettingsSlot = slotId;
+    window.activeAircraftPresetSettingsSlot = slotId;
     const preset = getAircraftPreset(slotId);
     const slotSelect = document.getElementById('aircraftPresetSlot');
     const nameInput = document.getElementById('aircraftPresetName');
@@ -152,6 +298,7 @@ function selectAircraftPresetSlotFromSettings(slotId) {
     if (tasInput) tasInput.value = String(preset.tas);
     if (gphInput) gphInput.value = String(preset.gph);
     if (paxInput) paxInput.value = String(preset.pax);
+    updateBoardingPresetEditorUI(preset.boarding);
     setAircraftPresetStatus(`${getAircraftPresetSlotLabel(slotId)} geladen`, '#9aa3ad');
 }
 window.selectAircraftPresetSlotFromSettings = selectAircraftPresetSlotFromSettings;
@@ -168,7 +315,8 @@ function saveAircraftPresetFromSettings() {
         name: nameInput?.value ?? defaults.name,
         tas: tasInput?.value ?? defaults.tas,
         gph: gphInput?.value ?? defaults.gph,
-        pax: paxInput?.value ?? defaults.pax
+        pax: paxInput?.value ?? defaults.pax,
+        boarding: getAircraftPreset(slotId).boarding
     };
     const next = normalizeAircraftPreset(slotId, candidate);
     aircraftPresets[slotId] = next;
@@ -179,6 +327,7 @@ function saveAircraftPresetFromSettings() {
     if (selectedAC === slotId) {
         applyPreset(next.tas, next.gph, next.pax, slotId);
     }
+    scheduleAircraftPresetCloudSync();
 }
 window.saveAircraftPresetFromSettings = saveAircraftPresetFromSettings;
 

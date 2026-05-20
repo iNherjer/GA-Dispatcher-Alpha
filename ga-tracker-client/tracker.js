@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v223';
-const TRACKER_VERSION_CODE = 223;
+const TRACKER_VERSION = 'v224';
+const TRACKER_VERSION_CODE = 224;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -22,6 +22,9 @@ const MISSION_SCENE_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const TRACKER_DEBUG_FILE = path.join(process.pkg ? path.dirname(process.execPath) : __dirname, 'ga-tracker-debug.txt');
 const TELEPORT_DEF_ID = 9361;
 const WAYPOINT_DEF_ID = 9362;
+const DOOR_OPEN_EVENT_ID = 9363;
+const DOOR_CLOSE_EVENT_ID = 9364;
+const DOOR_TOGGLE_EVENT_ID = 9365;
 
 function debugLog(line) {
   try {
@@ -167,6 +170,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   let nextReqId = 9300;
   let teleportDefReady = false;
   let waypointDefReady = false;
+  let doorEventsReady = false;
 
   const ensureTeleportDefinition = () => {
     if (teleportDefReady) return true;
@@ -235,6 +239,40 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return true;
     } catch (err) {
       debugLog(`WAYPOINT_ROUTE_ERROR objectId=${objectId} points=${route.length} error=${err?.message || err}`);
+      return false;
+    }
+  };
+
+  const ensureDoorEvents = () => {
+    if (doorEventsReady) return true;
+    try {
+      handle.mapClientEventToSimEvent(DOOR_OPEN_EVENT_ID, 'OPEN_AIRCRAFT_DOORS');
+      handle.mapClientEventToSimEvent(DOOR_CLOSE_EVENT_ID, 'CLOSE_AIRCRAFT_DOORS');
+      handle.mapClientEventToSimEvent(DOOR_TOGGLE_EVENT_ID, 'TOGGLE_AIRCRAFT_EXIT');
+      doorEventsReady = true;
+      debugLog('DOOR_EVENTS_READY');
+      return true;
+    } catch (err) {
+      debugLog(`DOOR_EVENTS_ERROR ${err?.message || err}`);
+      return false;
+    }
+  };
+
+  const setUserAircraftDoor = (openDoor, doorIndex = 1, reason = 'boarding') => {
+    if (!ensureDoorEvents()) return false;
+    const index = clampInt(doorIndex, 0, 8);
+    const doorParam = index <= 0 ? 0 : index;
+    try {
+      if (typeof handle.transmitClientEventEx === 'function') {
+        const eventId = openDoor ? DOOR_OPEN_EVENT_ID : DOOR_CLOSE_EVENT_ID;
+        handle.transmitClientEventEx(SimConnectConstants.OBJECT_ID_USER, eventId, 0, 0, doorParam, 0, 0, 0, 0);
+      } else {
+        handle.transmitClientEvent(SimConnectConstants.OBJECT_ID_USER, DOOR_TOGGLE_EVENT_ID, doorParam, 0, 0);
+      }
+      debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_ATTEMPT index=${doorParam} reason=${reason}`);
+      return true;
+    } catch (err) {
+      debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_ERROR index=${doorParam} reason=${reason} error=${err?.message || err}`);
       return false;
     }
   };
@@ -365,6 +403,22 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     ]
   };
 
+  const normalizeBoardingPathPoint = (point, fallback = {}) => {
+    const src = point && typeof point === 'object' ? point : {};
+    return {
+      forwardM: toFiniteNumber(src.forwardM ?? src.forward ?? src.x, toFiniteNumber(fallback.forwardM ?? fallback.forward ?? fallback.x, 0)),
+      rightM: toFiniteNumber(src.rightM ?? src.right ?? src.y, toFiniteNumber(fallback.rightM ?? fallback.right ?? fallback.y, 0)),
+      altOffsetFt: toFiniteNumber(src.altOffsetFt ?? src.altOffset ?? src.z, toFiniteNumber(fallback.altOffsetFt ?? fallback.altOffset ?? fallback.z, 0))
+    };
+  };
+
+  const commandBoardingPath = (command) => {
+    const raw = Array.isArray(command?.path) ? command.path
+      : (Array.isArray(command?.boardingPath) ? command.boardingPath
+        : (Array.isArray(command?.waypoints) ? command.waypoints : null));
+    return raw && raw.length >= 2 ? raw : null;
+  };
+
   const sceneBaseFromCommand = (command, rec) => {
     const lastGps = typeof getLastGpsMsg === 'function' ? getLastGpsMsg() : null;
     const original = rec?.command || {};
@@ -400,13 +454,22 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const buildBoardingPath = (command, rec, person) => {
     const profileName = String(command?.profile || command?.pathProfile || 'ga_right_cockpit_v1').trim();
     const profile = sceneBoardingProfiles[profileName] || sceneBoardingProfiles.ga_right_cockpit_v1;
+    const appPath = commandBoardingPath(command);
     const base = sceneBaseFromCommand(command, rec);
     if (!Number.isFinite(base.lat) || !Number.isFinite(base.lon) || !Number.isFinite(base.altFt)) return [];
-    const start = {
+    const defaultStart = {
       forwardM: toFiniteNumber(person?.forwardM, profile[0].forwardM),
       rightM: toFiniteNumber(person?.rightM, profile[0].rightM)
     };
-    const points = [start, ...profile.slice(1)];
+    let points = appPath
+      ? appPath.map((pt, index) => normalizeBoardingPathPoint(pt, index === 0 ? defaultStart : profile[Math.min(index, profile.length - 1)]))
+      : [defaultStart, ...profile.slice(1).map(pt => normalizeBoardingPathPoint(pt))];
+    if (command?.spawnPoint && points[0]) {
+      points[0] = normalizeBoardingPathPoint(command.spawnPoint, points[0]);
+    }
+    if (command?.targetPoint && points.length >= 2) {
+      points[points.length - 1] = normalizeBoardingPathPoint(command.targetPoint, points[points.length - 1]);
+    }
     return points.map((pt) => {
       const rel = buildRelativePosition(base, pt.forwardM, pt.rightM);
       return {
@@ -444,12 +507,19 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const finalHoldMs = clampInt(command?.finalHoldMs ?? 450, 0, 2000);
     const removePerson = command?.removePerson !== false;
     const speedKts = Math.max(0.5, toFiniteNumber(command?.speedKts ?? command?.walkSpeedKts, 2.2) || 2.2);
+    const doorEnabled = command?.openDoor === true || command?.door === true;
+    const doorIndex = clampInt(command?.doorIndex ?? 1, 0, 8);
     const distanceM = pathDistanceM(path);
     const speedMps = Math.max(0.25, speedKts * 0.514444);
     const durationMs = clampInt(Math.max(requestedDurationMs, (distanceM / speedMps) * 1000 + 6500), 3000, 45000);
-    debugLog(`SCENE_BOARDING_START scene=${sceneId} objectId=${person.objectId} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} durationMs=${durationMs} waypoints=${path.length - 1} speedKts=${speedKts}`);
+    const pathSource = commandBoardingPath(command) ? 'app' : (command?.profile || command?.pathProfile || 'ga_right_cockpit_v1');
+    debugLog(`SCENE_BOARDING_START scene=${sceneId} objectId=${person.objectId} path=${pathSource} durationMs=${durationMs} waypoints=${path.length - 1} speedKts=${speedKts} door=${doorEnabled ? 1 : 0}`);
     console.log(`🚶 Scene ${sceneId}: Boarding-Animation startet (${Math.round(durationMs / 1000)}s).`);
 
+    if (doorEnabled) {
+      setUserAircraftDoor(true, doorIndex, 'boarding-open');
+      await sleep(350);
+    }
     const routeSent = sendWaypointRoute(person.objectId, path.slice(1), speedKts);
     if (!routeSent && command?.fallbackTeleport === true) {
       const segments = [];
@@ -491,6 +561,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       } catch (err) {
         debugLog(`SCENE_BOARDING_REMOVE_ERROR scene=${sceneId} objectId=${person.objectId} error=${err?.message || err}`);
       }
+    }
+    if (doorEnabled) {
+      await sleep(300);
+      setUserAircraftDoor(false, doorIndex, 'boarding-close');
     }
     debugLog(`SCENE_BOARDING_OK scene=${sceneId} objectId=${person.objectId} routeSent=${routeSent ? 1 : 0} removed=${removed}`);
     sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: routeSent ? 'ok' : 'error', routeSent: routeSent ? 1 : 0, removed, boarded: routeSent ? 1 : 0, durationMs, error: routeSent ? '' : 'waypoint_route_failed' });
@@ -743,7 +817,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         return true;
       }
       if (type === 'mission_scene_boarding') {
-        debugLog(`COMMAND mission_scene_boarding scene=${command?.sceneId || 'mission-scene'} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'}`);
+        const pathCount = Array.isArray(command?.path) ? command.path.length : (Array.isArray(command?.boardingPath) ? command.boardingPath.length : (Array.isArray(command?.waypoints) ? command.waypoints.length : 0));
+        debugLog(`COMMAND mission_scene_boarding scene=${command?.sceneId || 'mission-scene'} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} pathPoints=${pathCount}`);
         animateMissionSceneBoarding(command).catch(err => {
           console.warn(`⚠️  Scene boarding failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_boarding_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
