@@ -108,7 +108,7 @@ let missionRuntime = {
 };
 
 let missionSmokeCommandSeq = 0;
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-2';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-3';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -1147,6 +1147,9 @@ window.missionRuntimeReset = function() {
 };
 
 window.startMissionBoarding = async function() {
+    if (typeof window.paxVoiceUnlockAudio === 'function') {
+        try { window.paxVoiceUnlockAudio('boarding-click'); } catch (_) {}
+    }
     if (missionRuntime.active) return true;
     if (!_hasValidMissionForStart() || !_missionStartGroundReady()) {
         _updateMissionRuntimeUi();
@@ -1181,6 +1184,9 @@ window.startMissionBoarding = async function() {
 };
 
 window.manualMissionStart = function() {
+    if (typeof window.paxVoiceUnlockAudio === 'function') {
+        try { window.paxVoiceUnlockAudio('mission-start-click'); } catch (_) {}
+    }
     _setMissionStartPhase('boarded');
     missionRuntime.armed = true;
     missionRuntime.active = true;

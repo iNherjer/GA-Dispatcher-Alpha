@@ -99,6 +99,38 @@ function _paxDrawZones() {
 let _paxVoiceEnabled = (localStorage.getItem('awm_pax_voice') === '1');
 let _lastSpokenText  = null; // last generated text — for retroactive TTS
 let _lastSpokenSpeaker = null; // speaker snapshot for retroactive TTS
+let _paxAudioWarnedAt = 0;
+
+window.paxVoiceUnlockAudio = function(reason = 'manual') {
+    let info = null;
+    try {
+        if (typeof window.awmEnsureAudioUnlocked === 'function') {
+            info = window.awmEnsureAudioUnlocked(`pax:${reason}`) || null;
+        }
+    } catch (_) {}
+    const ctx = info?.ctx || window._tawsAudioCtx || null;
+    if (!ctx) {
+        _paxLog('AudioContext nicht verfügbar; bitte einmal in die App klicken und erneut versuchen.', 'warn');
+        return null;
+    }
+    if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+    }
+    try {
+        const silent = ctx.createBuffer(1, 1, ctx.sampleRate || 24000);
+        const src = ctx.createBufferSource();
+        src.buffer = silent;
+        src.connect(window._awmMasterGain || ctx.destination);
+        src.start(0);
+    } catch (_) {}
+    const gain = window._awmMasterGain;
+    const vol = Number(gain?.gain?.value ?? info?.volume);
+    if (Number.isFinite(vol) && vol <= 0.01 && Date.now() - _paxAudioWarnedAt > 5000) {
+        _paxAudioWarnedAt = Date.now();
+        _paxLog('Audio-Lautstärke steht auf 0%.', 'warn');
+    }
+    return ctx;
+};
 
 window.paxVoiceSetEnabled = function(on) {
     const wasOff = !_paxVoiceEnabled;
@@ -1533,9 +1565,15 @@ function _normalizeSpokenText(text) {
 }
 
 async function _paxDecodeAndPlay(base64Audio, mimeType) {
-    const ctx = window._tawsAudioCtx;
+    const ctx = (typeof window.paxVoiceUnlockAudio === 'function')
+        ? window.paxVoiceUnlockAudio('playback')
+        : window._tawsAudioCtx;
     if (!ctx) { _paxLog('AudioContext nicht verfügbar', 'warn'); return; }
     if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+    if (ctx.state !== 'running' && Date.now() - _paxAudioWarnedAt > 5000) {
+        _paxAudioWarnedAt = Date.now();
+        _paxLog(`AudioContext ist ${ctx.state}; Browser blockiert Playback moeglicherweise bis zum naechsten Klick.`, 'warn');
+    }
 
     const binary = atob(base64Audio);
     const bytes  = new Uint8Array(binary.length);
@@ -1588,7 +1626,7 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
                 src.start(t);
                 noise.start(t);
                 noise.stop(t + buf.duration + 0.3);
-                _paxLog(`Intercom-Wiedergabe: ${buf.duration.toFixed(1)} s`, 'audio');
+                _paxLog(`Intercom-Wiedergabe: ${buf.duration.toFixed(1)} s | audio=${ctx.state} | vol=${Number(window._awmMasterGain?.gain?.value ?? 1).toFixed(2)}`, 'audio');
             } catch (startErr) {
                 _paxLog(`Playback Startfehler: ${startErr?.message || startErr}`, 'warn');
                 guardedFinish();

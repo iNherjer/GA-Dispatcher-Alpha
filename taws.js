@@ -110,6 +110,19 @@ function _tawsUnlockAll() {
         speechSynthesis.speak(u);
     }
 }
+window.awmEnsureAudioUnlocked = function(reason = 'manual') {
+    _tawsUnlockAll();
+    if (_tawsAudioCtx && _tawsAudioCtx.state === 'suspended') {
+        _tawsAudioCtx.resume().catch(() => {});
+    }
+    return {
+        ctx: _tawsAudioCtx,
+        gain: _awmMasterGain,
+        state: _tawsAudioCtx?.state || 'none',
+        volume: _awmVolume,
+        reason
+    };
+};
 document.addEventListener('touchstart', _tawsUnlockAll, { once: true, passive: true });
 document.addEventListener('click',      _tawsUnlockAll, { once: true });
 
