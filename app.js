@@ -36,8 +36,8 @@ const AIRCRAFT_PRESET_DEFAULTS = {
 const AIRCRAFT_BOARDING_DEFAULT = {
     spawn: { forwardM: 16, rightM: -8 },
     target: { forwardM: 4.5, rightM: 8.5 },
-    walkSpeedKts: 2.2,
-    durationMs: 23000,
+    walkSpeedKts: 3.1,
+    durationMs: 18000,
     openDoor: true
 };
 const AIRCRAFT_PRESET_SLOT_ORDER = ['C172', 'PA-24', 'AERO'];
@@ -88,8 +88,8 @@ function normalizeAircraftBoardingConfig(source) {
         spawn,
         target,
         path: usablePath,
-        walkSpeedKts: Math.max(0.5, Math.min(4, Number(src.walkSpeedKts ?? src.speedKts ?? AIRCRAFT_BOARDING_DEFAULT.walkSpeedKts) || AIRCRAFT_BOARDING_DEFAULT.walkSpeedKts)),
-        durationMs: clampMainPerfSetting(src.durationMs ?? AIRCRAFT_BOARDING_DEFAULT.durationMs, 8000, 45000, 500, AIRCRAFT_BOARDING_DEFAULT.durationMs),
+        walkSpeedKts: Math.max(2.8, Math.min(4, Number(src.walkSpeedKts ?? src.speedKts ?? AIRCRAFT_BOARDING_DEFAULT.walkSpeedKts) || AIRCRAFT_BOARDING_DEFAULT.walkSpeedKts)),
+        durationMs: clampMainPerfSetting(src.durationMs ?? AIRCRAFT_BOARDING_DEFAULT.durationMs, 8000, 20000, 500, AIRCRAFT_BOARDING_DEFAULT.durationMs),
         openDoor: src.openDoor !== false
     };
 }
@@ -169,9 +169,11 @@ function updateBoardingPresetEditorUI(config = null) {
     const spawnReadout = document.getElementById('boardingSpawnReadout');
     const targetReadout = document.getElementById('boardingTargetReadout');
     const doorToggle = document.getElementById('boardingDoorOpenToggle');
+    const markerToggle = document.getElementById('boardingMarkerToggle');
     if (spawnReadout) spawnReadout.textContent = describeBoardingPoint(cfg.spawn);
     if (targetReadout) targetReadout.textContent = describeBoardingPoint(cfg.target);
     if (doorToggle) doorToggle.checked = cfg.openDoor !== false;
+    if (markerToggle && typeof window.isBoardingMarkerEnabled === 'function') markerToggle.checked = window.isBoardingMarkerEnabled();
 }
 
 function scheduleAircraftPresetCloudSync() {
@@ -197,6 +199,7 @@ function updateAircraftPresetBoarding(slotId, updater, statusText) {
     updateAircraftPresetButtonsUI();
     setAircraftPresetStatus(statusText || `${getAircraftPresetSlotLabel(resolvedSlot)} Boarding gespeichert`, '#4caf50');
     scheduleAircraftPresetCloudSync();
+    if (typeof window.scheduleBoardingMarkerRefresh === 'function') window.scheduleBoardingMarkerRefresh('preset-adjust');
 }
 
 function nudgeBoardingPresetPoint(pointKey, axis, delta) {
@@ -232,6 +235,7 @@ function previewBoardingPresetScene() {
     if (typeof window.missionSceneClear === 'function') window.missionSceneClear('boarding-preset-preview-clear');
     setTimeout(() => {
         if (typeof window.missionSceneSpawn === 'function') window.missionSceneSpawn('boarding-preset-preview');
+        if (typeof window.scheduleBoardingMarkerRefresh === 'function') window.scheduleBoardingMarkerRefresh('boarding-preset-preview');
     }, 450);
 }
 window.previewBoardingPresetScene = previewBoardingPresetScene;

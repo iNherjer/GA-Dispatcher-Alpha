@@ -36,6 +36,9 @@ const PLANE_ICON_DEFAULT_SIZE = 40;
 const PLANE_ICON_MIN_SIZE = 20;
 const PLANE_ICON_MAX_SIZE = 100;
 const MISSION_AUTO_START_KEY = 'ga_mission_auto_start_enabled';
+const BOARDING_MARKER_STORAGE_KEY = 'ga_boarding_marker_enabled';
+const BOARDING_MARKER_TITLE = 'ESD_Env_Windsock_NoPole_Orange';
+let boardingMarkerRefreshTimer = null;
 
 function isMissionAutoStartEnabled() {
     return localStorage.getItem(MISSION_AUTO_START_KEY) === 'true';
@@ -55,6 +58,30 @@ window.isMissionAutoStartEnabled = isMissionAutoStartEnabled;
 window.setMissionAutoStartEnabled = setMissionAutoStartEnabled;
 window.toggleMissionAutoStart = function() {
     setMissionAutoStartEnabled(!isMissionAutoStartEnabled());
+};
+
+function isBoardingMarkerEnabled() {
+    return localStorage.getItem(BOARDING_MARKER_STORAGE_KEY) === 'true';
+}
+window.isBoardingMarkerEnabled = isBoardingMarkerEnabled;
+
+function _boardingMarkerSceneId() {
+    return `${_missionSceneId()}-boarding-markers`;
+}
+
+function _refreshBoardingMarkerToggle() {
+    const toggle = document.getElementById('boardingMarkerToggle');
+    if (toggle) toggle.checked = isBoardingMarkerEnabled();
+}
+
+window.setBoardingMarkerOption = function(enabled) {
+    localStorage.setItem(BOARDING_MARKER_STORAGE_KEY, enabled ? 'true' : 'false');
+    _refreshBoardingMarkerToggle();
+    if (enabled) {
+        window.scheduleBoardingMarkerRefresh?.('marker-enabled');
+    } else {
+        window.boardingMarkerClear?.('marker-disabled');
+    }
 };
 
 // --- PREDICTION VECTORS ---
@@ -109,7 +136,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-8';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-9';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -144,8 +171,8 @@ function _missionSceneBoardingConfig() {
             { forwardM: 16, rightM: -8, altOffsetFt: 0 },
             { forwardM: 4.5, rightM: 8.5, altOffsetFt: 0 }
         ],
-        walkSpeedKts: 2.2,
-        durationMs: 23000,
+        walkSpeedKts: 3.1,
+        durationMs: 18000,
         openDoor: true
     };
     try {
@@ -861,6 +888,68 @@ window.missionSceneClear = function(reason = 'scene-debug-clear') {
     return true;
 };
 
+window.boardingMarkerSpawn = function(reason = 'boarding-marker') {
+    if (!isBoardingMarkerEnabled()) return false;
+    const pos = window.lastLiveGpsPos || {};
+    const gate = _missionSceneFlightGate(window.lastLiveFlightData || {});
+    if (!gate.rawHasPosition || !gate.plausiblePosition || !gate.nearDeparture || !gate.canStage) {
+        return false;
+    }
+    const cfg = _missionSceneBoardingConfig();
+    const spawn = cfg.spawn || { forwardM: 16, rightM: -8, altOffsetFt: 0 };
+    const target = cfg.target || { forwardM: 4.5, rightM: 8.5, altOffsetFt: 0 };
+    const markerTitle = BOARDING_MARKER_TITLE;
+    return !!window.sendTrackerCommand({
+        type: 'mission_scene_spawn',
+        sceneId: _boardingMarkerSceneId(),
+        reason,
+        lat: Number(pos.lat),
+        lon: Number(pos.lon),
+        altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
+        hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
+        items: [
+            {
+                kind: 'marker_spawn',
+                label: 'Boarding Spawn Marker',
+                objectTitle: markerTitle,
+                titleCandidates: _sceneTitleCandidates(markerTitle, [markerTitle, 'ESD_Env_Windsock_NoPole_Orange']),
+                forwardM: Number.isFinite(Number(spawn.forwardM)) ? Number(spawn.forwardM) : 16,
+                rightM: Number.isFinite(Number(spawn.rightM)) ? Number(spawn.rightM) : -8,
+                headingMode: 'with_aircraft',
+                altOffsetFt: Number.isFinite(Number(spawn.altOffsetFt)) ? Number(spawn.altOffsetFt) : 0
+            },
+            {
+                kind: 'marker_boarding',
+                label: 'Boarding Ziel Marker',
+                objectTitle: markerTitle,
+                titleCandidates: _sceneTitleCandidates(markerTitle, [markerTitle, 'ESD_Env_Windsock_NoPole_Orange']),
+                forwardM: Number.isFinite(Number(target.forwardM)) ? Number(target.forwardM) : 4.5,
+                rightM: Number.isFinite(Number(target.rightM)) ? Number(target.rightM) : 8.5,
+                headingMode: 'with_aircraft',
+                altOffsetFt: Number.isFinite(Number(target.altOffsetFt)) ? Number(target.altOffsetFt) : 0
+            }
+        ]
+    });
+};
+
+window.boardingMarkerClear = function(reason = 'boarding-marker-clear') {
+    clearTimeout(boardingMarkerRefreshTimer);
+    return !!window.sendTrackerCommand({
+        type: 'mission_scene_clear',
+        sceneId: _boardingMarkerSceneId(),
+        reason
+    });
+};
+
+window.scheduleBoardingMarkerRefresh = function(reason = 'boarding-marker-refresh') {
+    if (!isBoardingMarkerEnabled()) return false;
+    clearTimeout(boardingMarkerRefreshTimer);
+    boardingMarkerRefreshTimer = setTimeout(() => {
+        window.boardingMarkerSpawn?.(reason);
+    }, 280);
+    return true;
+};
+
 function _waitForMissionSceneReady(timeoutMs = 5000) {
     return new Promise(resolve => {
         const started = Date.now();
@@ -913,8 +1002,8 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
         path: Array.isArray(boardingConfig.path) && boardingConfig.path.length >= 2 ? boardingConfig.path : [boardingConfig.spawn, boardingConfig.target],
         spawnPoint: boardingConfig.spawn,
         targetPoint: boardingConfig.target,
-        durationMs: Number.isFinite(Number(boardingConfig.durationMs)) ? Number(boardingConfig.durationMs) : 23000,
-        walkSpeedKts: Number.isFinite(Number(boardingConfig.walkSpeedKts)) ? Number(boardingConfig.walkSpeedKts) : 2.2,
+        durationMs: Number.isFinite(Number(boardingConfig.durationMs)) ? Number(boardingConfig.durationMs) : 18000,
+        walkSpeedKts: Number.isFinite(Number(boardingConfig.walkSpeedKts)) ? Number(boardingConfig.walkSpeedKts) : 3.1,
         finalHoldMs: 450,
         removePerson: true,
         openDoor: boardingConfig.openDoor !== false,
@@ -1199,6 +1288,20 @@ window.resetMissionStartFlow = function() {
     _updateMissionRuntimeUi();
 };
 
+function _resetMissionStartFlowAfterEnd() {
+    _clearMissionStartPhase();
+    try {
+        if (_missionStartUiKey()) localStorage.removeItem(_missionStartBannerDismissKey());
+    } catch (_) {}
+    Object.assign(window.missionSceneStatus, {
+        boardingRequested: false,
+        boardingActive: false,
+        boardingComplete: false,
+        boardingError: null,
+        personBoarded: false
+    });
+}
+
 function _updateMissionStartBanner(autoStartEnabled) {
     const banner = document.getElementById('missionStartBanner');
     if (!banner) return;
@@ -1403,6 +1506,7 @@ window.manualMissionStart = function() {
 window.manualMissionEnd = function() {
     if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('manual-mission-end');
     if (typeof window.missionSceneClear === 'function') window.missionSceneClear('manual-mission-end');
+    if (typeof window.boardingMarkerClear === 'function') window.boardingMarkerClear('manual-mission-end');
     const pos = window.lastLiveGpsPos;
     const shouldFinalize = !!(flightRecorder && (flightRecorder.active || flightRecorder.hadAirbornePhase || (Array.isArray(flightRecorder.track) && flightRecorder.track.length > 1)));
     missionRuntime.active = false;
@@ -1411,6 +1515,7 @@ window.manualMissionEnd = function() {
     missionRuntime.readySince = 0;
     missionRuntime.pendingEndAt = 0;
     missionRuntime.lastOffDestAt = 0;
+    _resetMissionStartFlowAfterEnd();
     if (shouldFinalize) finalizeFlightRecorder(Date.now(), pos?.lat ?? null, pos?.lon ?? null);
     else resetFlightRecorder();
     _updateMissionRuntimeUi();
@@ -4161,11 +4266,13 @@ function updateFlightRecorder(lat, lon, alt) {
             if (now >= missionRuntime.pendingEndAt) {
                 if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('auto-mission-end');
                 if (typeof window.missionSceneClear === 'function') window.missionSceneClear('auto-mission-end');
+                if (typeof window.boardingMarkerClear === 'function') window.boardingMarkerClear('auto-mission-end');
                 missionRuntime.active = false;
                 missionRuntime.armed = false;
                 missionRuntime.manual = false;
                 missionRuntime.readySince = 0;
                 missionRuntime.pendingEndAt = 0;
+                _resetMissionStartFlowAfterEnd();
                 _updateMissionRuntimeUi();
             }
         } else {

@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v224';
-const TRACKER_VERSION_CODE = 224;
+const TRACKER_VERSION = 'v225';
+const TRACKER_VERSION_CODE = 225;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -503,10 +503,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: 'error', error: 'invalid_path' });
       return;
     }
-    const requestedDurationMs = clampInt(command?.durationMs ?? 23000, 3000, 45000);
+    const requestedDurationMs = clampInt(command?.durationMs ?? 18000, 3000, 45000);
     const finalHoldMs = clampInt(command?.finalHoldMs ?? 450, 0, 2000);
     const removePerson = command?.removePerson !== false;
-    const speedKts = Math.max(0.5, toFiniteNumber(command?.speedKts ?? command?.walkSpeedKts, 2.2) || 2.2);
+    const speedKts = Math.max(0.5, toFiniteNumber(command?.speedKts ?? command?.walkSpeedKts, 3.1) || 3.1);
     const doorEnabled = command?.openDoor === true || command?.door === true;
     const doorIndex = clampInt(command?.doorIndex ?? 1, 0, 8);
     const distanceM = pathDistanceM(path);
