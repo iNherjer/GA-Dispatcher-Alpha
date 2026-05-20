@@ -266,6 +266,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
+const missionTargetSceneTerrainRequests = new Map();
 const FIRE_DEBUG_SYNC_BUILD = 'scene-assets-20260520-01';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
@@ -1452,6 +1453,34 @@ function _missionTargetScenePoint() {
     };
 }
 
+function _missionTargetSceneRequestTerrain() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (!md || !md.poiName || Number.isFinite(Number(md.poiTerrainFt ?? md.targetAltFt))) return false;
+    const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
+    const poiWp = wps.find(wp => wp && wp.isPOI) || (wps.length >= 2 ? wps[1] : null);
+    const lat = Number(md.targetLat ?? poiWp?.lat);
+    const lon = Number(md.targetLon ?? poiWp?.lng ?? poiWp?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+    if (typeof fetchPoiTerrainElevationFt !== 'function') return false;
+    const key = _missionTargetSceneId();
+    if (missionTargetSceneTerrainRequests.has(key)) return true;
+    const promise = Promise.resolve()
+        .then(() => fetchPoiTerrainElevationFt(lat, lon))
+        .then(ft => {
+            if (!Number.isFinite(Number(ft))) return;
+            md.poiTerrainFt = Math.max(0, Math.round(Number(ft)));
+            md.targetAltFt = md.poiTerrainFt;
+            md.targetLat = lat;
+            md.targetLon = lon;
+            if (typeof saveMissionState === 'function') {
+                try { saveMissionState(); } catch (_) {}
+            }
+        })
+        .finally(() => missionTargetSceneTerrainRequests.delete(key));
+    missionTargetSceneTerrainRequests.set(key, promise);
+    return true;
+}
+
 function _missionTargetSceneKind() {
     const point = _missionTargetScenePoint();
     if (!point) return null;
@@ -1571,6 +1600,10 @@ window.missionTargetSceneEnsureSpawned = function(reason = 'mission-start') {
     const sceneId = _missionTargetSceneId();
     const kind = _missionTargetSceneKind();
     const point = _missionTargetScenePoint();
+    if (!point) {
+        _missionTargetSceneRequestTerrain();
+        return false;
+    }
     if (!kind || !point) return false;
     const status = window.missionTargetSceneStatus || {};
     if (status.sceneId === sceneId && (status.spawned || status.spawnRequested)) return false;
