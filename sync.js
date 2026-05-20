@@ -137,7 +137,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-12';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-13';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -175,9 +175,14 @@ function _missionSceneBoardingConfig() {
             { forwardM: 4.5, rightM: 8.5, altOffsetFt: 0 }
         ],
         waypoints: [],
+        cargoIndex: 1,
+        pathLabels: ['Spawn', 'Cargo', 'Boarding'],
         walkSpeedKts: 3.1,
         durationMs: 18000,
-        openDoor: true
+        openDoor: true,
+        doorProfile: 'default',
+        aircraftSlot: window.selectedAC || 'PA-24',
+        aircraftName: ''
     };
     try {
         if (typeof window.getMissionSceneBoardingConfig === 'function') {
@@ -194,7 +199,9 @@ function _missionSceneBoardingConfig() {
                     cargo: { ...fallback.cargo, ...cargo },
                     target: { ...fallback.target, ...target },
                     waypoints: Array.isArray(cfg.waypoints) ? cfg.waypoints.map(point => ({ ...point })) : [],
-                    path: path.map(point => ({ ...point }))
+                    path: path.map(point => ({ ...point })),
+                    cargoIndex: Number.isFinite(Number(cfg.cargoIndex)) ? Number(cfg.cargoIndex) : fallback.cargoIndex,
+                    pathLabels: Array.isArray(cfg.pathLabels) ? cfg.pathLabels.map(String) : fallback.pathLabels
                 };
             }
         }
@@ -931,7 +938,9 @@ window.boardingMarkerSpawn = function(reason = 'boarding-marker') {
     const cfg = _missionSceneBoardingConfig();
     const markerTitle = BOARDING_MARKER_TITLE;
     const path = Array.isArray(cfg.path) && cfg.path.length >= 2 ? cfg.path : [cfg.spawn, cfg.cargo, cfg.target];
-    const labels = ['Spawn', 'Cargo', ...((cfg.waypoints || []).map((_, i) => `Wegpunkt ${i + 1}`)), 'Boarding'];
+    const labels = Array.isArray(cfg.pathLabels) && cfg.pathLabels.length === path.length
+        ? cfg.pathLabels
+        : path.map((_, index) => index === 0 ? 'Spawn' : (index === path.length - 1 ? 'Boarding' : (index === Number(cfg.cargoIndex) ? 'Cargo' : `Wegpunkt ${index}`)));
     return !!window.sendTrackerCommand({
         type: 'mission_scene_spawn',
         sceneId: _boardingMarkerSceneId(),
@@ -1021,8 +1030,11 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
         reason,
         profile: 'app_preset',
         path: Array.isArray(boardingConfig.path) && boardingConfig.path.length >= 2 ? boardingConfig.path : [boardingConfig.spawn, boardingConfig.target],
+        cargoPathIndex: Number.isFinite(Number(boardingConfig.cargoIndex)) ? Number(boardingConfig.cargoIndex) : 1,
         spawnPoint: boardingConfig.spawn,
         targetPoint: boardingConfig.target,
+        aircraftSlot: boardingConfig.aircraftSlot || window.selectedAC || '',
+        aircraftName: boardingConfig.aircraftName || '',
         durationMs: Number.isFinite(Number(boardingConfig.durationMs)) ? Number(boardingConfig.durationMs) : 18000,
         walkSpeedKts: Number.isFinite(Number(boardingConfig.walkSpeedKts)) ? Number(boardingConfig.walkSpeedKts) : 3.1,
         finalHoldMs: 450,
@@ -2262,8 +2274,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 228;
-const MIN_TRACKER_VERSION_LABEL = 'v228';
+const MIN_TRACKER_VERSION_CODE = 229;
+const MIN_TRACKER_VERSION_LABEL = 'v229';
 let trackerVersionPromptShown = false;
 
 window.updateLivePlanePerformanceMode = function(forceState = null) {

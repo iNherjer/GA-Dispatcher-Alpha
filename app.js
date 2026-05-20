@@ -30,7 +30,18 @@ const MAIN_PERF_SETTING_KEYS = {
 const AIRCRAFT_PRESET_STORAGE_KEY = 'ga_aircraft_presets_v1';
 const AIRCRAFT_PRESET_DEFAULTS = {
     'C172': { name: 'C172', tas: 115, gph: 9, pax: 4 },
-    'PA-24': { name: 'Comanche', tas: 160, gph: 14, pax: 4 },
+    'PA-24': {
+        name: 'Comanche',
+        tas: 160,
+        gph: 14,
+        pax: 4,
+        boarding: {
+            spawn: { forwardM: 18, rightM: -8 },
+            cargo: { forwardM: 7, rightM: 3 },
+            target: { forwardM: 0.5, rightM: 1.5 },
+            waypoints: [{ forwardM: 4, rightM: 3.5, beforeCargo: false }]
+        }
+    },
     'AERO': { name: 'Aerostar', tas: 220, gph: 25, pax: 6 }
 };
 const AIRCRAFT_BOARDING_DEFAULT = {
@@ -41,6 +52,12 @@ const AIRCRAFT_BOARDING_DEFAULT = {
     walkSpeedKts: 3.1,
     durationMs: 18000,
     openDoor: true
+};
+const AIRCRAFT_BOARDING_LEGACY_DEFAULT = {
+    spawn: { forwardM: 16, rightM: -8 },
+    cargo: { forwardM: 4, rightM: 4 },
+    target: { forwardM: 4.5, rightM: 8.5 },
+    waypoints: []
 };
 const AIRCRAFT_PRESET_SLOT_ORDER = ['C172', 'PA-24', 'AERO'];
 let aircraftPresets = {};
@@ -77,6 +94,15 @@ function normalizeBoardingPoint(source, fallback) {
     };
 }
 
+function normalizeBoardingWaypoint(source, fallback, beforeCargo = false) {
+    return {
+        ...normalizeBoardingPoint(source, fallback),
+        beforeCargo: source && typeof source === 'object' && typeof source.beforeCargo === 'boolean'
+            ? source.beforeCargo
+            : !!beforeCargo
+    };
+}
+
 function normalizeAircraftBoardingConfig(source) {
     const src = source && typeof source === 'object' ? source : {};
     const hasExplicitRouteWaypoints = Array.isArray(src.routeWaypoints) || Array.isArray(src.extraWaypoints);
@@ -91,21 +117,35 @@ function normalizeAircraftBoardingConfig(source) {
     const cargo = normalizeBoardingPoint(src.cargo || cargoFallback, AIRCRAFT_BOARDING_DEFAULT.cargo);
     const targetFallback = rawPath && rawPath.length >= 2 ? rawPath[rawPath.length - 1] : AIRCRAFT_BOARDING_DEFAULT.target;
     const target = normalizeBoardingPoint(src.target || src.boarding || targetFallback, AIRCRAFT_BOARDING_DEFAULT.target);
+    const cargoIndexRaw = Number(src.cargoIndex ?? src.cargoPathIndex);
+    const rawCargoIndex = rawPath && rawPath.length >= 3 && Number.isFinite(cargoIndexRaw)
+        ? Math.max(1, Math.min(rawPath.length - 2, Math.round(cargoIndexRaw)))
+        : 1;
     const rawWaypoints = Array.isArray(src.routeWaypoints) ? src.routeWaypoints
         : (Array.isArray(src.extraWaypoints) ? src.extraWaypoints
             : (!legacyWaypointsAsPath && Array.isArray(src.waypoints) ? src.waypoints
-                : (rawPath && rawPath.length > 3 ? rawPath.slice(2, -1) : [])));
+                : (rawPath && rawPath.length > 3
+                    ? rawPath.slice(1, -1).filter((_, index) => index + 1 !== rawCargoIndex)
+                    : [])));
     const waypoints = rawWaypoints
         .slice(0, 8)
-        .map((point) => normalizeBoardingPoint(point, cargo))
+        .map((point, index) => {
+            const rawPathIndex = rawPath && rawPath.length > 3 ? rawPath.indexOf(point) : -1;
+            const beforeCargo = rawPathIndex > 0 ? rawPathIndex < rawCargoIndex : !!point?.beforeCargo;
+            return normalizeBoardingWaypoint(point, cargo, beforeCargo || (index === 0 && point?.phase === 'beforeCargo'));
+        })
         .filter(point => Number.isFinite(point.forwardM) && Number.isFinite(point.rightM));
-    const path = [spawn, cargo, ...waypoints, target];
+    const beforeCargoWaypoints = waypoints.filter(point => point.beforeCargo);
+    const afterCargoWaypoints = waypoints.filter(point => !point.beforeCargo);
+    const path = [spawn, ...beforeCargoWaypoints, cargo, ...afterCargoWaypoints, target];
+    const cargoIndex = Math.max(1, path.length - afterCargoWaypoints.length - 2);
     return {
         spawn,
         cargo,
         target,
         waypoints,
         path,
+        cargoIndex,
         walkSpeedKts: Math.max(2.8, Math.min(4, Number(src.walkSpeedKts ?? src.speedKts ?? AIRCRAFT_BOARDING_DEFAULT.walkSpeedKts) || AIRCRAFT_BOARDING_DEFAULT.walkSpeedKts)),
         durationMs: clampMainPerfSetting(src.durationMs ?? AIRCRAFT_BOARDING_DEFAULT.durationMs, 8000, 20000, 500, AIRCRAFT_BOARDING_DEFAULT.durationMs),
         openDoor: src.openDoor !== false
@@ -115,13 +155,33 @@ function normalizeAircraftBoardingConfig(source) {
 function normalizeAircraftPreset(slotId, source) {
     const defaults = AIRCRAFT_PRESET_DEFAULTS[slotId] || AIRCRAFT_PRESET_DEFAULTS['C172'];
     const preset = source && typeof source === 'object' ? source : {};
+    let boardingSource = preset.boarding || preset.boardingScene || defaults.boarding;
+    if (slotId === 'PA-24' && shouldMigrateComancheBoardingDefaults(boardingSource)) {
+        boardingSource = defaults.boarding;
+    }
     return {
         name: sanitizeAircraftPresetName(slotId, preset.name ?? defaults.name),
         tas: clampMainPerfSetting(preset.tas, 80, 260, 5, defaults.tas),
         gph: clampMainPerfSetting(preset.gph, 5, 35, 1, defaults.gph),
         pax: clampMainPerfSetting(preset.pax, 1, 6, 1, defaults.pax),
-        boarding: normalizeAircraftBoardingConfig(preset.boarding || preset.boardingScene || defaults.boarding)
+        boarding: normalizeAircraftBoardingConfig(boardingSource)
     };
+}
+
+function boardingPointNear(point, expected) {
+    const p = normalizeBoardingPoint(point, expected);
+    return Math.abs(p.forwardM - expected.forwardM) <= 0.1 && Math.abs(p.rightM - expected.rightM) <= 0.1;
+}
+
+function shouldMigrateComancheBoardingDefaults(source) {
+    if (!source || typeof source !== 'object') return true;
+    if (source.comancheRouteVersion >= 2) return false;
+    const cfg = normalizeAircraftBoardingConfig(source);
+    const noCustomWaypoints = !Array.isArray(cfg.waypoints) || cfg.waypoints.length === 0;
+    return noCustomWaypoints
+        && boardingPointNear(cfg.spawn, AIRCRAFT_BOARDING_LEGACY_DEFAULT.spawn)
+        && boardingPointNear(cfg.cargo, AIRCRAFT_BOARDING_LEGACY_DEFAULT.cargo)
+        && boardingPointNear(cfg.target, AIRCRAFT_BOARDING_LEGACY_DEFAULT.target);
 }
 
 function buildDefaultAircraftPresets() {
@@ -184,10 +244,17 @@ function describeBoardingPoint(point) {
 
 function boardingRoutePointList(config) {
     const cfg = normalizeAircraftBoardingConfig(config);
+    const beforeCargo = cfg.waypoints
+        .map((point, index) => ({ point, index }))
+        .filter(item => item.point.beforeCargo);
+    const afterCargo = cfg.waypoints
+        .map((point, index) => ({ point, index }))
+        .filter(item => !item.point.beforeCargo);
     return [
         { key: 'spawn', label: 'Spawn', point: cfg.spawn, fixed: true },
+        ...beforeCargo.map(item => ({ key: `waypoint:${item.index}`, label: `Wegpunkt ${item.index + 1}`, point: item.point, fixed: false })),
         { key: 'cargo', label: 'Cargo', point: cfg.cargo, fixed: true },
-        ...cfg.waypoints.map((point, index) => ({ key: `waypoint:${index}`, label: `Wegpunkt ${index + 1}`, point, fixed: false })),
+        ...afterCargo.map(item => ({ key: `waypoint:${item.index}`, label: `Wegpunkt ${item.index + 1}`, point: item.point, fixed: false })),
         { key: 'target', label: 'Boarding', point: cfg.target, fixed: true }
     ];
 }
@@ -202,7 +269,8 @@ function getBoardingPointRef(boarding, key) {
 }
 
 function setBoardingPointRef(boarding, key, point) {
-    const normalized = normalizeBoardingPoint(point, AIRCRAFT_BOARDING_DEFAULT.spawn);
+    const previous = getBoardingPointRef(boarding, key);
+    const normalized = normalizeBoardingWaypoint(point, AIRCRAFT_BOARDING_DEFAULT.spawn, previous?.beforeCargo);
     if (key === 'spawn') boarding.spawn = normalized;
     else if (key === 'cargo') boarding.cargo = normalized;
     else if (key === 'target') boarding.target = normalized;
@@ -311,17 +379,20 @@ function midpointBoardingPoint(a, b) {
 function addBoardingWaypointAfterSelected() {
     const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
     updateAircraftPresetBoarding(slotId, (boarding) => {
-        const selected = activeBoardingPointKey;
-        let insertIndex = boarding.waypoints.length;
-        if (selected === 'spawn' || selected === 'cargo') insertIndex = 0;
-        else {
-            const match = String(selected || '').match(/^waypoint:(\d+)$/);
-            if (match) insertIndex = Math.min(boarding.waypoints.length, Number(match[1]) + 1);
-            else if (selected === 'target') insertIndex = boarding.waypoints.length;
-        }
-        const previous = insertIndex === 0 ? boarding.cargo : boarding.waypoints[insertIndex - 1];
-        const next = boarding.waypoints[insertIndex] || boarding.target;
-        boarding.waypoints.splice(insertIndex, 0, midpointBoardingPoint(previous, next));
+        const route = boardingRoutePointList(boarding);
+        const selectedIndex = Math.max(0, route.findIndex(item => item.key === activeBoardingPointKey));
+        const insertRouteIndex = Math.min(route.length - 1, selectedIndex + 1);
+        const previous = route[selectedIndex] || route[0];
+        const next = route[insertRouteIndex] || route[route.length - 1];
+        const cargoRouteIndex = route.findIndex(item => item.key === 'cargo');
+        const nextWaypointIndex = route
+            .slice(insertRouteIndex)
+            .find(item => /^waypoint:\d+$/.test(item.key || ''))?.key
+            ?.match(/^waypoint:(\d+)$/)?.[1];
+        const insertIndex = Number.isFinite(Number(nextWaypointIndex)) ? Number(nextWaypointIndex) : boarding.waypoints.length;
+        const waypoint = midpointBoardingPoint(previous?.point, next?.point);
+        waypoint.beforeCargo = cargoRouteIndex >= 0 && insertRouteIndex <= cargoRouteIndex;
+        boarding.waypoints.splice(insertIndex, 0, waypoint);
         activeBoardingPointKey = `waypoint:${insertIndex}`;
     }, `${getAircraftPresetSlotLabel(slotId)} Wegpunkt hinzugefügt`);
 }
@@ -345,26 +416,43 @@ function moveSelectedBoardingWaypoint(direction) {
     if (!match) return;
     const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
     updateAircraftPresetBoarding(slotId, (boarding) => {
-        const index = Number(match[1]);
-        const nextIndex = Math.max(0, Math.min(boarding.waypoints.length - 1, index + Number(direction || 0)));
-        if (nextIndex === index || !boarding.waypoints[index]) return;
-        const [point] = boarding.waypoints.splice(index, 1);
-        boarding.waypoints.splice(nextIndex, 0, point);
-        activeBoardingPointKey = `waypoint:${nextIndex}`;
+        const route = boardingRoutePointList(boarding);
+        const currentIndex = route.findIndex(item => item.key === activeBoardingPointKey);
+        const targetIndex = currentIndex + Number(direction || 0);
+        if (currentIndex < 0 || targetIndex <= 0 || targetIndex >= route.length - 1) return;
+        const [selected] = route.splice(currentIndex, 1);
+        route.splice(targetIndex, 0, selected);
+        const cargoIndex = route.findIndex(item => item.key === 'cargo');
+        const orderedWaypoints = [];
+        route.forEach((item, routeIndex) => {
+            if (!/^waypoint:\d+$/.test(item.key || '')) return;
+            orderedWaypoints.push({
+                ...item.point,
+                beforeCargo: cargoIndex >= 0 && routeIndex < cargoIndex
+            });
+        });
+        const selectedRouteIndex = route.findIndex(item => item.key === selected.key);
+        let nextSelectedIndex = 0;
+        for (let i = 0; i < selectedRouteIndex; i++) {
+            if (/^waypoint:\d+$/.test(route[i]?.key || '')) nextSelectedIndex++;
+        }
+        boarding.waypoints = orderedWaypoints;
+        activeBoardingPointKey = `waypoint:${Math.max(0, nextSelectedIndex)}`;
     }, `${getAircraftPresetSlotLabel(slotId)} Wegpunkt sortiert`);
 }
 window.moveSelectedBoardingWaypoint = moveSelectedBoardingWaypoint;
 
 function resetBoardingPresetConfig() {
     const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
+    const slotDefault = normalizeAircraftBoardingConfig(AIRCRAFT_PRESET_DEFAULTS[slotId]?.boarding || AIRCRAFT_BOARDING_DEFAULT);
     updateAircraftPresetBoarding(slotId, (boarding) => {
-        boarding.spawn = { ...AIRCRAFT_BOARDING_DEFAULT.spawn };
-        boarding.cargo = { ...AIRCRAFT_BOARDING_DEFAULT.cargo };
-        boarding.target = { ...AIRCRAFT_BOARDING_DEFAULT.target };
-        boarding.waypoints = [];
-        boarding.walkSpeedKts = AIRCRAFT_BOARDING_DEFAULT.walkSpeedKts;
-        boarding.durationMs = AIRCRAFT_BOARDING_DEFAULT.durationMs;
-        boarding.openDoor = AIRCRAFT_BOARDING_DEFAULT.openDoor;
+        boarding.spawn = { ...slotDefault.spawn };
+        boarding.cargo = { ...slotDefault.cargo };
+        boarding.target = { ...slotDefault.target };
+        boarding.waypoints = slotDefault.waypoints.map(point => ({ ...point }));
+        boarding.walkSpeedKts = slotDefault.walkSpeedKts;
+        boarding.durationMs = slotDefault.durationMs;
+        boarding.openDoor = slotDefault.openDoor;
         activeBoardingPointKey = 'spawn';
     }, `${getAircraftPresetSlotLabel(slotId)} Boarding reset`);
 }
@@ -399,14 +487,19 @@ function getAircraftDoorProfile(slotId = selectedAC) {
 
 function getMissionSceneBoardingConfig(slotId = selectedAC) {
     const cfg = normalizeAircraftBoardingConfig(getAircraftPreset(slotId).boarding);
+    const preset = getAircraftPreset(slotId);
     return {
         ...cfg,
         doorProfile: getAircraftDoorProfile(slotId),
+        aircraftSlot: slotId,
+        aircraftName: preset?.name || slotId,
         spawn: { ...cfg.spawn },
         cargo: { ...cfg.cargo },
         target: { ...cfg.target },
         waypoints: cfg.waypoints.map(point => ({ ...point })),
-        path: (cfg.path && cfg.path.length >= 2 ? cfg.path : [cfg.spawn, cfg.target]).map(point => ({ ...point }))
+        path: (cfg.path && cfg.path.length >= 2 ? cfg.path : [cfg.spawn, cfg.target]).map(point => ({ ...point })),
+        cargoIndex: cfg.cargoIndex,
+        pathLabels: boardingRoutePointList(cfg).map(item => item.label)
     };
 }
 window.getMissionSceneBoardingConfig = getMissionSceneBoardingConfig;
@@ -543,7 +636,10 @@ function applyPersistedMainPerformanceSettings() {
         vpClimbRate = rate;
         vpDescentRate = rate;
     }
-    if (AIRCRAFT_PRESET_SLOT_ORDER.includes(aircraft)) selectedAC = aircraft;
+    if (AIRCRAFT_PRESET_SLOT_ORDER.includes(aircraft)) {
+        selectedAC = aircraft;
+        window.selectedAC = selectedAC;
+    }
     updateAircraftPresetButtonsUI();
     selectAircraftPresetSlotFromSettings(selectedAC);
 }
@@ -1638,6 +1734,7 @@ function cyclePanelColor() {
    2. GLOBALE VARIABLEN & INITIALISIERUNG
    ========================================================= */
 let map, polyline, markers = [], currentStartICAO, currentDestICAO, currentMissionData = null, selectedAC = "PA-24";
+window.selectedAC = selectedAC;
 let currentDepFreq = "";
 let currentDestFreq = "";
 let currentDepElev = null;
@@ -2969,7 +3066,10 @@ function refreshAllDrums() {
 function applyPreset(t, g, s, n) {
     document.getElementById('tasSlider').value = t; document.getElementById('gphSlider').value = g;
     document.getElementById('maxSeats').value = s;
-    if (AIRCRAFT_PRESET_SLOT_ORDER.includes(n)) selectedAC = n;
+    if (AIRCRAFT_PRESET_SLOT_ORDER.includes(n)) {
+        selectedAC = n;
+        window.selectedAC = selectedAC;
+    }
     persistMainPerformanceSetting('maxSeats', s);
     persistMainPerformanceSetting('aircraft', selectedAC);
     handleSliderChange('tas', t); handleSliderChange('gph', g);
