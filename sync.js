@@ -2457,8 +2457,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 231;
-const MIN_TRACKER_VERSION_LABEL = 'v231';
+const MIN_TRACKER_VERSION_CODE = 232;
+const MIN_TRACKER_VERSION_LABEL = 'v232';
 let trackerVersionPromptShown = false;
 
 window.updateLivePlanePerformanceMode = function(forceState = null) {

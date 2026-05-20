@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v231';
-const TRACKER_VERSION_CODE = 231;
+const TRACKER_VERSION = 'v232';
+const TRACKER_VERSION_CODE = 232;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -28,6 +28,61 @@ const DOOR_TOGGLE_EVENT_ID = 9365;
 const PA24_DOOR_UNLOCK_EVENT_ID = 9366;
 const PA24_DOOR_HANDLE_EVENT_ID = 9367;
 const PA24_DOOR_LOCK_EVENT_ID = 9368;
+const CONSOLE_MODES = new Set(['status', 'full', 'quiet']);
+let consoleMode = 'status';
+let consoleStatusLine = '';
+
+function normalizeConsoleMode(value) {
+  const mode = String(value || '').trim().toLowerCase();
+  return CONSOLE_MODES.has(mode) ? mode : 'status';
+}
+
+function consoleClearStatusLine() {
+  if (!process.stdout.isTTY || !consoleStatusLine) return;
+  try {
+    readline.clearLine(process.stdout, 0);
+    readline.cursorTo(process.stdout, 0);
+  } catch (_) {}
+}
+
+function consoleRenderStatusLine(force = false) {
+  if (consoleMode !== 'status' || !process.stdout.isTTY || !consoleStatusLine) return;
+  try {
+    readline.clearLine(process.stdout, 0);
+    readline.cursorTo(process.stdout, 0);
+    process.stdout.write(consoleStatusLine.slice(0, Math.max(20, process.stdout.columns || 180) - 1));
+  } catch (_) {
+    if (force) process.stdout.write(`\r${consoleStatusLine}`);
+  }
+}
+
+function trackerLog(line = '') {
+  consoleClearStatusLine();
+  console.log(line);
+  consoleRenderStatusLine(true);
+}
+
+function trackerWarn(line = '') {
+  consoleClearStatusLine();
+  console.warn(line);
+  consoleRenderStatusLine(true);
+}
+
+function trackerError(...args) {
+  consoleClearStatusLine();
+  console.error(...args);
+  consoleRenderStatusLine(true);
+}
+
+function trackerStatus(line = '') {
+  if (consoleMode === 'quiet') return;
+  if (consoleMode === 'full' || !process.stdout.isTTY) {
+    console.log(line);
+    return;
+  }
+  consoleStatusLine = line;
+  consoleRenderStatusLine();
+}
 
 function debugLog(line) {
   try {
@@ -300,7 +355,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           EventFlag.EVENT_FLAG_GROUPID_IS_PRIORITY
         );
       }
-      console.log(`🚪 Door event: ${label}=${value} (${reason})`);
+      trackerLog(`🚪 Door event: ${label}=${value} (${reason})`);
       debugLog(`DOOR_EVENT_SENT label=${label} value=${value} reason=${reason}`);
       return true;
     } catch (err) {
@@ -327,7 +382,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
   const setUserAircraftDoor = async (openDoor, doorIndex = 1, reason = 'boarding', doorProfile = 'default') => {
     const profile = String(doorProfile || 'default').trim().toLowerCase();
-    console.log(`🚪 Door ${openDoor ? 'open' : 'close'} profile=${profile} index=${doorIndex} (${reason})`);
+    trackerLog(`🚪 Door ${openDoor ? 'open' : 'close'} profile=${profile} index=${doorIndex} (${reason})`);
     if (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche') {
       return setPa24ComancheDoor(openDoor, reason);
     }
@@ -421,12 +476,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         debugLog(`SCENE_TRY scene=${sceneId} kind=${plan.kind} title="${candidate}"`);
         const objectId = await spawnObject(candidate, plan, timeoutMs);
         const spawnedObj = { objectId, ...plan, title: candidate, requestedTitle: plan.title };
-        console.log(`  OK scene ${plan.kind}: objectId=${objectId} title="${candidate}"`);
+        trackerLog(`  OK scene ${plan.kind}: objectId=${objectId} title="${candidate}"`);
         debugLog(`SCENE_SPAWN_OK scene=${sceneId} kind=${plan.kind} index=${plan.index} objectId=${objectId} title="${candidate}" requestedTitle="${plan.title}" lat=${plan.lat} lon=${plan.lon} altFt=${plan.altFt} hdg=${plan.hdg} forwardM=${plan.forwardM} rightM=${plan.rightM}`);
         return spawnedObj;
       } catch (err) {
         lastError = err;
-        console.warn(`  ✗ scene ${plan.kind} title="${candidate}": ${err?.message || err}`);
+        trackerWarn(`  ✗ scene ${plan.kind} title="${candidate}": ${err?.message || err}`);
         debugLog(`SCENE_TRY_ERROR scene=${sceneId} kind=${plan.kind} title="${candidate}" error=${err?.message || err}`);
       }
     }
@@ -722,7 +777,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     };
     const cargoPathIndex = clampInt(command?.cargoPathIndex ?? command?.cargoIndex ?? 1, 1, Math.max(1, primaryPath.length - 2));
     debugLog(`SCENE_BOARDING_START scene=${sceneId} boarders=${boarderPlans.length} objectIds=${boarderPlans.map(p => p.person.objectId).join(',')} path=${pathSource} durationMs=${durationMs} waypoints=${primaryPath.length - 1} speedKts=${speedKts} door=${doorEnabled ? 1 : 0} doorProfile=${doorProfile} aircraftSlot=${command?.aircraftSlot || ''} aircraftName="${command?.aircraftName || ''}" cargo=${cargo?.objectId || 0} cargoPathIndex=${cargoPathIndex}`);
-    console.log(`🚶 Scene ${sceneId}: Boarding-Animation startet (${boarderPlans.length} Pax, ${Math.round(durationMs / 1000)}s).`);
+    trackerLog(`🚶 Scene ${sceneId}: Boarding-Animation startet (${boarderPlans.length} Pax, ${Math.round(durationMs / 1000)}s).`);
 
     if (doorEnabled) {
       await setUserAircraftDoor(true, doorIndex, 'boarding-open', doorProfile);
@@ -874,7 +929,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       northM: vehicleStart.northM,
       eastM: vehicleStart.eastM
     };
-    console.log(`🚒 Scene ${sceneId}: Deboarding-Sequenz startet.`);
+    trackerLog(`🚒 Scene ${sceneId}: Deboarding-Sequenz startet.`);
     const vehicle = await spawnSceneObjectFromPlan(sceneId, vehiclePlan, 3000);
     if (!vehicle) {
       sendAck({ type: 'mission_scene_deboarding_ack', commandId, sceneId, status: 'error', error: 'vehicle_spawn_failed' });
@@ -994,7 +1049,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
     }
     scenes.delete(key);
-    console.log(`🚒 Scene ${key}: ${cleared} Objekte entfernt (${reason}).`);
+    trackerLog(`🚒 Scene ${key}: ${cleared} Objekte entfernt (${reason}).`);
     debugLog(`SCENE_CLEAR_OK scene=${key} cleared=${cleared} reason=${reason}`);
     sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: key, status: 'ok', cleared, reason });
     return { cleared };
@@ -1011,7 +1066,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
     await clearScene(sceneId, 'replace-before-scene', commandId);
     const objects = [];
-    console.log(`🚒 Scene ${sceneId}: spawn ${positions.length} Objekte (${JSON.stringify(countByKind(positions))})`);
+    trackerLog(`🚒 Scene ${sceneId}: spawn ${positions.length} Objekte (${JSON.stringify(countByKind(positions))})`);
     debugLog(`SCENE_SPAWN_START scene=${sceneId} count=${positions.length} byKind=${JSON.stringify(countByKind(positions))}`);
     for (const p of positions) {
       const candidates = p.titleCandidates?.length ? p.titleCandidates : [p.title];
@@ -1023,7 +1078,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           const objectId = await spawnObject(candidate, p, 2200);
           const spawnedObj = { objectId, ...p, title: candidate, requestedTitle: p.title };
           objects.push(spawnedObj);
-          console.log(`  OK scene ${p.kind}: objectId=${objectId} title="${candidate}"`);
+          trackerLog(`  OK scene ${p.kind}: objectId=${objectId} title="${candidate}"`);
           debugLog(`SCENE_SPAWN_OK scene=${sceneId} kind=${p.kind} index=${p.index} objectId=${objectId} title="${candidate}" requestedTitle="${p.title}" lat=${p.lat} lon=${p.lon} altFt=${p.altFt} hdg=${p.hdg} forwardM=${p.forwardM} rightM=${p.rightM}`);
           if (String(p.kind || '').toLowerCase() === 'vehicle') {
             await sleep(250);
@@ -1034,7 +1089,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           break;
         } catch (err) {
           lastError = err;
-          console.warn(`  ✗ scene ${p.kind} title="${candidate}": ${err?.message || err}`);
+          trackerWarn(`  ✗ scene ${p.kind} title="${candidate}": ${err?.message || err}`);
           debugLog(`SCENE_TRY_ERROR scene=${sceneId} kind=${p.kind} title="${candidate}" error=${err?.message || err}`);
         }
       }
@@ -1071,12 +1126,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         handle.aIRemoveObject(obj.objectId, nextReqId++);
         cleared++;
       } catch (err) {
-        console.warn(`⚠️  Smoke clear objectId=${obj.objectId}: ${err?.message || err}`);
+        trackerWarn(`⚠️  Smoke clear objectId=${obj.objectId}: ${err?.message || err}`);
         debugLog(`CLEAR_ERROR mission=${key} objectId=${obj.objectId} error=${err?.message || err}`);
       }
     }
     missions.delete(key);
-    console.log(`🔥 Smoke Mission ${key}: ${cleared} Objekte entfernt (${reason}).`);
+    trackerLog(`🔥 Smoke Mission ${key}: ${cleared} Objekte entfernt (${reason}).`);
     debugLog(`CLEAR_OK mission=${key} cleared=${cleared} reason=${reason}`);
     sendAck({ type: 'mission_smoke_clear_ack', missionId: key, status: 'ok', cleared, reason });
     return { cleared };
@@ -1124,7 +1179,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
     await clearMission(missionId, 'replace-before-spawn');
     const objects = [];
-    console.log(`🔥 Smoke Mission ${missionId}: spawn ${positions.length} Objekte (${JSON.stringify(countByKind(positions))}) mode=${usePrewarm ? 'prewarm' : 'target'}`);
+    trackerLog(`🔥 Smoke Mission ${missionId}: spawn ${positions.length} Objekte (${JSON.stringify(countByKind(positions))}) mode=${usePrewarm ? 'prewarm' : 'target'}`);
     debugLog(`SPAWN_START mission=${missionId} extent=${command?.extent || 'n/a'} mode=${usePrewarm ? 'prewarm' : 'target'} title="${title}" fireTitle="${fireTitle}" count=${positions.length} byKind=${JSON.stringify(countByKind(positions))}`);
 
     for (const p of positions) {
@@ -1134,10 +1189,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           : p;
         const objectId = await spawnObject(p.title, spawnPos, 5000);
         objects.push({ objectId, ...p, spawnedAt: { ...spawnPos }, teleported: !usePrewarm });
-        console.log(`  OK ${p.kind} site=${p.siteIndex} obj=${p.index}: objectId=${objectId}`);
+        trackerLog(`  OK ${p.kind} site=${p.siteIndex} obj=${p.index}: objectId=${objectId}`);
         debugLog(`SPAWN_OK mission=${missionId} kind=${p.kind} site=${p.siteIndex} index=${p.index} objectId=${objectId} title="${p.title}" spawnLat=${spawnPos.lat} spawnLon=${spawnPos.lon} targetLat=${p.lat} targetLon=${p.lon} targetAltFt=${p.altFt} baseAltFt=${p.baseAltFt} altOffsetFt=${p.altOffsetFt}`);
       } catch (err) {
-        console.warn(`  ✗ ${p.kind} site=${p.siteIndex} obj=${p.index}: ${err?.message || err}`);
+        trackerWarn(`  ✗ ${p.kind} site=${p.siteIndex} obj=${p.index}: ${err?.message || err}`);
         debugLog(`SPAWN_ERROR mission=${missionId} kind=${p.kind} site=${p.siteIndex} index=${p.index} title="${p.title}" error=${err?.message || err}`);
       }
     }
@@ -1185,7 +1240,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const name = recv.exceptionName || String(recv.exception);
     lastExceptions.push(name);
     if (pendingAssign.size > 0) {
-      console.warn(`[SimConnect Exception] ${name} sendId=${recv.sendId}`);
+      trackerWarn(`[SimConnect Exception] ${name} sendId=${recv.sendId}`);
       const [requestId, pending] = pendingAssign.entries().next().value || [];
       if (pending) {
         pendingAssign.delete(requestId);
@@ -1201,7 +1256,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       if (type === 'mission_smoke_spawn') {
         debugLog(`COMMAND mission_smoke_spawn mission=${command?.missionId || 'active'} title="${command?.objectTitle || command?.title || MISSION_SMOKE_DEFAULT_TITLE}" sites=${Array.isArray(command?.sites) ? command.sites.length : 0} fireSites=${Array.isArray(command?.fireSites) ? command.fireSites.length : 0}`);
         spawnMissionSmoke(command).catch(err => {
-          console.warn(`⚠️  Smoke spawn failed: ${err?.message || err}`);
+          trackerWarn(`⚠️  Smoke spawn failed: ${err?.message || err}`);
           sendAck({ type: 'mission_smoke_spawn_ack', commandId: command?.commandId || null, missionId: command?.missionId || 'active', status: 'error', error: err?.message || String(err) });
         });
         return true;
@@ -1216,7 +1271,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       if (type === 'mission_scene_spawn') {
         debugLog(`COMMAND mission_scene_spawn scene=${command?.sceneId || 'mission-scene'} items=${Array.isArray(command?.items) ? command.items.length : 0}`);
         spawnMissionScene(command).catch(err => {
-          console.warn(`⚠️  Scene spawn failed: ${err?.message || err}`);
+          trackerWarn(`⚠️  Scene spawn failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_spawn_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
         });
         return true;
@@ -1225,7 +1280,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         const pathCount = Array.isArray(command?.path) ? command.path.length : (Array.isArray(command?.boardingPath) ? command.boardingPath.length : (Array.isArray(command?.waypoints) ? command.waypoints.length : 0));
         debugLog(`COMMAND mission_scene_boarding scene=${command?.sceneId || 'mission-scene'} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} pathPoints=${pathCount} cargoPathIndex=${command?.cargoPathIndex ?? ''} door=${command?.openDoor === true || command?.door === true ? 1 : 0} doorProfile=${command?.doorProfile || command?.aircraftDoorProfile || ''} aircraftSlot=${command?.aircraftSlot || ''} aircraftName="${command?.aircraftName || ''}"`);
         animateMissionSceneBoarding(command).catch(err => {
-          console.warn(`⚠️  Scene boarding failed: ${err?.message || err}`);
+          trackerWarn(`⚠️  Scene boarding failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_boarding_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
         });
         return true;
@@ -1234,7 +1289,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         const pathCount = Array.isArray(command?.path) ? command.path.length : (Array.isArray(command?.boardingPath) ? command.boardingPath.length : (Array.isArray(command?.waypoints) ? command.waypoints.length : 0));
         debugLog(`COMMAND mission_scene_deboarding scene=${command?.sceneId || 'mission-scene'} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} pathPoints=${pathCount} boarderCount=${command?.boarderCount ?? ''} door=${command?.openDoor === true || command?.door === true ? 1 : 0} doorProfile=${command?.doorProfile || command?.aircraftDoorProfile || ''} aircraftSlot=${command?.aircraftSlot || ''} aircraftName="${command?.aircraftName || ''}"`);
         animateMissionSceneDeboarding(command).catch(err => {
-          console.warn(`⚠️  Scene deboarding failed: ${err?.message || err}`);
+          trackerWarn(`⚠️  Scene deboarding failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_deboarding_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
         });
         return true;
@@ -1282,7 +1337,7 @@ function startTracker(syncId, pin) {
   const scheduleReconnect = (reason, delayMs = 5000) => {
     if (_reconnectTimer) return;
     _reconnecting = false;
-    if (reason) console.warn(`⚠️  ${reason}`);
+    if (reason) trackerWarn(`⚠️  ${reason}`);
     _reconnectTimer = setTimeout(() => {
       _reconnectTimer = null;
       connect();
@@ -1293,7 +1348,7 @@ function startTracker(syncId, pin) {
     if (_reconnecting) return;
     _reconnecting = true;
     _wsAttempt += 1;
-    console.log(`\nVerbinde mit WebSocket-Server: ${WS_URL}... (Versuch ${_wsAttempt})`);
+    trackerLog(`\nVerbinde mit WebSocket-Server: ${WS_URL}... (Versuch ${_wsAttempt})`);
     const ws = new WebSocket(WS_URL, { handshakeTimeout: 10000 });
     _currentWs = ws;
     let opened = false;
@@ -1301,7 +1356,7 @@ function startTracker(syncId, pin) {
     let pingInterval = null;
     const connectWatchdog = setTimeout(() => {
       if (!opened) {
-        console.warn("⚠️  WebSocket-Handshake Timeout. Erzwinge Neuverbindung...");
+        trackerWarn("⚠️  WebSocket-Handshake Timeout. Erzwinge Neuverbindung...");
         try { ws.terminate(); } catch (_) {}
       }
     }, 12000);
@@ -1319,12 +1374,12 @@ function startTracker(syncId, pin) {
       _reconnecting = false;
       clearWsTimers();
       ws.send(JSON.stringify({ type: 'join', syncId: syncId, pin: pin }));
-      console.log(`📡 Verbunden mit Pilot-ID: ${syncId} (Auth aktiv)`);
+      trackerLog(`📡 Verbunden mit Pilot-ID: ${syncId} (Auth aktiv)`);
       pingInterval = setInterval(() => {
         try {
           if (ws.readyState !== WebSocket.OPEN) return;
           if (awaitingPong) {
-            console.warn("⚠️  WebSocket-Ping Timeout. Erzwinge Neuverbindung...");
+            trackerWarn("⚠️  WebSocket-Ping Timeout. Erzwinge Neuverbindung...");
             try { ws.terminate(); } catch (_) {}
             return;
           }
@@ -1341,7 +1396,7 @@ function startTracker(syncId, pin) {
     ws.on('message', handleTrackerMessage);
 
     ws.on('error', (err) => {
-      console.error("❌ WebSocket-Fehler:", err.message);
+      trackerError("❌ WebSocket-Fehler:", err.message);
       if (!opened) scheduleReconnect("WebSocket-Verbindung fehlgeschlagen. Neuer Versuch in 5 Sekunden...");
     });
 
@@ -1358,7 +1413,7 @@ function startTracker(syncId, pin) {
 function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) {
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
-      console.log("✈️ MSFS gefunden! Warte auf Positionsdaten...");
+      trackerLog("✈️ MSFS gefunden! Warte auf Positionsdaten...");
       let lastGpsMsg = null;
       const missionSmokeController = createMissionSmokeController(handle, getWs, syncId, pin, () => lastGpsMsg);
       if (typeof setTrackerCommandHandler === 'function') {
@@ -1398,10 +1453,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
         try {
           const hr = handle.subscribeToSystemEvent(evtId, name);
           if (typeof hr === 'number' && hr < 0) {
-            console.warn(`ℹ️ SystemEvent nicht verfuegbar: ${name}`);
+            trackerWarn(`ℹ️ SystemEvent nicht verfuegbar: ${name}`);
           }
         } catch (e) {
-          console.warn(`ℹ️ SystemEvent Fehler (${name}):`, e?.message || e);
+          trackerWarn(`ℹ️ SystemEvent Fehler (${name}): ${e?.message || e}`);
         }
       };
       subscribeSystemEventSafe(EVT_PAUSE_EX1, 'Pause_EX1');
@@ -1463,7 +1518,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
       const addOptionalVar = (name, units, key) => {
         const hr = handle.addToDataDefinition(DEF_ID, name, units, SimConnectDataType.FLOAT64);
         if (typeof hr === 'number' && hr < 0) {
-          console.warn(`ℹ️ Optionaler SimVar nicht verfuegbar: ${name}`);
+          trackerWarn(`ℹ️ Optionaler SimVar nicht verfuegbar: ${name}`);
           return;
         }
         simVarOrder.push({ key, required: false, name });
@@ -1530,7 +1585,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
                 } catch (readErr) {
                   if (!shortReadWarned) {
                     shortReadWarned = true;
-                    console.warn(
+                    trackerWarn(
                       `ℹ️ SimConnect liefert kuerzeres Paket als erwartet (${readCount}/${simVarOrder.length} Werte). ` +
                       `Optionale Wetterwerte werden fuer diese Session deaktiviert.`
                     );
@@ -1630,12 +1685,13 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
                 ws.send(JSON.stringify(gpsMsg));
                 if (now - lastFlightLog >= 1000) {
                   lastFlightLog = now;
-                  console.log(`Sende GPS: Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | GS ${flight.gsKts ?? '?'}kts | OnG ${flight.onGround ? 'Y' : 'N'} | Pause ${flight.simPaused ? 'Y' : 'N'}(${flight.pauseFlags ?? 0}) | Sim ${flight.simRunning ? 'RUN' : 'STOP'} | Menu ${flight.inMenuOrMap ? 'Y' : 'N'} | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipRateMmH ?? '?'}mm/h | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
+                  trackerStatus(`GPS Lat ${lat.toFixed(4)} | Lon ${lon.toFixed(4)} | Alt ${Math.round(alt)}ft | Hdg ${Math.round(hdg)}° | AGL ${Math.round(agl || 0)}ft | GS ${flight.gsKts ?? '?'}kts | OnG ${flight.onGround ? 'Y' : 'N'} | Park ${flight.parkingBrake == null ? '?' : (flight.parkingBrake ? 'Y' : 'N')} | Pause ${flight.simPaused ? 'Y' : 'N'}(${flight.pauseFlags ?? 0}) | Sim ${flight.simRunning ? 'RUN' : 'STOP'} | Menu ${flight.inMenuOrMap ? 'Y' : 'N'} | G ${flight.gForce.toFixed(2)} | Bank ${flight.bankDeg.toFixed(1)}° | Wind ${flight.windKts ?? '?'}kts/${flight.windDeg ?? '?'}° | Gust ${flight.windGustKts ?? '?'}kts | Temp ${flight.tempC ?? '?'}°C | Vis ${flight.visKm ?? '?'}km | Pcp ${flight.precipRateMmH ?? '?'}mm/h | Cloud ${flight.inCloud == null ? '?' : (flight.inCloud ? 'Y' : 'N')} | Turb ${flight.turbulencePct ?? '?'}%`);
                 }
               } else if (lat === 0) {
-                 process.stdout.write("."); 
+                if (consoleMode === 'full') process.stdout.write(".");
+                else trackerStatus("GPS wartet auf plausible Sim-Position ...");
               }
-            } catch (e) { console.error("❌ Lesefehler:", e.message); }
+            } catch (e) { trackerError("❌ Lesefehler:", e.message); }
           }
         }
       });
@@ -1709,7 +1765,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
 
           latestTrafficSnapshot = nearest;
           if (nearest.length > 0)
-            console.log(`[TRAFFIC] ${all.length} gesamt → ${moving.length} fliegend → ${nearest.length} gesendet`);
+            trackerLog(`[TRAFFIC] ${all.length} gesamt → ${moving.length} fliegend → ${nearest.length} gesendet`);
         }, 500);
       }, TRAFFIC_POLL_MS);
 
@@ -1720,7 +1776,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
         // Nur reconnecten wenn WS noch offen ist, sonst wartet WS-Reconnect auf SimConnect-Neustart
         const ws = getWs();
         if (ws && ws.readyState === WebSocket.OPEN) {
-          console.warn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
+          trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
           setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler), 5000);
         }
       });
@@ -1728,7 +1784,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
     .catch(err => {
       const ws = getWs();
       if (ws && ws.readyState === WebSocket.OPEN) {
-        console.warn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
+        trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
         setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler), 5000);
       }
     });
@@ -1737,20 +1793,40 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
 function askCredentials() {
   rl.question("Bitte gib deine Pilot-ID ein (z.B. Foxtrot-Mike-764): ", (idAnswer) => {
     const finalId = idAnswer.trim();
-    if (!finalId) { console.log("Fehler: Keine Pilot-ID eingegeben."); return process.exit(1); }
+    if (!finalId) { trackerLog("Fehler: Keine Pilot-ID eingegeben."); return process.exit(1); }
     
     rl.question("Bitte gib deinen 4-stelligen PIN ein: ", (pinAnswer) => {
       const finalPin = pinAnswer.trim();
-      fs.writeFileSync(CONFIG_FILE, JSON.stringify({ syncId: finalId, pin: finalPin }));
+      fs.writeFileSync(CONFIG_FILE, JSON.stringify({ syncId: finalId, pin: finalPin, consoleMode }));
       startTracker(finalId, finalPin);
     });
   });
 }
 
+function saveTrackerConfig(syncId, pin, extra = {}) {
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify({ syncId, pin, consoleMode, ...extra }, null, 2));
+}
+
+function askConsoleMode(savedId, savedPin, afterSave) {
+  trackerLog("\n--- Anzeige-Modus ---");
+  trackerLog("1 = Statuszeile + Eventlog (empfohlen)");
+  trackerLog("2 = Voller Verlauf wie bisher");
+  trackerLog("3 = Leise, nur Events ohne GPS");
+  rl.question("Auswahl [1]: ", (answer) => {
+    const a = String(answer || '').trim().toLowerCase();
+    if (a === '2' || a === 'full') consoleMode = 'full';
+    else if (a === '3' || a === 'quiet') consoleMode = 'quiet';
+    else consoleMode = 'status';
+    if (savedId && savedPin) saveTrackerConfig(savedId, savedPin);
+    trackerLog(`Anzeige-Modus: ${consoleMode}`);
+    if (typeof afterSave === 'function') afterSave();
+  });
+}
+
 function main() {
-  console.log("=====================================");
-  console.log(` ${TRACKER_DISPLAY_NAME}`);
-  console.log("=====================================");
+  trackerLog("=====================================");
+  trackerLog(` ${TRACKER_DISPLAY_NAME}`);
+  trackerLog("=====================================");
 
   let savedId = '';
   let savedPin = '';
@@ -1760,15 +1836,17 @@ function main() {
       const data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
       savedId = data.syncId || '';
       savedPin = data.pin || '';
+      consoleMode = normalizeConsoleMode(data.consoleMode || data.displayMode || data.logMode);
     } catch (e) {}
   }
 
   if (savedId && savedPin) {
-    console.log("=====================================");
-    console.log(` Gespeicherte Pilot-Daten gefunden:`);
-    console.log(` Pilot-ID: [ ${savedId} ]`);
-    console.log(` PIN: [ **** ]`);
-    console.log("=====================================\n");
+    trackerLog("=====================================");
+    trackerLog(` Gespeicherte Pilot-Daten gefunden:`);
+    trackerLog(` Pilot-ID: [ ${savedId} ]`);
+    trackerLog(` PIN: [ **** ]`);
+    trackerLog(` Anzeige: [ ${consoleMode} ]`);
+    trackerLog("=====================================\n");
     
     let timeLeft = 5;
     let timerCompleted = false;
@@ -1777,26 +1855,31 @@ function main() {
     const countdownInterval = setInterval(() => {
       if (timeLeft > 0) {
         // \r überschreibt die aktuelle Zeile im Terminal, so entsteht die Animation
-        process.stdout.write(`\r🚀 Autostart in ${timeLeft} Sekunden... (Drücke ENTER zum Ändern der Pilot-ID/PIN)   `);
+        process.stdout.write(`\r🚀 Autostart in ${timeLeft} Sekunden... (ENTER: Pilot-ID/PIN, M+ENTER: Anzeige)   `);
         timeLeft--;
       } else {
         clearInterval(countdownInterval);
         if (!timerCompleted) {
           timerCompleted = true;
-          console.log(`\n\n✅ Starte automatisch mit Pilot-ID: ${savedId}`);
+          trackerLog(`\n\n✅ Starte automatisch mit Pilot-ID: ${savedId}`);
           startTracker(savedId, savedPin);
         }
       }
     }, 1000);
-    process.stdout.write(`\r🚀 Autostart in 5 Sekunden... (Drücke ENTER zum Ändern der Pilot-ID/PIN)   `);
+    process.stdout.write(`\r🚀 Autostart in 5 Sekunden... (ENTER: Pilot-ID/PIN, M+ENTER: Anzeige)   `);
 
     // Lauscht auf die ENTER Taste
-    rl.once('line', () => {
+    rl.once('line', (line) => {
       if (!timerCompleted) {
         timerCompleted = true;
         clearInterval(countdownInterval);
-        console.log(`\n\n--- Neueingabe gestartet ---`);
-        askCredentials();
+        const input = String(line || '').trim().toLowerCase();
+        if (input === 'm' || input === 'menu' || input === 'modus' || input === 'display') {
+          askConsoleMode(savedId, savedPin, () => startTracker(savedId, savedPin));
+        } else {
+          trackerLog(`\n\n--- Neueingabe gestartet ---`);
+          askCredentials();
+        }
       }
     });
 
@@ -1807,10 +1890,10 @@ function main() {
 
 // Globale Fehlerbehandlung: Prozess darf nie durch unbehandelte Fehler sterben
 process.on('uncaughtException', (err) => {
-  console.error("💥 Unbehandelter Fehler (Prozess läuft weiter):", err.message);
+  trackerError("💥 Unbehandelter Fehler (Prozess läuft weiter):", err.message);
 });
 process.on('unhandledRejection', (reason) => {
-  console.error("💥 Unbehandelte Promise-Ablehnung (Prozess läuft weiter):", reason);
+  trackerError("💥 Unbehandelte Promise-Ablehnung (Prozess läuft weiter):", reason);
 });
 
 main();
