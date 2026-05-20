@@ -240,10 +240,20 @@ function previewBoardingPresetScene() {
 }
 window.previewBoardingPresetScene = previewBoardingPresetScene;
 
+function getAircraftDoorProfile(slotId = selectedAC) {
+    const preset = getAircraftPreset(slotId);
+    const haystack = `${slotId || ''} ${preset?.name || ''}`.toLowerCase();
+    if (haystack.includes('pa-24') || haystack.includes('pa24') || haystack.includes('comanche')) {
+        return 'pa24_comanche';
+    }
+    return 'default';
+}
+
 function getMissionSceneBoardingConfig(slotId = selectedAC) {
     const cfg = normalizeAircraftBoardingConfig(getAircraftPreset(slotId).boarding);
     return {
         ...cfg,
+        doorProfile: getAircraftDoorProfile(slotId),
         spawn: { ...cfg.spawn },
         target: { ...cfg.target },
         path: (cfg.path && cfg.path.length >= 2 ? cfg.path : [cfg.spawn, cfg.target]).map(point => ({ ...point }))

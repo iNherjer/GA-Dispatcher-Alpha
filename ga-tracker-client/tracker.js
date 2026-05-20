@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v225';
-const TRACKER_VERSION_CODE = 225;
+const TRACKER_VERSION = 'v226';
+const TRACKER_VERSION_CODE = 226;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -25,6 +25,9 @@ const WAYPOINT_DEF_ID = 9362;
 const DOOR_OPEN_EVENT_ID = 9363;
 const DOOR_CLOSE_EVENT_ID = 9364;
 const DOOR_TOGGLE_EVENT_ID = 9365;
+const PA24_DOOR_UNLOCK_EVENT_ID = 9366;
+const PA24_DOOR_HANDLE_EVENT_ID = 9367;
+const PA24_DOOR_LOCK_EVENT_ID = 9368;
 
 function debugLog(line) {
   try {
@@ -171,6 +174,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   let teleportDefReady = false;
   let waypointDefReady = false;
   let doorEventsReady = false;
+  let pa24DoorEventsReady = false;
 
   const ensureTeleportDefinition = () => {
     if (teleportDefReady) return true;
@@ -258,21 +262,67 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
   };
 
-  const setUserAircraftDoor = (openDoor, doorIndex = 1, reason = 'boarding') => {
+  const ensurePa24DoorEvents = () => {
+    if (pa24DoorEventsReady) return true;
+    try {
+      handle.mapClientEventToSimEvent(PA24_DOOR_UNLOCK_EVENT_ID, 'PA24-door_latch_unlock');
+      handle.mapClientEventToSimEvent(PA24_DOOR_HANDLE_EVENT_ID, 'PA24-door_handle_open');
+      handle.mapClientEventToSimEvent(PA24_DOOR_LOCK_EVENT_ID, 'PA24-door_latch_lock');
+      pa24DoorEventsReady = true;
+      debugLog('DOOR_PA24_EVENTS_READY');
+      return true;
+    } catch (err) {
+      debugLog(`DOOR_PA24_EVENTS_ERROR ${err?.message || err}`);
+      return false;
+    }
+  };
+
+  const sendDoorClientEvent = (eventId, value, label, reason) => {
+    try {
+      if (typeof handle.transmitClientEventEx === 'function') {
+        handle.transmitClientEventEx(SimConnectConstants.OBJECT_ID_USER, eventId, 0, 0, value, 0, 0, 0, 0);
+      } else {
+        handle.transmitClientEvent(SimConnectConstants.OBJECT_ID_USER, eventId, value, 0, 0);
+      }
+      debugLog(`DOOR_EVENT_SENT label=${label} value=${value} reason=${reason}`);
+      return true;
+    } catch (err) {
+      debugLog(`DOOR_EVENT_ERROR label=${label} value=${value} reason=${reason} error=${err?.message || err}`);
+      return false;
+    }
+  };
+
+  const setPa24ComancheDoor = async (openDoor, reason = 'boarding') => {
+    if (!ensurePa24DoorEvents()) return false;
+    const action = openDoor ? 'OPEN' : 'CLOSE';
+    debugLog(`DOOR_PA24_${action}_START reason=${reason}`);
+    let ok = true;
+    ok = sendDoorClientEvent(PA24_DOOR_UNLOCK_EVENT_ID, 1, 'PA24-door_latch_unlock', reason) && ok;
+    await sleep(120);
+    ok = sendDoorClientEvent(PA24_DOOR_HANDLE_EVENT_ID, 1, 'PA24-door_handle_open', reason) && ok;
+    if (!openDoor) {
+      await sleep(120);
+      ok = sendDoorClientEvent(PA24_DOOR_LOCK_EVENT_ID, 1, 'PA24-door_latch_lock', reason) && ok;
+    }
+    debugLog(`DOOR_PA24_${action}_DONE status=${ok ? 'ok' : 'partial'} reason=${reason}`);
+    return ok;
+  };
+
+  const setUserAircraftDoor = async (openDoor, doorIndex = 1, reason = 'boarding', doorProfile = 'default') => {
+    const profile = String(doorProfile || 'default').trim().toLowerCase();
+    if (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche') {
+      return setPa24ComancheDoor(openDoor, reason);
+    }
     if (!ensureDoorEvents()) return false;
     const index = clampInt(doorIndex, 0, 8);
     const doorParam = index <= 0 ? 0 : index;
     try {
-      if (typeof handle.transmitClientEventEx === 'function') {
-        const eventId = openDoor ? DOOR_OPEN_EVENT_ID : DOOR_CLOSE_EVENT_ID;
-        handle.transmitClientEventEx(SimConnectConstants.OBJECT_ID_USER, eventId, 0, 0, doorParam, 0, 0, 0, 0);
-      } else {
-        handle.transmitClientEvent(SimConnectConstants.OBJECT_ID_USER, DOOR_TOGGLE_EVENT_ID, doorParam, 0, 0);
-      }
-      debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_ATTEMPT index=${doorParam} reason=${reason}`);
-      return true;
+      const eventId = openDoor ? DOOR_OPEN_EVENT_ID : DOOR_CLOSE_EVENT_ID;
+      const ok = sendDoorClientEvent(typeof handle.transmitClientEventEx === 'function' ? eventId : DOOR_TOGGLE_EVENT_ID, doorParam, openDoor ? 'OPEN_AIRCRAFT_DOORS' : 'CLOSE_AIRCRAFT_DOORS', reason);
+      debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_ATTEMPT index=${doorParam} profile=${profile} status=${ok ? 'ok' : 'error'} reason=${reason}`);
+      return ok;
     } catch (err) {
-      debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_ERROR index=${doorParam} reason=${reason} error=${err?.message || err}`);
+      debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_ERROR index=${doorParam} profile=${profile} reason=${reason} error=${err?.message || err}`);
       return false;
     }
   };
@@ -509,15 +559,16 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const speedKts = Math.max(0.5, toFiniteNumber(command?.speedKts ?? command?.walkSpeedKts, 3.1) || 3.1);
     const doorEnabled = command?.openDoor === true || command?.door === true;
     const doorIndex = clampInt(command?.doorIndex ?? 1, 0, 8);
+    const doorProfile = String(command?.doorProfile || command?.aircraftDoorProfile || 'default');
     const distanceM = pathDistanceM(path);
     const speedMps = Math.max(0.25, speedKts * 0.514444);
     const durationMs = clampInt(Math.max(requestedDurationMs, (distanceM / speedMps) * 1000 + 6500), 3000, 45000);
     const pathSource = commandBoardingPath(command) ? 'app' : (command?.profile || command?.pathProfile || 'ga_right_cockpit_v1');
-    debugLog(`SCENE_BOARDING_START scene=${sceneId} objectId=${person.objectId} path=${pathSource} durationMs=${durationMs} waypoints=${path.length - 1} speedKts=${speedKts} door=${doorEnabled ? 1 : 0}`);
+    debugLog(`SCENE_BOARDING_START scene=${sceneId} objectId=${person.objectId} path=${pathSource} durationMs=${durationMs} waypoints=${path.length - 1} speedKts=${speedKts} door=${doorEnabled ? 1 : 0} doorProfile=${doorProfile}`);
     console.log(`🚶 Scene ${sceneId}: Boarding-Animation startet (${Math.round(durationMs / 1000)}s).`);
 
     if (doorEnabled) {
-      setUserAircraftDoor(true, doorIndex, 'boarding-open');
+      await setUserAircraftDoor(true, doorIndex, 'boarding-open', doorProfile);
       await sleep(350);
     }
     const routeSent = sendWaypointRoute(person.objectId, path.slice(1), speedKts);
@@ -564,7 +615,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
     if (doorEnabled) {
       await sleep(300);
-      setUserAircraftDoor(false, doorIndex, 'boarding-close');
+      await setUserAircraftDoor(false, doorIndex, 'boarding-close', doorProfile);
     }
     debugLog(`SCENE_BOARDING_OK scene=${sceneId} objectId=${person.objectId} routeSent=${routeSent ? 1 : 0} removed=${removed}`);
     sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: routeSent ? 'ok' : 'error', routeSent: routeSent ? 1 : 0, removed, boarded: routeSent ? 1 : 0, durationMs, error: routeSent ? '' : 'waypoint_route_failed' });

@@ -136,7 +136,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-9';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-10';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -1007,6 +1007,7 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
         finalHoldMs: 450,
         removePerson: true,
         openDoor: boardingConfig.openDoor !== false,
+        doorProfile: boardingConfig.doorProfile || 'default',
         doorIndex: 1
     };
     if (Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon))) {
