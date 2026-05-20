@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v226';
-const TRACKER_VERSION_CODE = 226;
+const TRACKER_VERSION = 'v227';
+const TRACKER_VERSION_CODE = 227;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -556,6 +556,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const requestedDurationMs = clampInt(command?.durationMs ?? 18000, 3000, 45000);
     const finalHoldMs = clampInt(command?.finalHoldMs ?? 450, 0, 2000);
     const removePerson = command?.removePerson !== false;
+    const removeCargoAtWaypoint = command?.removeCargoAtWaypoint !== false;
     const speedKts = Math.max(0.5, toFiniteNumber(command?.speedKts ?? command?.walkSpeedKts, 3.1) || 3.1);
     const doorEnabled = command?.openDoor === true || command?.door === true;
     const doorIndex = clampInt(command?.doorIndex ?? 1, 0, 8);
@@ -564,7 +565,24 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const speedMps = Math.max(0.25, speedKts * 0.514444);
     const durationMs = clampInt(Math.max(requestedDurationMs, (distanceM / speedMps) * 1000 + 6500), 3000, 45000);
     const pathSource = commandBoardingPath(command) ? 'app' : (command?.profile || command?.pathProfile || 'ga_right_cockpit_v1');
-    debugLog(`SCENE_BOARDING_START scene=${sceneId} objectId=${person.objectId} path=${pathSource} durationMs=${durationMs} waypoints=${path.length - 1} speedKts=${speedKts} door=${doorEnabled ? 1 : 0} doorProfile=${doorProfile}`);
+    const cargoKind = String(command?.cargoObjectKind || 'cargo').toLowerCase();
+    const cargo = rec.objects.find(o => String(o?.kind || '').toLowerCase() === cargoKind)
+      || rec.objects.find(o => /cargo|load|marker/i.test(String(o?.kind || '')));
+    let cargoRemoved = 0;
+    const removeCargoObject = (why = 'cargo-waypoint') => {
+      if (!cargo || !cargo.objectId || cargoRemoved) return false;
+      try {
+        handle.aIRemoveObject(cargo.objectId, nextReqId++);
+        cargoRemoved = 1;
+        rec.objects = rec.objects.filter(o => o.objectId !== cargo.objectId);
+        debugLog(`SCENE_CARGO_REMOVE_OK scene=${sceneId} objectId=${cargo.objectId} reason=${why}`);
+        return true;
+      } catch (err) {
+        debugLog(`SCENE_CARGO_REMOVE_ERROR scene=${sceneId} objectId=${cargo.objectId} reason=${why} error=${err?.message || err}`);
+        return false;
+      }
+    };
+    debugLog(`SCENE_BOARDING_START scene=${sceneId} objectId=${person.objectId} path=${pathSource} durationMs=${durationMs} waypoints=${path.length - 1} speedKts=${speedKts} door=${doorEnabled ? 1 : 0} doorProfile=${doorProfile} cargo=${cargo?.objectId || 0}`);
     console.log(`🚶 Scene ${sceneId}: Boarding-Animation startet (${Math.round(durationMs / 1000)}s).`);
 
     if (doorEnabled) {
@@ -572,6 +590,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       await sleep(350);
     }
     const routeSent = sendWaypointRoute(person.objectId, path.slice(1), speedKts);
+    if (routeSent && removeCargoAtWaypoint && cargo && path.length >= 2) {
+      const firstLegM = Math.hypot(Number(path[1].northM) - Number(path[0].northM), Number(path[1].eastM) - Number(path[0].eastM));
+      const cargoDelayMs = clampInt((firstLegM / speedMps) * 1000 + 850, 800, Math.max(900, durationMs - finalHoldMs - 500));
+      setTimeout(() => removeCargoObject('route-cargo-waypoint'), cargoDelayMs);
+      debugLog(`SCENE_CARGO_REMOVE_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} delayMs=${cargoDelayMs}`);
+    }
     if (!routeSent && command?.fallbackTeleport === true) {
       const segments = [];
       let totalDist = 0;
@@ -598,6 +622,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           });
           await sleep(Math.max(40, Math.round(segmentDuration / steps)));
         }
+        if (removeCargoAtWaypoint && !cargoRemoved && segment === segments[0]) removeCargoObject('fallback-cargo-waypoint');
       }
     } else {
       await sleep(Math.max(500, durationMs - finalHoldMs));
@@ -618,7 +643,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       await setUserAircraftDoor(false, doorIndex, 'boarding-close', doorProfile);
     }
     debugLog(`SCENE_BOARDING_OK scene=${sceneId} objectId=${person.objectId} routeSent=${routeSent ? 1 : 0} removed=${removed}`);
-    sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: routeSent ? 'ok' : 'error', routeSent: routeSent ? 1 : 0, removed, boarded: routeSent ? 1 : 0, durationMs, error: routeSent ? '' : 'waypoint_route_failed' });
+    sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: routeSent ? 'ok' : 'error', routeSent: routeSent ? 1 : 0, removed, cargoRemoved, boarded: routeSent ? 1 : 0, durationMs, error: routeSent ? '' : 'waypoint_route_failed' });
   };
 
   const clearScene = async (sceneId, reason = 'clear', commandId = null) => {

@@ -136,7 +136,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-10';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-11';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -166,11 +166,14 @@ window.missionSceneStatus = {
 function _missionSceneBoardingConfig() {
     const fallback = {
         spawn: { forwardM: 16, rightM: -8, altOffsetFt: 0 },
+        cargo: { forwardM: 4, rightM: 4, altOffsetFt: 0 },
         target: { forwardM: 4.5, rightM: 8.5, altOffsetFt: 0 },
         path: [
             { forwardM: 16, rightM: -8, altOffsetFt: 0 },
+            { forwardM: 4, rightM: 4, altOffsetFt: 0 },
             { forwardM: 4.5, rightM: 8.5, altOffsetFt: 0 }
         ],
+        waypoints: [],
         walkSpeedKts: 3.1,
         durationMs: 18000,
         openDoor: true
@@ -180,13 +183,16 @@ function _missionSceneBoardingConfig() {
             const cfg = window.getMissionSceneBoardingConfig();
             if (cfg && typeof cfg === 'object') {
                 const spawn = cfg.spawn || cfg.person || fallback.spawn;
+                const cargo = cfg.cargo || fallback.cargo;
                 const target = cfg.target || fallback.target;
-                const path = Array.isArray(cfg.path) && cfg.path.length >= 2 ? cfg.path : [spawn, target];
+                const path = Array.isArray(cfg.path) && cfg.path.length >= 2 ? cfg.path : [spawn, cargo, target];
                 return {
                     ...fallback,
                     ...cfg,
                     spawn: { ...fallback.spawn, ...spawn },
+                    cargo: { ...fallback.cargo, ...cargo },
                     target: { ...fallback.target, ...target },
+                    waypoints: Array.isArray(cfg.waypoints) ? cfg.waypoints.map(point => ({ ...point })) : [],
                     path: path.map(point => ({ ...point }))
                 };
             }
@@ -822,6 +828,7 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     const personTitle = _sceneObjectTitleOverride('person', MISSION_SCENE_DEFAULT_PERSON_TITLE);
     const boardingConfig = _missionSceneBoardingConfig();
     const personSpawn = boardingConfig.spawn || { forwardM: 16, rightM: -8, altOffsetFt: 0 };
+    const cargoPoint = boardingConfig.cargo || { forwardM: 4, rightM: 4, altOffsetFt: 0 };
     const commandId = window.sendTrackerCommand({
         type: 'mission_scene_spawn',
         sceneId,
@@ -840,6 +847,16 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
                 rightM: -12,
                 headingMode: 'face_aircraft',
                 altOffsetFt: 0
+            },
+            {
+                kind: 'cargo',
+                label: 'Cargo Platzhalter',
+                objectTitle: BOARDING_MARKER_TITLE,
+                titleCandidates: _sceneTitleCandidates(BOARDING_MARKER_TITLE, [BOARDING_MARKER_TITLE, 'ESD_Env_Windsock_NoPole_Orange']),
+                forwardM: Number.isFinite(Number(cargoPoint.forwardM)) ? Number(cargoPoint.forwardM) : 4,
+                rightM: Number.isFinite(Number(cargoPoint.rightM)) ? Number(cargoPoint.rightM) : 4,
+                headingMode: 'with_aircraft',
+                altOffsetFt: Number.isFinite(Number(cargoPoint.altOffsetFt)) ? Number(cargoPoint.altOffsetFt) : 0
             },
             {
                 kind: 'person',
@@ -869,8 +886,8 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     return true;
 };
 
-window.missionSceneClear = function(reason = 'scene-debug-clear') {
-    const sceneId = window.missionSceneStatus?.sceneId || _missionSceneId();
+window.missionSceneClear = function(reason = 'scene-debug-clear', sceneIdOverride = null) {
+    const sceneId = sceneIdOverride ? String(sceneIdOverride) : (window.missionSceneStatus?.sceneId || _missionSceneId());
     const commandId = window.sendTrackerCommand({
         type: 'mission_scene_clear',
         sceneId,
@@ -888,6 +905,21 @@ window.missionSceneClear = function(reason = 'scene-debug-clear') {
     return true;
 };
 
+window.clearMissionSceneObjects = function(reason = 'mission-scene-reset') {
+    const ids = [...new Set([
+        window.missionSceneStatus?.sceneId,
+        _missionSceneId(),
+        _boardingMarkerSceneId()
+    ].filter(Boolean).map(String))];
+    let sent = false;
+    ids.forEach(sceneId => {
+        if (typeof window.missionSceneClear === 'function') {
+            sent = window.missionSceneClear(reason, sceneId) || sent;
+        }
+    });
+    return sent;
+};
+
 window.boardingMarkerSpawn = function(reason = 'boarding-marker') {
     if (!isBoardingMarkerEnabled()) return false;
     const pos = window.lastLiveGpsPos || {};
@@ -896,9 +928,9 @@ window.boardingMarkerSpawn = function(reason = 'boarding-marker') {
         return false;
     }
     const cfg = _missionSceneBoardingConfig();
-    const spawn = cfg.spawn || { forwardM: 16, rightM: -8, altOffsetFt: 0 };
-    const target = cfg.target || { forwardM: 4.5, rightM: 8.5, altOffsetFt: 0 };
     const markerTitle = BOARDING_MARKER_TITLE;
+    const path = Array.isArray(cfg.path) && cfg.path.length >= 2 ? cfg.path : [cfg.spawn, cfg.cargo, cfg.target];
+    const labels = ['Spawn', 'Cargo', ...((cfg.waypoints || []).map((_, i) => `Wegpunkt ${i + 1}`)), 'Boarding'];
     return !!window.sendTrackerCommand({
         type: 'mission_scene_spawn',
         sceneId: _boardingMarkerSceneId(),
@@ -907,28 +939,16 @@ window.boardingMarkerSpawn = function(reason = 'boarding-marker') {
         lon: Number(pos.lon),
         altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
         hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
-        items: [
-            {
-                kind: 'marker_spawn',
-                label: 'Boarding Spawn Marker',
-                objectTitle: markerTitle,
-                titleCandidates: _sceneTitleCandidates(markerTitle, [markerTitle, 'ESD_Env_Windsock_NoPole_Orange']),
-                forwardM: Number.isFinite(Number(spawn.forwardM)) ? Number(spawn.forwardM) : 16,
-                rightM: Number.isFinite(Number(spawn.rightM)) ? Number(spawn.rightM) : -8,
-                headingMode: 'with_aircraft',
-                altOffsetFt: Number.isFinite(Number(spawn.altOffsetFt)) ? Number(spawn.altOffsetFt) : 0
-            },
-            {
-                kind: 'marker_boarding',
-                label: 'Boarding Ziel Marker',
-                objectTitle: markerTitle,
-                titleCandidates: _sceneTitleCandidates(markerTitle, [markerTitle, 'ESD_Env_Windsock_NoPole_Orange']),
-                forwardM: Number.isFinite(Number(target.forwardM)) ? Number(target.forwardM) : 4.5,
-                rightM: Number.isFinite(Number(target.rightM)) ? Number(target.rightM) : 8.5,
-                headingMode: 'with_aircraft',
-                altOffsetFt: Number.isFinite(Number(target.altOffsetFt)) ? Number(target.altOffsetFt) : 0
-            }
-        ]
+        items: path.slice(0, 10).map((point, index) => ({
+            kind: `marker_${index + 1}`,
+            label: `Boarding ${labels[index] || `Punkt ${index + 1}`} Marker`,
+            objectTitle: markerTitle,
+            titleCandidates: _sceneTitleCandidates(markerTitle, [markerTitle, 'ESD_Env_Windsock_NoPole_Orange']),
+            forwardM: Number.isFinite(Number(point.forwardM)) ? Number(point.forwardM) : 0,
+            rightM: Number.isFinite(Number(point.rightM)) ? Number(point.rightM) : 0,
+            headingMode: 'with_aircraft',
+            altOffsetFt: Number.isFinite(Number(point.altOffsetFt)) ? Number(point.altOffsetFt) : 0
+        }))
     });
 };
 
@@ -1006,6 +1026,8 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
         walkSpeedKts: Number.isFinite(Number(boardingConfig.walkSpeedKts)) ? Number(boardingConfig.walkSpeedKts) : 3.1,
         finalHoldMs: 450,
         removePerson: true,
+        removeCargoAtWaypoint: true,
+        cargoObjectKind: 'cargo',
         openDoor: boardingConfig.openDoor !== false,
         doorProfile: boardingConfig.doorProfile || 'default',
         doorIndex: 1
@@ -1416,7 +1438,8 @@ function _isAtMissionTarget(lat, lon, thresholdNm = 1.2) {
 
 window.missionRuntimeReset = function() {
     if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('mission-runtime-reset');
-    if (typeof window.missionSceneClear === 'function') window.missionSceneClear('mission-runtime-reset');
+    if (typeof window.clearMissionSceneObjects === 'function') window.clearMissionSceneObjects('mission-runtime-reset');
+    else if (typeof window.missionSceneClear === 'function') window.missionSceneClear('mission-runtime-reset');
     _clearMissionStartPhase();
     Object.assign(window.missionSceneStatus, {
         spawned: false,
@@ -1506,8 +1529,11 @@ window.manualMissionStart = function() {
 
 window.manualMissionEnd = function() {
     if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('manual-mission-end');
-    if (typeof window.missionSceneClear === 'function') window.missionSceneClear('manual-mission-end');
-    if (typeof window.boardingMarkerClear === 'function') window.boardingMarkerClear('manual-mission-end');
+    if (typeof window.clearMissionSceneObjects === 'function') window.clearMissionSceneObjects('manual-mission-end');
+    else {
+        if (typeof window.missionSceneClear === 'function') window.missionSceneClear('manual-mission-end');
+        if (typeof window.boardingMarkerClear === 'function') window.boardingMarkerClear('manual-mission-end');
+    }
     const pos = window.lastLiveGpsPos;
     const shouldFinalize = !!(flightRecorder && (flightRecorder.active || flightRecorder.hadAirbornePhase || (Array.isArray(flightRecorder.track) && flightRecorder.track.length > 1)));
     missionRuntime.active = false;
@@ -4266,8 +4292,11 @@ function updateFlightRecorder(lat, lon, alt) {
             if (!missionRuntime.pendingEndAt) missionRuntime.pendingEndAt = now + 5000;
             if (now >= missionRuntime.pendingEndAt) {
                 if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('auto-mission-end');
-                if (typeof window.missionSceneClear === 'function') window.missionSceneClear('auto-mission-end');
-                if (typeof window.boardingMarkerClear === 'function') window.boardingMarkerClear('auto-mission-end');
+                if (typeof window.clearMissionSceneObjects === 'function') window.clearMissionSceneObjects('auto-mission-end');
+                else {
+                    if (typeof window.missionSceneClear === 'function') window.missionSceneClear('auto-mission-end');
+                    if (typeof window.boardingMarkerClear === 'function') window.boardingMarkerClear('auto-mission-end');
+                }
                 missionRuntime.active = false;
                 missionRuntime.armed = false;
                 missionRuntime.manual = false;

@@ -736,6 +736,7 @@
         </div>
         <div class="mission-control-row" style="display:flex; gap:8px; margin-bottom:8px;">
             <button class="btn-preset mission-auto-start-btn" id="missionAutoStartBtn" style="flex:1; margin:0; height:36px;" onclick="window.toggleMissionAutoStart && toggleMissionAutoStart()">AUTO START: AN</button>
+            <button class="btn-preset mission-reset-btn" id="missionResetBtn" style="flex:1; margin:0; height:36px;" onclick="window.missionRuntimeReset && missionRuntimeReset()">MISSION RESET</button>
         </div>
         
         <div class="api-hint" id="loginHint">
@@ -805,30 +806,22 @@
                     </label>
                 </div>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px;">
-                    <div style="display: flex; justify-content: space-between; gap: 6px; align-items: center; margin-bottom: 6px;">
-                        <strong style="font-size: 10px; color: #f2c12e;">Spawn</strong>
-                        <span id="boardingSpawnReadout" style="font-size: 9px; color: #ccd3da; text-align: right;">-</span>
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
-                        <span></span><button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach vorn" onclick="nudgeBoardingPresetPoint('spawn','forwardM',1)">↑</button><span></span>
-                        <button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach links" onclick="nudgeBoardingPresetPoint('spawn','rightM',-1)">←</button>
-                        <button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach hinten" onclick="nudgeBoardingPresetPoint('spawn','forwardM',-1)">↓</button>
-                        <button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach rechts" onclick="nudgeBoardingPresetPoint('spawn','rightM',1)">→</button>
-                    </div>
+            <div class="boarding-route-editor">
+                <div class="boarding-point-row">
+                    <select id="boardingPointSelect" class="boarding-point-select" onchange="selectBoardingPresetPoint(this.value)"></select>
+                    <button class="btn-preset boarding-small-btn" onclick="addBoardingWaypointAfterSelected()">+ Wegpunkt</button>
                 </div>
-                <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px;">
-                    <div style="display: flex; justify-content: space-between; gap: 6px; align-items: center; margin-bottom: 6px;">
-                        <strong style="font-size: 10px; color: #4da6ff;">Boarding</strong>
-                        <span id="boardingTargetReadout" style="font-size: 9px; color: #ccd3da; text-align: right;">-</span>
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
-                        <span></span><button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach vorn" onclick="nudgeBoardingPresetPoint('target','forwardM',1)">↑</button><span></span>
-                        <button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach links" onclick="nudgeBoardingPresetPoint('target','rightM',-1)">←</button>
-                        <button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach hinten" onclick="nudgeBoardingPresetPoint('target','forwardM',-1)">↓</button>
-                        <button class="btn-preset" style="margin:0; min-width:0; height:28px;" title="weiter nach rechts" onclick="nudgeBoardingPresetPoint('target','rightM',1)">→</button>
-                    </div>
+                <div id="boardingSelectedPointReadout" class="boarding-point-readout">-</div>
+                <div class="boarding-nudge-grid">
+                    <span></span><button class="btn-preset" title="weiter nach vorn" onclick="nudgeSelectedBoardingPoint('forwardM',1)">↑</button><span></span>
+                    <button class="btn-preset" title="weiter nach links" onclick="nudgeSelectedBoardingPoint('rightM',-1)">←</button>
+                    <button class="btn-preset" title="weiter nach hinten" onclick="nudgeSelectedBoardingPoint('forwardM',-1)">↓</button>
+                    <button class="btn-preset" title="weiter nach rechts" onclick="nudgeSelectedBoardingPoint('rightM',1)">→</button>
+                </div>
+                <div class="boarding-route-actions">
+                    <button class="btn-preset boarding-small-btn" id="boardingMovePointBackBtn" onclick="moveSelectedBoardingWaypoint(-1)">Punkt zurück</button>
+                    <button class="btn-preset boarding-small-btn" id="boardingMovePointForwardBtn" onclick="moveSelectedBoardingWaypoint(1)">Punkt vor</button>
+                    <button class="btn-preset boarding-small-btn" id="boardingDeletePointBtn" onclick="deleteSelectedBoardingWaypoint()">Löschen</button>
                 </div>
             </div>
             <div class="settings-action-row" style="margin-top: 8px;">
@@ -1569,15 +1562,15 @@
 <script defer src="vendor/leaflet/leaflet.js"></script>
 <script defer src="datenbank.js"></script>
 <script defer src="missions.js"></script>
-<script defer src="taws.js?v=scene-debug-20260520-10"></script>
-<script defer src="sync.js?v=scene-debug-20260520-10"></script>
+<script defer src="taws.js?v=scene-debug-20260520-11"></script>
+<script defer src="sync.js?v=scene-debug-20260520-11"></script>
 <script defer src="checklists.js"></script>
 <script defer src="profile.js"></script>
 <script defer src="map.js"></script>
-<script defer src="app.js?v=scene-debug-20260520-10"></script>
+<script defer src="app.js?v=scene-debug-20260520-11"></script>
 <script defer src="board.js"></script>
-<script defer src="sim-route.js?v=scene-debug-20260520-10"></script>
-<script defer src="passenger-voice.js?v=scene-debug-20260520-10"></script>
+<script defer src="sim-route.js?v=scene-debug-20260520-11"></script>
+<script defer src="passenger-voice.js?v=scene-debug-20260520-11"></script>
 <script defer src="tutorial.js"></script>
 <script>
     function _openFloatingMenuInViewport(menu, btn, preferAbove = false) {

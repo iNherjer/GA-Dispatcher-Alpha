@@ -10534,6 +10534,72 @@ body.theme-ops1940 .boarding-toggle input[type="checkbox"]:checked::after {
     transform: scale(1);
 }
 
+.boarding-route-editor {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 8px;
+}
+
+.boarding-point-row,
+.boarding-route-actions {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+}
+
+.boarding-point-select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.boarding-small-btn {
+    flex: 0 0 auto !important;
+    min-width: 0;
+    padding-left: 8px;
+    padding-right: 8px;
+    white-space: nowrap;
+}
+
+.boarding-point-readout {
+    margin-top: 7px;
+    color: #ccd3da;
+    font-size: 10px;
+    line-height: 1.25;
+}
+
+.boarding-nudge-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    max-width: 240px;
+    margin: 8px auto 0;
+}
+
+.boarding-nudge-grid .btn-preset {
+    min-width: 0;
+    height: 30px;
+    margin: 0;
+    padding: 0;
+}
+
+.boarding-route-actions {
+    margin-top: 8px;
+}
+
+.boarding-route-actions .btn-preset {
+    flex: 1 1 0 !important;
+    height: 30px;
+    margin: 0;
+    font-size: 9px;
+}
+
+.mission-reset-btn {
+    color: #ffd5d0;
+    border-color: #73413a;
+    background: linear-gradient(180deg, #4a2d29, #21100e);
+}
+
 body.theme-ops1940 .boarding-scene-toolbar {
     align-items: center;
 }
@@ -10573,6 +10639,42 @@ body.theme-ops1940 .boarding-toggle input[type="checkbox"]::after {
     background: #7db8e8;
 }
 
+body.theme-ops1940 .boarding-route-editor {
+    border-color: rgba(208, 164, 79, 0.24);
+    background: rgba(12, 14, 10, 0.18);
+}
+
+body.theme-ops1940 .boarding-point-readout {
+    color: rgba(234, 216, 171, 0.72);
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+}
+
+body.theme-ops1940 .boarding-small-btn,
+body.theme-ops1940 .boarding-route-actions .btn-preset,
+body.theme-ops1940 .boarding-nudge-grid .btn-preset {
+    min-height: 28px;
+    height: 28px;
+    font-size: 8px;
+    letter-spacing: 0.2px;
+}
+
+body.theme-ops1940 .boarding-point-select {
+    min-height: 32px !important;
+    height: 32px;
+    font-size: 10px !important;
+    padding: 5px 8px !important;
+}
+
+body.theme-ops1940 .mission-reset-btn {
+    color: #ffd4b9;
+    border-color: #7a321f;
+    background:
+        linear-gradient(180deg, #6a2d20, #31110c 64%, #090302),
+        var(--ops-atlas);
+    background-size: auto, 200% 200%;
+}
+
 @media (max-width: 520px) {
     .boarding-scene-toolbar {
         grid-template-columns: 1fr;
@@ -10581,5 +10683,15 @@ body.theme-ops1940 .boarding-toggle input[type="checkbox"]::after {
     .boarding-toggle-row {
         justify-content: flex-start;
         max-width: none;
+    }
+
+    .boarding-point-row,
+    .boarding-route-actions {
+        flex-wrap: wrap;
+    }
+
+    .boarding-point-row .btn-preset,
+    .boarding-route-actions .btn-preset {
+        flex: 1 1 96px !important;
     }
 }
