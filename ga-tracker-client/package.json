@@ -7,8 +7,10 @@
     "start": "node tracker.js",
     "smoke-test:edtw": "node spawn-edtw-smoke-test.js",
     "asset-scan": "node msfs-asset-scanner.js",
+    "asset-validate": "node msfs-asset-validator.js",
     "build:smoke-test": "pkg spawn-edtw-smoke-test.js --target node20-win-x64 --output dist/edtw-smoke-test.exe",
-    "build:asset-scanner": "pkg msfs-asset-scanner.js --target node18-win-x64 --output MSFS2024-Asset-Scanner.exe"
+    "build:asset-scanner": "pkg msfs-asset-scanner.js --target node18-win-x64 --output MSFS2024-Asset-Scanner.exe",
+    "build:asset-validator": "pkg msfs-asset-validator.js --target node18-win-x64 --output MSFS2024-Asset-Validator.exe"
   },
   "pkg": {
     "scripts": "spawn-edtw-smoke-test.js",
