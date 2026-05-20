@@ -8002,6 +8002,72 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         }
         return p;
     };
+    const greetingObjectiveTokens = (...texts) => {
+        const stop = new Set([
+            'heute', 'fliegen', 'flug', 'ziel', 'zielgebiet', 'einsatz', 'auftrag',
+            'bitte', 'ruhig', 'sauber', 'stabil', 'klar', 'calls', 'muster',
+            'ueber', 'uber', 'eine', 'einen', 'einer', 'der', 'die', 'das', 'und',
+            'mit', 'zum', 'zur', 'von', 'fuer', 'fur', 'nach', 'entlang', 'bereich'
+        ]);
+        return [...new Set(texts
+            .join(' ')
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9äöüß ]/g, ' ')
+            .split(/\s+/)
+            .map(t => t.trim())
+            .filter(t => t.length >= 5 && !stop.has(t))
+        )].slice(0, 24);
+    };
+    const greetingLooksMissionSpecific = (greeting, storyText = '', targetLabel = '', intent = null) => {
+        const gNorm = String(greeting || '')
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+        const intentText = [
+            intent?.summary,
+            intent?.environment,
+            Array.isArray(intent?.visibleIdeas) ? intent.visibleIdeas.join(' ') : ''
+        ].join(' ');
+        const tokens = greetingObjectiveTokens(targetLabel, storyText, intentText);
+        return tokens.some(t => gNorm.includes(t));
+    };
+    const objectiveSentenceForGreeting = (storyText = '', titleText = '', targetLabel = '', intent = null) => {
+        const storySentences = String(storyText || '')
+            .replace(/\s+/g, ' ')
+            .split(/(?<=[.!?])\s+/)
+            .map(s => s.trim())
+            .filter(Boolean);
+        const missionSentence = storySentences.find(s => /(such|inspek|kontroll|kartier|lagebild|beobacht|versorg|trasse|leitung|strom|wind|rauch|brand|unfall|rett|sar|ufer|brueck|brück|baustell)/i.test(s))
+            || storySentences[0]
+            || String(intent?.summary || titleText || targetLabel || '').trim();
+        let s = String(missionSentence || '').replace(/\s+/g, ' ').trim();
+        s = s
+            .replace(/^Wir haben einen Einsatzbefehl für die\s+/i, 'heute fliegen wir die ')
+            .replace(/^Wir haben einen Einsatzbefehl fuer die\s+/i, 'heute fliegen wir die ')
+            .replace(/^Wir haben einen Einsatzbefehl für den\s+/i, 'heute fliegen wir den ')
+            .replace(/^Wir haben einen Einsatzbefehl fuer den\s+/i, 'heute fliegen wir den ')
+            .replace(/^Wir haben einen Einsatzbefehl für das\s+/i, 'heute fliegen wir das ')
+            .replace(/^Wir haben einen Einsatzbefehl fuer das\s+/i, 'heute fliegen wir das ')
+            .replace(/^Wir haben einen Auftrag für die\s+/i, 'heute fliegen wir die ')
+            .replace(/^Wir haben einen Auftrag fuer die\s+/i, 'heute fliegen wir die ');
+        s = s.replace(/\.$/, '').trim();
+        if (s.length > 230) s = `${s.slice(0, 227).replace(/\s+\S*$/, '')}...`;
+        return s;
+    };
+    const enrichPassengerGreetingText = (passenger, { storyText = '', titleText = '', targetLabel = '', sceneIntent = null } = {}) => {
+        if (!passenger || typeof passenger !== 'object') return passenger;
+        const g = String(passenger.greetingText || '').trim();
+        if (!g) return passenger;
+        if (greetingLooksMissionSpecific(g, storyText, targetLabel, sceneIntent)) return passenger;
+        const objective = objectiveSentenceForGreeting(storyText, titleText, targetLabel, sceneIntent);
+        if (!objective) return passenger;
+        const openerMatch = g.match(/^(hi|hallo|moin|morgen|servus|sali)\b/i);
+        const opener = openerMatch ? openerMatch[0] : 'Hi';
+        return {
+            ...passenger,
+            greetingText: `${opener}, ${objective}.`
+        };
+    };
     const enforceTrainingInstructorPayload = (payload) => {
         if (!isTrainingMission || !payload || typeof payload !== 'object') return payload;
         const normalized = { ...payload };
@@ -8109,6 +8175,7 @@ REGELN:
 11) Keine zusätzlichen Eigennamen für den Piloten erfinden (nur "du").
 12) Interne Regel-/Verbotssätze NIE wörtlich im story-Feld wiederholen.
 13) Trennung strikt einhalten: Alles in <INSTRUKTIONEN> sind Arbeitsregeln und dürfen nicht als Storytext erscheinen.
+13b) greetingText MUSS die konkrete Aufgabe kurz nennen: was suchen, beobachten, prüfen oder fotografieren wir und in welchem Zielkontext. Keine rein generischen Begrüßungen wie "Suchmuster und klare Calls" ohne Objekt/Ort/Trasse/Anlass.
 ${trainingHardRules}
 ${poiNoTrainingRule}
 ${forcedProfileRule}
@@ -8162,7 +8229,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
     "targetAltFt": 3500,
     "targetRadiusNm": 3.0,
     "targetDwellMin": 2,
-    "greetingText": "Persönliche Begrüßung an den Piloten",
+    "greetingText": "Persönliche Begrüßung an den Piloten, mit konkretem Auftrag und Zielkontext",
     "trainingPlan": {
       "mode": "airwork|pattern",
       "trigger": "half_route|five_nm_before_landing",
@@ -8174,11 +8241,17 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
 </OUTPUT>`;
 
     const buildGeminiMissionResult = (parsed, sourceLabel) => {
-        const passenger = sanitizePassengerProfile(parsed.passenger, parsed.story);
+        let passenger = sanitizePassengerProfile(parsed.passenger, parsed.story);
         const sceneIntent = sanitizeMissionSceneIntentSpec(
             parsed.sceneIntent || parsed.targetSceneIntent || parsed.sceneDescription || parsed.targetScene || null,
             { isPOI, taskDomain: passenger?.taskDomain || parsed.passenger?.taskDomain }
         );
+        passenger = enrichPassengerGreetingText(passenger, {
+            storyText: parsed.story,
+            titleText: parsed.title,
+            targetLabel: promptDestName,
+            sceneIntent
+        });
         const draftTargetScene = sanitizeMissionTargetSceneSpec(null, { isPOI, taskDomain: passenger?.taskDomain || parsed.passenger?.taskDomain });
         return {
             t: parsed.title,
