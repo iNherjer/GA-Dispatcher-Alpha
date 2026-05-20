@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const TOOL_VERSION = 'v2';
+const TOOL_VERSION = 'v3';
 const OUT_BASENAME = 'msfs2024-simobjects';
 const DEFAULT_OUTPUT_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 
@@ -108,8 +108,16 @@ function candidatePackageRoots() {
   const appData = process.env.APPDATA || '';
   const localAppData = process.env.LOCALAPPDATA || '';
   if (appData) {
-    roots.push(path.join(appData, 'Microsoft Flight Simulator 2024', 'Packages'));
-    roots.push(path.join(appData, 'Microsoft Flight Simulator', 'Packages'));
+    const msfs2024Root = path.join(appData, 'Microsoft Flight Simulator 2024');
+    const msfs2020Root = path.join(appData, 'Microsoft Flight Simulator');
+    roots.push(msfs2024Root);
+    roots.push(path.join(msfs2024Root, 'Packages'));
+    roots.push(path.join(msfs2024Root, 'SimObjects'));
+    roots.push(path.join(msfs2024Root, 'VFSProjection'));
+    roots.push(msfs2020Root);
+    roots.push(path.join(msfs2020Root, 'Packages'));
+    roots.push(path.join(msfs2020Root, 'SimObjects'));
+    roots.push(path.join(msfs2020Root, 'VFSProjection'));
   }
 
   if (localAppData) {
@@ -117,7 +125,11 @@ function candidatePackageRoots() {
     try {
       for (const name of fs.readdirSync(packagesDir)) {
         if (/Microsoft\.(Limitless|FlightSimulator)/i.test(name)) {
-          roots.push(path.join(packagesDir, name, 'LocalCache', 'Packages'));
+          const localCache = path.join(packagesDir, name, 'LocalCache');
+          roots.push(localCache);
+          roots.push(path.join(localCache, 'Packages'));
+          roots.push(path.join(localCache, 'SimObjects'));
+          roots.push(path.join(localCache, 'VFSProjection'));
         }
       }
     } catch (_) {}
@@ -164,7 +176,7 @@ function sourceDirsForRoot(root) {
   const base = path.basename(root).toLowerCase();
   if (/^(official|official2020|official2024)$/i.test(base)) {
     addOfficialGroup(path.basename(root), root);
-  } else if (/^(community|community2024|onestore|steam|streamedpackages)$/i.test(base)) {
+  } else if (/^(community|community2024|onestore|steam|streamedpackages|simobjects|vfsprojection)$/i.test(base)) {
     add(path.basename(root), root);
   }
 
@@ -190,6 +202,8 @@ function findSimObjectsDirs(sourceDir) {
   const out = [];
   const stack = [sourceDir];
   const seen = new Set();
+
+  if (/^SimObjects$/i.test(path.basename(sourceDir))) out.push(sourceDir);
 
   while (stack.length) {
     const dir = stack.pop();
@@ -234,6 +248,75 @@ function walkCfgFiles(sourceDir) {
     }
   }
   return out;
+}
+
+function walkLayoutFiles(sourceDir) {
+  const out = [];
+  const stack = [sourceDir];
+  const seen = new Set();
+  while (stack.length) {
+    const dir = stack.pop();
+    const key = path.resolve(dir).toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { continue; }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (!skipDirectory(entry.name)) stack.push(full);
+      } else if (/^layout\.json$/i.test(entry.name)) {
+        out.push(full);
+      }
+    }
+  }
+  return out;
+}
+
+function normalizeVirtualPath(value) {
+  return String(value || '').replace(/\\/g, '/').replace(/^\/+/, '');
+}
+
+function pathKindFromVirtualPath(value) {
+  const parts = normalizeVirtualPath(value).split('/').filter(Boolean);
+  const idx = parts.findIndex((p) => p.toLowerCase() === 'simobjects');
+  return idx >= 0 && parts[idx + 1] ? parts[idx + 1] : '';
+}
+
+function objectFolderFromVirtualPath(value) {
+  const parts = normalizeVirtualPath(value).split('/').filter(Boolean);
+  const idx = parts.findIndex((p) => p.toLowerCase() === 'simobjects');
+  if (idx >= 0 && parts[idx + 2]) return parts[idx + 2];
+  const file = parts[parts.length - 1] || '';
+  return file.replace(/\.(sim|aircraft)\.cfg$/i, '') || path.basename(path.dirname(value));
+}
+
+function walkLayoutSimObjectRefs(sourceDir) {
+  const refs = [];
+  for (const layoutFile of walkLayoutFiles(sourceDir)) {
+    const layout = readJsonSafe(layoutFile);
+    const entries = Array.isArray(layout) ? layout
+      : (Array.isArray(layout?.content) ? layout.content
+        : (Array.isArray(layout?.files) ? layout.files : []));
+    if (!entries.length) continue;
+    const packageRoot = path.dirname(layoutFile);
+    const meta = packageMetadata(packageRoot);
+    for (const entry of entries) {
+      const relPath = normalizeVirtualPath(entry?.path || entry?.name || entry?.file || '');
+      if (!/\/?SimObjects\/.+\/(sim|aircraft)\.cfg$/i.test(relPath)) continue;
+      const physicalPath = path.join(packageRoot, ...relPath.split('/'));
+      refs.push({
+        layoutFile,
+        packageRoot,
+        meta,
+        relPath,
+        physicalPath,
+        exists: existsFile(physicalPath)
+      });
+    }
+  }
+  return refs;
 }
 
 function stripInlineComment(line) {
@@ -354,15 +437,56 @@ function inferTags(record) {
   add('police', /(police|law|security|sheriff)/);
   add('person', /(human|person|people|tarmac|termac|marshall|marshaller|character|female|male|pilot|worker|passenger|pax|crew)/);
   add('vehicle', /(vehicle|car|truck|bus|van|groundvehicle|tractor|fuel|pushback|follow|firefighting|pickup|ambulance|police)/);
+  add('car', /(\bcar\b|auto|automobile|minicar|microsoft_car)/);
+  add('bus', /(\bbus\b|coach)/);
+  add('van', /(\bvan\b|transporter|microsoft_van)/);
+  add('truck', /(\btruck\b|lorry|pickup|firefighting|fuel)/);
+  add('quad', /(\bquad\b|atv)/);
   add('boat', /(boat|ship|vessel|ferry|tug|sail|yacht|watercraft)/);
+  add('liferaft', /(liferaft|life raft|raft)/);
   add('animal', /(animal|cow|horse|sheep|bird|whale|deer|bear|elephant|giraffe|kangaroo)/);
   add('airport', /(airport|tarmac|termac|marshaller|baggage|fuel|pushback|stairs|catering|ramp|jetway|ground)/);
   add('cargo', /(cargo|container|crate|box|freight|pallet|parcel|luggage|baggage|coffee|cup)/);
+  add('pallet', /(pallet|palette)/);
+  add('cardboard', /(cardboard|carton|karton|box)/);
+  add('container', /(container|drop_container|drop container)/);
+  add('log', /(\blog\b|timber|wood)/);
   add('construction', /(construction|crane|worker|dozer|excavator|tool|generator)/);
   add('marker', /(cone|windsock|marker|barrier|sign)/);
   add('vip', /(vip|limousine|limo|executive|security|escort)/);
   add('accident', /(wreck|crash|accident|debris|broken|emergency)/);
   return unique(tags);
+}
+
+function inferRoleHints(record) {
+  const hay = `${record.title} ${record.displayName} ${record.category} ${record.objectClass} ${record.kind} ${record.packageName} ${record.path}`.toLowerCase();
+  const hints = [];
+  const add = (hint, re) => { if (re.test(hay)) hints.push(hint); };
+  add('vfx.smoke', /(smoke|rauch|chimney)/);
+  add('vfx.fire', /(fire|feuer|brand)/);
+  add('vehicle.car', /(\bcar\b|microsoft_car|auto|automobile|minicar)/);
+  add('vehicle.bus', /(\bbus\b|coach)/);
+  add('vehicle.van', /(\bvan\b|microsoft_van|transporter)/);
+  add('vehicle.truck', /(\btruck\b|lorry|pickup)/);
+  add('vehicle.quad', /(\bquad\b|atv)/);
+  add('vehicle.emergency.fire', /(firefight|fire truck|bush fire)/);
+  add('vehicle.emergency.police', /(police|sheriff)/);
+  add('vehicle.emergency.medical', /(ambulance|medical|medic|paramedic)/);
+  add('watercraft.boat', /(boat|vessel|ferry|yacht)/);
+  add('watercraft.ship', /(\bship\b|cargo ship|tanker)/);
+  add('sar.liferaft', /(liferaft|life raft|raft)/);
+  add('person.ground_crew', /(tarmac|termac|marshaller|crew|worker)/);
+  add('person.passenger', /(passenger|pax|female|male|human|person)/);
+  add('cargo.pallet_large', /pallet01_01/);
+  add('cargo.pallet_medium', /pallet01_02/);
+  add('cargo.pallet_small', /pallet01_03/);
+  add('cargo.small_box', /(cardboard|carton|karton|box)/);
+  add('cargo.container', /(drop_container|drop container|container)/);
+  add('cargo.bag', /(rice_bag|bag|sack)/);
+  add('debris.log', /(\blog\b|timber|wood)/);
+  add('marker.cone', /(cone|marker)/);
+  add('marker.windsock', /(windsock|wind sock)/);
+  return unique(hints);
 }
 
 function sceneRole(record) {
@@ -381,6 +505,7 @@ function sceneRole(record) {
 function scanSource(source) {
   const records = [];
   const cfgFiles = walkCfgFiles(source.dir);
+  const cfgKeySet = new Set(cfgFiles.map((p) => path.resolve(p).toLowerCase()));
 
   for (const cfgPath of cfgFiles) {
     const text = readTextSafe(cfgPath);
@@ -431,6 +556,7 @@ function scanSource(source) {
         };
         record.tags = inferTags(record);
         record.role = sceneRole(record);
+        record.roleHints = inferRoleHints(record);
         records.push(record);
       }
     } else {
@@ -450,11 +576,52 @@ function scanSource(source) {
       };
       record.tags = inferTags(record);
       record.role = sceneRole(record);
+      record.roleHints = inferRoleHints(record);
       records.push(record);
     }
   }
 
-  return { records, cfgFileCount: cfgFiles.length };
+  const layoutRefs = walkLayoutSimObjectRefs(source.dir);
+  let layoutCandidateCount = 0;
+  for (const ref of layoutRefs) {
+    if (ref.exists && cfgKeySet.has(path.resolve(ref.physicalPath).toLowerCase())) continue;
+    const kind = pathKindFromVirtualPath(ref.relPath);
+    const title = objectFolderFromVirtualPath(ref.relPath);
+    const record = {
+      source: source.source,
+      sourceDir: source.dir,
+      packageName: ref.meta.name,
+      packageTitle: ref.meta.title,
+      packageCreator: ref.meta.creator,
+      packageVersion: ref.meta.packageVersion,
+      packageContentType: ref.meta.contentType,
+      kind,
+      category: '',
+      objectClass: '',
+      cfg: path.basename(ref.relPath),
+      path: path.relative(source.dir, path.join(ref.packageRoot, ...ref.relPath.split('/'))),
+      virtualPath: ref.relPath,
+      absolutePath: ref.exists ? ref.physicalPath : '',
+      packageRoot: ref.packageRoot,
+      title,
+      displayName: title,
+      aliases: unique([title, title.replace(/_/g, ' ')]),
+      titleSource: ref.exists ? 'layout-physical-unread' : 'layout-folder-fallback',
+      uiType: '',
+      uiVariation: '',
+      model: '',
+      spawnCandidate: true,
+      sceneCandidate: !/(airplane|aircraft|helicopter|rotorcraft|airplanes)/i.test(kind),
+      confidence: ref.exists ? 'medium' : 'low'
+    };
+    record.tags = inferTags(record);
+    record.role = sceneRole(record);
+    record.roleHints = inferRoleHints(record);
+    records.push(record);
+    layoutCandidateCount++;
+  }
+
+  return { records, cfgFileCount: cfgFiles.length, layoutCandidateCount, layoutRefCount: layoutRefs.length };
 }
 
 function csvEscape(value) {
@@ -476,7 +643,10 @@ function writeCsv(file, records) {
     'category',
     'objectClass',
     'tags',
+    'roleHints',
     'aliases',
+    'confidence',
+    'titleSource',
     'uiType',
     'uiVariation',
     'model',
@@ -502,6 +672,7 @@ function compactRecord(r) {
     aliases: r.aliases,
     role: r.role,
     tags: r.tags,
+    roleHints: r.roleHints,
     kind: r.kind,
     category: r.category,
     source: r.source,
@@ -510,6 +681,8 @@ function compactRecord(r) {
     uiType: r.uiType,
     uiVariation: r.uiVariation,
     model: r.model,
+    confidence: r.confidence,
+    titleSource: r.titleSource,
     sceneCandidate: r.sceneCandidate,
     path: r.path
   };
@@ -566,8 +739,9 @@ function main() {
       });
     }
     records = records.concat(sourceRecords);
-    debug.push(`${source.source}: ${sourceRecords.length} records from ${scan.cfgFileCount} cfg files`);
-    if (sourceRecords.length === 0) debug.push(`  Hinweis: Keine SimObjects/**/sim.cfg oder aircraft.cfg gefunden in ${source.dir}`);
+    debug.push(`${source.source}: ${sourceRecords.length} records from ${scan.cfgFileCount} cfg files, ${scan.layoutCandidateCount || 0} layout fallback candidates (${scan.layoutRefCount || 0} layout refs)`);
+    if (sourceRecords.length === 0) debug.push(`  Hinweis: Keine SimObjects/**/sim.cfg, aircraft.cfg oder layout fallback candidates gefunden in ${source.dir}`);
+    if (scan.cfgFileCount === 0 && (scan.layoutRefCount || 0) > 0) debug.push('  Hinweis: Layout referenziert SimObjects, aber cfg-Dateien sind nicht physisch lesbar. Titel sind dann Ordner-Fallbacks und muessen im Sim getestet werden.');
     if (sourceRecords.length > 0) {
       const packages = unique(sourceRecords.map((r) => r.packageName)).length;
       debug.push(`  Packages mit Treffern: ${packages}`);

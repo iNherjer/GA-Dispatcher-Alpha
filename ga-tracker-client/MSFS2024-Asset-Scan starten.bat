@@ -11,7 +11,8 @@ echo GA Dispatcher - MSFS 2024 Asset Scanner
 echo ============================================
 echo.
 echo Das Tool sucht MSFS 2024 SimObjects in Official2024,
-echo StreamedPackages, Community2024 und Community.
+echo StreamedPackages, Community2024, Community sowie losen
+echo SimObjects/VFSProjection-Ordnern.
 echo.
 echo Ausgabe neben dieser BAT/EXE:
 echo - msfs2024-simobjects.json
@@ -47,6 +48,7 @@ if errorlevel 2 (
     echo Du kannst den MSFS Packages-Ordner hier einfuegen.
     echo Beispiele:
     echo   D:\MSFS2024\Packages
+    echo   C:\Users\DEINNAME\AppData\Roaming\Microsoft Flight Simulator 2024
     echo   C:\Users\DEINNAME\AppData\Local\Packages\Microsoft.Limitless_8wekyb3d8bbwe\LocalCache\Packages
     echo.
     set /p "PACKAGES_PATH=Packages-Pfad oder leer lassen zum Abbrechen: "
