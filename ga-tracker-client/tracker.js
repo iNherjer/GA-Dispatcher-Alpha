@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v232';
-const TRACKER_VERSION_CODE = 232;
+const TRACKER_VERSION = 'v233';
+const TRACKER_VERSION_CODE = 233;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -661,17 +661,31 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       debugLog(`SCENE_VEHICLE_DEPART_NOOP scene=${sceneId} reason=invalid_route`);
       return false;
     }
-    const speedKts = Math.max(2, Math.min(12, Number(command?.vehicleSpeedKts || command?.vehicleDepartureSpeedKts || 7) || 7));
-    const routeSent = sendWaypointRoute(vehicle.objectId, route.slice(1), speedKts);
-    debugLog(`SCENE_VEHICLE_DEPART scene=${sceneId} objectId=${vehicle.objectId} status=${routeSent ? 'ok' : 'failed'} points=${route.length - 1} speedKts=${speedKts}`);
-    if (!routeSent) return false;
-    const idlePeople = rec.objects.filter(o => /^person_idle/i.test(String(o?.kind || '')) && o.objectId);
-    if (idlePeople.length) {
-      setTimeout(() => {
-        idlePeople.forEach(obj => removeSceneObject(rec, obj, 'vehicle-depart-idle-clear'));
-      }, 900);
+    const base = sceneBaseFromCommand(command, rec);
+    const boardVehiclePeople = rec.objects.filter(o => /^person_idle/i.test(String(o?.kind || '')) && o.objectId);
+    const boardDelayMs = boardVehiclePeople.length ? clampInt(command?.vehicleBoardDelayMs ?? 2600, 800, 7000) : 0;
+    if (boardVehiclePeople.length) {
+      boardVehiclePeople.forEach((obj, index) => {
+        const rearPoint = {
+          forwardM: Number(obj.forwardM || 0) + 2,
+          rightM: Number(obj.rightM || 0) + (index === 0 ? 0.2 : -0.2),
+          altOffsetFt: Number(obj.altOffsetFt || 0)
+        };
+        const rearAbs = relativeScenePoint(base, rearPoint, rearPoint);
+        const sent = sendWaypointRoute(obj.objectId, [rearAbs], Math.max(1.5, Math.min(3.5, Number(command?.walkSpeedKts || 2.6) || 2.6)));
+        debugLog(`SCENE_VEHICLE_CREW_BOARD scene=${sceneId} objectId=${obj.objectId} status=${sent ? 'ok' : 'failed'} targetForwardM=${rearPoint.forwardM} targetRightM=${rearPoint.rightM}`);
+        setTimeout(() => removeSceneObject(rec, obj, 'vehicle-crew-boarded'), Math.max(700, boardDelayMs - 250));
+      });
     }
-    const removeDelayMs = clampInt((pathDistanceM(route) / Math.max(0.5, speedKts * 0.514444)) * 1000 + 1500, 2500, 24000);
+    const speedKts = Math.max(2, Math.min(12, Number(command?.vehicleSpeedKts || command?.vehicleDepartureSpeedKts || 7) || 7));
+    let routeSent = false;
+    const sendVehicleRoute = () => {
+      routeSent = sendWaypointRoute(vehicle.objectId, route.slice(1), speedKts);
+      debugLog(`SCENE_VEHICLE_DEPART scene=${sceneId} objectId=${vehicle.objectId} status=${routeSent ? 'ok' : 'failed'} points=${route.length - 1} speedKts=${speedKts} boardDelayMs=${boardDelayMs}`);
+    };
+    if (boardDelayMs > 0) setTimeout(sendVehicleRoute, boardDelayMs);
+    else sendVehicleRoute();
+    const removeDelayMs = clampInt(boardDelayMs + (pathDistanceM(route) / Math.max(0.5, speedKts * 0.514444)) * 1000 + 1500, 2500, 28000);
     setTimeout(() => {
       removeSceneObject(rec, vehicle, 'vehicle-depart-hidden');
     }, removeDelayMs);
@@ -807,11 +821,18 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         const cargoDelayMs = clampInt((cargoRouteMs * 1.2) + cargoArrivalSlackMs + cargoHoldMs, 1200, Math.max(1500, durationMs - finalHoldMs - 500));
         setTimeout(() => {
           removeCargoObject('route-cargo-hold');
+          const restartDelayMs = clampInt(command?.cargoRestartDelayMs ?? 850, 250, 2500);
+          const restartSpeedKts = Math.max(1, Math.min(speedKts, Number(command?.cargoRestartSpeedKts || 2.1) || 2.1));
           boarderPlans.forEach((plan) => {
             const continuePoints = plan.path.slice(cargoPathIndex + 1);
             if (!continuePoints.length) return;
-            const continued = sendWaypointRoute(plan.person.objectId, continuePoints, speedKts);
-            debugLog(`SCENE_BOARDING_CONTINUE scene=${sceneId} objectId=${plan.person.objectId} points=${continuePoints.length} status=${continued ? 'ok' : 'failed'}`);
+            const kickPoint = continuePoints[0];
+            const kickSent = sendWaypointRoute(plan.person.objectId, [kickPoint], restartSpeedKts);
+            debugLog(`SCENE_BOARDING_RESTART_KICK scene=${sceneId} objectId=${plan.person.objectId} status=${kickSent ? 'ok' : 'failed'} speedKts=${restartSpeedKts} delayMs=${restartDelayMs}`);
+            setTimeout(() => {
+              const continued = sendWaypointRoute(plan.person.objectId, continuePoints, speedKts);
+              debugLog(`SCENE_BOARDING_CONTINUE scene=${sceneId} objectId=${plan.person.objectId} points=${continuePoints.length} status=${continued ? 'ok' : 'failed'}`);
+            }, restartDelayMs);
           });
         }, cargoDelayMs);
         debugLog(`SCENE_CARGO_HOLD_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} routeMs=${Math.round(cargoRouteMs)} slackMs=${cargoArrivalSlackMs} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs} cargoPathIndex=${cargoPathIndex} routeSent=${routeSentCount}/${boarderPlans.length}`);

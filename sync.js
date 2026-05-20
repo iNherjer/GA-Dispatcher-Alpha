@@ -900,6 +900,9 @@ function _missionSceneCommonSceneCommandFields() {
         vehicleDeparturePath: _missionSceneVehicleDeparturePath(),
         vehicleReturnPath: _missionSceneVehicleDeparturePath().slice().reverse(),
         vehicleSpeedKts: 7,
+        vehicleBoardDelayMs: 2800,
+        cargoRestartDelayMs: 850,
+        cargoRestartSpeedKts: 2.1,
         walkSpeedKts: Number.isFinite(Number(boardingConfig.walkSpeedKts)) ? Number(boardingConfig.walkSpeedKts) : 3.3,
         openDoor: boardingConfig.openDoor !== false,
         doorProfile: boardingConfig.doorProfile || 'default',
@@ -934,8 +937,8 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     const boarderCount = _missionSceneBoarderCount();
     const primaryGender = _missionScenePassengerGender();
     const secondaryGender = primaryGender === 'male' ? 'female' : 'male';
-    const vehicleCrewOne = { forwardM: 20, rightM: -14 };
-    const vehicleCrewTwo = { forwardM: 19.5, rightM: -11.5 };
+    const vehicleCrewOne = { forwardM: 19.5, rightM: -14 };
+    const vehicleCrewTwo = { forwardM: 19, rightM: -11.5 };
     const personItems = [
         {
             kind: 'person_boarder_1',
@@ -2457,8 +2460,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 232;
-const MIN_TRACKER_VERSION_LABEL = 'v232';
+const MIN_TRACKER_VERSION_CODE = 233;
+const MIN_TRACKER_VERSION_LABEL = 'v233';
 let trackerVersionPromptShown = false;
 
 window.updateLivePlanePerformanceMode = function(forceState = null) {
