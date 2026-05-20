@@ -11,7 +11,7 @@ const {
   InitPosition
 } = require('node-simconnect');
 
-const TOOL_VERSION = 'v2';
+const TOOL_VERSION = 'v3';
 const APP_NAME = 'GA-MSFS-Asset-Validator';
 const OUT_BASENAME = 'msfs2024-spawn-validation';
 const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
@@ -187,7 +187,11 @@ const options = {
   includeRisky: hasArg(['include-risky', 'includeRisky']),
   dryRun: hasArg(['dry-run', 'dryRun']),
   allowZero: hasArg(['allow-zero', 'allowZero']),
-  manualReview: hasArg(['manual-review', 'manualReview', 'review'])
+  manualReview: hasArg(['manual-review', 'manualReview', 'review']),
+  reviewMarker: !hasArg(['no-review-marker', 'noReviewMarker']),
+  reviewMarkerTitle: argString(['review-marker-title', 'reviewMarkerTitle']) || 'Cone_Medium',
+  reviewMarkerOffsetM: clampNumber(argNumber(['review-marker-offset-m', 'reviewMarkerOffsetM'], 8), 1, 80),
+  vfxReviewDelayMs: clampInt(argNumber(['vfx-review-delay-ms', 'vfxReviewDelayMs'], 3500), 0, 30000)
 };
 
 let handle = null;
@@ -543,6 +547,10 @@ function spawnPositionForIndex(userPos, index) {
   };
 }
 
+function isVfxRole(role) {
+  return /^vfx\./i.test(String(role || ''));
+}
+
 function round1(n) {
   return Math.round(Number(n) * 10) / 10;
 }
@@ -681,6 +689,7 @@ async function validateCandidate(item, index, userPos) {
   const attemptLog = [];
 
   for (const title of variants) {
+    let markerId = null;
     try {
       const objectId = await spawnTitle(title, initPos, options.timeoutMs);
       activeObjectIds.push(objectId);
@@ -689,7 +698,12 @@ async function validateCandidate(item, index, userPos) {
       let visualStatus = 'unverified';
       let visualNote = '';
       if (options.manualReview) {
-        const review = await askManualReview(item, title, objectId, spawnPos);
+        markerId = await spawnReviewMarker(item, title, spawnPos);
+        if (isVfxRole(item.role) && options.vfxReviewDelayMs > 0) {
+          console.log(`      VFX-Warmup: warte ${(options.vfxReviewDelayMs / 1000).toFixed(1)}s vor Sichtabfrage ...`);
+          await sleep(options.vfxReviewDelayMs);
+        }
+        const review = await askManualReview(item, title, objectId, spawnPos, markerId);
         visualStatus = review.visualStatus;
         visualNote = review.visualNote;
         if (review.abort) abortRequested = true;
@@ -697,6 +711,7 @@ async function validateCandidate(item, index, userPos) {
         await sleep(options.holdMs);
       }
 
+      if (markerId) await removeObject(markerId);
       if (!options.keepOk) await removeObject(objectId);
       const result = {
         status: 'accepted',
@@ -721,6 +736,7 @@ async function validateCandidate(item, index, userPos) {
       };
       return result;
     } catch (err) {
+      if (markerId) await removeObject(markerId);
       const error = err?.message || String(err);
       attemptLog.push({ title, error });
       console.log(`  --  ${item.role} | "${title}" -> ${error}`);
@@ -753,6 +769,31 @@ async function validateCandidate(item, index, userPos) {
   };
 }
 
+async function spawnReviewMarker(item, title, spawnPos) {
+  if (!options.reviewMarker || !options.reviewMarkerTitle) return null;
+  if (String(title || '').toLowerCase() === String(options.reviewMarkerTitle || '').toLowerCase()) return null;
+  const markerPoint = relativeOffset(
+    spawnPos.lat,
+    spawnPos.lon,
+    spawnPos.hdg || 0,
+    0,
+    options.reviewMarkerOffsetM
+  );
+  const markerInit = buildInitPos(markerPoint.lat, markerPoint.lon, spawnPos.altFt, spawnPos.hdg || 0, true);
+  try {
+    const markerId = await spawnTitle(options.reviewMarkerTitle, markerInit, Math.max(1200, Math.min(options.timeoutMs, 2500)));
+    activeObjectIds.push(markerId);
+    console.log(
+      `      Marker "${options.reviewMarkerTitle}" objectId=${markerId} ` +
+      `${round1(options.reviewMarkerOffsetM)}m rechts vom Testobjekt.`
+    );
+    return markerId;
+  } catch (err) {
+    console.log(`      Marker konnte nicht gespawnt werden: ${err?.message || err}`);
+    return null;
+  }
+}
+
 function askQuestion(prompt) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -763,10 +804,11 @@ function askQuestion(prompt) {
   });
 }
 
-async function askManualReview(item, title, objectId, spawnPos) {
+async function askManualReview(item, title, objectId, spawnPos, markerId) {
   console.log(
     `      Sichttest: ${round1(spawnPos.forwardM)}m vorne, ${round1(spawnPos.rightM)}m rechts. ` +
-    `Objekt bleibt bis zur Eingabe stehen.`
+    `Objekt bleibt bis zur Eingabe stehen.` +
+    (markerId ? ' Cone markiert die Naehe, nicht das Objekt selbst.' : '')
   );
   const answer = (await askQuestion('      [j] sichtbar/nutzbar, [n] nicht sichtbar/falsch, [u] unsicher, [q] abbrechen: ')).toLowerCase();
   if (answer.startsWith('j') || answer.startsWith('y')) {
