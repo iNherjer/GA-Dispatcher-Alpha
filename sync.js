@@ -108,7 +108,8 @@ let missionRuntime = {
 };
 
 let missionSmokeCommandSeq = 0;
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-4';
+const missionSceneBoardingWaiters = new Map();
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-5';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -126,6 +127,11 @@ window.missionSceneStatus = {
     spawnedCount: 0,
     spawnRequested: false,
     clearRequested: false,
+    boardingRequested: false,
+    boardingActive: false,
+    boardingComplete: false,
+    boardingError: null,
+    personBoarded: false,
     autoSpawnedFor: null,
     autoClearedFor: null
 };
@@ -775,13 +781,84 @@ window.missionSceneClear = function(reason = 'scene-debug-clear') {
     return true;
 };
 
+function _waitForMissionSceneReady(timeoutMs = 5000) {
+    return new Promise(resolve => {
+        const started = Date.now();
+        const tick = () => {
+            const status = window.missionSceneStatus || {};
+            if (status.spawned) return resolve(true);
+            if (!status.spawnRequested && Date.now() - started > 500) return resolve(false);
+            if (Date.now() - started >= timeoutMs) return resolve(!!status.spawned);
+            setTimeout(tick, 180);
+        };
+        tick();
+    });
+}
+
+function _waitForMissionSceneBoardingAck(commandId, timeoutMs = 15000) {
+    if (!commandId) return Promise.resolve({ status: 'not_sent' });
+    return new Promise(resolve => {
+        const timer = setTimeout(() => {
+            missionSceneBoardingWaiters.delete(commandId);
+            resolve({ type: 'mission_scene_boarding_ack', commandId, status: 'timeout' });
+        }, Math.max(1000, Number(timeoutMs) || 15000));
+        missionSceneBoardingWaiters.set(commandId, { resolve, timer });
+    });
+}
+
+function _resolveMissionSceneBoardingAck(ack) {
+    const commandId = ack?.commandId;
+    if (!commandId || !missionSceneBoardingWaiters.has(commandId)) return;
+    const waiter = missionSceneBoardingWaiters.get(commandId);
+    missionSceneBoardingWaiters.delete(commandId);
+    clearTimeout(waiter.timer);
+    waiter.resolve(ack);
+}
+
+window.missionSceneBoarding = async function(reason = 'boarding') {
+    const status = window.missionSceneStatus || {};
+    if (!status.spawned && !status.spawnRequested && typeof window.missionSceneSpawn === 'function') {
+        window.missionSceneSpawn('boarding-ensure-scene');
+    }
+    await _waitForMissionSceneReady(5200);
+    const pos = window.lastLiveGpsPos || {};
+    const sceneId = status.sceneId || _missionSceneId();
+    const command = {
+        type: 'mission_scene_boarding',
+        sceneId,
+        reason,
+        profile: 'ga_right_cockpit_v1',
+        durationMs: 11200,
+        stepMs: 180,
+        finalHoldMs: 450,
+        removePerson: true
+    };
+    if (Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon))) {
+        command.lat = Number(pos.lat);
+        command.lon = Number(pos.lon);
+        command.altFt = Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0;
+        command.hdg = Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0;
+    }
+    const commandId = window.sendTrackerCommand(command);
+    if (!commandId) return { status: 'not_sent' };
+    window.missionSceneStatus.sceneId = sceneId;
+    window.missionSceneStatus.lastCommandAt = Date.now();
+    window.missionSceneStatus.lastCommand = { type: 'mission_scene_boarding', commandId, reason };
+    window.missionSceneStatus.boardingRequested = true;
+    window.missionSceneStatus.boardingActive = true;
+    window.missionSceneStatus.boardingComplete = false;
+    window.missionSceneStatus.boardingError = null;
+    if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+    return _waitForMissionSceneBoardingAck(commandId, 15500);
+};
+
 function _handleTrackerAck(ack) {
     if (!ack || typeof ack !== 'object') return;
     window.missionSmokeStatus.lastAckAt = Date.now();
     window.missionSmokeStatus.lastAck = ack;
-    if (ack.type === 'mission_scene_spawn_ack' || ack.type === 'mission_scene_clear_ack') {
-        const lastSceneCommandId = window.missionSceneStatus?.lastCommand?.commandId || null;
-        if (ack.commandId && lastSceneCommandId && ack.commandId !== lastSceneCommandId) return;
+    if (ack.type === 'mission_scene_spawn_ack' || ack.type === 'mission_scene_clear_ack' || ack.type === 'mission_scene_boarding_ack') {
+        const currentSceneId = window.missionSceneStatus?.sceneId || _missionSceneId();
+        if (ack.sceneId && currentSceneId && ack.sceneId !== currentSceneId) return;
         window.missionSceneStatus.lastAckAt = Date.now();
         window.missionSceneStatus.lastAck = ack;
         if (ack.sceneId) window.missionSceneStatus.sceneId = ack.sceneId;
@@ -793,7 +870,9 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.spawnedByKind = ack.spawnedByKind || null;
             window.missionSceneStatus.cleared = false;
             window.missionSceneStatus.error = ack.status === 'ok' ? null : (ack.error || ack.status || 'scene_spawn_failed');
-        } else {
+            window.missionSceneStatus.boardingComplete = false;
+            window.missionSceneStatus.personBoarded = false;
+        } else if (ack.type === 'mission_scene_clear_ack') {
             window.missionSceneStatus.spawnRequested = false;
             window.missionSceneStatus.clearRequested = false;
             window.missionSceneStatus.spawned = false;
@@ -801,7 +880,18 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.spawnedByKind = null;
             window.missionSceneStatus.cleared = ack.status === 'ok' || ack.status === 'noop';
             window.missionSceneStatus.clearedCount = Number(ack.cleared || 0);
+            window.missionSceneStatus.boardingRequested = false;
+            window.missionSceneStatus.boardingActive = false;
+            window.missionSceneStatus.boardingComplete = false;
+            window.missionSceneStatus.personBoarded = false;
             window.missionSceneStatus.error = null;
+        } else {
+            window.missionSceneStatus.boardingRequested = false;
+            window.missionSceneStatus.boardingActive = false;
+            window.missionSceneStatus.boardingComplete = ack.status === 'ok';
+            window.missionSceneStatus.boardingError = ack.status === 'ok' ? null : (ack.error || ack.status || 'scene_boarding_failed');
+            window.missionSceneStatus.personBoarded = ack.status === 'ok' && !!Number(ack.boarded || 0);
+            _resolveMissionSceneBoardingAck(ack);
         }
         if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
         _updateMissionRuntimeUi();
@@ -914,6 +1004,9 @@ window.fireMissionSmokeDebugSummary = function() {
         scene.lastCommandAt ? `sceneReq=${new Date(scene.lastCommandAt).toLocaleTimeString('de-DE')}` : '',
         scene.lastAck ? `sceneAck=${scene.lastAck.type || '?'}:${scene.lastAck.status || '?'}` : '',
         scene.spawnedByKind ? `sceneKind=${Object.entries(scene.spawnedByKind).map(([k, v]) => `${k}:${v}`).join(',')}` : '',
+        scene.boardingActive ? 'boarding=active' : '',
+        scene.boardingComplete ? 'boarding=done' : '',
+        scene.boardingError ? `boardingError=${scene.boardingError}` : '',
         scene.autoClearedFor ? 'sceneAirborneClear=1' : '',
         scene.error ? `sceneError=${scene.error}` : ''
     ].filter(Boolean);
@@ -1139,6 +1232,11 @@ window.missionRuntimeReset = function() {
         spawnedCount: 0,
         spawnRequested: false,
         clearRequested: false,
+        boardingRequested: false,
+        boardingActive: false,
+        boardingComplete: false,
+        boardingError: null,
+        personBoarded: false,
         autoSpawnedFor: null,
         autoClearedFor: null
     });
@@ -1164,6 +1262,15 @@ window.startMissionBoarding = async function() {
     }
     if (mapBtn) mapBtn.disabled = true;
     try {
+        if (typeof window.paxVoicePrepareBoarding === 'function') {
+            try { window.paxVoicePrepareBoarding(); } catch (_) {}
+        }
+        if (!window.simModeActive && typeof window.missionSceneBoarding === 'function') {
+            const boardingAck = await window.missionSceneBoarding('boarding-click');
+            if (boardingAck && boardingAck.status && boardingAck.status !== 'ok') {
+                console.warn('Boarding animation nicht bestätigt:', boardingAck.status, boardingAck.error || '');
+            }
+        }
         if (typeof window.paxVoicePlayBoarding === 'function') {
             await window.paxVoicePlayBoarding();
         }

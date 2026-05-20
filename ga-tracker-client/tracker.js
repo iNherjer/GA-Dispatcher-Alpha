@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v220';
-const TRACKER_VERSION_CODE = 220;
+const TRACKER_VERSION = 'v221';
+const TRACKER_VERSION_CODE = 221;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -317,6 +317,133 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }).filter(p => p.title && Number.isFinite(p.lat) && Number.isFinite(p.lon) && Number.isFinite(p.altFt));
   };
 
+  const sceneBoardingProfiles = {
+    ga_right_cockpit_v1: [
+      { forwardM: 14, rightM: -5 },
+      { forwardM: 21, rightM: -6 },
+      { forwardM: 22, rightM: -1 },
+      { forwardM: 17, rightM: 5 },
+      { forwardM: 8, rightM: 6 },
+      { forwardM: 3.5, rightM: 5.4 }
+    ]
+  };
+
+  const sceneBaseFromCommand = (command, rec) => {
+    const lastGps = typeof getLastGpsMsg === 'function' ? getLastGpsMsg() : null;
+    const original = rec?.command || {};
+    return {
+      lat: toFiniteNumber(command?.lat, toFiniteNumber(command?.aircraftLat, toFiniteNumber(original?.lat, toFiniteNumber(lastGps?.lat, null)))),
+      lon: toFiniteNumber(command?.lon, toFiniteNumber(command?.aircraftLon, toFiniteNumber(original?.lon, toFiniteNumber(lastGps?.lon, null)))),
+      altFt: toFiniteNumber(command?.altFt ?? command?.alt, toFiniteNumber(command?.aircraftAltFt ?? command?.aircraftAlt, toFiniteNumber(original?.altFt ?? original?.alt, toFiniteNumber(lastGps?.alt, null)))),
+      hdg: normalizeHeading(toFiniteNumber(command?.hdg ?? command?.heading, toFiniteNumber(command?.aircraftHdg ?? command?.aircraftHeading, toFiniteNumber(original?.hdg ?? original?.heading, toFiniteNumber(lastGps?.hdg, 0)))))
+    };
+  };
+
+  const headingBetweenOffsets = (from, to, fallbackHdg = 0) => {
+    const north = Number(to?.northM) - Number(from?.northM);
+    const east = Number(to?.eastM) - Number(from?.eastM);
+    if (!Number.isFinite(north) || !Number.isFinite(east) || (Math.abs(north) < 0.01 && Math.abs(east) < 0.01)) {
+      return normalizeHeading(fallbackHdg);
+    }
+    return normalizeHeading(Math.atan2(east, north) * 180 / Math.PI);
+  };
+
+  const lerp = (a, b, t) => Number(a) + (Number(b) - Number(a)) * t;
+
+  const buildBoardingPath = (command, rec, person) => {
+    const profileName = String(command?.profile || command?.pathProfile || 'ga_right_cockpit_v1').trim();
+    const profile = sceneBoardingProfiles[profileName] || sceneBoardingProfiles.ga_right_cockpit_v1;
+    const base = sceneBaseFromCommand(command, rec);
+    if (!Number.isFinite(base.lat) || !Number.isFinite(base.lon) || !Number.isFinite(base.altFt)) return [];
+    const start = {
+      forwardM: toFiniteNumber(person?.forwardM, profile[0].forwardM),
+      rightM: toFiniteNumber(person?.rightM, profile[0].rightM)
+    };
+    const points = [start, ...profile.slice(1)];
+    return points.map((pt) => {
+      const rel = buildRelativePosition(base, pt.forwardM, pt.rightM);
+      return {
+        ...rel,
+        forwardM: Number(pt.forwardM) || 0,
+        rightM: Number(pt.rightM) || 0,
+        altFt: base.altFt + (toFiniteNumber(pt.altOffsetFt, toFiniteNumber(person?.altOffsetFt, 0)) || 0),
+        hdg: base.hdg
+      };
+    });
+  };
+
+  const animateMissionSceneBoarding = async (command) => {
+    const sceneId = String(command?.sceneId || 'mission-scene');
+    const commandId = command?.commandId || null;
+    const rec = scenes.get(sceneId);
+    if (!rec || !Array.isArray(rec.objects) || rec.objects.length === 0) {
+      debugLog(`SCENE_BOARDING_NOOP scene=${sceneId} reason=no_scene`);
+      sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: 'noop', error: 'no_scene' });
+      return;
+    }
+    const person = rec.objects.find(o => String(o?.kind || '').toLowerCase() === 'person') || rec.objects.find(o => /female|male|human|person|tarmac/i.test(String(o?.title || o?.requestedTitle || '')));
+    if (!person || !person.objectId) {
+      debugLog(`SCENE_BOARDING_NOOP scene=${sceneId} reason=no_person`);
+      sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: 'noop', error: 'no_person' });
+      return;
+    }
+    const path = buildBoardingPath(command, rec, person);
+    if (path.length < 2) {
+      debugLog(`SCENE_BOARDING_ERROR scene=${sceneId} reason=invalid_path`);
+      sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: 'error', error: 'invalid_path' });
+      return;
+    }
+    const durationMs = clampInt(command?.durationMs ?? 11200, 3000, 22000);
+    const stepMs = clampInt(command?.stepMs ?? 180, 80, 600);
+    const finalHoldMs = clampInt(command?.finalHoldMs ?? 450, 0, 2000);
+    const removePerson = command?.removePerson !== false;
+    const segments = [];
+    let totalDist = 0;
+    for (let i = 0; i < path.length - 1; i++) {
+      const from = path[i];
+      const to = path[i + 1];
+      const dist = Math.hypot(Number(to.northM) - Number(from.northM), Number(to.eastM) - Number(from.eastM));
+      totalDist += dist;
+      segments.push({ from, to, dist });
+    }
+    if (totalDist <= 0) totalDist = segments.length;
+    let moves = 0;
+    let failedMoves = 0;
+    debugLog(`SCENE_BOARDING_START scene=${sceneId} objectId=${person.objectId} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} durationMs=${durationMs} segments=${segments.length}`);
+    console.log(`🚶 Scene ${sceneId}: Boarding-Animation startet (${Math.round(durationMs / 1000)}s).`);
+    const usableDuration = Math.max(500, durationMs - finalHoldMs);
+    for (const segment of segments) {
+      const segmentDuration = usableDuration * (segment.dist > 0 ? segment.dist / totalDist : 1 / segments.length);
+      const steps = Math.max(1, Math.round(segmentDuration / stepMs));
+      const hdg = headingBetweenOffsets(segment.from, segment.to, rec?.command?.hdg || 0);
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const pos = {
+          lat: lerp(segment.from.lat, segment.to.lat, t),
+          lon: lerp(segment.from.lon, segment.to.lon, t),
+          altFt: lerp(segment.from.altFt, segment.to.altFt, t),
+          hdg
+        };
+        if (teleportObject(person.objectId, pos)) moves++;
+        else failedMoves++;
+        await sleep(Math.max(40, Math.round(segmentDuration / steps)));
+      }
+    }
+    if (finalHoldMs > 0) await sleep(finalHoldMs);
+    let removed = 0;
+    if (removePerson) {
+      try {
+        handle.aIRemoveObject(person.objectId, nextReqId++);
+        removed = 1;
+        rec.objects = rec.objects.filter(o => o.objectId !== person.objectId);
+      } catch (err) {
+        debugLog(`SCENE_BOARDING_REMOVE_ERROR scene=${sceneId} objectId=${person.objectId} error=${err?.message || err}`);
+      }
+    }
+    debugLog(`SCENE_BOARDING_OK scene=${sceneId} objectId=${person.objectId} moves=${moves} failedMoves=${failedMoves} removed=${removed}`);
+    sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: 'ok', moved: moves, failedMoves, removed, boarded: 1, durationMs });
+  };
+
   const clearScene = async (sceneId, reason = 'clear', commandId = null) => {
     const key = String(sceneId || 'mission-scene');
     const rec = scenes.get(key);
@@ -555,6 +682,14 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         spawnMissionScene(command).catch(err => {
           console.warn(`⚠️  Scene spawn failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_spawn_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
+        });
+        return true;
+      }
+      if (type === 'mission_scene_boarding') {
+        debugLog(`COMMAND mission_scene_boarding scene=${command?.sceneId || 'mission-scene'} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'}`);
+        animateMissionSceneBoarding(command).catch(err => {
+          console.warn(`⚠️  Scene boarding failed: ${err?.message || err}`);
+          sendAck({ type: 'mission_scene_boarding_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
         });
         return true;
       }
