@@ -302,10 +302,11 @@ let missionRuntime = {
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
 const missionTargetSceneTerrainRequests = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-assets-20260520-02';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-assets-20260520-03';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE = 'Tarmac_Male_Summer_Asian';
+const MISSION_SCENE_DEBUG_MAX_EVENTS = 50;
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
 window.missionSmokeStatus = {
     lastCommandAt: 0,
@@ -340,6 +341,108 @@ window.missionTargetSceneStatus = {
     spawnRequested: false,
     clearRequested: false,
     error: null
+};
+
+function _missionSceneDebugState() {
+    if (!window.gaMissionSceneDebug || typeof window.gaMissionSceneDebug !== 'object') {
+        window.gaMissionSceneDebug = {
+            ts: Date.now(),
+            aiRequested: null,
+            aiNormalized: null,
+            contractTargetScene: null,
+            missionContext: null,
+            appResolvedTargetScene: null,
+            lastCommand: null,
+            lastStartSceneCommand: null,
+            lastTargetSceneCommand: null,
+            lastSmokeCommand: null,
+            lastAck: null,
+            events: []
+        };
+    }
+    if (!Array.isArray(window.gaMissionSceneDebug.events)) window.gaMissionSceneDebug.events = [];
+    return window.gaMissionSceneDebug;
+}
+
+function _missionSceneDebugPush(event, payload = {}) {
+    const dbg = _missionSceneDebugState();
+    const entry = { ts: Date.now(), event: String(event || 'scene-debug'), payload };
+    dbg.ts = entry.ts;
+    dbg.events.push(entry);
+    if (dbg.events.length > MISSION_SCENE_DEBUG_MAX_EVENTS) {
+        dbg.events.splice(0, dbg.events.length - MISSION_SCENE_DEBUG_MAX_EVENTS);
+    }
+    if (typeof window.gaDebugPush === 'function') {
+        try { window.gaDebugPush('debug', `[MISSION SCENE] ${entry.event}`, payload); } catch (_) {}
+    }
+    try { console.debug('[MISSION SCENE]', entry.event, payload); } catch (_) {}
+    if (typeof window.vpRefreshWeatherDebugReport === 'function') {
+        try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
+    }
+    return entry;
+}
+
+function _missionSceneDebugPatch(patch = {}, event = 'scene-debug-update') {
+    const dbg = _missionSceneDebugState();
+    Object.assign(dbg, patch || {}, { ts: Date.now() });
+    _missionSceneDebugPush(event, patch || {});
+    return dbg;
+}
+
+function _missionSceneDebugSummarizeItems(items = []) {
+    return (Array.isArray(items) ? items : []).map((item, idx) => ({
+        n: idx + 1,
+        kind: String(item?.kind || ''),
+        label: String(item?.label || ''),
+        title: String(item?.objectTitle || item?.title || ''),
+        candidates: Array.isArray(item?.titleCandidates) ? item.titleCandidates.slice(0, 5) : [],
+        forwardM: Number.isFinite(Number(item?.forwardM)) ? Number(item.forwardM) : null,
+        rightM: Number.isFinite(Number(item?.rightM)) ? Number(item.rightM) : null,
+        hdgOffsetDeg: Number.isFinite(Number(item?.hdgOffsetDeg)) ? Number(item.hdgOffsetDeg) : 0,
+        altOffsetFt: Number.isFinite(Number(item?.altOffsetFt)) ? Number(item.altOffsetFt) : 0
+    }));
+}
+
+function _missionSceneDebugCommandSummary(command = {}, commandId = null, payload = null) {
+    const items = Array.isArray(command.items) ? command.items : [];
+    return {
+        ts: Date.now(),
+        commandId,
+        type: String(command.type || ''),
+        sceneId: command.sceneId || command.missionId || null,
+        reason: command.reason || null,
+        targetSceneKind: command.targetSceneKind || null,
+        extent: command.extent || null,
+        spawnMode: command.spawnMode || null,
+        lat: Number.isFinite(Number(command.lat ?? payload?.lat)) ? Number(command.lat ?? payload?.lat) : null,
+        lon: Number.isFinite(Number(command.lon ?? payload?.lon)) ? Number(command.lon ?? payload?.lon) : null,
+        altFt: Number.isFinite(Number(command.altFt ?? payload?.alt)) ? Number(command.altFt ?? payload?.alt) : null,
+        hdg: Number.isFinite(Number(command.hdg ?? command.heading ?? payload?.hdg)) ? Number(command.hdg ?? command.heading ?? payload?.hdg) : null,
+        itemCount: items.length,
+        items: _missionSceneDebugSummarizeItems(items),
+        smokeSites: Array.isArray(command.sites) ? command.sites.length : null,
+        fireSites: Array.isArray(command.fireSites) ? command.fireSites.length : null,
+        objectTitle: command.objectTitle || null,
+        fireObjectTitle: command.fireObjectTitle || null
+    };
+}
+
+window.gaMissionSceneDebugRecordAi = function(info = {}) {
+    return _missionSceneDebugPatch({
+        aiRequested: info.aiRequested || null,
+        aiNormalized: info.aiNormalized || null,
+        contractTargetScene: info.contractTargetScene || null,
+        missionContext: info.missionContext || null
+    }, 'ai-target-scene');
+};
+
+window.gaMissionSceneDebugGet = function() {
+    return JSON.parse(JSON.stringify(_missionSceneDebugState()));
+};
+
+window.gaMissionSceneDebugClear = function() {
+    window.gaMissionSceneDebug = null;
+    return _missionSceneDebugState();
 };
 
 function _missionSceneBoardingConfig() {
@@ -920,6 +1023,17 @@ window.sendTrackerCommand = function(command = {}) {
         payload.hdg = Math.round(Number.isFinite(hdg) ? hdg : 0);
     }
     ws.send(JSON.stringify(payload));
+    if (/^mission_(scene|smoke)_/i.test(String(command.type || ''))) {
+        const summary = _missionSceneDebugCommandSummary(command, commandId, payload);
+        const patch = { lastCommand: summary };
+        if (String(command.type || '') === 'mission_scene_spawn') {
+            if (command.targetSceneKind) patch.lastTargetSceneCommand = summary;
+            else patch.lastStartSceneCommand = summary;
+        } else if (/^mission_smoke_/i.test(String(command.type || ''))) {
+            patch.lastSmokeCommand = summary;
+        }
+        _missionSceneDebugPatch(patch, `tracker-command:${command.type}`);
+    }
     return commandId;
 };
 
@@ -1796,6 +1910,16 @@ window.missionTargetSceneEnsureSpawned = function(reason = 'mission-start') {
     if (status.sceneId === sceneId && status.lastCommand?.type === 'mission_scene_spawn' && (Date.now() - Number(status.lastCommandAt || 0)) < 15000) return false;
     const items = _missionTargetSceneItems(kind);
     if (!items.length) return false;
+    const appResolvedTargetScene = {
+        sceneId,
+        reason,
+        requestedSpec: _missionTargetSceneSpec(),
+        resolvedKind: kind,
+        point,
+        itemCount: items.length,
+        items: _missionSceneDebugSummarizeItems(items)
+    };
+    _missionSceneDebugPatch({ appResolvedTargetScene }, 'target-scene-resolved');
     const commandId = window.sendTrackerCommand({
         type: 'mission_scene_spawn',
         sceneId,
@@ -2019,6 +2143,9 @@ function _handleTrackerAck(ack) {
     if (!ack || typeof ack !== 'object') return;
     window.missionSmokeStatus.lastAckAt = Date.now();
     window.missionSmokeStatus.lastAck = ack;
+    if (/^mission_(scene|smoke)_/i.test(String(ack.type || ''))) {
+        _missionSceneDebugPatch({ lastAck: ack }, `tracker-ack:${ack.type}`);
+    }
     if (ack.type === 'mission_scene_spawn_ack' || ack.type === 'mission_scene_clear_ack' || ack.type === 'mission_scene_boarding_ack' || ack.type === 'mission_scene_deboarding_ack') {
         const targetSceneId = window.missionTargetSceneStatus?.sceneId || _missionTargetSceneId();
         if (ack.sceneId && targetSceneId && ack.sceneId === targetSceneId) {

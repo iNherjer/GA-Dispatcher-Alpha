@@ -3692,6 +3692,68 @@ window.vpBuildWeatherDebugReport = function() {
         if (missionSnap.story) lines.push(`- Story: ${String(missionSnap.story).replace(/\s+/g, ' ').trim()}`);
     }
     lines.push('');
+    lines.push('Mission Scene Debug');
+    const sceneDbg = (window.gaMissionSceneDebug && typeof window.gaMissionSceneDebug === 'object') ? window.gaMissionSceneDebug : {};
+    const missionSceneDbg = missionSnap?.targetSceneDebug || {};
+    const aiRequested = sceneDbg.aiRequested || missionSceneDbg.aiRequested || null;
+    const aiNormalized = sceneDbg.aiNormalized || missionSceneDbg.aiNormalized || null;
+    const contractTargetScene = sceneDbg.contractTargetScene || missionSceneDbg.contractTargetScene || missionSnap?.targetScene || null;
+    const appResolved = sceneDbg.appResolvedTargetScene || null;
+    const lastTargetCommand = sceneDbg.lastTargetSceneCommand || null;
+    const lastStartCommand = sceneDbg.lastStartSceneCommand || null;
+    const lastSmokeCommand = sceneDbg.lastSmokeCommand || null;
+    const lastAck = sceneDbg.lastAck || window.missionTargetSceneStatus?.lastAck || window.missionSceneStatus?.lastAck || null;
+    const fmtSceneSpec = (label, spec) => {
+        if (!spec || typeof spec !== 'object') {
+            lines.push(`- ${label}: -`);
+            return;
+        }
+        const roles = Array.isArray(spec.roles) ? spec.roles.join(',') : '-';
+        const notes = spec.notes ? ` | notes=${String(spec.notes).replace(/\s+/g, ' ').slice(0, 120)}` : '';
+        lines.push(`- ${label}: kind=${spec.kind || spec.type || '?'} | density=${spec.density || '-'} | roles=${roles}${notes}`);
+    };
+    const fmtCommand = (label, cmd) => {
+        if (!cmd || typeof cmd !== 'object') {
+            lines.push(`- ${label}: -`);
+            return;
+        }
+        const pos = (Number.isFinite(Number(cmd.lat)) && Number.isFinite(Number(cmd.lon)))
+            ? `${Number(cmd.lat).toFixed(5)}, ${Number(cmd.lon).toFixed(5)}`
+            : '-';
+        const itemSummary = Array.isArray(cmd.items)
+            ? cmd.items.slice(0, 10).map(it => `${it.kind || '?'}="${it.title || it.objectTitle || '?'}"`).join(' | ')
+            : '';
+        lines.push(`- ${label}: ${cmd.type || '?'} id=${cmd.commandId || '-'} reason=${cmd.reason || '-'} scene=${cmd.sceneId || '-'} kind=${cmd.targetSceneKind || '-'} pos=${pos} alt=${Number.isFinite(Number(cmd.altFt)) ? Math.round(Number(cmd.altFt)) : '-'} hdg=${Number.isFinite(Number(cmd.hdg)) ? Math.round(Number(cmd.hdg)) : '-'}`);
+        if (cmd.itemCount || itemSummary) lines.push(`  items=${cmd.itemCount || 0}: ${itemSummary || '-'}`);
+        if (cmd.smokeSites != null || cmd.fireSites != null) lines.push(`  smokeSites=${cmd.smokeSites ?? '-'} fireSites=${cmd.fireSites ?? '-'} smoke="${cmd.objectTitle || '-'}" fire="${cmd.fireObjectTitle || '-'}"`);
+    };
+    fmtSceneSpec('KI-Anforderung raw', aiRequested);
+    fmtSceneSpec('KI normalisiert', aiNormalized);
+    fmtSceneSpec('Contract', contractTargetScene);
+    if (appResolved && typeof appResolved === 'object') {
+        const point = appResolved.point || {};
+        const pointText = (Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lon)))
+            ? `${Number(point.lat).toFixed(5)}, ${Number(point.lon).toFixed(5)} alt=${Math.round(Number(point.altFt || 0))}ft`
+            : '-';
+        lines.push(`- App resolved: kind=${appResolved.resolvedKind || '-'} | scene=${appResolved.sceneId || '-'} | point=${pointText} | items=${appResolved.itemCount || 0}`);
+    } else {
+        lines.push('- App resolved: -');
+    }
+    fmtCommand('App -> Sim Zielszene', lastTargetCommand);
+    fmtCommand('App -> Sim Startszene', lastStartCommand);
+    fmtCommand('App -> Sim Smoke/Fire', lastSmokeCommand);
+    if (lastAck && typeof lastAck === 'object') {
+        const byKind = lastAck.spawnedByKind ? JSON.stringify(lastAck.spawnedByKind) : '-';
+        lines.push(`- Letztes ACK: ${lastAck.type || '?'} status=${lastAck.status || '-'} spawned=${lastAck.spawned ?? '-'} cleared=${lastAck.cleared ?? '-'} byKind=${byKind} error=${lastAck.error || '-'}`);
+    } else {
+        lines.push('- Letztes ACK: -');
+    }
+    const sceneEvents = Array.isArray(sceneDbg.events) ? sceneDbg.events.slice(-5) : [];
+    if (sceneEvents.length) {
+        lines.push('- Scene Events:');
+        sceneEvents.forEach(ev => lines.push(`  ${vpFormatDebugTs(ev.ts)} :: ${ev.event}`));
+    }
+    lines.push('');
     lines.push('Free-Plan Referenz');
     lines.push('- 600/min, 5.000/h, 10.000/Tag, 300.000/Monat (Open-Meteo Free)');
     lines.push('- Achtung: viele Variablen pro Request können als mehrere API-Calls zählen.');

@@ -7480,6 +7480,27 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
 }
 </OUTPUT>`;
 
+    const buildGeminiMissionResult = (parsed, sourceLabel) => {
+        const passenger = sanitizePassengerProfile(parsed.passenger, parsed.story);
+        const targetScene = sanitizeMissionTargetSceneSpec(parsed.targetScene, { isPOI, taskDomain: passenger?.taskDomain || parsed.passenger?.taskDomain });
+        return {
+            t: parsed.title,
+            s: parsed.story,
+            pax: parsed.pax,
+            cargo: parsed.cargo,
+            targetScene,
+            targetSceneDebug: {
+                source: sourceLabel,
+                aiRaw: parsed.targetScene || null,
+                normalized: targetScene
+            },
+            passenger,
+            i: "📋",
+            cat: targetMissionCat,
+            _source: sourceLabel
+        };
+    };
+
     const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
     const reqOptions = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
 
@@ -7489,7 +7510,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
             const data = await resFlash3.json();
             const parsed = sanitizeMissionPayloadText(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text))));
             incrementApiUsage('flash');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, targetScene: sanitizeMissionTargetSceneSpec(parsed.targetScene, { isPOI, taskDomain: parsed.passenger?.taskDomain }), passenger: sanitizePassengerProfile(parsed.passenger, parsed.story), i: "📋", cat: targetMissionCat, _source: "Gemini 3.0 Flash" };
+            return buildGeminiMissionResult(parsed, "Gemini 3.0 Flash");
         }
     } catch (e) { }
 
@@ -7499,7 +7520,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
             const data = await resFlash.json();
             const parsed = sanitizeMissionPayloadText(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text))));
             incrementApiUsage('flash');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, targetScene: sanitizeMissionTargetSceneSpec(parsed.targetScene, { isPOI, taskDomain: parsed.passenger?.taskDomain }), passenger: sanitizePassengerProfile(parsed.passenger, parsed.story), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash" };
+            return buildGeminiMissionResult(parsed, "Gemini 2.5 Flash");
         }
     } catch (e) { }
 
@@ -7509,7 +7530,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
             const data = await resLite.json();
             const parsed = sanitizeMissionPayloadText(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text))));
             incrementApiUsage('lite');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, targetScene: sanitizeMissionTargetSceneSpec(parsed.targetScene, { isPOI, taskDomain: parsed.passenger?.taskDomain }), passenger: sanitizePassengerProfile(parsed.passenger, parsed.story), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash Lite" };
+            return buildGeminiMissionResult(parsed, "Gemini 2.5 Flash Lite");
         }
     } catch (e) { }
     return null;
@@ -8834,7 +8855,9 @@ async function generateMission() {
         heading: nav.brng,
         weatherBriefing: missionWeather,
         fireHazard: missionFireHazard || null,
-        targetScene: sanitizeMissionTargetSceneSpec(m?.targetScene || null, { isPOI, taskDomain: m?.passenger?.taskDomain })
+        targetScene: sanitizeMissionTargetSceneSpec(m?.targetScene || null, { isPOI, taskDomain: m?.passenger?.taskDomain }),
+        targetSceneAiRaw: m?.targetSceneDebug?.aiRaw || null,
+        targetSceneAiNormalized: m?.targetSceneDebug?.normalized || null
     };
 
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
@@ -8867,6 +8890,28 @@ async function generateMission() {
     currentMissionData.missionContract = activeMissionContract;
     currentMissionData.targetScene = activeMissionContract.targetScene;
     window.activeMissionContract = activeMissionContract;
+    {
+        const sceneDebugInfo = {
+            aiRequested: m?.targetSceneDebug?.aiRaw || null,
+            aiNormalized: m?.targetSceneDebug?.normalized || currentMissionData.targetScene || null,
+            contractTargetScene: activeMissionContract.targetScene || null,
+            missionContext: {
+                source: m?._source || dataSource || 'n/a',
+                mode: isPOI ? 'POI' : 'A-B',
+                profile: m?._appliedProfile || dispatchProfileId || 'auto',
+                taskDomain: window.activePassenger?.taskDomain || m?.passenger?.taskDomain || null,
+                mission: m?.t || '',
+                target: dest?.n || '',
+                poi: !!isPOI
+            }
+        };
+        if (typeof window.gaMissionSceneDebugRecordAi === 'function') {
+            window.gaMissionSceneDebugRecordAi(sceneDebugInfo);
+        } else {
+            window.gaMissionSceneDebug = { ...(window.gaMissionSceneDebug || {}), ...sceneDebugInfo, ts: Date.now() };
+        }
+        console.debug('[MISSION SCENE AI]', sceneDebugInfo);
+    }
     if (fireScenario && typeof window.paxVoiceRefreshWidget === 'function') {
         window.paxVoiceRefreshWidget();
     }
@@ -8892,6 +8937,11 @@ async function generateMission() {
             narrativeGuard: m?._narrativeGuard || null,
             contract: activeMissionContract || null,
             targetScene: currentMissionData.targetScene || null,
+            targetSceneDebug: {
+                aiRequested: m?.targetSceneDebug?.aiRaw || null,
+                aiNormalized: m?.targetSceneDebug?.normalized || null,
+                contractTargetScene: currentMissionData.targetScene || null
+            },
             paxText: String(paxText || ''),
             cargoText: String(cargoText || ''),
             passenger: {
