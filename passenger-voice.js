@@ -883,7 +883,7 @@ function _injectPaxUI() {
     fireMenu.innerHTML = `
         <button type="button" class="pax-fire-btn" onclick="window.fireMissionReportSmokeVisible && fireMissionReportSmokeVisible()">Rauch in Sicht</button>
         <button type="button" class="pax-fire-btn" onclick="window.fireMissionReportNoSmoke && fireMissionReportNoSmoke()">Kein Rauch sichtbar</button>
-        <button type="button" class="pax-fire-btn" onclick="window.fireMissionPositionReport && fireMissionPositionReport()">Position / Suchrichtung</button>
+        <button type="button" class="pax-fire-btn" onclick="window.fireMissionPositionReport && fireMissionPositionReport()">Missionsstatus</button>
         <div id="paxFireMissionDebug" class="pax-fire-debug" style="display:none;">
             <div id="paxFireMissionDebugStatus" class="pax-fire-debug-status"></div>
             <button type="button" class="pax-fire-btn pax-fire-debug-btn" onclick="window.fireMissionDebugForceSmokeAndFire && fireMissionDebugForceSmokeAndFire()">Test: Rauch + Feuer</button>
@@ -1217,6 +1217,13 @@ function _fireAssessmentText(fs) {
     return `Ich zaehle ${sourceText}; Lagebild: lokaler Rauchpunkt, Ursprung noch eingrenzen. Ich melde Position und erste Einschaetzung an die Leitstelle.`;
 }
 
+function _fireReturnClearanceText(fs) {
+    if (fs?.truth === 'fire' || fs?.state === 'assessment_complete') {
+        return 'Die Einsatzdaten sind uebermittelt. Du bist fuer den Rueckflug freigegeben.';
+    }
+    return 'Die Leitstelle hat die wahrscheinliche Fehlmeldung aufgenommen. Du bist fuer den Rueckflug freigegeben.';
+}
+
 function _fireRemainingSearchText(ctx) {
     const req = Number(ctx?.fs?.searchDwellSec || 180);
     const leftSec = Math.max(0, req - Number(ctx?.inTargetAreaSec || 0));
@@ -1339,7 +1346,7 @@ function _tickFireMissionSearch(flightData, distNm = null) {
             _poiSatisfied = true;
             _paxAtTargetDone = true;
             _fireRecordObservation('assessment_complete', ctx, 'fire assessment dwell complete');
-            _fireSpeakText(`Aufgabe abgeschlossen. ${_fireAssessmentText(fs)} Die wichtigsten Punkte sind dokumentiert; du kannst den Rueckflug vorbereiten.`, 'Lagebild komplett');
+            _fireSpeakText(`Aufgabe abgeschlossen. ${_fireAssessmentText(fs)} ${_fireReturnClearanceText(fs)}`, 'Lagebild komplett');
             _firePersistState();
         }
     }
@@ -1351,7 +1358,7 @@ function _tickFireMissionSearch(flightData, distNm = null) {
         _poiSatisfied = true;
         _paxAtTargetDone = true;
         _fireRecordObservation('false_alarm_complete', ctx, 'search dwell complete without smoke');
-        _fireSpeakText(`Suchzeit komplett. Ich kann keine belastbare Rauchentwicklung bestaetigen; ich melde wahrscheinliche Fehlmeldung und Rueckflugbereitschaft.`, 'Fehlmeldung');
+        _fireSpeakText(`Suchzeit komplett. Ich kann keine belastbare Rauchentwicklung bestaetigen; ich melde wahrscheinliche Fehlmeldung. ${_fireReturnClearanceText(fs)}`, 'Fehlmeldung');
         _firePersistState();
     }
     return true;
@@ -1368,10 +1375,26 @@ window.fireMissionPositionReport = function() {
         _fireSpeakText('Ich habe gerade keine Live-Position vom Tracker. Sobald die GPS-Daten wieder laufen, gebe ich dir Richtung und Entfernung zum Zielgebiet.', 'Feuerwache');
         return;
     }
+    if (ctx.fs.state === 'assessment_complete') {
+        _fireSpeakText(`Mission abgeschlossen. ${_fireAssessmentText(ctx.fs)} ${_fireReturnClearanceText(ctx.fs)}`, 'Missionsstatus');
+        return;
+    }
+    if (ctx.fs.state === 'false_alarm_rtb') {
+        _fireSpeakText(`Mission abgeschlossen. Keine belastbare Rauchentwicklung bestaetigt. ${_fireReturnClearanceText(ctx.fs)}`, 'Missionsstatus');
+        return;
+    }
+    if (ctx.fs.state === 'smoke_confirmed') {
+        _fireSpeakText(`Rauch bestaetigt. ${_fireAssessmentText(ctx.fs)} Halte den Orbit noch stabil; ${_fireRemainingSearchText(ctx)} fuer das Lagebild.`, 'Missionsstatus');
+        return;
+    }
+    if (ctx.fs.state === 'reported_smoke_unconfirmed') {
+        _fireSpeakText(`Rauchmeldung noch unbestaetigt. ${_fireVectorLine(ctx)} Ich gleiche Sichtung und Zielposition weiter ab.`, 'Missionsstatus');
+        return;
+    }
     const action = ctx.inTargetArea
-        ? `Wir sind im Suchgebiet; halte den Orbit stabil. ${_fireRemainingSearchText(ctx)}.`
+        ? `Noch kein belastbarer Befund. Halte den Orbit stabil; ${_fireRemainingSearchText(ctx)}.`
         : `Weiter Richtung Zielgebiet, ${ctx.clockPos}.`;
-    _fireSpeakText(`${_fireVectorLine(ctx)} ${action}`, 'Suchrichtung');
+    _fireSpeakText(`${_fireVectorLine(ctx)} ${action}`, 'Missionsstatus');
 };
 
 window.fireMissionReportNoSmoke = function() {
@@ -1391,7 +1414,7 @@ window.fireMissionReportNoSmoke = function() {
         return;
     }
     if (ctx.fs.state === 'false_alarm_rtb') {
-        _fireSpeakText('Passt, weiterhin keine bestaetigte Rauchentwicklung. Die Meldung bleibt als wahrscheinliche Fehlmeldung dokumentiert; Rueckflug ist vorbereitet.', 'Fehlmeldung');
+        _fireSpeakText(`Passt, weiterhin keine bestaetigte Rauchentwicklung. ${_fireReturnClearanceText(ctx.fs)}`, 'Fehlmeldung');
         _firePersistState();
         return;
     }
@@ -1404,7 +1427,7 @@ window.fireMissionReportNoSmoke = function() {
     const dwellDone = Number(ctx.inTargetAreaSec || 0) >= Number(ctx.fs.searchDwellSec || 180);
     if (dwellDone && ctx.fs.truth === 'false_alarm') {
         ctx.fs.state = 'false_alarm_rtb';
-        _fireSpeakText(`Keine Rauchentwicklung feststellbar nach der Suchzeit. Ich melde wahrscheinliche Fehlmeldung; Rueckflug kann geplant werden.`, 'Fehlmeldung');
+        _fireSpeakText(`Keine Rauchentwicklung feststellbar nach der Suchzeit. Ich melde wahrscheinliche Fehlmeldung. ${_fireReturnClearanceText(ctx.fs)}`, 'Fehlmeldung');
         _firePersistState();
         return;
     }
@@ -1428,7 +1451,7 @@ window.fireMissionReportSmokeVisible = function() {
         return;
     }
     if (ctx.fs.state === 'assessment_complete') {
-        _fireSpeakText(`Ja, die Lage ist bereits abgeschlossen dokumentiert. ${_fireAssessmentText(ctx.fs)} Rueckflug kann vorbereitet werden.`, 'Rauch bestaetigt');
+        _fireSpeakText(`Ja, die Lage ist bereits abgeschlossen dokumentiert. ${_fireAssessmentText(ctx.fs)} ${_fireReturnClearanceText(ctx.fs)}`, 'Rauch bestaetigt');
         _firePersistState();
         return;
     }
