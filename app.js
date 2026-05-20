@@ -8006,6 +8006,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         const stop = new Set([
             'heute', 'fliegen', 'flug', 'ziel', 'zielgebiet', 'einsatz', 'auftrag',
             'bitte', 'ruhig', 'sauber', 'stabil', 'klar', 'calls', 'muster',
+            'aussicht', 'aussichten', 'ausblick', 'ausblicke', 'panorama', 'panoramablick',
+            'entspannt', 'entspannter', 'geniessen', 'genieszen', 'genießen', 'sicht',
+            'tempo', 'sightseeing', 'gaeste', 'gaste', 'gaesten', 'gasten', 'rundflug',
             'ueber', 'uber', 'eine', 'einen', 'einer', 'der', 'die', 'das', 'und',
             'mit', 'zum', 'zur', 'von', 'fuer', 'fur', 'nach', 'entlang', 'bereich'
         ]);
@@ -8032,12 +8035,25 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         return tokens.some(t => gNorm.includes(t));
     };
     const objectiveSentenceForGreeting = (storyText = '', titleText = '', targetLabel = '', intent = null) => {
+        const normalize = (value) => String(value || '')
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+        const intentText = [
+            intent?.summary,
+            intent?.environment,
+            Array.isArray(intent?.visibleIdeas) ? intent.visibleIdeas.join(' ') : ''
+        ].join(' ');
+        const objectiveTokens = greetingObjectiveTokens(targetLabel, titleText, intentText);
         const storySentences = String(storyText || '')
             .replace(/\s+/g, ' ')
             .split(/(?<=[.!?])\s+/)
             .map(s => s.trim())
-            .filter(Boolean);
-        const missionSentence = storySentences.find(s => /(such|inspek|kontroll|kartier|lagebild|beobacht|versorg|trasse|leitung|strom|wind|rauch|brand|unfall|rett|sar|ufer|brueck|brück|baustell)/i.test(s))
+            .filter(s => s && !/^(hi|hallo|moin|morgen|servus|sali|hey)[!.]?$/i.test(s));
+        const missionSentence = storySentences.find(s => {
+                const n = normalize(s);
+                return objectiveTokens.some(t => n.includes(t));
+            })
+            || storySentences.find(s => /(such|inspek|kontroll|kartier|lagebild|beobacht|versorg|trasse|leitung|strom|wind|rauch|brand|unfall|rett|sar|ufer|brueck|brück|baustell|rundflug|aussicht|ausblick|panorama|wander|wald|wiese|weide|vieh|kueh|kühe|gehoeft|gehöft)/i.test(s))
             || storySentences[0]
             || String(intent?.summary || titleText || targetLabel || '').trim();
         let s = String(missionSentence || '').replace(/\s+/g, ' ').trim();
