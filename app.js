@@ -7026,6 +7026,45 @@ function missionSceneTargetKindCatalog() {
     };
 }
 
+function missionSceneTargetPresetCatalog() {
+    const fromAssetCatalog = window.MISSION_SCENE_ASSETS?.targetScenePresets;
+    if (fromAssetCatalog && typeof fromAssetCatalog === 'object') return fromAssetCatalog;
+    return {
+        construction_powerline: { kind: 'construction_site', features: ['powerline', 'generator', 'cones'] },
+        road_incident_smoke: { kind: 'road_incident', features: ['smoke_light', 'emergency_response', 'debris'] },
+        erosion_debris: { kind: 'erosion_damage', features: ['logs', 'debris', 'cones'] },
+        bridge_worksite: { kind: 'infra_bridge', features: ['utility_truck', 'generator', 'cones'] },
+        industry_smoke: { kind: 'industry_site', features: ['smoke_light', 'cargo_material', 'utility_truck'] },
+        water_sar_ship: { kind: 'sar_water', features: ['liferaft', 'watercraft'] },
+        event_traffic: { kind: 'event_site', features: ['bus', 'road_vehicles', 'cones'] }
+    };
+}
+
+function missionSceneTargetFeatureCatalog() {
+    const fromAssetCatalog = window.MISSION_SCENE_ASSETS?.targetSceneFeatures;
+    if (fromAssetCatalog && typeof fromAssetCatalog === 'object') return fromAssetCatalog;
+    return {
+        construction_crane: { roles: ['construction.crane'] },
+        earthmoving: { roles: ['construction.earthmoving'] },
+        construction_truck: { roles: ['vehicle.truck'] },
+        cargo_material: { roles: ['cargo.container', 'cargo.pallet_medium', 'cargo.small_box'] },
+        powerline: { roles: ['utility.powerline', 'utility.generator', 'vehicle.truck', 'marker.cone'] },
+        generator: { roles: ['utility.generator'] },
+        utility_truck: { roles: ['vehicle.truck', 'vehicle.van'] },
+        road_vehicles: { roles: ['vehicle.car', 'vehicle.van'] },
+        emergency_response: { roles: ['vehicle.emergency.medical', 'person.ground_crew', 'marker.cone'] },
+        people: { roles: ['person.ground_crew'] },
+        cones: { roles: ['marker.cone'] },
+        debris: { roles: ['debris.light', 'cargo.small_box', 'cargo.pallet_small'] },
+        logs: { roles: ['nature.log', 'material.log'] },
+        liferaft: { roles: ['sar.liferaft'] },
+        watercraft: { roles: ['watercraft.boat', 'watercraft.ship'] },
+        bus: { roles: ['vehicle.bus'] },
+        smoke_light: { roles: ['vfx.smoke'] },
+        fire_small: { roles: ['vfx.fire'] }
+    };
+}
+
 function normalizeMissionTargetSceneKind(value) {
     const s = String(value || '').trim().toLowerCase();
     if (!s || /^(none|no|off|false|null|keine|kein)$/i.test(s)) return 'none';
@@ -7061,39 +7100,167 @@ function normalizeMissionTargetSceneKind(value) {
     return catalog[normalized] ? normalized : 'none';
 }
 
+function normalizeMissionTargetScenePreset(value) {
+    const s = String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!s) return '';
+    const aliases = {
+        construction_with_powerline: 'construction_powerline',
+        baustelle_strommast: 'construction_powerline',
+        road_smoke: 'road_incident_smoke',
+        accident_smoke: 'road_incident_smoke',
+        erosion_logs: 'erosion_debris',
+        bridge_service: 'bridge_worksite',
+        industrial_smoke: 'industry_smoke',
+        sar_water_ship: 'water_sar_ship',
+        event_shuttle: 'event_traffic'
+    };
+    const normalized = aliases[s] || s;
+    const catalog = missionSceneTargetPresetCatalog();
+    return catalog[normalized] ? normalized : '';
+}
+
+function normalizeMissionTargetSceneFeature(value) {
+    const s = String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!s) return '';
+    const aliases = {
+        crane: 'construction_crane',
+        kran: 'construction_crane',
+        dozer: 'earthmoving',
+        bulldozer: 'earthmoving',
+        bagger: 'earthmoving',
+        material: 'cargo_material',
+        cargo: 'cargo_material',
+        pallets: 'cargo_material',
+        pallet: 'cargo_material',
+        power: 'powerline',
+        power_pylon: 'powerline',
+        pylon: 'powerline',
+        strommast: 'powerline',
+        freileitung: 'powerline',
+        utility_vehicle: 'utility_truck',
+        service_vehicle: 'utility_truck',
+        cars: 'road_vehicles',
+        vehicles: 'road_vehicles',
+        traffic: 'road_vehicles',
+        emergency: 'emergency_response',
+        medic: 'emergency_response',
+        ambulance: 'emergency_response',
+        crew: 'people',
+        persons: 'people',
+        person: 'people',
+        marker: 'cones',
+        cone: 'cones',
+        cones_marker: 'cones',
+        truemmer: 'debris',
+        rubble: 'debris',
+        treibgut: 'logs',
+        log: 'logs',
+        raft: 'liferaft',
+        boat: 'watercraft',
+        ship: 'watercraft',
+        bus_shuttle: 'bus',
+        smoke: 'smoke_light',
+        light_smoke: 'smoke_light',
+        fire: 'fire_small',
+        small_fire: 'fire_small'
+    };
+    const normalized = aliases[s] || s;
+    const catalog = missionSceneTargetFeatureCatalog();
+    return catalog[normalized] ? normalized : '';
+}
+
 function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '' } = {}) {
     if (!isPOI) return { kind: 'none', roles: [], density: 'none', notes: '' };
     const src = raw && typeof raw === 'object' ? raw : {};
     const task = String(taskDomain || '').toLowerCase();
-    let kind = normalizeMissionTargetSceneKind(src.kind || src.type || '');
+    const preset = normalizeMissionTargetScenePreset(src.preset || src.scenePreset || src.template || '');
+    const presetSpec = preset ? missionSceneTargetPresetCatalog()[preset] : null;
+    let kind = normalizeMissionTargetSceneKind(src.kind || src.type || presetSpec?.kind || '');
     if (task === 'fire_watch') kind = 'fire_watch';
     const catalog = missionSceneTargetKindCatalog();
+    const featureCatalog = missionSceneTargetFeatureCatalog();
     const spec = catalog[kind] || catalog.none || { roles: [] };
+    const featuresRaw = [
+        ...(Array.isArray(presetSpec?.features) ? presetSpec.features : []),
+        ...(Array.isArray(src.features) ? src.features : []),
+        ...(Array.isArray(src.modifiers) ? src.modifiers : [])
+    ];
+    const requirementsRaw = Array.isArray(src.requirements)
+        ? src.requirements
+        : (Array.isArray(src.specialRequirements) ? src.specialRequirements : []);
+    const requirements = requirementsRaw
+        .map(req => {
+            if (typeof req === 'string') {
+                const feature = normalizeMissionTargetSceneFeature(req);
+                return feature ? { feature, count: 1, placement: '', notes: '' } : null;
+            }
+            if (!req || typeof req !== 'object') return null;
+            const feature = normalizeMissionTargetSceneFeature(req.feature || req.kind || req.type || req.name || req.role || '');
+            if (!feature) return null;
+            const count = Math.max(1, Math.min(6, Math.round(Number(req.count || req.qty || req.amount || 1) || 1)));
+            return {
+                feature,
+                count,
+                placement: String(req.placement || req.position || req.where || '').replace(/\s+/g, ' ').trim().slice(0, 40),
+                notes: String(req.notes || req.reason || req.detail || '').replace(/\s+/g, ' ').trim().slice(0, 100)
+            };
+        })
+        .filter(Boolean)
+        .slice(0, 8);
+    const features = [...new Set(featuresRaw
+        .map(normalizeMissionTargetSceneFeature)
+        .concat(requirements.map(req => req.feature))
+        .filter(Boolean))]
+        .slice(0, 10);
     const rolesRaw = Array.isArray(src.roles) ? src.roles : (Array.isArray(src.sceneRoles) ? src.sceneRoles : []);
-    const allowedRoles = new Set(Object.values(catalog).flatMap(entry => Array.isArray(entry.roles) ? entry.roles : []));
+    const allowedRoles = new Set([
+        ...Object.keys(window.MISSION_SCENE_ASSETS?.roles || {}),
+        ...Object.values(catalog).flatMap(entry => Array.isArray(entry.roles) ? entry.roles : []),
+        ...Object.values(featureCatalog).flatMap(entry => Array.isArray(entry.roles) ? entry.roles : [])
+    ]);
     const roles = rolesRaw
         .map(role => String(role || '').trim())
         .filter(role => role && allowedRoles.has(role))
         .slice(0, 8);
-    const fallbackRoles = Array.isArray(spec.roles) ? spec.roles.slice(0, 8) : [];
+    const featureRoles = features.flatMap(feature => Array.isArray(featureCatalog[feature]?.roles) ? featureCatalog[feature].roles : []);
+    const fallbackRoles = [...new Set((Array.isArray(spec.roles) ? spec.roles : []).concat(featureRoles))].slice(0, 12);
     const densityRaw = String(src.density || '').trim().toLowerCase();
     const density = /^(sparse|normal|busy|none)$/.test(densityRaw) ? densityRaw : (kind === 'none' ? 'none' : 'normal');
+    const layoutRaw = String(src.layout || src.arrangement || '').trim().toLowerCase();
+    const layout = /^(cluster|scattered|line|roadside|waterline|perimeter|mixed)$/.test(layoutRaw) ? layoutRaw : '';
     const notes = String(src.notes || src.reason || src.context || '').replace(/\s+/g, ' ').trim().slice(0, 180);
     return {
+        preset,
         kind,
+        features,
+        requirements,
         roles: roles.length ? roles : fallbackRoles,
         density,
+        layout,
         notes
     };
 }
 
 function buildMissionTargetScenePromptGuide(isPOI, forcedProfile = null) {
     const catalog = missionSceneTargetKindCatalog();
+    const presets = missionSceneTargetPresetCatalog();
+    const features = missionSceneTargetFeatureCatalog();
     const lines = Object.entries(catalog).map(([kind, spec]) => {
         const roles = Array.isArray(spec.roles) ? spec.roles.join(', ') : '';
         const useFor = Array.isArray(spec.useFor) ? ` useFor=${spec.useFor.join('|')}` : '';
         const label = String(spec.label || kind);
         return `- ${kind}: ${label}${roles ? `; roles=[${roles}]` : ''}${useFor}`;
+    });
+    const presetLines = Object.entries(presets).map(([preset, spec]) => {
+        const label = String(spec.label || preset);
+        const kind = String(spec.kind || '');
+        const featureList = Array.isArray(spec.features) ? spec.features.join(', ') : '';
+        return `- ${preset}: ${label}; kind=${kind}${featureList ? `; features=[${featureList}]` : ''}`;
+    });
+    const featureLines = Object.entries(features).map(([feature, spec]) => {
+        const label = String(spec.label || feature);
+        const roles = Array.isArray(spec.roles) ? spec.roles.join(', ') : '';
+        return `- ${feature}: ${label}${roles ? `; roles=[${roles}]` : ''}`;
     });
     const forced = forcedProfile?.taskDomain ? String(forcedProfile.taskDomain).toLowerCase() : '';
     const defaultHint = forced === 'fire_watch'
@@ -7102,9 +7269,14 @@ function buildMissionTargetScenePromptGuide(isPOI, forcedProfile = null) {
             ? 'sar_water oder sar_land'
             : (forced === 'mapping_survey' ? 'construction_site, powerline_inspection, erosion_damage, infra_bridge, infra_dam oder survey_context' : 'passend zum Kontext'));
     return isPOI
-        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind aus der Liste unten. Nutze "none" nur bei reinen Sightseeing-/Historien-/Lernflügen ohne sichtbaren Boden-Kontext. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site, Strommast -> powerline_inspection, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Empfehlung fuer dieses Profil: ${defaultHint}.
+        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Nutze "none" nur bei reinen Sightseeing-/Historien-/Lernflügen ohne sichtbaren Boden-Kontext. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site, Strommast -> powerline_inspection, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Baustelle mit Strommast => kind="construction_site", features=["powerline"] oder preset="construction_powerline". Empfehlung fuer dieses Profil: ${defaultHint}.
 Erlaubte targetScene.kind:
-${lines.join('\n')}`
+${lines.join('\n')}
+Erlaubte targetScene.preset (optional):
+${presetLines.join('\n')}
+Erlaubte targetScene.features / requirements[].feature (optional, additiv):
+${featureLines.join('\n')}
+layout optional: cluster|scattered|line|roadside|waterline|perimeter|mixed. density: sparse|normal|busy.`
         : `17. TARGET-SCENE: Bei A-B-Missionen targetScene.kind immer "none" setzen.`;
 }
 
@@ -7448,8 +7620,12 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
   "cargo": "z.B. 'Kamera-Gimbal (80 lbs)'",
   "targetScene": {
     "kind": "none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|wildlife_site|media_site|event_site|survey_context",
+    "preset": "optional, z.B. construction_powerline oder leer",
+    "features": ["optional, z.B. powerline", "debris", "generator"],
+    "requirements": [{"feature": "powerline", "count": 2, "placement": "am Rand der Baustelle", "notes": "sichtbare Freileitung"}],
     "roles": ["z.B. construction.crane", "vehicle.truck"],
     "density": "none|sparse|normal|busy",
+    "layout": "cluster|scattered|line|roadside|waterline|perimeter|mixed oder leer",
     "notes": "kurzer Grund, was am Boden sichtbar sein soll"
   },
   "passenger": {

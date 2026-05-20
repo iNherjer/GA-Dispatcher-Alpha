@@ -302,7 +302,7 @@ let missionRuntime = {
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
 const missionTargetSceneTerrainRequests = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-assets-20260520-03';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-assets-20260520-04';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE = 'Tarmac_Male_Summer_Asian';
@@ -1573,6 +1573,9 @@ function _missionTargetSceneText() {
         contract?.paxText,
         md?.targetScene?.notes,
         md?.targetScene?.kind,
+        md?.targetScene?.preset,
+        Array.isArray(md?.targetScene?.features) ? md.targetScene.features.join(' ') : '',
+        Array.isArray(md?.targetScene?.requirements) ? md.targetScene.requirements.map(req => [req?.feature, req?.placement, req?.notes].filter(Boolean).join(' ')).join(' ') : '',
         Array.isArray(md?.targetScene?.roles) ? md.targetScene.roles.join(' ') : '',
         window.activePassenger?.role,
         window.activePassenger?.taskDomain
@@ -1709,6 +1712,133 @@ function _missionTargetSceneItem(kind, label, title, pool, forwardM, rightM, opt
     };
 }
 
+function _missionTargetSceneNormalizeFeature(value) {
+    const s = String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!s) return '';
+    const aliases = {
+        crane: 'construction_crane',
+        kran: 'construction_crane',
+        dozer: 'earthmoving',
+        bulldozer: 'earthmoving',
+        bagger: 'earthmoving',
+        material: 'cargo_material',
+        cargo: 'cargo_material',
+        pallets: 'cargo_material',
+        pallet: 'cargo_material',
+        power: 'powerline',
+        power_pylon: 'powerline',
+        pylon: 'powerline',
+        strommast: 'powerline',
+        freileitung: 'powerline',
+        utility_vehicle: 'utility_truck',
+        service_vehicle: 'utility_truck',
+        cars: 'road_vehicles',
+        vehicles: 'road_vehicles',
+        traffic: 'road_vehicles',
+        emergency: 'emergency_response',
+        medic: 'emergency_response',
+        ambulance: 'emergency_response',
+        crew: 'people',
+        persons: 'people',
+        person: 'people',
+        marker: 'cones',
+        cone: 'cones',
+        rubble: 'debris',
+        truemmer: 'debris',
+        treibgut: 'logs',
+        log: 'logs',
+        raft: 'liferaft',
+        boat: 'watercraft',
+        ship: 'watercraft',
+        bus_shuttle: 'bus',
+        smoke: 'smoke_light',
+        light_smoke: 'smoke_light',
+        fire: 'fire_small',
+        small_fire: 'fire_small'
+    };
+    const normalized = aliases[s] || s;
+    const catalog = window.MISSION_SCENE_ASSETS?.targetSceneFeatures || {};
+    return catalog[normalized] ? normalized : '';
+}
+
+const MISSION_TARGET_SCENE_BASE_FEATURE_COUNTS = {
+    powerline_inspection: { powerline: 2, generator: 1, utility_truck: 1, cones: 1 },
+    road_incident: { road_vehicles: 2, emergency_response: 1, people: 2, cones: 2 },
+    construction_site: { construction_crane: 1, earthmoving: 1, construction_truck: 1, cargo_material: 1, cones: 2 },
+    erosion_damage: { logs: 2, debris: 1, cones: 1 },
+    debris_field: { debris: 3 },
+    sar_water: { liferaft: 1, watercraft: 1 },
+    sar_land: { emergency_response: 1, people: 2, cargo_material: 1 },
+    medical_pickup: { emergency_response: 1, people: 2, cargo_material: 1 },
+    cargo_site: { cargo_material: 2, utility_truck: 1, people: 1 },
+    infra_bridge: { utility_truck: 1, generator: 1, cones: 2 },
+    infra_dam: { utility_truck: 1, generator: 1, cones: 2, watercraft: 1 },
+    industry_site: { utility_truck: 1, cargo_material: 1, generator: 1 },
+    water_pollution: { watercraft: 1, logs: 2 },
+    wildlife_site: { logs: 2 },
+    media_site: { utility_truck: 1, cargo_material: 1, people: 1, cones: 1 },
+    event_site: { bus: 1, road_vehicles: 1, cones: 2 },
+    survey_context: { logs: 2, cones: 1 }
+};
+
+function _missionTargetSceneRequestedFeatures(kind = '') {
+    const spec = _missionTargetSceneSpec() || {};
+    const out = [];
+    const add = (feature) => {
+        const normalized = _missionTargetSceneNormalizeFeature(feature);
+        if (normalized && !out.includes(normalized)) out.push(normalized);
+    };
+    if (Array.isArray(spec.features)) spec.features.forEach(add);
+    if (Array.isArray(spec.modifiers)) spec.modifiers.forEach(add);
+    if (Array.isArray(spec.requirements)) {
+        spec.requirements.forEach(req => {
+            if (typeof req === 'string') add(req);
+            else add(req?.feature || req?.kind || req?.type || req?.name || req?.role);
+        });
+    }
+    if (Array.isArray(spec.roles)) {
+        spec.roles.forEach(role => {
+            const r = String(role || '').toLowerCase();
+            if (r === 'utility.powerline') add('powerline');
+            if (r === 'utility.generator') add('generator');
+            if (r === 'construction.crane') add('construction_crane');
+            if (r === 'construction.earthmoving') add('earthmoving');
+            if (r === 'vehicle.bus') add('bus');
+            if (r === 'sar.liferaft') add('liferaft');
+            if (r.startsWith('watercraft.')) add('watercraft');
+            if (r.startsWith('debris.')) add('debris');
+            if (r === 'nature.log' || r === 'material.log') add('logs');
+            if (r === 'vfx.smoke') add('smoke_light');
+            if (r === 'vfx.fire') add('fire_small');
+        });
+    }
+    const text = _missionTargetSceneText();
+    if (/(strommast|hochspannung|leitung|powerline|pylon|freileitung|umspann)/.test(text)) add('powerline');
+    if (/(kran|crane)/.test(text)) add('construction_crane');
+    if (/(bagger|bulldozer|dozer|erdarbeiten)/.test(text)) add('earthmoving');
+    if (/(truemmer|trümmer|debris|wrackteile|streugut)/.test(text)) add('debris');
+    if (/(treibholz|baumstamm|log|logs)/.test(text)) add('logs');
+    if (/(rauch|smoke|abluft)/.test(text) && kind !== 'fire_watch') add('smoke_light');
+    if (/(rettungsinsel|liferaft)/.test(text)) add('liferaft');
+    if (/(boot|boat|schiff|ship)/.test(text)) add('watercraft');
+    if (/(bus|shuttle)/.test(text)) add('bus');
+    return out;
+}
+
+function _missionTargetSceneFeatureCount(feature) {
+    const spec = _missionTargetSceneSpec() || {};
+    let count = 1;
+    if (Array.isArray(spec.requirements)) {
+        spec.requirements.forEach(req => {
+            if (!req || typeof req !== 'object') return;
+            if (_missionTargetSceneNormalizeFeature(req.feature || req.kind || req.type || req.name || req.role) !== feature) return;
+            const c = Math.max(1, Math.min(6, Math.round(Number(req.count || req.qty || req.amount || 1) || 1)));
+            count = Math.max(count, c);
+        });
+    }
+    return count;
+}
+
 function _missionTargetSceneItems(kind) {
     const carPool = MISSION_SCENE_ASSET_POOLS.cars.concat(MISSION_SCENE_ASSET_POOLS.vehicles);
     const vanPool = MISSION_SCENE_ASSET_POOLS.vans.concat(MISSION_SCENE_ASSET_POOLS.vehicles);
@@ -1723,6 +1853,77 @@ function _missionTargetSceneItems(kind) {
         const item = _missionTargetSceneItem(...args);
         if (item) items.push(item);
     };
+    const addFeatureSupplement = (feature, count = 1) => {
+        const safeCount = Math.max(1, Math.min(6, Math.round(Number(count) || 1)));
+        for (let i = 0; i < safeCount; i++) {
+            const step = i * 5;
+            if (feature === 'powerline') {
+                const pylon = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityPower, `feature-powerline-${i}`, 'PowerPylon_Base');
+                add(`feature_powerline_${i + 1}`, 'Zusatz Strommast/Freileitung', pylon, MISSION_SCENE_ASSET_POOLS.utilityPower, 24 + (i * 28), -18 + (i * 5), { hdgOffsetDeg: 0 });
+            } else if (feature === 'generator') {
+                const generator = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityGenerators, `feature-generator-${i}`, 'PowerGenerator');
+                add(`feature_generator_${i + 1}`, 'Zusatz Generator', generator, MISSION_SCENE_ASSET_POOLS.utilityGenerators, 14 + step, -13 - step, { hdgOffsetDeg: 35 });
+            } else if (feature === 'utility_truck' || feature === 'construction_truck') {
+                const truck = _scenePickTitle(truckPool, `feature-truck-${feature}-${i}`, truckPool[0] || 'Truck Utility Europe Flush');
+                add(`feature_${feature}_${i + 1}`, feature === 'construction_truck' ? 'Zusatz Baustellen-LKW' : 'Zusatz Utility Fahrzeug', truck, truckPool, -22 - step, 6 + step, { hdgOffsetDeg: 205 });
+            } else if (feature === 'construction_crane') {
+                const crane = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.constructionCranes, `feature-crane-${i}`, 'Truck Crane Small');
+                add(`feature_crane_${i + 1}`, 'Zusatz Kran', crane, MISSION_SCENE_ASSET_POOLS.constructionCranes, -18 - step, 14 + step, { hdgOffsetDeg: 210 });
+            } else if (feature === 'earthmoving') {
+                const dozer = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.constructionEarthmoving, `feature-earthmoving-${i}`, 'Bulldozer');
+                add(`feature_earthmoving_${i + 1}`, 'Zusatz Erdbaumaschine', dozer, MISSION_SCENE_ASSET_POOLS.constructionEarthmoving, 12 + step, -10 - step, { hdgOffsetDeg: 35 });
+            } else if (feature === 'cargo_material') {
+                const cargo = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.cargo, `feature-cargo-${i}`, 'Pallet01_02');
+                add(`feature_cargo_${i + 1}`, 'Zusatz Material/Fracht', cargo, MISSION_SCENE_ASSET_POOLS.cargo, 5 + step, 14 + step, { hdgOffsetDeg: 20 });
+            } else if (feature === 'road_vehicles') {
+                const car = _scenePickTitle(carPool, `feature-car-${i}`, 'Microsoft_Car_EUR_01');
+                add(`feature_vehicle_${i + 1}`, 'Zusatz Fahrzeug', car, carPool, -20 - step, -1 + step, { hdgOffsetDeg: i % 2 ? 190 : 15 });
+            } else if (feature === 'emergency_response') {
+                const support = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.medicalVehicles.concat(vanPool), `feature-emergency-${i}`, 'Car Bush Medic');
+                add(`feature_emergency_${i + 1}`, 'Zusatz Einsatzfahrzeug', support, MISSION_SCENE_ASSET_POOLS.medicalVehicles.concat(vanPool), -18 - step, 12 + step, { hdgOffsetDeg: 210 });
+            } else if (feature === 'people') {
+                const person = i % 2 ? personB : personA;
+                add(`feature_person_${i + 1}`, 'Zusatz Person', person, peoplePool, 4 + step, 9 + step, { hdgOffsetDeg: 210 });
+            } else if (feature === 'cones') {
+                add(`feature_cone_${(i * 2) + 1}`, 'Zusatz Absperrkegel', cone, MISSION_SCENE_ASSET_POOLS.markers, -7 + step, -3 - step);
+                add(`feature_cone_${(i * 2) + 2}`, 'Zusatz Absperrkegel', cone, MISSION_SCENE_ASSET_POOLS.markers, 9 + step, 3 + step);
+            } else if (feature === 'debris') {
+                const debris = _scenePickTitle(debrisPool, `feature-debris-${i}`, 'Cardboard');
+                add(`feature_debris_${i + 1}`, 'Zusatz Debris', debris, debrisPool, -6 + step, -15 - step, { hdgOffsetDeg: 35 + (i * 30) });
+            } else if (feature === 'logs') {
+                const log = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.natureLogs, `feature-log-${i}`, 'Log_01');
+                add(`feature_log_${i + 1}`, 'Zusatz Holz/Treibgut', log, MISSION_SCENE_ASSET_POOLS.natureLogs, 7 + step, -17 - step, { hdgOffsetDeg: 80 + (i * 20) });
+            } else if (feature === 'liferaft') {
+                const raft = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.sarWaterTarget, `feature-liferaft-${i}`, 'LifeRaft');
+                add(`feature_liferaft_${i + 1}`, 'Zusatz Rettungsinsel', raft, MISSION_SCENE_ASSET_POOLS.sarWaterTarget, 8 + step, -12 - step, { hdgOffsetDeg: 20 });
+            } else if (feature === 'watercraft') {
+                const boat = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.boats.concat(MISSION_SCENE_ASSET_POOLS.ships), `feature-watercraft-${i}`, 'Fishing Boat Red Modular');
+                add(`feature_watercraft_${i + 1}`, 'Zusatz Boot/Schiff', boat, MISSION_SCENE_ASSET_POOLS.boats.concat(MISSION_SCENE_ASSET_POOLS.ships), 28 + (i * 18), -20 - (i * 8), { hdgOffsetDeg: 130 });
+            } else if (feature === 'bus') {
+                const bus = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.buses.concat(vanPool), `feature-bus-${i}`, 'Bus');
+                add(`feature_bus_${i + 1}`, 'Zusatz Bus/Shuttle', bus, MISSION_SCENE_ASSET_POOLS.buses.concat(vanPool), -20 - step, 16 + step, { hdgOffsetDeg: 210 });
+            } else if (feature === 'smoke_light') {
+                const smoke = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smokeVfx, `feature-smoke-${i}`, 'Chimney_Smoke_V1');
+                add(`feature_smoke_${i + 1}`, 'Zusatz Rauchquelle', smoke, MISSION_SCENE_ASSET_POOLS.smokeVfx, 3 + step, 18 + step, { hdgOffsetDeg: 0 });
+            } else if (feature === 'fire_small') {
+                const fire = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.fireVfx, `feature-fire-${i}`, 'VO_Fire_R1_40');
+                add(`feature_fire_${i + 1}`, 'Zusatz Brandherd', fire, MISSION_SCENE_ASSET_POOLS.fireVfx, 5 + step, 16 + step, { hdgOffsetDeg: 0 });
+            }
+        }
+    };
+    const finish = () => {
+        const baseFeatureCounts = MISSION_TARGET_SCENE_BASE_FEATURE_COUNTS[kind] || {};
+        _missionTargetSceneRequestedFeatures(kind).forEach(feature => {
+            const count = _missionTargetSceneFeatureCount(feature);
+            const baseCount = Number(baseFeatureCounts[feature] || 0);
+            const extraCount = Math.max(0, count - baseCount);
+            if (extraCount <= 0) return;
+            addFeatureSupplement(feature, extraCount);
+        });
+        const density = String(_missionTargetSceneSpec()?.density || 'normal').toLowerCase();
+        const maxItems = density === 'busy' ? 18 : (density === 'sparse' ? 9 : 14);
+        return items.slice(0, maxItems);
+    };
 
     if (kind === 'construction_site') {
         const crane = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.constructionCranes, 'construction-crane', 'Truck Crane Small');
@@ -1735,7 +1936,7 @@ function _missionTargetSceneItems(kind) {
         add('construction_material', 'Baustellenmaterial', container, MISSION_SCENE_ASSET_POOLS.cargo, 4, 10, { hdgOffsetDeg: 15 });
         add('marker_1', 'Baustellenmarkierung', cone, MISSION_SCENE_ASSET_POOLS.markers, -2, -2);
         add('marker_2', 'Baustellenmarkierung', cone, MISSION_SCENE_ASSET_POOLS.markers, 12, 4);
-        return items;
+        return finish();
     }
 
     if (kind === 'powerline_inspection') {
@@ -1747,7 +1948,7 @@ function _missionTargetSceneItems(kind) {
         add('utility_truck', 'Utility Fahrzeug', utilityTruck, truckPool, -16, 12, { hdgOffsetDeg: 205 });
         add('generator', 'Generator', generator, MISSION_SCENE_ASSET_POOLS.utilityGenerators, -8, 6, { hdgOffsetDeg: 30 });
         add('marker_1', 'Arbeitsbereich', cone, MISSION_SCENE_ASSET_POOLS.markers, -4, -6);
-        return items;
+        return finish();
     }
 
     if (kind === 'erosion_damage') {
@@ -1758,7 +1959,7 @@ function _missionTargetSceneItems(kind) {
         add('erosion_log_2', 'Treibholz / Bruchkante', logB, MISSION_SCENE_ASSET_POOLS.natureLogs, 2, -11, { hdgOffsetDeg: 112 });
         add('erosion_debris_1', 'Ablagerung', debris, debrisPool, 9, -7, { hdgOffsetDeg: 35 });
         add('marker_1', 'Referenzmarkierung', cone, MISSION_SCENE_ASSET_POOLS.markers, -3, 3);
-        return items;
+        return finish();
     }
 
     if (kind === 'debris_field') {
@@ -1768,7 +1969,7 @@ function _missionTargetSceneItems(kind) {
         add('debris_1', 'Truemmer / Gegenstand', debrisA, debrisPool, -3, -5, { hdgOffsetDeg: 25 });
         add('debris_2', 'Truemmer / Gegenstand', debrisB, debrisPool, 4, -1, { hdgOffsetDeg: 80 });
         add('debris_3', 'Truemmer / Gegenstand', debrisC, debrisPool, 10, 5, { hdgOffsetDeg: 135 });
-        return items;
+        return finish();
     }
 
     if (kind === 'infra_bridge' || kind === 'infra_dam') {
@@ -1782,7 +1983,7 @@ function _missionTargetSceneItems(kind) {
             const boat = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.boats, 'dam-boat', 'Fishing Boat Red Modular');
             add('boat_1', 'Boot am Wasserbauwerk', boat, MISSION_SCENE_ASSET_POOLS.boats, 28, -18, { hdgOffsetDeg: 120 });
         }
-        return items;
+        return finish();
     }
 
     if (kind === 'industry_site') {
@@ -1792,7 +1993,7 @@ function _missionTargetSceneItems(kind) {
         add('industry_truck', 'Werksfahrzeug', truck, truckPool, -16, 8, { hdgOffsetDeg: 200 });
         add('industry_container', 'Container / Lagerpunkt', container, MISSION_SCENE_ASSET_POOLS.cargo, 3, 8, { hdgOffsetDeg: 10 });
         add('industry_generator', 'Generator / Aggregat', generator, MISSION_SCENE_ASSET_POOLS.utilityGenerators, 8, 2, { hdgOffsetDeg: 40 });
-        return items;
+        return finish();
     }
 
     if (kind === 'water_pollution') {
@@ -1801,14 +2002,14 @@ function _missionTargetSceneItems(kind) {
         add('survey_boat', 'Boot am Gewaesser', boat, MISSION_SCENE_ASSET_POOLS.boats, -20, 15, { hdgOffsetDeg: 130 });
         add('floating_debris_1', 'Treibgut / Referenzobjekt', log, MISSION_SCENE_ASSET_POOLS.natureLogs, 0, 0, { hdgOffsetDeg: 70 });
         add('floating_debris_2', 'Treibgut / Referenzobjekt', log, MISSION_SCENE_ASSET_POOLS.natureLogs, 12, -7, { hdgOffsetDeg: 105 });
-        return items;
+        return finish();
     }
 
     if (kind === 'wildlife_site') {
         const log = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.natureLogs, 'wildlife-log', 'Log_01');
         add('habitat_ref_1', 'Habitat Referenz', log, MISSION_SCENE_ASSET_POOLS.natureLogs, -5, -5, { hdgOffsetDeg: 65 });
         add('habitat_ref_2', 'Habitat Referenz', log, MISSION_SCENE_ASSET_POOLS.natureLogs, 8, 4, { hdgOffsetDeg: 122 });
-        return items;
+        return finish();
     }
 
     if (kind === 'event_site') {
@@ -1818,7 +2019,7 @@ function _missionTargetSceneItems(kind) {
         add('event_van', 'Event Fahrzeug', van, vanPool, -8, -8, { hdgOffsetDeg: 190 });
         add('marker_1', 'Absperrung', cone, MISSION_SCENE_ASSET_POOLS.markers, 2, -2);
         add('marker_2', 'Absperrung', cone, MISSION_SCENE_ASSET_POOLS.markers, 9, 4);
-        return items;
+        return finish();
     }
 
     if (kind === 'road_incident') {
@@ -1832,7 +2033,7 @@ function _missionTargetSceneItems(kind) {
         add('person_2', 'Person an Unfallstelle', personB, peoplePool, -2, -13, { hdgOffsetDeg: 110 });
         add('marker_1', 'Absperrkegel', cone, MISSION_SCENE_ASSET_POOLS.markers, -5, -2);
         add('marker_2', 'Absperrkegel', cone, MISSION_SCENE_ASSET_POOLS.markers, 11, 1);
-        return items;
+        return finish();
     }
 
     if (kind === 'sar_water') {
@@ -1840,7 +2041,7 @@ function _missionTargetSceneItems(kind) {
         const boat = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.boats, 'sar-water-boat', 'Fishing Boat Red Modular');
         add('liferaft', 'Rettungsinsel', raft, MISSION_SCENE_ASSET_POOLS.sarWaterTarget, 0, 0, { hdgOffsetDeg: 20 });
         add('boat_1', 'Boot in der Naehe', boat, MISSION_SCENE_ASSET_POOLS.boats, -32, 23, { hdgOffsetDeg: 135 });
-        return items;
+        return finish();
     }
 
     if (kind === 'sar_land') {
@@ -1850,7 +2051,7 @@ function _missionTargetSceneItems(kind) {
         add('person_1', 'Suchtrupp', personA, peoplePool, 2, 4, { hdgOffsetDeg: 180 });
         add('person_2', 'Suchtrupp', personB, peoplePool, 5, 7, { hdgOffsetDeg: 210 });
         add('cargo_1', 'SAR Material', cargo, MISSION_SCENE_ASSET_POOLS.sarCargo, -1, 10);
-        return items;
+        return finish();
     }
 
     if (kind === 'medical_pickup') {
@@ -1860,7 +2061,7 @@ function _missionTargetSceneItems(kind) {
         add('person_1', 'Medizinisches Team', personA, peoplePool, 1, 5, { hdgOffsetDeg: 180 });
         add('person_2', 'Medizinisches Team', personB, peoplePool, 4, 7, { hdgOffsetDeg: 220 });
         add('cargo_1', 'Medizinische Kiste', cargo, MISSION_SCENE_ASSET_POOLS.smallCargo.concat(MISSION_SCENE_ASSET_POOLS.cargo), 2, 9);
-        return items;
+        return finish();
     }
 
     if (kind === 'cargo_site') {
@@ -1871,7 +2072,7 @@ function _missionTargetSceneItems(kind) {
         add('cargo_1', 'Fracht', cargoA, MISSION_SCENE_ASSET_POOLS.cargo, 1, 4);
         add('cargo_2', 'Fracht klein', cargoB, MISSION_SCENE_ASSET_POOLS.smallCargo.concat(MISSION_SCENE_ASSET_POOLS.cargo), 3, 8);
         add('person_1', 'Bodencrew', personA, peoplePool, 6, 6, { hdgOffsetDeg: 230 });
-        return items;
+        return finish();
     }
 
     if (kind === 'media_site') {
@@ -1881,7 +2082,7 @@ function _missionTargetSceneItems(kind) {
         add('equipment_1', 'Kameraausruestung', cargo, MISSION_SCENE_ASSET_POOLS.smallCargo.concat(MISSION_SCENE_ASSET_POOLS.cargo), 2, 6);
         add('person_1', 'Kamerateam', personA, peoplePool, 5, 5, { hdgOffsetDeg: 200 });
         add('marker_1', 'Markierung', cone, MISSION_SCENE_ASSET_POOLS.markers, -1, -3);
-        return items;
+        return finish();
     }
 
     if (kind === 'survey_context') {
@@ -1889,10 +2090,10 @@ function _missionTargetSceneItems(kind) {
         add('survey_ref_1', 'Survey Referenzobjekt', ref, debrisPool, -2, -4, { hdgOffsetDeg: 35 });
         add('survey_ref_2', 'Survey Referenzobjekt', ref, debrisPool, 7, 5, { hdgOffsetDeg: 130 });
         add('marker_1', 'Messreferenz', cone, MISSION_SCENE_ASSET_POOLS.markers, 0, 0);
-        return items;
+        return finish();
     }
 
-    return items;
+    return finish();
 }
 
 window.missionTargetSceneEnsureSpawned = function(reason = 'mission-start') {

@@ -3709,8 +3709,12 @@ window.vpBuildWeatherDebugReport = function() {
             return;
         }
         const roles = Array.isArray(spec.roles) ? spec.roles.join(',') : '-';
+        const features = Array.isArray(spec.features) ? spec.features.join(',') : '-';
+        const req = Array.isArray(spec.requirements)
+            ? spec.requirements.map(r => `${r.feature || '?'}x${r.count || 1}`).join(',')
+            : '-';
         const notes = spec.notes ? ` | notes=${String(spec.notes).replace(/\s+/g, ' ').slice(0, 120)}` : '';
-        lines.push(`- ${label}: kind=${spec.kind || spec.type || '?'} | density=${spec.density || '-'} | roles=${roles}${notes}`);
+        lines.push(`- ${label}: kind=${spec.kind || spec.type || '?'} | preset=${spec.preset || '-'} | density=${spec.density || '-'} | layout=${spec.layout || '-'} | features=${features} | req=${req} | roles=${roles}${notes}`);
     };
     const fmtCommand = (label, cmd) => {
         if (!cmd || typeof cmd !== 'object') {

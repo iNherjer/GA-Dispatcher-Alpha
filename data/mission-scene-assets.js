@@ -1,7 +1,7 @@
 // Mission scene asset catalog built from the first MSFS 2024 visual validation pass.
 // VFX entries are kept as known/ACK-tested assets because particles need separate review.
 window.MISSION_SCENE_ASSETS = {
-    version: '2026-05-20-scene-taxonomy',
+    version: '2026-05-20-scene-composition',
     source: 'msfs2024-spawn-validation manual pass plus known VFX',
     targetSceneKinds: {
         none: {
@@ -99,6 +99,124 @@ window.MISSION_SCENE_ASSETS = {
             label: 'Generische Survey-Kontextszene ohne Bodencrew',
             roles: ['marker.cone', 'nature.log', 'debris.light'],
             useFor: ['mapping_survey', 'science_geo', 'science_bio']
+        }
+    },
+    targetScenePresets: {
+        construction_powerline: {
+            label: 'Baustelle mit Strommast/Freileitung',
+            kind: 'construction_site',
+            features: ['powerline', 'generator', 'cones'],
+            useFor: ['mapping_survey', 'inspection_infra', 'science_geo']
+        },
+        road_incident_smoke: {
+            label: 'Verkehrsunfall mit leichter Rauchentwicklung',
+            kind: 'road_incident',
+            features: ['smoke_light', 'emergency_response', 'debris'],
+            useFor: ['news_coverage', 'search_and_rescue']
+        },
+        erosion_debris: {
+            label: 'Ufer-/Hangschaden mit sichtbarem Treibgut und Debris',
+            kind: 'erosion_damage',
+            features: ['logs', 'debris', 'cones'],
+            useFor: ['science_geo', 'mapping_survey']
+        },
+        bridge_worksite: {
+            label: 'Brueckenpruefung mit Arbeitsfahrzeugen',
+            kind: 'infra_bridge',
+            features: ['utility_truck', 'generator', 'cones'],
+            useFor: ['inspection_infra', 'mapping_survey']
+        },
+        industry_smoke: {
+            label: 'Industrieanlage mit leichter Rauch-/Abluftquelle',
+            kind: 'industry_site',
+            features: ['smoke_light', 'cargo_material', 'utility_truck'],
+            useFor: ['inspection_infra', 'news_coverage']
+        },
+        water_sar_ship: {
+            label: 'SAR Wasser mit Rettungsinsel und Schiff/Boot',
+            kind: 'sar_water',
+            features: ['liferaft', 'watercraft'],
+            useFor: ['search_and_rescue']
+        },
+        event_traffic: {
+            label: 'Event mit Shuttle-/Verkehrslage',
+            kind: 'event_site',
+            features: ['bus', 'road_vehicles', 'cones'],
+            useFor: ['news_coverage', 'sightseeing_tour']
+        }
+    },
+    targetSceneFeatures: {
+        construction_crane: {
+            label: 'Kran / Kranfahrzeug',
+            roles: ['construction.crane']
+        },
+        earthmoving: {
+            label: 'Bagger/Bulldozer/Erdarbeiten',
+            roles: ['construction.earthmoving']
+        },
+        construction_truck: {
+            label: 'Baustellen-LKW',
+            roles: ['vehicle.truck']
+        },
+        cargo_material: {
+            label: 'Container, Paletten, kleine Fracht',
+            roles: ['cargo.container', 'cargo.pallet_medium', 'cargo.small_box']
+        },
+        powerline: {
+            label: 'Strommast/Freileitung',
+            roles: ['utility.powerline', 'utility.generator', 'vehicle.truck', 'marker.cone']
+        },
+        generator: {
+            label: 'Generator/Aggregat',
+            roles: ['utility.generator']
+        },
+        utility_truck: {
+            label: 'Utility-/Servicefahrzeug',
+            roles: ['vehicle.truck', 'vehicle.van']
+        },
+        road_vehicles: {
+            label: 'Zivile Fahrzeuge',
+            roles: ['vehicle.car', 'vehicle.van']
+        },
+        emergency_response: {
+            label: 'Einsatzfahrzeug/Bodencrew',
+            roles: ['vehicle.emergency.medical', 'person.ground_crew', 'marker.cone']
+        },
+        people: {
+            label: 'Personen am Boden',
+            roles: ['person.ground_crew']
+        },
+        cones: {
+            label: 'Absperrkegel/Marker',
+            roles: ['marker.cone']
+        },
+        debris: {
+            label: 'Truemmer/leichte verstreute Gegenstaende',
+            roles: ['debris.light', 'cargo.small_box', 'cargo.pallet_small']
+        },
+        logs: {
+            label: 'Baumstaemme/Treibholz',
+            roles: ['nature.log', 'material.log']
+        },
+        liferaft: {
+            label: 'Rettungsinsel',
+            roles: ['sar.liferaft']
+        },
+        watercraft: {
+            label: 'Boote/Schiffe',
+            roles: ['watercraft.boat', 'watercraft.ship']
+        },
+        bus: {
+            label: 'Bus/Shuttle',
+            roles: ['vehicle.bus']
+        },
+        smoke_light: {
+            label: 'leichte Rauchquelle',
+            roles: ['vfx.smoke']
+        },
+        fire_small: {
+            label: 'kleiner Brandherd',
+            roles: ['vfx.fire']
         }
     },
     roles: {
