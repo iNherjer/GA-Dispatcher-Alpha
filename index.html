@@ -788,20 +788,22 @@
         <div class="settings-action-row">
             <button class="btn-preset sync-req-btn" style="flex: 1; margin: 0; height: 42px; background: #333; color: #f2c12e;" onclick="saveAircraftPresetFromSettings()">💾 Preset speichern</button>
         </div>
-        <div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <div class="boarding-scene-settings">
+            <div class="boarding-scene-toolbar">
                 <div>
                     <div class="settings-section-kicker">Boarding Szene</div>
-                    <div style="font-size: 10px; color: #9aa3ad;">Relative Punkte zum Flugzeug</div>
+                    <div class="boarding-scene-copy">Relative Punkte zum Flugzeug</div>
                 </div>
-                <label style="display: flex; align-items: center; gap: 6px; font-size: 10px; color: #ccd3da;">
-                    <input type="checkbox" id="boardingDoorOpenToggle" onchange="setBoardingDoorOption(this.checked)" checked>
-                    Tür
-                </label>
-                <label style="display: flex; align-items: center; gap: 6px; font-size: 10px; color: #ccd3da;">
-                    <input type="checkbox" id="boardingMarkerToggle" onchange="setBoardingMarkerOption(this.checked)">
-                    Marker
-                </label>
+                <div class="boarding-toggle-row">
+                    <label class="boarding-toggle">
+                        <input type="checkbox" id="boardingDoorOpenToggle" onchange="setBoardingDoorOption(this.checked)" checked>
+                        <span>Tür</span>
+                    </label>
+                    <label class="boarding-toggle">
+                        <input type="checkbox" id="boardingMarkerToggle" onchange="setBoardingMarkerOption(this.checked)">
+                        <span>Marker</span>
+                    </label>
+                </div>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px;">

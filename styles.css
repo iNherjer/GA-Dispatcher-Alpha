@@ -10442,3 +10442,144 @@ body.theme-ops1940 .map-mission-btn.is-active {
         max-height: 72vh;
     }
 }
+
+.boarding-scene-settings {
+    margin-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 12px;
+}
+
+.boarding-scene-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.boarding-scene-copy {
+    color: #9aa3ad;
+    font-size: 10px;
+    line-height: 1.25;
+}
+
+.boarding-toggle-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+    max-width: 142px;
+}
+
+.boarding-toggle,
+body.theme-retro .boarding-toggle,
+body.theme-ops1940 .boarding-toggle {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 5px;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #ccd3da;
+    font-family: inherit;
+    font-size: 10px;
+    line-height: 1;
+    letter-spacing: 0;
+    text-transform: none;
+    text-shadow: none;
+    white-space: nowrap;
+}
+
+.boarding-toggle input[type="checkbox"],
+body.theme-retro .boarding-toggle input[type="checkbox"],
+body.theme-ops1940 .boarding-toggle input[type="checkbox"] {
+    appearance: none;
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 16px;
+    width: 16px !important;
+    min-width: 16px !important;
+    height: 16px !important;
+    min-height: 16px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid rgba(205, 214, 224, 0.55) !important;
+    border-radius: 4px !important;
+    background: rgba(10, 14, 20, 0.82) !important;
+    box-shadow: none !important;
+    cursor: pointer;
+}
+
+.boarding-toggle input[type="checkbox"]::after,
+body.theme-retro .boarding-toggle input[type="checkbox"]::after,
+body.theme-ops1940 .boarding-toggle input[type="checkbox"]::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    transform: scale(0);
+    background: #8fd3ff;
+    transition: transform 0.12s ease;
+}
+
+.boarding-toggle input[type="checkbox"]:checked::after,
+body.theme-retro .boarding-toggle input[type="checkbox"]:checked::after,
+body.theme-ops1940 .boarding-toggle input[type="checkbox"]:checked::after {
+    transform: scale(1);
+}
+
+body.theme-ops1940 .boarding-scene-toolbar {
+    align-items: center;
+}
+
+body.theme-ops1940 .boarding-scene-copy {
+    color: rgba(234, 216, 171, 0.62);
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+}
+
+body.theme-ops1940 .boarding-toggle-row {
+    gap: 5px;
+    max-width: 112px;
+}
+
+body.theme-ops1940 .boarding-toggle {
+    color: #ead8ab !important;
+    font-family: 'MS33558', 'Courier New', monospace;
+    font-size: 8px !important;
+    letter-spacing: 0.6px;
+}
+
+body.theme-ops1940 .boarding-toggle input[type="checkbox"] {
+    flex-basis: 14px;
+    width: 14px !important;
+    min-width: 14px !important;
+    height: 14px !important;
+    min-height: 14px !important;
+    border-color: rgba(208, 164, 79, 0.55) !important;
+    border-radius: 3px !important;
+    background: #151812 !important;
+}
+
+body.theme-ops1940 .boarding-toggle input[type="checkbox"]::after {
+    width: 7px;
+    height: 7px;
+    background: #7db8e8;
+}
+
+@media (max-width: 520px) {
+    .boarding-scene-toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .boarding-toggle-row {
+        justify-content: flex-start;
+        max-width: none;
+    }
+}
