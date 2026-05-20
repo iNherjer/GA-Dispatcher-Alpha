@@ -6626,6 +6626,7 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
     const urgencyPriority = (String(passenger?.urgencyPriority || '').toLowerCase() === 'hoch') ? 'hoch' : 'niedrig';
     const title = String(mission?.t || mission?.title || '').trim();
     const story = String(mission?.s || mission?.story || '').trim();
+    const targetScene = sanitizeMissionTargetSceneSpec(mission?.targetScene || passenger?.targetScene || null, { isPOI, taskDomain });
     const summaryBase = profile?.label || (isPOI ? 'POI-Einsatz' : 'A-B Einsatz');
     const summary = `${summaryBase} | ${isPOI ? 'POI' : 'A-B'} | cat:${String(category || 'std')}`;
     const constraints = [
@@ -6644,6 +6645,7 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
         cargoText: String(cargoText || ''),
         missionTitle: title,
         missionStory: story,
+        targetScene,
         constraints
     };
 }
@@ -6998,6 +7000,114 @@ function missionHasPassengerByPaxText(paxText) {
     return !/^\s*0\s*PAX\b/i.test(txt);
 }
 
+function missionSceneTargetKindCatalog() {
+    const fromAssetCatalog = window.MISSION_SCENE_ASSETS?.targetSceneKinds;
+    if (fromAssetCatalog && typeof fromAssetCatalog === 'object') return fromAssetCatalog;
+    return {
+        none: { roles: [] },
+        fire_watch: { roles: ['vfx.smoke', 'vfx.fire'] },
+        road_incident: { roles: ['vehicle.car', 'vehicle.emergency.medical', 'marker.cone'] },
+        sar_water: { roles: ['sar.liferaft', 'watercraft.boat'] },
+        sar_land: { roles: ['vehicle.emergency.medical', 'vehicle.quad', 'cargo.container'] },
+        medical_pickup: { roles: ['vehicle.emergency.medical', 'cargo.small_box'] },
+        cargo_site: { roles: ['vehicle.truck', 'cargo.container', 'cargo.pallet_medium'] },
+        construction_site: { roles: ['construction.crane', 'construction.earthmoving', 'vehicle.truck'] },
+        powerline_inspection: { roles: ['utility.powerline', 'utility.generator', 'vehicle.truck'] },
+        erosion_damage: { roles: ['nature.log', 'debris.light'] },
+        debris_field: { roles: ['debris.light', 'cargo.small_box'] },
+        infra_bridge: { roles: ['vehicle.truck', 'marker.cone'] },
+        infra_dam: { roles: ['marker.cone', 'utility.generator', 'watercraft.boat'] },
+        industry_site: { roles: ['vehicle.truck', 'cargo.container', 'utility.generator'] },
+        water_pollution: { roles: ['watercraft.boat', 'nature.log'] },
+        wildlife_site: { roles: ['nature.log', 'debris.light'] },
+        media_site: { roles: ['vehicle.van', 'cargo.small_box'] },
+        event_site: { roles: ['vehicle.bus', 'vehicle.van', 'marker.cone'] },
+        survey_context: { roles: ['marker.cone', 'nature.log', 'debris.light'] }
+    };
+}
+
+function normalizeMissionTargetSceneKind(value) {
+    const s = String(value || '').trim().toLowerCase();
+    if (!s || /^(none|no|off|false|null|keine|kein)$/i.test(s)) return 'none';
+    const aliases = {
+        accident: 'road_incident',
+        traffic: 'road_incident',
+        traffic_site: 'road_incident',
+        water_sar: 'sar_water',
+        land_sar: 'sar_land',
+        medical_site: 'medical_pickup',
+        cargo: 'cargo_site',
+        construction: 'construction_site',
+        building_site: 'construction_site',
+        powerline: 'powerline_inspection',
+        power_pylon: 'powerline_inspection',
+        pylon: 'powerline_inspection',
+        erosion: 'erosion_damage',
+        shore_damage: 'erosion_damage',
+        landslide: 'erosion_damage',
+        debris: 'debris_field',
+        bridge: 'infra_bridge',
+        dam: 'infra_dam',
+        industry: 'industry_site',
+        water: 'water_pollution',
+        wildlife: 'wildlife_site',
+        media: 'media_site',
+        event: 'event_site',
+        survey: 'survey_context',
+        survey_site: 'survey_context'
+    };
+    const normalized = aliases[s] || s;
+    const catalog = missionSceneTargetKindCatalog();
+    return catalog[normalized] ? normalized : 'none';
+}
+
+function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '' } = {}) {
+    if (!isPOI) return { kind: 'none', roles: [], density: 'none', notes: '' };
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const task = String(taskDomain || '').toLowerCase();
+    let kind = normalizeMissionTargetSceneKind(src.kind || src.type || '');
+    if (task === 'fire_watch') kind = 'fire_watch';
+    const catalog = missionSceneTargetKindCatalog();
+    const spec = catalog[kind] || catalog.none || { roles: [] };
+    const rolesRaw = Array.isArray(src.roles) ? src.roles : (Array.isArray(src.sceneRoles) ? src.sceneRoles : []);
+    const allowedRoles = new Set(Object.values(catalog).flatMap(entry => Array.isArray(entry.roles) ? entry.roles : []));
+    const roles = rolesRaw
+        .map(role => String(role || '').trim())
+        .filter(role => role && allowedRoles.has(role))
+        .slice(0, 8);
+    const fallbackRoles = Array.isArray(spec.roles) ? spec.roles.slice(0, 8) : [];
+    const densityRaw = String(src.density || '').trim().toLowerCase();
+    const density = /^(sparse|normal|busy|none)$/.test(densityRaw) ? densityRaw : (kind === 'none' ? 'none' : 'normal');
+    const notes = String(src.notes || src.reason || src.context || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+    return {
+        kind,
+        roles: roles.length ? roles : fallbackRoles,
+        density,
+        notes
+    };
+}
+
+function buildMissionTargetScenePromptGuide(isPOI, forcedProfile = null) {
+    const catalog = missionSceneTargetKindCatalog();
+    const lines = Object.entries(catalog).map(([kind, spec]) => {
+        const roles = Array.isArray(spec.roles) ? spec.roles.join(', ') : '';
+        const useFor = Array.isArray(spec.useFor) ? ` useFor=${spec.useFor.join('|')}` : '';
+        const label = String(spec.label || kind);
+        return `- ${kind}: ${label}${roles ? `; roles=[${roles}]` : ''}${useFor}`;
+    });
+    const forced = forcedProfile?.taskDomain ? String(forcedProfile.taskDomain).toLowerCase() : '';
+    const defaultHint = forced === 'fire_watch'
+        ? 'fire_watch'
+        : (forced === 'search_and_rescue'
+            ? 'sar_water oder sar_land'
+            : (forced === 'mapping_survey' ? 'construction_site, powerline_inspection, erosion_damage, infra_bridge, infra_dam oder survey_context' : 'passend zum Kontext'));
+    return isPOI
+        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind aus der Liste unten. Nutze "none" nur bei reinen Sightseeing-/Historien-/Lernflügen ohne sichtbaren Boden-Kontext. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site, Strommast -> powerline_inspection, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Empfehlung fuer dieses Profil: ${defaultHint}.
+Erlaubte targetScene.kind:
+${lines.join('\n')}`
+        : `17. TARGET-SCENE: Bei A-B-Missionen targetScene.kind immer "none" setzen.`;
+}
+
 async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null, missionFireHazard = null, poiTargetMeta = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
     if (!aiToggleBtn || !aiToggleBtn.checked) return null;
@@ -7126,6 +7236,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const fireHazardRule = (forcedProfile?.id === 'fire_watch' && Number.isFinite(Number(missionFireHazard?.level)))
         ? `16. FEUERLAGE-KONTEXT: Nutze den offiziellen DWD-Waldbrandgefahrenindex am Einsatzgebiet als Realitätsanker (Stufe ${Math.round(Number(missionFireHazard.level))} von 5, Risiko: ${String(missionFireHazard.label || '').trim() || 'n/a'}). Erwaehne den Index natuerlich und knapp in story/greetingText. Keine Dramatisierung.`
         : '';
+    const targetSceneRule = buildMissionTargetScenePromptGuide(isPOI, forcedProfile);
 
     const sanitizePassengerProfile = (passenger, storyText = '') => {
         if (!passenger || typeof passenger !== 'object') return null;
@@ -7313,6 +7424,7 @@ ${forcedProfileRule}
 ${forcedProfileConsistencyRule}
 ${forcedProfileOpsRule}
 ${fireHazardRule}
+${targetSceneRule}
 </INSTRUKTIONEN>
 
 <KONTEXT>
@@ -7334,6 +7446,12 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
   "story": "Briefing, max 3-4 Sätze",
   "pax": "z.B. '2 PAX (...)' oder '0 PAX'",
   "cargo": "z.B. 'Kamera-Gimbal (80 lbs)'",
+  "targetScene": {
+    "kind": "none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|wildlife_site|media_site|event_site|survey_context",
+    "roles": ["z.B. construction.crane", "vehicle.truck"],
+    "density": "none|sparse|normal|busy",
+    "notes": "kurzer Grund, was am Boden sichtbar sein soll"
+  },
   "passenger": {
     "name": "Vollständiger Name",
     "role": "Beruf/Rolle",
@@ -7371,7 +7489,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
             const data = await resFlash3.json();
             const parsed = sanitizeMissionPayloadText(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text))));
             incrementApiUsage('flash');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger, parsed.story), i: "📋", cat: targetMissionCat, _source: "Gemini 3.0 Flash" };
+            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, targetScene: sanitizeMissionTargetSceneSpec(parsed.targetScene, { isPOI, taskDomain: parsed.passenger?.taskDomain }), passenger: sanitizePassengerProfile(parsed.passenger, parsed.story), i: "📋", cat: targetMissionCat, _source: "Gemini 3.0 Flash" };
         }
     } catch (e) { }
 
@@ -7381,7 +7499,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
             const data = await resFlash.json();
             const parsed = sanitizeMissionPayloadText(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text))));
             incrementApiUsage('flash');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger, parsed.story), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash" };
+            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, targetScene: sanitizeMissionTargetSceneSpec(parsed.targetScene, { isPOI, taskDomain: parsed.passenger?.taskDomain }), passenger: sanitizePassengerProfile(parsed.passenger, parsed.story), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash" };
         }
     } catch (e) { }
 
@@ -7391,7 +7509,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
             const data = await resLite.json();
             const parsed = sanitizeMissionPayloadText(enforceCharterPayload(enforceTrainingInstructorPayload(JSON.parse(data.candidates[0].content.parts[0].text))));
             incrementApiUsage('lite');
-            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, passenger: sanitizePassengerProfile(parsed.passenger, parsed.story), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash Lite" };
+            return { t: parsed.title, s: parsed.story, pax: parsed.pax, cargo: parsed.cargo, targetScene: sanitizeMissionTargetSceneSpec(parsed.targetScene, { isPOI, taskDomain: parsed.passenger?.taskDomain }), passenger: sanitizePassengerProfile(parsed.passenger, parsed.story), i: "📋", cat: targetMissionCat, _source: "Gemini 2.5 Flash Lite" };
         }
     } catch (e) { }
     return null;
@@ -8715,7 +8833,8 @@ async function generateMission() {
         ac: selectedAC,
         heading: nav.brng,
         weatherBriefing: missionWeather,
-        fireHazard: missionFireHazard || null
+        fireHazard: missionFireHazard || null,
+        targetScene: sanitizeMissionTargetSceneSpec(m?.targetScene || null, { isPOI, taskDomain: m?.passenger?.taskDomain })
     };
 
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
@@ -8746,6 +8865,7 @@ async function generateMission() {
     });
     if (fireScenario) currentMissionData.fireScenario = fireScenario;
     currentMissionData.missionContract = activeMissionContract;
+    currentMissionData.targetScene = activeMissionContract.targetScene;
     window.activeMissionContract = activeMissionContract;
     if (fireScenario && typeof window.paxVoiceRefreshWidget === 'function') {
         window.paxVoiceRefreshWidget();
@@ -8771,6 +8891,7 @@ async function generateMission() {
             story: String(m?.s || ''),
             narrativeGuard: m?._narrativeGuard || null,
             contract: activeMissionContract || null,
+            targetScene: currentMissionData.targetScene || null,
             paxText: String(paxText || ''),
             cargoText: String(cargoText || ''),
             passenger: {
