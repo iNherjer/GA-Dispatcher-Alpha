@@ -109,7 +109,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-5';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-6';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -356,10 +356,27 @@ function _missionSceneAutoAllowed() {
     return (typeof window.missionSceneAutoSpawnEnabled === 'function') && window.missionSceneAutoSpawnEnabled();
 }
 
+function _scenePositionQuality(pos = {}) {
+    const lat = Number(pos.lat);
+    const lon = Number(pos.lon);
+    const rawHasPosition = Number.isFinite(lat) && Number.isFinite(lon);
+    const plausiblePosition = rawHasPosition
+        && Math.abs(lat) <= 90
+        && Math.abs(lon) <= 180
+        && (Math.abs(lat) > 0.05 || Math.abs(lon) > 0.05);
+    let depDistNm = null;
+    if (plausiblePosition && typeof _distanceFromDepartureNm === 'function') {
+        try { depDistNm = _distanceFromDepartureNm(lat, lon); } catch (_) { depDistNm = null; }
+    }
+    const nearDeparture = !Number.isFinite(depDistNm) || depDistNm <= 15;
+    return { lat, lon, rawHasPosition, plausiblePosition, depDistNm, nearDeparture };
+}
+
 function _missionSceneFlightGate(flightData = null) {
     const fd = flightData || window.lastLiveFlightData || {};
     const pos = window.lastLiveGpsPos || {};
-    const hasPosition = Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon));
+    const quality = _scenePositionQuality(pos);
+    const hasPosition = quality.rawHasPosition && quality.plausiblePosition && quality.nearDeparture;
     const gs = Number.isFinite(Number(fd.gsKts)) ? Number(fd.gsKts)
         : (Number.isFinite(Number(fd.gs)) ? Number(fd.gs)
             : (Number.isFinite(Number(pos.gs)) ? Number(pos.gs) : 0));
@@ -371,8 +388,10 @@ function _missionSceneFlightGate(flightData = null) {
     const paused = !!fd.simPaused || Number(fd.pauseFlags || 0) > 0;
     const inMenuOrMap = !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
     const airborne = !groundLike && ((hasOnGroundFlag && !onGround && gs > 35) || (Number.isFinite(agl) && agl > 120) || gs > 70);
-    const canStage = hasPosition && groundLike && !paused && !inMenuOrMap && gs < 60;
-    return { gs, agl, hasPosition, onGround, nearGround, groundLike, paused, inMenuOrMap, airborne, canStage };
+    const lowGround = !Number.isFinite(agl) || agl <= 25;
+    const stationary = gs < 10;
+    const canStage = hasPosition && groundLike && lowGround && stationary && !paused && !inMenuOrMap;
+    return { ...quality, gs, agl, hasPosition, onGround, nearGround, groundLike, lowGround, stationary, paused, inMenuOrMap, airborne, canStage };
 }
 
 function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
@@ -395,8 +414,16 @@ function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
         status.blockReason = 'no_fire_mission';
         return;
     }
-    if (!gate.hasPosition) {
+    if (!gate.rawHasPosition) {
         status.blockReason = 'no_live_position';
+        return;
+    }
+    if (!gate.plausiblePosition) {
+        status.blockReason = 'bad_live_position';
+        return;
+    }
+    if (!gate.nearDeparture) {
+        status.blockReason = `away_from_start_${Math.round(Number(gate.depDistNm || 0))}nm`;
         return;
     }
     if (gate.paused || gate.inMenuOrMap) {
@@ -407,7 +434,11 @@ function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
         status.blockReason = 'not_on_ground';
         return;
     }
-    if (gate.gs >= 60) {
+    if (!gate.lowGround) {
+        status.blockReason = 'agl_too_high';
+        return;
+    }
+    if (!gate.stationary) {
         status.blockReason = 'too_fast_for_stage';
         return;
     }
@@ -712,7 +743,21 @@ function _missionSceneId() {
 
 window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     const pos = window.lastLiveGpsPos || {};
-    if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) return false;
+    const gate = _missionSceneFlightGate(window.lastLiveFlightData || {});
+    const debugReason = String(reason || '').includes('debug');
+    if (!gate.rawHasPosition || !gate.plausiblePosition || !gate.nearDeparture) {
+        window.missionSceneStatus.blockReason = !gate.rawHasPosition ? 'no_live_position' : (!gate.plausiblePosition ? 'bad_live_position' : `away_from_start_${Math.round(Number(gate.depDistNm || 0))}nm`);
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return false;
+    }
+    if (!debugReason && !gate.canStage) {
+        window.missionSceneStatus.blockReason = gate.paused || gate.inMenuOrMap ? 'sim_paused_or_menu'
+            : (!gate.groundLike ? 'not_on_ground'
+                : (!gate.lowGround ? 'agl_too_high'
+                    : (!gate.stationary ? 'too_fast_for_stage' : 'scene_gate_closed')));
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return false;
+    }
     const sceneId = _missionSceneId();
     const vehicleTitle = _sceneObjectTitleOverride('vehicle', MISSION_SCENE_DEFAULT_VEHICLE_TITLE);
     const personTitle = _sceneObjectTitleOverride('person', MISSION_SCENE_DEFAULT_PERSON_TITLE);
@@ -755,6 +800,7 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     window.missionSceneStatus.clearRequested = false;
     window.missionSceneStatus.spawned = false;
     window.missionSceneStatus.error = null;
+    window.missionSceneStatus.blockReason = '';
     if (String(reason || '').includes('auto') || reason === 'gps-tick') {
         window.missionSceneStatus.autoSpawnedFor = sceneId;
     }
@@ -821,6 +867,7 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
         window.missionSceneSpawn('boarding-ensure-scene');
     }
     await _waitForMissionSceneReady(5200);
+    if (!window.missionSceneStatus?.spawned) return { status: 'no_scene' };
     const pos = window.lastLiveGpsPos || {};
     const sceneId = status.sceneId || _missionSceneId();
     const command = {
@@ -829,7 +876,7 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
         reason,
         profile: 'ga_right_cockpit_v1',
         durationMs: 11200,
-        stepMs: 180,
+        walkSpeedKts: 5,
         finalHoldMs: 450,
         removePerson: true
     };
@@ -1000,7 +1047,7 @@ window.fireMissionSmokeDebugSummary = function() {
         scene.spawnRequested ? 'scenePending=1' : '',
         scene.spawned ? `sceneSpawned=${scene.spawnedCount || '?'}` : '',
         scene.blockReason ? `sceneGate=${scene.blockReason}` : '',
-        scene.lastGate ? `sceneGround=${scene.lastGate.groundLike ? 'Y' : 'N'} agl=${scene.lastGate.agl == null ? '?' : Math.round(scene.lastGate.agl)} gs=${Math.round(Number(scene.lastGate.gs || 0))}` : '',
+        scene.lastGate ? `sceneGround=${scene.lastGate.groundLike ? 'Y' : 'N'} agl=${scene.lastGate.agl == null ? '?' : Math.round(scene.lastGate.agl)} gs=${Math.round(Number(scene.lastGate.gs || 0))}${Number.isFinite(Number(scene.lastGate.depDistNm)) ? ` dep=${Number(scene.lastGate.depDistNm).toFixed(1)}nm` : ''}` : '',
         scene.lastCommandAt ? `sceneReq=${new Date(scene.lastCommandAt).toLocaleTimeString('de-DE')}` : '',
         scene.lastAck ? `sceneAck=${scene.lastAck.type || '?'}:${scene.lastAck.status || '?'}` : '',
         scene.spawnedByKind ? `sceneKind=${Object.entries(scene.spawnedByKind).map(([k, v]) => `${k}:${v}`).join(',')}` : '',

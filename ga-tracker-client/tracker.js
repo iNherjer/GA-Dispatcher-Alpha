@@ -1,4 +1,4 @@
-const { open, SimConnectDataType, SimConnectPeriod, InitPosition, RawBuffer } = require('node-simconnect');
+const { open, SimConnectDataType, SimConnectPeriod, InitPosition, RawBuffer, Waypoint, SimConnectConstants } = require('node-simconnect');
 const WebSocket = require('ws');
 const readline = require('readline');
 const fs = require('fs');
@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v221';
-const TRACKER_VERSION_CODE = 221;
+const TRACKER_VERSION = 'v222';
+const TRACKER_VERSION_CODE = 222;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -21,6 +21,7 @@ const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const TRACKER_DEBUG_FILE = path.join(process.pkg ? path.dirname(process.execPath) : __dirname, 'ga-tracker-debug.txt');
 const TELEPORT_DEF_ID = 9361;
+const WAYPOINT_DEF_ID = 9362;
 
 function debugLog(line) {
   try {
@@ -165,6 +166,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const lastExceptions = [];
   let nextReqId = 9300;
   let teleportDefReady = false;
+  let waypointDefReady = false;
 
   const ensureTeleportDefinition = () => {
     if (teleportDefReady) return true;
@@ -194,6 +196,44 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return true;
     } catch (err) {
       debugLog(`TELEPORT_ERROR objectId=${objectId} error=${err?.message || err}`);
+      return false;
+    }
+  };
+
+  const ensureWaypointDefinition = () => {
+    if (waypointDefReady) return true;
+    try {
+      handle.addToDataDefinition(WAYPOINT_DEF_ID, 'AI WAYPOINT LIST', 'number', SimConnectDataType.WAYPOINT);
+      waypointDefReady = true;
+      debugLog('WAYPOINT_DEF_READY');
+      return true;
+    } catch (err) {
+      debugLog(`WAYPOINT_DEF_ERROR ${err?.message || err}`);
+      return false;
+    }
+  };
+
+  const sendWaypointRoute = (objectId, points, speedKts = 5) => {
+    if (!ensureWaypointDefinition()) return false;
+    const route = (points || [])
+      .filter(p => Number.isFinite(Number(p?.lat)) && Number.isFinite(Number(p?.lon)) && Number.isFinite(Number(p?.altFt)))
+      .map((p) => {
+        const wp = new Waypoint();
+        wp.latitude = Number(p.lat);
+        wp.longitude = Number(p.lon);
+        wp.altitude = Number(p.altFt);
+        wp.flags = SimConnectConstants.WAYPOINT_ON_GROUND | SimConnectConstants.WAYPOINT_SPEED_REQUESTED;
+        wp.speed = Math.max(0.5, Number(speedKts) || 5);
+        wp.throttle = 0;
+        return wp;
+      });
+    if (route.length === 0) return false;
+    try {
+      handle.setDataOnSimObject(WAYPOINT_DEF_ID, objectId, route);
+      debugLog(`WAYPOINT_ROUTE_SENT objectId=${objectId} points=${route.length} speedKts=${Math.max(0.5, Number(speedKts) || 5)}`);
+      return true;
+    } catch (err) {
+      debugLog(`WAYPOINT_ROUTE_ERROR objectId=${objectId} points=${route.length} error=${err?.message || err}`);
       return false;
     }
   };
@@ -394,40 +434,42 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return;
     }
     const durationMs = clampInt(command?.durationMs ?? 11200, 3000, 22000);
-    const stepMs = clampInt(command?.stepMs ?? 180, 80, 600);
     const finalHoldMs = clampInt(command?.finalHoldMs ?? 450, 0, 2000);
     const removePerson = command?.removePerson !== false;
-    const segments = [];
-    let totalDist = 0;
-    for (let i = 0; i < path.length - 1; i++) {
-      const from = path[i];
-      const to = path[i + 1];
-      const dist = Math.hypot(Number(to.northM) - Number(from.northM), Number(to.eastM) - Number(from.eastM));
-      totalDist += dist;
-      segments.push({ from, to, dist });
-    }
-    if (totalDist <= 0) totalDist = segments.length;
-    let moves = 0;
-    let failedMoves = 0;
-    debugLog(`SCENE_BOARDING_START scene=${sceneId} objectId=${person.objectId} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} durationMs=${durationMs} segments=${segments.length}`);
+    const speedKts = Math.max(0.5, toFiniteNumber(command?.speedKts ?? command?.walkSpeedKts, 5) || 5);
+    debugLog(`SCENE_BOARDING_START scene=${sceneId} objectId=${person.objectId} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} durationMs=${durationMs} waypoints=${path.length - 1} speedKts=${speedKts}`);
     console.log(`🚶 Scene ${sceneId}: Boarding-Animation startet (${Math.round(durationMs / 1000)}s).`);
-    const usableDuration = Math.max(500, durationMs - finalHoldMs);
-    for (const segment of segments) {
-      const segmentDuration = usableDuration * (segment.dist > 0 ? segment.dist / totalDist : 1 / segments.length);
-      const steps = Math.max(1, Math.round(segmentDuration / stepMs));
-      const hdg = headingBetweenOffsets(segment.from, segment.to, rec?.command?.hdg || 0);
-      for (let i = 1; i <= steps; i++) {
-        const t = i / steps;
-        const pos = {
-          lat: lerp(segment.from.lat, segment.to.lat, t),
-          lon: lerp(segment.from.lon, segment.to.lon, t),
-          altFt: lerp(segment.from.altFt, segment.to.altFt, t),
-          hdg
-        };
-        if (teleportObject(person.objectId, pos)) moves++;
-        else failedMoves++;
-        await sleep(Math.max(40, Math.round(segmentDuration / steps)));
+
+    const routeSent = sendWaypointRoute(person.objectId, path.slice(1), speedKts);
+    if (!routeSent && command?.fallbackTeleport === true) {
+      const segments = [];
+      let totalDist = 0;
+      for (let i = 0; i < path.length - 1; i++) {
+        const from = path[i];
+        const to = path[i + 1];
+        const dist = Math.hypot(Number(to.northM) - Number(from.northM), Number(to.eastM) - Number(from.eastM));
+        totalDist += dist;
+        segments.push({ from, to, dist });
       }
+      if (totalDist <= 0) totalDist = segments.length;
+      const usableDuration = Math.max(500, durationMs - finalHoldMs);
+      for (const segment of segments) {
+        const segmentDuration = usableDuration * (segment.dist > 0 ? segment.dist / totalDist : 1 / segments.length);
+        const steps = Math.max(1, Math.round(segmentDuration / 250));
+        const hdg = headingBetweenOffsets(segment.from, segment.to, rec?.command?.hdg || 0);
+        for (let i = 1; i <= steps; i++) {
+          const t = i / steps;
+          teleportObject(person.objectId, {
+            lat: lerp(segment.from.lat, segment.to.lat, t),
+            lon: lerp(segment.from.lon, segment.to.lon, t),
+            altFt: lerp(segment.from.altFt, segment.to.altFt, t),
+            hdg
+          });
+          await sleep(Math.max(40, Math.round(segmentDuration / steps)));
+        }
+      }
+    } else {
+      await sleep(Math.max(500, durationMs - finalHoldMs));
     }
     if (finalHoldMs > 0) await sleep(finalHoldMs);
     let removed = 0;
@@ -440,8 +482,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         debugLog(`SCENE_BOARDING_REMOVE_ERROR scene=${sceneId} objectId=${person.objectId} error=${err?.message || err}`);
       }
     }
-    debugLog(`SCENE_BOARDING_OK scene=${sceneId} objectId=${person.objectId} moves=${moves} failedMoves=${failedMoves} removed=${removed}`);
-    sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: 'ok', moved: moves, failedMoves, removed, boarded: 1, durationMs });
+    debugLog(`SCENE_BOARDING_OK scene=${sceneId} objectId=${person.objectId} routeSent=${routeSent ? 1 : 0} removed=${removed}`);
+    sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: routeSent ? 'ok' : 'error', routeSent: routeSent ? 1 : 0, removed, boarded: routeSent ? 1 : 0, durationMs, error: routeSent ? '' : 'waypoint_route_failed' });
   };
 
   const clearScene = async (sceneId, reason = 'clear', commandId = null) => {
