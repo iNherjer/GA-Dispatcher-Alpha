@@ -108,7 +108,7 @@ let missionRuntime = {
 };
 
 let missionSmokeCommandSeq = 0;
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260519-6';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-1';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -953,7 +953,7 @@ function _missionStartUiKey() {
 function _hasValidMissionForStart() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
-    return !!(md && wps.length >= 2 && !window.simModeActive);
+    return !!(md && wps.length >= 2);
 }
 
 function _missionStartBannerDismissKey() {
@@ -990,6 +990,7 @@ function _clearMissionStartPhase() {
 }
 
 function _missionStartGroundReady() {
+    if (window.simModeActive) return _hasValidMissionForStart();
     const gate = _missionSceneFlightGate(window.lastLiveFlightData || {});
     return !!(gate && gate.canStage);
 }
@@ -1010,6 +1011,14 @@ window.dismissMissionStartBanner = function() {
     _updateMissionRuntimeUi();
 };
 
+window.resetMissionStartFlow = function() {
+    _clearMissionStartPhase();
+    try {
+        if (_missionStartUiKey()) localStorage.removeItem(_missionStartBannerDismissKey());
+    } catch (_) {}
+    _updateMissionRuntimeUi();
+};
+
 function _updateMissionStartBanner(autoStartEnabled) {
     const banner = document.getElementById('missionStartBanner');
     if (!banner) return;
@@ -1017,17 +1026,19 @@ function _updateMissionStartBanner(autoStartEnabled) {
     const btn = document.getElementById('missionStartBannerBtn');
     const valid = _hasValidMissionForStart();
     const trackerConnected = !!window.liveTrackerConnected;
+    const simMode = !!window.simModeActive;
     const groundReady = _missionStartGroundReady();
     const phase = _missionStartPhase();
-    const show = valid && trackerConnected && groundReady && !missionRuntime.active && !autoStartEnabled && !_missionStartBannerDismissed();
+    const show = valid && (trackerConnected || simMode) && groundReady && !missionRuntime.active && !autoStartEnabled && (simMode || !_missionStartBannerDismissed());
     banner.style.display = show ? 'flex' : 'none';
     if (!show) return;
     const scene = window.missionSceneStatus || {};
     let text = phase === 'boarded'
         ? 'Boarding abgeschlossen. Mission kann gestartet werden.'
-        : 'Tracker verbunden. Boarding und Verladen bereit.';
+        : (simMode ? 'Sim-Modus bereit. Boarding und Verladen bereit.' : 'Tracker verbunden. Boarding und Verladen bereit.');
     if (phase !== 'boarded') {
-        if (scene.spawned) text = `Start-Szene steht (${scene.spawnedCount || '?'} Objekte). Boarding bereit.`;
+        if (simMode) text = 'Sim-Modus bereit. Boarding und Verladen bereit.';
+        else if (scene.spawned) text = `Start-Szene steht (${scene.spawnedCount || '?'} Objekte). Boarding bereit.`;
         else if (scene.spawnRequested) text = 'Start-Szene wird vorbereitet. Boarding bereit.';
         else if (scene.blockReason) text = `Boarding bereit. Szene wartet: ${scene.blockReason}.`;
         else if (_missionLooksLikeFireWatch()) text = 'Feuerwehr-Szene wird vorbereitet. Boarding bereit.';
@@ -1076,6 +1087,7 @@ function _updateMissionRuntimeUi() {
     _updateMissionStartBanner(autoStartEnabled);
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
 }
+window.refreshMissionRuntimeUi = _updateMissionRuntimeUi;
 
 function _resetMissionRuntime() {
     missionRuntime = {
@@ -1178,11 +1190,11 @@ window.manualMissionStart = function() {
     missionRuntime.lastOffDestAt = 0;
     resetFlightRecorder();
     const pos = window.lastLiveGpsPos;
-    if (pos && typeof window.triggerPaxGreeting === 'function') {
-        setTimeout(() => window.triggerPaxGreeting(pos.lat, pos.lon), 200);
+    if ((pos || window.simModeActive) && typeof window.triggerPaxGreeting === 'function') {
+        setTimeout(() => window.triggerPaxGreeting(pos?.lat, pos?.lon), 200);
     }
-    if (typeof window.missionSmokeEnsureSpawned === 'function') window.missionSmokeEnsureSpawned('manual-mission-start');
-    if (typeof _missionSceneHandleFlightTick === 'function') {
+    if (!window.simModeActive && typeof window.missionSmokeEnsureSpawned === 'function') window.missionSmokeEnsureSpawned('manual-mission-start');
+    if (!window.simModeActive && typeof _missionSceneHandleFlightTick === 'function') {
         setTimeout(() => _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'manual-mission-start'), 600);
     }
     _updateMissionRuntimeUi();

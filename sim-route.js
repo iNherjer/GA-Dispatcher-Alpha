@@ -22,6 +22,7 @@
     let simLastTrackPt   = null;
     let simPoiAtTargetTriggered = false; // pax voice: verhindert Doppel-Trigger beim POI
     let simAptAtTargetTriggered = false; // pax voice: verhindert Doppel-Trigger beim Airport
+    let simWaitedForMissionStart = false;
 
     const TICK_MS = 200;            // 5 Hz – flüssig genug, CPU-schonend
     const SIM_HOLD_SEC = 5;         // Boden-Standzeit vor Start / nach Landung
@@ -56,14 +57,17 @@
         simLastTrackPt  = null;
         simPoiAtTargetTriggered = false;
         simAptAtTargetTriggered = false;
+        simWaitedForMissionStart = false;
         window.simModeActive = true;
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         if (typeof window.terrainAvoidHandleFlightState === 'function') window.terrainAvoidHandleFlightState();
         if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
+        if (typeof window.resetMissionStartFlow === 'function') window.resetMissionStartFlow();
         console.log('[SimPax] Sim gestartet — paxVoiceEnabled:', localStorage.getItem('awm_pax_voice'), '| activePassenger:', !!window.activePassenger);
         simLastTick     = Date.now();
 
         _injectHold(false);                         // sofort Startposition mit 0 kn zeigen
+        if (typeof window.refreshMissionRuntimeUi === 'function') window.refreshMissionRuntimeUi();
         simInterval = setInterval(_tick, TICK_MS);
         _ui(true);
     };
@@ -85,6 +89,16 @@
         simLastTick = now;
 
         if (simPhase === 'start_hold') {
+            if (_waitForManualMissionStart()) {
+                simWaitedForMissionStart = true;
+                simHoldRemainSec = SIM_HOLD_SEC;
+                _injectHold(false);
+                return;
+            }
+            if (simWaitedForMissionStart && simHoldRemainSec > 0.5) {
+                simHoldRemainSec = 0.5;
+                simWaitedForMissionStart = false;
+            }
             simHoldRemainSec -= dtSec;
             _injectHold(false);
             if (simHoldRemainSec <= 0) {
@@ -561,6 +575,13 @@
 
     function _gs() {
         return parseInt(document.getElementById('tasSlider')?.value || 115);
+    }
+
+    function _waitForManualMissionStart() {
+        const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+        const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
+        if (!md || wps.length < 2 || typeof window.missionRuntimeIsActive !== 'function') return false;
+        return !window.missionRuntimeIsActive();
     }
 
     // ── UI ────────────────────────────────────────────────────────────────────
