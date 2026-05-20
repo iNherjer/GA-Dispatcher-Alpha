@@ -109,7 +109,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-6';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-7';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -785,8 +785,8 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
                 label: 'Einweiserin',
                 objectTitle: personTitle,
                 titleCandidates: _sceneTitleCandidates(personTitle, ['Tarmac_Female_Summer_Asian', 'Termac_Female_Summer_Asian']),
-                forwardM: 14,
-                rightM: -5,
+                forwardM: 16,
+                rightM: -8,
                 headingMode: 'face_aircraft',
                 altOffsetFt: 0
             }
@@ -875,8 +875,8 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
         sceneId,
         reason,
         profile: 'ga_right_cockpit_v1',
-        durationMs: 11200,
-        walkSpeedKts: 5,
+        durationMs: 23000,
+        walkSpeedKts: 2.2,
         finalHoldMs: 450,
         removePerson: true
     };
@@ -896,7 +896,7 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
     window.missionSceneStatus.boardingComplete = false;
     window.missionSceneStatus.boardingError = null;
     if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
-    return _waitForMissionSceneBoardingAck(commandId, 15500);
+    return _waitForMissionSceneBoardingAck(commandId, 36000);
 };
 
 function _handleTrackerAck(ack) {

@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v222';
-const TRACKER_VERSION_CODE = 222;
+const TRACKER_VERSION = 'v223';
+const TRACKER_VERSION_CODE = 223;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -230,7 +230,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     if (route.length === 0) return false;
     try {
       handle.setDataOnSimObject(WAYPOINT_DEF_ID, objectId, route);
-      debugLog(`WAYPOINT_ROUTE_SENT objectId=${objectId} points=${route.length} speedKts=${Math.max(0.5, Number(speedKts) || 5)}`);
+      const last = route[route.length - 1];
+      debugLog(`WAYPOINT_ROUTE_SENT objectId=${objectId} points=${route.length} speedKts=${Math.max(0.5, Number(speedKts) || 5)} targetLat=${last?.latitude ?? ''} targetLon=${last?.longitude ?? ''}`);
       return true;
     } catch (err) {
       debugLog(`WAYPOINT_ROUTE_ERROR objectId=${objectId} points=${route.length} error=${err?.message || err}`);
@@ -359,12 +360,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
   const sceneBoardingProfiles = {
     ga_right_cockpit_v1: [
-      { forwardM: 14, rightM: -5 },
-      { forwardM: 21, rightM: -6 },
-      { forwardM: 22, rightM: -1 },
-      { forwardM: 17, rightM: 5 },
-      { forwardM: 8, rightM: 6 },
-      { forwardM: 3.5, rightM: 5.4 }
+      { forwardM: 16, rightM: -8 },
+      { forwardM: 4.5, rightM: 8.5 }
     ]
   };
 
@@ -389,6 +386,16 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   };
 
   const lerp = (a, b, t) => Number(a) + (Number(b) - Number(a)) * t;
+
+  const pathDistanceM = (points) => {
+    let total = 0;
+    for (let i = 0; i < (points || []).length - 1; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      total += Math.hypot(Number(b?.northM) - Number(a?.northM), Number(b?.eastM) - Number(a?.eastM));
+    }
+    return Number.isFinite(total) ? total : 0;
+  };
 
   const buildBoardingPath = (command, rec, person) => {
     const profileName = String(command?.profile || command?.pathProfile || 'ga_right_cockpit_v1').trim();
@@ -433,10 +440,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: 'error', error: 'invalid_path' });
       return;
     }
-    const durationMs = clampInt(command?.durationMs ?? 11200, 3000, 22000);
+    const requestedDurationMs = clampInt(command?.durationMs ?? 23000, 3000, 45000);
     const finalHoldMs = clampInt(command?.finalHoldMs ?? 450, 0, 2000);
     const removePerson = command?.removePerson !== false;
-    const speedKts = Math.max(0.5, toFiniteNumber(command?.speedKts ?? command?.walkSpeedKts, 5) || 5);
+    const speedKts = Math.max(0.5, toFiniteNumber(command?.speedKts ?? command?.walkSpeedKts, 2.2) || 2.2);
+    const distanceM = pathDistanceM(path);
+    const speedMps = Math.max(0.25, speedKts * 0.514444);
+    const durationMs = clampInt(Math.max(requestedDurationMs, (distanceM / speedMps) * 1000 + 6500), 3000, 45000);
     debugLog(`SCENE_BOARDING_START scene=${sceneId} objectId=${person.objectId} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} durationMs=${durationMs} waypoints=${path.length - 1} speedKts=${speedKts}`);
     console.log(`🚶 Scene ${sceneId}: Boarding-Animation startet (${Math.round(durationMs / 1000)}s).`);
 
@@ -536,6 +546,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           objects.push(spawnedObj);
           console.log(`  OK scene ${p.kind}: objectId=${objectId} title="${candidate}"`);
           debugLog(`SCENE_SPAWN_OK scene=${sceneId} kind=${p.kind} index=${p.index} objectId=${objectId} title="${candidate}" requestedTitle="${p.title}" lat=${p.lat} lon=${p.lon} altFt=${p.altFt} hdg=${p.hdg} forwardM=${p.forwardM} rightM=${p.rightM}`);
+          if (String(p.kind || '').toLowerCase() === 'vehicle') {
+            await sleep(250);
+            const parked = sendWaypointRoute(objectId, [p], 0.5);
+            debugLog(`SCENE_VEHICLE_HOLD scene=${sceneId} objectId=${objectId} status=${parked ? 'ok' : 'failed'}`);
+          }
           spawned = true;
           break;
         } catch (err) {
