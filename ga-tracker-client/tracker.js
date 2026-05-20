@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v234';
-const TRACKER_VERSION_CODE = 234;
+const TRACKER_VERSION = 'v235';
+const TRACKER_VERSION_CODE = 235;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -773,24 +773,36 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const durationMs = clampInt(Math.max(requestedDurationMs, (distanceM / speedMps) * 1000 + cargoHoldMs + 8500), 3000, 45000);
     const pathSource = commandBoardingPath(command) ? 'app' : (command?.profile || command?.pathProfile || 'ga_right_cockpit_v1');
     const cargoKind = String(command?.cargoObjectKind || 'cargo').toLowerCase();
-    const cargo = rec.objects.find(o => String(o?.kind || '').toLowerCase() === cargoKind)
-      || rec.objects.find(o => /cargo|load|marker/i.test(String(o?.kind || '')));
+    const cargoObjects = rec.objects.filter((o) => {
+      const kind = String(o?.kind || '').toLowerCase();
+      const label = String(o?.label || o?.title || o?.requestedTitle || '').toLowerCase();
+      return kind === cargoKind || kind.startsWith(`${cargoKind}_`) || /cargo|load|fracht|container|karton|palette|pallet/.test(kind) || /cargo|load|fracht|container|cardboard|pallet|drop_container/.test(label);
+    });
+    const cargo = cargoObjects[0] || null;
     let cargoRemoved = 0;
-    const removeCargoObject = (why = 'cargo-waypoint') => {
-      if (!cargo || !cargo.objectId || cargoRemoved) return false;
-      try {
-        handle.aIRemoveObject(cargo.objectId, nextReqId++);
-        cargoRemoved = 1;
-        rec.objects = rec.objects.filter(o => o.objectId !== cargo.objectId);
-        debugLog(`SCENE_CARGO_REMOVE_OK scene=${sceneId} objectId=${cargo.objectId} reason=${why}`);
-        return true;
-      } catch (err) {
-        debugLog(`SCENE_CARGO_REMOVE_ERROR scene=${sceneId} objectId=${cargo.objectId} reason=${why} error=${err?.message || err}`);
-        return false;
+    const removeCargoObjects = (why = 'cargo-waypoint') => {
+      if (!cargoObjects.length || cargoRemoved > 0) return 0;
+      let removedCount = 0;
+      const removedIds = new Set();
+      for (const obj of cargoObjects) {
+        if (!obj?.objectId || removedIds.has(obj.objectId)) continue;
+        try {
+          handle.aIRemoveObject(obj.objectId, nextReqId++);
+          removedIds.add(obj.objectId);
+          removedCount++;
+          debugLog(`SCENE_CARGO_REMOVE_OK scene=${sceneId} kind=${obj.kind || ''} objectId=${obj.objectId} reason=${why}`);
+        } catch (err) {
+          debugLog(`SCENE_CARGO_REMOVE_ERROR scene=${sceneId} kind=${obj.kind || ''} objectId=${obj.objectId} reason=${why} error=${err?.message || err}`);
+        }
       }
+      if (removedIds.size && Array.isArray(rec.objects)) {
+        rec.objects = rec.objects.filter(o => !removedIds.has(o.objectId));
+      }
+      cargoRemoved += removedCount;
+      return removedCount;
     };
     const cargoPathIndex = clampInt(command?.cargoPathIndex ?? command?.cargoIndex ?? 1, 1, Math.max(1, primaryPath.length - 2));
-    debugLog(`SCENE_BOARDING_START scene=${sceneId} boarders=${boarderPlans.length} objectIds=${boarderPlans.map(p => p.person.objectId).join(',')} path=${pathSource} durationMs=${durationMs} waypoints=${primaryPath.length - 1} speedKts=${speedKts} door=${doorEnabled ? 1 : 0} doorProfile=${doorProfile} aircraftSlot=${command?.aircraftSlot || ''} aircraftName="${command?.aircraftName || ''}" cargo=${cargo?.objectId || 0} cargoPathIndex=${cargoPathIndex}`);
+    debugLog(`SCENE_BOARDING_START scene=${sceneId} boarders=${boarderPlans.length} objectIds=${boarderPlans.map(p => p.person.objectId).join(',')} path=${pathSource} durationMs=${durationMs} waypoints=${primaryPath.length - 1} speedKts=${speedKts} door=${doorEnabled ? 1 : 0} doorProfile=${doorProfile} aircraftSlot=${command?.aircraftSlot || ''} aircraftName="${command?.aircraftName || ''}" cargo=${cargoObjects.map(o => o.objectId).join(',') || 0} cargoPathIndex=${cargoPathIndex}`);
     trackerLog(`🚶 Scene ${sceneId}: Boarding-Animation startet (${boarderPlans.length} Pax, ${Math.round(durationMs / 1000)}s).`);
 
     if (doorEnabled) {
@@ -810,7 +822,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const cargoArrivalSlackMs = clampInt(command?.cargoArrivalSlackMs ?? 250, 0, 6000);
     const cargoTimingFactor = Math.max(0.7, Math.min(1.4, Number(command?.cargoTimingFactor || 1) || 1));
     const splitCargoRoute = command?.splitCargoRoute === true || command?.stopAtCargo === true;
-    const canSplitAtCargo = splitCargoRoute && removeCargoAtWaypoint && cargo && primaryPath.length >= 3 && cargoPathIndex < primaryPath.length - 1;
+    const canSplitAtCargo = splitCargoRoute && removeCargoAtWaypoint && cargoObjects.length > 0 && primaryPath.length >= 3 && cargoPathIndex < primaryPath.length - 1;
     let routeSent = false;
     let routeSentCount = 0;
     if (canSplitAtCargo) {
@@ -822,7 +834,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       if (routeSent) {
         const cargoDelayMs = clampInt((cargoRouteMs * cargoTimingFactor) + cargoArrivalSlackMs + cargoHoldMs, 1200, Math.max(1500, durationMs - finalHoldMs - 500));
         setTimeout(() => {
-          removeCargoObject('route-cargo-hold');
+          removeCargoObjects('route-cargo-hold');
           const restartDelayMs = clampInt(command?.cargoRestartDelayMs ?? 850, 250, 2500);
           const restartSpeedKts = Math.max(1, Math.min(speedKts, Number(command?.cargoRestartSpeedKts || 2.1) || 2.1));
           boarderPlans.forEach((plan) => {
@@ -837,7 +849,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
             }, restartDelayMs);
           });
         }, cargoDelayMs);
-        debugLog(`SCENE_CARGO_HOLD_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} routeMs=${Math.round(cargoRouteMs)} timingFactor=${cargoTimingFactor} slackMs=${cargoArrivalSlackMs} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs} cargoPathIndex=${cargoPathIndex} routeSent=${routeSentCount}/${boarderPlans.length}`);
+        debugLog(`SCENE_CARGO_HOLD_SCHEDULED scene=${sceneId} objects=${cargoObjects.map(o => o.objectId).join(',')} routeMs=${Math.round(cargoRouteMs)} timingFactor=${cargoTimingFactor} slackMs=${cargoArrivalSlackMs} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs} cargoPathIndex=${cargoPathIndex} routeSent=${routeSentCount}/${boarderPlans.length}`);
       }
     }
     if (!routeSent) {
@@ -846,10 +858,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         return count + (sent ? 1 : 0);
       }, 0);
       routeSent = routeSentCount > 0;
-      if (routeSent && removeCargoAtWaypoint && cargo && primaryPath.length >= 2) {
+      if (routeSent && removeCargoAtWaypoint && cargoObjects.length > 0 && primaryPath.length >= 2) {
         const cargoDelayMs = clampInt((cargoRouteMs * cargoTimingFactor) + cargoArrivalSlackMs + cargoHoldMs, 400, Math.max(800, durationMs - finalHoldMs - 500));
-        setTimeout(() => removeCargoObject('route-cargo-waypoint'), cargoDelayMs);
-        debugLog(`SCENE_CARGO_REMOVE_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} routeMs=${Math.round(cargoRouteMs)} timingFactor=${cargoTimingFactor} slackMs=${cargoArrivalSlackMs} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs} splitCargoRoute=${splitCargoRoute ? 1 : 0}`);
+        setTimeout(() => removeCargoObjects('route-cargo-waypoint'), cargoDelayMs);
+        debugLog(`SCENE_CARGO_REMOVE_SCHEDULED scene=${sceneId} objects=${cargoObjects.map(o => o.objectId).join(',')} routeMs=${Math.round(cargoRouteMs)} timingFactor=${cargoTimingFactor} slackMs=${cargoArrivalSlackMs} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs} splitCargoRoute=${splitCargoRoute ? 1 : 0}`);
       }
     }
 
@@ -883,7 +895,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         }
         if (removeCargoAtWaypoint && !cargoRemoved && segmentIndex === cargoPathIndex - 1) {
           if (cargoHoldMs > 0) await sleep(cargoHoldMs);
-          removeCargoObject('fallback-cargo-waypoint');
+          removeCargoObjects('fallback-cargo-waypoint');
         }
       }
     } else {

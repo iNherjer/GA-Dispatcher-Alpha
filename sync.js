@@ -40,27 +40,39 @@ const BOARDING_MARKER_STORAGE_KEY = 'ga_boarding_marker_enabled';
 const BOARDING_MARKER_TITLE = 'Cone_Medium';
 const BOARDING_CARGO_FALLBACK_TITLE = 'CoffeeCup';
 const MISSION_SCENE_ASSET_POOLS = {
+    smallCargo: [
+        'Cardboard',
+        BOARDING_CARGO_FALLBACK_TITLE
+    ],
+    palletCargo: [
+        'Pallet01_01',
+        'Pallet01_02',
+        'Pallet01_03',
+        'Cardboard',
+        BOARDING_CARGO_FALLBACK_TITLE
+    ],
     cargo: [
         'Cardboard',
-        'Pallet01_03',
         'Pallet01_02',
         'Pallet01_01',
+        'Pallet01_03',
         'Rice_Bag_50',
         BOARDING_CARGO_FALLBACK_TITLE
     ],
     fireCargo: [
         'Drop_Container',
-        'Rice_Bag_50',
-        'Pallet01_03',
-        'Pallet01_02',
         'Cardboard',
+        'Rice_Bag_50',
+        'Pallet01_01',
         BOARDING_CARGO_FALLBACK_TITLE
     ],
     sarCargo: [
-        'LifeRaft',
-        'Drop_Container',
         'Cardboard',
+        'Drop_Container',
         BOARDING_CARGO_FALLBACK_TITLE
+    ],
+    sarWaterTarget: [
+        'LifeRaft'
     ],
     vehicles: [
         'Microsoft_Van_EUR',
@@ -176,7 +188,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-17';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-18';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE = 'Tarmac_Male_Summer_Asian';
@@ -908,19 +920,92 @@ function _sceneAssetCandidates(primary, extras = []) {
     return [...new Set(out.filter(Boolean))];
 }
 
+function _missionSceneCargoText() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    return [
+        md?.cargoText,
+        md?.cargo,
+        md?.missionContract?.cargoText,
+        window.activeMissionContract?.cargoText,
+        document.getElementById('mWeight')?.innerText
+    ].filter(Boolean).join(' ');
+}
+
+function _missionSceneCargoWeightLbs() {
+    const text = _missionSceneCargoText();
+    const match = String(text || '').match(/(\d+(?:[.,]\d+)?)\s*(?:lb|lbs|pound|pfund)/i);
+    if (!match) return null;
+    const n = Number(String(match[1]).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+}
+
 function _missionSceneCargoAsset() {
     const taskDomain = _missionSceneTaskDomain();
+    const cargoText = _missionSceneCargoText().toLowerCase();
+    const cargoWeightLbs = _missionSceneCargoWeightLbs();
+    const palletPool = MISSION_SCENE_ASSET_POOLS.palletCargo;
+    const sizePrimary = Number.isFinite(cargoWeightLbs)
+        ? (cargoWeightLbs >= 120 ? 'Pallet01_01' : (cargoWeightLbs >= 50 ? 'Pallet01_02' : (cargoWeightLbs >= 20 ? 'Pallet01_03' : 'Cardboard')))
+        : (/(palette|pallet|fracht|transport|material|ersatzteil|teile|equipment|ausruestung)/.test(cargoText) ? 'Pallet01_02' : 'Cardboard');
     const pool = taskDomain === 'fire_watch'
         ? MISSION_SCENE_ASSET_POOLS.fireCargo
         : (taskDomain === 'search_and_rescue'
             ? MISSION_SCENE_ASSET_POOLS.sarCargo
-            : MISSION_SCENE_ASSET_POOLS.cargo);
+            : (sizePrimary.startsWith('Pallet') ? [sizePrimary, ...palletPool] : MISSION_SCENE_ASSET_POOLS.cargo));
     const preferred = _sceneObjectTitleOverride('cargo', pool[0] || BOARDING_CARGO_FALLBACK_TITLE);
     return {
         title: preferred,
         candidates: _sceneAssetCandidates(preferred, pool.concat(MISSION_SCENE_ASSET_POOLS.cargo, [BOARDING_CARGO_FALLBACK_TITLE])),
-        taskDomain
+        taskDomain,
+        sizePrimary,
+        cargoText,
+        cargoWeightLbs
     };
+}
+
+function _stableHashText(text) {
+    let h = 0;
+    for (const ch of String(text || '')) h = ((h << 5) - h + ch.charCodeAt(0)) | 0;
+    return Math.abs(h);
+}
+
+function _missionSceneCargoItems(cargoPoint, cargoAsset) {
+    const baseForward = Number.isFinite(Number(cargoPoint?.forwardM)) ? Number(cargoPoint.forwardM) : 4;
+    const baseRight = Number.isFinite(Number(cargoPoint?.rightM)) ? Number(cargoPoint.rightM) : 4;
+    const baseAlt = Number.isFinite(Number(cargoPoint?.altOffsetFt)) ? Number(cargoPoint.altOffsetFt) : 0;
+    const makeItem = (kind, label, title, candidates, forwardOffset = 0, rightOffset = 0) => ({
+        kind,
+        label,
+        objectTitle: title,
+        titleCandidates: candidates,
+        forwardM: baseForward + forwardOffset,
+        rightM: baseRight + rightOffset,
+        headingMode: 'with_aircraft',
+        altOffsetFt: baseAlt
+    });
+    const taskDomain = cargoAsset?.taskDomain || _missionSceneTaskDomain();
+    if (taskDomain === 'fire_watch') {
+        return [
+            makeItem('cargo', 'Drop Container', 'Drop_Container', _sceneAssetCandidates('Drop_Container', MISSION_SCENE_ASSET_POOLS.fireCargo), 0, 0),
+            makeItem('cargo_extra_1', 'Zusatzkarton', 'Cardboard', _sceneAssetCandidates('Cardboard', MISSION_SCENE_ASSET_POOLS.smallCargo), 0.35, -0.75)
+        ];
+    }
+    if (taskDomain === 'search_and_rescue') {
+        return [
+            makeItem('cargo', 'SAR Ausruestung', 'Cardboard', _sceneAssetCandidates('Cardboard', MISSION_SCENE_ASSET_POOLS.sarCargo), 0, 0),
+            makeItem('cargo_extra_1', 'SAR Zusatzkiste', 'Drop_Container', _sceneAssetCandidates('Drop_Container', ['Cardboard', BOARDING_CARGO_FALLBACK_TITLE]), 0.45, -0.85)
+        ];
+    }
+    const primary = cargoAsset?.sizePrimary || cargoAsset?.title || 'Cardboard';
+    const primaryCandidates = _sceneAssetCandidates(primary, cargoAsset?.candidates || MISSION_SCENE_ASSET_POOLS.cargo);
+    const items = [
+        makeItem('cargo', primary.startsWith('Pallet') ? 'Transportpalette' : 'Cargo Karton', primary, primaryCandidates, 0, 0)
+    ];
+    const hashKey = `${_missionSceneId()}|${cargoAsset?.cargoText || ''}`;
+    if (_stableHashText(hashKey) % 5 === 0) {
+        items.push(makeItem('cargo_extra_1', 'Kaffeetasse', BOARDING_CARGO_FALLBACK_TITLE, _sceneAssetCandidates(BOARDING_CARGO_FALLBACK_TITLE, ['Coffee_Cup', 'Coffee Cup']), 0.25, -0.45));
+    }
+    return items;
 }
 
 function _missionSceneVehicleAsset() {
@@ -1054,6 +1139,7 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     const boardingConfig = _missionSceneBoardingConfig();
     const personSpawn = boardingConfig.spawn || { forwardM: 16, rightM: -8, altOffsetFt: 0 };
     const cargoPoint = boardingConfig.cargo || { forwardM: 4, rightM: 4, altOffsetFt: 0 };
+    const cargoItems = _missionSceneCargoItems(cargoPoint, cargoAsset);
     const vehiclePoint = _missionSceneVehiclePoint();
     const boarderCount = _missionSceneBoarderCount();
     const primaryGender = _missionScenePassengerGender();
@@ -1115,17 +1201,7 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
                 headingMode: 'face_aircraft',
                 altOffsetFt: 0
             },
-            {
-                kind: 'cargo',
-                label: cargoAsset.taskDomain === 'fire_watch' ? 'Firefighter Cargo' : 'Cargo',
-                objectTitle: cargoAsset.title,
-                titleCandidates: cargoAsset.candidates,
-                forwardM: Number.isFinite(Number(cargoPoint.forwardM)) ? Number(cargoPoint.forwardM) : 4,
-                rightM: Number.isFinite(Number(cargoPoint.rightM)) ? Number(cargoPoint.rightM) : 4,
-                headingMode: 'with_aircraft',
-                altOffsetFt: Number.isFinite(Number(cargoPoint.altOffsetFt)) ? Number(cargoPoint.altOffsetFt) : 0
-            }
-        ].concat(personItems)
+        ].concat(cargoItems, personItems)
     });
     if (!commandId) return false;
     window.missionSceneStatus.sceneId = sceneId;
@@ -2584,8 +2660,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 234;
-const MIN_TRACKER_VERSION_LABEL = 'v234';
+const MIN_TRACKER_VERSION_CODE = 235;
+const MIN_TRACKER_VERSION_LABEL = 'v235';
 let trackerVersionPromptShown = false;
 
 window.updateLivePlanePerformanceMode = function(forceState = null) {
