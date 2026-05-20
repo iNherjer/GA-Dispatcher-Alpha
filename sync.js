@@ -37,7 +37,8 @@ const PLANE_ICON_MIN_SIZE = 20;
 const PLANE_ICON_MAX_SIZE = 100;
 const MISSION_AUTO_START_KEY = 'ga_mission_auto_start_enabled';
 const BOARDING_MARKER_STORAGE_KEY = 'ga_boarding_marker_enabled';
-const BOARDING_MARKER_TITLE = 'ESD_Env_Windsock_NoPole_Orange';
+const BOARDING_MARKER_TITLE = 'Cone_Medium';
+const BOARDING_CARGO_TITLE = 'CoffeeCup';
 let boardingMarkerRefreshTimer = null;
 
 function isMissionAutoStartEnabled() {
@@ -136,7 +137,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
-const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-11';
+const FIRE_DEBUG_SYNC_BUILD = 'scene-debug-20260520-12';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
@@ -851,8 +852,8 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
             {
                 kind: 'cargo',
                 label: 'Cargo Platzhalter',
-                objectTitle: BOARDING_MARKER_TITLE,
-                titleCandidates: _sceneTitleCandidates(BOARDING_MARKER_TITLE, [BOARDING_MARKER_TITLE, 'ESD_Env_Windsock_NoPole_Orange']),
+                objectTitle: BOARDING_CARGO_TITLE,
+                titleCandidates: _sceneTitleCandidates(BOARDING_CARGO_TITLE, [BOARDING_CARGO_TITLE, 'Coffee_Cup', 'Coffee Cup']),
                 forwardM: Number.isFinite(Number(cargoPoint.forwardM)) ? Number(cargoPoint.forwardM) : 4,
                 rightM: Number.isFinite(Number(cargoPoint.rightM)) ? Number(cargoPoint.rightM) : 4,
                 headingMode: 'with_aircraft',
@@ -943,7 +944,7 @@ window.boardingMarkerSpawn = function(reason = 'boarding-marker') {
             kind: `marker_${index + 1}`,
             label: `Boarding ${labels[index] || `Punkt ${index + 1}`} Marker`,
             objectTitle: markerTitle,
-            titleCandidates: _sceneTitleCandidates(markerTitle, [markerTitle, 'ESD_Env_Windsock_NoPole_Orange']),
+            titleCandidates: _sceneTitleCandidates(markerTitle, [markerTitle, 'Cone Medium', 'Cone_Medium']),
             forwardM: Number.isFinite(Number(point.forwardM)) ? Number(point.forwardM) : 0,
             rightM: Number.isFinite(Number(point.rightM)) ? Number(point.rightM) : 0,
             headingMode: 'with_aircraft',
@@ -1027,6 +1028,7 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
         finalHoldMs: 450,
         removePerson: true,
         removeCargoAtWaypoint: true,
+        cargoHoldMs: 2600,
         cargoObjectKind: 'cargo',
         openDoor: boardingConfig.openDoor !== false,
         doorProfile: boardingConfig.doorProfile || 'default',
@@ -2260,8 +2262,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 211;
-const MIN_TRACKER_VERSION_LABEL = 'v211';
+const MIN_TRACKER_VERSION_CODE = 228;
+const MIN_TRACKER_VERSION_LABEL = 'v228';
 let trackerVersionPromptShown = false;
 
 window.updateLivePlanePerformanceMode = function(forceState = null) {

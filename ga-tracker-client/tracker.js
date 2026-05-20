@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v227';
-const TRACKER_VERSION_CODE = 227;
+const TRACKER_VERSION = 'v228';
+const TRACKER_VERSION_CODE = 228;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -557,6 +557,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const finalHoldMs = clampInt(command?.finalHoldMs ?? 450, 0, 2000);
     const removePerson = command?.removePerson !== false;
     const removeCargoAtWaypoint = command?.removeCargoAtWaypoint !== false;
+    const cargoHoldMs = clampInt(command?.cargoHoldMs ?? command?.cargoPauseMs ?? 2600, 0, 9000);
     const speedKts = Math.max(0.5, toFiniteNumber(command?.speedKts ?? command?.walkSpeedKts, 3.1) || 3.1);
     const doorEnabled = command?.openDoor === true || command?.door === true;
     const doorIndex = clampInt(command?.doorIndex ?? 1, 0, 8);
@@ -589,12 +590,34 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       await setUserAircraftDoor(true, doorIndex, 'boarding-open', doorProfile);
       await sleep(350);
     }
-    const routeSent = sendWaypointRoute(person.objectId, path.slice(1), speedKts);
-    if (routeSent && removeCargoAtWaypoint && cargo && path.length >= 2) {
-      const firstLegM = Math.hypot(Number(path[1].northM) - Number(path[0].northM), Number(path[1].eastM) - Number(path[0].eastM));
-      const cargoDelayMs = clampInt((firstLegM / speedMps) * 1000 + 850, 800, Math.max(900, durationMs - finalHoldMs - 500));
-      setTimeout(() => removeCargoObject('route-cargo-waypoint'), cargoDelayMs);
-      debugLog(`SCENE_CARGO_REMOVE_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} delayMs=${cargoDelayMs}`);
+    const firstLegM = path.length >= 2
+      ? Math.hypot(Number(path[1].northM) - Number(path[0].northM), Number(path[1].eastM) - Number(path[0].eastM))
+      : 0;
+    const firstLegMs = Math.max(0, (firstLegM / speedMps) * 1000);
+    const canSplitAtCargo = removeCargoAtWaypoint && cargo && path.length >= 3;
+    let routeSent = false;
+    if (canSplitAtCargo) {
+      routeSent = sendWaypointRoute(person.objectId, [path[1]], speedKts);
+      if (routeSent) {
+        const continuePoints = path.slice(2);
+        const cargoDelayMs = clampInt(firstLegMs + cargoHoldMs, 800, Math.max(900, durationMs - finalHoldMs - 500));
+        setTimeout(() => {
+          removeCargoObject('route-cargo-hold');
+          if (continuePoints.length) {
+            const continued = sendWaypointRoute(person.objectId, continuePoints, speedKts);
+            debugLog(`SCENE_BOARDING_CONTINUE scene=${sceneId} objectId=${person.objectId} points=${continuePoints.length} status=${continued ? 'ok' : 'failed'}`);
+          }
+        }, cargoDelayMs);
+        debugLog(`SCENE_CARGO_HOLD_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} legMs=${Math.round(firstLegMs)} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs}`);
+      }
+    }
+    if (!routeSent) {
+      routeSent = sendWaypointRoute(person.objectId, path.slice(1), speedKts);
+      if (routeSent && removeCargoAtWaypoint && cargo && path.length >= 2) {
+        const cargoDelayMs = clampInt(firstLegMs + cargoHoldMs, 800, Math.max(900, durationMs - finalHoldMs - 500));
+        setTimeout(() => removeCargoObject('route-cargo-waypoint'), cargoDelayMs);
+        debugLog(`SCENE_CARGO_REMOVE_SCHEDULED scene=${sceneId} objectId=${cargo.objectId} legMs=${Math.round(firstLegMs)} holdMs=${cargoHoldMs} delayMs=${cargoDelayMs}`);
+      }
     }
     if (!routeSent && command?.fallbackTeleport === true) {
       const segments = [];
@@ -622,7 +645,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           });
           await sleep(Math.max(40, Math.round(segmentDuration / steps)));
         }
-        if (removeCargoAtWaypoint && !cargoRemoved && segment === segments[0]) removeCargoObject('fallback-cargo-waypoint');
+        if (removeCargoAtWaypoint && !cargoRemoved && segment === segments[0]) {
+          if (cargoHoldMs > 0) await sleep(cargoHoldMs);
+          removeCargoObject('fallback-cargo-waypoint');
+        }
       }
     } else {
       await sleep(Math.max(500, durationMs - finalHoldMs));
