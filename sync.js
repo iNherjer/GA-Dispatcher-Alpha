@@ -1675,9 +1675,27 @@ function _missionSceneVehicleDeparturePath() {
     ];
 }
 
+function _missionSceneIsPoiMission() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (md?.isPOI === true) return true;
+    if (String(md?.dest || '').toUpperCase() === 'POI') return true;
+    if (String(typeof currentDestICAO !== 'undefined' ? currentDestICAO : '').toUpperCase() === 'POI') return true;
+    return false;
+}
+
+function _missionSceneVehicleSupportEnabled() {
+    try {
+        const raw = String(localStorage.getItem('ga_scene_apt_vehicle_enabled') || '').trim().toLowerCase();
+        if (/^(1|true|yes|ja|on)$/.test(raw)) return true;
+        if (/^(0|false|no|nein|off)$/.test(raw)) return false;
+    } catch (_) {}
+    return _missionSceneIsPoiMission();
+}
+
 function _missionSceneCommonSceneCommandFields() {
     const boardingConfig = _missionSceneBoardingConfig();
-    return {
+    const vehicleSupportEnabled = _missionSceneVehicleSupportEnabled();
+    const fields = {
         profile: 'app_preset',
         path: Array.isArray(boardingConfig.path) && boardingConfig.path.length >= 2 ? boardingConfig.path : [boardingConfig.spawn, boardingConfig.target],
         cargoPathIndex: Number.isFinite(Number(boardingConfig.cargoIndex)) ? Number(boardingConfig.cargoIndex) : 1,
@@ -1687,11 +1705,8 @@ function _missionSceneCommonSceneCommandFields() {
         aircraftName: boardingConfig.aircraftName || '',
         boarderCount: _missionSceneBoarderCount(),
         passengerCount: _missionScenePaxCount(),
-        vehiclePoint: _missionSceneVehiclePoint(),
-        vehicleDeparturePath: _missionSceneVehicleDeparturePath(),
-        vehicleReturnPath: _missionSceneVehicleDeparturePath().slice().reverse(),
-        vehicleSpeedKts: 7,
-        vehicleBoardDelayMs: 2800,
+        vehicleDeparture: vehicleSupportEnabled,
+        vehicleArrival: vehicleSupportEnabled,
         splitCargoRoute: false,
         cargoArrivalSlackMs: 250,
         cargoTimingFactor: 1,
@@ -1702,6 +1717,14 @@ function _missionSceneCommonSceneCommandFields() {
         doorProfile: boardingConfig.doorProfile || 'default',
         doorIndex: 1
     };
+    if (vehicleSupportEnabled) {
+        fields.vehiclePoint = _missionSceneVehiclePoint();
+        fields.vehicleDeparturePath = _missionSceneVehicleDeparturePath();
+        fields.vehicleReturnPath = _missionSceneVehicleDeparturePath().slice().reverse();
+        fields.vehicleSpeedKts = 7;
+        fields.vehicleBoardDelayMs = 2800;
+    }
+    return fields;
 }
 
 window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
@@ -1722,14 +1745,15 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
         return false;
     }
     const sceneId = _missionSceneId();
-    const vehicleAsset = _missionSceneVehicleAsset();
-    const vehicleTitle = vehicleAsset.title;
+    const vehicleSupportEnabled = _missionSceneVehicleSupportEnabled();
+    const vehicleAsset = vehicleSupportEnabled ? _missionSceneVehicleAsset() : null;
+    const vehicleTitle = vehicleAsset?.title || '';
     const cargoAsset = _missionSceneCargoAsset();
     const boardingConfig = _missionSceneBoardingConfig();
     const personSpawn = boardingConfig.spawn || { forwardM: 16, rightM: -8, altOffsetFt: 0 };
     const cargoPoint = boardingConfig.cargo || { forwardM: 4, rightM: 4, altOffsetFt: 0 };
     const cargoItems = _missionSceneCargoItems(cargoPoint, cargoAsset);
-    const vehiclePoint = _missionSceneVehiclePoint();
+    const vehiclePoint = vehicleSupportEnabled ? _missionSceneVehiclePoint() : null;
     const boarderCount = _missionSceneBoarderCount();
     const primaryGender = _missionScenePassengerGender();
     const secondaryGender = primaryGender === 'male' ? 'female' : 'male';
@@ -1738,7 +1762,7 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     const idlePersonTitle = _missionScenePersonTitle(primaryGender, 'vehicle-idle');
     const vehicleCrewOne = { forwardM: 19.5, rightM: -14 };
     const vehicleCrewTwo = { forwardM: 19, rightM: -11.5 };
-    const personItems = [
+    const personItems = vehicleSupportEnabled ? [
         {
             kind: 'person_boarder_1',
             label: 'Boarding Pax 1',
@@ -1771,7 +1795,33 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
             hdgOffsetDeg: _missionSceneHeadingOffsetBetween(vehicleCrewTwo, vehicleCrewOne, 250),
             altOffsetFt: 0
         }
-    ];
+    ] : Array.from({ length: boarderCount }, (_, idx) => {
+        const gender = idx % 2 === 0 ? primaryGender : secondaryGender;
+        const title = idx % 2 === 0 ? primaryPersonTitle : secondaryPersonTitle;
+        return {
+            kind: `person_boarder_${idx + 1}`,
+            label: `Boarding Pax ${idx + 1}`,
+            objectTitle: title,
+            titleCandidates: _missionScenePersonCandidates(gender, title),
+            forwardM: (Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16),
+            rightM: (Number.isFinite(Number(personSpawn.rightM)) ? Number(personSpawn.rightM) : -8) + (idx * 0.8),
+            headingMode: 'face_aircraft',
+            altOffsetFt: Number.isFinite(Number(personSpawn.altOffsetFt)) ? Number(personSpawn.altOffsetFt) : 0
+        };
+    });
+    const sceneItems = [];
+    if (vehicleSupportEnabled && vehicleAsset && vehiclePoint) {
+        sceneItems.push({
+            kind: 'vehicle',
+            label: _missionSceneTaskDomain() === 'fire_watch' ? 'Feuerwehrfahrzeug' : 'Szenenfahrzeug',
+            objectTitle: vehicleTitle,
+            titleCandidates: vehicleAsset.candidates,
+            forwardM: vehiclePoint.forwardM,
+            rightM: vehiclePoint.rightM,
+            headingMode: 'face_aircraft',
+            altOffsetFt: 0
+        });
+    }
     const commandId = window.sendTrackerCommand({
         type: 'mission_scene_spawn',
         sceneId,
@@ -1782,18 +1832,9 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
         hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
         boarderCount,
         passengerCount: _missionScenePaxCount(),
-        items: [
-            {
-                kind: 'vehicle',
-                label: _missionSceneTaskDomain() === 'fire_watch' ? 'Feuerwehrfahrzeug' : 'Szenenfahrzeug',
-                objectTitle: vehicleTitle,
-                titleCandidates: vehicleAsset.candidates,
-                forwardM: vehiclePoint.forwardM,
-                rightM: vehiclePoint.rightM,
-                headingMode: 'face_aircraft',
-                altOffsetFt: 0
-            },
-        ].concat(cargoItems, personItems)
+        vehicleDeparture: vehicleSupportEnabled,
+        vehicleArrival: vehicleSupportEnabled,
+        items: sceneItems.concat(cargoItems, personItems)
     });
     if (!commandId) return false;
     window.missionSceneStatus.sceneId = sceneId;
@@ -3155,11 +3196,12 @@ window.missionSceneDeboarding = function(reason = 'mission-end') {
     const pos = window.lastLiveGpsPos || {};
     if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) return false;
     const sceneId = window.missionSceneStatus?.sceneId || _missionSceneId();
-    const vehicleAsset = _missionSceneVehicleAsset();
-    const vehicleTitle = vehicleAsset.title || MISSION_SCENE_DEFAULT_VEHICLE_TITLE;
+    const vehicleSupportEnabled = _missionSceneVehicleSupportEnabled();
+    const vehicleAsset = vehicleSupportEnabled ? _missionSceneVehicleAsset() : null;
+    const vehicleTitle = vehicleAsset?.title || MISSION_SCENE_DEFAULT_VEHICLE_TITLE;
     const primaryGender = _missionScenePassengerGender();
     const personTitle = _missionScenePersonTitle(primaryGender, 'deboarding');
-    const commandId = window.sendTrackerCommand({
+    const command = {
         type: 'mission_scene_deboarding',
         sceneId,
         reason,
@@ -3168,11 +3210,14 @@ window.missionSceneDeboarding = function(reason = 'mission-end') {
         altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
         hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
         ..._missionSceneCommonSceneCommandFields(),
-        vehicleTitle,
-        vehicleTitleCandidates: _sceneAssetCandidates(vehicleTitle, vehicleAsset.candidates || ['Car Bush Firefighting', 'Car Bush Firefighting (FIREFIGHTING_DEFAULT)', 'FIREFIGHTING_DEFAULT', 'Car_Bush_Firefighting']),
         personTitle,
         personTitleCandidates: _missionScenePersonCandidates(primaryGender, personTitle)
-    });
+    };
+    if (vehicleSupportEnabled && vehicleAsset) {
+        command.vehicleTitle = vehicleTitle;
+        command.vehicleTitleCandidates = _sceneAssetCandidates(vehicleTitle, vehicleAsset.candidates || ['Car Bush Firefighting', 'Car Bush Firefighting (FIREFIGHTING_DEFAULT)', 'FIREFIGHTING_DEFAULT', 'Car_Bush_Firefighting']);
+    }
+    const commandId = window.sendTrackerCommand(command);
     if (!commandId) return false;
     window.missionSceneStatus.sceneId = sceneId;
     window.missionSceneStatus.lastCommandAt = Date.now();

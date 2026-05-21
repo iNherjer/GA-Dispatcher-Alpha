@@ -941,42 +941,49 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return;
     }
     const reversePath = normalPath.slice().reverse();
+    const vehicleArrivalEnabled = command?.vehicleArrival !== false && command?.vehicleReturn !== false;
     const vehiclePoint = vehicleParkPoint(command);
     const vehicleRouteForward = defaultVehicleDeparturePath(command);
     const vehicleReturnRoute = buildRelativeSceneRoute(command, rec, command?.vehicleReturnPath, vehicleRouteForward.slice().reverse());
-    const vehicleStart = vehicleReturnRoute[0];
     const vehiclePark = vehicleReturnRoute[vehicleReturnRoute.length - 1] || relativeScenePoint(sceneBaseFromCommand(command, rec), vehiclePoint, vehiclePoint);
-    const vehicleTitle = String(command?.vehicleTitle || command?.vehicleObjectTitle || MISSION_SCENE_VEHICLE_TITLE).trim() || MISSION_SCENE_VEHICLE_TITLE;
-    const vehiclePlan = {
-      index: 1,
-      kind: 'vehicle_return',
-      label: 'Rueckkehr Feuerwehrfahrzeug',
-      title: vehicleTitle,
-      titleCandidates: buildTitleCandidates(vehicleTitle, command?.vehicleTitleCandidates || ['Car Bush Firefighting', 'Car Bush Firefighting (FIREFIGHTING_DEFAULT)', 'FIREFIGHTING_DEFAULT', 'Car_Bush_Firefighting']),
-      lat: vehicleStart.lat,
-      lon: vehicleStart.lon,
-      altFt: vehicleStart.altFt,
-      hdg: headingBetweenOffsets(vehicleStart, vehicleReturnRoute[1] || vehiclePark, command?.hdg || 0),
-      baseAltFt: sceneBaseFromCommand(command, rec).altFt,
-      altOffsetFt: vehicleStart.altOffsetFt || 0,
-      forwardM: vehicleStart.forwardM,
-      rightM: vehicleStart.rightM,
-      northM: vehicleStart.northM,
-      eastM: vehicleStart.eastM
-    };
-    trackerLog(`🚒 Scene ${sceneId}: Deboarding-Sequenz startet.`);
-    const vehicle = await spawnSceneObjectFromPlan(sceneId, vehiclePlan, 3000);
-    if (!vehicle) {
-      sendAck({ type: 'mission_scene_deboarding_ack', commandId, sceneId, status: 'error', error: 'vehicle_spawn_failed' });
-      return;
-    }
-    rec.objects.push(vehicle);
+    let vehicleRouteSent = false;
+    let vehicleArrivalMs = 0;
+    trackerLog(`Scene ${sceneId}: Deboarding-Sequenz startet${vehicleArrivalEnabled ? ' mit Fahrzeug' : ' ohne Fahrzeug'}.`);
+    if (vehicleArrivalEnabled) {
+      const vehicleStart = vehicleReturnRoute[0];
+      const vehicleTitle = String(command?.vehicleTitle || command?.vehicleObjectTitle || MISSION_SCENE_VEHICLE_TITLE).trim() || MISSION_SCENE_VEHICLE_TITLE;
+      const vehiclePlan = {
+        index: 1,
+        kind: 'vehicle_return',
+        label: 'Rueckkehr Fahrzeug',
+        title: vehicleTitle,
+        titleCandidates: buildTitleCandidates(vehicleTitle, command?.vehicleTitleCandidates || ['Car Bush Firefighting', 'Car Bush Firefighting (FIREFIGHTING_DEFAULT)', 'FIREFIGHTING_DEFAULT', 'Car_Bush_Firefighting']),
+        lat: vehicleStart.lat,
+        lon: vehicleStart.lon,
+        altFt: vehicleStart.altFt,
+        hdg: headingBetweenOffsets(vehicleStart, vehicleReturnRoute[1] || vehiclePark, command?.hdg || 0),
+        baseAltFt: sceneBaseFromCommand(command, rec).altFt,
+        altOffsetFt: vehicleStart.altOffsetFt || 0,
+        forwardM: vehicleStart.forwardM,
+        rightM: vehicleStart.rightM,
+        northM: vehicleStart.northM,
+        eastM: vehicleStart.eastM
+      };
+      const vehicle = await spawnSceneObjectFromPlan(sceneId, vehiclePlan, 3000);
+      if (!vehicle) {
+        sendAck({ type: 'mission_scene_deboarding_ack', commandId, sceneId, status: 'error', error: 'vehicle_spawn_failed' });
+        return;
+      }
+      rec.objects.push(vehicle);
 
-    const vehicleSpeedKts = Math.max(2, Math.min(12, Number(command?.vehicleSpeedKts || command?.vehicleReturnSpeedKts || 7) || 7));
-    const vehicleRouteSent = sendWaypointRoute(vehicle.objectId, vehicleReturnRoute.slice(1), vehicleSpeedKts);
-    const vehicleArrivalMs = clampInt((pathDistanceM(vehicleReturnRoute) / Math.max(0.5, vehicleSpeedKts * 0.514444)) * 1000 + 1200, 2500, 24000);
-    debugLog(`SCENE_DEBOARDING_VEHICLE scene=${sceneId} objectId=${vehicle.objectId} routeSent=${vehicleRouteSent ? 1 : 0} arrivalMs=${vehicleArrivalMs}`);
-    await sleep(vehicleRouteSent ? vehicleArrivalMs : 1200);
+      const vehicleSpeedKts = Math.max(2, Math.min(12, Number(command?.vehicleSpeedKts || command?.vehicleReturnSpeedKts || 7) || 7));
+      vehicleRouteSent = sendWaypointRoute(vehicle.objectId, vehicleReturnRoute.slice(1), vehicleSpeedKts);
+      vehicleArrivalMs = clampInt((pathDistanceM(vehicleReturnRoute) / Math.max(0.5, vehicleSpeedKts * 0.514444)) * 1000 + 1200, 2500, 24000);
+      debugLog(`SCENE_DEBOARDING_VEHICLE scene=${sceneId} objectId=${vehicle.objectId} routeSent=${vehicleRouteSent ? 1 : 0} arrivalMs=${vehicleArrivalMs}`);
+      await sleep(vehicleRouteSent ? vehicleArrivalMs : 1200);
+    } else {
+      debugLog(`SCENE_DEBOARDING_NO_VEHICLE scene=${sceneId}`);
+    }
 
     const doorEnabled = command?.openDoor === true || command?.door === true;
     const doorProfile = resolveDoorProfile(command);
@@ -1031,7 +1038,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return;
     }
 
-    const routeToVehicle = reversePath.concat([vehiclePark]);
+    const routeToVehicle = vehicleArrivalEnabled ? reversePath.concat([vehiclePark]) : reversePath;
     const walkSpeedKts = Math.max(2.8, Math.min(4.5, Number(command?.walkSpeedKts || 3.3) || 3.3));
     let routeSentCount = 0;
     people.forEach((person, index) => {
@@ -1058,6 +1065,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       sceneId,
       status: routeSentCount > 0 ? 'ok' : 'error',
       vehicleRouteSent: vehicleRouteSent ? 1 : 0,
+      vehicleArrival: vehicleArrivalEnabled ? 1 : 0,
       routeSentCount,
       deboarded: routeSentCount,
       durationMs: vehicleArrivalMs + walkMs,
