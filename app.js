@@ -3930,10 +3930,26 @@ function _isRemoteSettlementPOITitle(title) {
     return remoteHints.some(k => _hasWordToken(t, k) || t.includes(k));
 }
 
+function _looksLikePersonForstName(title) {
+    const raw = String(title || '').trim();
+    const t = normalizeMissionText(raw);
+    if (!_hasWordToken(t, 'forst')) return false;
+    if (/\bgeb\.?\b/i.test(raw)) return true;
+    const parts = raw.split(/\s+/).filter(Boolean);
+    if (parts.length < 2 || parts.length > 4) return false;
+    if (normalizeMissionText(parts[parts.length - 1]) !== 'forst') return false;
+    const firstNames = new Set([
+        'anna', 'bella', 'else', 'erich', 'eva', 'friedrich', 'georg', 'hans', 'heinrich',
+        'josef', 'joseph', 'karl', 'maria', 'paul', 'peter', 'wilhelm'
+    ]);
+    return parts.some(part => firstNames.has(normalizeMissionText(part)));
+}
+
 function isFirePOITitle(title) {
     const cat = classifyPOITitleCategory(title);
     if (cat === 'mountain') return true;
     const t = normalizeMissionText(title);
+    if (_looksLikePersonForstName(title)) return false;
     if (t.includes('wald') || t.includes('forst') || t.includes('heide') || t.includes('moor')) return true;
     return _isRemoteSettlementPOITitle(title);
 }
@@ -3942,6 +3958,7 @@ function scoreFirePOITitle(title) {
     const t = normalizeMissionText(title);
     const cat = classifyPOITitleCategory(title);
     let score = 0;
+    if (_looksLikePersonForstName(title)) score -= 10;
     if (cat === 'mountain') score += 4;
     if (t.includes('wald') || t.includes('forst')) score += 3;
     if (t.includes('berg') || t.includes('tal') || t.includes('schlucht')) score += 2;
@@ -4309,6 +4326,20 @@ function _poiIsSettlementOnlyFeature(feature) {
     return classifyPOITitleCategory(name) === 'city';
 }
 
+function _poiIsHumanMemorialFeature(feature) {
+    const t = feature?.tags || {};
+    const historic = String(t.historic || '').toLowerCase();
+    const tourism = String(t.tourism || '').toLowerCase();
+    const amenity = String(t.amenity || '').toLowerCase();
+    const natural = String(t.natural || '').toLowerCase();
+    const landuse = String(t.landuse || '').toLowerCase();
+    const hasNatureSurface = ['wood', 'heath', 'water'].includes(natural) || ['forest', 'meadow', 'grassland', 'farmland', 'orchard', 'vineyard'].includes(landuse);
+    if (hasNatureSurface) return false;
+    if (historic === 'memorial' || historic === 'monument') return true;
+    if (tourism === 'artwork' || amenity === 'grave_yard') return true;
+    return _looksLikePersonForstName(feature?.name || '');
+}
+
 function _poiIsNumericLikeName(name) {
     const s = String(name || '').trim();
     if (!s) return false;
@@ -4498,6 +4529,7 @@ function _poiFeatureMatchesCategory(feature, category) {
         t.layer === 'road' ||
         t.layer === 'rail'
     );
+    const isHumanMemorial = _poiIsHumanMemorialFeature(feature);
     const isTelecom = (
         !(
             t.highway === 'speed_camera' ||
@@ -4568,10 +4600,12 @@ function _poiFeatureMatchesCategory(feature, category) {
         _hasWordToken(n, 'freileitung')
     );
     const isFire = (
-        isMountain ||
-        (!isTransportCorridor && (_hasWordToken(n, 'wald') || _hasWordToken(n, 'forst'))) ||
-        t.natural === 'wood' ||
-        t.natural === 'heath'
+        !isHumanMemorial && (
+            isMountain ||
+            (!isTransportCorridor && (_hasWordToken(n, 'wald') || _hasWordToken(n, 'forst'))) ||
+            t.natural === 'wood' ||
+            t.natural === 'heath'
+        )
     );
 
     if (cat === 'water') return isWater;
@@ -4673,6 +4707,14 @@ function _poiFeatureScore(feature, category) {
         if (['substation', 'plant', 'generator', 'transformer'].includes(t.power)) score += 8;
         if (['water_works', 'wastewater_plant', 'works', 'storage_tank', 'silo', 'chimney'].includes(t.man_made)) score += 7;
         if (['wastewater_plant', 'waste_transfer_station', 'water_works'].includes(t.amenity)) score += 7;
+    } else if (cat === 'fire') {
+        if (t.natural === 'wood' || t.landuse === 'forest') score += 10;
+        if (['heath', 'scrub'].includes(t.natural)) score += 6;
+        if (['peak', 'valley', 'cliff', 'ridge'].includes(t.natural)) score += 5;
+        if (_hasWordToken(n, 'wald')) score += 5;
+        if (_hasWordToken(n, 'forst')) score += 3;
+        if (_poiIsHumanMemorialFeature(feature)) score -= 14;
+        if (['city', 'town', 'suburb', 'neighbourhood', 'quarter'].includes(String(t.place || '').toLowerCase())) score -= 6;
     }
     if (n) score += 1;
     if (!n && cat === 'infrastructure') score -= 4;
@@ -7363,10 +7405,26 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '' } 
     if (!isPOI) return { kind: 'none', roles: [], density: 'none', notes: '' };
     const src = raw && typeof raw === 'object' ? raw : {};
     const task = String(taskDomain || '').toLowerCase();
+    const natureTask = missionTruthIsNatureTask('', task);
+    const rawSceneText = [
+        src.kind,
+        src.type,
+        src.preset,
+        src.notes,
+        src.reason,
+        src.context,
+        Array.isArray(src.features) ? src.features.join(' ') : '',
+        Array.isArray(src.roles) ? src.roles.join(' ') : '',
+        Array.isArray(src.requirements) ? src.requirements.map(req => typeof req === 'string' ? req : `${req?.feature || ''} ${req?.notes || ''} ${req?.placement || ''}`).join(' ') : ''
+    ].join(' ').toLowerCase();
+    const explicitRoadIncident = /unfall|crash|kollision|verkehrsunfall|fahrzeugschaden|sperrung|einsatzlage/.test(rawSceneText);
+    const suppressNatureRoadNoise = natureTask && !explicitRoadIncident && /road_incident|road_vehicles|parked_vehicle|powerline|generator|traffic|strasse|straße/.test(rawSceneText);
+    const noisyNatureFeatures = new Set(['road_vehicles', 'parked_vehicle', 'emergency_response', 'cones', 'powerline', 'generator']);
     const preset = normalizeMissionTargetScenePreset(src.preset || src.scenePreset || src.template || '');
     const presetSpec = preset ? missionSceneTargetPresetCatalog()[preset] : null;
     let kind = normalizeMissionTargetSceneKind(src.kind || src.type || presetSpec?.kind || '');
     if (task === 'fire_watch') kind = 'fire_watch';
+    if (suppressNatureRoadNoise && kind === 'road_incident') kind = 'survey_context';
     const catalog = missionSceneTargetKindCatalog();
     const featureCatalog = missionSceneTargetFeatureCatalog();
     const spec = catalog[kind] || catalog.none || { roles: [] };
@@ -7396,11 +7454,13 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '' } 
             };
         })
         .filter(Boolean)
+        .filter(req => !suppressNatureRoadNoise || !noisyNatureFeatures.has(req.feature))
         .slice(0, 8);
     const features = [...new Set(featuresRaw
         .map(normalizeMissionTargetSceneFeature)
         .concat(requirements.map(req => req.feature))
-        .filter(Boolean))]
+        .filter(Boolean)
+        .filter(feature => !suppressNatureRoadNoise || !noisyNatureFeatures.has(feature)))]
         .slice(0, 10);
     const rolesRaw = Array.isArray(src.roles) ? src.roles : (Array.isArray(src.sceneRoles) ? src.sceneRoles : []);
     const allowedRoles = new Set([
@@ -7411,6 +7471,7 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '' } 
     const roles = rolesRaw
         .map(role => String(role || '').trim())
         .filter(role => role && allowedRoles.has(role))
+        .filter(role => !suppressNatureRoadNoise || !/^(vehicle\.|utility\.|marker\.cone)/.test(role))
         .slice(0, 8);
     const featureRoles = features.flatMap(feature => Array.isArray(featureCatalog[feature]?.roles) ? featureCatalog[feature].roles : []);
     const derivedRoles = [...new Set(featureRoles)].filter(role => allowedRoles.has(role)).slice(0, 12);
@@ -7546,10 +7607,12 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
     ].join(' ').toLowerCase();
     const task = String(taskDomain || '').toLowerCase();
     const has = (re) => re.test(text);
+    const natureTask = missionTruthIsNatureTask('', task);
     let kind = 'none';
     if (task === 'fire_watch' || has(/waldbrand|rauch|feuer|brandherd|hotspot/)) kind = 'fire_watch';
     else if (has(/sar|rettung|vermisst|notfall|rettungsinsel|liferaft/)) kind = has(/wasser|see|fluss|ufer|boot|insel/) ? 'sar_water' : 'sar_land';
-    else if (has(/unfall|crash|kollision|verkehr|strasse|straße|fahrzeugschaden/)) kind = 'road_incident';
+    else if (natureTask && has(/wald|forst|vegetation|baum|bäume|baeume|natur|bio|oekolog|ökolog|umwelt/)) kind = 'survey_context';
+    else if (has(/unfall|crash|kollision|verkehrsunfall|fahrzeugschaden|sperrung/)) kind = 'road_incident';
     else if (has(/baustell|kran|bagger|bulldozer|bauarbeiten|materiallager/)) kind = 'construction_site';
     else if (has(/strommast|freileitung|powerline|leitung|pylon|mast/)) kind = 'powerline_inspection';
     else if (has(/erosion|uferbruch|hangrutsch|abrutsch|treibholz|bruchkante/)) kind = 'erosion_damage';
@@ -7778,18 +7841,28 @@ function missionTruthRequestedCategory(md = {}) {
     return String(md.requestedCategory || md.poiRequestedCategory || md.poiCategory || md.category || summaryCat || '').toLowerCase();
 }
 
+function missionTruthIsNatureTask(category = '', taskDomain = '') {
+    const cat = String(category || '').toLowerCase();
+    const task = String(taskDomain || '').toLowerCase();
+    return cat === 'fire' || cat === 'mountain' || task === 'fire_watch' || task.includes('science_bio');
+}
+
 function missionTruthAnchorForCategory(ctx = null, category = '', taskDomain = '') {
     const anchors = ctx?.anchors && typeof ctx.anchors === 'object' ? ctx.anchors : {};
     const cat = String(category || '').toLowerCase();
     const task = String(taskDomain || '').toLowerCase();
+    const natureTask = missionTruthIsNatureTask(cat, task);
     const lists = [];
-    if (cat === 'water' || task.includes('science_geo') || task.includes('science_bio')) lists.push(['water']);
+    if (cat === 'water' || task.includes('science_geo')) lists.push(['water']);
     if (cat === 'infrastructure' || cat === 'telecom' || task.includes('inspection')) lists.push(['power', 'road', 'parking', 'building', 'rail']);
     if (cat === 'industry') lists.push(['building', 'power', 'road', 'parking']);
     if (cat === 'road') lists.push(['road', 'parking', 'building']);
     if (cat === 'bridge' || cat === 'rail') lists.push(['rail', 'road', 'building']);
-    if (cat === 'mountain' || cat === 'fire' || task.includes('search_and_rescue')) lists.push(['forest', 'meadow', 'farmland', 'road', 'water']);
-    lists.push(['water', 'road', 'parking', 'forest', 'meadow', 'building', 'power']);
+    if (natureTask) lists.push(['forest', 'meadow', 'farmland', 'water']);
+    if (task.includes('search_and_rescue')) lists.push(['forest', 'meadow', 'farmland', 'road', 'water']);
+    lists.push(natureTask
+        ? ['forest', 'meadow', 'farmland', 'water']
+        : ['water', 'road', 'parking', 'forest', 'meadow', 'building', 'power']);
     for (const list of lists) {
         for (const key of list) {
             const a = anchors[key];
@@ -7823,7 +7896,15 @@ function missionTruthBaseVisibleCues(ctx = null, category = '', taskDomain = '')
     const anchors = ctx?.anchors || {};
     const cat = String(category || '').toLowerCase();
     const task = String(taskDomain || '').toLowerCase();
+    const natureTask = missionTruthIsNatureTask(cat, task);
+    const hasContextAnchors = !!ctx && Object.keys(anchors).length > 0;
     const add = cue => { if (cue && !cues.includes(cue)) cues.push(cue); };
+    if (natureTask) {
+        if (anchors.forest || (!hasContextAnchors && (cat === 'fire' || cat === 'mountain'))) add('Waldrand');
+        if (anchors.meadow || anchors.farmland) add('offenes Gelaende');
+        if (anchors.water) add('Wasserflaeche oder Uferlinie');
+        return cues.slice(0, 3);
+    }
     if (cat === 'water' || anchors.water) add('Wasserflaeche oder Uferlinie');
     if (anchors.road || anchors.parking) add('Strasse oder Zufahrt');
     if (anchors.power) add('Strom- oder Infrastrukturpunkt');
@@ -8135,6 +8216,7 @@ Regeln:
 8. Bei SAR ist die vermisste Person, ein Hinweis oder ein Signal das Primaerziel. Suchtrupps/Fahrzeuge sind Support und muessen aus Story/sceneIntent hervorgehen.
 9. Wenn targetGeoContext vorhanden ist, nutze ihn nur als lokale Plausibilitaetskarte: road/parking fuer Fahrzeuge, water fuer Ufer/Wasser, forest/meadow/farmland fuer Natur/Tiere/Zelte, power fuer Leitungen. Erfinde keine exakten OSM-Daten und ignoriere Anker, die nicht zur Geschichte passen.
 10. Wenn missionTruth vorhanden ist, ist missionTruth.mainTarget das kanonische Ziel und missionTruth.sceneAnchor der bevorzugte Platzierungsbereich. Sichtbare Objekte nur grob und situationsbezogen aus missionTruth.visibleCues ableiten; nicht alle Objekte aufzaehlen.
+10a. Bei Natur-/Wald-/Bio-Missionen sind Strassen, Strom und Gebaeude nur Kontext, nie automatisch Zielszene. Waehle road_incident, Fahrzeuge, Strommast oder Kegel nur bei ausdruecklichem Unfall-/Einsatz-/Inspektionsgrund.
 11. Gib AUSSCHLIESSLICH JSON aus.
 
 ${sceneGuide}
