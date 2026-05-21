@@ -1400,35 +1400,57 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
     const byProfile = {
         mapping_survey: [
             { t: `Mapping-Survey: ${n}`, i: '📏', cat: 'poi', s: `Für ${n} läuft ein Vermessungsflug mit Scan- und Kartierfokus. Fliege reproduzierbare Linien.`, payloadText: '1 PAX (Survey-Technik)', cargoText: 'Lidar-Scanner (180 lbs)' },
-            { t: `Photogrammetrie-Pass: ${n}`, i: '🛰️', cat: 'poi', s: `Ein Team erstellt ein neues Orthofoto-Mosaik von ${n}. Stabilität und exakte Passes sind entscheidend.`, payloadText: '1 PAX (Photogrammetrie)', cargoText: 'Photogrammetrie-Kamera (34 lbs)' }
+            { t: `Photogrammetrie-Pass: ${n}`, i: '🛰️', cat: 'poi', s: `Ein Team erstellt ein neues Orthofoto-Mosaik von ${n}. Stabilität und exakte Passes sind entscheidend.`, payloadText: '1 PAX (Photogrammetrie)', cargoText: 'Photogrammetrie-Kamera (34 lbs)' },
+            { t: `Korridor-Mapping: ${n}`, i: '📐', cat: 'poi', s: `Bei ${n} wird ein kurzer Korridor für die Kartenaktualisierung abgeflogen. Wichtig sind gleichmäßige Linien und ein sauberer Blick auf das Hauptziel.`, payloadText: '1 PAX (Geodaten-Technik)', cargoText: 'GPS-Logger und Kamera (22 lbs)' },
+            { t: `Bestandsaufnahme/Dokumentation: ${n}`, i: '🗺️', cat: 'poi', s: `Für ${n} sollen aktuelle Vergleichsbilder und eine kurze Luftdokumentation entstehen. Wir fliegen ruhig, damit Gebäude, Ufer, Trassen oder Geländeformen sauber zugeordnet werden können.`, payloadText: '1 PAX (Vermessung)', cargoText: 'Tablet und Referenzkarten (18 lbs)' }
         ],
         news_coverage: [
             { t: `Reporter-POI: ${n}`, i: '📰', cat: 'poi', s: `Ein Reporterteam beobachtet die Lage rund um ${n} aus der Luft, bevor die Berichterstattung am Boden startet.`, payloadText: '1 PAX (Reporter)', cargoText: 'Live-Übertragungsrucksack (26 lbs)' },
-            { t: `Medienlage: ${n}`, i: '🎥', cat: 'poi', s: `Für ${n} wird eine nüchterne Luftbeobachtung für einen TV-Beitrag benötigt.`, payloadText: '1 PAX (TV-Reporter)', cargoText: 'Kamera- und Audio-Set (32 lbs)' }
+            { t: `Medienlage: ${n}`, i: '🎥', cat: 'poi', s: `Für ${n} wird eine nüchterne Luftbeobachtung für einen TV-Beitrag benötigt.`, payloadText: '1 PAX (TV-Reporter)', cargoText: 'Kamera- und Audio-Set (32 lbs)' },
+            { t: `Redaktionsflug: ${n}`, i: '📷', cat: 'poi', s: `Die Lokalredaktion braucht ein aktuelles Luftbild von ${n} und der direkten Umgebung. Der Auftrag bleibt sachlich: Überblick, Orientierung, keine dramatische Zuspitzung.`, payloadText: '1 PAX (Reporterin)', cargoText: 'Foto- und Audio-Set (24 lbs)' },
+            { t: `Establishing Shots: ${n}`, i: '🎬', cat: 'poi', s: `Ein kleines TV-Team sammelt ruhige Establishing Shots von ${n}. Wir liefern kurze, klare Perspektiven, ohne den Flug zu einem Touristenrundflug zu machen.`, payloadText: '1 PAX (Kamera-Redaktion)', cargoText: 'Kamerarucksack (28 lbs)' }
         ],
         search_and_rescue: [
             { t: `SAR-Suchmuster: ${n}`, i: '🛟', cat: 'poi', s: `Im Bereich ${n} wird entlang von Trassen, Flusslauf und Bahnstrecke gesucht. Fliege ein strukturiertes SAR-Suchmuster und melde Auffälligkeiten sofort.`, payloadText: '1 PAX (SAR-Koordination)', cargoText: 'Optik- und SAR-Kit (24 lbs)' },
-            { t: `Rettungsaufklärung: ${n}`, i: '🚨', cat: 'poi', s: `Für ${n} wird ein Luftlagebild möglicher Unfallkorridore an Straße, Fluss und Schiene benötigt. Priorität liegt auf klaren Calls und Suchsektoren.`, payloadText: '1 PAX (Rettungskoordinator)', cargoText: 'Signalmittel und Kartenpaket (16 lbs)' }
+            { t: `Rettungsaufklärung: ${n}`, i: '🚨', cat: 'poi', s: `Für ${n} wird ein Luftlagebild möglicher Unfallkorridore an Straße, Fluss und Schiene benötigt. Priorität liegt auf klaren Calls und Suchsektoren.`, payloadText: '1 PAX (Rettungskoordinator)', cargoText: 'Signalmittel und Kartenpaket (16 lbs)' },
+            { t: `Vermisstensuche: ${n}`, i: '🔎', cat: 'poi', s: `Rund um ${n} wird eine vermisste Person gesucht. Wir prüfen Ufer, Waldrand, Wege oder Böschungen mit ruhigen Kreisen und geben nur klare Sichtmeldungen weiter.`, payloadText: '1 PAX (SAR-Koordination)', cargoText: 'Fernglas und Kartenpaket (14 lbs)' },
+            { t: `Hinweis-Check: ${n}`, i: '📍', cat: 'poi', s: `Die Leitstelle hat einen möglichen Hinweis im Bereich ${n}. Wir fliegen einen kurzen Suchsektor ab und achten auf einzelne Personen, Fahrzeuge oder Ausrüstung am Boden.`, payloadText: '1 PAX (Rettungskoordinator)', cargoText: 'Optik- und Funkkit (20 lbs)' }
         ],
         fire_watch: [
             { t: `Fire Watch: ${n}`, i: '🔥', cat: 'poi', s: `Im Gebiet ${n} wird Feuerwacht geflogen. Halte Ausschau nach Rauchfahnen, Hotspots und neuen Brandherden.`, payloadText: '1 PAX (Brandbeobachtung)', cargoText: 'Feuerlage-Mapset (10 lbs)' },
-            { t: `Waldbrand-Frühwarnung: ${n}`, i: '🌲', cat: 'poi', s: `Für ${n} läuft ein Frühwarnflug wegen erhöhter Waldbrandgefahr. Fokus auf Hotspots und klare Meldungen.`, payloadText: '1 PAX (Einsatzbeobachter)', cargoText: 'IR-Kamera und Tablet (21 lbs)' }
+            { t: `Waldbrand-Frühwarnung: ${n}`, i: '🌲', cat: 'poi', s: `Für ${n} läuft ein Frühwarnflug wegen erhöhter Waldbrandgefahr. Fokus auf Hotspots und klare Meldungen.`, payloadText: '1 PAX (Einsatzbeobachter)', cargoText: 'IR-Kamera und Tablet (21 lbs)' },
+            { t: `Rauchmelderunde: ${n}`, i: '🌫️', cat: 'poi', s: `Im Umfeld von ${n} wurde leichter Rauchgeruch gemeldet. Wir prüfen Waldrand, Hang und offene Flächen aus sicherer Höhe, ohne eine Großlage anzunehmen.`, payloadText: '1 PAX (Brandbeobachter)', cargoText: 'Wärmebild-Tablet (16 lbs)' },
+            { t: `Hotspot-Check: ${n}`, i: '🧯', cat: 'poi', s: `Nach trockenen Tagen soll ${n} auf mögliche Hotspots kontrolliert werden. Gesucht werden kleine Rauchfahnen oder auffällige warme Stellen, keine Einsatzkolonne.`, payloadText: '1 PAX (Einsatzbeobachtung)', cargoText: 'IR-Kamera und Karten (19 lbs)' }
         ],
         historian_guided_tour: [
             { t: `Historikerflug: ${n}`, i: '📜', cat: 'poi', s: `Ein Historiker begleitet den Flug zu ${n} und gibt unterwegs kurze geschichtliche Einordnungen zu Ort, Nutzung und Entwicklung.`, payloadText: '1 PAX (Historiker)', cargoText: 'Archivunterlagen und Karten (14 lbs)' },
-            { t: `Zeitreise aus der Luft: ${n}`, i: '🏛️', cat: 'poi', s: `Für ${n} ist ein ruhiger Rundflug mit historischer Kontext-Erklärung geplant. Fokus liegt auf Orientierung und klaren Sichtachsen.`, payloadText: '1 PAX (Historikerin)', cargoText: 'Tablet mit historischen Luftbildern (9 lbs)' }
+            { t: `Zeitreise aus der Luft: ${n}`, i: '🏛️', cat: 'poi', s: `Für ${n} ist ein ruhiger Rundflug mit historischer Kontext-Erklärung geplant. Fokus liegt auf Orientierung und klaren Sichtachsen.`, payloadText: '1 PAX (Historikerin)', cargoText: 'Tablet mit historischen Luftbildern (9 lbs)' },
+            { t: `Ortsgeschichte: ${n}`, i: '🏺', cat: 'poi', s: `Rund um ${n} soll die historische Entwicklung der Landschaft, Bebauung oder Nutzung aus der Luft eingeordnet werden. Es geht um Geschichte, nicht um Inspektion.`, payloadText: '1 PAX (Historiker)', cargoText: 'Notizen und Karten (8 lbs)' },
+            { t: `Kulturroute: ${n}`, i: '🏛️', cat: 'poi', s: `Eine Historikerin nutzt den Flug nach ${n}, um sichtbare Spuren von Siedlung, Verkehr oder Wasserbau zu erklären. Wir bleiben ruhig und gut orientierbar.`, payloadText: '1 PAX (Historikerin)', cargoText: 'Archivmappe (11 lbs)' }
         ],
         science_bio: [
             { t: `Umweltbeobachtung: ${n}`, i: '🧪', cat: 'poi', s: `Bei ${n} wird ein biologischer Beobachtungsflug durchgeführt. Fokus auf Vegetation, Gewässerrand und mögliche Stressindikatoren.`, payloadText: '1 PAX (Biologe)', cargoText: 'Umweltsensorik und Kamera (18 lbs)' },
-            { t: `Ökologie-Check: ${n}`, i: '🦉', cat: 'poi', s: `Für ${n} soll eine kurze ökologische Lageeinschätzung aus der Luft erstellt werden. Wir fliegen ruhig und dokumentieren sauber.`, payloadText: '1 PAX (Ökologin)', cargoText: 'Feldnotizen und GPS-Logger (9 lbs)' }
+            { t: `Ökologie-Check: ${n}`, i: '🦉', cat: 'poi', s: `Für ${n} soll eine kurze ökologische Lageeinschätzung aus der Luft erstellt werden. Wir fliegen ruhig und dokumentieren sauber.`, payloadText: '1 PAX (Ökologin)', cargoText: 'Feldnotizen und GPS-Logger (9 lbs)' },
+            { t: `Habitat-Runde: ${n}`, i: '🌿', cat: 'poi', s: `Die Biologin möchte bei ${n} Ufer, Waldrand oder offene Vegetationsflächen vergleichen. Wir achten auf Muster im Bewuchs, nicht auf technische Schäden.`, payloadText: '1 PAX (Biologin)', cargoText: 'Kamera und GPS-Logger (12 lbs)' },
+            { t: `Vegetationsmonitoring: ${n}`, i: '🍃', cat: 'poi', s: `Bei ${n} werden Baumkronen, Uferzonen oder trockene Randstreifen dokumentiert. Der Flug bleibt ruhig, damit die Beobachtung später auswertbar ist.`, payloadText: '1 PAX (Ökologe)', cargoText: 'Umweltsensorik (15 lbs)' }
         ],
         science_geo: [
             { t: `Geologie-Pass: ${n}`, i: '🪨', cat: 'poi', s: `Rund um ${n} werden Erosion, Hangformen und Reliefmerkmale aus der Luft beurteilt. Wir brauchen reproduzierbare Linien.`, payloadText: '1 PAX (Geologe)', cargoText: 'Geologie-Mapset und Tablet (12 lbs)' },
-            { t: `Relief-Analyse: ${n}`, i: '🏔️', cat: 'poi', s: `Für ${n} wird eine geomorphologische Kurzaufnahme geflogen, um markante Strukturen und mögliche Veränderungen zu bewerten.`, payloadText: '1 PAX (Geomorphologin)', cargoText: 'Kamera und Laser-Entfernungsmesser (14 lbs)' }
+            { t: `Relief-Analyse: ${n}`, i: '🏔️', cat: 'poi', s: `Für ${n} wird eine geomorphologische Kurzaufnahme geflogen, um markante Strukturen und mögliche Veränderungen zu bewerten.`, payloadText: '1 PAX (Geomorphologin)', cargoText: 'Kamera und Laser-Entfernungsmesser (14 lbs)' },
+            { t: `Erosionsblick: ${n}`, i: '🪨', cat: 'poi', s: `Bei ${n} sollen Uferkanten, Hänge oder Einschnitte auf sichtbare Erosionsspuren geprüft werden. Wir liefern ruhige Vergleichsperspektiven.`, payloadText: '1 PAX (Geologin)', cargoText: 'Geologie-Tablet (10 lbs)' },
+            { t: `Geländekanten-Check: ${n}`, i: '⛰️', cat: 'poi', s: `Der Geomorphologe bewertet bei ${n} Geländekanten, Sedimentflächen oder frühere Abbauzonen. Der Flug braucht klare Blickwinkel, aber keine Einsatzdramaturgie.`, payloadText: '1 PAX (Geomorphologe)', cargoText: 'Kamera und Karten (13 lbs)' }
         ],
         sightseeing_tour: [
             { t: `Panorama-Rundflug: ${n}`, i: '🌤️', cat: 'poi', s: `Ein ruhiger Sightseeingflug über ${n} mit Fokus auf angenehme Fluglage und gute Aussicht.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Kleine Kamerataschen (12 lbs)' },
-            { t: `Aussichtsflug: ${n}`, i: '🏞️', cat: 'poi', s: `Die Gäste wünschen einen entspannten Rundflug über ${n}, ohne Hektik und mit weichen Manövern.`, payloadText: '2 PAX (Tour-Gäste)', cargoText: 'Tagesrucksäcke (15 lbs)' }
+            { t: `Aussichtsflug: ${n}`, i: '🏞️', cat: 'poi', s: `Die Gäste wünschen einen entspannten Rundflug über ${n}, ohne Hektik und mit weichen Manövern.`, payloadText: '2 PAX (Tour-Gäste)', cargoText: 'Tagesrucksäcke (15 lbs)' },
+            { t: `Foto-Ausflug: ${n}`, i: '📸', cat: 'poi', s: `Die Gäste möchten ${n} aus der Luft sehen und ein paar ruhige Fotos machen. Kein Auftrag, keine Inspektion, einfach ein sauber geflogener Ausblick.`, payloadText: '2 PAX (Ausflugsgäste)', cargoText: 'Kleine Kamerataschen (10 lbs)' },
+            { t: `Orientierungsrunde: ${n}`, i: '🧭', cat: 'poi', s: `Ein entspannter Rundflug zu ${n}: kurz zeigen, wie Ziel und Umgebung zusammenliegen, dann wieder zurück. Weiche Kurven und gute Sicht sind wichtiger als Tempo.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Tagesrucksäcke (12 lbs)' }
+        ],
+        tour_guide_knowledge: [
+            { t: `Wissensflug: ${n}`, i: '📚', cat: 'poi', s: `Der Lern-Guide erklärt bei ${n} kurze Fakten zu Lage, Nutzung und sichtbarer Umgebung. Es gibt keinen Arbeitsauftrag, nur Orientierung und Einordnung.`, payloadText: '1 PAX (Lern-Guide)', cargoText: 'Tablet mit Ortsfakten (3 lbs)' },
+            { t: `POI-Erklärung: ${n}`, i: '🧭', cat: 'poi', s: `Bei ${n} geht es um verständliche Ortskunde aus der Luft. Wir fliegen ruhig, damit Ziel, Nachbarschaft und Landschaft gut zu erkennen sind.`, payloadText: '1 PAX (Tour-Guide)', cargoText: 'Notizbuch und Reiseführer (4 lbs)' },
+            { t: `Faktenrunde: ${n}`, i: '💬', cat: 'poi', s: `Der Guide nutzt ${n} als Lernpunkt und ordnet sichtbare Merkmale knapp ein. Keine Suche, keine Messung, keine Einsatzlage.`, payloadText: '1 PAX (Lern-Guide)', cargoText: 'Tablet mit Karten (5 lbs)' },
+            { t: `Kontextflug: ${n}`, i: '🗺️', cat: 'poi', s: `Wir besuchen ${n}, um den Ort im Gelände zu verstehen: was liegt daneben, welche Wege oder Gewässer rahmen das Ziel ein, und warum ist es auffällig.`, payloadText: '1 PAX (Tour-Guide)', cargoText: 'Reiseführer und Tablet (5 lbs)' }
         ]
     };
     return (byProfile[id] || []).map(x => ({ ...x }));
@@ -7009,7 +7031,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
         return has(/report|medien|kamera|dreh|event|verkehr|stau|city|festival|skydiver/);
     }
     if (id === 'sightseeing_tour') {
-        const positive = has(/ausflug|stadtetrip|stadttrip|sightseeing|panorama|kuchen|burger|wellness|romant|tour/);
+        const positive = has(/ausflug|stadtetrip|stadttrip|sightseeing|panorama|rundflug|aussicht|kuchen|burger|wellness|romant|tour/);
         const negative = has(/aog|ersatzteil|organtransport|medicine|notfall|urgent|kurier|fracht|transport/);
         return positive && !negative;
     }
@@ -8530,15 +8552,68 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         medical_transfer: ['Medizinischer Transfer mit hoher Priorität und ruhigem Flug'],
         cargo_fragile: ['Empfindliche Fracht sicher und erschuetterungsarm transportieren'],
         animal_transport: ['Tiertransport mit stressarmer, ruhiger Flugfuehrung'],
-        news_coverage: ['Reporter-/Medieneinsatz mit sachlicher Lagebeobachtung'],
-        sightseeing_tour: ['Entspannter Ausflugs- und Sightseeingflug'],
-        historian_guided_tour: ['Historiker-Rundflug mit Bildungsauftrag: historische Fakten, lokale Anekdoten und zeitliche Einordnung am POI'],
-        science_bio: ['Biologischer Beobachtungsflug mit ruhiger, sauberer Dokumentation'],
-        science_geo: ['Geologischer Beobachtungsflug mit Fokus auf Relief und Erosion'],
-        mapping_survey: ['Praeziser Mapping-/Survey-Flug mit stabilen Passes'],
-        tour_guide_knowledge: ['Bildungsflug zum POI: lernorientierte Fakten, Kontext und Orientierung ohne Arbeitsauftrag'],
-        search_and_rescue: ['SAR-Suchflug entlang Trassen, Flussläufen und Bahnstrecken mit strukturiertem Muster und klarem Lagebild'],
-        fire_watch: ['Feuerwacht mit Fokus auf Rauchfahnen und Hotspots']
+        news_coverage: isPOI ? [
+            'Reporter-/Medieneinsatz mit sachlicher Lagebeobachtung',
+            'Medienflug fuer ein kurzes aktuelles Luftlagebild am POI',
+            'Lokale Redaktion dokumentiert Verkehr, Besucherandrang oder sichtbare Veraenderungen am Ziel',
+            'TV-Team sammelt neutrale Establishing Shots, ohne Tourismus- oder Einsatzsprache'
+        ] : [
+            'Reporter-Shuttle zum Zielflugplatz fuer eine sachliche Berichterstattung am Boden',
+            'Medien-Transfer mit Kamera- und Audioausruestung, ohne Luftarbeitsauftrag am Ziel',
+            'Redaktioneller A-B-Flug zu einem Termin oder Drehort nahe dem Zielflugplatz'
+        ],
+        sightseeing_tour: isPOI ? [
+            'Entspannter Ausflugs- und Sightseeingflug',
+            'Ruhiger Fotostopp fuer Gaeste mit Fokus auf Aussicht und Orientierung',
+            'Privater Rundflug zu einem markanten POI ohne Arbeitsauftrag',
+            'Panorama-Tour mit weichen Manoevern und gutem Blick auf Ziel und Umgebung'
+        ] : [
+            'Entspannter Ausflugs- und Sightseeingflug',
+            'Privater Tagesausflug mit Fokus auf angenehmen Ablauf und Aussicht',
+            'Ruhiger A-B-Ausflug zum Zielflugplatz ohne Arbeitsauftrag'
+        ],
+        historian_guided_tour: [
+            'Historiker-Rundflug mit Bildungsauftrag: historische Fakten, lokale Anekdoten und zeitliche Einordnung am POI',
+            'Kulturhistorische Einordnung des POI aus der Luft, ohne technischen Inspektionsauftrag',
+            'Vergleich historischer Nutzung und heutiger Landschaftsstruktur am Ziel',
+            'Ruhiger Erzaehlflug zu Denkmal, Altstadt, Gewaesser- oder Infrastrukturgeschichte'
+        ],
+        science_bio: [
+            'Biologischer Beobachtungsflug mit ruhiger, sauberer Dokumentation',
+            'Oekologische Kurzaufnahme von Vegetation, Ufer, Habitat oder Waldrand',
+            'Umweltmonitoring mit Fokus auf Stressindikatoren, Bewuchs und Randzonen',
+            'Naturschutz-Beobachtung am POI ohne Einsatzdramatisierung'
+        ],
+        science_geo: [
+            'Geologischer Beobachtungsflug mit Fokus auf Relief und Erosion',
+            'Geomorphologische Reliefstudie mit Hang-, Ufer- oder Abbruchkanten',
+            'Dokumentation von Kiesgrube, Steinbruch, Talform, Sediment oder Gelaendekante',
+            'Ruhige Vergleichsfotos fuer geologische Veraenderungen im Zielgebiet'
+        ],
+        mapping_survey: [
+            'Praeziser Mapping-/Survey-Flug mit stabilen Passes',
+            'Photogrammetrie-Flug fuer Orthofoto, Korridor oder Anlagenuebersicht',
+            'Lidar- oder Vermessungspass mit reproduzierbaren Linien',
+            'Dokumentationsflug zur Kartenaktualisierung mit klarer Zielgeometrie'
+        ],
+        tour_guide_knowledge: [
+            'Bildungsflug zum POI: lernorientierte Fakten, Kontext und Orientierung ohne Arbeitsauftrag',
+            'Wissensflug mit kurzen Ortsfakten und sichtbarer Orientierung am Ziel',
+            'Lern-Guide erklaert Nutzung, Landschaft und Umgebung des POI ohne Inspektion',
+            'Ruhiger Erklaerflug mit Fakten, aber ohne Auftrag zum Suchen, Messen oder Pruefen'
+        ],
+        search_and_rescue: [
+            'SAR-Suchflug entlang Trassen, Flussläufen und Bahnstrecken mit strukturiertem Muster und klarem Lagebild',
+            'Rettungsaufklaerung mit Suchsektoren an Waldrand, Ufer, Weg oder Bahnlinie',
+            'Vermisstensuche mit klaren Calls, wenigen sichtbaren Hinweisen und ohne ueberladene Einsatzszene',
+            'Lagebild fuer Bodenkraefte, bei dem die Zielperson oder ein Hinweis plausibel am Randbereich liegt'
+        ],
+        fire_watch: [
+            'Feuerwacht mit Fokus auf Rauchfahnen und Hotspots',
+            'Waldbrand-Frueherkennung entlang Waldrand, Hang oder trockenem Vegetationsstreifen',
+            'Brandwache nach Meldung von Rauchgeruch oder moeglicher Glutstelle',
+            'Ruhiger Beobachtungsflug fuer Hotspot-Check ohne Grossschadenslage'
+        ]
     };
     const poiThemesByCat = {
         bridge: ["Infrastruktur-Inspektion (Brücke/Viadukt)"],
