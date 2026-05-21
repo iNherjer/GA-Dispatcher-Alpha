@@ -7587,6 +7587,8 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
 
 const MISSION_TARGET_GEO_CONTEXT_RADIUS_M = 750;
 const MISSION_TARGET_GEO_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
+const MISSION_SCENE_COMPOSER_MODEL_TIMEOUT_MS = 9000;
+const MISSION_SCENE_COMPOSER_TOTAL_TIMEOUT_MS = 18000;
 const missionTargetGeoContextInflight = new Map();
 
 function missionTargetGeoContextCacheKey(lat, lon, radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M) {
@@ -7928,9 +7930,21 @@ targetGeoContext: ${JSON.stringify(targetGeoContext ? {
         ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite Scene Composer', 'lite']
     ];
     let lastError = '';
+    const composerStartedAt = Date.now();
     for (const [model, source, usageKey] of models) {
+        const remainingMs = MISSION_SCENE_COMPOSER_TOTAL_TIMEOUT_MS - (Date.now() - composerStartedAt);
+        if (remainingMs <= 0) {
+            lastError = 'composer_timeout';
+            break;
+        }
+        const timeoutMs = Math.min(MISSION_SCENE_COMPOSER_MODEL_TIMEOUT_MS, Math.max(2500, remainingMs));
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, reqOptions);
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                ...reqOptions,
+                signal: controller.signal
+            });
             if (!res.ok) {
                 lastError = `http_${res.status}_${model}`;
                 continue;
@@ -7953,7 +7967,11 @@ targetGeoContext: ${JSON.stringify(targetGeoContext ? {
                 }
             };
         } catch (err) {
-            lastError = err?.message || String(err || 'unknown');
+            lastError = err?.name === 'AbortError'
+                ? `timeout_${model}`
+                : (err?.message || String(err || 'unknown'));
+        } finally {
+            clearTimeout(timeoutId);
         }
     }
     return {
@@ -7974,7 +7992,13 @@ function updateMissionAcceptanceUi() {
     const needsAccept = !!(md && md.sceneAccepted === false);
     panel.style.display = needsAccept ? 'flex' : 'none';
     if (!needsAccept) return;
-    const composing = md.sceneCompositionStatus === 'composing';
+    let composing = md.sceneCompositionStatus === 'composing';
+    const composingStartedAt = Number(md.sceneCompositionStartedAt || 0);
+    if (composing && composingStartedAt && (Date.now() - composingStartedAt) > 60000) {
+        md.sceneCompositionStatus = 'draft';
+        md.sceneCompositionStartedAt = 0;
+        composing = false;
+    }
     if (btn) {
         btn.disabled = composing;
         btn.textContent = composing ? 'Szene wird gebaut...' : 'Mission akzeptieren';
@@ -7999,6 +8023,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
     currentMissionData.targetScene = targetScene;
     currentMissionData.sceneAccepted = true;
     currentMissionData.sceneCompositionStatus = composition.debug?.error ? 'accepted_fallback' : 'accepted';
+    currentMissionData.sceneCompositionStartedAt = 0;
     currentMissionData.targetSceneComposerDebug = composition.debug || null;
     currentMissionData.targetSceneAiRaw = composition.debug?.aiRaw || currentMissionData.targetSceneAiRaw || null;
     currentMissionData.targetSceneAiNormalized = targetScene;
@@ -8069,6 +8094,7 @@ window.acceptMissionDraft = async function() {
         return true;
     }
     currentMissionData.sceneCompositionStatus = 'composing';
+    currentMissionData.sceneCompositionStartedAt = Date.now();
     updateMissionAcceptanceUi();
     const indicator = document.getElementById('searchIndicator');
     if (indicator) indicator.innerText = 'Lokaler Kartenkontext wird geprueft...';
