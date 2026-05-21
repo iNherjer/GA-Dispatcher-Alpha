@@ -872,7 +872,11 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'poi:generic', classic: 'POI · Sonstige', radioShort: 'POI GEN', radioFull: 'POI · Sonstige' },
         { value: 'poi:all+mapping_survey', classic: 'POI · Mapping/Survey', radioShort: 'POI MAP', radioFull: 'POI · Mapping/Survey' },
         { value: 'poi:all+news_coverage', classic: 'POI · Reporter', radioShort: 'POI NEWS', radioFull: 'POI · Reporter' },
+        { value: 'poi:all+sightseeing_tour', classic: 'POI · Sightseeing', radioShort: 'POI TOUR', radioFull: 'POI · Sightseeing' },
         { value: 'poi:all+tour_guide_knowledge', classic: 'POI · Lern-Guide', radioShort: 'POI EDU', radioFull: 'POI · Lern-Guide (Wissen/Fakten)' },
+        { value: 'poi:all+historian_guided_tour', classic: 'POI · Historiker', radioShort: 'POI HIST', radioFull: 'POI · Historiker-Rundflug' },
+        { value: 'poi:all+science_bio', classic: 'POI · Bio/Umwelt', radioShort: 'POI BIO', radioFull: 'POI · Biologie/Umwelt' },
+        { value: 'poi:all+science_geo', classic: 'POI · Geo/Relief', radioShort: 'POI GEO', radioFull: 'POI · Geologie/Relief' },
         { value: 'poi:all+search_and_rescue', classic: 'POI · SAR/Rescue', radioShort: 'POI SAR', radioFull: 'POI · SAR/Rescue' },
         { value: 'poi:fire+fire_watch', classic: 'POI · Fire Watch (Wald/Berg)', radioShort: 'POI FIRE', radioFull: 'POI · Fire Watch (Wald/Berg)' }
     ]
