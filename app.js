@@ -7592,7 +7592,7 @@ const missionTargetGeoContextInflight = new Map();
 function missionTargetGeoContextCacheKey(lat, lon, radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M) {
     const la = Math.round(Number(lat) * 1000) / 1000;
     const lo = Math.round(Number(lon) * 1000) / 1000;
-    return `ga_target_geo_context_v1_${la}_${lo}_${Math.round(Number(radiusM) || radiusM)}`;
+    return `ga_target_geo_context_v2_${la}_${lo}_${Math.round(Number(radiusM) || radiusM)}`;
 }
 
 function missionTargetGeoContextCategory(tags = {}) {
@@ -7620,6 +7620,62 @@ function missionTargetGeoContextElementPoint(el = {}) {
     return { lat, lon };
 }
 
+function missionTargetGeoContextSimplifyRing(points = [], maxPoints = 28) {
+    const clean = (Array.isArray(points) ? points : [])
+        .map(p => ({
+            lat: Math.round(Number(p.lat) * 1000000) / 1000000,
+            lon: Math.round(Number(p.lon) * 1000000) / 1000000
+        }))
+        .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+    if (clean.length < 4) return [];
+    const last = clean[clean.length - 1];
+    const first = clean[0];
+    if (Math.abs(first.lat - last.lat) > 0.000001 || Math.abs(first.lon - last.lon) > 0.000001) return [];
+    if (clean.length <= maxPoints) return clean;
+    const step = Math.ceil((clean.length - 1) / (maxPoints - 1));
+    const out = [];
+    for (let i = 0; i < clean.length - 1; i += step) out.push(clean[i]);
+    out.push(first);
+    return out;
+}
+
+function missionTargetGeoContextAvoidZone(el = {}, category = '', centerLat = null, centerLon = null) {
+    if (category !== 'building' && category !== 'water') return null;
+    const tags = el?.tags || {};
+    const ring = missionTargetGeoContextSimplifyRing(el?.geometry || []);
+    if (ring.length < 4) return null;
+    let latSum = 0;
+    let lonSum = 0;
+    ring.slice(0, -1).forEach(p => {
+        latSum += p.lat;
+        lonSum += p.lon;
+    });
+    const count = Math.max(1, ring.length - 1);
+    const center = { lat: latSum / count, lon: lonSum / count };
+    let radiusM = 0;
+    ring.forEach(p => {
+        try {
+            const dM = Number(calcNav(center.lat, center.lon, p.lat, p.lon)?.dist) * 1852;
+            if (Number.isFinite(dM)) radiusM = Math.max(radiusM, dM);
+        } catch (_) {}
+    });
+    const nav = (Number.isFinite(Number(centerLat)) && Number.isFinite(Number(centerLon)))
+        ? calcNav(Number(centerLat), Number(centerLon), center.lat, center.lon)
+        : null;
+    return {
+        type: category,
+        name: String(tags.name || tags.ref || tags.building || tags.natural || tags.water || tags.landuse || '').slice(0, 60),
+        center: {
+            lat: Math.round(center.lat * 1000000) / 1000000,
+            lon: Math.round(center.lon * 1000000) / 1000000
+        },
+        radiusM: Math.round(radiusM),
+        distM: Number.isFinite(Number(nav?.dist)) ? Math.round(Number(nav.dist) * 1852) : null,
+        bearingDeg: Number.isFinite(Number(nav?.brng)) ? Math.round(Number(nav.brng)) : null,
+        polygon: ring
+    };
+}
+
 function summarizeMissionTargetGeoContext(ctx = null) {
     if (!ctx || typeof ctx !== 'object') return '';
     if (ctx.summary) return String(ctx.summary);
@@ -7637,10 +7693,13 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
     if (!raw || !Array.isArray(raw.elements) || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     const anchors = {};
     const counts = {};
+    const avoidZones = [];
     raw.elements.forEach(el => {
         const tags = el?.tags || {};
         const category = missionTargetGeoContextCategory(tags);
         if (!category) return;
+        const zone = missionTargetGeoContextAvoidZone(el, category, lat, lon);
+        if (zone) avoidZones.push(zone);
         const pt = missionTargetGeoContextElementPoint(el);
         if (!pt) return;
         let nav = null;
@@ -7666,6 +7725,8 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
     Object.keys(counts).forEach(k => {
         if (anchors[k]) anchors[k].count = counts[k];
     });
+    avoidZones.sort((a, b) => Number(a.distM || 999999) - Number(b.distM || 999999));
+    const compactAvoidZones = avoidZones.slice(0, 48);
     const hints = [];
     if (anchors.road || anchors.parking) hints.push('roadside/vehicle placement plausible near the road or parking anchor');
     if (anchors.water) hints.push('waterline placement plausible near the water anchor');
@@ -7686,6 +7747,7 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
             lon: Math.round(lon * 100000) / 100000
         },
         anchors,
+        avoidZones: compactAvoidZones,
         hints,
         summary,
         fetchedAt: Date.now()
@@ -7731,7 +7793,7 @@ async function fetchMissionTargetGeoContext(missionData = null) {
   way(around:${radiusM},${lat},${lon})["railway"];
   way(around:${radiusM},${lat},${lon})["bridge"];
 );
-out tags center 160;`;
+out tags center geom 160;`;
 
     const promise = (async () => {
         const controller = new AbortController();
@@ -7834,6 +7896,11 @@ sceneIntent: ${JSON.stringify(sceneIntent)}
 targetGeoContext: ${JSON.stringify(targetGeoContext ? {
     summary: summarizeMissionTargetGeoContext(targetGeoContext),
     anchors: targetGeoContext.anchors || {},
+    avoidZoneCounts: (Array.isArray(targetGeoContext.avoidZones) ? targetGeoContext.avoidZones : []).reduce((acc, z) => {
+        const k = z?.type || 'unknown';
+        acc[k] = (acc[k] || 0) + 1;
+        return acc;
+    }, {}),
     hints: targetGeoContext.hints || []
 } : null)}
 </KONTEXT>

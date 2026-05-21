@@ -433,7 +433,8 @@ function _missionSceneDebugSummarizeItems(items = []) {
         forwardM: Number.isFinite(Number(item?.forwardM)) ? Number(item.forwardM) : null,
         rightM: Number.isFinite(Number(item?.rightM)) ? Number(item.rightM) : null,
         hdgOffsetDeg: Number.isFinite(Number(item?.hdgOffsetDeg)) ? Number(item.hdgOffsetDeg) : 0,
-        altOffsetFt: Number.isFinite(Number(item?.altOffsetFt)) ? Number(item.altOffsetFt) : 0
+        altOffsetFt: Number.isFinite(Number(item?.altOffsetFt)) ? Number(item.altOffsetFt) : 0,
+        worldAvoidance: item?.worldAvoidance || null
     }));
 }
 
@@ -1780,6 +1781,105 @@ function _missionTargetGeoOffset(names, fallbackF, fallbackR, options = {}) {
     };
 }
 
+function _missionTargetGeoPointInPolygon(lat, lon, polygon = []) {
+    const y = Number(lat);
+    const x = Number(lon);
+    if (!Number.isFinite(y) || !Number.isFinite(x) || !Array.isArray(polygon) || polygon.length < 4) return false;
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const yi = Number(polygon[i]?.lat);
+        const xi = Number(polygon[i]?.lon);
+        const yj = Number(polygon[j]?.lat);
+        const xj = Number(polygon[j]?.lon);
+        if (!Number.isFinite(yi) || !Number.isFinite(xi) || !Number.isFinite(yj) || !Number.isFinite(xj)) continue;
+        const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi) / ((yj - yi) || 1e-12)) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+function _missionTargetSceneItemWaterCompatible(kind = '', label = '', title = '') {
+    const text = [kind, label, title].filter(Boolean).join(' ').toLowerCase();
+    return /(water|boat|ship|raft|liferaft|fowl|goose|duck|ente|gans|wasservogel|floating|treibgut|ufer|debris|pollution|survey_boat)/.test(text);
+}
+
+function _missionTargetGeoBlockingZone(lat, lon, item = {}) {
+    const ctx = _missionTargetGeoContext();
+    const zones = Array.isArray(ctx?.avoidZones) ? ctx.avoidZones : [];
+    if (!zones.length) return null;
+    const waterOk = _missionTargetSceneItemWaterCompatible(item.kind, item.label, item.objectTitle || item.title);
+    for (const zone of zones) {
+        const type = String(zone?.type || '').toLowerCase();
+        if (type !== 'building' && type !== 'water') continue;
+        if (type === 'water' && waterOk) continue;
+        if (_missionTargetGeoPointInPolygon(lat, lon, zone.polygon)) return zone;
+    }
+    return null;
+}
+
+function _missionTargetGeoLocalShift(absBearingDeg, distanceM, pointHdgDeg) {
+    const deltaRad = ((Number(absBearingDeg) - Number(pointHdgDeg || 0)) * Math.PI) / 180;
+    return {
+        f: Math.cos(deltaRad) * Number(distanceM || 0),
+        r: Math.sin(deltaRad) * Number(distanceM || 0)
+    };
+}
+
+function _missionTargetGeoResolveWorldOffset(kind, label, title, forwardM, rightM) {
+    const point = _missionTargetScenePoint();
+    const baseF = Number(forwardM) || 0;
+    const baseR = Number(rightM) || 0;
+    if (!point) return { forwardM: baseF, rightM: baseR, adjusted: false };
+    const itemInfo = { kind, label, objectTitle: title };
+    let f = baseF;
+    let r = baseR;
+    let lastZone = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const ll = _missionSceneOffsetToLatLon(point.lat, point.lon, point.hdg, f, r);
+        if (!ll) break;
+        const zone = _missionTargetGeoBlockingZone(ll.lat, ll.lon, itemInfo);
+        if (!zone) {
+            return {
+                forwardM: Math.round(f),
+                rightM: Math.round(r),
+                adjusted: attempt > 0,
+                zone: lastZone ? String(lastZone.type || '') : null
+            };
+        }
+        lastZone = zone;
+        let nav = null;
+        try { nav = calcNav(Number(zone.center?.lat), Number(zone.center?.lon), ll.lat, ll.lon); } catch (_) {}
+        if (!Number.isFinite(Number(nav?.brng)) || Number(nav?.dist || 0) * 1852 < 1) {
+            try { nav = calcNav(Number(zone.center?.lat), Number(zone.center?.lon), point.lat, point.lon); } catch (_) {}
+        }
+        const awayBearing = Number.isFinite(Number(nav?.brng)) ? Number(nav.brng) : (Number(zone.bearingDeg || 0) + 180);
+        const distFromCenterM = Number.isFinite(Number(nav?.dist)) ? Number(nav.dist) * 1852 : 0;
+        const pushM = Math.max(18, Math.min(90, Number(zone.radiusM || 25) - distFromCenterM + 22));
+        const shift = _missionTargetGeoLocalShift(awayBearing, pushM, point.hdg);
+        f += shift.f;
+        r += shift.r;
+    }
+
+    const rings = [24, 42, 65, 92];
+    const bearings = [0, 45, 90, 135, 180, 225, 270, 315];
+    for (const radius of rings) {
+        for (const relBearing of bearings) {
+            const shift = _missionTargetGeoLocalShift(Number(point.hdg || 0) + relBearing, radius, point.hdg);
+            const testF = baseF + shift.f;
+            const testR = baseR + shift.r;
+            const ll = _missionSceneOffsetToLatLon(point.lat, point.lon, point.hdg, testF, testR);
+            if (!ll || _missionTargetGeoBlockingZone(ll.lat, ll.lon, itemInfo)) continue;
+            return {
+                forwardM: Math.round(testF),
+                rightM: Math.round(testR),
+                adjusted: true,
+                zone: lastZone ? String(lastZone.type || '') : null
+            };
+        }
+    }
+    return { forwardM: Math.round(f), rightM: Math.round(r), adjusted: !!lastZone, zone: lastZone ? String(lastZone.type || '') : null };
+}
+
 function _missionTargetSceneText() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const contract = md?.missionContract || window.activeMissionContract || {};
@@ -1927,16 +2027,18 @@ function _missionTargetSceneKind() {
 
 function _missionTargetSceneItem(kind, label, title, pool, forwardM, rightM, options = {}) {
     if (!title) return null;
+    const resolved = _missionTargetGeoResolveWorldOffset(kind, label, title, forwardM, rightM);
     return {
         kind,
         label,
         objectTitle: title,
         titleCandidates: _sceneAssetCandidates(title, pool || []),
-        forwardM,
-        rightM,
+        forwardM: resolved.forwardM,
+        rightM: resolved.rightM,
         headingMode: 'with_aircraft',
         hdgOffsetDeg: Number.isFinite(Number(options.hdgOffsetDeg)) ? Number(options.hdgOffsetDeg) : 0,
-        altOffsetFt: Number.isFinite(Number(options.altOffsetFt)) ? Number(options.altOffsetFt) : 0
+        altOffsetFt: Number.isFinite(Number(options.altOffsetFt)) ? Number(options.altOffsetFt) : 0,
+        worldAvoidance: resolved.adjusted ? { adjusted: true, zone: resolved.zone || null } : undefined
     };
 }
 
