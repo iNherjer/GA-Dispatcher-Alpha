@@ -380,6 +380,7 @@ function _missionSceneDebugState() {
             aiRequested: null,
             aiNormalized: null,
             contractTargetScene: null,
+            targetGeoContext: null,
             missionContext: null,
             appResolvedTargetScene: null,
             lastCommand: null,
@@ -546,6 +547,7 @@ window.gaMissionSceneDebugRecordAi = function(info = {}) {
         sceneAccepted: info.sceneAccepted ?? null,
         sceneCompositionStatus: info.sceneCompositionStatus || null,
         sceneIntent: info.sceneIntent || null,
+        targetGeoContext: info.targetGeoContext || info.sceneComposer?.targetGeoContext || null,
         sceneComposer: info.sceneComposer || null,
         aiRequested: info.aiRequested || null,
         aiNormalized: info.aiNormalized || null,
@@ -1734,6 +1736,50 @@ function _missionTargetSceneSpec() {
     return spec && typeof spec === 'object' ? spec : null;
 }
 
+function _missionTargetGeoContext() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const ctx = md?.targetGeoContext || md?.missionContract?.targetGeoContext || window.activeMissionContract?.targetGeoContext || null;
+    return ctx && typeof ctx === 'object' ? ctx : null;
+}
+
+function _missionTargetGeoAnchor(names = []) {
+    const ctx = _missionTargetGeoContext();
+    const anchors = ctx?.anchors && typeof ctx.anchors === 'object' ? ctx.anchors : null;
+    if (!anchors) return null;
+    const list = Array.isArray(names) ? names : [names];
+    for (const name of list) {
+        const anchor = anchors[String(name || '')];
+        if (anchor && anchor.present && Number.isFinite(Number(anchor.bearingDeg))) return anchor;
+    }
+    return null;
+}
+
+function _missionTargetGeoOffset(names, fallbackF, fallbackR, options = {}) {
+    const point = _missionTargetScenePoint();
+    const anchor = _missionTargetGeoAnchor(names);
+    if (!point || !anchor) return { f: fallbackF, r: fallbackR, hdg: Number(options.hdgOffsetDeg ?? 0), anchored: false };
+    const maxM = Number.isFinite(Number(options.maxM)) ? Number(options.maxM) : 130;
+    const minM = Number.isFinite(Number(options.minM)) ? Number(options.minM) : 18;
+    const preferredM = Number(options.distanceM);
+    const rawDist = Number.isFinite(preferredM) ? preferredM : Number(anchor.distM || 0);
+    const distM = Math.max(minM, Math.min(maxM, Number.isFinite(rawDist) ? rawDist : Math.max(minM, Math.hypot(Number(fallbackF) || 0, Number(fallbackR) || 0))));
+    const deltaRad = ((Number(anchor.bearingDeg) - Number(point.hdg || 0)) * Math.PI) / 180;
+    let f = Math.cos(deltaRad) * distM;
+    let r = Math.sin(deltaRad) * distM;
+    const lateral = Number(options.lateralM || 0);
+    if (Number.isFinite(lateral) && lateral !== 0) {
+        f += Math.cos(deltaRad + Math.PI / 2) * lateral;
+        r += Math.sin(deltaRad + Math.PI / 2) * lateral;
+    }
+    return {
+        f: Math.round(f),
+        r: Math.round(r),
+        hdg: Number.isFinite(Number(options.hdgOffsetDeg)) ? Number(options.hdgOffsetDeg) : Math.round(Number(anchor.bearingDeg) - Number(point.hdg || 0)),
+        anchored: true,
+        anchor
+    };
+}
+
 function _missionTargetSceneText() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const contract = md?.missionContract || window.activeMissionContract || {};
@@ -2143,7 +2189,8 @@ function _missionTargetSceneItems(kind) {
             const step = i * 5;
             if (feature === 'powerline') {
                 const pylon = MISSION_SCENE_ASSET_POOLS.utilityPower.includes('PowerPylon_Base') ? 'PowerPylon_Base' : _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityPower, `feature-powerline-${i}`, 'PowerPylon_Base');
-                add(`feature_powerline_${i + 1}`, 'Zusatz Strommast/Freileitung', pylon, MISSION_SCENE_ASSET_POOLS.utilityPower, 24 + (i * 28), -18 + (i * 5), { hdgOffsetDeg: 0 });
+                const pos = _missionTargetGeoOffset(['power'], 24 + (i * 28), -18 + (i * 5), { minM: 12, maxM: 150, lateralM: i * 18, hdgOffsetDeg: 0 });
+                add(`feature_powerline_${i + 1}`, 'Zusatz Strommast/Freileitung', pylon, MISSION_SCENE_ASSET_POOLS.utilityPower, pos.f, pos.r, { hdgOffsetDeg: 0 });
             } else if (feature === 'generator') {
                 const generator = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityGenerators, `feature-generator-${i}`, 'PowerGenerator');
                 add(`feature_generator_${i + 1}`, 'Zusatz Generator', generator, MISSION_SCENE_ASSET_POOLS.utilityGenerators, 14 + step, -13 - step, { hdgOffsetDeg: 35 });
@@ -2162,15 +2209,18 @@ function _missionTargetSceneItems(kind) {
                 add(`feature_cargo_${i + 1}`, kind === 'sar_land' ? 'Support Material abseits Suchziel' : 'Zusatz Material/Fracht', cargo, MISSION_SCENE_ASSET_POOLS.cargo, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'road_vehicles') {
                 const car = _scenePickTitle(carPool, `feature-car-${i}`, 'Microsoft_Car_EUR_01');
-                const pos = kind === 'sar_land' ? { f: -86 - step, r: 36 + step, hdg: 35 } : { f: -20 - step, r: -1 + step, hdg: i % 2 ? 190 : 15 };
+                const fallback = kind === 'sar_land' ? { f: -86 - step, r: 36 + step, hdg: 35 } : { f: -20 - step, r: -1 + step, hdg: i % 2 ? 190 : 15 };
+                const pos = _missionTargetGeoOffset(['parking', 'road', 'path'], fallback.f, fallback.r, { minM: kind === 'sar_land' ? 70 : 20, maxM: kind === 'sar_land' ? 180 : 120, lateralM: i * 8, hdgOffsetDeg: fallback.hdg });
                 add(`feature_vehicle_${i + 1}`, kind === 'sar_land' ? 'Suchfahrzeug im Perimeter' : 'Zusatz Fahrzeug', car, carPool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'emergency_response') {
                 const support = _scenePickTitle(primarySupportVehiclePool, `feature-emergency-${i}`, 'Car Bush Medic');
-                const pos = kind === 'sar_land' ? { f: -95 - step, r: 42 + step, hdg: 35 } : { f: -18 - step, r: 12 + step, hdg: 210 };
+                const fallback = kind === 'sar_land' ? { f: -95 - step, r: 42 + step, hdg: 35 } : { f: -18 - step, r: 12 + step, hdg: 210 };
+                const pos = _missionTargetGeoOffset(['parking', 'road', 'path'], fallback.f, fallback.r, { minM: kind === 'sar_land' ? 75 : 20, maxM: kind === 'sar_land' ? 190 : 120, lateralM: i * 9, hdgOffsetDeg: fallback.hdg });
                 add(`feature_emergency_${i + 1}`, kind === 'sar_land' ? 'Einsatzfahrzeug im Suchperimeter' : 'Zusatz Einsatzfahrzeug', support, supportVehiclePool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'people') {
                 const person = i % 2 ? personB : personA;
-                const pos = kind === 'sar_land' ? { f: -72 - step, r: 30 + step, hdg: 35 } : { f: 4 + step, r: 9 + step, hdg: 210 };
+                const fallback = kind === 'sar_land' ? { f: -72 - step, r: 30 + step, hdg: 35 } : { f: 4 + step, r: 9 + step, hdg: 210 };
+                const pos = _missionTargetGeoOffset(['path', 'road', 'parking'], fallback.f, fallback.r, { minM: kind === 'sar_land' ? 55 : 12, maxM: kind === 'sar_land' ? 160 : 95, lateralM: i * 6, hdgOffsetDeg: fallback.hdg });
                 add(`feature_person_${i + 1}`, kind === 'sar_land' ? 'Suchtrupp im Zielgebiet' : 'Zusatz Person', person, peoplePool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'missing_person') {
                 const person = i % 2 ? personB : personA;
@@ -2183,39 +2233,47 @@ function _missionTargetSceneItems(kind) {
                 add(`feature_debris_${i + 1}`, 'Zusatz Debris', debris, debrisPool, -6 + step, -15 - step, { hdgOffsetDeg: 35 + (i * 30) });
             } else if (feature === 'logs') {
                 const log = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.natureLogs, `feature-log-${i}`, 'Log_01');
-                add(`feature_log_${i + 1}`, 'Zusatz Holz/Treibgut', log, MISSION_SCENE_ASSET_POOLS.natureLogs, 7 + step, -17 - step, { hdgOffsetDeg: 80 + (i * 20) });
+                const pos = _missionTargetGeoOffset(['water', 'forest', 'meadow'], 7 + step, -17 - step, { minM: 12, maxM: 115, lateralM: i * 5, hdgOffsetDeg: 80 + (i * 20) });
+                add(`feature_log_${i + 1}`, 'Zusatz Holz/Treibgut', log, MISSION_SCENE_ASSET_POOLS.natureLogs, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'liferaft') {
                 const raft = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.sarWaterTarget, `feature-liferaft-${i}`, 'LifeRaft');
                 add(`feature_liferaft_${i + 1}`, 'Zusatz Rettungsinsel', raft, MISSION_SCENE_ASSET_POOLS.sarWaterTarget, 8 + step, -12 - step, { hdgOffsetDeg: 20 });
             } else if (feature === 'watercraft') {
                 const boat = _scenePickTitle(smallBoatPool, `feature-watercraft-${i}`, 'Fishing Boat Red Modular');
-                add(`feature_watercraft_${i + 1}`, 'Zusatz kleines Boot', boat, smallBoatPool, 28 + (i * 18), -20 - (i * 8), { hdgOffsetDeg: 130 });
+                const pos = _missionTargetGeoOffset(['water'], 28 + (i * 18), -20 - (i * 8), { minM: 20, maxM: 130, lateralM: i * 12, hdgOffsetDeg: 130 });
+                add(`feature_watercraft_${i + 1}`, 'Zusatz kleines Boot', boat, smallBoatPool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'service_ship') {
                 const ship = _scenePickTitle(serviceShipPool, `feature-service-ship-${i}`, 'Microsoft_Ships_AbeilleBourbon_1.0');
                 add(`feature_service_ship_${i + 1}`, 'Zusatz Arbeits-/Service-Schiff', ship, serviceShipPool, 34 + (i * 24), -24 - (i * 10), { hdgOffsetDeg: 130 });
             } else if (feature === 'waterfowl') {
                 const bird = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.waterfowl, `feature-waterfowl-${i}`, 'Goose');
-                add(`feature_waterfowl_${i + 1}`, 'Zusatz Wasservogel', bird, MISSION_SCENE_ASSET_POOLS.waterfowl, 14 + (i * 4), -11 - (i * 3), { hdgOffsetDeg: 70 + (i * 35) });
+                const pos = _missionTargetGeoOffset(['water'], 14 + (i * 4), -11 - (i * 3), { minM: 10, maxM: 90, lateralM: i * 5, hdgOffsetDeg: 70 + (i * 35) });
+                add(`feature_waterfowl_${i + 1}`, 'Zusatz Wasservogel', bird, MISSION_SCENE_ASSET_POOLS.waterfowl, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'wildlife_animals') {
                 const animal = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.wildlifeAnimals, `feature-wildlife-${i}`, 'OHemionusFemale');
-                add(`feature_wildlife_${i + 1}`, 'Zusatz Wildtier', animal, MISSION_SCENE_ASSET_POOLS.wildlifeAnimals, -10 + (i * 6), -14 + (i * 4), { hdgOffsetDeg: 45 + (i * 20) });
+                const pos = _missionTargetGeoOffset(['meadow', 'forest', 'farmland'], -10 + (i * 6), -14 + (i * 4), { minM: 15, maxM: 125, lateralM: i * 7, hdgOffsetDeg: 45 + (i * 20) });
+                add(`feature_wildlife_${i + 1}`, 'Zusatz Wildtier', animal, MISSION_SCENE_ASSET_POOLS.wildlifeAnimals, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'animal_herd') {
                 const herdCount = Math.max(3, safeCount);
+                const anchorBase = _missionTargetGeoOffset(['meadow', 'farmland', 'forest'], -8, 12, { minM: 18, maxM: 135, hdgOffsetDeg: 90 });
                 for (let h = 0; h < herdCount; h++) {
                     const animal = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.grazingAnimals, `feature-herd-${i}-${h}`, 'ALerviaFemale');
-                    add(`feature_herd_${i + 1}_${h + 1}`, 'Zusatz Tiergruppe', animal, MISSION_SCENE_ASSET_POOLS.grazingAnimals, -8 + (h * 5), 12 + ((h % 3) * 4), { hdgOffsetDeg: 90 + (h * 25) });
+                    add(`feature_herd_${i + 1}_${h + 1}`, 'Zusatz Tiergruppe', animal, MISSION_SCENE_ASSET_POOLS.grazingAnimals, anchorBase.f + (h * 5), anchorBase.r + ((h % 3) * 4), { hdgOffsetDeg: 90 + (h * 25) });
                 }
                 break;
             } else if (feature === 'tent') {
                 const tent = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.campTents, `feature-camp-tent-${i}`, 'LFPB_AS_Tent_01');
-                add(`feature_tent_${i + 1}`, 'Zusatz Zelt', tent, MISSION_SCENE_ASSET_POOLS.campTents, -16 - step, 10 + step, { hdgOffsetDeg: 25 });
+                const pos = _missionTargetGeoOffset(['forest', 'meadow', 'water', 'path'], -16 - step, 10 + step, { minM: 18, maxM: 125, lateralM: i * 7, hdgOffsetDeg: 25 });
+                add(`feature_tent_${i + 1}`, 'Zusatz Zelt', tent, MISSION_SCENE_ASSET_POOLS.campTents, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'parked_vehicle') {
                 const car = _scenePickTitle(carPool, `feature-shore-car-${i}`, 'Microsoft_Car_EUR_02');
-                const pos = kind === 'sar_land' ? { f: -78 - step, r: 34 + step, hdg: 35 } : { f: -22 - step, r: 11 + step, hdg: 205 };
+                const fallback = kind === 'sar_land' ? { f: -78 - step, r: 34 + step, hdg: 35 } : { f: -22 - step, r: 11 + step, hdg: 205 };
+                const pos = _missionTargetGeoOffset(['parking', 'road', 'path'], fallback.f, fallback.r, { minM: kind === 'sar_land' ? 55 : 18, maxM: kind === 'sar_land' ? 170 : 115, lateralM: i * 7, hdgOffsetDeg: fallback.hdg });
                 add(`feature_shore_vehicle_${i + 1}`, kind === 'sar_land' ? 'Abgestelltes Fahrzeug abseits Fundpunkt' : 'Zusatz parkendes Auto', car, carPool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'small_equipment') {
                 const kit = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smallCargo, `feature-equipment-${i}`, 'Cardboard');
-                const pos = kind === 'sar_land' ? { f: 8 + step, r: -6 - step, hdg: 10 } : { f: -11 - step, r: 14 + step, hdg: 10 };
+                const fallback = kind === 'sar_land' ? { f: 8 + step, r: -6 - step, hdg: 10 } : { f: -11 - step, r: 14 + step, hdg: 10 };
+                const pos = _missionTargetGeoOffset(['water', 'path', 'road', 'parking'], fallback.f, fallback.r, { minM: 10, maxM: 95, lateralM: i * 4, hdgOffsetDeg: fallback.hdg });
                 add(`feature_equipment_${i + 1}`, kind === 'sar_land' ? 'Hinweis / kleine Ausruestung' : 'Zusatz Ausruestung', kit, MISSION_SCENE_ASSET_POOLS.smallCargo, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'campfire') {
                 const fire = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.fireVfx, `feature-campfire-${i}`, 'VO_Fire_R1_40');
@@ -2267,9 +2325,11 @@ function _missionTargetSceneItems(kind) {
         const pylonBase = MISSION_SCENE_ASSET_POOLS.utilityPower.includes('PowerPylon_Base') ? 'PowerPylon_Base' : _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityPower, 'power-pylon-base', 'PowerPylon_Base');
         const generator = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityGenerators, 'power-generator', 'PowerGenerator');
         const utilityTruck = _scenePickTitle(primaryTruckPool, 'power-utility-truck', 'Truck Utility Europe Flush');
-        add('power_pylon_1', 'Strommast', pylonBase, MISSION_SCENE_ASSET_POOLS.utilityPower, 0, 0, { hdgOffsetDeg: 0 });
-        add('power_pylon_2', 'Strommast Folgepunkt', pylonBase, MISSION_SCENE_ASSET_POOLS.utilityPower, 34, 7, { hdgOffsetDeg: 0 });
-        add('utility_truck', 'Utility Fahrzeug', utilityTruck, truckPool, -16, 12, { hdgOffsetDeg: 205 });
+        const powerPos = _missionTargetGeoOffset(['power'], 0, 0, { minM: 8, maxM: 120, hdgOffsetDeg: 0 });
+        const roadPos = _missionTargetGeoOffset(['parking', 'road', 'path'], -16, 12, { minM: 22, maxM: 120, hdgOffsetDeg: 205 });
+        add('power_pylon_1', 'Strommast', pylonBase, MISSION_SCENE_ASSET_POOLS.utilityPower, powerPos.f, powerPos.r, { hdgOffsetDeg: 0 });
+        add('power_pylon_2', 'Strommast Folgepunkt', pylonBase, MISSION_SCENE_ASSET_POOLS.utilityPower, powerPos.f + 34, powerPos.r + 7, { hdgOffsetDeg: 0 });
+        add('utility_truck', 'Utility Fahrzeug', utilityTruck, truckPool, roadPos.f, roadPos.r, { hdgOffsetDeg: roadPos.hdg });
         add('generator', 'Generator', generator, MISSION_SCENE_ASSET_POOLS.utilityGenerators, -8, 6, { hdgOffsetDeg: 30 });
         add('marker_1', 'Arbeitsbereich', cone, markerPool, -4, -6);
         return finish();
@@ -2331,15 +2391,17 @@ function _missionTargetSceneItems(kind) {
 
     if (kind === 'water_context') {
         const log = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.natureLogs, 'water-context-log', 'Log_01');
-        add('water_ref_1', 'Ufer-/Wasser Referenz', log, MISSION_SCENE_ASSET_POOLS.natureLogs, -4, -5, { hdgOffsetDeg: 70 });
-        add('water_ref_2', 'Ufer-/Wasser Referenz', log, MISSION_SCENE_ASSET_POOLS.natureLogs, 8, 4, { hdgOffsetDeg: 120 });
+        const waterPos = _missionTargetGeoOffset(['water'], -4, -5, { minM: 12, maxM: 110, hdgOffsetDeg: 70 });
+        add('water_ref_1', 'Ufer-/Wasser Referenz', log, MISSION_SCENE_ASSET_POOLS.natureLogs, waterPos.f, waterPos.r, { hdgOffsetDeg: waterPos.hdg });
+        add('water_ref_2', 'Ufer-/Wasser Referenz', log, MISSION_SCENE_ASSET_POOLS.natureLogs, waterPos.f + 12, waterPos.r + 9, { hdgOffsetDeg: 120 });
         return finish();
     }
 
     if (kind === 'wildlife_site') {
         const log = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.natureLogs, 'wildlife-log', 'Log_01');
-        add('habitat_ref_1', 'Habitat Referenz', log, MISSION_SCENE_ASSET_POOLS.natureLogs, -5, -5, { hdgOffsetDeg: 65 });
-        add('habitat_ref_2', 'Habitat Referenz', log, MISSION_SCENE_ASSET_POOLS.natureLogs, 8, 4, { hdgOffsetDeg: 122 });
+        const habitatPos = _missionTargetGeoOffset(['meadow', 'forest', 'farmland'], -5, -5, { minM: 14, maxM: 115, hdgOffsetDeg: 65 });
+        add('habitat_ref_1', 'Habitat Referenz', log, MISSION_SCENE_ASSET_POOLS.natureLogs, habitatPos.f, habitatPos.r, { hdgOffsetDeg: habitatPos.hdg });
+        add('habitat_ref_2', 'Habitat Referenz', log, MISSION_SCENE_ASSET_POOLS.natureLogs, habitatPos.f + 13, habitatPos.r + 9, { hdgOffsetDeg: 122 });
         return finish();
     }
 
@@ -2357,9 +2419,10 @@ function _missionTargetSceneItems(kind) {
         const carA = _scenePickTitle(carPool, 'incident-car-a', 'Microsoft_Car_EUR_01');
         const carB = _scenePickTitle(carPool, 'incident-car-b', 'Microsoft_Car_EUR_03');
         const support = _scenePickTitle(primarySupportVehiclePool, 'incident-support', 'Car Bush Medic');
-        add('incident_car_1', 'Unfallfahrzeug 1', carA, carPool, 0, -8, { hdgOffsetDeg: 18 });
-        add('incident_car_2', 'Unfallfahrzeug 2', carB, carPool, 7, -5, { hdgOffsetDeg: 198 });
-        add('support_vehicle', 'Einsatzfahrzeug', support, supportVehiclePool, -13, 11, { hdgOffsetDeg: 210 });
+        const roadPos = _missionTargetGeoOffset(['road', 'parking'], 0, -8, { minM: 12, maxM: 100, hdgOffsetDeg: 18 });
+        add('incident_car_1', 'Unfallfahrzeug 1', carA, carPool, roadPos.f, roadPos.r, { hdgOffsetDeg: roadPos.hdg });
+        add('incident_car_2', 'Unfallfahrzeug 2', carB, carPool, roadPos.f + 7, roadPos.r + 3, { hdgOffsetDeg: 198 });
+        add('support_vehicle', 'Einsatzfahrzeug', support, supportVehiclePool, roadPos.f - 13, roadPos.r + 19, { hdgOffsetDeg: 210 });
         add('person_1', 'Person an Unfallstelle', personA, peoplePool, 3, -12, { hdgOffsetDeg: 90 });
         add('person_2', 'Person an Unfallstelle', personB, peoplePool, -2, -13, { hdgOffsetDeg: 110 });
         add('marker_1', 'Absperrkegel', cone, markerPool, -5, -2);
@@ -2370,8 +2433,9 @@ function _missionTargetSceneItems(kind) {
     if (kind === 'sar_water') {
         const raft = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.sarWaterTarget, 'sar-water-raft', 'LifeRaft');
         const boat = _scenePickTitle(serviceShipPool, 'sar-water-service-ship', 'Microsoft_Ships_AbeilleBourbon_1.0');
-        add('liferaft', 'Rettungsinsel', raft, MISSION_SCENE_ASSET_POOLS.sarWaterTarget, 0, 0, { hdgOffsetDeg: 20 });
-        add('service_ship_1', 'SAR Arbeits-/Service-Schiff', boat, serviceShipPool, -32, 23, { hdgOffsetDeg: 135 });
+        const waterPos = _missionTargetGeoOffset(['water'], 0, 0, { minM: 10, maxM: 115, hdgOffsetDeg: 20 });
+        add('liferaft', 'Rettungsinsel', raft, MISSION_SCENE_ASSET_POOLS.sarWaterTarget, waterPos.f, waterPos.r, { hdgOffsetDeg: waterPos.hdg });
+        add('service_ship_1', 'SAR Arbeits-/Service-Schiff', boat, serviceShipPool, waterPos.f - 32, waterPos.r + 23, { hdgOffsetDeg: 135 });
         return finish();
     }
 
@@ -2414,8 +2478,9 @@ function _missionTargetSceneItems(kind) {
 
     if (kind === 'survey_context') {
         const ref = _scenePickTitle(debrisPool, 'survey-context-ref', 'Log_01');
-        add('survey_ref_1', 'Survey Referenzobjekt', ref, debrisPool, -2, -4, { hdgOffsetDeg: 35 });
-        add('survey_ref_2', 'Survey Referenzobjekt', ref, debrisPool, 7, 5, { hdgOffsetDeg: 130 });
+        const contextPos = _missionTargetGeoOffset(['meadow', 'farmland', 'forest', 'road'], -2, -4, { minM: 12, maxM: 110, hdgOffsetDeg: 35 });
+        add('survey_ref_1', 'Survey Referenzobjekt', ref, debrisPool, contextPos.f, contextPos.r, { hdgOffsetDeg: contextPos.hdg });
+        add('survey_ref_2', 'Survey Referenzobjekt', ref, debrisPool, contextPos.f + 9, contextPos.r + 9, { hdgOffsetDeg: 130 });
         return finish();
     }
 
@@ -2441,6 +2506,7 @@ window.missionTargetSceneEnsureSpawned = function(reason = 'mission-start') {
         sceneId,
         reason,
         requestedSpec: _missionTargetSceneSpec(),
+        targetGeoContext: _missionTargetGeoContext(),
         resolvedKind: kind,
         point,
         itemCount: items.length,
@@ -2499,6 +2565,7 @@ window.missionTargetSceneDebugPreview = function(reason = 'planned-target-scene'
             sceneId,
             reason,
             requestedSpec: _missionTargetSceneSpec(),
+            targetGeoContext: _missionTargetGeoContext(),
             resolvedKind: kind,
             point,
             itemCount: items.length,

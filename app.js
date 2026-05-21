@@ -6680,7 +6680,7 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     return _pickFromWeighted(weighted, 'auto');
 }
 
-function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true } = {}) {
+function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null } = {}) {
     const profile = getMissionTaskProfile(appliedProfileId, isPOI ? 'poi' : 'apt') || getMissionTaskProfile('auto', isPOI ? 'poi' : 'apt');
     const taskDomain = String(passenger?.taskDomain || profile?.taskDomain || 'general').toLowerCase();
     const roleProfile = String(passenger?.roleProfile || profile?.roleProfile || 'general_passenger_v1').toLowerCase();
@@ -6713,6 +6713,7 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
         missionStory: story,
         sceneIntent,
         sceneAccepted: !!sceneAccepted,
+        targetGeoContext: targetGeoContext || mission?.targetGeoContext || passenger?.targetGeoContext || null,
         targetScene,
         constraints
     };
@@ -7584,6 +7585,184 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
     }, { isPOI, taskDomain });
 }
 
+const MISSION_TARGET_GEO_CONTEXT_RADIUS_M = 750;
+const MISSION_TARGET_GEO_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
+const missionTargetGeoContextInflight = new Map();
+
+function missionTargetGeoContextCacheKey(lat, lon, radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M) {
+    const la = Math.round(Number(lat) * 1000) / 1000;
+    const lo = Math.round(Number(lon) * 1000) / 1000;
+    return `ga_target_geo_context_v1_${la}_${lo}_${Math.round(Number(radiusM) || radiusM)}`;
+}
+
+function missionTargetGeoContextCategory(tags = {}) {
+    const highway = String(tags.highway || '').toLowerCase();
+    if (highway) {
+        if (/path|footway|cycleway|bridleway|steps|track/.test(highway)) return 'path';
+        return 'road';
+    }
+    if (String(tags.amenity || '').toLowerCase() === 'parking') return 'parking';
+    if (tags.waterway || tags.water || /water|reservoir|basin/.test(String(tags.natural || tags.landuse || '').toLowerCase())) return 'water';
+    if (/wood|forest/.test(String(tags.natural || tags.landuse || '').toLowerCase())) return 'forest';
+    if (/meadow|grassland|grass|village_green/.test(String(tags.natural || tags.landuse || '').toLowerCase())) return 'meadow';
+    if (/farmland|farmyard|orchard|vineyard/.test(String(tags.landuse || '').toLowerCase())) return 'farmland';
+    if (tags.building) return 'building';
+    if (tags.power) return 'power';
+    if (tags.railway) return 'railway';
+    if (tags.bridge) return 'bridge';
+    return '';
+}
+
+function missionTargetGeoContextElementPoint(el = {}) {
+    const lat = Number(el.lat ?? el.center?.lat);
+    const lon = Number(el.lon ?? el.center?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+}
+
+function summarizeMissionTargetGeoContext(ctx = null) {
+    if (!ctx || typeof ctx !== 'object') return '';
+    if (ctx.summary) return String(ctx.summary);
+    const anchors = ctx.anchors && typeof ctx.anchors === 'object' ? ctx.anchors : {};
+    return Object.entries(anchors)
+        .filter(([, a]) => a && a.present)
+        .map(([k, a]) => `${k}:${Math.round(Number(a.distM) || 0)}m/${Math.round(Number(a.bearingDeg) || 0)}deg`)
+        .slice(0, 8)
+        .join(', ');
+}
+
+function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLon = null, radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M) {
+    const lat = Number(centerLat);
+    const lon = Number(centerLon);
+    if (!raw || !Array.isArray(raw.elements) || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const anchors = {};
+    const counts = {};
+    raw.elements.forEach(el => {
+        const tags = el?.tags || {};
+        const category = missionTargetGeoContextCategory(tags);
+        if (!category) return;
+        const pt = missionTargetGeoContextElementPoint(el);
+        if (!pt) return;
+        let nav = null;
+        try { nav = calcNav(lat, lon, pt.lat, pt.lon); } catch (_) {}
+        const distM = Number(nav?.dist) * 1852;
+        const bearingDeg = Number(nav?.brng);
+        if (!Number.isFinite(distM) || !Number.isFinite(bearingDeg)) return;
+        counts[category] = (counts[category] || 0) + 1;
+        const name = String(tags.name || tags.ref || tags.operator || tags.highway || tags.landuse || tags.natural || tags.waterway || tags.amenity || tags.power || tags.railway || tags.building || '').slice(0, 80);
+        if (!anchors[category] || distM < Number(anchors[category].distM || Infinity)) {
+            anchors[category] = {
+                present: true,
+                count: counts[category],
+                distM: Math.round(distM),
+                bearingDeg: Math.round(bearingDeg),
+                name,
+                tag: category
+            };
+        } else {
+            anchors[category].count = counts[category];
+        }
+    });
+    Object.keys(counts).forEach(k => {
+        if (anchors[k]) anchors[k].count = counts[k];
+    });
+    const hints = [];
+    if (anchors.road || anchors.parking) hints.push('roadside/vehicle placement plausible near the road or parking anchor');
+    if (anchors.water) hints.push('waterline placement plausible near the water anchor');
+    if (anchors.forest) hints.push('forest-edge placement plausible near the forest anchor');
+    if (anchors.meadow || anchors.farmland) hints.push('animals/tents/reference objects plausible on meadow or farmland anchors');
+    if (anchors.power) hints.push('powerline/pylon placement plausible near the power anchor');
+    const summary = Object.entries(anchors)
+        .filter(([, a]) => a && a.present)
+        .sort((a, b) => Number(a[1].distM || 999999) - Number(b[1].distM || 999999))
+        .map(([k, a]) => `${k} ${Math.round(Number(a.distM) || 0)}m bearing ${Math.round(Number(a.bearingDeg) || 0)}deg`)
+        .slice(0, 8)
+        .join('; ');
+    return {
+        source: 'overpass',
+        radiusM: Math.round(Number(radiusM) || MISSION_TARGET_GEO_CONTEXT_RADIUS_M),
+        center: {
+            lat: Math.round(lat * 100000) / 100000,
+            lon: Math.round(lon * 100000) / 100000
+        },
+        anchors,
+        hints,
+        summary,
+        fetchedAt: Date.now()
+    };
+}
+
+async function fetchMissionTargetGeoContext(missionData = null) {
+    const md = missionData || currentMissionData || {};
+    if (!md || !md.isPOI) return null;
+    const lat = Number(md.targetLat);
+    const lon = Number(md.targetLon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M;
+    const key = missionTargetGeoContextCacheKey(lat, lon, radiusM);
+    const readCache = (store) => {
+        try {
+            const raw = store?.getItem?.(key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || (Date.now() - Number(parsed.fetchedAt || 0)) > MISSION_TARGET_GEO_CONTEXT_TTL_MS) return null;
+            return parsed;
+        } catch (_) {
+            return null;
+        }
+    };
+    const cached = readCache(sessionStorage) || readCache(localStorage);
+    if (cached) return cached;
+    if (missionTargetGeoContextInflight.has(key)) return missionTargetGeoContextInflight.get(key);
+
+    const query = `[out:json][timeout:7];
+(
+  way(around:${radiusM},${lat},${lon})["highway"];
+  node(around:${radiusM},${lat},${lon})["highway"];
+  way(around:${radiusM},${lat},${lon})["waterway"];
+  way(around:${radiusM},${lat},${lon})["natural"~"water|wood|scrub|heath|grassland"];
+  relation(around:${radiusM},${lat},${lon})["natural"~"water|wood"];
+  way(around:${radiusM},${lat},${lon})["landuse"~"forest|meadow|farmland|grass|orchard|vineyard|reservoir"];
+  relation(around:${radiusM},${lat},${lon})["landuse"~"forest|meadow|farmland|grass|orchard|vineyard|reservoir"];
+  way(around:${radiusM},${lat},${lon})["amenity"="parking"];
+  way(around:${radiusM},${lat},${lon})["building"];
+  node(around:${radiusM},${lat},${lon})["power"];
+  way(around:${radiusM},${lat},${lon})["power"];
+  way(around:${radiusM},${lat},${lon})["railway"];
+  way(around:${radiusM},${lat},${lon})["bridge"];
+);
+out tags center 160;`;
+
+    const promise = (async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 9000);
+        try {
+            const res = await fetch('https://overpass-api.de/api/interpreter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                body: `data=${encodeURIComponent(query)}`,
+                signal: controller.signal
+            });
+            if (!res.ok) throw new Error(`overpass_http_${res.status}`);
+            const raw = await res.json();
+            const normalized = normalizeMissionTargetGeoContext(raw, lat, lon, radiusM);
+            if (normalized) {
+                try { sessionStorage.setItem(key, JSON.stringify(normalized)); } catch (_) {}
+                try { localStorage.setItem(key, JSON.stringify(normalized)); } catch (_) {}
+            }
+            return normalized;
+        } catch (err) {
+            console.warn('[MISSION GEO] Overpass context unavailable', err);
+            return null;
+        } finally {
+            clearTimeout(timeoutId);
+            missionTargetGeoContextInflight.delete(key);
+        }
+    })();
+    missionTargetGeoContextInflight.set(key, promise);
+    return promise;
+}
+
 async function composeMissionTargetSceneWithGemini({ missionData = null, missionContract = null, passenger = null } = {}) {
     const md = missionData || currentMissionData || {};
     const contract = missionContract || window.activeMissionContract || md.missionContract || {};
@@ -7591,11 +7770,13 @@ async function composeMissionTargetSceneWithGemini({ missionData = null, mission
     const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
     const taskDomain = String(pax.taskDomain || contract.taskDomain || '').toLowerCase();
     const sceneIntent = sanitizeMissionSceneIntentSpec(md.sceneIntent || contract.sceneIntent || null, { isPOI, taskDomain });
+    const targetGeoContext = md.targetGeoContext || contract.targetGeoContext || null;
     const fallback = deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI, taskDomain });
     const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
     const baseDebug = {
         source: 'local-fallback',
         sceneIntent,
+        targetGeoContext,
         fallback,
         promptVersion: 'scene-composer-v1'
     };
@@ -7634,7 +7815,8 @@ Regeln:
 6. Wenn sceneIntent.avoid etwas verbietet, respektieren.
 7. Fuer alle Missionstypen gilt: Primaerziel zuerst, Kontext danach, Support zuletzt. Support-Objekte wie Fahrzeuge, Crew, Material, Rauch, Tiere oder Absperrungen muessen aus Story/sceneIntent hervorgehen und duerfen den Auftrag nicht logisch schon geloest haben.
 8. Bei SAR ist die vermisste Person, ein Hinweis oder ein Signal das Primaerziel. Suchtrupps/Fahrzeuge sind Support und muessen aus Story/sceneIntent hervorgehen.
-9. Gib AUSSCHLIESSLICH JSON aus.
+9. Wenn targetGeoContext vorhanden ist, nutze ihn nur als lokale Plausibilitaetskarte: road/parking fuer Fahrzeuge, water fuer Ufer/Wasser, forest/meadow/farmland fuer Natur/Tiere/Zelte, power fuer Leitungen. Erfinde keine exakten OSM-Daten und ignoriere Anker, die nicht zur Geschichte passen.
+10. Gib AUSSCHLIESSLICH JSON aus.
 
 ${sceneGuide}
 </INSTRUKTIONEN>
@@ -7649,6 +7831,11 @@ roleProfile: ${String(pax.roleProfile || contract.roleProfile || 'general_passen
 PAX: ${String(contract.paxText || '').slice(0, 160)}
 Cargo: ${String(contract.cargoText || '').slice(0, 160)}
 sceneIntent: ${JSON.stringify(sceneIntent)}
+targetGeoContext: ${JSON.stringify(targetGeoContext ? {
+    summary: summarizeMissionTargetGeoContext(targetGeoContext),
+    anchors: targetGeoContext.anchors || {},
+    hints: targetGeoContext.hints || []
+} : null)}
 </KONTEXT>
 
 <OUTPUT>
@@ -7691,6 +7878,7 @@ sceneIntent: ${JSON.stringify(sceneIntent)}
                 debug: {
                     source,
                     sceneIntent,
+                    targetGeoContext,
                     aiRaw: parsed.targetScene || parsed,
                     normalized: targetScene,
                     fallback,
@@ -7750,6 +7938,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
     if (currentMissionData.missionContract && typeof currentMissionData.missionContract === 'object') {
         currentMissionData.missionContract.targetScene = targetScene;
         currentMissionData.missionContract.sceneAccepted = true;
+        currentMissionData.missionContract.targetGeoContext = currentMissionData.targetGeoContext || currentMissionData.missionContract.targetGeoContext || null;
         currentMissionData.missionContract.sceneIntent = sanitizeMissionSceneIntentSpec(
             currentMissionData.sceneIntent || currentMissionData.missionContract.sceneIntent || null,
             { isPOI, taskDomain }
@@ -7762,6 +7951,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
         sceneAccepted: true,
         sceneCompositionStatus: currentMissionData.sceneCompositionStatus,
         sceneIntent: currentMissionData.sceneIntent || currentMissionData.missionContract?.sceneIntent || null,
+        targetGeoContext: currentMissionData.targetGeoContext || currentMissionData.missionContract?.targetGeoContext || null,
         sceneComposer: composition.debug || null,
         composerReason: reason,
         aiRequested: currentMissionData.targetSceneAiRaw || null,
@@ -7788,6 +7978,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
         snapshot.sceneAccepted = true;
         snapshot.sceneCompositionStatus = currentMissionData.sceneCompositionStatus;
         snapshot.targetScene = targetScene;
+        snapshot.targetGeoContext = currentMissionData.targetGeoContext || null;
         snapshot.targetSceneComposerDebug = composition.debug || null;
         snapshot.targetSceneDebug = {
             ...(snapshot.targetSceneDebug || {}),
@@ -7813,8 +8004,17 @@ window.acceptMissionDraft = async function() {
     currentMissionData.sceneCompositionStatus = 'composing';
     updateMissionAcceptanceUi();
     const indicator = document.getElementById('searchIndicator');
-    if (indicator) indicator.innerText = 'Scene Composer baut Zielszene...';
+    if (indicator) indicator.innerText = 'Lokaler Kartenkontext wird geprueft...';
     try {
+        const geoContext = await fetchMissionTargetGeoContext(currentMissionData);
+        if (geoContext) {
+            currentMissionData.targetGeoContext = geoContext;
+            if (currentMissionData.missionContract && typeof currentMissionData.missionContract === 'object') {
+                currentMissionData.missionContract.targetGeoContext = geoContext;
+                window.activeMissionContract = currentMissionData.missionContract;
+            }
+        }
+        if (indicator) indicator.innerText = 'Scene Composer baut Zielszene...';
         const composition = await composeMissionTargetSceneWithGemini({
             missionData: currentMissionData,
             missionContract: currentMissionData.missionContract || window.activeMissionContract || null,
@@ -9716,6 +9916,7 @@ async function generateMission() {
         sceneIntent: missionSceneIntent,
         sceneAccepted: !missionNeedsAccept,
         sceneCompositionStatus: missionNeedsAccept ? 'draft' : 'accepted',
+        targetGeoContext: null,
         targetScene: initialTargetScene,
         targetSceneDraftRaw: m?.targetScene || null,
         targetSceneAiRaw: m?.targetSceneDebug?.aiRaw || null,
@@ -9744,7 +9945,8 @@ async function generateMission() {
         category: poolCategory,
         targetSceneOverride: initialTargetScene,
         sceneIntentOverride: missionSceneIntent,
-        sceneAccepted: !missionNeedsAccept
+        sceneAccepted: !missionNeedsAccept,
+        targetGeoContext: currentMissionData.targetGeoContext || null
     });
     const fireScenario = buildFireWatchScenario({
         isPOI,
@@ -9765,6 +9967,7 @@ async function generateMission() {
             sceneAccepted: currentMissionData.sceneAccepted,
             sceneCompositionStatus: currentMissionData.sceneCompositionStatus,
             sceneIntent: currentMissionData.sceneIntent || null,
+            targetGeoContext: currentMissionData.targetGeoContext || null,
             aiRequested: m?.targetSceneDebug?.aiRaw || null,
             aiNormalized: m?.targetSceneDebug?.normalized || currentMissionData.targetScene || null,
             contractTargetScene: activeMissionContract.targetScene || null,
@@ -9816,6 +10019,7 @@ async function generateMission() {
             sceneAccepted: currentMissionData.sceneAccepted,
             sceneCompositionStatus: currentMissionData.sceneCompositionStatus,
             sceneIntent: currentMissionData.sceneIntent || null,
+            targetGeoContext: currentMissionData.targetGeoContext || null,
             targetScene: currentMissionData.targetScene || null,
             targetSceneDebug: {
                 sceneIntentRaw: m?.targetSceneDebug?.sceneIntentRaw || m?.sceneIntent || null,
