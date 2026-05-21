@@ -2096,6 +2096,7 @@ function _baseContext() {
     const contractRules = Array.isArray(contract?.constraints)
         ? contract.constraints.map(x => String(x || '').trim()).filter(Boolean).slice(0, 3).join(' | ')
         : '';
+    const aptArrivalLine = _aptArrivalContextLine(md, contract);
     const fireHazard = md?.fireHazard || null;
     const fireHazardLine = (_activeTaskDomain() === 'fire_watch' && Number.isFinite(Number(fireHazard?.level)))
         ? `FEUERLAGE (DWD): Waldbrandgefahrenindex Stufe ${Math.round(Number(fireHazard.level))} von 5 (${String(fireHazard.label || 'n/a')})${fireHazard?.dateIso ? `, Stand ${fireHazard.dateIso}` : ''}.`
@@ -2113,11 +2114,94 @@ ${urgencyLine}`
     if (trainingDiscipline) lines.push(trainingDiscipline);
     if (contractSummary) lines.push(`MISSION-CONTRACT: ${contractSummary}`);
     if (contractRules) lines.push(`CONTRACT-REGELN: ${contractRules}`);
+    if (aptArrivalLine) lines.push(aptArrivalLine);
     if (fireHazardLine) lines.push(fireHazardLine);
     lines.push(roleGuard);
     lines.push(`TASK-DOMAIN: ${_activeTaskDomain()}
 AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).`);
     return lines.join('\n');
+}
+
+function _activeAptArrivalPlan(mdArg = null, contractArg = null) {
+    if (_isPOIMission()) return null;
+    const md = mdArg || (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    let contract = contractArg || md?.missionContract || window.activeMissionContract || null;
+    if (!contract) {
+        try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) { contract = null; }
+    }
+    const truth = md?.missionTruth || contract?.missionTruth || null;
+    const plan = md?.aptArrivalPlan || contract?.aptArrivalPlan || truth?.arrivalScene || null;
+    if (!plan || typeof plan !== 'object') return null;
+    const lat = Number(plan.lat);
+    const lon = Number(plan.lon);
+    return {
+        ...plan,
+        lat: Number.isFinite(lat) ? lat : null,
+        lon: Number.isFinite(lon) ? lon : null
+    };
+}
+
+function _aptArrivalCue(plan = null) {
+    const p = plan || _activeAptArrivalPlan();
+    if (!p) return '';
+    const expectedBy = String(p.expectedBy || p.roleLabel || p.role || '').trim();
+    const visibleCue = String(p.visibleCue || '').trim();
+    if (expectedBy && visibleCue) return `${expectedBy}, erkennbar an ${visibleCue}`;
+    return expectedBy || visibleCue || String(p.narrativeHint || '').trim();
+}
+
+function _aptArrivalLocationLabel(plan = null) {
+    const p = plan || _activeAptArrivalPlan();
+    if (!p) return 'Empfangspunkt';
+    const semantic = String(p.semantic || p.anchorType || '').toLowerCase();
+    const cues = Array.isArray(p.cues) ? p.cues.join(' ').toLowerCase() : '';
+    const policy = Array.isArray(p.snapPolicy?.prefer) ? p.snapPolicy.prefer.join(' ').toLowerCase() : '';
+    const text = `${semantic} ${cues} ${policy}`;
+    if (/hangar/.test(text)) return 'bei den Hangars';
+    if (/zufahrt|gate|access|road|entrance/.test(text)) return 'an der Zufahrt';
+    if (/apron|vorfeld/.test(text)) return 'am Vorfeld';
+    if (/parking|parkposition|parking_position/.test(text)) return 'am Parking-Bereich';
+    return 'am geplanten Empfangspunkt';
+}
+
+function _aptArrivalContextLine(md = null, contract = null) {
+    const plan = _activeAptArrivalPlan(md, contract);
+    if (!plan) return '';
+    const cue = _aptArrivalCue(plan);
+    const label = String(plan.roleLabel || plan.role || 'Empfangsszene').trim();
+    const location = _aptArrivalLocationLabel(plan);
+    const source = String(plan.source || plan.anchorType || '').trim();
+    const hint = String(plan.narrativeHint || '').trim();
+    const parts = [`APT-ARRIVAL: ${label}`];
+    if (location) parts.push(`Ort: ${location}`);
+    if (cue) parts.push(`wartet am Ziel: ${cue}`);
+    if (source) parts.push(`Planquelle: ${source}`);
+    if (hint) parts.push(`Hinweis: ${hint}`);
+    parts.push('Nur bei Anflug, Landung und Rollen grob darauf Bezug nehmen; keine Spawn-Objektliste vorlesen.');
+    return parts.join(' | ');
+}
+
+function _aptArrivalApproachHint() {
+    const plan = _activeAptArrivalPlan();
+    const cue = _aptArrivalCue(plan);
+    if (!cue) return '';
+    return ` APT-Arrival-Hinweis: Bereite kurz auf den Empfangspunkt vor. Erwaehne grob, dass am Ziel ${cue} wartet. Das ist die Ankunfts-/Uebergabe-Meldung vor der Landung, kein langer Debrief und keine Objektliste.`;
+}
+
+function _aptArrivalAfterLandingHint() {
+    const plan = _activeAptArrivalPlan();
+    const cue = _aptArrivalCue(plan);
+    if (!cue) return '';
+    const place = _aptArrivalLocationLabel(plan);
+    return `Nach der Landung: Gib nur ein kurzes Feedback zur Landung und sag, dass wir ${place} rollen sollen; dort wartet ${cue}. Keine Verabschiedung, keine Flugzusammenfassung, keine detaillierte Objektliste.`;
+}
+
+function _aptArrivalFarewellHint() {
+    const plan = _activeAptArrivalPlan();
+    const cue = _aptArrivalCue(plan);
+    if (!cue) return '';
+    const place = _aptArrivalLocationLabel(plan);
+    return `Wir stehen jetzt ${place}; dort wartet ${cue}. Das ist jetzt der eigentliche Abschied am Empfangspunkt. Du darfst den Flug kurz zusammenfassen und dann zur Uebergabe/Abholung ueberleiten.`;
 }
 
 function _roleStyleHint(roleRaw, pax = null) {
@@ -2736,10 +2820,12 @@ function _atTargetPrompt(flightData) {
     const gf    = (flightData?.gForce || 1.0).toFixed(2);
     const isPOI = _isPOIMission();
     const wx    = _weatherContext(flightData);
+    const trainingPlan = _activeAptTrainingPlan();
 
     const situation = isPOI
         ? `Wir sind am Ziel "${(typeof currentMissionData !== 'undefined' ? currentMissionData : null)?.poiName || 'Ziel'}". Höhe: ${altFt} ft MSL / ${aglFt} ft AGL.`
         : `Wir nähern uns ${(typeof currentMissionData !== 'undefined' ? currentMissionData : null)?.dest || 'dem Flughafen'} — Landung gleich.`;
+    const aptArrivalApproachHint = (!isPOI && !trainingPlan) ? _aptArrivalApproachHint() : '';
 
     let notes = '';
     if (pax.gTolerance === 'niedrig' && parseFloat(gf) > 1.3) notes += ` Die G-Belastung vorhin war spürbar für mich.`;
@@ -2756,14 +2842,13 @@ function _atTargetPrompt(flightData) {
         : '';
     const professionalProgressHint = _professionalTaskHint('progress');
     const driftGuard = _domainDriftGuard('progress');
-    const trainingPlan = _activeAptTrainingPlan();
     const landingInstructorHint = (!isPOI && trainingPlan)
         ? ' Als Instruktor im Anflug: bereite den Piloten kurz auf die Landung vor. Wenn realistisch, nenne 1-2 markante Landmarken zur VFR-Orientierung. Melde Wind/Wetter knapp und gib genau einen konkreten Lande-Tipp (z.B. stabiler Endanflug, Seitenwindkorrektur, Go-Around-Entscheidung).'
         : '';
     return `${ctx}
 
 Moment: ${situation}${notes}
-Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv.${inspectionLiveHint}${professionalProgressHint}${landingInstructorHint}${driftGuard} Max 2-3 Sätze.${_toneHint()}`;
+Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv.${aptArrivalApproachHint}${inspectionLiveHint}${professionalProgressHint}${landingInstructorHint}${driftGuard} Max 2-3 Sätze.${_toneHint()}`;
 }
 
 function _aptTrainingPrompt(flightData, distNm, progressRatio) {
@@ -2937,12 +3022,31 @@ function _farewellPrompt(record) {
     const trnTask = trn
         ? '\nDa du hier als Instruktor unterwegs bist: Gib ein kurzes, konkretes Trainingsfazit (was war gut, was sollte beim nächsten Flug sauberer werden).'
         : '';
+    const isPOI = _isPOIMission();
+    const aptFarewellHint = (!isPOI && !trainingPlan) ? _aptArrivalFarewellHint() : '';
 
     return `${ctx}
 
-Moment: Wir sind gelandet, Flug beendet.
+Moment: ${aptFarewellHint || 'Wir sind gelandet, Flug beendet.'}
 Fakten: ${min} min, ${record.distanceNm} NM, max ${record.maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.${highlights ? '\n' + highlights : ''}${trnFacts}
 Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Auch wenn etwas nicht perfekt war, schließ positiv ab.${trnTask}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
+}
+
+function _landingRollPrompt(record = null) {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const hint = _aptArrivalAfterLandingHint();
+    if (!hint) return null;
+    const td = (record && record.touchdownVsFpm != null) ? Math.abs(Math.round(record.touchdownVsFpm)) : null;
+    const landingFact = td != null ? `Touchdown etwa ${td} ft/min.` : 'Touchdown erfolgt.';
+    const wx = _weatherContext(window.lastLiveFlightData);
+    return `${ctx}
+
+Moment: Wir sind gerade gelandet und rollen noch.
+Fakten: ${landingFact}${wx ? ' ' + wx : ''}
+${hint}
+Sprich als ${pax.role} kurz und praktisch: ein Satz zur Landung, ein Satz zum Rollen/Empfangspunkt. Positiv bleiben. Max 2 Sätze.${_toneHint()}`;
 }
 
 // ─── PUBLIC TRIGGERS ─────────────────────────────────────────────────────────
@@ -2996,17 +3100,55 @@ window.triggerPaxAtTarget = async function(flightData) {
     const prompt = _atTargetPrompt(flightData);
     if (!prompt) { _paxAtTargetDone = false; _paxLandingPhaseAnnounced = false; _paxLog('AtTarget: kein Prompt', 'warn'); return; }
     _paxLog('At-Target → API-Call in 2s', 'event');
-    setTimeout(() => _speakAndShow(prompt, _isPOIMission() ? 'Am Ziel' : 'Landung'), 2000);
+    const label = _isPOIMission() ? 'Am Ziel' : (_activeAptArrivalPlan() ? 'Ankunft' : 'Landung');
+    setTimeout(() => _speakAndShow(prompt, label), 2000);
 };
+
+function _notifyFarewellSpeechComplete(reason = 'pax-farewell-complete') {
+    if (typeof window.missionSceneStartDeboardingAfterFarewell !== 'function') return;
+    try {
+        window.missionSceneStartDeboardingAfterFarewell(reason);
+    } catch (err) {
+        _paxLog(`Farewell complete callback failed: ${err?.message || err}`, 'warn');
+    }
+}
 
 window.triggerPaxFarewell = async function(record) {
     _paxLog(`triggerPaxFarewell | tts:${_paxVoiceEnabled} done:${_paxFarewellDone} pax:${!!window.activePassenger}`, 'state');
-    if (_paxFarewellDone || !window.activePassenger || !_missionHasPax()) return;
+    if (_paxFarewellDone) {
+        _notifyFarewellSpeechComplete('pax-farewell-already-done');
+        return false;
+    }
+    if (!window.activePassenger || !_missionHasPax()) {
+        _notifyFarewellSpeechComplete('pax-farewell-no-pax');
+        return false;
+    }
     _paxFarewellDone = true;
     const prompt = _farewellPrompt(record);
-    if (!prompt) { _paxFarewellDone = false; _paxLog('Farewell: kein Prompt', 'warn'); return; }
-    _paxLog('Farewell → API-Call in 3s', 'event');
-    setTimeout(() => _speakAndShow(prompt, 'Verabschiedung'), 3000);
+    if (!prompt) {
+        _paxFarewellDone = false;
+        _paxLog('Farewell: kein Prompt', 'warn');
+        _notifyFarewellSpeechComplete('pax-farewell-no-prompt');
+        return false;
+    }
+    const delayMs = _paxVoiceEnabled ? 3000 : 0;
+    _paxLog(`Farewell → API-Call in ${Math.round(delayMs / 1000)}s`, 'event');
+    setTimeout(async () => {
+        try {
+            await _speakAndShow(prompt, 'Verabschiedung');
+        } finally {
+            _notifyFarewellSpeechComplete('pax-farewell-complete');
+        }
+    }, delayMs);
+    return true;
+};
+
+window.triggerPaxLandingRoll = async function(record) {
+    if (!window.activePassenger || !_missionHasPax()) return;
+    const prompt = _landingRollPrompt(record);
+    if (!prompt) return;
+    _paxLog('Landing-Roll → API-Call in 1s', 'event');
+    setTimeout(() => _speakAndShow(prompt, 'Nach der Landung'), 1000);
 };
 
 window.triggerPaxOffDestinationLanding = async function(distNm) {

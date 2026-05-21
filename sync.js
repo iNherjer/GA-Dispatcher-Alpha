@@ -334,7 +334,12 @@ let missionRuntime = {
     manual: false,
     readySince: 0,
     pendingEndAt: 0,
-    lastOffDestAt: 0
+    lastOffDestAt: 0,
+    landingRollTriggered: false,
+    arrivalFarewellTriggered: false,
+    arrivalFlightRecord: null,
+    waitingFarewellDeboarding: false,
+    deboardingAfterFarewellStarted: false
 };
 
 let missionSmokeCommandSeq = 0;
@@ -3695,7 +3700,12 @@ function _resetMissionRuntime() {
         manual: false,
         readySince: 0,
         pendingEndAt: 0,
-        lastOffDestAt: 0
+        lastOffDestAt: 0,
+        landingRollTriggered: false,
+        arrivalFarewellTriggered: false,
+        arrivalFlightRecord: null,
+        waitingFarewellDeboarding: false,
+        deboardingAfterFarewellStarted: false
     };
     _updateMissionRuntimeUi();
 }
@@ -3729,10 +3739,88 @@ function _distanceToMissionTargetNm(lat, lon) {
     return _haversineNmLocal(lat, lon, t.lat, t.lon);
 }
 
+function _aptArrivalPointForRuntime() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (md?.poiName || (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI')) return null;
+    const contract = md?.missionContract || window.activeMissionContract || {};
+    const truth = md?.missionTruth || contract?.missionTruth || null;
+    const plan = md?.aptArrivalPlan || contract?.aptArrivalPlan || truth?.arrivalScene || null;
+    const lat = Number(plan?.lat);
+    const lon = Number(plan?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon, plan };
+}
+
+function _distanceToAptArrivalNm(lat, lon) {
+    const p = _aptArrivalPointForRuntime();
+    if (!p) return null;
+    return _haversineNmLocal(Number(lat), Number(lon), p.lat, p.lon);
+}
+
+function _hasAptArrivalRuntimePoint() {
+    return !!_aptArrivalPointForRuntime();
+}
+
+function _isAtAptArrivalPoint(lat, lon, thresholdNm = 0.08) {
+    const dNm = _distanceToAptArrivalNm(lat, lon);
+    return Number.isFinite(dNm) ? dNm <= thresholdNm : false;
+}
+
 function _isAtMissionTarget(lat, lon, thresholdNm = 1.2) {
     const dNm = _distanceToMissionTargetNm(lat, lon);
     return Number.isFinite(dNm) ? dNm <= thresholdNm : false;
 }
+
+function _missionSceneFinishRuntimeAfterDeboard(reason = 'mission-end-after-farewell') {
+    if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear(reason);
+    if (typeof window.missionTargetSceneClear === 'function') window.missionTargetSceneClear(reason);
+    const endSceneStarted = _tryStartMissionEndScene(reason, { force: true });
+    if (!endSceneStarted) {
+        if (typeof window.clearMissionSceneObjects === 'function') window.clearMissionSceneObjects(reason);
+        else {
+            if (typeof window.missionSceneClear === 'function') window.missionSceneClear(reason);
+            if (typeof window.boardingMarkerClear === 'function') window.boardingMarkerClear(reason);
+        }
+    }
+    missionRuntime.active = false;
+    missionRuntime.armed = false;
+    missionRuntime.manual = false;
+    missionRuntime.readySince = 0;
+    missionRuntime.pendingEndAt = 0;
+    missionRuntime.waitingFarewellDeboarding = false;
+    missionRuntime.deboardingAfterFarewellStarted = true;
+    missionRuntime.landingRollTriggered = false;
+    missionRuntime.arrivalFarewellTriggered = false;
+    missionRuntime.arrivalFlightRecord = null;
+    _resetMissionStartFlowAfterEnd();
+    _updateMissionRuntimeUi();
+    return endSceneStarted;
+}
+
+function _triggerPaxFarewellAndWaitForDeboard(record, reason = 'pax-farewell') {
+    if (typeof window.triggerPaxFarewell !== 'function') return false;
+    missionRuntime.waitingFarewellDeboarding = true;
+    missionRuntime.deboardingAfterFarewellStarted = false;
+    try {
+        window.triggerPaxFarewell(record);
+    } catch (err) {
+        missionRuntime.waitingFarewellDeboarding = false;
+        console.warn('[MissionRuntime] Pax farewell trigger failed:', err);
+        return false;
+    }
+    setTimeout(() => {
+        if (missionRuntime.waitingFarewellDeboarding && !missionRuntime.deboardingAfterFarewellStarted) {
+            window.missionSceneStartDeboardingAfterFarewell(`${reason}-timeout`);
+        }
+    }, 90000);
+    return true;
+}
+
+window.missionSceneStartDeboardingAfterFarewell = function(reason = 'pax-farewell-complete') {
+    if (!missionRuntime.waitingFarewellDeboarding) return false;
+    if (missionRuntime.deboardingAfterFarewellStarted) return false;
+    return _missionSceneFinishRuntimeAfterDeboard(reason);
+};
 
 window.missionRuntimeReset = function() {
     if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('mission-runtime-reset');
@@ -3829,6 +3917,11 @@ window.manualMissionStart = function() {
     missionRuntime.readySince = 0;
     missionRuntime.pendingEndAt = 0;
     missionRuntime.lastOffDestAt = 0;
+    missionRuntime.landingRollTriggered = false;
+    missionRuntime.arrivalFarewellTriggered = false;
+    missionRuntime.arrivalFlightRecord = null;
+    missionRuntime.waitingFarewellDeboarding = false;
+    missionRuntime.deboardingAfterFarewellStarted = false;
     resetFlightRecorder();
     const pos = window.lastLiveGpsPos;
     if ((pos || window.simModeActive) && typeof window.triggerPaxGreeting === 'function') {
@@ -3861,6 +3954,11 @@ window.manualMissionEnd = function() {
     missionRuntime.readySince = 0;
     missionRuntime.pendingEndAt = 0;
     missionRuntime.lastOffDestAt = 0;
+    missionRuntime.landingRollTriggered = false;
+    missionRuntime.arrivalFarewellTriggered = false;
+    missionRuntime.arrivalFlightRecord = null;
+    missionRuntime.waitingFarewellDeboarding = false;
+    missionRuntime.deboardingAfterFarewellStarted = false;
     _resetMissionStartFlowAfterEnd();
     if (shouldFinalize) finalizeFlightRecorder(Date.now(), pos?.lat ?? null, pos?.lon ?? null);
     else resetFlightRecorder();
@@ -6465,10 +6563,18 @@ function finalizeFlightRecorder(now, endLat = null, endLon = null) {
             console.warn('[FlightRec] pinCompletedFlightRecord() nicht verfügbar.');
         }
         triggerCloudSave();
-        // Farewell nur am korrekten Zielplatz triggern.
+        const hasAptArrival = _hasAptArrivalRuntimePoint();
+        if (hasAptArrival) {
+            missionRuntime.arrivalFlightRecord = record;
+            return;
+        }
+        // Farewell nur am korrekten Zielplatz triggern. APT-Arrival-Missionen
+        // sprechen den Abschied erst am geplanten Empfangspunkt.
         const atTargetForFarewell = _isAtMissionTarget(Number(endLat), Number(endLon), 1.2);
-        if (!r.farewellTriggered && atTargetForFarewell && typeof window.triggerPaxFarewell === 'function') {
-            window.triggerPaxFarewell(record);
+        if (!r.farewellTriggered && atTargetForFarewell) {
+            if (_triggerPaxFarewellAndWaitForDeboard(record, 'flight-finalize-farewell')) {
+                r.farewellTriggered = true;
+            }
         }
     } finally {
         resetFlightRecorder();
@@ -6546,6 +6652,11 @@ function updateFlightRecorder(lat, lon, alt) {
         missionRuntime.manual = false;
         missionRuntime.pendingEndAt = 0;
         missionRuntime.lastOffDestAt = 0;
+        missionRuntime.landingRollTriggered = false;
+        missionRuntime.arrivalFarewellTriggered = false;
+        missionRuntime.arrivalFlightRecord = null;
+        missionRuntime.waitingFarewellDeboarding = false;
+        missionRuntime.deboardingAfterFarewellStarted = false;
         resetFlightRecorder();
         if (typeof window.triggerPaxGreeting === 'function') {
             setTimeout(() => window.triggerPaxGreeting(lat, lon), 300);
@@ -6630,30 +6741,55 @@ function updateFlightRecorder(lat, lon, alt) {
 
     addFlightTrackPoint(lat, lon, alt, now, false);
 
-    // Touchdown-Trigger (Live-Tracker): Farewell sofort beim ersten Bodenkontakt.
+    // Touchdown-Trigger (Live-Tracker): kurze Rollmeldung bei APT-Arrival,
+    // Farewell bei normalen Missionen erst mit anschließendem Deboarding.
     if (r.armed && r.hadAirbornePhase && onGroundNow && !r.wasOnGround) {
         if (Number.isFinite(_lfd?.touchdownFpm)) r.touchdownVsFpm = _lfd.touchdownFpm;
         else if (Number.isFinite(smoothedVS)) r.touchdownVsFpm = smoothedVS;
-        const atTargetForFarewell = _isAtMissionTarget(lat, lon, 1.2);
-        if (!r.farewellTriggered && atTargetForFarewell && typeof window.triggerPaxFarewell === 'function') {
-            const earlyRecord = _buildFlightRecordSnapshot(now);
-            if (earlyRecord) {
-                r.farewellTriggered = true;
-                window.triggerPaxFarewell(earlyRecord);
+        const earlyRecord = _buildFlightRecordSnapshot(now);
+        if (_hasAptArrivalRuntimePoint()) {
+            if (earlyRecord) missionRuntime.arrivalFlightRecord = earlyRecord;
+            if (!missionRuntime.landingRollTriggered && typeof window.triggerPaxLandingRoll === 'function') {
+                missionRuntime.landingRollTriggered = true;
+                window.triggerPaxLandingRoll(earlyRecord);
+            }
+        } else {
+            const atTargetForFarewell = _isAtMissionTarget(lat, lon, 1.2);
+            if (!r.farewellTriggered && atTargetForFarewell) {
+                const earlyRecord = _buildFlightRecordSnapshot(now);
+                if (earlyRecord) {
+                    if (_triggerPaxFarewellAndWaitForDeboard(earlyRecord, 'touchdown-farewell')) {
+                        r.farewellTriggered = true;
+                    }
+                }
             }
         }
     }
     r.wasOnGround = onGroundNow;
 
     // Missionsende / Bodenfall:
-    // - am Ziel + stillstand -> mission schließen (nach kurzer Verabschiedungslatenz)
+    // - am Ziel + stillstand -> Farewell sprechen, danach Deboarding/Mission schließen
     // - woanders + stillstand -> humorvoller Hinweis, mission bleibt offen
     const parkingBrakeSet = _lfd?.parkingBrake === true || _lfd?.parkingBrake === 1;
     const groundStill = onGroundNow && (gs <= 2.0 || parkingBrakeSet);
     if (autoMissionStartEnabled && groundStill) {
-        const dTargetNm = _distanceToMissionTargetNm(lat, lon);
-        const atTarget = Number.isFinite(dTargetNm) ? dTargetNm <= 1.2 : false;
+        const hasAptArrival = _hasAptArrivalRuntimePoint();
+        const dTargetNm = hasAptArrival ? _distanceToAptArrivalNm(lat, lon) : _distanceToMissionTargetNm(lat, lon);
+        const atTarget = Number.isFinite(dTargetNm) ? dTargetNm <= (hasAptArrival ? 0.08 : 1.2) : false;
         if (atTarget) {
+            if (hasAptArrival && !missionRuntime.arrivalFarewellTriggered) {
+                const arrivalRecord = missionRuntime.arrivalFlightRecord || _buildFlightRecordSnapshot(now);
+                if (arrivalRecord) {
+                    if (_triggerPaxFarewellAndWaitForDeboard(arrivalRecord, 'apt-arrival-farewell')) {
+                        missionRuntime.arrivalFarewellTriggered = true;
+                        if (flightRecorder) flightRecorder.farewellTriggered = true;
+                    }
+                }
+            }
+            if (missionRuntime.waitingFarewellDeboarding && !missionRuntime.deboardingAfterFarewellStarted) {
+                missionRuntime.pendingEndAt = 0;
+                return;
+            }
             if (!missionRuntime.pendingEndAt) missionRuntime.pendingEndAt = now + 5000;
             if (now >= missionRuntime.pendingEndAt) {
                 if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('auto-mission-end');
@@ -6671,6 +6807,11 @@ function updateFlightRecorder(lat, lon, alt) {
                 missionRuntime.manual = false;
                 missionRuntime.readySince = 0;
                 missionRuntime.pendingEndAt = 0;
+                missionRuntime.landingRollTriggered = false;
+                missionRuntime.arrivalFarewellTriggered = false;
+                missionRuntime.arrivalFlightRecord = null;
+                missionRuntime.waitingFarewellDeboarding = false;
+                missionRuntime.deboardingAfterFarewellStarted = false;
                 _resetMissionStartFlowAfterEnd();
                 _updateMissionRuntimeUi();
             }
