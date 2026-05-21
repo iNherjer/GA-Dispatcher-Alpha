@@ -27,7 +27,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         sar_land: {
             label: 'SAR Land / Suchgebiet',
-            roles: ['vehicle.emergency.medical', 'vehicle.quad', 'cargo.container', 'person.ground_crew'],
+            roles: ['person.ground_crew', 'vfx.smoke', 'vehicle.emergency.medical', 'vehicle.quad', 'cargo.container'],
             useFor: ['search_and_rescue']
         },
         medical_pickup: {
@@ -197,6 +197,10 @@ window.MISSION_SCENE_ASSETS = {
             label: 'Personen am Boden',
             roles: ['person.ground_crew']
         },
+        missing_person: {
+            label: 'vermisste / winkende Person als Suchziel',
+            roles: ['person.ground_crew']
+        },
         cones: {
             label: 'Absperrkegel/Marker',
             roles: ['marker.cone']
@@ -255,6 +259,10 @@ window.MISSION_SCENE_ASSETS = {
         },
         smoke_light: {
             label: 'leichte Rauchquelle',
+            roles: ['vfx.smoke']
+        },
+        signal_smoke: {
+            label: 'Rauchsignal / farbiger Signalrauch',
             roles: ['vfx.smoke']
         },
         fire_small: {

@@ -1920,6 +1920,14 @@ function _missionTargetSceneNormalizeFeature(value) {
         emergency: 'emergency_response',
         medic: 'emergency_response',
         ambulance: 'emergency_response',
+        missing_person: 'missing_person',
+        missing: 'missing_person',
+        lost_person: 'missing_person',
+        vermisste_person: 'missing_person',
+        vermisst: 'missing_person',
+        person_waving: 'missing_person',
+        waving_person: 'missing_person',
+        winkende_person: 'missing_person',
         crew: 'people',
         persons: 'people',
         person: 'people',
@@ -1991,6 +1999,11 @@ function _missionTargetSceneNormalizeFeature(value) {
         bus_shuttle: 'bus',
         smoke: 'smoke_light',
         light_smoke: 'smoke_light',
+        signal_smoke: 'signal_smoke',
+        smoke_signal: 'signal_smoke',
+        rauchsignal: 'signal_smoke',
+        signalrauch: 'signal_smoke',
+        farbiger_rauch: 'signal_smoke',
         fire: 'fire_small',
         small_fire: 'fire_small'
     };
@@ -2006,7 +2019,7 @@ const MISSION_TARGET_SCENE_BASE_FEATURE_COUNTS = {
     erosion_damage: { logs: 2, debris: 1, cones: 1 },
     debris_field: { debris: 3 },
     sar_water: { liferaft: 1, service_ship: 1 },
-    sar_land: { emergency_response: 1, people: 2, cargo_material: 1 },
+    sar_land: { missing_person: 1 },
     medical_pickup: { emergency_response: 1, people: 2, cargo_material: 1 },
     cargo_site: { cargo_material: 2, utility_truck: 1, people: 1 },
     infra_bridge: { utility_truck: 1, generator: 1, cones: 2 },
@@ -2023,6 +2036,7 @@ const MISSION_TARGET_SCENE_BASE_FEATURE_COUNTS = {
 function _missionTargetSceneRequestedFeatures(kind = '') {
     const spec = _missionTargetSceneSpec() || {};
     const out = [];
+    const text = _missionTargetSceneText();
     const add = (feature) => {
         const normalized = _missionTargetSceneNormalizeFeature(feature);
         if (normalized && !out.includes(normalized)) out.push(normalized);
@@ -2054,17 +2068,18 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
             if (r === 'cargo.small_box') add((kind === 'cargo_site' || kind === 'medical_pickup') ? 'cargo_material' : 'small_equipment');
             if (r.startsWith('debris.')) add('debris');
             if (r === 'nature.log' || r === 'material.log') add('logs');
-            if (r === 'vfx.smoke') add('smoke_light');
+            if (r === 'vfx.smoke') add(/(rauchsignal|signalrauch|farbiger rauch|signalfackel|signal smoke)/.test(text) ? 'signal_smoke' : 'smoke_light');
             if (r === 'vfx.fire' && !out.includes('campfire')) add('fire_small');
         });
     }
-    const text = _missionTargetSceneText();
     if (/(strommast|hochspannung|leitung|powerline|pylon|freileitung|umspann)/.test(text)) add('powerline');
     if (/(kran|crane)/.test(text)) add('construction_crane');
     if (/(bagger|bulldozer|dozer|erdarbeiten)/.test(text)) add('earthmoving');
     if (/(truemmer|trümmer|debris|wrackteile|streugut)/.test(text)) add('debris');
     if (/(treibholz|baumstamm|log|logs)/.test(text)) add('logs');
-    if (/(rauch|smoke|abluft)/.test(text) && kind !== 'fire_watch') add('smoke_light');
+    if (kind === 'sar_land' && /(vermisst|vermisste|gesucht|suchziel|wink|winkt|hilferuf|hilfezeichen)/.test(text)) add('missing_person');
+    if (/(rauchsignal|signalrauch|farbiger rauch|signalfackel|signal smoke)/.test(text)) add('signal_smoke');
+    else if (/(rauch|smoke|abluft)/.test(text) && kind !== 'fire_watch') add('smoke_light');
     if (/(rettungsinsel|liferaft)/.test(text)) add('liferaft');
     if (/(boot|boat)/.test(text)) add('watercraft');
     if (/(arbeitsschiff|küstenwache|kuestenwache|coast guard|schiff|ship)/.test(text)) add('service_ship');
@@ -2143,16 +2158,23 @@ function _missionTargetSceneItems(kind) {
                 add(`feature_earthmoving_${i + 1}`, 'Zusatz Erdbaumaschine', dozer, MISSION_SCENE_ASSET_POOLS.constructionEarthmoving, 12 + step, -10 - step, { hdgOffsetDeg: 35 });
             } else if (feature === 'cargo_material') {
                 const cargo = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.cargo, `feature-cargo-${i}`, 'Pallet01_02');
-                add(`feature_cargo_${i + 1}`, 'Zusatz Material/Fracht', cargo, MISSION_SCENE_ASSET_POOLS.cargo, 5 + step, 14 + step, { hdgOffsetDeg: 20 });
+                const pos = kind === 'sar_land' ? { f: -62 - step, r: 28 + step, hdg: 210 } : { f: 5 + step, r: 14 + step, hdg: 20 };
+                add(`feature_cargo_${i + 1}`, kind === 'sar_land' ? 'Support Material abseits Suchziel' : 'Zusatz Material/Fracht', cargo, MISSION_SCENE_ASSET_POOLS.cargo, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'road_vehicles') {
                 const car = _scenePickTitle(carPool, `feature-car-${i}`, 'Microsoft_Car_EUR_01');
-                add(`feature_vehicle_${i + 1}`, 'Zusatz Fahrzeug', car, carPool, -20 - step, -1 + step, { hdgOffsetDeg: i % 2 ? 190 : 15 });
+                const pos = kind === 'sar_land' ? { f: -86 - step, r: 36 + step, hdg: 35 } : { f: -20 - step, r: -1 + step, hdg: i % 2 ? 190 : 15 };
+                add(`feature_vehicle_${i + 1}`, kind === 'sar_land' ? 'Suchfahrzeug im Perimeter' : 'Zusatz Fahrzeug', car, carPool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'emergency_response') {
                 const support = _scenePickTitle(primarySupportVehiclePool, `feature-emergency-${i}`, 'Car Bush Medic');
-                add(`feature_emergency_${i + 1}`, 'Zusatz Einsatzfahrzeug', support, supportVehiclePool, -18 - step, 12 + step, { hdgOffsetDeg: 210 });
+                const pos = kind === 'sar_land' ? { f: -95 - step, r: 42 + step, hdg: 35 } : { f: -18 - step, r: 12 + step, hdg: 210 };
+                add(`feature_emergency_${i + 1}`, kind === 'sar_land' ? 'Einsatzfahrzeug im Suchperimeter' : 'Zusatz Einsatzfahrzeug', support, supportVehiclePool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'people') {
                 const person = i % 2 ? personB : personA;
-                add(`feature_person_${i + 1}`, 'Zusatz Person', person, peoplePool, 4 + step, 9 + step, { hdgOffsetDeg: 210 });
+                const pos = kind === 'sar_land' ? { f: -72 - step, r: 30 + step, hdg: 35 } : { f: 4 + step, r: 9 + step, hdg: 210 };
+                add(`feature_person_${i + 1}`, kind === 'sar_land' ? 'Suchtrupp im Zielgebiet' : 'Zusatz Person', person, peoplePool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
+            } else if (feature === 'missing_person') {
+                const person = i % 2 ? personB : personA;
+                add(`feature_missing_person_${i + 1}`, 'Vermisste / winkende Person', person, peoplePool, 0 + (i * 3), -2 + (i * 2), { hdgOffsetDeg: 180 });
             } else if (feature === 'cones') {
                 add(`feature_cone_${(i * 2) + 1}`, 'Zusatz Absperrkegel', cone, markerPool, -7 + step, -3 - step);
                 add(`feature_cone_${(i * 2) + 2}`, 'Zusatz Absperrkegel', cone, markerPool, 9 + step, 3 + step);
@@ -2189,10 +2211,12 @@ function _missionTargetSceneItems(kind) {
                 add(`feature_tent_${i + 1}`, 'Zusatz Zelt', tent, MISSION_SCENE_ASSET_POOLS.campTents, -16 - step, 10 + step, { hdgOffsetDeg: 25 });
             } else if (feature === 'parked_vehicle') {
                 const car = _scenePickTitle(carPool, `feature-shore-car-${i}`, 'Microsoft_Car_EUR_02');
-                add(`feature_shore_vehicle_${i + 1}`, 'Zusatz parkendes Auto', car, carPool, -22 - step, 11 + step, { hdgOffsetDeg: 205 });
+                const pos = kind === 'sar_land' ? { f: -78 - step, r: 34 + step, hdg: 35 } : { f: -22 - step, r: 11 + step, hdg: 205 };
+                add(`feature_shore_vehicle_${i + 1}`, kind === 'sar_land' ? 'Abgestelltes Fahrzeug abseits Fundpunkt' : 'Zusatz parkendes Auto', car, carPool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'small_equipment') {
                 const kit = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smallCargo, `feature-equipment-${i}`, 'Cardboard');
-                add(`feature_equipment_${i + 1}`, 'Zusatz Ausruestung', kit, MISSION_SCENE_ASSET_POOLS.smallCargo, -11 - step, 14 + step, { hdgOffsetDeg: 10 });
+                const pos = kind === 'sar_land' ? { f: 8 + step, r: -6 - step, hdg: 10 } : { f: -11 - step, r: 14 + step, hdg: 10 };
+                add(`feature_equipment_${i + 1}`, kind === 'sar_land' ? 'Hinweis / kleine Ausruestung' : 'Zusatz Ausruestung', kit, MISSION_SCENE_ASSET_POOLS.smallCargo, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'campfire') {
                 const fire = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.fireVfx, `feature-campfire-${i}`, 'VO_Fire_R1_40');
                 add(`feature_campfire_${i + 1}`, 'Zusatz Lagerfeuer', fire, MISSION_SCENE_ASSET_POOLS.fireVfx, -7 - step, 8 + step, { hdgOffsetDeg: 0 });
@@ -2202,6 +2226,9 @@ function _missionTargetSceneItems(kind) {
             } else if (feature === 'smoke_light') {
                 const smoke = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smokeVfx, `feature-smoke-${i}`, 'Chimney_Smoke_V1');
                 add(`feature_smoke_${i + 1}`, 'Zusatz Rauchquelle', smoke, MISSION_SCENE_ASSET_POOLS.smokeVfx, 3 + step, 18 + step, { hdgOffsetDeg: 0 });
+            } else if (feature === 'signal_smoke') {
+                const smoke = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smokeVfx, `feature-signal-smoke-${i}`, 'Chimney_Smoke_V1');
+                add(`feature_signal_smoke_${i + 1}`, 'Signalrauch / Hilfezeichen', smoke, MISSION_SCENE_ASSET_POOLS.smokeVfx, 6 + step, -10 - step, { hdgOffsetDeg: 0 });
             } else if (feature === 'fire_small') {
                 const fire = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.fireVfx, `feature-fire-${i}`, 'VO_Fire_R1_40');
                 add(`feature_fire_${i + 1}`, 'Zusatz Brandherd', fire, MISSION_SCENE_ASSET_POOLS.fireVfx, 5 + step, 16 + step, { hdgOffsetDeg: 0 });
@@ -2349,13 +2376,8 @@ function _missionTargetSceneItems(kind) {
     }
 
     if (kind === 'sar_land') {
-        const vehiclePool = MISSION_SCENE_ASSET_POOLS.medicalVehicles.concat(MISSION_SCENE_ASSET_POOLS.quads, vanPool);
-        const vehicle = _scenePickTitle(primarySupportVehiclePool, 'sar-land-vehicle', 'Car Bush Medic');
-        const cargo = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.sarCargo, 'sar-land-cargo', 'Drop_Container');
-        add('search_vehicle', 'Suchtrupp Fahrzeug', vehicle, vehiclePool, -10, 8, { hdgOffsetDeg: 210 });
-        add('person_1', 'Suchtrupp', personA, peoplePool, 2, 4, { hdgOffsetDeg: 180 });
-        add('person_2', 'Suchtrupp', personB, peoplePool, 5, 7, { hdgOffsetDeg: 210 });
-        add('cargo_1', 'SAR Material', cargo, MISSION_SCENE_ASSET_POOLS.sarCargo, -1, 10);
+        const targetPerson = _scenePickTitle([personA, personB].filter(Boolean), 'sar-land-missing-person', personA || personB);
+        add('missing_person', 'Vermisste / winkende Person', targetPerson, peoplePool, 0, 0, { hdgOffsetDeg: 180 });
         return finish();
     }
 

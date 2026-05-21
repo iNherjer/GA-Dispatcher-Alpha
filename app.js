@@ -7243,6 +7243,14 @@ function normalizeMissionTargetSceneFeature(value) {
         emergency: 'emergency_response',
         medic: 'emergency_response',
         ambulance: 'emergency_response',
+        missing_person: 'missing_person',
+        missing: 'missing_person',
+        lost_person: 'missing_person',
+        vermisste_person: 'missing_person',
+        vermisst: 'missing_person',
+        person_waving: 'missing_person',
+        waving_person: 'missing_person',
+        winkende_person: 'missing_person',
         crew: 'people',
         persons: 'people',
         person: 'people',
@@ -7315,6 +7323,11 @@ function normalizeMissionTargetSceneFeature(value) {
         bus_shuttle: 'bus',
         smoke: 'smoke_light',
         light_smoke: 'smoke_light',
+        signal_smoke: 'signal_smoke',
+        smoke_signal: 'signal_smoke',
+        rauchsignal: 'signal_smoke',
+        signalrauch: 'signal_smoke',
+        farbiger_rauch: 'signal_smoke',
         fire: 'fire_small',
         small_fire: 'fire_small'
     };
@@ -7456,7 +7469,8 @@ sceneIntent Felder:
 - avoid: Dinge, die NICHT auftauchen sollen, wenn sie unplausibel waeren, z.B. "keine Kuestenwache", "keine Einsatzfahrzeuge", "keine Deko".
 - densityHint: none|sparse|normal|busy.
 - notes: kurzer Grund.
-Wichtig: Keine Standard-Deko. Bei Lern-/Sightseeing-Fluegen darf sceneIntent sehr sparsam oder "none" sein. Kleine Kontextdetails sind erlaubt, wenn sie aus dem Text entstehen: Enten, Zelt, parkendes Auto, Holz, Kisten, Lagerfeuer, Tiere, Baufahrzeuge, Strommast, Unfallfahrzeuge usw.`;
+Wichtig: Keine Standard-Deko. Bei Lern-/Sightseeing-Fluegen darf sceneIntent sehr sparsam oder "none" sein. Kleine Kontextdetails sind erlaubt, wenn sie aus dem Text entstehen: Enten, Zelt, parkendes Auto, Holz, Kisten, Lagerfeuer, Tiere, Baufahrzeuge, Strommast, Unfallfahrzeuge usw.
+Wichtig: Story und sceneIntent muessen denselben Sachverhalt beschreiben. Wenn visibleIdeas Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere oder Ausruestung enthalten, muss die Story diese Dinge entweder vorher plausibel machen oder sceneIntent muss erklaeren, warum sie dort sichtbar sind.`;
 }
 
 function buildMissionTargetScenePromptGuide(isPOI, forcedProfile = null) {
@@ -7487,7 +7501,7 @@ function buildMissionTargetScenePromptGuide(isPOI, forcedProfile = null) {
             ? 'sar_water oder sar_land'
             : (forced === 'mapping_survey' ? 'construction_site, powerline_inspection, erosion_damage, infra_bridge, infra_dam oder survey_context' : (forced === 'poi_learning_guide' || forced === 'sightseeing_tour' ? 'none oder sehr sparsam water_context/wildlife_site' : 'passend zum Kontext')));
     return isPOI
-        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Die KI entscheidet bewusst, was im Ziel wirklich sichtbar und plausibel ist. Nutze "none" bei reinen Sightseeing-/Historien-/Lernfluegen ohne konkreten sichtbaren Boden-Kontext; fuege keine Deko hinzu, nur weil ein POI eine Kategorie hat. Bei Lern-/Sightseeing-Fluegen: sehr sparsam bleiben, density meist "sparse", count meist 0-3; keine Einsatzfahrzeuge, keine grossen Schiffe, keine Marker/Cones, ausser sie sind im Kontext wirklich sichtbar. Kleine Bausteine wie tent, parked_vehicle, small_equipment, campfire, waterfowl, logs oder watercraft sind kontextfreie Vokabeln: nutze sie ueberall dort, wo sie aus der Missionslage plausibel sind (Wald, SAR, Ufer, Baustelle, Unfall, POI), nicht nur in einer festen Katalog-Szene. Erfinde keine festen Sonder-Szenen; beschreibe stattdessen genau die sichtbaren Einzelobjekte. Wasser-Kontext: water_context nur fuer Ufer/Treibgut/kleine zivile Boote/Wasservoegel. watercraft meint kleine zivile Boote. service_ship/grosse Schiffe nur bei Hafen, SAR, Kuestenwache, Arbeitsschiff oder klarer Textgrundlage. Natur-Kontext: wildlife_site darf passende lokale Tiere, Wasservoegel oder kleine Herden bekommen, aber keine exotischen Tiere ohne klaren Grund. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site, Strommast -> powerline_inspection, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Wald-SAR => kind="sar_land", requirements=[{"feature":"tent","count":1},{"feature":"small_equipment","count":2}], Seeufer-Lernkontext => kind="water_context", requirements=[{"feature":"waterfowl","count":2},{"feature":"parked_vehicle","count":1}] oder nur ["logs"]. Empfehlung fuer dieses Profil: ${defaultHint}.
+        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Die KI entscheidet bewusst, was im Ziel wirklich sichtbar und plausibel ist. Nutze "none" bei reinen Sightseeing-/Historien-/Lernfluegen ohne konkreten sichtbaren Boden-Kontext; fuege keine Deko hinzu, nur weil ein POI eine Kategorie hat. Bei Lern-/Sightseeing-Fluegen: sehr sparsam bleiben, density meist "sparse", count meist 0-3; keine Einsatzfahrzeuge, keine grossen Schiffe, keine Marker/Cones, ausser sie sind im Kontext wirklich sichtbar. Szene und Story muessen logisch dieselbe Lage zeigen: keine Fahrzeuge, Personen, Zelte oder Rauchsignale hinzufuegen, wenn sie weder in Story noch sceneIntent vorkommen. Kleine Bausteine wie tent, parked_vehicle, small_equipment, campfire, waterfowl, logs oder watercraft sind kontextfreie Vokabeln: nutze sie ueberall dort, wo sie aus der Missionslage plausibel sind (Wald, SAR, Ufer, Baustelle, Unfall, POI), nicht nur in einer festen Katalog-Szene. Erfinde keine festen Sonder-Szenen; beschreibe stattdessen genau die sichtbaren Einzelobjekte. SAR-Land: Wenn die Story eine vermisste Person beschreibt, ist missing_person oder ein klarer Hinweis wie small_equipment/tent/signal_smoke das Primaerziel. Suchtrupps/Fahrzeuge duerfen nur als Support/Perimeter/auf Anfahrt vorkommen, wenn Story oder sceneIntent sie nennen; sie duerfen nicht so wirken, als haetten sie die Person schon gefunden. Wasser-Kontext: water_context nur fuer Ufer/Treibgut/kleine zivile Boote/Wasservoegel. watercraft meint kleine zivile Boote. service_ship/grosse Schiffe nur bei Hafen, SAR, Kuestenwache, Arbeitsschiff oder klarer Textgrundlage. Natur-Kontext: wildlife_site darf passende lokale Tiere, Wasservoegel oder kleine Herden bekommen, aber keine exotischen Tiere ohne klaren Grund. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site, Strommast -> powerline_inspection, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Wald-SAR => kind="sar_land", requirements=[{"feature":"missing_person","count":1},{"feature":"small_equipment","count":1},{"feature":"signal_smoke","count":1}], Seeufer-Lernkontext => kind="water_context", requirements=[{"feature":"waterfowl","count":2},{"feature":"parked_vehicle","count":1}] oder nur ["logs"]. Empfehlung fuer dieses Profil: ${defaultHint}.
 Erlaubte targetScene.kind:
 ${lines.join('\n')}
 Erlaubte targetScene.preset (optional):
@@ -7533,6 +7547,7 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
         ['generator', /generator|stromaggregat/],
         ['road_vehicles', /auto|autos|fahrzeug|fahrzeuge|van|transporter/],
         ['emergency_response', /rettung|polizei|feuerwehr|ambulanz|einsatz/],
+        ['missing_person', /vermisst|verloren|gesucht|wink|hilfezeichen|hilferuf/],
         ['people', /person|personen|crew|team|menschen/],
         ['cones', /kegel|absperr|marker|markierung/],
         ['debris', /debris|truemmer|trümmer|schutt|kisten|karton|ausruestung|ausrüstung/],
@@ -7548,6 +7563,7 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
         ['small_equipment', /ausruestung|ausrüstung|picknick|box|kiste|karton|kleine sachen/],
         ['campfire', /lagerfeuer|feuerstelle|campfire/],
         ['bus', /bus|shuttle/],
+        ['signal_smoke', /rauchsignal|signalrauch|farbiger rauch|signalfackel/],
         ['smoke_light', /rauch|rauchfahne|qualm/],
         ['fire_small', /feuer|brandherd|flamme/]
     ];
@@ -7616,7 +7632,8 @@ Regeln:
 4. Bei Lern-/Sightseeing-Fluegen lieber sparse oder none; 0-3 sichtbare Akzente sind oft genug.
 5. requirements[].count ist bewusst und klein: einzelne Dinge einzeln nennen, keine Fuellmengen.
 6. Wenn sceneIntent.avoid etwas verbietet, respektieren.
-7. Gib AUSSCHLIESSLICH JSON aus.
+7. Bei SAR ist die vermisste Person, ein Hinweis oder ein Signal das Primaerziel. Suchtrupps/Fahrzeuge sind Support und muessen aus Story/sceneIntent hervorgehen.
+8. Gib AUSSCHLIESSLICH JSON aus.
 
 ${sceneGuide}
 </INSTRUKTIONEN>
@@ -8221,6 +8238,7 @@ REGELN:
 12) Interne Regel-/Verbotssätze NIE wörtlich im story-Feld wiederholen.
 13) Trennung strikt einhalten: Alles in <INSTRUKTIONEN> sind Arbeitsregeln und dürfen nicht als Storytext erscheinen.
 13b) greetingText MUSS die konkrete Aufgabe kurz nennen: was suchen, beobachten, prüfen oder fotografieren wir und in welchem Zielkontext. Keine rein generischen Begrüßungen wie "Suchmuster und klare Calls" ohne Objekt/Ort/Trasse/Anlass.
+13c) Story, greetingText und sceneIntent muessen dieselbe Lage beschreiben. Wenn sceneIntent sichtbare Personen, Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere oder Ausruestung vorsieht, muss die Story/Greeting diese Elemente natuerlich stuetzen. Wenn die Story nur eine vermisste Person nennt, fokussiere sceneIntent auf die vermisste Person, Hinweise oder Signale statt auf unerklaerte Support-Fahrzeuge.
 ${trainingHardRules}
 ${poiNoTrainingRule}
 ${forcedProfileRule}
