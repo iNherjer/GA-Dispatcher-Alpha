@@ -6610,7 +6610,11 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     // Harte Picker-Regel fuer POI-Location-Filter:
     // Kategorie fix, Task daraus passend rotieren.
     if (isPOI && poiSel !== 'all' && poiSel !== 'trn') {
-        return _pickFromWeighted(_poiCategoryTaskPool(poiSel || cat), 'mapping_survey');
+        const key = `ga_poi_auto_profile_history_${poiSel || cat || 'generic'}`;
+        return _pickFromWeightedWithRecentGuard(_poiCategoryTaskPool(poiSel || cat), key, {
+            fallback: 'mapping_survey',
+            recentLimit: 3
+        });
     }
 
     // Harte Picker-Regeln: explizite APT-Kategorien nicht mischen.
@@ -6630,11 +6634,11 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         pushMany('news_coverage', 2);
         pushMany('search_and_rescue', 2);
         pushMany('fire_watch', 2);
-        pushMany('sightseeing_tour', 2);
+        pushMany('sightseeing_tour', 1);
         pushMany('historian_guided_tour', 2);
         pushMany('tour_guide_knowledge', 2);
-        pushMany('science_bio', 1);
-        pushMany('science_geo', 1);
+        pushMany('science_bio', 2);
+        pushMany('science_geo', 2);
     } else {
         if (aptSel === 'trn' || cat === 'trn') return 'auto';
         if (aptSel === 'charter' || cat === 'charter') return 'auto';
@@ -6663,6 +6667,13 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         return _pickFromWeightedWithRecentGuard(weighted, 'ga_apt_auto_profile_history', {
             fallback: 'auto',
             recentLimit: 4
+        });
+    }
+
+    if (isPOI && poiSel === 'all' && (!cat || cat === 'all')) {
+        return _pickFromWeightedWithRecentGuard(weighted, 'ga_poi_auto_profile_history', {
+            fallback: 'mapping_survey',
+            recentLimit: 5
         });
     }
 
