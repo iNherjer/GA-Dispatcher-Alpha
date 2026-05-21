@@ -3698,8 +3698,12 @@ window.vpBuildWeatherDebugReport = function() {
     const aiRequested = sceneDbg.aiRequested || missionSceneDbg.aiRequested || null;
     const aiNormalized = sceneDbg.aiNormalized || missionSceneDbg.aiNormalized || null;
     const contractTargetScene = sceneDbg.contractTargetScene || missionSceneDbg.contractTargetScene || missionSnap?.targetScene || null;
-    const appResolved = sceneDbg.appResolvedTargetScene || null;
+    const targetPreview = (!sceneDbg.lastTargetSceneCommand && typeof window.missionTargetSceneDebugPreview === 'function')
+        ? window.missionTargetSceneDebugPreview('debug-report-preview')
+        : null;
+    const appResolved = sceneDbg.appResolvedTargetScene || targetPreview?.appResolved || null;
     const lastTargetCommand = sceneDbg.lastTargetSceneCommand || null;
+    const previewTargetCommand = targetPreview?.command || null;
     const lastStartCommand = sceneDbg.lastStartSceneCommand || null;
     const lastSmokeCommand = sceneDbg.lastSmokeCommand || null;
     const lastAck = sceneDbg.lastAck || window.missionTargetSceneStatus?.lastAck || window.missionSceneStatus?.lastAck || null;
@@ -3746,9 +3750,9 @@ window.vpBuildWeatherDebugReport = function() {
     fmtCommand('App -> Sim Zielszene', lastTargetCommand);
     fmtCommand('App -> Sim Startszene', lastStartCommand);
     fmtCommand('App -> Sim Smoke/Fire', lastSmokeCommand);
-    const scenePointCount = [lastTargetCommand, lastStartCommand, lastSmokeCommand]
+    const scenePointCount = [lastTargetCommand || previewTargetCommand, lastStartCommand, lastSmokeCommand]
         .reduce((sum, cmd) => sum + (Array.isArray(cmd?.mapPoints) ? cmd.mapPoints.length : 0), 0);
-    lines.push(`- Scene Punkte Overlay: ${window.vpMissionSceneDebugOverlayEnabled ? 'An' : 'Aus'} | Punkte=${scenePointCount}`);
+    lines.push(`- Scene Punkte Overlay: ${window.vpMissionSceneDebugOverlayEnabled ? 'An' : 'Aus'} | Punkte=${scenePointCount}${previewTargetCommand && !lastTargetCommand ? ' (Preview)' : ''}`);
     if (lastAck && typeof lastAck === 'object') {
         const byKind = lastAck.spawnedByKind ? JSON.stringify(lastAck.spawnedByKind) : '-';
         lines.push(`- Letztes ACK: ${lastAck.type || '?'} status=${lastAck.status || '-'} spawned=${lastAck.spawned ?? '-'} cleared=${lastAck.cleared ?? '-'} byKind=${byKind} error=${lastAck.error || '-'}`);

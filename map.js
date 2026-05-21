@@ -669,8 +669,12 @@ function missionScenePointClass(point = {}) {
 
 function collectMissionSceneDebugMapPoints() {
     const dbg = (window.gaMissionSceneDebug && typeof window.gaMissionSceneDebug === 'object') ? window.gaMissionSceneDebug : {};
+    const preview = (!dbg.lastTargetSceneCommand && typeof window.missionTargetSceneDebugPreview === 'function')
+        ? window.missionTargetSceneDebugPreview('map-overlay-preview')?.command
+        : null;
     const commands = [
         dbg.lastStartSceneCommand,
+        preview,
         dbg.lastTargetSceneCommand,
         dbg.lastSmokeCommand
     ].filter(cmd => cmd && typeof cmd === 'object' && Array.isArray(cmd.mapPoints) && cmd.mapPoints.length);

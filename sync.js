@@ -2453,6 +2453,39 @@ window.missionTargetSceneEnsureSpawned = function(reason = 'mission-start') {
     return true;
 };
 
+window.missionTargetSceneDebugPreview = function(reason = 'planned-target-scene') {
+    const sceneId = _missionTargetSceneId();
+    const kind = _missionTargetSceneKind();
+    const point = _missionTargetScenePoint();
+    if (!kind || !point) return null;
+    const items = _missionTargetSceneItems(kind);
+    if (!items.length) return null;
+    const command = {
+        type: 'mission_scene_target_preview',
+        sceneId,
+        reason,
+        targetSceneKind: kind,
+        lat: point.lat,
+        lon: point.lon,
+        altFt: point.altFt,
+        hdg: point.hdg,
+        items
+    };
+    const commandSummary = _missionSceneDebugCommandSummary(command, null, null);
+    return {
+        appResolved: {
+            sceneId,
+            reason,
+            requestedSpec: _missionTargetSceneSpec(),
+            resolvedKind: kind,
+            point,
+            itemCount: items.length,
+            items: _missionSceneDebugSummarizeItems(items)
+        },
+        command: commandSummary
+    };
+};
+
 window.missionTargetSceneClear = function(reason = 'mission-target-clear') {
     const ids = [...new Set([
         window.missionTargetSceneStatus?.sceneId,
