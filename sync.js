@@ -1374,11 +1374,26 @@ function _missionAptArrivalPlan() {
     return { ...plan, lat, lon, altFt, hdg };
 }
 
+function _missionAptArrivalPreviewItems(plan = {}) {
+    const src = Array.isArray(plan.items) ? plan.items : [];
+    return src.map((item, idx) => ({
+        kind: item?.kind || `apt_arrival_item_${idx + 1}`,
+        label: item?.label || item?.kind || `Arrival ${idx + 1}`,
+        objectTitle: item?.objectTitle || item?.title || item?.label || '',
+        role: item?.role || '',
+        forwardM: Number.isFinite(Number(item?.forwardM)) ? Number(item.forwardM) : 0,
+        rightM: Number.isFinite(Number(item?.rightM)) ? Number(item.rightM) : 0,
+        hdgOffsetDeg: Number.isFinite(Number(item?.hdgOffsetDeg)) ? Number(item.hdgOffsetDeg) : 0,
+        altOffsetFt: Number.isFinite(Number(item?.altOffsetFt)) ? Number(item.altOffsetFt) : 0
+    })).filter(item => item.label || item.objectTitle || item.role);
+}
+
 window.missionAptArrivalDebugPreview = function(reason = 'planned-apt-arrival-scene') {
     const plan = _missionAptArrivalPlan();
     if (!plan) return null;
     const label = String(plan.roleLabel || plan.role || 'APT-Ankunft').trim();
     const cue = String(plan.visibleCue || plan.expectedBy || plan.anchorType || '').trim();
+    const items = _missionAptArrivalPreviewItems(plan);
     const command = _missionSceneDebugCommandSummary({
         type: 'mission_scene_apt_arrival_preview',
         sceneId: `${_missionSceneId()}-apt-arrival-preview`,
@@ -1387,6 +1402,7 @@ window.missionAptArrivalDebugPreview = function(reason = 'planned-apt-arrival-sc
         lon: plan.lon,
         altFt: plan.altFt,
         hdg: plan.hdg,
+        items,
         debugPoint: {
             kind: 'apt_arrival_plan',
             label: cue ? `${label}: ${cue}` : label,

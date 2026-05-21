@@ -3683,7 +3683,8 @@ window.vpBuildWeatherDebugReport = function() {
                 ? `${Number(aptArrival.lat).toFixed(5)}, ${Number(aptArrival.lon).toFixed(5)}`
                 : '-';
             const conf = Number.isFinite(Number(aptArrival.confidence)) ? Number(aptArrival.confidence).toFixed(2) : '-';
-            lines.push(`- APT Arrival Plan: ${aptArrival.roleLabel || aptArrival.role || '-'} | ${aptArrival.anchorType || '-'} | ${pos} | source=${aptArrival.source || '-'} | conf=${conf}`);
+            const itemCount = Array.isArray(aptArrival.items) ? aptArrival.items.length : 0;
+            lines.push(`- APT Arrival Plan: ${aptArrival.roleLabel || aptArrival.role || '-'} | ${aptArrival.anchorType || '-'} | ${pos} | source=${aptArrival.source || '-'} | conf=${conf} | items=${itemCount}`);
             if (aptArrival.expectedBy || aptArrival.visibleCue) {
                 lines.push(`- APT Erwartung: ${aptArrival.expectedBy || '-'} | cue=${aptArrival.visibleCue || '-'}`);
             }

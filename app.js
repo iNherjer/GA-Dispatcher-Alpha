@@ -6454,11 +6454,14 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
     const base = (basePassenger && typeof basePassenger === 'object') ? basePassenger : {};
     const persona = _pickRandomProfilePersona(profileSpec) || {};
     const tol = profileSpec.tolerances || {};
+    const baseGender = String(base.gender || '').toLowerCase();
     const merged = {
         ...base,
-        name: String(persona.name || base.name || '').trim() || 'Alex Neumann',
+        name: String(base.name || persona.name || '').trim() || 'Alex Neumann',
         role: String(persona.role || base.role || '').trim() || 'Passagier',
-        gender: (String(persona.gender || base.gender || '').toLowerCase() === 'female') ? 'female' : 'male',
+        gender: (baseGender === 'female' || baseGender === 'male')
+            ? baseGender
+            : ((String(persona.gender || '').toLowerCase() === 'female') ? 'female' : 'male'),
         personality: String(persona.personality || base.personality || 'ruhig, freundlich, professionell').trim(),
         dialectHint: 'neutral',
         greetingText: String(profileSpec.greetingText || base.greetingText || '').trim() || 'Hi, danke fürs Fliegen heute.',
@@ -6477,6 +6480,50 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
         storyHint: String(storyHint || '')
     };
     return merged;
+}
+
+function _escapeMissionNamePattern(value) {
+    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function _replaceMissionPassengerNameText(value, fromName, toName) {
+    const text = String(value || '');
+    const from = String(fromName || '').trim();
+    const to = String(toName || '').trim();
+    if (!text || !from || !to || from === to) return value;
+    const parts = from.split(/\s+/).filter(Boolean);
+    const replacements = [from];
+    if (parts.length >= 2) {
+        const first = parts[0];
+        const last = parts[parts.length - 1];
+        replacements.push(`Frau ${last}`, `Herr ${last}`);
+        if (first.length >= 4) replacements.push(first);
+    }
+    let out = text;
+    replacements.forEach(pattern => {
+        if (!pattern) return;
+        const replacement = /^Frau\s+/i.test(pattern)
+            ? `Frau ${to.split(/\s+/).slice(-1)[0] || to}`
+            : (/^Herr\s+/i.test(pattern) ? `Herr ${to.split(/\s+/).slice(-1)[0] || to}` : to);
+        out = out.replace(new RegExp(`\\b${_escapeMissionNamePattern(pattern)}\\b`, 'g'), replacement);
+    });
+    return out;
+}
+
+function synchronizeMissionPassengerName(mission, oldPassenger = null, newPassenger = null) {
+    if (!mission || typeof mission !== 'object') return mission;
+    const oldName = String(oldPassenger?.name || '').trim();
+    const newName = String(newPassenger?.name || '').trim();
+    if (!oldName || !newName || oldName === newName) return mission;
+    ['t', 'title', 's', 'story'].forEach(key => {
+        if (typeof mission[key] === 'string') {
+            mission[key] = _replaceMissionPassengerNameText(mission[key], oldName, newName);
+        }
+    });
+    if (mission.passenger && typeof mission.passenger === 'object' && typeof mission.passenger.greetingText === 'string') {
+        mission.passenger.greetingText = _replaceMissionPassengerNameText(mission.passenger.greetingText, oldName, newName);
+    }
+    return mission;
 }
 
 function _normUrgencyBinary(v) {
@@ -6600,7 +6647,8 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         return { mission: m, paxText, cargoText, appliedProfile: 'auto' };
     }
 
-    const passenger = buildMissionProfilePassenger(m.passenger || null, profile, isPOI, m.s || '');
+    const sourcePassenger = (m.passenger && typeof m.passenger === 'object') ? { ...m.passenger } : null;
+    const passenger = buildMissionProfilePassenger(sourcePassenger || null, profile, isPOI, m.s || '');
     if (passenger) {
         if (profile.id === 'tour_guide_knowledge') {
             passenger.targetAltFt = 0;
@@ -6608,6 +6656,7 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
             if (!(Number(passenger.targetDwellMin) > 0)) passenger.targetDwellMin = 4;
         }
         m.passenger = passenger;
+        synchronizeMissionPassengerName(m, sourcePassenger, passenger);
     }
     if (profile.paxText) {
         paxText = profile.paxText;
@@ -6884,12 +6933,12 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
         return {
             role: 'media_pickup',
             roleLabel: 'Medien-Abholung',
-            expectedBy: 'Redaktions- oder Kamerateam',
-            visibleCue: 'kleiner Medien-Van oder Abholfahrzeug',
+            expectedBy: 'Redaktions- und Kamerateam',
+            visibleCue: 'kleiner Medien-Van mit Kamerateam',
             vehicleRole: 'vehicle.van',
             personRole: 'person.ground_crew',
             equipmentRole: 'cargo.small_box',
-            narrativeHint: 'Am Ziel wartet ein kleines Redaktions- oder Kamerateam am Vorfeld.'
+            narrativeHint: 'Am Ziel wartet ein kleines Redaktions- und Kamerateam mit Medien-Van am Vorfeld.'
         };
     }
     if (/sightseeing|tour|guide|stadtfuehrer|stadtführer|gaeste|gäste/.test(text)) {
@@ -6914,6 +6963,85 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
         equipmentRole: 'cargo.small_box',
         narrativeHint: 'Am Ziel wartet ein Platz- oder Vereinskontakt an einem sicheren Vorfeldbereich.'
     };
+}
+
+function buildAptArrivalSceneItems(role = {}) {
+    const roleId = String(role?.role || '').toLowerCase();
+    const personRole = String(role?.personRole || 'person.ground_crew');
+    const vehicleRole = String(role?.vehicleRole || '');
+    const equipmentRole = String(role?.equipmentRole || '');
+    const vehicleLabel = roleId === 'media_pickup'
+        ? 'Medien-Van'
+        : (roleId === 'medical_handoff'
+            ? 'Medizinisches Empfangsfahrzeug'
+            : (roleId === 'cargo_handoff'
+                ? 'Fracht-Van'
+                : (roleId === 'animal_handoff' ? 'Tierpflege-Van' : 'Abholfahrzeug')));
+    const out = [];
+    if (vehicleRole) {
+        out.push({
+            kind: 'arrival_vehicle',
+            label: vehicleLabel,
+            role: vehicleRole,
+            objectTitle: vehicleLabel,
+            forwardM: -11,
+            rightM: 8,
+            hdgOffsetDeg: 205
+        });
+    }
+    if (roleId === 'media_pickup') {
+        out.push(
+            {
+                kind: 'arrival_person_editor',
+                label: 'Redaktionsteam',
+                role: personRole,
+                objectTitle: 'Redaktionsteam',
+                forwardM: 2,
+                rightM: 5,
+                hdgOffsetDeg: 190
+            },
+            {
+                kind: 'arrival_person_camera',
+                label: 'Kamerateam',
+                role: personRole,
+                objectTitle: 'Kamerateam',
+                forwardM: 5,
+                rightM: 7,
+                hdgOffsetDeg: 215
+            }
+        );
+        if (equipmentRole) {
+            out.push({
+                kind: 'arrival_equipment_camera',
+                label: 'Kameraausruestung',
+                role: equipmentRole,
+                objectTitle: 'Kameraausruestung',
+                forwardM: 1,
+                rightM: 9
+            });
+        }
+        return out;
+    }
+    out.push({
+        kind: 'arrival_person_1',
+        label: role.expectedBy || 'Empfangskontakt',
+        role: personRole,
+        objectTitle: role.expectedBy || 'Empfangskontakt',
+        forwardM: 3,
+        rightM: 6,
+        hdgOffsetDeg: 200
+    });
+    if (equipmentRole) {
+        out.push({
+            kind: 'arrival_equipment_1',
+            label: roleId === 'cargo_handoff' ? 'Frachtuebergabe' : 'Uebergabeausruestung',
+            role: equipmentRole,
+            objectTitle: roleId === 'cargo_handoff' ? 'Frachtuebergabe' : 'Uebergabeausruestung',
+            forwardM: 1,
+            rightM: 9
+        });
+    }
+    return out;
 }
 
 function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passenger = null, paxText = '', cargoText = '', profileId = '', heading = 0 } = {}) {
@@ -6952,6 +7080,7 @@ function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passe
         visibleCue: role.visibleCue,
         cues,
         roles: [role.personRole, role.vehicleRole, role.equipmentRole].filter(Boolean),
+        items: buildAptArrivalSceneItems(role),
         narrativeHint: role.narrativeHint,
         snapPolicy: {
             prefer: ['taxi_parking', 'apron', 'pavement', 'parking_position'],
@@ -6976,7 +7105,8 @@ function attachAptArrivalPlanToMissionTruth(missionTruth = null, aptArrivalPlan 
         lat: aptArrivalPlan.lat,
         lon: aptArrivalPlan.lon,
         altFt: aptArrivalPlan.altFt,
-        snapPolicy: aptArrivalPlan.snapPolicy || null
+        snapPolicy: aptArrivalPlan.snapPolicy || null,
+        items: Array.isArray(aptArrivalPlan.items) ? aptArrivalPlan.items : []
     };
     const cues = Array.isArray(base.visibleCues) ? base.visibleCues.slice() : [];
     (Array.isArray(aptArrivalPlan.cues) ? aptArrivalPlan.cues : []).forEach(cue => {
