@@ -655,6 +655,8 @@ function missionScenePointColor(point = {}) {
     if (kind.includes('person')) return '#7bdcff';
     if (kind.includes('vehicle') || kind.includes('car') || kind.includes('truck')) return '#ffcc4d';
     if (kind.includes('cargo') || kind.includes('equipment') || kind.includes('material')) return '#c084fc';
+    if (kind.includes('apt_arrival') || sourceType.includes('apt_arrival')) return '#22d3ee';
+    if (sourceType.includes('end') || kind.includes('end')) return '#34d399';
     if (sourceType.includes('target')) return '#ff9f1c';
     return '#4da6ff';
 }
@@ -663,6 +665,9 @@ function missionScenePointClass(point = {}) {
     const sourceType = String(point.sourceType || '').toLowerCase();
     const sceneId = String(point.sceneId || '').toLowerCase();
     if (sourceType.includes('smoke')) return 'Smoke/Fire';
+    if (sourceType.includes('apt_arrival') || sceneId.includes('apt-arrival')) return 'APT Arrival';
+    if (sourceType.includes('end') || sceneId.includes('-end-')) return 'Endszene';
+    if (sourceType.includes('start') || sceneId.includes('-start-')) return 'Startszene';
     if (point.targetSceneKind || sceneId.includes('-target')) return 'Zielszene';
     return 'Startszene';
 }
@@ -672,8 +677,16 @@ function collectMissionSceneDebugMapPoints() {
     const preview = (!dbg.lastTargetSceneCommand && typeof window.missionTargetSceneDebugPreview === 'function')
         ? window.missionTargetSceneDebugPreview('map-overlay-preview')?.command
         : null;
+    const startEndPreview = (typeof window.missionStartEndSceneDebugPreview === 'function')
+        ? window.missionStartEndSceneDebugPreview('map-overlay-preview')
+        : null;
+    const aptArrivalPreview = (typeof window.missionAptArrivalDebugPreview === 'function')
+        ? window.missionAptArrivalDebugPreview('map-overlay-preview')
+        : null;
     const commands = [
-        dbg.lastStartSceneCommand,
+        startEndPreview?.start,
+        startEndPreview?.end,
+        aptArrivalPreview?.command,
         preview,
         dbg.lastTargetSceneCommand,
         dbg.lastSmokeCommand

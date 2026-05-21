@@ -6769,7 +6769,165 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     return _pickFromWeighted(weighted, 'auto');
 }
 
-function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null } = {}) {
+function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '', cargoText = '', mission = null } = {}) {
+    const id = String(profileId || passenger?.taskDomain || passenger?.roleProfile || '').toLowerCase();
+    const text = [
+        id,
+        passenger?.role,
+        passenger?.taskDomain,
+        passenger?.roleProfile,
+        paxText,
+        cargoText,
+        mission?.t,
+        mission?.s
+    ].filter(Boolean).join(' ').toLowerCase();
+    if (!text.trim() || /freeflight|freiflug|kein\s+pax|0\s*pax|\bnone\b/.test(text)) {
+        return { role: 'none' };
+    }
+    if (/medical|medizin|notarzt|blut|notfall/.test(text)) {
+        return {
+            role: 'medical_handoff',
+            roleLabel: 'medizinische Uebergabe',
+            expectedBy: 'medizinisches Empfangsteam',
+            visibleCue: 'Rettungswagen oder medizinisches Empfangsteam',
+            vehicleRole: 'vehicle.emergency.medical',
+            personRole: 'person.ground_crew',
+            equipmentRole: 'cargo.small_box',
+            narrativeHint: 'Am Ziel ist eine ruhige medizinische Uebergabe am Vorfeld geplant.'
+        };
+    }
+    if (/cargo|fracht|logistik|kurier|labor|praezisionsoptik|schutzverpackung/.test(text)) {
+        return {
+            role: 'cargo_handoff',
+            roleLabel: 'Frachtuebergabe',
+            expectedBy: 'Frachtkontakt am Vorfeld',
+            visibleCue: 'Fracht-Van oder Abholfahrzeug',
+            vehicleRole: 'vehicle.van',
+            personRole: 'person.ground_crew',
+            equipmentRole: 'cargo.small_box',
+            narrativeHint: 'Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich.'
+        };
+    }
+    if (/animal|tier|veterinaer|tierschutz|transportbox/.test(text)) {
+        return {
+            role: 'animal_handoff',
+            roleLabel: 'Tiertransport-Uebergabe',
+            expectedBy: 'Tierpflege- oder Vereinskontakt',
+            visibleCue: 'kleiner Van mit Tierpflegekontakt',
+            vehicleRole: 'vehicle.van',
+            personRole: 'person.ground_crew',
+            equipmentRole: 'cargo.small_box',
+            narrativeHint: 'Am Ziel ist eine stressarme Uebergabe der Transportboxen am Vorfeld vorgesehen.'
+        };
+    }
+    if (/news|report|presse|tv|kamera|live/.test(text)) {
+        return {
+            role: 'media_pickup',
+            roleLabel: 'Medien-Abholung',
+            expectedBy: 'Redaktions- oder Kamerateam',
+            visibleCue: 'kleiner Medien-Van oder Abholfahrzeug',
+            vehicleRole: 'vehicle.van',
+            personRole: 'person.ground_crew',
+            equipmentRole: 'cargo.small_box',
+            narrativeHint: 'Am Ziel wartet ein kleines Redaktions- oder Kamerateam am Vorfeld.'
+        };
+    }
+    if (/sightseeing|tour|guide|stadtfuehrer|stadtführer|gaeste|gäste/.test(text)) {
+        return {
+            role: 'tour_pickup',
+            roleLabel: 'Tour-Abholung',
+            expectedBy: 'lokaler Kontakt oder Shuttle',
+            visibleCue: 'kleines Shuttle- oder Abholfahrzeug',
+            vehicleRole: 'vehicle.car',
+            personRole: 'person.ground_crew',
+            equipmentRole: '',
+            narrativeHint: 'Am Ziel ist ein lokaler Kontakt am Vorfeld als Treffpunkt vorgesehen.'
+        };
+    }
+    return {
+        role: 'club_meetup',
+        roleLabel: 'Vereins-/Utility-Treffpunkt',
+        expectedBy: 'Vereinskollege oder Platzkontakt',
+        visibleCue: 'Vereinskontakt am Vorfeld',
+        vehicleRole: 'vehicle.car',
+        personRole: 'person.ground_crew',
+        equipmentRole: 'cargo.small_box',
+        narrativeHint: 'Am Ziel wartet ein Platz- oder Vereinskontakt an einem sicheren Vorfeldbereich.'
+    };
+}
+
+function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passenger = null, paxText = '', cargoText = '', profileId = '', heading = 0 } = {}) {
+    if (isPOI) return null;
+    const lat = Number(dest?.lat);
+    const lon = Number(dest?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const role = normalizeAptArrivalRole({ profileId, passenger, paxText, cargoText, mission });
+    if (!role || role.role === 'none') return null;
+    const icao = String(dest?.icao || (typeof currentDestICAO !== 'undefined' ? currentDestICAO : '') || '').trim();
+    const airportName = String(dest?.n || dest?.name || icao || 'Zielflugplatz').trim();
+    const rawElev = dest?.elevFt ?? dest?.elevationFt ?? dest?.elevation ?? (typeof currentDestElev !== 'undefined' ? currentDestElev : null);
+    const altFt = Number.isFinite(Number(rawElev)) ? Math.round(Number(rawElev)) : null;
+    const hdg = Number.isFinite(Number(heading)) ? Math.round(Number(heading)) : 0;
+    const cues = [
+        role.visibleCue,
+        'Vorfeld oder sicherer Parking-Bereich',
+        'nicht auf Runway, Taxiway oder Gebaeuden'
+    ].filter(Boolean);
+    return {
+        version: 1,
+        status: 'planned',
+        source: 'airport-representative',
+        confidence: 0.35,
+        icao,
+        airportName,
+        anchorType: 'airport_representative',
+        semantic: 'apron_or_parking',
+        lat,
+        lon,
+        altFt,
+        hdg,
+        role: role.role,
+        roleLabel: role.roleLabel,
+        expectedBy: role.expectedBy,
+        visibleCue: role.visibleCue,
+        cues,
+        roles: [role.personRole, role.vehicleRole, role.equipmentRole].filter(Boolean),
+        narrativeHint: role.narrativeHint,
+        snapPolicy: {
+            prefer: ['taxi_parking', 'apron', 'pavement', 'parking_position'],
+            avoid: ['occupied', 'runway', 'taxiway', 'building', 'water'],
+            liveResolver: 'simconnect_facility_or_osm_apron'
+        },
+        debug: 'Repraesentativer Zielflugplatzpunkt bis ein Live-Snap auf SimConnect-Parking/OSM-Apron verfuegbar ist.'
+    };
+}
+
+function attachAptArrivalPlanToMissionTruth(missionTruth = null, aptArrivalPlan = null) {
+    if (!aptArrivalPlan || typeof aptArrivalPlan !== 'object') return missionTruth || null;
+    const base = (missionTruth && typeof missionTruth === 'object') ? { ...missionTruth } : {};
+    base.arrivalScene = {
+        type: 'apt_arrival_plan',
+        role: aptArrivalPlan.role || '',
+        roleLabel: aptArrivalPlan.roleLabel || '',
+        expectedBy: aptArrivalPlan.expectedBy || '',
+        anchorType: aptArrivalPlan.anchorType || '',
+        source: aptArrivalPlan.source || '',
+        confidence: aptArrivalPlan.confidence ?? null,
+        lat: aptArrivalPlan.lat,
+        lon: aptArrivalPlan.lon,
+        altFt: aptArrivalPlan.altFt,
+        snapPolicy: aptArrivalPlan.snapPolicy || null
+    };
+    const cues = Array.isArray(base.visibleCues) ? base.visibleCues.slice() : [];
+    (Array.isArray(aptArrivalPlan.cues) ? aptArrivalPlan.cues : []).forEach(cue => {
+        const s = String(cue || '').trim();
+        if (s && !cues.includes(s)) cues.push(s);
+    });
+    if (cues.length) base.visibleCues = cues;
+    return base;
+}
+
+function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null } = {}) {
     const profile = getMissionTaskProfile(appliedProfileId, isPOI ? 'poi' : 'apt') || getMissionTaskProfile('auto', isPOI ? 'poi' : 'apt');
     const taskDomain = String(passenger?.taskDomain || profile?.taskDomain || 'general').toLowerCase();
     const roleProfile = String(passenger?.roleProfile || profile?.roleProfile || 'general_passenger_v1').toLowerCase();
@@ -6803,7 +6961,8 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
         sceneIntent,
         sceneAccepted: !!sceneAccepted,
         targetGeoContext: targetGeoContext || mission?.targetGeoContext || passenger?.targetGeoContext || null,
-        missionTruth: missionTruth || mission?.missionTruth || passenger?.missionTruth || null,
+        missionTruth: attachAptArrivalPlanToMissionTruth(missionTruth || mission?.missionTruth || passenger?.missionTruth || null, aptArrivalPlan),
+        aptArrivalPlan: aptArrivalPlan || mission?.aptArrivalPlan || passenger?.aptArrivalPlan || null,
         targetScene,
         constraints
     };
@@ -10595,6 +10754,22 @@ async function generateMission() {
         ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt)
         : null;
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
+    const aptArrivalPlan = buildAptArrivalPlan({
+        isPOI,
+        dest,
+        mission: m,
+        passenger: window.activePassenger || m?.passenger || null,
+        paxText,
+        cargoText,
+        profileId: m?._appliedProfile || dispatchProfileId || selectedMissionProfile || 'auto',
+        heading: nav.brng
+    });
+    if (aptArrivalPlan) {
+        currentMissionData.aptArrivalPlan = aptArrivalPlan;
+        currentMissionData.missionTruth = attachAptArrivalPlanToMissionTruth(currentMissionData.missionTruth || null, aptArrivalPlan);
+    } else {
+        delete currentMissionData.aptArrivalPlan;
+    }
     const activeMissionContract = buildMissionContract({
         isPOI,
         requestedProfileId: m?._requestedProfile || selectedMissionProfile || 'auto',
@@ -10608,7 +10783,8 @@ async function generateMission() {
         sceneIntentOverride: missionSceneIntent,
         sceneAccepted: !missionNeedsAccept,
         targetGeoContext: currentMissionData.targetGeoContext || null,
-        missionTruth: currentMissionData.missionTruth || null
+        missionTruth: currentMissionData.missionTruth || null,
+        aptArrivalPlan
     });
     const fireScenario = buildFireWatchScenario({
         isPOI,
@@ -10631,6 +10807,7 @@ async function generateMission() {
             sceneIntent: currentMissionData.sceneIntent || null,
             targetGeoContext: currentMissionData.targetGeoContext || null,
             missionTruth: currentMissionData.missionTruth || null,
+            aptArrivalPlan: currentMissionData.aptArrivalPlan || activeMissionContract.aptArrivalPlan || null,
             aiRequested: m?.targetSceneDebug?.aiRaw || null,
             aiNormalized: m?.targetSceneDebug?.normalized || currentMissionData.targetScene || null,
             contractTargetScene: activeMissionContract.targetScene || null,
@@ -10684,6 +10861,7 @@ async function generateMission() {
             sceneIntent: currentMissionData.sceneIntent || null,
             targetGeoContext: currentMissionData.targetGeoContext || null,
             missionTruth: currentMissionData.missionTruth || null,
+            aptArrivalPlan: currentMissionData.aptArrivalPlan || activeMissionContract.aptArrivalPlan || null,
             targetScene: currentMissionData.targetScene || null,
             targetSceneDebug: {
                 sceneIntentRaw: m?.targetSceneDebug?.sceneIntentRaw || m?.sceneIntent || null,
@@ -10734,6 +10912,10 @@ async function generateMission() {
         if (!/waldbrandgefahrenindex|dwd/i.test(storyForBriefing)) {
             storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${fireLine}`;
         }
+    }
+    const arrivalHint = !isPOI ? String(currentMissionData?.aptArrivalPlan?.narrativeHint || '').trim() : '';
+    if (arrivalHint && !/ankunft|uebergabe|übergabe|vorfeld|parking/i.test(storyForBriefing)) {
+        storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Ankunfts-Hinweis: ${arrivalHint}`;
     }
     document.getElementById("mStory").innerText = storyForBriefing;
     document.getElementById("mDepICAO").innerText = currentStartICAO;

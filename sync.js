@@ -390,10 +390,12 @@ function _missionSceneDebugState() {
             contractTargetScene: null,
             targetGeoContext: null,
             missionTruth: null,
+            aptArrivalPlan: null,
             missionContext: null,
             appResolvedTargetScene: null,
             lastCommand: null,
             lastStartSceneCommand: null,
+            lastEndSceneCommand: null,
             lastTargetSceneCommand: null,
             lastSmokeCommand: null,
             lastAck: null,
@@ -505,6 +507,17 @@ function _missionSceneDebugMapPoints(command = {}, payload = null) {
         });
     }
 
+    if (!out.length && command.debugPoint && Number.isFinite(originLat) && Number.isFinite(originLon)) {
+        add({
+            kind: command.debugPoint.kind || 'scene_point',
+            label: command.debugPoint.label || 'Szenenpunkt',
+            title: command.debugPoint.title || '',
+            lat: originLat,
+            lon: originLon,
+            altFt: Number.isFinite(originAltFt) ? originAltFt : null
+        });
+    }
+
     const addSites = (sites, kind) => {
         (Array.isArray(sites) ? sites : []).forEach((site, siteIdx) => {
             const count = Math.max(1, Math.min(12, Math.round(Number(site?.count || 1) || 1)));
@@ -559,6 +572,7 @@ window.gaMissionSceneDebugRecordAi = function(info = {}) {
         sceneIntent: info.sceneIntent || null,
         targetGeoContext: info.targetGeoContext || info.sceneComposer?.targetGeoContext || null,
         missionTruth: info.missionTruth || info.sceneComposer?.missionTruth || null,
+        aptArrivalPlan: info.aptArrivalPlan || info.sceneComposer?.aptArrivalPlan || null,
         sceneComposer: info.sceneComposer || null,
         aiRequested: info.aiRequested || null,
         aiNormalized: info.aiNormalized || null,
@@ -1195,6 +1209,8 @@ window.sendTrackerCommand = function(command = {}) {
         if (String(command.type || '') === 'mission_scene_spawn') {
             if (command.targetSceneKind) patch.lastTargetSceneCommand = summary;
             else patch.lastStartSceneCommand = summary;
+        } else if (String(command.type || '') === 'mission_scene_deboarding') {
+            patch.lastEndSceneCommand = summary;
         } else if (String(command.type || '') === 'mission_scene_clear') {
             if (String(command.sceneId || '').includes('-target')) patch.lastTargetSceneCommand = null;
             else patch.lastStartSceneCommand = null;
@@ -1275,6 +1291,110 @@ function _missionSceneId() {
     const key = missionId ? String(missionId).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 80) : 'active';
     return `scene-${key || 'active'}`;
 }
+
+function _missionSceneRepresentativeRoutePoint(which = 'start') {
+    const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
+    if (!wps.length) return null;
+    const isEnd = which === 'end';
+    const idx = isEnd ? wps.length - 1 : 0;
+    const wp = wps[idx] || null;
+    const lat = Number(wp?.lat);
+    const lon = Number(wp?.lng ?? wp?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+    const neighborIdx = isEnd ? Math.max(0, idx - 1) : Math.min(wps.length - 1, idx + 1);
+    const neighbor = wps[neighborIdx] || null;
+    let hdg = 0;
+    if (neighbor && neighbor !== wp && typeof calcNav === 'function') {
+        const nLat = Number(neighbor.lat);
+        const nLon = Number(neighbor.lng ?? neighbor.lon);
+        if (Number.isFinite(nLat) && Number.isFinite(nLon)) {
+            try {
+                const nav = isEnd ? calcNav(nLat, nLon, lat, lon) : calcNav(lat, lon, nLat, nLon);
+                hdg = Number(nav?.brng ?? nav?.bearing ?? 0);
+            } catch (_) {}
+        }
+    }
+    const depElev = (typeof currentDepElev !== 'undefined' && currentDepElev != null) ? currentDepElev : null;
+    const destElev = (typeof currentDestElev !== 'undefined' && currentDestElev != null) ? currentDestElev : null;
+    const elevFallback = isEnd ? (destElev ?? depElev) : (depElev ?? destElev);
+    const altFt = Number(wp?.altFt ?? wp?.elevFt ?? wp?.elevationFt ?? elevFallback ?? 0);
+    const missionPoiName = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData.poiName : '';
+    const startName = (typeof currentSName !== 'undefined' && currentSName) ? currentSName : '';
+    const endName = (typeof currentDName !== 'undefined' && currentDName) ? currentDName : '';
+    const nameFallback = isEnd
+        ? ((typeof currentDestICAO !== 'undefined' && currentDestICAO && currentDestICAO !== 'POI') ? currentDestICAO : (missionPoiName || endName || 'Ende'))
+        : ((typeof currentStartICAO !== 'undefined' && currentStartICAO) ? currentStartICAO : (startName || 'Start'));
+    const name = String(wp?.name || nameFallback || (isEnd ? 'Ende' : 'Start')).replace(/^🎯\s*/u, '').trim();
+    return {
+        lat,
+        lon,
+        altFt: Number.isFinite(altFt) ? Math.round(altFt) : 0,
+        hdg: Number.isFinite(hdg) ? Math.round(hdg) : 0,
+        name: name || (isEnd ? 'Ende' : 'Start')
+    };
+}
+
+window.missionStartEndSceneDebugPreview = function(reason = 'planned-start-end-scenes') {
+    const sceneBase = _missionSceneId();
+    const makeCommand = (which, point) => {
+        if (!point) return null;
+        const isEnd = which === 'end';
+        return _missionSceneDebugCommandSummary({
+            type: isEnd ? 'mission_scene_end_preview' : 'mission_scene_start_preview',
+            sceneId: `${sceneBase}-${which}-preview`,
+            reason,
+            lat: point.lat,
+            lon: point.lon,
+            altFt: point.altFt,
+            hdg: point.hdg,
+            debugPoint: {
+                kind: isEnd ? 'scene_end_point' : 'scene_start_point',
+                label: `${isEnd ? 'Endszene' : 'Startszene'} repr.: ${point.name}`,
+                title: 'repräsentativer Routenpunkt'
+            }
+        }, null, null);
+    };
+    const start = makeCommand('start', _missionSceneRepresentativeRoutePoint('start'));
+    const end = makeCommand('end', _missionSceneRepresentativeRoutePoint('end'));
+    return { start, end };
+};
+
+function _missionAptArrivalPlan() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const contract = md?.missionContract || window.activeMissionContract || {};
+    const truth = md?.missionTruth || contract?.missionTruth || null;
+    const plan = md?.aptArrivalPlan || contract?.aptArrivalPlan || truth?.arrivalScene || null;
+    if (!plan || typeof plan !== 'object') return null;
+    const lat = Number(plan.lat);
+    const lon = Number(plan.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const altFt = Number.isFinite(Number(plan.altFt)) ? Math.round(Number(plan.altFt)) : 0;
+    const hdg = Number.isFinite(Number(plan.hdg)) ? Math.round(Number(plan.hdg)) : 0;
+    return { ...plan, lat, lon, altFt, hdg };
+}
+
+window.missionAptArrivalDebugPreview = function(reason = 'planned-apt-arrival-scene') {
+    const plan = _missionAptArrivalPlan();
+    if (!plan) return null;
+    const label = String(plan.roleLabel || plan.role || 'APT-Ankunft').trim();
+    const cue = String(plan.visibleCue || plan.expectedBy || plan.anchorType || '').trim();
+    const command = _missionSceneDebugCommandSummary({
+        type: 'mission_scene_apt_arrival_preview',
+        sceneId: `${_missionSceneId()}-apt-arrival-preview`,
+        reason,
+        lat: plan.lat,
+        lon: plan.lon,
+        altFt: plan.altFt,
+        hdg: plan.hdg,
+        debugPoint: {
+            kind: 'apt_arrival_plan',
+            label: cue ? `${label}: ${cue}` : label,
+            title: `${plan.source || 'airport-representative'} | ${plan.anchorType || 'arrival'} | confidence=${plan.confidence ?? '-'}`
+        }
+    }, null, null);
+    return { plan, command };
+};
 
 function _missionScenePaxCount() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;

@@ -3677,6 +3677,17 @@ window.vpBuildWeatherDebugReport = function() {
             const cues = Array.isArray(truth.visibleCues) && truth.visibleCues.length ? ` | cues=${truth.visibleCues.join(', ')}` : '';
             lines.push(`- Scene Anchor: ${sa.kind || '-'} | ${saPos} | reason=${sa.reason || '-'}${cues}`);
         }
+        const aptArrival = missionSnap.aptArrivalPlan || missionSnap.contract?.aptArrivalPlan || truth?.arrivalScene || null;
+        if (aptArrival) {
+            const pos = (Number.isFinite(Number(aptArrival.lat)) && Number.isFinite(Number(aptArrival.lon)))
+                ? `${Number(aptArrival.lat).toFixed(5)}, ${Number(aptArrival.lon).toFixed(5)}`
+                : '-';
+            const conf = Number.isFinite(Number(aptArrival.confidence)) ? Number(aptArrival.confidence).toFixed(2) : '-';
+            lines.push(`- APT Arrival Plan: ${aptArrival.roleLabel || aptArrival.role || '-'} | ${aptArrival.anchorType || '-'} | ${pos} | source=${aptArrival.source || '-'} | conf=${conf}`);
+            if (aptArrival.expectedBy || aptArrival.visibleCue) {
+                lines.push(`- APT Erwartung: ${aptArrival.expectedBy || '-'} | cue=${aptArrival.visibleCue || '-'}`);
+            }
+        }
         lines.push(`- Quelle: ${missionSnap.source || 'n/a'}`);
         if (missionSnap.poiSource) lines.push(`- POI-Fundquelle: ${missionSnap.poiSource}`);
         if (missionSnap.poiLookup && typeof missionSnap.poiLookup === 'object') {
@@ -3718,10 +3729,20 @@ window.vpBuildWeatherDebugReport = function() {
     const targetPreview = (!sceneDbg.lastTargetSceneCommand && typeof window.missionTargetSceneDebugPreview === 'function')
         ? window.missionTargetSceneDebugPreview('debug-report-preview')
         : null;
+    const startEndPreview = (typeof window.missionStartEndSceneDebugPreview === 'function')
+        ? window.missionStartEndSceneDebugPreview('debug-report-preview')
+        : null;
+    const aptArrivalPreview = (typeof window.missionAptArrivalDebugPreview === 'function')
+        ? window.missionAptArrivalDebugPreview('debug-report-preview')
+        : null;
     const appResolved = sceneDbg.appResolvedTargetScene || targetPreview?.appResolved || null;
     const lastTargetCommand = sceneDbg.lastTargetSceneCommand || null;
     const previewTargetCommand = targetPreview?.command || null;
+    const plannedStartCommand = startEndPreview?.start || null;
+    const plannedEndCommand = startEndPreview?.end || null;
+    const plannedAptArrivalCommand = aptArrivalPreview?.command || null;
     const lastStartCommand = sceneDbg.lastStartSceneCommand || null;
+    const lastEndCommand = sceneDbg.lastEndSceneCommand || null;
     const lastSmokeCommand = sceneDbg.lastSmokeCommand || null;
     const lastAck = sceneDbg.lastAck || window.missionTargetSceneStatus?.lastAck || window.missionSceneStatus?.lastAck || null;
     const fmtSceneSpec = (label, spec) => {
@@ -3748,8 +3769,17 @@ window.vpBuildWeatherDebugReport = function() {
         const itemSummary = Array.isArray(cmd.items)
             ? cmd.items.slice(0, 10).map(it => `${it.kind || '?'}="${it.title || it.objectTitle || '?'}"`).join(' | ')
             : '';
+        const pointSummary = Array.isArray(cmd.mapPoints)
+            ? cmd.mapPoints.slice(0, 10).map(pt => {
+                const pos = (Number.isFinite(Number(pt.lat)) && Number.isFinite(Number(pt.lon)))
+                    ? `${Number(pt.lat).toFixed(5)},${Number(pt.lon).toFixed(5)}`
+                    : '-';
+                return `${pt.label || pt.kind || '?'}@${pos}`;
+            }).join(' | ')
+            : '';
         lines.push(`- ${label}: ${cmd.type || '?'} id=${cmd.commandId || '-'} reason=${cmd.reason || '-'} scene=${cmd.sceneId || '-'} kind=${cmd.targetSceneKind || '-'} pos=${pos} alt=${Number.isFinite(Number(cmd.altFt)) ? Math.round(Number(cmd.altFt)) : '-'} hdg=${Number.isFinite(Number(cmd.hdg)) ? Math.round(Number(cmd.hdg)) : '-'}`);
         if (cmd.itemCount || itemSummary) lines.push(`  items=${cmd.itemCount || 0}: ${itemSummary || '-'}`);
+        if (pointSummary) lines.push(`  points=${Array.isArray(cmd.mapPoints) ? cmd.mapPoints.length : 0}: ${pointSummary}`);
         if (cmd.smokeSites != null || cmd.fireSites != null) lines.push(`  smokeSites=${cmd.smokeSites ?? '-'} fireSites=${cmd.fireSites ?? '-'} smoke="${cmd.objectTitle || '-'}" fire="${cmd.fireObjectTitle || '-'}"`);
     };
     fmtSceneSpec('KI-Anforderung raw', aiRequested);
@@ -3766,6 +3796,14 @@ window.vpBuildWeatherDebugReport = function() {
             : '-';
         lines.push(`- MissionTruth: main=${mt.kind || '-'} ${mtPos} | anchor=${sa.kind || '-'} ${saPos} | cues=${Array.isArray(sceneTruth.visibleCues) ? sceneTruth.visibleCues.join(',') : '-'}`);
     }
+    if (sceneTruth?.arrivalScene) {
+        const ar = sceneTruth.arrivalScene;
+        const arPos = (Number.isFinite(Number(ar.lat)) && Number.isFinite(Number(ar.lon)))
+            ? `${Number(ar.lat).toFixed(5)}, ${Number(ar.lon).toFixed(5)}`
+            : '-';
+        const conf = Number.isFinite(Number(ar.confidence)) ? Number(ar.confidence).toFixed(2) : '-';
+        lines.push(`- MissionTruth Arrival: ${ar.roleLabel || ar.role || '-'} | ${ar.anchorType || '-'} ${arPos} | source=${ar.source || '-'} | conf=${conf}`);
+    }
     if (appResolved && typeof appResolved === 'object') {
         const point = appResolved.point || {};
         const pointText = (Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lon)))
@@ -3776,11 +3814,16 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push('- App resolved: -');
     }
     fmtCommand('App -> Sim Zielszene', lastTargetCommand);
+    fmtCommand('Plan Startszene', plannedStartCommand);
+    fmtCommand('Plan Endszene', plannedEndCommand);
+    fmtCommand('Plan APT Arrival', plannedAptArrivalCommand);
     fmtCommand('App -> Sim Startszene', lastStartCommand);
+    fmtCommand('App -> Sim Endszene', lastEndCommand);
     fmtCommand('App -> Sim Smoke/Fire', lastSmokeCommand);
-    const scenePointCount = [lastTargetCommand || previewTargetCommand, lastStartCommand, lastSmokeCommand]
+    const scenePointCount = [lastTargetCommand || previewTargetCommand, plannedStartCommand, plannedEndCommand, plannedAptArrivalCommand, lastSmokeCommand]
         .reduce((sum, cmd) => sum + (Array.isArray(cmd?.mapPoints) ? cmd.mapPoints.length : 0), 0);
-    lines.push(`- Scene Punkte Overlay: ${window.vpMissionSceneDebugOverlayEnabled ? 'An' : 'Aus'} | Punkte=${scenePointCount}${previewTargetCommand && !lastTargetCommand ? ' (Preview)' : ''}`);
+    const hasPreviewPoints = Boolean((previewTargetCommand && !lastTargetCommand) || plannedStartCommand || plannedEndCommand || plannedAptArrivalCommand);
+    lines.push(`- Scene Punkte Overlay: ${window.vpMissionSceneDebugOverlayEnabled ? 'An' : 'Aus'} | Punkte=${scenePointCount}${hasPreviewPoints ? ' (Preview)' : ''}`);
     if (lastAck && typeof lastAck === 'object') {
         const byKind = lastAck.spawnedByKind ? JSON.stringify(lastAck.spawnedByKind) : '-';
         lines.push(`- Letztes ACK: ${lastAck.type || '?'} status=${lastAck.status || '-'} spawned=${lastAck.spawned ?? '-'} cleared=${lastAck.cleared ?? '-'} byKind=${byKind} error=${lastAck.error || '-'}`);
