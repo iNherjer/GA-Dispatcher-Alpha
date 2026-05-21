@@ -805,23 +805,44 @@ window.missionRuntimeIsActive = function() {
     return !!missionRuntime.active;
 };
 
+function _missionFireContextIsFireWatch(md = null) {
+    md = md || ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null);
+    const contract = md?.missionContract || window.activeMissionContract || {};
+    const pax = window.activePassenger || md?.passenger || contract?.passenger || {};
+    const taskDomain = String(pax?.taskDomain || contract?.taskDomain || md?.taskDomain || '').toLowerCase();
+    const profile = String(
+        pax?.roleProfile ||
+        contract?.roleProfile ||
+        contract?.appliedProfileId ||
+        contract?.requestedProfileId ||
+        md?.appliedProfile ||
+        md?.profile ||
+        ''
+    ).toLowerCase();
+    if (taskDomain === 'fire_watch' || profile === 'fire_watch') return true;
+    if (/(mapping|survey|photogrammetry|sightseeing|tour_guide|cargo|medical|search_and_rescue|rescue|sar)/.test(`${taskDomain} ${profile}`)) return false;
+    const text = String([
+        md?.mission,
+        md?.poiName,
+        md?.targetName,
+        contract?.summary,
+        contract?.missionTitle,
+        contract?.missionStory,
+        pax?.storyHint
+    ].filter(Boolean).join(' ')).toLowerCase();
+    return /(waldbrand|feuerwacht|rauchfahne|rauchentwicklung|brandherd|brandmeldung|hotspot|fire watch|smoke report)/i.test(text);
+}
+
 function _activeFireScenario() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const fs = md?.fireScenario;
-    return (fs && typeof fs === 'object' && fs.enabled) ? fs : null;
+    if (!(fs && typeof fs === 'object' && fs.enabled && fs.type === 'fire_watch')) return null;
+    return _missionFireContextIsFireWatch(md) ? fs : null;
 }
 
 function _missionLooksLikeFireWatch() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
-    const pax = window.activePassenger || md?.missionContract?.passenger || {};
-    const contract = md?.missionContract || window.activeMissionContract || {};
-    const taskDomain = String(pax?.taskDomain || contract?.taskDomain || contract?.domain || '').toLowerCase();
-    const profile = String(md?.profile || md?.appliedProfile || contract?.profile || contract?.appliedProfile || contract?.appliedProfileId || contract?.requestedProfileId || contract?.taskProfile || '').toLowerCase();
-    const missionText = String(`${md?.mission || ''} ${md?.poiName || ''} ${contract?.title || ''} ${contract?.story || ''} ${contract?.missionTitle || ''} ${contract?.missionStory || ''}`).toLowerCase();
-    return taskDomain === 'fire_watch'
-        || profile === 'fire_watch'
-        || /\bfire_watch\b/.test(missionText)
-        || /(waldbrand|brand|rauch|feuer|hotspot|fire watch)/i.test(missionText);
+    return _missionFireContextIsFireWatch(md);
 }
 
 function _missionSceneAcceptedForRuntime() {
@@ -2852,7 +2873,7 @@ window.fireMissionSmokeDebugSummary = function() {
 function _missionStartUiKey() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (!md) return '';
-    const fs = md.fireScenario || {};
+    const fs = _activeFireScenario() || {};
     return String(fs.missionId || md.missionId || md.id || `${md.start || ''}-${md.dest || ''}-${md.mission || ''}`).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 96);
 }
 

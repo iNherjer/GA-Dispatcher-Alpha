@@ -2757,6 +2757,9 @@ async function restoreMissionState(state) {
     window.activeMissionContract = restoredMissionContract || null;
     if (currentMissionData && typeof currentMissionData === 'object') {
         currentMissionData.missionContract = window.activeMissionContract;
+        if (currentMissionData.fireScenario && !missionDataAllowsFireWatchScenario(currentMissionData, window.activePassenger, window.activeMissionContract)) {
+            delete currentMissionData.fireScenario;
+        }
     }
     try {
         if (window.activePassenger) localStorage.setItem('ga_active_passenger', JSON.stringify(window.activePassenger));
@@ -6799,15 +6802,30 @@ function buildFireWatchFireSites(smokeSites, extent, fireConfig = {}) {
     }));
 }
 
-function buildFireWatchScenario({ isPOI = false, mission = null, passenger = null, dest = null, poiTerrainFt = null, heading = 0, fireHazard = null } = {}) {
+function missionAllowsFireWatchScenario({ mission = null, passenger = null } = {}) {
     const taskDomain = String(passenger?.taskDomain || mission?.passenger?.taskDomain || '').toLowerCase();
-    const profileId = String(mission?.profileId || mission?._appliedProfile || mission?._requestedProfile || '').toLowerCase();
+    const profileId = String(passenger?.roleProfile || mission?.profileId || mission?._appliedProfile || mission?._requestedProfile || '').toLowerCase();
+    if (taskDomain === 'fire_watch' || profileId === 'fire_watch') return true;
+    if (/(mapping|survey|photogrammetry|sightseeing|tour_guide|cargo|medical|search_and_rescue|rescue|sar)/.test(`${taskDomain} ${profileId}`)) return false;
     const titleStory = normalizeMissionText(`${mission?.t || ''} ${mission?.s || ''}`);
-    const isFireMission = isPOI && (
-        taskDomain === 'fire_watch' ||
-        profileId === 'fire_watch' ||
-        /(brand|rauch|hotspot|feuer|waldbrand|feuerwacht|fire watch)/.test(titleStory)
-    );
+    return /(waldbrand|feuerwacht|rauchfahne|rauchentwicklung|brandherd|brandmeldung|hotspot|fire watch|smoke report)/.test(titleStory);
+}
+
+function missionDataAllowsFireWatchScenario(md = null, passenger = null, contract = null) {
+    if (!md || typeof md !== 'object') return false;
+    return missionAllowsFireWatchScenario({
+        passenger: passenger || md?.passenger || contract?.passenger || null,
+        mission: {
+            t: md?.mission || contract?.missionTitle || contract?.summary || '',
+            s: [contract?.missionStory, contract?.summary, md?.poiName, md?.targetName].filter(Boolean).join(' '),
+            passenger: passenger || md?.passenger || contract?.passenger || null,
+            profileId: contract?.appliedProfileId || contract?.requestedProfileId || md?.appliedProfile || md?.profile || ''
+        }
+    });
+}
+
+function buildFireWatchScenario({ isPOI = false, mission = null, passenger = null, dest = null, poiTerrainFt = null, heading = 0, fireHazard = null } = {}) {
+    const isFireMission = isPOI && missionAllowsFireWatchScenario({ mission, passenger });
     if (!isFireMission || !dest || !Number.isFinite(Number(dest.lat)) || !Number.isFinite(Number(dest.lon))) return null;
 
     const hazardLevel = Number(fireHazard?.level);
@@ -9708,6 +9726,7 @@ async function generateMission() {
         fireHazard: missionFireHazard
     });
     if (fireScenario) currentMissionData.fireScenario = fireScenario;
+    else delete currentMissionData.fireScenario;
     currentMissionData.missionContract = activeMissionContract;
     currentMissionData.targetScene = activeMissionContract.targetScene;
     window.activeMissionContract = activeMissionContract;
