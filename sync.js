@@ -189,6 +189,14 @@ const MISSION_SCENE_ASSET_POOLS = {
         'PowerPylon_Base',
         'PowerPylon_Top'
     ]),
+    windTurbines: _sceneCatalogRoleTitles('utility.wind_turbine', [
+        'WindTurbine',
+        'Wind_Turbine',
+        'WindTurbine01',
+        'Wind_Turbine_01',
+        'Microsoft_WindTurbine',
+        'Microsoft_Wind_Turbine'
+    ]),
     utilityGenerators: _sceneCatalogRoleTitles('utility.generator', [
         'PowerGenerator',
         'GeneracPowerSystems01',
@@ -2041,6 +2049,42 @@ function _missionTargetScenePoint() {
     };
 }
 
+function _missionTargetSceneHasPowerlineContext(text = '') {
+    const t = String(text || '').toLowerCase();
+    return /(strommast|stromtrasse|stromleitung|freileitung|hochspann|hochspannung|powerline|power\s+line|power\s+pylon|power\s+tower|umspannwerk|transformator|energieinfrastruktur|leitungsmast|stromnetz)/.test(t);
+}
+
+function _missionTargetSceneHasWindTurbineContext(text = '') {
+    const t = String(text || '').toLowerCase();
+    return /(wind_turbine|windrad|windraeder|windräder|windturbine|wind\s+turbine|windkraft|windpark|windenergie|rotorblatt|rotor|turbine)/.test(t);
+}
+
+function _missionTargetSceneHasWindTerrainText(text = '') {
+    const t = String(text || '').toLowerCase();
+    return /(berg|gipfel|ruecken|rücken|kuppe|hochflaeche|hochfläche|hoehe|höhe|wiese|wiesen|feld|felder|acker|farmland|meadow|offenes gelaende|offenes gelände|weide|landwirtschaft)/.test(t);
+}
+
+function _missionTargetSceneHasWindBadTerrainText(text = '') {
+    const t = String(text || '').toLowerCase();
+    return /(stadt|innenstadt|city|wohngebiet|siedlung|urban|bebauung|tal|talsohle|schlucht|enge lage|industriegebiet)/.test(t);
+}
+
+function _missionTargetSceneGeoAllowsWindTurbine() {
+    const anchors = _missionTargetGeoContext()?.anchors || {};
+    const meadow = Number(anchors.meadow?.distM);
+    const farmland = Number(anchors.farmland?.distM);
+    const openM = Math.min(Number.isFinite(meadow) ? meadow : Infinity, Number.isFinite(farmland) ? farmland : Infinity);
+    const building = Number(anchors.building?.distM);
+    const urbanClose = Number.isFinite(building) && building < 180 && !(Number.isFinite(openM) && openM <= building + 80);
+    return Number.isFinite(openM) && openM < 450 && !urbanClose;
+}
+
+function _missionTargetSceneAllowsWindTurbine(text = '') {
+    if (!_missionTargetSceneHasWindTurbineContext(text)) return false;
+    if (_missionTargetSceneHasWindBadTerrainText(text)) return false;
+    return _missionTargetSceneHasWindTerrainText(text) || _missionTargetSceneGeoAllowsWindTurbine();
+}
+
 function _missionTargetSceneRequestTerrain() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (!md || !md.poiName || Number.isFinite(Number(md.poiTerrainFt ?? md.targetAltFt))) return false;
@@ -2087,6 +2131,10 @@ function _missionTargetSceneKind() {
         powerline: 'powerline_inspection',
         power_pylon: 'powerline_inspection',
         pylon: 'powerline_inspection',
+        wind_turbine: 'wind_turbine_site',
+        windrad: 'wind_turbine_site',
+        windkraft: 'wind_turbine_site',
+        windpark: 'wind_turbine_site',
         erosion: 'erosion_damage',
         shore_damage: 'erosion_damage',
         landslide: 'erosion_damage',
@@ -2109,16 +2157,20 @@ function _missionTargetSceneKind() {
     const explicitKind = kindAliases[explicitKindRaw] || explicitKindRaw;
     if (/^(none|off|false|no)$/i.test(explicitKind)) return null;
     if (explicitKind === 'fire_watch') return null;
-    if (/^(road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context)$/.test(explicitKind)) return explicitKind;
+    const text = _missionTargetSceneText();
+    if (explicitKind === 'powerline_inspection' && !_missionTargetSceneHasPowerlineContext(text)) return 'survey_context';
+    if (explicitKind === 'wind_turbine_site' && !_missionTargetSceneAllowsWindTurbine(text)) return 'survey_context';
+    if (/^(road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context)$/.test(explicitKind)) return explicitKind;
     const roles = Array.isArray(spec?.roles) ? spec.roles.map(role => String(role || '').toLowerCase()) : [];
     if (roles.some(role => role.startsWith('construction.'))) return 'construction_site';
-    if (roles.some(role => role.startsWith('utility.power'))) return 'powerline_inspection';
+    if (roles.some(role => role === 'utility.powerline') && _missionTargetSceneHasPowerlineContext(text)) return 'powerline_inspection';
+    if (roles.some(role => role === 'utility.wind_turbine') && _missionTargetSceneAllowsWindTurbine(text)) return 'wind_turbine_site';
     if (roles.some(role => role.startsWith('nature.') || role.startsWith('debris.'))) return 'debris_field';
     const taskDomain = _missionSceneTaskDomain();
-    const text = _missionTargetSceneText();
     if (taskDomain === 'fire_watch' || /(waldbrand|rauch|brand|feuer|hotspot)/.test(text)) return null;
+    if (_missionTargetSceneHasPowerlineContext(text)) return 'powerline_inspection';
+    if (_missionTargetSceneAllowsWindTurbine(text)) return 'wind_turbine_site';
     if (/(baustelle|baugrube|kran|bagger|bulldozer|erdarbeiten|construction|crane|dozer)/.test(text)) return 'construction_site';
-    if (/(strommast|hochspannung|leitung|powerline|pylon|power pylon|freileitung|energie|umspann)/.test(text)) return 'powerline_inspection';
     if (/(uferbruch|uferkante|hangrutsch|erosion|erdrutsch|abbruchkante|geroell|geröll|felsen|steine|sediment|boeschung|böschung)/.test(text)) return 'erosion_damage';
     if (/(truemmer|trümmer|debris|streugut| verstreut|wrackteile)/.test(text)) return 'debris_field';
     if (/(bruecke|brücke|viadukt|bridge)/.test(text)) return 'infra_bridge';
@@ -2175,6 +2227,13 @@ function _missionTargetSceneNormalizeFeature(value) {
         pylon: 'powerline',
         strommast: 'powerline',
         freileitung: 'powerline',
+        wind_turbine: 'wind_turbine',
+        windrad: 'wind_turbine',
+        windraeder: 'wind_turbine',
+        windrader: 'wind_turbine',
+        windkraft: 'wind_turbine',
+        windpark: 'wind_turbine',
+        windenergie: 'wind_turbine',
         utility_vehicle: 'utility_truck',
         service_vehicle: 'utility_truck',
         cars: 'road_vehicles',
@@ -2277,6 +2336,7 @@ function _missionTargetSceneNormalizeFeature(value) {
 
 const MISSION_TARGET_SCENE_BASE_FEATURE_COUNTS = {
     powerline_inspection: { powerline: 2, generator: 1, utility_truck: 1, cones: 1 },
+    wind_turbine_site: { wind_turbine: 1, utility_truck: 1 },
     road_incident: { road_vehicles: 2, emergency_response: 1, people: 2, cones: 2 },
     construction_site: { construction_crane: 1, earthmoving: 1, construction_truck: 1, cargo_material: 1, cones: 2 },
     erosion_damage: { logs: 2, debris: 1, cones: 1 },
@@ -2316,6 +2376,7 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
         spec.roles.forEach(role => {
             const r = String(role || '').toLowerCase();
             if (r === 'utility.powerline') add('powerline');
+            if (r === 'utility.wind_turbine') add('wind_turbine');
             if (r === 'utility.generator') add('generator');
             if (r === 'construction.crane') add('construction_crane');
             if (r === 'construction.earthmoving') add('earthmoving');
@@ -2335,7 +2396,8 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
             if (r === 'vfx.fire' && !out.includes('campfire')) add('fire_small');
         });
     }
-    if (/(strommast|hochspannung|leitung|powerline|pylon|freileitung|umspann)/.test(text)) add('powerline');
+    if (_missionTargetSceneHasPowerlineContext(text)) add('powerline');
+    if (_missionTargetSceneAllowsWindTurbine(text)) add('wind_turbine');
     if (/(kran|crane)/.test(text)) add('construction_crane');
     if (/(bagger|bulldozer|dozer|erdarbeiten)/.test(text)) add('earthmoving');
     if (/(truemmer|trümmer|debris|wrackteile|streugut)/.test(text)) add('debris');
@@ -2408,6 +2470,10 @@ function _missionTargetSceneItems(kind) {
                 const pylon = MISSION_SCENE_ASSET_POOLS.utilityPower.includes('PowerPylon_Base') ? 'PowerPylon_Base' : _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityPower, `feature-powerline-${i}`, 'PowerPylon_Base');
                 const pos = _missionTargetGeoOffset(['power'], 24 + (i * 28), -18 + (i * 5), { minM: 12, maxM: 150, lateralM: i * 18, hdgOffsetDeg: 0 });
                 add(`feature_powerline_${i + 1}`, 'Zusatz Strommast/Freileitung', pylon, MISSION_SCENE_ASSET_POOLS.utilityPower, pos.f, pos.r, { hdgOffsetDeg: 0 });
+            } else if (feature === 'wind_turbine') {
+                const turbine = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.windTurbines, `feature-wind-turbine-${i}`, 'WindTurbine');
+                const pos = _missionTargetGeoOffset(['farmland', 'meadow'], 20 + (i * 22), -12 - (i * 7), { minM: 18, maxM: 150, lateralM: i * 14, hdgOffsetDeg: 0 });
+                add(`feature_wind_turbine_${i + 1}`, 'Zusatz Windrad', turbine, MISSION_SCENE_ASSET_POOLS.windTurbines, pos.f, pos.r, { hdgOffsetDeg: 0 });
             } else if (feature === 'generator') {
                 const generator = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityGenerators, `feature-generator-${i}`, 'PowerGenerator');
                 add(`feature_generator_${i + 1}`, 'Zusatz Generator', generator, MISSION_SCENE_ASSET_POOLS.utilityGenerators, 14 + step, -13 - step, { hdgOffsetDeg: 35 });
@@ -2549,6 +2615,16 @@ function _missionTargetSceneItems(kind) {
         add('utility_truck', 'Utility Fahrzeug', utilityTruck, truckPool, roadPos.f, roadPos.r, { hdgOffsetDeg: roadPos.hdg });
         add('generator', 'Generator', generator, MISSION_SCENE_ASSET_POOLS.utilityGenerators, -8, 6, { hdgOffsetDeg: 30 });
         add('marker_1', 'Arbeitsbereich', cone, markerPool, -4, -6);
+        return finish();
+    }
+
+    if (kind === 'wind_turbine_site') {
+        const turbine = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.windTurbines, 'wind-turbine-main', 'WindTurbine');
+        const truck = _scenePickTitle(primaryTruckPool, 'wind-turbine-service-truck', primaryTruckPool[0] || 'Truck Utility Europe Flush');
+        const turbinePos = _missionTargetGeoOffset(['farmland', 'meadow'], 0, 0, { minM: 12, maxM: 150, hdgOffsetDeg: 0 });
+        const roadPos = _missionTargetGeoOffset(['road', 'parking', 'path'], -22, 12, { minM: 26, maxM: 140, hdgOffsetDeg: 205 });
+        add('wind_turbine_1', 'Windrad / Windenergieanlage', turbine, MISSION_SCENE_ASSET_POOLS.windTurbines, turbinePos.f, turbinePos.r, { hdgOffsetDeg: 0 });
+        add('wind_service_truck', 'Servicefahrzeug Windrad', truck, truckPool, roadPos.f, roadPos.r, { hdgOffsetDeg: roadPos.hdg });
         return finish();
     }
 

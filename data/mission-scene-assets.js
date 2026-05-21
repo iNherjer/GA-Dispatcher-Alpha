@@ -1,7 +1,7 @@
 // Mission scene asset catalog built from the first MSFS 2024 visual validation pass.
 // VFX entries are kept as known/ACK-tested assets because particles need separate review.
 window.MISSION_SCENE_ASSETS = {
-    version: '2026-05-20-scene-composition',
+    version: '2026-05-21-scene-special-objects',
     source: 'msfs2024-spawn-validation manual pass plus known VFX',
     targetSceneKinds: {
         none: {
@@ -49,6 +49,11 @@ window.MISSION_SCENE_ASSETS = {
             label: 'Strommast / Energie-Infrastruktur',
             roles: ['utility.powerline', 'utility.generator', 'vehicle.truck', 'marker.cone'],
             useFor: ['inspection_infra', 'mapping_survey', 'science_geo']
+        },
+        wind_turbine_site: {
+            label: 'Windenergieanlage / Windrad-Baustelle',
+            roles: ['utility.wind_turbine', 'vehicle.truck', 'marker.cone'],
+            useFor: ['inspection_infra', 'mapping_survey', 'science_geo', 'news_coverage']
         },
         erosion_damage: {
             label: 'Uferbruch / Hangrutsch / Erosion',
@@ -113,6 +118,12 @@ window.MISSION_SCENE_ASSETS = {
             features: ['powerline', 'generator', 'cones'],
             useFor: ['mapping_survey', 'inspection_infra', 'science_geo']
         },
+        wind_turbine_construction: {
+            label: 'Windrad-Bau/Wartung auf offenem Gelaende',
+            kind: 'wind_turbine_site',
+            features: ['wind_turbine', 'construction_truck'],
+            useFor: ['mapping_survey', 'inspection_infra', 'science_geo', 'news_coverage']
+        },
         road_incident_smoke: {
             label: 'Verkehrsunfall mit leichter Rauchentwicklung',
             kind: 'road_incident',
@@ -176,6 +187,10 @@ window.MISSION_SCENE_ASSETS = {
         powerline: {
             label: 'Strommast/Freileitung',
             roles: ['utility.powerline', 'utility.generator', 'vehicle.truck', 'marker.cone']
+        },
+        wind_turbine: {
+            label: 'Windrad/Windenergieanlage',
+            roles: ['utility.wind_turbine']
         },
         generator: {
             label: 'Generator/Aggregat',
@@ -376,6 +391,14 @@ window.MISSION_SCENE_ASSETS = {
         'utility.powerline': [
             'PowerPylon_Base',
             'PowerPylon_Top'
+        ],
+        'utility.wind_turbine': [
+            'WindTurbine',
+            'Wind_Turbine',
+            'WindTurbine01',
+            'Wind_Turbine_01',
+            'Microsoft_WindTurbine',
+            'Microsoft_Wind_Turbine'
         ],
         'utility.generator': [
             'PowerGenerator',

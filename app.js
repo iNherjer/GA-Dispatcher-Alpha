@@ -6777,7 +6777,7 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
     const title = String(mission?.t || mission?.title || '').trim();
     const story = String(mission?.s || mission?.story || '').trim();
     const rawTargetScene = targetSceneOverride !== undefined ? targetSceneOverride : (mission?.targetScene || passenger?.targetScene || null);
-    const targetScene = sanitizeMissionTargetSceneSpec(rawTargetScene, { isPOI, taskDomain });
+    const targetScene = sanitizeMissionTargetSceneSpec(rawTargetScene, { isPOI, taskDomain, targetGeoContext });
     const sceneIntent = sanitizeMissionSceneIntentSpec(
         sceneIntentOverride !== undefined ? sceneIntentOverride : (mission?.sceneIntent || passenger?.sceneIntent || null),
         { isPOI, taskDomain }
@@ -7187,6 +7187,7 @@ function missionSceneTargetKindCatalog() {
         cargo_site: { roles: ['vehicle.truck', 'cargo.container', 'cargo.pallet_medium'] },
         construction_site: { roles: ['construction.crane', 'construction.earthmoving', 'vehicle.truck'] },
         powerline_inspection: { roles: ['utility.powerline', 'utility.generator', 'vehicle.truck'] },
+        wind_turbine_site: { roles: ['utility.wind_turbine', 'vehicle.truck', 'marker.cone'] },
         erosion_damage: { roles: ['nature.log', 'debris.light'] },
         debris_field: { roles: ['debris.light', 'cargo.small_box'] },
         infra_bridge: { roles: ['vehicle.truck', 'marker.cone'] },
@@ -7206,6 +7207,7 @@ function missionSceneTargetPresetCatalog() {
     if (fromAssetCatalog && typeof fromAssetCatalog === 'object') return fromAssetCatalog;
     return {
         construction_powerline: { kind: 'construction_site', features: ['powerline', 'generator', 'cones'] },
+        wind_turbine_construction: { kind: 'wind_turbine_site', features: ['wind_turbine', 'construction_truck'] },
         road_incident_smoke: { kind: 'road_incident', features: ['smoke_light', 'emergency_response', 'debris'] },
         erosion_debris: { kind: 'erosion_damage', features: ['logs', 'debris', 'cones'] },
         bridge_worksite: { kind: 'infra_bridge', features: ['utility_truck', 'generator', 'cones'] },
@@ -7225,6 +7227,7 @@ function missionSceneTargetFeatureCatalog() {
         construction_truck: { roles: ['vehicle.truck'] },
         cargo_material: { roles: ['cargo.container', 'cargo.pallet_medium', 'cargo.small_box'] },
         powerline: { roles: ['utility.powerline', 'utility.generator', 'vehicle.truck', 'marker.cone'] },
+        wind_turbine: { roles: ['utility.wind_turbine'] },
         generator: { roles: ['utility.generator'] },
         utility_truck: { roles: ['vehicle.truck', 'vehicle.van'] },
         road_vehicles: { roles: ['vehicle.car', 'vehicle.van'] },
@@ -7265,6 +7268,11 @@ function normalizeMissionTargetSceneKind(value) {
         powerline: 'powerline_inspection',
         power_pylon: 'powerline_inspection',
         pylon: 'powerline_inspection',
+        wind_turbine: 'wind_turbine_site',
+        wind_turbine_site: 'wind_turbine_site',
+        windrad: 'wind_turbine_site',
+        windkraft: 'wind_turbine_site',
+        windpark: 'wind_turbine_site',
         erosion: 'erosion_damage',
         shore_damage: 'erosion_damage',
         landslide: 'erosion_damage',
@@ -7295,6 +7303,10 @@ function normalizeMissionTargetScenePreset(value) {
     const aliases = {
         construction_with_powerline: 'construction_powerline',
         baustelle_strommast: 'construction_powerline',
+        wind_turbine_construction: 'wind_turbine_construction',
+        windrad_bau: 'wind_turbine_construction',
+        windrad_baustelle: 'wind_turbine_construction',
+        windkraft_baustelle: 'wind_turbine_construction',
         road_smoke: 'road_incident_smoke',
         accident_smoke: 'road_incident_smoke',
         erosion_logs: 'erosion_debris',
@@ -7326,6 +7338,13 @@ function normalizeMissionTargetSceneFeature(value) {
         pylon: 'powerline',
         strommast: 'powerline',
         freileitung: 'powerline',
+        wind_turbine: 'wind_turbine',
+        windrad: 'wind_turbine',
+        windraeder: 'wind_turbine',
+        windrader: 'wind_turbine',
+        windkraft: 'wind_turbine',
+        windpark: 'wind_turbine',
+        windenergie: 'wind_turbine',
         utility_vehicle: 'utility_truck',
         service_vehicle: 'utility_truck',
         cars: 'road_vehicles',
@@ -7427,7 +7446,55 @@ function normalizeMissionTargetSceneFeature(value) {
     return catalog[normalized] ? normalized : '';
 }
 
-function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '' } = {}) {
+function missionSceneTextHasPowerlineContext(text = '') {
+    const t = String(text || '').toLowerCase();
+    return /(strommast|stromtrasse|stromleitung|freileitung|hochspann|hochspannung|powerline|power\s+line|power\s+pylon|power\s+tower|umspannwerk|transformator|energieinfrastruktur|leitungsmast|stromnetz)/.test(t);
+}
+
+function missionSceneTextHasWindTurbineContext(text = '') {
+    const t = String(text || '').toLowerCase();
+    return /(wind_turbine|windrad|windraeder|windräder|windturbine|wind\s+turbine|windkraft|windpark|windenergie|rotorblatt|rotor|turbine)/.test(t);
+}
+
+function missionSceneTextHasWindTurbineTerrain(text = '') {
+    const t = String(text || '').toLowerCase();
+    return /(berg|gipfel|ruecken|rücken|kuppe|hochflaeche|hochfläche|hoehe|höhe|wiese|wiesen|feld|felder|acker|farmland|meadow|offenes gelaende|offenes gelände|weide|landwirtschaft)/.test(t);
+}
+
+function missionSceneTextHasWindTurbineBadTerrain(text = '') {
+    const t = String(text || '').toLowerCase();
+    return /(stadt|innenstadt|city|wohngebiet|siedlung|urban|bebauung|tal|talsohle|schlucht|enge lage|industriegebiet)/.test(t);
+}
+
+function missionSceneGeoAllowsWindTurbine(ctx = null) {
+    const anchors = ctx?.anchors || {};
+    const meadow = Number(anchors.meadow?.distM);
+    const farmland = Number(anchors.farmland?.distM);
+    const openM = Math.min(Number.isFinite(meadow) ? meadow : Infinity, Number.isFinite(farmland) ? farmland : Infinity);
+    const building = Number(anchors.building?.distM);
+    const urbanClose = Number.isFinite(building) && building < 180 && !(Number.isFinite(openM) && openM <= building + 80);
+    return Number.isFinite(openM) && openM < 450 && !urbanClose;
+}
+
+function missionSceneAllowsWindTurbine(text = '', ctx = null) {
+    if (!missionSceneTextHasWindTurbineContext(text)) return false;
+    if (missionSceneTextHasWindTurbineBadTerrain(text)) return false;
+    return missionSceneTextHasWindTurbineTerrain(text) || missionSceneGeoAllowsWindTurbine(ctx);
+}
+
+function missionSceneSpecialFeatureAllowed(feature, { powerlineAllowed = false, windTurbineAllowed = false } = {}) {
+    if (feature === 'powerline') return powerlineAllowed;
+    if (feature === 'wind_turbine') return windTurbineAllowed;
+    return true;
+}
+
+function missionSceneSpecialRoleAllowed(role, { powerlineAllowed = false, windTurbineAllowed = false } = {}) {
+    if (role === 'utility.powerline') return powerlineAllowed;
+    if (role === 'utility.wind_turbine') return windTurbineAllowed;
+    return true;
+}
+
+function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', targetGeoContext = null } = {}) {
     if (!isPOI) return { kind: 'none', roles: [], density: 'none', notes: '' };
     const src = raw && typeof raw === 'object' ? raw : {};
     const task = String(taskDomain || '').toLowerCase();
@@ -7441,15 +7508,22 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '' } 
         src.context,
         Array.isArray(src.features) ? src.features.join(' ') : '',
         Array.isArray(src.roles) ? src.roles.join(' ') : '',
-        Array.isArray(src.requirements) ? src.requirements.map(req => typeof req === 'string' ? req : `${req?.feature || ''} ${req?.notes || ''} ${req?.placement || ''}`).join(' ') : ''
+        Array.isArray(src.requirements) ? src.requirements.map(req => typeof req === 'string' ? req : `${req?.feature || ''} ${req?.notes || ''} ${req?.placement || ''}`).join(' ') : '',
+        targetGeoContext?.summary || ''
     ].join(' ').toLowerCase();
+    const powerlineAllowed = missionSceneTextHasPowerlineContext(rawSceneText);
+    const windTurbineAllowed = missionSceneAllowsWindTurbine(rawSceneText, targetGeoContext);
     const explicitRoadIncident = /unfall|crash|kollision|verkehrsunfall|fahrzeugschaden|sperrung|einsatzlage/.test(rawSceneText);
     const suppressNatureRoadNoise = natureTask && !explicitRoadIncident && /road_incident|road_vehicles|parked_vehicle|powerline|generator|traffic|strasse|straße/.test(rawSceneText);
     const noisyNatureFeatures = new Set(['road_vehicles', 'parked_vehicle', 'emergency_response', 'cones', 'powerline', 'generator']);
-    const preset = normalizeMissionTargetScenePreset(src.preset || src.scenePreset || src.template || '');
+    let preset = normalizeMissionTargetScenePreset(src.preset || src.scenePreset || src.template || '');
+    if (preset === 'construction_powerline' && !powerlineAllowed) preset = '';
+    if (preset === 'wind_turbine_construction' && !windTurbineAllowed) preset = '';
     const presetSpec = preset ? missionSceneTargetPresetCatalog()[preset] : null;
     let kind = normalizeMissionTargetSceneKind(src.kind || src.type || presetSpec?.kind || '');
     if (task === 'fire_watch') kind = 'fire_watch';
+    if (kind === 'powerline_inspection' && !powerlineAllowed) kind = 'survey_context';
+    if (kind === 'wind_turbine_site' && !windTurbineAllowed) kind = 'survey_context';
     if (suppressNatureRoadNoise && kind === 'road_incident') kind = 'survey_context';
     const catalog = missionSceneTargetKindCatalog();
     const featureCatalog = missionSceneTargetFeatureCatalog();
@@ -7480,12 +7554,14 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '' } 
             };
         })
         .filter(Boolean)
+        .filter(req => missionSceneSpecialFeatureAllowed(req.feature, { powerlineAllowed, windTurbineAllowed }))
         .filter(req => !suppressNatureRoadNoise || !noisyNatureFeatures.has(req.feature))
         .slice(0, 8);
     const features = [...new Set(featuresRaw
         .map(normalizeMissionTargetSceneFeature)
         .concat(requirements.map(req => req.feature))
         .filter(Boolean)
+        .filter(feature => missionSceneSpecialFeatureAllowed(feature, { powerlineAllowed, windTurbineAllowed }))
         .filter(feature => !suppressNatureRoadNoise || !noisyNatureFeatures.has(feature)))]
         .slice(0, 10);
     const rolesRaw = Array.isArray(src.roles) ? src.roles : (Array.isArray(src.sceneRoles) ? src.sceneRoles : []);
@@ -7497,10 +7573,14 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '' } 
     const roles = rolesRaw
         .map(role => String(role || '').trim())
         .filter(role => role && allowedRoles.has(role))
+        .filter(role => missionSceneSpecialRoleAllowed(role, { powerlineAllowed, windTurbineAllowed }))
         .filter(role => !suppressNatureRoadNoise || !/^(vehicle\.|utility\.|marker\.cone)/.test(role))
         .slice(0, 8);
     const featureRoles = features.flatMap(feature => Array.isArray(featureCatalog[feature]?.roles) ? featureCatalog[feature].roles : []);
-    const derivedRoles = [...new Set(featureRoles)].filter(role => allowedRoles.has(role)).slice(0, 12);
+    const derivedRoles = [...new Set(featureRoles)]
+        .filter(role => allowedRoles.has(role))
+        .filter(role => missionSceneSpecialRoleAllowed(role, { powerlineAllowed, windTurbineAllowed }))
+        .slice(0, 12);
     const densityRaw = String(src.density || '').trim().toLowerCase();
     const density = /^(sparse|normal|busy|none)$/.test(densityRaw) ? densityRaw : (kind === 'none' ? 'none' : 'normal');
     const layoutRaw = String(src.layout || src.arrangement || '').trim().toLowerCase();
@@ -7575,11 +7655,12 @@ ${profileHint}
 sceneIntent Felder:
 - summary: 1-2 Saetze, was im Zielgebiet visuell plausibel ist.
 - environment: kurzer Landschafts-/Umgebungstyp, z.B. Wald, Seeufer, Baustelle, Strasse, Industrie, leer.
-- visibleIdeas: 0-8 konkrete sichtbare Ideen als Klartext, z.B. "zwei kleine private Boote am Ufer", "ein Zelt und kleine Ausruestung", "Strommast mit Baustellenfahrzeug", "nur natuerliches Ufer und Wasservoegel". Keine Asset-Namen, keine Kategorien.
+- visibleIdeas: 0-8 konkrete sichtbare Ideen als Klartext, z.B. "zwei kleine private Boote am Ufer", "ein Zelt und kleine Ausruestung", "ein Baufahrzeug an einer Erdbaustelle", "nur natuerliches Ufer und Wasservoegel". Keine Asset-Namen, keine Kategorien.
 - avoid: Dinge, die NICHT auftauchen sollen, wenn sie unplausibel waeren, z.B. "keine Kuestenwache", "keine Einsatzfahrzeuge", "keine Deko".
 - densityHint: none|sparse|normal|busy.
 - notes: kurzer Grund.
-Wichtig: Keine Standard-Deko. Bei Lern-/Sightseeing-Fluegen darf sceneIntent sehr sparsam oder "none" sein. Kleine Kontextdetails sind erlaubt, wenn sie aus dem Text entstehen: Enten, Zelt, parkendes Auto, Holz, Kisten, Lagerfeuer, Tiere, Baufahrzeuge, Strommast, Unfallfahrzeuge usw.
+Wichtig: Keine Standard-Deko. Bei Lern-/Sightseeing-Fluegen darf sceneIntent sehr sparsam oder "none" sein. Kleine Kontextdetails sind erlaubt, wenn sie aus dem Text entstehen: Enten, Zelt, parkendes Auto, Holz, Kisten, Lagerfeuer, Tiere, Baufahrzeuge, Unfallfahrzeuge usw.
+Spezialobjekte sind keine Deko: Strommast/Freileitung nur bei ausdruecklichem Stromleitungs-, Umspannwerks-, Energieinfrastruktur-, Wartungs-, Inspektions- oder Bau-Kontext. Windrad/Windpark nur bei ausdruecklichem Windenergie-, Neubau-, Wartungs-, Inspektions- oder Bau-Kontext und nur in plausibler offener/hochgelegener Umgebung wie Bergkuppe, Wiese oder Feld; nicht in Stadt, Wohngebiet oder Tal.
 Wichtig: Story und sceneIntent muessen denselben Sachverhalt beschreiben. Das gilt fuer alle Missionstypen: Hauptziel, Kontextobjekte und Support muessen zusammenpassen. Wenn visibleIdeas Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere, Menschen, Werkzeug oder Ausruestung enthalten, muss die Story diese Dinge entweder vorher plausibel machen oder sceneIntent muss erklaeren, warum sie dort sichtbar sind.`;
 }
 
@@ -7609,9 +7690,9 @@ function buildMissionTargetScenePromptGuide(isPOI, forcedProfile = null) {
         ? 'fire_watch'
         : (forced === 'search_and_rescue'
             ? 'sar_water oder sar_land'
-            : (forced === 'mapping_survey' ? 'construction_site, powerline_inspection, erosion_damage, infra_bridge, infra_dam oder survey_context' : (forced === 'poi_learning_guide' || forced === 'sightseeing_tour' ? 'none oder sehr sparsam water_context/wildlife_site' : 'passend zum Kontext')));
+            : (forced === 'mapping_survey' ? 'construction_site, erosion_damage, infra_bridge, infra_dam, wind_turbine_site bei Windenergie-Kontext, powerline_inspection nur bei Strom-/Energie-Kontext oder survey_context' : (forced === 'poi_learning_guide' || forced === 'sightseeing_tour' ? 'none oder sehr sparsam water_context/wildlife_site' : 'passend zum Kontext')));
     return isPOI
-        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Die KI entscheidet bewusst, was im Ziel wirklich sichtbar und plausibel ist. Nutze "none" bei reinen Sightseeing-/Historien-/Lernfluegen ohne konkreten sichtbaren Boden-Kontext; fuege keine Deko hinzu, nur weil ein POI eine Kategorie hat. Bei Lern-/Sightseeing-Fluegen: sehr sparsam bleiben, density meist "sparse", count meist 0-3; keine Einsatzfahrzeuge, keine grossen Schiffe, keine Marker/Cones, ausser sie sind im Kontext wirklich sichtbar. Szene und Story muessen logisch dieselbe Lage zeigen: keine Fahrzeuge, Personen, Zelte, Rauchsignale, Tiere, Werkzeug, Ladung oder Absperrungen hinzufuegen, wenn sie weder in Story noch sceneIntent vorkommen. Kleine Bausteine wie tent, parked_vehicle, small_equipment, campfire, waterfowl, logs oder watercraft sind kontextfreie Vokabeln: nutze sie ueberall dort, wo sie aus der Missionslage plausibel sind (Wald, SAR, Ufer, Baustelle, Unfall, POI), nicht nur in einer festen Katalog-Szene. Erfinde keine festen Sonder-Szenen; beschreibe stattdessen genau die sichtbaren Einzelobjekte. Allgemeine Szenenlogik: Bestimme zuerst das Primaerziel der Mission, dann Kontextobjekte, dann optional Support. Support-Objekte wie Fahrzeuge, Crew, Technik, Absperrungen oder Material duerfen nur erscheinen, wenn sie die Geschichte tragen und nicht den Auftrag logisch erledigen, bevor der Pilot ankommt. Bei Inspection/Survey sind Messobjekte, Infrastruktur oder Referenzpunkte wichtiger als zufaellige Crew; bei Cargo/Medical muessen Fracht, Uebergabe und Personen zur PAX/Fracht-Lage passen; bei News/Event muessen Fahrzeuge/Menschen aus dem Ereignis hervorgehen; bei Natur/Sightseeing bleibt es ruhig und objektarm. SAR-Land: Wenn die Story eine vermisste Person beschreibt, ist missing_person oder ein klarer Hinweis wie small_equipment/tent/signal_smoke das Primaerziel. Suchtrupps/Fahrzeuge duerfen nur als Support/Perimeter/auf Anfahrt vorkommen, wenn Story oder sceneIntent sie nennen; sie duerfen nicht so wirken, als haetten sie die Person schon gefunden. Wasser-Kontext: water_context nur fuer Ufer/Treibgut/kleine zivile Boote/Wasservoegel. watercraft meint kleine zivile Boote. service_ship/grosse Schiffe nur bei Hafen, SAR, Kuestenwache, Arbeitsschiff oder klarer Textgrundlage. Natur-Kontext: wildlife_site darf passende lokale Tiere, Wasservoegel oder kleine Herden bekommen, aber keine exotischen Tiere ohne klaren Grund. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site, Strommast -> powerline_inspection, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Wald-SAR => kind="sar_land", requirements=[{"feature":"missing_person","count":1},{"feature":"small_equipment","count":1},{"feature":"signal_smoke","count":1}], Seeufer-Lernkontext => kind="water_context", requirements=[{"feature":"waterfowl","count":2},{"feature":"parked_vehicle","count":1}] oder nur ["logs"]. Empfehlung fuer dieses Profil: ${defaultHint}.
+        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Die KI entscheidet bewusst, was im Ziel wirklich sichtbar und plausibel ist. Nutze "none" bei reinen Sightseeing-/Historien-/Lernfluegen ohne konkreten sichtbaren Boden-Kontext; fuege keine Deko hinzu, nur weil ein POI eine Kategorie hat. Bei Lern-/Sightseeing-Fluegen: sehr sparsam bleiben, density meist "sparse", count meist 0-3; keine Einsatzfahrzeuge, keine grossen Schiffe, keine Marker/Cones, ausser sie sind im Kontext wirklich sichtbar. Szene und Story muessen logisch dieselbe Lage zeigen: keine Fahrzeuge, Personen, Zelte, Rauchsignale, Tiere, Werkzeug, Ladung oder Absperrungen hinzufuegen, wenn sie weder in Story noch sceneIntent vorkommen. Kleine Bausteine wie tent, parked_vehicle, small_equipment, campfire, waterfowl, logs oder watercraft sind kontextfreie Vokabeln: nutze sie ueberall dort, wo sie aus der Missionslage plausibel sind (Wald, SAR, Ufer, Baustelle, Unfall, POI), nicht nur in einer festen Katalog-Szene. Spezialobjekte sind keine Deko: powerline/powerline_inspection nur wenn der Auftrag konkret Strommast, Freileitung, Stromtrasse, Umspannwerk, Energieinfrastruktur, Bau, Wartung oder Inspektion nennt; nie fuer generische Survey-/Natur-/Waldkulisse. wind_turbine/wind_turbine_site nur wenn Windrad/Windpark/Windenergie/Bau/Wartung/Inspektion konkret Thema ist und targetGeoContext oder Story offene/hochgelegene Flaeche, Wiese, Feld, Acker, Kuppe oder Gipfel plausibel macht; nicht in Stadt, Wohngebiet, dichter Bebauung oder Tal. Erfinde keine festen Sonder-Szenen; beschreibe stattdessen genau die sichtbaren Einzelobjekte. Allgemeine Szenenlogik: Bestimme zuerst das Primaerziel der Mission, dann Kontextobjekte, dann optional Support. Support-Objekte wie Fahrzeuge, Crew, Technik, Absperrungen oder Material duerfen nur erscheinen, wenn sie die Geschichte tragen und nicht den Auftrag logisch erledigen, bevor der Pilot ankommt. Bei Inspection/Survey sind Messobjekte, Infrastruktur oder Referenzpunkte wichtiger als zufaellige Crew; bei Cargo/Medical muessen Fracht, Uebergabe und Personen zur PAX/Fracht-Lage passen; bei News/Event muessen Fahrzeuge/Menschen aus dem Ereignis hervorgehen; bei Natur/Sightseeing bleibt es ruhig und objektarm. SAR-Land: Wenn die Story eine vermisste Person beschreibt, ist missing_person oder ein klarer Hinweis wie small_equipment/tent/signal_smoke das Primaerziel. Suchtrupps/Fahrzeuge duerfen nur als Support/Perimeter/auf Anfahrt vorkommen, wenn Story oder sceneIntent sie nennen; sie duerfen nicht so wirken, als haetten sie die Person schon gefunden. Wasser-Kontext: water_context nur fuer Ufer/Treibgut/kleine zivile Boote/Wasservoegel. watercraft meint kleine zivile Boote. service_ship/grosse Schiffe nur bei Hafen, SAR, Kuestenwache, Arbeitsschiff oder klarer Textgrundlage. Natur-Kontext: wildlife_site darf passende lokale Tiere, Wasservoegel oder kleine Herden bekommen, aber keine exotischen Tiere ohne klaren Grund. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site, echte Stromtrasse -> powerline_inspection, Windradbau auf offenem Feld -> wind_turbine_site, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Wald-SAR => kind="sar_land", requirements=[{"feature":"missing_person","count":1},{"feature":"small_equipment","count":1},{"feature":"signal_smoke","count":1}], Seeufer-Lernkontext => kind="water_context", requirements=[{"feature":"waterfowl","count":2},{"feature":"parked_vehicle","count":1}] oder nur ["logs"]. Empfehlung fuer dieses Profil: ${defaultHint}.
 Erlaubte targetScene.kind:
 ${lines.join('\n')}
 Erlaubte targetScene.preset (optional):
@@ -7622,8 +7703,8 @@ requirements[].count ist keine Fuellmenge, sondern eine bewusste sichtbare Menge
         : `17. TARGET-SCENE: Bei A-B-Missionen targetScene.kind immer "none" setzen.`;
 }
 
-function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDomain = '' } = {}) {
-    if (!isPOI) return sanitizeMissionTargetSceneSpec(null, { isPOI, taskDomain });
+function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDomain = '', targetGeoContext = null } = {}) {
+    if (!isPOI) return sanitizeMissionTargetSceneSpec(null, { isPOI, taskDomain, targetGeoContext });
     const intent = sanitizeMissionSceneIntentSpec(sceneIntent, { isPOI, taskDomain });
     const text = [
         intent.summary,
@@ -7639,8 +7720,9 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
     else if (has(/sar|rettung|vermisst|notfall|rettungsinsel|liferaft/)) kind = has(/wasser|see|fluss|ufer|boot|insel/) ? 'sar_water' : 'sar_land';
     else if (natureTask && has(/wald|forst|vegetation|baum|bäume|baeume|natur|bio|oekolog|ökolog|umwelt/)) kind = 'survey_context';
     else if (has(/unfall|crash|kollision|verkehrsunfall|fahrzeugschaden|sperrung/)) kind = 'road_incident';
+    else if (missionSceneTextHasPowerlineContext(text)) kind = 'powerline_inspection';
+    else if (missionSceneAllowsWindTurbine(text, targetGeoContext)) kind = 'wind_turbine_site';
     else if (has(/baustell|kran|bagger|bulldozer|bauarbeiten|materiallager/)) kind = 'construction_site';
-    else if (has(/strommast|freileitung|powerline|leitung|pylon|mast/)) kind = 'powerline_inspection';
     else if (has(/erosion|uferbruch|hangrutsch|abrutsch|treibholz|bruchkante/)) kind = 'erosion_damage';
     else if (has(/bruecke|brücke|viadukt/)) kind = 'infra_bridge';
     else if (has(/damm|talsperre|staudamm/)) kind = 'infra_dam';
@@ -7655,7 +7737,8 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
         ['earthmoving', /bagger|bulldozer|erdbeweg/],
         ['construction_truck', /lkw|truck|baustellenfahrzeug/],
         ['cargo_material', /palette|paletten|container|baumaterial|material/],
-        ['powerline', /strommast|freileitung|powerline|leitung|pylon|mast/],
+        ['powerline', /strommast|stromleitung|stromtrasse|freileitung|hochspann|powerline|power\s+pylon|umspannwerk|energieinfrastruktur/],
+        ['wind_turbine', /windrad|windraeder|windräder|windturbine|wind\s+turbine|windkraft|windpark|windenergie/],
         ['generator', /generator|stromaggregat/],
         ['road_vehicles', /auto|autos|fahrzeug|fahrzeuge|van|transporter/],
         ['emergency_response', /rettung|polizei|feuerwehr|ambulanz|einsatz/],
@@ -7693,7 +7776,7 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
         density: intent.densityHint || (kind === 'none' ? 'none' : 'sparse'),
         layout: has(/ufer|wasser|see|fluss/) ? 'waterline' : '',
         notes: intent.summary || intent.notes || ''
-    }, { isPOI, taskDomain });
+    }, { isPOI, taskDomain, targetGeoContext });
 }
 
 const MISSION_TARGET_GEO_CONTEXT_RADIUS_M = 750;
@@ -7911,8 +7994,9 @@ function missionTruthSceneVisibleCues(sceneSpec = null) {
         if (re.test(text) && !cues.includes(cue)) cues.push(cue);
     };
     add('Person am Boden', /(missing_person|people|person|ground_crew|crew)/);
-    add('Fahrzeug am Boden', /(vehicle|truck|bus|van|car|emergency_response|utility)/);
+    add('Fahrzeug am Boden', /(vehicle|truck|bus|van|car|emergency_response|utility_truck)/);
     add('Boot auf dem Wasser', /(watercraft|boat|ship|raft|liferaft)/);
+    add('Windenergieanlage', /(wind_turbine|windrad|windpark)/);
     add('Rauch oder Feuerzeichen', /(smoke|fire|campfire)/);
     return cues.slice(0, 3);
 }
@@ -8195,7 +8279,7 @@ async function composeMissionTargetSceneWithGemini({ missionData = null, mission
     const sceneIntent = sanitizeMissionSceneIntentSpec(md.sceneIntent || contract.sceneIntent || null, { isPOI, taskDomain });
     const targetGeoContext = md.targetGeoContext || contract.targetGeoContext || null;
     const missionTruth = md.missionTruth || contract.missionTruth || null;
-    const fallback = deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI, taskDomain });
+    const fallback = deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI, taskDomain, targetGeoContext });
     const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
     const baseDebug = {
         source: 'local-fallback',
@@ -8234,7 +8318,7 @@ Antwortsprache intern egal, aber JSON-Felder muessen exakt passen.
 Regeln:
 1. Szene muss aus dem Kontext entstehen, nicht aus Standard-Deko.
 2. Keine grossen Einsatzmittel, Schiffe, Kegel, Personen oder Fahrzeuge, wenn sceneIntent/Story sie nicht tragen.
-3. Kleine Primitive wie Zelt, parkendes Auto, Wasservoegel, Holz, Kisten, Lagerfeuer, Tiere, Baufahrzeuge und Strommasten duerfen frei kombiniert werden, wenn plausibel.
+3. Kleine Primitive wie Zelt, parkendes Auto, Wasservoegel, Holz, Kisten, Lagerfeuer, Tiere und Baufahrzeuge duerfen frei kombiniert werden, wenn plausibel.
 4. Bei Lern-/Sightseeing-Fluegen lieber sparse oder none; 0-3 sichtbare Akzente sind oft genug.
 5. requirements[].count ist bewusst und klein: einzelne Dinge einzeln nennen, keine Fuellmengen.
 6. Wenn sceneIntent.avoid etwas verbietet, respektieren.
@@ -8243,6 +8327,7 @@ Regeln:
 9. Wenn targetGeoContext vorhanden ist, nutze ihn nur als lokale Plausibilitaetskarte: road/parking fuer Fahrzeuge, water fuer Ufer/Wasser, forest/meadow/farmland fuer Natur/Tiere/Zelte, power fuer Leitungen. Erfinde keine exakten OSM-Daten und ignoriere Anker, die nicht zur Geschichte passen.
 10. Wenn missionTruth vorhanden ist, ist missionTruth.mainTarget das kanonische Ziel und missionTruth.sceneAnchor der bevorzugte Platzierungsbereich. Sichtbare Objekte nur grob und situationsbezogen aus missionTruth.visibleCues ableiten; nicht alle Objekte aufzaehlen.
 10a. Bei Natur-/Wald-/Bio-Missionen sind Strassen, Strom und Gebaeude nur Kontext, nie automatisch Zielszene. Waehle road_incident, Fahrzeuge, Strommast oder Kegel nur bei ausdruecklichem Unfall-/Einsatz-/Inspektionsgrund.
+10b. Strommast/Freileitung und Windrad/Windpark sind Spezialobjekte, keine Dekoration. Strommast nur bei konkretem Strom-/Umspannwerks-/Energieinfrastruktur-Kontext. Windrad nur bei konkretem Windenergie-/Bau-/Wartungs-/Inspektions-Kontext und passender offener/hochgelegener Umgebung; nicht in Stadt, Wohngebiet oder Tal.
 11. Gib AUSSCHLIESSLICH JSON aus.
 
 ${sceneGuide}
@@ -8274,7 +8359,7 @@ targetGeoContext: ${JSON.stringify(targetGeoContext ? {
 <OUTPUT>
 {
   "targetScene": {
-    "kind": "none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context",
+    "kind": "none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context",
     "preset": "",
     "features": ["optional"],
     "requirements": [{"feature": "tent", "count": 1, "placement": "am Ufer", "notes": "nur wenn plausibel"}],
@@ -8316,7 +8401,7 @@ targetGeoContext: ${JSON.stringify(targetGeoContext ? {
             const data = await res.json();
             const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
             const parsed = JSON.parse(rawText);
-            const targetScene = sanitizeMissionTargetSceneSpec(parsed.targetScene || parsed, { isPOI, taskDomain });
+            const targetScene = sanitizeMissionTargetSceneSpec(parsed.targetScene || parsed, { isPOI, taskDomain, targetGeoContext });
             incrementApiUsage(usageKey);
             return {
                 targetScene,
@@ -8384,7 +8469,11 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
     if (!currentMissionData) return false;
     const taskDomain = currentMissionData.missionContract?.taskDomain || window.activePassenger?.taskDomain || '';
     const isPOI = !!currentMissionData.poiName;
-    const targetScene = sanitizeMissionTargetSceneSpec(composition.targetScene || null, { isPOI, taskDomain });
+    const targetScene = sanitizeMissionTargetSceneSpec(composition.targetScene || null, {
+        isPOI,
+        taskDomain,
+        targetGeoContext: currentMissionData.targetGeoContext || currentMissionData.missionContract?.targetGeoContext || null
+    });
     currentMissionData.targetScene = targetScene;
     currentMissionData.sceneAccepted = true;
     currentMissionData.sceneCompositionStatus = composition.debug?.error ? 'accepted_fallback' : 'accepted';
@@ -8501,7 +8590,8 @@ window.acceptMissionDraft = async function() {
         const fallback = {
             targetScene: deriveMissionTargetSceneFromIntent(currentMissionData.sceneIntent || null, {
                 isPOI: !!currentMissionData.poiName,
-                taskDomain: currentMissionData.missionContract?.taskDomain || window.activePassenger?.taskDomain || ''
+                taskDomain: currentMissionData.missionContract?.taskDomain || window.activePassenger?.taskDomain || '',
+                targetGeoContext: currentMissionData.targetGeoContext || currentMissionData.missionContract?.targetGeoContext || null
             }),
             debug: {
                 source: 'local-fallback',
@@ -10456,7 +10546,7 @@ async function generateMission() {
     const missionNeedsAccept = !isPlanningOnlyMode;
     const initialTargetScene = sanitizeMissionTargetSceneSpec(
         missionNeedsAccept ? null : (m?.targetScene || null),
-        { isPOI, taskDomain: missionTaskDomain }
+        { isPOI, taskDomain: missionTaskDomain, targetGeoContext: preMissionTargetGeoContext || null }
     );
     if (missionNeedsAccept) {
         clearDraftMissionPersistence('new-mission-draft');
