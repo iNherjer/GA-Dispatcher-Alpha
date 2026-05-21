@@ -328,6 +328,8 @@ let vpVfrOverlayTimer = null;
 let vpVfrOverlayScheduledForce = false;
 let vpObsTileDebugLayer = null;
 window.vpObsTileOverlayEnabled = localStorage.getItem('ga_debug_obs_tile_overlay') === 'true';
+let vpMissionSceneDebugLayer = null;
+window.vpMissionSceneDebugOverlayEnabled = localStorage.getItem('ga_debug_mission_scene_overlay') === 'true';
 const VP_OBS_TILE_USED_RECENT_MS = 5 * 60 * 1000;
 window.vpObsTileLoadingKeys = window.vpObsTileLoadingKeys || new Set();
 window.vpObsTileDeferredKeys = window.vpObsTileDeferredKeys || new Set();
@@ -454,6 +456,17 @@ function updateObsTileOverlayButtonUi() {
     btn.style.color = on ? '#dff0ff' : '#9fd0ff';
 }
 window.vpUpdateObsTileOverlayButtonUi = updateObsTileOverlayButtonUi;
+
+function updateMissionSceneDebugOverlayButtonUi() {
+    const btn = document.getElementById('btnToggleMissionSceneOverlay');
+    if (!btn) return;
+    const on = !!window.vpMissionSceneDebugOverlayEnabled;
+    btn.textContent = `Scene Punkte ${on ? 'Ein' : 'Aus'}`;
+    btn.style.background = on ? '#213b24' : '#1b334a';
+    btn.style.borderColor = on ? '#4f9a55' : '#3a6388';
+    btn.style.color = on ? '#a8ffb4' : '#9fd0ff';
+}
+window.vpUpdateMissionSceneDebugOverlayButtonUi = updateMissionSceneDebugOverlayButtonUi;
 
 function getObsTileDebugConfig() {
     const cfg = window.vpObsTileConfig || {};
@@ -632,6 +645,98 @@ window.vpToggleObsTileOverlay = function(forceState) {
     localStorage.setItem('ga_debug_obs_tile_overlay', String(window.vpObsTileOverlayEnabled));
     updateObsTileOverlayButtonUi();
     renderObsTileOverlay();
+};
+
+function missionScenePointColor(point = {}) {
+    const kind = String(point.kind || '').toLowerCase();
+    const sourceType = String(point.sourceType || '').toLowerCase();
+    if (kind.includes('fire')) return '#ff3b30';
+    if (kind.includes('smoke')) return '#b7c0c9';
+    if (kind.includes('person')) return '#7bdcff';
+    if (kind.includes('vehicle') || kind.includes('car') || kind.includes('truck')) return '#ffcc4d';
+    if (kind.includes('cargo') || kind.includes('equipment') || kind.includes('material')) return '#c084fc';
+    if (sourceType.includes('target')) return '#ff9f1c';
+    return '#4da6ff';
+}
+
+function missionScenePointClass(point = {}) {
+    const sourceType = String(point.sourceType || '').toLowerCase();
+    const sceneId = String(point.sceneId || '').toLowerCase();
+    if (sourceType.includes('smoke')) return 'Smoke/Fire';
+    if (point.targetSceneKind || sceneId.includes('-target')) return 'Zielszene';
+    return 'Startszene';
+}
+
+function collectMissionSceneDebugMapPoints() {
+    const dbg = (window.gaMissionSceneDebug && typeof window.gaMissionSceneDebug === 'object') ? window.gaMissionSceneDebug : {};
+    const commands = [
+        dbg.lastStartSceneCommand,
+        dbg.lastTargetSceneCommand,
+        dbg.lastSmokeCommand
+    ].filter(cmd => cmd && typeof cmd === 'object' && Array.isArray(cmd.mapPoints) && cmd.mapPoints.length);
+    const points = [];
+    commands.forEach(cmd => {
+        cmd.mapPoints.forEach(point => {
+            const lat = Number(point?.lat);
+            const lon = Number(point?.lon);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+            points.push({
+                ...point,
+                commandId: cmd.commandId || null,
+                sourceType: point.sourceType || cmd.type || '',
+                sceneId: point.sceneId || cmd.sceneId || null,
+                targetSceneKind: point.targetSceneKind || cmd.targetSceneKind || null,
+                lat,
+                lon
+            });
+        });
+    });
+    return points;
+}
+
+function renderMissionSceneDebugOverlay() {
+    if (!map || typeof L === 'undefined') return;
+    if (!vpMissionSceneDebugLayer) vpMissionSceneDebugLayer = L.layerGroup();
+    vpMissionSceneDebugLayer.clearLayers();
+    if (!window.vpMissionSceneDebugOverlayEnabled) {
+        if (map.hasLayer(vpMissionSceneDebugLayer)) map.removeLayer(vpMissionSceneDebugLayer);
+        return;
+    }
+    const points = collectMissionSceneDebugMapPoints();
+    points.forEach((point, idx) => {
+        const color = missionScenePointColor(point);
+        const marker = L.circleMarker([point.lat, point.lon], {
+            radius: 5,
+            color: '#101820',
+            weight: 2,
+            fillColor: color,
+            fillOpacity: 0.95,
+            interactive: true
+        });
+        const label = point.label || point.kind || `Objekt ${idx + 1}`;
+        const title = point.title ? ` | ${point.title}` : '';
+        const rel = (Number.isFinite(Number(point.forwardM)) && Number.isFinite(Number(point.rightM)))
+            ? `\nrel: v ${Number(point.forwardM).toFixed(1)}m / r ${Number(point.rightM).toFixed(1)}m`
+            : '';
+        marker.bindTooltip(
+            `${idx + 1}. ${missionScenePointClass(point)}: ${label}${title}\n${point.lat.toFixed(6)}, ${point.lon.toFixed(6)}${rel}`,
+            { sticky: true, direction: 'top', opacity: 0.96 }
+        );
+        marker.addTo(vpMissionSceneDebugLayer);
+    });
+    if (!map.hasLayer(vpMissionSceneDebugLayer)) vpMissionSceneDebugLayer.addTo(map);
+}
+window.vpRenderMissionSceneDebugOverlay = renderMissionSceneDebugOverlay;
+
+window.vpToggleMissionSceneDebugOverlay = function(forceState) {
+    const next = (typeof forceState === 'boolean') ? forceState : !window.vpMissionSceneDebugOverlayEnabled;
+    window.vpMissionSceneDebugOverlayEnabled = !!next;
+    localStorage.setItem('ga_debug_mission_scene_overlay', String(window.vpMissionSceneDebugOverlayEnabled));
+    updateMissionSceneDebugOverlayButtonUi();
+    renderMissionSceneDebugOverlay();
+    if (typeof window.vpRefreshWeatherDebugReport === 'function') {
+        try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
+    }
 };
 
 window.addEventListener('storage', function(e) {
@@ -7610,10 +7715,12 @@ function initMapBase() {
         }
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
+        if (window.vpMissionSceneDebugOverlayEnabled) renderMissionSceneDebugOverlay();
     });
     map.on('zoomend', function() {
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
+        if (window.vpMissionSceneDebugOverlayEnabled) renderMissionSceneDebugOverlay();
         if (window.mapHints.vfrIndex !== false) {
             vpRefreshVfrLayerFromCache();
             vpScheduleVfrOverlayUpdate(false);
@@ -7674,6 +7781,8 @@ function initMapBase() {
     if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
     vpUpdateVfrUi();
     if (window.mapHints.vfrIndex !== false) vpScheduleVfrOverlayUpdate(false);
+    updateMissionSceneDebugOverlayButtonUi();
+    if (window.vpMissionSceneDebugOverlayEnabled) renderMissionSceneDebugOverlay();
 }
 
 function updateMap(lat1, lon1, lat2, lon2, s, d) {

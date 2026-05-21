@@ -416,6 +416,9 @@ function _missionSceneDebugPatch(patch = {}, event = 'scene-debug-update') {
     const dbg = _missionSceneDebugState();
     Object.assign(dbg, patch || {}, { ts: Date.now() });
     _missionSceneDebugPush(event, patch || {});
+    if (typeof window.vpRenderMissionSceneDebugOverlay === 'function' && window.vpMissionSceneDebugOverlayEnabled) {
+        try { window.vpRenderMissionSceneDebugOverlay(); } catch (_) {}
+    }
     return dbg;
 }
 
@@ -433,8 +436,88 @@ function _missionSceneDebugSummarizeItems(items = []) {
     }));
 }
 
+function _missionSceneOffsetToLatLon(originLat, originLon, hdgDeg, forwardM = 0, rightM = 0) {
+    const lat = Number(originLat);
+    const lon = Number(originLon);
+    const hdg = Number(hdgDeg);
+    const forward = Number(forwardM);
+    const right = Number(rightM);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const rad = (Number.isFinite(hdg) ? hdg : 0) * Math.PI / 180;
+    const northM = (Number.isFinite(forward) ? forward : 0) * Math.cos(rad) - (Number.isFinite(right) ? right : 0) * Math.sin(rad);
+    const eastM = (Number.isFinite(forward) ? forward : 0) * Math.sin(rad) + (Number.isFinite(right) ? right : 0) * Math.cos(rad);
+    const metersPerDegLat = 111320;
+    const metersPerDegLon = Math.max(1, metersPerDegLat * Math.cos(lat * Math.PI / 180));
+    return {
+        lat: lat + (northM / metersPerDegLat),
+        lon: lon + (eastM / metersPerDegLon)
+    };
+}
+
+function _missionSceneDebugMapPoints(command = {}, payload = null) {
+    const originLat = Number(command.lat ?? payload?.lat);
+    const originLon = Number(command.lon ?? payload?.lon);
+    const originAltFt = Number(command.altFt ?? payload?.alt);
+    const hdg = Number(command.hdg ?? command.heading ?? payload?.hdg);
+    const out = [];
+    const add = (point) => {
+        if (!point || !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lon))) return;
+        out.push({
+            n: out.length + 1,
+            sceneId: command.sceneId || command.missionId || null,
+            sourceType: String(command.type || ''),
+            targetSceneKind: command.targetSceneKind || null,
+            kind: String(point.kind || ''),
+            label: String(point.label || point.kind || ''),
+            title: String(point.title || point.objectTitle || ''),
+            lat: Number(point.lat),
+            lon: Number(point.lon),
+            altFt: Number.isFinite(Number(point.altFt)) ? Number(point.altFt) : null,
+            forwardM: Number.isFinite(Number(point.forwardM)) ? Number(point.forwardM) : null,
+            rightM: Number.isFinite(Number(point.rightM)) ? Number(point.rightM) : null
+        });
+    };
+
+    if (Array.isArray(command.items) && Number.isFinite(originLat) && Number.isFinite(originLon)) {
+        command.items.forEach((item, idx) => {
+            const ll = _missionSceneOffsetToLatLon(originLat, originLon, hdg, item?.forwardM, item?.rightM);
+            if (!ll) return;
+            add({
+                ...ll,
+                kind: item?.kind || `item_${idx + 1}`,
+                label: item?.label || item?.kind || `Objekt ${idx + 1}`,
+                title: item?.objectTitle || item?.title || '',
+                altFt: Number.isFinite(originAltFt) ? originAltFt + (Number(item?.altOffsetFt) || 0) : null,
+                forwardM: item?.forwardM,
+                rightM: item?.rightM
+            });
+        });
+    }
+
+    const addSites = (sites, kind) => {
+        (Array.isArray(sites) ? sites : []).forEach((site, siteIdx) => {
+            const count = Math.max(1, Math.min(12, Math.round(Number(site?.count || 1) || 1)));
+            for (let i = 0; i < count; i++) {
+                const title = kind === 'fire' ? (command.fireObjectTitle || site?.objectTitle || 'fire') : (command.objectTitle || site?.objectTitle || 'smoke');
+                add({
+                    kind,
+                    label: `${kind} site ${siteIdx + 1}.${i + 1}`,
+                    title,
+                    lat: Number(site?.lat),
+                    lon: Number(site?.lon),
+                    altFt: Number(site?.altFt ?? site?.alt)
+                });
+            }
+        });
+    };
+    addSites(command.sites, 'smoke');
+    addSites(command.fireSites, 'fire');
+    return out;
+}
+
 function _missionSceneDebugCommandSummary(command = {}, commandId = null, payload = null) {
     const items = Array.isArray(command.items) ? command.items : [];
+    const mapPoints = _missionSceneDebugMapPoints(command, payload);
     return {
         ts: Date.now(),
         commandId,
@@ -450,6 +533,7 @@ function _missionSceneDebugCommandSummary(command = {}, commandId = null, payloa
         hdg: Number.isFinite(Number(command.hdg ?? command.heading ?? payload?.hdg)) ? Number(command.hdg ?? command.heading ?? payload?.hdg) : null,
         itemCount: items.length,
         items: _missionSceneDebugSummarizeItems(items),
+        mapPoints,
         smokeSites: Array.isArray(command.sites) ? command.sites.length : null,
         fireSites: Array.isArray(command.fireSites) ? command.fireSites.length : null,
         objectTitle: command.objectTitle || null,
@@ -476,6 +560,9 @@ window.gaMissionSceneDebugGet = function() {
 
 window.gaMissionSceneDebugClear = function() {
     window.gaMissionSceneDebug = null;
+    if (typeof window.vpRenderMissionSceneDebugOverlay === 'function') {
+        try { window.vpRenderMissionSceneDebugOverlay(); } catch (_) {}
+    }
     return _missionSceneDebugState();
 };
 
@@ -1074,6 +1161,9 @@ window.sendTrackerCommand = function(command = {}) {
         if (String(command.type || '') === 'mission_scene_spawn') {
             if (command.targetSceneKind) patch.lastTargetSceneCommand = summary;
             else patch.lastStartSceneCommand = summary;
+        } else if (String(command.type || '') === 'mission_scene_clear') {
+            if (String(command.sceneId || '').includes('-target')) patch.lastTargetSceneCommand = null;
+            else patch.lastStartSceneCommand = null;
         } else if (/^mission_smoke_/i.test(String(command.type || ''))) {
             patch.lastSmokeCommand = summary;
         }

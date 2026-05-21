@@ -3746,6 +3746,9 @@ window.vpBuildWeatherDebugReport = function() {
     fmtCommand('App -> Sim Zielszene', lastTargetCommand);
     fmtCommand('App -> Sim Startszene', lastStartCommand);
     fmtCommand('App -> Sim Smoke/Fire', lastSmokeCommand);
+    const scenePointCount = [lastTargetCommand, lastStartCommand, lastSmokeCommand]
+        .reduce((sum, cmd) => sum + (Array.isArray(cmd?.mapPoints) ? cmd.mapPoints.length : 0), 0);
+    lines.push(`- Scene Punkte Overlay: ${window.vpMissionSceneDebugOverlayEnabled ? 'An' : 'Aus'} | Punkte=${scenePointCount}`);
     if (lastAck && typeof lastAck === 'object') {
         const byKind = lastAck.spawnedByKind ? JSON.stringify(lastAck.spawnedByKind) : '-';
         lines.push(`- Letztes ACK: ${lastAck.type || '?'} status=${lastAck.status || '-'} spawned=${lastAck.spawned ?? '-'} cleared=${lastAck.cleared ?? '-'} byKind=${byKind} error=${lastAck.error || '-'}`);
