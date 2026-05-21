@@ -858,6 +858,8 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'apt:all+sightseeing_tour', classic: 'APT · Sightseeing', radioShort: 'APT TOUR', radioFull: 'Airport · Sightseeing' },
         { value: 'poi:all', classic: 'POI (alle Kategorien)', radioShort: 'POI ALL', radioFull: 'POI (alle Kategorien)' },
         { value: 'poi:all+freeflight_planning', classic: 'POI · Freiflug/Planung', radioShort: 'POI FREE', radioFull: 'POI · Freiflug/Planung' },
+        { value: 'poi:all+inspection_infra', classic: 'POI · Inspektion', radioShort: 'POI INSP', radioFull: 'POI · Infrastruktur-Inspektion' },
+        { value: 'poi:all+media_photo', classic: 'POI · Foto/Film', radioShort: 'POI CAM', radioFull: 'POI · Foto/Film' },
         { value: 'poi:bridge', classic: 'POI · Brücken', radioShort: 'POI BRG', radioFull: 'POI · Brücken' },
         { value: 'poi:road', classic: 'POI · Straße/Autobahn', radioShort: 'POI ROAD', radioFull: 'POI · Straße/Autobahn' },
         { value: 'poi:dam', classic: 'POI · Staudamm/Talsperre', radioShort: 'POI DAM', radioFull: 'POI · Staudamm/Talsperre' },
@@ -898,6 +900,38 @@ const MISSION_ROLE_TASK_PROFILES = {
         id: 'auto',
         label: 'Auto',
         appliesTo: ['apt', 'poi']
+    },
+    inspection_infra: {
+        id: 'inspection_infra',
+        label: 'Infrastruktur-Inspektion',
+        appliesTo: ['poi'],
+        roleProfile: 'technical_inspector_v1',
+        taskDomain: 'inspection_infra',
+        personas: [
+            { name: 'Nora Feldmann', role: 'Bauwerksprüferin', gender: 'female', personality: 'präzise, nüchtern, aufmerksam' },
+            { name: 'Martin Seidel', role: 'Infrastruktur-Techniker', gender: 'male', personality: 'ruhig, technisch, direkt' }
+        ],
+        greetingText: 'Hi, wir prüfen heute den Zustand des Zielobjekts aus der Luft. Bitte stabile Passes, damit Schäden, Wartungspunkte und Baufortschritt sauber dokumentiert werden.',
+        paxText: '1 PAX (Infrastruktur-Inspektion)',
+        cargoPool: ['Wärmebildkamera und Tablet (26 lbs)', 'Inspektionskamera und Checklisten (18 lbs)', 'Kamera-Gimbal und Messkoffer (42 lbs)'],
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
+        storyCue: 'Fokus: technische Sichtprüfung, Schadensdokumentation, Wartungsstatus oder Baufortschritt.'
+    },
+    media_photo: {
+        id: 'media_photo',
+        label: 'Foto/Film',
+        appliesTo: ['poi'],
+        roleProfile: 'media_observer_v1',
+        taskDomain: 'media_photo',
+        personas: [
+            { name: 'Lena Vogt', role: 'Luftbild-Fotografin', gender: 'female', personality: 'konzentriert, visuell, ruhig' },
+            { name: 'Ben Kramer', role: 'Kameramann', gender: 'male', personality: 'präzise, sachlich, geduldig' }
+        ],
+        greetingText: 'Hi, wir brauchen heute verwertbare Foto- und Filmwinkel vom Ziel. Bitte ruhig fliegen, mit sauberen Bögen und genug Zeit für stabile Takes.',
+        paxText: '1 PAX (Foto/Film)',
+        cargoPool: ['Kamera-Gimbal (34 lbs)', 'Film- und Akkukoffer (28 lbs)', 'Teleobjektiv-Set (22 lbs)'],
+        tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
+        storyCue: 'Fokus: professionelle Luftbilder, Firmenaufnahmen, Dokumentation oder Establishing Shots.'
     },
     freeflight_planning: {
         id: 'freeflight_planning',
@@ -1413,6 +1447,18 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
             { t: `Medienlage: ${n}`, i: '🎥', cat: 'poi', s: `Für ${n} wird eine nüchterne Luftbeobachtung für einen TV-Beitrag benötigt.`, payloadText: '1 PAX (TV-Reporter)', cargoText: 'Kamera- und Audio-Set (32 lbs)' },
             { t: `Redaktionsflug: ${n}`, i: '📷', cat: 'poi', s: `Die Lokalredaktion braucht ein aktuelles Luftbild von ${n} und der direkten Umgebung. Der Auftrag bleibt sachlich: Überblick, Orientierung, keine dramatische Zuspitzung.`, payloadText: '1 PAX (Reporterin)', cargoText: 'Foto- und Audio-Set (24 lbs)' },
             { t: `Establishing Shots: ${n}`, i: '🎬', cat: 'poi', s: `Ein kleines TV-Team sammelt ruhige Establishing Shots von ${n}. Wir liefern kurze, klare Perspektiven, ohne den Flug zu einem Touristenrundflug zu machen.`, payloadText: '1 PAX (Kamera-Redaktion)', cargoText: 'Kamerarucksack (28 lbs)' }
+        ],
+        inspection_infra: [
+            { t: `Zustandsprüfung: ${n}`, i: '🛠️', cat: 'poi', s: `Bei ${n} soll der aktuelle Zustand aus der Luft dokumentiert werden: Schäden, Wartungspunkte und auffällige Veränderungen. Fliege ruhige Passes mit klaren Sichtfenstern.`, payloadText: '1 PAX (Bauwerksprüfung)', cargoText: 'Inspektionskamera und Checklisten (18 lbs)' },
+            { t: `Wartungsdoku: ${n}`, i: '🔧', cat: 'poi', s: `Ein Technikteam braucht aktuelle Luftbilder von ${n}, um Wartung und mögliche Störungen zu priorisieren. Fokus auf stabile Blickwinkel, nicht auf Geologie.`, payloadText: '1 PAX (Infrastruktur-Technik)', cargoText: 'Wärmebildkamera und Tablet (26 lbs)' },
+            { t: `Sturmschaden-Check: ${n}`, i: '🌬️', cat: 'poi', s: `Nach dem letzten Sturm sollen Dächer, Trassen, Anlagenkanten und exponierte Bauteile bei ${n} visuell geprüft werden. Dokumentiere Auffälligkeiten sauber aus der Luft.`, payloadText: '1 PAX (Schadensgutachter)', cargoText: 'Kamera-Gimbal und Messkoffer (42 lbs)' },
+            { t: `Baufortschritt: ${n}`, i: '🏗️', cat: 'poi', s: `Für ${n} werden Vergleichsbilder zum Bau- oder Instandhaltungsfortschritt benötigt. Fliege reproduzierbare Blickachsen für die Projektdokumentation.`, payloadText: '1 PAX (Projektleitung)', cargoText: 'Tablet mit Bauplänen (16 lbs)' }
+        ],
+        media_photo: [
+            { t: `Firmenaufnahmen: ${n}`, i: '🎥', cat: 'poi', s: `Ein kleines Medienteam braucht professionelle Luftaufnahmen von ${n} für Firmenkommunikation und Dokumentation. Ruhige Bögen und stabile Takes sind wichtiger als Tempo.`, payloadText: '1 PAX (Kamera)', cargoText: 'Kamera-Gimbal (34 lbs)' },
+            { t: `Luftbildserie: ${n}`, i: '📸', cat: 'poi', s: `Für ${n} entsteht eine aktuelle Foto- und Filmserie aus der Luft. Ziel sind klare Perspektiven auf Anlage, Bauwerk und Umgebung.`, payloadText: '1 PAX (Fotografie)', cargoText: 'Teleobjektiv-Set (22 lbs)' },
+            { t: `Dokufilm-Shots: ${n}`, i: '🎬', cat: 'poi', s: `Eine Produktionsfirma sammelt ruhige Establishing Shots von ${n}. Fliege saubere Kreise und vermeide hektische Manöver.`, payloadText: '1 PAX (Filmcrew)', cargoText: 'Film- und Akkukoffer (28 lbs)' },
+            { t: `PR-Dokumentation: ${n}`, i: '🏢', cat: 'poi', s: `Der Betreiber von ${n} benötigt aktuelle Luftbilder für Bericht, Webseite oder interne Präsentation. Es geht um verwertbare Aufnahmen, nicht um technische Diagnose.`, payloadText: '1 PAX (Medienproduktion)', cargoText: 'Kamerarucksack (20 lbs)' }
         ],
         search_and_rescue: [
             { t: `SAR-Suchmuster: ${n}`, i: '🛟', cat: 'poi', s: `Im Bereich ${n} wird entlang von Trassen, Flusslauf und Bahnstrecke gesucht. Fliege ein strukturiertes SAR-Suchmuster und melde Auffälligkeiten sofort.`, payloadText: '1 PAX (SAR-Koordination)', cargoText: 'Optik- und SAR-Kit (24 lbs)' },
@@ -6187,7 +6233,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         if (/(biolog|oekolog|ökolog|ornitholog|naturschutz|umwelt)/.test(hay)) return 'science_bio';
         if (/(geolog|hydrolog|erosion|hangstabil|gestein|sediment|rutsch)/.test(hay)) return 'science_geo';
         if (/(wissenschaft|forschung|meteorolog|kartograf|analyst)/.test(hay)) return 'science_general';
-        if (/(inspekt|wartung|techn|vermess|brueck|bruck|autobahn|strass|funk|mast|damm|talsperre)/.test(hay)) return 'inspection_infra';
+        if (/(inspekt|wartung|techn|vermess|brueck|bruck|autobahn|strass|funk|mast|damm|talsperre|schaden|sturm|stoer|stör|baufortschritt|waermebild|wärmebild|dach)/.test(hay)) return 'inspection_infra';
         if (/(foto|film|medien|immobilien|report|journal)/.test(hay)) return 'media_photo';
         if (/(verein|stammtisch|ersatzteil|mechaniker|hangar)/.test(hay)) return 'club_utility';
         return 'general';
@@ -6617,6 +6663,12 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
         return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist reine Wissensvermittlung zum Ziel (Fakten, Orientierung, Einordnung). Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache.';
     }
+    if (profile.id === 'inspection_infra' && isPOI) {
+        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
+    }
+    if (profile.id === 'media_photo' && isPOI) {
+        return '16. OPERATIONS-REGEL FOTO/FILM POI: Auftrag sind verwertbare Foto-/Filmaufnahmen fuer Firma, Betreiber, Redaktion, Dokumentation oder PR. Keine technische Diagnose, keine Geologie-/Reliefstory, keine Einsatzdramatisierung.';
+    }
     return '';
 }
 
@@ -6665,13 +6717,13 @@ function _poiCategoryTaskPool(category = 'generic') {
     const c = String(category || 'generic').toLowerCase();
     // Kategorie bleibt fix, Task rotiert innerhalb passender Missionsfamilien.
     if (c === 'bridge' || c === 'road' || c === 'dam' || c === 'industry') {
-        return ['mapping_survey', 'mapping_survey', 'news_coverage', 'science_geo', 'tour_guide_knowledge'];
+        return ['inspection_infra', 'inspection_infra', 'mapping_survey', 'media_photo', 'news_coverage', 'tour_guide_knowledge'];
     }
     if (c === 'telecom') {
-        return ['mapping_survey', 'mapping_survey', 'news_coverage', 'historian_guided_tour', 'tour_guide_knowledge'];
+        return ['inspection_infra', 'inspection_infra', 'mapping_survey', 'media_photo', 'news_coverage', 'tour_guide_knowledge'];
     }
     if (c === 'infrastructure') {
-        return ['mapping_survey', 'mapping_survey', 'news_coverage', 'science_geo', 'search_and_rescue', 'tour_guide_knowledge'];
+        return ['inspection_infra', 'inspection_infra', 'mapping_survey', 'media_photo', 'news_coverage', 'search_and_rescue', 'tour_guide_knowledge'];
     }
     if (c === 'castle' || c === 'city') {
         return ['historian_guided_tour', 'historian_guided_tour', 'tour_guide_knowledge', 'sightseeing_tour', 'news_coverage'];
@@ -6721,13 +6773,15 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         // POI Default-Mix (all): breit, aber profilerhaltend.
         pushMany('mapping_survey', 3);
         pushMany('news_coverage', 2);
+        pushMany('inspection_infra', 2);
+        pushMany('media_photo', 2);
         pushMany('search_and_rescue', 2);
         pushMany('fire_watch', 2);
         pushMany('sightseeing_tour', 1);
         pushMany('historian_guided_tour', 2);
         pushMany('tour_guide_knowledge', 2);
         pushMany('science_bio', 2);
-        pushMany('science_geo', 2);
+        pushMany('science_geo', 1);
     } else {
         if (aptSel === 'trn' || cat === 'trn') return 'auto';
         if (aptSel === 'charter' || cat === 'charter') return 'auto';
@@ -7220,6 +7274,14 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     }
     if (id === 'mapping_survey') {
         return has(/scan|vermess|lidar|photogram|kartier|topo|mess|dokumentation/);
+    }
+    if (id === 'inspection_infra') {
+        return has(/inspekt|prüfung|pruef|wartung|schaden|sturm|stör|stoer|baufortschritt|zustand|waermebild|wärmebild|brueck|bruck|damm|talsperre|industrie|anlage|infrastruktur|trasse/);
+    }
+    if (id === 'media_photo') {
+        const positive = has(/foto|film|kamera|luftbild|aufnahmen|shots|dreh|pr|medien|jahresbericht|firmen|doku/);
+        const negative = has(/sar|search|rescue|rettung|hotspot|brand|rauch|feuer|notfall/);
+        return positive && !negative;
     }
     if (id === 'search_and_rescue') {
         return has(/sar|search|rescue|rettung|vermisst|suchmuster|einsatz|lagebild|polizei support/);
@@ -8815,6 +8877,19 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Medien-Transfer mit Kamera- und Audioausruestung, ohne Luftarbeitsauftrag am Ziel',
             'Redaktioneller A-B-Flug zu einem Termin oder Drehort nahe dem Zielflugplatz'
         ],
+        inspection_infra: [
+            'Technische Sichtpruefung mit Fokus auf Schaeden, Wartungsbedarf und Stoerungen',
+            'Sturmschaden-Check an Bauwerk, Dach, Trasse, Anlage oder exponierten Bauteilen',
+            'Wartungsdokumentation fuer Betreiber mit stabilen Foto- und Waermebild-Passes',
+            'Baufortschritts- oder Instandhaltungsdokumentation fuer Projektleitung und Betrieb',
+            'Sicherheits- und Zustandskontrolle von Bruecke, Damm, Industrieanlage oder Infrastruktur'
+        ],
+        media_photo: [
+            'Professionelle Foto-/Filmaufnahmen fuer Betreiber, Firma oder Dokumentation',
+            'Luftbildserie mit ruhigen Establishing Shots von Zielobjekt und Umgebung',
+            'PR- oder Jahresbericht-Aufnahmen mit klaren Perspektiven auf das Objekt',
+            'Dokufilm-Shots mit stabilen Boegen, ohne technischen Inspektionsauftrag'
+        ],
         sightseeing_tour: isPOI ? [
             'Entspannter Ausflugs- und Sightseeingflug',
             'Ruhiger Fotostopp fuer Gaeste mit Fokus auf Aussicht und Orientierung',
@@ -8869,12 +8944,37 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ]
     };
     const poiThemesByCat = {
-        bridge: ["Infrastruktur-Inspektion (Brücke/Viadukt)"],
-        road: ["Infrastruktur-Inspektion (Straßen/Autobahnknoten)"],
-        dam: ["Infrastruktur-Inspektion (Staudamm/Talsperre)"],
+        bridge: [
+            "Infrastruktur-Inspektion (Brücke/Viadukt)",
+            "Sturmschaden-Check an Brücke/Viadukt",
+            "Baufortschritts- oder Wartungsdokumentation an Brücke/Viadukt",
+            "Foto-/Filmaufnahmen für Betreiber oder Ingenieurbüro"
+        ],
+        road: [
+            "Infrastruktur-Inspektion (Straßen/Autobahnknoten)",
+            "Baustellen- und Verkehrsfluss-Dokumentation",
+            "Sturmschaden- oder Hindernis-Check entlang Straße/Trasse",
+            "Foto-/Filmaufnahmen für Planungsbüro oder Betreiber"
+        ],
+        dam: [
+            "Infrastruktur-Inspektion (Staudamm/Talsperre)",
+            "Wartungs- und Schieberdokumentation an Staudamm/Talsperre",
+            "Starkregen-/Sturmschaden-Check an Krone, Wasserseite und Ufer",
+            "Foto-/Filmaufnahmen für Wasserbehörde oder Betreiber"
+        ],
         telecom: ["Infrastruktur-Inspektion (Funkmast/Funkturm)"],
-        industry: ["Infrastruktur-Inspektion (Industrieanlage)"],
-        infrastructure: ["Infrastruktur-Inspektion (Straße/Bahn/Strom)", "Kontroll- und Vermessungsflug entlang Verkehrs- und Energietrassen"],
+        industry: [
+            "Infrastruktur-Inspektion (Industrieanlage)",
+            "Wärmebild- oder Emissionsmessung an Industrieanlage",
+            "Baufortschritts- oder Wartungsdokumentation am Werksgelände",
+            "Foto-/Filmaufnahmen für Betreiber, Bericht oder PR"
+        ],
+        infrastructure: [
+            "Infrastruktur-Inspektion (Straße/Bahn/Strom)",
+            "Kontroll- und Vermessungsflug entlang Verkehrs- und Energietrassen",
+            "Sturmschaden-Check an Trasse, Knoten, Dach oder Anlage",
+            "Wartungsdokumentation und Störungsprüfung für Betreiber"
+        ],
         castle: ["Tourismus & Sightseeing", "Luftbildfotografie (Medien/Immobilien)"],
         water: ["Natur- & Umweltschutz (Beobachtung)", "Wissenschaftliche Datenerfassung"],
         mountain: ["Natur- & Umweltschutz (Beobachtung)", "Luftbildfotografie (Medien/Immobilien)"],
