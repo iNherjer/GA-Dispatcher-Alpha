@@ -3661,6 +3661,22 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Mission: ${missionSnap.mission || 'n/a'}`);
         lines.push(`- Ziel: ${missionSnap.target || 'n/a'}`);
         if (missionSnap.targetCoords) lines.push(`- Ziel-Koordinaten: ${missionSnap.targetCoords}`);
+        const truth = missionSnap.missionTruth || missionSnap.contract?.missionTruth || null;
+        if (truth?.mainTarget) {
+            const mt = truth.mainTarget;
+            const mtPos = (Number.isFinite(Number(mt.lat)) && Number.isFinite(Number(mt.lon)))
+                ? `${Number(mt.lat).toFixed(5)}, ${Number(mt.lon).toFixed(5)}`
+                : '-';
+            lines.push(`- Main Target: ${mt.name || '-'} | ${mt.kind || '-'} | ${mtPos} | Δ=${Number.isFinite(Number(mt.distanceFromPoiM)) ? Math.round(Number(mt.distanceFromPoiM)) : 0}m`);
+        }
+        if (truth?.sceneAnchor) {
+            const sa = truth.sceneAnchor;
+            const saPos = (Number.isFinite(Number(sa.lat)) && Number.isFinite(Number(sa.lon)))
+                ? `${Number(sa.lat).toFixed(5)}, ${Number(sa.lon).toFixed(5)}`
+                : '-';
+            const cues = Array.isArray(truth.visibleCues) && truth.visibleCues.length ? ` | cues=${truth.visibleCues.join(', ')}` : '';
+            lines.push(`- Scene Anchor: ${sa.kind || '-'} | ${saPos} | reason=${sa.reason || '-'}${cues}`);
+        }
         lines.push(`- Quelle: ${missionSnap.source || 'n/a'}`);
         if (missionSnap.poiSource) lines.push(`- POI-Fundquelle: ${missionSnap.poiSource}`);
         if (missionSnap.poiLookup && typeof missionSnap.poiLookup === 'object') {
@@ -3698,6 +3714,7 @@ window.vpBuildWeatherDebugReport = function() {
     const aiRequested = sceneDbg.aiRequested || missionSceneDbg.aiRequested || null;
     const aiNormalized = sceneDbg.aiNormalized || missionSceneDbg.aiNormalized || null;
     const contractTargetScene = sceneDbg.contractTargetScene || missionSceneDbg.contractTargetScene || missionSnap?.targetScene || null;
+    const sceneTruth = sceneDbg.missionTruth || missionSnap?.missionTruth || missionSnap?.contract?.missionTruth || null;
     const targetPreview = (!sceneDbg.lastTargetSceneCommand && typeof window.missionTargetSceneDebugPreview === 'function')
         ? window.missionTargetSceneDebugPreview('debug-report-preview')
         : null;
@@ -3738,6 +3755,17 @@ window.vpBuildWeatherDebugReport = function() {
     fmtSceneSpec('KI-Anforderung raw', aiRequested);
     fmtSceneSpec('KI normalisiert', aiNormalized);
     fmtSceneSpec('Contract', contractTargetScene);
+    if (sceneTruth?.mainTarget) {
+        const mt = sceneTruth.mainTarget;
+        const sa = sceneTruth.sceneAnchor || {};
+        const mtPos = (Number.isFinite(Number(mt.lat)) && Number.isFinite(Number(mt.lon)))
+            ? `${Number(mt.lat).toFixed(5)}, ${Number(mt.lon).toFixed(5)}`
+            : '-';
+        const saPos = (Number.isFinite(Number(sa.lat)) && Number.isFinite(Number(sa.lon)))
+            ? `${Number(sa.lat).toFixed(5)}, ${Number(sa.lon).toFixed(5)}`
+            : '-';
+        lines.push(`- MissionTruth: main=${mt.kind || '-'} ${mtPos} | anchor=${sa.kind || '-'} ${saPos} | cues=${Array.isArray(sceneTruth.visibleCues) ? sceneTruth.visibleCues.join(',') : '-'}`);
+    }
     if (appResolved && typeof appResolved === 'object') {
         const point = appResolved.point || {};
         const pointText = (Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lon)))

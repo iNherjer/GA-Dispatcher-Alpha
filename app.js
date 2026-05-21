@@ -4591,6 +4591,21 @@ function _poiFeatureMatchesCategory(feature, category) {
 }
 
 function _poiInferCategoryFromFeature(feature) {
+    const t = feature?.tags || {};
+    const placeKind = String(t.place || '').toLowerCase();
+    const placeOnly = (
+        ['city', 'town', 'village', 'suburb', 'hamlet', 'locality', 'neighbourhood', 'quarter'].includes(placeKind) &&
+        !t.highway &&
+        !t.railway &&
+        !t.waterway &&
+        !t.water &&
+        t.natural !== 'water' &&
+        !['reservoir', 'basin'].includes(String(t.landuse || '').toLowerCase()) &&
+        !t.power &&
+        !t.man_made
+    );
+    if (placeOnly) return 'city';
+    if (_poiIsSettlementOnlyFeature(feature)) return 'city';
     const order = ['dam', 'water', 'telecom', 'bridge', 'road', 'castle', 'mountain', 'industry', 'city', 'infrastructure', 'fire'];
     for (const cat of order) {
         if (_poiFeatureMatchesCategory(feature, cat)) return cat;
@@ -4992,6 +5007,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             score: baseScore,
             rank,
             hasName,
+            tags: tf && typeof tf === 'object' ? { ...tf } : {},
             fetchSource: String(f?.fetchSource || ''),
             featureSourceKind: String(f?.sourceKind || ''),
             featureLayer: String(f?.tags?.layer || '')
@@ -5108,6 +5124,11 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             selectedAnchorDistNm: Number(pick?.anchorDistNm || 0),
             selectedBrgDeg: Number(pick?.brng || 0),
             selectedHasName: !!pick?.hasName,
+            selectedTags: pick?.tags && typeof pick.tags === 'object' ? Object.fromEntries(
+                Object.entries(pick.tags)
+                    .filter(([k, v]) => k && v !== undefined && v !== null && String(v).length <= 80)
+                    .slice(0, 18)
+            ) : null,
             ...lookupDebug
         }
     };
@@ -6680,7 +6701,7 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     return _pickFromWeighted(weighted, 'auto');
 }
 
-function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null } = {}) {
+function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null } = {}) {
     const profile = getMissionTaskProfile(appliedProfileId, isPOI ? 'poi' : 'apt') || getMissionTaskProfile('auto', isPOI ? 'poi' : 'apt');
     const taskDomain = String(passenger?.taskDomain || profile?.taskDomain || 'general').toLowerCase();
     const roleProfile = String(passenger?.roleProfile || profile?.roleProfile || 'general_passenger_v1').toLowerCase();
@@ -6714,6 +6735,7 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
         sceneIntent,
         sceneAccepted: !!sceneAccepted,
         targetGeoContext: targetGeoContext || mission?.targetGeoContext || passenger?.targetGeoContext || null,
+        missionTruth: missionTruth || mission?.missionTruth || passenger?.missionTruth || null,
         targetScene,
         constraints
     };
@@ -7689,6 +7711,236 @@ function summarizeMissionTargetGeoContext(ctx = null) {
         .join(', ');
 }
 
+function missionTruthDistanceBearing(lat1, lon1, lat2, lon2) {
+    const aLat = Number(lat1), aLon = Number(lon1), bLat = Number(lat2), bLon = Number(lon2);
+    if (![aLat, aLon, bLat, bLon].every(Number.isFinite)) return null;
+    const r = 6371000;
+    const phi1 = aLat * Math.PI / 180;
+    const phi2 = bLat * Math.PI / 180;
+    const dPhi = (bLat - aLat) * Math.PI / 180;
+    const dLam = (bLon - aLon) * Math.PI / 180;
+    const h = Math.sin(dPhi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLam / 2) ** 2;
+    const distM = 2 * r * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+    const y = Math.sin(dLam) * Math.cos(phi2);
+    const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLam);
+    const bearingDeg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    return { distM, bearingDeg };
+}
+
+function missionTruthRoundPoint(point = null) {
+    const lat = Number(point?.lat);
+    const lon = Number(point?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return {
+        lat: Math.round(lat * 1000000) / 1000000,
+        lon: Math.round(lon * 1000000) / 1000000
+    };
+}
+
+function missionTruthAnchorToPoint(anchor = null, origin = null) {
+    const lat = Number(origin?.lat);
+    const lon = Number(origin?.lon);
+    const distM = Number(anchor?.distM);
+    const bearingDeg = Number(anchor?.bearingDeg);
+    if (![lat, lon, distM, bearingDeg].every(Number.isFinite)) return null;
+    return missionTruthRoundPoint(getDestinationPoint(lat, lon, distM / 1852, bearingDeg));
+}
+
+function missionTruthClosestPolygonPoint(zone = null, origin = null) {
+    const polygon = Array.isArray(zone?.polygon) ? zone.polygon : [];
+    const originLat = Number(origin?.lat);
+    const originLon = Number(origin?.lon);
+    if (!polygon.length || !Number.isFinite(originLat) || !Number.isFinite(originLon)) return null;
+    let best = null;
+    let bestDistM = Infinity;
+    for (const p of polygon) {
+        const pt = missionTruthRoundPoint(p);
+        if (!pt) continue;
+        const nav = missionTruthDistanceBearing(originLat, originLon, pt.lat, pt.lon);
+        if (!nav || nav.distM >= bestDistM) continue;
+        best = pt;
+        bestDistM = nav.distM;
+    }
+    return best;
+}
+
+function missionTruthNearestZone(ctx = null, type = '') {
+    const wanted = String(type || '').toLowerCase();
+    const zones = Array.isArray(ctx?.avoidZones) ? ctx.avoidZones : [];
+    return zones
+        .filter(z => String(z?.type || '').toLowerCase() === wanted && z?.center)
+        .sort((a, b) => Number(a.distM ?? 999999) - Number(b.distM ?? 999999))[0] || null;
+}
+
+function missionTruthRequestedCategory(md = {}) {
+    const summary = String(md?.missionContract?.summary || window.activeMissionContract?.summary || '');
+    const summaryCat = (summary.match(/cat:([a-z0-9_-]+)/i) || [])[1] || '';
+    return String(md.requestedCategory || md.poiRequestedCategory || md.poiCategory || md.category || summaryCat || '').toLowerCase();
+}
+
+function missionTruthAnchorForCategory(ctx = null, category = '', taskDomain = '') {
+    const anchors = ctx?.anchors && typeof ctx.anchors === 'object' ? ctx.anchors : {};
+    const cat = String(category || '').toLowerCase();
+    const task = String(taskDomain || '').toLowerCase();
+    const lists = [];
+    if (cat === 'water' || task.includes('science_geo') || task.includes('science_bio')) lists.push(['water']);
+    if (cat === 'infrastructure' || cat === 'telecom' || task.includes('inspection')) lists.push(['power', 'road', 'parking', 'building', 'rail']);
+    if (cat === 'industry') lists.push(['building', 'power', 'road', 'parking']);
+    if (cat === 'road') lists.push(['road', 'parking', 'building']);
+    if (cat === 'bridge' || cat === 'rail') lists.push(['rail', 'road', 'building']);
+    if (cat === 'mountain' || cat === 'fire' || task.includes('search_and_rescue')) lists.push(['forest', 'meadow', 'farmland', 'road', 'water']);
+    lists.push(['water', 'road', 'parking', 'forest', 'meadow', 'building', 'power']);
+    for (const list of lists) {
+        for (const key of list) {
+            const a = anchors[key];
+            if (a && a.present && Number.isFinite(Number(a.distM))) return { key, anchor: a };
+        }
+    }
+    return null;
+}
+
+function missionTruthSceneVisibleCues(sceneSpec = null) {
+    const text = [
+        sceneSpec?.kind,
+        sceneSpec?.preset,
+        Array.isArray(sceneSpec?.features) ? sceneSpec.features.join(' ') : '',
+        Array.isArray(sceneSpec?.roles) ? sceneSpec.roles.join(' ') : '',
+        Array.isArray(sceneSpec?.requirements) ? sceneSpec.requirements.map(r => r?.feature).join(' ') : ''
+    ].join(' ').toLowerCase();
+    const cues = [];
+    const add = (cue, re) => {
+        if (re.test(text) && !cues.includes(cue)) cues.push(cue);
+    };
+    add('Person am Boden', /(missing_person|people|person|ground_crew|crew)/);
+    add('Fahrzeug am Boden', /(vehicle|truck|bus|van|car|emergency_response|utility)/);
+    add('Boot auf dem Wasser', /(watercraft|boat|ship|raft|liferaft)/);
+    add('Rauch oder Feuerzeichen', /(smoke|fire|campfire)/);
+    return cues.slice(0, 3);
+}
+
+function missionTruthBaseVisibleCues(ctx = null, category = '', taskDomain = '') {
+    const cues = [];
+    const anchors = ctx?.anchors || {};
+    const cat = String(category || '').toLowerCase();
+    const task = String(taskDomain || '').toLowerCase();
+    const add = cue => { if (cue && !cues.includes(cue)) cues.push(cue); };
+    if (cat === 'water' || anchors.water) add('Wasserflaeche oder Uferlinie');
+    if (anchors.road || anchors.parking) add('Strasse oder Zufahrt');
+    if (anchors.power) add('Strom- oder Infrastrukturpunkt');
+    if (anchors.forest) add('Waldrand');
+    if (anchors.meadow || anchors.farmland) add('offenes Gelaende');
+    if (task.includes('search_and_rescue')) add('Person oder Hinweis am Boden');
+    return cues.slice(0, 3);
+}
+
+function buildMissionTruth(missionData = null, geoContext = null, sceneSpec = null) {
+    const md = missionData || currentMissionData || {};
+    if (!md || !md.isPOI) return null;
+    const poiLat = Number(md.targetLat);
+    const poiLon = Number(md.targetLon);
+    if (!Number.isFinite(poiLat) || !Number.isFinite(poiLon)) return null;
+    const taskDomain = String(md.missionContract?.taskDomain || window.activePassenger?.taskDomain || '').toLowerCase();
+    const requestedCategory = missionTruthRequestedCategory(md);
+    const poiCategory = String(md.poiCategory || requestedCategory || '').toLowerCase();
+    const origin = { lat: poiLat, lon: poiLon };
+    const poiName = String(md.targetName || md.poiName || 'POI').trim() || 'POI';
+    const truth = {
+        source: 'mission-truth-v1',
+        requestedCategory,
+        poiCategory,
+        pickedPoi: {
+            name: poiName,
+            lat: Math.round(poiLat * 1000000) / 1000000,
+            lon: Math.round(poiLon * 1000000) / 1000000,
+            source: String(md.poiSource || ''),
+            lookup: md.poiLookup || null
+        },
+        mainTarget: null,
+        sceneAnchor: null,
+        visibleCues: [],
+        constraints: [
+            'Missionstexte duerfen nur diese Lage als Primaerziel verwenden.',
+            'Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen.'
+        ]
+    };
+    const waterZone = missionTruthNearestZone(geoContext, 'water');
+    let mainKind = 'poi';
+    let mainPoint = { lat: poiLat, lon: poiLon };
+    let mainName = poiName;
+    let anchorKind = 'poi';
+    let anchorPoint = mainPoint;
+    let reason = 'original_poi';
+    if ((requestedCategory === 'water' || poiCategory === 'water') && waterZone) {
+        const shoreline = missionTruthClosestPolygonPoint(waterZone, origin) || missionTruthRoundPoint(waterZone.center);
+        if (shoreline) {
+            mainKind = 'water_edge';
+            mainPoint = shoreline;
+            mainName = String(waterZone.name || poiName || 'Wasserziel').trim() || poiName;
+            anchorKind = 'shoreline';
+            anchorPoint = shoreline;
+            reason = 'nearest_water_geometry';
+        }
+    } else {
+        const pickedAnchor = missionTruthAnchorForCategory(geoContext, requestedCategory || poiCategory, taskDomain);
+        const anchorPointFromCtx = missionTruthAnchorToPoint(pickedAnchor?.anchor, origin);
+        if (pickedAnchor && anchorPointFromCtx) {
+            mainKind = pickedAnchor.key;
+            mainPoint = anchorPointFromCtx;
+            mainName = String(pickedAnchor.anchor?.name || poiName).trim() || poiName;
+            anchorKind = (pickedAnchor.key === 'power' || pickedAnchor.key === 'building') ? 'perimeter' : pickedAnchor.key;
+            anchorPoint = anchorPointFromCtx;
+            reason = `nearest_${pickedAnchor.key}_anchor`;
+        }
+    }
+    const nav = missionTruthDistanceBearing(poiLat, poiLon, mainPoint.lat, mainPoint.lon);
+    truth.mainTarget = {
+        name: mainName,
+        kind: mainKind,
+        ...missionTruthRoundPoint(mainPoint),
+        refinedFromPoi: !!nav && nav.distM > 35,
+        distanceFromPoiM: nav ? Math.round(nav.distM) : 0,
+        bearingFromPoiDeg: nav ? Math.round(nav.bearingDeg) : 0,
+        reason
+    };
+    truth.sceneAnchor = {
+        kind: anchorKind,
+        ...missionTruthRoundPoint(anchorPoint),
+        reason
+    };
+    truth.visibleCues = [
+        ...missionTruthBaseVisibleCues(geoContext, requestedCategory || poiCategory, taskDomain),
+        ...missionTruthSceneVisibleCues(sceneSpec)
+    ].filter((cue, idx, arr) => cue && arr.indexOf(cue) === idx).slice(0, 4);
+    return truth;
+}
+
+function enrichMissionTruthWithScene(missionTruth = null, sceneSpec = null) {
+    if (!missionTruth || typeof missionTruth !== 'object') return missionTruth;
+    const cues = [
+        ...(Array.isArray(missionTruth.visibleCues) ? missionTruth.visibleCues : []),
+        ...missionTruthSceneVisibleCues(sceneSpec)
+    ].filter((cue, idx, arr) => cue && arr.indexOf(cue) === idx).slice(0, 4);
+    return { ...missionTruth, visibleCues: cues };
+}
+
+function compactMissionTruthForPrompt(truth = null) {
+    if (!truth || typeof truth !== 'object') return null;
+    return {
+        requestedCategory: truth.requestedCategory || '',
+        poiCategory: truth.poiCategory || '',
+        pickedPoi: truth.pickedPoi ? {
+            name: truth.pickedPoi.name,
+            lat: truth.pickedPoi.lat,
+            lon: truth.pickedPoi.lon,
+            source: truth.pickedPoi.source
+        } : null,
+        mainTarget: truth.mainTarget || null,
+        sceneAnchor: truth.sceneAnchor || null,
+        visibleCues: Array.isArray(truth.visibleCues) ? truth.visibleCues : [],
+        constraints: Array.isArray(truth.constraints) ? truth.constraints : []
+    };
+}
+
 function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLon = null, radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M) {
     const lat = Number(centerLat);
     const lon = Number(centerLon);
@@ -7835,12 +8087,14 @@ async function composeMissionTargetSceneWithGemini({ missionData = null, mission
     const taskDomain = String(pax.taskDomain || contract.taskDomain || '').toLowerCase();
     const sceneIntent = sanitizeMissionSceneIntentSpec(md.sceneIntent || contract.sceneIntent || null, { isPOI, taskDomain });
     const targetGeoContext = md.targetGeoContext || contract.targetGeoContext || null;
+    const missionTruth = md.missionTruth || contract.missionTruth || null;
     const fallback = deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI, taskDomain });
     const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
     const baseDebug = {
         source: 'local-fallback',
         sceneIntent,
         targetGeoContext,
+        missionTruth,
         fallback,
         promptVersion: 'scene-composer-v1'
     };
@@ -7880,7 +8134,8 @@ Regeln:
 7. Fuer alle Missionstypen gilt: Primaerziel zuerst, Kontext danach, Support zuletzt. Support-Objekte wie Fahrzeuge, Crew, Material, Rauch, Tiere oder Absperrungen muessen aus Story/sceneIntent hervorgehen und duerfen den Auftrag nicht logisch schon geloest haben.
 8. Bei SAR ist die vermisste Person, ein Hinweis oder ein Signal das Primaerziel. Suchtrupps/Fahrzeuge sind Support und muessen aus Story/sceneIntent hervorgehen.
 9. Wenn targetGeoContext vorhanden ist, nutze ihn nur als lokale Plausibilitaetskarte: road/parking fuer Fahrzeuge, water fuer Ufer/Wasser, forest/meadow/farmland fuer Natur/Tiere/Zelte, power fuer Leitungen. Erfinde keine exakten OSM-Daten und ignoriere Anker, die nicht zur Geschichte passen.
-10. Gib AUSSCHLIESSLICH JSON aus.
+10. Wenn missionTruth vorhanden ist, ist missionTruth.mainTarget das kanonische Ziel und missionTruth.sceneAnchor der bevorzugte Platzierungsbereich. Sichtbare Objekte nur grob und situationsbezogen aus missionTruth.visibleCues ableiten; nicht alle Objekte aufzaehlen.
+11. Gib AUSSCHLIESSLICH JSON aus.
 
 ${sceneGuide}
 </INSTRUKTIONEN>
@@ -7895,6 +8150,7 @@ roleProfile: ${String(pax.roleProfile || contract.roleProfile || 'general_passen
 PAX: ${String(contract.paxText || '').slice(0, 160)}
 Cargo: ${String(contract.cargoText || '').slice(0, 160)}
 sceneIntent: ${JSON.stringify(sceneIntent)}
+missionTruth: ${JSON.stringify(compactMissionTruthForPrompt(missionTruth))}
 targetGeoContext: ${JSON.stringify(targetGeoContext ? {
     summary: summarizeMissionTargetGeoContext(targetGeoContext),
     anchors: targetGeoContext.anchors || {},
@@ -7960,6 +8216,7 @@ targetGeoContext: ${JSON.stringify(targetGeoContext ? {
                     source,
                     sceneIntent,
                     targetGeoContext,
+                    missionTruth,
                     aiRaw: parsed.targetScene || parsed,
                     normalized: targetScene,
                     fallback,
@@ -8027,10 +8284,15 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
     currentMissionData.targetSceneComposerDebug = composition.debug || null;
     currentMissionData.targetSceneAiRaw = composition.debug?.aiRaw || currentMissionData.targetSceneAiRaw || null;
     currentMissionData.targetSceneAiNormalized = targetScene;
+    currentMissionData.missionTruth = enrichMissionTruthWithScene(
+        currentMissionData.missionTruth || currentMissionData.missionContract?.missionTruth || buildMissionTruth(currentMissionData, currentMissionData.targetGeoContext || null, targetScene),
+        targetScene
+    );
     if (currentMissionData.missionContract && typeof currentMissionData.missionContract === 'object') {
         currentMissionData.missionContract.targetScene = targetScene;
         currentMissionData.missionContract.sceneAccepted = true;
         currentMissionData.missionContract.targetGeoContext = currentMissionData.targetGeoContext || currentMissionData.missionContract.targetGeoContext || null;
+        currentMissionData.missionContract.missionTruth = currentMissionData.missionTruth || currentMissionData.missionContract.missionTruth || null;
         currentMissionData.missionContract.sceneIntent = sanitizeMissionSceneIntentSpec(
             currentMissionData.sceneIntent || currentMissionData.missionContract.sceneIntent || null,
             { isPOI, taskDomain }
@@ -8044,6 +8306,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
         sceneCompositionStatus: currentMissionData.sceneCompositionStatus,
         sceneIntent: currentMissionData.sceneIntent || currentMissionData.missionContract?.sceneIntent || null,
         targetGeoContext: currentMissionData.targetGeoContext || currentMissionData.missionContract?.targetGeoContext || null,
+        missionTruth: currentMissionData.missionTruth || currentMissionData.missionContract?.missionTruth || null,
         sceneComposer: composition.debug || null,
         composerReason: reason,
         aiRequested: currentMissionData.targetSceneAiRaw || null,
@@ -8071,6 +8334,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
         snapshot.sceneCompositionStatus = currentMissionData.sceneCompositionStatus;
         snapshot.targetScene = targetScene;
         snapshot.targetGeoContext = currentMissionData.targetGeoContext || null;
+        snapshot.missionTruth = currentMissionData.missionTruth || null;
         snapshot.targetSceneComposerDebug = composition.debug || null;
         snapshot.targetSceneDebug = {
             ...(snapshot.targetSceneDebug || {}),
@@ -8106,6 +8370,11 @@ window.acceptMissionDraft = async function() {
                 currentMissionData.missionContract.targetGeoContext = geoContext;
                 window.activeMissionContract = currentMissionData.missionContract;
             }
+        }
+        currentMissionData.missionTruth = buildMissionTruth(currentMissionData, currentMissionData.targetGeoContext || geoContext || null, currentMissionData.targetScene || null);
+        if (currentMissionData.missionContract && typeof currentMissionData.missionContract === 'object') {
+            currentMissionData.missionContract.missionTruth = currentMissionData.missionTruth || null;
+            window.activeMissionContract = currentMissionData.missionContract;
         }
         if (indicator) indicator.innerText = 'Scene Composer baut Zielszene...';
         const composition = await composeMissionTargetSceneWithGemini({
@@ -8491,13 +8760,21 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const poiLat = Number(poiTargetMeta?.lat);
     const poiLon = Number(poiTargetMeta?.lon);
     const poiHasCoords = Number.isFinite(poiLat) && Number.isFinite(poiLon);
+    const missionTruth = poiTargetMeta?.missionTruth || null;
+    const targetGeoContext = poiTargetMeta?.targetGeoContext || null;
+    const compactTruth = compactMissionTruthForPrompt(missionTruth);
     const poiNameIsGeneric = /^(poi|zielgebiet|staudamm\/talsperre|gewaesser|gewasser|berg-\/talgebiet|funkmast\/funkturm\/windrad|industrieanlage)$/i.test(String(promptDestName || '').trim());
     const poiConsistencyRule = isPOI
-        ? (poiHasCoords
+        ? (compactTruth?.mainTarget
+            ? `4b. POI-KONSISTENZ (zwingend): Der urspruengliche Suchtreffer ist "${promptDestName}" bei ${poiHasCoords ? `${poiLat.toFixed(5)}, ${poiLon.toFixed(5)}` : 'unbekannten Koordinaten'}, aber die gepruefte Hauptlage ist missionTruth.mainTarget. Story, greetingText und sceneIntent muessen diese Hauptlage als Arbeits-/Sichtziel nutzen. Wenn mainTarget vom Suchtreffer abweicht, erklaere es natuerlich als Ufer, Rand, Zufahrt oder naheliegenden Zielbereich; keinen zweiten Primaerort erfinden.`
+            : (poiHasCoords
             ? (poiNameIsGeneric
                 ? `4b. POI-KONSISTENZ (zwingend): Zielpunkt ist exakt bei ${poiLat.toFixed(5)}, ${poiLon.toFixed(5)}. Nenne KEINEN konkreten Orts-/Gewässernamen, wenn keiner vorgegeben ist; keine Formulierungen wie "bei <Ort>", "im <Tal>" oder konkrete Flussnamen. Bleibe strikt bei "das Zielgebiet"/"${promptDestName}".`
                 : `4b. POI-KONSISTENZ (zwingend): Ziel ist exakt "${promptDestName}" bei ${poiLat.toFixed(5)}, ${poiLon.toFixed(5)}. Story und Begrüßung dürfen KEINEN anderen Orts-/Gewässernamen als Primärziel nennen.`)
-            : `4b. POI-KONSISTENZ (zwingend): Verwende exakt "${promptDestName}" als Zielbezug und nenne keinen alternativen Primär-Ortsnamen.`)
+            : `4b. POI-KONSISTENZ (zwingend): Verwende exakt "${promptDestName}" als Zielbezug und nenne keinen alternativen Primär-Ortsnamen.`))
+        : '';
+    const missionTruthRule = (isPOI && compactTruth)
+        ? `4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen.`
         : '';
     const localKnowledgeRule = isPoiTrainingMission
         ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
@@ -8513,6 +8790,7 @@ REGELN:
 2) ${localKnowledgeRule}
 3) ${categoryRule || 'Kategorienkonsistenz beachten.'}
 3b) ${poiConsistencyRule || 'Zielkonsistenz beachten.'}
+3c) ${missionTruthRule || 'Gepruefte Zielinformationen beachten, falls vorhanden.'}
 4) ${isPOI ? `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.` : `ROUTEN-REGEL: Normaler Streckenflug von ${startName} nach ${promptDestName}.`}
 5) Erfinde passende PAX/Fracht (max ${maxPaxLimit} Personen). Falls niemand mitfliegt: "0 PAX".
 6) Erfinde genau einen Hauptpassagier.${isTrainingMission ? ' Bei Training IMMER Instruktor (nicht null).' : ' (oder null bei 0 PAX).'}
@@ -8548,6 +8826,12 @@ Ziel: ${promptDestName} ${isPOI ? '(POI/Wendepunkt)' : '(Zielflughafen)'}
 Distanz: ${dist} NM
 Wetter Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
 Wetter Ziel (${promptDestName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
+missionTruth: ${JSON.stringify(compactTruth)}
+targetGeoContext: ${JSON.stringify(targetGeoContext ? {
+    summary: summarizeMissionTargetGeoContext(targetGeoContext),
+    anchors: targetGeoContext.anchors || {},
+    hints: targetGeoContext.hints || []
+} : null)}
 Erlaubte roleProfile:
 ["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","tour_guide_learning_v1","historian_storyteller_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1"]
 Erlaubte taskDomain:
@@ -9790,6 +10074,27 @@ async function generateMission() {
     ]);
     _ensureDispatchAlive();
     const missionWeather = { dep: depWeatherSnap, dest: destWeatherSnap };
+    let preMissionTargetGeoContext = null;
+    let preMissionTruth = null;
+    if (isPOI && selectedPoiCategory !== 'trn') {
+        preMissionTargetGeoContext = await fetchMissionTargetGeoContext({
+            isPOI,
+            targetLat: Number(dest?.lat),
+            targetLon: Number(dest?.lon)
+        });
+        _ensureDispatchAlive();
+        preMissionTruth = buildMissionTruth({
+            isPOI,
+            poiName: dest?.n || null,
+            targetName: dest?.n || null,
+            targetLat: Number(dest?.lat),
+            targetLon: Number(dest?.lon),
+            poiSource: String(dest?.poiSource || ''),
+            poiCategory: String(dest?.poiCategory || selectedPoiCategory || ''),
+            requestedCategory: String(selectedPoiCategory || 'all'),
+            poiLookup: dest?.poiLookup || null
+        }, preMissionTargetGeoContext, null);
+    }
 
     const maxPax = Math.max(1, maxSeats - 1), randomPax = Math.floor(Math.random() * maxPax) + 1;
     let paxText = `${randomPax} PAX`, cargoText = `${Math.floor(Math.random() * 300) + 20} lbs`;
@@ -9825,7 +10130,15 @@ async function generateMission() {
             missionWeather,
             missionPickerResolved,
             missionFireHazard,
-            { lat: Number(dest?.lat), lon: Number(dest?.lon), name: String(dest?.n || '') }
+            {
+                lat: Number(dest?.lat),
+                lon: Number(dest?.lon),
+                name: String(dest?.n || ''),
+                requestedCategory: String(selectedPoiCategory || 'all'),
+                poiCategory: String(dest?.poiCategory || ''),
+                targetGeoContext: preMissionTargetGeoContext,
+                missionTruth: preMissionTruth
+            }
         );
         _ensureDispatchAlive();
         if (m && dispatchProfileId !== 'auto' && !missionMatchesTaskProfile(m, dispatchProfileId, isPOI)) {
@@ -9994,6 +10307,9 @@ async function generateMission() {
         isPOI,
         poiName: isPOI ? dest.n : null,
         poiSource: isPOI ? poiSource : null,
+        poiCategory: isPOI ? poolCategory : null,
+        requestedCategory: isPOI ? String(selectedPoiCategory || 'all') : String(selectedAptCategory || 'all'),
+        poiLookup: poiLookup || null,
         targetName: dest.n,
         targetLat: Number(dest.lat),
         targetLon: Number(dest.lon),
@@ -10009,7 +10325,8 @@ async function generateMission() {
         sceneIntent: missionSceneIntent,
         sceneAccepted: !missionNeedsAccept,
         sceneCompositionStatus: missionNeedsAccept ? 'draft' : 'accepted',
-        targetGeoContext: null,
+        targetGeoContext: preMissionTargetGeoContext || null,
+        missionTruth: preMissionTruth || null,
         targetScene: initialTargetScene,
         targetSceneDraftRaw: m?.targetScene || null,
         targetSceneAiRaw: m?.targetSceneDebug?.aiRaw || null,
@@ -10039,7 +10356,8 @@ async function generateMission() {
         targetSceneOverride: initialTargetScene,
         sceneIntentOverride: missionSceneIntent,
         sceneAccepted: !missionNeedsAccept,
-        targetGeoContext: currentMissionData.targetGeoContext || null
+        targetGeoContext: currentMissionData.targetGeoContext || null,
+        missionTruth: currentMissionData.missionTruth || null
     });
     const fireScenario = buildFireWatchScenario({
         isPOI,
@@ -10061,6 +10379,7 @@ async function generateMission() {
             sceneCompositionStatus: currentMissionData.sceneCompositionStatus,
             sceneIntent: currentMissionData.sceneIntent || null,
             targetGeoContext: currentMissionData.targetGeoContext || null,
+            missionTruth: currentMissionData.missionTruth || null,
             aiRequested: m?.targetSceneDebug?.aiRaw || null,
             aiNormalized: m?.targetSceneDebug?.normalized || currentMissionData.targetScene || null,
             contractTargetScene: activeMissionContract.targetScene || null,
@@ -10113,6 +10432,7 @@ async function generateMission() {
             sceneCompositionStatus: currentMissionData.sceneCompositionStatus,
             sceneIntent: currentMissionData.sceneIntent || null,
             targetGeoContext: currentMissionData.targetGeoContext || null,
+            missionTruth: currentMissionData.missionTruth || null,
             targetScene: currentMissionData.targetScene || null,
             targetSceneDebug: {
                 sceneIntentRaw: m?.targetSceneDebug?.sceneIntentRaw || m?.sceneIntent || null,

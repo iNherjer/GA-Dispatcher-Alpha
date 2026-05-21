@@ -381,6 +381,7 @@ function _missionSceneDebugState() {
             aiNormalized: null,
             contractTargetScene: null,
             targetGeoContext: null,
+            missionTruth: null,
             missionContext: null,
             appResolvedTargetScene: null,
             lastCommand: null,
@@ -549,6 +550,7 @@ window.gaMissionSceneDebugRecordAi = function(info = {}) {
         sceneCompositionStatus: info.sceneCompositionStatus || null,
         sceneIntent: info.sceneIntent || null,
         targetGeoContext: info.targetGeoContext || info.sceneComposer?.targetGeoContext || null,
+        missionTruth: info.missionTruth || info.sceneComposer?.missionTruth || null,
         sceneComposer: info.sceneComposer || null,
         aiRequested: info.aiRequested || null,
         aiNormalized: info.aiNormalized || null,
@@ -1731,6 +1733,28 @@ function _missionTargetSceneId() {
     return `${_missionSceneId()}-target`;
 }
 
+function _missionTruthPoint(prefer = 'mainTarget') {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const truth = md?.missionTruth || md?.missionContract?.missionTruth || window.activeMissionContract?.missionTruth || null;
+    if (!truth || typeof truth !== 'object') return null;
+    const order = Array.isArray(prefer) ? prefer : [prefer];
+    for (const key of order) {
+        const p = truth?.[key];
+        const lat = Number(p?.lat);
+        const lon = Number(p?.lon);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            return {
+                lat,
+                lon,
+                name: String(p?.name || truth?.pickedPoi?.name || md?.poiName || 'POI'),
+                kind: String(p?.kind || key),
+                reason: String(p?.reason || '')
+            };
+        }
+    }
+    return null;
+}
+
 function _missionTargetSceneSpec() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const spec = md?.targetScene || md?.poiScene || md?.missionContract?.targetScene || window.activeMissionContract?.targetScene || null;
@@ -1817,6 +1841,17 @@ function _missionTargetGeoBlockingZone(lat, lon, item = {}) {
     return null;
 }
 
+function _missionTargetGeoZones(type = '') {
+    const ctx = _missionTargetGeoContext();
+    const wanted = String(type || '').toLowerCase();
+    return (Array.isArray(ctx?.avoidZones) ? ctx.avoidZones : [])
+        .filter(zone => String(zone?.type || '').toLowerCase() === wanted);
+}
+
+function _missionTargetGeoContainingZone(lat, lon, type = '') {
+    return _missionTargetGeoZones(type).find(zone => _missionTargetGeoPointInPolygon(lat, lon, zone.polygon)) || null;
+}
+
 function _missionTargetGeoLocalShift(absBearingDeg, distanceM, pointHdgDeg) {
     const deltaRad = ((Number(absBearingDeg) - Number(pointHdgDeg || 0)) * Math.PI) / 180;
     return {
@@ -1825,12 +1860,88 @@ function _missionTargetGeoLocalShift(absBearingDeg, distanceM, pointHdgDeg) {
     };
 }
 
+function _missionTargetGeoPreciseNav(lat1, lon1, lat2, lon2) {
+    const aLat = Number(lat1), aLon = Number(lon1), bLat = Number(lat2), bLon = Number(lon2);
+    if (![aLat, aLon, bLat, bLon].every(Number.isFinite)) return null;
+    const phi1 = aLat * Math.PI / 180;
+    const phi2 = bLat * Math.PI / 180;
+    const dPhi = (bLat - aLat) * Math.PI / 180;
+    const dLam = (bLon - aLon) * Math.PI / 180;
+    const h = Math.sin(dPhi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLam / 2) ** 2;
+    const distM = 2 * 6371000 * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+    const y = Math.sin(dLam) * Math.cos(phi2);
+    const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLam);
+    return {
+        distM,
+        brng: (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
+    };
+}
+
+function _missionTargetGeoLocalOffsetTo(lat, lon, point) {
+    if (!point || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return null;
+    const nav = _missionTargetGeoPreciseNav(point.lat, point.lon, Number(lat), Number(lon));
+    const distM = Number(nav?.distM);
+    const brng = Number(nav?.brng);
+    if (!Number.isFinite(distM) || !Number.isFinite(brng)) return null;
+    return _missionTargetGeoLocalShift(brng, distM, point.hdg);
+}
+
+function _missionTargetGeoSnapWaterOffset(point, baseF, baseR, itemInfo = {}) {
+    const waterZones = _missionTargetGeoZones('water');
+    if (!point || !waterZones.length) return null;
+    const ll = _missionSceneOffsetToLatLon(point.lat, point.lon, point.hdg, baseF, baseR);
+    if (ll && _missionTargetGeoContainingZone(ll.lat, ll.lon, 'water')) return null;
+    let nearest = null;
+    let nearestM = Infinity;
+    for (const zone of waterZones) {
+        const centerLat = Number(zone?.center?.lat);
+        const centerLon = Number(zone?.center?.lon);
+        if (!Number.isFinite(centerLat) || !Number.isFinite(centerLon)) continue;
+        let nav = null;
+        try {
+            nav = ll
+                ? _missionTargetGeoPreciseNav(ll.lat, ll.lon, centerLat, centerLon)
+                : _missionTargetGeoPreciseNav(point.lat, point.lon, centerLat, centerLon);
+        } catch (_) {}
+        const dM = Number(nav?.distM);
+        if (!Number.isFinite(dM) || dM >= nearestM) continue;
+        nearest = zone;
+        nearestM = dM;
+    }
+    if (!nearest) return null;
+    const centerOffset = _missionTargetGeoLocalOffsetTo(nearest.center?.lat, nearest.center?.lon, point);
+    if (!centerOffset) return null;
+    const nudges = [
+        { f: 0, r: 0 },
+        { f: 10, r: 0 },
+        { f: -10, r: 0 },
+        { f: 0, r: 10 },
+        { f: 0, r: -10 },
+        { f: 14, r: 8 },
+        { f: -14, r: -8 }
+    ];
+    for (const nudge of nudges) {
+        const f = centerOffset.f + nudge.f;
+        const r = centerOffset.r + nudge.r;
+        const test = _missionSceneOffsetToLatLon(point.lat, point.lon, point.hdg, f, r);
+        if (!test || !_missionTargetGeoContainingZone(test.lat, test.lon, 'water')) continue;
+        const blocking = _missionTargetGeoBlockingZone(test.lat, test.lon, itemInfo);
+        if (blocking && String(blocking.type || '').toLowerCase() !== 'water') continue;
+        return { forwardM: Math.round(f), rightM: Math.round(r), adjusted: true, zone: 'water' };
+    }
+    return null;
+}
+
 function _missionTargetGeoResolveWorldOffset(kind, label, title, forwardM, rightM) {
     const point = _missionTargetScenePoint();
     const baseF = Number(forwardM) || 0;
     const baseR = Number(rightM) || 0;
     if (!point) return { forwardM: baseF, rightM: baseR, adjusted: false };
     const itemInfo = { kind, label, objectTitle: title };
+    if (_missionTargetSceneItemWaterCompatible(kind, label, title)) {
+        const waterSnap = _missionTargetGeoSnapWaterOffset(point, baseF, baseR, itemInfo);
+        if (waterSnap) return waterSnap;
+    }
     let f = baseF;
     let r = baseR;
     let lastZone = null;
@@ -1908,8 +2019,9 @@ function _missionTargetScenePoint() {
     if (!md || !md.poiName || _activeFireScenario()) return null;
     const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
     const poiWp = wps.find(wp => wp && wp.isPOI) || (wps.length >= 2 ? wps[1] : null);
-    const lat = Number(md.targetLat ?? poiWp?.lat);
-    const lon = Number(md.targetLon ?? poiWp?.lng ?? poiWp?.lon);
+    const truthPoint = _missionTruthPoint(['sceneAnchor', 'mainTarget']);
+    const lat = Number(truthPoint?.lat ?? md.targetLat ?? poiWp?.lat);
+    const lon = Number(truthPoint?.lon ?? md.targetLon ?? poiWp?.lng ?? poiWp?.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     const terrainFt = Number(md.poiTerrainFt ?? md.targetAltFt ?? poiWp?.altFt ?? poiWp?.elevFt);
     if (!Number.isFinite(terrainFt)) return null;
@@ -1925,7 +2037,7 @@ function _missionTargetScenePoint() {
         lon,
         altFt: Math.max(0, Math.round(terrainFt)),
         hdg: Number.isFinite(hdg) ? Math.round(hdg) : 0,
-        name: String(md.poiName || poiWp?.name || 'POI')
+        name: String(truthPoint?.name || md.poiName || poiWp?.name || 'POI')
     };
 }
 
@@ -1934,8 +2046,9 @@ function _missionTargetSceneRequestTerrain() {
     if (!md || !md.poiName || Number.isFinite(Number(md.poiTerrainFt ?? md.targetAltFt))) return false;
     const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
     const poiWp = wps.find(wp => wp && wp.isPOI) || (wps.length >= 2 ? wps[1] : null);
-    const lat = Number(md.targetLat ?? poiWp?.lat);
-    const lon = Number(md.targetLon ?? poiWp?.lng ?? poiWp?.lon);
+    const truthPoint = _missionTruthPoint(['sceneAnchor', 'mainTarget']);
+    const lat = Number(truthPoint?.lat ?? md.targetLat ?? poiWp?.lat);
+    const lon = Number(truthPoint?.lon ?? md.targetLon ?? poiWp?.lng ?? poiWp?.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
     if (typeof fetchPoiTerrainElevationFt !== 'function') return false;
     const key = _missionTargetSceneId();
@@ -1946,8 +2059,10 @@ function _missionTargetSceneRequestTerrain() {
             if (!Number.isFinite(Number(ft))) return;
             md.poiTerrainFt = Math.max(0, Math.round(Number(ft)));
             md.targetAltFt = md.poiTerrainFt;
-            md.targetLat = lat;
-            md.targetLon = lon;
+            if (!truthPoint) {
+                md.targetLat = lat;
+                md.targetLon = lon;
+            }
             if (typeof saveMissionState === 'function') {
                 try { saveMissionState(); } catch (_) {}
             }
@@ -2609,6 +2724,9 @@ window.missionTargetSceneEnsureSpawned = function(reason = 'mission-start') {
         reason,
         requestedSpec: _missionTargetSceneSpec(),
         targetGeoContext: _missionTargetGeoContext(),
+        missionTruth: (typeof currentMissionData !== 'undefined' && currentMissionData)
+            ? (currentMissionData.missionTruth || currentMissionData.missionContract?.missionTruth || window.activeMissionContract?.missionTruth || null)
+            : (window.activeMissionContract?.missionTruth || null),
         resolvedKind: kind,
         point,
         itemCount: items.length,
@@ -2668,6 +2786,9 @@ window.missionTargetSceneDebugPreview = function(reason = 'planned-target-scene'
             reason,
             requestedSpec: _missionTargetSceneSpec(),
             targetGeoContext: _missionTargetGeoContext(),
+            missionTruth: (typeof currentMissionData !== 'undefined' && currentMissionData)
+                ? (currentMissionData.missionTruth || currentMissionData.missionContract?.missionTruth || window.activeMissionContract?.missionTruth || null)
+                : (window.activeMissionContract?.missionTruth || null),
             resolvedKind: kind,
             point,
             itemCount: items.length,
@@ -3269,10 +3390,15 @@ function _resetMissionRuntime() {
 }
 
 function _targetPointForMission() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (md?.poiName) {
+        const truthPoint = _missionTruthPoint(['mainTarget', 'sceneAnchor']);
+        if (truthPoint) return { lat: truthPoint.lat, lon: truthPoint.lon };
+    }
     const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : null;
     if (!wps || wps.length < 1) return null;
-    const isPoi = (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI');
-    const wp = isPoi ? wps[0] : wps[wps.length - 1];
+    const isPoi = !!md?.poiName || (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI');
+    const wp = isPoi ? (wps.find(wp => wp && wp.isPOI) || (wps.length >= 2 ? wps[1] : wps[0])) : wps[wps.length - 1];
     const lat = Number(wp?.lat), lon = Number(wp?.lng ?? wp?.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     return { lat, lon };
