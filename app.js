@@ -1382,8 +1382,14 @@ function _offlinePoiCategoryFallbacks(category = 'all', poiName = 'Zielgebiet') 
     const n = String(poiName || 'Zielgebiet');
     const byCat = {
         bridge: [
-            { t: `Brücken-Inspektion: ${n}`, i: '🌉', cat: 'poi', s: `Ein Technikteam dokumentiert mögliche Schäden an ${n}. Fliege ruhige Passes für klare Sichtfenster.`, payloadText: '1 PAX (Inspektion)', cargoText: 'Kamera-Gimbal (120 lbs)' },
-            { t: `Verkehrsmonitoring: ${n}`, i: '🚦', cat: 'poi', s: `Die Verkehrsleitung benötigt Luftbilder der Verkehrsströme rund um ${n}. Fokus auf Übersicht und saubere Kreise.`, payloadText: '1 PAX (Beobachter)', cargoText: 'Foto-Equipment (45 lbs)' }
+            { t: `Brücken-Inspektion: ${n}`, i: '🌉', cat: 'poi', s: `Ein Technikteam dokumentiert mögliche Schäden an ${n}. Fliege ruhige Passes für klare Sichtfenster auf Bauwerk, Widerlager und Fahrbahnrand.`, payloadText: '1 PAX (Inspektion)', cargoText: 'Kamera-Gimbal (120 lbs)' },
+            { t: `Pfeilerfundamente: ${n}`, i: '🧱', cat: 'poi', s: `Die Bauwerksprüfung braucht aktuelle Luftbilder der Pfeiler, Fundamente und Widerlager von ${n}. Halte stabile Blickwinkel entlang des Bauwerks.`, payloadText: '1 PAX (Bauwerksprüfung)', cargoText: 'Inspektionskamera und Checklisten (18 lbs)' },
+            { t: `Bahnviadukt-Dokumentation: ${n}`, i: '🚄', cat: 'poi', s: `Für ${n} sollen Trasse, Viaduktbogen und angrenzende Zufahrten sauber dokumentiert werden. Fokus ist das Brückenbauwerk, nicht die Straße darunter.`, payloadText: '1 PAX (Infrastruktur-Technik)', cargoText: 'Teleobjektiv-Set (22 lbs)' },
+            { t: `Unterführung / Hochstraße: ${n}`, i: '🛣️', cat: 'poi', s: `Bei ${n} soll die Lage von Unterführung, Hochstraße oder Brückendeck aus der Luft erfasst werden. Fliege so, dass Zufahrten und Bauwerksränder getrennt erkennbar bleiben.`, payloadText: '1 PAX (Verkehrsplanung)', cargoText: 'Tablet mit Planunterlagen (16 lbs)' },
+            { t: `Brückensperrung: ${n}`, i: '🚧', cat: 'poi', s: `Die Leitstelle benötigt ein nüchternes Luftlagebild zu einer möglichen Sperrung an ${n}. Dokumentiere Zufahrt, Rückstau und sichtbare Absperrbereiche ohne Einsatzdramatisierung.`, payloadText: '1 PAX (Lagebeobachtung)', cargoText: 'Live-Link Set (40 lbs)' },
+            { t: `Hochwasser an Pfeilern: ${n}`, i: '💧', cat: 'poi', s: `Nach Starkregen sollen Wasserstand, Treibgutlage und Anströmung an den Brückenpfeilern von ${n} geprüft werden. Fliege gleichmäßige Beobachtungskreise.`, payloadText: '1 PAX (Wasserbau)', cargoText: 'Sensorpaket (50 lbs)' },
+            { t: `Denkmalschutz-Doku: ${n}`, i: '🏛️', cat: 'poi', s: `Für den Denkmalschutz werden aktuelle Luftbilder von ${n} benötigt. Wichtig sind klare Perspektiven auf Bögen, Pfeiler, Materialzustand und Einbindung ins Umfeld.`, payloadText: '1 PAX (Denkmalpflege)', cargoText: 'Fotoausrüstung (35 lbs)' },
+            { t: `Betreiber-Fotos: ${n}`, i: '📸', cat: 'poi', s: `Der Betreiber braucht verwertbare Luftbilder von ${n} für Dokumentation und Bericht. Ruhige Bögen und stabile Takes sind wichtiger als Tempo.`, payloadText: '1 PAX (Fotografie)', cargoText: 'Kamera-Gimbal (34 lbs)' }
         ],
         road: [
             { t: `Trassen-Check: ${n}`, i: '🛣️', cat: 'poi', s: `Für ${n} sollen Engstellen und Baustellen dokumentiert werden. Fliege systematisch entlang der Haupttrasse.`, payloadText: '1 PAX (Straßenbau)', cargoText: 'Dokukit (35 lbs)' },
@@ -6664,10 +6670,10 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist reine Wissensvermittlung zum Ziel (Fakten, Orientierung, Einordnung). Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache.';
     }
     if (profile.id === 'inspection_infra' && isPOI) {
-        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
+        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
     }
     if (profile.id === 'media_photo' && isPOI) {
-        return '16. OPERATIONS-REGEL FOTO/FILM POI: Auftrag sind verwertbare Foto-/Filmaufnahmen fuer Firma, Betreiber, Redaktion, Dokumentation oder PR. Keine technische Diagnose, keine Geologie-/Reliefstory, keine Einsatzdramatisierung.';
+        return '16. OPERATIONS-REGEL FOTO/FILM POI: Auftrag sind verwertbare Foto-/Filmaufnahmen fuer Firma, Betreiber, Redaktion, Dokumentation oder PR. Bei Brücken/Viadukten sind Betreiberfotos, Denkmalschutz-Doku, Bahnviadukt-Establishing-Shots oder Bauwerksdokumentation passende Motive. Keine technische Diagnose, keine Geologie-/Reliefstory, keine Einsatzdramatisierung.';
     }
     return '';
 }
@@ -7276,7 +7282,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
         return has(/scan|vermess|lidar|photogram|kartier|topo|mess|dokumentation/);
     }
     if (id === 'inspection_infra') {
-        return has(/inspekt|prüfung|pruef|wartung|schaden|sturm|stör|stoer|baufortschritt|zustand|waermebild|wärmebild|brueck|bruck|damm|talsperre|industrie|anlage|infrastruktur|trasse/);
+        return has(/inspekt|prüfung|pruef|wartung|schaden|sturm|stör|stoer|baufortschritt|zustand|waermebild|wärmebild|brueck|bruck|viadukt|pfeiler|widerlager|fundament|sperrung|unterfuehr|unterführ|hochstrass|hochstraß|damm|talsperre|industrie|anlage|infrastruktur|trasse/);
     }
     if (id === 'media_photo') {
         const positive = has(/foto|film|kamera|luftbild|aufnahmen|shots|dreh|pr|medien|jahresbericht|firmen|doku/);
@@ -8013,6 +8019,9 @@ function missionTargetGeoContextCacheKey(lat, lon, radiusM = MISSION_TARGET_GEO_
 }
 
 function missionTargetGeoContextCategory(tags = {}) {
+    const bridge = String(tags.bridge || '').toLowerCase();
+    const manMade = String(tags.man_made || '').toLowerCase();
+    if ((bridge && !/^(no|false|0)$/i.test(bridge)) || manMade === 'bridge') return 'bridge';
     const highway = String(tags.highway || '').toLowerCase();
     if (highway) {
         if (/path|footway|cycleway|bridleway|steps|track/.test(highway)) return 'path';
@@ -8026,7 +8035,6 @@ function missionTargetGeoContextCategory(tags = {}) {
     if (tags.building) return 'building';
     if (tags.power) return 'power';
     if (tags.railway) return 'railway';
-    if (tags.bridge) return 'bridge';
     return '';
 }
 
@@ -8183,16 +8191,19 @@ function missionTruthAnchorForCategory(ctx = null, category = '', taskDomain = '
     const task = String(taskDomain || '').toLowerCase();
     const natureTask = missionTruthIsNatureTask(cat, task);
     const lists = [];
-    if (cat === 'water' || task.includes('science_geo')) lists.push(['water']);
-    if (cat === 'infrastructure' || cat === 'telecom' || task.includes('inspection')) lists.push(['power', 'road', 'parking', 'building', 'rail']);
-    if (cat === 'industry') lists.push(['building', 'power', 'road', 'parking']);
-    if (cat === 'road') lists.push(['road', 'parking', 'building']);
-    if (cat === 'bridge' || cat === 'rail') lists.push(['rail', 'road', 'building']);
-    if (natureTask) lists.push(['forest', 'meadow', 'farmland', 'water']);
-    if (task.includes('search_and_rescue')) lists.push(['forest', 'meadow', 'farmland', 'road', 'water']);
-    lists.push(natureTask
-        ? ['forest', 'meadow', 'farmland', 'water']
-        : ['water', 'road', 'parking', 'forest', 'meadow', 'building', 'power']);
+    if (cat === 'bridge') lists.push(['bridge']);
+    if (cat !== 'bridge') {
+        if (cat === 'water' || task.includes('science_geo')) lists.push(['water']);
+        if (cat === 'infrastructure' || cat === 'telecom' || task.includes('inspection')) lists.push(['power', 'road', 'parking', 'building', 'rail']);
+        if (cat === 'industry') lists.push(['building', 'power', 'road', 'parking']);
+        if (cat === 'road') lists.push(['road', 'parking', 'building']);
+        if (cat === 'rail') lists.push(['rail', 'road', 'building']);
+        if (natureTask) lists.push(['forest', 'meadow', 'farmland', 'water']);
+        if (task.includes('search_and_rescue')) lists.push(['forest', 'meadow', 'farmland', 'road', 'water']);
+        lists.push(natureTask
+            ? ['forest', 'meadow', 'farmland', 'water']
+            : ['water', 'road', 'parking', 'forest', 'meadow', 'building', 'power']);
+    }
     for (const list of lists) {
         for (const key of list) {
             const a = anchors[key];
@@ -8236,6 +8247,12 @@ function missionTruthBaseVisibleCues(ctx = null, category = '', taskDomain = '')
         if (anchors.water) add('Wasserflaeche oder Uferlinie');
         return cues.slice(0, 3);
     }
+    if (cat === 'bridge') {
+        add('Brueckenbauwerk');
+        if (anchors.road || anchors.parking || anchors.railway) add('Zufahrt oder Trasse');
+        if (anchors.water) add('Wasserflaeche oder Uferlinie');
+        return cues.slice(0, 3);
+    }
     if (cat === 'water' || anchors.water) add('Wasserflaeche oder Uferlinie');
     if (anchors.road || anchors.parking) add('Strasse oder Zufahrt');
     if (anchors.power) add('Strom- oder Infrastrukturpunkt');
@@ -8276,12 +8293,13 @@ function buildMissionTruth(missionData = null, geoContext = null, sceneSpec = nu
         ]
     };
     const waterZone = missionTruthNearestZone(geoContext, 'water');
-    let mainKind = 'poi';
+    const isBridgeTarget = requestedCategory === 'bridge' || poiCategory === 'bridge';
+    let mainKind = isBridgeTarget ? 'bridge' : 'poi';
     let mainPoint = { lat: poiLat, lon: poiLon };
     let mainName = poiName;
-    let anchorKind = 'poi';
+    let anchorKind = isBridgeTarget ? 'bridge' : 'poi';
     let anchorPoint = mainPoint;
-    let reason = 'original_poi';
+    let reason = isBridgeTarget ? 'original_bridge_poi' : 'original_poi';
     if ((requestedCategory === 'water' || poiCategory === 'water') && waterZone) {
         const shoreline = missionTruthClosestPolygonPoint(waterZone, origin) || missionTruthRoundPoint(waterZone.center);
         if (shoreline) {
@@ -8882,13 +8900,18 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Sturmschaden-Check an Bauwerk, Dach, Trasse, Anlage oder exponierten Bauteilen',
             'Wartungsdokumentation fuer Betreiber mit stabilen Foto- und Waermebild-Passes',
             'Baufortschritts- oder Instandhaltungsdokumentation fuer Projektleitung und Betrieb',
-            'Sicherheits- und Zustandskontrolle von Bruecke, Damm, Industrieanlage oder Infrastruktur'
+            'Sicherheits- und Zustandskontrolle von Bruecke, Damm, Industrieanlage oder Infrastruktur',
+            'Brueckenpruefung mit Fokus auf Pfeiler, Widerlager, Fundamente und Brueckendeck',
+            'Lagebild zu Brueckensperrung, Rueckstau oder Unterfuehrung ohne Einsatzdramatisierung',
+            'Hochwasser-Check an Brueckenpfeilern mit Blick auf Wasserstand und Treibgutlage'
         ],
         media_photo: [
             'Professionelle Foto-/Filmaufnahmen fuer Betreiber, Firma oder Dokumentation',
             'Luftbildserie mit ruhigen Establishing Shots von Zielobjekt und Umgebung',
             'PR- oder Jahresbericht-Aufnahmen mit klaren Perspektiven auf das Objekt',
-            'Dokufilm-Shots mit stabilen Boegen, ohne technischen Inspektionsauftrag'
+            'Dokufilm-Shots mit stabilen Boegen, ohne technischen Inspektionsauftrag',
+            'Denkmalschutz- oder Betreiberfotos von Bruecke, Viadukt und Umfeld',
+            'Bahnviadukt-Establishing-Shots mit klarer Trennung von Bauwerk und Zufahrt'
         ],
         sightseeing_tour: isPOI ? [
             'Entspannter Ausflugs- und Sightseeingflug',
@@ -8948,7 +8971,13 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             "Infrastruktur-Inspektion (Brücke/Viadukt)",
             "Sturmschaden-Check an Brücke/Viadukt",
             "Baufortschritts- oder Wartungsdokumentation an Brücke/Viadukt",
-            "Foto-/Filmaufnahmen für Betreiber oder Ingenieurbüro"
+            "Foto-/Filmaufnahmen für Betreiber oder Ingenieurbüro",
+            "Denkmalschutz-Dokumentation eines historischen Viadukts",
+            "Pfeilerfundamente und Widerlager aus der Luft dokumentieren",
+            "Bahnviadukt mit Trasse, Bögen und Zufahrten erfassen",
+            "Unterführung oder Hochstraße als eigenständiges Bauwerk dokumentieren",
+            "Brückensperrung mit Zufahrt, Rückstau und Absperrbereichen beobachten",
+            "Hochwasser-Check an Brückenpfeilern mit Treibgut- und Wasserstandslage"
         ],
         road: [
             "Infrastruktur-Inspektion (Straßen/Autobahnknoten)",

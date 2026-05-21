@@ -1924,10 +1924,25 @@ function _missionTruthPoint(prefer = 'mainTarget') {
     return null;
 }
 
+function _missionTruthData() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const truth = md?.missionTruth || md?.missionContract?.missionTruth || window.activeMissionContract?.missionTruth || null;
+    return truth && typeof truth === 'object' ? truth : null;
+}
+
 function _missionTargetSceneSpec() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const spec = md?.targetScene || md?.poiScene || md?.missionContract?.targetScene || window.activeMissionContract?.targetScene || null;
     return spec && typeof spec === 'object' ? spec : null;
+}
+
+function _missionTargetSceneIsBridgeTarget() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const spec = _missionTargetSceneSpec();
+    const truth = _missionTruthData();
+    return String(spec?.kind || spec?.type || '').toLowerCase() === 'infra_bridge'
+        || String(md?.requestedCategory || md?.poiCategory || '').toLowerCase() === 'bridge'
+        || String(truth?.requestedCategory || truth?.poiCategory || '').toLowerCase() === 'bridge';
 }
 
 function _missionTargetGeoContext() {
@@ -2188,7 +2203,26 @@ function _missionTargetScenePoint() {
     if (!md || !md.poiName || _activeFireScenario()) return null;
     const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
     const poiWp = wps.find(wp => wp && wp.isPOI) || (wps.length >= 2 ? wps[1] : null);
-    const truthPoint = _missionTruthPoint(['sceneAnchor', 'mainTarget']);
+    const bridgeTarget = _missionTargetSceneIsBridgeTarget();
+    let truthPoint = _missionTruthPoint(bridgeTarget ? ['mainTarget', 'sceneAnchor'] : ['sceneAnchor', 'mainTarget']);
+    const truth = _missionTruthData();
+    const pickedPoi = truth?.pickedPoi || null;
+    const pickedPoiLat = Number(pickedPoi?.lat);
+    const pickedPoiLon = Number(pickedPoi?.lon);
+    if (
+        bridgeTarget &&
+        /^(road|rail|railway|path|parking)$/.test(String(truthPoint?.kind || '').toLowerCase()) &&
+        Number.isFinite(pickedPoiLat) &&
+        Number.isFinite(pickedPoiLon)
+    ) {
+        truthPoint = {
+            lat: pickedPoiLat,
+            lon: pickedPoiLon,
+            name: String(pickedPoi?.name || md.poiName || 'Bruecke/Viadukt'),
+            kind: 'bridge',
+            reason: 'picked_bridge_poi'
+        };
+    }
     const lat = Number(truthPoint?.lat ?? md.targetLat ?? poiWp?.lat);
     const lon = Number(truthPoint?.lon ?? md.targetLon ?? poiWp?.lng ?? poiWp?.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
@@ -2594,6 +2628,19 @@ function _missionTargetSceneFeatureCount(feature) {
     return count;
 }
 
+function _missionTargetSceneFeatureAllowedForKind(kind = '', feature = '') {
+    const k = String(kind || '').toLowerCase();
+    const f = String(feature || '').toLowerCase();
+    if (k === 'infra_bridge' && f === 'logs') {
+        const text = _missionTargetSceneText();
+        const anchors = _missionTargetGeoContext()?.anchors || {};
+        const waterM = Number(anchors.water?.distM);
+        return /(treibholz|baumstamm|holzstapel|holzlager|ufer|fluss|wasser|hochwasser|erosion|anschwemm|schwemmgut)/.test(text)
+            || (Number.isFinite(waterM) && waterM < 90);
+    }
+    return true;
+}
+
 function _missionTargetSceneItems(kind) {
     const civilCars = _missionSceneFilteredVehiclePool(MISSION_SCENE_ASSET_POOLS.cars);
     const civilVans = _missionSceneFilteredVehiclePool(MISSION_SCENE_ASSET_POOLS.vans);
@@ -2740,6 +2787,7 @@ function _missionTargetSceneItems(kind) {
     const finish = () => {
         const baseFeatureCounts = MISSION_TARGET_SCENE_BASE_FEATURE_COUNTS[kind] || {};
         _missionTargetSceneRequestedFeatures(kind).forEach(feature => {
+            if (!_missionTargetSceneFeatureAllowedForKind(kind, feature)) return;
             const count = _missionTargetSceneFeatureCount(feature);
             const baseCount = Number(baseFeatureCounts[feature] || 0);
             const extraCount = Math.max(0, count - baseCount);
@@ -2813,8 +2861,14 @@ function _missionTargetSceneItems(kind) {
     if (kind === 'infra_bridge' || kind === 'infra_dam') {
         const utilityTruck = _scenePickTitle(primaryTruckPool, `${kind}-truck`, primaryTruckPool[0] || 'Truck Utility Europe Flush');
         const generator = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityGenerators, `${kind}-generator`, 'PowerGenerator');
-        add('utility_truck', kind === 'infra_bridge' ? 'Brueckenservice Fahrzeug' : 'Dammservice Fahrzeug', utilityTruck, truckPool, -14, 9, { hdgOffsetDeg: 210 });
-        add('generator', 'Mess-/Versorgungsgeraet', generator, MISSION_SCENE_ASSET_POOLS.utilityGenerators, -4, 6, { hdgOffsetDeg: 30 });
+        const accessPos = kind === 'infra_bridge'
+            ? _missionTargetGeoOffset(['parking', 'road', 'path', 'railway'], -24, 14, { minM: 18, maxM: 130, hdgOffsetDeg: 210 })
+            : { f: -14, r: 9, hdg: 210 };
+        const devicePos = kind === 'infra_bridge'
+            ? _missionTargetGeoOffset(['bridge'], -4, 6, { minM: 4, maxM: 70, hdgOffsetDeg: 30 })
+            : { f: -4, r: 6, hdg: 30 };
+        add('utility_truck', kind === 'infra_bridge' ? 'Brueckenzufahrt Fahrzeug' : 'Dammservice Fahrzeug', utilityTruck, truckPool, accessPos.f, accessPos.r, { hdgOffsetDeg: accessPos.hdg });
+        add('generator', 'Mess-/Versorgungsgeraet', generator, MISSION_SCENE_ASSET_POOLS.utilityGenerators, devicePos.f, devicePos.r, { hdgOffsetDeg: devicePos.hdg });
         add('marker_1', 'Pruefpunkt', cone, markerPool, 2, -3);
         add('marker_2', 'Pruefpunkt', cone, markerPool, 12, 2);
         if (kind === 'infra_dam') {

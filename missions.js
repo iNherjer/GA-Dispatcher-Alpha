@@ -27,11 +27,14 @@ function generateDynamicPOIMission(poiName, maxSeats, forcedCategory = null) {
 
     if (poiCat === "bridge" || normalizedName.includes("bruecke") || normalizedName.includes("brucke") || normalizedName.includes("bridge") || normalizedName.includes("viadukt") || normalizedName.includes("aquadukt") || normalizedName.includes("steg") || normalizedName.includes("pont") || normalizedName.includes("puente")) {
         templates = [
-            { i: "🌉", t: `Struktur-Prüfung: ${poiName}`, s: `Das Verkehrsministerium beauftragt dich mit einer Riss- und Statikprüfung der Pfeiler von ${poiName}. Fliege mehrere langsame Pässe.`, p: paxGov, w: cargoUtility },
-            { i: "🚄", t: `Verkehrs-Studie: ${poiName}`, s: `Ein Ingenieurbüro plant eine Erweiterung der Verkehrswege bei ${poiName}. Dokumentiere den Verkehrsfluss zur Hauptverkehrszeit aus der Luft.`, p: paxGov, w: "Kamera-Gimbal (120 lbs)" },
-            { i: "🎬", t: `Action-Dreh: ${poiName}`, s: `Eine Filmcrew dreht eine Verfolgungsjagd über ${poiName}. Du lieferst die dynamischen Luftaufnahmen für den Blockbuster.`, p: paxMedia, w: cargoMedia },
-            { i: "🚁", t: `Instandhaltung: ${poiName}`, s: `Wartungstrupps benötigen einen Überblick über die schwer zugänglichen Stahlseile und Bögen von ${poiName}.`, p: "1 PAX (Ingenieur)", w: cargoUtility },
-            { i: "🧰", t: `Brücken-Techniker Shuttle: ${poiName}`, s: `Ein Statik-Techniker muss dringend zur Sichtprüfung an ${poiName}. Fliege stabil und liefere ihn direkt in den Einsatzraum.`, p: "1 PAX (Brücken-Techniker)", w: "Messkoffer & Laser (70 lbs)" }
+            { i: "🌉", t: `Struktur-Prüfung: ${poiName}`, s: `Das Verkehrsministerium beauftragt dich mit einer Riss- und Statikprüfung der Pfeiler von ${poiName}. Fliege mehrere langsame Pässe am Bauwerk.`, p: paxGov, w: cargoUtility },
+            { i: "🧱", t: `Pfeilerfundamente: ${poiName}`, s: `Ein Ingenieurbüro braucht Luftbilder der Pfeiler, Fundamente und Widerlager von ${poiName}. Halte stabile Blickwinkel entlang des Bauwerks.`, p: "1 PAX (Bauwerksprüfung)", w: "Inspektionskamera und Checklisten (18 lbs)" },
+            { i: "🚄", t: `Bahnviadukt-Dokumentation: ${poiName}`, s: `Bei ${poiName} sollen Viaduktbogen, Trasse und Zufahrten sauber dokumentiert werden. Das Brückenbauwerk ist das Ziel, nicht die Straße darunter.`, p: paxGov, w: "Kamera-Gimbal (120 lbs)" },
+            { i: "🛣️", t: `Unterführung / Hochstraße: ${poiName}`, s: `Die Verkehrsplanung braucht ein Luftbild von Brückendeck, Unterführung und Zufahrten bei ${poiName}. Fliege ruhig, damit Bauwerk und Trasse getrennt erkennbar bleiben.`, p: "1 PAX (Verkehrsplanung)", w: "Tablet mit Planunterlagen (16 lbs)" },
+            { i: "🚧", t: `Brückensperrung: ${poiName}`, s: `Die Leitstelle benötigt ein sachliches Lagebild zu einer möglichen Sperrung an ${poiName}. Dokumentiere Zufahrten, Rückstau und sichtbare Absperrbereiche.`, p: "1 PAX (Lagebeobachtung)", w: "Live-Link Set (40 lbs)" },
+            { i: "💧", t: `Hochwasser an Pfeilern: ${poiName}`, s: `Nach Starkregen sollen Wasserstand, Treibgutlage und Anströmung an den Brückenpfeilern von ${poiName} geprüft werden. Fliege gleichmäßige Beobachtungskreise.`, p: "1 PAX (Wasserbau)", w: "Sensorpaket (50 lbs)" },
+            { i: "🏛️", t: `Denkmalschutz-Doku: ${poiName}`, s: `Für den Denkmalschutz werden aktuelle Luftbilder von ${poiName} benötigt. Wichtig sind klare Perspektiven auf Bögen, Pfeiler und Materialzustand.`, p: "1 PAX (Denkmalpflege)", w: "Fotoausrüstung (35 lbs)" },
+            { i: "📸", t: `Betreiber-Fotos: ${poiName}`, s: `Der Betreiber braucht verwertbare Luftbilder von ${poiName} für Bericht und Dokumentation. Ruhige Bögen und stabile Takes sind wichtiger als Tempo.`, p: paxMedia, w: cargoMedia }
         ];
     }
     else if (poiCat === "road" || normalizedName.includes("autobahn") || normalizedName.includes("kreuz") || normalizedName.includes("dreieck") || normalizedName.includes("strasse") || normalizedName.includes("highway") || normalizedName.includes("motorway") || normalizedName.includes("interstate") || normalizedName.includes("freeway") || normalizedName.includes("ring") || normalizedName.includes("junction") || normalizedName.includes("tunnel")) {
@@ -139,9 +142,10 @@ function generateDynamicPOIMission(poiName, maxSeats, forcedCategory = null) {
     // Zufällige Auswahl aus dem verbleibenden frischen Stapel
     const selected = rnd(freshTemplates);
 
-    // Missionsart merken (max 6 Stück im Gedächtnis, damit Kategorien mit 4 Items rotieren können)
+    // Missionsart merken; groessere Spezialpools sollen einmal durchrotieren koennen.
     history.push(selected.t.split(':')[0]);
-    if(history.length > 6) history.shift();
+    const historyLimit = Math.max(6, templates.length);
+    if(history.length > historyLimit) history.shift();
     localStorage.setItem('ga_poi_history', JSON.stringify(history));
 
     return { 
