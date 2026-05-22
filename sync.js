@@ -1393,6 +1393,27 @@ function _missionAptArrivalPreviewItems(plan = {}) {
     })).filter(item => item.label || item.objectTitle || item.role);
 }
 
+function _missionAptArrivalPickupPoint(plan = null) {
+    const src = plan || _missionAptArrivalPlan();
+    if (!src || typeof src !== 'object') return null;
+    const items = _missionAptArrivalPreviewItems(src);
+    const vehicle = items.find(item => {
+        const text = `${item.kind || ''} ${item.label || ''} ${item.role || ''} ${item.objectTitle || ''}`.toLowerCase();
+        return text.includes('arrival_vehicle') || text.includes('vehicle') || text.includes('fahrzeug') || text.includes('van') || text.includes('shuttle');
+    });
+    if (!vehicle) return null;
+    const ll = _missionSceneOffsetToLatLon(src.lat, src.lon, src.hdg, vehicle.forwardM, vehicle.rightM);
+    return {
+        forwardM: Number.isFinite(Number(vehicle.forwardM)) ? Number(vehicle.forwardM) : 0,
+        rightM: Number.isFinite(Number(vehicle.rightM)) ? Number(vehicle.rightM) : 0,
+        altOffsetFt: Number.isFinite(Number(vehicle.altOffsetFt)) ? Number(vehicle.altOffsetFt) : 0,
+        worldLat: Number.isFinite(Number(ll?.lat)) ? Number(ll.lat) : null,
+        worldLon: Number.isFinite(Number(ll?.lon)) ? Number(ll.lon) : null,
+        worldAltFt: Number.isFinite(Number(src.altFt)) ? Number(src.altFt) + (Number(vehicle.altOffsetFt) || 0) : null,
+        label: vehicle.label || src.visibleCue || src.expectedBy || 'Abholfahrzeug'
+    };
+}
+
 window.missionAptArrivalDebugPreview = function(reason = 'planned-apt-arrival-scene') {
     const plan = _missionAptArrivalPlan();
     if (!plan) return null;
@@ -3274,6 +3295,7 @@ window.missionSceneDeboarding = function(reason = 'mission-end') {
     const vehicleSupportEnabled = _missionSceneVehicleSupportEnabled();
     const vehicleAsset = vehicleSupportEnabled ? _missionSceneVehicleAsset() : null;
     const vehicleTitle = vehicleAsset?.title || MISSION_SCENE_DEFAULT_VEHICLE_TITLE;
+    const aptPickupPoint = vehicleSupportEnabled ? null : _missionAptArrivalPickupPoint();
     const primaryGender = _missionScenePassengerGender();
     const personTitle = _missionScenePersonTitle(primaryGender, 'deboarding');
     const command = {
@@ -3291,6 +3313,10 @@ window.missionSceneDeboarding = function(reason = 'mission-end') {
     if (vehicleSupportEnabled && vehicleAsset) {
         command.vehicleTitle = vehicleTitle;
         command.vehicleTitleCandidates = _sceneAssetCandidates(vehicleTitle, vehicleAsset.candidates || ['Car Bush Firefighting', 'Car Bush Firefighting (FIREFIGHTING_DEFAULT)', 'FIREFIGHTING_DEFAULT', 'Car_Bush_Firefighting']);
+    }
+    if (aptPickupPoint) {
+        command.deboardingPickupPoint = aptPickupPoint;
+        command.deboardingPickupLabel = aptPickupPoint.label;
     }
     const commandId = window.sendTrackerCommand(command);
     if (!commandId) return false;

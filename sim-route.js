@@ -22,6 +22,7 @@
     let simLastTrackPt   = null;
     let simPoiAtTargetTriggered = false; // pax voice: verhindert Doppel-Trigger beim POI
     let simAptAtTargetTriggered = false; // pax voice: verhindert Doppel-Trigger beim Airport
+    let simLandingRollTriggered = false; // pax voice: verhindert Doppel-Trigger bei Landung/Taxi
     let simWaitedForMissionStart = false;
 
     const TICK_MS = 200;            // 5 Hz – flüssig genug, CPU-schonend
@@ -57,6 +58,7 @@
         simLastTrackPt  = null;
         simPoiAtTargetTriggered = false;
         simAptAtTargetTriggered = false;
+        simLandingRollTriggered = false;
         simWaitedForMissionStart = false;
         window.simModeActive = true;
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
@@ -112,6 +114,7 @@
         if (simPhase === 'end_hold') {
             simHoldRemainSec -= dtSec;
             _injectHold(true);
+            _triggerSimLandingRoll();
             if (simHoldRemainSec <= 0) {
                 const rec = _buildSimRecord();
                 console.log('[SimPax] end_hold abgelaufen → Farewell trigger. Record:', rec?.distanceNm, 'NM');
@@ -148,15 +151,7 @@
             return;
         }
 
-        const _isPOISim = (() => {
-            try {
-                if (typeof currentMissionData !== 'undefined' && currentMissionData && currentMissionData.poiName) return true;
-                if (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI') return true;
-                const destRwy = document.getElementById('destRwyContainer');
-                if (destRwy && destRwy.style.display === 'none') return true;
-            } catch (_) {}
-            return false;
-        })();
+        const _isPOISim = _isPoiSimMission();
 
         // Pax voice: POI bei Streckenmitte (round-trip), echte Höhe übergeben
         if (_isPOISim && !simPoiAtTargetTriggered && simRouteCache.totalDist > 0 &&
@@ -183,6 +178,7 @@
             simPhase = 'end_hold';
             simHoldRemainSec = SIM_HOLD_SEC;
             _injectHold(true);
+            _triggerSimLandingRoll();
             return;
         }
 
@@ -190,6 +186,24 @@
     }
 
     // ── Position & Daten injizieren ───────────────────────────────────────────
+
+    function _isPoiSimMission() {
+        try {
+            if (typeof currentMissionData !== 'undefined' && currentMissionData && currentMissionData.poiName) return true;
+            if (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI') return true;
+            const destRwy = document.getElementById('destRwyContainer');
+            if (destRwy && destRwy.style.display === 'none') return true;
+        } catch (_) {}
+        return false;
+    }
+
+    function _triggerSimLandingRoll() {
+        if (simLandingRollTriggered || _isPoiSimMission()) return;
+        simLandingRollTriggered = true;
+        const rec = _buildSimRecord();
+        console.log('[SimPax] Sim-Landung erreicht → LandingRoll trigger. Record:', rec?.distanceNm, 'NM');
+        if (typeof window.triggerPaxLandingRoll === 'function') window.triggerPaxLandingRoll(rec);
+    }
 
     function _inject(first) {
         if (!simRouteCache) return;

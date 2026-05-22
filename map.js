@@ -672,6 +672,18 @@ function missionScenePointClass(point = {}) {
     return 'Startszene';
 }
 
+function missionScenePointPriority(point = {}) {
+    const sourceType = String(point.sourceType || '').toLowerCase();
+    const sceneId = String(point.sceneId || '').toLowerCase();
+    const kind = String(point.kind || '').toLowerCase();
+    if (sourceType.includes('smoke')) return 40;
+    if (kind.includes('item') || kind.includes('vehicle') || kind.includes('person') || kind.includes('cargo') || kind.includes('equipment')) return 30;
+    if (sourceType.includes('apt_arrival') || sceneId.includes('apt-arrival')) return 25;
+    if (sourceType.includes('target') || sceneId.includes('-target')) return 20;
+    if (sourceType.includes('start') || sourceType.includes('end') || sceneId.includes('-start-') || sceneId.includes('-end-')) return 5;
+    return 10;
+}
+
 function collectMissionSceneDebugMapPoints() {
     const dbg = (window.gaMissionSceneDebug && typeof window.gaMissionSceneDebug === 'object') ? window.gaMissionSceneDebug : {};
     const preview = (!dbg.lastTargetSceneCommand && typeof window.missionTargetSceneDebugPreview === 'function')
@@ -708,11 +720,24 @@ function collectMissionSceneDebugMapPoints() {
             });
         });
     });
-    return points;
+    return points.sort((a, b) => missionScenePointPriority(a) - missionScenePointPriority(b));
+}
+
+function ensureMissionSceneDebugPane() {
+    if (!map || typeof L === 'undefined') return null;
+    const name = 'missionSceneDebugPane';
+    let pane = map.getPane(name);
+    if (!pane && typeof map.createPane === 'function') pane = map.createPane(name);
+    if (pane) {
+        pane.style.zIndex = '780';
+        pane.style.pointerEvents = 'auto';
+    }
+    return name;
 }
 
 function renderMissionSceneDebugOverlay() {
     if (!map || typeof L === 'undefined') return;
+    const paneName = ensureMissionSceneDebugPane();
     if (!vpMissionSceneDebugLayer) vpMissionSceneDebugLayer = L.layerGroup();
     vpMissionSceneDebugLayer.clearLayers();
     if (!window.vpMissionSceneDebugOverlayEnabled) {
@@ -723,12 +748,14 @@ function renderMissionSceneDebugOverlay() {
     points.forEach((point, idx) => {
         const color = missionScenePointColor(point);
         const marker = L.circleMarker([point.lat, point.lon], {
+            pane: paneName || undefined,
             radius: 5,
             color: '#101820',
             weight: 2,
             fillColor: color,
             fillOpacity: 0.95,
-            interactive: true
+            interactive: true,
+            bubblingMouseEvents: false
         });
         const label = point.label || point.kind || `Objekt ${idx + 1}`;
         const title = point.title ? ` | ${point.title}` : '';
@@ -740,6 +767,7 @@ function renderMissionSceneDebugOverlay() {
             { sticky: true, direction: 'top', opacity: 0.96 }
         );
         marker.addTo(vpMissionSceneDebugLayer);
+        if (typeof marker.bringToFront === 'function') marker.bringToFront();
     });
     if (!map.hasLayer(vpMissionSceneDebugLayer)) vpMissionSceneDebugLayer.addTo(map);
 }

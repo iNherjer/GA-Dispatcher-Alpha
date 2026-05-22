@@ -7044,6 +7044,33 @@ function buildAptArrivalSceneItems(role = {}) {
     return out;
 }
 
+function offsetAptArrivalLatLon(originLat, originLon, hdgDeg, forwardM = 0, rightM = 0) {
+    const lat = Number(originLat);
+    const lon = Number(originLon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const hdg = (Number.isFinite(Number(hdgDeg)) ? Number(hdgDeg) : 0) * Math.PI / 180;
+    const f = Number.isFinite(Number(forwardM)) ? Number(forwardM) : 0;
+    const r = Number.isFinite(Number(rightM)) ? Number(rightM) : 0;
+    const northM = f * Math.cos(hdg) - r * Math.sin(hdg);
+    const eastM = f * Math.sin(hdg) + r * Math.cos(hdg);
+    const metersPerDegLat = 111320;
+    const metersPerDegLon = Math.max(1, metersPerDegLat * Math.cos(lat * Math.PI / 180));
+    return {
+        lat: lat + northM / metersPerDegLat,
+        lon: lon + eastM / metersPerDegLon
+    };
+}
+
+function representativeAptArrivalAnchor(lat, lon, hdg) {
+    const offset = { forwardM: -75, rightM: 95 };
+    const shifted = offsetAptArrivalLatLon(lat, lon, hdg, offset.forwardM, offset.rightM);
+    return {
+        lat: Number.isFinite(Number(shifted?.lat)) ? shifted.lat : lat,
+        lon: Number.isFinite(Number(shifted?.lon)) ? shifted.lon : lon,
+        offset
+    };
+}
+
 function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passenger = null, paxText = '', cargoText = '', profileId = '', heading = 0 } = {}) {
     if (isPOI) return null;
     const lat = Number(dest?.lat);
@@ -7056,6 +7083,7 @@ function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passe
     const rawElev = dest?.elevFt ?? dest?.elevationFt ?? dest?.elevation ?? (typeof currentDestElev !== 'undefined' ? currentDestElev : null);
     const altFt = Number.isFinite(Number(rawElev)) ? Math.round(Number(rawElev)) : null;
     const hdg = Number.isFinite(Number(heading)) ? Math.round(Number(heading)) : 0;
+    const anchor = representativeAptArrivalAnchor(lat, lon, hdg);
     const cues = [
         role.visibleCue,
         'Vorfeld oder sicherer Parking-Bereich',
@@ -7064,14 +7092,17 @@ function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passe
     return {
         version: 1,
         status: 'planned',
-        source: 'airport-representative',
-        confidence: 0.35,
+        source: 'airport-representative-offset',
+        confidence: 0.4,
         icao,
         airportName,
         anchorType: 'airport_representative',
         semantic: 'apron_or_parking',
-        lat,
-        lon,
+        lat: anchor.lat,
+        lon: anchor.lon,
+        airportLat: lat,
+        airportLon: lon,
+        representativeOffsetM: anchor.offset,
         altFt,
         hdg,
         role: role.role,

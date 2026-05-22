@@ -195,6 +195,32 @@ function buildRelativePosition(base, forwardM, rightM) {
   return { ...p, northM, eastM };
 }
 
+function worldPointToRelativeScenePoint(base, point, fallback = {}) {
+  const lat = toFiniteNumber(point?.worldLat ?? point?.lat, null);
+  const lon = toFiniteNumber(point?.worldLon ?? point?.lon, null);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(Number(base?.lat)) || !Number.isFinite(Number(base?.lon))) {
+    return null;
+  }
+  const earthRadiusM = 6371000;
+  const northM = (lat - Number(base.lat)) * Math.PI / 180 * earthRadiusM;
+  const eastM = (lon - Number(base.lon)) * Math.PI / 180 * earthRadiusM * Math.cos(Number(base.lat) * Math.PI / 180);
+  const hdgRad = Number(base.hdg || 0) * Math.PI / 180;
+  const forwardM = Math.cos(hdgRad) * northM + Math.sin(hdgRad) * eastM;
+  const rightM = -Math.sin(hdgRad) * northM + Math.cos(hdgRad) * eastM;
+  const altFt = toFiniteNumber(point?.worldAltFt ?? point?.altFt ?? point?.alt, toFiniteNumber(base.altFt, 0) + toFiniteNumber(fallback.altOffsetFt ?? fallback.altOffset, 0));
+  return {
+    forwardM,
+    rightM,
+    altOffsetFt: Number.isFinite(Number(base.altFt)) ? altFt - Number(base.altFt) : 0,
+    lat,
+    lon,
+    altFt,
+    hdg: normalizeHeading(base.hdg),
+    northM,
+    eastM
+  };
+}
+
 function normalizeHeading(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -1038,11 +1064,19 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return;
     }
 
-    const routeToVehicle = vehicleArrivalEnabled ? reversePath.concat([vehiclePark]) : reversePath;
+    const pickupPoint = command?.deboardingPickupPoint || command?.pickupPoint || null;
+    const deboardingBase = sceneBaseFromCommand(command, rec);
+    const pickupRoutePoint = pickupPoint
+      ? (worldPointToRelativeScenePoint(deboardingBase, pickupPoint, vehiclePoint)
+        || relativeScenePoint(deboardingBase, normalizeBoardingPathPoint(pickupPoint, vehiclePoint), vehiclePoint))
+      : null;
+    const routeToExit = pickupRoutePoint
+      ? reversePath.concat([pickupRoutePoint])
+      : (vehicleArrivalEnabled ? reversePath.concat([vehiclePark]) : reversePath);
     const walkSpeedKts = Math.max(2.8, Math.min(4.5, Number(command?.walkSpeedKts || 3.3) || 3.3));
     let routeSentCount = 0;
     people.forEach((person, index) => {
-      const personRoute = index === 0 ? routeToVehicle : routeToVehicle.map((pt, ptIndex) => {
+      const personRoute = index === 0 ? routeToExit : routeToExit.map((pt, ptIndex) => {
         if (ptIndex === 0) return pt;
         return {
           ...pt,
@@ -1053,8 +1087,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       const sent = sendWaypointRoute(person.objectId, absRoute.slice(1), walkSpeedKts);
       routeSentCount += sent ? 1 : 0;
     });
-    const walkMs = clampInt((pathDistanceM(routeToVehicle) / Math.max(0.5, walkSpeedKts * 0.514444)) * 1000 + 1200, 3000, 36000);
-    debugLog(`SCENE_DEBOARDING_WALK scene=${sceneId} people=${people.length} routeSent=${routeSentCount}/${people.length} walkMs=${walkMs} path=${pathSource}`);
+    const walkMs = clampInt((pathDistanceM(routeToExit) / Math.max(0.5, walkSpeedKts * 0.514444)) * 1000 + 1200, 3000, 36000);
+    debugLog(`SCENE_DEBOARDING_WALK scene=${sceneId} people=${people.length} routeSent=${routeSentCount}/${people.length} walkMs=${walkMs} path=${pathSource} pickupBound=${pickupRoutePoint ? 1 : 0}`);
     await sleep(walkMs);
     if (doorEnabled) {
       await setUserAircraftDoor(false, doorIndex, 'deboarding-close', doorProfile);
