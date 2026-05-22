@@ -74,7 +74,7 @@ if "%VALIDATION_MODE%"=="2" (
     if "%ROLE_FILTER%"=="" (
         "%VALIDATOR_EXE%" --catalog="%CATALOG_PATH%" --per-role=12 --max=160 --timeout-ms=2200 --manual-review --hold-ms=0 --pause-ms=120 --offset-m=35 --spacing-m=12 --review-marker-title="Cone_Medium" --vfx-review-delay-ms=3500
     ) else (
-        "%VALIDATOR_EXE%" --catalog="%CATALOG_PATH%" --roles="%ROLE_FILTER%" --per-role=24 --max=160 --timeout-ms=2200 --manual-review --hold-ms=0 --pause-ms=120 --offset-m=35 --spacing-m=12 --review-marker-title="Cone_Medium" --vfx-review-delay-ms=3500
+        "%VALIDATOR_EXE%" --catalog="%CATALOG_PATH%" --roles="%ROLE_FILTER%" --per-role=24 --max=160 --timeout-ms=2200 --manual-review --fixed-review-line --hold-ms=0 --pause-ms=120 --offset-m=35 --spacing-m=12 --review-marker-title="Cone_Medium" --vfx-review-delay-ms=3500
     )
 ) else if "%VALIDATION_MODE%"=="3" (
     "%VALIDATOR_EXE%" --catalog="%CATALOG_PATH%" --per-role=12 --max=160 --dry-run

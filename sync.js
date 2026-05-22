@@ -1975,7 +1975,6 @@ function _missionSceneVehicleSupportEnabled() {
         if (/^(1|true|yes|ja|on)$/.test(raw)) return true;
         if (/^(0|false|no|nein|off)$/.test(raw)) return false;
     } catch (_) {}
-    if (_missionSceneIsPoiMission()) return true;
     const taskDomain = _missionSceneTaskDomain();
     if (/^(medical_transfer|search_and_rescue|cargo|news_coverage|animal_transport|survey|fire_watch)$/.test(taskDomain)) return true;
     if (/(club_utility|inspection|mapping|science|freight|fracht|cargo|medical|sar|rescue|rettung|news|media|animal|tier)/.test(taskDomain)) return true;
@@ -2013,6 +2012,8 @@ function _missionSceneCommonSceneCommandFields() {
         fields.vehicleReturnPath = _missionSceneVehicleDeparturePath().slice().reverse();
         fields.vehicleSpeedKts = 7;
         fields.vehicleBoardDelayMs = 2800;
+    } else {
+        fields.deboardingWalkOffPath = _missionSceneVehicleDeparturePath();
     }
     return fields;
 }

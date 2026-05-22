@@ -11,7 +11,7 @@ const {
   InitPosition
 } = require('node-simconnect');
 
-const TOOL_VERSION = 'v3';
+const TOOL_VERSION = 'v4';
 const APP_NAME = 'GA-MSFS-Asset-Validator';
 const OUT_BASENAME = 'msfs2024-spawn-validation';
 const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
@@ -188,6 +188,7 @@ const options = {
   dryRun: hasArg(['dry-run', 'dryRun']),
   allowZero: hasArg(['allow-zero', 'allowZero']),
   manualReview: hasArg(['manual-review', 'manualReview', 'review']),
+  fixedReviewLine: hasArg(['fixed-review-line', 'fixedReviewLine']),
   reviewMarker: !hasArg(['no-review-marker', 'noReviewMarker']),
   reviewMarkerTitle: argString(['review-marker-title', 'reviewMarkerTitle']) || 'Cone_Medium',
   reviewMarkerOffsetM: clampNumber(argNumber(['review-marker-offset-m', 'reviewMarkerOffsetM'], 8), 1, 80),
@@ -532,6 +533,23 @@ function relativeOffset(lat, lon, hdgDeg, forwardM, rightM) {
 }
 
 function spawnPositionForIndex(userPos, index) {
+  const fixedHumanReview = options.fixedReviewLine
+    || (options.manualReview
+      && options.roles.length === 1
+      && String(options.roles[0] || '') === 'person.ground_crew');
+  if (fixedHumanReview) {
+    const forward = 10;
+    const lateral = index % 2 === 0 ? -1 : 1;
+    const p = relativeOffset(userPos.lat, userPos.lon, userPos.hdg || 0, forward, lateral);
+    return {
+      lat: p.lat,
+      lon: p.lon,
+      altFt: userPos.alt,
+      hdg: userPos.hdg || 0,
+      forwardM: round1(forward),
+      rightM: round1(lateral)
+    };
+  }
   const lane = index % 7;
   const ring = Math.floor(index / 7) % 3;
   const lateral = (lane - 3) * options.spacingM;

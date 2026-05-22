@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v235';
-const TRACKER_VERSION_CODE = 235;
+const TRACKER_VERSION = 'v236';
+const TRACKER_VERSION_CODE = 236;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -1070,9 +1070,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       ? (worldPointToRelativeScenePoint(deboardingBase, pickupPoint, vehiclePoint)
         || relativeScenePoint(deboardingBase, normalizeBoardingPathPoint(pickupPoint, vehiclePoint), vehiclePoint))
       : null;
+    const walkOffRoute = (!pickupRoutePoint && !vehicleArrivalEnabled)
+      ? buildRelativeSceneRoute(command, rec, command?.deboardingWalkOffPath, defaultVehicleDeparturePath(command))
+      : [];
     const routeToExit = pickupRoutePoint
       ? reversePath.concat([pickupRoutePoint])
-      : (vehicleArrivalEnabled ? reversePath.concat([vehiclePark]) : reversePath);
+      : (vehicleArrivalEnabled ? reversePath.concat([vehiclePark]) : reversePath.concat(walkOffRoute));
     const walkSpeedKts = Math.max(2.8, Math.min(4.5, Number(command?.walkSpeedKts || 3.3) || 3.3));
     let routeSentCount = 0;
     people.forEach((person, index) => {
@@ -1088,8 +1091,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       routeSentCount += sent ? 1 : 0;
     });
     const walkMs = clampInt((pathDistanceM(routeToExit) / Math.max(0.5, walkSpeedKts * 0.514444)) * 1000 + 1200, 3000, 36000);
-    debugLog(`SCENE_DEBOARDING_WALK scene=${sceneId} people=${people.length} routeSent=${routeSentCount}/${people.length} walkMs=${walkMs} path=${pathSource} pickupBound=${pickupRoutePoint ? 1 : 0}`);
+    debugLog(`SCENE_DEBOARDING_WALK scene=${sceneId} people=${people.length} routeSent=${routeSentCount}/${people.length} walkMs=${walkMs} path=${pathSource} pickupBound=${pickupRoutePoint ? 1 : 0} walkOff=${walkOffRoute.length}`);
     await sleep(walkMs);
+    if (routeSentCount > 0) {
+      people.forEach(person => removeSceneObject(rec, person, 'deboarding-complete-hidden'));
+    }
     if (doorEnabled) {
       await setUserAircraftDoor(false, doorIndex, 'deboarding-close', doorProfile);
     }
