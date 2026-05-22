@@ -320,7 +320,7 @@ function buildMissionAiPayload(prompt) {
         summary: 'A-B-Flug ohne POI-Zielszene; die sichtbare Logik liegt in Pax/Fracht.',
         environment: 'leer',
         visibleIdeas: [],
-        avoid: ['keine Flamingos', 'keine exotischen Tiere', 'keine Zielszene am Flugplatz erzwingen'],
+        avoid: ['keine exotischen Tiere', 'keine Zielszene am Flugplatz erzwingen'],
         densityHint: 'none',
         notes: 'Tiertransport wird als Fracht-/PAX-Kontext behandelt.'
       },

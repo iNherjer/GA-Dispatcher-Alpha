@@ -6767,6 +6767,13 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     }
     const cargoPool = Array.isArray(profile.cargoPool) ? profile.cargoPool.filter(Boolean) : [];
     if (cargoPool.length) cargoText = cargoPool[Math.floor(Math.random() * cargoPool.length)];
+    if (profile.id === 'animal_transport') {
+        const targetHint = (String(m.t || '').match(/\bnach\s+(.+)$/i) || [])[1] || 'dem Zielplatz';
+        const cargoClean = String(cargoText || '').replace(/\s*\([^)]*\)/g, '').trim();
+        if (cargoClean) {
+            m.s = `Eine Auffangstation braucht einen ruhigen Transfer nach ${targetHint}. An Bord ist ${cargoClean}; der Flug soll gleichmaessig bleiben, damit die Uebergabe am Ziel entspannt klappt.`;
+        }
+    }
     const cue = _profileStoryCue(profile, isPOI);
     if (cue) {
         const story = String(m.s || '').trim();
@@ -7042,7 +7049,7 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
             };
         }
         if (/animal/.test(planTask)) {
-            const animalSpec = pickAnimalTransportSceneSpec(`${paxText || ''} ${cargoText || ''} ${mission?.t || ''} ${mission?.s || ''}`);
+            const animalSpec = pickAnimalTransportSceneSpec(`${cargoText || ''} ${paxText || ''}`.trim() || `${mission?.t || ''} ${mission?.s || ''}`);
             const handoffLabel = animalSpec.visible === false
                 ? (animalSpec.cargoLabel || animalSpec.label || 'Transportbox')
                 : `${animalSpec.label} / Transportbox`;
@@ -8172,16 +8179,19 @@ function missionSceneDefaultArrangement(feature, kind = '', layout = '') {
 function missionPlanV2SceneDirective(missionPlanV2 = null) {
     const plan = getMissionPlanV2Plan(missionPlanV2);
     if (!plan) return null;
-    const sceneKind = normalizeMissionTargetSceneKind(plan.sceneKind || '');
+    const taskDomain = String(plan.taskDomain || '').toLowerCase();
+    let sceneKind = normalizeMissionTargetSceneKind(plan.sceneKind || '');
+    if (sceneKind === 'none' && taskDomain === 'fire_watch') sceneKind = 'fire_watch';
     const sceneDensityRaw = String(plan.sceneDensity || '').toLowerCase();
     const sceneDensity = /^(none|sparse|normal|busy)$/.test(sceneDensityRaw)
-        ? sceneDensityRaw
+        ? (sceneKind === 'fire_watch' && sceneDensityRaw === 'none' ? 'sparse' : sceneDensityRaw)
         : (sceneKind === 'none' ? 'none' : '');
-    const objectFamilies = (Array.isArray(plan.objectFamilies) ? plan.objectFamilies : [])
+    let objectFamilies = (Array.isArray(plan.objectFamilies) ? plan.objectFamilies : [])
         .map(item => normalizeMissionTargetSceneFeature(item))
         .filter(Boolean);
+    if (sceneKind === 'fire_watch' && objectFamilies.length === 0) objectFamilies = ['smoke_light'];
     return {
-        taskDomain: String(plan.taskDomain || '').toLowerCase(),
+        taskDomain,
         sceneKind,
         sceneDensity,
         objectFamilies: [...new Set(objectFamilies)],
