@@ -3313,6 +3313,7 @@ function setDispatchLampState(state = 'idle', dataSource = '') {
 
 let _dispatchRunId = 0;
 let _dispatchState = { active: false, cancelled: false, runId: 0 };
+const MISSION_PIPELINE_V2_STORAGE_KEY = 'ga_debug_mission_pipeline_v2';
 
 function _startDispatchRun() {
     _dispatchRunId += 1;
@@ -3337,6 +3338,39 @@ function _abortDispatchRun(reason = 'Abbruch') {
     if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`;
     setDispatchLampState('idle');
     return true;
+}
+
+function isMissionPipelineV2Enabled() {
+    try { return localStorage.getItem(MISSION_PIPELINE_V2_STORAGE_KEY) === 'true'; } catch (_) { return false; }
+}
+window.isMissionPipelineV2Enabled = isMissionPipelineV2Enabled;
+
+function updateMissionPipelineV2ButtonUi() {
+    const btn = document.getElementById('btnMissionPipelineV2');
+    if (!btn) return;
+    const on = isMissionPipelineV2Enabled();
+    btn.textContent = on ? 'Pipeline V2 An' : 'Pipeline V2 Aus';
+    btn.style.background = on ? '#3d2463' : '#241b3b';
+    btn.style.color = on ? '#f0e6ff' : '#d8c7ff';
+}
+window.updateMissionPipelineV2ButtonUi = updateMissionPipelineV2ButtonUi;
+
+window.toggleMissionPipelineV2 = function(forceState) {
+    const next = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineV2Enabled();
+    try { localStorage.setItem(MISSION_PIPELINE_V2_STORAGE_KEY, String(!!next)); } catch (_) {}
+    updateMissionPipelineV2ButtonUi();
+    if (typeof window.vpRefreshWeatherDebugReport === 'function') {
+        try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
+    }
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = next
+        ? 'Debug: Mission Pipeline V2 aktiv.'
+        : 'Debug: Klassische Mission Pipeline aktiv.';
+    return !!next;
+};
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', updateMissionPipelineV2ButtonUi);
 }
 
 async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false) {
@@ -6578,7 +6612,7 @@ function _normUrgencyBinary(v) {
 }
 
 function _hasTimePressureText(txt) {
-    return /\b(zeitkrit|dringend|eilig|pünkt|puenkt|zeitnah|so bald wie moeglich|so schnell wie moeglich)\b/i.test(String(txt || ''));
+    return /\b(zeitkrit|dringend|eilig|pünkt|puenkt|zeitnah|sofort|unverzueglich|unverzüglich|hoechste\s+prioritaet|höchste\s+priorität|so bald wie moeglich|so schnell wie moeglich)\b/i.test(String(txt || ''));
 }
 
 function _hasCargoSensitivityText(txt) {
@@ -6637,7 +6671,9 @@ function _enforceProfileNarrativeContract(storyText, profileId, isPOI = false) {
 
 function _stripTimePressureText(txt) {
     return String(txt || '')
+        .replace(/\b(h(?:oe|ö)chste\s+priorit(?:ae|ä)t)\s*:?\s*/gi, '')
         .replace(/\b(zeitkritisch|dringend|eilig|zeitnah)\b/gi, '')
+        .replace(/\b(sofort|unverz(?:ue|ü)glich)\b/gi, '')
         .replace(/\bso\s+bald\s+wie\s+m(?:oe|ö)glich\b/gi, '')
         .replace(/\bso\s+schnell\s+wie\s+m(?:oe|ö)glich\b/gi, '')
         .replace(/\bwir\s+m(?:ue|ü)ssen\s+(jetzt\s+)?(dringend|schnell|z(?:ue|ü)gig)\b[^.?!]*/gi, '')
@@ -6683,9 +6719,19 @@ function _finalizeMissionNarrative(mission, profile, isPOI = false) {
         guard.cargoHintStripped = before !== `${title} ${story}`;
     }
 
+    if (String(profile?.id || '') === 'cargo_fragile') {
+        const before = `${title} ${story}`;
+        const medicalUrgencyDrift = /\b(organtransport|spenderorgan|notaufnahme|notfall|emergency|medizinischer\s+notfall|patient(?:in|en)?)\b/i.test(before);
+        if (medicalUrgencyDrift) {
+            if (/\b(organtransport|spenderorgan|notfall|emergency)\b/i.test(title)) title = 'Empfindliche Fracht';
+            story = 'Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung.';
+            guard.profileContractApplied = true;
+        }
+    }
+
     const beforeProfile = story;
     story = _enforceProfileNarrativeContract(story, String(profile?.id || ''), isPOI);
-    guard.profileContractApplied = beforeProfile !== story;
+    guard.profileContractApplied = guard.profileContractApplied || beforeProfile !== story;
     title = _cleanupNarrativeArtifacts(title);
     story = _cleanupNarrativeArtifacts(story);
 
@@ -7270,7 +7316,7 @@ function attachAptArrivalPlanToMissionTruth(missionTruth = null, aptArrivalPlan 
     return base;
 }
 
-function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null } = {}) {
+function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null } = {}) {
     const profile = getMissionTaskProfile(appliedProfileId, isPOI ? 'poi' : 'apt') || getMissionTaskProfile('auto', isPOI ? 'poi' : 'apt');
     const taskDomain = String(passenger?.taskDomain || profile?.taskDomain || 'general').toLowerCase();
     const roleProfile = String(passenger?.roleProfile || profile?.roleProfile || 'general_passenger_v1').toLowerCase();
@@ -7305,6 +7351,7 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
         sceneAccepted: !!sceneAccepted,
         targetGeoContext: targetGeoContext || mission?.targetGeoContext || passenger?.targetGeoContext || null,
         missionTruth: attachAptArrivalPlanToMissionTruth(missionTruth || mission?.missionTruth || passenger?.missionTruth || null, aptArrivalPlan),
+        missionPlanV2: missionPlanV2 || mission?._missionPlanV2 || mission?.missionPlanV2 || passenger?.missionPlanV2 || null,
         aptArrivalPlan: aptArrivalPlan || mission?.aptArrivalPlan || passenger?.aptArrivalPlan || null,
         targetScene,
         constraints
@@ -8849,6 +8896,7 @@ async function composeMissionTargetSceneWithGemini({ missionData = null, mission
     const sceneIntent = sanitizeMissionSceneIntentSpec(md.sceneIntent || contract.sceneIntent || null, { isPOI, taskDomain });
     const targetGeoContext = md.targetGeoContext || contract.targetGeoContext || null;
     const missionTruth = md.missionTruth || contract.missionTruth || null;
+    const missionPlanV2 = md.missionPlanV2 || contract.missionPlanV2 || null;
     const fallback = deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI, taskDomain, targetGeoContext });
     const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
     const baseDebug = {
@@ -8856,6 +8904,7 @@ async function composeMissionTargetSceneWithGemini({ missionData = null, mission
         sceneIntent,
         targetGeoContext,
         missionTruth,
+        missionPlanV2,
         fallback,
         promptVersion: 'scene-composer-v1'
     };
@@ -8898,6 +8947,7 @@ Regeln:
 10. Wenn missionTruth vorhanden ist, ist missionTruth.mainTarget das kanonische Ziel und missionTruth.sceneAnchor der bevorzugte Platzierungsbereich. Sichtbare Objekte nur grob und situationsbezogen aus missionTruth.visibleCues ableiten; nicht alle Objekte aufzaehlen.
 10a. Bei Natur-/Wald-/Bio-Missionen sind Strassen, Strom und Gebaeude nur Kontext, nie automatisch Zielszene. Waehle road_incident, Fahrzeuge, Strommast oder Kegel nur bei ausdruecklichem Unfall-/Einsatz-/Inspektionsgrund.
 10b. Strommast/Freileitung und Windrad/Windpark sind Spezialobjekte, keine Dekoration. Strommast nur bei konkretem Strom-/Umspannwerks-/Energieinfrastruktur-Kontext. Windrad nur bei konkretem Windenergie-/Bau-/Wartungs-/Inspektions-Kontext und passender offener/hochgelegener Umgebung; nicht in Stadt, Wohngebiet oder Tal.
+10c. Wenn missionPlanV2 vorhanden ist, beachte primaryObjective, sceneKind, objectFamilies und placementPolicy als Planformular. requirements duerfen diese Objektfamilien konkretisieren, aber nicht ein neues Missionsthema erfinden.
 11. Gib AUSSCHLIESSLICH JSON aus.
 
 ${sceneGuide}
@@ -8914,6 +8964,7 @@ PAX: ${String(contract.paxText || '').slice(0, 160)}
 Cargo: ${String(contract.cargoText || '').slice(0, 160)}
 sceneIntent: ${JSON.stringify(sceneIntent)}
 missionTruth: ${JSON.stringify(compactMissionTruthForPrompt(missionTruth))}
+missionPlanV2: ${JSON.stringify(compactMissionPlanV2ForPrompt(missionPlanV2))}
 targetGeoContext: ${JSON.stringify(targetGeoContext ? {
     summary: summarizeMissionTargetGeoContext(targetGeoContext),
     anchors: targetGeoContext.anchors || {},
@@ -8980,6 +9031,7 @@ targetGeoContext: ${JSON.stringify(targetGeoContext ? {
                     sceneIntent,
                     targetGeoContext,
                     missionTruth,
+                    missionPlanV2,
                     aiRaw: parsed.targetScene || parsed,
                     normalized: targetScene,
                     fallback,
@@ -9060,6 +9112,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
         currentMissionData.missionContract.sceneAccepted = true;
         currentMissionData.missionContract.targetGeoContext = currentMissionData.targetGeoContext || currentMissionData.missionContract.targetGeoContext || null;
         currentMissionData.missionContract.missionTruth = currentMissionData.missionTruth || currentMissionData.missionContract.missionTruth || null;
+        currentMissionData.missionContract.missionPlanV2 = currentMissionData.missionPlanV2 || currentMissionData.missionContract.missionPlanV2 || null;
         currentMissionData.missionContract.sceneIntent = sanitizeMissionSceneIntentSpec(
             currentMissionData.sceneIntent || currentMissionData.missionContract.sceneIntent || null,
             { isPOI, taskDomain }
@@ -9074,6 +9127,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
         sceneIntent: currentMissionData.sceneIntent || currentMissionData.missionContract?.sceneIntent || null,
         targetGeoContext: currentMissionData.targetGeoContext || currentMissionData.missionContract?.targetGeoContext || null,
         missionTruth: currentMissionData.missionTruth || currentMissionData.missionContract?.missionTruth || null,
+        missionPlanV2: currentMissionData.missionPlanV2 || currentMissionData.missionContract?.missionPlanV2 || null,
         sceneComposer: composition.debug || null,
         composerReason: reason,
         aiRequested: currentMissionData.targetSceneAiRaw || null,
@@ -9102,6 +9156,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
         snapshot.targetScene = targetScene;
         snapshot.targetGeoContext = currentMissionData.targetGeoContext || null;
         snapshot.missionTruth = currentMissionData.missionTruth || null;
+        snapshot.missionPlanV2 = currentMissionData.missionPlanV2 || currentMissionData.missionContract?.missionPlanV2 || null;
         snapshot.targetSceneComposerDebug = composition.debug || null;
         snapshot.targetSceneDebug = {
             ...(snapshot.targetSceneDebug || {}),
@@ -9167,6 +9222,7 @@ window.acceptMissionDraft = async function() {
                 source: 'local-fallback',
                 error: err?.message || String(err || 'composer_failed'),
                 sceneIntent: currentMissionData.sceneIntent || null,
+                missionPlanV2: currentMissionData.missionPlanV2 || currentMissionData.missionContract?.missionPlanV2 || null,
                 promptVersion: 'scene-composer-v1'
             }
         };
@@ -9175,6 +9231,322 @@ window.acceptMissionDraft = async function() {
         return true;
     }
 };
+
+const MISSION_PIPELINE_V2_ALLOWED_NEEDS = new Set([
+    'geo_context',
+    'mission_truth',
+    'weather_snapshot',
+    'target_elevation',
+    'poi_metadata',
+    'airport_details',
+    'fire_hazard'
+]);
+
+function compactMissionPlanV2ForPrompt(planResult = null) {
+    if (!planResult || typeof planResult !== 'object') return null;
+    const plan = (planResult.plan && typeof planResult.plan === 'object') ? planResult.plan : {};
+    const resolvedNeeds = (planResult.resolvedNeeds && typeof planResult.resolvedNeeds === 'object') ? planResult.resolvedNeeds : {};
+    return {
+        status: String(planResult.status || 'ready'),
+        pipelineVersion: String(planResult.pipelineVersion || 'mission-v2-planner-2026-05-22'),
+        plan: {
+            taskDomain: String(plan.taskDomain || ''),
+            roleProfile: String(plan.roleProfile || ''),
+            missionType: String(plan.missionType || ''),
+            targetCategory: String(plan.targetCategory || ''),
+            primaryObjective: String(plan.primaryObjective || '').slice(0, 260),
+            targetLabel: String(plan.targetLabel || '').slice(0, 120),
+            sceneKind: String(plan.sceneKind || ''),
+            sceneDensity: String(plan.sceneDensity || ''),
+            requiredAnchors: Array.isArray(plan.requiredAnchors) ? plan.requiredAnchors.slice(0, 6).map(String) : [],
+            objectFamilies: Array.isArray(plan.objectFamilies) ? plan.objectFamilies.slice(0, 8).map(String) : [],
+            placementPolicy: String(plan.placementPolicy || '').slice(0, 260),
+            narrativeRules: Array.isArray(plan.narrativeRules) ? plan.narrativeRules.slice(0, 6).map(x => String(x).slice(0, 160)) : [],
+            lockedFields: (plan.lockedFields && typeof plan.lockedFields === 'object') ? plan.lockedFields : {},
+            confidence: Number.isFinite(Number(plan.confidence)) ? Math.max(0, Math.min(1, Number(plan.confidence))) : null
+        },
+        needs: Array.isArray(planResult.needs) ? planResult.needs.slice(0, 6) : [],
+        resolvedNeedTypes: Object.keys(resolvedNeeds).slice(0, 8)
+    };
+}
+
+function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds = {}) {
+    const src = (raw && typeof raw === 'object') ? raw : {};
+    const statusRaw = String(src.status || '').toLowerCase();
+    const status = ['ready', 'needs_data', 'invalid'].includes(statusRaw) ? statusRaw : 'ready';
+    const needs = (Array.isArray(src.needs) ? src.needs : [])
+        .map(item => {
+            const obj = (item && typeof item === 'object') ? item : { type: String(item || '') };
+            const type = String(obj.type || '').trim().toLowerCase();
+            if (!MISSION_PIPELINE_V2_ALLOWED_NEEDS.has(type)) return null;
+            return {
+                type,
+                target: String(obj.target || draft?.target?.name || '').slice(0, 120),
+                reason: String(obj.reason || '').slice(0, 180)
+            };
+        })
+        .filter(Boolean)
+        .slice(0, 6);
+    const rawPlan = (src.plan && typeof src.plan === 'object') ? src.plan : {};
+    const lockedFields = (rawPlan.lockedFields && typeof rawPlan.lockedFields === 'object') ? rawPlan.lockedFields : {};
+    const fallbackTask = String(draft?.profile?.taskDomain || draft?.profile?.id || 'general').toLowerCase();
+    const fallbackRole = String(draft?.profile?.roleProfile || 'general_passenger_v1').toLowerCase();
+    const plan = {
+        taskDomain: String(rawPlan.taskDomain || fallbackTask || 'general').toLowerCase(),
+        roleProfile: String(rawPlan.roleProfile || fallbackRole || 'general_passenger_v1').toLowerCase(),
+        missionType: String(rawPlan.missionType || draft?.mode || '').toLowerCase(),
+        targetCategory: String(rawPlan.targetCategory || draft?.category || '').toLowerCase(),
+        primaryObjective: String(rawPlan.primaryObjective || '').trim().slice(0, 360),
+        targetLabel: String(rawPlan.targetLabel || draft?.target?.name || '').trim().slice(0, 160),
+        sceneKind: String(rawPlan.sceneKind || '').toLowerCase(),
+        sceneDensity: String(rawPlan.sceneDensity || '').toLowerCase(),
+        requiredAnchors: Array.isArray(rawPlan.requiredAnchors) ? rawPlan.requiredAnchors.slice(0, 8).map(x => String(x).slice(0, 80)) : [],
+        objectFamilies: Array.isArray(rawPlan.objectFamilies) ? rawPlan.objectFamilies.slice(0, 10).map(x => String(x).slice(0, 80)) : [],
+        placementPolicy: String(rawPlan.placementPolicy || '').trim().slice(0, 360),
+        narrativeRules: Array.isArray(rawPlan.narrativeRules) ? rawPlan.narrativeRules.slice(0, 8).map(x => String(x).slice(0, 180)) : [],
+        lockedFields,
+        confidence: Number.isFinite(Number(rawPlan.confidence)) ? Math.max(0, Math.min(1, Number(rawPlan.confidence))) : null
+    };
+    return {
+        pipelineVersion: 'mission-v2-planner-2026-05-22',
+        status,
+        needs,
+        resolvedNeeds: resolvedNeeds || {},
+        plan,
+        debug: {
+            source: String(src.debug?.source || src.source || 'Gemini Planner V2'),
+            rawStatus: src.status || null
+        }
+    };
+}
+
+function buildMissionPlannerV2Draft({
+    start = null,
+    dest = null,
+    isPOI = false,
+    dist = 0,
+    missionPicker = null,
+    dispatchProfileId = 'auto',
+    selectedCategory = 'all',
+    requestedCategory = 'all',
+    poiTerrainFt = null,
+    missionWeather = null,
+    missionFireHazard = null,
+    targetGeoContext = null,
+    missionTruth = null
+} = {}) {
+    const profile = getMissionTaskProfile(dispatchProfileId, isPOI ? 'poi' : 'apt') || {};
+    return {
+        schema: 'missionDraft.v2',
+        mode: isPOI ? 'poi' : 'apt',
+        route: {
+            startIcao: currentStartICAO || '',
+            startName: String(start?.n || ''),
+            targetIcao: isPOI ? 'POI' : String(dest?.icao || ''),
+            distanceNm: Number.isFinite(Number(dist)) ? Number(dist) : 0
+        },
+        target: {
+            name: String(dest?.n || ''),
+            lat: Number.isFinite(Number(dest?.lat)) ? Number(dest.lat) : null,
+            lon: Number.isFinite(Number(dest?.lon)) ? Number(dest.lon) : null,
+            terrainFt: Number.isFinite(Number(poiTerrainFt)) ? Math.round(Number(poiTerrainFt)) : null,
+            poiSource: String(dest?.poiSource || ''),
+            poiCategory: String(dest?.poiCategory || '')
+        },
+        picker: {
+            baseType: String(missionPicker?.baseType || (isPOI ? 'poi' : 'apt')),
+            category: String(selectedCategory || 'all'),
+            categoryRequested: String(requestedCategory || selectedCategory || 'all'),
+            profile: String(dispatchProfileId || 'auto')
+        },
+        profile: {
+            id: String(profile.id || dispatchProfileId || 'auto'),
+            label: String(profile.label || ''),
+            roleProfile: String(profile.roleProfile || ''),
+            taskDomain: String(profile.taskDomain || '')
+        },
+        category: String(selectedCategory || 'all'),
+        weather: {
+            dep: _summarizeMissionWeather(missionWeather?.dep || null),
+            dest: _summarizeMissionWeather(missionWeather?.dest || null)
+        },
+        fireHazard: missionFireHazard || null,
+        targetGeoContext: targetGeoContext ? {
+            summary: summarizeMissionTargetGeoContext(targetGeoContext),
+            hints: targetGeoContext.hints || [],
+            anchors: targetGeoContext.anchors || {}
+        } : null,
+        missionTruth: compactMissionTruthForPrompt(missionTruth)
+    };
+}
+
+async function fetchGeminiJsonWithFallback(prompt, apiKey, { promptVersion = 'planner-v2', timeoutMs = 14000 } = {}) {
+    const models = [
+        ['gemini-3-flash-preview', 'Gemini 3.0 Flash', 'flash'],
+        ['gemini-2.5-flash', 'Gemini 2.5 Flash', 'flash'],
+        ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite', 'lite']
+    ];
+    let lastError = '';
+    for (const [model, source, usageKey] of models) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+            if (!res.ok) {
+                lastError = `http_${res.status}_${model}`;
+                continue;
+            }
+            const data = await res.json();
+            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+            const parsed = JSON.parse(text);
+            incrementApiUsage(usageKey);
+            return { parsed, source, promptVersion };
+        } catch (err) {
+            lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+    return { parsed: null, source: 'none', promptVersion, error: lastError || 'planner_failed' };
+}
+
+async function resolveMissionPlannerV2Needs(needs = [], context = {}) {
+    const out = {};
+    for (const need of Array.isArray(needs) ? needs : []) {
+        const type = String(need?.type || '').toLowerCase();
+        if (!MISSION_PIPELINE_V2_ALLOWED_NEEDS.has(type)) continue;
+        if (type === 'geo_context') {
+            out.geo_context = context.targetGeoContext || (context.isPOI ? await fetchMissionTargetGeoContext({
+                isPOI: true,
+                targetLat: Number(context.dest?.lat),
+                targetLon: Number(context.dest?.lon)
+            }) : null);
+        } else if (type === 'mission_truth') {
+            const geo = out.geo_context || context.targetGeoContext || null;
+            out.mission_truth = context.missionTruth || buildMissionTruth({
+                isPOI: !!context.isPOI,
+                poiName: context.dest?.n || null,
+                targetName: context.dest?.n || null,
+                targetLat: Number(context.dest?.lat),
+                targetLon: Number(context.dest?.lon),
+                poiSource: String(context.dest?.poiSource || ''),
+                poiCategory: String(context.dest?.poiCategory || context.selectedCategory || ''),
+                requestedCategory: String(context.selectedCategory || 'all'),
+                poiLookup: context.dest?.poiLookup || null
+            }, geo, null);
+        } else if (type === 'weather_snapshot') {
+            out.weather_snapshot = context.missionWeather || null;
+        } else if (type === 'target_elevation') {
+            out.target_elevation = Number.isFinite(Number(context.poiTerrainFt)) ? Math.round(Number(context.poiTerrainFt)) : null;
+        } else if (type === 'poi_metadata') {
+            out.poi_metadata = context.isPOI ? {
+                name: String(context.dest?.n || ''),
+                category: String(context.dest?.poiCategory || context.selectedCategory || ''),
+                requestedCategory: String(context.selectedCategory || ''),
+                source: String(context.dest?.poiSource || ''),
+                lookup: context.dest?.poiLookup || null
+            } : null;
+        } else if (type === 'airport_details') {
+            out.airport_details = {
+                start: context.start ? { icao: currentStartICAO || '', name: context.start.n || '', lat: context.start.lat, lon: context.start.lon } : null,
+                dest: (!context.isPOI && context.dest) ? { icao: context.dest.icao || '', name: context.dest.n || '', lat: context.dest.lat, lon: context.dest.lon } : null
+            };
+        } else if (type === 'fire_hazard') {
+            out.fire_hazard = context.missionFireHazard || null;
+        }
+    }
+    return out;
+}
+
+function buildMissionPlannerV2Prompt(draft = {}, resolvedNeeds = null) {
+    return `<INSTRUKTIONEN>
+Du bist Mission Planner V2 fuer einen GA-Missionsgenerator.
+Du schreibst noch keine fertige Story. Du fuellst ein kompaktes Plan-Formular aus, das spaetere KI-Schritte bindet.
+Du hast kein Gedaechtnis ausser dem JSON in <DRAFT> und <RESOLVED_NEEDS>.
+
+Regeln:
+1. Wenn wichtige Daten fehlen, antworte status="needs_data" und nutze nur erlaubte needs: geo_context, mission_truth, weather_snapshot, target_elevation, poi_metadata, airport_details, fire_hazard.
+2. Stelle keine freien Internetfragen und erfinde keine neuen Datenquellen.
+3. Wenn genug Kontext vorhanden ist, antworte status="ready".
+4. plan.primaryObjective beschreibt genau einen Hauptauftrag.
+5. plan.objectFamilies sind semantische Objektgruppen, keine MSFS-Assetnamen.
+6. plan.lockedFields darf nur wirklich festgelegte Dinge enthalten, z.B. taskDomain, targetCategory, targetName, noLandingAtPoi.
+7. Keine Markdown-Ausgabe, nur JSON.
+</INSTRUKTIONEN>
+
+<DRAFT>
+${JSON.stringify(draft)}
+</DRAFT>
+
+<RESOLVED_NEEDS>
+${JSON.stringify(resolvedNeeds || null)}
+</RESOLVED_NEEDS>
+
+<OUTPUT>
+{
+  "status": "ready|needs_data|invalid",
+  "needs": [{"type": "geo_context", "target": "Ziel", "reason": "kurz"}],
+  "plan": {
+    "taskDomain": "mapping_survey",
+    "roleProfile": "photogrammetry_precision_v1",
+    "missionType": "poi|apt",
+    "targetCategory": "bridge|water|cargo|...",
+    "primaryObjective": "Ein konkreter Hauptauftrag",
+    "targetLabel": "kanonischer Zielname",
+    "sceneKind": "none|construction_site|sar_land|water_context|...",
+    "sceneDensity": "none|sparse|normal|busy",
+    "requiredAnchors": ["welcher Platzierungsanker wichtig ist"],
+    "objectFamilies": ["z.B. palettencluster", "kleiner lkw"],
+    "placementPolicy": "kurze Logik, wie Objekte gruppiert werden sollen",
+    "narrativeRules": ["Regeln fuer Story/Pax, max 6"],
+    "lockedFields": {"noLandingAtPoi": true},
+    "confidence": 0.0
+  }
+}
+</OUTPUT>`;
+}
+
+async function fetchMissionPlannerV2(context = {}) {
+    if (!isMissionPipelineV2Enabled()) return null;
+    const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
+    if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
+    const draft = buildMissionPlannerV2Draft(context);
+    const first = await fetchGeminiJsonWithFallback(buildMissionPlannerV2Prompt(draft, null), apiKey, { promptVersion: 'planner-v2-pass1' });
+    if (!first.parsed) {
+        return {
+            pipelineVersion: 'mission-v2-planner-2026-05-22',
+            status: 'invalid',
+            needs: [],
+            resolvedNeeds: {},
+            plan: {},
+            debug: { source: first.source || 'none', error: first.error || 'planner_failed', pass: 1 }
+        };
+    }
+    let normalized = sanitizeMissionPlannerV2Result({ ...first.parsed, debug: { source: first.source } }, draft, {});
+    if (normalized.status === 'needs_data' && normalized.needs.length) {
+        const resolvedNeeds = await resolveMissionPlannerV2Needs(normalized.needs, context);
+        const second = await fetchGeminiJsonWithFallback(buildMissionPlannerV2Prompt(draft, resolvedNeeds), apiKey, { promptVersion: 'planner-v2-pass2' });
+        if (second.parsed) {
+            normalized = sanitizeMissionPlannerV2Result({ ...second.parsed, debug: { source: second.source } }, draft, resolvedNeeds);
+            normalized.debug.pass = 2;
+        } else {
+            normalized.resolvedNeeds = resolvedNeeds;
+            normalized.debug.error = second.error || 'planner_pass2_failed';
+            normalized.debug.pass = 2;
+        }
+    } else {
+        normalized.debug.pass = 1;
+    }
+    window.gaMissionPipelineV2Last = normalized;
+    return normalized;
+}
+window.fetchMissionPlannerV2 = fetchMissionPlannerV2;
 
 async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null, missionFireHazard = null, poiTargetMeta = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
@@ -9664,6 +10036,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const poiHasCoords = Number.isFinite(poiLat) && Number.isFinite(poiLon);
     const missionTruth = poiTargetMeta?.missionTruth || null;
     const targetGeoContext = poiTargetMeta?.targetGeoContext || null;
+    const missionPlanV2 = poiTargetMeta?.missionPlanV2 || null;
+    const compactMissionPlanV2 = compactMissionPlanV2ForPrompt(missionPlanV2);
     const compactTruth = compactMissionTruthForPrompt(missionTruth);
     const poiNameIsGeneric = /^(poi|zielgebiet|staudamm\/talsperre|gewaesser|gewasser|berg-\/talgebiet|funkmast\/funkturm\/windrad|industrieanlage)$/i.test(String(promptDestName || '').trim());
     const poiConsistencyRule = isPOI
@@ -9677,6 +10051,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         : '';
     const missionTruthRule = (isPOI && compactTruth)
         ? `4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen.`
+        : '';
+    const missionPlanV2Rule = (compactMissionPlanV2 && compactMissionPlanV2.status === 'ready')
+        ? `4d. PIPELINE-V2-PLAN: Nutze missionPlanV2 als ausgefuelltes Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, sceneKind, objectFamilies und lockedFields sind Leitplanken. Weiche nur ab, wenn sie technisch widerspruechlich sind.`
         : '';
     const localKnowledgeRule = isPoiTrainingMission
         ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
@@ -9693,6 +10070,7 @@ REGELN:
 3) ${categoryRule || 'Kategorienkonsistenz beachten.'}
 3b) ${poiConsistencyRule || 'Zielkonsistenz beachten.'}
 3c) ${missionTruthRule || 'Gepruefte Zielinformationen beachten, falls vorhanden.'}
+3d) ${missionPlanV2Rule || 'Kein Pipeline-V2-Plan aktiv.'}
 4) ${isPOI ? `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.` : `ROUTEN-REGEL: Normaler Streckenflug von ${startName} nach ${promptDestName}.`}
 5) Erfinde passende PAX/Fracht (max ${maxPaxLimit} Personen). Falls niemand mitfliegt: "0 PAX".
 6) Erfinde genau einen Hauptpassagier.${isTrainingMission ? ' Bei Training IMMER Instruktor (nicht null).' : ' (oder null bei 0 PAX).'}
@@ -9731,6 +10109,7 @@ Distanz: ${dist} NM
 Wetter Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
 Wetter Ziel (${promptDestName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
 missionTruth: ${JSON.stringify(compactTruth)}
+missionPlanV2: ${JSON.stringify(compactMissionPlanV2)}
 targetGeoContext: ${JSON.stringify(targetGeoContext ? {
     summary: summarizeMissionTargetGeoContext(targetGeoContext),
     anchors: targetGeoContext.anchors || {},
@@ -9817,6 +10196,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
             passenger,
             i: "📋",
             cat: targetMissionCat,
+            _missionPlanV2: missionPlanV2 || null,
             _source: sourceLabel
         };
     };
@@ -11015,6 +11395,44 @@ async function generateMission() {
     const aiModeEnabled = !!document.getElementById('aiToggle')?.checked;
 
     const isPlanningOnlyMode = dispatchProfileId === 'freeflight_planning';
+    let missionPlanV2 = null;
+    if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV2Enabled()) {
+        indicator.innerText = `Pipeline V2: Missionsformular planen...`;
+        try {
+            missionPlanV2 = await fetchMissionPlannerV2({
+                start,
+                dest,
+                isPOI,
+                dist: totalDist,
+                missionPicker: missionPickerResolved,
+                dispatchProfileId,
+                selectedCategory: isPOI ? selectedPoiCategory : selectedAptCategory,
+                requestedCategory: isPOI ? requestedPoiCategory : selectedAptCategory,
+                poiTerrainFt,
+                missionWeather,
+                missionFireHazard,
+                targetGeoContext: preMissionTargetGeoContext,
+                missionTruth: preMissionTruth
+            });
+            _ensureDispatchAlive();
+            if (missionPlanV2?.resolvedNeeds?.geo_context && !preMissionTargetGeoContext) {
+                preMissionTargetGeoContext = missionPlanV2.resolvedNeeds.geo_context;
+            }
+            if (missionPlanV2?.resolvedNeeds?.mission_truth && !preMissionTruth) {
+                preMissionTruth = missionPlanV2.resolvedNeeds.mission_truth;
+            }
+        } catch (err) {
+            missionPlanV2 = {
+                pipelineVersion: 'mission-v2-planner-2026-05-22',
+                status: 'invalid',
+                needs: [],
+                resolvedNeeds: {},
+                plan: {},
+                debug: { error: err?.message || String(err || 'planner_failed') }
+            };
+            console.warn('[MISSION PIPELINE V2] Planner failed, using classic pipeline context.', err);
+        }
+    }
     let m = null;
     if (isPlanningOnlyMode) {
         indicator.innerText = `Planungsmodus aktiv: erstelle Freiflug-Briefing...`;
@@ -11051,7 +11469,8 @@ async function generateMission() {
                 requestedCategory: String(selectedPoiCategory || 'all'),
                 poiCategory: String(dest?.poiCategory || ''),
                 targetGeoContext: preMissionTargetGeoContext,
-                missionTruth: preMissionTruth
+                missionTruth: preMissionTruth,
+                missionPlanV2
             }
         );
         _ensureDispatchAlive();
@@ -11173,6 +11592,7 @@ async function generateMission() {
             cargoText = profApplied.cargoText || cargoText;
             m._requestedProfile = selectedMissionProfile;
             m._appliedProfile = profApplied.appliedProfile || effectiveProfileId || 'auto';
+            m._missionPlanV2 = missionPlanV2 || m._missionPlanV2 || null;
         }
     }
     _ensureDispatchAlive();
@@ -11241,6 +11661,7 @@ async function generateMission() {
         sceneCompositionStatus: missionNeedsAccept ? 'draft' : 'accepted',
         targetGeoContext: preMissionTargetGeoContext || null,
         missionTruth: preMissionTruth || null,
+        missionPlanV2: missionPlanV2 || null,
         targetScene: initialTargetScene,
         targetSceneDraftRaw: m?.targetScene || null,
         targetSceneAiRaw: m?.targetSceneDebug?.aiRaw || null,
@@ -11299,7 +11720,8 @@ async function generateMission() {
         sceneAccepted: !missionNeedsAccept,
         targetGeoContext: currentMissionData.targetGeoContext || null,
         missionTruth: currentMissionData.missionTruth || null,
-        aptArrivalPlan
+        aptArrivalPlan,
+        missionPlanV2
     });
     const fireScenario = buildFireWatchScenario({
         isPOI,
@@ -11322,6 +11744,7 @@ async function generateMission() {
             sceneIntent: currentMissionData.sceneIntent || null,
             targetGeoContext: currentMissionData.targetGeoContext || null,
             missionTruth: currentMissionData.missionTruth || null,
+            missionPlanV2: currentMissionData.missionPlanV2 || activeMissionContract.missionPlanV2 || null,
             aptArrivalPlan: currentMissionData.aptArrivalPlan || activeMissionContract.aptArrivalPlan || null,
             aiRequested: m?.targetSceneDebug?.aiRaw || null,
             aiNormalized: m?.targetSceneDebug?.normalized || currentMissionData.targetScene || null,
@@ -11376,6 +11799,8 @@ async function generateMission() {
             sceneIntent: currentMissionData.sceneIntent || null,
             targetGeoContext: currentMissionData.targetGeoContext || null,
             missionTruth: currentMissionData.missionTruth || null,
+            missionPlanV2: currentMissionData.missionPlanV2 || activeMissionContract.missionPlanV2 || null,
+            missionPipelineV2Enabled: isMissionPipelineV2Enabled(),
             aptArrivalPlan: currentMissionData.aptArrivalPlan || activeMissionContract.aptArrivalPlan || null,
             targetScene: currentMissionData.targetScene || null,
             targetSceneDebug: {

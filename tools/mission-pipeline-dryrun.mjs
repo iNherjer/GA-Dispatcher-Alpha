@@ -135,8 +135,15 @@ function promptHas(prompt, ...needles) {
 }
 
 function extractTaggedBlock(text, tag) {
-  const re = new RegExp(`<${tag}>\\s*([\\s\\S]*?)\\s*</${tag}>`, 'i');
-  return String(text || '').match(re)?.[1] || '';
+  const s = String(text || '');
+  const open = `<${tag}>`;
+  const close = `</${tag}>`;
+  const start = s.toLowerCase().lastIndexOf(open.toLowerCase());
+  if (start < 0) return '';
+  const bodyStart = start + open.length;
+  const end = s.toLowerCase().indexOf(close.toLowerCase(), bodyStart);
+  if (end < 0) return '';
+  return s.slice(bodyStart, end).trim();
 }
 
 function parseForcedTaskDomain(prompt) {
@@ -466,6 +473,68 @@ function buildSceneAiPayload(prompt) {
   };
 }
 
+function buildPlannerV2Payload(prompt) {
+  const draftRaw = extractTaggedBlock(prompt, 'DRAFT');
+  const resolvedRaw = extractTaggedBlock(prompt, 'RESOLVED_NEEDS').trim();
+  let draft = {};
+  try { draft = JSON.parse(draftRaw || '{}'); } catch (_) {}
+  const hasResolvedNeeds = resolvedRaw && resolvedRaw !== 'null';
+  if (!hasResolvedNeeds && draft.mode === 'poi') {
+    return {
+      status: 'needs_data',
+      needs: [
+        { type: 'geo_context', target: draft.target?.name || 'POI', reason: 'Placement anchors for target scene' },
+        { type: 'mission_truth', target: draft.target?.name || 'POI', reason: 'Canonical target and visible cues' }
+      ],
+      plan: {
+        taskDomain: draft.profile?.taskDomain || 'general',
+        roleProfile: draft.profile?.roleProfile || 'general_passenger_v1',
+        missionType: draft.mode || 'poi',
+        targetCategory: draft.category || '',
+        primaryObjective: '',
+        targetLabel: draft.target?.name || '',
+        sceneKind: '',
+        sceneDensity: '',
+        requiredAnchors: [],
+        objectFamilies: [],
+        placementPolicy: '',
+        narrativeRules: [],
+        lockedFields: {},
+        confidence: 0.35
+      }
+    };
+  }
+  const taskDomain = draft.profile?.taskDomain || (draft.profile?.id === 'mapping_survey' ? 'mapping_survey' : 'general');
+  const isMapping = taskDomain === 'mapping_survey';
+  const isSar = taskDomain === 'search_and_rescue';
+  return {
+    status: 'ready',
+    needs: [],
+    plan: {
+      taskDomain,
+      roleProfile: draft.profile?.roleProfile || 'general_passenger_v1',
+      missionType: draft.mode || 'apt',
+      targetCategory: draft.category || '',
+      primaryObjective: isMapping
+        ? `Survey the target area ${draft.target?.name || ''} with stable repeatable passes.`
+        : (isSar ? `Search for a small ground clue near ${draft.target?.name || ''}.` : `Complete the mission to ${draft.target?.name || draft.route?.targetIcao || ''}.`),
+      targetLabel: draft.target?.name || draft.route?.targetIcao || '',
+      sceneKind: isMapping ? 'construction_site' : (isSar ? 'sar_land' : 'none'),
+      sceneDensity: isMapping ? 'normal' : (isSar ? 'sparse' : 'none'),
+      requiredAnchors: isMapping ? ['road_or_work_area', 'material_cluster'] : (isSar ? ['clearing_or_edge'] : []),
+      objectFamilies: isMapping ? ['earthmoving', 'construction_truck', 'pallet_stack', 'cones'] : (isSar ? ['missing_person', 'small_equipment', 'signal_smoke'] : []),
+      placementPolicy: isMapping ? 'Cluster material objects together; do not scatter pallets.' : 'Keep the target sparse and readable.',
+      narrativeRules: ['Keep story, passenger, sceneIntent and targetScene in the same task domain.'],
+      lockedFields: {
+        taskDomain,
+        targetName: draft.target?.name || '',
+        noLandingAtPoi: draft.mode === 'poi'
+      },
+      confidence: hasResolvedNeeds ? 0.82 : 0.7
+    }
+  };
+}
+
 function buildSpokenText(prompt) {
   if (/Boarding und Verladen abgeschlossen/i.test(prompt)) return 'Boarding ist erledigt, die Ausrüstung ist verstaut und ich bin bereit. Lass uns sauber und ohne Hektik rausrollen.';
   if (/Wir starten gleich/i.test(prompt)) return 'Hi, danke fürs Mitnehmen. Wir halten den Flug ruhig und konzentrieren uns am Ziel genau auf den Auftrag.';
@@ -516,7 +585,7 @@ function setupFetch(context, prompts) {
       prompts.push({ url: href, prompt });
       const text = body?.generationConfig?.response_mime_type === 'text/plain'
         ? buildSpokenText(prompt)
-        : JSON.stringify(/Scene Composer/i.test(prompt) ? buildSceneAiPayload(prompt) : buildMissionAiPayload(prompt));
+        : JSON.stringify(/Mission Planner V2/i.test(prompt) ? buildPlannerV2Payload(prompt) : (/Scene Composer/i.test(prompt) ? buildSceneAiPayload(prompt) : buildMissionAiPayload(prompt)));
       return responseJson({ candidates: [{ content: { parts: [{ text }] } }] });
     }
     return responseJson({}, false, 404);
@@ -589,7 +658,7 @@ function loadScript(context, rel) {
   vm.runInContext(code, context, { filename: rel });
 }
 
-function initUiForRun(context, targetType) {
+function initUiForRun(context, targetType, { pipelineV2 = false } = {}) {
   const values = {
     startLoc: 'EDTW',
     destLoc: '',
@@ -607,13 +676,14 @@ function initUiForRun(context, targetType) {
   for (const [id, value] of Object.entries(values)) el(id).value = value;
   el('aiToggle').checked = true;
   el('briefingBox').style.display = 'none';
+  if (pipelineV2) context.localStorage.setItem('ga_debug_mission_pipeline_v2', 'true');
 }
 
 async function wait(ms) {
   await new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function runOne({ seed, targetType }) {
+async function runOne({ seed, targetType, pipelineV2 = false }) {
   const { context, prompts } = setupContext(seed);
   loadScript(context, 'datenbank.js');
   loadScript(context, 'missions.js');
@@ -640,7 +710,7 @@ async function runOne({ seed, targetType }) {
     resetBtn = function(btn) { if (btn) btn.disabled = false; };
     vpUpdatePosition = function() {};
   `, context);
-  initUiForRun(context, targetType);
+  initUiForRun(context, targetType, { pipelineV2 });
 
   await vm.runInContext('generateMission()', context);
   await wait(900);
@@ -738,7 +808,7 @@ async function runOne({ seed, targetType }) {
   })()`, context);
   result.prompts = prompts.map((p, index) => ({
     index: index + 1,
-    kind: /Scene Composer/i.test(p.prompt) ? 'scene-composer' : (/OUTPUT>/.test(p.prompt) ? 'mission-dispatcher' : 'pax-text'),
+    kind: /Mission Planner V2/i.test(p.prompt) ? 'mission-planner-v2' : (/Scene Composer/i.test(p.prompt) ? 'scene-composer' : (/OUTPUT>/.test(p.prompt) ? 'mission-dispatcher' : 'pax-text')),
     modelUrl: p.url.replace(/\?key=.*/, '?key=DRYRUN_KEY'),
     prompt: p.prompt,
     excerpt: p.prompt.replace(/\s+/g, ' ').slice(0, 700)
@@ -764,11 +834,13 @@ function parseCliArgs(argv) {
     seed: 20260522,
     variants: false,
     targetTypes: null,
+    pipelineV2: false,
     out: 'mission-pipeline-dryrun-edtw.json'
   };
   for (const raw of argv) {
     const arg = String(raw || '').trim();
     if (arg === '--variants') args.variants = true;
+    else if (arg === '--pipeline-v2') args.pipelineV2 = true;
     else if (arg.startsWith('--runs=')) args.runs = Math.max(1, Math.min(20, Number.parseInt(arg.slice(7), 10) || args.runs));
     else if (arg.startsWith('--seed=')) args.seed = Number.parseInt(arg.slice(7), 10) || args.seed;
     else if (arg.startsWith('--types=')) {
@@ -784,7 +856,8 @@ function buildRunConfigs(args) {
   if (Array.isArray(args.targetTypes) && args.targetTypes.length) {
     return Array.from({ length: args.runs }, (_, i) => ({
       seed: args.seed + i,
-      targetType: args.targetTypes[i % args.targetTypes.length]
+      targetType: args.targetTypes[i % args.targetTypes.length],
+      pipelineV2: !!args.pipelineV2
     }));
   }
   if (args.variants) {
@@ -798,15 +871,16 @@ function buildRunConfigs(args) {
     }
     return picks.map((targetType, i) => ({
       seed: args.seed + (i * 101) + 17,
-      targetType
+      targetType,
+      pipelineV2: !!args.pipelineV2
     }));
   }
   const roll = stableRandom(args.seed)();
   const firstType = roll < 0.5 ? 'poi:water' : 'apt:club';
   return [
-    { seed: args.seed, targetType: firstType },
-    { seed: args.seed + 1, targetType: firstType.startsWith('poi') ? 'apt:club' : 'poi:water' },
-    { seed: args.seed + 2, targetType: 'poi:water' }
+    { seed: args.seed, targetType: firstType, pipelineV2: !!args.pipelineV2 },
+    { seed: args.seed + 1, targetType: firstType.startsWith('poi') ? 'apt:club' : 'poi:water', pipelineV2: !!args.pipelineV2 },
+    { seed: args.seed + 2, targetType: 'poi:water', pipelineV2: !!args.pipelineV2 }
   ].slice(0, args.runs);
 }
 
@@ -836,6 +910,8 @@ async function main() {
       targetName: md.targetName,
       mission: md.mission,
       source: md.source,
+      missionPipelineV2Enabled: !!md.missionPipelineV2Enabled || !!md.missionPlanV2,
+      missionPlanV2: md.missionPlanV2 || null,
       sceneStatus: md.sceneCompositionStatus,
       targetScene: md.targetScene,
       passenger: r.passenger,

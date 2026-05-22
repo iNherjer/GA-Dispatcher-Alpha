@@ -3710,6 +3710,16 @@ window.vpBuildWeatherDebugReport = function() {
             lines.push(`- POI-Lookup: ${srcBits.join(' | ')}`);
         }
         lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
+        lines.push(`- Pipeline V2: ${missionSnap.missionPipelineV2Enabled || window.isMissionPipelineV2Enabled?.() ? 'An' : 'Aus'}`);
+        const planV2 = missionSnap.missionPlanV2 || missionSnap.contract?.missionPlanV2 || window.gaMissionPipelineV2Last || null;
+        if (planV2 && typeof planV2 === 'object') {
+            const p2 = planV2.plan || {};
+            const needTypes = Array.isArray(planV2.needs) ? planV2.needs.map(n => n.type || '?').join(',') : '-';
+            const resolvedTypes = planV2.resolvedNeeds && typeof planV2.resolvedNeeds === 'object' ? Object.keys(planV2.resolvedNeeds).join(',') : '-';
+            lines.push(`- Pipeline V2 Status: ${planV2.status || '-'} | needs=${needTypes || '-'} | resolved=${resolvedTypes || '-'}`);
+            if (p2.primaryObjective) lines.push(`- Pipeline V2 Plan: ${p2.taskDomain || '-'} | ${p2.sceneKind || '-'} | ${String(p2.primaryObjective).replace(/\s+/g, ' ').slice(0, 180)}`);
+            if (Array.isArray(p2.objectFamilies) && p2.objectFamilies.length) lines.push(`- Pipeline V2 Objekte: ${p2.objectFamilies.slice(0, 8).join(', ')}`);
+        }
         if (missionSnap.contract?.summary) lines.push(`- Contract: ${missionSnap.contract.summary}`);
         lines.push(`- PAX/Cargo: ${missionSnap.paxText || 'n/a'} | ${missionSnap.cargoText || 'n/a'}`);
         lines.push(`- Passenger: ${p.name || '?'} (${p.role || '?'}) | gender=${p.gender || 'n/a'}`);
