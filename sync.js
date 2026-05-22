@@ -180,7 +180,6 @@ const MISSION_SCENE_ASSET_POOLS = {
     animalTransportAnimals: _sceneUniqueTitles([
         'Seagull',
         'Goose',
-        'Flamingo',
         'OHemionusFemale',
         'OHemionusJuvenile',
         'CHircusHircusFemale',
@@ -1796,7 +1795,7 @@ const MISSION_SCENE_ANIMAL_TRANSPORT_OPTIONS = [
     { title: 'OHemionusJuvenile', label: 'junges Reh', keywords: /rehkitz|kitz|junges\s+reh/i },
     { title: 'Seagull', label: 'Moewe', keywords: /möwe|moewe|seagull|wildvogel|vogelstation/i },
     { title: 'Goose', label: 'Gans', keywords: /gans|goose|wasservogel/i },
-    { title: 'Flamingo', label: 'Flamingo', keywords: /flamingo/i },
+    { title: 'Goose', label: 'Gans', keywords: /ente|enten|duck|mallard|schwan|swan|heimischer\s+wasservogel/i },
     { visible: false, label: 'Schaf-Transportbox', cargoLabel: 'Schaf-Transportbox', cargoTitle: 'Pallet01_03', keywords: /schaf|sheep/i },
     { visible: false, label: 'Luchs-Transportbox', cargoLabel: 'Luchs-Transportbox', cargoTitle: 'Cardboard', keywords: /luchs|lux|lynx/i },
     { visible: false, label: 'Tiertransportbox', cargoLabel: 'Tiertransportbox', cargoTitle: 'Cardboard', keywords: /hund|katze|dackel|welpe|dog|cat/i },
@@ -2770,8 +2769,13 @@ function _missionTargetSceneNormalizeFeature(value) {
         bagger: 'earthmoving',
         material: 'cargo_material',
         cargo: 'cargo_material',
-        pallets: 'cargo_material',
-        pallet: 'cargo_material',
+        pallets: 'pallet_stack',
+        pallet: 'pallet_stack',
+        paletten: 'pallet_stack',
+        palette: 'pallet_stack',
+        pallet_stack: 'pallet_stack',
+        material_stack: 'pallet_stack',
+        materiallager: 'pallet_stack',
         power: 'powerline',
         power_pylon: 'powerline',
         pylon: 'powerline',
@@ -2978,11 +2982,44 @@ function _missionTargetSceneFeatureCount(feature) {
         spec.requirements.forEach(req => {
             if (!req || typeof req !== 'object') return;
             if (_missionTargetSceneNormalizeFeature(req.feature || req.kind || req.type || req.name || req.role) !== feature) return;
-            const c = Math.max(1, Math.min(6, Math.round(Number(req.count || req.qty || req.amount || 1) || 1)));
+            const limit = (feature === 'pallet_stack' || feature === 'cargo_material') ? 8 : (feature === 'cones' ? 8 : 6);
+            const c = Math.max(1, Math.min(limit, Math.round(Number(req.count || req.qty || req.amount || 1) || 1)));
             count = Math.max(count, c);
         });
     }
     return count;
+}
+
+function _missionTargetSceneFeatureArrangement(feature) {
+    const spec = _missionTargetSceneSpec() || {};
+    const sceneLayout = String(spec.layout || spec.arrangement || '').trim().toLowerCase();
+    let out = '';
+    if (Array.isArray(spec.requirements)) {
+        spec.requirements.forEach(req => {
+            if (!req || typeof req !== 'object') return;
+            if (_missionTargetSceneNormalizeFeature(req.feature || req.kind || req.type || req.name || req.role) !== feature) return;
+            const raw = String(req.arrangement || req.layout || req.pattern || '').trim().toLowerCase();
+            if (/^(cluster|scattered|line|roadside|waterline|perimeter|mixed)$/.test(raw)) out = raw;
+        });
+    }
+    if (out) return out;
+    if (feature === 'pallet_stack' || feature === 'cargo_material') return 'cluster';
+    if (feature === 'waterfowl') return 'cluster';
+    return /^(cluster|scattered|line|roadside|waterline|perimeter|mixed)$/.test(sceneLayout) ? sceneLayout : '';
+}
+
+function _missionSceneClusterOffset(index, centerF = 0, centerR = 0, spacingM = 3.2) {
+    const pattern = [
+        [0, 0], [1, 0], [0, 1], [1, 1],
+        [-1, 0], [0, -1], [-1, -1], [1, -1]
+    ];
+    const p = pattern[index % pattern.length] || [0, 0];
+    const ring = Math.floor(index / pattern.length);
+    return {
+        f: centerF + ((p[0] * spacingM) + (ring * spacingM * 0.75)),
+        r: centerR + ((p[1] * spacingM) - (ring * spacingM * 0.75)),
+        hdg: 15 + ((index % 4) * 18)
+    };
 }
 
 function _missionTargetSceneFeatureAllowedForKind(kind = '', feature = '') {
@@ -3028,7 +3065,9 @@ function _missionTargetSceneItems(kind) {
         if (item) items.push(item);
     };
     const addFeatureSupplement = (feature, count = 1) => {
-        const safeCount = Math.max(1, Math.min(6, Math.round(Number(count) || 1)));
+        const maxFeatureCount = (feature === 'pallet_stack' || feature === 'cargo_material') ? 8 : (feature === 'cones' ? 8 : 6);
+        const safeCount = Math.max(1, Math.min(maxFeatureCount, Math.round(Number(count) || 1)));
+        const arrangement = _missionTargetSceneFeatureArrangement(feature);
         for (let i = 0; i < safeCount; i++) {
             const step = i * 5;
             if (feature === 'powerline') {
@@ -3051,10 +3090,15 @@ function _missionTargetSceneItems(kind) {
             } else if (feature === 'earthmoving') {
                 const dozer = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.constructionEarthmoving, `feature-earthmoving-${i}`, 'Bulldozer');
                 add(`feature_earthmoving_${i + 1}`, 'Zusatz Erdbaumaschine', dozer, MISSION_SCENE_ASSET_POOLS.constructionEarthmoving, 12 + step, -10 - step, { hdgOffsetDeg: 35 });
-            } else if (feature === 'cargo_material') {
-                const cargo = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.cargo, `feature-cargo-${i}`, 'Pallet01_02');
-                const pos = kind === 'sar_land' ? { f: -62 - step, r: 28 + step, hdg: 210 } : { f: 5 + step, r: 14 + step, hdg: 20 };
-                add(`feature_cargo_${i + 1}`, kind === 'sar_land' ? 'Support Material abseits Suchziel' : 'Zusatz Material/Fracht', cargo, MISSION_SCENE_ASSET_POOLS.cargo, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
+            } else if (feature === 'cargo_material' || feature === 'pallet_stack') {
+                const cargoPool = feature === 'pallet_stack' ? MISSION_SCENE_ASSET_POOLS.palletCargo : MISSION_SCENE_ASSET_POOLS.cargo;
+                const cargo = _scenePickTitle(cargoPool, `feature-cargo-${feature}-${i}`, feature === 'pallet_stack' ? 'Pallet01_02' : 'Pallet01_02');
+                let pos = kind === 'sar_land' ? { f: -62 - step, r: 28 + step, hdg: 210 } : { f: 5 + step, r: 14 + step, hdg: 20 };
+                if (arrangement === 'cluster') {
+                    const center = kind === 'construction_site' ? { f: 8, r: 13 } : { f: pos.f, r: pos.r };
+                    pos = _missionSceneClusterOffset(i, center.f, center.r, feature === 'pallet_stack' ? 3.1 : 3.6);
+                }
+                add(`feature_cargo_${i + 1}`, kind === 'sar_land' ? 'Support Material abseits Suchziel' : 'Zusatz Material/Fracht', cargo, cargoPool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
             } else if (feature === 'road_vehicles') {
                 const car = _scenePickTitle(carPool, `feature-car-${i}`, 'Microsoft_Car_EUR_01');
                 const fallback = kind === 'sar_land' ? { f: -86 - step, r: 36 + step, hdg: 35 } : { f: -20 - step, r: -1 + step, hdg: i % 2 ? 190 : 15 };

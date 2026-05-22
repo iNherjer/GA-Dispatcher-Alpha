@@ -895,6 +895,41 @@ function parseMissionPickerValue(raw) {
     return { baseType: 'apt', category: 'all', profile: 'auto' };
 }
 
+function missionTaskPoiCategoryPolicy(profileId = 'auto') {
+    const id = String(profileId || 'auto').toLowerCase();
+    const policies = {
+        search_and_rescue: ['mountain', 'water'],
+        mapping_survey: ['infrastructure', 'industry', 'road', 'bridge', 'dam'],
+        inspection_infra: ['infrastructure', 'bridge', 'dam', 'telecom', 'industry', 'road'],
+        fire_watch: ['fire'],
+        science_bio: ['water', 'mountain'],
+        science_geo: ['mountain', 'dam', 'water'],
+        media_photo: ['city', 'castle', 'industry', 'road'],
+        news_coverage: ['road', 'city', 'industry'],
+        tour_guide_knowledge: ['castle', 'city', 'mountain', 'water'],
+        historian_guided_tour: ['castle', 'city'],
+        sightseeing_tour: ['castle', 'mountain', 'water', 'city']
+    };
+    return (policies[id] || []).filter(Boolean);
+}
+
+function pickPoiCategoryForTaskProfile(profileId = 'auto', requestedCategory = 'all') {
+    const requested = String(requestedCategory || 'all').toLowerCase();
+    if (requested && requested !== 'all') return requested;
+    const categories = missionTaskPoiCategoryPolicy(profileId);
+    if (!categories.length) return requested || 'all';
+    const historyKey = `ga_poi_profile_cat_${String(profileId || 'auto').toLowerCase()}`;
+    let history = {};
+    try { history = JSON.parse(localStorage.getItem(historyKey) || '{}'); } catch (_) { history = {}; }
+    if (!history || typeof history !== 'object') history = {};
+    const minCount = Math.min(...categories.map(cat => Number(history[cat] || 0)));
+    const pool = categories.filter(cat => Number(history[cat] || 0) === minCount);
+    const pick = pool[Math.floor(Math.random() * pool.length)] || categories[0];
+    history[pick] = Number(history[pick] || 0) + 1;
+    try { localStorage.setItem(historyKey, JSON.stringify(history)); } catch (_) {}
+    return pick;
+}
+
 const MISSION_ROLE_TASK_PROFILES = {
     auto: {
         id: 'auto',
@@ -1156,7 +1191,7 @@ const MISSION_ROLE_TASK_PROFILES = {
             'ruhige Reh-Verlegung in Transportbox (38 lbs)',
             'Moewe fuer die Wildvogelstation (18 lbs)',
             'Gans fuer die Auffangstation (24 lbs)',
-            'Flamingo-Reha-Transferbox (32 lbs)',
+            'Enten-Reha-Transferbox (22 lbs)',
             'Pferde-Vet-Dokumente fuer Einsatz am Zielort (12 lbs)',
             'Veterinaertasche und Tierfutter (18 lbs)'
         ],
@@ -6246,7 +6281,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
         if (/(fragil|zerbrech|praezision|kunstwerk|stoß|stoss|erschuetter)/.test(hay)) return 'cargo_fragile';
         if (/(sar|search|rescue|rettung|suchmuster|vermisst)/.test(hay)) return 'search_and_rescue';
         if (/(brand|rauch|hotspot|waldbrand|feuerwacht)/.test(hay)) return 'fire_watch';
-        if (/(tiertransport|tierschutz|welpen|katze|hund|ziege|reh|hirsch|möwe|moewe|gans|flamingo|pferd|wildvogel|auffangstation|tierarzt|animal)/.test(hay)) return 'animal_transport';
+        if (/(tiertransport|tierschutz|welpen|katze|hund|ziege|reh|hirsch|möwe|moewe|gans|ente|schwan|pferd|wildvogel|auffangstation|tierarzt|animal)/.test(hay)) return 'animal_transport';
         if (/(biolog|oekolog|ökolog|ornitholog|naturschutz|umwelt)/.test(hay)) return 'science_bio';
         if (/(geolog|hydrolog|erosion|hangstabil|gestein|sediment|rutsch)/.test(hay)) return 'science_geo';
         if (/(wissenschaft|forschung|meteorolog|kartograf|analyst)/.test(hay)) return 'science_general';
@@ -6466,13 +6501,14 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
     const persona = _pickRandomProfilePersona(profileSpec) || {};
     const tol = profileSpec.tolerances || {};
     const baseGender = String(base.gender || '').toLowerCase();
+    const personaGender = String(persona.gender || '').toLowerCase();
     const merged = {
         ...base,
-        name: String(base.name || persona.name || '').trim() || 'Alex Neumann',
+        name: String(persona.name || base.name || '').trim() || 'Alex Neumann',
         role: String(persona.role || base.role || '').trim() || 'Passagier',
-        gender: (baseGender === 'female' || baseGender === 'male')
-            ? baseGender
-            : ((String(persona.gender || '').toLowerCase() === 'female') ? 'female' : 'male'),
+        gender: (personaGender === 'female' || personaGender === 'male')
+            ? personaGender
+            : ((baseGender === 'female' || baseGender === 'male') ? baseGender : 'male'),
         personality: String(persona.personality || base.personality || 'ruhig, freundlich, professionell').trim(),
         dialectHint: 'neutral',
         greetingText: String(profileSpec.greetingText || base.greetingText || '').trim() || 'Hi, danke fürs Fliegen heute.',
@@ -6569,6 +6605,8 @@ function _cleanupNarrativeArtifacts(txt) {
         .replace(/\bder\s+auftrag\s+ist\s*,?\s*wir\s+sollten\b/gi, '')
         .replace(/\bder\s+auftrag\s+ist\b\s*,?/gi, '')
         .replace(/\bwir\s+sollten\b\s*,?/gi, '')
+        .replace(/,\s*aber\s*([.?!])/gi, '$1')
+        .replace(/\s+\baber\s*([.?!])/gi, '$1')
         .replace(/(?:^|[.!?]\s*)[,;:]+/g, '. ')
         .replace(/\s{2,}/g, ' ')
         .replace(/\s+([,.;:!?])/g, '$1')
@@ -6603,7 +6641,11 @@ function _stripTimePressureText(txt) {
         .replace(/\bso\s+bald\s+wie\s+m(?:oe|ö)glich\b/gi, '')
         .replace(/\bso\s+schnell\s+wie\s+m(?:oe|ö)glich\b/gi, '')
         .replace(/\bwir\s+m(?:ue|ü)ssen\s+(jetzt\s+)?(dringend|schnell|z(?:ue|ü)gig)\b[^.?!]*/gi, '')
+        .replace(/\bp(?:ue|ü)nktlich(?:es|e|er|en)?\s+(ankommen|ankunft|eintreffen|sein)\s+(hilft|ist|waere|wäre|bleibt|macht)\b[^.?!]*/gi, '')
+        .replace(/\bp(?:ue|ü)nktlich(?:e|er|es|en)?\s+(ankunft|uebergabe|übergabe|termin|eintreffen)\b[^.?!]*/gi, '')
         .replace(/\bp(?:ue|ü)nktlich\s+(am\s+ziel\s+)?(ankommen|sein)\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\s+([,.;:!?])/g, '$1')
         .trim();
 }
 
@@ -6689,6 +6731,9 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         }
     }
     _finalizeMissionNarrative(m, profile, isPOI);
+    if (m.passenger && typeof m.passenger === 'object') {
+        m.passenger.storyHint = String(m.s || '').trim();
+    }
     m.profileId = profile.id;
     return { mission: m, paxText, cargoText, appliedProfile: profile.id };
 }
@@ -6898,7 +6943,7 @@ const ANIMAL_TRANSPORT_SCENE_OPTIONS = [
     { title: 'OHemionusJuvenile', label: 'junges Reh', role: 'animal.deer', keywords: /rehkitz|kitz|junges\s+reh/i },
     { title: 'Seagull', label: 'Moewe', role: 'animal.waterfowl', keywords: /möwe|moewe|seagull|wildvogel|vogelstation/i },
     { title: 'Goose', label: 'Gans', role: 'animal.waterfowl', keywords: /gans|goose|wasservogel/i },
-    { title: 'Flamingo', label: 'Flamingo', role: 'animal.waterfowl', keywords: /flamingo/i },
+    { title: 'Goose', label: 'Gans', role: 'animal.waterfowl', keywords: /ente|enten|duck|mallard|schwan|swan|heimischer\s+wasservogel/i },
     { visible: false, label: 'Schaf-Transportbox', cargoLabel: 'Schaf-Transportbox', cargoTitle: 'Pallet01_03', keywords: /schaf|sheep/i },
     { visible: false, label: 'Luchs-Transportbox', cargoLabel: 'Luchs-Transportbox', cargoTitle: 'Cardboard', keywords: /luchs|lux|lynx/i },
     { visible: false, label: 'Tiertransportbox', cargoLabel: 'Tiertransportbox', cargoTitle: 'Cardboard', keywords: /hund|katze|dackel|welpe|dog|cat/i },
@@ -6954,7 +6999,7 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
             narrativeHint: 'Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich.'
         };
     }
-    if (/animal|tier|veterinaer|tierschutz|transportbox|ziege|reh|hirsch|möwe|moewe|gans|flamingo|pferd|wildvogel|auffangstation/.test(text)) {
+    if (/animal|tier|veterinaer|tierschutz|transportbox|ziege|reh|hirsch|möwe|moewe|gans|ente|schwan|pferd|wildvogel|auffangstation/.test(text)) {
         const animalSpec = pickAnimalTransportSceneSpec(text);
         const handoffLabel = animalSpec.visible === false
             ? (animalSpec.cargoLabel || animalSpec.label || 'Transportbox')
@@ -7485,7 +7530,7 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
         return has(/aog|ersatzteil|fracht|transport|kurier|urgent mail|high priority courier|archive transport|art transfer|uhren|flower delivery|labor/);
     }
     if (id === 'animal_transport') {
-        return has(/hund|hunderettung|welpen|katze|ziege|reh|hirsch|möwe|moewe|gans|flamingo|pferd|wildvogel|auffangstation|tier|tierarzt|horse vet|animal|tierrettung/);
+        return has(/hund|hunderettung|welpen|katze|ziege|reh|hirsch|möwe|moewe|gans|ente|schwan|pferd|wildvogel|auffangstation|tier|tierarzt|horse vet|animal|tierrettung/);
     }
     if (id === 'news_coverage') {
         if (isPOI) return has(/report|medien|kamera|dreh|event|lage|dokument|live|beobacht/);
@@ -7618,6 +7663,7 @@ function sanitizeTrainingPlan(rawPlan, isTrainingMission) {
 function formatPaxBriefingText(paxText, passenger) {
     const base = String(paxText || '').trim();
     const name = String(passenger?.name || '').trim();
+    const role = String(passenger?.role || '').trim();
     if (!base || !name) return base;
     if (/^\s*0\s*PAX\b/i.test(base)) return base;
     if (base.toLowerCase().includes(name.toLowerCase())) return base;
@@ -7625,8 +7671,9 @@ function formatPaxBriefingText(paxText, passenger) {
     if (m) {
         const left = String(m[1] || '').trim();
         const inner = String(m[2] || '').trim();
-        if (!inner) return `${left} (${name})`.trim();
-        return `${left} (${inner}: ${name})`.trim();
+        const descriptor = role || inner;
+        if (!descriptor) return `${left} (${name})`.trim();
+        return `${left} (${descriptor}: ${name})`.trim();
     }
     return `${base} (${name})`;
 }
@@ -7650,7 +7697,7 @@ function missionSceneTargetKindCatalog() {
         sar_land: { roles: ['vehicle.emergency.medical', 'vehicle.quad', 'cargo.container'] },
         medical_pickup: { roles: ['vehicle.emergency.medical', 'cargo.medical_kit'] },
         cargo_site: { roles: ['vehicle.truck', 'cargo.container', 'cargo.pallet_medium', 'cargo.animal_transport_box'] },
-        construction_site: { roles: ['construction.crane', 'construction.earthmoving', 'vehicle.truck'] },
+        construction_site: { roles: ['construction.crane', 'construction.earthmoving', 'vehicle.truck', 'cargo.pallet_medium', 'cargo.pallet_small'] },
         powerline_inspection: { roles: ['utility.powerline', 'utility.generator', 'vehicle.truck'] },
         wind_turbine_site: { roles: ['utility.wind_turbine', 'vehicle.truck', 'marker.cone'] },
         erosion_damage: { roles: ['nature.log', 'debris.light'] },
@@ -7690,7 +7737,8 @@ function missionSceneTargetFeatureCatalog() {
         construction_crane: { roles: ['construction.crane'] },
         earthmoving: { roles: ['construction.earthmoving'] },
         construction_truck: { roles: ['vehicle.truck'] },
-        cargo_material: { roles: ['cargo.container', 'cargo.pallet_medium', 'cargo.small_box'] },
+        cargo_material: { roles: ['cargo.container', 'cargo.pallet_large', 'cargo.pallet_medium', 'cargo.pallet_small', 'cargo.small_box'] },
+        pallet_stack: { roles: ['cargo.pallet_medium', 'cargo.pallet_small', 'cargo.pallet_large'] },
         powerline: { roles: ['utility.powerline', 'utility.generator', 'vehicle.truck', 'marker.cone'] },
         wind_turbine: { roles: ['utility.wind_turbine'] },
         generator: { roles: ['utility.generator'] },
@@ -7796,8 +7844,13 @@ function normalizeMissionTargetSceneFeature(value) {
         bagger: 'earthmoving',
         material: 'cargo_material',
         cargo: 'cargo_material',
-        pallets: 'cargo_material',
-        pallet: 'cargo_material',
+        pallets: 'pallet_stack',
+        pallet: 'pallet_stack',
+        paletten: 'pallet_stack',
+        palette: 'pallet_stack',
+        pallet_stack: 'pallet_stack',
+        material_stack: 'pallet_stack',
+        materiallager: 'pallet_stack',
         power: 'powerline',
         power_pylon: 'powerline',
         pylon: 'powerline',
@@ -7959,6 +8012,26 @@ function missionSceneSpecialRoleAllowed(role, { powerlineAllowed = false, windTu
     return true;
 }
 
+function missionSceneRequirementCountLimit(feature, kind = '') {
+    const f = String(feature || '').toLowerCase();
+    const k = String(kind || '').toLowerCase();
+    if (f === 'pallet_stack') return k === 'construction_site' ? 8 : 6;
+    if (f === 'cargo_material') return k === 'construction_site' ? 8 : 6;
+    if (f === 'cones') return 8;
+    return 6;
+}
+
+function missionSceneDefaultArrangement(feature, kind = '', layout = '') {
+    const f = String(feature || '').toLowerCase();
+    const k = String(kind || '').toLowerCase();
+    const l = String(layout || '').toLowerCase();
+    if (f === 'pallet_stack' || (f === 'cargo_material' && k === 'construction_site')) return 'cluster';
+    if (f === 'cones' && (l === 'perimeter' || k === 'road_incident' || k === 'construction_site')) return 'perimeter';
+    if (f === 'logs' && l === 'waterline') return 'waterline';
+    if (f === 'waterfowl') return 'cluster';
+    return '';
+}
+
 function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', targetGeoContext = null } = {}) {
     if (!isPOI) return { kind: 'none', roles: [], density: 'none', notes: '' };
     const src = raw && typeof raw === 'object' ? raw : {};
@@ -8010,11 +8083,17 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
             if (!req || typeof req !== 'object') return null;
             const feature = normalizeMissionTargetSceneFeature(req.feature || req.kind || req.type || req.name || req.role || '');
             if (!feature) return null;
-            const count = Math.max(1, Math.min(6, Math.round(Number(req.count || req.qty || req.amount || 1) || 1)));
+            const countLimit = missionSceneRequirementCountLimit(feature, kind);
+            const count = Math.max(1, Math.min(countLimit, Math.round(Number(req.count || req.qty || req.amount || 1) || 1)));
+            const arrangementRaw = String(req.arrangement || req.layout || req.pattern || '').trim().toLowerCase();
+            const arrangement = /^(cluster|scattered|line|roadside|waterline|perimeter|mixed)$/.test(arrangementRaw)
+                ? arrangementRaw
+                : missionSceneDefaultArrangement(feature, kind, String(src.layout || src.arrangement || ''));
             return {
                 feature,
                 count,
                 placement: String(req.placement || req.position || req.where || '').replace(/\s+/g, ' ').trim().slice(0, 40),
+                arrangement,
                 notes: String(req.notes || req.reason || req.detail || '').replace(/\s+/g, ' ').trim().slice(0, 100)
             };
         })
@@ -8157,14 +8236,14 @@ function buildMissionTargetScenePromptGuide(isPOI, forcedProfile = null) {
             ? 'sar_water oder sar_land'
             : (forced === 'mapping_survey' ? 'construction_site, erosion_damage, infra_bridge, infra_dam, wind_turbine_site bei Windenergie-Kontext, powerline_inspection nur bei Strom-/Energie-Kontext oder survey_context' : (forced === 'poi_learning_guide' || forced === 'sightseeing_tour' ? 'none oder sehr sparsam water_context/wildlife_site' : 'passend zum Kontext')));
     return isPOI
-        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Die KI entscheidet bewusst, was im Ziel wirklich sichtbar und plausibel ist. Nutze "none" bei reinen Sightseeing-/Historien-/Lernfluegen ohne konkreten sichtbaren Boden-Kontext; fuege keine Deko hinzu, nur weil ein POI eine Kategorie hat. Bei Lern-/Sightseeing-Fluegen: sehr sparsam bleiben, density meist "sparse", count meist 0-3; keine Einsatzfahrzeuge, keine grossen Schiffe, keine Marker/Cones, ausser sie sind im Kontext wirklich sichtbar. Szene und Story muessen logisch dieselbe Lage zeigen: keine Fahrzeuge, Personen, Zelte, Rauchsignale, Tiere, Werkzeug, Ladung oder Absperrungen hinzufuegen, wenn sie weder in Story noch sceneIntent vorkommen. Kleine Bausteine wie tent, parked_vehicle, small_equipment, campfire, waterfowl, logs oder watercraft sind kontextfreie Vokabeln: nutze sie ueberall dort, wo sie aus der Missionslage plausibel sind (Wald, SAR, Ufer, Baustelle, Unfall, POI), nicht nur in einer festen Katalog-Szene. Spezialobjekte sind keine Deko: powerline/powerline_inspection nur wenn der Auftrag konkret Strommast, Freileitung, Stromtrasse, Umspannwerk, Energieinfrastruktur, Bau, Wartung oder Inspektion nennt; nie fuer generische Survey-/Natur-/Waldkulisse. wind_turbine/wind_turbine_site nur wenn Windrad/Windpark/Windenergie/Bau/Wartung/Inspektion konkret Thema ist und targetGeoContext oder Story offene/hochgelegene Flaeche, Wiese, Feld, Acker, Kuppe oder Gipfel plausibel macht; nicht in Stadt, Wohngebiet, dichter Bebauung oder Tal. Erfinde keine festen Sonder-Szenen; beschreibe stattdessen genau die sichtbaren Einzelobjekte. Allgemeine Szenenlogik: Bestimme zuerst das Primaerziel der Mission, dann Kontextobjekte, dann optional Support. Support-Objekte wie Fahrzeuge, Crew, Technik, Absperrungen oder Material duerfen nur erscheinen, wenn sie die Geschichte tragen und nicht den Auftrag logisch erledigen, bevor der Pilot ankommt. Bei Inspection/Survey sind Messobjekte, Infrastruktur oder Referenzpunkte wichtiger als zufaellige Crew; bei Cargo/Medical muessen Fracht, Uebergabe und Personen zur PAX/Fracht-Lage passen; bei News/Event muessen Fahrzeuge/Menschen aus dem Ereignis hervorgehen; bei Natur/Sightseeing bleibt es ruhig und objektarm. SAR-Land: Wenn die Story eine vermisste Person beschreibt, ist missing_person oder ein klarer Hinweis wie small_equipment/tent/signal_smoke das Primaerziel. Suchtrupps/Fahrzeuge duerfen nur als Support/Perimeter/auf Anfahrt vorkommen, wenn Story oder sceneIntent sie nennen; sie duerfen nicht so wirken, als haetten sie die Person schon gefunden. Wasser-Kontext: water_context nur fuer Ufer/Treibgut/kleine zivile Boote/Wasservoegel. watercraft meint kleine zivile Boote. service_ship/grosse Schiffe nur bei Hafen, SAR, Kuestenwache, Arbeitsschiff oder klarer Textgrundlage. Natur-Kontext: wildlife_site darf passende lokale Tiere, Wasservoegel oder kleine Herden bekommen, aber keine exotischen Tiere ohne klaren Grund. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site, echte Stromtrasse -> powerline_inspection, Windradbau auf offenem Feld -> wind_turbine_site, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Wald-SAR => kind="sar_land", requirements=[{"feature":"missing_person","count":1},{"feature":"small_equipment","count":1},{"feature":"signal_smoke","count":1}], Seeufer-Lernkontext => kind="water_context", requirements=[{"feature":"waterfowl","count":2},{"feature":"parked_vehicle","count":1}] oder nur ["logs"]. Empfehlung fuer dieses Profil: ${defaultHint}.
+        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Die KI entscheidet bewusst, was im Ziel wirklich sichtbar und plausibel ist. Nutze "none" bei reinen Sightseeing-/Historien-/Lernfluegen ohne konkreten sichtbaren Boden-Kontext; fuege keine Deko hinzu, nur weil ein POI eine Kategorie hat. Bei Lern-/Sightseeing-Fluegen: sehr sparsam bleiben, density meist "sparse", count meist 0-3; keine Einsatzfahrzeuge, keine grossen Schiffe, keine Marker/Cones, ausser sie sind im Kontext wirklich sichtbar. Szene und Story muessen logisch dieselbe Lage zeigen: keine Fahrzeuge, Personen, Zelte, Rauchsignale, Tiere, Werkzeug, Ladung oder Absperrungen hinzufuegen, wenn sie weder in Story noch sceneIntent vorkommen. Kleine Bausteine wie tent, parked_vehicle, small_equipment, pallet_stack, campfire, waterfowl, logs oder watercraft sind kontextfreie Vokabeln: nutze sie ueberall dort, wo sie aus der Missionslage plausibel sind (Wald, SAR, Ufer, Baustelle, Unfall, POI), nicht nur in einer festen Katalog-Szene. Spezialobjekte sind keine Deko: powerline/powerline_inspection nur wenn der Auftrag konkret Strommast, Freileitung, Stromtrasse, Umspannwerk, Energieinfrastruktur, Bau, Wartung oder Inspektion nennt; nie fuer generische Survey-/Natur-/Waldkulisse. wind_turbine/wind_turbine_site nur wenn Windrad/Windpark/Windenergie/Bau/Wartung/Inspektion konkret Thema ist und targetGeoContext oder Story offene/hochgelegene Flaeche, Wiese, Feld, Acker, Kuppe oder Gipfel plausibel macht; nicht in Stadt, Wohngebiet, dichter Bebauung oder Tal. Erfinde keine festen Sonder-Szenen; beschreibe stattdessen genau die sichtbaren Einzelobjekte und ihre Anordnung. Allgemeine Szenenlogik: Bestimme zuerst das Primaerziel der Mission, dann Kontextobjekte, dann optional Support. Support-Objekte wie Fahrzeuge, Crew, Technik, Absperrungen oder Material duerfen nur erscheinen, wenn sie die Geschichte tragen und nicht den Auftrag logisch erledigen, bevor der Pilot ankommt. Bei Inspection/Survey sind Messobjekte, Infrastruktur oder Referenzpunkte wichtiger als zufaellige Crew; bei Cargo/Medical muessen Fracht, Uebergabe und Personen zur PAX/Fracht-Lage passen; bei News/Event muessen Fahrzeuge/Menschen aus dem Ereignis hervorgehen; bei Natur/Sightseeing bleibt es ruhig und objektarm. SAR-Land: Wenn die Story eine vermisste Person beschreibt, ist missing_person oder ein klarer Hinweis wie small_equipment/tent/signal_smoke das Primaerziel. Suchtrupps/Fahrzeuge duerfen nur als Support/Perimeter/auf Anfahrt vorkommen, wenn Story oder sceneIntent sie nennen; sie duerfen nicht so wirken, als haetten sie die Person schon gefunden. Wasser-Kontext: water_context nur fuer Ufer/Treibgut/kleine zivile Boote/heimische Wasservoegel. watercraft meint kleine zivile Boote. service_ship/grosse Schiffe nur bei Hafen, SAR, Kuestenwache, Arbeitsschiff oder klarer Textgrundlage. Natur-Kontext: wildlife_site darf passende lokale Tiere, Wasservoegel oder kleine Herden bekommen, aber keine exotischen Tiere ohne klaren Grund. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site mit Baufahrzeug und gebuendeltem Materiallager, echte Stromtrasse -> powerline_inspection, Windradbau auf offenem Feld -> wind_turbine_site, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Baustelle => kind="construction_site", layout="cluster", requirements=[{"feature":"earthmoving","count":1},{"feature":"pallet_stack","count":6,"placement":"am Materiallager","arrangement":"cluster"}], Wald-SAR => kind="sar_land", requirements=[{"feature":"missing_person","count":1},{"feature":"small_equipment","count":1},{"feature":"signal_smoke","count":1}], Seeufer-Lernkontext => kind="water_context", requirements=[{"feature":"waterfowl","count":2,"arrangement":"cluster"},{"feature":"parked_vehicle","count":1}] oder nur ["logs"]. Empfehlung fuer dieses Profil: ${defaultHint}.
 Erlaubte targetScene.kind:
 ${lines.join('\n')}
 Erlaubte targetScene.preset (optional):
 ${presetLines.join('\n')}
 Erlaubte targetScene.features / requirements[].feature (optional, additiv):
 ${featureLines.join('\n')}
-requirements[].count ist keine Fuellmenge, sondern eine bewusste sichtbare Menge. Wenn unsicher, lieber weniger oder keine Objekte. layout optional: cluster|scattered|line|roadside|waterline|perimeter|mixed. density: sparse|normal|busy.`
+requirements[].count ist keine Fuellmenge, sondern eine bewusste sichtbare Menge. Wenn unsicher, lieber weniger oder keine Objekte. Fuer Baustellen-/Materiallager duerfen pallet_stack/cargo_material bewusst 6-8 Objekte als gebuendelter Cluster sein. requirements[].arrangement und targetScene.layout optional: cluster|scattered|line|roadside|waterline|perimeter|mixed. density: sparse|normal|busy.`
         : `17. TARGET-SCENE: Bei A-B-Missionen targetScene.kind immer "none" setzen.`;
 }
 
@@ -8609,6 +8688,20 @@ function compactMissionTruthForPrompt(truth = null) {
     };
 }
 
+function compactSceneComposerStory(text = '') {
+    const raw = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return '';
+    const sentences = raw
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .filter(s => !/^(Arbeits-Hinweis|Ankunfts-Hinweis):/i.test(s))
+        .filter(s => !/^(sichere|stabile|ruhige)\b/i.test(s))
+        .filter(s => !/^(zeitkritisch|pünktlich|puenktlich)\b/i.test(s));
+    const picked = sentences.slice(0, 3).join(' ') || raw;
+    return picked.slice(0, 520);
+}
+
 function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLon = null, radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M) {
     const lat = Number(centerLat);
     const lon = Number(centerLon);
@@ -8797,7 +8890,7 @@ Regeln:
 2. Keine grossen Einsatzmittel, Schiffe, Kegel, Personen oder Fahrzeuge, wenn sceneIntent/Story sie nicht tragen.
 3. Kleine Primitive wie Zelt, parkendes Auto, Wasservoegel, Holz, Kisten, Lagerfeuer, Tiere und Baufahrzeuge duerfen frei kombiniert werden, wenn plausibel.
 4. Bei Lern-/Sightseeing-Fluegen lieber sparse oder none; 0-3 sichtbare Akzente sind oft genug.
-5. requirements[].count ist bewusst und klein: einzelne Dinge einzeln nennen, keine Fuellmengen.
+5. requirements[].count ist bewusst: fuer Natur/Sightseeing klein halten; fuer Materiallager/Baustellen duerfen 6-8 Paletten als gebuendelter Cluster erscheinen. Nutze arrangement/layout, damit Objekte logisch zusammenstehen statt zufaellig verteilt zu wirken.
 6. Wenn sceneIntent.avoid etwas verbietet, respektieren.
 7. Fuer alle Missionstypen gilt: Primaerziel zuerst, Kontext danach, Support zuletzt. Support-Objekte wie Fahrzeuge, Crew, Material, Rauch, Tiere oder Absperrungen muessen aus Story/sceneIntent hervorgehen und duerfen den Auftrag nicht logisch schon geloest haben.
 8. Bei SAR ist die vermisste Person, ein Hinweis oder ein Signal das Primaerziel. Suchtrupps/Fahrzeuge sind Support und muessen aus Story/sceneIntent hervorgehen.
@@ -8812,7 +8905,7 @@ ${sceneGuide}
 
 <KONTEXT>
 Mission: ${String(md.mission || contract.missionTitle || '').slice(0, 140)}
-Story: ${String(contract.missionStory || md.story || '').slice(0, 900)}
+Story: ${compactSceneComposerStory(contract.missionStory || md.story || '')}
 Ziel: ${String(md.targetName || md.poiName || '').slice(0, 140)}
 Koordinaten: ${Number(md.targetLat || 0).toFixed(5)}, ${Number(md.targetLon || 0).toFixed(5)}
 taskDomain: ${taskDomain || 'general'}
@@ -8839,7 +8932,7 @@ targetGeoContext: ${JSON.stringify(targetGeoContext ? {
     "kind": "none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context",
     "preset": "",
     "features": ["optional"],
-    "requirements": [{"feature": "tent", "count": 1, "placement": "am Ufer", "notes": "nur wenn plausibel"}],
+    "requirements": [{"feature": "tent", "count": 1, "placement": "am Ufer", "arrangement": "cluster", "notes": "nur wenn plausibel"}],
     "roles": [],
     "density": "none|sparse|normal|busy",
     "layout": "cluster|scattered|line|roadside|waterline|perimeter|mixed oder leer",
@@ -9318,7 +9411,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ? `16. MEDICAL-KONSISTENZ: Wenn pax nur 1 PAX ist, ist diese Person medizinische Begleitung/Notarzt, NICHT Patient. Keine Patientin/keinen Patienten im Flugzeug erwaehnen, ausser pax ist explizit mindestens 2 PAX und die Story modelliert Patient plus medizinische Begleitung. Bei 1 PAX keine Formulierung "Notarztteam"; nutze "medizinische Begleitung", "Notarzt" oder "Notaerztin".`
         : '';
     const animalProfileRule = (forcedProfile?.id === 'animal_transport')
-        ? `16b. TIERTRANSPORT-KONSISTENZ: Nenne eine konkrete Tierart statt generischem Haustier-Standard. Sichtbar spawnbar sind nur Piper-taugliche Katalogtiere: Ziege, Reh/junges Reh, Moewe, Gans, Flamingo. Schaf ist erlaubt, wird aber als Transportbox/Frachtobjekt umgesetzt. Pferd/Seeloewe niemals als lebendes Bordtier in der Piper; wenn so ein Thema vorkommt, dann nur als Vet-Einsatz, Dokumente oder geschlossene Uebergabekiste. Nicht vorhandene Tiere werden als Cargo-Objekt ersetzt: Cardboard oder Pallet01_03. Bei Ziege oder Schaf darf der Text die engen Bedingungen im Flieger leicht humorvoll erwaehnen. Pax bleibt Tierpfleger/Tierschutz-Kurier und der Flugauftrag bleibt stressarm und glaubhaft.`
+        ? `16b. TIERTRANSPORT-KONSISTENZ: Nenne eine konkrete Tierart statt generischem Haustier-Standard. Sichtbar spawnbar sind nur Piper-taugliche Katalogtiere: Ziege, Reh/junges Reh, Moewe, Gans. Ente/Schwan werden als heimischer Wasservogel auf Gans/Moewe oder als Transportbox umgesetzt. Schaf ist erlaubt, wird aber als Transportbox/Frachtobjekt umgesetzt. Pferd/Seeloewe niemals als lebendes Bordtier in der Piper; wenn so ein Thema vorkommt, dann nur als Vet-Einsatz, Dokumente oder geschlossene Uebergabekiste. Nicht vorhandene Tiere werden als Cargo-Objekt ersetzt: Cardboard oder Pallet01_03. Bei Ziege oder Schaf darf der Text die engen Bedingungen im Flieger leicht humorvoll erwaehnen. Pax bleibt Tierpfleger/Tierschutz-Kurier und der Flugauftrag bleibt stressarm und glaubhaft.`
         : '';
     const fireHazardRule = (forcedProfile?.id === 'fire_watch' && Number.isFinite(Number(missionFireHazard?.level)))
         ? `16. FEUERLAGE-KONTEXT: Nutze den offiziellen DWD-Waldbrandgefahrenindex am Einsatzgebiet als Realitätsanker (Stufe ${Math.round(Number(missionFireHazard.level))} von 5, Risiko: ${String(missionFireHazard.label || '').trim() || 'n/a'}). Erwaehne den Index natuerlich und knapp in story/greetingText. Keine Dramatisierung.`
@@ -10697,12 +10790,22 @@ async function generateMission() {
         })
         : selectedMissionProfile;
     const dispatchProfileId = String(seededProfileId || 'auto').toLowerCase();
+    const requestedPoiCategory = selectedPoiCategory;
+    if (effectiveType === 'poi') {
+        selectedPoiCategory = pickPoiCategoryForTaskProfile(dispatchProfileId, selectedPoiCategory);
+    }
     // POI-Category-Guard: Bei "all" und explizitem Fire-Watch-Profil vermeiden wir
     // unpassende POI-Typen (z.B. Castle) und suchen primär in berg-/waldnahen Zielen.
     if (effectiveType === 'poi' && selectedPoiCategory === 'all' && dispatchProfileId === 'fire_watch') {
         selectedPoiCategory = 'fire';
     }
-    const missionPickerResolved = { ...missionPicker, profile: dispatchProfileId, profileRequested: selectedMissionProfile };
+    const missionPickerResolved = {
+        ...missionPicker,
+        category: selectedPoiCategory,
+        profile: dispatchProfileId,
+        profileRequested: selectedMissionProfile,
+        categoryRequested: requestedPoiCategory
+    };
     // Guardrail: Bei POI-Missionen darf ein evtl. noch befülltes Zielfeld
     // (z.B. vom vorherigen A-B-Flug) NICHT als Ziel ausgewertet werden.
     if (effectiveType === "poi" && targetDest) {
@@ -11151,7 +11254,18 @@ async function generateMission() {
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
     const isAiGeneratedMission = !!(m && typeof m._source === 'string' && /^Gemini\b/i.test(String(m._source)));
     const forceFireWatchPassenger = !!(missionHasPassenger && m && m.passenger && String(m.passenger.taskDomain || '').toLowerCase() === 'fire_watch');
-    window.activePassenger = ((aiModeEnabled && isAiGeneratedMission && missionHasPassenger && m && m.passenger) || forceFireWatchPassenger)
+    const shouldActivateMissionPassenger = !!(
+        missionHasPassenger
+        && m
+        && m.passenger
+        && typeof m.passenger === 'object'
+        && (
+            (aiModeEnabled && isAiGeneratedMission)
+            || forceFireWatchPassenger
+            || m._appliedProfile
+        )
+    );
+    window.activePassenger = shouldActivateMissionPassenger
         ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt)
         : null;
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();

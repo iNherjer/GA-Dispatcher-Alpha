@@ -1,7 +1,7 @@
 // Mission scene asset catalog built from the first MSFS 2024 visual validation pass.
 // VFX entries are kept as known/ACK-tested assets because particles need separate review.
 window.MISSION_SCENE_ASSETS = {
-    version: '2026-05-21-scene-special-objects',
+    version: '2026-05-22-scene-arranged-objects',
     source: 'msfs2024-spawn-validation manual pass plus known VFX',
     targetSceneKinds: {
         none: {
@@ -42,7 +42,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         construction_site: {
             label: 'Baustelle / Erdarbeiten',
-            roles: ['construction.crane', 'construction.earthmoving', 'vehicle.truck', 'cargo.container', 'marker.cone'],
+            roles: ['construction.crane', 'construction.earthmoving', 'vehicle.truck', 'cargo.container', 'cargo.pallet_medium', 'cargo.pallet_small', 'marker.cone'],
             useFor: ['mapping_survey', 'science_geo', 'news_coverage']
         },
         powerline_inspection: {
@@ -182,7 +182,11 @@ window.MISSION_SCENE_ASSETS = {
         },
         cargo_material: {
             label: 'Container, Paletten, kleine Fracht',
-            roles: ['cargo.container', 'cargo.pallet_medium', 'cargo.small_box']
+            roles: ['cargo.container', 'cargo.pallet_large', 'cargo.pallet_medium', 'cargo.pallet_small', 'cargo.small_box']
+        },
+        pallet_stack: {
+            label: 'Palettenstapel / gebuendeltes Materiallager',
+            roles: ['cargo.pallet_medium', 'cargo.pallet_small', 'cargo.pallet_large']
         },
         powerline: {
             label: 'Strommast/Freileitung',
@@ -241,7 +245,7 @@ window.MISSION_SCENE_ASSETS = {
             roles: ['watercraft.service_ship', 'watercraft.ship']
         },
         waterfowl: {
-            label: 'Wasservoegel / Entenartige am See',
+            label: 'heimische Wasservoegel am See',
             roles: ['animal.waterfowl', 'animal.bird']
         },
         wildlife_animals: {
@@ -437,13 +441,11 @@ window.MISSION_SCENE_ASSETS = {
         ],
         'animal.waterfowl': [
             'Goose',
-            'Seagull',
-            'Flamingo'
+            'Seagull'
         ],
         'animal.bird': [
             'Goose',
-            'Seagull',
-            'Flamingo'
+            'Seagull'
         ],
         'animal.deer': [
             'OHemionusFemale',
