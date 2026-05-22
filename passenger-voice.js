@@ -2137,7 +2137,7 @@ function _paxGeoContextHasAnchor(key = '', maxDistM = 700) {
     return !Number.isFinite(dist) || dist <= maxDistM;
 }
 
-function _paxConfirmedVisualLandmarks(maxDistM = 250) {
+function _paxConfirmedVisualLandmarks(maxDistM = 500) {
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
     const contract = md.missionContract || window.activeMissionContract || null;
     const fromGeo = md.targetGeoContext?.visualLandmarks || contract?.targetGeoContext?.visualLandmarks || [];
@@ -2183,7 +2183,7 @@ function _paxVisualLandmarksLine() {
         const inverse = lm.targetFromLandmark ? `Ziel ${lm.targetFromLandmark} davon` : '';
         return [name, dist, rel, inverse].filter(Boolean).join(', ');
     }).join(' | ');
-    return `BESTAETIGTE VISUELLE REFERENZEN (max 250m): ${items}. Du darfst hoechstens eine davon zur Orientierung nutzen, besonders wenn das Ziel selbst unauffaellig ist. Nicht erfinden, nicht als Hauptthema ausbauen.`;
+    return `BESTAETIGTE VISUELLE REFERENZEN (max 500m): ${items}. Du darfst hoechstens eine davon zur Orientierung nutzen, besonders wenn das Ziel selbst unauffaellig ist. Nicht erfinden, nicht als Hauptthema ausbauen.`;
 }
 
 function _paxMissionTruthMainKind(key = '') {
@@ -2200,12 +2200,12 @@ function _sanitizePaxSoftPoiStory(text = '') {
     if (!/^(poi_learning_guide|sightseeing_tour|historian_guided_tour)$/.test(task)) return String(text || '').trim();
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
     const targetName = `${String(md.poiName || '')} ${String(md.targetName || '')}`;
-    const powerAllowed = _paxTextHasPowerlineLandmark(targetName) || _paxGeoContextHasAnchor('power', 250) || _paxHasVisualLandmarkKind(['power_tower', 'powerline']) || _paxMissionTruthMainKind('power');
-    const windAllowed = _paxTextHasWindLandmark(targetName) || _paxGeoContextHasAnchor('wind', 250) || _paxHasVisualLandmarkKind('wind_turbine') || _paxMissionTruthMainKind('wind');
-    const bridgeAllowed = _paxTextHasBridgeLandmark(targetName) || _paxGeoContextHasAnchor('bridge', 250) || _paxHasVisualLandmarkKind('bridge') || _paxMissionTruthMainKind('bridge');
+    const powerAllowed = _paxTextHasPowerlineLandmark(targetName) || _paxGeoContextHasAnchor('power', 500) || _paxHasVisualLandmarkKind(['power_tower', 'powerline']) || _paxMissionTruthMainKind('power');
+    const windAllowed = _paxTextHasWindLandmark(targetName) || _paxGeoContextHasAnchor('wind', 500) || _paxHasVisualLandmarkKind('wind_turbine') || _paxMissionTruthMainKind('wind');
+    const bridgeAllowed = _paxTextHasBridgeLandmark(targetName) || _paxGeoContextHasAnchor('bridge', 500) || _paxHasVisualLandmarkKind('bridge') || _paxMissionTruthMainKind('bridge');
     const riverAllowed = _paxTextHasRiverLandmark(targetName) || _paxHasVisualLandmarkKind(['river', 'canal']) || _paxMissionTruthMainKind('water_edge') || _paxMissionTruthMainKind('water');
     const motorwayAllowed = _paxTextHasMotorwayLandmark(targetName) || _paxHasVisualLandmarkKind(['motorway', 'motorway_junction']) || _paxMissionTruthMainKind('road');
-    const railwayAllowed = _paxTextHasRailwayLandmark(targetName) || _paxGeoContextHasAnchor('railway', 250) || _paxGeoContextHasAnchor('rail', 250) || _paxHasVisualLandmarkKind('railway') || _paxMissionTruthMainKind('rail');
+    const railwayAllowed = _paxTextHasRailwayLandmark(targetName) || _paxGeoContextHasAnchor('railway', 500) || _paxGeoContextHasAnchor('rail', 500) || _paxHasVisualLandmarkKind('railway') || _paxMissionTruthMainKind('rail');
     const towerAllowed = _paxTextHasTowerLandmark(targetName) || _paxHasVisualLandmarkKind(['tower', 'power_tower', 'wind_turbine']) || _paxMissionTruthMainKind('power');
     const raw = String(text || '').replace(/\s+/g, ' ').trim();
     if (!raw) return '';

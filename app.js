@@ -6873,7 +6873,7 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischen Fakten und lokaler Geschichte. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag daraus machen.';
     }
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
-        return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist reine Wissensvermittlung zum Ziel (Fakten, Orientierung, Einordnung). Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks bis 250m duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
+        return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist reine Wissensvermittlung zum Ziel (Fakten, Orientierung, Einordnung). Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks bis 500m duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
     }
     if (profile.id === 'inspection_infra' && isPOI) {
         return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
@@ -9140,7 +9140,7 @@ sceneIntent Felder:
 - densityHint: none|sparse|normal|busy.
 - notes: kurzer Grund.
 Wichtig: Keine Standard-Deko. Bei Lern-/Sightseeing-Fluegen darf sceneIntent sehr sparsam oder "none" sein. Kleine Kontextdetails sind erlaubt, wenn sie aus dem Text entstehen: Enten, Zelt, parkendes Auto, Holz, Kisten, Lagerfeuer, Tiere, Baufahrzeuge, Unfallfahrzeuge usw.
-Spezialobjekte sind keine Deko: Strommast/Freileitung nur bei ausdruecklichem Stromleitungs-, Umspannwerks-, Energieinfrastruktur-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark bis 250m. Windrad/Windpark nur bei ausdruecklichem Windenergie-, Neubau-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark bis 250m und nur in plausibler offener/hochgelegener Umgebung wie Bergkuppe, Wiese oder Feld; nicht in Stadt, Wohngebiet oder Tal.
+Spezialobjekte sind keine Deko: Strommast/Freileitung nur bei ausdruecklichem Stromleitungs-, Umspannwerks-, Energieinfrastruktur-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark bis 500m. Windrad/Windpark nur bei ausdruecklichem Windenergie-, Neubau-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark bis 500m und nur in plausibler offener/hochgelegener Umgebung wie Bergkuppe, Wiese oder Feld; nicht in Stadt, Wohngebiet oder Tal.
 Bei Lern-/Sightseeing-/Historien-POIs duerfen bestaetigte visualLandmarks wie Strommast, Freileitung, Windrad, Bruecke, Fluss, Autobahn, Autobahnkreuz, Eisenbahnlinie oder Turm als kurze Lagehilfe vorkommen. Sie bleiben Referenz, nicht Hauptthema. Ohne visualLandmarks/targetGeoContext/missionTruth sind solche Landmarken tabu.
 Wichtig: Story und sceneIntent muessen denselben Sachverhalt beschreiben. Das gilt fuer alle Missionstypen: Hauptziel, Kontextobjekte und Support muessen zusammenpassen. Wenn visibleIdeas Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere, Menschen, Werkzeug oder Ausruestung enthalten, muss die Story diese Dinge entweder vorher plausibel machen oder sceneIntent muss erklaeren, warum sie dort sichtbar sind.`;
 }
@@ -9265,7 +9265,7 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
 }
 
 const MISSION_TARGET_GEO_CONTEXT_RADIUS_M = 750;
-const MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M = 250;
+const MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M = 500;
 const MISSION_TARGET_GEO_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
 const MISSION_SCENE_COMPOSER_MODEL_TIMEOUT_MS = 9000;
 const MISSION_SCENE_COMPOSER_TOTAL_TIMEOUT_MS = 18000;
@@ -9797,7 +9797,7 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
     if (anchors.forest) hints.push('forest-edge placement plausible near the forest anchor');
     if (anchors.meadow || anchors.farmland) hints.push('animals/tents/reference objects plausible on meadow or farmland anchors');
     if (anchors.power) hints.push('powerline/pylon placement plausible near the power anchor');
-    if (visualLandmarks.length) hints.push('confirmed visual reference landmarks within 250m available');
+    if (visualLandmarks.length) hints.push('confirmed visual reference landmarks within 500m available');
     const summary = Object.entries(anchors)
         .filter(([, a]) => a && a.present)
         .sort((a, b) => Number(a[1].distM || 999999) - Number(b[1].distM || 999999))
@@ -9856,7 +9856,7 @@ function mergeMissionVisualLandmarks(ctx = null, landmarks = []) {
         .slice(0, 8);
     if (base.visualLandmarks.length) {
         const hints = Array.isArray(base.hints) ? base.hints.slice() : [];
-        if (!hints.includes('confirmed visual reference landmarks within 250m available')) hints.push('confirmed visual reference landmarks within 250m available');
+        if (!hints.includes('confirmed visual reference landmarks within 500m available')) hints.push('confirmed visual reference landmarks within 500m available');
         base.hints = hints;
     }
     return base;
@@ -11238,7 +11238,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             : `4b. POI-KONSISTENZ (zwingend): Verwende exakt "${promptDestName}" als Zielbezug und nenne keinen alternativen Primär-Ortsnamen.`))
         : '';
     const missionTruthRule = (isPOI && compactTruth)
-        ? `4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen. visualLandmarks sind bestaetigte visuelle Referenzen bis 250m; bei unauffaelligem Ziel duerfen sie zur Orientierung genutzt werden, aber nicht als Primaerziel.`
+        ? `4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen. visualLandmarks sind bestaetigte visuelle Referenzen bis 500m; bei unauffaelligem Ziel duerfen sie zur Orientierung genutzt werden, aber nicht als Primaerziel.`
         : '';
     const missionPlanV2Rule = (compactMissionPlanV2 && compactMissionPlanV2.status === 'ready')
         ? `4d. PIPELINE-V2-PLAN: Nutze missionPlanV2 als ausgefuelltes Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, sceneKind, objectFamilies und lockedFields sind Leitplanken. Weiche nur ab, wenn sie technisch widerspruechlich sind.`
