@@ -6823,6 +6823,21 @@ body.map-drawing-active #map.leaflet-dragging {
 .mission-start-banner-btn:hover {
     background: rgba(43, 126, 108, 0.95);
 }
+.mission-start-banner.is-end-ready {
+    border-color: rgba(255, 212, 106, 0.45);
+    background: rgba(24, 20, 12, 0.93);
+}
+.mission-start-banner.is-end-ready .mission-start-banner-kicker {
+    color: #ffd46a;
+}
+.mission-start-banner.is-end-ready .mission-start-banner-btn {
+    border-color: rgba(255, 212, 106, 0.58);
+    background: rgba(139, 94, 26, 0.9);
+    color: #fff7df;
+}
+.mission-start-banner.is-end-ready .mission-start-banner-btn:hover {
+    background: rgba(166, 112, 32, 0.96);
+}
 .mission-start-banner-close {
     flex: 0 0 auto;
     width: 28px;

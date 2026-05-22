@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v236';
-const TRACKER_VERSION_CODE = 236;
+const TRACKER_VERSION = 'v237';
+const TRACKER_VERSION_CODE = 237;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -126,6 +126,18 @@ function offsetLatLonMeters(lat, lon, northM, eastM) {
     lat: lat + dLat * 180 / Math.PI,
     lon: lon + dLon * 180 / Math.PI
   };
+}
+
+function geoDistanceM(lat1, lon1, lat2, lon2) {
+  const aLat = Number(lat1), aLon = Number(lon1), bLat = Number(lat2), bLon = Number(lon2);
+  if (![aLat, aLon, bLat, bLon].every(Number.isFinite)) return Infinity;
+  const r = 6371000;
+  const phi1 = aLat * Math.PI / 180;
+  const phi2 = bLat * Math.PI / 180;
+  const dPhi = (bLat - aLat) * Math.PI / 180;
+  const dLam = (bLon - aLon) * Math.PI / 180;
+  const h = Math.sin(dPhi / 2) ** 2 + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLam / 2) ** 2;
+  return 2 * r * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
 }
 
 function buildSmokeFieldPositions(lat, lon, altFt, hdg, count, radiusM) {
@@ -246,7 +258,7 @@ function buildTitleCandidates(title, extra = []) {
   return uniqueStrings(candidates);
 }
 
-function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null) {
+function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null, getGroundTrafficSnapshot = null) {
   const missions = new Map();
   const scenes = new Map();
   const pendingAssign = new Map();
@@ -547,7 +559,96 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
   ]);
 
+  const aptArrivalCandidatePoint = (candidate = null) => {
+    const lat = toFiniteNumber(candidate?.lat ?? candidate?.point?.lat, null);
+    const lon = toFiniteNumber(candidate?.lon ?? candidate?.point?.lon, null);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return {
+      lat,
+      lon,
+      source: String(candidate?.source || candidate?.kind || ''),
+      sourceId: String(candidate?.sourceId || ''),
+      name: String(candidate?.name || '')
+    };
+  };
+
+  const aptArrivalLiveTraffic = () => {
+    try {
+      const snapshot = typeof getGroundTrafficSnapshot === 'function' ? getGroundTrafficSnapshot() : [];
+      return Array.isArray(snapshot) ? snapshot : [];
+    } catch (_) {
+      return [];
+    }
+  };
+
+  const aptArrivalPointOccupied = (point, traffic, radiusM = 35) => {
+    if (!point || !Array.isArray(traffic) || traffic.length === 0) return false;
+    return traffic.some(ac => geoDistanceM(point.lat, point.lon, ac?.lat, ac?.lon) <= radiusM);
+  };
+
+  const resolveAptArrivalLivePlacement = (command) => {
+    if (String(command?.targetSceneKind || '').toLowerCase() !== 'apt_arrival') return command;
+    const candidates = command?.placementCandidates && typeof command.placementCandidates === 'object' ? command.placementCandidates : null;
+    const parking = (Array.isArray(candidates?.parking) ? candidates.parking : []).map(aptArrivalCandidatePoint).filter(Boolean);
+    const apron = (Array.isArray(candidates?.apron) ? candidates.apron : []).map(aptArrivalCandidatePoint).filter(Boolean);
+    if (!parking.length && !apron.length) return command;
+    const traffic = aptArrivalLiveTraffic();
+    if (!traffic.length) return command;
+    const ordered = [
+      ...parking.map(p => ({ ...p, liveSource: 'osm_parking_position', radiusM: 35 })),
+      ...apron.map(p => ({ ...p, liveSource: 'osm_apron', radiusM: 45 }))
+    ];
+    const picked = ordered.find(p => !aptArrivalPointOccupied(p, traffic, p.radiusM));
+    if (!picked) {
+      debugLog(`APT_ARRIVAL_LIVE_SNAP_NO_CLEAR_POINT airport=${command?.airportIcao || ''} traffic=${traffic.length} candidates=${ordered.length}`);
+      return {
+        ...command,
+        snapStatus: {
+          ...(command.snapStatus || {}),
+          liveOccupancy: 'all_candidates_occupied_or_too_close',
+          liveTrafficCount: traffic.length,
+          liveCheckedAt: Date.now()
+        }
+      };
+    }
+    if (Math.abs(Number(command.lat) - picked.lat) < 0.0000001 && Math.abs(Number(command.lon) - picked.lon) < 0.0000001) {
+      return {
+        ...command,
+        snapStatus: {
+          ...(command.snapStatus || {}),
+          liveOccupancy: 'checked_clear',
+          liveTrafficCount: traffic.length,
+          liveCheckedAt: Date.now()
+        }
+      };
+    }
+    debugLog(`APT_ARRIVAL_LIVE_SNAP airport=${command?.airportIcao || ''} source=${picked.liveSource} sourceId=${picked.sourceId} traffic=${traffic.length} lat=${picked.lat} lon=${picked.lon}`);
+    return {
+      ...command,
+      lat: picked.lat,
+      lon: picked.lon,
+      snapStatus: {
+        ...(command.snapStatus || {}),
+        source: picked.liveSource,
+        reason: picked.liveSource === 'osm_apron' ? 'parking_candidates_occupied_use_apron' : 'live_unoccupied_parking_candidate',
+        sourceId: picked.sourceId || '',
+        name: picked.name || '',
+        liveOccupancy: 'checked_clear',
+        liveTrafficCount: traffic.length,
+        liveCheckedAt: Date.now()
+      },
+      osmPlacement: {
+        ...(command.osmPlacement || {}),
+        source: picked.liveSource,
+        point: { lat: picked.lat, lon: picked.lon },
+        sourceId: picked.sourceId || '',
+        name: picked.name || ''
+      }
+    };
+  };
+
   const buildScenePlan = (command) => {
+    command = resolveAptArrivalLivePlacement(command);
     const lastGps = typeof getLastGpsMsg === 'function' ? getLastGpsMsg() : null;
     const base = {
       lat: toFiniteNumber(command?.lat, toFiniteNumber(command?.aircraftLat, toFiniteNumber(lastGps?.lat, null))),
@@ -1498,7 +1599,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
     .then(({ handle }) => {
       trackerLog("✈️ MSFS gefunden! Warte auf Positionsdaten...");
       let lastGpsMsg = null;
-      const missionSmokeController = createMissionSmokeController(handle, getWs, syncId, pin, () => lastGpsMsg);
+      let latestGroundTrafficSnapshot = [];
+      const missionSmokeController = createMissionSmokeController(handle, getWs, syncId, pin, () => lastGpsMsg, () => latestGroundTrafficSnapshot);
       if (typeof setTrackerCommandHandler === 'function') {
         setTrackerCommandHandler((command) => missionSmokeController.handleCommand(command));
       }
@@ -1829,13 +1931,14 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
         // 500ms warten damit alle simObjectDataByType-Events ankommen, dann filtern & als Snapshot merken
         setTimeout(() => {
           const all = Object.values(trafficBuffer);
-          // Filter: nur fliegende Flieger (GS > 10 kts), eigenes Objekt per Position ausschließen
-          const moving = all.filter(ac => {
-            if (ac.gs < 10) return false; // Bodenfahrzeuge / geparkte Flieger raus
+          const notOwnship = (ac) => {
             const dLat = Math.abs(ac.lat - ownLat), dLon = Math.abs(ac.lon - ownLon);
             if (dLat < 0.0015 && dLon < 0.0015) return false; // eigene Position ~0.1 NM
             return true;
-          });
+          };
+          latestGroundTrafficSnapshot = all.filter(ac => ac.gs < 10 && notOwnship(ac)).slice(0, 80);
+          // Filter: nur fliegende Flieger (GS > 10 kts), eigenes Objekt per Position ausschließen
+          const moving = all.filter(ac => ac.gs >= 10 && notOwnship(ac));
           // Die 20 nächsten nach einfachem Winkelabstand sortieren
           const nearest = moving
             .map(ac => {
