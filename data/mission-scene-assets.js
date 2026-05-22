@@ -32,12 +32,12 @@ window.MISSION_SCENE_ASSETS = {
         },
         medical_pickup: {
             label: 'Medizinischer Abhol-/Uebergabepunkt',
-            roles: ['vehicle.emergency.medical', 'cargo.small_box', 'person.ground_crew'],
+            roles: ['vehicle.emergency.medical', 'cargo.medical_kit', 'person.ground_crew'],
             useFor: ['medical_transfer']
         },
         cargo_site: {
             label: 'Fracht-/Materialpunkt',
-            roles: ['vehicle.truck', 'vehicle.van', 'cargo.container', 'cargo.pallet_medium', 'cargo.small_box'],
+            roles: ['vehicle.truck', 'vehicle.van', 'cargo.container', 'cargo.pallet_medium', 'cargo.small_box', 'cargo.animal_transport_box'],
             useFor: ['cargo_fragile', 'club_utility', 'animal_transport']
         },
         construction_site: {
@@ -520,6 +520,13 @@ window.MISSION_SCENE_ASSETS = {
         'cargo.small_box': [
             'Cardboard',
             'CoffeeCup'
+        ],
+        'cargo.medical_kit': [
+            'Cardboard'
+        ],
+        'cargo.animal_transport_box': [
+            'Cardboard',
+            'Pallet01_03'
         ],
         'cargo.pallet_large': [
             'Pallet01_01'

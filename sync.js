@@ -69,6 +69,13 @@ const MISSION_SCENE_ASSET_POOLS = {
         'Cardboard',
         BOARDING_CARGO_FALLBACK_TITLE
     ]),
+    medicalEquipment: _sceneCatalogRoleTitles('cargo.medical_kit', [
+        'Cardboard'
+    ]),
+    animalTransportBoxes: _sceneCatalogRoleTitles('cargo.animal_transport_box', [
+        'Cardboard',
+        'Pallet01_03'
+    ]),
     palletCargo: _sceneCatalogRoleMerge(['cargo.pallet_large', 'cargo.pallet_medium', 'cargo.pallet_small'], [
         'Pallet01_01',
         'Pallet01_02',
@@ -169,6 +176,15 @@ const MISSION_SCENE_ASSET_POOLS = {
         'BTaurusPrimigeniusFemale',
         'BFrontalisMale',
         'ECaballusFemale'
+    ]),
+    animalTransportAnimals: _sceneUniqueTitles([
+        'Seagull',
+        'Goose',
+        'Flamingo',
+        'OHemionusFemale',
+        'OHemionusJuvenile',
+        'CHircusHircusFemale',
+        'CHircusHircusJuvenile'
     ]),
     campTents: _sceneCatalogRoleTitles('camp.tent', [
         'LFPB_AS_Tent_01',
@@ -1385,6 +1401,7 @@ function _missionAptArrivalPreviewItems(plan = {}) {
         kind: item?.kind || `apt_arrival_item_${idx + 1}`,
         label: item?.label || item?.kind || `Arrival ${idx + 1}`,
         objectTitle: item?.objectTitle || item?.title || item?.label || '',
+        titleCandidates: Array.isArray(item?.titleCandidates) ? item.titleCandidates.slice(0, 5) : [],
         role: item?.role || '',
         forwardM: Number.isFinite(Number(item?.forwardM)) ? Number(item.forwardM) : 0,
         rightM: Number.isFinite(Number(item?.rightM)) ? Number(item.rightM) : 0,
@@ -1561,6 +1578,52 @@ function _scenePreferredTitle(pool = [], preferred = '', salt = '', fallback = '
     return _scenePickTitle(arr, salt, fallback || p || arr[0] || '');
 }
 
+const MISSION_SCENE_ANIMAL_TRANSPORT_OPTIONS = [
+    { title: 'CHircusHircusFemale', label: 'Ziege', keywords: /ziege|geiss|geiß|bock|goat|hircus/i },
+    { title: 'CHircusHircusJuvenile', label: 'junge Ziege', keywords: /kitz|jungziege|zicklein/i },
+    { title: 'OHemionusFemale', label: 'Reh', keywords: /reh|hirsch|wildtier|deer|wild/i },
+    { title: 'OHemionusJuvenile', label: 'junges Reh', keywords: /rehkitz|kitz|junges\s+reh/i },
+    { title: 'Seagull', label: 'Moewe', keywords: /möwe|moewe|seagull|wildvogel|vogelstation/i },
+    { title: 'Goose', label: 'Gans', keywords: /gans|goose|wasservogel/i },
+    { title: 'Flamingo', label: 'Flamingo', keywords: /flamingo/i },
+    { visible: false, label: 'Schaf-Transportbox', cargoLabel: 'Schaf-Transportbox', cargoTitle: 'Pallet01_03', keywords: /schaf|sheep/i },
+    { visible: false, label: 'Luchs-Transportbox', cargoLabel: 'Luchs-Transportbox', cargoTitle: 'Cardboard', keywords: /luchs|lux|lynx/i },
+    { visible: false, label: 'Tiertransportbox', cargoLabel: 'Tiertransportbox', cargoTitle: 'Cardboard', keywords: /hund|katze|dackel|welpe|dog|cat/i },
+    { visible: false, label: 'Seeloewe-Unterlagen', cargoLabel: 'Auffangstations-Kiste', cargoTitle: 'Pallet01_03', keywords: /seelöwe|seeloewe|seal|sealion/i },
+    { visible: false, label: 'Pferde-Vet-Material', cargoLabel: 'Pferde-Vet-Material', cargoTitle: 'Pallet01_03', keywords: /pferd|gestuet|gestüt|horse/i }
+];
+
+function _missionSceneAnimalTransportSpec(salt = 'animal-transport') {
+    const available = new Set(MISSION_SCENE_ASSET_POOLS.animalTransportAnimals || []);
+    const options = MISSION_SCENE_ANIMAL_TRANSPORT_OPTIONS.filter(opt => opt.visible === false || available.has(opt.title));
+    const visibleOptions = options.filter(opt => opt.visible !== false && available.has(opt.title));
+    const fallback = options.length ? options : MISSION_SCENE_ANIMAL_TRANSPORT_OPTIONS;
+    const text = _missionSceneCargoText();
+    const byText = fallback.find(opt => opt.keywords && opt.keywords.test(text));
+    const pickPool = byText ? fallback : (visibleOptions.length ? visibleOptions : fallback);
+    const picked = byText || pickPool[_stableHashText(`${_missionSceneId()}|${_missionSceneTaskDomain()}|${salt}|${text}`) % pickPool.length];
+    if (picked?.visible === false) {
+        const cargoTitle = picked.cargoTitle || 'Cardboard';
+        return {
+            visible: false,
+            label: picked.label || 'Tiertransportbox',
+            cargoLabel: picked.cargoLabel || picked.label || 'Tiertransportbox',
+            cargoTitle,
+            cargoCandidates: _sceneAssetCandidates(cargoTitle, MISSION_SCENE_ASSET_POOLS.animalTransportBoxes)
+        };
+    }
+    const title = picked?.title || 'CHircusHircusFemale';
+    return {
+        visible: true,
+        title,
+        label: picked?.label || 'Tier',
+        cargoLabel: 'Tiertransportbox',
+        cargoTitle: 'Cardboard',
+        cargoCandidates: _sceneAssetCandidates('Cardboard', MISSION_SCENE_ASSET_POOLS.animalTransportBoxes),
+        candidates: _sceneAssetCandidates(title, MISSION_SCENE_ASSET_POOLS.animalTransportAnimals)
+    };
+}
+
 function _missionSceneFilteredVehiclePool(pool = []) {
     const filtered = _sceneUniqueTitles(pool).filter(title => !/(lavatory|fuel\s*truck|truck\s+fire|firefighting|medic|military|operation|winch)/i.test(title));
     return filtered.length ? filtered : _sceneUniqueTitles(pool);
@@ -1596,6 +1659,25 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
             makeItem('cargo', 'SAR Ausruestung', primary, _sceneAssetCandidates(primary, MISSION_SCENE_ASSET_POOLS.sarCargo), 0, 0),
             makeItem('cargo_extra_1', 'SAR Zusatzladung', secondary, _sceneAssetCandidates(secondary, MISSION_SCENE_ASSET_POOLS.smallCargo), 0.45, -0.85)
         ];
+    }
+    if (taskDomain === 'medical_transfer') {
+        const primary = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.medicalEquipment, 'Cardboard', 'medical-cargo-primary', 'Cardboard');
+        return [
+            makeItem('cargo', 'Medizinische Transportkiste', primary, _sceneAssetCandidates(primary, MISSION_SCENE_ASSET_POOLS.medicalEquipment), 0, 0)
+        ];
+    }
+    if (taskDomain === 'animal_transport') {
+        const box = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.animalTransportBoxes, 'Cardboard', 'animal-cargo-box', 'Cardboard');
+        const animal = _missionSceneAnimalTransportSpec('animal-cargo-primary');
+        const cargoTitle = animal.cargoTitle || box;
+        const cargoLabel = animal.cargoLabel || 'Tiertransportbox';
+        const items = [
+            makeItem('cargo', cargoLabel, cargoTitle, animal.cargoCandidates || _sceneAssetCandidates(cargoTitle, MISSION_SCENE_ASSET_POOLS.animalTransportBoxes), 0, 0)
+        ];
+        if (animal.visible !== false) {
+            items.push(makeItem('cargo_animal_1', animal.label, animal.title, animal.candidates, 1.1, -1.25));
+        }
+        return items;
     }
     const primary = cargoAsset?.sizePrimary || cargoAsset?.title || 'Cardboard';
     const primaryCandidates = _sceneAssetCandidates(primary, cargoAsset?.candidates || MISSION_SCENE_ASSET_POOLS.cargo);
@@ -2626,6 +2708,8 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
             if (r === 'animal.grazing') add('animal_herd');
             if (r === 'camp.tent' || r === 'camp.trailer') add('tent');
             if (r === 'vehicle.car') add((kind === 'road_incident' || kind === 'event_site') ? 'road_vehicles' : 'parked_vehicle');
+            if (r === 'cargo.medical_kit') add('cargo_material');
+            if (r === 'cargo.animal_transport_box') add('cargo_material');
             if (r === 'cargo.small_box') add((kind === 'cargo_site' || kind === 'medical_pickup') ? 'cargo_material' : 'small_equipment');
             if (r.startsWith('debris.')) add('debris');
             if (r === 'nature.log' || r === 'material.log') add('logs');
@@ -2997,11 +3081,12 @@ function _missionTargetSceneItems(kind) {
 
     if (kind === 'medical_pickup') {
         const vehicle = _scenePickTitle(primarySupportVehiclePool, 'medical-vehicle', 'Car Bush Medic');
-        const cargo = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smallCargo.concat(MISSION_SCENE_ASSET_POOLS.cargo), 'medical-cargo', 'Cardboard');
+        const medicalPool = MISSION_SCENE_ASSET_POOLS.medicalEquipment.concat(MISSION_SCENE_ASSET_POOLS.smallCargo, MISSION_SCENE_ASSET_POOLS.cargo);
+        const cargo = _scenePickTitle(medicalPool, 'medical-cargo', 'Cardboard');
         add('medical_vehicle', 'Medizinisches Fahrzeug', vehicle, MISSION_SCENE_ASSET_POOLS.medicalVehicles.concat(vanPool), -13, 9, { hdgOffsetDeg: 205 });
         add('person_1', 'Medizinisches Team', personA, peoplePool, 1, 5, { hdgOffsetDeg: 180 });
         add('person_2', 'Medizinisches Team', personB, peoplePool, 4, 7, { hdgOffsetDeg: 220 });
-        add('cargo_1', 'Medizinische Kiste', cargo, MISSION_SCENE_ASSET_POOLS.smallCargo.concat(MISSION_SCENE_ASSET_POOLS.cargo), 2, 9);
+        add('cargo_1', 'Medizinische Kiste', cargo, medicalPool, 2, 9);
         return finish();
     }
 
