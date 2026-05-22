@@ -166,6 +166,7 @@ function buildMissionAiPayload(prompt) {
   const wantsFire = promptHas(taskAndTheme, 'fire_watch', 'feuer', 'brand', 'rauchentwicklung', 'waldbrand');
   const wantsSar = promptHas(taskAndTheme, 'search_and_rescue', 'sar/rescue', 'such', 'rettung', 'vermisst');
   const wantsAnimal = promptHas(taskAndTheme, 'animal_transport', 'tiertransport', 'tierschutz', 'ziege', 'reh', 'gans', 'möwe', 'moewe');
+  const wantsNews = promptHas(taskAndTheme, 'news_coverage', 'reporter', 'news', 'presse', 'lageeinschaetzung', 'lageeinschätzung');
   if (isPoi) {
     if (wantsMapping) {
       return {
@@ -271,6 +272,42 @@ function buildMissionAiPayload(prompt) {
           targetRadiusNm: 3,
           targetDwellMin: 4,
           greetingText: `Hi, wir suchen am Zielgebiet ${target} nach einem kleinen Bodenhinweis wie Zelt, Ausruestung oder Signalrauch.`,
+          trainingPlan: null
+        }
+      };
+    }
+    if (wantsNews) {
+      return {
+        title: `Lagebild: ${target}`,
+        story: `Eine Lokalredaktion braucht ein sachliches Luftlagebild rund um ${target}. Wir sammeln Orientierung, sichtbare Aktivitaet und kurze Fakten aus der Luft, ohne aus der Beobachtung eine Einsatzlage zu machen. Danach geht es zurueck nach ${start}.`,
+        pax: '1 PAX (Reporter)',
+        cargo: 'Kamera- und Audio-Set (32 lbs)',
+        sceneIntent: {
+          summary: 'POI-Reportage ohne eigene Zielszene; die sichtbare Logik liegt in Orientierung und Beobachtung.',
+          environment: '',
+          visibleIdeas: [],
+          avoid: ['keine Einsatzdramaturgie', 'keine Unfallstelle erfinden', 'keine technischen Schadensbehauptungen'],
+          densityHint: 'none',
+          notes: 'Reporter beobachtet, inszeniert aber keine separate Szene.'
+        },
+        passenger: {
+          name: 'Timo Berger',
+          role: 'TV-Reporter',
+          gender: 'male',
+          personality: 'praezise, praesent, professionell',
+          dialectHint: 'neutral',
+          roleProfile: 'news_reporter_professional_v1',
+          taskDomain: 'news_coverage',
+          gTolerance: 'mittel',
+          bankTolerance: 'mittel',
+          cargoSensitivity: 'mittel',
+          stomachSensitivity: 'mittel',
+          comfortPriority: 'mittel',
+          urgencyPriority: 'niedrig',
+          targetAltFt: 1800,
+          targetRadiusNm: 3,
+          targetDwellMin: 3,
+          greetingText: `Hi, ich sammle heute ein sachliches Lagebild zu ${target}; bitte ruhig fliegen, damit die Beobachtung verwertbar bleibt.`,
           trainingPlan: null
         }
       };
@@ -504,7 +541,8 @@ function buildPlannerV2Payload(prompt) {
       }
     };
   }
-  const taskDomain = draft.profile?.taskDomain || (draft.profile?.id === 'mapping_survey' ? 'mapping_survey' : 'general');
+  const isAptTraining = draft.mode === 'apt' && draft.category === 'trn';
+  const taskDomain = isAptTraining ? 'training' : (draft.profile?.taskDomain || (draft.profile?.id === 'mapping_survey' ? 'mapping_survey' : 'general'));
   const isMapping = taskDomain === 'mapping_survey';
   const isSar = taskDomain === 'search_and_rescue';
   return {
@@ -512,7 +550,7 @@ function buildPlannerV2Payload(prompt) {
     needs: [],
     plan: {
       taskDomain,
-      roleProfile: draft.profile?.roleProfile || 'general_passenger_v1',
+      roleProfile: isAptTraining ? 'instructor_calm_precise_v1' : (draft.profile?.roleProfile || 'general_passenger_v1'),
       missionType: draft.mode || 'apt',
       targetCategory: draft.category || '',
       primaryObjective: isMapping
@@ -523,7 +561,7 @@ function buildPlannerV2Payload(prompt) {
       sceneDensity: isMapping ? 'normal' : (isSar ? 'sparse' : 'none'),
       requiredAnchors: isMapping ? ['road_or_work_area', 'material_cluster'] : (isSar ? ['clearing_or_edge'] : []),
       objectFamilies: isMapping ? ['earthmoving', 'construction_truck', 'pallet_stack', 'cones'] : (isSar ? ['missing_person', 'small_equipment', 'signal_smoke'] : []),
-      placementPolicy: isMapping ? 'Cluster material objects together; do not scatter pallets.' : 'Keep the target sparse and readable.',
+      placementPolicy: isAptTraining ? 'No target object spawn; training debrief after landing.' : (isMapping ? 'Cluster material objects together; do not scatter pallets.' : 'Keep the target sparse and readable.'),
       narrativeRules: ['Keep story, passenger, sceneIntent and targetScene in the same task domain.'],
       lockedFields: {
         taskDomain,
@@ -683,6 +721,16 @@ async function wait(ms) {
   await new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function promptRecords(prompts) {
+  return prompts.map((p, index) => ({
+    index: index + 1,
+    kind: /Mission Planner V2/i.test(p.prompt) ? 'mission-planner-v2' : (/Scene Composer/i.test(p.prompt) ? 'scene-composer' : (/OUTPUT>/.test(p.prompt) ? 'mission-dispatcher' : 'pax-text')),
+    modelUrl: p.url.replace(/\?key=.*/, '?key=DRYRUN_KEY'),
+    prompt: p.prompt,
+    excerpt: p.prompt.replace(/\s+/g, ' ').slice(0, 700)
+  }));
+}
+
 async function runOne({ seed, targetType, pipelineV2 = false }) {
   const { context, prompts } = setupContext(seed);
   loadScript(context, 'datenbank.js');
@@ -715,6 +763,27 @@ async function runOne({ seed, targetType, pipelineV2 = false }) {
   await vm.runInContext('generateMission()', context);
   await wait(900);
   await vm.runInContext('acceptMissionDraft()', context);
+  const dispatchState = vm.runInContext(`(() => ({
+    hasMission: !!currentMissionData,
+    briefingVisible: document.getElementById('briefingBox').style.display || '',
+    title: document.getElementById('mTitle').innerText || document.getElementById('mTitle').innerHTML || '',
+    story: document.getElementById('mStory').innerText || '',
+    debugSnapshot: window.vpMissionDebugSnapshot || null
+  }))()`, context);
+  if (!dispatchState.hasMission) {
+    return {
+      blocked: true,
+      blockPhase: 'dispatch',
+      blockReason: 'currentMissionData missing after generateMission/acceptMissionDraft',
+      dispatchState,
+      mission: null,
+      passenger: null,
+      briefing: null,
+      paxLog: [],
+      debugSnapshot: dispatchState.debugSnapshot || null,
+      prompts: promptRecords(prompts)
+    };
+  }
   await vm.runInContext(`
     localStorage.setItem('awm_pax_voice', '0');
     paxVoiceSetEnabled(false);
@@ -806,13 +875,7 @@ async function runOne({ seed, targetType, pipelineV2 = false }) {
       debugSnapshot: window.vpMissionDebugSnapshot || null
     };
   })()`, context);
-  result.prompts = prompts.map((p, index) => ({
-    index: index + 1,
-    kind: /Mission Planner V2/i.test(p.prompt) ? 'mission-planner-v2' : (/Scene Composer/i.test(p.prompt) ? 'scene-composer' : (/OUTPUT>/.test(p.prompt) ? 'mission-dispatcher' : 'pax-text')),
-    modelUrl: p.url.replace(/\?key=.*/, '?key=DRYRUN_KEY'),
-    prompt: p.prompt,
-    excerpt: p.prompt.replace(/\s+/g, ' ').slice(0, 700)
-  }));
+  result.prompts = promptRecords(prompts);
   return result;
 }
 
@@ -904,6 +967,9 @@ async function main() {
       run: i + 1,
       seed: runs[i]?.seed,
       targetType: runs[i]?.targetType,
+      blocked: !!r.blocked,
+      blockPhase: r.blockPhase || null,
+      blockReason: r.blockReason || null,
       mode: md.isPOI ? 'POI' : 'APT',
       start: md.start,
       dest: md.isPOI ? md.poiName : md.dest,

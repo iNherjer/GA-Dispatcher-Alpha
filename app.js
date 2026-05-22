@@ -4031,8 +4031,18 @@ function _hasWordToken(text, token) {
 
 function classifyPOITitleCategory(title) {
     const t = normalizeMissionText(title);
+    if (
+        _hasWordToken(t, "burg") ||
+        _hasWordToken(t, "schloss") ||
+        _hasWordToken(t, "ruine") ||
+        _hasWordToken(t, "festung") ||
+        _hasWordToken(t, "kloster") ||
+        _hasWordToken(t, "dom") ||
+        _hasWordToken(t, "monument") ||
+        _hasWordToken(t, "denkmal")
+    ) return "castle";
     if (t.includes("bruecke") || t.includes("brucke") || t.includes("bridge") || t.includes("viadukt") || t.includes("aquadukt") || t.includes("steg") || t.includes("pont") || t.includes("puente")) return "bridge";
-    if (t.includes("autobahn") || t.includes("kreuz") || t.includes("dreieck") || t.includes("kreuzung") || t.includes("strasse") || t.includes("highway") || t.includes("motorway") || t.includes("interstate") || t.includes("freeway") || t.includes("ring") || t.includes("junction") || t.includes("interchange") || t.includes("tunnel") || t.includes("bahn") || t.includes("rail") || t.includes("railway") || t.includes("gleis") || t.includes("bahnhof")) return "road";
+    if (t.includes("autobahn") || t.includes("kreuz") || t.includes("dreieck") || t.includes("kreuzung") || t.includes("strasse") || t.includes("highway") || t.includes("motorway") || t.includes("interstate") || t.includes("freeway") || _hasWordToken(t, "ring") || t.includes("junction") || t.includes("interchange") || t.includes("tunnel") || t.includes("bahn") || t.includes("rail") || t.includes("railway") || t.includes("gleis") || t.includes("bahnhof")) return "road";
     if (
         _hasWordToken(t, "staudamm") ||
         _hasWordToken(t, "talsperre") ||
@@ -4045,16 +4055,6 @@ function classifyPOITitleCategory(title) {
     ) return "dam";
     if (t.includes("funkturm") || t.includes("fernsehturm") || t.includes("sendemast") || t.includes("funkmast") || t.includes("mast")) return "telecom";
     if (t.includes("industrie") || t.includes("werk") || t.includes("fabrik") || t.includes("kraftwerk") || t.includes("anlage") || t.includes("mine") || t.includes("tagebau")) return "industry";
-    if (
-        _hasWordToken(t, "burg") ||
-        _hasWordToken(t, "schloss") ||
-        _hasWordToken(t, "ruine") ||
-        _hasWordToken(t, "festung") ||
-        _hasWordToken(t, "kloster") ||
-        _hasWordToken(t, "dom") ||
-        _hasWordToken(t, "monument") ||
-        _hasWordToken(t, "denkmal")
-    ) return "castle";
     if (t.includes("fluss") || t.includes("strom") || t.includes("kanal") || t.includes("see") || t.includes("talsperre") || t.includes("teich") || t.includes("insel") || t.includes("weiher") || t.includes("kueste") || t.includes("hafen") || t.includes("river") || t.includes("lake") || t.includes("bay") || t.includes("fjord") || t.includes("meer") || t.includes("rhein") || t.includes("donau") || t.includes("elbe") || t.includes("isar") || t.includes("neckar")) return "water";
     if (
         _hasWordToken(t, "berg") ||
@@ -6471,6 +6471,32 @@ function buildInstructorPassenger(trainingPlan = null) {
     };
 }
 
+function enforceAptTrainingMission(mission = null, destName = '') {
+    const m = (mission && typeof mission === 'object') ? { ...mission } : {};
+    const target = String(destName || m.targetName || m.destName || 'Zielflugplatz').trim() || 'Zielflugplatz';
+    const plan = sanitizeTrainingPlan(m.passenger?.trainingPlan || null, true);
+    const passenger = buildInstructorPassenger(plan);
+    const focus = Array.isArray(plan?.focus) && plan.focus.length
+        ? plan.focus.map(x => String(x || '').trim()).filter(Boolean).slice(0, 4).join(', ')
+        : 'Airwork, saubere Anflugvorbereitung und Verfahren';
+    const modeLabel = String(plan?.mode || '').toLowerCase() === 'pattern'
+        ? 'Platzrunden- und Anflugtraining'
+        : 'Airwork- und Verfahrenstraining';
+    m.i = m.i || '🧑‍✈️';
+    m.t = `Trainingsflug nach ${target}`;
+    m.s = `Heute fliegen wir ${modeLabel} auf dem Weg nach ${target}. Der Instruktor gibt unterwegs konkrete Uebungen vor: ${focus}. Es geht um saubere Verfahren, stabile Fluglage und ein ruhiges Debriefing nach der Landung.`;
+    m.cat = 'trn';
+    m.passenger = passenger;
+    m.pax = '1 PAX (Instruktor)';
+    m.cargo = 'Trainingsunterlagen (10 lbs)';
+    m.cargoText = 'Trainingsunterlagen (10 lbs)';
+    return {
+        mission: m,
+        paxText: '1 PAX (Instruktor)',
+        cargoText: 'Trainingsunterlagen (10 lbs)'
+    };
+}
+
 function _pickNextCharterPersona() {
     const list = Array.isArray(CHARTER_PERSONA_LIBRARY) && CHARTER_PERSONA_LIBRARY.length
         ? CHARTER_PERSONA_LIBRARY
@@ -6992,13 +7018,13 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
 }
 
 const ANIMAL_TRANSPORT_SCENE_OPTIONS = [
-    { title: 'CHircusHircusFemale', label: 'Ziege', role: 'animal.grazing', keywords: /ziege|geiss|geiß|bock|goat|hircus/i },
-    { title: 'CHircusHircusJuvenile', label: 'junge Ziege', role: 'animal.grazing', keywords: /kitz|jungziege|zicklein/i },
-    { title: 'OHemionusFemale', label: 'Reh', role: 'animal.deer', keywords: /reh|hirsch|wildtier|deer|wild/i },
-    { title: 'OHemionusJuvenile', label: 'junges Reh', role: 'animal.deer', keywords: /rehkitz|kitz|junges\s+reh/i },
     { title: 'Seagull', label: 'Moewe', role: 'animal.waterfowl', keywords: /möwe|moewe|seagull|wildvogel|vogelstation/i },
     { title: 'Goose', label: 'Gans', role: 'animal.waterfowl', keywords: /gans|goose|wasservogel/i },
     { title: 'Goose', label: 'Gans', role: 'animal.waterfowl', keywords: /ente|enten|duck|mallard|schwan|swan|heimischer\s+wasservogel/i },
+    { title: 'CHircusHircusFemale', label: 'Ziege', role: 'animal.grazing', keywords: /ziege|geiss|geiß|bock|goat|hircus/i },
+    { title: 'CHircusHircusJuvenile', label: 'junge Ziege', role: 'animal.grazing', keywords: /kitz|jungziege|zicklein/i },
+    { title: 'OHemionusJuvenile', label: 'junges Reh', role: 'animal.deer', keywords: /rehkitz|kitz|junges\s+reh/i },
+    { title: 'OHemionusFemale', label: 'Reh', role: 'animal.deer', keywords: /reh|hirsch|wildtier|deer|\bwild\b/i },
     { visible: false, label: 'Schaf-Transportbox', cargoLabel: 'Schaf-Transportbox', cargoTitle: 'Pallet01_03', keywords: /schaf|sheep/i },
     { visible: false, label: 'Luchs-Transportbox', cargoLabel: 'Luchs-Transportbox', cargoTitle: 'Cardboard', keywords: /luchs|lux|lynx/i },
     { visible: false, label: 'Tiertransportbox', cargoLabel: 'Tiertransportbox', cargoTitle: 'Cardboard', keywords: /hund|katze|dackel|welpe|dog|cat/i },
@@ -7026,6 +7052,9 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
     const plan = getMissionPlanV2Plan(missionPlanV2);
     const planTask = String(plan?.taskDomain || plan?.lockedFields?.taskDomain || '').toLowerCase();
     if (planTask) {
+        if (/training|instructor/.test(planTask)) {
+            return { role: 'none' };
+        }
         if (/medical|medevac|patient/.test(planTask)) {
             return {
                 role: 'medical_handoff',
@@ -7121,6 +7150,9 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
         mission?.s
     ].filter(Boolean).join(' ').toLowerCase();
     if (!text.trim() || /freeflight|freiflug|kein\s+pax|0\s*pax|\bnone\b/.test(text)) {
+        return { role: 'none' };
+    }
+    if (/training|fluglehrer|instruktor|instructor|uebung|übung|airwork|platzrunde/.test(text)) {
         return { role: 'none' };
     }
     if (/medical|medizin|notarzt|blut|notfall/.test(text)) {
@@ -9476,6 +9508,26 @@ function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds 
         lockedFields,
         confidence: Number.isFinite(Number(rawPlan.confidence)) ? Math.max(0, Math.min(1, Number(rawPlan.confidence))) : null
     };
+    if (String(draft?.mode || '').toLowerCase() === 'apt' && String(draft?.category || '').toLowerCase() === 'trn') {
+        plan.taskDomain = 'training';
+        plan.roleProfile = 'instructor_calm_precise_v1';
+        plan.targetCategory = 'trn';
+        plan.sceneKind = 'none';
+        plan.sceneDensity = 'none';
+        plan.requiredAnchors = [];
+        plan.objectFamilies = [];
+        plan.placementPolicy = 'Kein Zielobjekt-Spawn; Trainingsdebriefing nach der Landung.';
+        plan.narrativeRules = [
+            'APT-Training bleibt ein Instruktorflug ohne Charter-, Fracht- oder Vereinsauftrag.',
+            ...plan.narrativeRules
+        ].slice(0, 8);
+        plan.lockedFields = {
+            ...(plan.lockedFields || {}),
+            taskDomain: 'training',
+            targetCategory: 'trn',
+            noLandingAtPoi: false
+        };
+    }
     return {
         pipelineVersion: 'mission-v2-planner-2026-05-22',
         status,
@@ -11350,10 +11402,10 @@ async function generateMission() {
     }
     const missionPickerResolved = {
         ...missionPicker,
-        category: selectedPoiCategory,
+        category: effectiveType === 'poi' ? selectedPoiCategory : selectedAptCategory,
         profile: dispatchProfileId,
         profileRequested: selectedMissionProfile,
-        categoryRequested: requestedPoiCategory
+        categoryRequested: effectiveType === 'poi' ? requestedPoiCategory : selectedAptCategory
     };
     // Guardrail: Bei POI-Missionen darf ein evtl. noch befülltes Zielfeld
     // (z.B. vom vorherigen A-B-Flug) NICHT als Ziel ausgewertet werden.
@@ -11463,8 +11515,15 @@ async function generateMission() {
             validPOIs = validPOIs.filter(p => poiTitleMatchesCategory(p.n, selectedPoiCategory));
         }
         if (validPOIs.length === 0 && selectedPoiCategory !== 'all') {
-            // Nicht auf globale Fernziele aufweichen: Kategorie-Fallback bleibt im Ring.
-            validPOIs = fallbackWithNav.filter(p => poiTitleMatchesCategory(p.n, selectedPoiCategory));
+            const profilePolicy = requestedPoiCategory === 'all'
+                ? missionTaskPoiCategoryPolicy(dispatchProfileId)
+                : [];
+            if (profilePolicy.length > 0) {
+                validPOIs = fallbackWithNav.filter(p => profilePolicy.some(cat => poiTitleMatchesCategory(p.n, cat)));
+                if (validPOIs.length > 0) {
+                    dataSource = "Profile Fallback POIs";
+                }
+            }
         }
         // Bei expliziter Kategorie (z.B. water) nicht auf Fremdkategorien aufweichen.
         if (validPOIs.length === 0 && selectedPoiCategory === 'all') validPOIs = fallbackWithNav;
@@ -11474,8 +11533,15 @@ async function generateMission() {
         const balancedFallbackPoi = pickBalancedByCategory(validPOIs, p => classifyPOITitleCategory(p.n), 'ga_poi_cat');
         dest = balancedFallbackPoi ? balancedFallbackPoi.item : validPOIs[Math.floor(Math.random() * validPOIs.length)];
         dest.poiCategory = balancedFallbackPoi ? balancedFallbackPoi.category : classifyPOITitleCategory(dest.n);
+        if (dataSource === "Profile Fallback POIs" && dest.poiCategory) {
+            selectedPoiCategory = dest.poiCategory;
+            missionPickerResolved.category = selectedPoiCategory;
+            missionPickerResolved.categoryRequested = requestedPoiCategory;
+        }
         dest.icao = "POI";
-            dest.poiSource = `Local fallback POIs${selectedPoiCategory !== 'all' ? ` (forced:${selectedPoiCategory})` : ''}`;
+            dest.poiSource = dataSource === "Profile Fallback POIs"
+                ? `Local fallback POIs (profile:${dispatchProfileId})`
+                : `Local fallback POIs${selectedPoiCategory !== 'all' ? ` (forced:${selectedPoiCategory})` : ''}`;
         }
     }
     if (dest && effectiveType === 'poi' && selectedPoiCategory === 'trn') {
@@ -11753,6 +11819,12 @@ async function generateMission() {
         }
         if (!isPOI && selectedAptCategory === 'cargo') paxText = "0 PAX";
         if (!isPOI && selectedAptCategory === 'trn') paxText = "1 PAX (Instruktor)";
+        if (!isPOI && selectedAptCategory === 'trn') {
+            const training = enforceAptTrainingMission(m, dest?.n || currentDestICAO || '');
+            m = training.mission || m;
+            paxText = training.paxText || paxText;
+            cargoText = training.cargoText || cargoText;
+        }
         {
             const effectiveProfileId = dispatchProfileId;
             const profApplied = applyMissionTaskProfileToMission(m, isPOI, effectiveProfileId, paxText, cargoText);
