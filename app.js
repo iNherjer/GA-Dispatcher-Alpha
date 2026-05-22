@@ -3311,7 +3311,8 @@ function setDispatchLampState(state = 'idle', dataSource = '') {
 
 let _dispatchRunId = 0;
 let _dispatchState = { active: false, cancelled: false, runId: 0 };
-const MISSION_PIPELINE_V2_STORAGE_KEY = 'ga_debug_mission_pipeline_v2';
+const MISSION_PIPELINE_LEGACY_STORAGE_KEY = 'ga_debug_mission_pipeline_legacy';
+const MISSION_PIPELINE_V2_STORAGE_KEY = 'ga_debug_mission_pipeline_v2'; // legacy preference key, no longer used for defaulting
 
 function _startDispatchRun() {
     _dispatchRunId += 1;
@@ -3339,32 +3340,48 @@ function _abortDispatchRun(reason = 'Abbruch') {
 }
 
 function isMissionPipelineV2Enabled() {
-    try { return localStorage.getItem(MISSION_PIPELINE_V2_STORAGE_KEY) === 'true'; } catch (_) { return false; }
+    try { return localStorage.getItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY) !== 'true'; } catch (_) { return true; }
 }
 window.isMissionPipelineV2Enabled = isMissionPipelineV2Enabled;
 
+function isMissionPipelineLegacyEnabled() {
+    return !isMissionPipelineV2Enabled();
+}
+window.isMissionPipelineLegacyEnabled = isMissionPipelineLegacyEnabled;
+
 function updateMissionPipelineV2ButtonUi() {
-    const btn = document.getElementById('btnMissionPipelineV2');
+    const btn = document.getElementById('btnMissionPipelineLegacy') || document.getElementById('btnMissionPipelineV2');
     if (!btn) return;
-    const on = isMissionPipelineV2Enabled();
-    btn.textContent = on ? 'Pipeline V2 An' : 'Pipeline V2 Aus';
-    btn.style.background = on ? '#3d2463' : '#241b3b';
-    btn.style.color = on ? '#f0e6ff' : '#d8c7ff';
+    const legacy = isMissionPipelineLegacyEnabled();
+    btn.textContent = legacy ? 'Legacy Pipeline An' : 'Legacy Pipeline Aus';
+    btn.style.background = legacy ? '#4a2d18' : '#241b3b';
+    btn.style.borderColor = legacy ? '#8a5a2f' : '#5a4a86';
+    btn.style.color = legacy ? '#ffd7a3' : '#d8c7ff';
 }
 window.updateMissionPipelineV2ButtonUi = updateMissionPipelineV2ButtonUi;
+window.updateMissionPipelineLegacyButtonUi = updateMissionPipelineV2ButtonUi;
 
-window.toggleMissionPipelineV2 = function(forceState) {
-    const next = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineV2Enabled();
-    try { localStorage.setItem(MISSION_PIPELINE_V2_STORAGE_KEY, String(!!next)); } catch (_) {}
+window.toggleMissionPipelineLegacy = function(forceState) {
+    const nextLegacy = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineLegacyEnabled();
+    try {
+        localStorage.setItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY, String(!!nextLegacy));
+        localStorage.removeItem(MISSION_PIPELINE_V2_STORAGE_KEY);
+    } catch (_) {}
     updateMissionPipelineV2ButtonUi();
     if (typeof window.vpRefreshWeatherDebugReport === 'function') {
         try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
     }
     const indicator = document.getElementById('searchIndicator');
-    if (indicator) indicator.innerText = next
-        ? 'Debug: Mission Pipeline V2 aktiv.'
-        : 'Debug: Klassische Mission Pipeline aktiv.';
-    return !!next;
+    if (indicator) indicator.innerText = nextLegacy
+        ? 'Debug: Legacy Mission Pipeline aktiv.'
+        : 'Debug: Mission Pipeline V2 aktiv.';
+    return !!nextLegacy;
+};
+
+window.toggleMissionPipelineV2 = function(forceState) {
+    const nextV2 = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineV2Enabled();
+    window.toggleMissionPipelineLegacy(!nextV2);
+    return !!nextV2;
 };
 
 if (typeof window !== 'undefined') {
@@ -7041,6 +7058,14 @@ function pickAnimalTransportSceneSpec(text = '') {
         || ANIMAL_TRANSPORT_SCENE_OPTIONS[0];
 }
 
+function animalTransportBoxLabel(animalSpec = null) {
+    const cargoLabel = String(animalSpec?.cargoLabel || '').trim();
+    if (cargoLabel) return cargoLabel;
+    const label = String(animalSpec?.label || '').trim();
+    if (label && !/transportbox|kiste|material/i.test(label)) return `${label}-Transportbox`;
+    return label || 'Tiertransportbox';
+}
+
 function getMissionPlanV2Plan(missionPlanV2 = null) {
     if (!missionPlanV2 || typeof missionPlanV2 !== 'object') return null;
     if (String(missionPlanV2.status || '').toLowerCase() !== 'ready') return null;
@@ -7086,9 +7111,7 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
                 mission?.t,
                 paxText
             ].filter(Boolean).join(' '));
-            const handoffLabel = animalSpec.visible === false
-                ? (animalSpec.cargoLabel || animalSpec.label || 'Transportbox')
-                : `${animalSpec.label} / Transportbox`;
+            const handoffLabel = animalTransportBoxLabel(animalSpec);
             return {
                 role: 'animal_handoff',
                 roleLabel: 'Tiertransport-Uebergabe',
@@ -7181,9 +7204,7 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
     }
     if (/animal|tier|veterinaer|tierschutz|transportbox|ziege|reh|hirsch|möwe|moewe|gans|ente|schwan|pferd|wildvogel|auffangstation/.test(text)) {
         const animalSpec = pickAnimalTransportSceneSpec(text);
-        const handoffLabel = animalSpec.visible === false
-            ? (animalSpec.cargoLabel || animalSpec.label || 'Transportbox')
-            : `${animalSpec.label} / Transportbox`;
+        const handoffLabel = animalTransportBoxLabel(animalSpec);
         return {
             role: 'animal_handoff',
             roleLabel: 'Tiertransport-Uebergabe',
@@ -7324,21 +7345,6 @@ function buildAptArrivalSceneItems(role = {}) {
             rightM: 9,
             altOffsetFt: 1
         });
-    }
-    if (roleId === 'animal_handoff') {
-        const animalSpec = role.animalSpec || pickAnimalTransportSceneSpec(`${role.expectedBy || ''} ${role.visibleCue || ''}`);
-        if (animalSpec.visible !== false) {
-            out.push({
-                kind: 'arrival_animal_1',
-                label: animalSpec.label || 'Transporttier',
-                role: animalSpec.role || 'animal.grazing',
-                objectTitle: animalSpec.title || 'CHircusHircusFemale',
-                titleCandidates: [animalSpec.title || 'CHircusHircusFemale'],
-                forwardM: 4,
-                rightM: 9,
-                hdgOffsetDeg: 225
-            });
-        }
     }
     return out;
 }
