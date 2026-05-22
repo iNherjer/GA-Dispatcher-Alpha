@@ -399,6 +399,8 @@ window.missionTargetSceneStatus = {
     spawnedCount: 0,
     spawnRequested: false,
     clearRequested: false,
+    cleared: false,
+    clearedCount: 0,
     error: null
 };
 window.missionAptArrivalSceneStatus = {
@@ -467,6 +469,9 @@ function _missionSceneDebugPatch(patch = {}, event = 'scene-debug-update') {
     _missionSceneDebugPush(event, patch || {});
     if (typeof window.vpRenderMissionSceneDebugOverlay === 'function' && window.vpMissionSceneDebugOverlayEnabled) {
         try { window.vpRenderMissionSceneDebugOverlay(); } catch (_) {}
+    }
+    if (typeof window.vpRenderMissionSceneTargetMarker === 'function') {
+        try { window.vpRenderMissionSceneTargetMarker(); } catch (_) {}
     }
     return dbg;
 }
@@ -3457,6 +3462,8 @@ window.missionTargetSceneEnsureSpawned = function(reason = 'mission-start') {
         lastCommand: { type: 'mission_scene_spawn', commandId, reason },
         spawnRequested: true,
         clearRequested: false,
+        cleared: false,
+        clearedCount: 0,
         spawned: false,
         spawnedCount: 0,
         error: null
@@ -3523,6 +3530,9 @@ window.missionTargetSceneClear = function(reason = 'mission-target-clear') {
             lastCommand: { type: 'mission_scene_clear', commandId, reason },
             clearRequested: true
         };
+        if (typeof window.vpRenderMissionSceneTargetMarker === 'function') {
+            try { window.vpRenderMissionSceneTargetMarker(); } catch (_) {}
+        }
     });
     if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
     return sent;
@@ -4346,6 +4356,8 @@ window.missionRuntimeReset = function() {
         spawnedCount: 0,
         spawnRequested: false,
         clearRequested: false,
+        cleared: false,
+        clearedCount: 0,
         error: null
     });
     Object.assign(window.missionAptArrivalSceneStatus, {

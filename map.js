@@ -8,6 +8,13 @@ if (!document.getElementById('route-anim-style')) {
         .animated-route-line { animation: routeDashAnim 1.5s linear infinite; }
         .low-fps-mode .animated-route-line { animation: none !important; stroke-dasharray: none !important; }
         .low-fps-mode .live-plane-marker .live-plane-inner { filter: none !important; }
+        .mission-target-location-label {
+            background: rgba(17, 24, 39, 0.92);
+            border: 1px solid rgba(255, 159, 28, 0.88);
+            color: #fff7ed;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+        }
     `;
     document.head.appendChild(style);
 }
@@ -82,6 +89,8 @@ window.mapHintSubmenus = window.mapHintSubmenus || { ...MAP_HINT_SUBMENU_DEFAULT
 const VP_VFR_INDEX_MIN_UPDATE_MS = 30 * 60 * 1000;
 const VP_VFR_INDEX_MAX_POINTS = 72;
 const VP_VFR_INDEX_MIN_VISIBLE_ZOOM = 8;
+const VP_VFR_OVERLAY_AUTO_HIDE_ZOOM = 14;
+const VP_VFR_INDEX_MAX_VISIBLE_ZOOM = VP_VFR_OVERLAY_AUTO_HIDE_ZOOM;
 const VP_VFR_SECTOR_BORDER_MIN_VISIBLE_ZOOM = Math.max(0, VP_VFR_INDEX_MIN_VISIBLE_ZOOM - 2);
 const VP_VFR_SECTOR_AMPEL_MIN_VISIBLE_ZOOM = VP_VFR_INDEX_MIN_VISIBLE_ZOOM;
 const VP_VFR_AMPEL_MODE_DEFAULT = 'sun';
@@ -329,6 +338,7 @@ let vpVfrOverlayScheduledForce = false;
 let vpObsTileDebugLayer = null;
 window.vpObsTileOverlayEnabled = localStorage.getItem('ga_debug_obs_tile_overlay') === 'true';
 let vpMissionSceneDebugLayer = null;
+let vpMissionSceneTargetLayer = null;
 window.vpMissionSceneDebugOverlayEnabled = localStorage.getItem('ga_debug_mission_scene_overlay') === 'true';
 const VP_OBS_TILE_USED_RECENT_MS = 5 * 60 * 1000;
 window.vpObsTileLoadingKeys = window.vpObsTileLoadingKeys || new Set();
@@ -772,6 +782,106 @@ function renderMissionSceneDebugOverlay() {
     if (!map.hasLayer(vpMissionSceneDebugLayer)) vpMissionSceneDebugLayer.addTo(map);
 }
 window.vpRenderMissionSceneDebugOverlay = renderMissionSceneDebugOverlay;
+
+function collectMissionSceneTargetLocation() {
+    const dbg = (window.gaMissionSceneDebug && typeof window.gaMissionSceneDebug === 'object') ? window.gaMissionSceneDebug : {};
+    const status = window.missionTargetSceneStatus || {};
+    if (status.clearRequested || status.cleared) return null;
+    const resolvedScene = dbg.appResolvedTargetScene && typeof dbg.appResolvedTargetScene === 'object' ? dbg.appResolvedTargetScene : null;
+    const resolvedPoint = resolvedScene && resolvedScene.point;
+    const command = dbg.lastTargetSceneCommand || null;
+    const candidates = [];
+    if (resolvedScene && resolvedPoint && status.sceneId && String(status.sceneId) === String(resolvedScene.sceneId || '')) {
+        candidates.push({
+            point: resolvedPoint,
+            kind: resolvedScene.resolvedKind,
+            label: resolvedPoint && resolvedPoint.name
+        });
+    }
+    if (command) {
+        candidates.push({
+            point: command,
+            kind: command && command.targetSceneKind,
+            label: 'Abholszene'
+        });
+    }
+    if (!status.cleared && typeof window.missionTargetSceneDebugPreview === 'function') {
+        try {
+            const preview = window.missionTargetSceneDebugPreview('map-target-marker-preview');
+            candidates.push({
+                point: preview && preview.appResolved && preview.appResolved.point,
+                kind: preview && preview.appResolved && preview.appResolved.resolvedKind,
+                label: preview && preview.appResolved && preview.appResolved.point && preview.appResolved.point.name
+            });
+            candidates.push({
+                point: preview && preview.command,
+                kind: preview && preview.command && preview.command.targetSceneKind,
+                label: 'Abholszene'
+            });
+        } catch (_) {}
+    }
+
+    for (const candidate of candidates) {
+        const point = candidate && candidate.point;
+        const lat = Number(point && point.lat);
+        const lon = Number(point && (point.lon ?? point.lng));
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        return {
+            lat,
+            lon,
+            name: String(candidate.label || point.name || 'Abholszene'),
+            kind: String(candidate.kind || point.targetSceneKind || ''),
+            altFt: Number.isFinite(Number(point.altFt)) ? Number(point.altFt) : null
+        };
+    }
+    return null;
+}
+
+function ensureMissionSceneTargetPane() {
+    if (!map || typeof L === 'undefined') return null;
+    const name = 'missionSceneTargetPane';
+    let pane = map.getPane(name);
+    if (!pane && typeof map.createPane === 'function') pane = map.createPane(name);
+    if (pane) {
+        pane.style.zIndex = '770';
+        pane.style.pointerEvents = 'auto';
+    }
+    return name;
+}
+
+function renderMissionSceneTargetMarker() {
+    if (!map || typeof L === 'undefined') return;
+    const paneName = ensureMissionSceneTargetPane();
+    if (!vpMissionSceneTargetLayer) vpMissionSceneTargetLayer = L.layerGroup();
+    vpMissionSceneTargetLayer.clearLayers();
+
+    const loc = collectMissionSceneTargetLocation();
+    if (!loc) {
+        if (map.hasLayer(vpMissionSceneTargetLayer)) map.removeLayer(vpMissionSceneTargetLayer);
+        return;
+    }
+
+    const marker = L.circleMarker([loc.lat, loc.lon], {
+        pane: paneName || undefined,
+        radius: 8,
+        color: '#111827',
+        weight: 3,
+        fillColor: '#ff9f1c',
+        fillOpacity: 0.96,
+        interactive: true,
+        bubblingMouseEvents: false
+    });
+    const kindText = loc.kind ? ` (${loc.kind.replace(/_/g, ' ')})` : '';
+    const altText = Number.isFinite(Number(loc.altFt)) ? `<br>ALT ${Math.round(Number(loc.altFt))} ft` : '';
+    marker.bindTooltip(
+        `<b>Abholszene${escapePopupText(kindText)}</b><br>${escapePopupText(loc.name)}<br>${loc.lat.toFixed(6)}, ${loc.lon.toFixed(6)}${altText}`,
+        { permanent: true, direction: 'top', offset: [0, -10], opacity: 0.95, className: 'mission-target-location-label' }
+    );
+    marker.addTo(vpMissionSceneTargetLayer);
+    if (!map.hasLayer(vpMissionSceneTargetLayer)) vpMissionSceneTargetLayer.addTo(map);
+    if (typeof marker.bringToFront === 'function') marker.bringToFront();
+}
+window.vpRenderMissionSceneTargetMarker = renderMissionSceneTargetMarker;
 
 window.vpToggleMissionSceneDebugOverlay = function(forceState) {
     const next = (typeof forceState === 'boolean') ? forceState : !window.vpMissionSceneDebugOverlayEnabled;
@@ -1566,6 +1676,12 @@ function vpIsSectorRenderModel(mode = null) {
 
 function vpGetVfrMinVisibleZoomForModel(mode = null) {
     return vpIsSectorRenderModel(mode) ? VP_VFR_SECTOR_BORDER_MIN_VISIBLE_ZOOM : VP_VFR_INDEX_MIN_VISIBLE_ZOOM;
+}
+
+function vpIsVfrIndexHiddenByHighZoom() {
+    if (!map || typeof map.getZoom !== 'function') return false;
+    const zoom = Number(map.getZoom());
+    return Number.isFinite(zoom) && zoom >= VP_VFR_INDEX_MAX_VISIBLE_ZOOM;
 }
 
 function vpNormalizeVfrSectorLineWidth(value) {
@@ -4361,6 +4477,9 @@ function vpUpdateVfrUi() {
         } else if (map && Number(map.getZoom()) < vpGetVfrMinVisibleZoomForModel(vpVfrIndexState.vfrModel)) {
             status.textContent = `Status: ausgeblendet (Zoom < ${vpGetVfrMinVisibleZoomForModel(vpVfrIndexState.vfrModel)})`;
             status.style.color = '#9bb5d1';
+        } else if (vpIsVfrIndexHiddenByHighZoom()) {
+            status.textContent = `Status: ausgeblendet (Zoom >= ${VP_VFR_INDEX_MAX_VISIBLE_ZOOM})`;
+            status.style.color = '#9bb5d1';
         } else if (vpVfrIndexState.inFlight) {
             status.textContent = `Status: Lade ${active}...`;
             status.style.color = '#f1c64a';
@@ -4471,6 +4590,11 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
     vpVfrIndexState.lastGridLatStep = Number(latStep || 0.4);
     vpVfrIndexState.lastGridLonStep = Number(lonStep || 0.4);
     layer.clearLayers();
+    if (vpIsVfrIndexHiddenByHighZoom()) {
+        if (map.hasLayer(layer)) map.removeLayer(layer);
+        if (window.gaPerfEnd) window.gaPerfEnd(perf, { status: 'hidden-by-high-zoom', zoom: map.getZoom() });
+        return;
+    }
     if (Number(map.getZoom()) < VP_VFR_INDEX_MIN_VISIBLE_ZOOM) {
         if (map.hasLayer(layer)) map.removeLayer(layer);
         if (window.gaPerfEnd) window.gaPerfEnd(perf, { status: 'hidden-by-zoom', zoom: map.getZoom() });
@@ -4606,6 +4730,11 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
     }
     layer.clearLayers();
     const zoom = Number(map.getZoom());
+    if (vpIsVfrIndexHiddenByHighZoom()) {
+        if (map.hasLayer(layer)) map.removeLayer(layer);
+        if (window.gaPerfEnd) window.gaPerfEnd(perf, { status: 'hidden-by-high-zoom', zoom });
+        return;
+    }
     if (!Number.isFinite(zoom) || zoom < VP_VFR_SECTOR_BORDER_MIN_VISIBLE_ZOOM) {
         if (map.hasLayer(layer)) map.removeLayer(layer);
         if (window.gaPerfEnd) window.gaPerfEnd(perf, { status: 'hidden-by-zoom', zoom });
@@ -4748,6 +4877,12 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         vpClearVfrLayer();
         vpUpdateVfrUi();
         finishRenderPerf('disabled');
+        return;
+    }
+    if (vpIsVfrIndexHiddenByHighZoom()) {
+        vpClearVfrLayer();
+        vpUpdateVfrUi();
+        finishRenderPerf('hidden-by-high-zoom', { zoom: map.getZoom() });
         return;
     }
     const active = vpResolveActiveVfrCountry();
@@ -5020,6 +5155,11 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
 
 function vpScheduleVfrOverlayUpdate(forceFetch = false) {
     if (window.mapHints.vfrIndex === false) return;
+    if (vpIsVfrIndexHiddenByHighZoom()) {
+        vpClearVfrLayer();
+        vpUpdateVfrUi();
+        return;
+    }
     vpVfrOverlayScheduledForce = vpVfrOverlayScheduledForce || !!forceFetch;
     if (vpVfrOverlayTimer) clearTimeout(vpVfrOverlayTimer);
     vpVfrOverlayTimer = setTimeout(() => {
@@ -5044,6 +5184,11 @@ function vpEnsureVfrAutoTimer() {
 
 function vpRefreshVfrLayerFromCache() {
     if (!map || window.mapHints.vfrIndex === false) return;
+    if (vpIsVfrIndexHiddenByHighZoom()) {
+        vpClearVfrLayer();
+        vpUpdateVfrUi();
+        return;
+    }
     vpRefreshTimelineClockInPlace(vpVfrIndexState.timeline);
     if (vpVfrIndexState.lastRenderMode === 'gafor_sector') {
         vpRenderGaforSectorCells(
@@ -7605,6 +7750,14 @@ function initMapBase() {
     if (dwdWarningsActive) startupLayers.push(dwdWarningsOverlay);
     if (awcSigmetActive) startupLayers.push(awcSigmetOverlay);
     map = L.map('map', { layers: startupLayers, attributionControl: false }).setView([51.1657, 10.4515], 6);
+    const updateAeroOverlayZoomVisibility = () => {
+        if (!map || !aeroOverlay || !map.hasLayer(aeroOverlay)) return;
+        const zoom = Number(map.getZoom && map.getZoom());
+        const hiddenForZoom = Number.isFinite(zoom) && zoom >= VP_VFR_OVERLAY_AUTO_HIDE_ZOOM;
+        aeroOverlay.setOpacity(hiddenForZoom ? 0 : 0.65);
+        if (map.hasLayer(topoMap)) topoMap.setOpacity(hiddenForZoom ? 1.0 : 0.5);
+    };
+    window.updateAeroOverlayZoomVisibility = updateAeroOverlayZoomVisibility;
     const markMapInteraction = () => {
         window.vpMapInteractionActive = true;
         if (window._vpMapInteractionTimeout) clearTimeout(window._vpMapInteractionTimeout);
@@ -7650,6 +7803,15 @@ function initMapBase() {
     const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed: true }).addTo(map);
     if (layerControl && layerControl._container) {
         const lc = layerControl._container;
+        const bringLayerControlToFront = () => {
+            lc.style.position = lc.style.position || 'relative';
+            if (typeof bringMapOverlayToFront === 'function') {
+                bringMapOverlayToFront(lc);
+                return;
+            }
+            window.gaMapOverlayZ = Math.max(130500, Number(window.gaMapOverlayZ) || 130500) + 1;
+            lc.style.zIndex = String(window.gaMapOverlayZ);
+        };
         // Hover-Verhalten robust deaktivieren: Leaflet nutzt je nach Version
         // mouseover/mouseout oder mouseenter/mouseleave.
         const expandFn = (typeof layerControl.expand === 'function') ? layerControl.expand
@@ -7664,7 +7826,10 @@ function initMapBase() {
         if (origExpand) {
             layerControl.expand = function() {
                 if (!this._allowManualExpand) return this;
-                return origExpand();
+                bringLayerControlToFront();
+                const out = origExpand();
+                bringLayerControlToFront();
+                return out;
             };
             layerControl._expand = layerControl.expand;
         }
@@ -7693,7 +7858,10 @@ function initMapBase() {
                 L.DomEvent.off(toggle, 'focus', expandFn, layerControl);
             }
             L.DomEvent.on(toggle, 'click', L.DomEvent.stop);
+            L.DomEvent.on(toggle, 'pointerdown', bringLayerControlToFront);
+            L.DomEvent.on(toggle, 'mousedown', bringLayerControlToFront);
             L.DomEvent.on(toggle, 'click', () => {
+                bringLayerControlToFront();
                 const isOpen = L.DomUtil.hasClass(lc, 'leaflet-control-layers-expanded');
                 if (isOpen && typeof layerControl.collapse === 'function') {
                     layerControl.collapse();
@@ -7704,6 +7872,8 @@ function initMapBase() {
                 }
             });
         }
+        L.DomEvent.on(lc, 'pointerdown', bringLayerControlToFront);
+        L.DomEvent.on(lc, 'click', bringLayerControlToFront);
 
         if (!map._layersOutsideCloseBound) {
             document.addEventListener('click', (e) => {
@@ -7720,7 +7890,7 @@ function initMapBase() {
         // Schaltet DFS ab, wenn VFR-Lufträume aktiviert werden
         if (e.name === "🛩️ VFR Lufträume (Overlay)") {
             if (typeof dfsIcaoOverlay !== 'undefined' && map.hasLayer(dfsIcaoOverlay)) map.removeLayer(dfsIcaoOverlay);
-            topoMap.setOpacity(0.5);
+            updateAeroOverlayZoomVisibility();
         }
         // Schaltet VFR-Lufträume ab, wenn DFS aktiviert wird
         if (e.name === "🗺️ DFS ICAO Karte 1:500k") {
@@ -7740,6 +7910,7 @@ function initMapBase() {
     
     map.on('overlayremove', function (e) {
         if (e.name === "🛩️ VFR Lufträume (Overlay)") {
+            aeroOverlay.setOpacity(0.65);
             topoMap.setOpacity(1.0);
         }
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'false');
@@ -7761,11 +7932,15 @@ function initMapBase() {
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
         if (window.vpMissionSceneDebugOverlayEnabled) renderMissionSceneDebugOverlay();
+        renderMissionSceneTargetMarker();
+        updateAeroOverlayZoomVisibility();
     });
     map.on('zoomend', function() {
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
         if (window.vpMissionSceneDebugOverlayEnabled) renderMissionSceneDebugOverlay();
+        renderMissionSceneTargetMarker();
+        updateAeroOverlayZoomVisibility();
         if (window.mapHints.vfrIndex !== false) {
             vpRefreshVfrLayerFromCache();
             vpScheduleVfrOverlayUpdate(false);
@@ -7828,6 +8003,8 @@ function initMapBase() {
     if (window.mapHints.vfrIndex !== false) vpScheduleVfrOverlayUpdate(false);
     updateMissionSceneDebugOverlayButtonUi();
     if (window.vpMissionSceneDebugOverlayEnabled) renderMissionSceneDebugOverlay();
+    renderMissionSceneTargetMarker();
+    updateAeroOverlayZoomVisibility();
 }
 
 function updateMap(lat1, lon1, lat2, lon2, s, d) {
