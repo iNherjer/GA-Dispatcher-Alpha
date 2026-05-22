@@ -7692,17 +7692,25 @@ function missionMatchesTaskProfile(missionLike, profileId, isPOI = false) {
     const id = String(profileId || 'auto').toLowerCase();
     if (!id || id === 'auto') return true;
     const expectedProfile = getMissionTaskProfile(id, isPOI ? 'poi' : 'apt') || null;
+    const t = normalizeMissionText(missionLike?.t || missionLike?.title || '');
+    const s = normalizeMissionText(missionLike?.s || missionLike?.story || '');
+    const hay = `${t} ${s}`;
+    const has = (re) => re.test(hay);
+    const conflictsWithProfile = (profile) => {
+        if (profile === 'sightseeing_tour') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|mechaniker|fracht|kurier|medizin|tierschutz|training|fluglehrer/);
+        if (profile === 'cargo_fragile') return has(/\bverein|vereins|stammtisch|fly in|sightseeing|panorama|kuchen|burger|wellness|tour|konzert|city\b/);
+        if (profile === 'animal_transport') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|sightseeing|panorama|training|fluglehrer/);
+        if (profile === 'medical_transfer') return has(/\bverein|vereins|sightseeing|panorama|kuchen|burger|tierschutz|tiertransport/);
+        if (profile === 'news_coverage') return has(/\bverein|vereins|ersatzteil|pumpe|werkzeug|tierschutz|tiertransport|training|fluglehrer/);
+        return false;
+    };
     const rp = String(missionLike?.passenger?.roleProfile || '').toLowerCase().trim();
     const td = String(missionLike?.passenger?.taskDomain || '').toLowerCase().trim();
     if (expectedProfile && (rp || td)) {
         const rpOk = !expectedProfile.roleProfile || rp === String(expectedProfile.roleProfile || '').toLowerCase();
         const tdOk = !expectedProfile.taskDomain || td === String(expectedProfile.taskDomain || '').toLowerCase();
-        if (rpOk && tdOk) return true;
+        if (rpOk && tdOk && !conflictsWithProfile(id)) return true;
     }
-    const t = normalizeMissionText(missionLike?.t || missionLike?.title || '');
-    const s = normalizeMissionText(missionLike?.s || missionLike?.story || '');
-    const hay = `${t} ${s}`;
-    const has = (re) => re.test(hay);
 
     if (id === 'medical_transfer') {
         return has(/organtransport|medicine emergency|medizin|medical|notfall|blut|plasma|anti serum|klinik|arzt|notarzt|labor kurier/);
@@ -10260,6 +10268,66 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const missionPlanV2 = poiTargetMeta?.missionPlanV2 || null;
     const compactMissionPlanV2 = compactMissionPlanV2ForPrompt(missionPlanV2);
     const compactTruth = compactMissionTruthForPrompt(missionTruth);
+    const dispatchPlan = compactMissionPlanV2?.plan || {};
+    const requiredTaskDomain = String(
+        (forcedProfile && forcedProfile.id !== 'auto' ? forcedProfile.taskDomain : '') ||
+        dispatchPlan.taskDomain ||
+        (isTrainingMission ? 'training' : '')
+    ).toLowerCase();
+    const requiredRoleProfile = String(
+        (forcedProfile && forcedProfile.id !== 'auto' ? forcedProfile.roleProfile : '') ||
+        dispatchPlan.roleProfile ||
+        (isTrainingMission ? 'instructor_calm_precise_v1' : '')
+    ).toLowerCase();
+    const forbiddenByTaskDomain = {
+        sightseeing_tour: ['club_utility', 'cargo_fragile', 'medical_transfer', 'animal_transport', 'training'],
+        cargo_fragile: ['club_utility', 'sightseeing_tour', 'medical_transfer', 'animal_transport', 'training'],
+        animal_transport: ['club_utility', 'sightseeing_tour', 'cargo_fragile', 'medical_transfer', 'training'],
+        medical_transfer: ['club_utility', 'sightseeing_tour', 'cargo_fragile', 'animal_transport', 'training'],
+        news_coverage: ['club_utility', 'sightseeing_tour', 'cargo_fragile', 'animal_transport', 'training'],
+        training: ['club_utility', 'sightseeing_tour', 'cargo_fragile', 'medical_transfer', 'animal_transport']
+    };
+    const forbiddenThemesByTaskDomain = {
+        sightseeing_tour: ['Vereins-Shuttle', 'Ersatzteilflug', 'Mechaniker-Shuttle', 'Kurierflug', 'Frachtauftrag', 'medizinischer Transfer', 'Tiertransport'],
+        cargo_fragile: ['Vereins-Shuttle', 'Sightseeing', 'Städtetrip', 'Kaffee-und-Kuchen-Flug', 'Tiertransport', 'medizinischer Transfer'],
+        animal_transport: ['Vereins-Shuttle', 'Ersatzteilflug', 'Sightseeing', 'Städtetrip', 'Frachtauftrag ohne Tier', 'Training'],
+        medical_transfer: ['Vereins-Shuttle', 'Sightseeing', 'Tiertransport', 'Frachtauftrag ohne medizinischen Bezug', 'Training'],
+        news_coverage: ['Vereins-Shuttle', 'Ersatzteilflug', 'Sightseeing', 'Tiertransport', 'Training'],
+        training: ['Vereins-Shuttle', 'Sightseeing', 'Frachtauftrag', 'Tiertransport', 'medizinischer Transfer']
+    };
+    const dispatchForm = {
+        schema: 'missionDispatchForm.v2',
+        mode: isPOI ? 'poi' : 'apt',
+        route: {
+            startName,
+            targetName: promptDestName,
+            distanceNm: Number.isFinite(Number(dist)) ? Number(dist) : null
+        },
+        picker: {
+            category: String(missionSel.category || 'all'),
+            profile: String(missionSel.profile || 'auto')
+        },
+        required: {
+            taskDomain: requiredTaskDomain || null,
+            roleProfile: requiredRoleProfile || null,
+            missionType: isPOI ? 'poi' : 'apt',
+            targetCategory: String(dispatchPlan.targetCategory || missionSel.category || '').toLowerCase() || null,
+            sceneKind: String(dispatchPlan.sceneKind || (isPOI ? '' : 'none')).toLowerCase() || null,
+            noLandingAtPoi: !!isPOI,
+            targetLabel: String(dispatchPlan.targetLabel || promptDestName || '')
+        },
+        profileContract: forcedProfile && forcedProfile.id !== 'auto' ? {
+            id: forcedProfile.id,
+            label: forcedProfile.label,
+            paxText: forcedProfile.paxText || '',
+            cargoExamples: Array.isArray(forcedProfile.cargoPool) ? forcedProfile.cargoPool.slice(0, 4) : [],
+            storyCue: forcedProfile.storyCue || ''
+        } : null,
+        allowedTheme: randomTheme,
+        forbiddenTaskDomains: forbiddenByTaskDomain[requiredTaskDomain] || [],
+        forbiddenThemes: forbiddenThemesByTaskDomain[requiredTaskDomain] || [],
+        instruction: 'Fuelle nur die Textfelder fuer genau dieses Formular aus. Auftragstyp, taskDomain, roleProfile und Ziel duerfen nicht neu erfunden werden.'
+    };
     const poiNameIsGeneric = /^(poi|zielgebiet|staudamm\/talsperre|gewaesser|gewasser|berg-\/talgebiet|funkmast\/funkturm\/windrad|industrieanlage)$/i.test(String(promptDestName || '').trim());
     const poiConsistencyRule = isPOI
         ? (compactTruth?.mainTarget
@@ -10312,6 +10380,7 @@ REGELN:
 13) Trennung strikt einhalten: Alles in <INSTRUKTIONEN> sind Arbeitsregeln und dürfen nicht als Storytext erscheinen.
 13b) greetingText MUSS die konkrete Aufgabe kurz nennen: was suchen, beobachten, prüfen oder fotografieren wir und in welchem Zielkontext. Keine rein generischen Begrüßungen wie "Suchmuster und klare Calls" ohne Objekt/Ort/Trasse/Anlass.
 13c) Story, greetingText und sceneIntent muessen dieselbe Lage beschreiben. Das gilt fuer alle Missionstypen. Erst das Primaerziel definieren, dann passende Kontextobjekte, dann nur bei Bedarf Support. Wenn sceneIntent sichtbare Personen, Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere, Werkzeug, Fracht oder Ausruestung vorsieht, muss die Story/Greeting diese Elemente natuerlich stuetzen. Fuege keine Support-Objekte hinzu, die den Auftrag schon erledigt wirken lassen oder im Briefing nicht vorkommen.
+13d) DISPATCH-FORMULAR: Das JSON in <DISPATCH_FORM> ist bindend. Du darfst Auftragstyp, taskDomain, roleProfile, Ziel, Missionstyp und forbiddenThemes nicht uminterpretieren. Wenn ein Feld im Formular gesetzt ist, muss deine Ausgabe dazu passen.
 ${trainingHardRules}
 ${poiNoTrainingRule}
 ${forcedProfileRule}
@@ -10342,9 +10411,18 @@ Erlaubte taskDomain:
 ["general","training","charter","inspection_infra","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","poi_learning_guide","historian_guided_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced"]
 </KONTEXT>
 
+<DISPATCH_FORM>
+${JSON.stringify(dispatchForm)}
+</DISPATCH_FORM>
+
 <OUTPUT>
 Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
 {
+  "dispatchFormAck": {
+    "taskDomain": "aus DISPATCH_FORM.required.taskDomain",
+    "roleProfile": "aus DISPATCH_FORM.required.roleProfile",
+    "missionType": "aus DISPATCH_FORM.required.missionType"
+  },
   "title": "Kreativer Titel",
   "story": "Briefing, max 3-4 Sätze",
   "pax": "z.B. '2 PAX (...)' oder '0 PAX'",

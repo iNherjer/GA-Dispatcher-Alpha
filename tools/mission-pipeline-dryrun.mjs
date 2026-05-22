@@ -154,14 +154,22 @@ function parsePromptTheme(prompt) {
   return String(prompt || '').match(/Thema-Pflicht:[^"]*"([^"]+)"/i)?.[1] || '';
 }
 
+function parseDispatchForm(prompt) {
+  const raw = extractTaggedBlock(prompt, 'DISPATCH_FORM');
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (_) { return null; }
+}
+
 function buildMissionAiPayload(prompt) {
   const start = parseContextValue(prompt, 'Start') || 'Bremen-Hemelingen';
   const targetLine = parseContextValue(prompt, 'Ziel') || 'Zielgebiet';
   const target = targetLine.replace(/\s+\((POI\/Wendepunkt|Zielflughafen)\)\s*$/i, '').trim();
   const isPoi = /POI\/Wendepunkt/i.test(targetLine) || /RUNDFLUG-REGEL/i.test(prompt);
   const forcedTaskDomain = parseForcedTaskDomain(prompt);
+  const dispatchForm = parseDispatchForm(prompt);
+  const formTaskDomain = String(dispatchForm?.required?.taskDomain || '').toLowerCase();
   const theme = parsePromptTheme(prompt);
-  const taskAndTheme = `${forcedTaskDomain} ${theme}`;
+  const taskAndTheme = `${forcedTaskDomain} ${formTaskDomain} ${theme}`;
   const wantsMapping = promptHas(taskAndTheme, 'mapping_survey', 'kartier', 'survey', 'baustell', 'materiallager');
   const wantsFire = promptHas(taskAndTheme, 'fire_watch', 'feuer', 'brand', 'rauchentwicklung', 'waldbrand');
   const wantsSar = promptHas(taskAndTheme, 'search_and_rescue', 'sar/rescue', 'such', 'rettung', 'vermisst');
@@ -379,6 +387,124 @@ function buildMissionAiPayload(prompt) {
         targetRadiusNm: 0,
         targetDwellMin: 0,
         greetingText: `Hi, wir bringen die gesicherte Wildvogel-Transportbox nach ${target}; wichtig ist ein ruhiger, gleichmaessiger Flug.`,
+        trainingPlan: null
+      }
+    };
+  }
+  if (formTaskDomain === 'cargo_fragile') {
+    return {
+      dispatchFormAck: {
+        taskDomain: 'cargo_fragile',
+        roleProfile: 'cargo_fragile_highcare_v1',
+        missionType: 'apt'
+      },
+      title: `Empfindliche Fracht nach ${target}`,
+      story: `Eine empfindliche Sendung muss sicher nach ${target}. Die Ladung bleibt im Stoßschutz-Case, daher zaehlen ruhige Fluglage, weiche Korrekturen und eine saubere Uebergabe am Vorfeld.`,
+      pax: '1 PAX (Frachtbegleitung)',
+      cargo: 'Präzisionsoptik im Stoßschutz-Case (28 lbs)',
+      sceneIntent: {
+        summary: 'A-B-Flug ohne Zielszene; die sichtbare Logik liegt in Fracht und Uebergabe am Ziel.',
+        environment: 'leer',
+        visibleIdeas: [],
+        avoid: ['kein Vereinsauftrag', 'kein Sightseeing', 'keine Werkstattstory'],
+        densityHint: 'none',
+        notes: 'Fragile Fracht bleibt A-B-Kontext.'
+      },
+      passenger: {
+        name: 'Ralf König',
+        role: 'Frachtbegleiter',
+        gender: 'male',
+        personality: 'ruhig, organisiert, praezise',
+        dialectHint: 'neutral',
+        roleProfile: 'cargo_fragile_highcare_v1',
+        taskDomain: 'cargo_fragile',
+        gTolerance: 'mittel',
+        bankTolerance: 'niedrig',
+        cargoSensitivity: 'hoch',
+        stomachSensitivity: 'mittel',
+        comfortPriority: 'hoch',
+        urgencyPriority: 'niedrig',
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0,
+        greetingText: `Hi, die Fracht nach ${target} ist empfindlich; bitte ruhig fliegen und harte Manoever vermeiden.`,
+        trainingPlan: null
+      }
+    };
+  }
+  if (formTaskDomain === 'sightseeing_tour') {
+    return {
+      dispatchFormAck: {
+        taskDomain: 'sightseeing_tour',
+        roleProfile: 'tour_guide_relaxed_v1',
+        missionType: 'apt'
+      },
+      title: `Ausflug nach ${target}`,
+      story: `Ein entspannter Ausflug fuehrt heute nach ${target}. Im Mittelpunkt stehen ein ruhiger Flug, angenehme Aussicht unterwegs und ein unkomplizierter Treffpunkt am Vorfeld nach der Landung.`,
+      pax: '2 PAX (Sightseeing-Gäste)',
+      cargo: 'Kleine Kamerataschen (12 lbs)',
+      sceneIntent: {
+        summary: 'A-B-Ausflug ohne Zielszene; am Zielflugplatz nur normale Abholung.',
+        environment: 'leer',
+        visibleIdeas: [],
+        avoid: ['kein Vereinsauftrag', 'keine Ersatzteile', 'keine Frachtuebergabe'],
+        densityHint: 'none',
+        notes: 'Sightseeing bleibt passagiernah und locker.'
+      },
+      passenger: {
+        name: 'Sophie Lang',
+        role: 'Tour-Guide',
+        gender: 'female',
+        personality: 'freundlich, gelassen, kommunikativ',
+        dialectHint: 'neutral',
+        roleProfile: 'tour_guide_relaxed_v1',
+        taskDomain: 'sightseeing_tour',
+        gTolerance: 'niedrig',
+        bankTolerance: 'niedrig',
+        cargoSensitivity: 'niedrig',
+        stomachSensitivity: 'hoch',
+        comfortPriority: 'hoch',
+        urgencyPriority: 'niedrig',
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0,
+        greetingText: `Hi, heute geht es entspannt nach ${target}; ich freue mich auf einen ruhigen Ausflug und gute Aussicht.`,
+        trainingPlan: null
+      }
+    };
+  }
+  if (formTaskDomain === 'news_coverage') {
+    return {
+      title: `Reporterflug nach ${target}`,
+      story: `Eine Redaktion braucht einen ruhigen Transfer nach ${target}, damit vor Ort ein kurzer Beitrag vorbereitet werden kann. Kamera- und Audiotasche bleiben griffbereit, der Flug selbst bleibt ein sachlicher A-B-Transfer ohne Luftarbeitsauftrag.`,
+      pax: '1 PAX (Reporter)',
+      cargo: 'Kamera- und Audio-Set (32 lbs)',
+      sceneIntent: {
+        summary: 'A-B-Medientransfer ohne Zielszene.',
+        environment: 'leer',
+        visibleIdeas: [],
+        avoid: ['kein Vereinsauftrag', 'kein Sightseeing'],
+        densityHint: 'none',
+        notes: 'Medienauftrag findet am Boden nach Ankunft statt.'
+      },
+      passenger: {
+        name: 'Mara Feld',
+        role: 'Reporterin',
+        gender: 'female',
+        personality: 'neugierig, sachlich, schnell',
+        dialectHint: 'neutral',
+        roleProfile: 'news_reporter_professional_v1',
+        taskDomain: 'news_coverage',
+        gTolerance: 'mittel',
+        bankTolerance: 'mittel',
+        cargoSensitivity: 'mittel',
+        stomachSensitivity: 'mittel',
+        comfortPriority: 'mittel',
+        urgencyPriority: 'niedrig',
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0,
+        greetingText: `Hi, ich muss nach ${target} fuer einen sachlichen Beitrag am Boden; ein ruhiger Transfer reicht voellig.`,
         trainingPlan: null
       }
     };
