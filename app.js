@@ -7096,7 +7096,8 @@ function buildAptArrivalSceneItems(role = {}) {
             objectTitle: equipmentTitle,
             titleCandidates: equipmentCandidates,
             forwardM: 1,
-            rightM: 9
+            rightM: 9,
+            altOffsetFt: 1
         });
     }
     if (roleId === 'animal_handoff') {
@@ -7153,7 +7154,10 @@ function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passe
     if (!role || role.role === 'none') return null;
     const icao = String(dest?.icao || (typeof currentDestICAO !== 'undefined' ? currentDestICAO : '') || '').trim();
     const airportName = String(dest?.n || dest?.name || icao || 'Zielflugplatz').trim();
-    const rawElev = dest?.elevFt ?? dest?.elevationFt ?? dest?.elevation ?? (typeof currentDestElev !== 'undefined' ? currentDestElev : null);
+    const airportElev = (icao && typeof globalAirports !== 'undefined' && globalAirports && globalAirports[icao])
+        ? globalAirports[icao].elevation
+        : null;
+    const rawElev = dest?.elevFt ?? dest?.elevationFt ?? dest?.elevation ?? airportElev ?? (typeof currentDestElev !== 'undefined' ? currentDestElev : null);
     const altFt = Number.isFinite(Number(rawElev)) ? Math.round(Number(rawElev)) : null;
     const hdg = Number.isFinite(Number(heading)) ? Math.round(Number(heading)) : 0;
     const anchor = representativeAptArrivalAnchor(lat, lon, hdg);

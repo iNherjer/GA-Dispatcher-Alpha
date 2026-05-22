@@ -3737,7 +3737,9 @@ window.vpBuildWeatherDebugReport = function() {
         ? window.missionAptArrivalDebugPreview('debug-report-preview')
         : null;
     const appResolved = sceneDbg.appResolvedTargetScene || targetPreview?.appResolved || null;
+    const appResolvedAptArrival = sceneDbg.appResolvedAptArrivalScene || null;
     const lastTargetCommand = sceneDbg.lastTargetSceneCommand || null;
+    const lastAptArrivalCommand = sceneDbg.lastAptArrivalSceneCommand || null;
     const previewTargetCommand = targetPreview?.command || null;
     const plannedStartCommand = startEndPreview?.start || null;
     const plannedEndCommand = startEndPreview?.end || null;
@@ -3745,7 +3747,7 @@ window.vpBuildWeatherDebugReport = function() {
     const lastStartCommand = sceneDbg.lastStartSceneCommand || null;
     const lastEndCommand = sceneDbg.lastEndSceneCommand || null;
     const lastSmokeCommand = sceneDbg.lastSmokeCommand || null;
-    const lastAck = sceneDbg.lastAck || window.missionTargetSceneStatus?.lastAck || window.missionSceneStatus?.lastAck || null;
+    const lastAck = sceneDbg.lastAck || window.missionAptArrivalSceneStatus?.lastAck || window.missionTargetSceneStatus?.lastAck || window.missionSceneStatus?.lastAck || null;
     const fmtSceneSpec = (label, spec) => {
         if (!spec || typeof spec !== 'object') {
             lines.push(`- ${label}: -`);
@@ -3814,14 +3816,24 @@ window.vpBuildWeatherDebugReport = function() {
     } else {
         lines.push('- App resolved: -');
     }
+    if (appResolvedAptArrival && typeof appResolvedAptArrival === 'object') {
+        const point = appResolvedAptArrival.point || {};
+        const pointText = (Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lon)))
+            ? `${Number(point.lat).toFixed(5)}, ${Number(point.lon).toFixed(5)} alt=${Math.round(Number(point.altFt || 0))}ft`
+            : '-';
+        lines.push(`- App resolved APT Arrival: role=${appResolvedAptArrival.roleLabel || appResolvedAptArrival.role || '-'} | scene=${appResolvedAptArrival.sceneId || '-'} | point=${pointText} | items=${appResolvedAptArrival.itemCount || 0}`);
+    } else {
+        lines.push('- App resolved APT Arrival: -');
+    }
     fmtCommand('App -> Sim Zielszene', lastTargetCommand);
+    fmtCommand('App -> Sim APT Arrival', lastAptArrivalCommand);
     fmtCommand('Plan Startszene', plannedStartCommand);
     fmtCommand('Plan Endszene', plannedEndCommand);
     fmtCommand('Plan APT Arrival', plannedAptArrivalCommand);
     fmtCommand('App -> Sim Startszene', lastStartCommand);
     fmtCommand('App -> Sim Endszene', lastEndCommand);
     fmtCommand('App -> Sim Smoke/Fire', lastSmokeCommand);
-    const scenePointCount = [lastTargetCommand || previewTargetCommand, plannedStartCommand, plannedEndCommand, plannedAptArrivalCommand, lastSmokeCommand]
+    const scenePointCount = [lastTargetCommand || previewTargetCommand, lastAptArrivalCommand || plannedAptArrivalCommand, plannedStartCommand, plannedEndCommand, lastSmokeCommand]
         .reduce((sum, cmd) => sum + (Array.isArray(cmd?.mapPoints) ? cmd.mapPoints.length : 0), 0);
     const hasPreviewPoints = Boolean((previewTargetCommand && !lastTargetCommand) || plannedStartCommand || plannedEndCommand || plannedAptArrivalCommand);
     lines.push(`- Scene Punkte Overlay: ${window.vpMissionSceneDebugOverlayEnabled ? 'An' : 'Aus'} | Punkte=${scenePointCount}${hasPreviewPoints ? ' (Preview)' : ''}`);
