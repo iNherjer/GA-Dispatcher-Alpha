@@ -292,7 +292,7 @@ function _poiNoRepeatHint(stage = 'entry') {
         if (_poiNarrativeMemory.done) used.push(_poiNarrativeMemory.done);
     }
     if (!used.length) return '';
-    return ` Bereits genannt (nicht wiederholen, nicht paraphrasieren): ${used.join(' | ')}. Liefere stattdessen neue, konkrete Zusatzinfos.`;
+    return ` Bereits genannt (nicht wiederholen, nicht paraphrasieren und nicht als Leitmotiv fortsetzen): ${used.join(' | ')}. Liefere stattdessen neue, konkrete Zusatzinfos. Wenn darin eine Landmarke oder ein Spezialobjekt vorkam, greife es nicht erneut auf, ausser die aktuelle Anweisung verlangt es ausdruecklich.`;
 }
 
 function _isPattonvilleMissionTarget() {
@@ -733,9 +733,9 @@ function _domainDriftGuard(mode = 'generic') {
         return ' Drift-Guard (Survey): Nur technisch-praezise Vermessungs-/Dokumentationssprache. Keine Begeisterungs- oder Tourismusformeln, keine Inspektionsdramatik.';
     }
     if (td === 'poi_learning_guide') {
-        if (m === 'result') return ' Drift-Guard (Lern-Guide): Abschluss mit 1-2 klaren Fakten/Einordnung und einem ruhigen Weiterflug-Hinweis. Keine Arbeitsanweisung, keine Einsatz-/Inspektionssprache.';
-        if (m === 'progress') return ' Drift-Guard (Lern-Guide): Nur Fakten, Kontext und Orientierung zum Ziel. Keine Checklisten, keine Mess-/Schadenssprache.';
-        return ' Drift-Guard (Lern-Guide): Bildungsorientiert und anschaulich. Keine Instruktoranweisungen, keine feste Arbeitshoehe verlangen, kein SAR-/Fire-/Inspektions-Ton.';
+        if (m === 'result') return ' Drift-Guard (Lern-Guide): Abschluss mit 1-2 klaren Fakten/Einordnung und einem ruhigen Weiterflug-Hinweis. Keine Arbeitsanweisung, keine Einsatz-/Inspektionssprache. Keine unbestaetigten Spezial-Landmarken als roten Faden weiterfuehren.';
+        if (m === 'progress') return ' Drift-Guard (Lern-Guide): Nur Fakten, Kontext und Orientierung zum Ziel. Keine Checklisten, keine Mess-/Schadenssprache. Keine unbestaetigten Spezial-Landmarken als roten Faden weiterfuehren.';
+        return ' Drift-Guard (Lern-Guide): Bildungsorientiert und anschaulich. Keine Instruktoranweisungen, keine feste Arbeitshoehe verlangen, kein SAR-/Fire-/Inspektions-Ton. Keine Strommasten, Windraeder oder andere Spezial-Landmarken nennen, ausser sie sind das Ziel oder sicher bestaetigt.';
     }
     if (td === 'news_coverage') {
         if (m === 'result') return ' Drift-Guard (News): Abschluss als kurze sachliche Lagezusammenfassung. Kein Einsatzabschluss wie SAR, kein Touri-Ton.';
@@ -756,10 +756,40 @@ function _targetFactHint() {
     // Filter internal/source status text so it never leaks into spoken prompts.
     if (/(wikipedia|wiki-daten|fetch-fehler)/i.test(cleaned)) return '';
     if (/(konnte(n)?\s+nicht|nicht\s+abrufbar|nicht\s+geladen|fehler)/i.test(cleaned)) return '';
-    const firstSentence = cleaned.split(/[.!?]/).map(s => s.trim()).filter(Boolean)[0] || '';
-    if (!firstSentence || firstSentence.length < 28) return '';
-    const clip = firstSentence.length > 180 ? `${firstSentence.slice(0, 177)}...` : firstSentence;
+    const pickedSentence = cleaned
+        .split(/[.!?]/)
+        .map(s => s.trim())
+        .filter(s => s.length >= 28)
+        .find(s => !_poiMemoryHasSimilarFact(s)) || '';
+    if (!pickedSentence) return '';
+    const clip = pickedSentence.length > 180 ? `${pickedSentence.slice(0, 177)}...` : pickedSentence;
     return ` Sachlicher Ziel-Fakt (wenn passend kurz einbauen): ${clip}.`;
+}
+
+function _factKeywords(text = '') {
+    const stop = new Set(['eine', 'einer', 'einem', 'einen', 'fuer', 'für', 'fur', 'oder', 'und', 'sind', 'sein', 'wird', 'hier', 'dort', 'diese', 'dieser', 'dieses', 'durch', 'nicht', 'auch', 'nach', 'ziel', 'zielgebiet']);
+    return String(text || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9äöüß]+/g, ' ')
+        .split(/\s+/)
+        .map(w => w.trim())
+        .filter(w => w.length >= 5 && !stop.has(w))
+        .slice(0, 12);
+}
+
+function _poiMemoryHasSimilarFact(fact = '') {
+    if (!_isPOIMission()) return false;
+    const words = _factKeywords(fact);
+    if (words.length < 4) return false;
+    const mem = [
+        _poiNarrativeMemory.pre,
+        _poiNarrativeMemory.entry,
+        _poiNarrativeMemory.done
+    ].join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (!mem.trim()) return false;
+    const overlap = words.filter(w => mem.includes(w)).length;
+    return overlap >= Math.min(4, Math.ceil(words.length * 0.45));
 }
 
 function _activeAptTrainingPlan() {
@@ -2069,10 +2099,145 @@ function _normUrgencyPriority(v) {
     return s === 'hoch' ? 'hoch' : 'niedrig';
 }
 
+function _paxTextHasPowerlineLandmark(text = '') {
+    return /(strommast|strommasten|stromtrasse|stromleitung|freileitung|hochspann|hochspannung|powerline|power\s+line|power\s+pylon|power\s+tower|umspannwerk|leitungsmast|stromnetz)/i.test(String(text || ''));
+}
+
+function _paxTextHasWindLandmark(text = '') {
+    return /(windrad|windraeder|windräder|windturbine|wind\s+turbine|windkraft|windpark|windenergie|rotorblatt|rotor)/i.test(String(text || ''));
+}
+
+function _paxTextHasBridgeLandmark(text = '') {
+    return /(bruecke|brücke|brucke|bridge|viadukt|aquadukt)/i.test(String(text || ''));
+}
+
+function _paxTextHasRiverLandmark(text = '') {
+    return /\b(fluss|river|kanal|canal|wasserlauf)\b/i.test(String(text || ''));
+}
+
+function _paxTextHasMotorwayLandmark(text = '') {
+    return /(autobahn|autobahnkreuz|autobahndreieck|schnellstrasse|schnellstraße|motorway|trunk|interchange)/i.test(String(text || ''));
+}
+
+function _paxTextHasRailwayLandmark(text = '') {
+    return /(eisenbahn|bahnlinie|bahntrasse|schiene|gleis|railway|rail\s+line)/i.test(String(text || ''));
+}
+
+function _paxTextHasTowerLandmark(text = '') {
+    return /(funkturm|sendemast|fernsehturm|wasserturm|aussichtsturm|turm|tower|mast)/i.test(String(text || ''));
+}
+
+function _paxGeoContextHasAnchor(key = '', maxDistM = 700) {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const contract = md.missionContract || window.activeMissionContract || null;
+    const anchors = md.targetGeoContext?.anchors || contract?.targetGeoContext?.anchors || {};
+    const anchor = anchors[key];
+    if (!anchor?.present) return false;
+    const dist = Number(anchor.distM);
+    return !Number.isFinite(dist) || dist <= maxDistM;
+}
+
+function _paxConfirmedVisualLandmarks(maxDistM = 250) {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const contract = md.missionContract || window.activeMissionContract || null;
+    const fromGeo = md.targetGeoContext?.visualLandmarks || contract?.targetGeoContext?.visualLandmarks || [];
+    const fromTruth = md.missionTruth?.visualLandmarks || contract?.missionTruth?.visualLandmarks || [];
+    const seen = new Set();
+    return [...(Array.isArray(fromGeo) ? fromGeo : []), ...(Array.isArray(fromTruth) ? fromTruth : [])]
+        .filter(lm => {
+            const kind = String(lm?.kind || '').toLowerCase();
+            const dist = Number(lm?.distM);
+            if (!kind || (Number.isFinite(dist) && dist > maxDistM)) return false;
+            const key = `${kind}|${Math.round((Number.isFinite(dist) ? dist : 0) / 10)}|${String(lm?.name || '').toLowerCase()}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .sort((a, b) => Number(a.distM || 999999) - Number(b.distM || 999999))
+        .slice(0, 6);
+}
+
+function _paxHasVisualLandmarkKind(kinds = []) {
+    const wanted = new Set((Array.isArray(kinds) ? kinds : [kinds]).map(k => String(k || '').toLowerCase()).filter(Boolean));
+    if (!wanted.size) return false;
+    return _paxConfirmedVisualLandmarks().some(lm => wanted.has(String(lm?.kind || '').toLowerCase()));
+}
+
+function _paxTargetProminenceLine() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const contract = md.missionContract || window.activeMissionContract || null;
+    const prominence = md.missionTruth?.targetProminence || contract?.missionTruth?.targetProminence || null;
+    if (!prominence?.level) return '';
+    return `ZIEL-AUFFAELLIGKEIT: ${String(prominence.level)} (${String(prominence.reason || 'n/a')}).`;
+}
+
+function _paxVisualLandmarksLine() {
+    const task = _activeTaskDomain();
+    if (!/^(poi_learning_guide|sightseeing_tour|historian_guided_tour)$/.test(task)) return '';
+    const landmarks = _paxConfirmedVisualLandmarks();
+    if (!landmarks.length) return '';
+    const items = landmarks.map(lm => {
+        const name = String(lm.name || lm.label || lm.kind || 'Landmarke').trim();
+        const dist = Number.isFinite(Number(lm.distM)) ? `${Math.round(Number(lm.distM))}m` : 'nah';
+        const rel = lm.relFromTarget ? `${lm.relFromTarget} vom Ziel` : '';
+        const inverse = lm.targetFromLandmark ? `Ziel ${lm.targetFromLandmark} davon` : '';
+        return [name, dist, rel, inverse].filter(Boolean).join(', ');
+    }).join(' | ');
+    return `BESTAETIGTE VISUELLE REFERENZEN (max 250m): ${items}. Du darfst hoechstens eine davon zur Orientierung nutzen, besonders wenn das Ziel selbst unauffaellig ist. Nicht erfinden, nicht als Hauptthema ausbauen.`;
+}
+
+function _paxMissionTruthMainKind(key = '') {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const contract = md.missionContract || window.activeMissionContract || null;
+    const truth = md.missionTruth || contract?.missionTruth || null;
+    const mainKind = String(truth?.mainTarget?.kind || '').toLowerCase();
+    const anchorKind = String(truth?.sceneAnchor?.kind || '').toLowerCase();
+    return mainKind === key || anchorKind === key;
+}
+
+function _sanitizePaxSoftPoiStory(text = '') {
+    const task = _activeTaskDomain();
+    if (!/^(poi_learning_guide|sightseeing_tour|historian_guided_tour)$/.test(task)) return String(text || '').trim();
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const targetName = `${String(md.poiName || '')} ${String(md.targetName || '')}`;
+    const powerAllowed = _paxTextHasPowerlineLandmark(targetName) || _paxGeoContextHasAnchor('power', 250) || _paxHasVisualLandmarkKind(['power_tower', 'powerline']) || _paxMissionTruthMainKind('power');
+    const windAllowed = _paxTextHasWindLandmark(targetName) || _paxGeoContextHasAnchor('wind', 250) || _paxHasVisualLandmarkKind('wind_turbine') || _paxMissionTruthMainKind('wind');
+    const bridgeAllowed = _paxTextHasBridgeLandmark(targetName) || _paxGeoContextHasAnchor('bridge', 250) || _paxHasVisualLandmarkKind('bridge') || _paxMissionTruthMainKind('bridge');
+    const riverAllowed = _paxTextHasRiverLandmark(targetName) || _paxHasVisualLandmarkKind(['river', 'canal']) || _paxMissionTruthMainKind('water_edge') || _paxMissionTruthMainKind('water');
+    const motorwayAllowed = _paxTextHasMotorwayLandmark(targetName) || _paxHasVisualLandmarkKind(['motorway', 'motorway_junction']) || _paxMissionTruthMainKind('road');
+    const railwayAllowed = _paxTextHasRailwayLandmark(targetName) || _paxGeoContextHasAnchor('railway', 250) || _paxGeoContextHasAnchor('rail', 250) || _paxHasVisualLandmarkKind('railway') || _paxMissionTruthMainKind('rail');
+    const towerAllowed = _paxTextHasTowerLandmark(targetName) || _paxHasVisualLandmarkKind(['tower', 'power_tower', 'wind_turbine']) || _paxMissionTruthMainKind('power');
+    const raw = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return '';
+    const sentences = raw
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+    const kept = sentences.filter(sentence => {
+        if (!powerAllowed && _paxTextHasPowerlineLandmark(sentence)) return false;
+        if (!windAllowed && _paxTextHasWindLandmark(sentence)) return false;
+        if (!bridgeAllowed && _paxTextHasBridgeLandmark(sentence)) return false;
+        if (!riverAllowed && _paxTextHasRiverLandmark(sentence)) return false;
+        if (!motorwayAllowed && _paxTextHasMotorwayLandmark(sentence)) return false;
+        if (!railwayAllowed && _paxTextHasRailwayLandmark(sentence)) return false;
+        if (!towerAllowed && _paxTextHasTowerLandmark(sentence)) return false;
+        return true;
+    });
+    if (kept.length) return kept.join(' ');
+    if (!powerAllowed && _paxTextHasPowerlineLandmark(raw)) return '';
+    if (!windAllowed && _paxTextHasWindLandmark(raw)) return '';
+    if (!bridgeAllowed && _paxTextHasBridgeLandmark(raw)) return '';
+    if (!riverAllowed && _paxTextHasRiverLandmark(raw)) return '';
+    if (!motorwayAllowed && _paxTextHasMotorwayLandmark(raw)) return '';
+    if (!railwayAllowed && _paxTextHasRailwayLandmark(raw)) return '';
+    if (!towerAllowed && _paxTextHasTowerLandmark(raw)) return '';
+    return raw;
+}
+
 function _baseContext() {
     const pax  = window.activePassenger;
     const md   = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
-    const story = _getMissionStory();
+    const story = _sanitizePaxSoftPoiStory(_getMissionStory());
     if (!pax || !md) return null;
 
     const cargo = document.getElementById('mWeight')?.innerText?.trim() || '';
@@ -2116,6 +2281,10 @@ ${urgencyLine}`
     if (contractRules) lines.push(`CONTRACT-REGELN: ${contractRules}`);
     if (aptArrivalLine) lines.push(aptArrivalLine);
     if (fireHazardLine) lines.push(fireHazardLine);
+    const targetProminenceLine = _paxTargetProminenceLine();
+    const visualLandmarksLine = _paxVisualLandmarksLine();
+    if (targetProminenceLine) lines.push(targetProminenceLine);
+    if (visualLandmarksLine) lines.push(visualLandmarksLine);
     lines.push(roleGuard);
     lines.push(`TASK-DOMAIN: ${_activeTaskDomain()}
 AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).`);

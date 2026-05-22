@@ -6873,7 +6873,7 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischen Fakten und lokaler Geschichte. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag daraus machen.';
     }
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
-        return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist reine Wissensvermittlung zum Ziel (Fakten, Orientierung, Einordnung). Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache.';
+        return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist reine Wissensvermittlung zum Ziel (Fakten, Orientierung, Einordnung). Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks bis 250m duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
     }
     if (profile.id === 'inspection_infra' && isPOI) {
         return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
@@ -8724,9 +8724,33 @@ function missionSceneTextHasPowerlineContext(text = '') {
     return /(strommast|stromtrasse|stromleitung|freileitung|hochspann|hochspannung|powerline|power\s+line|power\s+pylon|power\s+tower|umspannwerk|transformator|energieinfrastruktur|leitungsmast|stromnetz)/.test(t);
 }
 
+function missionSceneTextHasPowerlineNarrative(text = '') {
+    return missionSceneTextHasPowerlineContext(text);
+}
+
 function missionSceneTextHasWindTurbineContext(text = '') {
     const t = String(text || '').toLowerCase();
     return /(wind_turbine|windrad|windraeder|windräder|windturbine|wind\s+turbine|windkraft|windpark|windenergie|rotorblatt|rotor|turbine)/.test(t);
+}
+
+function missionSceneTextHasBridgeContext(text = '') {
+    return /(bruecke|brücke|brucke|bridge|viadukt|aquadukt)/i.test(String(text || ''));
+}
+
+function missionSceneTextHasRiverContext(text = '') {
+    return /\b(fluss|river|kanal|canal|wasserlauf)\b/i.test(String(text || ''));
+}
+
+function missionSceneTextHasMotorwayContext(text = '') {
+    return /(autobahn|autobahnkreuz|autobahndreieck|schnellstrasse|schnellstraße|motorway|trunk|interchange)/i.test(String(text || ''));
+}
+
+function missionSceneTextHasRailwayContext(text = '') {
+    return /(eisenbahn|bahnlinie|bahntrasse|schiene|gleis|railway|rail\s+line)/i.test(String(text || ''));
+}
+
+function missionSceneTextHasTowerContext(text = '') {
+    return /(funkturm|sendemast|fernsehturm|wasserturm|aussichtsturm|turm|tower|mast)/i.test(String(text || ''));
 }
 
 function missionSceneTextHasWindTurbineTerrain(text = '') {
@@ -8753,6 +8777,104 @@ function missionSceneAllowsWindTurbine(text = '', ctx = null) {
     if (!missionSceneTextHasWindTurbineContext(text)) return false;
     if (missionSceneTextHasWindTurbineBadTerrain(text)) return false;
     return missionSceneTextHasWindTurbineTerrain(text) || missionSceneGeoAllowsWindTurbine(ctx);
+}
+
+function missionGeoContextHasNearbyAnchor(ctx = null, key = '', maxDistM = 700) {
+    const anchor = ctx?.anchors?.[key];
+    if (!anchor?.present) return false;
+    const dist = Number(anchor.distM);
+    return !Number.isFinite(dist) || dist <= maxDistM;
+}
+
+function missionGeoContextHasVisualLandmark(ctx = null, kinds = [], maxDistM = MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M) {
+    const wanted = new Set((Array.isArray(kinds) ? kinds : [kinds]).map(k => String(k || '').toLowerCase()).filter(Boolean));
+    if (!wanted.size) return false;
+    return (Array.isArray(ctx?.visualLandmarks) ? ctx.visualLandmarks : []).some(lm => {
+        const kind = String(lm?.kind || '').toLowerCase();
+        const dist = Number(lm?.distM);
+        return wanted.has(kind) && (!Number.isFinite(dist) || dist <= maxDistM);
+    });
+}
+
+function missionTruthHasMainKind(truth = null, key = '') {
+    const mainKind = String(truth?.mainTarget?.kind || '').toLowerCase();
+    const anchorKind = String(truth?.sceneAnchor?.kind || '').toLowerCase();
+    return mainKind === key || anchorKind === key;
+}
+
+function missionTextSentences(text = '') {
+    return String(text || '')
+        .replace(/\s+/g, ' ')
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+}
+
+function stripMissionSpecialLandmarkSentences(text = '', { stripPowerline = false, stripWindTurbine = false, stripBridge = false, stripRiver = false, stripMotorway = false, stripRailway = false, stripTower = false } = {}) {
+    const raw = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return '';
+    const sentences = missionTextSentences(raw);
+    const kept = sentences.filter(sentence => {
+        if (stripPowerline && missionSceneTextHasPowerlineNarrative(sentence)) return false;
+        if (stripWindTurbine && missionSceneTextHasWindTurbineContext(sentence)) return false;
+        if (stripBridge && missionSceneTextHasBridgeContext(sentence)) return false;
+        if (stripRiver && missionSceneTextHasRiverContext(sentence)) return false;
+        if (stripMotorway && missionSceneTextHasMotorwayContext(sentence)) return false;
+        if (stripRailway && missionSceneTextHasRailwayContext(sentence)) return false;
+        if (stripTower && missionSceneTextHasTowerContext(sentence)) return false;
+        return true;
+    });
+    if (kept.length) return kept.join(' ').trim();
+    if (stripPowerline && missionSceneTextHasPowerlineNarrative(raw)) return '';
+    if (stripWindTurbine && missionSceneTextHasWindTurbineContext(raw)) return '';
+    if (stripBridge && missionSceneTextHasBridgeContext(raw)) return '';
+    if (stripRiver && missionSceneTextHasRiverContext(raw)) return '';
+    if (stripMotorway && missionSceneTextHasMotorwayContext(raw)) return '';
+    if (stripRailway && missionSceneTextHasRailwayContext(raw)) return '';
+    if (stripTower && missionSceneTextHasTowerContext(raw)) return '';
+    return raw;
+}
+
+function sanitizeSoftPoiNarrativeLandmarks(text = '', { taskDomain = '', targetGeoContext = null, missionTruth = null, targetName = '' } = {}) {
+    const task = String(taskDomain || '').toLowerCase();
+    if (!/^(poi_learning_guide|sightseeing_tour|historian_guided_tour)$/.test(task)) return String(text || '').trim();
+    const targetText = String(targetName || '');
+    const powerlineAllowed = missionSceneTextHasPowerlineNarrative(targetText)
+        || missionGeoContextHasNearbyAnchor(targetGeoContext, 'power', MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M)
+        || missionGeoContextHasVisualLandmark(targetGeoContext, ['power_tower', 'powerline'])
+        || missionTruthHasMainKind(missionTruth, 'power');
+    const windTurbineAllowed = missionSceneTextHasWindTurbineContext(targetText)
+        || missionGeoContextHasNearbyAnchor(targetGeoContext, 'wind', MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M)
+        || missionGeoContextHasVisualLandmark(targetGeoContext, 'wind_turbine')
+        || missionTruthHasMainKind(missionTruth, 'wind');
+    const bridgeAllowed = missionSceneTextHasBridgeContext(targetText)
+        || missionGeoContextHasNearbyAnchor(targetGeoContext, 'bridge', MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M)
+        || missionGeoContextHasVisualLandmark(targetGeoContext, 'bridge')
+        || missionTruthHasMainKind(missionTruth, 'bridge');
+    const riverAllowed = missionSceneTextHasRiverContext(targetText)
+        || missionGeoContextHasVisualLandmark(targetGeoContext, ['river', 'canal'])
+        || missionTruthHasMainKind(missionTruth, 'water_edge')
+        || missionTruthHasMainKind(missionTruth, 'water');
+    const motorwayAllowed = missionSceneTextHasMotorwayContext(targetText)
+        || missionGeoContextHasVisualLandmark(targetGeoContext, ['motorway', 'motorway_junction'])
+        || missionTruthHasMainKind(missionTruth, 'road');
+    const railwayAllowed = missionSceneTextHasRailwayContext(targetText)
+        || missionGeoContextHasNearbyAnchor(targetGeoContext, 'railway', MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M)
+        || missionGeoContextHasNearbyAnchor(targetGeoContext, 'rail', MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M)
+        || missionGeoContextHasVisualLandmark(targetGeoContext, 'railway')
+        || missionTruthHasMainKind(missionTruth, 'rail');
+    const towerAllowed = missionSceneTextHasTowerContext(targetText)
+        || missionGeoContextHasVisualLandmark(targetGeoContext, ['tower', 'power_tower', 'wind_turbine'])
+        || missionTruthHasMainKind(missionTruth, 'power');
+    return stripMissionSpecialLandmarkSentences(text, {
+        stripPowerline: !powerlineAllowed,
+        stripWindTurbine: !windTurbineAllowed,
+        stripBridge: !bridgeAllowed,
+        stripRiver: !riverAllowed,
+        stripMotorway: !motorwayAllowed,
+        stripRailway: !railwayAllowed,
+        stripTower: !towerAllowed
+    });
 }
 
 function missionSceneSpecialFeatureAllowed(feature, { powerlineAllowed = false, windTurbineAllowed = false } = {}) {
@@ -9018,7 +9140,8 @@ sceneIntent Felder:
 - densityHint: none|sparse|normal|busy.
 - notes: kurzer Grund.
 Wichtig: Keine Standard-Deko. Bei Lern-/Sightseeing-Fluegen darf sceneIntent sehr sparsam oder "none" sein. Kleine Kontextdetails sind erlaubt, wenn sie aus dem Text entstehen: Enten, Zelt, parkendes Auto, Holz, Kisten, Lagerfeuer, Tiere, Baufahrzeuge, Unfallfahrzeuge usw.
-Spezialobjekte sind keine Deko: Strommast/Freileitung nur bei ausdruecklichem Stromleitungs-, Umspannwerks-, Energieinfrastruktur-, Wartungs-, Inspektions- oder Bau-Kontext. Windrad/Windpark nur bei ausdruecklichem Windenergie-, Neubau-, Wartungs-, Inspektions- oder Bau-Kontext und nur in plausibler offener/hochgelegener Umgebung wie Bergkuppe, Wiese oder Feld; nicht in Stadt, Wohngebiet oder Tal.
+Spezialobjekte sind keine Deko: Strommast/Freileitung nur bei ausdruecklichem Stromleitungs-, Umspannwerks-, Energieinfrastruktur-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark bis 250m. Windrad/Windpark nur bei ausdruecklichem Windenergie-, Neubau-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark bis 250m und nur in plausibler offener/hochgelegener Umgebung wie Bergkuppe, Wiese oder Feld; nicht in Stadt, Wohngebiet oder Tal.
+Bei Lern-/Sightseeing-/Historien-POIs duerfen bestaetigte visualLandmarks wie Strommast, Freileitung, Windrad, Bruecke, Fluss, Autobahn, Autobahnkreuz, Eisenbahnlinie oder Turm als kurze Lagehilfe vorkommen. Sie bleiben Referenz, nicht Hauptthema. Ohne visualLandmarks/targetGeoContext/missionTruth sind solche Landmarken tabu.
 Wichtig: Story und sceneIntent muessen denselben Sachverhalt beschreiben. Das gilt fuer alle Missionstypen: Hauptziel, Kontextobjekte und Support muessen zusammenpassen. Wenn visibleIdeas Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere, Menschen, Werkzeug oder Ausruestung enthalten, muss die Story diese Dinge entweder vorher plausibel machen oder sceneIntent muss erklaeren, warum sie dort sichtbar sind.`;
 }
 
@@ -9142,6 +9265,7 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
 }
 
 const MISSION_TARGET_GEO_CONTEXT_RADIUS_M = 750;
+const MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M = 250;
 const MISSION_TARGET_GEO_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
 const MISSION_SCENE_COMPOSER_MODEL_TIMEOUT_MS = 9000;
 const MISSION_SCENE_COMPOSER_TOTAL_TIMEOUT_MS = 18000;
@@ -9150,7 +9274,45 @@ const missionTargetGeoContextInflight = new Map();
 function missionTargetGeoContextCacheKey(lat, lon, radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M) {
     const la = Math.round(Number(lat) * 1000) / 1000;
     const lo = Math.round(Number(lon) * 1000) / 1000;
-    return `ga_target_geo_context_v2_${la}_${lo}_${Math.round(Number(radiusM) || radiusM)}`;
+    return `ga_target_geo_context_v3_${la}_${lo}_${Math.round(Number(radiusM) || radiusM)}`;
+}
+
+function missionCardinalGerman(bearingDeg) {
+    const n = Number(bearingDeg);
+    if (!Number.isFinite(n)) return '';
+    const dirs = ['noerdlich', 'nordoestlich', 'oestlich', 'suedoestlich', 'suedlich', 'suedwestlich', 'westlich', 'nordwestlich'];
+    const idx = Math.round((((n % 360) + 360) % 360) / 45) % 8;
+    return dirs[idx] || '';
+}
+
+function missionVisualLandmarkFromTags(tags = {}, { name = '', rawType = '' } = {}) {
+    const t = tags || {};
+    const highway = String(t.highway || '').toLowerCase();
+    const railway = String(t.railway || '').toLowerCase();
+    const power = String(t.power || '').toLowerCase();
+    const waterway = String(t.waterway || '').toLowerCase();
+    const manMade = String(t.man_made || '').toLowerCase();
+    const bridge = String(t.bridge || '').toLowerCase();
+    const raw = String(rawType || t.obstacle_type || '').toLowerCase();
+    const labelName = String(name || t.name || t.ref || t.operator || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    const make = (kind, label, fallbackName = '') => ({
+        kind,
+        label,
+        name: labelName || fallbackName || label,
+        source: 'confirmed'
+    });
+    if (raw.includes('wind') || /wind/.test(String(t.generator_source || t['generator:source'] || '').toLowerCase()) || /wind/.test(labelName.toLowerCase())) {
+        return make('wind_turbine', 'Windrad');
+    }
+    if (power === 'tower' || power === 'pole' || raw.includes('power_tower')) return make('power_tower', 'Strommast');
+    if (['line', 'minor_line', 'cable'].includes(power)) return make('powerline', 'Freileitung');
+    if ((bridge && !/^(no|false|0)$/i.test(bridge)) || manMade === 'bridge') return make('bridge', 'Bruecke');
+    if (highway === 'motorway_junction') return make('motorway_junction', 'Autobahnkreuz');
+    if (['motorway', 'motorway_link', 'trunk', 'trunk_link'].includes(highway)) return make('motorway', highway.includes('trunk') ? 'Schnellstrasse' : 'Autobahn');
+    if (['rail', 'light_rail', 'narrow_gauge'].includes(railway)) return make('railway', 'Eisenbahnlinie');
+    if (['river', 'canal'].includes(waterway)) return make(waterway, waterway === 'canal' ? 'Kanal' : 'Fluss');
+    if (['tower', 'mast', 'communications_tower', 'water_tower'].includes(manMade) || raw.includes('tower') || raw.includes('mast')) return make('tower', 'Turm/Mast');
+    return null;
 }
 
 function missionTargetGeoContextCategory(tags = {}) {
@@ -9320,6 +9482,35 @@ function missionTruthIsNatureTask(category = '', taskDomain = '') {
     return cat === 'fire' || cat === 'mountain' || task === 'fire_watch' || task.includes('science_bio');
 }
 
+function missionTargetVisualProminence(missionData = null, geoContext = null) {
+    const md = missionData || {};
+    const cat = String(md.poiCategory || md.requestedCategory || missionTruthRequestedCategory(md) || '').toLowerCase();
+    const tags = md.poiLookup?.selectedTags && typeof md.poiLookup.selectedTags === 'object' ? md.poiLookup.selectedTags : {};
+    const name = String(md.targetName || md.poiName || '').toLowerCase();
+    const prominentCats = new Set(['bridge', 'dam', 'city', 'castle', 'industry', 'telecom', 'road', 'rail', 'water']);
+    const lowName = /(wiese|feld|acker|flur|weinberg|wingert|weingarten|rebberg|matte|meadow|farmland|vineyard|grass|lichtung)/i.test(name);
+    const lowTags = ['meadow', 'farmland', 'grass', 'orchard', 'vineyard'].includes(String(tags.landuse || tags.natural || '').toLowerCase());
+    const highTags = (
+        ['peak', 'ridge'].includes(String(tags.natural || '').toLowerCase()) ||
+        ['motorway', 'motorway_junction', 'trunk'].includes(String(tags.highway || '').toLowerCase()) ||
+        ['rail', 'light_rail'].includes(String(tags.railway || '').toLowerCase()) ||
+        ['tower', 'pole', 'line', 'minor_line'].includes(String(tags.power || '').toLowerCase()) ||
+        ['tower', 'mast', 'bridge'].includes(String(tags.man_made || '').toLowerCase())
+    );
+    if (highTags || prominentCats.has(cat)) {
+        return { level: lowName || lowTags ? 'medium' : 'high', reason: `target-category:${cat || 'unknown'}` };
+    }
+    if (lowName || lowTags || cat === 'generic' || cat === 'mountain') {
+        const hasNearbyVisual = (Array.isArray(geoContext?.visualLandmarks) ? geoContext.visualLandmarks : [])
+            .some(lm => Number(lm?.distM) <= MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M);
+        return {
+            level: hasNearbyVisual ? 'low_with_reference' : 'low',
+            reason: lowName || lowTags ? 'surface/terrain target' : `target-category:${cat || 'unknown'}`
+        };
+    }
+    return { level: 'medium', reason: `target-category:${cat || 'unknown'}` };
+}
+
 function missionTruthAnchorForCategory(ctx = null, category = '', taskDomain = '') {
     const anchors = ctx?.anchors && typeof ctx.anchors === 'object' ? ctx.anchors : {};
     const cat = String(category || '').toLowerCase();
@@ -9419,6 +9610,8 @@ function buildMissionTruth(missionData = null, geoContext = null, sceneSpec = nu
             source: String(md.poiSource || ''),
             lookup: md.poiLookup || null
         },
+        targetProminence: missionTargetVisualProminence(md, geoContext),
+        visualLandmarks: Array.isArray(geoContext?.visualLandmarks) ? geoContext.visualLandmarks.slice(0, 6) : [],
         mainTarget: null,
         sceneAnchor: null,
         visibleCues: [],
@@ -9474,6 +9667,7 @@ function buildMissionTruth(missionData = null, geoContext = null, sceneSpec = nu
     };
     truth.visibleCues = [
         ...missionTruthBaseVisibleCues(geoContext, requestedCategory || poiCategory, taskDomain),
+        ...(Array.isArray(truth.visualLandmarks) ? truth.visualLandmarks.map(lm => String(lm?.label || '')).filter(Boolean) : []),
         ...missionTruthSceneVisibleCues(sceneSpec)
     ].filter((cue, idx, arr) => cue && arr.indexOf(cue) === idx).slice(0, 4);
     return truth;
@@ -9501,6 +9695,8 @@ function compactMissionTruthForPrompt(truth = null) {
         } : null,
         mainTarget: truth.mainTarget || null,
         sceneAnchor: truth.sceneAnchor || null,
+        targetProminence: truth.targetProminence || null,
+        visualLandmarks: Array.isArray(truth.visualLandmarks) ? truth.visualLandmarks.slice(0, 6) : [],
         visibleCues: Array.isArray(truth.visibleCues) ? truth.visibleCues : [],
         constraints: Array.isArray(truth.constraints) ? truth.constraints : []
     };
@@ -9527,16 +9723,51 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
     const anchors = {};
     const counts = {};
     const avoidZones = [];
+    const visualLandmarks = [];
+    const visualSeen = new Set();
+    const addVisualLandmark = (candidate, nav, source = 'overpass') => {
+        if (!candidate || !nav) return;
+        const distM = Number(nav.distM ?? (Number(nav.dist) * 1852));
+        const bearingDeg = Number(nav.bearingDeg ?? nav.brng);
+        if (!Number.isFinite(distM) || !Number.isFinite(bearingDeg)) return;
+        if (distM > MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M) return;
+        const kind = String(candidate.kind || '').toLowerCase();
+        if (!kind) return;
+        const key = `${kind}|${Math.round(distM / 10)}|${Math.round(bearingDeg / 10)}|${String(candidate.name || '').toLowerCase()}`;
+        if (visualSeen.has(key)) return;
+        visualSeen.add(key);
+        const relFromTarget = missionCardinalGerman(bearingDeg);
+        const targetFromLandmark = missionCardinalGerman(bearingDeg + 180);
+        visualLandmarks.push({
+            kind,
+            label: String(candidate.label || kind).slice(0, 40),
+            name: String(candidate.name || candidate.label || kind).slice(0, 80),
+            distM: Math.round(distM),
+            bearingDeg: Math.round(bearingDeg),
+            relFromTarget,
+            targetFromLandmark,
+            source
+        });
+    };
     raw.elements.forEach(el => {
         const tags = el?.tags || {};
         const category = missionTargetGeoContextCategory(tags);
+        const pt = missionTargetGeoContextElementPoint(el);
+        let nav = null;
+        if (pt) {
+            try { nav = calcNav(lat, lon, pt.lat, pt.lon); } catch (_) {}
+        }
+        if (nav) {
+            addVisualLandmark(
+                missionVisualLandmarkFromTags(tags, { name: tags.name || tags.ref || tags.operator || '', rawType: el.type || '' }),
+                { dist: nav.dist, brng: nav.brng },
+                'overpass'
+            );
+        }
         if (!category) return;
         const zone = missionTargetGeoContextAvoidZone(el, category, lat, lon);
         if (zone) avoidZones.push(zone);
-        const pt = missionTargetGeoContextElementPoint(el);
         if (!pt) return;
-        let nav = null;
-        try { nav = calcNav(lat, lon, pt.lat, pt.lon); } catch (_) {}
         const distM = Number(nav?.dist) * 1852;
         const bearingDeg = Number(nav?.brng);
         if (!Number.isFinite(distM) || !Number.isFinite(bearingDeg)) return;
@@ -9566,6 +9797,7 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
     if (anchors.forest) hints.push('forest-edge placement plausible near the forest anchor');
     if (anchors.meadow || anchors.farmland) hints.push('animals/tents/reference objects plausible on meadow or farmland anchors');
     if (anchors.power) hints.push('powerline/pylon placement plausible near the power anchor');
+    if (visualLandmarks.length) hints.push('confirmed visual reference landmarks within 250m available');
     const summary = Object.entries(anchors)
         .filter(([, a]) => a && a.present)
         .sort((a, b) => Number(a[1].distM || 999999) - Number(b[1].distM || 999999))
@@ -9580,11 +9812,101 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
             lon: Math.round(lon * 100000) / 100000
         },
         anchors,
+        visualLandmarks: visualLandmarks
+            .sort((a, b) => Number(a.distM || 999999) - Number(b.distM || 999999))
+            .slice(0, 8),
         avoidZones: compactAvoidZones,
         hints,
         summary,
         fetchedAt: Date.now()
     };
+}
+
+function missionVisualLandmarkFromPoiFeature(feature = null) {
+    if (!feature || typeof feature !== 'object') return null;
+    const tags = feature.tags || {};
+    return missionVisualLandmarkFromTags(tags, {
+        name: feature.name || tags.name || tags.ref || '',
+        rawType: feature.rawType || tags.obstacle_type || ''
+    });
+}
+
+function mergeMissionVisualLandmarks(ctx = null, landmarks = []) {
+    const base = ctx && typeof ctx === 'object' ? { ...ctx } : {
+        source: 'local-poi-tiles',
+        radiusM: MISSION_TARGET_GEO_CONTEXT_RADIUS_M,
+        anchors: {},
+        avoidZones: [],
+        hints: [],
+        summary: '',
+        fetchedAt: Date.now()
+    };
+    const existing = Array.isArray(base.visualLandmarks) ? base.visualLandmarks.slice() : [];
+    const seen = new Set(existing.map(lm => `${String(lm.kind || '').toLowerCase()}|${Math.round(Number(lm.distM || 0) / 10)}|${String(lm.name || '').toLowerCase()}`));
+    for (const lm of (Array.isArray(landmarks) ? landmarks : [])) {
+        const kind = String(lm?.kind || '').toLowerCase();
+        if (!kind) continue;
+        const key = `${kind}|${Math.round(Number(lm.distM || 0) / 10)}|${String(lm.name || '').toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        existing.push(lm);
+    }
+    base.visualLandmarks = existing
+        .sort((a, b) => Number(a.distM || 999999) - Number(b.distM || 999999))
+        .slice(0, 8);
+    if (base.visualLandmarks.length) {
+        const hints = Array.isArray(base.hints) ? base.hints.slice() : [];
+        if (!hints.includes('confirmed visual reference landmarks within 250m available')) hints.push('confirmed visual reference landmarks within 250m available');
+        base.hints = hints;
+    }
+    return base;
+}
+
+async function fetchMissionLocalVisualLandmarks(lat, lon, radiusM = MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M) {
+    const la = Number(lat), lo = Number(lon);
+    if (!Number.isFinite(la) || !Number.isFinite(lo)) return [];
+    const radiusNm = Math.max(0.4, Number(radiusM || MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M) / 1852);
+    const tileKeys = _poiCollectTileKeysAround(la, lo, radiusNm + 0.6);
+    const rows = [];
+    for (const key of tileKeys.slice(0, 9)) {
+        try {
+            const features = await _poiFetchTileFeatures(key, { includeCore: true, allowLegacyFallback: false });
+            if (features?.length) rows.push(...features);
+        } catch (_) {}
+    }
+    const landmarks = [];
+    const seen = new Set();
+    for (const f of rows) {
+        const flat = Number(f?.lat);
+        const flon = Number(f?.lon);
+        if (!Number.isFinite(flat) || !Number.isFinite(flon)) continue;
+        let nav = null;
+        try { nav = calcNav(la, lo, flat, flon); } catch (_) {}
+        const distM = Number(nav?.dist) * 1852;
+        const bearingDeg = Number(nav?.brng);
+        if (!Number.isFinite(distM) || distM > radiusM || !Number.isFinite(bearingDeg)) continue;
+        const candidate = missionVisualLandmarkFromPoiFeature(f);
+        if (!candidate) continue;
+        const kind = String(candidate.kind || '').toLowerCase();
+        const relFromTarget = missionCardinalGerman(bearingDeg);
+        const targetFromLandmark = missionCardinalGerman(bearingDeg + 180);
+        const key = `${kind}|${Math.round(distM / 10)}|${Math.round(bearingDeg / 10)}|${String(candidate.name || '').toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        landmarks.push({
+            kind,
+            label: String(candidate.label || kind).slice(0, 40),
+            name: String(candidate.name || candidate.label || kind).slice(0, 80),
+            distM: Math.round(distM),
+            bearingDeg: Math.round(bearingDeg),
+            relFromTarget,
+            targetFromLandmark,
+            source: String(f?.fetchSource || 'local-poi-tiles')
+        });
+    }
+    return landmarks
+        .sort((a, b) => Number(a.distM || 999999) - Number(b.distM || 999999))
+        .slice(0, 8);
 }
 
 async function fetchMissionTargetGeoContext(missionData = null) {
@@ -9631,6 +9953,7 @@ out tags center geom 160;`;
     const promise = (async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 9000);
+        const localLandmarksPromise = fetchMissionLocalVisualLandmarks(lat, lon, MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M).catch(() => []);
         try {
             const res = await fetch('https://overpass-api.de/api/interpreter', {
                 method: 'POST',
@@ -9640,7 +9963,10 @@ out tags center geom 160;`;
             });
             if (!res.ok) throw new Error(`overpass_http_${res.status}`);
             const raw = await res.json();
-            const normalized = normalizeMissionTargetGeoContext(raw, lat, lon, radiusM);
+            const normalized = mergeMissionVisualLandmarks(
+                normalizeMissionTargetGeoContext(raw, lat, lon, radiusM),
+                await localLandmarksPromise
+            );
             if (normalized) {
                 try { sessionStorage.setItem(key, JSON.stringify(normalized)); } catch (_) {}
                 try { localStorage.setItem(key, JSON.stringify(normalized)); } catch (_) {}
@@ -9648,6 +9974,14 @@ out tags center geom 160;`;
             return normalized;
         } catch (err) {
             console.warn('[MISSION GEO] Overpass context unavailable', err);
+            const localLandmarks = await localLandmarksPromise;
+            if (localLandmarks.length) {
+                const localOnly = mergeMissionVisualLandmarks(null, localLandmarks);
+                localOnly.center = { lat: Math.round(lat * 100000) / 100000, lon: Math.round(lon * 100000) / 100000 };
+                try { sessionStorage.setItem(key, JSON.stringify(localOnly)); } catch (_) {}
+                try { localStorage.setItem(key, JSON.stringify(localOnly)); } catch (_) {}
+                return localOnly;
+            }
             return null;
         } finally {
             clearTimeout(timeoutId);
@@ -9739,6 +10073,7 @@ missionPlanV2: ${JSON.stringify(compactMissionPlanV2ForPrompt(missionPlanV2))}
 targetGeoContext: ${JSON.stringify(targetGeoContext ? {
     summary: summarizeMissionTargetGeoContext(targetGeoContext),
     anchors: targetGeoContext.anchors || {},
+    visualLandmarks: Array.isArray(targetGeoContext.visualLandmarks) ? targetGeoContext.visualLandmarks.slice(0, 6) : [],
     avoidZoneCounts: (Array.isArray(targetGeoContext.avoidZones) ? targetGeoContext.avoidZones : []).reduce((acc, z) => {
         const k = z?.type || 'unknown';
         acc[k] = (acc[k] || 0) + 1;
@@ -10903,7 +11238,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             : `4b. POI-KONSISTENZ (zwingend): Verwende exakt "${promptDestName}" als Zielbezug und nenne keinen alternativen Primär-Ortsnamen.`))
         : '';
     const missionTruthRule = (isPOI && compactTruth)
-        ? `4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen.`
+        ? `4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen. visualLandmarks sind bestaetigte visuelle Referenzen bis 250m; bei unauffaelligem Ziel duerfen sie zur Orientierung genutzt werden, aber nicht als Primaerziel.`
         : '';
     const missionPlanV2Rule = (compactMissionPlanV2 && compactMissionPlanV2.status === 'ready')
         ? `4d. PIPELINE-V2-PLAN: Nutze missionPlanV2 als ausgefuelltes Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, sceneKind, objectFamilies und lockedFields sind Leitplanken. Weiche nur ab, wenn sie technisch widerspruechlich sind.`
@@ -10967,6 +11302,8 @@ missionPlanV2: ${JSON.stringify(compactMissionPlanV2)}
 targetGeoContext: ${JSON.stringify(targetGeoContext ? {
     summary: summarizeMissionTargetGeoContext(targetGeoContext),
     anchors: targetGeoContext.anchors || {},
+    visualLandmarks: Array.isArray(targetGeoContext.visualLandmarks) ? targetGeoContext.visualLandmarks.slice(0, 6) : [],
+    targetProminence: compactTruth?.targetProminence || null,
     hints: targetGeoContext.hints || []
 } : null)}
 Erlaubte roleProfile:
@@ -11029,12 +11366,32 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
 
     const buildGeminiMissionResult = (parsed, sourceLabel) => {
         let passenger = sanitizePassengerProfile(parsed.passenger, parsed.story);
+        const narrativeContext = {
+            taskDomain: passenger?.taskDomain || parsed.passenger?.taskDomain || requiredTaskDomain,
+            targetGeoContext,
+            missionTruth,
+            targetName: promptDestName
+        };
+        const cleanedStoryText = sanitizeSoftPoiNarrativeLandmarks(parsed.story, narrativeContext);
+        const storyText = cleanedStoryText || (isPOI
+            ? `Wir fliegen heute einen ruhigen POI-Flug zu ${promptDestName}. Am Ziel geht es um kurze Fakten, Lage und Einordnung aus der Luft.`
+            : String(parsed.story || '').trim());
+        if (passenger && typeof passenger === 'object' && passenger.greetingText) {
+            const cleanGreeting = sanitizeSoftPoiNarrativeLandmarks(passenger.greetingText, narrativeContext);
+            passenger.greetingText = cleanGreeting || '';
+        }
         const sceneIntent = sanitizeMissionSceneIntentSpec(
             parsed.sceneIntent || parsed.targetSceneIntent || parsed.sceneDescription || parsed.targetScene || null,
             { isPOI, taskDomain: passenger?.taskDomain || parsed.passenger?.taskDomain }
         );
+        sceneIntent.summary = sanitizeSoftPoiNarrativeLandmarks(sceneIntent.summary, narrativeContext);
+        sceneIntent.environment = sanitizeSoftPoiNarrativeLandmarks(sceneIntent.environment, narrativeContext);
+        sceneIntent.notes = sanitizeSoftPoiNarrativeLandmarks(sceneIntent.notes, narrativeContext);
+        sceneIntent.visibleIdeas = (Array.isArray(sceneIntent.visibleIdeas) ? sceneIntent.visibleIdeas : [])
+            .map(item => sanitizeSoftPoiNarrativeLandmarks(item, narrativeContext))
+            .filter(Boolean);
         passenger = enrichPassengerGreetingText(passenger, {
-            storyText: parsed.story,
+            storyText,
             titleText: parsed.title,
             targetLabel: promptDestName,
             sceneIntent
@@ -11042,7 +11399,7 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
         const draftTargetScene = sanitizeMissionTargetSceneSpec(null, { isPOI, taskDomain: passenger?.taskDomain || parsed.passenger?.taskDomain, missionPlanV2 });
         return {
             t: parsed.title,
-            s: parsed.story,
+            s: storyText,
             pax: parsed.pax,
             cargo: parsed.cargo,
             sceneIntent,
