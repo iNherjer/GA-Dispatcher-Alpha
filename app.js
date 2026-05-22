@@ -1104,7 +1104,7 @@ const MISSION_ROLE_TASK_PROFILES = {
         paxText: '1 PAX (Vereinskoordination)',
         cargoPool: ['Werkzeug- und Dokumententasche (24 lbs)', 'Ersatzteilkiste (32 lbs)'],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: verlässlicher Vereins-/Utility-Einsatz ohne Themenmix.'
+        storyCue: 'Am Ziel ist ein kurzer Vereins- oder Utility-Termin am Flugplatz eingeplant.'
     },
     search_and_rescue: {
         id: 'search_and_rescue',
@@ -6552,6 +6552,9 @@ function _cleanupNarrativeArtifacts(txt) {
         .replace(/\bFokus:\s*/gi, '')
         .replace(/<\s*\/?\s*(INSTRUKTIONEN|KONTEXT|OUTPUT)\s*>/gi, '')
         .replace(/\b(OUTPUT-HYGIENE|KONSISTENZ-PFLICHT|PROFIL-FIX|OPERATIONS-REGEL)\b[^.?!]*/gi, '')
+        .replace(/\bverlaesslicher\s+vereins-?\/?utility-?einsatz\s+ohne\s+themenmix\b[.!?]?/gi, '')
+        .replace(/\bverlässlicher\s+vereins-?\/?utility-?einsatz\s+ohne\s+themenmix\b[.!?]?/gi, '')
+        .replace(/\bohne\s+themenmix\b[.!?]?/gi, '')
         .replace(/\bder\s+auftrag\s+ist\s*,?\s*wir\s+sollten\b/gi, '')
         .replace(/\bder\s+auftrag\s+ist\b\s*,?/gi, '')
         .replace(/\bwir\s+sollten\b\s*,?/gi, '')
