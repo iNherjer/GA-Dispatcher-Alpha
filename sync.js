@@ -404,6 +404,7 @@ window.missionTargetSceneStatus = {
 window.missionAptArrivalSceneStatus = {
     sceneId: null,
     role: null,
+    planSignature: null,
     lastCommandAt: 0,
     lastAckAt: 0,
     lastAck: null,
@@ -612,7 +613,9 @@ window.gaMissionSceneDebugRecordAi = function(info = {}) {
         aiRequested: info.aiRequested || null,
         aiNormalized: info.aiNormalized || null,
         contractTargetScene: info.contractTargetScene || null,
-        missionContext: info.missionContext || null
+        missionContext: info.missionContext || null,
+        appResolvedAptArrivalScene: null,
+        lastAptArrivalSceneCommand: null
     }, 'ai-target-scene');
 };
 
@@ -729,10 +732,17 @@ function _sceneTitleCandidates(title, extra = []) {
     return out;
 }
 
-function _sceneObjectTitleOverride(key, fallback) {
+function _sceneObjectTitleOverride(key, fallback, allowedTitles = []) {
     try {
         const raw = String(localStorage.getItem(`ga_scene_${key}_title`) || '').replace(/\^+$/g, '').trim();
         const title = _normalizeFireObjectTitle(raw);
+        if (title && Array.isArray(allowedTitles) && allowedTitles.length) {
+            const allowed = new Set();
+            allowedTitles.filter(Boolean).forEach(value => {
+                _sceneTitleCandidates(value, [value]).forEach(candidate => allowed.add(candidate));
+            });
+            if (!allowed.has(title)) return fallback;
+        }
         if (key === 'vehicle' && /^Car\s+Bush\s+Firefighting\b/i.test(title)) return MISSION_SCENE_DEFAULT_VEHICLE_TITLE;
         if (key === 'person' && /^(Ter|Tar)mac_Female_Summer_Asian$/i.test(title)) return MISSION_SCENE_DEFAULT_PERSON_TITLE;
         return title || fallback;
@@ -1473,6 +1483,38 @@ function _missionAptArrivalSceneId() {
     return `${_missionSceneId()}-apt-arrival`;
 }
 
+function _missionAptArrivalPlanSignature(plan = {}) {
+    const items = Array.isArray(plan.items) ? plan.items : [];
+    return [
+        String(plan.role || ''),
+        Number.isFinite(Number(plan.lat)) ? Number(plan.lat).toFixed(5) : '',
+        Number.isFinite(Number(plan.lon)) ? Number(plan.lon).toFixed(5) : '',
+        Number.isFinite(Number(plan.altFt)) ? String(Math.round(Number(plan.altFt))) : '',
+        items.map(item => `${item?.kind || ''}:${item?.role || ''}:${item?.objectTitle || item?.title || ''}`).join('|')
+    ].join('::');
+}
+
+function _missionAptArrivalStatusMatchesPlan(status = {}, plan = {}, planSignature = '') {
+    if (!status || typeof status !== 'object') return false;
+    if (status.planSignature) return status.planSignature === planSignature;
+    let compared = false;
+    if (status.role && plan.role) {
+        compared = true;
+        if (String(status.role) !== String(plan.role)) return false;
+    }
+    const summary = status.lastCommandSummary || status.resolvedScene || null;
+    const point = summary?.point || summary || {};
+    const lat = Number(point.lat);
+    const lon = Number(point.lon);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        compared = true;
+        const dLat = Math.abs(lat - Number(plan.lat));
+        const dLon = Math.abs(lon - Number(plan.lon));
+        if (dLat > 0.00005 || dLon > 0.00005) return false;
+    }
+    return compared;
+}
+
 function _missionAptArrivalAssetForItem(item = {}, index = 0) {
     const role = String(item.role || '').trim();
     const semanticTitle = String(item.objectTitle || item.title || item.label || '').trim();
@@ -1541,6 +1583,12 @@ window.missionAptArrivalEnsureSpawned = function(reason = 'apt-arrival-prestage'
     if (!plan) return false;
     const sceneId = _missionAptArrivalSceneId();
     const status = window.missionAptArrivalSceneStatus || {};
+    const planSignature = _missionAptArrivalPlanSignature(plan);
+    if (status.sceneId === sceneId && (status.spawned || status.spawnRequested || status.clearRequested) && !_missionAptArrivalStatusMatchesPlan(status, plan, planSignature)) {
+        if (typeof window.missionAptArrivalClear === 'function' && !status.clearRequested) window.missionAptArrivalClear('apt-arrival-plan-changed');
+        return false;
+    }
+    if (status.sceneId === sceneId && status.clearRequested && (Date.now() - Number(status.lastCommandAt || 0)) < 15000) return false;
     if (status.sceneId === sceneId && (status.spawned || status.spawnRequested)) return false;
     if (status.sceneId === sceneId && status.lastCommand?.type === 'mission_scene_spawn' && (Date.now() - Number(status.lastCommandAt || 0)) < 15000) return false;
     const items = _missionAptArrivalSceneItems(plan);
@@ -1577,6 +1625,9 @@ window.missionAptArrivalEnsureSpawned = function(reason = 'apt-arrival-prestage'
         ...window.missionAptArrivalSceneStatus,
         sceneId,
         role: plan.role || '',
+        planSignature,
+        resolvedScene: appResolvedAptArrivalScene,
+        lastCommandSummary: commandSummary,
         lastCommandAt: Date.now(),
         lastCommand: { type: 'mission_scene_spawn', commandId, reason },
         spawnRequested: true,
@@ -1861,15 +1912,17 @@ function _missionSceneVehicleAsset() {
     const taskDomain = _missionSceneTaskDomain();
     if (taskDomain === 'fire_watch') {
         const pool = MISSION_SCENE_ASSET_POOLS.fireVehicles;
-        const title = _sceneObjectTitleOverride('vehicle', _scenePreferredTitle(pool, MISSION_SCENE_DEFAULT_VEHICLE_TITLE, 'vehicle-fire', MISSION_SCENE_DEFAULT_VEHICLE_TITLE));
+        const allowed = pool.concat([
+            'Car Bush Firefighting',
+            'Car Bush Firefighting (FIREFIGHTING_DEFAULT)',
+            'FIREFIGHTING_DEFAULT',
+            'Car_Bush_Firefighting'
+        ]);
+        const title = _sceneObjectTitleOverride('vehicle', _scenePreferredTitle(pool, MISSION_SCENE_DEFAULT_VEHICLE_TITLE, 'vehicle-fire', MISSION_SCENE_DEFAULT_VEHICLE_TITLE), allowed);
         return {
             title,
             candidates: _sceneTitleCandidates(title, _sceneAssetCandidates(title, [
-                'Car Bush Firefighting',
-                'Car Bush Firefighting (FIREFIGHTING_DEFAULT)',
-                'FIREFIGHTING_DEFAULT',
-                'Car_Bush_Firefighting',
-                ...pool
+                ...allowed
             ]))
         };
     }
@@ -1878,7 +1931,7 @@ function _missionSceneVehicleAsset() {
         const pool = MISSION_SCENE_ASSET_POOLS.medicalVehicles.length
             ? MISSION_SCENE_ASSET_POOLS.medicalVehicles
             : fallbackPool;
-        const title = _sceneObjectTitleOverride('vehicle', _scenePickTitle(pool, 'vehicle-sar-medical', pool[0] || fallbackPool[0] || 'Microsoft_Van_EUR'));
+        const title = _sceneObjectTitleOverride('vehicle', _scenePickTitle(pool, 'vehicle-sar-medical', pool[0] || fallbackPool[0] || 'Microsoft_Van_EUR'), pool.concat(fallbackPool));
         return {
             title,
             candidates: _sceneAssetCandidates(title, pool.concat(fallbackPool))
@@ -1888,7 +1941,7 @@ function _missionSceneVehicleAsset() {
         ? MISSION_SCENE_ASSET_POOLS.vans.concat(MISSION_SCENE_ASSET_POOLS.trucks, MISSION_SCENE_ASSET_POOLS.vehicles)
         : MISSION_SCENE_ASSET_POOLS.vehicles;
     const workVehiclePool = _missionSceneFilteredVehiclePool(rawWorkVehiclePool);
-    const preferred = _sceneObjectTitleOverride('vehicle', _scenePickTitle(workVehiclePool, `vehicle-${taskDomain}`, workVehiclePool[0] || MISSION_SCENE_DEFAULT_VEHICLE_TITLE));
+    const preferred = _sceneObjectTitleOverride('vehicle', _scenePickTitle(workVehiclePool, `vehicle-${taskDomain}`, workVehiclePool[0] || MISSION_SCENE_DEFAULT_VEHICLE_TITLE), workVehiclePool);
     return {
         title: preferred,
         candidates: _sceneAssetCandidates(preferred, workVehiclePool)
@@ -4180,6 +4233,9 @@ window.missionRuntimeReset = function() {
     Object.assign(window.missionAptArrivalSceneStatus, {
         sceneId: null,
         role: null,
+        planSignature: null,
+        resolvedScene: null,
+        lastCommandSummary: null,
         spawned: false,
         spawnedCount: 0,
         spawnRequested: false,
