@@ -89,7 +89,7 @@ window.mapHintSubmenus = window.mapHintSubmenus || { ...MAP_HINT_SUBMENU_DEFAULT
 const VP_VFR_INDEX_MIN_UPDATE_MS = 30 * 60 * 1000;
 const VP_VFR_INDEX_MAX_POINTS = 72;
 const VP_VFR_INDEX_MIN_VISIBLE_ZOOM = 8;
-const VP_VFR_OVERLAY_AUTO_HIDE_ZOOM = 14;
+const VP_VFR_OVERLAY_AUTO_HIDE_ZOOM = 15;
 const VP_VFR_INDEX_MAX_VISIBLE_ZOOM = VP_VFR_OVERLAY_AUTO_HIDE_ZOOM;
 const VP_VFR_SECTOR_BORDER_MIN_VISIBLE_ZOOM = Math.max(0, VP_VFR_INDEX_MIN_VISIBLE_ZOOM - 2);
 const VP_VFR_SECTOR_AMPEL_MIN_VISIBLE_ZOOM = VP_VFR_INDEX_MIN_VISIBLE_ZOOM;
@@ -783,42 +783,49 @@ function renderMissionSceneDebugOverlay() {
 }
 window.vpRenderMissionSceneDebugOverlay = renderMissionSceneDebugOverlay;
 
-function collectMissionSceneTargetLocation() {
+function collectMissionAptArrivalLocation() {
     const dbg = (window.gaMissionSceneDebug && typeof window.gaMissionSceneDebug === 'object') ? window.gaMissionSceneDebug : {};
-    const status = window.missionTargetSceneStatus || {};
+    const status = window.missionAptArrivalSceneStatus || {};
     if (status.clearRequested || status.cleared) return null;
-    const resolvedScene = dbg.appResolvedTargetScene && typeof dbg.appResolvedTargetScene === 'object' ? dbg.appResolvedTargetScene : null;
+    const resolvedScene = dbg.appResolvedAptArrivalScene && typeof dbg.appResolvedAptArrivalScene === 'object' ? dbg.appResolvedAptArrivalScene : null;
     const resolvedPoint = resolvedScene && resolvedScene.point;
-    const command = dbg.lastTargetSceneCommand || null;
+    const command = dbg.lastAptArrivalSceneCommand || null;
+    const preview = (!resolvedScene && !command && typeof window.missionAptArrivalDebugPreview === 'function')
+        ? window.missionAptArrivalDebugPreview('map-apt-arrival-marker-preview')
+        : null;
+    const pickupPoint = (typeof window.missionAptArrivalPickupPointForMap === 'function')
+        ? window.missionAptArrivalPickupPointForMap()
+        : null;
     const candidates = [];
-    if (resolvedScene && resolvedPoint && status.sceneId && String(status.sceneId) === String(resolvedScene.sceneId || '')) {
+
+    if (pickupPoint && Number.isFinite(Number(pickupPoint.worldLat)) && Number.isFinite(Number(pickupPoint.worldLon))) {
         candidates.push({
-            point: resolvedPoint,
-            kind: resolvedScene.resolvedKind,
-            label: resolvedPoint && resolvedPoint.name
+            point: {
+                lat: pickupPoint.worldLat,
+                lon: pickupPoint.worldLon,
+                altFt: pickupPoint.worldAltFt
+            }
+        });
+    }
+    if (resolvedScene && resolvedPoint && (!status.sceneId || String(status.sceneId) === String(resolvedScene.sceneId || ''))) {
+        candidates.push({
+            point: resolvedPoint
         });
     }
     if (command) {
         candidates.push({
-            point: command,
-            kind: command && command.targetSceneKind,
-            label: 'Abholszene'
+            point: command
         });
     }
-    if (!status.cleared && typeof window.missionTargetSceneDebugPreview === 'function') {
-        try {
-            const preview = window.missionTargetSceneDebugPreview('map-target-marker-preview');
-            candidates.push({
-                point: preview && preview.appResolved && preview.appResolved.point,
-                kind: preview && preview.appResolved && preview.appResolved.resolvedKind,
-                label: preview && preview.appResolved && preview.appResolved.point && preview.appResolved.point.name
-            });
-            candidates.push({
-                point: preview && preview.command,
-                kind: preview && preview.command && preview.command.targetSceneKind,
-                label: 'Abholszene'
-            });
-        } catch (_) {}
+    if (preview && preview.plan) {
+        candidates.push({
+            point: preview.plan
+        });
+    }
+    if (preview && preview.command) {
+        candidates.push({
+            point: preview.command
+        });
     }
 
     for (const candidate of candidates) {
@@ -829,8 +836,6 @@ function collectMissionSceneTargetLocation() {
         return {
             lat,
             lon,
-            name: String(candidate.label || point.name || 'Abholszene'),
-            kind: String(candidate.kind || point.targetSceneKind || ''),
             altFt: Number.isFinite(Number(point.altFt)) ? Number(point.altFt) : null
         };
     }
@@ -855,7 +860,7 @@ function renderMissionSceneTargetMarker() {
     if (!vpMissionSceneTargetLayer) vpMissionSceneTargetLayer = L.layerGroup();
     vpMissionSceneTargetLayer.clearLayers();
 
-    const loc = collectMissionSceneTargetLocation();
+    const loc = collectMissionAptArrivalLocation();
     if (!loc) {
         if (map.hasLayer(vpMissionSceneTargetLayer)) map.removeLayer(vpMissionSceneTargetLayer);
         return;
@@ -863,20 +868,16 @@ function renderMissionSceneTargetMarker() {
 
     const marker = L.circleMarker([loc.lat, loc.lon], {
         pane: paneName || undefined,
-        radius: 8,
+        radius: 5,
         color: '#111827',
-        weight: 3,
+        weight: 2,
         fillColor: '#ff9f1c',
         fillOpacity: 0.96,
         interactive: true,
         bubblingMouseEvents: false
     });
-    const kindText = loc.kind ? ` (${loc.kind.replace(/_/g, ' ')})` : '';
-    const altText = Number.isFinite(Number(loc.altFt)) ? `<br>ALT ${Math.round(Number(loc.altFt))} ft` : '';
-    marker.bindTooltip(
-        `<b>Abholszene${escapePopupText(kindText)}</b><br>${escapePopupText(loc.name)}<br>${loc.lat.toFixed(6)}, ${loc.lon.toFixed(6)}${altText}`,
-        { permanent: true, direction: 'top', offset: [0, -10], opacity: 0.95, className: 'mission-target-location-label' }
-    );
+    marker.bindTooltip('Abholung', { direction: 'top', opacity: 0.95 });
+    marker.on('click', () => marker.openTooltip());
     marker.addTo(vpMissionSceneTargetLayer);
     if (!map.hasLayer(vpMissionSceneTargetLayer)) vpMissionSceneTargetLayer.addTo(map);
     if (typeof marker.bringToFront === 'function') marker.bringToFront();
