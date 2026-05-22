@@ -1183,7 +1183,7 @@ const MISSION_ROLE_TASK_PROFILES = {
             { name: 'Eva Maurer', role: 'Tierpflegerin', gender: 'female', personality: 'einfühlsam, organisiert, ruhig' },
             { name: 'Tom Falk', role: 'Tierschutz-Kurier', gender: 'male', personality: 'ruhig, verantwortungsvoll, freundlich' }
         ],
-        greetingText: 'Hi, wir haben heute Tiere an Bord. Bitte möglichst ruhig fliegen, damit sie entspannt bleiben.',
+        greetingText: 'Hi, wir haben heute einen Tierschutzauftrag. Bitte moeglichst ruhig fliegen, damit Uebergabe und Transport entspannt bleiben.',
         paxText: '1 PAX (Tierbegleitung)',
         cargoPool: [
             'Transportbox mit junger Ziege (34 lbs)',
@@ -1191,12 +1191,10 @@ const MISSION_ROLE_TASK_PROFILES = {
             'ruhige Reh-Verlegung in Transportbox (38 lbs)',
             'Moewe fuer die Wildvogelstation (18 lbs)',
             'Gans fuer die Auffangstation (24 lbs)',
-            'Enten-Reha-Transferbox (22 lbs)',
-            'Pferde-Vet-Dokumente fuer Einsatz am Zielort (12 lbs)',
-            'Veterinaertasche und Tierfutter (18 lbs)'
+            'Enten-Reha-Transferbox (22 lbs)'
         ],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'hoch', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: stressarme Beförderung für ein konkretes, Piper-taugliches Tier; bei Ziege oder Schaf darf der enge Kabinenraum humorvoll anklingen.'
+        storyCue: 'Fokus: Tierschutz-/Veterinaerauftrag mit ruhigem Ablauf; bei konkretem Tier in Transportbox darf der enge Kabinenraum kurz glaubwuerdig anklingen.'
     }
 };
 
@@ -6771,7 +6769,11 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         const targetHint = (String(m.t || '').match(/\bnach\s+(.+)$/i) || [])[1] || 'dem Zielplatz';
         const cargoClean = String(cargoText || '').replace(/\s*\([^)]*\)/g, '').trim();
         if (cargoClean) {
-            m.s = `Eine Auffangstation braucht einen ruhigen Transfer nach ${targetHint}. An Bord ist ${cargoClean}; der Flug soll gleichmaessig bleiben, damit die Uebergabe am Ziel entspannt klappt.`;
+            const liveAnimalCargo = /transportbox|ziege|schaf|reh|hirsch|moewe|möwe|gans|ente|schwan|wildvogel/i.test(cargoClean)
+                && !/vet|veterinaer|veterinär|dokument|unterlagen|tasche|futter|material/i.test(cargoClean);
+            m.s = liveAnimalCargo
+                ? `Eine Auffangstation braucht einen ruhigen Transfer nach ${targetHint}. An Bord ist ${cargoClean}; der Flug soll gleichmaessig bleiben, damit die Uebergabe am Ziel entspannt klappt.`
+                : `Eine Auffangstation braucht einen ruhigen Tierschutzflug nach ${targetHint}. An Bord ist ${cargoClean}; der Flug soll gleichmaessig bleiben, damit die Uebergabe am Ziel entspannt klappt.`;
         }
     }
     const cue = _profileStoryCue(profile, isPOI);
@@ -7008,9 +7010,9 @@ function pickAnimalTransportSceneSpec(text = '') {
     const hay = String(text || '');
     const byText = ANIMAL_TRANSPORT_SCENE_OPTIONS.find(opt => opt.keywords && opt.keywords.test(hay));
     if (byText) return byText;
-    const safe = ANIMAL_TRANSPORT_SCENE_OPTIONS.filter(opt => opt.visible !== false);
-    const seed = Array.from(hay || 'animal_transport').reduce((sum, ch) => ((sum << 5) - sum + ch.charCodeAt(0)) | 0, 0);
-    return safe[Math.abs(seed) % safe.length] || safe[0] || ANIMAL_TRANSPORT_SCENE_OPTIONS[0];
+    return ANIMAL_TRANSPORT_SCENE_OPTIONS.find(opt => opt.label === 'Tiertransportbox')
+        || ANIMAL_TRANSPORT_SCENE_OPTIONS.find(opt => opt.visible === false)
+        || ANIMAL_TRANSPORT_SCENE_OPTIONS[0];
 }
 
 function getMissionPlanV2Plan(missionPlanV2 = null) {
@@ -7049,7 +7051,12 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
             };
         }
         if (/animal/.test(planTask)) {
-            const animalSpec = pickAnimalTransportSceneSpec(`${cargoText || ''} ${paxText || ''}`.trim() || `${mission?.t || ''} ${mission?.s || ''}`);
+            const animalSpec = pickAnimalTransportSceneSpec([
+                cargoText,
+                mission?.s,
+                mission?.t,
+                paxText
+            ].filter(Boolean).join(' '));
             const handoffLabel = animalSpec.visible === false
                 ? (animalSpec.cargoLabel || animalSpec.label || 'Transportbox')
                 : `${animalSpec.label} / Transportbox`;
