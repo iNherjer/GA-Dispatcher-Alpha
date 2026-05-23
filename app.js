@@ -1039,11 +1039,11 @@ const MISSION_ROLE_TASK_PROFILES = {
             { name: 'Mila Hartung', role: 'Lern-Guide', gender: 'female', personality: 'klar, neugierig, anschaulich' },
             { name: 'Jonas Keller', role: 'Tour-Guide', gender: 'male', personality: 'ruhig, faktenstark, freundlich' }
         ],
-        greetingText: 'Hi, heute geht es nur darum, dass du zum Ziel etwas lernst. Ich gebe dir kurze Fakten und Einordnung, ohne Extra-Wuensche.',
+        greetingText: 'Hi, ich bin heute dein Lern-Guide. Ich gebe dir unterwegs kurze Fakten, Orientierung und ein paar anschauliche Hinweise zur Gegend.',
         paxText: '1 PAX (Lern-Guide)',
         cargoPool: ['Notizbuch und Reisefuehrer (4 lbs)', 'Tablet mit Ortsfakten (3 lbs)'],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'niedrig' },
-        storyCue: 'Fokus: reiner Bildungsflug am POI mit Fakten, Kontext und Orientierung ohne Arbeitsauftrag.'
+        storyCue: 'Fokus: Lern-Guide erklaert dem Piloten Fakten, Kontext, Landschaft und sichtbare Orientierungspunkte zum POI; der Guide trainiert nicht selbst.'
     },
     historian_guided_tour: {
         id: 'historian_guided_tour',
@@ -1548,10 +1548,10 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
             { t: `Orientierungsrunde: ${n}`, i: '🧭', cat: 'poi', s: `Ein entspannter Rundflug zu ${n}: kurz zeigen, wie Ziel und Umgebung zusammenliegen, dann wieder zurück. Weiche Kurven und gute Sicht sind wichtiger als Tempo.`, payloadText: '2 PAX (Sightseeing-Gäste)', cargoText: 'Tagesrucksäcke (12 lbs)' }
         ],
         tour_guide_knowledge: [
-            { t: `Wissensflug: ${n}`, i: '📚', cat: 'poi', s: `Der Lern-Guide erklärt bei ${n} kurze Fakten zu Lage, Nutzung und sichtbarer Umgebung. Es gibt keinen Arbeitsauftrag, nur Orientierung und Einordnung.`, payloadText: '1 PAX (Lern-Guide)', cargoText: 'Tablet mit Ortsfakten (3 lbs)' },
-            { t: `POI-Erklärung: ${n}`, i: '🧭', cat: 'poi', s: `Bei ${n} geht es um verständliche Ortskunde aus der Luft. Wir fliegen ruhig, damit Ziel, Nachbarschaft und Landschaft gut zu erkennen sind.`, payloadText: '1 PAX (Tour-Guide)', cargoText: 'Notizbuch und Reiseführer (4 lbs)' },
-            { t: `Faktenrunde: ${n}`, i: '💬', cat: 'poi', s: `Der Guide nutzt ${n} als Lernpunkt und ordnet sichtbare Merkmale knapp ein. Keine Suche, keine Messung, keine Einsatzlage.`, payloadText: '1 PAX (Lern-Guide)', cargoText: 'Tablet mit Karten (5 lbs)' },
-            { t: `Kontextflug: ${n}`, i: '🗺️', cat: 'poi', s: `Wir besuchen ${n}, um den Ort im Gelände zu verstehen: was liegt daneben, welche Wege oder Gewässer rahmen das Ziel ein, und warum ist es auffällig.`, payloadText: '1 PAX (Tour-Guide)', cargoText: 'Reiseführer und Tablet (5 lbs)' }
+            { t: `Wissensflug: ${n}`, i: '📚', cat: 'poi', s: `Der Lern-Guide erklaert dir bei ${n} kurze Fakten zu Lage, Nutzung und sichtbarer Umgebung. Es gibt keinen Arbeitsauftrag, nur Orientierung und Einordnung.`, payloadText: '1 PAX (Lern-Guide)', cargoText: 'Tablet mit Ortsfakten (3 lbs)' },
+            { t: `POI-Erklärung: ${n}`, i: '🧭', cat: 'poi', s: `Bei ${n} geht es um verstaendliche Ortskunde aus der Luft. Der Guide zeigt dir Ziel, Nachbarschaft und Landschaft, ohne daraus eine Inspektion zu machen.`, payloadText: '1 PAX (Tour-Guide)', cargoText: 'Notizbuch und Reiseführer (4 lbs)' },
+            { t: `Faktenrunde: ${n}`, i: '💬', cat: 'poi', s: `Der Guide ordnet ${n} fuer dich ein und nennt sichtbare Merkmale knapp und anschaulich. Keine Suche, keine Messung, keine Einsatzlage.`, payloadText: '1 PAX (Lern-Guide)', cargoText: 'Tablet mit Karten (5 lbs)' },
+            { t: `Kontextflug: ${n}`, i: '🗺️', cat: 'poi', s: `Wir besuchen ${n}, damit der Guide dir den Ort im Gelaende erklaert: was liegt daneben, welche Wege oder Gewaesser rahmen das Ziel ein, und warum ist es auffaellig.`, payloadText: '1 PAX (Tour-Guide)', cargoText: 'Reiseführer und Tablet (5 lbs)' }
         ]
     };
     return (byProfile[id] || []).map(x => ({ ...x }));
@@ -7125,6 +7125,57 @@ function _pickAnimalTransportCargo(cargoPool = [], missionLike = {}) {
     return pool[Math.floor(Math.random() * pool.length)] || pool[0] || '';
 }
 
+function _missionPlanFactsForNarrative(missionLike = {}, maxItems = 2) {
+    const plan = missionLike?._missionPlanV2?.plan || missionLike?.missionPlanV2?.plan || missionLike?.missionPlan?.plan || null;
+    const facts = [
+        ...(Array.isArray(plan?.localFacts) ? plan.localFacts : []),
+        ...(Array.isArray(plan?.mustMention) ? plan.mustMention : [])
+    ];
+    const seen = new Set();
+    return facts
+        .map(x => String(x || '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .filter(x => {
+            const key = x.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .slice(0, Math.max(0, Math.round(Number(maxItems) || 0)));
+}
+
+function _targetLabelForGuideNarrative(missionLike = {}) {
+    const plan = missionLike?._missionPlanV2?.plan || missionLike?.missionPlanV2?.plan || null;
+    const fromPlan = String(plan?.targetLabel || '').replace(/\s+/g, ' ').trim();
+    if (fromPlan) return fromPlan;
+    const title = String(missionLike?.t || missionLike?.title || '').trim();
+    const afterColon = (title.match(/:\s*(.+)$/) || [])[1];
+    if (afterColon) return afterColon.trim();
+    const orient = title.match(/\b(?:Wissensflug|Orientierungsflug|Kontextflug|Faktenrunde|POI-Erklaerung|POI-Erklärung)\s+(.+)$/i);
+    if (orient?.[1]) return orient[1].trim();
+    return 'Zielgebiet';
+}
+
+function _sanitizeLearningGuideNarrative(missionLike = {}) {
+    if (!missionLike || typeof missionLike !== 'object') return missionLike;
+    const target = _targetLabelForGuideNarrative(missionLike);
+    const paxName = String(missionLike.passenger?.name || 'Der Lern-Guide').trim();
+    const facts = _missionPlanFactsForNarrative(missionLike, 2);
+    const factLine = facts.length
+        ? `Als Orientierung nutzt ${paxName} gesicherte Punkte aus dem Kontext: ${facts.join(' | ')}.`
+        : `${paxName} achtet auf Lage, Landschaft, Zufahrten und auffaellige Orientierungspunkte rund um ${target}.`;
+    const current = String(missionLike.s || missionLike.story || '').toLowerCase();
+    const guideLearnsHerself = /(guide|tour-guide|lern-guide|mila|jonas).{0,80}(lernt|trainiert|abspeicher|vorbereit|spaeter|später)|angehend(?:er|e|en)?\s+tour-guide|kuenftig(?:er|e|en)?\s+sightseeing|künft/i.test(current);
+    const pronounDrift = /\bunseren\s+[A-ZÄÖÜ][a-zäöüß]+\b|damit\s+er\b|damit\s+sie\s+das\s+gelaende/i.test(String(missionLike.s || missionLike.story || ''));
+    if (guideLearnsHerself || pronounDrift || !/erklaert|erklärt|fakten|einordnung|orientierung/i.test(String(missionLike.s || missionLike.story || ''))) {
+        missionLike.s = `${paxName} begleitet dich heute als Lern-Guide zum ${target}. Unterwegs erklaert ${paxName} kurze Fakten, landschaftlichen Kontext und sichtbare Referenzen, damit du die Gegend aus der Luft besser einordnen kannst. ${factLine} Es gibt keinen Arbeitsauftrag am Boden: ruhig anfliegen, orientieren und die Gegend verstehen.`;
+    }
+    if (!/^Wissensflug:|^Faktenrunde:|^Kontextflug:|^POI-Erkl/i.test(String(missionLike.t || ''))) {
+        missionLike.t = `Wissensflug: ${target}`;
+    }
+    return missionLike;
+}
+
 function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, cargoText) {
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
     const baseType = isPOI ? 'poi' : 'apt';
@@ -7167,6 +7218,9 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
                 : `Eine Auffangstation braucht einen ruhigen Tierschutzflug ${targetHint}. An Bord ist ${cargoClean}; der Flug soll gleichmaessig bleiben, damit die Uebergabe am Ziel entspannt klappt.`;
         }
     }
+    if (profile.id === 'tour_guide_knowledge' && isPOI) {
+        _sanitizeLearningGuideNarrative(m);
+    }
     const cue = _profileStoryCue(profile, isPOI);
     if (cue) {
         const story = String(m.s || '').trim();
@@ -7200,7 +7254,7 @@ function _profileStoryCue(profile, isPOI = false) {
     }
     if (profile.id === 'tour_guide_knowledge') {
         return isPOI
-            ? 'Am Ziel geht es um kurze Fakten, Orientierung und Einordnung aus der Luft.'
+            ? 'Der Lern-Guide erklaert dir am Ziel kurze Fakten, Orientierung und Einordnung aus der Luft.'
             : '';
     }
     if (profile.id === 'historian_guided_tour') {
@@ -7252,7 +7306,7 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischen Fakten und lokaler Geschichte. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag daraus machen.';
     }
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
-        return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist reine Wissensvermittlung zum Ziel (Fakten, Orientierung, Einordnung). Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks bis 500m duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
+        return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist Wissensvermittlung fuer den Piloten: Der Guide erklaert Ziel, Gegend, Landschaft, Nutzung und sichtbare Referenzen mit kurzen Fakten. Der Guide ist nicht selbst in Ausbildung und fliegt nicht zur Vorbereitung spaeterer Touren. Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks bis 500m duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
     }
     if (profile.id === 'inspection_infra' && isPOI) {
         return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Bei Staudamm/Talsperre/Stausee/Rueckhaltebecken bleibt das Wasserbauwerk Primärziel: Staumauer, Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegel-/Schieberanlagen oder Hochwasserschutz. Zufahrt, Straße oder Strommast sind nur Lagehilfe/Support, nie Ersatz-Ziel. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
@@ -11446,6 +11500,29 @@ function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds 
             noLandingAtPoi: false
         };
     }
+    if (String(plan.taskDomain || '').toLowerCase() === 'poi_learning_guide') {
+        const target = String(plan.targetLabel || draft?.target?.name || 'Ziel').trim();
+        plan.roleProfile = 'tour_guide_learning_v1';
+        plan.sceneKind = 'none';
+        plan.sceneDensity = 'none';
+        plan.objectFamilies = [];
+        plan.placementPolicy = 'Keine Zielobjekte platzieren; vorhandene Landmarken nur als visuelle Orientierung nutzen.';
+        if (/vorbereit|spaeter|später|train|abspeicher|angehend/i.test(plan.primaryObjective || '')) {
+            plan.primaryObjective = `Lern-Guide erklaert dem Piloten ${target} aus der Luft mit kurzen Fakten, Landschaftsbezug und sichtbarer Orientierung.`;
+        }
+        plan.narrativeRules = [
+            'Der Lern-Guide vermittelt dem Piloten Wissen; er trainiert nicht selbst fuer spaetere Touren.',
+            'Story und Voice nennen konkrete Fakten/Einordnung zum Ziel, aber keinen Arbeitsauftrag.',
+            'Bestaetigte Landmarken nur als Orientierungshilfe nutzen, nicht als Hauptauftrag.',
+            ...plan.narrativeRules
+        ].slice(0, 8);
+        plan.lockedFields = {
+            ...(plan.lockedFields || {}),
+            taskDomain: 'poi_learning_guide',
+            roleProfile: 'tour_guide_learning_v1',
+            noLandingAtPoi: true
+        };
+    }
     return {
         pipelineVersion: 'mission-v2-planner-2026-05-22',
         status,
@@ -11969,6 +12046,7 @@ Plan-Regeln:
 - weatherHooks enthalten nur konkrete Wetterpunkte aus den Tool-Daten.
 - narrativeHooks sind 2-4 brauchbare Story-Anker fuer den spaeteren Dispatcher.
 - mustAvoid nennt konkrete Dinge, die die spaetere Story nicht tun darf.
+- Bei taskDomain="poi_learning_guide": Der Guide vermittelt dem Piloten Wissen ueber Ziel, Gegend, Landschaft, Nutzung und sichtbare Referenzen. Niemals formulieren, dass der Guide selbst trainiert, das Gelaende fuer spaetere Touren abspeichert oder einen Arbeitsauftrag abarbeitet. sceneKind bleibt "none", Objektfamilien leer; Landmarken sind nur Orientierung.
 </INSTRUKTIONEN>
 
 <DRAFT>
@@ -12279,10 +12357,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Dokumentationsflug zur Kartenaktualisierung mit klarer Zielgeometrie'
         ],
         tour_guide_knowledge: [
-            'Bildungsflug zum POI: lernorientierte Fakten, Kontext und Orientierung ohne Arbeitsauftrag',
-            'Wissensflug mit kurzen Ortsfakten und sichtbarer Orientierung am Ziel',
-            'Lern-Guide erklaert Nutzung, Landschaft und Umgebung des POI ohne Inspektion',
-            'Ruhiger Erklaerflug mit Fakten, aber ohne Auftrag zum Suchen, Messen oder Pruefen'
+            'Bildungsflug zum POI: der Lern-Guide vermittelt dem Piloten Fakten, Kontext und Orientierung ohne Arbeitsauftrag',
+            'Wissensflug: Guide erklaert kurze Ortsfakten, Landschaft und sichtbare Orientierung am Ziel',
+            'Lern-Guide zeigt dem Piloten Nutzung, Landschaft und Umgebung des POI ohne Inspektion',
+            'Ruhiger Erklaerflug mit Fakten fuer den Piloten, aber ohne Auftrag zum Suchen, Messen oder Pruefen'
         ],
         search_and_rescue: [
             'SAR-Suchflug entlang Trassen, Flussläufen und Bahnstrecken mit strukturiertem Muster und klarem Lagebild',
