@@ -6797,6 +6797,7 @@ function _stripTimePressureText(txt) {
         .replace(/\bp(?:ue|ü)nktlich(?:es|e|er|en)?\s+(ankommen|ankunft|eintreffen|sein)\s+(hilft|ist|waere|wäre|bleibt|macht)\b[^.?!]*/gi, '')
         .replace(/\bp(?:ue|ü)nktlich(?:e|er|es|en)?\s+(ankunft|uebergabe|übergabe|termin|eintreffen)\b[^.?!]*/gi, '')
         .replace(/\bp(?:ue|ü)nktlich\s+(am\s+ziel\s+)?(ankommen|sein)\b/gi, '')
+        .replace(/\bist\s*,\s*(da|weil)\b/gi, 'passt gut, $1')
         .replace(/\s{2,}/g, ' ')
         .replace(/\s+([,.;:!?])/g, '$1')
         .trim();
@@ -9083,10 +9084,17 @@ function buildMissionPlanV2SceneRaw(missionPlanV2 = null) {
 function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', targetGeoContext = null, missionPlanV2 = null } = {}) {
     if (!isPOI) return { kind: 'none', roles: [], density: 'none', notes: '' };
     const planDirective = missionPlanV2SceneDirective(missionPlanV2);
-    if (planDirective?.sceneKind === 'none') {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const rawPreset = normalizeMissionTargetScenePreset(src.preset || src.scenePreset || src.template || '');
+    const rawKind = normalizeMissionTargetSceneKind(src.kind || src.type || (rawPreset ? missionSceneTargetPresetCatalog()[rawPreset]?.kind : '') || '');
+    const rawHasConcreteScene = rawKind !== 'none'
+        || rawPreset
+        || (Array.isArray(src.features) && src.features.length > 0)
+        || (Array.isArray(src.requirements) && src.requirements.length > 0)
+        || (Array.isArray(src.specialRequirements) && src.specialRequirements.length > 0);
+    if (planDirective?.sceneKind === 'none' && !rawHasConcreteScene) {
         return { kind: 'none', roles: [], density: 'none', notes: planDirective.placementPolicy || 'Pipeline V2: keine Zielszene geplant.' };
     }
-    const src = raw && typeof raw === 'object' ? raw : {};
     const task = String(taskDomain || '').toLowerCase();
     const natureTask = missionTruthIsNatureTask('', task);
     const rawSceneText = [
