@@ -3,6 +3,7 @@
    CLOUD SYNC LOGIC (Adaptive, Diffing, Debounce & Toggle)
    ========================================================= */
 const SYNC_URL = 'https://ga-proxy.einherjer.workers.dev/api/sync/';
+const SYNC_MAX_UPLOAD_BYTES = 95000;
 let localSyncTime = localStorage.getItem('ga_sync_time') ? parseInt(localStorage.getItem('ga_sync_time')) : 0;
 let lastSyncedPayloadStr = "";
 
@@ -4958,6 +4959,139 @@ function applyAircraftPresetsFromSync(data) {
     } catch (_) {}
 }
 
+function _syncJsonClone(value) {
+    if (value == null) return value;
+    try {
+        return JSON.parse(JSON.stringify(value));
+    } catch (_) {
+        return null;
+    }
+}
+
+function _syncCompactArray(arr, maxItems = 80) {
+    const src = Array.isArray(arr) ? arr : [];
+    if (src.length <= maxItems) return src;
+    if (typeof compactFlightTrackForStorage === 'function') {
+        try { return compactFlightTrackForStorage(src, maxItems); } catch (_) {}
+    }
+    if (maxItems <= 1) return src.length ? [src[src.length - 1]] : [];
+    const out = [];
+    const step = (src.length - 1) / (maxItems - 1);
+    for (let i = 0; i < maxItems; i++) {
+        out.push(src[Math.min(src.length - 1, Math.round(i * step))]);
+    }
+    return out;
+}
+
+function _syncCompactFlightRecord(record, maxTrack = 80) {
+    const rec = _syncJsonClone(record);
+    if (!rec || typeof rec !== 'object') return rec;
+    if (Array.isArray(rec.track)) rec.track = _syncCompactArray(rec.track, maxTrack);
+    return rec;
+}
+
+function _syncCompactFlightDataState(state, level = 1) {
+    const out = _syncJsonClone(state);
+    if (!out || typeof out !== 'object') return out;
+    if (level >= 1) {
+        delete out.vpElevationData;
+        delete out.vpSegmentAlts;
+        delete out.freqCache;
+        if (out.currentMissionData && typeof out.currentMissionData === 'object') {
+            delete out.currentMissionData.targetGeoContext;
+            delete out.currentMissionData.missionPlanV3;
+            delete out.currentMissionData.targetSceneDebug;
+            delete out.currentMissionData.missionTruth;
+            delete out.currentMissionData.missionContract;
+        }
+        if (out.activeMissionContract && typeof out.activeMissionContract === 'object') {
+            delete out.activeMissionContract.targetGeoContext;
+            delete out.activeMissionContract.missionTruth;
+        }
+    }
+    if (level >= 2) {
+        delete out.activeMissionContract;
+        delete out.missionRouteWaypoints;
+        delete out.vpAltWaypoints;
+    }
+    return out;
+}
+
+function _syncCompactPinboard(pinboard, options = {}) {
+    const maxFlightRecords = Number.isFinite(Number(options.maxFlightRecords)) ? Number(options.maxFlightRecords) : 8;
+    const maxTrack = Number.isFinite(Number(options.maxTrack)) ? Number(options.maxTrack) : 80;
+    const flightDataLevel = Number.isFinite(Number(options.flightDataLevel)) ? Number(options.flightDataLevel) : 1;
+    const textMax = Number.isFinite(Number(options.textMax)) ? Number(options.textMax) : 8000;
+    let notes = Array.isArray(pinboard) ? pinboard.map(n => _syncJsonClone(n)).filter(Boolean) : [];
+    if (Number.isFinite(Number(options.maxNotes)) && notes.length > Number(options.maxNotes)) {
+        notes = notes.slice(Math.max(0, notes.length - Number(options.maxNotes)));
+    }
+    const flightRecordIndexes = [];
+    notes.forEach((note, idx) => {
+        if (note?.type === 'flight_record') flightRecordIndexes.push(idx);
+    });
+    while (flightRecordIndexes.length > maxFlightRecords) {
+        const idx = flightRecordIndexes.shift();
+        notes.splice(idx, 1);
+        for (let i = 0; i < flightRecordIndexes.length; i++) flightRecordIndexes[i] -= 1;
+    }
+    notes.forEach(note => {
+        if (!note || typeof note !== 'object') return;
+        if (typeof note.text === 'string' && note.text.length > textMax) note.text = note.text.slice(0, textMax);
+        if (note.type === 'flight_record' && note.flightRecord) {
+            note.flightRecord = _syncCompactFlightRecord(note.flightRecord, maxTrack);
+        }
+        if (note.type === 'flight' && note.flightData) {
+            if (options.dropFlightData) delete note.flightData;
+            else note.flightData = _syncCompactFlightDataState(note.flightData, flightDataLevel);
+        }
+    });
+    return notes;
+}
+
+function _syncCompactActiveMission(activeMission, level = 1) {
+    const out = _syncCompactFlightDataState(activeMission, level);
+    if (!out || typeof out !== 'object') return out;
+    if (out.currentMissionData && typeof out.currentMissionData === 'object') {
+        if (level >= 1) {
+            delete out.currentMissionData.targetSceneDebug;
+            delete out.currentMissionData.missionPipelineDebug;
+            delete out.currentMissionData.missionPlanV3;
+        }
+        if (level >= 2) {
+            delete out.currentMissionData.targetGeoContext;
+            delete out.currentMissionData.missionTruth;
+        }
+    }
+    return out;
+}
+
+function _syncBuildUploadPayload(basePayload, localSyncTs, pin) {
+    const attempts = [
+        { maxFlightRecords: 12, maxTrack: 100, flightDataLevel: 1, logbookMax: 40, missionLevel: 1 },
+        { maxFlightRecords: 8, maxTrack: 70, flightDataLevel: 1, logbookMax: 30, missionLevel: 1 },
+        { maxFlightRecords: 5, maxTrack: 40, flightDataLevel: 2, logbookMax: 20, missionLevel: 2 },
+        { maxFlightRecords: 2, maxTrack: 20, flightDataLevel: 2, logbookMax: 10, missionLevel: 2 },
+        { maxFlightRecords: 0, maxTrack: 0, flightDataLevel: 2, logbookMax: 5, missionLevel: 2, maxNotes: 50, textMax: 1000, dropFlightData: true, dropActiveMission: true }
+    ];
+
+    let last = null;
+    for (const cfg of attempts) {
+        const payload = {
+            ...basePayload,
+            pinboard: _syncCompactPinboard(basePayload.pinboard, cfg),
+            logbook: Array.isArray(basePayload.logbook) ? basePayload.logbook.slice(0, cfg.logbookMax) : [],
+            activeMission: cfg.dropActiveMission ? null : _syncCompactActiveMission(basePayload.activeMission, cfg.missionLevel),
+            lastModified: localSyncTs,
+            pin
+        };
+        const bodyStr = JSON.stringify(payload);
+        last = { payload, bodyStr, compacted: true };
+        if (bodyStr.length <= SYNC_MAX_UPLOAD_BYTES) return last;
+    }
+    return last || { payload: { ...basePayload, lastModified: localSyncTs, pin }, bodyStr: JSON.stringify({ ...basePayload, lastModified: localSyncTs, pin }), compacted: false };
+}
+
 function _syncMissionStateIsDraft(state = null) {
     if (!state || typeof state !== 'object') return false;
     if (typeof window.isMissionDraftPending === 'function') {
@@ -5055,11 +5189,18 @@ async function triggerCloudSave(immediate = false) {
     }
     updateSyncStatus("Speichere in Cloud...");
     localStorage.setItem('ga_sync_time', localSyncTime);
-    const payload = { ...payloadToCompare, lastModified: localSyncTime, pin: getSyncPin() };
-    const bodyStr = JSON.stringify(payload);
     try {
         const id = getSyncId();
         const pin = getSyncPin();
+        const upload = _syncBuildUploadPayload(payloadToCompare, localSyncTime, pin);
+        const bodyStr = upload.bodyStr;
+        if (bodyStr.length > SYNC_MAX_UPLOAD_BYTES) {
+            updateSyncStatus(`Cloud: zu groß (${Math.round(bodyStr.length / 1024)} KB)`, true);
+            throw new Error(`Payload ${bodyStr.length} bytes`);
+        }
+        if (upload.compacted && bodyStr.length < currentPayloadStr.length) {
+            console.info(`[Sync] Upload kompakt: ${Math.round(currentPayloadStr.length / 1024)} KB -> ${Math.round(bodyStr.length / 1024)} KB`);
+        }
         const fetchOptions = {
             method: 'POST',
             headers: { 'X-Pilot-PIN': pin, 'Content-Type': 'application/json' },
@@ -5086,7 +5227,11 @@ async function triggerCloudSave(immediate = false) {
     } catch (e) {
         console.error("[Sync] Cloud save failed:", e);
         const msg = String(e?.message || '');
-        updateSyncStatus(msg.startsWith('HTTP ') ? `Cloud: Fehler ${msg}` : "Cloud: Speicher-Fehler", true);
+        updateSyncStatus(
+            msg.startsWith('HTTP ') ? `Cloud: Fehler ${msg}`
+                : (msg.startsWith('Payload ') ? "Cloud: Payload zu groß" : "Cloud: Speicher-Fehler"),
+            true
+        );
         if (immediate === 'manual') {
             setNavComLed('navcomSaveBtn', 'error');
             setTimeout(() => setNavComLed('navcomSaveBtn', 'off'), 3000);
