@@ -698,7 +698,8 @@ function missionScenePointPriority(point = {}) {
 
 function collectMissionSceneDebugMapPoints() {
     const dbg = (window.gaMissionSceneDebug && typeof window.gaMissionSceneDebug === 'object') ? window.gaMissionSceneDebug : {};
-    const preview = (!dbg.lastTargetSceneCommand && typeof window.missionTargetSceneDebugPreview === 'function')
+    const targetCommandHasMapPoints = Array.isArray(dbg.lastTargetSceneCommand?.mapPoints) && dbg.lastTargetSceneCommand.mapPoints.length > 0;
+    const preview = (!targetCommandHasMapPoints && typeof window.missionTargetSceneDebugPreview === 'function')
         ? window.missionTargetSceneDebugPreview('map-overlay-preview')?.command
         : null;
     const startEndPreview = (typeof window.missionStartEndSceneDebugPreview === 'function')
@@ -844,56 +845,6 @@ function collectMissionAptArrivalLocation() {
     return null;
 }
 
-function isMissionTargetSceneMapPoint(point = {}) {
-    const targetSceneKind = String(point.targetSceneKind || '').toLowerCase();
-    const sourceType = String(point.sourceType || '').toLowerCase();
-    const sceneId = String(point.sceneId || '').toLowerCase();
-    if (targetSceneKind && targetSceneKind !== 'apt_arrival') return true;
-    if (targetSceneKind === 'apt_arrival') return false;
-    return sourceType.includes('mission_scene_target') || sceneId.includes('-target');
-}
-
-function collectMissionTargetSceneMapPoints() {
-    const dbg = (window.gaMissionSceneDebug && typeof window.gaMissionSceneDebug === 'object') ? window.gaMissionSceneDebug : {};
-    const commands = [];
-    if (dbg.lastTargetSceneCommand && Array.isArray(dbg.lastTargetSceneCommand.mapPoints)) {
-        commands.push(dbg.lastTargetSceneCommand);
-    }
-    if (typeof window.missionTargetSceneDebugPreview === 'function') {
-        const preview = window.missionTargetSceneDebugPreview('map-target-marker-preview');
-        if (preview?.command && Array.isArray(preview.command.mapPoints)) commands.push(preview.command);
-    }
-    const seen = new Set();
-    const points = [];
-    commands.forEach(cmd => {
-        cmd.mapPoints.forEach(point => {
-            const lat = Number(point?.lat);
-            const lon = Number(point?.lon);
-            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-            const normalized = {
-                ...point,
-                commandId: cmd.commandId || null,
-                sourceType: point.sourceType || cmd.type || '',
-                sceneId: point.sceneId || cmd.sceneId || null,
-                targetSceneKind: point.targetSceneKind || cmd.targetSceneKind || null,
-                lat,
-                lon
-            };
-            if (!isMissionTargetSceneMapPoint(normalized)) return;
-            const key = [
-                lat.toFixed(6),
-                lon.toFixed(6),
-                String(normalized.kind || ''),
-                String(normalized.label || '')
-            ].join('|');
-            if (seen.has(key)) return;
-            seen.add(key);
-            points.push(normalized);
-        });
-    });
-    return points.slice(0, 18);
-}
-
 function ensureMissionSceneTargetPane() {
     if (!map || typeof L === 'undefined') return null;
     const name = 'missionSceneTargetPane';
@@ -913,50 +864,26 @@ function renderMissionSceneTargetMarker() {
     vpMissionSceneTargetLayer.clearLayers();
 
     const loc = collectMissionAptArrivalLocation();
-    const targetPoints = collectMissionTargetSceneMapPoints();
-    if (!loc && !targetPoints.length) {
+    if (!loc) {
         if (map.hasLayer(vpMissionSceneTargetLayer)) map.removeLayer(vpMissionSceneTargetLayer);
         return;
     }
 
-    if (loc) {
-        const marker = L.circleMarker([loc.lat, loc.lon], {
-            pane: paneName || undefined,
-            radius: 5,
-            color: '#111827',
-            weight: 2,
-            fillColor: '#ff9f1c',
-            fillOpacity: 0.96,
-            interactive: true,
-            bubblingMouseEvents: false
-        });
-        marker.bindTooltip('Abholung', { direction: 'top', opacity: 0.95 });
-        marker.on('click', () => marker.openTooltip());
-        marker.addTo(vpMissionSceneTargetLayer);
-        if (typeof marker.bringToFront === 'function') marker.bringToFront();
-    }
-
-    targetPoints.forEach((point, idx) => {
-        const color = missionScenePointColor(point);
-        const marker = L.circleMarker([point.lat, point.lon], {
-            pane: paneName || undefined,
-            radius: Number(point.n) === 1 ? 6 : 5,
-            color: '#111827',
-            weight: 2,
-            fillColor: color,
-            fillOpacity: 0.96,
-            interactive: true,
-            bubblingMouseEvents: false
-        });
-        const label = point.label || point.kind || `Objekt ${idx + 1}`;
-        const title = point.title ? ` | ${point.title}` : '';
-        marker.bindTooltip(`Zielobjekt ${idx + 1}: ${label}${title}`, { direction: 'top', opacity: 0.95 });
-        marker.on('click', () => marker.openTooltip());
-        marker.addTo(vpMissionSceneTargetLayer);
-        if (typeof marker.bringToFront === 'function') marker.bringToFront();
+    const marker = L.circleMarker([loc.lat, loc.lon], {
+        pane: paneName || undefined,
+        radius: 5,
+        color: '#111827',
+        weight: 2,
+        fillColor: '#ff9f1c',
+        fillOpacity: 0.96,
+        interactive: true,
+        bubblingMouseEvents: false
     });
-
+    marker.bindTooltip('Abholung', { direction: 'top', opacity: 0.95 });
+    marker.on('click', () => marker.openTooltip());
+    marker.addTo(vpMissionSceneTargetLayer);
     if (!map.hasLayer(vpMissionSceneTargetLayer)) vpMissionSceneTargetLayer.addTo(map);
+    if (typeof marker.bringToFront === 'function') marker.bringToFront();
 }
 window.vpRenderMissionSceneTargetMarker = renderMissionSceneTargetMarker;
 
