@@ -6,6 +6,8 @@ if (!document.getElementById('route-anim-style')) {
     style.innerHTML = `
         @keyframes routeDashAnim { to { stroke-dashoffset: -20; } }
         .animated-route-line { animation: routeDashAnim 1.5s linear infinite; }
+        .animated-route-line,
+        .interactive-route { vector-effect: non-scaling-stroke; }
         .low-fps-mode .animated-route-line { animation: none !important; stroke-dasharray: none !important; }
         .low-fps-mode .live-plane-marker .live-plane-inner { filter: none !important; }
         .mission-target-location-label {
@@ -842,6 +844,56 @@ function collectMissionAptArrivalLocation() {
     return null;
 }
 
+function isMissionTargetSceneMapPoint(point = {}) {
+    const targetSceneKind = String(point.targetSceneKind || '').toLowerCase();
+    const sourceType = String(point.sourceType || '').toLowerCase();
+    const sceneId = String(point.sceneId || '').toLowerCase();
+    if (targetSceneKind && targetSceneKind !== 'apt_arrival') return true;
+    if (targetSceneKind === 'apt_arrival') return false;
+    return sourceType.includes('mission_scene_target') || sceneId.includes('-target');
+}
+
+function collectMissionTargetSceneMapPoints() {
+    const dbg = (window.gaMissionSceneDebug && typeof window.gaMissionSceneDebug === 'object') ? window.gaMissionSceneDebug : {};
+    const commands = [];
+    if (dbg.lastTargetSceneCommand && Array.isArray(dbg.lastTargetSceneCommand.mapPoints)) {
+        commands.push(dbg.lastTargetSceneCommand);
+    }
+    if (typeof window.missionTargetSceneDebugPreview === 'function') {
+        const preview = window.missionTargetSceneDebugPreview('map-target-marker-preview');
+        if (preview?.command && Array.isArray(preview.command.mapPoints)) commands.push(preview.command);
+    }
+    const seen = new Set();
+    const points = [];
+    commands.forEach(cmd => {
+        cmd.mapPoints.forEach(point => {
+            const lat = Number(point?.lat);
+            const lon = Number(point?.lon);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+            const normalized = {
+                ...point,
+                commandId: cmd.commandId || null,
+                sourceType: point.sourceType || cmd.type || '',
+                sceneId: point.sceneId || cmd.sceneId || null,
+                targetSceneKind: point.targetSceneKind || cmd.targetSceneKind || null,
+                lat,
+                lon
+            };
+            if (!isMissionTargetSceneMapPoint(normalized)) return;
+            const key = [
+                lat.toFixed(6),
+                lon.toFixed(6),
+                String(normalized.kind || ''),
+                String(normalized.label || '')
+            ].join('|');
+            if (seen.has(key)) return;
+            seen.add(key);
+            points.push(normalized);
+        });
+    });
+    return points.slice(0, 18);
+}
+
 function ensureMissionSceneTargetPane() {
     if (!map || typeof L === 'undefined') return null;
     const name = 'missionSceneTargetPane';
@@ -861,26 +913,50 @@ function renderMissionSceneTargetMarker() {
     vpMissionSceneTargetLayer.clearLayers();
 
     const loc = collectMissionAptArrivalLocation();
-    if (!loc) {
+    const targetPoints = collectMissionTargetSceneMapPoints();
+    if (!loc && !targetPoints.length) {
         if (map.hasLayer(vpMissionSceneTargetLayer)) map.removeLayer(vpMissionSceneTargetLayer);
         return;
     }
 
-    const marker = L.circleMarker([loc.lat, loc.lon], {
-        pane: paneName || undefined,
-        radius: 5,
-        color: '#111827',
-        weight: 2,
-        fillColor: '#ff9f1c',
-        fillOpacity: 0.96,
-        interactive: true,
-        bubblingMouseEvents: false
+    if (loc) {
+        const marker = L.circleMarker([loc.lat, loc.lon], {
+            pane: paneName || undefined,
+            radius: 5,
+            color: '#111827',
+            weight: 2,
+            fillColor: '#ff9f1c',
+            fillOpacity: 0.96,
+            interactive: true,
+            bubblingMouseEvents: false
+        });
+        marker.bindTooltip('Abholung', { direction: 'top', opacity: 0.95 });
+        marker.on('click', () => marker.openTooltip());
+        marker.addTo(vpMissionSceneTargetLayer);
+        if (typeof marker.bringToFront === 'function') marker.bringToFront();
+    }
+
+    targetPoints.forEach((point, idx) => {
+        const color = missionScenePointColor(point);
+        const marker = L.circleMarker([point.lat, point.lon], {
+            pane: paneName || undefined,
+            radius: Number(point.n) === 1 ? 6 : 5,
+            color: '#111827',
+            weight: 2,
+            fillColor: color,
+            fillOpacity: 0.96,
+            interactive: true,
+            bubblingMouseEvents: false
+        });
+        const label = point.label || point.kind || `Objekt ${idx + 1}`;
+        const title = point.title ? ` | ${point.title}` : '';
+        marker.bindTooltip(`Zielobjekt ${idx + 1}: ${label}${title}`, { direction: 'top', opacity: 0.95 });
+        marker.on('click', () => marker.openTooltip());
+        marker.addTo(vpMissionSceneTargetLayer);
+        if (typeof marker.bringToFront === 'function') marker.bringToFront();
     });
-    marker.bindTooltip('Abholung', { direction: 'top', opacity: 0.95 });
-    marker.on('click', () => marker.openTooltip());
-    marker.addTo(vpMissionSceneTargetLayer);
+
     if (!map.hasLayer(vpMissionSceneTargetLayer)) vpMissionSceneTargetLayer.addTo(map);
-    if (typeof marker.bringToFront === 'function') marker.bringToFront();
 }
 window.vpRenderMissionSceneTargetMarker = renderMissionSceneTargetMarker;
 
@@ -6834,14 +6910,61 @@ function fitMapToRouteWaypoints(padding = [40, 40]) {
     return true;
 }
 
+function handleRouteHitBoxClick(e) {
+    if (measureMode) return;
+    let bestIndex = 1, minDiff = Infinity;
+    for (let i = 0; i < routeWaypoints.length - 1; i++) {
+        let p1 = L.latLng(routeWaypoints[i].lat, routeWaypoints[i].lng || routeWaypoints[i].lon);
+        let p2 = L.latLng(routeWaypoints[i + 1].lat, routeWaypoints[i + 1].lng || routeWaypoints[i + 1].lon);
+        let d1 = map.distance(p1, e.latlng), d2 = map.distance(e.latlng, p2), d = map.distance(p1, p2), diff = d1 + d2 - d;
+        if (diff < minDiff) { minDiff = diff; bestIndex = i + 1; }
+    }
+    routeWaypoints.splice(bestIndex, 0, e.latlng);
+    renderMainRoute();
+}
+
+function resetMainRouteVectorLayers() {
+    if (!map) return;
+    if (polyline) {
+        try { map.removeLayer(polyline); } catch (_) {}
+        polyline = null;
+    }
+    if (window.hitBoxPolyline) {
+        try { map.removeLayer(window.hitBoxPolyline); } catch (_) {}
+        window.hitBoxPolyline = null;
+    }
+}
+
+function rebuildMainRouteVectorLayers() {
+    if (!map) initMapBase();
+    if (!map || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return;
+    routeWaypoints = normalizeMapRouteWaypoints(routeWaypoints);
+    resetMainRouteVectorLayers();
+    const lowFpsMode = window.isLowFpsMode && window.isLowFpsMode();
+    polyline = L.polyline(routeWaypoints, {
+        color: '#ff4444',
+        weight: 8,
+        dashArray: lowFpsMode ? null : '10,10',
+        className: 'animated-route-line',
+        interactive: false
+    }).addTo(map);
+    window.hitBoxPolyline = L.polyline(routeWaypoints, { color: 'transparent', weight: 45, opacity: 0, className: 'interactive-route' }).addTo(map);
+    window.hitBoxPolyline.on('click', handleRouteHitBoxClick);
+    if (polyline && typeof polyline.redraw === 'function') polyline.redraw();
+    if (window.hitBoxPolyline && typeof window.hitBoxPolyline.redraw === 'function') window.hitBoxPolyline.redraw();
+}
+
 window.gaScheduleRouteMapLayoutRefresh = function(reason = 'route') {
-    const delays = [0, 120, 420, 900];
+    const delays = [0, 120, 420, 900, 1600];
     delays.forEach(delay => {
         setTimeout(() => {
             try {
                 if (!map) initMapBase();
                 if (!map) return;
+                if (typeof map.stop === 'function') map.stop();
                 map.invalidateSize();
+                fitMapToRouteWaypoints([40, 40]);
+                rebuildMainRouteVectorLayers();
                 fitMapToRouteWaypoints([40, 40]);
                 if (typeof renderMapProfile === 'function' && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) {
                     renderMapProfile();
@@ -6906,17 +7029,7 @@ function renderMainRoute() {
 
     if (!window.hitBoxPolyline) {
         window.hitBoxPolyline = L.polyline(routeWaypoints, { color: 'transparent', weight: 45, opacity: 0, className: 'interactive-route' }).addTo(map);
-        window.hitBoxPolyline.on('click', function (e) {
-            if (measureMode) return;
-            let bestIndex = 1, minDiff = Infinity;
-            for (let i = 0; i < routeWaypoints.length - 1; i++) {
-                let p1 = L.latLng(routeWaypoints[i].lat, routeWaypoints[i].lng || routeWaypoints[i].lon);
-                let p2 = L.latLng(routeWaypoints[i + 1].lat, routeWaypoints[i + 1].lng || routeWaypoints[i + 1].lon);
-                let d1 = map.distance(p1, e.latlng), d2 = map.distance(e.latlng, p2), d = map.distance(p1, p2), diff = d1 + d2 - d;
-                if (diff < minDiff) { minDiff = diff; bestIndex = i + 1; }
-            }
-            routeWaypoints.splice(bestIndex, 0, e.latlng); renderMainRoute();
-        });
+        window.hitBoxPolyline.on('click', handleRouteHitBoxClick);
     } else {
         window.hitBoxPolyline.setLatLngs(routeWaypoints);
     }
@@ -7730,7 +7843,7 @@ function updateRoutePerformance() {
 
     scheduleRouteDerivedDataRefresh();
 
-    window.debouncedSaveMissionState();
+    if (!window._suppressRouteStateSave) window.debouncedSaveMissionState();
     if (gpsState.visible && gpsState.mode === 'FPL') renderGPS();
 }
 

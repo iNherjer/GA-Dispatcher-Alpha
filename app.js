@@ -9318,6 +9318,72 @@ function buildMissionPlanV2SceneRaw(missionPlanV2 = null) {
     };
 }
 
+function inferMissionTargetSceneKindFromFeatureHints(values = [], text = '', targetGeoContext = null) {
+    const features = [];
+    const add = (value) => {
+        const raw = String(value || '').trim();
+        if (!raw) return;
+        const normalized = normalizeMissionTargetSceneFeature(raw);
+        if (normalized && !features.includes(normalized)) {
+            features.push(normalized);
+            return;
+        }
+        const role = raw.toLowerCase();
+        const roleMap = {
+            'utility.powerline': 'powerline',
+            'utility.wind_turbine': 'wind_turbine',
+            'construction.crane': 'construction_crane',
+            'construction.earthmoving': 'earthmoving',
+            'vehicle.bus': 'bus',
+            'vehicle.car': 'parked_vehicle',
+            'vehicle.van': 'parked_vehicle',
+            'vehicle.truck': 'utility_truck',
+            'vehicle.emergency.medical': 'emergency_response',
+            'person.ground_crew': 'people',
+            'cargo.medical_kit': 'cargo_material',
+            'cargo.container': 'cargo_material',
+            'cargo.pallet_large': 'pallet_stack',
+            'cargo.pallet_medium': 'pallet_stack',
+            'cargo.pallet_small': 'pallet_stack',
+            'cargo.small_box': 'small_equipment',
+            'marker.cone': 'cones',
+            'nature.log': 'logs',
+            'material.log': 'logs',
+            'debris.light': 'debris',
+            'sar.liferaft': 'liferaft',
+            'watercraft.small_boat': 'watercraft',
+            'watercraft.service_ship': 'service_ship',
+            'watercraft.ship': 'service_ship',
+            'animal.waterfowl': 'waterfowl',
+            'animal.bird': 'waterfowl',
+            'animal.wildlife': 'wildlife_animals',
+            'animal.deer': 'wildlife_animals',
+            'animal.grazing': 'animal_herd',
+            'camp.tent': 'tent',
+            'vfx.smoke': 'smoke_light',
+            'vfx.fire': 'fire_small'
+        };
+        const mapped = roleMap[role];
+        if (mapped && !features.includes(mapped)) features.push(mapped);
+    };
+    (Array.isArray(values) ? values : []).forEach(add);
+    if (!features.length) return 'none';
+    const has = feature => features.includes(feature);
+    if (has('powerline')) return missionSceneTextHasPowerlineContext(text) ? 'powerline_inspection' : 'survey_context';
+    if (has('wind_turbine')) return missionSceneAllowsWindTurbine(text, targetGeoContext) ? 'wind_turbine_site' : 'survey_context';
+    if (has('construction_crane') || has('earthmoving') || has('construction_truck')) return 'construction_site';
+    if (has('liferaft') || has('service_ship')) return 'sar_water';
+    if (has('missing_person')) return 'sar_land';
+    if (has('emergency_response') && /(medizin|medical|patient|rettung|notfall|verletz)/.test(text)) return 'medical_pickup';
+    if (has('emergency_response') || (has('road_vehicles') && /(unfall|crash|kollision|sperrung|einsatzlage)/.test(text))) return 'road_incident';
+    if (has('cargo_material') || has('pallet_stack')) return 'cargo_site';
+    if (has('watercraft') || has('waterfowl')) return 'water_context';
+    if (has('wildlife_animals') || has('animal_herd') || has('tent') || has('campfire')) return 'wildlife_site';
+    if (has('bus')) return 'event_site';
+    if (has('road_vehicles') || has('parked_vehicle') || has('people') || has('small_equipment') || has('cones') || has('logs') || has('debris')) return 'survey_context';
+    return 'none';
+}
+
 function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', targetGeoContext = null, missionPlanV2 = null } = {}) {
     if (!isPOI) return { kind: 'none', roles: [], density: 'none', notes: '' };
     const planDirective = missionPlanV2SceneDirective(missionPlanV2);
@@ -9328,7 +9394,9 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
         || rawPreset
         || (Array.isArray(src.features) && src.features.length > 0)
         || (Array.isArray(src.requirements) && src.requirements.length > 0)
-        || (Array.isArray(src.specialRequirements) && src.specialRequirements.length > 0);
+        || (Array.isArray(src.specialRequirements) && src.specialRequirements.length > 0)
+        || (Array.isArray(src.roles) && src.roles.length > 0)
+        || (Array.isArray(src.sceneRoles) && src.sceneRoles.length > 0);
     if (planDirective?.sceneKind === 'none' && !rawHasConcreteScene) {
         return { kind: 'none', roles: [], density: 'none', notes: planDirective.placementPolicy || 'Pipeline V2: keine Zielszene geplant.' };
     }
@@ -9362,12 +9430,29 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
     if (preset === 'construction_powerline' && !powerlineAllowed) preset = '';
     if (preset === 'wind_turbine_construction' && !windTurbineAllowed) preset = '';
     const presetSpec = preset ? missionSceneTargetPresetCatalog()[preset] : null;
+    const kindFeatureHints = () => {
+        const reqs = Array.isArray(src.requirements)
+            ? src.requirements
+            : (Array.isArray(src.specialRequirements) ? src.specialRequirements : []);
+        return [
+            ...(Array.isArray(presetSpec?.features) ? presetSpec.features : []),
+            ...(Array.isArray(src.features) ? src.features : []),
+            ...(Array.isArray(src.modifiers) ? src.modifiers : []),
+            ...(Array.isArray(planDirective?.objectFamilies) ? planDirective.objectFamilies : []),
+            ...reqs.map(req => typeof req === 'string' ? req : (req?.feature || req?.kind || req?.type || req?.name || req?.role || '')),
+            ...(Array.isArray(src.roles) ? src.roles : []),
+            ...(Array.isArray(src.sceneRoles) ? src.sceneRoles : [])
+        ].filter(Boolean);
+    };
     let kind = normalizeMissionTargetSceneKind(src.kind || src.type || presetSpec?.kind || '');
     if (planDirective?.sceneKind && planDirective.sceneKind !== 'none') kind = planDirective.sceneKind;
     if (task === 'fire_watch') kind = 'fire_watch';
     if (kind === 'powerline_inspection' && !powerlineAllowed) kind = 'survey_context';
     if (kind === 'wind_turbine_site' && !windTurbineAllowed) kind = 'survey_context';
     if (suppressNatureRoadNoise && kind === 'road_incident') kind = 'survey_context';
+    if (kind === 'none' && rawHasConcreteScene) {
+        kind = inferMissionTargetSceneKindFromFeatureHints(kindFeatureHints(), rawSceneText, targetGeoContext);
+    }
     if (kind === 'none') {
         const noneNotes = String(src.notes || src.reason || src.context || planDirective?.placementPolicy || '')
             .replace(/\s+/g, ' ')

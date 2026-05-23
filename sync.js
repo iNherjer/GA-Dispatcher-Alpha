@@ -2578,7 +2578,8 @@ function _missionTargetSceneText() {
     ].filter(Boolean).join(' ').toLowerCase();
 }
 
-function _missionTargetScenePoint() {
+function _missionTargetScenePoint(options = {}) {
+    const allowMissingTerrain = !!options.allowMissingTerrain;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (!md || !md.poiName || _activeFireScenario()) return null;
     const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
@@ -2607,7 +2608,7 @@ function _missionTargetScenePoint() {
     const lon = Number(truthPoint?.lon ?? md.targetLon ?? poiWp?.lng ?? poiWp?.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     const terrainFt = Number(md.poiTerrainFt ?? md.targetAltFt ?? poiWp?.altFt ?? poiWp?.elevFt);
-    if (!Number.isFinite(terrainFt)) return null;
+    if (!Number.isFinite(terrainFt) && !allowMissingTerrain) return null;
     let hdg = Number(md.heading);
     if (!Number.isFinite(hdg) && wps[0] && typeof calcNav === 'function') {
         try {
@@ -2618,7 +2619,8 @@ function _missionTargetScenePoint() {
     return {
         lat,
         lon,
-        altFt: Math.max(0, Math.round(terrainFt)),
+        altFt: Number.isFinite(terrainFt) ? Math.max(0, Math.round(terrainFt)) : 0,
+        terrainPending: !Number.isFinite(terrainFt),
         hdg: Number.isFinite(hdg) ? Math.round(hdg) : 0,
         name: String(truthPoint?.name || md.poiName || poiWp?.name || 'POI')
     };
@@ -2691,8 +2693,27 @@ function _missionTargetSceneRequestTerrain() {
     return true;
 }
 
+function _missionTargetSceneKindFromFeatureHints(text = '') {
+    const features = _missionTargetSceneRequestedFeatures('survey_context');
+    if (!features.length) return null;
+    const has = feature => features.includes(feature);
+    if (has('powerline')) return _missionTargetSceneHasPowerlineContext(text) ? 'powerline_inspection' : 'survey_context';
+    if (has('wind_turbine')) return _missionTargetSceneAllowsWindTurbine(text) ? 'wind_turbine_site' : 'survey_context';
+    if (has('construction_crane') || has('earthmoving') || has('construction_truck')) return 'construction_site';
+    if (has('liferaft') || has('service_ship')) return 'sar_water';
+    if (has('missing_person')) return 'sar_land';
+    if (has('emergency_response') && /(medizin|medical|patient|rettung|notfall|verletz)/.test(text)) return 'medical_pickup';
+    if (has('emergency_response') || (has('road_vehicles') && /(unfall|crash|kollision|sperrung|einsatzlage)/.test(text))) return 'road_incident';
+    if (has('cargo_material') || has('pallet_stack')) return 'cargo_site';
+    if (has('watercraft') || has('waterfowl')) return 'water_context';
+    if (has('wildlife_animals') || has('animal_herd') || has('tent') || has('campfire')) return 'wildlife_site';
+    if (has('bus')) return 'event_site';
+    if (has('road_vehicles') || has('parked_vehicle') || has('people') || has('small_equipment') || has('cones') || has('logs') || has('debris')) return 'survey_context';
+    return null;
+}
+
 function _missionTargetSceneKind() {
-    const point = _missionTargetScenePoint();
+    const point = _missionTargetScenePoint({ allowMissingTerrain: true });
     if (!point) return null;
     const spec = _missionTargetSceneSpec();
     const explicitKindRaw = String(spec?.kind || spec?.type || '').trim().toLowerCase();
@@ -2730,9 +2751,9 @@ function _missionTargetSceneKind() {
         survey_site: 'survey_context'
     };
     const explicitKind = kindAliases[explicitKindRaw] || explicitKindRaw;
-    if (/^(none|off|false|no)$/i.test(explicitKind)) return null;
-    if (explicitKind === 'fire_watch') return null;
     const text = _missionTargetSceneText();
+    if (/^(none|off|false|no)$/i.test(explicitKind)) return _missionTargetSceneKindFromFeatureHints(text);
+    if (explicitKind === 'fire_watch') return null;
     if (explicitKind === 'powerline_inspection' && !_missionTargetSceneHasPowerlineContext(text)) return 'survey_context';
     if (explicitKind === 'wind_turbine_site' && !_missionTargetSceneAllowsWindTurbine(text)) return 'survey_context';
     if (/^(road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context)$/.test(explicitKind)) return explicitKind;
@@ -3460,10 +3481,14 @@ function _missionTargetSceneItems(kind) {
     }
 
     if (kind === 'survey_context') {
-        const ref = _scenePickTitle(debrisPool, 'survey-context-ref', 'Log_01');
-        const contextPos = _missionTargetGeoOffset(['meadow', 'farmland', 'forest', 'road'], -2, -4, { minM: 12, maxM: 110, hdgOffsetDeg: 35 });
-        add('survey_ref_1', 'Survey Referenzobjekt', ref, debrisPool, contextPos.f, contextPos.r, { hdgOffsetDeg: contextPos.hdg });
-        add('survey_ref_2', 'Survey Referenzobjekt', ref, debrisPool, contextPos.f + 9, contextPos.r + 9, { hdgOffsetDeg: 130 });
+        const requestedFeatures = _missionTargetSceneRequestedFeatures(kind);
+        const hasConcreteRequestedFeatures = requestedFeatures.some(feature => !['logs', 'debris'].includes(feature));
+        if (!hasConcreteRequestedFeatures) {
+            const ref = _scenePickTitle(debrisPool, 'survey-context-ref', 'Log_01');
+            const contextPos = _missionTargetGeoOffset(['meadow', 'farmland', 'forest', 'road'], -2, -4, { minM: 12, maxM: 110, hdgOffsetDeg: 35 });
+            add('survey_ref_1', 'Survey Referenzobjekt', ref, debrisPool, contextPos.f, contextPos.r, { hdgOffsetDeg: contextPos.hdg });
+            add('survey_ref_2', 'Survey Referenzobjekt', ref, debrisPool, contextPos.f + 9, contextPos.r + 9, { hdgOffsetDeg: 130 });
+        }
         return finish();
     }
 
@@ -3532,7 +3557,7 @@ window.missionTargetSceneEnsureSpawned = function(reason = 'mission-start') {
 window.missionTargetSceneDebugPreview = function(reason = 'planned-target-scene') {
     const sceneId = _missionTargetSceneId();
     const kind = _missionTargetSceneKind();
-    const point = _missionTargetScenePoint();
+    const point = _missionTargetScenePoint({ allowMissingTerrain: true });
     if (!kind || !point) return null;
     const items = _missionTargetSceneItems(kind);
     if (!items.length) return null;
