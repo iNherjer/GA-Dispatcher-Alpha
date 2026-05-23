@@ -3547,6 +3547,21 @@ window.vpBuildWeatherDebugReport = function() {
     const hitRate = (hit + miss) > 0 ? ((hit / (hit + miss)) * 100).toFixed(1) : '0.0';
     const approxCalls = Number(dbg.openMeteoNetworkRequests || 0);
     const lines = [];
+    const flattenText = (value, maxLen = 260) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, maxLen);
+    const collectConsoleLogs = () => {
+        if (typeof window.gaGetDebugLogs !== 'function') return [];
+        try {
+            const logs = window.gaGetDebugLogs();
+            return Array.isArray(logs) ? logs : [];
+        } catch (_) {
+            return [];
+        }
+    };
+    const isImportantConsoleLog = (entry) => {
+        const level = String(entry?.level || '').toLowerCase();
+        const msg = String(entry?.msg || '');
+        return /error|warn|rejection|exception|failed|fail|invalid|fallback|mission|scene|dispatch|planner|gemini|target|ack/i.test(`${level} ${msg}`);
+    };
     lines.push(`Session seit: ${vpFormatDebugTs(dbg.sessionStartedAt)}`);
     const fbMode = String(window.vpWeatherFallbackMode || 'none');
     const fbLabel = fbMode === 'openmeteo_to_metar'
@@ -3556,34 +3571,19 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`Terrain Quelle: ${(window.vpTerrainElevationSource || 'terrarium').toUpperCase()}${window.vpElevationFallbackActive ? ' (Fallback aktiv)' : ''}`);
     lines.push(`Refresh Intervall: 30 min`);
     lines.push('');
-    lines.push('Open-Meteo Verbrauch');
-    lines.push(`- Netzwerk-Requests (Session): ${approxCalls}`);
-    lines.push(`- Elevation Requests: ${dbg.elevationNetworkRequests || 0}`);
-    lines.push(`- Batch Calls: ${dbg.openMeteoBatchCalls || 0} (Punkte: ${dbg.openMeteoBatchPoints || 0})`);
-    lines.push(`- Cache Hit/Miss: ${hit}/${miss} (Hitrate ${hitRate}%)`);
-    lines.push(`- Cache Einträge (RAM): ${cacheTotal}/${VP_OM_CACHE_MAX_ENTRIES}`);
-    lines.push(`- Cache Hydrate/Persist: ${dbg.cacheHydratedEntries || 0} geladen, ${dbg.cachePersistWrites || 0} gespeichert`);
-    lines.push(`- HDG Wetter-Chunk-Cache: ${vpHdgWeatherChunkCache.size}/${VP_HDG_WEATHER_CHUNK_CACHE_MAX} (${VP_HDG_WEATHER_COVERAGE_STEP_DEG}° Raster)`);
-    lines.push(`- METAR Chunk-Cache (RAM): ${vpMetarChunkCache.size}/${VP_METAR_CHUNK_CACHE_MAX}`);
-    lines.push(`- METAR Proxy-Cooldowns: ${vpMetarProxyBackoff.size}`);
+    lines.push('Wetter / Open-Meteo kurz');
+    lines.push(`- Requests: OM ${approxCalls}, Elevation ${dbg.elevationNetworkRequests || 0}, Batches ${dbg.openMeteoBatchCalls || 0}/${dbg.openMeteoBatchPoints || 0} Punkte`);
+    lines.push(`- Cache: Hit/Miss ${hit}/${miss} (${hitRate}%), RAM ${cacheTotal}/${VP_OM_CACHE_MAX_ENTRIES}, HDG ${vpHdgWeatherChunkCache.size}/${VP_HDG_WEATHER_CHUNK_CACHE_MAX}, METAR ${vpMetarChunkCache.size}/${VP_METAR_CHUNK_CACHE_MAX}`);
+    lines.push(`- 429/Cooldown: OM ${dbg.openMeteo429Count || 0}${window.vpIsOpenMeteoDailyLimited && window.vpIsOpenMeteoDailyLimited() ? ` Tageslimit bis ${vpFormatDebugTs(Number(window.vpOpenMeteoDailyLimitUntil || 0))}` : ''}, Elevation ${dbg.elevation429Count || 0}, OM cooldown ${vpIsOpenMeteoCoolingDown() ? 'ja' : 'nein'}, METAR cooldown ${vpIsMetarCoolingDown() ? 'ja' : 'nein'}`);
+    lines.push(`- Fallback: Modus ${fbMode}, zu METAR ${dbg.fallbackToMetarCount || 0}, zu OPEN-METEO ${dbg.fallbackToOpenMeteoCount || 0}, letzter ${vpFormatDebugTs(dbg.fallbackLastAt)}${dbg.fallbackLastReason ? ` (${dbg.fallbackLastReason})` : ''}`);
+    lines.push(`- Letzter Wetterfehler: ${vpFormatDebugTs(dbg.lastErrorAt)}${dbg.lastErrorMsg ? ` (${dbg.lastErrorMsg})` : ''} | Erfolg ${vpFormatDebugTs(dbg.lastSuccessAt)}`);
     lines.push('');
-    lines.push('Overpass Verbrauch');
-    lines.push(`- Requests (Session): ${dbg.overpassRequests || 0}`);
-    lines.push(`- Hosted Tile Req/Hits/Miss/Err: ${dbg.hostedTileRequests || 0}/${dbg.hostedTileHits || 0}/${dbg.hostedTileMisses || 0}/${dbg.hostedTileErrors || 0}`);
-    lines.push(`- Hosted CORE Hits (split/legacy): ${dbg.hostedTileCoreHits || 0}/${dbg.hostedTileLegacyHits || 0}`);
+    lines.push('OSM / Overpass kurz');
     const poiDbg = (window.gaPoiTileDebug && typeof window.gaPoiTileDebug === 'object') ? window.gaPoiTileDebug : {};
-    lines.push(`- POI Tile Req/Hits/Miss/Err: ${poiDbg.requests || 0}/${poiDbg.hits || 0}/${poiDbg.misses || 0}/${poiDbg.errors || 0}`);
-    lines.push(`- POI Cache Hits: ${poiDbg.cacheHits || 0}`);
-    lines.push(`- POI Hits (split/legacy): ${poiDbg.splitHits || 0}/${poiDbg.legacyHits || 0}`);
-    lines.push(`- POI Split Quellen (lokal/worker): poi ${poiDbg.localPoiSplitHits || 0}/${poiDbg.workerPoiSplitHits || 0} | core ${poiDbg.localCoreSplitHits || 0}/${poiDbg.workerCoreSplitHits || 0}`);
-    lines.push(`- POI Cache Einträge (RAM): ${poiDbg.cacheEntries || 0} | split-only-miss: ${poiDbg.cacheMissSources || 0}`);
-    lines.push(`- POI Fallback-Nutzung: ${poiDbg.fallbackHits || 0}${poiDbg.lastSource ? ` (last: ${poiDbg.lastSource})` : ''}`);
-    lines.push(`- Overpass 429/504: ${dbg.overpass429Count || 0}/${dbg.overpass504Count || 0}`);
-    lines.push(`- Cooldown-Skips: ${dbg.overpassCooldownSkips || 0}`);
-    lines.push(`- Route-Guard-Skips: ${dbg.overpassRouteThrottleSkips || 0}`);
-    lines.push(`- Inflight-Joins: ${dbg.overpassInFlightJoins || 0}`);
-    lines.push(`- Tile-Cache Einträge: ${vpObsTileCoverage.size}`);
-    lines.push(`- Failed Tiles: ${vpObsTileFailed.size}`);
+    lines.push(`- Overpass Requests: ${dbg.overpassRequests || 0}, 429/504 ${dbg.overpass429Count || 0}/${dbg.overpass504Count || 0}, Cooldown-Skips ${dbg.overpassCooldownSkips || 0}, Inflight-Joins ${dbg.overpassInFlightJoins || 0}`);
+    lines.push(`- Hosted Tiles Req/Hit/Miss/Err: ${dbg.hostedTileRequests || 0}/${dbg.hostedTileHits || 0}/${dbg.hostedTileMisses || 0}/${dbg.hostedTileErrors || 0} | CORE split/legacy ${dbg.hostedTileCoreHits || 0}/${dbg.hostedTileLegacyHits || 0}`);
+    lines.push(`- POI Tiles Req/Hit/Miss/Err: ${poiDbg.requests || 0}/${poiDbg.hits || 0}/${poiDbg.misses || 0}/${poiDbg.errors || 0} | split/legacy ${poiDbg.splitHits || 0}/${poiDbg.legacyHits || 0} | fallback ${poiDbg.fallbackHits || 0}${poiDbg.lastSource ? ` last=${poiDbg.lastSource}` : ''}`);
+    lines.push(`- Tile Cache: coverage ${vpObsTileCoverage.size}, failed ${vpObsTileFailed.size}, POI RAM ${poiDbg.cacheEntries || 0}, route-guard skips ${dbg.overpassRouteThrottleSkips || 0}`);
     if (vpObsTileFailed.size > 0) {
         const sample = Array.from(vpObsTileFailed.entries())
             .sort((a, b) => Number((b[1] && b[1].ts) || 0) - Number((a[1] && a[1].ts) || 0))
@@ -3617,28 +3617,6 @@ window.vpBuildWeatherDebugReport = function() {
     const rollingTotalBytes = rollingPoolBytes + rollingTileBytes + rollingFailBytes;
     lines.push(`- Rolling Cache Größe: ${vpFormatBytes(rollingTotalBytes)} (Pool ${vpFormatBytes(rollingPoolBytes)}, Tiles ${vpFormatBytes(rollingTileBytes)}, Failed ${vpFormatBytes(rollingFailBytes)})`);
     lines.push(`- Route-Cache (ga_obs_combo_*): ${rollingComboCount} Einträge, ${vpFormatBytes(rollingComboBytes)}`);
-    lines.push('');
-    lines.push('Trigger / Flows');
-    lines.push(`- Profil-Fetches: ${dbg.profileRouteFetches || 0}`);
-    lines.push(`- Karten-Overlay-Fetches: ${dbg.mapOverlayFetches || 0}`);
-    lines.push(`- HDG-Fetches: ${dbg.hdgFetches || 0} (übersprungen: ${dbg.hdgSkippedNoAreaChange || 0})`);
-    lines.push('');
-    lines.push('Fallback / Fehler');
-    lines.push(`- Fallback zu METAR: ${dbg.fallbackToMetarCount || 0}`);
-    lines.push(`- Fallback zu OPEN-METEO: ${dbg.fallbackToOpenMeteoCount || 0}`);
-    lines.push(`- Fallback-Modus: ${fbMode}`);
-    lines.push(`- METAR Cooldown aktiv: ${vpIsMetarCoolingDown() ? `Ja (${Math.ceil(Math.max(0, Number(window.vpMetarDownUntil || 0) - Date.now()) / 1000)}s)` : 'Nein'}`);
-    lines.push(`- METAR Route-Cache: ${vpMetarRouteCache.size}/${VP_METAR_ROUTE_CACHE_MAX}`);
-    lines.push(`- Letzter Fallback: ${vpFormatDebugTs(dbg.fallbackLastAt)}${dbg.fallbackLastReason ? ` (${dbg.fallbackLastReason})` : ''}`);
-    lines.push(`- Open-Meteo 429: ${dbg.openMeteo429Count || 0} (letzter: ${vpFormatDebugTs(dbg.last429At)})`);
-    lines.push(`- Open-Meteo Tageslimit: ${window.vpIsOpenMeteoDailyLimited && window.vpIsOpenMeteoDailyLimited() ? `Ja bis ${vpFormatDebugTs(Number(window.vpOpenMeteoDailyLimitUntil || 0))}` : 'Nein'} (Treffer: ${dbg.openMeteoDailyLimitCount || 0})`);
-    lines.push(`- Elevation 429: ${dbg.elevation429Count || 0} (letzter: ${vpFormatDebugTs(dbg.lastElevation429At)})`);
-    lines.push(`- Cooldown aktiv: ${vpIsOpenMeteoCoolingDown() ? 'Ja' : 'Nein'}`);
-    lines.push(`- Terrain Fallback: ${dbg.elevationFallbackCount || 0} (letzter: ${vpFormatDebugTs(dbg.lastElevationFallbackAt)}${dbg.lastElevationFallbackReason ? ` / ${dbg.lastElevationFallbackReason}` : ''})`);
-    lines.push(`- Open-Meteo Fehler: ${dbg.openMeteoErrors || 0}`);
-    lines.push(`- Letzter Fehler: ${vpFormatDebugTs(dbg.lastErrorAt)}${dbg.lastErrorMsg ? ` (${dbg.lastErrorMsg})` : ''}`);
-    lines.push(`- Letzter Erfolg: ${vpFormatDebugTs(dbg.lastSuccessAt)}`);
-    lines.push(`- Letzter Elevation-Erfolg: ${vpFormatDebugTs(dbg.lastElevationSuccessAt)}`);
     lines.push('');
     lines.push('Allgemeine App-Fehler');
     lines.push(`- Global Errors: ${dbg.globalErrors || 0}`);
@@ -3721,10 +3699,14 @@ window.vpBuildWeatherDebugReport = function() {
             lines.push(`- ${planLabel} Status: ${planV2.status || '-'} | needs=${needTypes || '-'} | resolved=${resolvedTypes || '-'}`);
             if (p2.primaryObjective) lines.push(`- ${planLabel} Plan: ${p2.taskDomain || '-'} | ${p2.sceneKind || '-'} | ${String(p2.primaryObjective).replace(/\s+/g, ' ').slice(0, 180)}`);
             if (Array.isArray(p2.objectFamilies) && p2.objectFamilies.length) lines.push(`- ${planLabel} Objekte: ${p2.objectFamilies.slice(0, 8).join(', ')}`);
+            if (p2.placementPolicy) lines.push(`- ${planLabel} Platzierung: ${flattenText(p2.placementPolicy, 220)}`);
             if (Array.isArray(p2.localFacts) && p2.localFacts.length) lines.push(`- ${planLabel} Fakten: ${p2.localFacts.slice(0, 4).join(' | ')}`);
             if (Array.isArray(p2.weatherHooks) && p2.weatherHooks.length) lines.push(`- ${planLabel} Wetter: ${p2.weatherHooks.slice(0, 3).join(' | ')}`);
+            if (Array.isArray(p2.mustMention) && p2.mustMention.length) lines.push(`- ${planLabel} Muss nennen: ${p2.mustMention.slice(0, 5).join(' | ')}`);
+            if (Array.isArray(p2.mustAvoid) && p2.mustAvoid.length) lines.push(`- ${planLabel} Vermeiden: ${p2.mustAvoid.slice(0, 5).join(' | ')}`);
             if (p2.realismBrief) lines.push(`- ${planLabel} Realismus: ${String(p2.realismBrief).replace(/\s+/g, ' ').slice(0, 180)}`);
             if (Array.isArray(planV2.debug?.toolCalls) && planV2.debug.toolCalls.length) lines.push(`- ${planLabel} Tools: ${planV2.debug.toolCalls.map(c => c.name || '?').slice(0, 6).join(', ')}`);
+            if (planV2.debug?.fallbackError) lines.push(`- ${planLabel} Fallback-Fehler: ${flattenText(planV2.debug.fallbackError, 220)}`);
         }
         if (missionSnap.contract?.summary) lines.push(`- Contract: ${missionSnap.contract.summary}`);
         lines.push(`- PAX/Cargo: ${missionSnap.paxText || 'n/a'} | ${missionSnap.cargoText || 'n/a'}`);
@@ -3734,6 +3716,32 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- Sensitivität: cargo=${p.cargoSensitivity || 'mittel'} | magen=${p.stomachSensitivity || 'mittel'} | comfortPriority=${p.comfortPriority || 'mittel'} | urgency=${p.urgencyPriority || 'mittel'}`);
         lines.push(`- POI-Parameter: alt=${Number(p.targetAltFt || 0)} ft | radius=${Number(p.targetRadiusNm || 0)} NM | dwell=${Number(p.targetDwellMin || 0)} min`);
         if (missionSnap.story) lines.push(`- Story: ${String(missionSnap.story).replace(/\s+/g, ' ').trim()}`);
+        const textPassenger = (window.activePassenger && typeof window.activePassenger === 'object')
+            ? window.activePassenger
+            : (missionSnap.contract?.passenger || missionSnap.contract?.missionPassenger || {});
+        if (textPassenger?.greetingText) lines.push(`- Greeting Text: ${flattenText(textPassenger.greetingText, 420)}`);
+        if (textPassenger?.enrouteText) lines.push(`- Enroute Text: ${flattenText(textPassenger.enrouteText, 360)}`);
+        if (textPassenger?.arrivalText || textPassenger?.farewellText) lines.push(`- Arrival/Farewell Text: ${flattenText(textPassenger.arrivalText || textPassenger.farewellText, 360)}`);
+        const sceneIntent = missionSnap.sceneIntent || missionSnap.contract?.sceneIntent || missionSnap.targetSceneDebug?.sceneIntent || null;
+        if (sceneIntent && typeof sceneIntent === 'object') {
+            if (sceneIntent.summary) lines.push(`- SceneIntent Summary: ${flattenText(sceneIntent.summary, 360)}`);
+            if (sceneIntent.environment) lines.push(`- SceneIntent Umgebung: ${flattenText(sceneIntent.environment, 260)}`);
+            if (Array.isArray(sceneIntent.visibleIdeas) && sceneIntent.visibleIdeas.length) lines.push(`- SceneIntent Sichtbar: ${sceneIntent.visibleIdeas.slice(0, 8).map(v => flattenText(v, 80)).join(' | ')}`);
+            if (sceneIntent.notes) lines.push(`- SceneIntent Notes: ${flattenText(sceneIntent.notes, 260)}`);
+        } else if (typeof sceneIntent === 'string' && sceneIntent.trim()) {
+            lines.push(`- SceneIntent Text: ${flattenText(sceneIntent, 420)}`);
+        }
+        const geoCtx = missionSnap.targetGeoContext || missionSnap.contract?.targetGeoContext || null;
+        if (geoCtx && typeof geoCtx === 'object') {
+            const geoBits = [];
+            if (geoCtx.geometryMode) geoBits.push(`mode=${geoCtx.geometryMode}`);
+            if (geoCtx.primaryKind) geoBits.push(`kind=${geoCtx.primaryKind}`);
+            if (geoCtx.source) geoBits.push(`source=${geoCtx.source}`);
+            if (Number.isFinite(Number(geoCtx.confidence))) geoBits.push(`conf=${Number(geoCtx.confidence).toFixed(2)}`);
+            if (Array.isArray(geoCtx.visualLandmarks) && geoCtx.visualLandmarks.length) geoBits.push(`landmarks=${geoCtx.visualLandmarks.slice(0, 4).map(x => x?.name || x?.kind || x).join(',')}`);
+            if (geoBits.length) lines.push(`- TargetGeoContext: ${geoBits.join(' | ')}`);
+        }
+        if (missionSnap.narrativeGuard) lines.push(`- Narrative Guard: ${flattenText(JSON.stringify(missionSnap.narrativeGuard), 420)}`);
     }
     lines.push('');
     lines.push('Mission Scene Debug');
@@ -3867,12 +3875,20 @@ window.vpBuildWeatherDebugReport = function() {
         sceneEvents.forEach(ev => lines.push(`  ${vpFormatDebugTs(ev.ts)} :: ${ev.event}`));
     }
     lines.push('');
-    lines.push('Free-Plan Referenz');
-    lines.push('- 600/min, 5.000/h, 10.000/Tag, 300.000/Monat (Open-Meteo Free)');
-    lines.push('- Achtung: viele Variablen pro Request können als mehrere API-Calls zählen.');
+    lines.push('Konsolenfehler / relevante Logs');
+    const consoleLogs = collectConsoleLogs();
+    const importantLogs = consoleLogs.filter(isImportantConsoleLog).slice(-18);
+    if (!importantLogs.length) {
+        lines.push('- (keine relevanten Console-Warnungen/Fehler im Ringbuffer)');
+    } else {
+        importantLogs.forEach((entry) => {
+            const extra = entry.extra ? ` | ${flattenText(JSON.stringify(entry.extra), 260)}` : '';
+            lines.push(`- ${vpFormatDebugTs(entry.ts)} [${entry.level || 'log'}] ${flattenText(entry.msg, 520)}${extra}`);
+        });
+    }
     lines.push('');
     lines.push('Recent Events');
-    const events = Array.isArray(dbg.recentEvents) ? dbg.recentEvents.slice(-12) : [];
+    const events = Array.isArray(dbg.recentEvents) ? dbg.recentEvents.slice(-8) : [];
     if (!events.length) lines.push('- (keine)');
     else events.forEach(ev => lines.push(`- ${vpFormatDebugTs(ev.ts)} :: ${ev.message}`));
     return lines.join('\n');
@@ -3889,6 +3905,43 @@ window.vpRefreshWeatherDebugReport = function() {
         if (typeof window.gaDebugPush === 'function') {
             try { window.gaDebugPush('debug-error', '[DEBUG REPORT] build failed', { message: msg || 'unknown' }); } catch (_) {}
         }
+    }
+};
+
+window.vpCopyWeatherDebugReport = async function() {
+    const btn = document.getElementById('btnCopyWeatherDebug');
+    const oldText = btn ? btn.textContent : '';
+    let text = '';
+    try {
+        text = window.vpBuildWeatherDebugReport ? window.vpBuildWeatherDebugReport() : (document.getElementById('weatherDebugBody')?.textContent || '');
+        const body = document.getElementById('weatherDebugBody');
+        if (body && text) body.textContent = text;
+        if (!text.trim()) throw new Error('empty_debug_report');
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', 'readonly');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand && document.execCommand('copy');
+            ta.remove();
+            if (!ok) throw new Error('clipboard_unavailable');
+        }
+        if (btn) {
+            btn.textContent = 'Kopiert';
+            setTimeout(() => { btn.textContent = oldText || 'Kopieren'; }, 1200);
+        }
+    } catch (err) {
+        if (btn) {
+            btn.textContent = 'Fehler';
+            setTimeout(() => { btn.textContent = oldText || 'Kopieren'; }, 1600);
+        }
+        console.warn('[Debug] Copy failed:', err);
+        alert(`Debug-Log konnte nicht kopiert werden: ${err?.message || err}`);
     }
 };
 

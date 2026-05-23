@@ -1594,7 +1594,11 @@ function _bugGetDebugLogs() {
 }
 
 function _bugGetWeatherDebugText() {
-    const text = document.getElementById('weatherDebugBody')?.textContent || '';
+    let text = '';
+    if (typeof window.vpBuildWeatherDebugReport === 'function') {
+        try { text = window.vpBuildWeatherDebugReport() || ''; } catch (_) { text = ''; }
+    }
+    if (!text) text = document.getElementById('weatherDebugBody')?.textContent || '';
     return text.trim().slice(0, 22000);
 }
 
