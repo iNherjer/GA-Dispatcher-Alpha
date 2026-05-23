@@ -2804,6 +2804,94 @@ function saveMissionState() {
     triggerCloudSave();
 }
 
+function restoreMissionV3Context(md, state = {}, restoredPassenger = null, restoredMissionContract = null) {
+    if (!md || typeof md !== 'object') return { missionData: md, missionContract: restoredMissionContract || null };
+    const contract = (restoredMissionContract && typeof restoredMissionContract === 'object')
+        ? restoredMissionContract
+        : ((md.missionContract && typeof md.missionContract === 'object') ? md.missionContract : null);
+    const sceneDebug = (md.targetSceneDebug && typeof md.targetSceneDebug === 'object') ? md.targetSceneDebug : {};
+    const sceneComposerDebug = (md.targetSceneComposerDebug && typeof md.targetSceneComposerDebug === 'object') ? md.targetSceneComposerDebug : {};
+    const isPOI = !!(md.isPOI || md.poiName || state.isPOI);
+    const taskDomain = String(
+        md.missionContract?.taskDomain
+        || contract?.taskDomain
+        || restoredPassenger?.taskDomain
+        || md.passenger?.taskDomain
+        || ''
+    ).toLowerCase();
+    const targetGeoContext = md.targetGeoContext || contract?.targetGeoContext || null;
+    const missionPlanV2 = md.missionPlanV2 || contract?.missionPlanV2 || null;
+    const missionPlanV3 = md.missionPlanV3
+        || contract?.missionPlanV3
+        || (missionPlanV2?.pipelineVersion === MISSION_PIPELINE_V3_VERSION ? missionPlanV2 : null);
+    const truthArrivalScene = md.missionTruth?.arrivalScene || contract?.missionTruth?.arrivalScene || null;
+    const aptArrivalPlan = md.aptArrivalPlan || contract?.aptArrivalPlan || (
+        truthArrivalScene?.type === 'apt_arrival_plan'
+            ? {
+                version: 1,
+                status: 'planned',
+                role: truthArrivalScene.role || '',
+                roleLabel: truthArrivalScene.roleLabel || '',
+                expectedBy: truthArrivalScene.expectedBy || '',
+                anchorType: truthArrivalScene.anchorType || '',
+                source: truthArrivalScene.source || '',
+                confidence: truthArrivalScene.confidence ?? null,
+                lat: truthArrivalScene.lat,
+                lon: truthArrivalScene.lon,
+                altFt: truthArrivalScene.altFt,
+                items: Array.isArray(truthArrivalScene.items) ? truthArrivalScene.items : [],
+                snapPolicy: truthArrivalScene.snapPolicy || null,
+                snapStatus: truthArrivalScene.snapStatus || null,
+                osmPlacement: truthArrivalScene.osmPlacement || null,
+                placementCandidates: truthArrivalScene.placementCandidates || null
+            }
+            : null
+    );
+    const rawTargetScene = md.targetScene || contract?.targetScene || sceneDebug.contractTargetScene || sceneDebug.aiNormalized || null;
+    const targetScene = sanitizeMissionTargetSceneSpec(rawTargetScene, {
+        isPOI,
+        taskDomain,
+        targetGeoContext,
+        missionPlanV2
+    });
+    const sceneIntent = sanitizeMissionSceneIntentSpec(
+        md.sceneIntent || contract?.sceneIntent || sceneDebug.sceneIntentRaw || md.targetSceneDraftRaw || md.mission || md.mStory || '',
+        { isPOI, taskDomain }
+    );
+    let missionTruth = md.missionTruth || contract?.missionTruth || null;
+    if (!missionTruth && isPOI) {
+        missionTruth = buildMissionTruth(md, targetGeoContext, targetScene);
+    }
+    missionTruth = attachAptArrivalPlanToMissionTruth(missionTruth, aptArrivalPlan);
+
+    md.sceneIntent = sceneIntent;
+    md.targetGeoContext = targetGeoContext;
+    md.missionTruth = missionTruth;
+    md.missionPlanV2 = missionPlanV2;
+    md.missionPlanV3 = missionPlanV3;
+    md.missionPipelineMode = md.missionPipelineMode || (missionPlanV3 ? 'v3' : (missionPlanV2 ? 'v2' : md.missionPipelineMode));
+    md.targetScene = targetScene;
+    if (aptArrivalPlan) md.aptArrivalPlan = aptArrivalPlan;
+    md.targetSceneAiRaw = md.targetSceneAiRaw || sceneDebug.aiRequested || sceneComposerDebug.aiRaw || null;
+    md.targetSceneAiNormalized = md.targetSceneAiNormalized || sceneDebug.aiNormalized || sceneComposerDebug.normalized || targetScene;
+    md.targetSceneComposerDebug = md.targetSceneComposerDebug || null;
+    if (md.sceneAccepted !== false) md.sceneAccepted = true;
+    const status = String(md.sceneCompositionStatus || '').toLowerCase();
+    if (!status || status === 'draft' || status === 'composing') md.sceneCompositionStatus = md.sceneAccepted === false ? 'draft' : 'accepted';
+
+    const nextContract = contract ? { ...contract } : {};
+    nextContract.sceneIntent = sceneIntent;
+    nextContract.sceneAccepted = md.sceneAccepted !== false;
+    nextContract.targetGeoContext = targetGeoContext;
+    nextContract.missionTruth = missionTruth;
+    nextContract.missionPlanV2 = missionPlanV2;
+    if (missionPlanV3) nextContract.missionPlanV3 = missionPlanV3;
+    if (aptArrivalPlan) nextContract.aptArrivalPlan = aptArrivalPlan;
+    nextContract.targetScene = targetScene;
+    md.missionContract = nextContract;
+    return { missionData: md, missionContract: nextContract };
+}
+
 async function restoreMissionState(state) {
     if (isMissionDraftPending(state)) {
         clearDraftMissionPersistence('restore-draft-rejected');
@@ -2876,6 +2964,9 @@ async function restoreMissionState(state) {
             if (lsContract && typeof lsContract === 'object') restoredMissionContract = lsContract;
         } catch (_) {}
     }
+    const restoredV3 = restoreMissionV3Context(currentMissionData, state, window.activePassenger, restoredMissionContract);
+    currentMissionData = restoredV3.missionData;
+    restoredMissionContract = restoredV3.missionContract || restoredMissionContract || null;
     window.activeMissionContract = restoredMissionContract || null;
     if (currentMissionData && typeof currentMissionData === 'object') {
         currentMissionData.missionContract = window.activeMissionContract;
@@ -2890,6 +2981,12 @@ async function restoreMissionState(state) {
     try {
         if (window.activeMissionContract) localStorage.setItem('ga_active_mission_contract', JSON.stringify(window.activeMissionContract));
         else localStorage.removeItem('ga_active_mission_contract');
+    } catch (_) {}
+    try {
+        state.currentMissionData = currentMissionData;
+        state.activePassenger = window.activePassenger || null;
+        state.activeMissionContract = window.activeMissionContract || currentMissionData?.missionContract || null;
+        localStorage.setItem('ga_active_mission', JSON.stringify(state));
     } catch (_) {}
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
     currentStartICAO = state.currentStartICAO; currentDestICAO = state.currentDestICAO;
