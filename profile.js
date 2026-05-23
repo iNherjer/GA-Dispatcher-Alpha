@@ -3710,15 +3710,21 @@ window.vpBuildWeatherDebugReport = function() {
             lines.push(`- POI-Lookup: ${srcBits.join(' | ')}`);
         }
         lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
-        lines.push(`- Pipeline V2: ${missionSnap.missionPipelineV2Enabled || window.isMissionPipelineV2Enabled?.() ? 'An' : 'Aus'}`);
+        const pipelineMode = String(missionSnap.missionPipelineMode || (window.getMissionPipelineMode ? window.getMissionPipelineMode() : (window.isMissionPipelineV2Enabled?.() ? 'v2' : 'legacy'))).toUpperCase();
+        lines.push(`- Mission Pipeline: ${pipelineMode}`);
         const planV2 = missionSnap.missionPlanV2 || missionSnap.contract?.missionPlanV2 || window.gaMissionPipelineV2Last || null;
         if (planV2 && typeof planV2 === 'object') {
             const p2 = planV2.plan || {};
             const needTypes = Array.isArray(planV2.needs) ? planV2.needs.map(n => n.type || '?').join(',') : '-';
             const resolvedTypes = planV2.resolvedNeeds && typeof planV2.resolvedNeeds === 'object' ? Object.keys(planV2.resolvedNeeds).join(',') : '-';
-            lines.push(`- Pipeline V2 Status: ${planV2.status || '-'} | needs=${needTypes || '-'} | resolved=${resolvedTypes || '-'}`);
-            if (p2.primaryObjective) lines.push(`- Pipeline V2 Plan: ${p2.taskDomain || '-'} | ${p2.sceneKind || '-'} | ${String(p2.primaryObjective).replace(/\s+/g, ' ').slice(0, 180)}`);
-            if (Array.isArray(p2.objectFamilies) && p2.objectFamilies.length) lines.push(`- Pipeline V2 Objekte: ${p2.objectFamilies.slice(0, 8).join(', ')}`);
+            const planLabel = String(planV2.pipelineVersion || '').includes('mission-v3') ? 'Pipeline V3' : 'Pipeline V2';
+            lines.push(`- ${planLabel} Status: ${planV2.status || '-'} | needs=${needTypes || '-'} | resolved=${resolvedTypes || '-'}`);
+            if (p2.primaryObjective) lines.push(`- ${planLabel} Plan: ${p2.taskDomain || '-'} | ${p2.sceneKind || '-'} | ${String(p2.primaryObjective).replace(/\s+/g, ' ').slice(0, 180)}`);
+            if (Array.isArray(p2.objectFamilies) && p2.objectFamilies.length) lines.push(`- ${planLabel} Objekte: ${p2.objectFamilies.slice(0, 8).join(', ')}`);
+            if (Array.isArray(p2.localFacts) && p2.localFacts.length) lines.push(`- ${planLabel} Fakten: ${p2.localFacts.slice(0, 4).join(' | ')}`);
+            if (Array.isArray(p2.weatherHooks) && p2.weatherHooks.length) lines.push(`- ${planLabel} Wetter: ${p2.weatherHooks.slice(0, 3).join(' | ')}`);
+            if (p2.realismBrief) lines.push(`- ${planLabel} Realismus: ${String(p2.realismBrief).replace(/\s+/g, ' ').slice(0, 180)}`);
+            if (Array.isArray(planV2.debug?.toolCalls) && planV2.debug.toolCalls.length) lines.push(`- ${planLabel} Tools: ${planV2.debug.toolCalls.map(c => c.name || '?').slice(0, 6).join(', ')}`);
         }
         if (missionSnap.contract?.summary) lines.push(`- Contract: ${missionSnap.contract.summary}`);
         lines.push(`- PAX/Cargo: ${missionSnap.paxText || 'n/a'} | ${missionSnap.cargoText || 'n/a'}`);
@@ -3918,6 +3924,7 @@ window.vpToggleWeatherDebugPanel = function(forceState) {
     panel.style.display = show ? 'block' : 'none';
     if (show) {
         window.vpUpdateObsTileOverlayButtonUi && window.vpUpdateObsTileOverlayButtonUi();
+        window.updateMissionPipelineV2ButtonUi && window.updateMissionPipelineV2ButtonUi();
         window.vpRefreshWeatherDebugReport && window.vpRefreshWeatherDebugReport();
     }
 };

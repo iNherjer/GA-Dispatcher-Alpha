@@ -3302,7 +3302,8 @@ function setDispatchLampState(state = 'idle', dataSource = '') {
         return;
     }
     if (state === 'done') {
-        if (dataSource === "Gemini 3.0 Flash") btn.classList.add('dispatch-lamp-ai-g3');
+        if (/V3 Tools/i.test(String(dataSource || ''))) btn.classList.add('dispatch-lamp-ai-g3');
+        else if (dataSource === "Gemini 3.0 Flash") btn.classList.add('dispatch-lamp-ai-g3');
         else if (dataSource === "Gemini 2.5 Flash") btn.classList.add('dispatch-lamp-ai-g25');
         else if (dataSource === "Gemini 2.5 Flash Lite") btn.classList.add('dispatch-lamp-ai-lite');
         else btn.classList.add('dispatch-lamp-local');
@@ -3313,6 +3314,7 @@ let _dispatchRunId = 0;
 let _dispatchState = { active: false, cancelled: false, runId: 0 };
 const MISSION_PIPELINE_LEGACY_STORAGE_KEY = 'ga_debug_mission_pipeline_legacy';
 const MISSION_PIPELINE_V2_STORAGE_KEY = 'ga_debug_mission_pipeline_v2'; // legacy preference key, no longer used for defaulting
+const MISSION_PIPELINE_V3_STORAGE_KEY = 'ga_debug_mission_pipeline_v3_tools';
 
 function _startDispatchRun() {
     _dispatchRunId += 1;
@@ -3340,31 +3342,64 @@ function _abortDispatchRun(reason = 'Abbruch') {
 }
 
 function isMissionPipelineV2Enabled() {
-    try { return localStorage.getItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY) !== 'true'; } catch (_) { return true; }
+    try {
+        return localStorage.getItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY) !== 'true'
+            && localStorage.getItem(MISSION_PIPELINE_V3_STORAGE_KEY) !== 'true';
+    } catch (_) {
+        return true;
+    }
 }
 window.isMissionPipelineV2Enabled = isMissionPipelineV2Enabled;
 
 function isMissionPipelineLegacyEnabled() {
-    return !isMissionPipelineV2Enabled();
+    try { return localStorage.getItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY) === 'true'; } catch (_) { return false; }
 }
 window.isMissionPipelineLegacyEnabled = isMissionPipelineLegacyEnabled;
 
+function isMissionPipelineV3Enabled() {
+    try {
+        return localStorage.getItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY) !== 'true'
+            && localStorage.getItem(MISSION_PIPELINE_V3_STORAGE_KEY) === 'true';
+    } catch (_) {
+        return false;
+    }
+}
+window.isMissionPipelineV3Enabled = isMissionPipelineV3Enabled;
+
+function getMissionPipelineMode() {
+    if (isMissionPipelineLegacyEnabled()) return 'legacy';
+    if (isMissionPipelineV3Enabled()) return 'v3';
+    return 'v2';
+}
+window.getMissionPipelineMode = getMissionPipelineMode;
+
 function updateMissionPipelineV2ButtonUi() {
     const btn = document.getElementById('btnMissionPipelineLegacy') || document.getElementById('btnMissionPipelineV2');
-    if (!btn) return;
     const legacy = isMissionPipelineLegacyEnabled();
-    btn.textContent = legacy ? 'Legacy Pipeline An' : 'Legacy Pipeline Aus';
-    btn.style.background = legacy ? '#4a2d18' : '#241b3b';
-    btn.style.borderColor = legacy ? '#8a5a2f' : '#5a4a86';
-    btn.style.color = legacy ? '#ffd7a3' : '#d8c7ff';
+    if (btn) {
+        btn.textContent = legacy ? 'Legacy Pipeline An' : 'Legacy Pipeline Aus';
+        btn.style.background = legacy ? '#4a2d18' : '#241b3b';
+        btn.style.borderColor = legacy ? '#8a5a2f' : '#5a4a86';
+        btn.style.color = legacy ? '#ffd7a3' : '#d8c7ff';
+    }
+    const v3Btn = document.getElementById('btnMissionPipelineV3');
+    if (v3Btn) {
+        const v3 = isMissionPipelineV3Enabled();
+        v3Btn.textContent = v3 ? 'V3 Tools An' : 'V3 Tools Aus';
+        v3Btn.style.background = v3 ? '#114533' : '#163028';
+        v3Btn.style.borderColor = v3 ? '#2cae7d' : '#2f6f5e';
+        v3Btn.style.color = v3 ? '#c9ffe8' : '#94f0cc';
+    }
 }
 window.updateMissionPipelineV2ButtonUi = updateMissionPipelineV2ButtonUi;
 window.updateMissionPipelineLegacyButtonUi = updateMissionPipelineV2ButtonUi;
+window.updateMissionPipelineV3ButtonUi = updateMissionPipelineV2ButtonUi;
 
 window.toggleMissionPipelineLegacy = function(forceState) {
     const nextLegacy = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineLegacyEnabled();
     try {
         localStorage.setItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY, String(!!nextLegacy));
+        if (nextLegacy) localStorage.removeItem(MISSION_PIPELINE_V3_STORAGE_KEY);
         localStorage.removeItem(MISSION_PIPELINE_V2_STORAGE_KEY);
     } catch (_) {}
     updateMissionPipelineV2ButtonUi();
@@ -3380,8 +3415,31 @@ window.toggleMissionPipelineLegacy = function(forceState) {
 
 window.toggleMissionPipelineV2 = function(forceState) {
     const nextV2 = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineV2Enabled();
-    window.toggleMissionPipelineLegacy(!nextV2);
+    try {
+        localStorage.setItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY, String(!nextV2));
+        localStorage.removeItem(MISSION_PIPELINE_V3_STORAGE_KEY);
+        localStorage.removeItem(MISSION_PIPELINE_V2_STORAGE_KEY);
+    } catch (_) {}
+    updateMissionPipelineV2ButtonUi();
     return !!nextV2;
+};
+
+window.toggleMissionPipelineV3 = function(forceState) {
+    const nextV3 = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineV3Enabled();
+    try {
+        localStorage.setItem(MISSION_PIPELINE_V3_STORAGE_KEY, String(!!nextV3));
+        if (nextV3) localStorage.setItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY, 'false');
+        localStorage.removeItem(MISSION_PIPELINE_V2_STORAGE_KEY);
+    } catch (_) {}
+    updateMissionPipelineV2ButtonUi();
+    if (typeof window.vpRefreshWeatherDebugReport === 'function') {
+        try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
+    }
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = nextV3
+        ? 'Debug: Mission Pipeline V3 Tool-Calling aktiv.'
+        : 'Debug: Mission Pipeline V2 aktiv.';
+    return !!nextV3;
 };
 
 if (typeof window !== 'undefined') {
@@ -6822,7 +6880,9 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
     const cue = _profileStoryCue(profile, isPOI);
     if (cue) {
         const story = String(m.s || '').trim();
-        if (cue && story && !story.toLowerCase().includes(cue.toLowerCase())) {
+        if (story && _storyAlreadyCoversProfileCue(story, profile)) {
+            // The generated story already carries the profile domain; avoid bolting on a generic cue.
+        } else if (cue && story && !story.toLowerCase().includes(cue.toLowerCase())) {
             m.s = `${story} ${cue}`.trim();
         } else if (cue && !story) {
             m.s = cue;
@@ -6858,7 +6918,32 @@ function _profileStoryCue(profile, isPOI = false) {
             ? 'Bildungsauftrag: historische Einordnung und lokale Geschichte am POI, ohne technischen Inspektionsfokus.'
             : 'Bildungsauftrag: historische Einordnung des Ziels mit ruhigem, stabilem Flugprofil.';
     }
-    return String(profile.storyCue || '').replace(/\bFokus:\s*/gi, '').trim();
+    return String(profile.storyCue || '').trim();
+}
+
+function _storyAlreadyCoversProfileCue(story, profile) {
+    const s = String(story || '').toLowerCase();
+    const id = String(profile?.id || '').toLowerCase();
+    if (!s || !id) return false;
+    const hasAny = (...patterns) => patterns.some(re => re.test(s));
+    switch (id) {
+        case 'mapping_survey':
+            return hasAny(/\bvermess/, /\bsurvey\b/, /\bmapping\b/, /\blidar\b/, /\bphotogramm/, /\bdigital(?:er|en|e)?\s+zwilling/, /\bpunktwolke\b/, /\bdaten\b/, /\bpass(?:es)?\b/, /\bbahnen\b/);
+        case 'cargo_fragile':
+            return hasAny(/\bfracht\b/, /\bladung\b/, /\btransport\b/, /\bempfind/, /\bpräzision/, /\bpraezision/, /\bschutz/, /\bsto(?:ß|ss)/, /\bersch(?:ü|ue)tter/, /\bsanft/, /\bübergabe\b/, /\buebergabe\b/);
+        case 'fire_watch':
+            return hasAny(/\bbrand\b/, /\bwaldbrand\b/, /\brauch/, /\bhotspot/, /\bglut/, /\bfeuer\b/, /\bfrühwarn/, /\bfruehwarn/);
+        case 'search_and_rescue':
+            return hasAny(/\bsuch/, /\bsar\b/, /\brettung/, /\blagebild\b/, /\bvermisst/, /\bsignal/);
+        case 'inspection_infra':
+            return hasAny(/\binspektion/, /\bprüfung\b/, /\bpruefung\b/, /\bwartung/, /\bschaden/, /\bbauwerk/, /\bdokumentation/);
+        case 'science_geo':
+            return hasAny(/\bgeolog/, /\brelief\b/, /\berosion\b/, /\bhangstruktur\b/, /\bgeomorph/);
+        case 'science_bio':
+            return hasAny(/\bnatur/, /\bumwelt/, /\bbiolog/, /\bhabitat/, /\barten/, /\bflora/, /\bfauna/);
+        default:
+            return false;
+    }
 }
 
 function _profileOpsRuleForPrompt(profile, isPOI = false) {
@@ -10425,6 +10510,13 @@ function compactMissionPlanV2ForPrompt(planResult = null) {
             objectFamilies: Array.isArray(plan.objectFamilies) ? plan.objectFamilies.slice(0, 8).map(String) : [],
             placementPolicy: String(plan.placementPolicy || '').slice(0, 260),
             narrativeRules: Array.isArray(plan.narrativeRules) ? plan.narrativeRules.slice(0, 6).map(x => String(x).slice(0, 160)) : [],
+            localFacts: Array.isArray(plan.localFacts) ? plan.localFacts.slice(0, 5).map(x => String(x).slice(0, 180)) : [],
+            weatherHooks: Array.isArray(plan.weatherHooks) ? plan.weatherHooks.slice(0, 4).map(x => String(x).slice(0, 180)) : [],
+            operationalDetails: Array.isArray(plan.operationalDetails) ? plan.operationalDetails.slice(0, 5).map(x => String(x).slice(0, 180)) : [],
+            realismBrief: String(plan.realismBrief || '').slice(0, 320),
+            narrativeHooks: Array.isArray(plan.narrativeHooks) ? plan.narrativeHooks.slice(0, 5).map(x => String(x).slice(0, 180)) : [],
+            mustMention: Array.isArray(plan.mustMention) ? plan.mustMention.slice(0, 6).map(x => String(x).slice(0, 140)) : [],
+            mustAvoid: Array.isArray(plan.mustAvoid) ? plan.mustAvoid.slice(0, 8).map(x => String(x).slice(0, 160)) : [],
             lockedFields: (plan.lockedFields && typeof plan.lockedFields === 'object') ? plan.lockedFields : {},
             confidence: Number.isFinite(Number(plan.confidence)) ? Math.max(0, Math.min(1, Number(plan.confidence))) : null
         },
@@ -10486,6 +10578,7 @@ function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds 
         plan.lockedFields = {
             ...(plan.lockedFields || {}),
             taskDomain: 'training',
+            roleProfile: 'instructor_calm_precise_v1',
             targetCategory: 'trn',
             noLandingAtPoi: false
         };
@@ -10695,8 +10788,8 @@ ${JSON.stringify(resolvedNeeds || null)}
 </OUTPUT>`;
 }
 
-async function fetchMissionPlannerV2(context = {}) {
-    if (!isMissionPipelineV2Enabled()) return null;
+async function fetchMissionPlannerV2(context = {}, options = {}) {
+    if (!options.force && !isMissionPipelineV2Enabled()) return null;
     const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const draft = buildMissionPlannerV2Draft(context);
@@ -10730,6 +10823,485 @@ async function fetchMissionPlannerV2(context = {}) {
     return normalized;
 }
 window.fetchMissionPlannerV2 = fetchMissionPlannerV2;
+
+const MISSION_PIPELINE_V3_VERSION = 'mission-v3-tool-planner-2026-05-23';
+
+function _missionPipelineV3Text(value, maxLen = 240) {
+    return String(value || '').replace(/\s+/g, ' ').trim().slice(0, maxLen);
+}
+
+function _missionPipelineV3Array(value, maxItems = 6, maxLen = 140) {
+    return (Array.isArray(value) ? value : [])
+        .map(item => _missionPipelineV3Text(item, maxLen))
+        .filter(Boolean)
+        .slice(0, maxItems);
+}
+
+function _missionPipelineV3CompactGeoContext(ctx = null) {
+    if (!ctx || typeof ctx !== 'object') return null;
+    const anchors = {};
+    Object.entries(ctx.anchors || {}).forEach(([key, anchor]) => {
+        if (!anchor || typeof anchor !== 'object') return;
+        anchors[key] = {
+            present: !!anchor.present,
+            name: _missionPipelineV3Text(anchor.name, 80),
+            distM: Number.isFinite(Number(anchor.distM)) ? Math.round(Number(anchor.distM)) : null,
+            bearingDeg: Number.isFinite(Number(anchor.bearingDeg)) ? Math.round(Number(anchor.bearingDeg)) : null
+        };
+    });
+    return {
+        summary: summarizeMissionTargetGeoContext(ctx),
+        hints: _missionPipelineV3Array(ctx.hints, 8, 120),
+        anchors,
+        visualLandmarks: (Array.isArray(ctx.visualLandmarks) ? ctx.visualLandmarks : []).slice(0, 6).map(lm => ({
+            label: _missionPipelineV3Text(lm?.label, 80),
+            type: _missionPipelineV3Text(lm?.type, 60),
+            distM: Number.isFinite(Number(lm?.distM)) ? Math.round(Number(lm.distM)) : null
+        })).filter(lm => lm.label || lm.type),
+        avoidZoneCounts: (Array.isArray(ctx.avoidZones) ? ctx.avoidZones : []).reduce((acc, z) => {
+            const k = _missionPipelineV3Text(z?.type || 'unknown', 40);
+            acc[k] = (acc[k] || 0) + 1;
+            return acc;
+        }, {})
+    };
+}
+
+function _missionPipelineV3AirportDetails(context = {}) {
+    const apt = (a, icao = '') => a ? {
+        icao: _missionPipelineV3Text(icao || a.icao, 8),
+        name: _missionPipelineV3Text(a.n || a.name, 120),
+        lat: Number.isFinite(Number(a.lat)) ? Number(a.lat) : null,
+        lon: Number.isFinite(Number(a.lon)) ? Number(a.lon) : null
+    } : null;
+    return {
+        start: apt(context.start, currentStartICAO || ''),
+        dest: context.isPOI ? null : apt(context.dest, context.dest?.icao || currentDestICAO || ''),
+        targetPoi: context.isPOI ? apt(context.dest, 'POI') : null
+    };
+}
+
+function _missionPipelineV3WeatherBundle(missionWeather = null) {
+    return {
+        dep: {
+            summary: _summarizeMissionWeather(missionWeather?.dep || null),
+            raw: missionWeather?.dep || null
+        },
+        dest: {
+            summary: _summarizeMissionWeather(missionWeather?.dest || null),
+            raw: missionWeather?.dest || null
+        },
+        rule: 'Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden.'
+    };
+}
+
+function _missionPipelineV3ProfileCatalog(context = {}) {
+    const profile = getMissionTaskProfile(context.dispatchProfileId || 'auto', context.isPOI ? 'poi' : 'apt') || {};
+    const selected = {
+        id: _missionPipelineV3Text(profile.id || context.dispatchProfileId || 'auto', 80),
+        label: _missionPipelineV3Text(profile.label, 120),
+        roleProfile: _missionPipelineV3Text(profile.roleProfile || 'general_passenger_v1', 80),
+        taskDomain: _missionPipelineV3Text(profile.taskDomain || 'general', 80),
+        paxText: _missionPipelineV3Text(profile.paxText, 120),
+        cargoExamples: _missionPipelineV3Array(profile.cargoPool, 5, 120),
+        storyCue: _missionPipelineV3Text(profile.storyCue, 180)
+    };
+    return {
+        selected,
+        allowedRoleProfiles: [
+            'general_passenger_v1', 'instructor_calm_precise_v1', 'charter_professional_neutral_v1',
+            'technical_inspector_v1', 'media_observer_v1', 'science_field_v1', 'vip_business_v1',
+            'club_utility_v1', 'medical_sensitive_v1', 'news_reporter_professional_v1',
+            'tour_guide_relaxed_v1', 'tour_guide_learning_v1', 'historian_storyteller_v1',
+            'photogrammetry_precision_v1', 'cargo_fragile_highcare_v1', 'rescue_coordination_v1',
+            'fire_observer_ops_v1', 'club_student_v1'
+        ],
+        allowedTaskDomains: [
+            'general', 'training', 'charter', 'inspection_infra', 'media_photo', 'science_bio',
+            'science_geo', 'science_general', 'club_utility', 'medical_transfer', 'news_coverage',
+            'sightseeing_tour', 'poi_learning_guide', 'historian_guided_tour', 'mapping_survey',
+            'cargo_fragile', 'search_and_rescue', 'fire_watch', 'animal_transport',
+            'club_training_basic', 'club_training_advanced'
+        ]
+    };
+}
+
+function _missionPipelineV3BuildMissionDataForTools(context = {}) {
+    return {
+        isPOI: !!context.isPOI,
+        poiName: context.dest?.n || null,
+        targetName: context.dest?.n || null,
+        targetLat: Number(context.dest?.lat),
+        targetLon: Number(context.dest?.lon),
+        poiSource: String(context.dest?.poiSource || ''),
+        poiCategory: String(context.dest?.poiCategory || context.selectedCategory || ''),
+        requestedCategory: String(context.selectedCategory || 'all'),
+        poiLookup: context.dest?.poiLookup || null
+    };
+}
+
+async function _missionPipelineV3ResolveGeoContext(context = {}, working = {}) {
+    if (working.targetGeoContext) return working.targetGeoContext;
+    if (!context.isPOI) return null;
+    working.targetGeoContext = await fetchMissionTargetGeoContext(_missionPipelineV3BuildMissionDataForTools(context));
+    return working.targetGeoContext || null;
+}
+
+async function _missionPipelineV3ResolveMissionTruth(context = {}, working = {}) {
+    if (working.missionTruth) return working.missionTruth;
+    if (!context.isPOI) return null;
+    const geo = await _missionPipelineV3ResolveGeoContext(context, working);
+    working.missionTruth = buildMissionTruth(_missionPipelineV3BuildMissionDataForTools(context), geo, null);
+    return working.missionTruth || null;
+}
+
+async function _missionPipelineV3ResolveFireHazard(context = {}, working = {}) {
+    if (working.missionFireHazard) return working.missionFireHazard;
+    const profile = getMissionTaskProfile(context.dispatchProfileId || 'auto', context.isPOI ? 'poi' : 'apt') || {};
+    const wantsFire = context.isPOI && (
+        String(context.selectedCategory || '').toLowerCase() === 'fire'
+        || String(profile.taskDomain || '').toLowerCase() === 'fire_watch'
+    );
+    if (!wantsFire || !Number.isFinite(Number(context.dest?.lat)) || !Number.isFinite(Number(context.dest?.lon))) return null;
+    working.missionFireHazard = await fetchDwdWbiForLocation(Number(context.dest.lat), Number(context.dest.lon));
+    return working.missionFireHazard || null;
+}
+
+async function _missionPipelineV3ContextBundle(context = {}, draft = {}, working = {}) {
+    const geo = await _missionPipelineV3ResolveGeoContext(context, working);
+    const truth = await _missionPipelineV3ResolveMissionTruth(context, working);
+    const fire = await _missionPipelineV3ResolveFireHazard(context, working);
+    return {
+        schema: 'missionPlannerV3.contextBundle.v1',
+        route: draft.route || {},
+        target: draft.target || {},
+        picker: draft.picker || {},
+        category: draft.category || '',
+        profile: _missionPipelineV3ProfileCatalog(context),
+        airportDetails: _missionPipelineV3AirportDetails(context),
+        weather: _missionPipelineV3WeatherBundle(context.missionWeather || null),
+        fireHazard: fire || null,
+        targetGeoContext: _missionPipelineV3CompactGeoContext(geo),
+        missionTruth: compactMissionTruthForPrompt(truth),
+        routeRules: [
+            context.isPOI ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.',
+            'Der Auftrag braucht einen konkreten lokalen Anlass, aber keine Actionfilm-Dramatik.',
+            'Story, Passenger, Cargo, sceneIntent und Zielkontext muessen dieselbe Lage beschreiben.'
+        ],
+        realismTargets: [
+            'Nutze 1-2 echte oder aus Kontext abgeleitete Details: Zielart, Umgebung, Wetter, Betreiber-/Nutzungslogik.',
+            'Keine generischen Floskeln wie "wichtige Mission" ohne konkreten Grund.',
+            'Wenn Kontext schwach ist, ehrlich allgemein bleiben statt Ortsnamen oder Fakten zu erfinden.'
+        ]
+    };
+}
+
+function _missionPipelineV3ToolDeclarations() {
+    return [
+        {
+            name: 'get_mission_context_bundle',
+            description: 'Returns verified route, target, weather, profile, missionTruth and local geo context for this GA Dispatcher mission. Call this before creating the mission plan.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    reason: { type: 'string', description: 'Short reason why the planner needs the verified context.' }
+                }
+            }
+        },
+        {
+            name: 'get_target_geo_context',
+            description: 'Returns verified target surroundings such as water, forest, roads, parking, power or visible landmarks near the POI. Returns null for APT-only missions.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    focus: { type: 'string', description: 'Which context matters, e.g. placement, landmarks, target consistency, or scene anchors.' }
+                }
+            }
+        },
+        {
+            name: 'get_weather_snapshot',
+            description: 'Returns the verified departure and target weather snapshots already collected by the app.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    scope: { type: 'string', enum: ['dep', 'dest', 'route', 'all'], description: 'Weather scope needed by the planner.' }
+                }
+            }
+        },
+        {
+            name: 'get_fire_hazard',
+            description: 'Returns DWD woodland fire danger context when the mission profile or category is fire related and the target is in Germany.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    reason: { type: 'string', description: 'Why fire hazard is relevant to this mission.' }
+                }
+            }
+        },
+        {
+            name: 'get_airport_details',
+            description: 'Returns verified start/destination airport or POI coordinate details from the app state.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    scope: { type: 'string', enum: ['start', 'dest', 'all'], description: 'Requested airport scope.' }
+                }
+            }
+        }
+    ];
+}
+
+async function _missionPipelineV3ExecuteTool(call = {}, context = {}, draft = {}, working = {}) {
+    const name = String(call.name || '').trim();
+    if (name === 'get_mission_context_bundle') return _missionPipelineV3ContextBundle(context, draft, working);
+    if (name === 'get_target_geo_context') return _missionPipelineV3CompactGeoContext(await _missionPipelineV3ResolveGeoContext(context, working));
+    if (name === 'get_weather_snapshot') return _missionPipelineV3WeatherBundle(context.missionWeather || null);
+    if (name === 'get_fire_hazard') return await _missionPipelineV3ResolveFireHazard(context, working);
+    if (name === 'get_airport_details') return _missionPipelineV3AirportDetails(context);
+    return { error: 'unknown_tool', name };
+}
+
+function _missionPipelineV3ExtractText(data = {}) {
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    return parts.map(p => p?.text || '').filter(Boolean).join('\n').trim();
+}
+
+function _missionPipelineV3ExtractFunctionCalls(data = {}) {
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    return parts.map(p => p?.functionCall).filter(Boolean);
+}
+
+function _missionPipelineV3ParseJsonText(text = '') {
+    const raw = String(text || '').trim();
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch (_) {}
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced) {
+        try { return JSON.parse(fenced[1].trim()); } catch (_) {}
+    }
+    const first = raw.indexOf('{');
+    const last = raw.lastIndexOf('}');
+    if (first >= 0 && last > first) {
+        try { return JSON.parse(raw.slice(first, last + 1)); } catch (_) {}
+    }
+    return null;
+}
+
+function _missionPipelineV3Prompt(draft = {}) {
+    return `<INSTRUKTIONEN>
+Du bist Mission Planner V3 fuer einen GA-Dispatcher im Flugsimulator.
+Du baust noch keine fertige Story. Du erzeugst ein robustes Planformular fuer die nachfolgende Dispatch-KI.
+
+Arbeitsweise:
+1. Rufe zuerst get_mission_context_bundle auf.
+2. Nutze danach nur die Tool-Ergebnisse, den DRAFT und die erlaubten Rollen/Profile.
+3. Wenn ein Detail nicht aus DRAFT oder Tool-Ergebnis ableitbar ist, formuliere allgemein statt zu halluzinieren.
+4. Ziel: realistische, lokal verankerte Missionen mit konkretem Anlass, nicht generische Auftragsfloskeln.
+5. Wetter darf als Realitaetsanker vorkommen, aber nicht als erfundene Gefahrenlage.
+6. Antworte am Ende ausschliesslich als JSON.
+
+Plan-Regeln:
+- taskDomain und roleProfile muessen zum Picker/Profil passen.
+- primaryObjective beschreibt genau einen Hauptauftrag.
+- localFacts enthalten nur sichere, knappe Kontextdetails.
+- weatherHooks enthalten nur konkrete Wetterpunkte aus den Tool-Daten.
+- narrativeHooks sind 2-4 brauchbare Story-Anker fuer den spaeteren Dispatcher.
+- mustAvoid nennt konkrete Dinge, die die spaetere Story nicht tun darf.
+</INSTRUKTIONEN>
+
+<DRAFT>
+${JSON.stringify(draft)}
+</DRAFT>
+
+<OUTPUT_JSON>
+{
+  "status": "ready|invalid",
+  "needs": [],
+  "plan": {
+    "taskDomain": "aus erlaubter Liste",
+    "roleProfile": "aus erlaubter Liste",
+    "missionType": "poi|apt",
+    "targetCategory": "bridge|water|cargo|charter|...",
+    "primaryObjective": "konkreter Hauptauftrag",
+    "targetLabel": "kanonischer Zielname",
+    "sceneKind": "none|construction_site|sar_land|water_context|fire_watch|...",
+    "sceneDensity": "none|sparse|normal|busy",
+    "requiredAnchors": ["wichtige Platzierungs-/Kontextanker"],
+    "objectFamilies": ["semantische Objektgruppen, keine Assetnamen"],
+    "placementPolicy": "wie Zielszene logisch gruppiert werden soll",
+    "narrativeRules": ["harte Regeln fuer Story/PAX"],
+    "localFacts": ["1-4 sichere lokale/contextuelle Fakten"],
+    "weatherHooks": ["0-3 knappe Wetteranker"],
+    "operationalDetails": ["1-4 fliegerische oder dispatcherische Details"],
+    "realismBrief": "warum der Auftrag an diesem Ziel glaubwuerdig ist",
+    "narrativeHooks": ["2-4 konkrete Story-Anker"],
+    "mustMention": ["konkrete Pflichtpunkte"],
+    "mustAvoid": ["konkrete Verbote gegen generische oder falsche Storys"],
+    "lockedFields": {"noLandingAtPoi": true},
+    "confidence": 0.0
+  }
+}
+</OUTPUT_JSON>`;
+}
+
+async function _missionPipelineV3RunModel(model, source, usageKey, draft, context) {
+    const working = {
+        targetGeoContext: context.targetGeoContext || null,
+        missionTruth: context.missionTruth || null,
+        missionFireHazard: context.missionFireHazard || null
+    };
+    const contents = [{ role: 'user', parts: [{ text: _missionPipelineV3Prompt(draft) }] }];
+    const tools = [{ functionDeclarations: _missionPipelineV3ToolDeclarations() }];
+    const toolCalls = [];
+    let lastError = '';
+    for (let turn = 0; turn < 5; turn++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), turn === 0 ? 14000 : 18000);
+        try {
+            const payload = {
+                contents,
+                tools,
+                toolConfig: {
+                    functionCallingConfig: turn === 0
+                        ? { mode: 'ANY', allowedFunctionNames: ['get_mission_context_bundle'] }
+                        : { mode: 'AUTO' }
+                },
+                generationConfig: {
+                    temperature: 0.25,
+                    maxOutputTokens: 1800
+                }
+            };
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(context.apiKey || '')}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+            if (!res.ok) return { parsed: null, source, error: `http_${res.status}_${model}`, toolCalls, working };
+            const data = await res.json();
+            const functionCalls = _missionPipelineV3ExtractFunctionCalls(data);
+            if (functionCalls.length) {
+                const modelContent = data?.candidates?.[0]?.content;
+                if (modelContent) contents.push(modelContent);
+                const responseParts = [];
+                for (const call of functionCalls.slice(0, 4)) {
+                    const result = await _missionPipelineV3ExecuteTool(call, context, draft, working);
+                    toolCalls.push({
+                        turn,
+                        name: String(call.name || ''),
+                        id: call.id || null,
+                        args: call.args || {},
+                        resultKeys: result && typeof result === 'object' ? Object.keys(result).slice(0, 10) : []
+                    });
+                    responseParts.push({
+                        functionResponse: {
+                            name: call.name,
+                            id: call.id,
+                            response: { result }
+                        }
+                    });
+                }
+                contents.push({ role: 'user', parts: responseParts });
+                continue;
+            }
+            const text = _missionPipelineV3ExtractText(data);
+            const parsed = _missionPipelineV3ParseJsonText(text);
+            if (parsed) {
+                incrementApiUsage(usageKey);
+                return { parsed, source, error: '', toolCalls, working };
+            }
+            lastError = 'empty_or_invalid_json';
+        } catch (err) {
+            lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+    return { parsed: null, source, error: lastError || 'v3_tool_planner_failed', toolCalls, working };
+}
+
+async function _missionPipelineV3GeminiJson(draft, context) {
+    const models = [
+        ['gemini-3-flash-preview', 'Gemini 3.0 Flash Tool Planner V3', 'flash'],
+        ['gemini-2.5-flash', 'Gemini 2.5 Flash Tool Planner V3', 'flash'],
+        ['gemini-3.5-flash', 'Gemini 3.5 Flash Tool Planner V3', 'flash']
+    ];
+    let last = null;
+    for (const [model, source, usageKey] of models) {
+        last = await _missionPipelineV3RunModel(model, source, usageKey, draft, context);
+        if (last?.parsed) return last;
+    }
+    return last || { parsed: null, source: 'none', error: 'v3_no_model_result', toolCalls: [], working: {} };
+}
+
+function sanitizeMissionPlannerV3Result(raw = null, draft = null, resolvedNeeds = {}, debug = {}) {
+    const base = sanitizeMissionPlannerV2Result(raw, draft, resolvedNeeds);
+    base.pipelineVersion = MISSION_PIPELINE_V3_VERSION;
+    const rawPlan = (raw?.plan && typeof raw.plan === 'object') ? raw.plan : {};
+    base.plan = {
+        ...base.plan,
+        localFacts: _missionPipelineV3Array(rawPlan.localFacts, 5, 180),
+        weatherHooks: _missionPipelineV3Array(rawPlan.weatherHooks, 4, 180),
+        operationalDetails: _missionPipelineV3Array(rawPlan.operationalDetails, 5, 180),
+        realismBrief: _missionPipelineV3Text(rawPlan.realismBrief, 360),
+        narrativeHooks: _missionPipelineV3Array(rawPlan.narrativeHooks, 5, 180),
+        mustMention: _missionPipelineV3Array(rawPlan.mustMention, 6, 140),
+        mustAvoid: _missionPipelineV3Array(rawPlan.mustAvoid, 8, 160)
+    };
+    const status = String(raw?.status || base.status || '').toLowerCase();
+    base.status = status === 'invalid' ? 'invalid' : 'ready';
+    base.needs = [];
+    base.debug = {
+        ...(base.debug || {}),
+        source: debug.source || base.debug?.source || 'Gemini Tool Planner V3',
+        pass: 'tool-calling',
+        promptVersion: MISSION_PIPELINE_V3_VERSION,
+        toolCalls: Array.isArray(debug.toolCalls) ? debug.toolCalls : [],
+        fallbackError: debug.error || ''
+    };
+    return base;
+}
+
+async function fetchMissionPlannerV3(context = {}) {
+    if (!isMissionPipelineV3Enabled()) return null;
+    const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
+    if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
+    const draft = buildMissionPlannerV2Draft(context);
+    const runContext = { ...context, apiKey };
+    const result = await _missionPipelineV3GeminiJson(draft, runContext);
+    const resolvedNeeds = {
+        geo_context: result?.working?.targetGeoContext || context.targetGeoContext || null,
+        mission_truth: result?.working?.missionTruth || context.missionTruth || null,
+        weather_snapshot: context.missionWeather || null,
+        fire_hazard: result?.working?.missionFireHazard || context.missionFireHazard || null,
+        airport_details: _missionPipelineV3AirportDetails(context)
+    };
+    if (!result?.parsed) {
+        const invalid = {
+            pipelineVersion: MISSION_PIPELINE_V3_VERSION,
+            status: 'invalid',
+            needs: [],
+            resolvedNeeds,
+            plan: {},
+            debug: {
+                source: result?.source || 'none',
+                error: result?.error || 'v3_tool_planner_failed',
+                promptVersion: MISSION_PIPELINE_V3_VERSION,
+                toolCalls: result?.toolCalls || []
+            }
+        };
+        window.gaMissionPipelineV3Last = invalid;
+        return invalid;
+    }
+    const normalized = sanitizeMissionPlannerV3Result(result.parsed, draft, resolvedNeeds, {
+        source: result.source,
+        toolCalls: result.toolCalls,
+        error: result.error
+    });
+    window.gaMissionPipelineV3Last = normalized;
+    window.gaMissionPipelineV2Last = normalized;
+    return normalized;
+}
+window.fetchMissionPlannerV3 = fetchMissionPlannerV3;
 
 async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null, missionFireHazard = null, poiTargetMeta = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
@@ -11280,6 +11852,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         allowedTheme: randomTheme,
         forbiddenTaskDomains: forbiddenByTaskDomain[requiredTaskDomain] || [],
         forbiddenThemes: forbiddenThemesByTaskDomain[requiredTaskDomain] || [],
+        plannerContext: compactMissionPlanV2 || null,
         instruction: 'Fuelle nur die Textfelder fuer genau dieses Formular aus. Auftragstyp, taskDomain, roleProfile und Ziel duerfen nicht neu erfunden werden.'
     };
     const poiNameIsGeneric = /^(poi|zielgebiet|staudamm\/talsperre|gewaesser|gewasser|berg-\/talgebiet|funkmast\/funkturm\/windrad|industrieanlage)$/i.test(String(promptDestName || '').trim());
@@ -11295,8 +11868,11 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const missionTruthRule = (isPOI && compactTruth)
         ? `4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. mainTarget beschreibt das kanonische Arbeits-/Sichtziel; sceneAnchor/visibleCues/visualLandmarks duerfen nur Platzierung, Zufahrt oder Orientierung erklaeren und nie ein anderes Primaerziel daraus machen. geometryMode erklaert die Zielart: pinpoint/structure bleibt beim Objekt, area darf nur zur passenden Flaeche/Kante, corridor/facility/broad_infrastructure nur zu passenden Strukturankern. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen. visualLandmarks sind bestaetigte visuelle Referenzen bis 500m; bei unauffaelligem Ziel duerfen sie zur Orientierung genutzt werden, aber nicht als Primaerziel.`
         : '';
+    const activePlanVersion = String(compactMissionPlanV2?.pipelineVersion || '');
     const missionPlanV2Rule = (compactMissionPlanV2 && compactMissionPlanV2.status === 'ready')
-        ? `4d. PIPELINE-V2-PLAN: Nutze missionPlanV2 als ausgefuelltes Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, sceneKind, objectFamilies und lockedFields sind Leitplanken. Weiche nur ab, wenn sie technisch widerspruechlich sind.`
+        ? (activePlanVersion.includes('mission-v3')
+            ? `4d. PIPELINE-V3-TOOL-PLAN: Nutze missionPlanV2 als Tool-Calling-Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, localFacts, weatherHooks, realismBrief, narrativeHooks, mustMention/mustAvoid und lockedFields sind Leitplanken. Die Story muss daraus einen konkreten, lokal plausiblen Auftrag machen.`
+            : `4d. PIPELINE-V2-PLAN: Nutze missionPlanV2 als ausgefuelltes Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, sceneKind, objectFamilies und lockedFields sind Leitplanken. Weiche nur ab, wenn sie technisch widerspruechlich sind.`)
         : '';
     const localKnowledgeRule = isPoiTrainingMission
         ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
@@ -12685,31 +13261,81 @@ async function generateMission() {
 
     const isPlanningOnlyMode = dispatchProfileId === 'freeflight_planning';
     let missionPlanV2 = null;
-    if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV2Enabled()) {
+    const plannerContext = {
+        start,
+        dest,
+        isPOI,
+        dist: totalDist,
+        missionPicker: missionPickerResolved,
+        dispatchProfileId,
+        selectedCategory: isPOI ? selectedPoiCategory : selectedAptCategory,
+        requestedCategory: isPOI ? requestedPoiCategory : selectedAptCategory,
+        poiTerrainFt,
+        missionWeather,
+        missionFireHazard,
+        targetGeoContext: preMissionTargetGeoContext,
+        missionTruth: preMissionTruth
+    };
+    const absorbPlannerResolvedNeeds = (plan) => {
+        if (plan?.resolvedNeeds?.geo_context && !preMissionTargetGeoContext) {
+            preMissionTargetGeoContext = plan.resolvedNeeds.geo_context;
+        }
+        if (plan?.resolvedNeeds?.mission_truth && !preMissionTruth) {
+            preMissionTruth = plan.resolvedNeeds.mission_truth;
+        }
+        if (plan?.resolvedNeeds?.fire_hazard && !missionFireHazard) {
+            missionFireHazard = plan.resolvedNeeds.fire_hazard;
+        }
+    };
+    if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV3Enabled()) {
+        indicator.innerText = `Pipeline V3: Kontext-Tools planen...`;
+        try {
+            missionPlanV2 = await fetchMissionPlannerV3(plannerContext);
+            _ensureDispatchAlive();
+            absorbPlannerResolvedNeeds(missionPlanV2);
+            if (!missionPlanV2 || missionPlanV2.status === 'invalid') {
+                indicator.innerText = `Pipeline V3: Fallback auf V2...`;
+                missionPlanV2 = await fetchMissionPlannerV2({
+                    ...plannerContext,
+                    targetGeoContext: preMissionTargetGeoContext,
+                    missionTruth: preMissionTruth,
+                    missionFireHazard
+                }, { force: true });
+                _ensureDispatchAlive();
+                absorbPlannerResolvedNeeds(missionPlanV2);
+            }
+        } catch (err) {
+            console.warn('[MISSION PIPELINE V3] Tool planner failed, falling back to V2.', err);
+            try {
+                indicator.innerText = `Pipeline V3 Fehler: V2 plant...`;
+                missionPlanV2 = await fetchMissionPlannerV2({
+                    ...plannerContext,
+                    targetGeoContext: preMissionTargetGeoContext,
+                    missionTruth: preMissionTruth,
+                    missionFireHazard
+                }, { force: true });
+                _ensureDispatchAlive();
+                absorbPlannerResolvedNeeds(missionPlanV2);
+            } catch (fallbackErr) {
+                missionPlanV2 = {
+                    pipelineVersion: MISSION_PIPELINE_V3_VERSION,
+                    status: 'invalid',
+                    needs: [],
+                    resolvedNeeds: {},
+                    plan: {},
+                    debug: {
+                        error: err?.message || String(err || 'v3_planner_failed'),
+                        fallbackError: fallbackErr?.message || String(fallbackErr || 'v2_fallback_failed')
+                    }
+                };
+            }
+        }
+    } else if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV2Enabled()) {
         indicator.innerText = `Pipeline V2: Missionsformular planen...`;
         try {
-            missionPlanV2 = await fetchMissionPlannerV2({
-                start,
-                dest,
-                isPOI,
-                dist: totalDist,
-                missionPicker: missionPickerResolved,
-                dispatchProfileId,
-                selectedCategory: isPOI ? selectedPoiCategory : selectedAptCategory,
-                requestedCategory: isPOI ? requestedPoiCategory : selectedAptCategory,
-                poiTerrainFt,
-                missionWeather,
-                missionFireHazard,
-                targetGeoContext: preMissionTargetGeoContext,
-                missionTruth: preMissionTruth
-            });
+            missionPlanV2 = await fetchMissionPlannerV2(plannerContext);
             _ensureDispatchAlive();
-            if (missionPlanV2?.resolvedNeeds?.geo_context && !preMissionTargetGeoContext) {
-                preMissionTargetGeoContext = missionPlanV2.resolvedNeeds.geo_context;
-            }
-            if (missionPlanV2?.resolvedNeeds?.mission_truth && !preMissionTruth) {
-                preMissionTruth = missionPlanV2.resolvedNeeds.mission_truth;
-            }
+            absorbPlannerResolvedNeeds(missionPlanV2);
         } catch (err) {
             missionPlanV2 = {
                 pipelineVersion: 'mission-v2-planner-2026-05-22',
@@ -12769,6 +13395,9 @@ async function generateMission() {
         }
 
         if (m) {
+            if (missionPlanV2?.pipelineVersion === MISSION_PIPELINE_V3_VERSION) {
+                m._source = `${m._source || 'Gemini'} + V3 Tools`;
+            }
             dataSource = m._source;
             if (m.pax) paxText = m.pax;
             if (m.cargo) cargoText = m.cargo;
@@ -12957,6 +13586,8 @@ async function generateMission() {
         targetGeoContext: preMissionTargetGeoContext || null,
         missionTruth: preMissionTruth || null,
         missionPlanV2: missionPlanV2 || null,
+        missionPlanV3: missionPlanV2?.pipelineVersion === MISSION_PIPELINE_V3_VERSION ? missionPlanV2 : null,
+        missionPipelineMode: getMissionPipelineMode(),
         targetScene: initialTargetScene,
         targetSceneDraftRaw: m?.targetScene || null,
         targetSceneAiRaw: m?.targetSceneDebug?.aiRaw || null,
@@ -13057,6 +13688,8 @@ async function generateMission() {
             targetGeoContext: currentMissionData.targetGeoContext || null,
             missionTruth: currentMissionData.missionTruth || null,
             missionPlanV2: currentMissionData.missionPlanV2 || activeMissionContract.missionPlanV2 || null,
+            missionPlanV3: currentMissionData.missionPlanV3 || null,
+            missionPipelineMode: currentMissionData.missionPipelineMode || getMissionPipelineMode(),
             aptArrivalPlan: currentMissionData.aptArrivalPlan || activeMissionContract.aptArrivalPlan || null,
             aiRequested: m?.targetSceneDebug?.aiRaw || null,
             aiNormalized: m?.targetSceneDebug?.normalized || currentMissionData.targetScene || null,
@@ -13112,7 +13745,10 @@ async function generateMission() {
             targetGeoContext: currentMissionData.targetGeoContext || null,
             missionTruth: currentMissionData.missionTruth || null,
             missionPlanV2: currentMissionData.missionPlanV2 || activeMissionContract.missionPlanV2 || null,
+            missionPlanV3: currentMissionData.missionPlanV3 || null,
+            missionPipelineMode: currentMissionData.missionPipelineMode || getMissionPipelineMode(),
             missionPipelineV2Enabled: isMissionPipelineV2Enabled(),
+            missionPipelineV3Enabled: isMissionPipelineV3Enabled(),
             aptArrivalPlan: currentMissionData.aptArrivalPlan || activeMissionContract.aptArrivalPlan || null,
             targetScene: currentMissionData.targetScene || null,
             targetSceneDebug: {

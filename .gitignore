@@ -1,6 +1,11 @@
 .DS_Store
 .claude/
 *.exe
+.env
+.env.*
+!.env.example
+key.env.local
+key.env.*
 
 # Workbench cache (PBF-Dateien, Zwischenergebnisse) – nie ins Repo
 .workbench-cache/

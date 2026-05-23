@@ -4,6 +4,35 @@ import vm from 'node:vm';
 
 const root = path.resolve(path.dirname(decodeURIComponent(new URL(import.meta.url).pathname)), '..');
 
+function loadLocalEnv() {
+  for (const name of ['key.env.local', '.env.local', '.env']) {
+    const file = path.join(root, name);
+    if (!fs.existsSync(file)) continue;
+    const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+    const bareValues = [];
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+      if (!match) {
+        bareValues.push(trimmed);
+        continue;
+      }
+      if (process.env[match[1]]) continue;
+      let value = match[2].trim();
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      process.env[match[1]] = value;
+    }
+    if (!process.env.GEMINI_API_KEY && bareValues.length === 1) {
+      process.env.GEMINI_API_KEY = bareValues[0];
+    }
+  }
+}
+
+loadLocalEnv();
+
 function makeStore() {
   const data = new Map();
   return {
@@ -907,6 +936,132 @@ function buildPlannerV2Payload(prompt) {
   };
 }
 
+function extractGeminiFunctionResponses(body = {}) {
+  const contents = Array.isArray(body?.contents) ? body.contents : [];
+  return contents
+    .flatMap(content => Array.isArray(content?.parts) ? content.parts : [])
+    .map(part => part?.functionResponse)
+    .filter(Boolean);
+}
+
+function normalizePlannerV3ToolResult(value = {}) {
+  if (value?.schema === 'missionPlannerV3.contextBundle.v1') return value;
+  if (value?.result?.schema === 'missionPlannerV3.contextBundle.v1') return value.result;
+  if (value?.response?.result?.schema === 'missionPlannerV3.contextBundle.v1') return value.response.result;
+  return value?.result || value || {};
+}
+
+function buildPlannerV3Payload(prompt, toolResult = {}) {
+  const draftRaw = extractTaggedBlock(prompt, 'DRAFT');
+  let draft = {};
+  try { draft = JSON.parse(draftRaw || '{}'); } catch (_) {}
+  const bundle = normalizePlannerV3ToolResult(toolResult);
+  const profile = bundle?.profile?.selected || draft.profile || {};
+  const isAptTraining = draft.mode === 'apt' && draft.category === 'trn';
+  const taskDomain = String(isAptTraining ? 'training' : (profile.taskDomain || draft.profile?.taskDomain || 'general')).toLowerCase();
+  const roleProfile = String(isAptTraining ? 'instructor_calm_precise_v1' : (profile.roleProfile || draft.profile?.roleProfile || 'general_passenger_v1')).toLowerCase();
+  const missionType = String(draft.mode || bundle?.route?.mode || 'apt').toLowerCase();
+  const category = String(draft.category || bundle?.category || '').toLowerCase();
+  const targetLabel = String(bundle?.target?.name || draft.target?.name || draft.route?.targetIcao || 'Zielgebiet').trim();
+  const isMapping = taskDomain === 'mapping_survey';
+  const isSar = taskDomain === 'search_and_rescue';
+  const isFire = taskDomain === 'fire_watch' || category === 'fire';
+  const isWater = ['water', 'dam'].includes(category) || (taskDomain === 'science_bio' && /water|ufer|gewaesser|see/i.test(`${targetLabel} ${bundle?.targetGeoContext?.summary || ''}`));
+  const isInspection = taskDomain === 'inspection_infra';
+  const sceneKind = isMapping ? 'construction_site' : (isSar ? 'sar_land' : (isFire ? 'fire_watch' : (isWater ? 'water_context' : 'none')));
+  const sceneDensity = isMapping ? 'normal' : ((isSar || isFire || isWater || isInspection) ? 'sparse' : 'none');
+  const objectFamilies = isMapping
+    ? ['work_area', 'material_cluster', 'survey_reference']
+    : (isSar
+      ? ['ground_clue', 'small_equipment', 'signal_marker']
+      : (isFire
+        ? ['smoke_observation', 'forest_edge', 'orientation_marker']
+        : (isWater ? ['shoreline', 'floating_debris', 'small_boat'] : [])));
+  const requiredAnchors = missionType === 'poi'
+    ? (isMapping
+      ? ['work_area', 'access_track']
+      : (isSar
+        ? ['clearing_or_last_known_area']
+        : (isFire
+          ? ['forest_edge_or_smoke_point']
+          : (isWater ? ['shoreline_or_bank'] : ['verified_target_point']))))
+    : [];
+  const weatherHooks = [
+    bundle?.weather?.dep?.summary,
+    bundle?.weather?.dest?.summary
+  ]
+    .map(v => String(v || '').replace(/\s+/g, ' ').trim())
+    .filter(v => v && !/keine (aktuellen )?wetterdaten|nicht verfuegbar|nicht verfügbar|unbekannt/i.test(v))
+    .slice(0, 3);
+  const localFacts = [
+    targetLabel ? `Zielbezug ist ${targetLabel}.` : '',
+    bundle?.targetGeoContext?.summary ? `Umfeld: ${bundle.targetGeoContext.summary}` : '',
+    Array.isArray(bundle?.targetGeoContext?.hints) ? bundle.targetGeoContext.hints[0] : '',
+    bundle?.airportDetails?.start?.icao ? `Startflugplatz ist ${bundle.airportDetails.start.icao}.` : ''
+  ].filter(Boolean).slice(0, 4);
+  const operationalDetails = [
+    missionType === 'poi' ? 'Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'Normaler A-B-Streckenflug zum Zielflugplatz.',
+    sceneKind !== 'none' ? 'Zielbeobachtung mit ruhigen, wiederholbaren Passes und klarer Aufgabenbegrenzung.' : 'Kein Zielobjekt-Spawn; Auftrag bleibt in Passagier/Fracht/Route verankert.'
+  ];
+  const primaryObjective = isMapping
+    ? `Kartiere ${targetLabel} mit stabilen Fotopasses und klarer Abgrenzung der sichtbaren Arbeitsflaeche.`
+    : (isSar
+      ? `Suche bei ${targetLabel} nach einem kleinen, plausiblen Bodenhinweis.`
+      : (isFire
+        ? `Pruefe bei ${targetLabel} eine gemeldete schwache Rauchentwicklung ohne Grossbrand-Inszenierung.`
+        : (isWater
+          ? `Erstelle bei ${targetLabel} ein ruhiges Luftlagebild von Uferkante, Wasserlinie und sichtbaren Veraenderungen.`
+          : `Fuehre den Auftrag nach ${targetLabel} mit klarer lokaler Begruendung durch.`)));
+  return {
+    status: 'ready',
+    needs: [],
+    plan: {
+      taskDomain,
+      roleProfile,
+      missionType,
+      targetCategory: category,
+      primaryObjective,
+      targetLabel,
+      sceneKind,
+      sceneDensity,
+      requiredAnchors,
+      objectFamilies,
+      placementPolicy: missionType === 'poi'
+        ? 'Sichtbare Kontextobjekte sparsam gruppieren; sie duerfen das Primaerziel nicht ersetzen oder den Auftrag schon geloest wirken lassen.'
+        : 'Keine separate Zielszene fuer A-B-Fluege erzwingen.',
+      narrativeRules: [
+        'Story, Passenger, Cargo, sceneIntent und Zielkontext muessen dieselbe Lage beschreiben.',
+        'Nur lokale Fakten aus Tool-Ergebnissen verwenden; bei schwachem Kontext allgemein bleiben.',
+        'Wetter als Realitaetsanker verwenden, aber keine Gefahrenlage erfinden.'
+      ],
+      localFacts,
+      weatherHooks,
+      operationalDetails,
+      realismBrief: localFacts.length
+        ? `Der Auftrag ist glaubwuerdig, weil Zielart, Umgebung und Route als konkrete Einsatzanker vorliegen.`
+        : `Der Auftrag bleibt bewusst allgemein, weil der Dryrun keine belastbaren Ortsfakten geliefert hat.`,
+      narrativeHooks: [
+        primaryObjective,
+        weatherHooks[0] ? `Wetteranker: ${weatherHooks[0]}` : 'Wetter wird nur erwaehnt, wenn verwertbare Daten vorliegen.',
+        missionType === 'poi' ? 'Nach kurzer Zielbeobachtung geht es zum Startflugplatz zurueck.' : 'Uebergabe oder Termin findet erst am Zielflugplatz statt.'
+      ],
+      mustMention: [targetLabel, missionType === 'poi' ? 'keine Landung am POI' : 'A-B-Flug'].filter(Boolean),
+      mustAvoid: [
+        'keine generische wichtige Mission ohne konkreten Anlass',
+        'keine Actionfilm-Dramatik',
+        missionType === 'poi' ? 'keinen anderen Primaerort erfinden' : 'keinen POI-Arbeitsauftrag erfinden'
+      ],
+      lockedFields: {
+        taskDomain,
+        roleProfile,
+        targetName: targetLabel,
+        noLandingAtPoi: missionType === 'poi'
+      },
+      confidence: localFacts.length ? 0.86 : 0.74
+    }
+  };
+}
+
 function buildSpokenText(prompt) {
   if (/Boarding und Verladen abgeschlossen/i.test(prompt)) return 'Boarding ist erledigt, die Ausrüstung ist verstaut und ich bin bereit. Lass uns sauber und ohne Hektik rausrollen.';
   if (/Wir starten gleich/i.test(prompt)) return 'Hi, danke fürs Mitnehmen. Wir halten den Flug ruhig und konzentrieren uns am Ziel genau auf den Auftrag.';
@@ -918,14 +1073,18 @@ function buildSpokenText(prompt) {
   return 'Verstanden, ich bleibe bei der Aufgabe und gebe dir nur die nächsten sinnvollen Hinweise.';
 }
 
-function setupFetch(context, prompts) {
+function setupFetch(context, prompts, { liveGemini = false } = {}) {
   context.fetch = async (url, options = {}) => {
     const href = String(url);
     if (href.includes('airports.json')) {
       return responseJson(JSON.parse(fs.readFileSync(path.join(root, 'airports.json'), 'utf8')));
     }
     if (href.includes('api.open-elevation.com')) return responseJson({ results: [{ elevation: 420 }] });
-    if (href.includes('aviationweather.gov')) return responseJson([]);
+    if (
+      href.includes('aviationweather.gov')
+      && !href.includes('ga-proxy.einherjer.workers.dev/api/metar')
+      && !href.includes('api.codetabs.com')
+    ) return responseJson([]);
     if (href.includes('open-meteo.com')) {
       return responseJson({
         current: { wind_speed_10m: 8, wind_direction_10m: 260, temperature_2m: 17 },
@@ -946,6 +1105,24 @@ function setupFetch(context, prompts) {
         ]
       });
     }
+    if (href.includes('ga-proxy.einherjer.workers.dev/api/metar')) {
+      const decodedHref = decodeURIComponent(href);
+      const idMatch = decodedHref.match(/ids=([A-Z0-9]{4})/i);
+      const station = (idMatch?.[1] || 'EDTW').toUpperCase();
+      return responseJson({
+        data: [{
+          icaoId: station,
+          rawOb: `${station} 231220Z 26008KT 9999 FEW030 17/08 Q1015`,
+          wdir: 260,
+          wspd: 8,
+          temp: 17,
+          wxString: '',
+          fltCat: 'VFR',
+          lat: 48.28,
+          lon: 8.43
+        }]
+      });
+    }
     if (href.includes('ga-proxy.einherjer.workers.dev') || href.includes('wikipedia.org') || href.includes('wikidata.org') || href.includes('nominatim.openstreetmap.org')) {
       return responseJson({ items: [], elements: [], query: { pages: {} } });
     }
@@ -953,8 +1130,57 @@ function setupFetch(context, prompts) {
       const body = options?.body ? JSON.parse(options.body) : {};
       const prompt = body?.contents?.[0]?.parts?.[0]?.text || '';
       const isTts = Array.isArray(body?.generationConfig?.responseModalities) && body.generationConfig.responseModalities.includes('AUDIO');
+      const functionResponses = extractGeminiFunctionResponses(body);
+      const isPlannerV3 = /Mission Planner V3/i.test(prompt) || Array.isArray(body?.tools);
+      prompts.push({
+        url: href,
+        prompt,
+        isPlannerV3,
+        hasFunctionResponse: functionResponses.length > 0,
+        live: !!liveGemini,
+        functionResponses: functionResponses.map(r => ({ name: r?.name || '', keys: Object.keys(r?.response?.result || {}).slice(0, 10) }))
+      });
+      if (liveGemini) {
+        const record = prompts[prompts.length - 1];
+        try {
+          const res = await globalThis.fetch(href, {
+            method: options?.method || 'POST',
+            headers: options?.headers || { 'Content-Type': 'application/json' },
+            body: options?.body,
+            signal: options?.signal
+          });
+          const text = await res.text();
+          record.liveOk = !!res.ok;
+          record.liveStatus = res.status;
+          record.liveBodyExcerpt = text.replace(/\s+/g, ' ').slice(0, 1200);
+          return responseText(text, res.ok, res.status);
+        } catch (err) {
+          record.liveOk = false;
+          record.liveStatus = 0;
+          record.liveError = err?.message || String(err || 'unknown live Gemini error');
+          throw err;
+        }
+      }
       if (isTts) return responseJson({ candidates: [{ content: { parts: [{ inlineData: { data: '', mimeType: 'audio/wav' } }] } }] });
-      prompts.push({ url: href, prompt });
+      if (isPlannerV3 && !functionResponses.length) {
+        return responseJson({
+          candidates: [{
+            content: {
+              role: 'model',
+              parts: [{
+                functionCall: {
+                  name: 'get_mission_context_bundle',
+                  args: { reason: 'Dryrun needs verified mission context before planning.' }
+                }
+              }]
+            }
+          }]
+        });
+      }
+      if (isPlannerV3) {
+        const text = JSON.stringify(buildPlannerV3Payload(prompt, functionResponses[0]?.response?.result || {}));
+        return responseJson({ candidates: [{ content: { role: 'model', parts: [{ text }] } }] });
+      }
       const text = body?.generationConfig?.response_mime_type === 'text/plain'
         ? buildSpokenText(prompt)
         : JSON.stringify(/Mission Planner V2/i.test(prompt) ? buildPlannerV2Payload(prompt) : (/Scene Composer/i.test(prompt) ? buildSceneAiPayload(prompt) : buildMissionAiPayload(prompt)));
@@ -965,7 +1191,7 @@ function setupFetch(context, prompts) {
   context.window.fetch = context.fetch;
 }
 
-function setupContext(seed) {
+function setupContext(seed, { liveGemini = false } = {}) {
   const prompts = [];
   const context = {
     console,
@@ -1006,7 +1232,7 @@ function setupContext(seed) {
   context.self = context;
   context.Math.random = stableRandom(seed);
   setupDom(context);
-  setupFetch(context, prompts);
+  setupFetch(context, prompts, { liveGemini });
   context.L = {
     map: () => ({ setView(){ return this; }, remove(){}, on(){}, addLayer(){}, removeLayer(){}, eachLayer(){}, fitBounds(){}, invalidateSize(){} }),
     tileLayer: () => ({ addTo(){ return this; } }),
@@ -1030,7 +1256,7 @@ function loadScript(context, rel) {
   vm.runInContext(code, context, { filename: rel });
 }
 
-function initUiForRun(context, targetType, { pipelineV2 = false } = {}) {
+function initUiForRun(context, targetType, { pipelineV2 = false, pipelineV3 = false, apiKey = 'DRYRUN_KEY' } = {}) {
   const values = {
     startLoc: 'EDTW',
     destLoc: '',
@@ -1043,12 +1269,17 @@ function initUiForRun(context, targetType, { pipelineV2 = false } = {}) {
     tasSlider: '160',
     gphSlider: '14',
     altSlider: '3500',
-    apiKeyInput: 'DRYRUN_KEY'
+    apiKeyInput: apiKey || 'DRYRUN_KEY'
   };
   for (const [id, value] of Object.entries(values)) el(id).value = value;
   el('aiToggle').checked = true;
   el('briefingBox').style.display = 'none';
   if (pipelineV2) context.localStorage.setItem('ga_debug_mission_pipeline_v2', 'true');
+  if (pipelineV3) {
+    context.localStorage.removeItem('ga_debug_mission_pipeline_legacy');
+    context.localStorage.removeItem('ga_debug_mission_pipeline_v2');
+    context.localStorage.setItem('ga_debug_mission_pipeline_v3_tools', 'true');
+  }
 }
 
 async function wait(ms) {
@@ -1058,15 +1289,23 @@ async function wait(ms) {
 function promptRecords(prompts) {
   return prompts.map((p, index) => ({
     index: index + 1,
-    kind: /Mission Planner V2/i.test(p.prompt) ? 'mission-planner-v2' : (/Scene Composer/i.test(p.prompt) ? 'scene-composer' : (/OUTPUT>/.test(p.prompt) ? 'mission-dispatcher' : 'pax-text')),
+    kind: p.isPlannerV3
+      ? (p.hasFunctionResponse ? 'mission-planner-v3-final' : 'mission-planner-v3-tool-call')
+      : (/Mission Planner V2/i.test(p.prompt) ? 'mission-planner-v2' : (/Scene Composer/i.test(p.prompt) ? 'scene-composer' : (/OUTPUT>/.test(p.prompt) ? 'mission-dispatcher' : 'pax-text'))),
     modelUrl: p.url.replace(/\?key=.*/, '?key=DRYRUN_KEY'),
+    hasFunctionResponse: !!p.hasFunctionResponse,
+    functionResponses: p.functionResponses || [],
+    liveOk: p.liveOk,
+    liveStatus: p.liveStatus,
+    liveError: p.liveError,
+    liveBodyExcerpt: p.liveBodyExcerpt,
     prompt: p.prompt,
     excerpt: p.prompt.replace(/\s+/g, ' ').slice(0, 700)
   }));
 }
 
-async function runOne({ seed, targetType, pipelineV2 = false }) {
-  const { context, prompts } = setupContext(seed);
+async function runOne({ seed, targetType, pipelineV2 = false, pipelineV3 = false, liveGemini = false, apiKey = 'DRYRUN_KEY' }) {
+  const { context, prompts } = setupContext(seed, { liveGemini });
   loadScript(context, 'datenbank.js');
   loadScript(context, 'missions.js');
   loadScript(context, 'data/mission-scene-assets.js');
@@ -1092,7 +1331,7 @@ async function runOne({ seed, targetType, pipelineV2 = false }) {
     resetBtn = function(btn) { if (btn) btn.disabled = false; };
     vpUpdatePosition = function() {};
   `, context);
-  initUiForRun(context, targetType, { pipelineV2 });
+  initUiForRun(context, targetType, { pipelineV2, pipelineV3, apiKey });
 
   await vm.runInContext('generateMission()', context);
   await wait(900);
@@ -1232,12 +1471,19 @@ function parseCliArgs(argv) {
     variants: false,
     targetTypes: null,
     pipelineV2: false,
+    pipelineV3: false,
+    liveGemini: false,
     out: 'mission-pipeline-dryrun-edtw.json'
   };
   for (const raw of argv) {
     const arg = String(raw || '').trim();
     if (arg === '--variants') args.variants = true;
     else if (arg === '--pipeline-v2') args.pipelineV2 = true;
+    else if (arg === '--pipeline-v3') {
+      args.pipelineV3 = true;
+      args.pipelineV2 = false;
+    }
+    else if (arg === '--live-gemini') args.liveGemini = true;
     else if (arg.startsWith('--runs=')) args.runs = Math.max(1, Math.min(20, Number.parseInt(arg.slice(7), 10) || args.runs));
     else if (arg.startsWith('--seed=')) args.seed = Number.parseInt(arg.slice(7), 10) || args.seed;
     else if (arg.startsWith('--types=')) {
@@ -1254,7 +1500,9 @@ function buildRunConfigs(args) {
     return Array.from({ length: args.runs }, (_, i) => ({
       seed: args.seed + i,
       targetType: args.targetTypes[i % args.targetTypes.length],
-      pipelineV2: !!args.pipelineV2
+      pipelineV2: !!args.pipelineV2,
+      pipelineV3: !!args.pipelineV3,
+      liveGemini: !!args.liveGemini
     }));
   }
   if (args.variants) {
@@ -1269,22 +1517,28 @@ function buildRunConfigs(args) {
     return picks.map((targetType, i) => ({
       seed: args.seed + (i * 101) + 17,
       targetType,
-      pipelineV2: !!args.pipelineV2
+      pipelineV2: !!args.pipelineV2,
+      pipelineV3: !!args.pipelineV3,
+      liveGemini: !!args.liveGemini
     }));
   }
   const roll = stableRandom(args.seed)();
   const firstType = roll < 0.5 ? 'poi:water' : 'apt:club';
   return [
-    { seed: args.seed, targetType: firstType, pipelineV2: !!args.pipelineV2 },
-    { seed: args.seed + 1, targetType: firstType.startsWith('poi') ? 'apt:club' : 'poi:water', pipelineV2: !!args.pipelineV2 },
-    { seed: args.seed + 2, targetType: 'poi:water', pipelineV2: !!args.pipelineV2 }
+    { seed: args.seed, targetType: firstType, pipelineV2: !!args.pipelineV2, pipelineV3: !!args.pipelineV3, liveGemini: !!args.liveGemini },
+    { seed: args.seed + 1, targetType: firstType.startsWith('poi') ? 'apt:club' : 'poi:water', pipelineV2: !!args.pipelineV2, pipelineV3: !!args.pipelineV3, liveGemini: !!args.liveGemini },
+    { seed: args.seed + 2, targetType: 'poi:water', pipelineV2: !!args.pipelineV2, pipelineV3: !!args.pipelineV3, liveGemini: !!args.liveGemini }
   ].slice(0, args.runs);
 }
 
 async function main() {
   const args = parseCliArgs(process.argv.slice(2));
+  const apiKey = String(process.env.GEMINI_API_KEY || '').trim();
+  if (args.liveGemini && !apiKey) {
+    throw new Error('GEMINI_API_KEY fehlt. Lege ihn lokal in .env.local oder als Umgebungsvariable ab.');
+  }
   const roll = stableRandom(args.seed)();
-  const runs = buildRunConfigs(args);
+  const runs = buildRunConfigs(args).map(cfg => ({ ...cfg, apiKey: args.liveGemini ? apiKey : 'DRYRUN_KEY' }));
   const results = [];
   for (const cfg of runs) results.push(await runOne(cfg));
   const outDir = path.join(root, 'analysis');
@@ -1310,8 +1564,11 @@ async function main() {
       targetName: md.targetName,
       mission: md.mission,
       source: md.source,
-      missionPipelineV2Enabled: !!md.missionPipelineV2Enabled || !!md.missionPlanV2,
+      missionPipelineMode: md.missionPipelineMode || null,
+      missionPipelineV2Enabled: (md.missionPipelineMode || '') === 'v2',
+      missionPipelineV3Enabled: !!md.missionPlanV3,
       missionPlanV2: md.missionPlanV2 || null,
+      missionPlanV3: md.missionPlanV3 || null,
       sceneStatus: md.sceneCompositionStatus,
       targetScene: md.targetScene,
       passenger: r.passenger,
