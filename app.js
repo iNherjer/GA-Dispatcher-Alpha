@@ -2863,6 +2863,13 @@ function restoreMissionV3Context(md, state = {}, restoredPassenger = null, resto
         missionTruth = buildMissionTruth(md, targetGeoContext, targetScene);
     }
     missionTruth = attachAptArrivalPlanToMissionTruth(missionTruth, aptArrivalPlan);
+    if (targetScene?.kind === 'none' && missionTruth && typeof missionTruth === 'object' && Array.isArray(missionTruth.visibleCues)) {
+        const syntheticSceneCues = new Set(['Person am Boden', 'Fahrzeug am Boden', 'Boot auf dem Wasser', 'Rauch oder Feuerzeichen']);
+        missionTruth = {
+            ...missionTruth,
+            visibleCues: missionTruth.visibleCues.filter(cue => !syntheticSceneCues.has(String(cue || '').trim()))
+        };
+    }
 
     md.sceneIntent = sceneIntent;
     md.targetGeoContext = targetGeoContext;
@@ -9228,6 +9235,13 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
     if (kind === 'powerline_inspection' && !powerlineAllowed) kind = 'survey_context';
     if (kind === 'wind_turbine_site' && !windTurbineAllowed) kind = 'survey_context';
     if (suppressNatureRoadNoise && kind === 'road_incident') kind = 'survey_context';
+    if (kind === 'none') {
+        const noneNotes = String(src.notes || src.reason || src.context || planDirective?.placementPolicy || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 180);
+        return { kind: 'none', roles: [], density: 'none', notes: noneNotes };
+    }
     const catalog = missionSceneTargetKindCatalog();
     const featureCatalog = missionSceneTargetFeatureCatalog();
     const spec = catalog[kind] || catalog.none || { roles: [] };
@@ -9824,6 +9838,7 @@ function missionTruthAnchorForCategory(ctx = null, category = '', taskDomain = '
 }
 
 function missionTruthSceneVisibleCues(sceneSpec = null) {
+    if (normalizeMissionTargetSceneKind(sceneSpec?.kind || '') === 'none') return [];
     const text = [
         sceneSpec?.kind,
         sceneSpec?.preset,
