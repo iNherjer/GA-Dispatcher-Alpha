@@ -3194,8 +3194,9 @@ function _missionTargetSceneItems(kind) {
         const maxFeatureCount = (feature === 'pallet_stack' || feature === 'cargo_material') ? 8 : (feature === 'cones' ? 8 : 6);
         const safeCount = Math.max(1, Math.min(maxFeatureCount, Math.round(Number(count) || 1)));
         const arrangement = _missionTargetSceneFeatureArrangement(feature);
+        let featureIndex = 0;
         const add = (...args) => {
-            const override = _missionTargetSceneFeaturePlacementOverride(feature, i);
+            const override = _missionTargetSceneFeaturePlacementOverride(feature, featureIndex);
             if (override) {
                 args[4] = override.forwardM;
                 args[5] = override.rightM;
@@ -3209,6 +3210,7 @@ function _missionTargetSceneItems(kind) {
             if (item) items.push(item);
         };
         for (let i = 0; i < safeCount; i++) {
+            featureIndex = i;
             const step = i * 5;
             if (feature === 'powerline') {
                 const pylon = MISSION_SCENE_ASSET_POOLS.utilityPower.includes('PowerPylon_Base') ? 'PowerPylon_Base' : _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityPower, `feature-powerline-${i}`, 'PowerPylon_Base');
