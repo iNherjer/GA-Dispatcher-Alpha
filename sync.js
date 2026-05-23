@@ -2693,8 +2693,54 @@ function _missionTargetSceneRequestTerrain() {
     return true;
 }
 
+function _missionTargetSceneFeatureHintsFromSpec(kind = 'survey_context') {
+    const spec = _missionTargetSceneSpec() || {};
+    const out = [];
+    const add = (feature) => {
+        const normalized = _missionTargetSceneNormalizeFeature(feature);
+        if (normalized && !out.includes(normalized)) out.push(normalized);
+    };
+    if (Array.isArray(spec.features)) spec.features.forEach(add);
+    if (Array.isArray(spec.modifiers)) spec.modifiers.forEach(add);
+    if (Array.isArray(spec.requirements)) {
+        spec.requirements.forEach(req => {
+            if (typeof req === 'string') add(req);
+            else add(req?.feature || req?.kind || req?.type || req?.name || req?.role);
+        });
+    }
+    if (Array.isArray(spec.roles)) {
+        spec.roles.forEach(role => {
+            const r = String(role || '').toLowerCase();
+            if (r === 'utility.powerline') add('powerline');
+            if (r === 'utility.wind_turbine') add('wind_turbine');
+            if (r === 'utility.generator') add('generator');
+            if (r === 'construction.crane') add('construction_crane');
+            if (r === 'construction.earthmoving') add('earthmoving');
+            if (r === 'vehicle.bus') add('bus');
+            if (r === 'vehicle.car' || r === 'vehicle.van') add((kind === 'road_incident' || kind === 'event_site') ? 'road_vehicles' : 'parked_vehicle');
+            if (r === 'vehicle.truck') add('utility_truck');
+            if (r === 'vehicle.emergency.medical') add('emergency_response');
+            if (r === 'person.ground_crew') add('people');
+            if (r === 'sar.liferaft') add('liferaft');
+            if (r === 'watercraft.small_boat' || r === 'watercraft.boat') add('watercraft');
+            if (r === 'watercraft.service_ship' || r === 'watercraft.ship') add('service_ship');
+            if (r === 'animal.waterfowl' || r === 'animal.bird') add('waterfowl');
+            if (r === 'animal.wildlife' || r === 'animal.deer') add('wildlife_animals');
+            if (r === 'animal.grazing') add('animal_herd');
+            if (r === 'camp.tent' || r === 'camp.trailer') add('tent');
+            if (r === 'cargo.medical_kit' || r === 'cargo.animal_transport_box') add('cargo_material');
+            if (r === 'cargo.small_box') add((kind === 'cargo_site' || kind === 'medical_pickup') ? 'cargo_material' : 'small_equipment');
+            if (r.startsWith('debris.')) add('debris');
+            if (r === 'nature.log' || r === 'material.log') add('logs');
+            if (r === 'vfx.smoke') add('smoke_light');
+            if (r === 'vfx.fire') add('fire_small');
+        });
+    }
+    return out;
+}
+
 function _missionTargetSceneKindFromFeatureHints(text = '') {
-    const features = _missionTargetSceneRequestedFeatures('survey_context');
+    const features = _missionTargetSceneFeatureHintsFromSpec('survey_context');
     if (!features.length) return null;
     const has = feature => features.includes(feature);
     if (has('powerline')) return _missionTargetSceneHasPowerlineContext(text) ? 'powerline_inspection' : 'survey_context';
@@ -3281,7 +3327,9 @@ function _missionTargetSceneItems(kind) {
     };
     const finish = () => {
         const baseFeatureCounts = MISSION_TARGET_SCENE_BASE_FEATURE_COUNTS[kind] || {};
+        const explicitSurveyFeatures = kind === 'survey_context' ? _missionTargetSceneFeatureHintsFromSpec(kind) : null;
         _missionTargetSceneRequestedFeatures(kind).forEach(feature => {
+            if (explicitSurveyFeatures && explicitSurveyFeatures.length && !explicitSurveyFeatures.includes(feature)) return;
             if (!_missionTargetSceneFeatureAllowedForKind(kind, feature)) return;
             const count = _missionTargetSceneFeatureCount(feature);
             const baseCount = Number(baseFeatureCounts[feature] || 0);
@@ -3481,7 +3529,7 @@ function _missionTargetSceneItems(kind) {
     }
 
     if (kind === 'survey_context') {
-        const requestedFeatures = _missionTargetSceneRequestedFeatures(kind);
+        const requestedFeatures = _missionTargetSceneFeatureHintsFromSpec(kind);
         const hasConcreteRequestedFeatures = requestedFeatures.some(feature => !['logs', 'debris'].includes(feature));
         if (!hasConcreteRequestedFeatures) {
             const ref = _scenePickTitle(debrisPool, 'survey-context-ref', 'Log_01');
