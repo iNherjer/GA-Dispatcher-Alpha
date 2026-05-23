@@ -1191,7 +1191,8 @@ const MISSION_ROLE_TASK_PROFILES = {
             'ruhige Reh-Verlegung in Transportbox (38 lbs)',
             'Moewe fuer die Wildvogelstation (18 lbs)',
             'Gans fuer die Auffangstation (24 lbs)',
-            'Enten-Reha-Transferbox (22 lbs)'
+            'Enten-Reha-Transferbox (22 lbs)',
+            'Pferde-Vet-Material und Unterlagen (16 lbs)'
         ],
         tolerances: { gTolerance: 'niedrig', bankTolerance: 'niedrig', cargoSensitivity: 'hoch', stomachSensitivity: 'hoch', comfortPriority: 'hoch', urgencyPriority: 'niedrig' },
         storyCue: 'Fokus: Tierschutz-/Veterinaerauftrag mit ruhigem Ablauf; bei konkretem Tier in Transportbox darf der enge Kabinenraum kurz glaubwuerdig anklingen.'
@@ -7095,6 +7096,35 @@ function _finalizeMissionNarrative(mission, profile, isPOI = false) {
     return m;
 }
 
+function _animalTransportCargoSignalFromText(text = '') {
+    const raw = String(text || '');
+    const norm = normalizeMissionText(raw);
+    const hay = `${raw.toLowerCase()} ${norm}`;
+    const signals = [
+        { id: 'goat', match: /zieg|zicklein|jungziege|goat|hircus/i, cargo: /zieg|zicklein|goat|hircus/i },
+        { id: 'sheep', match: /schaf|sheep/i, cargo: /schaf|sheep/i },
+        { id: 'deer', match: /rehkitz|reh|hirsch|wildtier|deer/i, cargo: /reh|hirsch|deer/i },
+        { id: 'gull', match: /moewe|mowe|möwe|wildvogel|vogelstation|seagull/i, cargo: /moewe|mowe|möwe|wildvogel/i },
+        { id: 'goose', match: /gans|goose|wasservogel/i, cargo: /gans|goose/i },
+        { id: 'duck', match: /ente|enten|duck|mallard/i, cargo: /ente|duck/i },
+        { id: 'horse_vet', match: /pferd|gestuet|gestüt|horse|tierarzt|vet|veterinaer|veterinär/i, cargo: /pferd|horse|vet|tierarzt|veterinaer|veterinär/i }
+    ];
+    return signals.find(s => s.match.test(hay)) || null;
+}
+
+function _pickAnimalTransportCargo(cargoPool = [], missionLike = {}) {
+    const pool = Array.isArray(cargoPool) ? cargoPool.filter(Boolean) : [];
+    if (!pool.length) return '';
+    const titleSignal = _animalTransportCargoSignalFromText(missionLike?.t || missionLike?.title || '');
+    const storySignal = _animalTransportCargoSignalFromText(missionLike?.s || missionLike?.story || '');
+    const signal = titleSignal || storySignal;
+    if (signal) {
+        const matchedCargo = pool.find(cargo => signal.cargo.test(String(cargo || '')));
+        if (matchedCargo) return matchedCargo;
+    }
+    return pool[Math.floor(Math.random() * pool.length)] || pool[0] || '';
+}
+
 function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, cargoText) {
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
     const baseType = isPOI ? 'poi' : 'apt';
@@ -7120,16 +7150,21 @@ function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, ca
         paxText = `1 PAX (${m.passenger.role})`;
     }
     const cargoPool = Array.isArray(profile.cargoPool) ? profile.cargoPool.filter(Boolean) : [];
-    if (cargoPool.length) cargoText = cargoPool[Math.floor(Math.random() * cargoPool.length)];
+    if (cargoPool.length) {
+        cargoText = profile.id === 'animal_transport'
+            ? _pickAnimalTransportCargo(cargoPool, m)
+            : cargoPool[Math.floor(Math.random() * cargoPool.length)];
+    }
     if (profile.id === 'animal_transport') {
-        const targetHint = (String(m.t || '').match(/\bnach\s+(.+)$/i) || [])[1] || 'dem Zielplatz';
+        const targetMatch = String(m.t || '').match(/\b(nach|zur|zum)\s+(.+)$/i);
+        const targetHint = targetMatch ? `${targetMatch[1]} ${targetMatch[2]}` : 'zum Zielplatz';
         const cargoClean = String(cargoText || '').replace(/\s*\([^)]*\)/g, '').trim();
         if (cargoClean) {
             const liveAnimalCargo = /transportbox|ziege|schaf|reh|hirsch|moewe|möwe|gans|ente|schwan|wildvogel/i.test(cargoClean)
                 && !/vet|veterinaer|veterinär|dokument|unterlagen|tasche|futter|material/i.test(cargoClean);
             m.s = liveAnimalCargo
-                ? `Eine Auffangstation braucht einen ruhigen Transfer nach ${targetHint}. An Bord ist ${cargoClean}; der Flug soll gleichmaessig bleiben, damit die Uebergabe am Ziel entspannt klappt.`
-                : `Eine Auffangstation braucht einen ruhigen Tierschutzflug nach ${targetHint}. An Bord ist ${cargoClean}; der Flug soll gleichmaessig bleiben, damit die Uebergabe am Ziel entspannt klappt.`;
+                ? `Eine Auffangstation braucht einen ruhigen Transfer ${targetHint}. An Bord ist ${cargoClean}; der Flug soll gleichmaessig bleiben, damit die Uebergabe am Ziel entspannt klappt.`
+                : `Eine Auffangstation braucht einen ruhigen Tierschutzflug ${targetHint}. An Bord ist ${cargoClean}; der Flug soll gleichmaessig bleiben, damit die Uebergabe am Ziel entspannt klappt.`;
         }
     }
     const cue = _profileStoryCue(profile, isPOI);
@@ -7342,12 +7377,12 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
         if (aptSel === 'trn' || cat === 'trn') return 'auto';
         if (aptSel === 'charter' || cat === 'charter') return 'auto';
         // APT Default-Mix
-        pushMany('sightseeing_tour', 3);
-        pushMany('news_coverage', 2);
+        pushMany('sightseeing_tour', 4);
+        pushMany('news_coverage', 3);
         pushMany('cargo_fragile', 2);
         pushMany('animal_transport', 1);
-        pushMany('medical_transfer', 1);
-        pushMany('club_utility', 1);
+        pushMany('medical_transfer', 2);
+        pushMany('club_utility', 2);
         // Category-bias
         if (aptSel === 'cargo' || cat === 'cargo') {
             pushMany('club_utility', 2);
@@ -7362,7 +7397,17 @@ function pickAutoMissionTaskProfileId({ isPOI = false, selectedAptCategory = 'al
     }
 
     if (!isPOI && aptSel === 'all' && (!cat || cat === 'all')) {
-        return _pickFromWeightedWithRecentGuard(weighted, 'ga_apt_auto_profile_history', {
+        let aptHistory = [];
+        try {
+            const parsed = JSON.parse(localStorage.getItem('ga_apt_auto_profile_history') || '[]');
+            if (Array.isArray(parsed)) aptHistory = parsed;
+        } catch (_) {
+            aptHistory = [];
+        }
+        const effectiveWeighted = aptHistory.length
+            ? weighted
+            : weighted.filter(id => id !== 'animal_transport');
+        return _pickFromWeightedWithRecentGuard(effectiveWeighted, 'ga_apt_auto_profile_history', {
             fallback: 'auto',
             recentLimit: 4
         });
