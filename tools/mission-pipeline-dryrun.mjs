@@ -125,7 +125,8 @@ function responseText(text, ok = true, status = 200) {
 }
 
 function parseContextValue(prompt, label) {
-  const re = new RegExp(`${label}:\\s*([^\\n]+)`, 'i');
+  const escaped = String(label || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(?:^|\\n)\\s*${escaped}:\\s*([^\\n]+)`, 'i');
   return (prompt.match(re)?.[1] || '').trim();
 }
 
@@ -160,6 +161,82 @@ function parseDispatchForm(prompt) {
   try { return JSON.parse(raw); } catch (_) { return null; }
 }
 
+function dryrunTargetCategory(dispatchForm) {
+  return String(
+    dispatchForm?.required?.targetCategory ||
+    dispatchForm?.target?.category ||
+    dispatchForm?.targetCategory ||
+    ''
+  ).toLowerCase();
+}
+
+function dryrunInspectionText(target, category) {
+  const cat = String(category || '').toLowerCase();
+  if (cat === 'dam') {
+    return {
+      title: `Sichtprüfung: ${target}`,
+      story: `Am Wasserbauwerk ${target} steht eine technische Sichtprüfung an. Wir halten Staumauer, Dammkrone, Ablaufbauwerk und sichtbare Pegel-/Schieberanlagen im Fokus; Zufahrten oder Strompunkte dienen nur zur Orientierung. Nach zwei ruhigen Beobachtungskreisen geht es zurueck.`,
+      scene: {
+        summary: `Am Ziel ${target} bleibt die Staumauer bzw. das Rueckhaltebecken das Primaerziel; kleine Wartungsobjekte duerfen nur als Support am Rand stehen.`,
+        environment: 'Talsperre / Wasserbauwerk',
+        visibleIdeas: ['Staumauer oder Dammkrone als Hauptobjekt', 'dezente Wartungsmarkierung', 'ein technisches Fahrzeug nur an der Zufahrt'],
+        avoid: ['keine Verlagerung auf Dorfstrasse oder Strommast', 'keine Baustellengrossszene', 'keine Geologiestory'],
+        notes: 'Support darf das Wasserbauwerk nicht als Primaerziel ersetzen.'
+      }
+    };
+  }
+  if (cat === 'bridge') {
+    return {
+      title: `Brückenprüfung: ${target}`,
+      story: `An ${target} dokumentieren wir den Zustand von Pfeilern, Widerlagern und Brueckendeck aus der Luft. Der Fokus bleibt auf dem Bauwerk; Strasse, Fluss oder Bahntrasse sind nur Lagekontext. Danach geht es zurueck.`,
+      scene: {
+        summary: `Am Ziel ${target} ist die Bruecke das Primaerziel; Supportobjekte bleiben sparsam am Rand.`,
+        environment: 'Brueckenbauwerk',
+        visibleIdeas: ['Brueckendeck und Pfeiler', 'kleine Absperrung an der Zufahrt', 'ein Wartungsfahrzeug abseits des Bauwerks'],
+        avoid: ['keine reine Strassenkontrolle', 'keine Wasser-/Ufermission', 'keine Grossbaustelle'],
+        notes: 'Bauwerk vor Verkehrsfläche.'
+      }
+    };
+  }
+  if (cat === 'telecom') {
+    return {
+      title: `Mastprüfung: ${target}`,
+      story: `Am Ziel ${target} pruefen wir Mast, Antennenebenen und sichtbare Versorgungstechnik. Zufahrt und Technikschrank sind nur Orientierung, das Hauptziel bleibt der Mast. Danach geht es zurueck.`,
+      scene: {
+        summary: `Am Ziel ${target} ist der Mast bzw. Turm das Primaerziel.`,
+        environment: 'Telekommunikationsanlage',
+        visibleIdeas: ['Mast oder Turm', 'kleiner Technikcontainer', 'Wartungsfahrzeug an der Zufahrt'],
+        avoid: ['keine Dorfstrassenmission', 'keine allgemeine Stromtrassenpruefung'],
+        notes: 'Mast bleibt semantisch dominant.'
+      }
+    };
+  }
+  if (cat === 'road') {
+    return {
+      title: `Trassenprüfung: ${target}`,
+      story: `Entlang ${target} pruefen wir Belag, Randbereiche und sichtbare Engstellen aus der Luft. Der Auftrag bleibt eine Strassen-/Trasseninspektion und wird nicht auf einzelne Gebaeude umgedeutet. Danach geht es zurueck.`,
+      scene: {
+        summary: `Am Ziel ${target} ist die Strasse bzw. Trasse das Primaerziel.`,
+        environment: 'Strasse / Trasse',
+        visibleIdeas: ['Strassenabschnitt', 'sparsame Markierung am Rand', 'Wartungsfahrzeug an sicherer Stelle'],
+        avoid: ['keine Gebaeudeinspektion', 'keine Unfalllage ohne Anlass'],
+        notes: 'Korridorziel, keine punktfoermige Ersatzszene.'
+      }
+    };
+  }
+  return {
+    title: `Infrastrukturprüfung: ${target}`,
+    story: `Am Ziel ${target} erfassen wir den sichtbaren Zustand der Infrastruktur aus der Luft. Das ausgewaehlte Ziel bleibt der Bezugspunkt; Zufahrt, Strompunkte oder Betriebsflaechen dienen nur als Orientierung und Support. Danach geht es zurueck.`,
+    scene: {
+      summary: `Am Ziel ${target} bleibt die ausgewaehlte Infrastrukturanlage das Primaerziel.`,
+      environment: 'Infrastruktur',
+      visibleIdeas: ['Hauptanlage als Ziel', 'dezente Wartungsmarkierung', 'ein Supportfahrzeug abseits'],
+      avoid: ['keine semantische Verlagerung auf Nebenstrasse', 'keine unpassende Natur- oder Uferstory'],
+      notes: 'Zieltreue vor Supportankern.'
+    }
+  };
+}
+
 function buildMissionAiPayload(prompt) {
   const start = parseContextValue(prompt, 'Start') || 'Bremen-Hemelingen';
   const targetLine = parseContextValue(prompt, 'Ziel') || 'Zielgebiet';
@@ -168,9 +245,13 @@ function buildMissionAiPayload(prompt) {
   const forcedTaskDomain = parseForcedTaskDomain(prompt);
   const dispatchForm = parseDispatchForm(prompt);
   const formTaskDomain = String(dispatchForm?.required?.taskDomain || '').toLowerCase();
+  const targetCategory = dryrunTargetCategory(dispatchForm);
   const theme = parsePromptTheme(prompt);
   const taskAndTheme = `${forcedTaskDomain} ${formTaskDomain} ${theme}`;
   const wantsMapping = promptHas(taskAndTheme, 'mapping_survey', 'kartier', 'survey', 'baustell', 'materiallager');
+  const wantsInspection = promptHas(taskAndTheme, 'inspection_infra', 'inspektion', 'sichtprüfung', 'sichtpruefung', 'wartung');
+  const wantsScienceGeo = promptHas(taskAndTheme, 'science_geo', 'geologie', 'relief', 'erosion', 'hang');
+  const wantsScienceBio = promptHas(taskAndTheme, 'science_bio', 'biologie', 'umwelt', 'vegetation', 'habitat');
   const wantsFire = promptHas(taskAndTheme, 'fire_watch', 'feuer', 'brand', 'rauchentwicklung', 'waldbrand');
   const wantsSar = promptHas(taskAndTheme, 'search_and_rescue', 'sar/rescue', 'such', 'rettung', 'vermisst');
   const wantsAnimal = promptHas(taskAndTheme, 'animal_transport', 'tiertransport', 'tierschutz', 'ziege', 'reh', 'gans', 'möwe', 'moewe');
@@ -316,6 +397,133 @@ function buildMissionAiPayload(prompt) {
           targetRadiusNm: 3,
           targetDwellMin: 3,
           greetingText: `Hi, ich sammle heute ein sachliches Lagebild zu ${target}; bitte ruhig fliegen, damit die Beobachtung verwertbar bleibt.`,
+          trainingPlan: null
+        }
+      };
+    }
+    if (wantsInspection) {
+      const detail = dryrunInspectionText(target, targetCategory);
+      return {
+        dispatchFormAck: {
+          taskDomain: 'inspection_infra',
+          roleProfile: 'technical_inspector_v1',
+          missionType: 'poi'
+        },
+        title: detail.title,
+        story: detail.story,
+        pax: '1 PAX (Infrastruktur-Techniker)',
+        cargo: 'Waermebildkamera, Tablet und Checklisten (26 lbs)',
+        sceneIntent: {
+          summary: detail.scene.summary,
+          environment: detail.scene.environment,
+          visibleIdeas: detail.scene.visibleIdeas,
+          avoid: detail.scene.avoid,
+          densityHint: 'sparse',
+          notes: detail.scene.notes
+        },
+        passenger: {
+          name: 'Martin Seidel',
+          role: 'Infrastruktur-Techniker',
+          gender: 'male',
+          personality: 'sachlich, gruendlich, ruhig',
+          dialectHint: 'neutral',
+          roleProfile: 'technical_inspector_v1',
+          taskDomain: 'inspection_infra',
+          gTolerance: 'mittel',
+          bankTolerance: 'niedrig',
+          cargoSensitivity: 'mittel',
+          stomachSensitivity: 'mittel',
+          comfortPriority: 'hoch',
+          urgencyPriority: 'niedrig',
+          targetAltFt: 2200,
+          targetRadiusNm: 2,
+          targetDwellMin: 4,
+          greetingText: `Hi, wir bleiben bei ${target} als Hauptziel und dokumentieren nur die sichtbaren technischen Punkte.`,
+          trainingPlan: null
+        }
+      };
+    }
+    if (wantsScienceGeo) {
+      return {
+        dispatchFormAck: {
+          taskDomain: 'science_geo',
+          roleProfile: 'science_field_v1',
+          missionType: 'poi'
+        },
+        title: `Reliefbeobachtung: ${target}`,
+        story: `Am Zielgebiet ${target} steht eine geologische Sichtbeobachtung an. Wir betrachten Relief, Hangformen, Erosionsspuren und auffaellige Geländekanten; Wasser, Wege oder Wiesen sind nur Orientierung, sofern sie nicht selbst das ausgewaehlte Ziel sind. Nach zwei ruhigen Beobachtungskreisen geht es zurueck nach ${start}.`,
+        pax: '1 PAX (Geomorphologe)',
+        cargo: 'Geologie-Mapset, Tablet und Kamera (18 lbs)',
+        sceneIntent: {
+          summary: `Am Ziel ${target} bleibt Relief bzw. Gelaendeform das Primaerziel.`,
+          environment: 'Relief / Gelaende',
+          visibleIdeas: ['Hang- oder Kantenverlauf', 'offenes Gelaende als Referenz', 'keine technische Einsatzszene'],
+          avoid: ['keine Ufermission ohne Wasserziel', 'keine Infrastrukturinspektion', 'keine Arten-/Vegetationsanalyse'],
+          densityHint: 'none',
+          notes: 'Geologische Beobachtung ohne separate Supportszene.'
+        },
+        passenger: {
+          name: 'Dr. Nils Vogt',
+          role: 'Geomorphologe',
+          gender: 'male',
+          personality: 'analytisch, klar, professionell',
+          dialectHint: 'neutral',
+          roleProfile: 'science_field_v1',
+          taskDomain: 'science_geo',
+          gTolerance: 'mittel',
+          bankTolerance: 'mittel',
+          cargoSensitivity: 'mittel',
+          stomachSensitivity: 'mittel',
+          comfortPriority: 'mittel',
+          urgencyPriority: 'niedrig',
+          targetAltFt: 2100,
+          targetRadiusNm: 3,
+          targetDwellMin: 4,
+          greetingText: `Hi, wir beobachten am Zielgebiet ${target} heute Relief, Erosion und Hangstruktur aus der Luft.`,
+          trainingPlan: null
+        }
+      };
+    }
+    if (wantsScienceBio) {
+      const waterLike = ['water', 'dam'].includes(targetCategory);
+      return {
+        dispatchFormAck: {
+          taskDomain: 'science_bio',
+          roleProfile: 'science_field_v1',
+          missionType: 'poi'
+        },
+        title: `Umweltbeobachtung: ${target}`,
+        story: waterLike
+          ? `Bei ${target} wird ein biologischer Beobachtungsflug durchgefuehrt. Fokus sind Vegetation, Gewaesserrand und sichtbare Stressindikatoren im Zielgebiet; Wege oder Gebaeude bleiben nur Orientierung. Danach geht es zurueck nach ${start}.`
+          : `Am Zielgebiet ${target} wird eine biologische Beobachtung aus der Luft durchgefuehrt. Fokus sind Vegetationsmuster, Habitatkanten und sichtbare Stressindikatoren; Wege oder Gebaeude bleiben nur Orientierung. Danach geht es zurueck nach ${start}.`,
+        pax: '1 PAX (Biologin)',
+        cargo: 'Umweltsensorik und Kamera (18 lbs)',
+        sceneIntent: {
+          summary: `Am Ziel ${target} bleibt die Umwelt-/Habitatbeobachtung im ausgewaehlten Zielgebiet.`,
+          environment: waterLike ? 'Gewässerrand / Habitat' : 'Habitat / Vegetation',
+          visibleIdeas: waterLike ? ['Gewaesserrand', 'Vegetationskante', 'ruhiger Naturkontext'] : ['Vegetationsmuster', 'Habitatkante', 'offenes Referenzgelaende'],
+          avoid: ['keine technische Inspektionsstory', 'keine Einsatzlage', 'keine zufaellige Strassenmission'],
+          densityHint: 'none',
+          notes: 'Biologische Beobachtung ohne separate Supportszene.'
+        },
+        passenger: {
+          name: 'Dr. Elena Kurz',
+          role: 'Biologin',
+          gender: 'female',
+          personality: 'aufmerksam, sachlich, ruhig',
+          dialectHint: 'neutral',
+          roleProfile: 'science_field_v1',
+          taskDomain: 'science_bio',
+          gTolerance: 'mittel',
+          bankTolerance: 'mittel',
+          cargoSensitivity: 'mittel',
+          stomachSensitivity: 'mittel',
+          comfortPriority: 'hoch',
+          urgencyPriority: 'niedrig',
+          targetAltFt: 1900,
+          targetRadiusNm: 3,
+          targetDwellMin: 4,
+          greetingText: `Hi, wir beobachten am Zielgebiet ${target} heute Umwelt- und Habitatmerkmale aus der Luft.`,
           trainingPlan: null
         }
       };

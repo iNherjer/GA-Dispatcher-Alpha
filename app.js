@@ -4674,7 +4674,7 @@ function _poiFeatureMatchesCategory(feature, category) {
     );
     const isDam = (
         ['dam', 'weir'].includes(t.waterway) ||
-        ['reservoir', 'basin'].includes(t.landuse) ||
+        t.landuse === 'reservoir' ||
         t.water === 'reservoir' ||
         (damNameStrong && !t.highway)
     );
@@ -4828,7 +4828,7 @@ function _poiFeatureScore(feature, category) {
     if (cat === 'dam') {
         if (['dam', 'weir'].includes(t.waterway)) score += 8;
         if (t.water === 'reservoir') score += 6;
-        if (['reservoir', 'basin'].includes(t.landuse)) score += 5;
+        if (t.landuse === 'reservoir') score += 5;
         if (_hasWordToken(n, 'talsperre') || _hasWordToken(n, 'staudamm') || _hasWordToken(n, 'stausee') || _hasWordToken(n, 'sperrmauer') || _hasWordToken(n, 'reservoir')) score += 8;
     } else if (cat === 'water') {
         if (['dam', 'weir'].includes(t.waterway)) score += 8;
@@ -6876,7 +6876,7 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist reine Wissensvermittlung zum Ziel (Fakten, Orientierung, Einordnung). Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks bis 500m duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
     }
     if (profile.id === 'inspection_infra' && isPOI) {
-        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
+        return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Bei Staudamm/Talsperre/Stausee/Rueckhaltebecken bleibt das Wasserbauwerk Primärziel: Staumauer, Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegel-/Schieberanlagen oder Hochwasserschutz. Zufahrt, Straße oder Strommast sind nur Lagehilfe/Support, nie Ersatz-Ziel. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
     }
     if (profile.id === 'media_photo' && isPOI) {
         return '16. OPERATIONS-REGEL FOTO/FILM POI: Auftrag sind verwertbare Foto-/Filmaufnahmen fuer Firma, Betreiber, Redaktion, Dokumentation oder PR. Bei Brücken/Viadukten sind Betreiberfotos, Denkmalschutz-Doku, Bahnviadukt-Establishing-Shots oder Bauwerksdokumentation passende Motive. Keine technische Diagnose, keine Geologie-/Reliefstory, keine Einsatzdramatisierung.';
@@ -9267,6 +9267,7 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
 const MISSION_TARGET_GEO_CONTEXT_RADIUS_M = 750;
 const MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M = 500;
 const MISSION_TARGET_GEO_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
+const MISSION_TRUTH_MAX_REFINEMENT_M = 450;
 const MISSION_SCENE_COMPOSER_MODEL_TIMEOUT_MS = 9000;
 const MISSION_SCENE_COMPOSER_TOTAL_TIMEOUT_MS = 18000;
 const missionTargetGeoContextInflight = new Map();
@@ -9476,6 +9477,32 @@ function missionTruthRequestedCategory(md = {}) {
     return String(md.requestedCategory || md.poiRequestedCategory || md.poiCategory || md.category || summaryCat || '').toLowerCase();
 }
 
+function missionTruthIsBroadCategory(category = '') {
+    return /^(|all|generic|poi|infrastructure|sar_corridor)$/i.test(String(category || '').trim());
+}
+
+function missionTruthPrimaryCategory(requestedCategory = '', poiCategory = '') {
+    const requested = String(requestedCategory || '').toLowerCase();
+    const poi = String(poiCategory || '').toLowerCase();
+    if (poi && !missionTruthIsBroadCategory(poi)) return poi;
+    if (requested && !missionTruthIsBroadCategory(requested)) return requested;
+    return poi || requested || 'poi';
+}
+
+function missionTruthCategoryGeometryMode(category = '', taskDomain = '') {
+    const cat = String(category || '').toLowerCase();
+    const task = String(taskDomain || '').toLowerCase();
+    if (['dam', 'telecom', 'castle', 'city'].includes(cat)) return 'pinpoint';
+    if (cat === 'bridge') return 'structure';
+    if (cat === 'road' || cat === 'rail') return 'corridor';
+    if (cat === 'industry') return 'facility_area';
+    if (cat === 'water' || cat === 'mountain') return 'area';
+    if (cat === 'fire' || task === 'fire_watch') return 'search_area';
+    if (cat === 'infrastructure') return 'broad_infrastructure';
+    if (task.includes('search_and_rescue')) return 'search_area';
+    return 'pinpoint';
+}
+
 function missionTruthIsNatureTask(category = '', taskDomain = '') {
     const cat = String(category || '').toLowerCase();
     const task = String(taskDomain || '').toLowerCase();
@@ -9484,7 +9511,9 @@ function missionTruthIsNatureTask(category = '', taskDomain = '') {
 
 function missionTargetVisualProminence(missionData = null, geoContext = null) {
     const md = missionData || {};
-    const cat = String(md.poiCategory || md.requestedCategory || missionTruthRequestedCategory(md) || '').toLowerCase();
+    const requestedCategory = missionTruthRequestedCategory(md);
+    const poiCategory = String(md.poiCategory || requestedCategory || '').toLowerCase();
+    const cat = missionTruthPrimaryCategory(requestedCategory, poiCategory);
     const tags = md.poiLookup?.selectedTags && typeof md.poiLookup.selectedTags === 'object' ? md.poiLookup.selectedTags : {};
     const name = String(md.targetName || md.poiName || '').toLowerCase();
     const prominentCats = new Set(['bridge', 'dam', 'city', 'castle', 'industry', 'telecom', 'road', 'rail', 'water']);
@@ -9515,25 +9544,27 @@ function missionTruthAnchorForCategory(ctx = null, category = '', taskDomain = '
     const anchors = ctx?.anchors && typeof ctx.anchors === 'object' ? ctx.anchors : {};
     const cat = String(category || '').toLowerCase();
     const task = String(taskDomain || '').toLowerCase();
+    const mode = missionTruthCategoryGeometryMode(cat, task);
     const natureTask = missionTruthIsNatureTask(cat, task);
     const lists = [];
+    if (mode === 'pinpoint') return null;
     if (cat === 'bridge') lists.push(['bridge']);
-    if (cat !== 'bridge') {
-        if (cat === 'water' || task.includes('science_geo')) lists.push(['water']);
-        if (cat === 'infrastructure' || cat === 'telecom' || task.includes('inspection')) lists.push(['power', 'road', 'parking', 'building', 'rail']);
-        if (cat === 'industry') lists.push(['building', 'power', 'road', 'parking']);
-        if (cat === 'road') lists.push(['road', 'parking', 'building']);
-        if (cat === 'rail') lists.push(['rail', 'road', 'building']);
-        if (natureTask) lists.push(['forest', 'meadow', 'farmland', 'water']);
-        if (task.includes('search_and_rescue')) lists.push(['forest', 'meadow', 'farmland', 'road', 'water']);
-        lists.push(natureTask
-            ? ['forest', 'meadow', 'farmland', 'water']
-            : ['water', 'road', 'parking', 'forest', 'meadow', 'building', 'power']);
+    if (cat === 'water') lists.push(['water']);
+    if (cat === 'infrastructure') lists.push(['power', 'road', 'parking', 'building', 'railway']);
+    if (cat === 'industry') lists.push(['building', 'power']);
+    if (cat === 'road') lists.push(['road', 'parking']);
+    if (cat === 'rail') lists.push(['railway', 'rail', 'road']);
+    if (cat === 'fire' || task === 'fire_watch') lists.push(['forest', 'meadow', 'farmland', 'water']);
+    if (task.includes('search_and_rescue') && (cat === 'mountain' || cat === 'fire' || cat === 'generic')) {
+        lists.push(['forest', 'meadow', 'farmland', 'road', 'water']);
     }
+    if (natureTask && (cat === 'fire' || task === 'fire_watch')) lists.push(['forest', 'meadow', 'farmland', 'water']);
     for (const list of lists) {
         for (const key of list) {
             const a = anchors[key];
-            if (a && a.present && Number.isFinite(Number(a.distM))) return { key, anchor: a };
+            if (!a || !a.present || !Number.isFinite(Number(a.distM))) continue;
+            if (Number(a.distM) > MISSION_TRUTH_MAX_REFINEMENT_M) continue;
+            return { key, anchor: a };
         }
     }
     return null;
@@ -9579,6 +9610,24 @@ function missionTruthBaseVisibleCues(ctx = null, category = '', taskDomain = '')
         if (anchors.water) add('Wasserflaeche oder Uferlinie');
         return cues.slice(0, 3);
     }
+    if (cat === 'dam') {
+        add('Staudamm/Talsperre oder Rueckhaltebecken');
+        if (anchors.water) add('Wasserflaeche oder Uferlinie');
+        if (anchors.road || anchors.parking) add('Zufahrt oder Dammkrone');
+        return cues.slice(0, 3);
+    }
+    if (cat === 'telecom') {
+        add('Mast oder Turm');
+        if (anchors.road || anchors.parking) add('Zufahrt oder Wartungsflaeche');
+        if (anchors.power) add('Strom- oder Infrastrukturpunkt');
+        return cues.slice(0, 3);
+    }
+    if (cat === 'industry') {
+        add('Industrie- oder Betriebsanlage');
+        if (anchors.road || anchors.parking) add('Zufahrt oder Betriebshof');
+        if (anchors.power) add('Strom- oder Infrastrukturpunkt');
+        return cues.slice(0, 3);
+    }
     if (cat === 'water' || anchors.water) add('Wasserflaeche oder Uferlinie');
     if (anchors.road || anchors.parking) add('Strasse oder Zufahrt');
     if (anchors.power) add('Strom- oder Infrastrukturpunkt');
@@ -9597,12 +9646,16 @@ function buildMissionTruth(missionData = null, geoContext = null, sceneSpec = nu
     const taskDomain = String(md.missionContract?.taskDomain || window.activePassenger?.taskDomain || '').toLowerCase();
     const requestedCategory = missionTruthRequestedCategory(md);
     const poiCategory = String(md.poiCategory || requestedCategory || '').toLowerCase();
+    const primaryCategory = missionTruthPrimaryCategory(requestedCategory, poiCategory);
+    const geometryMode = missionTruthCategoryGeometryMode(primaryCategory, taskDomain);
     const origin = { lat: poiLat, lon: poiLon };
     const poiName = String(md.targetName || md.poiName || 'POI').trim() || 'POI';
     const truth = {
         source: 'mission-truth-v1',
         requestedCategory,
         poiCategory,
+        primaryCategory,
+        geometryMode,
         pickedPoi: {
             name: poiName,
             lat: Math.round(poiLat * 1000000) / 1000000,
@@ -9621,14 +9674,14 @@ function buildMissionTruth(missionData = null, geoContext = null, sceneSpec = nu
         ]
     };
     const waterZone = missionTruthNearestZone(geoContext, 'water');
-    const isBridgeTarget = requestedCategory === 'bridge' || poiCategory === 'bridge';
+    const isBridgeTarget = primaryCategory === 'bridge';
     let mainKind = isBridgeTarget ? 'bridge' : 'poi';
     let mainPoint = { lat: poiLat, lon: poiLon };
     let mainName = poiName;
     let anchorKind = isBridgeTarget ? 'bridge' : 'poi';
     let anchorPoint = mainPoint;
     let reason = isBridgeTarget ? 'original_bridge_poi' : 'original_poi';
-    if ((requestedCategory === 'water' || poiCategory === 'water') && waterZone) {
+    if (primaryCategory === 'water' && waterZone) {
         const shoreline = missionTruthClosestPolygonPoint(waterZone, origin) || missionTruthRoundPoint(waterZone.center);
         if (shoreline) {
             mainKind = 'water_edge';
@@ -9639,7 +9692,7 @@ function buildMissionTruth(missionData = null, geoContext = null, sceneSpec = nu
             reason = 'nearest_water_geometry';
         }
     } else {
-        const pickedAnchor = missionTruthAnchorForCategory(geoContext, requestedCategory || poiCategory, taskDomain);
+        const pickedAnchor = missionTruthAnchorForCategory(geoContext, primaryCategory, taskDomain);
         const anchorPointFromCtx = missionTruthAnchorToPoint(pickedAnchor?.anchor, origin);
         if (pickedAnchor && anchorPointFromCtx) {
             mainKind = pickedAnchor.key;
@@ -9666,7 +9719,7 @@ function buildMissionTruth(missionData = null, geoContext = null, sceneSpec = nu
         reason
     };
     truth.visibleCues = [
-        ...missionTruthBaseVisibleCues(geoContext, requestedCategory || poiCategory, taskDomain),
+        ...missionTruthBaseVisibleCues(geoContext, primaryCategory, taskDomain),
         ...(Array.isArray(truth.visualLandmarks) ? truth.visualLandmarks.map(lm => String(lm?.label || '')).filter(Boolean) : []),
         ...missionTruthSceneVisibleCues(sceneSpec)
     ].filter((cue, idx, arr) => cue && arr.indexOf(cue) === idx).slice(0, 4);
@@ -9687,6 +9740,8 @@ function compactMissionTruthForPrompt(truth = null) {
     return {
         requestedCategory: truth.requestedCategory || '',
         poiCategory: truth.poiCategory || '',
+        primaryCategory: truth.primaryCategory || truth.poiCategory || truth.requestedCategory || '',
+        geometryMode: truth.geometryMode || '',
         pickedPoi: truth.pickedPoi ? {
             name: truth.pickedPoi.name,
             lat: truth.pickedPoi.lat,
@@ -10049,7 +10104,7 @@ Regeln:
 7. Fuer alle Missionstypen gilt: Primaerziel zuerst, Kontext danach, Support zuletzt. Support-Objekte wie Fahrzeuge, Crew, Material, Rauch, Tiere oder Absperrungen muessen aus Story/sceneIntent hervorgehen und duerfen den Auftrag nicht logisch schon geloest haben.
 8. Bei SAR ist die vermisste Person, ein Hinweis oder ein Signal das Primaerziel. Suchtrupps/Fahrzeuge sind Support und muessen aus Story/sceneIntent hervorgehen.
 9. Wenn targetGeoContext vorhanden ist, nutze ihn nur als lokale Plausibilitaetskarte: road/parking fuer Fahrzeuge, water fuer Ufer/Wasser, forest/meadow/farmland fuer Natur/Tiere/Zelte, power fuer Leitungen. Erfinde keine exakten OSM-Daten und ignoriere Anker, die nicht zur Geschichte passen.
-10. Wenn missionTruth vorhanden ist, ist missionTruth.mainTarget das kanonische Ziel und missionTruth.sceneAnchor der bevorzugte Platzierungsbereich. Sichtbare Objekte nur grob und situationsbezogen aus missionTruth.visibleCues ableiten; nicht alle Objekte aufzaehlen.
+10. Wenn missionTruth vorhanden ist, ist missionTruth.mainTarget das kanonische Arbeitsziel. missionTruth.geometryMode erklaert, ob das Ziel pinpoint/structure/area/corridor/facility_area/broad_infrastructure ist. missionTruth.sceneAnchor darf Support-Objekte platzieren, aber die Szene darf semantisch nicht auf Straße, Zufahrt, Strommast oder anderes Umfeld kippen, wenn mainTarget ein anderes Objekt beschreibt. Sichtbare Objekte nur grob und situationsbezogen aus missionTruth.visibleCues ableiten; nicht alle Objekte aufzaehlen.
 10a. Bei Natur-/Wald-/Bio-Missionen sind Strassen, Strom und Gebaeude nur Kontext, nie automatisch Zielszene. Waehle road_incident, Fahrzeuge, Strommast oder Kegel nur bei ausdruecklichem Unfall-/Einsatz-/Inspektionsgrund.
 10b. Strommast/Freileitung und Windrad/Windpark sind Spezialobjekte, keine Dekoration. Strommast nur bei konkretem Strom-/Umspannwerks-/Energieinfrastruktur-Kontext. Windrad nur bei konkretem Windenergie-/Bau-/Wartungs-/Inspektions-Kontext und passender offener/hochgelegener Umgebung; nicht in Stadt, Wohngebiet oder Tal.
 10c. Wenn missionPlanV2 vorhanden ist, beachte primaryObjective, sceneKind, objectFamilies und placementPolicy als Planformular. requirements duerfen diese Objektfamilien konkretisieren, aber nicht ein neues Missionsthema erfinden.
@@ -11238,7 +11293,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             : `4b. POI-KONSISTENZ (zwingend): Verwende exakt "${promptDestName}" als Zielbezug und nenne keinen alternativen Primär-Ortsnamen.`))
         : '';
     const missionTruthRule = (isPOI && compactTruth)
-        ? `4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen. visualLandmarks sind bestaetigte visuelle Referenzen bis 500m; bei unauffaelligem Ziel duerfen sie zur Orientierung genutzt werden, aber nicht als Primaerziel.`
+        ? `4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. mainTarget beschreibt das kanonische Arbeits-/Sichtziel; sceneAnchor/visibleCues/visualLandmarks duerfen nur Platzierung, Zufahrt oder Orientierung erklaeren und nie ein anderes Primaerziel daraus machen. geometryMode erklaert die Zielart: pinpoint/structure bleibt beim Objekt, area darf nur zur passenden Flaeche/Kante, corridor/facility/broad_infrastructure nur zu passenden Strukturankern. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen. visualLandmarks sind bestaetigte visuelle Referenzen bis 500m; bei unauffaelligem Ziel duerfen sie zur Orientierung genutzt werden, aber nicht als Primaerziel.`
         : '';
     const missionPlanV2Rule = (compactMissionPlanV2 && compactMissionPlanV2.status === 'ready')
         ? `4d. PIPELINE-V2-PLAN: Nutze missionPlanV2 als ausgefuelltes Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, sceneKind, objectFamilies und lockedFields sind Leitplanken. Weiche nur ab, wenn sie technisch widerspruechlich sind.`
