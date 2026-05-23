@@ -3547,7 +3547,10 @@ window.vpBuildWeatherDebugReport = function() {
     const hitRate = (hit + miss) > 0 ? ((hit / (hit + miss)) * 100).toFixed(1) : '0.0';
     const approxCalls = Number(dbg.openMeteoNetworkRequests || 0);
     const lines = [];
-    const flattenText = (value, maxLen = 260) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, maxLen);
+    const redactDebugSecrets = (value = '') => String(value || '')
+        .replace(/([?&](?:key|api_key|apikey|token|access_token|auth|authorization)=)[^&\s"']+/ig, '$1[redacted]')
+        .replace(/(AIza[0-9A-Za-z_-]{20,})/g, '[redacted-google-api-key]');
+    const flattenText = (value, maxLen = 260) => redactDebugSecrets(String(value || '').replace(/\s+/g, ' ').trim()).slice(0, maxLen);
     const collectConsoleLogs = () => {
         if (typeof window.gaGetDebugLogs !== 'function') return [];
         try {
@@ -3818,7 +3821,7 @@ window.vpBuildWeatherDebugReport = function() {
             ? ` anchor=${it.geoAnchor.tag || '-'}:${it.geoAnchor.name || '-'} ${it.geoAnchor.distM ?? '-'}m/${it.geoAnchor.bearingDeg ?? '-'}deg`
             : '';
         const avoid = it.worldAvoidance?.adjusted ? ` adjusted=${it.worldAvoidance.zone || 'yes'}` : '';
-        const placement = it.placement ? ` place=${it.placement}` : '';
+        const placement = it.placement ? ` place=${it.placement}${it.placementOverride ? ':ai-offset' : ''}` : '';
         const candidates = Array.isArray(it.candidates) && it.candidates.length ? ` candidates=${it.candidates.slice(0, 3).join('/')}` : '';
         return `${it.n || '?'}:${it.kind || '?'} "${it.label || ''}" title="${it.title || '-'}"${off}${placement}${anchor}${avoid}${candidates}`;
     };

@@ -9012,6 +9012,12 @@ function normalizeMissionTargetSceneFeature(value) {
         marker: 'cones',
         cone: 'cones',
         cones_marker: 'cones',
+        ground_marker: 'cones',
+        ground_markers: 'cones',
+        ground_marking: 'cones',
+        ground_markings: 'cones',
+        bodenmarkierung: 'cones',
+        bodenmarkierungen: 'cones',
         truemmer: 'debris',
         rubble: 'debris',
         treibgut: 'logs',
@@ -9481,15 +9487,6 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
     const catalog = missionSceneTargetKindCatalog();
     const featureCatalog = missionSceneTargetFeatureCatalog();
     const spec = catalog[kind] || catalog.none || { roles: [] };
-    const planFeatureAllowed = feature => {
-        if (!planDirective?.objectFamilies?.length) return true;
-        if (planDirective.objectFamilies.includes(feature)) return true;
-        if (natureTask && explicitNatureSupportVehicle && (feature === 'road_vehicles' || feature === 'parked_vehicle' || feature === 'utility_truck')) return true;
-        if (natureTask && explicitNatureFieldTeam && feature === 'people') return true;
-        if (natureTask && explicitNatureEquipment && feature === 'small_equipment') return true;
-        if (natureTask && explicitNatureWatercraft && feature === 'watercraft') return true;
-        return false;
-    };
     const featuresRaw = [
         ...(Array.isArray(presetSpec?.features) ? presetSpec.features : []),
         ...(Array.isArray(src.features) ? src.features : []),
@@ -9498,6 +9495,20 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
     const requirementsRaw = Array.isArray(src.requirements)
         ? src.requirements
         : (Array.isArray(src.specialRequirements) ? src.specialRequirements : []);
+    const explicitFeatureSet = new Set([
+        ...featuresRaw,
+        ...requirementsRaw.map(req => typeof req === 'string' ? req : (req?.feature || req?.kind || req?.type || req?.name || req?.role || ''))
+    ].map(normalizeMissionTargetSceneFeature).filter(Boolean));
+    const planFeatureAllowed = feature => {
+        if (explicitFeatureSet.has(feature)) return true;
+        if (!planDirective?.objectFamilies?.length) return true;
+        if (planDirective.objectFamilies.includes(feature)) return true;
+        if (natureTask && explicitNatureSupportVehicle && (feature === 'road_vehicles' || feature === 'parked_vehicle' || feature === 'utility_truck')) return true;
+        if (natureTask && explicitNatureFieldTeam && feature === 'people') return true;
+        if (natureTask && explicitNatureEquipment && feature === 'small_equipment') return true;
+        if (natureTask && explicitNatureWatercraft && feature === 'watercraft') return true;
+        return false;
+    };
     const requirements = requirementsRaw
         .map(req => {
             if (typeof req === 'string') {

@@ -491,6 +491,7 @@ function _missionSceneDebugSummarizeItems(items = []) {
         hdgOffsetDeg: Number.isFinite(Number(item?.hdgOffsetDeg)) ? Number(item.hdgOffsetDeg) : 0,
         altOffsetFt: Number.isFinite(Number(item?.altOffsetFt)) ? Number(item.altOffsetFt) : 0,
         placement: item?.placement || null,
+        placementOverride: !!item?.placementOverride,
         geoAnchor: item?.geoAnchor || null,
         worldAvoidance: item?.worldAvoidance || null
     }));
@@ -2901,6 +2902,7 @@ function _missionTargetSceneItem(kind, label, title, pool, forwardM, rightM, opt
         hdgOffsetDeg: Number.isFinite(Number(options.hdgOffsetDeg)) ? Number(options.hdgOffsetDeg) : 0,
         altOffsetFt: Number.isFinite(Number(options.altOffsetFt)) ? Number(options.altOffsetFt) : 0,
         placement: options.placement ? String(options.placement).slice(0, 80) : undefined,
+        placementOverride: !!options.placementOverride,
         geoAnchor: options.geoAnchor || undefined,
         worldAvoidance: resolved.adjusted ? { adjusted: true, zone: resolved.zone || null } : undefined
     };
@@ -2978,6 +2980,12 @@ function _missionTargetSceneNormalizeFeature(value) {
         rettungskräfte: 'people',
         marker: 'cones',
         cone: 'cones',
+        ground_marker: 'cones',
+        ground_markers: 'cones',
+        ground_marking: 'cones',
+        ground_markings: 'cones',
+        bodenmarkierung: 'cones',
+        bodenmarkierungen: 'cones',
         rubble: 'debris',
         truemmer: 'debris',
         treibgut: 'logs',
@@ -3199,12 +3207,35 @@ function _missionTargetSceneFeaturePlacementOverride(feature, index = 0) {
         const spacing = Number.isFinite(Number(req.spacingM)) ? Number(req.spacingM) : 4.5;
         const arrangement = String(req.arrangement || req.layout || req.pattern || '').toLowerCase();
         const cluster = arrangement === 'cluster' && count > 1 ? _missionSceneClusterOffset(cursor, f, r, spacing) : { f, r, hdg: Number(req.hdgOffsetDeg ?? req.headingOffsetDeg ?? 0) };
+        const placementText = String(req.placement || req.position || req.where || '').replace(/\s+/g, ' ').trim();
+        const placementLower = placementText.toLowerCase();
+        let placed = cluster;
+        let geoAnchor = null;
+        let anchorNames = null;
+        if (/waldrand|waldkante|forest edge|wood edge/.test(placementLower)) anchorNames = ['forest', 'meadow', 'farmland', 'path'];
+        else if (/feldrand|wiesenrand|field edge|meadow edge/.test(placementLower)) anchorNames = ['meadow', 'farmland', 'road', 'parking', 'path'];
+        else if (/lichtung|wiese|freiflaeche|freifläche|clearing|meadow/.test(placementLower)) anchorNames = ['meadow', 'farmland'];
+        else if (/strasse|straße|road|weg|path|parking|parkplatz/.test(placementLower)) anchorNames = ['parking', 'road', 'path'];
+        if (anchorNames) {
+            const pos = _missionTargetGeoOffset(anchorNames, cluster.f, cluster.r, {
+                minM: 10,
+                maxM: 950,
+                lateralM: cursor * Math.max(4, spacing),
+                hdgOffsetDeg: Number(req.hdgOffsetDeg ?? req.headingOffsetDeg ?? cluster.hdg ?? 0)
+            });
+            if (pos?.anchored) {
+                placed = { f: pos.f, r: pos.r, hdg: pos.hdg };
+                geoAnchor = _missionTargetGeoAnchorDebug(pos, anchorNames);
+            }
+        }
         return {
-            forwardM: Math.max(-180, Math.min(180, Math.round(cluster.f))),
-            rightM: Math.max(-180, Math.min(180, Math.round(cluster.r))),
-            hdgOffsetDeg: Number.isFinite(Number(req.hdgOffsetDeg ?? req.headingOffsetDeg ?? cluster.hdg))
-                ? Math.round(Number(req.hdgOffsetDeg ?? req.headingOffsetDeg ?? cluster.hdg))
-                : undefined
+            forwardM: Math.max(-950, Math.min(950, Math.round(placed.f))),
+            rightM: Math.max(-950, Math.min(950, Math.round(placed.r))),
+            hdgOffsetDeg: Number.isFinite(Number(req.hdgOffsetDeg ?? req.headingOffsetDeg ?? placed.hdg))
+                ? Math.round(Number(req.hdgOffsetDeg ?? req.headingOffsetDeg ?? placed.hdg))
+                : undefined,
+            placement: placementText || '',
+            geoAnchor
         };
     }
     return null;
@@ -3279,6 +3310,8 @@ function _missionTargetSceneItems(kind) {
                 args[6] = {
                     ...(args[6] || {}),
                     hdgOffsetDeg: Number.isFinite(Number(override.hdgOffsetDeg)) ? override.hdgOffsetDeg : args[6]?.hdgOffsetDeg,
+                    placement: override.placement || args[6]?.placement,
+                    geoAnchor: override.geoAnchor || args[6]?.geoAnchor,
                     placementOverride: true
                 };
             }
