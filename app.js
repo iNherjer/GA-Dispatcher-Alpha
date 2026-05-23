@@ -2906,6 +2906,7 @@ async function restoreMissionState(state) {
         if (indicator) indicator.innerText = 'Entwurf verworfen: Mission muss zuerst akzeptiert werden.';
         return;
     }
+    state.mStory = _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
     document.getElementById("mDepICAO").innerText = state.mDepICAO; document.getElementById("mDepName").innerText = state.mDepName;
     document.getElementById("mDepCoords").innerText = state.mDepCoords; document.getElementById("mDepRwy").innerText = "Sucht Pisten...";
@@ -6835,7 +6836,8 @@ function _cleanupNarrativeArtifacts(txt) {
     return String(txt || '')
         .replace(/\bDa\s+die\s+Fracht\s+([^.!?]{0,160}?)\s+erwartet\s+wird,\s*m(?:ue|ü)ssen\s+wir,\s*ohne\s+dabei\s+([^.!?]{1,180}?)\s+durch\s+([^.!?]{1,80}?)\s+zu\s+reizen/gi, 'Die Fracht $1 wird erwartet; dabei duerfen wir $2 nicht durch $3 reizen')
         .replace(/\bDa\s+die\s+Empf(?:ae|ä)nger\s+([^.!?]{1,180}?)\s+(?:schon\s+)?sehns(?:ue|ü)chtig\s+auf\s+die\s+Teile\s+warten,\s*ist\s+der\s+Flug\s*,\s*aber\s+die\s+Fracht\b/gi, 'Die Empfaenger $1 warten bereits auf die Teile; die Fracht')
-        .replace(/\bFokus:\s*/gi, '')
+        .replace(/(^|[.!?]\s*)(?:Fokus|Bildungsauftrag|Drift-Guard|Profilkontext|Profil-Fix|Konsistenz-Pflicht|Operations-Regel|Output-Hygiene)\s*:[^.?!]*(?:[.?!]|$)/gi, (_, lead) => lead ? `${lead.trim()} ` : '')
+        .replace(/\b(?:ohne|kein(?:e|en|er|es)?)\s+(?:technischen\s+)?(?:inspektionsfokus|inspektionsauftrag|arbeitsauftrag|themenmix)\b[,.]?\s*/gi, '')
         .replace(/\bzeitkritisch,\s*p(?:ue|ü)nktlich\s+ankommen[.!?]?/gi, '')
         .replace(/<\s*\/?\s*(INSTRUKTIONEN|KONTEXT|OUTPUT)\s*>/gi, '')
         .replace(/\b(OUTPUT-HYGIENE|KONSISTENZ-PFLICHT|PROFIL-FIX|OPERATIONS-REGEL)\b[^.?!]*/gi, '')
@@ -7034,13 +7036,13 @@ function _profileStoryCue(profile, isPOI = false) {
     }
     if (profile.id === 'tour_guide_knowledge') {
         return isPOI
-            ? 'Bildungsflug am POI: kurze, klare Fakten und Einordnung ohne Arbeitsanweisungen, ohne Inspektionsauftrag.'
+            ? 'Am Ziel geht es um kurze Fakten, Orientierung und Einordnung aus der Luft.'
             : '';
     }
     if (profile.id === 'historian_guided_tour') {
         return isPOI
-            ? 'Bildungsauftrag: historische Einordnung und lokale Geschichte am POI, ohne technischen Inspektionsfokus.'
-            : 'Bildungsauftrag: historische Einordnung des Ziels mit ruhigem, stabilem Flugprofil.';
+            ? 'Am Ziel geht es um historische Einordnung und lokale Geschichte aus der Luft.'
+            : 'Der Flug dient der historischen Einordnung des Zielorts mit ruhigem, stabilem Ablauf.';
     }
     return String(profile.storyCue || '').trim();
 }
@@ -7065,6 +7067,10 @@ function _storyAlreadyCoversProfileCue(story, profile) {
             return hasAny(/\bgeolog/, /\brelief\b/, /\berosion\b/, /\bhangstruktur\b/, /\bgeomorph/);
         case 'science_bio':
             return hasAny(/\bnatur/, /\bumwelt/, /\bbiolog/, /\bhabitat/, /\bflora/, /\bfauna/, /(?:oe|ö)kolog/, /vegetation/, /\bschilf/, /\bpflanzen/, /wissenschaft/, /\bgischt/, /\bgew(?:ae|ä)sser/);
+        case 'tour_guide_knowledge':
+            return hasAny(/\bfakten\b/, /\beinordnung\b/, /\borientierung\b/, /\bbildung\b/, /\blern/, /\bwissens/, /\bgeschichte\b/);
+        case 'historian_guided_tour':
+            return hasAny(/\bhistor/, /\bgeschichte\b/, /\bsiedlungsgeschichte\b/, /\bdorfgeschichte\b/, /\bzeitgeschichte\b/, /\bkulturgeschichte\b/, /\beinordnung\b/, /\barchiv/, /\bkarten\b/);
         default:
             return false;
     }
