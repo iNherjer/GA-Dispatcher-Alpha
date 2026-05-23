@@ -6861,12 +6861,12 @@ function ensureMainRoutePane() {
 }
 
 function mainRouteRenderer() {
-    if (!map || typeof L === 'undefined' || typeof L.canvas !== 'function') return null;
+    if (!map || typeof L === 'undefined' || typeof L.svg !== 'function') return null;
     const paneName = ensureMainRoutePane();
-    if (!window._gaMainRouteCanvasRenderer || window._gaMainRouteCanvasRenderer._map !== map) {
-        window._gaMainRouteCanvasRenderer = L.canvas({ pane: paneName || undefined, padding: 0.5 });
+    if (!window._gaMainRouteSvgRenderer || window._gaMainRouteSvgRenderer._map !== map) {
+        window._gaMainRouteSvgRenderer = L.svg({ pane: paneName || undefined, padding: 0.5 });
     }
-    return window._gaMainRouteCanvasRenderer;
+    return window._gaMainRouteSvgRenderer;
 }
 
 function mainRouteLineOptions(lowFpsMode = false) {
@@ -6881,6 +6881,7 @@ function mainRouteLineOptions(lowFpsMode = false) {
         lineCap: 'round',
         lineJoin: 'round',
         dashArray: lowFpsMode ? null : '10,10',
+        className: 'animated-route-line',
         interactive: false
     };
 }
