@@ -1062,6 +1062,145 @@ function buildPlannerV3Payload(prompt, toolResult = {}) {
   };
 }
 
+function normalizeScenePlannerV3ToolResult(value = {}) {
+  if (value?.schema === 'scenePlannerV3.contextBundle.v1') return value;
+  if (value?.result?.schema === 'scenePlannerV3.contextBundle.v1') return value.result;
+  if (value?.response?.result?.schema === 'scenePlannerV3.contextBundle.v1') return value.response.result;
+  return value?.result || value || {};
+}
+
+function buildScenePlannerV3Payload(prompt, toolResult = {}) {
+  const bundle = normalizeScenePlannerV3ToolResult(toolResult);
+  const mode = String(bundle?.mode || (/APT-Abhol|Uebergabeszene/i.test(prompt) ? 'apt' : 'poi')).toLowerCase();
+  const plan = bundle?.missionPlanV2?.plan || bundle?.missionPlanV3?.plan || {};
+  const mission = bundle?.mission || {};
+  const taskDomain = String(mission.taskDomain || plan.taskDomain || '').toLowerCase();
+  const targetName = String(bundle?.route?.targetName || plan.targetLabel || mission.targetName || 'Zielgebiet').trim();
+  if (mode !== 'poi') {
+    const base = bundle?.aptArrivalPlan || {};
+    const combined = `${base.role || ''} ${base.roleLabel || ''} ${taskDomain} ${mission.title || ''}`.toLowerCase();
+    const isMedical = /medical|medizin|patient|arzt/.test(combined);
+    const isAnimal = /animal|tier|veterin/.test(combined);
+    const isCargo = /cargo|fracht|fragile|box|liefer/.test(combined) || (!isMedical && !isAnimal);
+    const preferredPlacement = base?.placementCandidates?.parking?.length
+      ? { source: 'osm_parking_position', index: 0, reason: 'naechster sicherer Parking-Kandidat aus OSM-Kontext' }
+      : (base?.placementCandidates?.apron?.length ? { source: 'osm_apron', index: 0, reason: 'sicherer Apron-Kandidat aus OSM-Kontext' } : undefined);
+    const items = [
+      {
+        kind: 'arrival_vehicle',
+        label: isMedical ? 'Medical-Van' : (isAnimal ? 'Tiertransport-Fahrzeug' : 'Fracht-Van'),
+        role: isMedical ? 'vehicle.emergency.medical' : 'vehicle.van',
+        forwardM: -9,
+        rightM: 6,
+        hdgOffsetDeg: 205
+      },
+      {
+        kind: 'arrival_contact',
+        label: isMedical ? 'medizinischer Kontakt' : (isAnimal ? 'Tierpflege-Kontakt' : 'Frachtkontakt'),
+        role: 'person.ground_crew',
+        forwardM: 2,
+        rightM: 3,
+        hdgOffsetDeg: 195
+      }
+    ];
+    if (isCargo) {
+      items.push({ kind: 'handoff_cargo', label: 'markierte Frachtbox', role: 'cargo.small_box', forwardM: 0, rightM: 5, hdgOffsetDeg: 185 });
+    } else if (isMedical) {
+      items.push({ kind: 'handoff_medical_kit', label: 'kleines Medical-Kit', role: 'cargo.medical_kit', forwardM: 1, rightM: 5, hdgOffsetDeg: 185 });
+    } else if (isAnimal) {
+      items.push({ kind: 'handoff_animal_box', label: 'gesicherte Transportbox', role: 'cargo.animal_transport_box', forwardM: 1, rightM: 5, hdgOffsetDeg: 185 });
+    }
+    return {
+      status: 'ready',
+      mode: 'apt',
+      targetScene: { kind: 'none', roles: [], density: 'none', notes: 'APT-Szene wird ueber aptArrivalPlan lokalisiert.' },
+      aptArrivalPlan: {
+        roleLabel: base.roleLabel || (isMedical ? 'Medizinische Uebergabe' : (isAnimal ? 'Tiertransport-Uebergabe' : 'Frachtuebergabe')),
+        expectedBy: base.expectedBy || (isMedical ? 'medizinischer Ansprechpartner am Vorfeld' : (isAnimal ? 'Bodenpersonal mit Transportbox' : 'Frachtkontakt am Vorfeld')),
+        visibleCue: base.visibleCue || (isMedical ? 'Medical-Van neben dem sicheren Parking-Bereich' : (isAnimal ? 'Van und kleine Transportbox am Parking' : 'Fracht-Van und markierte Box am Parking')),
+        narrativeHint: `${targetName}: Uebergabe bleibt am sicheren Vorfeld-/Parking-Anker und nicht auf Taxiway oder Runway.`,
+        preferredPlacement,
+        items
+      },
+      localizationNotes: ['APT targetScene bleibt none; sichtbare Objekte werden relativ zum Arrival-Anker gesetzt.'],
+      validationNotes: ['Rollen/Objekte passen zum Uebergabeauftrag und bleiben sparsam.']
+    };
+  }
+
+  const sceneKind = String(plan.sceneKind || '').toLowerCase();
+  const isMapping = taskDomain === 'mapping_survey' || sceneKind === 'construction_site';
+  const isSar = taskDomain === 'search_and_rescue' || sceneKind === 'sar_land' || sceneKind === 'sar_water';
+  const isFire = taskDomain === 'fire_watch' || sceneKind === 'fire_watch';
+  const isWater = sceneKind === 'water_context' || sceneKind === 'water_pollution' || /wasser|water|ufer|see|fluss/i.test(`${targetName} ${bundle?.targetGeoContext?.summary || ''}`);
+  let targetScene;
+  if (isMapping) {
+    targetScene = {
+      kind: 'construction_site',
+      features: ['earthmoving', 'pallet_stack'],
+      requirements: [
+        { feature: 'earthmoving', count: 1, placement: 'Arbeitskante', arrangement: 'cluster', forwardM: 12, rightM: -10, notes: 'sichtbarer Bezug zur Kartierungsflaeche' },
+        { feature: 'pallet_stack', count: 4, placement: 'Materiallager', arrangement: 'cluster', forwardM: -8, rightM: 14, notes: 'gebuendelter Referenzpunkt statt zufaelliger Deko' }
+      ],
+      density: 'normal',
+      layout: 'cluster',
+      notes: `Kartierungsziel ${targetName} mit klaren Arbeitsflaechen-Markern.`
+    };
+  } else if (isSar) {
+    targetScene = {
+      kind: sceneKind === 'sar_water' ? 'sar_water' : 'sar_land',
+      features: ['small_equipment', 'signal_smoke'],
+      requirements: [
+        { feature: 'small_equipment', count: 1, placement: 'letzter Hinweis', arrangement: 'cluster', forwardM: 5, rightM: -7, notes: 'kleiner Suchhinweis als Primaerziel' },
+        { feature: 'signal_smoke', count: 1, placement: 'sichtbarer Notmarker', arrangement: 'cluster', forwardM: 10, rightM: -11, notes: 'sparsame Orientierungshilfe' }
+      ],
+      density: 'sparse',
+      layout: 'cluster',
+      notes: `Suchhinweis bei ${targetName}, ohne den Auftrag bereits geloest wirken zu lassen.`
+    };
+  } else if (isFire) {
+    targetScene = {
+      kind: 'fire_watch',
+      features: ['smoke_light'],
+      requirements: [
+        { feature: 'smoke_light', count: 1, placement: 'Waldkante', arrangement: 'cluster', forwardM: 14, rightM: -6, notes: 'leichte Rauchmarke, kein Grossbrand' }
+      ],
+      density: 'sparse',
+      layout: 'cluster',
+      notes: `Ruhige Rauchpruefung bei ${targetName}.`
+    };
+  } else if (isWater) {
+    targetScene = {
+      kind: 'water_context',
+      features: ['watercraft'],
+      requirements: [
+        { feature: 'watercraft', count: 1, placement: 'Uferlinie', arrangement: 'waterline', forwardM: 6, rightM: -12, notes: 'kleines ziviles Boot als lokaler Wasser-Kontext' }
+      ],
+      density: 'sparse',
+      layout: 'waterline',
+      notes: `Wasser-/Uferbezug bei ${targetName} bleibt sparsam und beobachtbar.`
+    };
+  } else {
+    targetScene = {
+      kind: sceneKind && sceneKind !== 'none' ? sceneKind : 'survey_context',
+      features: ['small_equipment'],
+      requirements: [
+        { feature: 'small_equipment', count: 1, placement: 'Zielanker', arrangement: 'cluster', forwardM: 4, rightM: 4, notes: 'kleiner sichtbarer Referenzpunkt' }
+      ],
+      density: 'sparse',
+      layout: 'cluster',
+      notes: `Sparsame Referenzszene fuer ${targetName}.`
+    };
+  }
+  return {
+    status: 'ready',
+    mode: 'poi',
+    targetScene,
+    aptArrivalPlan: null,
+    localizationNotes: ['requirements enthalten relative Offsets zum Zielanker.'],
+    validationNotes: ['Missionstyp, Szene und sichtbare Features bleiben gekoppelt.']
+  };
+}
+
 function buildSpokenText(prompt) {
   if (/Boarding und Verladen abgeschlossen/i.test(prompt)) return 'Boarding ist erledigt, die Ausrüstung ist verstaut und ich bin bereit. Lass uns sauber und ohne Hektik rausrollen.';
   if (/Wir starten gleich/i.test(prompt)) return 'Hi, danke fürs Mitnehmen. Wir halten den Flug ruhig und konzentrieren uns am Ziel genau auf den Auftrag.';
@@ -1131,10 +1270,12 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
       const prompt = body?.contents?.[0]?.parts?.[0]?.text || '';
       const isTts = Array.isArray(body?.generationConfig?.responseModalities) && body.generationConfig.responseModalities.includes('AUDIO');
       const functionResponses = extractGeminiFunctionResponses(body);
-      const isPlannerV3 = /Mission Planner V3/i.test(prompt) || Array.isArray(body?.tools);
+      const isScenePlannerV3 = /Scene Planner V3/i.test(prompt);
+      const isPlannerV3 = /Mission Planner V3/i.test(prompt) || (Array.isArray(body?.tools) && !isScenePlannerV3);
       prompts.push({
         url: href,
         prompt,
+        isScenePlannerV3,
         isPlannerV3,
         hasFunctionResponse: functionResponses.length > 0,
         live: !!liveGemini,
@@ -1162,6 +1303,21 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
         }
       }
       if (isTts) return responseJson({ candidates: [{ content: { parts: [{ inlineData: { data: '', mimeType: 'audio/wav' } }] } }] });
+      if (isScenePlannerV3 && !functionResponses.length) {
+        return responseJson({
+          candidates: [{
+            content: {
+              role: 'model',
+              parts: [{
+                functionCall: {
+                  name: 'get_scene_context_bundle',
+                  args: { reason: 'Dryrun needs verified scene context before localizing POI/APT objects.' }
+                }
+              }]
+            }
+          }]
+        });
+      }
       if (isPlannerV3 && !functionResponses.length) {
         return responseJson({
           candidates: [{
@@ -1176,6 +1332,10 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
             }
           }]
         });
+      }
+      if (isScenePlannerV3) {
+        const text = JSON.stringify(buildScenePlannerV3Payload(prompt, functionResponses[0]?.response?.result || {}));
+        return responseJson({ candidates: [{ content: { role: 'model', parts: [{ text }] } }] });
       }
       if (isPlannerV3) {
         const text = JSON.stringify(buildPlannerV3Payload(prompt, functionResponses[0]?.response?.result || {}));
@@ -1289,9 +1449,11 @@ async function wait(ms) {
 function promptRecords(prompts) {
   return prompts.map((p, index) => ({
     index: index + 1,
-    kind: p.isPlannerV3
+    kind: p.isScenePlannerV3
+      ? (p.hasFunctionResponse ? 'scene-planner-v3-final' : 'scene-planner-v3-tool-call')
+      : (p.isPlannerV3
       ? (p.hasFunctionResponse ? 'mission-planner-v3-final' : 'mission-planner-v3-tool-call')
-      : (/Mission Planner V2/i.test(p.prompt) ? 'mission-planner-v2' : (/Scene Composer/i.test(p.prompt) ? 'scene-composer' : (/OUTPUT>/.test(p.prompt) ? 'mission-dispatcher' : 'pax-text'))),
+      : (/Mission Planner V2/i.test(p.prompt) ? 'mission-planner-v2' : (/Scene Composer|Scene Planner V3/i.test(p.prompt) ? 'scene-composer' : (/OUTPUT>/.test(p.prompt) ? 'mission-dispatcher' : 'pax-text')))),
     modelUrl: p.url.replace(/\?key=.*/, '?key=DRYRUN_KEY'),
     hasFunctionResponse: !!p.hasFunctionResponse,
     functionResponses: p.functionResponses || [],
@@ -1571,6 +1733,9 @@ async function main() {
       missionPlanV3: md.missionPlanV3 || null,
       sceneStatus: md.sceneCompositionStatus,
       targetScene: md.targetScene,
+      aptArrivalPlan: md.aptArrivalPlan || null,
+      missionTruth: md.missionTruth || null,
+      targetSceneComposerDebug: md.targetSceneComposerDebug || null,
       passenger: r.passenger,
       briefing: r.briefing,
       paxTexts: paxLines,

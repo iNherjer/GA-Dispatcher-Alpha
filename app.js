@@ -8724,6 +8724,12 @@ function normalizeMissionTargetSceneFeature(value) {
         windenergie: 'wind_turbine',
         utility_vehicle: 'utility_truck',
         service_vehicle: 'utility_truck',
+        small_vehicle: 'road_vehicles',
+        small_vehicles: 'road_vehicles',
+        service_van: 'road_vehicles',
+        research_van: 'road_vehicles',
+        wissenschaftsfahrzeug: 'road_vehicles',
+        bodenfahrzeug: 'road_vehicles',
         cars: 'road_vehicles',
         vehicles: 'road_vehicles',
         traffic: 'road_vehicles',
@@ -8741,6 +8747,12 @@ function normalizeMissionTargetSceneFeature(value) {
         crew: 'people',
         persons: 'people',
         person: 'people',
+        personnel: 'people',
+        field_personnel: 'people',
+        ground_team: 'people',
+        research_team: 'people',
+        bodenpersonal: 'people',
+        forschungsgruppe: 'people',
         marker: 'cones',
         cone: 'cones',
         cones_marker: 'cones',
@@ -8800,6 +8812,14 @@ function normalizeMissionTargetSceneFeature(value) {
         box: 'small_equipment',
         boxes: 'small_equipment',
         equipment: 'small_equipment',
+        scientific_equipment: 'small_equipment',
+        measuring_equipment: 'small_equipment',
+        measurement_equipment: 'small_equipment',
+        field_equipment: 'small_equipment',
+        sensor: 'small_equipment',
+        sensors: 'small_equipment',
+        messgeraet: 'small_equipment',
+        messgerät: 'small_equipment',
         ausruestung: 'small_equipment',
         picknick: 'small_equipment',
         picnic: 'small_equipment',
@@ -9086,7 +9106,12 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
     const powerlineAllowed = missionSceneTextHasPowerlineContext(rawSceneText);
     const windTurbineAllowed = missionSceneAllowsWindTurbine(rawSceneText, targetGeoContext);
     const explicitRoadIncident = /unfall|crash|kollision|verkehrsunfall|fahrzeugschaden|sperrung|einsatzlage/.test(rawSceneText);
-    const suppressNatureRoadNoise = natureTask && !explicitRoadIncident && /road_incident|road_vehicles|parked_vehicle|powerline|generator|traffic|strasse|straße/.test(rawSceneText);
+    const explicitNatureSupportVehicle = /(forschungsgruppe|wissenschaft|biolog|oekolog|ökolog|bodenteam|bodenprobe|wasserprobe|probennahme|messgeraet|messgerät|sensor|service[_\s-]*van|service[_\s-]*fahrzeug|transporter|transportwagen|labor|field[_\s-]*team|bodenpersonal)/.test(rawSceneText)
+        && /(road_vehicles|parked_vehicle|utility_truck|van|transporter|fahrzeug|service[_\s-]*van|auto)/.test(rawSceneText);
+    const explicitNatureFieldTeam = natureTask && /(forschungsgruppe|wissenschaft|biolog|oekolog|ökolog|bodenteam|bodenpersonal|field[_\s-]*team|warnwest|personen|people|person)/.test(rawSceneText);
+    const explicitNatureEquipment = natureTask && /(messgeraet|messgerät|sensor|stativ|ausruestung|ausrüstung|equipment|bodenprobe|wasserprobe|probennahme|small_equipment)/.test(rawSceneText);
+    const explicitNatureWatercraft = natureTask && /(ruderboot|kleines boot|small[_\s-]*boat|watercraft|wasserprobe|uferstreifen|flachwasser)/.test(rawSceneText);
+    const suppressNatureRoadNoise = natureTask && !explicitRoadIncident && !explicitNatureSupportVehicle && /road_incident|road_vehicles|parked_vehicle|powerline|generator|traffic|strasse|straße/.test(rawSceneText);
     const noisyNatureFeatures = new Set(['road_vehicles', 'parked_vehicle', 'emergency_response', 'cones', 'powerline', 'generator']);
     let preset = normalizeMissionTargetScenePreset(src.preset || src.scenePreset || src.template || '');
     if (preset === 'construction_powerline' && !powerlineAllowed) preset = '';
@@ -9101,6 +9126,15 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
     const catalog = missionSceneTargetKindCatalog();
     const featureCatalog = missionSceneTargetFeatureCatalog();
     const spec = catalog[kind] || catalog.none || { roles: [] };
+    const planFeatureAllowed = feature => {
+        if (!planDirective?.objectFamilies?.length) return true;
+        if (planDirective.objectFamilies.includes(feature)) return true;
+        if (natureTask && explicitNatureSupportVehicle && (feature === 'road_vehicles' || feature === 'parked_vehicle' || feature === 'utility_truck')) return true;
+        if (natureTask && explicitNatureFieldTeam && feature === 'people') return true;
+        if (natureTask && explicitNatureEquipment && feature === 'small_equipment') return true;
+        if (natureTask && explicitNatureWatercraft && feature === 'watercraft') return true;
+        return false;
+    };
     const featuresRaw = [
         ...(Array.isArray(presetSpec?.features) ? presetSpec.features : []),
         ...(Array.isArray(src.features) ? src.features : []),
@@ -9124,17 +9158,26 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
             const arrangement = /^(cluster|scattered|line|roadside|waterline|perimeter|mixed)$/.test(arrangementRaw)
                 ? arrangementRaw
                 : missionSceneDefaultArrangement(feature, kind, String(src.layout || src.arrangement || ''));
-            return {
+            const forwardM = Number(req.forwardM ?? req.forward ?? req.f);
+            const rightM = Number(req.rightM ?? req.right ?? req.r);
+            const hdgOffsetDeg = Number(req.hdgOffsetDeg ?? req.headingOffsetDeg ?? req.heading);
+            const out = {
                 feature,
                 count,
                 placement: String(req.placement || req.position || req.where || '').replace(/\s+/g, ' ').trim().slice(0, 40),
                 arrangement,
                 notes: String(req.notes || req.reason || req.detail || '').replace(/\s+/g, ' ').trim().slice(0, 100)
             };
+            if (Number.isFinite(forwardM) && Number.isFinite(rightM)) {
+                out.forwardM = Math.max(-180, Math.min(180, Math.round(forwardM)));
+                out.rightM = Math.max(-180, Math.min(180, Math.round(rightM)));
+            }
+            if (Number.isFinite(hdgOffsetDeg)) out.hdgOffsetDeg = Math.round(((hdgOffsetDeg % 360) + 360) % 360);
+            return out;
         })
         .filter(Boolean)
         .filter(req => missionSceneSpecialFeatureAllowed(req.feature, { powerlineAllowed, windTurbineAllowed }))
-        .filter(req => !planDirective?.objectFamilies?.length || planDirective.objectFamilies.includes(req.feature))
+        .filter(req => planFeatureAllowed(req.feature))
         .filter(req => !suppressNatureRoadNoise || !noisyNatureFeatures.has(req.feature))
         .slice(0, 8);
     let features = [...new Set(featuresRaw
@@ -9142,7 +9185,7 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
         .concat(requirements.map(req => req.feature))
         .filter(Boolean)
         .filter(feature => missionSceneSpecialFeatureAllowed(feature, { powerlineAllowed, windTurbineAllowed }))
-        .filter(feature => !planDirective?.objectFamilies?.length || planDirective.objectFamilies.includes(feature))
+        .filter(feature => planFeatureAllowed(feature))
         .filter(feature => !suppressNatureRoadNoise || !noisyNatureFeatures.has(feature)))]
         .slice(0, 10);
     if (planDirective?.objectFamilies?.length && features.length === 0) {
@@ -9374,6 +9417,7 @@ const MISSION_TARGET_GEO_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
 const MISSION_TRUTH_MAX_REFINEMENT_M = 450;
 const MISSION_SCENE_COMPOSER_MODEL_TIMEOUT_MS = 9000;
 const MISSION_SCENE_COMPOSER_TOTAL_TIMEOUT_MS = 18000;
+const MISSION_SCENE_PLANNER_V3_VERSION = 'scene-v3-tool-planner-2026-05-23';
 const missionTargetGeoContextInflight = new Map();
 
 function missionTargetGeoContextCacheKey(lat, lon, radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M) {
@@ -10151,6 +10195,494 @@ out tags center geom 160;`;
     return promise;
 }
 
+function scenePlannerV3CleanText(value, maxLen = 220) {
+    return String(value || '').replace(/\s+/g, ' ').trim().slice(0, maxLen);
+}
+
+function scenePlannerV3Array(value, maxItems = 8, maxLen = 120) {
+    return (Array.isArray(value) ? value : (value ? [value] : []))
+        .map(item => scenePlannerV3CleanText(typeof item === 'object' ? JSON.stringify(item) : item, maxLen))
+        .filter(Boolean)
+        .slice(0, maxItems);
+}
+
+function scenePlannerV3AssetCatalog() {
+    const kinds = missionSceneTargetKindCatalog();
+    const features = missionSceneTargetFeatureCatalog();
+    const compactKinds = Object.fromEntries(Object.entries(kinds).map(([key, spec]) => [key, {
+        label: scenePlannerV3CleanText(spec?.label || key, 80),
+        roles: Array.isArray(spec?.roles) ? spec.roles.slice(0, 10) : [],
+        useFor: Array.isArray(spec?.useFor) ? spec.useFor.slice(0, 8) : []
+    }]));
+    const compactFeatures = Object.fromEntries(Object.entries(features).map(([key, spec]) => [key, {
+        label: scenePlannerV3CleanText(spec?.label || key, 80),
+        roles: Array.isArray(spec?.roles) ? spec.roles.slice(0, 8) : []
+    }]));
+    return {
+        kinds: compactKinds,
+        features: compactFeatures,
+        arrangements: ['cluster', 'scattered', 'line', 'roadside', 'waterline', 'perimeter', 'mixed'],
+        density: ['none', 'sparse', 'normal', 'busy']
+    };
+}
+
+function scenePlannerV3CompactAptPlan(plan = null) {
+    if (!plan || typeof plan !== 'object') return null;
+    return {
+        version: plan.version || 1,
+        status: plan.status || '',
+        source: plan.source || '',
+        confidence: plan.confidence ?? null,
+        icao: plan.icao || plan.airportIcao || '',
+        airportName: plan.airportName || '',
+        anchorType: plan.anchorType || '',
+        semantic: plan.semantic || '',
+        lat: Number.isFinite(Number(plan.lat)) ? Math.round(Number(plan.lat) * 1000000) / 1000000 : null,
+        lon: Number.isFinite(Number(plan.lon)) ? Math.round(Number(plan.lon) * 1000000) / 1000000 : null,
+        altFt: Number.isFinite(Number(plan.altFt)) ? Math.round(Number(plan.altFt)) : null,
+        hdg: Number.isFinite(Number(plan.hdg)) ? Math.round(Number(plan.hdg)) : 0,
+        role: plan.role || '',
+        roleLabel: plan.roleLabel || '',
+        expectedBy: plan.expectedBy || '',
+        visibleCue: plan.visibleCue || '',
+        narrativeHint: plan.narrativeHint || '',
+        snapStatus: plan.snapStatus || null,
+        osmPlacement: plan.osmPlacement ? {
+            source: plan.osmPlacement.source || '',
+            reason: plan.osmPlacement.reason || '',
+            sourceId: plan.osmPlacement.sourceId || '',
+            name: plan.osmPlacement.name || '',
+            contextMatch: Array.isArray(plan.osmPlacement.contextMatch) ? plan.osmPlacement.contextMatch.slice(0, 6) : []
+        } : null,
+        placementCandidates: plan.placementCandidates ? {
+            parking: Array.isArray(plan.placementCandidates.parking) ? plan.placementCandidates.parking.slice(0, 8) : [],
+            apron: Array.isArray(plan.placementCandidates.apron) ? plan.placementCandidates.apron.slice(0, 8) : []
+        } : null,
+        items: Array.isArray(plan.items) ? plan.items.slice(0, 8).map(item => ({
+            kind: item?.kind || '',
+            label: item?.label || '',
+            role: item?.role || '',
+            objectTitle: item?.objectTitle || item?.title || '',
+            forwardM: Number.isFinite(Number(item?.forwardM)) ? Math.round(Number(item.forwardM)) : 0,
+            rightM: Number.isFinite(Number(item?.rightM)) ? Math.round(Number(item.rightM)) : 0,
+            hdgOffsetDeg: Number.isFinite(Number(item?.hdgOffsetDeg)) ? Math.round(Number(item.hdgOffsetDeg)) : 0,
+            altOffsetFt: Number.isFinite(Number(item?.altOffsetFt)) ? Math.round(Number(item.altOffsetFt)) : 0
+        })) : []
+    };
+}
+
+async function scenePlannerV3ContextBundle({ md = {}, contract = {}, pax = {}, sceneIntent = null, targetGeoContext = null, missionTruth = null, missionPlanV2 = null, aptArrivalPlan = null, aptArrivalGeoContext = null } = {}) {
+    const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
+    let geo = targetGeoContext || null;
+    let truth = missionTruth || null;
+    let aptCtx = aptArrivalGeoContext || null;
+    if (isPOI && !geo) geo = await fetchMissionTargetGeoContext(md);
+    if (isPOI && !truth) truth = buildMissionTruth(md, geo, null);
+    if (!isPOI && aptArrivalPlan && !aptCtx) aptCtx = await fetchAptArrivalGeoContext(aptArrivalPlan);
+    return {
+        schema: 'scenePlannerV3.contextBundle.v1',
+        mode: isPOI ? 'poi' : 'apt',
+        route: {
+            start: md.start || '',
+            dest: md.dest || '',
+            targetName: md.targetName || md.poiName || '',
+            heading: Number.isFinite(Number(md.heading)) ? Math.round(Number(md.heading)) : null,
+            distanceNm: Number.isFinite(Number(md.dist)) ? Math.round(Number(md.dist) * 10) / 10 : null
+        },
+        mission: {
+            title: scenePlannerV3CleanText(md.mission || contract.missionTitle || '', 140),
+            story: compactSceneComposerStory(contract.missionStory || md.story || ''),
+            taskDomain: scenePlannerV3CleanText(pax.taskDomain || contract.taskDomain || '', 80),
+            roleProfile: scenePlannerV3CleanText(pax.roleProfile || contract.roleProfile || '', 80),
+            paxText: scenePlannerV3CleanText(contract.paxText || '', 120),
+            cargoText: scenePlannerV3CleanText(contract.cargoText || '', 120)
+        },
+        sceneIntent: sanitizeMissionSceneIntentSpec(sceneIntent || md.sceneIntent || contract.sceneIntent || null, {
+            isPOI,
+            taskDomain: pax.taskDomain || contract.taskDomain || ''
+        }),
+        missionTruth: compactMissionTruthForPrompt(truth),
+        targetGeoContext: _missionPipelineV3CompactGeoContext(geo),
+        missionPlan: compactMissionPlanV2ForPrompt(missionPlanV2),
+        aptArrivalPlan: scenePlannerV3CompactAptPlan(aptArrivalPlan),
+        aptArrivalGeoContext: aptCtx ? {
+            source: aptCtx.source || '',
+            summary: aptCtx.summary || '',
+            parkingPositions: Array.isArray(aptCtx.parkingPositions) ? aptCtx.parkingPositions.slice(0, 12) : [],
+            aprons: Array.isArray(aptCtx.aprons) ? aptCtx.aprons.slice(0, 8).map(a => ({
+                id: a.id || '',
+                name: a.name || '',
+                distM: a.distM,
+                bearingDeg: a.bearingDeg,
+                tags: a.tags || {}
+            })) : [],
+            avoidZoneCounts: (Array.isArray(aptCtx.avoidZones) ? aptCtx.avoidZones : []).reduce((acc, z) => {
+                const k = z?.type || 'unknown';
+                acc[k] = (acc[k] || 0) + 1;
+                return acc;
+            }, {})
+        } : null,
+        assets: scenePlannerV3AssetCatalog(),
+        rules: [
+            'POI: targetScene beschreibt nur sichtbare Ziel-/Kontextobjekte am geprueften missionTruth.mainTarget/sceneAnchor.',
+            'APT: targetScene bleibt none; aptArrivalPlan beschreibt Abhol-/Uebergabeszenen am sicheren Vorfeld/Parking.',
+            'Fahrzeuge nur road/parking/apron, Wasserobjekte nur water/waterline, Personen/Ausruestung sparsam und missionsbegruendet.',
+            'Keine Deko, keine Objekte, die den Auftrag bereits geloest wirken lassen.'
+        ]
+    };
+}
+
+function scenePlannerV3ToolDeclarations() {
+    return [
+        {
+            name: 'get_scene_context_bundle',
+            description: 'Returns mission, sceneIntent, verified POI geo context, APT arrival plan, airport placement candidates and allowed scene assets. Call first.',
+            parameters: {
+                type: 'object',
+                properties: { reason: { type: 'string' } },
+                required: ['reason']
+            }
+        },
+        {
+            name: 'get_target_geo_context',
+            description: 'Returns verified POI local anchors and avoid zones for scene localization.',
+            parameters: {
+                type: 'object',
+                properties: { reason: { type: 'string' } },
+                required: ['reason']
+            }
+        },
+        {
+            name: 'get_apt_arrival_context',
+            description: 'Returns APT handoff plan, OSM parking/apron candidates and avoid-zone summary for pickup localization.',
+            parameters: {
+                type: 'object',
+                properties: { reason: { type: 'string' } },
+                required: ['reason']
+            }
+        },
+        {
+            name: 'get_scene_asset_catalog',
+            description: 'Returns allowed targetScene kinds, features, arrangements and density values.',
+            parameters: {
+                type: 'object',
+                properties: { reason: { type: 'string' } },
+                required: ['reason']
+            }
+        }
+    ];
+}
+
+async function scenePlannerV3ExecuteTool(call = {}, ctx = {}) {
+    const name = String(call?.name || '').trim();
+    if (name === 'get_scene_context_bundle') return scenePlannerV3ContextBundle(ctx);
+    if (name === 'get_target_geo_context') {
+        const geo = ctx.targetGeoContext || (ctx.md?.isPOI ? await fetchMissionTargetGeoContext(ctx.md) : null);
+        return _missionPipelineV3CompactGeoContext(geo);
+    }
+    if (name === 'get_apt_arrival_context') {
+        const aptCtx = ctx.aptArrivalGeoContext || (ctx.aptArrivalPlan ? await fetchAptArrivalGeoContext(ctx.aptArrivalPlan) : null);
+        return {
+            aptArrivalPlan: scenePlannerV3CompactAptPlan(ctx.aptArrivalPlan),
+            aptArrivalGeoContext: aptCtx ? {
+                source: aptCtx.source || '',
+                summary: aptCtx.summary || '',
+                parkingPositions: Array.isArray(aptCtx.parkingPositions) ? aptCtx.parkingPositions.slice(0, 18) : [],
+                aprons: Array.isArray(aptCtx.aprons) ? aptCtx.aprons.slice(0, 10) : [],
+                avoidZoneCount: Array.isArray(aptCtx.avoidZones) ? aptCtx.avoidZones.length : 0
+            } : null
+        };
+    }
+    if (name === 'get_scene_asset_catalog') return scenePlannerV3AssetCatalog();
+    return { error: `unknown_tool_${name}` };
+}
+
+function scenePlannerV3Prompt({ isPOI = false } = {}) {
+    return `<INSTRUKTIONEN>
+Du bist Scene Planner V3 fuer einen MSFS-Missionsgenerator.
+Du entwirfst konkrete, sparsame und lokal plausible Szenen.
+
+Arbeitsweise:
+1. Rufe zuerst get_scene_context_bundle auf.
+2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage.
+3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget.
+4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker.
+5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser/Ufer. Keine Deko.
+6. Gib ausschliesslich JSON aus.
+
+JSON-Schema:
+{
+  "status": "ready|invalid",
+  "mode": "poi|apt",
+  "targetScene": {
+    "kind": "none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context",
+    "preset": "",
+    "features": [],
+    "requirements": [
+      {"feature":"small_equipment","count":1,"placement":"am Ufer","arrangement":"cluster","forwardM":0,"rightM":8,"notes":"kurzer Grund"}
+    ],
+    "roles": [],
+    "density": "none|sparse|normal|busy",
+    "layout": "cluster|scattered|line|roadside|waterline|perimeter|mixed oder leer",
+    "notes": "kurzer Grund"
+  },
+  "aptArrivalPlan": {
+    "roleLabel": "Frachtuebergabe|Abholung|...",
+    "expectedBy": "wer wartet",
+    "visibleCue": "was sieht der Pilot",
+    "narrativeHint": "kurzer Hinweis fuer Briefing/PAX",
+    "preferredPlacement": {"source":"osm_parking_position|osm_apron","index":0,"reason":"kurz"},
+    "items": [
+      {"kind":"arrival_vehicle","label":"Fracht-Van","role":"vehicle.van","forwardM":-8,"rightM":6,"hdgOffsetDeg":205},
+      {"kind":"arrival_person_1","label":"Frachtkontakt","role":"person.ground_crew","forwardM":2,"rightM":3,"hdgOffsetDeg":200}
+    ]
+  },
+  "localizationNotes": [],
+  "validationNotes": []
+}
+</INSTRUKTIONEN>
+
+<AUFGABE>
+Plane die ${isPOI ? 'POI-Zielszene' : 'APT-Abhol-/Uebergabeszene'} mit Tool-Kontext.
+</AUFGABE>`;
+}
+
+function scenePlannerV3PreferredAptPlacement(basePlan = null, preferred = null) {
+    if (!basePlan || !preferred || typeof preferred !== 'object') return null;
+    const source = String(preferred.source || '').toLowerCase();
+    const index = Math.max(0, Math.min(24, Math.round(Number(preferred.index || 0) || 0)));
+    const candidates = basePlan.placementCandidates || {};
+    const list = source === 'osm_apron'
+        ? (Array.isArray(candidates.apron) ? candidates.apron : [])
+        : (source === 'osm_parking_position' ? (Array.isArray(candidates.parking) ? candidates.parking : []) : []);
+    const candidate = list[index];
+    const lat = Number(candidate?.lat);
+    const lon = Number(candidate?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const airportLat = Number(basePlan.airportLat);
+    const airportLon = Number(basePlan.airportLon);
+    const distM = aptArrivalNavM(airportLat, airportLon, lat, lon)?.distM;
+    if (Number.isFinite(distM) && distM > APT_ARRIVAL_GEO_CONTEXT_RADIUS_M) return null;
+    return {
+        lat,
+        lon,
+        source: candidate.source || source,
+        anchorType: candidate.source || source,
+        confidence: source === 'osm_parking_position' ? 0.82 : 0.72,
+        semantic: source === 'osm_apron' ? 'safe_osm_apron_ai_selected' : 'safe_osm_parking_position_ai_selected',
+        snapStatus: {
+            ...(basePlan.snapStatus || {}),
+            status: 'resolved',
+            source: candidate.source || source,
+            reason: scenePlannerV3CleanText(preferred.reason || 'scene_planner_v3_selected_candidate', 140),
+            sourceId: candidate.sourceId || '',
+            name: candidate.name || '',
+            contextMatch: Array.isArray(candidate.contextMatch) ? candidate.contextMatch : [],
+            selectedBy: 'scene_planner_v3',
+            resolvedAt: Date.now()
+        }
+    };
+}
+
+function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null) {
+    if (!basePlan || typeof basePlan !== 'object') return null;
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const out = { ...basePlan };
+    ['roleLabel', 'expectedBy', 'visibleCue', 'narrativeHint'].forEach(key => {
+        const value = scenePlannerV3CleanText(src[key], key === 'narrativeHint' ? 180 : 90);
+        if (value) out[key] = value;
+    });
+    const placement = scenePlannerV3PreferredAptPlacement(basePlan, src.preferredPlacement || src.placement);
+    if (placement) Object.assign(out, placement);
+    const allowedRoles = new Set([
+        'person.ground_crew',
+        'vehicle.van',
+        'vehicle.car',
+        'vehicle.truck',
+        'vehicle.emergency.medical',
+        'cargo.small_box',
+        'cargo.medical_kit',
+        'cargo.animal_transport_box'
+    ]);
+    const rawItems = Array.isArray(src.items) ? src.items : [];
+    const fallbackItems = Array.isArray(basePlan.items) ? basePlan.items : [];
+    const items = (rawItems.length ? rawItems : fallbackItems)
+        .map((item, index) => {
+            const role = scenePlannerV3CleanText(item?.role || fallbackItems[index]?.role || '', 60);
+            if (role && !allowedRoles.has(role)) return null;
+            const forwardM = Number(item?.forwardM ?? fallbackItems[index]?.forwardM ?? 0);
+            const rightM = Number(item?.rightM ?? fallbackItems[index]?.rightM ?? 0);
+            const hdgOffsetDeg = Number(item?.hdgOffsetDeg ?? fallbackItems[index]?.hdgOffsetDeg ?? 0);
+            const altOffsetFt = Number(item?.altOffsetFt ?? fallbackItems[index]?.altOffsetFt ?? 0);
+            return {
+                ...(fallbackItems[index] || {}),
+                kind: scenePlannerV3CleanText(item?.kind || fallbackItems[index]?.kind || `arrival_item_${index + 1}`, 50),
+                label: scenePlannerV3CleanText(item?.label || fallbackItems[index]?.label || fallbackItems[index]?.objectTitle || `Arrival ${index + 1}`, 80),
+                role: role || fallbackItems[index]?.role || '',
+                objectTitle: scenePlannerV3CleanText(item?.objectTitle || item?.title || fallbackItems[index]?.objectTitle || fallbackItems[index]?.title || item?.label || '', 90),
+                forwardM: Math.max(-45, Math.min(45, Math.round(Number.isFinite(forwardM) ? forwardM : 0))),
+                rightM: Math.max(-45, Math.min(45, Math.round(Number.isFinite(rightM) ? rightM : 0))),
+                hdgOffsetDeg: Number.isFinite(hdgOffsetDeg) ? Math.round(((hdgOffsetDeg % 360) + 360) % 360) : 0,
+                altOffsetFt: Number.isFinite(altOffsetFt) ? Math.max(0, Math.min(8, Math.round(altOffsetFt))) : 0
+            };
+        })
+        .filter(Boolean)
+        .slice(0, 8);
+    if (items.length) out.items = items;
+    out.cues = [out.visibleCue, 'Vorfeld oder sicherer Parking-Bereich', 'nicht auf Runway, Taxiway oder Gebaeuden'].filter(Boolean);
+    out.debug = `${basePlan.debug || ''} Scene Planner V3: ${scenePlannerV3CleanText(src.reason || src.notes || 'arrival scene refined', 140)}`.trim();
+    return out;
+}
+
+function sanitizeScenePlannerV3Result(raw = null, fallback = {}, ctx = {}) {
+    const parsed = raw && typeof raw === 'object' ? raw : {};
+    const isPOI = !!ctx.isPOI;
+    const taskDomain = String(ctx.pax?.taskDomain || ctx.contract?.taskDomain || '').toLowerCase();
+    const targetScene = isPOI
+        ? sanitizeMissionTargetSceneSpec(parsed.targetScene || fallback.targetScene || null, {
+            isPOI,
+            taskDomain,
+            targetGeoContext: ctx.targetGeoContext || null,
+            missionPlanV2: ctx.missionPlanV2 || null
+        })
+        : sanitizeMissionTargetSceneSpec(null, { isPOI: false, taskDomain, targetGeoContext: null, missionPlanV2: ctx.missionPlanV2 || null });
+    const aptArrivalPlan = !isPOI
+        ? sanitizeScenePlannerV3AptArrivalPlan(parsed.aptArrivalPlan || parsed.arrivalPlan || null, ctx.aptArrivalPlan || null)
+        : null;
+    return {
+        targetScene,
+        aptArrivalPlan,
+        debug: {
+            source: ctx.source || 'Gemini Scene Planner V3',
+            promptVersion: MISSION_SCENE_PLANNER_V3_VERSION,
+            toolCalls: Array.isArray(ctx.toolCalls) ? ctx.toolCalls : [],
+            aiRaw: parsed.targetScene || parsed,
+            aiArrivalRaw: parsed.aptArrivalPlan || parsed.arrivalPlan || null,
+            normalized: targetScene,
+            aptArrivalPlan,
+            localizationNotes: scenePlannerV3Array(parsed.localizationNotes, 8, 140),
+            validationNotes: scenePlannerV3Array(parsed.validationNotes, 8, 140),
+            fallback: fallback.targetScene || null,
+            fallbackArrivalPlan: fallback.aptArrivalPlan || null,
+            error: ctx.error || ''
+        }
+    };
+}
+
+async function composeMissionScenePlanV3WithGemini({ missionData = null, missionContract = null, passenger = null, fallback = {}, apiKey = '' } = {}) {
+    const md = missionData || currentMissionData || {};
+    const contract = missionContract || window.activeMissionContract || md.missionContract || {};
+    const pax = passenger || window.activePassenger || {};
+    const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
+    const sceneIntent = sanitizeMissionSceneIntentSpec(md.sceneIntent || contract.sceneIntent || null, { isPOI, taskDomain: pax.taskDomain || contract.taskDomain || '' });
+    const contextBase = {
+        md,
+        contract,
+        pax,
+        isPOI,
+        sceneIntent,
+        targetGeoContext: md.targetGeoContext || contract.targetGeoContext || null,
+        missionTruth: md.missionTruth || contract.missionTruth || null,
+        missionPlanV2: md.missionPlanV2 || contract.missionPlanV2 || null,
+        aptArrivalPlan: md.aptArrivalPlan || contract.aptArrivalPlan || null,
+        aptArrivalGeoContext: null
+    };
+    const contents = [{ role: 'user', parts: [{ text: scenePlannerV3Prompt({ isPOI }) }] }];
+    const tools = [{ functionDeclarations: scenePlannerV3ToolDeclarations() }];
+    const models = [
+        ['gemini-3-flash-preview', 'Gemini 3.0 Flash Scene Planner V3', 'flash'],
+        ['gemini-2.5-flash', 'Gemini 2.5 Flash Scene Planner V3', 'flash'],
+        ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite Scene Planner V3', 'lite']
+    ];
+    let lastError = '';
+    for (const [model, source, usageKey] of models) {
+        const toolCalls = [];
+        const modelContents = JSON.parse(JSON.stringify(contents));
+        for (let turn = 0; turn < 5; turn++) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), turn === 0 ? 11000 : 14000);
+            try {
+                const payload = {
+                    contents: modelContents,
+                    tools,
+                    toolConfig: {
+                        functionCallingConfig: turn === 0
+                            ? { mode: 'ANY', allowedFunctionNames: ['get_scene_context_bundle'] }
+                            : { mode: 'AUTO' }
+                    },
+                    generationConfig: {
+                        temperature: 0.18,
+                        maxOutputTokens: 3200
+                    }
+                };
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey || '')}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+                if (!res.ok) {
+                    lastError = `http_${res.status}_${model}`;
+                    break;
+                }
+                const data = await res.json();
+                const functionCalls = _missionPipelineV3ExtractFunctionCalls(data);
+                if (functionCalls.length) {
+                    const modelContent = data?.candidates?.[0]?.content;
+                    if (modelContent) modelContents.push(modelContent);
+                    const responseParts = [];
+                    for (const call of functionCalls.slice(0, 4)) {
+                        const result = await scenePlannerV3ExecuteTool(call, contextBase);
+                        toolCalls.push({
+                            turn,
+                            name: String(call.name || ''),
+                            id: call.id || null,
+                            args: call.args || {},
+                            resultKeys: result && typeof result === 'object' ? Object.keys(result).slice(0, 10) : []
+                        });
+                        responseParts.push({
+                            functionResponse: {
+                                name: call.name,
+                                id: call.id,
+                                response: { result }
+                            }
+                        });
+                    }
+                    modelContents.push({ role: 'user', parts: responseParts });
+                    continue;
+                }
+                const text = _missionPipelineV3ExtractText(data);
+                const parsed = _missionPipelineV3ParseJsonText(text);
+                if (parsed) {
+                    incrementApiUsage(usageKey);
+                    return sanitizeScenePlannerV3Result(parsed, fallback, { ...contextBase, source, toolCalls });
+                }
+                lastError = 'empty_or_invalid_scene_json';
+                modelContents.push({
+                    role: 'user',
+                    parts: [{ text: 'Die vorige Antwort war kein gueltiges JSON. Antworte ausschliesslich mit dem Scene-Planner-JSON-Schema. Kein Markdown, kein Fliesstext.' }]
+                });
+            } catch (err) {
+                lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
+                break;
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+    }
+    return {
+        targetScene: fallback.targetScene,
+        aptArrivalPlan: fallback.aptArrivalPlan || null,
+        debug: {
+            source: 'local-fallback',
+            promptVersion: MISSION_SCENE_PLANNER_V3_VERSION,
+            error: lastError || 'scene_planner_v3_failed',
+            fallback: fallback.targetScene || null,
+            fallbackArrivalPlan: fallback.aptArrivalPlan || null
+        }
+    };
+}
+
 async function composeMissionTargetSceneWithGemini({ missionData = null, missionContract = null, passenger = null } = {}) {
     const md = missionData || currentMissionData || {};
     const contract = missionContract || window.activeMissionContract || md.missionContract || {};
@@ -10161,7 +10693,11 @@ async function composeMissionTargetSceneWithGemini({ missionData = null, mission
     const targetGeoContext = md.targetGeoContext || contract.targetGeoContext || null;
     const missionTruth = md.missionTruth || contract.missionTruth || null;
     const missionPlanV2 = md.missionPlanV2 || contract.missionPlanV2 || null;
-    const fallback = deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI, taskDomain, targetGeoContext, missionPlanV2 });
+    const fallbackTargetScene = deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI, taskDomain, targetGeoContext, missionPlanV2 });
+    const fallback = {
+        targetScene: fallbackTargetScene,
+        aptArrivalPlan: md.aptArrivalPlan || contract.aptArrivalPlan || null
+    };
     const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
     const baseDebug = {
         source: 'local-fallback',
@@ -10169,155 +10705,27 @@ async function composeMissionTargetSceneWithGemini({ missionData = null, mission
         targetGeoContext,
         missionTruth,
         missionPlanV2,
-        fallback,
-        promptVersion: 'scene-composer-v1'
+        fallback: fallbackTargetScene,
+        fallbackArrivalPlan: fallback.aptArrivalPlan || null,
+        promptVersion: MISSION_SCENE_PLANNER_V3_VERSION
     };
-    if (!isPOI) {
-        return {
-            targetScene: fallback,
-            debug: {
-                ...baseDebug,
-                source: 'local-none'
-            }
-        };
-    }
     if (!apiKey) {
         return {
-            targetScene: fallback,
+            targetScene: fallback.targetScene,
+            aptArrivalPlan: fallback.aptArrivalPlan || null,
             debug: {
                 ...baseDebug,
                 error: 'missing_api_key'
             }
         };
     }
-
-    const forcedProfile = { taskDomain };
-    const sceneGuide = buildMissionTargetScenePromptGuide(true, forcedProfile);
-    const prompt = `<INSTRUKTIONEN>
-Du bist Scene Composer fuer einen MSFS-Missionsgenerator.
-Aufgabe: Erzeuge aus der Missionsbeschreibung und sceneIntent eine konkrete, sparsame targetScene.
-Antwortsprache intern egal, aber JSON-Felder muessen exakt passen.
-
-Regeln:
-1. Szene muss aus dem Kontext entstehen, nicht aus Standard-Deko.
-2. Keine grossen Einsatzmittel, Schiffe, Kegel, Personen oder Fahrzeuge, wenn sceneIntent/Story sie nicht tragen.
-3. Kleine Primitive wie Zelt, parkendes Auto, Wasservoegel, Holz, Kisten, Lagerfeuer, Tiere und Baufahrzeuge duerfen frei kombiniert werden, wenn plausibel.
-4. Bei Lern-/Sightseeing-Fluegen lieber sparse oder none; 0-3 sichtbare Akzente sind oft genug.
-5. requirements[].count ist bewusst: fuer Natur/Sightseeing klein halten; fuer Materiallager/Baustellen duerfen 6-8 Paletten als gebuendelter Cluster erscheinen. Nutze arrangement/layout, damit Objekte logisch zusammenstehen statt zufaellig verteilt zu wirken.
-6. Wenn sceneIntent.avoid etwas verbietet, respektieren.
-7. Fuer alle Missionstypen gilt: Primaerziel zuerst, Kontext danach, Support zuletzt. Support-Objekte wie Fahrzeuge, Crew, Material, Rauch, Tiere oder Absperrungen muessen aus Story/sceneIntent hervorgehen und duerfen den Auftrag nicht logisch schon geloest haben.
-8. Bei SAR ist die vermisste Person, ein Hinweis oder ein Signal das Primaerziel. Suchtrupps/Fahrzeuge sind Support und muessen aus Story/sceneIntent hervorgehen.
-9. Wenn targetGeoContext vorhanden ist, nutze ihn nur als lokale Plausibilitaetskarte: road/parking fuer Fahrzeuge, water fuer Ufer/Wasser, forest/meadow/farmland fuer Natur/Tiere/Zelte, power fuer Leitungen. Erfinde keine exakten OSM-Daten und ignoriere Anker, die nicht zur Geschichte passen.
-10. Wenn missionTruth vorhanden ist, ist missionTruth.mainTarget das kanonische Arbeitsziel. missionTruth.geometryMode erklaert, ob das Ziel pinpoint/structure/area/corridor/facility_area/broad_infrastructure ist. missionTruth.sceneAnchor darf Support-Objekte platzieren, aber die Szene darf semantisch nicht auf Straße, Zufahrt, Strommast oder anderes Umfeld kippen, wenn mainTarget ein anderes Objekt beschreibt. Sichtbare Objekte nur grob und situationsbezogen aus missionTruth.visibleCues ableiten; nicht alle Objekte aufzaehlen.
-10a. Bei Natur-/Wald-/Bio-Missionen sind Strassen, Strom und Gebaeude nur Kontext, nie automatisch Zielszene. Waehle road_incident, Fahrzeuge, Strommast oder Kegel nur bei ausdruecklichem Unfall-/Einsatz-/Inspektionsgrund.
-10b. Strommast/Freileitung und Windrad/Windpark sind Spezialobjekte, keine Dekoration. Strommast nur bei konkretem Strom-/Umspannwerks-/Energieinfrastruktur-Kontext. Windrad nur bei konkretem Windenergie-/Bau-/Wartungs-/Inspektions-Kontext und passender offener/hochgelegener Umgebung; nicht in Stadt, Wohngebiet oder Tal.
-10c. Wenn missionPlanV2 vorhanden ist, beachte primaryObjective, sceneKind, objectFamilies und placementPolicy als Planformular. requirements duerfen diese Objektfamilien konkretisieren, aber nicht ein neues Missionsthema erfinden.
-11. Gib AUSSCHLIESSLICH JSON aus.
-
-${sceneGuide}
-</INSTRUKTIONEN>
-
-<KONTEXT>
-Mission: ${String(md.mission || contract.missionTitle || '').slice(0, 140)}
-Story: ${compactSceneComposerStory(contract.missionStory || md.story || '')}
-Ziel: ${String(md.targetName || md.poiName || '').slice(0, 140)}
-Koordinaten: ${Number(md.targetLat || 0).toFixed(5)}, ${Number(md.targetLon || 0).toFixed(5)}
-taskDomain: ${taskDomain || 'general'}
-roleProfile: ${String(pax.roleProfile || contract.roleProfile || 'general_passenger_v1')}
-PAX: ${String(contract.paxText || '').slice(0, 160)}
-Cargo: ${String(contract.cargoText || '').slice(0, 160)}
-sceneIntent: ${JSON.stringify(sceneIntent)}
-missionTruth: ${JSON.stringify(compactMissionTruthForPrompt(missionTruth))}
-missionPlanV2: ${JSON.stringify(compactMissionPlanV2ForPrompt(missionPlanV2))}
-targetGeoContext: ${JSON.stringify(targetGeoContext ? {
-    summary: summarizeMissionTargetGeoContext(targetGeoContext),
-    anchors: targetGeoContext.anchors || {},
-    visualLandmarks: Array.isArray(targetGeoContext.visualLandmarks) ? targetGeoContext.visualLandmarks.slice(0, 6) : [],
-    avoidZoneCounts: (Array.isArray(targetGeoContext.avoidZones) ? targetGeoContext.avoidZones : []).reduce((acc, z) => {
-        const k = z?.type || 'unknown';
-        acc[k] = (acc[k] || 0) + 1;
-        return acc;
-    }, {}),
-    hints: targetGeoContext.hints || []
-} : null)}
-</KONTEXT>
-
-<OUTPUT>
-{
-  "targetScene": {
-    "kind": "none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context",
-    "preset": "",
-    "features": ["optional"],
-    "requirements": [{"feature": "tent", "count": 1, "placement": "am Ufer", "arrangement": "cluster", "notes": "nur wenn plausibel"}],
-    "roles": [],
-    "density": "none|sparse|normal|busy",
-    "layout": "cluster|scattered|line|roadside|waterline|perimeter|mixed oder leer",
-    "notes": "kurzer Grund"
-  }
-}
-</OUTPUT>`;
-
-    const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { response_mime_type: "application/json" } };
-    const reqOptions = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
-    const models = [
-        ['gemini-3-flash-preview', 'Gemini 3.0 Flash Scene Composer', 'flash'],
-        ['gemini-2.5-flash', 'Gemini 2.5 Flash Scene Composer', 'flash'],
-        ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite Scene Composer', 'lite']
-    ];
-    let lastError = '';
-    const composerStartedAt = Date.now();
-    for (const [model, source, usageKey] of models) {
-        const remainingMs = MISSION_SCENE_COMPOSER_TOTAL_TIMEOUT_MS - (Date.now() - composerStartedAt);
-        if (remainingMs <= 0) {
-            lastError = 'composer_timeout';
-            break;
-        }
-        const timeoutMs = Math.min(MISSION_SCENE_COMPOSER_MODEL_TIMEOUT_MS, Math.max(2500, remainingMs));
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-                ...reqOptions,
-                signal: controller.signal
-            });
-            if (!res.ok) {
-                lastError = `http_${res.status}_${model}`;
-                continue;
-            }
-            const data = await res.json();
-            const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-            const parsed = JSON.parse(rawText);
-            const targetScene = sanitizeMissionTargetSceneSpec(parsed.targetScene || parsed, { isPOI, taskDomain, targetGeoContext, missionPlanV2 });
-            incrementApiUsage(usageKey);
-            return {
-                targetScene,
-                debug: {
-                    source,
-                    sceneIntent,
-                    targetGeoContext,
-                    missionTruth,
-                    missionPlanV2,
-                    aiRaw: parsed.targetScene || parsed,
-                    normalized: targetScene,
-                    fallback,
-                    promptVersion: 'scene-composer-v1'
-                }
-            };
-        } catch (err) {
-            lastError = err?.name === 'AbortError'
-                ? `timeout_${model}`
-                : (err?.message || String(err || 'unknown'));
-        } finally {
-            clearTimeout(timeoutId);
-        }
-    }
-    return {
-        targetScene: fallback,
-        debug: {
-            ...baseDebug,
-            error: lastError || 'composer_failed'
-        }
-    };
+    return composeMissionScenePlanV3WithGemini({
+        missionData: md,
+        missionContract: contract,
+        passenger: pax,
+        fallback,
+        apiKey
+    });
 }
 
 function updateMissionAcceptanceUi() {
@@ -10341,13 +10749,14 @@ function updateMissionAcceptanceUi() {
         btn.textContent = composing ? 'Szene wird gebaut...' : 'Mission akzeptieren';
     }
     if (text) {
+        const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
         const intent = sanitizeMissionSceneIntentSpec(md.sceneIntent || md.missionContract?.sceneIntent || null, {
-            isPOI: !!md.poiName,
+            isPOI,
             taskDomain: md.missionContract?.taskDomain || window.activePassenger?.taskDomain || ''
         });
         text.textContent = composing
-            ? 'Scene Composer baut die konkrete Zielszene fuer den Tracker.'
-            : (intent.summary || 'Mission als Entwurf. Beim Akzeptieren wird die Zielszene vorbereitet.');
+            ? (isPOI ? 'Scene Planner V3 lokalisiert die Zielszene fuer den Tracker.' : 'Scene Planner V3 lokalisiert die Abhol-/Uebergabeszene.')
+            : (intent.summary || 'Mission als Entwurf. Beim Akzeptieren wird die Szene vorbereitet.');
     }
 }
 window.updateMissionAcceptanceUi = updateMissionAcceptanceUi;
@@ -10355,26 +10764,35 @@ window.updateMissionAcceptanceUi = updateMissionAcceptanceUi;
 function applyMissionTargetSceneComposition(composition = {}, reason = 'accept') {
     if (!currentMissionData) return false;
     const taskDomain = currentMissionData.missionContract?.taskDomain || window.activePassenger?.taskDomain || '';
-    const isPOI = !!currentMissionData.poiName;
+    const isPOI = !!(currentMissionData.poiName || currentMissionData.poiSource || currentMissionData.isPOI);
     const targetScene = sanitizeMissionTargetSceneSpec(composition.targetScene || null, {
         isPOI,
         taskDomain,
         targetGeoContext: currentMissionData.targetGeoContext || currentMissionData.missionContract?.targetGeoContext || null,
         missionPlanV2: currentMissionData.missionPlanV2 || currentMissionData.missionContract?.missionPlanV2 || null
     });
+    const aptArrivalPlan = !isPOI
+        ? ((composition.aptArrivalPlan && typeof composition.aptArrivalPlan === 'object')
+            ? composition.aptArrivalPlan
+            : (currentMissionData.aptArrivalPlan || currentMissionData.missionContract?.aptArrivalPlan || null))
+        : null;
     currentMissionData.targetScene = targetScene;
+    if (aptArrivalPlan) currentMissionData.aptArrivalPlan = aptArrivalPlan;
     currentMissionData.sceneAccepted = true;
     currentMissionData.sceneCompositionStatus = composition.debug?.error ? 'accepted_fallback' : 'accepted';
     currentMissionData.sceneCompositionStartedAt = 0;
     currentMissionData.targetSceneComposerDebug = composition.debug || null;
     currentMissionData.targetSceneAiRaw = composition.debug?.aiRaw || currentMissionData.targetSceneAiRaw || null;
     currentMissionData.targetSceneAiNormalized = targetScene;
-    currentMissionData.missionTruth = enrichMissionTruthWithScene(
+    let nextMissionTruth = enrichMissionTruthWithScene(
         currentMissionData.missionTruth || currentMissionData.missionContract?.missionTruth || buildMissionTruth(currentMissionData, currentMissionData.targetGeoContext || null, targetScene),
         targetScene
     );
+    if (aptArrivalPlan) nextMissionTruth = attachAptArrivalPlanToMissionTruth(nextMissionTruth, aptArrivalPlan);
+    currentMissionData.missionTruth = nextMissionTruth;
     if (currentMissionData.missionContract && typeof currentMissionData.missionContract === 'object') {
         currentMissionData.missionContract.targetScene = targetScene;
+        if (aptArrivalPlan) currentMissionData.missionContract.aptArrivalPlan = aptArrivalPlan;
         currentMissionData.missionContract.sceneAccepted = true;
         currentMissionData.missionContract.targetGeoContext = currentMissionData.targetGeoContext || currentMissionData.missionContract.targetGeoContext || null;
         currentMissionData.missionContract.missionTruth = currentMissionData.missionTruth || currentMissionData.missionContract.missionTruth || null;
@@ -10394,6 +10812,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
         targetGeoContext: currentMissionData.targetGeoContext || currentMissionData.missionContract?.targetGeoContext || null,
         missionTruth: currentMissionData.missionTruth || currentMissionData.missionContract?.missionTruth || null,
         missionPlanV2: currentMissionData.missionPlanV2 || currentMissionData.missionContract?.missionPlanV2 || null,
+        aptArrivalPlan,
         sceneComposer: composition.debug || null,
         composerReason: reason,
         aiRequested: currentMissionData.targetSceneAiRaw || null,
@@ -10420,6 +10839,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
         snapshot.sceneAccepted = true;
         snapshot.sceneCompositionStatus = currentMissionData.sceneCompositionStatus;
         snapshot.targetScene = targetScene;
+        snapshot.aptArrivalPlan = aptArrivalPlan || snapshot.aptArrivalPlan || null;
         snapshot.targetGeoContext = currentMissionData.targetGeoContext || null;
         snapshot.missionTruth = currentMissionData.missionTruth || null;
         snapshot.missionPlanV2 = currentMissionData.missionPlanV2 || currentMissionData.missionContract?.missionPlanV2 || null;
@@ -10428,7 +10848,8 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
             ...(snapshot.targetSceneDebug || {}),
             aiRequested: currentMissionData.targetSceneAiRaw || null,
             aiNormalized: targetScene,
-            contractTargetScene: targetScene
+            contractTargetScene: targetScene,
+            aptArrivalPlan
         };
         window.vpMissionDebugSnapshot = snapshot;
         localStorage.setItem('ga_mission_debug_snapshot', JSON.stringify(snapshot));
@@ -10459,12 +10880,18 @@ window.acceptMissionDraft = async function() {
                 window.activeMissionContract = currentMissionData.missionContract;
             }
         }
-        currentMissionData.missionTruth = buildMissionTruth(currentMissionData, currentMissionData.targetGeoContext || geoContext || null, currentMissionData.targetScene || null);
+        const isPOI = !!(currentMissionData.poiName || currentMissionData.poiSource || currentMissionData.isPOI);
+        currentMissionData.missionTruth = isPOI
+            ? buildMissionTruth(currentMissionData, currentMissionData.targetGeoContext || geoContext || null, currentMissionData.targetScene || null)
+            : attachAptArrivalPlanToMissionTruth(
+                currentMissionData.missionTruth || currentMissionData.missionContract?.missionTruth || null,
+                currentMissionData.aptArrivalPlan || currentMissionData.missionContract?.aptArrivalPlan || null
+            );
         if (currentMissionData.missionContract && typeof currentMissionData.missionContract === 'object') {
             currentMissionData.missionContract.missionTruth = currentMissionData.missionTruth || null;
             window.activeMissionContract = currentMissionData.missionContract;
         }
-        if (indicator) indicator.innerText = 'Scene Composer baut Zielszene...';
+        if (indicator) indicator.innerText = isPOI ? 'Scene Planner V3 lokalisiert Zielszene...' : 'Scene Planner V3 lokalisiert Abhol-/Uebergabeszene...';
         const composition = await composeMissionTargetSceneWithGemini({
             missionData: currentMissionData,
             missionContract: currentMissionData.missionContract || window.activeMissionContract || null,
@@ -10473,28 +10900,29 @@ window.acceptMissionDraft = async function() {
         applyMissionTargetSceneComposition(composition, 'mission-accepted');
         if (indicator) {
             indicator.innerText = composition?.debug?.error
-                ? 'Mission akzeptiert. Zielszene per Fallback vorbereitet.'
-                : 'Mission akzeptiert. Zielszene bereit.';
+                ? 'Mission akzeptiert. Szene per Fallback vorbereitet.'
+                : 'Mission akzeptiert. Szene bereit.';
         }
         return true;
     } catch (err) {
         const fallback = {
             targetScene: deriveMissionTargetSceneFromIntent(currentMissionData.sceneIntent || null, {
-                isPOI: !!currentMissionData.poiName,
+                isPOI: !!(currentMissionData.poiName || currentMissionData.poiSource || currentMissionData.isPOI),
                 taskDomain: currentMissionData.missionContract?.taskDomain || window.activePassenger?.taskDomain || '',
                 targetGeoContext: currentMissionData.targetGeoContext || currentMissionData.missionContract?.targetGeoContext || null,
                 missionPlanV2: currentMissionData.missionPlanV2 || currentMissionData.missionContract?.missionPlanV2 || null
             }),
+            aptArrivalPlan: currentMissionData.aptArrivalPlan || currentMissionData.missionContract?.aptArrivalPlan || null,
             debug: {
                 source: 'local-fallback',
-                error: err?.message || String(err || 'composer_failed'),
+                error: err?.message || String(err || 'scene_planner_v3_failed'),
                 sceneIntent: currentMissionData.sceneIntent || null,
                 missionPlanV2: currentMissionData.missionPlanV2 || currentMissionData.missionContract?.missionPlanV2 || null,
-                promptVersion: 'scene-composer-v1'
+                promptVersion: MISSION_SCENE_PLANNER_V3_VERSION
             }
         };
         applyMissionTargetSceneComposition(fallback, 'mission-accepted-error-fallback');
-        if (indicator) indicator.innerText = 'Mission akzeptiert. Scene Composer Fehler, Fallback genutzt.';
+        if (indicator) indicator.innerText = 'Mission akzeptiert. Scene Planner V3 Fehler, Fallback genutzt.';
         return true;
     }
 };

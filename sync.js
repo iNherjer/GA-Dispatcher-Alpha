@@ -3034,6 +3034,39 @@ function _missionTargetSceneFeatureArrangement(feature) {
     return /^(cluster|scattered|line|roadside|waterline|perimeter|mixed)$/.test(sceneLayout) ? sceneLayout : '';
 }
 
+function _missionTargetSceneFeaturePlacementOverride(feature, index = 0) {
+    const normalized = _missionTargetSceneNormalizeFeature(feature);
+    const spec = _missionTargetSceneSpec() || {};
+    const reqs = Array.isArray(spec.requirements) ? spec.requirements : [];
+    const matches = reqs.filter(req => {
+        if (!req || typeof req !== 'object') return false;
+        return _missionTargetSceneNormalizeFeature(req.feature || req.kind || req.type || req.name || req.role) === normalized;
+    });
+    if (!matches.length) return null;
+    let cursor = Math.max(0, Math.round(Number(index) || 0));
+    for (const req of matches) {
+        const count = Math.max(1, Math.round(Number(req.count || req.qty || req.amount || 1) || 1));
+        if (cursor >= count) {
+            cursor -= count;
+            continue;
+        }
+        const f = Number(req.forwardM ?? req.forward ?? req.f);
+        const r = Number(req.rightM ?? req.right ?? req.r);
+        if (!Number.isFinite(f) || !Number.isFinite(r)) return null;
+        const spacing = Number.isFinite(Number(req.spacingM)) ? Number(req.spacingM) : 4.5;
+        const arrangement = String(req.arrangement || req.layout || req.pattern || '').toLowerCase();
+        const cluster = arrangement === 'cluster' && count > 1 ? _missionSceneClusterOffset(cursor, f, r, spacing) : { f, r, hdg: Number(req.hdgOffsetDeg ?? req.headingOffsetDeg ?? 0) };
+        return {
+            forwardM: Math.max(-180, Math.min(180, Math.round(cluster.f))),
+            rightM: Math.max(-180, Math.min(180, Math.round(cluster.r))),
+            hdgOffsetDeg: Number.isFinite(Number(req.hdgOffsetDeg ?? req.headingOffsetDeg ?? cluster.hdg))
+                ? Math.round(Number(req.hdgOffsetDeg ?? req.headingOffsetDeg ?? cluster.hdg))
+                : undefined
+        };
+    }
+    return null;
+}
+
 function _missionSceneClusterOffset(index, centerF = 0, centerR = 0, spacingM = 3.2) {
     const pattern = [
         [0, 0], [1, 0], [0, 1], [1, 1],
@@ -3094,6 +3127,20 @@ function _missionTargetSceneItems(kind) {
         const maxFeatureCount = (feature === 'pallet_stack' || feature === 'cargo_material') ? 8 : (feature === 'cones' ? 8 : 6);
         const safeCount = Math.max(1, Math.min(maxFeatureCount, Math.round(Number(count) || 1)));
         const arrangement = _missionTargetSceneFeatureArrangement(feature);
+        const add = (...args) => {
+            const override = _missionTargetSceneFeaturePlacementOverride(feature, i);
+            if (override) {
+                args[4] = override.forwardM;
+                args[5] = override.rightM;
+                args[6] = {
+                    ...(args[6] || {}),
+                    hdgOffsetDeg: Number.isFinite(Number(override.hdgOffsetDeg)) ? override.hdgOffsetDeg : args[6]?.hdgOffsetDeg,
+                    placementOverride: true
+                };
+            }
+            const item = _missionTargetSceneItem(...args);
+            if (item) items.push(item);
+        };
         for (let i = 0; i < safeCount; i++) {
             const step = i * 5;
             if (feature === 'powerline') {
