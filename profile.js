@@ -3691,7 +3691,7 @@ window.vpBuildWeatherDebugReport = function() {
             lines.push(`- POI-Lookup: ${srcBits.join(' | ')}`);
         }
         lines.push(`- Picker-Profil: ${missionSnap.profile || 'auto'} | Aktiv: ${missionSnap.appliedProfile || 'auto'}`);
-        const pipelineMode = String(missionSnap.missionPipelineMode || (window.getMissionPipelineMode ? window.getMissionPipelineMode() : (window.isMissionPipelineV2Enabled?.() ? 'v2' : 'legacy'))).toUpperCase();
+        const pipelineMode = String(missionSnap.missionPipelineMode || (window.getMissionPipelineMode ? window.getMissionPipelineMode() : (window.isMissionPipelineV2Enabled?.() ? 'v2' : 'v3'))).toUpperCase();
         lines.push(`- Mission Pipeline: ${pipelineMode}`);
         const planV2 = missionSnap.missionPlanV2 || missionSnap.contract?.missionPlanV2 || window.gaMissionPipelineV2Last || null;
         if (planV2 && typeof planV2 === 'object') {

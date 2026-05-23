@@ -3547,6 +3547,7 @@ let _dispatchState = { active: false, cancelled: false, runId: 0 };
 const MISSION_PIPELINE_LEGACY_STORAGE_KEY = 'ga_debug_mission_pipeline_legacy';
 const MISSION_PIPELINE_V2_STORAGE_KEY = 'ga_debug_mission_pipeline_v2'; // legacy preference key, no longer used for defaulting
 const MISSION_PIPELINE_V3_STORAGE_KEY = 'ga_debug_mission_pipeline_v3_tools';
+const MISSION_PIPELINE_MODE_STORAGE_KEY = 'ga_mission_pipeline_mode';
 
 function _startDispatchRun() {
     _dispatchRunId += 1;
@@ -3573,51 +3574,64 @@ function _abortDispatchRun(reason = 'Abbruch') {
     return true;
 }
 
-function isMissionPipelineV2Enabled() {
+function getMissionPipelineStoredMode() {
     try {
-        return localStorage.getItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY) !== 'true'
-            && localStorage.getItem(MISSION_PIPELINE_V3_STORAGE_KEY) !== 'true';
+        const mode = String(localStorage.getItem(MISSION_PIPELINE_MODE_STORAGE_KEY) || '').toLowerCase();
+        if (mode === 'v2' || mode === 'legacy_v2') return 'v2';
+        if (mode === 'v3') return 'v3';
+        if (localStorage.getItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY) === 'true') return 'v2';
+        if (localStorage.getItem(MISSION_PIPELINE_V2_STORAGE_KEY) === 'true') return 'v2';
+        return 'v3';
     } catch (_) {
-        return true;
+        return 'v3';
     }
+}
+
+function setMissionPipelineMode(mode = 'v3') {
+    const normalized = String(mode || '').toLowerCase() === 'v2' ? 'v2' : 'v3';
+    try {
+        localStorage.setItem(MISSION_PIPELINE_MODE_STORAGE_KEY, normalized);
+        localStorage.setItem(MISSION_PIPELINE_V3_STORAGE_KEY, normalized === 'v3' ? 'true' : 'false');
+        localStorage.setItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY, normalized === 'v2' ? 'true' : 'false');
+        localStorage.removeItem(MISSION_PIPELINE_V2_STORAGE_KEY);
+    } catch (_) {}
+    return normalized;
+}
+window.setMissionPipelineMode = setMissionPipelineMode;
+
+function isMissionPipelineV2Enabled() {
+    return getMissionPipelineStoredMode() === 'v2';
 }
 window.isMissionPipelineV2Enabled = isMissionPipelineV2Enabled;
 
 function isMissionPipelineLegacyEnabled() {
-    try { return localStorage.getItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY) === 'true'; } catch (_) { return false; }
+    return isMissionPipelineV2Enabled();
 }
 window.isMissionPipelineLegacyEnabled = isMissionPipelineLegacyEnabled;
 
 function isMissionPipelineV3Enabled() {
-    try {
-        return localStorage.getItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY) !== 'true'
-            && localStorage.getItem(MISSION_PIPELINE_V3_STORAGE_KEY) === 'true';
-    } catch (_) {
-        return false;
-    }
+    return getMissionPipelineStoredMode() !== 'v2';
 }
 window.isMissionPipelineV3Enabled = isMissionPipelineV3Enabled;
 
 function getMissionPipelineMode() {
-    if (isMissionPipelineLegacyEnabled()) return 'legacy';
-    if (isMissionPipelineV3Enabled()) return 'v3';
-    return 'v2';
+    return isMissionPipelineV2Enabled() ? 'v2' : 'v3';
 }
 window.getMissionPipelineMode = getMissionPipelineMode;
 
 function updateMissionPipelineV2ButtonUi() {
     const btn = document.getElementById('btnMissionPipelineLegacy') || document.getElementById('btnMissionPipelineV2');
-    const legacy = isMissionPipelineLegacyEnabled();
+    const legacy = isMissionPipelineV2Enabled();
     if (btn) {
-        btn.textContent = legacy ? 'Legacy Pipeline An' : 'Legacy Pipeline Aus';
-        btn.style.background = legacy ? '#4a2d18' : '#241b3b';
-        btn.style.borderColor = legacy ? '#8a5a2f' : '#5a4a86';
-        btn.style.color = legacy ? '#ffd7a3' : '#d8c7ff';
+        btn.textContent = legacy ? 'V2 Legacy' : 'Pipeline V3';
+        btn.style.background = legacy ? '#4a2d18' : '#114533';
+        btn.style.borderColor = legacy ? '#8a5a2f' : '#2cae7d';
+        btn.style.color = legacy ? '#ffd7a3' : '#c9ffe8';
     }
     const v3Btn = document.getElementById('btnMissionPipelineV3');
     if (v3Btn) {
         const v3 = isMissionPipelineV3Enabled();
-        v3Btn.textContent = v3 ? 'V3 Tools An' : 'V3 Tools Aus';
+        v3Btn.textContent = v3 ? 'V3 Standard' : 'V2 Legacy';
         v3Btn.style.background = v3 ? '#114533' : '#163028';
         v3Btn.style.borderColor = v3 ? '#2cae7d' : '#2f6f5e';
         v3Btn.style.color = v3 ? '#c9ffe8' : '#94f0cc';
@@ -3628,49 +3642,37 @@ window.updateMissionPipelineLegacyButtonUi = updateMissionPipelineV2ButtonUi;
 window.updateMissionPipelineV3ButtonUi = updateMissionPipelineV2ButtonUi;
 
 window.toggleMissionPipelineLegacy = function(forceState) {
-    const nextLegacy = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineLegacyEnabled();
-    try {
-        localStorage.setItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY, String(!!nextLegacy));
-        if (nextLegacy) localStorage.removeItem(MISSION_PIPELINE_V3_STORAGE_KEY);
-        localStorage.removeItem(MISSION_PIPELINE_V2_STORAGE_KEY);
-    } catch (_) {}
+    const nextLegacy = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineV2Enabled();
+    setMissionPipelineMode(nextLegacy ? 'v2' : 'v3');
     updateMissionPipelineV2ButtonUi();
     if (typeof window.vpRefreshWeatherDebugReport === 'function') {
         try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
     }
     const indicator = document.getElementById('searchIndicator');
     if (indicator) indicator.innerText = nextLegacy
-        ? 'Debug: Legacy Mission Pipeline aktiv.'
-        : 'Debug: Mission Pipeline V2 aktiv.';
+        ? 'Debug: Mission Pipeline V2 Legacy aktiv.'
+        : 'Debug: Mission Pipeline V3 aktiv.';
     return !!nextLegacy;
 };
 
 window.toggleMissionPipelineV2 = function(forceState) {
     const nextV2 = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineV2Enabled();
-    try {
-        localStorage.setItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY, String(!nextV2));
-        localStorage.removeItem(MISSION_PIPELINE_V3_STORAGE_KEY);
-        localStorage.removeItem(MISSION_PIPELINE_V2_STORAGE_KEY);
-    } catch (_) {}
+    setMissionPipelineMode(nextV2 ? 'v2' : 'v3');
     updateMissionPipelineV2ButtonUi();
     return !!nextV2;
 };
 
 window.toggleMissionPipelineV3 = function(forceState) {
     const nextV3 = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineV3Enabled();
-    try {
-        localStorage.setItem(MISSION_PIPELINE_V3_STORAGE_KEY, String(!!nextV3));
-        if (nextV3) localStorage.setItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY, 'false');
-        localStorage.removeItem(MISSION_PIPELINE_V2_STORAGE_KEY);
-    } catch (_) {}
+    setMissionPipelineMode(nextV3 ? 'v3' : 'v2');
     updateMissionPipelineV2ButtonUi();
     if (typeof window.vpRefreshWeatherDebugReport === 'function') {
         try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
     }
     const indicator = document.getElementById('searchIndicator');
     if (indicator) indicator.innerText = nextV3
-        ? 'Debug: Mission Pipeline V3 Tool-Calling aktiv.'
-        : 'Debug: Mission Pipeline V2 aktiv.';
+        ? 'Debug: Mission Pipeline V3 aktiv.'
+        : 'Debug: Mission Pipeline V2 Legacy aktiv.';
     return !!nextV3;
 };
 
