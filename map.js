@@ -6800,21 +6800,76 @@ function clearMeasure() {
 
 window.removeRouteWaypoint = function (index) { routeWaypoints.splice(index, 1); renderMainRoute(); };
 
+function normalizeMapRouteWaypoint(point) {
+    if (!point) return null;
+    const lat = Array.isArray(point) ? Number(point[0]) : Number(point.lat);
+    const lng = Array.isArray(point)
+        ? Number(point[1])
+        : Number(point.lng ?? point.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    const out = { lat, lng };
+    if (typeof point.name === 'string' && point.name.trim()) out.name = point.name.trim();
+    if (point.isPOI === true) out.isPOI = true;
+    if (typeof point.rppAirportIcao === 'string' && point.rppAirportIcao.trim()) out.rppAirportIcao = point.rppAirportIcao.trim();
+    return out;
+}
+
+function normalizeMapRouteWaypoints(points) {
+    if (!Array.isArray(points)) return [];
+    return points.map(normalizeMapRouteWaypoint).filter(Boolean);
+}
+
+function routeBoundsFromWaypoints(points = routeWaypoints) {
+    if (typeof L === 'undefined') return null;
+    const latLngs = normalizeMapRouteWaypoints(points).map(p => [p.lat, p.lng]);
+    return latLngs.length >= 1 ? L.latLngBounds(latLngs) : null;
+}
+
+function fitMapToRouteWaypoints(padding = [40, 40]) {
+    if (!map) initMapBase();
+    if (!map) return false;
+    const bounds = routeBoundsFromWaypoints(routeWaypoints);
+    if (!bounds || !bounds.isValid()) return false;
+    map.fitBounds(bounds, { padding });
+    return true;
+}
+
+window.gaScheduleRouteMapLayoutRefresh = function(reason = 'route') {
+    const delays = [0, 120, 420, 900];
+    delays.forEach(delay => {
+        setTimeout(() => {
+            try {
+                if (!map) initMapBase();
+                if (!map) return;
+                map.invalidateSize();
+                fitMapToRouteWaypoints([40, 40]);
+                if (typeof renderMapProfile === 'function' && typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible) {
+                    renderMapProfile();
+                }
+            } catch (err) {
+                console.warn('[RouteMap] Layout refresh failed', reason, err);
+            }
+        }, delay);
+    });
+    if (typeof updateMiniMap === 'function') updateMiniMap();
+};
+
 function resetMainRoute() {
     if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
     if (window._missionRouteWaypoints && window._missionRouteWaypoints.length >= 2) {
-        routeWaypoints = JSON.parse(JSON.stringify(window._missionRouteWaypoints));
+        routeWaypoints = normalizeMapRouteWaypoints(window._missionRouteWaypoints);
     } else if (routeWaypoints.length > 2) {
         routeWaypoints = [routeWaypoints[0], routeWaypoints[routeWaypoints.length - 1]];
     } else {
         return;
     }
     renderMainRoute();
-    map.fitBounds(L.latLngBounds(routeWaypoints.map(p => [p.lat, p.lng ?? p.lon])), { padding: [40, 40] });
+    fitMapToRouteWaypoints([40, 40]);
 }
 
 function renderMainRoute() {
     if (!map) initMapBase();
+    routeWaypoints = normalizeMapRouteWaypoints(routeWaypoints);
     const _routeKey = Array.isArray(routeWaypoints)
         ? routeWaypoints.map(p => `${(p.lat || 0).toFixed(5)},${((p.lng || p.lon) || 0).toFixed(5)}`).join('|')
         : '';
@@ -7513,8 +7568,7 @@ async function applyAirportDirectTo(airport, options = {}) {
         renderGpsStartBriefing(destAirport, startPoint);
         renderMainRoute();
         if (map) {
-            const bounds = L.latLngBounds(routeWaypoints.map(w => [w.lat, w.lng || w.lon]));
-            map.fitBounds(bounds, { padding: [60, 60] });
+            fitMapToRouteWaypoints([60, 60]);
         }
         if (typeof updateMiniMap === 'function') updateMiniMap();
         if (typeof scheduleRouteDerivedDataRefresh === 'function') {
@@ -8032,6 +8086,10 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
     window._missionRouteWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
 
     renderMainRoute();
+    const board = document.getElementById('mapTableOverlay');
+    if (board && board.classList.contains('active') && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
+        window.gaScheduleRouteMapLayoutRefresh('route-update');
+    }
 }
 
 async function updateMapFromInputs() {
@@ -8205,7 +8263,7 @@ async function refreshMapTableLayout() {
 
     if (map) {
         map.invalidateSize();
-        if (routeWaypoints && routeWaypoints.length >= 2) map.fitBounds(L.latLngBounds(routeWaypoints), { padding: [40, 40] });
+        if (routeWaypoints && routeWaypoints.length >= 2) fitMapToRouteWaypoints([40, 40]);
         else updateMapFromInputs();
 
         updateSnapButtonUI();
@@ -8264,6 +8322,9 @@ function toggleMapTable(forceInternal) {
                 refreshMapTableLayout().catch((error) => {
                     console.error('Map table refresh failed:', error);
                 });
+                if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
+                    window.gaScheduleRouteMapLayoutRefresh('map-open');
+                }
                 if (routeWaypoints && routeWaypoints.length >= 2 && typeof triggerVerticalProfileUpdate === 'function') {
                     triggerVerticalProfileUpdate();
                 }
@@ -8346,11 +8407,13 @@ function updateMiniMap(attempt = 0) {
             miniMapMarkers.push(startMarker, destMarker);
             requestAnimationFrame(() => {
                 miniMap.invalidateSize();
-                miniMap.fitBounds(L.latLngBounds(routeWaypoints), { padding: [15, 15] });
+                const bounds = routeBoundsFromWaypoints(routeWaypoints);
+                if (bounds && bounds.isValid()) miniMap.fitBounds(bounds, { padding: [15, 15] });
                 setTimeout(() => {
                     if (miniMap) {
                         miniMap.invalidateSize();
-                        miniMap.fitBounds(L.latLngBounds(routeWaypoints), { padding: [15, 15] });
+                        const nextBounds = routeBoundsFromWaypoints(routeWaypoints);
+                        if (nextBounds && nextBounds.isValid()) miniMap.fitBounds(nextBounds, { padding: [15, 15] });
                     }
                 }, 250);
             });
@@ -9451,8 +9514,7 @@ window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
     }
 
     // Karte auf Route einpassen
-    const bounds = L.latLngBounds(routeWaypoints.map(w => [w.lat, w.lng || w.lon]));
-    map.fitBounds(bounds, { padding: [60, 60] });
+    fitMapToRouteWaypoints([60, 60]);
 
     showMapToast('Direct to ' + icao);
 };

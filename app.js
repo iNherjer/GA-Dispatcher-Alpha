@@ -2498,11 +2498,7 @@ function bootAppOnce() {
     if (activeMission) {
         setTimeout(() => {
             const parsedMission = JSON.parse(activeMission);
-            if (isMissionDraftPending(parsedMission)) {
-                clearDraftMissionPersistence('startup-draft-rejected');
-                return;
-            }
-            restoreMissionState(parsedMission);
+            restoreMissionState(parsedMission, { allowDraft: true });
             // Clear destination input on initial load to allow easy random route generation
             const dInp = document.getElementById('destLoc');
             if (dInp) dInp.value = '';
@@ -2746,17 +2742,131 @@ function clearDraftMissionPersistence(reason = 'draft') {
 }
 window.clearDraftMissionPersistence = clearDraftMissionPersistence;
 
+function normalizeRouteWaypointForStorage(point) {
+    if (!point) return null;
+    const lat = Array.isArray(point) ? Number(point[0]) : Number(point.lat);
+    const lng = Array.isArray(point)
+        ? Number(point[1])
+        : Number(point.lng ?? point.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    const out = {
+        lat,
+        lng
+    };
+    if (typeof point.name === 'string' && point.name.trim()) out.name = point.name.trim();
+    if (point.isPOI === true) out.isPOI = true;
+    if (typeof point.rppAirportIcao === 'string' && point.rppAirportIcao.trim()) out.rppAirportIcao = point.rppAirportIcao.trim();
+    return out;
+}
+
+function normalizeRouteWaypointsForStorage(points) {
+    if (!Array.isArray(points)) return [];
+    return points
+        .map(normalizeRouteWaypointForStorage)
+        .filter(Boolean);
+}
+
+function cloneRouteWaypointsForStorage(points) {
+    return normalizeRouteWaypointsForStorage(points).map(point => ({ ...point }));
+}
+
+function parseMissionCoordsText(text) {
+    const match = String(text || '').match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+    if (!match) return null;
+    const lat = Number(match[1]);
+    const lng = Number(match[2]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
+}
+
+function missionAirportPoint(icao, fallbackCoordsText = '') {
+    const key = String(icao || '').trim().toUpperCase();
+    const apt = key && typeof globalAirports === 'object' && globalAirports ? globalAirports[key] : null;
+    const lat = Number(apt?.lat);
+    const lng = Number(apt?.lon ?? apt?.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+    return parseMissionCoordsText(fallbackCoordsText);
+}
+
+function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
+    const mission = md && typeof md === 'object' ? md : {};
+    const isPOI = !!(state.isPOI || mission.isPOI || mission.poiName);
+    const startIcao = state.currentStartICAO || mission.start || state.mDepICAO || currentStartICAO || '';
+    const destIcao = state.currentDestICAO || mission.dest || state.mDestICAO || currentDestICAO || '';
+    const depPoint = missionAirportPoint(startIcao, state.mDepCoords);
+    let destPoint = null;
+    if (isPOI) {
+        const targetLat = Number(mission.targetLat);
+        const targetLng = Number(mission.targetLon ?? mission.targetLng);
+        destPoint = Number.isFinite(targetLat) && Number.isFinite(targetLng)
+            ? { lat: targetLat, lng: targetLng }
+            : parseMissionCoordsText(state.mDestCoords);
+    } else {
+        destPoint = missionAirportPoint(destIcao, state.mDestCoords);
+    }
+    if (!depPoint || !destPoint) return [];
+
+    if (isPOI) {
+        const targetName = mission.poiName || mission.targetName || state.mDestName || 'POI';
+        const route = [
+            { lat: depPoint.lat, lng: depPoint.lng },
+            { lat: destPoint.lat, lng: destPoint.lng, name: `🎯 ${targetName}`, isPOI: true }
+        ];
+        if (typeof calcNav === 'function' && typeof getDestinationPoint === 'function') {
+            try {
+                const returnNav = calcNav(destPoint.lat, destPoint.lng, depPoint.lat, depPoint.lng);
+                if (Number.isFinite(Number(returnNav?.dist)) && Number(returnNav.dist) > 0.1) {
+                    const offsetBearing = (Number(returnNav.brng || 0) + 20) % 360;
+                    const returnWp = getDestinationPoint(destPoint.lat, destPoint.lng, Number(returnNav.dist) * 0.45, offsetBearing);
+                    if (Number.isFinite(Number(returnWp?.lat)) && Number.isFinite(Number(returnWp?.lon))) {
+                        route.push({ lat: Number(returnWp.lat), lng: Number(returnWp.lon), name: 'Return Leg' });
+                    }
+                }
+            } catch (_) {}
+        }
+        route.push({ lat: depPoint.lat, lng: depPoint.lng, name: state.currentSName || startIcao || 'Start' });
+        return route;
+    }
+
+    return [
+        { lat: depPoint.lat, lng: depPoint.lng },
+        { lat: destPoint.lat, lng: destPoint.lng }
+    ];
+}
+
+function resolveRouteWaypointsFromMissionState(state = {}) {
+    const md = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : null;
+    const sources = [
+        state.routeWaypoints,
+        md?.routeWaypoints,
+        state.missionRouteWaypoints,
+        md?.missionRouteWaypoints
+    ];
+    for (const source of sources) {
+        const normalized = normalizeRouteWaypointsForStorage(source);
+        if (normalized.length >= 2) return normalized;
+    }
+    return normalizeRouteWaypointsForStorage(buildFallbackRouteWaypointsFromMissionState(state, md));
+}
+
 function saveMissionState() {
     if (document.getElementById("briefingBox").style.display !== "block") return;
-    if (isMissionDraftPending()) {
-        clearDraftMissionPersistence('saveMissionState');
-        return;
-    }
+    const draftPending = isMissionDraftPending();
 
     const imgDepEl = document.getElementById("wikiDepImage");
     const imgDepUrl = (imgDepEl && imgDepEl.style.backgroundImage !== 'url("")') ? imgDepEl.style.backgroundImage : "";
     const imgDestEl = document.getElementById("wikiDestImage");
     const imgDestUrl = (imgDestEl && imgDestEl.style.backgroundImage !== 'url("")') ? imgDestEl.style.backgroundImage : "";
+    const storedRouteWaypoints = cloneRouteWaypointsForStorage(routeWaypoints);
+    const storedMissionRouteWaypoints = cloneRouteWaypointsForStorage(
+        (window._missionRouteWaypoints && window._missionRouteWaypoints.length >= 2)
+            ? window._missionRouteWaypoints
+            : storedRouteWaypoints
+    );
+    if (currentMissionData && typeof currentMissionData === 'object') {
+        currentMissionData.routeWaypoints = storedRouteWaypoints;
+        currentMissionData.missionRouteWaypoints = storedMissionRouteWaypoints;
+    }
 
     const state = {
         mTitle: document.getElementById('mTitle').innerHTML,
@@ -2783,8 +2893,8 @@ function saveMissionState() {
         wikiDestImageUrl: imgDestUrl,
         isPOI: document.getElementById("destRwyContainer").style.display === "none",
         currentMissionData: currentMissionData,
-        routeWaypoints: routeWaypoints,
-        missionRouteWaypoints: window._missionRouteWaypoints || null,
+        routeWaypoints: storedRouteWaypoints,
+        missionRouteWaypoints: storedMissionRouteWaypoints,
         currentStartICAO: currentStartICAO,
         currentDestICAO: currentDestICAO,
         currentSName: currentSName,
@@ -2801,6 +2911,10 @@ function saveMissionState() {
         activeMissionContract: window.activeMissionContract || currentMissionData?.missionContract || null
     };
     localStorage.setItem('ga_active_mission', JSON.stringify(state));
+    if (draftPending) {
+        try { console.debug('[MISSION DRAFT] Lokal gespeichert, Cloud-Sync blockiert.'); } catch (_) {}
+        return;
+    }
     triggerCloudSave();
 }
 
@@ -2899,8 +3013,9 @@ function restoreMissionV3Context(md, state = {}, restoredPassenger = null, resto
     return { missionData: md, missionContract: nextContract };
 }
 
-async function restoreMissionState(state) {
-    if (isMissionDraftPending(state)) {
+async function restoreMissionState(state, options = {}) {
+    const allowDraft = !!options.allowDraft;
+    if (isMissionDraftPending(state) && !allowDraft) {
         clearDraftMissionPersistence('restore-draft-rejected');
         const indicator = document.getElementById('searchIndicator');
         if (indicator) indicator.innerText = 'Entwurf verworfen: Mission muss zuerst akzeptiert werden.';
@@ -2946,8 +3061,16 @@ async function restoreMissionState(state) {
     const destSwitchRow = document.getElementById("destSwitchRow"); if (destSwitchRow) destSwitchRow.style.display = "flex";
     const destLinks = document.getElementById("wikiDestLinks"); if (destLinks) destLinks.style.display = state.isPOI ? "none" : "block";
 
-    currentMissionData = state.currentMissionData; routeWaypoints = state.routeWaypoints;
-    window._missionRouteWaypoints = state.missionRouteWaypoints || null;
+    currentMissionData = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : {};
+    routeWaypoints = resolveRouteWaypointsFromMissionState(state);
+    const restoredMissionRoute = cloneRouteWaypointsForStorage(
+        (state.missionRouteWaypoints && state.missionRouteWaypoints.length >= 2)
+            ? state.missionRouteWaypoints
+            : (currentMissionData.missionRouteWaypoints || routeWaypoints)
+    );
+    window._missionRouteWaypoints = restoredMissionRoute.length >= 2 ? restoredMissionRoute : cloneRouteWaypointsForStorage(routeWaypoints);
+    currentMissionData.routeWaypoints = cloneRouteWaypointsForStorage(routeWaypoints);
+    currentMissionData.missionRouteWaypoints = cloneRouteWaypointsForStorage(window._missionRouteWaypoints);
     const restoredHasPassenger = missionHasPassengerByPaxText(state.mPay || '');
     let restoredPassenger = null;
     if (restoredHasPassenger) {
@@ -2978,6 +3101,8 @@ async function restoreMissionState(state) {
     window.activeMissionContract = restoredMissionContract || null;
     if (currentMissionData && typeof currentMissionData === 'object') {
         currentMissionData.missionContract = window.activeMissionContract;
+        currentMissionData.routeWaypoints = cloneRouteWaypointsForStorage(routeWaypoints);
+        currentMissionData.missionRouteWaypoints = cloneRouteWaypointsForStorage(window._missionRouteWaypoints);
         if (currentMissionData.fireScenario && !missionDataAllowsFireWatchScenario(currentMissionData, window.activePassenger, window.activeMissionContract)) {
             delete currentMissionData.fireScenario;
         }
@@ -3007,8 +3132,8 @@ async function restoreMissionState(state) {
     vpElevationData = state.vpElevationData || null;
     // Routenwechsel-Detektor vorbelegen – verhindert, dass vpAltWaypoints nach dem Restore
     // sofort wieder gelöscht werden (window._lastVpRouteKey ist nach Reload undefined)
-    if (state.routeWaypoints && state.routeWaypoints.length > 0) {
-        window._lastVpRouteKey = state.routeWaypoints.map(p =>
+    if (routeWaypoints && routeWaypoints.length > 0) {
+        window._lastVpRouteKey = routeWaypoints.map(p =>
             `${(p.lat || 0).toFixed(4)},${((p.lng || p.lon) || 0).toFixed(4)}`
         ).join('|');
     }
@@ -3034,8 +3159,10 @@ async function restoreMissionState(state) {
 
     document.getElementById("briefingBox").style.display = "block";
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
-    renderMainRoute(); setDrumCounter('distDrum', state.currentMissionData.dist);
-    recalculatePerformance(); document.getElementById('searchIndicator').innerText = "📋 Gespeichertes Briefing geladen.";
+    renderMainRoute(); setDrumCounter('distDrum', currentMissionData?.dist || state.currentMissionData?.dist || 0);
+    if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') window.gaScheduleRouteMapLayoutRefresh('mission-restore');
+    const restoredDraft = isMissionDraftPending(currentMissionData);
+    recalculatePerformance(); document.getElementById('searchIndicator').innerText = restoredDraft ? "📋 Missionsentwurf geladen." : "📋 Gespeichertes Briefing geladen.";
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
 
     gpsState.mode = 'FPL';

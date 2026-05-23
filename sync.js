@@ -4864,12 +4864,19 @@ function _syncActiveMissionPayload() {
     try {
         const state = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
         if (_syncMissionStateIsDraft(state)) {
-            localStorage.removeItem('ga_active_mission');
             return null;
         }
         return state;
     } catch (_) {
         return null;
+    }
+}
+
+function _syncHasLocalDraftMission() {
+    try {
+        return _syncMissionStateIsDraft(JSON.parse(localStorage.getItem('ga_active_mission') || 'null'));
+    } catch (_) {
+        return false;
     }
 }
 
@@ -4880,6 +4887,10 @@ function _syncApplyActiveMissionFromCloud(activeMission = null) {
         restoreMissionState(activeMission);
         return true;
     }
+    try {
+        const localMission = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+        if (_syncMissionStateIsDraft(localMission)) return false;
+    } catch (_) {}
     localStorage.removeItem('ga_active_mission');
     if (briefing) briefing.style.display = "none";
     return false;
@@ -4910,6 +4921,10 @@ async function triggerCloudSave(immediate = false) {
     if (immediate === 'manual') {
         if (!confirm("⬆️ CLOUD UPLOAD\nMöchtest du deinen aktuellen, lokalen Stand hochladen und das bisherige Cloud-Backup überschreiben?")) return;
         setNavComLed('navcomSaveBtn', 'syncing');
+    }
+    if (immediate !== 'manual' && _syncHasLocalDraftMission()) {
+        updateSyncStatus("Cloud: Missionsentwurf lokal");
+        return;
     }
     localSyncTime = Date.now();
     const payloadToCompare = {
