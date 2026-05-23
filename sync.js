@@ -3323,8 +3323,20 @@ function _missionTargetSceneItems(kind) {
             const step = i * 5;
             if (feature === 'powerline') {
                 const pylon = MISSION_SCENE_ASSET_POOLS.utilityPower.includes('PowerPylon_Base') ? 'PowerPylon_Base' : _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityPower, `feature-powerline-${i}`, 'PowerPylon_Base');
-                const pos = _missionTargetGeoOffset(['power'], 24 + (i * 28), -18 + (i * 5), { minM: 12, maxM: 150, lateralM: i * 18, hdgOffsetDeg: 0 });
-                add(`feature_powerline_${i + 1}`, 'Zusatz Strommast/Freileitung', pylon, MISSION_SCENE_ASSET_POOLS.utilityPower, pos.f, pos.r, { hdgOffsetDeg: 0 });
+                const powerAnchor = _missionTargetGeoAnchor(['power']);
+                const anchorDistM = Number(powerAnchor?.distM);
+                const pos = _missionTargetGeoOffset(['power'], 24 + (i * 28), -18 + (i * 5), {
+                    minM: 12,
+                    maxM: 650,
+                    distanceM: Number.isFinite(anchorDistM) ? anchorDistM + (i * 45) : undefined,
+                    lateralM: i * 10,
+                    hdgOffsetDeg: 0
+                });
+                add(`feature_powerline_${i + 1}`, 'Zusatz Strommast/Freileitung', pylon, MISSION_SCENE_ASSET_POOLS.utilityPower, pos.f, pos.r, {
+                    hdgOffsetDeg: 0,
+                    placement: 'power anchor',
+                    geoAnchor: _missionTargetGeoAnchorDebug(pos, ['power'])
+                });
             } else if (feature === 'wind_turbine') {
                 const turbine = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.windTurbines, `feature-wind-turbine-${i}`, 'WindTurbine');
                 const pos = _missionTargetGeoOffset(['farmland', 'meadow'], 20 + (i * 22), -12 - (i * 7), { minM: 18, maxM: 150, lateralM: i * 14, hdgOffsetDeg: 0 });
@@ -3491,13 +3503,47 @@ function _missionTargetSceneItems(kind) {
         const pylonBase = MISSION_SCENE_ASSET_POOLS.utilityPower.includes('PowerPylon_Base') ? 'PowerPylon_Base' : _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityPower, 'power-pylon-base', 'PowerPylon_Base');
         const generator = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.utilityGenerators, 'power-generator', 'PowerGenerator');
         const utilityTruck = _scenePickTitle(primaryTruckPool, 'power-utility-truck', 'Truck Utility Europe Flush');
-        const powerPos = _missionTargetGeoOffset(['power'], 0, 0, { minM: 8, maxM: 120, hdgOffsetDeg: 0 });
+        const powerAnchor = _missionTargetGeoAnchor(['power']);
+        const anchorDistM = Number(powerAnchor?.distM);
+        const powerPos = _missionTargetGeoOffset(['power'], 0, 0, {
+            minM: 8,
+            maxM: 650,
+            distanceM: Number.isFinite(anchorDistM) ? anchorDistM : undefined,
+            hdgOffsetDeg: 0
+        });
+        const followPos = _missionTargetGeoOffset(['power'], powerPos.f + 34, powerPos.r + 7, {
+            minM: 20,
+            maxM: 700,
+            distanceM: Number.isFinite(anchorDistM) ? anchorDistM + 45 : undefined,
+            lateralM: Number.isFinite(anchorDistM) ? 8 : 0,
+            hdgOffsetDeg: 0
+        });
         const roadPos = _missionTargetGeoOffset(['parking', 'road', 'path'], -16, 12, { minM: 22, maxM: 120, hdgOffsetDeg: 205 });
-        add('power_pylon_1', 'Strommast', pylonBase, MISSION_SCENE_ASSET_POOLS.utilityPower, powerPos.f, powerPos.r, { hdgOffsetDeg: 0 });
-        add('power_pylon_2', 'Strommast Folgepunkt', pylonBase, MISSION_SCENE_ASSET_POOLS.utilityPower, powerPos.f + 34, powerPos.r + 7, { hdgOffsetDeg: 0 });
-        add('utility_truck', 'Utility Fahrzeug', utilityTruck, truckPool, roadPos.f, roadPos.r, { hdgOffsetDeg: roadPos.hdg });
-        add('generator', 'Generator', generator, MISSION_SCENE_ASSET_POOLS.utilityGenerators, -8, 6, { hdgOffsetDeg: 30 });
-        add('marker_1', 'Arbeitsbereich', cone, markerPool, -4, -6);
+        add('power_pylon_1', 'Strommast', pylonBase, MISSION_SCENE_ASSET_POOLS.utilityPower, powerPos.f, powerPos.r, {
+            hdgOffsetDeg: 0,
+            placement: 'power anchor',
+            geoAnchor: _missionTargetGeoAnchorDebug(powerPos, ['power'])
+        });
+        add('power_pylon_2', 'Strommast Folgepunkt', pylonBase, MISSION_SCENE_ASSET_POOLS.utilityPower, followPos.f, followPos.r, {
+            hdgOffsetDeg: 0,
+            placement: 'power anchor follow',
+            geoAnchor: _missionTargetGeoAnchorDebug(followPos, ['power'])
+        });
+        add('utility_truck', 'Utility Fahrzeug', utilityTruck, truckPool, roadPos.f, roadPos.r, {
+            hdgOffsetDeg: roadPos.hdg,
+            placement: 'road support',
+            geoAnchor: _missionTargetGeoAnchorDebug(roadPos, ['parking', 'road', 'path'])
+        });
+        add('generator', 'Generator', generator, MISSION_SCENE_ASSET_POOLS.utilityGenerators, roadPos.f + 6, roadPos.r + 4, {
+            hdgOffsetDeg: roadPos.hdg,
+            placement: 'road support equipment',
+            geoAnchor: _missionTargetGeoAnchorDebug(roadPos, ['parking', 'road', 'path'])
+        });
+        add('marker_1', 'Arbeitsbereich', cone, markerPool, roadPos.f + 2, roadPos.r - 3, {
+            hdgOffsetDeg: roadPos.hdg,
+            placement: 'road support marker',
+            geoAnchor: _missionTargetGeoAnchorDebug(roadPos, ['parking', 'road', 'path'])
+        });
         return finish();
     }
 
