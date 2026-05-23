@@ -3743,7 +3743,8 @@ window.vpBuildWeatherDebugReport = function() {
     const aiNormalized = sceneDbg.aiNormalized || missionSceneDbg.aiNormalized || null;
     const contractTargetScene = sceneDbg.contractTargetScene || missionSceneDbg.contractTargetScene || missionSnap?.targetScene || null;
     const sceneTruth = sceneDbg.missionTruth || missionSnap?.missionTruth || missionSnap?.contract?.missionTruth || null;
-    const targetPreview = (!sceneDbg.lastTargetSceneCommand && typeof window.missionTargetSceneDebugPreview === 'function')
+    const targetCommandHasMapPoints = Array.isArray(sceneDbg.lastTargetSceneCommand?.mapPoints) && sceneDbg.lastTargetSceneCommand.mapPoints.length > 0;
+    const targetPreview = (!targetCommandHasMapPoints && typeof window.missionTargetSceneDebugPreview === 'function')
         ? window.missionTargetSceneDebugPreview('debug-report-preview')
         : null;
     const startEndPreview = (typeof window.missionStartEndSceneDebugPreview === 'function')
@@ -3849,9 +3850,10 @@ window.vpBuildWeatherDebugReport = function() {
     fmtCommand('App -> Sim Startszene', lastStartCommand);
     fmtCommand('App -> Sim Endszene', lastEndCommand);
     fmtCommand('App -> Sim Smoke/Fire', lastSmokeCommand);
-    const scenePointCount = [lastTargetCommand || previewTargetCommand, lastAptArrivalCommand || plannedAptArrivalCommand, plannedStartCommand, plannedEndCommand, lastSmokeCommand]
+    const targetPointCommand = targetCommandHasMapPoints ? lastTargetCommand : previewTargetCommand;
+    const scenePointCount = [targetPointCommand, lastAptArrivalCommand || plannedAptArrivalCommand, plannedStartCommand, plannedEndCommand, lastSmokeCommand]
         .reduce((sum, cmd) => sum + (Array.isArray(cmd?.mapPoints) ? cmd.mapPoints.length : 0), 0);
-    const hasPreviewPoints = Boolean((previewTargetCommand && !lastTargetCommand) || plannedStartCommand || plannedEndCommand || plannedAptArrivalCommand);
+    const hasPreviewPoints = Boolean((previewTargetCommand && !targetCommandHasMapPoints) || plannedStartCommand || plannedEndCommand || plannedAptArrivalCommand);
     lines.push(`- Scene Punkte Overlay: ${window.vpMissionSceneDebugOverlayEnabled ? 'An' : 'Aus'} | Punkte=${scenePointCount}${hasPreviewPoints ? ' (Preview)' : ''}`);
     if (lastAck && typeof lastAck === 'object') {
         const byKind = lastAck.spawnedByKind ? JSON.stringify(lastAck.spawnedByKind) : '-';
@@ -3879,7 +3881,15 @@ window.vpBuildWeatherDebugReport = function() {
 window.vpRefreshWeatherDebugReport = function() {
     const body = document.getElementById('weatherDebugBody');
     if (!body) return;
-    body.textContent = window.vpBuildWeatherDebugReport ? window.vpBuildWeatherDebugReport() : 'Debug-Daten nicht verfügbar';
+    try {
+        body.textContent = window.vpBuildWeatherDebugReport ? window.vpBuildWeatherDebugReport() : 'Debug-Daten nicht verfügbar';
+    } catch (err) {
+        const msg = err && (err.stack || err.message || String(err));
+        body.textContent = `Debug-Report Fehler:\n${msg || 'unknown'}`;
+        if (typeof window.gaDebugPush === 'function') {
+            try { window.gaDebugPush('debug-error', '[DEBUG REPORT] build failed', { message: msg || 'unknown' }); } catch (_) {}
+        }
+    }
 };
 
 window.vpClearObstacleRollingCache = function() {

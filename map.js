@@ -6,8 +6,6 @@ if (!document.getElementById('route-anim-style')) {
     style.innerHTML = `
         @keyframes routeDashAnim { to { stroke-dashoffset: -20; } }
         .animated-route-line { animation: routeDashAnim 1.5s linear infinite; }
-        .animated-route-line,
-        .interactive-route { vector-effect: non-scaling-stroke; }
         .low-fps-mode .animated-route-line { animation: none !important; stroke-dasharray: none !important; }
         .low-fps-mode .live-plane-marker .live-plane-inner { filter: none !important; }
         .mission-target-location-label {
@@ -6850,6 +6848,57 @@ function handleRouteHitBoxClick(e) {
     renderMainRoute();
 }
 
+function ensureMainRoutePane() {
+    if (!map || typeof L === 'undefined') return null;
+    const name = 'mainRoutePane';
+    let pane = map.getPane(name);
+    if (!pane && typeof map.createPane === 'function') pane = map.createPane(name);
+    if (pane) {
+        pane.style.zIndex = '590';
+        pane.style.pointerEvents = 'auto';
+    }
+    return name;
+}
+
+function mainRouteRenderer() {
+    if (!map || typeof L === 'undefined' || typeof L.canvas !== 'function') return null;
+    const paneName = ensureMainRoutePane();
+    if (!window._gaMainRouteCanvasRenderer || window._gaMainRouteCanvasRenderer._map !== map) {
+        window._gaMainRouteCanvasRenderer = L.canvas({ pane: paneName || undefined, padding: 0.5 });
+    }
+    return window._gaMainRouteCanvasRenderer;
+}
+
+function mainRouteLineOptions(lowFpsMode = false) {
+    const paneName = ensureMainRoutePane();
+    const renderer = mainRouteRenderer();
+    return {
+        pane: paneName || undefined,
+        renderer: renderer || undefined,
+        color: '#ff4444',
+        opacity: 1,
+        weight: 7,
+        lineCap: 'round',
+        lineJoin: 'round',
+        dashArray: lowFpsMode ? null : '10,10',
+        interactive: false
+    };
+}
+
+function mainRouteHitBoxOptions() {
+    const paneName = ensureMainRoutePane();
+    const renderer = mainRouteRenderer();
+    return {
+        pane: paneName || undefined,
+        renderer: renderer || undefined,
+        color: '#ff4444',
+        weight: 44,
+        opacity: 0,
+        interactive: true,
+        bubblingMouseEvents: false
+    };
+}
+
 function resetMainRouteVectorLayers() {
     if (!map) return;
     if (polyline) {
@@ -6868,15 +6917,10 @@ function rebuildMainRouteVectorLayers() {
     routeWaypoints = normalizeMapRouteWaypoints(routeWaypoints);
     resetMainRouteVectorLayers();
     const lowFpsMode = window.isLowFpsMode && window.isLowFpsMode();
-    polyline = L.polyline(routeWaypoints, {
-        color: '#ff4444',
-        weight: 8,
-        dashArray: lowFpsMode ? null : '10,10',
-        className: 'animated-route-line',
-        interactive: false
-    }).addTo(map);
-    window.hitBoxPolyline = L.polyline(routeWaypoints, { color: 'transparent', weight: 45, opacity: 0, className: 'interactive-route' }).addTo(map);
+    polyline = L.polyline(routeWaypoints, mainRouteLineOptions(lowFpsMode)).addTo(map);
+    window.hitBoxPolyline = L.polyline(routeWaypoints, mainRouteHitBoxOptions()).addTo(map);
     window.hitBoxPolyline.on('click', handleRouteHitBoxClick);
+    if (typeof polyline.bringToFront === 'function') polyline.bringToFront();
     if (polyline && typeof polyline.redraw === 'function') polyline.redraw();
     if (window.hitBoxPolyline && typeof window.hitBoxPolyline.redraw === 'function') window.hitBoxPolyline.redraw();
 }
@@ -6939,26 +6983,28 @@ function renderMainRoute() {
     }
 
     const lowFpsMode = window.isLowFpsMode && window.isLowFpsMode();
+    const expectedRenderer = mainRouteRenderer();
+    if (polyline && expectedRenderer && polyline.options?.renderer !== expectedRenderer) {
+        resetMainRouteVectorLayers();
+    }
     if (!polyline) {
-        polyline = L.polyline(routeWaypoints, {
-            color: '#ff4444',
-            weight: 8,
-            dashArray: lowFpsMode ? null : '10,10',
-            className: 'animated-route-line',
-            interactive: false
-        }).addTo(map);
+        polyline = L.polyline(routeWaypoints, mainRouteLineOptions(lowFpsMode)).addTo(map);
     } else {
         polyline.setLatLngs(routeWaypoints);
         if (typeof polyline.setStyle === 'function') {
-            polyline.setStyle({ dashArray: lowFpsMode ? null : '10,10' });
+            polyline.setStyle(mainRouteLineOptions(lowFpsMode));
         }
     }
+    if (typeof polyline.bringToFront === 'function') polyline.bringToFront();
 
     if (!window.hitBoxPolyline) {
-        window.hitBoxPolyline = L.polyline(routeWaypoints, { color: 'transparent', weight: 45, opacity: 0, className: 'interactive-route' }).addTo(map);
+        window.hitBoxPolyline = L.polyline(routeWaypoints, mainRouteHitBoxOptions()).addTo(map);
         window.hitBoxPolyline.on('click', handleRouteHitBoxClick);
     } else {
         window.hitBoxPolyline.setLatLngs(routeWaypoints);
+        if (typeof window.hitBoxPolyline.setStyle === 'function') {
+            window.hitBoxPolyline.setStyle(mainRouteHitBoxOptions());
+        }
     }
 
     routeWaypoints.forEach((latlng, index) => {
