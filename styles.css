@@ -6258,6 +6258,13 @@ body.theme-navcom .btn-menu:active {
     border-color: rgba(0,0,0,0.35);
 }
 
+@media (max-width: 767px) {
+    #mapDrawToolStack #mapToolMeasure,
+    #mapDrawToolStack #mapToolMeasureClear {
+        display: none;
+    }
+}
+
 .map-draw-menu {
     position: absolute;
     top: 144px;
