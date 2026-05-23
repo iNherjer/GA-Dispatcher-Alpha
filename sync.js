@@ -982,6 +982,41 @@ function _missionSceneFlightGate(flightData = null) {
     return { ...quality, gs, agl, hasPosition, onGround, nearGround, groundLike, lowGround, stationary, paused, inMenuOrMap, airborne, canStage };
 }
 
+function _missionAutoStartGroundStability(flightData = null, fallbackAglFt = null) {
+    const fd = flightData || window.lastLiveFlightData || {};
+    const pos = window.lastLiveGpsPos || {};
+    const gs = Number.isFinite(Number(fd.gsKts)) ? Number(fd.gsKts)
+        : (Number.isFinite(Number(fd.gs)) ? Number(fd.gs)
+            : (Number.isFinite(Number(pos.gs)) ? Number(pos.gs) : 0));
+    const rawAgl = Number(fd.aglFt);
+    const fallbackAgl = Number(fallbackAglFt);
+    const agl = Number.isFinite(rawAgl)
+        ? Math.max(0, rawAgl)
+        : (Number.isFinite(fallbackAgl) ? Math.max(0, fallbackAgl) : null);
+    const hasOnGroundFlag = typeof fd.onGround === 'boolean';
+    const onGround = hasOnGroundFlag ? !!fd.onGround : false;
+    const parkingBrakeSet = fd.parkingBrake === true;
+    const paused = !!fd.simPaused || Number(fd.pauseFlags || 0) > 0;
+    const inMenuOrMap = !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
+
+    // Helis koennen auf Kufen SIM ON GROUND=false liefern. Fuer Auto-Start ist
+    // Stillstand direkt an der Oberflaeche robuster; Liftoff wird danach erkannt.
+    const nearSurface = Number.isFinite(agl) && agl <= 35;
+    const groundStable = (onGround || nearSurface) && (Number.isFinite(agl) ? agl <= 35 : onGround);
+    const stationary = gs <= 3.5 || (parkingBrakeSet && gs <= 8);
+    return {
+        ready: groundStable && stationary && !paused && !inMenuOrMap,
+        gs,
+        agl,
+        onGround,
+        nearSurface,
+        groundStable,
+        stationary,
+        paused,
+        inMenuOrMap
+    };
+}
+
 function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
     if (typeof window.missionSceneSpawn !== 'function' || typeof window.missionSceneClear !== 'function') return;
     const sceneId = _missionSceneId();
@@ -5021,15 +5056,19 @@ async function triggerCloudSave(immediate = false) {
     updateSyncStatus("Speichere in Cloud...");
     localStorage.setItem('ga_sync_time', localSyncTime);
     const payload = { ...payloadToCompare, lastModified: localSyncTime, pin: getSyncPin() };
+    const bodyStr = JSON.stringify(payload);
     try {
         const id = getSyncId();
         const pin = getSyncPin();
-        const res = await fetch(SYNC_URL + id + "?pin=" + pin, { 
-            method: 'POST', 
-            headers: { 'X-Pilot-PIN': pin },
-            body: JSON.stringify(payload), 
-            keepalive: true 
-        });
+        const fetchOptions = {
+            method: 'POST',
+            headers: { 'X-Pilot-PIN': pin, 'Content-Type': 'application/json' },
+            body: bodyStr
+        };
+        if (immediate !== 'manual' && bodyStr.length < 60000) {
+            fetchOptions.keepalive = true;
+        }
+        const res = await fetch(SYNC_URL + id + "?pin=" + pin, fetchOptions);
         if (res.ok) {
             lastSyncedPayloadStr = currentPayloadStr;
             updateSyncStatus("Cloud: Gespeichert ✅");
@@ -5042,10 +5081,12 @@ async function triggerCloudSave(immediate = false) {
             updateSyncStatus("Cloud: PIN falsch! ❌", true);
             alert("Zugriff verweigert: PIN falsch!");
         } else {
-            throw new Error("Server Error");
+            throw new Error(`HTTP ${res.status}`);
         }
     } catch (e) {
-        updateSyncStatus("Cloud: Speicher-Fehler", true);
+        console.error("[Sync] Cloud save failed:", e);
+        const msg = String(e?.message || '');
+        updateSyncStatus(msg.startsWith('HTTP ') ? `Cloud: Fehler ${msg}` : "Cloud: Speicher-Fehler", true);
         if (immediate === 'manual') {
             setNavComLed('navcomSaveBtn', 'error');
             setTimeout(() => setNavComLed('navcomSaveBtn', 'off'), 3000);
@@ -7304,8 +7345,8 @@ function updateFlightRecorder(lat, lon, alt) {
         r.lastUpdateTs = now; // dt-Sprung nach Pause vermeiden
     }
 
-    // Mission wird erst "scharf", wenn stabile Bodenlage erkannt wurde:
-    // stillstandnah, very low AGL, on ground.
+    // Mission wird erst "scharf", wenn eine stabile Startlage erkannt wurde:
+    // stillstandnah und direkt an der Oberfläche, auch wenn Helis kein On-Ground liefern.
     if (!autoMissionStartEnabled && !missionRuntime.active) {
         if (missionRuntime.armed || missionRuntime.readySince) {
             missionRuntime.armed = false;
@@ -7313,8 +7354,8 @@ function updateFlightRecorder(lat, lon, alt) {
             _updateMissionRuntimeUi();
         }
     } else if (!missionRuntime.active) {
-        const readyNow = onGroundNow && gs <= 2.0 && agl <= 10;
-        if (readyNow) {
+        const startGround = _missionAutoStartGroundStability(_lfd || {}, agl);
+        if (startGround.ready) {
             if (!missionRuntime.readySince) missionRuntime.readySince = now;
             if (!missionRuntime.armed && (now - missionRuntime.readySince) >= 2500) {
                 missionRuntime.armed = true;
@@ -7326,8 +7367,9 @@ function updateFlightRecorder(lat, lon, alt) {
         }
     }
 
-    // Erstes echtes Rollen/Bewegen startet die Mission (Begrüßung ab 10 kn).
-    if (autoMissionStartEnabled && !missionRuntime.active && missionRuntime.armed && !simPaused && !inMenuOrMap && gs >= 10) {
+    // Erstes echtes Rollen/Bewegen startet die Mission; Helis dürfen auch per Liftoff starten.
+    const heliLiftOffStart = missionRuntime.armed && !simPaused && !inMenuOrMap && !onGroundNow && agl >= 35;
+    if (autoMissionStartEnabled && !missionRuntime.active && missionRuntime.armed && !simPaused && !inMenuOrMap && (gs >= 10 || heliLiftOffStart)) {
         missionRuntime.active = true;
         missionRuntime.manual = false;
         missionRuntime.pendingEndAt = 0;
