@@ -6711,7 +6711,7 @@ function _normUrgencyBinary(v) {
 }
 
 function _hasTimePressureText(txt) {
-    return /\b(zeitkrit|dringend|eilig|pünkt|puenkt|zeitnah|sofort|unverzueglich|unverzüglich|hoechste\s+prioritaet|höchste\s+priorität|so bald wie moeglich|so schnell wie moeglich)\b/i.test(String(txt || ''));
+    return /\b(zeitkrit|dringend|eilig|p(?:ue|ü)nkt\w*|zeitnah|sofort|unverz(?:ue|ü)glich|hoechste\s+prioritaet|höchste\s+priorität|so bald wie moeglich|so schnell wie moeglich)/i.test(String(txt || ''));
 }
 
 function _hasCargoSensitivityText(txt) {
@@ -6729,7 +6729,10 @@ function _stripCargoSensitivityText(txt) {
 
 function _cleanupNarrativeArtifacts(txt) {
     return String(txt || '')
+        .replace(/\bDa\s+die\s+Fracht\s+([^.!?]{0,160}?)\s+erwartet\s+wird,\s*m(?:ue|ü)ssen\s+wir,\s*ohne\s+dabei\s+([^.!?]{1,180}?)\s+durch\s+([^.!?]{1,80}?)\s+zu\s+reizen/gi, 'Die Fracht $1 wird erwartet; dabei duerfen wir $2 nicht durch $3 reizen')
+        .replace(/\bDa\s+die\s+Empf(?:ae|ä)nger\s+([^.!?]{1,180}?)\s+(?:schon\s+)?sehns(?:ue|ü)chtig\s+auf\s+die\s+Teile\s+warten,\s*ist\s+der\s+Flug\s*,\s*aber\s+die\s+Fracht\b/gi, 'Die Empfaenger $1 warten bereits auf die Teile; die Fracht')
         .replace(/\bFokus:\s*/gi, '')
+        .replace(/\bzeitkritisch,\s*p(?:ue|ü)nktlich\s+ankommen[.!?]?/gi, '')
         .replace(/<\s*\/?\s*(INSTRUKTIONEN|KONTEXT|OUTPUT)\s*>/gi, '')
         .replace(/\b(OUTPUT-HYGIENE|KONSISTENZ-PFLICHT|PROFIL-FIX|OPERATIONS-REGEL)\b[^.?!]*/gi, '')
         .replace(/\bverlaesslicher\s+vereins-?\/?utility-?einsatz\s+ohne\s+themenmix\b[.!?]?/gi, '')
@@ -6768,6 +6771,21 @@ function _enforceProfileNarrativeContract(storyText, profileId, isPOI = false) {
     return _cleanupNarrativeArtifacts(s);
 }
 
+function _stripCoveredProfileCue(storyText, profile) {
+    const id = String(profile?.id || '').toLowerCase();
+    let s = String(storyText || '');
+    if (id === 'science_bio') {
+        const cueRe = /\s*Natur-\/Umweltbeobachtung\s+mit\s+klarer,\s+sachlicher\s+Einordnung[.!?]?/i;
+        if (cueRe.test(s)) {
+            const withoutCue = s.replace(cueRe, '').trim();
+            if (_storyAlreadyCoversProfileCue(withoutCue, profile)) {
+                s = withoutCue;
+            }
+        }
+    }
+    return _cleanupNarrativeArtifacts(s);
+}
+
 function _stripTimePressureText(txt) {
     return String(txt || '')
         .replace(/\b(h(?:oe|ö)chste\s+priorit(?:ae|ä)t)\s*:?\s*/gi, '')
@@ -6801,7 +6819,7 @@ function _finalizeMissionNarrative(mission, profile, isPOI = false) {
 
     if (urgency === 'hoch') {
         if (!_hasTimePressureText(title) && !_hasTimePressureText(story)) {
-            story = `${story}${story ? ' ' : ''}Der Auftrag ist zeitkritisch, wir sollten pünktlich ankommen.`.trim();
+            story = `${story}${story ? ' ' : ''}Zeitkritischer Auftrag: Pünktliches Eintreffen ist wichtig.`.trim();
             guard.timeHintAdded = true;
         }
     } else {
@@ -6830,6 +6848,7 @@ function _finalizeMissionNarrative(mission, profile, isPOI = false) {
 
     const beforeProfile = story;
     story = _enforceProfileNarrativeContract(story, String(profile?.id || ''), isPOI);
+    story = _stripCoveredProfileCue(story, profile);
     guard.profileContractApplied = guard.profileContractApplied || beforeProfile !== story;
     title = _cleanupNarrativeArtifacts(title);
     story = _cleanupNarrativeArtifacts(story);
@@ -6940,7 +6959,7 @@ function _storyAlreadyCoversProfileCue(story, profile) {
         case 'science_geo':
             return hasAny(/\bgeolog/, /\brelief\b/, /\berosion\b/, /\bhangstruktur\b/, /\bgeomorph/);
         case 'science_bio':
-            return hasAny(/\bnatur/, /\bumwelt/, /\bbiolog/, /\bhabitat/, /\barten/, /\bflora/, /\bfauna/);
+            return hasAny(/\bnatur/, /\bumwelt/, /\bbiolog/, /\bhabitat/, /\bflora/, /\bfauna/, /(?:oe|ö)kolog/, /vegetation/, /\bschilf/, /\bpflanzen/, /wissenschaft/, /\bgischt/, /\bgew(?:ae|ä)sser/);
         default:
             return false;
     }
@@ -11210,6 +11229,12 @@ async function _missionPipelineV3RunModel(model, source, usageKey, draft, contex
                 return { parsed, source, error: '', toolCalls, working };
             }
             lastError = 'empty_or_invalid_json';
+            contents.push({
+                role: 'user',
+                parts: [{
+                    text: 'Die vorige Antwort war kein gueltiges JSON-Objekt. Antworte jetzt ausschliesslich mit einem JSON-Objekt nach dem vorgegebenen Schema: status, needs, plan. Kein Markdown, kein Fliesstext.'
+                }]
+            });
         } catch (err) {
             lastError = err?.name === 'AbortError' ? `timeout_${model}` : (err?.message || String(err || 'unknown'));
         } finally {
@@ -13261,6 +13286,7 @@ async function generateMission() {
 
     const isPlanningOnlyMode = dispatchProfileId === 'freeflight_planning';
     let missionPlanV2 = null;
+    let missionPlanV3Attempt = null;
     const plannerContext = {
         start,
         dest,
@@ -13291,6 +13317,7 @@ async function generateMission() {
         indicator.innerText = `Pipeline V3: Kontext-Tools planen...`;
         try {
             missionPlanV2 = await fetchMissionPlannerV3(plannerContext);
+            missionPlanV3Attempt = missionPlanV2;
             _ensureDispatchAlive();
             absorbPlannerResolvedNeeds(missionPlanV2);
             if (!missionPlanV2 || missionPlanV2.status === 'invalid') {
@@ -13586,7 +13613,9 @@ async function generateMission() {
         targetGeoContext: preMissionTargetGeoContext || null,
         missionTruth: preMissionTruth || null,
         missionPlanV2: missionPlanV2 || null,
-        missionPlanV3: missionPlanV2?.pipelineVersion === MISSION_PIPELINE_V3_VERSION ? missionPlanV2 : null,
+        missionPlanV3: missionPlanV3Attempt?.pipelineVersion === MISSION_PIPELINE_V3_VERSION
+            ? missionPlanV3Attempt
+            : (missionPlanV2?.pipelineVersion === MISSION_PIPELINE_V3_VERSION ? missionPlanV2 : null),
         missionPipelineMode: getMissionPipelineMode(),
         targetScene: initialTargetScene,
         targetSceneDraftRaw: m?.targetScene || null,
