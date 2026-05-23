@@ -8964,6 +8964,14 @@ function normalizeMissionTargetSceneFeature(value) {
         service_vehicle: 'utility_truck',
         small_vehicle: 'road_vehicles',
         small_vehicles: 'road_vehicles',
+        emergency_vehicle: 'emergency_response',
+        emergency_vehicles: 'emergency_response',
+        rescue_vehicle: 'emergency_response',
+        rescue_vehicles: 'emergency_response',
+        einsatzfahrzeug: 'emergency_response',
+        einsatzfahrzeuge: 'emergency_response',
+        rettungsfahrzeug: 'emergency_response',
+        rettungsfahrzeuge: 'emergency_response',
         service_van: 'road_vehicles',
         research_van: 'road_vehicles',
         wissenschaftsfahrzeug: 'road_vehicles',
@@ -8986,6 +8994,16 @@ function normalizeMissionTargetSceneFeature(value) {
         persons: 'people',
         person: 'people',
         personnel: 'people',
+        staff: 'people',
+        rescue_personnel: 'people',
+        search_team: 'people',
+        search_party: 'people',
+        suchtrupp: 'people',
+        suchtrupps: 'people',
+        einsatzkraefte: 'people',
+        einsatzkräfte: 'people',
+        rettungskraefte: 'people',
+        rettungskräfte: 'people',
         field_personnel: 'people',
         ground_team: 'people',
         research_team: 'people',
@@ -9711,7 +9729,7 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
         ['generator', /generator|stromaggregat/],
         ['road_vehicles', /auto|autos|fahrzeug|fahrzeuge|van|transporter/],
         ['emergency_response', /rettung|polizei|feuerwehr|ambulanz|einsatz/],
-        ['missing_person', /vermisst|verloren|gesucht|wink|hilfezeichen|hilferuf/],
+        ['missing_person', /sichtkontakt|gesichtet|fundstelle|person am boden|verletzte person|wink|hilfezeichen|hilferuf/],
         ['people', /person|personen|crew|team|menschen/],
         ['cones', /kegel|absperr|marker|markierung/],
         ['debris', /debris|truemmer|trümmer|schutt|kisten|karton|ausruestung|ausrüstung/],
@@ -10068,7 +10086,8 @@ function missionTruthSceneVisibleCues(sceneSpec = null) {
     const add = (cue, re) => {
         if (re.test(text) && !cues.includes(cue)) cues.push(cue);
     };
-    add('Person am Boden', /(missing_person|people|person|ground_crew|crew)/);
+    add('Person am Boden', /(missing_person)/);
+    if (!/missing_person/.test(text)) add('Bodenpersonal', /(^|[^a-z])(people|person|ground_crew|crew)([^a-z]|$)/);
     add('Fahrzeug am Boden', /(vehicle|truck|bus|van|car|emergency_response|utility_truck)/);
     add('Boot auf dem Wasser', /(watercraft|boat|ship|raft|liferaft)/);
     add('Windenergieanlage', /(wind_turbine|windrad|windpark)/);

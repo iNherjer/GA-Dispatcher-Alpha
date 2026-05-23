@@ -490,6 +490,8 @@ function _missionSceneDebugSummarizeItems(items = []) {
         rightM: Number.isFinite(Number(item?.rightM)) ? Number(item.rightM) : null,
         hdgOffsetDeg: Number.isFinite(Number(item?.hdgOffsetDeg)) ? Number(item.hdgOffsetDeg) : 0,
         altOffsetFt: Number.isFinite(Number(item?.altOffsetFt)) ? Number(item.altOffsetFt) : 0,
+        placement: item?.placement || null,
+        geoAnchor: item?.geoAnchor || null,
         worldAvoidance: item?.worldAvoidance || null
     }));
 }
@@ -547,7 +549,9 @@ function _missionSceneDebugMapPoints(command = {}, payload = null) {
                 title: item?.objectTitle || item?.title || '',
                 altFt: Number.isFinite(originAltFt) ? originAltFt + (Number(item?.altOffsetFt) || 0) : null,
                 forwardM: item?.forwardM,
-                rightM: item?.rightM
+                rightM: item?.rightM,
+                placement: item?.placement || null,
+                geoAnchor: item?.geoAnchor || null
             });
         });
     }
@@ -2405,6 +2409,19 @@ function _missionTargetGeoOffset(names, fallbackF, fallbackR, options = {}) {
     };
 }
 
+function _missionTargetGeoAnchorDebug(pos = null, requested = []) {
+    if (!pos || !pos.anchored || !pos.anchor) return null;
+    const anchor = pos.anchor || {};
+    return {
+        requested: (Array.isArray(requested) ? requested : [requested]).map(v => String(v || '')).filter(Boolean).slice(0, 5),
+        tag: String(anchor.tag || ''),
+        name: String(anchor.name || '').slice(0, 80),
+        distM: Number.isFinite(Number(anchor.distM)) ? Math.round(Number(anchor.distM)) : null,
+        bearingDeg: Number.isFinite(Number(anchor.bearingDeg)) ? Math.round(Number(anchor.bearingDeg)) : null,
+        count: Number.isFinite(Number(anchor.count)) ? Math.round(Number(anchor.count)) : null
+    };
+}
+
 function _missionTargetGeoPointInPolygon(lat, lon, polygon = []) {
     const y = Number(lat);
     const x = Number(lon);
@@ -2883,6 +2900,8 @@ function _missionTargetSceneItem(kind, label, title, pool, forwardM, rightM, opt
         headingMode: 'with_aircraft',
         hdgOffsetDeg: Number.isFinite(Number(options.hdgOffsetDeg)) ? Number(options.hdgOffsetDeg) : 0,
         altOffsetFt: Number.isFinite(Number(options.altOffsetFt)) ? Number(options.altOffsetFt) : 0,
+        placement: options.placement ? String(options.placement).slice(0, 80) : undefined,
+        geoAnchor: options.geoAnchor || undefined,
         worldAvoidance: resolved.adjusted ? { adjusted: true, zone: resolved.zone || null } : undefined
     };
 }
@@ -2922,6 +2941,14 @@ function _missionTargetSceneNormalizeFeature(value) {
         cars: 'road_vehicles',
         vehicles: 'road_vehicles',
         traffic: 'road_vehicles',
+        emergency_vehicle: 'emergency_response',
+        emergency_vehicles: 'emergency_response',
+        rescue_vehicle: 'emergency_response',
+        rescue_vehicles: 'emergency_response',
+        einsatzfahrzeug: 'emergency_response',
+        einsatzfahrzeuge: 'emergency_response',
+        rettungsfahrzeug: 'emergency_response',
+        rettungsfahrzeuge: 'emergency_response',
         emergency: 'emergency_response',
         medic: 'emergency_response',
         ambulance: 'emergency_response',
@@ -2936,6 +2963,19 @@ function _missionTargetSceneNormalizeFeature(value) {
         crew: 'people',
         persons: 'people',
         person: 'people',
+        personnel: 'people',
+        staff: 'people',
+        rescue_personnel: 'people',
+        search_team: 'people',
+        search_party: 'people',
+        ground_team: 'people',
+        field_personnel: 'people',
+        suchtrupp: 'people',
+        suchtrupps: 'people',
+        einsatzkraefte: 'people',
+        einsatzkräfte: 'people',
+        rettungskraefte: 'people',
+        rettungskräfte: 'people',
         marker: 'cones',
         cone: 'cones',
         rubble: 'debris',
@@ -3087,7 +3127,7 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
     if (/(bagger|bulldozer|dozer|erdarbeiten)/.test(text)) add('earthmoving');
     if (/(truemmer|trümmer|debris|wrackteile|streugut)/.test(text)) add('debris');
     if (/(treibholz|baumstamm|log|logs)/.test(text)) add('logs');
-    if (kind === 'sar_land' && /(vermisst|vermisste|gesucht|suchziel|wink|winkt|hilferuf|hilfezeichen)/.test(text)) add('missing_person');
+    if (kind === 'sar_land' && /(sichtkontakt|gesichtet|fundstelle|person am boden|verletzte person|wink|winkt|hilferuf|hilfezeichen)/.test(text)) add('missing_person');
     if (/(rauchsignal|signalrauch|farbiger rauch|signalfackel|signal smoke)/.test(text)) add('signal_smoke');
     else if (/(rauch|smoke|abluft)/.test(text) && kind !== 'fire_watch') add('smoke_light');
     if (/(rettungsinsel|liferaft)/.test(text)) add('liferaft');
@@ -3280,18 +3320,33 @@ function _missionTargetSceneItems(kind) {
             } else if (feature === 'road_vehicles') {
                 const car = _scenePickTitle(carPool, `feature-car-${i}`, 'Microsoft_Car_EUR_01');
                 const fallback = kind === 'sar_land' ? { f: -86 - step, r: 36 + step, hdg: 35 } : { f: -20 - step, r: -1 + step, hdg: i % 2 ? 190 : 15 };
-                const pos = _missionTargetGeoOffset(['parking', 'road', 'path'], fallback.f, fallback.r, { minM: kind === 'sar_land' ? 70 : 20, maxM: kind === 'sar_land' ? 180 : 120, lateralM: i * 8, hdgOffsetDeg: fallback.hdg });
-                add(`feature_vehicle_${i + 1}`, kind === 'sar_land' ? 'Suchfahrzeug im Perimeter' : 'Zusatz Fahrzeug', car, carPool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
+                const anchorNames = ['parking', 'road', 'path'];
+                const pos = _missionTargetGeoOffset(anchorNames, fallback.f, fallback.r, { minM: kind === 'sar_land' ? 70 : 20, maxM: kind === 'sar_land' ? 950 : 120, lateralM: i * 8, hdgOffsetDeg: fallback.hdg });
+                add(`feature_vehicle_${i + 1}`, kind === 'sar_land' ? 'Suchfahrzeug im Perimeter' : 'Zusatz Fahrzeug', car, carPool, pos.f, pos.r, {
+                    hdgOffsetDeg: pos.hdg,
+                    placement: kind === 'sar_land' ? 'road/perimeter support' : 'context vehicle',
+                    geoAnchor: _missionTargetGeoAnchorDebug(pos, anchorNames)
+                });
             } else if (feature === 'emergency_response') {
                 const support = _scenePickTitle(primarySupportVehiclePool, `feature-emergency-${i}`, 'Car Bush Medic');
                 const fallback = kind === 'sar_land' ? { f: -95 - step, r: 42 + step, hdg: 35 } : { f: -18 - step, r: 12 + step, hdg: 210 };
-                const pos = _missionTargetGeoOffset(['parking', 'road', 'path'], fallback.f, fallback.r, { minM: kind === 'sar_land' ? 75 : 20, maxM: kind === 'sar_land' ? 190 : 120, lateralM: i * 9, hdgOffsetDeg: fallback.hdg });
-                add(`feature_emergency_${i + 1}`, kind === 'sar_land' ? 'Einsatzfahrzeug im Suchperimeter' : 'Zusatz Einsatzfahrzeug', support, supportVehiclePool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
+                const anchorNames = ['parking', 'road', 'path'];
+                const pos = _missionTargetGeoOffset(anchorNames, fallback.f, fallback.r, { minM: kind === 'sar_land' ? 75 : 20, maxM: kind === 'sar_land' ? 950 : 120, lateralM: i * 9, hdgOffsetDeg: fallback.hdg });
+                add(`feature_emergency_${i + 1}`, kind === 'sar_land' ? 'Einsatzfahrzeug im Suchperimeter' : 'Zusatz Einsatzfahrzeug', support, supportVehiclePool, pos.f, pos.r, {
+                    hdgOffsetDeg: pos.hdg,
+                    placement: kind === 'sar_land' ? 'road/perimeter support' : 'emergency response',
+                    geoAnchor: _missionTargetGeoAnchorDebug(pos, anchorNames)
+                });
             } else if (feature === 'people') {
                 const person = i % 2 ? personB : personA;
                 const fallback = kind === 'sar_land' ? { f: -72 - step, r: 30 + step, hdg: 35 } : { f: 4 + step, r: 9 + step, hdg: 210 };
-                const pos = _missionTargetGeoOffset(['path', 'road', 'parking'], fallback.f, fallback.r, { minM: kind === 'sar_land' ? 55 : 12, maxM: kind === 'sar_land' ? 160 : 95, lateralM: i * 6, hdgOffsetDeg: fallback.hdg });
-                add(`feature_person_${i + 1}`, kind === 'sar_land' ? 'Suchtrupp im Zielgebiet' : 'Zusatz Person', person, peoplePool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
+                const anchorNames = ['path', 'road', 'parking'];
+                const pos = _missionTargetGeoOffset(anchorNames, fallback.f, fallback.r, { minM: kind === 'sar_land' ? 55 : 12, maxM: kind === 'sar_land' ? 900 : 95, lateralM: i * 6, hdgOffsetDeg: fallback.hdg });
+                add(`feature_person_${i + 1}`, kind === 'sar_land' ? 'Suchtrupp / Einsatzkraft' : 'Zusatz Person', person, peoplePool, pos.f, pos.r, {
+                    hdgOffsetDeg: pos.hdg,
+                    placement: kind === 'sar_land' ? 'road/path support' : 'context person',
+                    geoAnchor: _missionTargetGeoAnchorDebug(pos, anchorNames)
+                });
             } else if (feature === 'missing_person') {
                 const person = i % 2 ? personB : personA;
                 add(`feature_missing_person_${i + 1}`, 'Vermisste / winkende Person', person, peoplePool, 0 + (i * 3), -2 + (i * 2), { hdgOffsetDeg: 180 });
@@ -3338,8 +3393,13 @@ function _missionTargetSceneItems(kind) {
             } else if (feature === 'parked_vehicle') {
                 const car = _scenePickTitle(carPool, `feature-shore-car-${i}`, 'Microsoft_Car_EUR_02');
                 const fallback = kind === 'sar_land' ? { f: -78 - step, r: 34 + step, hdg: 35 } : { f: -22 - step, r: 11 + step, hdg: 205 };
-                const pos = _missionTargetGeoOffset(['parking', 'road', 'path'], fallback.f, fallback.r, { minM: kind === 'sar_land' ? 55 : 18, maxM: kind === 'sar_land' ? 170 : 115, lateralM: i * 7, hdgOffsetDeg: fallback.hdg });
-                add(`feature_shore_vehicle_${i + 1}`, kind === 'sar_land' ? 'Abgestelltes Fahrzeug abseits Fundpunkt' : 'Zusatz parkendes Auto', car, carPool, pos.f, pos.r, { hdgOffsetDeg: pos.hdg });
+                const anchorNames = ['parking', 'road', 'path'];
+                const pos = _missionTargetGeoOffset(anchorNames, fallback.f, fallback.r, { minM: kind === 'sar_land' ? 55 : 18, maxM: kind === 'sar_land' ? 900 : 115, lateralM: i * 7, hdgOffsetDeg: fallback.hdg });
+                add(`feature_shore_vehicle_${i + 1}`, kind === 'sar_land' ? 'Abgestelltes Fahrzeug abseits Fundpunkt' : 'Zusatz parkendes Auto', car, carPool, pos.f, pos.r, {
+                    hdgOffsetDeg: pos.hdg,
+                    placement: kind === 'sar_land' ? 'road/perimeter support' : 'parked vehicle',
+                    geoAnchor: _missionTargetGeoAnchorDebug(pos, anchorNames)
+                });
             } else if (feature === 'small_equipment') {
                 const kit = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smallCargo, `feature-equipment-${i}`, 'Cardboard');
                 const fallback = kind === 'sar_land' ? { f: 8 + step, r: -6 - step, hdg: 10 } : { f: -11 - step, r: 14 + step, hdg: 10 };
@@ -3529,8 +3589,26 @@ function _missionTargetSceneItems(kind) {
     }
 
     if (kind === 'sar_land') {
-        const targetPerson = _scenePickTitle([personA, personB].filter(Boolean), 'sar-land-missing-person', personA || personB);
-        add('missing_person', 'Vermisste / winkende Person', targetPerson, peoplePool, 0, 0, { hdgOffsetDeg: 180 });
+        const requestedFeatures = _missionTargetSceneRequestedFeatures(kind);
+        const wantsMissingPerson = requestedFeatures.includes('missing_person');
+        const hasSupportObjects = requestedFeatures.some(feature => ['emergency_response', 'people', 'road_vehicles', 'parked_vehicle'].includes(feature));
+        if (wantsMissingPerson || !hasSupportObjects) {
+            if (wantsMissingPerson) {
+                const targetPerson = _scenePickTitle([personA, personB].filter(Boolean), 'sar-land-missing-person', personA || personB);
+                add('missing_person', 'Vermisste / winkende Person', targetPerson, peoplePool, 0, 0, {
+                    hdgOffsetDeg: 180,
+                    placement: 'search target'
+                });
+            } else {
+                const kit = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smallCargo, 'sar-land-clue-equipment', 'Cardboard');
+                const cluePos = _missionTargetGeoOffset(['path', 'forest', 'meadow'], 8, -6, { minM: 10, maxM: 120, hdgOffsetDeg: 15 });
+                add('search_clue_equipment', 'Hinweis / kleine Ausruestung', kit, MISSION_SCENE_ASSET_POOLS.smallCargo, cluePos.f, cluePos.r, {
+                    hdgOffsetDeg: cluePos.hdg,
+                    placement: 'search clue near target',
+                    geoAnchor: _missionTargetGeoAnchorDebug(cluePos, ['path', 'forest', 'meadow'])
+                });
+            }
+        }
         return finish();
     }
 

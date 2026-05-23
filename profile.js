@@ -3740,6 +3740,15 @@ window.vpBuildWeatherDebugReport = function() {
             if (Number.isFinite(Number(geoCtx.confidence))) geoBits.push(`conf=${Number(geoCtx.confidence).toFixed(2)}`);
             if (Array.isArray(geoCtx.visualLandmarks) && geoCtx.visualLandmarks.length) geoBits.push(`landmarks=${geoCtx.visualLandmarks.slice(0, 4).map(x => x?.name || x?.kind || x).join(',')}`);
             if (geoBits.length) lines.push(`- TargetGeoContext: ${geoBits.join(' | ')}`);
+            if (geoCtx.anchors && typeof geoCtx.anchors === 'object') {
+                const anchorSummary = Object.entries(geoCtx.anchors)
+                    .filter(([, a]) => a?.present)
+                    .sort((a, b) => Number(a[1]?.distM || 999999) - Number(b[1]?.distM || 999999))
+                    .slice(0, 8)
+                    .map(([k, a]) => `${k}:${Math.round(Number(a.distM) || 0)}m/${Math.round(Number(a.bearingDeg) || 0)}deg${a.name ? `:${flattenText(a.name, 34)}` : ''}`)
+                    .join(' | ');
+                if (anchorSummary) lines.push(`- TargetGeoContext Anchors: ${anchorSummary}`);
+            }
         }
         if (missionSnap.narrativeGuard) lines.push(`- Narrative Guard: ${flattenText(JSON.stringify(missionSnap.narrativeGuard), 420)}`);
     }
@@ -3751,6 +3760,7 @@ window.vpBuildWeatherDebugReport = function() {
     const aiNormalized = sceneDbg.aiNormalized || missionSceneDbg.aiNormalized || null;
     const contractTargetScene = sceneDbg.contractTargetScene || missionSceneDbg.contractTargetScene || missionSnap?.targetScene || null;
     const sceneTruth = sceneDbg.missionTruth || missionSnap?.missionTruth || missionSnap?.contract?.missionTruth || null;
+    const sceneComposer = sceneDbg.sceneComposer || missionSnap?.targetSceneComposerDebug || null;
     const targetCommandHasMapPoints = Array.isArray(sceneDbg.lastTargetSceneCommand?.mapPoints) && sceneDbg.lastTargetSceneCommand.mapPoints.length > 0;
     const targetPreview = (!targetCommandHasMapPoints && typeof window.missionTargetSceneDebugPreview === 'function')
         ? window.missionTargetSceneDebugPreview('debug-report-preview')
@@ -3773,6 +3783,15 @@ window.vpBuildWeatherDebugReport = function() {
     const lastEndCommand = sceneDbg.lastEndSceneCommand || null;
     const lastSmokeCommand = sceneDbg.lastSmokeCommand || null;
     const lastAck = sceneDbg.lastAck || window.missionAptArrivalSceneStatus?.lastAck || window.missionTargetSceneStatus?.lastAck || window.missionSceneStatus?.lastAck || null;
+    const sceneAccepted = sceneDbg.sceneAccepted ?? missionSnap?.sceneAccepted ?? null;
+    const sceneStatus = sceneDbg.sceneCompositionStatus || missionSnap?.sceneCompositionStatus || '-';
+    lines.push(`- Plan/Sim Status: accepted=${sceneAccepted === null ? '-' : (sceneAccepted ? 'ja' : 'nein')} | composition=${sceneStatus} | targetCommand=${lastTargetCommand ? 'ja' : 'nein'} | ack=${lastAck ? 'ja' : 'nein'}${!lastTargetCommand ? ' | Modus=Plan/Preview' : ''}`);
+    if (sceneComposer && typeof sceneComposer === 'object') {
+        const toolNames = Array.isArray(sceneComposer.toolCalls) ? sceneComposer.toolCalls.map(c => c.name || '?').slice(0, 5).join(',') : '-';
+        lines.push(`- Scene Composer: ${sceneComposer.source || '-'} | prompt=${sceneComposer.promptVersion || '-'} | tools=${toolNames || '-'} | error=${sceneComposer.error || '-'}`);
+        if (Array.isArray(sceneComposer.localizationNotes) && sceneComposer.localizationNotes.length) lines.push(`- Scene Composer Lokalisierung: ${sceneComposer.localizationNotes.slice(0, 4).map(n => flattenText(n, 90)).join(' | ')}`);
+        if (Array.isArray(sceneComposer.validationNotes) && sceneComposer.validationNotes.length) lines.push(`- Scene Composer Validierung: ${sceneComposer.validationNotes.slice(0, 4).map(n => flattenText(n, 90)).join(' | ')}`);
+    }
     const fmtSceneSpec = (label, spec) => {
         if (!spec || typeof spec !== 'object') {
             lines.push(`- ${label}: -`);
@@ -3781,10 +3800,27 @@ window.vpBuildWeatherDebugReport = function() {
         const roles = Array.isArray(spec.roles) ? spec.roles.join(',') : '-';
         const features = Array.isArray(spec.features) ? spec.features.join(',') : '-';
         const req = Array.isArray(spec.requirements)
-            ? spec.requirements.map(r => `${r.feature || '?'}x${r.count || 1}`).join(',')
+            ? spec.requirements.map(r => {
+                const place = r.placement ? `@${String(r.placement).replace(/\s+/g, ' ').slice(0, 34)}` : '';
+                const arr = r.arrangement ? `/${r.arrangement}` : '';
+                const off = Number.isFinite(Number(r.forwardM)) && Number.isFinite(Number(r.rightM)) ? `[f${Math.round(Number(r.forwardM))},r${Math.round(Number(r.rightM))}]` : '';
+                return `${r.feature || '?'}x${r.count || 1}${arr}${place}${off}`;
+            }).join(',')
             : '-';
         const notes = spec.notes ? ` | notes=${String(spec.notes).replace(/\s+/g, ' ').slice(0, 120)}` : '';
         lines.push(`- ${label}: kind=${spec.kind || spec.type || '?'} | preset=${spec.preset || '-'} | density=${spec.density || '-'} | layout=${spec.layout || '-'} | features=${features} | req=${req} | roles=${roles}${notes}`);
+    };
+    const fmtItem = (it) => {
+        const off = Number.isFinite(Number(it.forwardM)) && Number.isFinite(Number(it.rightM))
+            ? ` f=${Math.round(Number(it.forwardM))} r=${Math.round(Number(it.rightM))}`
+            : '';
+        const anchor = it.geoAnchor
+            ? ` anchor=${it.geoAnchor.tag || '-'}:${it.geoAnchor.name || '-'} ${it.geoAnchor.distM ?? '-'}m/${it.geoAnchor.bearingDeg ?? '-'}deg`
+            : '';
+        const avoid = it.worldAvoidance?.adjusted ? ` adjusted=${it.worldAvoidance.zone || 'yes'}` : '';
+        const placement = it.placement ? ` place=${it.placement}` : '';
+        const candidates = Array.isArray(it.candidates) && it.candidates.length ? ` candidates=${it.candidates.slice(0, 3).join('/')}` : '';
+        return `${it.n || '?'}:${it.kind || '?'} "${it.label || ''}" title="${it.title || '-'}"${off}${placement}${anchor}${avoid}${candidates}`;
     };
     const fmtCommand = (label, cmd) => {
         if (!cmd || typeof cmd !== 'object') {
@@ -3795,14 +3831,15 @@ window.vpBuildWeatherDebugReport = function() {
             ? `${Number(cmd.lat).toFixed(5)}, ${Number(cmd.lon).toFixed(5)}`
             : '-';
         const itemSummary = Array.isArray(cmd.items)
-            ? cmd.items.slice(0, 10).map(it => `${it.kind || '?'}="${it.title || it.objectTitle || '?'}"`).join(' | ')
+            ? cmd.items.slice(0, 10).map(fmtItem).join(' | ')
             : '';
         const pointSummary = Array.isArray(cmd.mapPoints)
             ? cmd.mapPoints.slice(0, 10).map(pt => {
                 const pos = (Number.isFinite(Number(pt.lat)) && Number.isFinite(Number(pt.lon)))
                     ? `${Number(pt.lat).toFixed(5)},${Number(pt.lon).toFixed(5)}`
                     : '-';
-                return `${pt.label || pt.kind || '?'}@${pos}`;
+                const off = Number.isFinite(Number(pt.forwardM)) && Number.isFinite(Number(pt.rightM)) ? `[f${Math.round(Number(pt.forwardM))},r${Math.round(Number(pt.rightM))}]` : '';
+                return `${pt.label || pt.kind || '?'}@${pos}${off}`;
             }).join(' | ')
             : '';
         lines.push(`- ${label}: ${cmd.type || '?'} id=${cmd.commandId || '-'} reason=${cmd.reason || '-'} scene=${cmd.sceneId || '-'} kind=${cmd.targetSceneKind || '-'} pos=${pos} alt=${Number.isFinite(Number(cmd.altFt)) ? Math.round(Number(cmd.altFt)) : '-'} hdg=${Number.isFinite(Number(cmd.hdg)) ? Math.round(Number(cmd.hdg)) : '-'}`);
@@ -3838,6 +3875,9 @@ window.vpBuildWeatherDebugReport = function() {
             ? `${Number(point.lat).toFixed(5)}, ${Number(point.lon).toFixed(5)} alt=${Math.round(Number(point.altFt || 0))}ft`
             : '-';
         lines.push(`- App resolved: kind=${appResolved.resolvedKind || '-'} | scene=${appResolved.sceneId || '-'} | point=${pointText} | items=${appResolved.itemCount || 0}`);
+        if (Array.isArray(appResolved.items) && appResolved.items.length) {
+            lines.push(`  resolvedItems=${appResolved.items.slice(0, 10).map(fmtItem).join(' | ')}`);
+        }
     } else {
         lines.push('- App resolved: -');
     }
