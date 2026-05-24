@@ -2333,10 +2333,47 @@ function _paxVisualLandmarksLine() {
     return `BESTAETIGTE VISUELLE REFERENZEN (max ${maxDistM}m): ${items}. Nutze pro Ansage hoechstens eine davon und bevorzuge eine noch nicht genannte Referenz. Nicht erfinden, nicht als Hauptthema ausbauen.`;
 }
 
-function _paxApproachLandmarkCueLine() {
-    if (!_isPOIMission()) return '';
+function _paxApproachLandmarkPolicy() {
+    if (!_isPOIMission() || _activeAptTrainingPlan()) return null;
     const task = _activeTaskDomain();
-    const maxDistM = /^(poi_learning_guide|sightseeing_tour|historian_guided_tour)$/.test(task) ? 750 : 500;
+    const expertTargets = new Set([
+        'inspection_infra',
+        'mapping_survey',
+        'science_bio',
+        'science_geo',
+        'fire_watch',
+        'search_and_rescue',
+        'media_photo',
+        'news_coverage'
+    ]);
+    const observerTargets = new Set([
+        'poi_learning_guide',
+        'sightseeing_tour',
+        'historian_guided_tour'
+    ]);
+    if (expertTargets.has(task)) {
+        return {
+            mode: 'expert',
+            maxDistM: 500,
+            prefix: '4-NM-ZIELABGLEICH',
+            instruction: 'Nutze die Referenz zur fachlichen Ziel-Identifikation. Wenn mehrere aehnliche Objekte sichtbar sein koennen, beschreibe knapp, welches davon das gesuchte Ziel ist. Keine Steuer-, Kurs-, Hoehen- oder Manöveranweisung geben.'
+        };
+    }
+    if (observerTargets.has(task)) {
+        return {
+            mode: 'observer',
+            maxDistM: task === 'poi_learning_guide' ? 750 : 500,
+            prefix: '4-NM-ORIENTIERUNG',
+            instruction: 'Nutze die Referenz nur als beobachtende Lagebeschreibung fuer den Piloten. Keine Flugmanöver, keine Kurs-/Hoehenvorgaben, keine Instruktor- oder Einsatzsprache.'
+        };
+    }
+    return null;
+}
+
+function _paxApproachLandmarkCueLine() {
+    const policy = _paxApproachLandmarkPolicy();
+    if (!policy) return '';
+    const maxDistM = policy.maxDistM;
     const priority = {
         railway: 1,
         peak: 2,
@@ -2369,7 +2406,7 @@ function _paxApproachLandmarkCueLine() {
         const dist = Number.isFinite(Number(lm.distM)) ? `etwa ${Math.round(Number(lm.distM))} Meter` : 'in Zielnaehe';
         const rel = lm.relFromTarget ? `${lm.relFromTarget} vom POI` : 'vom POI aus sichtbar';
         const inverse = lm.targetFromLandmark ? `der POI liegt ${lm.targetFromLandmark} davon` : 'nutze sie als Bezug zum POI';
-        return `4-NM-LANDMARK-CALL: Nutze genau diese bestaetigte Referenz zur Positionsansage: ${name}, ${dist} ${rel}; ${inverse}. Sage dem Piloten damit klar, wo sich der POI befindet. Danach hoechstens ein kurzer Zusatzfakt, keine zweite Landmarke.`;
+        return `${policy.prefix}: Bestaetigte Referenz: ${name}, ${dist} ${rel}; ${inverse}. ${policy.instruction} Danach hoechstens ein kurzer Zusatzfakt, keine zweite Landmarke.`;
     }
 
     const anchors = _paxTargetGeoContext()?.anchors || {};
@@ -2392,7 +2429,7 @@ function _paxApproachLandmarkCueLine() {
         const fullLabel = name && !/^(road|path|water|forest|terrain|railway|power)$/i.test(name) ? `${label} ${name}` : label;
         const rel = _paxCardinalGerman(bearing);
         const inverse = _paxCardinalGerman(bearing + 180);
-        return `4-NM-LANDMARK-CALL: Nutze diese bestaetigte Referenz zur Positionsansage: ${fullLabel} ${verb} etwa ${Math.round(dist)} Meter ${rel} vom POI; der POI liegt ${inverse} davon. Danach hoechstens ein kurzer Zusatzfakt, keine zweite Landmarke.`;
+        return `${policy.prefix}: Bestaetigte Referenz: ${fullLabel} ${verb} etwa ${Math.round(dist)} Meter ${rel} vom POI; der POI liegt ${inverse} davon. ${policy.instruction} Danach hoechstens ein kurzer Zusatzfakt, keine zweite Landmarke.`;
     }
     return '';
 }
@@ -2874,7 +2911,11 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
             ? 'Lern-Guide: bildend und klar, ohne Anweisungsstil oder Einsatzsprache. Max 2 Saetze.'
             : (isHistorian
                 ? 'Historiker-Rolle: bildungsorientiert und anschaulich, kein Technik-/Inspektionston. Max 2 Saetze.'
-                : 'Techniker-/Inspektionsrollen: knapp, professionell, kein Sightseeing-Ton. Max 2 Sätze.'));
+                : (taskDomain === 'sightseeing_tour'
+                    ? 'Sightseeing-Rolle: freundlich und beobachtend, keine Flug- oder Manöveranweisungen. Max 2 Saetze.'
+                    : (/^(inspection_infra|mapping_survey|science_bio|science_geo|fire_watch|media_photo|news_coverage)$/.test(taskDomain)
+                        ? 'Fachrolle: knapp, professionell, zielbezogen, keine Steuer- oder Manöveranweisungen. Max 2 Sätze.'
+                        : 'Rolle: kurz, glaubwuerdig und beobachtend, keine Flug- oder Manöveranweisungen. Max 2 Sätze.'))));
     return `${ctx}
 
 Moment: Zielobjekt "${md.poiName || 'Ziel'}" wird im Anflug sichtbar. Distanz etwa ${roundedDist} NM, reale ETA ca. ${realEta} min, relative Lage ${clockPos}.
