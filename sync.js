@@ -38,6 +38,7 @@ const PLANE_ICON_MIN_SIZE = 20;
 const PLANE_ICON_MAX_SIZE = 100;
 const MISSION_AUTO_START_KEY = 'ga_mission_auto_start_enabled';
 const BOARDING_MARKER_STORAGE_KEY = 'ga_boarding_marker_enabled';
+const MISSION_SCENE_ID_REGISTRY_KEY = 'ga_mission_scene_ids';
 const BOARDING_MARKER_TITLE = 'Cone_Medium';
 const BOARDING_CARGO_FALLBACK_TITLE = 'CoffeeCup';
 const MISSION_SCENE_ASSET_CATALOG = (window.MISSION_SCENE_ASSETS && window.MISSION_SCENE_ASSETS.roles) || {};
@@ -286,6 +287,38 @@ window.isBoardingMarkerEnabled = isBoardingMarkerEnabled;
 
 function _boardingMarkerSceneId() {
     return `${_missionSceneId()}-boarding-markers`;
+}
+
+function _readMissionSceneIdRegistry() {
+    try {
+        const raw = JSON.parse(localStorage.getItem(MISSION_SCENE_ID_REGISTRY_KEY) || '[]');
+        if (!Array.isArray(raw)) return [];
+        return raw.map(id => String(id || '').trim()).filter(Boolean);
+    } catch (_) {
+        return [];
+    }
+}
+
+function _writeMissionSceneIdRegistry(ids = []) {
+    try {
+        const clean = [...new Set(ids.map(id => String(id || '').trim()).filter(Boolean))].slice(-80);
+        localStorage.setItem(MISSION_SCENE_ID_REGISTRY_KEY, JSON.stringify(clean));
+    } catch (_) {}
+}
+
+function _rememberMissionSceneId(sceneId) {
+    const id = String(sceneId || '').trim();
+    if (!id) return;
+    const ids = _readMissionSceneIdRegistry();
+    ids.push(id);
+    _writeMissionSceneIdRegistry(ids);
+}
+
+function _knownMissionSceneIds(...extraIds) {
+    return [...new Set([
+        ..._readMissionSceneIdRegistry(),
+        ...extraIds
+    ].map(id => String(id || '').trim()).filter(Boolean))];
 }
 
 function _refreshBoardingMarkerToggle() {
@@ -1297,6 +1330,9 @@ window.sendTrackerCommand = function(command = {}) {
         payload.alt = Math.round(Number.isFinite(alt) ? alt : 0);
         payload.hdg = Math.round(Number.isFinite(hdg) ? hdg : 0);
     }
+    if (/^mission_scene_(spawn|boarding|deboarding)$/i.test(String(command.type || '')) && command.sceneId) {
+        _rememberMissionSceneId(command.sceneId);
+    }
     ws.send(JSON.stringify(payload));
     if (/^mission_(scene|smoke)_/i.test(String(command.type || ''))) {
         const summary = _missionSceneDebugCommandSummary(command, commandId, payload);
@@ -2292,30 +2328,29 @@ window.missionSceneClear = function(reason = 'scene-debug-clear', sceneIdOverrid
 window.clearMissionSceneObjects = function(reason = 'mission-scene-reset') {
     const markerSceneId = _boardingMarkerSceneId();
     const targetSceneId = _missionTargetSceneId();
-    const ids = [...new Set([
-        window.missionSceneStatus?.sceneId,
-        _missionSceneId()
-    ].filter(Boolean).map(String))]
-        .filter(sceneId => sceneId !== markerSceneId && sceneId !== targetSceneId);
+    const aptArrivalSceneId = _missionAptArrivalSceneId();
     let sent = false;
+    sent = !!window.sendTrackerCommand({
+        type: 'mission_scene_clear_all',
+        reason
+    }) || sent;
+    const ids = _knownMissionSceneIds(
+        window.missionSceneStatus?.sceneId,
+        window.missionTargetSceneStatus?.sceneId,
+        window.missionAptArrivalSceneStatus?.sceneId,
+        _missionSceneId(),
+        markerSceneId,
+        targetSceneId,
+        aptArrivalSceneId
+    );
     ids.forEach(sceneId => {
-        if (typeof window.missionSceneClear === 'function') {
-            sent = window.missionSceneClear(reason, sceneId) || sent;
-        }
-    });
-    if (markerSceneId) {
         sent = !!window.sendTrackerCommand({
             type: 'mission_scene_clear',
-            sceneId: markerSceneId,
+            sceneId,
             reason
         }) || sent;
-    }
-    if (typeof window.missionTargetSceneClear === 'function') {
-        sent = window.missionTargetSceneClear(reason) || sent;
-    }
-    if (typeof window.missionAptArrivalClear === 'function') {
-        sent = window.missionAptArrivalClear(reason) || sent;
-    }
+    });
+    if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
     return sent;
 };
 
@@ -4627,6 +4662,7 @@ function _missionSceneFinishRuntimeAfterDeboard(reason = 'mission-end-after-fare
     missionRuntime.arrivalFlightRecord = null;
     _resetMissionStartFlowAfterEnd();
     _updateMissionRuntimeUi();
+    if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
     return endSceneStarted;
 }
 
@@ -4655,7 +4691,8 @@ window.missionSceneStartDeboardingAfterFarewell = function(reason = 'pax-farewel
     return _missionSceneFinishRuntimeAfterDeboard(reason);
 };
 
-window.missionRuntimeReset = function() {
+window.missionRuntimeReset = function(options = {}) {
+    const respawnAfterClear = options && options.respawnAfterClear === true;
     if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('mission-runtime-reset');
     if (typeof window.clearMissionSceneObjects === 'function') window.clearMissionSceneObjects('mission-runtime-reset');
     else if (typeof window.missionSceneClear === 'function') window.missionSceneClear('mission-runtime-reset');
@@ -4672,7 +4709,7 @@ window.missionRuntimeReset = function() {
         personBoarded: false,
         autoSpawnedFor: null,
         autoClearedFor: null,
-        respawnAfterClear: true
+        respawnAfterClear
     });
     Object.assign(window.missionTargetSceneStatus, {
         sceneId: null,
@@ -4701,12 +4738,14 @@ window.missionRuntimeReset = function() {
     });
     _resetMissionRuntime();
     resetFlightRecorder();
-    setTimeout(() => {
-        if (window.missionSceneStatus?.respawnAfterClear) {
-            window.missionSceneStatus.respawnAfterClear = false;
-            _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'mission-runtime-reset-fallback-respawn');
-        }
-    }, 2200);
+    if (respawnAfterClear) {
+        setTimeout(() => {
+            if (window.missionSceneStatus?.respawnAfterClear) {
+                window.missionSceneStatus.respawnAfterClear = false;
+                _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'mission-runtime-reset-fallback-respawn');
+            }
+        }, 2200);
+    }
 };
 
 window.startMissionBoarding = async function() {
@@ -4815,6 +4854,7 @@ window.manualMissionEnd = function() {
     if (shouldFinalize) finalizeFlightRecorder(Date.now(), pos?.lat ?? null, pos?.lon ?? null);
     else resetFlightRecorder();
     _updateMissionRuntimeUi();
+    if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
 };
 
 window.toggleManualMissionRuntime = function() {
@@ -7848,6 +7888,7 @@ function updateFlightRecorder(lat, lon, alt) {
                 missionRuntime.endReadinessKey = '';
                 _resetMissionStartFlowAfterEnd();
                 _updateMissionRuntimeUi();
+                if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
             }
         } else if (autoMissionStartEnabled) {
             missionRuntime.pendingEndAt = 0;

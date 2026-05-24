@@ -13941,6 +13941,8 @@ async function generateMission() {
     document.getElementById("briefingBox").style.display = "none";
 
     setMissionNoteFrontIndex(0);
+    if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
+    if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
 
     document.getElementById("mDepRwy").innerText = "Sucht Pisten-Infos..."; document.getElementById("mDepRwy").style.color = "#fff";
     document.getElementById("mDestRwy").innerText = "Sucht Pisten-Infos..."; document.getElementById("mDestRwy").style.color = "#fff";
@@ -14774,8 +14776,8 @@ async function generateMission() {
         console.debug('[MISSION SNAPSHOT]', missionDebugSnapshot);
         if (typeof window.vpRefreshWeatherDebugReport === 'function') window.vpRefreshWeatherDebugReport();
     } catch (_) {}
-    if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
     if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
+    if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
     const paxBriefingText = formatPaxBriefingText(paxText, window.activePassenger);
 
     document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;

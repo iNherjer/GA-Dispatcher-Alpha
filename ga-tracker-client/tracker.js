@@ -1485,6 +1485,20 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         });
         return true;
       }
+      if (type === 'mission_scene_clear_all') {
+        const commandId = command?.commandId || null;
+        const ids = [...scenes.keys()];
+        debugLog(`COMMAND mission_scene_clear_all scenes=${ids.length}`);
+        Promise.all(ids.map(id => clearScene(id, command?.reason || 'command-all', commandId)))
+          .then(results => {
+            const cleared = results.reduce((sum, item) => sum + Number(item?.cleared || 0), 0);
+            sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: 'all', status: ids.length ? 'ok' : 'noop', cleared, reason: command?.reason || 'command-all' });
+          })
+          .catch(err => {
+            sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: 'all', status: 'error', error: err?.message || String(err) });
+          });
+        return true;
+      }
       return false;
     },
     clearAll(reason = 'shutdown') {
