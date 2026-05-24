@@ -261,13 +261,12 @@ const MISSION_SCENE_ASSET_POOLS = {
 let boardingMarkerRefreshTimer = null;
 
 function isMissionAutoStartEnabled() {
-    return localStorage.getItem(MISSION_AUTO_START_KEY) === 'true';
+    return false;
 }
 
 function setMissionAutoStartEnabled(enabled) {
-    const next = !!enabled;
-    localStorage.setItem(MISSION_AUTO_START_KEY, next ? 'true' : 'false');
-    if (!next && !missionRuntime.active) {
+    localStorage.setItem(MISSION_AUTO_START_KEY, 'false');
+    if (!missionRuntime.active) {
         missionRuntime.armed = false;
         missionRuntime.readySince = 0;
     }
@@ -277,8 +276,9 @@ function setMissionAutoStartEnabled(enabled) {
 window.isMissionAutoStartEnabled = isMissionAutoStartEnabled;
 window.setMissionAutoStartEnabled = setMissionAutoStartEnabled;
 window.toggleMissionAutoStart = function() {
-    setMissionAutoStartEnabled(!isMissionAutoStartEnabled());
+    setMissionAutoStartEnabled(false);
 };
+try { localStorage.setItem(MISSION_AUTO_START_KEY, 'false'); } catch (_) {}
 
 function isBoardingMarkerEnabled() {
     return localStorage.getItem(BOARDING_MARKER_STORAGE_KEY) === 'true';
@@ -1062,6 +1062,7 @@ function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
     const status = window.missionSceneStatus || {};
     const gate = _missionSceneFlightGate(flightData);
     const hasScene = !!(status.spawned || status.spawnRequested);
+    const autoStageReason = /^(gps-tick|websocket-open)$/i.test(String(reason || ''));
     status.lastGate = gate;
     status.blockReason = '';
 
@@ -1074,6 +1075,10 @@ function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
 
     if (!_missionSceneAutoAllowed()) {
         status.blockReason = 'no_fire_mission';
+        return;
+    }
+    if (autoStageReason) {
+        status.blockReason = 'waiting_manual_boarding';
         return;
     }
     if (!gate.rawHasPosition) {

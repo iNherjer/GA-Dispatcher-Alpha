@@ -406,11 +406,11 @@
                 }
             },
             {
-                title: 'Mission Auto-Start/-Ende',
-                selector: '#missionAutoStartBtn',
+                title: 'Mission Start/Reset',
+                selector: '#missionResetBtn',
                 body: `
-                    <p>Wenn verbunden, können Missionen automatisch starten, sobald du losrollst.</p>
-                    <p>Nach der Landung werden Missionen automatisch beendet.</p>
+                    <p>Missionen bleiben vorbereitet, bis du Boarding und Missionsstart bewusst auslöst.</p>
+                    <p>Mit Mission Reset setzt du Szene, Boarding und Status zurück.</p>
                 `,
                 beforeEnter: () => {
                     ensurePinboardClosed();

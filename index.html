@@ -742,8 +742,7 @@
             <span id="missionRuntimeStatus" style="font-size:10px; color:#888;">Wartet auf Boden-Stabilisierung</span>
         </div>
         <div class="mission-control-row" style="display:flex; gap:8px; margin-bottom:8px;">
-            <button class="btn-preset mission-auto-start-btn" id="missionAutoStartBtn" style="flex:1; margin:0; height:36px;" onclick="window.toggleMissionAutoStart && toggleMissionAutoStart()">AUTO START: AN</button>
-            <button class="btn-preset mission-reset-btn" id="missionResetBtn" style="flex:1; margin:0; height:36px;" onclick="window.missionRuntimeReset && missionRuntimeReset()">MISSION RESET</button>
+            <button class="btn-preset mission-reset-btn" id="missionResetBtn" style="flex:1; margin:0; height:36px;" onclick="window.missionRuntimeReset && missionRuntimeReset({ respawnAfterClear: true })">MISSION RESET</button>
         </div>
         
         <div class="api-hint" id="loginHint">
