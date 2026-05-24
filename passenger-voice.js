@@ -473,6 +473,19 @@ function _normalizePaxTtsModelPref(mode) {
 let _paxTtsModelPref = _normalizePaxTtsModelPref(localStorage.getItem('awm_pax_tts_model') || 'auto');
 localStorage.setItem('awm_pax_tts_model', _paxTtsModelPref);
 
+function _normalizePaxAudioStyle(style) {
+    return ['clear', 'intercom', 'intercom_noise'].includes(style) ? style : 'intercom_noise';
+}
+
+function _paxAudioStyleLabel(style = _paxAudioStyle) {
+    if (style === 'clear') return 'Version 1 - Klar';
+    if (style === 'intercom') return 'Version 2 - Intercom ohne Rauschen';
+    return 'Version 3 - Intercom mit Rauschen';
+}
+
+let _paxAudioStyle = _normalizePaxAudioStyle(localStorage.getItem('awm_pax_audio_style') || 'intercom_noise');
+localStorage.setItem('awm_pax_audio_style', _paxAudioStyle);
+
 window.paxVoiceSetMode = function(strict) {
     _paxStrictMode = !!strict;
     localStorage.setItem('awm_pax_strict', strict ? '1' : '0');
@@ -495,6 +508,15 @@ window.paxVoiceSetTtsModel = function(mode) {
     const el = document.getElementById('awmPaxTtsModelSelect');
     if (el) el.value = next;
     _paxLog(`TTS-Modus gesetzt: ${next}`, 'state');
+};
+
+window.paxVoiceSetAudioStyle = function(style) {
+    const next = _normalizePaxAudioStyle(style);
+    _paxAudioStyle = next;
+    localStorage.setItem('awm_pax_audio_style', next);
+    const el = document.getElementById('awmPaxAudioStyleSelect');
+    if (el) el.value = next;
+    _paxLog(`Audio-Stil gesetzt: ${_paxAudioStyleLabel(next)}`, 'state');
 };
 
 // ─── INIT ─── called at bottom of file after all defs ───────────────────────
@@ -2162,7 +2184,8 @@ function _pcmToWav(pcmBuffer, sampleRate, numChannels, bitDepth) {
     return wav;
 }
 
-function _buildIntercomChain(ctx, destination, durationSec) {
+function _buildIntercomChain(ctx, destination, durationSec, options = {}) {
+    const withNoise = options.noise !== false;
     // Bandpass: 300 Hz – 3 400 Hz (telephone/intercom range)
     const hp = ctx.createBiquadFilter();
     hp.type = 'highpass'; hp.frequency.value = 300; hp.Q.value = 0.7;
@@ -2185,6 +2208,10 @@ function _buildIntercomChain(ctx, destination, durationSec) {
     comp.threshold.value = -18; comp.knee.value = 6;
     comp.ratio.value = 8; comp.attack.value = 0.003; comp.release.value = 0.15;
 
+    // Chain: hp → lp → ws → comp → destination
+    hp.connect(lp); lp.connect(ws); ws.connect(comp); comp.connect(destination);
+    if (!withNoise) return { input: hp, noise: null };
+
     // Static noise layer
     const noiseLen = Math.ceil(ctx.sampleRate * (durationSec + 0.5));
     const noiseBuf = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
@@ -2196,8 +2223,6 @@ function _buildIntercomChain(ctx, destination, durationSec) {
     const noiseGain = ctx.createGain();
     noiseGain.gain.value = 0.4;
 
-    // Chain: hp → lp → ws → comp → destination
-    hp.connect(lp); lp.connect(ws); ws.connect(comp); comp.connect(destination);
     // Noise goes through the same bandpass so it sounds like intercom hiss
     noise.connect(hp);
     noise.connect(noiseGain); noiseGain.connect(destination);
@@ -2243,19 +2268,22 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
     try {
         const buf = await ctx.decodeAudioData(audioBuffer);
         const dest = window._awmMasterGain || ctx.destination;
-        const { input, noise } = _buildIntercomChain(ctx, dest, buf.duration);
+        const style = _normalizePaxAudioStyle(_paxAudioStyle);
+        const chain = style === 'clear'
+            ? { input: dest, noise: null }
+            : _buildIntercomChain(ctx, dest, buf.duration, { noise: style === 'intercom_noise' });
 
         await new Promise(resolve => {
             const src = ctx.createBufferSource();
             src.buffer = buf;
-            src.connect(input);
+            src.connect(chain.input);
             let done = false;
             const finish = () => {
                 if (done) return;
                 done = true;
                 try { src.onended = null; } catch (_) {}
                 try { src.disconnect(); } catch (_) {}
-                try { noise.disconnect(); } catch (_) {}
+                try { chain.noise?.disconnect(); } catch (_) {}
                 resolve();
             };
             src.onended = () => finish();
@@ -2276,9 +2304,11 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
 
             try {
                 src.start(t);
-                noise.start(t);
-                noise.stop(t + buf.duration + 0.3);
-                _paxLog(`Intercom-Wiedergabe: ${buf.duration.toFixed(1)} s | audio=${ctx.state} | vol=${Number(window._awmMasterGain?.gain?.value ?? 1).toFixed(2)}`, 'audio');
+                if (chain.noise) {
+                    chain.noise.start(t);
+                    chain.noise.stop(t + buf.duration + 0.3);
+                }
+                _paxLog(`${_paxAudioStyleLabel(style)}-Wiedergabe: ${buf.duration.toFixed(1)} s | audio=${ctx.state} | vol=${Number(window._awmMasterGain?.gain?.value ?? 1).toFixed(2)}`, 'audio');
             } catch (startErr) {
                 _paxLog(`Playback Startfehler: ${startErr?.message || startErr}`, 'warn');
                 guardedFinish();
@@ -4342,6 +4372,8 @@ function _tickPoiDwell(lat, lon, flightData) {
     if (humorEl) humorEl.value = _paxHumorLevel;
     const ttsModelEl = document.getElementById('awmPaxTtsModelSelect');
     if (ttsModelEl) ttsModelEl.value = _paxTtsModelPref;
+    const audioStyleEl = document.getElementById('awmPaxAudioStyleSelect');
+    if (audioStyleEl) audioStyleEl.value = _paxAudioStyle;
 
     if (!window.activePassenger && _missionHasPax()) {
         const saved = localStorage.getItem('ga_active_passenger');

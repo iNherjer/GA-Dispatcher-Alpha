@@ -1130,6 +1130,16 @@
                     </div>
                     <div style="border-top:1px solid #333; padding-top:8px;">
                         <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">STIMME</div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                            <span style="font-size:11px; color:#aaa; flex-shrink:0;">Pax Voice</span>
+                            <select id="awmPaxAudioStyleSelect"
+                                style="flex:1; background:#1a2a3a; color:#d0e8ff; border:1px solid #2a4a6a; border-radius:5px; font-size:11px; padding:3px 6px; cursor:pointer;"
+                                onchange="paxVoiceSetAudioStyle(this.value)">
+                                <option value="clear">Version 1 - Klar</option>
+                                <option value="intercom">Version 2 - Intercom ohne Rauschen</option>
+                                <option value="intercom_noise">Version 3 - Intercom + Rauschen (Standard)</option>
+                            </select>
+                        </div>
                         <audio id="awmDemoAudio" style="display:none;"></audio>
                         <div id="awmVoiceList" style="display:flex; flex-direction:column; gap:4px;">
                         </div>
