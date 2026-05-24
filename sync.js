@@ -4072,6 +4072,7 @@ window.missionSceneDeboarding = function(reason = 'mission-end') {
     if (aptPickupPoint) {
         command.deboardingPickupPoint = aptPickupPoint;
         command.deboardingPickupLabel = aptPickupPoint.label;
+        command.deboardingPickupSceneId = _missionAptArrivalSceneId();
     }
     const commandId = window.sendTrackerCommand(command);
     if (!commandId) return false;

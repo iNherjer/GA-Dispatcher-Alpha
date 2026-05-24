@@ -819,6 +819,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return true;
   };
 
+  const isPickupVehicleObject = (obj) => {
+    const text = `${obj?.kind || ''} ${obj?.label || ''} ${obj?.title || ''} ${obj?.requestedTitle || ''}`.toLowerCase();
+    return /vehicle|fahrzeug|van|shuttle|car|auto|truck|medic|fire/.test(text)
+      && !/person|pax|passenger|cargo|box|kit|equipment/.test(text);
+  };
+
   const buildBoardingPath = (command, rec, person, options = {}) => {
     const profileName = String(command?.profile || command?.pathProfile || 'ga_right_cockpit_v1').trim();
     const profile = sceneBoardingProfiles[profileName] || sceneBoardingProfiles.ga_right_cockpit_v1;
@@ -1075,6 +1081,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const vehiclePark = vehicleReturnRoute[vehicleReturnRoute.length - 1] || relativeScenePoint(sceneBaseFromCommand(command, rec), vehiclePoint, vehiclePoint);
     let vehicleRouteSent = false;
     let vehicleArrivalMs = 0;
+    let arrivalVehicle = null;
     trackerLog(`Scene ${sceneId}: Deboarding-Sequenz startet${vehicleArrivalEnabled ? ' mit Fahrzeug' : ' ohne Fahrzeug'}.`);
     if (vehicleArrivalEnabled) {
       const vehicleStart = vehicleReturnRoute[0];
@@ -1102,6 +1109,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         return;
       }
       rec.objects.push(vehicle);
+      arrivalVehicle = vehicle;
 
       const vehicleSpeedKts = Math.max(2, Math.min(12, Number(command?.vehicleSpeedKts || command?.vehicleReturnSpeedKts || 7) || 7));
       vehicleRouteSent = sendWaypointRoute(vehicle.objectId, vehicleReturnRoute.slice(1), vehicleSpeedKts);
@@ -1198,6 +1206,34 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     if (routeSentCount > 0 && boardedPickup) {
       people.forEach(person => removeSceneObject(rec, person, pickupRoutePoint ? 'deboarding-pickup-boarded' : 'deboarding-vehicle-boarded'));
     }
+    let pickupVehicleDeparture = false;
+    if (routeSentCount > 0 && boardedPickup) {
+      const departRoute = buildRelativeSceneRoute(command, rec, command?.vehicleDeparturePath, defaultVehicleDeparturePath(command));
+      const departVehicle = (vehicleRec, vehicle, startPoint, reason) => {
+        if (!vehicleRec || !vehicle?.objectId || departRoute.length < 2) return false;
+        const speedKts = Math.max(2, Math.min(12, Number(command?.vehicleSpeedKts || command?.vehicleDepartureSpeedKts || 7) || 7));
+        const sent = sendWaypointRoute(vehicle.objectId, departRoute.slice(1), speedKts);
+        if (!sent) return false;
+        const distancePath = [startPoint || departRoute[0]].concat(departRoute.slice(1));
+        const removeDelayMs = clampInt((pathDistanceM(distancePath) / Math.max(0.5, speedKts * 0.514444)) * 1000 + 1500, 2500, 28000);
+        debugLog(`SCENE_DEBOARDING_PICKUP_DEPART scene=${vehicleRec.sceneId || sceneId} objectId=${vehicle.objectId} removeDelayMs=${removeDelayMs} reason=${reason}`);
+        setTimeout(() => removeSceneObject(vehicleRec, vehicle, reason), removeDelayMs);
+        return true;
+      };
+      if (arrivalVehicle) {
+        pickupVehicleDeparture = departVehicle(rec, arrivalVehicle, vehiclePark, 'deboarding-vehicle-depart-hidden');
+      } else if (pickupRoutePoint && command?.deboardingPickupSceneId) {
+        const pickupRec = scenes.get(String(command.deboardingPickupSceneId));
+        const targetLat = Number(command?.deboardingPickupPoint?.worldLat ?? command?.deboardingPickupPoint?.lat ?? pickupRoutePoint.lat);
+        const targetLon = Number(command?.deboardingPickupPoint?.worldLon ?? command?.deboardingPickupPoint?.lon ?? pickupRoutePoint.lon);
+        const pickupVehicle = (pickupRec?.objects || [])
+          .filter(obj => obj?.objectId && isPickupVehicleObject(obj))
+          .map(obj => ({ obj, distanceM: geoDistanceM(obj.lat, obj.lon, targetLat, targetLon) }))
+          .filter(entry => entry.distanceM <= 70)
+          .sort((a, b) => a.distanceM - b.distanceM)[0]?.obj || null;
+        pickupVehicleDeparture = departVehicle(pickupRec, pickupVehicle, pickupRoutePoint, 'deboarding-pickup-vehicle-depart-hidden');
+      }
+    }
     if (doorEnabled) {
       await setUserAircraftDoor(false, doorIndex, 'deboarding-close', doorProfile);
     }
@@ -1208,6 +1244,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       status: routeSentCount > 0 ? 'ok' : 'error',
       vehicleRouteSent: vehicleRouteSent ? 1 : 0,
       vehicleArrival: vehicleArrivalEnabled ? 1 : 0,
+      pickupVehicleDeparture: pickupVehicleDeparture ? 1 : 0,
       routeSentCount,
       deboarded: routeSentCount,
       durationMs: vehicleArrivalMs + walkMs,
