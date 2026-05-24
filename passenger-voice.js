@@ -777,6 +777,80 @@ function _paxCardinalGerman(bearingDeg) {
     return dirs[idx] || '';
 }
 
+function _paxNormalizeKey(value = '') {
+    return String(value || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/ä/g, 'ae')
+        .replace(/ö/g, 'oe')
+        .replace(/ü/g, 'ue')
+        .replace(/ß/g, 'ss')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function _paxNearestMapPlace(maxNm = 16) {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const lat = Number(md.targetLat);
+    const lon = Number(md.targetLon);
+    const cities = Array.isArray(window.GLOBAL_CITIES_DATA)
+        ? window.GLOBAL_CITIES_DATA
+        : ((typeof globalCities !== 'undefined' && Array.isArray(globalCities)) ? globalCities : []);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !cities.length) return null;
+    const targetKey = _paxNormalizeKey(`${md.poiName || ''} ${md.targetName || ''}`);
+    let best = null;
+    for (const city of cities) {
+        const name = String(city?.name || '').replace(/\s+/g, ' ').trim();
+        const cLat = Number(city?.lat);
+        const cLon = Number(city?.lon);
+        const pop = Number(city?.pop || 0);
+        if (!name || !Number.isFinite(cLat) || !Number.isFinite(cLon)) continue;
+        if (pop > 0 && pop < 2500) continue;
+        const nameKey = _paxNormalizeKey(name);
+        if (nameKey && targetKey.includes(nameKey)) continue;
+        const distNm = _haversineNm(lat, lon, cLat, cLon);
+        if (!Number.isFinite(distNm) || distNm < 1 || distNm > maxNm) continue;
+        const bearingFromTarget = _bearingDeg(lat, lon, cLat, cLon);
+        if (!Number.isFinite(bearingFromTarget)) continue;
+        const populationBonus = Math.min(2.2, Math.log10(Math.max(1000, pop || 1000)) / 3.8);
+        const score = distNm - populationBonus;
+        if (!best || score < best.score) {
+            best = {
+                name,
+                distNm,
+                bearingFromTarget,
+                targetFromPlace: _paxCardinalGerman(bearingFromTarget + 180),
+                placeFromTarget: _paxCardinalGerman(bearingFromTarget),
+                pop,
+                score
+            };
+        }
+    }
+    return best;
+}
+
+function _paxCityDatasetAvailable() {
+    return Array.isArray(window.GLOBAL_CITIES_DATA)
+        || (typeof globalCities !== 'undefined' && Array.isArray(globalCities));
+}
+
+function _paxMapPlaceOrientationLine() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const place = _paxNearestMapPlace(16);
+    if (!place) return '';
+    const target = String(md.poiName || md.targetName || 'Ziel').replace(/\s+/g, ' ').trim();
+    const dist = place.distNm >= 10 ? `${Math.round(place.distNm)} NM` : `${(Math.round(place.distNm * 10) / 10).toFixed(1)} NM`;
+    const rel = place.targetFromPlace || 'in der Naehe';
+    return `GROBER KARTENBEZUG: ${target || 'Das Ziel'} liegt etwa ${dist} ${rel} von ${place.name}. Nutze diesen Ort als primaere Orientierung; lokale Felsen, Bachnamen, Wege oder Aussichtspunkte nur als Nahbereich-Zusatz.`;
+}
+
+function _paxNearLandmarkOrientationLine() {
+    const landmark = _paxApproachLandmarkCueLine();
+    if (landmark) return landmark;
+    const fact = _targetContextFactCandidates().find(Boolean);
+    return fact ? `NAHBEREICH-ZUSATZ: ${fact}` : '';
+}
+
 function _paxMissionPlanFactSources() {
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
     const contract = md.missionContract || window.activeMissionContract || null;
@@ -1790,11 +1864,16 @@ function _missionVectorText(ctx) {
     return `Steuerkurs ${String(ctx.roundedBearingDeg).padStart(3, '0')} Grad, Entfernung ${nm}.`;
 }
 
-function _missionOrientationFactLine() {
-    const landmark = _paxApproachLandmarkCueLine();
-    if (landmark) return landmark;
-    const fact = _targetContextFactCandidates().find(Boolean);
-    return fact ? `Ziel-/Landmarken-Kontext: ${fact}` : '';
+function _missionOrientationFactLine(ctx = null) {
+    const mapPlace = _paxMapPlaceOrientationLine();
+    if (mapPlace && (!ctx?.hasPosition || Number(ctx.distNm) > 6)) {
+        const near = _paxNearLandmarkOrientationLine();
+        return [mapPlace, near].filter(Boolean).join('\n');
+    }
+    const near = _paxNearLandmarkOrientationLine();
+    if (near) return near;
+    if (mapPlace) return mapPlace;
+    return '';
 }
 
 function _missionStatusFacts(ctx) {
@@ -1952,23 +2031,30 @@ Antworte als Passagier/Rollenperson dynamisch zum Kontext: Anflug, Datenaufnahme
     _missionActionSpeak(prompt, 'Missionsstatus', fallback);
 };
 
-window.paxMissionOrientationHelp = function() {
+window.paxMissionOrientationHelp = function(_cityRetry = false) {
     const ctx = _missionActionContext();
     if (!_isPOIMission()) {
         _paxSpeakTextDirect('Orientierungshilfe ist aktuell nur fuer POI-Ziele sinnvoll.', 'Orientierung');
         return;
     }
+    if (!_cityRetry && !_paxCityDatasetAvailable() && typeof loadGlobalCities === 'function') {
+        loadGlobalCities().finally(() => window.paxMissionOrientationHelp(true));
+        return;
+    }
     const base = _baseContext();
     const vector = _missionVectorText(ctx);
-    const factLine = _missionOrientationFactLine();
+    const factLine = _missionOrientationFactLine(ctx);
     const prompt = base ? `${base}
 
 Button-Frage: Der Pilot bittet um Orientierungshilfe zum POI.
 Pflichtdaten: ${vector}
 Ziel: ${ctx.targetName}
 ${factLine || 'Keine bestaetigte Landmarke verfuegbar; beschreibe das Ziel anhand Auftrag, Zielname und Umgebung nur vorsichtig.'}
-Antworte zuerst mit Steuerkurs und Entfernung in ganzen NM, danach eine kurze visuelle Zielbeschreibung oder Landmarkenhilfe. Keine langen Stories, keine erfundenen Landmarken. Max 2 Saetze.${_toneHint()}` : null;
-    const fallback = `${vector} Ziel ist ${ctx.targetName}; nutze die naechste markante Struktur im Zielgebiet als Bezug und halte weiter Ausschau.`;
+Orientierungsregel: Wenn die Entfernung groesser als 6 NM ist, nenne nach Steuerkurs/Entfernung zuerst den groben Kartenbezug zu Ort/Region. Danach darf genau ein lokaler Nahbereichs-Hinweis kommen, wenn er bestaetigt ist. Lokale Felsen, Bachnamen, Wege oder Aussichtspunkte nicht als primaere Orientierung verwenden, ausser wir sind im Nahbereich oder sie sind das Ziel selbst.
+Antworte zuerst mit Steuerkurs und Entfernung in ganzen NM, danach eine kurze Zielbeschreibung oder Landmarkenhilfe. Keine langen Stories, keine erfundenen Landmarken. Max 2 Saetze.${_toneHint()}` : null;
+    const fallback = factLine && /^GROBER KARTENBEZUG:/i.test(factLine)
+        ? `${vector} ${factLine.split('\n')[0].replace(/^GROBER KARTENBEZUG:\s*/i, '').replace(/\s*Nutze diesen Ort.*$/i, '')}`
+        : `${vector} Ziel ist ${ctx.targetName}; nutze die naechste markante Struktur im Zielgebiet als Bezug und halte weiter Ausschau.`;
     _missionActionSpeak(prompt, 'Orientierung', fallback);
 };
 
