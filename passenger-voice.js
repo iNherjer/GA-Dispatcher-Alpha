@@ -198,6 +198,7 @@ let _poiTrainingPreBriefDone = false; // 4 NM before training area
 let _poiTrainingZoneStartDone = false; // when entering training area
 let _poiTrainingLandingBriefDone = false; // 5/4 NM before landing on return leg
 let _poiNarrativeMemory = { pre: '', entry: '', done: '' }; // anti-repeat memory across POI phases
+let _missionComfortScore = null;
 
 window.paxVoiceResetMission = function() {
     _paxGreetingDone  = false;
@@ -251,11 +252,40 @@ window.paxVoiceResetMission = function() {
     _poiTrainingZoneStartDone = false;
     _poiTrainingLandingBriefDone = false;
     _poiNarrativeMemory = { pre: '', entry: '', done: '' };
+    _missionComfortScore = _createMissionComfortScore();
     _lastPaxText = '';
     try { _paxPreparedAudio.clear(); } catch (_) {}
     _closePaxPanel();
     _refreshPaxWidgetVisibility();
 };
+
+function _createMissionComfortScore() {
+    return {
+        startedAt: Date.now(),
+        samples: 0,
+        pilotEvents: 0,
+        pilotSevere: 0,
+        weatherEvents: 0,
+        weatherSevere: 0,
+        cargoRiskEvents: 0,
+        gEvents: 0,
+        bankEvents: 0,
+        descentEvents: 0,
+        maxG: 1.0,
+        maxBankDeg: 0,
+        maxDescentFpm: 0,
+        maxWindKts: 0,
+        maxGustSpreadKts: 0,
+        maxTurbulencePct: 0,
+        maxPrecipRate: 0,
+        flags: {}
+    };
+}
+
+function _missionComfortScoreState() {
+    if (!_missionComfortScore) _missionComfortScore = _createMissionComfortScore();
+    return _missionComfortScore;
+}
 
 function _poiMemoryCompact(text) {
     const s = String(text || '')
@@ -954,10 +984,11 @@ function _refreshPaxWidgetVisibility() {
     const widget = document.getElementById('paxVoiceWidget');
     if (!widget) return;
     _syncPaxWidgetHost();
-    const shouldShow = !!_lastPaxText || (!!_fireScenario() && _fireMissionRuntimeActive());
+    const shouldShow = !!_lastPaxText || (!!_fireScenario() && _fireMissionRuntimeActive()) || _missionActionMenuAvailable();
     widget.style.display = shouldShow ? 'flex' : 'none';
     if (shouldShow) {
         _refreshFireMissionMenu();
+        _refreshMissionActionMenu();
         _ensurePaxWidgetOnScreen(true);
     }
 }
@@ -1044,10 +1075,25 @@ function _injectPaxUI() {
         </div>
     `;
 
+    const missionMenu = document.createElement('div');
+    missionMenu.id = 'paxMissionActionMenu';
+    missionMenu.style.cssText = `
+        display:none; margin-top:10px; padding-top:9px; border-top:1px solid #244562;
+        grid-template-columns:1fr; gap:6px;
+    `;
+    missionMenu.innerHTML = `
+        <button type="button" id="paxMissionStatusBtn" class="pax-fire-btn pax-mission-action-btn" onclick="window.paxMissionStatusReport && paxMissionStatusReport()">Missionsstatus</button>
+        <button type="button" id="paxMissionOrientationBtn" class="pax-fire-btn pax-mission-action-btn" onclick="window.paxMissionOrientationHelp && paxMissionOrientationHelp()">Orientierung</button>
+        <button type="button" id="paxAptWellbeingBtn" class="pax-fire-btn pax-mission-action-btn" onclick="window.paxAptWellbeingReport && paxAptWellbeingReport()">Wohlbefinden</button>
+        <button type="button" id="paxCargoConditionBtn" class="pax-fire-btn pax-mission-action-btn" onclick="window.paxCargoConditionReport && paxCargoConditionReport()">Ladung</button>
+        <button type="button" id="paxWeatherReactionBtn" class="pax-fire-btn pax-mission-action-btn" onclick="window.paxWeatherReactionReport && paxWeatherReactionReport()">Wetter</button>
+    `;
+
     panel.appendChild(closeBtn);
     panel.appendChild(nameEl);
     panel.appendChild(textEl);
     panel.appendChild(fireMenu);
+    panel.appendChild(missionMenu);
 
     widget.appendChild(panel);
     widget.appendChild(btn);
@@ -1175,6 +1221,7 @@ function _showPaxMessage(text, eventLabel) {
     if (nameEl) nameEl.textContent = pax ? `${pax.name} · ${eventLabel}` : eventLabel;
     if (textEl) textEl.textContent = text;
     _refreshFireMissionMenu();
+    _refreshMissionActionMenu();
 
     widget.style.display = 'flex';
     _ensurePaxWidgetOnScreen(true);
@@ -1209,6 +1256,7 @@ function _togglePaxPanel() {
     panel.style.display = isOpen ? 'none' : 'block';
     if (!isOpen) {
         _refreshFireMissionMenu();
+        _refreshMissionActionMenu();
         _ensurePaxWidgetOnScreen();
         if (badge) badge.style.display = 'none';
         if (btn) btn.classList.remove('pax-has-new');
@@ -1626,6 +1674,351 @@ window.fireMissionReportSmokeVisible = function() {
     ctx.fs.state = 'reported_smoke_unconfirmed';
     _fireSpeakText(`${_fireVectorLine(ctx)} Ich kann das zur Meldung noch nicht bestaetigen. Wir pruefen weiter, ob es Rauch ist oder nur Dunst, Staub beziehungsweise Schattenwurf.`, 'Rauch pruefen');
     _firePersistState();
+};
+
+// ─── GENERIC MISSION ACTION BUTTONS ─────────────────────────────────────────
+
+function _activeMissionData() {
+    return (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+}
+
+function _activeCargoText() {
+    const md = _activeMissionData();
+    const contract = md.missionContract || window.activeMissionContract || null;
+    return String(contract?.cargoText || md.cargoText || document.getElementById('mWeight')?.innerText || '').trim();
+}
+
+function _activePaxText() {
+    const md = _activeMissionData();
+    const contract = md.missionContract || window.activeMissionContract || null;
+    return String(contract?.paxText || md.paxText || document.getElementById('mPay')?.innerText || '').trim();
+}
+
+function _cargoMissionFocus() {
+    const md = _activeMissionData();
+    const task = _activeTaskDomain();
+    const cargo = _activeCargoText().toLowerCase();
+    const paxText = _activePaxText();
+    const noPax = /^\s*0\s*PAX\b/i.test(paxText);
+    const cat = String(md.cat || md.missionContract?.category || '').toLowerCase();
+    return noPax
+        || task === 'cargo_fragile'
+        || cat === 'cargo'
+        || /(fracht|ladung|cargo|box|kiste|sensor|scanner|kamera|gimbal|medizin|probe|equipment|ausruest|ausrüst|werkzeug|material)/i.test(cargo);
+}
+
+function _missionActionMenuAvailable() {
+    if (_fireScenario() && _fireMissionRuntimeActive()) return false;
+    const md = _activeMissionData();
+    if (!md || (!md.start && !md.dest && !md.poiName && !window.activeMissionContract)) return false;
+    if (typeof window.missionRuntimeIsActive === 'function' && !window.missionRuntimeIsActive()) return false;
+    const hasPax = !!window.activePassenger && _missionHasPax();
+    if (_isPOIMission()) return hasPax;
+    return hasPax || _cargoMissionFocus();
+}
+
+function _refreshMissionActionMenu() {
+    const menu = document.getElementById('paxMissionActionMenu');
+    if (!menu) return;
+    const active = _missionActionMenuAvailable();
+    menu.style.display = active ? 'grid' : 'none';
+    if (!active) return;
+
+    const isPoi = _isPOIMission();
+    const cargoFocus = _cargoMissionFocus();
+    const hasPax = !!window.activePassenger && _missionHasPax();
+    const showWeather = !!_missionWeatherReactionLine(window.lastLiveFlightData || {});
+    const setVisible = (id, visible) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = visible ? 'block' : 'none';
+    };
+    setVisible('paxMissionStatusBtn', isPoi && hasPax);
+    setVisible('paxMissionOrientationBtn', isPoi && hasPax);
+    setVisible('paxAptWellbeingBtn', !isPoi && hasPax && !cargoFocus);
+    setVisible('paxCargoConditionBtn', !isPoi && cargoFocus);
+    setVisible('paxWeatherReactionBtn', showWeather && (hasPax || cargoFocus));
+
+    const nameEl = document.getElementById('paxVoiceName');
+    const textEl = document.getElementById('paxVoiceText');
+    if (nameEl && !nameEl.textContent) {
+        const pax = window.activePassenger;
+        nameEl.textContent = pax ? `${pax.name} · Mission` : 'Mission';
+    }
+    if (textEl && !textEl.textContent) {
+        textEl.textContent = isPoi ? 'Mission laeuft. Status und Orientierung sind abrufbar.' : 'Mission laeuft. Zustand und Wetter sind abrufbar.';
+    }
+}
+
+function _missionActionContext(flightData = null) {
+    const md = _activeMissionData();
+    const dest = _getDestCoords();
+    const pos = window.lastLiveGpsPos || {};
+    const fd = flightData || window.lastLiveFlightData || {};
+    const lat = Number(pos.lat);
+    const lon = Number(pos.lon);
+    const targetName = md.poiName || md.targetName || md.dest || 'Ziel';
+    const out = {
+        md,
+        fd,
+        targetName,
+        dest,
+        hasPosition: false,
+        mslFt: Number.isFinite(Number(fd.mslFt ?? pos.alt ?? fd.alt)) ? Math.round(Number(fd.mslFt ?? pos.alt ?? fd.alt)) : null,
+        aglFt: Number.isFinite(Number(fd.aglFt)) ? Math.round(Number(fd.aglFt)) : null
+    };
+    if (!dest || !Number.isFinite(lat) || !Number.isFinite(lon)) return out;
+    const distNm = _haversineNm(lat, lon, dest.lat, dest.lon);
+    const bearingDeg = _bearingDeg(lat, lon, dest.lat, dest.lon);
+    const hdg = Number(fd.hdg || fd.heading || fd.trackDeg || fd.trkDeg || pos.hdg || bearingDeg);
+    return {
+        ...out,
+        hasPosition: true,
+        lat,
+        lon,
+        distNm,
+        roundedDistNm: Math.max(0, Math.round(distNm)),
+        bearingDeg,
+        roundedBearingDeg: Math.round((((bearingDeg % 360) + 360) % 360)),
+        clockPos: _relativeClockPos(bearingDeg, hdg),
+        hdg
+    };
+}
+
+function _missionVectorText(ctx) {
+    if (!ctx?.hasPosition) return 'Mir fehlen gerade Live-Positionsdaten vom Tracker.';
+    const nm = ctx.roundedDistNm <= 0 ? 'unter 1 NM' : `${ctx.roundedDistNm} NM`;
+    return `Steuerkurs ${String(ctx.roundedBearingDeg).padStart(3, '0')} Grad, Entfernung ${nm}.`;
+}
+
+function _missionOrientationFactLine() {
+    const landmark = _paxApproachLandmarkCueLine();
+    if (landmark) return landmark;
+    const fact = _targetContextFactCandidates().find(Boolean);
+    return fact ? `Ziel-/Landmarken-Kontext: ${fact}` : '';
+}
+
+function _missionStatusFacts(ctx) {
+    const pax = window.activePassenger || {};
+    const radius = Number(pax.targetRadiusNm || 1.5) || 1.5;
+    const targetAlt = Number(pax.targetAltFt || 0);
+    const dwellReq = Number(pax.targetDwellMin || 0) * 60;
+    const dwell = Math.max(0, Math.round(_poiDwellSec || 0));
+    const parts = [];
+    if (ctx?.hasPosition) parts.push(`Distanz zum Ziel ${ctx.distNm.toFixed(1)} NM, Richtung ${String(ctx.roundedBearingDeg).padStart(3, '0')} Grad, Lage ${ctx.clockPos}`);
+    if (_poiSatisfied) parts.push('Status: POI-Aufgabe abgeschlossen, Rueckflug/Weiterflug freigegeben');
+    else if (_poiAborted) parts.push('Status: abgebrochen, Rueckflug sinnvoll');
+    else if (_poiInRadius) parts.push(`Status: im Zielradius (${radius.toFixed(1)} NM), Datenaufnahme laeuft`);
+    else parts.push('Status: noch im Anflug zum Zielgebiet');
+    if (dwellReq > 0) parts.push(`Verweilzeit ${dwell}/${Math.round(dwellReq)} Sekunden`);
+    if (targetAlt > 0 && ctx?.mslFt != null) {
+        const diff = ctx.mslFt - targetAlt;
+        if (Math.abs(diff) <= 150) parts.push(`Hoehe passt: ${ctx.mslFt} ft MSL bei Ziel ${Math.round(targetAlt)} ft`);
+        else parts.push(`Hoehenabweichung: ${Math.abs(Math.round(diff))} ft ${diff > 0 ? 'zu hoch' : 'zu niedrig'} gegen Ziel ${Math.round(targetAlt)} ft`);
+    }
+    const wx = _weatherContext(ctx?.fd || window.lastLiveFlightData || {});
+    if (wx) parts.push(wx);
+    return parts.join(' | ');
+}
+
+function _missionScoreRegisterEvent(key, active, severe = false, bucket = 'pilot') {
+    const score = _missionComfortScoreState();
+    const flags = score.flags || (score.flags = {});
+    if (active && !flags[key]) {
+        if (bucket === 'weather') {
+            score.weatherEvents += 1;
+            if (severe) score.weatherSevere += 1;
+        } else {
+            score.pilotEvents += 1;
+            if (severe) score.pilotSevere += 1;
+            if (key === 'g') score.gEvents += 1;
+            if (key === 'bank') score.bankEvents += 1;
+            if (key === 'descent') score.descentEvents += 1;
+            if (_cargoMissionFocus()) score.cargoRiskEvents += severe ? 2 : 1;
+        }
+    }
+    flags[key] = !!active;
+}
+
+function _recordMissionComfortSample(flightData) {
+    if (!flightData) return;
+    const score = _missionComfortScoreState();
+    score.samples += 1;
+    const g = Number(flightData.gForce || 1.0);
+    const bank = Math.abs(Number(flightData.bankDeg || 0));
+    const wind = Number(flightData.windKts || 0);
+    const gust = Number(flightData.windGustKts || 0);
+    const gustSpread = (Number.isFinite(gust) && Number.isFinite(wind)) ? Math.max(0, gust - wind) : 0;
+    const turb = Number(flightData.turbulencePct || 0);
+    const precip = Number(flightData.precipRateMmH || 0);
+    const vs = Number.isFinite(flightData.vsFpm) ? Number(flightData.vsFpm) : Number(flightData.vs || 0);
+
+    if (Number.isFinite(g)) score.maxG = Math.max(score.maxG || 1.0, g);
+    if (Number.isFinite(bank)) score.maxBankDeg = Math.max(score.maxBankDeg || 0, bank);
+    if (Number.isFinite(vs)) score.maxDescentFpm = Math.min(score.maxDescentFpm || 0, vs);
+    if (Number.isFinite(wind)) score.maxWindKts = Math.max(score.maxWindKts || 0, wind);
+    if (Number.isFinite(gustSpread)) score.maxGustSpreadKts = Math.max(score.maxGustSpreadKts || 0, gustSpread);
+    if (Number.isFinite(turb)) score.maxTurbulencePct = Math.max(score.maxTurbulencePct || 0, turb);
+    if (Number.isFinite(precip)) score.maxPrecipRate = Math.max(score.maxPrecipRate || 0, precip);
+
+    _missionScoreRegisterEvent('g', g >= 1.45, g >= 1.75, 'pilot');
+    _missionScoreRegisterEvent('bank', bank >= 30, bank >= 45, 'pilot');
+    _missionScoreRegisterEvent('descent', vs <= -1500, vs <= -2300, 'pilot');
+    _missionScoreRegisterEvent('wind', wind >= 22, wind >= 32, 'weather');
+    _missionScoreRegisterEvent('gust', gustSpread >= 10, gustSpread >= 18, 'weather');
+    _missionScoreRegisterEvent('turb', turb >= 35, turb >= 60, 'weather');
+    _missionScoreRegisterEvent('precip', precip >= 1.0 || flightData.precipActive === true, precip >= 4.0, 'weather');
+}
+
+function _missionComfortSummary() {
+    const score = _missionComfortScoreState();
+    const pilotPenalty = score.pilotEvents * 9 + score.pilotSevere * 10;
+    const weatherPenalty = score.weatherEvents * 3 + score.weatherSevere * 5;
+    const cargoPenalty = (_cargoMissionFocus() ? score.cargoRiskEvents * 8 : 0);
+    const comfortScore = Math.max(0, Math.min(100, 100 - pilotPenalty - weatherPenalty - cargoPenalty));
+    const mood = comfortScore >= 88 ? 'sehr zufrieden'
+        : comfortScore >= 72 ? 'zufrieden'
+        : comfortScore >= 55 ? 'etwas angespannt'
+        : comfortScore >= 35 ? 'unzufrieden'
+        : 'ziemlich durchgeschuettelt';
+    return {
+        ...score,
+        comfortScore,
+        mood,
+        maxG: Number(score.maxG || 1).toFixed(2),
+        maxBankDeg: Math.round(score.maxBankDeg || 0),
+        maxDescentFpm: Math.round(score.maxDescentFpm || 0),
+        maxWindKts: Math.round(score.maxWindKts || 0),
+        maxGustSpreadKts: Math.round(score.maxGustSpreadKts || 0),
+        maxTurbulencePct: Math.round(score.maxTurbulencePct || 0),
+        maxPrecipRate: Number(score.maxPrecipRate || 0).toFixed(1)
+    };
+}
+
+function _missionWeatherReactionLine(flightData = null) {
+    const fd = flightData || window.lastLiveFlightData || {};
+    const parts = [];
+    const wind = Number(fd.windKts || 0);
+    const gust = Number(fd.windGustKts || 0);
+    const spread = (Number.isFinite(gust) && Number.isFinite(wind)) ? Math.max(0, gust - wind) : 0;
+    const turb = Number(fd.turbulencePct || 0);
+    const precip = Number(fd.precipRateMmH || 0);
+    if (wind >= 20) parts.push(`Wind ${Math.round(wind)} kt`);
+    if (spread >= 8) parts.push(`Boeen plus ${Math.round(spread)} kt`);
+    if (turb >= 30) parts.push(`Turbulenz ${Math.round(turb)} Prozent`);
+    if (precip >= 0.5 || fd.precipActive === true) parts.push(precip >= 0.5 ? `Regen/Niederschlag ${precip.toFixed(1)} mm/h` : 'Niederschlag');
+    if (fd.inCloud === true) parts.push('in Wolken');
+    return parts.join(', ');
+}
+
+function _paxSpeakTextDirect(text, eventLabel = 'Mission') {
+    const clean = _normalizeSpokenText(text);
+    if (!clean) return;
+    const speaker = _speakerSnapshotForActivePax();
+    _lastSpokenText = clean;
+    _lastSpokenSpeaker = speaker;
+    _capturePoiNarrativeMemory(eventLabel, clean);
+    _showPaxMessage(clean, eventLabel);
+    if (!_paxVoiceEnabled) return;
+    const run = async () => {
+        try { await _playTextAsTTS(clean, speaker); }
+        catch (e) { _paxLog(`Mission-Action TTS Fehler: ${e.message || e}`, 'warn'); }
+    };
+    _paxSpeechQueue = _paxSpeechQueue.then(run, run);
+}
+
+function _missionActionSpeak(prompt, eventLabel, fallbackText) {
+    _refreshMissionActionMenu();
+    if (prompt && _getApiKey()) return _speakAndShow(prompt, eventLabel);
+    _paxSpeakTextDirect(fallbackText || 'Ich habe gerade nicht genug Kontext fuer eine belastbare Rueckmeldung.', eventLabel);
+    return Promise.resolve();
+}
+
+window.paxMissionStatusReport = function() {
+    const ctx = _missionActionContext();
+    if (!_isPOIMission()) {
+        _paxSpeakTextDirect('Das ist keine POI-Mission. Fuer diesen Flug ist eher Wohlbefinden, Ladung oder Wetter relevant.', 'Missionsstatus');
+        return;
+    }
+    const facts = _missionStatusFacts(ctx);
+    const base = _baseContext();
+    const prompt = base ? `${base}
+
+Button-Frage: Der Pilot fragt nach dem aktuellen Missionsstatus.
+Live-Fakten: ${facts}
+Antworte als Passagier/Rollenperson dynamisch zum Kontext: Anflug, Datenaufnahme, Hoehenkorrektur, Abschluss oder Rueckflug. Wenn die Hoehe deutlich nicht passt, darfst du freundlich hoeher/tiefer bitten. Keine internen Variablennamen. Max 2 Saetze.${_toneHint()}` : null;
+    const fallback = _poiSatisfied
+        ? 'Mission ist abgeschlossen, ich habe alles. Wir koennen zurueck beziehungsweise weiter zum Platz.'
+        : `${_missionVectorText(ctx)} ${_poiInRadius ? 'Datenaufnahme laeuft, halte den Flug ruhig und stabil.' : 'Wir sind noch im Anflug, ich melde mich am Ziel.'}`;
+    _missionActionSpeak(prompt, 'Missionsstatus', fallback);
+};
+
+window.paxMissionOrientationHelp = function() {
+    const ctx = _missionActionContext();
+    if (!_isPOIMission()) {
+        _paxSpeakTextDirect('Orientierungshilfe ist aktuell nur fuer POI-Ziele sinnvoll.', 'Orientierung');
+        return;
+    }
+    const base = _baseContext();
+    const vector = _missionVectorText(ctx);
+    const factLine = _missionOrientationFactLine();
+    const prompt = base ? `${base}
+
+Button-Frage: Der Pilot bittet um Orientierungshilfe zum POI.
+Pflichtdaten: ${vector}
+Ziel: ${ctx.targetName}
+${factLine || 'Keine bestaetigte Landmarke verfuegbar; beschreibe das Ziel anhand Auftrag, Zielname und Umgebung nur vorsichtig.'}
+Antworte zuerst mit Steuerkurs und Entfernung in ganzen NM, danach eine kurze visuelle Zielbeschreibung oder Landmarkenhilfe. Keine langen Stories, keine erfundenen Landmarken. Max 2 Saetze.${_toneHint()}` : null;
+    const fallback = `${vector} Ziel ist ${ctx.targetName}; nutze die naechste markante Struktur im Zielgebiet als Bezug und halte weiter Ausschau.`;
+    _missionActionSpeak(prompt, 'Orientierung', fallback);
+};
+
+window.paxAptWellbeingReport = function() {
+    const ctx = _missionActionContext();
+    const summary = _missionComfortSummary();
+    const base = _baseContext();
+    const wx = _missionWeatherReactionLine(ctx.fd);
+    const facts = `Score ${summary.comfortScore}/100 (${summary.mood}); Pilot-Events ${summary.pilotEvents}, davon schwer ${summary.pilotSevere}; Wetter-Events ${summary.weatherEvents}, davon schwer ${summary.weatherSevere}; max G ${summary.maxG}, max Bank ${summary.maxBankDeg} Grad, max Sinken ${summary.maxDescentFpm} ft/min, Wetter: ${wx || 'unauffaellig'}.`;
+    const prompt = base ? `${base}
+
+Button-Frage: Der Pilot fragt nach dem Wohlbefinden/Zufriedenheit.
+Auswertung seit Missionsstart: ${facts}
+Wichtig: Turbulenzen, Boeen und Regen nicht dem Piloten anlasten; Flugweise wie harte G-Last, steile Kurven oder starker Sinkflug darfst du humorvoll bewerten. Reagiere kreativ, menschlich und passend zur Rolle. Max 2 Saetze.${_toneHint()}` : null;
+    const fallback = summary.comfortScore >= 75
+        ? `Mir geht es gut, Score etwa ${summary.comfortScore} von 100. Wetter war ${wx ? 'spuerbar, aber das geht nicht auf deine Kappe' : 'unauffaellig'}, die Flugweise passt.`
+        : `Ich bin bei etwa ${summary.comfortScore} von 100. Die Wetteranteile zaehle ich dir nicht an, aber Kurven, G-Last oder Sinkflug haben sich schon bemerkbar gemacht.`;
+    _missionActionSpeak(prompt, 'Wohlbefinden', fallback);
+};
+
+window.paxCargoConditionReport = function() {
+    const ctx = _missionActionContext();
+    const summary = _missionComfortSummary();
+    const cargo = _activeCargoText() || 'Ladung';
+    const wx = _missionWeatherReactionLine(ctx.fd);
+    const prompt = `${_baseContext() || `MISSION: ${_activeMissionData().start || '?'} -> ${_activeMissionData().dest || '?'}\nLOAD: ${cargo}\nAUSGABE: Nur gesprochener Text, Deutsch.`}
+
+Button-Frage: Der Pilot fragt nach dem Zustand der Ladung.
+Cargo: ${cargo}
+Auswertung seit Missionsstart: Cargo-Risiko ${summary.cargoRiskEvents}, Pilot-Events ${summary.pilotEvents}, schwere Pilot-Events ${summary.pilotSevere}; max G ${summary.maxG}, max Bank ${summary.maxBankDeg} Grad, max Sinken ${summary.maxDescentFpm} ft/min; Wetter-Events ${summary.weatherEvents}, Wetter: ${wx || 'unauffaellig'}.
+Wichtig: Turbulenzen/Regen nicht dem Piloten anlasten. Bewerte Frachtzustand kreativ passend zur Ladung, von "sitzt sauber" bis "Kaffeebecher/Proben/Kisten haben gelitten". Max 2 Saetze.${_toneHint()}`;
+    const fallback = summary.cargoRiskEvents <= 1
+        ? `Die Ladung sieht gut aus: ${cargo} sitzt noch sauber. Wetter war ${wx || 'kein Thema'}, nichts Kritisches.`
+        : `Die Ladung hat etwas gearbeitet: ${cargo} ist noch dabei, aber ich wuerde nach der Landung Gurte und Verpackung pruefen. Wetter zaehlt nicht gegen dich, die haerteren Manoever schon eher.`;
+    _missionActionSpeak(prompt, 'Ladung', fallback);
+};
+
+window.paxWeatherReactionReport = function() {
+    const ctx = _missionActionContext();
+    const wx = _missionWeatherReactionLine(ctx.fd);
+    const base = _baseContext();
+    const prompt = base ? `${base}
+
+Button-Frage: Der Pilot fragt nach einer Reaktion auf markantes Wetter.
+Live-Wetter: ${wx || _weatherContext(ctx.fd) || 'keine markanten Live-Wetterdaten'}
+Reagiere auf Regen, Wind, Boeen, Wolken oder Turbulenz aus Passagier-/Rollenperspektive. Wichtig: Bei Turbulenz oder Regen keine Schuldzuweisung an den Piloten, nur Lagegefuehl und ggf. pragmatischer Wunsch nach ruhiger Fluglage. Max 2 Saetze.${_toneHint()}` : null;
+    const fallback = wx
+        ? `Das Wetter ist spuerbar: ${wx}. Das laste ich dir nicht an, aber ruhig und sauber geflogen bleibt jetzt Gold wert.`
+        : 'Wetterseitig ist gerade nichts Markantes dabei. Von mir aus koennen wir den Flug normal fortsetzen.';
+    _missionActionSpeak(prompt, 'Wetter', fallback);
 };
 
 // ─── TWO-STEP PIPELINE ───────────────────────────────────────────────────────
@@ -3615,8 +4008,15 @@ function _trainingPoiCenterFromRoute(wps) {
 
 // Called each GPS tick from sync.js + sim-route.js
 window.checkPaxPoiProximity = function(lat, lon, flightData) {
-    if (!window.activePassenger || !_missionHasPax()) return;
+    const hasPax = !!window.activePassenger && _missionHasPax();
+    const cargoOnly = !hasPax && _cargoMissionFocus();
+    if (!hasPax && !cargoOnly) return;
     const isPoiMission = _isPOIMission();
+    _recordMissionComfortSample(flightData || window.lastLiveFlightData || {});
+    if (cargoOnly) {
+        _refreshPaxWidgetVisibility();
+        return;
+    }
     _maybePaxComfortFeedback(flightData, lat, lon);
     _maybeWrongStartContinue(flightData || window.lastLiveFlightData || {});
     const trainingPlan = _activeAptTrainingPlan();
