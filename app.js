@@ -7306,7 +7306,7 @@ function _profileOpsRuleForPrompt(profile, isPOI = false) {
         return '16. OPERATIONS-REGEL HISTORIKER POI: Auftrag ist ein ruhiger POI-Rundflug mit historischen Fakten und lokaler Geschichte. Briefing/Greeting/Folgeansagen bleiben historisch-bildend. Kein SAR/Feuer/Inspektionsauftrag daraus machen.';
     }
     if (profile.id === 'tour_guide_knowledge' && isPOI) {
-        return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist Wissensvermittlung fuer den Piloten: Der Guide erklaert Ziel, Gegend, Landschaft, Nutzung und sichtbare Referenzen mit kurzen Fakten. Der Guide ist nicht selbst in Ausbildung und fliegt nicht zur Vorbereitung spaeterer Touren. Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks bis 500m duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
+        return '16. OPERATIONS-REGEL LERN-GUIDE POI: Rolle ist Wissensvermittlung fuer den Piloten: Der Guide erklaert Ziel, Gegend, Landschaft, Nutzung und sichtbare Referenzen mit kurzen Fakten. Der Guide ist nicht selbst in Ausbildung und fliegt nicht zur Vorbereitung spaeterer Touren. Keine Arbeitsanweisungen an den Piloten, keine feste Arbeitshoehe verlangen, keine technische Inspektions- oder Einsatzsprache. Bestaetigte visualLandmarks aus targetGeoContext/missionTruth duerfen als Orientierungshilfe genutzt werden, besonders bei unauffaelligen Zielen. Pro Ansage einen neuen Fakt oder eine neue Referenz bevorzugen. Keine Strommasten, Freileitungen, Windraeder, Bruecken, Fluesse, Autobahnen, Eisenbahnlinien, Gelaendemarken oder Tuerme erfinden, wenn sie nicht Ziel oder in targetGeoContext/missionTruth bestaetigt sind.';
     }
     if (profile.id === 'inspection_infra' && isPOI) {
         return '16. OPERATIONS-REGEL INSPEKTION POI: Auftrag ist technische Betreiberarbeit. Nutze Schäden, Sturmschaden-Check, Wartung, Störung, Baufortschritt, Wärmebild, Dach-/Bauwerks-/Trassenprüfung oder Dokumentation. Bei Brücken/Viadukten sind Pfeiler, Widerlager, Fundamente, Brückendeck, Unterführung/Hochstraße, Bahnviadukt, Sperrung oder Hochwasser an Pfeilern passende Varianten. Bei Staudamm/Talsperre/Stausee/Rueckhaltebecken bleibt das Wasserbauwerk Primärziel: Staumauer, Dammkrone, Ablaufbauwerk, Uferbefestigung, Pegel-/Schieberanlagen oder Hochwasserschutz. Zufahrt, Straße oder Strommast sind nur Lagehilfe/Support, nie Ersatz-Ziel. Keine Geologie-/Relief-/Bodenforschungsstory, ausser das Ziel ist ausdrücklich Berg, Steinbruch, Hang oder Naturgebiet.';
@@ -9754,8 +9754,8 @@ sceneIntent Felder:
 - densityHint: none|sparse|normal|busy.
 - notes: kurzer Grund.
 Wichtig: Keine Standard-Deko. Bei Lern-/Sightseeing-Fluegen darf sceneIntent sehr sparsam oder "none" sein. Kleine Kontextdetails sind erlaubt, wenn sie aus dem Text entstehen: Enten, Zelt, parkendes Auto, Holz, Kisten, Lagerfeuer, Tiere, Baufahrzeuge, Unfallfahrzeuge usw.
-Spezialobjekte sind keine Deko: Strommast/Freileitung nur bei ausdruecklichem Stromleitungs-, Umspannwerks-, Energieinfrastruktur-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark bis 500m. Windrad/Windpark nur bei ausdruecklichem Windenergie-, Neubau-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark bis 500m und nur in plausibler offener/hochgelegener Umgebung wie Bergkuppe, Wiese oder Feld; nicht in Stadt, Wohngebiet oder Tal.
-Bei Lern-/Sightseeing-/Historien-POIs duerfen bestaetigte visualLandmarks wie Strommast, Freileitung, Windrad, Bruecke, Fluss, Autobahn, Autobahnkreuz, Eisenbahnlinie oder Turm als kurze Lagehilfe vorkommen. Sie bleiben Referenz, nicht Hauptthema. Ohne visualLandmarks/targetGeoContext/missionTruth sind solche Landmarken tabu.
+Spezialobjekte sind keine Deko: Strommast/Freileitung nur bei ausdruecklichem Stromleitungs-, Umspannwerks-, Energieinfrastruktur-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark in direkter Zielnaehe. Windrad/Windpark nur bei ausdruecklichem Windenergie-, Neubau-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark in direkter Zielnaehe und nur in plausibler offener/hochgelegener Umgebung wie Bergkuppe, Wiese oder Feld; nicht in Stadt, Wohngebiet oder Tal.
+Bei Lern-/Sightseeing-/Historien-POIs duerfen bestaetigte visualLandmarks wie Strommast, Freileitung, Windrad, Bruecke, Fluss, Autobahn, Autobahnkreuz, Eisenbahnlinie, Gelaendemarke, Aussichtspunkt oder Turm als kurze Lagehilfe vorkommen. Sie bleiben Referenz, nicht Hauptthema. Ohne visualLandmarks/targetGeoContext/missionTruth sind solche Landmarken tabu.
 Wichtig: Story und sceneIntent muessen denselben Sachverhalt beschreiben. Das gilt fuer alle Missionstypen: Hauptziel, Kontextobjekte und Support muessen zusammenpassen. Wenn visibleIdeas Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere, Menschen, Werkzeug oder Ausruestung enthalten, muss die Story diese Dinge entweder vorher plausibel machen oder sceneIntent muss erklaeren, warum sie dort sichtbar sind.`;
 }
 
@@ -9890,7 +9890,7 @@ const missionTargetGeoContextInflight = new Map();
 function missionTargetGeoContextCacheKey(lat, lon, radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M) {
     const la = Math.round(Number(lat) * 1000) / 1000;
     const lo = Math.round(Number(lon) * 1000) / 1000;
-    return `ga_target_geo_context_v3_${la}_${lo}_${Math.round(Number(radiusM) || radiusM)}`;
+    return `ga_target_geo_context_v4_${la}_${lo}_${Math.round(Number(radiusM) || radiusM)}`;
 }
 
 function missionCardinalGerman(bearingDeg) {
@@ -9909,6 +9909,8 @@ function missionVisualLandmarkFromTags(tags = {}, { name = '', rawType = '' } = 
     const waterway = String(t.waterway || '').toLowerCase();
     const manMade = String(t.man_made || '').toLowerCase();
     const bridge = String(t.bridge || '').toLowerCase();
+    const natural = String(t.natural || '').toLowerCase();
+    const tourism = String(t.tourism || '').toLowerCase();
     const raw = String(rawType || t.obstacle_type || '').toLowerCase();
     const labelName = String(name || t.name || t.ref || t.operator || '').replace(/\s+/g, ' ').trim().slice(0, 80);
     const make = (kind, label, fallbackName = '') => ({
@@ -9927,6 +9929,11 @@ function missionVisualLandmarkFromTags(tags = {}, { name = '', rawType = '' } = 
     if (['motorway', 'motorway_link', 'trunk', 'trunk_link'].includes(highway)) return make('motorway', highway.includes('trunk') ? 'Schnellstrasse' : 'Autobahn');
     if (['rail', 'light_rail', 'narrow_gauge'].includes(railway)) return make('railway', 'Eisenbahnlinie');
     if (['river', 'canal'].includes(waterway)) return make(waterway, waterway === 'canal' ? 'Kanal' : 'Fluss');
+    if (natural === 'peak') return make('peak', 'Gipfel/Berg');
+    if (natural === 'ridge') return make('terrain_ridge', 'Bergruecken');
+    if (natural === 'saddle' || t.mountain_pass) return make('terrain_pass', 'Pass/Sattel');
+    if (natural === 'cliff') return make('terrain_cliff', 'Felskante');
+    if (tourism === 'viewpoint') return make('viewpoint', 'Aussichtspunkt');
     if (['tower', 'mast', 'communications_tower', 'water_tower'].includes(manMade) || raw.includes('tower') || raw.includes('mast')) return make('tower', 'Turm/Mast');
     return null;
 }
@@ -9944,14 +9951,35 @@ function missionTargetGeoContextCategory(tags = {}) {
     if (tags.waterway || tags.water || /water|reservoir|basin/.test(String(tags.natural || tags.landuse || '').toLowerCase())) return 'water';
     if (/wood|forest/.test(String(tags.natural || tags.landuse || '').toLowerCase())) return 'forest';
     if (/meadow|grassland|grass|village_green/.test(String(tags.natural || tags.landuse || '').toLowerCase())) return 'meadow';
+    if (/peak|ridge|saddle|cliff/.test(String(tags.natural || '').toLowerCase()) || tags.mountain_pass) return 'terrain';
     if (/farmland|farmyard|orchard|vineyard/.test(String(tags.landuse || '').toLowerCase())) return 'farmland';
+    if (String(tags.tourism || '').toLowerCase() === 'viewpoint') return 'viewpoint';
     if (tags.building) return 'building';
     if (tags.power) return 'power';
     if (tags.railway) return 'railway';
     return '';
 }
 
-function missionTargetGeoContextElementPoint(el = {}) {
+function missionTargetGeoContextElementPoint(el = {}, centerLat = null, centerLon = null) {
+    const originLat = Number(centerLat);
+    const originLon = Number(centerLon);
+    if (Number.isFinite(originLat) && Number.isFinite(originLon) && Array.isArray(el?.geometry) && el.geometry.length) {
+        let best = null;
+        let bestDistM = Infinity;
+        for (const p of el.geometry) {
+            const plat = Number(p?.lat);
+            const plon = Number(p?.lon);
+            if (!Number.isFinite(plat) || !Number.isFinite(plon)) continue;
+            let distM = Infinity;
+            try {
+                distM = Number(calcNav(originLat, originLon, plat, plon)?.dist) * 1852;
+            } catch (_) {}
+            if (!Number.isFinite(distM) || distM >= bestDistM) continue;
+            best = { lat: plat, lon: plon };
+            bestDistM = distM;
+        }
+        if (best) return best;
+    }
     const lat = Number(el.lat ?? el.center?.lat);
     const lon = Number(el.lon ?? el.center?.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
@@ -10402,9 +10430,11 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
         const distM = Number(nav.distM ?? (Number(nav.dist) * 1852));
         const bearingDeg = Number(nav.bearingDeg ?? nav.brng);
         if (!Number.isFinite(distM) || !Number.isFinite(bearingDeg)) return;
-        if (distM > MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M) return;
         const kind = String(candidate.kind || '').toLowerCase();
         if (!kind) return;
+        const extendedKinds = /^(railway|peak|terrain_ridge|terrain_pass|terrain_cliff|viewpoint)$/.test(kind);
+        const maxVisualDistM = extendedKinds ? MISSION_TARGET_GEO_CONTEXT_RADIUS_M : MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M;
+        if (distM > maxVisualDistM) return;
         const key = `${kind}|${Math.round(distM / 10)}|${Math.round(bearingDeg / 10)}|${String(candidate.name || '').toLowerCase()}`;
         if (visualSeen.has(key)) return;
         visualSeen.add(key);
@@ -10424,7 +10454,7 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
     raw.elements.forEach(el => {
         const tags = el?.tags || {};
         const category = missionTargetGeoContextCategory(tags);
-        const pt = missionTargetGeoContextElementPoint(el);
+        const pt = missionTargetGeoContextElementPoint(el, lat, lon);
         let nav = null;
         if (pt) {
             try { nav = calcNav(lat, lon, pt.lat, pt.lon); } catch (_) {}
@@ -10469,7 +10499,9 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
     if (anchors.forest) hints.push('forest-edge placement plausible near the forest anchor');
     if (anchors.meadow || anchors.farmland) hints.push('animals/tents/reference objects plausible on meadow or farmland anchors');
     if (anchors.power) hints.push('powerline/pylon placement plausible near the power anchor');
-    if (visualLandmarks.length) hints.push('confirmed visual reference landmarks within 500m available');
+    if (anchors.railway) hints.push('railway can be used as a confirmed orientation landmark');
+    if (anchors.terrain || anchors.viewpoint) hints.push('terrain/viewpoint landmarks can be used as confirmed orientation context');
+    if (visualLandmarks.length) hints.push('confirmed visual reference landmarks available');
     const summary = Object.entries(anchors)
         .filter(([, a]) => a && a.present)
         .sort((a, b) => Number(a[1].distM || 999999) - Number(b[1].distM || 999999))
@@ -10528,7 +10560,7 @@ function mergeMissionVisualLandmarks(ctx = null, landmarks = []) {
         .slice(0, 8);
     if (base.visualLandmarks.length) {
         const hints = Array.isArray(base.hints) ? base.hints.slice() : [];
-        if (!hints.includes('confirmed visual reference landmarks within 500m available')) hints.push('confirmed visual reference landmarks within 500m available');
+        if (!hints.includes('confirmed visual reference landmarks available')) hints.push('confirmed visual reference landmarks available');
         base.hints = hints;
     }
     return base;
@@ -10560,6 +10592,9 @@ async function fetchMissionLocalVisualLandmarks(lat, lon, radiusM = MISSION_TARG
         const candidate = missionVisualLandmarkFromPoiFeature(f);
         if (!candidate) continue;
         const kind = String(candidate.kind || '').toLowerCase();
+        const extendedKinds = /^(railway|peak|terrain_ridge|terrain_pass|terrain_cliff|viewpoint)$/.test(kind);
+        const maxVisualDistM = extendedKinds ? MISSION_TARGET_GEO_CONTEXT_RADIUS_M : MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M;
+        if (distM > maxVisualDistM) continue;
         const relFromTarget = missionCardinalGerman(bearingDeg);
         const targetFromLandmark = missionCardinalGerman(bearingDeg + 180);
         const key = `${kind}|${Math.round(distM / 10)}|${Math.round(bearingDeg / 10)}|${String(candidate.name || '').toLowerCase()}`;
@@ -10611,6 +10646,12 @@ async function fetchMissionTargetGeoContext(missionData = null) {
   way(around:${radiusM},${lat},${lon})["waterway"];
   way(around:${radiusM},${lat},${lon})["natural"~"water|wood|scrub|heath|grassland"];
   relation(around:${radiusM},${lat},${lon})["natural"~"water|wood"];
+  node(around:${radiusM},${lat},${lon})["natural"~"peak|ridge|saddle|cliff"];
+  way(around:${radiusM},${lat},${lon})["natural"~"peak|ridge|saddle|cliff"];
+  node(around:${radiusM},${lat},${lon})["mountain_pass"];
+  way(around:${radiusM},${lat},${lon})["mountain_pass"];
+  node(around:${radiusM},${lat},${lon})["tourism"="viewpoint"];
+  way(around:${radiusM},${lat},${lon})["tourism"="viewpoint"];
   way(around:${radiusM},${lat},${lon})["landuse"~"forest|meadow|farmland|grass|orchard|vineyard|reservoir"];
   relation(around:${radiusM},${lat},${lon})["landuse"~"forest|meadow|farmland|grass|orchard|vineyard|reservoir"];
   way(around:${radiusM},${lat},${lon})["amenity"="parking"];
@@ -10625,7 +10666,7 @@ out tags center geom 160;`;
     const promise = (async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 9000);
-        const localLandmarksPromise = fetchMissionLocalVisualLandmarks(lat, lon, MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M).catch(() => []);
+        const localLandmarksPromise = fetchMissionLocalVisualLandmarks(lat, lon, MISSION_TARGET_GEO_CONTEXT_RADIUS_M).catch(() => []);
         try {
             const res = await fetch('https://overpass-api.de/api/interpreter', {
                 method: 'POST',
@@ -12813,7 +12854,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             : `4b. POI-KONSISTENZ (zwingend): Verwende exakt "${promptDestName}" als Zielbezug und nenne keinen alternativen Primär-Ortsnamen.`))
         : '';
     const missionTruthRule = (isPOI && compactTruth)
-        ? `4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. mainTarget beschreibt das kanonische Arbeits-/Sichtziel; sceneAnchor/visibleCues/visualLandmarks duerfen nur Platzierung, Zufahrt oder Orientierung erklaeren und nie ein anderes Primaerziel daraus machen. geometryMode erklaert die Zielart: pinpoint/structure bleibt beim Objekt, area darf nur zur passenden Flaeche/Kante, corridor/facility/broad_infrastructure nur zu passenden Strukturankern. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen. visualLandmarks sind bestaetigte visuelle Referenzen bis 500m; bei unauffaelligem Ziel duerfen sie zur Orientierung genutzt werden, aber nicht als Primaerziel.`
+        ? `4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. mainTarget beschreibt das kanonische Arbeits-/Sichtziel; sceneAnchor/visibleCues/visualLandmarks duerfen nur Platzierung, Zufahrt oder Orientierung erklaeren und nie ein anderes Primaerziel daraus machen. geometryMode erklaert die Zielart: pinpoint/structure bleibt beim Objekt, area darf nur zur passenden Flaeche/Kante, corridor/facility/broad_infrastructure nur zu passenden Strukturankern. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen. visualLandmarks sind bestaetigte visuelle Referenzen aus dem Geo-Kontext; bei unauffaelligem Ziel duerfen sie zur Orientierung genutzt werden, aber nicht als Primaerziel.`
         : '';
     const activePlanVersion = String(compactMissionPlanV2?.pipelineVersion || '');
     const missionPlanV2Rule = (compactMissionPlanV2 && compactMissionPlanV2.status === 'ready')

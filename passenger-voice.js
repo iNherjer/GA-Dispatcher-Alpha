@@ -295,6 +295,31 @@ function _poiNoRepeatHint(stage = 'entry') {
     return ` Bereits genannt (nicht wiederholen, nicht paraphrasieren und nicht als Leitmotiv fortsetzen): ${used.join(' | ')}. Liefere stattdessen neue, konkrete Zusatzinfos. Wenn darin eine Landmarke oder ein Spezialobjekt vorkam, greife es nicht erneut auf, ausser die aktuelle Anweisung verlangt es ausdruecklich.`;
 }
 
+function _poiNarrativeMemoryText() {
+    return [
+        _poiNarrativeMemory?.pre,
+        _poiNarrativeMemory?.entry,
+        _poiNarrativeMemory?.done
+    ].map(x => String(x || '').trim()).filter(Boolean).join(' ');
+}
+
+function _poiMemoryHasCue(text = '') {
+    const normalize = (value) => String(value || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/ß/g, 'ss');
+    const mem = normalize(_poiNarrativeMemoryText());
+    if (!mem) return false;
+    const t = normalize(text);
+    const cues = [
+        'strommast', 'freileitung', 'windrad', 'bruecke', 'fluss', 'kanal',
+        'autobahn', 'eisenbahn', 'bahnlinie', 'bahntrasse', 'gleis',
+        'gipfel', 'bergruecken', 'pass', 'sattel', 'aussichtspunkt',
+        'wald', 'waldkante', 'strasse', 'zufahrt', 'stausee', 'see', 'ufer'
+    ];
+    return cues.some(cue => t.includes(cue) && mem.includes(cue));
+}
+
 function _isPattonvilleMissionTarget() {
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
     const uiDest = document.getElementById('mDestName')?.innerText || '';
@@ -714,6 +739,91 @@ function _professionalLandingToneHint() {
     return ' Ton bei Landung: sachlich, knapp und dankend. Kein Show-/Sightseeing-Ton.';
 }
 
+function _paxCardinalGerman(bearingDeg) {
+    const n = Number(bearingDeg);
+    if (!Number.isFinite(n)) return '';
+    const dirs = ['noerdlich', 'nordoestlich', 'oestlich', 'suedoestlich', 'suedlich', 'suedwestlich', 'westlich', 'nordwestlich'];
+    const idx = Math.round((((n % 360) + 360) % 360) / 45) % 8;
+    return dirs[idx] || '';
+}
+
+function _paxMissionPlanFactSources() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const contract = md.missionContract || window.activeMissionContract || null;
+    const plan = md?._missionPlanV2?.plan
+        || md?.missionPlanV2?.plan
+        || contract?._missionPlanV2?.plan
+        || contract?.missionPlanV2?.plan
+        || null;
+    if (!plan || typeof plan !== 'object') return [];
+    return [
+        ...(Array.isArray(plan.localFacts) ? plan.localFacts : []),
+        ...(Array.isArray(plan.narrativeHooks) ? plan.narrativeHooks : []),
+        ...(Array.isArray(plan.mustMention) ? plan.mustMention.filter(x => String(x || '').trim().length > 18) : [])
+    ];
+}
+
+function _paxTargetGeoContext() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const contract = md.missionContract || window.activeMissionContract || null;
+    return md.targetGeoContext || contract?.targetGeoContext || md.missionTruth?.targetGeoContext || contract?.missionTruth?.targetGeoContext || null;
+}
+
+function _targetContextFactCandidates() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const contract = md.missionContract || window.activeMissionContract || null;
+    const truth = md.missionTruth || contract?.missionTruth || null;
+    const geo = _paxTargetGeoContext();
+    const anchors = geo?.anchors || {};
+    const out = [];
+    const seen = new Set();
+    const add = (value) => {
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        if (text.length < 24) return;
+        const key = text.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(text.length > 190 ? `${text.slice(0, 187)}...` : text);
+    };
+    _paxMissionPlanFactSources().forEach(add);
+    const anchorFact = (key, label, verb = 'liegt') => {
+        const a = anchors?.[key];
+        if (!a?.present) return;
+        const dist = Number(a.distM);
+        const bearing = Number(a.bearingDeg);
+        const distTxt = Number.isFinite(dist) ? `etwa ${Math.round(dist)} Meter` : 'in Zielnaehe';
+        const rel = _paxCardinalGerman(bearing);
+        const relTxt = rel ? ` ${rel}` : '';
+        const name = String(a.name || '').replace(/\s+/g, ' ').trim();
+        const nameTxt = name && !/^(road|path|water|forest|meadow|farmland|terrain|railway|power)$/i.test(name) ? ` (${name})` : '';
+        add(`${label}${nameTxt} ${verb} ${distTxt}${relTxt} vom Ziel und ist als Lagebezug aus der Luft brauchbar.`);
+    };
+    anchorFact('railway', 'Eine Bahnlinie', 'verlaeuft');
+    anchorFact('terrain', 'Eine markante Gelaendemarke', 'liegt');
+    anchorFact('viewpoint', 'Ein Aussichtspunkt', 'liegt');
+    anchorFact('water', 'Ein Gewaesser oder Uferbereich', 'liegt');
+    anchorFact('forest', 'Eine Waldkante', 'liegt');
+    anchorFact('road', 'Eine Strasse oder Zufahrt', 'liegt');
+    anchorFact('path', 'Ein Weg oder Pfad', 'liegt');
+    anchorFact('meadow', 'Eine offene Wiese', 'liegt');
+    anchorFact('farmland', 'Offenes Kulturland', 'liegt');
+    anchorFact('power', 'Eine bestaetigte Stromtrasse', 'liegt');
+    const prominence = truth?.targetProminence;
+    if (prominence?.level && prominence?.reason) {
+        add(`Das Ziel ist visuell ${String(prominence.level)} auffaellig: ${String(prominence.reason).replace(/\s+/g, ' ').trim()}.`);
+    }
+    _paxConfirmedVisualLandmarks(750)
+        .filter(lm => !_paxMemoryMentionsLandmark(lm))
+        .slice(0, 4)
+        .forEach(lm => {
+            const name = String(lm.name || lm.label || lm.kind || 'Landmarke').replace(/\s+/g, ' ').trim();
+            const dist = Number.isFinite(Number(lm.distM)) ? `etwa ${Math.round(Number(lm.distM))} Meter` : 'in Zielnaehe';
+            const rel = lm.relFromTarget ? ` ${lm.relFromTarget}` : '';
+            add(`${name} ist eine bestaetigte visuelle Referenz ${dist}${rel} vom Ziel.`);
+        });
+    return out.filter(x => !_poiMemoryHasSimilarFact(x) && !_poiMemoryHasCue(x));
+}
+
 function _domainDriftGuard(mode = 'generic') {
     const td = _activeTaskDomain();
     const m = String(mode || 'generic').toLowerCase();
@@ -750,20 +860,30 @@ function _targetFactHint() {
     if (/^(search_and_rescue|fire_watch|mapping_survey|news_coverage)$/.test(td)) return '';
     if (_activeAptTrainingPlan()) return '';
     const raw = document.getElementById('wikiDestDescText')?.innerText?.trim() || '';
-    if (!raw) return '';
-    if (/warte auf daten|lade ziel-info|nicht geladen|keine regionalen/i.test(raw)) return '';
+    const contextFact = _targetContextFactCandidates().find(s => !_poiMemoryHasSimilarFact(s) && !_poiMemoryHasCue(s)) || '';
+    if (!raw) {
+        return contextFact ? ` Sachlicher Ziel-/Umfeld-Fakt (wenn passend kurz einbauen): ${contextFact}.` : '';
+    }
+    if (/warte auf daten|lade ziel-info|nicht geladen|keine regionalen/i.test(raw)) {
+        return contextFact ? ` Sachlicher Ziel-/Umfeld-Fakt (wenn passend kurz einbauen): ${contextFact}.` : '';
+    }
     const cleaned = raw.replace(/\s+/g, ' ').trim();
     // Filter internal/source status text so it never leaks into spoken prompts.
-    if (/(wikipedia|wiki-daten|fetch-fehler)/i.test(cleaned)) return '';
-    if (/(konnte(n)?\s+nicht|nicht\s+abrufbar|nicht\s+geladen|fehler)/i.test(cleaned)) return '';
+    if (/(wikipedia|wiki-daten|fetch-fehler)/i.test(cleaned)) {
+        return contextFact ? ` Sachlicher Ziel-/Umfeld-Fakt (wenn passend kurz einbauen): ${contextFact}.` : '';
+    }
+    if (/(konnte(n)?\s+nicht|nicht\s+abrufbar|nicht\s+geladen|fehler)/i.test(cleaned)) {
+        return contextFact ? ` Sachlicher Ziel-/Umfeld-Fakt (wenn passend kurz einbauen): ${contextFact}.` : '';
+    }
     const pickedSentence = cleaned
         .split(/[.!?]/)
         .map(s => s.trim())
         .filter(s => s.length >= 28)
-        .find(s => !_poiMemoryHasSimilarFact(s)) || '';
-    if (!pickedSentence) return '';
-    const clip = pickedSentence.length > 180 ? `${pickedSentence.slice(0, 177)}...` : pickedSentence;
-    return ` Sachlicher Ziel-Fakt (wenn passend kurz einbauen): ${clip}.`;
+        .find(s => !_poiMemoryHasSimilarFact(s) && !_poiMemoryHasCue(s)) || '';
+    if (!pickedSentence && !contextFact) return '';
+    const picked = pickedSentence || contextFact;
+    const clip = picked.length > 180 ? `${picked.slice(0, 177)}...` : picked;
+    return ` Sachlicher Ziel-/Umfeld-Fakt (wenn passend kurz einbauen): ${clip}.`;
 }
 
 function _factKeywords(text = '') {
@@ -2128,13 +2248,37 @@ function _paxTextHasTowerLandmark(text = '') {
 }
 
 function _paxGeoContextHasAnchor(key = '', maxDistM = 700) {
-    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
-    const contract = md.missionContract || window.activeMissionContract || null;
-    const anchors = md.targetGeoContext?.anchors || contract?.targetGeoContext?.anchors || {};
+    const anchors = _paxTargetGeoContext()?.anchors || {};
     const anchor = anchors[key];
     if (!anchor?.present) return false;
     const dist = Number(anchor.distM);
     return !Number.isFinite(dist) || dist <= maxDistM;
+}
+
+function _paxMemoryMentionsLandmark(lm = null) {
+    const mem = _poiNarrativeMemoryText()
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/ß/g, 'ss');
+    if (!mem) return false;
+    const kind = String(lm?.kind || '').toLowerCase();
+    const terms = [
+        lm?.name,
+        lm?.label,
+        kind,
+        kind === 'power_tower' ? 'strommast' : '',
+        kind === 'powerline' ? 'freileitung' : '',
+        kind === 'railway' ? 'eisenbahn' : '',
+        kind === 'peak' ? 'gipfel' : '',
+        kind?.startsWith?.('terrain_') ? 'gelaendemarke' : '',
+        kind === 'viewpoint' ? 'aussichtspunkt' : ''
+    ].map(x => String(x || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/ß/g, 'ss')
+        .trim())
+        .filter(x => x.length >= 4);
+    return terms.some(term => mem.includes(term));
 }
 
 function _paxConfirmedVisualLandmarks(maxDistM = 500) {
@@ -2157,10 +2301,10 @@ function _paxConfirmedVisualLandmarks(maxDistM = 500) {
         .slice(0, 6);
 }
 
-function _paxHasVisualLandmarkKind(kinds = []) {
+function _paxHasVisualLandmarkKind(kinds = [], maxDistM = 500) {
     const wanted = new Set((Array.isArray(kinds) ? kinds : [kinds]).map(k => String(k || '').toLowerCase()).filter(Boolean));
     if (!wanted.size) return false;
-    return _paxConfirmedVisualLandmarks().some(lm => wanted.has(String(lm?.kind || '').toLowerCase()));
+    return _paxConfirmedVisualLandmarks(maxDistM).some(lm => wanted.has(String(lm?.kind || '').toLowerCase()));
 }
 
 function _paxTargetProminenceLine() {
@@ -2174,16 +2318,19 @@ function _paxTargetProminenceLine() {
 function _paxVisualLandmarksLine() {
     const task = _activeTaskDomain();
     if (!/^(poi_learning_guide|sightseeing_tour|historian_guided_tour)$/.test(task)) return '';
-    const landmarks = _paxConfirmedVisualLandmarks();
+    const maxDistM = task === 'poi_learning_guide' ? 750 : 500;
+    let landmarks = _paxConfirmedVisualLandmarks(maxDistM);
+    const fresh = landmarks.filter(lm => !_paxMemoryMentionsLandmark(lm));
+    if (fresh.length) landmarks = fresh;
     if (!landmarks.length) return '';
-    const items = landmarks.map(lm => {
+    const items = landmarks.slice(0, task === 'poi_learning_guide' ? 3 : 6).map(lm => {
         const name = String(lm.name || lm.label || lm.kind || 'Landmarke').trim();
         const dist = Number.isFinite(Number(lm.distM)) ? `${Math.round(Number(lm.distM))}m` : 'nah';
         const rel = lm.relFromTarget ? `${lm.relFromTarget} vom Ziel` : '';
         const inverse = lm.targetFromLandmark ? `Ziel ${lm.targetFromLandmark} davon` : '';
         return [name, dist, rel, inverse].filter(Boolean).join(', ');
     }).join(' | ');
-    return `BESTAETIGTE VISUELLE REFERENZEN (max 500m): ${items}. Du darfst hoechstens eine davon zur Orientierung nutzen, besonders wenn das Ziel selbst unauffaellig ist. Nicht erfinden, nicht als Hauptthema ausbauen.`;
+    return `BESTAETIGTE VISUELLE REFERENZEN (max ${maxDistM}m): ${items}. Nutze pro Ansage hoechstens eine davon und bevorzuge eine noch nicht genannte Referenz. Nicht erfinden, nicht als Hauptthema ausbauen.`;
 }
 
 function _paxMissionTruthMainKind(key = '') {
@@ -2205,7 +2352,7 @@ function _sanitizePaxSoftPoiStory(text = '') {
     const bridgeAllowed = _paxTextHasBridgeLandmark(targetName) || _paxGeoContextHasAnchor('bridge', 500) || _paxHasVisualLandmarkKind('bridge') || _paxMissionTruthMainKind('bridge');
     const riverAllowed = _paxTextHasRiverLandmark(targetName) || _paxHasVisualLandmarkKind(['river', 'canal']) || _paxMissionTruthMainKind('water_edge') || _paxMissionTruthMainKind('water');
     const motorwayAllowed = _paxTextHasMotorwayLandmark(targetName) || _paxHasVisualLandmarkKind(['motorway', 'motorway_junction']) || _paxMissionTruthMainKind('road');
-    const railwayAllowed = _paxTextHasRailwayLandmark(targetName) || _paxGeoContextHasAnchor('railway', 500) || _paxGeoContextHasAnchor('rail', 500) || _paxHasVisualLandmarkKind('railway') || _paxMissionTruthMainKind('rail');
+    const railwayAllowed = _paxTextHasRailwayLandmark(targetName) || _paxGeoContextHasAnchor('railway', 750) || _paxGeoContextHasAnchor('rail', 750) || _paxHasVisualLandmarkKind('railway', 750) || _paxMissionTruthMainKind('rail');
     const towerAllowed = _paxTextHasTowerLandmark(targetName) || _paxHasVisualLandmarkKind(['tower', 'power_tower', 'wind_turbine']) || _paxMissionTruthMainKind('power');
     const raw = String(text || '').replace(/\s+/g, ' ').trim();
     if (!raw) return '';
@@ -2282,7 +2429,7 @@ ${urgencyLine}`
     if (aptArrivalLine) lines.push(aptArrivalLine);
     if (fireHazardLine) lines.push(fireHazardLine);
     if (_activeTaskDomain() === 'poi_learning_guide') {
-        lines.push('LERN-GUIDE-FIX: Du bist der Guide und erklaerst dem Piloten die Gegend. Nicht sagen, dass du selbst fuer spaetere Touren lernst oder das Gelaende abspeicherst. Gib pro Meldung mindestens einen konkreten Fakt, Kontext oder eine visuelle Orientierung.');
+        lines.push('LERN-GUIDE-FIX: Du bist der Guide und erklaerst dem Piloten die Gegend. Nicht sagen, dass du selbst fuer spaetere Touren lernst oder das Gelaende abspeicherst. Gib pro Meldung mindestens einen konkreten Fakt, Kontext oder eine visuelle Orientierung. Wiederhole keine bereits genannte Landmarke, wenn eine neue Referenz oder ein neuer Umfeld-Fakt verfuegbar ist.');
     }
     const targetProminenceLine = _paxTargetProminenceLine();
     const visualLandmarksLine = _paxVisualLandmarksLine();

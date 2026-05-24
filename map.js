@@ -7946,12 +7946,23 @@ function initMapBase() {
     if (layerControl && layerControl._container) {
         const lc = layerControl._container;
         const bringLayerControlToFront = () => {
+            const controlCorner = lc.closest('.leaflet-top, .leaflet-bottom') || lc.parentElement;
+            const controlRoot = lc.closest('.leaflet-control-container');
+            if (controlCorner && controlCorner.style) {
+                controlCorner.style.position = controlCorner.style.position || 'relative';
+                controlCorner.style.pointerEvents = 'auto';
+            }
+            if (controlRoot && controlRoot.style) {
+                controlRoot.style.position = controlRoot.style.position || 'relative';
+            }
             lc.style.position = lc.style.position || 'relative';
             if (typeof bringMapOverlayToFront === 'function') {
-                bringMapOverlayToFront(lc);
+                bringMapOverlayToFront(controlRoot, controlCorner, lc);
                 return;
             }
             window.gaMapOverlayZ = Math.max(130500, Number(window.gaMapOverlayZ) || 130500) + 1;
+            if (controlRoot && controlRoot.style) controlRoot.style.zIndex = String(window.gaMapOverlayZ);
+            if (controlCorner && controlCorner.style) controlCorner.style.zIndex = String(window.gaMapOverlayZ);
             lc.style.zIndex = String(window.gaMapOverlayZ);
         };
         // Hover-Verhalten robust deaktivieren: Leaflet nutzt je nach Version
