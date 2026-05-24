@@ -1194,9 +1194,6 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const walkMs = clampInt((pathDistanceM(routeToExit) / Math.max(0.5, walkSpeedKts * 0.514444)) * 1000 + 1200, 3000, 36000);
     debugLog(`SCENE_DEBOARDING_WALK scene=${sceneId} people=${people.length} routeSent=${routeSentCount}/${people.length} walkMs=${walkMs} path=${pathSource} pickupBound=${pickupRoutePoint ? 1 : 0} walkOff=${walkOffRoute.length}`);
     await sleep(walkMs);
-    if (routeSentCount > 0) {
-      people.forEach(person => removeSceneObject(rec, person, 'deboarding-complete-hidden'));
-    }
     if (doorEnabled) {
       await setUserAircraftDoor(false, doorIndex, 'deboarding-close', doorProfile);
     }

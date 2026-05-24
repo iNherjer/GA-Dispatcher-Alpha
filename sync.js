@@ -4190,9 +4190,6 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.deboardingActive = false;
             window.missionSceneStatus.deboardingComplete = ack.status === 'ok';
             window.missionSceneStatus.deboardingError = ack.status === 'ok' ? null : (ack.error || ack.status || 'scene_deboarding_failed');
-            if (ack.status === 'ok' && typeof window.missionAptArrivalClear === 'function') {
-                setTimeout(() => window.missionAptArrivalClear('deboarding-complete'), 1200);
-            }
         }
         if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
         _updateMissionRuntimeUi();
