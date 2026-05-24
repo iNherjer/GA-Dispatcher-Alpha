@@ -2333,6 +2333,70 @@ function _paxVisualLandmarksLine() {
     return `BESTAETIGTE VISUELLE REFERENZEN (max ${maxDistM}m): ${items}. Nutze pro Ansage hoechstens eine davon und bevorzuge eine noch nicht genannte Referenz. Nicht erfinden, nicht als Hauptthema ausbauen.`;
 }
 
+function _paxApproachLandmarkCueLine() {
+    if (!_isPOIMission()) return '';
+    const task = _activeTaskDomain();
+    const maxDistM = /^(poi_learning_guide|sightseeing_tour|historian_guided_tour)$/.test(task) ? 750 : 500;
+    const priority = {
+        railway: 1,
+        peak: 2,
+        terrain_ridge: 3,
+        terrain_pass: 4,
+        terrain_cliff: 5,
+        viewpoint: 6,
+        river: 7,
+        canal: 8,
+        bridge: 9,
+        motorway: 10,
+        motorway_junction: 11,
+        tower: 12,
+        power_tower: 13,
+        powerline: 14,
+        wind_turbine: 15
+    };
+    let landmarks = _paxConfirmedVisualLandmarks(maxDistM).filter(lm => !_paxMemoryMentionsLandmark(lm));
+    if (!landmarks.length) landmarks = _paxConfirmedVisualLandmarks(maxDistM);
+    const lm = landmarks
+        .slice()
+        .sort((a, b) => {
+            const ak = priority[String(a?.kind || '').toLowerCase()] || 50;
+            const bk = priority[String(b?.kind || '').toLowerCase()] || 50;
+            if (ak !== bk) return ak - bk;
+            return Number(a?.distM || 999999) - Number(b?.distM || 999999);
+        })[0];
+    if (lm) {
+        const name = String(lm.name || lm.label || lm.kind || 'Landmarke').replace(/\s+/g, ' ').trim();
+        const dist = Number.isFinite(Number(lm.distM)) ? `etwa ${Math.round(Number(lm.distM))} Meter` : 'in Zielnaehe';
+        const rel = lm.relFromTarget ? `${lm.relFromTarget} vom POI` : 'vom POI aus sichtbar';
+        const inverse = lm.targetFromLandmark ? `der POI liegt ${lm.targetFromLandmark} davon` : 'nutze sie als Bezug zum POI';
+        return `4-NM-LANDMARK-CALL: Nutze genau diese bestaetigte Referenz zur Positionsansage: ${name}, ${dist} ${rel}; ${inverse}. Sage dem Piloten damit klar, wo sich der POI befindet. Danach hoechstens ein kurzer Zusatzfakt, keine zweite Landmarke.`;
+    }
+
+    const anchors = _paxTargetGeoContext()?.anchors || {};
+    const anchorDefs = [
+        ['railway', 'Bahnlinie', 'verlaeuft'],
+        ['terrain', 'Gelaendemarke', 'liegt'],
+        ['viewpoint', 'Aussichtspunkt', 'liegt'],
+        ['water', 'Gewaesser/Ufer', 'liegt'],
+        ['forest', 'Waldkante', 'liegt'],
+        ['road', 'Strasse/Zufahrt', 'liegt'],
+        ['path', 'Weg/Pfad', 'liegt'],
+        ['power', 'Stromtrasse', 'liegt']
+    ];
+    for (const [key, label, verb] of anchorDefs) {
+        const a = anchors?.[key];
+        const dist = Number(a?.distM);
+        const bearing = Number(a?.bearingDeg);
+        if (!a?.present || !Number.isFinite(dist) || dist > maxDistM || !Number.isFinite(bearing)) continue;
+        const name = String(a.name || '').replace(/\s+/g, ' ').trim();
+        const fullLabel = name && !/^(road|path|water|forest|terrain|railway|power)$/i.test(name) ? `${label} ${name}` : label;
+        const rel = _paxCardinalGerman(bearing);
+        const inverse = _paxCardinalGerman(bearing + 180);
+        return `4-NM-LANDMARK-CALL: Nutze diese bestaetigte Referenz zur Positionsansage: ${fullLabel} ${verb} etwa ${Math.round(dist)} Meter ${rel} vom POI; der POI liegt ${inverse} davon. Danach hoechstens ein kurzer Zusatzfakt, keine zweite Landmarke.`;
+    }
+    return '';
+}
+
 function _paxMissionTruthMainKind(key = '') {
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
     const contract = md.missionContract || window.activeMissionContract || null;
@@ -2780,7 +2844,8 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
     const taskDomain = _activeTaskDomain();
     const isHistorian = taskDomain === 'historian_guided_tour';
     const isLearningGuide = taskDomain === 'poi_learning_guide';
-    const factHint = (taskDomain === 'search_and_rescue') ? '' : _targetFactHint();
+    const approachLandmarkHint = _paxApproachLandmarkCueLine();
+    const factHint = (taskDomain === 'search_and_rescue' || approachLandmarkHint) ? '' : _targetFactHint();
     const driftGuard = _domainDriftGuard('in_sight');
     const announcedEta = 2; // bewusst knapper wegen Latenz durch Text+TTS
     const roundedDist = Math.max(0.5, Math.round(distNm * 10) / 10);
@@ -2801,7 +2866,7 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
         ? ' Historiker-Rolle: knapp historisch einordnen (z.B. Epoche/Funktion/regionale Bedeutung), ohne technische Befundsprache.'
         : '';
     const learningInSightHint = isLearningGuide
-        ? ' Lern-Guide-Rolle: Sage nicht "in Sicht", sondern orientiere den Piloten ruhig zur Position und nenne direkt einen kurzen Fakt zum Ziel.'
+        ? ' Lern-Guide-Rolle: Sage nicht "in Sicht", sondern orientiere den Piloten ruhig zur Position. In diesem Call hat Landmarken-Lokalisierung Vorrang vor Hintergrundfakten.'
         : '';
     const roleTone = (taskDomain === 'search_and_rescue')
         ? 'SAR-Rolle: knapp, klar, lageorientiert, kein Sightseeing-Ton. Max 2 Saetze.'
@@ -2814,8 +2879,8 @@ function _poiInSightPrompt(flightData, distNm, etaMin, clockPos) {
 
 Moment: Zielobjekt "${md.poiName || 'Ziel'}" wird im Anflug sichtbar. Distanz etwa ${roundedDist} NM, reale ETA ca. ${realEta} min, relative Lage ${clockPos}.
 ${isLearningGuide
-        ? `Gib eine kurze Orientierung zur Lage in der 12-Uhr-Logik (${clockPos}) und nenne "ca. ${announcedEta} Minuten", dann direkt einen kurzen Fakt zum Ziel.`
-        : `Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".`}${altBrief}${factHint}${sarZoneGuard}${historianInSightHint}${learningInSightHint} ${trainingHint}
+        ? `Gib eine kurze Orientierung zur Lage in der 12-Uhr-Logik (${clockPos}) und nenne "ca. ${announcedEta} Minuten". Nutze danach bevorzugt eine bestaetigte Landmarke, um zu erklaeren, wo der POI liegt.`
+        : `Sag dem Piloten kurz und sachlich, dass du das Objekt in Sicht hast, nenne die Lage in der 12-Uhr-Logik (${clockPos}) und ansage "ca. ${announcedEta} Minuten".`}${altBrief}${approachLandmarkHint ? `\n${approachLandmarkHint}` : ''}${factHint}${sarZoneGuard}${historianInSightHint}${learningInSightHint} ${trainingHint}
 ${driftGuard}
 ${roleTone}${_toneHint()}`;
 }
