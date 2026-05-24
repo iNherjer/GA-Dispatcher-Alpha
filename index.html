@@ -1060,39 +1060,46 @@
             <div style="position:relative; display:inline-flex; align-items:center;">
                 <button class="pb-btn" id="mapVoiceBtn" onclick="toggleMapVoiceMenu()">🎙️ Voice</button>
                 <div id="mapVoiceMenu" style="display:none; position:absolute; top:38px; right:0; min-width:230px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
-                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
-                        <span style="font-size:13px;">🔊</span>
-                        <input type="range" id="awmVolumeSlider" min="0" max="100" value="100"
-                            style="flex:1; min-width:90px; accent-color:#4da6ff; cursor:pointer;"
-                            oninput="awmSetVolume(this.value)">
-                        <span id="awmVolumeLabel" style="font-size:11px; color:#aaa; min-width:34px; text-align:right;">100%</span>
+                    <div>
+                        <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">VOICE WARNINGS</div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                            <span style="font-size:13px;">🔊</span>
+                            <input type="range" id="awmVolumeSlider" min="0" max="100" value="100"
+                                style="flex:1; min-width:90px; accent-color:#4da6ff; cursor:pointer;"
+                                oninput="awmSetVolume(this.value)">
+                            <span id="awmVolumeLabel" style="font-size:11px; color:#aaa; min-width:34px; text-align:right;">100%</span>
+                        </div>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmReadFreqCheck" checked
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="awmSetReadFreq(this.checked)">
+                            📻 Frequenz ansagen
+                        </label>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmTerrainWarnCheck" checked
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="awmSetTerrainWarn(this.checked)">
+                            🏔️ Terrain Warning
+                        </label>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmAirspaceWarnCheck" checked
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="awmSetAirspaceWarn(this.checked)">
+                            🛡️ Luftraum Warning
+                        </label>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 8px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmWpAlertCheck" checked
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="awmSetWpAlert(this.checked)">
+                            📍 Wegpunkt-Ansage
+                        </label>
+                        <div style="font-size:11px; color:#aaa; margin:7px 0 5px 0;">Warning-Stimme</div>
+                        <audio id="awmDemoAudio" style="display:none;"></audio>
+                        <div id="awmVoiceList" style="display:flex; flex-direction:column; gap:4px;">
+                        </div>
                     </div>
-                    <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
-                        <input type="checkbox" id="awmReadFreqCheck" checked
-                            style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
-                            onchange="awmSetReadFreq(this.checked)">
-                        📻 Frequenz ansagen
-                    </label>
-                    <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
-                        <input type="checkbox" id="awmTerrainWarnCheck" checked
-                            style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
-                            onchange="awmSetTerrainWarn(this.checked)">
-                        🏔️ Terrain Warning
-                    </label>
-                    <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
-                        <input type="checkbox" id="awmAirspaceWarnCheck" checked
-                            style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
-                            onchange="awmSetAirspaceWarn(this.checked)">
-                        🛡️ Luftraum Warning
-                    </label>
-                    <label class="pb-btn" style="display:flex; width:100%; margin:0 0 8px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
-                        <input type="checkbox" id="awmWpAlertCheck" checked
-                            style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
-                            onchange="awmSetWpAlert(this.checked)">
-                        📍 Wegpunkt-Ansage
-                    </label>
-                    <div style="border-top:1px solid #333; padding-top:8px; margin-top:2px;">
-                        <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">PASSAGIER</div>
+                    <div style="border-top:1px solid #333; padding-top:8px; margin-top:8px;">
+                        <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">PASSAGIER VOICE</div>
                         <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
                             <input type="checkbox" id="awmPaxVoiceCheck"
                                 style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
@@ -1127,9 +1134,6 @@
                                 <option value="2.5">Nur Gemini 2.5 TTS</option>
                             </select>
                         </div>
-                    </div>
-                    <div style="border-top:1px solid #333; padding-top:8px;">
-                        <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">STIMME</div>
                         <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
                             <span style="font-size:11px; color:#aaa; flex-shrink:0;">Pax Voice</span>
                             <select id="awmPaxAudioStyleSelect"
@@ -1139,9 +1143,6 @@
                                 <option value="intercom">Version 2 - Intercom ohne Rauschen</option>
                                 <option value="intercom_noise">Version 3 - Intercom + Rauschen (Standard)</option>
                             </select>
-                        </div>
-                        <audio id="awmDemoAudio" style="display:none;"></audio>
-                        <div id="awmVoiceList" style="display:flex; flex-direction:column; gap:4px;">
                         </div>
                     </div>
                 </div>
