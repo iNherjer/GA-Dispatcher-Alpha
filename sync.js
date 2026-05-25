@@ -7138,8 +7138,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 238;
-const MIN_TRACKER_VERSION_LABEL = 'v238';
+const MIN_TRACKER_VERSION_CODE = 239;
+const MIN_TRACKER_VERSION_LABEL = 'v239';
 let trackerVersionPromptShown = false;
 
 window.updateLivePlanePerformanceMode = function(forceState = null) {
