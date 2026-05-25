@@ -3563,7 +3563,13 @@ window.vpBuildWeatherDebugReport = function() {
     const isImportantConsoleLog = (entry) => {
         const level = String(entry?.level || '').toLowerCase();
         const msg = String(entry?.msg || '');
-        return /error|warn|rejection|exception|failed|fail|invalid|fallback|mission|scene|dispatch|planner|gemini|target|ack/i.test(`${level} ${msg}`);
+        return /error|warn|rejection|exception|failed|fail|invalid|fallback|mission|scene|dispatch|planner|gemini|target|ack|paxvoice|tts|textgen|fetch|gps|websocket/i.test(`${level} ${msg}`);
+    };
+    const isPriorityMissionConsoleLog = (entry) => {
+        const level = String(entry?.level || '').toLowerCase();
+        const msg = String(entry?.msg || '');
+        const hay = `${level} ${msg}`;
+        return /paxvoice|tts|textgen|\[fetch\]|fetch-(slow|error)|generativelanguage|websocketrelais|gps/.test(hay.toLowerCase());
     };
     lines.push(`Session seit: ${vpFormatDebugTs(dbg.sessionStartedAt)}`);
     const fbMode = String(window.vpWeatherFallbackMode || 'none');
@@ -3920,11 +3926,21 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push('');
     lines.push('Konsolenfehler / relevante Logs');
     const consoleLogs = collectConsoleLogs();
-    const importantLogs = consoleLogs.filter(isImportantConsoleLog).slice(-18);
-    if (!importantLogs.length) {
+    const importantLogs = consoleLogs.filter(isImportantConsoleLog);
+    const priorityLogs = consoleLogs.filter(isPriorityMissionConsoleLog);
+    const dedupedLogSet = new Set();
+    const mergedImportantLogs = [];
+    [...importantLogs, ...priorityLogs].forEach((entry) => {
+        const key = `${entry?.ts || ''}|${entry?.level || ''}|${entry?.msg || ''}`;
+        if (dedupedLogSet.has(key)) return;
+        dedupedLogSet.add(key);
+        mergedImportantLogs.push(entry);
+    });
+    const importantLogTail = mergedImportantLogs.slice(-32);
+    if (!importantLogTail.length) {
         lines.push('- (keine relevanten Console-Warnungen/Fehler im Ringbuffer)');
     } else {
-        importantLogs.forEach((entry) => {
+        importantLogTail.forEach((entry) => {
             const extra = entry.extra ? ` | ${flattenText(JSON.stringify(entry.extra), 260)}` : '';
             lines.push(`- ${vpFormatDebugTs(entry.ts)} [${entry.level || 'log'}] ${flattenText(entry.msg, 520)}${extra}`);
         });

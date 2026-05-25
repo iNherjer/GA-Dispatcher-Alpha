@@ -395,6 +395,176 @@ let missionRuntime = {
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
 const missionTargetSceneTerrainRequests = new Map();
+const trackerPendingMissionCommands = new Map();
+const TRACKER_RETRYABLE_COMMAND_TYPES = new Set([
+    'mission_scene_spawn',
+    'mission_scene_clear',
+    'mission_scene_boarding',
+    'mission_scene_deboarding',
+    'mission_smoke_spawn',
+    'mission_smoke_clear'
+]);
+const TRACKER_ACK_SUCCESS = new Set(['ok', 'noop']);
+
+function _trackerAckTypeForCommand(type = '') {
+    const t = String(type || '').toLowerCase();
+    if (!t) return '';
+    if (t === 'mission_scene_spawn') return 'mission_scene_spawn_ack';
+    if (t === 'mission_scene_clear') return 'mission_scene_clear_ack';
+    if (t === 'mission_scene_boarding') return 'mission_scene_boarding_ack';
+    if (t === 'mission_scene_deboarding') return 'mission_scene_deboarding_ack';
+    if (t === 'mission_smoke_spawn') return 'mission_smoke_spawn_ack';
+    if (t === 'mission_smoke_clear') return 'mission_smoke_clear_ack';
+    return '';
+}
+
+function _trackerRetryConfigForCommand(type = '') {
+    const t = String(type || '').toLowerCase();
+    if (t === 'mission_scene_boarding' || t === 'mission_scene_deboarding') {
+        return { maxAttempts: 4, timeoutMs: 18000 };
+    }
+    return { maxAttempts: 3, timeoutMs: 12000 };
+}
+
+function _trackerIsWsOpen() {
+    return !!(liveGpsSocket && liveGpsSocket.readyState === WebSocket.OPEN);
+}
+
+function _trackerPendingClear(commandId) {
+    const id = String(commandId || '').trim();
+    if (!id) return;
+    const entry = trackerPendingMissionCommands.get(id);
+    if (!entry) return;
+    if (entry.timeoutHandle) clearTimeout(entry.timeoutHandle);
+    if (entry.retryHandle) clearTimeout(entry.retryHandle);
+    trackerPendingMissionCommands.delete(id);
+}
+
+function _trackerPendingArmTimeout(commandId) {
+    const id = String(commandId || '').trim();
+    const entry = trackerPendingMissionCommands.get(id);
+    if (!entry) return;
+    if (entry.timeoutHandle) clearTimeout(entry.timeoutHandle);
+    entry.timeoutHandle = setTimeout(() => {
+        const current = trackerPendingMissionCommands.get(id);
+        if (!current) return;
+        if (!_trackerIsWsOpen()) {
+            _trackerPendingArmTimeout(id);
+            return;
+        }
+        if (current.attempts >= current.maxAttempts) {
+            console.warn(`[TrackerCmd] Retry exhausted ${current.type} id=${id} attempts=${current.attempts}/${current.maxAttempts}`);
+            _trackerPendingClear(id);
+            return;
+        }
+        _trackerPendingRetryNow(id, 'timeout');
+    }, Math.max(2000, Number(entry.timeoutMs) || 12000));
+}
+
+function _trackerPendingMarkSent(command = {}, commandId, options = {}) {
+    const type = String(command.type || '').toLowerCase();
+    if (!TRACKER_RETRYABLE_COMMAND_TYPES.has(type)) return;
+    const id = String(commandId || '').trim();
+    if (!id) return;
+    const isRetry = options.isRetryAttempt === true;
+    const cfg = _trackerRetryConfigForCommand(type);
+    const prev = trackerPendingMissionCommands.get(id);
+    const entry = prev || {
+        commandId: id,
+        type,
+        ackType: _trackerAckTypeForCommand(type),
+        command: null,
+        attempts: 0,
+        maxAttempts: Number(cfg.maxAttempts) || 3,
+        timeoutMs: Number(cfg.timeoutMs) || 12000,
+        firstSentAt: 0,
+        lastSentAt: 0,
+        timeoutHandle: null,
+        retryHandle: null
+    };
+    if (entry.retryHandle) {
+        clearTimeout(entry.retryHandle);
+        entry.retryHandle = null;
+    }
+    entry.type = type;
+    entry.ackType = _trackerAckTypeForCommand(type);
+    entry.command = { ...command, commandId: id };
+    entry.maxAttempts = Number(cfg.maxAttempts) || entry.maxAttempts || 3;
+    entry.timeoutMs = Number(cfg.timeoutMs) || entry.timeoutMs || 12000;
+    entry.attempts = isRetry ? Math.max(2, Number(entry.attempts || 0) + 1) : 1;
+    entry.lastSentAt = Date.now();
+    if (!entry.firstSentAt) entry.firstSentAt = entry.lastSentAt;
+    trackerPendingMissionCommands.set(id, entry);
+    if (isRetry) {
+        const why = options.retryReason ? ` (${options.retryReason})` : '';
+        console.warn(`[TrackerCmd] Retry send ${type} id=${id} attempt=${entry.attempts}/${entry.maxAttempts}${why}`);
+    }
+    _trackerPendingArmTimeout(id);
+}
+
+function _trackerPendingRetryNow(commandId, reason = 'retry') {
+    const id = String(commandId || '').trim();
+    const entry = trackerPendingMissionCommands.get(id);
+    if (!entry || !entry.command) return false;
+    if (!_trackerIsWsOpen()) return false;
+    if (entry.attempts >= entry.maxAttempts) {
+        console.warn(`[TrackerCmd] Retry blocked ${entry.type} id=${id} attempts=${entry.attempts}/${entry.maxAttempts}`);
+        _trackerPendingClear(id);
+        return false;
+    }
+    const sentId = window.sendTrackerCommand({ ...entry.command, commandId: id }, { isRetryAttempt: true, retryReason: reason });
+    return !!sentId;
+}
+
+function _trackerPendingScheduleRetry(commandId, reason = 'ack-failed', delayMs = 450) {
+    const id = String(commandId || '').trim();
+    const entry = trackerPendingMissionCommands.get(id);
+    if (!entry) return;
+    if (entry.retryHandle) clearTimeout(entry.retryHandle);
+    entry.retryHandle = setTimeout(() => {
+        const current = trackerPendingMissionCommands.get(id);
+        if (!current) return;
+        if (!_trackerIsWsOpen()) return;
+        if (current.attempts >= current.maxAttempts) {
+            console.warn(`[TrackerCmd] Retry exhausted ${current.type} id=${id} attempts=${current.attempts}/${current.maxAttempts} after ${reason}`);
+            _trackerPendingClear(id);
+            return;
+        }
+        _trackerPendingRetryNow(id, reason);
+    }, Math.max(100, Number(delayMs) || 450));
+}
+
+function _trackerPendingHandleAck(ack = {}) {
+    const type = String(ack.type || '').toLowerCase();
+    if (!type.endsWith('_ack')) return;
+    const commandId = String(ack.commandId || '').trim();
+    if (!commandId) return;
+    const entry = trackerPendingMissionCommands.get(commandId);
+    if (!entry) return;
+    if (entry.ackType && entry.ackType !== type) return;
+    const status = String(ack.status || '').toLowerCase();
+    if (TRACKER_ACK_SUCCESS.has(status)) {
+        _trackerPendingClear(commandId);
+        return;
+    }
+    _trackerPendingScheduleRetry(commandId, `ack:${status || 'failed'}`);
+}
+
+function _trackerPendingResendAll(reason = 'reconnect') {
+    if (!_trackerIsWsOpen() || trackerPendingMissionCommands.size === 0) return;
+    const pending = Array.from(trackerPendingMissionCommands.values())
+        .sort((a, b) => Number(a.lastSentAt || 0) - Number(b.lastSentAt || 0));
+    pending.forEach((entry, idx) => {
+        setTimeout(() => {
+            const current = trackerPendingMissionCommands.get(entry.commandId);
+            if (!current || !_trackerIsWsOpen()) return;
+            const ageMs = Date.now() - Number(current.lastSentAt || 0);
+            if (ageMs < 1200) return;
+            _trackerPendingRetryNow(entry.commandId, reason);
+        }, 120 * idx);
+    });
+}
+
 const FIRE_DEBUG_SYNC_BUILD = 'scene-assets-20260520-04';
 const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
@@ -1309,7 +1479,7 @@ function _ensureFireSmokeSites(fs) {
     _applyFireRuntimeOverrides(fs);
 }
 
-window.sendTrackerCommand = function(command = {}) {
+window.sendTrackerCommand = function(command = {}, options = {}) {
     const ws = liveGpsSocket;
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
     const fs = _activeFireScenario();
@@ -1348,6 +1518,7 @@ window.sendTrackerCommand = function(command = {}) {
         _rememberMissionSceneId(command.sceneId);
     }
     ws.send(JSON.stringify(payload));
+    _trackerPendingMarkSent(command, commandId, options);
     if (/^mission_(scene|smoke)_/i.test(String(command.type || ''))) {
         const summary = _missionSceneDebugCommandSummary(command, commandId, payload);
         const patch = { lastCommand: summary };
@@ -4649,6 +4820,7 @@ window.missionSceneDeboarding = function(reason = 'mission-end') {
 
 function _handleTrackerAck(ack) {
     if (!ack || typeof ack !== 'object') return;
+    _trackerPendingHandleAck(ack);
     window.missionSmokeStatus.lastAckAt = Date.now();
     window.missionSmokeStatus.lastAck = ack;
     if (/^mission_(scene|smoke)_/i.test(String(ack.type || ''))) {
@@ -7460,6 +7632,7 @@ window.connectToLiveGPS = async function(syncId) {
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         // Dem Server mitteilen, in welchen Raum wir wollen (mit PIN!)
         liveGpsSocket.send(JSON.stringify({ type: 'join', syncId: syncId, pin: getSyncPin() }));
+        setTimeout(() => _trackerPendingResendAll('websocket-open'), 300);
 
         const ind = document.getElementById('liveGpsIndicator');
         if (ind) {
