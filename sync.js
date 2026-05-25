@@ -1216,7 +1216,9 @@ function _missionSceneFlightGate(flightData = null) {
     const paused = !!fd.simPaused || Number(fd.pauseFlags || 0) > 0;
     const inMenuOrMap = !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
     const airborne = !groundLike && ((hasOnGroundFlag && !onGround && gs > 35) || (Number.isFinite(agl) && agl > 120) || gs > 70);
-    const lowGround = !Number.isFinite(agl) || agl <= 25;
+    const lowGround = hasOnGroundFlag
+        ? onGround || !Number.isFinite(agl) || agl <= 25
+        : (!Number.isFinite(agl) || agl <= 25);
     const stationary = gs < 10;
     const canStage = hasPosition && groundLike && lowGround && stationary && !paused && !inMenuOrMap;
     return { ...quality, gs, agl, hasPosition, onGround, nearGround, groundLike, lowGround, stationary, paused, inMenuOrMap, airborne, canStage };
@@ -1242,7 +1244,9 @@ function _missionAutoStartGroundStability(flightData = null, fallbackAglFt = nul
     // Helis koennen auf Kufen SIM ON GROUND=false liefern. Fuer Auto-Start ist
     // Stillstand direkt an der Oberflaeche robuster; Liftoff wird danach erkannt.
     const nearSurface = Number.isFinite(agl) && agl <= 35;
-    const groundStable = (onGround || nearSurface) && (Number.isFinite(agl) ? agl <= 35 : onGround);
+    const groundStable = hasOnGroundFlag
+        ? onGround || nearSurface
+        : nearSurface;
     const stationary = gs <= 3.5 || (parkingBrakeSet && gs <= 8);
     return {
         ready: groundStable && stationary && !paused && !inMenuOrMap,
