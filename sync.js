@@ -30,6 +30,7 @@ let lastTrailPoint = null;
 let isAutoFollow = true;
 let lastGpsTickDetails = null;
 let lastTelemetryUpdateAt = 0;
+let lastMissionRuntimeLiveUiRefreshAt = 0;
 const PLANE_ICON_COLOR_KEY = 'ga_plane_color';
 const PLANE_ICON_SIZE_KEY = 'ga_plane_size';
 const PLANE_ICON_DEFAULT_COLOR = '#f2c12e';
@@ -8697,6 +8698,10 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     const curGs = Number.isFinite(simGsNow) ? simGsNow : smoothedGS;
     window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now, gs: curGs };
     _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'gps-tick');
+    if (now - lastMissionRuntimeLiveUiRefreshAt > 650) {
+        lastMissionRuntimeLiveUiRefreshAt = now;
+        _updateMissionRuntimeUi();
+    }
     if (typeof map === 'undefined' || !map || typeof L === 'undefined') return;
 
     if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(false);
