@@ -7090,6 +7090,15 @@ body.map-drawing-active #map.leaflet-dragging {
     overflow-wrap: anywhere;
     word-break: break-word;
 }
+.mission-cargo-sheet-table th:first-child,
+.mission-cargo-sheet-table td:first-child {
+    width: 34px;
+    min-width: 34px;
+    max-width: 34px;
+    text-align: center;
+    padding-left: 3px;
+    padding-right: 3px;
+}
 .mission-cargo-sheet-table th {
     font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 11px;
