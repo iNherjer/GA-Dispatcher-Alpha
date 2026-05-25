@@ -262,8 +262,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const missions = new Map();
   const scenes = new Map();
   const pendingAssign = new Map();
+  const pendingPayloadReads = new Map();
+  const payloadReadDefCache = new Map();
+  const payloadSetDefCache = new Map();
   const lastExceptions = [];
   let nextReqId = 9300;
+  let nextDefId = 9700;
   let teleportDefReady = false;
   let waypointDefReady = false;
   let doorEventsReady = false;
@@ -436,6 +440,96 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_ERROR index=${doorParam} profile=${profile} reason=${reason} error=${err?.message || err}`);
       return false;
     }
+  };
+
+  const clampPayloadStationCount = (value, fallback = 12) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return Math.max(1, Math.min(15, Math.round(fallback)));
+    return Math.max(1, Math.min(15, Math.round(n)));
+  };
+
+  const ensurePayloadReadDefinition = (stationCount) => {
+    const count = clampPayloadStationCount(stationCount, 12);
+    const cached = payloadReadDefCache.get(count);
+    if (cached) return cached;
+    const defId = nextDefId++;
+    handle.addToDataDefinition(defId, 'TOTAL WEIGHT', 'pounds', SimConnectDataType.FLOAT64);
+    handle.addToDataDefinition(defId, 'EMPTY WEIGHT', 'pounds', SimConnectDataType.FLOAT64);
+    handle.addToDataDefinition(defId, 'FUEL TOTAL QUANTITY WEIGHT', 'pounds', SimConnectDataType.FLOAT64);
+    handle.addToDataDefinition(defId, 'PAYLOAD STATION COUNT', 'number', SimConnectDataType.FLOAT64);
+    for (let i = 1; i <= count; i += 1) {
+      handle.addToDataDefinition(defId, `PAYLOAD STATION WEIGHT:${i}`, 'pounds', SimConnectDataType.FLOAT64);
+    }
+    payloadReadDefCache.set(count, defId);
+    return defId;
+  };
+
+  const ensurePayloadSetDefinition = (indices = []) => {
+    const clean = [...new Set((indices || [])
+      .map(v => Math.round(Number(v)))
+      .filter(v => Number.isFinite(v) && v >= 1 && v <= 15))]
+      .sort((a, b) => a - b);
+    if (!clean.length) throw new Error('no_valid_station_indices');
+    const key = clean.join(',');
+    const cached = payloadSetDefCache.get(key);
+    if (cached) return cached;
+    const defId = nextDefId++;
+    clean.forEach((idx) => {
+      handle.addToDataDefinition(defId, `PAYLOAD STATION WEIGHT:${idx}`, 'pounds', SimConnectDataType.FLOAT64);
+    });
+    const entry = { defId, indices: clean };
+    payloadSetDefCache.set(key, entry);
+    return entry;
+  };
+
+  const requestPayloadSnapshot = async (maxStations = 12) => {
+    const stationCount = clampPayloadStationCount(maxStations, 12);
+    const defId = ensurePayloadReadDefinition(stationCount);
+    const requestId = nextReqId++;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pendingPayloadReads.delete(requestId);
+        reject(new Error('payload_read_timeout'));
+      }, 5500);
+      pendingPayloadReads.set(requestId, { resolve, reject, timer, stationCount });
+      try {
+        handle.requestDataOnSimObject(
+          requestId,
+          defId,
+          SimConnectConstants.OBJECT_ID_USER,
+          SimConnectPeriod.ONCE,
+          0,
+          0,
+          0,
+          0
+        );
+      } catch (err) {
+        clearTimeout(timer);
+        pendingPayloadReads.delete(requestId);
+        reject(err);
+      }
+    });
+  };
+
+  const applyPayloadStations = async (stations = []) => {
+    const normalized = (Array.isArray(stations) ? stations : [])
+      .map((row) => ({
+        index: Math.round(Number(row?.index)),
+        weightLbs: Math.max(0, Number(row?.weightLbs))
+      }))
+      .filter(row => Number.isFinite(row.index) && row.index >= 1 && row.index <= 15 && Number.isFinite(row.weightLbs));
+    if (!normalized.length) throw new Error('no_valid_station_data');
+    const { defId, indices } = ensurePayloadSetDefinition(normalized.map(row => row.index));
+    const byIndex = new Map(normalized.map(row => [row.index, row.weightLbs]));
+    const buf = new RawBuffer(indices.length * 8);
+    indices.forEach((idx) => {
+      buf.writeFloat64(Number(byIndex.get(idx) || 0));
+    });
+    handle.setDataOnSimObject(defId, SimConnectConstants.OBJECT_ID_USER, { buffer: buf, arrayCount: 0, tagged: false });
+    return {
+      changed: indices.length,
+      stations: indices.map(idx => ({ index: idx, weightLbs: Math.round((Number(byIndex.get(idx) || 0)) * 10) / 10 }))
+    };
   };
 
   const resolveDoorProfile = (command) => {
@@ -1531,6 +1625,44 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
   });
 
+  handle.on('simObjectData', (recv) => {
+    const pending = pendingPayloadReads.get(recv.requestID);
+    if (!pending) return;
+    pendingPayloadReads.delete(recv.requestID);
+    clearTimeout(pending.timer);
+    try {
+      const readFn = (typeof recv?.data?.readFloat64 === 'function')
+        ? (() => recv.data.readFloat64())
+        : ((typeof recv?.data?.readDouble === 'function') ? (() => recv.data.readDouble()) : null);
+      if (!readFn) throw new Error('payload_read_fn_missing');
+      const totalWeightLbs = Number(readFn());
+      const emptyWeightLbs = Number(readFn());
+      const fuelWeightLbs = Number(readFn());
+      const payloadStationCountReported = clampPayloadStationCount(Number(readFn()), pending.stationCount);
+      const stations = [];
+      for (let i = 1; i <= pending.stationCount; i += 1) {
+        const weight = Number(readFn());
+        stations.push({
+          index: i,
+          weightLbs: Number.isFinite(weight) ? Math.round(weight * 10) / 10 : null
+        });
+      }
+      const knownStations = stations.filter(s => s.index <= payloadStationCountReported);
+      const payloadWeightLbs = knownStations.reduce((sum, s) => sum + (Number.isFinite(Number(s.weightLbs)) ? Number(s.weightLbs) : 0), 0);
+      pending.resolve({
+        totalWeightLbs: Number.isFinite(totalWeightLbs) ? Math.round(totalWeightLbs * 10) / 10 : null,
+        emptyWeightLbs: Number.isFinite(emptyWeightLbs) ? Math.round(emptyWeightLbs * 10) / 10 : null,
+        fuelWeightLbs: Number.isFinite(fuelWeightLbs) ? Math.round(fuelWeightLbs * 10) / 10 : null,
+        payloadWeightLbs: Math.round(payloadWeightLbs * 10) / 10,
+        payloadStationCount: payloadStationCountReported,
+        sampledStationCount: pending.stationCount,
+        stations: knownStations
+      });
+    } catch (err) {
+      pending.reject(err);
+    }
+  });
+
   handle.on('exception', (recv) => {
     const name = recv.exceptionName || String(recv.exception);
     lastExceptions.push(name);
@@ -1539,6 +1671,14 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       const [requestId, pending] = pendingAssign.entries().next().value || [];
       if (pending) {
         pendingAssign.delete(requestId);
+        clearTimeout(pending.timer);
+        pending.reject(new Error(name));
+      }
+    }
+    if (pendingPayloadReads.size > 0) {
+      const [requestId, pending] = pendingPayloadReads.entries().next().value || [];
+      if (pending) {
+        pendingPayloadReads.delete(requestId);
         clearTimeout(pending.timer);
         pending.reject(new Error(name));
       }
@@ -1623,6 +1763,56 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           })
           .catch(err => {
             sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: 'all', status: 'error', error: err?.message || String(err) });
+          });
+        return true;
+      }
+      if (type === 'aircraft_payload_get') {
+        const commandId = command?.commandId || null;
+        const maxStations = clampPayloadStationCount(command?.maxStations ?? command?.stationCount ?? 12, 12);
+        debugLog(`COMMAND aircraft_payload_get maxStations=${maxStations}`);
+        requestPayloadSnapshot(maxStations)
+          .then((snapshot) => {
+            sendAck({
+              type: 'aircraft_payload_get_ack',
+              commandId,
+              status: 'ok',
+              ...snapshot
+            });
+          })
+          .catch((err) => {
+            sendAck({
+              type: 'aircraft_payload_get_ack',
+              commandId,
+              status: 'error',
+              error: err?.message || String(err)
+            });
+          });
+        return true;
+      }
+      if (type === 'aircraft_payload_set') {
+        const commandId = command?.commandId || null;
+        const stations = Array.isArray(command?.stations) ? command.stations : [];
+        const maxStations = clampPayloadStationCount(command?.maxStations ?? 12, 12);
+        debugLog(`COMMAND aircraft_payload_set stations=${stations.length} maxStations=${maxStations}`);
+        applyPayloadStations(stations)
+          .then((result) => requestPayloadSnapshot(maxStations).then(snapshot => ({ result, snapshot })))
+          .then(({ result, snapshot }) => {
+            sendAck({
+              type: 'aircraft_payload_set_ack',
+              commandId,
+              status: 'ok',
+              changedStations: result.changed,
+              appliedStations: result.stations,
+              ...snapshot
+            });
+          })
+          .catch((err) => {
+            sendAck({
+              type: 'aircraft_payload_set_ack',
+              commandId,
+              status: 'error',
+              error: err?.message || String(err)
+            });
           });
         return true;
       }
@@ -1877,6 +2067,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
       addOptionalVar('IS PAUSED', 'Bool', 'simPausedA');
       addOptionalVar('SIM IS PAUSED', 'Bool', 'simPausedB');
       addOptionalVar('BRAKE PARKING POSITION', 'Bool', 'parkingBrake');
+      addOptionalVar('TOTAL WEIGHT', 'pounds', 'totalWeightLbs');
+      addOptionalVar('EMPTY WEIGHT', 'pounds', 'emptyWeightLbs');
+      addOptionalVar('FUEL TOTAL QUANTITY WEIGHT', 'pounds', 'fuelWeightLbs');
+      addOptionalVar('PAYLOAD STATION COUNT', 'number', 'payloadStationCount');
 
       handle.requestDataOnSimObject(
         REQ_ID,
@@ -1949,6 +2143,13 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
               const simPausedA = raw.simPausedA;
               const simPausedB = raw.simPausedB;
               const parkingBrake = raw.parkingBrake;
+              const totalWeightLbs = raw.totalWeightLbs;
+              const emptyWeightLbs = raw.emptyWeightLbs;
+              const fuelWeightLbs = raw.fuelWeightLbs;
+              const payloadStationCount = raw.payloadStationCount;
+              const payloadWeightLbs = (Number.isFinite(totalWeightLbs) && Number.isFinite(emptyWeightLbs))
+                ? (totalWeightLbs - emptyWeightLbs)
+                : null;
               const simPausedFromVar = Number.isFinite(simPausedA)
                 ? (simPausedA > 0.5)
                 : (Number.isFinite(simPausedB) ? (simPausedB > 0.5) : false);
@@ -1988,6 +2189,11 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
                   dialogMode: runtimeState.dialogMode,
                   inMenuOrMap: isInMenuOrMap(),
                   parkingBrake: Number.isFinite(parkingBrake) ? parkingBrake > 0.5 : null,
+                  totalWeightLbs: Number.isFinite(totalWeightLbs) ? Math.round(totalWeightLbs * 10) / 10 : null,
+                  emptyWeightLbs: Number.isFinite(emptyWeightLbs) ? Math.round(emptyWeightLbs * 10) / 10 : null,
+                  fuelWeightLbs: Number.isFinite(fuelWeightLbs) ? Math.round(fuelWeightLbs * 10) / 10 : null,
+                  payloadWeightLbs: Number.isFinite(payloadWeightLbs) ? Math.round(payloadWeightLbs * 10) / 10 : null,
+                  payloadStationCount: Number.isFinite(payloadStationCount) ? Math.max(0, Math.round(payloadStationCount)) : null,
                   aoaDeg:   Number.isFinite(aoaDeg) ? Math.round(aoaDeg * 10) / 10 : null,
                   stallState: Number.isFinite(stallState) ? (stallState > 0.5) : false
                 };

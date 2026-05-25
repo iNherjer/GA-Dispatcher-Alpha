@@ -149,7 +149,9 @@
         radioAirportMenuKey: '',
         placeInfoAirport: null,
         placeInfoReturn: 'place',
-        cargoExpandedItemId: ''
+        cargoExpandedItemId: '',
+        cargoPayloadRequestedAt: 0,
+        cargoPayloadLoading: false
     };
 
     const toolState = {
@@ -820,6 +822,57 @@
         return `${loaded} geladen · ${open} offen${dropped ? ` · ${dropped} abgeworfen` : ''}`;
     }
 
+    function cargoPayloadSnapshot() {
+        const snap = window.aircraftPayloadStatus?.snapshot;
+        if (snap && typeof snap === 'object') return snap;
+        const fd = window.lastLiveFlightData || {};
+        if (!fd || typeof fd !== 'object') return null;
+        if (!Number.isFinite(Number(fd.totalWeightLbs)) && !Number.isFinite(Number(fd.payloadWeightLbs)) && !Number.isFinite(Number(fd.fuelWeightLbs))) return null;
+        return {
+            totalWeightLbs: Number(fd.totalWeightLbs),
+            emptyWeightLbs: Number(fd.emptyWeightLbs),
+            payloadWeightLbs: Number(fd.payloadWeightLbs),
+            fuelWeightLbs: Number(fd.fuelWeightLbs),
+            payloadStationCount: Number(fd.payloadStationCount),
+            stations: []
+        };
+    }
+
+    function cargoPayloadRequest(force = false) {
+        if (state.cargoPayloadLoading) return;
+        if (typeof window.trackerPayloadGet !== 'function' || !window.liveTrackerConnected || window.simModeActive) return;
+        const ageMs = Date.now() - Number(window.aircraftPayloadStatus?.lastSnapshotAt || 0);
+        if (!force && ageMs >= 0 && ageMs < 5000 && window.aircraftPayloadStatus?.snapshot) return;
+        state.cargoPayloadLoading = true;
+        state.cargoPayloadRequestedAt = Date.now();
+        Promise.resolve(window.trackerPayloadGet({ maxStations: 12, timeoutMs: 12000 }))
+            .catch(() => null)
+            .finally(() => {
+                state.cargoPayloadLoading = false;
+                if (state.view === 'cargo') render();
+            });
+    }
+
+    function cargoPayloadSummaryHtml() {
+        const snap = cargoPayloadSnapshot();
+        if (!snap) return '<div class="route-tool-empty">Sim-Gewichte: keine Daten.</div>';
+        const total = Number(snap.totalWeightLbs);
+        const empty = Number(snap.emptyWeightLbs);
+        const payload = Number(snap.payloadWeightLbs);
+        const fuel = Number(snap.fuelWeightLbs);
+        const stationCount = Math.max(0, Math.round(Number(snap.payloadStationCount) || 0));
+        const stations = Array.isArray(snap.stations) ? snap.stations : [];
+        const stationLine = stations.length
+            ? stations.map(row => `S${Math.round(Number(row?.index) || 0)}:${Math.round(Number(row?.weightLbs) || 0)}lbs`).join(' · ')
+            : '-';
+        return `
+            <div class="cargo-tool-summary">
+                Sim: Total ${Number.isFinite(total) ? Math.round(total) : '-'} lbs · Leer ${Number.isFinite(empty) ? Math.round(empty) : '-'} lbs · Fuel ${Number.isFinite(fuel) ? Math.round(fuel) : '-'} lbs · Payload ${Number.isFinite(payload) ? Math.round(payload) : '-'} lbs
+            </div>
+            <div class="cargo-tool-summary">Stationen: ${stationCount || '-'} · ${escapeHtml(stationLine)}</div>
+        `;
+    }
+
     function cargoStatusLabel(item) {
         if (item.status === 'loaded') return 'geladen';
         if (item.status === 'unloaded') return 'ausgeladen';
@@ -885,6 +938,7 @@
 
     function renderCargoTool() {
         setTitle('Ladung');
+        cargoPayloadRequest(false);
         try {
             if (typeof window.missionCargoApplyCurrentStress === 'function') window.missionCargoApplyCurrentStress();
         } catch (_) {}
@@ -921,8 +975,10 @@
             ${toolTopline('cargo')}
             <div class="checklist-topline">
                 <button class="checklist-action-btn" type="button" data-action="cargo-open-modal">Verladefenster oeffnen</button>
+                <button class="checklist-action-btn" type="button" data-action="cargo-refresh-payload">${state.cargoPayloadLoading ? 'Sim-Gewichte ...' : 'Sim-Gewichte holen'}</button>
             </div>
             <div class="cargo-tool-summary">${escapeHtml(summary)}</div>
+            ${cargoPayloadSummaryHtml()}
             ${failLine}
             <div class="cargo-tool-list">${rows}</div>
         `;
@@ -3448,6 +3504,9 @@ ${routeLines}`;
             } else {
                 setStatus('Verladefenster nicht verfuegbar.', 'error');
             }
+        } else if (action === 'cargo-refresh-payload') {
+            cargoPayloadRequest(true);
+            setStatus('Sim-Gewichte werden aktualisiert ...');
         } else if (action === 'cargo-boardbook-time') {
             const itemId = button.dataset.itemId || '';
             const field = button.dataset.field || 'start';

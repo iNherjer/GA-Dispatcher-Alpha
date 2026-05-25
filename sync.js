@@ -396,6 +396,7 @@ let missionRuntime = {
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
+const trackerPayloadWaiters = new Map();
 const missionTargetSceneTerrainRequests = new Map();
 const trackerPendingMissionCommands = new Map();
 const TRACKER_RETRYABLE_COMMAND_TYPES = new Set([
@@ -601,6 +602,21 @@ window.missionCargoStatus = {
     lastCommandAt: 0,
     lastAckAt: 0,
     lastAck: null,
+    error: null,
+    payloadMissionKey: '',
+    payloadBaseline: null,
+    payloadLayout: null,
+    payloadPlan: null,
+    payloadSyncRunning: false,
+    payloadSyncQueued: '',
+    payloadSyncAt: 0
+};
+window.aircraftPayloadStatus = {
+    lastCommandAt: 0,
+    lastAckAt: 0,
+    lastAck: null,
+    lastSnapshotAt: 0,
+    snapshot: null,
     error: null
 };
 const MISSION_CARGO_AUTO_LOAD_KEY = 'ga_mission_cargo_auto_load_enabled';
@@ -2358,6 +2374,7 @@ function _missionCargoEnsureManifest(cargoAsset = null) {
         _missionCargoPersistManifest(manifest);
     }
     window.missionCargoStatus.manifestKey = manifest.key || key;
+    _missionCargoResetPayloadPlanForMissionKey(manifest.key || key);
     return manifest;
 }
 
@@ -2376,6 +2393,289 @@ function _missionCargoFindItem(itemId) {
 
 function _missionCargoLoadedItems(manifest = _missionCargoEnsureManifest()) {
     return (manifest.items || []).filter(item => item.status === 'loaded' || item.status === 'unloaded');
+}
+
+function _lbsFromKg(kg) {
+    const n = Number(kg);
+    if (!Number.isFinite(n)) return null;
+    return n * 2.2046226218;
+}
+
+function _missionCargoParseWeightFromText(text = '') {
+    const raw = String(text || '');
+    const match = raw.match(/(\d+(?:[.,]\d+)?)\s*(kg|kgs|kilogramm?|lb|lbs|pounds?|pfund)/i);
+    if (!match) return null;
+    const value = Number(String(match[1]).replace(',', '.'));
+    if (!Number.isFinite(value) || value <= 0) return null;
+    const unit = String(match[2] || '').toLowerCase();
+    if (unit.startsWith('k')) return _lbsFromKg(value);
+    return value;
+}
+
+function _missionCargoPaxWeightLbs() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const pax = window.activePassenger || md?.passenger || md?.missionContract?.passenger || window.activeMissionContract?.passenger || {};
+    const directLbs = [pax?.weightLbs, pax?.weightLb, pax?.massLbs, pax?.weight]
+        .map(v => Number(v))
+        .find(v => Number.isFinite(v) && v > 20);
+    if (Number.isFinite(directLbs)) return Math.round(directLbs);
+    const directKg = [pax?.weightKg, pax?.massKg]
+        .map(v => Number(v))
+        .find(v => Number.isFinite(v) && v > 10);
+    if (Number.isFinite(directKg)) return Math.round(_lbsFromKg(directKg));
+    const text = [
+        pax?.weightText,
+        pax?.notes,
+        md?.paxText,
+        md?.missionContract?.paxText,
+        window.activeMissionContract?.paxText,
+        document.getElementById('mPay')?.innerText
+    ].filter(Boolean).join(' ');
+    const parsed = _missionCargoParseWeightFromText(text);
+    return Number.isFinite(parsed) ? Math.round(parsed) : 180;
+}
+
+function _missionCargoBoardedPaxCount() {
+    const paxCount = Math.max(0, Math.min(2, _missionScenePaxCount()));
+    if (paxCount <= 0) return 0;
+    if (window.missionSceneStatus?.personBoarded) return 1;
+    try {
+        if (_missionStartPhase() === 'boarded') return 1;
+    } catch (_) {}
+    return 0;
+}
+
+function _missionCargoResetPayloadPlanForMissionKey(manifestKey = '') {
+    if (window.missionCargoStatus.payloadMissionKey === manifestKey) return;
+    window.missionCargoStatus.payloadMissionKey = manifestKey;
+    window.missionCargoStatus.payloadBaseline = null;
+    window.missionCargoStatus.payloadLayout = null;
+    window.missionCargoStatus.payloadPlan = null;
+    window.missionCargoStatus.payloadSyncQueued = '';
+}
+
+function _missionCargoNormalizePayloadSnapshot(snapshot = null) {
+    const raw = snapshot && typeof snapshot === 'object' ? snapshot : null;
+    if (!raw) return null;
+    const rawCount = (raw.payloadStationCount ?? raw.sampledStationCount ?? (Array.isArray(raw.stations) ? raw.stations.length : 0));
+    const stationCount = Math.max(1, Math.min(15, Math.round(Number(rawCount || 0))));
+    if (!Number.isFinite(stationCount) || stationCount < 1) return null;
+    const byIndex = new Map();
+    const inputStations = Array.isArray(raw.stations) ? raw.stations : [];
+    inputStations.forEach((row) => {
+        const idx = Math.round(Number(row?.index));
+        const w = Number(row?.weightLbs);
+        if (!Number.isFinite(idx) || idx < 1 || idx > stationCount) return;
+        byIndex.set(idx, Number.isFinite(w) ? Math.max(0, w) : 0);
+    });
+    const stations = [];
+    for (let i = 1; i <= stationCount; i += 1) {
+        stations.push({ index: i, weightLbs: Math.round((Number(byIndex.get(i) || 0)) * 10) / 10 });
+    }
+    return {
+        totalWeightLbs: Number.isFinite(Number(raw.totalWeightLbs)) ? Number(raw.totalWeightLbs) : null,
+        emptyWeightLbs: Number.isFinite(Number(raw.emptyWeightLbs)) ? Number(raw.emptyWeightLbs) : null,
+        fuelWeightLbs: Number.isFinite(Number(raw.fuelWeightLbs ?? window.lastLiveFlightData?.fuelWeightLbs)) ? Number(raw.fuelWeightLbs ?? window.lastLiveFlightData?.fuelWeightLbs) : null,
+        payloadWeightLbs: Number.isFinite(Number(raw.payloadWeightLbs)) ? Number(raw.payloadWeightLbs) : null,
+        payloadStationCount: stationCount,
+        sampledStationCount: Math.max(stationCount, Math.min(15, Math.round(Number(raw.sampledStationCount || stationCount)))),
+        stations
+    };
+}
+
+function _missionCargoBuildPayloadLayout(snapshot = null) {
+    const count = Math.max(1, Math.min(15, Math.round(Number(snapshot?.payloadStationCount ?? 1) || 1)));
+    const allIndices = Array.from({ length: count }, (_, idx) => idx + 1);
+    const pilotIndex = 1;
+    const copilotIndex = count >= 2 ? 2 : 1;
+    const rearSeatIndices = count >= 4 ? [3, 4] : (count === 3 ? [3] : []);
+    const cargoIndices = count >= 5 ? allIndices.slice(4) : [];
+    return { count, allIndices, pilotIndex, copilotIndex, rearSeatIndices, cargoIndices };
+}
+
+function _missionCargoItemIsBulky(item) {
+    const weight = Number(item?.weightLbs || 0);
+    const text = String(`${item?.label || ''} ${item?.storyName || ''} ${item?.objectTitle || ''}`).toLowerCase();
+    if (weight >= 35) return true;
+    return /(palette|pallet|kiste|sperrig|gross|box|netz|gurt|container|transport)/i.test(text);
+}
+
+function _missionCargoAllocateWeightToStations(map, stationIndices = [], totalWeightLbs = 0, splitAcross = 1) {
+    const weight = Math.max(0, Number(totalWeightLbs) || 0);
+    const slots = [...new Set((Array.isArray(stationIndices) ? stationIndices : [])
+        .map(v => Math.round(Number(v)))
+        .filter(v => Number.isFinite(v) && v >= 1))];
+    if (!weight || !slots.length) return [];
+    const split = Math.max(1, Math.min(slots.length, Math.round(Number(splitAcross) || 1)));
+    const chosen = slots.slice(0, split);
+    const unit = weight / chosen.length;
+    chosen.forEach((idx) => {
+        map.set(idx, (Number(map.get(idx) || 0) + unit));
+    });
+    return chosen;
+}
+
+function _missionCargoBuildPlanFromManifest(manifest, baseline) {
+    const snapshot = _missionCargoNormalizePayloadSnapshot(baseline);
+    if (!snapshot) return null;
+    const layout = _missionCargoBuildPayloadLayout(snapshot);
+    const missionByStation = new Map();
+    const assignments = [];
+
+    const paxCount = _missionCargoBoardedPaxCount();
+    const paxTotalLbs = paxCount > 0 ? (paxCount * _missionCargoPaxWeightLbs()) : 0;
+    if (paxTotalLbs > 0) {
+        _missionCargoAllocateWeightToStations(missionByStation, [layout.copilotIndex], paxTotalLbs, 1);
+        assignments.push({ type: 'pax', label: 'Passagier (Copilot)', weightLbs: Math.round(paxTotalLbs), stations: [layout.copilotIndex] });
+    }
+
+    const loadedItems = (manifest?.items || []).filter(item => item.status === 'loaded');
+    const allNonPilotIndices = layout.allIndices.filter(idx => idx !== layout.pilotIndex);
+    const cargoPrimary = layout.cargoIndices.length ? layout.cargoIndices : (layout.rearSeatIndices.length ? layout.rearSeatIndices : allNonPilotIndices);
+    const nonCopilotCargo = cargoPrimary.filter(idx => idx !== layout.copilotIndex);
+    const cargoFallback = nonCopilotCargo.length ? nonCopilotCargo : cargoPrimary;
+    loadedItems.forEach((item) => {
+        const itemWeight = Math.max(0, Number(item?.weightLbs || 0));
+        if (!itemWeight) return;
+        const bulky = _missionCargoItemIsBulky(item);
+        const prefersRear = bulky && layout.rearSeatIndices.length > 0;
+        const candidateSlots = prefersRear
+            ? layout.rearSeatIndices
+            : (cargoFallback.length ? cargoFallback : allNonPilotIndices);
+        const splitAcross = (prefersRear && candidateSlots.length >= 2) ? 2 : 1;
+        const usedStations = _missionCargoAllocateWeightToStations(missionByStation, candidateSlots, itemWeight, splitAcross);
+        assignments.push({
+            type: 'cargo',
+            itemId: item.id,
+            label: item.storyName || item.label || item.id || 'Cargo',
+            weightLbs: Math.round(itemWeight),
+            bulky,
+            stations: usedStations
+        });
+    });
+
+    const stations = snapshot.stations.map((row) => {
+        const missionExtra = Number(missionByStation.get(row.index) || 0);
+        const baselineWeight = Number(row.weightLbs || 0);
+        const targetWeight = Math.max(0, baselineWeight + missionExtra);
+        return {
+            index: row.index,
+            baselineWeightLbs: Math.round(baselineWeight * 10) / 10,
+            missionExtraLbs: Math.round(missionExtra * 10) / 10,
+            weightLbs: Math.round(targetWeight * 10) / 10
+        };
+    });
+    const payloadWeightLbs = stations.reduce((sum, row) => sum + Number(row.weightLbs || 0), 0);
+    return {
+        snapshot,
+        layout,
+        stations,
+        assignments,
+        boardedPaxCount: paxCount,
+        paxWeightLbs: Math.round(paxTotalLbs),
+        cargoWeightLbs: Math.round(loadedItems.reduce((sum, item) => sum + Number(item.weightLbs || 0), 0)),
+        missionWeightLbs: Math.round(stations.reduce((sum, row) => sum + Number(row.missionExtraLbs || 0), 0)),
+        payloadWeightLbs: Math.round(payloadWeightLbs * 10) / 10
+    };
+}
+
+function _missionCargoStorePayloadBaselineIfNeeded(snapshot, manifestKey = '') {
+    const normalized = _missionCargoNormalizePayloadSnapshot(snapshot);
+    if (!normalized) return null;
+    _missionCargoResetPayloadPlanForMissionKey(manifestKey);
+    if (!window.missionCargoStatus.payloadBaseline || Number(window.missionCargoStatus.payloadBaseline?.payloadStationCount || 0) !== Number(normalized.payloadStationCount || 0)) {
+        window.missionCargoStatus.payloadBaseline = normalized;
+        window.missionCargoStatus.payloadLayout = _missionCargoBuildPayloadLayout(normalized);
+    }
+    return window.missionCargoStatus.payloadBaseline;
+}
+
+function _missionCargoFormatStationList(indices = []) {
+    const list = [...new Set((Array.isArray(indices) ? indices : [])
+        .map(v => Math.round(Number(v)))
+        .filter(v => Number.isFinite(v) && v >= 1))];
+    return list.length ? list.join(', ') : '-';
+}
+
+function _missionCargoPayloadSummaryHtml(mode = 'load') {
+    const snapshot = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
+    if (!snapshot) {
+        return `<div class="mission-cargo-payload-empty">Sim-Gewichte werden abgerufen ...</div>`;
+    }
+    const layout = window.missionCargoStatus.payloadLayout || _missionCargoBuildPayloadLayout(snapshot);
+    const plan = window.missionCargoStatus.payloadPlan;
+    const fuelWeight = Number.isFinite(Number(snapshot.fuelWeightLbs)) ? Number(snapshot.fuelWeightLbs) : Number(window.lastLiveFlightData?.fuelWeightLbs);
+    const stationRows = (plan?.stations || snapshot.stations || []).map((row) => {
+        const target = Number(row?.weightLbs);
+        const base = Number(row?.baselineWeightLbs);
+        const extra = Number(row?.missionExtraLbs);
+        const detail = Number.isFinite(base) && Number.isFinite(extra)
+            ? ` (Basis ${Math.round(base)} + ${Math.round(extra)} lbs)`
+            : '';
+        return `<span>S${Math.round(Number(row?.index) || 0)}: ${Number.isFinite(target) ? Math.round(target) : '-'} lbs${detail}</span>`;
+    }).join(' · ');
+    const missionExtra = Number.isFinite(Number(plan?.missionWeightLbs)) ? Number(plan.missionWeightLbs) : null;
+    const paxPart = Number.isFinite(Number(plan?.paxWeightLbs)) ? `Pax ${Math.round(plan.paxWeightLbs)} lbs` : 'Pax n/a';
+    const cargoPart = Number.isFinite(Number(plan?.cargoWeightLbs)) ? `Cargo ${Math.round(plan.cargoWeightLbs)} lbs` : 'Cargo n/a';
+    return `
+        <div class="mission-cargo-payload-summary">
+            <div>Sim aktuell: MTOW-Live ${Number.isFinite(Number(snapshot.totalWeightLbs)) ? Math.round(snapshot.totalWeightLbs) : '-'} lbs · Leer ${Number.isFinite(Number(snapshot.emptyWeightLbs)) ? Math.round(snapshot.emptyWeightLbs) : '-'} lbs · Fuel ${Number.isFinite(fuelWeight) ? Math.round(fuelWeight) : '-'} lbs</div>
+            <div>Nutzlaststationen: ${snapshot.payloadStationCount} · Verteilung: Copilot S${layout.copilotIndex} · Ruecksitze ${_missionCargoFormatStationList(layout.rearSeatIndices)} · Cargo ${_missionCargoFormatStationList(layout.cargoIndices)}</div>
+            <div>Mission-Plan (${mode === 'unload' ? 'Entladen' : 'Verladen'}): ${paxPart} · ${cargoPart}${missionExtra == null ? '' : ` · Zusatz ${Math.round(missionExtra)} lbs`}</div>
+            <div>Stationen: ${stationRows || '-'}</div>
+        </div>`;
+}
+
+async function _missionCargoRefreshPayloadSnapshot(options = {}) {
+    if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerPayloadGet !== 'function') return { status: 'skipped' };
+    const force = options?.force === true;
+    const ageMs = Date.now() - Number(window.aircraftPayloadStatus?.lastSnapshotAt || 0);
+    if (!force && ageMs >= 0 && ageMs < 4500 && window.aircraftPayloadStatus?.snapshot) {
+        return { status: 'cached', snapshot: window.aircraftPayloadStatus.snapshot };
+    }
+    return window.trackerPayloadGet({
+        maxStations: Math.max(4, Math.min(15, Math.round(Number(options?.maxStations ?? 12) || 12))),
+        timeoutMs: Number(options?.timeoutMs) || 12000
+    });
+}
+
+async function _missionCargoSyncPayloadToSim(reason = 'cargo-sync') {
+    if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerPayloadSet !== 'function') return { status: 'skipped' };
+    if (window.missionCargoStatus.payloadSyncRunning) {
+        window.missionCargoStatus.payloadSyncQueued = reason;
+        return { status: 'queued' };
+    }
+    window.missionCargoStatus.payloadSyncRunning = true;
+    window.missionCargoStatus.payloadSyncQueued = '';
+    try {
+        const manifest = _missionCargoEnsureManifest();
+        _missionCargoResetPayloadPlanForMissionKey(manifest?.key || '');
+        if (!window.missionCargoStatus.payloadBaseline) {
+            const getAck = await _missionCargoRefreshPayloadSnapshot({ force: true, maxStations: 12, timeoutMs: 12000 });
+            if (getAck?.status !== 'ok' && !window.aircraftPayloadStatus?.snapshot) return getAck || { status: 'no_snapshot' };
+        }
+        const baseline = _missionCargoStorePayloadBaselineIfNeeded(window.aircraftPayloadStatus?.snapshot, manifest?.key || '');
+        if (!baseline) return { status: 'no_baseline' };
+        const plan = _missionCargoBuildPlanFromManifest(manifest, baseline);
+        if (!plan || !Array.isArray(plan.stations) || !plan.stations.length) return { status: 'no_plan' };
+        window.missionCargoStatus.payloadLayout = plan.layout;
+        window.missionCargoStatus.payloadPlan = plan;
+        const setAck = await window.trackerPayloadSet(
+            plan.stations.map(row => ({ index: row.index, weightLbs: row.weightLbs })),
+            { maxStations: baseline.sampledStationCount || baseline.payloadStationCount || 12, timeoutMs: 15000, refreshAfter: true }
+        );
+        window.missionCargoStatus.payloadSyncAt = Date.now();
+        if (setAck?.status !== 'ok') window.missionCargoStatus.error = setAck?.error || setAck?.status || 'payload_set_failed';
+        return setAck || { status: 'unknown' };
+    } catch (err) {
+        window.missionCargoStatus.error = err?.message || String(err);
+        return { status: 'error', error: err?.message || String(err) };
+    } finally {
+        window.missionCargoStatus.payloadSyncRunning = false;
+        const queued = window.missionCargoStatus.payloadSyncQueued;
+        window.missionCargoStatus.payloadSyncQueued = '';
+        if (queued) setTimeout(() => { _missionCargoSyncPayloadToSim(`queued:${queued}`); }, 180);
+    }
 }
 
 function _missionCargoStressDamage(record = null) {
@@ -2532,7 +2832,10 @@ function _missionCargoMarkAllLoaded({ despawn = true } = {}) {
             }
         }
     });
-    if (changed) _missionCargoPersistManifest(manifest);
+    if (changed) {
+        _missionCargoPersistManifest(manifest);
+        _missionCargoSyncPayloadToSim('cargo-mark-all-loaded').catch(() => {});
+    }
     return changed;
 }
 
@@ -2541,11 +2844,15 @@ function _missionCargoEscape(text = '') {
     return String(text || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
-function _missionCargoRenderDialog(mode = 'load') {
+function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const manifest = _missionCargoEnsureManifest();
     if (mode !== 'unload' && _missionCargoAutoLoadEnabled()) {
         _missionCargoMarkAllLoaded({ despawn: false });
         if (window.missionSceneStatus?.spawned) _missionCargoRemoveLoadedSceneObjects('cargo-auto-load-open');
+    }
+    _missionCargoStorePayloadBaselineIfNeeded(window.aircraftPayloadStatus?.snapshot, manifest?.key || '');
+    if (window.missionCargoStatus.payloadBaseline) {
+        window.missionCargoStatus.payloadPlan = _missionCargoBuildPlanFromManifest(manifest, window.missionCargoStatus.payloadBaseline);
     }
     let overlay = document.getElementById('missionCargoOverlay');
     if (!overlay) {
@@ -2589,6 +2896,7 @@ function _missionCargoRenderDialog(mode = 'load') {
             <div class="mission-cargo-copy">${isUnload
                 ? 'Entlade die am Ziel benoetigten Gegenstaende. Sie erscheinen an der Cargo-Position relativ zum Flugzeug.'
                 : 'Die Boarding-Animation laeuft parallel. Geladene Gegenstaende verschwinden aus der Startszene und werden fuer die Missionswertung gespeichert.'}</div>
+            ${_missionCargoPayloadSummaryHtml(mode)}
             <div class="mission-cargo-list">${rows}</div>
             <div class="mission-cargo-summary">
                 <span>${isUnload ? `${requiredUnloadMissing} Pflicht-Items noch an Bord` : `${requiredMissing} Pflicht-Items offen`}</span>
@@ -2601,6 +2909,22 @@ function _missionCargoRenderDialog(mode = 'load') {
     overlay.style.display = 'flex';
     window.missionCargoStatus.lastMode = mode;
     _updateMissionCargoAutoLoadButton();
+    if (options?.skipPayloadRefresh !== true) {
+        _missionCargoRefreshPayloadSnapshot({ force: false, maxStations: 12, timeoutMs: 12000 })
+            .then((ack) => {
+                if (ack?.status === 'ok' || ack?.status === 'cached') {
+                    const refreshedManifest = _missionCargoEnsureManifest();
+                    _missionCargoStorePayloadBaselineIfNeeded(window.aircraftPayloadStatus?.snapshot, refreshedManifest?.key || '');
+                    if (window.missionCargoStatus.payloadBaseline) {
+                        window.missionCargoStatus.payloadPlan = _missionCargoBuildPlanFromManifest(refreshedManifest, window.missionCargoStatus.payloadBaseline);
+                    }
+                    if (document.getElementById('missionCargoOverlay')?.style.display === 'flex') {
+                        _missionCargoRenderDialog(mode, { skipPayloadRefresh: true });
+                    }
+                }
+            })
+            .catch(() => {});
+    }
 }
 
 window.openMissionCargoDialog = function(mode = 'load') {
@@ -2633,6 +2957,7 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     }
     if (options.render !== false) _missionCargoRenderDialog('load');
     try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
+    _missionCargoSyncPayloadToSim('cargo-load-item').catch(() => {});
     return true;
 };
 
@@ -2686,6 +3011,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
         }
         if (options.render !== false) _missionCargoRenderDialog('load');
         try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
+        _missionCargoSyncPayloadToSim('cargo-drop-item').catch(() => {});
         return true;
     }
     item.status = 'unloaded';
@@ -2720,6 +3046,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
     }
     if (options.render !== false) _missionCargoRenderDialog('unload');
     try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
+    _missionCargoSyncPayloadToSim('cargo-unload-item').catch(() => {});
     return true;
 };
 
@@ -2736,8 +3063,9 @@ window.missionCargoSetBoardBookTime = function(itemId, field) {
 
 window.finishMissionCargoLoadingAndStart = function() {
     _missionCargoEnsureManifest();
-    window.closeMissionCargoDialog?.();
     _setMissionStartPhase('boarded');
+    _missionCargoSyncPayloadToSim('cargo-finish-loading').catch(() => {});
+    window.closeMissionCargoDialog?.();
     window.manualMissionStart();
 };
 
@@ -4730,6 +5058,59 @@ function _resolveMissionSceneBoardingAck(ack) {
     waiter.resolve(ack);
 }
 
+function _waitForTrackerPayloadAck(commandId, timeoutMs = 12000) {
+    if (!commandId) return Promise.resolve({ status: 'not_sent' });
+    return new Promise(resolve => {
+        const timer = setTimeout(() => {
+            trackerPayloadWaiters.delete(commandId);
+            resolve({ type: 'aircraft_payload_ack', commandId, status: 'timeout' });
+        }, Math.max(1200, Number(timeoutMs) || 12000));
+        trackerPayloadWaiters.set(commandId, { resolve, timer });
+    });
+}
+
+function _resolveTrackerPayloadAck(ack) {
+    const commandId = ack?.commandId;
+    if (!commandId || !trackerPayloadWaiters.has(commandId)) return;
+    const waiter = trackerPayloadWaiters.get(commandId);
+    trackerPayloadWaiters.delete(commandId);
+    clearTimeout(waiter.timer);
+    waiter.resolve(ack);
+}
+
+window.trackerPayloadGet = async function(options = {}) {
+    const maxStations = Math.max(1, Math.min(15, Math.round(Number(options?.maxStations ?? 12) || 12)));
+    const commandId = window.sendTrackerCommand({
+        type: 'aircraft_payload_get',
+        maxStations
+    });
+    if (!commandId) return { status: 'not_sent' };
+    window.aircraftPayloadStatus.lastCommandAt = Date.now();
+    window.aircraftPayloadStatus.error = null;
+    return _waitForTrackerPayloadAck(commandId, Number(options?.timeoutMs) || 12000);
+};
+
+window.trackerPayloadSet = async function(stations = [], options = {}) {
+    const rows = (Array.isArray(stations) ? stations : [])
+        .map(row => ({
+            index: Math.round(Number(row?.index)),
+            weightLbs: Number(row?.weightLbs)
+        }))
+        .filter(row => Number.isFinite(row.index) && row.index >= 1 && row.index <= 15 && Number.isFinite(row.weightLbs));
+    if (!rows.length) return { status: 'invalid_input', error: 'no_valid_stations' };
+    const commandId = window.sendTrackerCommand({
+        type: 'aircraft_payload_set',
+        maxStations: Math.max(1, Math.min(15, Math.round(Number(options?.maxStations ?? 12) || 12))),
+        stations: rows
+    });
+    if (!commandId) return { status: 'not_sent' };
+    window.aircraftPayloadStatus.lastCommandAt = Date.now();
+    window.aircraftPayloadStatus.error = null;
+    const ack = await _waitForTrackerPayloadAck(commandId, Number(options?.timeoutMs) || 15000);
+    if (ack?.status !== 'ok' || options?.refreshAfter === false) return ack;
+    return window.trackerPayloadGet({ maxStations: options?.maxStations, timeoutMs: options?.timeoutMs || 12000 });
+};
+
 window.missionSceneBoarding = async function(reason = 'boarding') {
     const status = window.missionSceneStatus || {};
     if (typeof window.missionAptArrivalEnsureSpawned === 'function') {
@@ -4833,6 +5214,40 @@ function _handleTrackerAck(ack) {
     _trackerPendingHandleAck(ack);
     window.missionSmokeStatus.lastAckAt = Date.now();
     window.missionSmokeStatus.lastAck = ack;
+    if (ack.type === 'aircraft_payload_get_ack' || ack.type === 'aircraft_payload_set_ack') {
+        window.aircraftPayloadStatus.lastAckAt = Date.now();
+        window.aircraftPayloadStatus.lastAck = ack;
+        if (ack.status === 'ok') {
+            window.aircraftPayloadStatus.snapshot = {
+                totalWeightLbs: Number.isFinite(Number(ack.totalWeightLbs)) ? Number(ack.totalWeightLbs) : null,
+                emptyWeightLbs: Number.isFinite(Number(ack.emptyWeightLbs)) ? Number(ack.emptyWeightLbs) : null,
+                fuelWeightLbs: Number.isFinite(Number(ack.fuelWeightLbs)) ? Number(ack.fuelWeightLbs) : null,
+                payloadWeightLbs: Number.isFinite(Number(ack.payloadWeightLbs)) ? Number(ack.payloadWeightLbs) : null,
+                payloadStationCount: Number.isFinite(Number(ack.payloadStationCount)) ? Math.round(Number(ack.payloadStationCount)) : null,
+                sampledStationCount: Number.isFinite(Number(ack.sampledStationCount)) ? Math.round(Number(ack.sampledStationCount)) : null,
+                stations: Array.isArray(ack.stations) ? ack.stations.map(row => ({
+                    index: Math.round(Number(row?.index)),
+                    weightLbs: Number.isFinite(Number(row?.weightLbs)) ? Number(row.weightLbs) : null
+                })).filter(row => Number.isFinite(row.index) && row.index >= 1) : []
+            };
+            window.aircraftPayloadStatus.lastSnapshotAt = Date.now();
+            window.aircraftPayloadStatus.error = null;
+            if (_missionCargoHasActiveMission()) {
+                const manifest = _missionCargoEnsureManifest();
+                _missionCargoStorePayloadBaselineIfNeeded(window.aircraftPayloadStatus.snapshot, manifest?.key || '');
+                if (window.missionCargoStatus.payloadBaseline) {
+                    window.missionCargoStatus.payloadPlan = _missionCargoBuildPlanFromManifest(manifest, window.missionCargoStatus.payloadBaseline);
+                }
+            }
+            if (document.getElementById('missionCargoOverlay')?.style.display === 'flex') {
+                _missionCargoRenderDialog(window.missionCargoStatus?.lastMode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+            }
+        } else {
+            window.aircraftPayloadStatus.error = ack.error || ack.status || 'payload_command_failed';
+        }
+        _resolveTrackerPayloadAck(ack);
+        return;
+    }
     if (/^mission_(scene|smoke)_/i.test(String(ack.type || ''))) {
         _missionSceneDebugPatch({ lastAck: ack }, `tracker-ack:${ack.type}`);
     }
@@ -4936,6 +5351,7 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.boardingComplete = ack.status === 'ok';
             window.missionSceneStatus.boardingError = ack.status === 'ok' ? null : (ack.error || ack.status || 'scene_boarding_failed');
             window.missionSceneStatus.personBoarded = ack.status === 'ok' && !!Number(ack.boarded || 0);
+            if (ack.status === 'ok') _missionCargoSyncPayloadToSim('boarding-ack').catch(() => {});
             _resolveMissionSceneBoardingAck(ack);
         } else {
             window.missionSceneStatus.deboardingRequested = false;
