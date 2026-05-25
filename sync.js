@@ -41,6 +41,8 @@ const BOARDING_MARKER_STORAGE_KEY = 'ga_boarding_marker_enabled';
 const MISSION_SCENE_ID_REGISTRY_KEY = 'ga_mission_scene_ids';
 const BOARDING_MARKER_TITLE = 'Cone_Medium';
 const BOARDING_CARGO_FALLBACK_TITLE = 'CoffeeCup';
+const MISSION_SCENE_SIGNAL_SMOKE_TITLE = 'VO_Smoke_R1_105_Black';
+const MISSION_SCENE_SIGNAL_SMOKE_ALT_OFFSET_FT = -110;
 const MISSION_SCENE_ASSET_CATALOG = (window.MISSION_SCENE_ASSETS && window.MISSION_SCENE_ASSETS.roles) || {};
 
 function _sceneUniqueTitles(...sources) {
@@ -4231,8 +4233,16 @@ function _missionTargetSceneItems(kind) {
                 const smoke = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.smokeVfx, 'Chimney_Smoke_V1', `feature-smoke-${i}`, 'Chimney_Smoke_V1');
                 add(`feature_smoke_${i + 1}`, 'Zusatz Rauchquelle', smoke, MISSION_SCENE_ASSET_POOLS.smokeVfx, 3 + step, 18 + step, { hdgOffsetDeg: 0 });
             } else if (feature === 'signal_smoke') {
-                const smoke = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.smokeVfx, 'Chimney_Smoke_V1', `feature-signal-smoke-${i}`, 'Chimney_Smoke_V1');
-                add(`feature_signal_smoke_${i + 1}`, 'Signalrauch / Hilfezeichen', smoke, MISSION_SCENE_ASSET_POOLS.smokeVfx, 6 + step, -10 - step, { hdgOffsetDeg: 0 });
+                const smoke = _scenePreferredTitle(
+                    MISSION_SCENE_ASSET_POOLS.smokeVfx,
+                    MISSION_SCENE_SIGNAL_SMOKE_TITLE,
+                    `feature-signal-smoke-${i}`,
+                    'Chimney_Smoke_V1'
+                );
+                add(`feature_signal_smoke_${i + 1}`, 'Signalrauch / Hilfezeichen', smoke, MISSION_SCENE_ASSET_POOLS.smokeVfx, 6 + step, -10 - step, {
+                    hdgOffsetDeg: 0,
+                    altOffsetFt: MISSION_SCENE_SIGNAL_SMOKE_ALT_OFFSET_FT
+                });
             } else if (feature === 'fire_small') {
                 const fire = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.fireVfx, `feature-fire-${i}`, 'VO_Fire_R1_40');
                 add(`feature_fire_${i + 1}`, 'Zusatz Brandherd', fire, MISSION_SCENE_ASSET_POOLS.fireVfx, 5 + step, 16 + step, { hdgOffsetDeg: 0 });
