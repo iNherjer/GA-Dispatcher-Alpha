@@ -2381,6 +2381,55 @@ function _missionCargoEnsureManifest(cargoAsset = null) {
     return manifest;
 }
 
+function _missionCargoPilotId() {
+    try {
+        if (typeof getSyncId === 'function') {
+            const id = String(getSyncId() || '').trim();
+            if (id) return id;
+        }
+    } catch (_) {}
+    try {
+        const id = String(localStorage.getItem('ga_sync_id') || '').trim();
+        if (id) return id;
+    } catch (_) {}
+    return 'UNBEKANNT';
+}
+
+function _missionCargoAircraftLabel() {
+    const raw = String(window.selectedAC || window.activeAircraftPresetSettingsSlot || 'N/A').trim();
+    return raw || 'N/A';
+}
+
+function _missionCargoFormatDate(ts = Date.now()) {
+    const d = new Date(Number(ts) || Date.now());
+    return d.toLocaleString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function _missionCargoInvalidateDispatchSignature(manifest) {
+    if (!manifest || !manifest.dispatchSignature) return false;
+    manifest.dispatchSignature = null;
+    return true;
+}
+
+window.missionCargoSignDispatchList = function(options = {}) {
+    const manifest = _missionCargoEnsureManifest();
+    manifest.dispatchSignature = {
+        by: _missionCargoPilotId(),
+        at: Date.now(),
+        aircraft: _missionCargoAircraftLabel(),
+        note: String(options?.note || '').trim()
+    };
+    _missionCargoPersistManifest(manifest);
+    if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+    return true;
+};
+
 function _missionCargoSceneId() {
     return window.missionSceneStatus?.sceneId || _missionSceneId();
 }
@@ -2642,6 +2691,8 @@ function _missionCargoResetManifestState(manifest) {
     });
     if (Number(manifest.maxStressDamagePct || 0) !== 0) changed = true;
     manifest.maxStressDamagePct = 0;
+    if (manifest.dispatchSignature) changed = true;
+    manifest.dispatchSignature = null;
     return changed;
 }
 
@@ -3007,6 +3058,7 @@ function _missionCargoMarkAllLoaded({ despawn = true } = {}) {
             }
         }
     });
+    if (_missionCargoInvalidateDispatchSignature(manifest)) changed = true;
     if (changed) {
         _missionCargoPersistManifest(manifest);
         _missionCargoSyncPayloadToSim('cargo-mark-all-loaded').catch(() => {});
@@ -3042,6 +3094,12 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         : manifest.items;
     const requiredMissing = manifest.items.filter(item => item.required && item.status !== 'loaded' && item.status !== 'unloaded').length;
     const requiredUnloadMissing = manifest.items.filter(item => item.required && item.deliverAtDestination !== false && item.status === 'loaded').length;
+    const signature = manifest.dispatchSignature && typeof manifest.dispatchSignature === 'object' ? manifest.dispatchSignature : null;
+    const assignmentMap = new Map(
+        ((window.missionCargoStatus?.payloadPlan?.assignments) || [])
+            .filter(row => row?.type === 'cargo' && row?.itemId)
+            .map(row => [String(row.itemId), Array.isArray(row.stations) ? row.stations.join('/') : '-'])
+    );
     const rows = visibleItems.map(item => {
         const loaded = item.status === 'loaded' || item.status === 'unloaded';
         const unloaded = item.status === 'unloaded';
@@ -3059,6 +3117,38 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                 ${action}
             </div>`;
     }).join('') || `<div class="mission-cargo-empty">${isUnload ? 'Keine geladene Zielfracht offen.' : 'Keine Ladung fuer diese Mission.'}</div>`;
+    const clipboardRows = visibleItems.map((item, idx) => {
+        const loaded = item.status === 'loaded' || item.status === 'unloaded';
+        const unloaded = item.status === 'unloaded';
+        const dropped = item.status === 'dropped';
+        const status = dropped ? 'abgeworfen' : (unloaded ? 'ausgeladen' : (loaded ? 'geladen' : 'offen'));
+        const stationText = assignmentMap.get(String(item.id)) || (loaded ? 'auto' : '-');
+        return `
+            <tr class="${loaded ? 'is-loaded' : ''}">
+                <td>${idx + 1}</td>
+                <td>${_missionCargoEscape(item.storyName || item.label || item.id)}</td>
+                <td>${item.required ? 'Pflicht' : 'Optional'}</td>
+                <td>${Math.round(Number(item.weightLbs) || 0)} lbs</td>
+                <td>${_missionCargoEscape(stationText)}</td>
+                <td>${status}</td>
+            </tr>`;
+    }).join('') || `<tr><td colspan="6">Keine Ladung fuer diese Mission.</td></tr>`;
+    const metaAircraft = _missionCargoAircraftLabel();
+    const metaPilot = _missionCargoPilotId();
+    const metaDate = _missionCargoFormatDate(signature?.at || Date.now());
+    const signaturePanel = !isUnload ? `
+        <div class="mission-cargo-signature ${signature ? 'is-signed' : ''}">
+            <div class="mission-cargo-signature-line">${signature ? _missionCargoEscape(signature.by || metaPilot) : '&nbsp;'}</div>
+            <div class="mission-cargo-signature-meta">Unterschrift Pilot · ${signature ? _missionCargoEscape(_missionCargoFormatDate(signature.at)) : 'noch offen'}</div>
+        </div>` : '';
+    const primaryActionJs = isUnload
+        ? 'window.finishMissionCargoUnloadAndEnd && finishMissionCargoUnloadAndEnd()'
+        : (signature
+            ? 'window.finishMissionCargoLoadingAndStart && finishMissionCargoLoadingAndStart()'
+            : 'window.missionCargoSignDispatchList && missionCargoSignDispatchList()');
+    const primaryActionLabel = isUnload
+        ? 'Entladung abgeschlossen - Mission beenden'
+        : (signature ? 'Mission beginnen' : 'Verladung bestaetigen & unterschreiben');
     overlay.innerHTML = `
         <div class="mission-cargo-panel">
             <div class="mission-cargo-head">
@@ -3071,14 +3161,37 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             <div class="mission-cargo-copy">${isUnload
                 ? 'Entlade die am Ziel benoetigten Gegenstaende. Sie erscheinen an der Cargo-Position relativ zum Flugzeug.'
                 : 'Die Boarding-Animation laeuft parallel. Geladene Gegenstaende verschwinden aus der Startszene und werden fuer die Missionswertung gespeichert.'}</div>
+            ${!isUnload ? `
+            <div class="mission-cargo-clipboard">
+                <div class="mission-cargo-sheet-title">Frachtgutliste</div>
+                <div class="mission-cargo-sheet-meta">
+                    <span><b>Flugzeug Kennung:</b> ${_missionCargoEscape(metaAircraft)}</span>
+                    <span><b>Pilot-ID:</b> ${_missionCargoEscape(metaPilot)}</span>
+                    <span><b>Datum:</b> ${_missionCargoEscape(metaDate)}</span>
+                </div>
+                <table class="mission-cargo-sheet-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Position</th>
+                            <th>Typ</th>
+                            <th>Gewicht</th>
+                            <th>Station</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>${clipboardRows}</tbody>
+                </table>
+                ${signaturePanel}
+            </div>` : ''}
             ${_missionCargoPayloadSummaryHtml(mode)}
-            <div class="mission-cargo-list">${rows}</div>
+            <div class="mission-cargo-list">${isUnload ? rows : ''}</div>
             <div class="mission-cargo-summary">
                 <span>${isUnload ? `${requiredUnloadMissing} Pflicht-Items noch an Bord` : `${requiredMissing} Pflicht-Items offen`}</span>
                 <span>${manifest.items.reduce((sum, item) => sum + ((item.status === 'loaded' || item.status === 'unloaded') ? Number(item.weightLbs || 0) : 0), 0)} lbs geladen</span>
             </div>
             <div class="mission-cargo-actions">
-                <button class="mission-cargo-primary" onclick="${isUnload ? 'window.finishMissionCargoUnloadAndEnd && finishMissionCargoUnloadAndEnd()' : 'window.finishMissionCargoLoadingAndStart && finishMissionCargoLoadingAndStart()'}">${isUnload ? 'Entladung abgeschlossen - Mission beenden' : 'Verladung abgeschlossen - Mission beginnen'}</button>
+                <button class="mission-cargo-primary" onclick="${primaryActionJs}">${primaryActionLabel}</button>
             </div>
         </div>`;
     overlay.style.display = 'flex';
@@ -3118,6 +3231,7 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     if (!item || item.status === 'loaded' || item.status === 'unloaded' || item.status === 'dropped') return false;
     item.status = 'loaded';
     item.loadedAt = Date.now();
+    _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
     if (!window.simModeActive && window.liveTrackerConnected) {
         const commandId = window.sendTrackerCommand({
@@ -3178,6 +3292,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
         item.status = 'dropped';
         item.droppedAt = Date.now();
         item.healthPct = 0;
+        _missionCargoInvalidateDispatchSignature(manifest);
         _missionCargoPersistManifest(manifest);
         if (item.required && typeof window.triggerPaxCargoEvent === 'function') {
             try {
@@ -3191,6 +3306,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
     }
     item.status = 'unloaded';
     item.unloadedAt = Date.now();
+    _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
     if (!window.simModeActive && window.liveTrackerConnected) {
         const pos = window.lastLiveGpsPos || {};
@@ -3237,7 +3353,10 @@ window.missionCargoSetBoardBookTime = function(itemId, field) {
 };
 
 window.finishMissionCargoLoadingAndStart = function() {
-    _missionCargoEnsureManifest();
+    const manifest = _missionCargoEnsureManifest();
+    if (!manifest.dispatchSignature) {
+        window.missionCargoSignDispatchList?.({ render: false });
+    }
     _setMissionStartPhase('boarded');
     _missionCargoSyncPayloadToSim('cargo-finish-loading').catch(() => {});
     window.closeMissionCargoDialog?.();

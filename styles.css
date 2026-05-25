@@ -6995,7 +6995,7 @@ body.map-drawing-active #map.leaflet-dragging {
     -webkit-backdrop-filter: blur(6px);
 }
 .mission-cargo-panel {
-    width: min(520px, 100%);
+    width: min(760px, 100%);
     max-height: min(680px, calc(100vh - 36px));
     display: flex;
     flex-direction: column;
@@ -7041,6 +7041,85 @@ body.map-drawing-active #map.leaflet-dragging {
     font-size: 12px;
     line-height: 1.35;
     color: rgba(232, 244, 255, 0.76);
+}
+.mission-cargo-clipboard {
+    margin: 6px 14px 10px;
+    padding: 12px 12px 10px;
+    border: 1px solid rgba(171, 151, 116, 0.56);
+    border-radius: 6px;
+    background:
+        linear-gradient(180deg, rgba(245, 236, 214, 0.99), rgba(236, 223, 194, 0.98)),
+        repeating-linear-gradient(180deg, rgba(24, 33, 53, 0.08) 0, rgba(24, 33, 53, 0.08) 1px, transparent 1px, transparent 28px);
+    color: #2f2619;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 0 rgba(125, 88, 40, 0.15);
+}
+.mission-cargo-sheet-title {
+    font-family: 'MS33558', 'Courier New', monospace;
+    letter-spacing: 0.06em;
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.mission-cargo-sheet-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px 14px;
+    font-family: 'Courier Prime', 'Courier New', monospace;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+.mission-cargo-sheet-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Caveat', 'Segoe Print', cursive;
+    font-size: 23px;
+    line-height: 1.05;
+    color: #1e2738;
+}
+.mission-cargo-sheet-table th,
+.mission-cargo-sheet-table td {
+    border: 1px solid rgba(53, 45, 32, 0.45);
+    padding: 4px 7px;
+    vertical-align: top;
+}
+.mission-cargo-sheet-table th {
+    font-family: 'Courier Prime', 'Courier New', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: rgba(146, 115, 68, 0.13);
+    color: #302514;
+    font-weight: 700;
+}
+.mission-cargo-sheet-table tbody tr.is-loaded td {
+    background: rgba(102, 170, 118, 0.14);
+}
+.mission-cargo-signature {
+    margin-top: 11px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+.mission-cargo-signature-line {
+    min-width: 250px;
+    border-bottom: 1px solid rgba(47, 35, 18, 0.7);
+    font-family: 'Caveat', 'Segoe Print', cursive;
+    font-size: 30px;
+    text-align: center;
+    color: rgba(17, 22, 31, 0.88);
+    line-height: 1.1;
+}
+.mission-cargo-signature:not(.is-signed) .mission-cargo-signature-line {
+    color: rgba(17, 22, 31, 0.35);
+}
+.mission-cargo-signature-meta {
+    margin-top: 3px;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(46, 34, 18, 0.75);
+    font-family: 'Courier Prime', 'Courier New', monospace;
 }
 .mission-cargo-list {
     overflow: auto;
@@ -7126,6 +7205,17 @@ body.map-drawing-active #map.leaflet-dragging {
     padding: 18px 10px;
     color: rgba(232,244,255,0.62);
     font-size: 13px;
+}
+@media (max-width: 760px) {
+    .mission-cargo-sheet-meta {
+        grid-template-columns: 1fr;
+    }
+    .mission-cargo-sheet-table {
+        font-size: 20px;
+    }
+    .mission-cargo-signature-line {
+        min-width: 180px;
+    }
 }
 
 .mission-accept-panel {
