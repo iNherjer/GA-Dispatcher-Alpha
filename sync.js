@@ -423,6 +423,15 @@ window.missionSceneStatus = {
     autoSpawnedFor: null,
     autoClearedFor: null
 };
+window.missionCargoStatus = {
+    manifestKey: '',
+    lastMode: 'load',
+    lastCommandAt: 0,
+    lastAckAt: 0,
+    lastAck: null,
+    error: null
+};
+const MISSION_CARGO_AUTO_LOAD_KEY = 'ga_mission_cargo_auto_load_enabled';
 window.missionTargetSceneStatus = {
     sceneId: null,
     kind: null,
@@ -1967,53 +1976,602 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
         headingMode: 'with_aircraft',
         altOffsetFt: baseAlt + _missionSceneGroundAltOffsetForTitle(title)
     });
-    const taskDomain = cargoAsset?.taskDomain || _missionSceneTaskDomain();
-    if (taskDomain === 'fire_watch') {
-        const primary = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.fireCargo, 'Drop_Container', 'fire-cargo-primary', 'Drop_Container');
-        const secondary = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.smallCargo, 'Cardboard', 'fire-cargo-secondary', 'Cardboard');
-        return [
-            makeItem('cargo', 'Einsatzladung', primary, _sceneAssetCandidates(primary, MISSION_SCENE_ASSET_POOLS.fireCargo), 0, 0),
-            makeItem('cargo_extra_1', 'Zusatzladung', secondary, _sceneAssetCandidates(secondary, MISSION_SCENE_ASSET_POOLS.smallCargo), 0.35, -0.75)
-        ];
-    }
-    if (taskDomain === 'search_and_rescue') {
-        const primary = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.sarCargo, 'Drop_Container', 'sar-cargo-primary', 'Drop_Container');
-        const secondary = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.smallCargo, 'Cardboard', 'sar-cargo-secondary', 'Cardboard');
-        return [
-            makeItem('cargo', 'SAR Ausruestung', primary, _sceneAssetCandidates(primary, MISSION_SCENE_ASSET_POOLS.sarCargo), 0, 0),
-            makeItem('cargo_extra_1', 'SAR Zusatzladung', secondary, _sceneAssetCandidates(secondary, MISSION_SCENE_ASSET_POOLS.smallCargo), 0.45, -0.85)
-        ];
-    }
-    if (taskDomain === 'medical_transfer') {
-        const primary = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.medicalEquipment, 'Cardboard', 'medical-cargo-primary', 'Cardboard');
-        return [
-            makeItem('cargo', 'Medizinische Transportkiste', primary, _sceneAssetCandidates(primary, MISSION_SCENE_ASSET_POOLS.medicalEquipment), 0, 0)
-        ];
-    }
-    if (taskDomain === 'animal_transport') {
-        const box = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.animalTransportBoxes, 'Cardboard', 'animal-cargo-box', 'Cardboard');
-        const animal = _missionSceneAnimalTransportSpec('animal-cargo-primary');
-        const cargoTitle = animal.cargoTitle || box;
-        const cargoLabel = animal.cargoLabel || 'Tiertransportbox';
-        const items = [
-            makeItem('cargo', cargoLabel, cargoTitle, animal.cargoCandidates || _sceneAssetCandidates(cargoTitle, MISSION_SCENE_ASSET_POOLS.animalTransportBoxes), 0, 0)
-        ];
-        if (animal.visible !== false) {
-            items.push(makeItem('cargo_animal_1', animal.label, animal.title, animal.candidates, 1.1, -1.25));
-        }
-        return items;
+    const manifest = _missionCargoEnsureManifest(cargoAsset);
+    const manifestItems = Array.isArray(manifest?.items) ? manifest.items : [];
+    if (manifestItems.length) {
+        return manifestItems.map((item, index) => makeItem(
+            item.sceneKind || (index === 0 ? 'cargo' : `cargo_extra_${index}`),
+            item.storyName || item.label || `Ladung ${index + 1}`,
+            item.objectTitle || 'Cardboard',
+            _sceneAssetCandidates(item.objectTitle || 'Cardboard', item.titleCandidates || MISSION_SCENE_ASSET_POOLS.cargo),
+            Number(item.forwardOffsetM || 0),
+            Number(item.rightOffsetM || 0)
+        ));
     }
     const primary = cargoAsset?.sizePrimary || cargoAsset?.title || 'Cardboard';
     const primaryCandidates = _sceneAssetCandidates(primary, cargoAsset?.candidates || MISSION_SCENE_ASSET_POOLS.cargo);
-    const items = [
+    return [
         makeItem('cargo', primary.startsWith('Pallet') ? 'Transportpalette' : 'Cargo Karton', primary, primaryCandidates, 0, 0)
     ];
-    const hashKey = `${_missionSceneId()}|${cargoAsset?.cargoText || ''}`;
-    if (_stableHashText(hashKey) % 5 === 0) {
-        items.push(makeItem('cargo_extra_1', 'Kaffeetasse', BOARDING_CARGO_FALLBACK_TITLE, _sceneAssetCandidates(BOARDING_CARGO_FALLBACK_TITLE, ['Coffee_Cup', 'Coffee Cup']), 0.25, -0.45));
-    }
-    return items;
 }
+
+function _missionCargoMissionKey() {
+    try {
+        if (typeof _missionStartUiKey === 'function') return _missionStartUiKey() || '';
+    } catch (_) {}
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    return [md?.start, md?.dest, md?.poiName || md?.targetName, md?.mission].filter(Boolean).join('|');
+}
+
+function _missionCargoHasActiveMission() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    return !!(md || window.activeMissionContract);
+}
+
+function _missionCargoIsPoiMission() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    return !!(md?.poiName || md?.poiSource || md?.isPOI || (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI'));
+}
+
+function _missionCargoCleanLabel(text = '') {
+    return String(text || '')
+        .replace(/\([^)]*\b(?:lb|lbs|pound|pfund)\b[^)]*\)/ig, '')
+        .replace(/\b\d+(?:[.,]\d+)?\s*(?:lb|lbs|pound|pfund)\b/ig, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function _missionCargoPrimaryText() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const values = [
+        md?.cargoText,
+        md?.cargo,
+        md?.missionContract?.cargoText,
+        window.activeMissionContract?.cargoText,
+        document.getElementById('mWeight')?.innerText
+    ];
+    return String(values.find(value => String(value || '').trim()) || '').trim();
+}
+
+function _missionCargoExtractWeight(text = '', fallback = 5) {
+    const match = String(text || '').match(/(\d+(?:[.,]\d+)?)\s*(?:lb|lbs|pound|pfund)/i);
+    if (!match) return fallback;
+    const n = Number(String(match[1]).replace(',', '.'));
+    return Number.isFinite(n) ? Math.max(1, Math.round(n)) : fallback;
+}
+
+function _missionCargoSmallTitle(label = '') {
+    if (/unterlagen|papier|mappe|bordbuch|akte|karten|tablet|speicher|akku|protokoll/i.test(label)) return 'Cardboard';
+    if (/spanngurt|net|netz|gurt/i.test(label)) return 'Pallet01_03';
+    return 'Cardboard';
+}
+
+function _missionCargoPushItem(items, item) {
+    const id = String(item.id || item.label || `item-${items.length + 1}`).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `item-${items.length + 1}`;
+    if (items.some(existing => existing.id === id)) return;
+    const sceneKind = item.sceneKind || (items.length === 0 ? 'cargo' : `cargo_extra_${items.length}`);
+    const title = item.objectTitle || _missionCargoSmallTitle(item.label || item.storyName || '');
+    items.push({
+        id,
+        sceneKind,
+        label: String(item.label || item.storyName || id).trim(),
+        storyName: String(item.storyName || item.label || id).trim(),
+        weightLbs: Math.max(1, Math.round(Number(item.weightLbs) || 1)),
+        required: item.required === true,
+        deliverAtDestination: item.deliverAtDestination !== false,
+        status: item.status || 'pending',
+        healthPct: Number.isFinite(Number(item.healthPct)) ? Math.max(0, Math.min(100, Math.round(Number(item.healthPct)))) : 100,
+        equipmentType: item.equipmentType || '',
+        expiresAt: item.expiresAt || '',
+        log: item.log && typeof item.log === 'object' ? item.log : {},
+        objectTitle: title,
+        titleCandidates: _sceneAssetCandidates(title, item.titleCandidates || MISSION_SCENE_ASSET_POOLS.smallCargo || MISSION_SCENE_ASSET_POOLS.cargo),
+        forwardOffsetM: Number.isFinite(Number(item.forwardOffsetM)) ? Number(item.forwardOffsetM) : (items.length * 0.45),
+        rightOffsetM: Number.isFinite(Number(item.rightOffsetM)) ? Number(item.rightOffsetM) : (items.length % 2 ? -0.8 : 0)
+    });
+}
+
+function _missionCargoExpiryDate(seed = '', monthsMin = 9, monthsRange = 24) {
+    const date = new Date();
+    const offset = monthsMin + (_stableHashText(`${_missionCargoMissionKey()}|${seed}`) % Math.max(1, monthsRange));
+    date.setMonth(date.getMonth() + offset);
+    return date.toISOString().slice(0, 10);
+}
+
+function _missionCargoGenerateManifest(cargoAsset = null) {
+    const key = _missionCargoMissionKey();
+    const taskDomain = _missionSceneTaskDomain();
+    const cargoText = _missionCargoPrimaryText() || _missionSceneCargoText();
+    const cleanedCargo = _missionCargoCleanLabel(cargoText);
+    const hasCargo = cleanedCargo && !/^(?:-|none|kein cargo|keine fracht|standard-ausruestung|standard ausruestung)$/i.test(cleanedCargo);
+    const isPoi = _missionCargoIsPoiMission();
+    const items = [];
+    if (hasCargo) {
+        let primaryTitle = cargoAsset?.title || cargoAsset?.sizePrimary || 'Cardboard';
+        let primaryCandidates = cargoAsset?.candidates || MISSION_SCENE_ASSET_POOLS.cargo;
+        let primaryLabel = cleanedCargo || 'Missionsladung';
+        if (taskDomain === 'fire_watch') {
+            primaryTitle = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.fireCargo, 'Drop_Container', 'fire-cargo-primary', 'Drop_Container');
+            primaryCandidates = MISSION_SCENE_ASSET_POOLS.fireCargo;
+            primaryLabel = cleanedCargo || 'Einsatzladung';
+        } else if (taskDomain === 'search_and_rescue') {
+            primaryTitle = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.sarCargo, 'Drop_Container', 'sar-cargo-primary', 'Drop_Container');
+            primaryCandidates = MISSION_SCENE_ASSET_POOLS.sarCargo;
+            primaryLabel = cleanedCargo || 'SAR Ausruestung';
+        } else if (taskDomain === 'medical_transfer') {
+            primaryTitle = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.medicalEquipment, 'Cardboard', 'medical-cargo-primary', 'Cardboard');
+            primaryCandidates = MISSION_SCENE_ASSET_POOLS.medicalEquipment;
+            primaryLabel = cleanedCargo || 'Medizinische Transportkiste';
+        } else if (taskDomain === 'animal_transport') {
+            const animal = _missionSceneAnimalTransportSpec('animal-cargo-primary');
+            primaryTitle = animal.cargoTitle || 'Cardboard';
+            primaryCandidates = animal.cargoCandidates || MISSION_SCENE_ASSET_POOLS.animalTransportBoxes;
+            primaryLabel = animal.cargoLabel || cleanedCargo || 'Tiertransportbox';
+        }
+        _missionCargoPushItem(items, {
+            id: 'primary-cargo',
+            sceneKind: 'cargo',
+            label: primaryLabel,
+            storyName: primaryLabel,
+            weightLbs: _missionCargoExtractWeight(cargoText, cargoAsset?.cargoWeightLbs || 20),
+            required: true,
+            deliverAtDestination: !isPoi,
+            objectTitle: primaryTitle,
+            titleCandidates: primaryCandidates,
+            forwardOffsetM: 0,
+            rightOffsetM: 0
+        });
+    }
+
+    _missionCargoPushItem(items, { id: 'bordbuch', label: 'Bordbuch / Dispatch-Mappe', weightLbs: 3, required: false, deliverAtDestination: false, forwardOffsetM: 0.35, rightOffsetM: -0.75 });
+    _missionCargoPushItem(items, { id: 'first-aid', label: 'Verbandzeug', weightLbs: 2, required: false, deliverAtDestination: false, equipmentType: 'expiry', expiresAt: _missionCargoExpiryDate('first-aid', 6, 18), forwardOffsetM: 0.65, rightOffsetM: -0.55 });
+    _missionCargoPushItem(items, { id: 'fire-extinguisher', label: 'Feuerloescher', weightLbs: 5, required: false, deliverAtDestination: false, equipmentType: 'expiry', expiresAt: _missionCargoExpiryDate('fire-extinguisher', 4, 20), forwardOffsetM: 0.95, rightOffsetM: 0.55 });
+    _missionCargoPushItem(items, { id: 'chocks', label: 'Chocks / Radkeile', weightLbs: 6, required: false, deliverAtDestination: false, equipmentType: 'ground', forwardOffsetM: 1.25, rightOffsetM: -0.25 });
+    if (/(cargo|freight|fracht|animal_transport)/.test(taskDomain)) {
+        _missionCargoPushItem(items, { id: 'cargo-docs', label: 'Frachtpapiere und Uebergabeunterlagen', weightLbs: 4, required: true, deliverAtDestination: !isPoi, forwardOffsetM: 0.75, rightOffsetM: 0.8 });
+        _missionCargoPushItem(items, { id: 'tie-downs', label: 'Spanngurte / Ladungsnetz', weightLbs: 8, required: false, deliverAtDestination: false, forwardOffsetM: 1.1, rightOffsetM: -0.9, objectTitle: 'Pallet01_03', titleCandidates: MISSION_SCENE_ASSET_POOLS.palletCargo });
+    }
+    if (/(news_coverage|media|photo)/.test(taskDomain)) {
+        _missionCargoPushItem(items, { id: 'media-batteries', label: 'Akkukoffer und Speicherkarten', weightLbs: 9, required: false, deliverAtDestination: false, forwardOffsetM: 0.85, rightOffsetM: 0.9 });
+    }
+    if (/(survey|inspection|science|mapping)/.test(taskDomain)) {
+        _missionCargoPushItem(items, { id: 'survey-docs', label: 'Messprotokolle und Referenzkarten', weightLbs: 5, required: false, deliverAtDestination: false, forwardOffsetM: 0.8, rightOffsetM: 0.85 });
+    }
+    if (taskDomain === 'medical_transfer') {
+        _missionCargoPushItem(items, { id: 'patient-docs', label: 'Patientenakte / Kuehlhinweis', weightLbs: 3, required: true, deliverAtDestination: !isPoi, forwardOffsetM: 0.75, rightOffsetM: 0.85 });
+    }
+    if (!items.length) {
+        _missionCargoPushItem(items, { id: 'bordbuch', label: 'Bordbuch / Dispatch-Mappe', weightLbs: 3, required: false, deliverAtDestination: false });
+    }
+    return {
+        version: 1,
+        key,
+        taskDomain,
+        isPoi,
+        createdAt: Date.now(),
+        items
+    };
+}
+
+function _missionCargoGetManifest() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    return md?.cargoManifest && typeof md.cargoManifest === 'object' ? md.cargoManifest : null;
+}
+
+function _missionCargoPersistManifest(manifest) {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (md && typeof md === 'object') {
+        md.cargoManifest = manifest;
+        if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.cargoManifest = manifest;
+    }
+    if (window.activeMissionContract && typeof window.activeMissionContract === 'object') {
+        window.activeMissionContract.cargoManifest = manifest;
+    }
+    try {
+        window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } }));
+    } catch (_) {}
+    try {
+        if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+        else if (typeof saveMissionState === 'function') saveMissionState();
+    } catch (_) {}
+    return manifest;
+}
+
+function _missionCargoEnsureManifest(cargoAsset = null) {
+    const key = _missionCargoMissionKey();
+    let manifest = _missionCargoGetManifest();
+    if (!manifest || manifest.key !== key || !Array.isArray(manifest.items) || !manifest.items.length) {
+        manifest = _missionCargoGenerateManifest(cargoAsset || _missionSceneCargoAsset());
+        _missionCargoPersistManifest(manifest);
+    }
+    window.missionCargoStatus.manifestKey = manifest.key || key;
+    return manifest;
+}
+
+function _missionCargoSceneId() {
+    return window.missionSceneStatus?.sceneId || _missionSceneId();
+}
+
+function _missionCargoUnloadSceneId() {
+    return `${_missionSceneId()}-cargo-unload`;
+}
+
+function _missionCargoFindItem(itemId) {
+    const manifest = _missionCargoEnsureManifest();
+    return manifest.items.find(item => item.id === itemId) || null;
+}
+
+function _missionCargoLoadedItems(manifest = _missionCargoEnsureManifest()) {
+    return (manifest.items || []).filter(item => item.status === 'loaded' || item.status === 'unloaded');
+}
+
+function _missionCargoStressDamage(record = null) {
+    const fd = window.lastLiveFlightData || {};
+    const maxG = Math.max(Number(record?.maxGForce || 1), Number(flightRecorder?.maxGForce || 1), Number(fd.gForce || 1));
+    const maxBank = Math.max(Math.abs(Number(record?.maxBankDeg || 0)), Math.abs(Number(flightRecorder?.maxBankDeg || 0)), Math.abs(Number(fd.bankDeg || 0)));
+    const maxDescent = Math.max(Math.abs(Math.min(0, Number(record?.maxDescentFpm || 0))), Math.abs(Math.min(0, Number(flightRecorder?.maxDescentFpm || 0))), Math.abs(Math.min(0, Number(fd.vsFpm ?? fd.vs ?? 0))));
+    const touchdown = Math.abs(Number(record?.touchdownVsFpm || flightRecorder?.touchdownVsFpm || fd.touchdownFpm || 0));
+    let damage = 0;
+    if (Number.isFinite(maxG) && maxG > 1.45) damage += (maxG - 1.45) * 22;
+    if (Number.isFinite(maxBank) && maxBank > 45) damage += (maxBank - 45) * 0.45;
+    if (Number.isFinite(maxDescent) && maxDescent > 1300) damage += (maxDescent - 1300) * 0.008;
+    if (Number.isFinite(touchdown) && touchdown > 450) damage += (touchdown - 450) * 0.045;
+    return Math.max(0, Math.min(85, Math.round(damage)));
+}
+
+function _missionCargoApplyStressSnapshot(record = null) {
+    const manifest = _missionCargoEnsureManifest();
+    const damage = _missionCargoStressDamage(record);
+    const prev = Number(manifest.maxStressDamagePct || 0);
+    if (!Number.isFinite(damage) || damage <= prev) return manifest;
+    manifest.maxStressDamagePct = damage;
+    (manifest.items || []).forEach(item => {
+        if (item.status === 'loaded') {
+            item.healthPct = Math.max(0, Math.min(Number(item.healthPct ?? 100), 100 - damage));
+        }
+    });
+    _missionCargoPersistManifest(manifest);
+    return manifest;
+}
+
+window.missionCargoApplyCurrentStress = function(record = null) {
+    if (!_missionCargoHasActiveMission()) return null;
+    return JSON.parse(JSON.stringify(_missionCargoApplyStressSnapshot(record)));
+};
+
+function _missionCargoEvaluateOutcome(manifest = _missionCargoEnsureManifest()) {
+    const items = Array.isArray(manifest?.items) ? manifest.items : [];
+    const required = items.filter(item => item.required);
+    const missing = required.filter(item => item.status !== 'loaded' && item.status !== 'unloaded' && item.status !== 'dropped');
+    const dropped = required.filter(item => item.status === 'dropped');
+    const notDelivered = required.filter(item => item.deliverAtDestination !== false && item.status === 'loaded');
+    const damaged = required.filter(item => Number(item.healthPct ?? 100) <= 35);
+    const failed = missing.length > 0 || dropped.length > 0 || notDelivered.length > 0 || damaged.length > 0;
+    const loadedWeightLbs = items.reduce((sum, item) => sum + ((item.status === 'loaded' || item.status === 'unloaded') ? Number(item.weightLbs || 0) : 0), 0);
+    return {
+        status: failed ? 'failed' : 'completed',
+        failed,
+        requiredTotal: required.length,
+        requiredLoaded: required.filter(item => item.status === 'loaded' || item.status === 'unloaded').length,
+        missingRequired: missing.map(item => item.storyName || item.label),
+        droppedRequired: dropped.map(item => item.storyName || item.label),
+        notDeliveredRequired: notDelivered.map(item => item.storyName || item.label),
+        damagedRequired: damaged.map(item => item.storyName || item.label),
+        loadedWeightLbs: Math.round(loadedWeightLbs),
+        totalWeightLbs: Math.round(items.reduce((sum, item) => sum + Number(item.weightLbs || 0), 0))
+    };
+}
+
+window.missionCargoEvaluateOutcome = function() {
+    if (!_missionCargoHasActiveMission()) {
+        return { status: 'none', failed: false, requiredTotal: 0, requiredLoaded: 0, missingRequired: [], droppedRequired: [], notDeliveredRequired: [], damagedRequired: [], loadedWeightLbs: 0, totalWeightLbs: 0 };
+    }
+    _missionCargoApplyStressSnapshot();
+    return _missionCargoEvaluateOutcome();
+};
+
+function _missionCargoFinalizeMissionOutcome(options = {}) {
+    const manifest = _missionCargoApplyStressSnapshot(options.record || null);
+    const outcome = _missionCargoEvaluateOutcome(manifest);
+    outcome.finalizedAt = Date.now();
+    outcome.source = options.source || 'mission-end';
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (md && typeof md === 'object') {
+        md.cargoOutcome = outcome;
+        md.cargoManifest = manifest;
+        md.missionResult = outcome.failed ? 'failed' : 'completed';
+        md.missionFailed = !!outcome.failed;
+        if (md.missionContract && typeof md.missionContract === 'object') {
+            md.missionContract.cargoOutcome = outcome;
+            md.missionContract.cargoManifest = manifest;
+        }
+    }
+    if (window.activeMissionContract && typeof window.activeMissionContract === 'object') {
+        window.activeMissionContract.cargoOutcome = outcome;
+        window.activeMissionContract.cargoManifest = manifest;
+    }
+    _missionCargoPersistManifest(manifest);
+    return outcome;
+}
+window.missionCargoFinalizeMissionOutcome = _missionCargoFinalizeMissionOutcome;
+
+window.missionCargoGetManifestSnapshot = function() {
+    if (!_missionCargoHasActiveMission()) return null;
+    _missionCargoApplyStressSnapshot();
+    return JSON.parse(JSON.stringify(_missionCargoEnsureManifest()));
+};
+
+function _missionCargoNeedsUnload() {
+    const manifest = _missionCargoEnsureManifest();
+    if (manifest.isPoi) return false;
+    return _missionCargoLoadedItems(manifest).some(item => item.deliverAtDestination !== false && item.status !== 'unloaded');
+}
+window.missionCargoNeedsUnload = _missionCargoNeedsUnload;
+
+function _missionCargoAutoLoadEnabled() {
+    try {
+        return localStorage.getItem(MISSION_CARGO_AUTO_LOAD_KEY) === '1';
+    } catch (_) {
+        return false;
+    }
+}
+
+function _updateMissionCargoAutoLoadButton() {
+    const btn = document.getElementById('missionCargoAutoLoadBtn');
+    if (!btn) return;
+    const enabled = _missionCargoAutoLoadEnabled();
+    btn.textContent = enabled ? 'AUTO LOAD: AN' : 'AUTO LOAD: AUS';
+    btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    btn.classList.toggle('is-on', enabled);
+    btn.classList.toggle('is-off', !enabled);
+}
+
+window.toggleMissionCargoAutoLoadOption = function() {
+    const next = !_missionCargoAutoLoadEnabled();
+    try {
+        if (next) localStorage.setItem(MISSION_CARGO_AUTO_LOAD_KEY, '1');
+        else localStorage.removeItem(MISSION_CARGO_AUTO_LOAD_KEY);
+    } catch (_) {}
+    _updateMissionCargoAutoLoadButton();
+    if (next && document.getElementById('missionCargoOverlay')?.style.display === 'flex') {
+        _missionCargoMarkAllLoaded({ despawn: false });
+        _missionCargoRenderDialog('load');
+    }
+    return next;
+};
+
+function _missionCargoMarkAllLoaded({ despawn = true } = {}) {
+    const manifest = _missionCargoEnsureManifest();
+    let changed = false;
+    manifest.items.forEach(item => {
+        if (item.status !== 'loaded' && item.status !== 'unloaded') {
+            item.status = 'loaded';
+            item.loadedAt = Date.now();
+            changed = true;
+            if (despawn && !window.simModeActive && window.liveTrackerConnected) {
+                window.sendTrackerCommand({
+                    type: 'mission_scene_object_remove',
+                    sceneId: _missionCargoSceneId(),
+                    reason: 'cargo-auto-load',
+                    kinds: [item.sceneKind],
+                    labels: [item.label, item.storyName]
+                });
+            }
+        }
+    });
+    if (changed) _missionCargoPersistManifest(manifest);
+    return changed;
+}
+
+function _missionCargoEscape(text = '') {
+    if (typeof escapeHtmlLite === 'function') return escapeHtmlLite(text);
+    return String(text || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+function _missionCargoRenderDialog(mode = 'load') {
+    const manifest = _missionCargoEnsureManifest();
+    if (mode !== 'unload' && _missionCargoAutoLoadEnabled()) {
+        _missionCargoMarkAllLoaded({ despawn: false });
+        if (window.missionSceneStatus?.spawned) _missionCargoRemoveLoadedSceneObjects('cargo-auto-load-open');
+    }
+    let overlay = document.getElementById('missionCargoOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'missionCargoOverlay';
+        overlay.className = 'mission-cargo-overlay';
+        document.body.appendChild(overlay);
+    }
+    const isUnload = mode === 'unload';
+    const visibleItems = isUnload
+        ? manifest.items.filter(item => item.status === 'loaded' && item.deliverAtDestination !== false)
+        : manifest.items;
+    const requiredMissing = manifest.items.filter(item => item.required && item.status !== 'loaded' && item.status !== 'unloaded').length;
+    const requiredUnloadMissing = manifest.items.filter(item => item.required && item.deliverAtDestination !== false && item.status === 'loaded').length;
+    const rows = visibleItems.map(item => {
+        const loaded = item.status === 'loaded' || item.status === 'unloaded';
+        const unloaded = item.status === 'unloaded';
+        const dropped = item.status === 'dropped';
+        const action = isUnload
+            ? `<button class="mission-cargo-row-btn" ${unloaded ? 'disabled' : ''} onclick="window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}')">${unloaded ? 'Ausgeladen' : 'Ausladen'}</button>`
+            : `<button class="mission-cargo-row-btn" ${loaded || dropped ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}')">${dropped ? 'Abgeworfen' : (loaded ? 'Geladen' : 'Laden')}</button>`;
+        const status = dropped ? 'abgeworfen' : (unloaded ? 'ausgeladen' : (loaded ? 'geladen' : 'offen'));
+        return `
+            <div class="mission-cargo-row ${item.required ? 'is-required' : 'is-optional'} ${loaded ? 'is-loaded' : ''}">
+                <div class="mission-cargo-row-main">
+                    <div class="mission-cargo-row-title">${_missionCargoEscape(item.storyName || item.label)}</div>
+                    <div class="mission-cargo-row-meta">${item.required ? 'Pflicht' : 'Optional'} · ${Math.round(Number(item.weightLbs) || 0)} lbs · ${status}</div>
+                </div>
+                ${action}
+            </div>`;
+    }).join('') || `<div class="mission-cargo-empty">${isUnload ? 'Keine geladene Zielfracht offen.' : 'Keine Ladung fuer diese Mission.'}</div>`;
+    overlay.innerHTML = `
+        <div class="mission-cargo-panel">
+            <div class="mission-cargo-head">
+                <div>
+                    <div class="mission-cargo-kicker">${isUnload ? 'Ankunft' : 'Abflug'}</div>
+                    <div class="mission-cargo-title">${isUnload ? 'Ladung entladen' : 'Verladung'}</div>
+                </div>
+                <button class="mission-cargo-close" onclick="window.closeMissionCargoDialog && closeMissionCargoDialog()" title="Schliessen">×</button>
+            </div>
+            <div class="mission-cargo-copy">${isUnload
+                ? 'Entlade die am Ziel benoetigten Gegenstaende. Sie erscheinen an der Cargo-Position relativ zum Flugzeug.'
+                : 'Die Boarding-Animation laeuft parallel. Geladene Gegenstaende verschwinden aus der Startszene und werden fuer die Missionswertung gespeichert.'}</div>
+            <div class="mission-cargo-list">${rows}</div>
+            <div class="mission-cargo-summary">
+                <span>${isUnload ? `${requiredUnloadMissing} Pflicht-Items noch an Bord` : `${requiredMissing} Pflicht-Items offen`}</span>
+                <span>${manifest.items.reduce((sum, item) => sum + ((item.status === 'loaded' || item.status === 'unloaded') ? Number(item.weightLbs || 0) : 0), 0)} lbs geladen</span>
+            </div>
+            <div class="mission-cargo-actions">
+                <button class="mission-cargo-primary" onclick="${isUnload ? 'window.finishMissionCargoUnloadAndEnd && finishMissionCargoUnloadAndEnd()' : 'window.finishMissionCargoLoadingAndStart && finishMissionCargoLoadingAndStart()'}">${isUnload ? 'Entladung abgeschlossen - Mission beenden' : 'Verladung abgeschlossen - Mission beginnen'}</button>
+            </div>
+        </div>`;
+    overlay.style.display = 'flex';
+    window.missionCargoStatus.lastMode = mode;
+    _updateMissionCargoAutoLoadButton();
+}
+
+window.openMissionCargoDialog = function(mode = 'load') {
+    _missionCargoRenderDialog(mode === 'unload' ? 'unload' : 'load');
+    _updateMissionRuntimeUi();
+};
+
+window.closeMissionCargoDialog = function() {
+    const overlay = document.getElementById('missionCargoOverlay');
+    if (overlay) overlay.style.display = 'none';
+};
+
+window.missionCargoLoadItem = function(itemId, options = {}) {
+    const manifest = _missionCargoEnsureManifest();
+    const item = manifest.items.find(entry => entry.id === itemId);
+    if (!item || item.status === 'loaded' || item.status === 'unloaded' || item.status === 'dropped') return false;
+    item.status = 'loaded';
+    item.loadedAt = Date.now();
+    _missionCargoPersistManifest(manifest);
+    if (!window.simModeActive && window.liveTrackerConnected) {
+        const commandId = window.sendTrackerCommand({
+            type: 'mission_scene_object_remove',
+            sceneId: _missionCargoSceneId(),
+            reason: 'cargo-load',
+            kinds: [item.sceneKind],
+            labels: [item.label, item.storyName]
+        });
+        window.missionCargoStatus.lastCommandAt = Date.now();
+        window.missionCargoStatus.lastCommand = { type: 'mission_scene_object_remove', commandId, itemId };
+    }
+    if (options.render !== false) _missionCargoRenderDialog('load');
+    try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
+    return true;
+};
+
+function _missionCargoIsAirborneNow() {
+    const fd = window.lastLiveFlightData || {};
+    if (typeof fd.onGround === 'boolean') return !fd.onGround;
+    const agl = Number(fd.aglFt);
+    const gs = Number(fd.gsKts ?? fd.gs ?? window.lastLiveGpsPos?.gs ?? 0);
+    return (Number.isFinite(agl) && agl > 80) || (missionRuntime.active && Number.isFinite(gs) && gs > 35);
+}
+
+function _missionCargoRemoveLoadedSceneObjects(reason = 'cargo-loaded-sync') {
+    if (window.simModeActive || !window.liveTrackerConnected) return false;
+    const manifest = _missionCargoEnsureManifest();
+    const sceneId = _missionCargoSceneId();
+    let sent = false;
+    manifest.items
+        .filter(item => item.status === 'loaded' || item.status === 'unloaded')
+        .forEach(item => {
+            sent = !!window.sendTrackerCommand({
+                type: 'mission_scene_object_remove',
+                sceneId,
+                reason,
+                kinds: [item.sceneKind],
+                labels: [item.label, item.storyName]
+            }) || sent;
+        });
+    return sent;
+}
+
+window.missionCargoAutoLoad = function() {
+    _missionCargoMarkAllLoaded({ despawn: true });
+    _missionCargoRenderDialog('load');
+    return true;
+};
+
+window.missionCargoUnloadItem = function(itemId, options = {}) {
+    const manifest = _missionCargoEnsureManifest();
+    const item = manifest.items.find(entry => entry.id === itemId);
+    if (!item || item.status !== 'loaded') return false;
+    const dropped = options.drop === true || _missionCargoIsAirborneNow();
+    if (dropped) {
+        item.status = 'dropped';
+        item.droppedAt = Date.now();
+        item.healthPct = 0;
+        _missionCargoPersistManifest(manifest);
+        if (item.required && typeof window.triggerPaxCargoEvent === 'function') {
+            try {
+                window.triggerPaxCargoEvent({ type: 'dropped_required', item: JSON.parse(JSON.stringify(item)), manifest: JSON.parse(JSON.stringify(manifest)) });
+            } catch (_) {}
+        }
+        if (options.render !== false) _missionCargoRenderDialog('load');
+        try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
+        return true;
+    }
+    item.status = 'unloaded';
+    item.unloadedAt = Date.now();
+    _missionCargoPersistManifest(manifest);
+    if (!window.simModeActive && window.liveTrackerConnected) {
+        const pos = window.lastLiveGpsPos || {};
+        const cfg = _missionSceneBoardingConfig();
+        const cargo = cfg.cargo || { forwardM: 4, rightM: 4, altOffsetFt: 0 };
+        const unloadIndex = manifest.items.filter(entry => entry.status === 'unloaded').length - 1;
+        const commandId = window.sendTrackerCommand({
+            type: 'mission_scene_object_spawn',
+            sceneId: _missionCargoUnloadSceneId(),
+            reason: 'cargo-unload',
+            lat: Number(pos.lat),
+            lon: Number(pos.lon),
+            altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
+            hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
+            items: [{
+                kind: `unloaded_${item.sceneKind || item.id}`,
+                label: item.storyName || item.label,
+                objectTitle: item.objectTitle || 'Cardboard',
+                titleCandidates: item.titleCandidates || _sceneAssetCandidates(item.objectTitle || 'Cardboard', MISSION_SCENE_ASSET_POOLS.cargo),
+                forwardM: Number(cargo.forwardM || 0) + (unloadIndex * 0.55),
+                rightM: Number(cargo.rightM || 0) + (unloadIndex % 2 ? -0.85 : 0.85),
+                headingMode: 'with_aircraft',
+                altOffsetFt: Number(cargo.altOffsetFt || 0)
+            }]
+        });
+        window.missionCargoStatus.lastCommandAt = Date.now();
+        window.missionCargoStatus.lastCommand = { type: 'mission_scene_object_spawn', commandId, itemId };
+    }
+    if (options.render !== false) _missionCargoRenderDialog('unload');
+    try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
+    return true;
+};
+
+window.missionCargoSetBoardBookTime = function(itemId, field) {
+    const manifest = _missionCargoEnsureManifest();
+    const item = manifest.items.find(entry => entry.id === itemId);
+    if (!item || !/bordbuch/i.test(`${item.id} ${item.label} ${item.storyName}`)) return false;
+    const key = field === 'landing' ? 'landingTime' : 'startTime';
+    item.log = item.log && typeof item.log === 'object' ? item.log : {};
+    item.log[key] = new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    _missionCargoPersistManifest(manifest);
+    return true;
+};
+
+window.finishMissionCargoLoadingAndStart = function() {
+    _missionCargoEnsureManifest();
+    window.closeMissionCargoDialog?.();
+    _setMissionStartPhase('boarded');
+    window.manualMissionStart();
+};
+
+window.finishMissionCargoUnloadAndEnd = function() {
+    window.closeMissionCargoDialog?.();
+    window.manualMissionEnd({ skipCargoUnload: true });
+};
 
 function _missionSceneVehicleAsset() {
     const taskDomain = _missionSceneTaskDomain();
@@ -2334,6 +2892,7 @@ window.clearMissionSceneObjects = function(reason = 'mission-scene-reset') {
     const markerSceneId = _boardingMarkerSceneId();
     const targetSceneId = _missionTargetSceneId();
     const aptArrivalSceneId = _missionAptArrivalSceneId();
+    const cargoUnloadSceneId = _missionCargoUnloadSceneId();
     let sent = false;
     sent = !!window.sendTrackerCommand({
         type: 'mission_scene_clear_all',
@@ -2346,7 +2905,8 @@ window.clearMissionSceneObjects = function(reason = 'mission-scene-reset') {
         _missionSceneId(),
         markerSceneId,
         targetSceneId,
-        aptArrivalSceneId
+        aptArrivalSceneId,
+        cargoUnloadSceneId
     );
     ids.forEach(sceneId => {
         sent = !!window.sendTrackerCommand({
@@ -4010,7 +4570,7 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
         durationMs: Number.isFinite(Number(boardingConfig.durationMs)) ? Number(boardingConfig.durationMs) : 18000,
         finalHoldMs: 450,
         removePerson: true,
-        removeCargoAtWaypoint: true,
+        removeCargoAtWaypoint: false,
         splitCargoRoute: false,
         cargoArrivalSlackMs: 250,
         cargoTimingFactor: 1,
@@ -4094,7 +4654,15 @@ function _handleTrackerAck(ack) {
     if (/^mission_(scene|smoke)_/i.test(String(ack.type || ''))) {
         _missionSceneDebugPatch({ lastAck: ack }, `tracker-ack:${ack.type}`);
     }
-    if (ack.type === 'mission_scene_spawn_ack' || ack.type === 'mission_scene_clear_ack' || ack.type === 'mission_scene_boarding_ack' || ack.type === 'mission_scene_deboarding_ack') {
+    if (ack.type === 'mission_scene_spawn_ack' || ack.type === 'mission_scene_clear_ack' || ack.type === 'mission_scene_boarding_ack' || ack.type === 'mission_scene_deboarding_ack' || ack.type === 'mission_scene_object_remove_ack' || ack.type === 'mission_scene_object_spawn_ack') {
+        if (ack.type === 'mission_scene_object_remove_ack' || ack.type === 'mission_scene_object_spawn_ack') {
+            window.missionCargoStatus.lastAckAt = Date.now();
+            window.missionCargoStatus.lastAck = ack;
+            window.missionCargoStatus.error = ack.status === 'ok' || ack.status === 'noop' ? null : (ack.error || ack.status || 'cargo_scene_command_failed');
+            if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+            _updateMissionRuntimeUi();
+            return;
+        }
         const targetSceneId = window.missionTargetSceneStatus?.sceneId || _missionTargetSceneId();
         if (ack.sceneId && targetSceneId && ack.sceneId === targetSceneId) {
             window.missionTargetSceneStatus.lastAckAt = Date.now();
@@ -4162,6 +4730,7 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.error = ack.status === 'ok' ? null : (ack.error || ack.status || 'scene_spawn_failed');
             window.missionSceneStatus.boardingComplete = false;
             window.missionSceneStatus.personBoarded = false;
+            if (ack.status === 'ok') _missionCargoRemoveLoadedSceneObjects('cargo-loaded-after-scene-spawn');
         } else if (ack.type === 'mission_scene_clear_ack') {
             window.missionSceneStatus.spawnRequested = false;
             window.missionSceneStatus.clearRequested = false;
@@ -4518,6 +5087,7 @@ function _updateMissionRuntimeUi() {
         bMap.disabled = !missionRuntime.active && (!validMission || !groundReady);
         bMap.classList.toggle('is-active', missionRuntime.active);
     }
+    _updateMissionCargoAutoLoadButton();
     _updateMissionStartBanner(autoStartEnabled);
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
 }
@@ -4642,6 +5212,9 @@ function _missionEndReadiness(lat = null, lon = null) {
 }
 
 function _missionSceneFinishRuntimeAfterDeboard(reason = 'mission-end-after-farewell') {
+    const cargoOutcome = typeof _missionCargoFinalizeMissionOutcome === 'function'
+        ? _missionCargoFinalizeMissionOutcome({ source: reason })
+        : null;
     if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear(reason);
     if (typeof window.missionTargetSceneClear === 'function') window.missionTargetSceneClear(reason);
     const endSceneStarted = _tryStartMissionEndScene(reason, { force: true });
@@ -4666,7 +5239,7 @@ function _missionSceneFinishRuntimeAfterDeboard(reason = 'mission-end-after-fare
     _resetMissionStartFlowAfterEnd();
     _updateMissionRuntimeUi();
     if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
-    return endSceneStarted;
+    return endSceneStarted || cargoOutcome;
 }
 
 function _triggerPaxFarewellAndWaitForDeboard(record, reason = 'pax-farewell') {
@@ -4696,6 +5269,7 @@ window.missionSceneStartDeboardingAfterFarewell = function(reason = 'pax-farewel
 
 window.missionRuntimeReset = function(options = {}) {
     const respawnAfterClear = options && options.respawnAfterClear === true;
+    if (typeof window.closeMissionCargoDialog === 'function') window.closeMissionCargoDialog();
     if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('mission-runtime-reset');
     if (typeof window.clearMissionSceneObjects === 'function') window.clearMissionSceneObjects('mission-runtime-reset');
     else if (typeof window.missionSceneClear === 'function') window.missionSceneClear('mission-runtime-reset');
@@ -4772,16 +5346,22 @@ window.startMissionBoarding = async function() {
         if (typeof window.paxVoicePrepareBoarding === 'function') {
             try { window.paxVoicePrepareBoarding(); } catch (_) {}
         }
+        if (typeof window.openMissionCargoDialog === 'function') {
+            try { window.openMissionCargoDialog('load'); } catch (_) {}
+        }
         if (!window.simModeActive && typeof window.missionSceneBoarding === 'function') {
-            const boardingAck = await window.missionSceneBoarding('boarding-click');
-            if (boardingAck && boardingAck.status && boardingAck.status !== 'ok') {
-                console.warn('Boarding animation nicht bestätigt:', boardingAck.status, boardingAck.error || '');
-            }
+            window.missionSceneBoarding('boarding-click').then(boardingAck => {
+                if (boardingAck && boardingAck.status && boardingAck.status !== 'ok') {
+                    console.warn('Boarding animation nicht bestätigt:', boardingAck.status, boardingAck.error || '');
+                }
+            }).catch(err => console.warn('Boarding animation fehlgeschlagen:', err));
         }
         if (typeof window.paxVoicePlayBoarding === 'function') {
-            await window.paxVoicePlayBoarding();
+            try {
+                const boardingVoice = window.paxVoicePlayBoarding();
+                if (boardingVoice && typeof boardingVoice.catch === 'function') boardingVoice.catch(() => {});
+            } catch (_) {}
         }
-        _setMissionStartPhase('boarded');
         const pos = window.lastLiveGpsPos || {};
         if (typeof window.paxVoicePrepareGreeting === 'function') {
             try { window.paxVoicePrepareGreeting(pos.lat, pos.lon); } catch (_) {}
@@ -4828,7 +5408,14 @@ window.manualMissionStart = function() {
     _updateMissionRuntimeUi();
 };
 
-window.manualMissionEnd = function() {
+window.manualMissionEnd = function(options = {}) {
+    if (!options.skipCargoUnload && typeof window.openMissionCargoDialog === 'function' && _missionCargoNeedsUnload()) {
+        window.openMissionCargoDialog('unload');
+        return false;
+    }
+    const cargoOutcome = typeof _missionCargoFinalizeMissionOutcome === 'function'
+        ? _missionCargoFinalizeMissionOutcome({ source: 'manual-mission-end' })
+        : null;
     if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('manual-mission-end');
     if (typeof window.missionTargetSceneClear === 'function') window.missionTargetSceneClear('manual-mission-end');
     const endSceneStarted = _tryStartMissionEndScene('manual-mission-end', { force: true });
@@ -4858,6 +5445,7 @@ window.manualMissionEnd = function() {
     else resetFlightRecorder();
     _updateMissionRuntimeUi();
     if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
+    return cargoOutcome || true;
 };
 
 window.toggleManualMissionRuntime = function() {
@@ -5772,8 +6360,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 235;
-const MIN_TRACKER_VERSION_LABEL = 'v235';
+const MIN_TRACKER_VERSION_CODE = 238;
+const MIN_TRACKER_VERSION_LABEL = 'v238';
 let trackerVersionPromptShown = false;
 
 window.updateLivePlanePerformanceMode = function(forceState = null) {
@@ -7586,7 +8174,10 @@ function _buildFlightRecordSnapshot(now) {
         ? currentDestICAO
         : nearestAirportLabel(arr[0], arr[1]);
 
-    return {
+    const cargoOutcome = (typeof currentMissionData !== 'undefined' && currentMissionData)
+        ? (currentMissionData.cargoOutcome || currentMissionData.missionContract?.cargoOutcome || null)
+        : null;
+    const record = {
         id: Date.now(),
         createdAt: Date.now(),
         dateLabel: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
@@ -7605,6 +8196,8 @@ function _buildFlightRecordSnapshot(now) {
         maxClimbFpm: Number.isFinite(r.maxClimbFpm) ? Math.round(r.maxClimbFpm) : 0,
         maxDescentFpm: Number.isFinite(r.maxDescentFpm) ? Math.round(r.maxDescentFpm) : 0
     };
+    if (cargoOutcome) record.missionCargoOutcome = cargoOutcome;
+    return record;
 }
 
 function finalizeFlightRecorder(now, endLat = null, endLon = null) {
@@ -7868,6 +8461,14 @@ function updateFlightRecorder(lat, lon, alt) {
             }
             if (!missionRuntime.pendingEndAt) missionRuntime.pendingEndAt = now + 5000;
             if (now >= missionRuntime.pendingEndAt) {
+                if (typeof window.openMissionCargoDialog === 'function' && _missionCargoNeedsUnload()) {
+                    window.openMissionCargoDialog('unload');
+                    missionRuntime.pendingEndAt = 0;
+                    return;
+                }
+                if (typeof _missionCargoFinalizeMissionOutcome === 'function') {
+                    _missionCargoFinalizeMissionOutcome({ source: 'auto-mission-end' });
+                }
                 if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('auto-mission-end');
                 if (typeof window.missionTargetSceneClear === 'function') window.missionTargetSceneClear('auto-mission-end');
                 const endSceneStarted = _tryStartMissionEndScene('auto-mission-end');

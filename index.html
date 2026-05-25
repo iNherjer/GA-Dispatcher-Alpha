@@ -743,6 +743,7 @@
         </div>
         <div class="mission-control-row" style="display:flex; gap:8px; margin-bottom:8px;">
             <button class="btn-preset mission-reset-btn" id="missionResetBtn" style="flex:1; margin:0; height:36px;" onclick="window.missionRuntimeReset && missionRuntimeReset({ respawnAfterClear: true })">MISSION RESET</button>
+            <button class="btn-preset mission-reset-btn mission-cargo-auto-btn" id="missionCargoAutoLoadBtn" style="flex:1; margin:0; height:36px;" onclick="window.toggleMissionCargoAutoLoadOption && toggleMissionCargoAutoLoadOption()">AUTO LOAD: AUS</button>
         </div>
         
         <div class="api-hint" id="loginHint">
@@ -1584,14 +1585,14 @@
 <script defer src="missions.js"></script>
 <script defer src="taws.js?v=scene-debug-20260520-11"></script>
 <script defer src="data/mission-scene-assets.js?v=animal-transport-size-20260522-01"></script>
-<script defer src="sync.js?v=animal-transport-size-20260522-01"></script>
-<script defer src="checklists.js"></script>
+<script defer src="sync.js?v=cargo-manifest-20260524-02"></script>
+<script defer src="checklists.js?v=cargo-manifest-20260524-02"></script>
 <script defer src="profile.js?v=debug-report-20260523-01"></script>
 <script defer src="map.js?v=apt-arrival-debug-20260522-01"></script>
-<script defer src="app.js?v=animal-transport-size-20260522-01"></script>
+<script defer src="app.js?v=cargo-manifest-20260524-02"></script>
 <script defer src="board.js?v=debug-report-20260523-01"></script>
 <script defer src="sim-route.js?v=apt-arrival-debug-20260522-01"></script>
-<script defer src="passenger-voice.js?v=apt-arrival-pax-20260521-03"></script>
+<script defer src="passenger-voice.js?v=cargo-manifest-20260524-02"></script>
 <script defer src="tutorial.js"></script>
 <script>
     function _openFloatingMenuInViewport(menu, btn, preferAbove = false) {

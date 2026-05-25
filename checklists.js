@@ -148,7 +148,8 @@
         nearestMenuKey: '',
         radioAirportMenuKey: '',
         placeInfoAirport: null,
-        placeInfoReturn: 'place'
+        placeInfoReturn: 'place',
+        cargoExpandedItemId: ''
     };
 
     const toolState = {
@@ -708,6 +709,7 @@
         else if (state.view === 'place') renderPlaceTool();
         else if (state.view === 'nearest') renderNearestTool();
         else if (state.view === 'airport-info') renderAirportInfoTool();
+        else if (state.view === 'cargo') renderCargoTool();
         else renderHome();
         renderStatus();
     }
@@ -767,6 +769,14 @@
                     </span>
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
+                <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="cargo">
+                    <span class="checklist-tool-icon" aria-hidden="true">LDG</span>
+                    <span>
+                        <span class="checklist-tool-name">Ladung</span>
+                        <span class="checklist-tool-count">${cargoHomeSummary()}</span>
+                    </span>
+                    <span class="checklist-tool-arrow" aria-hidden="true">›</span>
+                </button>
             </div>
         `;
     }
@@ -784,14 +794,147 @@
         return `<div class="route-tool-empty">${escapeHtml(text)}</div>`;
     }
 
+    function cargoManifestSnapshot() {
+        try {
+            if (typeof window.missionCargoGetManifestSnapshot === 'function') return window.missionCargoGetManifestSnapshot();
+        } catch (_) {}
+        try {
+            const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+            return md?.cargoManifest || window.activeMissionContract?.cargoManifest || null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function cargoItems() {
+        const manifest = cargoManifestSnapshot();
+        return Array.isArray(manifest?.items) ? manifest.items : [];
+    }
+
+    function cargoHomeSummary() {
+        const items = cargoItems();
+        if (!items.length) return 'Keine aktive Missionsladung';
+        const loaded = items.filter(item => item.status === 'loaded').length;
+        const open = items.filter(item => item.status === 'pending').length;
+        const dropped = items.filter(item => item.status === 'dropped').length;
+        return `${loaded} geladen · ${open} offen${dropped ? ` · ${dropped} abgeworfen` : ''}`;
+    }
+
+    function cargoStatusLabel(item) {
+        if (item.status === 'loaded') return 'geladen';
+        if (item.status === 'unloaded') return 'ausgeladen';
+        if (item.status === 'dropped') return 'abgeworfen';
+        return 'offen';
+    }
+
+    function cargoHealthTone(health) {
+        const n = Number(health ?? 100);
+        if (n <= 35) return 'danger';
+        if (n <= 70) return 'warn';
+        return 'good';
+    }
+
+    function cargoIsAirborne() {
+        try {
+            const fd = window.lastLiveFlightData || {};
+            if (typeof fd.onGround === 'boolean') return !fd.onGround;
+            const agl = Number(fd.aglFt);
+            const gs = Number(fd.gsKts ?? fd.gs ?? window.lastLiveGpsPos?.gs ?? 0);
+            return (Number.isFinite(agl) && agl > 80) || (typeof window.missionRuntimeIsActive === 'function' && window.missionRuntimeIsActive() && Number.isFinite(gs) && gs > 35);
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function cargoDetailHtml(item) {
+        const health = Math.max(0, Math.min(100, Math.round(Number(item.healthPct ?? 100))));
+        const tone = cargoHealthTone(health);
+        const isBoardBook = /bordbuch/i.test(`${item.id || ''} ${item.label || ''} ${item.storyName || ''}`);
+        const canLoad = item.status === 'pending' && typeof window.missionCargoLoadItem === 'function';
+        const canUnload = item.status === 'loaded' && typeof window.missionCargoUnloadItem === 'function';
+        const dropMode = canUnload && cargoIsAirborne();
+        const expiry = item.expiresAt ? `<div class="cargo-detail-line">Ablaufdatum: <b>${escapeHtml(item.expiresAt)}</b></div>` : '';
+        const log = item.log || {};
+        const boardBook = isBoardBook ? `
+            <div class="cargo-detail-actions">
+                <button class="checklist-mini-btn" type="button" data-action="cargo-boardbook-time" data-item-id="${escapeAttr(item.id)}" data-field="start">Startzeit eintragen</button>
+                <button class="checklist-mini-btn" type="button" data-action="cargo-boardbook-time" data-item-id="${escapeAttr(item.id)}" data-field="landing">Landezeit eintragen</button>
+            </div>
+            <div class="cargo-detail-line">Start: <b>${escapeHtml(log.startTime || '--')}</b> · Landung: <b>${escapeHtml(log.landingTime || '--')}</b></div>
+        ` : '';
+        const actions = `
+            <div class="cargo-detail-actions">
+                ${canLoad ? `<button class="checklist-mini-btn primary" type="button" data-action="cargo-load" data-item-id="${escapeAttr(item.id)}">Laden</button>` : ''}
+                ${canUnload ? `<button class="checklist-mini-btn ${dropMode ? 'danger' : 'primary'}" type="button" data-action="cargo-unload" data-item-id="${escapeAttr(item.id)}">${dropMode ? 'Abwerfen' : 'Entladen'}</button>` : ''}
+                <button class="checklist-mini-btn" type="button" data-action="cargo-open-modal">Cargo-Fenster</button>
+            </div>
+        `;
+        return `
+            <div class="cargo-detail">
+                <div class="cargo-health-row">
+                    <span>Zustand</span>
+                    <span>${health}%</span>
+                </div>
+                <div class="cargo-health-bar is-${tone}"><span style="width:${health}%"></span></div>
+                <div class="cargo-detail-line">Status: <b>${escapeHtml(cargoStatusLabel(item))}</b> · ${item.required ? 'Pflicht' : 'Optional'} · ${Math.round(Number(item.weightLbs) || 0)} lbs</div>
+                ${expiry}
+                ${boardBook}
+                ${actions}
+            </div>
+        `;
+    }
+
+    function renderCargoTool() {
+        setTitle('Ladung');
+        try {
+            if (typeof window.missionCargoApplyCurrentStress === 'function') window.missionCargoApplyCurrentStress();
+        } catch (_) {}
+        const manifest = cargoManifestSnapshot();
+        const items = Array.isArray(manifest?.items) ? manifest.items : [];
+        const outcome = (typeof window.missionCargoEvaluateOutcome === 'function') ? window.missionCargoEvaluateOutcome() : null;
+        const summary = outcome
+            ? `${outcome.loadedWeightLbs || 0}/${outcome.totalWeightLbs || 0} lbs · ${outcome.failed ? 'kritisch' : 'ok'}`
+            : cargoHomeSummary();
+        if (!items.length) {
+            bodyEl.innerHTML = `${toolTopline('cargo')} ${renderToolEmpty('Keine aktive Missionsladung gefunden.')}`;
+            return;
+        }
+        const rows = items.map(item => {
+            const expanded = state.cargoExpandedItemId === item.id;
+            const health = Math.max(0, Math.min(100, Math.round(Number(item.healthPct ?? 100))));
+            return `
+                <div class="cargo-tool-row ${item.required ? 'is-required' : ''} ${item.status === 'loaded' ? 'is-loaded' : ''} ${item.status === 'dropped' ? 'is-dropped' : ''}">
+                    <button class="cargo-tool-main" type="button" data-action="cargo-toggle-detail" data-item-id="${escapeAttr(item.id)}">
+                        <span>
+                            <span class="cargo-tool-name">${escapeHtml(item.storyName || item.label || item.id)}</span>
+                            <span class="cargo-tool-meta">${item.required ? 'Pflicht' : 'Optional'} · ${Math.round(Number(item.weightLbs) || 0)} lbs · ${cargoStatusLabel(item)} · ${health}%</span>
+                        </span>
+                        <span class="checklist-tool-arrow" aria-hidden="true">${expanded ? '⌃' : '›'}</span>
+                    </button>
+                    ${expanded ? cargoDetailHtml(item) : ''}
+                </div>
+            `;
+        }).join('');
+        const failLine = outcome?.failed
+            ? `<div class="route-tool-empty cargo-fail-note">Mission wuerde mit Cargo-Fehlschlag enden: ${escapeHtml([...(outcome.missingRequired || []), ...(outcome.droppedRequired || []), ...(outcome.notDeliveredRequired || []), ...(outcome.damagedRequired || [])].filter(Boolean).join(', ') || 'Pflichtladung nicht erfuellt')}</div>`
+            : '';
+        bodyEl.innerHTML = `
+            ${toolTopline('cargo')}
+            <div class="cargo-tool-summary">${escapeHtml(summary)}</div>
+            ${failLine}
+            <div class="cargo-tool-list">${rows}</div>
+        `;
+    }
+
     function openTool(tool, force = false) {
-        const valid = new Set(['weather', 'radio', 'warnings', 'place', 'nearest']);
+        const valid = new Set(['weather', 'radio', 'warnings', 'place', 'nearest', 'cargo']);
         if (!valid.has(tool)) return;
         abortOtherToolRequests(tool);
         state.view = tool;
         state.actionMenuOpen = false;
         state.nearestMenuKey = '';
         state.radioAirportMenuKey = '';
+        state.cargoExpandedItemId = '';
         state.placeInfoAirport = null;
         state.placeInfoReturn = tool;
         setStatus('');
@@ -3282,6 +3425,33 @@ ${routeLines}`;
             }
             render();
             setTimeout(() => { if (state.view === 'airport-info') render(); }, 900);
+        } else if (action === 'cargo-toggle-detail') {
+            const itemId = button.dataset.itemId || '';
+            state.cargoExpandedItemId = state.cargoExpandedItemId === itemId ? '' : itemId;
+            render();
+        } else if (action === 'cargo-load') {
+            const itemId = button.dataset.itemId || '';
+            const ok = typeof window.missionCargoLoadItem === 'function' && window.missionCargoLoadItem(itemId, { render: false });
+            setStatus(ok ? 'Ladung als geladen markiert.' : 'Ladung konnte nicht geladen werden.', ok ? 'good' : 'warn');
+            render();
+        } else if (action === 'cargo-unload') {
+            const itemId = button.dataset.itemId || '';
+            const ok = typeof window.missionCargoUnloadItem === 'function' && window.missionCargoUnloadItem(itemId, { render: false });
+            setStatus(ok ? (cargoIsAirborne() ? 'Ladung abgeworfen.' : 'Ladung entladen.') : 'Ladung konnte nicht entladen werden.', ok ? 'good' : 'warn');
+            render();
+        } else if (action === 'cargo-open-modal') {
+            if (typeof window.openMissionCargoDialog === 'function') {
+                window.openMissionCargoDialog('load');
+                setStatus('Cargo-Fenster geoeffnet.', 'good');
+            } else {
+                setStatus('Cargo-Fenster nicht verfuegbar.', 'error');
+            }
+        } else if (action === 'cargo-boardbook-time') {
+            const itemId = button.dataset.itemId || '';
+            const field = button.dataset.field || 'start';
+            const ok = typeof window.missionCargoSetBoardBookTime === 'function' && window.missionCargoSetBoardBookTime(itemId, field);
+            setStatus(ok ? 'Bordbuch aktualisiert.' : 'Bordbuch konnte nicht aktualisiert werden.', ok ? 'good' : 'warn');
+            render();
         }
     }
 
@@ -3358,6 +3528,7 @@ ${routeLines}`;
             if (state.view === 'radio') ensureRadioTool(false);
             if (state.view === 'place') ensurePlaceTool(false);
             if (state.view === 'nearest') ensureNearestTool(false);
+            if (state.view === 'cargo') render();
         }
     };
 
@@ -3372,6 +3543,10 @@ ${routeLines}`;
     window.gaChecklistPullCommunity = function() {
         return maybePullCommunity(true);
     };
+
+    window.addEventListener('missioncargochange', () => {
+        if (state.view === 'cargo') render();
+    });
 
     document.addEventListener('DOMContentLoaded', init);
 })();

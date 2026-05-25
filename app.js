@@ -14943,6 +14943,13 @@ function openMetar(t) { window.open(`https://metar-taf.com/de/${t === 'dep' ? cu
 
 function logCurrentFlight() {
     if (!currentMissionData) return;
+    if (typeof window.missionCargoNeedsUnload === 'function' && window.missionCargoNeedsUnload()) {
+        if (typeof window.openMissionCargoDialog === 'function') window.openMissionCargoDialog('unload');
+        return;
+    }
+    const cargoOutcome = (typeof window.missionCargoFinalizeMissionOutcome === 'function')
+        ? window.missionCargoFinalizeMissionOutcome({ source: 'logbook' })
+        : null;
     const log = JSON.parse(localStorage.getItem('ga_logbook')) || [];
     log.unshift({ ...currentMissionData, date: new Date().toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) });
     localStorage.setItem('ga_logbook', JSON.stringify(log.slice(0, 50)));
@@ -14954,7 +14961,7 @@ function logCurrentFlight() {
     const destLocRadioEl = document.getElementById('destLocRadio');
     if (startLocRadioEl) startLocRadioEl.value = newStart;
     if (destLocRadioEl) destLocRadioEl.value = '';
-    renderLog(); alert(`Flug geloggt! Du bist in ${currentMissionData.dest}.`);
+    renderLog(); alert(cargoOutcome?.failed ? `Flug geloggt, aber Mission fehlgeschlagen: Pflichtladung fehlt oder wurde nicht abgeliefert. Du bist in ${currentMissionData.dest}.` : `Flug geloggt! Du bist in ${currentMissionData.dest}.`);
     triggerCloudSave();
 }
 

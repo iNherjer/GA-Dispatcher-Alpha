@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v237';
-const TRACKER_VERSION_CODE = 237;
+const TRACKER_VERSION = 'v238';
+const TRACKER_VERSION_CODE = 238;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -1277,6 +1277,79 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return { cleared };
   };
 
+  const sceneObjectMatchesSelector = (obj, command = {}) => {
+    if (!obj || !obj.objectId) return false;
+    const ids = Array.isArray(command.objectIds) ? command.objectIds.map(Number).filter(Number.isFinite) : [];
+    if (ids.length && ids.includes(Number(obj.objectId))) return true;
+    const kinds = new Set((Array.isArray(command.kinds) ? command.kinds : [command.kind]).filter(Boolean).map(v => String(v).toLowerCase()));
+    if (kinds.size && kinds.has(String(obj.kind || '').toLowerCase())) return true;
+    const labels = (Array.isArray(command.labels) ? command.labels : [command.label]).filter(Boolean).map(v => String(v).toLowerCase());
+    if (labels.length) {
+      const text = `${obj.label || ''} ${obj.title || ''} ${obj.requestedTitle || ''}`.toLowerCase();
+      if (labels.some(label => label && text.includes(label))) return true;
+    }
+    return false;
+  };
+
+  const removeSceneObjectsBySelector = async (command) => {
+    const sceneId = String(command?.sceneId || 'mission-scene');
+    const commandId = command?.commandId || null;
+    const rec = scenes.get(sceneId);
+    if (!rec || !Array.isArray(rec.objects) || rec.objects.length === 0) {
+      debugLog(`SCENE_OBJECT_REMOVE_NOOP scene=${sceneId} reason=no_scene`);
+      sendAck({ type: 'mission_scene_object_remove_ack', commandId, sceneId, status: 'noop', removed: 0, reason: command?.reason || 'object-remove' });
+      return { removed: 0 };
+    }
+    const targets = rec.objects.filter(obj => sceneObjectMatchesSelector(obj, command));
+    let removed = 0;
+    for (const obj of targets) {
+      removed += removeSceneObject(rec, obj, command?.reason || 'object-remove') ? 1 : 0;
+    }
+    const status = removed > 0 ? 'ok' : 'noop';
+    debugLog(`SCENE_OBJECT_REMOVE_DONE scene=${sceneId} status=${status} removed=${removed} requested=${targets.length}`);
+    sendAck({ type: 'mission_scene_object_remove_ack', commandId, sceneId, status, removed, reason: command?.reason || 'object-remove' });
+    return { removed };
+  };
+
+  const spawnSceneObjectsAppend = async (command) => {
+    const sceneId = String(command?.sceneId || 'mission-scene');
+    const commandId = command?.commandId || null;
+    const positions = buildScenePlan(command);
+    if (positions.length === 0) {
+      debugLog(`SCENE_OBJECT_SPAWN_INVALID scene=${sceneId}`);
+      sendAck({ type: 'mission_scene_object_spawn_ack', commandId, sceneId, status: 'error', error: 'invalid scene base/items' });
+      return { spawned: 0 };
+    }
+    const rec = scenes.get(sceneId) || { sceneId, command: { ...command }, objects: [], positions: [] };
+    rec.sceneId = sceneId;
+    rec.command = { ...(rec.command || {}), ...command };
+    if (!Array.isArray(rec.objects)) rec.objects = [];
+    if (!Array.isArray(rec.positions)) rec.positions = [];
+    scenes.set(sceneId, rec);
+    const objects = [];
+    debugLog(`SCENE_OBJECT_SPAWN_START scene=${sceneId} count=${positions.length}`);
+    for (const p of positions) {
+      const obj = await spawnSceneObjectFromPlan(sceneId, p, 3000);
+      if (obj) {
+        rec.objects.push(obj);
+        objects.push(obj);
+      }
+    }
+    rec.positions.push(...positions);
+    const byKind = countByKind(objects);
+    debugLog(`SCENE_OBJECT_SPAWN_DONE scene=${sceneId} spawned=${objects.length} byKind=${JSON.stringify(byKind)}`);
+    sendAck({
+      type: 'mission_scene_object_spawn_ack',
+      commandId,
+      sceneId,
+      status: objects.length ? 'ok' : 'error',
+      spawned: objects.length,
+      spawnedByKind: byKind,
+      error: objects.length ? '' : 'spawn_failed'
+    });
+    return { spawned: objects.length };
+  };
+
   const spawnMissionScene = async (command) => {
     const sceneId = String(command?.sceneId || 'mission-scene');
     const commandId = command?.commandId || null;
@@ -1495,6 +1568,22 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         spawnMissionScene(command).catch(err => {
           trackerWarn(`⚠️  Scene spawn failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_spawn_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
+        });
+        return true;
+      }
+      if (type === 'mission_scene_object_remove') {
+        debugLog(`COMMAND mission_scene_object_remove scene=${command?.sceneId || 'mission-scene'} kinds=${Array.isArray(command?.kinds) ? command.kinds.join(',') : (command?.kind || '')}`);
+        removeSceneObjectsBySelector(command).catch(err => {
+          trackerWarn(`⚠️  Scene object remove failed: ${err?.message || err}`);
+          sendAck({ type: 'mission_scene_object_remove_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
+        });
+        return true;
+      }
+      if (type === 'mission_scene_object_spawn') {
+        debugLog(`COMMAND mission_scene_object_spawn scene=${command?.sceneId || 'mission-scene'} items=${Array.isArray(command?.items) ? command.items.length : 0}`);
+        spawnSceneObjectsAppend(command).catch(err => {
+          trackerWarn(`⚠️  Scene object spawn failed: ${err?.message || err}`);
+          sendAck({ type: 'mission_scene_object_spawn_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', status: 'error', error: err?.message || String(err) });
         });
         return true;
       }

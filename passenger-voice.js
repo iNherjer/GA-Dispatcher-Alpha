@@ -3944,6 +3944,19 @@ function _farewellPrompt(record) {
     }
     if (td && Math.abs(record.touchdownVsFpm) < 200) highlights += ' Die Landung war richtig sanft — Kompliment!';
     if (td && Math.abs(record.touchdownVsFpm) > 500) highlights += ` Die Landung mit ${Math.abs(record.touchdownVsFpm)} ft/min war etwas holprig.`;
+    const cargoOutcome = record?.missionCargoOutcome
+        || ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData.cargoOutcome : null)
+        || window.activeMissionContract?.cargoOutcome
+        || (typeof window.missionCargoEvaluateOutcome === 'function' ? window.missionCargoEvaluateOutcome() : null);
+    if (cargoOutcome?.failed) {
+        const missing = [
+            ...(cargoOutcome.missingRequired || []),
+            ...(cargoOutcome.droppedRequired || []),
+            ...(cargoOutcome.notDeliveredRequired || []),
+            ...(cargoOutcome.damagedRequired || [])
+        ].filter(Boolean).slice(0, 3).join(', ');
+        highlights += ` Die Ladung ist nicht vollstaendig erledigt${missing ? `: ${missing}` : ''}.`;
+    }
     if (isSimRecord) highlights += ' Hinweis: Sim-Modus aktiv, Landebewertung nur eingeschränkt belastbar.';
     if (wx) highlights += ` ${wx}`;
     highlights += _consumeWeatherMismatchEasteregg(window.lastLiveFlightData || null);
@@ -3965,6 +3978,25 @@ Moment: ${aptFarewellHint || 'Wir sind gelandet, Flug beendet.'}
 Fakten: ${min} min, ${record.distanceNm} NM, max ${record.maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.${highlights ? '\n' + highlights : ''}${trnFacts}
 Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Auch wenn etwas nicht perfekt war, schließ positiv ab.${trnTask}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
 }
+
+window.triggerPaxCargoEvent = async function(event = {}) {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax || !_missionHasPax()) return false;
+    const item = event.item || {};
+    const name = item.storyName || item.label || 'ein wichtiges Teil';
+    const required = item.required === true;
+    const reason = event.type === 'dropped_required'
+        ? `${name} wurde im Flug abgeworfen.`
+        : `${name} wurde an der Ladung geaendert.`;
+    const prompt = `${ctx}
+
+Moment: ${reason}
+Sprich als ${pax.role} sofort und kurz auf die Ladung an. ${required ? 'Das Teil ist missionsrelevant, also deutlich verärgert oder besorgt reagieren.' : 'Nur knapp und praktisch reagieren.'} Max 2 Sätze.${_toneHint()}`;
+    _paxLog(`Cargo-Ereignis: ${reason}`, required ? 'warn' : 'event');
+    await _speakAndShow(prompt, 'Ladung');
+    return true;
+};
 
 function _landingRollPrompt(record = null) {
     const ctx = _baseContext();
