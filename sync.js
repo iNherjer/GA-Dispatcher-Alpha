@@ -609,7 +609,10 @@ window.missionCargoStatus = {
     payloadPlan: null,
     payloadSyncRunning: false,
     payloadSyncQueued: '',
-    payloadSyncAt: 0
+    payloadSyncAt: 0,
+    payloadNeedsSync: false,
+    payloadPendingResetStations: null,
+    payloadPendingResetMaxStations: 0
 };
 window.aircraftPayloadStatus = {
     lastCommandAt: 0,
@@ -2452,6 +2455,9 @@ function _missionCargoResetPayloadPlanForMissionKey(manifestKey = '') {
     window.missionCargoStatus.payloadLayout = null;
     window.missionCargoStatus.payloadPlan = null;
     window.missionCargoStatus.payloadSyncQueued = '';
+    window.missionCargoStatus.payloadPendingResetStations = null;
+    window.missionCargoStatus.payloadPendingResetMaxStations = 0;
+    if (manifestKey) window.missionCargoStatus.payloadNeedsSync = false;
 }
 
 function _missionCargoNormalizePayloadSnapshot(snapshot = null) {
@@ -2515,13 +2521,9 @@ function _missionCargoAllocateWeightToStations(map, stationIndices = [], totalWe
     return chosen;
 }
 
-function _missionCargoBuildPlanFromManifest(manifest, baseline) {
-    const snapshot = _missionCargoNormalizePayloadSnapshot(baseline);
-    if (!snapshot) return null;
-    const layout = _missionCargoBuildPayloadLayout(snapshot);
+function _missionCargoBuildMissionExtraPlan(manifest, layout) {
     const missionByStation = new Map();
     const assignments = [];
-
     const paxCount = _missionCargoBoardedPaxCount();
     const paxTotalLbs = paxCount > 0 ? (paxCount * _missionCargoPaxWeightLbs()) : 0;
     if (paxTotalLbs > 0) {
@@ -2553,6 +2555,23 @@ function _missionCargoBuildPlanFromManifest(manifest, baseline) {
             stations: usedStations
         });
     });
+    return {
+        missionByStation,
+        assignments,
+        loadedItems,
+        paxCount,
+        paxTotalLbs
+    };
+}
+
+function _missionCargoBuildPlanFromManifest(manifest, baseline) {
+    const snapshot = _missionCargoNormalizePayloadSnapshot(baseline);
+    if (!snapshot) return null;
+    const layout = _missionCargoBuildPayloadLayout(snapshot);
+    const missionPlan = _missionCargoBuildMissionExtraPlan(manifest, layout);
+    const missionByStation = missionPlan.missionByStation;
+    const assignments = missionPlan.assignments;
+    const loadedItems = missionPlan.loadedItems;
 
     const stations = snapshot.stations.map((row) => {
         const missionExtra = Number(missionByStation.get(row.index) || 0);
@@ -2571,8 +2590,8 @@ function _missionCargoBuildPlanFromManifest(manifest, baseline) {
         layout,
         stations,
         assignments,
-        boardedPaxCount: paxCount,
-        paxWeightLbs: Math.round(paxTotalLbs),
+        boardedPaxCount: missionPlan.paxCount,
+        paxWeightLbs: Math.round(missionPlan.paxTotalLbs),
         cargoWeightLbs: Math.round(loadedItems.reduce((sum, item) => sum + Number(item.weightLbs || 0), 0)),
         missionWeightLbs: Math.round(stations.reduce((sum, row) => sum + Number(row.missionExtraLbs || 0), 0)),
         payloadWeightLbs: Math.round(payloadWeightLbs * 10) / 10
@@ -2588,6 +2607,122 @@ function _missionCargoStorePayloadBaselineIfNeeded(snapshot, manifestKey = '') {
         window.missionCargoStatus.payloadLayout = _missionCargoBuildPayloadLayout(normalized);
     }
     return window.missionCargoStatus.payloadBaseline;
+}
+
+function _missionCargoEstimateResetStationsFromSnapshot(manifestBeforeReset, snapshotNow) {
+    const snapshot = _missionCargoNormalizePayloadSnapshot(snapshotNow);
+    if (!snapshot) return [];
+    const layout = _missionCargoBuildPayloadLayout(snapshot);
+    const missionPlan = _missionCargoBuildMissionExtraPlan(manifestBeforeReset, layout);
+    return snapshot.stations.map((row) => {
+        const missionExtra = Number(missionPlan.missionByStation.get(row.index) || 0);
+        const currentWeight = Math.max(0, Number(row.weightLbs || 0));
+        return {
+            index: row.index,
+            weightLbs: Math.round(Math.max(0, currentWeight - missionExtra) * 10) / 10
+        };
+    });
+}
+
+function _missionCargoResetManifestState(manifest) {
+    if (!manifest || !Array.isArray(manifest.items)) return false;
+    let changed = false;
+    manifest.items.forEach((item) => {
+        const nextStatus = 'pending';
+        if (item.status !== nextStatus) changed = true;
+        item.status = nextStatus;
+        if (item.loadedAt || item.unloadedAt || item.droppedAt) changed = true;
+        item.loadedAt = 0;
+        item.unloadedAt = 0;
+        item.droppedAt = 0;
+        if (Number(item.healthPct) !== 100) changed = true;
+        item.healthPct = 100;
+        if (item.log && Object.keys(item.log).length) changed = true;
+        item.log = {};
+    });
+    if (Number(manifest.maxStressDamagePct || 0) !== 0) changed = true;
+    manifest.maxStressDamagePct = 0;
+    return changed;
+}
+
+async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset') {
+    if (!_missionCargoHasActiveMission()) return { status: 'no_active_mission' };
+    if (window.missionCargoStatus.payloadSyncRunning) {
+        const waitUntil = Date.now() + 2600;
+        while (window.missionCargoStatus.payloadSyncRunning && Date.now() < waitUntil) {
+            await new Promise(resolve => setTimeout(resolve, 120));
+        }
+    }
+    window.missionCargoStatus.payloadSyncQueued = '';
+    const manifest = _missionCargoEnsureManifest();
+    const manifestBeforeReset = JSON.parse(JSON.stringify(manifest));
+    const baseline = _missionCargoNormalizePayloadSnapshot(window.missionCargoStatus?.payloadBaseline);
+    let snapshot = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
+    if (!snapshot && !window.simModeActive && window.liveTrackerConnected && typeof window.trackerPayloadGet === 'function') {
+        const ack = await _missionCargoRefreshPayloadSnapshot({ force: true, maxStations: 12, timeoutMs: 12000 });
+        if (ack?.status === 'ok' || ack?.status === 'cached') snapshot = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
+    }
+    let targetStations = [];
+    let targetMaxStations = 0;
+    if (baseline && Array.isArray(baseline.stations) && baseline.stations.length && (!snapshot || baseline.payloadStationCount === snapshot.payloadStationCount)) {
+        targetStations = baseline.stations.map(row => ({ index: row.index, weightLbs: Math.max(0, Number(row.weightLbs || 0)) }));
+        targetMaxStations = baseline.sampledStationCount || baseline.payloadStationCount || targetStations.length;
+    } else if (snapshot) {
+        targetStations = _missionCargoEstimateResetStationsFromSnapshot(manifestBeforeReset, snapshot);
+        targetMaxStations = snapshot.sampledStationCount || snapshot.payloadStationCount || targetStations.length;
+    }
+
+    const changed = _missionCargoResetManifestState(manifest);
+    if (changed) _missionCargoPersistManifest(manifest);
+    _missionCargoResetPayloadPlanForMissionKey('');
+    window.missionCargoStatus.payloadPendingResetStations = targetStations.length ? targetStations : null;
+    window.missionCargoStatus.payloadPendingResetMaxStations = targetMaxStations || 0;
+    window.missionCargoStatus.payloadNeedsSync = !!window.missionCargoStatus.payloadPendingResetStations;
+
+    if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerPayloadSet !== 'function' || !targetStations.length) {
+        return { status: changed ? 'reset_app_only' : 'noop' };
+    }
+
+    const setAck = await window.trackerPayloadSet(targetStations, {
+        maxStations: targetMaxStations || 12,
+        timeoutMs: 15000,
+        refreshAfter: true
+    });
+    if (setAck?.status === 'ok') {
+        window.missionCargoStatus.payloadNeedsSync = false;
+        window.missionCargoStatus.payloadPendingResetStations = null;
+        window.missionCargoStatus.payloadPendingResetMaxStations = 0;
+        window.missionCargoStatus.payloadBaseline = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
+        window.missionCargoStatus.payloadLayout = window.missionCargoStatus.payloadBaseline ? _missionCargoBuildPayloadLayout(window.missionCargoStatus.payloadBaseline) : null;
+        window.missionCargoStatus.payloadPlan = null;
+        window.missionCargoStatus.payloadSyncAt = Date.now();
+        return { status: changed ? 'reset_app_and_sim' : 'sim_synced', ack: setAck };
+    }
+    window.missionCargoStatus.payloadNeedsSync = true;
+    return { status: 'sim_reset_failed', ack: setAck };
+}
+
+async function _missionCargoApplyPendingResetStations(reason = 'payload-pending-reset') {
+    const rows = Array.isArray(window.missionCargoStatus?.payloadPendingResetStations) ? window.missionCargoStatus.payloadPendingResetStations : [];
+    if (!rows.length) return { status: 'no_pending_reset' };
+    if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerPayloadSet !== 'function') return { status: 'skipped' };
+    const ack = await window.trackerPayloadSet(rows, {
+        maxStations: Math.max(1, Number(window.missionCargoStatus?.payloadPendingResetMaxStations || rows.length) || rows.length),
+        timeoutMs: 15000,
+        refreshAfter: true
+    });
+    if (ack?.status === 'ok') {
+        window.missionCargoStatus.payloadNeedsSync = false;
+        window.missionCargoStatus.payloadPendingResetStations = null;
+        window.missionCargoStatus.payloadPendingResetMaxStations = 0;
+        window.missionCargoStatus.payloadBaseline = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
+        window.missionCargoStatus.payloadLayout = window.missionCargoStatus.payloadBaseline ? _missionCargoBuildPayloadLayout(window.missionCargoStatus.payloadBaseline) : null;
+        window.missionCargoStatus.payloadPlan = null;
+        window.missionCargoStatus.payloadSyncAt = Date.now();
+    } else {
+        window.missionCargoStatus.payloadNeedsSync = true;
+    }
+    return ack || { status: 'unknown' };
 }
 
 function _missionCargoFormatStationList(indices = []) {
@@ -2654,7 +2789,10 @@ async function _missionCargoRefreshPayloadSnapshot(options = {}) {
 }
 
 async function _missionCargoSyncPayloadToSim(reason = 'cargo-sync') {
-    if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerPayloadSet !== 'function') return { status: 'skipped' };
+    if (window.simModeActive || !window.liveTrackerConnected || typeof window.trackerPayloadSet !== 'function') {
+        window.missionCargoStatus.payloadNeedsSync = true;
+        return { status: 'skipped' };
+    }
     if (window.missionCargoStatus.payloadSyncRunning) {
         window.missionCargoStatus.payloadSyncQueued = reason;
         return { status: 'queued' };
@@ -2662,16 +2800,33 @@ async function _missionCargoSyncPayloadToSim(reason = 'cargo-sync') {
     window.missionCargoStatus.payloadSyncRunning = true;
     window.missionCargoStatus.payloadSyncQueued = '';
     try {
+        const hasPendingReset = Array.isArray(window.missionCargoStatus?.payloadPendingResetStations) && window.missionCargoStatus.payloadPendingResetStations.length > 0;
+        if (hasPendingReset) {
+            const pendingAck = await _missionCargoApplyPendingResetStations(`${reason}-pre`);
+            if (pendingAck?.status && pendingAck.status !== 'ok' && pendingAck.status !== 'no_pending_reset') {
+                window.missionCargoStatus.payloadNeedsSync = true;
+                return pendingAck;
+            }
+        }
         const manifest = _missionCargoEnsureManifest();
         _missionCargoResetPayloadPlanForMissionKey(manifest?.key || '');
         if (!window.missionCargoStatus.payloadBaseline) {
             const getAck = await _missionCargoRefreshPayloadSnapshot({ force: true, maxStations: 12, timeoutMs: 12000 });
-            if (getAck?.status !== 'ok' && !window.aircraftPayloadStatus?.snapshot) return getAck || { status: 'no_snapshot' };
+            if (getAck?.status !== 'ok' && !window.aircraftPayloadStatus?.snapshot) {
+                window.missionCargoStatus.payloadNeedsSync = true;
+                return getAck || { status: 'no_snapshot' };
+            }
         }
         const baseline = _missionCargoStorePayloadBaselineIfNeeded(window.aircraftPayloadStatus?.snapshot, manifest?.key || '');
-        if (!baseline) return { status: 'no_baseline' };
+        if (!baseline) {
+            window.missionCargoStatus.payloadNeedsSync = true;
+            return { status: 'no_baseline' };
+        }
         const plan = _missionCargoBuildPlanFromManifest(manifest, baseline);
-        if (!plan || !Array.isArray(plan.stations) || !plan.stations.length) return { status: 'no_plan' };
+        if (!plan || !Array.isArray(plan.stations) || !plan.stations.length) {
+            window.missionCargoStatus.payloadNeedsSync = true;
+            return { status: 'no_plan' };
+        }
         window.missionCargoStatus.payloadLayout = plan.layout;
         window.missionCargoStatus.payloadPlan = plan;
         const setAck = await window.trackerPayloadSet(
@@ -2679,9 +2834,15 @@ async function _missionCargoSyncPayloadToSim(reason = 'cargo-sync') {
             { maxStations: baseline.sampledStationCount || baseline.payloadStationCount || 12, timeoutMs: 15000, refreshAfter: true }
         );
         window.missionCargoStatus.payloadSyncAt = Date.now();
-        if (setAck?.status !== 'ok') window.missionCargoStatus.error = setAck?.error || setAck?.status || 'payload_set_failed';
+        if (setAck?.status === 'ok') {
+            window.missionCargoStatus.payloadNeedsSync = false;
+        } else {
+            window.missionCargoStatus.payloadNeedsSync = true;
+            window.missionCargoStatus.error = setAck?.error || setAck?.status || 'payload_set_failed';
+        }
         return setAck || { status: 'unknown' };
     } catch (err) {
+        window.missionCargoStatus.payloadNeedsSync = true;
         window.missionCargoStatus.error = err?.message || String(err);
         return { status: 'error', error: err?.message || String(err) };
     } finally {
@@ -5882,6 +6043,11 @@ window.missionSceneStartDeboardingAfterFarewell = function(reason = 'pax-farewel
 window.missionRuntimeReset = function(options = {}) {
     const respawnAfterClear = options && options.respawnAfterClear === true;
     if (typeof window.closeMissionCargoDialog === 'function') window.closeMissionCargoDialog();
+    if (typeof _missionCargoResetForMissionReset === 'function') {
+        _missionCargoResetForMissionReset('mission-runtime-reset').catch(err => {
+            console.warn('[MissionCargo] Reset payload sync failed:', err?.message || err);
+        });
+    }
     if (typeof window.missionSmokeClear === 'function') window.missionSmokeClear('mission-runtime-reset');
     if (typeof window.clearMissionSceneObjects === 'function') window.clearMissionSceneObjects('mission-runtime-reset');
     else if (typeof window.missionSceneClear === 'function') window.missionSceneClear('mission-runtime-reset');
@@ -8073,6 +8239,18 @@ window.connectToLiveGPS = async function(syncId) {
         // Dem Server mitteilen, in welchen Raum wir wollen (mit PIN!)
         liveGpsSocket.send(JSON.stringify({ type: 'join', syncId: syncId, pin: getSyncPin() }));
         setTimeout(() => _trackerPendingResendAll('websocket-open'), 300);
+        if (window.missionCargoStatus?.payloadNeedsSync) {
+            setTimeout(() => {
+                _missionCargoApplyPendingResetStations('websocket-reconnect-pending-reset')
+                    .then(() => {
+                        if (window.missionCargoStatus?.payloadNeedsSync) {
+                            return _missionCargoSyncPayloadToSim('websocket-reconnect-resync');
+                        }
+                        return null;
+                    })
+                    .catch(() => {});
+            }, 650);
+        }
 
         const ind = document.getElementById('liveGpsIndicator');
         if (ind) {
