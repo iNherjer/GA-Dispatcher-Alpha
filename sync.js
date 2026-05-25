@@ -5932,10 +5932,24 @@ function _missionStartUiKey() {
     return String(fs.missionId || md.missionId || md.id || `${md.start || ''}-${md.dest || ''}-${md.mission || ''}`).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 96);
 }
 
+function _missionStartHasUsableRoute() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const hasTwoPoints = (points) => Array.isArray(points)
+        && points.filter(point => {
+            const lat = Number(point?.lat);
+            const lon = Number(point?.lng ?? point?.lon);
+            return Number.isFinite(lat) && Number.isFinite(lon);
+        }).length >= 2;
+    if (typeof routeWaypoints !== 'undefined' && hasTwoPoints(routeWaypoints)) return true;
+    if (hasTwoPoints(md?.routeWaypoints)) return true;
+    if (hasTwoPoints(md?.missionRouteWaypoints)) return true;
+    if (typeof window !== 'undefined' && hasTwoPoints(window._missionRouteWaypoints)) return true;
+    return false;
+}
+
 function _hasValidMissionForStart() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
-    const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
-    return !!(md && _missionSceneAcceptedForRuntime() && wps.length >= 2);
+    return !!(md && _missionSceneAcceptedForRuntime() && _missionStartHasUsableRoute());
 }
 
 function _missionStartBannerDismissKey() {
@@ -6041,7 +6055,7 @@ function _updateMissionStartBanner(autoStartEnabled) {
     const phase = _missionStartPhase();
     const endReady = missionRuntime.active ? _missionEndReadiness() : null;
     const showEnd = valid && missionRuntime.active && !!endReady?.ready && (!autoStartEnabled || missionRuntime.manual);
-    const showStart = valid && (trackerConnected || simMode) && groundReady && !missionRuntime.active && !autoStartEnabled && (simMode || !_missionStartBannerDismissed());
+    const showStart = valid && (trackerConnected || simMode) && groundReady && !missionRuntime.active && !autoStartEnabled;
     const show = showEnd || showStart;
     banner.style.display = show ? 'flex' : 'none';
     if (!show) return;
@@ -6088,10 +6102,13 @@ function _updateMissionRuntimeUi() {
     const phase = _missionStartPhase();
     const st = document.getElementById('missionRuntimeStatus');
     if (st) {
+        const idleText = !autoStartEnabled
+            ? (!validMission ? 'Keine startbare Mission' : (groundReady ? (phase === 'boarded' ? 'Mission startbereit' : 'Boarding bereit') : 'Wartet auf Boden'))
+            : (missionRuntime.armed ? 'Scharf (bereit)' : 'Wartet auf Boden-Stabilisierung');
         st.textContent = missionRuntime.active
             ? (missionRuntime.manual || !autoStartEnabled ? 'Aktiv (manuell)' : 'Aktiv')
-            : (draftBlocked ? 'Entwurf: Mission akzeptieren' : (!autoStartEnabled ? (validMission && groundReady ? (phase === 'boarded' ? 'Mission startbereit' : 'Boarding bereit') : 'Wartet auf Boden') : (missionRuntime.armed ? 'Scharf (bereit)' : 'Wartet auf Boden-Stabilisierung')));
-        st.style.color = missionRuntime.active ? '#4caf50' : (draftBlocked ? '#f2c12e' : (!autoStartEnabled ? (groundReady ? '#8ec5ff' : '#888') : (missionRuntime.armed ? '#f2c12e' : '#888')));
+            : (draftBlocked ? 'Entwurf: Mission akzeptieren' : idleText);
+        st.style.color = missionRuntime.active ? '#4caf50' : (draftBlocked ? '#f2c12e' : (!autoStartEnabled ? (validMission && groundReady ? '#8ec5ff' : '#888') : (missionRuntime.armed ? '#f2c12e' : '#888')));
     }
     const bStart = document.getElementById('missionStartBtn');
     const bEnd = document.getElementById('missionEndBtn');
