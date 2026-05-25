@@ -1201,6 +1201,15 @@ function _scenePositionQuality(pos = {}) {
     return { lat, lon, rawHasPosition, plausiblePosition, depDistNm, nearDeparture };
 }
 
+function _missionTrackerPauseActive(fd = {}, groundLike = false, stationary = false) {
+    const pauseFlags = Number(fd?.pauseFlags || 0);
+    if (pauseFlags > 0) return true;
+    // Some MSFS states report IS PAUSED=true while SimConnect events say unpaused.
+    // On the ground and stationary this should not block boarding/scenery staging.
+    if (fd?.simPaused === true && !(groundLike && stationary)) return true;
+    return false;
+}
+
 function _missionSceneFlightGate(flightData = null) {
     const fd = flightData || window.lastLiveFlightData || {};
     const pos = window.lastLiveGpsPos || {};
@@ -1214,13 +1223,13 @@ function _missionSceneFlightGate(flightData = null) {
     const nearGround = Number.isFinite(agl) && agl <= 80;
     const onGround = hasOnGroundFlag ? !!fd.onGround : nearGround;
     const groundLike = onGround || nearGround;
-    const paused = !!fd.simPaused || Number(fd.pauseFlags || 0) > 0;
     const inMenuOrMap = !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
     const airborne = !groundLike && ((hasOnGroundFlag && !onGround && gs > 35) || (Number.isFinite(agl) && agl > 120) || gs > 70);
     const lowGround = hasOnGroundFlag
         ? onGround || !Number.isFinite(agl) || agl <= 25
         : (!Number.isFinite(agl) || agl <= 25);
     const stationary = gs < 10;
+    const paused = _missionTrackerPauseActive(fd, groundLike, stationary);
     const canStage = hasPosition && groundLike && lowGround && stationary && !paused && !inMenuOrMap;
     return { ...quality, gs, agl, hasPosition, onGround, nearGround, groundLike, lowGround, stationary, paused, inMenuOrMap, airborne, canStage };
 }
@@ -1239,7 +1248,6 @@ function _missionAutoStartGroundStability(flightData = null, fallbackAglFt = nul
     const hasOnGroundFlag = typeof fd.onGround === 'boolean';
     const onGround = hasOnGroundFlag ? !!fd.onGround : false;
     const parkingBrakeSet = fd.parkingBrake === true;
-    const paused = !!fd.simPaused || Number(fd.pauseFlags || 0) > 0;
     const inMenuOrMap = !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
 
     // Helis koennen auf Kufen SIM ON GROUND=false liefern. Fuer Auto-Start ist
@@ -1249,6 +1257,7 @@ function _missionAutoStartGroundStability(flightData = null, fallbackAglFt = nul
         ? onGround || nearSurface
         : nearSurface;
     const stationary = gs <= 3.5 || (parkingBrakeSet && gs <= 8);
+    const paused = _missionTrackerPauseActive(fd, groundStable, stationary);
     return {
         ready: groundStable && stationary && !paused && !inMenuOrMap,
         gs,
@@ -6013,9 +6022,9 @@ function _missionStartGroundStatus() {
     const onGround = hasOnGroundFlag ? !!fd.onGround : (Number.isFinite(agl) ? agl <= 35 : false);
     const nearSurface = Number.isFinite(agl) ? agl <= 35 : onGround;
     const parkingBrakeSet = fd.parkingBrake === true || fd.parkingBrake === 1;
-    const paused = !!fd.simPaused || Number(fd.pauseFlags || 0) > 0;
     const inMenuOrMap = !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
     const stationary = gs <= 5 || (parkingBrakeSet && gs <= 10);
+    const paused = _missionTrackerPauseActive(fd, onGround || nearSurface, stationary);
     const ready = !!((onGround || nearSurface) && stationary && !paused && !inMenuOrMap);
     if (ready) {
         return { ready: true, label: 'Am Boden bereit', reason: 'ready', gs, agl, onGround, parkingBrakeSet };
@@ -9348,7 +9357,9 @@ function updateFlightRecorder(lat, lon, alt) {
         : Math.max(0, (Number(alt) || 0) - (Number(window.lastLiveTerrainFt) || 0));
     const hasOnGroundFlag = typeof _lfd?.onGround === 'boolean';
     const onGroundNow = hasOnGroundFlag ? !!_lfd.onGround : false;
-    const simPaused = !!_lfd?.simPaused || (Number(_lfd?.pauseFlags || 0) > 0);
+    const nearSurfaceForPause = Number.isFinite(agl) && agl <= 35;
+    const stationaryForPause = gs <= 5 || ((_lfd?.parkingBrake === true || _lfd?.parkingBrake === 1) && gs <= 10);
+    const simPaused = _missionTrackerPauseActive(_lfd || {}, onGroundNow || nearSurfaceForPause, stationaryForPause);
     const inMenuOrMap = !!_lfd?.inMenuOrMap || (Number(_lfd?.simRunning) === 0) || (Number(_lfd?.dialogMode) === 1);
     const r = flightRecorder;
     const dtSec = r.lastUpdateTs ? Math.max(0, (now - r.lastUpdateTs) / 1000) : 0;
