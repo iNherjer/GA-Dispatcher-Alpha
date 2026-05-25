@@ -612,7 +612,8 @@ window.missionCargoStatus = {
     payloadSyncAt: 0,
     payloadNeedsSync: false,
     payloadPendingResetStations: null,
-    payloadPendingResetMaxStations: 0
+    payloadPendingResetMaxStations: 0,
+    dialogScroll: null
 };
 window.aircraftPayloadStatus = {
     lastCommandAt: 0,
@@ -3122,6 +3123,16 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         overlay.className = 'mission-cargo-overlay';
         document.body.appendChild(overlay);
     }
+    const sameModeRepaint = window.missionCargoStatus?.lastMode === mode && overlay.style.display === 'flex';
+    const preserveScroll = options?.preserveScroll !== false && sameModeRepaint;
+    const previousScroll = preserveScroll ? {
+        panelTop: Number(overlay.querySelector('.mission-cargo-panel')?.scrollTop || 0),
+        panelLeft: Number(overlay.querySelector('.mission-cargo-panel')?.scrollLeft || 0),
+        clipboardTop: Number(overlay.querySelector('.mission-cargo-clipboard')?.scrollTop || 0),
+        clipboardLeft: Number(overlay.querySelector('.mission-cargo-clipboard')?.scrollLeft || 0),
+        listTop: Number(overlay.querySelector('.mission-cargo-list')?.scrollTop || 0),
+        listLeft: Number(overlay.querySelector('.mission-cargo-list')?.scrollLeft || 0)
+    } : null;
     const isUnload = mode === 'unload';
     const visibleItems = isUnload
         ? manifest.items.filter(item => item.status === 'loaded' && item.deliverAtDestination !== false)
@@ -3234,6 +3245,30 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             </div>
         </div>`;
     overlay.style.display = 'flex';
+    if (previousScroll) {
+        window.missionCargoStatus.dialogScroll = previousScroll;
+        const applyScroll = () => {
+            const panelEl = overlay.querySelector('.mission-cargo-panel');
+            const clipboardEl = overlay.querySelector('.mission-cargo-clipboard');
+            const listEl = overlay.querySelector('.mission-cargo-list');
+            if (panelEl) {
+                panelEl.scrollTop = previousScroll.panelTop;
+                panelEl.scrollLeft = previousScroll.panelLeft;
+            }
+            if (clipboardEl) {
+                clipboardEl.scrollTop = previousScroll.clipboardTop;
+                clipboardEl.scrollLeft = previousScroll.clipboardLeft;
+            }
+            if (listEl) {
+                listEl.scrollTop = previousScroll.listTop;
+                listEl.scrollLeft = previousScroll.listLeft;
+            }
+        };
+        applyScroll();
+        requestAnimationFrame(applyScroll);
+    } else {
+        window.missionCargoStatus.dialogScroll = null;
+    }
     window.missionCargoStatus.lastMode = mode;
     _updateMissionCargoAutoLoadButton();
     if (options?.skipPayloadRefresh !== true) {
@@ -3255,7 +3290,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
 }
 
 window.openMissionCargoDialog = function(mode = 'load') {
-    _missionCargoRenderDialog(mode === 'unload' ? 'unload' : 'load');
+    _missionCargoRenderDialog(mode === 'unload' ? 'unload' : 'load', { preserveScroll: false });
     _updateMissionRuntimeUi();
 };
 
