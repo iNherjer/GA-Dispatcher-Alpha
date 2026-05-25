@@ -866,7 +866,6 @@
             <div class="cargo-detail-actions">
                 ${canLoad ? `<button class="checklist-mini-btn primary" type="button" data-action="cargo-load" data-item-id="${escapeAttr(item.id)}">Laden</button>` : ''}
                 ${canUnload ? `<button class="checklist-mini-btn ${dropMode ? 'danger' : 'primary'}" type="button" data-action="cargo-unload" data-item-id="${escapeAttr(item.id)}">${dropMode ? 'Abwerfen' : 'Entladen'}</button>` : ''}
-                <button class="checklist-mini-btn" type="button" data-action="cargo-open-modal">Verladefenster</button>
             </div>
         `;
         return `
@@ -920,6 +919,9 @@
             : '';
         bodyEl.innerHTML = `
             ${toolTopline('cargo')}
+            <div class="checklist-topline">
+                <button class="checklist-action-btn" type="button" data-action="cargo-open-modal">Verladefenster oeffnen</button>
+            </div>
             <div class="cargo-tool-summary">${escapeHtml(summary)}</div>
             ${failLine}
             <div class="cargo-tool-list">${rows}</div>
