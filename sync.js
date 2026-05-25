@@ -2433,6 +2433,21 @@ window.missionCargoSignDispatchList = function(options = {}) {
     return true;
 };
 
+window.missionCargoClearDispatchSignature = function(options = {}) {
+    const manifest = _missionCargoEnsureManifest();
+    if (!manifest.dispatchSignature) return false;
+    manifest.dispatchSignature = null;
+    _missionCargoPersistManifest(manifest);
+    if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+    return true;
+};
+
+window.missionCargoToggleDispatchSignature = function(options = {}) {
+    const manifest = _missionCargoEnsureManifest();
+    if (manifest.dispatchSignature) return window.missionCargoClearDispatchSignature(options);
+    return window.missionCargoSignDispatchList(options);
+};
+
 function _missionCargoSceneId() {
     return window.missionSceneStatus?.sceneId || _missionSceneId();
 }
@@ -3149,9 +3164,9 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const metaPilot = _missionCargoPilotId();
     const metaDate = _missionCargoFormatDate(signature?.at || Date.now());
     const signaturePanel = !isUnload ? `
-        <div class="mission-cargo-signature ${signature ? 'is-signed' : ''}">
+        <div class="mission-cargo-signature ${signature ? 'is-signed' : ''} is-clickable" onclick="window.missionCargoToggleDispatchSignature && missionCargoToggleDispatchSignature()">
             <div class="mission-cargo-signature-line">${signature ? _missionCargoEscape(signature.by || metaPilot) : '&nbsp;'}</div>
-            <div class="mission-cargo-signature-meta">Unterschrift Pilot · ${signature ? _missionCargoEscape(_missionCargoFormatDate(signature.at)) : 'noch offen'}</div>
+            <div class="mission-cargo-signature-meta">Unterschrift Pilot · ${signature ? _missionCargoEscape(_missionCargoFormatDate(signature.at)) : 'noch offen'} · Klick: ${signature ? 'Signatur loeschen' : 'unterschreiben'}</div>
         </div>` : '';
     const primaryActionJs = isUnload
         ? 'window.finishMissionCargoUnloadAndEnd && finishMissionCargoUnloadAndEnd()'
@@ -3161,6 +3176,9 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const primaryActionLabel = isUnload
         ? 'Entladung abgeschlossen - Mission beenden'
         : (signature ? 'Mission beginnen' : 'Verladung bestaetigen & unterschreiben');
+    const secondaryAction = (!isUnload && signature)
+        ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
+        : '';
     overlay.innerHTML = `
         <div class="mission-cargo-panel">
             <div class="mission-cargo-head">
@@ -3203,6 +3221,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                 <span>${manifest.items.reduce((sum, item) => sum + ((item.status === 'loaded' || item.status === 'unloaded') ? Number(item.weightLbs || 0) : 0), 0)} lbs geladen</span>
             </div>
             <div class="mission-cargo-actions">
+                ${secondaryAction}
                 <button class="mission-cargo-primary" onclick="${primaryActionJs}">${primaryActionLabel}</button>
             </div>
         </div>`;
