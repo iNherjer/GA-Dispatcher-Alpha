@@ -839,10 +839,14 @@
     }
 
     function cargoPayloadRequest(force = false) {
-        if (state.cargoPayloadLoading) return;
-        if (typeof window.trackerPayloadGet !== 'function' || !window.liveTrackerConnected || window.simModeActive) return;
+        if (state.cargoPayloadLoading) return 'busy';
+        if (typeof window.trackerPayloadGet !== 'function') return 'unsupported';
+        if (!window.liveTrackerConnected) return 'tracker_offline';
+        if (window.simModeActive) return 'sim_mode';
+        const fd = window.lastLiveFlightData || {};
+        if (Number(fd?.simRunning) === 0) return 'sim_offline';
         const ageMs = Date.now() - Number(window.aircraftPayloadStatus?.lastSnapshotAt || 0);
-        if (!force && ageMs >= 0 && ageMs < 5000 && window.aircraftPayloadStatus?.snapshot) return;
+        if (!force && ageMs >= 0 && ageMs < 5000 && window.aircraftPayloadStatus?.snapshot) return 'cached';
         state.cargoPayloadLoading = true;
         state.cargoPayloadRequestedAt = Date.now();
         Promise.resolve(window.trackerPayloadGet({ maxStations: 12, timeoutMs: 12000 }))
@@ -851,11 +855,24 @@
                 state.cargoPayloadLoading = false;
                 if (state.view === 'cargo') render();
             });
+        return 'started';
     }
 
     function cargoPayloadSummaryHtml() {
         const snap = cargoPayloadSnapshot();
-        if (!snap) return '<div class="route-tool-empty">Sim-Gewichte: keine Daten.</div>';
+        if (!snap) {
+            const err = String(window.aircraftPayloadStatus?.error || '').trim();
+            const fd = window.lastLiveFlightData || {};
+            const waiting = state.cargoPayloadLoading;
+            let msg = 'Sim-Gewichte: keine Daten.';
+            if (!window.liveTrackerConnected) msg = 'Sim-Gewichte: Tracker nicht verbunden.';
+            else if (window.simModeActive) msg = 'Sim-Gewichte: im Sim-Mode deaktiviert.';
+            else if (Number(fd?.simRunning) === 0) msg = 'Sim-Gewichte: Simulator liefert keine Live-Daten.';
+            else if (waiting) msg = 'Sim-Gewichte werden abgerufen ...';
+            else if (err) msg = `Sim-Gewichte: Abruf fehlgeschlagen (${err}).`;
+            else if (state.cargoPayloadRequestedAt > 0 && (Date.now() - state.cargoPayloadRequestedAt) > 14000) msg = 'Sim-Gewichte: Abruf abgelaufen.';
+            return `<div class="route-tool-empty">${escapeHtml(msg)}</div>`;
+        }
         const total = Number(snap.totalWeightLbs);
         const empty = Number(snap.emptyWeightLbs);
         const payload = Number(snap.payloadWeightLbs);
@@ -3505,8 +3522,14 @@ ${routeLines}`;
                 setStatus('Verladefenster nicht verfuegbar.', 'error');
             }
         } else if (action === 'cargo-refresh-payload') {
-            cargoPayloadRequest(true);
-            setStatus('Sim-Gewichte werden aktualisiert ...');
+            const req = cargoPayloadRequest(true);
+            if (req === 'started') setStatus('Sim-Gewichte werden aktualisiert ...');
+            else if (req === 'tracker_offline') setStatus('Tracker nicht verbunden.', 'warn');
+            else if (req === 'sim_offline') setStatus('Simulator liefert keine Live-Daten.', 'warn');
+            else if (req === 'sim_mode') setStatus('Im Sim-Mode nicht verfügbar.', 'warn');
+            else if (req === 'busy') setStatus('Abruf läuft bereits ...');
+            else if (req === 'cached') setStatus('Sim-Gewichte sind aktuell.', 'good');
+            else setStatus('Sim-Gewichte aktuell nicht verfügbar.', 'warn');
         } else if (action === 'cargo-boardbook-time') {
             const itemId = button.dataset.itemId || '';
             const field = button.dataset.field || 'start';

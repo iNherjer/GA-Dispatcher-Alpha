@@ -2600,7 +2600,21 @@ function _missionCargoFormatStationList(indices = []) {
 function _missionCargoPayloadSummaryHtml(mode = 'load') {
     const snapshot = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
     if (!snapshot) {
-        return `<div class="mission-cargo-payload-empty">Sim-Gewichte werden abgerufen ...</div>`;
+        const trackerConnected = !!window.liveTrackerConnected;
+        const fd = window.lastLiveFlightData || {};
+        const simRunning = Number(fd?.simRunning);
+        const payloadError = String(window.aircraftPayloadStatus?.error || '').trim();
+        const lastCommandAt = Number(window.aircraftPayloadStatus?.lastCommandAt || 0);
+        const lastSnapshotAt = Number(window.aircraftPayloadStatus?.lastSnapshotAt || 0);
+        const waitingForReply = lastCommandAt > 0 && lastSnapshotAt < lastCommandAt;
+        const waitingAgeMs = waitingForReply ? (Date.now() - lastCommandAt) : 0;
+        let message = 'Noch keine Sim-Gewichte empfangen.';
+        if (!trackerConnected) message = 'Tracker nicht verbunden. Sim-Gewichte werden nicht abgefragt.';
+        else if (Number.isFinite(simRunning) && simRunning === 0) message = 'Simulator liefert aktuell keine Live-Daten.';
+        else if (payloadError) message = `Sim-Gewichte nicht verfügbar (${payloadError}).`;
+        else if (waitingForReply && waitingAgeMs < 14000) message = 'Sim-Gewichte werden abgerufen ...';
+        else if (waitingForReply) message = 'Abruf der Sim-Gewichte fehlgeschlagen oder abgelaufen.';
+        return `<div class="mission-cargo-payload-empty">${_missionCargoEscape(message)}</div>`;
     }
     const layout = window.missionCargoStatus.payloadLayout || _missionCargoBuildPayloadLayout(snapshot);
     const plan = window.missionCargoStatus.payloadPlan;
