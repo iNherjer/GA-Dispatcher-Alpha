@@ -7102,6 +7102,12 @@ body.map-drawing-active #map.leaflet-dragging {
 .mission-cargo-sheet-table tbody tr.is-loaded td {
     background: rgba(102, 170, 118, 0.14);
 }
+.mission-cargo-sheet-table tbody tr.is-interactive {
+    cursor: pointer;
+}
+.mission-cargo-sheet-table tbody tr.is-interactive:hover td {
+    background: rgba(102, 136, 190, 0.12);
+}
 .mission-cargo-signature {
     margin-top: 11px;
     display: flex;

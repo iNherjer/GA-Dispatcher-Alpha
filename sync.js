@@ -2399,8 +2399,15 @@ function _missionCargoPilotId() {
 }
 
 function _missionCargoAircraftLabel() {
-    const raw = String(window.selectedAC || window.activeAircraftPresetSettingsSlot || 'N/A').trim();
-    return raw || 'N/A';
+    const slot = String(window.selectedAC || window.activeAircraftPresetSettingsSlot || 'N/A').trim() || 'N/A';
+    let presetName = '';
+    try {
+        const presets = JSON.parse(localStorage.getItem('ga_aircraft_presets_v1') || '{}') || {};
+        const rawName = presets?.[slot]?.name;
+        if (rawName != null) presetName = String(rawName).trim();
+    } catch (_) {}
+    if (presetName && presetName !== slot) return `${slot} · ${presetName}`;
+    return slot;
 }
 
 function _missionCargoFormatDate(ts = Date.now()) {
@@ -3150,8 +3157,9 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         const dropped = item.status === 'dropped';
         const status = dropped ? 'abgeworfen' : (unloaded ? 'ausgeladen' : (loaded ? 'geladen' : 'offen'));
         const stationText = assignmentMap.get(String(item.id)) || (loaded ? 'auto' : '-');
+        const rowAction = !isUnload ? ` onclick="window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}')"` : '';
         return `
-            <tr class="${loaded ? 'is-loaded' : ''}">
+            <tr class="${loaded ? 'is-loaded' : ''} ${!isUnload ? 'is-interactive' : ''}"${rowAction}>
                 <td>${idx + 1}</td>
                 <td>${_missionCargoEscape(item.storyName || item.label || item.id)}</td>
                 <td>${item.required ? 'Pflicht' : 'Optional'}</td>
@@ -3278,6 +3286,53 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     if (options.render !== false) _missionCargoRenderDialog('load');
     try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
     _missionCargoSyncPayloadToSim('cargo-load-item').catch(() => {});
+    return true;
+};
+
+window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
+    const manifest = _missionCargoEnsureManifest();
+    const item = manifest.items.find(entry => entry.id === itemId);
+    if (!item) return false;
+    if (item.status !== 'loaded' && item.status !== 'unloaded' && item.status !== 'dropped') {
+        return window.missionCargoLoadItem(itemId, options);
+    }
+    item.status = 'pending';
+    item.loadedAt = 0;
+    item.unloadedAt = 0;
+    item.droppedAt = 0;
+    item.healthPct = 100;
+    _missionCargoInvalidateDispatchSignature(manifest);
+    _missionCargoPersistManifest(manifest);
+    if (!window.simModeActive && window.liveTrackerConnected) {
+        const pos = window.lastLiveGpsPos || {};
+        const hasPos = Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon));
+        if (hasPos) {
+            const commandId = window.sendTrackerCommand({
+                type: 'mission_scene_object_spawn',
+                sceneId: _missionCargoSceneId(),
+                reason: 'cargo-toggle-unload',
+                lat: Number(pos.lat),
+                lon: Number(pos.lon),
+                altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
+                hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
+                items: [{
+                    kind: item.sceneKind || `cargo_${item.id}`,
+                    label: item.storyName || item.label || item.id,
+                    objectTitle: item.objectTitle || 'Cardboard',
+                    titleCandidates: item.titleCandidates || _sceneAssetCandidates(item.objectTitle || 'Cardboard', MISSION_SCENE_ASSET_POOLS.cargo),
+                    forwardM: Number(item.forwardM || 0),
+                    rightM: Number(item.rightM || 0),
+                    headingMode: 'with_aircraft',
+                    altOffsetFt: Number(item.altOffsetFt || 0)
+                }]
+            });
+            window.missionCargoStatus.lastCommandAt = Date.now();
+            window.missionCargoStatus.lastCommand = { type: 'mission_scene_object_spawn', commandId, itemId };
+        }
+    }
+    if (options.render !== false) _missionCargoRenderDialog('load');
+    try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
+    _missionCargoSyncPayloadToSim('cargo-toggle-unload-item').catch(() => {});
     return true;
 };
 
