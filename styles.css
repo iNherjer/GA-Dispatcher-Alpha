@@ -6995,8 +6995,10 @@ body.map-drawing-active #map.leaflet-dragging {
     -webkit-backdrop-filter: blur(6px);
 }
 .mission-cargo-panel {
-    width: min(760px, 100%);
+    width: min(760px, calc(100vw - 20px));
+    max-width: 100%;
     max-height: min(680px, calc(100vh - 36px));
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     border: 1px solid rgba(142, 197, 255, 0.34);
@@ -7045,6 +7047,7 @@ body.map-drawing-active #map.leaflet-dragging {
 .mission-cargo-clipboard {
     margin: 6px 14px 10px;
     padding: 12px 12px 10px;
+    overflow-x: auto;
     border: 1px solid rgba(171, 151, 116, 0.56);
     border-radius: 6px;
     background:
@@ -7071,6 +7074,8 @@ body.map-drawing-active #map.leaflet-dragging {
 }
 .mission-cargo-sheet-table {
     width: 100%;
+    min-width: 0;
+    table-layout: fixed;
     border-collapse: collapse;
     font-family: 'Caveat', 'Segoe Print', cursive;
     font-size: 23px;
@@ -7082,6 +7087,8 @@ body.map-drawing-active #map.leaflet-dragging {
     border: 1px solid rgba(53, 45, 32, 0.45);
     padding: 4px 7px;
     vertical-align: top;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 .mission-cargo-sheet-table th {
     font-family: 'Courier Prime', 'Courier New', monospace;
@@ -7207,14 +7214,37 @@ body.map-drawing-active #map.leaflet-dragging {
     font-size: 13px;
 }
 @media (max-width: 760px) {
+    .mission-cargo-overlay {
+        padding: 8px;
+    }
+    .mission-cargo-panel {
+        width: min(760px, calc(100vw - 16px));
+        max-height: min(680px, calc(100vh - 16px));
+    }
+    .mission-cargo-clipboard {
+        margin: 4px 8px 8px;
+        padding: 10px 8px 8px;
+    }
     .mission-cargo-sheet-meta {
         grid-template-columns: 1fr;
     }
     .mission-cargo-sheet-table {
-        font-size: 20px;
+        font-size: 17px;
+    }
+    .mission-cargo-sheet-table th,
+    .mission-cargo-sheet-table td {
+        padding: 4px 5px;
+    }
+    .mission-cargo-summary {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
     }
     .mission-cargo-signature-line {
         min-width: 180px;
+    }
+    .mission-cargo-primary {
+        font-size: 11px;
     }
 }
 

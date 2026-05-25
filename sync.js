@@ -2347,7 +2347,10 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
 
 function _missionCargoGetManifest() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
-    return md?.cargoManifest && typeof md.cargoManifest === 'object' ? md.cargoManifest : null;
+    if (md?.cargoManifest && typeof md.cargoManifest === 'object') return md.cargoManifest;
+    if (md?.missionContract?.cargoManifest && typeof md.missionContract.cargoManifest === 'object') return md.missionContract.cargoManifest;
+    if (window.activeMissionContract?.cargoManifest && typeof window.activeMissionContract.cargoManifest === 'object') return window.activeMissionContract.cargoManifest;
+    return null;
 }
 
 function _missionCargoPersistManifest(manifest) {
@@ -2697,7 +2700,6 @@ function _missionCargoResetManifestState(manifest) {
 }
 
 async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset') {
-    if (!_missionCargoHasActiveMission()) return { status: 'no_active_mission' };
     if (window.missionCargoStatus.payloadSyncRunning) {
         const waitUntil = Date.now() + 2600;
         while (window.missionCargoStatus.payloadSyncRunning && Date.now() < waitUntil) {
@@ -2705,7 +2707,17 @@ async function _missionCargoResetForMissionReset(reason = 'mission-runtime-reset
         }
     }
     window.missionCargoStatus.payloadSyncQueued = '';
-    const manifest = _missionCargoEnsureManifest();
+    let manifest = _missionCargoGetManifest();
+    if ((!manifest || !Array.isArray(manifest.items)) && _missionCargoHasActiveMission()) {
+        manifest = _missionCargoEnsureManifest();
+    }
+    if (!manifest || !Array.isArray(manifest.items) || !manifest.items.length) {
+        _missionCargoResetPayloadPlanForMissionKey('');
+        window.missionCargoStatus.payloadPendingResetStations = null;
+        window.missionCargoStatus.payloadPendingResetMaxStations = 0;
+        window.missionCargoStatus.payloadNeedsSync = false;
+        return { status: 'no_manifest' };
+    }
     const manifestBeforeReset = JSON.parse(JSON.stringify(manifest));
     const baseline = _missionCargoNormalizePayloadSnapshot(window.missionCargoStatus?.payloadBaseline);
     let snapshot = _missionCargoNormalizePayloadSnapshot(window.aircraftPayloadStatus?.snapshot);
