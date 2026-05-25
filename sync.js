@@ -5973,8 +5973,20 @@ function _clearMissionStartPhase() {
 
 function _missionStartGroundReady() {
     if (window.simModeActive) return _hasValidMissionForStart();
-    const gate = _missionSceneFlightGate(window.lastLiveFlightData || {});
-    return !!(gate && gate.canStage);
+    const fd = window.lastLiveFlightData || {};
+    const pos = window.lastLiveGpsPos || {};
+    const gs = Number.isFinite(Number(fd.gsKts)) ? Number(fd.gsKts)
+        : (Number.isFinite(Number(fd.gs)) ? Number(fd.gs)
+            : (Number.isFinite(Number(pos.gs)) ? Number(pos.gs) : 0));
+    const agl = Number.isFinite(Number(fd.aglFt)) ? Math.max(0, Number(fd.aglFt)) : null;
+    const hasOnGroundFlag = typeof fd.onGround === 'boolean';
+    const onGround = hasOnGroundFlag ? !!fd.onGround : (Number.isFinite(agl) ? agl <= 35 : false);
+    const nearSurface = Number.isFinite(agl) ? agl <= 35 : onGround;
+    const parkingBrakeSet = fd.parkingBrake === true || fd.parkingBrake === 1;
+    const paused = !!fd.simPaused || Number(fd.pauseFlags || 0) > 0;
+    const inMenuOrMap = !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
+    const stationary = gs <= 5 || (parkingBrakeSet && gs <= 10);
+    return !!((onGround || nearSurface) && stationary && !paused && !inMenuOrMap);
 }
 
 function _missionStartBannerDismissed() {
