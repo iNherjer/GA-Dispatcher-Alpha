@@ -5987,9 +5987,24 @@ function _clearMissionStartPhase() {
 }
 
 function _missionStartGroundReady() {
-    if (window.simModeActive) return _hasValidMissionForStart();
+    return !!_missionStartGroundStatus().ready;
+}
+
+function _missionStartGroundStatus() {
+    if (window.simModeActive) {
+        const ready = _hasValidMissionForStart();
+        return { ready, label: ready ? 'Sim-Modus bereit' : 'Keine startbare Mission', reason: ready ? 'sim_mode_ready' : 'sim_mode_no_mission' };
+    }
+    if (!window.liveTrackerConnected) {
+        return { ready: false, label: 'Tracker offline', reason: 'tracker_offline' };
+    }
     const fd = window.lastLiveFlightData || {};
     const pos = window.lastLiveGpsPos || {};
+    const hasFlightData = fd && typeof fd === 'object' && Object.keys(fd).length > 0;
+    const hasPosition = Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon));
+    if (!hasFlightData || !hasPosition) {
+        return { ready: false, label: 'Warte auf Sim-Daten', reason: 'no_sim_data' };
+    }
     const gs = Number.isFinite(Number(fd.gsKts)) ? Number(fd.gsKts)
         : (Number.isFinite(Number(fd.gs)) ? Number(fd.gs)
             : (Number.isFinite(Number(pos.gs)) ? Number(pos.gs) : 0));
@@ -6001,7 +6016,15 @@ function _missionStartGroundReady() {
     const paused = !!fd.simPaused || Number(fd.pauseFlags || 0) > 0;
     const inMenuOrMap = !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
     const stationary = gs <= 5 || (parkingBrakeSet && gs <= 10);
-    return !!((onGround || nearSurface) && stationary && !paused && !inMenuOrMap);
+    const ready = !!((onGround || nearSurface) && stationary && !paused && !inMenuOrMap);
+    if (ready) {
+        return { ready: true, label: 'Am Boden bereit', reason: 'ready', gs, agl, onGround, parkingBrakeSet };
+    }
+    if (paused) return { ready: false, label: 'Simulator pausiert', reason: 'paused', gs, agl, onGround, parkingBrakeSet };
+    if (inMenuOrMap) return { ready: false, label: 'Sim-Menue/Map offen', reason: 'menu_or_map', gs, agl, onGround, parkingBrakeSet };
+    if (!(onGround || nearSurface)) return { ready: false, label: 'Nicht am Boden', reason: 'not_on_ground', gs, agl, onGround, parkingBrakeSet };
+    if (!stationary) return { ready: false, label: 'Nicht im Stillstand', reason: 'moving', gs, agl, onGround, parkingBrakeSet };
+    return { ready: false, label: 'Wartet auf Boden', reason: 'unknown', gs, agl, onGround, parkingBrakeSet };
 }
 
 function _missionStartBannerDismissed() {
@@ -6099,16 +6122,20 @@ function _updateMissionRuntimeUi() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const draftBlocked = !!md && !_missionSceneAcceptedForRuntime();
     const validMission = _hasValidMissionForStart();
-    const groundReady = _missionStartGroundReady();
+    const groundStatus = _missionStartGroundStatus();
+    const groundReady = !!groundStatus.ready;
     const phase = _missionStartPhase();
     const st = document.getElementById('missionRuntimeStatus');
     if (st) {
         const idleText = !autoStartEnabled
-            ? (!validMission ? 'Keine startbare Mission' : (groundReady ? (phase === 'boarded' ? 'Mission startbereit' : 'Boarding bereit') : 'Wartet auf Boden'))
+            ? (!validMission ? 'Keine startbare Mission' : (groundReady ? (phase === 'boarded' ? 'Mission startbereit' : 'Boarding bereit') : groundStatus.label))
             : (missionRuntime.armed ? 'Scharf (bereit)' : 'Wartet auf Boden-Stabilisierung');
         st.textContent = missionRuntime.active
             ? (missionRuntime.manual || !autoStartEnabled ? 'Aktiv (manuell)' : 'Aktiv')
             : (draftBlocked ? 'Entwurf: Mission akzeptieren' : idleText);
+        st.title = groundStatus.reason
+            ? `Start-Gate: ${groundStatus.reason}${Number.isFinite(Number(groundStatus.gs)) ? ` | GS ${Number(groundStatus.gs).toFixed(1)} kt` : ''}${Number.isFinite(Number(groundStatus.agl)) ? ` | AGL ${Math.round(Number(groundStatus.agl))} ft` : ''}`
+            : '';
         st.style.color = missionRuntime.active ? '#4caf50' : (draftBlocked ? '#f2c12e' : (!autoStartEnabled ? (validMission && groundReady ? '#8ec5ff' : '#888') : (missionRuntime.armed ? '#f2c12e' : '#888')));
     }
     const bStart = document.getElementById('missionStartBtn');
