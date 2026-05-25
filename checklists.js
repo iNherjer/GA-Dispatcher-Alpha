@@ -866,7 +866,7 @@
             <div class="cargo-detail-actions">
                 ${canLoad ? `<button class="checklist-mini-btn primary" type="button" data-action="cargo-load" data-item-id="${escapeAttr(item.id)}">Laden</button>` : ''}
                 ${canUnload ? `<button class="checklist-mini-btn ${dropMode ? 'danger' : 'primary'}" type="button" data-action="cargo-unload" data-item-id="${escapeAttr(item.id)}">${dropMode ? 'Abwerfen' : 'Entladen'}</button>` : ''}
-                <button class="checklist-mini-btn" type="button" data-action="cargo-open-modal">Cargo-Fenster</button>
+                <button class="checklist-mini-btn" type="button" data-action="cargo-open-modal">Verladefenster</button>
             </div>
         `;
         return `
@@ -3442,9 +3442,9 @@ ${routeLines}`;
         } else if (action === 'cargo-open-modal') {
             if (typeof window.openMissionCargoDialog === 'function') {
                 window.openMissionCargoDialog('load');
-                setStatus('Cargo-Fenster geoeffnet.', 'good');
+                setStatus('Verladefenster geoeffnet.', 'good');
             } else {
-                setStatus('Cargo-Fenster nicht verfuegbar.', 'error');
+                setStatus('Verladefenster nicht verfuegbar.', 'error');
             }
         } else if (action === 'cargo-boardbook-time') {
             const itemId = button.dataset.itemId || '';

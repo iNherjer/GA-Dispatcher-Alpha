@@ -6985,7 +6985,7 @@ body.map-drawing-active #map.leaflet-dragging {
 .mission-cargo-overlay {
     position: fixed;
     inset: 0;
-    z-index: 10040;
+    z-index: 130800;
     display: none;
     align-items: center;
     justify-content: center;
