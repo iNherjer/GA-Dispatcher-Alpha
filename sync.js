@@ -5034,7 +5034,7 @@ function _updateMissionStartBanner(autoStartEnabled) {
     if (closeBtn) closeBtn.style.display = '';
     const scene = window.missionSceneStatus || {};
     let text = phase === 'boarded'
-        ? 'Boarding abgeschlossen. Mission kann gestartet werden.'
+        ? 'Boarding abgeschlossen. Wenn du die Ladung sicher verstaut hast, kann es losgehen.'
         : (simMode ? 'Sim-Modus bereit. Boarding und Verladen bereit.' : 'Tracker verbunden. Boarding und Verladen bereit.');
     if (phase !== 'boarded') {
         if (simMode) text = 'Sim-Modus bereit. Boarding und Verladen bereit.';
