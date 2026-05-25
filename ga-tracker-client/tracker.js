@@ -265,6 +265,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const pendingPayloadReads = new Map();
   const payloadReadDefCache = new Map();
   const payloadSetDefCache = new Map();
+  const namedVarSetDefCache = new Map();
+  const namedVarSetUnsupported = new Set();
   const lastExceptions = [];
   let nextReqId = 9300;
   let nextDefId = 9700;
@@ -406,27 +408,131 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
   };
 
-  const setPa24ComancheDoor = async (openDoor, reason = 'boarding') => {
-    if (!ensurePa24DoorEvents()) return false;
-    const action = openDoor ? 'OPEN' : 'CLOSE';
-    debugLog(`DOOR_PA24_${action}_START reason=${reason}`);
-    let ok = true;
-    ok = sendDoorClientEvent(PA24_DOOR_UNLOCK_EVENT_ID, 1, 'PA24-door_latch_unlock', reason) && ok;
-    await sleep(120);
-    ok = sendDoorClientEvent(PA24_DOOR_HANDLE_EVENT_ID, 1, 'PA24-door_handle_open', reason) && ok;
-    if (!openDoor) {
-      await sleep(120);
-      ok = sendDoorClientEvent(PA24_DOOR_LOCK_EVENT_ID, 1, 'PA24-door_latch_lock', reason) && ok;
+  const ensureNamedVarSetDefinition = (name, units = 'number') => {
+    const varName = String(name || '').trim();
+    const unitName = String(units || 'number').trim() || 'number';
+    if (!varName) return null;
+    const key = `${varName}|${unitName}`;
+    if (namedVarSetUnsupported.has(key)) return null;
+    if (namedVarSetDefCache.has(key)) return namedVarSetDefCache.get(key);
+    try {
+      const defId = nextDefId++;
+      const hr = handle.addToDataDefinition(defId, varName, unitName, SimConnectDataType.FLOAT64);
+      if (typeof hr === 'number' && hr < 0) {
+        namedVarSetUnsupported.add(key);
+        debugLog(`A2A_VAR_DEF_UNSUPPORTED name=${varName} units=${unitName} hr=${hr}`);
+        return null;
+      }
+      namedVarSetDefCache.set(key, defId);
+      debugLog(`A2A_VAR_DEF_READY name=${varName} units=${unitName} defId=${defId}`);
+      return defId;
+    } catch (err) {
+      namedVarSetUnsupported.add(key);
+      debugLog(`A2A_VAR_DEF_ERROR name=${varName} units=${unitName} error=${err?.message || err}`);
+      return null;
     }
-    debugLog(`DOOR_PA24_${action}_DONE status=${ok ? 'ok' : 'partial'} reason=${reason}`);
+  };
+
+  const setNamedVarValue = (name, value, units = 'number', reason = 'door') => {
+    const defId = ensureNamedVarSetDefinition(name, units);
+    if (!defId) return false;
+    try {
+      const buf = new RawBuffer(8);
+      buf.writeFloat64(Number(value) || 0);
+      handle.setDataOnSimObject(defId, SimConnectConstants.OBJECT_ID_USER, { buffer: buf, arrayCount: 0, tagged: false });
+      debugLog(`A2A_VAR_SET name=${name} units=${units} value=${Number(value) || 0} reason=${reason}`);
+      return true;
+    } catch (err) {
+      debugLog(`A2A_VAR_SET_ERROR name=${name} units=${units} value=${Number(value) || 0} reason=${reason} error=${err?.message || err}`);
+      return false;
+    }
+  };
+
+  const setNamedVarFromCandidates = (candidates = [], value = 0, unitsList = ['number', 'Bool', 'bool'], reason = 'door') => {
+    const names = uniqueStrings(Array.isArray(candidates) ? candidates : []);
+    const units = uniqueStrings(Array.isArray(unitsList) ? unitsList : [unitsList]);
+    for (const name of names) {
+      for (const unit of units) {
+        if (setNamedVarValue(name, value, unit || 'number', reason)) return true;
+      }
+    }
+    return false;
+  };
+
+  const buildDoorVarCandidates = (doorIndex = 1, baseName = 'Door') => {
+    const idx = clampInt(doorIndex, 1, 4);
+    const useIndices = idx === 1 ? [1] : [idx, 1];
+    const out = [];
+    useIndices.forEach((n) => {
+      out.push(`L:${baseName}${n}`);
+      out.push(`L:1:${baseName}${n}`);
+      out.push(`Z:${baseName}${n}`);
+    });
+    return uniqueStrings(out);
+  };
+
+  const setA2aDoorByLVars = async (openDoor, doorIndex = 1, reason = 'boarding', profile = 'a2a') => {
+    const handleVars = buildDoorVarCandidates(doorIndex, 'DoorHandle');
+    const latchVars = buildDoorVarCandidates(doorIndex, 'DoorLatch');
+    const exitVars = buildDoorVarCandidates(doorIndex, 'ExitOpen');
+    const action = openDoor ? 'OPEN' : 'CLOSE';
+    debugLog(`A2A_DOOR_LVAR_${action}_START profile=${profile} doorIndex=${doorIndex} reason=${reason}`);
+
+    let ok = false;
+    if (openDoor) {
+      ok = setNamedVarFromCandidates(latchVars, 1, ['number', 'Bool', 'bool'], `${reason}-latch-unlock-1`) || ok;
+      ok = setNamedVarFromCandidates(latchVars, 0, ['number', 'Bool', 'bool'], `${reason}-latch-unlock-0`) || ok;
+      await sleep(80);
+      ok = setNamedVarFromCandidates(handleVars, 1, ['Bool', 'bool', 'number'], `${reason}-handle-open`) || ok;
+      await sleep(80);
+      ok = setNamedVarFromCandidates(exitVars, 100, ['percent', 'number', 'Bool', 'bool'], `${reason}-exit-open-100`) || ok;
+      ok = setNamedVarFromCandidates(exitVars, 1, ['Bool', 'bool', 'number'], `${reason}-exit-open-1`) || ok;
+    } else {
+      ok = setNamedVarFromCandidates(handleVars, 0, ['Bool', 'bool', 'number'], `${reason}-handle-close`) || ok;
+      await sleep(70);
+      ok = setNamedVarFromCandidates(exitVars, 0, ['percent', 'number', 'Bool', 'bool'], `${reason}-exit-close`) || ok;
+      await sleep(70);
+      ok = setNamedVarFromCandidates(latchVars, 1, ['number', 'Bool', 'bool'], `${reason}-latch-lock-1`) || ok;
+      ok = setNamedVarFromCandidates(latchVars, 0, ['number', 'Bool', 'bool'], `${reason}-latch-lock-0`) || ok;
+    }
+    debugLog(`A2A_DOOR_LVAR_${action}_DONE profile=${profile} doorIndex=${doorIndex} status=${ok ? 'ok' : 'error'} reason=${reason}`);
     return ok;
+  };
+
+  const setPa24ComancheDoor = async (openDoor, doorIndex = 1, reason = 'boarding') => {
+    const action = openDoor ? 'OPEN' : 'CLOSE';
+    debugLog(`DOOR_PA24_${action}_START reason=${reason} doorIndex=${doorIndex}`);
+    let ok = true;
+
+    // Legacy custom events first (works for setups where PA24 key events are available).
+    let eventOk = false;
+    if (ensurePa24DoorEvents()) {
+      eventOk = sendDoorClientEvent(PA24_DOOR_UNLOCK_EVENT_ID, 1, 'PA24-door_latch_unlock', reason) || eventOk;
+      await sleep(120);
+      eventOk = sendDoorClientEvent(PA24_DOOR_HANDLE_EVENT_ID, 1, 'PA24-door_handle_open', reason) || eventOk;
+      if (!openDoor) {
+        await sleep(120);
+        eventOk = sendDoorClientEvent(PA24_DOOR_LOCK_EVENT_ID, 1, 'PA24-door_latch_lock', reason) || eventOk;
+      }
+      ok = eventOk && ok;
+    }
+
+    // LVar fallback path for A2A aircraft (works without PA24 custom key-event mapping).
+    const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche');
+    const finalOk = ok || lvarOk;
+    debugLog(`DOOR_PA24_${action}_DONE status=${finalOk ? 'ok' : 'error'} eventOk=${eventOk ? 1 : 0} lvarOk=${lvarOk ? 1 : 0} reason=${reason}`);
+    return finalOk;
   };
 
   const setUserAircraftDoor = async (openDoor, doorIndex = 1, reason = 'boarding', doorProfile = 'default') => {
     const profile = String(doorProfile || 'default').trim().toLowerCase();
     trackerLog(`🚪 Door ${openDoor ? 'open' : 'close'} profile=${profile} index=${doorIndex} (${reason})`);
     if (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche') {
-      return setPa24ComancheDoor(openDoor, reason);
+      return setPa24ComancheDoor(openDoor, doorIndex, reason);
+    }
+    if (profile.includes('a2a')) {
+      const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, profile);
+      if (lvarOk) return true;
     }
     if (!ensureDoorEvents()) return false;
     const index = clampInt(doorIndex, 0, 8);
@@ -536,6 +642,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const raw = String(command?.doorProfile || command?.aircraftDoorProfile || '').trim();
     const haystack = `${raw} ${command?.aircraftSlot || ''} ${command?.aircraftName || ''} ${command?.aircraftTitle || ''}`.toLowerCase();
     if (haystack.includes('pa-24') || haystack.includes('pa24') || haystack.includes('comanche')) return 'pa24_comanche';
+    if (haystack.includes('a2a')) return 'a2a_generic';
     return raw || 'default';
   };
 
