@@ -1277,7 +1277,6 @@ function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
     const status = window.missionSceneStatus || {};
     const gate = _missionSceneFlightGate(flightData);
     const hasScene = !!(status.spawned || status.spawnRequested);
-    const autoStageReason = /^(gps-tick|websocket-open)$/i.test(String(reason || ''));
     status.lastGate = gate;
     status.blockReason = '';
 
@@ -1290,10 +1289,6 @@ function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
 
     if (!_missionSceneAutoAllowed()) {
         status.blockReason = 'no_fire_mission';
-        return;
-    }
-    if (autoStageReason) {
-        status.blockReason = 'waiting_manual_boarding';
         return;
     }
     if (!gate.rawHasPosition) {

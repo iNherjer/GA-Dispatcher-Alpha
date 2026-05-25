@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v239';
-const TRACKER_VERSION_CODE = 239;
+const TRACKER_VERSION = 'v240';
+const TRACKER_VERSION_CODE = 240;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -463,10 +463,20 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const idx = clampInt(doorIndex, 1, 4);
     const useIndices = idx === 1 ? [1] : [idx, 1];
     const out = [];
+    const nameVariants = (n) => {
+      const variants = [String(baseName || '') + String(n)];
+      // A2A Comanche often uses Door1Handle / Door1Latch (index in the middle).
+      if (/^Door.+Handle$/i.test(baseName)) variants.push(`Door${n}Handle`);
+      if (/^Door.+Latch$/i.test(baseName)) variants.push(`Door${n}Latch`);
+      if (/^ExitOpen$/i.test(baseName)) variants.push(`Exit${n}Open`);
+      return uniqueStrings(variants);
+    };
     useIndices.forEach((n) => {
-      out.push(`L:${baseName}${n}`);
-      out.push(`L:1:${baseName}${n}`);
-      out.push(`Z:${baseName}${n}`);
+      nameVariants(n).forEach((name) => {
+        out.push(`L:${name}`);
+        out.push(`L:1:${name}`);
+        out.push(`Z:${name}`);
+      });
     });
     return uniqueStrings(out);
   };

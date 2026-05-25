@@ -482,6 +482,7 @@ function getAircraftDoorProfile(slotId = selectedAC) {
     if (haystack.includes('pa-24') || haystack.includes('pa24') || haystack.includes('comanche')) {
         return 'pa24_comanche';
     }
+    if (haystack.includes('a2a')) return 'a2a_generic';
     return 'default';
 }
 
