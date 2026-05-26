@@ -6392,6 +6392,14 @@ function _missionSceneBlockReasonBannerText(rawReason = '') {
     return `Szene wartet: ${reason}.`;
 }
 
+function _missionEndDeboardingBusy() {
+    const scene = window.missionSceneStatus || {};
+    return !!(missionRuntime.waitingFarewellDeboarding
+        || missionRuntime.deboardingAfterFarewellStarted
+        || scene.deboardingRequested
+        || scene.deboardingActive);
+}
+
 function _updateMissionStartBanner(autoStartEnabled) {
     const banner = document.getElementById('missionStartBanner');
     if (!banner) return;
@@ -6405,12 +6413,15 @@ function _updateMissionStartBanner(autoStartEnabled) {
     const groundReady = _missionStartGroundReady();
     const phase = _missionStartPhase();
     const endReady = missionRuntime.active ? _missionEndReadiness() : null;
+    const deboardingBusy = _missionEndDeboardingBusy();
     const showClose = !!missionRuntime.closingPending;
-    const showEnd = valid && missionRuntime.active && !!endReady?.ready && (!autoStartEnabled || missionRuntime.manual);
+    const showDeboarding = valid && missionRuntime.active && deboardingBusy;
+    const showEnd = valid && missionRuntime.active && !!endReady?.ready && !deboardingBusy && (!autoStartEnabled || missionRuntime.manual);
     const showStart = valid && (trackerConnected || simMode) && groundReady && !missionRuntime.active && !autoStartEnabled;
-    const show = showClose || showEnd || showStart;
+    const show = showClose || showDeboarding || showEnd || showStart;
     banner.style.display = show ? 'flex' : 'none';
     if (!show) return;
+    if (btn) btn.disabled = false;
     banner.classList.toggle('is-end-ready', showEnd);
     if (showClose) {
         if (kickerEl) kickerEl.textContent = 'Mission schliessen';
@@ -6422,6 +6433,16 @@ function _updateMissionStartBanner(autoStartEnabled) {
             textEl.textContent = `${_missionCloseOutcomeSummaryText(missionRuntime.closingOutcome)}${waitHint}`;
         }
         if (btn) btn.textContent = 'Mission schliessen';
+        return;
+    }
+    if (showDeboarding) {
+        if (kickerEl) kickerEl.textContent = 'Mission abschliessen';
+        if (closeBtn) closeBtn.style.display = 'none';
+        if (textEl) textEl.textContent = 'Deboarding laeuft. Missionabschluss wird vorbereitet.';
+        if (btn) {
+            btn.textContent = 'Bitte warten...';
+            btn.disabled = true;
+        }
         return;
     }
     if (closeBtn) closeBtn.style.display = showEnd ? 'none' : '';
@@ -6466,6 +6487,7 @@ function _updateMissionRuntimeUi() {
     const groundReady = !!groundStatus.ready;
     const phase = _missionStartPhase();
     const endReady = missionRuntime.active ? _missionEndReadiness() : null;
+    const deboardingBusy = _missionEndDeboardingBusy();
     const st = document.getElementById('missionRuntimeStatus');
     const nextStepEl = document.getElementById('missionRuntimeNextStep');
     if (st) {
@@ -6538,9 +6560,13 @@ function _updateMissionRuntimeUi() {
             bMap.disabled = false;
         } else {
             bMap.style.display = (!autoStartEnabled && (missionRuntime.active || (validMission && groundReady))) ? 'inline-flex' : 'none';
-            bMap.textContent = missionRuntime.active ? (endReady?.ready ? '■ Mission beenden' : '■ Mission stoppen') : (phase === 'boarded' ? '▶ Mission starten' : 'Boarding');
-            bMap.title = missionRuntime.active ? (endReady?.ready ? 'Mission am Ziel beenden' : 'Mission manuell stoppen') : (phase === 'boarded' ? 'Mission manuell starten' : 'Boarding und Verladen beginnen');
-            bMap.disabled = !missionRuntime.active && (!validMission || !groundReady);
+            bMap.textContent = missionRuntime.active
+                ? (deboardingBusy ? '… Deboarding läuft' : (endReady?.ready ? '■ Mission beenden' : '■ Mission stoppen'))
+                : (phase === 'boarded' ? '▶ Mission starten' : 'Boarding');
+            bMap.title = missionRuntime.active
+                ? (deboardingBusy ? 'Deboarding laeuft bereits' : (endReady?.ready ? 'Mission am Ziel beenden' : 'Mission manuell stoppen'))
+                : (phase === 'boarded' ? 'Mission manuell starten' : 'Boarding und Verladen beginnen');
+            bMap.disabled = missionRuntime.active ? deboardingBusy : (!validMission || !groundReady);
         }
         bMap.classList.toggle('is-active', missionRuntime.active);
     }
@@ -6887,6 +6913,10 @@ window.manualMissionEnd = function(options = {}) {
         window.openMissionCargoDialog('unload');
         return false;
     }
+    if (_missionEndDeboardingBusy()) {
+        _updateMissionRuntimeUi();
+        return true;
+    }
     const endReady = _missionEndReadiness();
     const farewellRecord = missionRuntime.arrivalFlightRecord || _buildFlightRecordSnapshot(Date.now()) || null;
     if (endReady.atTarget && typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
@@ -6953,6 +6983,10 @@ function _tryStartMissionEndScene(reason = 'mission-end', options = {}) {
 window.handleMissionStartBannerAction = async function() {
     if (missionRuntime.closingPending) {
         window.completeMissionClose('banner-close');
+        return;
+    }
+    if (_missionEndDeboardingBusy()) {
+        _updateMissionRuntimeUi();
         return;
     }
     if (missionRuntime.active) {

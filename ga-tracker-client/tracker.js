@@ -358,7 +358,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const ensureParkingBrakeDefinition = () => {
     if (parkingBrakeDefReady) return true;
     try {
-      handle.addToDataDefinition(PARKING_BRAKE_DEF_ID, 'BRAKE PARKING POSITION', 'Bool', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(PARKING_BRAKE_DEF_ID, 'BRAKE PARKING POSITION', 'Bool', SimConnectDataType.INT32);
       parkingBrakeDefReady = true;
       debugLog('PARKING_BRAKE_DEF_READY');
       return true;
@@ -371,8 +371,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const setObjectParkingBrake = (objectId, engaged = true, reason = 'scene-vehicle-hold') => {
     if (!objectId || !ensureParkingBrakeDefinition()) return false;
     try {
-      const buf = new RawBuffer(8);
-      buf.writeFloat64(engaged ? 1 : 0);
+      const buf = new RawBuffer(4);
+      buf.writeInt32(engaged ? 1 : 0);
       handle.setDataOnSimObject(PARKING_BRAKE_DEF_ID, objectId, { buffer: buf, arrayCount: 0, tagged: false });
       debugLog(`SCENE_VEHICLE_BRAKE objectId=${objectId} engaged=${engaged ? 1 : 0} reason=${reason}`);
       return true;
