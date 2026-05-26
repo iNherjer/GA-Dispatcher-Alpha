@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v244';
-const TRACKER_VERSION_CODE = 244;
+const TRACKER_VERSION = 'v245';
+const TRACKER_VERSION_CODE = 245;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -606,22 +606,26 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       0,
       2
     ])];
+    let anySpecificOk = false;
+    let anyGenericOk = false;
     for (const idx of tryIndices) {
       if (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche') {
         const pa24Ok = await setPa24ComancheDoor(openDoor, idx, `${reason}-idx-${idx}`);
-        if (pa24Ok) return true;
+        anySpecificOk = anySpecificOk || pa24Ok;
       }
       if (profile.includes('a2a')) {
         const lvarOk = await setA2aDoorByLVars(openDoor, idx, `${reason}-idx-${idx}`, profile);
-        if (lvarOk) return true;
+        anySpecificOk = anySpecificOk || lvarOk;
       }
       // Default aircraft path: apply both SimVar set and key events to increase compatibility.
       const simVarOk = await setGenericDoorBySimVars(openDoor, idx, `${reason}-idx-${idx}`);
       const eventOk = await setGenericDoorByEvents(openDoor, idx, `${reason}-idx-${idx}`);
-      if (simVarOk || eventOk) return true;
+      anyGenericOk = anyGenericOk || simVarOk || eventOk;
+      if (profile === 'default' && anyGenericOk) break;
     }
-    debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_DONE profile=${profile} index=${doorIndex} status=error reason=${reason}`);
-    return false;
+    const finalOk = anySpecificOk || anyGenericOk;
+    debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_DONE profile=${profile} index=${doorIndex} status=${finalOk ? 'ok' : 'error'} specificOk=${anySpecificOk ? 1 : 0} genericOk=${anyGenericOk ? 1 : 0} reason=${reason}`);
+    return finalOk;
   };
 
   const clampPayloadStationCount = (value, fallback = 12) => {
