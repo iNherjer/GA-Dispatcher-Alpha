@@ -787,7 +787,6 @@ window.vpRenderMissionSceneDebugOverlay = renderMissionSceneDebugOverlay;
 function collectMissionAptArrivalLocation() {
     const dbg = (window.gaMissionSceneDebug && typeof window.gaMissionSceneDebug === 'object') ? window.gaMissionSceneDebug : {};
     const status = window.missionAptArrivalSceneStatus || {};
-    if (status.clearRequested || status.cleared) return null;
     const resolvedScene = dbg.appResolvedAptArrivalScene && typeof dbg.appResolvedAptArrivalScene === 'object' ? dbg.appResolvedAptArrivalScene : null;
     const resolvedPoint = resolvedScene && resolvedScene.point;
     const command = dbg.lastAptArrivalSceneCommand || null;
@@ -877,7 +876,7 @@ function renderMissionSceneTargetMarker() {
         interactive: true,
         bubblingMouseEvents: false
     });
-    marker.bindTooltip('Abholung', { direction: 'top', opacity: 0.95 });
+    marker.bindTooltip('Abholteam', { direction: 'top', opacity: 0.95 });
     marker.on('click', () => marker.openTooltip());
     marker.addTo(vpMissionSceneTargetLayer);
     if (!map.hasLayer(vpMissionSceneTargetLayer)) vpMissionSceneTargetLayer.addTo(map);

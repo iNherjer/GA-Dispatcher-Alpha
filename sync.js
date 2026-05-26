@@ -6370,6 +6370,28 @@ function _resetMissionStartFlowAfterEnd() {
     });
 }
 
+function _missionSceneBlockReasonBannerText(rawReason = '') {
+    const reason = String(rawReason || '').trim();
+    if (!reason) return 'Szene wartet auf Freigabe.';
+    const awayMatch = reason.match(/^away_from_start_(\d+)nm$/i);
+    if (awayMatch) {
+        const distNm = Math.max(0, Math.round(Number(awayMatch[1]) || 0));
+        return `Startszene nur am Abflugplatz verfuegbar (ca. ${distNm} NM entfernt).`;
+    }
+    if (reason === 'no_live_position') return 'Warte auf gueltige Live-Position.';
+    if (reason === 'bad_live_position') return 'Live-Position unplausibel, bitte kurz stabilisieren.';
+    if (reason === 'sim_paused_or_menu') return 'Sim pausiert oder Menue offen.';
+    if (reason === 'not_on_ground') return 'Bitte fuer Boarding am Boden sein.';
+    if (reason === 'agl_too_high') return 'Bitte fuer Boarding tiefer/nahe Boden gehen.';
+    if (reason === 'too_fast_for_stage') return 'Bitte fuer Boarding langsamer rollen.';
+    if (reason === 'already_airborne_cleared') return 'Szene im Flug automatisch entfernt.';
+    if (reason === 'spawn_pending') return 'Startszene wird vorbereitet.';
+    if (reason === 'spawn_cooldown') return 'Startszene hat kurze Sperrzeit.';
+    if (reason === 'already_spawned') return 'Startszene steht bereits.';
+    if (reason === 'no_fire_mission') return 'Kein passendes Missionsprofil fuer Startszene.';
+    return `Szene wartet: ${reason}.`;
+}
+
 function _updateMissionStartBanner(autoStartEnabled) {
     const banner = document.getElementById('missionStartBanner');
     if (!banner) return;
@@ -6425,7 +6447,7 @@ function _updateMissionStartBanner(autoStartEnabled) {
         if (simMode) text = 'Sim-Modus bereit. Boarding und Verladen bereit.';
         else if (scene.spawned) text = `Start-Szene steht (${scene.spawnedCount || '?'} Objekte). Boarding bereit.`;
         else if (scene.spawnRequested) text = 'Start-Szene wird vorbereitet. Boarding bereit.';
-        else if (scene.blockReason) text = `Boarding bereit. Szene wartet: ${scene.blockReason}.`;
+        else if (scene.blockReason) text = _missionSceneBlockReasonBannerText(scene.blockReason);
         else if (_missionLooksLikeFireWatch()) text = 'Feuerwehr-Szene wird vorbereitet. Boarding bereit.';
         if (typeof window.paxVoicePrepareBoarding === 'function') {
             try { window.paxVoicePrepareBoarding(); } catch (_) {}
@@ -6443,7 +6465,9 @@ function _updateMissionRuntimeUi() {
     const groundStatus = _missionStartGroundStatus();
     const groundReady = !!groundStatus.ready;
     const phase = _missionStartPhase();
+    const endReady = missionRuntime.active ? _missionEndReadiness() : null;
     const st = document.getElementById('missionRuntimeStatus');
+    const nextStepEl = document.getElementById('missionRuntimeNextStep');
     if (st) {
         const idleText = !autoStartEnabled
             ? (!validMission ? 'Keine startbare Mission' : (groundReady ? (phase === 'boarded' ? 'Mission startbereit' : 'Boarding bereit') : groundStatus.label))
@@ -6457,6 +6481,39 @@ function _updateMissionRuntimeUi() {
             ? `Start-Gate: ${groundStatus.reason}${Number.isFinite(Number(groundStatus.gs)) ? ` | GS ${Number(groundStatus.gs).toFixed(1)} kt` : ''}${Number.isFinite(Number(groundStatus.agl)) ? ` | AGL ${Math.round(Number(groundStatus.agl))} ft` : ''}`
             : '';
         st.style.color = missionRuntime.active ? '#4caf50' : (draftBlocked ? '#f2c12e' : (!autoStartEnabled ? (validMission && groundReady ? '#8ec5ff' : '#888') : (missionRuntime.armed ? '#f2c12e' : '#888')));
+    }
+    if (nextStepEl) {
+        let nextStep = 'Nächster Schritt: Mission vorbereiten';
+        if (missionRuntime.closingPending) {
+            nextStep = 'Nächster Schritt: Mission schließen';
+        } else if (missionRuntime.active) {
+            if (missionRuntime.waitingFarewellDeboarding && !missionRuntime.deboardingAfterFarewellStarted) {
+                nextStep = 'Nächster Schritt: Farewell abwarten';
+            } else if (window.missionSceneStatus?.deboardingActive) {
+                nextStep = 'Nächster Schritt: Deboarding läuft';
+            } else if (endReady?.ready) {
+                if (typeof _missionCargoNeedsUnload === 'function' && _missionCargoNeedsUnload()) {
+                    nextStep = 'Nächster Schritt: Pflichtladung entladen';
+                } else {
+                    nextStep = 'Nächster Schritt: Mission beenden';
+                }
+            } else if (endReady?.groundStill && !endReady?.atTarget) {
+                nextStep = 'Nächster Schritt: Zum Ziel rollen/fliegen';
+            } else {
+                nextStep = 'Nächster Schritt: Am Ziel landen und stoppen';
+            }
+        } else if (phase === 'boarded' && validMission) {
+            nextStep = 'Nächster Schritt: Mission starten';
+        } else if (window.missionSceneStatus?.boardingRequested || window.missionSceneStatus?.boardingActive) {
+            nextStep = 'Nächster Schritt: Boarding läuft';
+        } else if (validMission && groundReady) {
+            nextStep = 'Nächster Schritt: Boarding und Verladen starten';
+        } else if (!validMission) {
+            nextStep = 'Nächster Schritt: Mission erzeugen/akzeptieren';
+        } else if (autoStartEnabled) {
+            nextStep = 'Nächster Schritt: Auf Boden-Stabilisierung warten';
+        }
+        nextStepEl.textContent = nextStep;
     }
     const bStart = document.getElementById('missionStartBtn');
     const bEnd = document.getElementById('missionEndBtn');
@@ -6481,7 +6538,6 @@ function _updateMissionRuntimeUi() {
             bMap.disabled = false;
         } else {
             bMap.style.display = (!autoStartEnabled && (missionRuntime.active || (validMission && groundReady))) ? 'inline-flex' : 'none';
-            const endReady = missionRuntime.active ? _missionEndReadiness() : null;
             bMap.textContent = missionRuntime.active ? (endReady?.ready ? '■ Mission beenden' : '■ Mission stoppen') : (phase === 'boarded' ? '▶ Mission starten' : 'Boarding');
             bMap.title = missionRuntime.active ? (endReady?.ready ? 'Mission am Ziel beenden' : 'Mission manuell stoppen') : (phase === 'boarded' ? 'Mission manuell starten' : 'Boarding und Verladen beginnen');
             bMap.disabled = !missionRuntime.active && (!validMission || !groundReady);
@@ -6647,6 +6703,7 @@ function _triggerPaxFarewellAndWaitForDeboard(record, reason = 'pax-farewell') {
 window.missionSceneStartDeboardingAfterFarewell = function(reason = 'pax-farewell-complete') {
     if (!missionRuntime.waitingFarewellDeboarding) return false;
     if (missionRuntime.deboardingAfterFarewellStarted) return false;
+    missionRuntime.deboardingAfterFarewellStarted = true;
     return _missionSceneFinishRuntimeAfterDeboard(reason);
 };
 
@@ -6831,14 +6888,17 @@ window.manualMissionEnd = function(options = {}) {
         return false;
     }
     const endReady = _missionEndReadiness();
+    const farewellRecord = _buildFlightRecordSnapshot(Date.now());
+    if (endReady.atTarget && farewellRecord && typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
+        if (_triggerPaxFarewellAndWaitForDeboard(farewellRecord, 'manual-end-farewell')) {
+            return true;
+        }
+    }
     let cargoOutcome = typeof _missionCargoFinalizeMissionOutcome === 'function'
         ? _missionCargoFinalizeMissionOutcome({ source: 'manual-mission-end' })
         : null;
     cargoOutcome = _missionOutcomeApplyEndReadiness(cargoOutcome, endReady);
-    const farewellRecord = _buildFlightRecordSnapshot(Date.now());
-    if (endReady.atTarget && farewellRecord && typeof window.triggerPaxFarewell === 'function') {
-        try { window.triggerPaxFarewell(farewellRecord); } catch (_) {}
-    } else if (!endReady.atTarget && typeof window.triggerPaxOffDestinationLanding === 'function') {
+    if (!endReady.atTarget && typeof window.triggerPaxOffDestinationLanding === 'function') {
         const dTargetNm = endReady.hasAptArrival && Number.isFinite(Number(endReady.dArrivalNm))
             ? Number(endReady.dArrivalNm)
             : Number(endReady.dMissionNm);

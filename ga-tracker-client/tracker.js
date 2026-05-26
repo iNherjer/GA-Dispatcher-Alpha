@@ -30,6 +30,7 @@ const PA24_DOOR_HANDLE_EVENT_ID = 9367;
 const PA24_DOOR_LOCK_EVENT_ID = 9368;
 const DOOR_OPEN_SINGLE_EVENT_ID = 9369;
 const DOOR_CLOSE_SINGLE_EVENT_ID = 9370;
+const PARKING_BRAKE_DEF_ID = 9371;
 const CONSOLE_MODES = new Set(['status', 'full', 'quiet']);
 let consoleMode = 'status';
 let consoleStatusLine = '';
@@ -276,6 +277,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   let nextDefId = 9700;
   let teleportDefReady = false;
   let waypointDefReady = false;
+  let parkingBrakeDefReady = false;
   let doorEventsReady = false;
   let pa24DoorEventsReady = false;
   let doorLastAppliedState = null; // true=open, false=closed
@@ -351,6 +353,40 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       debugLog(`WAYPOINT_ROUTE_ERROR objectId=${objectId} points=${route.length} error=${err?.message || err}`);
       return false;
     }
+  };
+
+  const ensureParkingBrakeDefinition = () => {
+    if (parkingBrakeDefReady) return true;
+    try {
+      handle.addToDataDefinition(PARKING_BRAKE_DEF_ID, 'BRAKE PARKING POSITION', 'Bool', SimConnectDataType.FLOAT64);
+      parkingBrakeDefReady = true;
+      debugLog('PARKING_BRAKE_DEF_READY');
+      return true;
+    } catch (err) {
+      debugLog(`PARKING_BRAKE_DEF_ERROR ${err?.message || err}`);
+      return false;
+    }
+  };
+
+  const setObjectParkingBrake = (objectId, engaged = true, reason = 'scene-vehicle-hold') => {
+    if (!objectId || !ensureParkingBrakeDefinition()) return false;
+    try {
+      const buf = new RawBuffer(8);
+      buf.writeFloat64(engaged ? 1 : 0);
+      handle.setDataOnSimObject(PARKING_BRAKE_DEF_ID, objectId, { buffer: buf, arrayCount: 0, tagged: false });
+      debugLog(`SCENE_VEHICLE_BRAKE objectId=${objectId} engaged=${engaged ? 1 : 0} reason=${reason}`);
+      return true;
+    } catch (err) {
+      debugLog(`SCENE_VEHICLE_BRAKE_ERROR objectId=${objectId} engaged=${engaged ? 1 : 0} reason=${reason} error=${err?.message || err}`);
+      return false;
+    }
+  };
+
+  const holdVehicleAtPoint = (objectId, point, reason = 'scene-vehicle-hold') => {
+    const holdSent = sendWaypointRoute(objectId, [point], 0.5);
+    const brakeSet = setObjectParkingBrake(objectId, true, reason);
+    debugLog(`SCENE_VEHICLE_HOLD objectId=${objectId} holdSent=${holdSent ? 1 : 0} brakeSet=${brakeSet ? 1 : 0} reason=${reason}`);
+    return holdSent || brakeSet;
   };
 
   const ensureDoorEvents = () => {
@@ -1125,6 +1161,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const speedKts = Math.max(2, Math.min(12, Number(command?.vehicleSpeedKts || command?.vehicleDepartureSpeedKts || 7) || 7));
     let routeSent = false;
     const sendVehicleRoute = () => {
+      setObjectParkingBrake(vehicle.objectId, false, 'scene-vehicle-depart');
       routeSent = sendWaypointRoute(vehicle.objectId, route.slice(1), speedKts);
       debugLog(`SCENE_VEHICLE_DEPART scene=${sceneId} objectId=${vehicle.objectId} status=${routeSent ? 'ok' : 'failed'} points=${route.length - 1} speedKts=${speedKts} boardDelayMs=${boardDelayMs}`);
     };
@@ -1451,6 +1488,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       vehicleArrivalMs = clampInt((pathDistanceM(vehicleReturnRoute) / Math.max(0.5, vehicleSpeedKts * 0.514444)) * 1000 + 1200, 2500, 24000);
       debugLog(`SCENE_DEBOARDING_VEHICLE scene=${sceneId} objectId=${vehicle.objectId} routeSent=${vehicleRouteSent ? 1 : 0} arrivalMs=${vehicleArrivalMs}`);
       await sleep(vehicleRouteSent ? vehicleArrivalMs : 1200);
+      holdVehicleAtPoint(vehicle.objectId, vehiclePark, 'scene-deboarding-arrival-park');
     } else {
       debugLog(`SCENE_DEBOARDING_NO_VEHICLE scene=${sceneId}`);
     }
@@ -1547,6 +1585,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       const departVehicle = (vehicleRec, vehicle, startPoint, reason) => {
         if (!vehicleRec || !vehicle?.objectId || departRoute.length < 2) return false;
         const speedKts = Math.max(2, Math.min(12, Number(command?.vehicleSpeedKts || command?.vehicleDepartureSpeedKts || 7) || 7));
+        setObjectParkingBrake(vehicle.objectId, false, 'scene-deboarding-pickup-depart');
         const sent = sendWaypointRoute(vehicle.objectId, departRoute.slice(1), speedKts);
         if (!sent) return false;
         const distancePath = [startPoint || departRoute[0]].concat(departRoute.slice(1));
@@ -1670,6 +1709,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       const obj = await spawnSceneObjectFromPlan(sceneId, p, 3000);
       if (obj) {
         rec.objects.push(obj);
+        if (String(obj.kind || '').toLowerCase().includes('vehicle')) {
+          await sleep(120);
+          holdVehicleAtPoint(obj.objectId, obj, 'scene-object-append-park');
+        }
         objects.push(obj);
       }
     }
@@ -1715,8 +1758,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           debugLog(`SCENE_SPAWN_OK scene=${sceneId} kind=${p.kind} index=${p.index} objectId=${objectId} title="${candidate}" requestedTitle="${p.title}" lat=${p.lat} lon=${p.lon} altFt=${p.altFt} hdg=${p.hdg} forwardM=${p.forwardM} rightM=${p.rightM}`);
           if (String(p.kind || '').toLowerCase() === 'vehicle') {
             await sleep(250);
-            const parked = sendWaypointRoute(objectId, [p], 0.5);
-            debugLog(`SCENE_VEHICLE_HOLD scene=${sceneId} objectId=${objectId} status=${parked ? 'ok' : 'failed'}`);
+            holdVehicleAtPoint(objectId, p, `scene-spawn-park-${sceneId}`);
           }
           spawned = true;
           break;
