@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v245';
-const TRACKER_VERSION_CODE = 245;
+const TRACKER_VERSION = 'v246';
+const TRACKER_VERSION_CODE = 246;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -276,6 +276,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   let waypointDefReady = false;
   let doorEventsReady = false;
   let pa24DoorEventsReady = false;
+  let doorLastAppliedState = null; // true=open, false=closed
+  let doorLastAppliedAt = 0;
+  let doorLastApplyOk = false;
 
   const ensureTeleportDefinition = () => {
     if (teleportDefReady) return true;
@@ -563,13 +566,18 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       // Some default aircraft only react to singular open/close events.
       ok = sendDoorClientEvent(singleEventId, eventIndex, singleLabel, `${reason}-single-idx-${eventIndex}`) || ok;
       await sleep(60);
-      if (!ok) {
-        ok = sendDoorClientEvent(DOOR_TOGGLE_EVENT_ID, eventIndex, toggleLabel, `${reason}-toggle-idx-${eventIndex}`) || ok;
+    }
+    let toggleOk = false;
+    // Toggle only as last resort for opening; toggling while closing can re-open doors.
+    if (!ok && openDoor) {
+      for (const eventIndex of indices) {
+        toggleOk = sendDoorClientEvent(DOOR_TOGGLE_EVENT_ID, eventIndex, toggleLabel, `${reason}-toggle-idx-${eventIndex}`) || toggleOk;
         await sleep(60);
       }
     }
-    debugLog(`DOOR_GENERIC_EVENT_${openDoor ? 'OPEN' : 'CLOSE'} indices=${indices.join(',')} status=${ok ? 'ok' : 'error'} reason=${reason}`);
-    return ok;
+    const finalOk = ok || toggleOk;
+    debugLog(`DOOR_GENERIC_EVENT_${openDoor ? 'OPEN' : 'CLOSE'} indices=${indices.join(',')} status=${finalOk ? 'ok' : 'error'} directOk=${ok ? 1 : 0} toggleOk=${toggleOk ? 1 : 0} reason=${reason}`);
+    return finalOk;
   };
 
   const setPa24ComancheDoor = async (openDoor, doorIndex = 1, reason = 'boarding') => {
@@ -599,6 +607,19 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
   const setUserAircraftDoor = async (openDoor, doorIndex = 1, reason = 'boarding', doorProfile = 'default') => {
     const profile = String(doorProfile || 'default').trim().toLowerCase();
+    const now = Date.now();
+    const sameTargetRecent = doorLastApplyOk
+      && doorLastAppliedState === !!openDoor
+      && (now - doorLastAppliedAt) <= 8000;
+    if (sameTargetRecent) {
+      debugLog(`DOOR_SKIP_DUPLICATE target=${openDoor ? 'open' : 'close'} profile=${profile} ageMs=${now - doorLastAppliedAt} reason=${reason}`);
+      return true;
+    }
+    // Avoid immediate slam-close if duplicate scene commands overlap.
+    if (!openDoor && doorLastApplyOk && doorLastAppliedState === true && (now - doorLastAppliedAt) < 3000) {
+      debugLog(`DOOR_SKIP_EARLY_CLOSE profile=${profile} ageMs=${now - doorLastAppliedAt} reason=${reason}`);
+      return true;
+    }
     trackerLog(`🚪 Door ${openDoor ? 'open' : 'close'} profile=${profile} index=${doorIndex} (${reason})`);
     const tryIndices = [...new Set([
       clampInt(doorIndex, 0, 8),
@@ -621,9 +642,14 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       const simVarOk = await setGenericDoorBySimVars(openDoor, idx, `${reason}-idx-${idx}`);
       const eventOk = await setGenericDoorByEvents(openDoor, idx, `${reason}-idx-${idx}`);
       anyGenericOk = anyGenericOk || simVarOk || eventOk;
-      if (profile === 'default' && anyGenericOk) break;
+      if (anyGenericOk) break;
     }
     const finalOk = anySpecificOk || anyGenericOk;
+    doorLastApplyOk = finalOk;
+    if (finalOk) {
+      doorLastAppliedState = !!openDoor;
+      doorLastAppliedAt = Date.now();
+    }
     debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_DONE profile=${profile} index=${doorIndex} status=${finalOk ? 'ok' : 'error'} specificOk=${anySpecificOk ? 1 : 0} genericOk=${anyGenericOk ? 1 : 0} reason=${reason}`);
     return finalOk;
   };
