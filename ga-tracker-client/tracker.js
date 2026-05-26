@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v246';
-const TRACKER_VERSION_CODE = 246;
+const TRACKER_VERSION = 'v247';
+const TRACKER_VERSION_CODE = 247;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -608,15 +608,17 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const setUserAircraftDoor = async (openDoor, doorIndex = 1, reason = 'boarding', doorProfile = 'default') => {
     const profile = String(doorProfile || 'default').trim().toLowerCase();
     const now = Date.now();
-    const sameTargetRecent = doorLastApplyOk
-      && doorLastAppliedState === !!openDoor
-      && (now - doorLastAppliedAt) <= 8000;
-    if (sameTargetRecent) {
-      debugLog(`DOOR_SKIP_DUPLICATE target=${openDoor ? 'open' : 'close'} profile=${profile} ageMs=${now - doorLastAppliedAt} reason=${reason}`);
+    // Duplicate-open suppression caused missed Comanche openings in practice.
+    // Keep suppression only for repeated/early close commands.
+    const sameCloseRecent = !openDoor
+      && doorLastApplyOk
+      && doorLastAppliedState === false
+      && (now - doorLastAppliedAt) <= 5000;
+    if (sameCloseRecent) {
+      debugLog(`DOOR_SKIP_DUPLICATE_CLOSE profile=${profile} ageMs=${now - doorLastAppliedAt} reason=${reason}`);
       return true;
     }
-    // Avoid immediate slam-close if duplicate scene commands overlap.
-    if (!openDoor && doorLastApplyOk && doorLastAppliedState === true && (now - doorLastAppliedAt) < 3000) {
+    if (!openDoor && doorLastApplyOk && doorLastAppliedState === true && (now - doorLastAppliedAt) < 2200) {
       debugLog(`DOOR_SKIP_EARLY_CLOSE profile=${profile} ageMs=${now - doorLastAppliedAt} reason=${reason}`);
       return true;
     }
