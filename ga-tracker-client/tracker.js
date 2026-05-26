@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v251';
-const TRACKER_VERSION_CODE = 251;
+const TRACKER_VERSION = 'v252';
+const TRACKER_VERSION_CODE = 252;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -1758,7 +1758,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           objects.push(spawnedObj);
           trackerLog(`  OK scene ${p.kind}: objectId=${objectId} title="${candidate}"`);
           debugLog(`SCENE_SPAWN_OK scene=${sceneId} kind=${p.kind} index=${p.index} objectId=${objectId} title="${candidate}" requestedTitle="${p.title}" lat=${p.lat} lon=${p.lon} altFt=${p.altFt} hdg=${p.hdg} forwardM=${p.forwardM} rightM=${p.rightM}`);
-          if (String(p.kind || '').toLowerCase() === 'vehicle') {
+          if (String(p.kind || '').toLowerCase().includes('vehicle')) {
             await sleep(250);
             holdVehicleAtPoint(objectId, p, `scene-spawn-park-${sceneId}`);
           }

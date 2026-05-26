@@ -6707,12 +6707,27 @@ function _missionSceneFinishRuntimeAfterDeboard(reason = 'mission-end-after-fare
     return endSceneStarted || cargoOutcome || true;
 }
 
+function _missionFarewellRecordWithCargoOutcome(record) {
+    const baseRecord = (record && typeof record === 'object') ? { ...record } : {};
+    if (typeof window.missionCargoEvaluateOutcome === 'function') {
+        try {
+            const outcome = window.missionCargoEvaluateOutcome();
+            if (outcome && typeof outcome === 'object' && outcome.status !== 'none') {
+                baseRecord.missionCargoOutcome = outcome;
+            }
+        } catch (_) {}
+    }
+    return Object.keys(baseRecord).length ? baseRecord : null;
+}
+
 function _triggerPaxFarewellAndWaitForDeboard(record, reason = 'pax-farewell') {
     if (typeof window.triggerPaxFarewell !== 'function') return false;
+    if (typeof _missionCargoNeedsUnload === 'function' && _missionCargoNeedsUnload()) return false;
+    const farewellRecord = _missionFarewellRecordWithCargoOutcome(record);
     missionRuntime.waitingFarewellDeboarding = true;
     missionRuntime.deboardingAfterFarewellStarted = false;
     try {
-        window.triggerPaxFarewell(record);
+        window.triggerPaxFarewell(farewellRecord);
     } catch (err) {
         missionRuntime.waitingFarewellDeboarding = false;
         console.warn('[MissionRuntime] Pax farewell trigger failed:', err);
