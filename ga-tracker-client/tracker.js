@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v250';
-const TRACKER_VERSION_CODE = 250;
+const TRACKER_VERSION = 'v251';
+const TRACKER_VERSION_CODE = 251;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -383,19 +383,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   };
 
   const holdVehicleAtPoint = (objectId, point, reason = 'scene-vehicle-hold') => {
-    const teleported = point ? teleportObject(objectId, {
-      lat: Number(point.lat),
-      lon: Number(point.lon),
-      altFt: Number(point.altFt),
-      hdg: Number(point.hdg || 0)
-    }) : false;
+    const holdSent = sendWaypointRoute(objectId, [point], 0.5);
     const brakeSet = setObjectParkingBrake(objectId, true, reason);
-    // Einige Ground-Vehicles ignorieren den ersten Brake-Write sporadisch.
-    // Deshalb nachsetzen, damit das Fahrzeug wirklich stehen bleibt.
     setTimeout(() => setObjectParkingBrake(objectId, true, `${reason}-retry1`), 350);
     setTimeout(() => setObjectParkingBrake(objectId, true, `${reason}-retry2`), 1200);
-    debugLog(`SCENE_VEHICLE_HOLD objectId=${objectId} teleported=${teleported ? 1 : 0} brakeSet=${brakeSet ? 1 : 0} reason=${reason}`);
-    return teleported || brakeSet;
+    debugLog(`SCENE_VEHICLE_HOLD objectId=${objectId} holdSent=${holdSent ? 1 : 0} brakeSet=${brakeSet ? 1 : 0} reason=${reason}`);
+    return holdSent || brakeSet;
   };
 
   const ensureDoorEvents = () => {
