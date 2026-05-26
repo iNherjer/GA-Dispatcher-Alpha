@@ -666,6 +666,7 @@ window.missionAptArrivalSceneStatus = {
     clearedCount: 0,
     error: null
 };
+let missionSceneReconnectResyncPending = false;
 
 function _missionSceneDebugState() {
     if (!window.gaMissionSceneDebug || typeof window.gaMissionSceneDebug !== 'object') {
@@ -6259,6 +6260,46 @@ function _missionCloseOutcomeSummaryText(outcome = null) {
         : 'Mission wuerde mit Fehlschlag enden. Mit "Mission schliessen" wird alles zurueckgesetzt.';
 }
 
+function _missionOutcomeApplyEndReadiness(outcome = null, endReady = null) {
+    if (!endReady || endReady.atTarget) return outcome;
+    const hasAptArrival = !!endReady.hasAptArrival;
+    const dNm = hasAptArrival && Number.isFinite(Number(endReady.dArrivalNm))
+        ? Number(endReady.dArrivalNm)
+        : Number(endReady.dMissionNm);
+    const distanceText = Number.isFinite(dNm) ? `${dNm.toFixed(2)} NM` : 'unbekannte Distanz';
+    const locationReason = hasAptArrival
+        ? `Zielbereich nicht erreicht (${distanceText} bis Empfangspunkt).`
+        : `Zielflugplatz nicht erreicht (${distanceText} bis Ziel).`;
+    const base = (outcome && typeof outcome === 'object')
+        ? { ...outcome }
+        : {
+            status: 'failed',
+            failed: true,
+            requiredTotal: 0,
+            requiredLoaded: 0,
+            missingRequired: [],
+            droppedRequired: [],
+            notDeliveredRequired: [],
+            damagedRequired: [],
+            loadedWeightLbs: 0,
+            totalWeightLbs: 0
+        };
+    const notDelivered = Array.isArray(base.notDeliveredRequired) ? base.notDeliveredRequired.slice() : [];
+    if (!notDelivered.includes(locationReason)) notDelivered.push(locationReason);
+    base.notDeliveredRequired = notDelivered;
+    base.failed = true;
+    base.status = 'failed';
+    try {
+        if (typeof currentMissionData !== 'undefined' && currentMissionData) {
+            currentMissionData.missionResult = 'failed';
+            currentMissionData.missionFailed = true;
+            currentMissionData.missionOutcome = base;
+        }
+        if (typeof saveMissionState === 'function') saveMissionState();
+    } catch (_) {}
+    return base;
+}
+
 function _setMissionClosePending(options = {}) {
     const outcome = options?.outcome && typeof options.outcome === 'object' ? options.outcome : null;
     missionRuntime.active = false;
@@ -6611,6 +6652,8 @@ window.missionSceneStartDeboardingAfterFarewell = function(reason = 'pax-farewel
 
 window.missionRuntimeReset = function(options = {}) {
     const respawnAfterClear = options && options.respawnAfterClear === true;
+    if (!window.simModeActive && !window.liveTrackerConnected) missionSceneReconnectResyncPending = true;
+    if (!window.simModeActive && window.liveTrackerConnected) missionSceneReconnectResyncPending = false;
     if (typeof window.closeMissionCargoDialog === 'function') window.closeMissionCargoDialog();
     if (typeof window.paxVoiceResetMission === 'function') {
         try { window.paxVoiceResetMission(); } catch (_) {}
@@ -6787,9 +6830,22 @@ window.manualMissionEnd = function(options = {}) {
         window.openMissionCargoDialog('unload');
         return false;
     }
-    const cargoOutcome = typeof _missionCargoFinalizeMissionOutcome === 'function'
+    const endReady = _missionEndReadiness();
+    let cargoOutcome = typeof _missionCargoFinalizeMissionOutcome === 'function'
         ? _missionCargoFinalizeMissionOutcome({ source: 'manual-mission-end' })
         : null;
+    cargoOutcome = _missionOutcomeApplyEndReadiness(cargoOutcome, endReady);
+    const farewellRecord = _buildFlightRecordSnapshot(Date.now());
+    if (endReady.atTarget && farewellRecord && typeof window.triggerPaxFarewell === 'function') {
+        try { window.triggerPaxFarewell(farewellRecord); } catch (_) {}
+    } else if (!endReady.atTarget && typeof window.triggerPaxOffDestinationLanding === 'function') {
+        const dTargetNm = endReady.hasAptArrival && Number.isFinite(Number(endReady.dArrivalNm))
+            ? Number(endReady.dArrivalNm)
+            : Number(endReady.dMissionNm);
+        if (Number.isFinite(dTargetNm)) {
+            try { window.triggerPaxOffDestinationLanding(dTargetNm); } catch (_) {}
+        }
+    }
     const endSceneStarted = _tryStartMissionEndScene('manual-mission-end', { force: true });
     _setMissionClosePending({ reason: 'manual-mission-end', outcome: cargoOutcome });
     const pos = window.lastLiveGpsPos;
@@ -8831,6 +8887,14 @@ window.connectToLiveGPS = async function(syncId) {
         // Dem Server mitteilen, in welchen Raum wir wollen (mit PIN!)
         liveGpsSocket.send(JSON.stringify({ type: 'join', syncId: syncId, pin: getSyncPin() }));
         setTimeout(() => _trackerPendingResendAll('websocket-open'), 300);
+        let missionSceneTickDelayMs = 900;
+        if (missionSceneReconnectResyncPending && !missionRuntime.active && !window.simModeActive) {
+            missionSceneReconnectResyncPending = false;
+            if (typeof window.clearMissionSceneObjects === 'function') {
+                try { window.clearMissionSceneObjects('websocket-open-resync'); } catch (_) {}
+            }
+            missionSceneTickDelayMs = 2200;
+        }
         if (window.missionCargoStatus?.payloadNeedsSync) {
             setTimeout(() => {
                 _missionCargoApplyPendingResetStations('websocket-reconnect-pending-reset')
@@ -8859,7 +8923,7 @@ window.connectToLiveGPS = async function(syncId) {
         if (missionRuntime.active && typeof window.missionAptArrivalEnsureSpawned === 'function') {
             setTimeout(() => window.missionAptArrivalEnsureSpawned('websocket-open'), 750);
         }
-        setTimeout(() => _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'websocket-open'), 900);
+        setTimeout(() => _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'websocket-open'), missionSceneTickDelayMs);
     };
 
     liveGpsSocket.onmessage = (event) => {
