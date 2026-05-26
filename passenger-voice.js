@@ -172,6 +172,7 @@ let _paxWrongStartActive = false;
 let _paxWrongStartContinueDone = false;
 let _paxOffDestLastAt = 0;
 let _paxBoardingDone = false;
+let _paxBoardingPromise = null;
 let _pattonvilleJuliusMentioned = false;
 let _pattonvilleReportingPointsMentioned = false;
 let _aptTrainingBriefDone = false;
@@ -215,6 +216,7 @@ window.paxVoiceResetMission = function() {
     _paxWrongStartContinueDone = false;
     _paxOffDestLastAt = 0;
     _paxBoardingDone = false;
+    _paxBoardingPromise = null;
     _pattonvilleJuliusMentioned = false;
     _pattonvilleReportingPointsMentioned = false;
     _aptTrainingBriefDone = false;
@@ -2677,11 +2679,19 @@ window.paxVoicePrepareBoarding = function() {
 
 window.paxVoicePlayBoarding = async function() {
     if (_paxBoardingDone) return true;
+    if (_paxBoardingPromise) return _paxBoardingPromise;
     const prepared = window.paxVoicePrepareBoarding();
     if (!prepared) return false;
-    await _speakPreparedText(prepared.key, prepared.text, prepared.speaker, 'Boarding');
-    _paxBoardingDone = true;
-    return true;
+    _paxBoardingPromise = (async () => {
+        await _speakPreparedText(prepared.key, prepared.text, prepared.speaker, 'Boarding');
+        _paxBoardingDone = true;
+        return true;
+    })();
+    try {
+        return await _paxBoardingPromise;
+    } finally {
+        _paxBoardingPromise = null;
+    }
 };
 
 window.paxVoiceBoardingDone = function() {

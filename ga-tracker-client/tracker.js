@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v248';
-const TRACKER_VERSION_CODE = 248;
+const TRACKER_VERSION = 'v249';
+const TRACKER_VERSION_CODE = 249;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -270,6 +270,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const namedVarSetDefCache = new Map();
   const namedVarSetUnsupported = new Set();
   const activeBoardingScenes = new Set();
+  const activeDeboardingScenes = new Set();
   const lastExceptions = [];
   let nextReqId = 9300;
   let nextDefId = 9700;
@@ -1387,6 +1388,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const animateMissionSceneDeboarding = async (command) => {
     const sceneId = String(command?.sceneId || 'mission-scene');
     const commandId = command?.commandId || null;
+    if (activeDeboardingScenes.has(sceneId)) {
+      debugLog(`SCENE_DEBOARDING_NOOP scene=${sceneId} reason=busy`);
+      sendAck({ type: 'mission_scene_deboarding_ack', commandId, sceneId, status: 'noop', error: 'busy' });
+      return;
+    }
+    activeDeboardingScenes.add(sceneId);
+    try {
     const rec = scenes.get(sceneId) || { sceneId, command: { ...command }, objects: [], positions: [] };
     rec.sceneId = sceneId;
     rec.command = { ...(rec.command || {}), ...command };
@@ -1577,6 +1585,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       durationMs: vehicleArrivalMs + walkMs,
       error: routeSentCount > 0 ? '' : 'waypoint_route_failed'
     });
+    } finally {
+      activeDeboardingScenes.delete(sceneId);
+    }
   };
 
   const clearScene = async (sceneId, reason = 'clear', commandId = null) => {

@@ -401,6 +401,7 @@ const trackerPayloadWaiters = new Map();
 const missionTargetSceneTerrainRequests = new Map();
 const trackerPendingMissionCommands = new Map();
 let missionSceneBoardingPromise = null;
+let missionStartBoardingPromise = null;
 const TRACKER_RETRYABLE_COMMAND_TYPES = new Set([
     'mission_scene_spawn',
     'mission_scene_clear',
@@ -425,8 +426,12 @@ function _trackerAckTypeForCommand(type = '') {
 
 function _trackerRetryConfigForCommand(type = '') {
     const t = String(type || '').toLowerCase();
-    if (t === 'mission_scene_boarding' || t === 'mission_scene_deboarding') {
-        return { maxAttempts: 4, timeoutMs: 18000 };
+    if (t === 'mission_scene_boarding') {
+        // Boarding animation can run ~20-40s; short retry timeouts cause duplicate scene playback.
+        return { maxAttempts: 2, timeoutMs: 52000 };
+    }
+    if (t === 'mission_scene_deboarding') {
+        return { maxAttempts: 2, timeoutMs: 52000 };
     }
     return { maxAttempts: 3, timeoutMs: 12000 };
 }
@@ -2451,6 +2456,7 @@ function _missionCargoInvalidateDispatchSignature(manifest) {
 }
 
 window.missionCargoSignDispatchList = function(options = {}) {
+    if (!_missionCargoLoadInteractionReady()) return false;
     const manifest = _missionCargoEnsureManifest();
     manifest.dispatchSignature = {
         by: _missionCargoPilotId(),
@@ -2464,6 +2470,7 @@ window.missionCargoSignDispatchList = function(options = {}) {
 };
 
 window.missionCargoClearDispatchSignature = function(options = {}) {
+    if (!_missionCargoLoadInteractionReady()) return false;
     const manifest = _missionCargoEnsureManifest();
     if (!manifest.dispatchSignature) return false;
     manifest.dispatchSignature = null;
@@ -2473,6 +2480,7 @@ window.missionCargoClearDispatchSignature = function(options = {}) {
 };
 
 window.missionCargoToggleDispatchSignature = function(options = {}) {
+    if (!_missionCargoLoadInteractionReady()) return false;
     const manifest = _missionCargoEnsureManifest();
     if (manifest.dispatchSignature) return window.missionCargoClearDispatchSignature(options);
     return window.missionCargoSignDispatchList(options);
@@ -3236,6 +3244,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         listLeft: Number(overlay.querySelector('.mission-cargo-list')?.scrollLeft || 0)
     } : null;
     const isUnload = mode === 'unload';
+    const loadInteractionReady = isUnload ? true : _missionCargoLoadInteractionReady();
     const visibleItems = isUnload
         ? manifest.items.filter(item => (item.status === 'loaded' || item.status === 'unloaded') && item.deliverAtDestination !== false)
         : manifest.items;
@@ -3258,7 +3267,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             ? (unloaded
                 ? `<button class="mission-cargo-row-btn" ${canReloadNearby ? '' : 'disabled'} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: 'unload-reload' })">${canReloadNearby ? 'Wieder laden' : 'Zu weit weg'}</button>`
                 : `<button class="mission-cargo-row-btn" onclick="window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}')">Ausladen</button>`)
-            : `<button class="mission-cargo-row-btn" ${loaded || dropped ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}')">${dropped ? 'Abgeworfen' : (loaded ? 'Geladen' : 'Laden')}</button>`;
+            : `<button class="mission-cargo-row-btn" ${loaded || dropped || !loadInteractionReady ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}')">${dropped ? 'Abgeworfen' : (loaded ? 'Geladen' : (!loadInteractionReady ? 'Warte auf Boarding' : 'Laden'))}</button>`;
         const status = dropped ? 'abgeworfen' : (unloaded ? 'ausgeladen' : (loaded ? 'geladen' : 'offen'));
         const distanceMeta = (isUnload && unloaded && Number.isFinite(reloadDistanceM))
             ? ` · Distanz ${Math.round(reloadDistanceM)} m`
@@ -3278,7 +3287,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         const dropped = item.status === 'dropped';
         const status = dropped ? 'abgeworfen' : (unloaded ? 'ausgeladen' : (loaded ? 'geladen' : 'offen'));
         const stationText = assignmentMap.get(String(item.id)) || (loaded ? 'auto' : '-');
-        const rowAction = !isUnload ? ` onclick="window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}')"` : '';
+        const rowAction = (!isUnload && loadInteractionReady) ? ` onclick="window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}')"` : '';
         return `
             <tr class="${loaded ? 'is-loaded' : ''} ${!isUnload ? 'is-interactive' : ''}"${rowAction}>
                 <td>${idx + 1}</td>
@@ -3293,7 +3302,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const metaPilot = _missionCargoPilotId();
     const metaDate = _missionCargoFormatDate(signature?.at || Date.now());
     const signaturePanel = !isUnload ? `
-        <div class="mission-cargo-signature ${signature ? 'is-signed' : ''} is-clickable" onclick="window.missionCargoToggleDispatchSignature && missionCargoToggleDispatchSignature()">
+        <div class="mission-cargo-signature ${signature ? 'is-signed' : ''} ${loadInteractionReady ? 'is-clickable' : ''}" ${loadInteractionReady ? 'onclick="window.missionCargoToggleDispatchSignature && missionCargoToggleDispatchSignature()"' : ''}>
             <div class="mission-cargo-signature-line">${signature ? _missionCargoEscape(signature.by || metaPilot) : '&nbsp;'}</div>
             <div class="mission-cargo-signature-meta">Unterschrift Pilot · ${signature ? _missionCargoEscape(_missionCargoFormatDate(signature.at)) : 'noch offen'} · Klick: ${signature ? 'Signatur loeschen' : 'unterschreiben'}</div>
         </div>` : '';
@@ -3306,7 +3315,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         ? 'Entladung abgeschlossen - Mission beenden'
         : (signature ? 'Mission beginnen' : 'Verladung bestaetigen & unterschreiben');
     const secondaryAction = (!isUnload && signature)
-        ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
+        ? `<button class="mission-cargo-secondary" ${loadInteractionReady ? '' : 'disabled'} onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
         : '';
     overlay.innerHTML = `
         <div class="mission-cargo-panel">
@@ -3319,7 +3328,9 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             </div>
             <div class="mission-cargo-copy">${isUnload
                 ? `Entlade die am Ziel benoetigten Gegenstaende. Wiederladen geht im Umkreis von ${MISSION_CARGO_RELOAD_MAX_DISTANCE_M} m.`
-                : 'Die Boarding-Animation laeuft parallel. Geladene Gegenstaende verschwinden aus der Startszene und werden fuer die Missionswertung gespeichert.'}</div>
+                : (loadInteractionReady
+                    ? 'Die Boarding-Animation ist abgeschlossen. Geladene Gegenstaende verschwinden aus der Startszene und werden fuer die Missionswertung gespeichert.'
+                    : 'Boarding/Ansage laeuft noch. Verladung wird freigeschaltet, sobald Animation und Boarding-Text abgeschlossen sind.')}</div>
             ${!isUnload ? `
             <div class="mission-cargo-clipboard">
                 <div class="mission-cargo-sheet-title">Frachtgutliste</div>
@@ -3351,7 +3362,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             </div>
             <div class="mission-cargo-actions">
                 ${secondaryAction}
-                <button class="mission-cargo-primary" onclick="${primaryActionJs}">${primaryActionLabel}</button>
+                <button class="mission-cargo-primary" ${(!isUnload && !loadInteractionReady) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
             </div>
         </div>`;
     overlay.style.display = 'flex';
@@ -3411,6 +3422,11 @@ window.closeMissionCargoDialog = function() {
 };
 
 window.missionCargoLoadItem = function(itemId, options = {}) {
+    if (!_missionCargoLoadInteractionReady()) {
+        window.missionCargoStatus.error = 'Boarding laeuft noch. Verladung wird danach freigeschaltet.';
+        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        return false;
+    }
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item || item.status === 'loaded') return false;
@@ -3453,6 +3469,11 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
 };
 
 window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
+    if (!_missionCargoLoadInteractionReady()) {
+        window.missionCargoStatus.error = 'Boarding laeuft noch. Verladung wird danach freigeschaltet.';
+        if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+        return false;
+    }
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item) return false;
@@ -3625,6 +3646,11 @@ window.missionCargoSetBoardBookTime = function(itemId, field) {
 };
 
 window.finishMissionCargoLoadingAndStart = function() {
+    if (!_missionCargoLoadInteractionReady()) {
+        window.missionCargoStatus.error = 'Warte bis Boarding und Ansage abgeschlossen sind.';
+        _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+        return false;
+    }
     const manifest = _missionCargoEnsureManifest();
     if (!manifest.dispatchSignature) {
         window.missionCargoSignDispatchList?.({ render: false });
@@ -5737,6 +5763,7 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
 
 window.missionSceneDeboarding = function(reason = 'mission-end') {
     if (window.simModeActive) return false;
+    if (window.missionSceneStatus?.deboardingRequested || window.missionSceneStatus?.deboardingActive) return false;
     const pos = window.lastLiveGpsPos || {};
     if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) return false;
     const sceneId = window.missionSceneStatus?.sceneId || _missionSceneId();
@@ -6206,6 +6233,33 @@ function _missionStartGroundStatus() {
     return { ready: false, label: 'Wartet auf Boden', reason: 'unknown', gs, agl, onGround, parkingBrakeSet };
 }
 
+function _missionBoardingVoiceDone() {
+    try {
+        if (typeof window.paxVoiceBoardingDone === 'function') return !!window.paxVoiceBoardingDone();
+    } catch (_) {}
+    return false;
+}
+
+function _missionCargoLoadInteractionReady() {
+    if (window.simModeActive) return true;
+    const sceneDone = !!window.missionSceneStatus?.boardingComplete;
+    if (!sceneDone) return false;
+    return _missionBoardingVoiceDone();
+}
+
+function _triggerGreetingAfterBoardingVoice(lat = null, lon = null, timeoutMs = 30000) {
+    if (typeof window.triggerPaxGreeting !== 'function') return;
+    const started = Date.now();
+    const tryFire = () => {
+        if (_missionBoardingVoiceDone() || (Date.now() - started) >= Math.max(1000, Number(timeoutMs) || 30000)) {
+            try { window.triggerPaxGreeting(lat, lon); } catch (_) {}
+            return;
+        }
+        setTimeout(tryFire, 220);
+    };
+    tryFire();
+}
+
 function _missionStartBannerDismissed() {
     try {
         const key = _missionStartUiKey();
@@ -6587,6 +6641,7 @@ window.missionRuntimeReset = function(options = {}) {
 };
 
 window.startMissionBoarding = async function() {
+    if (missionStartBoardingPromise) return missionStartBoardingPromise;
     if (typeof window.paxVoiceUnlockAudio === 'function') {
         try { window.paxVoiceUnlockAudio('boarding-click'); } catch (_) {}
     }
@@ -6599,56 +6654,65 @@ window.startMissionBoarding = async function() {
         _updateMissionRuntimeUi();
         return false;
     }
-    const bannerBtn = document.getElementById('missionStartBannerBtn');
-    const mapBtn = document.getElementById('mapMissionToggleBtn');
-    const oldBannerText = bannerBtn ? bannerBtn.textContent : '';
-    if (bannerBtn) {
-        bannerBtn.disabled = true;
-        bannerBtn.textContent = 'Boarding läuft...';
-    }
-    if (mapBtn) mapBtn.disabled = true;
-    try {
-        if (typeof window.paxVoicePrepareBoarding === 'function') {
-            try { window.paxVoicePrepareBoarding(); } catch (_) {}
-        }
-        if (typeof window.openMissionCargoDialog === 'function') {
-            try { window.openMissionCargoDialog('load'); } catch (_) {}
-        }
-        const playBoardingReminder = () => {
-            if (typeof window.paxVoicePlayBoarding !== 'function') return;
-            try {
-                const boardingVoice = window.paxVoicePlayBoarding();
-                if (boardingVoice && typeof boardingVoice.catch === 'function') boardingVoice.catch(() => {});
-            } catch (_) {}
-        };
-        if (!window.simModeActive && typeof window.missionSceneBoarding === 'function') {
-            window.missionSceneBoarding('boarding-click').then(boardingAck => {
-                if (boardingAck && boardingAck.status && boardingAck.status !== 'ok') {
-                    console.warn('Boarding animation nicht bestätigt:', boardingAck.status, boardingAck.error || '');
-                    // Fallback: Voice trotzdem nach kurzer Zeit spielen.
-                    setTimeout(playBoardingReminder, 1600);
-                    return;
-                }
-                playBoardingReminder();
-            }).catch(err => {
-                console.warn('Boarding animation fehlgeschlagen:', err);
-                setTimeout(playBoardingReminder, 1600);
-            });
-        } else {
-            playBoardingReminder();
-        }
-        const pos = window.lastLiveGpsPos || {};
-        if (typeof window.paxVoicePrepareGreeting === 'function') {
-            try { window.paxVoicePrepareGreeting(pos.lat, pos.lon); } catch (_) {}
-        }
-        return true;
-    } finally {
+    missionStartBoardingPromise = (async () => {
+        const bannerBtn = document.getElementById('missionStartBannerBtn');
+        const mapBtn = document.getElementById('mapMissionToggleBtn');
+        const oldBannerText = bannerBtn ? bannerBtn.textContent : '';
         if (bannerBtn) {
-            bannerBtn.disabled = false;
-            bannerBtn.textContent = oldBannerText || 'Mission starten';
+            bannerBtn.disabled = true;
+            bannerBtn.textContent = 'Boarding läuft...';
         }
-        if (mapBtn) mapBtn.disabled = false;
-        _updateMissionRuntimeUi();
+        if (mapBtn) mapBtn.disabled = true;
+        try {
+            if (typeof window.paxVoicePrepareBoarding === 'function') {
+                try { window.paxVoicePrepareBoarding(); } catch (_) {}
+            }
+            if (typeof window.openMissionCargoDialog === 'function') {
+                try { window.openMissionCargoDialog('load'); } catch (_) {}
+            }
+            const playBoardingReminder = async () => {
+                if (typeof window.paxVoicePlayBoarding !== 'function') return false;
+                try {
+                    return !!(await window.paxVoicePlayBoarding());
+                } catch (_) {
+                    return false;
+                }
+            };
+            if (!window.simModeActive && typeof window.missionSceneBoarding === 'function') {
+                let ack = null;
+                try {
+                    ack = await window.missionSceneBoarding('boarding-click');
+                } catch (err) {
+                    console.warn('Boarding animation fehlgeschlagen:', err);
+                }
+                if (ack && ack.status && ack.status !== 'ok') {
+                    console.warn('Boarding animation nicht bestätigt:', ack.status, ack.error || '');
+                }
+                await playBoardingReminder();
+            } else {
+                await playBoardingReminder();
+            }
+            const pos = window.lastLiveGpsPos || {};
+            if (typeof window.paxVoicePrepareGreeting === 'function') {
+                try { window.paxVoicePrepareGreeting(pos.lat, pos.lon); } catch (_) {}
+            }
+            if (document.getElementById('missionCargoOverlay')?.style.display === 'flex') {
+                _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+            }
+            return true;
+        } finally {
+            if (bannerBtn) {
+                bannerBtn.disabled = false;
+                bannerBtn.textContent = oldBannerText || 'Mission starten';
+            }
+            if (mapBtn) mapBtn.disabled = false;
+            _updateMissionRuntimeUi();
+        }
+    })();
+    try {
+        return await missionStartBoardingPromise;
+    } finally {
+        missionStartBoardingPromise = null;
     }
 };
 
@@ -6671,8 +6735,8 @@ window.manualMissionStart = function() {
     missionRuntime.endReadinessKey = '';
     resetFlightRecorder();
     const pos = window.lastLiveGpsPos;
-    if ((pos || window.simModeActive) && typeof window.triggerPaxGreeting === 'function') {
-        setTimeout(() => window.triggerPaxGreeting(pos?.lat, pos?.lon), 200);
+    if (pos || window.simModeActive) {
+        setTimeout(() => _triggerGreetingAfterBoardingVoice(pos?.lat, pos?.lon), 200);
     }
     if (!window.simModeActive && typeof window.missionSmokeEnsureSpawned === 'function') window.missionSmokeEnsureSpawned('manual-mission-start');
     if (!window.simModeActive && typeof window.missionTargetSceneEnsureSpawned === 'function') window.missionTargetSceneEnsureSpawned('manual-mission-start');
@@ -9613,9 +9677,7 @@ function updateFlightRecorder(lat, lon, alt) {
         missionRuntime.deboardingAfterFarewellStarted = false;
         missionRuntime.endReadinessKey = '';
         resetFlightRecorder();
-        if (typeof window.triggerPaxGreeting === 'function') {
-            setTimeout(() => window.triggerPaxGreeting(lat, lon), 300);
-        }
+        setTimeout(() => _triggerGreetingAfterBoardingVoice(lat, lon), 300);
         if (typeof window.missionSmokeEnsureSpawned === 'function') window.missionSmokeEnsureSpawned('auto-mission-start');
         if (typeof window.missionTargetSceneEnsureSpawned === 'function') window.missionTargetSceneEnsureSpawned('auto-mission-start');
         if (typeof window.missionAptArrivalEnsureSpawned === 'function') window.missionAptArrivalEnsureSpawned('auto-mission-start');
