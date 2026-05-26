@@ -3642,6 +3642,9 @@ ${routeLines}`;
     window.addEventListener('missioncargochange', () => {
         if (state.view === 'cargo') render();
     });
+    window.addEventListener('missioncargopayloadchange', () => {
+        if (state.view === 'cargo') render();
+    });
 
     document.addEventListener('DOMContentLoaded', init);
 })();

@@ -626,6 +626,7 @@ window.aircraftPayloadStatus = {
 };
 const MISSION_CARGO_AUTO_LOAD_KEY = 'ga_mission_cargo_auto_load_enabled';
 const MISSION_CARGO_RELOAD_MAX_DISTANCE_M = 200;
+let missionCargoUiSyncHooked = false;
 window.missionTargetSceneStatus = {
     sceneId: null,
     kind: null,
@@ -2383,6 +2384,16 @@ function _missionCargoPersistManifest(manifest) {
     return manifest;
 }
 
+function _missionCargoEnsureUiSyncHook() {
+    if (missionCargoUiSyncHooked) return;
+    missionCargoUiSyncHooked = true;
+    window.addEventListener('missioncargochange', () => {
+        const overlay = document.getElementById('missionCargoOverlay');
+        if (!overlay || overlay.style.display !== 'flex') return;
+        _missionCargoRenderDialog(window.missionCargoStatus?.lastMode === 'unload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+    });
+}
+
 function _missionCargoEnsureManifest(cargoAsset = null) {
     const key = _missionCargoMissionKey();
     let manifest = _missionCargoGetManifest();
@@ -3374,6 +3385,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
 }
 
 window.openMissionCargoDialog = function(mode = 'load') {
+    _missionCargoEnsureUiSyncHook();
     _missionCargoRenderDialog(mode === 'unload' ? 'unload' : 'load', { preserveScroll: false });
     _updateMissionRuntimeUi();
 };
@@ -3417,7 +3429,6 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     }
     _missionCargoSyncPayloadToSim(wasUnloaded ? 'cargo-reload-item' : 'cargo-load-item').catch(() => {});
     if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
-    try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
     return true;
 };
 
@@ -3469,7 +3480,6 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
     }
     _missionCargoSyncPayloadToSim('cargo-toggle-unload-item').catch(() => {});
     if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
-    try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
     return true;
 };
 
@@ -3527,7 +3537,6 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
         }
         _missionCargoSyncPayloadToSim('cargo-drop-item').catch(() => {});
         if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
-        try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
         return true;
     }
     const livePos = _missionCargoCommandBasePos();
@@ -3582,7 +3591,6 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
     }
     _missionCargoSyncPayloadToSim('cargo-unload-item').catch(() => {});
     if (options.render !== false) _missionCargoRenderDialog('unload', { skipPayloadRefresh: true });
-    try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
     return true;
 };
 
@@ -5784,6 +5792,15 @@ function _handleTrackerAck(ack) {
         } else {
             window.aircraftPayloadStatus.error = ack.error || ack.status || 'payload_command_failed';
         }
+        try {
+            window.dispatchEvent(new CustomEvent('missioncargopayloadchange', {
+                detail: {
+                    status: ack.status || 'unknown',
+                    source: ack.type || '',
+                    ack
+                }
+            }));
+        } catch (_) {}
         _resolveTrackerPayloadAck(ack);
         return;
     }
