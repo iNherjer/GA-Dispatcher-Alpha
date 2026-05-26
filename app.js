@@ -3023,6 +3023,9 @@ async function restoreMissionState(state, options = {}) {
         if (indicator) indicator.innerText = 'Entwurf verworfen: Mission muss zuerst akzeptiert werden.';
         return;
     }
+    if (typeof window.missionRuntimeReset === 'function') {
+        window.missionRuntimeReset({ respawnAfterClear: false });
+    }
     state.mStory = _cleanupNarrativeArtifacts(state.mStory || '');
     document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
     document.getElementById("mDepICAO").innerText = state.mDepICAO; document.getElementById("mDepName").innerText = state.mDepName;
