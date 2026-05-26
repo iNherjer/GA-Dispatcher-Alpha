@@ -2456,7 +2456,6 @@ function _missionCargoInvalidateDispatchSignature(manifest) {
 }
 
 window.missionCargoSignDispatchList = function(options = {}) {
-    if (!_missionCargoLoadInteractionReady()) return false;
     const manifest = _missionCargoEnsureManifest();
     manifest.dispatchSignature = {
         by: _missionCargoPilotId(),
@@ -2470,7 +2469,6 @@ window.missionCargoSignDispatchList = function(options = {}) {
 };
 
 window.missionCargoClearDispatchSignature = function(options = {}) {
-    if (!_missionCargoLoadInteractionReady()) return false;
     const manifest = _missionCargoEnsureManifest();
     if (!manifest.dispatchSignature) return false;
     manifest.dispatchSignature = null;
@@ -2480,7 +2478,6 @@ window.missionCargoClearDispatchSignature = function(options = {}) {
 };
 
 window.missionCargoToggleDispatchSignature = function(options = {}) {
-    if (!_missionCargoLoadInteractionReady()) return false;
     const manifest = _missionCargoEnsureManifest();
     if (manifest.dispatchSignature) return window.missionCargoClearDispatchSignature(options);
     return window.missionCargoSignDispatchList(options);
@@ -3244,7 +3241,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         listLeft: Number(overlay.querySelector('.mission-cargo-list')?.scrollLeft || 0)
     } : null;
     const isUnload = mode === 'unload';
-    const loadInteractionReady = isUnload ? true : _missionCargoLoadInteractionReady();
+    const missionStartReady = isUnload ? true : _missionCargoLoadInteractionReady();
     const visibleItems = isUnload
         ? manifest.items.filter(item => (item.status === 'loaded' || item.status === 'unloaded') && item.deliverAtDestination !== false)
         : manifest.items;
@@ -3267,7 +3264,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             ? (unloaded
                 ? `<button class="mission-cargo-row-btn" ${canReloadNearby ? '' : 'disabled'} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: 'unload-reload' })">${canReloadNearby ? 'Wieder laden' : 'Zu weit weg'}</button>`
                 : `<button class="mission-cargo-row-btn" onclick="window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}')">Ausladen</button>`)
-            : `<button class="mission-cargo-row-btn" ${loaded || dropped || !loadInteractionReady ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}')">${dropped ? 'Abgeworfen' : (loaded ? 'Geladen' : (!loadInteractionReady ? 'Warte auf Boarding' : 'Laden'))}</button>`;
+            : `<button class="mission-cargo-row-btn" ${loaded || dropped ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}')">${dropped ? 'Abgeworfen' : (loaded ? 'Geladen' : 'Laden')}</button>`;
         const status = dropped ? 'abgeworfen' : (unloaded ? 'ausgeladen' : (loaded ? 'geladen' : 'offen'));
         const distanceMeta = (isUnload && unloaded && Number.isFinite(reloadDistanceM))
             ? ` · Distanz ${Math.round(reloadDistanceM)} m`
@@ -3287,7 +3284,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         const dropped = item.status === 'dropped';
         const status = dropped ? 'abgeworfen' : (unloaded ? 'ausgeladen' : (loaded ? 'geladen' : 'offen'));
         const stationText = assignmentMap.get(String(item.id)) || (loaded ? 'auto' : '-');
-        const rowAction = (!isUnload && loadInteractionReady) ? ` onclick="window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}')"` : '';
+        const rowAction = !isUnload ? ` onclick="window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}')"` : '';
         return `
             <tr class="${loaded ? 'is-loaded' : ''} ${!isUnload ? 'is-interactive' : ''}"${rowAction}>
                 <td>${idx + 1}</td>
@@ -3302,7 +3299,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const metaPilot = _missionCargoPilotId();
     const metaDate = _missionCargoFormatDate(signature?.at || Date.now());
     const signaturePanel = !isUnload ? `
-        <div class="mission-cargo-signature ${signature ? 'is-signed' : ''} ${loadInteractionReady ? 'is-clickable' : ''}" ${loadInteractionReady ? 'onclick="window.missionCargoToggleDispatchSignature && missionCargoToggleDispatchSignature()"' : ''}>
+        <div class="mission-cargo-signature ${signature ? 'is-signed' : ''} is-clickable" onclick="window.missionCargoToggleDispatchSignature && missionCargoToggleDispatchSignature()">
             <div class="mission-cargo-signature-line">${signature ? _missionCargoEscape(signature.by || metaPilot) : '&nbsp;'}</div>
             <div class="mission-cargo-signature-meta">Unterschrift Pilot · ${signature ? _missionCargoEscape(_missionCargoFormatDate(signature.at)) : 'noch offen'} · Klick: ${signature ? 'Signatur loeschen' : 'unterschreiben'}</div>
         </div>` : '';
@@ -3315,7 +3312,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         ? 'Entladung abgeschlossen - Mission beenden'
         : (signature ? 'Mission beginnen' : 'Verladung bestaetigen & unterschreiben');
     const secondaryAction = (!isUnload && signature)
-        ? `<button class="mission-cargo-secondary" ${loadInteractionReady ? '' : 'disabled'} onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
+        ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
         : '';
     overlay.innerHTML = `
         <div class="mission-cargo-panel">
@@ -3328,9 +3325,9 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             </div>
             <div class="mission-cargo-copy">${isUnload
                 ? `Entlade die am Ziel benoetigten Gegenstaende. Wiederladen geht im Umkreis von ${MISSION_CARGO_RELOAD_MAX_DISTANCE_M} m.`
-                : (loadInteractionReady
+                : (missionStartReady
                     ? 'Die Boarding-Animation ist abgeschlossen. Geladene Gegenstaende verschwinden aus der Startszene und werden fuer die Missionswertung gespeichert.'
-                    : 'Boarding/Ansage laeuft noch. Verladung wird freigeschaltet, sobald Animation und Boarding-Text abgeschlossen sind.')}</div>
+                    : 'Verladen ist bereits moeglich. Mission starten wird freigeschaltet, sobald Boarding und Boarding-Ansage abgeschlossen sind.')}</div>
             ${!isUnload ? `
             <div class="mission-cargo-clipboard">
                 <div class="mission-cargo-sheet-title">Frachtgutliste</div>
@@ -3362,7 +3359,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             </div>
             <div class="mission-cargo-actions">
                 ${secondaryAction}
-                <button class="mission-cargo-primary" ${(!isUnload && !loadInteractionReady) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
+                <button class="mission-cargo-primary" ${(!isUnload && !!signature && !missionStartReady) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
             </div>
         </div>`;
     overlay.style.display = 'flex';
@@ -3422,11 +3419,6 @@ window.closeMissionCargoDialog = function() {
 };
 
 window.missionCargoLoadItem = function(itemId, options = {}) {
-    if (!_missionCargoLoadInteractionReady()) {
-        window.missionCargoStatus.error = 'Boarding laeuft noch. Verladung wird danach freigeschaltet.';
-        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
-        return false;
-    }
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item || item.status === 'loaded') return false;
@@ -3469,11 +3461,6 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
 };
 
 window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
-    if (!_missionCargoLoadInteractionReady()) {
-        window.missionCargoStatus.error = 'Boarding laeuft noch. Verladung wird danach freigeschaltet.';
-        if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
-        return false;
-    }
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
     if (!item) return false;
