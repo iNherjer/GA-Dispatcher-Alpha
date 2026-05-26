@@ -5,6 +5,7 @@
   "main": "tracker.js",
   "scripts": {
     "start": "node tracker.js",
+    "build:tracker": "pkg tracker.js --target node18-win-x64 --output VFR-Multitool-Tracker.exe",
     "smoke-test:edtw": "node spawn-edtw-smoke-test.js",
     "asset-scan": "node msfs-asset-scanner.js",
     "asset-validate": "node msfs-asset-validator.js",
