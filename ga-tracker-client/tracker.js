@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v242';
-const TRACKER_VERSION_CODE = 242;
+const TRACKER_VERSION = 'v243';
+const TRACKER_VERSION_CODE = 243;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -469,7 +469,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
   const buildDoorVarCandidates = (doorIndex = 1, baseName = 'Door') => {
     const idx = clampInt(doorIndex, 1, 4);
-    const useIndices = idx === 1 ? [1] : [idx, 1];
+    const useIndices = idx === 1 ? [1, 2] : [idx, 1, 2];
     const out = [];
     const nameVariants = (n) => {
       const variants = [String(baseName || '') + String(n)];
@@ -493,6 +493,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const handleVars = buildDoorVarCandidates(doorIndex, 'DoorHandle');
     const latchVars = buildDoorVarCandidates(doorIndex, 'DoorLatch');
     const exitVars = buildDoorVarCandidates(doorIndex, 'ExitOpen');
+    const openVars = buildDoorVarCandidates(doorIndex, 'DoorOpen').concat(buildDoorVarCandidates(doorIndex, 'CabinDoorOpen'));
     const action = openDoor ? 'OPEN' : 'CLOSE';
     debugLog(`A2A_DOOR_LVAR_${action}_START profile=${profile} doorIndex=${doorIndex} reason=${reason}`);
 
@@ -502,11 +503,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       ok = setNamedVarFromCandidates(latchVars, 0, ['number', 'Bool', 'bool'], `${reason}-latch-unlock-0`) || ok;
       await sleep(80);
       ok = setNamedVarFromCandidates(handleVars, 1, ['Bool', 'bool', 'number'], `${reason}-handle-open`) || ok;
+      ok = setNamedVarFromCandidates(openVars, 1, ['Bool', 'bool', 'number', 'percent'], `${reason}-openvar-1`) || ok;
       await sleep(80);
       ok = setNamedVarFromCandidates(exitVars, 100, ['percent', 'number', 'Bool', 'bool'], `${reason}-exit-open-100`) || ok;
       ok = setNamedVarFromCandidates(exitVars, 1, ['Bool', 'bool', 'number'], `${reason}-exit-open-1`) || ok;
     } else {
       ok = setNamedVarFromCandidates(handleVars, 0, ['Bool', 'bool', 'number'], `${reason}-handle-close`) || ok;
+      ok = setNamedVarFromCandidates(openVars, 0, ['Bool', 'bool', 'number', 'percent'], `${reason}-openvar-0`) || ok;
       await sleep(70);
       ok = setNamedVarFromCandidates(exitVars, 0, ['percent', 'number', 'Bool', 'bool'], `${reason}-exit-close`) || ok;
       await sleep(70);
@@ -518,8 +521,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   };
 
   const buildGenericExitOpenCandidates = (doorIndex = 1) => {
-    const idx = clampInt(doorIndex, 1, 8);
-    const indices = uniqueStrings([String(idx), '1']);
+    const idx = clampInt(doorIndex, 0, 8);
+    const indices = uniqueStrings([String(idx), '1', '0', '2']);
     const vars = [];
     indices.forEach((token) => {
       vars.push(`EXIT OPEN:${token}`);
@@ -547,11 +550,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const setGenericDoorByEvents = async (openDoor, doorIndex = 1, reason = 'boarding') => {
     if (!ensureDoorEvents()) return false;
     const idx = clampInt(doorIndex, 0, 8);
-    const indices = [...new Set([idx, 1, 0].filter(v => Number.isFinite(v) && v >= 0 && v <= 8))];
+    const indices = [...new Set([idx, 1, 0, 2].filter(v => Number.isFinite(v) && v >= 0 && v <= 8))];
     const eventId = openDoor ? DOOR_OPEN_EVENT_ID : DOOR_CLOSE_EVENT_ID;
     const label = openDoor ? 'OPEN_AIRCRAFT_DOORS' : 'CLOSE_AIRCRAFT_DOORS';
     const singleEventId = openDoor ? DOOR_OPEN_SINGLE_EVENT_ID : DOOR_CLOSE_SINGLE_EVENT_ID;
     const singleLabel = openDoor ? 'OPEN_AIRCRAFT_DOOR' : 'CLOSE_AIRCRAFT_DOOR';
+    const toggleLabel = 'TOGGLE_AIRCRAFT_EXIT';
     let ok = false;
     for (const eventIndex of indices) {
       ok = sendDoorClientEvent(eventId, eventIndex, label, `${reason}-idx-${eventIndex}`) || ok;
@@ -559,6 +563,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       // Some default aircraft only react to singular open/close events.
       ok = sendDoorClientEvent(singleEventId, eventIndex, singleLabel, `${reason}-single-idx-${eventIndex}`) || ok;
       await sleep(60);
+      if (!ok) {
+        ok = sendDoorClientEvent(DOOR_TOGGLE_EVENT_ID, eventIndex, toggleLabel, `${reason}-toggle-idx-${eventIndex}`) || ok;
+        await sleep(60);
+      }
     }
     debugLog(`DOOR_GENERIC_EVENT_${openDoor ? 'OPEN' : 'CLOSE'} indices=${indices.join(',')} status=${ok ? 'ok' : 'error'} reason=${reason}`);
     return ok;
@@ -592,20 +600,29 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const setUserAircraftDoor = async (openDoor, doorIndex = 1, reason = 'boarding', doorProfile = 'default') => {
     const profile = String(doorProfile || 'default').trim().toLowerCase();
     trackerLog(`🚪 Door ${openDoor ? 'open' : 'close'} profile=${profile} index=${doorIndex} (${reason})`);
-    if (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche') {
-      return setPa24ComancheDoor(openDoor, doorIndex, reason);
+    const tryIndices = [...new Set([
+      clampInt(doorIndex, 0, 8),
+      1,
+      0,
+      2
+    ])];
+    for (const idx of tryIndices) {
+      if (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche') {
+        const ok = await setPa24ComancheDoor(openDoor, idx, `${reason}-idx-${idx}`);
+        if (ok) return true;
+        continue;
+      }
+      if (profile.includes('a2a')) {
+        const lvarOk = await setA2aDoorByLVars(openDoor, idx, `${reason}-idx-${idx}`, profile);
+        if (lvarOk) return true;
+      }
+      // Default aircraft path: apply both SimVar set and key events to increase compatibility.
+      const simVarOk = await setGenericDoorBySimVars(openDoor, idx, `${reason}-idx-${idx}`);
+      const eventOk = await setGenericDoorByEvents(openDoor, idx, `${reason}-idx-${idx}`);
+      if (simVarOk || eventOk) return true;
     }
-    if (profile.includes('a2a')) {
-      const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, profile);
-      if (lvarOk) return true;
-    }
-
-    // Default aircraft path: apply both SimVar set and key events to increase compatibility.
-    const simVarOk = await setGenericDoorBySimVars(openDoor, doorIndex, reason);
-    const eventOk = await setGenericDoorByEvents(openDoor, doorIndex, reason);
-    const finalOk = simVarOk || eventOk;
-    debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_DONE profile=${profile} index=${doorIndex} status=${finalOk ? 'ok' : 'error'} simVarOk=${simVarOk ? 1 : 0} eventOk=${eventOk ? 1 : 0} reason=${reason}`);
-    return finalOk;
+    debugLog(`DOOR_${openDoor ? 'OPEN' : 'CLOSE'}_DONE profile=${profile} index=${doorIndex} status=error reason=${reason}`);
+    return false;
   };
 
   const clampPayloadStationCount = (value, fallback = 12) => {

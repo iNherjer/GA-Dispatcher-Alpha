@@ -2425,16 +2425,23 @@ function _buildBoardingText() {
     const cargoText = String(contract.cargoText || document.getElementById('mWeight')?.innerText || '').trim();
     const pax = window.activePassenger || {};
     const paxCount = _extractPaxCount(paxText);
-    const paxWeight = paxCount > 0 ? paxCount * 185 : 0;
-    const cargoWeight = _extractWeightLbs(cargoText);
-    const total = paxWeight + cargoWeight;
     const cargoClean = cargoText && !/^[-–—]$/.test(cargoText) ? cargoText : 'kein zusaetzliches Gepaeck';
     const role = pax.role ? ` als ${pax.role}` : '';
     const paxPart = paxCount > 1 ? `${paxCount} Personen sind an Bord` : `ich bin${role} an Bord`;
-    const weightPart = total > 0
-        ? `Zusammen rechnen wir grob mit ${total} Pfund Zuladung, davon etwa ${cargoWeight || 0} Pfund Ausruestung.`
-        : 'Gewicht ist im Rahmen, ohne auffaellige Zusatzlast.';
-    return `Ich bin jetzt an Bord. ${paxPart}, ${cargoClean} ist verstaut. ${weightPart} Haben wir wirklich alles verladen, bevor wir losrollen?`;
+    let requiredItems = [];
+    try {
+        const manifest = (typeof window.missionCargoGetManifestSnapshot === 'function')
+            ? window.missionCargoGetManifestSnapshot()
+            : null;
+        requiredItems = Array.isArray(manifest?.items)
+            ? manifest.items.filter(item => item?.required).map(item => String(item.storyName || item.label || '').trim()).filter(Boolean)
+            : [];
+    } catch (_) {}
+    const requiredShort = requiredItems.slice(0, 4);
+    const requiredText = requiredShort.length
+        ? `Wichtige Frachtpunkte sind ${requiredShort.join(', ')}.`
+        : `Die wichtige Fracht ist ${cargoClean}.`;
+    return `Ich bin jetzt an Bord, ${paxPart}. ${requiredText} Haben wir die Pflichtteile alle verladen, bevor wir losrollen?`;
 }
 
 async function _requestTTSAudio(text, speaker = null) {

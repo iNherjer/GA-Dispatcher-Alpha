@@ -2552,6 +2552,20 @@ function _missionCargoItemRightM(item = null) {
     return 0;
 }
 
+function _missionCargoGroundSpawnPlacement(item = null) {
+    const cfg = _missionSceneBoardingConfig();
+    const cargo = cfg?.cargo || { forwardM: 4, rightM: 4, altOffsetFt: 0 };
+    const cargoForward = Number.isFinite(Number(cargo.forwardM)) ? Number(cargo.forwardM) : 4;
+    const cargoRight = Number.isFinite(Number(cargo.rightM)) ? Number(cargo.rightM) : 4;
+    const cargoAlt = Number.isFinite(Number(cargo.altOffsetFt)) ? Number(cargo.altOffsetFt) : 0;
+    const itemAlt = Number.isFinite(Number(item?.altOffsetFt)) ? Number(item.altOffsetFt) : 0;
+    return {
+        forwardM: cargoForward + _missionCargoItemForwardM(item),
+        rightM: cargoRight + _missionCargoItemRightM(item),
+        altOffsetFt: cargoAlt + itemAlt
+    };
+}
+
 function _missionCargoLoadedItems(manifest = _missionCargoEnsureManifest()) {
     return (manifest.items || []).filter(item => item.status === 'loaded' || item.status === 'unloaded');
 }
@@ -3398,7 +3412,12 @@ window.closeMissionCargoDialog = function() {
 window.missionCargoLoadItem = function(itemId, options = {}) {
     const manifest = _missionCargoEnsureManifest();
     const item = manifest.items.find(entry => entry.id === itemId);
-    if (!item || item.status === 'loaded' || item.status === 'dropped') return false;
+    if (!item || item.status === 'loaded') return false;
+    if (item.status === 'dropped') {
+        window.missionCargoStatus.error = 'Dieses Item wurde im Flug abgeworfen und kann nicht wieder geladen werden.';
+        if (options.render !== false) _missionCargoRenderDialog(options.mode === 'unload-reload' ? 'unload' : 'load', { skipPayloadRefresh: true });
+        return false;
+    }
     if (item.status === 'unloaded' && !_missionCargoCanReloadUnloadedItem(item, MISSION_CARGO_RELOAD_MAX_DISTANCE_M)) {
         const dM = _missionCargoDistanceToUnloadM(item);
         window.missionCargoStatus.error = Number.isFinite(dM)
@@ -3453,6 +3472,7 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
         const pos = _missionCargoCommandBasePos();
         const hasPos = Number.isFinite(Number(pos?.lat)) && Number.isFinite(Number(pos?.lon));
         if (hasPos) {
+            const placement = _missionCargoGroundSpawnPlacement(item);
             const commandId = window.sendTrackerCommand({
                 type: 'mission_scene_object_spawn',
                 sceneId: _missionCargoSceneId(),
@@ -3466,10 +3486,10 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
                     label: item.storyName || item.label || item.id,
                     objectTitle: item.objectTitle || 'Cardboard',
                     titleCandidates: item.titleCandidates || _sceneAssetCandidates(item.objectTitle || 'Cardboard', MISSION_SCENE_ASSET_POOLS.cargo),
-                    forwardM: _missionCargoItemForwardM(item),
-                    rightM: _missionCargoItemRightM(item),
+                    forwardM: placement.forwardM,
+                    rightM: placement.rightM,
                     headingMode: 'with_aircraft',
-                    altOffsetFt: Number(item.altOffsetFt || 0)
+                    altOffsetFt: placement.altOffsetFt
                 }]
             });
             window.missionCargoStatus.lastCommandAt = Date.now();
@@ -3563,9 +3583,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
             });
         }
         if (hasPos) {
-        const cfg = _missionSceneBoardingConfig();
-        const cargo = cfg.cargo || { forwardM: 4, rightM: 4, altOffsetFt: 0 };
-        const unloadIndex = manifest.items.filter(entry => entry.status === 'unloaded').length - 1;
+        const placement = _missionCargoGroundSpawnPlacement(item);
         const commandId = window.sendTrackerCommand({
             type: 'mission_scene_object_spawn',
             sceneId: _missionCargoUnloadSceneId(),
@@ -3579,10 +3597,10 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
                 label: item.storyName || item.label,
                 objectTitle: item.objectTitle || 'Cardboard',
                 titleCandidates: item.titleCandidates || _sceneAssetCandidates(item.objectTitle || 'Cardboard', MISSION_SCENE_ASSET_POOLS.cargo),
-                forwardM: Number(cargo.forwardM || 0) + (unloadIndex * 0.55),
-                rightM: Number(cargo.rightM || 0) + (unloadIndex % 2 ? -0.85 : 0.85),
+                forwardM: placement.forwardM,
+                rightM: placement.rightM,
                 headingMode: 'with_aircraft',
-                altOffsetFt: Number(cargo.altOffsetFt || 0)
+                altOffsetFt: placement.altOffsetFt
             }]
         });
         window.missionCargoStatus.lastCommandAt = Date.now();
