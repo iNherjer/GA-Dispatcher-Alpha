@@ -5937,7 +5937,20 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.boardingComplete = ack.status === 'ok';
             window.missionSceneStatus.boardingError = ack.status === 'ok' ? null : (ack.error || ack.status || 'scene_boarding_failed');
             window.missionSceneStatus.personBoarded = ack.status === 'ok' && !!Number(ack.boarded || 0);
-            if (ack.status === 'ok') _missionCargoSyncPayloadToSim('boarding-ack').catch(() => {});
+            if (ack.status === 'ok') {
+                _missionCargoSyncPayloadToSim('boarding-ack').catch(() => {});
+                setTimeout(() => {
+                    try {
+                        const alreadyPlayed = (typeof window.paxVoiceBoardingDone === 'function')
+                            ? !!window.paxVoiceBoardingDone()
+                            : false;
+                        if (!alreadyPlayed && typeof window.paxVoicePlayBoarding === 'function') {
+                            const p = window.paxVoicePlayBoarding();
+                            if (p && typeof p.catch === 'function') p.catch(() => {});
+                        }
+                    } catch (_) {}
+                }, 300);
+            }
             _resolveMissionSceneBoardingAck(ack);
         } else {
             window.missionSceneStatus.deboardingRequested = false;
@@ -6510,6 +6523,9 @@ window.missionSceneStartDeboardingAfterFarewell = function(reason = 'pax-farewel
 window.missionRuntimeReset = function(options = {}) {
     const respawnAfterClear = options && options.respawnAfterClear === true;
     if (typeof window.closeMissionCargoDialog === 'function') window.closeMissionCargoDialog();
+    if (typeof window.paxVoiceResetMission === 'function') {
+        try { window.paxVoiceResetMission(); } catch (_) {}
+    }
     if (typeof _missionCargoResetForMissionReset === 'function') {
         _missionCargoResetForMissionReset('mission-runtime-reset').catch(err => {
             console.warn('[MissionCargo] Reset payload sync failed:', err?.message || err);

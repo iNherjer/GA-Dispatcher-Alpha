@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v247';
-const TRACKER_VERSION_CODE = 247;
+const TRACKER_VERSION = 'v248';
+const TRACKER_VERSION_CODE = 248;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -269,6 +269,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const payloadSetDefCache = new Map();
   const namedVarSetDefCache = new Map();
   const namedVarSetUnsupported = new Set();
+  const activeBoardingScenes = new Set();
   const lastExceptions = [];
   let nextReqId = 9300;
   let nextDefId = 9700;
@@ -632,6 +633,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     let anySpecificOk = false;
     let anyGenericOk = false;
     for (const idx of tryIndices) {
+      const isComancheProfile = (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche');
+      const isA2aProfile = profile.includes('a2a');
       if (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche') {
         const pa24Ok = await setPa24ComancheDoor(openDoor, idx, `${reason}-idx-${idx}`);
         anySpecificOk = anySpecificOk || pa24Ok;
@@ -639,6 +642,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       if (profile.includes('a2a')) {
         const lvarOk = await setA2aDoorByLVars(openDoor, idx, `${reason}-idx-${idx}`, profile);
         anySpecificOk = anySpecificOk || lvarOk;
+      }
+      // For A2A/Comanche, generic door events can fight with custom LVar/event logic.
+      // Use generic path only as fallback when specific handling did not succeed.
+      if ((isComancheProfile || isA2aProfile) && anySpecificOk) {
+        break;
       }
       // Default aircraft path: apply both SimVar set and key events to increase compatibility.
       const simVarOk = await setGenericDoorBySimVars(openDoor, idx, `${reason}-idx-${idx}`);
@@ -1170,6 +1178,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const animateMissionSceneBoarding = async (command) => {
     const sceneId = String(command?.sceneId || 'mission-scene');
     const commandId = command?.commandId || null;
+    if (activeBoardingScenes.has(sceneId)) {
+      debugLog(`SCENE_BOARDING_NOOP scene=${sceneId} reason=busy`);
+      sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: 'noop', error: 'busy' });
+      return;
+    }
+    activeBoardingScenes.add(sceneId);
+    try {
     const rec = scenes.get(sceneId);
     if (!rec || !Array.isArray(rec.objects) || rec.objects.length === 0) {
       debugLog(`SCENE_BOARDING_NOOP scene=${sceneId} reason=no_scene`);
@@ -1364,6 +1379,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const vehicleDeparture = routeSent ? startVehicleDeparture(command, rec, sceneId) : false;
     debugLog(`SCENE_BOARDING_OK scene=${sceneId} boarders=${boarderPlans.length} routeSent=${routeSent ? 1 : 0} routeSentCount=${routeSentCount} removed=${removed} vehicleDeparture=${vehicleDeparture ? 1 : 0}`);
     sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: routeSent ? 'ok' : 'error', routeSent: routeSent ? 1 : 0, routeSentCount, removed, cargoRemoved, boarded: routeSent ? boarderPlans.length : 0, vehicleDeparture: vehicleDeparture ? 1 : 0, durationMs, error: routeSent ? '' : 'waypoint_route_failed' });
+    } finally {
+      activeBoardingScenes.delete(sceneId);
+    }
   };
 
   const animateMissionSceneDeboarding = async (command) => {
