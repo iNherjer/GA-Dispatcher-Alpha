@@ -2664,7 +2664,10 @@ function _distanceFromDepartureNm(lat, lon) {
 }
 
 window.paxVoicePrepareBoarding = function() {
-    if (!window.activePassenger || !_missionHasPax()) return null;
+    const hasPassenger = !!window.activePassenger;
+    const hasPaxMission = _missionHasPax();
+    const hasCargoContext = !!_activeCargoText();
+    if (!hasPassenger && !hasCargoContext && !hasPaxMission) return null;
     const key = _paxMissionAudioKey('boarding');
     const text = _buildBoardingText();
     const speaker = _speakerSnapshotForActivePax();

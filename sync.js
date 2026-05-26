@@ -400,6 +400,7 @@ const missionSceneBoardingWaiters = new Map();
 const trackerPayloadWaiters = new Map();
 const missionTargetSceneTerrainRequests = new Map();
 const trackerPendingMissionCommands = new Map();
+let missionSceneBoardingPromise = null;
 const TRACKER_RETRYABLE_COMMAND_TYPES = new Set([
     'mission_scene_spawn',
     'mission_scene_clear',
@@ -5677,50 +5678,61 @@ window.trackerPayloadSet = async function(stations = [], options = {}) {
 };
 
 window.missionSceneBoarding = async function(reason = 'boarding') {
-    const status = window.missionSceneStatus || {};
-    if (typeof window.missionAptArrivalEnsureSpawned === 'function') {
-        window.missionAptArrivalEnsureSpawned(`${reason}-apt-arrival-prestage`);
+    if (missionSceneBoardingPromise) return missionSceneBoardingPromise;
+    if (window.missionSceneStatus?.boardingRequested || window.missionSceneStatus?.boardingActive) {
+        return { status: 'busy' };
     }
-    if (!status.spawned && !status.spawnRequested && typeof window.missionSceneSpawn === 'function') {
-        window.missionSceneSpawn('boarding-ensure-scene');
+    missionSceneBoardingPromise = (async () => {
+        const status = window.missionSceneStatus || {};
+        if (typeof window.missionAptArrivalEnsureSpawned === 'function') {
+            window.missionAptArrivalEnsureSpawned(`${reason}-apt-arrival-prestage`);
+        }
+        if (!status.spawned && !status.spawnRequested && typeof window.missionSceneSpawn === 'function') {
+            window.missionSceneSpawn('boarding-ensure-scene');
+        }
+        await _waitForMissionSceneReady(5200);
+        if (!window.missionSceneStatus?.spawned) return { status: 'no_scene' };
+        const pos = window.lastLiveGpsPos || {};
+        const sceneId = status.sceneId || _missionSceneId();
+        const boardingConfig = _missionSceneBoardingConfig();
+        const command = {
+            type: 'mission_scene_boarding',
+            sceneId,
+            reason,
+            ..._missionSceneCommonSceneCommandFields(),
+            durationMs: Number.isFinite(Number(boardingConfig.durationMs)) ? Number(boardingConfig.durationMs) : 18000,
+            finalHoldMs: 450,
+            removePerson: true,
+            removeCargoAtWaypoint: false,
+            splitCargoRoute: false,
+            cargoArrivalSlackMs: 250,
+            cargoTimingFactor: 1,
+            cargoHoldMs: 0,
+            cargoObjectKind: 'cargo'
+        };
+        if (Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon))) {
+            command.lat = Number(pos.lat);
+            command.lon = Number(pos.lon);
+            command.altFt = Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0;
+            command.hdg = Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0;
+        }
+        const commandId = window.sendTrackerCommand(command);
+        if (!commandId) return { status: 'not_sent' };
+        window.missionSceneStatus.sceneId = sceneId;
+        window.missionSceneStatus.lastCommandAt = Date.now();
+        window.missionSceneStatus.lastCommand = { type: 'mission_scene_boarding', commandId, reason };
+        window.missionSceneStatus.boardingRequested = true;
+        window.missionSceneStatus.boardingActive = true;
+        window.missionSceneStatus.boardingComplete = false;
+        window.missionSceneStatus.boardingError = null;
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return _waitForMissionSceneBoardingAck(commandId, 36000);
+    })();
+    try {
+        return await missionSceneBoardingPromise;
+    } finally {
+        missionSceneBoardingPromise = null;
     }
-    await _waitForMissionSceneReady(5200);
-    if (!window.missionSceneStatus?.spawned) return { status: 'no_scene' };
-    const pos = window.lastLiveGpsPos || {};
-    const sceneId = status.sceneId || _missionSceneId();
-    const boardingConfig = _missionSceneBoardingConfig();
-    const command = {
-        type: 'mission_scene_boarding',
-        sceneId,
-        reason,
-        ..._missionSceneCommonSceneCommandFields(),
-        durationMs: Number.isFinite(Number(boardingConfig.durationMs)) ? Number(boardingConfig.durationMs) : 18000,
-        finalHoldMs: 450,
-        removePerson: true,
-        removeCargoAtWaypoint: false,
-        splitCargoRoute: false,
-        cargoArrivalSlackMs: 250,
-        cargoTimingFactor: 1,
-        cargoHoldMs: 0,
-        cargoObjectKind: 'cargo'
-    };
-    if (Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon))) {
-        command.lat = Number(pos.lat);
-        command.lon = Number(pos.lon);
-        command.altFt = Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0;
-        command.hdg = Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0;
-    }
-    const commandId = window.sendTrackerCommand(command);
-    if (!commandId) return { status: 'not_sent' };
-    window.missionSceneStatus.sceneId = sceneId;
-    window.missionSceneStatus.lastCommandAt = Date.now();
-    window.missionSceneStatus.lastCommand = { type: 'mission_scene_boarding', commandId, reason };
-    window.missionSceneStatus.boardingRequested = true;
-    window.missionSceneStatus.boardingActive = true;
-    window.missionSceneStatus.boardingComplete = false;
-    window.missionSceneStatus.boardingError = null;
-    if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
-    return _waitForMissionSceneBoardingAck(commandId, 36000);
 };
 
 window.missionSceneDeboarding = function(reason = 'mission-end') {
@@ -6563,6 +6575,10 @@ window.startMissionBoarding = async function() {
         try { window.paxVoiceUnlockAudio('boarding-click'); } catch (_) {}
     }
     if (missionRuntime.active) return true;
+    if (!window.simModeActive && (window.missionSceneStatus?.boardingRequested || window.missionSceneStatus?.boardingActive || missionSceneBoardingPromise)) {
+        _updateMissionRuntimeUi();
+        return true;
+    }
     if (!_hasValidMissionForStart() || !_missionStartGroundReady()) {
         _updateMissionRuntimeUi();
         return false;
