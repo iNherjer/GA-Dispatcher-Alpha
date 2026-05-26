@@ -2079,11 +2079,24 @@ function startTracker(syncId, pin) {
   let _wsAttempt = 0;
   let _currentWs = null;
   let _trackerCommandHandler = null;
+  const _pendingTrackerCommands = [];
+  const MAX_PENDING_TRACKER_COMMANDS = 64;
 
   const getWs = () => _currentWs;
-  const setTrackerCommandHandler = (handler) => { _trackerCommandHandler = handler; };
+  const setTrackerCommandHandler = (handler) => {
+    _trackerCommandHandler = handler;
+    if (typeof _trackerCommandHandler !== 'function' || !_pendingTrackerCommands.length) return;
+    const queued = _pendingTrackerCommands.splice(0, _pendingTrackerCommands.length);
+    debugLog(`COMMAND_QUEUE_FLUSH size=${queued.length}`);
+    for (const command of queued) {
+      try {
+        _trackerCommandHandler(command);
+      } catch (err) {
+        debugLog(`COMMAND_QUEUE_FLUSH_ERROR type=${command?.type || 'unknown'} error=${err?.message || err}`);
+      }
+    }
+  };
   const handleTrackerMessage = (raw) => {
-    if (!_trackerCommandHandler) return;
     let data = null;
     try { data = JSON.parse(String(raw || '')); } catch (_) { return; }
     const command = data?.trackerCommand || (data?.target === 'tracker' ? data : null);
@@ -2091,7 +2104,15 @@ function startTracker(syncId, pin) {
     if (data.syncId && String(data.syncId) !== String(syncId)) return;
     if (data.pin && String(data.pin) !== String(pin)) return;
     if (command.pin && String(command.pin) !== String(pin)) return;
-    _trackerCommandHandler(command);
+    if (typeof _trackerCommandHandler === 'function') {
+      _trackerCommandHandler(command);
+      return;
+    }
+    if (_pendingTrackerCommands.length >= MAX_PENDING_TRACKER_COMMANDS) {
+      _pendingTrackerCommands.shift();
+    }
+    _pendingTrackerCommands.push(command);
+    debugLog(`COMMAND_QUEUE_BUFFERED type=${command?.type || 'unknown'} size=${_pendingTrackerCommands.length}`);
   };
   const scheduleReconnect = (reason, delayMs = 5000) => {
     if (_reconnectTimer) return;
