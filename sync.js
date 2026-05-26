@@ -6888,8 +6888,8 @@ window.manualMissionEnd = function(options = {}) {
         return false;
     }
     const endReady = _missionEndReadiness();
-    const farewellRecord = _buildFlightRecordSnapshot(Date.now());
-    if (endReady.atTarget && farewellRecord && typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
+    const farewellRecord = missionRuntime.arrivalFlightRecord || _buildFlightRecordSnapshot(Date.now()) || null;
+    if (endReady.atTarget && typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
         if (_triggerPaxFarewellAndWaitForDeboard(farewellRecord, 'manual-end-farewell')) {
             return true;
         }
@@ -9958,12 +9958,10 @@ function updateFlightRecorder(lat, lon, alt) {
             : endReady.dMissionNm;
         if (autoMissionStartEnabled && endReady.atTarget) {
             if (hasAptArrival && !missionRuntime.arrivalFarewellTriggered) {
-                const arrivalRecord = missionRuntime.arrivalFlightRecord || _buildFlightRecordSnapshot(now);
-                if (arrivalRecord) {
-                    if (_triggerPaxFarewellAndWaitForDeboard(arrivalRecord, 'apt-arrival-farewell')) {
-                        missionRuntime.arrivalFarewellTriggered = true;
-                        if (flightRecorder) flightRecorder.farewellTriggered = true;
-                    }
+                const arrivalRecord = missionRuntime.arrivalFlightRecord || _buildFlightRecordSnapshot(now) || null;
+                if (_triggerPaxFarewellAndWaitForDeboard(arrivalRecord, 'apt-arrival-farewell')) {
+                    missionRuntime.arrivalFarewellTriggered = true;
+                    if (flightRecorder) flightRecorder.farewellTriggered = true;
                 }
             }
             if (missionRuntime.waitingFarewellDeboarding && !missionRuntime.deboardingAfterFarewellStarted) {

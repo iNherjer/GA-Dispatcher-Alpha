@@ -383,10 +383,19 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   };
 
   const holdVehicleAtPoint = (objectId, point, reason = 'scene-vehicle-hold') => {
-    const holdSent = sendWaypointRoute(objectId, [point], 0.5);
+    const teleported = point ? teleportObject(objectId, {
+      lat: Number(point.lat),
+      lon: Number(point.lon),
+      altFt: Number(point.altFt),
+      hdg: Number(point.hdg || 0)
+    }) : false;
     const brakeSet = setObjectParkingBrake(objectId, true, reason);
-    debugLog(`SCENE_VEHICLE_HOLD objectId=${objectId} holdSent=${holdSent ? 1 : 0} brakeSet=${brakeSet ? 1 : 0} reason=${reason}`);
-    return holdSent || brakeSet;
+    // Einige Ground-Vehicles ignorieren den ersten Brake-Write sporadisch.
+    // Deshalb nachsetzen, damit das Fahrzeug wirklich stehen bleibt.
+    setTimeout(() => setObjectParkingBrake(objectId, true, `${reason}-retry1`), 350);
+    setTimeout(() => setObjectParkingBrake(objectId, true, `${reason}-retry2`), 1200);
+    debugLog(`SCENE_VEHICLE_HOLD objectId=${objectId} teleported=${teleported ? 1 : 0} brakeSet=${brakeSet ? 1 : 0} reason=${reason}`);
+    return teleported || brakeSet;
   };
 
   const ensureDoorEvents = () => {

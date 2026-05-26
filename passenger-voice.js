@@ -3949,22 +3949,26 @@ function _farewellPrompt(record) {
     const pax = window.activePassenger;
     if (!ctx || !pax) return null;
 
-    const min  = Math.round(record.durationSec / 60);
-    const isSimRecord = !!record?.simulated;
-    const td   = (!isSimRecord && record.touchdownVsFpm != null) ? `${Math.abs(record.touchdownVsFpm)} ft/min` : null;
-    const bank = (record.maxBankDeg || 0).toFixed(1);
-    const maxG = (record.maxGForce  || 1.0).toFixed(2);
+    const rec = (record && typeof record === 'object') ? record : {};
+    const durationSec = Number.isFinite(Number(rec.durationSec)) ? Number(rec.durationSec) : null;
+    const min = durationSec != null ? Math.max(1, Math.round(durationSec / 60)) : null;
+    const distanceNm = Number.isFinite(Number(rec.distanceNm)) ? Number(rec.distanceNm) : null;
+    const maxAltFt = Number.isFinite(Number(rec.maxAltFt)) ? Math.round(Number(rec.maxAltFt)) : null;
+    const isSimRecord = !!rec.simulated || durationSec == null;
+    const td = (!isSimRecord && rec.touchdownVsFpm != null) ? `${Math.abs(rec.touchdownVsFpm)} ft/min` : null;
+    const bank = (Number(rec.maxBankDeg) || 0).toFixed(1);
+    const maxG = (Number(rec.maxGForce) || 1.0).toFixed(2);
     const wx   = _weatherContext(window.lastLiveFlightData);
 
     let highlights = '';
-    if (pax.gTolerance === 'niedrig' && (record.maxGForce || 1) > 1.5) highlights += ' Etwas viel G für mich, aber okay.';
-    if (pax.bankTolerance === 'niedrig' && (record.maxBankDeg || 0) > 30) highlights += ' Die Kurven waren schon sportlich.';
-    if (!isSimRecord && Number.isFinite(record.maxDescentFpm) && record.maxDescentFpm <= -1500) {
-        highlights += ` Der Sinkflug mit ${Math.abs(Math.round(record.maxDescentFpm))} ft/min ging etwas auf Ohren und Magen.`;
+    if (pax.gTolerance === 'niedrig' && (Number(rec.maxGForce) || 1) > 1.5) highlights += ' Etwas viel G für mich, aber okay.';
+    if (pax.bankTolerance === 'niedrig' && (Number(rec.maxBankDeg) || 0) > 30) highlights += ' Die Kurven waren schon sportlich.';
+    if (!isSimRecord && Number.isFinite(Number(rec.maxDescentFpm)) && Number(rec.maxDescentFpm) <= -1500) {
+        highlights += ` Der Sinkflug mit ${Math.abs(Math.round(Number(rec.maxDescentFpm)))} ft/min ging etwas auf Ohren und Magen.`;
     }
-    if (td && Math.abs(record.touchdownVsFpm) < 200) highlights += ' Die Landung war richtig sanft — Kompliment!';
-    if (td && Math.abs(record.touchdownVsFpm) > 500) highlights += ` Die Landung mit ${Math.abs(record.touchdownVsFpm)} ft/min war etwas holprig.`;
-    const cargoOutcome = record?.missionCargoOutcome
+    if (td && Math.abs(Number(rec.touchdownVsFpm)) < 200) highlights += ' Die Landung war richtig sanft — Kompliment!';
+    if (td && Math.abs(Number(rec.touchdownVsFpm)) > 500) highlights += ` Die Landung mit ${Math.abs(Number(rec.touchdownVsFpm))} ft/min war etwas holprig.`;
+    const cargoOutcome = rec?.missionCargoOutcome
         || ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData.cargoOutcome : null)
         || window.activeMissionContract?.cargoOutcome
         || (typeof window.missionCargoEvaluateOutcome === 'function' ? window.missionCargoEvaluateOutcome() : null);
@@ -3991,11 +3995,14 @@ function _farewellPrompt(record) {
         : '';
     const isPOI = _isPOIMission();
     const aptFarewellHint = (!isPOI && !trainingPlan) ? _aptArrivalFarewellHint() : '';
+    const facts = (min != null && distanceNm != null && maxAltFt != null)
+        ? `${min} min, ${distanceNm.toFixed(1)} NM, max ${maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.`
+        : `Flugdaten teilweise unvollständig (z. B. Slew/Teleport). Max Bank ${bank}°, max G ${maxG}g.`;
 
     return `${ctx}
 
 Moment: ${aptFarewellHint || 'Wir sind gelandet, Flug beendet.'}
-Fakten: ${min} min, ${record.distanceNm} NM, max ${record.maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.${highlights ? '\n' + highlights : ''}${trnFacts}
+Fakten: ${facts}${highlights ? '\n' + highlights : ''}${trnFacts}
 Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Auch wenn etwas nicht perfekt war, schließ positiv ab.${trnTask}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
 }
 
