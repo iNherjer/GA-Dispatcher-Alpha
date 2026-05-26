@@ -470,7 +470,7 @@ let _paxStrictMode = (localStorage.getItem('awm_pax_strict') === '1');
 let _paxHumorLevel = (localStorage.getItem('awm_pax_humor') || 'normal');
 if (!['subtle', 'normal', 'bold'].includes(_paxHumorLevel)) _paxHumorLevel = 'normal';
 function _normalizePaxTtsModelPref(mode) {
-    return (mode === '2.5' || mode === 'auto') ? mode : 'auto';
+    return (mode === '2.5' || mode === '3.1' || mode === 'auto') ? mode : 'auto';
 }
 let _paxTtsModelPref = _normalizePaxTtsModelPref(localStorage.getItem('awm_pax_tts_model') || 'auto');
 localStorage.setItem('awm_pax_tts_model', _paxTtsModelPref);
@@ -2453,7 +2453,11 @@ async function _requestTTSAudio(text, speaker = null) {
     const resolvedGender = _normSpeakerGender(pax);
     const voiceCandidates = _ttsVoiceCandidatesForSpeaker(pax);
     _paxLog(`TTS Stimmen: ${voiceCandidates.join(' -> ')} | Persona: ${pax?.name || 'unbekannt'} | Gender: ${resolvedGender} (raw: ${String(pax?.gender || 'n/a')})`, 'state');
-    const ttsModels = ['gemini-2.5-flash-preview-tts'];
+    const ttsModels = _paxTtsModelPref === '3.1'
+        ? ['gemini-3.1-flash-tts-preview']
+        : (_paxTtsModelPref === '2.5'
+            ? ['gemini-2.5-flash-preview-tts']
+            : ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']);
     _paxLog(`TTS-Modelle: ${ttsModels.join(' -> ')} | Modus: ${_paxTtsModelPref}`, 'state');
 
     let lastErr = null;
