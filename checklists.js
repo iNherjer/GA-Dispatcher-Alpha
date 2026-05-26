@@ -920,7 +920,7 @@
         const health = Math.max(0, Math.min(100, Math.round(Number(item.healthPct ?? 100))));
         const tone = cargoHealthTone(health);
         const isBoardBook = /bordbuch/i.test(`${item.id || ''} ${item.label || ''} ${item.storyName || ''}`);
-        const canLoad = item.status === 'pending' && typeof window.missionCargoLoadItem === 'function';
+        const canLoad = (item.status === 'pending' || item.status === 'unloaded') && typeof window.missionCargoLoadItem === 'function';
         const canUnload = item.status === 'loaded' && typeof window.missionCargoUnloadItem === 'function';
         const dropMode = canUnload && cargoIsAirborne();
         const expiry = item.expiresAt ? `<div class="cargo-detail-line">Ablaufdatum: <b>${escapeHtml(item.expiresAt)}</b></div>` : '';
@@ -934,7 +934,7 @@
         ` : '';
         const actions = `
             <div class="cargo-detail-actions">
-                ${canLoad ? `<button class="checklist-mini-btn primary" type="button" data-action="cargo-load" data-item-id="${escapeAttr(item.id)}">Laden</button>` : ''}
+                ${canLoad ? `<button class="checklist-mini-btn primary" type="button" data-action="cargo-load" data-item-id="${escapeAttr(item.id)}">${item.status === 'unloaded' ? 'Wieder laden' : 'Laden'}</button>` : ''}
                 ${canUnload ? `<button class="checklist-mini-btn ${dropMode ? 'danger' : 'primary'}" type="button" data-action="cargo-unload" data-item-id="${escapeAttr(item.id)}">${dropMode ? 'Abwerfen' : 'Entladen'}</button>` : ''}
             </div>
         `;
@@ -3511,8 +3511,19 @@ ${routeLines}`;
             render();
         } else if (action === 'cargo-unload') {
             const itemId = button.dataset.itemId || '';
-            const ok = typeof window.missionCargoUnloadItem === 'function' && window.missionCargoUnloadItem(itemId, { render: false });
-            setStatus(ok ? (cargoIsAirborne() ? 'Ladung abgeworfen.' : 'Ladung entladen.') : 'Ladung konnte nicht entladen werden.', ok ? 'good' : 'warn');
+            const airborne = cargoIsAirborne();
+            let ok = false;
+            if (airborne) {
+                ok = typeof window.missionCargoUnloadItem === 'function' && window.missionCargoUnloadItem(itemId, { render: false, drop: true });
+            } else {
+                ok = typeof window.missionCargoToggleItemLoadState === 'function' && window.missionCargoToggleItemLoadState(itemId, { render: false });
+            }
+            setStatus(
+                ok
+                    ? (airborne ? 'Ladung abgeworfen.' : 'Ladung entladen und am Cargo-Spot abgestellt.')
+                    : 'Ladung konnte nicht entladen werden.',
+                ok ? 'good' : 'warn'
+            );
             render();
         } else if (action === 'cargo-open-modal') {
             if (typeof window.openMissionCargoDialog === 'function') {

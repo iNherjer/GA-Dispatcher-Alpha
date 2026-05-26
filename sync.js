@@ -2527,6 +2527,20 @@ function _missionCargoFindItem(itemId) {
     return manifest.items.find(item => item.id === itemId) || null;
 }
 
+function _missionCargoItemForwardM(item = null) {
+    if (!item || typeof item !== 'object') return 0;
+    if (Number.isFinite(Number(item.forwardM))) return Number(item.forwardM);
+    if (Number.isFinite(Number(item.forwardOffsetM))) return Number(item.forwardOffsetM);
+    return 0;
+}
+
+function _missionCargoItemRightM(item = null) {
+    if (!item || typeof item !== 'object') return 0;
+    if (Number.isFinite(Number(item.rightM))) return Number(item.rightM);
+    if (Number.isFinite(Number(item.rightOffsetM))) return Number(item.rightOffsetM);
+    return 0;
+}
+
 function _missionCargoLoadedItems(manifest = _missionCargoEnsureManifest()) {
     return (manifest.items || []).filter(item => item.status === 'loaded' || item.status === 'unloaded');
 }
@@ -3441,8 +3455,8 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
                     label: item.storyName || item.label || item.id,
                     objectTitle: item.objectTitle || 'Cardboard',
                     titleCandidates: item.titleCandidates || _sceneAssetCandidates(item.objectTitle || 'Cardboard', MISSION_SCENE_ASSET_POOLS.cargo),
-                    forwardM: Number(item.forwardM || 0),
-                    rightM: Number(item.rightM || 0),
+                    forwardM: _missionCargoItemForwardM(item),
+                    rightM: _missionCargoItemRightM(item),
                     headingMode: 'with_aircraft',
                     altOffsetFt: Number(item.altOffsetFt || 0)
                 }]
