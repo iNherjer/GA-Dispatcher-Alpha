@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v240';
-const TRACKER_VERSION_CODE = 240;
+const TRACKER_VERSION = 'v241';
+const TRACKER_VERSION_CODE = 241;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -28,6 +28,8 @@ const DOOR_TOGGLE_EVENT_ID = 9365;
 const PA24_DOOR_UNLOCK_EVENT_ID = 9366;
 const PA24_DOOR_HANDLE_EVENT_ID = 9367;
 const PA24_DOOR_LOCK_EVENT_ID = 9368;
+const DOOR_OPEN_SINGLE_EVENT_ID = 9369;
+const DOOR_CLOSE_SINGLE_EVENT_ID = 9370;
 const CONSOLE_MODES = new Set(['status', 'full', 'quiet']);
 let consoleMode = 'status';
 let consoleStatusLine = '';
@@ -352,6 +354,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       handle.mapClientEventToSimEvent(DOOR_OPEN_EVENT_ID, 'OPEN_AIRCRAFT_DOORS');
       handle.mapClientEventToSimEvent(DOOR_CLOSE_EVENT_ID, 'CLOSE_AIRCRAFT_DOORS');
       handle.mapClientEventToSimEvent(DOOR_TOGGLE_EVENT_ID, 'TOGGLE_AIRCRAFT_EXIT');
+      try {
+        handle.mapClientEventToSimEvent(DOOR_OPEN_SINGLE_EVENT_ID, 'OPEN_AIRCRAFT_DOOR');
+        handle.mapClientEventToSimEvent(DOOR_CLOSE_SINGLE_EVENT_ID, 'CLOSE_AIRCRAFT_DOOR');
+      } catch (err) {
+        debugLog(`DOOR_EVENTS_OPTIONAL_MAP_WARN ${err?.message || err}`);
+      }
       doorEventsReady = true;
       debugLog('DOOR_EVENTS_READY');
       return true;
@@ -513,7 +521,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const idx = clampInt(doorIndex, 1, 8);
     const indices = uniqueStrings([String(idx), '1']);
     const vars = [];
-    indices.forEach((token) => vars.push(`EXIT OPEN:${token}`));
+    indices.forEach((token) => {
+      vars.push(`EXIT OPEN:${token}`);
+      vars.push(`INTERACTIVE POINT OPEN:${token}`);
+      vars.push(`INTERACTIVE POINT GOAL:${token}`);
+    });
     if (idx === 1) vars.push('CANOPY OPEN');
     return uniqueStrings(vars);
   };
@@ -538,9 +550,14 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const indices = [...new Set([idx, 1, 0].filter(v => Number.isFinite(v) && v >= 0 && v <= 8))];
     const eventId = openDoor ? DOOR_OPEN_EVENT_ID : DOOR_CLOSE_EVENT_ID;
     const label = openDoor ? 'OPEN_AIRCRAFT_DOORS' : 'CLOSE_AIRCRAFT_DOORS';
+    const singleEventId = openDoor ? DOOR_OPEN_SINGLE_EVENT_ID : DOOR_CLOSE_SINGLE_EVENT_ID;
+    const singleLabel = openDoor ? 'OPEN_AIRCRAFT_DOOR' : 'CLOSE_AIRCRAFT_DOOR';
     let ok = false;
     for (const eventIndex of indices) {
       ok = sendDoorClientEvent(eventId, eventIndex, label, `${reason}-idx-${eventIndex}`) || ok;
+      await sleep(60);
+      // Some default aircraft only react to singular open/close events.
+      ok = sendDoorClientEvent(singleEventId, eventIndex, singleLabel, `${reason}-single-idx-${eventIndex}`) || ok;
       await sleep(60);
     }
     debugLog(`DOOR_GENERIC_EVENT_${openDoor ? 'OPEN' : 'CLOSE'} indices=${indices.join(',')} status=${ok ? 'ok' : 'error'} reason=${reason}`);

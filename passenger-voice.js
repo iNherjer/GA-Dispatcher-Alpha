@@ -2434,7 +2434,7 @@ function _buildBoardingText() {
     const weightPart = total > 0
         ? `Zusammen rechnen wir grob mit ${total} Pfund Zuladung, davon etwa ${cargoWeight || 0} Pfund Ausruestung.`
         : 'Gewicht ist im Rahmen, ohne auffaellige Zusatzlast.';
-    return `Boarding und Verladen abgeschlossen. ${paxPart}, ${cargoClean} ist verstaut. ${weightPart} Von meiner Seite bereit zum Start.`;
+    return `Ich bin jetzt an Bord. ${paxPart}, ${cargoClean} ist verstaut. ${weightPart} Haben wir wirklich alles verladen, bevor wir losrollen?`;
 }
 
 async function _requestTTSAudio(text, speaker = null) {

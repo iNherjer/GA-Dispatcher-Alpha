@@ -2487,6 +2487,22 @@ function _missionCargoLivePos() {
     };
 }
 
+function _missionCargoCommandBasePos() {
+    const livePos = _missionCargoLivePos();
+    if (livePos) return livePos;
+    const gate = window.missionSceneStatus?.lastGate || {};
+    const lat = Number(gate.lat);
+    const lon = Number(gate.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const pos = window.lastLiveGpsPos || {};
+    return {
+        lat,
+        lon,
+        altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
+        hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0
+    };
+}
+
 function _missionCargoDistanceToUnloadM(item, livePos = null) {
     const unloadLat = Number(item?.unloadLat);
     const unloadLon = Number(item?.unloadLon);
@@ -3409,8 +3425,8 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
     _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
     if (!window.simModeActive && window.liveTrackerConnected) {
-        const pos = window.lastLiveGpsPos || {};
-        const hasPos = Number.isFinite(Number(pos.lat)) && Number.isFinite(Number(pos.lon));
+        const pos = _missionCargoCommandBasePos();
+        const hasPos = Number.isFinite(Number(pos?.lat)) && Number.isFinite(Number(pos?.lon));
         if (hasPos) {
             const commandId = window.sendTrackerCommand({
                 type: 'mission_scene_object_spawn',
@@ -3418,7 +3434,7 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
                 reason: 'cargo-toggle-unload',
                 lat: Number(pos.lat),
                 lon: Number(pos.lon),
-                altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
+                altFt: Number.isFinite(Number(pos.altFt)) ? Number(pos.altFt) : 0,
                 hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
                 items: [{
                     kind: item.sceneKind || `cargo_${item.id}`,
@@ -3433,6 +3449,8 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
             });
             window.missionCargoStatus.lastCommandAt = Date.now();
             window.missionCargoStatus.lastCommand = { type: 'mission_scene_object_spawn', commandId, itemId };
+        } else {
+            window.missionCargoStatus.error = 'Keine gueltige Sim-Position fuer Cargo-Spawn.';
         }
     }
     _missionCargoSyncPayloadToSim('cargo-toggle-unload-item').catch(() => {});
@@ -3498,7 +3516,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
         try { window.dispatchEvent(new CustomEvent('missioncargochange', { detail: { manifest } })); } catch (_) {}
         return true;
     }
-    const livePos = _missionCargoLivePos();
+    const livePos = _missionCargoCommandBasePos();
     item.status = 'unloaded';
     item.unloadedAt = Date.now();
     item.unloadLat = Number.isFinite(Number(livePos?.lat)) ? Number(livePos.lat) : null;
@@ -3507,7 +3525,21 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
     _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
     if (!window.simModeActive && window.liveTrackerConnected) {
-        const pos = window.lastLiveGpsPos || {};
+        const pos = _missionCargoCommandBasePos();
+        const hasPos = Number.isFinite(Number(pos?.lat)) && Number.isFinite(Number(pos?.lon));
+        if (!hasPos) {
+            window.missionCargoStatus.error = 'Keine gueltige Sim-Position fuer Cargo-Spawn.';
+        } else {
+            // Remove stale unloaded copy first, then spawn fresh object at current cargo point.
+            window.sendTrackerCommand({
+                type: 'mission_scene_object_remove',
+                sceneId: _missionCargoUnloadSceneId(),
+                reason: 'cargo-unload-refresh-remove',
+                kinds: [`unloaded_${item.sceneKind || item.id}`],
+                labels: [item.label, item.storyName]
+            });
+        }
+        if (hasPos) {
         const cfg = _missionSceneBoardingConfig();
         const cargo = cfg.cargo || { forwardM: 4, rightM: 4, altOffsetFt: 0 };
         const unloadIndex = manifest.items.filter(entry => entry.status === 'unloaded').length - 1;
@@ -3517,7 +3549,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
             reason: 'cargo-unload',
             lat: Number(pos.lat),
             lon: Number(pos.lon),
-            altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
+            altFt: Number.isFinite(Number(pos.altFt)) ? Number(pos.altFt) : 0,
             hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
             items: [{
                 kind: `unloaded_${item.sceneKind || item.id}`,
@@ -3532,6 +3564,7 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
         });
         window.missionCargoStatus.lastCommandAt = Date.now();
         window.missionCargoStatus.lastCommand = { type: 'mission_scene_object_spawn', commandId, itemId };
+        }
     }
     _missionCargoSyncPayloadToSim('cargo-unload-item').catch(() => {});
     if (options.render !== false) _missionCargoRenderDialog('unload', { skipPayloadRefresh: true });
@@ -6500,18 +6533,28 @@ window.startMissionBoarding = async function() {
         if (typeof window.openMissionCargoDialog === 'function') {
             try { window.openMissionCargoDialog('load'); } catch (_) {}
         }
-        if (!window.simModeActive && typeof window.missionSceneBoarding === 'function') {
-            window.missionSceneBoarding('boarding-click').then(boardingAck => {
-                if (boardingAck && boardingAck.status && boardingAck.status !== 'ok') {
-                    console.warn('Boarding animation nicht bestätigt:', boardingAck.status, boardingAck.error || '');
-                }
-            }).catch(err => console.warn('Boarding animation fehlgeschlagen:', err));
-        }
-        if (typeof window.paxVoicePlayBoarding === 'function') {
+        const playBoardingReminder = () => {
+            if (typeof window.paxVoicePlayBoarding !== 'function') return;
             try {
                 const boardingVoice = window.paxVoicePlayBoarding();
                 if (boardingVoice && typeof boardingVoice.catch === 'function') boardingVoice.catch(() => {});
             } catch (_) {}
+        };
+        if (!window.simModeActive && typeof window.missionSceneBoarding === 'function') {
+            window.missionSceneBoarding('boarding-click').then(boardingAck => {
+                if (boardingAck && boardingAck.status && boardingAck.status !== 'ok') {
+                    console.warn('Boarding animation nicht bestätigt:', boardingAck.status, boardingAck.error || '');
+                    // Fallback: Voice trotzdem nach kurzer Zeit spielen.
+                    setTimeout(playBoardingReminder, 1600);
+                    return;
+                }
+                playBoardingReminder();
+            }).catch(err => {
+                console.warn('Boarding animation fehlgeschlagen:', err);
+                setTimeout(playBoardingReminder, 1600);
+            });
+        } else {
+            playBoardingReminder();
         }
         const pos = window.lastLiveGpsPos || {};
         if (typeof window.paxVoicePrepareGreeting === 'function') {
