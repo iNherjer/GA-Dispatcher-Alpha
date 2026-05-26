@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v243';
-const TRACKER_VERSION_CODE = 243;
+const TRACKER_VERSION = 'v244';
+const TRACKER_VERSION_CODE = 244;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -608,9 +608,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     ])];
     for (const idx of tryIndices) {
       if (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche') {
-        const ok = await setPa24ComancheDoor(openDoor, idx, `${reason}-idx-${idx}`);
-        if (ok) return true;
-        continue;
+        const pa24Ok = await setPa24ComancheDoor(openDoor, idx, `${reason}-idx-${idx}`);
+        if (pa24Ok) return true;
       }
       if (profile.includes('a2a')) {
         const lvarOk = await setA2aDoorByLVars(openDoor, idx, `${reason}-idx-${idx}`, profile);
