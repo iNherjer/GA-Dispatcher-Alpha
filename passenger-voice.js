@@ -2144,6 +2144,22 @@ window.paxCargoConditionReport = function() {
     const summary = _missionComfortSummary();
     const cargo = _activeCargoText() || 'Ladung';
     const wx = _missionWeatherReactionLine(ctx.fd);
+    const isPOI = _isPOIMission();
+    const missingRequired = !isPOI ? _aptMissingRequiredCargoItems() : [];
+    if (!isPOI && missingRequired.length) {
+        const missingText = missingRequired.slice(0, 3).join(', ');
+        const prompt = `${_baseContext() || `MISSION: ${_activeMissionData().start || '?'} -> ${_activeMissionData().dest || '?'}\nLOAD: ${cargo}\nAUSGABE: Nur gesprochener Text, Deutsch.`}
+
+Button-Frage: Der Pilot fragt nach der Ladung, aber die Pflichtladung wurde vor dem Start nicht geladen.
+Fehlende Pflichtladung: ${missingText}
+Wetter: ${wx || 'unauffaellig'}
+Reagiere als Passagier kurz erschrocken und klar: Wir haben die Pflichtladung vergessen und sollten lieber umkehren, um sie abzuholen. Nenne den fehlenden Gegenstand beim Namen. Kein Vorwurf, aber deutlich besorgt. Max 2 Saetze.${_toneHint()}`;
+        const fallback = missingText
+            ? `Moment, ${missingText} ist ja gar nicht an Bord. Wir sollten lieber umkehren und die Ladung erst abholen, sonst koennen wir den Auftrag so nicht sauber machen.`
+            : 'Moment, die Pflichtladung ist gar nicht an Bord. Wir sollten lieber umkehren und sie erst abholen, sonst koennen wir den Auftrag so nicht sauber machen.';
+        _missionActionSpeak(prompt, 'Ladung', fallback);
+        return;
+    }
     const prompt = `${_baseContext() || `MISSION: ${_activeMissionData().start || '?'} -> ${_activeMissionData().dest || '?'}\nLOAD: ${cargo}\nAUSGABE: Nur gesprochener Text, Deutsch.`}
 
 Button-Frage: Der Pilot fragt nach dem Zustand der Ladung.
@@ -3816,6 +3832,19 @@ function _poiMissingRequiredTaskItems() {
             ...(Array.isArray(outcome?.damagedRequired) ? outcome.damagedRequired : [])
         ].map(v => String(v || '').trim()).filter(Boolean);
         return [...new Set(names)];
+    } catch (_) {
+        return [];
+    }
+}
+
+function _aptMissingRequiredCargoItems() {
+    if (typeof window.missionCargoEvaluateOutcome !== 'function') return [];
+    try {
+        const outcome = window.missionCargoEvaluateOutcome();
+        const names = Array.isArray(outcome?.missingRequired)
+            ? outcome.missingRequired
+            : [];
+        return [...new Set(names.map(v => String(v || '').trim()).filter(Boolean))];
     } catch (_) {
         return [];
     }
