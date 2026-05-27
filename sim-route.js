@@ -20,7 +20,6 @@
     let simTouchdownVs   = null;
     let simTrack         = [];
     let simLastTrackPt   = null;
-    let simPoiAtTargetTriggered = false; // pax voice: verhindert Doppel-Trigger beim POI
     let simAptAtTargetTriggered = false; // pax voice: verhindert Doppel-Trigger beim Airport
     let simLandingRollTriggered = false; // pax voice: verhindert Doppel-Trigger bei Landung/Taxi
     let simWaitedForMissionStart = false;
@@ -58,7 +57,6 @@
         simTouchdownVs  = null;
         simTrack        = [];
         simLastTrackPt  = null;
-        simPoiAtTargetTriggered = false;
         simAptAtTargetTriggered = false;
         simLandingRollTriggered = false;
         simWaitedForMissionStart = false;
@@ -165,20 +163,8 @@
             return;
         }
 
-        const _isPOISim = _isPoiSimMission();
-
-        // Pax voice: POI bei Streckenmitte (round-trip), echte Höhe übergeben
-        if (_isPOISim && !simPoiAtTargetTriggered && simRouteCache.totalDist > 0 &&
-            simDistNM >= simRouteCache.totalDist / 2) {
-            simPoiAtTargetTriggered = true;
-            const curAlt = Math.round(_alt(simDistNM, simRouteCache));
-            console.log('[SimPax] POI-Mitte erreicht bei', simDistNM.toFixed(1), '/', simRouteCache.totalDist.toFixed(1), 'NM → At-Target, alt:', curAlt, 'ft');
-            if (typeof window.triggerPaxAtTarget === 'function')
-                window.triggerPaxAtTarget({ mslFt: curAlt, aglFt: 0, bankDeg: 0, gForce: 1.0, vsFpm: 0 });
-        }
-
         // Pax voice: Airport 4,0 NM vor Ziel (Anflug, nicht Landung)
-        if (!_isPOISim && !simAptAtTargetTriggered && simRouteCache.totalDist > 0 &&
+        if (!_isPoiSimMission() && !simAptAtTargetTriggered && simRouteCache.totalDist > 0 &&
             simDistNM >= simRouteCache.totalDist - 4.0) {
             simAptAtTargetTriggered = true;
             const curAlt = Math.round(_alt(simDistNM, simRouteCache));
