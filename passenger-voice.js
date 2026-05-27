@@ -3832,18 +3832,23 @@ Moment: Trotz mehrfacher Bitte war die Höhe nicht erreichbar — ich kann unter
 Erkläre dem Piloten verständnisvoll, dass wir die Mission abbrechen und zurückfliegen müssen. Kein Vorwurf — manchmal passt es einfach nicht. 2 Sätze.${_toneHint()}`;
 }
 
-function _poiMissingRequiredTaskItems() {
-    if (typeof window.missionCargoEvaluateOutcome !== 'function') return [];
+function _poiRequiredTaskItemState() {
+    if (typeof window.missionCargoEvaluateOutcome !== 'function') {
+        return { missing: [], dropped: [], damaged: [], blockingItems: [], reason: 'missing' };
+    }
     try {
         const outcome = window.missionCargoEvaluateOutcome();
-        const names = [
-            ...(Array.isArray(outcome?.missingRequired) ? outcome.missingRequired : []),
-            ...(Array.isArray(outcome?.droppedRequired) ? outcome.droppedRequired : []),
-            ...(Array.isArray(outcome?.damagedRequired) ? outcome.damagedRequired : [])
-        ].map(v => String(v || '').trim()).filter(Boolean);
-        return [...new Set(names)];
+        const normalize = (list) => [...new Set((Array.isArray(list) ? list : []).map(v => String(v || '').trim()).filter(Boolean))];
+        const missing = normalize(outcome?.missingRequired);
+        const dropped = normalize(outcome?.droppedRequired);
+        const damaged = normalize(outcome?.damagedRequired);
+        const blockingItems = [...new Set([...missing, ...dropped, ...damaged])];
+        let reason = 'missing';
+        if (damaged.length) reason = 'damaged';
+        else if (dropped.length) reason = 'dropped';
+        return { missing, dropped, damaged, blockingItems, reason };
     } catch (_) {
-        return [];
+        return { missing: [], dropped: [], damaged: [], blockingItems: [], reason: 'missing' };
     }
 }
 
@@ -3860,19 +3865,30 @@ function _aptMissingRequiredCargoItems() {
     }
 }
 
-function _poiMissingCargoAbortPrompt(flightData, items = []) {
+function _poiMissingCargoAbortPrompt(flightData, taskState = null) {
     const ctx = _baseContext();
     const pax = window.activePassenger;
     if (!ctx || !pax) return null;
     const wx = _weatherContext(flightData);
-    const short = (Array.isArray(items) ? items : []).slice(0, 3).join(', ');
-    const itemLine = short
-        ? `Uns fehlt hier ${short}, das ist fuer meinen Auftrag wichtig.`
-        : 'Uns fehlt hier ein wichtiger Gegenstand fuer meinen Auftrag.';
+    const state = taskState && typeof taskState === 'object'
+        ? taskState
+        : { missing: [], dropped: [], damaged: [], blockingItems: [], reason: 'missing' };
+    const short = (Array.isArray(state.blockingItems) ? state.blockingItems : []).slice(0, 3).join(', ');
+    const itemLine = state.reason === 'damaged'
+        ? (short
+            ? `${short} ist beschaedigt, damit kann ich den Auftrag hier nicht sauber zu Ende bringen.`
+            : 'Ein wichtiger Gegenstand ist beschaedigt, damit kann ich den Auftrag hier nicht sauber zu Ende bringen.')
+        : state.reason === 'dropped'
+            ? (short
+                ? `${short} ist nicht mehr einsatzbereit an Bord, das ist fuer meinen Auftrag wichtig.`
+                : 'Ein wichtiger Gegenstand ist nicht mehr einsatzbereit an Bord.')
+            : (short
+                ? `Uns fehlt hier ${short}, das ist fuer meinen Auftrag wichtig.`
+                : 'Uns fehlt hier ein wichtiger Gegenstand fuer meinen Auftrag.');
     return `${ctx}
 
 Moment: Wir sind am Zielgebiet, aber ${itemLine}${wx ? ' ' + wx : ''}
-Sag dem Piloten klar und ruhig, dass wir die Beobachtung jetzt abbrechen und direkt zum Start-/Heimatplatz zurückfliegen sollen. Kein Vorwurf, keine Verweilzeit, keine Arbeitsfortsetzung. Nenne den fehlenden Gegenstand beim Namen. Max 2 Sätze.${_toneHint()}`;
+Sag dem Piloten klar und ruhig, dass wir die Beobachtung jetzt abbrechen und direkt zum Start-/Heimatplatz zurückfliegen sollen. Kein Vorwurf, keine Verweilzeit, keine Arbeitsfortsetzung. Nenne den betroffenen Gegenstand beim Namen und benenne klar, ob er fehlt oder beschaedigt ist. Max 2 Sätze.${_toneHint()}`;
 }
 
 // Shared tone instruction appended to every prompt
@@ -4303,11 +4319,15 @@ function _farewellPrompt(record) {
         || ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData.cargoOutcome : null)
         || window.activeMissionContract?.cargoOutcome
         || (typeof window.missionCargoEvaluateOutcome === 'function' ? window.missionCargoEvaluateOutcome() : null);
+    const missingRequired = Array.isArray(cargoOutcome?.missingRequired) ? cargoOutcome.missingRequired : [];
+    const droppedRequired = Array.isArray(cargoOutcome?.droppedRequired) ? cargoOutcome.droppedRequired : [];
+    const notDeliveredRequired = Array.isArray(cargoOutcome?.notDeliveredRequired) ? cargoOutcome.notDeliveredRequired : [];
+    const damagedRequired = Array.isArray(cargoOutcome?.damagedRequired) ? cargoOutcome.damagedRequired : [];
     const failureReasons = [
-        ...(cargoOutcome?.missingRequired || []),
-        ...(cargoOutcome?.droppedRequired || []),
-        ...(cargoOutcome?.notDeliveredRequired || []),
-        ...(cargoOutcome?.damagedRequired || [])
+        ...missingRequired,
+        ...droppedRequired,
+        ...notDeliveredRequired,
+        ...damagedRequired
     ].filter(Boolean);
     const isMissionFailed = !!(
         cargoOutcome?.failed
@@ -4319,7 +4339,11 @@ function _farewellPrompt(record) {
     );
     if (cargoOutcome?.failed) {
         const missing = failureReasons.slice(0, 3).join(', ');
-        highlights += ` Die Ladung ist nicht vollstaendig erledigt${missing ? `: ${missing}` : ''}.`;
+        if (damagedRequired.length) {
+            highlights += ` Wichtige Ausruestung wurde beschaedigt${missing ? `: ${missing}` : ''}.`;
+        } else {
+            highlights += ` Die Ladung ist nicht vollstaendig erledigt${missing ? `: ${missing}` : ''}.`;
+        }
     }
     if (isSimRecord) highlights += ' Hinweis: Sim-Modus aktiv, Landebewertung nur eingeschränkt belastbar.';
     if (wx) highlights += ` ${wx}`;
@@ -4335,8 +4359,17 @@ function _farewellPrompt(record) {
         : '';
     const isPOI = _isPOIMission();
     const poiNeedsRideHome = !!rec?.poiNeedsRideHome;
+    const primaryFailureReason = damagedRequired.length
+        ? `beschaedigte Ausruestung (${damagedRequired.slice(0, 2).join(', ')})`
+        : missingRequired.length
+            ? `fehlende Ausruestung (${missingRequired.slice(0, 2).join(', ')})`
+            : droppedRequired.length
+                ? `verlorene Ausruestung (${droppedRequired.slice(0, 2).join(', ')})`
+                : notDeliveredRequired.length
+                    ? notDeliveredRequired[0]
+                    : 'der Auftrag konnte nicht sauber abgeschlossen werden';
     const missionFailureTask = isMissionFailed
-        ? '\nDer Auftrag ist heute nicht abgeschlossen. Sag klar, dass die Aufgabe am Ziel nicht erledigt werden konnte, nenne kurz den Hauptgrund und formuliere am Ende eine kurze Retry-Frage (z.B. ob wir es mit kompletter Ausruestung nochmal versuchen sollen).'
+        ? `\nDer Auftrag ist heute nicht abgeschlossen. Sag klar, dass die Aufgabe am Ziel nicht erledigt werden konnte. Hauptgrund: ${primaryFailureReason}. Formuliere am Ende eine kurze Retry-Frage (z.B. ob wir es mit kompletter Ausruestung nochmal versuchen sollen).`
         : '';
     const poiRideHomeTask = (isPOI && poiNeedsRideHome)
         ? '\nWir sind nicht am Startflugplatz gelandet. Frag am Ende locker, ob wir dich von hier noch nach Hause fliegen.'
@@ -4687,7 +4720,8 @@ function _tickPoiDwell(lat, lon, flightData) {
     const maxAttempts          = strict ? 2 : 3;
     const graceSec             = strict ? 15  : 25;
     const complaintIntervalSec = strict ? 30 : 45;
-    const missingTaskItems = _poiMissingRequiredTaskItems();
+    const taskItemState = _poiRequiredTaskItemState();
+    const missingTaskItems = taskItemState.blockingItems;
 
     // Frühe POI-Meldung: technisch hilfreiche "Objekt in Sicht"-Ansage.
     // Trigger bei ~3 min Restzeit (gesprochen wird "ca. 2 min", um Gen-/TTS-Latenz auszugleichen).
@@ -4714,8 +4748,8 @@ function _tickPoiDwell(lat, lon, flightData) {
             _poiAborted = true;
             _paxAtTargetDone = true;
             _poiEntryDone = true;
-            _paxLog(`POI-Abbruch wichtiger Gegenstand fehlt | items: ${missingTaskItems.join(', ')}`, 'warn');
-            const pMissing = _poiMissingCargoAbortPrompt(flightData, missingTaskItems);
+            _paxLog(`POI-Abbruch wichtiger Gegenstand ${taskItemState.reason === 'damaged' ? 'beschaedigt' : 'fehlt'} | items: ${missingTaskItems.join(', ')}`, 'warn');
+            const pMissing = _poiMissingCargoAbortPrompt(flightData, taskItemState);
             if (pMissing) _paxMissionTimeout(() => _speakAndShow(pMissing, 'Abbruch'), 600);
             return;
         }
@@ -4739,8 +4773,8 @@ function _tickPoiDwell(lat, lon, flightData) {
     if (missingTaskItems.length) {
         _poiAborted = true;
         _paxAtTargetDone = true;
-        _paxLog(`POI-Abbruch waehrend Verweilzeit: wichtiger Gegenstand fehlt | items: ${missingTaskItems.join(', ')}`, 'warn');
-        const pMissing = _poiMissingCargoAbortPrompt(flightData, missingTaskItems);
+        _paxLog(`POI-Abbruch waehrend Verweilzeit: wichtiger Gegenstand ${taskItemState.reason === 'damaged' ? 'beschaedigt' : 'fehlt'} | items: ${missingTaskItems.join(', ')}`, 'warn');
+        const pMissing = _poiMissingCargoAbortPrompt(flightData, taskItemState);
         if (pMissing) _paxMissionTimeout(() => _speakAndShow(pMissing, 'Abbruch'), 600);
         return;
     }
