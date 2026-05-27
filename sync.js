@@ -409,6 +409,7 @@ function _missionRuntimePhaseSnapshot() {
     const startPhase = _missionStartPhase();
     if (startPhase === 'boarded') return 'boarded';
     if (startPhase === 'boarding') return 'boarding';
+    if (startPhase === 'prepare') return 'prepare';
     return validMission ? 'planned' : 'idle';
 }
 
@@ -1311,6 +1312,8 @@ function _missionAutoStartGroundStability(flightData = null, fallbackAglFt = nul
 
 function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
     if (typeof window.missionSceneSpawn !== 'function' || typeof window.missionSceneClear !== 'function') return;
+    const startPhase = _missionStartPhase();
+    if (!missionRuntime.active && startPhase !== 'boarding' && startPhase !== 'boarded') return;
     const sceneId = _missionSceneId();
     const status = window.missionSceneStatus || {};
     const gate = _missionSceneFlightGate(flightData);
@@ -6223,6 +6226,7 @@ function _missionStartPhase() {
         const raw = key ? localStorage.getItem(key) : '';
         if (raw === 'boarded') return 'boarded';
         if (raw === 'boarding') return 'boarding';
+        if (raw === 'prepare') return 'prepare';
         return 'planned';
     } catch (_) {
         return 'planned';
@@ -6233,7 +6237,11 @@ function _setMissionStartPhase(phase) {
     try {
         const key = _missionStartPhaseKey();
         if (!key) return;
-        const next = phase === 'boarded' ? 'boarded' : (phase === 'boarding' ? 'boarding' : 'planned');
+        const next = phase === 'boarded'
+            ? 'boarded'
+            : (phase === 'boarding'
+                ? 'boarding'
+                : (phase === 'prepare' ? 'prepare' : 'planned'));
         localStorage.setItem(key, next);
     } catch (_) {}
 }
@@ -6610,7 +6618,9 @@ function _updateMissionStartBanner(autoStartEnabled) {
         ? 'Boarding abgeschlossen. Wenn du die Ladung sicher verstaut hast, kann es losgehen.'
         : (phase === 'boarding'
             ? (simMode ? 'Sim-Modus bereit. Boarding und Verladen laufen an.' : 'Missionstart angefordert. Szene, Boarding und Verladen werden vorbereitet.')
-            : 'Mission ist geplant, aber noch nicht gestartet.');
+            : (phase === 'prepare'
+                ? 'Missionstart freigegeben. Als Nächstes kannst du Boarding und Verladen beginnen.'
+                : 'Mission ist geplant, aber noch nicht gestartet.'));
     if (phase === 'boarding') {
         if (simMode) text = 'Sim-Modus bereit. Boarding und Verladen laufen an.';
         else if (scene.spawned) text = `Start-Szene steht (${scene.spawnedCount || '?'} Objekte). Boarding und Verladen laufen.`;
@@ -6620,13 +6630,21 @@ function _updateMissionStartBanner(autoStartEnabled) {
         if (typeof window.paxVoicePrepareBoarding === 'function') {
             try { window.paxVoicePrepareBoarding(); } catch (_) {}
         }
+    } else if (phase === 'prepare') {
+        text = groundReady
+            ? 'Missionstart freigegeben. Mit dem nächsten Klick beginnt Boarding und Verladen.'
+            : 'Missionstart vorgemerkt. Bitte am Boden stehen und den Tracker abwarten.';
     } else if (phase === 'planned') {
         text = groundReady
             ? 'Mission ist geplant. Mit "Mission starten" wird erst dann Szene, Boarding und Verladen freigegeben.'
             : 'Mission ist geplant. Für den Start bitte am Boden stehen und den Tracker abwarten.';
     }
     if (textEl) textEl.textContent = text;
-    if (btn) btn.textContent = phase === 'boarded' ? 'Mission starten' : 'Mission starten';
+    if (btn) {
+        btn.textContent = phase === 'boarded'
+            ? 'Mission starten'
+            : (phase === 'prepare' ? 'Boarding und Verladen beginnen' : 'Mission starten');
+    }
 }
 
 function _updateMissionRuntimeUi() {
@@ -6647,7 +6665,7 @@ function _updateMissionRuntimeUi() {
     const runtimePhase = _missionRuntimePhaseSnapshot();
     if (st) {
         const idleText = !autoStartEnabled
-            ? (!validMission ? 'Keine startbare Mission' : (groundReady ? (phase === 'boarded' ? 'Mission startbereit' : (phase === 'boarding' ? 'Boarding läuft an' : 'Mission geplant')) : groundStatus.label))
+            ? (!validMission ? 'Keine startbare Mission' : (groundReady ? (phase === 'boarded' ? 'Mission startbereit' : (phase === 'boarding' ? 'Boarding läuft an' : (phase === 'prepare' ? 'Boarding freigegeben' : 'Mission geplant'))) : groundStatus.label))
             : (missionRuntime.armed ? 'Scharf (bereit)' : 'Wartet auf Boden-Stabilisierung');
         st.textContent = missionRuntime.closingPending
             ? 'Abschluss ausstehend'
@@ -6669,6 +6687,7 @@ function _updateMissionRuntimeUi() {
         const landedHere = !!endReady?.groundStill;
         const landedAtHome = landedHere && _missionPoiEndedAtHome(endReady);
         const landedAtTarget = landedHere && !!endReady?.atTarget;
+        const meaningfulFlight = _missionHadMeaningfulFlightForEnd();
         if (missionRuntime.closingPending) {
             detailText = _missionCloseOutcomeSummaryText(missionRuntime.closingOutcome);
             detailColor = '#d7c58b';
@@ -6676,6 +6695,9 @@ function _updateMissionRuntimeUi() {
             if (window.missionSceneStatus?.deboardingActive) {
                 detailText = 'Endszene und Deboarding laufen bereits.';
                 detailColor = '#d7c58b';
+            } else if (!meaningfulFlight && landedAtHome) {
+                detailText = 'Am Startplatz bereit. Mission ist aktiv, aber der Flug hat noch nicht begonnen.';
+                detailColor = '#8ea0b8';
             } else if (poiStatus?.detail) {
                 const landingPrefix = landedAtHome
                     ? 'Gelandet am Startplatz. '
@@ -6705,6 +6727,8 @@ function _updateMissionRuntimeUi() {
             detailText = 'Boarding und Verladen abgeschlossen. Mission ist jetzt startbereit.';
         } else if (phase === 'boarding' && validMission) {
             detailText = 'Missionstart angefordert. Szene, Boarding und Verladen werden vorbereitet.';
+        } else if (phase === 'prepare' && validMission) {
+            detailText = 'Missionstart freigegeben. Boarding und Verladen warten auf die nächste Bestätigung.';
         } else if (phase === 'planned' && validMission) {
             detailText = 'Mission liegt bereit. Erst nach "Mission starten" werden Szene und Boarding freigeschaltet.';
         } else if (!validMission) {
@@ -6740,6 +6764,8 @@ function _updateMissionRuntimeUi() {
             nextStep = 'Nächster Schritt: Mission starten';
         } else if (phase === 'boarding' && validMission) {
             nextStep = 'Nächster Schritt: Boarding und Verladen abschliessen';
+        } else if (phase === 'prepare' && validMission && groundReady) {
+            nextStep = 'Nächster Schritt: Boarding und Verladen beginnen';
         } else if (window.missionSceneStatus?.boardingRequested || window.missionSceneStatus?.boardingActive) {
             nextStep = 'Nächster Schritt: Boarding läuft';
         } else if (phase === 'planned' && validMission && groundReady) {
@@ -6778,10 +6804,14 @@ function _updateMissionRuntimeUi() {
             bMap.style.display = (!autoStartEnabled && (missionRuntime.active || (validMission && groundReady))) ? 'inline-flex' : 'none';
             bMap.textContent = missionRuntime.active
                 ? (deboardingBusy ? '… Deboarding läuft' : ((endReady?.ready || poiGroundEndReady) ? '■ Mission beenden' : '■ Mission stoppen'))
-                : (phase === 'boarded' ? '▶ Mission starten' : '▶ Mission starten');
+                : (phase === 'boarded'
+                    ? '▶ Mission starten'
+                    : (phase === 'prepare' ? '▶ Boarding' : '▶ Mission starten'));
             bMap.title = missionRuntime.active
                 ? (deboardingBusy ? 'Deboarding laeuft bereits' : ((endReady?.ready || poiGroundEndReady) ? 'Mission jetzt abschliessen' : 'Mission manuell stoppen'))
-                : (phase === 'boarded' ? 'Mission jetzt aktiv schalten' : 'Missionstart freigeben und Boarding vorbereiten');
+                : (phase === 'boarded'
+                    ? 'Mission jetzt aktiv schalten'
+                    : (phase === 'prepare' ? 'Boarding und Verladen beginnen' : 'Missionstart freigeben und Boarding vorbereiten'));
             bMap.disabled = missionRuntime.active ? deboardingBusy : (!validMission || !groundReady);
         }
         bMap.classList.toggle('is-active', missionRuntime.active);
@@ -6961,7 +6991,7 @@ function _missionPoiProgressState() {
 function _missionPoiGroundEndReady(endReady = null) {
     if (!_missionSceneIsPoiMission()) return false;
     const ready = endReady && typeof endReady === 'object' ? endReady : _missionEndReadiness();
-    return !!(ready?.groundStill && _missionHadMeaningfulFlightForEnd());
+    return !!(ready?.groundStill && (missionRuntime.active || _missionHadMeaningfulFlightForEnd()));
 }
 
 function _missionPoiEndedAtHome(endReady = null) {
@@ -7403,6 +7433,16 @@ window.handleMissionStartBannerAction = async function() {
         }
         if (missionRuntime.active) {
             window.manualMissionEnd();
+            return;
+        }
+        if (phase === 'planned') {
+            _setMissionStartPhase('prepare');
+            _setMissionRuntimePhase('planned');
+            _updateMissionRuntimeUi();
+            return;
+        }
+        if (phase === 'prepare') {
+            await window.startMissionBoarding();
             return;
         }
         if (phase !== 'boarded') {
