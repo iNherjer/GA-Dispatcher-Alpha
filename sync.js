@@ -1313,7 +1313,7 @@ function _missionAutoStartGroundStability(flightData = null, fallbackAglFt = nul
 function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
     if (typeof window.missionSceneSpawn !== 'function' || typeof window.missionSceneClear !== 'function') return;
     const startPhase = _missionStartPhase();
-    if (!missionRuntime.active && startPhase !== 'boarding' && startPhase !== 'boarded') return;
+    if (!missionRuntime.active && startPhase !== 'prepare' && startPhase !== 'boarding' && startPhase !== 'boarded') return;
     const sceneId = _missionSceneId();
     const status = window.missionSceneStatus || {};
     const gate = _missionSceneFlightGate(flightData);
@@ -7439,6 +7439,9 @@ window.handleMissionStartBannerAction = async function() {
             _setMissionStartPhase('prepare');
             _setMissionRuntimePhase('planned');
             _updateMissionRuntimeUi();
+            if (!window.simModeActive && typeof _missionSceneHandleFlightTick === 'function') {
+                setTimeout(() => _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'mission-start-prepare'), 120);
+            }
             return;
         }
         if (phase === 'prepare') {
