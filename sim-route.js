@@ -292,6 +292,8 @@
         window.lastLiveFlightData = {
             mslFt: Math.round(alt || 0),
             aglFt: 0,
+            gsKts: 0,
+            gs: 0,
             bankDeg: 0,
             gForce: 1.0,
             vsFpm: 0,
@@ -299,7 +301,7 @@
             stallState: false,
             windKts: null,
             windDeg: null,
-            onGround: !!atEnd
+            onGround: true
         };
 
         updateLivePlanePosition(pos.lat, pos.lon, Math.round(alt), pos.hdg);
