@@ -121,12 +121,12 @@
             _triggerSimLandingRoll();
             if (simHoldRemainSec <= 0) {
                 const rec = _buildSimRecord();
-                if (typeof window.missionCargoNeedsUnload === 'function' && window.missionCargoNeedsUnload()) {
-                    simMissionEndPending = true;
-                    simMissionEndRecord = rec;
-                    simPhase = 'mission_end_pending';
-                    console.log('[SimPax] end_hold abgelaufen → wartet auf Cargo-Entladung vor Missionsende.');
-                    if (typeof window.openMissionCargoDialog === 'function') window.openMissionCargoDialog('unload');
+                simMissionEndPending = true;
+                simMissionEndRecord = rec;
+                simPhase = 'mission_end_pending';
+                console.log('[SimPax] end_hold abgelaufen → Sim-Mission wartet auf explizites Missionsende.');
+                if (typeof window.openMissionCargoDialog === 'function') {
+                    window.openMissionCargoDialog('unload');
                     return;
                 }
                 _finalizeSimMissionEnd(rec);
