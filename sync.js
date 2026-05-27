@@ -6306,9 +6306,9 @@ function _missionBoardingVoiceDone() {
 
 function _missionCargoLoadInteractionReady() {
     if (window.simModeActive) return true;
-    const sceneDone = !!window.missionSceneStatus?.boardingComplete;
+    const sceneDone = !!window.missionSceneStatus?.boardingComplete || !!window.missionSceneStatus?.personBoarded;
     if (!sceneDone) return false;
-    return _missionBoardingVoiceDone();
+    return !!window.missionSceneStatus?.personBoarded || _missionBoardingVoiceDone();
 }
 
 function _missionCargoMaybePromoteStartReady(reason = 'cargo-ready-check') {
