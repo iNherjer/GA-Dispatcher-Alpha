@@ -273,6 +273,16 @@ window.paxVoiceResetMission = function() {
     _refreshPaxWidgetVisibility();
 };
 
+window.paxVoiceGetPoiMissionProgress = function() {
+    return {
+        hasSignal: true,
+        trackingActive: !!window.activePassenger && _missionHasPax(),
+        satisfied: !!_poiSatisfied,
+        aborted: !!_poiAborted,
+        atTargetDone: !!_paxAtTargetDone
+    };
+};
+
 function _createMissionComfortScore() {
     return {
         startedAt: Date.now(),
@@ -4324,8 +4334,12 @@ function _farewellPrompt(record) {
         ? '\nDa du hier als Instruktor unterwegs bist: Gib ein kurzes, konkretes Trainingsfazit (was war gut, was sollte beim nächsten Flug sauberer werden).'
         : '';
     const isPOI = _isPOIMission();
+    const poiNeedsRideHome = !!rec?.poiNeedsRideHome;
     const missionFailureTask = isMissionFailed
         ? '\nDer Auftrag ist heute nicht abgeschlossen. Sag klar, dass die Aufgabe am Ziel nicht erledigt werden konnte, nenne kurz den Hauptgrund und formuliere am Ende eine kurze Retry-Frage (z.B. ob wir es mit kompletter Ausruestung nochmal versuchen sollen).'
+        : '';
+    const poiRideHomeTask = (isPOI && poiNeedsRideHome)
+        ? '\nWir sind nicht am Startflugplatz gelandet. Frag am Ende locker, ob wir dich von hier noch nach Hause fliegen.'
         : '';
     const aptFarewellHint = (!isPOI && !trainingPlan) ? _aptArrivalFarewellHint() : '';
     const farewellTask = isMissionFailed
@@ -4339,7 +4353,7 @@ function _farewellPrompt(record) {
 
 Moment: ${aptFarewellHint || 'Wir sind gelandet, Flug beendet.'}
 Fakten: ${facts}${highlights ? '\n' + highlights : ''}${trnFacts}
-${farewellTask}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
+${farewellTask}${poiRideHomeTask}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
 }
 
 window.triggerPaxCargoEvent = async function(event = {}) {
