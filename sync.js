@@ -381,6 +381,7 @@ let flightRecorder = {
 };
 
 let missionRuntime = {
+    phase: 'idle',
     armed: false,
     active: false,
     manual: false,
@@ -398,6 +399,25 @@ let missionRuntime = {
     deboardingAfterFarewellStarted: false,
     endReadinessKey: ''
 };
+
+function _missionRuntimePhaseSnapshot() {
+    const validMission = _hasValidMissionForStart();
+    if (missionRuntime.closingPending) return 'closing';
+    if (missionRuntime.active) {
+        return missionRuntime.phase === 'end_ready' ? 'end_ready' : 'active';
+    }
+    const startPhase = _missionStartPhase();
+    if (startPhase === 'boarded') return 'boarded';
+    if (startPhase === 'boarding') return 'boarding';
+    return validMission ? 'planned' : 'idle';
+}
+
+function _setMissionRuntimePhase(phase = 'idle', options = {}) {
+    const next = String(phase || 'idle');
+    missionRuntime.phase = next;
+    if (options.updateUi !== false) _updateMissionRuntimeUi();
+    return next;
+}
 
 let missionSmokeCommandSeq = 0;
 const missionSceneBoardingWaiters = new Map();
@@ -3327,7 +3347,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             : 'window.missionCargoSignDispatchList && missionCargoSignDispatchList()');
     const primaryActionLabel = isUnload
         ? 'Entladung abgeschlossen - Mission beenden'
-        : (signature ? 'Mission beginnen' : 'Verladung bestaetigen & unterschreiben');
+        : (signature ? 'Verladung abschliessen' : 'Verladung bestaetigen & unterschreiben');
     const secondaryAction = (!isUnload && signature)
         ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
         : '';
@@ -3347,8 +3367,8 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             <div class="mission-cargo-copy">${isUnload
                 ? `Entlade die am Ziel benoetigten Gegenstaende. Wiederladen geht im Umkreis von ${MISSION_CARGO_RELOAD_MAX_DISTANCE_M} m.`
                 : (missionStartReady
-                    ? 'Die Boarding-Animation ist abgeschlossen. Geladene Gegenstaende verschwinden aus der Startszene und werden fuer die Missionswertung gespeichert.'
-                    : 'Verladen ist bereits moeglich. Mission starten wird freigeschaltet, sobald Boarding und Boarding-Ansage abgeschlossen sind.')}</div>
+                    ? 'Die Boarding-Animation ist abgeschlossen. Nach dem Abschliessen der Verladung ist die Mission startbereit.'
+                    : 'Verladen ist bereits moeglich. Die eigentliche Missionsaktivierung wird erst nach Boarding und Verladung freigeschaltet.')}</div>
             ${!isUnload ? `
             <div class="mission-cargo-clipboard">
                 <div class="mission-cargo-sheet-title">Frachtgutliste</div>
@@ -3682,9 +3702,11 @@ window.finishMissionCargoLoadingAndStart = function() {
         window.missionCargoSignDispatchList?.({ render: false });
     }
     _setMissionStartPhase('boarded');
+    _setMissionRuntimePhase('boarded', { updateUi: false });
     _missionCargoSyncPayloadToSim('cargo-finish-loading').catch(() => {});
     window.closeMissionCargoDialog?.();
-    window.manualMissionStart();
+    _updateMissionRuntimeUi();
+    return true;
 };
 
 window.finishMissionCargoUnloadAndEnd = function() {
@@ -6198,9 +6220,12 @@ function _missionStartPhaseKey() {
 function _missionStartPhase() {
     try {
         const key = _missionStartPhaseKey();
-        return key && localStorage.getItem(key) === 'boarded' ? 'boarded' : 'boarding';
+        const raw = key ? localStorage.getItem(key) : '';
+        if (raw === 'boarded') return 'boarded';
+        if (raw === 'boarding') return 'boarding';
+        return 'planned';
     } catch (_) {
-        return 'boarding';
+        return 'planned';
     }
 }
 
@@ -6208,7 +6233,8 @@ function _setMissionStartPhase(phase) {
     try {
         const key = _missionStartPhaseKey();
         if (!key) return;
-        localStorage.setItem(key, phase === 'boarded' ? 'boarded' : 'boarding');
+        const next = phase === 'boarded' ? 'boarded' : (phase === 'boarding' ? 'boarding' : 'planned');
+        localStorage.setItem(key, next);
     } catch (_) {}
 }
 
@@ -6410,6 +6436,7 @@ function _missionCargoHardFailurePreview() {
 
 function _setMissionClosePending(options = {}) {
     const outcome = options?.outcome && typeof options.outcome === 'object' ? options.outcome : null;
+    missionRuntime.phase = 'closing';
     missionRuntime.active = false;
     missionRuntime.armed = false;
     missionRuntime.manual = false;
@@ -6523,6 +6550,8 @@ function _updateMissionStartBanner(autoStartEnabled) {
     const endReady = missionRuntime.active ? _missionEndReadiness() : null;
     const poiGroundEndReady = missionRuntime.active ? _missionPoiGroundEndReady(endReady) : false;
     const deboardingBusy = _missionEndDeboardingBusy();
+    const runtimePhase = _missionRuntimePhaseSnapshot();
+    missionRuntime.phase = runtimePhase;
     const showClose = !!missionRuntime.closingPending;
     const showDeboarding = missionRuntime.active && deboardingBusy;
     const showEndReady = !!endReady?.ready || poiGroundEndReady;
@@ -6579,19 +6608,25 @@ function _updateMissionStartBanner(autoStartEnabled) {
     const scene = window.missionSceneStatus || {};
     let text = phase === 'boarded'
         ? 'Boarding abgeschlossen. Wenn du die Ladung sicher verstaut hast, kann es losgehen.'
-        : (simMode ? 'Sim-Modus bereit. Boarding und Verladen bereit.' : 'Tracker verbunden. Boarding und Verladen bereit.');
-    if (phase !== 'boarded') {
-        if (simMode) text = 'Sim-Modus bereit. Boarding und Verladen bereit.';
-        else if (scene.spawned) text = `Start-Szene steht (${scene.spawnedCount || '?'} Objekte). Boarding bereit.`;
-        else if (scene.spawnRequested) text = 'Start-Szene wird vorbereitet. Boarding bereit.';
+        : (phase === 'boarding'
+            ? (simMode ? 'Sim-Modus bereit. Boarding und Verladen laufen an.' : 'Missionstart angefordert. Szene, Boarding und Verladen werden vorbereitet.')
+            : 'Mission ist geplant, aber noch nicht gestartet.');
+    if (phase === 'boarding') {
+        if (simMode) text = 'Sim-Modus bereit. Boarding und Verladen laufen an.';
+        else if (scene.spawned) text = `Start-Szene steht (${scene.spawnedCount || '?'} Objekte). Boarding und Verladen laufen.`;
+        else if (scene.spawnRequested) text = 'Start-Szene wird vorbereitet. Boarding und Verladen laufen an.';
         else if (scene.blockReason) text = _missionSceneBlockReasonBannerText(scene.blockReason);
-        else if (_missionLooksLikeFireWatch()) text = 'Feuerwehr-Szene wird vorbereitet. Boarding bereit.';
+        else if (_missionLooksLikeFireWatch()) text = 'Feuerwehr-Szene wird vorbereitet. Boarding und Verladen laufen an.';
         if (typeof window.paxVoicePrepareBoarding === 'function') {
             try { window.paxVoicePrepareBoarding(); } catch (_) {}
         }
+    } else if (phase === 'planned') {
+        text = groundReady
+            ? 'Mission ist geplant. Mit "Mission starten" wird erst dann Szene, Boarding und Verladen freigegeben.'
+            : 'Mission ist geplant. Für den Start bitte am Boden stehen und den Tracker abwarten.';
     }
     if (textEl) textEl.textContent = text;
-    if (btn) btn.textContent = phase === 'boarded' ? 'Mission starten' : 'Boarding und Verladen beginnen';
+    if (btn) btn.textContent = phase === 'boarded' ? 'Mission starten' : 'Mission starten';
 }
 
 function _updateMissionRuntimeUi() {
@@ -6609,19 +6644,24 @@ function _updateMissionRuntimeUi() {
     const detailEl = document.getElementById('missionRuntimeDetail');
     const nextStepEl = document.getElementById('missionRuntimeNextStep');
     const poiStatus = missionRuntime.active ? _missionPoiRuntimeStatus(endReady) : null;
+    const runtimePhase = _missionRuntimePhaseSnapshot();
     if (st) {
         const idleText = !autoStartEnabled
-            ? (!validMission ? 'Keine startbare Mission' : (groundReady ? (phase === 'boarded' ? 'Mission startbereit' : 'Boarding bereit') : groundStatus.label))
+            ? (!validMission ? 'Keine startbare Mission' : (groundReady ? (phase === 'boarded' ? 'Mission startbereit' : (phase === 'boarding' ? 'Boarding läuft an' : 'Mission geplant')) : groundStatus.label))
             : (missionRuntime.armed ? 'Scharf (bereit)' : 'Wartet auf Boden-Stabilisierung');
         st.textContent = missionRuntime.closingPending
             ? 'Abschluss ausstehend'
             : missionRuntime.active
-            ? (missionRuntime.manual || !autoStartEnabled ? 'Aktiv (manuell)' : 'Aktiv')
+            ? ((runtimePhase === 'end_ready')
+                ? 'Abschlussbereit'
+                : (missionRuntime.manual || !autoStartEnabled ? 'Aktiv (manuell)' : 'Aktiv'))
             : (draftBlocked ? 'Entwurf: Mission akzeptieren' : idleText);
         st.title = groundStatus.reason
             ? `Start-Gate: ${groundStatus.reason}${Number.isFinite(Number(groundStatus.gs)) ? ` | GS ${Number(groundStatus.gs).toFixed(1)} kt` : ''}${Number.isFinite(Number(groundStatus.agl)) ? ` | AGL ${Math.round(Number(groundStatus.agl))} ft` : ''}`
             : '';
-        st.style.color = missionRuntime.active ? '#4caf50' : (draftBlocked ? '#f2c12e' : (!autoStartEnabled ? (validMission && groundReady ? '#8ec5ff' : '#888') : (missionRuntime.armed ? '#f2c12e' : '#888')));
+        st.style.color = missionRuntime.active
+            ? (runtimePhase === 'end_ready' ? '#c6f3a3' : '#4caf50')
+            : (draftBlocked ? '#f2c12e' : (!autoStartEnabled ? (validMission && groundReady ? '#8ec5ff' : '#888') : (missionRuntime.armed ? '#f2c12e' : '#888')));
     }
     if (detailEl) {
         let detailText = 'Statusdetails folgen nach Missionsstart';
@@ -6661,8 +6701,12 @@ function _updateMissionRuntimeUi() {
                 const homeText = Number.isFinite(homeNm) ? ` · Home ${homeNm.toFixed(2)} NM` : '';
                 detailText = `Mission läuft${homeText}.`;
             }
-        } else if (phase === 'boarded' && validMission) {
-            detailText = 'Boarding und Verladen abgeschlossen.';
+        } else if (runtimePhase === 'boarded' && validMission) {
+            detailText = 'Boarding und Verladen abgeschlossen. Mission ist jetzt startbereit.';
+        } else if (phase === 'boarding' && validMission) {
+            detailText = 'Missionstart angefordert. Szene, Boarding und Verladen werden vorbereitet.';
+        } else if (phase === 'planned' && validMission) {
+            detailText = 'Mission liegt bereit. Erst nach "Mission starten" werden Szene und Boarding freigeschaltet.';
         } else if (!validMission) {
             detailText = 'Es fehlt aktuell eine akzeptierte Mission mit nutzbarer Route.';
             detailColor = '#b7a6a6';
@@ -6692,12 +6736,16 @@ function _updateMissionRuntimeUi() {
             } else {
                 nextStep = 'Nächster Schritt: Am Ziel landen und stoppen';
             }
-        } else if (phase === 'boarded' && validMission) {
+        } else if (runtimePhase === 'boarded' && validMission) {
             nextStep = 'Nächster Schritt: Mission starten';
+        } else if (phase === 'boarding' && validMission) {
+            nextStep = 'Nächster Schritt: Boarding und Verladen abschliessen';
         } else if (window.missionSceneStatus?.boardingRequested || window.missionSceneStatus?.boardingActive) {
             nextStep = 'Nächster Schritt: Boarding läuft';
+        } else if (phase === 'planned' && validMission && groundReady) {
+            nextStep = 'Nächster Schritt: Mission starten';
         } else if (validMission && groundReady) {
-            nextStep = 'Nächster Schritt: Boarding und Verladen starten';
+            nextStep = 'Nächster Schritt: Mission starten';
         } else if (!validMission) {
             nextStep = 'Nächster Schritt: Mission erzeugen/akzeptieren';
         } else if (autoStartEnabled) {
@@ -6730,10 +6778,10 @@ function _updateMissionRuntimeUi() {
             bMap.style.display = (!autoStartEnabled && (missionRuntime.active || (validMission && groundReady))) ? 'inline-flex' : 'none';
             bMap.textContent = missionRuntime.active
                 ? (deboardingBusy ? '… Deboarding läuft' : ((endReady?.ready || poiGroundEndReady) ? '■ Mission beenden' : '■ Mission stoppen'))
-                : (phase === 'boarded' ? '▶ Mission starten' : 'Boarding');
+                : (phase === 'boarded' ? '▶ Mission starten' : '▶ Mission starten');
             bMap.title = missionRuntime.active
                 ? (deboardingBusy ? 'Deboarding laeuft bereits' : ((endReady?.ready || poiGroundEndReady) ? 'Mission jetzt abschliessen' : 'Mission manuell stoppen'))
-                : (phase === 'boarded' ? 'Mission manuell starten' : 'Boarding und Verladen beginnen');
+                : (phase === 'boarded' ? 'Mission jetzt aktiv schalten' : 'Missionstart freigeben und Boarding vorbereiten');
             bMap.disabled = missionRuntime.active ? deboardingBusy : (!validMission || !groundReady);
         }
         bMap.classList.toggle('is-active', missionRuntime.active);
@@ -6746,6 +6794,7 @@ window.refreshMissionRuntimeUi = _updateMissionRuntimeUi;
 
 function _resetMissionRuntime() {
     missionRuntime = {
+        phase: _hasValidMissionForStart() ? 'planned' : 'idle',
         armed: false,
         active: false,
         manual: false,
@@ -7132,6 +7181,9 @@ window.startMissionBoarding = async function() {
         _updateMissionRuntimeUi();
         return false;
     }
+    _setMissionStartPhase('boarding');
+    _setMissionRuntimePhase('boarding', { updateUi: false });
+    _updateMissionRuntimeUi();
     missionStartBoardingPromise = (async () => {
         const bannerBtn = document.getElementById('missionStartBannerBtn');
         const mapBtn = document.getElementById('mapMissionToggleBtn');
@@ -7198,7 +7250,12 @@ window.manualMissionStart = function() {
     if (typeof window.paxVoiceUnlockAudio === 'function') {
         try { window.paxVoiceUnlockAudio('mission-start-click'); } catch (_) {}
     }
+    if (_missionRuntimePhaseSnapshot() !== 'boarded') {
+        _updateMissionRuntimeUi();
+        return false;
+    }
     _setMissionStartPhase('boarded');
+    missionRuntime.phase = 'active';
     missionRuntime.armed = true;
     missionRuntime.active = true;
     missionRuntime.manual = true;
@@ -7223,6 +7280,7 @@ window.manualMissionStart = function() {
         setTimeout(() => _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'manual-mission-start'), 600);
     }
     _updateMissionRuntimeUi();
+    return true;
 };
 
 window.manualMissionEnd = function(options = {}) {
@@ -7334,6 +7392,7 @@ function _tryStartMissionEndScene(reason = 'mission-end', options = {}) {
 window.handleMissionStartBannerAction = async function() {
     if (missionStartActionPromise) return missionStartActionPromise;
     missionStartActionPromise = (async () => {
+        const phase = _missionStartPhase();
         if (missionRuntime.closingPending) {
             window.completeMissionClose('banner-close');
             return;
@@ -7346,7 +7405,7 @@ window.handleMissionStartBannerAction = async function() {
             window.manualMissionEnd();
             return;
         }
-        if (_missionStartPhase() !== 'boarded') {
+        if (phase !== 'boarded') {
             await window.startMissionBoarding();
             return;
         }
@@ -10243,6 +10302,7 @@ function updateFlightRecorder(lat, lon, alt) {
     // Erstes echtes Rollen/Bewegen startet die Mission; Helis dürfen auch per Liftoff starten.
     const heliLiftOffStart = missionRuntime.armed && !simPaused && !inMenuOrMap && !onGroundNow && agl >= 35;
     if (autoMissionStartEnabled && !missionRuntime.active && missionRuntime.armed && !simPaused && !inMenuOrMap && (gs >= 10 || heliLiftOffStart)) {
+        missionRuntime.phase = 'active';
         missionRuntime.active = true;
         missionRuntime.manual = false;
         missionRuntime.pendingEndAt = 0;
@@ -10366,6 +10426,7 @@ function updateFlightRecorder(lat, lon, alt) {
     // - am Ziel + stillstand -> Farewell sprechen, danach Deboarding/Mission schließen
     // - woanders + stillstand -> humorvoller Hinweis, mission bleibt offen
     const endReady = _missionEndReadiness(lat, lon);
+    missionRuntime.phase = endReady.ready || _missionPoiGroundEndReady(endReady) ? 'end_ready' : 'active';
     if (!autoMissionStartEnabled || missionRuntime.manual) {
         const key = `${endReady.ready ? 'ready' : 'wait'}:${endReady.reason || ''}`;
         if (missionRuntime.endReadinessKey !== key) {
