@@ -168,6 +168,7 @@ let _paxComfortBusy   = false;
 let _paxLandingPhaseAnnounced = false;
 let _paxWxMismatchDone = false;
 let _paxSpeechQueue   = Promise.resolve();
+let _paxMissionEpoch  = 1;
 let _paxWrongStartActive = false;
 let _paxWrongStartContinueDone = false;
 let _paxOffDestLastAt = 0;
@@ -201,7 +202,17 @@ let _poiTrainingLandingBriefDone = false; // 5/4 NM before landing on return leg
 let _poiNarrativeMemory = { pre: '', entry: '', done: '' }; // anti-repeat memory across POI phases
 let _missionComfortScore = null;
 
+function _paxMissionTimeout(fn, delayMs) {
+    const epoch = _paxMissionEpoch;
+    return setTimeout(() => {
+        if (epoch !== _paxMissionEpoch) return;
+        try { fn(); } catch (_) {}
+    }, Math.max(0, Number(delayMs) || 0));
+}
+
 window.paxVoiceResetMission = function() {
+    _paxMissionEpoch += 1;
+    if (!Number.isFinite(_paxMissionEpoch) || _paxMissionEpoch > 1e9) _paxMissionEpoch = 1;
     _paxGreetingDone  = false;
     _paxAtTargetDone  = false;
     _paxFarewellDone  = false;
@@ -2536,9 +2547,12 @@ function _rememberAndShowPrepared(text, speaker, eventLabel) {
 }
 
 function _speakPreparedText(key, text, speaker, eventLabel) {
+    const epoch = _paxMissionEpoch;
     const run = async () => {
+        if (epoch !== _paxMissionEpoch) return;
         _paxLog(`Queue ▶ Start | Event: ${eventLabel}`, 'state');
         try {
+            if (epoch !== _paxMissionEpoch) return;
             _paxLog(`── ${eventLabel} ──`, 'event');
             _rememberAndShowPrepared(text, speaker, eventLabel);
             if (!_paxVoiceEnabled) {
@@ -2640,10 +2654,13 @@ async function _speakAndShowNow(situationPrompt, eventLabel) {
 }
 
 function _speakAndShow(situationPrompt, eventLabel) {
+    const epoch = _paxMissionEpoch;
     _paxLog(`Queue +1 | Event: ${eventLabel}`, 'state');
     const run = async () => {
+        if (epoch !== _paxMissionEpoch) return;
         _paxLog(`Queue ▶ Start | Event: ${eventLabel}`, 'state');
         try {
+            if (epoch !== _paxMissionEpoch) return;
             await _speakAndShowNow(situationPrompt, eventLabel);
         } catch (e) {
             _paxLog(`Speech-Queue Fehler: ${e.message || e}`, 'warn');
@@ -3583,6 +3600,36 @@ Moment: Trotz mehrfacher Bitte war die Höhe nicht erreichbar — ich kann unter
 Erkläre dem Piloten verständnisvoll, dass wir die Mission abbrechen und zurückfliegen müssen. Kein Vorwurf — manchmal passt es einfach nicht. 2 Sätze.${_toneHint()}`;
 }
 
+function _poiMissingRequiredTaskItems() {
+    if (typeof window.missionCargoEvaluateOutcome !== 'function') return [];
+    try {
+        const outcome = window.missionCargoEvaluateOutcome();
+        const names = [
+            ...(Array.isArray(outcome?.missingRequired) ? outcome.missingRequired : []),
+            ...(Array.isArray(outcome?.droppedRequired) ? outcome.droppedRequired : []),
+            ...(Array.isArray(outcome?.damagedRequired) ? outcome.damagedRequired : [])
+        ].map(v => String(v || '').trim()).filter(Boolean);
+        return [...new Set(names)];
+    } catch (_) {
+        return [];
+    }
+}
+
+function _poiMissingCargoAbortPrompt(flightData, items = []) {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const wx = _weatherContext(flightData);
+    const short = (Array.isArray(items) ? items : []).slice(0, 3).join(', ');
+    const itemLine = short
+        ? `Uns fehlt hier wichtiges Pflichtmaterial (${short}), damit kann ich die Aufgabe am POI nicht sauber durchführen.`
+        : 'Uns fehlt hier wichtiges Pflichtmaterial, damit kann ich die Aufgabe am POI nicht sauber durchführen.';
+    return `${ctx}
+
+Moment: Wir sind am Zielgebiet, aber ${itemLine}${wx ? ' ' + wx : ''}
+Sag dem Piloten klar und ruhig, dass wir die Beobachtung jetzt abbrechen und direkt zum Start-/Heimatplatz zurückfliegen sollen. Kein Vorwurf, keine Verweilzeit, keine Arbeitsfortsetzung. Max 2 Sätze.${_toneHint()}`;
+}
+
 // Shared tone instruction appended to every prompt
 function _toneHint() {
     if (_UNIFIED_INSTRUCTOR_BASELINE) {
@@ -3693,7 +3740,7 @@ function _maybeWrongStartContinue(flightData) {
     const p = _wrongStartContinuePrompt(flightData);
     if (!p) return;
     _paxLog('Wrong-Start Follow-up nach Abheben', 'event');
-    setTimeout(() => _speakAndShow(p, 'Route läuft ab hier'), 300);
+    _paxMissionTimeout(() => _speakAndShow(p, 'Route läuft ab hier'), 300);
 }
 
 function _offDestinationLandingPrompt(distNm) {
@@ -3939,7 +3986,7 @@ function _maybePaxComfortFeedback(flightData, lat, lon) {
 
     const prompt = _comfortBreachPrompt(flightData, breach, _paxComfortCount);
     if (!prompt) { _paxComfortBusy = false; return; }
-    setTimeout(async () => {
+    _paxMissionTimeout(async () => {
         try {
             await _speakAndShow(prompt, 'Komfort-Hinweis');
         } finally {
@@ -4098,7 +4145,7 @@ window.triggerPaxAtTarget = async function(flightData) {
     if (!prompt) { _paxAtTargetDone = false; _paxLandingPhaseAnnounced = false; _paxLog('AtTarget: kein Prompt', 'warn'); return; }
     _paxLog('At-Target → API-Call in 2s', 'event');
     const label = _isPOIMission() ? 'Am Ziel' : (_activeAptArrivalPlan() ? 'Ankunft' : 'Landung');
-    setTimeout(() => _speakAndShow(prompt, label), 2000);
+    _paxMissionTimeout(() => _speakAndShow(prompt, label), 2000);
 };
 
 function _notifyFarewellSpeechComplete(reason = 'pax-farewell-complete') {
@@ -4130,7 +4177,7 @@ window.triggerPaxFarewell = async function(record) {
     }
     const delayMs = _paxVoiceEnabled ? 3000 : 0;
     _paxLog(`Farewell → API-Call in ${Math.round(delayMs / 1000)}s`, 'event');
-    setTimeout(async () => {
+    _paxMissionTimeout(async () => {
         try {
             await _speakAndShow(prompt, 'Verabschiedung');
         } finally {
@@ -4145,7 +4192,7 @@ window.triggerPaxLandingRoll = async function(record) {
     const prompt = _landingRollPrompt(record);
     if (!prompt) return;
     _paxLog('Landing-Roll → API-Call in 1s', 'event');
-    setTimeout(() => _speakAndShow(prompt, 'Nach der Landung'), 1000);
+    _paxMissionTimeout(() => _speakAndShow(prompt, 'Nach der Landung'), 1000);
 };
 
 window.triggerPaxOffDestinationLanding = async function(distNm) {
@@ -4156,7 +4203,7 @@ window.triggerPaxOffDestinationLanding = async function(distNm) {
     const p = _offDestinationLandingPrompt(distNm);
     if (!p) return;
     _paxLog(`Off-Destination Landing Hinweis | d=${Number(distNm || 0).toFixed(1)} NM`, 'event');
-    setTimeout(() => _speakAndShow(p, 'Falscher Landeplatz'), 300);
+    _paxMissionTimeout(() => _speakAndShow(p, 'Falscher Landeplatz'), 300);
 };
 
 function _haversineNm(lat1, lon1, lat2, lon2) {
@@ -4221,7 +4268,7 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
                 _poiTrainingPreBriefDone = true;
                 _paxLog(`Training-Trigger poi_prebrief_4nm | distDest ${distToDestNm.toFixed(2)} NM`, 'event');
                 const p = _poiTrainingPreZonePrompt(flightData, distToDestNm);
-                if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
             }
 
             // 2) Beim Einflug in die Zone: Übung starten
@@ -4231,7 +4278,7 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
                 _trainingEvalBegin();
                 _paxLog(`Training-Trigger poi_zone_entry | distDest ${distToDestNm.toFixed(2)} NM`, 'event');
                 const p = _poiTrainingZoneEntryPrompt(flightData);
-                if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
             }
 
             // 3) Rückanflug: entweder 5 NM (Pattern) oder 4 NM (normale Landung)
@@ -4241,13 +4288,13 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
                     _paxLandingPhaseAnnounced = true;
                     _paxLog(`Training-Trigger poi_landing_pattern_5nm | distHome ${distNm.toFixed(2)} NM`, 'event');
                     const p = _trainingLandingPrepPrompt(flightData, distNm, 'pattern', 'Startflugplatz');
-                    if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                    if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 } else if (trainingPlan.mode !== 'pattern' && distNm <= 4.0) {
                     _poiTrainingLandingBriefDone = true;
                     _paxLandingPhaseAnnounced = true;
                     _paxLog(`Training-Trigger poi_landing_4nm | distHome ${distNm.toFixed(2)} NM`, 'event');
                     const p = _trainingLandingPrepPrompt(flightData, distNm, 'landing', 'Startflugplatz');
-                    if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                    if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 }
             }
         } else {
@@ -4260,7 +4307,7 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
                 _aptTrainingBriefDone = true;
                 _paxLog(`Training-Trigger apt_half_route_50 | progress ${(progress * 100).toFixed(0)}%`, 'event');
                 const p = _aptTrainingPrompt(flightData, distNm, progress);
-                if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
             }
             // 2) Landing-Call nach Modus: pattern 5NM, sonst 4NM
             if (_aptTrainingBriefDone && !_aptTrainingLandingBriefDone) {
@@ -4269,13 +4316,13 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
                     _paxLandingPhaseAnnounced = true;
                     _paxLog(`Training-Trigger apt_landing_pattern_5nm | dist ${distNm.toFixed(2)} NM`, 'event');
                     const p = _trainingLandingPrepPrompt(flightData, distNm, 'pattern', 'Zielflugplatz');
-                    if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                    if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 } else if (trainingPlan.mode !== 'pattern' && distNm <= 4.0) {
                     _aptTrainingLandingBriefDone = true;
                     _paxLandingPhaseAnnounced = true;
                     _paxLog(`Training-Trigger apt_landing_4nm | dist ${distNm.toFixed(2)} NM`, 'event');
                     const p = _trainingLandingPrepPrompt(flightData, distNm, 'landing', 'Zielflugplatz');
-                    if (p) setTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
+                    if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Instruktor'), 300);
                 }
             }
         }
@@ -4336,6 +4383,7 @@ function _tickPoiDwell(lat, lon, flightData) {
     const maxAttempts          = strict ? 2 : 3;
     const graceSec             = strict ? 15  : 25;
     const complaintIntervalSec = strict ? 30 : 45;
+    const missingTaskItems = _poiMissingRequiredTaskItems();
 
     // Frühe POI-Meldung: technisch hilfreiche "Objekt in Sicht"-Ansage.
     // Trigger bei ~3 min Restzeit (gesprochen wird "ca. 2 min", um Gen-/TTS-Latenz auszugleichen).
@@ -4343,7 +4391,7 @@ function _tickPoiDwell(lat, lon, flightData) {
         _poiSightCallDone = true;
         _paxLog(`POI pre-call | dist: ${distNm.toFixed(2)} NM | eta: ${etaMin.toFixed(1)} min | pos: ${clockPos}`, 'event');
         const p = _poiInSightPrompt(flightData, distNm, etaMin, clockPos);
-        if (p) setTimeout(() => _speakAndShow(p, 'Objekt in Sicht'), 300);
+        if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Objekt in Sicht'), 300);
     }
 
     if (!inRadius) {
@@ -4358,11 +4406,21 @@ function _tickPoiDwell(lat, lon, flightData) {
         if (!_poiEnteredAt) _poiEnteredAt = now;
         _paxLog(`POI-Radius betreten | dist: ${distNm.toFixed(2)} NM | dwell: ${dwellRequired.toFixed(0)}s | altReq: ${pax.targetAltFt || 'keins'}`, 'state');
 
+        if (missingTaskItems.length) {
+            _poiAborted = true;
+            _paxAtTargetDone = true;
+            _poiEntryDone = true;
+            _paxLog(`POI-Abbruch Pflichtmaterial fehlt | items: ${missingTaskItems.join(', ')}`, 'warn');
+            const pMissing = _poiMissingCargoAbortPrompt(flightData, missingTaskItems);
+            if (pMissing) _paxMissionTimeout(() => _speakAndShow(pMissing, 'Abbruch'), 600);
+            return;
+        }
+
         // Entry comment — spontane erste Reaktion beim Einflug
         if (!_poiEntryDone) {
             _poiEntryDone = true;
             const p = _poiEntryPrompt(flightData);
-            if (p) setTimeout(() => _speakAndShow(p, 'Zielgebiet'), 800);
+            if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Zielgebiet'), 800);
         }
 
         // Flyover (targetDwellMin=0): Entry genügt → satisfied nach kurzem Delay
@@ -4372,6 +4430,15 @@ function _tickPoiDwell(lat, lon, flightData) {
             _paxLog('Flyover-Mission — Überflug genügt, satisfied', 'event');
             return;
         }
+    }
+
+    if (missingTaskItems.length) {
+        _poiAborted = true;
+        _paxAtTargetDone = true;
+        _paxLog(`POI-Abbruch waehrend Verweilzeit: Pflichtmaterial fehlt | items: ${missingTaskItems.join(', ')}`, 'warn');
+        const pMissing = _poiMissingCargoAbortPrompt(flightData, missingTaskItems);
+        if (pMissing) _paxMissionTimeout(() => _speakAndShow(pMissing, 'Abbruch'), 600);
+        return;
     }
 
     const dt = Math.min((now - _poiLastTickTime) / 1000, 5);
@@ -4391,7 +4458,7 @@ function _tickPoiDwell(lat, lon, flightData) {
         if (_poiAltWasOk === false) {
             _paxLog('Höhe korrigiert → Bestätigung', 'event');
             const p = _poiAltCorrectedPrompt(flightData);
-            if (p) setTimeout(() => _speakAndShow(p, 'Höhe ok'), 500);
+            if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Höhe ok'), 500);
         }
         _poiAltWasOk = true;
 
@@ -4400,7 +4467,7 @@ function _tickPoiDwell(lat, lon, flightData) {
             _poiSatisfied    = true;
             _paxAtTargetDone = true;
             const p = _poiSatisfiedPrompt(flightData);
-            if (p) setTimeout(() => _speakAndShow(p, 'Ziel erfüllt'), 500);
+            if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Ziel erfüllt'), 500);
         }
     } else {
         _poiAltWasOk = false;
@@ -4412,13 +4479,13 @@ function _tickPoiDwell(lat, lon, flightData) {
                 _poiLastComplaintAt = now;
                 _paxLog(`Höhen-Reklamation #${_poiAttempts} | ${altFt} ft statt ${targetAlt} ft`, 'event');
                 const p = _poiAltComplaintPrompt(flightData, altFt, targetAlt, _poiAttempts);
-                if (p) setTimeout(() => _speakAndShow(p, `Höhe (${_poiAttempts}/${maxAttempts})`), 500);
+                if (p) _paxMissionTimeout(() => _speakAndShow(p, `Höhe (${_poiAttempts}/${maxAttempts})`), 500);
             } else {
                 _paxLog('Max. Versuche erreicht → Abbruch', 'event');
                 _poiAborted      = true;
                 _paxAtTargetDone = true;
                 const p = _poiAbortPrompt(flightData);
-                if (p) setTimeout(() => _speakAndShow(p, 'Abbruch'), 1000);
+                if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Abbruch'), 1000);
             }
         }
     }

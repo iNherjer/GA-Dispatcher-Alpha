@@ -406,6 +406,7 @@ const missionTargetSceneTerrainRequests = new Map();
 const trackerPendingMissionCommands = new Map();
 let missionSceneBoardingPromise = null;
 let missionStartBoardingPromise = null;
+let missionStartActionPromise = null;
 const TRACKER_RETRYABLE_COMMAND_TYPES = new Set([
     'mission_scene_spawn',
     'mission_scene_clear',
@@ -430,12 +431,16 @@ function _trackerAckTypeForCommand(type = '') {
 
 function _trackerRetryConfigForCommand(type = '') {
     const t = String(type || '').toLowerCase();
+    if (t === 'mission_scene_spawn') {
+        // Spawn is not idempotent on all tracker builds; retries can duplicate scene objects.
+        return { maxAttempts: 1, timeoutMs: 18000 };
+    }
     if (t === 'mission_scene_boarding') {
-        // Boarding animation can run ~20-40s; short retry timeouts cause duplicate scene playback.
-        return { maxAttempts: 2, timeoutMs: 52000 };
+        // Boarding is non-idempotent; a retry can run a second boarding in parallel.
+        return { maxAttempts: 1, timeoutMs: 52000 };
     }
     if (t === 'mission_scene_deboarding') {
-        return { maxAttempts: 2, timeoutMs: 52000 };
+        return { maxAttempts: 1, timeoutMs: 52000 };
     }
     return { maxAttempts: 3, timeoutMs: 12000 };
 }
@@ -6300,6 +6305,26 @@ function _missionOutcomeApplyEndReadiness(outcome = null, endReady = null) {
     return base;
 }
 
+function _missionCargoHasHardFailure(outcome = null) {
+    const o = (outcome && typeof outcome === 'object') ? outcome : null;
+    if (!o) return false;
+    return !!(
+        (Array.isArray(o.missingRequired) && o.missingRequired.length > 0)
+        || (Array.isArray(o.droppedRequired) && o.droppedRequired.length > 0)
+        || (Array.isArray(o.damagedRequired) && o.damagedRequired.length > 0)
+    );
+}
+
+function _missionCargoHardFailurePreview() {
+    if (typeof window.missionCargoEvaluateOutcome !== 'function') return null;
+    try {
+        const preview = window.missionCargoEvaluateOutcome();
+        return _missionCargoHasHardFailure(preview) ? preview : null;
+    } catch (_) {
+        return null;
+    }
+}
+
 function _setMissionClosePending(options = {}) {
     const outcome = options?.outcome && typeof options.outcome === 'object' ? options.outcome : null;
     missionRuntime.active = false;
@@ -6934,8 +6959,14 @@ window.manualMissionEnd = function(options = {}) {
     }
     const endReady = _missionEndReadiness();
     const farewellRecord = missionRuntime.arrivalFlightRecord || _buildFlightRecordSnapshot(Date.now()) || null;
+    const poiCargoHardFail = (!endReady.atTarget && _missionSceneIsPoiMission() && _missionCargoHasHardFailure(_missionCargoHardFailurePreview()));
     if (endReady.atTarget && typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
         if (_triggerPaxFarewellAndWaitForDeboard(farewellRecord, 'manual-end-farewell')) {
+            return true;
+        }
+    }
+    if (poiCargoHardFail && typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
+        if (_triggerPaxFarewellAndWaitForDeboard(farewellRecord, 'manual-end-poi-cargo-failure-farewell')) {
             return true;
         }
     }
@@ -6996,23 +7027,31 @@ function _tryStartMissionEndScene(reason = 'mission-end', options = {}) {
 }
 
 window.handleMissionStartBannerAction = async function() {
-    if (missionRuntime.closingPending) {
-        window.completeMissionClose('banner-close');
-        return;
+    if (missionStartActionPromise) return missionStartActionPromise;
+    missionStartActionPromise = (async () => {
+        if (missionRuntime.closingPending) {
+            window.completeMissionClose('banner-close');
+            return;
+        }
+        if (_missionEndDeboardingBusy()) {
+            _updateMissionRuntimeUi();
+            return;
+        }
+        if (missionRuntime.active) {
+            window.manualMissionEnd();
+            return;
+        }
+        if (_missionStartPhase() !== 'boarded') {
+            await window.startMissionBoarding();
+            return;
+        }
+        window.manualMissionStart();
+    })();
+    try {
+        return await missionStartActionPromise;
+    } finally {
+        missionStartActionPromise = null;
     }
-    if (_missionEndDeboardingBusy()) {
-        _updateMissionRuntimeUi();
-        return;
-    }
-    if (missionRuntime.active) {
-        window.manualMissionEnd();
-        return;
-    }
-    if (_missionStartPhase() !== 'boarded') {
-        await window.startMissionBoarding();
-        return;
-    }
-    window.manualMissionStart();
 };
 
 // --- LIVE TRAFFIC ---
