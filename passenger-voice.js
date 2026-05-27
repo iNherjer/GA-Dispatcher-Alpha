@@ -179,6 +179,7 @@ let _pattonvilleReportingPointsMentioned = false;
 let _aptTrainingBriefDone = false;
 let _aptTrainingLandingBriefDone = false;
 const _UNIFIED_INSTRUCTOR_BASELINE = true;
+const _USE_COMBINED_BOARDING_GREETING = true;
 let _trainingEval = null;
 
 // POI dwell state machine
@@ -485,6 +486,17 @@ function _normalizePaxTtsModelPref(mode) {
 }
 let _paxTtsModelPref = _normalizePaxTtsModelPref(localStorage.getItem('awm_pax_tts_model') || 'auto');
 localStorage.setItem('awm_pax_tts_model', _paxTtsModelPref);
+const _PAX_TTS_HEDGE_DEFAULT_MS = 3000;
+
+function _paxTtsHedgeEnabled() {
+    return localStorage.getItem('awm_pax_tts_hedge_enabled') !== '0';
+}
+
+function _paxTtsHedgeDelayMs() {
+    const raw = Number(localStorage.getItem('awm_pax_tts_hedge_delay_ms'));
+    const n = Number.isFinite(raw) && raw > 0 ? raw : _PAX_TTS_HEDGE_DEFAULT_MS;
+    return Math.max(1000, Math.min(10000, Math.round(n)));
+}
 
 function _normalizePaxAudioStyle(style) {
     return ['clear', 'intercom', 'intercom_noise'].includes(style) ? style : 'intercom_noise';
@@ -521,6 +533,15 @@ window.paxVoiceSetTtsModel = function(mode) {
     const el = document.getElementById('awmPaxTtsModelSelect');
     if (el) el.value = next;
     _paxLog(`TTS-Modus gesetzt: ${next}`, 'state');
+};
+
+window.paxVoiceSetTtsHedge = function(enabled, delayMs = null) {
+    localStorage.setItem('awm_pax_tts_hedge_enabled', enabled ? '1' : '0');
+    if (delayMs != null) {
+        const safeDelay = Math.max(1000, Math.min(10000, Math.round(Number(delayMs) || _PAX_TTS_HEDGE_DEFAULT_MS)));
+        localStorage.setItem('awm_pax_tts_hedge_delay_ms', String(safeDelay));
+    }
+    _paxLog(`TTS-Hedge: ${_paxTtsHedgeEnabled() ? 'ein' : 'aus'} | Delay ${_paxTtsHedgeDelayMs()}ms`, 'state');
 };
 
 window.paxVoiceSetAudioStyle = function(style) {
@@ -1294,6 +1315,10 @@ function _ensurePaxWidgetOnScreen(persist = false) {
     if (!widget || !btn) return;
 
     const rect = widget.getBoundingClientRect();
+    const host = widget.parentElement;
+    const hostRect = (host && host !== document.body && host !== document.documentElement)
+        ? host.getBoundingClientRect()
+        : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
     const margin = 8;
     const panelOpen = !!panel && panel.style.display !== 'none';
     const btnW = btn.offsetWidth || 48;
@@ -1301,10 +1326,14 @@ function _ensurePaxWidgetOnScreen(persist = false) {
     const reqW = panelOpen ? Math.max(panel.offsetWidth || 280, btnW) : btnW;
     const reqH = panelOpen ? (btnH + 8 + (panel.offsetHeight || 0)) : btnH;
 
-    const maxLeft = Math.max(margin, window.innerWidth - reqW - margin);
-    const maxTop = Math.max(margin, window.innerHeight - reqH - margin);
-    const left = Math.max(margin, Math.min(rect.left, maxLeft));
-    const top = Math.max(margin, Math.min(rect.top, maxTop));
+    const hostWidth = Math.max(reqW + margin * 2, Number(hostRect.width) || window.innerWidth);
+    const hostHeight = Math.max(reqH + margin * 2, Number(hostRect.height) || window.innerHeight);
+    const maxLeft = Math.max(margin, hostWidth - reqW - margin);
+    const maxTop = Math.max(margin, hostHeight - reqH - margin);
+    const relLeft = rect.left - (Number(hostRect.left) || 0);
+    const relTop = rect.top - (Number(hostRect.top) || 0);
+    const left = Math.max(margin, Math.min(relLeft, maxLeft));
+    const top = Math.max(margin, Math.min(relTop, maxTop));
 
     widget.style.top = top + 'px';
     widget.style.left = left + 'px';
@@ -2390,12 +2419,34 @@ function _ttsVoiceCandidatesForSpeaker(pax) {
 }
 
 const _paxPreparedAudio = new Map();
+const _paxBoardingRecentPlayByKey = new Map();
 
 function _paxMissionAudioKey(kind) {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const fs = md?.fireScenario || {};
     const key = String(fs.missionId || md?.missionId || md?.id || `${md?.start || ''}-${md?.dest || ''}-${md?.mission || ''}`).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 96) || 'active';
     return `${kind}:${key}`;
+}
+
+function _paxBoardingReplayBlocked(key, windowMs = 120000) {
+    const k = String(key || '').trim();
+    if (!k) return false;
+    const last = Number(_paxBoardingRecentPlayByKey.get(k) || 0);
+    if (!Number.isFinite(last) || last <= 0) return false;
+    return (Date.now() - last) < Math.max(1000, Number(windowMs) || 120000);
+}
+
+function _markPaxBoardingPlayed(key) {
+    const k = String(key || '').trim();
+    if (!k) return;
+    _paxBoardingRecentPlayByKey.set(k, Date.now());
+    if (_paxBoardingRecentPlayByKey.size > 24) {
+        const entries = [..._paxBoardingRecentPlayByKey.entries()].sort((a, b) => Number(a[1] || 0) - Number(b[1] || 0));
+        while (entries.length > 24) {
+            const drop = entries.shift();
+            if (drop) _paxBoardingRecentPlayByKey.delete(drop[0]);
+        }
+    }
 }
 
 function _speakerSnapshotForActivePax() {
@@ -2430,6 +2481,23 @@ function _extractPaxCount(text) {
     return m ? Math.max(0, parseInt(m[1], 10) || 0) : (_missionHasPax() ? 1 : 0);
 }
 
+function _missionRequiredItemNames(limit = 4) {
+    const max = Math.max(1, Number(limit) || 4);
+    let names = [];
+    try {
+        const manifest = (typeof window.missionCargoGetManifestSnapshot === 'function')
+            ? window.missionCargoGetManifestSnapshot()
+            : null;
+        names = Array.isArray(manifest?.items)
+            ? manifest.items
+                .filter(item => item?.required)
+                .map(item => String(item.storyName || item.label || '').trim())
+                .filter(Boolean)
+            : [];
+    } catch (_) {}
+    return [...new Set(names)].slice(0, max);
+}
+
 function _buildBoardingText() {
     let contract = null;
     try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) {}
@@ -2440,21 +2508,128 @@ function _buildBoardingText() {
     const paxCount = _extractPaxCount(paxText);
     const cargoClean = cargoText && !/^[-–—]$/.test(cargoText) ? cargoText : 'kein zusaetzliches Gepaeck';
     const role = pax.role ? ` als ${pax.role}` : '';
-    const paxPart = paxCount > 1 ? `${paxCount} Personen sind an Bord` : `ich bin${role} an Bord`;
-    let requiredItems = [];
-    try {
-        const manifest = (typeof window.missionCargoGetManifestSnapshot === 'function')
-            ? window.missionCargoGetManifestSnapshot()
-            : null;
-        requiredItems = Array.isArray(manifest?.items)
-            ? manifest.items.filter(item => item?.required).map(item => String(item.storyName || item.label || '').trim()).filter(Boolean)
-            : [];
-    } catch (_) {}
+    const paxPart = paxCount > 1 ? `${paxCount} Personen` : `ich bin${role}`;
+    const requiredItems = _missionRequiredItemNames(4);
     const requiredShort = requiredItems.slice(0, 4);
     const requiredText = requiredShort.length
-        ? `Wichtige Frachtpunkte sind ${requiredShort.join(', ')}.`
-        : `Die wichtige Fracht ist ${cargoClean}.`;
-    return `Ich bin jetzt an Bord, ${paxPart}. ${requiredText} Haben wir die Pflichtteile alle verladen, bevor wir losrollen?`;
+        ? (requiredShort.length === 1
+            ? `Der wichtige Gegenstand ist ${requiredShort[0]}.`
+            : `Wichtige Gegenstaende sind ${requiredShort.join(', ')}.`)
+        : `Der wichtige Gegenstand ist ${cargoClean}.`;
+    return `Hi, ${paxPart}. ${requiredText} Gib mir bitte ein kurzes Missionsbriefing, dann sind wir startklar.`;
+}
+
+async function _requestTTSAudioForModel(apiKey, model, text, pax, voiceCandidates, signal = null) {
+    let lastErr = null;
+    for (const voiceName of voiceCandidates) {
+        const ttsPayload = {
+            contents: [{ role: 'user', parts: [{ text }] }],
+            generationConfig: {
+                responseModalities: ['AUDIO'],
+                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
+            }
+        };
+        try {
+            const res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ttsPayload), ...(signal ? { signal } : {}) }
+            );
+            if (!res.ok) {
+                const errBody = await res.text().catch(() => '(unlesbar)');
+                _paxLog(`TTS ${model}/${voiceName} HTTP ${res.status}: ${errBody.slice(0, 220)}`, 'warn');
+                lastErr = new Error(`TTS ${model}/${voiceName} HTTP ${res.status}`);
+                continue;
+            }
+            const data = await res.json();
+            const part = data?.candidates?.[0]?.content?.parts?.[0];
+            const b64 = part?.inlineData?.data;
+            const mimeType = part?.inlineData?.mimeType || '';
+            if (!b64) {
+                _paxLog(`TTS ${model}/${voiceName} ohne Audio-Daten`, 'warn');
+                lastErr = new Error(`TTS ${model}/${voiceName}: Keine Audio-Daten`);
+                continue;
+            }
+            _paxLog(`TTS Stimme aktiv: ${voiceName}`, 'state');
+            _paxLog(`TTS OK (${model}) | mime: ${mimeType} | ${b64.length} chars base64`, 'recv');
+            return { text, speaker: pax, b64, mimeType, voiceName, model };
+        } catch(e) {
+            if (e?.name === 'AbortError') throw e;
+            lastErr = e;
+            _paxLog(`TTS ${model}/${voiceName} Fehler: ${e.message}`, 'warn');
+        }
+    }
+    if (lastErr) throw lastErr;
+    return null;
+}
+
+function _requestTTSAudioHedged(apiKey, text, pax, voiceCandidates, primaryModel, fallbackModel) {
+    const hedgeDelayMs = _paxTtsHedgeDelayMs();
+    _paxLog(`TTS-Hedge aktiv: ${primaryModel} zuerst, ${fallbackModel} nach ${hedgeDelayMs}ms`, 'state');
+    return new Promise(resolve => {
+        const canAbort = typeof AbortController !== 'undefined';
+        const primaryCtl = canAbort ? new AbortController() : null;
+        let fallbackCtl = null;
+        let settled = false;
+        let pending = 0;
+        let fallbackStarted = false;
+        let fallbackTimer = null;
+        let lastErr = null;
+
+        const settleWith = (audio, source) => {
+            if (settled) {
+                if (audio?.b64) _paxLog(`TTS-Hedge Nachzuegler ignoriert (${audio.model})`, 'state');
+                return;
+            }
+            if (!audio?.b64) return;
+            settled = true;
+            if (fallbackTimer) clearTimeout(fallbackTimer);
+            try {
+                if (source === 'primary' && fallbackCtl) fallbackCtl.abort();
+                if (source === 'fallback' && primaryCtl) primaryCtl.abort();
+            } catch (_) {}
+            _paxLog(`TTS-Hedge Gewinner: ${audio.model}`, 'state');
+            if (typeof incrementApiUsage === 'function') incrementApiUsage('flash');
+            resolve(audio);
+        };
+
+        const maybeResolveEmpty = () => {
+            if (!settled && pending <= 0 && fallbackStarted) {
+                if (lastErr) _paxLog(`TTS Fehler: ${lastErr.message || lastErr}`, 'warn');
+                settled = true;
+                resolve(null);
+            }
+        };
+
+        const start = (source, model) => {
+            if (settled) return;
+            if (source === 'fallback') {
+                fallbackStarted = true;
+                fallbackCtl = canAbort ? new AbortController() : null;
+                _paxLog(`TTS-Hedge Fallback gestartet: ${model}`, 'state');
+            }
+            pending++;
+            const ctl = source === 'primary' ? primaryCtl : fallbackCtl;
+            _requestTTSAudioForModel(apiKey, model, text, pax, voiceCandidates, ctl?.signal || null)
+                .then(audio => settleWith(audio, source))
+                .catch(e => {
+                    if (e?.name !== 'AbortError') lastErr = e;
+                })
+                .finally(() => {
+                    pending--;
+                    if (source === 'primary' && !settled && !fallbackStarted) {
+                        if (fallbackTimer) clearTimeout(fallbackTimer);
+                        start('fallback', fallbackModel);
+                    } else {
+                        maybeResolveEmpty();
+                    }
+                });
+        };
+
+        start('primary', primaryModel);
+        fallbackTimer = setTimeout(() => {
+            if (!settled && !fallbackStarted) start('fallback', fallbackModel);
+        }, hedgeDelayMs);
+    });
 }
 
 async function _requestTTSAudio(text, speaker = null) {
@@ -2471,43 +2646,22 @@ async function _requestTTSAudio(text, speaker = null) {
             : ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']);
     _paxLog(`TTS-Modelle: ${ttsModels.join(' -> ')} | Modus: ${_paxTtsModelPref}`, 'state');
 
+    if (_paxTtsModelPref === 'auto' && _paxTtsHedgeEnabled() && ttsModels.length >= 2) {
+        return _requestTTSAudioHedged(apiKey, text, pax, voiceCandidates, ttsModels[0], ttsModels[1]);
+    }
+
     let lastErr = null;
     for (const model of ttsModels) {
-        for (const voiceName of voiceCandidates) {
-            const ttsPayload = {
-                contents: [{ role: 'user', parts: [{ text }] }],
-                generationConfig: {
-                    responseModalities: ['AUDIO'],
-                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
-                }
-            };
-            try {
-                const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-                    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ttsPayload) }
-                );
-                if (!res.ok) {
-                    const errBody = await res.text().catch(() => '(unlesbar)');
-                    _paxLog(`TTS ${model}/${voiceName} HTTP ${res.status}: ${errBody.slice(0, 220)}`, 'warn');
-                    lastErr = new Error(`TTS ${model}/${voiceName} HTTP ${res.status}`);
-                    continue;
-                }
-                const data = await res.json();
-                const part = data?.candidates?.[0]?.content?.parts?.[0];
-                const b64 = part?.inlineData?.data;
-                const mimeType = part?.inlineData?.mimeType || '';
-                if (!b64) {
-                    _paxLog(`TTS ${model}/${voiceName} ohne Audio-Daten`, 'warn');
-                    lastErr = new Error(`TTS ${model}/${voiceName}: Keine Audio-Daten`);
-                    continue;
-                }
-                _paxLog(`TTS Stimme aktiv: ${voiceName}`, 'state');
-                _paxLog(`TTS OK (${model}) | mime: ${mimeType} | ${b64.length} chars base64`, 'recv');
+        try {
+            const audio = await _requestTTSAudioForModel(apiKey, model, text, pax, voiceCandidates);
+            if (audio?.b64) {
                 if (typeof incrementApiUsage === 'function') incrementApiUsage('flash');
-                return { text, speaker: pax, b64, mimeType, voiceName, model };
-            } catch(e) {
+                return audio;
+            }
+        } catch (e) {
+            if (e?.name !== 'AbortError') {
                 lastErr = e;
-                _paxLog(`TTS ${model}/${voiceName} Fehler: ${e.message}`, 'warn');
+                _paxLog(`TTS ${model} Fehler: ${e.message}`, 'warn');
             }
         }
     }
@@ -2690,22 +2844,73 @@ window.paxVoicePrepareBoarding = function() {
     const hasPassenger = !!window.activePassenger;
     const hasPaxMission = _missionHasPax();
     const hasCargoContext = !!_activeCargoText();
-    if (!hasPassenger && !hasCargoContext && !hasPaxMission) return null;
+    if (!hasPassenger && !hasCargoContext && !hasPaxMission) return Promise.resolve(null);
     const key = _paxMissionAudioKey('boarding');
-    const text = _buildBoardingText();
+    const existing = _paxPreparedAudio.get(key);
+    if (existing?.text || existing?.textPromise) return existing.textPromise || Promise.resolve(existing);
     const speaker = _speakerSnapshotForActivePax();
-    _prepareTextAsTTS(key, text, speaker);
-    return { key, text, speaker };
+    const prompt = _boardingBriefingPrompt();
+    if (!prompt) {
+        const fallbackText = _buildBoardingText();
+        _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null });
+        _prepareTextAsTTS(key, fallbackText, speaker);
+        return Promise.resolve(_paxPreparedAudio.get(key) || { key, text: fallbackText, speaker });
+    }
+    const textPromise = (async () => {
+        const apiKey = _getApiKey();
+        if (!apiKey) {
+            const fallbackText = _buildBoardingText();
+            _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null });
+            _prepareTextAsTTS(key, fallbackText, speaker);
+            return _paxPreparedAudio.get(key) || null;
+        }
+        try {
+            _paxLog('Boarding-Briefing Preload → API-Call', 'event');
+            _logRoleConsistencyCheck('Boarding');
+            const spokenTextRaw = await _generateSpokenText(apiKey, prompt);
+            const spokenText = _injectPattonvilleJuliusEasteregg(
+                _injectPattonvilleReportingPointsHint(
+                    _normalizeSpokenText(spokenTextRaw),
+                    'Boarding'
+                ),
+                'Boarding'
+            );
+            const finalText = spokenText || _buildBoardingText();
+            _paxPreparedAudio.set(key, { text: finalText, speaker, audio: null, promise: null });
+            _prepareTextAsTTS(key, finalText, speaker);
+            return _paxPreparedAudio.get(key) || null;
+        } catch (e) {
+            _paxLog(`Boarding-Briefing Preload Fehler: ${e.message || e}`, 'warn');
+            const fallbackText = _buildBoardingText();
+            _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null });
+            _prepareTextAsTTS(key, fallbackText, speaker);
+            return _paxPreparedAudio.get(key) || null;
+        }
+    })();
+    _paxPreparedAudio.set(key, { prompt, speaker, textPromise, audio: null, promise: null });
+    return textPromise;
 };
 
 window.paxVoicePlayBoarding = async function() {
+    const key = _paxMissionAudioKey('boarding');
     if (_paxBoardingDone) return true;
-    if (_paxBoardingPromise) return _paxBoardingPromise;
-    const prepared = window.paxVoicePrepareBoarding();
-    if (!prepared) return false;
-    _paxBoardingPromise = (async () => {
-        await _speakPreparedText(prepared.key, prepared.text, prepared.speaker, 'Boarding');
+    if (_paxBoardingReplayBlocked(key)) {
+        _paxLog(`Boarding-Replay unterdrueckt (cooldown) | key:${key}`, 'state');
         _paxBoardingDone = true;
+        _paxGreetingDone = true;
+        return true;
+    }
+    if (_paxBoardingPromise) return _paxBoardingPromise;
+    _paxBoardingPromise = (async () => {
+        let prepared = await window.paxVoicePrepareBoarding();
+        prepared = prepared || _paxPreparedAudio.get(key) || null;
+        const speaker = prepared?.speaker || _speakerSnapshotForActivePax();
+        const text = String(prepared?.text || _buildBoardingText() || '').trim();
+        if (!text) return false;
+        await _speakPreparedText(key, text, speaker, 'Boarding');
+        _paxBoardingDone = true;
+        _paxGreetingDone = true;
+        _markPaxBoardingPlayed(key);
         return true;
     })();
     try {
@@ -2720,6 +2925,7 @@ window.paxVoiceBoardingDone = function() {
 };
 
 window.paxVoicePrepareGreeting = function(lat = null, lon = null) {
+    if (_USE_COMBINED_BOARDING_GREETING) return Promise.resolve(null);
     if (_paxGreetingDone || !window.activePassenger || !_missionHasPax()) return Promise.resolve(null);
     const distNm = _distanceFromDepartureNm(lat, lon);
     if (Number.isFinite(distNm) && distNm > 1.0) {
@@ -3622,12 +3828,12 @@ function _poiMissingCargoAbortPrompt(flightData, items = []) {
     const wx = _weatherContext(flightData);
     const short = (Array.isArray(items) ? items : []).slice(0, 3).join(', ');
     const itemLine = short
-        ? `Uns fehlt hier wichtiges Pflichtmaterial (${short}), damit kann ich die Aufgabe am POI nicht sauber durchführen.`
-        : 'Uns fehlt hier wichtiges Pflichtmaterial, damit kann ich die Aufgabe am POI nicht sauber durchführen.';
+        ? `Uns fehlt hier ${short}, das ist fuer meinen Auftrag wichtig.`
+        : 'Uns fehlt hier ein wichtiger Gegenstand fuer meinen Auftrag.';
     return `${ctx}
 
 Moment: Wir sind am Zielgebiet, aber ${itemLine}${wx ? ' ' + wx : ''}
-Sag dem Piloten klar und ruhig, dass wir die Beobachtung jetzt abbrechen und direkt zum Start-/Heimatplatz zurückfliegen sollen. Kein Vorwurf, keine Verweilzeit, keine Arbeitsfortsetzung. Max 2 Sätze.${_toneHint()}`;
+Sag dem Piloten klar und ruhig, dass wir die Beobachtung jetzt abbrechen und direkt zum Start-/Heimatplatz zurückfliegen sollen. Kein Vorwurf, keine Verweilzeit, keine Arbeitsfortsetzung. Nenne den fehlenden Gegenstand beim Namen. Max 2 Sätze.${_toneHint()}`;
 }
 
 // Shared tone instruction appended to every prompt
@@ -3754,11 +3960,9 @@ Moment: Wir sind am Boden, aber nicht am geplanten Ziel (Abweichung etwa ${distT
 Sag in 1-2 kurzen Sätzen mit leichtem Humor, dass wir offenbar woanders gelandet sind ("wo sind wir denn hier gelandet?"), die Mission aber weiter offen bleibt. Keine Panik, konstruktiv bleiben.${_toneHint()}`;
 }
 
-function _greetingPrompt() {
-    const ctx = _baseContext();
+function _greetingMissionGuidance() {
     const pax = window.activePassenger;
-    if (!ctx || !pax) return null;
-    const wx = _weatherContext(window.lastLiveFlightData);
+    if (!pax) return null;
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
     const isPOI = _isPOIMission();
     const trainingPlan = _activeAptTrainingPlan();
@@ -3803,14 +4007,51 @@ function _greetingPrompt() {
                     ? `Nenne genau einen kurzen Komforthinweis NUR wenn er aufgrund von Magen/Fracht/Empfindlichkeit wirklich nötig ist. ${comfortContentRule}${timingHintNeeded ? ' Erwähne zusätzlich kurz den Zeitdruck.' : ''} Sonst Fokus auf Transportauftrag und Zielablauf am Boden. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
                     : `Nenne KEINEN Komforthinweis. Fokus auf Transportauftrag und Ablauf nach Ankunft am Zielplatz.${timingHintNeeded ? ' Erwähne kurz, dass der Auftrag zeitkritisch ist.' : ''} KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`))));
     const driftGuard = _domainDriftGuard('greeting');
+    return { reqLine, driftGuard, timingWordBan };
+}
+
+function _boardingBriefingPrompt() {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const wx = _weatherContext(window.lastLiveFlightData);
+    const guidance = _greetingMissionGuidance();
+    if (!guidance) return null;
+    const requiredItems = _missionRequiredItemNames(3);
+    const cargoText = String(_activeCargoText() || '').trim();
+    const cargoFallback = cargoText && !/^[-–—]$/.test(cargoText) ? cargoText : 'unser Einsatzgegenstand';
+    const cargoLine = requiredItems.length
+        ? (requiredItems.length === 1
+            ? `Nenne den wichtigen Gegenstand beim Namen: "${requiredItems[0]}". Sage klar, dass dieser Gegenstand als Zuladung vor dem Start verladen und gesichert sein muss, sonst kann ich den Auftrag nicht sauber erledigen.`
+            : `Nenne die wichtigen Gegenstaende beim Namen: "${requiredItems.join(', ')}". Sage klar, dass diese Gegenstaende als Zuladung vor dem Start verladen und gesichert sein muessen, sonst kann ich den Auftrag nicht sauber erledigen.`)
+        : `Nenne den wichtigen Gegenstand beim Namen ("${cargoFallback}") und sage klar, dass er als Zuladung vor dem Start verladen und gesichert sein muss.`;
+    return `${ctx}
+
+Moment: Boarding und Verladen laufen gerade, Start steht gleich an.${wx ? ' ' + wx : ''}
+Erzeuge eine kombinierte Boarding-Begrüßung in einem Block: 1) sehr kurze Vorstellung, 2) ein kurzer Satz zum wichtigen Gegenstand, 3) kurzes Missionsbriefing mit Ziel und Vorhaben.
+${cargoLine}
+${guidance.reqLine}
+Nenne den Gegenstand immer direkt beim Namen.
+${guidance.driftGuard}
+${guidance.timingWordBan}
+Max 3 Sätze.${_toneHint()}`;
+}
+
+function _greetingPrompt() {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const wx = _weatherContext(window.lastLiveFlightData);
+    const guidance = _greetingMissionGuidance();
+    if (!guidance) return null;
     return `${ctx}
 
 Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.${wx ? ' ' + wx : ''}
 Basistext für deine Begrüßung (frei adaptieren): "${pax.greetingText}"
 Du DARFST hier mit einer kurzen natürlichen Begrüßung beginnen (z.B. "Hi"), aber nur sehr knapp.
-${reqLine}
-${driftGuard}
-${timingWordBan}
+${guidance.reqLine}
+${guidance.driftGuard}
+${guidance.timingWordBan}
 Max 3 Sätze.${_toneHint()}`;
 }
 
@@ -4023,13 +4264,22 @@ function _farewellPrompt(record) {
         || ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData.cargoOutcome : null)
         || window.activeMissionContract?.cargoOutcome
         || (typeof window.missionCargoEvaluateOutcome === 'function' ? window.missionCargoEvaluateOutcome() : null);
+    const failureReasons = [
+        ...(cargoOutcome?.missingRequired || []),
+        ...(cargoOutcome?.droppedRequired || []),
+        ...(cargoOutcome?.notDeliveredRequired || []),
+        ...(cargoOutcome?.damagedRequired || [])
+    ].filter(Boolean);
+    const isMissionFailed = !!(
+        cargoOutcome?.failed
+        || _poiAborted
+        || rec?.missionFailed
+        || ((typeof currentMissionData !== 'undefined' && currentMissionData)
+            ? (currentMissionData.missionFailed || String(currentMissionData.missionResult || '').toLowerCase() === 'failed')
+            : false)
+    );
     if (cargoOutcome?.failed) {
-        const missing = [
-            ...(cargoOutcome.missingRequired || []),
-            ...(cargoOutcome.droppedRequired || []),
-            ...(cargoOutcome.notDeliveredRequired || []),
-            ...(cargoOutcome.damagedRequired || [])
-        ].filter(Boolean).slice(0, 3).join(', ');
+        const missing = failureReasons.slice(0, 3).join(', ');
         highlights += ` Die Ladung ist nicht vollstaendig erledigt${missing ? `: ${missing}` : ''}.`;
     }
     if (isSimRecord) highlights += ' Hinweis: Sim-Modus aktiv, Landebewertung nur eingeschränkt belastbar.';
@@ -4045,7 +4295,13 @@ function _farewellPrompt(record) {
         ? '\nDa du hier als Instruktor unterwegs bist: Gib ein kurzes, konkretes Trainingsfazit (was war gut, was sollte beim nächsten Flug sauberer werden).'
         : '';
     const isPOI = _isPOIMission();
+    const missionFailureTask = isMissionFailed
+        ? '\nDer Auftrag ist heute nicht abgeschlossen. Sag klar, dass die Aufgabe am Ziel nicht erledigt werden konnte, nenne kurz den Hauptgrund und formuliere am Ende eine kurze Retry-Frage (z.B. ob wir es mit kompletter Ausruestung nochmal versuchen sollen).'
+        : '';
     const aptFarewellHint = (!isPOI && !trainingPlan) ? _aptArrivalFarewellHint() : '';
+    const farewellTask = isMissionFailed
+        ? `Verabschiede dich persönlich beim Piloten aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Bleib freundlich, aber nenne den Fehlschlag klar und ohne ihn schönzureden.${missionFailureTask}`
+        : `Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Auch wenn etwas nicht perfekt war, schließ positiv ab.${trnTask}`;
     const facts = (min != null && distanceNm != null && maxAltFt != null)
         ? `${min} min, ${distanceNm.toFixed(1)} NM, max ${maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.`
         : `Flugdaten teilweise unvollständig (z. B. Slew/Teleport). Max Bank ${bank}°, max G ${maxG}g.`;
@@ -4054,7 +4310,7 @@ function _farewellPrompt(record) {
 
 Moment: ${aptFarewellHint || 'Wir sind gelandet, Flug beendet.'}
 Fakten: ${facts}${highlights ? '\n' + highlights : ''}${trnFacts}
-Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Auch wenn etwas nicht perfekt war, schließ positiv ab.${trnTask}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
+${farewellTask}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
 }
 
 window.triggerPaxCargoEvent = async function(event = {}) {
@@ -4097,6 +4353,11 @@ Sprich als ${pax.role} kurz und praktisch: ein Satz zur Landung, ein Satz zum Ro
 
 window.triggerPaxGreeting = async function(lat, lon) {
     _paxLog(`triggerPaxGreeting | tts:${_paxVoiceEnabled} done:${_paxGreetingDone} pax:${!!window.activePassenger} key:${!!_getApiKey()}`, 'state');
+    if (_USE_COMBINED_BOARDING_GREETING) {
+        _paxGreetingDone = true;
+        _paxLog('Greeting unterdrueckt: kombinierter Boarding/Begruessungsblock aktiv', 'state');
+        return;
+    }
     if (_paxGreetingDone || !window.activePassenger || !_missionHasPax()) return;
     _paxGreetingDone = true;
 
@@ -4410,7 +4671,7 @@ function _tickPoiDwell(lat, lon, flightData) {
             _poiAborted = true;
             _paxAtTargetDone = true;
             _poiEntryDone = true;
-            _paxLog(`POI-Abbruch Pflichtmaterial fehlt | items: ${missingTaskItems.join(', ')}`, 'warn');
+            _paxLog(`POI-Abbruch wichtiger Gegenstand fehlt | items: ${missingTaskItems.join(', ')}`, 'warn');
             const pMissing = _poiMissingCargoAbortPrompt(flightData, missingTaskItems);
             if (pMissing) _paxMissionTimeout(() => _speakAndShow(pMissing, 'Abbruch'), 600);
             return;
@@ -4435,7 +4696,7 @@ function _tickPoiDwell(lat, lon, flightData) {
     if (missingTaskItems.length) {
         _poiAborted = true;
         _paxAtTargetDone = true;
-        _paxLog(`POI-Abbruch waehrend Verweilzeit: Pflichtmaterial fehlt | items: ${missingTaskItems.join(', ')}`, 'warn');
+        _paxLog(`POI-Abbruch waehrend Verweilzeit: wichtiger Gegenstand fehlt | items: ${missingTaskItems.join(', ')}`, 'warn');
         const pMissing = _poiMissingCargoAbortPrompt(flightData, missingTaskItems);
         if (pMissing) _paxMissionTimeout(() => _speakAndShow(pMissing, 'Abbruch'), 600);
         return;

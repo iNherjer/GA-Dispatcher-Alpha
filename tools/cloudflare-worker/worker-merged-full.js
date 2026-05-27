@@ -235,6 +235,26 @@ async function verifyChecklistCommunityAuth(request, env) {
   return { ok: true, ownerId };
 }
 
+async function verifySyncProfileAuth(request, env) {
+  const ownerId = normalizeOneLine(request.headers.get("X-Pilot-ID"), 160);
+  const pin = trimText(request.headers.get("X-Pilot-PIN"), 160);
+  if (!ownerId || !pin) return { ok: false, response: json({ error: "Pilot-ID/PIN fehlen" }, 401) };
+
+  let rawProfile = null;
+  try {
+    rawProfile = await env.GA_SYNC_KV.get(ownerId);
+  } catch (error) {
+    return { ok: false, response: json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502) };
+  }
+
+  const profile = rawProfile ? safeJsonParse(rawProfile, null) : null;
+  if (!profile || profile.pin !== pin) {
+    return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
+  }
+
+  return { ok: true, ownerId };
+}
+
 async function getCommunityRecord(env, id) {
   const raw = await env.GA_SYNC_KV.get(communityChecklistKey(id));
   return raw ? safeJsonParse(raw, null) : null;
@@ -1519,9 +1539,15 @@ export default {
       }
       const pathParts = requestUrl.pathname.split("/").filter(Boolean);
       const pilotId = pathParts[2];
+      const isGroupKey = typeof pilotId === "string" && pilotId.startsWith("GROUP_");
 
       if (!pilotId) {
         return json({ error: "Keine ID angegeben" }, 400);
+      }
+
+      if (isGroupKey) {
+        const auth = await verifySyncProfileAuth(request, env);
+        if (!auth.ok) return auth.response;
       }
 
       if (request.method === "GET") {
@@ -1539,7 +1565,7 @@ export default {
           const storedData = JSON.parse(rawData);
           const requestPin = requestUrl.searchParams.get("pin");
 
-          if (storedData.pin && storedData.pin !== requestPin) {
+          if (!isGroupKey && storedData.pin && storedData.pin !== requestPin) {
             return json({ error: "Falscher PIN" }, 401);
           }
 
@@ -1566,7 +1592,7 @@ export default {
 
           if (existingRaw) {
             const existingData = JSON.parse(existingRaw);
-            if (existingData.pin && existingData.pin !== incomingData.pin) {
+            if (!isGroupKey && existingData.pin && existingData.pin !== incomingData.pin) {
               return json({ error: "Falscher PIN" }, 401);
             }
           }
