@@ -636,6 +636,7 @@ window.missionSceneStatus = {
 window.missionCargoStatus = {
     manifestKey: '',
     lastMode: 'load',
+    loadConfirmed: false,
     lastCommandAt: 0,
     lastAckAt: 0,
     lastAck: null,
@@ -3369,9 +3370,13 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             ${modeHint}
             <div class="mission-cargo-copy">${isUnload
                 ? `Entlade die am Ziel benoetigten Gegenstaende. Wiederladen geht im Umkreis von ${MISSION_CARGO_RELOAD_MAX_DISTANCE_M} m.`
-                : (missionStartReady
-                    ? 'Die Boarding-Animation ist abgeschlossen. Nach dem Abschliessen der Verladung ist die Mission startbereit.'
-                    : 'Verladen ist bereits moeglich. Die eigentliche Missionsaktivierung wird erst nach Boarding und Verladung freigeschaltet.')}</div>
+                : (window.missionCargoStatus?.loadConfirmed
+                    ? (missionStartReady
+                        ? 'Verladung ist bestaetigt. Die Mission ist jetzt startbereit.'
+                        : 'Verladung ist bestaetigt. Mission starten wird freigegeben, sobald Boarding und Ansage fertig sind.')
+                    : (missionStartReady
+                        ? 'Die Boarding-Animation ist abgeschlossen. Nach dem Abschliessen der Verladung ist die Mission startbereit.'
+                        : 'Verladen ist bereits moeglich. Die eigentliche Missionsaktivierung wird erst nach Boarding und Verladung freigeschaltet.'))}</div>
             ${!isUnload ? `
             <div class="mission-cargo-clipboard">
                 <div class="mission-cargo-sheet-title">Frachtgutliste</div>
@@ -3403,7 +3408,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             </div>
             <div class="mission-cargo-actions">
                 ${secondaryAction}
-                <button class="mission-cargo-primary" ${((isUnload && !groundHandlingAllowed) || (!isUnload && (!!signature && !missionStartReady || !groundHandlingAllowed))) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
+                <button class="mission-cargo-primary" ${((isUnload && !groundHandlingAllowed) || (!isUnload && (!signature || !groundHandlingAllowed))) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
             </div>
         </div>`;
     overlay.style.display = 'flex';
@@ -3695,19 +3700,16 @@ window.missionCargoSetBoardBookTime = function(itemId, field) {
 };
 
 window.finishMissionCargoLoadingAndStart = function() {
-    if (!_missionCargoLoadInteractionReady()) {
-        window.missionCargoStatus.error = 'Warte bis Boarding und Ansage abgeschlossen sind.';
-        _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
-        return false;
-    }
     const manifest = _missionCargoEnsureManifest();
     if (!manifest.dispatchSignature) {
         window.missionCargoSignDispatchList?.({ render: false });
     }
-    _setMissionStartPhase('boarded');
-    _setMissionRuntimePhase('boarded', { updateUi: false });
+    window.missionCargoStatus.loadConfirmed = true;
     _missionCargoSyncPayloadToSim('cargo-finish-loading').catch(() => {});
     window.closeMissionCargoDialog?.();
+    if (!_missionCargoMaybePromoteStartReady('cargo-finish-loading')) {
+        _missionCargoScheduleStartReadyPromotion('cargo-finish-loading');
+    }
     _updateMissionRuntimeUi();
     return true;
 };
@@ -6023,6 +6025,7 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.personBoarded = ack.status === 'ok' && !!Number(ack.boarded || 0);
             if (ack.status === 'ok') {
                 _missionCargoSyncPayloadToSim('boarding-ack').catch(() => {});
+                _missionCargoScheduleStartReadyPromotion('boarding-ack');
                 setTimeout(() => {
                     try {
                         const alreadyPlayed = (typeof window.paxVoiceBoardingDone === 'function')
@@ -6306,6 +6309,28 @@ function _missionCargoLoadInteractionReady() {
     const sceneDone = !!window.missionSceneStatus?.boardingComplete;
     if (!sceneDone) return false;
     return _missionBoardingVoiceDone();
+}
+
+function _missionCargoMaybePromoteStartReady(reason = 'cargo-ready-check') {
+    const manifest = _missionCargoEnsureManifest();
+    if (!window.missionCargoStatus?.loadConfirmed) return false;
+    if (!manifest?.dispatchSignature) return false;
+    if (!_missionCargoLoadInteractionReady()) return false;
+    if (_missionStartPhase() === 'boarded') return true;
+    _setMissionStartPhase('boarded');
+    _setMissionRuntimePhase('boarded', { updateUi: false });
+    window.missionCargoStatus.error = null;
+    _updateMissionRuntimeUi();
+    if (document.getElementById('missionCargoOverlay')?.style.display === 'flex') {
+        _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+    }
+    return true;
+}
+
+function _missionCargoScheduleStartReadyPromotion(reason = 'cargo-ready-poll', attemptsLeft = 40) {
+    if (_missionCargoMaybePromoteStartReady(reason)) return;
+    if (!window.missionCargoStatus?.loadConfirmed || attemptsLeft <= 0) return;
+    setTimeout(() => _missionCargoScheduleStartReadyPromotion(reason, attemptsLeft - 1), 500);
 }
 
 function _missionCargoGroundHandlingAllowed() {
@@ -6643,7 +6668,8 @@ function _updateMissionStartBanner(autoStartEnabled) {
     if (btn) {
         btn.textContent = phase === 'boarded'
             ? 'Mission starten'
-            : (phase === 'prepare' ? 'Boarding und Verladen beginnen' : 'Mission starten');
+            : (phase === 'prepare' ? 'Boarding und Verladen beginnen' : (phase === 'boarding' ? 'Bitte warten...' : 'Mission starten'));
+        btn.disabled = phase === 'boarding';
     }
 }
 
@@ -6806,13 +6832,13 @@ function _updateMissionRuntimeUi() {
                 ? (deboardingBusy ? '… Deboarding läuft' : ((endReady?.ready || poiGroundEndReady) ? '■ Mission beenden' : '■ Mission stoppen'))
                 : (phase === 'boarded'
                     ? '▶ Mission starten'
-                    : (phase === 'prepare' ? '▶ Boarding' : '▶ Mission starten'));
+                    : (phase === 'prepare' ? '▶ Boarding' : (phase === 'boarding' ? '… Boarding läuft' : '▶ Mission starten')));
             bMap.title = missionRuntime.active
                 ? (deboardingBusy ? 'Deboarding laeuft bereits' : ((endReady?.ready || poiGroundEndReady) ? 'Mission jetzt abschliessen' : 'Mission manuell stoppen'))
                 : (phase === 'boarded'
                     ? 'Mission jetzt aktiv schalten'
-                    : (phase === 'prepare' ? 'Boarding und Verladen beginnen' : 'Missionstart freigeben und Boarding vorbereiten'));
-            bMap.disabled = missionRuntime.active ? deboardingBusy : (!validMission || !groundReady);
+                    : (phase === 'prepare' ? 'Boarding und Verladen beginnen' : (phase === 'boarding' ? 'Boarding und Verladen laufen noch' : 'Missionstart freigeben und Boarding vorbereiten')));
+            bMap.disabled = missionRuntime.active ? deboardingBusy : (!validMission || !groundReady || phase === 'boarding');
         }
         bMap.classList.toggle('is-active', missionRuntime.active);
     }
@@ -6923,6 +6949,14 @@ function _missionHadMeaningfulFlightForEnd() {
     );
 }
 
+function _missionHasReachedEndEligibleFlightPhase() {
+    return !!(
+        flightRecorder?.hadAirbornePhase
+        || Number(flightRecorder?.airborneEvidenceSec || 0) >= 10
+        || Number(flightRecorder?.maxAglFt || 0) >= 200
+    );
+}
+
 function _missionPoiRuntimeStatus(endReady = null) {
     if (!_missionSceneIsPoiMission()) return null;
     const ready = endReady && typeof endReady === 'object' ? endReady : _missionEndReadiness();
@@ -6991,7 +7025,7 @@ function _missionPoiProgressState() {
 function _missionPoiGroundEndReady(endReady = null) {
     if (!_missionSceneIsPoiMission()) return false;
     const ready = endReady && typeof endReady === 'object' ? endReady : _missionEndReadiness();
-    return !!(ready?.groundStill && (missionRuntime.active || _missionHadMeaningfulFlightForEnd()));
+    return !!(ready?.groundStill && _missionHasReachedEndEligibleFlightPhase());
 }
 
 function _missionPoiEndedAtHome(endReady = null) {
@@ -7186,6 +7220,7 @@ window.missionRuntimeReset = function(options = {}) {
         error: null
     });
     _resetMissionRuntime();
+    window.missionCargoStatus.loadConfirmed = false;
     resetFlightRecorder();
     if (respawnAfterClear) {
         setTimeout(() => {
