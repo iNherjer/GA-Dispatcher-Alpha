@@ -6943,18 +6943,34 @@ function _isAtMissionHome(lat, lon, thresholdNm = 0.35) {
 }
 
 function _missionHadMeaningfulFlightForEnd() {
+    const poiProgress = _missionPoiProgressState();
+    const poiProgressEvidence = !!(
+        _missionSceneIsPoiMission()
+        && poiProgress?.trackingActive
+        && poiProgress?.hasSignal
+        && (poiProgress.satisfied || poiProgress.aborted || poiProgress.atTargetDone)
+    );
     return !!(
         flightRecorder?.hadAirbornePhase
         || Number(flightRecorder?.airborneEvidenceSec || 0) >= 8
         || Number(flightRecorder?.maxAglFt || 0) >= 500
+        || poiProgressEvidence
     );
 }
 
 function _missionHasReachedEndEligibleFlightPhase() {
+    const poiProgress = _missionPoiProgressState();
+    const poiProgressEvidence = !!(
+        _missionSceneIsPoiMission()
+        && poiProgress?.trackingActive
+        && poiProgress?.hasSignal
+        && (poiProgress.satisfied || poiProgress.aborted || poiProgress.atTargetDone)
+    );
     return !!(
         flightRecorder?.hadAirbornePhase
         || Number(flightRecorder?.airborneEvidenceSec || 0) >= 10
         || Number(flightRecorder?.maxAglFt || 0) >= 200
+        || poiProgressEvidence
     );
 }
 
