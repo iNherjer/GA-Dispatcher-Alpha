@@ -24,6 +24,8 @@
     let simAptAtTargetTriggered = false; // pax voice: verhindert Doppel-Trigger beim Airport
     let simLandingRollTriggered = false; // pax voice: verhindert Doppel-Trigger bei Landung/Taxi
     let simWaitedForMissionStart = false;
+    let simMissionEndPending = false;
+    let simMissionEndRecord = null;
 
     const TICK_MS = 200;            // 5 Hz – flüssig genug, CPU-schonend
     const SIM_HOLD_SEC = 5;         // Boden-Standzeit vor Start / nach Landung
@@ -60,6 +62,8 @@
         simAptAtTargetTriggered = false;
         simLandingRollTriggered = false;
         simWaitedForMissionStart = false;
+        simMissionEndPending = false;
+        simMissionEndRecord = null;
         window.simModeActive = true;
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         if (typeof window.terrainAvoidHandleFlightState === 'function') window.terrainAvoidHandleFlightState();
@@ -117,11 +121,21 @@
             _triggerSimLandingRoll();
             if (simHoldRemainSec <= 0) {
                 const rec = _buildSimRecord();
-                console.log('[SimPax] end_hold abgelaufen → Farewell trigger. Record:', rec?.distanceNm, 'NM');
-                if (typeof window.triggerPaxFarewell === 'function') window.triggerPaxFarewell(rec);
-                _stop();
-                _promptSimLog(rec);
+                if (typeof window.missionCargoNeedsUnload === 'function' && window.missionCargoNeedsUnload()) {
+                    simMissionEndPending = true;
+                    simMissionEndRecord = rec;
+                    simPhase = 'mission_end_pending';
+                    console.log('[SimPax] end_hold abgelaufen → wartet auf Cargo-Entladung vor Missionsende.');
+                    if (typeof window.openMissionCargoDialog === 'function') window.openMissionCargoDialog('unload');
+                    return;
+                }
+                _finalizeSimMissionEnd(rec);
             }
+            return;
+        }
+
+        if (simPhase === 'mission_end_pending') {
+            _injectHold(true);
             return;
         }
 
@@ -297,6 +311,8 @@
     function _stop() {
         simActive = false;
         window.simModeActive = false;
+        simMissionEndPending = false;
+        simMissionEndRecord = null;
         if (typeof window.terrainAvoidPauseForSimEnd === 'function') window.terrainAvoidPauseForSimEnd();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         clearInterval(simInterval);
@@ -427,6 +443,29 @@
             console.warn('[SimPax] Debrief-Overlay fehlgeschlagen:', e?.message || e);
         }
     }
+
+    function _finalizeSimMissionEnd(record) {
+        const rec = record || simMissionEndRecord || _buildSimRecord();
+        if (!rec) return false;
+        if (typeof window.missionCargoFinalizeMissionOutcome === 'function') {
+            try {
+                const outcome = window.missionCargoFinalizeMissionOutcome({ source: 'sim-mission-end', record: rec });
+                if (outcome && typeof outcome === 'object') rec.missionCargoOutcome = outcome;
+            } catch (e) {
+                console.warn('[SimPax] Cargo-Finalisierung fehlgeschlagen:', e?.message || e);
+            }
+        }
+        console.log('[SimPax] Sim-Missionsende erreicht → Farewell/Log. Record:', rec?.distanceNm, 'NM');
+        if (typeof window.triggerPaxFarewell === 'function') window.triggerPaxFarewell(rec);
+        _stop();
+        _promptSimLog(rec);
+        return true;
+    }
+
+    window.completeSimMissionEnd = function () {
+        if (!simMissionEndPending) return false;
+        return _finalizeSimMissionEnd(simMissionEndRecord || _buildSimRecord());
+    };
 
     function _fallbackPinFlightRecord(record, openDebrief) {
         try {

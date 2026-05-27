@@ -2823,6 +2823,10 @@ function _missionCargoResetManifestState(manifest) {
         item.loadedAt = 0;
         item.unloadedAt = 0;
         item.droppedAt = 0;
+        if (Number.isFinite(Number(item.droppedLat)) || Number.isFinite(Number(item.droppedLon)) || Number.isFinite(Number(item.droppedAltFt))) changed = true;
+        item.droppedLat = null;
+        item.droppedLon = null;
+        item.droppedAltFt = null;
         if (Number.isFinite(Number(item.unloadLat)) || Number.isFinite(Number(item.unloadLon)) || Number.isFinite(Number(item.unloadAltFt))) changed = true;
         item.unloadLat = null;
         item.unloadLon = null;
@@ -3225,7 +3229,8 @@ function _missionCargoEscape(text = '') {
 
 function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const manifest = _missionCargoEnsureManifest();
-    if (mode !== 'unload' && _missionCargoAutoLoadEnabled()) {
+    const groundHandlingAllowed = _missionCargoGroundHandlingAllowed();
+    if (mode !== 'unload' && groundHandlingAllowed && _missionCargoAutoLoadEnabled()) {
         _missionCargoMarkAllLoaded({ despawn: false });
         if (window.missionSceneStatus?.spawned) _missionCargoRemoveLoadedSceneObjects('cargo-auto-load-open');
     }
@@ -3253,7 +3258,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const isUnload = mode === 'unload';
     const missionStartReady = isUnload ? true : _missionCargoLoadInteractionReady();
     const visibleItems = isUnload
-        ? manifest.items.filter(item => (item.status === 'loaded' || item.status === 'unloaded') && item.deliverAtDestination !== false)
+        ? manifest.items.filter(item => (item.status === 'loaded' || item.status === 'unloaded' || item.status === 'dropped') && item.deliverAtDestination !== false)
         : manifest.items;
     const requiredMissing = manifest.items.filter(item => item.required && item.status !== 'loaded' && item.status !== 'unloaded').length;
     const requiredUnloadMissing = manifest.items.filter(item => item.required && item.deliverAtDestination !== false && item.status === 'loaded').length;
@@ -3271,16 +3276,18 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         const reloadDistanceM = _missionCargoDistanceToUnloadM(item, livePos);
         const canReloadNearby = _missionCargoCanReloadUnloadedItem(item, MISSION_CARGO_RELOAD_MAX_DISTANCE_M);
         const action = isUnload
-            ? (unloaded
-                ? `<button class="mission-cargo-row-btn" ${canReloadNearby ? '' : 'disabled'} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: 'unload-reload' })">${canReloadNearby ? 'Wieder laden' : 'Zu weit weg'}</button>`
-                : `<button class="mission-cargo-row-btn" onclick="window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}')">Ausladen</button>`)
-            : `<button class="mission-cargo-row-btn" ${loaded || dropped ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}')">${dropped ? 'Abgeworfen' : (loaded ? 'Geladen' : 'Laden')}</button>`;
+            ? (dropped
+                ? `<button class="mission-cargo-row-btn" disabled>Abgeworfen</button>`
+                : (unloaded
+                ? `<button class="mission-cargo-row-btn" ${(!groundHandlingAllowed || !canReloadNearby) ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}', { mode: 'unload-reload' })">${!groundHandlingAllowed ? 'Nur am Boden' : (canReloadNearby ? 'Wieder laden' : 'Zu weit weg')}</button>`
+                : `<button class="mission-cargo-row-btn" onclick="window.missionCargoUnloadItem && missionCargoUnloadItem('${item.id}')">${groundHandlingAllowed ? 'Ausladen' : 'Abwerfen'}</button>`))
+            : `<button class="mission-cargo-row-btn" ${(loaded || dropped || !groundHandlingAllowed) ? 'disabled' : ''} onclick="window.missionCargoLoadItem && missionCargoLoadItem('${item.id}')">${!groundHandlingAllowed ? 'Nur am Boden' : (dropped ? 'Abgeworfen' : (loaded ? 'Geladen' : 'Laden'))}</button>`;
         const status = dropped ? 'abgeworfen' : (unloaded ? 'ausgeladen' : (loaded ? 'geladen' : 'offen'));
         const distanceMeta = (isUnload && unloaded && Number.isFinite(reloadDistanceM))
             ? ` · Distanz ${Math.round(reloadDistanceM)} m`
             : '';
         return `
-            <div class="mission-cargo-row ${item.required ? 'is-required' : 'is-optional'} ${loaded ? 'is-loaded' : ''}">
+            <div class="mission-cargo-row ${item.required ? 'is-required' : 'is-optional'} ${loaded ? 'is-loaded' : ''} ${dropped ? 'is-dropped' : ''}">
                 <div class="mission-cargo-row-main">
                     <div class="mission-cargo-row-title">${_missionCargoEscape(item.storyName || item.label)}</div>
                     <div class="mission-cargo-row-meta">${item.required ? 'Pflicht' : 'Optional'} · ${Math.round(Number(item.weightLbs) || 0)} lbs · ${status}${distanceMeta}</div>
@@ -3294,9 +3301,9 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         const dropped = item.status === 'dropped';
         const status = dropped ? 'abgeworfen' : (unloaded ? 'ausgeladen' : (loaded ? 'geladen' : 'offen'));
         const stationText = assignmentMap.get(String(item.id)) || (loaded ? 'auto' : '-');
-        const rowAction = !isUnload ? ` onclick="window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}')"` : '';
+        const rowAction = (!isUnload && groundHandlingAllowed) ? ` onclick="window.missionCargoToggleItemLoadState && missionCargoToggleItemLoadState('${item.id}')"` : '';
         return `
-            <tr class="${loaded ? 'is-loaded' : ''} ${!isUnload ? 'is-interactive' : ''}"${rowAction}>
+            <tr class="${loaded ? 'is-loaded' : ''} ${(!isUnload && groundHandlingAllowed) ? 'is-interactive' : ''}"${rowAction}>
                 <td>${idx + 1}</td>
                 <td>${_missionCargoEscape(item.storyName || item.label || item.id)}</td>
                 <td>${item.required ? 'Pflicht' : 'Optional'}</td>
@@ -3324,6 +3331,9 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const secondaryAction = (!isUnload && signature)
         ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
         : '';
+    const modeHint = isUnload
+        ? (!groundHandlingAllowed ? '<div class="mission-cargo-summary">Im Flug kann Ladung nur abgeworfen werden. Als geliefert gilt sie erst nach Ausladen am Boden.</div>' : '')
+        : (!groundHandlingAllowed ? '<div class="mission-cargo-summary">Verladung ist nur am Boden moeglich. Im Flug bleibt diese Liste nur zur Dokumentation sichtbar.</div>' : '');
     overlay.innerHTML = `
         <div class="mission-cargo-panel">
             <div class="mission-cargo-head">
@@ -3333,6 +3343,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                 </div>
                 <button class="mission-cargo-close" onclick="window.closeMissionCargoDialog && closeMissionCargoDialog()" title="Schliessen">×</button>
             </div>
+            ${modeHint}
             <div class="mission-cargo-copy">${isUnload
                 ? `Entlade die am Ziel benoetigten Gegenstaende. Wiederladen geht im Umkreis von ${MISSION_CARGO_RELOAD_MAX_DISTANCE_M} m.`
                 : (missionStartReady
@@ -3369,7 +3380,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             </div>
             <div class="mission-cargo-actions">
                 ${secondaryAction}
-                <button class="mission-cargo-primary" ${(!isUnload && !!signature && !missionStartReady) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
+                <button class="mission-cargo-primary" ${((isUnload && !groundHandlingAllowed) || (!isUnload && (!!signature && !missionStartReady || !groundHandlingAllowed))) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
             </div>
         </div>`;
     overlay.style.display = 'flex';
@@ -3449,9 +3460,13 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
     item.status = 'loaded';
     item.loadedAt = Date.now();
     item.unloadedAt = 0;
+    item.droppedAt = 0;
     item.unloadLat = null;
     item.unloadLon = null;
     item.unloadAltFt = null;
+    item.droppedLat = null;
+    item.droppedLon = null;
+    item.droppedAltFt = null;
     _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
     if (!window.simModeActive && window.liveTrackerConnected) {
@@ -3484,6 +3499,12 @@ window.missionCargoToggleItemLoadState = function(itemId, options = {}) {
     item.loadedAt = 0;
     item.unloadedAt = 0;
     item.droppedAt = 0;
+    item.unloadLat = null;
+    item.unloadLon = null;
+    item.unloadAltFt = null;
+    item.droppedLat = null;
+    item.droppedLon = null;
+    item.droppedAltFt = null;
     item.healthPct = 100;
     _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
@@ -3561,8 +3582,12 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
     if (!item || item.status !== 'loaded') return false;
     const dropped = options.drop === true || _missionCargoIsAirborneNow();
     if (dropped) {
+        const livePos = _missionCargoCommandBasePos();
         item.status = 'dropped';
         item.droppedAt = Date.now();
+        item.droppedLat = Number.isFinite(Number(livePos?.lat)) ? Number(livePos.lat) : null;
+        item.droppedLon = Number.isFinite(Number(livePos?.lon)) ? Number(livePos.lon) : null;
+        item.droppedAltFt = Number.isFinite(Number(livePos?.altFt)) ? Number(livePos.altFt) : null;
         item.unloadLat = null;
         item.unloadLon = null;
         item.unloadAltFt = null;
@@ -3581,9 +3606,13 @@ window.missionCargoUnloadItem = function(itemId, options = {}) {
     const livePos = _missionCargoCommandBasePos();
     item.status = 'unloaded';
     item.unloadedAt = Date.now();
+    item.droppedAt = 0;
     item.unloadLat = Number.isFinite(Number(livePos?.lat)) ? Number(livePos.lat) : null;
     item.unloadLon = Number.isFinite(Number(livePos?.lon)) ? Number(livePos.lon) : null;
     item.unloadAltFt = Number.isFinite(Number(livePos?.altFt)) ? Number(livePos.altFt) : null;
+    item.droppedLat = null;
+    item.droppedLon = null;
+    item.droppedAltFt = null;
     _missionCargoInvalidateDispatchSignature(manifest);
     _missionCargoPersistManifest(manifest);
     if (!window.simModeActive && window.liveTrackerConnected) {
@@ -3660,6 +3689,9 @@ window.finishMissionCargoLoadingAndStart = function() {
 
 window.finishMissionCargoUnloadAndEnd = function() {
     window.closeMissionCargoDialog?.();
+    if (window.simModeActive && typeof window.completeSimMissionEnd === 'function') {
+        return window.completeSimMissionEnd();
+    }
     window.manualMissionEnd({ skipCargoUnload: true });
 };
 
@@ -6242,6 +6274,10 @@ function _missionCargoLoadInteractionReady() {
     const sceneDone = !!window.missionSceneStatus?.boardingComplete;
     if (!sceneDone) return false;
     return _missionBoardingVoiceDone();
+}
+
+function _missionCargoGroundHandlingAllowed() {
+    return !_missionCargoIsAirborneNow();
 }
 
 function _missionCloseOutcomeSummaryText(outcome = null) {
