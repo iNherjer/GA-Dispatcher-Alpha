@@ -6308,7 +6308,7 @@ function _missionCargoLoadInteractionReady() {
     if (window.simModeActive) return true;
     const sceneDone = !!window.missionSceneStatus?.boardingComplete || !!window.missionSceneStatus?.personBoarded;
     if (!sceneDone) return false;
-    return !!window.missionSceneStatus?.personBoarded || _missionBoardingVoiceDone();
+    return true;
 }
 
 function _missionCargoMaybePromoteStartReady(reason = 'cargo-ready-check') {
@@ -6330,6 +6330,7 @@ function _missionCargoMaybePromoteStartReady(reason = 'cargo-ready-check') {
 function _missionCargoScheduleStartReadyPromotion(reason = 'cargo-ready-poll', attemptsLeft = 40) {
     if (_missionCargoMaybePromoteStartReady(reason)) return;
     if (!window.missionCargoStatus?.loadConfirmed || attemptsLeft <= 0) return;
+    _updateMissionRuntimeUi();
     setTimeout(() => _missionCargoScheduleStartReadyPromotion(reason, attemptsLeft - 1), 500);
 }
 
@@ -10328,7 +10329,7 @@ function updateFlightRecorder(lat, lon, alt) {
         r.pauseActive = false;
         const restartPattern = onGroundNow && gs <= 2.5 && agl <= 120;
         if (restartPattern) {
-            const depCtx = _missionTrackerPositionQuality(window.lastLiveGpsPos || {});
+            const depCtx = _scenePositionQuality(window.lastLiveGpsPos || {});
             const meaningfulMission = missionRuntime.active && _missionHadMeaningfulFlightForEnd();
             const reconnectRecovery = missionRuntime.active && _trackerReconnectRecoveryActive(now);
             const allowReset = !meaningfulMission && !reconnectRecovery && !!depCtx.nearDeparture;
