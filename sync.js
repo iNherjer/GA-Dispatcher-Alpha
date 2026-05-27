@@ -6172,18 +6172,13 @@ function _missionStartUiKey() {
 }
 
 function _missionStartHasUsableRoute() {
-    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const hasTwoPoints = (points) => Array.isArray(points)
         && points.filter(point => {
             const lat = Number(point?.lat);
             const lon = Number(point?.lng ?? point?.lon);
             return Number.isFinite(lat) && Number.isFinite(lon);
         }).length >= 2;
-    if (typeof routeWaypoints !== 'undefined' && hasTwoPoints(routeWaypoints)) return true;
-    if (hasTwoPoints(md?.routeWaypoints)) return true;
-    if (hasTwoPoints(md?.missionRouteWaypoints)) return true;
-    if (typeof window !== 'undefined' && hasTwoPoints(window._missionRouteWaypoints)) return true;
-    return false;
+    return hasTwoPoints(_missionRuntimeRouteWaypoints());
 }
 
 function _hasValidMissionForStart() {
@@ -6529,9 +6524,9 @@ function _updateMissionStartBanner(autoStartEnabled) {
     const poiGroundEndReady = missionRuntime.active ? _missionPoiGroundEndReady(endReady) : false;
     const deboardingBusy = _missionEndDeboardingBusy();
     const showClose = !!missionRuntime.closingPending;
-    const showDeboarding = valid && missionRuntime.active && deboardingBusy;
+    const showDeboarding = missionRuntime.active && deboardingBusy;
     const showEndReady = !!endReady?.ready || poiGroundEndReady;
-    const showEnd = valid && missionRuntime.active && showEndReady && !deboardingBusy && (!autoStartEnabled || missionRuntime.manual);
+    const showEnd = missionRuntime.active && showEndReady && !deboardingBusy && (!autoStartEnabled || missionRuntime.manual);
     const showStart = valid && (trackerConnected || simMode) && groundReady && !missionRuntime.active && !autoStartEnabled;
     const show = showClose || showDeboarding || showEnd || showStart;
     banner.style.display = show ? 'flex' : 'none';
@@ -6611,7 +6606,9 @@ function _updateMissionRuntimeUi() {
     const poiGroundEndReady = missionRuntime.active ? _missionPoiGroundEndReady(endReady) : false;
     const deboardingBusy = _missionEndDeboardingBusy();
     const st = document.getElementById('missionRuntimeStatus');
+    const detailEl = document.getElementById('missionRuntimeDetail');
     const nextStepEl = document.getElementById('missionRuntimeNextStep');
+    const poiStatus = missionRuntime.active ? _missionPoiRuntimeStatus(endReady) : null;
     if (st) {
         const idleText = !autoStartEnabled
             ? (!validMission ? 'Keine startbare Mission' : (groundReady ? (phase === 'boarded' ? 'Mission startbereit' : 'Boarding bereit') : groundStatus.label))
@@ -6626,6 +6623,53 @@ function _updateMissionRuntimeUi() {
             : '';
         st.style.color = missionRuntime.active ? '#4caf50' : (draftBlocked ? '#f2c12e' : (!autoStartEnabled ? (validMission && groundReady ? '#8ec5ff' : '#888') : (missionRuntime.armed ? '#f2c12e' : '#888')));
     }
+    if (detailEl) {
+        let detailText = 'Statusdetails folgen nach Missionsstart';
+        let detailColor = '#8ea0b8';
+        const landedHere = !!endReady?.groundStill;
+        const landedAtHome = landedHere && _missionPoiEndedAtHome(endReady);
+        const landedAtTarget = landedHere && !!endReady?.atTarget;
+        if (missionRuntime.closingPending) {
+            detailText = _missionCloseOutcomeSummaryText(missionRuntime.closingOutcome);
+            detailColor = '#d7c58b';
+        } else if (missionRuntime.active) {
+            if (window.missionSceneStatus?.deboardingActive) {
+                detailText = 'Endszene und Deboarding laufen bereits.';
+                detailColor = '#d7c58b';
+            } else if (poiStatus?.detail) {
+                const landingPrefix = landedAtHome
+                    ? 'Gelandet am Startplatz. '
+                    : (landedAtTarget
+                        ? 'Gelandet am Ziel. '
+                        : (landedHere ? 'Gelandet ausserhalb. ' : 'In der Luft. '));
+                detailText = `${landingPrefix}${poiStatus.detail}`;
+                detailColor = poiStatus.stage === 'failed'
+                    ? '#ff9d9d'
+                    : (poiStatus.stage === 'home_ready' || poiStatus.stage === 'away_ready'
+                        ? '#c6f3a3'
+                        : '#8ea0b8');
+            } else if (endReady?.ready) {
+                detailText = endReady.reason === 'apt_arrival_point'
+                    ? 'Gelandet am Platz. Empfangspunkt erreicht. Mission kann regulär abgeschlossen werden.'
+                    : 'Gelandet am Ziel. Mission kann regulär abgeschlossen werden.';
+                detailColor = '#c6f3a3';
+            } else if (endReady?.groundStill) {
+                const distText = Number.isFinite(Number(endReady?.dMissionNm)) ? `${Number(endReady.dMissionNm).toFixed(2)} NM vom Missionsziel` : 'nicht am Ziel';
+                detailText = `Gelandet, aber noch ${distText}.`;
+            } else {
+                const homeNm = Number(_distanceToMissionHomeNm(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon));
+                const homeText = Number.isFinite(homeNm) ? ` · Home ${homeNm.toFixed(2)} NM` : '';
+                detailText = `Mission läuft${homeText}.`;
+            }
+        } else if (phase === 'boarded' && validMission) {
+            detailText = 'Boarding und Verladen abgeschlossen.';
+        } else if (!validMission) {
+            detailText = 'Es fehlt aktuell eine akzeptierte Mission mit nutzbarer Route.';
+            detailColor = '#b7a6a6';
+        }
+        detailEl.textContent = detailText;
+        detailEl.style.color = detailColor;
+    }
     if (nextStepEl) {
         let nextStep = 'Nächster Schritt: Mission vorbereiten';
         if (missionRuntime.closingPending) {
@@ -6635,6 +6679,8 @@ function _updateMissionRuntimeUi() {
                 nextStep = 'Nächster Schritt: Farewell abwarten';
             } else if (window.missionSceneStatus?.deboardingActive) {
                 nextStep = 'Nächster Schritt: Deboarding läuft';
+            } else if (poiStatus?.nextStep) {
+                nextStep = poiStatus.nextStep;
             } else if (endReady?.ready || poiGroundEndReady) {
                 if (typeof _missionCargoNeedsUnload === 'function' && _missionCargoNeedsUnload()) {
                     nextStep = 'Nächster Schritt: Pflichtladung entladen';
@@ -6726,7 +6772,7 @@ function _targetPointForMission() {
         const truthPoint = _missionTruthPoint(['mainTarget', 'sceneAnchor']);
         if (truthPoint) return { lat: truthPoint.lat, lon: truthPoint.lon };
     }
-    const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : null;
+    const wps = _missionRuntimeRouteWaypoints();
     if (!wps || wps.length < 1) return null;
     const isPoi = !!md?.poiName || (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI');
     const wp = isPoi ? (wps.find(wp => wp && wp.isPOI) || (wps.length >= 2 ? wps[1] : wps[0])) : wps[wps.length - 1];
@@ -6749,8 +6795,28 @@ function _distanceToMissionTargetNm(lat, lon) {
     return _haversineNmLocal(lat, lon, t.lat, t.lon);
 }
 
+function _missionRuntimeRouteWaypoints() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const candidates = [
+        (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : null,
+        Array.isArray(md?.routeWaypoints) ? md.routeWaypoints : null,
+        Array.isArray(md?.missionRouteWaypoints) ? md.missionRouteWaypoints : null,
+        (typeof window !== 'undefined' && Array.isArray(window._missionRouteWaypoints)) ? window._missionRouteWaypoints : null
+    ];
+    for (const points of candidates) {
+        if (!Array.isArray(points) || !points.length) continue;
+        const usable = points.filter(point => {
+            const lat = Number(point?.lat);
+            const lon = Number(point?.lng ?? point?.lon);
+            return Number.isFinite(lat) && Number.isFinite(lon);
+        });
+        if (usable.length) return points;
+    }
+    return null;
+}
+
 function _missionHomePointForRuntime() {
-    const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : null;
+    const wps = _missionRuntimeRouteWaypoints();
     if (!wps || !wps.length) return null;
     const wp = wps[0];
     const lat = Number(wp?.lat);
@@ -6776,6 +6842,61 @@ function _missionHadMeaningfulFlightForEnd() {
         || Number(flightRecorder?.airborneEvidenceSec || 0) >= 8
         || Number(flightRecorder?.maxAglFt || 0) >= 500
     );
+}
+
+function _missionPoiRuntimeStatus(endReady = null) {
+    if (!_missionSceneIsPoiMission()) return null;
+    const ready = endReady && typeof endReady === 'object' ? endReady : _missionEndReadiness();
+    const progress = _missionPoiProgressState();
+    const endedAtHome = _missionPoiEndedAtHome(ready);
+    const canEndHere = _missionPoiGroundEndReady(ready);
+    if (!progress?.hasSignal || !progress?.trackingActive) {
+        return {
+            stage: 'unknown',
+            detail: 'POI-Status noch nicht sicher verfügbar.',
+            nextStep: canEndHere
+                ? (endedAtHome ? 'Nächster Schritt: Mission beenden' : 'Nächster Schritt: Mission hier beenden oder Heimflug fortsetzen')
+                : 'Nächster Schritt: POI anfliegen und Aufgabe erfüllen'
+        };
+    }
+    if (progress.aborted) {
+        return {
+            stage: 'failed',
+            detail: 'POI-Auftrag fehlgeschlagen.',
+            nextStep: canEndHere
+                ? 'Nächster Schritt: Mission beenden'
+                : 'Nächster Schritt: Landen und Mission abschliessen'
+        };
+    }
+    if (progress.satisfied) {
+        if (canEndHere) {
+            return {
+                stage: endedAtHome ? 'home_ready' : 'away_ready',
+                detail: endedAtHome
+                    ? 'POI erfüllt. Du bist zurück am Startplatz.'
+                    : 'POI erfüllt. Ausweichlandung erkannt.',
+                nextStep: endedAtHome
+                    ? 'Nächster Schritt: Mission regulär beenden'
+                    : 'Nächster Schritt: Mission hier beenden oder Pax später heimfliegen'
+            };
+        }
+        return {
+            stage: 'return_leg',
+            detail: endedAtHome
+                ? 'POI erfüllt. Startplatz erreicht, aber noch nicht im End-Gate.'
+                : 'POI erfüllt. Rückflugphase oder freie Landung zum Missionsende.',
+            nextStep: 'Nächster Schritt: Landen, stoppen und Mission beenden'
+        };
+    }
+    const dwellSec = Number.isFinite(Number(progress.dwellSec)) ? Number(progress.dwellSec) : 0;
+    const attempts = Number.isFinite(Number(progress.attempts)) ? Number(progress.attempts) : 0;
+    return {
+        stage: 'working',
+        detail: `POI noch offen. Arbeitszeit im Zielgebiet: ${Math.round(dwellSec)}s${attempts > 0 ? ` · Hinweise: ${attempts}` : ''}.`,
+        nextStep: canEndHere
+            ? 'Nächster Schritt: Mission beenden'
+            : 'Nächster Schritt: POI sauber erfüllen und danach landen'
+    };
 }
 
 function _missionPoiProgressState() {
