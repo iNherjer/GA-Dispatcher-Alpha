@@ -4037,6 +4037,9 @@ window.clearMissionSceneObjects = function(reason = 'mission-scene-reset') {
             reason
         }) || sent;
     });
+    if (typeof window.missionSmokeClear === 'function') {
+        try { sent = !!window.missionSmokeClear(`${reason}-smoke`) || sent; } catch (_) {}
+    }
     if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
     return sent;
 };
@@ -8098,6 +8101,9 @@ function resetSyncTimer() {
 let liveGpsSocket = null;
 let liveGpsMarker = null;
 window.liveTrackerConnected = false;
+let lastTrackerDisconnectAt = 0;
+let lastTrackerReconnectAt = 0;
+let trackerReconnectRecoveryUntil = 0;
 let lastAutoFollowPanAt = 0;
 let lastAutoFollowPanPos = null;
 let lastLivePlaneHeadingUpdateAt = 0;
@@ -8118,6 +8124,10 @@ const liveFreqLookupPending = {};
 const MIN_TRACKER_VERSION_CODE = 239;
 const MIN_TRACKER_VERSION_LABEL = 'v239';
 let trackerVersionPromptShown = false;
+
+function _trackerReconnectRecoveryActive(now = Date.now()) {
+    return Number(trackerReconnectRecoveryUntil || 0) > Number(now || Date.now());
+}
 
 window.updateLivePlanePerformanceMode = function(forceState = null) {
     const on = (typeof forceState === 'boolean') ? forceState : isLowFpsModeActive();
@@ -9210,6 +9220,11 @@ window.connectToLiveGPS = async function(syncId) {
     liveGpsSocket.onopen = () => {
         console.log(`[GPS] ✅ Verbunden! Warte auf Flugzeug-Daten...`);
         gpsReconnectDelay = 2000; // Erfolg → Backoff zurücksetzen
+        const now = Date.now();
+        lastTrackerReconnectAt = now;
+        if (lastTrackerDisconnectAt && (now - lastTrackerDisconnectAt) <= 30000) {
+            trackerReconnectRecoveryUntil = now + 20000;
+        }
         window.liveTrackerConnected = true;
         _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
@@ -9328,6 +9343,7 @@ window.connectToLiveGPS = async function(syncId) {
 
     liveGpsSocket.onclose = () => {
         clearTimeout(gpsWatchdog);
+        lastTrackerDisconnectAt = Date.now();
         window.liveTrackerConnected = false;
         _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
@@ -9350,6 +9366,7 @@ window.connectToLiveGPS = async function(syncId) {
 
     liveGpsSocket.onerror = () => {
         clearTimeout(gpsWatchdog);
+        lastTrackerDisconnectAt = Date.now();
         window.liveTrackerConnected = false;
         _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
@@ -10053,6 +10070,20 @@ function updateFlightRecorder(lat, lon, alt) {
         r.pauseActive = false;
         const restartPattern = onGroundNow && gs <= 2.5 && agl <= 120;
         if (restartPattern) {
+            const depCtx = _missionTrackerPositionQuality(window.lastLiveGpsPos || {});
+            const meaningfulMission = missionRuntime.active && _missionHadMeaningfulFlightForEnd();
+            const reconnectRecovery = missionRuntime.active && _trackerReconnectRecoveryActive(now);
+            const allowReset = !meaningfulMission && !reconnectRecovery && !!depCtx.nearDeparture;
+            if (!allowReset) {
+                const reasons = [
+                    meaningfulMission ? 'meaningful-flight' : '',
+                    reconnectRecovery ? 'reconnect-recovery' : '',
+                    depCtx.nearDeparture ? '' : 'not-near-departure'
+                ].filter(Boolean).join(',');
+                console.log(`[FlightRec] Pause-Ende Neustart-Muster ignoriert (${reasons || 'guarded'})`);
+                r.lastUpdateTs = now;
+                r.lowSpeedSince = 0;
+            } else {
             console.log('[FlightRec] Pause-Ende mit Neustart-Muster erkannt -> Mission reset bereit');
             if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
             if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
@@ -10061,6 +10092,7 @@ function updateFlightRecorder(lat, lon, alt) {
                 _resetMissionRuntime();
             }
             return;
+            }
         }
         r.lastUpdateTs = now; // dt-Sprung nach Pause vermeiden
     }

@@ -270,6 +270,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const payloadSetDefCache = new Map();
   const namedVarSetDefCache = new Map();
   const namedVarSetUnsupported = new Set();
+  const trackedObjectIds = new Set();
   const activeBoardingScenes = new Set();
   const activeDeboardingScenes = new Set();
   const lastExceptions = [];
@@ -847,10 +848,23 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return waitPromise;
   };
 
+  const trackObjectId = (objectId) => {
+    const id = Number(objectId);
+    if (Number.isFinite(id) && id > 0) trackedObjectIds.add(id);
+    return id;
+  };
+
+  const forgetObjectId = (objectId) => {
+    const id = Number(objectId);
+    if (Number.isFinite(id) && id > 0) trackedObjectIds.delete(id);
+    return id;
+  };
+
   const removeSceneObject = (rec, obj, reason = 'scene-remove') => {
     if (!obj || !obj.objectId) return false;
     try {
       handle.aIRemoveObject(obj.objectId, nextReqId++);
+      forgetObjectId(obj.objectId);
       if (rec && Array.isArray(rec.objects)) {
         rec.objects = rec.objects.filter(o => o.objectId !== obj.objectId);
       }
@@ -869,6 +883,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       try {
         debugLog(`SCENE_TRY scene=${sceneId} kind=${plan.kind} title="${candidate}"`);
         const objectId = await spawnObject(candidate, plan, timeoutMs);
+        trackObjectId(objectId);
         const spawnedObj = { objectId, ...plan, title: candidate, requestedTitle: plan.title };
         trackerLog(`  OK scene ${plan.kind}: objectId=${objectId} title="${candidate}"`);
         debugLog(`SCENE_SPAWN_OK scene=${sceneId} kind=${plan.kind} index=${plan.index} objectId=${objectId} title="${candidate}" requestedTitle="${plan.title}" lat=${plan.lat} lon=${plan.lon} altFt=${plan.altFt} hdg=${plan.hdg} forwardM=${plan.forwardM} rightM=${plan.rightM}`);
@@ -1644,6 +1659,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     for (const obj of rec.objects) {
       try {
         handle.aIRemoveObject(obj.objectId, nextReqId++);
+        forgetObjectId(obj.objectId);
         cleared++;
       } catch (err) {
         debugLog(`SCENE_CLEAR_ERROR scene=${key} objectId=${obj.objectId} error=${err?.message || err}`);
@@ -1801,6 +1817,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     for (const obj of rec.objects) {
       try {
         handle.aIRemoveObject(obj.objectId, nextReqId++);
+        forgetObjectId(obj.objectId);
         cleared++;
       } catch (err) {
         trackerWarn(`⚠️  Smoke clear objectId=${obj.objectId}: ${err?.message || err}`);
@@ -1811,6 +1828,30 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     trackerLog(`🔥 Smoke Mission ${key}: ${cleared} Objekte entfernt (${reason}).`);
     debugLog(`CLEAR_OK mission=${key} cleared=${cleared} reason=${reason}`);
     sendAck({ type: 'mission_smoke_clear_ack', missionId: key, status: 'ok', cleared, reason });
+    return { cleared };
+  };
+
+  const clearTrackedObjects = async (reason = 'clear-all') => {
+    const ids = [...trackedObjectIds.values()];
+    if (!ids.length) {
+      debugLog(`TRACKED_CLEAR_NOOP reason=${reason}`);
+      return { cleared: 0 };
+    }
+    let cleared = 0;
+    debugLog(`TRACKED_CLEAR_START reason=${reason} objects=${ids.length}`);
+    for (const objectId of ids) {
+      try {
+        handle.aIRemoveObject(objectId, nextReqId++);
+        cleared++;
+      } catch (err) {
+        debugLog(`TRACKED_CLEAR_ERROR objectId=${objectId} reason=${reason} error=${err?.message || err}`);
+      } finally {
+        forgetObjectId(objectId);
+      }
+    }
+    activeBoardingScenes.clear();
+    activeDeboardingScenes.clear();
+    debugLog(`TRACKED_CLEAR_OK reason=${reason} cleared=${cleared}`);
     return { cleared };
   };
 
@@ -1865,6 +1906,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           ? { lat: prewarmLat, lon: prewarmLon, altFt: prewarmAltFt, hdg: prewarmHdg }
           : p;
         const objectId = await spawnObject(p.title, spawnPos, 5000);
+        trackObjectId(objectId);
         objects.push({ objectId, ...p, spawnedAt: { ...spawnPos }, teleported: !usePrewarm });
         trackerLog(`  OK ${p.kind} site=${p.siteIndex} obj=${p.index}: objectId=${objectId}`);
         debugLog(`SPAWN_OK mission=${missionId} kind=${p.kind} site=${p.siteIndex} index=${p.index} objectId=${objectId} title="${p.title}" spawnLat=${spawnPos.lat} spawnLon=${spawnPos.lon} targetLat=${p.lat} targetLon=${p.lon} targetAltFt=${p.altFt} baseAltFt=${p.baseAltFt} altOffsetFt=${p.altOffsetFt}`);
@@ -2045,9 +2087,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         const ids = [...scenes.keys()];
         debugLog(`COMMAND mission_scene_clear_all scenes=${ids.length}`);
         Promise.all(ids.map(id => clearScene(id, command?.reason || 'command-all', commandId)))
-          .then(results => {
-            const cleared = results.reduce((sum, item) => sum + Number(item?.cleared || 0), 0);
-            sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: 'all', status: ids.length ? 'ok' : 'noop', cleared, reason: command?.reason || 'command-all' });
+          .then(async (results) => {
+            const sceneCleared = results.reduce((sum, item) => sum + Number(item?.cleared || 0), 0);
+            const tracked = await clearTrackedObjects(command?.reason || 'command-all');
+            const cleared = sceneCleared + Number(tracked?.cleared || 0);
+            const status = cleared > 0 || ids.length > 0 ? 'ok' : 'noop';
+            sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: 'all', status, cleared, reason: command?.reason || 'command-all' });
           })
           .catch(err => {
             sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: 'all', status: 'error', error: err?.message || String(err) });
@@ -2109,7 +2154,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     clearAll(reason = 'shutdown') {
       return Promise.all([
         ...[...missions.keys()].map(id => clearMission(id, reason)),
-        ...[...scenes.keys()].map(id => clearScene(id, reason))
+        ...[...scenes.keys()].map(id => clearScene(id, reason)),
+        clearTrackedObjects(reason)
       ]);
     }
   };
