@@ -6218,6 +6218,8 @@ function _missionStartBannerDismissKey() {
     return `ga_mission_start_banner_dismissed_${_missionStartUiKey() || 'none'}`;
 }
 
+const missionStartBannerDismissState = Object.create(null);
+
 function _missionStartPhaseKey() {
     const key = _missionStartUiKey();
     return key ? `ga_mission_start_phase_${key}` : '';
@@ -6504,7 +6506,7 @@ function _triggerGreetingAfterBoardingVoice(lat = null, lon = null, timeoutMs = 
 function _missionStartBannerDismissed() {
     try {
         const key = _missionStartUiKey();
-        return !!key && localStorage.getItem(_missionStartBannerDismissKey()) === '1';
+        return !!key && missionStartBannerDismissState[key] === true;
     } catch (_) {
         return false;
     }
@@ -6512,15 +6514,28 @@ function _missionStartBannerDismissed() {
 
 window.dismissMissionStartBanner = function() {
     try {
-        if (_missionStartUiKey()) localStorage.setItem(_missionStartBannerDismissKey(), '1');
+        const key = _missionStartUiKey();
+        if (key) missionStartBannerDismissState[key] = true;
     } catch (_) {}
     _updateMissionRuntimeUi();
+};
+
+window.resetMissionStartBannerDismiss = function(options = {}) {
+    const onlyIfNotStarted = options?.onlyIfNotStarted !== false;
+    if (onlyIfNotStarted && (missionRuntime.active || missionRuntime.closingPending)) return false;
+    try {
+        const key = _missionStartUiKey();
+        if (key) delete missionStartBannerDismissState[key];
+    } catch (_) {}
+    _updateMissionRuntimeUi();
+    return true;
 };
 
 window.resetMissionStartFlow = function() {
     _clearMissionStartPhase();
     try {
-        if (_missionStartUiKey()) localStorage.removeItem(_missionStartBannerDismissKey());
+        const key = _missionStartUiKey();
+        if (key) delete missionStartBannerDismissState[key];
     } catch (_) {}
     _updateMissionRuntimeUi();
 };
@@ -6528,7 +6543,8 @@ window.resetMissionStartFlow = function() {
 function _resetMissionStartFlowAfterEnd() {
     _clearMissionStartPhase();
     try {
-        if (_missionStartUiKey()) localStorage.removeItem(_missionStartBannerDismissKey());
+        const key = _missionStartUiKey();
+        if (key) delete missionStartBannerDismissState[key];
     } catch (_) {}
     Object.assign(window.missionSceneStatus, {
         boardingRequested: false,
@@ -6580,6 +6596,7 @@ function _updateMissionStartBanner(autoStartEnabled) {
     const trackerConnected = !!window.liveTrackerConnected;
     const simMode = !!window.simModeActive;
     const groundReady = _missionStartGroundReady();
+    const dismissed = _missionStartBannerDismissed();
     const phase = _missionStartPhase();
     const endReady = missionRuntime.active ? _missionEndReadiness() : null;
     const poiGroundEndReady = missionRuntime.active ? _missionPoiGroundEndReady(endReady) : false;
@@ -6590,7 +6607,12 @@ function _updateMissionStartBanner(autoStartEnabled) {
     const showDeboarding = missionRuntime.active && deboardingBusy;
     const showEndReady = !!endReady?.ready || poiGroundEndReady;
     const showEnd = missionRuntime.active && showEndReady && !deboardingBusy && (!autoStartEnabled || missionRuntime.manual);
-    const showStart = valid && (trackerConnected || simMode) && groundReady && !missionRuntime.active && !autoStartEnabled;
+    const showStart = valid
+        && (trackerConnected || simMode)
+        && groundReady
+        && !missionRuntime.active
+        && !autoStartEnabled
+        && !dismissed;
     const show = showClose || showDeboarding || showEnd || showStart;
     banner.style.display = show ? 'flex' : 'none';
     if (!show) return;

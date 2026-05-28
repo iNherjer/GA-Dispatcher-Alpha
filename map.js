@@ -8407,6 +8407,9 @@ function toggleMapTable(forceInternal) {
         if (typeof _closeFloatingMenus === 'function') _closeFloatingMenus();
 
         if (board.classList.contains('active')) {
+            if (typeof window.resetMissionStartBannerDismiss === 'function') {
+                window.resetMissionStartBannerDismiss();
+            }
             const autoFs = shouldAutoStartMapFullscreen();
             if (autoFs) {
                 enterMapFullscreenMode();
