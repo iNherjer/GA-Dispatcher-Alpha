@@ -7820,11 +7820,189 @@ function updateRoutePerformance() {
     if (gpsState.visible && gpsState.mode === 'FPL') renderGPS();
 }
 
+const OPENAIP_PROXY_BASE = 'https://ga-proxy.einherjer.workers.dev';
+const OPENAIP_OVERLAY_LABEL = '🧭 OpenAIP Lufträume & Flugplätze';
+const USA_VFR_OVERLAY_LABEL = '🇺🇸 USA VFR Sectional (Platzhalter)';
+const USA_VFR_SECTIONAL_TILE_URL = 'https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Sectional/MapServer/tile/{z}/{y}/{x}';
+const USA_VFR_SECTIONAL_BOUNDS = [[15, -170], [72, -60]];
+const OPENAIP_OVERLAY_MIN_ZOOM = 8;
+const OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM = 10;
+const OPENAIP_OVERLAY_CACHE_MS = 90 * 1000;
+let openAipOverlayLayer = null;
+let openAipOverlayFetchSeq = 0;
+const openAipOverlayState = {
+    inFlight: false,
+    lastKey: '',
+    lastFetchedAt: 0
+};
+
+function ensureOpenAipOverlayLayer() {
+    if (!openAipOverlayLayer) openAipOverlayLayer = L.layerGroup();
+    return openAipOverlayLayer;
+}
+
+function isOpenAipOverlayEnabled() {
+    return !!(map && openAipOverlayLayer && map.hasLayer(openAipOverlayLayer));
+}
+
+function clearOpenAipOverlayLayer() {
+    if (!openAipOverlayLayer) return;
+    openAipOverlayLayer.clearLayers();
+}
+
+function getOpenAipOverlayBBoxString() {
+    if (!map) return '';
+    const b = map.getBounds().pad(0.08);
+    const w = Math.max(-180, b.getWest());
+    const s = Math.max(-90, b.getSouth());
+    const e = Math.min(180, b.getEast());
+    const n = Math.min(90, b.getNorth());
+    return `${w.toFixed(4)},${s.toFixed(4)},${e.toFixed(4)},${n.toFixed(4)}`;
+}
+
+function getOpenAipOverlayStyle(airspace) {
+    const t = Number(airspace && airspace.type);
+    if (t === 3) return { color: '#ef4444', fillOpacity: 0.16, weight: 2 };
+    if (t === 1 || t === 2) return { color: '#f97316', fillOpacity: 0.12, weight: 2 };
+    if (t === 4 || t === 0) return { color: '#3b82f6', fillOpacity: 0.10, weight: 2 };
+    if (t === 7 || t === 26) return { color: '#0ea5e9', fillOpacity: 0.08, weight: 1.6 };
+    if (t === 5 || t === 6 || t === 27 || t === 28) return { color: '#a855f7', fillOpacity: 0.08, weight: 1.6, dashArray: '5,4' };
+    return { color: '#94a3b8', fillOpacity: 0.05, weight: 1.4 };
+}
+
+function getOpenAipOverlayAirspaceLabel(airspace) {
+    const name = String(airspace && airspace.name || 'Airspace').trim();
+    const cls = Number(airspace && airspace.icaoClass);
+    const type = Number(airspace && airspace.type);
+    const lower = airspace?.lowerLimit?.value;
+    const lowerUnit = String(airspace?.lowerLimit?.unit || '').trim();
+    const suffix = [];
+    if (Number.isFinite(cls)) suffix.push(`Class ${cls}`);
+    if (Number.isFinite(type)) suffix.push(`Type ${type}`);
+    if (lower !== undefined && lower !== null && lower !== '') suffix.push(`Lower ${lower}${lowerUnit ? ` ${lowerUnit}` : ''}`);
+    return suffix.length ? `${name} · ${suffix.join(' · ')}` : name;
+}
+
+function getOpenAipAirportLabel(airport) {
+    const icao = String(airport?.icaoCode || airport?.icao || '').trim().toUpperCase();
+    const name = String(airport?.name || icao || 'Airport').trim();
+    return icao ? `${icao} · ${name}` : name;
+}
+
+async function fetchOpenAipOverlayCollection(kind, bbox, limit = 250, maxPages = 1) {
+    const items = [];
+    for (let page = 1; page <= Math.max(1, maxPages); page++) {
+        const url = `${OPENAIP_PROXY_BASE}/api/${kind}?bbox=${bbox}&limit=${limit}&page=${page}&t=${Date.now()}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`${kind}_http_${res.status}`);
+        const data = await res.json();
+        const pageItems = Array.isArray(data && data.items) ? data.items : [];
+        items.push(...pageItems);
+        const totalPages = Math.max(1, Number(data && data.totalPages) || 1);
+        if (page >= totalPages) break;
+    }
+    return items;
+}
+
+function renderOpenAipOverlayData(payload) {
+    const layer = ensureOpenAipOverlayLayer();
+    if (!layer) return;
+    layer.clearLayers();
+    const airspaces = Array.isArray(payload && payload.airspaces) ? payload.airspaces : [];
+    const airports = Array.isArray(payload && payload.airports) ? payload.airports : [];
+    const relevantTypes = new Set([0, 1, 2, 3, 4, 5, 6, 7, 26, 27, 28, 33]);
+    const seenAirspaceIds = new Set();
+    airspaces.forEach((airspace) => {
+        if (!airspace || seenAirspaceIds.has(airspace._id)) return;
+        if (!relevantTypes.has(Number(airspace.type))) return;
+        const geometry = airspace.geometry;
+        if (!geometry || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) return;
+        const style = getOpenAipOverlayStyle(airspace);
+        const tooltip = getOpenAipOverlayAirspaceLabel(airspace);
+        const coords = geometry.type === 'Polygon'
+            ? [geometry.coordinates]
+            : geometry.coordinates;
+        coords.forEach((poly) => {
+            const ring = Array.isArray(poly) ? poly[0] : null;
+            if (!Array.isArray(ring) || ring.length < 3) return;
+            const latlngs = ring
+                .map((p) => [Number(p[1]), Number(p[0])])
+                .filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+            if (latlngs.length < 3) return;
+            L.polygon(latlngs, {
+                color: style.color,
+                weight: style.weight,
+                fillColor: style.color,
+                fillOpacity: style.fillOpacity,
+                dashArray: style.dashArray || null,
+                interactive: false
+            }).bindTooltip(tooltip, { sticky: true, className: 'airspace-tooltip' }).addTo(layer);
+        });
+        seenAirspaceIds.add(airspace._id);
+    });
+
+    if (!map || map.getZoom() < OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM) return;
+    const maxAirports = map.getZoom() >= 11 ? 180 : 90;
+    airports.slice(0, maxAirports).forEach((airport) => {
+        const coords = airport?.geometry?.coordinates;
+        if (!Array.isArray(coords) || coords.length < 2) return;
+        const lat = Number(coords[1]);
+        const lon = Number(coords[0]);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        L.circleMarker([lat, lon], {
+            radius: map.getZoom() >= 12 ? 4 : 3,
+            color: '#fde047',
+            fillColor: '#0f172a',
+            fillOpacity: 0.9,
+            weight: 1.6,
+            interactive: false
+        }).bindTooltip(getOpenAipAirportLabel(airport), {
+            sticky: true,
+            className: 'airspace-tooltip'
+        }).addTo(layer);
+    });
+}
+
+async function refreshOpenAipOverlay(forceFetch = false) {
+    if (!map || !isOpenAipOverlayEnabled()) return;
+    const zoom = Number(map.getZoom && map.getZoom());
+    if (!Number.isFinite(zoom) || zoom < OPENAIP_OVERLAY_MIN_ZOOM) {
+        clearOpenAipOverlayLayer();
+        return;
+    }
+    const bbox = getOpenAipOverlayBBoxString();
+    const key = `${zoom}|${bbox}`;
+    const now = Date.now();
+    if (!forceFetch && openAipOverlayState.lastKey === key && (now - openAipOverlayState.lastFetchedAt) < OPENAIP_OVERLAY_CACHE_MS) {
+        return;
+    }
+    if (openAipOverlayState.inFlight) return;
+    openAipOverlayState.inFlight = true;
+    const fetchSeq = ++openAipOverlayFetchSeq;
+    try {
+        const [airspaces, airports] = await Promise.all([
+            fetchOpenAipOverlayCollection('airspaces', bbox, 200, 3),
+            fetchOpenAipOverlayCollection('airports', bbox, 250, 1)
+        ]);
+        if (fetchSeq !== openAipOverlayFetchSeq || !isOpenAipOverlayEnabled()) return;
+        renderOpenAipOverlayData({ airspaces, airports });
+        openAipOverlayState.lastKey = key;
+        openAipOverlayState.lastFetchedAt = now;
+    } catch (err) {
+        console.warn('[OpenAIP Overlay] Laden fehlgeschlagen:', err && err.message ? err.message : err);
+        if (fetchSeq === openAipOverlayFetchSeq) clearOpenAipOverlayLayer();
+    } finally {
+        if (fetchSeq === openAipOverlayFetchSeq) openAipOverlayState.inFlight = false;
+    }
+}
+
 function initMapBase() {
     if (map) return;
     const radarActive = localStorage.getItem('ga_radar_active') === 'true';
     const dwdWarningsActive = localStorage.getItem('ga_dwd_warnings_active') === 'true';
     const awcSigmetActive = localStorage.getItem('ga_awc_sigmet_active') === 'true';
+    const openAipOverlayActive = localStorage.getItem('ga_openaip_overlay_active') === 'true';
+    const usaVfrOverlayActive = localStorage.getItem('ga_usa_vfr_overlay_active') === 'true';
     
     // Base Maps
     const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: 'OpenTopoMap' });
@@ -7837,6 +8015,15 @@ function initMapBase() {
     const aeroOverlay = L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
         attribution: 'AeroData / Navigraph', opacity: 0.65, maxNativeZoom: 12
     });
+    const usaVfrSectionalOverlay = L.tileLayer(USA_VFR_SECTIONAL_TILE_URL, {
+        attribution: 'FAA VFR Sectional via ArcGIS',
+        opacity: 0.92,
+        minNativeZoom: 8,
+        maxNativeZoom: 12,
+        bounds: USA_VFR_SECTIONAL_BOUNDS,
+        noWrap: true
+    });
+    const openAipVectorOverlay = ensureOpenAipOverlayLayer();
     
     // NEU: Die offizielle DFS ICAO 1:500.000 Karte vom Secais Server
     const dfsIcaoOverlay = L.tileLayer('https://secais.dfs.de/static-maps/icao500/tiles/{z}/{x}/{y}.png', {
@@ -7890,6 +8077,8 @@ function initMapBase() {
     const startupLayers = [topoMap, aeroOverlay];
     if (dwdWarningsActive) startupLayers.push(dwdWarningsOverlay);
     if (awcSigmetActive) startupLayers.push(awcSigmetOverlay);
+    if (usaVfrOverlayActive) startupLayers.push(usaVfrSectionalOverlay);
+    if (openAipOverlayActive && openAipVectorOverlay) startupLayers.push(openAipVectorOverlay);
     map = L.map('map', { layers: startupLayers, attributionControl: false }).setView([51.1657, 10.4515], 6);
     const updateAeroOverlayZoomVisibility = () => {
         if (!map || !aeroOverlay || !map.hasLayer(aeroOverlay)) return;
@@ -7935,6 +8124,8 @@ function initMapBase() {
     const overlayMaps = {
         "🗺️ DFS ICAO Karte 1:500k": dfsIcaoOverlay,
         "🛩️ VFR Lufträume (Overlay)": aeroOverlay,
+        [USA_VFR_OVERLAY_LABEL]: usaVfrSectionalOverlay,
+        [OPENAIP_OVERLAY_LABEL]: openAipVectorOverlay,
         "🌧️ Wetterradar (Niederschlag)": radarOverlay,
         "⚠️ DWD Warnungen (Test)": dwdWarningsOverlay,
         "🌩️ AWC SIGMET (Test)": awcSigmetOverlay,
@@ -8052,6 +8243,11 @@ function initMapBase() {
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'true');
         if (e.name === "⚠️ DWD Warnungen (Test)") localStorage.setItem('ga_dwd_warnings_active', 'true');
         if (e.name === "🌩️ AWC SIGMET (Test)") localStorage.setItem('ga_awc_sigmet_active', 'true');
+        if (e.name === USA_VFR_OVERLAY_LABEL) localStorage.setItem('ga_usa_vfr_overlay_active', 'true');
+        if (e.name === OPENAIP_OVERLAY_LABEL) {
+            localStorage.setItem('ga_openaip_overlay_active', 'true');
+            refreshOpenAipOverlay(true);
+        }
         if (e.name === "🏔️ Terrain Avoid (Live)") {
             if (typeof window.setTerrainAvoidOverlayEnabled === 'function') {
                 window.setTerrainAvoidOverlayEnabled(true);
@@ -8068,6 +8264,11 @@ function initMapBase() {
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'false');
         if (e.name === "⚠️ DWD Warnungen (Test)") localStorage.setItem('ga_dwd_warnings_active', 'false');
         if (e.name === "🌩️ AWC SIGMET (Test)") localStorage.setItem('ga_awc_sigmet_active', 'false');
+        if (e.name === USA_VFR_OVERLAY_LABEL) localStorage.setItem('ga_usa_vfr_overlay_active', 'false');
+        if (e.name === OPENAIP_OVERLAY_LABEL) {
+            localStorage.setItem('ga_openaip_overlay_active', 'false');
+            clearOpenAipOverlayLayer();
+        }
         if (e.name === "🏔️ Terrain Avoid (Live)") {
             if (typeof window.setTerrainAvoidOverlayEnabled === 'function') {
                 window.setTerrainAvoidOverlayEnabled(false);
@@ -8075,11 +8276,16 @@ function initMapBase() {
         }
     });
     
-    let fetchTimeout = null;
+    let snapFetchTimeout = null;
+    let openAipOverlayFetchTimeout = null;
     map.on('moveend', function () {
         if (snapMode) {
-            clearTimeout(fetchTimeout);
-            fetchTimeout = setTimeout(fetchOpenAIPData, 600);
+            clearTimeout(snapFetchTimeout);
+            snapFetchTimeout = setTimeout(fetchOpenAIPData, 600);
+        }
+        if (isOpenAipOverlayEnabled()) {
+            clearTimeout(openAipOverlayFetchTimeout);
+            openAipOverlayFetchTimeout = setTimeout(() => refreshOpenAipOverlay(false), 600);
         }
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(false);
         if (window.vpObsTileOverlayEnabled) renderObsTileOverlay();
@@ -8093,6 +8299,7 @@ function initMapBase() {
         if (window.vpMissionSceneDebugOverlayEnabled) renderMissionSceneDebugOverlay();
         renderMissionSceneTargetMarker();
         updateAeroOverlayZoomVisibility();
+        if (isOpenAipOverlayEnabled()) refreshOpenAipOverlay(false);
         if (window.mapHints.vfrIndex !== false) {
             vpRefreshVfrLayerFromCache();
             vpScheduleVfrOverlayUpdate(false);
@@ -8157,6 +8364,7 @@ function initMapBase() {
     if (window.vpMissionSceneDebugOverlayEnabled) renderMissionSceneDebugOverlay();
     renderMissionSceneTargetMarker();
     updateAeroOverlayZoomVisibility();
+    if (openAipOverlayActive) refreshOpenAipOverlay(true);
 }
 
 function updateMap(lat1, lon1, lat2, lon2, s, d) {
