@@ -7822,9 +7822,10 @@ function updateRoutePerformance() {
 
 const OPENAIP_PROXY_BASE = 'https://ga-proxy.einherjer.workers.dev';
 const OPENAIP_OVERLAY_LABEL = '🧭 OpenAIP Lufträume & Flugplätze';
-const USA_VFR_OVERLAY_LABEL = '🇺🇸 USA VFR Sectional (Platzhalter)';
+const USA_VFR_OVERLAY_LABEL = '🇺🇸 USA VFR Sectional';
 const USA_VFR_SECTIONAL_TILE_URL = 'https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Sectional/MapServer/tile/{z}/{y}/{x}';
 const USA_VFR_SECTIONAL_BOUNDS = [[15, -170], [72, -60]];
+const USA_VFR_OVERLAY_MIN_ZOOM = 8;
 const OPENAIP_OVERLAY_MIN_ZOOM = 8;
 const OPENAIP_OVERLAY_AIRPORT_MIN_ZOOM = 10;
 const OPENAIP_OVERLAY_CACHE_MS = 90 * 1000;
@@ -8018,6 +8019,7 @@ function initMapBase() {
     const usaVfrSectionalOverlay = L.tileLayer(USA_VFR_SECTIONAL_TILE_URL, {
         attribution: 'FAA VFR Sectional via ArcGIS',
         opacity: 0.92,
+        minZoom: USA_VFR_OVERLAY_MIN_ZOOM,
         minNativeZoom: 8,
         maxNativeZoom: 12,
         bounds: USA_VFR_SECTIONAL_BOUNDS,
