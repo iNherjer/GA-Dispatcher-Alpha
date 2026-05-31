@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v897';
+const CACHE = 'ga-dispatcher-v898';
 
 const STATIC = [
     './',
@@ -41,6 +41,7 @@ const NETWORK_ONLY = [
     'nominatim.openstreetmap.org',
     'opensky-network.org',
     'tile.openstreetmap.org',
+    'tiles.arcgis.com',
     'maps.dwd.de',
     'brz-maps.dwd.de',
     'mapservices.weather.noaa.gov'
@@ -74,7 +75,11 @@ self.addEventListener('fetch', e => {
     if (NETWORK_ONLY.some(d => url.hostname.includes(d))) return;
 
     // Leaflet-Kacheln immer live holen
-    if (url.hostname.includes('tile.') || url.pathname.includes('/tiles/')) return;
+    if (
+        url.hostname.includes('tile.')
+        || url.pathname.includes('/tiles/')
+        || url.pathname.includes('/MapServer/tile/')
+    ) return;
 
     // Dataset immer bevorzugt frisch vom Netz holen (mit Cache-Fallback)
     if (NETWORK_FIRST_PATHS.some(p => url.pathname.endsWith(p))) {
