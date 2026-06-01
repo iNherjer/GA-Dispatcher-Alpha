@@ -1,20 +1,5 @@
 {
-  "generatedAt": "2026-06-01T08:36:54.547Z",
-  "failed": 2,
-  "failedTiles": [
-    {
-      "tile": "324|154",
-      "status": 429,
-      "error": "HTTP 429: <?xml version=\"1.0\" encoding=\"UTF-8\"?> <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"> <html xmlns=\"http://www.w3.",
-      "server": "https://overpass-api.de/api/interpreter",
-      "at": "2026-06-01T08:35:09.062Z"
-    },
-    {
-      "tile": "325|154",
-      "status": 429,
-      "error": "HTTP 429: <?xml version=\"1.0\" encoding=\"UTF-8\"?> <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"> <html xmlns=\"http://www.w3.",
-      "server": "https://overpass-api.de/api/interpreter",
-      "at": "2026-06-01T08:35:48.244Z"
-    }
-  ]
+  "generatedAt": "2026-06-01T09:39:24.292Z",
+  "failed": 0,
+  "failedTiles": []
 }
