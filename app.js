@@ -841,6 +841,7 @@ const MISSION_PICKER_OPTIONS = {
     basic: [
         { value: 'apt', classic: 'Flugplatz (A ➔ B)', radioShort: 'APT', radioFull: 'Airport (alle Kategorien)' },
         { value: 'poi', classic: 'POI (Rundflug)', radioShort: 'POI', radioFull: 'POI (alle Kategorien)' },
+        { value: 'bush', classic: 'Bush (Backcountry)', radioShort: 'BUSH', radioFull: 'Bush (Backcountry/Remote Strips)' },
         { value: 'apt+freeflight_planning', classic: 'APT · Freiflug/Planung', radioShort: 'APT FREE', radioFull: 'Airport · Freiflug/Planung' },
         { value: 'poi+freeflight_planning', classic: 'POI · Freiflug/Planung', radioShort: 'POI FREE', radioFull: 'POI · Freiflug/Planung' }
     ],
@@ -881,7 +882,12 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'poi:all+science_bio', classic: 'POI · Bio/Umwelt', radioShort: 'POI BIO', radioFull: 'POI · Biologie/Umwelt' },
         { value: 'poi:all+science_geo', classic: 'POI · Geo/Relief', radioShort: 'POI GEO', radioFull: 'POI · Geologie/Relief' },
         { value: 'poi:all+search_and_rescue', classic: 'POI · SAR/Rescue', radioShort: 'POI SAR', radioFull: 'POI · SAR/Rescue' },
-        { value: 'poi:fire+fire_watch', classic: 'POI · Fire Watch (Wald/Berg)', radioShort: 'POI FIRE', radioFull: 'POI · Fire Watch (Wald/Berg)' }
+        { value: 'poi:fire+fire_watch', classic: 'POI · Fire Watch (Wald/Berg)', radioShort: 'POI FIRE', radioFull: 'POI · Fire Watch (Wald/Berg)' },
+        { value: 'bush:all', classic: 'BUSH (Auto)', radioShort: 'BUSH ALL', radioFull: 'Bush (Auto/Backcountry)' },
+        { value: 'bush:all+bush_supply_strip', classic: 'BUSH · Versorgung', radioShort: 'BUSH SUP', radioFull: 'Bush · Supply Run' },
+        { value: 'bush:all+bush_charter_strip', classic: 'BUSH · Charter', radioShort: 'BUSH CHR', radioFull: 'Bush · Charter' },
+        { value: 'bush:all+bush_scenic_hopper', classic: 'BUSH · Adventure', radioShort: 'BUSH ADV', radioFull: 'Bush · Adventure Hopper' },
+        { value: 'bush:all+bush_recon_return', classic: 'BUSH · Recon RTB', radioShort: 'BUSH REC', radioFull: 'Bush · Recon and Return' }
     ]
 };
 
@@ -891,8 +897,10 @@ function parseMissionPickerValue(raw) {
     const profile = String(rightPart || 'auto').trim() || 'auto';
     if (leftPart === 'apt') return { baseType: 'apt', category: 'all', profile };
     if (leftPart === 'poi') return { baseType: 'poi', category: 'all', profile };
+    if (leftPart === 'bush') return { baseType: 'bush', category: 'all', profile };
     if (leftPart.startsWith('apt:')) return { baseType: 'apt', category: leftPart.split(':')[1] || 'all', profile };
     if (leftPart.startsWith('poi:')) return { baseType: 'poi', category: leftPart.split(':')[1] || 'all', profile };
+    if (leftPart.startsWith('bush:')) return { baseType: 'bush', category: leftPart.split(':')[1] || 'all', profile };
     return { baseType: 'apt', category: 'all', profile: 'auto' };
 }
 
@@ -1202,7 +1210,67 @@ const MISSION_ROLE_TASK_PROFILES = {
 
 function getMissionTaskProfile(profileId, baseType) {
     const id = String(profileId || 'auto').toLowerCase();
-    const mode = String(baseType || '').toLowerCase();
+    const mode = normalizeMissionType(baseType || '', String(baseType || '').toLowerCase() === 'poi');
+    if (mode === 'bush') {
+        const bush = _getBushProfileDefinition(id);
+        if (!bush) return null;
+        if (bush.id === 'bush_supply_strip') {
+            return {
+                id: bush.id,
+                label: bush.label,
+                appliesTo: ['bush'],
+                roleProfile: 'club_utility_v1',
+                taskDomain: 'club_utility',
+                paxText: '0 PAX',
+                cargoPool: Array.isArray(bush.cargoPool) ? bush.cargoPool.slice() : [],
+                storyCue: 'Backcountry-Versorgung zu einem abgelegenen Strip mit ruhigem Terrain-Management.',
+                category: bush.category,
+                opsNotes: Array.isArray(bush.opsNotes) ? bush.opsNotes.slice() : []
+            };
+        }
+        if (bush.id === 'bush_charter_strip') {
+            return {
+                id: bush.id,
+                label: bush.label,
+                appliesTo: ['bush'],
+                roleProfile: 'charter_professional_neutral_v1',
+                taskDomain: 'charter',
+                paxText: '1 PAX (Bush Charter)',
+                cargoPool: Array.isArray(bush.cargoPool) ? bush.cargoPool.slice() : [],
+                storyCue: 'Abgelegener Bush-Charter mit kontrolliertem Dropoff am Zielstrip.',
+                category: bush.category,
+                opsNotes: Array.isArray(bush.opsNotes) ? bush.opsNotes.slice() : []
+            };
+        }
+        if (bush.id === 'bush_scenic_hopper') {
+            return {
+                id: bush.id,
+                label: bush.label,
+                appliesTo: ['bush'],
+                roleProfile: 'tour_guide_relaxed_v1',
+                taskDomain: 'sightseeing_tour',
+                paxText: '1 PAX (Adventure Guest)',
+                cargoPool: Array.isArray(bush.cargoPool) ? bush.cargoPool.slice() : [],
+                storyCue: 'Backcountry-Adventure mit Scenic-Charakter und sauberer Landung am Remote Strip.',
+                category: bush.category,
+                opsNotes: Array.isArray(bush.opsNotes) ? bush.opsNotes.slice() : []
+            };
+        }
+        if (bush.id === 'bush_recon_return') {
+            return {
+                id: bush.id,
+                label: bush.label,
+                appliesTo: ['bush'],
+                roleProfile: 'science_field_v1',
+                taskDomain: 'science_geo',
+                paxText: '1 PAX (Recon Observer)',
+                cargoPool: Array.isArray(bush.cargoPool) ? bush.cargoPool.slice() : [],
+                storyCue: 'Backcountry-Recon im Zielgebiet mit anschliessender Rueckkehr zum Heimatplatz.',
+                category: bush.category,
+                opsNotes: Array.isArray(bush.opsNotes) ? bush.opsNotes.slice() : []
+            };
+        }
+    }
     const profile = MISSION_ROLE_TASK_PROFILES[id] || MISSION_ROLE_TASK_PROFILES.auto;
     if (!profile) return null;
     if (!Array.isArray(profile.appliesTo) || profile.appliesTo.includes(mode)) return profile;
@@ -1323,7 +1391,7 @@ function toggleMissionPickerMode() {
     if (indicator) {
         indicator.innerText = nextMode === 'full'
             ? 'Mission Picker: Kategorien aktiviert'
-            : 'Mission Picker: Basisansicht (APT/POI/Freiflug)';
+            : 'Mission Picker: Basisansicht (APT/POI/BUSH/Freiflug)';
         setTimeout(() => {
             if (indicator.innerText.includes('Mission Picker:')) indicator.innerText = 'System bereit.';
         }, 1600);
@@ -1867,6 +1935,468 @@ let globalAirports = null, runwayCache = {}, freqCache = {};
 let globalAirportsLoadPromise = null;
 const openAipAirportDispatchCache = new Map();
 window.drumCache = {};
+
+/**
+ * @typedef {'apt'|'poi'|'bush'} MissionType
+ */
+
+/**
+ * @typedef {'airport'|'poi'|'area'|'route_point'} BushRefKind
+ */
+
+/**
+ * @typedef {'strip'|'area'|'route'|'strip_then_return'|'area_then_return'} BushTargetMode
+ */
+
+/**
+ * @typedef {'land_at_target'|'unload_at_target'|'passenger_dropoff'|'recon_in_area'|'visit_waypoints'|'return_home'} BushCompletionMode
+ */
+
+/**
+ * @typedef {Object} BushMissionRef
+ * @property {BushRefKind} kind
+ * @property {string=} icao
+ * @property {string=} name
+ * @property {number=} lat
+ * @property {number=} lon
+ * @property {number=} radiusNm
+ * @property {string=} surface
+ * @property {boolean=} isRemoteStrip
+ * @property {string=} poiCategory
+ * @property {string[]=} visualRefs
+ */
+
+/**
+ * @typedef {Object} BushMissionSuccess
+ * @property {number} minGroundTimeSec
+ * @property {number} minAreaTimeSec
+ * @property {number} minAreaTrackNm
+ * @property {boolean} cargoMustBeDelivered
+ * @property {boolean} passengerMustDeboard
+ * @property {number} waypointsRequired
+ */
+
+/**
+ * @typedef {Object} BushMissionSpec
+ * @property {string} profileId
+ * @property {BushTargetMode} targetMode
+ * @property {BushCompletionMode} completionMode
+ * @property {boolean} requiresReturnHome
+ * @property {BushMissionRef|null} homeRef
+ * @property {BushMissionRef|null} targetRef
+ * @property {BushMissionRef|null} areaRef
+ * @property {BushMissionRef[]} routeRefs
+ * @property {BushMissionSuccess} success
+ * @property {string[]} allowedEndLocations
+ * @property {string} narrativeMode
+ * @property {string[]} riskFlags
+ * @property {string[]} opsNotes
+ */
+
+/**
+ * @typedef {Object} BushMissionProgress
+ * @property {'enroute'|'on_task'|'return_leg'|'ready_to_close'} status
+ * @property {boolean} targetReached
+ * @property {number} areaEnteredAt
+ * @property {boolean} areaQualified
+ * @property {boolean} groundStopQualified
+ * @property {boolean} cargoDelivered
+ * @property {boolean} passengerDropped
+ * @property {boolean} returnHomeQualified
+ * @property {number} areaDwellSec
+ * @property {number} areaTrackNm
+ * @property {number} lastAreaSampleLat
+ * @property {number} lastAreaSampleLon
+ * @property {number} lastAreaSampleTs
+ * @property {string[]} visitedRouteRefs
+ */
+
+function normalizeMissionType(raw = '', isPOI = false) {
+    const t = String(raw || '').trim().toLowerCase();
+    if (t === 'bush') return 'bush';
+    if (t === 'poi') return 'poi';
+    if (t === 'apt') return 'apt';
+    return isPOI ? 'poi' : 'apt';
+}
+
+function _sanitizeBushMissionRef(raw = null) {
+    if (!raw || typeof raw !== 'object') return null;
+    const kindRaw = String(raw.kind || '').trim().toLowerCase();
+    const kind = ['airport', 'poi', 'area', 'route_point'].includes(kindRaw) ? kindRaw : '';
+    if (!kind) return null;
+    const out = {
+        kind
+    };
+    if (raw.icao) out.icao = String(raw.icao).trim().toUpperCase();
+    if (raw.name) out.name = String(raw.name).trim().slice(0, 120);
+    if (Number.isFinite(Number(raw.lat))) out.lat = Number(raw.lat);
+    if (Number.isFinite(Number(raw.lon))) out.lon = Number(raw.lon);
+    if (Number.isFinite(Number(raw.radiusNm))) out.radiusNm = Math.max(0, Number(raw.radiusNm));
+    if (raw.surface) out.surface = String(raw.surface).trim().toLowerCase().slice(0, 40);
+    if (Object.prototype.hasOwnProperty.call(raw, 'isRemoteStrip')) out.isRemoteStrip = !!raw.isRemoteStrip;
+    if (raw.poiCategory) out.poiCategory = String(raw.poiCategory).trim().toLowerCase().slice(0, 40);
+    if (Array.isArray(raw.visualRefs)) out.visualRefs = raw.visualRefs.map(v => String(v || '').trim().toLowerCase()).filter(Boolean).slice(0, 12);
+    return out;
+}
+
+function _sanitizeBushMissionSuccess(raw = null) {
+    const src = (raw && typeof raw === 'object') ? raw : {};
+    return {
+        minGroundTimeSec: Math.max(0, Number(src.minGroundTimeSec) || 0),
+        minAreaTimeSec: Math.max(0, Number(src.minAreaTimeSec) || 0),
+        minAreaTrackNm: Math.max(0, Number(src.minAreaTrackNm) || 0),
+        cargoMustBeDelivered: !!src.cargoMustBeDelivered,
+        passengerMustDeboard: !!src.passengerMustDeboard,
+        waypointsRequired: Math.max(0, Math.round(Number(src.waypointsRequired) || 0))
+    };
+}
+
+function sanitizeBushMissionSpec(raw = null) {
+    if (!raw || typeof raw !== 'object') return null;
+    const targetModeRaw = String(raw.targetMode || '').trim().toLowerCase();
+    const completionModeRaw = String(raw.completionMode || '').trim().toLowerCase();
+    const targetMode = ['strip', 'area', 'route', 'strip_then_return', 'area_then_return'].includes(targetModeRaw) ? targetModeRaw : '';
+    const completionMode = ['land_at_target', 'unload_at_target', 'passenger_dropoff', 'recon_in_area', 'visit_waypoints', 'return_home'].includes(completionModeRaw) ? completionModeRaw : '';
+    if (!targetMode || !completionMode) return null;
+    return {
+        profileId: String(raw.profileId || 'bush_generic').trim().toLowerCase().slice(0, 80),
+        targetMode,
+        completionMode,
+        requiresReturnHome: !!raw.requiresReturnHome,
+        homeRef: _sanitizeBushMissionRef(raw.homeRef),
+        targetRef: _sanitizeBushMissionRef(raw.targetRef),
+        areaRef: _sanitizeBushMissionRef(raw.areaRef),
+        routeRefs: Array.isArray(raw.routeRefs) ? raw.routeRefs.map(_sanitizeBushMissionRef).filter(Boolean).slice(0, 12) : [],
+        success: _sanitizeBushMissionSuccess(raw.success),
+        allowedEndLocations: Array.isArray(raw.allowedEndLocations)
+            ? raw.allowedEndLocations.map(v => String(v || '').trim().toLowerCase()).filter(v => v === 'target' || v === 'home').slice(0, 2)
+            : [],
+        narrativeMode: String(raw.narrativeMode || raw.profileId || 'bush_generic').trim().toLowerCase().slice(0, 80),
+        riskFlags: Array.isArray(raw.riskFlags) ? raw.riskFlags.map(v => String(v || '').trim().toLowerCase()).filter(Boolean).slice(0, 16) : [],
+        opsNotes: Array.isArray(raw.opsNotes) ? raw.opsNotes.map(v => String(v || '').trim()).filter(Boolean).slice(0, 12) : []
+    };
+}
+
+function buildInitialBushMissionProgress(spec = null) {
+    return {
+        status: spec?.requiresReturnHome ? 'enroute' : 'enroute',
+        targetReached: false,
+        areaEnteredAt: 0,
+        areaQualified: false,
+        groundStopQualified: false,
+        cargoDelivered: false,
+        passengerDropped: false,
+        returnHomeQualified: false,
+        areaDwellSec: 0,
+        areaTrackNm: 0,
+        lastAreaSampleLat: NaN,
+        lastAreaSampleLon: NaN,
+        lastAreaSampleTs: 0,
+        visitedRouteRefs: []
+    };
+}
+
+const BUSH_DISPATCH_PROFILES = {
+    bush_supply_strip: {
+        id: 'bush_supply_strip',
+        label: 'Backcountry Supply',
+        icon: '📦',
+        category: 'bush_supply',
+        completionMode: 'unload_at_target',
+        narrativeMode: 'backcountry_supply',
+        cargoPool: [
+            'Versorgungskisten und Werkzeug (86 lbs)',
+            'Medkits und Funkbatterien (54 lbs)',
+            'Camp-Proviant und Ersatzteile (92 lbs)',
+            'Treibstoffkanister und Wartungskit (118 lbs)'
+        ],
+        opsNotes: [
+            'Stabiler Short-Field-Anflug, kein Hektik-Pattern.',
+            'Abladefreigabe erst nach vollem Stillstand am Zielstrip.'
+        ]
+    },
+    bush_charter_strip: {
+        id: 'bush_charter_strip',
+        label: 'Bush Charter',
+        icon: '🧭',
+        category: 'bush_charter',
+        completionMode: 'passenger_dropoff',
+        narrativeMode: 'backcountry_charter',
+        cargoPool: [
+            'Duffelbags und Kameraausruestung (42 lbs)',
+            'Campingausruestung und Tagesrucksaecke (58 lbs)',
+            'Arbeitskoffer und Funkgeraet (26 lbs)'
+        ],
+        opsNotes: [
+            'Ruhiger Tal-/Gelandeanflug fuer einen kontrollierten Ausstieg am Strip.',
+            'Passagier-Dropoff erst nach gesichertem Stillstand.'
+        ]
+    },
+    bush_scenic_hopper: {
+        id: 'bush_scenic_hopper',
+        label: 'Bush Adventure Hopper',
+        icon: '🏔️',
+        category: 'bush_adventure',
+        completionMode: 'land_at_target',
+        narrativeMode: 'backcountry_adventure',
+        cargoPool: [
+            'Tagesrucksaecke und Fotoequipment (24 lbs)',
+            'Outdoor-Kit und Kartenrolle (18 lbs)',
+            'Angel- und Camptaschen (34 lbs)'
+        ],
+        opsNotes: [
+            'Backcountry-Charakter: Strecke ruhig lesen, Terrain bewusst managen.',
+            'Mission gilt erst nach sauberer Landung und kurzer Standphase am Zielstrip.'
+        ]
+    },
+    bush_recon_return: {
+        id: 'bush_recon_return',
+        label: 'Bush Recon and Return',
+        icon: '🗺️',
+        category: 'bush_recon',
+        completionMode: 'return_home',
+        narrativeMode: 'backcountry_recon_return',
+        cargoPool: [
+            'Kamera-Kit und Kartenbrett (22 lbs)',
+            'Fernglas, Funkmappe und Notizblock (14 lbs)',
+            'Survey-Tablet und Akkupack (18 lbs)'
+        ],
+        opsNotes: [
+            'Ziel ist ein kurzer Recon-Run im Arbeitsgebiet, nicht nur die Landung am Strip.',
+            'Mission endet erst nach Rueckkehr und Stillstand am Heimatplatz.'
+        ]
+    }
+};
+
+const BUSH_PERSONA_LIBRARY = {
+    bush_charter_strip: [
+        {
+            name: 'Maya Brooks',
+            role: 'Rangerin',
+            gender: 'female',
+            greetingText: 'Danke fuers Fliegen. Wir laden am Strip aus und gehen danach direkt ins Gelaende.'
+        },
+        {
+            name: 'Cole Mercer',
+            role: 'Lodge Manager',
+            gender: 'male',
+            greetingText: 'Danke fuers Mitnehmen. Wir haben Ausruestung dabei und brauchen eine ruhige Landung am Zielstrip.'
+        }
+    ],
+    bush_scenic_hopper: [
+        {
+            name: 'Evan Holt',
+            role: 'Outdoor Guide',
+            gender: 'male',
+            greetingText: 'Heute geht es in die Wildnis. Ein ruhiger Bush-Hop zum Strip reicht uns voellig.'
+        },
+        {
+            name: 'Leah Carter',
+            role: 'Fotografin',
+            gender: 'female',
+            greetingText: 'Perfekt, danke. Ich will den Flug ruhig halten und am Ziel ein paar Tage draussen arbeiten.'
+        }
+    ],
+    bush_recon_return: [
+        {
+            name: 'Nora Hale',
+            role: 'Survey Observer',
+            gender: 'female',
+            greetingText: 'Wir brauchen nur einen kurzen sauberen Recon-Run im Zielgebiet und gehen danach direkt wieder heim.'
+        },
+        {
+            name: 'Grant Mercer',
+            role: 'Ranger Observer',
+            gender: 'male',
+            greetingText: 'Einmal sauber durch das Gebiet schauen, Lage notieren und danach direkt zurueck zum Heimatplatz.'
+        }
+    ]
+};
+
+function _getBushProfileDefinition(profileId = 'auto') {
+    const id = String(profileId || 'auto').trim().toLowerCase();
+    if (id && id !== 'auto' && BUSH_DISPATCH_PROFILES[id]) return BUSH_DISPATCH_PROFILES[id];
+    return BUSH_DISPATCH_PROFILES.bush_supply_strip;
+}
+
+function _pickBushPersona(profileId = 'bush_charter_strip') {
+    const pool = Array.isArray(BUSH_PERSONA_LIBRARY[profileId]) ? BUSH_PERSONA_LIBRARY[profileId] : [];
+    if (!pool.length) return null;
+    return { ...pool[Math.floor(Math.random() * pool.length)] };
+}
+
+function _buildBushPassenger(profileId = 'bush_charter_strip') {
+    const persona = _pickBushPersona(profileId);
+    if (!persona) return null;
+    const passenger = buildCharterPassenger(persona);
+    if (!passenger || typeof passenger !== 'object') return null;
+    passenger.role = String(persona.role || passenger.role || 'Bush Passenger').trim();
+    passenger.greetingText = String(persona.greetingText || passenger.greetingText || '').trim();
+    passenger.roleProfile = profileId === 'bush_scenic_hopper'
+        ? 'bush_adventure_guest_v1'
+        : (profileId === 'bush_recon_return' ? 'science_field_v1' : 'bush_charter_guest_v1');
+    passenger.taskDomain = profileId === 'bush_scenic_hopper'
+        ? 'sightseeing_tour'
+        : (profileId === 'bush_recon_return' ? 'science_geo' : 'charter');
+    return passenger;
+}
+
+function pickAutoBushProfileId({ destAirport = null } = {}) {
+    const bushScore = Number(destAirport?.bushScore || 0);
+    const weighted = [];
+    const pushMany = (id, n) => { for (let i = 0; i < n; i++) weighted.push(id); };
+    pushMany('bush_supply_strip', bushScore >= 5 ? 4 : 3);
+    pushMany('bush_charter_strip', bushScore >= 5 ? 3 : 2);
+    pushMany('bush_scenic_hopper', bushScore >= 4 ? 3 : 2);
+    pushMany('bush_recon_return', bushScore >= 4 ? 2 : 1);
+    return _pickFromWeightedWithRecentGuard(weighted, 'ga_bush_auto_profile_history', {
+        fallback: 'bush_supply_strip',
+        recentLimit: 2
+    });
+}
+
+function buildBushMissionRefFromAirport(airport = null) {
+    if (!airport || typeof airport !== 'object') return null;
+    const lat = Number(airport.lat);
+    const lon = Number(airport.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return {
+        kind: 'airport',
+        icao: String(airport.icao || '').trim().toUpperCase(),
+        name: String(airport.n || airport.name || airport.city || airport.icao || 'Bush Strip').trim(),
+        lat,
+        lon,
+        surface: String(airport.surface || 'unknown').trim().toLowerCase(),
+        isRemoteStrip: !!(airport.isRemoteStrip || Number(airport.bushScore || 0) >= 4)
+    };
+}
+
+function buildBushAreaRefFromAirport(airport = null, radiusNm = 0) {
+    const base = buildBushMissionRefFromAirport(airport);
+    if (!base) return null;
+    const visualRefs = [];
+    const terrainHint = normalizeMissionText(base.name || airport?.name || airport?.n || '');
+    if (/lake|river|creek/.test(terrainHint)) visualRefs.push('water');
+    if (/mountain|ridge|peak|canyon|valley/.test(terrainHint)) visualRefs.push('terrain');
+    if (/forest|meadow|prairie/.test(terrainHint)) visualRefs.push('wildland');
+    return {
+        kind: 'area',
+        name: `${base.name} Recon Area`,
+        lat: base.lat,
+        lon: base.lon,
+        radiusNm: Math.max(1.5, Number(radiusNm) || 3),
+        visualRefs
+    };
+}
+
+function buildBushMissionSpec({ profileId = 'bush_supply_strip', startAirport = null, destAirport = null, distNm = 0 } = {}) {
+    const profile = _getBushProfileDefinition(profileId);
+    const homeRef = buildBushMissionRefFromAirport(startAirport);
+    const targetRef = buildBushMissionRefFromAirport(destAirport);
+    if (!homeRef || !targetRef) return null;
+    const riskFlags = [];
+    if (targetRef.isRemoteStrip) riskFlags.push('remote_strip');
+    if (Number.isFinite(Number(destAirport?.elevation)) && Number(destAirport.elevation) >= 4500) riskFlags.push('high_density_altitude');
+    if (Number.isFinite(Number(distNm)) && Number(distNm) >= 90) riskFlags.push('range_management');
+    const terrainHint = normalizeMissionText(destAirport?.n || destAirport?.name || '');
+    if (/mountain|ridge|peak|creek|canyon|valley|forest|river|lake/.test(terrainHint)) riskFlags.push('terrain_awareness');
+    if (profile.id === 'bush_recon_return') {
+        const areaRadiusNm = Number(distNm) >= 80 ? 4.5 : 3.2;
+        const areaRef = buildBushAreaRefFromAirport(destAirport, areaRadiusNm);
+        return sanitizeBushMissionSpec({
+            profileId: profile.id,
+            targetMode: 'area_then_return',
+            completionMode: 'return_home',
+            requiresReturnHome: true,
+            homeRef,
+            targetRef,
+            areaRef,
+            routeRefs: targetRef ? [targetRef] : [],
+            success: {
+                minGroundTimeSec: 8,
+                minAreaTimeSec: 120,
+                minAreaTrackNm: 2.5,
+                cargoMustBeDelivered: false,
+                passengerMustDeboard: false,
+                waypointsRequired: 0
+            },
+            allowedEndLocations: ['home'],
+            narrativeMode: profile.narrativeMode,
+            riskFlags: [...riskFlags, 'return_leg_required'],
+            opsNotes: profile.opsNotes
+        });
+    }
+    return sanitizeBushMissionSpec({
+        profileId: profile.id,
+        targetMode: 'strip',
+        completionMode: profile.completionMode,
+        requiresReturnHome: false,
+        homeRef,
+        targetRef,
+        areaRef: null,
+        routeRefs: [],
+        success: {
+            minGroundTimeSec: profile.completionMode === 'land_at_target' ? 5 : 8,
+            minAreaTimeSec: 0,
+            minAreaTrackNm: 0,
+            cargoMustBeDelivered: profile.completionMode === 'unload_at_target',
+            passengerMustDeboard: profile.completionMode === 'passenger_dropoff',
+            waypointsRequired: 0
+        },
+        allowedEndLocations: ['target'],
+        narrativeMode: profile.narrativeMode,
+        riskFlags,
+        opsNotes: profile.opsNotes
+    });
+}
+
+function buildBushMissionEnvelope({ profileId = 'bush_supply_strip', startAirport = null, destAirport = null, distNm = 0 } = {}) {
+    const profile = _getBushProfileDefinition(profileId);
+    const targetName = String(destAirport?.n || destAirport?.name || destAirport?.icao || 'Remote Strip').trim();
+    const homeName = String(startAirport?.n || startAirport?.name || startAirport?.icao || 'Startplatz').trim();
+    const bushSpec = buildBushMissionSpec({ profileId: profile.id, startAirport, destAirport, distNm });
+    let passenger = null;
+    let paxText = '0 PAX';
+    let cargoText = profile.cargoPool[Math.floor(Math.random() * profile.cargoPool.length)] || 'Bush Load';
+    let title = `Bush-Hopper nach ${targetName}`;
+    let story = `Ein kurzer Backcountry-Transfer fuehrt dich heute von ${homeName} nach ${targetName}. Flugweg, Energie und Landung sollen bewusst konservativ bleiben.`;
+    if (profile.id === 'bush_supply_strip') {
+        title = `Backcountry Supply: ${targetName}`;
+        story = `Ein abgelegener Strip bei ${targetName} braucht heute eine kleine Versorgungsladung aus ${homeName}. Keine Hektik: sauber navigieren, das Gelaende lesen und erst nach vollem Stillstand am Ziel entladen.`;
+        paxText = '0 PAX';
+    } else if (profile.id === 'bush_charter_strip') {
+        passenger = _buildBushPassenger(profile.id);
+        title = `Bush Charter: ${targetName}`;
+        story = `${passenger?.role || 'Ein Chartergast'} muss von ${homeName} zu einem abgelegenen Strip bei ${targetName}. Der Auftrag lebt von ruhiger Flugfuehrung, sauberem Terrain-Management und einem kontrollierten Ausstieg direkt am Ziel.`;
+        paxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
+    } else if (profile.id === 'bush_scenic_hopper') {
+        passenger = _buildBushPassenger(profile.id);
+        title = `Bush Adventure: ${targetName}`;
+        story = `${passenger?.role || 'Ein Gast'} nutzt den Flug von ${homeName} nach ${targetName} als echten Backcountry-Hop. Kein Arbeitsauftrag, sondern ein kontrollierter Adventure-Leg mit Fokus auf Aussicht, Gelande und einer sauberen Landung am Strip.`;
+        paxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
+    } else if (profile.id === 'bush_recon_return') {
+        passenger = _buildBushPassenger(profile.id);
+        title = `Bush Recon RTB: ${targetName}`;
+        story = `${passenger?.role || 'Ein Beobachter'} fliegt heute mit dir von ${homeName} in ein abgelegenes Arbeitsgebiet bei ${targetName}. Vor Ort braucht ihr einen kurzen sauberen Recon-Run ueber dem Zielbereich, danach geht es ohne Zwischenstopp wieder zurueck an den Heimatplatz.`;
+        paxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
+    }
+    return {
+        mission: {
+            i: profile.icon,
+            t: title,
+            s: story,
+            cat: profile.category,
+            passenger,
+            missionType: 'bush',
+            bush: bushSpec,
+            _source: 'Lokaler Bush-Generator',
+            _requestedProfile: profile.id,
+            _appliedProfile: profile.id
+        },
+        paxText,
+        cargoText
+    };
+}
 
 /* =========================================================
    PWA UPDATE TRIGGER & SOFT AUTO SYNC EVENTS
@@ -2827,6 +3357,27 @@ function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
             } catch (_) {}
         }
         route.push({ lat: depPoint.lat, lng: depPoint.lng, name: state.currentSName || startIcao || 'Start' });
+        return route;
+    }
+
+    if (mission?.missionType === 'bush' && mission?.bush?.requiresReturnHome) {
+        const route = [
+            { lat: depPoint.lat, lng: depPoint.lng, name: state.currentSName || startIcao || 'Start' },
+            { lat: destPoint.lat, lng: destPoint.lng, name: `🗺️ ${state.mDestName || mission.targetName || destIcao || 'Recon Area'}` }
+        ];
+        if (typeof calcNav === 'function' && typeof getDestinationPoint === 'function') {
+            try {
+                const returnNav = calcNav(destPoint.lat, destPoint.lng, depPoint.lat, depPoint.lng);
+                if (Number.isFinite(Number(returnNav?.dist)) && Number(returnNav.dist) > 0.1) {
+                    const offsetBearing = (Number(returnNav.brng || 0) + 15) % 360;
+                    const returnWp = getDestinationPoint(destPoint.lat, destPoint.lng, Number(returnNav.dist) * 0.45, offsetBearing);
+                    if (Number.isFinite(Number(returnWp?.lat)) && Number.isFinite(Number(returnWp?.lon))) {
+                        route.push({ lat: Number(returnWp.lat), lng: Number(returnWp.lon), name: 'Return Leg' });
+                    }
+                }
+            } catch (_) {}
+        }
+        route.push({ lat: depPoint.lat, lng: depPoint.lng, name: state.currentSName || startIcao || 'Home' });
         return route;
     }
 
@@ -4277,15 +4828,51 @@ async function fetchOpenAipDispatchAirports(lat, lon, maxNM, regionPref = 'any')
     }
 }
 
+function buildAirportDispatchRecord(icao, apt = {}) {
+    const code = String(icao || apt?.icao || '').trim().toUpperCase();
+    return {
+        icao: code,
+        n: apt?.name || apt?.city || code,
+        name: apt?.name || apt?.city || code,
+        city: apt?.city || null,
+        state: apt?.state || null,
+        country: apt?.country || null,
+        elevation: Number.isFinite(Number(apt?.elevation)) ? Number(apt.elevation) : null,
+        elevFt: Number.isFinite(Number(apt?.elevation)) ? Number(apt.elevation) : null,
+        lat: Number(apt?.lat),
+        lon: Number(apt?.lon),
+        tz: apt?.tz || null,
+        iata: apt?.iata || ''
+    };
+}
+
+function _airportMatchesRegionPref(apt = {}, regionPref = 'any') {
+    const code = String(apt?.icao || '').trim().toUpperCase();
+    const isDE = code.startsWith('ED') || code.startsWith('ET');
+    if (regionPref === 'de' && !isDE) return false;
+    if (regionPref === 'int' && isDE) return false;
+    return true;
+}
+
+function scoreBushAirportCandidate(apt = {}) {
+    const code = String(apt?.icao || '').trim().toUpperCase();
+    const name = normalizeMissionText(apt?.name || apt?.n || apt?.city || '');
+    const elev = Number(apt?.elevation);
+    let score = 0;
+    if (!apt?.iata) score += 1;
+    if (/\d/.test(code) || code.length <= 3) score += 3;
+    if (/airpark|ranch|creek|field|strip|landing|lodge|forest|mesa|river|lake|mountain|valley|canyon|backcountry|camp/.test(name)) score += 3;
+    if (/municipal|county/.test(name)) score -= 1;
+    if (/regional|international|intl|metro|metropolitan/.test(name)) score -= 5;
+    if (Number.isFinite(elev) && elev >= 4500) score += 2;
+    else if (Number.isFinite(elev) && elev >= 2500) score += 1;
+    return score;
+}
+
 async function getAirportData(icao) {
     await loadGlobalAirports();
     if (globalAirports && globalAirports[icao]) {
-        return {
-            icao: icao,
-            n: globalAirports[icao].name || globalAirports[icao].city,
-            lat: globalAirports[icao].lat,
-            lon: globalAirports[icao].lon
-        };
+        return buildAirportDispatchRecord(icao, globalAirports[icao]);
     }
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${icao}+airport`); const data = await res.json();
@@ -4303,7 +4890,7 @@ async function findGithubAirport(lat, lon, minNM, maxNM, dirPref, regionPref) {
             if (apt.icao === currentStartICAO) continue;
             const navCalc = calcNav(lat, lon, apt.lat, apt.lon);
             if (navCalc.dist >= minNM && navCalc.dist <= maxNM && checkBearing(navCalc.brng, dirPref)) {
-                validFromFallback.push({ icao: apt.icao, n: apt.name, lat: apt.lat, lon: apt.lon });
+                validFromFallback.push({ icao: apt.icao, n: apt.name, name: apt.name, lat: apt.lat, lon: apt.lon });
             }
         }
         if (validFromFallback.length > 0) {
@@ -4317,13 +4904,46 @@ async function findGithubAirport(lat, lon, minNM, maxNM, dirPref, regionPref) {
     let validAirports = [];
     for (const key in globalAirports) {
         const apt = globalAirports[key]; if (apt.icao === currentStartICAO) continue;
-        const isDE = apt.icao.startsWith('ED') || apt.icao.startsWith('ET');
-        if (regionPref === "de" && !isDE) continue; if (regionPref === "int" && isDE) continue;
+        if (!_airportMatchesRegionPref(apt, regionPref)) continue;
         const navCalc = calcNav(lat, lon, apt.lat, apt.lon);
-        if (navCalc.dist >= minNM && navCalc.dist <= maxNM && checkBearing(navCalc.brng, dirPref)) { validAirports.push({ icao: apt.icao, n: apt.name || apt.city || "Unbekannt", lat: apt.lat, lon: apt.lon }); }
+        if (navCalc.dist >= minNM && navCalc.dist <= maxNM && checkBearing(navCalc.brng, dirPref)) { validAirports.push(buildAirportDispatchRecord(apt.icao, apt)); }
     }
     if (validAirports.length > 0) return validAirports[Math.floor(Math.random() * validAirports.length)];
     return null;
+}
+
+async function findBushAirport(lat, lon, minNM, maxNM, dirPref, regionPref) {
+    await loadGlobalAirports();
+    if (!globalAirports || Object.keys(globalAirports).length === 0) return null;
+    const weightedPool = [];
+    const rawCandidates = [];
+    for (const key in globalAirports) {
+        const apt = globalAirports[key];
+        if (!apt || apt.icao === currentStartICAO) continue;
+        if (!_airportMatchesRegionPref(apt, regionPref)) continue;
+        const navCalc = calcNav(lat, lon, apt.lat, apt.lon);
+        if (!(navCalc.dist >= minNM && navCalc.dist <= maxNM && checkBearing(navCalc.brng, dirPref))) continue;
+        const record = buildAirportDispatchRecord(apt.icao, apt);
+        const bushScore = scoreBushAirportCandidate(record);
+        rawCandidates.push({
+            ...record,
+            bushScore,
+            isRemoteStrip: bushScore >= 4
+        });
+    }
+    if (!rawCandidates.length) return null;
+    const preferred = rawCandidates.filter(c => c.bushScore >= 2);
+    const source = preferred.length ? preferred : rawCandidates;
+    source
+        .sort((a, b) => Number(b.bushScore || 0) - Number(a.bushScore || 0))
+        .slice(0, 80)
+        .forEach(candidate => {
+            const weight = Math.max(1, Math.min(8, Number(candidate.bushScore || 0) + 2));
+            for (let i = 0; i < weight; i++) weightedPool.push(candidate);
+        });
+    if (!weightedPool.length) return source[0] || null;
+    const pick = weightedPool[Math.floor(Math.random() * weightedPool.length)] || source[0] || null;
+    return pick ? { ...pick } : null;
 }
 
 function normalizeMissionText(txt) {
@@ -7520,7 +8140,101 @@ function getMissionPlanV2Plan(missionPlanV2 = null) {
     return plan || null;
 }
 
-function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '', cargoText = '', mission = null, missionPlanV2 = null } = {}) {
+function pickBushArrivalVehicleSpec({ bush = null, dest = null, mission = null, profileId = '' } = {}) {
+    const completionMode = String(bush?.completionMode || '').toLowerCase();
+    const seedText = [
+        bush?.profileId,
+        profileId,
+        dest?.icao,
+        dest?.n,
+        dest?.name,
+        mission?.t
+    ].filter(Boolean).join('|');
+    let hash = 0;
+    for (let i = 0; i < seedText.length; i += 1) hash = ((hash * 31) + seedText.charCodeAt(i)) >>> 0;
+    const terrainText = normalizeMissionText([
+        dest?.n,
+        dest?.name,
+        mission?.t,
+        mission?.s
+    ].filter(Boolean).join(' '));
+    const remoteBias = !!(bush?.targetRef?.isRemoteStrip || bush?.riskFlags?.includes?.('remote_strip'));
+    const roughBias = /ranch|camp|creek|backcountry|river|lake|forest|canyon|valley|ridge|mountain|mesa|wilderness|lodge/.test(terrainText);
+    let choices;
+    if (completionMode === 'unload_at_target') {
+        choices = roughBias || remoteBias
+            ? [
+                { role: 'vehicle.truck', label: 'Bush-Pickup', cue: 'Pickup oder Utility-Fahrzeug seitlich der Bahn' },
+                { role: 'vehicle.quad', label: 'Bush-Quad', cue: 'Quad oder Utility-Fahrzeug seitlich der Bahn' },
+                { role: 'vehicle.car', label: 'Geländewagen', cue: 'kleiner Geländewagen am Striprand' }
+            ]
+            : [
+                { role: 'vehicle.truck', label: 'Bush-Pickup', cue: 'Pickup oder Utility-Fahrzeug seitlich der Bahn' },
+                { role: 'vehicle.car', label: 'Geländewagen', cue: 'kleiner Geländewagen am Striprand' },
+                { role: 'vehicle.quad', label: 'Bush-Quad', cue: 'Quad oder Utility-Fahrzeug seitlich der Bahn' }
+            ];
+    } else if (completionMode === 'passenger_dropoff') {
+        choices = [
+            { role: 'vehicle.car', label: 'Geländewagen', cue: 'Geländewagen oder lokaler Kontakt seitlich der Bahn' },
+            { role: 'vehicle.quad', label: 'Bush-Quad', cue: 'Quad oder lokaler Kontakt seitlich der Bahn' },
+            { role: 'vehicle.truck', label: 'Bush-Pickup', cue: 'Pickup oder lokaler Kontakt am Striprand' }
+        ];
+    } else {
+        choices = [
+            { role: 'vehicle.quad', label: 'Bush-Quad', cue: 'kleines Bush-Fahrzeug am Striprand' },
+            { role: 'vehicle.car', label: 'Geländewagen', cue: 'kleiner Geländewagen am Striprand' },
+            { role: 'vehicle.truck', label: 'Bush-Pickup', cue: 'Pickup am Striprand' }
+        ];
+    }
+    return choices[hash % choices.length] || choices[0] || { role: 'vehicle.car', label: 'Geländewagen', cue: 'lokaler Kontakt seitlich der Bahn' };
+}
+
+function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '', cargoText = '', mission = null, missionPlanV2 = null, missionType = '', bushSpec = null, dest = null } = {}) {
+    const normalizedMissionType = normalizeMissionType(missionType || mission?.missionType || passenger?.missionType || '', false);
+    const bush = normalizedMissionType === 'bush'
+        ? sanitizeBushMissionSpec(bushSpec || mission?.bush || passenger?.bush || null)
+        : null;
+    if (bush && !bush.requiresReturnHome) {
+        const bushTargetName = String(bush?.targetRef?.name || dest?.n || dest?.name || dest?.icao || 'Remote Strip').trim();
+        const bushVehicle = pickBushArrivalVehicleSpec({ bush, dest, mission, profileId });
+        if (bush.completionMode === 'unload_at_target') {
+            return {
+                role: 'bush_strip_handoff',
+                roleLabel: 'Bush-Versorgungsuebergabe',
+                expectedBy: 'Platzkontakt oder Lodge-/Camp-Crew',
+                visibleCue: bushVehicle.cue,
+                vehicleRole: bushVehicle.role,
+                vehicleLabel: bushVehicle.label,
+                personRole: 'person.ground_crew',
+                equipmentRole: 'cargo.small_box',
+                narrativeHint: `Am Zielstrip wartet eine kurze Uebergabe am Bahnrand fuer ${bushTargetName}.`
+            };
+        }
+        if (bush.completionMode === 'passenger_dropoff') {
+            return {
+                role: 'bush_strip_dropoff',
+                roleLabel: 'Bush-Dropoff',
+                expectedBy: 'Lodge-/Backcountry-Kontakt',
+                visibleCue: bushVehicle.cue,
+                vehicleRole: bushVehicle.role,
+                vehicleLabel: bushVehicle.label,
+                personRole: 'person.ground_crew',
+                equipmentRole: '',
+                narrativeHint: `Am Zielstrip ist ein kurzer Bush-Dropoff fuer ${bushTargetName} vorgesehen.`
+            };
+        }
+        return {
+            role: 'bush_strip_meet',
+            roleLabel: 'Bush-Treffpunkt',
+            expectedBy: 'lokaler Platz- oder Backcountry-Kontakt',
+            visibleCue: bushVehicle.cue,
+            vehicleRole: bushVehicle.role,
+            vehicleLabel: bushVehicle.label,
+            personRole: 'person.ground_crew',
+            equipmentRole: '',
+            narrativeHint: `Am Zielstrip ist ein kurzer Treffpunkt am Bahnrand bei ${bushTargetName} vorgesehen.`
+        };
+    }
     const plan = getMissionPlanV2Plan(missionPlanV2);
     const planTask = String(plan?.taskDomain || plan?.lockedFields?.taskDomain || '').toLowerCase();
     if (planTask) {
@@ -7705,13 +8419,17 @@ function buildAptArrivalSceneItems(role = {}) {
     const personRole = String(role?.personRole || 'person.ground_crew');
     const vehicleRole = String(role?.vehicleRole || '');
     const equipmentRole = String(role?.equipmentRole || '');
+    const isBushStripRole = /^bush_strip_/.test(roleId);
+    const explicitVehicleLabel = String(role?.vehicleLabel || '').trim();
     const vehicleLabel = roleId === 'media_pickup'
         ? 'Medien-Van'
         : (roleId === 'medical_handoff'
             ? 'Medizinisches Empfangsfahrzeug'
             : (roleId === 'cargo_handoff'
                 ? 'Fracht-Van'
-                : (roleId === 'animal_handoff' ? 'Tierpflege-Van' : 'Abholfahrzeug')));
+                : (roleId === 'animal_handoff'
+                    ? 'Tierpflege-Van'
+                    : (explicitVehicleLabel || (isBushStripRole ? 'Bush-Fahrzeug' : 'Abholfahrzeug')))));
     const out = [];
     if (vehicleRole) {
         out.push({
@@ -7719,9 +8437,9 @@ function buildAptArrivalSceneItems(role = {}) {
             label: vehicleLabel,
             role: vehicleRole,
             objectTitle: vehicleLabel,
-            forwardM: -7,
-            rightM: 5,
-            hdgOffsetDeg: 205
+            forwardM: isBushStripRole ? 6 : -7,
+            rightM: isBushStripRole ? 8 : 5,
+            hdgOffsetDeg: isBushStripRole ? 150 : 205
         });
     }
     if (roleId === 'media_pickup') {
@@ -7762,9 +8480,9 @@ function buildAptArrivalSceneItems(role = {}) {
         label: role.expectedBy || 'Empfangskontakt',
         role: personRole,
         objectTitle: role.expectedBy || 'Empfangskontakt',
-        forwardM: 2,
-        rightM: 3,
-        hdgOffsetDeg: 200
+        forwardM: isBushStripRole ? 0 : 2,
+        rightM: isBushStripRole ? 5 : 3,
+        hdgOffsetDeg: isBushStripRole ? 165 : 200
     });
     if (equipmentRole) {
         const animalSpec = roleId === 'animal_handoff'
@@ -7788,8 +8506,8 @@ function buildAptArrivalSceneItems(role = {}) {
             role: equipmentRole,
             objectTitle: equipmentTitle,
             titleCandidates: equipmentCandidates,
-            forwardM: 0,
-            rightM: 5,
+            forwardM: isBushStripRole ? -2 : 0,
+            rightM: isBushStripRole ? 10 : 5,
             altOffsetFt: 1
         });
     }
@@ -7823,13 +8541,28 @@ function representativeAptArrivalAnchor(lat, lon, hdg) {
     };
 }
 
-function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passenger = null, paxText = '', cargoText = '', profileId = '', heading = 0, missionPlanV2 = null } = {}) {
+function representativeBushStripArrivalAnchor(lat, lon, hdg) {
+    const offset = { forwardM: 0, rightM: 18 };
+    const shifted = offsetAptArrivalLatLon(lat, lon, hdg, offset.forwardM, offset.rightM);
+    return {
+        lat: Number.isFinite(Number(shifted?.lat)) ? shifted.lat : lat,
+        lon: Number.isFinite(Number(shifted?.lon)) ? shifted.lon : lon,
+        offset
+    };
+}
+
+function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passenger = null, paxText = '', cargoText = '', profileId = '', heading = 0, missionPlanV2 = null, missionType = '', bushSpec = null } = {}) {
     if (isPOI) return null;
     const lat = Number(dest?.lat);
     const lon = Number(dest?.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    const role = normalizeAptArrivalRole({ profileId, passenger, paxText, cargoText, mission, missionPlanV2 });
+    const role = normalizeAptArrivalRole({ profileId, passenger, paxText, cargoText, mission, missionPlanV2, missionType, bushSpec, dest });
     if (!role || role.role === 'none') return null;
+    const normalizedMissionType = normalizeMissionType(missionType || mission?.missionType || passenger?.missionType || '', false);
+    const bush = normalizedMissionType === 'bush'
+        ? sanitizeBushMissionSpec(bushSpec || mission?.bush || passenger?.bush || null)
+        : null;
+    const isBushStripRole = normalizedMissionType === 'bush' && /^bush_strip_/.test(String(role.role || ''));
     const icao = String(dest?.icao || (typeof currentDestICAO !== 'undefined' ? currentDestICAO : '') || '').trim();
     const airportName = String(dest?.n || dest?.name || icao || 'Zielflugplatz').trim();
     const airportElev = (icao && typeof globalAirports !== 'undefined' && globalAirports && globalAirports[icao])
@@ -7838,27 +8571,29 @@ function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passe
     const rawElev = dest?.elevFt ?? dest?.elevationFt ?? dest?.elevation ?? airportElev ?? (typeof currentDestElev !== 'undefined' ? currentDestElev : null);
     const altFt = Number.isFinite(Number(rawElev)) ? Math.round(Number(rawElev)) : null;
     const hdg = Number.isFinite(Number(heading)) ? Math.round(Number(heading)) : 0;
-    const anchor = representativeAptArrivalAnchor(lat, lon, hdg);
+    const anchor = isBushStripRole
+        ? representativeBushStripArrivalAnchor(lat, lon, hdg)
+        : representativeAptArrivalAnchor(lat, lon, hdg);
     const cues = [
         role.visibleCue,
-        'Vorfeld oder sicherer Parking-Bereich',
-        'nicht auf Runway, Taxiway oder Gebaeuden'
+        isBushStripRole ? 'seitlich versetzt zur Bahnmitte / Grasrand' : 'Vorfeld oder sicherer Parking-Bereich',
+        isBushStripRole ? 'nicht direkt auf der aktiven Bahn oder in Hindernissen' : 'nicht auf Runway, Taxiway oder Gebaeuden'
     ].filter(Boolean);
     return {
         version: 1,
         status: 'planned',
-        source: 'airport-representative-offset',
+        source: isBushStripRole ? 'remote_strip_side_offset' : 'airport-representative-offset',
         confidence: 0.5,
         icao,
         airportName,
-        anchorType: 'airport_representative',
-        semantic: 'apron_or_parking',
+        anchorType: isBushStripRole ? 'remote_strip_side_offset' : 'airport_representative',
+        semantic: isBushStripRole ? 'strip_side_handoff' : 'apron_or_parking',
         lat: anchor.lat,
         lon: anchor.lon,
         airportLat: lat,
         airportLon: lon,
         representativeOffsetM: anchor.offset,
-        footprintRadiusM: 55,
+        footprintRadiusM: isBushStripRole ? 34 : 55,
         altFt,
         hdg,
         role: role.role,
@@ -7870,11 +8605,14 @@ function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passe
         items: buildAptArrivalSceneItems(role),
         narrativeHint: role.narrativeHint,
         snapPolicy: {
-            prefer: ['taxi_parking', 'apron', 'pavement', 'parking_position'],
-            avoid: ['occupied', 'runway', 'taxiway', 'building', 'water'],
+            prefer: isBushStripRole ? ['parking_position', 'apron', 'pavement'] : ['taxi_parking', 'apron', 'pavement', 'parking_position'],
+            avoid: isBushStripRole ? ['occupied', 'building', 'water'] : ['occupied', 'runway', 'taxiway', 'building', 'water'],
             liveResolver: 'simconnect_facility_or_osm_apron'
         },
-        debug: 'Kompakter repraesentativer Zielflugplatzpunkt bis ein Live-Snap auf SimConnect-Parking/OSM-Apron verfuegbar ist.'
+        bushProfileId: bush?.profileId || '',
+        debug: isBushStripRole
+            ? 'Bush-Strip-Fallback seitlich der Bahnmitte, bis ein Live-Snap auf OSM-Parking/Apron verfuegbar ist.'
+            : 'Kompakter repraesentativer Zielflugplatzpunkt bis ein Live-Snap auf SimConnect-Parking/OSM-Apron verfuegbar ist.'
     };
 }
 
@@ -8461,8 +9199,10 @@ function attachAptArrivalPlanToMissionTruth(missionTruth = null, aptArrivalPlan 
     return base;
 }
 
-function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null } = {}) {
-    const profile = getMissionTaskProfile(appliedProfileId, isPOI ? 'poi' : 'apt') || getMissionTaskProfile('auto', isPOI ? 'poi' : 'apt');
+function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null } = {}) {
+    const normalizedMissionType = normalizeMissionType(missionType || mission?.missionType || passenger?.missionType || '', isPOI);
+    const profileGroup = normalizedMissionType === 'bush' ? 'bush' : (normalizedMissionType === 'poi' ? 'poi' : 'apt');
+    const profile = getMissionTaskProfile(appliedProfileId, profileGroup) || getMissionTaskProfile('auto', profileGroup);
     const taskDomain = String(passenger?.taskDomain || profile?.taskDomain || 'general').toLowerCase();
     const roleProfile = String(passenger?.roleProfile || profile?.roleProfile || 'general_passenger_v1').toLowerCase();
     const urgencyPriority = (String(passenger?.urgencyPriority || '').toLowerCase() === 'hoch') ? 'hoch' : 'niedrig';
@@ -8474,14 +9214,21 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
         sceneIntentOverride !== undefined ? sceneIntentOverride : (mission?.sceneIntent || passenger?.sceneIntent || null),
         { isPOI, taskDomain }
     );
-    const summaryBase = profile?.label || (isPOI ? 'POI-Einsatz' : 'A-B Einsatz');
-    const summary = `${summaryBase} | ${isPOI ? 'POI' : 'A-B'} | cat:${String(category || 'std')}`;
+    const summaryBase = normalizedMissionType === 'bush'
+        ? 'Bush-Einsatz'
+        : (profile?.label || (isPOI ? 'POI-Einsatz' : 'A-B Einsatz'));
+    const modeLabel = normalizedMissionType === 'bush' ? 'BUSH' : (isPOI ? 'POI' : 'A-B');
+    const summary = `${summaryBase} | ${modeLabel} | cat:${String(category || 'std')}`;
     const constraints = [
         `Rollenkonsistenz: roleProfile=${roleProfile}, taskDomain=${taskDomain}, urgency=${urgencyPriority}`,
         'Kein Themenmix zwischen Auftrag, PAX und Fracht',
         'Alle Folgeansagen bleiben im gleichen Auftragsrahmen'
     ];
+    const normalizedBushSpec = normalizedMissionType === 'bush'
+        ? sanitizeBushMissionSpec(bushSpec || mission?.bush || passenger?.bush || null)
+        : null;
     return {
+        missionType: normalizedMissionType,
         requestedProfileId: String(requestedProfileId || 'auto').toLowerCase(),
         appliedProfileId: String(appliedProfileId || 'auto').toLowerCase(),
         summary,
@@ -8498,6 +9245,7 @@ function buildMissionContract({ isPOI = false, requestedProfileId = 'auto', appl
         missionTruth: attachAptArrivalPlanToMissionTruth(missionTruth || mission?.missionTruth || passenger?.missionTruth || null, aptArrivalPlan),
         missionPlanV2: missionPlanV2 || mission?._missionPlanV2 || mission?.missionPlanV2 || passenger?.missionPlanV2 || null,
         aptArrivalPlan: aptArrivalPlan || mission?.aptArrivalPlan || passenger?.aptArrivalPlan || null,
+        bush: normalizedBushSpec,
         targetScene,
         constraints
     };
@@ -10787,15 +11535,16 @@ function scenePlannerV3CompactAptPlan(plan = null) {
 
 async function scenePlannerV3ContextBundle({ md = {}, contract = {}, pax = {}, sceneIntent = null, targetGeoContext = null, missionTruth = null, missionPlanV2 = null, aptArrivalPlan = null, aptArrivalGeoContext = null } = {}) {
     const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
+    const missionMode = normalizeMissionType(md.missionType || contract.missionType || pax.missionType || '', isPOI);
     let geo = targetGeoContext || null;
     let truth = missionTruth || null;
     let aptCtx = aptArrivalGeoContext || null;
     if (isPOI && !geo) geo = await fetchMissionTargetGeoContext(md);
     if (isPOI && !truth) truth = buildMissionTruth(md, geo, null);
-    if (!isPOI && aptArrivalPlan && !aptCtx) aptCtx = await fetchAptArrivalGeoContext(aptArrivalPlan);
+    if (missionMode !== 'poi' && aptArrivalPlan && !aptCtx) aptCtx = await fetchAptArrivalGeoContext(aptArrivalPlan);
     return {
         schema: 'scenePlannerV3.contextBundle.v1',
-        mode: isPOI ? 'poi' : 'apt',
+        mode: missionMode,
         route: {
             start: md.start || '',
             dest: md.dest || '',
@@ -10840,6 +11589,7 @@ async function scenePlannerV3ContextBundle({ md = {}, contract = {}, pax = {}, s
         rules: [
             'POI: targetScene beschreibt nur sichtbare Ziel-/Kontextobjekte am geprueften missionTruth.mainTarget/sceneAnchor.',
             'APT: targetScene bleibt none; aptArrivalPlan beschreibt Abhol-/Uebergabeszenen am sicheren Vorfeld/Parking.',
+            'BUSH: Recon-Return bleibt ohne APT-Ankunft. Strip-Missionen duerfen eine kleine Bush-Handoff-Szene am Striprand oder sicherem Parking erhalten.',
             'Fahrzeuge nur road/parking/apron, Wasserobjekte nur water/waterline, Personen/Ausruestung sparsam und missionsbegruendet.',
             'Keine Deko, keine Objekte, die den Auftrag bereits geloest wirken lassen.'
         ]
@@ -10911,7 +11661,8 @@ async function scenePlannerV3ExecuteTool(call = {}, ctx = {}) {
     return { error: `unknown_tool_${name}` };
 }
 
-function scenePlannerV3Prompt({ isPOI = false } = {}) {
+function scenePlannerV3Prompt({ isPOI = false, missionMode = '' } = {}) {
+    const mode = normalizeMissionType(missionMode || '', isPOI);
     return `<INSTRUKTIONEN>
 Du bist Scene Planner V3 fuer einen MSFS-Missionsgenerator.
 Du entwirfst konkrete, sparsame und lokal plausible Szenen.
@@ -10921,6 +11672,7 @@ Arbeitsweise:
 2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage.
 3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget.
 4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker.
+4b. BUSH: targetScene bleibt ebenfalls none. Fuer Strip-Missionen darf aptArrivalPlan eine kleine Handoff-/Dropoff-Szene mit Quad/Utility-Fahrzeug am Striprand beschreiben. Fuer Recon-Return ohne Ziel-Landung muss aptArrivalPlan none bleiben.
 5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser/Ufer. Keine Deko.
 6. Wenn targetScene.kind="none", muessen features=[], requirements=[], roles=[], density="none" und layout="" sein. Keine impliziten Autos/Personen als Deko fuer Historiker-, Lern- oder Sightseeing-Fluege.
 7. Gib ausschliesslich JSON aus.
@@ -10928,7 +11680,7 @@ Arbeitsweise:
 JSON-Schema:
 {
   "status": "ready|invalid",
-  "mode": "poi|apt",
+  "mode": "poi|apt|bush",
   "targetScene": {
     "kind": "none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context",
     "preset": "",
@@ -10958,7 +11710,7 @@ JSON-Schema:
 </INSTRUKTIONEN>
 
 <AUFGABE>
-Plane die ${isPOI ? 'POI-Zielszene' : 'APT-Abhol-/Uebergabeszene'} mit Tool-Kontext.
+Plane die ${mode === 'poi' ? 'POI-Zielszene' : (mode === 'bush' ? 'Bush-Handoff-/Dropoff-Szene' : 'APT-Abhol-/Uebergabeszene')} mit Tool-Kontext.
 </AUFGABE>`;
 }
 
@@ -11013,6 +11765,7 @@ function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null) {
         'person.ground_crew',
         'vehicle.van',
         'vehicle.car',
+        'vehicle.quad',
         'vehicle.truck',
         'vehicle.emergency.medical',
         'cargo.small_box',
@@ -11044,7 +11797,12 @@ function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null) {
         .filter(Boolean)
         .slice(0, 8);
     if (items.length) out.items = items;
-    out.cues = [out.visibleCue, 'Vorfeld oder sicherer Parking-Bereich', 'nicht auf Runway, Taxiway oder Gebaeuden'].filter(Boolean);
+    const isBushStripRole = /^bush_strip_/.test(String(out.role || ''));
+    out.cues = [
+        out.visibleCue,
+        isBushStripRole ? 'seitlich versetzt zur Bahnmitte / Grasrand' : 'Vorfeld oder sicherer Parking-Bereich',
+        isBushStripRole ? 'nicht direkt auf der aktiven Bahn oder in Hindernissen' : 'nicht auf Runway, Taxiway oder Gebaeuden'
+    ].filter(Boolean);
     out.debug = `${basePlan.debug || ''} Scene Planner V3: ${scenePlannerV3CleanText(src.reason || src.notes || 'arrival scene refined', 140)}`.trim();
     return out;
 }
@@ -11089,6 +11847,7 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
     const contract = missionContract || window.activeMissionContract || md.missionContract || {};
     const pax = passenger || window.activePassenger || {};
     const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
+    const missionMode = normalizeMissionType(md.missionType || contract.missionType || pax.missionType || '', isPOI);
     const sceneIntent = sanitizeMissionSceneIntentSpec(md.sceneIntent || contract.sceneIntent || null, { isPOI, taskDomain: pax.taskDomain || contract.taskDomain || '' });
     const contextBase = {
         md,
@@ -11102,7 +11861,7 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
         aptArrivalPlan: md.aptArrivalPlan || contract.aptArrivalPlan || null,
         aptArrivalGeoContext: null
     };
-    const contents = [{ role: 'user', parts: [{ text: scenePlannerV3Prompt({ isPOI }) }] }];
+    const contents = [{ role: 'user', parts: [{ text: scenePlannerV3Prompt({ isPOI, missionMode }) }] }];
     const tools = [{ functionDeclarations: scenePlannerV3ToolDeclarations() }];
     const models = [
         ['gemini-3-flash-preview', 'Gemini 3.0 Flash Scene Planner V3', 'flash'],
@@ -11585,6 +12344,7 @@ function buildMissionPlannerV2Draft({
     start = null,
     dest = null,
     isPOI = false,
+    missionType = '',
     dist = 0,
     missionPicker = null,
     dispatchProfileId = 'auto',
@@ -11596,10 +12356,26 @@ function buildMissionPlannerV2Draft({
     targetGeoContext = null,
     missionTruth = null
 } = {}) {
-    const profile = getMissionTaskProfile(dispatchProfileId, isPOI ? 'poi' : 'apt') || {};
+    const baseType = normalizeMissionType(
+        missionType || missionPicker?.baseType || (isPOI ? 'poi' : 'apt'),
+        isPOI
+    );
+    const profile = getMissionTaskProfile(dispatchProfileId, baseType) || {};
+    const bushSpec = (baseType === 'bush' && start && dest)
+        ? buildBushMissionSpec({
+            profileId: dispatchProfileId,
+            startAirport: start,
+            destAirport: dest,
+            distNm: dist
+        })
+        : null;
+    const draftTargetRef = bushSpec?.areaRef || bushSpec?.targetRef || null;
+    const plannerCategory = baseType === 'bush'
+        ? String(profile.category || dispatchProfileId || 'bush')
+        : String(selectedCategory || 'all');
     return {
         schema: 'missionDraft.v2',
-        mode: isPOI ? 'poi' : 'apt',
+        mode: baseType,
         route: {
             startIcao: currentStartICAO || '',
             startName: String(start?.n || ''),
@@ -11607,15 +12383,15 @@ function buildMissionPlannerV2Draft({
             distanceNm: Number.isFinite(Number(dist)) ? Number(dist) : 0
         },
         target: {
-            name: String(dest?.n || ''),
-            lat: Number.isFinite(Number(dest?.lat)) ? Number(dest.lat) : null,
-            lon: Number.isFinite(Number(dest?.lon)) ? Number(dest.lon) : null,
+            name: String(draftTargetRef?.name || dest?.n || ''),
+            lat: Number.isFinite(Number(draftTargetRef?.lat)) ? Number(draftTargetRef.lat) : (Number.isFinite(Number(dest?.lat)) ? Number(dest.lat) : null),
+            lon: Number.isFinite(Number(draftTargetRef?.lon)) ? Number(draftTargetRef.lon) : (Number.isFinite(Number(dest?.lon)) ? Number(dest.lon) : null),
             terrainFt: Number.isFinite(Number(poiTerrainFt)) ? Math.round(Number(poiTerrainFt)) : null,
             poiSource: String(dest?.poiSource || ''),
-            poiCategory: String(dest?.poiCategory || '')
+            poiCategory: String(draftTargetRef?.poiCategory || dest?.poiCategory || '')
         },
         picker: {
-            baseType: String(missionPicker?.baseType || (isPOI ? 'poi' : 'apt')),
+            baseType: String(baseType || 'apt'),
             category: String(selectedCategory || 'all'),
             categoryRequested: String(requestedCategory || selectedCategory || 'all'),
             profile: String(dispatchProfileId || 'auto')
@@ -11626,12 +12402,21 @@ function buildMissionPlannerV2Draft({
             roleProfile: String(profile.roleProfile || ''),
             taskDomain: String(profile.taskDomain || '')
         },
-        category: String(selectedCategory || 'all'),
+        category: plannerCategory,
         weather: {
             dep: _summarizeMissionWeather(missionWeather?.dep || null),
             dest: _summarizeMissionWeather(missionWeather?.dest || null)
         },
         fireHazard: missionFireHazard || null,
+        bush: bushSpec ? {
+            profileId: bushSpec.profileId,
+            targetMode: bushSpec.targetMode,
+            completionMode: bushSpec.completionMode,
+            requiresReturnHome: !!bushSpec.requiresReturnHome,
+            homeRef: bushSpec.homeRef || null,
+            targetRef: bushSpec.targetRef || null,
+            areaRef: bushSpec.areaRef || null
+        } : null,
         targetGeoContext: targetGeoContext ? {
             summary: summarizeMissionTargetGeoContext(targetGeoContext),
             hints: targetGeoContext.hints || [],
@@ -11756,7 +12541,7 @@ ${JSON.stringify(resolvedNeeds || null)}
   "plan": {
     "taskDomain": "mapping_survey",
     "roleProfile": "photogrammetry_precision_v1",
-    "missionType": "poi|apt",
+    "missionType": "poi|apt|bush",
     "targetCategory": "bridge|water|cargo|...",
     "primaryObjective": "Ein konkreter Hauptauftrag",
     "targetLabel": "kanonischer Zielname",
@@ -11880,7 +12665,11 @@ function _missionPipelineV3WeatherBundle(missionWeather = null) {
 }
 
 function _missionPipelineV3ProfileCatalog(context = {}) {
-    const profile = getMissionTaskProfile(context.dispatchProfileId || 'auto', context.isPOI ? 'poi' : 'apt') || {};
+    const baseType = normalizeMissionType(
+        context.missionType || context.missionPicker?.baseType || (context.isPOI ? 'poi' : 'apt'),
+        !!context.isPOI
+    );
+    const profile = getMissionTaskProfile(context.dispatchProfileId || 'auto', baseType) || {};
     const selected = {
         id: _missionPipelineV3Text(profile.id || context.dispatchProfileId || 'auto', 80),
         label: _missionPipelineV3Text(profile.label, 120),
@@ -11941,7 +12730,11 @@ async function _missionPipelineV3ResolveMissionTruth(context = {}, working = {})
 
 async function _missionPipelineV3ResolveFireHazard(context = {}, working = {}) {
     if (working.missionFireHazard) return working.missionFireHazard;
-    const profile = getMissionTaskProfile(context.dispatchProfileId || 'auto', context.isPOI ? 'poi' : 'apt') || {};
+    const baseType = normalizeMissionType(
+        context.missionType || context.missionPicker?.baseType || (context.isPOI ? 'poi' : 'apt'),
+        !!context.isPOI
+    );
+    const profile = getMissionTaskProfile(context.dispatchProfileId || 'auto', baseType) || {};
     const wantsFire = context.isPOI && (
         String(context.selectedCategory || '').toLowerCase() === 'fire'
         || String(profile.taskDomain || '').toLowerCase() === 'fire_watch'
@@ -12105,7 +12898,7 @@ ${JSON.stringify(draft)}
   "plan": {
     "taskDomain": "aus erlaubter Liste",
     "roleProfile": "aus erlaubter Liste",
-    "missionType": "poi|apt",
+    "missionType": "poi|apt|bush",
     "targetCategory": "bridge|water|cargo|charter|...",
     "primaryObjective": "konkreter Hauptauftrag",
     "targetLabel": "kanonischer Zielname",
@@ -12326,11 +13119,21 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     ];
 
     const missionSel = missionPicker || { baseType: isPOI ? 'poi' : 'apt', category: 'all', profile: 'auto' };
-    const isAptTrainingMission = !isPOI && missionSel.baseType === 'apt' && missionSel.category === 'trn';
-    const isAptCharterMission = !isPOI && missionSel.baseType === 'apt' && missionSel.category === 'charter';
+    const missionBaseType = normalizeMissionType(missionSel.baseType || '', isPOI);
+    const isBushMission = missionBaseType === 'bush';
+    const isAptTrainingMission = !isPOI && !isBushMission && missionBaseType === 'apt' && missionSel.category === 'trn';
+    const isAptCharterMission = !isPOI && !isBushMission && missionBaseType === 'apt' && missionSel.category === 'charter';
     const isPoiTrainingMission = isPOI && missionSel.baseType === 'poi' && missionSel.category === 'trn';
     const isTrainingMission = isAptTrainingMission || isPoiTrainingMission;
-    const forcedProfile = getMissionTaskProfile(missionSel.profile || 'auto', isPOI ? 'poi' : 'apt');
+    const forcedProfile = getMissionTaskProfile(missionSel.profile || 'auto', missionBaseType);
+    const provisionalBushSpec = isBushMission
+        ? buildBushMissionSpec({
+            profileId: String(missionSel.profile || 'auto'),
+            startAirport: poiTargetMeta?.startAirport || null,
+            destAirport: poiTargetMeta?.destAirport || null,
+            distNm: Number.isFinite(Number(dist)) ? Number(dist) : 0
+        })
+        : null;
     const profileThemeOverrides = {
         medical_transfer: ['Medizinischer Personal- oder Materialtransfer mit hoher Prioritaet und ruhigem Flug, ohne Patient an Bord'],
         cargo_fragile: ['Empfindliche Fracht sicher und erschuetterungsarm transportieren'],
@@ -12497,26 +13300,54 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ],
         all: aptCategories
     };
-    const themePoolBase = isPOI
-        ? (poiThemesByCat[missionSel.category] || poiCategories)
-        : (aptThemesByCat[missionSel.category] || aptCategories);
+    const bushThemesByProfile = {
+        bush_supply_strip: [
+            'Backcountry Supply Run zu einem abgelegenen Strip',
+            'Versorgungsflug mit Werkzeug, Medkits oder Betriebsbedarf in entlegenes Gelaende',
+            'Bush-Utility-Flug mit konservativer Flugfuehrung und sauberem Unload am Ziel'
+        ],
+        bush_charter_strip: [
+            'Bush-Charter mit Passagier-Dropoff an einem abgelegenen Strip',
+            'Backcountry-Transfer fuer Ranger, Lodge-Manager oder Outdoor-Gast',
+            'Remote Charter mit Fokus auf Terrain-Management und kontrolliertem Ausstieg'
+        ],
+        bush_scenic_hopper: [
+            'Bush-Adventure-Leg mit Scenic-Charakter zu einem Remote Strip',
+            'Backcountry-Hopper fuer Aussicht, Wildnis und saubere Strip-Landung',
+            'Abgelegener Adventure-Transfer mit ruhigem Bush-Flying-Charakter'
+        ],
+        bush_recon_return: [
+            'Backcountry-Recon ueber einem abgelegenen Zielgebiet mit Rueckkehr zum Heimatplatz',
+            'Bush-Beobachtungsflug mit kurzem Survey-Run und anschliessendem RTB',
+            'Abgelegener Recon-Einsatz mit Fokus auf Zielgebiet, Lagebild und Heimkehr'
+        ]
+    };
+    const themePoolBase = isBushMission
+        ? (bushThemesByProfile[String(missionSel.profile || 'auto').toLowerCase()] || bushThemesByProfile.bush_supply_strip)
+        : (isPOI
+            ? (poiThemesByCat[missionSel.category] || poiCategories)
+            : (aptThemesByCat[missionSel.category] || aptCategories));
     const forcedThemePool = (forcedProfile && forcedProfile.id !== 'auto')
         ? (profileThemeOverrides[forcedProfile.id] || null)
         : null;
     const themePool = Array.isArray(forcedThemePool) && forcedThemePool.length ? forcedThemePool : themePoolBase;
     const randomTheme = themePool[Math.floor(Math.random() * themePool.length)];
-    const categoryRule = isPOI
-        ? (missionSel.category && missionSel.category !== 'all'
-            ? `3b. KATEGORIE-FIX: Die Mission muss zur POI-Kategorie "${missionSel.category}" passen.`
-            : '')
-        : (missionSel.category && missionSel.category !== 'all'
-            ? `3b. KATEGORIE-FIX: Die Mission muss zur APT-Kategorie "${missionSel.category}" passen.`
-            : '');
+    const categoryRule = isBushMission
+        ? `3b. BUSH-KONSISTENZ: Die Mission muss klar als Bush-/Backcountry-Einsatz erkennbar sein und zum Profil "${missionSel.profile || 'auto'}" passen.`
+        : (isPOI
+            ? (missionSel.category && missionSel.category !== 'all'
+                ? `3b. KATEGORIE-FIX: Die Mission muss zur POI-Kategorie "${missionSel.category}" passen.`
+                : '')
+            : (missionSel.category && missionSel.category !== 'all'
+                ? `3b. KATEGORIE-FIX: Die Mission muss zur APT-Kategorie "${missionSel.category}" passen.`
+                : ''));
 
     const maxPaxLimit = paxText.split(' ')[0];
-    const targetMissionCat = (missionSel.category && missionSel.category !== 'all')
-        ? missionSel.category
-        : (isPOI ? 'poi' : 'std');
+    const targetMissionCat = isBushMission
+        ? String(forcedProfile?.category || forcedProfile?.id || missionSel.profile || 'bush')
+        : ((missionSel.category && missionSel.category !== 'all')
+            ? missionSel.category
+            : (isPOI ? 'poi' : 'std'));
     const forcedProfileRule = (forcedProfile && forcedProfile.id !== 'auto')
         ? `14. PROFIL-FIX (zwingend): Setze passenger.roleProfile auf "${forcedProfile.roleProfile}" und passenger.taskDomain auf "${forcedProfile.taskDomain}". Rolle/Story daran ausrichten: ${forcedProfile.label}.`
         : '';
@@ -12777,7 +13608,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const poiNoTrainingRule = (isPOI && !isTrainingMission)
         ? `13. POI-GUARDRAIL: Bei POI-Missionen sind Trainingsinhalte strikt verboten (kein Instructor, keine Airwork-/Platzrunden-Aufgaben).`
         : '';
-    const promptDestName = isPoiTrainingMission ? `Übungsgebiet nahe ${startName}` : destName;
+    const promptDestName = isPoiTrainingMission
+        ? `Übungsgebiet nahe ${startName}`
+        : String(provisionalBushSpec?.areaRef?.name || provisionalBushSpec?.targetRef?.name || destName || '').trim();
     const poiLat = Number(poiTargetMeta?.lat);
     const poiLon = Number(poiTargetMeta?.lon);
     const poiHasCoords = Number.isFinite(poiLat) && Number.isFinite(poiLon);
@@ -12815,7 +13648,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     };
     const dispatchForm = {
         schema: 'missionDispatchForm.v2',
-        mode: isPOI ? 'poi' : 'apt',
+        mode: missionBaseType,
         route: {
             startName,
             targetName: promptDestName,
@@ -12828,8 +13661,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         required: {
             taskDomain: requiredTaskDomain || null,
             roleProfile: requiredRoleProfile || null,
-            missionType: isPOI ? 'poi' : 'apt',
-            targetCategory: String(dispatchPlan.targetCategory || missionSel.category || '').toLowerCase() || null,
+            missionType: missionBaseType,
+            targetCategory: String(dispatchPlan.targetCategory || targetMissionCat || missionSel.category || '').toLowerCase() || null,
             sceneKind: String(dispatchPlan.sceneKind || (isPOI ? '' : 'none')).toLowerCase() || null,
             noLandingAtPoi: !!isPOI,
             targetLabel: String(dispatchPlan.targetLabel || promptDestName || '')
@@ -12839,12 +13672,21 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             label: forcedProfile.label,
             paxText: forcedProfile.paxText || '',
             cargoExamples: Array.isArray(forcedProfile.cargoPool) ? forcedProfile.cargoPool.slice(0, 4) : [],
-            storyCue: forcedProfile.storyCue || ''
+            storyCue: forcedProfile.storyCue || '',
+            opsNotes: Array.isArray(forcedProfile.opsNotes) ? forcedProfile.opsNotes.slice(0, 4) : []
         } : null,
         allowedTheme: randomTheme,
         forbiddenTaskDomains: forbiddenByTaskDomain[requiredTaskDomain] || [],
         forbiddenThemes: forbiddenThemesByTaskDomain[requiredTaskDomain] || [],
         plannerContext: compactMissionPlanV2 || null,
+        bushContext: provisionalBushSpec ? {
+            targetMode: provisionalBushSpec.targetMode,
+            completionMode: provisionalBushSpec.completionMode,
+            requiresReturnHome: !!provisionalBushSpec.requiresReturnHome,
+            homeRef: provisionalBushSpec.homeRef || null,
+            targetRef: provisionalBushSpec.targetRef || null,
+            areaRef: provisionalBushSpec.areaRef || null
+        } : null,
         instruction: 'Fuelle nur die Textfelder fuer genau dieses Formular aus. Auftragstyp, taskDomain, roleProfile und Ziel duerfen nicht neu erfunden werden.'
     };
     const poiNameIsGeneric = /^(poi|zielgebiet|staudamm\/talsperre|gewaesser|gewasser|berg-\/talgebiet|funkmast\/funkturm\/windrad|industrieanlage)$/i.test(String(promptDestName || '').trim());
@@ -12866,12 +13708,21 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             ? `4d. PIPELINE-V3-TOOL-PLAN: Nutze missionPlanV2 als Tool-Calling-Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, localFacts, weatherHooks, realismBrief, narrativeHooks, mustMention/mustAvoid und lockedFields sind Leitplanken. Die Story muss daraus einen konkreten, lokal plausiblen Auftrag machen.`
             : `4d. PIPELINE-V2-PLAN: Nutze missionPlanV2 als ausgefuelltes Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, sceneKind, objectFamilies und lockedFields sind Leitplanken. Weiche nur ab, wenn sie technisch widerspruechlich sind.`)
         : '';
-    const localKnowledgeRule = isPoiTrainingMission
-        ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
-        : `4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${promptDestName}" ganz natürlich ein.`;
+    const localKnowledgeRule = isBushMission
+        ? `4. BUSH-LOKALWISSEN: Baue 1-2 echte geographische oder topographische Hinweise zu "${promptDestName}" ein. Fokus auf Wildnis, Tal-/Gelandecharakter, abgelegenen Strip und glaubwuerdigen Bush-Betrieb.`
+        : (isPoiTrainingMission
+            ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
+            : `4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${promptDestName}" ganz natürlich ein.`);
+    const routeRule = isPOI
+        ? `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.`
+        : (isBushMission
+            ? (provisionalBushSpec?.completionMode === 'return_home'
+                ? `BUSH-REGEL: Bush-Recon ab ${startName} in das Zielgebiet "${promptDestName}" mit anschliessender Rueckkehr nach ${startName}. Die Story muss Recon im Gebiet und den RTB klar abbilden; keine normale A-B-Endlandung als Missionsziel formulieren.`
+                : `BUSH-REGEL: Bush-Transfer von ${startName} nach ${promptDestName}. Die Story muss einen abgelegenen Zielstrip, Terrain-Disziplin und Bush-Flying-Charakter glaubwuerdig stuetzen.`)
+            : `ROUTEN-REGEL: Normaler Streckenflug von ${startName} nach ${promptDestName}.`);
 
     const prompt = `<INSTRUKTIONEN>
-Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen.
+Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub, kleinen Charterunternehmen oder Bush-Operator.
 Antwortsprache: Deutsch.
 Ton: alltagsnah, locker, glaubwürdig; keine Actionfilm-Rhetorik.
 
@@ -12882,7 +13733,7 @@ REGELN:
 3b) ${poiConsistencyRule || 'Zielkonsistenz beachten.'}
 3c) ${missionTruthRule || 'Gepruefte Zielinformationen beachten, falls vorhanden.'}
 3d) ${missionPlanV2Rule || 'Kein Pipeline-V2-Plan aktiv.'}
-4) ${isPOI ? `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.` : `ROUTEN-REGEL: Normaler Streckenflug von ${startName} nach ${promptDestName}.`}
+4) ${routeRule}
 5) Erfinde passende PAX/Fracht (max ${maxPaxLimit} Personen). Falls niemand mitfliegt: "0 PAX".
 6) Erfinde genau einen Hauptpassagier.${isTrainingMission ? ' Bei Training IMMER Instruktor (nicht null).' : ' (oder null bei 0 PAX).'}
 6b) passenger.gender ist PFLICHT und MUSS exakt "male" oder "female" sein (keine anderen Werte).
@@ -12916,7 +13767,7 @@ ${sceneIntentRule}
 
 <KONTEXT>
 Start: ${startName}
-Ziel: ${promptDestName} ${isPOI ? '(POI/Wendepunkt)' : '(Zielflughafen)'}
+Ziel: ${promptDestName} ${isPOI ? '(POI/Wendepunkt)' : (isBushMission ? '(Bush-/Remote-Strip)' : '(Zielflughafen)')}
 Distanz: ${dist} NM
 Wetter Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
 Wetter Ziel (${promptDestName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
@@ -13020,6 +13871,14 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
             sceneIntent
         });
         const draftTargetScene = sanitizeMissionTargetSceneSpec(null, { isPOI, taskDomain: passenger?.taskDomain || parsed.passenger?.taskDomain, missionPlanV2 });
+        const aiBushSpec = isBushMission
+            ? buildBushMissionSpec({
+                profileId: String(missionSel.profile || 'bush_supply_strip'),
+                startAirport: poiTargetMeta?.startAirport || null,
+                destAirport: poiTargetMeta?.destAirport || null,
+                distNm: Number.isFinite(Number(dist)) ? Number(dist) : 0
+            })
+            : null;
         return {
             t: parsed.title,
             s: storyText,
@@ -13039,6 +13898,8 @@ Antworte AUSSCHLIESSLICH als JSON ohne Markdown.
             passenger,
             i: "📋",
             cat: targetMissionCat,
+            missionType: missionBaseType,
+            bush: aiBushSpec,
             _missionPlanV2: missionPlanV2 || null,
             _source: sourceLabel
         };
@@ -13991,7 +14852,7 @@ async function generateMission() {
     let forcePOI = false;
     if (targetDest && targetDest === currentStartICAO) {
         targetDest = '';
-        forcePOI = true;
+        forcePOI = missionPicker.baseType === 'poi';
     }
     let dataSource = targetDest ? "Manuell" : "Generiert";
 
@@ -14002,17 +14863,23 @@ async function generateMission() {
         if (rangePref === "short") { minNM = 10; maxNM = 50; } if (rangePref === "medium") { minNM = 50; maxNM = 100; } if (rangePref === "long") { minNM = 100; maxNM = 250; }
     }
 
-    const effectiveType = (forcePOI || missionPicker.baseType === "poi") ? "poi" : "apt";
+    const requestedMissionType = forcePOI
+        ? 'poi'
+        : (missionPicker.baseType === 'bush' ? 'bush' : (missionPicker.baseType === 'poi' ? 'poi' : 'apt'));
+    const isBushDispatch = requestedMissionType === 'bush';
+    const effectiveType = requestedMissionType === 'poi' ? 'poi' : 'apt';
     let selectedPoiCategory = effectiveType === 'poi' ? (missionPicker.category || 'all') : 'all';
     const selectedAptCategory = effectiveType === 'apt' ? (missionPicker.category || 'all') : 'all';
     const selectedMissionProfile = String(missionPicker.profile || 'auto').toLowerCase();
     const seededProfileId = (selectedMissionProfile === 'auto')
-        ? pickAutoMissionTaskProfileId({
-            isPOI: effectiveType === 'poi',
-            selectedAptCategory,
-            selectedPoiCategory,
-            missionCat: ''
-        })
+        ? (isBushDispatch
+            ? pickAutoBushProfileId()
+            : pickAutoMissionTaskProfileId({
+                isPOI: effectiveType === 'poi',
+                selectedAptCategory,
+                selectedPoiCategory,
+                missionCat: ''
+            }))
         : selectedMissionProfile;
     const dispatchProfileId = String(seededProfileId || 'auto').toLowerCase();
     const requestedPoiCategory = selectedPoiCategory;
@@ -14046,7 +14913,10 @@ async function generateMission() {
     }
 
     if (targetDest) { dest = await getAirportData(targetDest); _ensureDispatchAlive(); } else {
-        if (effectiveType === "apt") {
+        if (isBushDispatch) {
+            dest = await findBushAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref);
+            _ensureDispatchAlive();
+        } else if (effectiveType === "apt") {
             dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref);
             _ensureDispatchAlive();
         } else if (selectedPoiCategory === 'trn') {
@@ -14103,15 +14973,31 @@ async function generateMission() {
 
     // APT-Fallbackkette: reduziert "Kein Ziel gefunden" bei engen Filtern
     // oder wenn Richtung/Region aktuell zu restriktiv sind.
-    if (!dest && !targetDest && effectiveType === "apt") {
+    if (!dest && !targetDest && isBushDispatch) {
+        dest = await findBushAirport(start.lat, start.lon, searchMin, searchMax, 'any', regionPref);
+        _ensureDispatchAlive();
+    }
+    if (!dest && !targetDest && isBushDispatch && regionPref !== 'any') {
+        dest = await findBushAirport(start.lat, start.lon, searchMin, searchMax, 'any', 'any');
+        _ensureDispatchAlive();
+    }
+    if (!dest && !targetDest && isBushDispatch) {
+        dest = await findGithubAirport(start.lat, start.lon, 5, 350, 'any', 'any');
+        _ensureDispatchAlive();
+        if (dest && typeof dest === 'object') {
+            dest.bushScore = Number(dest.bushScore || 0);
+            dest.isRemoteStrip = !!dest.isRemoteStrip;
+        }
+    }
+    if (!dest && !targetDest && effectiveType === "apt" && !isBushDispatch) {
         dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, 'any', regionPref);
         _ensureDispatchAlive();
     }
-    if (!dest && !targetDest && effectiveType === "apt" && regionPref !== 'any') {
+    if (!dest && !targetDest && effectiveType === "apt" && !isBushDispatch && regionPref !== 'any') {
         dest = await findGithubAirport(start.lat, start.lon, searchMin, searchMax, 'any', 'any');
         _ensureDispatchAlive();
     }
-    if (!dest && !targetDest && effectiveType === "apt") {
+    if (!dest && !targetDest && effectiveType === "apt" && !isBushDispatch) {
         dest = await findGithubAirport(start.lat, start.lon, 5, 350, 'any', 'any');
         _ensureDispatchAlive();
     }
@@ -14260,6 +15146,7 @@ async function generateMission() {
         start,
         dest,
         isPOI,
+        missionType: requestedMissionType,
         dist: totalDist,
         missionPicker: missionPickerResolved,
         dispatchProfileId,
@@ -14350,16 +15237,66 @@ async function generateMission() {
         dataSource = "Freiflug/Planung";
         m = {
             i: '🧭',
-            t: isPOI ? 'Freiflug · POI-Ziel' : 'Freiflug · APT-Ziel',
+            t: isPOI ? 'Freiflug · POI-Ziel' : (isBushDispatch ? 'Freiflug · Bush-Ziel' : 'Freiflug · APT-Ziel'),
             s: isPOI
                 ? 'Kein Missionsauftrag erstellt. Das POI-Ziel wurde fuer einen freien Flug bzw. zur reinen Planung generiert.'
-                : 'Kein Missionsauftrag erstellt. Das APT-Ziel wurde fuer einen freien Flug bzw. zur reinen Planung generiert.',
+                : (isBushDispatch
+                    ? 'Kein Missionsauftrag erstellt. Das Bush-Ziel wurde fuer einen freien Flug bzw. zur reinen Planung generiert.'
+                    : 'Kein Missionsauftrag erstellt. Das APT-Ziel wurde fuer einen freien Flug bzw. zur reinen Planung generiert.'),
             cat: isPOI ? String(dest?.poiCategory || 'poi') : 'freeflight',
+            missionType: requestedMissionType,
             _requestedProfile: 'freeflight_planning',
             _appliedProfile: 'freeflight_planning'
         };
         paxText = '-';
         cargoText = '-';
+    } else if (isBushDispatch) {
+        indicator.innerText = aiModeEnabled ? `Kontaktiere Bush-Dispatcher...` : `Erzeuge Bush-Mission...`;
+        if (aiModeEnabled) {
+            m = await fetchGeminiMission(
+                start.n,
+                dest.n,
+                totalDist,
+                false,
+                paxText,
+                cargoText,
+                poiTerrainFt,
+                missionWeather,
+                missionPickerResolved,
+                missionFireHazard,
+                {
+                    lat: Number(dest?.lat),
+                    lon: Number(dest?.lon),
+                    name: String(dest?.n || ''),
+                    missionPlanV2,
+                    startAirport: start,
+                    destAirport: dest
+                }
+            );
+            _ensureDispatchAlive();
+            if (m) {
+                dataSource = m._source;
+                if (m.pax) paxText = m.pax;
+                if (m.cargo) cargoText = m.cargo;
+            }
+        }
+        if (!m) {
+            const bushMission = buildBushMissionEnvelope({
+                profileId: dispatchProfileId,
+                startAirport: start,
+                destAirport: dest,
+                distNm: totalDist
+            });
+            m = bushMission.mission || null;
+            paxText = bushMission.paxText || paxText;
+            cargoText = bushMission.cargoText || cargoText;
+            dataSource = "Lokaler Bush-Generator";
+        }
+        if (m) {
+            m._requestedProfile = selectedMissionProfile;
+            m._appliedProfile = dispatchProfileId || 'auto';
+            m._missionPlanV2 = missionPlanV2 || m._missionPlanV2 || null;
+        }
     } else {
         indicator.innerText = `Kontaktiere KI-Dispatcher...`;
         m = await fetchGeminiMission(
@@ -14521,7 +15458,7 @@ async function generateMission() {
     const poiSource = isPOI ? String(dest?.poiSource || dataSource || 'n/a') : '';
     const poiLookup = isPOI && dest && typeof dest.poiLookup === 'object' ? dest.poiLookup : null;
     const dispatchSnapshot = {
-        mode: isPOI ? 'POI' : 'A-B',
+        mode: isBushDispatch ? 'BUSH' : (isPOI ? 'POI' : 'A-B'),
         category: poolCategory,
         requestedCategory: isPOI ? String(selectedPoiCategory || 'all') : String(selectedAptCategory || 'all'),
         profile: m?._requestedProfile || selectedMissionProfile || 'auto',
@@ -14555,9 +15492,17 @@ async function generateMission() {
         clearDraftMissionPersistence('new-mission-draft');
     }
 
+    const missionType = normalizeMissionType(m?.missionType || requestedMissionType || '', isPOI);
+    const bushSpec = missionType === 'bush'
+        ? sanitizeBushMissionSpec(m?.bush || null)
+        : null;
+
     currentMissionData = {
         start: currentStartICAO,
         dest: currentDestICAO,
+        missionType,
+        bush: bushSpec,
+        bushProgress: bushSpec ? buildInitialBushMissionProgress(bushSpec) : null,
         isPOI,
         poiName: isPOI ? dest.n : null,
         poiSource: isPOI ? poiSource : null,
@@ -14614,10 +15559,13 @@ async function generateMission() {
         ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt)
         : null;
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
-    let aptArrivalPlan = buildAptArrivalPlan({
+    const suppressAptArrivalPlan = missionType === 'bush' && !!bushSpec?.requiresReturnHome;
+    let aptArrivalPlan = suppressAptArrivalPlan ? null : buildAptArrivalPlan({
         isPOI,
         dest,
         mission: m,
+        missionType,
+        bushSpec,
         passenger: window.activePassenger || m?.passenger || null,
         paxText,
         cargoText,
@@ -14649,6 +15597,8 @@ async function generateMission() {
     }
     const activeMissionContract = buildMissionContract({
         isPOI,
+        missionType,
+        bushSpec,
         requestedProfileId: m?._requestedProfile || selectedMissionProfile || 'auto',
         appliedProfileId: m?._appliedProfile || dispatchProfileId || 'auto',
         mission: m,
@@ -14694,7 +15644,7 @@ async function generateMission() {
             contractTargetScene: activeMissionContract.targetScene || null,
             missionContext: {
                 source: m?._source || dataSource || 'n/a',
-                mode: isPOI ? 'POI' : 'A-B',
+                mode: isBushDispatch ? 'BUSH' : (isPOI ? 'POI' : 'A-B'),
                 profile: m?._appliedProfile || dispatchProfileId || 'auto',
                 taskDomain: window.activePassenger?.taskDomain || m?.passenger?.taskDomain || null,
                 mission: m?.t || '',

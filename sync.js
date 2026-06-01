@@ -37,7 +37,6 @@ const PLANE_ICON_DEFAULT_COLOR = '#f2c12e';
 const PLANE_ICON_DEFAULT_SIZE = 40;
 const PLANE_ICON_MIN_SIZE = 20;
 const PLANE_ICON_MAX_SIZE = 100;
-const MISSION_AUTO_START_KEY = 'ga_mission_auto_start_enabled';
 const BOARDING_MARKER_STORAGE_KEY = 'ga_boarding_marker_enabled';
 const MISSION_SCENE_ID_REGISTRY_KEY = 'ga_mission_scene_ids';
 const BOARDING_MARKER_TITLE = 'Cone_Medium';
@@ -268,20 +267,18 @@ function isMissionAutoStartEnabled() {
 }
 
 function setMissionAutoStartEnabled(enabled) {
-    localStorage.setItem(MISSION_AUTO_START_KEY, 'false');
-    if (!missionRuntime.active) {
-        missionRuntime.armed = false;
-        missionRuntime.readySince = 0;
-    }
+    if (!missionRuntime.active) missionRuntime.armed = false;
+    if (!missionRuntime.active) missionRuntime.readySince = 0;
     _updateMissionRuntimeUi();
+    return false;
 }
 
+// Legacy no-op API: kept so older UI hooks or saved handlers do not break.
 window.isMissionAutoStartEnabled = isMissionAutoStartEnabled;
 window.setMissionAutoStartEnabled = setMissionAutoStartEnabled;
 window.toggleMissionAutoStart = function() {
-    setMissionAutoStartEnabled(false);
+    return setMissionAutoStartEnabled(false);
 };
-try { localStorage.setItem(MISSION_AUTO_START_KEY, 'false'); } catch (_) {}
 
 function isBoardingMarkerEnabled() {
     return localStorage.getItem(BOARDING_MARKER_STORAGE_KEY) === 'true';
@@ -1274,43 +1271,6 @@ function _missionSceneFlightGate(flightData = null) {
     return { ...quality, gs, agl, hasPosition, onGround, nearGround, groundLike, lowGround, stationary, paused, inMenuOrMap, airborne, canStage };
 }
 
-function _missionAutoStartGroundStability(flightData = null, fallbackAglFt = null) {
-    const fd = flightData || window.lastLiveFlightData || {};
-    const pos = window.lastLiveGpsPos || {};
-    const gs = Number.isFinite(Number(fd.gsKts)) ? Number(fd.gsKts)
-        : (Number.isFinite(Number(fd.gs)) ? Number(fd.gs)
-            : (Number.isFinite(Number(pos.gs)) ? Number(pos.gs) : 0));
-    const rawAgl = Number(fd.aglFt);
-    const fallbackAgl = Number(fallbackAglFt);
-    const agl = Number.isFinite(rawAgl)
-        ? Math.max(0, rawAgl)
-        : (Number.isFinite(fallbackAgl) ? Math.max(0, fallbackAgl) : null);
-    const hasOnGroundFlag = typeof fd.onGround === 'boolean';
-    const onGround = hasOnGroundFlag ? !!fd.onGround : false;
-    const parkingBrakeSet = fd.parkingBrake === true;
-    const inMenuOrMap = !!fd.inMenuOrMap || Number(fd.simRunning) === 0 || Number(fd.dialogMode) === 1;
-
-    // Helis koennen auf Kufen SIM ON GROUND=false liefern. Fuer Auto-Start ist
-    // Stillstand direkt an der Oberflaeche robuster; Liftoff wird danach erkannt.
-    const nearSurface = Number.isFinite(agl) && agl <= 35;
-    const groundStable = hasOnGroundFlag
-        ? onGround || nearSurface
-        : nearSurface;
-    const stationary = gs <= 3.5 || (parkingBrakeSet && gs <= 8);
-    const paused = _missionTrackerPauseActive(fd, groundStable, stationary);
-    return {
-        ready: groundStable && stationary && !paused && !inMenuOrMap,
-        gs,
-        agl,
-        onGround,
-        nearSurface,
-        groundStable,
-        stationary,
-        paused,
-        inMenuOrMap
-    };
-}
-
 function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
     if (typeof window.missionSceneSpawn !== 'function' || typeof window.missionSceneClear !== 'function') return;
     const startPhase = _missionStartPhase();
@@ -1874,6 +1834,9 @@ function _missionAptArrivalAssetForItem(item = {}, index = 0) {
     } else if (role === 'vehicle.emergency.fire') {
         pool = MISSION_SCENE_ASSET_POOLS.fireVehicles;
         fallback = pool[0] || MISSION_SCENE_DEFAULT_VEHICLE_TITLE;
+    } else if (role === 'vehicle.quad') {
+        pool = MISSION_SCENE_ASSET_POOLS.quads;
+        fallback = pool[0] || 'Microsoft_Quad';
     } else if (role === 'vehicle.van') {
         pool = MISSION_SCENE_ASSET_POOLS.vans;
         fallback = pool[0] || 'Microsoft_Van_EUR';
@@ -3836,6 +3799,27 @@ function _missionSceneIsPoiMission() {
     return false;
 }
 
+function _activeMissionContractRuntime() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    return md?.missionContract || window.activeMissionContract || null;
+}
+
+function _missionSceneIsBushMission() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const contract = _activeMissionContractRuntime();
+    return String(md?.missionType || contract?.missionType || '').toLowerCase() === 'bush'
+        || !!(md?.bush && typeof md.bush === 'object')
+        || !!(contract?.bush && typeof contract.bush === 'object');
+}
+
+function _activeBushMissionSpec() {
+    if (!_missionSceneIsBushMission()) return null;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const contract = _activeMissionContractRuntime();
+    const spec = md?.bush || contract?.bush || null;
+    return spec && typeof spec === 'object' ? spec : null;
+}
+
 function _missionSceneVehicleSupportEnabled() {
     try {
         const raw = String(localStorage.getItem('ga_scene_apt_vehicle_enabled') || '').trim().toLowerCase();
@@ -4030,7 +4014,7 @@ window.missionSceneClear = function(reason = 'scene-debug-clear', sceneIdOverrid
     window.missionSceneStatus.lastCommandAt = Date.now();
     window.missionSceneStatus.lastCommand = { type: 'mission_scene_clear', commandId, reason };
     window.missionSceneStatus.clearRequested = true;
-    if (reason === 'manual-mission-end' || reason === 'auto-mission-end') {
+    if (reason === 'manual-mission-end') {
         window.missionSceneStatus.autoClearedFor = sceneId;
     }
     if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
@@ -6363,6 +6347,7 @@ function _missionCloseOutcomeSummaryText(outcome = null) {
 
 function _missionOutcomeApplyEndReadiness(outcome = null, endReady = null) {
     if (_missionSceneIsPoiMission()) return outcome;
+    if (_missionSceneIsBushMission() && _missionBushGroundEndReady(endReady)) return outcome;
     if (!endReady || endReady.atTarget) return outcome;
     const hasAptArrival = !!endReady.hasAptArrival;
     const dNm = hasAptArrival && Number.isFinite(Number(endReady.dArrivalNm))
@@ -6585,7 +6570,7 @@ function _missionEndDeboardingBusy() {
         || scene.deboardingActive);
 }
 
-function _updateMissionStartBanner(autoStartEnabled) {
+function _updateMissionStartBanner() {
     const banner = document.getElementById('missionStartBanner');
     if (!banner) return;
     const kickerEl = document.getElementById('missionStartBannerKicker');
@@ -6600,18 +6585,19 @@ function _updateMissionStartBanner(autoStartEnabled) {
     const phase = _missionStartPhase();
     const endReady = missionRuntime.active ? _missionEndReadiness() : null;
     const poiGroundEndReady = missionRuntime.active ? _missionPoiGroundEndReady(endReady) : false;
+    const bushGroundEndReady = missionRuntime.active ? _missionBushGroundEndReady(endReady) : false;
+    const runtimeGroundEndReady = missionRuntime.active ? _missionRuntimeGroundEndReady(endReady) : false;
     const deboardingBusy = _missionEndDeboardingBusy();
     const runtimePhase = _missionRuntimePhaseSnapshot();
     missionRuntime.phase = runtimePhase;
     const showClose = !!missionRuntime.closingPending;
     const showDeboarding = missionRuntime.active && deboardingBusy;
-    const showEndReady = !!endReady?.ready || poiGroundEndReady;
-    const showEnd = missionRuntime.active && showEndReady && !deboardingBusy && (!autoStartEnabled || missionRuntime.manual);
+    const showEndReady = runtimeGroundEndReady;
+    const showEnd = missionRuntime.active && showEndReady && !deboardingBusy;
     const showStart = valid
         && (trackerConnected || simMode)
         && groundReady
         && !missionRuntime.active
-        && !autoStartEnabled
         && !dismissed;
     const show = showClose || showDeboarding || showEnd || showStart;
     banner.style.display = show ? 'flex' : 'none';
@@ -6649,6 +6635,8 @@ function _updateMissionStartBanner(autoStartEnabled) {
                 textEl.textContent = 'Du stehst am Boden. POI-Mission kann hier beendet werden.';
             } else if (poiGroundEndReady && _missionPoiEndedAtHome(endReady) && !endReady?.ready) {
                 textEl.textContent = 'Du bist wieder am Startplatz. POI-Mission kann beendet werden.';
+            } else if (bushGroundEndReady) {
+                textEl.textContent = _missionBushEndReadyText();
             } else {
                 const distanceText = useArrivalDistance
                     ? `${Number(endReady.dArrivalNm).toFixed(2)} NM zum Empfangspunkt`
@@ -6697,7 +6685,6 @@ function _updateMissionStartBanner(autoStartEnabled) {
 }
 
 function _updateMissionRuntimeUi() {
-    const autoStartEnabled = isMissionAutoStartEnabled();
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const draftBlocked = !!md && !_missionSceneAcceptedForRuntime();
     const validMission = _hasValidMissionForStart();
@@ -6706,6 +6693,8 @@ function _updateMissionRuntimeUi() {
     const phase = _missionStartPhase();
     const endReady = missionRuntime.active ? _missionEndReadiness() : null;
     const poiGroundEndReady = missionRuntime.active ? _missionPoiGroundEndReady(endReady) : false;
+    const bushGroundEndReady = missionRuntime.active ? _missionBushGroundEndReady(endReady) : false;
+    const runtimeGroundEndReady = missionRuntime.active ? _missionRuntimeGroundEndReady(endReady) : false;
     const deboardingBusy = _missionEndDeboardingBusy();
     const st = document.getElementById('missionRuntimeStatus');
     const detailEl = document.getElementById('missionRuntimeDetail');
@@ -6713,22 +6702,24 @@ function _updateMissionRuntimeUi() {
     const poiStatus = missionRuntime.active ? _missionPoiRuntimeStatus(endReady) : null;
     const runtimePhase = _missionRuntimePhaseSnapshot();
     if (st) {
-        const idleText = !autoStartEnabled
-            ? (!validMission ? 'Keine startbare Mission' : (groundReady ? (phase === 'boarded' ? 'Mission startbereit' : (phase === 'boarding' ? 'Boarding läuft an' : (phase === 'prepare' ? 'Boarding freigegeben' : 'Mission geplant'))) : groundStatus.label))
-            : (missionRuntime.armed ? 'Scharf (bereit)' : 'Wartet auf Boden-Stabilisierung');
+        const idleText = !validMission
+            ? 'Keine startbare Mission'
+            : (groundReady
+                ? (phase === 'boarded' ? 'Mission startbereit' : (phase === 'boarding' ? 'Boarding läuft an' : (phase === 'prepare' ? 'Boarding freigegeben' : 'Mission geplant')))
+                : groundStatus.label);
         st.textContent = missionRuntime.closingPending
             ? 'Abschluss ausstehend'
             : missionRuntime.active
             ? ((runtimePhase === 'end_ready')
                 ? 'Abschlussbereit'
-                : (missionRuntime.manual || !autoStartEnabled ? 'Aktiv (manuell)' : 'Aktiv'))
+                : 'Aktiv (manuell)')
             : (draftBlocked ? 'Entwurf: Mission akzeptieren' : idleText);
         st.title = groundStatus.reason
             ? `Start-Gate: ${groundStatus.reason}${Number.isFinite(Number(groundStatus.gs)) ? ` | GS ${Number(groundStatus.gs).toFixed(1)} kt` : ''}${Number.isFinite(Number(groundStatus.agl)) ? ` | AGL ${Math.round(Number(groundStatus.agl))} ft` : ''}`
             : '';
         st.style.color = missionRuntime.active
             ? (runtimePhase === 'end_ready' ? '#c6f3a3' : '#4caf50')
-            : (draftBlocked ? '#f2c12e' : (!autoStartEnabled ? (validMission && groundReady ? '#8ec5ff' : '#888') : (missionRuntime.armed ? '#f2c12e' : '#888')));
+            : (draftBlocked ? '#f2c12e' : (validMission && groundReady ? '#8ec5ff' : '#888'));
     }
     if (detailEl) {
         let detailText = 'Statusdetails folgen nach Missionsstart';
@@ -6759,14 +6750,22 @@ function _updateMissionRuntimeUi() {
                     : (poiStatus.stage === 'home_ready' || poiStatus.stage === 'away_ready'
                         ? '#c6f3a3'
                         : '#8ea0b8');
-            } else if (endReady?.ready) {
+            } else if (runtimeGroundEndReady) {
+                if (bushGroundEndReady) {
+                    detailText = _missionBushRuntimeDetailText();
+                    detailColor = '#c6f3a3';
+                } else {
                 detailText = endReady.reason === 'apt_arrival_point'
                     ? 'Gelandet am Platz. Empfangspunkt erreicht. Mission kann regulär abgeschlossen werden.'
                     : 'Gelandet am Ziel. Mission kann regulär abgeschlossen werden.';
                 detailColor = '#c6f3a3';
+                }
             } else if (endReady?.groundStill) {
                 const distText = Number.isFinite(Number(endReady?.dMissionNm)) ? `${Number(endReady.dMissionNm).toFixed(2)} NM vom Missionsziel` : 'nicht am Ziel';
                 detailText = `Gelandet, aber noch ${distText}.`;
+            } else if (_missionSceneIsBushMission()) {
+                detailText = _missionBushRuntimeDetailText();
+                detailColor = '#8ea0b8';
             } else {
                 const homeNm = Number(_distanceToMissionHomeNm(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon));
                 const homeText = Number.isFinite(homeNm) ? ` · Home ${homeNm.toFixed(2)} NM` : '';
@@ -6798,12 +6797,17 @@ function _updateMissionRuntimeUi() {
                 nextStep = 'Nächster Schritt: Deboarding läuft';
             } else if (poiStatus?.nextStep) {
                 nextStep = poiStatus.nextStep;
-            } else if (endReady?.ready || poiGroundEndReady) {
+            } else if (runtimeGroundEndReady) {
                 if (typeof _missionCargoNeedsUnload === 'function' && _missionCargoNeedsUnload()) {
                     nextStep = 'Nächster Schritt: Pflichtladung entladen';
                 } else {
                     nextStep = 'Nächster Schritt: Mission beenden';
                 }
+            } else if (_missionSceneIsBushMission() && _missionBushEffectiveCompletionMode() === 'return_home') {
+                const p = _activeBushMissionProgress();
+                nextStep = p?.areaQualified
+                    ? 'Nächster Schritt: Zum Heimatplatz zurückkehren und stoppen'
+                    : 'Nächster Schritt: Recon-Gebiet sauber abfliegen';
             } else if (endReady?.groundStill && !endReady?.atTarget) {
                 nextStep = 'Nächster Schritt: Zum Ziel rollen/fliegen';
             } else {
@@ -6823,8 +6827,6 @@ function _updateMissionRuntimeUi() {
             nextStep = 'Nächster Schritt: Mission starten';
         } else if (!validMission) {
             nextStep = 'Nächster Schritt: Mission erzeugen/akzeptieren';
-        } else if (autoStartEnabled) {
-            nextStep = 'Nächster Schritt: Auf Boden-Stabilisierung warten';
         }
         nextStepEl.textContent = nextStep;
     }
@@ -6835,13 +6837,11 @@ function _updateMissionRuntimeUi() {
     if (bStart) bStart.disabled = missionRuntime.active;
     if (bEnd) bEnd.disabled = !missionRuntime.active;
     if (bAuto) {
-        bAuto.textContent = autoStartEnabled ? 'AUTO START: AN' : 'AUTO START: AUS';
-        bAuto.title = autoStartEnabled
-            ? 'Automatische Missions-Erkennung ist aktiv'
-            : 'Automatische Missions-Erkennung ist aus';
-        bAuto.setAttribute('aria-pressed', autoStartEnabled ? 'true' : 'false');
-        bAuto.classList.toggle('is-on', autoStartEnabled);
-        bAuto.classList.toggle('is-off', !autoStartEnabled);
+        bAuto.style.display = 'none';
+        bAuto.disabled = true;
+        bAuto.setAttribute('aria-pressed', 'false');
+        bAuto.classList.remove('is-on');
+        bAuto.classList.add('is-off');
     }
     if (bMap) {
         if (missionRuntime.closingPending) {
@@ -6850,14 +6850,14 @@ function _updateMissionRuntimeUi() {
             bMap.title = 'Mission abschliessen und Szene/Status zuruecksetzen';
             bMap.disabled = false;
         } else {
-            bMap.style.display = (!autoStartEnabled && (missionRuntime.active || (validMission && groundReady))) ? 'inline-flex' : 'none';
+            bMap.style.display = (missionRuntime.active || (validMission && groundReady)) ? 'inline-flex' : 'none';
             bMap.textContent = missionRuntime.active
-                ? (deboardingBusy ? '… Deboarding läuft' : ((endReady?.ready || poiGroundEndReady) ? '■ Mission beenden' : '■ Mission stoppen'))
+                ? (deboardingBusy ? '… Deboarding läuft' : (runtimeGroundEndReady ? '■ Mission beenden' : '■ Mission stoppen'))
                 : (phase === 'boarded'
                     ? '▶ Mission starten'
                     : (phase === 'prepare' ? '▶ Boarding' : (phase === 'boarding' ? '… Boarding läuft' : '▶ Mission starten')));
             bMap.title = missionRuntime.active
-                ? (deboardingBusy ? 'Deboarding laeuft bereits' : ((endReady?.ready || poiGroundEndReady) ? 'Mission jetzt abschliessen' : 'Mission manuell stoppen'))
+                ? (deboardingBusy ? 'Deboarding laeuft bereits' : (runtimeGroundEndReady ? 'Mission jetzt abschliessen' : 'Mission manuell stoppen'))
                 : (phase === 'boarded'
                     ? 'Mission jetzt aktiv schalten'
                     : (phase === 'prepare' ? 'Boarding und Verladen beginnen' : (phase === 'boarding' ? 'Boarding und Verladen laufen noch' : 'Missionstart freigeben und Boarding vorbereiten')));
@@ -6866,7 +6866,7 @@ function _updateMissionRuntimeUi() {
         bMap.classList.toggle('is-active', missionRuntime.active);
     }
     _updateMissionCargoAutoLoadButton();
-    _updateMissionStartBanner(autoStartEnabled);
+    _updateMissionStartBanner();
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
 }
 window.refreshMissionRuntimeUi = _updateMissionRuntimeUi;
@@ -7061,10 +7061,211 @@ function _missionPoiProgressState() {
     }
 }
 
+function _activeBushMissionProgress() {
+    if (!_missionSceneIsBushMission()) return null;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const progress = md?.bushProgress;
+    if (!progress || typeof progress !== 'object') return null;
+    return {
+        status: String(progress.status || 'enroute'),
+        targetReached: !!progress.targetReached,
+        areaEnteredAt: Number(progress.areaEnteredAt) || 0,
+        areaQualified: !!progress.areaQualified,
+        groundStopQualified: !!progress.groundStopQualified,
+        cargoDelivered: !!progress.cargoDelivered,
+        passengerDropped: !!progress.passengerDropped,
+        returnHomeQualified: !!progress.returnHomeQualified,
+        areaDwellSec: Math.max(0, Number(progress.areaDwellSec) || 0),
+        areaTrackNm: Math.max(0, Number(progress.areaTrackNm) || 0),
+        lastAreaSampleLat: Number(progress.lastAreaSampleLat),
+        lastAreaSampleLon: Number(progress.lastAreaSampleLon),
+        lastAreaSampleTs: Number(progress.lastAreaSampleTs) || 0,
+        visitedRouteRefs: Array.isArray(progress.visitedRouteRefs) ? progress.visitedRouteRefs.slice(0, 12) : []
+    };
+}
+
+function _persistBushMissionProgress(progress = null) {
+    if (!progress || typeof progress !== 'object') return null;
+    if (typeof currentMissionData === 'undefined' || !currentMissionData || typeof currentMissionData !== 'object') return null;
+    currentMissionData.bushProgress = { ...progress };
+    try {
+        if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+        else if (typeof saveMissionState === 'function') saveMissionState();
+    } catch (_) {}
+    return currentMissionData.bushProgress;
+}
+
+function _missionBushAreaRef() {
+    const bush = _activeBushMissionSpec();
+    const area = bush?.areaRef;
+    if (!area || typeof area !== 'object') return null;
+    const lat = Number(area.lat);
+    const lon = Number(area.lon);
+    const radiusNm = Math.max(0.5, Number(area.radiusNm) || 3);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { ...area, lat, lon, radiusNm };
+}
+
+function _missionBushAreaDistanceNm(lat, lon) {
+    const area = _missionBushAreaRef();
+    if (!area || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return null;
+    return _haversineNmLocal(Number(lat), Number(lon), area.lat, area.lon);
+}
+
+function _missionBushUpdateProgress(lat = null, lon = null, now = Date.now()) {
+    if (!_missionSceneIsBushMission()) return null;
+    const bush = _activeBushMissionSpec();
+    const progress = _activeBushMissionProgress();
+    if (!bush || !progress) return null;
+    const next = { ...progress };
+    const curLat = Number(lat ?? window.lastLiveGpsPos?.lat);
+    const curLon = Number(lon ?? window.lastLiveGpsPos?.lon);
+    const endReady = _missionEndReadiness(curLat, curLon);
+    if (endReady?.atTarget) next.targetReached = true;
+    const mode = _missionBushEffectiveCompletionMode();
+    if (mode === 'return_home') {
+        const area = _missionBushAreaRef();
+        const insideArea = area && Number.isFinite(curLat) && Number.isFinite(curLon)
+            ? (_missionBushAreaDistanceNm(curLat, curLon) <= area.radiusNm)
+            : false;
+        if (insideArea) {
+            if (!next.areaEnteredAt) next.areaEnteredAt = now;
+            if (Number.isFinite(next.lastAreaSampleTs) && next.lastAreaSampleTs > 0) {
+                const dtSec = Math.max(0, Math.min(10, (now - next.lastAreaSampleTs) / 1000));
+                next.areaDwellSec = Math.max(0, Number(next.areaDwellSec || 0) + dtSec);
+            }
+            if (Number.isFinite(next.lastAreaSampleLat) && Number.isFinite(next.lastAreaSampleLon)) {
+                const legNm = _haversineNmLocal(next.lastAreaSampleLat, next.lastAreaSampleLon, curLat, curLon);
+                if (Number.isFinite(legNm) && legNm > 0 && legNm <= 2.5) {
+                    next.areaTrackNm = Math.max(0, Number(next.areaTrackNm || 0) + legNm);
+                }
+            }
+            next.lastAreaSampleLat = curLat;
+            next.lastAreaSampleLon = curLon;
+            next.lastAreaSampleTs = now;
+            next.targetReached = true;
+            if (!next.areaQualified) next.status = 'on_task';
+        } else {
+            next.lastAreaSampleLat = NaN;
+            next.lastAreaSampleLon = NaN;
+            next.lastAreaSampleTs = 0;
+        }
+        const minAreaTimeSec = Math.max(0, Number(bush?.success?.minAreaTimeSec) || 0);
+        const minAreaTrackNm = Math.max(0, Number(bush?.success?.minAreaTrackNm) || 0);
+        if (!next.areaQualified && next.areaDwellSec >= minAreaTimeSec && next.areaTrackNm >= minAreaTrackNm) {
+            next.areaQualified = true;
+            next.status = bush.requiresReturnHome ? 'return_leg' : 'ready_to_close';
+        }
+        if (next.areaQualified && endReady?.groundStill && _isAtMissionHome(curLat, curLon)) {
+            next.returnHomeQualified = true;
+            next.groundStopQualified = true;
+            next.status = 'ready_to_close';
+        } else if (next.areaQualified && bush.requiresReturnHome) {
+            next.status = 'return_leg';
+        }
+    } else if (endReady?.groundStill && endReady?.atTarget) {
+        next.groundStopQualified = true;
+        next.status = 'ready_to_close';
+    }
+    const prevJson = JSON.stringify(progress);
+    const nextJson = JSON.stringify(next);
+    if (prevJson !== nextJson) _persistBushMissionProgress(next);
+    return next;
+}
+
 function _missionPoiGroundEndReady(endReady = null) {
     if (!_missionSceneIsPoiMission()) return false;
     const ready = endReady && typeof endReady === 'object' ? endReady : _missionEndReadiness();
     return !!(ready?.groundStill && _missionHasReachedEndEligibleFlightPhase());
+}
+
+function _missionBushEffectiveCompletionMode() {
+    const bush = _activeBushMissionSpec();
+    const profileId = String(bush?.profileId || '').toLowerCase();
+    const completionMode = String(bush?.completionMode || '').toLowerCase();
+    if (completionMode) return completionMode;
+    if (profileId === 'bush_supply_strip') return 'unload_at_target';
+    if (profileId === 'bush_charter_strip') return 'passenger_dropoff';
+    if (profileId === 'bush_scenic_hopper') return 'land_at_target';
+    return '';
+}
+
+function _missionBushRequiresReturnHome() {
+    return _missionSceneIsBushMission() && _missionBushEffectiveCompletionMode() === 'return_home';
+}
+
+function _missionBushEndReadyText() {
+    const mode = _missionBushEffectiveCompletionMode();
+    if (mode === 'unload_at_target') {
+        return _missionCargoNeedsUnload()
+            ? 'Bush-Zielstrip erreicht. Pflichtladung jetzt entladen.'
+            : 'Bush-Zielstrip erreicht. Versorgung kann abgeschlossen werden.';
+    }
+    if (mode === 'passenger_dropoff') {
+        return 'Bush-Zielstrip erreicht. Passagier-Dropoff kann jetzt abgeschlossen werden.';
+    }
+    if (mode === 'land_at_target') {
+        return 'Bush-Zielstrip erreicht. Adventure-Leg kann jetzt abgeschlossen werden.';
+    }
+    if (mode === 'return_home') {
+        return 'Bush-Recon abgeschlossen. Mission kann jetzt am Heimatplatz beendet werden.';
+    }
+    return 'Bush-Zielstrip erreicht. Mission kann abgeschlossen werden.';
+}
+
+function _missionBushRuntimeDetailText() {
+    const mode = _missionBushEffectiveCompletionMode();
+    if (mode === 'unload_at_target') {
+        return _missionCargoNeedsUnload()
+            ? 'Bush-Zielstrip erreicht. Pflichtladung wartet auf Entladung.'
+            : 'Bush-Zielstrip erreicht. Versorgung kann regulär abgeschlossen werden.';
+    }
+    if (mode === 'passenger_dropoff') {
+        return 'Bush-Zielstrip erreicht. Passagier wartet auf Farewell und Deboarding.';
+    }
+    if (mode === 'land_at_target') {
+        return 'Bush-Zielstrip erreicht. Adventure-Leg ist sauber beendet.';
+    }
+    if (mode === 'return_home') {
+        const p = _activeBushMissionProgress();
+        if (p?.returnHomeQualified) return 'Bush-Recon abgeschlossen. Rueckkehr und Stillstand am Heimatplatz bestaetigt.';
+        if (p?.areaQualified) return 'Recon im Zielgebiet abgeschlossen. Rueckflug zum Heimatplatz laeuft.';
+        return `Recon noch offen. Gebietsdauer ${Math.round(Number(p?.areaDwellSec || 0))}s · Track ${Number(p?.areaTrackNm || 0).toFixed(1)} NM.`;
+    }
+    return 'Bush-Zielstrip erreicht. Auftrag kann regulär abgeschlossen werden.';
+}
+
+function _missionBushGroundEndReady(endReady = null) {
+    if (!_missionSceneIsBushMission()) return false;
+    const ready = endReady && typeof endReady === 'object' ? endReady : _missionEndReadiness();
+    const completionMode = _missionBushEffectiveCompletionMode();
+    const isSupportedBushCompletion = completionMode === 'unload_at_target'
+        || completionMode === 'passenger_dropoff'
+        || completionMode === 'land_at_target'
+        || completionMode === 'return_home';
+    if (!isSupportedBushCompletion) return false;
+    if (completionMode === 'return_home') {
+        const pos = window.lastLiveGpsPos || {};
+        const curLat = Number(pos.lat);
+        const curLon = Number(pos.lon);
+        const progress = _activeBushMissionProgress();
+        return !!(
+            ready?.groundStill
+            && Number.isFinite(curLat)
+            && Number.isFinite(curLon)
+            && _isAtMissionHome(curLat, curLon)
+            && progress?.areaQualified
+            && _missionHasReachedEndEligibleFlightPhase()
+        );
+    }
+    return !!(ready?.groundStill && ready?.atTarget && _missionHasReachedEndEligibleFlightPhase());
+}
+
+function _missionRuntimeGroundEndReady(endReady = null) {
+    const ready = endReady && typeof endReady === 'object' ? endReady : _missionEndReadiness();
+    if (_missionSceneIsPoiMission()) return !!(ready?.ready || _missionPoiGroundEndReady(ready));
+    if (_missionSceneIsBushMission()) return _missionBushGroundEndReady(ready);
+    return !!ready?.ready;
 }
 
 function _missionPoiEndedAtHome(endReady = null) {
@@ -7390,6 +7591,8 @@ window.manualMissionStart = function() {
 window.manualMissionEnd = function(options = {}) {
     const endReady = _missionEndReadiness();
     const poiGroundEndReady = _missionPoiGroundEndReady(endReady);
+    const bushGroundEndReady = _missionBushGroundEndReady(endReady);
+    const runtimeGroundEndReady = _missionRuntimeGroundEndReady(endReady);
     if (!options.skipCargoUnload && typeof window.openMissionCargoDialog === 'function' && (_missionCargoNeedsUnload() || poiGroundEndReady)) {
         window.openMissionCargoDialog('unload');
         return false;
@@ -7423,7 +7626,7 @@ window.manualMissionEnd = function(options = {}) {
         && _missionSceneIsPoiMission()
         && _missionCargoHasHardFailure(_missionCargoHardFailurePreview())
     );
-    if ((endReady.atTarget || poiGroundEndReady) && typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
+    if ((endReady.atTarget || poiGroundEndReady || bushGroundEndReady || runtimeGroundEndReady) && typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
         if (_triggerPaxFarewellAndWaitForDeboard(farewellRecord, 'manual-end-farewell')) {
             return true;
         }
@@ -10323,7 +10526,7 @@ function finalizeFlightRecorder(now, endLat = null, endLon = null) {
         }
         // Farewell nur am korrekten Zielplatz triggern. APT-Arrival-Missionen
         // sprechen den Abschied erst am geplanten Empfangspunkt.
-        const atTargetForFarewell = _isAtMissionTarget(Number(endLat), Number(endLon), 1.2);
+        const atTargetForFarewell = !_missionBushRequiresReturnHome() && _isAtMissionTarget(Number(endLat), Number(endLon), 1.2);
         if (!r.farewellTriggered && atTargetForFarewell) {
             if (_triggerPaxFarewellAndWaitForDeboard(record, 'flight-finalize-farewell')) {
                 r.farewellTriggered = true;
@@ -10338,7 +10541,6 @@ function updateFlightRecorder(lat, lon, alt) {
     if (window.simModeActive) return; // Sim-Flüge laufen über sim-route Debrief/Prompt
 
     const now = Date.now();
-    const autoMissionStartEnabled = isMissionAutoStartEnabled();
     const _lfd = window.lastLiveFlightData;
     const gs = Number.isFinite(_lfd?.gsKts) ? Number(_lfd.gsKts) : (Number(smoothedGS) || 0);
     const agl = Number.isFinite(_lfd?.aglFt)
@@ -10394,49 +10596,12 @@ function updateFlightRecorder(lat, lon, alt) {
         r.lastUpdateTs = now; // dt-Sprung nach Pause vermeiden
     }
 
-    // Mission wird erst "scharf", wenn eine stabile Startlage erkannt wurde:
-    // stillstandnah und direkt an der Oberfläche, auch wenn Helis kein On-Ground liefern.
-    if (!autoMissionStartEnabled && !missionRuntime.active) {
+    if (!missionRuntime.active) {
         if (missionRuntime.armed || missionRuntime.readySince) {
             missionRuntime.armed = false;
             missionRuntime.readySince = 0;
             _updateMissionRuntimeUi();
         }
-    } else if (!missionRuntime.active) {
-        const startGround = _missionAutoStartGroundStability(_lfd || {}, agl);
-        if (startGround.ready) {
-            if (!missionRuntime.readySince) missionRuntime.readySince = now;
-            if (!missionRuntime.armed && (now - missionRuntime.readySince) >= 2500) {
-                missionRuntime.armed = true;
-                missionRuntime.manual = false;
-                _updateMissionRuntimeUi();
-            }
-        } else {
-            missionRuntime.readySince = 0;
-        }
-    }
-
-    // Erstes echtes Rollen/Bewegen startet die Mission; Helis dürfen auch per Liftoff starten.
-    const heliLiftOffStart = missionRuntime.armed && !simPaused && !inMenuOrMap && !onGroundNow && agl >= 35;
-    if (autoMissionStartEnabled && !missionRuntime.active && missionRuntime.armed && !simPaused && !inMenuOrMap && (gs >= 10 || heliLiftOffStart)) {
-        missionRuntime.phase = 'active';
-        missionRuntime.active = true;
-        missionRuntime.manual = false;
-        missionRuntime.pendingEndAt = 0;
-        missionRuntime.lastOffDestAt = 0;
-        missionRuntime.landingRollTriggered = false;
-        missionRuntime.arrivalFarewellTriggered = false;
-        missionRuntime.arrivalFlightRecord = null;
-        missionRuntime.waitingFarewellDeboarding = false;
-        missionRuntime.deboardingAfterFarewellStarted = false;
-        missionRuntime.endReadinessKey = '';
-        resetFlightRecorder();
-        setTimeout(() => _triggerGreetingAfterBoardingVoice(lat, lon), 300);
-        if (typeof window.missionSmokeEnsureSpawned === 'function') window.missionSmokeEnsureSpawned('auto-mission-start');
-        if (typeof window.missionTargetSceneEnsureSpawned === 'function') window.missionTargetSceneEnsureSpawned('auto-mission-start');
-        if (typeof window.missionAptArrivalEnsureSpawned === 'function') window.missionAptArrivalEnsureSpawned('auto-mission-start');
-        setTimeout(() => _missionSceneHandleFlightTick(window.lastLiveFlightData || {}, 'auto-mission-start'), 600);
-        _updateMissionRuntimeUi();
     }
 
     // Ohne aktive Mission keine Recorder-/Landungs-/Debrief-Logik.
@@ -10526,7 +10691,7 @@ function updateFlightRecorder(lat, lon, alt) {
                 window.triggerPaxLandingRoll(earlyRecord);
             }
         } else {
-            const atTargetForFarewell = _isAtMissionTarget(lat, lon, 1.2);
+            const atTargetForFarewell = !_missionBushRequiresReturnHome() && _isAtMissionTarget(lat, lon, 1.2);
             if (!r.farewellTriggered && atTargetForFarewell) {
                 const earlyRecord = _buildFlightRecordSnapshot(now);
                 if (earlyRecord) {
@@ -10539,68 +10704,40 @@ function updateFlightRecorder(lat, lon, alt) {
     }
     r.wasOnGround = onGroundNow;
 
+    if (_missionSceneIsBushMission()) {
+        _missionBushUpdateProgress(lat, lon, now);
+    }
+
     // Missionsende / Bodenfall:
     // - am Ziel + stillstand -> Farewell sprechen, danach Deboarding/Mission schließen
     // - woanders + stillstand -> humorvoller Hinweis, mission bleibt offen
     const endReady = _missionEndReadiness(lat, lon);
-    missionRuntime.phase = endReady.ready || _missionPoiGroundEndReady(endReady) ? 'end_ready' : 'active';
-    if (!autoMissionStartEnabled || missionRuntime.manual) {
-        const key = `${endReady.ready ? 'ready' : 'wait'}:${endReady.reason || ''}`;
-        if (missionRuntime.endReadinessKey !== key) {
-            missionRuntime.endReadinessKey = key;
-            _updateMissionRuntimeUi();
-        }
+    const bushGroundEndReady = _missionBushGroundEndReady(endReady);
+    const runtimeGroundEndReady = _missionRuntimeGroundEndReady(endReady);
+    missionRuntime.phase = runtimeGroundEndReady ? 'end_ready' : 'active';
+    const key = `${runtimeGroundEndReady ? 'ready' : 'wait'}:${endReady.reason || ''}`;
+    if (missionRuntime.endReadinessKey !== key) {
+        missionRuntime.endReadinessKey = key;
+        _updateMissionRuntimeUi();
     }
     if (endReady.groundStill) {
         const hasAptArrival = !!endReady.hasAptArrival;
         const dTargetNm = hasAptArrival && Number.isFinite(Number(endReady.dArrivalNm))
             ? endReady.dArrivalNm
             : endReady.dMissionNm;
-        if (autoMissionStartEnabled && endReady.atTarget) {
-            if (hasAptArrival && !missionRuntime.arrivalFarewellTriggered) {
-                const arrivalRecord = missionRuntime.arrivalFlightRecord || _buildFlightRecordSnapshot(now) || null;
-                if (_triggerPaxFarewellAndWaitForDeboard(arrivalRecord, 'apt-arrival-farewell')) {
-                    missionRuntime.arrivalFarewellTriggered = true;
-                    if (flightRecorder) flightRecorder.farewellTriggered = true;
-                }
-            }
-            if (missionRuntime.waitingFarewellDeboarding && !missionRuntime.deboardingAfterFarewellStarted) {
-                missionRuntime.pendingEndAt = 0;
-                return;
-            }
-            if (!missionRuntime.pendingEndAt) missionRuntime.pendingEndAt = now + 5000;
-            if (now >= missionRuntime.pendingEndAt) {
-                if (typeof window.openMissionCargoDialog === 'function' && _missionCargoNeedsUnload()) {
-                    window.openMissionCargoDialog('unload');
-                    missionRuntime.pendingEndAt = 0;
-                    return;
-                }
-                const cargoOutcome = (typeof _missionCargoFinalizeMissionOutcome === 'function')
-                    ? _missionCargoFinalizeMissionOutcome({ source: 'auto-mission-end' })
-                    : null;
-                _tryStartMissionEndScene('auto-mission-end');
-                const posNow = window.lastLiveGpsPos || {};
-                const shouldFinalize = !!(flightRecorder && (flightRecorder.active || flightRecorder.hadAirbornePhase || (Array.isArray(flightRecorder.track) && flightRecorder.track.length > 1)));
-                if (shouldFinalize) finalizeFlightRecorder(Date.now(), posNow?.lat ?? null, posNow?.lon ?? null);
-                else resetFlightRecorder();
-                _setMissionClosePending({ reason: 'auto-mission-end', outcome: cargoOutcome });
-            }
-        } else if (autoMissionStartEnabled) {
-            missionRuntime.pendingEndAt = 0;
-            if (r.hadAirbornePhase && (now - missionRuntime.lastOffDestAt) > 90000) {
-                missionRuntime.lastOffDestAt = now;
-                if (typeof window.triggerPaxOffDestinationLanding === 'function') {
-                    window.triggerPaxOffDestinationLanding(dTargetNm);
-                }
+        missionRuntime.pendingEndAt = 0;
+        if (!runtimeGroundEndReady && r.hadAirbornePhase && (now - missionRuntime.lastOffDestAt) > 90000) {
+            missionRuntime.lastOffDestAt = now;
+            if (typeof window.triggerPaxOffDestinationLanding === 'function') {
+                window.triggerPaxOffDestinationLanding(dTargetNm);
             }
         }
-    } else if (autoMissionStartEnabled) {
+    } else {
         missionRuntime.pendingEndAt = 0;
     }
 
     // Landing-Detection: erst wenn der Flug wirklich "airborne" war
     if (!r.armed || !r.hadAirbornePhase) return;
-    if (!autoMissionStartEnabled) return;
 
     const landingCandidate = gs < 18 && agl < 140;
     if (landingCandidate) {
@@ -10609,8 +10746,8 @@ function updateFlightRecorder(lat, lon, alt) {
             if (Number.isFinite(smoothedVS)) r.touchdownVsFpm = smoothedVS;
             // Fallback-AtTarget nur in Zielnähe zulassen, damit ein Absturz/Touchdown
             // fern vom Ziel keine "4-NM-vor-Landung"-Meldung auslöst.
-            const dTargetNm = _distanceToMissionTargetNm(lat, lon);
-            const nearTargetForAtTarget = Number.isFinite(dTargetNm) ? dTargetNm <= 4.5 : false;
+            const dTargetNmNear = _distanceToMissionTargetNm(lat, lon);
+            const nearTargetForAtTarget = !_missionBushRequiresReturnHome() && (Number.isFinite(dTargetNmNear) ? dTargetNmNear <= 4.5 : false);
             if (nearTargetForAtTarget && typeof window.triggerPaxAtTarget === 'function') {
                 window.triggerPaxAtTarget(window.lastLiveFlightData || {});
             }

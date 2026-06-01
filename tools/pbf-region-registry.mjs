@@ -1,5 +1,6 @@
 // pbf-region-registry.mjs
-// European Geofabrik PBF region registry for the obstacle tile workbench.
+// Geofabrik PBF region registry for the obstacle tile workbench.
+// Default focus is Europe, with selective extra regions added as needed.
 // Exports: REGIONS, tileBoundsFromKey(), findRegionsForTile()
 
 const BASE = 'https://download.geofabrik.de';
@@ -61,6 +62,13 @@ export const REGIONS = [
   { id: 'al',    name: 'Albania',                  bbox: [39.64, 19.27, 42.66, 21.06], sizeMb:   40, url: `${BASE}/europe/albania-latest.osm.pbf` },
   { id: 'cy',    name: 'Cyprus',                   bbox: [34.63, 32.27, 35.71, 34.59], sizeMb:   30, url: `${BASE}/europe/cyprus-latest.osm.pbf` },
   { id: 'is',    name: 'Iceland',                  bbox: [63.38,-24.55, 66.55,-13.50], sizeMb:   50, url: `${BASE}/europe/iceland-latest.osm.pbf` },
+
+  // ── Selective North America / US state extracts ───────────────────────────
+  // Kept intentionally narrow for now: add states/regions on demand where
+  // the workbench should prefer PBF over the limited Overpass fallback.
+  // Source verified on Geofabrik:
+  // https://download.geofabrik.de/north-america/us/idaho.html
+  { id: 'us-id', name: 'Idaho',                    bbox: [41.95, -117.30, 49.05, -111.00], sizeMb:  125, url: `${BASE}/north-america/us/idaho-latest.osm.pbf` },
 ];
 
 /**
