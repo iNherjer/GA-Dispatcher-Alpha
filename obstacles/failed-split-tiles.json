@@ -1,27 +1,5 @@
 {
-  "generatedAt": "2026-06-01T09:48:11.520Z",
-  "failed": 3,
-  "failedTiles": [
-    {
-      "tile": "324|158",
-      "status": 429,
-      "error": "HTTP 429: <?xml version=\"1.0\" encoding=\"UTF-8\"?> <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"> <html xmlns=\"http://www.w3.",
-      "server": "https://overpass-api.de/api/interpreter",
-      "at": "2026-06-01T09:46:18.568Z"
-    },
-    {
-      "tile": "324|160",
-      "status": 504,
-      "error": "HTTP 504: <?xml version=\"1.0\" encoding=\"UTF-8\"?> <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"> <html xmlns=\"http://www.w3.",
-      "server": "https://overpass-api.de/api/interpreter",
-      "at": "2026-06-01T09:46:52.518Z"
-    },
-    {
-      "tile": "325|161",
-      "status": 429,
-      "error": "HTTP 429: <?xml version=\"1.0\" encoding=\"UTF-8\"?> <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"> <html xmlns=\"http://www.w3.",
-      "server": "https://overpass-api.de/api/interpreter",
-      "at": "2026-06-01T09:47:47.629Z"
-    }
-  ]
+  "generatedAt": "2026-06-01T10:59:14.634Z",
+  "failed": 0,
+  "failedTiles": []
 }
