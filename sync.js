@@ -6095,6 +6095,28 @@ async function _missionBushPickupBoarding(item = null, options = {}) {
     if (window.missionSceneStatus?.boardingRequested || window.missionSceneStatus?.boardingActive || missionSceneBoardingPromise) {
         return false;
     }
+    const progress = _activeBushMissionProgress();
+    if (progress) {
+        _persistBushMissionProgress({
+            ...progress,
+            pickupReady: false,
+            status: 'pickup_loading'
+        });
+    }
+    window.missionSceneStatus.boardingRequested = true;
+    window.missionSceneStatus.boardingActive = true;
+    window.missionSceneStatus.boardingComplete = false;
+    window.missionSceneStatus.boardingError = null;
+    if (window.simModeActive || !window.liveTrackerConnected) {
+        _missionCargoRenderDialog('pickup', { skipPayloadRefresh: true });
+        await new Promise(resolve => setTimeout(resolve, 900));
+        window.missionSceneStatus.boardingRequested = false;
+        window.missionSceneStatus.boardingActive = false;
+        window.missionSceneStatus.boardingComplete = true;
+        window.missionSceneStatus.boardingError = null;
+        window.missionSceneStatus.personBoarded = true;
+        return _missionBushPickupBoardingApplySuccess(item);
+    }
     const aptPlan = _missionAptArrivalPlan();
     const personPoint = _missionAptArrivalPersonPoint(aptPlan);
     const aptSceneId = window.missionAptArrivalSceneStatus?.sceneId || _missionAptArrivalSceneId();
@@ -6139,28 +6161,6 @@ async function _missionBushPickupBoarding(item = null, options = {}) {
         altFt: Number.isFinite(Number(pos.alt)) ? Number(pos.alt) : 0,
         hdg
     };
-    const progress = _activeBushMissionProgress();
-    if (progress) {
-        _persistBushMissionProgress({
-            ...progress,
-            pickupReady: false,
-            status: 'pickup_loading'
-        });
-    }
-    window.missionSceneStatus.boardingRequested = true;
-    window.missionSceneStatus.boardingActive = true;
-    window.missionSceneStatus.boardingComplete = false;
-    window.missionSceneStatus.boardingError = null;
-    if (window.simModeActive || !window.liveTrackerConnected) {
-        _missionCargoRenderDialog('pickup', { skipPayloadRefresh: true });
-        await new Promise(resolve => setTimeout(resolve, 900));
-        window.missionSceneStatus.boardingRequested = false;
-        window.missionSceneStatus.boardingActive = false;
-        window.missionSceneStatus.boardingComplete = true;
-        window.missionSceneStatus.boardingError = null;
-        window.missionSceneStatus.personBoarded = true;
-        return _missionBushPickupBoardingApplySuccess(item);
-    }
     const commandId = window.sendTrackerCommand(command);
     if (!commandId) {
         window.missionSceneStatus.boardingRequested = false;
