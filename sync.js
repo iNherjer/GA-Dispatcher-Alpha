@@ -6075,6 +6075,21 @@ function _resolveMissionSceneBoardingAck(ack) {
     waiter.resolve(ack);
 }
 
+function _missionBushPickupBoardingApplySuccess(item = null) {
+    if (!item) return false;
+    window.missionCargoLoadItem?.(item.id, { mode: 'pickup', render: false, skipAnimation: true });
+    const next = _activeBushMissionProgress();
+    if (next) {
+        _persistBushMissionProgress({
+            ...next,
+            pickupCompleted: true,
+            status: 'pickup_complete'
+        });
+    }
+    _missionCargoRenderDialog('pickup', { skipPayloadRefresh: true });
+    return true;
+}
+
 async function _missionBushPickupBoarding(item = null, options = {}) {
     if (!_missionBushIsPickupMission() || !item || !_missionCargoIsPassengerItem(item)) return false;
     if (window.missionSceneStatus?.boardingRequested || window.missionSceneStatus?.boardingActive || missionSceneBoardingPromise) {
@@ -6136,6 +6151,16 @@ async function _missionBushPickupBoarding(item = null, options = {}) {
     window.missionSceneStatus.boardingActive = true;
     window.missionSceneStatus.boardingComplete = false;
     window.missionSceneStatus.boardingError = null;
+    if (window.simModeActive || !window.liveTrackerConnected) {
+        _missionCargoRenderDialog('pickup', { skipPayloadRefresh: true });
+        await new Promise(resolve => setTimeout(resolve, 900));
+        window.missionSceneStatus.boardingRequested = false;
+        window.missionSceneStatus.boardingActive = false;
+        window.missionSceneStatus.boardingComplete = true;
+        window.missionSceneStatus.boardingError = null;
+        window.missionSceneStatus.personBoarded = true;
+        return _missionBushPickupBoardingApplySuccess(item);
+    }
     const commandId = window.sendTrackerCommand(command);
     if (!commandId) {
         window.missionSceneStatus.boardingRequested = false;
@@ -6144,17 +6169,7 @@ async function _missionBushPickupBoarding(item = null, options = {}) {
     }
     const ack = await _waitForMissionSceneBoardingAck(commandId, 36000);
     if (ack?.status === 'ok') {
-        window.missionCargoLoadItem?.(item.id, { mode: 'pickup', render: false, skipAnimation: true });
-        const next = _activeBushMissionProgress();
-        if (next) {
-            _persistBushMissionProgress({
-                ...next,
-                pickupCompleted: true,
-                status: 'pickup_complete'
-            });
-        }
-        _missionCargoRenderDialog('pickup', { skipPayloadRefresh: true });
-        return true;
+        return _missionBushPickupBoardingApplySuccess(item);
     }
     window.missionCargoStatus.error = ack?.error || ack?.status || 'pickup_boarding_failed';
     const next = _activeBushMissionProgress();
