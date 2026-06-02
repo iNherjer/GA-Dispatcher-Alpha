@@ -3615,12 +3615,10 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
         ? 'window.finishMissionCargoUnloadAndEnd && finishMissionCargoUnloadAndEnd()'
         : (isPickup
             ? 'window.finishMissionCargoPickupAndContinue && finishMissionCargoPickupAndContinue()'
-            : (signature
-            ? 'window.finishMissionCargoLoadingAndStart && finishMissionCargoLoadingAndStart()'
-            : 'window.missionCargoSignDispatchList && missionCargoSignDispatchList()'));
+            : 'window.finishMissionCargoLoadingAndStart && finishMissionCargoLoadingAndStart()');
     const primaryActionLabel = isUnload
         ? 'Entladung abgeschlossen - Mission beenden'
-        : (isPickup ? 'Pickup bestaetigen und Rueckflug freigeben' : (signature ? 'Verladung abschliessen' : 'Verladung bestaetigen & unterschreiben'));
+        : (isPickup ? 'Pickup bestaetigen und Rueckflug freigeben' : 'Verladung abschliessen');
     const secondaryAction = (!isUnload && !isPickup && signature)
         ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
         : '';
@@ -3681,7 +3679,7 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             </div>
             <div class="mission-cargo-actions">
                 ${secondaryAction}
-                <button class="mission-cargo-primary" ${((isUnload && !groundHandlingAllowed) || (isPickup && (!groundHandlingAllowed || !pickupReadyToConfirm)) || (!isUnload && !isPickup && (!signature || !groundHandlingAllowed))) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
+                <button class="mission-cargo-primary" ${((isUnload && !groundHandlingAllowed) || (isPickup && (!groundHandlingAllowed || !pickupReadyToConfirm)) || (!isUnload && !isPickup && !groundHandlingAllowed)) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
             </div>
         </div>`;
     overlay.style.display = 'flex';
@@ -4032,6 +4030,15 @@ window.finishMissionCargoPickupAndContinue = function() {
         });
     }
     const bush = _activeBushMissionSpec();
+    if (_missionBushIsPickupPassengerMission() && !window.activePassenger) {
+        const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+        const passenger = md?.passenger || md?.missionContract?.passenger || window.activeMissionContract?.passenger || null;
+        if (passenger && typeof passenger === 'object') {
+            window.activePassenger = { ...passenger };
+            try { localStorage.setItem('ga_active_passenger', JSON.stringify(window.activePassenger)); } catch (_) {}
+            try { window.paxVoiceRefreshWidget?.(); } catch (_) {}
+        }
+    }
     if (typeof window.triggerPaxGreeting === 'function' && bush?.pickupGreetingText) {
         try {
             window.triggerPaxGreeting(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon, {
@@ -7352,7 +7359,7 @@ function _updateMissionRuntimeUi() {
             bMap.style.display = (missionRuntime.active || (validMission && groundReady)) ? 'inline-flex' : 'none';
             const pickupActionReady = missionRuntime.active && _missionBushPickupReadyForAction();
             const pickupConfirmOnly = pickupActionReady && !!(_activeBushMissionProgress()?.pickupCompleted && !_activeBushMissionProgress()?.pickupConfirmed);
-            const unloadActionReady = missionRuntime.active && !runtimeGroundEndReady && !_missionBushPickupReadyForAction() && _missionCargoNeedsUnload();
+            const unloadActionReady = missionRuntime.active && _missionCargoGroundHandlingAllowed() && !runtimeGroundEndReady && !_missionBushPickupReadyForAction() && _missionCargoNeedsUnload();
             bMap.textContent = missionRuntime.active
                 ? (deboardingBusy ? '… Deboarding läuft' : (runtimeGroundEndReady ? '■ Mission beenden' : (pickupActionReady ? (pickupConfirmOnly ? '⬤ Pickup abschliessen' : '⬤ Pickup starten') : (unloadActionReady ? '⬤ Ausladen' : '■ Mission stoppen'))))
                 : (phase === 'boarded'

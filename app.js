@@ -2542,6 +2542,7 @@ function buildBushMissionEnvelope({ profileId = 'bush_supply_strip', startAirpor
         title = `Bush Pickup RTB: ${targetName}`;
         story = `${passenger?.role || 'Ein Rueckflug-Passagier'} wartet heute an einem abgelegenen Strip bei ${targetName} auf Abholung. Du fliegst leer von ${homeName} raus, nimmst den Gast nach der Landung direkt am Strip auf und bringst ihn ohne Umweg wieder zurueck zum Heimatplatz.`;
         paxText = passenger?.role ? `0 PAX am Start · 1 PAX Pickup (${passenger.role})` : '0 PAX am Start · 1 PAX Pickup';
+        cargoText = '-';
     } else if (profile.id === 'bush_pickup_cargo') {
         title = `Bush Cargo RTB: ${targetName}`;
         story = `An einem abgelegenen Strip bei ${targetName} wartet heute eine Rueckholfracht auf Abholung. Du fliegst leer von ${homeName} raus, nimmst die bereitliegende Ladung nach der Landung direkt am Treffpunkt auf und bringst sie ohne Zwischenstopp wieder zum Heimatplatz.`;
@@ -15741,11 +15742,15 @@ async function generateMission() {
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
     const isAiGeneratedMission = !!(m && typeof m._source === 'string' && /^Gemini\b/i.test(String(m._source)));
     const forceFireWatchPassenger = !!(missionHasPassenger && m && m.passenger && String(m.passenger.taskDomain || '').toLowerCase() === 'fire_watch');
+    const isDeferredBushPickupPassenger = missionType === 'bush'
+        && String(bushSpec?.targetMode || '') === 'strip_then_return'
+        && String(bushSpec?.pickupKind || '') === 'passenger';
     const shouldActivateMissionPassenger = !!(
         missionHasPassenger
         && m
         && m.passenger
         && typeof m.passenger === 'object'
+        && !isDeferredBushPickupPassenger
         && (
             (aiModeEnabled && isAiGeneratedMission)
             || forceFireWatchPassenger

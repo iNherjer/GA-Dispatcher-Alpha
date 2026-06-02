@@ -2943,6 +2943,7 @@ window.paxVoicePlayBoarding = async function() {
     _paxBoardingPromise = (async () => {
         let prepared = await window.paxVoicePrepareBoarding();
         prepared = prepared || _paxPreparedAudio.get(key) || null;
+        if (!prepared?.text && !window.activePassenger && !_missionHasPax()) return false;
         const speaker = prepared?.speaker || _speakerSnapshotForActivePax();
         const text = String(prepared?.text || _buildBoardingText() || '').trim();
         if (!text) return false;
