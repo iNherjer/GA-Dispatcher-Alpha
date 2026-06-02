@@ -8677,6 +8677,14 @@ window.handleMissionStartBannerAction = async function() {
                 window.openMissionCargoDialog('unload');
                 return;
             }
+            if (window.simModeActive && typeof window.completeSimMissionEnd === 'function' && groundAction.action === 'end') {
+                _missionPhaseDebugPush('trigger', {
+                    name: 'handleMissionStartBannerAction:complete-sim-end',
+                    phase: groundAction.phase
+                });
+                window.completeSimMissionEnd();
+                return;
+            }
             window.manualMissionEnd();
             return;
         }

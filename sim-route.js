@@ -141,8 +141,17 @@
                         window.openMissionCargoDialog('unload');
                         return;
                     }
+                    if (typeof window.gaMissionPhaseDebugRecord === 'function') {
+                        try {
+                            window.gaMissionPhaseDebugRecord('trigger', {
+                                name: 'sim:end_hold:await-explicit-end',
+                                action: groundAction?.action || 'end',
+                                phase: groundAction?.phase || 'mission_end_pending'
+                            });
+                        } catch (_) {}
+                    }
                 }
-                _finalizeSimMissionEnd(rec);
+                return;
             }
             return;
         }
