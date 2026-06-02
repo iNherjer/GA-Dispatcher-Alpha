@@ -3396,6 +3396,21 @@ function _missionCargoEvaluateOutcome(manifest = _missionCargoEnsureManifest()) 
     };
 }
 
+function _missionCargoRequiredStatusSnapshot(manifest = _missionCargoEnsureManifest()) {
+    const items = Array.isArray(manifest?.items) ? manifest.items : [];
+    return items
+        .filter(item => item && item.required)
+        .map(item => ({
+            id: String(item.id || ''),
+            label: String(item.storyName || item.label || item.id || ''),
+            status: String(item.status || 'pending'),
+            itemType: String(item.itemType || 'cargo'),
+            pickupLocation: String(item.pickupLocation || ''),
+            deliverAtDestination: item.deliverAtDestination !== false,
+            deliverAtHome: item.deliverAtHome === true
+        }));
+}
+
 window.missionCargoEvaluateOutcome = function() {
     if (!_missionCargoHasActiveMission()) {
         return { status: 'none', failed: false, requiredTotal: 0, requiredLoaded: 0, missingRequired: [], droppedRequired: [], notDeliveredRequired: [], damagedRequired: [], loadedWeightLbs: 0, totalWeightLbs: 0 };
@@ -3407,6 +3422,18 @@ window.missionCargoEvaluateOutcome = function() {
 function _missionCargoFinalizeMissionOutcome(options = {}) {
     const manifest = _missionCargoApplyStressSnapshot(options.record || null);
     const outcome = _missionCargoEvaluateOutcome(manifest);
+    if (typeof _missionPhaseDebugPush === 'function') {
+        _missionPhaseDebugPush('trigger', {
+            name: 'missionCargoFinalizeMissionOutcome',
+            source: options.source || 'mission-end',
+            failed: !!outcome.failed,
+            missingRequired: (outcome.missingRequired || []).join(','),
+            notDeliveredRequired: (outcome.notDeliveredRequired || []).join(','),
+            droppedRequired: (outcome.droppedRequired || []).join(','),
+            damagedRequired: (outcome.damagedRequired || []).join(','),
+            requiredStatus: JSON.stringify(_missionCargoRequiredStatusSnapshot(manifest))
+        });
+    }
     outcome.finalizedAt = Date.now();
     outcome.source = options.source || 'mission-end';
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
