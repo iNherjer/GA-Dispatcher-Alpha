@@ -427,6 +427,17 @@
     function _finalizeSimMissionEnd(record) {
         const rec = record || simMissionEndRecord || _buildSimRecord();
         if (!rec) return false;
+        simMissionEndPending = false;
+        simMissionEndRecord = rec;
+        if (typeof window.gaMissionPhaseDebugRecord === 'function') {
+            try { window.gaMissionPhaseDebugRecord('trigger', { name: 'completeSimMissionEnd', distanceNm: rec?.distanceNm ?? null }); } catch (_) {}
+        }
+        console.log('[SimPax] Sim-Missionsende erreicht → expliziter Abschluss mit Farewell/Close-Pfad. Record:', rec?.distanceNm, 'NM');
+        if (typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
+            const started = _triggerPaxFarewellAndWaitForDeboard(rec, 'sim-mission-end-farewell');
+            _stop();
+            if (started) return true;
+        }
         if (typeof window.missionCargoFinalizeMissionOutcome === 'function') {
             try {
                 const outcome = window.missionCargoFinalizeMissionOutcome({ source: 'sim-mission-end', record: rec });
@@ -435,7 +446,6 @@
                 console.warn('[SimPax] Cargo-Finalisierung fehlgeschlagen:', e?.message || e);
             }
         }
-        console.log('[SimPax] Sim-Missionsende erreicht → Farewell ohne Log/Debrief. Record:', rec?.distanceNm, 'NM');
         if (typeof window.triggerPaxFarewell === 'function') window.triggerPaxFarewell(rec);
         _stop();
         return true;
