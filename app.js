@@ -15493,6 +15493,15 @@ async function generateMission() {
             m._requestedProfile = selectedMissionProfile;
             m._appliedProfile = dispatchProfileId || 'auto';
             m._missionPlanV2 = missionPlanV2 || m._missionPlanV2 || null;
+            const pickupKind = String(m?.bush?.pickupKind || bushSpec?.pickupKind || '').toLowerCase();
+            const targetMode = String(m?.bush?.targetMode || bushSpec?.targetMode || '').toLowerCase();
+            if (targetMode === 'strip_then_return' && (pickupKind === 'passenger' || pickupKind === 'cargo')) {
+                cargoText = '-';
+                if (typeof m === 'object') {
+                    m.cargo = '-';
+                    m.cargoText = '-';
+                }
+            }
         }
     } else {
         indicator.innerText = `Kontaktiere KI-Dispatcher...`;

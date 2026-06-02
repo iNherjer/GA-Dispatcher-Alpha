@@ -3611,13 +3611,14 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
             <div class="mission-cargo-signature-meta">Unterschrift Pilot · ${signature ? _missionCargoEscape(_missionCargoFormatDate(signature.at)) : 'noch offen'} · Klick: ${signature ? 'Signatur loeschen' : 'unterschreiben'}</div>
         </div>` : '';
     const pickupReadyToConfirm = isPickup && requiredPickupMissing === 0 && visibleItems.length > 0;
+    const unloadCompletesMission = isUnload && _missionRuntimeGroundEndReady();
     const primaryActionJs = isUnload
         ? 'window.finishMissionCargoUnloadAndEnd && finishMissionCargoUnloadAndEnd()'
         : (isPickup
             ? 'window.finishMissionCargoPickupAndContinue && finishMissionCargoPickupAndContinue()'
             : 'window.finishMissionCargoLoadingAndStart && finishMissionCargoLoadingAndStart()');
     const primaryActionLabel = isUnload
-        ? 'Entladung abgeschlossen - Mission beenden'
+        ? (unloadCompletesMission ? 'Entladung abgeschlossen - Mission beenden' : 'Entladung abschliessen')
         : (isPickup ? 'Pickup bestaetigen und Rueckflug freigeben' : 'Verladung abschliessen');
     const secondaryAction = (!isUnload && !isPickup && signature)
         ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
@@ -4056,6 +4057,10 @@ window.finishMissionCargoPickupAndContinue = function() {
 
 window.finishMissionCargoUnloadAndEnd = function() {
     window.closeMissionCargoDialog?.();
+    if (!_missionRuntimeGroundEndReady()) {
+        _updateMissionRuntimeUi();
+        return true;
+    }
     if (window.simModeActive && typeof window.completeSimMissionEnd === 'function') {
         return window.completeSimMissionEnd();
     }
