@@ -16110,9 +16110,22 @@ function openMetar(t) { window.open(`https://metar-taf.com/de/${t === 'dep' ? cu
 
 function logCurrentFlight() {
     if (!currentMissionData) return;
-    if (typeof window.missionCargoNeedsUnload === 'function' && window.missionCargoNeedsUnload()) {
-        if (typeof window.openMissionCargoDialog === 'function') window.openMissionCargoDialog('unload');
-        return;
+    if (typeof window.openMissionCargoDialog === 'function') {
+        const groundAction = typeof window.missionResolveGroundAction === 'function'
+            ? window.missionResolveGroundAction()
+            : null;
+        if (groundAction?.action === 'pickup') {
+            window.openMissionCargoDialog('pickup');
+            return;
+        }
+        if (groundAction?.action === 'unload') {
+            window.openMissionCargoDialog('unload');
+            return;
+        }
+        if (typeof window.missionCargoNeedsUnload === 'function' && window.missionCargoNeedsUnload()) {
+            window.openMissionCargoDialog('unload');
+            return;
+        }
     }
     const cargoOutcome = (typeof window.missionCargoFinalizeMissionOutcome === 'function')
         ? window.missionCargoFinalizeMissionOutcome({ source: 'logbook' })

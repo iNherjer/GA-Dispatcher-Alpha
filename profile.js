@@ -4004,6 +4004,101 @@ window.vpCopyWeatherDebugReport = async function() {
     }
 };
 
+window.vpBuildMissionPhaseDebugReport = function() {
+    const fmt = (ts) => vpFormatDebugTs(ts);
+    const lines = [];
+    const dbg = (typeof window.gaMissionPhaseDebugGet === 'function')
+        ? window.gaMissionPhaseDebugGet()
+        : (window.gaMissionPhaseDebug || null);
+    const missionSnap = window.vpMissionDebugSnapshot || (() => {
+        try { return JSON.parse(localStorage.getItem('ga_mission_debug_snapshot') || 'null'); } catch (_) { return null; }
+    })();
+    lines.push(`Session seit: ${fmt(dbg?.sessionStartedAt || dbg?.ts || Date.now())}`);
+    lines.push('Phasen-Log');
+    if (missionSnap) {
+        lines.push(`- Mission: ${missionSnap.mission || 'n/a'}`);
+        lines.push(`- Ziel: ${missionSnap.target || 'n/a'}`);
+        lines.push(`- Modus/Kategorie: ${missionSnap.mode || '?'} / ${missionSnap.category || '?'}`);
+    } else {
+        lines.push('- Mission: -');
+    }
+    const events = Array.isArray(dbg?.events) ? dbg.events : [];
+    lines.push(`- Events: ${events.length}`);
+    lines.push('');
+    lines.push('Trigger / Phasen / Aktionen');
+    if (!events.length) {
+        lines.push('- (keine Einträge)');
+        return lines.join('\n');
+    }
+    events.slice(-120).forEach((entry) => {
+        const payload = entry?.payload && typeof entry.payload === 'object' ? entry.payload : {};
+        const kind = String(entry?.kind || 'event');
+        if (kind === 'runtime_phase') {
+            lines.push(`- ${fmt(entry.ts)} :: runtime ${payload.from || '-'} -> ${payload.to || '-'} | trigger=${payload.trigger || '-'}`);
+            return;
+        }
+        if (kind === 'start_phase') {
+            lines.push(`- ${fmt(entry.ts)} :: start ${payload.from || '-'} -> ${payload.to || '-'} | trigger=${payload.trigger || '-'}`);
+            return;
+        }
+        if (kind === 'bush_progress') {
+            lines.push(`- ${fmt(entry.ts)} :: bush ${payload.from || '-'} -> ${payload.to || '-'} | ready=${payload.pickupReady ? '1' : '0'} completed=${payload.pickupCompleted ? '1' : '0'} confirmed=${payload.pickupConfirmed ? '1' : '0'} home=${payload.returnHomeQualified ? '1' : '0'}`);
+            return;
+        }
+        if (kind === 'ground_action') {
+            lines.push(`- ${fmt(entry.ts)} :: action=${payload.action || '-'} phase=${payload.phase || '-'} | trigger=${payload.trigger || '-'} | groundStill=${payload.groundStill ? '1' : '0'} atTarget=${payload.atTarget ? '1' : '0'} reason=${payload.reason || '-'} bush=${payload.bushStatus || '-'}`);
+            return;
+        }
+        if (kind === 'dialog') {
+            lines.push(`- ${fmt(entry.ts)} :: dialog=${payload.mode || '-'} | trigger=${payload.trigger || '-'} | phase=${payload.phase || '-'}${payload.poiGroundEndReady ? ' | poiReady=1' : ''}`);
+            return;
+        }
+        if (kind === 'trigger') {
+            const rest = Object.keys(payload)
+                .filter(k => k !== 'name' && payload[k] !== null && payload[k] !== undefined && payload[k] !== '')
+                .map(k => `${k}=${typeof payload[k] === 'boolean' ? (payload[k] ? '1' : '0') : String(payload[k])}`)
+                .join(' | ');
+            lines.push(`- ${fmt(entry.ts)} :: trigger=${payload.name || '-'}${rest ? ` | ${rest}` : ''}`);
+            return;
+        }
+        lines.push(`- ${fmt(entry.ts)} :: ${kind} ${JSON.stringify(payload)}`);
+    });
+    return lines.join('\n');
+};
+
+window.vpCopyMissionPhaseDebugReport = async function() {
+    const btn = document.getElementById('btnCopyMissionPhaseDebug');
+    const oldText = btn ? btn.textContent : '';
+    try {
+        const text = window.vpBuildMissionPhaseDebugReport ? window.vpBuildMissionPhaseDebugReport() : '';
+        if (!text.trim()) throw new Error('empty_phase_debug_report');
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', 'readonly');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand && document.execCommand('copy');
+            ta.remove();
+            if (!ok) throw new Error('clipboard_unavailable');
+        }
+        if (btn) {
+            btn.textContent = 'Phasen-Log kopiert';
+            setTimeout(() => { btn.textContent = oldText || 'Phasen-Log'; }, 1400);
+        }
+    } catch (err) {
+        if (btn) {
+            btn.textContent = 'Fehler';
+            setTimeout(() => { btn.textContent = oldText || 'Phasen-Log'; }, 1400);
+        }
+        throw err;
+    }
+};
+
 window.vpClearObstacleRollingCache = function() {
     try {
         localStorage.removeItem(VP_OBS_POOL_STORAGE_KEY);

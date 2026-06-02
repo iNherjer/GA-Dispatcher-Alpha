@@ -411,8 +411,16 @@ function _missionRuntimePhaseSnapshot() {
 }
 
 function _setMissionRuntimePhase(phase = 'idle', options = {}) {
+    const prev = String(missionRuntime.phase || 'idle');
     const next = String(phase || 'idle');
     missionRuntime.phase = next;
+    if (prev !== next) {
+        _missionPhaseDebugPush('runtime_phase', {
+            from: prev,
+            to: next,
+            trigger: options.reason || 'set-runtime-phase'
+        });
+    }
     if (options.updateUi !== false) _updateMissionRuntimeUi();
     return next;
 }
@@ -607,6 +615,71 @@ const MISSION_SCENE_DEFAULT_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE = 'Tarmac_Male_Summer_Asian';
 const MISSION_SCENE_DEBUG_MAX_EVENTS = 50;
+const MISSION_PHASE_DEBUG_MAX_EVENTS = 180;
+
+function _missionPhaseDebugState() {
+    if (!window.gaMissionPhaseDebug || typeof window.gaMissionPhaseDebug !== 'object') {
+        window.gaMissionPhaseDebug = {
+            ts: Date.now(),
+            sessionStartedAt: Date.now(),
+            events: [],
+            lastGroundActionSig: '',
+            lastRuntimePhase: '',
+            lastStartPhase: '',
+            lastBushStatus: ''
+        };
+    }
+    if (!Array.isArray(window.gaMissionPhaseDebug.events)) window.gaMissionPhaseDebug.events = [];
+    return window.gaMissionPhaseDebug;
+}
+
+function _missionPhaseDebugPush(kind = 'event', payload = {}) {
+    const dbg = _missionPhaseDebugState();
+    const entry = {
+        ts: Date.now(),
+        kind: String(kind || 'event'),
+        payload: payload && typeof payload === 'object' ? { ...payload } : { value: payload }
+    };
+    dbg.ts = entry.ts;
+    dbg.events.push(entry);
+    if (dbg.events.length > MISSION_PHASE_DEBUG_MAX_EVENTS) {
+        dbg.events.splice(0, dbg.events.length - MISSION_PHASE_DEBUG_MAX_EVENTS);
+    }
+    try { console.debug('[MISSION PHASE]', entry.kind, entry.payload); } catch (_) {}
+    if (typeof window.vpRefreshWeatherDebugReport === 'function') {
+        try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
+    }
+    return entry;
+}
+
+function _missionPhaseDebugSummarizeGroundAction(action = null, context = {}) {
+    const safe = action && typeof action === 'object' ? action : {};
+    return {
+        trigger: context.trigger || null,
+        action: safe.action || 'none',
+        phase: safe.phase || 'unknown',
+        endReady: !!safe.endReady,
+        pickupConfirmOnly: !!safe.pickupConfirmOnly,
+        atTarget: context.endReady?.atTarget === true,
+        groundStill: context.endReady?.groundStill === true,
+        reason: context.endReady?.reason || null,
+        bushStatus: context.bushStatus || null,
+        simMode: !!window.simModeActive
+    };
+}
+
+window.gaMissionPhaseDebugGet = function() {
+    return JSON.parse(JSON.stringify(_missionPhaseDebugState()));
+};
+
+window.gaMissionPhaseDebugRecord = function(kind = 'event', payload = {}) {
+    return _missionPhaseDebugPush(kind, payload);
+};
+
+window.gaMissionPhaseDebugClear = function() {
+    window.gaMissionPhaseDebug = null;
+    return _missionPhaseDebugState();
+};
 window.fireMissionDebugSyncBuild = FIRE_DEBUG_SYNC_BUILD;
 window.missionSmokeStatus = {
     lastCommandAt: 0,
@@ -4000,6 +4073,7 @@ window.missionCargoSetBoardBookTime = function(itemId, field) {
 };
 
 window.finishMissionCargoLoadingAndStart = function() {
+    _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoLoadingAndStart' });
     const manifest = _missionCargoEnsureManifest();
     if (!manifest.dispatchSignature) {
         window.missionCargoSignDispatchList?.({ render: false });
@@ -4016,6 +4090,7 @@ window.finishMissionCargoLoadingAndStart = function() {
 
 window.finishMissionCargoPickupAndContinue = function() {
     if (!_missionBushIsPickupMission()) return false;
+    _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoPickupAndContinue' });
     const manifest = _missionCargoEnsureManifest();
     const pickupItem = _missionBushPickupItem(manifest);
     if (!pickupItem || (pickupItem.status !== 'loaded' && pickupItem.status !== 'unloaded')) return false;
@@ -4087,6 +4162,7 @@ window.finishMissionCargoPickupAndContinue = function() {
 };
 
 window.finishMissionCargoUnloadAndEnd = function() {
+    _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd' });
     window.closeMissionCargoDialog?.();
     if (!_missionRuntimeGroundEndReady()) {
         _updateMissionRuntimeUi();
@@ -6108,6 +6184,11 @@ function _resolveMissionSceneBoardingAck(ack) {
 
 function _missionBushPickupBoardingApplySuccess(item = null) {
     if (!item) return false;
+    _missionPhaseDebugPush('trigger', {
+        name: '_missionBushPickupBoardingApplySuccess',
+        itemId: item.id || null,
+        itemLabel: item.label || item.storyName || null
+    });
     window.missionCargoLoadItem?.(item.id, { mode: 'pickup', render: false, skipAnimation: true });
     const next = _activeBushMissionProgress();
     if (next) {
@@ -6123,6 +6204,12 @@ function _missionBushPickupBoardingApplySuccess(item = null) {
 
 async function _missionBushPickupBoarding(item = null, options = {}) {
     if (!_missionBushIsPickupMission() || !item || !_missionCargoIsPassengerItem(item)) return false;
+    _missionPhaseDebugPush('trigger', {
+        name: '_missionBushPickupBoarding',
+        itemId: item.id || null,
+        itemLabel: item.label || item.storyName || null,
+        reason: options?.reason || null
+    });
     if (window.missionSceneStatus?.boardingRequested || window.missionSceneStatus?.boardingActive || missionSceneBoardingPromise) {
         return false;
     }
@@ -6761,19 +6848,35 @@ function _setMissionStartPhase(phase) {
     try {
         const key = _missionStartPhaseKey();
         if (!key) return;
+        const prev = _missionStartPhase();
         const next = phase === 'boarded'
             ? 'boarded'
             : (phase === 'boarding'
                 ? 'boarding'
                 : (phase === 'prepare' ? 'prepare' : 'planned'));
         localStorage.setItem(key, next);
+        if (prev !== next) {
+            _missionPhaseDebugPush('start_phase', {
+                from: prev,
+                to: next,
+                trigger: 'set-start-phase'
+            });
+        }
     } catch (_) {}
 }
 
 function _clearMissionStartPhase() {
     try {
         const key = _missionStartPhaseKey();
+        const prev = _missionStartPhase();
         if (key) localStorage.removeItem(key);
+        if (prev !== 'planned') {
+            _missionPhaseDebugPush('start_phase', {
+                from: prev,
+                to: 'planned',
+                trigger: 'clear-start-phase'
+            });
+        }
     } catch (_) {}
 }
 
@@ -7123,13 +7226,15 @@ function _updateMissionStartBanner() {
     const bushGroundEndReady = missionRuntime.active ? _missionBushGroundEndReady(endReady) : false;
     const runtimeGroundEndReady = missionRuntime.active ? _missionRuntimeGroundEndReady(endReady) : false;
     const deboardingBusy = _missionEndDeboardingBusy();
+    const groundAction = missionRuntime.active ? _missionResolveGroundAction({ endReady, deboardingBusy, active: true }) : null;
+    const pickupConfirmOnly = !!groundAction?.pickupConfirmOnly;
     const runtimePhase = _missionRuntimePhaseSnapshot();
     missionRuntime.phase = runtimePhase;
     const showClose = !!missionRuntime.closingPending;
     const showDeboarding = missionRuntime.active && deboardingBusy;
-    const showEndReady = runtimeGroundEndReady;
+    const showEndReady = missionRuntime.active && !!groundAction?.endReady;
     const showEnd = missionRuntime.active && showEndReady && !deboardingBusy;
-    const showPickup = missionRuntime.active && _missionBushPickupReadyForAction() && !showEnd && !deboardingBusy;
+    const showPickup = missionRuntime.active && groundAction?.action === 'pickup' && !showEnd && !deboardingBusy;
     const showStart = valid
         && (trackerConnected || simMode)
         && groundReady
@@ -7164,10 +7269,12 @@ function _updateMissionStartBanner() {
     }
     if (closeBtn) closeBtn.style.display = showEnd ? 'none' : '';
     if (showEnd) {
-        if (kickerEl) kickerEl.textContent = 'Mission abschliessen';
+        if (kickerEl) kickerEl.textContent = groundAction?.action === 'unload' ? 'Ladung entladen' : 'Mission abschliessen';
         if (textEl) {
             const useArrivalDistance = endReady?.reason === 'apt_arrival_point' && Number.isFinite(Number(endReady?.dArrivalNm));
-            if (poiGroundEndReady && !_missionPoiEndedAtHome(endReady) && !endReady?.ready) {
+            if (groundAction?.action === 'unload') {
+                textEl.textContent = 'Du stehst am Boden. Vor dem Missionsabschluss jetzt Ladung entladen bzw. Passagiere aussteigen lassen.';
+            } else if (poiGroundEndReady && !_missionPoiEndedAtHome(endReady) && !endReady?.ready) {
                 textEl.textContent = 'Du stehst am Boden. POI-Mission kann hier beendet werden.';
             } else if (poiGroundEndReady && _missionPoiEndedAtHome(endReady) && !endReady?.ready) {
                 textEl.textContent = 'Du bist wieder am Startplatz. POI-Mission kann beendet werden.';
@@ -7180,12 +7287,10 @@ function _updateMissionStartBanner() {
                 textEl.textContent = `Du stehst am Ziel. ${distanceText}.`;
             }
         }
-        if (btn) btn.textContent = 'Mission beenden';
+        if (btn) btn.textContent = groundAction?.action === 'unload' ? 'Ausladen' : 'Mission beenden';
         return;
     }
     if (showPickup) {
-        const pickupProgress = _activeBushMissionProgress();
-        const pickupConfirmOnly = !!(pickupProgress?.pickupCompleted && !pickupProgress?.pickupConfirmed);
         if (kickerEl) kickerEl.textContent = 'Bush Pickup';
         if (closeBtn) closeBtn.style.display = 'none';
         if (textEl) textEl.textContent = pickupConfirmOnly
@@ -7243,6 +7348,8 @@ function _updateMissionRuntimeUi() {
     const bushGroundEndReady = missionRuntime.active ? _missionBushGroundEndReady(endReady) : false;
     const runtimeGroundEndReady = missionRuntime.active ? _missionRuntimeGroundEndReady(endReady) : false;
     const deboardingBusy = _missionEndDeboardingBusy();
+    const groundAction = missionRuntime.active ? _missionResolveGroundAction({ endReady, deboardingBusy, active: true }) : null;
+    const pickupConfirmOnly = !!groundAction?.pickupConfirmOnly;
     const st = document.getElementById('missionRuntimeStatus');
     const detailEl = document.getElementById('missionRuntimeDetail');
     const nextStepEl = document.getElementById('missionRuntimeNextStep');
@@ -7344,12 +7451,14 @@ function _updateMissionRuntimeUi() {
                 nextStep = 'Nächster Schritt: Deboarding läuft';
             } else if (poiStatus?.nextStep) {
                 nextStep = poiStatus.nextStep;
+            } else if (groundAction?.action === 'pickup') {
+                nextStep = pickupConfirmOnly
+                    ? 'Nächster Schritt: Pickup bestätigen und Rückflug freigeben'
+                    : 'Nächster Schritt: Pickup starten und Gast einladen';
+            } else if (groundAction?.action === 'unload') {
+                nextStep = 'Nächster Schritt: Pflichtladung entladen';
             } else if (runtimeGroundEndReady) {
-                if (typeof _missionCargoNeedsUnload === 'function' && _missionCargoNeedsUnload()) {
-                    nextStep = 'Nächster Schritt: Pflichtladung entladen';
-                } else {
-                    nextStep = 'Nächster Schritt: Mission beenden';
-                }
+                nextStep = 'Nächster Schritt: Mission beenden';
             } else if (_missionSceneIsBushMission() && _missionBushEffectiveCompletionMode() === 'return_home') {
                 const p = _activeBushMissionProgress();
                 if (_missionBushIsPickupMission()) {
@@ -7408,16 +7517,15 @@ function _updateMissionRuntimeUi() {
             bMap.disabled = false;
         } else {
             bMap.style.display = (missionRuntime.active || (validMission && groundReady)) ? 'inline-flex' : 'none';
-            const pickupActionReady = missionRuntime.active && _missionBushPickupReadyForAction();
-            const pickupConfirmOnly = pickupActionReady && !!(_activeBushMissionProgress()?.pickupCompleted && !_activeBushMissionProgress()?.pickupConfirmed);
-            const unloadActionReady = missionRuntime.active && _missionCargoGroundHandlingAllowed() && !runtimeGroundEndReady && !_missionBushPickupReadyForAction() && _missionCargoNeedsUnload();
+            const pickupActionReady = missionRuntime.active && groundAction?.action === 'pickup';
+            const unloadActionReady = missionRuntime.active && groundAction?.action === 'unload';
             bMap.textContent = missionRuntime.active
-                ? (deboardingBusy ? '… Deboarding läuft' : (runtimeGroundEndReady ? '■ Mission beenden' : (pickupActionReady ? (pickupConfirmOnly ? '⬤ Pickup abschliessen' : '⬤ Pickup starten') : (unloadActionReady ? '⬤ Ausladen' : '■ Mission stoppen'))))
+                ? (deboardingBusy ? '… Deboarding läuft' : (pickupActionReady ? (pickupConfirmOnly ? '⬤ Pickup abschliessen' : '⬤ Pickup starten') : (unloadActionReady ? '⬤ Ausladen' : (runtimeGroundEndReady ? '■ Mission beenden' : '■ Mission stoppen'))))
                 : (phase === 'boarded'
                     ? '▶ Mission starten'
                     : (phase === 'prepare' ? '▶ Boarding' : (phase === 'boarding' ? '… Boarding läuft' : '▶ Mission starten')));
             bMap.title = missionRuntime.active
-                ? (deboardingBusy ? 'Deboarding laeuft bereits' : (runtimeGroundEndReady ? 'Mission jetzt abschliessen' : (pickupActionReady ? (pickupConfirmOnly ? 'Pickup bestaetigen und Rueckflug freigeben' : 'Pickup am Zielstrip oeffnen') : (unloadActionReady ? 'Ausladen/Aussteigen am Boden oeffnen' : 'Mission manuell stoppen'))))
+                ? (deboardingBusy ? 'Deboarding laeuft bereits' : (pickupActionReady ? (pickupConfirmOnly ? 'Pickup bestaetigen und Rueckflug freigeben' : 'Pickup am Zielstrip oeffnen') : (unloadActionReady ? 'Ausladen/Aussteigen am Boden oeffnen' : (runtimeGroundEndReady ? 'Mission jetzt abschliessen' : 'Mission manuell stoppen'))))
                 : (phase === 'boarded'
                     ? 'Mission jetzt aktiv schalten'
                     : (phase === 'prepare' ? 'Boarding und Verladen beginnen' : (phase === 'boarding' ? 'Boarding und Verladen laufen noch' : 'Missionstart freigeben und Boarding vorbereiten')));
@@ -7650,7 +7758,23 @@ function _activeBushMissionProgress() {
 function _persistBushMissionProgress(progress = null) {
     if (!progress || typeof progress !== 'object') return null;
     if (typeof currentMissionData === 'undefined' || !currentMissionData || typeof currentMissionData !== 'object') return null;
+    const prev = currentMissionData.bushProgress && typeof currentMissionData.bushProgress === 'object'
+        ? currentMissionData.bushProgress
+        : null;
     currentMissionData.bushProgress = { ...progress };
+    const prevStatus = String(prev?.status || '');
+    const nextStatus = String(progress?.status || '');
+    if (prevStatus !== nextStatus || !!prev?.pickupReady !== !!progress?.pickupReady || !!prev?.pickupConfirmed !== !!progress?.pickupConfirmed) {
+        _missionPhaseDebugPush('bush_progress', {
+            from: prevStatus || '-',
+            to: nextStatus || '-',
+            pickupReady: !!progress?.pickupReady,
+            pickupCompleted: !!progress?.pickupCompleted,
+            pickupConfirmed: !!progress?.pickupConfirmed,
+            returnHomeQualified: !!progress?.returnHomeQualified,
+            groundStopQualified: !!progress?.groundStopQualified
+        });
+    }
     try {
         if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
         else if (typeof saveMissionState === 'function') saveMissionState();
@@ -7711,6 +7835,84 @@ function _missionBushPickupReadyForAction() {
     const progress = _activeBushMissionProgress();
     return !!(_missionBushPickupAtTargetNow() && (progress?.pickupReady || (progress?.pickupCompleted && !progress?.pickupConfirmed)));
 }
+
+function _missionResolveGroundAction(options = {}) {
+    const active = options?.active ?? missionRuntime.active;
+    const deboardingBusy = options?.deboardingBusy ?? _missionEndDeboardingBusy();
+    const endReady = options?.endReady ?? (active ? _missionEndReadiness() : null);
+    const runtimeGroundEndReady = active ? _missionRuntimeGroundEndReady(endReady) : false;
+    const bushProgress = _missionSceneIsBushMission() ? _activeBushMissionProgress() : null;
+    const pickupActionReady = active && _missionBushPickupReadyForAction();
+    const pickupConfirmOnly = !!(pickupActionReady && bushProgress?.pickupCompleted && !bushProgress?.pickupConfirmed);
+    const unloadActionReady = active && _missionCargoGroundHandlingAllowed() && _missionCargoNeedsUnload();
+
+    let resolved = null;
+    if (missionRuntime.closingPending) {
+        resolved = { phase: 'closing', action: 'close', endReady: false, pickupConfirmOnly: false };
+    } else if (!active) {
+        resolved = { phase: _missionRuntimePhaseSnapshot(), action: 'none', endReady: false, pickupConfirmOnly: false };
+    } else if (deboardingBusy) {
+        resolved = { phase: 'deboarding', action: 'none', endReady: false, pickupConfirmOnly: false };
+    } else if (pickupActionReady) {
+        resolved = {
+            phase: pickupConfirmOnly ? 'pickup_complete' : 'pickup_ready',
+            action: 'pickup',
+            endReady: false,
+            pickupConfirmOnly
+        };
+    } else if (runtimeGroundEndReady) {
+        if (unloadActionReady) {
+            resolved = {
+                phase: String(bushProgress?.status || '') === 'home_unloading' ? 'home_unloading' : 'end_unloading',
+                action: 'unload',
+                endReady: true,
+                pickupConfirmOnly: false
+            };
+        } else {
+            resolved = {
+                phase: String(bushProgress?.status || '') === 'ready_to_close' ? 'ready_to_close' : 'end_ready',
+                action: 'end',
+                endReady: true,
+                pickupConfirmOnly: false
+            };
+        }
+    } else if (unloadActionReady) {
+        resolved = {
+            phase: String(bushProgress?.status || '') || 'ground_unloading',
+            action: 'unload',
+            endReady: false,
+            pickupConfirmOnly: false
+        };
+    } else {
+        resolved = {
+            phase: String(bushProgress?.status || '') || 'active',
+            action: 'end',
+            endReady: false,
+            pickupConfirmOnly: false
+        };
+    }
+    const dbg = _missionPhaseDebugState();
+    const sig = JSON.stringify([
+        resolved.action,
+        resolved.phase,
+        resolved.endReady ? 1 : 0,
+        resolved.pickupConfirmOnly ? 1 : 0,
+        endReady?.reason || '',
+        endReady?.groundStill ? 1 : 0,
+        endReady?.atTarget ? 1 : 0,
+        String(bushProgress?.status || '')
+    ]);
+    if (dbg.lastGroundActionSig !== sig) {
+        dbg.lastGroundActionSig = sig;
+        _missionPhaseDebugPush('ground_action', _missionPhaseDebugSummarizeGroundAction(resolved, {
+            trigger: options?.trigger || 'resolve-ground-action',
+            endReady,
+            bushStatus: String(bushProgress?.status || '')
+        }));
+    }
+    return resolved;
+}
+window.missionResolveGroundAction = _missionResolveGroundAction;
 
 function _missionSceneWorldPointToRelative(originLat, originLon, originHdgDeg, worldLat, worldLon) {
     const oLat = Number(originLat);
@@ -8277,11 +8479,22 @@ window.manualMissionStart = function() {
 };
 
 window.manualMissionEnd = function(options = {}) {
+    _missionPhaseDebugPush('trigger', {
+        name: 'manualMissionEnd',
+        skipCargoUnload: !!options?.skipCargoUnload
+    });
     const endReady = _missionEndReadiness();
     const poiGroundEndReady = _missionPoiGroundEndReady(endReady);
     const bushGroundEndReady = _missionBushGroundEndReady(endReady);
     const runtimeGroundEndReady = _missionRuntimeGroundEndReady(endReady);
-    if (!options.skipCargoUnload && typeof window.openMissionCargoDialog === 'function' && (_missionCargoNeedsUnload() || poiGroundEndReady)) {
+    const groundAction = _missionResolveGroundAction({ endReady, active: true, trigger: 'manualMissionEnd' });
+    if (!options.skipCargoUnload && typeof window.openMissionCargoDialog === 'function' && groundAction.action === 'pickup') {
+        _missionPhaseDebugPush('dialog', { mode: 'pickup', trigger: 'manualMissionEnd', phase: groundAction.phase });
+        window.openMissionCargoDialog('pickup');
+        return false;
+    }
+    if (!options.skipCargoUnload && typeof window.openMissionCargoDialog === 'function' && (groundAction.action === 'unload' || poiGroundEndReady)) {
+        _missionPhaseDebugPush('dialog', { mode: 'unload', trigger: 'manualMissionEnd', phase: groundAction.phase, poiGroundEndReady: !!poiGroundEndReady });
         window.openMissionCargoDialog('unload');
         return false;
     }
@@ -8341,6 +8554,13 @@ window.manualMissionEnd = function(options = {}) {
         }
     }
     const endSceneStarted = _tryStartMissionEndScene('manual-mission-end', { force: true });
+    _missionPhaseDebugPush('trigger', {
+        name: 'manualMissionEnd:finalize',
+        endSceneStarted: !!endSceneStarted,
+        runtimeGroundEndReady: !!runtimeGroundEndReady,
+        bushGroundEndReady: !!bushGroundEndReady,
+        poiGroundEndReady: !!poiGroundEndReady
+    });
     _setMissionClosePending({ reason: 'manual-mission-end', outcome: cargoOutcome });
     const pos = window.lastLiveGpsPos;
     const shouldFinalize = !!(flightRecorder && (flightRecorder.active || flightRecorder.hadAirbornePhase || (Array.isArray(flightRecorder.track) && flightRecorder.track.length > 1)));
@@ -8387,6 +8607,11 @@ function _tryStartMissionEndScene(reason = 'mission-end', options = {}) {
 window.handleMissionStartBannerAction = async function() {
     if (missionStartActionPromise) return missionStartActionPromise;
     missionStartActionPromise = (async () => {
+        _missionPhaseDebugPush('trigger', {
+            name: 'handleMissionStartBannerAction',
+            runtimeActive: !!missionRuntime.active,
+            closingPending: !!missionRuntime.closingPending
+        });
         const phase = _missionStartPhase();
         if (missionRuntime.closingPending) {
             window.completeMissionClose('banner-close');
@@ -8397,8 +8622,15 @@ window.handleMissionStartBannerAction = async function() {
             return;
         }
         if (missionRuntime.active) {
-            if (_missionBushPickupReadyForAction()) {
-                if (typeof window.openMissionCargoDialog === 'function') window.openMissionCargoDialog('pickup');
+            const groundAction = _missionResolveGroundAction({ active: true, trigger: 'handleMissionStartBannerAction' });
+            if (typeof window.openMissionCargoDialog === 'function' && groundAction.action === 'pickup') {
+                _missionPhaseDebugPush('dialog', { mode: 'pickup', trigger: 'handleMissionStartBannerAction', phase: groundAction.phase });
+                window.openMissionCargoDialog('pickup');
+                return;
+            }
+            if (typeof window.openMissionCargoDialog === 'function' && groundAction.action === 'unload') {
+                _missionPhaseDebugPush('dialog', { mode: 'unload', trigger: 'handleMissionStartBannerAction', phase: groundAction.phase });
+                window.openMissionCargoDialog('unload');
                 return;
             }
             window.manualMissionEnd();
@@ -11406,7 +11638,15 @@ function updateFlightRecorder(lat, lon, alt) {
     const endReady = _missionEndReadiness(lat, lon);
     const bushGroundEndReady = _missionBushGroundEndReady(endReady);
     const runtimeGroundEndReady = _missionRuntimeGroundEndReady(endReady);
-    missionRuntime.phase = runtimeGroundEndReady ? 'end_ready' : 'active';
+    const nextRuntimePhase = runtimeGroundEndReady ? 'end_ready' : 'active';
+    if (missionRuntime.phase !== nextRuntimePhase) {
+        _missionPhaseDebugPush('runtime_phase', {
+            from: String(missionRuntime.phase || 'idle'),
+            to: nextRuntimePhase,
+            trigger: 'live-flight-tick'
+        });
+    }
+    missionRuntime.phase = nextRuntimePhase;
     const key = `${runtimeGroundEndReady ? 'ready' : 'wait'}:${endReady.reason || ''}`;
     if (missionRuntime.endReadinessKey !== key) {
         missionRuntime.endReadinessKey = key;

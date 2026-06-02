@@ -124,8 +124,23 @@
                 simPhase = 'mission_end_pending';
                 console.log('[SimPax] end_hold abgelaufen → Sim-Mission wartet auf explizites Missionsende.');
                 if (typeof window.openMissionCargoDialog === 'function') {
-                    window.openMissionCargoDialog('unload');
-                    return;
+                    const groundAction = typeof window.missionResolveGroundAction === 'function'
+                        ? window.missionResolveGroundAction({ active: true, trigger: 'sim:end_hold' })
+                        : null;
+                    if (groundAction?.action === 'pickup') {
+                        if (typeof window.gaMissionPhaseDebugRecord === 'function') {
+                            try { window.gaMissionPhaseDebugRecord('dialog', { mode: 'pickup', trigger: 'sim:end_hold', phase: groundAction.phase }); } catch (_) {}
+                        }
+                        window.openMissionCargoDialog('pickup');
+                        return;
+                    }
+                    if (groundAction?.action === 'unload') {
+                        if (typeof window.gaMissionPhaseDebugRecord === 'function') {
+                            try { window.gaMissionPhaseDebugRecord('dialog', { mode: 'unload', trigger: 'sim:end_hold', phase: groundAction.phase }); } catch (_) {}
+                        }
+                        window.openMissionCargoDialog('unload');
+                        return;
+                    }
                 }
                 _finalizeSimMissionEnd(rec);
             }
