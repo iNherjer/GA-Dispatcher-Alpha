@@ -887,7 +887,9 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'bush:all+bush_supply_strip', classic: 'BUSH · Versorgung', radioShort: 'BUSH SUP', radioFull: 'Bush · Supply Run' },
         { value: 'bush:all+bush_charter_strip', classic: 'BUSH · Charter', radioShort: 'BUSH CHR', radioFull: 'Bush · Charter' },
         { value: 'bush:all+bush_scenic_hopper', classic: 'BUSH · Adventure', radioShort: 'BUSH ADV', radioFull: 'Bush · Adventure Hopper' },
-        { value: 'bush:all+bush_recon_return', classic: 'BUSH · Recon RTB', radioShort: 'BUSH REC', radioFull: 'Bush · Recon and Return' }
+        { value: 'bush:all+bush_recon_return', classic: 'BUSH · Recon RTB', radioShort: 'BUSH REC', radioFull: 'Bush · Recon and Return' },
+        { value: 'bush:all+bush_pickup_strip', classic: 'BUSH · Pickup RTB', radioShort: 'BUSH PCK', radioFull: 'Bush · Pickup and Return' },
+        { value: 'bush:all+bush_pickup_cargo', classic: 'BUSH · Cargo RTB', radioShort: 'BUSH CGO', radioFull: 'Bush · Cargo Pickup and Return' }
     ]
 };
 
@@ -1266,6 +1268,34 @@ function getMissionTaskProfile(profileId, baseType) {
                 paxText: '1 PAX (Recon Observer)',
                 cargoPool: Array.isArray(bush.cargoPool) ? bush.cargoPool.slice() : [],
                 storyCue: 'Backcountry-Recon im Zielgebiet mit anschliessender Rueckkehr zum Heimatplatz.',
+                category: bush.category,
+                opsNotes: Array.isArray(bush.opsNotes) ? bush.opsNotes.slice() : []
+            };
+        }
+        if (bush.id === 'bush_pickup_strip') {
+            return {
+                id: bush.id,
+                label: bush.label,
+                appliesTo: ['bush'],
+                roleProfile: 'bush_pickup_guest_v1',
+                taskDomain: 'charter',
+                paxText: '0 PAX am Start · 1 PAX Pickup',
+                cargoPool: Array.isArray(bush.cargoPool) ? bush.cargoPool.slice() : [],
+                storyCue: 'Leerer Outbound-Leg zu einem abgelegenen Strip, dort Pickup und anschliessender Rueckflug zum Heimatplatz.',
+                category: bush.category,
+                opsNotes: Array.isArray(bush.opsNotes) ? bush.opsNotes.slice() : []
+            };
+        }
+        if (bush.id === 'bush_pickup_cargo') {
+            return {
+                id: bush.id,
+                label: bush.label,
+                appliesTo: ['bush'],
+                roleProfile: 'cargo_charter_v1',
+                taskDomain: 'cargo',
+                paxText: '0 PAX · Cargo Pickup RTB',
+                cargoPool: Array.isArray(bush.cargoPool) ? bush.cargoPool.slice() : [],
+                storyCue: 'Leerer Outbound-Leg zu einem abgelegenen Strip, dort Frachtaufnahme und anschliessender Rueckflug zum Heimatplatz.',
                 category: bush.category,
                 opsNotes: Array.isArray(bush.opsNotes) ? bush.opsNotes.slice() : []
             };
@@ -1982,6 +2012,11 @@ window.drumCache = {};
  * @property {BushTargetMode} targetMode
  * @property {BushCompletionMode} completionMode
  * @property {boolean} requiresReturnHome
+ * @property {string} [pickupKind]
+ * @property {string} [pickupLabel]
+ * @property {string} [pickupRole]
+ * @property {string} [pickupGreetingText]
+ * @property {number} [pickupPassengerCount]
  * @property {BushMissionRef|null} homeRef
  * @property {BushMissionRef|null} targetRef
  * @property {BushMissionRef|null} areaRef
@@ -1995,7 +2030,7 @@ window.drumCache = {};
 
 /**
  * @typedef {Object} BushMissionProgress
- * @property {'enroute'|'on_task'|'return_leg'|'ready_to_close'} status
+ * @property {'enroute'|'on_task'|'return_leg'|'ready_to_close'|'outbound_empty'|'pickup_ready'|'pickup_loading'|'pickup_complete'|'home_unloading'} status
  * @property {boolean} targetReached
  * @property {number} areaEnteredAt
  * @property {boolean} areaQualified
@@ -2003,6 +2038,9 @@ window.drumCache = {};
  * @property {boolean} cargoDelivered
  * @property {boolean} passengerDropped
  * @property {boolean} returnHomeQualified
+ * @property {boolean} pickupReady
+ * @property {boolean} pickupCompleted
+ * @property {boolean} pickupConfirmed
  * @property {number} areaDwellSec
  * @property {number} areaTrackNm
  * @property {number} lastAreaSampleLat
@@ -2063,6 +2101,11 @@ function sanitizeBushMissionSpec(raw = null) {
         targetMode,
         completionMode,
         requiresReturnHome: !!raw.requiresReturnHome,
+        pickupKind: ['passenger', 'cargo'].includes(String(raw.pickupKind || '').trim().toLowerCase()) ? String(raw.pickupKind || '').trim().toLowerCase() : '',
+        pickupLabel: String(raw.pickupLabel || '').trim().slice(0, 120),
+        pickupRole: String(raw.pickupRole || '').trim().slice(0, 120),
+        pickupGreetingText: String(raw.pickupGreetingText || '').trim().slice(0, 320),
+        pickupPassengerCount: Math.max(0, Math.min(6, Math.round(Number(raw.pickupPassengerCount) || 0))),
         homeRef: _sanitizeBushMissionRef(raw.homeRef),
         targetRef: _sanitizeBushMissionRef(raw.targetRef),
         areaRef: _sanitizeBushMissionRef(raw.areaRef),
@@ -2079,7 +2122,7 @@ function sanitizeBushMissionSpec(raw = null) {
 
 function buildInitialBushMissionProgress(spec = null) {
     return {
-        status: spec?.requiresReturnHome ? 'enroute' : 'enroute',
+        status: spec?.targetMode === 'strip_then_return' ? 'outbound_empty' : 'enroute',
         targetReached: false,
         areaEnteredAt: 0,
         areaQualified: false,
@@ -2087,6 +2130,9 @@ function buildInitialBushMissionProgress(spec = null) {
         cargoDelivered: false,
         passengerDropped: false,
         returnHomeQualified: false,
+        pickupReady: false,
+        pickupCompleted: false,
+        pickupConfirmed: false,
         areaDwellSec: 0,
         areaTrackNm: 0,
         lastAreaSampleLat: NaN,
@@ -2165,6 +2211,40 @@ const BUSH_DISPATCH_PROFILES = {
             'Ziel ist ein kurzer Recon-Run im Arbeitsgebiet, nicht nur die Landung am Strip.',
             'Mission endet erst nach Rueckkehr und Stillstand am Heimatplatz.'
         ]
+    },
+    bush_pickup_strip: {
+        id: 'bush_pickup_strip',
+        label: 'Bush Pickup and Return',
+        icon: '🛻',
+        category: 'bush_pickup',
+        completionMode: 'return_home',
+        narrativeMode: 'backcountry_pickup_return',
+        cargoPool: [
+            'Leichter Rueckflug-Survival-Kit und Funkmappe (12 lbs)',
+            'Basis-Werkzeug und Lash-Straps fuer den Leerflug (18 lbs)',
+            'Nur Bordunterlagen und Notfallausruestung fuer den Pickup-Leg (8 lbs)'
+        ],
+        opsNotes: [
+            'Outbound bewusst leer halten, Pickup erst am Zielstrip aufnehmen.',
+            'Mission endet erst nach Rueckkehr und gesichertem Ausstieg am Heimatplatz.'
+        ]
+    },
+    bush_pickup_cargo: {
+        id: 'bush_pickup_cargo',
+        label: 'Bush Cargo Pickup and Return',
+        icon: '📦',
+        category: 'bush_pickup_cargo',
+        completionMode: 'return_home',
+        narrativeMode: 'backcountry_pickup_return',
+        cargoPool: [
+            'Ersatzteilkiste und Werkzeugtasche fuer den Rueckflug (46 lbs)',
+            'Funkakku-Case und Wartungsunterlagen fuer die Heimholung (34 lbs)',
+            'Versiegelte Utility-Kiste mit Betriebsbedarf fuer den RTB-Leg (58 lbs)'
+        ],
+        opsNotes: [
+            'Outbound bewusst leer halten, Pickup-Fracht erst am Zielstrip aufnehmen.',
+            'Mission endet erst nach Rueckkehr und gesichertem Ausladen am Heimatplatz.'
+        ]
     }
 };
 
@@ -2210,6 +2290,20 @@ const BUSH_PERSONA_LIBRARY = {
             gender: 'male',
             greetingText: 'Einmal sauber durch das Gebiet schauen, Lage notieren und danach direkt zurueck zum Heimatplatz.'
         }
+    ],
+    bush_pickup_strip: [
+        {
+            name: 'Tessa Rowan',
+            role: 'Rangerin',
+            gender: 'female',
+            greetingText: 'Gut, dass du da bist. Ich steige hier zu und wir gehen danach direkt zurueck zum Heimatplatz.'
+        },
+        {
+            name: 'Luke Mercer',
+            role: 'Mechaniker',
+            gender: 'male',
+            greetingText: 'Perfektes Timing. Ich komme mit Werkzeug und Notizen mit, danach bitte direkt wieder heim.'
+        }
     ]
 };
 
@@ -2234,7 +2328,9 @@ function _buildBushPassenger(profileId = 'bush_charter_strip') {
     passenger.greetingText = String(persona.greetingText || passenger.greetingText || '').trim();
     passenger.roleProfile = profileId === 'bush_scenic_hopper'
         ? 'bush_adventure_guest_v1'
-        : (profileId === 'bush_recon_return' ? 'science_field_v1' : 'bush_charter_guest_v1');
+        : (profileId === 'bush_recon_return'
+            ? 'science_field_v1'
+            : (profileId === 'bush_pickup_strip' ? 'bush_pickup_guest_v1' : 'bush_charter_guest_v1'));
     passenger.taskDomain = profileId === 'bush_scenic_hopper'
         ? 'sightseeing_tour'
         : (profileId === 'bush_recon_return' ? 'science_geo' : 'charter');
@@ -2249,6 +2345,8 @@ function pickAutoBushProfileId({ destAirport = null } = {}) {
     pushMany('bush_charter_strip', bushScore >= 5 ? 3 : 2);
     pushMany('bush_scenic_hopper', bushScore >= 4 ? 3 : 2);
     pushMany('bush_recon_return', bushScore >= 4 ? 2 : 1);
+    pushMany('bush_pickup_strip', bushScore >= 4 ? 2 : 1);
+    pushMany('bush_pickup_cargo', bushScore >= 4 ? 2 : 1);
     return _pickFromWeightedWithRecentGuard(weighted, 'ga_bush_auto_profile_history', {
         fallback: 'bush_supply_strip',
         recentLimit: 2
@@ -2326,6 +2424,66 @@ function buildBushMissionSpec({ profileId = 'bush_supply_strip', startAirport = 
             opsNotes: profile.opsNotes
         });
     }
+    if (profile.id === 'bush_pickup_strip') {
+        const pickupPassenger = _buildBushPassenger(profile.id);
+        return sanitizeBushMissionSpec({
+            profileId: profile.id,
+            targetMode: 'strip_then_return',
+            completionMode: 'return_home',
+            requiresReturnHome: true,
+            pickupKind: 'passenger',
+            pickupLabel: pickupPassenger?.name ? `${pickupPassenger.name} (${pickupPassenger.role || 'Bush Pickup'})` : 'Bush Pickup Passenger',
+            pickupRole: String(pickupPassenger?.role || 'Bush Pickup Passenger').trim(),
+            pickupGreetingText: String(pickupPassenger?.greetingText || '').trim(),
+            pickupPassengerCount: 1,
+            homeRef,
+            targetRef,
+            areaRef: null,
+            routeRefs: targetRef ? [targetRef] : [],
+            success: {
+                minGroundTimeSec: 8,
+                minAreaTimeSec: 0,
+                minAreaTrackNm: 0,
+                cargoMustBeDelivered: false,
+                passengerMustDeboard: true,
+                waypointsRequired: 0
+            },
+            allowedEndLocations: ['home'],
+            narrativeMode: profile.narrativeMode,
+            riskFlags: [...riskFlags, 'pickup_required', 'return_leg_required'],
+            opsNotes: profile.opsNotes
+        });
+    }
+    if (profile.id === 'bush_pickup_cargo') {
+        const pickupCargo = profile.cargoPool[Math.floor(Math.random() * profile.cargoPool.length)] || 'Bush Pickup Cargo';
+        return sanitizeBushMissionSpec({
+            profileId: profile.id,
+            targetMode: 'strip_then_return',
+            completionMode: 'return_home',
+            requiresReturnHome: true,
+            pickupKind: 'cargo',
+            pickupLabel: String(pickupCargo).trim(),
+            pickupRole: 'Bush Cargo Pickup',
+            pickupGreetingText: '',
+            pickupPassengerCount: 0,
+            homeRef,
+            targetRef,
+            areaRef: null,
+            routeRefs: targetRef ? [targetRef] : [],
+            success: {
+                minGroundTimeSec: 8,
+                minAreaTimeSec: 0,
+                minAreaTrackNm: 0,
+                cargoMustBeDelivered: true,
+                passengerMustDeboard: false,
+                waypointsRequired: 0
+            },
+            allowedEndLocations: ['home'],
+            narrativeMode: profile.narrativeMode,
+            riskFlags: [...riskFlags, 'pickup_required', 'return_leg_required'],
+            opsNotes: profile.opsNotes
+        });
+    }
     return sanitizeBushMissionSpec({
         profileId: profile.id,
         targetMode: 'strip',
@@ -2379,6 +2537,16 @@ function buildBushMissionEnvelope({ profileId = 'bush_supply_strip', startAirpor
         title = `Bush Recon RTB: ${targetName}`;
         story = `${passenger?.role || 'Ein Beobachter'} fliegt heute mit dir von ${homeName} in ein abgelegenes Arbeitsgebiet bei ${targetName}. Vor Ort braucht ihr einen kurzen sauberen Recon-Run ueber dem Zielbereich, danach geht es ohne Zwischenstopp wieder zurueck an den Heimatplatz.`;
         paxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
+    } else if (profile.id === 'bush_pickup_strip') {
+        passenger = _buildBushPassenger(profile.id);
+        title = `Bush Pickup RTB: ${targetName}`;
+        story = `${passenger?.role || 'Ein Rueckflug-Passagier'} wartet heute an einem abgelegenen Strip bei ${targetName} auf Abholung. Du fliegst leer von ${homeName} raus, nimmst den Gast nach der Landung direkt am Strip auf und bringst ihn ohne Umweg wieder zurueck zum Heimatplatz.`;
+        paxText = passenger?.role ? `0 PAX am Start · 1 PAX Pickup (${passenger.role})` : '0 PAX am Start · 1 PAX Pickup';
+    } else if (profile.id === 'bush_pickup_cargo') {
+        title = `Bush Cargo RTB: ${targetName}`;
+        story = `An einem abgelegenen Strip bei ${targetName} wartet heute eine Rueckholfracht auf Abholung. Du fliegst leer von ${homeName} raus, nimmst die bereitliegende Ladung nach der Landung direkt am Treffpunkt auf und bringst sie ohne Zwischenstopp wieder zum Heimatplatz.`;
+        paxText = '0 PAX';
+        cargoText = '-';
     }
     return {
         mission: {
@@ -8194,6 +8362,24 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
     const bush = normalizedMissionType === 'bush'
         ? sanitizeBushMissionSpec(bushSpec || mission?.bush || passenger?.bush || null)
         : null;
+    if (bush && bush.targetMode === 'strip_then_return' && ['passenger', 'cargo'].includes(String(bush.pickupKind || '').toLowerCase())) {
+        const bushTargetName = String(bush?.targetRef?.name || dest?.n || dest?.name || dest?.icao || 'Remote Strip').trim();
+        const bushVehicle = pickBushArrivalVehicleSpec({ bush, dest, mission, profileId });
+        const pickupKind = String(bush.pickupKind || '').toLowerCase();
+        return {
+            role: 'bush_strip_pickup',
+            roleLabel: pickupKind === 'cargo' ? 'Bush-Cargo-Pickup' : 'Bush-Pickup',
+            expectedBy: bush.pickupRole || (pickupKind === 'cargo' ? 'lokaler Frachtkontakt' : 'lokaler Pickup-Gast'),
+            visibleCue: bushVehicle.cue,
+            vehicleRole: bushVehicle.role,
+            vehicleLabel: bushVehicle.label,
+            personRole: 'person.ground_crew',
+            equipmentRole: pickupKind === 'cargo' ? 'cargo.small_box' : '',
+            narrativeHint: pickupKind === 'cargo'
+                ? `Am Zielstrip wartet eine Bush-Frachtaufnahme fuer ${bushTargetName}. Die Rueckholfracht liegt am Treffpunkt fuer den Heimflug bereit.`
+                : `Am Zielstrip wartet ein Bush-Pickup fuer ${bushTargetName}. Der Gast steht am Treffpunkt fuer den Rueckflug bereit.`
+        };
+    }
     if (bush && !bush.requiresReturnHome) {
         const bushTargetName = String(bush?.targetRef?.name || dest?.n || dest?.name || dest?.icao || 'Remote Strip').trim();
         const bushVehicle = pickBushArrivalVehicleSpec({ bush, dest, mission, profileId });
@@ -13320,6 +13506,16 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Backcountry-Recon ueber einem abgelegenen Zielgebiet mit Rueckkehr zum Heimatplatz',
             'Bush-Beobachtungsflug mit kurzem Survey-Run und anschliessendem RTB',
             'Abgelegener Recon-Einsatz mit Fokus auf Zielgebiet, Lagebild und Heimkehr'
+        ],
+        bush_pickup_strip: [
+            'Leerer Bush-Outbound-Leg zu einem abgelegenen Strip, dort Passenger Pickup und RTB',
+            'Backcountry-Abholung an einem Remote Strip mit Rueckflug zum Heimatplatz',
+            'Bush-Pickup fuer Ranger, Mechaniker oder Lodge-Kontakt mit direkter Heimkehr'
+        ],
+        bush_pickup_cargo: [
+            'Leerer Bush-Outbound-Leg zu einem abgelegenen Strip, dort Cargo Pickup und RTB',
+            'Backcountry-Rueckholfracht an einem Remote Strip mit Rueckflug zum Heimatplatz',
+            'Bush-Cargo-Pickup fuer Werkzeug, Betriebsbedarf oder Ersatzteile mit direkter Heimkehr'
         ]
     };
     const themePoolBase = isBushMission
@@ -15514,6 +15710,7 @@ async function generateMission() {
         targetLon: Number(dest.lon),
         targetAltFt: isPOI && Number.isFinite(Number(poiTerrainFt)) ? Math.round(Number(poiTerrainFt)) : null,
         poiTerrainFt: isPOI && Number.isFinite(Number(poiTerrainFt)) ? Math.round(Number(poiTerrainFt)) : null,
+        passenger: m?.passenger || null,
         mission: m.t,
         dist: totalDist,
         ac: selectedAC,
@@ -15559,7 +15756,9 @@ async function generateMission() {
         ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt)
         : null;
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
-    const suppressAptArrivalPlan = missionType === 'bush' && !!bushSpec?.requiresReturnHome;
+    const suppressAptArrivalPlan = missionType === 'bush'
+        && !!bushSpec?.requiresReturnHome
+        && String(bushSpec?.targetMode || '') !== 'strip_then_return';
     let aptArrivalPlan = suppressAptArrivalPlan ? null : buildAptArrivalPlan({
         isPOI,
         dest,
