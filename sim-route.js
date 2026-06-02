@@ -420,26 +420,7 @@
             console.warn('[SimPax] Debrief übersprungen: ungültiger Record/Track');
             return;
         }
-        const ok = confirm('Simulationsflug beendet.\n\nMöchtest du diesen Flug loggen und an die Pinwand hängen?');
-        if (!ok) return;
-        let saved = false;
-        if (typeof window.pinCompletedFlightRecord === 'function') {
-            try {
-                window.pinCompletedFlightRecord(record, { openDebrief: true });
-                saved = true;
-            } catch (e) {
-                console.warn('[SimPax] pinCompletedFlightRecord fehlgeschlagen:', e?.message || e);
-            }
-        }
-        if (!saved) {
-            saved = _fallbackPinFlightRecord(record, true);
-        }
-        if (saved) {
-            console.log(`[SimPax] 🧾 Debrief gespeichert: ${record.depLabel} ➔ ${record.arrLabel} (${record.distanceNm} NM)`);
-        } else {
-            console.warn('[SimPax] Debrief konnte nicht gespeichert werden.');
-        }
-        // Debrief im Sim-Modus immer anzeigen, auch wenn Pinboard-Write wegen Quota scheitert.
+        // Im Sim-Modus kein automatisches Loggen/Pinboard-Schreiben.
         try {
             if (typeof window.showFlightDebrief === 'function') window.showFlightDebrief(record);
         } catch (e) {
