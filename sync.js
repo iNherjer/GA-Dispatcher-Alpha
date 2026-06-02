@@ -8309,6 +8309,7 @@ function _missionEndReadiness(lat = null, lon = null) {
 }
 
 function _missionSceneFinishRuntimeAfterDeboard(reason = 'mission-end-after-farewell') {
+    _missionPhaseDebugPush('trigger', { name: '_missionSceneFinishRuntimeAfterDeboard', reason });
     _missionCargoMarkPassengerUnloaded({ reason: `${reason}-passenger-sync` });
     let cargoOutcome = typeof _missionCargoFinalizeMissionOutcome === 'function'
         ? _missionCargoFinalizeMissionOutcome({ source: reason })
@@ -8316,6 +8317,15 @@ function _missionSceneFinishRuntimeAfterDeboard(reason = 'mission-end-after-fare
     cargoOutcome = _missionOutcomeApplyPoiProgress(cargoOutcome, {
         endedAtHome: _missionPoiEndedAtHome(),
         needsRideHome: _missionPoiGroundEndReady() && !_missionPoiEndedAtHome()
+    });
+    _missionPhaseDebugPush('trigger', {
+        name: '_missionSceneFinishRuntimeAfterDeboard:outcome',
+        reason,
+        failed: !!cargoOutcome?.failed,
+        missingRequired: (cargoOutcome?.missingRequired || []).join(','),
+        notDeliveredRequired: (cargoOutcome?.notDeliveredRequired || []).join(','),
+        droppedRequired: (cargoOutcome?.droppedRequired || []).join(','),
+        damagedRequired: (cargoOutcome?.damagedRequired || []).join(',')
     });
     const endSceneStarted = _tryStartMissionEndScene(reason, { force: true });
     _setMissionClosePending({ reason, outcome: cargoOutcome });
@@ -8336,15 +8346,25 @@ function _missionFarewellRecordWithCargoOutcome(record) {
 }
 
 function _triggerPaxFarewellAndWaitForDeboard(record, reason = 'pax-farewell') {
+    _missionPhaseDebugPush('trigger', { name: '_triggerPaxFarewellAndWaitForDeboard', reason });
     if (typeof window.triggerPaxFarewell !== 'function') return false;
-    if (typeof _missionCargoNeedsUnload === 'function' && _missionCargoNeedsUnload()) return false;
+    if (typeof _missionCargoNeedsUnload === 'function' && _missionCargoNeedsUnload()) {
+        _missionPhaseDebugPush('trigger', { name: '_triggerPaxFarewellAndWaitForDeboard:blocked-unload', reason });
+        return false;
+    }
     const farewellRecord = _missionFarewellRecordWithCargoOutcome(record);
     missionRuntime.waitingFarewellDeboarding = true;
     missionRuntime.deboardingAfterFarewellStarted = false;
     try {
         window.triggerPaxFarewell(farewellRecord);
+        _missionPhaseDebugPush('trigger', { name: '_triggerPaxFarewellAndWaitForDeboard:started', reason });
     } catch (err) {
         missionRuntime.waitingFarewellDeboarding = false;
+        _missionPhaseDebugPush('trigger', {
+            name: '_triggerPaxFarewellAndWaitForDeboard:error',
+            reason,
+            error: err?.message || String(err)
+        });
         console.warn('[MissionRuntime] Pax farewell trigger failed:', err);
         return false;
     }
@@ -8357,6 +8377,12 @@ function _triggerPaxFarewellAndWaitForDeboard(record, reason = 'pax-farewell') {
 }
 
 window.missionSceneStartDeboardingAfterFarewell = function(reason = 'pax-farewell-complete') {
+    _missionPhaseDebugPush('trigger', {
+        name: 'missionSceneStartDeboardingAfterFarewell',
+        reason,
+        waitingFarewellDeboarding: !!missionRuntime.waitingFarewellDeboarding,
+        deboardingAfterFarewellStarted: !!missionRuntime.deboardingAfterFarewellStarted
+    });
     if (!missionRuntime.waitingFarewellDeboarding) return false;
     if (missionRuntime.deboardingAfterFarewellStarted) return false;
     missionRuntime.deboardingAfterFarewellStarted = true;
