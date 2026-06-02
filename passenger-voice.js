@@ -101,6 +101,59 @@ let _lastSpokenText  = null; // last generated text — for retroactive TTS
 let _lastSpokenSpeaker = null; // speaker snapshot for retroactive TTS
 let _paxAudioWarnedAt = 0;
 
+async function _paxEnsureAudioContextRunning(ctx, waitMs = 4500) {
+    if (!ctx) return false;
+    if (ctx.state === 'running') return true;
+
+    const tryResume = () => {
+        if (ctx.state === 'running') return;
+        try { ctx.resume().catch(() => {}); } catch (_) {}
+    };
+
+    tryResume();
+    if (ctx.state === 'running') return true;
+
+    return await new Promise(resolve => {
+        let done = false;
+        const finish = ok => {
+            if (done) return;
+            done = true;
+            cleanup();
+            resolve(!!ok);
+        };
+        const onState = () => {
+            if (ctx.state === 'running') finish(true);
+        };
+        const onGesture = () => {
+            tryResume();
+            if (ctx.state === 'running') finish(true);
+        };
+        const onVisibility = () => {
+            if (!document.hidden) onGesture();
+        };
+        const cleanup = () => {
+            clearTimeout(timer);
+            clearInterval(pulse);
+            try { ctx.removeEventListener('statechange', onState); } catch (_) {}
+            document.removeEventListener('click', onGesture, true);
+            document.removeEventListener('touchend', onGesture, true);
+            document.removeEventListener('pointerup', onGesture, true);
+            window.removeEventListener('pageshow', onGesture, true);
+            document.removeEventListener('visibilitychange', onVisibility, true);
+        };
+
+        try { ctx.addEventListener('statechange', onState); } catch (_) {}
+        document.addEventListener('click', onGesture, true);
+        document.addEventListener('touchend', onGesture, true);
+        document.addEventListener('pointerup', onGesture, true);
+        window.addEventListener('pageshow', onGesture, true);
+        document.addEventListener('visibilitychange', onVisibility, true);
+
+        const pulse = setInterval(tryResume, 350);
+        const timer = setTimeout(() => finish(ctx.state === 'running'), Math.max(800, Number(waitMs) || 4500));
+    });
+}
+
 window.paxVoiceUnlockAudio = function(reason = 'manual') {
     let info = null;
     try {
@@ -113,7 +166,7 @@ window.paxVoiceUnlockAudio = function(reason = 'manual') {
         _paxLog('AudioContext nicht verfügbar; bitte einmal in die App klicken und erneut versuchen.', 'warn');
         return null;
     }
-    if (ctx.state === 'suspended') {
+    if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
         ctx.resume().catch(() => {});
     }
     try {
@@ -2314,10 +2367,18 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
         ? window.paxVoiceUnlockAudio('playback')
         : window._tawsAudioCtx;
     if (!ctx) { _paxLog('AudioContext nicht verfügbar', 'warn'); return; }
-    if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+    if (ctx.state === 'suspended' || ctx.state === 'interrupted') await ctx.resume().catch(() => {});
     if (ctx.state !== 'running' && Date.now() - _paxAudioWarnedAt > 5000) {
         _paxAudioWarnedAt = Date.now();
         _paxLog(`AudioContext ist ${ctx.state}; Browser blockiert Playback moeglicherweise bis zum naechsten Klick.`, 'warn');
+    }
+    if (ctx.state !== 'running') {
+        const recovered = await _paxEnsureAudioContextRunning(ctx);
+        if (!recovered) {
+            _paxLog(`Playback abgebrochen: AudioContext blieb ${ctx.state}.`, 'warn');
+            return;
+        }
+        _paxLog('AudioContext wieder aktiv — Playback wird fortgesetzt', 'state');
     }
 
     const binary = atob(base64Audio);

@@ -62,8 +62,8 @@ function _tawsInitAudio() {
 // Intern: AudioContext aufwecken und danach callback ausführen
 function _tawsResumeThen(fn) {
     if (!_tawsAudioCtx) return;
-    if (_tawsAudioCtx.state === 'suspended') {
-        console.warn('[TAWS] AudioContext noch suspended beim Playback — resume() ohne User-Gesture!');
+    if (_tawsAudioCtx.state === 'suspended' || _tawsAudioCtx.state === 'interrupted') {
+        console.warn(`[TAWS] AudioContext noch ${_tawsAudioCtx.state} beim Playback — resume() ohne User-Gesture!`);
         _tawsAudioCtx.resume().then(fn).catch(() => {});
     } else {
         fn();
@@ -99,7 +99,7 @@ function _tawsUnlockAll() {
     // iOS PFLICHT: AudioContext.resume() MUSS aus einem User-Gesture-Handler heraus
     // aufgerufen werden. Danach bleibt der Context 'running' und kann jederzeit
     // per _tawsResumeThen() verwendet werden.
-    if (_tawsAudioCtx && _tawsAudioCtx.state === 'suspended') {
+    if (_tawsAudioCtx && (_tawsAudioCtx.state === 'suspended' || _tawsAudioCtx.state === 'interrupted')) {
         _tawsAudioCtx.resume().catch(() => {});
     }
     if (!_tawsSpeechUnlocked && typeof speechSynthesis !== 'undefined') {
@@ -112,7 +112,7 @@ function _tawsUnlockAll() {
 }
 window.awmEnsureAudioUnlocked = function(reason = 'manual') {
     _tawsUnlockAll();
-    if (_tawsAudioCtx && _tawsAudioCtx.state === 'suspended') {
+    if (_tawsAudioCtx && (_tawsAudioCtx.state === 'suspended' || _tawsAudioCtx.state === 'interrupted')) {
         _tawsAudioCtx.resume().catch(() => {});
     }
     return {
