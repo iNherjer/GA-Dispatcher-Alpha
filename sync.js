@@ -2365,7 +2365,7 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
     const isBushPickupCargo = !!(bush && bush.targetMode === 'strip_then_return' && String(bush.pickupKind || '').toLowerCase() === 'cargo');
     const cargoText = _missionCargoPrimaryText() || _missionSceneCargoText();
     const cleanedCargo = _missionCargoCleanLabel(cargoText);
-    const hasCargo = !isBushPickupCargo && cleanedCargo && !/^(?:-|none|kein cargo|keine fracht|standard-ausruestung|standard ausruestung)$/i.test(cleanedCargo);
+    const hasCargo = !isBushPickupPassenger && !isBushPickupCargo && cleanedCargo && !/^(?:-|none|kein cargo|keine fracht|standard-ausruestung|standard ausruestung)$/i.test(cleanedCargo);
     const isPoi = _missionCargoIsPoiMission();
     const items = [];
     if (_missionCargoHasPassengerMission()) {
@@ -4046,6 +4046,37 @@ window.finishMissionCargoPickupAndContinue = function() {
                 overrideText: String(bush.pickupGreetingText || '').trim()
             });
         } catch (_) {}
+    }
+    if (bush?.requiresReturnHome && bush?.homeRef) {
+        const pos = window.lastLiveGpsPos || {};
+        const homeLat = Number(bush.homeRef.lat);
+        const homeLon = Number(bush.homeRef.lon);
+        const curLat = Number(pos.lat);
+        const curLon = Number(pos.lon);
+        if (Number.isFinite(homeLat) && Number.isFinite(homeLon) && Number.isFinite(curLat) && Number.isFinite(curLon)) {
+            routeWaypoints = [
+                { lat: curLat, lng: curLon, name: 'Pickup RTB' },
+                { lat: homeLat, lng: homeLon, name: String(bush.homeRef.name || bush.homeRef.icao || 'Home') }
+            ];
+            if (typeof currentDestICAO !== 'undefined') currentDestICAO = String(bush.homeRef.icao || currentStartICAO || '').trim().toUpperCase();
+            if (typeof currentDName !== 'undefined') currentDName = String(bush.homeRef.name || bush.homeRef.icao || 'Home').trim();
+            window._missionRouteWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
+            if (typeof currentMissionData !== 'undefined' && currentMissionData) {
+                currentMissionData.routeWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
+                currentMissionData.missionRouteWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
+                currentMissionData.dest = String(bush.homeRef.icao || currentMissionData.dest || '').trim().toUpperCase();
+                const nav = (typeof calcNav === 'function') ? calcNav(curLat, curLon, homeLat, homeLon) : null;
+                if (nav) {
+                    currentMissionData.dist = Number(nav.dist) || currentMissionData.dist;
+                    currentMissionData.heading = Number(nav.brng) || currentMissionData.heading;
+                }
+            }
+            try { renderMainRoute?.(); } catch (_) {}
+            try { fitMapToRouteWaypoints?.([60, 60]); } catch (_) {}
+            try { updateMiniMap?.(); } catch (_) {}
+            try { refreshGPSAfterDispatch?.(); } catch (_) {}
+            try { window.debouncedSaveMissionState?.(); } catch (_) {}
+        }
     }
     if (typeof window.missionAptArrivalClear === 'function') {
         try { window.missionAptArrivalClear('bush-pickup-complete'); } catch (_) {}
