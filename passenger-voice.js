@@ -2516,7 +2516,7 @@ function _missionRequiredItemNames(limit = 4) {
             : null;
         names = Array.isArray(manifest?.items)
             ? manifest.items
-                .filter(item => item?.required)
+                .filter(item => item?.required && item?.pickupLocation !== 'target')
                 .map(item => String(item.storyName || item.label || '').trim())
                 .filter(Boolean)
             : [];
@@ -2534,7 +2534,12 @@ function _buildBoardingText() {
     const paxCount = _extractPaxCount(paxText);
     const cargoClean = cargoText && !/^[-–—]$/.test(cargoText) ? cargoText : 'kein zusaetzliches Gepaeck';
     const role = pax.role ? ` als ${pax.role}` : '';
-    const paxPart = paxCount > 1 ? `${paxCount} Personen` : `ich bin${role}`;
+    const bush = contract?.bush && typeof contract.bush === 'object' ? contract.bush : null;
+    const isTargetPickupMission = !!(bush && String(bush.targetMode || '') === 'strip_then_return' && String(bush.pickupKind || '').trim());
+    const hasOutboundPassenger = paxCount > 0;
+    const paxPart = paxCount > 1
+        ? `${paxCount} Personen`
+        : (hasOutboundPassenger ? `ich bin${role}` : (isTargetPickupMission ? 'heute geht es zunaechst leer raus' : 'heute geht es ohne Passagier los'));
     const requiredItems = _missionRequiredItemNames(4);
     const requiredShort = requiredItems.slice(0, 4);
     const requiredText = requiredShort.length
@@ -2867,6 +2872,14 @@ function _distanceFromDepartureNm(lat, lon) {
 }
 
 window.paxVoicePrepareBoarding = function() {
+    let contract = null;
+    try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) {}
+    contract = contract || window.activeMissionContract || (typeof currentMissionData !== 'undefined' ? currentMissionData?.missionContract : null) || {};
+    const paxText = String(contract?.paxText || document.getElementById('mPay')?.innerText || '').trim();
+    const paxCount = _extractPaxCount(paxText);
+    const bush = contract?.bush && typeof contract.bush === 'object' ? contract.bush : null;
+    const suppressOutboundPickupBoarding = !!(bush && String(bush.targetMode || '') === 'strip_then_return' && paxCount <= 0);
+    if (suppressOutboundPickupBoarding) return Promise.resolve(null);
     const hasPassenger = !!window.activePassenger;
     const hasPaxMission = _missionHasPax();
     const hasCargoContext = !!_activeCargoText();
