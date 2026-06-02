@@ -707,6 +707,8 @@ window.missionCargoStatus = {
     manifestKey: '',
     lastMode: 'load',
     loadConfirmed: false,
+    signatureAnimationEndsAt: 0,
+    signatureAnimationTimer: 0,
     lastCommandAt: 0,
     lastAckAt: 0,
     lastAck: null,
@@ -2664,6 +2666,30 @@ function _missionCargoInvalidateDispatchSignature(manifest) {
     return true;
 }
 
+function _missionCargoClearSignatureAnimation() {
+    if (window.missionCargoStatus?.signatureAnimationTimer) {
+        clearTimeout(window.missionCargoStatus.signatureAnimationTimer);
+        window.missionCargoStatus.signatureAnimationTimer = 0;
+    }
+    if (window.missionCargoStatus) window.missionCargoStatus.signatureAnimationEndsAt = 0;
+}
+
+function _missionCargoStartSignatureAnimation(options = {}) {
+    const durationMs = Math.max(300, Number(options.durationMs) || 1600);
+    _missionCargoClearSignatureAnimation();
+    if (!window.missionCargoStatus) return;
+    window.missionCargoStatus.signatureAnimationEndsAt = Date.now() + durationMs;
+    window.missionCargoStatus.signatureAnimationTimer = window.setTimeout(() => {
+        if (window.missionCargoStatus) {
+            window.missionCargoStatus.signatureAnimationTimer = 0;
+            window.missionCargoStatus.signatureAnimationEndsAt = 0;
+        }
+        if (options.render !== false && document.getElementById('missionCargoOverlay')?.style.display === 'flex') {
+            _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+        }
+    }, durationMs + 40);
+}
+
 window.missionCargoSignDispatchList = function(options = {}) {
     const manifest = _missionCargoEnsureManifest();
     manifest.dispatchSignature = {
@@ -2673,6 +2699,7 @@ window.missionCargoSignDispatchList = function(options = {}) {
         note: String(options?.note || '').trim()
     };
     _missionCargoPersistManifest(manifest);
+    if (options.animate !== false) _missionCargoStartSignatureAnimation({ render: options.render !== false });
     if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
     return true;
 };
@@ -2680,6 +2707,7 @@ window.missionCargoSignDispatchList = function(options = {}) {
 window.missionCargoClearDispatchSignature = function(options = {}) {
     const manifest = _missionCargoEnsureManifest();
     if (!manifest.dispatchSignature) return false;
+    _missionCargoClearSignatureAnimation();
     manifest.dispatchSignature = null;
     _missionCargoPersistManifest(manifest);
     if (options.render !== false) _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
@@ -3622,6 +3650,8 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const requiredUnloadMissing = manifest.items.filter(item => item.required && _missionCargoItemNeedsUnloadHere(item) && item.status === 'loaded').length;
     const requiredPickupMissing = visibleItems.filter(item => item.required && item.status !== 'loaded' && item.status !== 'unloaded').length;
     const signature = manifest.dispatchSignature && typeof manifest.dispatchSignature === 'object' ? manifest.dispatchSignature : null;
+    const signatureAnimating = !!signature && !isUnload && !isPickup && Number(window.missionCargoStatus?.signatureAnimationEndsAt || 0) > Date.now();
+    const signatureReady = !!signature && !signatureAnimating;
     const assignmentMap = new Map(
         ((window.missionCargoStatus?.payloadPlan?.assignments) || [])
             .filter(row => (row?.type === 'cargo' && row?.itemId) || row?.type === 'pax')
@@ -3678,24 +3708,32 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
     const metaAircraft = _missionCargoAircraftLabel();
     const metaPilot = _missionCargoPilotId();
     const metaDate = _missionCargoFormatDate(signature?.at || Date.now());
+    const signatureName = _missionCargoEscape(signature?.by || metaPilot);
     const signaturePanel = (!isUnload && !isPickup) ? `
-        <div class="mission-cargo-signature ${signature ? 'is-signed' : ''} is-clickable" onclick="window.missionCargoToggleDispatchSignature && missionCargoToggleDispatchSignature()">
-            <div class="mission-cargo-signature-line">${signature ? _missionCargoEscape(signature.by || metaPilot) : '&nbsp;'}</div>
-            <div class="mission-cargo-signature-meta">Unterschrift Pilot · ${signature ? _missionCargoEscape(_missionCargoFormatDate(signature.at)) : 'noch offen'} · Klick: ${signature ? 'Signatur loeschen' : 'unterschreiben'}</div>
+        <div class="mission-cargo-signature ${signature ? 'is-signed' : ''} ${signatureAnimating ? 'is-animating' : ''} ${signatureAnimating ? '' : 'is-clickable'}" onclick="${signatureAnimating ? '' : 'window.missionCargoToggleDispatchSignature && missionCargoToggleDispatchSignature()'}">
+            <div class="mission-cargo-signature-line">${signature ? `<span class="mission-cargo-signature-name">${signatureName}</span>` : '&nbsp;'}</div>
+            <div class="mission-cargo-signature-meta">Unterschrift Pilot · ${signature ? _missionCargoEscape(_missionCargoFormatDate(signature.at)) : 'noch offen'} · ${signatureAnimating ? 'wird eingetragen' : (signatureReady ? 'Klick: Signatur loeschen' : 'Klick: unterschreiben')}</div>
         </div>` : '';
     const pickupReadyToConfirm = isPickup && requiredPickupMissing === 0 && visibleItems.length > 0;
     const unloadCompletesMission = isUnload && _missionRuntimeGroundEndReady();
-    const primaryActionJs = isUnload
+    const primaryActionJs = (!isUnload && !isPickup && !signatureReady)
+        ? 'window.missionCargoSignDispatchList && missionCargoSignDispatchList()'
+        : (isUnload
         ? 'window.finishMissionCargoUnloadAndEnd && finishMissionCargoUnloadAndEnd()'
         : (isPickup
             ? 'window.finishMissionCargoPickupAndContinue && finishMissionCargoPickupAndContinue()'
-            : 'window.finishMissionCargoLoadingAndStart && finishMissionCargoLoadingAndStart()');
-    const primaryActionLabel = isUnload
+            : 'window.finishMissionCargoLoadingAndStart && finishMissionCargoLoadingAndStart()'));
+    const primaryActionLabel = (!isUnload && !isPickup && !signatureReady)
+        ? (signatureAnimating ? 'Unterschrift wird eingetragen ...' : 'Unterschrift eintragen')
+        : (isUnload
         ? (unloadCompletesMission ? 'Entladung abgeschlossen - Mission beenden' : 'Entladung abschliessen')
-        : (isPickup ? 'Pickup bestaetigen und Rueckflug freigeben' : 'Verladung abschliessen');
-    const secondaryAction = (!isUnload && !isPickup && signature)
+        : (isPickup ? 'Pickup bestaetigen und Rueckflug freigeben' : 'Verladung abschliessen'));
+    const secondaryAction = (!isUnload && !isPickup && signatureReady)
         ? `<button class="mission-cargo-secondary" onclick="window.missionCargoClearDispatchSignature && missionCargoClearDispatchSignature()">Zurueck zur Liste</button>`
         : '';
+    const listMarkup = (!isUnload && !isPickup)
+        ? ''
+        : `<div class="mission-cargo-list">${rows}</div>`;
     const modeHint = isUnload
         ? (!groundHandlingAllowed ? '<div class="mission-cargo-summary">Im Flug kann Ladung nur abgeworfen werden. Als geliefert gilt sie erst nach Ausladen am Boden.</div>' : '')
         : (isPickup
@@ -3746,14 +3784,14 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                 ${signaturePanel}
             </div>` : ''}
             ${_missionCargoPayloadSummaryHtml(mode)}
-            <div class="mission-cargo-list">${rows}</div>
+            ${listMarkup}
             <div class="mission-cargo-summary">
                 <span>${isUnload ? `${requiredUnloadMissing} Pflicht-Items noch an Bord` : (isPickup ? `${requiredPickupMissing} Pickup-Items offen` : `${requiredMissing} Pflicht-Items offen`)}</span>
                 <span>${manifest.items.reduce((sum, item) => sum + ((item.status === 'loaded' || item.status === 'unloaded') ? Number(item.weightLbs || 0) : 0), 0)} lbs geladen</span>
             </div>
             <div class="mission-cargo-actions">
                 ${secondaryAction}
-                <button class="mission-cargo-primary" ${((isUnload && !groundHandlingAllowed) || (isPickup && (!groundHandlingAllowed || !pickupReadyToConfirm)) || (!isUnload && !isPickup && !groundHandlingAllowed)) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
+                <button class="mission-cargo-primary" ${((isUnload && !groundHandlingAllowed) || (isPickup && (!groundHandlingAllowed || !pickupReadyToConfirm)) || (!isUnload && !isPickup && (!groundHandlingAllowed || signatureAnimating))) ? 'disabled' : ''} onclick="${primaryActionJs}">${primaryActionLabel}</button>
             </div>
         </div>`;
     overlay.style.display = 'flex';
@@ -4076,7 +4114,12 @@ window.finishMissionCargoLoadingAndStart = function() {
     _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoLoadingAndStart' });
     const manifest = _missionCargoEnsureManifest();
     if (!manifest.dispatchSignature) {
-        window.missionCargoSignDispatchList?.({ render: false });
+        window.missionCargoSignDispatchList?.();
+        return false;
+    }
+    if (Number(window.missionCargoStatus?.signatureAnimationEndsAt || 0) > Date.now()) {
+        _missionCargoRenderDialog('load', { skipPayloadRefresh: true });
+        return false;
     }
     window.missionCargoStatus.loadConfirmed = true;
     _missionCargoSyncPayloadToSim('cargo-finish-loading').catch(() => {});
@@ -8350,6 +8393,7 @@ window.missionRuntimeReset = function(options = {}) {
         error: null
     });
     _resetMissionRuntime();
+    _missionCargoClearSignatureAnimation();
     window.missionCargoStatus.loadConfirmed = false;
     resetFlightRecorder();
     if (respawnAfterClear) {

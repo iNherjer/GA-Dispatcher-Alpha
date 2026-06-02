@@ -7138,6 +7138,16 @@ body.map-drawing-active #map.leaflet-dragging {
     color: rgba(17, 22, 31, 0.88);
     line-height: 1.1;
 }
+.mission-cargo-signature-name {
+    display: inline-block;
+}
+.mission-cargo-signature.is-animating .mission-cargo-signature-name {
+    overflow: hidden;
+    white-space: nowrap;
+    width: 0;
+    border-right: 2px solid rgba(47, 35, 18, 0.55);
+    animation: missionCargoSignatureWrite 1.55s steps(18, end) forwards, missionCargoSignatureCaret 0.6s step-end 3;
+}
 .mission-cargo-signature:not(.is-signed) .mission-cargo-signature-line {
     color: rgba(17, 22, 31, 0.35);
 }
@@ -7148,6 +7158,22 @@ body.map-drawing-active #map.leaflet-dragging {
     text-transform: uppercase;
     color: rgba(46, 34, 18, 0.75);
     font-family: 'Courier Prime', 'Courier New', monospace;
+}
+@keyframes missionCargoSignatureWrite {
+    from {
+        width: 0;
+    }
+    to {
+        width: 100%;
+    }
+}
+@keyframes missionCargoSignatureCaret {
+    0%, 100% {
+        border-right-color: rgba(47, 35, 18, 0.55);
+    }
+    50% {
+        border-right-color: transparent;
+    }
 }
 .mission-cargo-list {
     overflow: auto;
