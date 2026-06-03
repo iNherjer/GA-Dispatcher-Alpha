@@ -7241,11 +7241,38 @@ window.resetMissionStartBannerDismiss = function(options = {}) {
 };
 
 window.resetMissionStartFlow = function() {
+    if (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') {
+        if (currentMissionData.bush && typeof buildInitialBushMissionProgress === 'function') {
+            try {
+                _persistBushMissionProgress(buildInitialBushMissionProgress(currentMissionData.bush));
+            } catch (_) {}
+        }
+        currentMissionData.missionResult = '';
+        currentMissionData.missionFailed = false;
+        currentMissionData.missionOutcome = null;
+        currentMissionData.cargoOutcome = null;
+        currentMissionData.poiEndedAtHome = false;
+        currentMissionData.poiNeedsRideHome = false;
+    }
+    const manifest = (typeof _missionCargoGetManifest === 'function') ? _missionCargoGetManifest() : null;
+    if (manifest && typeof _missionCargoResetManifestState === 'function') {
+        const changed = _missionCargoResetManifestState(manifest);
+        if (changed && typeof _missionCargoPersistManifest === 'function') {
+            try { _missionCargoPersistManifest(manifest); } catch (_) {}
+        }
+    }
     _clearMissionStartPhase();
     try {
         const key = _missionStartUiKey();
         if (key) delete missionStartBannerDismissState[key];
     } catch (_) {}
+    Object.assign(window.missionSceneStatus, {
+        boardingRequested: false,
+        boardingActive: false,
+        boardingComplete: false,
+        boardingError: null,
+        personBoarded: false
+    });
     _updateMissionRuntimeUi();
 };
 
