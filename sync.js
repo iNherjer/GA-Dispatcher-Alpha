@@ -2315,10 +2315,17 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
 }
 
 function _missionCargoMissionKey() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const stableKey = String(
+        md?.missionKey
+        || md?.missionContract?.missionKey
+        || window.activeMissionContract?.missionKey
+        || ''
+    ).trim();
+    if (stableKey) return stableKey;
     try {
         if (typeof _missionStartUiKey === 'function') return _missionStartUiKey() || '';
     } catch (_) {}
-    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     return [md?.start, md?.dest, md?.poiName || md?.targetName, md?.mission].filter(Boolean).join('|');
 }
 
@@ -7938,8 +7945,17 @@ function _missionBushPickupAtTargetNow(lat = null, lon = null) {
     const curLon = Number(lon ?? pos.lon);
     if (!Number.isFinite(curLat) || !Number.isFinite(curLon)) return false;
     const ready = _missionEndReadiness(curLat, curLon);
-    if (!ready?.groundStill || !ready?.atTarget) return false;
-    if (ready.hasAptArrival) return _isAtAptArrivalPoint(curLat, curLon, 0.12) || !!ready.atTarget;
+    if (!ready?.groundStill) return false;
+    const bush = _activeBushMissionSpec();
+    const targetLat = Number(bush?.targetRef?.lat);
+    const targetLon = Number(bush?.targetRef?.lon);
+    if (Number.isFinite(targetLat) && Number.isFinite(targetLon)) {
+        const atArrivalPoint = _isAtAptArrivalPoint(curLat, curLon, 0.12);
+        const dTargetNm = _haversineNmLocal(curLat, curLon, targetLat, targetLon);
+        return !!(atArrivalPoint || (Number.isFinite(dTargetNm) && dTargetNm <= 0.35));
+    }
+    if (!ready?.atTarget) return false;
+    if (ready.hasAptArrival) return _isAtAptArrivalPoint(curLat, curLon, 0.12);
     return true;
 }
 

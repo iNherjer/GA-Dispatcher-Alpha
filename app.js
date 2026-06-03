@@ -15704,6 +15704,7 @@ async function generateMission() {
         : null;
 
     currentMissionData = {
+        missionKey: [currentStartICAO, currentDestICAO, isPOI ? dest.n : dest.n, m?.t].filter(Boolean).join('|'),
         start: currentStartICAO,
         dest: currentDestICAO,
         missionType,
@@ -15747,6 +15748,7 @@ async function generateMission() {
             normalized: missionSceneIntent
         }
     };
+    if (m && typeof m === 'object') m.missionKey = currentMissionData.missionKey;
 
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
     const isAiGeneratedMission = !!(m && typeof m._source === 'string' && /^Gemini\b/i.test(String(m._source)));
