@@ -4267,7 +4267,14 @@ window.finishMissionCargoPickupAndContinue = function() {
 window.finishMissionCargoUnloadAndEnd = function() {
     _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd' });
     window.closeMissionCargoDialog?.();
+    if (_missionSceneIsBushMission() && typeof _missionBushUpdateProgress === 'function') {
+        try { _missionBushUpdateProgress(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon, Date.now()); } catch (_) {}
+    }
     if (!_missionRuntimeGroundEndReady()) {
+        _updateMissionRuntimeUi();
+        return true;
+    }
+    if (window.simModeActive && _missionBushIsPickupMission()) {
         _updateMissionRuntimeUi();
         return true;
     }
