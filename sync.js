@@ -3396,6 +3396,19 @@ function _missionCargoEvaluateOutcome(manifest = _missionCargoEnsureManifest()) 
     };
 }
 
+function _missionCargoEvaluateFarewellOutcome() {
+    const manifest = _missionCargoEnsureManifest();
+    if (!manifest || !Array.isArray(manifest.items)) return _missionCargoEvaluateOutcome(manifest);
+    const projected = JSON.parse(JSON.stringify(manifest));
+    const passenger = (projected.items || []).find(item => _missionCargoIsPassengerItem(item) && item.status === 'loaded');
+    if (passenger) {
+        passenger.status = 'unloaded';
+        passenger.unloadedAt = Date.now();
+        passenger.droppedAt = 0;
+    }
+    return _missionCargoEvaluateOutcome(projected);
+}
+
 function _missionCargoRequiredStatusSnapshot(manifest = _missionCargoEnsureManifest()) {
     const items = Array.isArray(manifest?.items) ? manifest.items : [];
     return items
@@ -8334,9 +8347,9 @@ function _missionSceneFinishRuntimeAfterDeboard(reason = 'mission-end-after-fare
 
 function _missionFarewellRecordWithCargoOutcome(record) {
     const baseRecord = (record && typeof record === 'object') ? { ...record } : {};
-    if (typeof window.missionCargoEvaluateOutcome === 'function') {
+    if (typeof _missionCargoEvaluateFarewellOutcome === 'function') {
         try {
-            const outcome = window.missionCargoEvaluateOutcome();
+            const outcome = _missionCargoEvaluateFarewellOutcome();
             if (outcome && typeof outcome === 'object' && outcome.status !== 'none') {
                 baseRecord.missionCargoOutcome = outcome;
             }
