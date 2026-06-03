@@ -124,6 +124,9 @@
                 simPhase = 'mission_end_pending';
                 console.log('[SimPax] end_hold abgelaufen → Sim-Mission wartet auf explizites Missionsende.');
                 if (typeof window.openMissionCargoDialog === 'function') {
+                    if (typeof window.missionBushUpdateProgress === 'function') {
+                        try { window.missionBushUpdateProgress(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon, Date.now()); } catch (_) {}
+                    }
                     const groundAction = typeof window.missionResolveGroundAction === 'function'
                         ? window.missionResolveGroundAction({ active: true, trigger: 'sim:end_hold' })
                         : null;
@@ -454,6 +457,24 @@
     window.completeSimMissionEnd = function () {
         if (!simMissionEndPending) return false;
         return _finalizeSimMissionEnd(simMissionEndRecord || _buildSimRecord());
+    };
+
+    window.resumeSimMissionAfterPickup = function () {
+        if (!simActive || !simMissionEndPending) return false;
+        simMissionEndPending = false;
+        simMissionEndRecord = null;
+        simPhase = 'flight';
+        simHoldRemainSec = 0;
+        simRouteHash = _routeHash();
+        simRouteCache = _buildRoute();
+        if (!simRouteCache || simRouteCache.totalDist < 0.5) {
+            _stop();
+            return false;
+        }
+        if (typeof window.gaMissionPhaseDebugRecord === 'function') {
+            try { window.gaMissionPhaseDebugRecord('trigger', { name: 'resumeSimMissionAfterPickup', phase: 'flight' }); } catch (_) {}
+        }
+        return true;
     };
 
     // ── Route-Helfer ──────────────────────────────────────────────────────────

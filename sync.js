@@ -4198,6 +4198,9 @@ window.finishMissionCargoPickupAndContinue = function() {
             try { window.paxVoiceRefreshWidget?.(); } catch (_) {}
         }
     }
+    if (window.simModeActive && typeof window.resumeSimMissionAfterPickup === 'function') {
+        try { window.resumeSimMissionAfterPickup(); } catch (_) {}
+    }
     if (typeof window.triggerPaxGreeting === 'function' && bush?.pickupGreetingText) {
         try {
             window.triggerPaxGreeting(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon, {
