@@ -4201,9 +4201,20 @@ window.finishMissionCargoPickupAndContinue = function() {
         const passenger = md?.passenger || md?.missionContract?.passenger || window.activeMissionContract?.passenger || null;
         if (passenger && typeof passenger === 'object') {
             window.activePassenger = { ...passenger };
+            const pickupPaxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
+            if (md && typeof md === 'object') {
+                md.paxText = pickupPaxText;
+                if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.paxText = pickupPaxText;
+            }
+            if (window.activeMissionContract && typeof window.activeMissionContract === 'object') {
+                window.activeMissionContract.paxText = pickupPaxText;
+            }
             try { localStorage.setItem('ga_active_passenger', JSON.stringify(window.activePassenger)); } catch (_) {}
             try { window.paxVoiceRefreshWidget?.(); } catch (_) {}
         }
+    }
+    if (typeof window.paxVoiceResetLeg === 'function') {
+        try { window.paxVoiceResetLeg(); } catch (_) {}
     }
     if (window.simModeActive && typeof window.resumeSimMissionAfterPickup === 'function') {
         try { window.resumeSimMissionAfterPickup(); } catch (_) {}
@@ -4231,7 +4242,6 @@ window.finishMissionCargoPickupAndContinue = function() {
             window._missionRouteWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
             if (typeof currentMissionData !== 'undefined' && currentMissionData) {
                 currentMissionData.routeWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
-                currentMissionData.missionRouteWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
                 currentMissionData.dest = String(bush.homeRef.icao || currentMissionData.dest || '').trim().toUpperCase();
                 const nav = (typeof calcNav === 'function') ? calcNav(curLat, curLon, homeLat, homeLon) : null;
                 if (nav) {
@@ -7248,6 +7258,7 @@ window.resetMissionStartBannerDismiss = function(options = {}) {
 };
 
 window.resetMissionStartFlow = function() {
+    _restoreBushPickupOutboundRuntimeState();
     if (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') {
         if (currentMissionData.bush && typeof buildInitialBushMissionProgress === 'function') {
             try {
@@ -7732,6 +7743,12 @@ function _missionRuntimeRouteWaypoints() {
 }
 
 function _missionHomePointForRuntime() {
+    const bush = _activeBushMissionSpec();
+    const homeLat = Number(bush?.homeRef?.lat);
+    const homeLon = Number(bush?.homeRef?.lon);
+    if (Number.isFinite(homeLat) && Number.isFinite(homeLon)) {
+        return { lat: homeLat, lon: homeLon };
+    }
     const wps = _missionRuntimeRouteWaypoints();
     if (!wps || !wps.length) return null;
     const wp = wps[0];
@@ -7750,6 +7767,40 @@ function _distanceToMissionHomeNm(lat, lon) {
 function _isAtMissionHome(lat, lon, thresholdNm = 0.35) {
     const dNm = _distanceToMissionHomeNm(lat, lon);
     return Number.isFinite(dNm) ? dNm <= thresholdNm : false;
+}
+
+function _restoreBushPickupOutboundRuntimeState() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const bush = md?.bush;
+    if (!bush || String(bush.targetMode || '') !== 'strip_then_return') return false;
+    const originalRoute = Array.isArray(md?.missionRouteWaypoints) && md.missionRouteWaypoints.length >= 2
+        ? JSON.parse(JSON.stringify(md.missionRouteWaypoints))
+        : null;
+    if (originalRoute) {
+        routeWaypoints = JSON.parse(JSON.stringify(originalRoute));
+        window._missionRouteWaypoints = JSON.parse(JSON.stringify(originalRoute));
+        md.routeWaypoints = JSON.parse(JSON.stringify(originalRoute));
+    }
+    const targetIcao = String(bush?.targetRef?.icao || '').trim().toUpperCase();
+    const targetName = String(bush?.targetRef?.name || md?.targetName || '').trim();
+    if (targetIcao) {
+        md.dest = targetIcao;
+        if (typeof currentDestICAO !== 'undefined') currentDestICAO = targetIcao;
+    }
+    if (targetName && typeof currentDName !== 'undefined') currentDName = targetName;
+    const initialPaxText = String(md?.initialPaxText || md?.paxText || '').trim();
+    if (initialPaxText) {
+        md.paxText = initialPaxText;
+        if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.paxText = initialPaxText;
+        if (window.activeMissionContract && typeof window.activeMissionContract === 'object') window.activeMissionContract.paxText = initialPaxText;
+    }
+    window.activePassenger = null;
+    try { localStorage.setItem('ga_active_passenger', ''); } catch (_) {}
+    try { window.paxVoiceRefreshWidget?.(); } catch (_) {}
+    try { renderMainRoute?.(); } catch (_) {}
+    try { updateMiniMap?.(); } catch (_) {}
+    try { refreshGPSAfterDispatch?.(); } catch (_) {}
+    return true;
 }
 
 function _missionHadMeaningfulFlightForEnd() {
@@ -8459,6 +8510,7 @@ window.missionSceneStartDeboardingAfterFarewell = function(reason = 'pax-farewel
 };
 
 window.missionRuntimeReset = function(options = {}) {
+    _restoreBushPickupOutboundRuntimeState();
     const respawnAfterClear = options && options.respawnAfterClear === true;
     if (!window.simModeActive && !window.liveTrackerConnected) missionSceneReconnectResyncPending = true;
     if (!window.simModeActive && window.liveTrackerConnected) missionSceneReconnectResyncPending = false;

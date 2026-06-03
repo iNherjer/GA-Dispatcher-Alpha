@@ -196,6 +196,7 @@ window.paxVoiceSetEnabled = function(on) {
 };
 
 function _missionHasPax() {
+    if (window.activePassenger) return true;
     let paxText = '';
     try {
         const contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null');
@@ -4504,8 +4505,20 @@ Sprich als ${pax.role} kurz und praktisch: ein Satz zur Landung, ein Satz zum Ro
 
 // ─── PUBLIC TRIGGERS ─────────────────────────────────────────────────────────
 
-window.triggerPaxGreeting = async function(lat, lon) {
+window.paxVoiceResetLeg = function() {
+    _paxGreetingDone = false;
+    _paxAtTargetDone = false;
+    _paxLandingPhaseAnnounced = false;
+};
+
+window.triggerPaxGreeting = async function(lat, lon, options = {}) {
     _paxLog(`triggerPaxGreeting | tts:${_paxVoiceEnabled} done:${_paxGreetingDone} pax:${!!window.activePassenger} key:${!!_getApiKey()}`, 'state');
+    const overrideText = String(options?.overrideText || '').trim();
+    if (overrideText && window.activePassenger && _missionHasPax()) {
+        _paxGreetingDone = true;
+        _paxSpeakTextDirect(overrideText, 'Begrüßung');
+        return;
+    }
     if (_USE_COMBINED_BOARDING_GREETING) {
         _paxGreetingDone = true;
         _paxLog('Greeting unterdrueckt: kombinierter Boarding/Begruessungsblock aktiv', 'state');

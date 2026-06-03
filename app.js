@@ -15707,6 +15707,8 @@ async function generateMission() {
         missionKey: [currentStartICAO, currentDestICAO, isPOI ? dest.n : dest.n, m?.t].filter(Boolean).join('|'),
         start: currentStartICAO,
         dest: currentDestICAO,
+        paxText: String(paxText || ''),
+        initialPaxText: String(paxText || ''),
         missionType,
         bush: bushSpec,
         bushProgress: bushSpec ? buildInitialBushMissionProgress(bushSpec) : null,
