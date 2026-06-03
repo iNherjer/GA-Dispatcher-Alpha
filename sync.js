@@ -8352,6 +8352,15 @@ function _missionFarewellRecordWithCargoOutcome(record) {
             const outcome = _missionCargoEvaluateFarewellOutcome();
             if (outcome && typeof outcome === 'object' && outcome.status !== 'none') {
                 baseRecord.missionCargoOutcome = outcome;
+                baseRecord.missionFailed = !!outcome.failed;
+            }
+        } catch (_) {}
+    }
+    if (typeof _missionPoiProgressState === 'function') {
+        try {
+            const poiProgress = _missionPoiProgressState();
+            if (poiProgress && typeof poiProgress === 'object' && typeof poiProgress.aborted === 'boolean') {
+                baseRecord.poiAborted = !!poiProgress.aborted;
             }
         } catch (_) {}
     }

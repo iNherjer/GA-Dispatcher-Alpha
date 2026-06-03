@@ -4407,14 +4407,13 @@ function _farewellPrompt(record) {
         ...notDeliveredRequired,
         ...damagedRequired
     ].filter(Boolean);
-    const isMissionFailed = !!(
-        cargoOutcome?.failed
-        || _poiAborted
-        || rec?.missionFailed
-        || ((typeof currentMissionData !== 'undefined' && currentMissionData)
-            ? (currentMissionData.missionFailed || String(currentMissionData.missionResult || '').toLowerCase() === 'failed')
-            : false)
-    );
+    const hasResolvedOutcome = !!(cargoOutcome && typeof cargoOutcome === 'object' && String(cargoOutcome.status || '').toLowerCase() !== 'none');
+    const currentMissionFailed = ((typeof currentMissionData !== 'undefined' && currentMissionData)
+        ? (currentMissionData.missionFailed || String(currentMissionData.missionResult || '').toLowerCase() === 'failed')
+        : false);
+    const isMissionFailed = hasResolvedOutcome
+        ? !!(cargoOutcome?.failed || rec?.missionFailed || rec?.poiAborted)
+        : !!(_poiAborted || rec?.missionFailed || currentMissionFailed);
     if (cargoOutcome?.failed) {
         const missing = failureReasons.slice(0, 3).join(', ');
         if (damagedRequired.length) {
