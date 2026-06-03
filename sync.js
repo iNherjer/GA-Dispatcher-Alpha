@@ -7793,11 +7793,15 @@ function _restoreBushPickupOutboundRuntimeState() {
     }
     const targetIcao = String(md?.initialDest || bush?.targetRef?.icao || '').trim().toUpperCase();
     const targetName = String(md?.initialTargetName || bush?.targetRef?.name || md?.targetName || '').trim();
+    const targetLat = Number(md?.targetLat ?? bush?.targetRef?.lat);
+    const targetLon = Number(md?.targetLon ?? bush?.targetRef?.lon);
     if (targetIcao) {
         md.dest = targetIcao;
         if (typeof currentDestICAO !== 'undefined') currentDestICAO = targetIcao;
     }
     if (targetName) md.targetName = targetName;
+    if (Number.isFinite(targetLat)) md.targetLat = targetLat;
+    if (Number.isFinite(targetLon)) md.targetLon = targetLon;
     if (Number.isFinite(Number(md?.initialDist))) md.dist = Number(md.initialDist);
     if (Number.isFinite(Number(md?.initialHeading))) md.heading = Number(md.initialHeading);
     if (targetName && typeof currentDName !== 'undefined') currentDName = targetName;
@@ -7807,12 +7811,36 @@ function _restoreBushPickupOutboundRuntimeState() {
         if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.paxText = initialPaxText;
         if (window.activeMissionContract && typeof window.activeMissionContract === 'object') window.activeMissionContract.paxText = initialPaxText;
     }
+    const destIcaoEl = document.getElementById('mDestICAO');
+    const destNameEl = document.getElementById('mDestName');
+    const destCoordsEl = document.getElementById('mDestCoords');
+    const wikiDestNameEl = document.getElementById('wikiDestNameDisplay');
+    const wikiDestDescEl = document.getElementById('wikiDestDescText');
+    const wikiDestFreqEl = document.getElementById('wikiDestFreqText');
+    const payEl = document.getElementById('mPay');
+    if (destIcaoEl && targetIcao) destIcaoEl.innerText = targetIcao;
+    if (destNameEl && targetName) destNameEl.innerText = targetName;
+    if (destCoordsEl && Number.isFinite(targetLat) && Number.isFinite(targetLon)) {
+        destCoordsEl.innerText = `${targetLat.toFixed(4)}, ${targetLon.toFixed(4)}`;
+    }
+    if (wikiDestNameEl && targetIcao && targetName) wikiDestNameEl.innerText = `${targetIcao} – ${targetName}`;
+    if (wikiDestDescEl) wikiDestDescEl.innerText = 'Lade Ziel-Info...';
+    if (wikiDestFreqEl) wikiDestFreqEl.innerHTML = '';
+    if (payEl && initialPaxText) payEl.innerText = initialPaxText;
     window.activePassenger = null;
     try { localStorage.setItem('ga_active_passenger', ''); } catch (_) {}
     try { window.paxVoiceRefreshWidget?.(); } catch (_) {}
     try { renderMainRoute?.(); } catch (_) {}
     try { updateMiniMap?.(); } catch (_) {}
     try { refreshGPSAfterDispatch?.(); } catch (_) {}
+    if (Number.isFinite(targetLat) && Number.isFinite(targetLon) && targetIcao) {
+        try { fetchAreaDescription?.(targetLat, targetLon, 'wikiDestDescText', null, targetIcao, 'wikiDestImageContainer', 'wikiDestImage'); } catch (_) {}
+        try { fetchAirportFreq?.(targetIcao, 'wikiDestFreqText', 'dest'); } catch (_) {}
+    }
+    try {
+        if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+        else if (typeof saveMissionState === 'function') saveMissionState();
+    } catch (_) {}
     return true;
 }
 
@@ -8864,7 +8892,14 @@ window.handleMissionStartBannerAction = async function() {
                 window.openMissionCargoDialog('unload');
                 return;
             }
-            if (window.simModeActive && typeof window.completeSimMissionEnd === 'function' && groundAction.action === 'end') {
+            const simEndPhase = String(groundAction.phase || '').trim();
+            const simEndAllowed = (
+                !window.simModeActive
+                || groundAction.action !== 'end'
+                || simEndPhase === 'end_ready'
+                || simEndPhase === 'ready_to_close'
+            );
+            if (window.simModeActive && typeof window.completeSimMissionEnd === 'function' && groundAction.action === 'end' && simEndAllowed) {
                 _missionPhaseDebugPush('trigger', {
                     name: 'handleMissionStartBannerAction:complete-sim-end',
                     phase: groundAction.phase
