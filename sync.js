@@ -11909,7 +11909,7 @@ window.toggleTrafficMap = function(forceState = null) {
 };
 
 // Sim-Modus: Flugzeug-Icon, Trail und Profil zurücksetzen
-window.hideLivePlane = function () {
+window.hideLivePlane = function (options = {}) {
     if (liveGpsMarker) { liveGpsMarker.remove(); liveGpsMarker = null; }
     lastAutoFollowPanAt = 0;
     lastAutoFollowPanPos = null;
@@ -11929,7 +11929,7 @@ window.hideLivePlane = function () {
     lastGpsTickDetails = null;
     lastTrailPoint = null;
     resetFlightRecorder();
-    _resetMissionRuntime();
+    if (options?.preserveMissionRuntime !== true) _resetMissionRuntime();
     hideNextWpTelemetry();
 };
 

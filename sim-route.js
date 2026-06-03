@@ -320,7 +320,7 @@
 
     // ── Stop ──────────────────────────────────────────────────────────────────
 
-    function _stop() {
+    function _stop(options = {}) {
         simActive = false;
         window.simModeActive = false;
         simMissionEndPending = false;
@@ -335,7 +335,7 @@
         smoothedVS = 0;
         _fpCache = null; _fpCacheKey = '';
 
-        if (typeof window.hideLivePlane === 'function') window.hideLivePlane();
+        if (typeof window.hideLivePlane === 'function') window.hideLivePlane({ preserveMissionRuntime: options?.preserveMissionRuntime === true });
 
         const box = document.getElementById('liveTelemetryBox');
         if (box) box.style.display = 'none';
@@ -435,7 +435,7 @@
         console.log('[SimPax] Sim-Missionsende erreicht → expliziter Abschluss mit Farewell/Close-Pfad. Record:', rec?.distanceNm, 'NM');
         if (typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
             const started = _triggerPaxFarewellAndWaitForDeboard(rec, 'sim-mission-end-farewell');
-            _stop();
+            _stop({ preserveMissionRuntime: started });
             if (started) return true;
         }
         if (typeof window.missionCargoFinalizeMissionOutcome === 'function') {
