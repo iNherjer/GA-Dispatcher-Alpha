@@ -8135,6 +8135,7 @@ function _missionBushUpdateProgress(lat = null, lon = null, now = Date.now()) {
     if (prevJson !== nextJson) _persistBushMissionProgress(next);
     return next;
 }
+window.missionBushUpdateProgress = _missionBushUpdateProgress;
 
 function _missionPoiGroundEndReady(endReady = null) {
     if (!_missionSceneIsPoiMission()) return false;
