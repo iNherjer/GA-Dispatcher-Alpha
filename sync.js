@@ -7780,6 +7780,9 @@ function _restoreBushPickupOutboundRuntimeState() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const bush = md?.bush;
     if (!bush || String(bush.targetMode || '') !== 'strip_then_return') return false;
+    if (typeof buildInitialBushMissionProgress === 'function') {
+        try { _persistBushMissionProgress(buildInitialBushMissionProgress(bush)); } catch (_) {}
+    }
     const originalRoute = Array.isArray(md?.missionRouteWaypoints) && md.missionRouteWaypoints.length >= 2
         ? JSON.parse(JSON.stringify(md.missionRouteWaypoints))
         : null;
@@ -7788,12 +7791,15 @@ function _restoreBushPickupOutboundRuntimeState() {
         window._missionRouteWaypoints = JSON.parse(JSON.stringify(originalRoute));
         md.routeWaypoints = JSON.parse(JSON.stringify(originalRoute));
     }
-    const targetIcao = String(bush?.targetRef?.icao || '').trim().toUpperCase();
-    const targetName = String(bush?.targetRef?.name || md?.targetName || '').trim();
+    const targetIcao = String(md?.initialDest || bush?.targetRef?.icao || '').trim().toUpperCase();
+    const targetName = String(md?.initialTargetName || bush?.targetRef?.name || md?.targetName || '').trim();
     if (targetIcao) {
         md.dest = targetIcao;
         if (typeof currentDestICAO !== 'undefined') currentDestICAO = targetIcao;
     }
+    if (targetName) md.targetName = targetName;
+    if (Number.isFinite(Number(md?.initialDist))) md.dist = Number(md.initialDist);
+    if (Number.isFinite(Number(md?.initialHeading))) md.heading = Number(md.initialHeading);
     if (targetName && typeof currentDName !== 'undefined') currentDName = targetName;
     const initialPaxText = String(md?.initialPaxText || md?.paxText || '').trim();
     if (initialPaxText) {
