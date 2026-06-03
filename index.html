@@ -144,8 +144,8 @@
         
         <div class="grid-3 ops-filter-fields">
             <div><label>Region</label><select id="regionFilter" onchange="syncToNavCom('regionFilterRadio', this.value)">
-                <option value="any">Europaweit</option>
-                <option value="de" selected>Nur DE</option>
+                <option value="any" selected>Europaweit</option>
+                <option value="de">Nur DE</option>
                 <option value="int">Nur Ausland</option>
             </select></div>
             <div><label>Richtung</label><select id="dirPref" onchange="syncToNavCom('dirPrefRadio', this.value)">
@@ -333,8 +333,8 @@
                     <div class="radio-disp-inner">
                         <span class="lcd-label">REGN</span>
                         <select id="regionFilterRadio" class="lcd-input" onchange="document.getElementById('regionFilter').value = this.value">
-                            <option value="any">ALL</option>
-                            <option value="de" selected>GER</option>
+                            <option value="any" selected>ALL</option>
+                            <option value="de">GER</option>
                             <option value="int">INT</option>
                         </select>
                     </div>
@@ -1595,7 +1595,7 @@
 <script defer src="checklists.js?v=cargo-mission-end-20260527-01"></script>
 <script defer src="profile.js?v=mission-phase-debug-20260602-01"></script>
 <script defer src="map.js?v=apt-arrival-debug-20260522-01"></script>
-<script defer src="app.js?v=mission-phase-debug-20260602-01"></script>
+<script defer src="app.js?v=region-default-20260603-01"></script>
 <script defer src="board.js?v=debug-report-20260523-01"></script>
 <script defer src="sim-route.js?v=bush-sim-pickup-20260603-01"></script>
 <script defer src="passenger-voice.js?v=farewell-state-20260603-01"></script>

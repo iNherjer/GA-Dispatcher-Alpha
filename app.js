@@ -2838,7 +2838,7 @@ function cycleOpsRange(event) {
 }
 
 function updateOpsSelectorDials() {
-    const regionValue = document.getElementById('regionFilter')?.value || 'de';
+    const regionValue = document.getElementById('regionFilter')?.value || 'any';
     const directionValue = document.getElementById('dirPref')?.value || 'any';
     const regionKnob = document.getElementById('opsRegionKnob');
     const directionKnob = document.getElementById('opsDirectionKnob');
