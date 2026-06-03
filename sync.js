@@ -4275,7 +4275,16 @@ window.finishMissionCargoUnloadAndEnd = function() {
         return true;
     }
     if (window.simModeActive && _missionBushIsPickupMission()) {
+        try {
+            const key = _missionStartUiKey();
+            if (key) missionStartBannerDismissState[key] = false;
+        } catch (_) {}
+        missionRuntime.phase = 'end_ready';
+        missionRuntime.readySince = Date.now();
         _updateMissionRuntimeUi();
+        setTimeout(() => {
+            try { _updateMissionRuntimeUi(); } catch (_) {}
+        }, 120);
         return true;
     }
     if (window.simModeActive && typeof window.completeSimMissionEnd === 'function') {
@@ -7793,8 +7802,8 @@ function _restoreBushPickupOutboundRuntimeState() {
     }
     const targetIcao = String(md?.initialDest || bush?.targetRef?.icao || '').trim().toUpperCase();
     const targetName = String(md?.initialTargetName || bush?.targetRef?.name || md?.targetName || '').trim();
-    const targetLat = Number(md?.targetLat ?? bush?.targetRef?.lat);
-    const targetLon = Number(md?.targetLon ?? bush?.targetRef?.lon);
+    const targetLat = Number(md?.initialTargetLat ?? bush?.targetRef?.lat ?? md?.targetLat);
+    const targetLon = Number(md?.initialTargetLon ?? bush?.targetRef?.lon ?? md?.targetLon);
     if (targetIcao) {
         md.dest = targetIcao;
         if (typeof currentDestICAO !== 'undefined') currentDestICAO = targetIcao;

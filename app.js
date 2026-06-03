@@ -3558,11 +3558,11 @@ function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
 
 function resolveRouteWaypointsFromMissionState(state = {}) {
     const md = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : null;
+    const preferMissionRoute = !!(md?.bush && String(md.bush.targetMode || '') === 'strip_then_return');
     const sources = [
-        state.routeWaypoints,
-        md?.routeWaypoints,
-        state.missionRouteWaypoints,
-        md?.missionRouteWaypoints
+        ...(preferMissionRoute
+            ? [state.missionRouteWaypoints, md?.missionRouteWaypoints, state.routeWaypoints, md?.routeWaypoints]
+            : [state.routeWaypoints, md?.routeWaypoints, state.missionRouteWaypoints, md?.missionRouteWaypoints])
     ];
     for (const source of sources) {
         const normalized = normalizeRouteWaypointsForStorage(source);
@@ -6867,9 +6867,6 @@ async function getWikiTitleForAirport(icao, lat, lon) {
         if (hit) {
             wikiTitleCache[icao] = hit.title;
             return hit.title;
-        } else if (txtResults.length > 0 && !txtResults[0].title.includes("Terminal")) {
-            wikiTitleCache[icao] = txtResults[0].title;
-            return txtResults[0].title;
         }
     } catch (e) { }
     return null;
@@ -15709,6 +15706,8 @@ async function generateMission() {
         dest: currentDestICAO,
         initialDest: currentDestICAO,
         initialTargetName: dest.n,
+        initialTargetLat: Number(dest.lat),
+        initialTargetLon: Number(dest.lon),
         paxText: String(paxText || ''),
         initialPaxText: String(paxText || ''),
         initialDist: totalDist,
