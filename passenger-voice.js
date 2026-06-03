@@ -2211,7 +2211,7 @@ window.paxCargoConditionReport = function() {
     const missingRequired = !isPOI ? _aptMissingRequiredCargoItems() : [];
     if (!isPOI && missingRequired.length) {
         const missingText = missingRequired.slice(0, 3).join(', ');
-        const prompt = `${_baseContext() || `MISSION: ${_activeMissionData().start || '?'} -> ${_activeMissionData().dest || '?'}\nLOAD: ${cargo}\nAUSGABE: Nur gesprochener Text, Deutsch.`}
+        const prompt = `${_baseContext() || `MISSION: ${_activeMissionData().start || '?'} -> ${_activeMissionData().dest || '?'}\nAUSRUESTUNG: ${cargo}\nAUSGABE: Nur gesprochener Text, Deutsch.`}
 
 Button-Frage: Der Pilot fragt nach der Ladung, aber die Pflichtladung wurde vor dem Start nicht geladen.
 Fehlende Pflichtladung: ${missingText}
@@ -2223,7 +2223,7 @@ Reagiere als Passagier kurz erschrocken und klar: Wir haben die Pflichtladung ve
         _missionActionSpeak(prompt, 'Ladung', fallback);
         return;
     }
-    const prompt = `${_baseContext() || `MISSION: ${_activeMissionData().start || '?'} -> ${_activeMissionData().dest || '?'}\nLOAD: ${cargo}\nAUSGABE: Nur gesprochener Text, Deutsch.`}
+    const prompt = `${_baseContext() || `MISSION: ${_activeMissionData().start || '?'} -> ${_activeMissionData().dest || '?'}\nAUSRUESTUNG: ${cargo}\nAUSGABE: Nur gesprochener Text, Deutsch.`}
 
 Button-Frage: Der Pilot fragt nach dem Zustand der Ladung.
 Cargo: ${cargo}
@@ -3347,6 +3347,8 @@ function _baseContext() {
 
     const cargo = document.getElementById('mWeight')?.innerText?.trim() || '';
     const payload = document.getElementById('mPay')?.innerText?.trim() || '';
+    const onboardPax = payload || (_missionHasPax() ? '1 PAX' : '0 PAX');
+    const onboardCargo = cargo || 'keine besondere Ausruestung';
     const roleStyle = _roleStyleHint(pax.role, pax);
     const urgency = _normUrgencyPriority(pax?.urgencyPriority);
     const urgencyLine = urgency === 'hoch'
@@ -3375,7 +3377,8 @@ function _baseContext() {
     const lines = [
 `ROLLE: ${pax.name} (${pax.role}) · Persönlichkeit: ${pax.personality}
 FLUG: ${md.start || '?'} → ${md.poiName || md.dest || '?'} · ${md.dist || '?'} NM
-LOAD: ${cargo || 'n/a'}${payload ? ` · ${payload}` : ''}
+AN BORD: ${onboardPax}
+AUSRUESTUNG: ${onboardCargo}
 AUFTRAG (kurz): ${storyShort || 'n/a'}
 STIL: ${roleStyle}
 DRINGLICHKEIT: ${urgency}
