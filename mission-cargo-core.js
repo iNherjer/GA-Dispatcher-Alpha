@@ -2003,7 +2003,17 @@ window.finishMissionCargoUnloadAndEnd = function() {
         if (started) return true;
     }
     if (window.simModeActive && typeof window.completeSimMissionEnd === 'function') {
-        return window.completeSimMissionEnd();
+        const completed = !!window.completeSimMissionEnd();
+        _missionPhaseDebugPush('trigger', {
+            name: 'finishMissionCargoUnloadAndEnd:complete-sim-end-result',
+            completed
+        });
+        if (completed) return true;
+        _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd:sim-fallback-manual-end' });
+        if (typeof window.manualMissionEnd === 'function') {
+            return !!window.manualMissionEnd({ skipCargoUnload: true });
+        }
+        return true;
     }
     window.manualMissionEnd({ skipCargoUnload: true });
 };

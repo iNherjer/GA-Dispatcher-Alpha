@@ -271,6 +271,11 @@ Wichtige Lehre aus den letzten Fixes:
 - Nicht die gesamte Missionslogik in `if (simMode)` aufspalten.
 - Wenn möglich dieselben Phasen verwenden und nur die Triggerquelle austauschen.
 
+Konkrete Sim-Regel fuer Abschlussphasen:
+
+- Wenn eine Mission nach `pickup`/`unload` fachlich bereits in `ready_to_close` oder `end_ready` steht, muss der Sim-Modus den Abschluss aktiv "armen" koennen, auch wenn das normale `end_hold`-Pending-Flag gerade fehlt oder schon verbraucht wurde.
+- Sonst entstehen die typischen Haenger: Dialog ist fertig, aber weder Farewell noch Mission-abschliessen-Banner erscheinen.
+
 ## 7. Missionsrezepte
 
 ### 7.1 APT A->B
@@ -315,7 +320,19 @@ Typische Erfolgslogik:
 
 - am Strip landen
 - Pflichtladung entladen
-- Mission vor Ort beenden
+- danach sofort in den Abschlusszustand `ready_to_close`
+- Farewell-/Uebergabe-Trigger aus Empfaenger-/Frachtkontakt-Sicht
+- Mission-abschliessen-Banner sofort freigeben
+
+Wichtige Abschlussregel:
+
+- `finishMissionCargoUnloadAndEnd()` ist bei `bush_supply` nicht nur "Unload fertig", sondern der harte Abschluss-Uebergang.
+- Wenn das Manifest erfolgreich entladen wurde und die Runtime bereits `ready_to_close` meldet, darf der Sim-Modus nicht noch auf einen separaten zweiten Boden-Trigger warten.
+- Live und Sim sollen hier fachlich gleich enden:
+  - Cargo raus
+  - Abschluss/Farewell anstossen
+  - `closingPending` bzw. Mission-Abschliessen-Banner aktivieren
+  - optional laufende Szene/Sequenz parallel zu Ende laufen lassen
 
 ### 7.4 Bush Charter
 

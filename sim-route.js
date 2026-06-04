@@ -455,7 +455,32 @@
     }
 
     window.completeSimMissionEnd = function () {
-        if (!simMissionEndPending) return false;
+        if (!simMissionEndPending) {
+            const groundAction = typeof window.missionResolveGroundAction === 'function'
+                ? window.missionResolveGroundAction({ active: true, trigger: 'completeSimMissionEnd:force-check' })
+                : null;
+            const phase = String(groundAction?.phase || '').trim().toLowerCase();
+            const canForceArm = !!(
+                simActive
+                && (
+                    phase === 'ready_to_close'
+                    || phase === 'end_ready'
+                    || (groundAction?.action === 'end' && !!phase)
+                )
+            );
+            if (!canForceArm) return false;
+            simMissionEndPending = true;
+            simMissionEndRecord = simMissionEndRecord || _buildSimRecord();
+            if (typeof window.gaMissionPhaseDebugRecord === 'function') {
+                try {
+                    window.gaMissionPhaseDebugRecord('trigger', {
+                        name: 'completeSimMissionEnd:force-arm',
+                        action: groundAction?.action || 'end',
+                        phase: phase || 'unknown'
+                    });
+                } catch (_) {}
+            }
+        }
         return _finalizeSimMissionEnd(simMissionEndRecord || _buildSimRecord());
     };
 
