@@ -4282,6 +4282,38 @@ window.finishMissionCargoUnloadAndEnd = function() {
         _updateMissionRuntimeUi();
         return true;
     }
+    const pos = window.lastLiveGpsPos || {};
+    const shouldRunBushHomeDeboarding = !!(
+        _missionBushIsPickupPassengerMission()
+        && Number.isFinite(Number(pos.lat))
+        && Number.isFinite(Number(pos.lon))
+        && _isAtMissionHome(Number(pos.lat), Number(pos.lon))
+        && !window.missionSceneStatus?.deboardingRequested
+        && !window.missionSceneStatus?.deboardingActive
+        && typeof window.missionSceneDeboarding === 'function'
+    );
+    if (shouldRunBushHomeDeboarding) {
+        _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd:start-bush-home-deboarding' });
+        const started = !!window.missionSceneDeboarding('bush-home-unload');
+        _missionPhaseDebugPush('trigger', {
+            name: 'finishMissionCargoUnloadAndEnd:bush-home-deboarding-result',
+            started
+        });
+        if (started) {
+            let cargoOutcome = typeof _missionCargoFinalizeMissionOutcome === 'function'
+                ? _missionCargoFinalizeMissionOutcome({ source: 'bush-home-unload-preview' })
+                : null;
+            cargoOutcome = _missionOutcomeApplyPoiProgress(cargoOutcome, {
+                endedAtHome: _missionPoiEndedAtHome(),
+                needsRideHome: _missionPoiGroundEndReady() && !_missionPoiEndedAtHome()
+            });
+            const endReady = _missionEndReadiness();
+            cargoOutcome = _missionOutcomeApplyEndReadiness(cargoOutcome, endReady);
+            _setMissionClosePending({ reason: 'bush-home-unload-preview', outcome: cargoOutcome });
+        }
+        _updateMissionRuntimeUi();
+        if (started) return true;
+    }
     if (window.simModeActive && typeof window.completeSimMissionEnd === 'function') {
         return window.completeSimMissionEnd();
     }
@@ -4290,6 +4322,21 @@ window.finishMissionCargoUnloadAndEnd = function() {
 
 function _missionSceneVehicleAsset() {
     const taskDomain = _missionSceneTaskDomain();
+    if (_missionBushIsPickupPassengerMission()) {
+        const bushPool = _missionSceneFilteredVehiclePool(
+            MISSION_SCENE_ASSET_POOLS.vehicles
+                .concat(MISSION_SCENE_ASSET_POOLS.trucks, MISSION_SCENE_ASSET_POOLS.quads)
+        );
+        const preferred = _sceneObjectTitleOverride(
+            'vehicle',
+            _scenePickTitle(bushPool, 'vehicle-bush-pickup-home', bushPool[0] || MISSION_SCENE_DEFAULT_VEHICLE_TITLE),
+            bushPool
+        );
+        return {
+            title: preferred,
+            candidates: _sceneAssetCandidates(preferred, bushPool)
+        };
+    }
     if (taskDomain === 'fire_watch') {
         const pool = MISSION_SCENE_ASSET_POOLS.fireVehicles;
         const allowed = pool.concat([
@@ -4424,6 +4471,7 @@ function _activeBushMissionSpec() {
 }
 
 function _missionSceneVehicleSupportEnabled() {
+    if (_missionBushIsPickupPassengerMission()) return true;
     try {
         const raw = String(localStorage.getItem('ga_scene_apt_vehicle_enabled') || '').trim().toLowerCase();
         if (/^(1|true|yes|ja|on)$/.test(raw)) return true;
@@ -6528,9 +6576,10 @@ window.missionSceneBoarding = async function(reason = 'boarding') {
 };
 
 window.missionSceneDeboarding = function(reason = 'mission-end') {
-    if (window.simModeActive) return false;
+    if (window.simModeActive && !window.liveTrackerConnected) return false;
     if (window.missionSceneStatus?.deboardingRequested || window.missionSceneStatus?.deboardingActive) return false;
-    if (_missionCargoPassengerAlreadyUnloaded()) return false;
+    const allowBushHomeHandoff = reason === 'bush-home-unload' && _missionBushIsPickupPassengerMission();
+    if (_missionCargoPassengerAlreadyUnloaded() && !allowBushHomeHandoff) return false;
     const pos = window.lastLiveGpsPos || {};
     if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) return false;
     const sceneId = window.missionSceneStatus?.sceneId || _missionSceneId();

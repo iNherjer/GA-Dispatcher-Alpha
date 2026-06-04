@@ -257,6 +257,7 @@ let _poiTrainingPreBriefDone = false; // 4 NM before training area
 let _poiTrainingZoneStartDone = false; // when entering training area
 let _poiTrainingLandingBriefDone = false; // 5/4 NM before landing on return leg
 let _poiNarrativeMemory = { pre: '', entry: '', done: '' }; // anti-repeat memory across POI phases
+let _bushPickupNarrativeMemory = { boarding: '', departure: '' }; // continuity across bush pickup return-leg calls
 let _missionComfortScore = null;
 
 function _paxMissionTimeout(fn, delayMs) {
@@ -324,6 +325,7 @@ window.paxVoiceResetMission = function() {
     _poiTrainingZoneStartDone = false;
     _poiTrainingLandingBriefDone = false;
     _poiNarrativeMemory = { pre: '', entry: '', done: '' };
+    _bushPickupNarrativeMemory = { boarding: '', departure: '' };
     _missionComfortScore = _createMissionComfortScore();
     _lastPaxText = '';
     try { _paxPreparedAudio.clear(); } catch (_) {}
@@ -388,6 +390,30 @@ function _capturePoiNarrativeMemory(eventLabel, spokenText) {
     if (ev.includes('objekt in sicht')) _poiNarrativeMemory.pre = compact;
     else if (ev.includes('zielgebiet')) _poiNarrativeMemory.entry = compact;
     else if (ev.includes('ziel erfüllt') || ev.includes('ziel erfuellt') || ev.includes('am ziel')) _poiNarrativeMemory.done = compact;
+}
+
+function _captureBushPickupNarrativeMemory(eventLabel, spokenText) {
+    const active = _activeBushPickupPassengerContract();
+    if (!active) return;
+    const ev = String(eventLabel || '').toLowerCase();
+    const compact = _poiMemoryCompact(spokenText);
+    if (!compact) return;
+    if (ev.includes('pickup')) _bushPickupNarrativeMemory.boarding = compact;
+    else if (ev.includes('rueckflug') || ev.includes('rückflug')) _bushPickupNarrativeMemory.departure = compact;
+}
+
+function _bushPickupNarrativeHint(stage = 'departure') {
+    const active = _activeBushPickupPassengerContract();
+    if (!active) return '';
+    const boarding = String(_bushPickupNarrativeMemory?.boarding || '').trim();
+    const departure = String(_bushPickupNarrativeMemory?.departure || '').trim();
+    if (stage === 'departure') {
+        if (!boarding) return '';
+        return ` Bisherige Strip-Ansage (inhaltlich verbindlich): "${boarding}". Greife denselben Einsatz, dieselbe Tätigkeit und denselben Wildnis-Kontext wieder auf. Fuehre diese Spur weiter und erfinde keinen anderen Forschungs-, Tier-, Einsatz- oder Missionsschwerpunkt.`;
+    }
+    const used = [boarding, departure].filter(Boolean);
+    if (!used.length) return '';
+    return ` Bisherige Bush-Pickup-Ansagen (inhaltlich verbindlich): ${used.map(text => `"${text}"`).join(' | ')}. Bleib bei derselben Geschichte und fuehre sie nur weiter oder runde sie ab. Fuehre keinen neuen Forschungs-, Wildnis- oder Einsatzschwerpunkt ein.`;
 }
 
 function _poiNoRepeatHint(stage = 'entry') {
@@ -2895,6 +2921,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel) {
     _lastSpokenText = spokenText;
     _lastSpokenSpeaker = speakerSnapshot;
     _capturePoiNarrativeMemory(eventLabel, spokenText);
+    _captureBushPickupNarrativeMemory(eventLabel, spokenText);
     _showPaxMessage(spokenText, eventLabel);
 
     if (!_paxVoiceEnabled) {
@@ -3415,6 +3442,17 @@ function _activeAptArrivalPlan(mdArg = null, contractArg = null) {
         try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) { contract = null; }
     }
     const truth = md?.missionTruth || contract?.missionTruth || null;
+    const bush = contract?.bush && typeof contract.bush === 'object' ? contract.bush : null;
+    const bushProgress = md?.bushProgress && typeof md.bushProgress === 'object' ? md.bushProgress : null;
+    const bushStatus = String(bushProgress?.status || '').toLowerCase();
+    if (
+        bush
+        && String(bush.targetMode || '') === 'strip_then_return'
+        && ['passenger', 'cargo'].includes(String(bush.pickupKind || '').toLowerCase())
+        && ['return_leg', 'home_unloading', 'ready_to_close'].includes(bushStatus)
+    ) {
+        return null;
+    }
     const plan = md?.aptArrivalPlan || contract?.aptArrivalPlan || truth?.arrivalScene || null;
     if (!plan || typeof plan !== 'object') return null;
     const lat = Number(plan.lat);
@@ -4229,10 +4267,11 @@ function _atTargetPrompt(flightData) {
     const landingInstructorHint = (!isPOI && trainingPlan)
         ? ' Als Instruktor im Anflug: bereite den Piloten kurz auf die Landung vor. Wenn realistisch, nenne 1-2 markante Landmarken zur VFR-Orientierung. Melde Wind/Wetter knapp und gib genau einen konkreten Lande-Tipp (z.B. stabiler Endanflug, Seitenwindkorrektur, Go-Around-Entscheidung).'
         : '';
+    const bushContinuityHint = _bushPickupNarrativeHint('arrival');
     return `${ctx}
 
 Moment: ${situation}${notes}
-Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv.${aptArrivalApproachHint}${inspectionLiveHint}${professionalProgressHint}${landingInstructorHint}${driftGuard} Max 2-3 Sätze.${_toneHint()}`;
+Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv.${aptArrivalApproachHint}${inspectionLiveHint}${professionalProgressHint}${landingInstructorHint}${bushContinuityHint}${driftGuard} Max 2-3 Sätze.${_toneHint()}`;
 }
 
 function _aptTrainingPrompt(flightData, distNm, progressRatio) {
@@ -4457,6 +4496,7 @@ function _farewellPrompt(record) {
         ? '\nWir sind nicht am Startflugplatz gelandet. Frag am Ende locker, ob wir dich von hier noch nach Hause fliegen.'
         : '';
     const aptFarewellHint = (!isPOI && !trainingPlan) ? _aptArrivalFarewellHint() : '';
+    const bushContinuityHint = _bushPickupNarrativeHint('farewell');
     const farewellTask = isMissionFailed
         ? `Verabschiede dich persönlich beim Piloten aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Bleib freundlich, aber nenne den Fehlschlag klar und ohne ihn schönzureden.${missionFailureTask}`
         : `Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Auch wenn etwas nicht perfekt war, schließ positiv ab.${trnTask}`;
@@ -4468,7 +4508,7 @@ function _farewellPrompt(record) {
 
 Moment: ${aptFarewellHint || 'Wir sind gelandet, Flug beendet.'}
 Fakten: ${facts}${highlights ? '\n' + highlights : ''}${trnFacts}
-${farewellTask}${poiRideHomeTask}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
+${farewellTask}${poiRideHomeTask}${bushContinuityHint}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
 }
 
 window.triggerPaxCargoEvent = async function(event = {}) {
@@ -4515,6 +4555,7 @@ window.paxVoiceResetLeg = function() {
     _paxLandingPhaseAnnounced = false;
     _paxPickupBoardingDone = false;
     _paxPickupDepartureDone = false;
+    _bushPickupNarrativeMemory = { boarding: '', departure: '' };
 };
 
 function _activeBushPickupPassengerContract() {
@@ -4541,7 +4582,7 @@ function _pickupBoardingPrompt() {
 
 Moment: Der Pickup ist gerade abgeschlossen und ich bin jetzt an Bord, wir stehen noch am Strip oder rollen langsam an.${wx ? ' ' + wx : ''}
 Basistext für deinen Einstieg am Strip (frei adaptieren): "${String(pax.greetingText || '').trim()}"
-Sag jetzt kurz, dass du an Bord bist, nenne knapp warum du hier draussen warst oder woran du gearbeitet hast und leite in einem letzten Halbsatz zum Rueckflug ueber. Das ist der kurze Moment direkt beim Einsteigen, noch kein laengerer Debrief.
+Sag jetzt kurz, dass du an Bord bist, nenne knapp warum du hier draussen warst oder woran du gearbeitet hast und leite in einem letzten Halbsatz zum Rueckflug ueber. Lege dabei schon den thematischen Faden fuer die spaetere Rueckflug-Ansage fest: genau ein klarer Einsatzschwerpunkt, kein Themenmix. Das ist der kurze Moment direkt beim Einsteigen, noch kein laengerer Debrief.
 Max 3 Sätze.${_toneHint()}`;
 }
 
@@ -4552,11 +4593,12 @@ function _pickupDeparturePrompt() {
     const active = _activeBushPickupPassengerContract();
     if (!active) return null;
     const wx = _weatherContext(window.lastLiveFlightData);
+    const continuityHint = _bushPickupNarrativeHint('departure');
     return `${ctx}
 
 Moment: Wir sind wieder in der Luft und der Rueckflug nach Hause laeuft.${wx ? ' ' + wx : ''}
-Basistext für deinen Rueckflug-Einstieg (frei adaptieren): "${String(pax.greetingText || '').trim()}"
-Baue auf deiner kurzen Ansage vom Strip auf: Erzaehle jetzt etwas ausfuehrlicher, warum du dort draussen warst, warum du wieder nach Hause musst und was du vom Ort oder vom Einsatz mitnimmst. Das darf persoenlicher und etwas bildhafter sein, aber weiterhin glaubwuerdig und knapp.
+Basistext für deinen Rueckflug-Einstieg (frei adaptieren): "${String(pax.greetingText || '').trim()}"${continuityHint}
+Baue auf deiner kurzen Ansage vom Strip auf: Erzaehle jetzt etwas ausfuehrlicher, warum du dort draussen warst, warum du wieder nach Hause musst und was du vom Ort oder vom Einsatz mitnimmst. Der Ton darf klar Wilderness- und Einsatzcharakter haben: Abgeschiedenheit, Gelände, Dauer draussen, Feldarbeit, Wetterfenster oder Rueckkehr in die Zivilisation. Das darf persoenlicher und etwas bildhafter sein, aber weiterhin glaubwuerdig und knapp.
 Max 4 Sätze.${_toneHint()}`;
 }
 
