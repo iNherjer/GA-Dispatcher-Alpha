@@ -8335,6 +8335,9 @@ function _missionBushGroundEndReady(endReady = null) {
         const curLat = Number(pos.lat);
         const curLon = Number(pos.lon);
         const progress = _activeBushMissionProgress();
+        if (progress?.status === 'ready_to_close' && ready?.groundStill && Number.isFinite(curLat) && Number.isFinite(curLon) && _isAtMissionHome(curLat, curLon)) {
+            return true;
+        }
         return !!(
             ready?.groundStill
             && Number.isFinite(curLat)
