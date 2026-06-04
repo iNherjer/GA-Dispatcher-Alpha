@@ -277,6 +277,77 @@ Konkrete Sim-Regel fuer Abschlussphasen:
 - Sonst entstehen die typischen Haenger: Dialog ist fertig, aber weder Farewell noch Mission-abschliessen-Banner erscheinen.
 - Missionen, deren Endfreigabe an `_missionHasReachedEndEligibleFlightPhase()` haengt, brauchen im Sim-Modus eine eigene Flug-Evidence aus `sim-route.js` und duerfen nicht stillschweigend nur vom Live-`flightRecorder` abhaengen.
 
+### 6.1 Architekturregel: Sim als Debugmodus
+
+Der Sim-Modus ist nicht nur ein Komfort-Feature, sondern der bevorzugte Debug-/Regressionstest fuer Missionsablaeufe.
+
+Dafuer gilt als feste Architekturregel:
+
+- Sim emuliert Eingabesignale, nicht Missionslogik.
+- Live und Sim muessen dieselbe Runtime-/Phasenmaschine durchlaufen.
+- Unterschiedlich sein duerfen nur Signalquelle und Timing, nicht die fachlichen Abschlussregeln.
+
+Praktisch heisst das:
+
+- Live liefert Signale ueber Tracker/Websocket/SimConnect-nahe Telemetrie.
+- Sim liefert dieselben Signale synthetisch ueber `sim-route.js`.
+- Beide Pfade muessen an dieselben oeffentlichen Runtime-Einstiege andocken, z. B.:
+  - `_missionEndReadiness()`
+  - `_missionResolveGroundAction()`
+  - `finishMissionCargoLoadingAndStart()`
+  - `finishMissionCargoPickupAndContinue()`
+  - `finishMissionCargoUnloadAndEnd()`
+  - `_triggerPaxFarewellAndWaitForDeboard()`
+  - `_setMissionClosePending()`
+
+Nicht gewuenscht:
+
+- eine zweite Missionslogik nur fuer Sim
+- abweichende Sim-Erfolgsregeln fuer dieselbe Mission
+- verstreute `if (simMode)`-Abzweige in fachlicher Missionslogik
+
+Erlaubt und sinnvoll:
+
+- Sim ersetzt fehlende Live-Signale
+- Sim setzt kuenstliche Flug-/Boden-Evidence
+- Sim kapselt Timing-Hilfen an klaren Uebergangspunkten (`start_hold`, `end_hold`, `mission_end_pending`)
+
+### 6.2 Testmatrix: Was Sim abdeckt
+
+Sim ist der primaere Testpfad fuer:
+
+- Phasenlogik und Statuswechsel
+- Banner-/Dialog-Fortschaltung
+- Pickup-/Unload-/End-/Close-Uebergaenge
+- Cargo-/Pax-Manifestregeln
+- Farewell-/Deboarding-/Close-Ketten
+- Szenen-Spawn/Clear-Anstosse
+- Trigger-Reihenfolgen und Race-Conditions innerhalb der Missionsmaschine
+
+Live bleibt Pflicht fuer:
+
+- echte Tracker-/Websocket-Aussetzer
+- Jitter, verzerrte Update-Frequenzen und Positionsspruenge
+- reale `onGround`-/Groundspeed-/Parking-Brake-Schwellen
+- Timing-Probleme zwischen externer Telemetrie und App-UI
+- alles, was nur mit echter Signalqualitaet oder externer Infrastruktur auftritt
+
+Faustregel:
+
+- Wenn etwas im Sim kaputt ist, ist das fast immer ein echter Logik- oder Phasenfehler.
+- Wenn etwas nur im Live-Modus kaputt ist, liegt die Ursache oft in Signalqualitaet, Timing oder Tracker-Integration.
+
+### 6.3 Bau-Regel fuer neue Missionen
+
+Neue Missionen muessen so gebaut werden, dass sie im Sim-Modus denselben Regelpfad nehmen koennen wie im Live-Betrieb.
+
+Das bedeutet:
+
+- Abschluesse immer ueber Phase + Manifest + Runtime modellieren
+- keine stillen Sonderabkuerzungen nur fuer einen Modus
+- Sim-spezifische Hilfen nur auf Input-Ebene
+- bei neuen Missionsarten frueh mit Phasen-Log und Sim-Ende pruefen, bevor Live-Feintuning beginnt
+
 ## 7. Missionsrezepte
 
 ### 7.1 APT A->B
@@ -329,6 +400,7 @@ Wichtige Abschlussregel:
 
 - `finishMissionCargoUnloadAndEnd()` ist bei `bush_supply` nicht nur "Unload fertig", sondern der harte Abschluss-Uebergang.
 - Wenn das Manifest erfolgreich entladen wurde und die Runtime bereits `ready_to_close` meldet, darf der Sim-Modus nicht noch auf einen separaten zweiten Boden-Trigger warten.
+- `ready_to_close` ist hier selbst bereits ein gueltiger Endzustand. `_missionBushGroundEndReady()` muss ihn fuer `bush_supply` und andere Nicht-Return-Bush-Missionen direkt akzeptieren, solange `groundStill` und `atTarget` stimmen.
 - Live und Sim sollen hier fachlich gleich enden:
   - Cargo raus
   - Abschluss/Farewell anstossen

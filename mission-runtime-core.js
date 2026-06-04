@@ -322,11 +322,11 @@ function _missionBushRuntimeDetailText() {
 function _missionBushGroundEndReady(endReady = null) {
     if (!_missionSceneIsBushMission()) return false;
     const ready = endReady && typeof endReady === 'object' ? endReady : _missionEndReadiness();
+    const progress = _activeBushMissionProgress();
     if (_missionBushIsPickupMission()) {
         const pos = window.lastLiveGpsPos || {};
         const curLat = Number(pos.lat);
         const curLon = Number(pos.lon);
-        const progress = _activeBushMissionProgress();
         if (progress?.status === 'ready_to_close' && ready?.groundStill && Number.isFinite(curLat) && Number.isFinite(curLon) && _isAtMissionHome(curLat, curLon)) {
             return true;
         }
@@ -346,11 +346,23 @@ function _missionBushGroundEndReady(endReady = null) {
         || completionMode === 'land_at_target'
         || completionMode === 'return_home';
     if (!isSupportedBushCompletion) return false;
+    if (progress?.status === 'ready_to_close' && ready?.groundStill) {
+        if (completionMode === 'return_home') {
+            const pos = window.lastLiveGpsPos || {};
+            const curLat = Number(pos.lat);
+            const curLon = Number(pos.lon);
+            return !!(
+                Number.isFinite(curLat)
+                && Number.isFinite(curLon)
+                && _isAtMissionHome(curLat, curLon)
+            );
+        }
+        return !!ready?.atTarget;
+    }
     if (completionMode === 'return_home') {
         const pos = window.lastLiveGpsPos || {};
         const curLat = Number(pos.lat);
         const curLon = Number(pos.lon);
-        const progress = _activeBushMissionProgress();
         return !!(
             ready?.groundStill
             && Number.isFinite(curLat)
