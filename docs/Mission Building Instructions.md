@@ -4,11 +4,12 @@ Diese Datei beschreibt den aktuellen Missions-Baukasten im Projekt. Sie ist bewu
 
 ## 1. Architektur in Kurzform
 
-Die Missionslogik lebt heute im Wesentlichen in vier Dateien:
+Die Missionslogik lebt heute im Wesentlichen in fuenf Dateien:
 
 - `app.js`: Missionsdefinition, Profile, Briefing-/Contract-Aufbau, Bush-Spezifika, POI/APT/BUSH-Metadaten.
-- `sync.js`: Missions-UI, Start-/End-Banner, Cargo-Dialoge, Szenen-Orchestrierung, Missionsende.
+- `sync.js`: Missions-UI, Start-/End-Banner, Szenen-Orchestrierung, Missionsende.
 - `mission-runtime-core.js`: extrahierter Runtime-Kern fuer Bush-/Ground-Action-/End-Readiness-Logik.
+- `mission-cargo-core.js`: extrahierter Cargo-/Manifest-/Payload-/Outcome-Kern.
 - `passenger-voice.js`: PAX-/Cargo-Sprachlogik, Missionsphasen aus Sicht des Passagiers, Ankunft/Farewell/Pickup-Erzählung.
 
 Der Tracker ist die Ausführungsebene für Szenen:
@@ -81,7 +82,7 @@ Die Runtime trennt zwei Dinge:
 
 Diese Trennung ist wichtig. Viele alte Bugs entstanden dort, wo UI, Cargo-Status und Missionsabschluss nur über lose `if/else`-Kombinationen gekoppelt waren.
 
-### 3.3 Manifest-/Ladungslogik in `sync.js`
+### 3.3 Manifest-/Ladungslogik in `mission-cargo-core.js`
 
 Wichtige Funktionen:
 
@@ -101,6 +102,11 @@ Das Manifest ist die Wahrheit darüber:
 - und was für Erfolg/Misserfolg zählt.
 
 Für neue Missionen gilt: Erfolgskriterien nach Möglichkeit über Manifest und Progress modellieren, nicht über freie Sonderbedingungen in UI-Code.
+
+Faustregel:
+
+- `mission-cargo-core.js` entscheidet ueber Manifest, Payload, Load/Pickup/Unload und Missionsauswertung.
+- `sync.js` oeffnet nur die passenden Dialoge und haengt diese Entscheidungen an die Runtime-/Szenensteuerung an.
 
 ### 3.4 Bush-Progression in `mission-runtime-core.js`
 
@@ -402,7 +408,7 @@ Wenn wir einen neuen Missionstyp bauen, gehen wir in dieser Reihenfolge vor:
 
 ## 10. Sinnvolle nächste Struktur-Schritte
 
-Das System ist bereits bausteinfähig, aber noch nicht gut genug sortiert. Der erste kleine Schritt ist bereits passiert: Bush-/Ground-Action-/End-Readiness-Helfer liegen jetzt in `mission-runtime-core.js`. Der naechste sichere Refactor-Pfad waere:
+Das System ist bereits bausteinfaehig und jetzt etwas sauberer sortiert: Bush-/Ground-Action-/End-Readiness-Helfer liegen in `mission-runtime-core.js`, Cargo-/Manifest-/Outcome-Logik in `mission-cargo-core.js`. Der naechste sichere Refactor-Pfad waere:
 
 1. `sync.js` logisch aufteilen, ohne Verhalten zu ändern:
    - runtime/phases
