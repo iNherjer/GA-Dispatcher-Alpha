@@ -1914,15 +1914,24 @@ function _activeMissionData() {
     return (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
 }
 
+function _activeMissionContractData() {
+    const md = _activeMissionData();
+    let contract = md.missionContract || window.activeMissionContract || null;
+    if (!contract) {
+        try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) { contract = null; }
+    }
+    return contract && typeof contract === 'object' ? contract : {};
+}
+
 function _activeCargoText() {
     const md = _activeMissionData();
-    const contract = md.missionContract || window.activeMissionContract || null;
+    const contract = _activeMissionContractData();
     return String(contract?.cargoText || md.cargoText || document.getElementById('mWeight')?.innerText || '').trim();
 }
 
 function _activePaxText() {
     const md = _activeMissionData();
-    const contract = md.missionContract || window.activeMissionContract || null;
+    const contract = _activeMissionContractData();
     return String(contract?.paxText || md.paxText || document.getElementById('mPay')?.innerText || '').trim();
 }
 
@@ -1947,6 +1956,64 @@ function _missionActionMenuAvailable() {
     const hasPax = !!window.activePassenger && _missionHasPax();
     if (_isPOIMission()) return hasPax;
     return hasPax || _cargoMissionFocus();
+}
+
+function _activeBushMissionSpec() {
+    const contract = _activeMissionContractData();
+    const bush = contract?.bush;
+    return bush && typeof bush === 'object' ? bush : null;
+}
+
+function _cargoOnlyVoiceContext() {
+    if (_missionHasPax() || !_cargoMissionFocus()) return null;
+    const md = _activeMissionData();
+    const contract = _activeMissionContractData();
+    const bush = _activeBushMissionSpec();
+    const story = _sanitizePaxSoftPoiStory(_getMissionStory());
+    const cargoText = _activeCargoText() || 'wichtige Fracht';
+    const paxText = _activePaxText() || '0 PAX';
+    const start = String(md.start || contract.start || 'Startplatz').trim();
+    const dest = String(md.poiName || md.dest || contract.dest || 'Zielflugplatz').trim();
+    const dist = String(md.dist || contract.dist || '?').trim();
+    const taskDomain = _normTaskDomain(contract?.taskDomain || md?.missionContract?.taskDomain || 'general');
+    const contractSummary = String(contract?.summary || '').trim();
+    const aptArrivalLine = _aptArrivalContextLine(md, contract);
+    return {
+        md,
+        contract,
+        bush,
+        story,
+        cargoText,
+        paxText,
+        start,
+        dest,
+        dist,
+        taskDomain,
+        contractSummary,
+        aptArrivalLine
+    };
+}
+
+function _cargoMissionSpeaker(kind = 'boarding') {
+    const cargoCtx = _cargoOnlyVoiceContext();
+    const arrivalPlan = _activeAptArrivalPlan();
+    if (kind === 'farewell') {
+        const role = String(arrivalPlan?.expectedBy || arrivalPlan?.roleLabel || 'Frachtkontakt am Ziel').trim();
+        return {
+            name: role,
+            role,
+            gender: 'male',
+            roleProfile: 'cargo_receiver_v1',
+            taskDomain: cargoCtx?.taskDomain || 'cargo_fragile'
+        };
+    }
+    return {
+        name: 'Lademeister',
+        role: 'Lademeister',
+        gender: 'male',
+        roleProfile: 'cargo_loadmaster_v1',
+        taskDomain: cargoCtx?.taskDomain || 'cargo_fragile'
+    };
 }
 
 function _refreshMissionActionMenu() {
@@ -2578,6 +2645,10 @@ function _speakerSnapshotForActivePax() {
     } : null;
 }
 
+function _speakerSnapshotForMissionVoice(kind = 'boarding') {
+    return _speakerSnapshotForActivePax() || (_cargoOnlyVoiceContext() ? _cargoMissionSpeaker(kind) : null);
+}
+
 function _extractWeightLbs(text) {
     const s = String(text || '');
     let total = 0;
@@ -2617,6 +2688,12 @@ function _missionRequiredItemNames(limit = 4) {
 }
 
 function _buildBoardingText() {
+    const cargoCtx = _cargoOnlyVoiceContext();
+    if (cargoCtx) {
+        const requiredItems = _missionRequiredItemNames(4);
+        const cargoName = requiredItems.length ? requiredItems.join(', ') : cargoCtx.cargoText;
+        return `Moin. Wir laden heute ${cargoName} fuer ${cargoCtx.dest}. Bitte sauber sichern und am Ziel erst nach vollem Stillstand zur Uebergabe freigeben.`;
+    }
     let contract = null;
     try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) {}
     contract = contract || window.activeMissionContract || (typeof currentMissionData !== 'undefined' ? currentMissionData?.missionContract : null) || {};
@@ -2862,6 +2939,7 @@ window.paxVoiceSetRoleConsistencyDebug = function(on) {
 
 function _logRoleConsistencyCheck(eventLabel) {
     if (!_roleConsistencyDebugEnabled()) return;
+    if (!window.activePassenger || !_missionHasPax()) return;
     const pax = window.activePassenger || {};
     const contract = (typeof window !== 'undefined' ? (window.activeMissionContract || null) : null)
         || (() => { try { return JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) { return null; } })();
@@ -2893,17 +2971,17 @@ async function _playTextAsTTS(text, speaker = null) {
     if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType);
 }
 
-async function _speakAndShowNow(situationPrompt, eventLabel) {
+async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = null) {
     const apiKey = _getApiKey();
     if (!apiKey) { _paxLog('Kein API-Key', 'warn'); return; }
     const pax = window.activePassenger || null;
-    const speakerSnapshot = pax ? {
+    const speakerSnapshot = speakerOverride || (pax ? {
         name: pax.name || '',
         role: pax.role || '',
         gender: pax.gender || '',
         roleProfile: pax.roleProfile || '',
         taskDomain: pax.taskDomain || ''
-    } : null;
+    } : null);
 
     _paxLog(`── ${eventLabel} ──`, 'event');
     _logRoleConsistencyCheck(eventLabel);
@@ -2931,7 +3009,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel) {
     await _playTextAsTTS(spokenText, speakerSnapshot);
 }
 
-function _speakAndShow(situationPrompt, eventLabel) {
+function _speakAndShow(situationPrompt, eventLabel, speakerOverride = null) {
     const epoch = _paxMissionEpoch;
     _paxLog(`Queue +1 | Event: ${eventLabel}`, 'state');
     const run = async () => {
@@ -2939,7 +3017,7 @@ function _speakAndShow(situationPrompt, eventLabel) {
         _paxLog(`Queue ▶ Start | Event: ${eventLabel}`, 'state');
         try {
             if (epoch !== _paxMissionEpoch) return;
-            await _speakAndShowNow(situationPrompt, eventLabel);
+            await _speakAndShowNow(situationPrompt, eventLabel, speakerOverride);
         } catch (e) {
             _paxLog(`Speech-Queue Fehler: ${e.message || e}`, 'warn');
         } finally {
@@ -2980,7 +3058,7 @@ window.paxVoicePrepareBoarding = function() {
     const key = _paxMissionAudioKey('boarding');
     const existing = _paxPreparedAudio.get(key);
     if (existing?.text || existing?.textPromise) return existing.textPromise || Promise.resolve(existing);
-    const speaker = _speakerSnapshotForActivePax();
+    const speaker = _speakerSnapshotForMissionVoice('boarding');
     const prompt = _boardingBriefingPrompt();
     if (!prompt) {
         const fallbackText = _buildBoardingText();
@@ -3037,7 +3115,7 @@ window.paxVoicePlayBoarding = async function() {
         let prepared = await window.paxVoicePrepareBoarding();
         prepared = prepared || _paxPreparedAudio.get(key) || null;
         if (!prepared?.text && !window.activePassenger && !_missionHasPax()) return false;
-        const speaker = prepared?.speaker || _speakerSnapshotForActivePax();
+        const speaker = prepared?.speaker || _speakerSnapshotForMissionVoice('boarding');
         const text = String(prepared?.text || _buildBoardingText() || '').trim();
         if (!text) return false;
         await _speakPreparedText(key, text, speaker, 'Boarding');
@@ -4189,7 +4267,32 @@ function _greetingMissionGuidance() {
 function _boardingBriefingPrompt() {
     const ctx = _baseContext();
     const pax = window.activePassenger;
-    if (!ctx || !pax) return null;
+    if (!ctx || !pax) {
+        const cargoCtx = _cargoOnlyVoiceContext();
+        if (!cargoCtx) return null;
+        const wx = _weatherContext(window.lastLiveFlightData);
+        const requiredItems = _missionRequiredItemNames(3);
+        const cargoLine = requiredItems.length
+            ? requiredItems.join(', ')
+            : cargoCtx.cargoText;
+        const opsNotes = Array.isArray(cargoCtx.bush?.opsNotes)
+            ? cargoCtx.bush.opsNotes.map(x => String(x || '').trim()).filter(Boolean).slice(0, 2).join(' | ')
+            : '';
+        const arrivalHint = cargoCtx.aptArrivalLine ? `\n${cargoCtx.aptArrivalLine}` : '';
+        return `ROLLE: Lademeister am Startplatz · Persönlichkeit: ruhig, pragmatisch, eingespielt
+FLUG: ${cargoCtx.start} → ${cargoCtx.dest} · ${cargoCtx.dist || '?'} NM
+AN BORD: ${cargoCtx.paxText}
+AUSRUESTUNG: ${cargoCtx.cargoText}
+AUFTRAG (kurz): ${cargoCtx.story || 'Versorgungsladung fuer einen abgelegenen Zielplatz.'}
+STIL: bodenstaendig, klar, ohne Passagier-Perspektive; wie eine kurze Einweisung vom Loadmaster vor dem Abflug.
+${cargoCtx.contractSummary ? `MISSION-CONTRACT: ${cargoCtx.contractSummary}` : ''}${arrivalHint}
+TASK-DOMAIN: ${cargoCtx.taskDomain}
+AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).
+
+Moment: Boarding und Verladen laufen gerade, der Start steht gleich an.${wx ? ` ${wx}` : ''}
+Sprich direkt zum Piloten als Lademeister am Heimatplatz. Sag kurz, was wir heute laden, warum diese Fracht am Ziel gebraucht wird und worauf beim Flug oder bei der Uebergabe zu achten ist. Erwaehne die Ladung immer direkt beim Namen: ${cargoLine}. Keine Passagierrolle, kein Einsteigen, kein Smalltalk ueber Sitzplaetze.${opsNotes ? ` Nutze diese Einsatznotizen grob als Leitplanke: ${opsNotes}.` : ''}
+Max 3-4 Sätze.${_toneHint()}`;
+    }
     const wx = _weatherContext(window.lastLiveFlightData);
     const guidance = _greetingMissionGuidance();
     if (!guidance) return null;
@@ -4211,6 +4314,51 @@ Nenne den Gegenstand immer direkt beim Namen.
 ${guidance.driftGuard}
 ${guidance.timingWordBan}
 Max 3 Sätze.${_toneHint()}`;
+}
+
+function _cargoOnlyFarewellPrompt(record) {
+    const cargoCtx = _cargoOnlyVoiceContext();
+    if (!cargoCtx) return null;
+    const rec = (record && typeof record === 'object') ? record : {};
+    const cargoOutcome = rec?.missionCargoOutcome
+        || cargoCtx.md?.cargoOutcome
+        || cargoCtx.contract?.cargoOutcome
+        || (typeof window.missionCargoEvaluateOutcome === 'function' ? window.missionCargoEvaluateOutcome() : null);
+    const missingRequired = Array.isArray(cargoOutcome?.missingRequired) ? cargoOutcome.missingRequired : [];
+    const droppedRequired = Array.isArray(cargoOutcome?.droppedRequired) ? cargoOutcome.droppedRequired : [];
+    const notDeliveredRequired = Array.isArray(cargoOutcome?.notDeliveredRequired) ? cargoOutcome.notDeliveredRequired : [];
+    const damagedRequired = Array.isArray(cargoOutcome?.damagedRequired) ? cargoOutcome.damagedRequired : [];
+    const failed = !!cargoOutcome?.failed;
+    const failureList = [...missingRequired, ...droppedRequired, ...notDeliveredRequired, ...damagedRequired].filter(Boolean);
+    const failureShort = failureList.slice(0, 3).join(', ');
+    const durationSec = Number.isFinite(Number(rec.durationSec)) ? Number(rec.durationSec) : null;
+    const min = durationSec != null ? Math.max(1, Math.round(durationSec / 60)) : null;
+    const distanceNm = Number.isFinite(Number(rec.distanceNm)) ? Number(rec.distanceNm) : null;
+    const arrivalPlan = _activeAptArrivalPlan();
+    const receiver = String(arrivalPlan?.expectedBy || arrivalPlan?.roleLabel || 'Frachtkontakt am Ziel').trim();
+    const cue = _aptArrivalCue(arrivalPlan);
+    const place = _aptArrivalLocationLabel(arrivalPlan);
+    const cargoName = _missionRequiredItemNames(3).join(', ') || cargoCtx.cargoText;
+    const facts = (min != null && distanceNm != null)
+        ? `${min} min, ${distanceNm.toFixed(1)} NM, Lieferung ${cargoName}.`
+        : `Lieferung ${cargoName}.`;
+    const resultTask = failed
+        ? `Sprich als Empfaenger der Lieferung am Ziel direkt zum Piloten. Sag klar, dass die Uebergabe heute noch nicht sauber abgeschlossen ist${failureShort ? `, weil ${failureShort} fehlt oder nicht brauchbar ist` : ''}. Bleib praktisch und knapp, kein Drama, keine Passagierperspektive. Eine kurze Bitte um neuen Anlauf ist okay.`
+        : `Sprich als Empfaenger der Lieferung am Ziel direkt zum Piloten. Bestaetige kurz, dass die Fracht angekommen ist, sag wofuer sie hier gebraucht wird, und bedanke dich fuer den Flug. Keine Passagierperspektive, kein Mitflug, keine Cockpit-Sicht.`;
+    return `ROLLE: ${receiver} · Persönlichkeit: bodenstaendig, direkt, dankbar
+FLUG: ${cargoCtx.start} → ${cargoCtx.dest} · ${cargoCtx.dist || '?'} NM
+AN BORD: ${cargoCtx.paxText}
+AUSRUESTUNG: ${cargoCtx.cargoText}
+AUFTRAG (kurz): ${cargoCtx.story || 'Versorgungsladung fuer einen abgelegenen Zielplatz.'}
+STIL: kurze Bodenfunk-/Uebergabe-Sprache aus Sicht des Empfaengers; nicht wie ein Passagier an Bord.
+${cargoCtx.contractSummary ? `MISSION-CONTRACT: ${cargoCtx.contractSummary}` : ''}
+TASK-DOMAIN: ${cargoCtx.taskDomain}
+AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).
+
+Moment: Die Maschine steht ${place}; dort laeuft jetzt die Uebergabe. ${cue ? `Am Treffpunkt wartet ${cue}.` : ''}
+Fakten: ${facts}
+${resultTask}
+Erwaehne die Fracht beim Namen: ${cargoName}. Max 3 Sätze.${_toneHint()}`;
 }
 
 function _greetingPrompt() {
@@ -4708,6 +4856,21 @@ window.triggerPaxFarewell = async function(record) {
         return false;
     }
     if (!window.activePassenger || !_missionHasPax()) {
+        const cargoPrompt = _cargoOnlyFarewellPrompt(record);
+        if (cargoPrompt) {
+            _paxFarewellDone = true;
+            const delayMs = _paxVoiceEnabled ? 1500 : 0;
+            const speaker = _cargoMissionSpeaker('farewell');
+            _paxLog(`CargoFarewell → API-Call in ${Math.round(delayMs / 1000)}s`, 'event');
+            _paxMissionTimeout(async () => {
+                try {
+                    await _speakAndShow(cargoPrompt, 'Verabschiedung', speaker);
+                } finally {
+                    _notifyFarewellSpeechComplete('cargo-farewell-complete');
+                }
+            }, delayMs);
+            return true;
+        }
         _notifyFarewellSpeechComplete('pax-farewell-no-pax');
         return false;
     }
