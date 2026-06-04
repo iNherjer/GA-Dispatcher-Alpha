@@ -4518,8 +4518,16 @@ function _pickupDeparturePrompt() {
     const ctx = _baseContext();
     const pax = window.activePassenger;
     if (!ctx || !pax) return null;
-    const roleProfile = String(pax?.roleProfile || '').toLowerCase();
-    if (roleProfile !== 'bush_pickup_guest_v1') return null;
+    let contract = null;
+    try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) {}
+    contract = contract || window.activeMissionContract || (typeof currentMissionData !== 'undefined' ? currentMissionData?.missionContract : null) || {};
+    const bush = contract?.bush && typeof contract.bush === 'object' ? contract.bush : null;
+    const isBushPickupPassenger = !!(
+        bush
+        && String(bush.targetMode || '') === 'strip_then_return'
+        && String(bush.pickupKind || '').toLowerCase() === 'passenger'
+    );
+    if (!isBushPickupPassenger) return null;
     const wx = _weatherContext(window.lastLiveFlightData);
     return `${ctx}
 
@@ -4533,7 +4541,10 @@ window.triggerPaxPickupDeparture = async function() {
     _paxLog(`triggerPaxPickupDeparture | tts:${_paxVoiceEnabled} done:${_paxPickupDepartureDone} pax:${!!window.activePassenger}`, 'state');
     if (_paxPickupDepartureDone || !window.activePassenger || !_missionHasPax()) return;
     const prompt = _pickupDeparturePrompt();
-    if (!prompt) return;
+    if (!prompt) {
+        _paxLog('PickupDeparture: kein Prompt (kein passender Bush-Pickup-Kontext)', 'warn');
+        return;
+    }
     _paxPickupDepartureDone = true;
     _paxLog('PickupDeparture → API-Call', 'event');
     await _speakAndShow(prompt, 'Rueckflug');
