@@ -4239,7 +4239,6 @@ window.finishMissionCargoPickupAndContinue = function() {
             ];
             if (typeof currentDestICAO !== 'undefined') currentDestICAO = String(bush.homeRef.icao || currentStartICAO || '').trim().toUpperCase();
             if (typeof currentDName !== 'undefined') currentDName = String(bush.homeRef.name || bush.homeRef.icao || 'Home').trim();
-            window._missionRouteWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
             if (typeof currentMissionData !== 'undefined' && currentMissionData) {
                 currentMissionData.routeWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
                 currentMissionData.dest = String(bush.homeRef.icao || currentMissionData.dest || '').trim().toUpperCase();

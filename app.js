@@ -2296,13 +2296,13 @@ const BUSH_PERSONA_LIBRARY = {
             name: 'Tessa Rowan',
             role: 'Rangerin',
             gender: 'female',
-            greetingText: 'Gut, dass du da bist. Ich steige hier zu und wir gehen danach direkt zurueck zum Heimatplatz.'
+            greetingText: 'Gut, dass du da bist. Ich habe seit gestern den oberen Talabschnitt kontrolliert und will vor dem Wetterwechsel wieder runter nach McCall. Wenn wir hier weg sind, erzaehle ich dir unterwegs, was die Rangerstation diese Woche im Bear Valley eingesammelt hat.'
         },
         {
             name: 'Luke Mercer',
             role: 'Mechaniker',
             gender: 'male',
-            greetingText: 'Perfektes Timing. Ich komme mit Werkzeug und Notizen mit, danach bitte direkt wieder heim.'
+            greetingText: 'Perfektes Timing. Ich war hier draussen noch an einer Generator-Reparatur und habe jetzt Werkzeug, Notizen und genug Geschichten fuer den Rueckflug dabei. Bring mich einfach wieder nach McCall, dann bin ich rechtzeitig zur naechsten Schicht zurueck.'
         }
     ]
 };
