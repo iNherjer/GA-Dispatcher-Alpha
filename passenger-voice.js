@@ -220,6 +220,7 @@ let _paxComfortLastAt = 0;
 let _paxComfortCount  = 0;
 let _paxComfortBusy   = false;
 let _paxLandingPhaseAnnounced = false;
+let _paxPickupBoardingDone = false;
 let _paxPickupDepartureDone = false;
 let _paxWxMismatchDone = false;
 let _paxSpeechQueue   = Promise.resolve();
@@ -276,6 +277,7 @@ window.paxVoiceResetMission = function() {
     _paxComfortCount  = 0;
     _paxComfortBusy   = false;
     _paxLandingPhaseAnnounced = false;
+    _paxPickupBoardingDone = false;
     _paxPickupDepartureDone = false;
     _paxWxMismatchDone = false;
     _paxSpeechQueue   = Promise.resolve();
@@ -4511,13 +4513,11 @@ window.paxVoiceResetLeg = function() {
     _paxGreetingDone = false;
     _paxAtTargetDone = false;
     _paxLandingPhaseAnnounced = false;
+    _paxPickupBoardingDone = false;
     _paxPickupDepartureDone = false;
 };
 
-function _pickupDeparturePrompt() {
-    const ctx = _baseContext();
-    const pax = window.activePassenger;
-    if (!ctx || !pax) return null;
+function _activeBushPickupPassengerContract() {
     let contract = null;
     try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) {}
     contract = contract || window.activeMissionContract || (typeof currentMissionData !== 'undefined' ? currentMissionData?.missionContract : null) || {};
@@ -4527,14 +4527,50 @@ function _pickupDeparturePrompt() {
         && String(bush.targetMode || '') === 'strip_then_return'
         && String(bush.pickupKind || '').toLowerCase() === 'passenger'
     );
-    if (!isBushPickupPassenger) return null;
+    return isBushPickupPassenger ? { contract, bush } : null;
+}
+
+function _pickupBoardingPrompt() {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const active = _activeBushPickupPassengerContract();
+    if (!active) return null;
     const wx = _weatherContext(window.lastLiveFlightData);
     return `${ctx}
 
-Moment: Der Pickup ist abgeschlossen, wir rollen wieder los oder heben gerade zum Rueckflug ab.${wx ? ' ' + wx : ''}
-Basistext für deinen Rueckflug-Einstieg (frei adaptieren): "${String(pax.greetingText || '').trim()}"
-Sag jetzt kurz, warum du dort draussen warst, warum du wieder nach Hause musst und was du vom Ort oder vom Einsatz mitnimmst. Das ist kein Sicherheitsbriefing und keine neue klassische Begrüßung, sondern dein kurzer persönlicher Einstieg in den Rueckflug.
+Moment: Der Pickup ist gerade abgeschlossen und ich bin jetzt an Bord, wir stehen noch am Strip oder rollen langsam an.${wx ? ' ' + wx : ''}
+Basistext für deinen Einstieg am Strip (frei adaptieren): "${String(pax.greetingText || '').trim()}"
+Sag jetzt kurz, dass du an Bord bist, nenne knapp warum du hier draussen warst oder woran du gearbeitet hast und leite in einem letzten Halbsatz zum Rueckflug ueber. Das ist der kurze Moment direkt beim Einsteigen, noch kein laengerer Debrief.
 Max 3 Sätze.${_toneHint()}`;
+}
+
+function _pickupDeparturePrompt() {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const active = _activeBushPickupPassengerContract();
+    if (!active) return null;
+    const wx = _weatherContext(window.lastLiveFlightData);
+    return `${ctx}
+
+Moment: Wir sind wieder in der Luft und der Rueckflug nach Hause laeuft.${wx ? ' ' + wx : ''}
+Basistext für deinen Rueckflug-Einstieg (frei adaptieren): "${String(pax.greetingText || '').trim()}"
+Baue auf deiner kurzen Ansage vom Strip auf: Erzaehle jetzt etwas ausfuehrlicher, warum du dort draussen warst, warum du wieder nach Hause musst und was du vom Ort oder vom Einsatz mitnimmst. Das darf persoenlicher und etwas bildhafter sein, aber weiterhin glaubwuerdig und knapp.
+Max 4 Sätze.${_toneHint()}`;
+}
+
+window.triggerPaxPickupBoarding = async function() {
+    _paxLog(`triggerPaxPickupBoarding | tts:${_paxVoiceEnabled} done:${_paxPickupBoardingDone} pax:${!!window.activePassenger}`, 'state');
+    if (_paxPickupBoardingDone || !window.activePassenger || !_missionHasPax()) return;
+    const prompt = _pickupBoardingPrompt();
+    if (!prompt) {
+        _paxLog('PickupBoarding: kein Prompt (kein passender Bush-Pickup-Kontext)', 'warn');
+        return;
+    }
+    _paxPickupBoardingDone = true;
+    _paxLog('PickupBoarding → API-Call', 'event');
+    await _speakAndShow(prompt, 'Pickup');
 }
 
 window.triggerPaxPickupDeparture = async function() {

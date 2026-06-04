@@ -4216,6 +4216,14 @@ window.finishMissionCargoPickupAndContinue = function() {
     if (typeof window.paxVoiceResetLeg === 'function') {
         try { window.paxVoiceResetLeg(); } catch (_) {}
     }
+    if (typeof window.triggerPaxPickupBoarding === 'function' && bush?.pickupGreetingText) {
+        setTimeout(() => {
+            try {
+                if (!window.activePassenger) return;
+                window.triggerPaxPickupBoarding();
+            } catch (_) {}
+        }, 400);
+    }
     if (window.simModeActive && typeof window.resumeSimMissionAfterPickup === 'function') {
         try { window.resumeSimMissionAfterPickup(); } catch (_) {}
     }
