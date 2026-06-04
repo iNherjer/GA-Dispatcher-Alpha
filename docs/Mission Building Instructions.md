@@ -275,6 +275,7 @@ Konkrete Sim-Regel fuer Abschlussphasen:
 
 - Wenn eine Mission nach `pickup`/`unload` fachlich bereits in `ready_to_close` oder `end_ready` steht, muss der Sim-Modus den Abschluss aktiv "armen" koennen, auch wenn das normale `end_hold`-Pending-Flag gerade fehlt oder schon verbraucht wurde.
 - Sonst entstehen die typischen Haenger: Dialog ist fertig, aber weder Farewell noch Mission-abschliessen-Banner erscheinen.
+- Missionen, deren Endfreigabe an `_missionHasReachedEndEligibleFlightPhase()` haengt, brauchen im Sim-Modus eine eigene Flug-Evidence aus `sim-route.js` und duerfen nicht stillschweigend nur vom Live-`flightRecorder` abhaengen.
 
 ## 7. Missionsrezepte
 

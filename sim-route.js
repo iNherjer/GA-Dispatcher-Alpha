@@ -63,6 +63,7 @@
         simMissionEndPending = false;
         simMissionEndRecord = null;
         window.simModeActive = true;
+        window.simHadMeaningfulAirbornePhase = false;
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         if (typeof window.terrainAvoidHandleFlightState === 'function') window.terrainAvoidHandleFlightState();
         if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
@@ -107,6 +108,7 @@
             _injectHold(false);
             if (simHoldRemainSec <= 0) {
                 simPhase = 'flight';
+                window.simHadMeaningfulAirbornePhase = true;
                 console.log('[SimPax] start_hold abgelaufen → flight. Greeting trigger...');
                 if (typeof window.triggerPaxGreeting === 'function') setTimeout(window.triggerPaxGreeting, 500);
             }
@@ -326,6 +328,7 @@
     function _stop(options = {}) {
         simActive = false;
         window.simModeActive = false;
+        window.simHadMeaningfulAirbornePhase = false;
         simMissionEndPending = false;
         simMissionEndRecord = null;
         if (typeof window.terrainAvoidPauseForSimEnd === 'function') window.terrainAvoidPauseForSimEnd();

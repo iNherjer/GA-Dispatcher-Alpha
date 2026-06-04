@@ -5907,6 +5907,7 @@ function _missionHadMeaningfulFlightForEnd() {
 }
 
 function _missionHasReachedEndEligibleFlightPhase() {
+    if (window.simModeActive && window.simHadMeaningfulAirbornePhase === true) return true;
     const poiProgress = _missionPoiProgressState();
     const poiProgressEvidence = !!(
         _missionSceneIsPoiMission()
