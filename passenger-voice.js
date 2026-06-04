@@ -220,6 +220,7 @@ let _paxComfortLastAt = 0;
 let _paxComfortCount  = 0;
 let _paxComfortBusy   = false;
 let _paxLandingPhaseAnnounced = false;
+let _paxPickupDepartureDone = false;
 let _paxWxMismatchDone = false;
 let _paxSpeechQueue   = Promise.resolve();
 let _paxMissionEpoch  = 1;
@@ -275,6 +276,7 @@ window.paxVoiceResetMission = function() {
     _paxComfortCount  = 0;
     _paxComfortBusy   = false;
     _paxLandingPhaseAnnounced = false;
+    _paxPickupDepartureDone = false;
     _paxWxMismatchDone = false;
     _paxSpeechQueue   = Promise.resolve();
     _lastSpokenSpeaker = null;
@@ -4509,6 +4511,32 @@ window.paxVoiceResetLeg = function() {
     _paxGreetingDone = false;
     _paxAtTargetDone = false;
     _paxLandingPhaseAnnounced = false;
+    _paxPickupDepartureDone = false;
+};
+
+function _pickupDeparturePrompt() {
+    const ctx = _baseContext();
+    const pax = window.activePassenger;
+    if (!ctx || !pax) return null;
+    const roleProfile = String(pax?.roleProfile || '').toLowerCase();
+    if (roleProfile !== 'bush_pickup_guest_v1') return null;
+    const wx = _weatherContext(window.lastLiveFlightData);
+    return `${ctx}
+
+Moment: Der Pickup ist abgeschlossen, wir rollen wieder los oder heben gerade zum Rueckflug ab.${wx ? ' ' + wx : ''}
+Basistext für deinen Rueckflug-Einstieg (frei adaptieren): "${String(pax.greetingText || '').trim()}"
+Sag jetzt kurz, warum du dort draussen warst, warum du wieder nach Hause musst und was du vom Ort oder vom Einsatz mitnimmst. Das ist kein Sicherheitsbriefing und keine neue klassische Begrüßung, sondern dein kurzer persönlicher Einstieg in den Rueckflug.
+Max 3 Sätze.${_toneHint()}`;
+}
+
+window.triggerPaxPickupDeparture = async function() {
+    _paxLog(`triggerPaxPickupDeparture | tts:${_paxVoiceEnabled} done:${_paxPickupDepartureDone} pax:${!!window.activePassenger}`, 'state');
+    if (_paxPickupDepartureDone || !window.activePassenger || !_missionHasPax()) return;
+    const prompt = _pickupDeparturePrompt();
+    if (!prompt) return;
+    _paxPickupDepartureDone = true;
+    _paxLog('PickupDeparture → API-Call', 'event');
+    await _speakAndShow(prompt, 'Rueckflug');
 };
 
 window.triggerPaxGreeting = async function(lat, lon, options = {}) {

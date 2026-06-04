@@ -4219,13 +4219,11 @@ window.finishMissionCargoPickupAndContinue = function() {
     if (window.simModeActive && typeof window.resumeSimMissionAfterPickup === 'function') {
         try { window.resumeSimMissionAfterPickup(); } catch (_) {}
     }
-    if (typeof window.triggerPaxGreeting === 'function' && bush?.pickupGreetingText) {
+    if (typeof window.triggerPaxPickupDeparture === 'function' && bush?.pickupGreetingText) {
         setTimeout(() => {
             try {
                 if (!window.activePassenger) return;
-                window.triggerPaxGreeting(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon, {
-                    overrideText: String(bush.pickupGreetingText || '').trim()
-                });
+                window.triggerPaxPickupDeparture();
             } catch (_) {}
         }, 4500);
     }
