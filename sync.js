@@ -4220,11 +4220,14 @@ window.finishMissionCargoPickupAndContinue = function() {
         try { window.resumeSimMissionAfterPickup(); } catch (_) {}
     }
     if (typeof window.triggerPaxGreeting === 'function' && bush?.pickupGreetingText) {
-        try {
-            window.triggerPaxGreeting(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon, {
-                overrideText: String(bush.pickupGreetingText || '').trim()
-            });
-        } catch (_) {}
+        setTimeout(() => {
+            try {
+                if (!window.activePassenger) return;
+                window.triggerPaxGreeting(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon, {
+                    overrideText: String(bush.pickupGreetingText || '').trim()
+                });
+            } catch (_) {}
+        }, 4500);
     }
     if (bush?.requiresReturnHome && bush?.homeRef) {
         const pos = window.lastLiveGpsPos || {};
