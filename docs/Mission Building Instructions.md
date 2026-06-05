@@ -354,6 +354,83 @@ Das bedeutet:
 
 ## 7. Missionsrezepte
 
+Vor jedem neuen Missionstyp gilt zuerst diese Entscheidungsfrage:
+
+> Ist das fachlich ein `APT-Ziel`, ein `POI-Task`, ein `Bush-Target mit Zielabschluss` oder ein `Bush-Return`?
+
+Neue Missionen sollen nicht "frei" erfunden werden, sondern immer auf einem bestehenden Grundrezept aufsetzen. Das Grundrezept bestimmt:
+
+- welche Phasen verwendet werden
+- ob Bodenkontakt fachlich nötig ist
+- ob `pickup` oder `unload` überhaupt erlaubt sind
+- ob ein `RTB` nur optional oder verpflichtend ist
+- welche Abschlussbedingung die Runtime prüfen muss
+
+### 7.0 Rezept-Matrix
+
+| Rezept | Typischer Zweck | Task am Ziel | Landung am Ziel | Rückflugpflicht | Abschlussort | Grundphasen |
+| --- | --- | --- | --- | --- | --- | --- |
+| `APT arrival` | normaler A->B-Flug, Charter, Cargo, Besuch | nein oder nur Handoff am Platz | ja | nein | Ziel | `enroute -> end_unloading/end_ready -> close` |
+| `POI on-task` | Beobachtung, Survey, Foto, Umwelt, Fire Watch | ja, in der Luft oder über dem Zielgebiet | normalerweise nein | je nach Mission | Ziel oder Heimat | `enroute -> on_task -> ready_to_close` oder `enroute -> on_task -> return_leg -> ready_to_close` |
+| `Bush strip target` | Supply, Charter-Dropoff, Adventure-Landung | ja, aber am Strip / am Boden | ja | nein | Ziel | `enroute -> end_unloading/end_ready -> ready_to_close` |
+| `Bush pickup return` | Pax/Fracht aufnehmen und heimbringen | ja, Pickup am Zielstrip | ja | ja | Heimat | `outbound_empty -> pickup_ready -> pickup_loading -> pickup_complete -> return_leg -> home_unloading -> ready_to_close` |
+| `Bush RTB task` | Task im Zielgebiet, dann direkte Heimkehr | ja, aber nicht als Pickup/Unload | normalerweise nein | ja | Heimat | `enroute -> on_task -> return_leg -> ready_to_close` |
+
+### 7.0.1 Wiederverwendungsregel
+
+Die Rezepte sind hierarchisch zu benutzen:
+
+1. Wenn eine Mission fachlich wie ein bestehendes Rezept funktioniert, wird dieses Rezept wiederverwendet.
+2. Bush-Kontext allein ist **kein** Grund für eine eigene Runtime-Logik.
+3. Neue Sonderlogik ist nur erlaubt, wenn ein bestehendes Rezept eine fachliche Anforderung nicht ausdrücken kann.
+
+Wichtige Konsequenz:
+
+- `bush_pickup_*` braucht eigenes Return-Rezept, weil der Missionskern ein echter Pickup mit späterem Home-Unload ist.
+- `bush_supply_strip` braucht ein Ziel-Unload-Rezept, weil die Pflichtladung am Ziel abgegeben wird.
+- `bush_recon` ist **kein** Pickup- und **kein** Bush-RTB-Sonderfall, sondern ein `POI on-task`-Rezept mit Bush-Texten, Bush-Zielen und verpflichtender Heimkehr.
+
+### 7.0.2 Erlaubte und verbotene Aktionen pro Rezept
+
+| Rezept | `pickup` | `unload` | `end` | `close` | Verboten |
+| --- | --- | --- | --- | --- | --- |
+| `APT arrival` | nein | falls Manifest Ziel-Unload verlangt | ja | ja | künstliche `on_task`-Phasen ohne fachlichen Task |
+| `POI on-task` | nein | nein, außer echter Home- oder Ziel-Handoff ist Teil des Manifests | ja, nach Task-Erfüllung | ja | Ziel-Landung als Ersatz für Task-Erfüllung |
+| `Bush strip target` | nein | ja, wenn Ziel-Manifest oder Dropoff es verlangt | ja | ja | Rückflug-Sonderphasen ohne fachlichen RTB-Zwang |
+| `Bush pickup return` | ja | ja, am Heimatplatz | ja | ja | Abschluss am Ziel, bevor Pickup-/Home-Pfad erfüllt ist |
+| `Bush RTB task` | nein | nein, außer definierter Home-Handoff | ja, erst nach Task und Heimkehr | ja | Ziel-Landung als Recon-/Task-Abschluss |
+
+### 7.0.3 Regel für `bush_recon`
+
+`bush_recon` wird fachlich wie folgt behandelt:
+
+- Zieltyp: Bush-/Remote-Ziel mit Air-Task
+- Ablaufbasis: `POI on-task`
+- Zusatzregel: `RTB` ist verpflichtend
+- Ziel-Landung: optional als Aussenlandung/Improvisation denkbar, aber **nicht** Teil des Erfolgsrezepts
+- Erfolg: Task im Zielgebiet qualifiziert **und** Rückkehr zum Heimatplatz
+
+Das bedeutet ausdrücklich:
+
+- `bush_recon` darf nicht den `pickup`-Pfad verwenden
+- `bush_recon` darf nicht den `target unload`-Pfad verwenden
+- `bush_recon` darf nicht nur wegen Bush-Kontext automatisch in eine Bodenphase am Ziel springen
+- wenn `on_task` fachlich "kreisen / beobachten / dokumentieren" bedeutet, dann muss die Task-Erfüllung genauso behandelt werden wie bei POI-Missionen
+
+### 7.0.4 Umgang mit Aussenlandungen
+
+Für Task-Missionen vom Typ `POI on-task` oder `Bush RTB task` gilt:
+
+- das Erfolgsrezept erwartet normalerweise keine Landung am Ziel
+- eine freiwillige oder improvisierte Landung kann erzählerisch kommentiert werden
+- eine solche Landung ersetzt aber die Task-Erfüllung nicht automatisch
+- sie darf nur dann Erfolg auslösen, wenn die Mission ausdrücklich als `strip target` oder `pickup return` gebaut wurde
+
+Faustregel:
+
+- `Landung ist Teil des Rezepts` nur bei `APT arrival`, `Bush strip target`, `Bush pickup return`
+- `Landung ist nicht Teil des Rezepts` bei `POI on-task` und `Bush RTB task`
+
 ### 7.1 APT A->B
 
 Bausteine:
@@ -428,14 +505,27 @@ Typische Erfolgslogik:
 
 Bausteine:
 
-- `targetMode = area_then_return`
-- `completionMode = return_home`
+- fachlich wie `POI on-task`
+- Bush-Zielkontext / Remote-Strip / Wilderness-Texte
+- verpflichtender RTB zum Heimatplatz
 
 Typische Erfolgslogik:
 
-- Arbeitsgebiet qualifizieren
-- Rückflug
-- Mission am Heimatplatz beenden
+1. Zielgebiet in der Luft qualifizieren
+2. `on_task` wie bei POI-Missionen behandeln
+3. nach erfülltem Task direkt auf `return_leg`
+4. Mission erst am Heimatplatz beenden
+
+Wichtige Architekturregel:
+
+- `Bush Recon Return` ist **kein** `pickup`-Rezept.
+- `Bush Recon Return` ist **kein** `target unload`-Rezept.
+- Es nutzt das POI-Task-Rezept und ergänzt nur:
+  - Bush-Narrativ
+  - Bush-Zieltypen
+  - RTB-Pflicht
+
+Wenn `bush_recon` technisch neue Sonderpfade braucht, ist das fast immer ein Warnsignal. Zuerst prüfen, ob dieselbe Anforderung bereits durch POI-Phasen (`enroute`, `on_task`, `return_leg`, `ready_to_close`) ausgedrückt werden kann.
 
 ### 7.6 Bush Pickup Passenger
 
