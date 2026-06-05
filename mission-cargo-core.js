@@ -1997,26 +1997,43 @@ window.finishMissionCargoUnloadAndEnd = function() {
         && typeof window.missionSceneDeboarding === 'function'
     );
     if (shouldRunBushHomeDeboarding) {
-        _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd:start-bush-home-deboarding' });
-        const started = !!window.missionSceneDeboarding('bush-home-unload');
-        _missionPhaseDebugPush('trigger', {
-            name: 'finishMissionCargoUnloadAndEnd:bush-home-deboarding-result',
-            started
+        let cargoOutcome = typeof _missionCargoFinalizeMissionOutcome === 'function'
+            ? _missionCargoFinalizeMissionOutcome({ source: 'bush-home-unload-preview' })
+            : null;
+        cargoOutcome = _missionOutcomeApplyPoiProgress(cargoOutcome, {
+            endedAtHome: _missionPoiEndedAtHome(),
+            needsRideHome: _missionPoiGroundEndReady() && !_missionPoiEndedAtHome()
         });
-        if (started) {
-            let cargoOutcome = typeof _missionCargoFinalizeMissionOutcome === 'function'
-                ? _missionCargoFinalizeMissionOutcome({ source: 'bush-home-unload-preview' })
-                : null;
-            cargoOutcome = _missionOutcomeApplyPoiProgress(cargoOutcome, {
-                endedAtHome: _missionPoiEndedAtHome(),
-                needsRideHome: _missionPoiGroundEndReady() && !_missionPoiEndedAtHome()
+        const endReady = _missionEndReadiness();
+        cargoOutcome = _missionOutcomeApplyEndReadiness(cargoOutcome, endReady);
+        _setMissionClosePending({ reason: 'bush-home-unload-preview', outcome: cargoOutcome });
+
+        let farewellStarted = false;
+        if (typeof _triggerPaxFarewellAndWaitForDeboard === 'function') {
+            _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd:start-bush-home-farewell' });
+            farewellStarted = !!_triggerPaxFarewellAndWaitForDeboard({
+                missionCargoOutcome: cargoOutcome,
+                missionFailed: !!cargoOutcome?.failed
+            }, 'bush-home-unload-farewell');
+            _missionPhaseDebugPush('trigger', {
+                name: 'finishMissionCargoUnloadAndEnd:bush-home-farewell-result',
+                started: farewellStarted
             });
-            const endReady = _missionEndReadiness();
-            cargoOutcome = _missionOutcomeApplyEndReadiness(cargoOutcome, endReady);
-            _setMissionClosePending({ reason: 'bush-home-unload-preview', outcome: cargoOutcome });
+        }
+        if (!farewellStarted) {
+            _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd:start-bush-home-deboarding' });
+            const started = !!window.missionSceneDeboarding('bush-home-unload');
+            _missionPhaseDebugPush('trigger', {
+                name: 'finishMissionCargoUnloadAndEnd:bush-home-deboarding-result',
+                started
+            });
+            if (started) {
+                _updateMissionRuntimeUi();
+                return true;
+            }
         }
         _updateMissionRuntimeUi();
-        if (started) return true;
+        if (farewellStarted) return true;
     }
     if (window.simModeActive && typeof window.completeSimMissionEnd === 'function') {
         const completed = !!window.completeSimMissionEnd();
