@@ -393,6 +393,7 @@ let _poiTrainingZoneStartDone = false; // when entering training area
 let _poiTrainingLandingBriefDone = false; // 5/4 NM before landing on return leg
 let _poiNarrativeMemory = { pre: '', entry: '', done: '' }; // anti-repeat memory across POI phases
 let _bushPickupNarrativeMemory = { boarding: '', departure: '' }; // continuity across bush pickup return-leg calls
+let _bushCargoPickupNarrativeMemory = { boarding: '', departure: '', farewell: '' }; // continuity across bush cargo pickup handoff calls
 let _missionComfortScore = null;
 
 function _paxMissionTimeout(fn, delayMs) {
@@ -463,6 +464,7 @@ window.paxVoiceResetMission = function() {
     _poiTrainingLandingBriefDone = false;
     _poiNarrativeMemory = { pre: '', entry: '', done: '' };
     _bushPickupNarrativeMemory = { boarding: '', departure: '' };
+    _bushCargoPickupNarrativeMemory = { boarding: '', departure: '', farewell: '' };
     _missionComfortScore = _createMissionComfortScore();
     _lastPaxText = '';
     try { _paxPreparedAudio.clear(); } catch (_) {}
@@ -553,6 +555,31 @@ function _bushPickupNarrativeHint(stage = 'departure') {
     const used = [boarding, departure].filter(Boolean);
     if (!used.length) return '';
     return ` Bisherige Bush-Pickup-Ansagen (inhaltlich verbindlich): ${used.map(text => `"${text}"`).join(' | ')}. Bleib bei derselben Geschichte und fuehre sie nur weiter oder runde sie ab. Fuehre keinen neuen Forschungs-, Wildnis- oder Einsatzschwerpunkt ein.`;
+}
+
+function _captureBushCargoPickupNarrativeMemory(eventLabel, spokenText) {
+    const active = _activeBushPickupCargoContract();
+    if (!active) return;
+    const ev = String(eventLabel || '').trim().toLowerCase();
+    const compact = String(spokenText || '').trim();
+    if (!compact) return;
+    if (ev.includes('pickup')) _bushCargoPickupNarrativeMemory.boarding = compact;
+    else if (ev.includes('rueckflug') || ev.includes('rückflug')) _bushCargoPickupNarrativeMemory.departure = compact;
+    else if (ev.includes('verabschiedung')) _bushCargoPickupNarrativeMemory.farewell = compact;
+}
+
+function _bushCargoPickupNarrativeHint(stage = 'departure') {
+    const active = _activeBushPickupCargoContract();
+    if (!active) return '';
+    const boarding = String(_bushCargoPickupNarrativeMemory?.boarding || '').trim();
+    const departure = String(_bushCargoPickupNarrativeMemory?.departure || '').trim();
+    const farewell = String(_bushCargoPickupNarrativeMemory?.farewell || '').trim();
+    const used = [];
+    if (boarding) used.push(boarding);
+    if (stage !== 'departure' && departure) used.push(departure);
+    if (stage === 'final' && farewell) used.push(farewell);
+    if (!used.length) return '';
+    return ` Bisherige Bush-Cargo-Ansagen (inhaltlich verbindlich): ${used.map(text => `"${text}"`).join(' | ')}. Wiederhole weder Grund noch Empfaenger noch naechsten Schritt wortgleich. Fuehre die Geschichte stattdessen knapp weiter und gib pro Phase neue, konkrete Information.`;
 }
 
 function _poiNoRepeatHint(stage = 'entry') {
@@ -3147,6 +3174,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = n
     _lastSpokenSpeaker = speakerSnapshot;
     _capturePoiNarrativeMemory(eventLabel, spokenText);
     _captureBushPickupNarrativeMemory(eventLabel, spokenText);
+    _captureBushCargoPickupNarrativeMemory(eventLabel, spokenText);
     _showPaxMessage(spokenText, eventLabel);
 
     if (!_paxVoiceEnabled) {
@@ -4508,7 +4536,7 @@ AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anf
 Moment: Die Maschine steht ${place}; dort laeuft jetzt die Uebergabe. ${cue ? `Am Treffpunkt wartet ${cue}.` : ''}
 Fakten: ${facts}
 ${resultTask}
-Erwaehne die Fracht beim Namen: ${cargoName}. Gib moeglichst ein kleines konkretes Ergebnis oder einen naechsten Schritt der Uebergabe mit. Max 4 Sätze.${_toneHint()}`;
+Erwaehne die Fracht beim Namen: ${cargoName}. Gib moeglichst ein kleines konkretes Ergebnis oder einen naechsten Schritt der Uebergabe mit.${_bushCargoPickupNarrativeHint('final')} In dieser Abschlussansage zaehlt nur das Ergebnis der Uebergabe am Ziel und was jetzt als Naechstes mit der Fracht passiert; wiederhole den Abhol- oder Rueckfluggrund nicht noch einmal ausfuehrlich. Max 4 Sätze.${_toneHint()}`;
 }
 
 function _greetingPrompt() {
@@ -4856,6 +4884,7 @@ window.paxVoiceResetLeg = function() {
     _cargoPickupBoardingDone = false;
     _cargoPickupDepartureDone = false;
     _bushPickupNarrativeMemory = { boarding: '', departure: '' };
+    _bushCargoPickupNarrativeMemory = { boarding: '', departure: '', farewell: '' };
 };
 
 function _activeBushPickupPassengerContract() {
@@ -4933,7 +4962,7 @@ TASK-DOMAIN: ${cargoCtx.taskDomain}
 AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).
 
 Moment: Die Pickup-Fracht wird gerade am Zielstrip verladen, wir stehen noch am Boden in ${targetName}.${wx ? ` ${wx}` : ''}
-Sprich direkt zum Piloten als Lademeister vor Ort. Sag kurz, was jetzt eingeladen wird, warum diese Fracht zurueck zum Heimatplatz muss und worauf beim Rueckflug zu achten ist. Erwaehne die Fracht immer direkt beim Namen: ${cargoLine}. Keine Passagierperspektive, kein Smalltalk.
+Sprich direkt zum Piloten als Lademeister vor Ort. Sag kurz, was jetzt eingeladen wird, warum diese Fracht zurueck zum Heimatplatz muss und worauf beim Rueckflug zu achten ist. Erwaehne die Fracht immer direkt beim Namen: ${cargoLine}. Keine Passagierperspektive, kein Smalltalk. Lege hier nur die Ausgangslage und die wichtigste Vorsicht fest; Details zum Empfaenger oder zur Werkstatt hebst du dir fuer spaetere Phasen auf.
 Max 3 Sätze.${_toneHint()}`;
 }
 
@@ -4944,6 +4973,7 @@ function _pickupCargoDeparturePrompt() {
     const wx = _weatherContext(window.lastLiveFlightData);
     const cargoLine = _missionRequiredItemNames(3).join(', ') || String(active.bush?.pickupLabel || cargoCtx.cargoText || 'Rueckholfracht').trim();
     const homeName = String(active.bush?.homeRef?.name || cargoCtx.start || 'dem Heimatplatz').trim();
+    const continuityHint = _bushCargoPickupNarrativeHint('departure');
     return `ROLLE: Lademeister am Zielstrip · Persönlichkeit: pragmatisch, direkt, routiniert
 FLUG: ${cargoCtx.start} → ${cargoCtx.dest} · ${cargoCtx.dist || '?'} NM
 AN BORD: ${cargoCtx.paxText}
@@ -4954,8 +4984,8 @@ ${cargoCtx.contractSummary ? `MISSION-CONTRACT: ${cargoCtx.contractSummary}` : '
 TASK-DOMAIN: ${cargoCtx.taskDomain}
 AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).
 
-Moment: Die Fracht ist eingeladen und der Rueckflug zum Heimatplatz laeuft jetzt an.${wx ? ` ${wx}` : ''}
-Sprich direkt zum Piloten als Ladekontakt am Zielstrip. Sag kurz, dass ${cargoLine} jetzt sauber verstaut ist, warum die Lieferung in ${homeName} gebraucht wird oder ausgewertet werden muss, und gib den Rueckflug knapp frei. Keine Passagierperspektive.
+Moment: Die Fracht ist eingeladen und der Rueckflug zum Heimatplatz laeuft jetzt an.${wx ? ` ${wx}` : ''}${continuityHint}
+Sprich direkt zum Piloten als Ladekontakt am Zielstrip. Sag kurz, dass ${cargoLine} jetzt sauber verstaut ist, warum die Lieferung in ${homeName} gebraucht wird oder ausgewertet werden muss, und gib den Rueckflug knapp frei. Fuehre die Geschichte gegenueber der Pickup-Ansage inhaltlich weiter: keine wortgleiche Wiederholung von Frachtgrund, Empfaenger oder Vorsichtshinweis. Keine Passagierperspektive.
 Max 3 Sätze.${_toneHint()}`;
 }
 

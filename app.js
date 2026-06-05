@@ -6733,6 +6733,95 @@ function _summarizeMissionWeather(wx) {
     return `${windTxt}, ${visTxt}, ${tempTxt}, ${wxTxt}, ${catTxt}`;
 }
 
+function _missionPromptTimeOfDayLabel(date = new Date()) {
+    const hour = Number(date?.getHours?.() ?? NaN);
+    if (!Number.isFinite(hour)) return 'unbestimmt';
+    if (hour < 5) return 'tiefe Nacht';
+    if (hour < 8) return 'frueher Morgen';
+    if (hour < 11) return 'Vormittag';
+    if (hour < 14) return 'Mittag';
+    if (hour < 18) return 'Nachmittag';
+    if (hour < 21) return 'frueher Abend';
+    return 'spaeter Abend';
+}
+
+function _missionPromptSeasonLabel(date = new Date()) {
+    const month = Number((date?.getMonth?.() ?? NaN)) + 1;
+    if (!Number.isFinite(month)) return 'Jahreszeit unbestimmt';
+    if (month === 12 || month <= 2) return 'Winter';
+    if (month <= 5) return 'Fruehling';
+    if (month <= 8) return 'Sommer';
+    return 'Herbst';
+}
+
+function _missionPromptIsValidTimeZone(tz) {
+    const value = String(tz || '').trim();
+    if (!value) return false;
+    try {
+        new Intl.DateTimeFormat('de-DE', { timeZone: value }).format(new Date());
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function _missionPromptFormatTemporalParts(date = new Date(), timeZone = null) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+    const optsDate = {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+    };
+    const optsTime = {
+        hour: '2-digit',
+        minute: '2-digit'
+    };
+    if (timeZone) {
+        optsDate.timeZone = timeZone;
+        optsTime.timeZone = timeZone;
+    }
+    const dateTxt = date.toLocaleDateString('de-DE', optsDate);
+    const timeTxt = date.toLocaleTimeString('de-DE', optsTime);
+    const refDate = timeZone
+        ? new Date(date.toLocaleString('en-US', { timeZone }))
+        : date;
+    return {
+        dateTxt,
+        timeTxt,
+        tod: _missionPromptTimeOfDayLabel(refDate),
+        season: _missionPromptSeasonLabel(refDate)
+    };
+}
+
+function _missionPromptApproxOffsetHoursFromLon(lon) {
+    const n = Number(lon);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(-12, Math.min(14, Math.round(n / 15)));
+}
+
+function _missionPromptTemporalContext(date = new Date(), airport = null) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return 'Datum/Uhrzeit unbestimmt';
+    const apt = airport && typeof airport === 'object' ? airport : null;
+    const tz = String(apt?.tz || '').trim();
+    if (_missionPromptIsValidTimeZone(tz)) {
+        const parts = _missionPromptFormatTemporalParts(date, tz);
+        if (!parts) return 'Datum/Uhrzeit unbestimmt';
+        return `${parts.dateTxt}, ${parts.timeTxt} Uhr (${parts.tod}, ${parts.season}, Ortszeit Startplatz)`;
+    }
+    const approxOffset = _missionPromptApproxOffsetHoursFromLon(apt?.lon);
+    if (Number.isFinite(approxOffset)) {
+        const shifted = new Date(date.getTime() + (approxOffset * 60 * 60 * 1000));
+        const parts = _missionPromptFormatTemporalParts(shifted, 'UTC');
+        const utcLabel = approxOffset >= 0 ? `UTC+${approxOffset}` : `UTC${approxOffset}`;
+        if (!parts) return 'Datum/Uhrzeit unbestimmt';
+        return `${parts.dateTxt}, ${parts.timeTxt} Uhr (${parts.tod}, ${parts.season}, Startplatz naeherungsweise ${utcLabel})`;
+    }
+    const parts = _missionPromptFormatTemporalParts(date, null);
+    if (!parts) return 'Datum/Uhrzeit unbestimmt';
+    return `${parts.dateTxt}, ${parts.timeTxt} Uhr (${parts.tod}, ${parts.season})`;
+}
+
 function _looksLikeIcao(icao) {
     return /^[A-Z0-9]{4}$/.test(String(icao || '').trim().toUpperCase());
 }
@@ -12440,6 +12529,12 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
                 ? `BUSH-REGEL: Bush-Recon ab ${startName} in das Zielgebiet "${promptDestName}" mit anschliessender Rueckkehr nach ${startName}. Die Story muss Recon im Gebiet und den RTB klar abbilden; keine normale A-B-Endlandung als Missionsziel formulieren.`
                 : `BUSH-REGEL: Bush-Transfer von ${startName} nach ${promptDestName}. Die Story muss einen abgelegenen Zielstrip, Terrain-Disziplin und Bush-Flying-Charakter glaubwuerdig stuetzen.`)
             : `ROUTEN-REGEL: Normaler Streckenflug von ${startName} nach ${promptDestName}.`);
+    const promptNow = new Date();
+    const promptStartAirport = poiTargetMeta?.startAirport && typeof poiTargetMeta.startAirport === 'object'
+        ? poiTargetMeta.startAirport
+        : null;
+    const temporalContextLine = _missionPromptTemporalContext(promptNow, promptStartAirport);
+    const temporalRule = `9b) ZEIT-/SAISON-KONTEXT: Nutze Datum, Tageszeit und Wetter aktiv als kreativen Realitaetsanker fuer Story, Stimmung, Auftrag und Beobachtungen. Wenn Jahreszeit, Licht, Temperatur, Wind oder Sicht eine naheliegende Situation erzaehlerisch stuetzen, darfst du das konkret aufgreifen. Bevorzuge stimmige, orts- und wetterpassende Bilder statt allgemeiner Floskeln.`;
 
     const prompt = `<INSTRUKTIONEN>
 Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub, kleinen Charterunternehmen oder Bush-Operator.
@@ -12467,6 +12562,7 @@ REGELN:
    - Wenn urgencyPriority = hoch: story MUSS genau einen kurzen Zeitkritik-Hinweis enthalten (z.B. "zeitkritisch", "müssen pünktlich ankommen").
    - Wenn urgencyPriority = niedrig: story DARF keinen Zeitdruck erwähnen.
 9) Wetter als Realitätsanker nutzen, aber nicht überdramatisieren.
+${temporalRule}
 10) Optional dialectHint: neutral oder leichte regionale Färbung; nie starker Dialekt.
 11) Keine zusätzlichen Eigennamen für den Piloten erfinden (nur "du").
 12) Interne Regel-/Verbotssätze NIE wörtlich im story-Feld wiederholen.
@@ -12489,6 +12585,7 @@ ${sceneIntentRule}
 Start: ${startName}
 Ziel: ${promptDestName} ${isPOI ? '(POI/Wendepunkt)' : (isBushMission ? '(Bush-/Remote-Strip)' : '(Zielflughafen)')}
 Distanz: ${dist} NM
+Aktuelle Missionszeit: ${temporalContextLine}
 Wetter Start (${startName}): ${_summarizeMissionWeather(missionWeather?.dep || null)}
 Wetter Ziel (${promptDestName}): ${_summarizeMissionWeather(missionWeather?.dest || null)}
 missionTruth: ${JSON.stringify(compactTruth)}
@@ -14046,6 +14143,7 @@ async function generateMission() {
                 name: String(dest?.n || ''),
                 requestedCategory: String(selectedPoiCategory || 'all'),
                 poiCategory: String(dest?.poiCategory || ''),
+                startAirport: start,
                 targetGeoContext: preMissionTargetGeoContext,
                 missionTruth: preMissionTruth,
                 missionPlanV2
