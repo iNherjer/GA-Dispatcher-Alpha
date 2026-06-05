@@ -2895,7 +2895,9 @@ function _buildBoardingText() {
     const hasOutboundPassenger = paxCount > 0;
     const paxPart = paxCount > 1
         ? `${paxCount} Personen`
-        : (hasOutboundPassenger ? `ich bin${role}` : (isTargetPickupMission ? 'heute geht es zunaechst leer raus' : 'heute geht es ohne Passagier los'));
+        : (hasOutboundPassenger
+            ? `${pax.name ? `ich bin ${pax.name}` : 'ich bin heute mit an Bord'}${role}`
+            : (isTargetPickupMission ? 'heute geht es zunaechst leer raus' : 'heute geht es ohne Passagier los'));
     const requiredItems = _missionRequiredItemNames(4);
     const requiredShort = requiredItems.slice(0, 4);
     const requiredText = requiredShort.length
@@ -4502,6 +4504,7 @@ Max 3-4 Sätze.${_toneHint()}`;
             ? `Nenne den wichtigen Gegenstand beim Namen: "${requiredItems[0]}". Sage klar, dass dieser Gegenstand als Zuladung vor dem Start verladen und gesichert sein muss, sonst kann ich den Auftrag nicht sauber erledigen.`
             : `Nenne die wichtigen Gegenstaende beim Namen: "${requiredItems.join(', ')}". Sage klar, dass diese Gegenstaende als Zuladung vor dem Start verladen und gesichert sein muessen, sonst kann ich den Auftrag nicht sauber erledigen.`)
         : `Nenne den wichtigen Gegenstand beim Namen ("${cargoFallback}") und sage klar, dass er als Zuladung vor dem Start verladen und gesichert sein muss.`;
+    const manifestSpeechRule = 'WICHTIG: Sprich nie in Manifest-, UI- oder Ladezettel-Sprache. Verwende NICHT Formulierungen wie "1 PAX", "AN BORD", "AUSRUESTUNG", "Payload", "Zuladung", "ich bin 1 PAX", "als 1 PAX", "ich bin die Ladung" oder reine Inventarlisten. Wenn du dich vorstellst, dann nur natuerlich als Person in Alltagssprache.';
     return `${ctx}
 
 Moment: Boarding und Verladen laufen gerade, Start steht gleich an.${wx ? ' ' + wx : ''}
@@ -4509,6 +4512,7 @@ Erzeuge eine kombinierte Boarding-Begrüßung in einem Block: 1) sehr kurze Vors
 ${cargoLine}
 ${guidance.reqLine}
 Nenne den Gegenstand immer direkt beim Namen.
+${manifestSpeechRule}
 ${guidance.driftGuard}
 ${guidance.timingWordBan}
 Max 3 Sätze.${_toneHint()}`;
@@ -4927,11 +4931,13 @@ function _pickupBoardingPrompt() {
     const active = _activeBushPickupPassengerContract();
     if (!active) return null;
     const wx = _weatherContext(window.lastLiveFlightData);
+    const manifestSpeechRule = 'WICHTIG: Keine Manifest- oder UI-Sprache. Sage nie Dinge wie "1 PAX", "AN BORD", "AUSRUESTUNG", "Payload" oder "ich bin jetzt als PAX geladen". Sprich einfach natuerlich als Person, die gerade eingestiegen ist.';
     return `${ctx}
 
 Moment: Der Pickup ist gerade abgeschlossen und ich bin jetzt an Bord, wir stehen noch am Strip oder rollen langsam an.${wx ? ' ' + wx : ''}
 Basistext für deinen Einstieg am Strip (frei adaptieren): "${String(pax.greetingText || '').trim()}"
 Sag jetzt kurz, dass du an Bord bist, nenne knapp warum du hier draussen warst oder woran du gearbeitet hast und leite in einem letzten Halbsatz zum Rueckflug ueber. Lege dabei schon den thematischen Faden fuer die spaetere Rueckflug-Ansage fest: genau ein klarer Einsatzschwerpunkt, kein Themenmix. Das ist der kurze Moment direkt beim Einsteigen, noch kein laengerer Debrief.
+${manifestSpeechRule}
 Max 3 Sätze.${_toneHint()}`;
 }
 
