@@ -7053,8 +7053,16 @@ function renderMainRoute() {
         } else if (isDest) {
             marker.bindPopup('');
             marker.on('popupopen', () => {
-                const icao = currentMissionData && currentMissionData.poiName ? currentStartICAO : currentDestICAO;
-                const elev = currentMissionData && currentMissionData.poiName ? currentDepElev : currentDestElev;
+                const missionLikePoi = !!(
+                    currentMissionData
+                    && (
+                        currentMissionData.poiName
+                        || currentMissionData.poiPresentation
+                        || (typeof missionUsesPoiTaskRecipe === 'function' && missionUsesPoiTaskRecipe(currentMissionData))
+                    )
+                );
+                const icao = missionLikePoi ? currentStartICAO : currentDestICAO;
+                const elev = missionLikePoi ? currentDepElev : currentDestElev;
                 const destCountry = getAirportCountryCode(icao);
                 marker.getPopup().setContent(_buildAptPopup('DEST', currentDName, elev, icao, {
                     runwayContainerId: 'wxPopupDestRwy',
@@ -8372,18 +8380,33 @@ function initMapBase() {
 function updateMap(lat1, lon1, lat2, lon2, s, d) {
     if (!map) initMapBase();
     currentSName = s || "Start"; currentDName = d || "Ziel";
-    
-    // POI-Check: Wenn poiName gesetzt ist, bauen wir ein Rundflug-Dreieck
-    if (typeof currentMissionData !== 'undefined' && currentMissionData && currentMissionData.poiName) {
+
+    const missionLikePoi = !!(
+        typeof currentMissionData !== 'undefined'
+        && currentMissionData
+        && (
+            currentMissionData.poiName
+            || currentMissionData.poiPresentation
+            || (typeof missionUsesPoiTaskRecipe === 'function' && missionUsesPoiTaskRecipe(currentMissionData))
+        )
+    );
+
+    // POI-Check: Wenn ein Zielgebiet als Arbeitswegpunkt genutzt wird, bauen wir ein Rundflug-Dreieck
+    if (missionLikePoi) {
         // Berechnung des direkten Rückwegs (vom POI zurück zum Start)
         const returnNav = calcNav(lat2, lon2, lat1, lon1);
         // Wir biegen den Rückflug um 20 Grad ab und legen den Wegpunkt auf ~45% der Strecke
         const offsetBearing = (returnNav.brng + 20) % 360;
         const returnWp = getDestinationPoint(lat2, lon2, returnNav.dist * 0.45, offsetBearing);
+        const poiLabel = String(
+            (typeof currentMissionData !== 'undefined' && currentMissionData
+                ? (currentMissionData.poiName || currentMissionData.targetName || currentDName)
+                : currentDName) || 'POI'
+        );
         
         routeWaypoints = [
             { lat: lat1, lng: lon1 },
-            { lat: lat2, lng: lon2, name: "🎯 " + currentMissionData.poiName, isPOI: true },
+            { lat: lat2, lng: lon2, name: "🎯 " + poiLabel, isPOI: true },
             { lat: returnWp.lat, lng: returnWp.lon, name: "Return Leg" },
             { lat: lat1, lng: lon1, name: currentSName }
         ];

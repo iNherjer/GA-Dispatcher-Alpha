@@ -2441,6 +2441,8 @@ function _missionSceneVehicleDeparturePath() {
 function _missionSceneIsPoiMission() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (md?.isPOI === true) return true;
+    if (md?.poiPresentation === true) return true;
+    if (typeof window.missionUsesPoiTaskRecipe === 'function' && window.missionUsesPoiTaskRecipe(md)) return true;
     if (String(md?.dest || '').toUpperCase() === 'POI') return true;
     if (String(typeof currentDestICAO !== 'undefined' ? currentDestICAO : '').toUpperCase() === 'POI') return true;
     return false;

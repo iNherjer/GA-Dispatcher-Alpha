@@ -2981,24 +2981,39 @@ function missionAirportPoint(icao, fallbackCoordsText = '') {
 
 function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
     const mission = md && typeof md === 'object' ? md : {};
-    const isPOI = !!(state.isPOI || mission.isPOI || mission.poiName);
+    const bush = (mission.bush && typeof mission.bush === 'object') ? mission.bush : null;
+    const bushUsesPoiTaskRecipe = !!(
+        mission?.missionType === 'bush'
+        && String(bush?.profileId || '').toLowerCase() === 'bush_recon_return'
+        && String(bush?.targetMode || '').toLowerCase() === 'area_then_return'
+        && String(bush?.completionMode || '').toLowerCase() === 'return_home'
+    );
+    const isPOI = !!(state.isPOI || mission.isPOI || mission.poiName || bushUsesPoiTaskRecipe);
     const startIcao = state.currentStartICAO || mission.start || state.mDepICAO || currentStartICAO || '';
     const destIcao = state.currentDestICAO || mission.dest || state.mDestICAO || currentDestICAO || '';
     const depPoint = missionAirportPoint(startIcao, state.mDepCoords);
     let destPoint = null;
     if (isPOI) {
-        const targetLat = Number(mission.targetLat);
-        const targetLng = Number(mission.targetLon ?? mission.targetLng);
+        const targetLat = bushUsesPoiTaskRecipe
+            ? Number(bush?.areaRef?.lat ?? mission.targetLat)
+            : Number(mission.targetLat);
+        const targetLng = bushUsesPoiTaskRecipe
+            ? Number(bush?.areaRef?.lon ?? mission.targetLon ?? mission.targetLng)
+            : Number(mission.targetLon ?? mission.targetLng);
         destPoint = Number.isFinite(targetLat) && Number.isFinite(targetLng)
             ? { lat: targetLat, lng: targetLng }
-            : parseMissionCoordsText(state.mDestCoords);
+            : (bushUsesPoiTaskRecipe
+                ? missionAirportPoint(destIcao, state.mDestCoords)
+                : parseMissionCoordsText(state.mDestCoords));
     } else {
         destPoint = missionAirportPoint(destIcao, state.mDestCoords);
     }
     if (!depPoint || !destPoint) return [];
 
     if (isPOI) {
-        const targetName = mission.poiName || mission.targetName || state.mDestName || 'POI';
+        const targetName = bushUsesPoiTaskRecipe
+            ? (bush?.areaRef?.name || mission.targetName || state.mDestName || 'Recon Area')
+            : (mission.poiName || mission.targetName || state.mDestName || 'POI');
         const route = [
             { lat: depPoint.lat, lng: depPoint.lng },
             { lat: destPoint.lat, lng: destPoint.lng, name: `🎯 ${targetName}`, isPOI: true }
@@ -3064,6 +3079,10 @@ function resolveRouteWaypointsFromMissionState(state = {}) {
 function saveMissionState() {
     if (document.getElementById("briefingBox").style.display !== "block") return;
     const draftPending = isMissionDraftPending();
+    const missionActsLikePoi = !!(
+        document.getElementById("destRwyContainer").style.display === "none"
+        || missionUsesPoiPresentation(currentMissionData)
+    );
 
     const imgDepEl = document.getElementById("wikiDepImage");
     const imgDepUrl = (imgDepEl && imgDepEl.style.backgroundImage !== 'url("")') ? imgDepEl.style.backgroundImage : "";
@@ -3103,7 +3122,7 @@ function saveMissionState() {
         wikiDestFreqText: document.getElementById("wikiDestFreqText") ? document.getElementById("wikiDestFreqText").innerHTML : "",
         wikiDepImageUrl: imgDepUrl,
         wikiDestImageUrl: imgDestUrl,
-        isPOI: document.getElementById("destRwyContainer").style.display === "none",
+        isPOI: missionActsLikePoi,
         currentMissionData: currentMissionData,
         routeWaypoints: storedRouteWaypoints,
         missionRouteWaypoints: storedMissionRouteWaypoints,
@@ -3137,7 +3156,7 @@ function restoreMissionV3Context(md, state = {}, restoredPassenger = null, resto
         : ((md.missionContract && typeof md.missionContract === 'object') ? md.missionContract : null);
     const sceneDebug = (md.targetSceneDebug && typeof md.targetSceneDebug === 'object') ? md.targetSceneDebug : {};
     const sceneComposerDebug = (md.targetSceneComposerDebug && typeof md.targetSceneComposerDebug === 'object') ? md.targetSceneComposerDebug : {};
-    const isPOI = !!(md.isPOI || md.poiName || state.isPOI);
+    const isPOI = !!(missionUsesPoiPresentation(md) || state.isPOI);
     const taskDomain = String(
         md.missionContract?.taskDomain
         || contract?.taskDomain
@@ -3246,7 +3265,8 @@ async function restoreMissionState(state, options = {}) {
     document.getElementById("mDestName").innerText = state.mDestName; document.getElementById("mDestCoords").innerText = state.mDestCoords;
     const rDestName = document.getElementById('wikiDestNameDisplay');
     if (rDestName) rDestName.innerText = `${state.mDestICAO} – ${state.mDestName}`;
-    document.getElementById("mDestRwy").innerText = state.isPOI ? "" : "Sucht Pisten..."; document.getElementById("mPay").innerText = state.mPay;
+    const restoredMissionLikePoi = !!(state.isPOI || missionUsesPoiPresentation(state.currentMissionData));
+    document.getElementById("mDestRwy").innerText = restoredMissionLikePoi ? "" : "Sucht Pisten..."; document.getElementById("mPay").innerText = state.mPay;
     document.getElementById("mWeight").innerText = state.mWeight; document.getElementById("mDistNote").innerText = state.mDistNote;
     document.getElementById("mHeadingNote").innerText = state.mHeadingNote; document.getElementById("mETENote").innerText = state.mETENote;
 
@@ -3270,11 +3290,11 @@ async function restoreMissionState(state, options = {}) {
         imgDestContainer.style.display = 'block';
     } else if (imgDestContainer) { imgDestContainer.style.display = 'none'; }
 
-    document.getElementById("destRwyContainer").style.display = state.isPOI ? "none" : "block";
-    if (document.getElementById("wikiDestRwyText")) document.getElementById("wikiDestRwyText").style.display = state.isPOI ? "none" : "block";
+    document.getElementById("destRwyContainer").style.display = restoredMissionLikePoi ? "none" : "block";
+    if (document.getElementById("wikiDestRwyText")) document.getElementById("wikiDestRwyText").style.display = restoredMissionLikePoi ? "none" : "block";
     const depLinks = document.getElementById("wikiDepLinks"); if (depLinks) depLinks.style.display = currentStartICAO === 'GPS' ? "none" : "block";
     const destSwitchRow = document.getElementById("destSwitchRow"); if (destSwitchRow) destSwitchRow.style.display = "flex";
-    const destLinks = document.getElementById("wikiDestLinks"); if (destLinks) destLinks.style.display = state.isPOI ? "none" : "block";
+    const destLinks = document.getElementById("wikiDestLinks"); if (destLinks) destLinks.style.display = restoredMissionLikePoi ? "none" : "block";
 
     currentMissionData = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : {};
     routeWaypoints = resolveRouteWaypointsFromMissionState(state);
@@ -3359,7 +3379,7 @@ async function restoreMissionState(state, options = {}) {
     } else if (currentStartICAO === 'GPS' && document.getElementById("wikiDepFreqText")) {
         document.getElementById("wikiDepFreqText").innerHTML = '<span style="color:#888;">Live GPS Start</span>';
     }
-    if (!state.wikiDestFreqText && currentDestICAO && !state.isPOI) {
+    if (!state.wikiDestFreqText && currentDestICAO && !restoredMissionLikePoi) {
         fetchAirportFreq(currentDestICAO, 'wikiDestFreqText', 'dest');
     }
 
@@ -3407,7 +3427,7 @@ async function restoreMissionState(state, options = {}) {
     } else if (currentStartICAO === 'GPS') {
         document.getElementById("mDepRwy").innerText = "Live-Start";
     }
-    if (currentDestICAO && currentDestICAO !== currentStartICAO && !state.isPOI) {
+    if (currentDestICAO && currentDestICAO !== currentStartICAO && !restoredMissionLikePoi) {
         const destPoint = routeWaypoints && routeWaypoints.length > 1 ? routeWaypoints[routeWaypoints.length - 1] : null;
         const destLat = Number(destPoint?.lat);
         const destLon = Number(destPoint?.lng ?? destPoint?.lon);
@@ -3425,7 +3445,7 @@ async function restoreMissionState(state, options = {}) {
     loadMetarWidget(currentStartICAO === 'GPS' ? null : currentStartICAO, 'metarContainerDep', depP?.lat, depP?.lng || depP?.lon);
 
     const destP = routeWaypoints && routeWaypoints.length > 1 ? routeWaypoints[routeWaypoints.length - 1] : null;
-    loadMetarWidget(state.isPOI ? null : currentDestICAO, 'metarContainerDest', destP?.lat, destP?.lng || destP?.lon);
+    loadMetarWidget(restoredMissionLikePoi ? null : currentDestICAO, 'metarContainerDest', destP?.lat, destP?.lng || destP?.lon);
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
 
 }
@@ -6806,8 +6826,13 @@ async function fetchMissionWeatherSnapshot(icao, lat, lon) {
     return out;
 }
 
-function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) {
+function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, options = null) {
     if (!passenger || typeof passenger !== 'object') return passenger;
+    const opts = (options && typeof options === 'object') ? options : {};
+    const treatAsPoiTask = !!(isPOI || opts.treatAsPoiTask);
+    const defaultTargetAltFt = Math.max(0, Math.round(Number(opts.defaultTargetAltFt) || 0));
+    const defaultTargetRadiusNm = Math.max(0, Number(opts.defaultTargetRadiusNm) || 0);
+    const defaultTargetDwellMin = Math.max(0, Number(opts.defaultTargetDwellMin) || 0);
     const ROLE_PROFILE_VALUES = new Set([
         'general_passenger_v1',
         'instructor_calm_precise_v1',
@@ -6951,7 +6976,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
     };
 
     // A-B Flüge: keine Arbeitsvorgaben am Ziel (nur Komfort/Charakter).
-    if (!isPOI) {
+    if (!treatAsPoiTask) {
         normalized.targetAltFt = 0;
         normalized.targetRadiusNm = 0;
         normalized.targetDwellMin = 0;
@@ -6961,6 +6986,10 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null) 
     if (normalized.targetAltFt < 0) normalized.targetAltFt = 0;
     if (normalized.targetRadiusNm < 0) normalized.targetRadiusNm = 0;
     if (normalized.targetDwellMin < 0) normalized.targetDwellMin = 0;
+
+    if (!(normalized.targetAltFt > 0) && defaultTargetAltFt > 0) normalized.targetAltFt = defaultTargetAltFt;
+    if (!(normalized.targetRadiusNm > 0) && defaultTargetRadiusNm > 0) normalized.targetRadiusNm = defaultTargetRadiusNm;
+    if (!(normalized.targetDwellMin > 0) && defaultTargetDwellMin > 0) normalized.targetDwellMin = defaultTargetDwellMin;
 
     if (normalized.targetAltFt > 0) {
         const minMslByTerrain = Number.isFinite(poiTerrainFt) ? Math.round(poiTerrainFt + 500) : 0;
@@ -7175,6 +7204,43 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
         storyHint: String(storyHint || '')
     };
     return merged;
+}
+
+function missionUsesPoiTaskRecipe(mission = null) {
+    const md = (mission && typeof mission === 'object') ? mission : null;
+    const bush = (md?.bush && typeof md.bush === 'object') ? md.bush : null;
+    return !!(
+        md
+        && md.missionType === 'bush'
+        && String(bush?.profileId || '').toLowerCase() === 'bush_recon_return'
+        && String(bush?.targetMode || '').toLowerCase() === 'area_then_return'
+        && String(bush?.completionMode || '').toLowerCase() === 'return_home'
+    );
+}
+
+function missionUsesPoiPresentation(mission = null) {
+    const md = (mission && typeof mission === 'object') ? mission : null;
+    if (!md) return false;
+    return !!(md.isPOI || md.poiPresentation || missionUsesPoiTaskRecipe(md));
+}
+
+function getPoiTaskPassengerDefaults({ mission = null, isPOI = false, poiTerrainFt = null } = {}) {
+    const usesPoiTaskRecipe = !!(isPOI || missionUsesPoiTaskRecipe(mission));
+    if (!usesPoiTaskRecipe) {
+        return { treatAsPoiTask: false, defaultTargetAltFt: 0, defaultTargetRadiusNm: 0, defaultTargetDwellMin: 0 };
+    }
+    const bush = (mission?.bush && typeof mission.bush === 'object') ? mission.bush : null;
+    const terrainFt = Number.isFinite(Number(poiTerrainFt))
+        ? Math.round(Number(poiTerrainFt))
+        : Math.round(Number(mission?.poiTerrainFt ?? mission?.targetAltFt ?? currentDestElev) || 0);
+    const areaRadiusNm = Math.max(1.5, Number(bush?.areaRef?.radiusNm) || 0);
+    const successMinAreaTimeSec = Math.max(0, Number(bush?.success?.minAreaTimeSec) || 0);
+    return {
+        treatAsPoiTask: true,
+        defaultTargetAltFt: terrainFt > 0 ? terrainFt + 1000 : 0,
+        defaultTargetRadiusNm: areaRadiusNm > 0 ? Math.max(2, Math.min(areaRadiusNm, 4.5)) : 3,
+        defaultTargetDwellMin: successMinAreaTimeSec > 0 ? Math.max(2, Math.round(successMinAreaTimeSec / 60)) : 2
+    };
 }
 
 function _escapeMissionNamePattern(value) {
@@ -7458,14 +7524,15 @@ function _sanitizeLearningGuideNarrative(missionLike = {}) {
 
 function applyMissionTaskProfileToMission(mission, isPOI, profileId, paxText, cargoText) {
     const m = (mission && typeof mission === 'object') ? { ...mission } : {};
-    const baseType = isPOI ? 'poi' : 'apt';
+    const usesPoiTaskRecipe = missionUsesPoiTaskRecipe(m);
+    const baseType = (isPOI || usesPoiTaskRecipe) ? 'poi' : 'apt';
     const profile = getMissionTaskProfile(profileId, baseType);
     if (!profile || profile.id === 'auto') {
         return { mission: m, paxText, cargoText, appliedProfile: 'auto' };
     }
 
     const sourcePassenger = (m.passenger && typeof m.passenger === 'object') ? { ...m.passenger } : null;
-    const passenger = buildMissionProfilePassenger(sourcePassenger || null, profile, isPOI, m.s || '');
+    const passenger = buildMissionProfilePassenger(sourcePassenger || null, profile, (isPOI || usesPoiTaskRecipe), m.s || '');
     if (passenger) {
         if (profile.id === 'tour_guide_knowledge') {
             passenger.targetAltFt = 0;
@@ -10966,6 +11033,7 @@ function buildMissionPlannerV2Draft({
             distNm: dist
         })
         : null;
+    const usesPoiTaskRecipe = missionUsesPoiTaskRecipe({ missionType: baseType, bush: bushSpec });
     const draftTargetRef = bushSpec?.areaRef || bushSpec?.targetRef || null;
     const plannerCategory = baseType === 'bush'
         ? String(profile.category || dispatchProfileId || 'bush')
@@ -10976,7 +11044,7 @@ function buildMissionPlannerV2Draft({
         route: {
             startIcao: currentStartICAO || '',
             startName: String(start?.n || ''),
-            targetIcao: isPOI ? 'POI' : String(dest?.icao || ''),
+            targetIcao: (isPOI || usesPoiTaskRecipe) ? 'POI' : String(dest?.icao || ''),
             distanceNm: Number.isFinite(Number(dist)) ? Number(dist) : 0
         },
         target: {
@@ -11014,6 +11082,7 @@ function buildMissionPlannerV2Draft({
             targetRef: bushSpec.targetRef || null,
             areaRef: bushSpec.areaRef || null
         } : null,
+        poiLikeTask: !!usesPoiTaskRecipe,
         targetGeoContext: targetGeoContext ? {
             summary: summarizeMissionTargetGeoContext(targetGeoContext),
             hints: targetGeoContext.hints || [],
@@ -12196,7 +12265,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         return normalized;
     };
 
-    const poiAltRule = (isPOI && !isTrainingMission)
+    const poiLikeTask = !!(isPOI || missionUsesPoiTaskRecipe({ missionType: missionBaseType, bush: provisionalBushSpec }));
+    const poiAltRule = (poiLikeTask && !isTrainingMission)
         ? (Number.isFinite(poiTerrainFt)
             ? `POI-Einsatzparameter: targetAltFt (MSL) darf NICHT unter ${Math.round(poiTerrainFt + 500)} ft liegen, weil am POI mindestens 500 ft AGL gelten. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).`
             : "POI-Einsatzparameter: targetAltFt konservativ wählen; niemals so niedrig, dass es unter 500 ft AGL wäre. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).")
@@ -12221,7 +12291,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         Variiere das Geschlecht gelegentlich (auch Fluglehrerin).
         cargo nur unkritisch (z.B. "Trainingsunterlagen"), kein echter Frachtauftrag.`
         : `10. KEIN TRAININGSDRIFT: Falls es kein Trainingsflug ist, darf KEIN Trainingsauftrag mit Fluglehrer, Übungen, Platzrunden-Drills oder Checkflug-Inhalten erzeugt werden.`;
-    const poiNoTrainingRule = (isPOI && !isTrainingMission)
+    const poiNoTrainingRule = (poiLikeTask && !isTrainingMission)
         ? `13. POI-GUARDRAIL: Bei POI-Missionen sind Trainingsinhalte strikt verboten (kein Instructor, keine Airwork-/Platzrunden-Aufgaben).`
         : '';
     const promptDestName = isPoiTrainingMission
@@ -12279,8 +12349,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             roleProfile: requiredRoleProfile || null,
             missionType: missionBaseType,
             targetCategory: String(dispatchPlan.targetCategory || targetMissionCat || missionSel.category || '').toLowerCase() || null,
-            sceneKind: String(dispatchPlan.sceneKind || (isPOI ? '' : 'none')).toLowerCase() || null,
-            noLandingAtPoi: !!isPOI,
+            sceneKind: String(dispatchPlan.sceneKind || (poiLikeTask ? '' : 'none')).toLowerCase() || null,
+            noLandingAtPoi: !!poiLikeTask,
             targetLabel: String(dispatchPlan.targetLabel || promptDestName || '')
         },
         profileContract: forcedProfile && forcedProfile.id !== 'auto' ? {
@@ -12306,7 +12376,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         instruction: 'Fuelle nur die Textfelder fuer genau dieses Formular aus. Auftragstyp, taskDomain, roleProfile und Ziel duerfen nicht neu erfunden werden.'
     };
     const poiNameIsGeneric = /^(poi|zielgebiet|staudamm\/talsperre|gewaesser|gewasser|berg-\/talgebiet|funkmast\/funkturm\/windrad|industrieanlage)$/i.test(String(promptDestName || '').trim());
-    const poiConsistencyRule = isPOI
+    const poiConsistencyRule = poiLikeTask
         ? (compactTruth?.mainTarget
             ? `4b. POI-KONSISTENZ (zwingend): Der urspruengliche Suchtreffer ist "${promptDestName}" bei ${poiHasCoords ? `${poiLat.toFixed(5)}, ${poiLon.toFixed(5)}` : 'unbekannten Koordinaten'}, aber die gepruefte Hauptlage ist missionTruth.mainTarget. Story, greetingText und sceneIntent muessen diese Hauptlage als Arbeits-/Sichtziel nutzen. Wenn mainTarget vom Suchtreffer abweicht, erklaere es natuerlich als Ufer, Rand, Zufahrt oder naheliegenden Zielbereich; keinen zweiten Primaerort erfinden.`
             : (poiHasCoords
@@ -12315,7 +12385,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
                 : `4b. POI-KONSISTENZ (zwingend): Ziel ist exakt "${promptDestName}" bei ${poiLat.toFixed(5)}, ${poiLon.toFixed(5)}. Story und Begrüßung dürfen KEINEN anderen Orts-/Gewässernamen als Primärziel nennen.`)
             : `4b. POI-KONSISTENZ (zwingend): Verwende exakt "${promptDestName}" als Zielbezug und nenne keinen alternativen Primär-Ortsnamen.`))
         : '';
-    const missionTruthRule = (isPOI && compactTruth)
+    const missionTruthRule = (poiLikeTask && compactTruth)
         ? `4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. mainTarget beschreibt das kanonische Arbeits-/Sichtziel; sceneAnchor/visibleCues/visualLandmarks duerfen nur Platzierung, Zufahrt oder Orientierung erklaeren und nie ein anderes Primaerziel daraus machen. geometryMode erklaert die Zielart: pinpoint/structure bleibt beim Objekt, area darf nur zur passenden Flaeche/Kante, corridor/facility/broad_infrastructure nur zu passenden Strukturankern. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen. visualLandmarks sind bestaetigte visuelle Referenzen aus dem Geo-Kontext; bei unauffaelligem Ziel duerfen sie zur Orientierung genutzt werden, aber nicht als Primaerziel.`
         : '';
     const activePlanVersion = String(compactMissionPlanV2?.pipelineVersion || '');
@@ -12329,7 +12399,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         : (isPoiTrainingMission
             ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
             : `4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${promptDestName}" ganz natürlich ein.`);
-    const routeRule = isPOI
+    const routeRule = poiLikeTask
         ? `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.`
         : (isBushMission
             ? (provisionalBushSpec?.completionMode === 'return_home'
@@ -14123,6 +14193,15 @@ async function generateMission() {
         ? sanitizeBushMissionSpec(m?.bush || null)
         : null;
 
+    const missionActsLikePoi = !!(isPOI || missionUsesPoiTaskRecipe({ missionType, bush: bushSpec }));
+    const poiTaskDefaults = getPoiTaskPassengerDefaults({
+        mission: { ...m, missionType, bush: bushSpec },
+        isPOI,
+        poiTerrainFt
+    });
+    const effectiveTargetTerrainFt = Number.isFinite(Number(poiTerrainFt))
+        ? Math.round(Number(poiTerrainFt))
+        : (poiTaskDefaults.defaultTargetAltFt > 0 ? Math.max(0, poiTaskDefaults.defaultTargetAltFt - 1000) : null);
     currentMissionData = {
         missionKey: [currentStartICAO, currentDestICAO, isPOI ? dest.n : dest.n, m?.t].filter(Boolean).join('|'),
         start: currentStartICAO,
@@ -14139,6 +14218,7 @@ async function generateMission() {
         bush: bushSpec,
         bushProgress: bushSpec ? buildInitialBushMissionProgress(bushSpec) : null,
         isPOI,
+        poiPresentation: missionActsLikePoi,
         poiName: isPOI ? dest.n : null,
         poiSource: isPOI ? poiSource : null,
         poiCategory: isPOI ? poolCategory : null,
@@ -14147,8 +14227,8 @@ async function generateMission() {
         targetName: dest.n,
         targetLat: Number(dest.lat),
         targetLon: Number(dest.lon),
-        targetAltFt: isPOI && Number.isFinite(Number(poiTerrainFt)) ? Math.round(Number(poiTerrainFt)) : null,
-        poiTerrainFt: isPOI && Number.isFinite(Number(poiTerrainFt)) ? Math.round(Number(poiTerrainFt)) : null,
+        targetAltFt: Number.isFinite(Number(effectiveTargetTerrainFt)) ? Math.round(Number(effectiveTargetTerrainFt)) : null,
+        poiTerrainFt: Number.isFinite(Number(effectiveTargetTerrainFt)) ? Math.round(Number(effectiveTargetTerrainFt)) : null,
         passenger: m?.passenger || null,
         mission: m.t,
         dist: totalDist,
@@ -14197,7 +14277,7 @@ async function generateMission() {
         )
     );
     window.activePassenger = shouldActivateMissionPassenger
-        ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, poiTerrainFt)
+        ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, effectiveTargetTerrainFt, poiTaskDefaults)
         : null;
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
     const suppressAptArrivalPlan = missionType === 'bush'
@@ -14379,7 +14459,7 @@ async function generateMission() {
 
     document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
     let storyForBriefing = String(m.s || '');
-    if (isPOI && Number(window.activePassenger?.targetAltFt || 0) > 0) {
+    if ((isPOI || missionUsesPoiTaskRecipe(currentMissionData)) && Number(window.activePassenger?.targetAltFt || 0) > 0) {
         const plannedAltFt = Math.round(Number(window.activePassenger.targetAltFt));
         if (!new RegExp(`\\b${plannedAltFt}\\s*ft\\b`, 'i').test(storyForBriefing)) {
             storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Arbeits-Hinweis: Für das Zielgebiet ist eine geplante Höhe von ungefähr ${plannedAltFt} ft vorgesehen.`;
@@ -14406,12 +14486,12 @@ async function generateMission() {
     setDrumCounter('distDrum', totalDist);
     recalculatePerformance();
 
-    document.getElementById("destIcon").innerText = isPOI ? "🎯" : "🛬";
-    document.getElementById("mDestICAO").innerText = isPOI ? "POI" : currentDestICAO;
+    document.getElementById("destIcon").innerText = missionActsLikePoi ? "🎯" : "🛬";
+    document.getElementById("mDestICAO").innerText = missionActsLikePoi ? "POI" : currentDestICAO;
     document.getElementById("mDestName").innerText = dest.n;
     document.getElementById("mDestCoords").innerText = `${dest.lat.toFixed(4)}, ${dest.lon.toFixed(4)}`;
     const wikiDestNameEl = document.getElementById('wikiDestNameDisplay');
-    if (wikiDestNameEl) wikiDestNameEl.innerText = `${isPOI ? 'POI' : currentDestICAO} – ${dest.n}`;
+    if (wikiDestNameEl) wikiDestNameEl.innerText = `${missionActsLikePoi ? 'POI' : currentDestICAO} – ${dest.n}`;
 
     document.getElementById("mPay").innerText = paxBriefingText; document.getElementById("mWeight").innerText = cargoText;
     document.getElementById("mDistNote").innerText = `${totalDist} NM`;
@@ -14419,10 +14499,10 @@ async function generateMission() {
     const mHeadingNote = document.getElementById("mHeadingNote");
     if (mHeadingNote) mHeadingNote.innerText = `${nav.brng}°`;
 
-    document.getElementById("destRwyContainer").style.display = isPOI ? "none" : "block";
-    if (document.getElementById("wikiDestRwyText")) document.getElementById("wikiDestRwyText").style.display = isPOI ? "none" : "block";
+    document.getElementById("destRwyContainer").style.display = missionActsLikePoi ? "none" : "block";
+    if (document.getElementById("wikiDestRwyText")) document.getElementById("wikiDestRwyText").style.display = missionActsLikePoi ? "none" : "block";
     const depLinks = document.getElementById("wikiDepLinks"); if (depLinks) depLinks.style.display = "block";
-    const destSwitchRow = document.getElementById("destSwitchRow"); if (destSwitchRow) destSwitchRow.style.display = isPOI ? "none" : "flex";
+    const destSwitchRow = document.getElementById("destSwitchRow"); if (destSwitchRow) destSwitchRow.style.display = missionActsLikePoi ? "none" : "flex";
 
     document.getElementById("briefingBox").style.display = "block";
 
@@ -14437,7 +14517,7 @@ async function generateMission() {
     currentDestElev = (globalAirports && globalAirports[currentDestICAO])   ? (globalAirports[currentDestICAO].elevation   ?? null) : null;
 
     const destLinks = document.getElementById("wikiDestLinks");
-    if (destLinks) destLinks.style.display = isPOI ? "none" : "block";
+    if (destLinks) destLinks.style.display = missionActsLikePoi ? "none" : "block";
 
     indicator.innerText = `Flugplan bereit (${dataSource}). Lade Infos...`;
     fetchRunwayDetails(start.lat, start.lon, 'mDepRwy', currentStartICAO);
@@ -14445,10 +14525,10 @@ async function generateMission() {
     _dispatchDeferredFinalize = true;
     setTimeout(() => {
         if (!_isDispatchRunAlive(dispatchRunId)) return;
-        if (!isPOI) fetchRunwayDetails(dest.lat, dest.lon, 'mDestRwy', currentDestICAO);
+        if (!missionActsLikePoi) fetchRunwayDetails(dest.lat, dest.lon, 'mDestRwy', currentDestICAO);
 
         fetchAreaDescription(start.lat, start.lon, 'wikiDepDescText', null, currentStartICAO, 'wikiDepImageContainer', 'wikiDepImage');
-        fetchAreaDescription(dest.lat, dest.lon, 'wikiDestDescText', isPOI ? dest.n : null, isPOI ? null : currentDestICAO, 'wikiDestImageContainer', 'wikiDestImage');
+        fetchAreaDescription(dest.lat, dest.lon, 'wikiDestDescText', missionActsLikePoi ? dest.n : null, missionActsLikePoi ? null : currentDestICAO, 'wikiDestImageContainer', 'wikiDestImage');
 
         currentDepFreq = "";
         currentDestFreq = "";
@@ -14458,7 +14538,7 @@ async function generateMission() {
         // --- NEU: METAR Start laden ---
         loadMetarWidget(currentStartICAO, 'metarContainerDep', start.lat, start.lon);
 
-        if (!isPOI) {
+        if (!missionActsLikePoi) {
             fetchAirportFreq(currentDestICAO, 'wikiDestFreqText', 'dest');
         } else {
             const df = document.getElementById('wikiDestFreqText');
@@ -14466,7 +14546,7 @@ async function generateMission() {
         }
 
         // --- NEU: METAR Ziel laden (nur wenn kein POI) ---
-        loadMetarWidget(isPOI ? null : currentDestICAO, 'metarContainerDest', dest.lat, dest.lon);
+        loadMetarWidget(missionActsLikePoi ? null : currentDestICAO, 'metarContainerDest', dest.lat, dest.lon);
 
         indicator.innerText = `Briefing komplett.`; resetBtn(btn);
         setDispatchLampState('done', dataSource);
@@ -14780,7 +14860,8 @@ function renderFPL(left, right) {
         for (let i = 0; i < wps.length - 1; i++) {
             const p1 = wps[i], p2 = wps[i + 1], nav = calcNav(p1.lat, p1.lng || p1.lon, p2.lat, p2.lng || p2.lon);
             let n1 = i === 0 ? (currentStartICAO || 'DEP') : (wps[i].name || `WP${i}`);
-            let n2 = i === wps.length - 2 ? (currentMissionData?.poiName ? 'POI' : (currentDestICAO || 'DEST')) : (wps[i + 1].name || `WP${i + 1}`);
+            const missionLikePoi = !!(currentMissionData?.poiName || missionUsesPoiPresentation(currentMissionData));
+            let n2 = i === wps.length - 2 ? (missionLikePoi ? 'POI' : (currentDestICAO || 'DEST')) : (wps[i + 1].name || `WP${i + 1}`);
 
             n1 = n1.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
             n2 = n2.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
@@ -14810,14 +14891,17 @@ function renderFPL(left, right) {
             const isEnd = (start + idx) === 0 || (start + idx) === legs.length - 1;
             return `<div class="kln90b-line ${isEnd ? 'highlight' : ''}" style="font-size:10px; line-height:1.5; white-space:nowrap;">${l.n1}\u2192${l.n2}&nbsp;&nbsp;<span class="dim">${l.brng}\u00b0&thinsp;${l.dist}&thinsp;NM</span></div>`;
         }).join('');
-        if (legs.length === 0) left.innerHTML = `<div class="kln90b-line highlight">${currentStartICAO}</div><div class="kln90b-line dim">→${currentMissionData?.poiName ? 'POI' : currentDestICAO}</div>`;
+        if (legs.length === 0) {
+            const missionLikePoi = !!(currentMissionData?.poiName || missionUsesPoiPresentation(currentMissionData));
+            left.innerHTML = `<div class="kln90b-line highlight">${currentStartICAO}</div><div class="kln90b-line dim">→${missionLikePoi ? 'POI' : currentDestICAO}</div>`;
+        }
 
         const _d = Math.round((currentMissionData.dist || 0) * 10) / 10, _t = parseInt(document.getElementById('tasSlider')?.value) || 115, _g = parseInt(document.getElementById('gphSlider')?.value) || 9;
         right.innerHTML = `<div class="kln90b-line dim" style="font-size:9px;">TOTAL:</div><div class="kln90b-line" style="font-size:10px;">DST ${_d}NM</div><div class="kln90b-line" style="font-size:10px;">TME ${Math.round((_d / _t) * 60)}m</div><div class="kln90b-line" style="font-size:10px;">FUL ${Math.ceil((_d / _t) * _g + 0.75 * _g)}G</div><div class="kln90b-line" style="font-size:10px;">HDG ${currentMissionData.heading || 0}°</div>`;
     }
 }
 async function renderAirportInfo(left, right, type) {
-    const isPOIMission = currentMissionData?.poiName && type === 'dest';
+    const isPOIMission = !!((currentMissionData?.poiName || missionUsesPoiPresentation(currentMissionData)) && type === 'dest');
     const icao = type === 'dep' ? currentStartICAO : (isPOIMission ? 'POI' : currentDestICAO);
     if (!icao) {
         left.innerHTML = '<div class="kln90b-line dim">NO DATA</div>';
@@ -14828,7 +14912,9 @@ async function renderAirportInfo(left, right, type) {
     const mode = gpsState.mode;
     const realIcao = type === 'dep' ? currentStartICAO : currentDestICAO;
     const data = await getAirportData(realIcao);
-    const name = isPOIMission ? currentMissionData.poiName : ((data && data.n) ? data.n : (type === 'dep' ? currentSName : currentDName) || icao);
+    const name = isPOIMission
+        ? (currentMissionData.poiName || currentMissionData.targetName || currentDName || 'POI')
+        : ((data && data.n) ? data.n : (type === 'dep' ? currentSName : currentDName) || icao);
     const lat = data ? data.lat.toFixed(4) : '---';
     const lon = data ? data.lon.toFixed(4) : '---';
 

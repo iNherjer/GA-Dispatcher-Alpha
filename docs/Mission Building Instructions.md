@@ -366,6 +366,36 @@ Neue Missionen sollen nicht "frei" erfunden werden, sondern immer auf einem best
 - ob ein `RTB` nur optional oder verpflichtend ist
 - welche Abschlussbedingung die Runtime prüfen muss
 
+### 7.0 Grundformen
+
+Bevor ein Missionsprofil gewählt wird, wird jede Mission zuerst einer der drei grossen Ablaufarten zugeordnet:
+
+1. `A -> B`
+   - klassischer Streckenflug mit Zielabschluss am Zielflugplatz
+   - typische Form fuer Charter, Cargo, Besuch, Medical-Handoff, Utility
+
+2. `A -> B (mit Landung) -> A`
+   - am Ziel ist Bodenkontakt fachlich Teil des Auftrags
+   - dazu gehoeren echte Pickup-/Dropoff-/Unload-Rezepte oder Bush-Landungen mit Rueckflugpflicht
+
+3. `A -> B (Task ohne Landung) -> A`
+   - `B` ist fachlich kein Endflugplatz, sondern Arbeitsgebiet / POI / Kontrollbereich
+   - die Landung am Ziel ist nicht Teil des Erfolgsrezepts
+   - Erfolg entsteht durch Task-Erfuellung am Ziel und anschliessenden Rueckflug
+
+Merksatz:
+
+- `Zielflugplatz als Abschluss` = `A -> B`
+- `Zielflugplatz als Zwischenstopp mit Bodenauftrag` = `A -> B (mit Landung) -> A`
+- `Ziel nur als Arbeitsgebiet / Wegpunkt` = `A -> B (Task ohne Landung) -> A`
+
+Wichtig:
+
+- `POI` bedeutet fachlich fast immer Grundform 3, auch wenn Start und Ziel im Plan derselbe Heimatflugplatz sind.
+- `bush_recon` gehoert in Grundform 3.
+- `bush_pickup_return` gehoert in Grundform 2.
+- normale APT-Missionen gehoeren in Grundform 1.
+
 ### 7.0 Rezept-Matrix
 
 | Rezept | Typischer Zweck | Task am Ziel | Landung am Ziel | Rückflugpflicht | Abschlussort | Grundphasen |
@@ -417,6 +447,23 @@ Das bedeutet ausdrücklich:
 - `bush_recon` darf nicht nur wegen Bush-Kontext automatisch in eine Bodenphase am Ziel springen
 - wenn `on_task` fachlich "kreisen / beobachten / dokumentieren" bedeutet, dann muss die Task-Erfüllung genauso behandelt werden wie bei POI-Missionen
 
+Planungs- und UI-Regel dazu:
+
+- `bush_recon` nutzt fuer Routing, Profil und Briefing die `POI on-task`-Darstellung
+- der Zielplatz ist dabei fachlich der `POI` bzw. Arbeitswegpunkt, nicht das primaere Landeziel
+- Sollstruktur im Flugplan:
+  - `Startflugplatz -> 🎯 Zielgebiet / Recon Area -> Return Leg -> Startflugplatz`
+- Sollparameter:
+  - `targetAltFt > 0`
+  - `targetRadiusNm > 0`
+  - `targetDwellMin > 0`
+- Anzeigen wie Ziel-Runway, Ziel-Frequenz oder A-B-Zieldenke muessen fuer dieses Rezept unterdrueckt werden
+
+Merksatz:
+
+- `POI-Rezept fuer Task, Zielgebiet und Planprofil`
+- `Bush-Kontext nur fuer Story, Persona und Zieltyp`
+
 ### 7.0.4 Umgang mit Aussenlandungen
 
 Für Task-Missionen vom Typ `POI on-task` oder `Bush RTB task` gilt:
@@ -431,38 +478,304 @@ Faustregel:
 - `Landung ist Teil des Rezepts` nur bei `APT arrival`, `Bush strip target`, `Bush pickup return`
 - `Landung ist nicht Teil des Rezepts` bei `POI on-task` und `Bush RTB task`
 
-### 7.1 APT A->B
+### 7.1 APT-Familie
+
+APT-Missionen gehoeren fachlich immer zur Grundform `A -> B`.
+
+Gemeinsame Bausteine der APT-Familie:
+
+- Startflugplatz und Zielflugplatz sind echte Flugplatz-Endpunkte
+- `APT-Arrival-Plan` kann aktiv sein
+- Abschluss liegt am Zielplatz, nicht am Heimatplatz
+- kein `on_task`-Rezept ueber dem Ziel
+- kein `return_leg`, ausser die Mission ist ausdruecklich kein APT-Rezept mehr
+
+Gemeinsame Architekturregeln:
+
+- APT-Missionen enden ueber `enroute -> end_unloading/end_ready -> close`
+- `pickup` ist in APT-Rezepten nicht erlaubt
+- `end_ready` soll sich moeglichst am geplanten `apt_arrival_point` orientieren, nicht nur am generischen Airport-Fallback
+- Passenger-/Cargo-/Handoff-Varianten aendern nicht den Grundablauf, sondern nur Manifest, Arrival-Rolle, Voice und Deboarding-/Unload-Verhalten
+
+### 7.1.1 APT Arrival Standard
+
+Typische Beispiele:
+
+- Charter
+- Besuch
+- normaler Passagierflug
+- Utility-/Club-Flug ohne besonderen Bodenprozess
 
 Bausteine:
 
 - Passenger optional
 - Cargo optional
 - Startszene optional
-- APT-Arrival-Plan aktiv
-- Zielabschluss am Arrival-Punkt
+- `APT-Arrival-Plan` aktiv, wenn ein Empfangs-/Treffpunkt sinnvoll ist
+- Zielabschluss am Arrival-Punkt oder sauberem Airport-Fallback
 
 Typische Erfolgslogik:
 
 - Landung/Ziel erreicht
-- ggf. Passenger raus
-- ggf. Cargo raus
+- falls Passenger an Bord: Deboarding
+- falls Pflichtcargo vorhanden: zuerst Unload
 - Farewell + Deboarding
+- danach `closingPending` / Mission schliessen
 
-### 7.2 POI-Mission
+### 7.1.2 APT Cargo Handoff
+
+Typische Beispiele:
+
+- Dokumente
+- Ersatzteile
+- Wartungskits
+- medizinische Kisten ohne Patiententransport
 
 Bausteine:
 
-- Zielszene statt APT-Arrival
-- Ziel ist Beobachtung/Verweilzeit/Arbeitsauftrag
-- Ende typischerweise wieder am Heimatplatz oder nach Rückkehr
+- in der Regel `0 PAX`
+- Manifest mit required Cargo
+- `APT-Arrival-Plan` aktiv
+- Arrival-Rolle beschreibt Empfaenger, Bodencrew oder Frachtkontakt
 
 Typische Erfolgslogik:
 
-- Zielarbeit erfüllt
-- Rückkehr/Ende je nach Missionsprofil
-- ggf. POI-Handoff-Szene
+- Landung am Ziel
+- Pflichtladung am Ziel entladen
+- Farewell nicht aus PAX-Sicht, sondern aus Sicht des Empfaengers / Bodenkontakts
+- Deboarding nur, wenn wirklich Passenger an Bord waren
+- danach `closingPending`
 
-### 7.3 Bush Supply
+Wichtige Voice-Regel:
+
+- Boardingtext darf aus Loadmaster-/Dispatcher-Sicht kommen
+- Ziel-Farewell darf aus Receiver-/Empfaenger-Sicht kommen
+- kein versehentliches PAX-Farewell bei cargo-only APT-Missionen
+
+### 7.1.3 APT Passenger Dropoff
+
+Typische Beispiele:
+
+- Chartergast
+- Vereinskollege
+- Fotograf / Techniker / Besucher mit Zieltermin
+
+Bausteine:
+
+- Passenger required
+- Cargo optional
+- `APT-Arrival-Plan` optional, aber oft sinnvoll
+- Zielabschluss ueber Passagierausstieg am Ziel
+
+Typische Erfolgslogik:
+
+- Landung am Ziel
+- Passagier steigt am Ziel aus
+- optional zusaetzliche Fracht entladen
+- Farewell aus Sicht des Passagiers
+- Deboarding abschliessen
+- danach `closingPending`
+
+### 7.1.4 APT Training
+
+Typische Beispiele:
+
+- Platzrunden- oder Navigationsschulung
+- Instructor-Flug
+- Airwork mit Zielplatzbezug
+
+Bausteine:
+
+- Instructor-/Training-Passagierprofil
+- Trainingsdaten / Trainingsprompt aktiv
+- kein normales Handoff-Rezept am Ziel
+- `APT-Arrival-Plan` in der Regel unterdrueckt oder fachlich nachrangig
+
+Typische Erfolgslogik:
+
+- Trainingsflug absolvieren
+- Landung / Abschluss am Ziel oder laut Trainingsrezept
+- Trainingsfazit statt normalem Charter-/Receiver-Farewell
+
+Wichtige Abgrenzung:
+
+- `APT training` ist kein normales `APT arrival` mit umetikettierten Texten
+- Training darf keine zufaellige Cargo-/Empfangslogik am Ziel bekommen, wenn fachlich nur der Schulungsflug gemeint ist
+
+### 7.2 POI-Familie
+
+POI-Missionen gehoeren fachlich zur Grundform `A -> B (Task ohne Landung) -> A`, auch wenn Start- und Endflugplatz im Flugplan derselbe Heimatplatz sind.
+
+Gemeinsame Bausteine der POI-Familie:
+
+- `B` ist fachlich ein Arbeitsgebiet, kein klassisches Landeziel
+- Ziel wird ueber POI-/Target-Routepunkt dargestellt
+- Zielszene / Zielkontext ersetzt den APT-Arrival-Plan
+- Task wird ueber Hoehe, Radius, Verweilzeit oder Gebietserfuellung qualifiziert
+- Landung am Ziel ist normalerweise nicht Teil des Erfolgsrezepts
+
+Gemeinsame Architekturregeln:
+
+- POI-Missionen verwenden `enroute -> on_task -> ready_to_close` oder `enroute -> on_task -> return_leg -> ready_to_close`
+- `pickup` ist kein regulaerer POI-Pfad
+- `unload` ist nur erlaubt, wenn das Manifest ausdruecklich einen echten Home- oder Ziel-Handoff verlangt
+- Erfolg entsteht durch fachlich erfuellten Task, nicht durch blosses Landen am POI
+- Sollparameter fuer echte POI-Tasks sind Teil des Missionsdesigns:
+  - `targetAltFt > 0` oder bewusst `0` fuer Flyover-Sonderfall
+  - `targetRadiusNm > 0`
+  - `targetDwellMin >= 0`
+
+Wichtige Runtime-Regel:
+
+- Die POI-Familie darf denselben Task nicht doppelt modellieren, also nicht einmal ueber Verweil-/Radius-Logik und zusaetzlich noch ueber eine versteckte Bodenphase.
+- Wenn ein POI fachlich "beobachten, dokumentieren, suchen, pruefen, kreisen" bedeutet, dann ist `on_task` der eigentliche Erfolgskern.
+
+### 7.2.1 POI On-Task Standard
+
+Typische Beispiele:
+
+- Foto/Film
+- Survey / Mapping
+- Infrastruktur-Inspektion
+- Biologie / Umwelt / Geologie
+- Lern- oder Guide-Flug ohne Landung am Ziel
+
+Bausteine:
+
+- Passenger oft aktiv
+- Zielszene / Target-Kontext aktiv
+- Hoehe, Radius und Verweilzeit als Taskparameter
+- Heimkehr je nach Rezept optional oder verpflichtend
+
+Typische Erfolgslogik:
+
+- Zielgebiet erreichen
+- `on_task` durch Radius + Hoehe + Verweilzeit erfuellen
+- danach direkt `ready_to_close` oder `return_leg`
+- Missionsende erst nach sauberem Bodenstopp
+
+Wichtige Design-Regel:
+
+- Der POI bleibt Arbeitswegpunkt, nicht Landeplatz
+- Ziel-Runway-, Ziel-Frequenz- und A-B-Ziel-Denke muessen unterdrueckt werden
+
+### 7.2.2 POI Flyover / No-Dwell
+
+Typische Beispiele:
+
+- kurzer Sichtcheck
+- einmaliger Fotopass
+- bestaetigender Ueberflug
+
+Bausteine:
+
+- `targetDwellMin = 0`
+- Task wird beim sauberen Ziel-Einflug / Ueberflug als erfuellt markiert
+
+Typische Erfolgslogik:
+
+- Zielgebiet erreichen
+- kurzer Ueberflug genuegt
+- kein langes Kreisen erforderlich
+- danach `ready_to_close` oder `return_leg`
+
+Wichtige Abgrenzung:
+
+- Auch hier ersetzt eine Landung am Ziel nicht den fachlichen Flyover
+- Wenn "einmal drueber und bestaetigen" gemeint ist, bleibt es trotzdem ein POI-Rezept
+
+### 7.2.3 POI Return Home
+
+Typische Beispiele:
+
+- klassische Rundflug-POIs mit Rueckkehr zum Heimatplatz
+- Bush-Recon-artige Rezepte auf POI-Basis
+- Missionen, bei denen der Auftrag erst nach Heimkehr wirklich abgeschlossen sein soll
+
+Bausteine:
+
+- `on_task` am Ziel
+- verpflichtender `return_leg`
+- Abschluss erst daheim
+
+Typische Erfolgslogik:
+
+1. Zielgebiet qualifizieren
+2. Task in `on_task` sauber erfuellen
+3. danach auf `return_leg`
+4. Mission erst am Heimatplatz auf `ready_to_close`
+
+Merksatz:
+
+- `Task am Ziel`
+- `Abschluss daheim`
+- `keine Ziel-Landung als Erfolgskuerzel`
+
+### 7.2.4 POI Fire Watch
+
+Das ist kein neues Grundrezept, sondern `POI on-task` mit Zusatzregeln.
+
+Zusatzregeln:
+
+- Fokus auf Rauch, Hotspots, Sichtachsen, trockene Vegetationsstreifen
+- Zielszene kann reduziert oder ganz ausgesetzt sein, wenn die Beobachtungslogik wichtiger ist
+- Voice und Story duerfen Lagebild-Charakter haben, aber keine kuenstliche Katastrophendramatik
+- Erfolg bleibt ein sauber erfuellter Luft-Task, nicht eine Landung am Ziel
+
+### 7.2.5 POI Search and Rescue
+
+Das ist ebenfalls kein neues Grundrezept, sondern `POI on-task` mit Suchlogik.
+
+Zusatzregeln:
+
+- Fokus auf Suchgebiet, Hinweise, Sektoren, Landmarken, Sichtlinien
+- Erfolg haengt an Such-/Tasklogik, nicht an einer zufaelligen Bodenphase
+- Story, Scene und Voice muessen denselben Suchauftrag beschreiben
+- Falls spaeter echte Pickup-/Evac-Logik noetig wird, ist das kein reines POI-Rezept mehr
+
+### 7.2.6 POI Training
+
+POI-Training ist ein POI-Sonderfall, aber kein normales Beobachter-/Arbeitsprofil.
+
+Zusatzregeln:
+
+- Trainingscalls und Instructor-Feedback haben Vorrang vor normalem POI-Passagierdialog
+- keine normale "Arbeitsauftrag erledigt"-Dramaturgie, wenn fachlich ein Uebungsflug gemeint ist
+- Hoehe/Radius/Verweilzeit koennen weiterhin als Uebungsrahmen dienen
+- Trainingsfazit ersetzt den regulaeren Beobachter-/Survey-Abschluss
+
+Wichtige Abgrenzung:
+
+- `POI training` ist kein normales `POI on-task` mit anderen Texten
+- sobald der Kern des Flugs Schulung ist, muessen Voice, Erfolg und Abschluss diesen Schulungscharakter tragen
+
+### 7.3 Bush-Zuordnung zu den Grundformen
+
+Die Bush-Familie ist kein eigener vierter Hauptablauf, sondern verteilt sich auf die drei Grundformen.
+
+Aktuelle Zuordnung der Bush-Profile:
+
+| Bush-Profil | Grundform | Rezeptbasis | Kernaussage |
+| --- | --- | --- | --- |
+| `bush_supply_strip` | `A -> B` | `Bush strip target` | Landung am Zielstrip, Pflichtladung am Ziel raus, Abschluss am Ziel |
+| `bush_charter_strip` | `A -> B` | `Bush strip target` | Landung am Zielstrip, Passenger-Dropoff am Ziel, Abschluss am Ziel |
+| `bush_scenic_hopper` | `A -> B` | `Bush strip target` | Adventure-/Scenic-Landung am Zielstrip, kein RTB-Zwang |
+| `bush_pickup_strip` | `A -> B (mit Landung) -> A` | `Bush pickup return` | leer hin, Passenger-Pickup am Ziel, Rueckflug, Abschluss daheim |
+| `bush_pickup_cargo` | `A -> B (mit Landung) -> A` | `Bush pickup return` | leer hin, Cargo-Pickup am Ziel, Rueckflug, Abschluss daheim |
+| `bush_recon_return` | `A -> B (Task ohne Landung) -> A` | `POI on-task` mit RTB-Pflicht | Zielgebiet ist Arbeitsraum, nicht Landeziel; Task erst in der Luft, Abschluss daheim |
+
+Wichtige Wiederverwendungsregel:
+
+- `pickup return` ist das Referenzmuster fuer alle Bush-Missionen mit echter Zwischenlandung plus Rueckflug.
+- `strip target` ist das Referenzmuster fuer alle Bush-Missionen mit Ziel-Landung und Abschluss am Ziel.
+- `bush_recon_return` ist das Referenzmuster dafuer, wie Bush-Kontext auf ein POI-Rezept aufgesetzt wird.
+
+Warnsignal fuer künftige Arbeit:
+
+- Wenn ein Bush-Profil nicht sauber in eine dieser drei Gruppen passt, brauchen wir zuerst eine fachliche Rezeptentscheidung.
+- Wenn nur Story, Rolle, Cargo oder Zieltyp anders sind, darf kein neuer Ablauf gebaut werden.
+
+### 7.4 Bush Supply
 
 Bausteine:
 
@@ -488,7 +801,7 @@ Wichtige Abschlussregel:
   - `closingPending` bzw. Mission-Abschliessen-Banner aktivieren
   - optional laufende Szene/Sequenz parallel zu Ende laufen lassen
 
-### 7.4 Bush Charter
+### 7.5 Bush Charter
 
 Bausteine:
 
@@ -501,7 +814,7 @@ Typische Erfolgslogik:
 - Passagier am Ziel aussteigen lassen
 - Deboarding/Farewell
 
-### 7.5 Bush Recon Return
+### 7.6 Bush Recon Return
 
 Bausteine:
 
@@ -527,7 +840,7 @@ Wichtige Architekturregel:
 
 Wenn `bush_recon` technisch neue Sonderpfade braucht, ist das fast immer ein Warnsignal. Zuerst prüfen, ob dieselbe Anforderung bereits durch POI-Phasen (`enroute`, `on_task`, `return_leg`, `ready_to_close`) ausgedrückt werden kann.
 
-### 7.6 Bush Pickup Passenger
+### 7.7 Bush Pickup Passenger
 
 Bausteine:
 
@@ -544,7 +857,7 @@ Typische Erfolgslogik:
 5. optional Handoff-Szene
 6. Mission schließen
 
-### 7.7 Bush Pickup Cargo
+### 7.8 Bush Pickup Cargo
 
 Bausteine:
 
@@ -561,6 +874,73 @@ Typische Erfolgslogik:
 5. Mission schließen
 
 ## 8. Checkliste für neue Missionstypen
+
+### 8.0 Entscheidungslogik für neue Missionen
+
+Bevor ein neues Profil gebaut oder erweitert wird, läuft die Entscheidung immer in dieser Reihenfolge:
+
+1. **Grundform bestimmen**
+   - `A -> B`
+   - `A -> B (mit Landung) -> A`
+   - `A -> B (Task ohne Landung) -> A`
+
+2. **Rezeptfamilie bestimmen**
+   - `APT arrival`
+   - `POI on-task`
+   - `Bush strip target`
+   - `Bush pickup return`
+   - vorhandenes Unterrezept derselben Familie
+
+3. **Prüfen, ob nur Kontext variiert**
+   - andere Story
+   - andere Passenger-/Cargo-Rolle
+   - anderer Zieltyp
+   - andere Sollhöhe / Radius / Verweilzeit
+   - andere Arrival-/Handoff-Dekoration
+
+4. **Nur wenn der Ablauf fachlich neu ist, neues Rezept bauen**
+
+Merksatz:
+
+- `anderes Thema` ist **kein** neuer Ablauf
+- `anderer Zieltyp` ist **kein** neuer Ablauf
+- `anderes Manifest` ist oft **kein** neuer Ablauf
+- nur `andere Fortschrittslogik` rechtfertigt ein neues Rezept
+
+### 8.1 Gemeinsamer A->B-Basiskontrakt
+
+Alle Missionen der Grundform `A -> B` muessen denselben Basiskontrakt erfuellen, egal ob sie thematisch `APT` oder `Bush` sind.
+
+Gemeinsame Basiskette:
+
+- `enroute`
+- am Ziel mit gueltigem Bodenstopp:
+  - `end_unloading`, wenn required Unload / Deboard / Handoff noch offen ist
+  - sonst `end_ready`
+- danach Farewell / Deboarding / Close
+- danach `closingPending`
+
+Das bedeutet:
+
+- Eine `Bush Supply`-Mission darf nicht an einer voellig anderen Endlogik haengen als ein `APT Cargo Handoff`, wenn beide fachlich `A -> B` mit Ziel-Unload sind.
+- Eine `Bush Charter Dropoff`-Mission darf nicht andere Abschlussregeln brauchen als ein `APT Passenger Dropoff`, wenn beide fachlich `A -> B` mit Ziel-Deboarding sind.
+- Nur die Zielszene, Arrival-Rolle, Sprecherrolle und Ground-Texte duerfen variieren.
+
+Explizite A->B-Untervarianten auf derselben Baselogik:
+
+- `A->B / Arrival Standard`
+- `A->B / Cargo Handoff`
+- `A->B / Passenger Dropoff`
+- `A->B / Scenic Landing`
+
+Wichtige Architekturregel:
+
+- Bush-A->B-Missionen duerfen **keine** eigene Abschlussmaschine bauen, wenn sie fachlich nur eine Kontextvariante von `A -> B` sind.
+- Wenn ein Bush-A->B-Profil nur deshalb eigene Endpfade braucht, weil Name, Zieltyp oder Atmosphaere anders sind, ist das ein Strukturfehler.
+
+Warnsignal:
+
+- Wenn eine Bush-A->B-Mission im Sim oder Live anders endet als eine gleichartige APT-A->B-Mission, obwohl beide dieselbe fachliche Zielhandlung haben, ist das fast immer falsche Rezepttrennung statt echter Fachlogik.
 
 Wenn wir einen neuen Missionstyp bauen, gehen wir in dieser Reihenfolge vor:
 

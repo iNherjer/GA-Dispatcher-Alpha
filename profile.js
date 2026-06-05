@@ -6855,9 +6855,18 @@ function renderVerticalProfile(canvasId) {
         ctx.stroke();
         ctx.setLineDash([]);
 
+        const missionLikePoi = !!(
+            typeof currentMissionData !== 'undefined'
+            && currentMissionData
+            && (
+                currentMissionData.poiName
+                || currentMissionData.poiPresentation
+                || (typeof missionUsesPoiTaskRecipe === 'function' && missionUsesPoiTaskRecipe(currentMissionData))
+            )
+        );
         let wpLabel;
         if (i === 0) wpLabel = currentStartICAO || 'DEP';
-        else if (i === routeWaypoints.length - 1) wpLabel = currentDestICAO || 'DEST';
+        else if (i === routeWaypoints.length - 1) wpLabel = missionLikePoi ? (currentStartICAO || 'HOME') : (currentDestICAO || 'DEST');
         else wpLabel = routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i;
         if (wpLabel.length > 8) wpLabel = wpLabel.substring(0, 7) + '…';
 
@@ -7730,7 +7739,20 @@ function renderMapProfileFrames(timeMs) {
 
             fgCtx.beginPath(); fgCtx.setLineDash([2, 3]); fgCtx.strokeStyle = 'rgba(255,255,255,0.2)'; fgCtx.lineWidth = 1;
             fgCtx.moveTo(x, padTop); fgCtx.lineTo(x, padTop + plotH); fgCtx.stroke(); fgCtx.setLineDash([]);
-            let wpLabel = (i === 0) ? (currentStartICAO || 'DEP') : ((i === routeWaypoints.length - 1) ? (currentDestICAO || 'DEST') : (routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i));
+            const missionLikePoi = !!(
+                typeof currentMissionData !== 'undefined'
+                && currentMissionData
+                && (
+                    currentMissionData.poiName
+                    || currentMissionData.poiPresentation
+                    || (typeof missionUsesPoiTaskRecipe === 'function' && missionUsesPoiTaskRecipe(currentMissionData))
+                )
+            );
+            let wpLabel = (i === 0)
+                ? (currentStartICAO || 'DEP')
+                : ((i === routeWaypoints.length - 1)
+                    ? (missionLikePoi ? (currentStartICAO || 'HOME') : (currentDestICAO || 'DEST'))
+                    : (routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i));
             if (!zoomFactor || zoomFactor < 2) { if (wpLabel.length > 6) wpLabel = wpLabel.substring(0, 5) + '…'; } else { if (wpLabel.length > 12) wpLabel = wpLabel.substring(0, 11) + '…'; }
             fgCtx.beginPath(); fgCtx.arc(x, padTop + plotH + 3, 3, 0, Math.PI * 2); fgCtx.fillStyle = i === 0 ? '#44ff44' : (i === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00'); fgCtx.fill();
             fgCtx.fillStyle = '#bbb'; fgCtx.font = (zoomFactor >= 2) ? 'bold 11px Arial' : 'bold 9px Arial'; fgCtx.textAlign = 'center'; fgCtx.fillText(wpLabel, x, padTop + plotH + 16);

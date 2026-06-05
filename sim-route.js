@@ -219,6 +219,8 @@
     function _isPoiSimMission() {
         try {
             if (typeof currentMissionData !== 'undefined' && currentMissionData && currentMissionData.poiName) return true;
+            if (typeof currentMissionData !== 'undefined' && currentMissionData && currentMissionData.poiPresentation) return true;
+            if (typeof missionUsesPoiTaskRecipe === 'function' && typeof currentMissionData !== 'undefined' && missionUsesPoiTaskRecipe(currentMissionData)) return true;
             if (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI') return true;
             const destRwy = document.getElementById('destRwyContainer');
             if (destRwy && destRwy.style.display === 'none') return true;
@@ -407,7 +409,10 @@
         const first = simTrack[0];
         const last = simTrack[simTrack.length - 1];
         const depLabel = (typeof currentStartICAO !== 'undefined' && currentStartICAO) ? currentStartICAO : 'SIM START';
-        const arrLabel = (typeof currentDestICAO !== 'undefined' && currentDestICAO && currentDestICAO !== 'POI') ? currentDestICAO : 'SIM LANDING';
+        const poiLikeMission = _isPoiSimMission();
+        const arrLabel = poiLikeMission
+            ? ((typeof currentStartICAO !== 'undefined' && currentStartICAO) ? currentStartICAO : 'SIM HOME')
+            : ((typeof currentDestICAO !== 'undefined' && currentDestICAO && currentDestICAO !== 'POI') ? currentDestICAO : 'SIM LANDING');
         const gs = _gs();
         const dist = Number(simRouteCache.totalDist || 0);
         const durSec = Math.max(1, Math.round(simElapsedSec + (SIM_HOLD_SEC * 2)));
