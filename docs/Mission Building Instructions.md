@@ -4,9 +4,11 @@ Diese Datei beschreibt den aktuellen Missions-Baukasten im Projekt. Sie ist bewu
 
 ## 1. Architektur in Kurzform
 
-Die Missionslogik lebt heute im Wesentlichen in fuenf Dateien:
+Die Missionslogik lebt heute im Wesentlichen in sieben Dateien:
 
-- `app.js`: Missionsdefinition, Profile, Briefing-/Contract-Aufbau, Bush-Spezifika, POI/APT/BUSH-Metadaten.
+- `app.js`: Missionsdefinition, Profile, Briefing-/Contract-Aufbau, POI/APT/BUSH-Metadaten und verbliebene Missionskomposition.
+- `mission-definition-core.js`: Bush-Dispatch-Profile, Bush-Missions-Spec/Envelope, APT-Arrival-Rollen fuer Bush-/APT-Handovers.
+- `mission-arrival-core.js`: APT-Arrival-Planung, OSM-/Overpass-Placement, sichere Arrival-Anker und Arrival-Truth-Anbindung.
 - `sync.js`: Missions-UI, Start-/End-Banner, Szenen-Orchestrierung, Missionsende.
 - `mission-runtime-core.js`: extrahierter Runtime-Kern fuer Bush-/Ground-Action-/End-Readiness-Logik.
 - `mission-cargo-core.js`: extrahierter Cargo-/Manifest-/Payload-/Outcome-Kern.
@@ -36,6 +38,8 @@ Eine Mission besteht aus fünf Schichten:
 ## 3. Zentrale Bausteine
 
 ### 3.1 Mission-Definitionen in `app.js`
+
+Ein Teil der Definitionslogik liegt inzwischen bewusst in `mission-definition-core.js`, damit Missionsrezepte, Bush-Spezifika und Arrival-Rollen nicht mehr zwischen Runtime- und UI-Code vermischt werden. Die eigentliche Arrival-Planung und OSM-Platzierung liegt nun in `mission-arrival-core.js`.
 
 Wichtige Einstiegsfunktionen:
 
