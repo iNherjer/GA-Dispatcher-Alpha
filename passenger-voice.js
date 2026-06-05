@@ -41,6 +41,139 @@ window.paxVoiceOpenLog  = function() {
 window.paxVoiceGetLogEntries = function() {
     return _paxLogEntries.map(e => ({ ts: e.ts, type: e.type, msg: e.msg }));
 };
+window.paxVoiceGetDebugState = function() {
+    const pax = window.activePassenger && typeof window.activePassenger === 'object' ? window.activePassenger : null;
+    return {
+        voiceEnabled: !!_paxVoiceEnabled,
+        strictMode: !!_paxStrictMode,
+        hasApiKey: !!_getApiKey(),
+        hasPassenger: !!pax,
+        passengerName: pax?.name || null,
+        passengerRole: pax?.role || null,
+        roleProfile: pax?.roleProfile || null,
+        taskDomain: pax?.taskDomain || null,
+        boardingDone: !!_paxBoardingDone,
+        greetingDone: !!_paxGreetingDone,
+        atTargetDone: !!_paxAtTargetDone,
+        farewellDone: !!_paxFarewellDone,
+        pickupBoardingDone: !!_paxPickupBoardingDone,
+        pickupDepartureDone: !!_paxPickupDepartureDone,
+        poiSatisfied: !!_poiSatisfied,
+        poiAborted: !!_poiAborted,
+        poiInRadius: !!_poiInRadius,
+        poiEntryDone: !!_poiEntryDone,
+        poiDwellSec: Number(_poiDwellSec || 0),
+        poiAttempts: Number(_poiAttempts || 0),
+        lastSpokenText: _lastSpokenText ? String(_lastSpokenText) : '',
+        lastSpeakerName: _lastSpokenSpeaker?.name || null
+    };
+};
+
+window.paxVoiceBuildDebugReport = function() {
+    const missionSnap = window.vpMissionDebugSnapshot || (() => {
+        try { return JSON.parse(localStorage.getItem('ga_mission_debug_snapshot') || 'null'); } catch (_) { return null; }
+    })();
+    const logEntries = (typeof window.paxVoiceGetLogEntries === 'function') ? window.paxVoiceGetLogEntries() : [];
+    const state = (typeof window.paxVoiceGetDebugState === 'function') ? window.paxVoiceGetDebugState() : {};
+    const lines = [];
+    const contract = missionSnap?.contract && typeof missionSnap.contract === 'object' ? missionSnap.contract : null;
+    const bush = contract?.bush && typeof contract.bush === 'object' ? contract.bush : null;
+    const firstTs = logEntries.length ? logEntries[logEntries.length - 1]?.ts : '-';
+    const lastTs = logEntries.length ? logEntries[0]?.ts : '-';
+    const rxTextgen = /^Textgen OK \(\d+ Zeichen\):\s*"(.*)"$/;
+    const recvTexts = logEntries
+        .filter(e => e?.type === 'recv' && rxTextgen.test(String(e.msg || '')))
+        .slice(0, 4)
+        .map(e => String(e.msg || '').match(rxTextgen)?.[1] || '');
+    const lastModel = logEntries.find(e => e?.type === 'send' && /^Textgen → /.test(String(e.msg || '')))?.msg?.replace(/^Textgen → /, '') || '-';
+    const warnings = logEntries
+        .filter(e => e?.type === 'warn')
+        .slice(0, 6)
+        .map(e => `${e.ts} :: ${e.msg}`);
+    const eventTrail = logEntries
+        .filter(e => e?.type === 'event' || e?.type === 'state')
+        .filter(e => /Queue \+1 \| Event:|Queue ▶ Start \| Event:|Queue ✓ Ende \| Event:|triggerPax|API-Call|TTS übersprungen|Greeting unterdrueckt|kein Prompt|Airport in Reichweite|POI pre-call|Verweilzeit erfüllt|Landing-Roll/.test(String(e.msg || '')))
+        .slice(0, 16)
+        .map(e => `${e.ts} :: ${e.msg}`);
+    const promptKinds = Array.from(new Set(
+        logEntries
+            .filter(e => e?.type === 'state' && /^Queue \+1 \| Event: /.test(String(e.msg || '')))
+            .map(e => String(e.msg || '').replace(/^Queue \+1 \| Event: /, '').trim())
+    )).slice(0, 8);
+
+    lines.push(`Exportiert: ${new Date().toLocaleString('de-DE')}`);
+    lines.push('Pax Voice Debug');
+    lines.push(`- Log von/bis: ${firstTs} -> ${lastTs}`);
+    lines.push(`- Eintraege: ${logEntries.length}`);
+    lines.push(`- Mission: ${missionSnap?.mission || 'n/a'}`);
+    lines.push(`- Ziel: ${missionSnap?.target || 'n/a'}`);
+    lines.push(`- Modus/Kategorie: ${missionSnap?.mode || '?'} / ${missionSnap?.category || '?'}`);
+    if (bush) {
+        lines.push(`- Bush-Contract: profile=${bush.profileId || '-'} | targetMode=${bush.targetMode || '-'} | completionMode=${bush.completionMode || '-'} | pickupKind=${bush.pickupKind || '-'}`);
+    }
+    lines.push(`- Rolle/Task: ${state.passengerName || missionSnap?.passenger?.name || '?'} | ${state.passengerRole || missionSnap?.passenger?.role || '?'} | roleProfile=${state.roleProfile || missionSnap?.passenger?.roleProfile || '-'} | taskDomain=${state.taskDomain || missionSnap?.passenger?.taskDomain || '-'}`);
+    lines.push(`- Voice-Modus: enabled=${state.voiceEnabled ? '1' : '0'} | strict=${state.strictMode ? '1' : '0'} | apiKey=${state.hasApiKey ? '1' : '0'}`);
+    lines.push(`- Letztes Modell: ${lastModel}`);
+    lines.push('');
+    lines.push('Voice-Status');
+    lines.push(`- Boarding done: ${state.boardingDone ? '1' : '0'}`);
+    lines.push(`- Greeting done: ${state.greetingDone ? '1' : '0'}`);
+    lines.push(`- At-target done: ${state.atTargetDone ? '1' : '0'}`);
+    lines.push(`- Farewell done: ${state.farewellDone ? '1' : '0'}`);
+    lines.push(`- Pickup boarding done: ${state.pickupBoardingDone ? '1' : '0'}`);
+    lines.push(`- Pickup departure done: ${state.pickupDepartureDone ? '1' : '0'}`);
+    lines.push(`- POI satisfied/aborted: ${state.poiSatisfied ? '1' : '0'} / ${state.poiAborted ? '1' : '0'} | inRadius=${state.poiInRadius ? '1' : '0'} | dwellSec=${Math.round(Number(state.poiDwellSec || 0))} | attempts=${Number(state.poiAttempts || 0)}`);
+    if (promptKinds.length) lines.push(`- Erkannte Voice-Events: ${promptKinds.join(' | ')}`);
+    lines.push('');
+    lines.push('Wichtige Voice-Ereignisse');
+    if (eventTrail.length) eventTrail.forEach(line => lines.push(`- ${line}`));
+    else lines.push('- (keine)');
+    lines.push('');
+    lines.push('Letzte generierte Texte');
+    if (recvTexts.length) recvTexts.forEach((text, idx) => lines.push(`- T${idx + 1}: ${text}`));
+    else lines.push('- (keine Textgen-Antworten im Log)');
+    if (state.lastSpokenText && !recvTexts.includes(state.lastSpokenText)) {
+        lines.push(`- Last spoken cache: ${state.lastSpokenText}`);
+    }
+    lines.push('');
+    lines.push('Warnungen');
+    if (warnings.length) warnings.forEach(line => lines.push(`- ${line}`));
+    else lines.push('- (keine)');
+    return lines.join('\n');
+};
+
+window.paxVoiceCopyDebugReport = async function() {
+    const btn = document.getElementById('btnCopyPaxVoiceDebug');
+    const oldText = btn ? btn.textContent : '';
+    try {
+        const text = (typeof window.paxVoiceBuildDebugReport === 'function') ? window.paxVoiceBuildDebugReport() : '';
+        if (!String(text || '').trim()) throw new Error('empty_pax_voice_debug_report');
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', 'readonly');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand && document.execCommand('copy');
+            ta.remove();
+            if (!ok) throw new Error('clipboard_unavailable');
+        }
+        if (btn) {
+            btn.textContent = 'Kopiert';
+            setTimeout(() => { btn.textContent = oldText || 'Kopieren'; }, 1400);
+        }
+    } catch (err) {
+        if (btn) {
+            btn.textContent = 'Fehler';
+            setTimeout(() => { btn.textContent = oldText || 'Kopieren'; }, 1600);
+        }
+        console.warn('[PaxVoice] Debug copy failed:', err);
+    }
+};
 
 // ─── MAP ZONES ────────────────────────────────────────────────────────────────
 let _paxZonesLayer   = null;

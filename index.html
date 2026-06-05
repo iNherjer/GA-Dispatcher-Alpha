@@ -938,6 +938,7 @@
         <div style="display:flex; gap:6px; align-items:center;">
             <span id="paxLogModeLabel" style="font-size:10px; color:#6a9a7a; padding:1px 6px; border:1px solid #2a5a3a; border-radius:3px;">EASY</span>
             <button id="btnPaxZonesLog" onclick="window.paxVoiceToggleZones && paxVoiceToggleZones(); document.getElementById('btnPaxZonesLog').textContent = window._paxZonesVisible ? 'Zonen Ein' : 'Zonen Aus';" style="font-size:11px; border:1px solid #2a5a3a; background:#142a1e; color:#80e0a0; border-radius:4px; padding:2px 6px; cursor:pointer;">Zonen Aus</button>
+            <button id="btnCopyPaxVoiceDebug" onclick="window.paxVoiceCopyDebugReport && paxVoiceCopyDebugReport()" style="font-size:11px; border:1px solid #3c6a8a; background:#18293a; color:#9fd0ff; border-radius:4px; padding:2px 6px; cursor:pointer;">Kopieren</button>
             <button onclick="window.paxVoiceClearLog && paxVoiceClearLog()" style="font-size:11px; border:1px solid #5a4a2a; background:#2a2010; color:#d0b060; border-radius:4px; padding:2px 6px; cursor:pointer;">Leeren</button>
             <button onclick="document.getElementById('paxLogPanel').style.display='none'" style="font-size:11px; border:1px solid #6b3d3d; background:#3b2020; color:#ffb4b4; border-radius:4px; padding:2px 6px; cursor:pointer;">✕</button>
         </div>

@@ -4013,6 +4013,59 @@ window.vpBuildMissionPhaseDebugReport = function() {
     const missionSnap = window.vpMissionDebugSnapshot || (() => {
         try { return JSON.parse(localStorage.getItem('ga_mission_debug_snapshot') || 'null'); } catch (_) { return null; }
     })();
+    const events = Array.isArray(dbg?.events) ? dbg.events : [];
+    const contract = missionSnap?.contract && typeof missionSnap.contract === 'object' ? missionSnap.contract : null;
+    const bush = contract?.bush && typeof contract.bush === 'object' ? contract.bush : null;
+    const missionType = String(contract?.missionType || missionSnap?.mode || '').trim().toLowerCase();
+    const poiRecipeId = (typeof window.missionPoiRecipeId === 'function' && contract)
+        ? String(window.missionPoiRecipeId(contract) || '').trim().toLowerCase()
+        : '';
+    const bushRecipeId = (typeof window._bushRecipeIdFromSpec === 'function' && bush)
+        ? String(window._bushRecipeIdFromSpec(bush) || '').trim().toLowerCase()
+        : '';
+    const lastRuntimePhaseEntry = [...events].reverse().find(e => e?.kind === 'runtime_phase');
+    const lastStartPhaseEntry = [...events].reverse().find(e => e?.kind === 'start_phase');
+    const lastBushProgressEntry = [...events].reverse().find(e => e?.kind === 'bush_progress');
+    const lastGroundActionEntry = [...events].reverse().find(e => e?.kind === 'ground_action');
+    const lastDialogEntry = [...events].reverse().find(e => e?.kind === 'dialog');
+    const finalOutcomeEntry = [...events].reverse().find(e => e?.kind === 'trigger' && (e?.payload?.name === 'missionCargoFinalizeMissionOutcome' || e?.payload?.name === '_missionSceneFinishRuntimeAfterDeboard:outcome'));
+    const completionEntry = [...events].reverse().find(e => e?.kind === 'trigger' && e?.payload?.name === 'completeSimMissionEnd');
+    const hasEvent = (kind, predicate) => events.some((entry) => {
+        if (kind && entry?.kind !== kind) return false;
+        return typeof predicate === 'function' ? !!predicate(entry.payload || {}, entry) : true;
+    });
+    const recipeFlow = (() => {
+        if (bushRecipeId === 'pickup_return') return 'A -> B (Landung/Pickup) -> A';
+        if (bushRecipeId === 'poi_on_task_return' || poiRecipeId === 'poi_on_task_return') return 'A -> B (POI/on-task ohne Landung) -> A';
+        if (poiRecipeId === 'poi_on_task' || poiRecipeId === 'poi_flyover' || poiRecipeId === 'poi_fire_watch' || poiRecipeId === 'poi_search_and_rescue' || poiRecipeId === 'poi_training') {
+            return 'A -> B (POI/on-task ohne Landung) -> A';
+        }
+        return 'A -> B';
+    })();
+    const validation = {
+        targetReached: hasEvent('ground_action', (p) => p.atTarget === true),
+        taskEntered: hasEvent(null, (_, entry) => {
+            return (entry.kind === 'bush_progress' && (entry.payload?.to === 'on_task' || entry.payload?.to === 'pickup_ready' || entry.payload?.to === 'pickup_loading' || entry.payload?.to === 'pickup_complete'))
+                || (entry.kind === 'ground_action' && ['on_task', 'pickup_ready', 'pickup_loading', 'pickup_complete'].includes(String(entry.payload?.phase || '')));
+        }),
+        returnLegReached: hasEvent(null, (_, entry) => {
+            return (entry.kind === 'bush_progress' && entry.payload?.to === 'return_leg')
+                || (entry.kind === 'ground_action' && String(entry.payload?.phase || '') === 'return_leg');
+        }),
+        readyToCloseReached: hasEvent(null, (_, entry) => {
+            return (entry.kind === 'bush_progress' && entry.payload?.to === 'ready_to_close')
+                || (entry.kind === 'ground_action' && String(entry.payload?.phase || '') === 'ready_to_close');
+        }),
+        simEndTriggered: hasEvent('trigger', (p) => p.name === 'completeSimMissionEnd'),
+        farewellTriggered: hasEvent('trigger', (p) => p.name === '_triggerPaxFarewellAndWaitForDeboard:started'),
+        deboardingStarted: hasEvent('trigger', (p) => p.name === 'missionSceneStartDeboardingAfterFarewell' || p.name === 'finishMissionCargoUnloadAndEnd:start-bush-home-deboarding'),
+        outcomeFinalized: hasEvent('trigger', (p) => p.name === 'missionCargoFinalizeMissionOutcome' || p.name === '_missionSceneFinishRuntimeAfterDeboard:outcome'),
+        resetAfterClose: hasEvent('trigger', (p) => Number(p.runtimeActive || 0) === 0 && Number(p.closingPending || 0) === 1)
+            || hasEvent('start_phase', (p) => p.trigger === 'clear-start-phase')
+    };
+    const validationFlag = (ok) => ok ? '1' : '0';
+    const finalOutcomePayload = finalOutcomeEntry?.payload && typeof finalOutcomeEntry.payload === 'object' ? finalOutcomeEntry.payload : {};
+    const completionPayload = completionEntry?.payload && typeof completionEntry.payload === 'object' ? completionEntry.payload : {};
     lines.push(`Session seit: ${fmt(dbg?.sessionStartedAt || dbg?.ts || Date.now())}`);
     lines.push('Phasen-Log');
     if (missionSnap) {
@@ -4022,8 +4075,43 @@ window.vpBuildMissionPhaseDebugReport = function() {
     } else {
         lines.push('- Mission: -');
     }
-    const events = Array.isArray(dbg?.events) ? dbg.events : [];
     lines.push(`- Events: ${events.length}`);
+    lines.push(`- Ablauf-Rezept: ${recipeFlow}`);
+    lines.push(`- Rezept-ID: Bush=${bushRecipeId || '-'} | POI=${poiRecipeId || '-'}`);
+    if (bush) {
+        lines.push(`- Bush-Contract: profile=${bush.profileId || '-'} | targetMode=${bush.targetMode || '-'} | completionMode=${bush.completionMode || '-'} | returnHome=${bush.requiresReturnHome ? '1' : '0'}`);
+    } else if (missionType === 'poi') {
+        lines.push(`- POI-Contract: dwell=${Number(missionSnap?.passenger?.targetDwellMin || 0)} min | radius=${Number(missionSnap?.passenger?.targetRadiusNm || 0)} NM | alt=${Number(missionSnap?.passenger?.targetAltFt || 0)} ft`);
+    }
+    lines.push('');
+    lines.push('Debug-Protokoll');
+    lines.push(`- Ziel erreicht: ${validationFlag(validation.targetReached)}`);
+    lines.push(`- Task-/Dialog-Phase erreicht: ${validationFlag(validation.taskEntered)}`);
+    lines.push(`- Return-Leg erreicht: ${validationFlag(validation.returnLegReached)}`);
+    lines.push(`- Ready-to-close erreicht: ${validationFlag(validation.readyToCloseReached)}`);
+    lines.push(`- Sim-Ende getriggert: ${validationFlag(validation.simEndTriggered)}${completionPayload.distanceNm ? ` | distanceNm=${completionPayload.distanceNm}` : ''}`);
+    lines.push(`- Farewell getriggert: ${validationFlag(validation.farewellTriggered)}`);
+    lines.push(`- Deboarding gestartet: ${validationFlag(validation.deboardingStarted)}`);
+    lines.push(`- Outcome finalisiert: ${validationFlag(validation.outcomeFinalized)}${typeof finalOutcomePayload.failed !== 'undefined' ? ` | failed=${finalOutcomePayload.failed ? '1' : '0'}` : ''}`);
+    lines.push(`- Reset/Close-Pfad gesehen: ${validationFlag(validation.resetAfterClose)}`);
+    if (lastRuntimePhaseEntry?.payload) {
+        lines.push(`- Letzte Runtime-Phase: ${lastRuntimePhaseEntry.payload.from || '-'} -> ${lastRuntimePhaseEntry.payload.to || '-'}`);
+    }
+    if (lastStartPhaseEntry?.payload) {
+        lines.push(`- Letzte Start-Phase: ${lastStartPhaseEntry.payload.from || '-'} -> ${lastStartPhaseEntry.payload.to || '-'}`);
+    }
+    if (lastBushProgressEntry?.payload) {
+        lines.push(`- Letzter Bush-Status: ${lastBushProgressEntry.payload.from || '-'} -> ${lastBushProgressEntry.payload.to || '-'} | ready=${lastBushProgressEntry.payload.pickupReady ? '1' : '0'} completed=${lastBushProgressEntry.payload.pickupCompleted ? '1' : '0'} confirmed=${lastBushProgressEntry.payload.pickupConfirmed ? '1' : '0'} home=${lastBushProgressEntry.payload.returnHomeQualified ? '1' : '0'}`);
+    }
+    if (lastGroundActionEntry?.payload) {
+        lines.push(`- Letzte Bodenaktion: action=${lastGroundActionEntry.payload.action || '-'} | phase=${lastGroundActionEntry.payload.phase || '-'} | reason=${lastGroundActionEntry.payload.reason || '-'} | atTarget=${lastGroundActionEntry.payload.atTarget ? '1' : '0'} | groundStill=${lastGroundActionEntry.payload.groundStill ? '1' : '0'}`);
+    }
+    if (lastDialogEntry?.payload) {
+        lines.push(`- Letzter Dialog: mode=${lastDialogEntry.payload.mode || '-'} | trigger=${lastDialogEntry.payload.trigger || '-'} | phase=${lastDialogEntry.payload.phase || '-'}`);
+    }
+    if (finalOutcomePayload.requiredStatus) {
+        lines.push(`- Outcome requiredStatus: ${typeof finalOutcomePayload.requiredStatus === 'string' ? finalOutcomePayload.requiredStatus : JSON.stringify(finalOutcomePayload.requiredStatus)}`);
+    }
     lines.push('');
     lines.push('Trigger / Phasen / Aktionen');
     if (!events.length) {
