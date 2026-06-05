@@ -34,6 +34,31 @@ function _missionBushIsPickupCargoMission() {
     return !!(bush && bush.targetMode === 'strip_then_return' && String(bush.pickupKind || '').toLowerCase() === 'cargo');
 }
 
+function _missionBushUsesPoiTaskRecipe() {
+    if (!_missionSceneIsBushMission()) return false;
+    const bush = _activeBushMissionSpec();
+    if (!bush || typeof bush !== 'object') return false;
+    const targetMode = String(bush.targetMode || '').toLowerCase();
+    const completionMode = String(bush.completionMode || '').toLowerCase();
+    const profileId = String(bush.profileId || '').toLowerCase();
+    return !!(
+        targetMode === 'area_then_return'
+        && completionMode === 'return_home'
+        && profileId === 'bush_recon_return'
+    );
+}
+window.missionBushUsesPoiTaskRecipe = _missionBushUsesPoiTaskRecipe;
+
+function _missionPoiTaskProgressState() {
+    if (typeof window.paxVoiceGetPoiMissionProgress !== 'function') return null;
+    try {
+        const progress = window.paxVoiceGetPoiMissionProgress();
+        return progress && typeof progress === 'object' ? progress : null;
+    } catch (_) {
+        return null;
+    }
+}
+
 function _missionBushPickupItem(manifest = _missionCargoEnsureManifest()) {
     const items = Array.isArray(manifest?.items) ? manifest.items : [];
     return items.find(item => item && item.pickupLocation === 'target') || null;
@@ -183,6 +208,31 @@ function _missionBushUpdateProgress(lat = null, lon = null, now = Date.now()) {
     }
     const mode = _missionBushEffectiveCompletionMode();
     if (mode === 'return_home') {
+        if (_missionBushUsesPoiTaskRecipe()) {
+            const poiProgress = _missionPoiTaskProgressState();
+            const taskResolved = !!(poiProgress?.trackingActive && (poiProgress?.satisfied || poiProgress?.aborted));
+            if (endReady?.atTarget) {
+                next.targetReached = true;
+                if (!taskResolved) next.status = 'on_task';
+            }
+            next.areaDwellSec = Math.max(0, Number(poiProgress?.dwellSec || next.areaDwellSec || 0));
+            next.areaTrackNm = Math.max(0, Number(poiProgress?.trackNm || next.areaTrackNm || 0));
+            if (taskResolved) {
+                next.areaQualified = true;
+                next.status = bush.requiresReturnHome ? 'return_leg' : 'ready_to_close';
+            }
+            if (next.areaQualified && endReady?.groundStill && _isAtMissionHome(curLat, curLon)) {
+                next.returnHomeQualified = true;
+                next.groundStopQualified = true;
+                next.status = 'ready_to_close';
+            } else if (next.areaQualified && bush.requiresReturnHome) {
+                next.status = 'return_leg';
+            }
+            const prevJson = JSON.stringify(progress);
+            const nextJson = JSON.stringify(next);
+            if (prevJson !== nextJson) _persistBushMissionProgress(next);
+            return next;
+        }
         const area = _missionBushAreaRef();
         const canSampleArea = !endReady?.groundStill;
         const insideArea = canSampleArea && area && Number.isFinite(curLat) && Number.isFinite(curLon)
@@ -315,6 +365,12 @@ function _missionBushRuntimeDetailText() {
         const p = _activeBushMissionProgress();
         if (p?.returnHomeQualified) return 'Bush-Recon abgeschlossen. Rueckkehr und Stillstand am Heimatplatz bestaetigt.';
         if (p?.areaQualified) return 'Recon im Zielgebiet abgeschlossen. Rueckflug zum Heimatplatz laeuft.';
+        if (_missionBushUsesPoiTaskRecipe()) {
+            const poiProgress = _missionPoiTaskProgressState();
+            const dwellSec = Math.round(Number(poiProgress?.dwellSec || 0));
+            const attempts = Math.max(0, Number(poiProgress?.attempts || 0));
+            return `Recon noch offen. Im Zielgebiet in der Luft bleiben: bisher ${dwellSec}s${attempts > 0 ? ` · Hinweise ${attempts}` : ''}.`;
+        }
         return `Recon noch offen. Fuer den Auftrag im Zielgebiet in der Luft bleiben: bisher ${Math.round(Number(p?.areaDwellSec || 0))}s · ${Number(p?.areaTrackNm || 0).toFixed(1)} NM im Arbeitsbereich.`;
     }
     return 'Bush-Zielstrip erreicht. Auftrag kann regulaer abgeschlossen werden.';

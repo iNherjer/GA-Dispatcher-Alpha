@@ -5182,7 +5182,9 @@ function _missionOutcomeApplyEndReadiness(outcome = null, endReady = null) {
 }
 
 function _missionOutcomeApplyPoiProgress(outcome = null, options = {}) {
-    if (!_missionSceneIsPoiMission()) return outcome;
+    const usePoiStyleTask = _missionSceneIsPoiMission()
+        || (typeof window.missionBushUsesPoiTaskRecipe === 'function' && window.missionBushUsesPoiTaskRecipe());
+    if (!usePoiStyleTask) return outcome;
     const progress = options?.progress && typeof options.progress === 'object'
         ? options.progress
         : _missionPoiProgressState();
@@ -5202,13 +5204,18 @@ function _missionOutcomeApplyPoiProgress(outcome = null, options = {}) {
             totalWeightLbs: 0
         };
     const notDelivered = Array.isArray(base.notDeliveredRequired) ? base.notDeliveredRequired.slice() : [];
+    const taskLabel = (typeof window.missionBushUsesPoiTaskRecipe === 'function' && window.missionBushUsesPoiTaskRecipe())
+        ? 'Auftrag im Zielgebiet'
+        : 'POI-Auftrag';
     if (progress.aborted) {
-        if (!notDelivered.includes('POI-Auftrag wurde im Zielgebiet abgebrochen.')) {
-            notDelivered.push('POI-Auftrag wurde im Zielgebiet abgebrochen.');
+        const abortMsg = `${taskLabel} wurde im Zielgebiet abgebrochen.`;
+        if (!notDelivered.includes(abortMsg)) {
+            notDelivered.push(abortMsg);
         }
     } else if (!progress.satisfied) {
-        if (!notDelivered.includes('POI-Auftrag wurde nicht abgeschlossen.')) {
-            notDelivered.push('POI-Auftrag wurde nicht abgeschlossen.');
+        const incompleteMsg = `${taskLabel} wurde nicht abgeschlossen.`;
+        if (!notDelivered.includes(incompleteMsg)) {
+            notDelivered.push(incompleteMsg);
         }
     }
     base.notDeliveredRequired = notDelivered;

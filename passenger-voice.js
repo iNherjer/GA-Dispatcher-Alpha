@@ -339,7 +339,9 @@ window.paxVoiceGetPoiMissionProgress = function() {
         trackingActive: !!window.activePassenger && _missionHasPax(),
         satisfied: !!_poiSatisfied,
         aborted: !!_poiAborted,
-        atTargetDone: !!_paxAtTargetDone
+        atTargetDone: !!_paxAtTargetDone,
+        dwellSec: Math.max(0, Number(_poiDwellSec || 0)),
+        attempts: Math.max(0, Number(_poiAttempts || 0))
     };
 };
 
@@ -657,6 +659,14 @@ function _getApiKey() {
 function _isPOIMission() {
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null);
     if (md && typeof md === 'object' && md.poiName) return true;
+    if (
+        md
+        && typeof md === 'object'
+        && md.missionType === 'bush'
+        && md.bush
+        && String(md.bush.profileId || '').toLowerCase() === 'bush_recon_return'
+        && String(md.bush.targetMode || '').toLowerCase() === 'area_then_return'
+    ) return true;
     if (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI') return true;
     return document.getElementById('destRwyContainer')?.style.display === 'none';
 }
