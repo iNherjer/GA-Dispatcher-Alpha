@@ -184,7 +184,8 @@ function _missionBushUpdateProgress(lat = null, lon = null, now = Date.now()) {
     const mode = _missionBushEffectiveCompletionMode();
     if (mode === 'return_home') {
         const area = _missionBushAreaRef();
-        const insideArea = area && Number.isFinite(curLat) && Number.isFinite(curLon)
+        const canSampleArea = !endReady?.groundStill;
+        const insideArea = canSampleArea && area && Number.isFinite(curLat) && Number.isFinite(curLon)
             ? (_missionBushAreaDistanceNm(curLat, curLon) <= area.radiusNm)
             : false;
         if (insideArea) {
@@ -314,7 +315,7 @@ function _missionBushRuntimeDetailText() {
         const p = _activeBushMissionProgress();
         if (p?.returnHomeQualified) return 'Bush-Recon abgeschlossen. Rueckkehr und Stillstand am Heimatplatz bestaetigt.';
         if (p?.areaQualified) return 'Recon im Zielgebiet abgeschlossen. Rueckflug zum Heimatplatz laeuft.';
-        return `Recon noch offen. Gebietsdauer ${Math.round(Number(p?.areaDwellSec || 0))}s · Track ${Number(p?.areaTrackNm || 0).toFixed(1)} NM.`;
+        return `Recon noch offen. Fuer den Auftrag im Zielgebiet in der Luft bleiben: bisher ${Math.round(Number(p?.areaDwellSec || 0))}s · ${Number(p?.areaTrackNm || 0).toFixed(1)} NM im Arbeitsbereich.`;
     }
     return 'Bush-Zielstrip erreicht. Auftrag kann regulaer abgeschlossen werden.';
 }

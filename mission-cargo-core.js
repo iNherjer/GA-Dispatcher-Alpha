@@ -5,7 +5,10 @@
 function _missionCargoMissionKey() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const stableKey = String(
-        md?.missionKey
+        md?.cargoManifest?.key
+        || md?.missionContract?.cargoManifest?.key
+        || window.activeMissionContract?.cargoManifest?.key
+        || md?.missionKey
         || md?.missionContract?.missionKey
         || window.activeMissionContract?.missionKey
         || ''
@@ -131,8 +134,10 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
     const key = _missionCargoMissionKey();
     const taskDomain = _missionSceneTaskDomain();
     const bush = _activeBushMissionSpec();
+    const bushCompletionMode = String(bush?.completionMode || '').toLowerCase();
     const isBushPickupPassenger = !!(bush && bush.targetMode === 'strip_then_return' && String(bush.pickupKind || '').toLowerCase() === 'passenger');
     const isBushPickupCargo = !!(bush && bush.targetMode === 'strip_then_return' && String(bush.pickupKind || '').toLowerCase() === 'cargo');
+    const isBushReturnHomeRecon = !!(bush && bush.targetMode === 'area_then_return' && bushCompletionMode === 'return_home');
     const cargoText = _missionCargoPrimaryText() || _missionSceneCargoText();
     const cleanedCargo = _missionCargoCleanLabel(cargoText);
     const hasCargo = !isBushPickupPassenger && !isBushPickupCargo && cleanedCargo && !/^(?:-|none|kein cargo|keine fracht|standard-ausruestung|standard ausruestung)$/i.test(cleanedCargo);
@@ -228,7 +233,7 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
             storyName: primaryLabel,
             weightLbs: _missionCargoExtractWeight(cargoText, cargoAsset?.cargoWeightLbs || 20),
             required: true,
-            deliverAtDestination: !isPoi,
+            deliverAtDestination: !isPoi && !isBushReturnHomeRecon,
             objectTitle: primaryTitle,
             titleCandidates: primaryCandidates,
             forwardOffsetM: 0,
@@ -249,6 +254,17 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
     }
     if (/(survey|inspection|science|mapping)/.test(taskDomain)) {
         _missionCargoPushItem(items, { id: 'survey-docs', label: 'Messprotokolle und Referenzkarten', weightLbs: 5, required: false, deliverAtDestination: false, forwardOffsetM: 0.8, rightOffsetM: 0.85 });
+    }
+    if (isBushReturnHomeRecon) {
+        _missionCargoPushItem(items, {
+            id: 'recon-checklist',
+            label: 'Recon-Checkliste und Platznotizen',
+            weightLbs: 3,
+            required: false,
+            deliverAtDestination: false,
+            forwardOffsetM: 0.95,
+            rightOffsetM: 0.85
+        });
     }
     if (taskDomain === 'medical_transfer') {
         _missionCargoPushItem(items, { id: 'patient-docs', label: 'Patientenakte / Kuehlhinweis', weightLbs: 3, required: true, deliverAtDestination: !isPoi, forwardOffsetM: 0.75, rightOffsetM: 0.85 });
