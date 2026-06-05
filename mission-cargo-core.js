@@ -1928,6 +1928,13 @@ window.finishMissionCargoPickupAndContinue = function() {
             } catch (_) {}
         }, 400);
     }
+    if (_missionBushIsPickupCargoMission() && typeof window.triggerPaxCargoPickupBoarding === 'function') {
+        setTimeout(() => {
+            try {
+                window.triggerPaxCargoPickupBoarding();
+            } catch (_) {}
+        }, 400);
+    }
     if (window.simModeActive && typeof window.resumeSimMissionAfterPickup === 'function') {
         try { window.resumeSimMissionAfterPickup(); } catch (_) {}
     }
@@ -1936,6 +1943,13 @@ window.finishMissionCargoPickupAndContinue = function() {
             try {
                 if (!window.activePassenger) return;
                 window.triggerPaxPickupDeparture();
+            } catch (_) {}
+        }, 4500);
+    }
+    if (_missionBushIsPickupCargoMission() && typeof window.triggerPaxCargoPickupDeparture === 'function') {
+        setTimeout(() => {
+            try {
+                window.triggerPaxCargoPickupDeparture();
             } catch (_) {}
         }, 4500);
     }

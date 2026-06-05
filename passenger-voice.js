@@ -355,6 +355,8 @@ let _paxComfortBusy   = false;
 let _paxLandingPhaseAnnounced = false;
 let _paxPickupBoardingDone = false;
 let _paxPickupDepartureDone = false;
+let _cargoPickupBoardingDone = false;
+let _cargoPickupDepartureDone = false;
 let _paxWxMismatchDone = false;
 let _paxSpeechQueue   = Promise.resolve();
 let _paxMissionEpoch  = 1;
@@ -413,6 +415,8 @@ window.paxVoiceResetMission = function() {
     _paxLandingPhaseAnnounced = false;
     _paxPickupBoardingDone = false;
     _paxPickupDepartureDone = false;
+    _cargoPickupBoardingDone = false;
+    _cargoPickupDepartureDone = false;
     _paxWxMismatchDone = false;
     _paxSpeechQueue   = Promise.resolve();
     _lastSpokenSpeaker = null;
@@ -4490,7 +4494,7 @@ function _cargoOnlyFarewellPrompt(record) {
         : `Lieferung ${cargoName}.`;
     const resultTask = failed
         ? `Sprich als Empfaenger der Lieferung am Ziel direkt zum Piloten. Sag klar, dass die Uebergabe heute noch nicht sauber abgeschlossen ist${failureShort ? `, weil ${failureShort} fehlt oder nicht brauchbar ist` : ''}. Bleib praktisch und knapp, kein Drama, keine Passagierperspektive. Eine kurze Bitte um neuen Anlauf ist okay.`
-        : `Sprich als Empfaenger der Lieferung am Ziel direkt zum Piloten. Bestaetige kurz, dass die Fracht angekommen ist, sag wofuer sie hier gebraucht wird, und bedanke dich fuer den Flug. Keine Passagierperspektive, kein Mitflug, keine Cockpit-Sicht.`;
+        : `Sprich als Empfaenger der Lieferung am Ziel direkt zum Piloten. Bestaetige kurz, dass die Fracht angekommen ist, sag wofuer sie hier gebraucht wird oder was damit als Naechstes passiert, und bedanke dich fuer den Flug. Keine Passagierperspektive, kein Mitflug, keine Cockpit-Sicht.`;
     return `ROLLE: ${receiver} · Persönlichkeit: bodenstaendig, direkt, dankbar
 FLUG: ${cargoCtx.start} → ${cargoCtx.dest} · ${cargoCtx.dist || '?'} NM
 AN BORD: ${cargoCtx.paxText}
@@ -4504,7 +4508,7 @@ AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anf
 Moment: Die Maschine steht ${place}; dort laeuft jetzt die Uebergabe. ${cue ? `Am Treffpunkt wartet ${cue}.` : ''}
 Fakten: ${facts}
 ${resultTask}
-Erwaehne die Fracht beim Namen: ${cargoName}. Max 3 Sätze.${_toneHint()}`;
+Erwaehne die Fracht beim Namen: ${cargoName}. Gib moeglichst ein kleines konkretes Ergebnis oder einen naechsten Schritt der Uebergabe mit. Max 4 Sätze.${_toneHint()}`;
 }
 
 function _greetingPrompt() {
@@ -4849,6 +4853,8 @@ window.paxVoiceResetLeg = function() {
     _paxLandingPhaseAnnounced = false;
     _paxPickupBoardingDone = false;
     _paxPickupDepartureDone = false;
+    _cargoPickupBoardingDone = false;
+    _cargoPickupDepartureDone = false;
     _bushPickupNarrativeMemory = { boarding: '', departure: '' };
 };
 
@@ -4896,6 +4902,63 @@ Baue auf deiner kurzen Ansage vom Strip auf: Erzaehle jetzt etwas ausfuehrlicher
 Max 4 Sätze.${_toneHint()}`;
 }
 
+function _activeBushPickupCargoContract() {
+    let contract = null;
+    try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) {}
+    contract = contract || window.activeMissionContract || (typeof currentMissionData !== 'undefined' ? currentMissionData?.missionContract : null) || {};
+    const bush = contract?.bush && typeof contract.bush === 'object' ? contract.bush : null;
+    const isBushPickupCargo = !!(
+        bush
+        && String(bush.targetMode || '') === 'strip_then_return'
+        && String(bush.pickupKind || '').toLowerCase() === 'cargo'
+    );
+    return isBushPickupCargo ? { contract, bush } : null;
+}
+
+function _pickupCargoBoardingPrompt() {
+    const cargoCtx = _cargoOnlyVoiceContext();
+    const active = _activeBushPickupCargoContract();
+    if (!cargoCtx || !active) return null;
+    const wx = _weatherContext(window.lastLiveFlightData);
+    const cargoLine = _missionRequiredItemNames(3).join(', ') || String(active.bush?.pickupLabel || cargoCtx.cargoText || 'Rueckholfracht').trim();
+    const targetName = String(active.bush?.targetRef?.name || cargoCtx.dest || 'dem Strip').trim();
+    return `ROLLE: Lademeister am Zielstrip · Persönlichkeit: pragmatisch, direkt, routiniert
+FLUG: ${cargoCtx.start} → ${cargoCtx.dest} · ${cargoCtx.dist || '?'} NM
+AN BORD: ${cargoCtx.paxText}
+AUSRUESTUNG: ${cargoCtx.cargoText}
+AUFTRAG (kurz): ${cargoCtx.story || 'Rueckholfracht an einem abgelegenen Strip aufnehmen und zum Heimatplatz zurueckbringen.'}
+STIL: kurze, glaubwuerdige Uebergabe am Boden aus Sicht des Loadmasters vor Ort.
+${cargoCtx.contractSummary ? `MISSION-CONTRACT: ${cargoCtx.contractSummary}` : ''}
+TASK-DOMAIN: ${cargoCtx.taskDomain}
+AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).
+
+Moment: Die Pickup-Fracht wird gerade am Zielstrip verladen, wir stehen noch am Boden in ${targetName}.${wx ? ` ${wx}` : ''}
+Sprich direkt zum Piloten als Lademeister vor Ort. Sag kurz, was jetzt eingeladen wird, warum diese Fracht zurueck zum Heimatplatz muss und worauf beim Rueckflug zu achten ist. Erwaehne die Fracht immer direkt beim Namen: ${cargoLine}. Keine Passagierperspektive, kein Smalltalk.
+Max 3 Sätze.${_toneHint()}`;
+}
+
+function _pickupCargoDeparturePrompt() {
+    const cargoCtx = _cargoOnlyVoiceContext();
+    const active = _activeBushPickupCargoContract();
+    if (!cargoCtx || !active) return null;
+    const wx = _weatherContext(window.lastLiveFlightData);
+    const cargoLine = _missionRequiredItemNames(3).join(', ') || String(active.bush?.pickupLabel || cargoCtx.cargoText || 'Rueckholfracht').trim();
+    const homeName = String(active.bush?.homeRef?.name || cargoCtx.start || 'dem Heimatplatz').trim();
+    return `ROLLE: Lademeister am Zielstrip · Persönlichkeit: pragmatisch, direkt, routiniert
+FLUG: ${cargoCtx.start} → ${cargoCtx.dest} · ${cargoCtx.dist || '?'} NM
+AN BORD: ${cargoCtx.paxText}
+AUSRUESTUNG: ${cargoCtx.cargoText}
+AUFTRAG (kurz): ${cargoCtx.story || 'Rueckholfracht an einem abgelegenen Strip aufnehmen und zum Heimatplatz zurueckbringen.'}
+STIL: kurze Rueckflug-Freigabe aus Sicht des Boden-/Ladekontakts, nicht wie ein Mitflieger.
+${cargoCtx.contractSummary ? `MISSION-CONTRACT: ${cargoCtx.contractSummary}` : ''}
+TASK-DOMAIN: ${cargoCtx.taskDomain}
+AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).
+
+Moment: Die Fracht ist eingeladen und der Rueckflug zum Heimatplatz laeuft jetzt an.${wx ? ` ${wx}` : ''}
+Sprich direkt zum Piloten als Ladekontakt am Zielstrip. Sag kurz, dass ${cargoLine} jetzt sauber verstaut ist, warum die Lieferung in ${homeName} gebraucht wird oder ausgewertet werden muss, und gib den Rueckflug knapp frei. Keine Passagierperspektive.
+Max 3 Sätze.${_toneHint()}`;
+}
+
 window.triggerPaxPickupBoarding = async function() {
     _paxLog(`triggerPaxPickupBoarding | tts:${_paxVoiceEnabled} done:${_paxPickupBoardingDone} pax:${!!window.activePassenger}`, 'state');
     if (_paxPickupBoardingDone || !window.activePassenger || !_missionHasPax()) return;
@@ -4920,6 +4983,32 @@ window.triggerPaxPickupDeparture = async function() {
     _paxPickupDepartureDone = true;
     _paxLog('PickupDeparture → API-Call', 'event');
     await _speakAndShow(prompt, 'Rueckflug');
+};
+
+window.triggerPaxCargoPickupBoarding = async function() {
+    _paxLog(`triggerPaxCargoPickupBoarding | tts:${_paxVoiceEnabled} done:${_cargoPickupBoardingDone} cargo:${!!_cargoMissionFocus()}`, 'state');
+    if (_cargoPickupBoardingDone || !_cargoMissionFocus()) return;
+    const prompt = _pickupCargoBoardingPrompt();
+    if (!prompt) {
+        _paxLog('CargoPickupBoarding: kein Prompt (kein passender Bush-Cargo-Pickup-Kontext)', 'warn');
+        return;
+    }
+    _cargoPickupBoardingDone = true;
+    _paxLog('CargoPickupBoarding → API-Call', 'event');
+    await _speakAndShow(prompt, 'Pickup', _cargoMissionSpeaker('boarding'));
+};
+
+window.triggerPaxCargoPickupDeparture = async function() {
+    _paxLog(`triggerPaxCargoPickupDeparture | tts:${_paxVoiceEnabled} done:${_cargoPickupDepartureDone} cargo:${!!_cargoMissionFocus()}`, 'state');
+    if (_cargoPickupDepartureDone || !_cargoMissionFocus()) return;
+    const prompt = _pickupCargoDeparturePrompt();
+    if (!prompt) {
+        _paxLog('CargoPickupDeparture: kein Prompt (kein passender Bush-Cargo-Pickup-Kontext)', 'warn');
+        return;
+    }
+    _cargoPickupDepartureDone = true;
+    _paxLog('CargoPickupDeparture → API-Call', 'event');
+    await _speakAndShow(prompt, 'Rueckflug', _cargoMissionSpeaker('boarding'));
 };
 
 window.triggerPaxGreeting = async function(lat, lon, options = {}) {
