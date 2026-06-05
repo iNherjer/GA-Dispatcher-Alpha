@@ -2138,6 +2138,19 @@ function _activeBushMissionSpec() {
     return bush && typeof bush === 'object' ? bush : null;
 }
 
+function _isBushVoiceMission() {
+    const md = _activeMissionData();
+    const contract = _activeMissionContractData();
+    if (String(md?.missionType || '').toLowerCase() === 'bush') return true;
+    if (String(contract?.mode || '').toUpperCase() === 'BUSH') return true;
+    return !!_activeBushMissionSpec();
+}
+
+function _bushVoiceToneLine() {
+    if (!_isBushVoiceMission()) return '';
+    return 'BUSH-TON: Direkt, bodenstaendig und draussen-erfahren. Weniger akademisch, weniger erklaerend, eher praktisch und klar. Kurze konkrete Bilder aus Strip, Bahn, Tal, Hang, Wald, Wildnis, Wetterfenster, Ladung oder Rueckkehr in die Zivilisation sind gut. Kein Gutachten-, Prospekt- oder Behoerdenton.';
+}
+
 function _cargoOnlyVoiceContext() {
     if (_missionHasPax() || !_cargoMissionFocus()) return null;
     const md = _activeMissionData();
@@ -3681,6 +3694,8 @@ ${urgencyLine}`
     const visualLandmarksLine = _paxVisualLandmarksLine();
     if (targetProminenceLine) lines.push(targetProminenceLine);
     if (visualLandmarksLine) lines.push(visualLandmarksLine);
+    const bushToneLine = _bushVoiceToneLine();
+    if (bushToneLine) lines.push(bushToneLine);
     lines.push(roleGuard);
     lines.push(`TASK-DOMAIN: ${_activeTaskDomain()}
 AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).`);
@@ -4287,6 +4302,7 @@ Nur Deutsch, kein Markdown.`;
     }
     const roleProfile = String(window.activePassenger?.roleProfile || '').toLowerCase();
     const isCharterNeutral = roleProfile === 'charter_professional_neutral_v1';
+    const isBush = _isBushVoiceMission();
     const humorLine = _paxHumorLevel === 'subtle'
         ? 'Kein Witz.'
         : _paxHumorLevel === 'bold'
@@ -4294,13 +4310,17 @@ Nur Deutsch, kein Markdown.`;
             : 'Humor kurz und freundlich.';
     const greetingLine = _paxGreetingDone
         ? 'Keine neue Begrüßung am Satzanfang.'
-        : 'Begrüßung höchstens kurz (z.B. "Hi").';
+        : (isBush ? 'Begrüßung höchstens kurz und unaufgeregt.' : 'Begrüßung höchstens kurz (z.B. "Hi").');
     const registerLine = isCharterNeutral
         ? 'Sprache klar und professionell.'
-        : 'Sprache cockpitnah und natürlich, ohne Amtsdeutsch.';
+        : (isBush
+            ? 'Sprache klar, direkt und bush-typisch, ohne Amtsdeutsch oder akademischen Ton.'
+            : 'Sprache cockpitnah und natürlich, ohne Amtsdeutsch.');
     const colloquialLine = isCharterNeutral
         ? 'Wortwahl standardnah.'
-        : 'Leichte Umgangssprache okay, normal schreiben.';
+        : (isBush
+            ? 'Leicht raue, praktische Alltagssprache ist okay; kurz, bodenstaendig und glaubwuerdig bleiben.'
+            : 'Leichte Umgangssprache okay, normal schreiben.');
     return `
 Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze.
 ${registerLine}
@@ -4926,8 +4946,8 @@ function _pickupDeparturePrompt() {
     return `${ctx}
 
 Moment: Wir sind wieder in der Luft und der Rueckflug nach Hause laeuft.${wx ? ' ' + wx : ''}
-Basistext für deinen Rueckflug-Einstieg (frei adaptieren): "${String(pax.greetingText || '').trim()}"${continuityHint}
-Baue auf deiner kurzen Ansage vom Strip auf: Erzaehle jetzt etwas ausfuehrlicher, warum du dort draussen warst, warum du wieder nach Hause musst und was du vom Ort oder vom Einsatz mitnimmst. Der Ton darf klar Wilderness- und Einsatzcharakter haben: Abgeschiedenheit, Gelände, Dauer draussen, Feldarbeit, Wetterfenster oder Rueckkehr in die Zivilisation. Das darf persoenlicher und etwas bildhafter sein, aber weiterhin glaubwuerdig und knapp.
+Basistext fuer deine Rueckflug-Spur (nur inhaltlich, nicht als neue Begruessung wiederholen): "${String(pax.greetingText || '').trim()}"${continuityHint}
+Baue direkt auf deiner kurzen Ansage vom Strip auf: Erzaehle jetzt etwas ausfuehrlicher, warum du dort draussen warst, warum du wieder nach Hause musst und was du vom Ort oder vom Einsatz mitnimmst. Der Ton darf klar Wilderness- und Einsatzcharakter haben: Abgeschiedenheit, Gelaende, Dauer draussen, Feldarbeit, Wetterfenster oder Rueckkehr in die Zivilisation. Das darf persoenlicher und etwas bildhafter sein, aber weiterhin glaubwuerdig und knapp. Beginne NICHT erneut mit einer Begruessung wie "Hallo", "Hi", "Moin" oder einer neuen Selbstvorstellung, sondern setze inhaltlich einfach fort.
 Max 4 Sätze.${_toneHint()}`;
 }
 

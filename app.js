@@ -12522,6 +12522,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         : (isPoiTrainingMission
             ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
             : `4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${promptDestName}" ganz natürlich ein.`);
+    const bushToneRule = isBushMission
+        ? `4a. BUSH-TON: Sprache und Missionsrahmen muessen bodenstaendig, direkt und praxisnah wirken. Weniger akademisch, weniger touristisch, kein Gutachten- oder Prospektton. Gute Bilder sind abgelegene Strips, Pistenrand, Tal, Hang, Wald, Wetterfenster, Ladung, Werkzeug, Camp-Alltag, Bodencrew oder Rueckkehr in die Zivilisation. Kurz, glaubwuerdig und einsatznah bleiben.`
+        : '';
     const routeRule = poiLikeTask
         ? `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.`
         : (isBushMission
@@ -12544,6 +12547,7 @@ Ton: alltagsnah, locker, glaubwürdig; keine Actionfilm-Rhetorik.
 REGELN:
 1) Thema-Pflicht: Der Auftrag MUSS zum Thema "${randomTheme}" passen.
 2) ${localKnowledgeRule}
+2a) ${bushToneRule || 'Tonalitaet natuerlich und auftragsnah halten.'}
 3) ${categoryRule || 'Kategorienkonsistenz beachten.'}
 3b) ${poiConsistencyRule || 'Zielkonsistenz beachten.'}
 3c) ${missionTruthRule || 'Gepruefte Zielinformationen beachten, falls vorhanden.'}
