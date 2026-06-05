@@ -749,6 +749,52 @@ Wichtige Abgrenzung:
 - `POI training` ist kein normales `POI on-task` mit anderen Texten
 - sobald der Kern des Flugs Schulung ist, muessen Voice, Erfolg und Abschluss diesen Schulungscharakter tragen
 
+### 7.2.7 Referenzprofile innerhalb der POI-Familie
+
+Die POI-Familie soll kuenftig nicht mehr nur ueber lose Task-Domains erkannt werden, sondern ueber klare Referenzrezepte.
+
+| POI-Rezept | Typische Task-Domains / Profile | Wofuer wiederverwenden |
+| --- | --- | --- |
+| `poi_on_task` | `inspection_infra`, `media_photo`, `mapping_survey`, `science_bio`, `science_geo`, `science_general`, `news_coverage` | klassischer Arbeitsauftrag im Zielgebiet mit Hoehe/Radius/Verweilzeit |
+| `poi_flyover` | kurzer Sichtcheck, einmaliger Fotopass, schneller Verifikationsflug | POI-Auftrag ohne Dwell, Task wird beim Ueberflug erfuellt |
+| `poi_on_task_return` | `bush_recon_return` und spaetere Bush-Air-Tasks auf POI-Basis | POI-Arbeit am Ziel, Abschluss aber verpflichtend erst nach Heimkehr |
+| `poi_fire_watch` | `fire_watch` | POI on-task mit Lagebild-/Feuerwacht-Regeln |
+| `poi_search_and_rescue` | `search_and_rescue` | POI on-task mit Such-/SAR-Regeln |
+| `poi_training` | `training`, `club_training_basic`, `club_training_advanced` | POI-Aufgabe mit Instructor-/Schulungsfokus statt normalem Arbeitsdialog |
+
+Wiederverwendungsregel:
+
+- Erst POI-Rezept waehlen.
+- Danach erst Text, Persona, Szene und Zielkontext anpassen.
+- `fire_watch`, `search_and_rescue` und `training` sind keine neuen Hauptablaeufe, sondern kontrollierte Unterrezepte derselben POI-Familie.
+
+### 7.2.8 Code-Guardrails fuer POI-Rezepte
+
+Die POI-Familie hat bereits mehrere implizite Guardrails im Code. Diese muessen kuenftig bewusst als gemeinsamer Vertrag behandelt werden.
+
+Wichtige Einstiege:
+
+- `missionUsesPoiTaskRecipe()`
+- `missionPoiRecipeId()`
+- `missionUsesPoiPresentation()`
+- `getPoiTaskPassengerDefaults()`
+- `enforcePoiPassengerAltitudeRule()`
+
+Aktuelle Guardrail-Regeln:
+
+- Wenn eine Mission **kein** POI-/POI-artiges Rezept nutzt, muessen `targetAltFt`, `targetRadiusNm` und `targetDwellMin` auf `0` zurueckgesetzt werden.
+- Wenn eine Mission **ein** POI-/POI-artiges Rezept nutzt, werden diese Werte auf sinnvolle Defaults und Mindestgrenzen normalisiert.
+- `bush_recon_return` wird nicht als Lande- oder Pickup-Mission erkannt, sondern als `poi_on_task_return`.
+- `poi_flyover` bleibt ein POI-Rezept, auch wenn `targetDwellMin = 0` ist.
+- `fire_watch`, `search_and_rescue` und `training` aendern Voice-/Szenen-/Statusregeln, aber nicht das Grundrezept `Task am Zielgebiet statt Ziel-Landung`.
+
+Warnsignale:
+
+- Eine Mission verlangt Hoehe/Radius/Verweilzeit, ist aber kein POI-/POI-artiges Rezept.
+- Eine Mission ist fachlich POI, baut aber ihr Ergebnis ueber Bodenstop statt `on_task`.
+- Eine Bush-Air-Task braucht ploetzlich `pickup`- oder `unload`-Pfad am Ziel.
+- Ein POI-Sonderfall fuehrt eigene Abschlussphasen ein, statt `on_task -> ready_to_close` oder `on_task -> return_leg -> ready_to_close` zu nutzen.
+
 ### 7.3 Bush-Zuordnung zu den Grundformen
 
 Die Bush-Familie ist kein eigener vierter Hauptablauf, sondern verteilt sich auf die drei Grundformen.
@@ -941,6 +987,64 @@ Wichtige Architekturregel:
 Warnsignal:
 
 - Wenn eine Bush-A->B-Mission im Sim oder Live anders endet als eine gleichartige APT-A->B-Mission, obwohl beide dieselbe fachliche Zielhandlung haben, ist das fast immer falsche Rezepttrennung statt echter Fachlogik.
+
+### 8.1.1 Referenzprofile fuer neue Missionen
+
+Diese Profile sind die kanonischen Referenzen fuer neue Missionen derselben Ablaufklasse:
+
+| Ablaufklasse | Referenzprofil | Wofuer wiederverwenden |
+| --- | --- | --- |
+| `A -> B` mit Ziel-Unload | `bush_supply_strip` | Bush-/APT-Cargo, Utility-Handoff, Receiver-Farewell |
+| `A -> B` mit Ziel-Dropoff | `bush_charter_strip` | Bush-/APT-Passagier-Dropoff, Besuch, Fotograf, Techniker |
+| `A -> B` mit Ziel-Landung ohne Handoff-Zwang | `bush_scenic_hopper` | Scenic-/Adventure-/Besuchsflug mit Abschluss am Ziel |
+| `A -> B (mit Landung) -> A` Pickup Passenger | `bush_pickup_strip` | alle echten Rueckhol-PAX-Missionen |
+| `A -> B (mit Landung) -> A` Pickup Cargo | `bush_pickup_cargo` | alle echten Rueckhol-Frachtmissionen |
+| `A -> B (Task ohne Landung) -> A` | `bush_recon_return` | Bush-Recon, Bush-Inspection, Bush-Firewatch-Varianten auf POI-Basis |
+
+Wiederverwendungsregel:
+
+- Erst Referenzprofil waehlen.
+- Danach nur Story, Rolle, Manifest, Zieltyp, Sollhoehe, Radius, Dwell und Voice-Perspektive variieren.
+- Erst wenn die Fortschrittslogik selbst anders sein muss, entsteht ein neues Rezept oder Profil.
+
+### 8.1.2 Code-Guardrails fuer Bush-Profile
+
+Bush-Profile muessen im Code dieselbe Rezeptzuordnung respektieren wie im Kochbuch.
+
+Aktuelle Guardrail-Ebene:
+
+- `sanitizeBushMissionSpec()`
+- `_bushRecipeIdFromProfileId()`
+- `_bushRecipeIdFromSpec()`
+- `_applyBushRecipeGuardrails()`
+
+Diese Guardrails erzwingen bzw. warnen heute bei den Kernkombinationen:
+
+- `strip_target`
+  - `targetMode = strip`
+  - `completionMode in { unload_at_target, passenger_dropoff, land_at_target }`
+  - `requiresReturnHome = false`
+  - `allowedEndLocations = [target]`
+- `pickup_return`
+  - `targetMode = strip_then_return`
+  - `completionMode = return_home`
+  - `requiresReturnHome = true`
+  - `pickupKind = passenger|cargo`
+  - `allowedEndLocations = [home]`
+- `poi_on_task_return`
+  - `targetMode = area_then_return`
+  - `completionMode = return_home`
+  - `requiresReturnHome = true`
+  - kein `pickupKind`
+  - `allowedEndLocations = [home]`
+
+Wichtig:
+
+- Ein Bush-Profil darf nicht gleichzeitig Pickup- und POI-Task-Rezept sein.
+- Ein Bush-Recon darf nicht ueber `strip_then_return` oder Ziel-Unload modelliert werden.
+- Ein Bush-Supply/Dropoff darf nicht heimlich `requiresReturnHome = true` setzen, wenn fachlich `A -> B` gemeint ist.
+
+Wenn eine neue Mission diese Guardrails „braucht, um ausgeschaltet zu werden“, ist das fast immer ein Signal, dass erst das Rezept falsch gewählt wurde.
 
 Wenn wir einen neuen Missionstyp bauen, gehen wir in dieser Reihenfolge vor:
 

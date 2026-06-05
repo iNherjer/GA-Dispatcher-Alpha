@@ -38,14 +38,12 @@ function _missionBushUsesPoiTaskRecipe() {
     if (!_missionSceneIsBushMission()) return false;
     const bush = _activeBushMissionSpec();
     if (!bush || typeof bush !== 'object') return false;
+    if (typeof _bushRecipeIdFromSpec === 'function') {
+        return _bushRecipeIdFromSpec(bush) === 'poi_on_task_return';
+    }
     const targetMode = String(bush.targetMode || '').toLowerCase();
     const completionMode = String(bush.completionMode || '').toLowerCase();
-    const profileId = String(bush.profileId || '').toLowerCase();
-    return !!(
-        targetMode === 'area_then_return'
-        && completionMode === 'return_home'
-        && profileId === 'bush_recon_return'
-    );
+    return !!(targetMode === 'area_then_return' && completionMode === 'return_home');
 }
 window.missionBushUsesPoiTaskRecipe = _missionBushUsesPoiTaskRecipe;
 

@@ -5938,19 +5938,33 @@ function _missionPoiRuntimeStatus(endReady = null) {
     const progress = _missionPoiProgressState();
     const endedAtHome = _missionPoiEndedAtHome(ready);
     const canEndHere = _missionPoiGroundEndReady(ready);
+    const poiRecipeId = (typeof window.missionPoiRecipeId === 'function')
+        ? String(window.missionPoiRecipeId((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null) || '').trim().toLowerCase()
+        : '';
+    const taskLabel = poiRecipeId === 'poi_on_task_return'
+        ? 'Recon-/Arbeitsauftrag im Zielgebiet'
+        : (poiRecipeId === 'poi_fire_watch'
+            ? 'Feuerbeobachtung'
+            : (poiRecipeId === 'poi_search_and_rescue'
+                ? 'Suchauftrag'
+                : (poiRecipeId === 'poi_training'
+                    ? 'Trainingsaufgabe'
+                    : (poiRecipeId === 'poi_flyover'
+                        ? 'Flyover-Auftrag'
+                        : 'POI-Auftrag'))));
     if (!progress?.hasSignal || !progress?.trackingActive) {
         return {
             stage: 'unknown',
-            detail: 'POI-Status noch nicht sicher verfügbar.',
+            detail: `${taskLabel}-Status noch nicht sicher verfügbar.`,
             nextStep: canEndHere
                 ? (endedAtHome ? 'Nächster Schritt: Mission beenden' : 'Nächster Schritt: Mission hier beenden oder Heimflug fortsetzen')
-                : 'Nächster Schritt: POI anfliegen und Aufgabe erfüllen'
+                : `Nächster Schritt: Zielgebiet anfliegen und ${taskLabel.toLowerCase()} erfuellen`
         };
     }
     if (progress.aborted) {
         return {
             stage: 'failed',
-            detail: 'POI-Auftrag fehlgeschlagen.',
+            detail: `${taskLabel} fehlgeschlagen.`,
             nextStep: canEndHere
                 ? 'Nächster Schritt: Mission beenden'
                 : 'Nächster Schritt: Landen und Mission abschliessen'
@@ -5961,8 +5975,8 @@ function _missionPoiRuntimeStatus(endReady = null) {
             return {
                 stage: endedAtHome ? 'home_ready' : 'away_ready',
                 detail: endedAtHome
-                    ? 'POI erfüllt. Du bist zurück am Startplatz.'
-                    : 'POI erfüllt. Ausweichlandung erkannt.',
+                    ? `${taskLabel} erfüllt. Du bist zurück am Startplatz.`
+                    : `${taskLabel} erfüllt. Ausweichlandung erkannt.`,
                 nextStep: endedAtHome
                     ? 'Nächster Schritt: Mission regulär beenden'
                     : 'Nächster Schritt: Mission hier beenden oder Pax später heimfliegen'
@@ -5971,19 +5985,22 @@ function _missionPoiRuntimeStatus(endReady = null) {
         return {
             stage: 'return_leg',
             detail: endedAtHome
-                ? 'POI erfüllt. Startplatz erreicht, aber noch nicht im End-Gate.'
-                : 'POI erfüllt. Rückflugphase oder freie Landung zum Missionsende.',
+                ? `${taskLabel} erfüllt. Startplatz erreicht, aber noch nicht im End-Gate.`
+                : `${taskLabel} erfüllt. Rueckflugphase oder freie Landung zum Missionsende.`,
             nextStep: 'Nächster Schritt: Landen, stoppen und Mission beenden'
         };
     }
     const dwellSec = Number.isFinite(Number(progress.dwellSec)) ? Number(progress.dwellSec) : 0;
     const attempts = Number.isFinite(Number(progress.attempts)) ? Number(progress.attempts) : 0;
+    const workingDetail = poiRecipeId === 'poi_flyover'
+        ? 'Flyover noch offen. Zielgebiet sauber anfliegen und den Ueberflug bestaetigen.'
+        : `${taskLabel} noch offen. Arbeitszeit im Zielgebiet: ${Math.round(dwellSec)}s${attempts > 0 ? ` · Hinweise: ${attempts}` : ''}.`;
     return {
         stage: 'working',
-        detail: `POI noch offen. Arbeitszeit im Zielgebiet: ${Math.round(dwellSec)}s${attempts > 0 ? ` · Hinweise: ${attempts}` : ''}.`,
+        detail: workingDetail,
         nextStep: canEndHere
             ? 'Nächster Schritt: Mission beenden'
-            : 'Nächster Schritt: POI sauber erfüllen und danach landen'
+            : `Nächster Schritt: ${taskLabel} sauber erfuellen und danach landen`
     };
 }
 

@@ -7208,15 +7208,49 @@ function buildMissionProfilePassenger(basePassenger = null, profileSpec = null, 
 
 function missionUsesPoiTaskRecipe(mission = null) {
     const md = (mission && typeof mission === 'object') ? mission : null;
+    if (!md) return false;
+    const missionType = normalizeMissionType(md.missionType || '', false);
+    if (missionType === 'poi' || md.isPOI || md.poiPresentation) return true;
     const bush = (md?.bush && typeof md.bush === 'object') ? md.bush : null;
+    if (missionType !== 'bush') return false;
+    if (typeof _bushRecipeIdFromSpec === 'function') {
+        return _bushRecipeIdFromSpec(bush) === 'poi_on_task_return';
+    }
     return !!(
-        md
-        && md.missionType === 'bush'
-        && String(bush?.profileId || '').toLowerCase() === 'bush_recon_return'
+        String(bush?.profileId || '').toLowerCase() === 'bush_recon_return'
         && String(bush?.targetMode || '').toLowerCase() === 'area_then_return'
         && String(bush?.completionMode || '').toLowerCase() === 'return_home'
     );
 }
+
+function missionPoiRecipeId(mission = null) {
+    const md = (mission && typeof mission === 'object') ? mission : null;
+    if (!md || !missionUsesPoiTaskRecipe(md)) return '';
+    const passenger = (md?.passenger && typeof md.passenger === 'object')
+        ? md.passenger
+        : ((md?.missionContract?.passenger && typeof md.missionContract.passenger === 'object')
+            ? md.missionContract.passenger
+            : null);
+    const bush = (md?.bush && typeof md.bush === 'object') ? md.bush : null;
+    const missionType = normalizeMissionType(md.missionType || '', false);
+    const taskDomain = String(
+        passenger?.taskDomain
+        || md?.missionContract?.taskDomain
+        || ''
+    ).trim().toLowerCase();
+    const dwellMin = Number(passenger?.targetDwellMin ?? md?.targetDwellMin ?? 0);
+    if (/^(training|club_training_basic|club_training_advanced)$/.test(taskDomain)) return 'poi_training';
+    if (taskDomain === 'fire_watch') return 'poi_fire_watch';
+    if (taskDomain === 'search_and_rescue') return 'poi_search_and_rescue';
+    if (Number.isFinite(dwellMin) && dwellMin === 0) return 'poi_flyover';
+    if (missionType === 'bush' && ((typeof _bushRecipeIdFromSpec === 'function' && _bushRecipeIdFromSpec(bush) === 'poi_on_task_return')
+        || (String(bush?.targetMode || '').toLowerCase() === 'area_then_return' && String(bush?.completionMode || '').toLowerCase() === 'return_home'))) {
+        return 'poi_on_task_return';
+    }
+    return 'poi_on_task';
+}
+
+window.missionPoiRecipeId = missionPoiRecipeId;
 
 function missionUsesPoiPresentation(mission = null) {
     const md = (mission && typeof mission === 'object') ? mission : null;

@@ -32,6 +32,142 @@ function _sanitizeBushMissionSuccess(raw = null) {
     };
 }
 
+function _bushRecipeIdFromProfileId(profileId = '') {
+    switch (String(profileId || '').trim().toLowerCase()) {
+        case 'bush_supply_strip':
+        case 'bush_charter_strip':
+        case 'bush_scenic_hopper':
+            return 'strip_target';
+        case 'bush_pickup_strip':
+        case 'bush_pickup_cargo':
+            return 'pickup_return';
+        case 'bush_recon_return':
+            return 'poi_on_task_return';
+        default:
+            return '';
+    }
+}
+
+function _bushRecipeIdFromSpec(spec = null) {
+    if (!spec || typeof spec !== 'object') return '';
+    const fromProfile = _bushRecipeIdFromProfileId(spec.profileId);
+    if (fromProfile) return fromProfile;
+    const targetMode = String(spec.targetMode || '').trim().toLowerCase();
+    const completionMode = String(spec.completionMode || '').trim().toLowerCase();
+    const pickupKind = String(spec.pickupKind || '').trim().toLowerCase();
+    if (targetMode === 'area_then_return' && completionMode === 'return_home') return 'poi_on_task_return';
+    if (targetMode === 'strip_then_return' && completionMode === 'return_home' && ['passenger', 'cargo'].includes(pickupKind)) return 'pickup_return';
+    if (targetMode === 'strip' && ['unload_at_target', 'passenger_dropoff', 'land_at_target'].includes(completionMode)) return 'strip_target';
+    return '';
+}
+
+function _warnBushRecipeGuardrail(profileId = '', messages = [], before = null, after = null) {
+    const notes = Array.isArray(messages) ? messages.filter(Boolean) : [];
+    if (!notes.length || typeof console === 'undefined' || typeof console.warn !== 'function') return;
+    try {
+        console.warn('[BushRecipeGuardrail]', {
+            profileId: String(profileId || '').trim().toLowerCase() || 'unknown',
+            messages: notes,
+            before,
+            after
+        });
+    } catch (_) {}
+}
+
+function _applyBushRecipeGuardrails(spec = null) {
+    if (!spec || typeof spec !== 'object') return spec;
+    const recipeId = _bushRecipeIdFromSpec(spec);
+    if (!recipeId) return spec;
+    const next = { ...spec };
+    const before = {
+        targetMode: next.targetMode,
+        completionMode: next.completionMode,
+        requiresReturnHome: !!next.requiresReturnHome,
+        pickupKind: next.pickupKind,
+        allowedEndLocations: Array.isArray(next.allowedEndLocations) ? [...next.allowedEndLocations] : []
+    };
+    const messages = [];
+    if (recipeId === 'strip_target') {
+        if (next.targetMode !== 'strip') {
+            next.targetMode = 'strip';
+            messages.push('targetMode -> strip');
+        }
+        if (!['unload_at_target', 'passenger_dropoff', 'land_at_target'].includes(String(next.completionMode || '').toLowerCase())) {
+            next.completionMode = 'land_at_target';
+            messages.push('completionMode -> land_at_target (Fallback fuer strip_target)');
+        }
+        if (next.requiresReturnHome) {
+            next.requiresReturnHome = false;
+            messages.push('requiresReturnHome -> false');
+        }
+        if (next.pickupKind) {
+            next.pickupKind = '';
+            messages.push('pickupKind entfernt');
+        }
+        const ends = Array.isArray(next.allowedEndLocations) ? next.allowedEndLocations : [];
+        if (!(ends.length === 1 && ends[0] === 'target')) {
+            next.allowedEndLocations = ['target'];
+            messages.push('allowedEndLocations -> [target]');
+        }
+    } else if (recipeId === 'pickup_return') {
+        if (next.targetMode !== 'strip_then_return') {
+            next.targetMode = 'strip_then_return';
+            messages.push('targetMode -> strip_then_return');
+        }
+        if (next.completionMode !== 'return_home') {
+            next.completionMode = 'return_home';
+            messages.push('completionMode -> return_home');
+        }
+        if (!next.requiresReturnHome) {
+            next.requiresReturnHome = true;
+            messages.push('requiresReturnHome -> true');
+        }
+        const expectedPickupKind = String(next.profileId || '').trim().toLowerCase() === 'bush_pickup_cargo' ? 'cargo' : 'passenger';
+        if (next.pickupKind !== expectedPickupKind) {
+            next.pickupKind = expectedPickupKind;
+            messages.push(`pickupKind -> ${expectedPickupKind}`);
+        }
+        const ends = Array.isArray(next.allowedEndLocations) ? next.allowedEndLocations : [];
+        if (!(ends.length === 1 && ends[0] === 'home')) {
+            next.allowedEndLocations = ['home'];
+            messages.push('allowedEndLocations -> [home]');
+        }
+    } else if (recipeId === 'poi_on_task_return') {
+        if (next.targetMode !== 'area_then_return') {
+            next.targetMode = 'area_then_return';
+            messages.push('targetMode -> area_then_return');
+        }
+        if (next.completionMode !== 'return_home') {
+            next.completionMode = 'return_home';
+            messages.push('completionMode -> return_home');
+        }
+        if (!next.requiresReturnHome) {
+            next.requiresReturnHome = true;
+            messages.push('requiresReturnHome -> true');
+        }
+        if (next.pickupKind) {
+            next.pickupKind = '';
+            messages.push('pickupKind entfernt');
+        }
+        const ends = Array.isArray(next.allowedEndLocations) ? next.allowedEndLocations : [];
+        if (!(ends.length === 1 && ends[0] === 'home')) {
+            next.allowedEndLocations = ['home'];
+            messages.push('allowedEndLocations -> [home]');
+        }
+        if (!next.areaRef && next.targetRef?.lat != null && next.targetRef?.lon != null) {
+            messages.push('areaRef fehlt fuer poi_on_task_return und sollte beim Missionsbau gesetzt werden');
+        }
+    }
+    _warnBushRecipeGuardrail(next.profileId, messages, before, {
+        targetMode: next.targetMode,
+        completionMode: next.completionMode,
+        requiresReturnHome: !!next.requiresReturnHome,
+        pickupKind: next.pickupKind,
+        allowedEndLocations: Array.isArray(next.allowedEndLocations) ? [...next.allowedEndLocations] : []
+    });
+    return next;
+}
+
 function sanitizeBushMissionSpec(raw = null) {
     if (!raw || typeof raw !== 'object') return null;
     const targetModeRaw = String(raw.targetMode || '').trim().toLowerCase();
@@ -39,7 +175,7 @@ function sanitizeBushMissionSpec(raw = null) {
     const targetMode = ['strip', 'area', 'route', 'strip_then_return', 'area_then_return'].includes(targetModeRaw) ? targetModeRaw : '';
     const completionMode = ['land_at_target', 'unload_at_target', 'passenger_dropoff', 'recon_in_area', 'visit_waypoints', 'return_home'].includes(completionModeRaw) ? completionModeRaw : '';
     if (!targetMode || !completionMode) return null;
-    return {
+    return _applyBushRecipeGuardrails({
         profileId: String(raw.profileId || 'bush_generic').trim().toLowerCase().slice(0, 80),
         targetMode,
         completionMode,
@@ -62,7 +198,7 @@ function sanitizeBushMissionSpec(raw = null) {
         narrativeMode: String(raw.narrativeMode || raw.profileId || 'bush_generic').trim().toLowerCase().slice(0, 80),
         riskFlags: Array.isArray(raw.riskFlags) ? raw.riskFlags.map(v => String(v || '').trim().toLowerCase()).filter(Boolean).slice(0, 16) : [],
         opsNotes: Array.isArray(raw.opsNotes) ? raw.opsNotes.map(v => String(v || '').trim()).filter(Boolean).slice(0, 12) : []
-    };
+    });
 }
 
 function buildInitialBushMissionProgress(spec = null) {
