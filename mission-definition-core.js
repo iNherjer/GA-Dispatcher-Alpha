@@ -43,6 +43,8 @@ function sanitizeBushMissionSpec(raw = null) {
         profileId: String(raw.profileId || 'bush_generic').trim().toLowerCase().slice(0, 80),
         targetMode,
         completionMode,
+        reconFocus: String(raw.reconFocus || '').trim().slice(0, 240),
+        reconFocusLabel: String(raw.reconFocusLabel || '').trim().slice(0, 120),
         requiresReturnHome: !!raw.requiresReturnHome,
         pickupKind: ['passenger', 'cargo'].includes(String(raw.pickupKind || '').trim().toLowerCase()) ? String(raw.pickupKind || '').trim().toLowerCase() : '',
         pickupLabel: String(raw.pickupLabel || '').trim().slice(0, 120),
@@ -146,12 +148,12 @@ const BUSH_DISPATCH_PROFILES = {
         completionMode: 'return_home',
         narrativeMode: 'backcountry_recon_return',
         cargoPool: [
-            'Kamera-Kit und Kartenbrett (22 lbs)',
-            'Fernglas, Funkmappe und Notizblock (14 lbs)',
-            'Survey-Tablet und Akkupack (18 lbs)'
+            'Strip-Checkliste, Kamera und Funkmappe (18 lbs)',
+            'Inspektionskoffer, Markierspray und Tablet (24 lbs)',
+            'Werkzeugrolle, Foto-Kit und Betriebsunterlagen (21 lbs)'
         ],
         opsNotes: [
-            'Ziel ist ein kurzer Recon-Run im Arbeitsgebiet, nicht nur die Landung am Strip.',
+            'Ziel ist ein kurzer Recon-Run ueber Strip, Vorfeld oder Anflugraum, nicht nur die Landung am Platz.',
             'Mission endet erst nach Rueckkehr und Stillstand am Heimatplatz.'
         ]
     },
@@ -223,15 +225,27 @@ const BUSH_PERSONA_LIBRARY = {
     bush_recon_return: [
         {
             name: 'Nora Hale',
-            role: 'Survey Observer',
+            role: 'Airstrip-Inspektorin',
             gender: 'female',
-            greetingText: 'Wir brauchen nur einen kurzen sauberen Recon-Run im Zielgebiet und gehen danach direkt wieder heim.'
+            greetingText: 'Wir schauen uns dort draussen heute den Zustand von Strip, Vorfeld und Anflugraum an. Wenn das Lagebild sauber ist, drehen wir ohne Umweg wieder heim.'
         },
         {
             name: 'Grant Mercer',
-            role: 'Ranger Observer',
+            role: 'Ranger-Koordinator',
             gender: 'male',
-            greetingText: 'Einmal sauber durch das Gebiet schauen, Lage notieren und danach direkt zurueck zum Heimatplatz.'
+            greetingText: 'Ich brauche nur einen ruhigen Kontrollflug ueber den Platz und die direkte Umgebung. Danach haben wir genug fuer den Bericht und gehen direkt wieder zurueck.'
+        },
+        {
+            name: 'Elena Brooks',
+            role: 'Backcountry-Operationsleiterin',
+            gender: 'female',
+            greetingText: 'Nach dem letzten Wetterzug wollen wir dort unten keine Ueberraschungen auf dem Strip haben. Ein sauberer Ueberflug, ein kurzer Check aus der Luft und dann direkt wieder heim.'
+        },
+        {
+            name: 'Mason Reed',
+            role: 'Forst-Ranger',
+            gender: 'male',
+            greetingText: 'Am Platz gab es zuletzt Hinweise auf Treibholz, tiefe Spurrinnen und moegliche Hindernisse im Zufahrtsbereich. Wir machen die Runde sauber, notieren alles und fliegen dann ohne Stop wieder raus.'
         }
     ],
     bush_pickup_strip: [
@@ -249,6 +263,38 @@ const BUSH_PERSONA_LIBRARY = {
         }
     ]
 };
+
+const BUSH_RECON_OBJECTIVES = [
+    {
+        label: 'Runway-Zustandscheck',
+        focus: 'am Zielstrip Schlagloecher, Auswaschungen und weiche Stellen auf Bahn und Randstreifen kontrollieren',
+        story: 'Vor Ort braucht ihr einen ruhigen Kontrollflug ueber Bahn, Randstreifen und Anflugsektoren, um Spurrinnen, Auswaschungen oder weiche Stellen frueh zu erkennen.'
+    },
+    {
+        label: 'Sturmschaden-Check',
+        focus: 'nach Wind und Wetter Vorfeld, Windsack, Zaunlinie und abgestellte Geraete auf Sturmschaeden pruefen',
+        story: 'Im Zielgebiet sollt ihr die Folgen des letzten Wetterdurchgangs bewerten und dokumentieren, ob Windsack, Vorfeld oder Randbereiche fuer den Betrieb eingeschraenkt sind.'
+    },
+    {
+        label: 'Hindernis- und Sicherheitscheck',
+        focus: 'nach liegengebliebenem Fahrzeug, abgestelltem Flugzeug oder sonstigen Hindernissen nahe Strip und Rollweg suchen',
+        story: 'Der Einsatz dreht sich heute um ein klares Lagebild zu moeglichen Hindernissen am Strip, im Rollbereich und in den unmittelbaren Ausweichflaechen.'
+    },
+    {
+        label: 'Drainage- und Randbereichskontrolle',
+        focus: 'Entwaesserung, Wasserlaeufe, Unterspuelungen und weiche Randzonen rund um den Platz aus der Luft abschaetzen',
+        story: 'Im Fokus stehen heute Drainage, Randzonen und moegliche Unterspuelungen, damit der Platz nach der naechsten Niederschlagsphase nicht ueberraschend unbrauchbar wird.'
+    },
+    {
+        label: 'Betriebsflaechen-Check',
+        focus: 'Abstellflaeche, Vorfeldkante, Zufahrt und Materiallager auf Stoerungen oder lose Gegenstaende kontrollieren',
+        story: 'Ihr fliegt ein kurzes Backcountry-Lagebild fuer die Betriebsflaechen und pruft, ob Vorfeld, Zufahrt und Materialzonen fuer den naechsten Verkehr sauber nutzbar sind.'
+    }
+];
+
+function _pickBushReconObjective() {
+    return { ...(BUSH_RECON_OBJECTIVES[Math.floor(Math.random() * BUSH_RECON_OBJECTIVES.length)] || BUSH_RECON_OBJECTIVES[0]) };
+}
 
 function _getBushProfileDefinition(profileId = 'auto') {
     const id = String(profileId || 'auto').trim().toLowerCase();
@@ -272,11 +318,11 @@ function _buildBushPassenger(profileId = 'bush_charter_strip') {
     passenger.roleProfile = profileId === 'bush_scenic_hopper'
         ? 'bush_adventure_guest_v1'
         : (profileId === 'bush_recon_return'
-            ? 'science_field_v1'
+            ? 'technical_inspector_v1'
             : (profileId === 'bush_pickup_strip' ? 'bush_pickup_guest_v1' : 'bush_charter_guest_v1'));
     passenger.taskDomain = profileId === 'bush_scenic_hopper'
         ? 'sightseeing_tour'
-        : (profileId === 'bush_recon_return' ? 'science_geo' : 'charter');
+        : (profileId === 'bush_recon_return' ? 'inspection_infra' : 'charter');
     return passenger;
 }
 
@@ -344,10 +390,13 @@ function buildBushMissionSpec({ profileId = 'bush_supply_strip', startAirport = 
     if (profile.id === 'bush_recon_return') {
         const areaRadiusNm = Number(distNm) >= 80 ? 4.5 : 3.2;
         const areaRef = buildBushAreaRefFromAirport(destAirport, areaRadiusNm);
+        const reconObjective = _pickBushReconObjective();
         return sanitizeBushMissionSpec({
             profileId: profile.id,
             targetMode: 'area_then_return',
             completionMode: 'return_home',
+            reconFocus: reconObjective.focus,
+            reconFocusLabel: reconObjective.label,
             requiresReturnHome: true,
             homeRef,
             targetRef,
@@ -477,8 +526,10 @@ function buildBushMissionEnvelope({ profileId = 'bush_supply_strip', startAirpor
         paxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
     } else if (profile.id === 'bush_recon_return') {
         passenger = _buildBushPassenger(profile.id);
+        const reconFocusLabel = String(bushSpec?.reconFocusLabel || 'Strip-Check').trim();
+        const reconStory = String(bushSpec?.reconFocus || '').trim();
         title = `Bush Recon RTB: ${targetName}`;
-        story = `${passenger?.role || 'Ein Beobachter'} fliegt heute mit dir von ${homeName} in ein abgelegenes Arbeitsgebiet bei ${targetName}. Vor Ort braucht ihr einen kurzen sauberen Recon-Run ueber dem Zielbereich, danach geht es ohne Zwischenstopp wieder zurueck an den Heimatplatz.`;
+        story = `${passenger?.role || 'Ein Beobachter'} fliegt heute mit dir von ${homeName} nach ${targetName}, um dort einen ${reconFocusLabel} durchzufuehren. Vor Ort braucht ihr einen kurzen sauberen Recon-Run ueber dem Zielbereich und den Betriebsflaechen; konkret sollt ihr ${reconStory || 'den Zustand von Strip und Umfeld bewerten'}. Danach geht es ohne Zwischenstopp wieder zurueck an den Heimatplatz.`;
         paxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
     } else if (profile.id === 'bush_pickup_strip') {
         passenger = _buildBushPassenger(profile.id);

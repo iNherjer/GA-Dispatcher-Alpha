@@ -1263,11 +1263,11 @@ function getMissionTaskProfile(profileId, baseType) {
                 id: bush.id,
                 label: bush.label,
                 appliesTo: ['bush'],
-                roleProfile: 'science_field_v1',
-                taskDomain: 'science_geo',
-                paxText: '1 PAX (Recon Observer)',
+                roleProfile: 'technical_inspector_v1',
+                taskDomain: 'inspection_infra',
+                paxText: '1 PAX (Bush Inspector)',
                 cargoPool: Array.isArray(bush.cargoPool) ? bush.cargoPool.slice() : [],
-                storyCue: 'Backcountry-Recon im Zielgebiet mit anschliessender Rueckkehr zum Heimatplatz.',
+                storyCue: 'Backcountry-Kontrollflug zu einem abgelegenen Strip mit kurzem Lagebild am Ziel und anschliessender Rueckkehr zum Heimatplatz.',
                 category: bush.category,
                 opsNotes: Array.isArray(bush.opsNotes) ? bush.opsNotes.slice() : []
             };
@@ -11759,6 +11759,14 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Lagebild zu Brueckensperrung, Rueckstau oder Unterfuehrung ohne Einsatzdramatisierung',
             'Hochwasser-Check an Brueckenpfeilern mit Blick auf Wasserstand und Treibgutlage'
         ],
+        bush_recon_return: [
+            'Bush-Strip-Kontrollflug mit Rueckkehr zum Heimatplatz',
+            'Backcountry-Lagebild zu Bahnzustand, Randstreifen und Anflugraum eines abgelegenen Flugplatzes',
+            'Sturmschaden- oder Betriebscheck an Remote Strip, Vorfeldkante, Windsack und Zufahrt',
+            'Kontrollflug nach Meldung ueber Hindernisse, Spurrinnen oder weiche Stellen am Bush-Strip',
+            'Ranger- oder Betreiber-Check, ob Strip und Umfeld fuer den naechsten Verkehr nutzbar bleiben',
+            'Bush-Recon mit Fokus auf Betriebsflaechen, Drainage, lose Gegenstaende und abgestellte Fahrzeuge'
+        ],
         media_photo: [
             'Professionelle Foto-/Filmaufnahmen fuer Betreiber, Firma oder Dokumentation',
             'Luftbildserie mit ruhigen Establishing Shots von Zielobjekt und Umgebung',
@@ -11914,9 +11922,10 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Abgelegener Adventure-Transfer mit ruhigem Bush-Flying-Charakter'
         ],
         bush_recon_return: [
-            'Backcountry-Recon ueber einem abgelegenen Zielgebiet mit Rueckkehr zum Heimatplatz',
-            'Bush-Beobachtungsflug mit kurzem Survey-Run und anschliessendem RTB',
-            'Abgelegener Recon-Einsatz mit Fokus auf Zielgebiet, Lagebild und Heimkehr'
+            'Backcountry-Recon zu einem abgelegenen Strip mit Rueckkehr zum Heimatplatz',
+            'Bush-Kontrollflug mit kurzem Lagebild zu Bahnzustand, Windsack, Randstreifen oder Hindernissen und anschliessendem RTB',
+            'Abgelegener Strip-Check mit Fokus auf Betriebsflaechen, Anflugraum und sicherer Heimkehr',
+            'Ranger- oder Betreiberflug, um Sturmschaeden, Spurrinnen, lose Gegenstaende oder abgestellte Fahrzeuge am Ziel zu bewerten'
         ],
         bush_pickup_strip: [
             'Leerer Bush-Outbound-Leg zu einem abgelegenen Strip, dort Passenger Pickup und RTB',
