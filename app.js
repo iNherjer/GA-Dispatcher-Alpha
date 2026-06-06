@@ -1253,7 +1253,7 @@ function getMissionTaskProfile(profileId, baseType) {
                 taskDomain: 'sightseeing_tour',
                 paxText: '1 PAX (Adventure Guest)',
                 cargoPool: Array.isArray(bush.cargoPool) ? bush.cargoPool.slice() : [],
-                storyCue: 'Backcountry-Adventure mit Scenic-Charakter und sauberer Landung am Remote Strip.',
+                storyCue: 'Backcountry-Adventure mit persoenlichem Wildnis-Anlass, glaubwuerdigem Zielstrip und sauberer Landung am Remote Strip.',
                 category: bush.category,
                 opsNotes: Array.isArray(bush.opsNotes) ? bush.opsNotes.slice() : []
             };
@@ -7766,6 +7766,9 @@ function _storyAlreadyCoversProfileCue(story, profile) {
 
 function _profileOpsRuleForPrompt(profile, isPOI = false) {
     if (!profile || profile.id === 'auto') return '';
+    if (profile.id === 'bush_scenic_hopper') {
+        return '16. OPERATIONS-REGEL BUSH-ADVENTURE: Auftrag ist ein glaubwuerdiger Backcountry-Adventure- oder Wildnis-Transfer zu einem Remote Strip mit Landung am Ziel. Die Story MUSS dem Passagier einen konkreten persoenlichen Anlass geben, warum er genau dorthin will oder dort hinmuss (z.B. Fotoauftrag, Lodge, Rangerhuette, Trekking-Ende, Canyon-Camp, Fluss- oder Angeltrip, abgelegene Verabredung, Huettennacht, Wildnisbesuch). Vermeide generische Formulierungen wie "ein Gast wird gebracht", "wir fliegen jemanden hin", "Adventure Guest", "Scenic-Transfer" oder reinen Touri-/Stadtrundflugton. Der Bush-Strip und die abgelegene Lage muessen in Story und greetingText spuerbar wichtig sein.';
+    }
     if (profile.id === 'news_coverage' && !isPOI) {
         return '16. OPERATIONS-REGEL REPORTER A-B: Dies ist ein reiner Transport zum Zielflugplatz. KEIN Arbeitsauftrag in der Luft am Ziel, KEIN Kreisen, KEIN Verweilen/Überflug als Missionsziel. Die eigentliche Berichterstattung findet nach der Landung am Boden statt.';
     }

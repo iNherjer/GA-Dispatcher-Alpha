@@ -2138,6 +2138,12 @@ function _activeBushMissionSpec() {
     return bush && typeof bush === 'object' ? bush : null;
 }
 
+function _isBushAdventureMission() {
+    const bush = _activeBushMissionSpec();
+    const id = String(bush?.profileId || bush?.id || '').toLowerCase();
+    return id === 'bush_scenic_hopper';
+}
+
 function _isBushVoiceMission() {
     const md = _activeMissionData();
     const contract = _activeMissionContractData();
@@ -2148,6 +2154,9 @@ function _isBushVoiceMission() {
 
 function _bushVoiceToneLine() {
     if (!_isBushVoiceMission()) return '';
+    if (_isBushAdventureMission()) {
+        return 'BUSH-TON: Locker, bodenstaendig und wildnisnah. Weniger citymaessig, weniger Event-Sprech, kein Reiseprospekt und kein Grossstadt-Slang. Gute Bilder sind Canyon, Fluss, Tal, Strip, Lodge, Holzsteg, Kiefern, Kies, Abendlicht, Camp oder Rueckkehr in die Ruhe draussen. Kurz, glaubwuerdig und direkt bleiben.';
+    }
     return 'BUSH-TON: Direkt, bodenstaendig und draussen-erfahren. Weniger akademisch, weniger erklaerend, eher praktisch und klar. Kurze konkrete Bilder aus Strip, Bahn, Tal, Hang, Wald, Wildnis, Wetterfenster, Ladung oder Rueckkehr in die Zivilisation sind gut. Kein Gutachten-, Prospekt- oder Behoerdenton.';
 }
 
@@ -3818,6 +3827,9 @@ function _roleStyleHint(roleRaw, pax = null) {
         return 'locker-bildend und faktenorientiert: kurze Orientierung, klare Einordnung, kein Anweisungsstil.';
     }
     if (taskDomain === 'sightseeing_tour') {
+        if (_isBushAdventureMission()) {
+            return 'locker, bodenstaendig und leicht staunend: wildnisnah, ruhig, mit persoenlichem Backcountry-Faden; kein Stadt-, Event- oder Prospektton.';
+        }
         return 'locker, freundlich und kurz: passagiernah, fluessig, ohne Anweisungs- oder Instruktor-Ton.';
     }
     if (String(pax?.roleProfile || '').toLowerCase() === 'instructor_calm_precise_v1') {
@@ -4425,6 +4437,7 @@ function _greetingMissionGuidance() {
     const taskDomain = String(pax?.taskDomain || '').toLowerCase();
     const isReporterApt = (!isPOI && taskDomain === 'news_coverage');
     const isSightseeingApt = (!isPOI && taskDomain === 'sightseeing_tour');
+    const isBushAdventure = (!isPOI && taskDomain === 'sightseeing_tour' && _isBushAdventureMission());
     const isLearningGuidePoi = (isPOI && taskDomain === 'poi_learning_guide');
     const targetAltFt = Math.round(Number(pax?.targetAltFt || 0));
     const comfortPolicy = _comfortFeedbackPolicy(pax);
@@ -4453,13 +4466,15 @@ function _greetingMissionGuidance() {
             ? (comfortHintNeeded
                 ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig. ${comfortContentRule}${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`
                 : `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass), danach Fokus auf ${timingHintNeeded ? 'pünktliche ' : ''}Ankunft und Start der Arbeit am Boden. KEIN Komforthinweis. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`)
-            : (isSightseeingApt
-                ? `Sag kurz und locker, dass du dich auf den Flug freust (z.B. "Danke fürs Mitnehmen"). Kein Anweisungsstil: KEINE Navigations-, Höhen- oder Arbeitsvorgaben an den Piloten. Maximal ein weicher Komforthinweis (ruhig/entspannt), sonst einfach sympathische Vorfreude auf den Ausflug.`
-            : (isClubTechRole
-                ? `Fokus auf den Auftrag und den Ablauf am Ziel. Komfortwünsche nur nennen, wenn sie wirklich wichtig sind. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
-                : (comfortHintNeeded
-                    ? `Nenne genau einen kurzen Komforthinweis NUR wenn er aufgrund von Magen/Fracht/Empfindlichkeit wirklich nötig ist. ${comfortContentRule}${timingHintNeeded ? ' Erwähne zusätzlich kurz den Zeitdruck.' : ''} Sonst Fokus auf Transportauftrag und Zielablauf am Boden. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
-                    : `Nenne KEINEN Komforthinweis. Fokus auf Transportauftrag und Ablauf nach Ankunft am Zielplatz.${timingHintNeeded ? ' Erwähne kurz, dass der Auftrag zeitkritisch ist.' : ''} KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`))));
+            : (isBushAdventure
+                ? `Gib dem Flug einen konkreten persoenlichen Anlass am Ziel: warum du genau zu diesem Strip willst, was dort auf dich wartet oder warum du dort Zeit verbringen wirst. Keine generischen Formulierungen wie Gast, Transfer, Ausflug oder einfach nur Aussicht. Der Ton soll nach Bush-Adventure klingen: abgelegen, ruhig, glaubwuerdig, mit einem klaren Wildnisbezug. Kein Anweisungsstil: KEINE Navigations-, Hoehen- oder Arbeitsvorgaben an den Piloten. Maximal ein kurzer Komforthinweis, sonst klare Vorfreude mit echtem Hintergrund.`
+                : (isSightseeingApt
+                    ? `Sag kurz und locker, dass du dich auf den Flug freust (z.B. "Danke fürs Mitnehmen"). Kein Anweisungsstil: KEINE Navigations-, Höhen- oder Arbeitsvorgaben an den Piloten. Maximal ein weicher Komforthinweis (ruhig/entspannt), sonst einfach sympathische Vorfreude auf den Ausflug.`
+                    : (isClubTechRole
+                        ? `Fokus auf den Auftrag und den Ablauf am Ziel. Komfortwünsche nur nennen, wenn sie wirklich wichtig sind. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
+                        : (comfortHintNeeded
+                            ? `Nenne genau einen kurzen Komforthinweis NUR wenn er aufgrund von Magen/Fracht/Empfindlichkeit wirklich nötig ist. ${comfortContentRule}${timingHintNeeded ? ' Erwähne zusätzlich kurz den Zeitdruck.' : ''} Sonst Fokus auf Transportauftrag und Zielablauf am Boden. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`
+                            : `Nenne KEINEN Komforthinweis. Fokus auf Transportauftrag und Ablauf nach Ankunft am Zielplatz.${timingHintNeeded ? ' Erwähne kurz, dass der Auftrag zeitkritisch ist.' : ''} KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`)))));
     const driftGuard = _domainDriftGuard('greeting');
     return { reqLine, driftGuard, timingWordBan };
 }
