@@ -12514,6 +12514,7 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
     const taskDomain = String(semantics?.focusLock?.taskDomain || plan?.taskDomain || 'general').toLowerCase();
     const targetLabel = String(semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || 'Ziel').trim() || 'Ziel';
     const category = String(semantics?.focusLock?.targetCategory || plan?.targetCategory || 'generic').toLowerCase();
+    const requestedCategory = String(semantics?.focusLock?.requestedCategory || '').toLowerCase();
     const geoSummary = String(resolvedNeeds?.geo_context?.summary || '').trim();
     const weather = resolvedNeeds?.weather_snapshot?.dest || resolvedNeeds?.weather_snapshot?.dep || null;
     const weatherShort = Number.isFinite(Number(weather?.tempC))
@@ -12767,20 +12768,29 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
     }
     if (taskDomain === 'general') {
         const weatherBit = weatherShort ? ` Bei ${weatherShort} soll die Lage noch heute erledigt werden.` : '';
-        const charterLike = category === 'charter';
+        const charterLike = category === 'charter' || requestedCategory === 'charter';
+        const clubUtilityLike = requestedCategory === 'club' || requestedCategory === 'utility';
         return {
             trigger: charterLike
                 ? `Der heutige Auftrag nach ${targetLabel} hat einen klaren Charter-Anlass, der den Flug jetzt sinnvoll macht.${weatherBit}`
+                : clubUtilityLike
+                    ? `Der heutige Flug nach ${targetLabel} hat einen konkreten Vereins- oder Nutzanlass, der nicht auf spaeter verschoben werden soll.${weatherBit}`
                 : `Der heutige Auftrag nach ${targetLabel} hat einen konkreten Anlass, der den Flug jetzt sinnvoll macht.${weatherBit}`,
-            focusSubject: charterLike ? 'Gast, Termin und puenktliche Zielankunft' : targetLabel,
+            focusSubject: charterLike ? 'Gast, Termin und puenktliche Zielankunft' : (clubUtilityLike ? 'klare Uebergabe oder Erledigung am Ziel' : targetLabel),
             keyQuestion: charterLike
                 ? `Warum genau dieser Gast jetzt nach ${targetLabel} gebracht werden muss und welcher Anschluss dort erreicht werden soll.`
+                : clubUtilityLike
+                    ? `Welche konkrete Erledigung, Mitnahme oder Uebergabe in ${targetLabel} den heutigen Flug rechtfertigt.`
                 : `Welche konkrete Aufgabe am Ziel jetzt erledigt oder vorbereitet werden muss.`,
             stakes: charterLike
                 ? 'Ohne den Flug kippt das Termin- oder Anschlussfenster am Ziel.'
+                : clubUtilityLike
+                    ? 'Ohne den Flug verschiebt sich eine praktische Vereins- oder Betriebsaufgabe unnoetig in den naechsten Umlauf.'
                 : 'Ohne den Flug verschiebt sich der naechste Schritt am Ziel unnoetig.',
             completionSignal: charterLike
                 ? 'Nach der Landung geht der Gast direkt in den vorbereiteten Zielablauf ueber.'
+                : clubUtilityLike
+                    ? 'Nach der Ankunft wird die Mitnahme, Uebergabe oder Erledigung direkt am Platz uebernommen.'
                 : 'Nach Ankunft oder Ueberflug geht der Auftrag geordnet an die naechste Stelle ueber.',
             subjectDetail: charterLike
                 ? _missionPipelineV4PickOne([
@@ -12788,6 +12798,12 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                     'einen Sachverstaendigen, der am Ziel nur kurz verfuegbar ist',
                     'einen Projektkontakt, der noch heute vor Ort gebraucht wird'
                 ])
+                : clubUtilityLike
+                    ? _missionPipelineV4PickOne([
+                        'ein Vereinsmitglied mit klarer Mitnahme oder Rueckgabe am Ziel',
+                        'eine kleine, aber wichtige Uebergabe fuer den Flugbetrieb',
+                        'eine konkrete Platz- oder Vereinsaufgabe, die heute noch erledigt werden soll'
+                    ])
                 : _missionPipelineV4PickOne([
                     'eine Person, eine kleine Uebergabe oder ein klarer Zielanlass',
                     'einen konkreten Termin, eine Mitnahme oder eine vorbereitete Erledigung',
@@ -12795,12 +12811,18 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                 ]),
             incidentContext: charterLike
                 ? `Der Flug nach ${targetLabel} wurde angefragt, weil der Gast dort nur in einem engen Zeitfenster sinnvoll uebernommen werden kann.`
+                : clubUtilityLike
+                    ? `Der Flug nach ${targetLabel} wurde angefragt, weil dort eine konkrete Platz- oder Vereinsaufgabe vorbereitet auf uns wartet.`
                 : `Der Flug nach ${targetLabel} wurde nicht zufaellig gewaehlt, sondern durch einen konkreten Anlass am Ziel ausgeloest.`,
             whyNow: charterLike
                 ? 'Gerade dieser Umlauf ist noetig, damit der Termin oder Anschluss am Ziel nicht auf spaeter verschoben werden muss.'
+                : clubUtilityLike
+                    ? 'Der Nutzen des Flugs haengt daran, dass die Erledigung noch in diesem Dienst- oder Tagesfenster uebernommen wird.'
                 : 'Die Mission ist gerade jetzt sinnvoll, weil der Anlass am Ziel noch heute bearbeitet oder vorbereitet werden soll.',
             soughtOutcome: charterLike
                 ? 'Wir sollen den Gast puenktlich und ohne Umwege so anliefern, dass der eigentliche Termin am Ziel direkt uebernommen werden kann.'
+                : clubUtilityLike
+                    ? 'Wir sollen die Mitnahme oder Uebergabe so vorbereiten, dass der Platz- oder Vereinsablauf am Ziel ohne Leerlauf weitergehen kann.'
                 : 'Wir sollen den Anlass so weit klaeren oder uebergeben, dass der naechste Schritt am Ziel direkt anschliessen kann.'
         };
     }
@@ -13165,10 +13187,13 @@ Regeln:
 14. search_and_rescue: Sag klar, wer betroffen ist, wo die letzte Sichtung oder Meldung war, welche Lage vermutet wird und worauf wir aus der Luft konkret achten sollen.
 15. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
 16. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
-17. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
-18. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
-19. Vermeide reine Dispatcher-Floskeln wie "wir machen heute Fotos", "wir fliegen heute eine Inspektion" oder "wir suchen das Gebiet ab", wenn kein genauer Anlass, kein betroffenes Subjekt und keine Folgeentscheidung benannt werden.
-20. Antwort nur als JSON.
+17. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
+18. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
+19. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
+20. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
+21. Vermeide reine Dispatcher-Floskeln wie "wir machen heute Fotos", "wir fliegen heute eine Inspektion" oder "wir suchen das Gebiet ab", wenn kein genauer Anlass, kein betroffenes Subjekt und keine Folgeentscheidung benannt werden.
+22. Antworte in natuerlichen, vollstaendigen Saetzen; keine Aufzaehlung einzelner Lagefragmente als Kurzsaetze.
+23. Antwort nur als JSON.
 </INSTRUKTIONEN>
 
 <CONTRACT>
@@ -13236,6 +13261,29 @@ function _missionPipelineV4StoryFieldCovered(story = '', phrase = '', minHits = 
     return false;
 }
 
+function _missionPipelineV4SentenceCount(text = '') {
+    return String(text || '')
+        .split(/(?<=[.!?])\s+/)
+        .map(x => String(x || '').trim())
+        .filter(Boolean)
+        .length;
+}
+
+function _missionPipelineV4CountNeedle(text = '', needle = '') {
+    const hay = normalizeMissionText(text);
+    const key = normalizeMissionText(needle);
+    if (!hay || !key) return 0;
+    return hay.split(key).length - 1;
+}
+
+function _missionPipelineV4LooksEnumerative(text = '') {
+    const s = String(text || '').trim();
+    if (!s) return false;
+    if (/^([A-ZÄÖÜ][^.!?]{0,80}\.\s*){4,}$/.test(s) && /Wir sollen|Der letzte|Nach dem|Aufgrund|Zuletzt/i.test(s)) return true;
+    if (/(^|[.!?]\s*)(Der letzte|Zuletzt|Moegliche Hinweise|Aus der Luft achten wir|Verdeckte |Aufgrund der |Wir uebernehmen )/i.test(s) && _missionPipelineV4SentenceCount(s) >= 5) return true;
+    return false;
+}
+
 function _missionPipelineV4JoinNaturalList(values = []) {
     const src = Array.isArray(values) ? values.map(x => String(x || '').trim()).filter(Boolean) : [];
     if (!src.length) return '';
@@ -13290,12 +13338,84 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}) {
             `${sought || 'Wir sollen eine klare Erstbewertung fuer Betreiber und Technikteam liefern.'} ${completion}`.trim()
         ].join(' ');
     }
+    if (taskDomain === 'news_coverage') {
+        return [
+            String(frame.trigger || `Die Redaktion braucht zu ${targetName} heute einen klaren Aufhaenger aus der Luft.`).trim(),
+            incident || `${detail} steht dabei als beobachtbarer Kern der Geschichte im Mittelpunkt.`,
+            `${whyNow || 'Die Bilder und Eindruecke werden noch im aktuellen Slot fuer Bericht oder Schalte gebraucht.'}${weatherSentence}`.trim(),
+            `${sought || 'Wir sollen ein belastbares Bild und eine kurze Einordnung liefern, damit die Redaktion nicht auf Archivmaterial ausweichen muss.'} ${completion}`.trim()
+        ].join(' ');
+    }
+    if (taskDomain === 'charter' || taskDomain === 'club_utility') {
+        return [
+            String(frame.trigger || `Der Flug nach ${targetName} hat heute einen konkreten Anlass am Ziel.`).trim(),
+            incident || `${detail} macht genau diesen Umlauf sinnvoll und nicht nur irgendeinen Transport.`,
+            `${whyNow || 'Der Termin oder Folgeablauf am Ziel haengt daran, dass wir jetzt und nicht spaeter ankommen.'}${weatherSentence}`.trim(),
+            `${sought || 'Wir sollen die Uebergabe oder Ankunft so vorbereiten, dass der eigentliche Termin am Ziel direkt weiterlaufen kann.'} ${completion}`.trim()
+        ].join(' ');
+    }
+    if (taskDomain === 'cargo_fragile' || taskDomain === 'medical_transfer' || taskDomain === 'animal_transport') {
+        return [
+            String(frame.trigger || `Der Flug nach ${targetName} dient einer konkreten Uebergabe, die am Ziel vorbereitet ist.`).trim(),
+            incident || `${detail} steht im Mittelpunkt des Ablaufs am Ziel.`,
+            `${whyNow || 'Das Zeitfenster und die Art der Uebergabe machen genau diesen ruhigen Flug jetzt notwendig.'}${weatherSentence}`.trim(),
+            `${sought || 'Wir sollen die Uebergabe so sauber vorbereiten, dass Material, Begleitung oder Tier ohne Zusatzstress uebernommen werden koennen.'} ${completion}`.trim()
+        ].join(' ');
+    }
     return [
         String(frame.trigger || `Heute geht es fuer uns nach ${targetName}, weil dort ein konkreter Auftrag offen ist.`).trim(),
         incident || `${detail} steht dabei im Mittelpunkt des Flugs.`,
         `${whyNow || String(frame.stakes || 'Das Ergebnis des Ueberflugs wird fuer den naechsten Schritt direkt benoetigt.').trim()}${weatherSentence}`.trim(),
         `${sought || String(frame.keyQuestion || 'Wir sollen den Auftrag aus der Luft so weit klaeren, dass es geordnet weitergehen kann.').trim()} ${completion}`.trim()
     ].join(' ');
+}
+
+function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, storyText = '') {
+    const pax = (passenger && typeof passenger === 'object') ? passenger : {};
+    const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
+    const targetName = String(contract?.target?.name || 'dem Ziel').trim() || 'dem Ziel';
+    const taskDomain = String(contract?.profile?.taskDomain || pax.taskDomain || 'general').trim().toLowerCase();
+    const opener = (() => {
+        const g = String(pax.greetingText || '').trim();
+        const match = g.match(/^(hi|hallo|moin|morgen|servus|sali)\b/i);
+        return match ? match[0] : 'Hi';
+    })();
+    const subject = String(frame.subjectDetail || frame.focusSubject || targetName).trim();
+    const outcome = String(frame.soughtOutcome || frame.keyQuestion || '').trim();
+    const incident = String(frame.incidentContext || frame.trigger || '').trim();
+    if (taskDomain === 'search_and_rescue') {
+        return `${opener}, wir suchen heute nach ${subject} rund um ${targetName}; ich brauche von dir einen ruhigen Suchflug, damit wir ${outcome ? outcome.toLowerCase() : 'den entscheidenden Hinweis aus der Luft finden'}.`;
+    }
+    if (taskDomain === 'inspection_infra') {
+        return `${opener}, wir prüfen heute ${subject} an ${targetName}; flieg bitte stabil, damit wir ${outcome ? outcome.toLowerCase() : 'den Verdachtsbereich sauber eingrenzen'}.`;
+    }
+    if (taskDomain === 'charter' || taskDomain === 'club_utility') {
+        return `${opener}, heute geht es wegen ${subject} nach ${targetName}; wichtig ist, dass wir ${outcome ? outcome.toLowerCase() : 'den Termin oder die Uebergabe am Ziel sauber erreichen'}.`;
+    }
+    if (taskDomain === 'news_coverage') {
+        return `${opener}, ich brauche heute zu ${targetName} einen klaren Aufhaenger aus der Luft, damit ${outcome ? outcome.toLowerCase() : 'die Redaktion etwas Belastbares bekommt'}.`;
+    }
+    if (taskDomain === 'cargo_fragile' || taskDomain === 'medical_transfer' || taskDomain === 'animal_transport') {
+        return `${opener}, dieser Flug ist heute fuer ${subject} angesetzt; bitte ruhig und sauber, damit ${outcome ? outcome.toLowerCase() : 'die Uebergabe am Ziel ohne Zusatzstress klappt'}.`;
+    }
+    const generic = String(incident || `heute geht es fuer uns nach ${targetName}`).trim().replace(/[.!?]+$/,'');
+    const normalized = generic ? generic.charAt(0).toLowerCase() + generic.slice(1) : `heute geht es fuer uns nach ${targetName}`;
+    return `${opener}, ${normalized}.`;
+}
+
+function _missionPipelineV4FinalizeGreeting(passenger = {}, contract = {}, storyText = '') {
+    const pax = (passenger && typeof passenger === 'object') ? { ...passenger } : {};
+    const current = String(pax.greetingText || '').trim();
+    const taskDomain = String(contract?.profile?.taskDomain || pax.taskDomain || '').trim().toLowerCase();
+    const genericGreeting = !current
+        || /^hi,\s*(wir arbeiten heute nach suchmuster und klaren calls|bitte ruhig fliegen|danke fuers fliegen heute|heute ist ein klassischer|wir machen heute)/i.test(normalizeMissionText(current))
+        || current.length < 55;
+    const storyCovered = _missionPipelineV4StoryFieldCovered(current, contract?.storyFrame?.subjectDetail || '', 1)
+        || _missionPipelineV4StoryFieldCovered(current, contract?.storyFrame?.soughtOutcome || '', 1);
+    if (!genericGreeting && storyCovered) return pax;
+    if (!taskDomain) return pax;
+    pax.greetingText = _missionPipelineV4BuildGreetingFallback(pax, contract, storyText);
+    return pax;
 }
 
 function _missionPipelineV4FinalizeStory(story = '', contract = {}) {
@@ -13308,8 +13428,13 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}) {
         _missionPipelineV4StoryFieldCovered(raw, frame.whyNow, 2),
         _missionPipelineV4StoryFieldCovered(raw, frame.soughtOutcome, 2)
     ].filter(Boolean).length;
+    const targetName = String(contract?.target?.name || '').trim();
+    const repeatedTarget = targetName ? _missionPipelineV4CountNeedle(raw, targetName) : 0;
     const looksFlat = raw.length < 190
-        || /(wir machen|wir fliegen|kurze zielarbeit|klar umrissenen, ruhigen auftrag|lagebildaufnahme|zielgebiet .* mit einem klar umrissenen)/i.test(raw);
+        || /(wir machen|wir fliegen|kurze zielarbeit|klar umrissenen, ruhigen auftrag|lagebildaufnahme|zielgebiet .* mit einem klar umrissenen)/i.test(raw)
+        || _missionPipelineV4LooksEnumerative(raw)
+        || repeatedTarget >= 4
+        || _missionPipelineV4SentenceCount(raw) < 3;
     if (covered >= 2 && !looksFlat) return raw;
     return _missionPipelineV4ComposeStoryFallback(contract);
 }
@@ -13331,7 +13456,7 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
         if (!sceneIntent.summary) sceneIntent.summary = 'A-B-Flug ohne Zielszene';
     }
     const passengerRaw = (src.passenger && typeof src.passenger === 'object') ? src.passenger : {};
-    const passenger = enforcePoiPassengerAltitudeRule({
+    let passenger = enforcePoiPassengerAltitudeRule({
         ...passengerRaw,
         roleProfile: requiredRoleProfile,
         taskDomain: requiredTaskDomain
@@ -13347,9 +13472,11 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
         targetGeoContext: context.targetGeoContext || null,
         missionPlanV2: context.missionPlanV2 || null
     });
+    const finalStory = _missionPipelineV4FinalizeStory(String(src.story || '').trim(), contract);
+    passenger = _missionPipelineV4FinalizeGreeting(passenger, contract, finalStory);
     return {
         t: String(src.title || '').trim(),
-        s: _missionPipelineV4FinalizeStory(String(src.story || '').trim(), contract),
+        s: finalStory,
         pax: String(src.pax || '').trim(),
         cargo: String(src.cargo || '').trim(),
         passenger,
