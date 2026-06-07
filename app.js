@@ -7122,6 +7122,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
     if (normalized.targetAltFt < 0) normalized.targetAltFt = 0;
     if (normalized.targetRadiusNm < 0) normalized.targetRadiusNm = 0;
     if (normalized.targetDwellMin < 0) normalized.targetDwellMin = 0;
+    if (normalized.targetDwellMin > 5) normalized.targetDwellMin = 5;
 
     if (!(normalized.targetAltFt > 0) && defaultTargetAltFt > 0) normalized.targetAltFt = defaultTargetAltFt;
     if (!(normalized.targetRadiusNm > 0) && defaultTargetRadiusNm > 0) normalized.targetRadiusNm = defaultTargetRadiusNm;
