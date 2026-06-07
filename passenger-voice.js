@@ -3734,9 +3734,16 @@ ${urgencyLine}`
         `Offene Frage=${String(storyFrame.keyQuestion || '').trim() || 'n/a'}`,
         `Abschluss=${String(storyFrame.completionSignal || '').trim() || 'n/a'}`
     ].join(' | ') : '';
+    const storyFrameDetailLine = storyFrame ? [
+        `MISSION-HINTERGRUND: Detail=${String(storyFrame.subjectDetail || '').trim() || 'n/a'}`,
+        `Lage=${String(storyFrame.incidentContext || '').trim() || 'n/a'}`,
+        `Warum jetzt=${String(storyFrame.whyNow || '').trim() || 'n/a'}`,
+        `Benoetigt=${String(storyFrame.soughtOutcome || '').trim() || 'n/a'}`
+    ].join(' | ') : '';
     if (targetProminenceLine) lines.push(targetProminenceLine);
     if (visualLandmarksLine) lines.push(visualLandmarksLine);
     if (storyFrameLine) lines.push(storyFrameLine);
+    if (storyFrameDetailLine) lines.push(storyFrameDetailLine);
     const bushToneLine = _bushVoiceToneLine();
     if (bushToneLine) lines.push(bushToneLine);
     lines.push(roleGuard);
