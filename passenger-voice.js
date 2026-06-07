@@ -60,6 +60,7 @@ window.paxVoiceGetDebugState = function() {
         pickupDepartureDone: !!_paxPickupDepartureDone,
         poiSatisfied: !!_poiSatisfied,
         poiAborted: !!_poiAborted,
+        poiManualConfirmed: !!_poiManuallyConfirmed,
         poiInRadius: !!_poiInRadius,
         poiEntryDone: !!_poiEntryDone,
         poiDwellSec: Number(_poiDwellSec || 0),
@@ -122,7 +123,7 @@ window.paxVoiceBuildDebugReport = function() {
     lines.push(`- Farewell done: ${state.farewellDone ? '1' : '0'}`);
     lines.push(`- Pickup boarding done: ${state.pickupBoardingDone ? '1' : '0'}`);
     lines.push(`- Pickup departure done: ${state.pickupDepartureDone ? '1' : '0'}`);
-    lines.push(`- POI satisfied/aborted: ${state.poiSatisfied ? '1' : '0'} / ${state.poiAborted ? '1' : '0'} | inRadius=${state.poiInRadius ? '1' : '0'} | dwellSec=${Math.round(Number(state.poiDwellSec || 0))} | attempts=${Number(state.poiAttempts || 0)}`);
+    lines.push(`- POI satisfied/aborted: ${state.poiSatisfied ? '1' : '0'} / ${state.poiAborted ? '1' : '0'} | manual=${state.poiManualConfirmed ? '1' : '0'} | inRadius=${state.poiInRadius ? '1' : '0'} | dwellSec=${Math.round(Number(state.poiDwellSec || 0))} | attempts=${Number(state.poiAttempts || 0)}`);
     if (promptKinds.length) lines.push(`- Erkannte Voice-Events: ${promptKinds.join(' | ')}`);
     lines.push('');
     lines.push('Wichtige Voice-Ereignisse');
@@ -383,6 +384,7 @@ let _poiLastComplaintAt = null;
 let _poiAltWasOk        = null;  // null=unknown, true/false
 let _poiSatisfied       = false;
 let _poiAborted         = false;
+let _poiManuallyConfirmed = false;
 let _poiEntryDone       = false; // entry comment fired once on radius entry
 let _poiInspectionOutcome = null; // keeps one consistent inspection result per mission
 let _sarSearchOutcome = null; // keeps one consistent SAR outcome per mission
@@ -454,6 +456,7 @@ window.paxVoiceResetMission = function() {
     _poiAltWasOk      = null;
     _poiSatisfied     = false;
     _poiAborted       = false;
+    _poiManuallyConfirmed = false;
     _poiEntryDone     = false;
     _poiInspectionOutcome = null;
     _sarSearchOutcome = null;
@@ -478,6 +481,7 @@ window.paxVoiceGetPoiMissionProgress = function() {
         trackingActive: !!window.activePassenger && _missionHasPax(),
         satisfied: !!_poiSatisfied,
         aborted: !!_poiAborted,
+        manualConfirmed: !!_poiManuallyConfirmed,
         atTargetDone: !!_paxAtTargetDone,
         dwellSec: Math.max(0, Number(_poiDwellSec || 0)),
         attempts: Math.max(0, Number(_poiAttempts || 0))
@@ -863,6 +867,35 @@ function _getDestCoords() {
     const parts = el.innerText.split(',').map(s => parseFloat(s.trim()));
     if (parts.length >= 2 && isFinite(parts[0]) && isFinite(parts[1])) return { lat: parts[0], lon: parts[1] };
     return null;
+}
+
+function _activePoiConfirmCoords() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const contract = md.missionContract || window.activeMissionContract || null;
+    const truth = md.missionTruth || contract?.missionTruth || null;
+    const main = truth?.mainTarget || null;
+    const anchor = truth?.sceneAnchor || null;
+    const pick = (...points) => {
+        for (const point of points) {
+            const lat = Number(point?.lat);
+            const lon = Number(point?.lon);
+            if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                return {
+                    lat,
+                    lon,
+                    name: String(point?.name || md.poiName || md.targetName || 'Ziel').trim() || 'Ziel'
+                };
+            }
+        }
+        return null;
+    };
+    return pick(main, anchor, _getDestCoords());
+}
+
+function _poiManualConfirmRangeNm() {
+    const pax = window.activePassenger || {};
+    const radius = Math.max(0.25, Number(pax.targetRadiusNm || 0) || 1.5);
+    return Math.max(0.25, Math.min(0.8, radius * 0.7));
 }
 
 function _normTaskDomain(value) {
@@ -1506,6 +1539,7 @@ function _injectPaxUI() {
     missionMenu.innerHTML = `
         <button type="button" id="paxMissionStatusBtn" class="pax-fire-btn pax-mission-action-btn" onclick="window.paxMissionStatusReport && paxMissionStatusReport()">Missionsstatus</button>
         <button type="button" id="paxMissionOrientationBtn" class="pax-fire-btn pax-mission-action-btn" onclick="window.paxMissionOrientationHelp && paxMissionOrientationHelp()">Orientierung</button>
+        <button type="button" id="paxPoiFoundBtn" class="pax-fire-btn pax-mission-action-btn" onclick="window.paxMissionReportTargetFound && paxMissionReportTargetFound()">Fund melden</button>
         <button type="button" id="paxAptWellbeingBtn" class="pax-fire-btn pax-mission-action-btn" onclick="window.paxAptWellbeingReport && paxAptWellbeingReport()">Wohlbefinden</button>
         <button type="button" id="paxCargoConditionBtn" class="pax-fire-btn pax-mission-action-btn" onclick="window.paxCargoConditionReport && paxCargoConditionReport()">Ladung</button>
         <button type="button" id="paxWeatherReactionBtn" class="pax-fire-btn pax-mission-action-btn" onclick="window.paxWeatherReactionReport && paxWeatherReactionReport()">Wetter</button>
@@ -2246,6 +2280,7 @@ function _refreshMissionActionMenu() {
     const isPoi = _isPOIMission();
     const cargoFocus = _cargoMissionFocus();
     const hasPax = !!window.activePassenger && _missionHasPax();
+    const sarPoi = isPoi && hasPax && _activeTaskDomain() === 'search_and_rescue';
     const showWeather = !!_missionWeatherReactionLine(window.lastLiveFlightData || {});
     const setVisible = (id, visible) => {
         const el = document.getElementById(id);
@@ -2253,6 +2288,7 @@ function _refreshMissionActionMenu() {
     };
     setVisible('paxMissionStatusBtn', isPoi && hasPax);
     setVisible('paxMissionOrientationBtn', isPoi && hasPax);
+    setVisible('paxPoiFoundBtn', sarPoi && !_poiSatisfied && !_poiAborted);
     setVisible('paxAptWellbeingBtn', !isPoi && hasPax && !cargoFocus);
     setVisible('paxCargoConditionBtn', !isPoi && cargoFocus);
     setVisible('paxWeatherReactionBtn', showWeather && (hasPax || cargoFocus));
@@ -2457,6 +2493,94 @@ function _missionActionSpeak(prompt, eventLabel, fallbackText) {
     return Promise.resolve();
 }
 
+function _poiManualReportContext(flightData = null) {
+    const ctx = _missionActionContext(flightData);
+    const confirmCoords = _activePoiConfirmCoords();
+    const confirmRangeNm = _poiManualConfirmRangeNm();
+    if (!ctx?.hasPosition || !confirmCoords) {
+        return {
+            ...ctx,
+            confirmCoords,
+            confirmRangeNm,
+            confirmDistNm: null,
+            nearEnough: false
+        };
+    }
+    const confirmDistNm = _haversineNm(ctx.lat, ctx.lon, confirmCoords.lat, confirmCoords.lon);
+    return {
+        ...ctx,
+        confirmCoords,
+        confirmRangeNm,
+        confirmDistNm,
+        nearEnough: confirmDistNm <= confirmRangeNm
+    };
+}
+
+function _poiManualReportSubject() {
+    const frame = _activeMissionStoryFrame();
+    const detail = String(frame?.subjectDetail || frame?.focusSubject || '').trim();
+    if (detail) return detail;
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    return String(md.poiName || md.targetName || 'den Suchhinweis').trim() || 'den Suchhinweis';
+}
+
+function _poiManualFoundPrompt(ctx) {
+    const base = _baseContext();
+    if (!base) return null;
+    const frame = _activeMissionStoryFrame();
+    const subject = _poiManualReportSubject();
+    const clueLine = Array.isArray(frame?.visibleClueCandidates) && frame.visibleClueCandidates.length
+        ? frame.visibleClueCandidates.join(', ')
+        : 'keine Zusatzhinweise';
+    const distLine = Number.isFinite(Number(ctx?.confirmDistNm))
+        ? `Wir sind nah genug am Missionsanker (${ctx.confirmDistNm.toFixed(2)} NM).`
+        : 'Wir sind nah genug am Missionsanker.';
+    return `${base}
+
+Button-Frage: Der Pilot meldet eine moegliche Sichtung und bittet um sofortige Bestaetigung.
+Missionsanker: ${ctx?.confirmCoords?.name || ctx?.targetName || 'Zielgebiet'}
+${distLine}
+Zu bestaetigen: ${subject}
+Letzte Lage: ${String(frame?.lastSeenContext || frame?.incidentContext || 'n/a').trim() || 'n/a'}
+Vermutung: ${String(frame?.probableScenario || frame?.soughtOutcome || 'n/a').trim() || 'n/a'}
+Moegliche Hinweise: ${clueLine}
+Antworte als Passagier/Rollenperson mit einer klaren positiven Sichtbestaetigung. Sage, dass der Fund bzw. belastbare Sichtkontakt an die Einsatzleitung geht und der Rueckflug bzw. die naechste Phase beginnen kann. Kein Zweifel, keine neue Suche eroeffnen. Max 2 Saetze.${_toneHint()}`;
+}
+
+function _poiManualNotFoundPrompt(ctx) {
+    const base = _baseContext();
+    if (!base) return null;
+    const frame = _activeMissionStoryFrame();
+    const subject = _poiManualReportSubject();
+    const distNm = Number(ctx?.confirmDistNm);
+    const distLine = Number.isFinite(distNm)
+        ? `Aktuell sind wir noch ${distNm.toFixed(1)} NM vom Missionsanker entfernt; fuer eine belastbare Bestaetigung ist das zu frueh.`
+        : 'Aktuell fehlt noch die noetige Naehe zum Missionsanker.';
+    return `${base}
+
+Button-Frage: Der Pilot fragt, ob die vermisste Person bzw. der Suchhinweis bereits bestaetigt ist.
+${distLine}
+Zu bestaetigen waere: ${subject}
+Letzte Lage: ${String(frame?.lastSeenContext || frame?.incidentContext || 'n/a').trim() || 'n/a'}
+Antworte klar, dass du noch keinen positiven Sichtkontakt bestaetigen kannst und weiter suchen willst. Bitte um weiteres Suchmuster oder noch etwas Naeherung, aber ohne neue Story aufzumachen. Max 2 Saetze.${_toneHint()}`;
+}
+
+function _poiManualFoundFallback(ctx) {
+    const frame = _activeMissionStoryFrame();
+    const subject = _poiManualReportSubject();
+    const outcome = String(frame?.soughtOutcome || '').trim();
+    return `${subject} passt jetzt zur gemeldeten Lage, ich bestaetige den Fund. Ich gebe den Sichtkontakt an die Einsatzleitung weiter${outcome ? ` und habe damit ${outcome.charAt(0).toLowerCase()}${outcome.slice(1)}` : ''}; wir koennen den Rueckflug beginnen.`;
+}
+
+function _poiManualNotFoundFallback(ctx) {
+    const subject = _poiManualReportSubject();
+    const distNm = Number(ctx?.confirmDistNm);
+    if (Number.isFinite(distNm)) {
+        return `Negativ, ich kann ${subject} von hier noch nicht belastbar bestaetigen. Wir sind noch etwa ${distNm.toFixed(1)} NM zu weit weg vom Suchkern, lass uns weiter suchen.`;
+    }
+    return `Negativ, ich kann ${subject} noch nicht bestaetigen. Lass uns das Suchmuster weiterfliegen, bis wir naeher am Zielkern sind.`;
+}
+
 window.paxMissionStatusReport = function() {
     const ctx = _missionActionContext();
     if (!_isPOIMission()) {
@@ -2501,6 +2625,48 @@ Antworte zuerst mit Steuerkurs und Entfernung in ganzen NM, danach eine kurze Zi
         ? `${vector} ${factLine.split('\n')[0].replace(/^GROBER KARTENBEZUG:\s*/i, '').replace(/\s*Nutze diesen Ort.*$/i, '')}`
         : `${vector} Ziel ist ${ctx.targetName}; nutze die naechste markante Struktur im Zielgebiet als Bezug und halte weiter Ausschau.`;
     _missionActionSpeak(prompt, 'Orientierung', fallback);
+};
+
+window.paxMissionReportTargetFound = function() {
+    if (!_isPOIMission() || _activeTaskDomain() !== 'search_and_rescue') {
+        _paxSpeakTextDirect('Diese Schnellmeldung ist nur fuer laufende SAR-POI-Missionen gedacht.', 'Fundmeldung');
+        return;
+    }
+    if (_poiSatisfied) {
+        _paxSpeakTextDirect('Ich habe den Fund bereits bestaetigt. Wir koennen den Rueckflug oder die naechste Phase fortsetzen.', 'Fundmeldung');
+        return;
+    }
+    if (_poiAborted) {
+        _paxSpeakTextDirect('Der Auftrag ist bereits abgebrochen. Fuer diese Lage lohnt keine weitere Sichtmeldung mehr.', 'Fundmeldung');
+        return;
+    }
+    const ctx = _poiManualReportContext();
+    if (!ctx?.hasPosition || !ctx?.confirmCoords) {
+        _paxSpeakTextDirect('Mir fehlt gerade die noetige Live-Position fuer eine sichere Bestaetigung. Lass uns kurz weiter im Suchraum bleiben.', 'Fundmeldung');
+        return;
+    }
+    if (!ctx.nearEnough) {
+        _paxLog(`Manuelle Fundmeldung abgelehnt | dist ${Number(ctx.confirmDistNm || 0).toFixed(2)} NM > ${ctx.confirmRangeNm.toFixed(2)} NM`, 'event');
+        const prompt = _poiManualNotFoundPrompt(ctx);
+        const fallback = _poiManualNotFoundFallback(ctx);
+        _missionActionSpeak(prompt, 'Weiter suchen', fallback);
+        return;
+    }
+    _poiInRadius = true;
+    _poiEntryDone = true;
+    _poiSatisfied = true;
+    _poiManuallyConfirmed = true;
+    _paxAtTargetDone = true;
+    const pax = window.activePassenger || {};
+    const dwellRequired = Math.max(0, Number(pax.targetDwellMin || 0) * 60);
+    _poiDwellSec = Math.max(Number(_poiDwellSec || 0), dwellRequired);
+    _poiLastTickTime = Date.now();
+    if (!_poiEnteredAt) _poiEnteredAt = _poiLastTickTime;
+    _paxLog(`Manuelle Fundmeldung bestaetigt | dist ${Number(ctx.confirmDistNm || 0).toFixed(2)} NM <= ${ctx.confirmRangeNm.toFixed(2)} NM`, 'event');
+    _refreshPaxWidgetVisibility();
+    const prompt = _poiManualFoundPrompt(ctx);
+    const fallback = _poiManualFoundFallback(ctx);
+    _missionActionSpeak(prompt, 'Fund bestaetigt', fallback);
 };
 
 window.paxAptWellbeingReport = function() {
