@@ -11078,7 +11078,13 @@ function compactMissionPlanV2ForPrompt(planResult = null) {
                 subjectDetail: String(plan.storyFrame.subjectDetail || '').slice(0, 180),
                 incidentContext: String(plan.storyFrame.incidentContext || '').slice(0, 220),
                 whyNow: String(plan.storyFrame.whyNow || '').slice(0, 220),
-                soughtOutcome: String(plan.storyFrame.soughtOutcome || '').slice(0, 220)
+                soughtOutcome: String(plan.storyFrame.soughtOutcome || '').slice(0, 220),
+                incidentType: String(plan.storyFrame.incidentType || '').slice(0, 80),
+                lastSeenContext: String(plan.storyFrame.lastSeenContext || '').slice(0, 180),
+                probableScenario: String(plan.storyFrame.probableScenario || '').slice(0, 180),
+                visibleClueCandidates: Array.isArray(plan.storyFrame.visibleClueCandidates)
+                    ? plan.storyFrame.visibleClueCandidates.slice(0, 5).map(x => String(x).slice(0, 80))
+                    : []
             } : null,
             sceneKind: String(plan.sceneKind || ''),
             sceneDensity: String(plan.sceneDensity || ''),
@@ -11143,7 +11149,13 @@ function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds 
             subjectDetail: String(rawPlan.storyFrame.subjectDetail || '').trim().slice(0, 200),
             incidentContext: String(rawPlan.storyFrame.incidentContext || '').trim().slice(0, 240),
             whyNow: String(rawPlan.storyFrame.whyNow || '').trim().slice(0, 240),
-            soughtOutcome: String(rawPlan.storyFrame.soughtOutcome || '').trim().slice(0, 240)
+            soughtOutcome: String(rawPlan.storyFrame.soughtOutcome || '').trim().slice(0, 240),
+            incidentType: String(rawPlan.storyFrame.incidentType || '').trim().slice(0, 80),
+            lastSeenContext: String(rawPlan.storyFrame.lastSeenContext || '').trim().slice(0, 200),
+            probableScenario: String(rawPlan.storyFrame.probableScenario || '').trim().slice(0, 200),
+            visibleClueCandidates: Array.isArray(rawPlan.storyFrame.visibleClueCandidates)
+                ? rawPlan.storyFrame.visibleClueCandidates.slice(0, 5).map(x => String(x).trim().slice(0, 80)).filter(Boolean)
+                : []
         } : null,
         sceneKind: String(rawPlan.sceneKind || '').toLowerCase(),
         sceneDensity: String(rawPlan.sceneDensity || '').toLowerCase(),
@@ -12226,6 +12238,278 @@ function _missionPipelineV4PickOne(values = []) {
     return String(src[Math.floor(Math.random() * src.length)] || src[0] || '');
 }
 
+function _missionPipelineV4PickEntry(values = []) {
+    const src = Array.isArray(values) ? values.filter(item => item !== undefined && item !== null) : [];
+    if (!src.length) return null;
+    return src[Math.floor(Math.random() * src.length)] ?? src[0] ?? null;
+}
+
+function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel = 'Ziel' } = {}) {
+    const cat = String(category || 'generic').toLowerCase();
+    const pack = (base = {}) => ({
+        visibleClueCandidates: Array.isArray(base.visibleClueCandidates)
+            ? base.visibleClueCandidates.slice(0, 4).map(x => String(x || '').trim()).filter(Boolean)
+            : [],
+        ...base
+    });
+    const waterFamilies = [
+        pack({
+            incidentType: 'missing_kayaker',
+            trigger: `Rund um ${targetLabel} wird nach einem ueberfaelligen Kajakfahrer gesucht; die Leitstelle braucht jetzt ein Luftlagebild entlang Ufer und Wasserflaeche.`,
+            subjectDetail: _missionPipelineV4PickOne([
+                'einem 34-jaehrigen Kajakfahrer, der nach einer kurzen Abendrunde nicht an der Einsatzstelle zurueckkam',
+                'einer 29-jaehrigen Paddlerin, die nach einem Solo-Trainingsabschnitt vom Ufer aus nicht mehr gesehen wurde',
+                'einem Freizeitsportler im Kajak, der nach dem letzten Check-in am Wasser nicht mehr erreichbar ist'
+            ]),
+            lastSeenContext: _missionPipelineV4PickOne([
+                `Zuletzt wurde das Kajak stromabwaerts bzw. ufernah im Bereich ${targetLabel} gesehen.`,
+                `Die letzte Sichtung kam aus einer Kurve bzw. Uferzone nahe ${targetLabel}.`,
+                `Ein letzter Blickkontakt bestand an einem Uferabschnitt im Bereich ${targetLabel}, danach brach die Sicht ab.`
+            ]),
+            probableScenario: _missionPipelineV4PickOne([
+                'Moegliche Kenterung oder Ausstieg an einem schwer einsehbaren Uferabschnitt.',
+                'Abdrift, Kenterung oder eine Anlandung an einer schlecht einsehbaren Boeschung.',
+                'Ungeplanter Ausstieg am Ufer nach Materialproblem oder Erschoepfung.'
+            ]),
+            incidentContext: _missionPipelineV4PickOne([
+                `Das leere Fahrzeug steht noch am Zugang zu ${targetLabel}, seitdem fehlt jede Rueckmeldung vom Wasser.`,
+                `Am Einsatzpunkt bei ${targetLabel} blieb Ausruestung zurueck, waehrend vom Kajak selbst keine sichere Position vorliegt.`,
+                `Die Begleitperson meldete, dass die vereinbarte Rueckkehr aus dem Bereich ${targetLabel} laengst ueberschritten ist.`
+            ]),
+            whyNow: 'Bevor beide Uferseiten mit Suchtrupps belegt werden, muss aus der Luft geklaert werden, welcher Abschnitt zuerst abgesucht werden soll.',
+            soughtOutcome: 'Wir sollen Kajak, Person, frische Uferspur oder den wahrscheinlichsten Anlandepunkt fuer die Wasserrettung melden.',
+            focusSubject: 'Kajakfahrer oder frischer Hinweis am Ufer',
+            keyQuestion: `Ob sich an ${targetLabel} ein Kajak, eine Person, eine Uferspur oder ein sinnvoller Zugriffspunkt fuer die Wasserrettung erkennen laesst.`,
+            stakes: 'Wasserrettung und Ufertrupps muessen wissen, welche Seite und welcher Abschnitt sofort Prioritaet bekommt.',
+            visibleClueCandidates: ['Kajak oder Paddel', 'frische Uferspur', 'Person am Ufer', 'geeigneter Zugriffspunkt']
+        }),
+        pack({
+            incidentType: 'angler_missing',
+            trigger: `Am Gewaesser ${targetLabel} wird nach einem vermissten Angler gesucht; vor dem Ansetzen der Ufertrupps soll die Luftsuche den ersten Schwerpunkt festlegen.`,
+            subjectDetail: _missionPipelineV4PickOne([
+                'einem 58-jaehrigen Angler, der nach einer kurzen Uferpause nicht zu seinem Wagen zurueckkehrte',
+                'einer allein unterwegs gewesenen Anglerin, deren Platz am Ufer verlassen, aber nicht aufgeloest wirkte',
+                'einem Freizeitangler, von dem Ausruestung am Ufer gefunden wurde, waehrend jede Rueckmeldung ausblieb'
+            ]),
+            lastSeenContext: _missionPipelineV4PickOne([
+                `Zuletzt wurde der Angler an einem Uferweg nahe ${targetLabel} gesehen.`,
+                `Der letzte verlaessliche Sichtkontakt kam von einem Angelplatz am Rand von ${targetLabel}.`,
+                `Kurz vor dem Verschwinden wurde die Person an einer Uferstelle im Bereich ${targetLabel} beobachtet.`
+            ]),
+            probableScenario: _missionPipelineV4PickOne([
+                'Sturz am Ufer, medizinischer Zwischenfall oder Abkommen in schwer einsehbares Schilf-/Boeschungsgelaende.',
+                'Abrutschen an der Boeschung oder Zusammenbruch abseits des sichtbaren Uferwegs.',
+                'Verlassen des Angelplatzes mit anschliessender Orientierungslosigkeit im Uferbereich.'
+            ]),
+            incidentContext: _missionPipelineV4PickOne([
+                `Am Rand von ${targetLabel} wurden Ausruestung und ein geoeffneter Angelplatz gefunden, seitdem fehlt jede Rueckmeldung.`,
+                `Ein offener Angelplatz und abgestelltes Material am Ufer von ${targetLabel} machen aus dem Vermisstenfall jetzt eine akute Suchlage.`,
+                `Die Alarmierung konzentriert sich auf ${targetLabel}, weil Ausruestung und Fahrzeug der Person noch vor Ort stehen.`
+            ]),
+            whyNow: 'Die Bodenkraefte brauchen jetzt eine Luftentscheidung, welches Ufer und welcher Zugang zuerst belegt werden sollen.',
+            soughtOutcome: 'Wir sollen Sichtkontakt, abgelegte Ausruestung, Uferspuren oder einen sinnvollen Zugriffspunkt fuer die Suchtrupps melden.',
+            focusSubject: 'vermisster Angler oder frischer Hinweis am Ufer',
+            keyQuestion: `Ob sich an ${targetLabel} ein Hinweis, eine Person oder eine frische Uferspur finden laesst, die den Suchraum sofort verengt.`,
+            stakes: 'Die Suchmannschaften muessen wissen, auf welcher Seite des Gewaessers sie zuerst ansetzen.',
+            visibleClueCandidates: ['Angelplatz oder Ausruestung', 'Person am Ufer', 'Schleifspur an der Boeschung', 'erreichbarer Uferzugang']
+        }),
+        pack({
+            incidentType: 'small_boat_overdue',
+            trigger: `Im Bereich ${targetLabel} wird eine ueberfaellige Bootscrew gesucht; der Luftcheck soll sofort klaeren, ob der Schwerpunkt auf Wasser oder Ufer gesetzt wird.`,
+            subjectDetail: _missionPipelineV4PickOne([
+                'einem kleinen Motorboot mit zwei Personen, das nach einer kurzen Runde nicht am vereinbarten Punkt zurueckkam',
+                'einer Bootscrew auf einem Alu- oder Angelboot, die nach dem letzten Funkkontakt ueberfaellig ist',
+                'einem Freizeitboot, dessen Rueckkehrfenster deutlich ueberschritten wurde'
+            ]),
+            lastSeenContext: _missionPipelineV4PickOne([
+                `Letzte Sichtmeldung und Motorengeraeusch kamen aus dem Bereich ${targetLabel}.`,
+                `Die letzte plausible Position des Boots liegt auf dem Suchkorridor rund um ${targetLabel}.`,
+                `Ein Sichtkontakt vom Ufer aus brach im Bereich ${targetLabel} ohne weitere Meldung ab.`
+            ]),
+            probableScenario: _missionPipelineV4PickOne([
+                'Antriebsproblem, manoevrierunfaehiges Boot oder Anlandung an ungeplantem Uferabschnitt.',
+                'Technischer Ausfall, Abdrift oder ein ungeplanter Uferkontakt nach Motorstoerung.',
+                'Manoeverunfaehigkeit mit moeglicher Verdriftung oder improvisierter Anlandung.'
+            ]),
+            incidentContext: _missionPipelineV4PickOne([
+                `Die Bootscrew hat sich nach dem letzten Funkkontakt nicht mehr gemeldet, seitdem konzentriert sich die Suche auf ${targetLabel}.`,
+                `Seit dem letzten kurzen Funkwechsel sucht die Leitstelle im Bereich ${targetLabel} nach einem Wasser- oder Uferhinweis.`,
+                `Die Suche wird auf ${targetLabel} verengt, weil dort der letzte plausible Kurs und das letzte Motorengeraeusch zusammentreffen.`
+            ]),
+            whyNow: 'Noch bevor groessere Suchflaechen belegt werden, soll der Luftcheck den wahrscheinlichsten Wasser- oder Uferabschnitt eingrenzen.',
+            soughtOutcome: 'Wir sollen Boot, Spiegelung, Hilfesignal oder einen moeglichen Anlandepunkt fuer die Wasserrettung melden.',
+            focusSubject: 'ueberfaellige Bootscrew oder klarer Wasserhinweis',
+            keyQuestion: `Ob sich an ${targetLabel} ein Boot, eine Person oder ein vernuenftiger Ansatzpunkt fuer die Rettung auf dem Wasser erkennen laesst.`,
+            stakes: 'Die Einsatzleitung muss wissen, ob sie den Schwerpunkt auf Wasserflaeche, Ufer oder Abdrift setzen soll.',
+            visibleClueCandidates: ['Boot oder Spiegelung', 'Hilfesignal', 'Person im Uferbereich', 'moeglicher Anlandepunkt']
+        }),
+        pack({
+            incidentType: 'riverside_vehicle_entry',
+            trigger: `Nahe ${targetLabel} wird ein moeglicher Fahrzeugeintritt ins Wasser abgeklärt; aus der Luft soll sofort geprueft werden, welcher Abschnitt ueberhaupt Sinn fuer die Folgecrew ergibt.`,
+            subjectDetail: _missionPipelineV4PickOne([
+                'einem Pkw, der nach einer Notrufmeldung am Ufer nicht mehr gesehen wurde',
+                'einem Kleinwagen, der nach einer abrupt beendeten Telefonverbindung im Wasser- oder Uferbereich vermutet wird',
+                'einem Fahrzeug, das nach einer Ufer- oder Brueckenmeldung moeglicherweise ins Gewaesser geraten ist'
+            ]),
+            lastSeenContext: _missionPipelineV4PickOne([
+                `Der letzte Hinweis fuehrt an einen Zufahrts- oder Uferabschnitt bei ${targetLabel}.`,
+                `Eine Zeugenmeldung setzt den Schwerpunkt an eine Ufer- oder Brueckennaehe im Bereich ${targetLabel}.`,
+                `Die letzte bekannte Fahrtrichtung endet am Gewaesserkorridor um ${targetLabel}.`
+            ]),
+            probableScenario: _missionPipelineV4PickOne([
+                'Fahrzeug am Ufer verunglueckt oder verborgen unterhalb einer Boeschung zum Wasser.',
+                'Von der Zufahrt abgekommenes Fahrzeug mit moeglichem Wasserkontakt oder verdeckter Endlage.',
+                'Uferunfall mit schlechter Sichtbarkeit von der Strasse aus.'
+            ]),
+            incidentContext: _missionPipelineV4PickOne([
+                `Eine kurze Notrufmeldung ohne klare Position hat ${targetLabel} zum aktuellen Suchschwerpunkt gemacht.`,
+                `Die Alarmierung konzentriert sich auf ${targetLabel}, weil eine Zeugin dort zuletzt ein abrupt endendes Fahrmanoeuver meldete.`,
+                `Seit einer abgebrochenen Meldung sucht die Leitstelle rund um ${targetLabel} nach einem Fahrzeug- oder Uferhinweis.`
+            ]),
+            whyNow: 'Vor dem bogenfoermigen Absuchen von Ufer, Zufahrt und Boeschung braucht die Einsatzleitung jetzt einen verengten Erstansatz.',
+            soughtOutcome: 'Wir sollen Reifenspuren, Fahrzeugreflexion, Boeschungsschaden oder einen moeglichen Zugriffspunkt fuer Wasserrettung und Feuerwehr melden.',
+            focusSubject: 'Fahrzeughinweis im Ufer- und Boeschungsbereich',
+            keyQuestion: `Ob sich an ${targetLabel} ein Fahrzeughinweis, eine Boeschungsspur oder ein sinnvoller Zugang fuer die Rettung erkennen laesst.`,
+            stakes: 'Feuerwehr, Wasserrettung und Polizei muessen wissen, welcher Ufersektor sofort gesichert werden soll.',
+            visibleClueCandidates: ['Reifenspuren', 'Reflexionen oder Glas', 'Boeschungsschaden', 'geeigneter Rettungszugang']
+        })
+    ];
+    const landFamilies = [
+        pack({
+            incidentType: 'missing_hiker',
+            trigger: `Im Bereich ${targetLabel} wird nach einer vermissten Person gesucht; die Luftsuche soll den Suchraum vor dem naechsten Bodenvorstoss verengen.`,
+            subjectDetail: _missionPipelineV4PickOne([
+                'einem 17-jaehrigen Wanderer, der nach einem Aussichtsstopp nicht zum Treffpunkt zurueckkam',
+                'einer 63-jaehrigen Tageswanderin, die nach einer kurzen Route ueber faellige Rueckkehrzeit hinaus vermisst wird',
+                'einem Fotografen, der nach einem Abstecher zu einem Aussichtspunkt nicht mehr auf Anrufe reagiert'
+            ]),
+            lastSeenContext: _missionPipelineV4PickOne([
+                `Der letzte verlaessliche Kontakt fuehrte in den Bereich ${targetLabel}.`,
+                `Die letzte Sichtung kam von einem Weg- oder Aussichtspunkt im Umfeld von ${targetLabel}.`,
+                `Ein letzter Handy- oder Sichtkontakt endete an einer Passage nahe ${targetLabel}.`
+            ]),
+            probableScenario: _missionPipelineV4PickOne([
+                'Vom markierten Weg abgekommen oder nach einem kurzen Abstecher im Hanggelaende orientierungslos geworden.',
+                'Im Wald- oder Hangbereich vom Hauptweg abgekommen und seitdem ohne klare Rueckmeldung.',
+                'Verzögerung nach einem Abzweig an einen Aussichtspunkt, mit moeglichem Fehlweg im Gelaende.'
+            ]),
+            incidentContext: _missionPipelineV4PickOne([
+                `Nach einer geplanten kurzen Runde ueber ${targetLabel} fehlt seit einem vereinbarten Rueckruf jedes Lebenszeichen.`,
+                `Die Person wollte nur kurz einen Aussichtspunkt bei ${targetLabel} mitnehmen und blieb danach verschwunden.`,
+                `Seit einem verpassten Rueckmeldepunkt konzentriert sich die Suche auf die Wege und Hange rund um ${targetLabel}.`
+            ]),
+            whyNow: 'Vor dem naechsten Bodenvorstoss muss aus der Luft geklaert werden, welcher Hang, Weg oder Aussichtspunkt Prioritaet bekommt.',
+            soughtOutcome: 'Wir sollen Sichtkontakt, Rucksack, Signalzeichen oder den sinnvollsten Zugang fuer die Suchtrupps melden.',
+            focusSubject: 'vermisste Person oder verwertbarer Hinweis im Suchraum',
+            keyQuestion: `Ob sich an ${targetLabel} eine Person, Ausruestung oder ein klarer Suchhinweis erkennen laesst.`,
+            stakes: 'Bodenkraefte muessen wissen, welchen Sektor oder Zugang sie sofort priorisieren sollen.',
+            visibleClueCandidates: ['Person im Gelaende', 'Rucksack oder Kleidung', 'Signalzeichen', 'erreichbarer Zugang fuer Suchtrupps']
+        }),
+        pack({
+            incidentType: 'fallen_climber',
+            trigger: `Im Steil- und Hangbereich von ${targetLabel} wird ein moeglicher Absturzfall abgeklärt; die Luftsuche soll den wahrscheinlichsten Hangabschnitt zuerst bestimmen.`,
+            subjectDetail: _missionPipelineV4PickOne([
+                'einem verunglueckten Bergsteiger, der nach einem Notrufabbruch unterhalb des Aussichtspunkts vermutet wird',
+                'einer Kletterin, die nach einer unklaren Meldung im Steilgelände nicht mehr antwortet',
+                'einem Wanderer mit moeglichem Absturz in einen schlecht einsehbaren Hangbereich'
+            ]),
+            lastSeenContext: _missionPipelineV4PickOne([
+                `Der letzte gemeldete Standort lag an einem exponierten Abschnitt oberhalb von ${targetLabel}.`,
+                `Die letzte verifizierte Position fuehrte an eine Hangkante oder einen Aussichtspunkt bei ${targetLabel}.`,
+                `Kurz vor dem Kontaktabbruch meldete sich die Person aus dem Steilbereich nahe ${targetLabel}.`
+            ]),
+            probableScenario: _missionPipelineV4PickOne([
+                'Sturz in schwer einsehbares Steil- oder Boeschungsgelaende mit moeglicher Bewegungsunfaehigkeit.',
+                'Abrutschen unterhalb eines Aussichtspunkts mit schlechter Sichtbarkeit vom Weg aus.',
+                'Unfall im Steilgelände mit moeglicher Blockade in einer Rinne oder Hangmulde.'
+            ]),
+            incidentContext: _missionPipelineV4PickOne([
+                `Ein abgebrochener Notruf und eine unklare Standortmeldung haben ${targetLabel} zum aktuellen Schwerpunkt der Suche gemacht.`,
+                `Nach einem kurzen Notruf ohne genaue Koordinate konzentriert sich die Bergrettung jetzt auf ${targetLabel}.`,
+                `Eine Zeugenmeldung aus dem Hangbereich hat ${targetLabel} als wahrscheinlichen Unfallsektor festgelegt.`
+            ]),
+            whyNow: 'Die Rettungsteams koennen den Hang nicht flaechig absuchen und brauchen jetzt einen Luftansatz fuer den wahrscheinlichsten Absturzsektor.',
+            soughtOutcome: 'Wir sollen Sichtkontakt, auffaellige Kleidung, Ausruestung oder eine frische Abrutschspur melden.',
+            focusSubject: 'verunglueckter Bergsteiger oder klarer Unfallhinweis',
+            keyQuestion: `Ob sich an ${targetLabel} ein Absturzpunkt, eine Person oder ein eindeutiger Unfallhinweis erkennen laesst.`,
+            stakes: 'Die Rettung haengt daran, den richtigen Hangabschnitt schnell genug fuer den bodengebundenen Zugriff zu bestimmen.',
+            visibleClueCandidates: ['Abrutschspur', 'auffaellige Kleidung', 'Ausruestung im Hang', 'rettbarer Zugriffspfad']
+        }),
+        pack({
+            incidentType: 'downed_ultralight',
+            trigger: `Im Korridor um ${targetLabel} wird ein vermisstes Klein- oder Ultraleichtflugzeug gesucht; der Luftcheck soll den Suchsektor jetzt sichtbar verengen.`,
+            subjectDetail: _missionPipelineV4PickOne([
+                'einem vermissten Ultraleichtflugzeug mit letzter unklarer Sichtmeldung im Hoehenzug',
+                'einer kleinen Echo- oder UL-Maschine, die nach dem letzten Funkkontakt aus dem Suchbild verschwand',
+                'einem Luftfahrzeug, dessen letzter Sicht- oder Funkkontakt auf den Korridor bei ${targetLabel} weist'
+            ]),
+            lastSeenContext: _missionPipelineV4PickOne([
+                `Der letzte Funk- oder Sichtkontakt wurde im Korridor um ${targetLabel} gemeldet.`,
+                `Die letzte vernuenftige Positionsannahme fuehrt in den Hoehenzug bei ${targetLabel}.`,
+                `Ein letztes akustisches oder visuelles Signal wurde aus dem Bereich ${targetLabel} gemeldet.`
+            ]),
+            probableScenario: _missionPipelineV4PickOne([
+                'Aussenlandung oder Absturz in Wald- oder Hanggelaende ohne sofort sichtbare Zufahrt.',
+                'Harte Landung oder Einschlag in einem Wald- oder Lichtungssektor abseits direkter Wege.',
+                'Verdeckte Aussenlandung in Hang- oder Waldnahe mit schlechter Sicht vom Boden aus.'
+            ]),
+            incidentContext: _missionPipelineV4PickOne([
+                `Seit dem letzten kurzen Funkkontakt fehlt jede Meldung des Luftfahrzeugs; ${targetLabel} ist nun Schwerpunkt des Suchkorridors.`,
+                `Die Einsatzleitung verengt den Suchkorridor auf ${targetLabel}, weil dort der letzte plausible Kontakt und die Topographie zusammenpassen.`,
+                `Nach einem abrupt endenden Funkwechsel gilt ${targetLabel} derzeit als wahrscheinlichster Suchschwerpunkt.`
+            ]),
+            whyNow: 'Noch bevor der Suchkorridor weiter aufgefaechert wird, soll die Luftsuche die wahrscheinlichste Hang- oder Lichtungszone eingrenzen.',
+            soughtOutcome: 'Wir sollen Wrackteile, Rauch, Stoffreste oder einen moeglichen Einschlagspunkt fuer die Bodenrettung melden.',
+            focusSubject: 'vermisstes Luftfahrzeug oder Einschlaghinweis im Suchraum',
+            keyQuestion: `Ob sich an ${targetLabel} ein Wrackhinweis, Rauch oder ein plausibler Suchschwerpunkt erkennen laesst.`,
+            stakes: 'Die Einsatzleitung muss wissen, ob sofort ein enger Absturzsektor abgesucht oder der Korridor erweitert werden muss.',
+            visibleClueCandidates: ['Rauch oder Staub', 'Wrackteile', 'freigeschnittene Lichtung', 'Bodenhinweis fuer Rettungszugang']
+        }),
+        pack({
+            incidentType: 'vehicle_off_road',
+            trigger: `Im Bereich ${targetLabel} wird nach einem moeglichen Fahrzeugunfall im Hang- oder Waldrandgebiet gesucht; der Luftcheck soll jetzt den konkreten Strassenabschnitt bestimmen.`,
+            subjectDetail: _missionPipelineV4PickOne([
+                'einem Pkw, der nach einer letzten Handy-Ortung unterhalb der Hoehenlage von der Strasse abgekommen sein koennte',
+                'einem Motorradfahrer, der nach einer kurvigen Berg- oder Waldstrecke nicht am Ziel ankam',
+                'einem Kleinwagen, dessen Spur nach einer abgebrochenen Rueckmeldung im Hangbereich endet'
+            ]),
+            lastSeenContext: _missionPipelineV4PickOne([
+                `Die letzte Ortung lag an der Zufahrt bzw. im Zufahrtsbereich von ${targetLabel}.`,
+                `Der letzte plausible Standort fuehrt an einen Strassen- oder Wegabschnitt im Bereich ${targetLabel}.`,
+                `Kurz vor dem Kontaktverlust befand sich das Fahrzeug im Hoehen- bzw. Waldrandbereich nahe ${targetLabel}.`
+            ]),
+            probableScenario: _missionPipelineV4PickOne([
+                'Fahrzeug im Wald- oder Hangbereich von der Strasse abgekommen, aus der Fahrbahn geraten oder verborgen neben dem Weg stehen geblieben.',
+                'Abkommen von der Fahrbahn mit Endlage unterhalb der Sichtlinie im Boeschungs- oder Waldsaum.',
+                'Unfall abseits der Strasse mit schlechter Sichtbarkeit vom Weg oder der Leitlinie aus.'
+            ]),
+            incidentContext: _missionPipelineV4PickOne([
+                `Seit einer abgebrochenen Rueckmeldung konzentriert sich die Suche auf ${targetLabel}, weil dort mehrere unuebersichtliche Hang- und Wegrender moeglich sind.`,
+                `Die Suche verengt sich auf ${targetLabel}, weil letzter Kontakt, Fahrtrichtung und Hanglage dort zusammenlaufen.`,
+                `Ein unklarer Notruf ohne genaue Position laesst aktuell vor allem die Strassen- und Hangabschnitte bei ${targetLabel} plausibel erscheinen.`
+            ]),
+            whyNow: 'Die Bodenkraefte brauchen vor dem Absuchen der Strassenraender aus der Luft einen Hinweis auf den wahrscheinlichsten Boeschungs- oder Waldabschnitt.',
+            soughtOutcome: 'Wir sollen Fahrzeugspuren, Glas, Reflektionen, ein abgestelltes Fahrzeug oder eine Person am Boden melden.',
+            focusSubject: 'Fahrzeugabkommen oder klarer Hinweis im Hang-/Waldrandbereich',
+            keyQuestion: `Ob sich an ${targetLabel} ein Fahrzeug, ein Unfallhinweis oder ein sinnvoller Zugriffspunkt fuer die Suchtrupps erkennen laesst.`,
+            stakes: 'Die Rettung muss wissen, welchen Strassenrand oder Hangabschnitt sie zuerst absichern und anfahren soll.',
+            visibleClueCandidates: ['Reifenspur oder Boeschungsschaden', 'Glas oder Reflektion', 'Fahrzeug im Waldsaum', 'geeigneter Zufahrtsabschnitt']
+        })
+    ];
+    const mountainousCategories = new Set(['mountain', 'forest', 'viewpoint', 'peak', 'trail', 'hill', 'cliff', 'rock']);
+    const waterCategories = new Set(['water', 'river', 'lake', 'stream', 'reservoir', 'canal', 'harbor']);
+    const roadCategories = new Set(['road', 'highway', 'parking', 'pass', 'intersection']);
+    let pool = landFamilies;
+    if (waterCategories.has(cat)) {
+        pool = waterFamilies;
+    } else if (roadCategories.has(cat)) {
+        pool = landFamilies.filter(item => item.incidentType === 'vehicle_off_road' || item.incidentType === 'missing_hiker');
+    } else if (mountainousCategories.has(cat)) {
+        pool = landFamilies.filter(item => item.incidentType !== 'vehicle_off_road');
+    }
+    return _missionPipelineV4PickEntry(pool) || landFamilies[0];
+}
+
 function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolvedNeeds = {}) {
     const taskDomain = String(semantics?.focusLock?.taskDomain || plan?.taskDomain || 'general').toLowerCase();
     const targetLabel = String(semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || 'Ziel').trim() || 'Ziel';
@@ -12247,58 +12531,25 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         soughtOutcome: 'Wir sollen einen klaren Erstbefund liefern, damit der naechste Schritt geordnet ausgelost werden kann.'
     };
     if (taskDomain === 'search_and_rescue') {
-        const subjectDetail = category === 'water'
-            ? _missionPipelineV4PickOne([
-                'einem 42-jaehrigen Angler, der nach einer kurzen Uferpause nicht zum Fahrzeug zurueckkehrte',
-                'einem 16-jaehrigen Jugendlichen, der sich von seiner Gruppe am Weiher entfernt hat',
-                'einer 33-jaehrigen Spaziergaengerin, die nach einem Telefonat am Ufer nicht mehr erreicht wird',
-                'einem 58-jaehrigen Hundebesitzer, dessen letzter Kontakt aus dem Uferbereich kam'
-            ])
-            : _missionPipelineV4PickOne([
-                'einem 17-jaehrigen Wanderer, der nach einem Aussichtsstopp nicht zum Treffpunkt zurueckkam',
-                'einer 29-jaehrigen Joggerin, deren Runde am Hoehenweg ploetzlich abbrach',
-                'einem 64-jaehrigen Spaziergaenger, der sich nach einem kurzen Abstecher zum Aussichtspunkt nicht mehr meldete',
-                'einer 23-jaehrigen Mountainbikerin, die nach einer vereinbarten Rueckmeldung am Hang verschollen blieb'
-            ]);
-        const incidentContext = category === 'water'
-            ? _missionPipelineV4PickOne([
-                `Am Rand von ${targetLabel} wurden persoenliche Gegenstaende entdeckt, seitdem konzentriert sich die Suche auf den Uferbereich.`,
-                `Eine letzte Sichtmeldung aus dem Uferabschnitt von ${targetLabel} passt zeitlich nicht mehr zum geplanten Rueckweg.`,
-                `Die Leitstelle hat ${targetLabel} als wahrscheinlichsten Suchraum markiert, nachdem am Ufer frische Spuren und ein offener Zugang auffielen.`
-            ])
-            : _missionPipelineV4PickOne([
-                `Der letzte verlaessliche Kontakt fuehrte in den Bereich ${targetLabel}; seitdem blieb jede Rueckmeldung aus.`,
-                `Nach einer geplanten kurzen Runde ueber ${targetLabel} fehlt seit einem vereinbarten Rueckruf jedes Lebenszeichen.`,
-                `Bodenkraefte haben mehrere moegliche Wege rund um ${targetLabel}, aber noch keinen belastbaren Suchsektor.`
-            ]);
-        const whyNow = category === 'water'
-            ? _missionPipelineV4PickOne([
-                'Bevor Uferteams beide Seiten des Gewaessers binden, muss der wahrscheinlichste Zugang aus der Luft eingegrenzt werden.',
-                'Die Bodenkraefte brauchen jetzt eine Entscheidung, welche Uferseite und welcher Zufahrtsweg zuerst angefahren werden sollen.'
-            ])
-            : _missionPipelineV4PickOne([
-                'Die Suchmannschaften stehen bereit, brauchen aber jetzt sofort einen engeren Suchraum statt eines breiten Bodenansatzes.',
-                'Vor dem naechsten Bodenvorstoss muss aus der Luft geklaert werden, welcher Hang, Weg oder Aussichtspunkt Prioritaet bekommt.'
-            ]);
-        const soughtOutcome = category === 'water'
-            ? 'Wir sollen Sichtkontakt, ein klares Signal, abgelegte Ausruestung oder den wahrscheinlichsten Uferzugang fuer die Bodenkraefte melden.'
-            : 'Wir sollen Sichtkontakt, einen klaren Hinweis am Boden oder den sinnvollsten Zugang fuer die Suchtrupps melden.'
+        const incident = _missionPipelineV4BuildSarIncident({ category, targetLabel });
         return {
             trigger: category === 'water'
-                ? `Rund um ${targetLabel} wird nach einem vermissten Menschen oder einem frischen Hinweis im Uferbereich gesucht; die Leitstelle braucht jetzt ein schnelles Luftlagebild.`
-                : `Im Bereich ${targetLabel} ist eine Person seit dem letzten Check-in ueberfaellig; die Leitstelle will den Suchraum vor dem naechsten Bodenvorstoss aus der Luft eingrenzen.`,
-            focusSubject: category === 'water' ? 'vermisste Person oder frischer Hinweis am Ufer' : 'vermisste Person oder verwertbarer Hinweis im Suchraum',
-            keyQuestion: category === 'water'
-                ? `Ob sich an ${targetLabel} ein Uferzugang, ein Hinweis oder eine Person zeigt, die den Suchraum sofort verengt.`
-                : `Ob sich an ${targetLabel} ein Hinweis, eine Person oder ein sinnvoller Zugang fuer Bodenkraefte erkennen laesst.`,
-            stakes: category === 'water'
-                ? 'Bodenkraefte muessen wissen, welchen Uferzugang oder welche Seite des Weihers sie zuerst anfahren.'
-                : 'Bodenkraefte muessen wissen, welchen Sektor oder Zugang sie sofort priorisieren sollen.',
+                ? String(incident.trigger || `Rund um ${targetLabel} wird eine Wasser- oder Uferlage abgeklaert; die Leitstelle braucht jetzt ein schnelles Luftlagebild.`)
+                : String(incident.trigger || `Im Bereich ${targetLabel} wird eine laufende Such- oder Unfalllage aus der Luft verengt; die Leitstelle braucht jetzt ein schnelles Lagebild.`),
+            focusSubject: incident.focusSubject,
+            keyQuestion: incident.keyQuestion,
+            stakes: incident.stakes,
             completionSignal: 'Das Luftlagebild geht unmittelbar an Leitstelle und Bodenkraefte, damit der naechste Suchabschnitt festgelegt wird.',
-            subjectDetail,
-            incidentContext,
-            whyNow,
-            soughtOutcome
+            subjectDetail: incident.subjectDetail,
+            incidentContext: incident.incidentContext,
+            whyNow: incident.whyNow,
+            soughtOutcome: incident.soughtOutcome,
+            incidentType: incident.incidentType,
+            lastSeenContext: incident.lastSeenContext,
+            probableScenario: incident.probableScenario,
+            visibleClueCandidates: Array.isArray(incident.visibleClueCandidates)
+                ? Array.from(new Set(incident.visibleClueCandidates.map(x => String(x || '').trim()).filter(Boolean))).slice(0, 4)
+                : []
         };
     }
     if (taskDomain === 'inspection_infra') {
@@ -12569,7 +12820,15 @@ function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNe
         subjectDetail: _missionPipelineV3Text(rawFrame.subjectDetail || defaults.subjectDetail, 180),
         incidentContext: _missionPipelineV3Text(rawFrame.incidentContext || defaults.incidentContext, 220),
         whyNow: _missionPipelineV3Text(rawFrame.whyNow || defaults.whyNow, 220),
-        soughtOutcome: _missionPipelineV3Text(rawFrame.soughtOutcome || defaults.soughtOutcome, 220)
+        soughtOutcome: _missionPipelineV3Text(rawFrame.soughtOutcome || defaults.soughtOutcome, 220),
+        incidentType: _missionPipelineV3Text(rawFrame.incidentType || defaults.incidentType || '', 80),
+        lastSeenContext: _missionPipelineV3Text(rawFrame.lastSeenContext || defaults.lastSeenContext || '', 180),
+        probableScenario: _missionPipelineV3Text(rawFrame.probableScenario || defaults.probableScenario || '', 180),
+        visibleClueCandidates: Array.isArray(rawFrame.visibleClueCandidates)
+            ? rawFrame.visibleClueCandidates.slice(0, 5).map(x => _missionPipelineV3Text(x, 80)).filter(Boolean)
+            : (Array.isArray(defaults.visibleClueCandidates)
+                ? defaults.visibleClueCandidates.slice(0, 5).map(x => _missionPipelineV3Text(x, 80)).filter(Boolean)
+                : [])
     };
 }
 
@@ -12717,9 +12976,10 @@ Arbeitsweise:
 7. Das Zielsubjekt und die TaskDomain bilden einen bindenden Fokus-Lock. Sekundaeranker duerfen nur Kontextrollen aus den semanticsRules uebernehmen.
 8. Baue immer einen klaren Story-Kern: Ausloeser/Trigger, Fokus-Subjekt, offene Frage am Ziel, Einsatznutzen des Fluges, naechster Handoff.
 9. Konkretisiere diesen Story-Kern immer mit 2-4 Lage-Details: wer/was genau betroffen ist, was passiert ist, warum der Einsatz gerade jetzt noetig ist und welcher Befund aus der Luft gebraucht wird.
-10. Du darfst einen realistischen Missionsanlass frei konkretisieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Bundles erfunden werden.
-11. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
-12. Antworte ausschliesslich als JSON.
+10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. overdue_person, fall_injury, water_rescue, vehicle_off_road oder downed_aircraft. Benenne letzte Sichtung, wahrscheinliche Lage und moegliche Suchhinweise.
+11. Du darfst einen realistischen Missionsanlass frei konkretisieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Bundles erfunden werden.
+12. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
+13. Antworte ausschliesslich als JSON.
 </INSTRUKTIONEN>
 
 <DRAFT>
@@ -12755,7 +13015,11 @@ ${JSON.stringify(contextBundle)}
       "subjectDetail": "konkretisiere, wer oder was genau betroffen ist",
       "incidentContext": "was passiert ist oder welcher Anlass den Einsatz ausloest",
       "whyNow": "warum der Flug gerade jetzt noetig ist",
-      "soughtOutcome": "welcher konkrete Befund oder welche Entscheidungshilfe gebraucht wird"
+      "soughtOutcome": "welcher konkrete Befund oder welche Entscheidungshilfe gebraucht wird",
+      "incidentType": "vor allem bei SAR: z.B. missing_hiker, fallen_climber, missing_kayaker",
+      "lastSeenContext": "wo oder in welchem Zusammenhang die betroffene Person zuletzt gesehen/gemeldet wurde",
+      "probableScenario": "wahrscheinliche Lagehypothese",
+      "visibleClueCandidates": ["2-4 moegliche sichtbare Hinweise im Suchraum"]
     },
     "narrativeRules": ["harte Regeln fuer Story/PAX"],
     "localFacts": ["1-4 sichere lokale/contextuelle Fakten"],
@@ -12896,12 +13160,15 @@ Regeln:
 9. Benannte Nebenanker nur dann prominent nutzen, wenn sie in CONTRACT.semantics als Kontextrolle plausibel bleiben.
 10. Die Story muss einen klaren Story-Frame aus CONTRACT.storyFrame transportieren: Trigger, Fokus-Subjekt, offene Frage, Stakes und Abschluss/Handoff.
 11. Nutze aus CONTRACT.storyFrame nach Moeglichkeit auch subjectDetail, incidentContext, whyNow und soughtOutcome, damit der Auftrag nicht abstrakt bleibt.
-12. Du darfst einen plausiblen operativen Anlass frei ausformulieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Contracts behauptet werden.
-13. search_and_rescue: Sag klar, wer vermisst wird oder welche Personengruppe/Hinweislage gesucht wird und was zuletzt passiert ist.
-14. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
-15. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
-16. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
-17. Antwort nur als JSON.
+12. Wenn CONTRACT.storyFrame incidentType, lastSeenContext, probableScenario oder visibleClueCandidates enthaelt, muessen diese Informationen im Briefing spuerbar werden statt zu abstrakten Standardfloskeln zu verfallen.
+13. Du darfst einen plausiblen operativen Anlass frei ausformulieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Contracts behauptet werden.
+14. search_and_rescue: Sag klar, wer betroffen ist, wo die letzte Sichtung oder Meldung war, welche Lage vermutet wird und worauf wir aus der Luft konkret achten sollen.
+15. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
+16. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
+17. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
+18. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
+19. Vermeide reine Dispatcher-Floskeln wie "wir machen heute Fotos", "wir fliegen heute eine Inspektion" oder "wir suchen das Gebiet ab", wenn kein genauer Anlass, kein betroffenes Subjekt und keine Folgeentscheidung benannt werden.
+20. Antwort nur als JSON.
 </INSTRUKTIONEN>
 
 <CONTRACT>
@@ -12911,7 +13178,7 @@ ${JSON.stringify(contract)}
 <OUTPUT>
 {
   "title": "Kurzer Missionstitel",
-  "story": "3-4 Saetze, konkret, lokal plausibel und mit echtem Missionsanlass",
+  "story": "4-5 Saetze, konkret, lokal plausibel und mit echtem Missionsanlass",
   "pax": "z.B. 1 PAX (...) oder 0 PAX",
   "cargo": "z.B. Messkoffer (45 lbs)",
   "passenger": {
@@ -12931,7 +13198,7 @@ ${JSON.stringify(contract)}
     "targetAltFt": 0,
     "targetRadiusNm": 0,
     "targetDwellMin": 0,
-    "greetingText": "Kurze persoenliche Begruessung an den Piloten mit konkretem Auftragsbezug"
+    "greetingText": "Kurze persoenliche Begruessung an den Piloten mit konkretem Auftragsbezug und einem Hauch vom Warum des Flugs"
   },
   "sceneIntent": {
     "summary": "Was am Ziel aus Pilotensicht sichtbar oder eben nicht sichtbar sein soll",
@@ -12969,6 +13236,14 @@ function _missionPipelineV4StoryFieldCovered(story = '', phrase = '', minHits = 
     return false;
 }
 
+function _missionPipelineV4JoinNaturalList(values = []) {
+    const src = Array.isArray(values) ? values.map(x => String(x || '').trim()).filter(Boolean) : [];
+    if (!src.length) return '';
+    if (src.length === 1) return src[0];
+    if (src.length === 2) return `${src[0]} und ${src[1]}`;
+    return `${src.slice(0, -1).join(', ')} und ${src[src.length - 1]}`;
+}
+
 function _missionPipelineV4ComposeStoryFallback(contract = {}) {
     const targetName = String(contract?.target?.name || 'dem Zielgebiet').trim() || 'dem Zielgebiet';
     const taskDomain = String(contract?.profile?.taskDomain || 'general').trim().toLowerCase();
@@ -12978,6 +13253,11 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}) {
     const whyNow = String(frame.whyNow || frame.stakes || '').trim();
     const sought = String(frame.soughtOutcome || frame.keyQuestion || '').trim();
     const completion = String(frame.completionSignal || '').trim();
+    const lastSeen = String(frame.lastSeenContext || '').trim();
+    const probableScenario = String(frame.probableScenario || '').trim();
+    const clueLine = Array.isArray(frame.visibleClueCandidates) && frame.visibleClueCandidates.length
+        ? `Aus der Luft achten wir besonders auf ${_missionPipelineV4JoinNaturalList(frame.visibleClueCandidates.slice(0, 3))}.`
+        : '';
     const weather = contract?.weather?.dest || contract?.weather?.dep || null;
     const weatherBits = [];
     if (Number.isFinite(Number(weather?.tempC))) weatherBits.push(`${Math.round(Number(weather.tempC))}°C`);
@@ -12986,12 +13266,21 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}) {
         ? ` Die Bedingungen bleiben mit ${weatherBits.join(' und ')} gut genug fuer einen ruhigen, praezisen Ueberflug.`
         : '';
     if (taskDomain === 'search_and_rescue') {
+        const intro = String(frame.trigger || `Im Bereich ${targetName} laeuft eine SAR-Lage, die aus der Luft verengt werden soll.`).trim();
+        const subjectLine = detail ? `Gesucht wird nach ${detail}.` : '';
+        const contextLine = incident || `Der aktuelle Suchschwerpunkt konzentriert sich auf ${targetName}.`;
+        const lastKnownLine = [lastSeen, probableScenario].filter(Boolean).join(' ');
+        const urgencyLine = `${whyNow || 'Die Bodenkraefte brauchen jetzt einen engeren Suchraum, bevor weitere Teams gebunden werden.'}${weatherSentence}`.trim();
+        const outcomeLine = `${sought || 'Wir sollen einen klaren Hinweis oder den sinnvollsten Zugang fuer die Suchtrupps melden.'} ${completion}`.trim();
         return [
-            `Im Bereich ${targetName} suchen wir heute nach ${detail}.`,
-            incident || `Der Anlass fuer den Suchflug konzentriert sich aktuell auf ${targetName}.`,
-            `${whyNow || 'Die Bodenkraefte brauchen jetzt einen engeren Suchraum, bevor weitere Teams gebunden werden.'}${weatherSentence}`.trim(),
-            `${sought || 'Wir sollen einen klaren Hinweis oder den sinnvollsten Zugang fuer die Suchtrupps melden.'} ${completion}`.trim()
-        ].join(' ');
+            intro,
+            subjectLine,
+            contextLine,
+            lastKnownLine,
+            urgencyLine,
+            outcomeLine,
+            clueLine
+        ].filter(Boolean).join(' ');
     }
     if (taskDomain === 'inspection_infra') {
         return [

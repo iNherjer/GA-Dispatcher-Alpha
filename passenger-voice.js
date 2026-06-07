@@ -3740,10 +3740,17 @@ ${urgencyLine}`
         `Warum jetzt=${String(storyFrame.whyNow || '').trim() || 'n/a'}`,
         `Benoetigt=${String(storyFrame.soughtOutcome || '').trim() || 'n/a'}`
     ].join(' | ') : '';
+    const storyFrameSarLine = storyFrame ? [
+        `MISSION-INCIDENT: Typ=${String(storyFrame.incidentType || '').trim() || 'n/a'}`,
+        `Zuletzt=${String(storyFrame.lastSeenContext || '').trim() || 'n/a'}`,
+        `Vermutung=${String(storyFrame.probableScenario || '').trim() || 'n/a'}`,
+        `Hinweise=${Array.isArray(storyFrame.visibleClueCandidates) && storyFrame.visibleClueCandidates.length ? storyFrame.visibleClueCandidates.join(', ') : 'n/a'}`
+    ].join(' | ') : '';
     if (targetProminenceLine) lines.push(targetProminenceLine);
     if (visualLandmarksLine) lines.push(visualLandmarksLine);
     if (storyFrameLine) lines.push(storyFrameLine);
     if (storyFrameDetailLine) lines.push(storyFrameDetailLine);
+    if (storyFrameSarLine) lines.push(storyFrameSarLine);
     const bushToneLine = _bushVoiceToneLine();
     if (bushToneLine) lines.push(bushToneLine);
     lines.push(roleGuard);
