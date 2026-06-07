@@ -1669,6 +1669,7 @@ function initUiForRun(context, targetType, { pipelineV2 = false, pipelineV3 = fa
   context.localStorage.removeItem('ga_debug_mission_pipeline_v3_tools');
   context.localStorage.removeItem('ga_debug_mission_pipeline_v4_contract_writer');
   context.localStorage.removeItem('ga_mission_pipeline_mode');
+  context.localStorage.setItem('ga_mission_picker_mode', 'full');
   if (pipelineV2) {
     context.localStorage.setItem('ga_debug_mission_pipeline_v2', 'true');
     context.localStorage.setItem('ga_mission_pipeline_mode', 'v2');
@@ -1678,6 +1679,12 @@ function initUiForRun(context, targetType, { pipelineV2 = false, pipelineV3 = fa
   } else if (pipelineV3) {
     context.localStorage.setItem('ga_debug_mission_pipeline_v3_tools', 'true');
     context.localStorage.setItem('ga_mission_pipeline_mode', 'v3');
+  }
+  if (typeof context.refreshMissionPickerOptions === 'function') {
+    context.refreshMissionPickerOptions(targetType);
+  }
+  if (typeof context.setMissionTypeSelection === 'function') {
+    context.setMissionTypeSelection(targetType);
   }
 }
 

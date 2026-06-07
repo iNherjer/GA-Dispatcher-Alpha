@@ -11931,6 +11931,326 @@ window.fetchMissionPlannerV3 = fetchMissionPlannerV3;
 
 const MISSION_PIPELINE_V4_PLANNER_VERSION = 'mission-v4-planner-2026-06-07';
 const MISSION_PIPELINE_V4_VERSION = 'mission-v4-contract-writer-2026-06-07';
+const MISSION_SEMANTICS_V4_VERSION = 'mission-semantics-v4-2026-06-07';
+
+const MISSION_SEMANTICS_V4_RULESET = {
+    contextRoles: ['orientation', 'hazard', 'access', 'support', 'evidence', 'background'],
+    modeRules: {
+        poi: {
+            planner: [
+                'Das gewaehlte POI bleibt das Hauptsubjekt der Mission.',
+                'Nearby-Anker duerfen nur Orientierung, Hindernis, Zugang oder Hintergrund sein.',
+                'Kein Nebensubjekt darf das POI semantisch ersetzen.'
+            ],
+            writer: [
+                'Story und sceneIntent halten das POI im Fokus.',
+                'Kontextanker dürfen nur zur Lageerklaerung oder Gefahreneinschaetzung dienen.'
+            ]
+        },
+        apt: {
+            planner: [
+                'Zielflugplatz und Anlass am Flugplatz bleiben der Fokus.',
+                'Stadt, Strasse oder Industrie im Umfeld duerfen den Auftrag nicht umdeuten.'
+            ],
+            writer: [
+                'Der Auftrag bleibt ein Flugplatz- oder Transferauftrag, kein freier POI-Arbeitsflug.'
+            ]
+        },
+        bush: {
+            planner: [
+                'Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.',
+                'Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.'
+            ],
+            writer: [
+                'Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.'
+            ]
+        }
+    },
+    domainRules: {
+        search_and_rescue: {
+            planner: [
+                'SAR bleibt Such- oder Rettungslage; kein Drift zu Inspektion, Vermessung oder Technikwartung.',
+                'Natuerliche oder lagebezogene Suchanker haben Vorrang; Infrastruktur ist nur Orientierung, Hindernis oder Zugang.'
+            ],
+            writer: [
+                'Strassen, Strommasten oder Gebaeude duerfen vorkommen, aber nur als Nebenrolle fuer Lage, Zugang oder Hindernisse.'
+            ],
+            naturalPriority: true
+        },
+        inspection_infra: {
+            planner: [
+                'Infrastruktur darf das Primaerziel sein.',
+                'Diagnose, Wartung, Stoerung oder Dokumentation duerfen die Story tragen.'
+            ],
+            writer: [
+                'Die Erzaehlung darf technisch sein, solange das gewaehle Bauwerk oder die Anlage Hauptsubjekt bleibt.'
+            ]
+        },
+        mapping_survey: {
+            planner: [
+                'Das gewaehlte Zielobjekt oder Zielgebiet bleibt Hauptsubjekt.',
+                'Supportmarker duerfen Datenaufnahme plausibilisieren, aber keinen neuen Auftrag erzeugen.'
+            ],
+            writer: [
+                'Survey-Kontext bleibt untergeordnet; das Ziel bleibt visuell dominant.'
+            ]
+        },
+        news_coverage: {
+            planner: [
+                'Der Auftrag bleibt Beobachtung und Einordnung.',
+                'Kontext kann den Anlass konkretisieren, aber nicht in Inspektion oder Einsatz kippen.'
+            ],
+            writer: [
+                'Infrastruktur, Verkehr oder Besucher duerfen nur die Berichterstattung kontextualisieren.'
+            ]
+        },
+        poi_learning_guide: {
+            planner: [
+                'Lernen und Einordnung bleiben Hauptzweck.',
+                'Landmarken sind Orientierung und Wissensträger, kein neuer Arbeitsauftrag.'
+            ],
+            writer: [
+                'Guide-Story bleibt bildend; kein Einsatz-, Vermessungs- oder Technikauftrag.'
+            ],
+            forceSceneNone: true
+        },
+        historian_guided_tour: {
+            planner: [
+                'Historische Einordnung bleibt Hauptzweck.',
+                'Bestaetigte Bauwerke oder Wege stuetzen nur den historischen Kontext.'
+            ],
+            writer: [
+                'Keine operative Luftarbeit aus dem historischen Kontext ableiten.'
+            ],
+            forceSceneNone: true
+        },
+        sightseeing_tour: {
+            planner: [
+                'Aussicht und ruhige Beobachtung bleiben der Fokus.',
+                'Kein nachtraeglicher Arbeits- oder Einsatzauftrag.'
+            ],
+            writer: [
+                'Story bleibt entspannt und driftet nicht in Arbeitssprache.'
+            ],
+            forceSceneNone: true
+        },
+        cargo_fragile: {
+            planner: ['Transport und sichere Uebergabe bleiben Hauptzweck.'],
+            writer: ['Umfeld liefert nur Ankunfts- und Uebergabekontext.']
+        },
+        medical_transfer: {
+            planner: ['Medizinische Begleitung oder Materialtransfer bleiben Hauptzweck.'],
+            writer: ['Kein Drift zu POI-Arbeitsauftrag.']
+        },
+        animal_transport: {
+            planner: ['Tiertransport bleibt Hauptzweck.'],
+            writer: ['Umfeld bleibt Transportkontext, nicht neuer Einsatzauftrag.']
+        },
+        fire_watch: {
+            planner: [
+                'Rauch- oder Brandbeobachtung bleibt Hauptzweck.',
+                'Wald-, Hang- oder Offenflaechenkontext darf tragen; keine Infrastrukturumdeutung.'
+            ],
+            writer: ['Die Story bleibt Beobachtungslage, nicht Technikauftrag.']
+        },
+        general: {
+            planner: ['Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren.'],
+            writer: ['Kontext darf die Mission anreichern, aber nicht umdefinieren.']
+        }
+    },
+    categoryRules: {
+        bridge: {
+            planner: [
+                'Bruecke bleibt Primärsubjekt.',
+                'Strasse, Bahntrasse, Wasser, Ufer oder Ort sind nur Kontext.'
+            ],
+            writer: ['Die frei gewaehlte Auftragsart darf den Brueckenfokus nicht ersetzen.']
+        },
+        water: {
+            planner: [
+                'Wasserkante, Ufer, Damm oder Gewaesser bleiben Primärsubjekt.',
+                'Boote, Wege oder Gebaeude bleiben Kontext, ausser sie sind explizit Auftrag.'
+            ],
+            writer: ['Wasserbezug bleibt visuell und narrativ dominant.']
+        },
+        mountain: {
+            planner: [
+                'Berg, Hang oder Naturraum bleiben Primärsubjekt.',
+                'Infrastrukturanker duerfen nur Orientierung oder Hindernis sein.'
+            ],
+            writer: ['Natürlicher Such- oder Beobachtungsraum bleibt im Vordergrund.']
+        },
+        city: {
+            planner: [
+                'Die gewaehlt​e Ortsidentitaet bleibt Primärsubjekt.',
+                'Strassen, Bahnlinien oder einzelne Gebaeude bleiben Orientierung.'
+            ],
+            writer: ['Kontext darf die Ortsgeschichte oder Lage tragen, aber den Fokus nicht verlagern.']
+        },
+        castle: {
+            planner: ['Burg, Schloss oder Ruine bleiben Primärsubjekt.'],
+            writer: ['Wege, Tal oder Ort bleiben nur Kontext.']
+        },
+        generic: {
+            planner: ['Das gewaehlte Ziel bleibt Primärsubjekt.'],
+            writer: ['Kontext darf nur anreichern, nie umwidmen.']
+        }
+    }
+};
+
+function _missionSemanticsV4NormalizeCategory(value = '') {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return 'generic';
+    if (['bridge', 'water', 'mountain', 'city', 'castle'].includes(raw)) return raw;
+    if (/lake|river|shore|dam|reservoir|basin|water/.test(raw)) return 'water';
+    if (/mountain|ridge|summit|terrain|forest|fire/.test(raw)) return 'mountain';
+    if (/town|village|city|settlement/.test(raw)) return 'city';
+    if (/ruin|fort|castle|schloss|burg/.test(raw)) return 'castle';
+    return 'generic';
+}
+
+function _missionSemanticsV4Build({
+    mode = 'apt',
+    taskDomain = 'general',
+    targetCategory = 'generic',
+    requestedCategory = 'all',
+    targetName = '',
+    missionTruth = null
+} = {}) {
+    const normalizedMode = normalizeMissionType(mode || '', mode === 'poi');
+    const domainKey = String(taskDomain || 'general').trim().toLowerCase() || 'general';
+    const categoryKey = _missionSemanticsV4NormalizeCategory(
+        missionTruth?.primaryCategory || targetCategory || requestedCategory || 'generic'
+    );
+    const truthMain = missionTruth?.mainTarget || null;
+    const primarySubjectLabel = String(truthMain?.name || targetName || 'Ziel').trim() || 'Ziel';
+    const primarySubjectType = String(truthMain?.kind || categoryKey || normalizedMode).trim().toLowerCase() || normalizedMode;
+    const modeRule = MISSION_SEMANTICS_V4_RULESET.modeRules[normalizedMode] || MISSION_SEMANTICS_V4_RULESET.modeRules.apt;
+    const domainRule = MISSION_SEMANTICS_V4_RULESET.domainRules[domainKey] || MISSION_SEMANTICS_V4_RULESET.domainRules.general;
+    const categoryRule = MISSION_SEMANTICS_V4_RULESET.categoryRules[categoryKey] || MISSION_SEMANTICS_V4_RULESET.categoryRules.generic;
+    const plannerGuardrails = [
+        `Primary subject lock: ${primarySubjectLabel} (${primarySubjectType}) bleibt Hauptsubjekt.`,
+        `Task-domain lock: ${domainKey} bleibt die Art des Auftrags.`,
+        `Kontextrollen: ${MISSION_SEMANTICS_V4_RULESET.contextRoles.join(', ')}.`,
+        ...modeRule.planner,
+        ...domainRule.planner,
+        ...categoryRule.planner
+    ];
+    const writerGuardrails = [
+        `Story, Greeting und sceneIntent muessen ${primarySubjectLabel} als Primaerfokus behalten.`,
+        'Kontext darf den Auftrag anreichern, aber nicht umwidmen.',
+        ...modeRule.writer,
+        ...domainRule.writer,
+        ...categoryRule.writer
+    ];
+    return {
+        version: MISSION_SEMANTICS_V4_VERSION,
+        focusLock: {
+            mode: normalizedMode,
+            taskDomain: domainKey,
+            targetCategory: categoryKey,
+            requestedCategory: String(requestedCategory || '').trim().toLowerCase() || null,
+            primarySubjectLabel,
+            primarySubjectType,
+            contextRoles: [...MISSION_SEMANTICS_V4_RULESET.contextRoles]
+        },
+        plannerGuardrails,
+        writerGuardrails,
+        forceSceneNone: !!domainRule.forceSceneNone,
+        naturalPriority: !!domainRule.naturalPriority
+    };
+}
+
+function _missionSemanticsV4SortTexts(values = [], semantics = {}, kind = 'facts') {
+    const src = Array.isArray(values) ? values.filter(Boolean).map(v => String(v).trim()).filter(Boolean) : [];
+    if (!src.length) return [];
+    const task = String(semantics?.focusLock?.taskDomain || '').toLowerCase();
+    const category = String(semantics?.focusLock?.targetCategory || '').toLowerCase();
+    const subject = String(semantics?.focusLock?.primarySubjectLabel || '').toLowerCase();
+    const weightOf = (text) => {
+        const hay = normalizeMissionText(text);
+        let score = 0;
+        if (subject && hay.includes(normalizeMissionText(subject))) score -= 3;
+        if (task === 'search_and_rescue' && semantics?.naturalPriority) {
+            if (/(wald|forest|hang|gipfel|berg|kuppe|such|perimeter|lichtung|gelaende|terrain|trail|pfad|ridge|nature|offen)/.test(hay)) score -= 2;
+            if (/(strasse|straße|road|klinik|power|mast|leitung|park|parking|building|gebaeude|gebäude|rail|bahn)/.test(hay)) score += 2;
+        }
+        if (category === 'bridge') {
+            if (/(brueck|brück|bridge|viadukt|span|pfeiler|widerlager|deck)/.test(hay)) score -= 2;
+            if (/(strasse|straße|road|rail|bahn|ufer|water|zufahrt)/.test(hay)) score += 1;
+        }
+        if (kind === 'avoid' && /drift|umwidm|ersetzen/.test(hay)) score -= 2;
+        return score;
+    };
+    return src
+        .map((text, index) => ({ text, index, weight: weightOf(text) }))
+        .sort((a, b) => (a.weight - b.weight) || (a.index - b.index))
+        .map(entry => entry.text);
+}
+
+function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds = {}, debug = {}) {
+    const base = sanitizeMissionPlannerV3Result(raw, draft, resolvedNeeds, debug);
+    const semantics = _missionSemanticsV4Build({
+        mode: draft?.mode || base?.plan?.missionType || 'apt',
+        taskDomain: base?.plan?.taskDomain || draft?.profile?.taskDomain || 'general',
+        targetCategory: base?.plan?.targetCategory || draft?.category || 'generic',
+        requestedCategory: draft?.picker?.categoryRequested || draft?.picker?.category || draft?.category || 'all',
+        targetName: base?.plan?.targetLabel || draft?.target?.name || '',
+        missionTruth: resolvedNeeds?.mission_truth || null
+    });
+    base.pipelineVersion = MISSION_PIPELINE_V4_PLANNER_VERSION;
+    base.plan = {
+        ...base.plan,
+        narrativeRules: Array.from(new Set([
+            ...semantics.plannerGuardrails,
+            ...(Array.isArray(base.plan?.narrativeRules) ? base.plan.narrativeRules : [])
+        ])).slice(0, 10),
+        localFacts: _missionSemanticsV4SortTexts(base.plan?.localFacts, semantics, 'facts').slice(0, 5),
+        operationalDetails: _missionSemanticsV4SortTexts(base.plan?.operationalDetails, semantics, 'ops').slice(0, 5),
+        narrativeHooks: _missionSemanticsV4SortTexts(base.plan?.narrativeHooks, semantics, 'hooks').slice(0, 5),
+        mustAvoid: Array.from(new Set([
+            ...(Array.isArray(base.plan?.mustAvoid) ? base.plan.mustAvoid : []),
+            'Kontext darf das Primaerziel nicht ersetzen.',
+            'Kontext darf die TaskDomain nicht umwidmen.'
+        ])).slice(0, 10),
+        lockedFields: {
+            ...(base.plan?.lockedFields || {}),
+            primarySubjectLabel: semantics.focusLock.primarySubjectLabel,
+            primarySubjectType: semantics.focusLock.primarySubjectType,
+            taskDomain: base.plan?.taskDomain || semantics.focusLock.taskDomain
+        }
+    };
+    if (semantics.forceSceneNone) {
+        base.plan.sceneKind = 'none';
+        base.plan.sceneDensity = 'none';
+        base.plan.requiredAnchors = [];
+        base.plan.objectFamilies = [];
+        base.plan.placementPolicy = 'Keine Zielobjekte platzieren; vorhandene Landmarken nur als visuelle Orientierung nutzen.';
+    }
+    if (semantics.focusLock.taskDomain === 'search_and_rescue') {
+        base.plan.sceneKind = base.plan.sceneKind && base.plan.sceneKind !== 'none' ? base.plan.sceneKind : 'sar_land';
+        if (!base.plan.sceneDensity || base.plan.sceneDensity === 'none') base.plan.sceneDensity = 'sparse';
+        base.plan.placementPolicy = `Suchraum und Suchlage bleiben der Primärfokus; Straßen, Strommasten und Gebäude sind nur Orientierung, Hindernis oder Zugang. ${String(base.plan.placementPolicy || '').trim()}`.trim();
+        base.plan.requiredAnchors = Array.from(new Set([
+            'search_area',
+            'forest_edge_or_clearing',
+            ...(Array.isArray(base.plan.requiredAnchors) ? base.plan.requiredAnchors : [])
+        ])).slice(0, 6);
+        base.plan.objectFamilies = Array.from(new Set(
+            (Array.isArray(base.plan.objectFamilies) ? base.plan.objectFamilies : []).filter(Boolean)
+        )).slice(0, 8);
+    }
+    base.semantics = semantics;
+    base.debug = {
+        ...(base.debug || {}),
+        source: debug.source || base.debug?.source || 'Gemini Planner V4',
+        pass: 'single-shot',
+        promptVersion: MISSION_PIPELINE_V4_PLANNER_VERSION,
+        contextSchema: 'missionPlannerV4.contextBundle.v1',
+        semanticsVersion: semantics.version
+    };
+    return base;
+}
 
 async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) {
     const working = {
@@ -11944,6 +12264,14 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     const truth = context.isPOI
         ? await _missionPipelineV3ResolveMissionTruth(context, working)
         : null;
+    const semanticsRules = _missionSemanticsV4Build({
+        mode: draft?.mode || context.missionType || (context.isPOI ? 'poi' : 'apt'),
+        taskDomain: draft?.profile?.taskDomain || context.dispatchProfileId || 'general',
+        targetCategory: draft?.category || context.selectedCategory || 'generic',
+        requestedCategory: draft?.picker?.categoryRequested || draft?.picker?.category || context.selectedCategory || 'all',
+        targetName: draft?.target?.name || context.dest?.n || '',
+        missionTruth: truth || working.missionTruth || context.missionTruth || null
+    });
     return {
         working,
         bundle: {
@@ -11958,6 +12286,7 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             fireHazard: fire || null,
             targetGeoContext: _missionPipelineV3CompactGeoContext(geo),
             missionTruth: compactMissionTruthForPrompt(truth),
+            semanticsRules,
             routeRules: [
                 context.isPOI ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.',
                 'Der Auftrag braucht einen konkreten lokalen Anlass, aber keine Actionfilm-Dramatik.',
@@ -11984,7 +12313,9 @@ Arbeitsweise:
 4. weatherHooks duerfen nur konkrete Wetteranker aus dem Bundle enthalten.
 5. localFacts, narrativeHooks und operationalDetails muessen aus dem Bundle ableitbar sein.
 6. Bei POI niemals Landung am Ziel andeuten.
-7. Antworte ausschliesslich als JSON.
+7. Das Zielsubjekt und die TaskDomain bilden einen bindenden Fokus-Lock. Sekundaeranker duerfen nur Kontextrollen aus den semanticsRules uebernehmen.
+8. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
+9. Antworte ausschliesslich als JSON.
 </INSTRUKTIONEN>
 
 <DRAFT>
@@ -12024,19 +12355,6 @@ ${JSON.stringify(contextBundle)}
   }
 }
 </OUTPUT_JSON>`;
-}
-
-function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds = {}, debug = {}) {
-    const base = sanitizeMissionPlannerV3Result(raw, draft, resolvedNeeds, debug);
-    base.pipelineVersion = MISSION_PIPELINE_V4_PLANNER_VERSION;
-    base.debug = {
-        ...(base.debug || {}),
-        source: debug.source || base.debug?.source || 'Gemini Planner V4',
-        pass: 'single-shot',
-        promptVersion: MISSION_PIPELINE_V4_PLANNER_VERSION,
-        contextSchema: 'missionPlannerV4.contextBundle.v1'
-    };
-    return base;
 }
 
 async function fetchMissionPlannerV4(context = {}) {
@@ -12093,6 +12411,14 @@ function buildMissionContractV4({
         !!plannerContext.isPOI
     );
     const profile = getMissionTaskProfile(plannerContext.dispatchProfileId || 'auto', mode) || {};
+    const semantics = plannerResult?.semantics || _missionSemanticsV4Build({
+        mode,
+        taskDomain: plan?.plan?.taskDomain || profile.taskDomain || 'general',
+        targetCategory: plan?.plan?.targetCategory || plannerContext.selectedCategory || 'generic',
+        requestedCategory: plannerContext.requestedCategory || plannerContext.selectedCategory || 'all',
+        targetName: plannerContext.dest?.n || '',
+        missionTruth: plannerResult?.resolvedNeeds?.mission_truth || plannerContext.missionTruth || null
+    });
     return {
         pipelineVersion: MISSION_PIPELINE_V4_VERSION,
         status: String(plan?.status || 'invalid'),
@@ -12127,6 +12453,7 @@ function buildMissionContractV4({
         missionTruth: compactMissionTruthForPrompt(
             plannerResult?.resolvedNeeds?.mission_truth || plannerContext.missionTruth || null
         ),
+        semantics,
         targetGeoContext: _missionPipelineV3CompactGeoContext(
             plannerResult?.resolvedNeeds?.geo_context || plannerContext.targetGeoContext || null
         ),
@@ -12148,7 +12475,9 @@ Regeln:
 5. sceneIntent beschreibt sichtbare, semantische Dinge am Ziel oder begruendet, warum keine Zielszene entstehen soll. Keine Asset-Namen.
 6. Wenn sceneKind="none", dann sceneIntent sehr sparsam halten: keine Zielszene, visibleIdeas=[], densityHint="none".
 7. Bei POI niemals Landung am Ziel andeuten.
-8. Antwort nur als JSON.
+8. Das Zielsubjekt und die TaskDomain bleiben bindend; Kontext darf nur anreichern, nicht umwidmen.
+9. Benannte Nebenanker nur dann prominent nutzen, wenn sie in CONTRACT.semantics als Kontextrolle plausibel bleiben.
+10. Antwort nur als JSON.
 </INSTRUKTIONEN>
 
 <CONTRACT>
