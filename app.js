@@ -3965,6 +3965,63 @@ if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', updateMissionPipelineV2ButtonUi);
 }
 
+function _parseMetarPayloadToArray(txt) {
+    if (typeof txt !== 'string') return null;
+    const t = txt.trim();
+    if (!t) return null;
+    try {
+        const parsed = JSON.parse(t);
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed && Array.isArray(parsed.data)) return parsed.data;
+        if (parsed && Array.isArray(parsed.results)) return parsed.results;
+        if (parsed && typeof parsed.contents === 'string') {
+            const nested = JSON.parse(parsed.contents);
+            return Array.isArray(nested) ? nested : null;
+        }
+    } catch (_) {}
+    return null;
+}
+
+async function _fetchWithTimeout(url, timeoutMs = 2500) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), Math.max(250, Number(timeoutMs) || 2500));
+    try {
+        return await fetch(url, { signal: controller.signal });
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+async function _fetchMetarArrayViaVariants(sourceUrl, {
+    includeCodeTabs = false,
+    includeDirect = false,
+    retries = 1,
+    timeoutMs = 2500,
+    retryDelayMs = 0
+} = {}) {
+    const variants = [];
+    if (includeDirect) variants.push(sourceUrl);
+    variants.push(`https://ga-proxy.einherjer.workers.dev/api/metar?src=${encodeURIComponent(sourceUrl)}`);
+    if (includeCodeTabs) variants.push(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(sourceUrl)}`);
+
+    const maxRetries = Math.max(1, Number(retries) || 1);
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        for (const url of variants) {
+            try {
+                const res = await _fetchWithTimeout(url, timeoutMs);
+                if (!res.ok || res.status === 204) continue;
+                const txt = await res.text();
+                const arr = _parseMetarPayloadToArray(txt);
+                if (Array.isArray(arr) && arr.length) return arr;
+            } catch (_) {}
+        }
+        if (attempt < maxRetries - 1 && retryDelayMs > 0) {
+            await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+        }
+    }
+    return null;
+}
+
 async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -4003,59 +4060,15 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
             isFallback = cachedEntry.isFallback;
             foundIcao = cachedEntry.foundIcao;
         } else {
-
-            function parseMetarTextToArray(txt) {
-                if (typeof txt !== 'string') return null;
-                const t = txt.trim();
-                if (!t) return null;
-                try {
-                    const parsed = JSON.parse(t);
-                    if (Array.isArray(parsed)) return parsed;
-                    if (parsed && Array.isArray(parsed.data)) return parsed.data;
-                    if (parsed && Array.isArray(parsed.results)) return parsed.results;
-                    if (parsed && typeof parsed.contents === 'string') {
-                        const nested = JSON.parse(parsed.contents);
-                        return Array.isArray(nested) ? nested : null;
-                    }
-                } catch (_) {}
-                return null;
-            }
-
-            async function safeFetch(urlObj, retries = 3) {
-                const skipDirectMetarFetch = true;
-                const proxyUrls = [
-                    (u) => `https://ga-proxy.einherjer.workers.dev/api/metar?src=${encodeURIComponent(u)}`,
-                    (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,
-                ];
-                for (let i = 0; i < retries; i++) {
-                    if (!skipDirectMetarFetch) {
-                        try {
-                            const r = await fetch(urlObj);
-                            if (r.ok && r.status !== 204) {
-                                const t = await r.text();
-                                const arr = parseMetarTextToArray(t);
-                                if (arr) return arr;
-                            }
-                        } catch (_) {}
-                    }
-
-                    for (const mkProxyUrl of proxyUrls) {
-                        try {
-                            const pr = await fetch(mkProxyUrl(urlObj));
-                            if (!pr.ok || pr.status === 204) continue;
-                            const t = await pr.text();
-                            const arr = parseMetarTextToArray(t);
-                            if (arr) return arr;
-                        } catch (_) {}
-                    }
-                    if (i < retries - 1) await new Promise(res => setTimeout(res, 600));
-                }
-                return null;
-            }
-
             if (looksLikeIcao) {
                 const directUrl = `https://aviationweather.gov/api/data/metar?ids=${icaoNorm}&format=json&t=${Date.now()}`;
-                const mainData = await safeFetch(directUrl);
+                const mainData = await _fetchMetarArrayViaVariants(directUrl, {
+                    includeCodeTabs: true,
+                    includeDirect: false,
+                    retries: 2,
+                    timeoutMs: 3500,
+                    retryDelayMs: 350
+                });
                 if (Array.isArray(mainData)) metarDataList = mainData;
             }
 
@@ -4063,7 +4076,13 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false)
                 const latMin = lat - 0.6, latMax = lat + 0.6;
                 const lonMin = lon - 0.8, lonMax = lon + 0.8;
                 const fbUrl = `https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json&t=${Date.now()}`;
-                const fbData = await safeFetch(fbUrl);
+                const fbData = await _fetchMetarArrayViaVariants(fbUrl, {
+                    includeCodeTabs: true,
+                    includeDirect: false,
+                    retries: 2,
+                    timeoutMs: 3500,
+                    retryDelayMs: 350
+                });
                 if (Array.isArray(fbData)) {
                     try {
                         if (fbData.length > 0) {
@@ -6881,47 +6900,25 @@ async function fetchMissionWeatherSnapshot(icao, lat, lon) {
     const key = `${normIcao || 'POI'}_${Number(lat || 0).toFixed(3)}_${Number(lon || 0).toFixed(3)}`;
     if (_missionWxCache.has(key)) return _missionWxCache.get(key);
 
-    const parsePayload = (txt) => {
-        if (typeof txt !== 'string' || !txt.trim()) return null;
-        try {
-            const p = JSON.parse(txt);
-            if (Array.isArray(p)) return p;
-            if (Array.isArray(p?.data)) return p.data;
-            if (Array.isArray(p?.results)) return p.results;
-            if (typeof p?.contents === 'string') {
-                const nested = JSON.parse(p.contents);
-                return Array.isArray(nested) ? nested : null;
-            }
-        } catch (e) {}
-        return null;
-    };
-
-    const tryFetch = async (url) => {
-        const variants = [
-            `https://ga-proxy.einherjer.workers.dev/api/metar?src=${encodeURIComponent(url)}`,
-            `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`
-        ];
-        for (const u of variants) {
-            try {
-                const res = await fetch(u);
-                if (!res.ok || res.status === 204) continue;
-                const txt = await res.text();
-                const arr = parsePayload(txt);
-                if (Array.isArray(arr) && arr.length) return arr;
-            } catch (e) {}
-        }
-        return null;
-    };
-
     let metar = null;
     if (_looksLikeIcao(normIcao)) {
-        const arr = await tryFetch(`https://aviationweather.gov/api/data/metar?ids=${normIcao}&format=json&t=${Date.now()}`);
+        const arr = await _fetchMetarArrayViaVariants(`https://aviationweather.gov/api/data/metar?ids=${normIcao}&format=json&t=${Date.now()}`, {
+            includeCodeTabs: false,
+            includeDirect: false,
+            retries: 1,
+            timeoutMs: 2200
+        });
         if (arr && arr[0]) metar = arr[0];
     }
     if (!metar && Number.isFinite(lat) && Number.isFinite(lon)) {
         const latMin = lat - 0.6, latMax = lat + 0.6;
         const lonMin = lon - 0.8, lonMax = lon + 0.8;
-        const arr = await tryFetch(`https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json&t=${Date.now()}`);
+        const arr = await _fetchMetarArrayViaVariants(`https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json&t=${Date.now()}`, {
+            includeCodeTabs: false,
+            includeDirect: false,
+            retries: 1,
+            timeoutMs: 2200
+        });
         if (arr && arr[0]) {
             const cands = arr.filter(m => Number.isFinite(Number(m?.lat)) && Number.isFinite(Number(m?.lon)));
             if (cands.length) {
