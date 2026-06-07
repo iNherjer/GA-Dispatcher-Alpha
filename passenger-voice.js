@@ -2662,6 +2662,13 @@ window.paxMissionReportTargetFound = function() {
     _poiDwellSec = Math.max(Number(_poiDwellSec || 0), dwellRequired);
     _poiLastTickTime = Date.now();
     if (!_poiEnteredAt) _poiEnteredAt = _poiLastTickTime;
+    try {
+        if (typeof currentMissionData !== 'undefined' && currentMissionData) {
+            currentMissionData.missionFailed = false;
+            currentMissionData.missionResult = 'completed';
+        }
+        if (typeof saveMissionState === 'function') saveMissionState();
+    } catch (_) {}
     _paxLog(`Manuelle Fundmeldung bestaetigt | dist ${Number(ctx.confirmDistNm || 0).toFixed(2)} NM <= ${ctx.confirmRangeNm.toFixed(2)} NM`, 'event');
     _refreshPaxWidgetVisibility();
     const prompt = _poiManualFoundPrompt(ctx);
@@ -5018,6 +5025,9 @@ function _farewellPrompt(record) {
         || ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData.cargoOutcome : null)
         || window.activeMissionContract?.cargoOutcome
         || (typeof window.missionCargoEvaluateOutcome === 'function' ? window.missionCargoEvaluateOutcome() : null);
+    const poiProgress = (typeof window.paxVoiceGetPoiMissionProgress === 'function')
+        ? window.paxVoiceGetPoiMissionProgress()
+        : null;
     const missingRequired = Array.isArray(cargoOutcome?.missingRequired) ? cargoOutcome.missingRequired : [];
     const droppedRequired = Array.isArray(cargoOutcome?.droppedRequired) ? cargoOutcome.droppedRequired : [];
     const notDeliveredRequired = Array.isArray(cargoOutcome?.notDeliveredRequired) ? cargoOutcome.notDeliveredRequired : [];
@@ -5032,7 +5042,10 @@ function _farewellPrompt(record) {
     const currentMissionFailed = ((typeof currentMissionData !== 'undefined' && currentMissionData)
         ? (currentMissionData.missionFailed || String(currentMissionData.missionResult || '').toLowerCase() === 'failed')
         : false);
-    const isMissionFailed = hasResolvedOutcome
+    const poiSuccessOverride = !!(poiProgress?.satisfied || poiProgress?.manualConfirmed);
+    const isMissionFailed = poiSuccessOverride
+        ? false
+        : hasResolvedOutcome
         ? !!(cargoOutcome?.failed || rec?.missionFailed || rec?.poiAborted)
         : !!(_poiAborted || rec?.missionFailed || currentMissionFailed);
     if (cargoOutcome?.failed) {
@@ -5091,6 +5104,15 @@ ${farewellTask}${poiRideHomeTask}${bushContinuityHint}${profLandingHint} Max 3 S
 function _failedMissionFarewellFallback(record = null) {
     const pax = window.activePassenger || {};
     const rec = (record && typeof record === 'object') ? record : {};
+    const poiProgress = (typeof window.paxVoiceGetPoiMissionProgress === 'function')
+        ? window.paxVoiceGetPoiMissionProgress()
+        : null;
+    if (poiProgress?.satisfied || poiProgress?.manualConfirmed) {
+        const role = String(pax.role || 'Passagier').trim();
+        const frame = _activeMissionStoryFrame();
+        const subject = String(frame?.focusSubject || 'den Auftrag').trim();
+        return `Danke fuers Mitnehmen. Aus Sicht als ${role} haben wir ${subject} heute sauber bestaetigt und ich gebe den Fund so an die Einsatzleitung weiter. Der Rueckflug passt, damit koennen die Bodenkraefte ihren naechsten Schritt gezielt ansetzen.`;
+    }
     const frame = _activeMissionStoryFrame();
     const subject = String(frame?.focusSubject || 'den Auftrag').trim();
     const cargoOutcome = rec?.missionCargoOutcome || null;

@@ -5209,6 +5209,18 @@ function _missionOutcomeApplyPoiProgress(outcome = null, options = {}) {
     const taskLabel = (typeof window.missionBushUsesPoiTaskRecipe === 'function' && window.missionBushUsesPoiTaskRecipe())
         ? 'Auftrag im Zielgebiet'
         : 'POI-Auftrag';
+    const poiFailureMessages = new Set([
+        `${taskLabel} wurde nicht abgeschlossen.`,
+        `${taskLabel} wurde im Zielgebiet abgebrochen.`
+    ]);
+    const poiResolved = !!(progress.satisfied || progress.manualConfirmed);
+    if (poiResolved) {
+        base.notDeliveredRequired = notDelivered.filter(entry => !poiFailureMessages.has(String(entry || '').trim()));
+        if (!base.missingRequired?.length && !base.droppedRequired?.length && !base.damagedRequired?.length && !(base.notDeliveredRequired || []).length) {
+            base.failed = false;
+            base.status = 'completed';
+        }
+    } else
     if (progress.aborted) {
         const abortMsg = `${taskLabel} wurde im Zielgebiet abgebrochen.`;
         if (!notDelivered.includes(abortMsg)) {
@@ -5220,8 +5232,8 @@ function _missionOutcomeApplyPoiProgress(outcome = null, options = {}) {
             notDelivered.push(incompleteMsg);
         }
     }
-    base.notDeliveredRequired = notDelivered;
-    if (notDelivered.length > 0) {
+    if (!poiResolved) base.notDeliveredRequired = notDelivered;
+    if ((base.notDeliveredRequired || []).length > 0) {
         base.failed = true;
         base.status = 'failed';
     }
