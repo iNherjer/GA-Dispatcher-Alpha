@@ -190,6 +190,12 @@ function parseDispatchForm(prompt) {
   try { return JSON.parse(raw); } catch (_) { return null; }
 }
 
+function parseMissionWriterV4Contract(prompt) {
+  const raw = extractTaggedBlock(prompt, 'CONTRACT');
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (_) { return null; }
+}
+
 function dryrunTargetCategory(dispatchForm) {
   return String(
     dispatchForm?.required?.targetCategory ||
@@ -782,6 +788,198 @@ function buildMissionAiPayload(prompt) {
   };
 }
 
+function buildMissionWriterV4Payload(prompt) {
+  const contract = parseMissionWriterV4Contract(prompt) || {};
+  const route = contract.route || {};
+  const profile = contract.profile || {};
+  const target = contract.target || {};
+  const plan = contract.missionPlan?.plan || {};
+  const targetName = String(target.name || route.targetName || plan.targetLabel || 'Zielgebiet').trim();
+  const taskDomain = String(profile.taskDomain || plan.taskDomain || 'general').toLowerCase();
+  const roleProfile = String(profile.roleProfile || plan.roleProfile || 'general_passenger_v1').toLowerCase();
+  const isPoi = !!target.isPOI;
+
+  if (taskDomain === 'mapping_survey') {
+    return {
+      title: `Photogrammetrie-Pass: ${targetName}`,
+      story: `Heute dokumentieren wir ${targetName} mit zwei sauberen Photogrammetrie-Passes. Der Fokus bleibt auf dem Bauwerk und seiner direkten Lage im Umfeld; Zufahrt und Ufer dienen nur als Orientierung. Nach der kurzen Zielarbeit geht es zurück zum Startplatz.`,
+      pax: '1 PAX (Geodatentechnikerin)',
+      cargo: 'Lidar-Scanner (65 lbs)',
+      passenger: {
+        name: 'Nina Eckert',
+        role: 'Geodatentechnikerin',
+        gender: 'female',
+        personality: 'strukturiert, präzise, ruhig',
+        dialectHint: 'neutral',
+        roleProfile,
+        taskDomain,
+        gTolerance: 'niedrig',
+        bankTolerance: 'niedrig',
+        cargoSensitivity: 'hoch',
+        stomachSensitivity: 'mittel',
+        comfortPriority: 'hoch',
+        urgencyPriority: 'niedrig',
+        targetAltFt: isPoi ? 2200 : 0,
+        targetRadiusNm: isPoi ? 2 : 0,
+        targetDwellMin: isPoi ? 2 : 0,
+        greetingText: `Hi, ich brauche heute über ${targetName} reproduzierbare Linien und eine ruhige Plattform für saubere Daten.`
+      },
+      sceneIntent: {
+        summary: `${targetName} bleibt als Primärziel klar lesbar; wenige Arbeitsmarker dürfen nur als geordneter Survey-Kontext auftauchen.`,
+        environment: 'Bauwerk mit geordnetem Arbeitskontext',
+        visibleIdeas: ['ein kleines Arbeitsgerät am Rand', 'ein gebündelter Paletten-Cluster', 'keine verteilte Deko abseits des Ziels'],
+        avoid: ['keine Vereins- oder Vorfeldszene', 'keine große Baustelle', 'keine Verlagerung weg vom Bauwerk'],
+        densityHint: 'normal',
+        notes: 'Survey-Kontext nur unterstützend, nie dominierend.'
+      }
+    };
+  }
+
+  if (taskDomain === 'fire_watch') {
+    return {
+      title: `Rauchprüfung: ${targetName}`,
+      story: `Für ${targetName} liegt eine schwache Rauchmeldung vor. Wir prüfen das Gebiet in ruhigen Kreisen und melden nur das, was aus der Luft sauber verifiziert werden kann. Nach dem kurzen Lagebild geht es zurück zum Startflugplatz.`,
+      pax: '1 PAX (Einsatzbeobachter)',
+      cargo: 'Kartenbrett und Fernglas (18 lbs)',
+      passenger: {
+        name: 'Markus Adler',
+        role: 'Einsatzbeobachter',
+        gender: 'male',
+        personality: 'ruhig, analytisch, professionell',
+        dialectHint: 'neutral',
+        roleProfile,
+        taskDomain,
+        gTolerance: 'mittel',
+        bankTolerance: 'mittel',
+        cargoSensitivity: 'mittel',
+        stomachSensitivity: 'mittel',
+        comfortPriority: 'mittel',
+        urgencyPriority: 'hoch',
+        targetAltFt: isPoi ? 2400 : 0,
+        targetRadiusNm: isPoi ? 3 : 0,
+        targetDwellMin: isPoi ? 3 : 0,
+        greetingText: `Hi, wir prüfen bei ${targetName} heute nur die gemeldete Rauchlage und bleiben dabei sauber und nüchtern.`
+      },
+      sceneIntent: {
+        summary: `Bei ${targetName} soll höchstens eine kleine Rauchentwicklung als klarer Sichtanker erkennbar sein.`,
+        environment: 'Waldrand oder offene Rauchlage',
+        visibleIdeas: ['eine einzelne leichte Rauchfahne', 'ruhiger Naturkontext', 'kein bereits gelöster Großeinsatz'],
+        avoid: ['keine Feuerwehrkolonne', 'keine Großbrand-Inszenierung', 'keine Unfallstelle'],
+        densityHint: 'sparse',
+        notes: 'Nur Beobachtungslage, keine dramatische Einsatzszene.'
+      }
+    };
+  }
+
+  if (taskDomain === 'cargo_fragile') {
+    return {
+      title: `Empfindliche Fracht nach ${targetName}`,
+      story: `Wir bringen heute empfindliche Vermessungstechnik nach ${targetName}. Entscheidend sind ruhige Fluglage, weiche Korrekturen und eine saubere Übergabe am Vorfeld nach der Landung. Die eigentliche Arbeit beginnt erst am Zielplatz.`,
+      pax: '1 PAX (Frachtbegleiter)',
+      cargo: 'Präzisionssensorik im Schutzcase (42 lbs)',
+      passenger: {
+        name: 'Ralf König',
+        role: 'Frachtbegleiter',
+        gender: 'male',
+        personality: 'ruhig, organisiert, präzise',
+        dialectHint: 'neutral',
+        roleProfile,
+        taskDomain,
+        gTolerance: 'mittel',
+        bankTolerance: 'niedrig',
+        cargoSensitivity: 'hoch',
+        stomachSensitivity: 'mittel',
+        comfortPriority: 'hoch',
+        urgencyPriority: 'niedrig',
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0,
+        greetingText: `Hi, die Fracht für ${targetName} ist empfindlich; bitte heute besonders ruhig und ohne harte Manöver fliegen.`
+      },
+      sceneIntent: {
+        summary: 'A-B-Flug ohne separate Zielszene; die Übergabe bleibt am Zielflugplatz.',
+        environment: 'leer',
+        visibleIdeas: [],
+        avoid: ['kein POI-Arbeitsauftrag', 'keine zusätzliche Zielszene'],
+        densityHint: 'none',
+        notes: 'Fragile Fracht bleibt reiner A-B-Kontext.'
+      }
+    };
+  }
+
+  if (taskDomain === 'search_and_rescue') {
+    return {
+      title: `Suchsektor: ${targetName}`,
+      story: `Wir fliegen über ${targetName} einen kurzen Suchsektor für einen plausiblen Bodenhinweis. Im Fokus stehen ein kleines Signal oder zurückgelassene Ausrüstung, nicht eine überladene Rettungsszene. Nach dem Lagebild kehren wir zum Startplatz zurück.`,
+      pax: '1 PAX (SAR-Koordinatorin)',
+      cargo: 'Kartenbrett und Funkliste (22 lbs)',
+      passenger: {
+        name: 'Lea Hoffmann',
+        role: 'SAR-Koordinatorin',
+        gender: 'female',
+        personality: 'ruhig, fokussiert, klar',
+        dialectHint: 'neutral',
+        roleProfile,
+        taskDomain,
+        gTolerance: 'hoch',
+        bankTolerance: 'mittel',
+        cargoSensitivity: 'niedrig',
+        stomachSensitivity: 'niedrig',
+        comfortPriority: 'mittel',
+        urgencyPriority: 'hoch',
+        targetAltFt: isPoi ? 2300 : 0,
+        targetRadiusNm: isPoi ? 3 : 0,
+        targetDwellMin: isPoi ? 4 : 0,
+        greetingText: `Hi, wir suchen bei ${targetName} heute nur nach einem kleinen, klaren Bodenhinweis.`
+      },
+      sceneIntent: {
+        summary: `Bei ${targetName} soll nur ein kleiner Suchhinweis erkennbar sein, nicht die schon gelöste Lage.`,
+        environment: 'Lichtung oder Randbereich',
+        visibleIdeas: ['ein kleines Ausrüstungsstück oder Signal', 'sparsame Marker', 'kein Großaufgebot'],
+        avoid: ['keine Rettungskolonne', 'keine Unfallfahrzeuge', 'keine überladene Szene'],
+        densityHint: 'sparse',
+        notes: 'Lesbarer Suchhinweis statt fertigem Rettungseinsatz.'
+      }
+    };
+  }
+
+  return {
+    title: isPoi ? `Auftrag am Zielgebiet ${targetName}` : `Transfer nach ${targetName}`,
+    story: isPoi
+      ? `Heute arbeiten wir am Zielgebiet ${targetName} mit einem klar umrissenen, ruhigen Auftrag. Das Ziel bleibt der räumliche Bezugspunkt; nach kurzer Zielarbeit geht es zurück zum Startplatz.`
+      : `Heute geht es mit einem ruhigen, sauberen Transfer nach ${targetName}. Die Übergabe oder der Termin findet erst am Zielflugplatz statt.`,
+    pax: '1 PAX (Begleitperson)',
+    cargo: 'Kleine Arbeitstasche (12 lbs)',
+    passenger: {
+      name: 'Jonas Krüger',
+      role: 'Begleitperson',
+      gender: 'male',
+      personality: 'freundlich, aufmerksam, ruhig',
+      dialectHint: 'neutral',
+      roleProfile,
+      taskDomain,
+      gTolerance: 'mittel',
+      bankTolerance: 'mittel',
+      cargoSensitivity: 'mittel',
+      stomachSensitivity: 'mittel',
+      comfortPriority: 'mittel',
+      urgencyPriority: 'niedrig',
+      targetAltFt: 0,
+      targetRadiusNm: 0,
+      targetDwellMin: 0,
+      greetingText: `Hi, wir bleiben heute bei ${targetName} einfach sauber im Auftrag und ohne unnötige Hektik.`
+    },
+    sceneIntent: {
+      summary: isPoi ? `${targetName} bleibt als Ziel aus der Luft erkennbar, ohne zusätzliche Dramaturgie.` : 'A-B-Flug ohne separate Zielszene.',
+      environment: isPoi ? 'Zielumfeld' : 'leer',
+      visibleIdeas: [],
+      avoid: [],
+      densityHint: isPoi ? 'sparse' : 'none',
+      notes: ''
+    }
+  };
+}
+
 function buildSceneAiPayload(prompt) {
   const contextBlock = extractTaggedBlock(prompt, 'KONTEXT') || prompt;
   const story = parseContextValue(contextBlock, 'Story');
@@ -1343,7 +1541,13 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
       }
       const text = body?.generationConfig?.response_mime_type === 'text/plain'
         ? buildSpokenText(prompt)
-        : JSON.stringify(/Mission Planner V2/i.test(prompt) ? buildPlannerV2Payload(prompt) : (/Scene Composer/i.test(prompt) ? buildSceneAiPayload(prompt) : buildMissionAiPayload(prompt)));
+        : JSON.stringify(
+          /Mission Writer V4/i.test(prompt)
+            ? buildMissionWriterV4Payload(prompt)
+            : (/Mission Planner V2/i.test(prompt)
+              ? buildPlannerV2Payload(prompt)
+              : (/Scene Composer/i.test(prompt) ? buildSceneAiPayload(prompt) : buildMissionAiPayload(prompt)))
+        );
       return responseJson({ candidates: [{ content: { parts: [{ text }] } }] });
     }
     return responseJson({}, false, 404);
@@ -1416,7 +1620,7 @@ function loadScript(context, rel) {
   vm.runInContext(code, context, { filename: rel });
 }
 
-function initUiForRun(context, targetType, { pipelineV2 = false, pipelineV3 = false, apiKey = 'DRYRUN_KEY' } = {}) {
+function initUiForRun(context, targetType, { pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, apiKey = 'DRYRUN_KEY' } = {}) {
   const values = {
     startLoc: 'EDTW',
     destLoc: '',
@@ -1434,11 +1638,20 @@ function initUiForRun(context, targetType, { pipelineV2 = false, pipelineV3 = fa
   for (const [id, value] of Object.entries(values)) el(id).value = value;
   el('aiToggle').checked = true;
   el('briefingBox').style.display = 'none';
-  if (pipelineV2) context.localStorage.setItem('ga_debug_mission_pipeline_v2', 'true');
-  if (pipelineV3) {
-    context.localStorage.removeItem('ga_debug_mission_pipeline_legacy');
-    context.localStorage.removeItem('ga_debug_mission_pipeline_v2');
+  context.localStorage.removeItem('ga_debug_mission_pipeline_legacy');
+  context.localStorage.removeItem('ga_debug_mission_pipeline_v2');
+  context.localStorage.removeItem('ga_debug_mission_pipeline_v3_tools');
+  context.localStorage.removeItem('ga_debug_mission_pipeline_v4_contract_writer');
+  context.localStorage.removeItem('ga_mission_pipeline_mode');
+  if (pipelineV2) {
+    context.localStorage.setItem('ga_debug_mission_pipeline_v2', 'true');
+    context.localStorage.setItem('ga_mission_pipeline_mode', 'v2');
+  } else if (pipelineV4) {
+    context.localStorage.setItem('ga_debug_mission_pipeline_v4_contract_writer', 'true');
+    context.localStorage.setItem('ga_mission_pipeline_mode', 'v4');
+  } else if (pipelineV3) {
     context.localStorage.setItem('ga_debug_mission_pipeline_v3_tools', 'true');
+    context.localStorage.setItem('ga_mission_pipeline_mode', 'v3');
   }
 }
 
@@ -1466,11 +1679,16 @@ function promptRecords(prompts) {
   }));
 }
 
-async function runOne({ seed, targetType, pipelineV2 = false, pipelineV3 = false, liveGemini = false, apiKey = 'DRYRUN_KEY' }) {
+async function runOne({ seed, targetType, pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY' }) {
   const { context, prompts } = setupContext(seed, { liveGemini });
   loadScript(context, 'datenbank.js');
   loadScript(context, 'missions.js');
   loadScript(context, 'data/mission-scene-assets.js');
+  loadScript(context, 'mission-definition-core.js');
+  loadScript(context, 'mission-arrival-core.js');
+  loadScript(context, 'mission-runtime-core.js');
+  loadScript(context, 'mission-cargo-core.js');
+  loadScript(context, 'sync.js');
   loadScript(context, 'app.js');
   loadScript(context, 'passenger-voice.js');
 
@@ -1493,7 +1711,7 @@ async function runOne({ seed, targetType, pipelineV2 = false, pipelineV3 = false
     resetBtn = function(btn) { if (btn) btn.disabled = false; };
     vpUpdatePosition = function() {};
   `, context);
-  initUiForRun(context, targetType, { pipelineV2, pipelineV3, apiKey });
+  initUiForRun(context, targetType, { pipelineV2, pipelineV3, pipelineV4, apiKey });
 
   await vm.runInContext('generateMission()', context);
   await wait(900);
@@ -1634,6 +1852,7 @@ function parseCliArgs(argv) {
     targetTypes: null,
     pipelineV2: false,
     pipelineV3: false,
+    pipelineV4: false,
     liveGemini: false,
     out: 'mission-pipeline-dryrun-edtw.json'
   };
@@ -1644,6 +1863,12 @@ function parseCliArgs(argv) {
     else if (arg === '--pipeline-v3') {
       args.pipelineV3 = true;
       args.pipelineV2 = false;
+      args.pipelineV4 = false;
+    }
+    else if (arg === '--pipeline-v4') {
+      args.pipelineV4 = true;
+      args.pipelineV2 = false;
+      args.pipelineV3 = false;
     }
     else if (arg === '--live-gemini') args.liveGemini = true;
     else if (arg.startsWith('--runs=')) args.runs = Math.max(1, Math.min(20, Number.parseInt(arg.slice(7), 10) || args.runs));
@@ -1664,6 +1889,7 @@ function buildRunConfigs(args) {
       targetType: args.targetTypes[i % args.targetTypes.length],
       pipelineV2: !!args.pipelineV2,
       pipelineV3: !!args.pipelineV3,
+      pipelineV4: !!args.pipelineV4,
       liveGemini: !!args.liveGemini
     }));
   }
@@ -1681,15 +1907,16 @@ function buildRunConfigs(args) {
       targetType,
       pipelineV2: !!args.pipelineV2,
       pipelineV3: !!args.pipelineV3,
+      pipelineV4: !!args.pipelineV4,
       liveGemini: !!args.liveGemini
     }));
   }
   const roll = stableRandom(args.seed)();
   const firstType = roll < 0.5 ? 'poi:water' : 'apt:club';
   return [
-    { seed: args.seed, targetType: firstType, pipelineV2: !!args.pipelineV2, pipelineV3: !!args.pipelineV3, liveGemini: !!args.liveGemini },
-    { seed: args.seed + 1, targetType: firstType.startsWith('poi') ? 'apt:club' : 'poi:water', pipelineV2: !!args.pipelineV2, pipelineV3: !!args.pipelineV3, liveGemini: !!args.liveGemini },
-    { seed: args.seed + 2, targetType: 'poi:water', pipelineV2: !!args.pipelineV2, pipelineV3: !!args.pipelineV3, liveGemini: !!args.liveGemini }
+    { seed: args.seed, targetType: firstType, pipelineV2: !!args.pipelineV2, pipelineV3: !!args.pipelineV3, pipelineV4: !!args.pipelineV4, liveGemini: !!args.liveGemini },
+    { seed: args.seed + 1, targetType: firstType.startsWith('poi') ? 'apt:club' : 'poi:water', pipelineV2: !!args.pipelineV2, pipelineV3: !!args.pipelineV3, pipelineV4: !!args.pipelineV4, liveGemini: !!args.liveGemini },
+    { seed: args.seed + 2, targetType: 'poi:water', pipelineV2: !!args.pipelineV2, pipelineV3: !!args.pipelineV3, pipelineV4: !!args.pipelineV4, liveGemini: !!args.liveGemini }
   ].slice(0, args.runs);
 }
 

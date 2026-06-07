@@ -3782,6 +3782,7 @@ let _dispatchState = { active: false, cancelled: false, runId: 0 };
 const MISSION_PIPELINE_LEGACY_STORAGE_KEY = 'ga_debug_mission_pipeline_legacy';
 const MISSION_PIPELINE_V2_STORAGE_KEY = 'ga_debug_mission_pipeline_v2'; // legacy preference key, no longer used for defaulting
 const MISSION_PIPELINE_V3_STORAGE_KEY = 'ga_debug_mission_pipeline_v3_tools';
+const MISSION_PIPELINE_V4_STORAGE_KEY = 'ga_debug_mission_pipeline_v4_contract_writer';
 const MISSION_PIPELINE_MODE_STORAGE_KEY = 'ga_mission_pipeline_mode';
 
 function _startDispatchRun() {
@@ -3814,6 +3815,8 @@ function getMissionPipelineStoredMode() {
         const mode = String(localStorage.getItem(MISSION_PIPELINE_MODE_STORAGE_KEY) || '').toLowerCase();
         if (mode === 'v2' || mode === 'legacy_v2') return 'v2';
         if (mode === 'v3') return 'v3';
+        if (mode === 'v4') return 'v4';
+        if (localStorage.getItem(MISSION_PIPELINE_V4_STORAGE_KEY) === 'true') return 'v4';
         if (localStorage.getItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY) === 'true') return 'v2';
         if (localStorage.getItem(MISSION_PIPELINE_V2_STORAGE_KEY) === 'true') return 'v2';
         return 'v3';
@@ -3823,10 +3826,12 @@ function getMissionPipelineStoredMode() {
 }
 
 function setMissionPipelineMode(mode = 'v3') {
-    const normalized = String(mode || '').toLowerCase() === 'v2' ? 'v2' : 'v3';
+    const raw = String(mode || '').toLowerCase();
+    const normalized = raw === 'v2' ? 'v2' : (raw === 'v4' ? 'v4' : 'v3');
     try {
         localStorage.setItem(MISSION_PIPELINE_MODE_STORAGE_KEY, normalized);
         localStorage.setItem(MISSION_PIPELINE_V3_STORAGE_KEY, normalized === 'v3' ? 'true' : 'false');
+        localStorage.setItem(MISSION_PIPELINE_V4_STORAGE_KEY, normalized === 'v4' ? 'true' : 'false');
         localStorage.setItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY, normalized === 'v2' ? 'true' : 'false');
         localStorage.removeItem(MISSION_PIPELINE_V2_STORAGE_KEY);
     } catch (_) {}
@@ -3845,31 +3850,54 @@ function isMissionPipelineLegacyEnabled() {
 window.isMissionPipelineLegacyEnabled = isMissionPipelineLegacyEnabled;
 
 function isMissionPipelineV3Enabled() {
-    return getMissionPipelineStoredMode() !== 'v2';
+    return getMissionPipelineStoredMode() === 'v3';
 }
 window.isMissionPipelineV3Enabled = isMissionPipelineV3Enabled;
 
+function isMissionPipelineV4Enabled() {
+    return getMissionPipelineStoredMode() === 'v4';
+}
+window.isMissionPipelineV4Enabled = isMissionPipelineV4Enabled;
+
+function missionPipelineUsesToolPlanner() {
+    const mode = getMissionPipelineStoredMode();
+    return mode === 'v3' || mode === 'v4';
+}
+window.missionPipelineUsesToolPlanner = missionPipelineUsesToolPlanner;
+
 function getMissionPipelineMode() {
-    return isMissionPipelineV2Enabled() ? 'v2' : 'v3';
+    return getMissionPipelineStoredMode();
 }
 window.getMissionPipelineMode = getMissionPipelineMode;
 
 function updateMissionPipelineV2ButtonUi() {
     const btn = document.getElementById('btnMissionPipelineLegacy') || document.getElementById('btnMissionPipelineV2');
-    const legacy = isMissionPipelineV2Enabled();
+    const mode = getMissionPipelineStoredMode();
     if (btn) {
-        btn.textContent = legacy ? 'V2 Legacy' : 'Pipeline V3';
-        btn.style.background = legacy ? '#4a2d18' : '#114533';
-        btn.style.borderColor = legacy ? '#8a5a2f' : '#2cae7d';
-        btn.style.color = legacy ? '#ffd7a3' : '#c9ffe8';
+        if (mode === 'v2') {
+            btn.textContent = 'V2 Legacy';
+            btn.style.background = '#4a2d18';
+            btn.style.borderColor = '#8a5a2f';
+            btn.style.color = '#ffd7a3';
+        } else if (mode === 'v4') {
+            btn.textContent = 'Pipeline V4';
+            btn.style.background = '#173a64';
+            btn.style.borderColor = '#4f9fff';
+            btn.style.color = '#d7ebff';
+        } else {
+            btn.textContent = 'Pipeline V3';
+            btn.style.background = '#114533';
+            btn.style.borderColor = '#2cae7d';
+            btn.style.color = '#c9ffe8';
+        }
     }
     const v3Btn = document.getElementById('btnMissionPipelineV3');
     if (v3Btn) {
-        const v3 = isMissionPipelineV3Enabled();
-        v3Btn.textContent = v3 ? 'V3 Standard' : 'V2 Legacy';
-        v3Btn.style.background = v3 ? '#114533' : '#163028';
-        v3Btn.style.borderColor = v3 ? '#2cae7d' : '#2f6f5e';
-        v3Btn.style.color = v3 ? '#c9ffe8' : '#94f0cc';
+        const v3 = mode === 'v3';
+        v3Btn.textContent = v3 ? 'V3 Standard' : (mode === 'v4' ? 'V4 Standard' : 'V2 Legacy');
+        v3Btn.style.background = v3 ? '#114533' : (mode === 'v4' ? '#173a64' : '#163028');
+        v3Btn.style.borderColor = v3 ? '#2cae7d' : (mode === 'v4' ? '#4f9fff' : '#2f6f5e');
+        v3Btn.style.color = v3 ? '#c9ffe8' : (mode === 'v4' ? '#d7ebff' : '#94f0cc');
     }
 }
 window.updateMissionPipelineV2ButtonUi = updateMissionPipelineV2ButtonUi;
@@ -3877,17 +3905,25 @@ window.updateMissionPipelineLegacyButtonUi = updateMissionPipelineV2ButtonUi;
 window.updateMissionPipelineV3ButtonUi = updateMissionPipelineV2ButtonUi;
 
 window.toggleMissionPipelineLegacy = function(forceState) {
-    const nextLegacy = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineV2Enabled();
-    setMissionPipelineMode(nextLegacy ? 'v2' : 'v3');
+    if (typeof forceState === 'boolean') {
+        setMissionPipelineMode(forceState ? 'v2' : 'v3');
+    } else {
+        const current = getMissionPipelineStoredMode();
+        const next = current === 'v2' ? 'v3' : (current === 'v3' ? 'v4' : 'v2');
+        setMissionPipelineMode(next);
+    }
     updateMissionPipelineV2ButtonUi();
     if (typeof window.vpRefreshWeatherDebugReport === 'function') {
         try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
     }
     const indicator = document.getElementById('searchIndicator');
-    if (indicator) indicator.innerText = nextLegacy
+    const mode = getMissionPipelineStoredMode();
+    if (indicator) indicator.innerText = mode === 'v2'
         ? 'Debug: Mission Pipeline V2 Legacy aktiv.'
-        : 'Debug: Mission Pipeline V3 aktiv.';
-    return !!nextLegacy;
+        : (mode === 'v4'
+            ? 'Debug: Mission Pipeline V4 aktiv.'
+            : 'Debug: Mission Pipeline V3 aktiv.');
+    return mode;
 };
 
 window.toggleMissionPipelineV2 = function(forceState) {
@@ -3909,6 +3945,20 @@ window.toggleMissionPipelineV3 = function(forceState) {
         ? 'Debug: Mission Pipeline V3 aktiv.'
         : 'Debug: Mission Pipeline V2 Legacy aktiv.';
     return !!nextV3;
+};
+
+window.toggleMissionPipelineV4 = function(forceState) {
+    const nextV4 = (typeof forceState === 'boolean') ? forceState : !isMissionPipelineV4Enabled();
+    setMissionPipelineMode(nextV4 ? 'v4' : 'v3');
+    updateMissionPipelineV2ButtonUi();
+    if (typeof window.vpRefreshWeatherDebugReport === 'function') {
+        try { window.vpRefreshWeatherDebugReport(); } catch (_) {}
+    }
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = nextV4
+        ? 'Debug: Mission Pipeline V4 aktiv.'
+        : 'Debug: Mission Pipeline V3 aktiv.';
+    return !!nextV4;
 };
 
 if (typeof window !== 'undefined') {
@@ -4925,12 +4975,12 @@ const POI_TILE_CACHE_TTL_MS = 30 * 60 * 1000;
 // Default ON: split-worker als Standardquelle nutzen, außer explizit deaktiviert.
 const POI_TILE_WORKER_ENABLED = localStorage.getItem('ga_poi_worker_split_enabled') !== 'false';
 const POI_TILE_POI_ENDPOINTS = [
-    './obstacles/poi-tiles/{latI}/{lonI}.json',
-    './obstacles/poi-tiles/{latI}/{lonI}.json.gz'
+    './obstacles/poi-tiles/{latI}/{lonI}.json.gz',
+    './obstacles/poi-tiles/{latI}/{lonI}.json'
 ];
 const POI_TILE_CORE_ENDPOINTS = [
-    './obstacles/core-tiles/{latI}/{lonI}.json',
-    './obstacles/core-tiles/{latI}/{lonI}.json.gz'
+    './obstacles/core-tiles/{latI}/{lonI}.json.gz',
+    './obstacles/core-tiles/{latI}/{lonI}.json'
 ];
 if (POI_TILE_WORKER_ENABLED) {
     POI_TILE_POI_ENDPOINTS.push('https://ga-proxy.einherjer.workers.dev/api/obstacles/tile');
@@ -7989,7 +8039,7 @@ function getMissionPlanV2Plan(missionPlanV2 = null) {
     return plan || null;
 }
 
-function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null } = {}) {
+function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null, requestedProfileId = 'auto', appliedProfileId = 'auto', mission = null, passenger = null, paxText = '', cargoText = '', category = '', targetSceneOverride = undefined, sceneIntentOverride = undefined, sceneAccepted = true, targetGeoContext = null, missionTruth = null, aptArrivalPlan = null, missionPlanV2 = null, missionPlanV4 = null, missionContractV4 = null } = {}) {
     const normalizedMissionType = normalizeMissionType(missionType || mission?.missionType || passenger?.missionType || '', isPOI);
     const profileGroup = normalizedMissionType === 'bush' ? 'bush' : (normalizedMissionType === 'poi' ? 'poi' : 'apt');
     const profile = getMissionTaskProfile(appliedProfileId, profileGroup) || getMissionTaskProfile('auto', profileGroup);
@@ -8034,6 +8084,8 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         targetGeoContext: targetGeoContext || mission?.targetGeoContext || passenger?.targetGeoContext || null,
         missionTruth: attachAptArrivalPlanToMissionTruth(missionTruth || mission?.missionTruth || passenger?.missionTruth || null, aptArrivalPlan),
         missionPlanV2: missionPlanV2 || mission?._missionPlanV2 || mission?.missionPlanV2 || passenger?.missionPlanV2 || null,
+        missionPlanV4: missionPlanV4 || mission?._missionPlanV4 || mission?.missionPlanV4 || passenger?.missionPlanV4 || null,
+        missionContractV4: missionContractV4 || mission?._missionContractV4 || mission?.missionContractV4 || passenger?.missionContractV4 || null,
         aptArrivalPlan: aptArrivalPlan || mission?.aptArrivalPlan || passenger?.aptArrivalPlan || null,
         bush: normalizedBushSpec,
         targetScene,
@@ -11839,7 +11891,7 @@ function sanitizeMissionPlannerV3Result(raw = null, draft = null, resolvedNeeds 
 }
 
 async function fetchMissionPlannerV3(context = {}) {
-    if (!isMissionPipelineV3Enabled()) return null;
+    if (!missionPipelineUsesToolPlanner()) return null;
     const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const draft = buildMissionPlannerV2Draft(context);
@@ -11879,6 +11931,195 @@ async function fetchMissionPlannerV3(context = {}) {
     return normalized;
 }
 window.fetchMissionPlannerV3 = fetchMissionPlannerV3;
+
+const MISSION_PIPELINE_V4_VERSION = 'mission-v4-contract-writer-2026-06-07';
+
+function buildMissionContractV4({
+    plannerContext = {},
+    plannerResult = null
+} = {}) {
+    const plan = compactMissionPlanV2ForPrompt(plannerResult);
+    const mode = normalizeMissionType(
+        plannerContext.missionType || plannerContext.missionPicker?.baseType || (plannerContext.isPOI ? 'poi' : 'apt'),
+        !!plannerContext.isPOI
+    );
+    const profile = getMissionTaskProfile(plannerContext.dispatchProfileId || 'auto', mode) || {};
+    return {
+        pipelineVersion: MISSION_PIPELINE_V4_VERSION,
+        status: String(plan?.status || 'invalid'),
+        mode,
+        route: {
+            startIcao: currentStartICAO || '',
+            startName: String(plannerContext.start?.n || ''),
+            targetIcao: plannerContext.isPOI ? 'POI' : String(plannerContext.dest?.icao || currentDestICAO || ''),
+            targetName: String(plannerContext.dest?.n || ''),
+            distanceNm: Number.isFinite(Number(plannerContext.dist)) ? Math.round(Number(plannerContext.dist) * 10) / 10 : null
+        },
+        profile: {
+            id: String(profile.id || plannerContext.dispatchProfileId || 'auto'),
+            label: String(profile.label || ''),
+            roleProfile: String(plan?.plan?.roleProfile || profile.roleProfile || 'general_passenger_v1'),
+            taskDomain: String(plan?.plan?.taskDomain || profile.taskDomain || 'general'),
+            pickerCategory: String(plannerContext.selectedCategory || 'all'),
+            requestedCategory: String(plannerContext.requestedCategory || plannerContext.selectedCategory || 'all')
+        },
+        target: {
+            isPOI: !!plannerContext.isPOI,
+            name: String(plannerContext.dest?.n || ''),
+            lat: Number.isFinite(Number(plannerContext.dest?.lat)) ? Number(plannerContext.dest.lat) : null,
+            lon: Number.isFinite(Number(plannerContext.dest?.lon)) ? Number(plannerContext.dest.lon) : null,
+            poiSource: String(plannerContext.dest?.poiSource || ''),
+            poiCategory: String(plannerContext.dest?.poiCategory || plannerContext.selectedCategory || ''),
+            terrainFt: Number.isFinite(Number(plannerContext.poiTerrainFt)) ? Math.round(Number(plannerContext.poiTerrainFt)) : null
+        },
+        weather: _missionPipelineV3WeatherBundle(plannerContext.missionWeather || null),
+        fireHazard: plannerResult?.resolvedNeeds?.fire_hazard || plannerContext.missionFireHazard || null,
+        missionPlan: plan,
+        missionTruth: compactMissionTruthForPrompt(
+            plannerResult?.resolvedNeeds?.mission_truth || plannerContext.missionTruth || null
+        ),
+        targetGeoContext: _missionPipelineV3CompactGeoContext(
+            plannerResult?.resolvedNeeds?.geo_context || plannerContext.targetGeoContext || null
+        ),
+        airportDetails: _missionPipelineV3AirportDetails(plannerContext)
+    };
+}
+window.buildMissionContractV4 = buildMissionContractV4;
+
+function buildMissionWriterV4Prompt(contract = {}) {
+    return `<INSTRUKTIONEN>
+Du bist Mission Writer V4 fuer einen GA-Missionsgenerator.
+Du schreibst aus einem bindenden Mission Contract eine konkrete, abwechslungsreiche und lokal plausible Mission.
+
+Regeln:
+1. Nutze nur Fakten aus <CONTRACT>.
+2. Erfinde keine freien Ortsfakten ausserhalb der dort enthaltenen lokalen Hinweise.
+3. taskDomain, roleProfile, missionType, targetLabel, mustMention und mustAvoid sind bindend.
+4. Die Story muss denselben Sachverhalt beschreiben wie primaryObjective, localFacts, weatherHooks und sceneIntent.
+5. sceneIntent beschreibt sichtbare, semantische Dinge am Ziel oder begruendet, warum keine Zielszene entstehen soll. Keine Asset-Namen.
+6. Wenn sceneKind="none", dann sceneIntent sehr sparsam halten: keine Zielszene, visibleIdeas=[], densityHint="none".
+7. Bei POI niemals Landung am Ziel andeuten.
+8. Antwort nur als JSON.
+</INSTRUKTIONEN>
+
+<CONTRACT>
+${JSON.stringify(contract)}
+</CONTRACT>
+
+<OUTPUT>
+{
+  "title": "Kurzer Missionstitel",
+  "story": "3-4 Saetze, konkret und lokal plausibel",
+  "pax": "z.B. 1 PAX (...) oder 0 PAX",
+  "cargo": "z.B. Messkoffer (45 lbs)",
+  "passenger": {
+    "name": "Vollstaendiger Name",
+    "role": "Rolle/Beruf",
+    "gender": "male|female",
+    "personality": "3 Adjektive",
+    "dialectHint": "neutral oder leicht regional",
+    "roleProfile": "exakt aus CONTRACT.profile.roleProfile",
+    "taskDomain": "exakt aus CONTRACT.profile.taskDomain",
+    "gTolerance": "niedrig|mittel|hoch",
+    "bankTolerance": "niedrig|mittel|hoch",
+    "cargoSensitivity": "niedrig|mittel|hoch",
+    "stomachSensitivity": "niedrig|mittel|hoch",
+    "comfortPriority": "niedrig|mittel|hoch",
+    "urgencyPriority": "niedrig|hoch",
+    "targetAltFt": 0,
+    "targetRadiusNm": 0,
+    "targetDwellMin": 0,
+    "greetingText": "Kurze persoenliche Begruessung an den Piloten mit konkretem Auftragsbezug"
+  },
+  "sceneIntent": {
+    "summary": "Was am Ziel aus Pilotensicht sichtbar oder eben nicht sichtbar sein soll",
+    "environment": "z.B. Vorfeld, Waldrand, Uferbereich, offenes Gelaende, leer",
+    "visibleIdeas": ["konkrete sichtbare Ideen"],
+    "avoid": ["Dinge, die nicht auftauchen duerfen"],
+    "densityHint": "none|sparse|normal|busy",
+    "notes": "Kurzer Grund"
+  }
+}
+</OUTPUT>`;
+}
+
+function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
+    const src = (raw && typeof raw === 'object') ? raw : {};
+    const contract = context.missionContractV4 || {};
+    const plan = contract?.missionPlan?.plan || {};
+    const requiredRoleProfile = String(contract?.profile?.roleProfile || plan.roleProfile || 'general_passenger_v1').toLowerCase();
+    const requiredTaskDomain = String(contract?.profile?.taskDomain || plan.taskDomain || 'general').toLowerCase();
+    const isPOI = !!context.isPOI;
+    const sceneIntent = sanitizeMissionSceneIntentSpec(src.sceneIntent || null, {
+        isPOI,
+        taskDomain: requiredTaskDomain
+    });
+    if (String(plan.sceneKind || '').toLowerCase() === 'none') {
+        sceneIntent.visibleIdeas = [];
+        sceneIntent.densityHint = 'none';
+        if (!sceneIntent.summary) sceneIntent.summary = 'A-B-Flug ohne Zielszene';
+    }
+    const passengerRaw = (src.passenger && typeof src.passenger === 'object') ? src.passenger : {};
+    const passenger = enforcePoiPassengerAltitudeRule({
+        ...passengerRaw,
+        roleProfile: requiredRoleProfile,
+        taskDomain: requiredTaskDomain
+    }, isPOI, context.poiTerrainFt);
+    const genderRaw = String(passenger?.gender || '').trim().toLowerCase();
+    passenger.gender = genderRaw === 'female' ? 'female' : 'male';
+    passenger.roleProfile = requiredRoleProfile;
+    passenger.taskDomain = requiredTaskDomain;
+    const missionType = normalizeMissionType(context.missionType || contract.mode || '', isPOI);
+    const draftTargetScene = sanitizeMissionTargetSceneSpec(null, {
+        isPOI,
+        taskDomain: requiredTaskDomain,
+        targetGeoContext: context.targetGeoContext || null,
+        missionPlanV2: context.missionPlanV2 || null
+    });
+    return {
+        t: String(src.title || '').trim(),
+        s: String(src.story || '').trim(),
+        pax: String(src.pax || '').trim(),
+        cargo: String(src.cargo || '').trim(),
+        passenger,
+        sceneIntent,
+        targetScene: draftTargetScene,
+        sceneCompositionStatus: 'draft',
+        targetSceneDebug: {
+            source: context.source || 'Mission Writer V4',
+            sceneIntentRaw: src.sceneIntent || null,
+            sceneIntent,
+            aiRaw: null,
+            normalized: draftTargetScene,
+            pendingComposer: true
+        },
+        i: '📋',
+        cat: String(plan.targetCategory || context.selectedCategory || (isPOI ? 'poi' : 'std')).toLowerCase(),
+        missionType,
+        bush: context.bushSpec || null,
+        _missionPlanV2: context.missionPlanV2 || null,
+        _missionPlanV4: contract || null,
+        _source: context.source || 'Mission Writer V4'
+    };
+}
+
+async function fetchMissionWriterV4(context = {}) {
+    const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
+    if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
+    const contract = context.missionContractV4 || null;
+    if (!contract || String(contract.status || '').toLowerCase() !== 'ready') return null;
+    const result = await fetchGeminiJsonWithFallback(
+        buildMissionWriterV4Prompt(contract),
+        apiKey,
+        { promptVersion: 'mission-writer-v4', timeoutMs: 16000 }
+    );
+    if (!result?.parsed) return null;
+    return sanitizeMissionWriterV4Payload(result.parsed, {
+        ...context,
+        source: `${result.source || 'Gemini'} + V4 Writer`
+    });
+}
+window.fetchMissionWriterV4 = fetchMissionWriterV4;
 
 async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, cargoText, poiTerrainFt = null, missionWeather = null, missionPicker = null, missionFireHazard = null, poiTargetMeta = null) {
     const aiToggleBtn = document.getElementById('aiToggle');
@@ -13966,6 +14207,8 @@ async function generateMission() {
     const isPlanningOnlyMode = dispatchProfileId === 'freeflight_planning';
     let missionPlanV2 = null;
     let missionPlanV3Attempt = null;
+    let missionPlanV4 = null;
+    let missionContractV4 = null;
     const plannerContext = {
         start,
         dest,
@@ -13993,7 +14236,74 @@ async function generateMission() {
             missionFireHazard = plan.resolvedNeeds.fire_hazard;
         }
     };
-    if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV3Enabled()) {
+    if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV4Enabled()) {
+        indicator.innerText = `Pipeline V4: Contract wird geplant...`;
+        try {
+            missionPlanV2 = await fetchMissionPlannerV3(plannerContext);
+            missionPlanV3Attempt = missionPlanV2;
+            missionPlanV4 = missionPlanV2;
+            _ensureDispatchAlive();
+            absorbPlannerResolvedNeeds(missionPlanV2);
+            if (!missionPlanV4 || missionPlanV4.status === 'invalid') {
+                indicator.innerText = `Pipeline V4: Fallback auf V2-Planer...`;
+                missionPlanV2 = await fetchMissionPlannerV2({
+                    ...plannerContext,
+                    targetGeoContext: preMissionTargetGeoContext,
+                    missionTruth: preMissionTruth,
+                    missionFireHazard
+                }, { force: true });
+                missionPlanV4 = missionPlanV2;
+                _ensureDispatchAlive();
+                absorbPlannerResolvedNeeds(missionPlanV2);
+            }
+            missionContractV4 = buildMissionContractV4({
+                plannerContext: {
+                    ...plannerContext,
+                    targetGeoContext: preMissionTargetGeoContext,
+                    missionTruth: preMissionTruth,
+                    missionFireHazard
+                },
+                plannerResult: missionPlanV4
+            });
+        } catch (err) {
+            console.warn('[MISSION PIPELINE V4] Contract planner failed, falling back to V3/V2 chain.', err);
+            missionContractV4 = null;
+            try {
+                indicator.innerText = `Pipeline V4 Fehler: V2 plant...`;
+                missionPlanV2 = await fetchMissionPlannerV2({
+                    ...plannerContext,
+                    targetGeoContext: preMissionTargetGeoContext,
+                    missionTruth: preMissionTruth,
+                    missionFireHazard
+                }, { force: true });
+                missionPlanV4 = missionPlanV2;
+                _ensureDispatchAlive();
+                absorbPlannerResolvedNeeds(missionPlanV2);
+                missionContractV4 = buildMissionContractV4({
+                    plannerContext: {
+                        ...plannerContext,
+                        targetGeoContext: preMissionTargetGeoContext,
+                        missionTruth: preMissionTruth,
+                        missionFireHazard
+                    },
+                    plannerResult: missionPlanV4
+                });
+            } catch (fallbackErr) {
+                missionPlanV2 = {
+                    pipelineVersion: MISSION_PIPELINE_V4_VERSION,
+                    status: 'invalid',
+                    needs: [],
+                    resolvedNeeds: {},
+                    plan: {},
+                    debug: {
+                        error: err?.message || String(err || 'v4_contract_failed'),
+                        fallbackError: fallbackErr?.message || String(fallbackErr || 'v2_fallback_failed')
+                    }
+                };
+                missionPlanV4 = missionPlanV2;
+            }
+        }
+    } else if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV3Enabled()) {
         indicator.innerText = `Pipeline V3: Kontext-Tools planen...`;
         try {
             missionPlanV2 = await fetchMissionPlannerV3(plannerContext);
@@ -14077,26 +14387,46 @@ async function generateMission() {
     } else if (isBushDispatch) {
         indicator.innerText = aiModeEnabled ? `Kontaktiere Bush-Dispatcher...` : `Erzeuge Bush-Mission...`;
         if (aiModeEnabled) {
-            m = await fetchGeminiMission(
-                start.n,
-                dest.n,
-                totalDist,
-                false,
-                paxText,
-                cargoText,
-                poiTerrainFt,
-                missionWeather,
-                missionPickerResolved,
-                missionFireHazard,
-                {
-                    lat: Number(dest?.lat),
-                    lon: Number(dest?.lon),
-                    name: String(dest?.n || ''),
+            if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
+                m = await fetchMissionWriterV4({
+                    missionContractV4,
                     missionPlanV2,
-                    startAirport: start,
-                    destAirport: dest
-                }
-            );
+                    missionType: requestedMissionType,
+                    selectedCategory: selectedAptCategory,
+                    requestedCategory: selectedAptCategory,
+                    isPOI: false,
+                    poiTerrainFt,
+                    targetGeoContext: preMissionTargetGeoContext,
+                    bushSpec: buildBushMissionSpec({
+                        profileId: dispatchProfileId,
+                        startAirport: start,
+                        destAirport: dest,
+                        distNm: totalDist
+                    })
+                });
+            }
+            if (!m) {
+                m = await fetchGeminiMission(
+                    start.n,
+                    dest.n,
+                    totalDist,
+                    false,
+                    paxText,
+                    cargoText,
+                    poiTerrainFt,
+                    missionWeather,
+                    missionPickerResolved,
+                    missionFireHazard,
+                    {
+                        lat: Number(dest?.lat),
+                        lon: Number(dest?.lon),
+                        name: String(dest?.n || ''),
+                        missionPlanV2,
+                        startAirport: start,
+                        destAirport: dest
+                    }
+                );
+            }
             _ensureDispatchAlive();
             if (m) {
                 dataSource = m._source;
@@ -14133,29 +14463,44 @@ async function generateMission() {
         }
     } else {
         indicator.innerText = `Kontaktiere KI-Dispatcher...`;
-        m = await fetchGeminiMission(
-            start.n,
-            dest.n,
-            totalDist,
-            isPOI,
-            paxText,
-            cargoText,
-            poiTerrainFt,
-            missionWeather,
-            missionPickerResolved,
-            missionFireHazard,
-            {
-                lat: Number(dest?.lat),
-                lon: Number(dest?.lon),
-                name: String(dest?.n || ''),
-                requestedCategory: String(selectedPoiCategory || 'all'),
-                poiCategory: String(dest?.poiCategory || ''),
-                startAirport: start,
+        if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
+            m = await fetchMissionWriterV4({
+                missionContractV4,
+                missionPlanV2,
+                missionType: requestedMissionType,
+                selectedCategory: isPOI ? selectedPoiCategory : selectedAptCategory,
+                requestedCategory: isPOI ? requestedPoiCategory : selectedAptCategory,
+                isPOI,
+                poiTerrainFt,
                 targetGeoContext: preMissionTargetGeoContext,
-                missionTruth: preMissionTruth,
-                missionPlanV2
-            }
-        );
+                bushSpec: null
+            });
+        }
+        if (!m) {
+            m = await fetchGeminiMission(
+                start.n,
+                dest.n,
+                totalDist,
+                isPOI,
+                paxText,
+                cargoText,
+                poiTerrainFt,
+                missionWeather,
+                missionPickerResolved,
+                missionFireHazard,
+                {
+                    lat: Number(dest?.lat),
+                    lon: Number(dest?.lon),
+                    name: String(dest?.n || ''),
+                    requestedCategory: String(selectedPoiCategory || 'all'),
+                    poiCategory: String(dest?.poiCategory || ''),
+                    startAirport: start,
+                    targetGeoContext: preMissionTargetGeoContext,
+                    missionTruth: preMissionTruth,
+                    missionPlanV2
+                }
+            );
+        }
         _ensureDispatchAlive();
         if (m && dispatchProfileId !== 'auto' && !missionMatchesTaskProfile(m, dispatchProfileId, isPOI)) {
             console.warn('[DISPATCH] KI-Mission nicht profilkonsistent, falle auf lokale Missionen zurueck.', { dispatchProfileId, mission: m?.t || 'n/a' });
@@ -14163,7 +14508,11 @@ async function generateMission() {
         }
 
         if (m) {
-            if (missionPlanV2?.pipelineVersion === MISSION_PIPELINE_V3_VERSION) {
+            if (isMissionPipelineV4Enabled() && missionContractV4) {
+                m._missionPlanV4 = missionPlanV4 || missionContractV4 || null;
+                m._missionContractV4 = missionContractV4 || null;
+                m._source = `${m._source || 'Gemini'} + V4 Contract`;
+            } else if (missionPlanV2?.pipelineVersion === MISSION_PIPELINE_V3_VERSION) {
                 m._source = `${m._source || 'Gemini'} + V3 Tools`;
             }
             dataSource = m._source;
@@ -14382,9 +14731,11 @@ async function generateMission() {
         targetGeoContext: preMissionTargetGeoContext || null,
         missionTruth: preMissionTruth || null,
         missionPlanV2: missionPlanV2 || null,
+        missionPlanV4: missionPlanV4 || missionContractV4 || null,
         missionPlanV3: missionPlanV3Attempt?.pipelineVersion === MISSION_PIPELINE_V3_VERSION
             ? missionPlanV3Attempt
             : (missionPlanV2?.pipelineVersion === MISSION_PIPELINE_V3_VERSION ? missionPlanV2 : null),
+        missionContractV4: missionContractV4 || null,
         missionPipelineMode: getMissionPipelineMode(),
         targetScene: initialTargetScene,
         targetSceneDraftRaw: m?.targetScene || null,
@@ -14474,7 +14825,9 @@ async function generateMission() {
         targetGeoContext: currentMissionData.targetGeoContext || null,
         missionTruth: currentMissionData.missionTruth || null,
         aptArrivalPlan,
-        missionPlanV2
+        missionPlanV2,
+        missionPlanV4: missionPlanV4 || currentMissionData.missionPlanV4 || null,
+        missionContractV4: missionContractV4 || currentMissionData.missionContractV4 || null
     });
     const fireScenario = buildFireWatchScenario({
         isPOI,
@@ -14498,9 +14851,11 @@ async function generateMission() {
             targetGeoContext: currentMissionData.targetGeoContext || null,
             missionTruth: currentMissionData.missionTruth || null,
             missionPlanV2: currentMissionData.missionPlanV2 || activeMissionContract.missionPlanV2 || null,
+            missionPlanV4: currentMissionData.missionPlanV4 || activeMissionContract.missionPlanV4 || null,
             missionPlanV3: currentMissionData.missionPlanV3 || null,
             missionPipelineMode: currentMissionData.missionPipelineMode || getMissionPipelineMode(),
             aptArrivalPlan: currentMissionData.aptArrivalPlan || activeMissionContract.aptArrivalPlan || null,
+            missionContractV4: currentMissionData.missionContractV4 || activeMissionContract.missionContractV4 || null,
             aiRequested: m?.targetSceneDebug?.aiRaw || null,
             aiNormalized: m?.targetSceneDebug?.normalized || currentMissionData.targetScene || null,
             contractTargetScene: activeMissionContract.targetScene || null,
@@ -14555,10 +14910,13 @@ async function generateMission() {
             targetGeoContext: currentMissionData.targetGeoContext || null,
             missionTruth: currentMissionData.missionTruth || null,
             missionPlanV2: currentMissionData.missionPlanV2 || activeMissionContract.missionPlanV2 || null,
+            missionPlanV4: currentMissionData.missionPlanV4 || activeMissionContract.missionPlanV4 || null,
             missionPlanV3: currentMissionData.missionPlanV3 || null,
             missionPipelineMode: currentMissionData.missionPipelineMode || getMissionPipelineMode(),
             missionPipelineV2Enabled: isMissionPipelineV2Enabled(),
             missionPipelineV3Enabled: isMissionPipelineV3Enabled(),
+            missionPipelineV4Enabled: isMissionPipelineV4Enabled(),
+            missionContractV4: currentMissionData.missionContractV4 || activeMissionContract.missionContractV4 || null,
             aptArrivalPlan: currentMissionData.aptArrivalPlan || activeMissionContract.aptArrivalPlan || null,
             targetScene: currentMissionData.targetScene || null,
             targetSceneDebug: {
