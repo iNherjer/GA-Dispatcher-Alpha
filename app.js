@@ -11932,7 +11932,159 @@ async function fetchMissionPlannerV3(context = {}) {
 }
 window.fetchMissionPlannerV3 = fetchMissionPlannerV3;
 
+const MISSION_PIPELINE_V4_PLANNER_VERSION = 'mission-v4-planner-2026-06-07';
 const MISSION_PIPELINE_V4_VERSION = 'mission-v4-contract-writer-2026-06-07';
+
+async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) {
+    const working = {
+        targetGeoContext: context.targetGeoContext || null,
+        missionTruth: context.missionTruth || null,
+        missionFireHazard: context.missionFireHazard || null
+    };
+    const geoPromise = context.isPOI ? _missionPipelineV3ResolveGeoContext(context, working) : Promise.resolve(null);
+    const firePromise = _missionPipelineV3ResolveFireHazard(context, working);
+    const [geo, fire] = await Promise.all([geoPromise, firePromise]);
+    const truth = context.isPOI
+        ? await _missionPipelineV3ResolveMissionTruth(context, working)
+        : null;
+    return {
+        working,
+        bundle: {
+            schema: 'missionPlannerV4.contextBundle.v1',
+            route: draft.route || {},
+            target: draft.target || {},
+            picker: draft.picker || {},
+            category: draft.category || '',
+            profile: _missionPipelineV3ProfileCatalog(context),
+            airportDetails: _missionPipelineV3AirportDetails(context),
+            weather: _missionPipelineV3WeatherBundle(context.missionWeather || null),
+            fireHazard: fire || null,
+            targetGeoContext: _missionPipelineV3CompactGeoContext(geo),
+            missionTruth: compactMissionTruthForPrompt(truth),
+            routeRules: [
+                context.isPOI ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.',
+                'Der Auftrag braucht einen konkreten lokalen Anlass, aber keine Actionfilm-Dramatik.',
+                'Story, Passenger, Cargo, sceneIntent und Zielkontext muessen dieselbe Lage beschreiben.'
+            ],
+            realismTargets: [
+                'Nutze 1-2 echte oder aus Kontext abgeleitete Details: Zielart, Umgebung, Wetter, Betreiber-/Nutzungslogik.',
+                'Keine generischen Floskeln wie "wichtige Mission" ohne konkreten Grund.',
+                'Wenn Kontext schwach ist, ehrlich allgemein bleiben statt Ortsnamen oder Fakten zu erfinden.'
+            ]
+        }
+    };
+}
+
+function _missionPipelineV4Prompt(draft = {}, contextBundle = {}) {
+    return `<INSTRUKTIONEN>
+Du bist Mission Planner V4 fuer einen GA-Dispatcher im Flugsimulator.
+Du erzeugst in einem einzigen Schritt ein robustes, lokales Missionsformular fuer den nachfolgenden V4-Writer.
+
+Arbeitsweise:
+1. Nutze nur <DRAFT> und <CONTEXT_BUNDLE>.
+2. taskDomain, roleProfile und targetLabel muessen zum Profil, Ziel und Missionsmodus passen.
+3. Wenn Details im Kontext fehlen, formuliere bewusst allgemein statt zu halluzinieren.
+4. weatherHooks duerfen nur konkrete Wetteranker aus dem Bundle enthalten.
+5. localFacts, narrativeHooks und operationalDetails muessen aus dem Bundle ableitbar sein.
+6. Bei POI niemals Landung am Ziel andeuten.
+7. Antworte ausschliesslich als JSON.
+</INSTRUKTIONEN>
+
+<DRAFT>
+${JSON.stringify(draft)}
+</DRAFT>
+
+<CONTEXT_BUNDLE>
+${JSON.stringify(contextBundle)}
+</CONTEXT_BUNDLE>
+
+<OUTPUT_JSON>
+{
+  "status": "ready|invalid",
+  "needs": [],
+  "plan": {
+    "taskDomain": "aus erlaubter Liste",
+    "roleProfile": "aus erlaubter Liste",
+    "missionType": "poi|apt|bush",
+    "targetCategory": "bridge|water|cargo|charter|...",
+    "primaryObjective": "konkreter Hauptauftrag",
+    "targetLabel": "kanonischer Zielname",
+    "sceneKind": "none|construction_site|sar_land|water_context|fire_watch|...",
+    "sceneDensity": "none|sparse|normal|busy",
+    "requiredAnchors": ["wichtige Platzierungs-/Kontextanker"],
+    "objectFamilies": ["semantische Objektgruppen, keine Assetnamen"],
+    "placementPolicy": "wie Zielszene logisch gruppiert werden soll",
+    "narrativeRules": ["harte Regeln fuer Story/PAX"],
+    "localFacts": ["1-4 sichere lokale/contextuelle Fakten"],
+    "weatherHooks": ["0-3 knappe Wetteranker"],
+    "operationalDetails": ["1-4 fliegerische oder dispatcherische Details"],
+    "realismBrief": "warum der Auftrag an diesem Ziel glaubwuerdig ist",
+    "narrativeHooks": ["2-4 konkrete Story-Anker"],
+    "mustMention": ["konkrete Pflichtpunkte"],
+    "mustAvoid": ["konkrete Verbote gegen generische oder falsche Storys"],
+    "lockedFields": {"noLandingAtPoi": true},
+    "confidence": 0.0
+  }
+}
+</OUTPUT_JSON>`;
+}
+
+function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds = {}, debug = {}) {
+    const base = sanitizeMissionPlannerV3Result(raw, draft, resolvedNeeds, debug);
+    base.pipelineVersion = MISSION_PIPELINE_V4_PLANNER_VERSION;
+    base.debug = {
+        ...(base.debug || {}),
+        source: debug.source || base.debug?.source || 'Gemini Planner V4',
+        pass: 'single-shot',
+        promptVersion: MISSION_PIPELINE_V4_PLANNER_VERSION,
+        contextSchema: 'missionPlannerV4.contextBundle.v1'
+    };
+    return base;
+}
+
+async function fetchMissionPlannerV4(context = {}) {
+    if (!isMissionPipelineV4Enabled()) return null;
+    const apiKey = String(document.getElementById('apiKeyInput')?.value || '').trim();
+    if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
+    const draft = buildMissionPlannerV2Draft(context);
+    const { working, bundle } = await _missionPipelineV4ResolveContextBundle(context, draft);
+    const result = await fetchGeminiJsonWithFallback(
+        _missionPipelineV4Prompt(draft, bundle),
+        apiKey,
+        { promptVersion: 'planner-v4-direct', timeoutMs: 12000 }
+    );
+    const resolvedNeeds = {
+        geo_context: working.targetGeoContext || context.targetGeoContext || null,
+        mission_truth: working.missionTruth || context.missionTruth || null,
+        weather_snapshot: context.missionWeather || null,
+        fire_hazard: working.missionFireHazard || context.missionFireHazard || null,
+        airport_details: _missionPipelineV3AirportDetails(context)
+    };
+    if (!result?.parsed) {
+        const invalid = {
+            pipelineVersion: MISSION_PIPELINE_V4_PLANNER_VERSION,
+            status: 'invalid',
+            needs: [],
+            resolvedNeeds,
+            plan: {},
+            debug: {
+                source: result?.source || 'none',
+                error: result?.error || 'v4_direct_planner_failed',
+                promptVersion: MISSION_PIPELINE_V4_PLANNER_VERSION,
+                contextSchema: 'missionPlannerV4.contextBundle.v1'
+            }
+        };
+        window.gaMissionPipelineV4Last = invalid;
+        return invalid;
+    }
+    const normalized = sanitizeMissionPlannerV4Result(result.parsed, draft, resolvedNeeds, {
+        source: result.source,
+        error: result.error
+    });
+    window.gaMissionPipelineV4Last = normalized;
+    return normalized;
+}
+window.fetchMissionPlannerV4 = fetchMissionPlannerV4;
 
 function buildMissionContractV4({
     plannerContext = {},
@@ -13857,6 +14009,57 @@ async function generateMission() {
         err.name = 'AbortError';
         throw err;
     };
+    const dispatchPerfStartedAt = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+        ? performance.now()
+        : Date.now();
+    const dispatchPerf = {};
+    const dispatchPhaseStart = (phase) => {
+        dispatchPerf[phase] = { startedAt: (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now() };
+    };
+    const dispatchPhaseEnd = (phase, extra = null) => {
+        const now = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+        const prev = dispatchPerf[phase] || {};
+        const startedAt = Number.isFinite(prev.startedAt) ? prev.startedAt : now;
+        dispatchPerf[phase] = {
+            ...prev,
+            endedAt: now,
+            ms: Math.max(0, Math.round((now - startedAt) * 10) / 10),
+            ...(extra && typeof extra === 'object' ? extra : {})
+        };
+    };
+    const dispatchMeasure = async (phase, fn, extra = null) => {
+        dispatchPhaseStart(phase);
+        try {
+            const result = await fn();
+            dispatchPhaseEnd(phase, extra);
+            return result;
+        } catch (err) {
+            dispatchPhaseEnd(phase, {
+                ...(extra && typeof extra === 'object' ? extra : {}),
+                error: err?.message || String(err || phase)
+            });
+            throw err;
+        }
+    };
+    const dispatchPerfSnapshot = () => {
+        const totalNow = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+            ? performance.now()
+            : Date.now();
+        const phases = Object.fromEntries(Object.entries(dispatchPerf).map(([phase, info]) => {
+            const out = {};
+            if (Number.isFinite(info?.ms)) out.ms = info.ms;
+            if (info?.error) out.error = info.error;
+            for (const [key, value] of Object.entries(info || {})) {
+                if (key === 'startedAt' || key === 'endedAt' || key === 'ms' || key === 'error') continue;
+                out[key] = value;
+            }
+            return [phase, out];
+        }));
+        return {
+            totalMs: Math.max(0, Math.round((totalNow - dispatchPerfStartedAt) * 10) / 10),
+            phases
+        };
+    };
     try {
     const btn = document.getElementById('generateBtn');
     const rBtn = document.getElementById('radioGenerateBtn');
@@ -13897,7 +14100,9 @@ async function generateMission() {
     }, 120);
 
     currentStartICAO = document.getElementById("startLoc").value.toUpperCase();
-    const start = await getAirportData(currentStartICAO);
+    const start = await dispatchMeasure('load_start_airport', async () => getAirportData(currentStartICAO), {
+        icao: currentStartICAO
+    });
     _ensureDispatchAlive();
     if (!start) {
         setDispatchLampState('error');
@@ -13977,6 +14182,7 @@ async function generateMission() {
         searchMax = Math.min(22, Math.max(searchMin + 2, Math.round(maxNM * 0.35)));
     }
 
+    dispatchPhaseStart('resolve_target');
     if (targetDest) { dest = await getAirportData(targetDest); _ensureDispatchAlive(); } else {
         if (isBushDispatch) {
             dest = await findBushAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref);
@@ -14151,6 +14357,11 @@ async function generateMission() {
             dest.n = String(contextOk.title || dest.n || '').trim() || dest.n;
         }
     }
+    dispatchPhaseEnd('resolve_target', {
+        source: dataSource,
+        targetName: dest?.n || null,
+        targetIcao: dest?.icao || null
+    });
 
     if (!dest) {
         setDispatchLampState('error');
@@ -14167,42 +14378,71 @@ async function generateMission() {
     const nav = calcNav(start.lat, start.lon, dest.lat, dest.lon);
     let totalDist = isPOI ? nav.dist * 2 : nav.dist;
     currentDestICAO = isPOI ? currentStartICAO : dest.icao;
-    let poiTerrainFt = null;
-    if (isPOI && Number.isFinite(dest?.lat) && Number.isFinite(dest?.lon)) {
-        poiTerrainFt = await fetchPoiTerrainElevationFt(dest.lat, dest.lon);
-        _ensureDispatchAlive();
-    }
-    const [depWeatherSnap, destWeatherSnap] = await Promise.all([
-        fetchMissionWeatherSnapshot(currentStartICAO, start.lat, start.lon),
-        fetchMissionWeatherSnapshot(isPOI ? 'POI' : currentDestICAO, dest.lat, dest.lon)
+    const terrainPromise = (isPOI && Number.isFinite(dest?.lat) && Number.isFinite(dest?.lon))
+        ? dispatchMeasure('resolve_poi_terrain', async () => fetchPoiTerrainElevationFt(dest.lat, dest.lon), {
+            lat: Number(dest.lat),
+            lon: Number(dest.lon)
+        })
+        : Promise.resolve(null);
+    const depWeatherPromise = dispatchMeasure('weather_departure', async () => fetchMissionWeatherSnapshot(currentStartICAO, start.lat, start.lon), {
+        icao: currentStartICAO
+    });
+    const destWeatherPromise = dispatchMeasure('weather_destination', async () => fetchMissionWeatherSnapshot(isPOI ? 'POI' : currentDestICAO, dest.lat, dest.lon), {
+        icao: isPOI ? 'POI' : currentDestICAO
+    });
+    const [poiTerrainFt, depWeatherSnap, destWeatherSnap] = await Promise.all([
+        terrainPromise,
+        depWeatherPromise,
+        destWeatherPromise
     ]);
     _ensureDispatchAlive();
     const missionWeather = { dep: depWeatherSnap, dest: destWeatherSnap };
+    const aiModeEnabled = !!document.getElementById('aiToggle')?.checked;
     let preMissionTargetGeoContext = null;
     let preMissionTruth = null;
-    if (isPOI && selectedPoiCategory !== 'trn') {
-        preMissionTargetGeoContext = await fetchMissionTargetGeoContext({
-            isPOI,
-            targetLat: Number(dest?.lat),
-            targetLon: Number(dest?.lon)
-        });
-        _ensureDispatchAlive();
-        preMissionTruth = buildMissionTruth({
-            isPOI,
-            poiName: dest?.n || null,
-            targetName: dest?.n || null,
-            targetLat: Number(dest?.lat),
-            targetLon: Number(dest?.lon),
-            poiSource: String(dest?.poiSource || ''),
-            poiCategory: String(dest?.poiCategory || selectedPoiCategory || ''),
-            requestedCategory: String(selectedPoiCategory || 'all'),
-            poiLookup: dest?.poiLookup || null
-        }, preMissionTargetGeoContext, null);
+    const shouldEagerPrefetchPoiContext = !!(
+        isPOI
+        && selectedPoiCategory !== 'trn'
+        && !(aiModeEnabled && missionPipelineUsesToolPlanner())
+    );
+    const ensurePoiMissionContext = async (reason = 'runtime') => {
+        if (!isPOI || selectedPoiCategory === 'trn') return;
+        if (!preMissionTargetGeoContext) {
+            preMissionTargetGeoContext = await dispatchMeasure(`poi_geo_context_${reason}`, async () => fetchMissionTargetGeoContext({
+                isPOI,
+                targetLat: Number(dest?.lat),
+                targetLon: Number(dest?.lon)
+            }), {
+                reason,
+                targetName: dest?.n || null
+            });
+            _ensureDispatchAlive();
+        }
+        if (!preMissionTruth) {
+            dispatchPhaseStart(`poi_mission_truth_${reason}`);
+            preMissionTruth = buildMissionTruth({
+                isPOI,
+                poiName: dest?.n || null,
+                targetName: dest?.n || null,
+                targetLat: Number(dest?.lat),
+                targetLon: Number(dest?.lon),
+                poiSource: String(dest?.poiSource || ''),
+                poiCategory: String(dest?.poiCategory || selectedPoiCategory || ''),
+                requestedCategory: String(selectedPoiCategory || 'all'),
+                poiLookup: dest?.poiLookup || null
+            }, preMissionTargetGeoContext, null);
+            dispatchPhaseEnd(`poi_mission_truth_${reason}`, {
+                reason,
+                mainTarget: preMissionTruth?.mainTarget?.label || null
+            });
+        }
+    };
+    if (shouldEagerPrefetchPoiContext) {
+        await ensurePoiMissionContext('prefetch');
     }
 
     const maxPax = Math.max(1, maxSeats - 1), randomPax = Math.floor(Math.random() * maxPax) + 1;
     let paxText = `${randomPax} PAX`, cargoText = `${Math.floor(Math.random() * 300) + 20} lbs`;
-    const aiModeEnabled = !!document.getElementById('aiToggle')?.checked;
 
     const isPlanningOnlyMode = dispatchProfileId === 'freeflight_planning';
     let missionPlanV2 = null;
@@ -14239,23 +14479,23 @@ async function generateMission() {
     if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV4Enabled()) {
         indicator.innerText = `Pipeline V4: Contract wird geplant...`;
         try {
-            missionPlanV2 = await fetchMissionPlannerV3(plannerContext);
-            missionPlanV3Attempt = missionPlanV2;
+            missionPlanV2 = await dispatchMeasure('planner_v4_direct', async () => fetchMissionPlannerV4(plannerContext));
             missionPlanV4 = missionPlanV2;
             _ensureDispatchAlive();
             absorbPlannerResolvedNeeds(missionPlanV2);
             if (!missionPlanV4 || missionPlanV4.status === 'invalid') {
                 indicator.innerText = `Pipeline V4: Fallback auf V2-Planer...`;
-                missionPlanV2 = await fetchMissionPlannerV2({
+                missionPlanV2 = await dispatchMeasure('planner_v4_fallback_v2', async () => fetchMissionPlannerV2({
                     ...plannerContext,
                     targetGeoContext: preMissionTargetGeoContext,
                     missionTruth: preMissionTruth,
                     missionFireHazard
-                }, { force: true });
+                }, { force: true }));
                 missionPlanV4 = missionPlanV2;
                 _ensureDispatchAlive();
                 absorbPlannerResolvedNeeds(missionPlanV2);
             }
+            dispatchPhaseStart('build_v4_contract');
             missionContractV4 = buildMissionContractV4({
                 plannerContext: {
                     ...plannerContext,
@@ -14265,20 +14505,24 @@ async function generateMission() {
                 },
                 plannerResult: missionPlanV4
             });
+            dispatchPhaseEnd('build_v4_contract', {
+                status: missionContractV4?.status || null
+            });
         } catch (err) {
             console.warn('[MISSION PIPELINE V4] Contract planner failed, falling back to V3/V2 chain.', err);
             missionContractV4 = null;
             try {
                 indicator.innerText = `Pipeline V4 Fehler: V2 plant...`;
-                missionPlanV2 = await fetchMissionPlannerV2({
+                missionPlanV2 = await dispatchMeasure('planner_v4_error_fallback_v2', async () => fetchMissionPlannerV2({
                     ...plannerContext,
                     targetGeoContext: preMissionTargetGeoContext,
                     missionTruth: preMissionTruth,
                     missionFireHazard
-                }, { force: true });
+                }, { force: true }));
                 missionPlanV4 = missionPlanV2;
                 _ensureDispatchAlive();
                 absorbPlannerResolvedNeeds(missionPlanV2);
+                dispatchPhaseStart('build_v4_contract');
                 missionContractV4 = buildMissionContractV4({
                     plannerContext: {
                         ...plannerContext,
@@ -14287,6 +14531,10 @@ async function generateMission() {
                         missionFireHazard
                     },
                     plannerResult: missionPlanV4
+                });
+                dispatchPhaseEnd('build_v4_contract', {
+                    status: missionContractV4?.status || null,
+                    fallback: true
                 });
             } catch (fallbackErr) {
                 missionPlanV2 = {
@@ -14306,18 +14554,18 @@ async function generateMission() {
     } else if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV3Enabled()) {
         indicator.innerText = `Pipeline V3: Kontext-Tools planen...`;
         try {
-            missionPlanV2 = await fetchMissionPlannerV3(plannerContext);
+            missionPlanV2 = await dispatchMeasure('planner_v3_tools', async () => fetchMissionPlannerV3(plannerContext));
             missionPlanV3Attempt = missionPlanV2;
             _ensureDispatchAlive();
             absorbPlannerResolvedNeeds(missionPlanV2);
             if (!missionPlanV2 || missionPlanV2.status === 'invalid') {
                 indicator.innerText = `Pipeline V3: Fallback auf V2...`;
-                missionPlanV2 = await fetchMissionPlannerV2({
+                missionPlanV2 = await dispatchMeasure('planner_v3_fallback_v2', async () => fetchMissionPlannerV2({
                     ...plannerContext,
                     targetGeoContext: preMissionTargetGeoContext,
                     missionTruth: preMissionTruth,
                     missionFireHazard
-                }, { force: true });
+                }, { force: true }));
                 _ensureDispatchAlive();
                 absorbPlannerResolvedNeeds(missionPlanV2);
             }
@@ -14325,12 +14573,12 @@ async function generateMission() {
             console.warn('[MISSION PIPELINE V3] Tool planner failed, falling back to V2.', err);
             try {
                 indicator.innerText = `Pipeline V3 Fehler: V2 plant...`;
-                missionPlanV2 = await fetchMissionPlannerV2({
+                missionPlanV2 = await dispatchMeasure('planner_v3_error_fallback_v2', async () => fetchMissionPlannerV2({
                     ...plannerContext,
                     targetGeoContext: preMissionTargetGeoContext,
                     missionTruth: preMissionTruth,
                     missionFireHazard
-                }, { force: true });
+                }, { force: true }));
                 _ensureDispatchAlive();
                 absorbPlannerResolvedNeeds(missionPlanV2);
             } catch (fallbackErr) {
@@ -14350,7 +14598,7 @@ async function generateMission() {
     } else if (!isPlanningOnlyMode && aiModeEnabled && isMissionPipelineV2Enabled()) {
         indicator.innerText = `Pipeline V2: Missionsformular planen...`;
         try {
-            missionPlanV2 = await fetchMissionPlannerV2(plannerContext);
+            missionPlanV2 = await dispatchMeasure('planner_v2_form', async () => fetchMissionPlannerV2(plannerContext));
             _ensureDispatchAlive();
             absorbPlannerResolvedNeeds(missionPlanV2);
         } catch (err) {
@@ -14388,7 +14636,7 @@ async function generateMission() {
         indicator.innerText = aiModeEnabled ? `Kontaktiere Bush-Dispatcher...` : `Erzeuge Bush-Mission...`;
         if (aiModeEnabled) {
             if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
-                m = await fetchMissionWriterV4({
+                m = await dispatchMeasure('writer_v4_bush', async () => fetchMissionWriterV4({
                     missionContractV4,
                     missionPlanV2,
                     missionType: requestedMissionType,
@@ -14403,10 +14651,10 @@ async function generateMission() {
                         destAirport: dest,
                         distNm: totalDist
                     })
-                });
+                }));
             }
             if (!m) {
-                m = await fetchGeminiMission(
+                m = await dispatchMeasure('writer_legacy_bush', async () => fetchGeminiMission(
                     start.n,
                     dest.n,
                     totalDist,
@@ -14425,7 +14673,7 @@ async function generateMission() {
                         startAirport: start,
                         destAirport: dest
                     }
-                );
+                ));
             }
             _ensureDispatchAlive();
             if (m) {
@@ -14464,7 +14712,7 @@ async function generateMission() {
     } else {
         indicator.innerText = `Kontaktiere KI-Dispatcher...`;
         if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
-            m = await fetchMissionWriterV4({
+            m = await dispatchMeasure('writer_v4_main', async () => fetchMissionWriterV4({
                 missionContractV4,
                 missionPlanV2,
                 missionType: requestedMissionType,
@@ -14474,10 +14722,11 @@ async function generateMission() {
                 poiTerrainFt,
                 targetGeoContext: preMissionTargetGeoContext,
                 bushSpec: null
-            });
+            }));
         }
         if (!m) {
-            m = await fetchGeminiMission(
+            await ensurePoiMissionContext('legacy_writer');
+            m = await dispatchMeasure('writer_legacy_main', async () => fetchGeminiMission(
                 start.n,
                 dest.n,
                 totalDist,
@@ -14499,7 +14748,7 @@ async function generateMission() {
                     missionTruth: preMissionTruth,
                     missionPlanV2
                 }
-            );
+            ));
         }
         _ensureDispatchAlive();
         if (m && dispatchProfileId !== 'auto' && !missionMatchesTaskProfile(m, dispatchProfileId, isPOI)) {
@@ -14650,7 +14899,8 @@ async function generateMission() {
         mission: m?.t || 'n/a',
         target: dest?.n || 'n/a',
         poiSource,
-        poiLookup
+        poiLookup,
+        perf: dispatchPerfSnapshot()
     };
     console.debug('[DISPATCH]', dispatchSnapshot);
 
@@ -14737,6 +14987,7 @@ async function generateMission() {
             : (missionPlanV2?.pipelineVersion === MISSION_PIPELINE_V3_VERSION ? missionPlanV2 : null),
         missionContractV4: missionContractV4 || null,
         missionPipelineMode: getMissionPipelineMode(),
+        dispatchPerf: dispatchPerfSnapshot(),
         targetScene: initialTargetScene,
         targetSceneDraftRaw: m?.targetScene || null,
         targetSceneAiRaw: m?.targetSceneDebug?.aiRaw || null,
@@ -14788,7 +15039,9 @@ async function generateMission() {
     });
     if (aptArrivalPlan) {
         try {
-            aptArrivalPlan = await resolveAptArrivalPlanPlacement(aptArrivalPlan);
+            aptArrivalPlan = await dispatchMeasure('apt_arrival_placement', async () => resolveAptArrivalPlanPlacement(aptArrivalPlan), {
+                arrivalKind: aptArrivalPlan?.kind || null
+            });
         } catch (err) {
             console.warn('[APT ARRIVAL GEO] Placement resolver failed', err);
             aptArrivalPlan = {
@@ -14808,6 +15061,7 @@ async function generateMission() {
     } else {
         delete currentMissionData.aptArrivalPlan;
     }
+    currentMissionData.dispatchPerf = dispatchPerfSnapshot();
     const activeMissionContract = buildMissionContract({
         isPOI,
         missionType,
@@ -14854,6 +15108,7 @@ async function generateMission() {
             missionPlanV4: currentMissionData.missionPlanV4 || activeMissionContract.missionPlanV4 || null,
             missionPlanV3: currentMissionData.missionPlanV3 || null,
             missionPipelineMode: currentMissionData.missionPipelineMode || getMissionPipelineMode(),
+            dispatchPerf: currentMissionData.dispatchPerf || dispatchPerfSnapshot(),
             aptArrivalPlan: currentMissionData.aptArrivalPlan || activeMissionContract.aptArrivalPlan || null,
             missionContractV4: currentMissionData.missionContractV4 || activeMissionContract.missionContractV4 || null,
             aiRequested: m?.targetSceneDebug?.aiRaw || null,
@@ -14916,6 +15171,7 @@ async function generateMission() {
             missionPipelineV2Enabled: isMissionPipelineV2Enabled(),
             missionPipelineV3Enabled: isMissionPipelineV3Enabled(),
             missionPipelineV4Enabled: isMissionPipelineV4Enabled(),
+            dispatchPerf: currentMissionData.dispatchPerf || dispatchPerfSnapshot(),
             missionContractV4: currentMissionData.missionContractV4 || activeMissionContract.missionContractV4 || null,
             aptArrivalPlan: currentMissionData.aptArrivalPlan || activeMissionContract.aptArrivalPlan || null,
             targetScene: currentMissionData.targetScene || null,

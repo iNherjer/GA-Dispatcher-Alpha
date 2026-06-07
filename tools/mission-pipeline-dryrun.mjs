@@ -1260,6 +1260,28 @@ function buildPlannerV3Payload(prompt, toolResult = {}) {
   };
 }
 
+function buildPlannerV4Payload(prompt) {
+  const draftRaw = extractTaggedBlock(prompt, 'DRAFT');
+  const contextRaw = extractTaggedBlock(prompt, 'CONTEXT_BUNDLE');
+  let draft = {};
+  let bundle = {};
+  try { draft = JSON.parse(draftRaw || '{}'); } catch (_) {}
+  try { bundle = JSON.parse(contextRaw || '{}'); } catch (_) {}
+  return buildPlannerV3Payload(prompt, bundle?.schema ? bundle : {
+    schema: 'missionPlannerV4.contextBundle.v1',
+    route: bundle?.route || draft?.route || {},
+    target: bundle?.target || draft?.target || {},
+    picker: bundle?.picker || draft?.picker || {},
+    category: bundle?.category || draft?.category || '',
+    profile: bundle?.profile || { selected: draft?.profile || {} },
+    airportDetails: bundle?.airportDetails || {},
+    weather: bundle?.weather || {},
+    fireHazard: bundle?.fireHazard || null,
+    targetGeoContext: bundle?.targetGeoContext || null,
+    missionTruth: bundle?.missionTruth || null
+  });
+}
+
 function normalizeScenePlannerV3ToolResult(value = {}) {
   if (value?.schema === 'scenePlannerV3.contextBundle.v1') return value;
   if (value?.result?.schema === 'scenePlannerV3.contextBundle.v1') return value.result;
@@ -1469,11 +1491,13 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
       const isTts = Array.isArray(body?.generationConfig?.responseModalities) && body.generationConfig.responseModalities.includes('AUDIO');
       const functionResponses = extractGeminiFunctionResponses(body);
       const isScenePlannerV3 = /Scene Planner V3/i.test(prompt);
+      const isPlannerV4 = /Mission Planner V4/i.test(prompt);
       const isPlannerV3 = /Mission Planner V3/i.test(prompt) || (Array.isArray(body?.tools) && !isScenePlannerV3);
       prompts.push({
         url: href,
         prompt,
         isScenePlannerV3,
+        isPlannerV4,
         isPlannerV3,
         hasFunctionResponse: functionResponses.length > 0,
         live: !!liveGemini,
@@ -1544,9 +1568,11 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
         : JSON.stringify(
           /Mission Writer V4/i.test(prompt)
             ? buildMissionWriterV4Payload(prompt)
+            : (/Mission Planner V4/i.test(prompt)
+              ? buildPlannerV4Payload(prompt)
             : (/Mission Planner V2/i.test(prompt)
               ? buildPlannerV2Payload(prompt)
-              : (/Scene Composer/i.test(prompt) ? buildSceneAiPayload(prompt) : buildMissionAiPayload(prompt)))
+              : (/Scene Composer/i.test(prompt) ? buildSceneAiPayload(prompt) : buildMissionAiPayload(prompt))))
         );
       return responseJson({ candidates: [{ content: { parts: [{ text }] } }] });
     }
@@ -1664,9 +1690,11 @@ function promptRecords(prompts) {
     index: index + 1,
     kind: p.isScenePlannerV3
       ? (p.hasFunctionResponse ? 'scene-planner-v3-final' : 'scene-planner-v3-tool-call')
+      : (p.isPlannerV4
+      ? 'mission-planner-v4'
       : (p.isPlannerV3
       ? (p.hasFunctionResponse ? 'mission-planner-v3-final' : 'mission-planner-v3-tool-call')
-      : (/Mission Planner V2/i.test(p.prompt) ? 'mission-planner-v2' : (/Scene Composer|Scene Planner V3/i.test(p.prompt) ? 'scene-composer' : (/OUTPUT>/.test(p.prompt) ? 'mission-dispatcher' : 'pax-text')))),
+      : (/Mission Planner V2/i.test(p.prompt) ? 'mission-planner-v2' : (/Scene Composer|Scene Planner V3/i.test(p.prompt) ? 'scene-composer' : (/OUTPUT>/.test(p.prompt) ? 'mission-dispatcher' : 'pax-text'))))),
     modelUrl: p.url.replace(/\?key=.*/, '?key=DRYRUN_KEY'),
     hasFunctionResponse: !!p.hasFunctionResponse,
     functionResponses: p.functionResponses || [],
