@@ -839,6 +839,24 @@ function _getMissionStory() {
     return document.getElementById('mStory')?.innerText?.trim() || '';
 }
 
+function _activeMissionStoryFrame() {
+    const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
+    const contract = md.missionContract || window.activeMissionContract || null;
+    const v4 = md.missionContractV4
+        || contract?.missionContractV4
+        || md._missionContractV4
+        || null;
+    const frame = v4?.storyFrame
+        || md?.missionPlanV4?.storyFrame
+        || md?._missionPlanV4?.storyFrame
+        || contract?.missionPlanV4?.storyFrame
+        || contract?._missionPlanV4?.storyFrame
+        || md?.missionPlanV2?.plan?.storyFrame
+        || contract?.missionPlanV2?.plan?.storyFrame
+        || null;
+    return (frame && typeof frame === 'object') ? frame : null;
+}
+
 function _getDestCoords() {
     const el = document.getElementById('mDestCoords');
     if (!el) return null;
@@ -1005,11 +1023,17 @@ function _getSarSearchOutcome() {
 
 function _sarResultHint() {
     if (_activeTaskDomain() !== 'search_and_rescue') return '';
+    const frame = _activeMissionStoryFrame();
+    const subject = String(frame?.focusSubject || '').trim();
     const outcome = _getSarSearchOutcome();
     if (outcome === 'found') {
-        return ' SAR-Fazit: Melde klar, dass du die vermisste Person entdeckt hast und die Koordinaten sofort an die Leitstelle weitergibst.';
+        return subject
+            ? ` SAR-Fazit: Melde klar, dass du zu "${subject}" jetzt einen verwertbaren Treffer hast und die Position sofort an die Leitstelle weitergibst.`
+            : ' SAR-Fazit: Melde klar, dass du die vermisste Person entdeckt hast und die Koordinaten sofort an die Leitstelle weitergibst.';
     }
-    return ' SAR-Fazit: Melde klar, dass wir in diesem Sektor keine Person finden konnten und die Leitstelle fuer weitere Suchabschnitte informiert wird.';
+    return subject
+        ? ` SAR-Fazit: Melde klar, dass wir zu "${subject}" in diesem Sektor noch keinen Treffer haben und die Leitstelle fuer weitere Suchabschnitte informiert wird.`
+        : ' SAR-Fazit: Melde klar, dass wir in diesem Sektor keine Person finden konnten und die Leitstelle fuer weitere Suchabschnitte informiert wird.';
 }
 
 function _professionalRoleMeta() {
@@ -3703,8 +3727,16 @@ ${urgencyLine}`
     }
     const targetProminenceLine = _paxTargetProminenceLine();
     const visualLandmarksLine = _paxVisualLandmarksLine();
+    const storyFrame = _activeMissionStoryFrame();
+    const storyFrameLine = storyFrame ? [
+        `MISSION-LAGE: Ausloeser=${String(storyFrame.trigger || '').trim() || 'n/a'}`,
+        `Fokus=${String(storyFrame.focusSubject || '').trim() || 'n/a'}`,
+        `Offene Frage=${String(storyFrame.keyQuestion || '').trim() || 'n/a'}`,
+        `Abschluss=${String(storyFrame.completionSignal || '').trim() || 'n/a'}`
+    ].join(' | ') : '';
     if (targetProminenceLine) lines.push(targetProminenceLine);
     if (visualLandmarksLine) lines.push(visualLandmarksLine);
+    if (storyFrameLine) lines.push(storyFrameLine);
     const bushToneLine = _bushVoiceToneLine();
     if (bushToneLine) lines.push(bushToneLine);
     lines.push(roleGuard);
@@ -4855,7 +4887,7 @@ function _farewellPrompt(record) {
                     ? notDeliveredRequired[0]
                     : 'der Auftrag konnte nicht sauber abgeschlossen werden';
     const missionFailureTask = isMissionFailed
-        ? `\nDer Auftrag ist heute nicht abgeschlossen. Sag klar, dass die Aufgabe am Ziel nicht erledigt werden konnte. Hauptgrund: ${primaryFailureReason}. Formuliere am Ende eine kurze Retry-Frage (z.B. ob wir es mit kompletter Ausruestung nochmal versuchen sollen).`
+        ? `\nDer Auftrag ist heute nicht abgeschlossen. Sag klar, dass die Aufgabe am Ziel nicht erledigt werden konnte. Hauptgrund: ${primaryFailureReason}. Formuliere am Ende eine kurze Retry-Frage (z.B. ob wir es mit kompletter Ausruestung nochmal versuchen sollen). HARTE VERBOTE: Sage NICHT "voller Erfolg", "erfolgreich", "abgeschlossen", "erledigt", "alles im Kasten", "sauber erledigt" oder aehnliche Erfolgsformeln.`
         : '';
     const poiRideHomeTask = (isPOI && poiNeedsRideHome)
         ? '\nWir sind nicht am Startflugplatz gelandet. Frag am Ende locker, ob wir dich von hier noch nach Hause fliegen.'
@@ -4874,6 +4906,29 @@ function _farewellPrompt(record) {
 Moment: ${aptFarewellHint || 'Wir sind gelandet, Flug beendet.'}
 Fakten: ${facts}${highlights ? '\n' + highlights : ''}${trnFacts}
 ${farewellTask}${poiRideHomeTask}${bushContinuityHint}${profLandingHint} Max 3 Sätze.${_toneHint()}`;
+}
+
+function _failedMissionFarewellFallback(record = null) {
+    const pax = window.activePassenger || {};
+    const rec = (record && typeof record === 'object') ? record : {};
+    const frame = _activeMissionStoryFrame();
+    const subject = String(frame?.focusSubject || 'den Auftrag').trim();
+    const cargoOutcome = rec?.missionCargoOutcome || null;
+    const damagedRequired = Array.isArray(cargoOutcome?.damagedRequired) ? cargoOutcome.damagedRequired : [];
+    const missingRequired = Array.isArray(cargoOutcome?.missingRequired) ? cargoOutcome.missingRequired : [];
+    const droppedRequired = Array.isArray(cargoOutcome?.droppedRequired) ? cargoOutcome.droppedRequired : [];
+    const notDeliveredRequired = Array.isArray(cargoOutcome?.notDeliveredRequired) ? cargoOutcome.notDeliveredRequired : [];
+    const primaryFailureReason = damagedRequired.length
+        ? `weil wichtige Ausruestung beschaedigt wurde (${damagedRequired.slice(0, 2).join(', ')})`
+        : missingRequired.length
+            ? `weil wichtige Ausruestung fehlte (${missingRequired.slice(0, 2).join(', ')})`
+            : droppedRequired.length
+                ? `weil wichtige Ausruestung verloren ging (${droppedRequired.slice(0, 2).join(', ')})`
+                : notDeliveredRequired.length
+                    ? `weil ${notDeliveredRequired[0]}`
+                    : 'weil wir den Auftrag am Ziel nicht sauber abschliessen konnten';
+    const role = String(pax.role || 'Passagier').trim();
+    return `Danke fuers Mitnehmen. Aus Sicht als ${role} war ${subject} heute noch nicht sauber abgeschlossen, ${primaryFailureReason}. Wollen wir das mit einem klareren zweiten Anlauf noch einmal sauber aufsetzen?`;
 }
 
 window.triggerPaxCargoEvent = async function(event = {}) {
@@ -5181,6 +5236,12 @@ window.triggerPaxFarewell = async function(record) {
         return false;
     }
     _paxFarewellDone = true;
+    const cargoOutcome = record?.missionCargoOutcome || null;
+    const forceFailureFallback = !!(
+        record?.missionFailed
+        || record?.poiAborted
+        || cargoOutcome?.failed
+    );
     const prompt = _farewellPrompt(record);
     if (!prompt) {
         _paxFarewellDone = false;
@@ -5189,6 +5250,22 @@ window.triggerPaxFarewell = async function(record) {
         return false;
     }
     const delayMs = _paxVoiceEnabled ? 3000 : 0;
+    if (forceFailureFallback) {
+        const fallbackText = _failedMissionFarewellFallback(record);
+        const key = _paxMissionAudioKey('farewell-failed');
+        const speaker = _speakerSnapshotForActivePax();
+        _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null });
+        _prepareTextAsTTS(key, fallbackText, speaker);
+        _paxLog(`Farewell → lokaler Failure-Fallback in ${Math.round(delayMs / 1000)}s`, 'event');
+        _paxMissionTimeout(async () => {
+            try {
+                await _speakPreparedText(key, fallbackText, speaker, 'Verabschiedung');
+            } finally {
+                _notifyFarewellSpeechComplete('pax-farewell-complete');
+            }
+        }, delayMs);
+        return true;
+    }
     _paxLog(`Farewell → API-Call in ${Math.round(delayMs / 1000)}s`, 'event');
     _paxMissionTimeout(async () => {
         try {

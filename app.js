@@ -11064,6 +11064,18 @@ function compactMissionPlanV2ForPrompt(planResult = null) {
             targetCategory: String(plan.targetCategory || ''),
             primaryObjective: String(plan.primaryObjective || '').slice(0, 260),
             targetLabel: String(plan.targetLabel || '').slice(0, 120),
+            missionTrigger: String(plan.missionTrigger || '').slice(0, 220),
+            focusSubject: String(plan.focusSubject || '').slice(0, 140),
+            keyQuestion: String(plan.keyQuestion || '').slice(0, 220),
+            missionStakes: String(plan.missionStakes || '').slice(0, 220),
+            completionSignal: String(plan.completionSignal || '').slice(0, 220),
+            storyFrame: (plan.storyFrame && typeof plan.storyFrame === 'object') ? {
+                trigger: String(plan.storyFrame.trigger || '').slice(0, 220),
+                focusSubject: String(plan.storyFrame.focusSubject || '').slice(0, 140),
+                keyQuestion: String(plan.storyFrame.keyQuestion || '').slice(0, 220),
+                stakes: String(plan.storyFrame.stakes || '').slice(0, 220),
+                completionSignal: String(plan.storyFrame.completionSignal || '').slice(0, 220)
+            } : null,
             sceneKind: String(plan.sceneKind || ''),
             sceneDensity: String(plan.sceneDensity || ''),
             requiredAnchors: Array.isArray(plan.requiredAnchors) ? plan.requiredAnchors.slice(0, 6).map(String) : [],
@@ -11113,6 +11125,18 @@ function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds 
         targetCategory: String(rawPlan.targetCategory || draft?.category || '').toLowerCase(),
         primaryObjective: String(rawPlan.primaryObjective || '').trim().slice(0, 360),
         targetLabel: String(rawPlan.targetLabel || draft?.target?.name || '').trim().slice(0, 160),
+        missionTrigger: String(rawPlan.missionTrigger || '').trim().slice(0, 240),
+        focusSubject: String(rawPlan.focusSubject || '').trim().slice(0, 160),
+        keyQuestion: String(rawPlan.keyQuestion || '').trim().slice(0, 240),
+        missionStakes: String(rawPlan.missionStakes || '').trim().slice(0, 240),
+        completionSignal: String(rawPlan.completionSignal || '').trim().slice(0, 240),
+        storyFrame: (rawPlan.storyFrame && typeof rawPlan.storyFrame === 'object') ? {
+            trigger: String(rawPlan.storyFrame.trigger || '').trim().slice(0, 240),
+            focusSubject: String(rawPlan.storyFrame.focusSubject || '').trim().slice(0, 160),
+            keyQuestion: String(rawPlan.storyFrame.keyQuestion || '').trim().slice(0, 240),
+            stakes: String(rawPlan.storyFrame.stakes || '').trim().slice(0, 240),
+            completionSignal: String(rawPlan.storyFrame.completionSignal || '').trim().slice(0, 240)
+        } : null,
         sceneKind: String(rawPlan.sceneKind || '').toLowerCase(),
         sceneDensity: String(rawPlan.sceneDensity || '').toLowerCase(),
         requiredAnchors: Array.isArray(rawPlan.requiredAnchors) ? rawPlan.requiredAnchors.slice(0, 8).map(x => String(x).slice(0, 80)) : [],
@@ -12188,8 +12212,156 @@ function _missionSemanticsV4SortTexts(values = [], semantics = {}, kind = 'facts
         .map(entry => entry.text);
 }
 
+function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolvedNeeds = {}) {
+    const taskDomain = String(semantics?.focusLock?.taskDomain || plan?.taskDomain || 'general').toLowerCase();
+    const targetLabel = String(semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || 'Ziel').trim() || 'Ziel';
+    const category = String(semantics?.focusLock?.targetCategory || plan?.targetCategory || 'generic').toLowerCase();
+    const geoSummary = String(resolvedNeeds?.geo_context?.summary || '').trim();
+    const weather = resolvedNeeds?.weather_snapshot?.dest || resolvedNeeds?.weather_snapshot?.dep || null;
+    const weatherShort = Number.isFinite(Number(weather?.tempC))
+        ? `${Math.round(Number(weather.tempC))}°C`
+        : (String(weather?.fltCat || '').trim() || '');
+    const base = {
+        trigger: `Vor dem Abflug ging fuer ${targetLabel} ein konkreter Auftrag ein, der aus der Luft schneller eingeordnet werden soll.`,
+        focusSubject: targetLabel,
+        keyQuestion: `Welche fuer den Auftrag relevanten Hinweise sind an ${targetLabel} aus der Luft tatsaechlich erkennbar?`,
+        stakes: 'Die Boden- oder Folgecrew braucht ein verwertbares Lagebild, bevor der naechste Schritt festgelegt wird.',
+        completionSignal: 'Nach dem Ueberflug geht das Lagebild mit einer klaren Empfehlung an die zustaendige Folgeinstanz.'
+    };
+    if (taskDomain === 'search_and_rescue') {
+        return {
+            trigger: category === 'water'
+                ? `Rund um ${targetLabel} wird nach einem vermissten Menschen oder einem frischen Hinweis im Uferbereich gesucht; die Leitstelle braucht jetzt ein schnelles Luftlagebild.`
+                : `Im Bereich ${targetLabel} ist eine Person seit dem letzten Check-in ueberfaellig; die Leitstelle will den Suchraum vor dem naechsten Bodenvorstoss aus der Luft eingrenzen.`,
+            focusSubject: category === 'water' ? 'vermisste Person oder frischer Hinweis am Ufer' : 'vermisste Person oder verwertbarer Hinweis im Suchraum',
+            keyQuestion: category === 'water'
+                ? `Ob sich an ${targetLabel} ein Uferzugang, ein Hinweis oder eine Person zeigt, die den Suchraum sofort verengt.`
+                : `Ob sich an ${targetLabel} ein Hinweis, eine Person oder ein sinnvoller Zugang fuer Bodenkraefte erkennen laesst.`,
+            stakes: category === 'water'
+                ? 'Bodenkraefte muessen wissen, welchen Uferzugang oder welche Seite des Weihers sie zuerst anfahren.'
+                : 'Bodenkraefte muessen wissen, welchen Sektor oder Zugang sie sofort priorisieren sollen.',
+            completionSignal: 'Das Luftlagebild geht unmittelbar an Leitstelle und Bodenkraefte, damit der naechste Suchabschnitt festgelegt wird.'
+        };
+    }
+    if (taskDomain === 'inspection_infra') {
+        return {
+            trigger: `Fuer ${targetLabel} liegt eine frische Stoerungs-, Sturm- oder Schadensmeldung vor; vor Ort wird jetzt ein schneller Luftcheck gebraucht.`,
+            focusSubject: targetLabel,
+            keyQuestion: `Ob an ${targetLabel} aus der Luft ein klarer Schaden, eine unauffaellige Lage oder nur ein Verdachtsbereich zu erkennen ist.`,
+            stakes: 'Der Betreiber muss entscheiden, ob Beobachtung reicht oder sofortige Nachpruefung, Sperrung oder Reparatur noetig ist.',
+            completionSignal: 'Der Befund geht nach dem Ueberflug an Betreiber oder Technikteam, zusammen mit einer klaren Erstbewertung.'
+        };
+    }
+    if (taskDomain === 'mapping_survey') {
+        return {
+            trigger: `Fuer ${targetLabel} wird heute eine gezielte Dokumentation gebraucht, bevor der Datensatz oder Planungsstand weiterverarbeitet wird.`,
+            focusSubject: targetLabel,
+            keyQuestion: `Ob ${targetLabel} mit der geplanten Linie und Blickfuehrung sauber und verwertbar erfasst werden kann.`,
+            stakes: 'Ohne brauchbare Aufnahme fehlen Vergleichs- oder Planungsdaten fuer den naechsten Arbeitsschritt.',
+            completionSignal: 'Nach dem Pass geht das Material an Auswertung oder Projektteam zur weiteren Verarbeitung.'
+        };
+    }
+    if (taskDomain === 'news_coverage') {
+        return {
+            trigger: `Die Redaktion braucht zu ${targetLabel} noch heute einen klaren Luftaufhaenger statt nur allgemeiner Archivbilder.`,
+            focusSubject: targetLabel,
+            keyQuestion: `Welcher beobachtbare Kern von ${targetLabel} die Geschichte heute wirklich traegt und was davon aus der Luft sauber belegbar ist.`,
+            stakes: 'Ohne verwertbares Luftbild fehlt der Redaktion die belastbare Einordnung fuer Bericht oder Live-Schalte.',
+            completionSignal: 'Nach dem Ueberflug gehen Bilder und kurze Lageeinschaetzung direkt an die Redaktion.'
+        };
+    }
+    if (taskDomain === 'poi_learning_guide') {
+        return {
+            trigger: `Der Flug soll ${targetLabel} nicht nur zeigen, sondern aus der Luft verstaendlich einordnen.`,
+            focusSubject: targetLabel,
+            keyQuestion: `Welche 1-2 klaren Lernpunkte zu ${targetLabel} sich aus Blick, Lage und Umgebung sinnvoll erklaeren lassen.`,
+            stakes: 'Ohne gute Einordnung bleibt der POI nur eine Ansicht ohne Mehrwert fuer den Piloten.',
+            completionSignal: 'Nach der Runde ist das Ziel fachlich eingeordnet und der Flug kann mit neuem Kontext fortgesetzt werden.'
+        };
+    }
+    if (taskDomain === 'historian_guided_tour') {
+        return {
+            trigger: `Zu ${targetLabel} soll die heutige Landschaft mit einer konkreten historischen Lesart verbunden werden.`,
+            focusSubject: targetLabel,
+            keyQuestion: `Welche historische Bedeutung oder Nutzung von ${targetLabel} sich aus Luftsicht anschaulich erklaeren laesst.`,
+            stakes: 'Ohne Einordnung bleibt der Ort nur Kulisse statt nachvollziehbarer Geschichte.',
+            completionSignal: 'Nach dem Ueberflug steht ein kurzer historischer Takeaway fuer den weiteren Flug bereit.'
+        };
+    }
+    if (taskDomain === 'sightseeing_tour') {
+        return {
+            trigger: `Der Flug zu ${targetLabel} soll heute mehr sein als nur Strecke: Der Blick aufs Ziel ist der eigentliche Anlass.`,
+            focusSubject: targetLabel,
+            keyQuestion: `Welche Perspektive, Struktur oder Stimmung ${targetLabel} aus der Luft besonders lesbar macht.`,
+            stakes: 'Wenn der Zielueberflug beliebig bleibt, verliert der Ausflug seinen eigentlichen Hoehepunkt.',
+            completionSignal: 'Nach dem Ueberflug ist der Aussichtspunkt sauber abgearbeitet und der Flug kann entspannt weitergehen.'
+        };
+    }
+    if (taskDomain === 'cargo_fragile') {
+        return {
+            trigger: `Die empfindliche Sendung fuer ${targetLabel} wird am Ziel in einem engen Zeitfenster weiterverarbeitet.`,
+            focusSubject: 'empfindliche Sendung und sichere Uebergabe',
+            keyQuestion: `Ob die Fracht ruhig, puenktlich und ohne zusaetzliche Belastung am Ziel ankommt.`,
+            stakes: 'Eine schlechte Uebergabe gefaehrdet den naechsten Arbeitsschritt am Ziel.',
+            completionSignal: 'Nach der Landung erfolgt eine ruhige Uebergabe am vereinbarten Punkt.'
+        };
+    }
+    if (taskDomain === 'medical_transfer') {
+        return {
+            trigger: `Am Ziel ${targetLabel} wird medizinisches Personal oder Material zeitnah weiterbenoetigt.`,
+            focusSubject: 'medizinisch sensible Uebergabe',
+            keyQuestion: 'Ob Ankunft, Empfangspunkt und Uebergabe ohne Verzug und ohne unnötige Belastung funktionieren.',
+            stakes: 'Der Folgeablauf am Ziel haengt an einer ruhigen und puenktlichen Uebergabe.',
+            completionSignal: 'Nach der Landung uebernimmt das Zielteam die medizinische Begleitung oder das Material direkt.'
+        };
+    }
+    if (taskDomain === 'animal_transport') {
+        return {
+            trigger: `Am Ziel ${targetLabel} wartet die Weiterbetreuung; der Flug muss fuer Tier und Begleitung ruhig und planbar bleiben.`,
+            focusSubject: 'stressarmer Tiertransport',
+            keyQuestion: 'Ob Anflug und Uebergabe so ruhig bleiben, dass Tier und Begleitung ohne Zusatzstress uebernommen werden koennen.',
+            stakes: 'Unruhe im Ablauf erschwert die Betreuung direkt nach der Landung.',
+            completionSignal: 'Nach dem Rollen uebernimmt die Zielcrew Tier und Begleitmaterial am vorbereiteten Punkt.'
+        };
+    }
+    if (taskDomain === 'fire_watch') {
+        return {
+            trigger: `Fuer ${targetLabel} gibt es einen frischen Hinweis auf Rauch, Hitze oder eine unklare Beobachtung; aus der Luft soll schnell eingeordnet werden, ob mehr dahintersteckt.`,
+            focusSubject: 'moeglicher Rauch- oder Glut-Hinweis',
+            keyQuestion: `Ob sich an ${targetLabel} eine verwertbare Rauchquelle, ein Hotspot oder nur ein Fehlalarm zeigt.`,
+            stakes: 'Die Einsatzentscheidung haengt daran, ob ein echter Brandansatz bestaetigt oder ausgeschlossen werden kann.',
+            completionSignal: 'Nach dem Ueberflug geht eine klare Meldung an Leitstelle oder Beobachtungskette, ob nachalarmiert werden muss.'
+        };
+    }
+    if (taskDomain === 'club_utility' || taskDomain === 'charter' || taskDomain === 'general') {
+        const weatherBit = weatherShort ? ` Bei ${weatherShort} soll die Lage noch heute erledigt werden.` : '';
+        return {
+            trigger: `Der heutige Auftrag nach ${targetLabel} hat einen konkreten Anlass, der den Flug jetzt sinnvoll macht.${weatherBit}`,
+            focusSubject: targetLabel,
+            keyQuestion: `Welche konkrete Aufgabe am Ziel jetzt erledigt oder vorbereitet werden muss.`,
+            stakes: 'Ohne den Flug verschiebt sich der naechste Schritt am Ziel unnoetig.',
+            completionSignal: 'Nach Ankunft oder Ueberflug geht der Auftrag geordnet an die naechste Stelle ueber.'
+        };
+    }
+    if (geoSummary) base.keyQuestion = `${base.keyQuestion} Kontextanker: ${geoSummary}.`;
+    return base;
+}
+
+function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNeeds = {}) {
+    const rawFrame = (plan.storyFrame && typeof plan.storyFrame === 'object') ? plan.storyFrame : {};
+    const defaults = _missionPipelineV4NarrativeDefaults(plan, semantics, resolvedNeeds);
+    return {
+        trigger: _missionPipelineV3Text(rawFrame.trigger || plan.missionTrigger || defaults.trigger, 220),
+        focusSubject: _missionPipelineV3Text(rawFrame.focusSubject || plan.focusSubject || defaults.focusSubject, 140),
+        keyQuestion: _missionPipelineV3Text(rawFrame.keyQuestion || plan.keyQuestion || defaults.keyQuestion, 220),
+        stakes: _missionPipelineV3Text(rawFrame.stakes || plan.missionStakes || defaults.stakes, 220),
+        completionSignal: _missionPipelineV3Text(rawFrame.completionSignal || plan.completionSignal || defaults.completionSignal, 220)
+    };
+}
+
 function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds = {}, debug = {}) {
     const base = sanitizeMissionPlannerV3Result(raw, draft, resolvedNeeds, debug);
+    const rawPlan = (raw?.plan && typeof raw.plan === 'object') ? raw.plan : {};
     const semantics = _missionSemanticsV4Build({
         mode: draft?.mode || base?.plan?.missionType || 'apt',
         taskDomain: base?.plan?.taskDomain || draft?.profile?.taskDomain || 'general',
@@ -12198,6 +12370,15 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         targetName: base?.plan?.targetLabel || draft?.target?.name || '',
         missionTruth: resolvedNeeds?.mission_truth || null
     });
+    const storyFrame = _missionPipelineV4BuildStoryFrame({
+        ...base.plan,
+        missionTrigger: rawPlan.missionTrigger,
+        focusSubject: rawPlan.focusSubject,
+        keyQuestion: rawPlan.keyQuestion,
+        missionStakes: rawPlan.missionStakes,
+        completionSignal: rawPlan.completionSignal,
+        storyFrame: rawPlan.storyFrame
+    }, semantics, resolvedNeeds);
     base.pipelineVersion = MISSION_PIPELINE_V4_PLANNER_VERSION;
     base.plan = {
         ...base.plan,
@@ -12218,7 +12399,13 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
             primarySubjectLabel: semantics.focusLock.primarySubjectLabel,
             primarySubjectType: semantics.focusLock.primarySubjectType,
             taskDomain: base.plan?.taskDomain || semantics.focusLock.taskDomain
-        }
+        },
+        missionTrigger: storyFrame.trigger,
+        focusSubject: storyFrame.focusSubject,
+        keyQuestion: storyFrame.keyQuestion,
+        missionStakes: storyFrame.stakes,
+        completionSignal: storyFrame.completionSignal,
+        storyFrame
     };
     if (semantics.forceSceneNone) {
         base.plan.sceneKind = 'none';
@@ -12314,8 +12501,10 @@ Arbeitsweise:
 5. localFacts, narrativeHooks und operationalDetails muessen aus dem Bundle ableitbar sein.
 6. Bei POI niemals Landung am Ziel andeuten.
 7. Das Zielsubjekt und die TaskDomain bilden einen bindenden Fokus-Lock. Sekundaeranker duerfen nur Kontextrollen aus den semanticsRules uebernehmen.
-8. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
-9. Antworte ausschliesslich als JSON.
+8. Baue immer einen klaren Story-Kern: Ausloeser/Trigger, Fokus-Subjekt, offene Frage am Ziel, Einsatznutzen des Fluges, naechster Handoff.
+9. Du darfst einen realistischen Missionsanlass frei konkretisieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Bundles erfunden werden.
+10. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
+11. Antworte ausschliesslich als JSON.
 </INSTRUKTIONEN>
 
 <DRAFT>
@@ -12342,6 +12531,11 @@ ${JSON.stringify(contextBundle)}
     "requiredAnchors": ["wichtige Platzierungs-/Kontextanker"],
     "objectFamilies": ["semantische Objektgruppen, keine Assetnamen"],
     "placementPolicy": "wie Zielszene logisch gruppiert werden soll",
+    "missionTrigger": "warum der Auftrag gerade jetzt entsteht",
+    "focusSubject": "wer/was konkret im Mittelpunkt steht",
+    "keyQuestion": "welche offene Frage am Ziel beantwortet werden soll",
+    "missionStakes": "warum das Ergebnis wichtig ist",
+    "completionSignal": "welcher Handoff oder Abschluss nach dem Ueberflug folgt",
     "narrativeRules": ["harte Regeln fuer Story/PAX"],
     "localFacts": ["1-4 sichere lokale/contextuelle Fakten"],
     "weatherHooks": ["0-3 knappe Wetteranker"],
@@ -12419,6 +12613,7 @@ function buildMissionContractV4({
         targetName: plannerContext.dest?.n || '',
         missionTruth: plannerResult?.resolvedNeeds?.mission_truth || plannerContext.missionTruth || null
     });
+    const storyFrame = _missionPipelineV4BuildStoryFrame(plan?.plan || {}, semantics, plannerResult?.resolvedNeeds || {});
     return {
         pipelineVersion: MISSION_PIPELINE_V4_VERSION,
         status: String(plan?.status || 'invalid'),
@@ -12450,6 +12645,7 @@ function buildMissionContractV4({
         weather: _missionPipelineV3WeatherBundle(plannerContext.missionWeather || null),
         fireHazard: plannerResult?.resolvedNeeds?.fire_hazard || plannerContext.missionFireHazard || null,
         missionPlan: plan,
+        storyFrame,
         missionTruth: compactMissionTruthForPrompt(
             plannerResult?.resolvedNeeds?.mission_truth || plannerContext.missionTruth || null
         ),
@@ -12477,7 +12673,13 @@ Regeln:
 7. Bei POI niemals Landung am Ziel andeuten.
 8. Das Zielsubjekt und die TaskDomain bleiben bindend; Kontext darf nur anreichern, nicht umwidmen.
 9. Benannte Nebenanker nur dann prominent nutzen, wenn sie in CONTRACT.semantics als Kontextrolle plausibel bleiben.
-10. Antwort nur als JSON.
+10. Die Story muss einen klaren Story-Frame aus CONTRACT.storyFrame transportieren: Trigger, Fokus-Subjekt, offene Frage, Stakes und Abschluss/Handoff.
+11. Du darfst einen plausiblen operativen Anlass frei ausformulieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Contracts behauptet werden.
+12. search_and_rescue: Sag klar, wonach gesucht wird oder welcher Hinweis am Ziel geklaert werden soll.
+13. inspection_infra: Sag klar, warum der Check gerade jetzt stattfindet und was danach mit dem Befund passiert.
+14. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
+15. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
+16. Antwort nur als JSON.
 </INSTRUKTIONEN>
 
 <CONTRACT>
@@ -12487,7 +12689,7 @@ ${JSON.stringify(contract)}
 <OUTPUT>
 {
   "title": "Kurzer Missionstitel",
-  "story": "3-4 Saetze, konkret und lokal plausibel",
+  "story": "3-4 Saetze, konkret, lokal plausibel und mit echtem Missionsanlass",
   "pax": "z.B. 1 PAX (...) oder 0 PAX",
   "cargo": "z.B. Messkoffer (45 lbs)",
   "passenger": {
