@@ -94,9 +94,13 @@ function _missionResolveGroundAction(options = {}) {
     const endReady = options?.endReady ?? (active ? _missionEndReadiness() : null);
     const runtimeGroundEndReady = active ? _missionRuntimeGroundEndReady(endReady) : false;
     const bushProgress = _missionSceneIsBushMission() ? _activeBushMissionProgress() : null;
+    const poiRuntime = _missionSceneIsPoiMission();
     const pickupActionReady = active && _missionBushPickupReadyForAction();
     const pickupConfirmOnly = !!(pickupActionReady && bushProgress?.pickupCompleted && !bushProgress?.pickupConfirmed);
-    const unloadActionReady = active && _missionCargoGroundHandlingAllowed() && _missionCargoNeedsUnload();
+    const unloadActionReady = active
+        && !poiRuntime
+        && _missionCargoGroundHandlingAllowed()
+        && _missionCargoNeedsUnload();
 
     let resolved = null;
     if (missionRuntime.closingPending) {
@@ -448,6 +452,7 @@ function _missionPoiEndedAtHome(endReady = null) {
 }
 
 function _aptArrivalPointForRuntime() {
+    if (_missionSceneIsPoiMission()) return null;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (md?.poiName || (typeof currentDestICAO !== 'undefined' && currentDestICAO === 'POI')) return null;
     const contract = md?.missionContract || window.activeMissionContract || {};
