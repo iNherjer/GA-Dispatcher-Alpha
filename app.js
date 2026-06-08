@@ -3819,13 +3819,13 @@ function getMissionPipelineStoredMode() {
         if (localStorage.getItem(MISSION_PIPELINE_V4_STORAGE_KEY) === 'true') return 'v4';
         if (localStorage.getItem(MISSION_PIPELINE_LEGACY_STORAGE_KEY) === 'true') return 'v2';
         if (localStorage.getItem(MISSION_PIPELINE_V2_STORAGE_KEY) === 'true') return 'v2';
-        return 'v3';
+        return 'v4';
     } catch (_) {
-        return 'v3';
+        return 'v4';
     }
 }
 
-function setMissionPipelineMode(mode = 'v3') {
+function setMissionPipelineMode(mode = 'v4') {
     const raw = String(mode || '').toLowerCase();
     const normalized = raw === 'v2' ? 'v2' : (raw === 'v4' ? 'v4' : 'v3');
     try {
