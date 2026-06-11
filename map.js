@@ -5999,7 +5999,10 @@ function syncMapDrawUi() {
     if (lineBtn) lineBtn.classList.toggle('active', mapDrawState.enabled && mapDrawState.tool === 'line');
     if (eraserToolBtn) eraserToolBtn.classList.toggle('active', mapDrawState.enabled && mapDrawState.tool === 'eraser');
     if (settingsToolBtn) settingsToolBtn.classList.toggle('active', mapDrawState.menuOpen);
-    if (measureToolBtn) measureToolBtn.classList.toggle('active', !!measureMode);
+    if (measureToolBtn) {
+        measureToolBtn.classList.toggle('active', !!measureMode);
+        measureToolBtn.title = `Messen (${measureMode ? 'An' : 'Aus'})`;
+    }
     if (menu) {
         const shouldOpen = mapDrawState.menuOpen;
         menu.classList.toggle('open', shouldOpen);
