@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v254';
-const TRACKER_VERSION_CODE = 254;
+const TRACKER_VERSION = 'v255';
+const TRACKER_VERSION_CODE = 255;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -266,7 +266,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const scenes = new Map();
   let sceneOperationQueue = Promise.resolve();
   let trackerMissionStatus = null;
+  const CREATE_EXCEPTION_GRACE_MS = 900;
+  const LATE_ASSIGNED_RETENTION_MS = 30000;
   const pendingAssign = new Map();
+  const lateAssignedRequests = new Map();
+  const lateAssignedSceneObjects = new Map();
   const pendingPayloadReads = new Map();
   const payloadReadDefCache = new Map();
   const payloadSetDefCache = new Map();
@@ -887,20 +891,78 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     };
   };
 
-  const waitForAssignedObject = (requestId, timeoutMs = 5000) => new Promise((resolve, reject) => {
+  const addLateAssignedSceneObject = (sceneId, obj) => {
+    const key = String(sceneId || '').trim();
+    if (!key || !obj?.objectId) return false;
+    const rec = scenes.get(key);
+    if (rec && Array.isArray(rec.objects)) {
+      if (!rec.objects.some(o => Number(o?.objectId) === Number(obj.objectId))) {
+        rec.objects.push(obj);
+        debugLog(`SCENE_LATE_ASSIGN_ATTACHED scene=${key} kind=${obj.kind || ''} objectId=${obj.objectId} title="${obj.title || ''}"`);
+      }
+      return true;
+    }
+    const list = lateAssignedSceneObjects.get(key) || [];
+    if (!list.some(o => Number(o?.objectId) === Number(obj.objectId))) {
+      list.push(obj);
+      lateAssignedSceneObjects.set(key, list);
+      debugLog(`SCENE_LATE_ASSIGN_BUFFERED scene=${key} kind=${obj.kind || ''} objectId=${obj.objectId} title="${obj.title || ''}"`);
+    }
+    return true;
+  };
+
+  const consumeLateAssignedSceneObjects = (sceneId) => {
+    const key = String(sceneId || '').trim();
+    if (!key) return [];
+    const list = lateAssignedSceneObjects.get(key) || [];
+    lateAssignedSceneObjects.delete(key);
+    return list;
+  };
+
+  const rememberLateAssignableRequest = (requestId, pending, reason = 'failed') => {
+    if (!pending) return;
+    const expiresAt = Date.now() + LATE_ASSIGNED_RETENTION_MS;
+    lateAssignedRequests.set(requestId, {
+      ...(pending.meta || {}),
+      title: pending.title,
+      pos: pending.pos,
+      reason,
+      expiresAt
+    });
+    setTimeout(() => {
+      const rec = lateAssignedRequests.get(requestId);
+      if (rec && rec.expiresAt <= Date.now()) lateAssignedRequests.delete(requestId);
+    }, LATE_ASSIGNED_RETENTION_MS + 1000);
+  };
+
+  const rejectPendingAssign = (requestId, pending, err, reason = 'exception') => {
+    if (!pendingAssign.has(requestId)) return;
+    pendingAssign.delete(requestId);
+    clearTimeout(pending.timer);
+    if (pending.exceptionTimer) clearTimeout(pending.exceptionTimer);
+    rememberLateAssignableRequest(requestId, pending, reason);
+    pending.reject(err instanceof Error ? err : new Error(String(err || reason)));
+  };
+
+  const waitForAssignedObject = (requestId, timeoutMs = 5000, meta = {}) => new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      pendingAssign.delete(requestId);
       const hint = lastExceptions.length ? lastExceptions.splice(0).join(', ') : 'keine Antwort vom Sim';
-      reject(new Error(hint));
+      const pending = pendingAssign.get(requestId);
+      if (pending) rejectPendingAssign(requestId, pending, new Error(hint), 'timeout');
     }, timeoutMs);
-    pendingAssign.set(requestId, { resolve, reject, timer });
+    pendingAssign.set(requestId, { resolve, reject, timer, exceptionTimer: null, title: meta.title || '', pos: meta.pos || null, meta });
   });
 
-  const spawnObject = async (title, pos, timeoutMs = 5000) => {
+  const spawnObject = async (title, pos, timeoutMs = 5000, meta = {}) => {
     const requestId = nextReqId++;
     lastExceptions.length = 0;
-    const waitPromise = waitForAssignedObject(requestId, timeoutMs);
-    handle.aICreateSimulatedObject(title, buildInitPos(pos.lat, pos.lon, pos.altFt, pos.hdg, true), requestId);
+    const waitPromise = waitForAssignedObject(requestId, timeoutMs, { ...meta, title, pos });
+    try {
+      handle.aICreateSimulatedObject(title, buildInitPos(pos.lat, pos.lon, pos.altFt, pos.hdg, true), requestId);
+    } catch (err) {
+      const pending = pendingAssign.get(requestId);
+      if (pending) rejectPendingAssign(requestId, pending, err, 'create-throw');
+    }
     return waitPromise;
   };
 
@@ -938,7 +1000,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     for (const candidate of candidates) {
       try {
         debugLog(`SCENE_TRY scene=${sceneId} kind=${plan.kind} title="${candidate}"`);
-        const objectId = await spawnObject(candidate, plan, timeoutMs);
+        const objectId = await spawnObject(candidate, plan, timeoutMs, {
+          sceneId,
+          plan,
+          requestedTitle: plan.title
+        });
         trackObjectId(objectId);
         const spawnedObj = { objectId, ...plan, title: candidate, requestedTitle: plan.title };
         trackerLog(`  OK scene ${plan.kind}: objectId=${objectId} title="${candidate}"`);
@@ -1710,10 +1776,34 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const ackEnabled = options?.ack !== false;
     const rec = scenes.get(key);
     const missionId = rec?.missionId || rec?.command?.missionId || '';
+    const bufferedLateObjects = !rec ? consumeLateAssignedSceneObjects(key) : [];
     if (!rec || !Array.isArray(rec.objects) || rec.objects.length === 0) {
+      if (bufferedLateObjects.length) {
+        let lateCleared = 0;
+        debugLog(`SCENE_CLEAR_LATE_START scene=${key} reason=${reason} objects=${bufferedLateObjects.length}`);
+        for (const obj of bufferedLateObjects) {
+          try {
+            handle.aIRemoveObject(obj.objectId, nextReqId++);
+            forgetObjectId(obj.objectId);
+            lateCleared++;
+          } catch (err) {
+            debugLog(`SCENE_CLEAR_LATE_ERROR scene=${key} objectId=${obj.objectId} error=${err?.message || err}`);
+          }
+        }
+        debugLog(`SCENE_CLEAR_LATE_OK scene=${key} cleared=${lateCleared} reason=${reason}`);
+        if (ackEnabled) sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: key, missionId, status: lateCleared > 0 ? 'ok' : 'noop', cleared: lateCleared, reason });
+        return { cleared: lateCleared };
+      }
       debugLog(`SCENE_CLEAR_NOOP scene=${key} reason=${reason}`);
       if (ackEnabled) sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: key, missionId, status: 'noop', reason });
       return { cleared: 0 };
+    }
+    const lateObjects = consumeLateAssignedSceneObjects(key);
+    if (lateObjects.length) {
+      for (const obj of lateObjects) {
+        if (!rec.objects.some(o => Number(o?.objectId) === Number(obj.objectId))) rec.objects.push(obj);
+      }
+      debugLog(`SCENE_CLEAR_LATE_MERGED scene=${key} objects=${lateObjects.length}`);
     }
     let cleared = 0;
     debugLog(`SCENE_CLEAR_START scene=${key} reason=${reason} objects=${rec.objects.length}`);
@@ -1838,7 +1928,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       for (const candidate of candidates) {
         try {
           debugLog(`SCENE_TRY scene=${sceneId} kind=${p.kind} title="${candidate}"`);
-          const objectId = await spawnObject(candidate, p, 2200);
+          const objectId = await spawnObject(candidate, p, 2200, {
+            sceneId,
+            plan: p,
+            requestedTitle: p.title
+          });
           const spawnedObj = { objectId, ...p, title: candidate, requestedTitle: p.title };
           objects.push(spawnedObj);
           trackerLog(`  OK scene ${p.kind}: objectId=${objectId} title="${candidate}"`);
@@ -1858,6 +1952,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       if (!spawned) {
         debugLog(`SCENE_SPAWN_ERROR scene=${sceneId} kind=${p.kind} title="${p.title}" candidates=${JSON.stringify(candidates)} error=${lastError?.message || lastError || 'all candidates failed'}`);
       }
+    }
+    const lateObjects = consumeLateAssignedSceneObjects(sceneId);
+    if (lateObjects.length) {
+      for (const obj of lateObjects) {
+        if (!objects.some(o => Number(o?.objectId) === Number(obj.objectId))) objects.push(obj);
+      }
+      debugLog(`SCENE_SPAWN_LATE_MERGED scene=${sceneId} objects=${lateObjects.length}`);
     }
     scenes.set(sceneId, { sceneId, missionId, spawnedAt: Date.now(), command: { ...command }, objects, positions });
     sendAck({
@@ -1975,7 +2076,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         const spawnPos = usePrewarm
           ? { lat: prewarmLat, lon: prewarmLon, altFt: prewarmAltFt, hdg: prewarmHdg }
           : p;
-        const objectId = await spawnObject(p.title, spawnPos, 5000);
+        const objectId = await spawnObject(p.title, spawnPos, 5000, {
+          missionId,
+          plan: p,
+          requestedTitle: p.title
+        });
         trackObjectId(objectId);
         objects.push({ objectId, ...p, spawnedAt: { ...spawnPos }, teleported: !usePrewarm });
         trackerLog(`  OK ${p.kind} site=${p.siteIndex} obj=${p.index}: objectId=${objectId}`);
@@ -2021,7 +2126,24 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     if (pending) {
       pendingAssign.delete(recv.requestID);
       clearTimeout(pending.timer);
+      if (pending.exceptionTimer) clearTimeout(pending.exceptionTimer);
       pending.resolve(recv.objectID);
+      return;
+    }
+    const late = lateAssignedRequests.get(recv.requestID);
+    if (late) {
+      lateAssignedRequests.delete(recv.requestID);
+      const objectId = trackObjectId(recv.objectID);
+      const plan = late.plan || late.pos || {};
+      const spawnedObj = {
+        objectId,
+        ...plan,
+        title: late.title || plan.title,
+        requestedTitle: late.requestedTitle || plan.title || late.title,
+        lateAssigned: true
+      };
+      if (late.sceneId) addLateAssignedSceneObject(late.sceneId, spawnedObj);
+      debugLog(`ASSIGNED_LATE_TRACKED requestId=${recv.requestID} objectId=${objectId} scene=${late.sceneId || ''} kind=${spawnedObj.kind || ''} title="${spawnedObj.title || ''}" reason=${late.reason || ''}`);
     }
   });
 
@@ -2069,10 +2191,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     if (pendingAssign.size > 0) {
       trackerWarn(`[SimConnect Exception] ${name} sendId=${recv.sendId}`);
       const [requestId, pending] = pendingAssign.entries().next().value || [];
-      if (pending) {
-        pendingAssign.delete(requestId);
-        clearTimeout(pending.timer);
-        pending.reject(new Error(name));
+      if (pending && !pending.exceptionTimer) {
+        pending.lastException = name;
+        pending.exceptionTimer = setTimeout(() => {
+          const stillPending = pendingAssign.get(requestId);
+          if (stillPending) rejectPendingAssign(requestId, stillPending, new Error(name), 'exception');
+        }, CREATE_EXCEPTION_GRACE_MS);
       }
     }
     if (pendingPayloadReads.size > 0) {
