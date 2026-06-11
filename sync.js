@@ -7851,8 +7851,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 257;
-const MIN_TRACKER_VERSION_LABEL = 'v257';
+const MIN_TRACKER_VERSION_CODE = 258;
+const MIN_TRACKER_VERSION_LABEL = 'v258';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

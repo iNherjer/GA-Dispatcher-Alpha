@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v257';
-const TRACKER_VERSION_CODE = 257;
+const TRACKER_VERSION = 'v258';
+const TRACKER_VERSION_CODE = 258;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -2258,7 +2258,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       if (type === 'mission_scene_object_remove') {
         const sceneId = command?.sceneId || 'mission-scene';
         debugLog(`COMMAND mission_scene_object_remove scene=${sceneId} kinds=${Array.isArray(command?.kinds) ? command.kinds.join(',') : (command?.kind || '')}`);
-        enqueueSceneOperation(sceneId, () => removeSceneObjectsBySelector(command)).catch(err => {
+        removeSceneObjectsBySelector(command).catch(err => {
           trackerWarn(`⚠️  Scene object remove failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_object_remove_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', missionId: command?.missionId || '', status: 'error', error: err?.message || String(err) });
         });
@@ -2267,7 +2267,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       if (type === 'mission_scene_object_spawn') {
         const sceneId = command?.sceneId || 'mission-scene';
         debugLog(`COMMAND mission_scene_object_spawn scene=${sceneId} items=${Array.isArray(command?.items) ? command.items.length : 0}`);
-        enqueueSceneOperation(sceneId, () => spawnSceneObjectsAppend(command)).catch(err => {
+        spawnSceneObjectsAppend(command).catch(err => {
           trackerWarn(`⚠️  Scene object spawn failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_object_spawn_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', missionId: command?.missionId || '', status: 'error', error: err?.message || String(err) });
         });
