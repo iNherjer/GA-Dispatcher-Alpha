@@ -6200,6 +6200,20 @@ function clearMapDrawings() {
     showMapToast('Zeichnungen gelöscht', 1600);
 }
 
+function addMapDrawLineLabel(line, start, end) {
+    if (!mapDrawState.layer || !line || !start || !end) return null;
+    const nav = calcNav(start.lat, start.lng || start.lon, end.lat, end.lng || end.lon);
+    const centerLat = (start.lat + end.lat) / 2;
+    const centerLng = ((start.lng || start.lon) + (end.lng || end.lon)) / 2;
+    const labelText = `<div style="font-weight:bold; font-size:14px; color:#111; text-align:center; line-height:1.2;">${nav.brng}°<br>${formatNm(nav.dist)} NM</div>`;
+    const label = L.tooltip({ permanent: true, direction: 'center', className: 'measure-label' })
+        .setLatLng([centerLat, centerLng])
+        .setContent(labelText)
+        .addTo(mapDrawState.layer);
+    line._mapDrawLabel = label;
+    return label;
+}
+
 function getMapDrawLayerPointDistance(latlng, layer) {
     if (!map || !layer || typeof layer.getLatLngs !== 'function') return Infinity;
     const target = map.latLngToLayerPoint(latlng);
@@ -6244,6 +6258,10 @@ function eraseMapDrawingAt(latlng, silent = false) {
         if (!silent) showMapToast('Kein Strich getroffen', 1100);
         return false;
     }
+    if (bestLayer._mapDrawLabel) {
+        mapDrawState.layer.removeLayer(bestLayer._mapDrawLabel);
+        bestLayer._mapDrawLabel = null;
+    }
     mapDrawState.layer.removeLayer(bestLayer);
     mapDrawState.drawings = mapDrawState.drawings.filter(layer => layer !== bestLayer);
     if (!silent) showMapToast('Strich gelöscht', 1000);
@@ -6267,7 +6285,9 @@ function handleMapDrawMapClick(e) {
         showMapToast('Endpunkt setzen', 1400);
         return true;
     }
-    const line = L.polyline([mapDrawState.lineStart, e.latlng], getMapDrawStyle()).addTo(mapDrawState.layer);
+    const lineStart = mapDrawState.lineStart;
+    const line = L.polyline([lineStart, e.latlng], getMapDrawStyle()).addTo(mapDrawState.layer);
+    addMapDrawLineLabel(line, lineStart, e.latlng);
     mapDrawState.drawings.push(line);
     mapDrawState.lineStart = null;
     clearMapDrawPreview();
