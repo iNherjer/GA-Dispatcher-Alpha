@@ -3790,6 +3790,9 @@ function _missionTargetSceneKind() {
     if (/(staudamm|talsperre|damm|dam\b|wasserreservoir)/.test(text)) return 'infra_dam';
     if (/(industrie|werk|fabrik|raffinerie|anlage|industry|industrial)/.test(text)) return 'industry_site';
     if (taskDomain === 'search_and_rescue' || /(sar|rettung|seenot|vermisst|liferaft|rettungsinsel|notlage)/.test(text)) {
+        const sarRoadIncident = /(road_collision|intersection_accident|intersection_crash|traffic_accident|verkehrsunfall|kollision|crash|unfallstelle|mehrere fahrzeuge|fahrzeugkollision|kreuzung|intersection)/.test(text)
+            && /(strasse|straße|road|verkehr|fahrzeug|auto|pkw|kreuzung|intersection|zufahrt)/.test(text);
+        if (sarRoadIncident) return 'road_incident';
         return /(see|lake|fluss|river|meer|sea|wasser|water|boot|boat|ship|schiff|kueste|küste|insel|liferaft|rettungsinsel)/.test(text) ? 'sar_water' : 'sar_land';
     }
     if (/(gewaesser|gewässer|verschmutz|oel|öl|alge|wasserprobe|ufer|see|fluss|river|lake)/.test(text) && /(science|bio|umwelt|probe|verschmutz|alge|oel|öl)/.test(text)) return 'water_pollution';
@@ -4064,6 +4067,15 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
     if (/(zelt|camp|camping|ufercamp|trailer|wohnwagen)/.test(text)) add('tent');
     if (/(parkendes auto|auto am ufer|uferparkplatz|shore car|parked car)/.test(text)) add('parked_vehicle');
     if (/(picknick|picnic|ausruestung|ausrüstung|kiste|box|kleine ladung)/.test(text)) add('small_equipment');
+    if (kind === 'sar_land' && /(vehicle_off_road|fahrzeugabkommen|von der strasse abgekommen|von der straße abgekommen|fahrzeugunfall|fahrzeughinweis|fahrzeugspuren|reifenspur|boeschungsschaden|böschungsschaden|glas|reflektion|pkw|kleinwagen|motorrad)/.test(text)) {
+        add('parked_vehicle');
+        add('small_equipment');
+    }
+    if (kind === 'road_incident' && /(road_collision|intersection_accident|intersection_crash|traffic_accident|verkehrsunfall|kollision|crash|unfallstelle|mehrere fahrzeuge|fahrzeugkollision|kreuzung|intersection)/.test(text)) {
+        add('road_vehicles');
+        add('people');
+        if (/(rauch|smoke|qualm)/.test(text)) add('smoke_light');
+    }
     if (/(lagerfeuer|campfire|firepit|feuerstelle)/.test(text)) add('campfire');
     if (/(bus|shuttle)/.test(text)) add('bus');
     return out;

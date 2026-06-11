@@ -909,7 +909,7 @@ function parseMissionPickerValue(raw) {
 function missionTaskPoiCategoryPolicy(profileId = 'auto') {
     const id = String(profileId || 'auto').toLowerCase();
     const policies = {
-        search_and_rescue: ['mountain', 'water', 'road'],
+        search_and_rescue: ['mountain', 'forest', 'water', 'road'],
         mapping_survey: ['infrastructure', 'industry', 'road', 'bridge', 'dam'],
         inspection_infra: ['infrastructure', 'bridge', 'dam', 'telecom', 'industry', 'road'],
         fire_watch: ['fire'],
@@ -1658,7 +1658,7 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
 
 function buildOfflinePoiMissionPool(selectedPoiCategory = 'all', dispatchProfileId = 'auto', poiName = 'Zielgebiet') {
     const profileId = String(dispatchProfileId || 'auto').toLowerCase();
-    const poiCategories = ['bridge', 'road', 'dam', 'telecom', 'industry', 'infrastructure', 'castle', 'water', 'mountain', 'city', 'generic'];
+    const poiCategories = ['bridge', 'road', 'dam', 'telecom', 'industry', 'infrastructure', 'castle', 'water', 'mountain', 'forest', 'city', 'generic'];
     const requestedCategory = String(selectedPoiCategory || 'all').toLowerCase();
     const rolledCategory = (requestedCategory === 'all')
         ? poiCategories[Math.floor(Math.random() * poiCategories.length)]
@@ -5438,6 +5438,15 @@ function _poiFeatureMatchesCategory(feature, category) {
             )
         )
     );
+    const isForest = (
+        !isTransportCorridor && !isSettlementOnly && (
+            t.natural === 'wood' ||
+            t.landuse === 'forest' ||
+            _hasWordToken(n, 'wald') ||
+            _hasWordToken(n, 'forst') ||
+            _hasWordToken(n, 'forest')
+        )
+    );
     const isCastle = (
         ['castle', 'ruins', 'fort', 'monument'].includes(t.historic) ||
         (!isTransportCorridor && t.tourism === 'attraction' && (_hasWordToken(n, 'burg') || _hasWordToken(n, 'schloss'))) ||
@@ -5487,6 +5496,7 @@ function _poiFeatureMatchesCategory(feature, category) {
     if (cat === 'telecom') return isTelecom;
     if (cat === 'bridge') return isBridge;
     if (cat === 'mountain') return isMountain;
+    if (cat === 'forest') return isForest;
     if (cat === 'castle') return isCastle;
     if (cat === 'city') return isCity;
     if (cat === 'industry') return isIndustry;
@@ -5512,7 +5522,7 @@ function _poiInferCategoryFromFeature(feature) {
     );
     if (placeOnly) return 'city';
     if (_poiIsSettlementOnlyFeature(feature)) return 'city';
-    const order = ['dam', 'water', 'telecom', 'bridge', 'road', 'castle', 'mountain', 'industry', 'city', 'infrastructure', 'fire'];
+    const order = ['dam', 'water', 'telecom', 'bridge', 'road', 'castle', 'mountain', 'forest', 'industry', 'city', 'infrastructure', 'fire'];
     for (const cat of order) {
         if (_poiFeatureMatchesCategory(feature, cat)) return cat;
     }
@@ -5572,6 +5582,13 @@ function _poiFeatureScore(feature, category) {
         if (!_hasWordToken(n, 'anlage') && !_hasWordToken(n, 'mast') && !_hasWordToken(n, 'werk') && !_hasWordToken(n, 'umspannwerk') && !_hasWordToken(n, 'bahn') && !_hasWordToken(n, 'leitung') && !_hasWordToken(n, 'trasse')) score -= 2;
     } else if (cat === 'mountain') {
         if (['peak', 'valley', 'cliff', 'ridge'].includes(t.natural)) score += 6;
+    } else if (cat === 'forest') {
+        if (t.natural === 'wood') score += 9;
+        if (t.landuse === 'forest') score += 9;
+        if (_hasWordToken(n, 'wald')) score += 6;
+        if (_hasWordToken(n, 'forst')) score += 5;
+        if (_poiIsHumanMemorialFeature(feature)) score -= 12;
+        if (['city', 'town', 'suburb', 'neighbourhood', 'quarter'].includes(String(t.place || '').toLowerCase())) score -= 6;
     } else if (cat === 'castle') {
         if (['castle', 'ruins', 'fort', 'monument'].includes(t.historic)) score += 7;
     } else if (cat === 'industry') {
@@ -8805,6 +8822,10 @@ function normalizeMissionTargetSceneFeature(value) {
         measuring_equipment: 'small_equipment',
         measurement_equipment: 'small_equipment',
         field_equipment: 'small_equipment',
+        ground_clue: 'small_equipment',
+        search_clue: 'small_equipment',
+        clue: 'small_equipment',
+        hinweis: 'small_equipment',
         sensor: 'small_equipment',
         sensors: 'small_equipment',
         messgeraet: 'small_equipment',
@@ -8821,6 +8842,8 @@ function normalizeMissionTargetSceneFeature(value) {
         light_smoke: 'smoke_light',
         signal_smoke: 'signal_smoke',
         smoke_signal: 'signal_smoke',
+        signal_marker: 'signal_smoke',
+        signal_marking: 'signal_smoke',
         rauchsignal: 'signal_smoke',
         signalrauch: 'signal_smoke',
         farbiger_rauch: 'signal_smoke',
@@ -9283,6 +9306,16 @@ function sanitizeMissionTargetSceneSpec(raw, { isPOI = false, taskDomain = '', t
         .slice(0, 10);
     if (planDirective?.objectFamilies?.length && features.length === 0) {
         features = planDirective.objectFamilies.slice(0, 10);
+    } else if (task === 'search_and_rescue' && planDirective?.sceneKind === kind && planDirective?.objectFamilies?.length) {
+        features = [...new Set([
+            ...features,
+            ...planDirective.objectFamilies
+                .map(normalizeMissionTargetSceneFeature)
+                .filter(Boolean)
+                .filter(feature => missionSceneSpecialFeatureAllowed(feature, { powerlineAllowed, windTurbineAllowed }))
+                .filter(feature => planFeatureAllowed(feature))
+                .filter(feature => !suppressNatureRoadNoise || !noisyNatureFeatures.has(feature))
+        ])].slice(0, 10);
     }
     const rolesRaw = Array.isArray(src.roles) ? src.roles : (Array.isArray(src.sceneRoles) ? src.sceneRoles : []);
     const allowedRoles = new Set([
@@ -9765,7 +9798,7 @@ function missionTruthCategoryGeometryMode(category = '', taskDomain = '') {
     if (cat === 'bridge') return 'structure';
     if (cat === 'road' || cat === 'rail') return 'corridor';
     if (cat === 'industry') return 'facility_area';
-    if (cat === 'water' || cat === 'mountain') return 'area';
+    if (cat === 'water' || cat === 'mountain' || cat === 'forest') return 'area';
     if (cat === 'fire' || task === 'fire_watch') return 'search_area';
     if (cat === 'infrastructure') return 'broad_infrastructure';
     if (task.includes('search_and_rescue')) return 'search_area';
@@ -9775,7 +9808,7 @@ function missionTruthCategoryGeometryMode(category = '', taskDomain = '') {
 function missionTruthIsNatureTask(category = '', taskDomain = '') {
     const cat = String(category || '').toLowerCase();
     const task = String(taskDomain || '').toLowerCase();
-    return cat === 'fire' || cat === 'mountain' || task === 'fire_watch' || task.includes('science_bio');
+    return cat === 'fire' || cat === 'mountain' || cat === 'forest' || task === 'fire_watch' || task.includes('science_bio');
 }
 
 function missionTargetVisualProminence(missionData = null, geoContext = null) {
@@ -9798,7 +9831,7 @@ function missionTargetVisualProminence(missionData = null, geoContext = null) {
     if (highTags || prominentCats.has(cat)) {
         return { level: lowName || lowTags ? 'medium' : 'high', reason: `target-category:${cat || 'unknown'}` };
     }
-    if (lowName || lowTags || cat === 'generic' || cat === 'mountain') {
+    if (lowName || lowTags || cat === 'generic' || cat === 'mountain' || cat === 'forest') {
         const hasNearbyVisual = (Array.isArray(geoContext?.visualLandmarks) ? geoContext.visualLandmarks : [])
             .some(lm => Number(lm?.distM) <= MISSION_TARGET_VISUAL_LANDMARK_RADIUS_M);
         return {
@@ -9824,7 +9857,7 @@ function missionTruthAnchorForCategory(ctx = null, category = '', taskDomain = '
     if (cat === 'road') lists.push(['road', 'parking']);
     if (cat === 'rail') lists.push(['railway', 'rail', 'road']);
     if (cat === 'fire' || task === 'fire_watch') lists.push(['forest', 'meadow', 'farmland', 'water']);
-    if (task.includes('search_and_rescue') && (cat === 'mountain' || cat === 'fire' || cat === 'generic')) {
+    if (task.includes('search_and_rescue') && (cat === 'mountain' || cat === 'forest' || cat === 'fire' || cat === 'generic')) {
         lists.push(['forest', 'meadow', 'farmland', 'road', 'water']);
     }
     if (natureTask && (cat === 'fire' || task === 'fire_watch')) lists.push(['forest', 'meadow', 'farmland', 'water']);
@@ -9870,7 +9903,7 @@ function missionTruthBaseVisibleCues(ctx = null, category = '', taskDomain = '')
     const hasContextAnchors = !!ctx && Object.keys(anchors).length > 0;
     const add = cue => { if (cue && !cues.includes(cue)) cues.push(cue); };
     if (natureTask) {
-        if (anchors.forest || (!hasContextAnchors && (cat === 'fire' || cat === 'mountain'))) add('Waldrand');
+        if (anchors.forest || (!hasContextAnchors && (cat === 'fire' || cat === 'mountain' || cat === 'forest'))) add('Waldrand');
         if (anchors.meadow || anchors.farmland) add('offenes Gelaende');
         if (anchors.water) add('Wasserflaeche oder Uferlinie');
         return cues.slice(0, 3);
@@ -12159,6 +12192,20 @@ const MISSION_SEMANTICS_V4_RULESET = {
             ],
             writer: ['Natürlicher Such- oder Beobachtungsraum bleibt im Vordergrund.']
         },
+        forest: {
+            planner: [
+                'Wald, Waldrand oder Lichtung bleiben Primärsubjekt.',
+                'Strassen, Wege oder Gebaeude sind nur Zugang, Orientierung oder Suchkante.'
+            ],
+            writer: ['Wald- oder Waldrandbezug bleibt sichtbar und narrativ fuehrend.']
+        },
+        fire: {
+            planner: [
+                'Rauch-, Brand- oder Hotspotverdacht bleibt Primärsubjekt.',
+                'Wald, Hang, Feld oder Gewaesser sind nur Lagekontext fuer die Feuerwacht.'
+            ],
+            writer: ['Rauch- oder Brandverdacht bleibt sichtbar und narrativ fuehrend.']
+        },
         city: {
             planner: [
                 'Die gewaehlt​e Ortsidentitaet bleibt Primärsubjekt.',
@@ -12180,9 +12227,11 @@ const MISSION_SEMANTICS_V4_RULESET = {
 function _missionSemanticsV4NormalizeCategory(value = '') {
     const raw = String(value || '').trim().toLowerCase();
     if (!raw) return 'generic';
-    if (['bridge', 'water', 'mountain', 'city', 'castle'].includes(raw)) return raw;
+    if (['bridge', 'water', 'mountain', 'forest', 'fire', 'city', 'castle'].includes(raw)) return raw;
     if (/lake|river|shore|dam|reservoir|basin|water/.test(raw)) return 'water';
-    if (/mountain|ridge|summit|terrain|forest|fire/.test(raw)) return 'mountain';
+    if (/fire|brand|rauch|smoke|hotspot/.test(raw)) return 'fire';
+    if (/forest|wood|wald|forst/.test(raw)) return 'forest';
+    if (/mountain|ridge|summit|terrain|peak|cliff|hill/.test(raw)) return 'mountain';
     if (/town|village|city|settlement/.test(raw)) return 'city';
     if (/ruin|fort|castle|schloss|burg/.test(raw)) return 'castle';
     return 'generic';
@@ -12278,6 +12327,138 @@ function _missionPipelineV4PickEntry(values = []) {
     if (!src.length) return null;
     return src[Math.floor(Math.random() * src.length)] ?? src[0] ?? null;
 }
+
+function missionSarCanonicalIncidentType(incidentType = '') {
+    const raw = String(incidentType || '').trim().toLowerCase();
+    return ({
+        overdue_person: 'missing_hiker',
+        missing_person: 'missing_hiker',
+        lost_person: 'missing_hiker',
+        hiker_missing: 'missing_hiker',
+        fall_injury: 'fallen_climber',
+        climbing_accident: 'fallen_climber',
+        vehicle_accident: 'vehicle_off_road',
+        vehicle_crash: 'vehicle_off_road',
+        car_off_road: 'vehicle_off_road',
+        road_accident: 'road_collision',
+        traffic_accident: 'road_collision',
+        intersection_accident: 'road_collision',
+        intersection_crash: 'road_collision',
+        road_collision: 'road_collision',
+        downed_aircraft: 'downed_ultralight',
+        aircraft_search: 'downed_ultralight',
+        plane_crash: 'downed_ultralight',
+        water_rescue: 'missing_kayaker',
+        kayak_missing: 'missing_kayaker',
+        boat_missing: 'small_boat_overdue'
+    })[raw] || raw;
+}
+
+function missionSarIncidentCategoryKey(category = '', targetLabel = '') {
+    const cat = String(category || '').trim().toLowerCase();
+    const target = String(targetLabel || '').trim().toLowerCase();
+    if (/water|river|lake|stream|reservoir|canal|harbor|dam/.test(cat)) return 'water';
+    if (/road|highway|parking|pass|intersection/.test(cat)) return 'road';
+    if (/forest|fire/.test(cat)) return 'forest';
+    if (/mountain|viewpoint|peak|trail|hill|cliff|rock|terrain/.test(cat)) return 'mountain';
+    if (/(see|lake|fluss|river|ufer|wasser|water|boot|boat|kajak|kayak|hafen|harbor)/.test(target)) return 'water';
+    if (/(strasse|straße|road|kreuzung|abzweig|intersection|junction|zufahrt|auffahrt|ausfahrt|pass|parkplatz|parking)/.test(target)) return 'road';
+    if (/(wald|forst|forest|lichtung|clearing)/.test(target)) return 'forest';
+    if (/(berg|gipfel|hang|ridge|trail|pfad|kletter|cliff|fels)/.test(target)) return 'mountain';
+    return 'land';
+}
+
+function missionSarIncidentIdsForCategory(category = '', targetLabel = '') {
+    const key = missionSarIncidentCategoryKey(category, targetLabel);
+    const target = String(targetLabel || '').trim().toLowerCase();
+    const matrix = {
+        water: ['missing_kayaker', 'angler_missing', 'small_boat_overdue', 'riverside_vehicle_entry'],
+        road: ['vehicle_off_road', 'road_collision', 'missing_hiker'],
+        forest: ['missing_hiker', 'vehicle_off_road', 'downed_ultralight', 'fallen_climber'],
+        mountain: ['missing_hiker', 'fallen_climber', 'downed_ultralight'],
+        land: ['missing_hiker', 'fallen_climber', 'downed_ultralight']
+    };
+    const ids = matrix[key] || matrix.land;
+    if (key === 'road' && /(kreuzung|intersection|junction|abzweig|zufahrt|auffahrt|ausfahrt|anschluss)/.test(target)) {
+        return ['road_collision', 'vehicle_off_road', 'missing_hiker'];
+    }
+    return ids.slice();
+}
+window.missionSarIncidentIdsForCategory = missionSarIncidentIdsForCategory;
+
+function missionSarIncidentSceneProfile(incidentType = '', { category = '', targetLabel = '' } = {}) {
+    const cat = String(category || '').trim().toLowerCase();
+    const target = String(targetLabel || '').trim().toLowerCase();
+    const id = missionSarCanonicalIncidentType(incidentType);
+    const roadLike = /road|highway|parking|pass|intersection/.test(cat) || /(strasse|straße|road|kreuzung|abzweig|intersection|junction|zufahrt|auffahrt|ausfahrt)/.test(target);
+    const profiles = {
+        missing_hiker: {
+            sceneKind: 'sar_land',
+            sceneDensity: 'sparse',
+            objectFamilies: ['missing_person', 'small_equipment'],
+            requiredAnchors: ['search_area', 'forest_edge_or_clearing', 'path_or_trail'],
+            placementPolicy: 'SAR-Personensuche: Ziel ist Person oder klarer Bodenhinweis; Fahrzeuge nur als Support, wenn der Auftrag sie nennt.'
+        },
+        fallen_climber: {
+            sceneKind: 'sar_land',
+            sceneDensity: 'sparse',
+            objectFamilies: ['missing_person', 'small_equipment', 'debris'],
+            requiredAnchors: ['search_area', 'slope_or_edge', 'forest_edge_or_clearing'],
+            placementPolicy: 'SAR-Absturzlage: Person, Ausruestung oder Abrutsch-/Debris-Hinweis stehen im Suchraum; keine fertige Rettungsszene erfinden.'
+        },
+        downed_ultralight: {
+            sceneKind: 'debris_field',
+            sceneDensity: 'sparse',
+            objectFamilies: ['debris', 'smoke_light', 'small_equipment'],
+            requiredAnchors: ['search_area', 'clearing_or_edge'],
+            placementPolicy: 'SAR-Luftfahrzeuglage: Wrack-/Debris-Hinweise und ggf. leichter Rauch bilden den Primaerbefund fuer die Leitstelle.'
+        },
+        vehicle_off_road: {
+            sceneKind: 'sar_land',
+            sceneDensity: 'sparse',
+            objectFamilies: ['parked_vehicle', 'small_equipment', 'missing_person'],
+            requiredAnchors: roadLike ? ['road', 'roadside', 'forest_edge_or_clearing'] : ['search_area', 'forest_edge_or_clearing', 'path_or_trail'],
+            placementPolicy: 'SAR-Fahrzeugabkommen: ein Fahrzeug oder Fahrzeughinweis am Strassenrand, Hang oder Waldrand ist Primaerziel; Person und Kleinteile nur als naheliegende Suchhinweise.'
+        },
+        road_collision: {
+            sceneKind: 'road_incident',
+            sceneDensity: 'normal',
+            objectFamilies: ['road_vehicles', 'people', 'smoke_light'],
+            requiredAnchors: ['road', 'intersection_or_roadside', 'access'],
+            placementPolicy: 'SAR-Verkehrslage: Unfallfahrzeuge, Personen und ggf. Rauch werden als Lagebild fuer Leitstelle/Bodenkraefte begutachtet; die Strasse oder Kreuzung ist das Primaerziel.'
+        },
+        missing_kayaker: {
+            sceneKind: 'sar_water',
+            sceneDensity: 'sparse',
+            objectFamilies: ['liferaft', 'watercraft', 'missing_person', 'small_equipment'],
+            requiredAnchors: ['waterline', 'shore_access'],
+            placementPolicy: 'Wasser-SAR: Rettungsinsel, kleines Boot, Person oder Uferhinweis bleiben sparsam und an Wasser/Ufer gebunden.'
+        },
+        angler_missing: {
+            sceneKind: 'sar_water',
+            sceneDensity: 'sparse',
+            objectFamilies: ['liferaft', 'missing_person', 'small_equipment'],
+            requiredAnchors: ['waterline', 'shore_access'],
+            placementPolicy: 'Ufer-SAR: Person oder Ausruestung am Ufer ist der Suchhinweis; grosse Schiffe nur bei klarer Kuesten-/Hafenlage.'
+        },
+        small_boat_overdue: {
+            sceneKind: 'sar_water',
+            sceneDensity: 'sparse',
+            objectFamilies: ['liferaft', 'watercraft'],
+            requiredAnchors: ['water', 'waterline'],
+            placementPolicy: 'Boots-SAR: kleines Boot oder Rettungsinsel ist der sichtbare Befund auf dem Wasser; Support bleibt optional.'
+        },
+        riverside_vehicle_entry: {
+            sceneKind: 'sar_water',
+            sceneDensity: 'sparse',
+            objectFamilies: ['liferaft', 'small_equipment'],
+            requiredAnchors: ['waterline', 'roadside', 'shore_access'],
+            placementPolicy: 'Ufer-Fahrzeuglage: Wasser-/Uferhinweis und Zugriffspunkt stehen im Fokus; kein grosses Rettungsschiff auf Seen erzwingen.'
+        }
+    };
+    return profiles[id] || null;
+}
+window.missionSarIncidentSceneProfile = missionSarIncidentSceneProfile;
 
 function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel = 'Ziel' } = {}) {
     const cat = String(category || 'generic').toLowerCase();
@@ -12476,7 +12657,7 @@ function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel 
             subjectDetail: _missionPipelineV4PickOne([
                 'einem vermissten Ultraleichtflugzeug mit letzter unklarer Sichtmeldung im Hoehenzug',
                 'einer kleinen Echo- oder UL-Maschine, die nach dem letzten Funkkontakt aus dem Suchbild verschwand',
-                'einem Luftfahrzeug, dessen letzter Sicht- oder Funkkontakt auf den Korridor bei ${targetLabel} weist'
+                `einem Luftfahrzeug, dessen letzter Sicht- oder Funkkontakt auf den Korridor bei ${targetLabel} weist`
             ]),
             lastSeenContext: _missionPipelineV4PickOne([
                 `Der letzte Funk- oder Sichtkontakt wurde im Korridor um ${targetLabel} gemeldet.`,
@@ -12529,19 +12710,41 @@ function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel 
             keyQuestion: `Ob sich an ${targetLabel} ein Fahrzeug, ein Unfallhinweis oder ein sinnvoller Zugriffspunkt fuer die Suchtrupps erkennen laesst.`,
             stakes: 'Die Rettung muss wissen, welchen Strassenrand oder Hangabschnitt sie zuerst absichern und anfahren soll.',
             visibleClueCandidates: ['Reifenspur oder Boeschungsschaden', 'Glas oder Reflektion', 'Fahrzeug im Waldsaum', 'geeigneter Zufahrtsabschnitt']
+        }),
+        pack({
+            incidentType: 'road_collision',
+            trigger: `Im Bereich ${targetLabel} wird eine unklare Verkehrslage gemeldet; die Leitstelle braucht aus der Luft eine schnelle Einordnung der Unfallstelle.`,
+            subjectDetail: _missionPipelineV4PickOne([
+                'mehreren Fahrzeugen nach einer moeglichen Kollision im Strassen- oder Kreuzungsbereich',
+                'einer gemeldeten Unfallstelle mit unklarer Zahl beteiligter Fahrzeuge',
+                'einem Strassenabschnitt, an dem Rauch, stehende Fahrzeuge oder Personen auf der Fahrbahn gemeldet wurden'
+            ]),
+            lastSeenContext: _missionPipelineV4PickOne([
+                `Die letzte Meldung setzt den Schwerpunkt direkt an den Strassenabschnitt bei ${targetLabel}.`,
+                `Eine Zeugenmeldung nennt den Kreuzungs- oder Zufahrtsbereich um ${targetLabel}.`,
+                `Die Leitstelle hat nur eine grobe Position an ${targetLabel}, aber noch kein sauberes Lagebild.`
+            ]),
+            probableScenario: _missionPipelineV4PickOne([
+                'Kollision oder Folgeunfall mit mehreren Fahrzeugen und unklarer Fahrbahnlage.',
+                'Unfallstelle mit Rauchentwicklung, Personen im Umfeld und moeglicher Blockade fuer Rettungskraefte.',
+                'Verkehrsunfall an einer Kreuzung oder Zufahrt, dessen Ausmass vom Boden noch nicht sicher erfasst ist.'
+            ]),
+            incidentContext: _missionPipelineV4PickOne([
+                `Mehrere kurze Meldungen aus dem Bereich ${targetLabel} passen zu einer Unfalllage, widersprechen sich aber zur genauen Position.`,
+                `Die Leitstelle braucht fuer ${targetLabel} eine erste Sichtmeldung, bevor Bodenkraefte gezielt in den Abschnitt geschickt werden.`,
+                `Der Verkehrsraum um ${targetLabel} ist aktuell der wahrscheinlichste Einsatzort, aber Ausmass und Zufahrt sind unklar.`
+            ]),
+            whyNow: 'Vor dem Anruecken weiterer Kraefte muss klar sein, ob Fahrzeuge, Rauch, Personen oder blockierte Zufahrten sichtbar sind.',
+            soughtOutcome: 'Wir sollen Anzahl und Lage der Fahrzeuge, sichtbare Personen, Rauch und die beste Zufahrt fuer die Bodenkraefte melden.',
+            focusSubject: 'unklare Verkehrsunfalllage im Strassen- oder Kreuzungsbereich',
+            keyQuestion: `Ob sich bei ${targetLabel} eine konkrete Unfallstelle mit Fahrzeugen, Personen, Rauch oder blockierter Zufahrt erkennen laesst.`,
+            stakes: 'Die Leitstelle muss entscheiden, welche Kraefte anfahren und welcher Abschnitt gesperrt oder priorisiert wird.',
+            visibleClueCandidates: ['mehrere Fahrzeuge', 'Personen an der Unfallstelle', 'leichter Rauch', 'blockierte oder freie Zufahrt']
         })
     ];
-    const mountainousCategories = new Set(['mountain', 'forest', 'viewpoint', 'peak', 'trail', 'hill', 'cliff', 'rock']);
-    const waterCategories = new Set(['water', 'river', 'lake', 'stream', 'reservoir', 'canal', 'harbor']);
-    const roadCategories = new Set(['road', 'highway', 'parking', 'pass', 'intersection']);
-    let pool = landFamilies;
-    if (waterCategories.has(cat)) {
-        pool = waterFamilies;
-    } else if (roadCategories.has(cat)) {
-        pool = landFamilies.filter(item => item.incidentType === 'vehicle_off_road' || item.incidentType === 'missing_hiker');
-    } else if (mountainousCategories.has(cat)) {
-        pool = landFamilies.filter(item => item.incidentType !== 'vehicle_off_road');
-    }
+    const allowedIncidentIds = missionSarIncidentIdsForCategory(cat, targetLabel);
+    const incidentPool = [...waterFamilies, ...landFamilies];
+    const pool = incidentPool.filter(item => allowedIncidentIds.includes(missionSarCanonicalIncidentType(item.incidentType)));
     return _missionPipelineV4PickEntry(pool) || landFamilies[0];
 }
 
@@ -12945,16 +13148,38 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         base.plan.placementPolicy = 'Keine Zielobjekte platzieren; vorhandene Landmarken nur als visuelle Orientierung nutzen.';
     }
     if (semantics.focusLock.taskDomain === 'search_and_rescue') {
-        base.plan.sceneKind = base.plan.sceneKind && base.plan.sceneKind !== 'none' ? base.plan.sceneKind : 'sar_land';
+        const allowedSarIncidentIds = missionSarIncidentIdsForCategory(
+            semantics.focusLock.targetCategory || base.plan.targetCategory || '',
+            semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || ''
+        );
+        const canonicalSarIncident = missionSarCanonicalIncidentType(storyFrame.incidentType);
+        if (!canonicalSarIncident || !allowedSarIncidentIds.includes(canonicalSarIncident)) {
+            storyFrame.incidentType = allowedSarIncidentIds[0] || 'missing_hiker';
+        } else {
+            storyFrame.incidentType = canonicalSarIncident;
+        }
+        const sarProfile = missionSarIncidentSceneProfile(storyFrame.incidentType, {
+            category: semantics.focusLock.targetCategory || base.plan.targetCategory || '',
+            targetLabel: semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || ''
+        });
+        base.plan.sceneKind = sarProfile?.sceneKind || (base.plan.sceneKind && base.plan.sceneKind !== 'none' ? base.plan.sceneKind : 'sar_land');
+        if (sarProfile?.sceneDensity) base.plan.sceneDensity = sarProfile.sceneDensity;
         if (!base.plan.sceneDensity || base.plan.sceneDensity === 'none') base.plan.sceneDensity = 'sparse';
-        base.plan.placementPolicy = `Suchraum und Suchlage bleiben der Primärfokus; Straßen, Strommasten und Gebäude sind nur Orientierung, Hindernis oder Zugang. ${String(base.plan.placementPolicy || '').trim()}`.trim();
+        const sarPlacementPolicy = sarProfile?.placementPolicy || 'SAR-Suchraum und Suchlage bleiben der Primaerfokus; Infrastruktur ist nur Orientierung, Hindernis, Zugang oder konkreter Einsatzort, wenn der POI das vorgibt.';
+        base.plan.placementPolicy = `${sarPlacementPolicy} ${String(base.plan.placementPolicy || '').trim()}`.trim();
         base.plan.requiredAnchors = Array.from(new Set([
-            'search_area',
-            'forest_edge_or_clearing',
+            ...((Array.isArray(sarProfile?.requiredAnchors) && sarProfile.requiredAnchors.length)
+                ? sarProfile.requiredAnchors
+                : ['search_area', 'forest_edge_or_clearing']),
             ...(Array.isArray(base.plan.requiredAnchors) ? base.plan.requiredAnchors : [])
         ])).slice(0, 6);
         base.plan.objectFamilies = Array.from(new Set(
-            (Array.isArray(base.plan.objectFamilies) ? base.plan.objectFamilies : []).filter(Boolean)
+            [
+                ...((Array.isArray(sarProfile?.objectFamilies) && sarProfile.objectFamilies.length) ? sarProfile.objectFamilies : []),
+                ...(Array.isArray(base.plan.objectFamilies) ? base.plan.objectFamilies : [])
+            ]
+                .map(normalizeMissionTargetSceneFeature)
+                .filter(Boolean)
         )).slice(0, 8);
     }
     base.semantics = semantics;
@@ -13033,7 +13258,7 @@ Arbeitsweise:
 7. Das Zielsubjekt und die TaskDomain bilden einen bindenden Fokus-Lock. Sekundaeranker duerfen nur Kontextrollen aus den semanticsRules uebernehmen.
 8. Baue immer einen klaren Story-Kern: Ausloeser/Trigger, Fokus-Subjekt, offene Frage am Ziel, Einsatznutzen des Fluges, naechster Handoff.
 9. Konkretisiere diesen Story-Kern immer mit 2-4 Lage-Details: wer/was genau betroffen ist, was passiert ist, warum der Einsatz gerade jetzt noetig ist und welcher Befund aus der Luft gebraucht wird.
-10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. overdue_person, fall_injury, water_rescue, vehicle_off_road oder downed_aircraft. Benenne letzte Sichtung, wahrscheinliche Lage und moegliche Suchhinweise.
+10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Benenne letzte Sichtung, wahrscheinliche Lage und moegliche Suchhinweise.
 11. Du darfst einen realistischen Missionsanlass frei konkretisieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Bundles erfunden werden.
 12. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
 13. Antworte ausschliesslich als JSON.
@@ -13685,10 +13910,12 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Ruhiger Erklaerflug mit Fakten fuer den Piloten, aber ohne Auftrag zum Suchen, Messen oder Pruefen'
         ],
         search_and_rescue: [
-            'SAR-Suchflug entlang Trassen, Flussläufen und Bahnstrecken mit strukturiertem Muster und klarem Lagebild',
-            'Rettungsaufklaerung mit Suchsektoren an Waldrand, Ufer, Weg oder Bahnlinie',
-            'Vermisstensuche mit klaren Calls, wenigen sichtbaren Hinweisen und ohne ueberladene Einsatzszene',
-            'Lagebild fuer Bodenkraefte, bei dem die Zielperson oder ein Hinweis plausibel am Randbereich liegt'
+            'SAR-Personensuche mit klaren Calls, Suchsektor und wenigen sichtbaren Hinweisen',
+            'SAR-Fahrzeugabkommen an Strasse, Waldrand oder Boeschung mit Lagebild fuer Bodenkraefte',
+            'SAR-Verkehrsunfall an Strasse oder Kreuzung: Fahrzeuge, Personen, Rauch und Zufahrt fuer die Leitstelle einordnen',
+            'Wasser-SAR mit Boot, Rettungsinsel, Uferhinweis oder vermisster Person am Wasser',
+            'SAR-Luftfahrzeuglage: vermisstes UL/Kleinflugzeug, Debris, Rauch oder Lichtungshinweis',
+            'Rettungsaufklaerung mit Suchsektoren an Waldrand, Ufer, Weg, Strasse oder Bahnlinie'
         ],
         fire_watch: [
             'Feuerwacht mit Fokus auf Rauchfahnen und Hotspots',
@@ -13738,6 +13965,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         castle: ["Tourismus & Sightseeing", "Luftbildfotografie (Medien/Immobilien)"],
         water: ["Natur- & Umweltschutz (Beobachtung)", "Wissenschaftliche Datenerfassung"],
         mountain: ["Natur- & Umweltschutz (Beobachtung)", "Luftbildfotografie (Medien/Immobilien)"],
+        forest: ["Natur- & Umweltschutz (Beobachtung)", "Rettungsaufklaerung am Waldrand", "Vermisstensuche im Wald- oder Lichtungsbereich"],
         fire: ["Feuerwacht mit Fokus auf Rauchfahnen und Hotspots", "Natur- & Umweltschutz (Beobachtung)"],
         city: ["Lokales Event / Großveranstaltung von oben", "Luftbildfotografie (Medien/Immobilien)"],
         trn: [
