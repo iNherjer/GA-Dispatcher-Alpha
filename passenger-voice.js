@@ -2256,6 +2256,15 @@ function _bushVoiceToneLine() {
     return 'BUSH-TON: Direkt, bodenstaendig und draussen-erfahren. Weniger akademisch, weniger erklaerend, eher praktisch und klar. Kurze konkrete Bilder aus Strip, Bahn, Tal, Hang, Wald, Wildnis, Wetterfenster, Ladung oder Rueckkehr in die Zivilisation sind gut. Kein Gutachten-, Prospekt- oder Behoerdenton.';
 }
 
+function _bushPickupPassengerPerspectiveLine() {
+    const active = _activeBushPickupPassengerContract();
+    if (!active || !window.activePassenger) return '';
+    const role = String(window.activePassenger?.role || active.bush?.pickupRole || 'Pickup-Gast').trim();
+    const pickupPlace = String(active.bush?.targetRef?.name || active.contract?.dest || 'dem Zielstrip').trim();
+    const homePlace = String(active.bush?.homeRef?.name || active.contract?.start || 'dem Heimatplatz').trim();
+    return `BUSH-PICKUP-PERSPEKTIVE: Du bist der abgeholte Passagier (${role}). Du wartest nicht mehr draussen, sondern bist nach dem Pickup an Bord auf dem Rueckflug von ${pickupPlace} nach ${homePlace}. Sprich nie als Pilot, Abholer, Lademeister, Bodencrew oder Dispatcher. Sage nicht, dass du "den Gast", "den Passagier" oder "ihn" eingesammelt hast; du bist selbst dieser Gast.`;
+}
+
 function _cargoOnlyVoiceContext() {
     if (_missionHasPax() || !_cargoMissionFocus()) return null;
     const md = _activeMissionData();
@@ -3942,7 +3951,12 @@ function _baseContext() {
 
     const cargo = document.getElementById('mWeight')?.innerText?.trim() || '';
     const payload = document.getElementById('mPay')?.innerText?.trim() || '';
-    const onboardPax = payload || (_missionHasPax() ? '1 PAX' : '0 PAX');
+    const pickupPaxContext = _activeBushPickupPassengerContract();
+    const pickupPaxActive = !!(pickupPaxContext && window.activePassenger);
+    const pickupRole = String(pax?.role || pickupPaxContext?.bush?.pickupRole || 'Pickup-Gast').trim();
+    const onboardPax = pickupPaxActive
+        ? `1 PAX (${pickupRole})`
+        : (payload || (_missionHasPax() ? '1 PAX' : '0 PAX'));
     const onboardCargo = cargo || 'keine besondere Ausruestung';
     const roleStyle = _roleStyleHint(pax.role, pax);
     const urgency = _normUrgencyPriority(pax?.urgencyPriority);
@@ -3955,7 +3969,12 @@ function _baseContext() {
     if (!contract) {
         try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) { contract = null; }
     }
-    const storyShort = String(story || '').trim().replace(/\s+/g, ' ').slice(0, 260);
+    let storyShort = String(story || '').trim().replace(/\s+/g, ' ').slice(0, 260);
+    if (pickupPaxActive) {
+        const pickupPlace = String(pickupPaxContext?.bush?.targetRef?.name || md.poiName || md.dest || 'dem Zielstrip').trim();
+        const homePlace = String(pickupPaxContext?.bush?.homeRef?.name || md.start || 'dem Heimatplatz').trim();
+        storyShort = `Ich wurde am abgelegenen Strip bei ${pickupPlace} abgeholt und fliege jetzt als Passagier zurueck nach ${homePlace}. Ich spreche aus meiner eigenen Gast-Perspektive, nicht aus Crew- oder Abholer-Sicht.`;
+    }
     const trainingDiscipline = trainingPlan
         ? `TRAINING (${trainingPlan.mode}): Nur fliegerische Inhalte, prozedural, sicherheitsfokussiert. Kein Sightseeing/Ortsstory.`
         : '';
@@ -3969,9 +3988,15 @@ function _baseContext() {
         ? `FEUERLAGE (DWD): Waldbrandgefahrenindex Stufe ${Math.round(Number(fireHazard.level))} von 5 (${String(fireHazard.label || 'n/a')})${fireHazard?.dateIso ? `, Stand ${fireHazard.dateIso}` : ''}.`
         : '';
     const roleGuard = `ROLLENFIX: Sprich ausschließlich als ${pax.name} (${pax.role}) in Ich-Form. Keine Rollenvermischung.`;
+    const flightStart = pickupPaxActive
+        ? (pickupPaxContext?.bush?.targetRef?.name || md.poiName || md.dest || '?')
+        : (md.start || '?');
+    const flightDest = pickupPaxActive
+        ? (pickupPaxContext?.bush?.homeRef?.name || md.start || '?')
+        : (md.poiName || md.dest || '?');
     const lines = [
 `ROLLE: ${pax.name} (${pax.role}) · Persönlichkeit: ${pax.personality}
-FLUG: ${md.start || '?'} → ${md.poiName || md.dest || '?'} · ${md.dist || '?'} NM
+FLUG: ${flightStart} → ${flightDest} · ${md.dist || '?'} NM
 AN BORD: ${onboardPax}
 AUSRUESTUNG: ${onboardCargo}
 AUFTRAG (kurz): ${storyShort || 'n/a'}
@@ -4015,6 +4040,8 @@ ${urgencyLine}`
     if (storyFrameSarLine) lines.push(storyFrameSarLine);
     const bushToneLine = _bushVoiceToneLine();
     if (bushToneLine) lines.push(bushToneLine);
+    const bushPickupPerspectiveLine = _bushPickupPassengerPerspectiveLine();
+    if (bushPickupPerspectiveLine) lines.push(bushPickupPerspectiveLine);
     lines.push(roleGuard);
     lines.push(`TASK-DOMAIN: ${_activeTaskDomain()}
 AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).`);
@@ -5297,7 +5324,8 @@ function _pickupBoardingPrompt() {
 
 Moment: Der Pickup ist gerade abgeschlossen und ich bin jetzt an Bord, wir stehen noch am Strip oder rollen langsam an.${wx ? ' ' + wx : ''}
 Basistext für deinen Einstieg am Strip (frei adaptieren): "${String(pax.greetingText || '').trim()}"
-Sag jetzt kurz, dass du an Bord bist, nenne knapp warum du hier draussen warst oder woran du gearbeitet hast und leite in einem letzten Halbsatz zum Rueckflug ueber. Lege dabei schon den thematischen Faden fuer die spaetere Rueckflug-Ansage fest: genau ein klarer Einsatzschwerpunkt, kein Themenmix. Das ist der kurze Moment direkt beim Einsteigen, noch kein laengerer Debrief.
+Sprich strikt als abgeholter Gast, der gerade eingestiegen ist. Sag jetzt kurz, dass du an Bord bist, nenne knapp warum du hier draussen warst oder woran du gearbeitet hast und leite in einem letzten Halbsatz zum Rueckflug ueber. Lege dabei schon den thematischen Faden fuer die spaetere Rueckflug-Ansage fest: genau ein klarer Einsatzschwerpunkt, kein Themenmix. Das ist der kurze Moment direkt beim Einsteigen, noch kein laengerer Debrief.
+Harte Perspektiv-Regel: Verwende "ich" fuer den abgeholten Gast. Sage niemals, du haettest "den Gast", "den Passagier", "ihn" oder "sie" eingesammelt, eingeladen oder abgeholt. Das hat der Pilot getan.
 ${manifestSpeechRule}
 Max 3 Sätze.${_toneHint()}`;
 }
@@ -5314,7 +5342,8 @@ function _pickupDeparturePrompt() {
 
 Moment: Wir sind wieder in der Luft und der Rueckflug nach Hause laeuft.${wx ? ' ' + wx : ''}
 Basistext fuer deine Rueckflug-Spur (nur inhaltlich, nicht als neue Begruessung wiederholen): "${String(pax.greetingText || '').trim()}"${continuityHint}
-Baue direkt auf deiner kurzen Ansage vom Strip auf: Erzaehle jetzt etwas ausfuehrlicher, warum du dort draussen warst, warum du wieder nach Hause musst und was du vom Ort oder vom Einsatz mitnimmst. Der Ton darf klar Wilderness- und Einsatzcharakter haben: Abgeschiedenheit, Gelaende, Dauer draussen, Feldarbeit, Wetterfenster oder Rueckkehr in die Zivilisation. Das darf persoenlicher und etwas bildhafter sein, aber weiterhin glaubwuerdig und knapp. Beginne NICHT erneut mit einer Begruessung wie "Hallo", "Hi", "Moin" oder einer neuen Selbstvorstellung, sondern setze inhaltlich einfach fort.
+Baue direkt auf deiner kurzen Ansage vom Strip auf: Erzaehle jetzt etwas ausfuehrlicher aus deiner Ich-Perspektive als abgeholter Gast, warum du dort draussen warst, warum du wieder nach Hause musst und was du vom Ort oder vom Einsatz mitnimmst. Der Ton darf klar Wilderness- und Einsatzcharakter haben: Abgeschiedenheit, Gelaende, Dauer draussen, Feldarbeit, Wetterfenster oder Rueckkehr in die Zivilisation. Das darf persoenlicher und etwas bildhafter sein, aber weiterhin glaubwuerdig und knapp. Beginne NICHT erneut mit einer Begruessung wie "Hallo", "Hi", "Moin" oder einer neuen Selbstvorstellung, sondern setze inhaltlich einfach fort.
+Harte Perspektiv-Regel: Du bist der Passagier an Bord, nicht Pilot, Abholer, Lademeister oder Bodencrew. Verbotene Aussagen: "ich habe den Gast eingesammelt", "ich habe den Passagier abgeholt", "er sieht ... aus", "wir haben ihn geladen". Wenn du den Pickup erwaehnst, dann nur so: der Pilot hat mich abgeholt/eingesammelt oder ich bin zugestiegen.
 Max 4 Sätze.${_toneHint()}`;
 }
 
