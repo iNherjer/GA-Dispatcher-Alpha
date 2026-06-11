@@ -2218,6 +2218,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
       return false;
     },
+    getTrackerMissionStatus() {
+      return trackerMissionStatus?.missionId ? enrichMissionStatusWithScenes(trackerMissionStatus) : null;
+    },
     clearAll(reason = 'shutdown') {
       return Promise.all([
         ...[...missions.keys()].map(id => clearMission(id, reason)),
@@ -2631,8 +2634,9 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
                   hdg: Math.round(hdg),
                   flight
                 };
+                const trackerMissionStatus = missionSmokeController.getTrackerMissionStatus();
                 if (trackerMissionStatus?.missionId) {
-                  gpsMsg.trackerMissionStatus = enrichMissionStatusWithScenes(trackerMissionStatus);
+                  gpsMsg.trackerMissionStatus = trackerMissionStatus;
                 }
                 if (latestTrafficSnapshot && latestTrafficSnapshot.length > 0) {
                   gpsMsg.traffic = latestTrafficSnapshot;
