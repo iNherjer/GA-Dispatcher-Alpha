@@ -11,15 +11,18 @@ const path = require('path');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
-const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v255';
-const TRACKER_VERSION_CODE = 255;
+const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
+const CONFIG_BASENAME = 'tracker-config.json';
+const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
+const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
+const TRACKER_VERSION = 'v256';
+const TRACKER_VERSION_CODE = 256;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
 const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting';
 const MISSION_SCENE_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
-const TRACKER_DEBUG_FILE = path.join(process.pkg ? path.dirname(process.execPath) : __dirname, 'ga-tracker-debug.txt');
+const TRACKER_DEBUG_FILE = path.join(RUNTIME_DIR, 'ga-tracker-debug.txt');
 const TELEPORT_DEF_ID = 9361;
 const WAYPOINT_DEF_ID = 9362;
 const DOOR_OPEN_EVENT_ID = 9363;
@@ -2899,6 +2902,33 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null) 
     });
 }
 
+function readTrackerConfig() {
+  const candidates = uniqueStrings([CONFIG_FILE, LEGACY_CONFIG_FILE]);
+  for (const file of candidates) {
+    if (!file || !fs.existsSync(file)) continue;
+    try {
+      const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (file !== CONFIG_FILE) debugLog(`CONFIG_LEGACY_READ file=${file}`);
+      return data && typeof data === 'object' ? data : {};
+    } catch (err) {
+      debugLog(`CONFIG_READ_ERROR file=${file} error=${err?.message || err}`);
+    }
+  }
+  return {};
+}
+
+function writeTrackerConfig(data = {}) {
+  try {
+    fs.mkdirSync(RUNTIME_DIR, { recursive: true });
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...(data || {}) }, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    trackerWarn(`⚠️  Konnte ${CONFIG_BASENAME} nicht neben der Tracker-EXE speichern: ${err?.message || err}`);
+    debugLog(`CONFIG_WRITE_ERROR file=${CONFIG_FILE} error=${err?.message || err}`);
+    return false;
+  }
+}
+
 function askCredentials() {
   rl.question("Bitte gib deine Pilot-ID ein (z.B. Foxtrot-Mike-764): ", (idAnswer) => {
     const finalId = idAnswer.trim();
@@ -2906,14 +2936,14 @@ function askCredentials() {
     
     rl.question("Bitte gib deinen 4-stelligen PIN ein: ", (pinAnswer) => {
       const finalPin = pinAnswer.trim();
-      fs.writeFileSync(CONFIG_FILE, JSON.stringify({ syncId: finalId, pin: finalPin, consoleMode }));
+      writeTrackerConfig({ syncId: finalId, pin: finalPin, consoleMode });
       startTracker(finalId, finalPin);
     });
   });
 }
 
 function saveTrackerConfig(syncId, pin, extra = {}) {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify({ syncId, pin, consoleMode, ...extra }, null, 2));
+  writeTrackerConfig({ syncId, pin, consoleMode, ...extra });
 }
 
 function askConsoleMode(savedId, savedPin, afterSave) {
@@ -2940,14 +2970,10 @@ function main() {
   let savedId = '';
   let savedPin = '';
 
-  if (fs.existsSync(CONFIG_FILE)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-      savedId = data.syncId || '';
-      savedPin = data.pin || '';
-      consoleMode = normalizeConsoleMode(data.consoleMode || data.displayMode || data.logMode);
-    } catch (e) {}
-  }
+  const data = readTrackerConfig();
+  savedId = data.syncId || '';
+  savedPin = data.pin || '';
+  consoleMode = normalizeConsoleMode(data.consoleMode || data.displayMode || data.logMode);
 
   if (savedId && savedPin) {
     trackerLog("=====================================");
