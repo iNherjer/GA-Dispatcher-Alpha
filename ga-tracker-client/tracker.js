@@ -1724,6 +1724,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     if (!obj || !obj.objectId) return false;
     const ids = Array.isArray(command.objectIds) ? command.objectIds.map(Number).filter(Number.isFinite) : [];
     if (ids.length && ids.includes(Number(obj.objectId))) return true;
+    const itemIds = new Set((Array.isArray(command.itemIds) ? command.itemIds : [command.itemId]).filter(Boolean).map(v => String(v).toLowerCase()));
+    if (itemIds.size && itemIds.has(String(obj.cargoItemId || obj.itemId || '').toLowerCase())) return true;
+    const cargoSceneKinds = new Set((Array.isArray(command.cargoSceneKinds) ? command.cargoSceneKinds : [command.cargoSceneKind]).filter(Boolean).map(v => String(v).toLowerCase()));
+    if (cargoSceneKinds.size && cargoSceneKinds.has(String(obj.cargoSceneKind || '').toLowerCase())) return true;
     const kinds = new Set((Array.isArray(command.kinds) ? command.kinds : [command.kind]).filter(Boolean).map(v => String(v).toLowerCase()));
     if (kinds.size && kinds.has(String(obj.kind || '').toLowerCase())) return true;
     const labels = (Array.isArray(command.labels) ? command.labels : [command.label]).filter(Boolean).map(v => String(v).toLowerCase());

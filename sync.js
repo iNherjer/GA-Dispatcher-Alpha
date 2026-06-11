@@ -2070,6 +2070,10 @@ function _handleTrackerMissionStatus(status = null, reason = 'tracker-status') {
     window.missionRuntimeResumeConflict = null;
     const snap = _readMissionRuntimeSnapshot();
     if (trackerActive && snap && _snapshotMatchesActiveMission(snap) && !missionRuntime.active && !missionRuntime.closingPending) {
+        if (missionRuntimeResumeAppliedFor === trackerMissionId) {
+            _persistMissionRuntimeSnapshot(reason, { minIntervalMs: 10000 });
+            return true;
+        }
         return _restoreMissionRuntimeFromSnapshot(snap, { reason, trackerConfirmed: true });
     }
     if (!trackerActive && (missionRuntime.active || missionRuntime.closingPending)) {
@@ -2673,14 +2677,18 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
     if (manifestItems.length) {
         return manifestItems
             .filter(item => !_missionCargoIsPassengerItem(item))
-            .map((item, index) => makeItem(
-            item.sceneKind || (index === 0 ? 'cargo' : `cargo_extra_${index}`),
-            item.storyName || item.label || `Ladung ${index + 1}`,
-            item.objectTitle || 'Cardboard',
-            _sceneAssetCandidates(item.objectTitle || 'Cardboard', item.titleCandidates || MISSION_SCENE_ASSET_POOLS.cargo),
-            Number(item.forwardOffsetM || 0),
-            Number(item.rightOffsetM || 0)
-        ));
+            .map((item, index) => ({
+                ...makeItem(
+                    item.sceneKind || (index === 0 ? 'cargo' : `cargo_extra_${index}`),
+                    item.storyName || item.label || `Ladung ${index + 1}`,
+                    item.objectTitle || 'Cardboard',
+                    _sceneAssetCandidates(item.objectTitle || 'Cardboard', item.titleCandidates || MISSION_SCENE_ASSET_POOLS.cargo),
+                    Number(item.forwardOffsetM || 0),
+                    Number(item.rightOffsetM || 0)
+                ),
+                cargoItemId: item.id || '',
+                cargoSceneKind: item.sceneKind || (index === 0 ? 'cargo' : `cargo_extra_${index}`)
+            }));
     }
     const primary = cargoAsset?.sizePrimary || cargoAsset?.title || 'Cardboard';
     const primaryCandidates = _sceneAssetCandidates(primary, cargoAsset?.candidates || MISSION_SCENE_ASSET_POOLS.cargo);
@@ -2849,11 +2857,7 @@ function _missionSceneVehicleSupportEnabled() {
     try {
         const raw = String(localStorage.getItem('ga_scene_apt_vehicle_enabled') || '').trim().toLowerCase();
         if (/^(1|true|yes|ja|on)$/.test(raw)) return true;
-        if (/^(0|false|no|nein|off)$/.test(raw)) return false;
     } catch (_) {}
-    const taskDomain = _missionSceneTaskDomain();
-    if (/^(medical_transfer|search_and_rescue|cargo|news_coverage|animal_transport|survey|fire_watch)$/.test(taskDomain)) return true;
-    if (/(club_utility|inspection|mapping|science|freight|fracht|cargo|medical|sar|rescue|rettung|news|media|animal|tier)/.test(taskDomain)) return true;
     return false;
 }
 

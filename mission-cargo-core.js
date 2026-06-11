@@ -1245,7 +1245,9 @@ function _missionCargoMarkAllLoaded({ despawn = true } = {}) {
                     sceneId: _missionCargoSceneId(),
                     reason: 'cargo-auto-load',
                     kinds: [item.sceneKind],
-                    labels: [item.label, item.storyName]
+                    labels: [item.label, item.storyName],
+                    itemIds: [item.id],
+                    cargoSceneKinds: [item.sceneKind]
                 });
             }
         }
@@ -1664,7 +1666,9 @@ window.missionCargoLoadItem = function(itemId, options = {}) {
             sceneId: removeSceneId,
             reason: isTargetPickup ? 'pickup-cargo-load' : (wasUnloaded ? 'cargo-reload' : 'cargo-load'),
             kinds: removeKinds,
-            labels: [item.label, item.storyName]
+            labels: [item.label, item.storyName],
+            itemIds: [item.id],
+            cargoSceneKinds: [item.sceneKind]
         });
         window.missionCargoStatus.lastCommandAt = Date.now();
         window.missionCargoStatus.lastCommand = { type: 'mission_scene_object_remove', commandId, itemId };
@@ -1753,7 +1757,9 @@ function _missionCargoRemoveLoadedSceneObjects(reason = 'cargo-loaded-sync') {
                 sceneId,
                 reason,
                 kinds: [item.sceneKind],
-                labels: [item.label, item.storyName]
+                labels: [item.label, item.storyName],
+                itemIds: [item.id],
+                cargoSceneKinds: [item.sceneKind]
             }) || sent;
         });
     return sent;
