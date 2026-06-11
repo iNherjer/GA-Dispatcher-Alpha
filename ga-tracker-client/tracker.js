@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v256';
-const TRACKER_VERSION_CODE = 256;
+const TRACKER_VERSION = 'v257';
+const TRACKER_VERSION_CODE = 257;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -1179,6 +1179,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         altOffsetFt,
         forwardM,
         rightM,
+        itemId: item?.itemId || item?.cargoItemId || '',
+        cargoItemId: item?.cargoItemId || item?.itemId || '',
+        cargoSceneKind: item?.cargoSceneKind || item?.sceneKind || item?.kind || '',
         northM: Math.round(rel.northM * 10) / 10,
         eastM: Math.round(rel.eastM * 10) / 10
       };
