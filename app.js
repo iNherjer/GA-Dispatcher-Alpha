@@ -12401,45 +12401,82 @@ function missionSarIncidentFamily(incidentType = '') {
     })[id] || id || 'generic';
 }
 
-function missionSarPickIncidentType(category = '', targetLabel = '', suggestedIncidentType = '') {
-    const allowed = missionSarIncidentIdsForCategory(category, targetLabel)
+function missionSarIncidentHistoryKeys(category = '', targetLabel = '') {
+    const key = missionSarIncidentCategoryKey(category, targetLabel);
+    return {
+        exact: `ga_sar_incident_history_${key}`,
+        family: 'ga_sar_incident_family_history_v1'
+    };
+}
+
+function missionSarReadIncidentHistory(storageKey = '') {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        return Array.isArray(parsed) ? parsed.map(x => String(x || '')).filter(Boolean) : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function missionSarWriteIncidentHistory(storageKey = '', values = [], limit = 10) {
+    try { localStorage.setItem(storageKey, JSON.stringify(values.slice(-limit))); } catch (_) {}
+}
+
+function missionSarIncidentGuidance(category = '', targetLabel = '') {
+    const allowedIncidentTypes = [...new Set(
+        missionSarIncidentIdsForCategory(category, targetLabel)
+            .map(missionSarCanonicalIncidentType)
+            .filter(Boolean)
+    )];
+    const allowedFamilies = [...new Set(allowedIncidentTypes.map(missionSarIncidentFamily))];
+    const keys = missionSarIncidentHistoryKeys(category, targetLabel);
+    const exactHistory = missionSarReadIncidentHistory(keys.exact)
         .map(missionSarCanonicalIncidentType)
-        .filter(Boolean);
-    const uniqueAllowed = [...new Set(allowed)];
+        .filter(id => allowedIncidentTypes.includes(id));
+    const familyHistory = missionSarReadIncidentHistory(keys.family)
+        .filter(family => allowedFamilies.includes(family));
+    const recentIncidentLimit = Math.min(2, Math.max(0, allowedIncidentTypes.length - 1));
+    const recentFamilyLimit = Math.min(2, Math.max(0, allowedFamilies.length - 1));
+    const recentIncidentTypes = recentIncidentLimit ? exactHistory.slice(-recentIncidentLimit) : [];
+    const recentFamilies = recentFamilyLimit ? familyHistory.slice(-recentFamilyLimit) : [];
+    let preferredIncidentTypes = allowedIncidentTypes.filter(id =>
+        !recentIncidentTypes.includes(id)
+        && !recentFamilies.includes(missionSarIncidentFamily(id))
+    );
+    if (!preferredIncidentTypes.length) {
+        preferredIncidentTypes = allowedIncidentTypes.filter(id => !recentIncidentTypes.includes(id));
+    }
+    if (!preferredIncidentTypes.length) {
+        preferredIncidentTypes = allowedIncidentTypes.filter(id => !recentFamilies.includes(missionSarIncidentFamily(id)));
+    }
+    if (!preferredIncidentTypes.length) preferredIncidentTypes = allowedIncidentTypes.slice();
+    return {
+        allowedIncidentTypes,
+        allowedFamilies,
+        recentIncidentTypes,
+        recentFamilies,
+        preferredIncidentTypes,
+        rule: 'Waehle einen Incident aus allowedIncidentTypes, der zur Zielkategorie passt. Missing-Person bleibt erlaubt, aber wiederhole recentIncidentTypes/recentFamilies nur, wenn es fachlich die beste Option ist.'
+    };
+}
+window.missionSarIncidentGuidance = missionSarIncidentGuidance;
+
+function missionSarPickIncidentType(category = '', targetLabel = '', suggestedIncidentType = '') {
+    const guidance = missionSarIncidentGuidance(category, targetLabel);
+    const uniqueAllowed = guidance.allowedIncidentTypes;
     if (!uniqueAllowed.length) return 'missing_hiker';
     if (uniqueAllowed.length === 1) return uniqueAllowed[0];
 
-    const key = missionSarIncidentCategoryKey(category, targetLabel);
     const suggested = missionSarCanonicalIncidentType(suggestedIncidentType);
-    const exactHistoryKey = `ga_sar_incident_history_${key}`;
-    const familyHistoryKey = 'ga_sar_incident_family_history_v1';
-    const readHistory = storageKey => {
-        try {
-            const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
-            return Array.isArray(parsed) ? parsed.map(x => String(x || '')).filter(Boolean) : [];
-        } catch (_) {
-            return [];
-        }
-    };
-    const writeHistory = (storageKey, values, limit) => {
-        try { localStorage.setItem(storageKey, JSON.stringify(values.slice(-limit))); } catch (_) {}
-    };
-
-    const exactHistory = readHistory(exactHistoryKey);
-    const familyHistory = readHistory(familyHistoryKey);
-    const recentExact = new Set(exactHistory.slice(-Math.min(2, uniqueAllowed.length - 1)));
-    const allowedFamilies = [...new Set(uniqueAllowed.map(missionSarIncidentFamily))];
-    const recentFamily = new Set(familyHistory.slice(-Math.min(2, Math.max(1, allowedFamilies.length - 1))));
-
-    let pool = uniqueAllowed.filter(id => !recentExact.has(id) && !recentFamily.has(missionSarIncidentFamily(id)));
-    if (!pool.length) pool = uniqueAllowed.filter(id => !recentExact.has(id));
-    if (!pool.length) pool = uniqueAllowed.filter(id => !recentFamily.has(missionSarIncidentFamily(id)));
-    if (!pool.length) pool = uniqueAllowed.slice();
+    const keys = missionSarIncidentHistoryKeys(category, targetLabel);
+    const exactHistory = missionSarReadIncidentHistory(keys.exact);
+    const familyHistory = missionSarReadIncidentHistory(keys.family);
+    let pool = guidance.preferredIncidentTypes.slice();
     if (suggested && pool.includes(suggested) && Math.random() < 0.35) pool = [suggested, ...pool];
 
     const selected = pool[Math.floor(Math.random() * pool.length)] || uniqueAllowed[0];
-    writeHistory(exactHistoryKey, exactHistory.filter(id => uniqueAllowed.includes(id)).concat(selected), Math.max(6, uniqueAllowed.length * 2));
-    writeHistory(familyHistoryKey, familyHistory.concat(missionSarIncidentFamily(selected)), 10);
+    missionSarWriteIncidentHistory(keys.exact, exactHistory.filter(id => uniqueAllowed.includes(id)).concat(selected), Math.max(6, uniqueAllowed.length * 2));
+    missionSarWriteIncidentHistory(keys.family, familyHistory.concat(missionSarIncidentFamily(selected)), 10);
     return selected;
 }
 window.missionSarPickIncidentType = missionSarPickIncidentType;
@@ -13304,6 +13341,12 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         targetName: draft?.target?.name || context.dest?.n || '',
         missionTruth: truth || working.missionTruth || context.missionTruth || null
     });
+    const sarIncidentGuidance = semanticsRules?.focusLock?.taskDomain === 'search_and_rescue'
+        ? missionSarIncidentGuidance(
+            draft?.category || context.selectedCategory || 'generic',
+            draft?.target?.name || context.dest?.n || ''
+        )
+        : null;
     return {
         working,
         bundle: {
@@ -13319,6 +13362,7 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             targetGeoContext: _missionPipelineV3CompactGeoContext(geo),
             missionTruth: compactMissionTruthForPrompt(truth),
             semanticsRules,
+            sarIncidentGuidance,
             routeRules: [
                 context.isPOI ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.',
                 'Der Auftrag braucht einen konkreten lokalen Anlass, aber keine Actionfilm-Dramatik.',
@@ -13349,9 +13393,10 @@ Arbeitsweise:
 8. Baue immer einen klaren Story-Kern: Ausloeser/Trigger, Fokus-Subjekt, offene Frage am Ziel, Einsatznutzen des Fluges, naechster Handoff.
 9. Konkretisiere diesen Story-Kern immer mit 2-4 Lage-Details: wer/was genau betroffen ist, was passiert ist, warum der Einsatz gerade jetzt noetig ist und welcher Befund aus der Luft gebraucht wird.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, wahrscheinliche Lage und moegliche Suchhinweise.
-11. Du darfst einen realistischen Missionsanlass frei konkretisieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Bundles erfunden werden.
-12. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
-13. Antworte ausschliesslich als JSON.
+11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber wiederhole recentIncidentTypes/recentFamilies nur, wenn es fuer Ziel und Lage fachlich am besten passt.
+12. Du darfst einen realistischen Missionsanlass frei konkretisieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Bundles erfunden werden.
+13. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
+14. Antworte ausschliesslich als JSON.
 </INSTRUKTIONEN>
 
 <DRAFT>
@@ -13388,7 +13433,7 @@ ${JSON.stringify(contextBundle)}
       "incidentContext": "was passiert ist oder welcher Anlass den Einsatz ausloest",
       "whyNow": "warum der Flug gerade jetzt noetig ist",
       "soughtOutcome": "welcher konkrete Befund oder welche Entscheidungshilfe gebraucht wird",
-      "incidentType": "vor allem bei SAR: z.B. missing_hiker, fallen_climber, missing_kayaker",
+      "incidentType": "vor allem bei SAR: z.B. missing_hiker, fallen_climber, missing_kayaker, small_boat_overdue, vehicle_off_road, road_collision, downed_ultralight",
       "lastSeenContext": "wo oder in welchem Zusammenhang die betroffene Person zuletzt gesehen/gemeldet wurde",
       "probableScenario": "wahrscheinliche Lagehypothese",
       "visibleClueCandidates": ["2-4 moegliche sichtbare Hinweise im Suchraum"]
