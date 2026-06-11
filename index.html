@@ -973,6 +973,8 @@
         <div id="mapToolbarInner">
         <span id="navStationLabel" style="color: #fff; font-weight: bold; font-family: monospace;">NAV STATION (KARTENTISCH)</span>
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <button class="pb-btn" id="measureBtn" onclick="toggleMeasureMode()">📏 Messen (Aus)</button>
+            <button class="pb-btn" onclick="clearMeasure()">🗑️ Zirkel löschen</button>
             <button class="pb-btn" onclick="resetMainRoute()">🔄 Route Reset</button>
             <button class="pb-btn" id="vpToggleBtn" onclick="toggleMapProfile()" style="background:#2E8B57; color:#fff; font-weight:bold;">📊 Profil (An)</button>
             <div style="position:relative; display:inline-flex; align-items:center;">
