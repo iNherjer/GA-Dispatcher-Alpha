@@ -161,8 +161,8 @@ function normalizeAircraftPreset(slotId, source) {
     }
     return {
         name: sanitizeAircraftPresetName(slotId, preset.name ?? defaults.name),
-        tas: clampMainPerfSetting(preset.tas, 80, 260, 5, defaults.tas),
-        gph: clampMainPerfSetting(preset.gph, 5, 35, 1, defaults.gph),
+        tas: clampMainPerfSetting(preset.tas, 80, 300, 5, defaults.tas),
+        gph: clampMainPerfSetting(preset.gph, 0, 80, 1, defaults.gph),
         pax: clampMainPerfSetting(preset.pax, 1, 6, 1, defaults.pax),
         boarding: normalizeAircraftBoardingConfig(boardingSource)
     };
@@ -611,8 +611,8 @@ function persistMainPerformanceSetting(type, value) {
 window.persistMainPerformanceSetting = persistMainPerformanceSetting;
 
 function applyPersistedMainPerformanceSettings() {
-    const tas = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.tas), 80, 260, 5, 115);
-    const gph = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.gph), 5, 35, 1, 9);
+    const tas = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.tas), 80, 300, 5, 115);
+    const gph = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.gph), 0, 80, 1, 9);
     const alt = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.alt), 1500, 13500, 100, 4500);
     const rate = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.rate), 200, 1500, 50, 500);
     const seats = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.maxSeats), 1, 6, 1, 4);
@@ -909,7 +909,7 @@ function parseMissionPickerValue(raw) {
 function missionTaskPoiCategoryPolicy(profileId = 'auto') {
     const id = String(profileId || 'auto').toLowerCase();
     const policies = {
-        search_and_rescue: ['mountain', 'water'],
+        search_and_rescue: ['mountain', 'water', 'road'],
         mapping_survey: ['infrastructure', 'industry', 'road', 'bridge', 'dam'],
         inspection_infra: ['infrastructure', 'bridge', 'dam', 'telecom', 'industry', 'road'],
         fire_watch: ['fire'],
@@ -2436,8 +2436,8 @@ function initOps1940Panel() {
 
 function getOpsRotaryConfigs() {
     return [
-        { sliderId: 'gphSlider', label: 'GPH', type: 'gph', min: 5, max: 35, format: value => String(value).padStart(2, '0') },
-        { sliderId: 'tasSlider', label: 'TAS', type: 'tas', min: 80, max: 260, format: value => String(value) },
+        { sliderId: 'gphSlider', label: 'GPH', type: 'gph', min: 0, max: 80, format: value => String(value).padStart(2, '0') },
+        { sliderId: 'tasSlider', label: 'TAS', type: 'tas', min: 80, max: 300, format: value => String(value) },
         { sliderId: 'altSlider', label: 'ALT', type: 'alt', min: 1500, max: 13500, format: value => String(value) },
         { sliderId: 'rateSlider', label: 'V/S', type: 'rate', min: 200, max: 1500, format: value => String(value) }
     ];
@@ -2706,8 +2706,8 @@ function bootAppOnce() {
     syncToNavCom('gphRadioDisplay', document.getElementById('gphSlider').value.toString().padStart(2, '0'));
     syncToNavCom('maxSeatsRadio', document.getElementById('maxSeats').value);
 
-    initDragKnob('tasDragKnob', 'tasRadioDisplay', 'tasSlider', 80, 260, 'tas');
-    initDragKnob('gphDragKnob', 'gphRadioDisplay', 'gphSlider', 5, 35, 'gph');
+    initDragKnob('tasDragKnob', 'tasRadioDisplay', 'tasSlider', 80, 300, 'tas');
+    initDragKnob('gphDragKnob', 'gphRadioDisplay', 'gphSlider', 0, 80, 'gph');
     initDragKnob('altDragKnob', 'altRadioDisplay', 'altSlider', 1500, 13500, 'alt');
     initOpsRotaryControls();
     initOps1940Panel();
@@ -2919,6 +2919,36 @@ function isMissionDraftPending(candidate = currentMissionData) {
     return status === 'draft' || status === 'composing';
 }
 window.isMissionDraftPending = isMissionDraftPending;
+
+function _missionStatusValue(candidate) {
+    return String(candidate?.sceneCompositionStatus || '').toLowerCase();
+}
+
+function isAcceptedOrActiveMissionPresent() {
+    const md = _missionDataFromStateCandidate(currentMissionData);
+    const contract = (md && typeof md.missionContract === 'object')
+        ? md.missionContract
+        : ((window.activeMissionContract && typeof window.activeMissionContract === 'object') ? window.activeMissionContract : null);
+    if (!md && !contract) return false;
+    if (isMissionDraftPending(md) || isMissionDraftPending(contract)) return false;
+
+    const mdStatus = _missionStatusValue(md);
+    const contractStatus = _missionStatusValue(contract);
+    if (md?.sceneAccepted === true || contract?.sceneAccepted === true) return true;
+    if (mdStatus === 'accepted' || mdStatus === 'accepted_fallback') return true;
+    if (contractStatus === 'accepted' || contractStatus === 'accepted_fallback') return true;
+
+    const hasRoute = Array.isArray(routeWaypoints) && routeWaypoints.length >= 2;
+    const hasStoredMission = !!(md && (md.departure || md.destination || md.missionType || md.type || md.title));
+    return hasRoute || hasStoredMission || !!contract;
+}
+window.isAcceptedOrActiveMissionPresent = isAcceptedOrActiveMissionPresent;
+
+function confirmMissionOverwriteIfNeeded() {
+    if (!isAcceptedOrActiveMissionPresent()) return true;
+    return confirm("Es ist bereits eine Mission aktiv. Neue Mission erstellen und die aktuelle Mission ersetzen?");
+}
+window.confirmMissionOverwriteIfNeeded = confirmMissionOverwriteIfNeeded;
 
 function clearDraftMissionPersistence(reason = 'draft') {
     try { localStorage.removeItem('ga_active_mission'); } catch (_) {}
@@ -8485,7 +8515,7 @@ function missionSceneTargetKindCatalog() {
         none: { roles: [] },
         fire_watch: { roles: ['vfx.smoke', 'vfx.fire'] },
         road_incident: { roles: ['vehicle.car', 'vehicle.emergency.medical', 'marker.cone'] },
-        sar_water: { roles: ['sar.liferaft', 'watercraft.small_boat', 'watercraft.service_ship'] },
+        sar_water: { roles: ['sar.liferaft', 'watercraft.small_boat'] },
         sar_land: { roles: ['vehicle.emergency.medical', 'vehicle.quad', 'cargo.container'] },
         medical_pickup: { roles: ['vehicle.emergency.medical', 'cargo.medical_kit'] },
         cargo_site: { roles: ['vehicle.truck', 'cargo.container', 'cargo.pallet_medium', 'cargo.animal_transport_box'] },
@@ -8516,7 +8546,7 @@ function missionSceneTargetPresetCatalog() {
         erosion_debris: { kind: 'erosion_damage', features: ['logs', 'debris', 'cones'] },
         bridge_worksite: { kind: 'infra_bridge', features: ['utility_truck', 'generator', 'cones'] },
         industry_smoke: { kind: 'industry_site', features: ['smoke_light', 'cargo_material', 'utility_truck'] },
-        water_sar_ship: { kind: 'sar_water', features: ['liferaft', 'service_ship'] },
+        water_sar_ship: { kind: 'sar_water', features: ['liferaft'] },
         event_traffic: { kind: 'event_site', features: ['bus', 'road_vehicles', 'cones'] },
         wildlife_herd: { kind: 'wildlife_site', features: ['wildlife_animals', 'animal_herd'] }
     };
@@ -15252,6 +15282,11 @@ function renderAirspaceWarningsList() {
 }
 
 async function generateMission() {
+    if (!confirmMissionOverwriteIfNeeded()) {
+        const indicator = document.getElementById('searchIndicator');
+        if (indicator) indicator.innerText = 'Aktive Mission bleibt bestehen.';
+        return;
+    }
     const dispatchRunId = _startDispatchRun();
     let _dispatchDeferredFinalize = false;
     const _ensureDispatchAlive = () => {
@@ -15366,8 +15401,10 @@ async function generateMission() {
     const targetType = document.getElementById("targetType").value, dirPref = document.getElementById("dirPref").value;
     const missionPicker = parseMissionPickerValue(targetType);
     const maxSeats = parseInt(document.getElementById("maxSeats").value);
-    const selectedTas = parseInt(document.getElementById("tasSlider").value) || 160;
-    const selectedGph = parseInt(document.getElementById("gphSlider").value) || 14;
+    const selectedTasRaw = parseInt(document.getElementById("tasSlider").value);
+    const selectedGphRaw = parseInt(document.getElementById("gphSlider").value);
+    const selectedTas = Number.isFinite(selectedTasRaw) ? selectedTasRaw : 160;
+    const selectedGph = Number.isFinite(selectedGphRaw) ? selectedGphRaw : 14;
 
     let targetDest = document.getElementById("destLoc").value.toUpperCase();
     let forcePOI = false;
@@ -16905,7 +16942,11 @@ function renderFPL(left, right) {
             left.innerHTML = `<div class="kln90b-line highlight">${currentStartICAO}</div><div class="kln90b-line dim">→${missionLikePoi ? 'POI' : currentDestICAO}</div>`;
         }
 
-        const _d = Math.round((currentMissionData.dist || 0) * 10) / 10, _t = parseInt(document.getElementById('tasSlider')?.value) || 115, _g = parseInt(document.getElementById('gphSlider')?.value) || 9;
+        const _d = Math.round((currentMissionData.dist || 0) * 10) / 10;
+        const _tasRaw = parseInt(document.getElementById('tasSlider')?.value);
+        const _gphRaw = parseInt(document.getElementById('gphSlider')?.value);
+        const _t = Number.isFinite(_tasRaw) ? _tasRaw : 115;
+        const _g = Number.isFinite(_gphRaw) ? _gphRaw : 9;
         right.innerHTML = `<div class="kln90b-line dim" style="font-size:9px;">TOTAL:</div><div class="kln90b-line" style="font-size:10px;">DST ${_d}NM</div><div class="kln90b-line" style="font-size:10px;">TME ${Math.round((_d / _t) * 60)}m</div><div class="kln90b-line" style="font-size:10px;">FUL ${Math.ceil((_d / _t) * _g + 0.75 * _g)}G</div><div class="kln90b-line" style="font-size:10px;">HDG ${currentMissionData.heading || 0}°</div>`;
     }
 }

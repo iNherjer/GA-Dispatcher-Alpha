@@ -190,7 +190,7 @@
                 <label class="slider-label">GPH</label>
                 <span id="gphDrum" class="drum-readout-container theme-color-text" style="font-weight:bold;">09</span>
             </div>
-            <input type="range" id="gphSlider" min="5" max="35" value="9" oninput="handleSliderChange('gph', this.value)">
+            <input type="range" id="gphSlider" min="0" max="80" value="9" oninput="handleSliderChange('gph', this.value)">
         </div>
 
         <div class="slider-container">
@@ -198,7 +198,7 @@
                 <label class="slider-label">TAS (kts)</label>
                 <span id="tasDrum" class="drum-readout-container theme-color-text" style="font-weight:bold;">115</span>
             </div>
-            <input type="range" id="tasSlider" min="80" max="260" value="115" step="5" oninput="handleSliderChange('tas', this.value)">
+            <input type="range" id="tasSlider" min="80" max="300" value="115" step="5" oninput="handleSliderChange('tas', this.value)">
         </div>
 
         <div class="slider-container">
@@ -793,8 +793,8 @@
             <input type="text" id="aircraftPresetName" placeholder="Name" maxlength="20" style="flex: 2;" autocomplete="off" spellcheck="false">
         </div>
         <div class="settings-form-row">
-            <input type="number" id="aircraftPresetTas" placeholder="TAS" min="80" max="260" step="5" style="flex: 1;">
-            <input type="number" id="aircraftPresetGph" placeholder="GPH" min="5" max="35" step="1" style="flex: 1;">
+            <input type="number" id="aircraftPresetTas" placeholder="TAS" min="80" max="300" step="5" style="flex: 1;">
+            <input type="number" id="aircraftPresetGph" placeholder="GPH" min="0" max="80" step="1" style="flex: 1;">
             <input type="number" id="aircraftPresetPax" placeholder="PAX" min="1" max="6" step="1" style="flex: 1;">
         </div>
         <div class="settings-action-row">

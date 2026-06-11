@@ -3466,6 +3466,89 @@ function _missionTargetSceneText() {
     ].filter(Boolean).join(' ').toLowerCase();
 }
 
+function _missionSarContextText() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const contract = md?.missionContract || window.activeMissionContract || {};
+    const values = [_missionTargetSceneText()];
+    const add = (value) => {
+        if (value == null) return;
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            const s = String(value).trim();
+            if (s) values.push(s);
+        }
+    };
+    const addJson = (value) => {
+        if (!value || typeof value !== 'object') return;
+        try { values.push(JSON.stringify(value)); } catch (_) {}
+    };
+    add(window.activePassenger?.role);
+    add(window.activePassenger?.taskDomain);
+    addJson(_missionTruthData());
+    addJson(_missionTargetSceneSpec());
+    addJson(md?.missionPlan?.plan || md?.missionPlan);
+    addJson(md?.missionPlanV2?.plan || md?.missionPlanV2);
+    addJson(contract?.missionPlan?.plan || contract?.missionPlan);
+    addJson(contract?.missionPlanV2?.plan || contract?.missionPlanV2);
+    addJson(md?.storyFrame || contract?.storyFrame);
+    addJson(md?.sceneIntent || contract?.sceneIntent);
+    return values.filter(Boolean).join(' ').toLowerCase();
+}
+
+function _missionSarExplicitFalseAlarm() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const contract = md?.missionContract || window.activeMissionContract || {};
+    const values = [];
+    const collectFields = (obj) => {
+        if (!obj || typeof obj !== 'object') return;
+        ['truth', 'result', 'outcome', 'status', 'scenario', 'type', 'finding', 'signal', 'incidentType', 'incident_type', 'classification', 'resolution'].forEach(key => {
+            if (obj[key] != null) values.push(String(obj[key]));
+        });
+    };
+    collectFields(_missionTruthData());
+    collectFields(_missionTargetSceneSpec());
+    collectFields(md?.missionPlan?.plan || md?.missionPlan);
+    collectFields(md?.missionPlanV2?.plan || md?.missionPlanV2);
+    collectFields(contract?.missionPlan?.plan || contract?.missionPlan);
+    collectFields(contract?.missionPlanV2?.plan || contract?.missionPlanV2);
+    collectFields(md?.storyFrame || contract?.storyFrame);
+    const fieldText = values.join(' ').toLowerCase();
+    if (/(^|\b)(false[_ -]?alarm|fehlalarm|no[_ -]?(target|person|find|finding)|negative[_ -]?(search|finding)|not[_ -]?found|none)(\b|$)/.test(fieldText)) return true;
+    const text = _missionSarContextText();
+    return /\b(false[_ -]?alarm|fehlalarm)\b/.test(text)
+        || /\b(no[_ -]?(target|person|find|finding)|negative[_ -]?(search|finding)|not[_ -]?found)\b/.test(text)
+        || /kein(?:e|er|en)?\s+(person|fundstelle|ziel|treffer)/.test(text);
+}
+
+function _missionSarHasExplicitPersonTarget() {
+    const spec = _missionTargetSceneSpec() || {};
+    const text = [
+        spec.kind,
+        spec.type,
+        spec.preset,
+        Array.isArray(spec.features) ? spec.features.join(' ') : '',
+        Array.isArray(spec.modifiers) ? spec.modifiers.join(' ') : '',
+        Array.isArray(spec.roles) ? spec.roles.join(' ') : '',
+        Array.isArray(spec.requirements) ? spec.requirements.map(req => [req?.feature, req?.kind, req?.type, req?.role, req?.name].filter(Boolean).join(' ')).join(' ') : ''
+    ].filter(Boolean).join(' ').toLowerCase();
+    return /(missing_person|lost_person|person_waving|waving_person|winkende_person|vermisste_person|person\.ground_crew)/.test(text);
+}
+
+function _missionSarLooksLikePersonSearch() {
+    if (_missionSarExplicitFalseAlarm()) return false;
+    if (_missionSarHasExplicitPersonTarget()) return true;
+    const text = _missionSarContextText();
+    const explicitPersonIncident = /(missing[_ -]?person|lost[_ -]?person|overdue[_ -]?person|fallen[_ -]?climber|missing[_ -]?hiker|fall[_ -]?injury)/.test(text)
+        || /vermisst(?:e|er|en)?\s+(person|wanderer|wanderin|kind|jugendliche?r?|kletterer|kletterin|bergsteiger|bergsteigerin|spaziergaenger|spaziergänger|laeufer|läufer|senior|seniorin|radfahrer|radfahrerin|mountainbiker|mountainbikerin)/.test(text)
+        || /(person|wanderer|wanderin|kind|jugendliche?r?|kletterer|kletterin|bergsteiger|bergsteigerin|spaziergaenger|spaziergänger|laeufer|läufer|senior|seniorin|radfahrer|radfahrerin|mountainbiker|mountainbikerin)[^.;,\n]{0,80}(vermisst|ueberfaellig|überfällig|gestuerzt|gestürzt|hilferuf|hilfezeichen|winkt)/.test(text);
+    if (explicitPersonIncident) return true;
+    const vehicleOrObjectSearch = /(vehicle[_ -]?off[_ -]?road|fahrzeugabkommen|fahrzeugunfall|fahrzeughinweis|fahrzeugspuren|pkw|motorrad|kleinwagen)/.test(text);
+    if (vehicleOrObjectSearch) return false;
+    const aircraftOrWreckSearch = /(downed[_ -]?(aircraft|ultralight|plane)|vermisst(?:es|er|e|en)?\s+(kleinflugzeug|ultraleichtflugzeug|luftfahrzeug|flugzeug)|wrack|wrackteile|einschlag|absturz|aussenlandung|außenlandung)/.test(text);
+    const explicitSurvivorCue = /(pilot|pilotin|insasse|insassin|ueberlebend|überlebend|verletzte person|person am boden|hilferuf|winkt|winkende person)/.test(text);
+    if (aircraftOrWreckSearch && !explicitSurvivorCue) return false;
+    return /(verletzte person|person am boden|sichtkontakt[^.;,\n]{0,50}person|gesichtet[^.;,\n]{0,50}person|fundstelle[^.;,\n]{0,50}person|hilferuf|hilfezeichen|winkende person)/.test(text);
+}
+
 function _missionTargetScenePoint(options = {}) {
     const allowMissingTerrain = !!options.allowMissingTerrain;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
@@ -3906,7 +3989,7 @@ const MISSION_TARGET_SCENE_BASE_FEATURE_COUNTS = {
     construction_site: { construction_crane: 1, earthmoving: 1, construction_truck: 1, cargo_material: 1, cones: 2 },
     erosion_damage: { logs: 2, debris: 1, cones: 1 },
     debris_field: { debris: 3 },
-    sar_water: { liferaft: 1, service_ship: 1 },
+    sar_water: { liferaft: 1, service_ship: 1, watercraft: 1, missing_person: 1, small_equipment: 1 },
     sar_land: { missing_person: 1 },
     medical_pickup: { emergency_response: 1, people: 2, cargo_material: 1 },
     cargo_site: { cargo_material: 2, utility_truck: 1, people: 1 },
@@ -3969,11 +4052,11 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
     if (/(bagger|bulldozer|dozer|erdarbeiten)/.test(text)) add('earthmoving');
     if (/(truemmer|trümmer|debris|wrackteile|streugut)/.test(text)) add('debris');
     if (/(treibholz|baumstamm|log|logs)/.test(text)) add('logs');
-    if (kind === 'sar_land' && /(sichtkontakt|gesichtet|fundstelle|person am boden|verletzte person|wink|winkt|hilferuf|hilfezeichen)/.test(text)) add('missing_person');
+    if (kind === 'sar_land' && (/(sichtkontakt|gesichtet|fundstelle|person am boden|verletzte person|wink|winkt|hilferuf|hilfezeichen)/.test(text) || _missionSarLooksLikePersonSearch())) add('missing_person');
     if (/(rauchsignal|signalrauch|farbiger rauch|signalfackel|signal smoke)/.test(text)) add('signal_smoke');
     else if (/(rauch|smoke|abluft)/.test(text) && kind !== 'fire_watch') add('smoke_light');
     if (/(rettungsinsel|liferaft)/.test(text)) add('liferaft');
-    if (/(boot|boat)/.test(text)) add('watercraft');
+    if (/(boot|boat|kajak|kayak|paddel|paddle)/.test(text)) add('watercraft');
     if (/(arbeitsschiff|küstenwache|kuestenwache|coast guard|schiff|ship)/.test(text)) add('service_ship');
     if (/(ente|enten|goose|geese|gans|gaense|gänse|wasservogel|wasservoegel|wasservögel|seagull|moewe|möwe|voegel|vögel|bird|birds)/.test(text)) add('waterfowl');
     if (/(wildtier|wildtiere|wildlife|hirsch|reh|elch|deer|moose|elk|habitat)/.test(text)) add('wildlife_animals');
@@ -4501,17 +4584,56 @@ function _missionTargetSceneItems(kind) {
     }
 
     if (kind === 'sar_water') {
+        const requestedFeatures = _missionTargetSceneRequestedFeatures(kind);
+        const sarText = _missionSarContextText();
         const raft = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.sarWaterTarget, 'sar-water-raft', 'LifeRaft');
-        const boat = _scenePickTitle(serviceShipPool, 'sar-water-service-ship', 'Microsoft_Ships_AbeilleBourbon_1.0');
+        const smallBoat = _scenePickTitle(smallBoatPool, 'sar-water-small-boat', 'Fishing Boat Red Modular');
+        const serviceShip = _scenePickTitle(serviceShipPool, 'sar-water-service-ship', 'Microsoft_Ships_AbeilleBourbon_1.0');
+        const targetPerson = _scenePickTitle([personA, personB].filter(Boolean), 'sar-water-missing-person', personA || personB);
+        const kit = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smallCargo, 'sar-water-clue-equipment', 'Cardboard');
         const waterPos = _missionTargetGeoOffset(['water'], 0, 0, { minM: 10, maxM: 115, hdgOffsetDeg: 20 });
-        add('liferaft', 'Rettungsinsel', raft, MISSION_SCENE_ASSET_POOLS.sarWaterTarget, waterPos.f, waterPos.r, { hdgOffsetDeg: waterPos.hdg });
-        add('service_ship_1', 'SAR Arbeits-/Service-Schiff', boat, serviceShipPool, waterPos.f - 32, waterPos.r + 23, { hdgOffsetDeg: 135 });
+        const shorePos = _missionTargetGeoOffset(['path', 'road', 'parking', 'meadow', 'water'], 10, -8, { minM: 14, maxM: 125, lateralM: -10, hdgOffsetDeg: 180 });
+        const cluePos = _missionTargetGeoOffset(['path', 'road', 'parking', 'water'], 7, -12, { minM: 14, maxM: 120, lateralM: 8, hdgOffsetDeg: 35 });
+        const supportPos = _missionTargetGeoOffset(['water'], waterPos.f - 32, waterPos.r + 23, { minM: 35, maxM: 150, lateralM: 22, hdgOffsetDeg: 135 });
+        add('liferaft', 'Rettungsinsel / Wasser-SAR-Ziel', raft, MISSION_SCENE_ASSET_POOLS.sarWaterTarget, waterPos.f, waterPos.r, {
+            hdgOffsetDeg: waterPos.hdg,
+            placement: 'search target on water',
+            geoAnchor: _missionTargetGeoAnchorDebug(waterPos, ['water'])
+        });
+        if (requestedFeatures.includes('watercraft') || /(kajak|kayak|paddel|paddler|paddlerin|kleines boot|small boat)/.test(sarText)) {
+            add('watercraft', 'Kleines Boot / Wasserhinweis', smallBoat, smallBoatPool, waterPos.f + 16, waterPos.r - 10, {
+                hdgOffsetDeg: waterPos.hdg,
+                placement: 'secondary water clue',
+                geoAnchor: _missionTargetGeoAnchorDebug(waterPos, ['water'])
+            });
+        }
+        if (!_missionSarExplicitFalseAlarm() && requestedFeatures.includes('missing_person')) {
+            add('missing_person', 'Vermisste Person am Ufer', targetPerson, peoplePool, shorePos.f, shorePos.r, {
+                hdgOffsetDeg: shorePos.hdg,
+                placement: 'shoreline search target',
+                geoAnchor: _missionTargetGeoAnchorDebug(shorePos, ['path', 'road', 'parking', 'meadow', 'water'])
+            });
+        }
+        if (requestedFeatures.includes('small_equipment')) {
+            add('shore_equipment', 'Ausruestung / Hinweis am Ufer', kit, MISSION_SCENE_ASSET_POOLS.smallCargo, cluePos.f, cluePos.r, {
+                hdgOffsetDeg: cluePos.hdg,
+                placement: 'shore clue near target',
+                geoAnchor: _missionTargetGeoAnchorDebug(cluePos, ['path', 'road', 'parking', 'water'])
+            });
+        }
+        if (requestedFeatures.includes('service_ship') && /(kueste|küste|meer|sea|coast|hafen|harbor|kuestenwache|küstenwache|coast guard|offshore|arbeitsschiff)/.test(sarText)) {
+            add('service_ship_1', 'SAR Arbeits-/Service-Schiff', serviceShip, serviceShipPool, supportPos.f, supportPos.r, {
+                hdgOffsetDeg: supportPos.hdg,
+                placement: 'coastal water rescue support',
+                geoAnchor: _missionTargetGeoAnchorDebug(supportPos, ['water'])
+            });
+        }
         return finish();
     }
 
     if (kind === 'sar_land') {
         const requestedFeatures = _missionTargetSceneRequestedFeatures(kind);
-        const wantsMissingPerson = requestedFeatures.includes('missing_person');
+        const wantsMissingPerson = requestedFeatures.includes('missing_person') || _missionSarLooksLikePersonSearch();
         const hasSupportObjects = requestedFeatures.some(feature => ['emergency_response', 'people', 'road_vehicles', 'parked_vehicle'].includes(feature));
         if (wantsMissingPerson || !hasSupportObjects) {
             if (wantsMissingPerson) {
@@ -7851,8 +7973,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 258;
-const MIN_TRACKER_VERSION_LABEL = 'v258';
+const MIN_TRACKER_VERSION_CODE = 259;
+const MIN_TRACKER_VERSION_LABEL = 'v259';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

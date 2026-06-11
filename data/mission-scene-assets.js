@@ -22,7 +22,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         sar_water: {
             label: 'SAR Wasser / Rettungsinsel',
-            roles: ['sar.liferaft', 'watercraft.small_boat', 'watercraft.service_ship'],
+            roles: ['sar.liferaft', 'watercraft.small_boat'],
             useFor: ['search_and_rescue']
         },
         sar_land: {
@@ -149,9 +149,9 @@ window.MISSION_SCENE_ASSETS = {
             useFor: ['inspection_infra', 'news_coverage']
         },
         water_sar_ship: {
-            label: 'SAR Wasser mit Rettungsinsel und Schiff/Boot',
+            label: 'SAR Wasser mit Rettungsinsel',
             kind: 'sar_water',
-            features: ['liferaft', 'service_ship'],
+            features: ['liferaft'],
             useFor: ['search_and_rescue']
         },
         event_traffic: {

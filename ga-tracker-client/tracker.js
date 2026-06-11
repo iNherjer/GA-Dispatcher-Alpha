@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v258';
-const TRACKER_VERSION_CODE = 258;
+const TRACKER_VERSION = 'v259';
+const TRACKER_VERSION_CODE = 259;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -956,12 +956,32 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     pendingAssign.set(requestId, { resolve, reject, timer, exceptionTimer: null, title: meta.title || '', pos: meta.pos || null, meta });
   });
 
+  const usesAltitudeSensitiveVfx = (title, pos = {}, meta = {}) => {
+    const plan = meta?.plan || {};
+    const altOffsetFt = toFiniteNumber(pos?.altOffsetFt ?? plan?.altOffsetFt, 0) || 0;
+    if (Math.abs(altOffsetFt) < 0.5) return false;
+    const text = [
+      title,
+      pos?.title,
+      pos?.requestedTitle,
+      pos?.kind,
+      pos?.label,
+      plan?.title,
+      plan?.requestedTitle,
+      plan?.kind,
+      plan?.label
+    ].filter(Boolean).join(' ').toLowerCase();
+    return /(smoke|rauch|fire|feuer|vfx|vo_smoke|vo_fire|chimney_smoke|signal)/.test(text);
+  };
+
   const spawnObject = async (title, pos, timeoutMs = 5000, meta = {}) => {
     const requestId = nextReqId++;
     lastExceptions.length = 0;
     const waitPromise = waitForAssignedObject(requestId, timeoutMs, { ...meta, title, pos });
     try {
-      handle.aICreateSimulatedObject(title, buildInitPos(pos.lat, pos.lon, pos.altFt, pos.hdg, true), requestId);
+      const onGround = !usesAltitudeSensitiveVfx(title, pos, meta);
+      if (!onGround) debugLog(`SPAWN_CREATE_VFX_ALT title="${title}" altFt=${pos.altFt} altOffsetFt=${pos.altOffsetFt} onGround=0`);
+      handle.aICreateSimulatedObject(title, buildInitPos(pos.lat, pos.lon, pos.altFt, pos.hdg, onGround), requestId);
     } catch (err) {
       const pending = pendingAssign.get(requestId);
       if (pending) rejectPendingAssign(requestId, pending, err, 'create-throw');
