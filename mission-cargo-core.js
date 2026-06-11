@@ -306,6 +306,11 @@ function _missionCargoPersistManifest(manifest) {
         if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
         else if (typeof saveMissionState === 'function') saveMissionState();
     } catch (_) {}
+    try {
+        if (typeof window.missionPersistRuntimeSnapshot === 'function') {
+            window.missionPersistRuntimeSnapshot('cargo-manifest');
+        }
+    } catch (_) {}
     return manifest;
 }
 

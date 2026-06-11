@@ -325,7 +325,8 @@ window.paxVoiceSetEnabled = function(on) {
     localStorage.setItem('awm_pax_voice', on ? '1' : '0');
     if (on && wasOff && _lastSpokenText && window.activePassenger && _missionHasPax()) {
         _paxLog('Voice aktiviert — lade TTS für letzte Nachricht nach', 'event');
-        setTimeout(() => _playTextAsTTS(_lastSpokenText, _lastSpokenSpeaker || null), 400);
+        const epoch = _paxMissionEpoch;
+        setTimeout(() => _playTextAsTTS(_lastSpokenText, _lastSpokenSpeaker || null, epoch), 400);
     }
 };
 
@@ -361,6 +362,7 @@ let _cargoPickupDepartureDone = false;
 let _paxWxMismatchDone = false;
 let _paxSpeechQueue   = Promise.resolve();
 let _paxMissionEpoch  = 1;
+let _paxCurrentPlayback = null;
 let _paxWrongStartActive = false;
 let _paxWrongStartContinueDone = false;
 let _paxOffDestLastAt = 0;
@@ -398,6 +400,20 @@ let _bushPickupNarrativeMemory = { boarding: '', departure: '' }; // continuity 
 let _bushCargoPickupNarrativeMemory = { boarding: '', departure: '', farewell: '' }; // continuity across bush cargo pickup handoff calls
 let _missionComfortScore = null;
 
+function _paxEpochCurrent(epoch) {
+    return Number(epoch) === Number(_paxMissionEpoch);
+}
+
+function _paxStopCurrentPlayback(reason = 'mission-reset') {
+    const playback = _paxCurrentPlayback;
+    if (!playback) return;
+    _paxCurrentPlayback = null;
+    try { playback.stop?.(); } catch (_) {}
+    if (reason !== 'new-playback') {
+        _paxLog(`Aktive Wiedergabe gestoppt (${reason})`, 'state');
+    }
+}
+
 function _paxMissionTimeout(fn, delayMs) {
     const epoch = _paxMissionEpoch;
     return setTimeout(() => {
@@ -409,6 +425,7 @@ function _paxMissionTimeout(fn, delayMs) {
 window.paxVoiceResetMission = function() {
     _paxMissionEpoch += 1;
     if (!Number.isFinite(_paxMissionEpoch) || _paxMissionEpoch > 1e9) _paxMissionEpoch = 1;
+    _paxStopCurrentPlayback('mission-reset');
     _paxGreetingDone  = false;
     _paxAtTargetDone  = false;
     _paxFarewellDone  = false;
@@ -486,6 +503,25 @@ window.paxVoiceGetPoiMissionProgress = function() {
         dwellSec: Math.max(0, Number(_poiDwellSec || 0)),
         attempts: Math.max(0, Number(_poiAttempts || 0))
     };
+};
+
+window.paxVoiceRestorePoiMissionProgress = function(progress = null, reason = 'mission-resume') {
+    if (!progress || typeof progress !== 'object') return false;
+    _poiSatisfied = !!progress.satisfied;
+    _poiAborted = !!progress.aborted;
+    _poiManuallyConfirmed = !!progress.manualConfirmed;
+    _paxAtTargetDone = !!progress.atTargetDone || _poiSatisfied || _poiManuallyConfirmed;
+    _poiDwellSec = Math.max(0, Number(progress.dwellSec || 0));
+    _poiAttempts = Math.max(0, Number(progress.attempts || 0));
+    if (_poiSatisfied || _poiManuallyConfirmed || _poiDwellSec > 0) {
+        _poiInRadius = true;
+        _poiEntryDone = true;
+        _poiLastTickTime = Date.now();
+        if (!_poiEnteredAt) _poiEnteredAt = _poiLastTickTime;
+    }
+    _paxLog(`POI-Fortschritt wiederhergestellt (${reason}) | satisfied=${_poiSatisfied ? 1 : 0} manual=${_poiManuallyConfirmed ? 1 : 0} dwell=${Math.round(_poiDwellSec)}s`, 'state');
+    _refreshPaxWidgetVisibility();
+    return true;
 };
 
 function _createMissionComfortScore() {
@@ -1912,6 +1948,7 @@ function _fireRecordObservation(kind, ctx, note = '') {
 }
 
 function _fireSpeakText(text, eventLabel = 'Feuerwache') {
+    const epoch = _paxMissionEpoch;
     const clean = _normalizeSpokenText(text);
     if (!clean) return;
     const pax = window.activePassenger || null;
@@ -1928,7 +1965,8 @@ function _fireSpeakText(text, eventLabel = 'Feuerwache') {
     _showPaxMessage(clean, eventLabel);
     if (!_paxVoiceEnabled) return;
     const run = async () => {
-        try { await _playTextAsTTS(clean, speakerSnapshot); }
+        if (epoch !== _paxMissionEpoch) return;
+        try { await _playTextAsTTS(clean, speakerSnapshot, epoch); }
         catch (e) { _paxLog(`Fire-Mission TTS Fehler: ${e.message || e}`, 'warn'); }
     };
     _paxSpeechQueue = _paxSpeechQueue.then(run, run);
@@ -2471,6 +2509,7 @@ function _missionWeatherReactionLine(flightData = null) {
 }
 
 function _paxSpeakTextDirect(text, eventLabel = 'Mission') {
+    const epoch = _paxMissionEpoch;
     const clean = _normalizeSpokenText(text);
     if (!clean) return;
     const speaker = _speakerSnapshotForActivePax();
@@ -2480,7 +2519,8 @@ function _paxSpeakTextDirect(text, eventLabel = 'Mission') {
     _showPaxMessage(clean, eventLabel);
     if (!_paxVoiceEnabled) return;
     const run = async () => {
-        try { await _playTextAsTTS(clean, speaker); }
+        if (epoch !== _paxMissionEpoch) return;
+        try { await _playTextAsTTS(clean, speaker, epoch); }
         catch (e) { _paxLog(`Mission-Action TTS Fehler: ${e.message || e}`, 'warn'); }
     };
     _paxSpeechQueue = _paxSpeechQueue.then(run, run);
@@ -2668,6 +2708,7 @@ window.paxMissionReportTargetFound = function() {
             currentMissionData.missionResult = 'completed';
         }
         if (typeof saveMissionState === 'function') saveMissionState();
+        if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('poi-manual-confirmed', { immediate: true });
     } catch (_) {}
     _paxLog(`Manuelle Fundmeldung bestaetigt | dist ${Number(ctx.confirmDistNm || 0).toFixed(2)} NM <= ${ctx.confirmRangeNm.toFixed(2)} NM`, 'event');
     _refreshPaxWidgetVisibility();
@@ -2853,12 +2894,14 @@ function _normalizeSpokenText(text) {
         .trim();
 }
 
-async function _paxDecodeAndPlay(base64Audio, mimeType) {
+async function _paxDecodeAndPlay(base64Audio, mimeType, epoch = _paxMissionEpoch) {
+    if (!_paxEpochCurrent(epoch)) return;
     const ctx = (typeof window.paxVoiceUnlockAudio === 'function')
         ? window.paxVoiceUnlockAudio('playback')
         : window._tawsAudioCtx;
     if (!ctx) { _paxLog('AudioContext nicht verfügbar', 'warn'); return; }
     if (ctx.state === 'suspended' || ctx.state === 'interrupted') await ctx.resume().catch(() => {});
+    if (!_paxEpochCurrent(epoch)) return;
     if (ctx.state !== 'running' && Date.now() - _paxAudioWarnedAt > 5000) {
         _paxAudioWarnedAt = Date.now();
         _paxLog(`AudioContext ist ${ctx.state}; Browser blockiert Playback moeglicherweise bis zum naechsten Klick.`, 'warn');
@@ -2871,6 +2914,7 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
         }
         _paxLog('AudioContext wieder aktiv — Playback wird fortgesetzt', 'state');
     }
+    if (!_paxEpochCurrent(epoch)) return;
 
     const binary = atob(base64Audio);
     const bytes  = new Uint8Array(binary.length);
@@ -2887,6 +2931,7 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
 
     try {
         const buf = await ctx.decodeAudioData(audioBuffer);
+        if (!_paxEpochCurrent(epoch)) return;
         const dest = window._awmMasterGain || ctx.destination;
         const style = _normalizePaxAudioStyle(_paxAudioStyle);
         const chain = style === 'clear'
@@ -2897,10 +2942,22 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
             const src = ctx.createBufferSource();
             src.buffer = buf;
             src.connect(chain.input);
+            _paxStopCurrentPlayback('new-playback');
             let done = false;
+            let watchdog = null;
+            const playback = {
+                epoch,
+                stop: () => {
+                    try { src.stop(0); } catch (_) {}
+                    try { chain.noise?.stop?.(0); } catch (_) {}
+                    guardedFinish();
+                }
+            };
             const finish = () => {
                 if (done) return;
                 done = true;
+                if (watchdog) clearTimeout(watchdog);
+                if (_paxCurrentPlayback === playback) _paxCurrentPlayback = null;
                 try { src.onended = null; } catch (_) {}
                 try { src.disconnect(); } catch (_) {}
                 try { chain.noise?.disconnect(); } catch (_) {}
@@ -2911,7 +2968,7 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
 
             const t = ctx.currentTime + 0.1;
             const watchdogMs = Math.max(6000, Math.round((buf.duration + 2.5) * 1000));
-            const watchdog = setTimeout(() => {
+            watchdog = setTimeout(() => {
                 _paxLog(`Playback Watchdog: onended ausgeblieben nach ${watchdogMs} ms — Queue wird freigegeben`, 'warn');
                 finish();
             }, watchdogMs);
@@ -2921,6 +2978,11 @@ async function _paxDecodeAndPlay(base64Audio, mimeType) {
             };
             src.onended = guardedFinish;
             src.onerror = guardedFinish;
+            if (!_paxEpochCurrent(epoch)) {
+                guardedFinish();
+                return;
+            }
+            _paxCurrentPlayback = playback;
 
             try {
                 src.start(t);
@@ -3264,26 +3326,35 @@ async function _requestTTSAudio(text, speaker = null) {
     return null;
 }
 
-function _prepareTextAsTTS(key, text, speaker = null) {
+function _prepareTextAsTTS(key, text, speaker = null, epoch = _paxMissionEpoch) {
     if (!key || !text || !_paxVoiceEnabled || !_getApiKey()) return Promise.resolve(null);
     const existing = _paxPreparedAudio.get(key);
-    if (existing?.audio || existing?.promise) return existing.promise || Promise.resolve(existing.audio);
+    if (existing && existing.epoch != null && !_paxEpochCurrent(existing.epoch)) {
+        _paxPreparedAudio.delete(key);
+    } else if (existing?.audio || existing?.promise) {
+        return existing.promise || Promise.resolve(existing.audio);
+    }
     const promise = _requestTTSAudio(text, speaker).then(audio => {
         const rec = _paxPreparedAudio.get(key) || {};
+        if (!_paxEpochCurrent(epoch) || (rec.promise && rec.promise !== promise)) return null;
         rec.audio = audio;
         rec.promise = null;
         rec.text = text;
         rec.speaker = speaker;
+        rec.epoch = epoch;
         _paxPreparedAudio.set(key, rec);
         return audio;
     }).catch(err => {
+        if (!_paxEpochCurrent(epoch)) return null;
         _paxLog(`TTS Preload Fehler (${key}): ${err?.message || err}`, 'warn');
         const rec = _paxPreparedAudio.get(key) || {};
+        if (rec.promise && rec.promise !== promise) return null;
         rec.promise = null;
+        rec.epoch = epoch;
         _paxPreparedAudio.set(key, rec);
         return null;
     });
-    _paxPreparedAudio.set(key, { text, speaker, promise, audio: null });
+    _paxPreparedAudio.set(key, { text, speaker, promise, audio: null, epoch });
     _paxLog(`TTS Preload gestartet: ${key}`, 'state');
     return promise;
 }
@@ -3309,13 +3380,14 @@ function _speakPreparedText(key, text, speaker, eventLabel) {
                 return;
             }
             const rec = _paxPreparedAudio.get(key);
-            const audio = rec?.audio || await (rec?.promise || _prepareTextAsTTS(key, text, speaker));
-            if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType);
-            else await _playTextAsTTS(text, speaker);
+            const audio = rec?.audio || await (rec?.promise || _prepareTextAsTTS(key, text, speaker, epoch));
+            if (epoch !== _paxMissionEpoch) return;
+            if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch);
+            else await _playTextAsTTS(text, speaker, epoch);
         } catch (e) {
             _paxLog(`Prepared Speech Fehler: ${e.message || e}`, 'warn');
         } finally {
-            _paxLog(`Queue ✓ Ende | Event: ${eventLabel}`, 'state');
+            if (epoch === _paxMissionEpoch) _paxLog(`Queue ✓ Ende | Event: ${eventLabel}`, 'state');
         }
     };
     _paxSpeechQueue = _paxSpeechQueue.then(run, run);
@@ -3361,12 +3433,15 @@ function _logRoleConsistencyCheck(eventLabel) {
     }
 }
 
-async function _playTextAsTTS(text, speaker = null) {
+async function _playTextAsTTS(text, speaker = null, epoch = _paxMissionEpoch) {
+    if (!_paxEpochCurrent(epoch)) return;
     const audio = await _requestTTSAudio(text, speaker);
-    if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType);
+    if (!_paxEpochCurrent(epoch)) return;
+    if (audio?.b64) await _paxDecodeAndPlay(audio.b64, audio.mimeType, epoch);
 }
 
-async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = null) {
+async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = null, epoch = _paxMissionEpoch) {
+    if (!_paxEpochCurrent(epoch)) return;
     const apiKey = _getApiKey();
     if (!apiKey) { _paxLog('Kein API-Key', 'warn'); return; }
     const pax = window.activePassenger || null;
@@ -3382,6 +3457,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = n
     _logRoleConsistencyCheck(eventLabel);
     _paxLog(`PROMPT (voll): ${situationPrompt.replace(/\n+/g, ' ')}`, 'send');
     const spokenTextRaw = await _generateSpokenText(apiKey, situationPrompt);
+    if (!_paxEpochCurrent(epoch)) return;
     const spokenText = _injectPattonvilleJuliusEasteregg(
         _injectPattonvilleReportingPointsHint(
             _normalizeSpokenText(spokenTextRaw),
@@ -3402,7 +3478,7 @@ async function _speakAndShowNow(situationPrompt, eventLabel, speakerOverride = n
         _paxLog('TTS übersprungen (Stimme deaktiviert) — Text gespeichert', 'state');
         return;
     }
-    await _playTextAsTTS(spokenText, speakerSnapshot);
+    await _playTextAsTTS(spokenText, speakerSnapshot, epoch);
 }
 
 function _speakAndShow(situationPrompt, eventLabel, speakerOverride = null) {
@@ -3413,11 +3489,11 @@ function _speakAndShow(situationPrompt, eventLabel, speakerOverride = null) {
         _paxLog(`Queue ▶ Start | Event: ${eventLabel}`, 'state');
         try {
             if (epoch !== _paxMissionEpoch) return;
-            await _speakAndShowNow(situationPrompt, eventLabel, speakerOverride);
+            await _speakAndShowNow(situationPrompt, eventLabel, speakerOverride, epoch);
         } catch (e) {
             _paxLog(`Speech-Queue Fehler: ${e.message || e}`, 'warn');
         } finally {
-            _paxLog(`Queue ✓ Ende | Event: ${eventLabel}`, 'state');
+            if (epoch === _paxMissionEpoch) _paxLog(`Queue ✓ Ende | Event: ${eventLabel}`, 'state');
         }
     };
     _paxSpeechQueue = _paxSpeechQueue.then(run, run);
@@ -3439,6 +3515,7 @@ function _distanceFromDepartureNm(lat, lon) {
 }
 
 window.paxVoicePrepareBoarding = function() {
+    const epoch = _paxMissionEpoch;
     let contract = null;
     try { contract = JSON.parse(localStorage.getItem('ga_active_mission_contract') || 'null'); } catch (_) {}
     contract = contract || window.activeMissionContract || (typeof currentMissionData !== 'undefined' ? currentMissionData?.missionContract : null) || {};
@@ -3458,22 +3535,25 @@ window.paxVoicePrepareBoarding = function() {
     const prompt = _boardingBriefingPrompt();
     if (!prompt) {
         const fallbackText = _buildBoardingText();
-        _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null });
-        _prepareTextAsTTS(key, fallbackText, speaker);
+        _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null, epoch });
+        _prepareTextAsTTS(key, fallbackText, speaker, epoch);
         return Promise.resolve(_paxPreparedAudio.get(key) || { key, text: fallbackText, speaker });
     }
     const textPromise = (async () => {
+        if (!_paxEpochCurrent(epoch)) return null;
         const apiKey = _getApiKey();
         if (!apiKey) {
             const fallbackText = _buildBoardingText();
-            _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null });
-            _prepareTextAsTTS(key, fallbackText, speaker);
+            if (!_paxEpochCurrent(epoch)) return null;
+            _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null, epoch });
+            _prepareTextAsTTS(key, fallbackText, speaker, epoch);
             return _paxPreparedAudio.get(key) || null;
         }
         try {
             _paxLog('Boarding-Briefing Preload → API-Call', 'event');
             _logRoleConsistencyCheck('Boarding');
             const spokenTextRaw = await _generateSpokenText(apiKey, prompt);
+            if (!_paxEpochCurrent(epoch)) return null;
             const spokenText = _injectPattonvilleJuliusEasteregg(
                 _injectPattonvilleReportingPointsHint(
                     _normalizeSpokenText(spokenTextRaw),
@@ -3482,22 +3562,24 @@ window.paxVoicePrepareBoarding = function() {
                 'Boarding'
             );
             const finalText = spokenText || _buildBoardingText();
-            _paxPreparedAudio.set(key, { text: finalText, speaker, audio: null, promise: null });
-            _prepareTextAsTTS(key, finalText, speaker);
+            _paxPreparedAudio.set(key, { text: finalText, speaker, audio: null, promise: null, epoch });
+            _prepareTextAsTTS(key, finalText, speaker, epoch);
             return _paxPreparedAudio.get(key) || null;
         } catch (e) {
+            if (!_paxEpochCurrent(epoch)) return null;
             _paxLog(`Boarding-Briefing Preload Fehler: ${e.message || e}`, 'warn');
             const fallbackText = _buildBoardingText();
-            _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null });
-            _prepareTextAsTTS(key, fallbackText, speaker);
+            _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null, epoch });
+            _prepareTextAsTTS(key, fallbackText, speaker, epoch);
             return _paxPreparedAudio.get(key) || null;
         }
     })();
-    _paxPreparedAudio.set(key, { prompt, speaker, textPromise, audio: null, promise: null });
+    _paxPreparedAudio.set(key, { prompt, speaker, textPromise, audio: null, promise: null, epoch });
     return textPromise;
 };
 
 window.paxVoicePlayBoarding = async function() {
+    const epoch = _paxMissionEpoch;
     const key = _paxMissionAudioKey('boarding');
     if (_paxBoardingDone) return true;
     if (_paxBoardingReplayBlocked(key)) {
@@ -3509,12 +3591,14 @@ window.paxVoicePlayBoarding = async function() {
     if (_paxBoardingPromise) return _paxBoardingPromise;
     _paxBoardingPromise = (async () => {
         let prepared = await window.paxVoicePrepareBoarding();
+        if (!_paxEpochCurrent(epoch)) return false;
         prepared = prepared || _paxPreparedAudio.get(key) || null;
         if (!prepared?.text && !window.activePassenger && !_missionHasPax()) return false;
         const speaker = prepared?.speaker || _speakerSnapshotForMissionVoice('boarding');
         const text = String(prepared?.text || _buildBoardingText() || '').trim();
         if (!text) return false;
         await _speakPreparedText(key, text, speaker, 'Boarding');
+        if (!_paxEpochCurrent(epoch)) return false;
         _paxBoardingDone = true;
         _paxGreetingDone = true;
         _markPaxBoardingPlayed(key);
@@ -3532,6 +3616,7 @@ window.paxVoiceBoardingDone = function() {
 };
 
 window.paxVoicePrepareGreeting = function(lat = null, lon = null) {
+    const epoch = _paxMissionEpoch;
     if (_USE_COMBINED_BOARDING_GREETING) return Promise.resolve(null);
     if (_paxGreetingDone || !window.activePassenger || !_missionHasPax()) return Promise.resolve(null);
     const distNm = _distanceFromDepartureNm(lat, lon);
@@ -3546,12 +3631,14 @@ window.paxVoicePrepareGreeting = function(lat = null, lon = null) {
     if (existing?.text || existing?.textPromise) return existing.textPromise || Promise.resolve(existing);
     const speaker = _speakerSnapshotForActivePax();
     const textPromise = (async () => {
+        if (!_paxEpochCurrent(epoch)) return null;
         const apiKey = _getApiKey();
         if (!apiKey) return null;
         try {
             _paxLog('Greeting Preload → API-Call', 'event');
             _logRoleConsistencyCheck('Begrüßung');
             const spokenTextRaw = await _generateSpokenText(apiKey, prompt);
+            if (!_paxEpochCurrent(epoch)) return null;
             const spokenText = _injectPattonvilleJuliusEasteregg(
                 _injectPattonvilleReportingPointsHint(
                     _normalizeSpokenText(spokenTextRaw),
@@ -3560,18 +3647,20 @@ window.paxVoicePrepareGreeting = function(lat = null, lon = null) {
                 'Begrüßung'
             );
             if (!spokenText) return null;
-            _paxPreparedAudio.set(key, { text: spokenText, speaker, audio: null, promise: null });
-            _prepareTextAsTTS(key, spokenText, speaker);
+            _paxPreparedAudio.set(key, { text: spokenText, speaker, audio: null, promise: null, epoch });
+            _prepareTextAsTTS(key, spokenText, speaker, epoch);
             return _paxPreparedAudio.get(key) || null;
         } catch (e) {
+            if (!_paxEpochCurrent(epoch)) return null;
             _paxLog(`Greeting Preload Fehler: ${e.message || e}`, 'warn');
             const rec = _paxPreparedAudio.get(key) || {};
             rec.textPromise = null;
+            rec.epoch = epoch;
             _paxPreparedAudio.set(key, rec);
             return null;
         }
     })();
-    _paxPreparedAudio.set(key, { prompt, speaker, textPromise, audio: null, promise: null });
+    _paxPreparedAudio.set(key, { prompt, speaker, textPromise, audio: null, promise: null, epoch });
     return textPromise;
 };
 
@@ -5340,6 +5429,7 @@ window.triggerPaxCargoPickupDeparture = async function() {
 };
 
 window.triggerPaxGreeting = async function(lat, lon, options = {}) {
+    const epoch = _paxMissionEpoch;
     _paxLog(`triggerPaxGreeting | tts:${_paxVoiceEnabled} done:${_paxGreetingDone} pax:${!!window.activePassenger} key:${!!_getApiKey()}`, 'state');
     const overrideText = String(options?.overrideText || '').trim();
     if (overrideText && window.activePassenger && _missionHasPax()) {
@@ -5363,6 +5453,7 @@ window.triggerPaxGreeting = async function(lat, lon, options = {}) {
             _paxLog(`Falsche Position (${distNm.toFixed(1)} NM) → Falsche-Ort-Meldung`, 'warn');
             const wrongPrompt = _wrongLocationPrompt(distNm);
             if (wrongPrompt) await _speakAndShow(wrongPrompt, '⚠️ Falscher Ort');
+            if (!_paxEpochCurrent(epoch)) return;
             // Mission soll trotzdem weiterlaufen: wir merken den Wrong-Start
             // und geben nach dem Abheben einen kurzen Folgekommentar.
             _paxWrongStartActive = true;
@@ -5375,6 +5466,7 @@ window.triggerPaxGreeting = async function(lat, lon, options = {}) {
     const key = _paxMissionAudioKey('greeting');
     let prepared = _paxPreparedAudio.get(key) || null;
     if (prepared?.textPromise) prepared = await prepared.textPromise;
+    if (!_paxEpochCurrent(epoch)) return;
     if (prepared?.text) {
         _paxLog('Greeting → Prepared Audio/Text', 'event');
         await _speakPreparedText(key, prepared.text, prepared.speaker || _speakerSnapshotForActivePax(), 'Begrüßung');
@@ -5412,10 +5504,19 @@ function _notifyFarewellSpeechComplete(reason = 'pax-farewell-complete') {
     }
 }
 
+function _notifyFarewellSpeechCompleteIfCurrent(epoch, reason = 'pax-farewell-complete') {
+    if (!_paxEpochCurrent(epoch)) {
+        _paxLog(`Farewell-Abschluss ignoriert: alte Mission (${reason})`, 'state');
+        return;
+    }
+    _notifyFarewellSpeechComplete(reason);
+}
+
 window.triggerPaxFarewell = async function(record) {
+    const epoch = _paxMissionEpoch;
     _paxLog(`triggerPaxFarewell | tts:${_paxVoiceEnabled} done:${_paxFarewellDone} pax:${!!window.activePassenger}`, 'state');
     if (_paxFarewellDone) {
-        _notifyFarewellSpeechComplete('pax-farewell-already-done');
+        _notifyFarewellSpeechCompleteIfCurrent(epoch, 'pax-farewell-already-done');
         return false;
     }
     if (!window.activePassenger || !_missionHasPax()) {
@@ -5429,12 +5530,12 @@ window.triggerPaxFarewell = async function(record) {
                 try {
                     await _speakAndShow(cargoPrompt, 'Verabschiedung', speaker);
                 } finally {
-                    _notifyFarewellSpeechComplete('cargo-farewell-complete');
+                    _notifyFarewellSpeechCompleteIfCurrent(epoch, 'cargo-farewell-complete');
                 }
             }, delayMs);
             return true;
         }
-        _notifyFarewellSpeechComplete('pax-farewell-no-pax');
+        _notifyFarewellSpeechCompleteIfCurrent(epoch, 'pax-farewell-no-pax');
         return false;
     }
     _paxFarewellDone = true;
@@ -5448,7 +5549,7 @@ window.triggerPaxFarewell = async function(record) {
     if (!prompt) {
         _paxFarewellDone = false;
         _paxLog('Farewell: kein Prompt', 'warn');
-        _notifyFarewellSpeechComplete('pax-farewell-no-prompt');
+        _notifyFarewellSpeechCompleteIfCurrent(epoch, 'pax-farewell-no-prompt');
         return false;
     }
     const delayMs = _paxVoiceEnabled ? 3000 : 0;
@@ -5456,14 +5557,14 @@ window.triggerPaxFarewell = async function(record) {
         const fallbackText = _failedMissionFarewellFallback(record);
         const key = _paxMissionAudioKey('farewell-failed');
         const speaker = _speakerSnapshotForActivePax();
-        _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null });
-        _prepareTextAsTTS(key, fallbackText, speaker);
+        _paxPreparedAudio.set(key, { text: fallbackText, speaker, audio: null, promise: null, epoch });
+        _prepareTextAsTTS(key, fallbackText, speaker, epoch);
         _paxLog(`Farewell → lokaler Failure-Fallback in ${Math.round(delayMs / 1000)}s`, 'event');
         _paxMissionTimeout(async () => {
             try {
                 await _speakPreparedText(key, fallbackText, speaker, 'Verabschiedung');
             } finally {
-                _notifyFarewellSpeechComplete('pax-farewell-complete');
+                _notifyFarewellSpeechCompleteIfCurrent(epoch, 'pax-farewell-complete');
             }
         }, delayMs);
         return true;
@@ -5473,7 +5574,7 @@ window.triggerPaxFarewell = async function(record) {
         try {
             await _speakAndShow(prompt, 'Verabschiedung');
         } finally {
-            _notifyFarewellSpeechComplete('pax-farewell-complete');
+            _notifyFarewellSpeechCompleteIfCurrent(epoch, 'pax-farewell-complete');
         }
     }, delayMs);
     return true;
@@ -5703,6 +5804,7 @@ function _tickPoiDwell(lat, lon, flightData) {
             _poiAborted = true;
             _paxAtTargetDone = true;
             _poiEntryDone = true;
+            if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('poi-aborted-missing-cargo', { immediate: true });
             _paxLog(`POI-Abbruch wichtiger Gegenstand ${taskItemState.reason === 'damaged' ? 'beschaedigt' : 'fehlt'} | items: ${missingTaskItems.join(', ')}`, 'warn');
             const pMissing = _poiMissingCargoAbortPrompt(flightData, taskItemState);
             if (pMissing) _paxMissionTimeout(() => _speakAndShow(pMissing, 'Abbruch'), 600);
@@ -5720,6 +5822,7 @@ function _tickPoiDwell(lat, lon, flightData) {
         if (dwellRequired === 0) {
             _poiSatisfied    = true;
             _paxAtTargetDone = true;
+            if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('poi-flyover-satisfied', { immediate: true });
             _paxLog('Flyover-Mission — Überflug genügt, satisfied', 'event');
             return;
         }
@@ -5728,6 +5831,7 @@ function _tickPoiDwell(lat, lon, flightData) {
     if (missingTaskItems.length) {
         _poiAborted = true;
         _paxAtTargetDone = true;
+        if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('poi-aborted-missing-cargo', { immediate: true });
         _paxLog(`POI-Abbruch waehrend Verweilzeit: wichtiger Gegenstand ${taskItemState.reason === 'damaged' ? 'beschaedigt' : 'fehlt'} | items: ${missingTaskItems.join(', ')}`, 'warn');
         const pMissing = _poiMissingCargoAbortPrompt(flightData, taskItemState);
         if (pMissing) _paxMissionTimeout(() => _speakAndShow(pMissing, 'Abbruch'), 600);
@@ -5759,6 +5863,7 @@ function _tickPoiDwell(lat, lon, flightData) {
             _paxLog(`Verweilzeit erfüllt (${_poiDwellSec.toFixed(0)}s) → zufrieden`, 'event');
             _poiSatisfied    = true;
             _paxAtTargetDone = true;
+            if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('poi-dwell-satisfied', { immediate: true });
             const p = _poiSatisfiedPrompt(flightData);
             if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Ziel erfüllt'), 500);
         }
@@ -5777,6 +5882,7 @@ function _tickPoiDwell(lat, lon, flightData) {
                 _paxLog('Max. Versuche erreicht → Abbruch', 'event');
                 _poiAborted      = true;
                 _paxAtTargetDone = true;
+                if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('poi-alt-aborted', { immediate: true });
                 const p = _poiAbortPrompt(flightData);
                 if (p) _paxMissionTimeout(() => _speakAndShow(p, 'Abbruch'), 1000);
             }

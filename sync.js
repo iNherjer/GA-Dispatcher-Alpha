@@ -421,6 +421,7 @@ function _setMissionRuntimePhase(phase = 'idle', options = {}) {
             trigger: options.reason || 'set-runtime-phase'
         });
     }
+    _persistMissionRuntimeSnapshot(options.reason || 'set-runtime-phase');
     if (options.updateUi !== false) _updateMissionRuntimeUi();
     return next;
 }
@@ -433,6 +434,10 @@ const trackerPendingMissionCommands = new Map();
 let missionSceneBoardingPromise = null;
 let missionStartBoardingPromise = null;
 let missionStartActionPromise = null;
+const MISSION_RUNTIME_RESUME_KEY = 'ga_active_mission_runtime';
+let missionRuntimeSnapshotTimer = null;
+let missionRuntimeLastPersistAt = 0;
+let missionRuntimeResumeAppliedFor = '';
 const TRACKER_RETRYABLE_COMMAND_TYPES = new Set([
     'mission_scene_spawn',
     'mission_scene_clear',
@@ -666,6 +671,177 @@ function _missionPhaseDebugSummarizeGroundAction(action = null, context = {}) {
         bushStatus: context.bushStatus || null,
         simMode: !!window.simModeActive
     };
+}
+
+function _safeCloneJson(value, fallback = null) {
+    try {
+        if (value == null) return fallback;
+        return JSON.parse(JSON.stringify(value));
+    } catch (_) {
+        return fallback;
+    }
+}
+
+function _compactLivePositionForRuntime(pos = null) {
+    const src = pos || window.lastLiveGpsPos || {};
+    const lat = Number(src.lat);
+    const lon = Number(src.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return {
+        lat,
+        lon,
+        alt: Number.isFinite(Number(src.alt)) ? Math.round(Number(src.alt)) : null,
+        hdg: Number.isFinite(Number(src.hdg)) ? Math.round(Number(src.hdg)) : null,
+        gs: Number.isFinite(Number(src.gs)) ? Math.round(Number(src.gs) * 10) / 10 : null,
+        ts: Number.isFinite(Number(src.ts)) ? Number(src.ts) : Date.now()
+    };
+}
+
+function _compactFlightDataForRuntime(fd = null) {
+    const src = fd || window.lastLiveFlightData || {};
+    if (!src || typeof src !== 'object') return null;
+    return {
+        onGround: typeof src.onGround === 'boolean' ? src.onGround : null,
+        parkingBrake: src.parkingBrake === true || src.parkingBrake === 1,
+        gsKts: Number.isFinite(Number(src.gsKts ?? src.gs)) ? Math.round(Number(src.gsKts ?? src.gs) * 10) / 10 : null,
+        aglFt: Number.isFinite(Number(src.aglFt)) ? Math.round(Number(src.aglFt)) : null,
+        simPaused: src.simPaused === true,
+        inMenuOrMap: src.inMenuOrMap === true
+    };
+}
+
+function _missionRuntimeSnapshotMissionId(snapshot = null) {
+    return _normalizeMissionRuntimeId(snapshot?.missionId || snapshot?.runtime?.missionId || '');
+}
+
+function _readMissionRuntimeSnapshot() {
+    try {
+        const raw = localStorage.getItem(MISSION_RUNTIME_RESUME_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function _writeMissionRuntimeSnapshot(snapshot = null) {
+    if (!snapshot || typeof snapshot !== 'object') return false;
+    try {
+        localStorage.setItem(MISSION_RUNTIME_RESUME_KEY, JSON.stringify(snapshot));
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function _clearMissionRuntimeSnapshot(reason = 'mission-runtime-clear') {
+    if (missionRuntimeSnapshotTimer) {
+        clearTimeout(missionRuntimeSnapshotTimer);
+        missionRuntimeSnapshotTimer = null;
+    }
+    try { localStorage.removeItem(MISSION_RUNTIME_RESUME_KEY); } catch (_) {}
+    missionRuntimeResumeAppliedFor = '';
+    _missionPhaseDebugPush('resume_snapshot_clear', { reason });
+}
+
+function _buildMissionRuntimeSnapshot(reason = 'runtime') {
+    const missionId = _activeMissionRuntimeId('');
+    if (!missionId) return null;
+    const startPhase = _missionStartPhase();
+    const poiProgress = _missionPoiProgressState();
+    const bushProgress = _activeBushMissionProgress();
+    const cargoManifest = (typeof _missionCargoGetManifest === 'function')
+        ? _safeCloneJson(_missionCargoGetManifest(), null)
+        : null;
+    return {
+        version: 1,
+        missionId,
+        savedAt: Date.now(),
+        reason: String(reason || 'runtime'),
+        startPhase,
+        runtime: {
+            missionId,
+            phase: String(missionRuntime.phase || _missionRuntimePhaseSnapshot() || 'idle'),
+            active: !!missionRuntime.active,
+            manual: !!missionRuntime.manual,
+            armed: !!missionRuntime.armed,
+            closingPending: !!missionRuntime.closingPending,
+            closingReason: String(missionRuntime.closingReason || ''),
+            waitingFarewellDeboarding: !!missionRuntime.waitingFarewellDeboarding,
+            deboardingAfterFarewellStarted: !!missionRuntime.deboardingAfterFarewellStarted,
+            endReadinessKey: String(missionRuntime.endReadinessKey || '')
+        },
+        poiProgress: poiProgress ? {
+            satisfied: !!poiProgress.satisfied,
+            aborted: !!poiProgress.aborted,
+            manualConfirmed: !!poiProgress.manualConfirmed,
+            atTargetDone: !!poiProgress.atTargetDone,
+            dwellSec: Math.max(0, Number(poiProgress.dwellSec || 0)),
+            attempts: Math.max(0, Number(poiProgress.attempts || 0))
+        } : null,
+        bushProgress: bushProgress ? _safeCloneJson(bushProgress, null) : null,
+        cargoManifest,
+        flightRecorder: flightRecorder ? {
+            active: !!flightRecorder.active,
+            armed: !!flightRecorder.armed,
+            hadAirbornePhase: !!flightRecorder.hadAirbornePhase,
+            airborneEvidenceSec: Math.max(0, Number(flightRecorder.airborneEvidenceSec || 0)),
+            maxAglFt: Math.max(0, Number(flightRecorder.maxAglFt || 0)),
+            maxAltFt: Math.max(0, Number(flightRecorder.maxAltFt || 0)),
+            distNm: Math.max(0, Number(flightRecorder.distNm || 0)),
+            startTs: Number(flightRecorder.startTs || 0),
+            endTs: Number(flightRecorder.endTs || 0)
+        } : null,
+        sceneStatus: {
+            sceneId: window.missionSceneStatus?.sceneId || null,
+            spawned: !!window.missionSceneStatus?.spawned,
+            spawnedCount: Math.max(0, Number(window.missionSceneStatus?.spawnedCount || 0)),
+            boardingComplete: !!window.missionSceneStatus?.boardingComplete,
+            personBoarded: !!window.missionSceneStatus?.personBoarded,
+            autoClearedFor: window.missionSceneStatus?.autoClearedFor || null
+        },
+        targetSceneStatus: {
+            sceneId: window.missionTargetSceneStatus?.sceneId || null,
+            kind: window.missionTargetSceneStatus?.kind || null,
+            spawned: !!window.missionTargetSceneStatus?.spawned,
+            spawnedCount: Math.max(0, Number(window.missionTargetSceneStatus?.spawnedCount || 0))
+        },
+        aptArrivalSceneStatus: {
+            sceneId: window.missionAptArrivalSceneStatus?.sceneId || null,
+            role: window.missionAptArrivalSceneStatus?.role || null,
+            spawned: !!window.missionAptArrivalSceneStatus?.spawned,
+            spawnedCount: Math.max(0, Number(window.missionAptArrivalSceneStatus?.spawnedCount || 0))
+        },
+        lastLiveGpsPos: _compactLivePositionForRuntime(),
+        lastLiveFlightData: _compactFlightDataForRuntime(),
+        trackerMissionStatus: window.lastTrackerMissionStatus ? _safeCloneJson(window.lastTrackerMissionStatus, null) : null
+    };
+}
+
+function _persistMissionRuntimeSnapshot(reason = 'runtime', options = {}) {
+    const snapshot = _buildMissionRuntimeSnapshot(reason);
+    if (!snapshot) return false;
+    const immediate = options.immediate === true;
+    const minIntervalMs = Math.max(250, Number(options.minIntervalMs) || 2500);
+    const writeNow = () => {
+        missionRuntimeSnapshotTimer = null;
+        missionRuntimeLastPersistAt = Date.now();
+        return _writeMissionRuntimeSnapshot(snapshot);
+    };
+    if (immediate || (Date.now() - missionRuntimeLastPersistAt) >= minIntervalMs) return writeNow();
+    if (!missionRuntimeSnapshotTimer) {
+        missionRuntimeSnapshotTimer = setTimeout(writeNow, Math.max(250, minIntervalMs - (Date.now() - missionRuntimeLastPersistAt)));
+    }
+    return true;
+}
+
+window.missionPersistRuntimeSnapshot = _persistMissionRuntimeSnapshot;
+
+function _snapshotMatchesActiveMission(snapshot = null) {
+    const snapId = _missionRuntimeSnapshotMissionId(snapshot);
+    const activeId = _activeMissionRuntimeId('');
+    return !!(snapId && activeId && snapId === activeId);
 }
 
 window.gaMissionPhaseDebugGet = function() {
@@ -943,6 +1119,8 @@ function _missionSceneDebugCommandSummary(command = {}, commandId = null, payloa
         ts: Date.now(),
         commandId,
         type: String(command.type || ''),
+        missionId: command.missionId || null,
+        missionPhase: command.missionPhase || null,
         sceneId: command.sceneId || command.missionId || null,
         reason: command.reason || null,
         targetSceneKind: command.targetSceneKind || null,
@@ -1604,17 +1782,28 @@ window.sendTrackerCommand = function(command = {}, options = {}) {
     const hdg = Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg)
         : (Number.isFinite(Number(command.hdg ?? command.heading)) ? Number(command.hdg ?? command.heading) : 0);
     const commandId = command.commandId || `cmd-${Date.now()}-${++missionSmokeCommandSeq}`;
+    const commandType = String(command.type || '');
+    const missionScopedCommand = /^mission_(scene|smoke)_/i.test(commandType) || commandType === 'mission_lifecycle';
+    const missionId = missionScopedCommand
+        ? _normalizeMissionRuntimeId(command.missionId || _activeMissionRuntimeId('active'))
+        : '';
+    const missionPhase = missionScopedCommand && typeof _missionRuntimePhaseSnapshot === 'function'
+        ? _missionRuntimePhaseSnapshot()
+        : '';
+    const trackerCommand = {
+        ...command,
+        commandId,
+        pin: getSyncPin()
+    };
+    if (missionScopedCommand && missionId) trackerCommand.missionId = missionId;
+    if (missionScopedCommand && missionPhase) trackerCommand.missionPhase = missionPhase;
     const payload = {
         type: 'gps',
         syncId: getSyncId(),
         pin: getSyncPin(),
         target: 'tracker',
         commandOnly: true,
-        trackerCommand: {
-            ...command,
-            commandId,
-            pin: getSyncPin()
-        }
+        trackerCommand
     };
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
         payload.lat = lat;
@@ -1626,22 +1815,22 @@ window.sendTrackerCommand = function(command = {}, options = {}) {
         _rememberMissionSceneId(command.sceneId);
     }
     ws.send(JSON.stringify(payload));
-    _trackerPendingMarkSent(command, commandId, options);
-    if (/^mission_(scene|smoke)_/i.test(String(command.type || ''))) {
-        const summary = _missionSceneDebugCommandSummary(command, commandId, payload);
+    _trackerPendingMarkSent(trackerCommand, commandId, options);
+    if (missionScopedCommand) {
+        const summary = _missionSceneDebugCommandSummary(trackerCommand, commandId, payload);
         const patch = { lastCommand: summary };
-        if (String(command.type || '') === 'mission_scene_spawn') {
-            if (command.targetSceneKind) patch.lastTargetSceneCommand = summary;
+        if (commandType === 'mission_scene_spawn') {
+            if (trackerCommand.targetSceneKind) patch.lastTargetSceneCommand = summary;
             else patch.lastStartSceneCommand = summary;
-        } else if (String(command.type || '') === 'mission_scene_deboarding') {
+        } else if (commandType === 'mission_scene_deboarding') {
             patch.lastEndSceneCommand = summary;
-        } else if (String(command.type || '') === 'mission_scene_clear') {
-            if (String(command.sceneId || '').includes('-target')) patch.lastTargetSceneCommand = null;
+        } else if (commandType === 'mission_scene_clear') {
+            if (String(trackerCommand.sceneId || '').includes('-target')) patch.lastTargetSceneCommand = null;
             else patch.lastStartSceneCommand = null;
-        } else if (/^mission_smoke_/i.test(String(command.type || ''))) {
+        } else if (/^mission_smoke_/i.test(commandType)) {
             patch.lastSmokeCommand = summary;
         }
-        _missionSceneDebugPatch(patch, `tracker-command:${command.type}`);
+        _missionSceneDebugPatch(patch, `tracker-command:${trackerCommand.type}`);
     }
     return commandId;
 };
@@ -1709,9 +1898,195 @@ window.missionSmokeClear = function(reason = 'mission-end') {
     return true;
 };
 
+function _normalizeMissionRuntimeId(value = '') {
+    const raw = String(value || '').trim();
+    return raw ? raw.replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 96) : '';
+}
+
+function _activeMissionRuntimeId(fallback = 'active') {
+    const fs = _activeFireScenario();
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const contract = window.activeMissionContract || md?.missionContract || null;
+    const id = _normalizeMissionRuntimeId(
+        fs?.missionId
+        || md?.missionId
+        || md?.id
+        || md?.missionKey
+        || contract?.missionId
+        || ''
+    );
+    return id || _normalizeMissionRuntimeId(fallback);
+}
+
+function _trackerAckMatchesActiveMission(ack = {}) {
+    const ackMissionId = _normalizeMissionRuntimeId(ack?.missionId || '');
+    if (!ackMissionId) return true;
+    const activeMissionId = _activeMissionRuntimeId('');
+    if (!activeMissionId) return true;
+    return ackMissionId === activeMissionId;
+}
+
+function _sendMissionLifecycleToTracker(state = 'active', reason = 'mission-lifecycle') {
+    if (window.simModeActive || !window.liveTrackerConnected || typeof window.sendTrackerCommand !== 'function') return false;
+    const missionId = _activeMissionRuntimeId('');
+    if (!missionId) return false;
+    return !!window.sendTrackerCommand({
+        type: 'mission_lifecycle',
+        missionId,
+        state: String(state || 'active'),
+        reason
+    });
+}
+
+function _restoreFlightRecorderFromRuntimeSnapshot(snapshot = null) {
+    const src = snapshot?.flightRecorder;
+    if (!src || typeof src !== 'object' || !flightRecorder || typeof flightRecorder !== 'object') return false;
+    flightRecorder.active = !!src.active;
+    flightRecorder.armed = !!src.armed;
+    flightRecorder.hadAirbornePhase = !!src.hadAirbornePhase;
+    flightRecorder.airborneEvidenceSec = Math.max(0, Number(src.airborneEvidenceSec || 0));
+    flightRecorder.maxAglFt = Math.max(0, Number(src.maxAglFt || 0));
+    flightRecorder.maxAltFt = Math.max(0, Number(src.maxAltFt || 0));
+    flightRecorder.distNm = Math.max(0, Number(src.distNm || 0));
+    flightRecorder.startTs = Number(src.startTs || 0);
+    flightRecorder.endTs = Number(src.endTs || 0);
+    return true;
+}
+
+function _restoreCargoManifestFromRuntimeSnapshot(snapshot = null) {
+    const manifest = snapshot?.cargoManifest;
+    if (!manifest || typeof manifest !== 'object') return false;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (!md || typeof md !== 'object') return false;
+    const currentKey = (typeof _missionCargoMissionKey === 'function') ? _missionCargoMissionKey() : '';
+    if (manifest.key && currentKey && manifest.key !== currentKey) return false;
+    md.cargoManifest = manifest;
+    if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.cargoManifest = manifest;
+    if (window.activeMissionContract && typeof window.activeMissionContract === 'object') window.activeMissionContract.cargoManifest = manifest;
+    if (window.missionCargoStatus) window.missionCargoStatus.manifestKey = manifest.key || currentKey || '';
+    return true;
+}
+
+function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
+    const snap = snapshot || _readMissionRuntimeSnapshot();
+    if (!snap || !_snapshotMatchesActiveMission(snap)) return false;
+    const snapId = _missionRuntimeSnapshotMissionId(snap);
+    const ageMs = Date.now() - Number(snap.savedAt || 0);
+    if (!Number.isFinite(ageMs) || ageMs > 12 * 60 * 60 * 1000) {
+        _missionPhaseDebugPush('resume_snapshot_stale', {
+            missionId: snapId,
+            ageMin: Number.isFinite(ageMs) ? Math.round(ageMs / 60000) : null,
+            reason: options.reason || 'mission-resume'
+        });
+        return false;
+    }
+    const runtime = snap.runtime && typeof snap.runtime === 'object' ? snap.runtime : {};
+    const startPhase = String(snap.startPhase || '').toLowerCase();
+    const phase = String(runtime.phase || snap.runtimePhase || '').toLowerCase();
+    const shouldBeClosing = !!runtime.closingPending || phase === 'closing';
+    const shouldBeActive = !!runtime.active || ['active', 'end_ready'].includes(phase);
+    const shouldRestore = shouldBeClosing || shouldBeActive || ['prepare', 'boarding', 'boarded'].includes(startPhase);
+    if (!shouldRestore) return false;
+
+    if (snap.poiProgress && typeof window.paxVoiceRestorePoiMissionProgress === 'function') {
+        try { window.paxVoiceRestorePoiMissionProgress(snap.poiProgress, options.reason || 'mission-resume'); } catch (_) {}
+    }
+    if (snap.bushProgress && typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') {
+        currentMissionData.bushProgress = { ...snap.bushProgress };
+    }
+    _restoreCargoManifestFromRuntimeSnapshot(snap);
+    _restoreFlightRecorderFromRuntimeSnapshot(snap);
+
+    if (['prepare', 'boarding', 'boarded'].includes(startPhase)) {
+        _setMissionStartPhase(startPhase);
+    } else if (shouldBeActive) {
+        _setMissionStartPhase('boarded');
+    }
+
+    missionRuntime.phase = shouldBeClosing ? 'closing' : (phase === 'end_ready' ? 'end_ready' : (shouldBeActive ? 'active' : _missionRuntimePhaseSnapshot()));
+    missionRuntime.active = shouldBeActive && !shouldBeClosing;
+    missionRuntime.armed = shouldBeActive && !shouldBeClosing;
+    missionRuntime.manual = !!runtime.manual || shouldBeActive;
+    missionRuntime.closingPending = shouldBeClosing;
+    missionRuntime.closingReason = String(runtime.closingReason || (shouldBeClosing ? 'mission-resume-closing' : ''));
+    missionRuntime.waitingFarewellDeboarding = false;
+    missionRuntime.deboardingAfterFarewellStarted = false;
+    missionRuntime.endReadinessKey = String(runtime.endReadinessKey || '');
+    if (shouldBeClosing && !missionRuntime.closingRequestedAt) missionRuntime.closingRequestedAt = Date.now();
+
+    if (window.missionSceneStatus && (shouldBeActive || startPhase === 'boarded')) {
+        // Do not respawn the departure/boarding scene after an app restart.
+        window.missionSceneStatus.autoClearedFor = _missionSceneId();
+        window.missionSceneStatus.boardingRequested = false;
+        window.missionSceneStatus.boardingActive = false;
+        window.missionSceneStatus.boardingComplete = !!(snap.sceneStatus?.boardingComplete || startPhase === 'boarded' || shouldBeActive);
+        window.missionSceneStatus.personBoarded = !!(snap.sceneStatus?.personBoarded || startPhase === 'boarded' || shouldBeActive);
+    }
+
+    missionRuntimeResumeAppliedFor = snapId;
+    _missionPhaseDebugPush('resume_restore', {
+        reason: options.reason || 'mission-resume',
+        missionId: snapId,
+        startPhase,
+        phase: missionRuntime.phase,
+        active: !!missionRuntime.active,
+        closing: !!missionRuntime.closingPending,
+        trackerConfirmed: options.trackerConfirmed === true
+    });
+    _persistMissionRuntimeSnapshot(options.reason || 'mission-resume', { immediate: true });
+    _updateMissionRuntimeUi();
+    return true;
+}
+
+window.missionRuntimeRestoreFromSnapshot = _restoreMissionRuntimeFromSnapshot;
+
+function _handleTrackerMissionStatus(status = null, reason = 'tracker-status') {
+    if (!status || typeof status !== 'object') return false;
+    const trackerMissionId = _normalizeMissionRuntimeId(status.missionId || '');
+    if (!trackerMissionId) return false;
+    const activeMissionId = _activeMissionRuntimeId('');
+    const trackerActive = status.active !== false && !/^(ended|closed|reset|cleared)$/i.test(String(status.state || ''));
+    if (!activeMissionId) {
+        window.missionRuntimeResumeConflict = {
+            reason: 'tracker-active-without-local-mission',
+            trackerMissionId,
+            trackerActive,
+            at: Date.now()
+        };
+        return false;
+    }
+    if (trackerMissionId !== activeMissionId) {
+        window.missionRuntimeResumeConflict = {
+            reason: 'mission-id-mismatch',
+            trackerMissionId,
+            activeMissionId,
+            trackerActive,
+            at: Date.now()
+        };
+        _missionPhaseDebugPush('resume_conflict', window.missionRuntimeResumeConflict);
+        _updateMissionRuntimeUi();
+        return false;
+    }
+    window.missionRuntimeResumeConflict = null;
+    const snap = _readMissionRuntimeSnapshot();
+    if (trackerActive && snap && _snapshotMatchesActiveMission(snap) && !missionRuntime.active && !missionRuntime.closingPending) {
+        return _restoreMissionRuntimeFromSnapshot(snap, { reason, trackerConfirmed: true });
+    }
+    if (!trackerActive && (missionRuntime.active || missionRuntime.closingPending)) {
+        _missionPhaseDebugPush('resume_tracker_ended', {
+            missionId: trackerMissionId,
+            localActive: !!missionRuntime.active,
+            localClosing: !!missionRuntime.closingPending,
+            state: status.state || ''
+        });
+    }
+    _persistMissionRuntimeSnapshot(reason, { minIntervalMs: 10000 });
+    return true;
+}
+
 function _missionSceneId() {
     const fs = _activeFireScenario();
-    const missionId = fs?.missionId || (typeof currentMissionData !== 'undefined' ? (currentMissionData?.id || currentMissionData?.missionId || currentMissionData?.t || '') : '');
+    const missionId = _activeMissionRuntimeId('');
     const key = missionId ? String(missionId).replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 80) : 'active';
     return `scene-${key || 'active'}`;
 }
@@ -2537,6 +2912,17 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
         return false;
     }
     const sceneId = _missionSceneId();
+    const sameSceneAlreadyRequested = !!(
+        !debugReason
+        && window.missionSceneStatus?.sceneId === sceneId
+        && (window.missionSceneStatus?.spawnRequested || window.missionSceneStatus?.spawned)
+        && (Date.now() - Number(window.missionSceneStatus?.lastCommandAt || 0)) < 15000
+    );
+    if (sameSceneAlreadyRequested) {
+        window.missionSceneStatus.blockReason = 'spawn_already_requested';
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return true;
+    }
     const vehicleSupportEnabled = _missionSceneVehicleSupportEnabled();
     const vehicleAsset = vehicleSupportEnabled ? _missionSceneVehicleAsset() : null;
     const vehicleTitle = vehicleAsset?.title || '';
@@ -4578,7 +4964,8 @@ window.missionSceneDeboarding = function(reason = 'mission-end') {
     if (window.simModeActive && !window.liveTrackerConnected) return false;
     if (window.missionSceneStatus?.deboardingRequested || window.missionSceneStatus?.deboardingActive) return false;
     const allowBushHomeHandoff = reason === 'bush-home-unload' && _missionBushIsPickupPassengerMission();
-    if (_missionCargoPassengerAlreadyUnloaded() && !allowBushHomeHandoff) return false;
+    const allowMissionEndDeboarding = /(farewell|mission-end|manual-end|flight-finalize|touchdown)/i.test(String(reason || ''));
+    if (_missionCargoPassengerAlreadyUnloaded() && !allowBushHomeHandoff && !allowMissionEndDeboarding) return false;
     const pos = window.lastLiveGpsPos || {};
     if (!Number.isFinite(Number(pos.lat)) || !Number.isFinite(Number(pos.lon))) return false;
     const sceneId = window.missionSceneStatus?.sceneId || _missionSceneId();
@@ -4631,6 +5018,10 @@ window.missionSceneDeboarding = function(reason = 'mission-end') {
 function _handleTrackerAck(ack) {
     if (!ack || typeof ack !== 'object') return;
     _trackerPendingHandleAck(ack);
+    if ((/^mission_(scene|smoke)_/i.test(String(ack.type || '')) || String(ack.type || '') === 'mission_lifecycle_ack') && !_trackerAckMatchesActiveMission(ack)) {
+        _missionSceneDebugPatch({ lastIgnoredAck: ack }, `tracker-ack-ignored:${ack.type}`);
+        return;
+    }
     window.missionSmokeStatus.lastAckAt = Date.now();
     window.missionSmokeStatus.lastAck = ack;
     if (ack.type === 'aircraft_payload_get_ack' || ack.type === 'aircraft_payload_set_ack') {
@@ -5024,6 +5415,7 @@ function _setMissionStartPhase(phase) {
                 trigger: 'set-start-phase'
             });
         }
+        _persistMissionRuntimeSnapshot('set-start-phase');
     } catch (_) {}
 }
 
@@ -5039,6 +5431,7 @@ function _clearMissionStartPhase() {
                 trigger: 'clear-start-phase'
             });
         }
+        _persistMissionRuntimeSnapshot('clear-start-phase');
     } catch (_) {}
 }
 
@@ -5286,6 +5679,8 @@ function _setMissionClosePending(options = {}) {
     missionRuntime.waitingFarewellDeboarding = false;
     missionRuntime.deboardingAfterFarewellStarted = false;
     missionRuntime.endReadinessKey = '';
+    _sendMissionLifecycleToTracker('closing', missionRuntime.closingReason);
+    _persistMissionRuntimeSnapshot('mission-close-pending', { immediate: true });
     _updateMissionRuntimeUi();
     return true;
 }
@@ -6076,6 +6471,7 @@ function _persistBushMissionProgress(progress = null) {
         if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
         else if (typeof saveMissionState === 'function') saveMissionState();
     } catch (_) {}
+    _persistMissionRuntimeSnapshot('bush-progress');
     return currentMissionData.bushProgress;
 }
 
@@ -6105,6 +6501,7 @@ window.missionRuntimeReset = function(options = {}) {
     const respawnAfterClear = options && options.respawnAfterClear === true;
     if (!window.simModeActive && !window.liveTrackerConnected) missionSceneReconnectResyncPending = true;
     if (!window.simModeActive && window.liveTrackerConnected) missionSceneReconnectResyncPending = false;
+    _sendMissionLifecycleToTracker('ended', 'mission-runtime-reset');
     if (typeof window.closeMissionCargoDialog === 'function') window.closeMissionCargoDialog();
     if (typeof window.paxVoiceResetMission === 'function') {
         try { window.paxVoiceResetMission(); } catch (_) {}
@@ -6161,6 +6558,7 @@ window.missionRuntimeReset = function(options = {}) {
     _missionCargoClearSignatureAnimation();
     window.missionCargoStatus.loadConfirmed = false;
     resetFlightRecorder();
+    _clearMissionRuntimeSnapshot('mission-runtime-reset');
     if (respawnAfterClear) {
         setTimeout(() => {
             if (window.missionSceneStatus?.respawnAfterClear) {
@@ -6272,7 +6670,9 @@ window.manualMissionStart = function() {
     missionRuntime.waitingFarewellDeboarding = false;
     missionRuntime.deboardingAfterFarewellStarted = false;
     missionRuntime.endReadinessKey = '';
+    _sendMissionLifecycleToTracker('active', 'manual-mission-start');
     resetFlightRecorder();
+    _persistMissionRuntimeSnapshot('manual-mission-start', { immediate: true });
     const pos = window.lastLiveGpsPos;
     if ((pos || window.simModeActive) && !_missionBushIsPickupMission()) {
         setTimeout(() => _triggerGreetingAfterBoardingVoice(pos?.lat, pos?.lon), 200);
@@ -7357,6 +7757,8 @@ let lastAutoFollowPanPos = null;
 let lastLivePlaneHeadingUpdateAt = 0;
 let gpsWatchdog;
 let gpsReconnectDelay = 2000; // Start: 2s, wächst bei wiederholtem Fehlschlag
+let liveGpsConnectionSeq = 0;
+let liveGpsReconnectTimer = null;
 let liveNextLegIndex = 0;
 let liveNextRouteKey = '';
 let liveActiveWpIndex = null; // null = automatisch (aus Leg), sonst manuell gewählter Ziel-Wegpunkt
@@ -8450,9 +8852,22 @@ window.connectToLiveGPS = async function(syncId) {
     if (!syncId) return;
 
     const wsUrl = 'wss://websocketrelais.onrender.com/';
+    const connectionSeq = ++liveGpsConnectionSeq;
+    if (liveGpsReconnectTimer) {
+        clearTimeout(liveGpsReconnectTimer);
+        liveGpsReconnectTimer = null;
+    }
 
     // Alte Verbindung schließen, falls wir die ID wechseln
-    if (liveGpsSocket) liveGpsSocket.close();
+    if (liveGpsSocket) {
+        try {
+            liveGpsSocket.onopen = null;
+            liveGpsSocket.onmessage = null;
+            liveGpsSocket.onclose = null;
+            liveGpsSocket.onerror = null;
+            liveGpsSocket.close();
+        } catch (_) {}
+    }
 
     console.log(`[GPS] 📡 Verbinde mit Live-Tracking für Pilot-ID ${syncId}...`);
 
@@ -8462,10 +8877,13 @@ window.connectToLiveGPS = async function(syncId) {
     try {
         await fetch('https://websocketrelais.onrender.com/', { method: 'HEAD', mode: 'no-cors', signal: AbortSignal.timeout(8000) });
     } catch(e) { /* Server schläft evtl. noch – WebSocket versucht es trotzdem */ }
+    if (connectionSeq !== liveGpsConnectionSeq) return;
 
-    liveGpsSocket = new WebSocket(wsUrl);
+    const socket = new WebSocket(wsUrl);
+    liveGpsSocket = socket;
 
     liveGpsSocket.onopen = () => {
+        if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
         console.log(`[GPS] ✅ Verbunden! Warte auf Flugzeug-Daten...`);
         gpsReconnectDelay = 2000; // Erfolg → Backoff zurücksetzen
         const now = Date.now();
@@ -8477,8 +8895,13 @@ window.connectToLiveGPS = async function(syncId) {
         _updateMissionRuntimeUi();
         if (typeof window.scheduleTerrainAvoidOverlayUpdate === 'function') window.scheduleTerrainAvoidOverlayUpdate(true);
         // Dem Server mitteilen, in welchen Raum wir wollen (mit PIN!)
-        liveGpsSocket.send(JSON.stringify({ type: 'join', syncId: syncId, pin: getSyncPin() }));
+        socket.send(JSON.stringify({ type: 'join', syncId: syncId, pin: getSyncPin() }));
         setTimeout(() => _trackerPendingResendAll('websocket-open'), 300);
+        if (missionRuntime.active) {
+            setTimeout(() => _sendMissionLifecycleToTracker('active', 'websocket-open-resume'), 180);
+        } else if (missionRuntime.closingPending) {
+            setTimeout(() => _sendMissionLifecycleToTracker('closing', 'websocket-open-resume'), 180);
+        }
         let missionSceneTickDelayMs = 900;
         if (missionSceneReconnectResyncPending && !missionRuntime.active && !window.simModeActive) {
             missionSceneReconnectResyncPending = false;
@@ -8519,6 +8942,7 @@ window.connectToLiveGPS = async function(syncId) {
     };
 
     liveGpsSocket.onmessage = (event) => {
+        if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
         try {
             const data = JSON.parse(event.data);
             if (data.type === 'error') {
@@ -8535,6 +8959,13 @@ window.connectToLiveGPS = async function(syncId) {
             if (data.type === 'gps') {
                 if (!Number.isFinite(Number(data.lat)) || !Number.isFinite(Number(data.lon))) return;
                 _maybePromptTrackerUpdate(data);
+                if (data.trackerMissionStatus && typeof data.trackerMissionStatus === 'object') {
+                    window.lastTrackerMissionStatus = {
+                        ...data.trackerMissionStatus,
+                        receivedAt: Date.now()
+                    };
+                    _handleTrackerMissionStatus(window.lastTrackerMissionStatus, 'tracker-gps-status');
+                }
                 if (data.flight && typeof data.flight === 'object') {
                     window.lastLiveFlightData = data.flight;
                     if (typeof window.terrainAvoidHandleFlightState === 'function') window.terrainAvoidHandleFlightState();
@@ -8590,7 +9021,9 @@ window.connectToLiveGPS = async function(syncId) {
     };
 
     liveGpsSocket.onclose = () => {
+        if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
         clearTimeout(gpsWatchdog);
+        liveGpsSocket = null;
         lastTrackerDisconnectAt = Date.now();
         window.liveTrackerConnected = false;
         _updateMissionRuntimeUi();
@@ -8608,11 +9041,15 @@ window.connectToLiveGPS = async function(syncId) {
 
         // Exponentielles Backoff: 2s → 4s → 8s → max 15s (fängt Render.com Cold Starts sauber ab)
         console.warn(`[GPS] ❌ Verbindung getrennt. Reconnect in ${(gpsReconnectDelay/1000).toFixed(0)}s...`);
-        setTimeout(() => connectToLiveGPS(syncId), gpsReconnectDelay);
+        liveGpsReconnectTimer = setTimeout(() => {
+            liveGpsReconnectTimer = null;
+            if (connectionSeq === liveGpsConnectionSeq) connectToLiveGPS(syncId);
+        }, gpsReconnectDelay);
         gpsReconnectDelay = Math.min(gpsReconnectDelay * 2, 15000);
     };
 
     liveGpsSocket.onerror = () => {
+        if (socket !== liveGpsSocket || connectionSeq !== liveGpsConnectionSeq) return;
         clearTimeout(gpsWatchdog);
         lastTrackerDisconnectAt = Date.now();
         window.liveTrackerConnected = false;
@@ -8677,6 +9114,9 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     if (now - lastMissionRuntimeLiveUiRefreshAt > 650) {
         lastMissionRuntimeLiveUiRefreshAt = now;
         _updateMissionRuntimeUi();
+    }
+    if (missionRuntime.active || missionRuntime.closingPending || ['prepare', 'boarding', 'boarded'].includes(_missionStartPhase())) {
+        _persistMissionRuntimeSnapshot('gps-tick', { minIntervalMs: 3500 });
     }
     if (typeof map === 'undefined' || !map || typeof L === 'undefined') return;
 

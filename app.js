@@ -2689,7 +2689,7 @@ function bootAppOnce() {
     if (activeMission) {
         setTimeout(() => {
             const parsedMission = JSON.parse(activeMission);
-            restoreMissionState(parsedMission, { allowDraft: true });
+            restoreMissionState(parsedMission, { allowDraft: true, resumeRuntime: true });
             // Clear destination input on initial load to allow easy random route generation
             const dInp = document.getElementById('destLoc');
             if (dInp) dInp.value = '';
@@ -3246,13 +3246,14 @@ function restoreMissionV3Context(md, state = {}, restoredPassenger = null, resto
 
 async function restoreMissionState(state, options = {}) {
     const allowDraft = !!options.allowDraft;
+    const resumeRuntime = options.resumeRuntime === true;
     if (isMissionDraftPending(state) && !allowDraft) {
         clearDraftMissionPersistence('restore-draft-rejected');
         const indicator = document.getElementById('searchIndicator');
         if (indicator) indicator.innerText = 'Entwurf verworfen: Mission muss zuerst akzeptiert werden.';
         return;
     }
-    if (typeof window.missionRuntimeReset === 'function') {
+    if (!resumeRuntime && typeof window.missionRuntimeReset === 'function') {
         window.missionRuntimeReset({ respawnAfterClear: false });
     }
     state.mStory = _cleanupNarrativeArtifacts(state.mStory || '');
@@ -3356,6 +3357,9 @@ async function restoreMissionState(state, options = {}) {
         state.activeMissionContract = window.activeMissionContract || currentMissionData?.missionContract || null;
         localStorage.setItem('ga_active_mission', JSON.stringify(state));
     } catch (_) {}
+    if (resumeRuntime && typeof window.missionRuntimeRestoreFromSnapshot === 'function') {
+        try { window.missionRuntimeRestoreFromSnapshot(null, { reason: 'mission-state-restore' }); } catch (_) {}
+    }
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
     currentStartICAO = state.currentStartICAO; currentDestICAO = state.currentDestICAO;
     currentSName = state.currentSName; currentDName = state.currentDName;
@@ -3462,6 +3466,7 @@ function resetApp() {
     const led = document.getElementById('meterLed');
     if (led) led.classList.remove('led-green', 'led-blue', 'led-red', 'led-flash3');
     document.querySelectorAll('.marker-light').forEach(l => l.classList.remove('blinking', 'on'));
+    if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
     localStorage.removeItem('ga_active_mission'); document.getElementById("briefingBox").style.display = "none";
     currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null;
     window.activeMissionContract = null;
@@ -3483,7 +3488,6 @@ function resetApp() {
 
     document.getElementById('searchIndicator').innerText = "System bereit."; setDrumCounter('distDrum', 0); recalculatePerformance();
     setDispatchLampState('idle');
-    if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
     const rBtn = document.getElementById('radioGenerateBtn');
     if (rBtn) rBtn.classList.remove('active');
 
@@ -16187,7 +16191,9 @@ async function generateMission() {
     const effectiveTargetTerrainFt = Number.isFinite(Number(poiTerrainFt))
         ? Math.round(Number(poiTerrainFt))
         : (poiTaskDefaults.defaultTargetAltFt > 0 ? Math.max(0, poiTaskDefaults.defaultTargetAltFt - 1000) : null);
+    const missionRuntimeId = `mission-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     currentMissionData = {
+        missionId: missionRuntimeId,
         missionKey: [currentStartICAO, currentDestICAO, isPOI ? dest.n : dest.n, m?.t].filter(Boolean).join('|'),
         start: currentStartICAO,
         dest: currentDestICAO,
@@ -16244,7 +16250,10 @@ async function generateMission() {
             normalized: missionSceneIntent
         }
     };
-    if (m && typeof m === 'object') m.missionKey = currentMissionData.missionKey;
+    if (m && typeof m === 'object') {
+        m.missionId = currentMissionData.missionId;
+        m.missionKey = currentMissionData.missionKey;
+    }
 
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
     const isAiGeneratedMission = !!(m && typeof m._source === 'string' && /^Gemini\b/i.test(String(m._source)));
