@@ -1,0 +1,1539 @@
+{
+  "tool": "GA-MSFS-Asset-Validator",
+  "version": "v1",
+  "createdAt": "2026-05-20T16:27:51.447Z",
+  "sourceCatalog": "C:\\Users\\einhe\\OneDrive\\msfs2024-simobjects-catalog.json",
+  "stats": {
+    "selected": 109,
+    "tested": 109,
+    "ok": 105,
+    "failed": 4
+  },
+  "roles": {
+    "vfx.smoke": [
+      {
+        "title": "Chimney_Smoke_V1",
+        "catalogTitle": "Chimney_Smoke_V1",
+        "role": "vfx.smoke",
+        "roleHints": [
+          "vfx.smoke"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\animatedsmoke_nz\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Chimney_Smoke_V2",
+        "catalogTitle": "Chimney_Smoke_V2",
+        "role": "vfx.smoke",
+        "roleHints": [
+          "vfx.smoke"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\animatedsmoke_nz\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Chimney_Smoke_V3",
+        "catalogTitle": "Chimney_Smoke_V3",
+        "role": "vfx.smoke",
+        "roleHints": [
+          "vfx.smoke"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\animatedsmoke_nz\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Chimney_Smoke_V4",
+        "catalogTitle": "Chimney_Smoke_V4",
+        "role": "vfx.smoke",
+        "roleHints": [
+          "vfx.smoke"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\animatedsmoke_nz\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Smoke_R1_100_Black",
+        "catalogTitle": "VO_Smoke_R1_100_Black",
+        "role": "vfx.smoke",
+        "roleHints": [
+          "vfx.smoke"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Smoke_R1_100_White",
+        "catalogTitle": "VO_Smoke_R1_100_White",
+        "role": "vfx.smoke",
+        "roleHints": [
+          "vfx.smoke"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Smoke_R1_105_Black",
+        "catalogTitle": "VO_Smoke_R1_105_Black",
+        "role": "vfx.smoke",
+        "roleHints": [
+          "vfx.smoke"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Smoke_R1_105_White",
+        "catalogTitle": "VO_Smoke_R1_105_White",
+        "role": "vfx.smoke",
+        "roleHints": [
+          "vfx.smoke"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Smoke_R1_110_Black",
+        "catalogTitle": "VO_Smoke_R1_110_Black",
+        "role": "vfx.smoke",
+        "roleHints": [
+          "vfx.smoke"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Smoke_R1_110_White",
+        "catalogTitle": "VO_Smoke_R1_110_White",
+        "role": "vfx.smoke",
+        "roleHints": [
+          "vfx.smoke"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Smoke_R1_115_Black",
+        "catalogTitle": "VO_Smoke_R1_115_Black",
+        "role": "vfx.smoke",
+        "roleHints": [
+          "vfx.smoke"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Smoke_R1_115_White",
+        "catalogTitle": "VO_Smoke_R1_115_White",
+        "role": "vfx.smoke",
+        "roleHints": [
+          "vfx.smoke"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "vfx.fire": [
+      {
+        "title": "VO_Fire_R1_40",
+        "catalogTitle": "VO_Fire_R1_40",
+        "role": "vfx.fire",
+        "roleHints": [
+          "vfx.fire"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Fire_R1_100",
+        "catalogTitle": "VO_Fire_R1_100",
+        "role": "vfx.fire",
+        "roleHints": [
+          "vfx.fire"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Fire_R1_105",
+        "catalogTitle": "VO_Fire_R1_105",
+        "role": "vfx.fire",
+        "roleHints": [
+          "vfx.fire"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Fire_R1_110",
+        "catalogTitle": "VO_Fire_R1_110",
+        "role": "vfx.fire",
+        "roleHints": [
+          "vfx.fire"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Fire_R1_115",
+        "catalogTitle": "VO_Fire_R1_115",
+        "role": "vfx.fire",
+        "roleHints": [
+          "vfx.fire"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Fire_R1_120",
+        "catalogTitle": "VO_Fire_R1_120",
+        "role": "vfx.fire",
+        "roleHints": [
+          "vfx.fire"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Fire_R1_125",
+        "catalogTitle": "VO_Fire_R1_125",
+        "role": "vfx.fire",
+        "roleHints": [
+          "vfx.fire"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Fire_R1_130",
+        "catalogTitle": "VO_Fire_R1_130",
+        "role": "vfx.fire",
+        "roleHints": [
+          "vfx.fire"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Fire_R1_135",
+        "catalogTitle": "VO_Fire_R1_135",
+        "role": "vfx.fire",
+        "roleHints": [
+          "vfx.fire"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Fire_R1_140",
+        "catalogTitle": "VO_Fire_R1_140",
+        "role": "vfx.fire",
+        "roleHints": [
+          "vfx.fire"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Fire_R1_145",
+        "catalogTitle": "VO_Fire_R1_145",
+        "role": "vfx.fire",
+        "roleHints": [
+          "vfx.fire"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "VO_Fire_R1_150",
+        "catalogTitle": "VO_Fire_R1_150",
+        "role": "vfx.fire",
+        "roleHints": [
+          "vfx.fire"
+        ],
+        "kind": "landmarks",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "vehicle.emergency.fire": [
+      {
+        "title": "Car Bush Firefighting",
+        "catalogTitle": "Car Bush Firefighting",
+        "role": "vehicle.emergency.fire",
+        "roleHints": [
+          "vfx.fire",
+          "vehicle.car",
+          "vehicle.emergency.fire"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_car_bush\\presets\\asobo\\firefighting_default\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "vehicle.emergency.medical": [
+      {
+        "title": "Car Bush Medic",
+        "catalogTitle": "Car Bush Medic",
+        "role": "vehicle.emergency.medical",
+        "roleHints": [
+          "vehicle.car",
+          "vehicle.emergency.medical"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_car_bush\\presets\\asobo\\medic_default\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Stretcher_RTC_Medic",
+        "catalogTitle": "Stretcher_RTC_Medic",
+        "role": "vehicle.emergency.medical",
+        "roleHints": [
+          "vehicle.emergency.medical"
+        ],
+        "kind": "misc",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\misc\\stretcher_rtc_medic\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Truck Utility Europe Medic Box",
+        "catalogTitle": "Truck Utility Europe Medic Box",
+        "role": "vehicle.emergency.medical",
+        "roleHints": [
+          "vehicle.truck",
+          "vehicle.emergency.medical",
+          "cargo.small_box"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_truck_utility_europe\\presets\\asobo\\medic_box_default\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Truck Utility Europe Medic Flush",
+        "catalogTitle": "Truck Utility Europe Medic Flush",
+        "role": "vehicle.emergency.medical",
+        "roleHints": [
+          "vehicle.truck",
+          "vehicle.emergency.medical"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_truck_utility_europe\\presets\\asobo\\medic_flush_default\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Truck Utility NorthAm Medic",
+        "catalogTitle": "Truck Utility NorthAm Medic",
+        "role": "vehicle.emergency.medical",
+        "roleHints": [
+          "vehicle.truck",
+          "vehicle.emergency.medical"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_truck_utility_northam\\presets\\asobo\\truck_utility_northam_medic\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Van Asia High Roof Medic",
+        "catalogTitle": "Van Asia High Roof Medic",
+        "role": "vehicle.emergency.medical",
+        "roleHints": [
+          "vehicle.van",
+          "vehicle.emergency.medical"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_van_asia\\presets\\asobo\\medic_highroof_default\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Van Asia High Roof Medic Japan",
+        "catalogTitle": "Van Asia High Roof Medic Japan",
+        "role": "vehicle.emergency.medical",
+        "roleHints": [
+          "vehicle.van",
+          "vehicle.emergency.medical"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_van_asia\\presets\\asobo\\medic_highroof_japan\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Van Asia Low Roof Medic",
+        "catalogTitle": "Van Asia Low Roof Medic",
+        "role": "vehicle.emergency.medical",
+        "roleHints": [
+          "vehicle.van",
+          "vehicle.emergency.medical"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_van_asia\\presets\\asobo\\medic_lowroof_default\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "vehicle.car": [
+      {
+        "title": "Microsoft_Car_EUR_01",
+        "catalogTitle": "Microsoft_Car_EUR_01",
+        "role": "vehicle.car",
+        "roleHints": [
+          "vehicle.car"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_car_eur_01\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Car_EUR_02",
+        "catalogTitle": "Microsoft_Car_EUR_02",
+        "role": "vehicle.car",
+        "roleHints": [
+          "vehicle.car"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_car_eur_02\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Car_EUR_03",
+        "catalogTitle": "Microsoft_Car_EUR_03",
+        "role": "vehicle.car",
+        "roleHints": [
+          "vehicle.car"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_car_eur_03\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Car_EUR_04",
+        "catalogTitle": "Microsoft_Car_EUR_04",
+        "role": "vehicle.car",
+        "roleHints": [
+          "vehicle.car"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_car_eur_04\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Car_EUR_01_black",
+        "catalogTitle": "Microsoft_Car_EUR_01_black",
+        "role": "vehicle.car",
+        "roleHints": [
+          "vehicle.car"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_car_eur_01\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Car_EUR_02_Blue",
+        "catalogTitle": "Microsoft_Car_EUR_02_Blue",
+        "role": "vehicle.car",
+        "roleHints": [
+          "vehicle.car"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_car_eur_02\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Car_EUR_02_Silver",
+        "catalogTitle": "Microsoft_Car_EUR_02_Silver",
+        "role": "vehicle.car",
+        "roleHints": [
+          "vehicle.car"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_car_eur_02\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Car_EUR_03_Beige",
+        "catalogTitle": "Microsoft_Car_EUR_03_Beige",
+        "role": "vehicle.car",
+        "roleHints": [
+          "vehicle.car"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_car_eur_03\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Car_EUR_03_Black",
+        "catalogTitle": "Microsoft_Car_EUR_03_Black",
+        "role": "vehicle.car",
+        "roleHints": [
+          "vehicle.car"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_car_eur_03\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Car_EUR_03_Blue",
+        "catalogTitle": "Microsoft_Car_EUR_03_Blue",
+        "role": "vehicle.car",
+        "roleHints": [
+          "vehicle.car"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_car_eur_03\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Car_EUR_03_Red",
+        "catalogTitle": "Microsoft_Car_EUR_03_Red",
+        "role": "vehicle.car",
+        "roleHints": [
+          "vehicle.car"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_car_eur_03\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Car_EUR_04_Blue",
+        "catalogTitle": "Microsoft_Car_EUR_04_Blue",
+        "role": "vehicle.car",
+        "roleHints": [
+          "vehicle.car"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_car_eur_04\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "vehicle.van": [
+      {
+        "title": "Microsoft_Van_EUR",
+        "catalogTitle": "Microsoft_Van_EUR",
+        "role": "vehicle.van",
+        "roleHints": [
+          "vehicle.van"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_van_eur\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Van_ASIA_02",
+        "catalogTitle": "Microsoft_Van_ASIA_02",
+        "role": "vehicle.van",
+        "roleHints": [
+          "vehicle.van"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_van_asia_02\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Van_ASIA_02_Brown",
+        "catalogTitle": "Microsoft_Van_ASIA_02_Brown",
+        "role": "vehicle.van",
+        "roleHints": [
+          "vehicle.van"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_van_asia_02\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Van_ASIA_02_Yellow",
+        "catalogTitle": "Microsoft_Van_ASIA_02_Yellow",
+        "role": "vehicle.van",
+        "roleHints": [
+          "vehicle.van"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_van_asia_02\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Van_EUR_Black",
+        "catalogTitle": "Microsoft_Van_EUR_Black",
+        "role": "vehicle.van",
+        "roleHints": [
+          "vehicle.van"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_van_eur\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Van_EUR_Blue",
+        "catalogTitle": "Microsoft_Van_EUR_Blue",
+        "role": "vehicle.van",
+        "roleHints": [
+          "vehicle.van"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_van_eur\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Van_EUR_Red",
+        "catalogTitle": "Microsoft_Van_EUR_Red",
+        "role": "vehicle.van",
+        "roleHints": [
+          "vehicle.van"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_van_eur\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Van_NA_Lavatory",
+        "catalogTitle": "Microsoft_Van_NA_Lavatory",
+        "role": "vehicle.van",
+        "roleHints": [
+          "vehicle.van"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_van_na_lavatory\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Van_NA_Lavatory_Blue",
+        "catalogTitle": "Microsoft_Van_NA_Lavatory_Blue",
+        "role": "vehicle.van",
+        "roleHints": [
+          "vehicle.van"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_van_na_lavatory\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Van_NA_Modern",
+        "catalogTitle": "Microsoft_Van_NA_Modern",
+        "role": "vehicle.van",
+        "roleHints": [
+          "vehicle.van"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_van_na_modern\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Van_NA_Modern_Green",
+        "catalogTitle": "Microsoft_Van_NA_Modern_Green",
+        "role": "vehicle.van",
+        "roleHints": [
+          "vehicle.van"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_van_na_modern\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Winch Busio Van Gelder 4D",
+        "catalogTitle": "Winch Busio Van Gelder 4D",
+        "role": "vehicle.van",
+        "roleHints": [
+          "vehicle.van"
+        ],
+        "kind": "groundvehicles",
+        "category": "Winch",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\winch_busio_van_gelder_4d\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "vehicle.truck": [
+      {
+        "title": "Fuel Truck Long 01",
+        "catalogTitle": "Fuel Truck Long 01",
+        "role": "vehicle.truck",
+        "roleHints": [
+          "vehicle.truck"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_truck_fuel_long\\presets\\asobo\\cab_01\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Fuel Truck Long 02",
+        "catalogTitle": "Fuel Truck Long 02",
+        "role": "vehicle.truck",
+        "roleHints": [
+          "vehicle.truck"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_truck_fuel_long\\presets\\asobo\\cab_02\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Truck Fire Short",
+        "catalogTitle": "Truck Fire Short",
+        "role": "vehicle.truck",
+        "roleHints": [
+          "vfx.fire",
+          "vehicle.truck"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_truck_fire_short\\presets\\asobo\\truck_fire_short\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Truck Military Cover",
+        "catalogTitle": "Truck Military Cover",
+        "role": "vehicle.truck",
+        "roleHints": [
+          "vehicle.truck"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_truck_military\\presets\\asobo\\military_cover\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Truck Military No Cover",
+        "catalogTitle": "Truck Military No Cover",
+        "role": "vehicle.truck",
+        "roleHints": [
+          "vehicle.truck"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_truck_military\\presets\\asobo\\military_nocover\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Truck Utility Europe Flush",
+        "catalogTitle": "Truck Utility Europe Flush",
+        "role": "vehicle.truck",
+        "roleHints": [
+          "vehicle.truck"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_truck_utility_europe\\presets\\asobo\\flush_default\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Truck Utility NorthAm",
+        "catalogTitle": "Truck Utility NorthAm",
+        "role": "vehicle.truck",
+        "roleHints": [
+          "vehicle.truck"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_truck_utility_northam\\presets\\asobo\\truck_utility_northam\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "ASO_Operation_Truck_White",
+        "catalogTitle": "ASO_Operation_Truck_White",
+        "role": "vehicle.truck",
+        "roleHints": [
+          "vehicle.truck"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_pickup_01\\presets\\asobo\\aso_operation_truck_white\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "ASO_Operation_Truck_Yellow",
+        "catalogTitle": "ASO_Operation_Truck_Yellow",
+        "role": "vehicle.truck",
+        "roleHints": [
+          "vehicle.truck"
+        ],
+        "kind": "groundvehicles",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\asobo_pickup_01\\presets\\asobo\\aso_operation_truck_yellow\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "watercraft.boat": [
+      {
+        "title": "Fishing Boat Red Modular",
+        "catalogTitle": "Fishing Boat Red Modular",
+        "role": "watercraft.boat",
+        "roleHints": [
+          "watercraft.boat"
+        ],
+        "kind": "boats",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\asobo_fishingboat_modular\\presets\\asobo\\fishingboat_red_modular\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Fishing Boat White Modular",
+        "catalogTitle": "Fishing Boat White Modular",
+        "role": "watercraft.boat",
+        "roleHints": [
+          "watercraft.boat"
+        ],
+        "kind": "boats",
+        "category": "",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\asobo_fishingboat_modular\\presets\\asobo\\fishingboat_white_modular\\config\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Ships_AbeilleBourbon_1.0",
+        "catalogTitle": "Microsoft_Ships_AbeilleBourbon_1.0",
+        "role": "watercraft.boat",
+        "roleHints": [
+          "watercraft.boat"
+        ],
+        "kind": "boats",
+        "category": "Boat",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Ships_AbeilleBourbon_10.0",
+        "catalogTitle": "Microsoft_Ships_AbeilleBourbon_10.0",
+        "role": "watercraft.boat",
+        "roleHints": [
+          "watercraft.boat"
+        ],
+        "kind": "boats",
+        "category": "Boat",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Ships_AbeilleBourbon_11.0",
+        "catalogTitle": "Microsoft_Ships_AbeilleBourbon_11.0",
+        "role": "watercraft.boat",
+        "roleHints": [
+          "watercraft.boat"
+        ],
+        "kind": "boats",
+        "category": "Boat",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Ships_AbeilleBourbon_12.0",
+        "catalogTitle": "Microsoft_Ships_AbeilleBourbon_12.0",
+        "role": "watercraft.boat",
+        "roleHints": [
+          "watercraft.boat"
+        ],
+        "kind": "boats",
+        "category": "Boat",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Ships_AbeilleBourbon_2.0",
+        "catalogTitle": "Microsoft_Ships_AbeilleBourbon_2.0",
+        "role": "watercraft.boat",
+        "roleHints": [
+          "watercraft.boat"
+        ],
+        "kind": "boats",
+        "category": "Boat",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Ships_AbeilleBourbon_3.0",
+        "catalogTitle": "Microsoft_Ships_AbeilleBourbon_3.0",
+        "role": "watercraft.boat",
+        "roleHints": [
+          "watercraft.boat"
+        ],
+        "kind": "boats",
+        "category": "Boat",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Ships_AbeilleBourbon_4.0",
+        "catalogTitle": "Microsoft_Ships_AbeilleBourbon_4.0",
+        "role": "watercraft.boat",
+        "roleHints": [
+          "watercraft.boat"
+        ],
+        "kind": "boats",
+        "category": "Boat",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Ships_AbeilleBourbon_5.0",
+        "catalogTitle": "Microsoft_Ships_AbeilleBourbon_5.0",
+        "role": "watercraft.boat",
+        "roleHints": [
+          "watercraft.boat"
+        ],
+        "kind": "boats",
+        "category": "Boat",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Ships_AbeilleBourbon_6.0",
+        "catalogTitle": "Microsoft_Ships_AbeilleBourbon_6.0",
+        "role": "watercraft.boat",
+        "roleHints": [
+          "watercraft.boat"
+        ],
+        "kind": "boats",
+        "category": "Boat",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Ships_AbeilleBourbon_7.0",
+        "catalogTitle": "Microsoft_Ships_AbeilleBourbon_7.0",
+        "role": "watercraft.boat",
+        "roleHints": [
+          "watercraft.boat"
+        ],
+        "kind": "boats",
+        "category": "Boat",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "sar.liferaft": [
+      {
+        "title": "LifeRaft",
+        "catalogTitle": "LifeRaft",
+        "role": "sar.liferaft",
+        "roleHints": [
+          "sar.liferaft"
+        ],
+        "kind": "misc",
+        "category": "SimpleObjectSim",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\misc\\liferaft\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "LifeRaft_Characters",
+        "catalogTitle": "LifeRaft_Characters",
+        "role": "sar.liferaft",
+        "roleHints": [
+          "sar.liferaft"
+        ],
+        "kind": "misc",
+        "category": "SimpleObjectSim",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\misc\\liferaft\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "person.ground_crew": [
+      {
+        "title": "Tarmac_Female_Summer_Asian",
+        "catalogTitle": "Tarmac_Female_Summer_Asian",
+        "role": "person.ground_crew",
+        "roleHints": [
+          "person.ground_crew",
+          "person.passenger"
+        ],
+        "kind": "humans",
+        "category": "Human",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\humans\\tarmacworker\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Marshaller_Female_Summer_African",
+        "catalogTitle": "Marshaller_Female_Summer_African",
+        "role": "person.ground_crew",
+        "roleHints": [
+          "person.ground_crew",
+          "person.passenger"
+        ],
+        "kind": "humans",
+        "category": "Human",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\humans\\marshaller\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Marshaller_Female_Summer_Arab",
+        "catalogTitle": "Marshaller_Female_Summer_Arab",
+        "role": "person.ground_crew",
+        "roleHints": [
+          "person.ground_crew",
+          "person.passenger"
+        ],
+        "kind": "humans",
+        "category": "Human",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\humans\\marshaller\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Marshaller_Female_Summer_Asian",
+        "catalogTitle": "Marshaller_Female_Summer_Asian",
+        "role": "person.ground_crew",
+        "roleHints": [
+          "person.ground_crew",
+          "person.passenger"
+        ],
+        "kind": "humans",
+        "category": "Human",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\humans\\marshaller\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Marshaller_Female_Summer_Caucasian",
+        "catalogTitle": "Marshaller_Female_Summer_Caucasian",
+        "role": "person.ground_crew",
+        "roleHints": [
+          "person.ground_crew",
+          "person.passenger"
+        ],
+        "kind": "humans",
+        "category": "Human",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\humans\\marshaller\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Marshaller_Female_Summer_Hispanic",
+        "catalogTitle": "Marshaller_Female_Summer_Hispanic",
+        "role": "person.ground_crew",
+        "roleHints": [
+          "person.ground_crew",
+          "person.passenger"
+        ],
+        "kind": "humans",
+        "category": "Human",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\humans\\marshaller\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Marshaller_Female_Summer_Indian",
+        "catalogTitle": "Marshaller_Female_Summer_Indian",
+        "role": "person.ground_crew",
+        "roleHints": [
+          "person.ground_crew",
+          "person.passenger"
+        ],
+        "kind": "humans",
+        "category": "Human",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\humans\\marshaller\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Marshaller_Female_Winter_African",
+        "catalogTitle": "Marshaller_Female_Winter_African",
+        "role": "person.ground_crew",
+        "roleHints": [
+          "person.ground_crew",
+          "person.passenger"
+        ],
+        "kind": "humans",
+        "category": "Human",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\humans\\marshaller\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Marshaller_Female_Winter_Arab",
+        "catalogTitle": "Marshaller_Female_Winter_Arab",
+        "role": "person.ground_crew",
+        "roleHints": [
+          "person.ground_crew",
+          "person.passenger"
+        ],
+        "kind": "humans",
+        "category": "Human",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\humans\\marshaller\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Marshaller_Female_Winter_Asian",
+        "catalogTitle": "Marshaller_Female_Winter_Asian",
+        "role": "person.ground_crew",
+        "roleHints": [
+          "person.ground_crew",
+          "person.passenger"
+        ],
+        "kind": "humans",
+        "category": "Human",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\humans\\marshaller\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Marshaller_Female_Winter_Caucasian",
+        "catalogTitle": "Marshaller_Female_Winter_Caucasian",
+        "role": "person.ground_crew",
+        "roleHints": [
+          "person.ground_crew",
+          "person.passenger"
+        ],
+        "kind": "humans",
+        "category": "Human",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\humans\\marshaller\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Marshaller_Female_Winter_Hispanic",
+        "catalogTitle": "Marshaller_Female_Winter_Hispanic",
+        "role": "person.ground_crew",
+        "roleHints": [
+          "person.ground_crew",
+          "person.passenger"
+        ],
+        "kind": "humans",
+        "category": "Human",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\humans\\marshaller\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "cargo.container": [
+      {
+        "title": "Drop_Container",
+        "catalogTitle": "Drop_Container",
+        "role": "cargo.container",
+        "roleHints": [
+          "cargo.container"
+        ],
+        "kind": "misc",
+        "category": "SimpleObjectSim",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\misc\\drop_container\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Truck_Container",
+        "catalogTitle": "Microsoft_Truck_Container",
+        "role": "cargo.container",
+        "roleHints": [
+          "cargo.container"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_truck_container\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Truck_Container_Blue",
+        "catalogTitle": "Microsoft_Truck_Container_Blue",
+        "role": "cargo.container",
+        "roleHints": [
+          "cargo.container"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_truck_container\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Truck_Container_Gray",
+        "catalogTitle": "Microsoft_Truck_Container_Gray",
+        "role": "cargo.container",
+        "roleHints": [
+          "cargo.container"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_truck_container\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "Microsoft_Truck_Container_Red",
+        "catalogTitle": "Microsoft_Truck_Container_Red",
+        "role": "cargo.container",
+        "roleHints": [
+          "cargo.container"
+        ],
+        "kind": "groundvehicles",
+        "category": "GroundVehicle",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\groundvehicles\\microsoft_truck_container\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "CargoContainer01",
+        "catalogTitle": "CargoContainer01",
+        "role": "cargo.container",
+        "roleHints": [
+          "watercraft.boat",
+          "cargo.container"
+        ],
+        "kind": "boats",
+        "category": "Boat",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\boats\\cargocontainer01\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "cargo.small_box": [
+      {
+        "title": "Cardboard",
+        "catalogTitle": "Cardboard",
+        "role": "cargo.small_box",
+        "roleHints": [
+          "cargo.small_box"
+        ],
+        "kind": "misc",
+        "category": "SimpleObjectSim",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\misc\\cardboard\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "CoffeeCup",
+        "catalogTitle": "CoffeeCup",
+        "role": "cargo.small_box",
+        "roleHints": [],
+        "kind": "misc",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\misc\\coffeecup\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "cargo.pallet_large": [
+      {
+        "title": "Pallet01_01",
+        "catalogTitle": "Pallet01_01",
+        "role": "cargo.pallet_large",
+        "roleHints": [
+          "cargo.pallet_large"
+        ],
+        "kind": "misc",
+        "category": "SimpleObjectSim",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\misc\\pallet01_01\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "cargo.pallet_medium": [
+      {
+        "title": "Pallet01_02",
+        "catalogTitle": "Pallet01_02",
+        "role": "cargo.pallet_medium",
+        "roleHints": [
+          "cargo.pallet_medium"
+        ],
+        "kind": "misc",
+        "category": "SimpleObjectSim",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\misc\\pallet01_02\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "cargo.pallet_small": [
+      {
+        "title": "Pallet01_03",
+        "catalogTitle": "Pallet01_03",
+        "role": "cargo.pallet_small",
+        "roleHints": [
+          "cargo.pallet_small"
+        ],
+        "kind": "misc",
+        "category": "SimpleObjectSim",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\misc\\pallet01_03\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ],
+    "marker.cone": [
+      {
+        "title": "Cone_Medium",
+        "catalogTitle": "Cone_Medium",
+        "role": "marker.cone",
+        "roleHints": [
+          "marker.cone"
+        ],
+        "kind": "misc",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\misc\\cone_medium\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      },
+      {
+        "title": "EDTW Smoke Marker",
+        "catalogTitle": "EDTW Smoke Marker",
+        "role": "marker.cone",
+        "roleHints": [
+          "vfx.smoke",
+          "marker.cone"
+        ],
+        "kind": "misc",
+        "category": "StaticObject",
+        "confidence": "high",
+        "packageName": "VFSProjection",
+        "sourcePath": "simobjects\\misc\\edtwsmokemarker\\sim.cfg",
+        "validatedAt": "2026-05-20T16:27:51.447Z"
+      }
+    ]
+  }
+}

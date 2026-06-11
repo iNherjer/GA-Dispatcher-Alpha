@@ -1,0 +1,7 @@
+{
+  "model": "gemini-2.5-flash-preview-tts",
+  "voice": "Kore",
+  "mimeType": "audio/L16;codec=pcm;rate=24000",
+  "sampleRate": 24000,
+  "text": "Hey, ich sehe das Zielgebiet voraus. Wenn du noch einmal rechts herumziehst und die Hoehe haeltst, bekommen wir die Stromtrasse sauber ins Bild."
+}

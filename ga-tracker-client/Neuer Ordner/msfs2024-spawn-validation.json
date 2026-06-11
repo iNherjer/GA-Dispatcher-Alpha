@@ -1,0 +1,3185 @@
+{
+  "tool": "GA-MSFS-Asset-Validator",
+  "version": "v1",
+  "createdAt": "2026-05-20T16:27:51.447Z",
+  "sourceCatalog": "C:\\Users\\einhe\\OneDrive\\msfs2024-simobjects-catalog.json",
+  "options": {
+    "catalogPath": "C:\\Users\\einhe\\OneDrive\\msfs2024-simobjects-catalog.json",
+    "roles": [
+      "vfx.smoke",
+      "vfx.fire",
+      "vehicle.emergency.fire",
+      "vehicle.emergency.medical",
+      "vehicle.car",
+      "vehicle.van",
+      "vehicle.truck",
+      "vehicle.bus",
+      "vehicle.quad",
+      "watercraft.boat",
+      "watercraft.ship",
+      "sar.liferaft",
+      "person.ground_crew",
+      "cargo.container",
+      "cargo.small_box",
+      "cargo.pallet_large",
+      "cargo.pallet_medium",
+      "cargo.pallet_small",
+      "marker.cone"
+    ],
+    "perRole": 12,
+    "max": 160,
+    "timeoutMs": 2200,
+    "holdMs": 450,
+    "pauseMs": 180,
+    "offsetM": 5,
+    "spacingM": 2,
+    "keepOk": false,
+    "includeRisky": false,
+    "dryRun": false,
+    "allowZero": false
+  },
+  "userPosition": {
+    "lat": 48.28054321190257,
+    "lon": 8.4283216398011,
+    "alt": 2215.4034459087784,
+    "hdg": 182.31634935811752,
+    "onGround": true,
+    "agl": 3.479292146742864
+  },
+  "stats": {
+    "selected": 109,
+    "tested": 109,
+    "ok": 105,
+    "failed": 4
+  },
+  "results": [
+    {
+      "status": "ok",
+      "role": "vfx.smoke",
+      "title": "Chimney_Smoke_V1",
+      "spawnedTitle": "Chimney_Smoke_V1",
+      "objectId": 55050258,
+      "durationMs": 495,
+      "score": 955,
+      "roleHints": [
+        "vfx.smoke"
+      ],
+      "roles": [
+        "vfx.smoke"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\animatedsmoke_nz\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280496101695846,
+        "lon": 8.428399925420267,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.smoke",
+      "title": "Chimney_Smoke_V2",
+      "spawnedTitle": "Chimney_Smoke_V2",
+      "objectId": 55050259,
+      "durationMs": 480,
+      "score": 455,
+      "roleHints": [
+        "vfx.smoke"
+      ],
+      "roles": [
+        "vfx.smoke"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\animatedsmoke_nz\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049682865187,
+        "lon": 8.428372919903765,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.smoke",
+      "title": "Chimney_Smoke_V3",
+      "spawnedTitle": "Chimney_Smoke_V3",
+      "objectId": 55050260,
+      "durationMs": 458,
+      "score": 455,
+      "roleHints": [
+        "vfx.smoke"
+      ],
+      "roles": [
+        "vfx.smoke"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\animatedsmoke_nz\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.2804975556079,
+        "lon": 8.428345914387263,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.smoke",
+      "title": "Chimney_Smoke_V4",
+      "spawnedTitle": "Chimney_Smoke_V4",
+      "objectId": 55050261,
+      "durationMs": 476,
+      "score": 455,
+      "roleHints": [
+        "vfx.smoke"
+      ],
+      "roles": [
+        "vfx.smoke"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\animatedsmoke_nz\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049828256393,
+        "lon": 8.428318908870763,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.smoke",
+      "title": "VO_Smoke_R1_100_Black",
+      "spawnedTitle": "VO_Smoke_R1_100_Black",
+      "objectId": 55050262,
+      "durationMs": 470,
+      "score": 275,
+      "roleHints": [
+        "vfx.smoke"
+      ],
+      "roles": [
+        "vfx.smoke"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049900951996,
+        "lon": 8.42829190335426,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.smoke",
+      "title": "VO_Smoke_R1_100_White",
+      "spawnedTitle": "VO_Smoke_R1_100_White",
+      "objectId": 55050263,
+      "durationMs": 468,
+      "score": 275,
+      "roleHints": [
+        "vfx.smoke"
+      ],
+      "roles": [
+        "vfx.smoke"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049973647599,
+        "lon": 8.428264897837758,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.smoke",
+      "title": "VO_Smoke_R1_105_Black",
+      "spawnedTitle": "VO_Smoke_R1_105_Black",
+      "objectId": 55050264,
+      "durationMs": 472,
+      "score": 275,
+      "roleHints": [
+        "vfx.smoke"
+      ],
+      "roles": [
+        "vfx.smoke"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28050046343201,
+        "lon": 8.428237892321256,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.smoke",
+      "title": "VO_Smoke_R1_105_White",
+      "spawnedTitle": "VO_Smoke_R1_105_White",
+      "objectId": 55050265,
+      "durationMs": 478,
+      "score": 275,
+      "roleHints": [
+        "vfx.smoke"
+      ],
+      "roles": [
+        "vfx.smoke"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280478129960386,
+        "lon": 8.428398833048131,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.smoke",
+      "title": "VO_Smoke_R1_110_Black",
+      "spawnedTitle": "VO_Smoke_R1_110_Black",
+      "objectId": 55050266,
+      "durationMs": 469,
+      "score": 275,
+      "roleHints": [
+        "vfx.smoke"
+      ],
+      "roles": [
+        "vfx.smoke"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28047885691642,
+        "lon": 8.428371827531631,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.smoke",
+      "title": "VO_Smoke_R1_110_White",
+      "spawnedTitle": "VO_Smoke_R1_110_White",
+      "objectId": 55050267,
+      "durationMs": 467,
+      "score": 275,
+      "roleHints": [
+        "vfx.smoke"
+      ],
+      "roles": [
+        "vfx.smoke"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28047958387245,
+        "lon": 8.428344822015129,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.smoke",
+      "title": "VO_Smoke_R1_115_Black",
+      "spawnedTitle": "VO_Smoke_R1_115_Black",
+      "objectId": 55050268,
+      "durationMs": 467,
+      "score": 275,
+      "roleHints": [
+        "vfx.smoke"
+      ],
+      "roles": [
+        "vfx.smoke"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048031082847,
+        "lon": 8.428317816498627,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.smoke",
+      "title": "VO_Smoke_R1_115_White",
+      "spawnedTitle": "VO_Smoke_R1_115_White",
+      "objectId": 55050269,
+      "durationMs": 465,
+      "score": 275,
+      "roleHints": [
+        "vfx.smoke"
+      ],
+      "roles": [
+        "vfx.smoke"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_smoke\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280481037784504,
+        "lon": 8.428290810982125,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.fire",
+      "title": "VO_Fire_R1_40",
+      "spawnedTitle": "VO_Fire_R1_40",
+      "objectId": 55050270,
+      "durationMs": 475,
+      "score": 955,
+      "roleHints": [
+        "vfx.fire"
+      ],
+      "roles": [
+        "vfx.fire"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048176474053,
+        "lon": 8.428263805465624,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.fire",
+      "title": "VO_Fire_R1_100",
+      "spawnedTitle": "VO_Fire_R1_100",
+      "objectId": 55050271,
+      "durationMs": 468,
+      "score": 455,
+      "roleHints": [
+        "vfx.fire"
+      ],
+      "roles": [
+        "vfx.fire"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048249169656,
+        "lon": 8.428236799949122,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.fire",
+      "title": "VO_Fire_R1_105",
+      "spawnedTitle": "VO_Fire_R1_105",
+      "objectId": 55050272,
+      "durationMs": 466,
+      "score": 455,
+      "roleHints": [
+        "vfx.fire"
+      ],
+      "roles": [
+        "vfx.fire"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046015822493,
+        "lon": 8.428397740675997,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.fire",
+      "title": "VO_Fire_R1_110",
+      "spawnedTitle": "VO_Fire_R1_110",
+      "objectId": 55050273,
+      "durationMs": 458,
+      "score": 455,
+      "roleHints": [
+        "vfx.fire"
+      ],
+      "roles": [
+        "vfx.fire"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046088518096,
+        "lon": 8.428370735159495,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.fire",
+      "title": "VO_Fire_R1_115",
+      "spawnedTitle": "VO_Fire_R1_115",
+      "objectId": 55050274,
+      "durationMs": 493,
+      "score": 455,
+      "roleHints": [
+        "vfx.fire"
+      ],
+      "roles": [
+        "vfx.fire"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046161213699,
+        "lon": 8.428343729642993,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.fire",
+      "title": "VO_Fire_R1_120",
+      "spawnedTitle": "VO_Fire_R1_120",
+      "objectId": 55050275,
+      "durationMs": 477,
+      "score": 455,
+      "roleHints": [
+        "vfx.fire"
+      ],
+      "roles": [
+        "vfx.fire"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046233909302,
+        "lon": 8.428316724126493,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.fire",
+      "title": "VO_Fire_R1_125",
+      "spawnedTitle": "VO_Fire_R1_125",
+      "objectId": 55050276,
+      "durationMs": 482,
+      "score": 455,
+      "roleHints": [
+        "vfx.fire"
+      ],
+      "roles": [
+        "vfx.fire"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280463066049045,
+        "lon": 8.42828971860999,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.fire",
+      "title": "VO_Fire_R1_130",
+      "spawnedTitle": "VO_Fire_R1_130",
+      "objectId": 55050277,
+      "durationMs": 458,
+      "score": 455,
+      "roleHints": [
+        "vfx.fire"
+      ],
+      "roles": [
+        "vfx.fire"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280463793005076,
+        "lon": 8.428262713093488,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.fire",
+      "title": "VO_Fire_R1_135",
+      "spawnedTitle": "VO_Fire_R1_135",
+      "objectId": 55050278,
+      "durationMs": 461,
+      "score": 455,
+      "roleHints": [
+        "vfx.fire"
+      ],
+      "roles": [
+        "vfx.fire"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046451996111,
+        "lon": 8.428235707576986,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.fire",
+      "title": "VO_Fire_R1_140",
+      "spawnedTitle": "VO_Fire_R1_140",
+      "objectId": 55050279,
+      "durationMs": 479,
+      "score": 455,
+      "roleHints": [
+        "vfx.fire"
+      ],
+      "roles": [
+        "vfx.fire"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280496101695846,
+        "lon": 8.428399925420267,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.fire",
+      "title": "VO_Fire_R1_145",
+      "spawnedTitle": "VO_Fire_R1_145",
+      "objectId": 55050280,
+      "durationMs": 482,
+      "score": 455,
+      "roleHints": [
+        "vfx.fire"
+      ],
+      "roles": [
+        "vfx.fire"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049682865187,
+        "lon": 8.428372919903765,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vfx.fire",
+      "title": "VO_Fire_R1_150",
+      "spawnedTitle": "VO_Fire_R1_150",
+      "objectId": 55050281,
+      "durationMs": 474,
+      "score": 455,
+      "roleHints": [
+        "vfx.fire"
+      ],
+      "roles": [
+        "vfx.fire"
+      ],
+      "kind": "landmarks",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\landmarks\\vo_fire\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.2804975556079,
+        "lon": 8.428345914387263,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.emergency.fire",
+      "title": "Car Bush Firefighting",
+      "spawnedTitle": "Car Bush Firefighting",
+      "objectId": 55050282,
+      "durationMs": 737,
+      "score": 935,
+      "roleHints": [
+        "vfx.fire",
+        "vehicle.car",
+        "vehicle.emergency.fire"
+      ],
+      "roles": [
+        "vehicle.car",
+        "vehicle.emergency.fire",
+        "vfx.fire"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_car_bush\\presets\\asobo\\firefighting_default\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049828256393,
+        "lon": 8.428318908870763,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.emergency.medical",
+      "title": "Car Bush Medic",
+      "spawnedTitle": "Car Bush Medic",
+      "objectId": 55050283,
+      "durationMs": 499,
+      "score": 185,
+      "roleHints": [
+        "vehicle.car",
+        "vehicle.emergency.medical"
+      ],
+      "roles": [
+        "vehicle.car",
+        "vehicle.emergency.medical"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_car_bush\\presets\\asobo\\medic_default\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049900951996,
+        "lon": 8.42829190335426,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.emergency.medical",
+      "title": "Stretcher_RTC_Medic",
+      "spawnedTitle": "Stretcher_RTC_Medic",
+      "objectId": 55050284,
+      "durationMs": 463,
+      "score": 185,
+      "roleHints": [
+        "vehicle.emergency.medical"
+      ],
+      "roles": [
+        "vehicle.emergency.medical"
+      ],
+      "kind": "misc",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\misc\\stretcher_rtc_medic\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049973647599,
+        "lon": 8.428264897837758,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.emergency.medical",
+      "title": "Truck Utility Europe Medic Box",
+      "spawnedTitle": "Truck Utility Europe Medic Box",
+      "objectId": 55050285,
+      "durationMs": 467,
+      "score": 185,
+      "roleHints": [
+        "vehicle.truck",
+        "vehicle.emergency.medical",
+        "cargo.small_box"
+      ],
+      "roles": [
+        "cargo.small_box",
+        "vehicle.emergency.medical",
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_truck_utility_europe\\presets\\asobo\\medic_box_default\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28050046343201,
+        "lon": 8.428237892321256,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.emergency.medical",
+      "title": "Truck Utility Europe Medic Flush",
+      "spawnedTitle": "Truck Utility Europe Medic Flush",
+      "objectId": 55050286,
+      "durationMs": 570,
+      "score": 185,
+      "roleHints": [
+        "vehicle.truck",
+        "vehicle.emergency.medical"
+      ],
+      "roles": [
+        "vehicle.emergency.medical",
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_truck_utility_europe\\presets\\asobo\\medic_flush_default\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280478129960386,
+        "lon": 8.428398833048131,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.emergency.medical",
+      "title": "Truck Utility NorthAm Medic",
+      "spawnedTitle": "Truck Utility NorthAm Medic",
+      "objectId": 55050287,
+      "durationMs": 477,
+      "score": 185,
+      "roleHints": [
+        "vehicle.truck",
+        "vehicle.emergency.medical"
+      ],
+      "roles": [
+        "vehicle.emergency.medical",
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_truck_utility_northam\\presets\\asobo\\truck_utility_northam_medic\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28047885691642,
+        "lon": 8.428371827531631,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.emergency.medical",
+      "title": "Van Asia High Roof Medic",
+      "spawnedTitle": "Van Asia High Roof Medic",
+      "objectId": 55050288,
+      "durationMs": 505,
+      "score": 185,
+      "roleHints": [
+        "vehicle.van",
+        "vehicle.emergency.medical"
+      ],
+      "roles": [
+        "vehicle.emergency.medical",
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_van_asia\\presets\\asobo\\medic_highroof_default\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28047958387245,
+        "lon": 8.428344822015129,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.emergency.medical",
+      "title": "Van Asia High Roof Medic Japan",
+      "spawnedTitle": "Van Asia High Roof Medic Japan",
+      "objectId": 55050289,
+      "durationMs": 465,
+      "score": 185,
+      "roleHints": [
+        "vehicle.van",
+        "vehicle.emergency.medical"
+      ],
+      "roles": [
+        "vehicle.emergency.medical",
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_van_asia\\presets\\asobo\\medic_highroof_japan\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048031082847,
+        "lon": 8.428317816498627,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.emergency.medical",
+      "title": "Van Asia Low Roof Medic",
+      "spawnedTitle": "Van Asia Low Roof Medic",
+      "objectId": 55050290,
+      "durationMs": 486,
+      "score": 185,
+      "roleHints": [
+        "vehicle.van",
+        "vehicle.emergency.medical"
+      ],
+      "roles": [
+        "vehicle.emergency.medical",
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_van_asia\\presets\\asobo\\medic_lowroof_default\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280481037784504,
+        "lon": 8.428290810982125,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.car",
+      "title": "Microsoft_Car_EUR_01",
+      "spawnedTitle": "Microsoft_Car_EUR_01",
+      "objectId": 55050291,
+      "durationMs": 466,
+      "score": 775,
+      "roleHints": [
+        "vehicle.car"
+      ],
+      "roles": [
+        "vehicle.car"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_car_eur_01\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048176474053,
+        "lon": 8.428263805465624,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.car",
+      "title": "Microsoft_Car_EUR_02",
+      "spawnedTitle": "Microsoft_Car_EUR_02",
+      "objectId": 55050292,
+      "durationMs": 459,
+      "score": 775,
+      "roleHints": [
+        "vehicle.car"
+      ],
+      "roles": [
+        "vehicle.car"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_car_eur_02\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048249169656,
+        "lon": 8.428236799949122,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.car",
+      "title": "Microsoft_Car_EUR_03",
+      "spawnedTitle": "Microsoft_Car_EUR_03",
+      "objectId": 55050293,
+      "durationMs": 485,
+      "score": 775,
+      "roleHints": [
+        "vehicle.car"
+      ],
+      "roles": [
+        "vehicle.car"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_car_eur_03\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046015822493,
+        "lon": 8.428397740675997,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.car",
+      "title": "Microsoft_Car_EUR_04",
+      "spawnedTitle": "Microsoft_Car_EUR_04",
+      "objectId": 55050294,
+      "durationMs": 486,
+      "score": 775,
+      "roleHints": [
+        "vehicle.car"
+      ],
+      "roles": [
+        "vehicle.car"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_car_eur_04\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046088518096,
+        "lon": 8.428370735159495,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.car",
+      "title": "Microsoft_Car_EUR_01_black",
+      "spawnedTitle": "Microsoft_Car_EUR_01_black",
+      "objectId": 55050295,
+      "durationMs": 498,
+      "score": 295,
+      "roleHints": [
+        "vehicle.car"
+      ],
+      "roles": [
+        "vehicle.car"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_car_eur_01\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046161213699,
+        "lon": 8.428343729642993,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.car",
+      "title": "Microsoft_Car_EUR_02_Blue",
+      "spawnedTitle": "Microsoft_Car_EUR_02_Blue",
+      "objectId": 55050296,
+      "durationMs": 467,
+      "score": 295,
+      "roleHints": [
+        "vehicle.car"
+      ],
+      "roles": [
+        "vehicle.car"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_car_eur_02\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046233909302,
+        "lon": 8.428316724126493,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.car",
+      "title": "Microsoft_Car_EUR_02_Silver",
+      "spawnedTitle": "Microsoft_Car_EUR_02_Silver",
+      "objectId": 55050297,
+      "durationMs": 477,
+      "score": 295,
+      "roleHints": [
+        "vehicle.car"
+      ],
+      "roles": [
+        "vehicle.car"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_car_eur_02\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280463066049045,
+        "lon": 8.42828971860999,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.car",
+      "title": "Microsoft_Car_EUR_03_Beige",
+      "spawnedTitle": "Microsoft_Car_EUR_03_Beige",
+      "objectId": 55050298,
+      "durationMs": 481,
+      "score": 295,
+      "roleHints": [
+        "vehicle.car"
+      ],
+      "roles": [
+        "vehicle.car"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_car_eur_03\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280463793005076,
+        "lon": 8.428262713093488,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.car",
+      "title": "Microsoft_Car_EUR_03_Black",
+      "spawnedTitle": "Microsoft_Car_EUR_03_Black",
+      "objectId": 55050299,
+      "durationMs": 470,
+      "score": 295,
+      "roleHints": [
+        "vehicle.car"
+      ],
+      "roles": [
+        "vehicle.car"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_car_eur_03\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046451996111,
+        "lon": 8.428235707576986,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.car",
+      "title": "Microsoft_Car_EUR_03_Blue",
+      "spawnedTitle": "Microsoft_Car_EUR_03_Blue",
+      "objectId": 55050300,
+      "durationMs": 478,
+      "score": 295,
+      "roleHints": [
+        "vehicle.car"
+      ],
+      "roles": [
+        "vehicle.car"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_car_eur_03\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280496101695846,
+        "lon": 8.428399925420267,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.car",
+      "title": "Microsoft_Car_EUR_03_Red",
+      "spawnedTitle": "Microsoft_Car_EUR_03_Red",
+      "objectId": 55050301,
+      "durationMs": 492,
+      "score": 295,
+      "roleHints": [
+        "vehicle.car"
+      ],
+      "roles": [
+        "vehicle.car"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_car_eur_03\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049682865187,
+        "lon": 8.428372919903765,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.car",
+      "title": "Microsoft_Car_EUR_04_Blue",
+      "spawnedTitle": "Microsoft_Car_EUR_04_Blue",
+      "objectId": 55050302,
+      "durationMs": 481,
+      "score": 295,
+      "roleHints": [
+        "vehicle.car"
+      ],
+      "roles": [
+        "vehicle.car"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_car_eur_04\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.2804975556079,
+        "lon": 8.428345914387263,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.van",
+      "title": "Microsoft_Van_EUR",
+      "spawnedTitle": "Microsoft_Van_EUR",
+      "objectId": 55050303,
+      "durationMs": 497,
+      "score": 775,
+      "roleHints": [
+        "vehicle.van"
+      ],
+      "roles": [
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_van_eur\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049828256393,
+        "lon": 8.428318908870763,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.van",
+      "title": "Microsoft_Van_ASIA_02",
+      "spawnedTitle": "Microsoft_Van_ASIA_02",
+      "objectId": 55050304,
+      "durationMs": 476,
+      "score": 295,
+      "roleHints": [
+        "vehicle.van"
+      ],
+      "roles": [
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_van_asia_02\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049900951996,
+        "lon": 8.42829190335426,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.van",
+      "title": "Microsoft_Van_ASIA_02_Brown",
+      "spawnedTitle": "Microsoft_Van_ASIA_02_Brown",
+      "objectId": 55050305,
+      "durationMs": 469,
+      "score": 295,
+      "roleHints": [
+        "vehicle.van"
+      ],
+      "roles": [
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_van_asia_02\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049973647599,
+        "lon": 8.428264897837758,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.van",
+      "title": "Microsoft_Van_ASIA_02_Yellow",
+      "spawnedTitle": "Microsoft_Van_ASIA_02_Yellow",
+      "objectId": 55050306,
+      "durationMs": 459,
+      "score": 295,
+      "roleHints": [
+        "vehicle.van"
+      ],
+      "roles": [
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_van_asia_02\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28050046343201,
+        "lon": 8.428237892321256,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.van",
+      "title": "Microsoft_Van_EUR_Black",
+      "spawnedTitle": "Microsoft_Van_EUR_Black",
+      "objectId": 55050307,
+      "durationMs": 462,
+      "score": 295,
+      "roleHints": [
+        "vehicle.van"
+      ],
+      "roles": [
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_van_eur\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280478129960386,
+        "lon": 8.428398833048131,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.van",
+      "title": "Microsoft_Van_EUR_Blue",
+      "spawnedTitle": "Microsoft_Van_EUR_Blue",
+      "objectId": 55050308,
+      "durationMs": 490,
+      "score": 295,
+      "roleHints": [
+        "vehicle.van"
+      ],
+      "roles": [
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_van_eur\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28047885691642,
+        "lon": 8.428371827531631,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.van",
+      "title": "Microsoft_Van_EUR_Red",
+      "spawnedTitle": "Microsoft_Van_EUR_Red",
+      "objectId": 55050309,
+      "durationMs": 462,
+      "score": 295,
+      "roleHints": [
+        "vehicle.van"
+      ],
+      "roles": [
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_van_eur\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28047958387245,
+        "lon": 8.428344822015129,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.van",
+      "title": "Microsoft_Van_NA_Lavatory",
+      "spawnedTitle": "Microsoft_Van_NA_Lavatory",
+      "objectId": 55050310,
+      "durationMs": 474,
+      "score": 295,
+      "roleHints": [
+        "vehicle.van"
+      ],
+      "roles": [
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_van_na_lavatory\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048031082847,
+        "lon": 8.428317816498627,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.van",
+      "title": "Microsoft_Van_NA_Lavatory_Blue",
+      "spawnedTitle": "Microsoft_Van_NA_Lavatory_Blue",
+      "objectId": 55050311,
+      "durationMs": 490,
+      "score": 295,
+      "roleHints": [
+        "vehicle.van"
+      ],
+      "roles": [
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_van_na_lavatory\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280481037784504,
+        "lon": 8.428290810982125,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.van",
+      "title": "Microsoft_Van_NA_Modern",
+      "spawnedTitle": "Microsoft_Van_NA_Modern",
+      "objectId": 55050312,
+      "durationMs": 477,
+      "score": 295,
+      "roleHints": [
+        "vehicle.van"
+      ],
+      "roles": [
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_van_na_modern\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048176474053,
+        "lon": 8.428263805465624,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.van",
+      "title": "Microsoft_Van_NA_Modern_Green",
+      "spawnedTitle": "Microsoft_Van_NA_Modern_Green",
+      "objectId": 55050313,
+      "durationMs": 488,
+      "score": 295,
+      "roleHints": [
+        "vehicle.van"
+      ],
+      "roles": [
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_van_na_modern\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048249169656,
+        "lon": 8.428236799949122,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.van",
+      "title": "Winch Busio Van Gelder 4D",
+      "spawnedTitle": "Winch Busio Van Gelder 4D",
+      "objectId": 55050314,
+      "durationMs": 480,
+      "score": 275,
+      "roleHints": [
+        "vehicle.van"
+      ],
+      "roles": [
+        "vehicle.van"
+      ],
+      "kind": "groundvehicles",
+      "category": "Winch",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\winch_busio_van_gelder_4d\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046015822493,
+        "lon": 8.428397740675997,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.truck",
+      "title": "Fuel Truck Long 01",
+      "spawnedTitle": "Fuel Truck Long 01",
+      "objectId": 55050315,
+      "durationMs": 501,
+      "score": 275,
+      "roleHints": [
+        "vehicle.truck"
+      ],
+      "roles": [
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_truck_fuel_long\\presets\\asobo\\cab_01\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046088518096,
+        "lon": 8.428370735159495,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.truck",
+      "title": "Fuel Truck Long 02",
+      "spawnedTitle": "Fuel Truck Long 02",
+      "objectId": 55050316,
+      "durationMs": 462,
+      "score": 275,
+      "roleHints": [
+        "vehicle.truck"
+      ],
+      "roles": [
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_truck_fuel_long\\presets\\asobo\\cab_02\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046161213699,
+        "lon": 8.428343729642993,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "failed",
+      "role": "vehicle.truck",
+      "title": "Truck Boarding Common",
+      "spawnedTitle": "",
+      "objectId": null,
+      "durationMs": 138,
+      "score": 275,
+      "error": "Truck Boarding Common: CREATE_OBJECT_FAILED",
+      "attempts": [
+        {
+          "title": "Truck Boarding Common",
+          "error": "CREATE_OBJECT_FAILED"
+        }
+      ],
+      "roleHints": [
+        "vehicle.truck"
+      ],
+      "roles": [
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_truck_boarding\\common\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046233909302,
+        "lon": 8.428316724126493,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.truck",
+      "title": "Truck Fire Short",
+      "spawnedTitle": "Truck Fire Short",
+      "objectId": 55050317,
+      "durationMs": 501,
+      "score": 275,
+      "roleHints": [
+        "vfx.fire",
+        "vehicle.truck"
+      ],
+      "roles": [
+        "vehicle.truck",
+        "vfx.fire"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_truck_fire_short\\presets\\asobo\\truck_fire_short\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280463066049045,
+        "lon": 8.42828971860999,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.truck",
+      "title": "Truck Military Cover",
+      "spawnedTitle": "Truck Military Cover",
+      "objectId": 55050318,
+      "durationMs": 470,
+      "score": 275,
+      "roleHints": [
+        "vehicle.truck"
+      ],
+      "roles": [
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_truck_military\\presets\\asobo\\military_cover\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280463793005076,
+        "lon": 8.428262713093488,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.truck",
+      "title": "Truck Military No Cover",
+      "spawnedTitle": "Truck Military No Cover",
+      "objectId": 55050319,
+      "durationMs": 477,
+      "score": 275,
+      "roleHints": [
+        "vehicle.truck"
+      ],
+      "roles": [
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_truck_military\\presets\\asobo\\military_nocover\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046451996111,
+        "lon": 8.428235707576986,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.truck",
+      "title": "Truck Utility Europe Flush",
+      "spawnedTitle": "Truck Utility Europe Flush",
+      "objectId": 55050320,
+      "durationMs": 486,
+      "score": 275,
+      "roleHints": [
+        "vehicle.truck"
+      ],
+      "roles": [
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_truck_utility_europe\\presets\\asobo\\flush_default\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280496101695846,
+        "lon": 8.428399925420267,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.truck",
+      "title": "Truck Utility NorthAm",
+      "spawnedTitle": "Truck Utility NorthAm",
+      "objectId": 55050321,
+      "durationMs": 487,
+      "score": 275,
+      "roleHints": [
+        "vehicle.truck"
+      ],
+      "roles": [
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_truck_utility_northam\\presets\\asobo\\truck_utility_northam\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049682865187,
+        "lon": 8.428372919903765,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "failed",
+      "role": "vehicle.truck",
+      "title": "ASOBO_Pickup_01",
+      "spawnedTitle": "",
+      "objectId": null,
+      "durationMs": 368,
+      "score": 197,
+      "error": "ASOBO_Pickup_01: CREATE_OBJECT_FAILED",
+      "attempts": [
+        {
+          "title": "ASOBO_Pickup_01",
+          "error": "CREATE_OBJECT_FAILED"
+        }
+      ],
+      "roleHints": [
+        "vehicle.truck"
+      ],
+      "roles": [
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_pickup_01\\common\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.2804975556079,
+        "lon": 8.428345914387263,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.truck",
+      "title": "ASO_Operation_Truck_White",
+      "spawnedTitle": "ASO_Operation_Truck_White",
+      "objectId": 55050322,
+      "durationMs": 502,
+      "score": 185,
+      "roleHints": [
+        "vehicle.truck"
+      ],
+      "roles": [
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_pickup_01\\presets\\asobo\\aso_operation_truck_white\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049828256393,
+        "lon": 8.428318908870763,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "vehicle.truck",
+      "title": "ASO_Operation_Truck_Yellow",
+      "spawnedTitle": "ASO_Operation_Truck_Yellow",
+      "objectId": 55050323,
+      "durationMs": 473,
+      "score": 185,
+      "roleHints": [
+        "vehicle.truck"
+      ],
+      "roles": [
+        "vehicle.truck"
+      ],
+      "kind": "groundvehicles",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_pickup_01\\presets\\asobo\\aso_operation_truck_yellow\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049900951996,
+        "lon": 8.42829190335426,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "failed",
+      "role": "vehicle.bus",
+      "title": "Bus Apron Common",
+      "spawnedTitle": "",
+      "objectId": null,
+      "durationMs": 347,
+      "score": 275,
+      "error": "Bus Apron Common: CREATE_OBJECT_FAILED",
+      "attempts": [
+        {
+          "title": "Bus Apron Common",
+          "error": "CREATE_OBJECT_FAILED"
+        }
+      ],
+      "roleHints": [
+        "vehicle.bus"
+      ],
+      "roles": [
+        "vehicle.bus"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_bus_apron\\common\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049973647599,
+        "lon": 8.428264897837758,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "watercraft.boat",
+      "title": "Fishing Boat Red Modular",
+      "spawnedTitle": "Fishing Boat Red Modular",
+      "objectId": 55050324,
+      "durationMs": 470,
+      "score": 275,
+      "roleHints": [
+        "watercraft.boat"
+      ],
+      "roles": [
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\asobo_fishingboat_modular\\presets\\asobo\\fishingboat_red_modular\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28050046343201,
+        "lon": 8.428237892321256,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "watercraft.boat",
+      "title": "Fishing Boat White Modular",
+      "spawnedTitle": "Fishing Boat White Modular",
+      "objectId": 55050325,
+      "durationMs": 466,
+      "score": 275,
+      "roleHints": [
+        "watercraft.boat"
+      ],
+      "roles": [
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\asobo_fishingboat_modular\\presets\\asobo\\fishingboat_white_modular\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280478129960386,
+        "lon": 8.428398833048131,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "watercraft.boat",
+      "title": "Microsoft_Ships_AbeilleBourbon_1.0",
+      "spawnedTitle": "Microsoft_Ships_AbeilleBourbon_1.0",
+      "objectId": 55050326,
+      "durationMs": 460,
+      "score": 205,
+      "roleHints": [
+        "watercraft.boat"
+      ],
+      "roles": [
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "Boat",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28047885691642,
+        "lon": 8.428371827531631,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "watercraft.boat",
+      "title": "Microsoft_Ships_AbeilleBourbon_10.0",
+      "spawnedTitle": "Microsoft_Ships_AbeilleBourbon_10.0",
+      "objectId": 55050327,
+      "durationMs": 471,
+      "score": 205,
+      "roleHints": [
+        "watercraft.boat"
+      ],
+      "roles": [
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "Boat",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28047958387245,
+        "lon": 8.428344822015129,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "watercraft.boat",
+      "title": "Microsoft_Ships_AbeilleBourbon_11.0",
+      "spawnedTitle": "Microsoft_Ships_AbeilleBourbon_11.0",
+      "objectId": 55050328,
+      "durationMs": 490,
+      "score": 205,
+      "roleHints": [
+        "watercraft.boat"
+      ],
+      "roles": [
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "Boat",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048031082847,
+        "lon": 8.428317816498627,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "watercraft.boat",
+      "title": "Microsoft_Ships_AbeilleBourbon_12.0",
+      "spawnedTitle": "Microsoft_Ships_AbeilleBourbon_12.0",
+      "objectId": 55050329,
+      "durationMs": 494,
+      "score": 205,
+      "roleHints": [
+        "watercraft.boat"
+      ],
+      "roles": [
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "Boat",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280481037784504,
+        "lon": 8.428290810982125,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "watercraft.boat",
+      "title": "Microsoft_Ships_AbeilleBourbon_2.0",
+      "spawnedTitle": "Microsoft_Ships_AbeilleBourbon_2.0",
+      "objectId": 55050330,
+      "durationMs": 472,
+      "score": 205,
+      "roleHints": [
+        "watercraft.boat"
+      ],
+      "roles": [
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "Boat",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048176474053,
+        "lon": 8.428263805465624,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "watercraft.boat",
+      "title": "Microsoft_Ships_AbeilleBourbon_3.0",
+      "spawnedTitle": "Microsoft_Ships_AbeilleBourbon_3.0",
+      "objectId": 55050331,
+      "durationMs": 467,
+      "score": 205,
+      "roleHints": [
+        "watercraft.boat"
+      ],
+      "roles": [
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "Boat",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048249169656,
+        "lon": 8.428236799949122,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "watercraft.boat",
+      "title": "Microsoft_Ships_AbeilleBourbon_4.0",
+      "spawnedTitle": "Microsoft_Ships_AbeilleBourbon_4.0",
+      "objectId": 55050332,
+      "durationMs": 559,
+      "score": 205,
+      "roleHints": [
+        "watercraft.boat"
+      ],
+      "roles": [
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "Boat",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046015822493,
+        "lon": 8.428397740675997,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "watercraft.boat",
+      "title": "Microsoft_Ships_AbeilleBourbon_5.0",
+      "spawnedTitle": "Microsoft_Ships_AbeilleBourbon_5.0",
+      "objectId": 55050333,
+      "durationMs": 462,
+      "score": 205,
+      "roleHints": [
+        "watercraft.boat"
+      ],
+      "roles": [
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "Boat",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046088518096,
+        "lon": 8.428370735159495,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "watercraft.boat",
+      "title": "Microsoft_Ships_AbeilleBourbon_6.0",
+      "spawnedTitle": "Microsoft_Ships_AbeilleBourbon_6.0",
+      "objectId": 55050334,
+      "durationMs": 470,
+      "score": 205,
+      "roleHints": [
+        "watercraft.boat"
+      ],
+      "roles": [
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "Boat",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046161213699,
+        "lon": 8.428343729642993,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "watercraft.boat",
+      "title": "Microsoft_Ships_AbeilleBourbon_7.0",
+      "spawnedTitle": "Microsoft_Ships_AbeilleBourbon_7.0",
+      "objectId": 55050335,
+      "durationMs": 473,
+      "score": 205,
+      "roleHints": [
+        "watercraft.boat"
+      ],
+      "roles": [
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "Boat",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\microsoft_ships_abeillebourbon\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046233909302,
+        "lon": 8.428316724126493,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "sar.liferaft",
+      "title": "LifeRaft",
+      "spawnedTitle": "LifeRaft",
+      "objectId": 55050336,
+      "durationMs": 464,
+      "score": 775,
+      "roleHints": [
+        "sar.liferaft"
+      ],
+      "roles": [
+        "sar.liferaft"
+      ],
+      "kind": "misc",
+      "category": "SimpleObjectSim",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\misc\\liferaft\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280463066049045,
+        "lon": 8.42828971860999,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "sar.liferaft",
+      "title": "LifeRaft_Characters",
+      "spawnedTitle": "LifeRaft_Characters",
+      "objectId": 55050337,
+      "durationMs": 461,
+      "score": 275,
+      "roleHints": [
+        "sar.liferaft"
+      ],
+      "roles": [
+        "sar.liferaft"
+      ],
+      "kind": "misc",
+      "category": "SimpleObjectSim",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\misc\\liferaft\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280463793005076,
+        "lon": 8.428262713093488,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "person.ground_crew",
+      "title": "Tarmac_Female_Summer_Asian",
+      "spawnedTitle": "Tarmac_Female_Summer_Asian",
+      "objectId": 55050338,
+      "durationMs": 473,
+      "score": 685,
+      "roleHints": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "roles": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "kind": "humans",
+      "category": "Human",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\humans\\tarmacworker\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046451996111,
+        "lon": 8.428235707576986,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "person.ground_crew",
+      "title": "Marshaller_Female_Summer_African",
+      "spawnedTitle": "Marshaller_Female_Summer_African",
+      "objectId": 55050339,
+      "durationMs": 462,
+      "score": 275,
+      "roleHints": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "roles": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "kind": "humans",
+      "category": "Human",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\humans\\marshaller\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280496101695846,
+        "lon": 8.428399925420267,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "person.ground_crew",
+      "title": "Marshaller_Female_Summer_Arab",
+      "spawnedTitle": "Marshaller_Female_Summer_Arab",
+      "objectId": 55050340,
+      "durationMs": 490,
+      "score": 275,
+      "roleHints": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "roles": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "kind": "humans",
+      "category": "Human",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\humans\\marshaller\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049682865187,
+        "lon": 8.428372919903765,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "person.ground_crew",
+      "title": "Marshaller_Female_Summer_Asian",
+      "spawnedTitle": "Marshaller_Female_Summer_Asian",
+      "objectId": 55050341,
+      "durationMs": 462,
+      "score": 275,
+      "roleHints": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "roles": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "kind": "humans",
+      "category": "Human",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\humans\\marshaller\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.2804975556079,
+        "lon": 8.428345914387263,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "person.ground_crew",
+      "title": "Marshaller_Female_Summer_Caucasian",
+      "spawnedTitle": "Marshaller_Female_Summer_Caucasian",
+      "objectId": 55050342,
+      "durationMs": 462,
+      "score": 275,
+      "roleHints": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "roles": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "kind": "humans",
+      "category": "Human",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\humans\\marshaller\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049828256393,
+        "lon": 8.428318908870763,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "person.ground_crew",
+      "title": "Marshaller_Female_Summer_Hispanic",
+      "spawnedTitle": "Marshaller_Female_Summer_Hispanic",
+      "objectId": 55050343,
+      "durationMs": 468,
+      "score": 275,
+      "roleHints": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "roles": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "kind": "humans",
+      "category": "Human",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\humans\\marshaller\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049900951996,
+        "lon": 8.42829190335426,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "person.ground_crew",
+      "title": "Marshaller_Female_Summer_Indian",
+      "spawnedTitle": "Marshaller_Female_Summer_Indian",
+      "objectId": 55050344,
+      "durationMs": 485,
+      "score": 275,
+      "roleHints": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "roles": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "kind": "humans",
+      "category": "Human",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\humans\\marshaller\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049973647599,
+        "lon": 8.428264897837758,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "person.ground_crew",
+      "title": "Marshaller_Female_Winter_African",
+      "spawnedTitle": "Marshaller_Female_Winter_African",
+      "objectId": 55050345,
+      "durationMs": 468,
+      "score": 275,
+      "roleHints": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "roles": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "kind": "humans",
+      "category": "Human",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\humans\\marshaller\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28050046343201,
+        "lon": 8.428237892321256,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "person.ground_crew",
+      "title": "Marshaller_Female_Winter_Arab",
+      "spawnedTitle": "Marshaller_Female_Winter_Arab",
+      "objectId": 55050346,
+      "durationMs": 466,
+      "score": 275,
+      "roleHints": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "roles": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "kind": "humans",
+      "category": "Human",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\humans\\marshaller\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280478129960386,
+        "lon": 8.428398833048131,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "person.ground_crew",
+      "title": "Marshaller_Female_Winter_Asian",
+      "spawnedTitle": "Marshaller_Female_Winter_Asian",
+      "objectId": 55050347,
+      "durationMs": 470,
+      "score": 275,
+      "roleHints": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "roles": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "kind": "humans",
+      "category": "Human",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\humans\\marshaller\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28047885691642,
+        "lon": 8.428371827531631,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "person.ground_crew",
+      "title": "Marshaller_Female_Winter_Caucasian",
+      "spawnedTitle": "Marshaller_Female_Winter_Caucasian",
+      "objectId": 55050348,
+      "durationMs": 466,
+      "score": 275,
+      "roleHints": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "roles": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "kind": "humans",
+      "category": "Human",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\humans\\marshaller\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28047958387245,
+        "lon": 8.428344822015129,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "person.ground_crew",
+      "title": "Marshaller_Female_Winter_Hispanic",
+      "spawnedTitle": "Marshaller_Female_Winter_Hispanic",
+      "objectId": 55050349,
+      "durationMs": 502,
+      "score": 275,
+      "roleHints": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "roles": [
+        "person.ground_crew",
+        "person.passenger"
+      ],
+      "kind": "humans",
+      "category": "Human",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\humans\\marshaller\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048031082847,
+        "lon": 8.428317816498627,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "cargo.container",
+      "title": "Drop_Container",
+      "spawnedTitle": "Drop_Container",
+      "objectId": 55050350,
+      "durationMs": 466,
+      "score": 895,
+      "roleHints": [
+        "cargo.container"
+      ],
+      "roles": [
+        "cargo.container"
+      ],
+      "kind": "misc",
+      "category": "SimpleObjectSim",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\misc\\drop_container\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280481037784504,
+        "lon": 8.428290810982125,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "cargo.container",
+      "title": "Microsoft_Truck_Container",
+      "spawnedTitle": "Microsoft_Truck_Container",
+      "objectId": 55050351,
+      "durationMs": 479,
+      "score": 205,
+      "roleHints": [
+        "cargo.container"
+      ],
+      "roles": [
+        "cargo.container"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_truck_container\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048176474053,
+        "lon": 8.428263805465624,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "cargo.container",
+      "title": "Microsoft_Truck_Container_Blue",
+      "spawnedTitle": "Microsoft_Truck_Container_Blue",
+      "objectId": 55050352,
+      "durationMs": 460,
+      "score": 205,
+      "roleHints": [
+        "cargo.container"
+      ],
+      "roles": [
+        "cargo.container"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_truck_container\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28048249169656,
+        "lon": 8.428236799949122,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 7,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "cargo.container",
+      "title": "Microsoft_Truck_Container_Gray",
+      "spawnedTitle": "Microsoft_Truck_Container_Gray",
+      "objectId": 55050353,
+      "durationMs": 467,
+      "score": 205,
+      "roleHints": [
+        "cargo.container"
+      ],
+      "roles": [
+        "cargo.container"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_truck_container\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046015822493,
+        "lon": 8.428397740675997,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "cargo.container",
+      "title": "Microsoft_Truck_Container_Red",
+      "spawnedTitle": "Microsoft_Truck_Container_Red",
+      "objectId": 55050354,
+      "durationMs": 465,
+      "score": 205,
+      "roleHints": [
+        "cargo.container"
+      ],
+      "roles": [
+        "cargo.container"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\microsoft_truck_container\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046088518096,
+        "lon": 8.428370735159495,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "failed",
+      "role": "cargo.container",
+      "title": "ASOBO_Truck_Container",
+      "spawnedTitle": "",
+      "objectId": null,
+      "durationMs": 254,
+      "score": 197,
+      "error": "ASOBO_Truck_Container: CREATE_OBJECT_FAILED",
+      "attempts": [
+        {
+          "title": "ASOBO_Truck_Container",
+          "error": "CREATE_OBJECT_FAILED"
+        }
+      ],
+      "roleHints": [
+        "cargo.container"
+      ],
+      "roles": [
+        "cargo.container"
+      ],
+      "kind": "groundvehicles",
+      "category": "GroundVehicle",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\groundvehicles\\asobo_truck_container\\common\\config\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046161213699,
+        "lon": 8.428343729642993,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "cargo.container",
+      "title": "CargoContainer01",
+      "spawnedTitle": "CargoContainer01",
+      "objectId": 55050355,
+      "durationMs": 471,
+      "score": 185,
+      "roleHints": [
+        "watercraft.boat",
+        "cargo.container"
+      ],
+      "roles": [
+        "cargo.container",
+        "watercraft.boat"
+      ],
+      "kind": "boats",
+      "category": "Boat",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\boats\\cargocontainer01\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046233909302,
+        "lon": 8.428316724126493,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 0
+      }
+    },
+    {
+      "status": "ok",
+      "role": "cargo.small_box",
+      "title": "Cardboard",
+      "spawnedTitle": "Cardboard",
+      "objectId": 55050356,
+      "durationMs": 477,
+      "score": 885,
+      "roleHints": [
+        "cargo.small_box"
+      ],
+      "roles": [
+        "cargo.small_box"
+      ],
+      "kind": "misc",
+      "category": "SimpleObjectSim",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\misc\\cardboard\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280463066049045,
+        "lon": 8.42828971860999,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "cargo.small_box",
+      "title": "CoffeeCup",
+      "spawnedTitle": "CoffeeCup",
+      "objectId": 55050357,
+      "durationMs": 479,
+      "score": 755,
+      "roleHints": [],
+      "roles": [
+        "cargo.small_box"
+      ],
+      "kind": "misc",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\misc\\coffeecup\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280463793005076,
+        "lon": 8.428262713093488,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "cargo.pallet_large",
+      "title": "Pallet01_01",
+      "spawnedTitle": "Pallet01_01",
+      "objectId": 55050358,
+      "durationMs": 475,
+      "score": 895,
+      "roleHints": [
+        "cargo.pallet_large"
+      ],
+      "roles": [
+        "cargo.pallet_large"
+      ],
+      "kind": "misc",
+      "category": "SimpleObjectSim",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\misc\\pallet01_01\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28046451996111,
+        "lon": 8.428235707576986,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 9,
+        "rightM": 6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "cargo.pallet_medium",
+      "title": "Pallet01_02",
+      "spawnedTitle": "Pallet01_02",
+      "objectId": 55050359,
+      "durationMs": 460,
+      "score": 895,
+      "roleHints": [
+        "cargo.pallet_medium"
+      ],
+      "roles": [
+        "cargo.pallet_medium"
+      ],
+      "kind": "misc",
+      "category": "SimpleObjectSim",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\misc\\pallet01_02\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.280496101695846,
+        "lon": 8.428399925420267,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -6
+      }
+    },
+    {
+      "status": "ok",
+      "role": "cargo.pallet_small",
+      "title": "Pallet01_03",
+      "spawnedTitle": "Pallet01_03",
+      "objectId": 55050360,
+      "durationMs": 461,
+      "score": 895,
+      "roleHints": [
+        "cargo.pallet_small"
+      ],
+      "roles": [
+        "cargo.pallet_small"
+      ],
+      "kind": "misc",
+      "category": "SimpleObjectSim",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\misc\\pallet01_03\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049682865187,
+        "lon": 8.428372919903765,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -4
+      }
+    },
+    {
+      "status": "ok",
+      "role": "marker.cone",
+      "title": "Cone_Medium",
+      "spawnedTitle": "Cone_Medium",
+      "objectId": 55050361,
+      "durationMs": 459,
+      "score": 685,
+      "roleHints": [
+        "marker.cone"
+      ],
+      "roles": [
+        "marker.cone"
+      ],
+      "kind": "misc",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\misc\\cone_medium\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.2804975556079,
+        "lon": 8.428345914387263,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": -2
+      }
+    },
+    {
+      "status": "ok",
+      "role": "marker.cone",
+      "title": "EDTW Smoke Marker",
+      "spawnedTitle": "EDTW Smoke Marker",
+      "objectId": 55050362,
+      "durationMs": 455,
+      "score": 145,
+      "roleHints": [
+        "vfx.smoke",
+        "marker.cone"
+      ],
+      "roles": [
+        "marker.cone",
+        "vfx.smoke"
+      ],
+      "kind": "misc",
+      "category": "StaticObject",
+      "confidence": "high",
+      "packageName": "VFSProjection",
+      "path": "simobjects\\misc\\edtwsmokemarker\\sim.cfg",
+      "spawnPos": {
+        "lat": 48.28049828256393,
+        "lon": 8.428318908870763,
+        "altFt": 2215.4034459087784,
+        "hdg": 182.31634935811752,
+        "forwardM": 5,
+        "rightM": 0
+      }
+    }
+  ]
+}

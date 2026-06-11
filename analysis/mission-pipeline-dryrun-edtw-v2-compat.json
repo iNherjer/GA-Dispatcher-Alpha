@@ -1,0 +1,1008 @@
+{
+  "generatedAt": "2026-05-22T11:26:24.399Z",
+  "roll": 0.6844410153571516,
+  "summary": [
+    {
+      "run": 1,
+      "seed": 2026052219,
+      "targetType": "apt:cargo+cargo_fragile",
+      "mode": "APT",
+      "start": "EDTW",
+      "dest": "LFSV",
+      "targetName": "Pont St Vincent Airport",
+      "mission": "Empfindliche Fracht",
+      "source": "Lokale DB",
+      "sceneStatus": "accepted",
+      "targetScene": {
+        "kind": "none",
+        "roles": [],
+        "density": "none",
+        "notes": ""
+      },
+      "passenger": {
+        "name": "Miriam Stahl",
+        "role": "Logistik-Kurierin",
+        "gender": "female",
+        "personality": "gewissenhaft, direkt, professionell",
+        "dialectHint": "neutral",
+        "greetingText": "Hi, die Ladung ist empfindlich. Bitte möglichst ruhig und ohne harte Manöver.",
+        "roleProfile": "cargo_fragile_highcare_v1",
+        "taskDomain": "cargo_fragile",
+        "gTolerance": "mittel",
+        "bankTolerance": "niedrig",
+        "cargoSensitivity": "hoch",
+        "stomachSensitivity": "mittel",
+        "comfortPriority": "hoch",
+        "urgencyPriority": "niedrig",
+        "targetAltFt": 0,
+        "targetRadiusNm": 0,
+        "targetDwellMin": 0,
+        "trainingPlan": null,
+        "storyHint": "Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung."
+      },
+      "briefing": {
+        "title": "🚑 Empfindliche Fracht",
+        "story": "Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung.",
+        "dep": "EDTW",
+        "depName": "Winzeln-Schramberg Airport",
+        "dest": "LFSV",
+        "destName": "Pont St Vincent Airport",
+        "pax": "1 PAX (Logistik-Kurierin: Miriam Stahl)",
+        "cargo": "Laborgerät in Schutzverpackung (35 lbs)",
+        "dist": "96.4 NM",
+        "ete": "36 Min.",
+        "heading": "282°"
+      },
+      "paxTexts": [
+        "Textgen OK (89 Zeichen): \"Verstanden, ich bleibe bei der Aufgabe und gebe dir nur die nächsten sinnvollen Hinweise.\"",
+        "Textgen OK (108 Zeichen): \"Gut gelandet, danke. Ich sehe schon den richtigen Bereich am Vorfeld, wir können gleich zur Übergabe rollen.\"",
+        "Textgen OK (137 Zeichen): \"Der Zielplatz liegt sauber voraus, die Übergabe am Vorfeld passt zur Planung. Bitte den Anflug stabil halten, dann sind wir gleich durch.\"",
+        "Textgen OK (104 Zeichen): \"Hi, danke fürs Mitnehmen. Wir halten den Flug ruhig und konzentrieren uns am Ziel genau auf den Auftrag.\""
+      ],
+      "promptKinds": [
+        "mission-dispatcher",
+        "pax-text",
+        "pax-text",
+        "pax-text",
+        "pax-text"
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "mission": {
+        "start": "EDTW",
+        "dest": "LFSV",
+        "isPOI": false,
+        "poiName": null,
+        "poiSource": null,
+        "poiCategory": null,
+        "requestedCategory": "cargo",
+        "poiLookup": null,
+        "targetName": "Pont St Vincent Airport",
+        "targetLat": 48.601398468,
+        "targetLon": 6.057779789,
+        "targetAltFt": null,
+        "poiTerrainFt": null,
+        "mission": "Empfindliche Fracht",
+        "dist": 96.4,
+        "ac": "PA-24",
+        "heading": 282,
+        "weatherBriefing": {
+          "dep": null,
+          "dest": null
+        },
+        "fireHazard": null,
+        "source": "Lokale DB",
+        "sceneIntent": {
+          "summary": "A-B-Flug ohne Zielszene.",
+          "environment": "",
+          "visibleIdeas": [],
+          "avoid": [],
+          "densityHint": "none",
+          "notes": ""
+        },
+        "sceneAccepted": true,
+        "sceneCompositionStatus": "accepted",
+        "targetGeoContext": null,
+        "missionTruth": null,
+        "missionPlanV2": null,
+        "targetScene": {
+          "kind": "none",
+          "roles": [],
+          "density": "none",
+          "notes": ""
+        },
+        "targetSceneDraftRaw": null,
+        "targetSceneAiRaw": null,
+        "targetSceneAiNormalized": {
+          "kind": "none",
+          "roles": [],
+          "density": "none",
+          "notes": ""
+        },
+        "sceneIntentDebug": {
+          "aiRaw": null,
+          "normalized": {
+            "summary": "A-B-Flug ohne Zielszene.",
+            "environment": "",
+            "visibleIdeas": [],
+            "avoid": [],
+            "densityHint": "none",
+            "notes": ""
+          }
+        },
+        "aptArrivalPlan": {
+          "version": 1,
+          "status": "planned",
+          "source": "airport-representative-offset",
+          "confidence": 0.4,
+          "icao": "LFSV",
+          "airportName": "Pont St Vincent Airport",
+          "anchorType": "airport_representative",
+          "semantic": "apron_or_parking",
+          "lat": 48.60209313782805,
+          "lon": 6.0590446457457965,
+          "airportLat": 48.601398468,
+          "airportLon": 6.057779789,
+          "representativeOffsetM": {
+            "forwardM": -75,
+            "rightM": 95
+          },
+          "altFt": 1306,
+          "hdg": 282,
+          "role": "cargo_handoff",
+          "roleLabel": "Frachtuebergabe",
+          "expectedBy": "Frachtkontakt am Vorfeld",
+          "visibleCue": "Fracht-Van oder Abholfahrzeug",
+          "cues": [
+            "Fracht-Van oder Abholfahrzeug",
+            "Vorfeld oder sicherer Parking-Bereich",
+            "nicht auf Runway, Taxiway oder Gebaeuden"
+          ],
+          "roles": [
+            "person.ground_crew",
+            "vehicle.van",
+            "cargo.small_box"
+          ],
+          "items": [
+            {
+              "kind": "arrival_vehicle",
+              "label": "Fracht-Van",
+              "role": "vehicle.van",
+              "objectTitle": "Fracht-Van",
+              "forwardM": -11,
+              "rightM": 8,
+              "hdgOffsetDeg": 205
+            },
+            {
+              "kind": "arrival_person_1",
+              "label": "Frachtkontakt am Vorfeld",
+              "role": "person.ground_crew",
+              "objectTitle": "Frachtkontakt am Vorfeld",
+              "forwardM": 3,
+              "rightM": 6,
+              "hdgOffsetDeg": 200
+            },
+            {
+              "kind": "arrival_equipment_1",
+              "label": "Frachtuebergabe",
+              "role": "cargo.small_box",
+              "objectTitle": "Frachtuebergabe",
+              "forwardM": 1,
+              "rightM": 9,
+              "altOffsetFt": 1
+            }
+          ],
+          "narrativeHint": "Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich.",
+          "snapPolicy": {
+            "prefer": [
+              "taxi_parking",
+              "apron",
+              "pavement",
+              "parking_position"
+            ],
+            "avoid": [
+              "occupied",
+              "runway",
+              "taxiway",
+              "building",
+              "water"
+            ],
+            "liveResolver": "simconnect_facility_or_osm_apron"
+          },
+          "debug": "Repraesentativer Zielflugplatzpunkt bis ein Live-Snap auf SimConnect-Parking/OSM-Apron verfuegbar ist."
+        },
+        "missionContract": {
+          "requestedProfileId": "cargo_fragile",
+          "appliedProfileId": "cargo_fragile",
+          "summary": "Fragile Fracht | A-B | cat:std",
+          "taskDomain": "cargo_fragile",
+          "roleProfile": "cargo_fragile_highcare_v1",
+          "urgencyPriority": "niedrig",
+          "paxText": "1 PAX (Frachtbegleitung)",
+          "cargoText": "Laborgerät in Schutzverpackung (35 lbs)",
+          "missionTitle": "Empfindliche Fracht",
+          "missionStory": "Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung.",
+          "sceneIntent": {
+            "summary": "A-B-Flug ohne Zielszene.",
+            "environment": "",
+            "visibleIdeas": [],
+            "avoid": [],
+            "densityHint": "none",
+            "notes": ""
+          },
+          "sceneAccepted": true,
+          "targetGeoContext": null,
+          "missionTruth": null,
+          "missionPlanV2": null,
+          "aptArrivalPlan": {
+            "version": 1,
+            "status": "planned",
+            "source": "airport-representative-offset",
+            "confidence": 0.4,
+            "icao": "LFSV",
+            "airportName": "Pont St Vincent Airport",
+            "anchorType": "airport_representative",
+            "semantic": "apron_or_parking",
+            "lat": 48.60209313782805,
+            "lon": 6.0590446457457965,
+            "airportLat": 48.601398468,
+            "airportLon": 6.057779789,
+            "representativeOffsetM": {
+              "forwardM": -75,
+              "rightM": 95
+            },
+            "altFt": 1306,
+            "hdg": 282,
+            "role": "cargo_handoff",
+            "roleLabel": "Frachtuebergabe",
+            "expectedBy": "Frachtkontakt am Vorfeld",
+            "visibleCue": "Fracht-Van oder Abholfahrzeug",
+            "cues": [
+              "Fracht-Van oder Abholfahrzeug",
+              "Vorfeld oder sicherer Parking-Bereich",
+              "nicht auf Runway, Taxiway oder Gebaeuden"
+            ],
+            "roles": [
+              "person.ground_crew",
+              "vehicle.van",
+              "cargo.small_box"
+            ],
+            "items": [
+              {
+                "kind": "arrival_vehicle",
+                "label": "Fracht-Van",
+                "role": "vehicle.van",
+                "objectTitle": "Fracht-Van",
+                "forwardM": -11,
+                "rightM": 8,
+                "hdgOffsetDeg": 205
+              },
+              {
+                "kind": "arrival_person_1",
+                "label": "Frachtkontakt am Vorfeld",
+                "role": "person.ground_crew",
+                "objectTitle": "Frachtkontakt am Vorfeld",
+                "forwardM": 3,
+                "rightM": 6,
+                "hdgOffsetDeg": 200
+              },
+              {
+                "kind": "arrival_equipment_1",
+                "label": "Frachtuebergabe",
+                "role": "cargo.small_box",
+                "objectTitle": "Frachtuebergabe",
+                "forwardM": 1,
+                "rightM": 9,
+                "altOffsetFt": 1
+              }
+            ],
+            "narrativeHint": "Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich.",
+            "snapPolicy": {
+              "prefer": [
+                "taxi_parking",
+                "apron",
+                "pavement",
+                "parking_position"
+              ],
+              "avoid": [
+                "occupied",
+                "runway",
+                "taxiway",
+                "building",
+                "water"
+              ],
+              "liveResolver": "simconnect_facility_or_osm_apron"
+            },
+            "debug": "Repraesentativer Zielflugplatzpunkt bis ein Live-Snap auf SimConnect-Parking/OSM-Apron verfuegbar ist."
+          },
+          "targetScene": {
+            "kind": "none",
+            "roles": [],
+            "density": "none",
+            "notes": ""
+          },
+          "constraints": [
+            "Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig",
+            "Kein Themenmix zwischen Auftrag, PAX und Fracht",
+            "Alle Folgeansagen bleiben im gleichen Auftragsrahmen"
+          ]
+        },
+        "sceneCompositionStartedAt": 0,
+        "targetSceneComposerDebug": {
+          "source": "local-none",
+          "sceneIntent": {
+            "summary": "A-B-Flug ohne Zielszene.",
+            "environment": "",
+            "visibleIdeas": [],
+            "avoid": [],
+            "densityHint": "none",
+            "notes": ""
+          },
+          "targetGeoContext": null,
+          "missionTruth": null,
+          "missionPlanV2": null,
+          "fallback": {
+            "kind": "none",
+            "roles": [],
+            "density": "none",
+            "notes": ""
+          },
+          "promptVersion": "scene-composer-v1"
+        }
+      },
+      "passenger": {
+        "name": "Miriam Stahl",
+        "role": "Logistik-Kurierin",
+        "gender": "female",
+        "personality": "gewissenhaft, direkt, professionell",
+        "dialectHint": "neutral",
+        "greetingText": "Hi, die Ladung ist empfindlich. Bitte möglichst ruhig und ohne harte Manöver.",
+        "roleProfile": "cargo_fragile_highcare_v1",
+        "taskDomain": "cargo_fragile",
+        "gTolerance": "mittel",
+        "bankTolerance": "niedrig",
+        "cargoSensitivity": "hoch",
+        "stomachSensitivity": "mittel",
+        "comfortPriority": "hoch",
+        "urgencyPriority": "niedrig",
+        "targetAltFt": 0,
+        "targetRadiusNm": 0,
+        "targetDwellMin": 0,
+        "trainingPlan": null,
+        "storyHint": "Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung."
+      },
+      "briefing": {
+        "title": "🚑 Empfindliche Fracht",
+        "story": "Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung.",
+        "dep": "EDTW",
+        "depName": "Winzeln-Schramberg Airport",
+        "dest": "LFSV",
+        "destName": "Pont St Vincent Airport",
+        "pax": "1 PAX (Logistik-Kurierin: Miriam Stahl)",
+        "cargo": "Laborgerät in Schutzverpackung (35 lbs)",
+        "dist": "96.4 NM",
+        "ete": "36 Min.",
+        "heading": "282°"
+      },
+      "paxLog": [
+        {
+          "ts": "13:26:24",
+          "type": "state",
+          "msg": "Queue ✓ Ende | Event: Verabschiedung"
+        },
+        {
+          "ts": "13:26:24",
+          "type": "state",
+          "msg": "TTS übersprungen (Stimme deaktiviert) — Text gespeichert"
+        },
+        {
+          "ts": "13:26:24",
+          "type": "recv",
+          "msg": "Textgen OK (89 Zeichen): \"Verstanden, ich bleibe bei der Aufgabe und gebe dir nur die nächsten sinnvollen Hinweise.\""
+        },
+        {
+          "ts": "13:26:24",
+          "type": "send",
+          "msg": "Textgen → gemini-3-flash-preview"
+        },
+        {
+          "ts": "13:26:24",
+          "type": "send",
+          "msg": "PROMPT (voll): ROLLE: Miriam Stahl (Logistik-Kurierin) · Persönlichkeit: gewissenhaft, direkt, professionell FLUG: EDTW → LFSV · 96.4 NM LOAD: Laborgerät in Schutzverpackung (35 lbs) · 1 PAX (Logistik-Kurierin: Miriam Stahl) AUFTRAG (kurz): Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung. STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Fragile Fracht | A-B | cat:std CONTRACT-REGELN: Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen APT-ARRIVAL: Frachtuebergabe | Ort: am Vorfeld | wartet am Ziel: Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug | Planquelle: airport-representative-offset | Hinweis: Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich. | Nur bei Anflug, Landung und Rollen grob darauf Bezug nehmen; keine Spawn-Objektliste vorlesen. ROLLENFIX: Sprich ausschließlich als Miriam Stahl (Logistik-Kurierin) in Ich-Form. Keine Rollenvermischung. TASK-DOMAIN: cargo_fragile AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen). Moment: Wir stehen jetzt am Vorfeld; dort wartet Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug. Das ist jetzt der eigentliche Abschied am Empfangspunkt. Du darfst den Flug kurz zusammenfassen und dann zur Uebergabe/Abholung ueberleiten. Fakten: 36 min, 96.4 NM, max 4500 ft, max Bank 14.0°, max G 1.08g.  Hinweis: Sim-Modus aktiv, Landebewertung nur eingeschränkt belastbar. Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als Logistik-Kurierin. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: \"danke fürs Mitnehmen\" statt \"danke für das Mitnehmen\"). Auch wenn etwas nicht perfekt war, schließ positiv ab. Max 3 Sätze. Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze. Neutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch. Keine neue Begrüßung am Satzanfang. Humor kurz und freundlich. Bei Sicherheit/Warnung/Arbeitsanweisung: kein Humor. Nur Deutsch, kein Markdown."
+        },
+        {
+          "ts": "13:26:24",
+          "type": "event",
+          "msg": "── Verabschiedung ──"
+        },
+        {
+          "ts": "13:26:24",
+          "type": "state",
+          "msg": "Queue ▶ Start | Event: Verabschiedung"
+        },
+        {
+          "ts": "13:26:24",
+          "type": "state",
+          "msg": "Queue +1 | Event: Verabschiedung"
+        },
+        {
+          "ts": "13:26:24",
+          "type": "event",
+          "msg": "Farewell → API-Call in 0s"
+        },
+        {
+          "ts": "13:26:24",
+          "type": "state",
+          "msg": "triggerPaxFarewell | tts:false done:false pax:true"
+        },
+        {
+          "ts": "13:26:23",
+          "type": "state",
+          "msg": "Queue ✓ Ende | Event: Nach der Landung"
+        },
+        {
+          "ts": "13:26:23",
+          "type": "state",
+          "msg": "TTS übersprungen (Stimme deaktiviert) — Text gespeichert"
+        },
+        {
+          "ts": "13:26:23",
+          "type": "recv",
+          "msg": "Textgen OK (108 Zeichen): \"Gut gelandet, danke. Ich sehe schon den richtigen Bereich am Vorfeld, wir können gleich zur Übergabe rollen.\""
+        },
+        {
+          "ts": "13:26:23",
+          "type": "send",
+          "msg": "Textgen → gemini-3-flash-preview"
+        },
+        {
+          "ts": "13:26:23",
+          "type": "send",
+          "msg": "PROMPT (voll): ROLLE: Miriam Stahl (Logistik-Kurierin) · Persönlichkeit: gewissenhaft, direkt, professionell FLUG: EDTW → LFSV · 96.4 NM LOAD: Laborgerät in Schutzverpackung (35 lbs) · 1 PAX (Logistik-Kurierin: Miriam Stahl) AUFTRAG (kurz): Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung. STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Fragile Fracht | A-B | cat:std CONTRACT-REGELN: Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen APT-ARRIVAL: Frachtuebergabe | Ort: am Vorfeld | wartet am Ziel: Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug | Planquelle: airport-representative-offset | Hinweis: Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich. | Nur bei Anflug, Landung und Rollen grob darauf Bezug nehmen; keine Spawn-Objektliste vorlesen. ROLLENFIX: Sprich ausschließlich als Miriam Stahl (Logistik-Kurierin) in Ich-Form. Keine Rollenvermischung. TASK-DOMAIN: cargo_fragile AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen). Moment: Wir sind gerade gelandet und rollen noch. Fakten: Touchdown erfolgt. Nach der Landung: Gib nur ein kurzes Feedback zur Landung und sag, dass wir am Vorfeld rollen sollen; dort wartet Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug. Keine Verabschiedung, keine Flugzusammenfassung, keine detaillierte Objektliste. Sprich als Logistik-Kurierin kurz und praktisch: ein Satz zur Landung, ein Satz zum Rollen/Empfangspunkt. Positiv bleiben. Max 2 Sätze. Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze. Neutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch. Keine neue Begrüßung am Satzanfang. Humor kurz und freundlich. Bei Sicherheit/Warnung/Arbeitsanweisung: kein Humor. Nur Deutsch, kein Markdown."
+        },
+        {
+          "ts": "13:26:23",
+          "type": "event",
+          "msg": "── Nach der Landung ──"
+        },
+        {
+          "ts": "13:26:23",
+          "type": "state",
+          "msg": "Queue ▶ Start | Event: Nach der Landung"
+        },
+        {
+          "ts": "13:26:23",
+          "type": "state",
+          "msg": "Queue +1 | Event: Nach der Landung"
+        },
+        {
+          "ts": "13:26:22",
+          "type": "event",
+          "msg": "Landing-Roll → API-Call in 1s"
+        },
+        {
+          "ts": "13:26:22",
+          "type": "state",
+          "msg": "Queue ✓ Ende | Event: Ankunft"
+        },
+        {
+          "ts": "13:26:22",
+          "type": "state",
+          "msg": "TTS übersprungen (Stimme deaktiviert) — Text gespeichert"
+        },
+        {
+          "ts": "13:26:22",
+          "type": "recv",
+          "msg": "Textgen OK (137 Zeichen): \"Der Zielplatz liegt sauber voraus, die Übergabe am Vorfeld passt zur Planung. Bitte den Anflug stabil halten, dann sind wir gleich durch.\""
+        },
+        {
+          "ts": "13:26:22",
+          "type": "send",
+          "msg": "Textgen → gemini-3-flash-preview"
+        },
+        {
+          "ts": "13:26:22",
+          "type": "send",
+          "msg": "PROMPT (voll): ROLLE: Miriam Stahl (Logistik-Kurierin) · Persönlichkeit: gewissenhaft, direkt, professionell FLUG: EDTW → LFSV · 96.4 NM LOAD: Laborgerät in Schutzverpackung (35 lbs) · 1 PAX (Logistik-Kurierin: Miriam Stahl) AUFTRAG (kurz): Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung. STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Fragile Fracht | A-B | cat:std CONTRACT-REGELN: Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen APT-ARRIVAL: Frachtuebergabe | Ort: am Vorfeld | wartet am Ziel: Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug | Planquelle: airport-representative-offset | Hinweis: Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich. | Nur bei Anflug, Landung und Rollen grob darauf Bezug nehmen; keine Spawn-Objektliste vorlesen. ROLLENFIX: Sprich ausschließlich als Miriam Stahl (Logistik-Kurierin) in Ich-Form. Keine Rollenvermischung. TASK-DOMAIN: cargo_fragile AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen). Moment: Wir nähern uns LFSV — Landung gleich. Wetter: Wind 8 kts aus 260° (schwach), 17°C, Sicht 30 km (ausgezeichnet). Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv. APT-Arrival-Hinweis: Bereite kurz auf den Empfangspunkt vor. Erwaehne grob, dass am Ziel Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug wartet. Das ist die Ankunfts-/Uebergabe-Meldung vor der Landung, kein langer Debrief und keine Objektliste. Max 2-3 Sätze. Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze. Neutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch. Keine neue Begrüßung am Satzanfang. Humor kurz und freundlich. Bei Sicherheit/Warnung/Arbeitsanweisung: kein Humor. Nur Deutsch, kein Markdown."
+        },
+        {
+          "ts": "13:26:22",
+          "type": "event",
+          "msg": "── Ankunft ──"
+        },
+        {
+          "ts": "13:26:22",
+          "type": "state",
+          "msg": "Queue ▶ Start | Event: Ankunft"
+        },
+        {
+          "ts": "13:26:22",
+          "type": "state",
+          "msg": "Queue +1 | Event: Ankunft"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "event",
+          "msg": "At-Target → API-Call in 2s"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "state",
+          "msg": "triggerPaxAtTarget | tts:false done:false pax:true alt:1100ft"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "state",
+          "msg": "Queue ✓ Ende | Event: Begrüßung"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "state",
+          "msg": "TTS übersprungen (Stimme deaktiviert) — Text gespeichert"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "recv",
+          "msg": "Textgen OK (104 Zeichen): \"Hi, danke fürs Mitnehmen. Wir halten den Flug ruhig und konzentrieren uns am Ziel genau auf den Auftrag.\""
+        },
+        {
+          "ts": "13:26:20",
+          "type": "send",
+          "msg": "Textgen → gemini-3-flash-preview"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "send",
+          "msg": "PROMPT (voll): ROLLE: Miriam Stahl (Logistik-Kurierin) · Persönlichkeit: gewissenhaft, direkt, professionell FLUG: EDTW → LFSV · 96.4 NM LOAD: Laborgerät in Schutzverpackung (35 lbs) · 1 PAX (Logistik-Kurierin: Miriam Stahl) AUFTRAG (kurz): Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung. STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Fragile Fracht | A-B | cat:std CONTRACT-REGELN: Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen APT-ARRIVAL: Frachtuebergabe | Ort: am Vorfeld | wartet am Ziel: Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug | Planquelle: airport-representative-offset | Hinweis: Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich. | Nur bei Anflug, Landung und Rollen grob darauf Bezug nehmen; keine Spawn-Objektliste vorlesen. ROLLENFIX: Sprich ausschließlich als Miriam Stahl (Logistik-Kurierin) in Ich-Form. Keine Rollenvermischung. TASK-DOMAIN: cargo_fragile AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen). Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung. Basistext für deine Begrüßung (frei adaptieren): \"Hi, die Ladung ist empfindlich. Bitte möglichst ruhig und ohne harte Manöver.\" Du DARFST hier mit einer kurzen natürlichen Begrüßung beginnen (z.B. \"Hi\"), aber nur sehr knapp. Nenne genau einen kurzen Komforthinweis NUR wenn er aufgrund von Magen/Fracht/Empfindlichkeit wirklich nötig ist. Wenn Komforthinweis, dann bevorzugt mit Bezug auf empfindliche Fracht/verwackelungsarme Arbeit. Sonst Fokus auf Transportauftrag und Zielablauf am Boden. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen. Kein Zeitdruck kommunizieren. Max 3 Sätze. Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze. Neutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch. Keine neue Begrüßung am Satzanfang. Humor kurz und freundlich. Bei Sicherheit/Warnung/Arbeitsanweisung: kein Humor. Nur Deutsch, kein Markdown."
+        },
+        {
+          "ts": "13:26:20",
+          "type": "event",
+          "msg": "── Begrüßung ──"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "state",
+          "msg": "Queue ▶ Start | Event: Begrüßung"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "state",
+          "msg": "Queue +1 | Event: Begrüßung"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "event",
+          "msg": "Greeting → API-Call"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "state",
+          "msg": "Greeting Standort-Check: 0.00 NM vom Startplatz"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "state",
+          "msg": "triggerPaxGreeting | tts:false done:false pax:true key:true"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "state",
+          "msg": "Queue ✓ Ende | Event: Boarding"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "state",
+          "msg": "TTS übersprungen (Stimme deaktiviert) — Text gespeichert"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "event",
+          "msg": "── Boarding ──"
+        },
+        {
+          "ts": "13:26:20",
+          "type": "state",
+          "msg": "Queue ▶ Start | Event: Boarding"
+        }
+      ],
+      "debugSnapshot": {
+        "ts": 1779449179824,
+        "mode": "A-B",
+        "category": "std",
+        "profile": "cargo_fragile",
+        "appliedProfile": "cargo_fragile",
+        "mission": "Empfindliche Fracht",
+        "target": "Pont St Vincent Airport",
+        "targetCoords": null,
+        "source": "Lokale DB",
+        "poiSource": null,
+        "poiLookup": null,
+        "story": "Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung.",
+        "narrativeGuard": {
+          "urgency": "niedrig",
+          "cargoSensitivity": "hoch",
+          "timeHintAdded": false,
+          "timePressureStripped": true,
+          "cargoHintStripped": false,
+          "profileContractApplied": true
+        },
+        "contract": {
+          "requestedProfileId": "cargo_fragile",
+          "appliedProfileId": "cargo_fragile",
+          "summary": "Fragile Fracht | A-B | cat:std",
+          "taskDomain": "cargo_fragile",
+          "roleProfile": "cargo_fragile_highcare_v1",
+          "urgencyPriority": "niedrig",
+          "paxText": "1 PAX (Frachtbegleitung)",
+          "cargoText": "Laborgerät in Schutzverpackung (35 lbs)",
+          "missionTitle": "Empfindliche Fracht",
+          "missionStory": "Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung.",
+          "sceneIntent": {
+            "summary": "A-B-Flug ohne Zielszene.",
+            "environment": "",
+            "visibleIdeas": [],
+            "avoid": [],
+            "densityHint": "none",
+            "notes": ""
+          },
+          "sceneAccepted": false,
+          "targetGeoContext": null,
+          "missionTruth": {
+            "arrivalScene": {
+              "type": "apt_arrival_plan",
+              "role": "cargo_handoff",
+              "roleLabel": "Frachtuebergabe",
+              "expectedBy": "Frachtkontakt am Vorfeld",
+              "anchorType": "airport_representative",
+              "source": "airport-representative-offset",
+              "confidence": 0.4,
+              "lat": 48.60209313782805,
+              "lon": 6.0590446457457965,
+              "altFt": 1306,
+              "snapPolicy": {
+                "prefer": [
+                  "taxi_parking",
+                  "apron",
+                  "pavement",
+                  "parking_position"
+                ],
+                "avoid": [
+                  "occupied",
+                  "runway",
+                  "taxiway",
+                  "building",
+                  "water"
+                ],
+                "liveResolver": "simconnect_facility_or_osm_apron"
+              },
+              "items": [
+                {
+                  "kind": "arrival_vehicle",
+                  "label": "Fracht-Van",
+                  "role": "vehicle.van",
+                  "objectTitle": "Fracht-Van",
+                  "forwardM": -11,
+                  "rightM": 8,
+                  "hdgOffsetDeg": 205
+                },
+                {
+                  "kind": "arrival_person_1",
+                  "label": "Frachtkontakt am Vorfeld",
+                  "role": "person.ground_crew",
+                  "objectTitle": "Frachtkontakt am Vorfeld",
+                  "forwardM": 3,
+                  "rightM": 6,
+                  "hdgOffsetDeg": 200
+                },
+                {
+                  "kind": "arrival_equipment_1",
+                  "label": "Frachtuebergabe",
+                  "role": "cargo.small_box",
+                  "objectTitle": "Frachtuebergabe",
+                  "forwardM": 1,
+                  "rightM": 9,
+                  "altOffsetFt": 1
+                }
+              ]
+            },
+            "visibleCues": [
+              "Fracht-Van oder Abholfahrzeug",
+              "Vorfeld oder sicherer Parking-Bereich",
+              "nicht auf Runway, Taxiway oder Gebaeuden"
+            ]
+          },
+          "missionPlanV2": null,
+          "aptArrivalPlan": {
+            "version": 1,
+            "status": "planned",
+            "source": "airport-representative-offset",
+            "confidence": 0.4,
+            "icao": "LFSV",
+            "airportName": "Pont St Vincent Airport",
+            "anchorType": "airport_representative",
+            "semantic": "apron_or_parking",
+            "lat": 48.60209313782805,
+            "lon": 6.0590446457457965,
+            "airportLat": 48.601398468,
+            "airportLon": 6.057779789,
+            "representativeOffsetM": {
+              "forwardM": -75,
+              "rightM": 95
+            },
+            "altFt": 1306,
+            "hdg": 282,
+            "role": "cargo_handoff",
+            "roleLabel": "Frachtuebergabe",
+            "expectedBy": "Frachtkontakt am Vorfeld",
+            "visibleCue": "Fracht-Van oder Abholfahrzeug",
+            "cues": [
+              "Fracht-Van oder Abholfahrzeug",
+              "Vorfeld oder sicherer Parking-Bereich",
+              "nicht auf Runway, Taxiway oder Gebaeuden"
+            ],
+            "roles": [
+              "person.ground_crew",
+              "vehicle.van",
+              "cargo.small_box"
+            ],
+            "items": [
+              {
+                "kind": "arrival_vehicle",
+                "label": "Fracht-Van",
+                "role": "vehicle.van",
+                "objectTitle": "Fracht-Van",
+                "forwardM": -11,
+                "rightM": 8,
+                "hdgOffsetDeg": 205
+              },
+              {
+                "kind": "arrival_person_1",
+                "label": "Frachtkontakt am Vorfeld",
+                "role": "person.ground_crew",
+                "objectTitle": "Frachtkontakt am Vorfeld",
+                "forwardM": 3,
+                "rightM": 6,
+                "hdgOffsetDeg": 200
+              },
+              {
+                "kind": "arrival_equipment_1",
+                "label": "Frachtuebergabe",
+                "role": "cargo.small_box",
+                "objectTitle": "Frachtuebergabe",
+                "forwardM": 1,
+                "rightM": 9,
+                "altOffsetFt": 1
+              }
+            ],
+            "narrativeHint": "Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich.",
+            "snapPolicy": {
+              "prefer": [
+                "taxi_parking",
+                "apron",
+                "pavement",
+                "parking_position"
+              ],
+              "avoid": [
+                "occupied",
+                "runway",
+                "taxiway",
+                "building",
+                "water"
+              ],
+              "liveResolver": "simconnect_facility_or_osm_apron"
+            },
+            "debug": "Repraesentativer Zielflugplatzpunkt bis ein Live-Snap auf SimConnect-Parking/OSM-Apron verfuegbar ist."
+          },
+          "targetScene": {
+            "kind": "none",
+            "roles": [],
+            "density": "none",
+            "notes": ""
+          },
+          "constraints": [
+            "Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig",
+            "Kein Themenmix zwischen Auftrag, PAX und Fracht",
+            "Alle Folgeansagen bleiben im gleichen Auftragsrahmen"
+          ]
+        },
+        "sceneAccepted": true,
+        "sceneCompositionStatus": "accepted",
+        "sceneIntent": {
+          "summary": "A-B-Flug ohne Zielszene.",
+          "environment": "",
+          "visibleIdeas": [],
+          "avoid": [],
+          "densityHint": "none",
+          "notes": ""
+        },
+        "targetGeoContext": null,
+        "missionTruth": null,
+        "missionPlanV2": null,
+        "missionPipelineV2Enabled": false,
+        "aptArrivalPlan": {
+          "version": 1,
+          "status": "planned",
+          "source": "airport-representative-offset",
+          "confidence": 0.4,
+          "icao": "LFSV",
+          "airportName": "Pont St Vincent Airport",
+          "anchorType": "airport_representative",
+          "semantic": "apron_or_parking",
+          "lat": 48.60209313782805,
+          "lon": 6.0590446457457965,
+          "airportLat": 48.601398468,
+          "airportLon": 6.057779789,
+          "representativeOffsetM": {
+            "forwardM": -75,
+            "rightM": 95
+          },
+          "altFt": 1306,
+          "hdg": 282,
+          "role": "cargo_handoff",
+          "roleLabel": "Frachtuebergabe",
+          "expectedBy": "Frachtkontakt am Vorfeld",
+          "visibleCue": "Fracht-Van oder Abholfahrzeug",
+          "cues": [
+            "Fracht-Van oder Abholfahrzeug",
+            "Vorfeld oder sicherer Parking-Bereich",
+            "nicht auf Runway, Taxiway oder Gebaeuden"
+          ],
+          "roles": [
+            "person.ground_crew",
+            "vehicle.van",
+            "cargo.small_box"
+          ],
+          "items": [
+            {
+              "kind": "arrival_vehicle",
+              "label": "Fracht-Van",
+              "role": "vehicle.van",
+              "objectTitle": "Fracht-Van",
+              "forwardM": -11,
+              "rightM": 8,
+              "hdgOffsetDeg": 205
+            },
+            {
+              "kind": "arrival_person_1",
+              "label": "Frachtkontakt am Vorfeld",
+              "role": "person.ground_crew",
+              "objectTitle": "Frachtkontakt am Vorfeld",
+              "forwardM": 3,
+              "rightM": 6,
+              "hdgOffsetDeg": 200
+            },
+            {
+              "kind": "arrival_equipment_1",
+              "label": "Frachtuebergabe",
+              "role": "cargo.small_box",
+              "objectTitle": "Frachtuebergabe",
+              "forwardM": 1,
+              "rightM": 9,
+              "altOffsetFt": 1
+            }
+          ],
+          "narrativeHint": "Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich.",
+          "snapPolicy": {
+            "prefer": [
+              "taxi_parking",
+              "apron",
+              "pavement",
+              "parking_position"
+            ],
+            "avoid": [
+              "occupied",
+              "runway",
+              "taxiway",
+              "building",
+              "water"
+            ],
+            "liveResolver": "simconnect_facility_or_osm_apron"
+          },
+          "debug": "Repraesentativer Zielflugplatzpunkt bis ein Live-Snap auf SimConnect-Parking/OSM-Apron verfuegbar ist."
+        },
+        "targetScene": {
+          "kind": "none",
+          "roles": [],
+          "density": "none",
+          "notes": ""
+        },
+        "targetSceneDebug": {
+          "sceneIntentRaw": null,
+          "aiRequested": null,
+          "aiNormalized": {
+            "kind": "none",
+            "roles": [],
+            "density": "none",
+            "notes": ""
+          },
+          "contractTargetScene": {
+            "kind": "none",
+            "roles": [],
+            "density": "none",
+            "notes": ""
+          }
+        },
+        "paxText": "1 PAX (Frachtbegleitung)",
+        "cargoText": "Laborgerät in Schutzverpackung (35 lbs)",
+        "passenger": {
+          "name": "Miriam Stahl",
+          "role": "Logistik-Kurierin",
+          "gender": "female",
+          "roleProfile": "cargo_fragile_highcare_v1",
+          "taskDomain": "cargo_fragile",
+          "gTolerance": "mittel",
+          "bankTolerance": "niedrig",
+          "cargoSensitivity": "hoch",
+          "stomachSensitivity": "mittel",
+          "comfortPriority": "hoch",
+          "urgencyPriority": "niedrig",
+          "targetAltFt": 0,
+          "targetRadiusNm": 0,
+          "targetDwellMin": 0
+        },
+        "fireHazard": null,
+        "targetSceneComposerDebug": {
+          "source": "local-none",
+          "sceneIntent": {
+            "summary": "A-B-Flug ohne Zielszene.",
+            "environment": "",
+            "visibleIdeas": [],
+            "avoid": [],
+            "densityHint": "none",
+            "notes": ""
+          },
+          "targetGeoContext": null,
+          "missionTruth": null,
+          "missionPlanV2": null,
+          "fallback": {
+            "kind": "none",
+            "roles": [],
+            "density": "none",
+            "notes": ""
+          },
+          "promptVersion": "scene-composer-v1"
+        }
+      },
+      "prompts": [
+        {
+          "index": 1,
+          "kind": "mission-dispatcher",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "prompt": "<INSTRUKTIONEN>\nDu bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen.\nAntwortsprache: Deutsch.\nTon: alltagsnah, locker, glaubwürdig; keine Actionfilm-Rhetorik.\n\nREGELN:\n1) Thema-Pflicht: Der Auftrag MUSS zum Thema \"Empfindliche Fracht sicher und erschuetterungsarm transportieren\" passen.\n2) 4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu \"Pont St Vincent Airport\" ganz natürlich ein.\n3) Kategorienkonsistenz beachten.\n3b) Zielkonsistenz beachten.\n3c) Gepruefte Zielinformationen beachten, falls vorhanden.\n3d) Kein Pipeline-V2-Plan aktiv.\n4) ROUTEN-REGEL: Normaler Streckenflug von Winzeln-Schramberg Airport nach Pont St Vincent Airport.\n5) Erfinde passende PAX/Fracht (max 3 Personen). Falls niemand mitfliegt: \"0 PAX\".\n6) Erfinde genau einen Hauptpassagier. (oder null bei 0 PAX).\n6b) passenger.gender ist PFLICHT und MUSS exakt \"male\" oder \"female\" sein (keine anderen Werte).\n7) Leite diese Felder datengetrieben aus Auftrag/Rolle/Fracht/Wetter ab:\n   - gTolerance, bankTolerance, cargoSensitivity, stomachSensitivity, comfortPriority: jeweils niedrig|mittel|hoch\n   - urgencyPriority: niedrig|hoch\n   - roleProfile aus erlaubter Liste\n   - taskDomain aus erlaubter Liste\n   A-B-REGEL: Kein POI-Arbeitsauftrag. targetAltFt MUSS 0 sein, targetRadiusNm MUSS 0 sein, targetDwellMin MUSS 0 sein.\n8) DRINGLICHKEITS-REGEL FÜR STORY:\n   - Wenn urgencyPriority = hoch: story MUSS genau einen kurzen Zeitkritik-Hinweis enthalten (z.B. \"zeitkritisch\", \"müssen pünktlich ankommen\").\n   - Wenn urgencyPriority = niedrig: story DARF keinen Zeitdruck erwähnen.\n9) Wetter als Realitätsanker nutzen, aber nicht überdramatisieren.\n10) Optional dialectHint: neutral oder leichte regionale Färbung; nie starker Dialekt.\n11) Keine zusätzlichen Eigennamen für den Piloten erfinden (nur \"du\").\n12) Interne Regel-/Verbotssätze NIE wörtlich im story-Feld wiederholen.\n13) Trennung strikt einhalten: Alles in <INSTRUKTIONEN> sind Arbeitsregeln und dürfen nicht als Storytext erscheinen.\n13b) greetingText MUSS die konkrete Aufgabe kurz nennen: was suchen, beobachten, prüfen oder fotografieren wir und in welchem Zielkontext. Keine rein generischen Begrüßungen wie \"Suchmuster und klare Calls\" ohne Objekt/Ort/Trasse/Anlass.\n13c) Story, greetingText und sceneIntent muessen dieselbe Lage beschreiben. Das gilt fuer alle Missionstypen. Erst das Primaerziel definieren, dann passende Kontextobjekte, dann nur bei Bedarf Support. Wenn sceneIntent sichtbare Personen, Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere, Werkzeug, Fracht oder Ausruestung vorsieht, muss die Story/Greeting diese Elemente natuerlich stuetzen. Fuege keine Support-Objekte hinzu, die den Auftrag schon erledigt wirken lassen oder im Briefing nicht vorkommen.\n10. KEIN TRAININGSDRIFT: Falls es kein Trainingsflug ist, darf KEIN Trainingsauftrag mit Fluglehrer, Übungen, Platzrunden-Drills oder Checkflug-Inhalten erzeugt werden.\n\n14. PROFIL-FIX (zwingend): Setze passenger.roleProfile auf \"cargo_fragile_highcare_v1\" und passenger.taskDomain auf \"cargo_fragile\". Rolle/Story daran ausrichten: Fragile Fracht.\n15. KONSISTENZ-PFLICHT: Kein Themenmix gegen das Profil. Beispiel: Bei Sightseeing KEIN Ersatzteil-/Kurier-/Notfallauftrag; bei Reporter KEIN reiner Touri-Text; bei Mapping/SAR nur passende Einsatzinhalte.\n\n\n\n\n17. SCENE-INTENT: Gib sceneIntent.summary als \"A-B-Flug ohne Zielszene\" aus, densityHint=\"none\", visibleIdeas=[] und avoid=[]. Keine targetScene erzeugen.\n</INSTRUKTIONEN>\n\n<KONTEXT>\nStart: Winzeln-Schramberg Airport\nZiel: Pont St Vincent Airport (Zielflughafen)\nDistanz: 96.4 NM\nWetter Start (Winzeln-Schramberg Airport): Keine aktuellen Wetterdaten verfügbar.\nWetter Ziel (Pont St Vincent Airport): Keine aktuellen Wetterdaten verfügbar.\nmissionTruth: null\nmissionPlanV2: null\ntargetGeoContext: null\nErlaubte roleProfile:\n[\"general_passenger_v1\",\"instructor_calm_precise_v1\",\"charter_professional_neutral_v1\",\"technical_inspector_v1\",\"media_observer_v1\",\"science_field_v1\",\"vip_business_v1\",\"club_utility_v1\",\"medical_sensitive_v1\",\"news_reporter_professional_v1\",\"tour_guide_relaxed_v1\",\"tour_guide_learning_v1\",\"historian_storyteller_v1\",\"photogrammetry_precision_v1\",\"cargo_fragile_highcare_v1\",\"rescue_coordination_v1\",\"fire_observer_ops_v1\",\"club_student_v1\"]\nErlaubte taskDomain:\n[\"general\",\"training\",\"charter\",\"inspection_infra\",\"media_photo\",\"science_bio\",\"science_geo\",\"science_general\",\"club_utility\",\"medical_transfer\",\"news_coverage\",\"sightseeing_tour\",\"poi_learning_guide\",\"historian_guided_tour\",\"mapping_survey\",\"cargo_fragile\",\"search_and_rescue\",\"fire_watch\",\"animal_transport\",\"club_training_basic\",\"club_training_advanced\"]\n</KONTEXT>\n\n<OUTPUT>\nAntworte AUSSCHLIESSLICH als JSON ohne Markdown.\n{\n  \"title\": \"Kreativer Titel\",\n  \"story\": \"Briefing, max 3-4 Sätze\",\n  \"pax\": \"z.B. '2 PAX (...)' oder '0 PAX'\",\n  \"cargo\": \"z.B. 'Kamera-Gimbal (80 lbs)'\",\n  \"sceneIntent\": {\n    \"summary\": \"Kurze Klartextbeschreibung, was am Ziel sichtbar sein soll oder warum nichts gespawnt werden sollte\",\n    \"environment\": \"z.B. Seeufer, Wald, Baustelle, Strasse, leer\",\n    \"visibleIdeas\": [\"konkrete Ideen als Klartext, keine Asset-Namen\"],\n    \"avoid\": [\"unpassende Dinge, die nicht auftauchen sollen\"],\n    \"densityHint\": \"none|sparse|normal|busy\",\n    \"notes\": \"kurzer Grund\"\n  },\n  \"passenger\": {\n    \"name\": \"Vollständiger Name\",\n    \"role\": \"Beruf/Rolle\",\n    \"gender\": \"male|female\",\n    \"personality\": \"3 Adjektive\",\n    \"dialectHint\": \"neutral oder leicht regional\",\n    \"roleProfile\": \"aus erlaubter Liste\",\n    \"taskDomain\": \"aus erlaubter Liste\",\n    \"gTolerance\": \"niedrig|mittel|hoch\",\n    \"bankTolerance\": \"niedrig|mittel|hoch\",\n    \"cargoSensitivity\": \"niedrig|mittel|hoch\",\n    \"stomachSensitivity\": \"niedrig|mittel|hoch\",\n    \"comfortPriority\": \"niedrig|mittel|hoch\",\n    \"urgencyPriority\": \"niedrig|hoch\",\n    \"targetAltFt\": 3500,\n    \"targetRadiusNm\": 3.0,\n    \"targetDwellMin\": 2,\n    \"greetingText\": \"Persönliche Begrüßung an den Piloten, mit konkretem Auftrag und Zielkontext\",\n    \"trainingPlan\": {\n      \"mode\": \"airwork|pattern\",\n      \"trigger\": \"half_route|five_nm_before_landing\",\n      \"focus\": [\"Übung 1\", \"Übung 2\"],\n      \"instructorLine\": \"Kurze konkrete Instruktoranweisung\"\n    }\n  }\n}\n</OUTPUT>",
+          "excerpt": "<INSTRUKTIONEN> Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen. Antwortsprache: Deutsch. Ton: alltagsnah, locker, glaubwürdig; keine Actionfilm-Rhetorik. REGELN: 1) Thema-Pflicht: Der Auftrag MUSS zum Thema \"Empfindliche Fracht sicher und erschuetterungsarm transportieren\" passen. 2) 4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu \"Pont St Vincent Airport\" ganz natürlich ein. 3) Kategorienkonsistenz beachten. 3b) Zielkonsistenz beachten. 3c) Gepruefte Zielinformationen beachten, falls vorhanden. 3d) Kein Pipeline-V2-Plan aktiv. 4) ROUTEN-REGEL: Normaler Streckenflug von Winzeln-Sc"
+        },
+        {
+          "index": 2,
+          "kind": "pax-text",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "prompt": "ROLLE: Miriam Stahl (Logistik-Kurierin) · Persönlichkeit: gewissenhaft, direkt, professionell\nFLUG: EDTW → LFSV · 96.4 NM\nLOAD: Laborgerät in Schutzverpackung (35 lbs) · 1 PAX (Logistik-Kurierin: Miriam Stahl)\nAUFTRAG (kurz): Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung.\nSTIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show.\nDRINGLICHKEIT: niedrig\nZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation.\nMISSION-CONTRACT: Fragile Fracht | A-B | cat:std\nCONTRACT-REGELN: Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen\nAPT-ARRIVAL: Frachtuebergabe | Ort: am Vorfeld | wartet am Ziel: Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug | Planquelle: airport-representative-offset | Hinweis: Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich. | Nur bei Anflug, Landung und Rollen grob darauf Bezug nehmen; keine Spawn-Objektliste vorlesen.\nROLLENFIX: Sprich ausschließlich als Miriam Stahl (Logistik-Kurierin) in Ich-Form. Keine Rollenvermischung.\nTASK-DOMAIN: cargo_fragile\nAUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).\n\nMoment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.\nBasistext für deine Begrüßung (frei adaptieren): \"Hi, die Ladung ist empfindlich. Bitte möglichst ruhig und ohne harte Manöver.\"\nDu DARFST hier mit einer kurzen natürlichen Begrüßung beginnen (z.B. \"Hi\"), aber nur sehr knapp.\nNenne genau einen kurzen Komforthinweis NUR wenn er aufgrund von Magen/Fracht/Empfindlichkeit wirklich nötig ist. Wenn Komforthinweis, dann bevorzugt mit Bezug auf empfindliche Fracht/verwackelungsarme Arbeit. Sonst Fokus auf Transportauftrag und Zielablauf am Boden. KEINE Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.\n\nKein Zeitdruck kommunizieren.\nMax 3 Sätze.\nDu-Form, nie mit Namen. Ich-Form, kurze klare Sätze.\nNeutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch.\nKeine neue Begrüßung am Satzanfang.\nHumor kurz und freundlich.\nBei Sicherheit/Warnung/Arbeitsanweisung: kein Humor.\nNur Deutsch, kein Markdown.",
+          "excerpt": "ROLLE: Miriam Stahl (Logistik-Kurierin) · Persönlichkeit: gewissenhaft, direkt, professionell FLUG: EDTW → LFSV · 96.4 NM LOAD: Laborgerät in Schutzverpackung (35 lbs) · 1 PAX (Logistik-Kurierin: Miriam Stahl) AUFTRAG (kurz): Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung. STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Fragile Fracht | A-B | cat:std CONTRACT-REGELN: Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig | Kein Themenmix zwisc"
+        },
+        {
+          "index": 3,
+          "kind": "pax-text",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "prompt": "ROLLE: Miriam Stahl (Logistik-Kurierin) · Persönlichkeit: gewissenhaft, direkt, professionell\nFLUG: EDTW → LFSV · 96.4 NM\nLOAD: Laborgerät in Schutzverpackung (35 lbs) · 1 PAX (Logistik-Kurierin: Miriam Stahl)\nAUFTRAG (kurz): Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung.\nSTIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show.\nDRINGLICHKEIT: niedrig\nZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation.\nMISSION-CONTRACT: Fragile Fracht | A-B | cat:std\nCONTRACT-REGELN: Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen\nAPT-ARRIVAL: Frachtuebergabe | Ort: am Vorfeld | wartet am Ziel: Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug | Planquelle: airport-representative-offset | Hinweis: Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich. | Nur bei Anflug, Landung und Rollen grob darauf Bezug nehmen; keine Spawn-Objektliste vorlesen.\nROLLENFIX: Sprich ausschließlich als Miriam Stahl (Logistik-Kurierin) in Ich-Form. Keine Rollenvermischung.\nTASK-DOMAIN: cargo_fragile\nAUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).\n\nMoment: Wir nähern uns LFSV — Landung gleich. Wetter: Wind 8 kts aus 260° (schwach), 17°C, Sicht 30 km (ausgezeichnet).\nReagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv. APT-Arrival-Hinweis: Bereite kurz auf den Empfangspunkt vor. Erwaehne grob, dass am Ziel Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug wartet. Das ist die Ankunfts-/Uebergabe-Meldung vor der Landung, kein langer Debrief und keine Objektliste. Max 2-3 Sätze.\nDu-Form, nie mit Namen. Ich-Form, kurze klare Sätze.\nNeutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch.\nKeine neue Begrüßung am Satzanfang.\nHumor kurz und freundlich.\nBei Sicherheit/Warnung/Arbeitsanweisung: kein Humor.\nNur Deutsch, kein Markdown.",
+          "excerpt": "ROLLE: Miriam Stahl (Logistik-Kurierin) · Persönlichkeit: gewissenhaft, direkt, professionell FLUG: EDTW → LFSV · 96.4 NM LOAD: Laborgerät in Schutzverpackung (35 lbs) · 1 PAX (Logistik-Kurierin: Miriam Stahl) AUFTRAG (kurz): Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung. STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Fragile Fracht | A-B | cat:std CONTRACT-REGELN: Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig | Kein Themenmix zwisc"
+        },
+        {
+          "index": 4,
+          "kind": "pax-text",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "prompt": "ROLLE: Miriam Stahl (Logistik-Kurierin) · Persönlichkeit: gewissenhaft, direkt, professionell\nFLUG: EDTW → LFSV · 96.4 NM\nLOAD: Laborgerät in Schutzverpackung (35 lbs) · 1 PAX (Logistik-Kurierin: Miriam Stahl)\nAUFTRAG (kurz): Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung.\nSTIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show.\nDRINGLICHKEIT: niedrig\nZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation.\nMISSION-CONTRACT: Fragile Fracht | A-B | cat:std\nCONTRACT-REGELN: Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen\nAPT-ARRIVAL: Frachtuebergabe | Ort: am Vorfeld | wartet am Ziel: Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug | Planquelle: airport-representative-offset | Hinweis: Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich. | Nur bei Anflug, Landung und Rollen grob darauf Bezug nehmen; keine Spawn-Objektliste vorlesen.\nROLLENFIX: Sprich ausschließlich als Miriam Stahl (Logistik-Kurierin) in Ich-Form. Keine Rollenvermischung.\nTASK-DOMAIN: cargo_fragile\nAUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).\n\nMoment: Wir sind gerade gelandet und rollen noch.\nFakten: Touchdown erfolgt.\nNach der Landung: Gib nur ein kurzes Feedback zur Landung und sag, dass wir am Vorfeld rollen sollen; dort wartet Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug. Keine Verabschiedung, keine Flugzusammenfassung, keine detaillierte Objektliste.\nSprich als Logistik-Kurierin kurz und praktisch: ein Satz zur Landung, ein Satz zum Rollen/Empfangspunkt. Positiv bleiben. Max 2 Sätze.\nDu-Form, nie mit Namen. Ich-Form, kurze klare Sätze.\nNeutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch.\nKeine neue Begrüßung am Satzanfang.\nHumor kurz und freundlich.\nBei Sicherheit/Warnung/Arbeitsanweisung: kein Humor.\nNur Deutsch, kein Markdown.",
+          "excerpt": "ROLLE: Miriam Stahl (Logistik-Kurierin) · Persönlichkeit: gewissenhaft, direkt, professionell FLUG: EDTW → LFSV · 96.4 NM LOAD: Laborgerät in Schutzverpackung (35 lbs) · 1 PAX (Logistik-Kurierin: Miriam Stahl) AUFTRAG (kurz): Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung. STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Fragile Fracht | A-B | cat:std CONTRACT-REGELN: Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig | Kein Themenmix zwisc"
+        },
+        {
+          "index": 5,
+          "kind": "pax-text",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "prompt": "ROLLE: Miriam Stahl (Logistik-Kurierin) · Persönlichkeit: gewissenhaft, direkt, professionell\nFLUG: EDTW → LFSV · 96.4 NM\nLOAD: Laborgerät in Schutzverpackung (35 lbs) · 1 PAX (Logistik-Kurierin: Miriam Stahl)\nAUFTRAG (kurz): Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung.\nSTIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show.\nDRINGLICHKEIT: niedrig\nZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation.\nMISSION-CONTRACT: Fragile Fracht | A-B | cat:std\nCONTRACT-REGELN: Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen\nAPT-ARRIVAL: Frachtuebergabe | Ort: am Vorfeld | wartet am Ziel: Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug | Planquelle: airport-representative-offset | Hinweis: Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich. | Nur bei Anflug, Landung und Rollen grob darauf Bezug nehmen; keine Spawn-Objektliste vorlesen.\nROLLENFIX: Sprich ausschließlich als Miriam Stahl (Logistik-Kurierin) in Ich-Form. Keine Rollenvermischung.\nTASK-DOMAIN: cargo_fragile\nAUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).\n\nMoment: Wir stehen jetzt am Vorfeld; dort wartet Frachtkontakt am Vorfeld, erkennbar an Fracht-Van oder Abholfahrzeug. Das ist jetzt der eigentliche Abschied am Empfangspunkt. Du darfst den Flug kurz zusammenfassen und dann zur Uebergabe/Abholung ueberleiten.\nFakten: 36 min, 96.4 NM, max 4500 ft, max Bank 14.0°, max G 1.08g.\n Hinweis: Sim-Modus aktiv, Landebewertung nur eingeschränkt belastbar.\nVerabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als Logistik-Kurierin. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: \"danke fürs Mitnehmen\" statt \"danke für das Mitnehmen\"). Auch wenn etwas nicht perfekt war, schließ positiv ab. Max 3 Sätze.\nDu-Form, nie mit Namen. Ich-Form, kurze klare Sätze.\nNeutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch.\nKeine neue Begrüßung am Satzanfang.\nHumor kurz und freundlich.\nBei Sicherheit/Warnung/Arbeitsanweisung: kein Humor.\nNur Deutsch, kein Markdown.",
+          "excerpt": "ROLLE: Miriam Stahl (Logistik-Kurierin) · Persönlichkeit: gewissenhaft, direkt, professionell FLUG: EDTW → LFSV · 96.4 NM LOAD: Laborgerät in Schutzverpackung (35 lbs) · 1 PAX (Logistik-Kurierin: Miriam Stahl) AUFTRAG (kurz): Empfindliche Fracht wird zur sicheren Uebergabe am Ziel gebracht. Der Fokus liegt auf ruhiger, erschuetterungsarmer Flugfuehrung. STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Fragile Fracht | A-B | cat:std CONTRACT-REGELN: Rollenkonsistenz: roleProfile=cargo_fragile_highcare_v1, taskDomain=cargo_fragile, urgency=niedrig | Kein Themenmix zwisc"
+        }
+      ]
+    }
+  ]
+}

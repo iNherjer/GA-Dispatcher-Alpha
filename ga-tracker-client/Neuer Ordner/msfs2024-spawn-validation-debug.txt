@@ -1,0 +1,295 @@
+MSFS 2024 Spawn Validation Debug
+================================
+
+{
+  "tool": "GA-MSFS-Asset-Validator",
+  "version": "v1",
+  "reason": "running",
+  "generatedAt": "2026-05-20T16:27:51.940Z",
+  "host": "DESKTOP-N1GM2DV",
+  "platform": "win32/x64",
+  "runtimeDir": "C:\\Users\\einhe\\OneDrive",
+  "outputDir": "C:\\Users\\einhe\\OneDrive",
+  "options": {
+    "catalogPath": "C:\\Users\\einhe\\OneDrive\\msfs2024-simobjects-catalog.json",
+    "roles": [
+      "vfx.smoke",
+      "vfx.fire",
+      "vehicle.emergency.fire",
+      "vehicle.emergency.medical",
+      "vehicle.car",
+      "vehicle.van",
+      "vehicle.truck",
+      "vehicle.bus",
+      "vehicle.quad",
+      "watercraft.boat",
+      "watercraft.ship",
+      "sar.liferaft",
+      "person.ground_crew",
+      "cargo.container",
+      "cargo.small_box",
+      "cargo.pallet_large",
+      "cargo.pallet_medium",
+      "cargo.pallet_small",
+      "marker.cone"
+    ],
+    "perRole": 12,
+    "max": 160,
+    "timeoutMs": 2200,
+    "holdMs": 450,
+    "pauseMs": 180,
+    "offsetM": 5,
+    "spacingM": 2,
+    "keepOk": false,
+    "includeRisky": false,
+    "dryRun": false,
+    "allowZero": false
+  },
+  "activeObjectIds": [],
+  "resultCount": 109
+}
+
+Log
+---
+[2026-05-20T16:26:00.121Z] [INFO] ====================================
+[2026-05-20T16:26:00.323Z] [INFO]   MSFS 2024 Asset Spawn Validator
+[2026-05-20T16:26:00.327Z] [INFO] ====================================
+[2026-05-20T16:26:00.398Z] [INFO] Version : v1
+[2026-05-20T16:26:00.495Z] [INFO] Catalog : C:\Users\einhe\OneDrive\msfs2024-simobjects-catalog.json
+[2026-05-20T16:26:00.582Z] [INFO] Output  : C:\Users\einhe\OneDrive
+[2026-05-20T16:26:00.627Z] [INFO] Roles   : vfx.smoke, vfx.fire, vehicle.emergency.fire, vehicle.emergency.medical, vehicle.car, vehicle.van, vehicle.truck, vehicle.bus, vehicle.quad, watercraft.boat, watercraft.ship, sar.liferaft, person.ground_crew, cargo.container, cargo.small_box, cargo.pallet_large, cargo.pallet_medium, cargo.pallet_small, marker.cone
+[2026-05-20T16:26:00.652Z] [INFO] Limit   : 12/role, max 160
+[2026-05-20T16:26:00.695Z] [INFO] 
+[2026-05-20T16:26:05.007Z] [INFO] Katalog: 3415 Records, 109 Kandidaten ausgewaehlt.
+[2026-05-20T16:26:05.033Z] [INFO] Verbinde mit SimConnect ...
+[2026-05-20T16:26:05.461Z] [INFO] SimConnect verbunden.
+[2026-05-20T16:26:05.659Z] [INFO] User pos: lat=48.280543 lon=8.428322 alt=2215ft hdg=182 onGround=Y agl=3ft
+[2026-05-20T16:26:05.663Z] [INFO] 
+[2026-05-20T16:26:05.664Z] [INFO] [1/109] vfx.smoke "Chimney_Smoke_V1"
+[2026-05-20T16:26:06.161Z] [INFO]   OK  vfx.smoke | "Chimney_Smoke_V1" objectId=55050258
+[2026-05-20T16:26:06.647Z] [INFO] [2/109] vfx.smoke "Chimney_Smoke_V2"
+[2026-05-20T16:26:07.251Z] [INFO]   OK  vfx.smoke | "Chimney_Smoke_V2" objectId=55050259
+[2026-05-20T16:26:07.515Z] [INFO] [3/109] vfx.smoke "Chimney_Smoke_V3"
+[2026-05-20T16:26:07.975Z] [INFO]   OK  vfx.smoke | "Chimney_Smoke_V3" objectId=55050260
+[2026-05-20T16:26:08.193Z] [INFO] [4/109] vfx.smoke "Chimney_Smoke_V4"
+[2026-05-20T16:26:08.759Z] [INFO]   OK  vfx.smoke | "Chimney_Smoke_V4" objectId=55050261
+[2026-05-20T16:26:08.982Z] [INFO] [5/109] vfx.smoke "VO_Smoke_R1_100_Black"
+[2026-05-20T16:26:09.455Z] [INFO]   OK  vfx.smoke | "VO_Smoke_R1_100_Black" objectId=55050262
+[2026-05-20T16:26:09.873Z] [INFO] [6/109] vfx.smoke "VO_Smoke_R1_100_White"
+[2026-05-20T16:26:10.445Z] [INFO]   OK  vfx.smoke | "VO_Smoke_R1_100_White" objectId=55050263
+[2026-05-20T16:26:10.655Z] [INFO] [7/109] vfx.smoke "VO_Smoke_R1_105_Black"
+[2026-05-20T16:26:11.131Z] [INFO]   OK  vfx.smoke | "VO_Smoke_R1_105_Black" objectId=55050264
+[2026-05-20T16:26:11.446Z] [INFO] [8/109] vfx.smoke "VO_Smoke_R1_105_White"
+[2026-05-20T16:26:11.977Z] [INFO]   OK  vfx.smoke | "VO_Smoke_R1_105_White" objectId=55050265
+[2026-05-20T16:26:12.252Z] [INFO] [9/109] vfx.smoke "VO_Smoke_R1_110_Black"
+[2026-05-20T16:26:12.742Z] [INFO]   OK  vfx.smoke | "VO_Smoke_R1_110_Black" objectId=55050266
+[2026-05-20T16:26:13.000Z] [INFO] [10/109] vfx.smoke "VO_Smoke_R1_110_White"
+[2026-05-20T16:26:13.469Z] [INFO]   OK  vfx.smoke | "VO_Smoke_R1_110_White" objectId=55050267
+[2026-05-20T16:26:13.685Z] [INFO] [11/109] vfx.smoke "VO_Smoke_R1_115_Black"
+[2026-05-20T16:26:14.156Z] [INFO]   OK  vfx.smoke | "VO_Smoke_R1_115_Black" objectId=55050268
+[2026-05-20T16:26:14.509Z] [INFO] [12/109] vfx.smoke "VO_Smoke_R1_115_White"
+[2026-05-20T16:26:15.106Z] [INFO]   OK  vfx.smoke | "VO_Smoke_R1_115_White" objectId=55050269
+[2026-05-20T16:26:15.349Z] [INFO] [13/109] vfx.fire "VO_Fire_R1_40"
+[2026-05-20T16:26:15.827Z] [INFO]   OK  vfx.fire | "VO_Fire_R1_40" objectId=55050270
+[2026-05-20T16:26:16.257Z] [INFO] [14/109] vfx.fire "VO_Fire_R1_100"
+[2026-05-20T16:26:16.728Z] [INFO]   OK  vfx.fire | "VO_Fire_R1_100" objectId=55050271
+[2026-05-20T16:26:17.063Z] [INFO] [15/109] vfx.fire "VO_Fire_R1_105"
+[2026-05-20T16:26:17.534Z] [INFO]   OK  vfx.fire | "VO_Fire_R1_105" objectId=55050272
+[2026-05-20T16:26:17.806Z] [INFO] [16/109] vfx.fire "VO_Fire_R1_110"
+[2026-05-20T16:26:18.267Z] [INFO]   OK  vfx.fire | "VO_Fire_R1_110" objectId=55050273
+[2026-05-20T16:26:18.633Z] [INFO] [17/109] vfx.fire "VO_Fire_R1_115"
+[2026-05-20T16:26:19.151Z] [INFO]   OK  vfx.fire | "VO_Fire_R1_115" objectId=55050274
+[2026-05-20T16:26:19.424Z] [INFO] [18/109] vfx.fire "VO_Fire_R1_120"
+[2026-05-20T16:26:19.904Z] [INFO]   OK  vfx.fire | "VO_Fire_R1_120" objectId=55050275
+[2026-05-20T16:26:20.708Z] [INFO] [19/109] vfx.fire "VO_Fire_R1_125"
+[2026-05-20T16:26:21.355Z] [INFO]   OK  vfx.fire | "VO_Fire_R1_125" objectId=55050276
+[2026-05-20T16:26:22.047Z] [INFO] [20/109] vfx.fire "VO_Fire_R1_130"
+[2026-05-20T16:26:22.530Z] [INFO]   OK  vfx.fire | "VO_Fire_R1_130" objectId=55050277
+[2026-05-20T16:26:23.230Z] [INFO] [21/109] vfx.fire "VO_Fire_R1_135"
+[2026-05-20T16:26:23.900Z] [INFO]   OK  vfx.fire | "VO_Fire_R1_135" objectId=55050278
+[2026-05-20T16:26:24.700Z] [INFO] [22/109] vfx.fire "VO_Fire_R1_140"
+[2026-05-20T16:26:25.357Z] [INFO]   OK  vfx.fire | "VO_Fire_R1_140" objectId=55050279
+[2026-05-20T16:26:26.319Z] [INFO] [23/109] vfx.fire "VO_Fire_R1_145"
+[2026-05-20T16:26:27.032Z] [INFO]   OK  vfx.fire | "VO_Fire_R1_145" objectId=55050280
+[2026-05-20T16:26:28.075Z] [INFO] [24/109] vfx.fire "VO_Fire_R1_150"
+[2026-05-20T16:26:28.873Z] [INFO]   OK  vfx.fire | "VO_Fire_R1_150" objectId=55050281
+[2026-05-20T16:26:29.614Z] [INFO] [25/109] vehicle.emergency.fire "Car Bush Firefighting"
+[2026-05-20T16:26:30.621Z] [INFO]   OK  vehicle.emergency.fire | "Car Bush Firefighting" objectId=55050282
+[2026-05-20T16:26:31.555Z] [INFO] [26/109] vehicle.emergency.medical "Car Bush Medic"
+[2026-05-20T16:26:32.097Z] [INFO]   OK  vehicle.emergency.medical | "Car Bush Medic" objectId=55050283
+[2026-05-20T16:26:32.556Z] [INFO] [27/109] vehicle.emergency.medical "Stretcher_RTC_Medic"
+[2026-05-20T16:26:33.039Z] [INFO]   OK  vehicle.emergency.medical | "Stretcher_RTC_Medic" objectId=55050284
+[2026-05-20T16:26:33.240Z] [INFO] [28/109] vehicle.emergency.medical "Truck Utility Europe Medic Box"
+[2026-05-20T16:26:33.728Z] [INFO]   OK  vehicle.emergency.medical | "Truck Utility Europe Medic Box" objectId=55050285
+[2026-05-20T16:26:34.144Z] [INFO] [29/109] vehicle.emergency.medical "Truck Utility Europe Medic Flush"
+[2026-05-20T16:26:34.801Z] [INFO]   OK  vehicle.emergency.medical | "Truck Utility Europe Medic Flush" objectId=55050286
+[2026-05-20T16:26:35.045Z] [INFO] [30/109] vehicle.emergency.medical "Truck Utility NorthAm Medic"
+[2026-05-20T16:26:35.586Z] [INFO]   OK  vehicle.emergency.medical | "Truck Utility NorthAm Medic" objectId=55050287
+[2026-05-20T16:26:35.859Z] [INFO] [31/109] vehicle.emergency.medical "Van Asia High Roof Medic"
+[2026-05-20T16:26:36.385Z] [INFO]   OK  vehicle.emergency.medical | "Van Asia High Roof Medic" objectId=55050288
+[2026-05-20T16:26:36.631Z] [INFO] [32/109] vehicle.emergency.medical "Van Asia High Roof Medic Japan"
+[2026-05-20T16:26:37.097Z] [INFO]   OK  vehicle.emergency.medical | "Van Asia High Roof Medic Japan" objectId=55050289
+[2026-05-20T16:26:37.300Z] [INFO] [33/109] vehicle.emergency.medical "Van Asia Low Roof Medic"
+[2026-05-20T16:26:37.822Z] [INFO]   OK  vehicle.emergency.medical | "Van Asia Low Roof Medic" objectId=55050290
+[2026-05-20T16:26:38.102Z] [INFO] [34/109] vehicle.car "Microsoft_Car_EUR_01"
+[2026-05-20T16:26:38.635Z] [INFO]   OK  vehicle.car | "Microsoft_Car_EUR_01" objectId=55050291
+[2026-05-20T16:26:38.944Z] [INFO] [35/109] vehicle.car "Microsoft_Car_EUR_02"
+[2026-05-20T16:26:39.426Z] [INFO]   OK  vehicle.car | "Microsoft_Car_EUR_02" objectId=55050292
+[2026-05-20T16:26:39.742Z] [INFO] [36/109] vehicle.car "Microsoft_Car_EUR_03"
+[2026-05-20T16:26:40.274Z] [INFO]   OK  vehicle.car | "Microsoft_Car_EUR_03" objectId=55050293
+[2026-05-20T16:26:40.511Z] [INFO] [37/109] vehicle.car "Microsoft_Car_EUR_04"
+[2026-05-20T16:26:41.000Z] [INFO]   OK  vehicle.car | "Microsoft_Car_EUR_04" objectId=55050294
+[2026-05-20T16:26:41.385Z] [INFO] [38/109] vehicle.car "Microsoft_Car_EUR_01_black"
+[2026-05-20T16:26:41.905Z] [INFO]   OK  vehicle.car | "Microsoft_Car_EUR_01_black" objectId=55050295
+[2026-05-20T16:26:42.125Z] [INFO] [39/109] vehicle.car "Microsoft_Car_EUR_02_Blue"
+[2026-05-20T16:26:42.616Z] [INFO]   OK  vehicle.car | "Microsoft_Car_EUR_02_Blue" objectId=55050296
+[2026-05-20T16:26:42.862Z] [INFO] [40/109] vehicle.car "Microsoft_Car_EUR_02_Silver"
+[2026-05-20T16:26:43.359Z] [INFO]   OK  vehicle.car | "Microsoft_Car_EUR_02_Silver" objectId=55050297
+[2026-05-20T16:26:43.743Z] [INFO] [41/109] vehicle.car "Microsoft_Car_EUR_03_Beige"
+[2026-05-20T16:26:44.227Z] [INFO]   OK  vehicle.car | "Microsoft_Car_EUR_03_Beige" objectId=55050298
+[2026-05-20T16:26:44.477Z] [INFO] [42/109] vehicle.car "Microsoft_Car_EUR_03_Black"
+[2026-05-20T16:26:44.967Z] [INFO]   OK  vehicle.car | "Microsoft_Car_EUR_03_Black" objectId=55050299
+[2026-05-20T16:26:45.219Z] [INFO] [43/109] vehicle.car "Microsoft_Car_EUR_03_Blue"
+[2026-05-20T16:26:45.719Z] [INFO]   OK  vehicle.car | "Microsoft_Car_EUR_03_Blue" objectId=55050300
+[2026-05-20T16:26:45.961Z] [INFO] [44/109] vehicle.car "Microsoft_Car_EUR_03_Red"
+[2026-05-20T16:26:46.460Z] [INFO]   OK  vehicle.car | "Microsoft_Car_EUR_03_Red" objectId=55050301
+[2026-05-20T16:26:46.878Z] [INFO] [45/109] vehicle.car "Microsoft_Car_EUR_04_Blue"
+[2026-05-20T16:26:47.361Z] [INFO]   OK  vehicle.car | "Microsoft_Car_EUR_04_Blue" objectId=55050302
+[2026-05-20T16:26:47.618Z] [INFO] [46/109] vehicle.van "Microsoft_Van_EUR"
+[2026-05-20T16:26:48.125Z] [INFO]   OK  vehicle.van | "Microsoft_Van_EUR" objectId=55050303
+[2026-05-20T16:26:48.484Z] [INFO] [47/109] vehicle.van "Microsoft_Van_ASIA_02"
+[2026-05-20T16:26:48.984Z] [INFO]   OK  vehicle.van | "Microsoft_Van_ASIA_02" objectId=55050304
+[2026-05-20T16:26:49.239Z] [INFO] [48/109] vehicle.van "Microsoft_Van_ASIA_02_Brown"
+[2026-05-20T16:26:49.727Z] [INFO]   OK  vehicle.van | "Microsoft_Van_ASIA_02_Brown" objectId=55050305
+[2026-05-20T16:26:50.012Z] [INFO] [49/109] vehicle.van "Microsoft_Van_ASIA_02_Yellow"
+[2026-05-20T16:26:50.563Z] [INFO]   OK  vehicle.van | "Microsoft_Van_ASIA_02_Yellow" objectId=55050306
+[2026-05-20T16:26:50.769Z] [INFO] [50/109] vehicle.van "Microsoft_Van_EUR_Black"
+[2026-05-20T16:26:51.255Z] [INFO]   OK  vehicle.van | "Microsoft_Van_EUR_Black" objectId=55050307
+[2026-05-20T16:26:51.643Z] [INFO] [51/109] vehicle.van "Microsoft_Van_EUR_Blue"
+[2026-05-20T16:26:52.178Z] [INFO]   OK  vehicle.van | "Microsoft_Van_EUR_Blue" objectId=55050308
+[2026-05-20T16:26:52.395Z] [INFO] [52/109] vehicle.van "Microsoft_Van_EUR_Red"
+[2026-05-20T16:26:52.859Z] [INFO]   OK  vehicle.van | "Microsoft_Van_EUR_Red" objectId=55050309
+[2026-05-20T16:26:53.110Z] [INFO] [53/109] vehicle.van "Microsoft_Van_NA_Lavatory"
+[2026-05-20T16:26:53.609Z] [INFO]   OK  vehicle.van | "Microsoft_Van_NA_Lavatory" objectId=55050310
+[2026-05-20T16:26:53.939Z] [INFO] [54/109] vehicle.van "Microsoft_Van_NA_Lavatory_Blue"
+[2026-05-20T16:26:54.576Z] [INFO]   OK  vehicle.van | "Microsoft_Van_NA_Lavatory_Blue" objectId=55050311
+[2026-05-20T16:26:55.024Z] [INFO] [55/109] vehicle.van "Microsoft_Van_NA_Modern"
+[2026-05-20T16:26:55.774Z] [INFO]   OK  vehicle.van | "Microsoft_Van_NA_Modern" objectId=55050312
+[2026-05-20T16:26:56.408Z] [INFO] [56/109] vehicle.van "Microsoft_Van_NA_Modern_Green"
+[2026-05-20T16:26:57.087Z] [INFO]   OK  vehicle.van | "Microsoft_Van_NA_Modern_Green" objectId=55050313
+[2026-05-20T16:26:57.419Z] [INFO] [57/109] vehicle.van "Winch Busio Van Gelder 4D"
+[2026-05-20T16:26:57.992Z] [INFO]   OK  vehicle.van | "Winch Busio Van Gelder 4D" objectId=55050314
+[2026-05-20T16:26:58.336Z] [INFO] [58/109] vehicle.truck "Fuel Truck Long 01"
+[2026-05-20T16:26:58.858Z] [INFO]   OK  vehicle.truck | "Fuel Truck Long 01" objectId=55050315
+[2026-05-20T16:26:59.225Z] [INFO] [59/109] vehicle.truck "Fuel Truck Long 02"
+[2026-05-20T16:26:59.844Z] [INFO]   OK  vehicle.truck | "Fuel Truck Long 02" objectId=55050316
+[2026-05-20T16:27:00.218Z] [INFO] [60/109] vehicle.truck "Truck Boarding Common"
+[2026-05-20T16:27:00.268Z] [INFO] [SimConnect Exception] CREATE_OBJECT_FAILED sendId=126
+[2026-05-20T16:27:00.279Z] [INFO]   --  vehicle.truck | "Truck Boarding Common" -> CREATE_OBJECT_FAILED
+[2026-05-20T16:27:00.600Z] [INFO] [61/109] vehicle.truck "Truck Fire Short"
+[2026-05-20T16:27:01.205Z] [INFO]   OK  vehicle.truck | "Truck Fire Short" objectId=55050317
+[2026-05-20T16:27:01.570Z] [INFO] [62/109] vehicle.truck "Truck Military Cover"
+[2026-05-20T16:27:02.074Z] [INFO]   OK  vehicle.truck | "Truck Military Cover" objectId=55050318
+[2026-05-20T16:27:02.459Z] [INFO] [63/109] vehicle.truck "Truck Military No Cover"
+[2026-05-20T16:27:03.016Z] [INFO]   OK  vehicle.truck | "Truck Military No Cover" objectId=55050319
+[2026-05-20T16:27:03.462Z] [INFO] [64/109] vehicle.truck "Truck Utility Europe Flush"
+[2026-05-20T16:27:03.970Z] [INFO]   OK  vehicle.truck | "Truck Utility Europe Flush" objectId=55050320
+[2026-05-20T16:27:04.248Z] [INFO] [65/109] vehicle.truck "Truck Utility NorthAm"
+[2026-05-20T16:27:04.852Z] [INFO]   OK  vehicle.truck | "Truck Utility NorthAm" objectId=55050321
+[2026-05-20T16:27:05.581Z] [INFO] [66/109] vehicle.truck "ASOBO_Pickup_01"
+[2026-05-20T16:27:05.630Z] [INFO] [SimConnect Exception] CREATE_OBJECT_FAILED sendId=137
+[2026-05-20T16:27:05.839Z] [INFO]   --  vehicle.truck | "ASOBO_Pickup_01" -> CREATE_OBJECT_FAILED
+[2026-05-20T16:27:06.260Z] [INFO] [67/109] vehicle.truck "ASO_Operation_Truck_White"
+[2026-05-20T16:27:06.810Z] [INFO]   OK  vehicle.truck | "ASO_Operation_Truck_White" objectId=55050322
+[2026-05-20T16:27:07.114Z] [INFO] [68/109] vehicle.truck "ASO_Operation_Truck_Yellow"
+[2026-05-20T16:27:07.658Z] [INFO]   OK  vehicle.truck | "ASO_Operation_Truck_Yellow" objectId=55050323
+[2026-05-20T16:27:08.037Z] [INFO] [69/109] vehicle.bus "Bus Apron Common"
+[2026-05-20T16:27:08.141Z] [INFO] [SimConnect Exception] CREATE_OBJECT_FAILED sendId=142
+[2026-05-20T16:27:08.249Z] [INFO]   --  vehicle.bus | "Bus Apron Common" -> CREATE_OBJECT_FAILED
+[2026-05-20T16:27:08.732Z] [INFO] [70/109] watercraft.boat "Fishing Boat Red Modular"
+[2026-05-20T16:27:09.278Z] [INFO]   OK  watercraft.boat | "Fishing Boat Red Modular" objectId=55050324
+[2026-05-20T16:27:09.875Z] [INFO] [71/109] watercraft.boat "Fishing Boat White Modular"
+[2026-05-20T16:27:10.612Z] [INFO]   OK  watercraft.boat | "Fishing Boat White Modular" objectId=55050325
+[2026-05-20T16:27:10.981Z] [INFO] [72/109] watercraft.boat "Microsoft_Ships_AbeilleBourbon_1.0"
+[2026-05-20T16:27:11.558Z] [INFO]   OK  watercraft.boat | "Microsoft_Ships_AbeilleBourbon_1.0" objectId=55050326
+[2026-05-20T16:27:11.918Z] [INFO] [73/109] watercraft.boat "Microsoft_Ships_AbeilleBourbon_10.0"
+[2026-05-20T16:27:12.414Z] [INFO]   OK  watercraft.boat | "Microsoft_Ships_AbeilleBourbon_10.0" objectId=55050327
+[2026-05-20T16:27:12.838Z] [INFO] [74/109] watercraft.boat "Microsoft_Ships_AbeilleBourbon_11.0"
+[2026-05-20T16:27:13.777Z] [INFO]   OK  watercraft.boat | "Microsoft_Ships_AbeilleBourbon_11.0" objectId=55050328
+[2026-05-20T16:27:14.378Z] [INFO] [75/109] watercraft.boat "Microsoft_Ships_AbeilleBourbon_12.0"
+[2026-05-20T16:27:15.150Z] [INFO]   OK  watercraft.boat | "Microsoft_Ships_AbeilleBourbon_12.0" objectId=55050329
+[2026-05-20T16:27:15.948Z] [INFO] [76/109] watercraft.boat "Microsoft_Ships_AbeilleBourbon_2.0"
+[2026-05-20T16:27:16.833Z] [INFO]   OK  watercraft.boat | "Microsoft_Ships_AbeilleBourbon_2.0" objectId=55050330
+[2026-05-20T16:27:17.515Z] [INFO] [77/109] watercraft.boat "Microsoft_Ships_AbeilleBourbon_3.0"
+[2026-05-20T16:27:18.203Z] [INFO]   OK  watercraft.boat | "Microsoft_Ships_AbeilleBourbon_3.0" objectId=55050331
+[2026-05-20T16:27:18.824Z] [INFO] [78/109] watercraft.boat "Microsoft_Ships_AbeilleBourbon_4.0"
+[2026-05-20T16:27:19.588Z] [INFO]   OK  watercraft.boat | "Microsoft_Ships_AbeilleBourbon_4.0" objectId=55050332
+[2026-05-20T16:27:20.044Z] [INFO] [79/109] watercraft.boat "Microsoft_Ships_AbeilleBourbon_5.0"
+[2026-05-20T16:27:20.746Z] [INFO]   OK  watercraft.boat | "Microsoft_Ships_AbeilleBourbon_5.0" objectId=55050333
+[2026-05-20T16:27:21.211Z] [INFO] [80/109] watercraft.boat "Microsoft_Ships_AbeilleBourbon_6.0"
+[2026-05-20T16:27:22.051Z] [INFO]   OK  watercraft.boat | "Microsoft_Ships_AbeilleBourbon_6.0" objectId=55050334
+[2026-05-20T16:27:22.695Z] [INFO] [81/109] watercraft.boat "Microsoft_Ships_AbeilleBourbon_7.0"
+[2026-05-20T16:27:23.346Z] [INFO]   OK  watercraft.boat | "Microsoft_Ships_AbeilleBourbon_7.0" objectId=55050335
+[2026-05-20T16:27:24.076Z] [INFO] [82/109] sar.liferaft "LifeRaft"
+[2026-05-20T16:27:24.757Z] [INFO]   OK  sar.liferaft | "LifeRaft" objectId=55050336
+[2026-05-20T16:27:25.344Z] [INFO] [83/109] sar.liferaft "LifeRaft_Characters"
+[2026-05-20T16:27:26.036Z] [INFO]   OK  sar.liferaft | "LifeRaft_Characters" objectId=55050337
+[2026-05-20T16:27:26.676Z] [INFO] [84/109] person.ground_crew "Tarmac_Female_Summer_Asian"
+[2026-05-20T16:27:27.310Z] [INFO]   OK  person.ground_crew | "Tarmac_Female_Summer_Asian" objectId=55050338
+[2026-05-20T16:27:27.844Z] [INFO] [85/109] person.ground_crew "Marshaller_Female_Summer_African"
+[2026-05-20T16:27:28.431Z] [INFO]   OK  person.ground_crew | "Marshaller_Female_Summer_African" objectId=55050339
+[2026-05-20T16:27:28.807Z] [INFO] [86/109] person.ground_crew "Marshaller_Female_Summer_Arab"
+[2026-05-20T16:27:29.726Z] [INFO]   OK  person.ground_crew | "Marshaller_Female_Summer_Arab" objectId=55050340
+[2026-05-20T16:27:30.257Z] [INFO] [87/109] person.ground_crew "Marshaller_Female_Summer_Asian"
+[2026-05-20T16:27:30.847Z] [INFO]   OK  person.ground_crew | "Marshaller_Female_Summer_Asian" objectId=55050341
+[2026-05-20T16:27:31.420Z] [INFO] [88/109] person.ground_crew "Marshaller_Female_Summer_Caucasian"
+[2026-05-20T16:27:32.169Z] [INFO]   OK  person.ground_crew | "Marshaller_Female_Summer_Caucasian" objectId=55050342
+[2026-05-20T16:27:32.849Z] [INFO] [89/109] person.ground_crew "Marshaller_Female_Summer_Hispanic"
+[2026-05-20T16:27:33.664Z] [INFO]   OK  person.ground_crew | "Marshaller_Female_Summer_Hispanic" objectId=55050343
+[2026-05-20T16:27:34.110Z] [INFO] [90/109] person.ground_crew "Marshaller_Female_Summer_Indian"
+[2026-05-20T16:27:34.945Z] [INFO]   OK  person.ground_crew | "Marshaller_Female_Summer_Indian" objectId=55050344
+[2026-05-20T16:27:35.190Z] [INFO] [91/109] person.ground_crew "Marshaller_Female_Winter_African"
+[2026-05-20T16:27:35.767Z] [INFO]   OK  person.ground_crew | "Marshaller_Female_Winter_African" objectId=55050345
+[2026-05-20T16:27:36.075Z] [INFO] [92/109] person.ground_crew "Marshaller_Female_Winter_Arab"
+[2026-05-20T16:27:36.575Z] [INFO]   OK  person.ground_crew | "Marshaller_Female_Winter_Arab" objectId=55050346
+[2026-05-20T16:27:36.864Z] [INFO] [93/109] person.ground_crew "Marshaller_Female_Winter_Asian"
+[2026-05-20T16:27:37.408Z] [INFO]   OK  person.ground_crew | "Marshaller_Female_Winter_Asian" objectId=55050347
+[2026-05-20T16:27:38.076Z] [INFO] [94/109] person.ground_crew "Marshaller_Female_Winter_Caucasian"
+[2026-05-20T16:27:38.692Z] [INFO]   OK  person.ground_crew | "Marshaller_Female_Winter_Caucasian" objectId=55050348
+[2026-05-20T16:27:39.041Z] [INFO] [95/109] person.ground_crew "Marshaller_Female_Winter_Hispanic"
+[2026-05-20T16:27:39.546Z] [INFO]   OK  person.ground_crew | "Marshaller_Female_Winter_Hispanic" objectId=55050349
+[2026-05-20T16:27:39.908Z] [INFO] [96/109] cargo.container "Drop_Container"
+[2026-05-20T16:27:40.416Z] [INFO]   OK  cargo.container | "Drop_Container" objectId=55050350
+[2026-05-20T16:27:40.753Z] [INFO] [97/109] cargo.container "Microsoft_Truck_Container"
+[2026-05-20T16:27:41.317Z] [INFO]   OK  cargo.container | "Microsoft_Truck_Container" objectId=55050351
+[2026-05-20T16:27:41.594Z] [INFO] [98/109] cargo.container "Microsoft_Truck_Container_Blue"
+[2026-05-20T16:27:42.204Z] [INFO]   OK  cargo.container | "Microsoft_Truck_Container_Blue" objectId=55050352
+[2026-05-20T16:27:42.646Z] [INFO] [99/109] cargo.container "Microsoft_Truck_Container_Gray"
+[2026-05-20T16:27:43.243Z] [INFO]   OK  cargo.container | "Microsoft_Truck_Container_Gray" objectId=55050353
+[2026-05-20T16:27:43.732Z] [INFO] [100/109] cargo.container "Microsoft_Truck_Container_Red"
+[2026-05-20T16:27:44.231Z] [INFO]   OK  cargo.container | "Microsoft_Truck_Container_Red" objectId=55050354
+[2026-05-20T16:27:44.535Z] [INFO] [101/109] cargo.container "ASOBO_Truck_Container"
+[2026-05-20T16:27:44.578Z] [INFO] [SimConnect Exception] CREATE_OBJECT_FAILED sendId=205
+[2026-05-20T16:27:44.601Z] [INFO]   --  cargo.container | "ASOBO_Truck_Container" -> CREATE_OBJECT_FAILED
+[2026-05-20T16:27:45.055Z] [INFO] [102/109] cargo.container "CargoContainer01"
+[2026-05-20T16:27:45.529Z] [INFO]   OK  cargo.container | "CargoContainer01" objectId=55050355
+[2026-05-20T16:27:45.808Z] [INFO] [103/109] cargo.small_box "Cardboard"
+[2026-05-20T16:27:46.288Z] [INFO]   OK  cargo.small_box | "Cardboard" objectId=55050356
+[2026-05-20T16:27:46.574Z] [INFO] [104/109] cargo.small_box "CoffeeCup"
+[2026-05-20T16:27:47.059Z] [INFO]   OK  cargo.small_box | "CoffeeCup" objectId=55050357
+[2026-05-20T16:27:47.325Z] [INFO] [105/109] cargo.pallet_large "Pallet01_01"
+[2026-05-20T16:27:47.828Z] [INFO]   OK  cargo.pallet_large | "Pallet01_01" objectId=55050358
+[2026-05-20T16:27:48.225Z] [INFO] [106/109] cargo.pallet_medium "Pallet01_02"
+[2026-05-20T16:27:48.687Z] [INFO]   OK  cargo.pallet_medium | "Pallet01_02" objectId=55050359
+[2026-05-20T16:27:49.098Z] [INFO] [107/109] cargo.pallet_small "Pallet01_03"
+[2026-05-20T16:27:49.562Z] [INFO]   OK  cargo.pallet_small | "Pallet01_03" objectId=55050360
+[2026-05-20T16:27:49.889Z] [INFO] [108/109] marker.cone "Cone_Medium"
+[2026-05-20T16:27:50.353Z] [INFO]   OK  marker.cone | "Cone_Medium" objectId=55050361
+[2026-05-20T16:27:50.611Z] [INFO] [109/109] marker.cone "EDTW Smoke Marker"
+[2026-05-20T16:27:51.071Z] [INFO]   OK  marker.cone | "EDTW Smoke Marker" objectId=55050362
+[2026-05-20T16:27:51.478Z] [INFO] 
+[2026-05-20T16:27:51.600Z] [INFO] Fertig: 105 OK, 4 fehlgeschlagen.
+[2026-05-20T16:27:51.604Z] [INFO] JSON : C:\Users\einhe\OneDrive\msfs2024-spawn-validation.json
+[2026-05-20T16:27:51.754Z] [INFO] CSV  : C:\Users\einhe\OneDrive\msfs2024-spawn-validation.csv
+[2026-05-20T16:27:51.836Z] [INFO] Kurz : C:\Users\einhe\OneDrive\msfs2024-simobjects-validated-catalog.json
+[2026-05-20T16:27:51.940Z] [INFO] Debug: C:\Users\einhe\OneDrive\msfs2024-spawn-validation-debug.txt

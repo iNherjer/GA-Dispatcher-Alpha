@@ -1238,6 +1238,7 @@ async function collectTileState() {
     regions: REGIONS.map(r => ({
       id: String(r.id),
       name: String(r.name),
+      continent: String(r.continent || ''),
       sizeMb: Number(r.sizeMb || 0),
       bbox: Array.isArray(r.bbox) ? r.bbox.map(Number) : [],
       coverage: (regionPolyCache.get(String(r.id)) || {}).mode || 'unknown'

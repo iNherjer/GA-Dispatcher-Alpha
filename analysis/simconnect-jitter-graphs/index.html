@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>SimConnect Jitter Auswertung</title>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #0f172a; background: #f8fafc; }
+    main { max-width: 1220px; margin: 0 auto; padding: 34px 24px 54px; }
+    h1 { margin: 0 0 8px; font-size: 34px; }
+    p { color: #475569; line-height: 1.5; }
+    table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #e2e8f0; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: #334155; background: #f1f5f9; font-size: 13px; }
+    .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 8px; vertical-align: -1px; }
+    figure { margin: 28px 0; padding: 12px; background: white; border: 1px solid #e2e8f0; }
+    img { width: 100%; height: auto; display: block; }
+    figcaption { padding: 10px 4px 2px; color: #475569; font-size: 14px; }
+    .note { background: #fff7ed; border: 1px solid #fed7aa; padding: 14px 16px; margin: 18px 0 22px; color: #7c2d12; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>SimConnect Jitter Auswertung</h1>
+  <p>Auswertung der fünf Testläufe. Fokus: Callback-Abstände, p99 und Ausreißer, weil einzelne Spikes für Motion-Ruckeln wichtiger sein können als der Durchschnitt.</p>
+  <div class="note">Kurzbefund: Ohne DRSM liegt SimConnect meist bei ca. 115-117 Hz. Mit DRSM sinkt der Takt auf ca. 106 Hz und die Ausreißer nehmen zu.</div>
+  <table>
+    <thead><tr><th>Test</th><th>avg ms</th><th>Hz</th><th>p95</th><th>p99</th><th>max</th><th>&gt;25 ms</th><th>&gt;50 ms</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="swatch" style="background:#2563eb"></span>01 Boden still</td>
+        <td>8.55</td>
+        <td>116.97</td>
+        <td>9.98</td>
+        <td>11.04</td>
+        <td>828.72</td>
+        <td>4</td>
+        <td>1</td>
+      </tr>
+    
+
+      <tr>
+        <td><span class="swatch" style="background:#059669"></span>02 Flug aktiv minimal</td>
+        <td>8.67</td>
+        <td>115.32</td>
+        <td>11.22</td>
+        <td>13.52</td>
+        <td>84.30</td>
+        <td>13</td>
+        <td>4</td>
+      </tr>
+    
+
+      <tr>
+        <td><span class="swatch" style="background:#7c3aed"></span>03 Flug aktiv motion</td>
+        <td>8.55</td>
+        <td>116.97</td>
+        <td>10.93</td>
+        <td>12.81</td>
+        <td>155.31</td>
+        <td>5</td>
+        <td>4</td>
+      </tr>
+    
+
+      <tr>
+        <td><span class="swatch" style="background:#ea580c"></span>04 SIM_FRAME motion</td>
+        <td>8.75</td>
+        <td>114.22</td>
+        <td>11.51</td>
+        <td>13.45</td>
+        <td>33.74</td>
+        <td>3</td>
+        <td>0</td>
+      </tr>
+    
+
+      <tr>
+        <td><span class="swatch" style="background:#dc2626"></span>05 Mit DRSM</td>
+        <td>9.47</td>
+        <td>105.56</td>
+        <td>12.01</td>
+        <td>14.30</td>
+        <td>128.63</td>
+        <td>15</td>
+        <td>5</td>
+      </tr>
+    </tbody>
+  </table>
+  
+    <figure>
+      <img src="01-time-series-all.svg" alt="Callback-Abstände über Zeit">
+      <figcaption>Callback-Abstände über Zeit</figcaption>
+    </figure>
+  
+
+    <figure>
+      <img src="02-p99-comparison.svg" alt="p99-Vergleich">
+      <figcaption>p99-Vergleich</figcaption>
+    </figure>
+  
+
+    <figure>
+      <img src="03-spike-counts.svg" alt="Spike-Zählung">
+      <figcaption>Spike-Zählung</figcaption>
+    </figure>
+  
+
+    <figure>
+      <img src="04-spike-events.svg" alt="Einzelne Ausreißer über 25 ms">
+      <figcaption>Einzelne Ausreißer über 25 ms</figcaption>
+    </figure>
+  
+</main>
+</body>
+</html>

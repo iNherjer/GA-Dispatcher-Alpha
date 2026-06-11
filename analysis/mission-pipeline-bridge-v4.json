@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-06-07T08:55:46.471Z",
+  "roll": 0.2509315046481788,
+  "summary": [
+    {
+      "run": 1,
+      "seed": 20260523,
+      "targetType": "poi:bridge+tour_guide_knowledge",
+      "blocked": true,
+      "blockPhase": "dispatch",
+      "blockReason": "currentMissionData missing after generateMission/acceptMissionDraft",
+      "mode": "APT",
+      "missionPipelineMode": null,
+      "missionPipelineV2Enabled": false,
+      "missionPipelineV3Enabled": false,
+      "missionPlanV2": null,
+      "missionPlanV3": null,
+      "aptArrivalPlan": null,
+      "missionTruth": null,
+      "targetSceneComposerDebug": null,
+      "passenger": null,
+      "briefing": null,
+      "paxTexts": [],
+      "promptKinds": []
+    }
+  ],
+  "runs": [
+    {
+      "blocked": true,
+      "blockPhase": "dispatch",
+      "blockReason": "currentMissionData missing after generateMission/acceptMissionDraft",
+      "dispatchState": {
+        "hasMission": false,
+        "briefingVisible": "none",
+        "title": "",
+        "story": "",
+        "debugSnapshot": null
+      },
+      "mission": null,
+      "passenger": null,
+      "briefing": null,
+      "paxLog": [],
+      "debugSnapshot": null,
+      "prompts": []
+    }
+  ]
+}

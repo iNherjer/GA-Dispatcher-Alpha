@@ -1,0 +1,3708 @@
+{
+  "generatedAt": "2026-05-23T09:53:50.355Z",
+  "roll": 0.40130184637382627,
+  "summary": [
+    {
+      "run": 1,
+      "seed": 20260911,
+      "targetType": "poi:all+science_bio",
+      "blocked": false,
+      "blockPhase": null,
+      "blockReason": null,
+      "mode": "POI",
+      "start": "EDTW",
+      "dest": "Schluchsee",
+      "targetName": "Schluchsee",
+      "mission": "Ufer-Monitoring am Schluchsee",
+      "source": "Gemini 3.0 Flash + V3 Tools",
+      "missionPipelineMode": "v3",
+      "missionPipelineV2Enabled": false,
+      "missionPipelineV3Enabled": true,
+      "missionPlanV2": {
+        "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+        "status": "ready",
+        "needs": [],
+        "resolvedNeeds": {
+          "geo_context": {
+            "source": "overpass",
+            "radiusM": 750,
+            "center": {
+              "lat": 47.818,
+              "lon": 8.181
+            },
+            "anchors": {
+              "water": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "Uferbereich",
+                "tag": "water"
+              },
+              "road": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 19,
+                "name": "service",
+                "tag": "road"
+              },
+              "meadow": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "meadow",
+                "tag": "meadow"
+              }
+            },
+            "visualLandmarks": [],
+            "avoidZones": [],
+            "hints": [
+              "roadside/vehicle placement plausible near the road or parking anchor",
+              "waterline placement plausible near the water anchor",
+              "animals/tents/reference objects plausible on meadow or farmland anchors"
+            ],
+            "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+            "fetchedAt": 1779529982818
+          },
+          "mission_truth": {
+            "source": "mission-truth-v1",
+            "requestedCategory": "water",
+            "poiCategory": "water",
+            "primaryCategory": "water",
+            "geometryMode": "area",
+            "pickedPoi": {
+              "name": "Schluchsee",
+              "lat": 47.818,
+              "lon": 8.181,
+              "source": "Local fallback POIs (forced:water)",
+              "lookup": null
+            },
+            "targetProminence": {
+              "level": "high",
+              "reason": "target-category:water"
+            },
+            "visualLandmarks": [],
+            "mainTarget": {
+              "name": "Uferbereich",
+              "kind": "water",
+              "lat": 47.819379,
+              "lon": 8.182386,
+              "refinedFromPoi": true,
+              "distanceFromPoiM": 185,
+              "bearingFromPoiDeg": 34,
+              "reason": "nearest_water_anchor"
+            },
+            "sceneAnchor": {
+              "kind": "water",
+              "lat": 47.819379,
+              "lon": 8.182386,
+              "reason": "nearest_water_anchor"
+            },
+            "visibleCues": [
+              "Wasserflaeche oder Uferlinie",
+              "Strasse oder Zufahrt",
+              "offenes Gelaende"
+            ],
+            "constraints": [
+              "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+              "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+            ]
+          },
+          "weather_snapshot": {
+            "dep": {
+              "station": "EDTW",
+              "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+              "windDeg": 260,
+              "windKts": 8,
+              "visKm": 10,
+              "tempC": 17,
+              "wxCode": null,
+              "fltCat": "VFR"
+            },
+            "dest": {
+              "station": "EDTW",
+              "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+              "windDeg": 260,
+              "windKts": 8,
+              "visKm": 10,
+              "tempC": 17,
+              "wxCode": null,
+              "fltCat": "VFR"
+            }
+          },
+          "fire_hazard": null,
+          "airport_details": {
+            "start": {
+              "icao": "EDTW",
+              "name": "Winzeln-Schramberg Airport",
+              "lat": 48.2791671753,
+              "lon": 8.4283332825
+            },
+            "dest": null,
+            "targetPoi": {
+              "icao": "POI",
+              "name": "Schluchsee",
+              "lat": 47.818,
+              "lon": 8.181
+            }
+          }
+        },
+        "plan": {
+          "taskDomain": "science_bio",
+          "roleProfile": "science_field_v1",
+          "missionType": "poi",
+          "targetCategory": "water",
+          "primaryObjective": "Ökologische Dokumentation des Uferbereichs am Schluchsee zur Bestandsaufnahme der Vegetation und Wasserlinie.",
+          "targetLabel": "Schluchsee (Uferbereich)",
+          "sceneKind": "water_context",
+          "sceneDensity": "sparse",
+          "requiredAnchors": [
+            "water",
+            "road",
+            "meadow"
+          ],
+          "objectFamilies": [
+            "vehicles",
+            "tents",
+            "small_equipment"
+          ],
+          "placementPolicy": "Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser.",
+          "narrativeRules": [
+            "Keine Landung am Zielort (POI)",
+            "Fokus auf biologische Feldarbeit und Umweltbeobachtung",
+            "Sachlicher, professioneller Tonfall"
+          ],
+          "lockedFields": {
+            "noLandingAtPoi": true
+          },
+          "confidence": 1,
+          "localFacts": [
+            "Zielgebiet liegt am Schluchsee im Schwarzwald",
+            "Uferbereich mit angrenzender Service-Straße und Wiesenflächen",
+            "Entfernung von EDTW beträgt ca. 59 NM"
+          ],
+          "weatherHooks": [
+            "Wind aus 260° mit 8 kt",
+            "Gute VFR-Sichtbedingungen (>10 km)",
+            "Temperatur 17°C"
+          ],
+          "operationalDetails": [
+            "Abflug von Winzeln-Schramberg (EDTW)",
+            "Rundflug-Profil ohne Zwischenlandung",
+            "Niedrige Überflughöhe zur visuellen Erfassung des Ufers erforderlich"
+          ],
+          "realismBrief": "Umweltmonitoring und ökologische Bestandsaufnahmen an Schwarzwald-Talsperren sind typische Aufgaben für spezialisierte GA-Flüge im Auftrag von Landesämtern.",
+          "narrativeHooks": [
+            "Dokumentation von Vegetationsveränderungen im Uferbereich",
+            "Überprüfung der Zugänglichkeit für bodengebundene Feldteams über die Service-Straßen",
+            "Sichtung von potenziellen Probenahmestellen am Wasser"
+          ],
+          "mustMention": [
+            "Schluchsee",
+            "Uferbereich",
+            "Umweltbeobachtung"
+          ],
+          "mustAvoid": [
+            "Notfallszenarien",
+            "Landung auf dem Wasser oder am Ufer",
+            "Dramatische Wettergefahren"
+          ]
+        },
+        "debug": {
+          "source": "Gemini 3.0 Flash Tool Planner V3",
+          "rawStatus": "ready",
+          "pass": "tool-calling",
+          "promptVersion": "mission-v3-tool-planner-2026-05-23",
+          "toolCalls": [
+            {
+              "turn": 0,
+              "name": "get_mission_context_bundle",
+              "id": "p1iyu2b2",
+              "args": {
+                "reason": "Verifizierung der Route EDTW zum Schluchsee und Abgleich der lokalen Gegebenheiten am Uferbereich fuer eine biologische Feldmission."
+              },
+              "resultKeys": [
+                "schema",
+                "route",
+                "target",
+                "picker",
+                "category",
+                "profile",
+                "airportDetails",
+                "weather",
+                "fireHazard",
+                "targetGeoContext"
+              ]
+            }
+          ],
+          "fallbackError": ""
+        }
+      },
+      "missionPlanV3": {
+        "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+        "status": "ready",
+        "needs": [],
+        "resolvedNeeds": {
+          "geo_context": {
+            "source": "overpass",
+            "radiusM": 750,
+            "center": {
+              "lat": 47.818,
+              "lon": 8.181
+            },
+            "anchors": {
+              "water": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "Uferbereich",
+                "tag": "water"
+              },
+              "road": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 19,
+                "name": "service",
+                "tag": "road"
+              },
+              "meadow": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "meadow",
+                "tag": "meadow"
+              }
+            },
+            "visualLandmarks": [],
+            "avoidZones": [],
+            "hints": [
+              "roadside/vehicle placement plausible near the road or parking anchor",
+              "waterline placement plausible near the water anchor",
+              "animals/tents/reference objects plausible on meadow or farmland anchors"
+            ],
+            "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+            "fetchedAt": 1779529982818
+          },
+          "mission_truth": {
+            "source": "mission-truth-v1",
+            "requestedCategory": "water",
+            "poiCategory": "water",
+            "primaryCategory": "water",
+            "geometryMode": "area",
+            "pickedPoi": {
+              "name": "Schluchsee",
+              "lat": 47.818,
+              "lon": 8.181,
+              "source": "Local fallback POIs (forced:water)",
+              "lookup": null
+            },
+            "targetProminence": {
+              "level": "high",
+              "reason": "target-category:water"
+            },
+            "visualLandmarks": [],
+            "mainTarget": {
+              "name": "Uferbereich",
+              "kind": "water",
+              "lat": 47.819379,
+              "lon": 8.182386,
+              "refinedFromPoi": true,
+              "distanceFromPoiM": 185,
+              "bearingFromPoiDeg": 34,
+              "reason": "nearest_water_anchor"
+            },
+            "sceneAnchor": {
+              "kind": "water",
+              "lat": 47.819379,
+              "lon": 8.182386,
+              "reason": "nearest_water_anchor"
+            },
+            "visibleCues": [
+              "Wasserflaeche oder Uferlinie",
+              "Strasse oder Zufahrt",
+              "offenes Gelaende"
+            ],
+            "constraints": [
+              "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+              "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+            ]
+          },
+          "weather_snapshot": {
+            "dep": {
+              "station": "EDTW",
+              "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+              "windDeg": 260,
+              "windKts": 8,
+              "visKm": 10,
+              "tempC": 17,
+              "wxCode": null,
+              "fltCat": "VFR"
+            },
+            "dest": {
+              "station": "EDTW",
+              "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+              "windDeg": 260,
+              "windKts": 8,
+              "visKm": 10,
+              "tempC": 17,
+              "wxCode": null,
+              "fltCat": "VFR"
+            }
+          },
+          "fire_hazard": null,
+          "airport_details": {
+            "start": {
+              "icao": "EDTW",
+              "name": "Winzeln-Schramberg Airport",
+              "lat": 48.2791671753,
+              "lon": 8.4283332825
+            },
+            "dest": null,
+            "targetPoi": {
+              "icao": "POI",
+              "name": "Schluchsee",
+              "lat": 47.818,
+              "lon": 8.181
+            }
+          }
+        },
+        "plan": {
+          "taskDomain": "science_bio",
+          "roleProfile": "science_field_v1",
+          "missionType": "poi",
+          "targetCategory": "water",
+          "primaryObjective": "Ökologische Dokumentation des Uferbereichs am Schluchsee zur Bestandsaufnahme der Vegetation und Wasserlinie.",
+          "targetLabel": "Schluchsee (Uferbereich)",
+          "sceneKind": "water_context",
+          "sceneDensity": "sparse",
+          "requiredAnchors": [
+            "water",
+            "road",
+            "meadow"
+          ],
+          "objectFamilies": [
+            "vehicles",
+            "tents",
+            "small_equipment"
+          ],
+          "placementPolicy": "Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser.",
+          "narrativeRules": [
+            "Keine Landung am Zielort (POI)",
+            "Fokus auf biologische Feldarbeit und Umweltbeobachtung",
+            "Sachlicher, professioneller Tonfall"
+          ],
+          "lockedFields": {
+            "noLandingAtPoi": true
+          },
+          "confidence": 1,
+          "localFacts": [
+            "Zielgebiet liegt am Schluchsee im Schwarzwald",
+            "Uferbereich mit angrenzender Service-Straße und Wiesenflächen",
+            "Entfernung von EDTW beträgt ca. 59 NM"
+          ],
+          "weatherHooks": [
+            "Wind aus 260° mit 8 kt",
+            "Gute VFR-Sichtbedingungen (>10 km)",
+            "Temperatur 17°C"
+          ],
+          "operationalDetails": [
+            "Abflug von Winzeln-Schramberg (EDTW)",
+            "Rundflug-Profil ohne Zwischenlandung",
+            "Niedrige Überflughöhe zur visuellen Erfassung des Ufers erforderlich"
+          ],
+          "realismBrief": "Umweltmonitoring und ökologische Bestandsaufnahmen an Schwarzwald-Talsperren sind typische Aufgaben für spezialisierte GA-Flüge im Auftrag von Landesämtern.",
+          "narrativeHooks": [
+            "Dokumentation von Vegetationsveränderungen im Uferbereich",
+            "Überprüfung der Zugänglichkeit für bodengebundene Feldteams über die Service-Straßen",
+            "Sichtung von potenziellen Probenahmestellen am Wasser"
+          ],
+          "mustMention": [
+            "Schluchsee",
+            "Uferbereich",
+            "Umweltbeobachtung"
+          ],
+          "mustAvoid": [
+            "Notfallszenarien",
+            "Landung auf dem Wasser oder am Ufer",
+            "Dramatische Wettergefahren"
+          ]
+        },
+        "debug": {
+          "source": "Gemini 3.0 Flash Tool Planner V3",
+          "rawStatus": "ready",
+          "pass": "tool-calling",
+          "promptVersion": "mission-v3-tool-planner-2026-05-23",
+          "toolCalls": [
+            {
+              "turn": 0,
+              "name": "get_mission_context_bundle",
+              "id": "p1iyu2b2",
+              "args": {
+                "reason": "Verifizierung der Route EDTW zum Schluchsee und Abgleich der lokalen Gegebenheiten am Uferbereich fuer eine biologische Feldmission."
+              },
+              "resultKeys": [
+                "schema",
+                "route",
+                "target",
+                "picker",
+                "category",
+                "profile",
+                "airportDetails",
+                "weather",
+                "fireHazard",
+                "targetGeoContext"
+              ]
+            }
+          ],
+          "fallbackError": ""
+        }
+      },
+      "sceneStatus": "accepted",
+      "targetScene": {
+        "preset": "",
+        "kind": "water_context",
+        "features": [
+          "people",
+          "tent"
+        ],
+        "requirements": [
+          {
+            "feature": "people",
+            "count": 1,
+            "placement": "am Ufer (Water-Anker)",
+            "arrangement": "cluster",
+            "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie.",
+            "forwardM": 0,
+            "rightM": 5
+          },
+          {
+            "feature": "tent",
+            "count": 1,
+            "placement": "auf der Wiese (Meadow-Anker)",
+            "arrangement": "cluster",
+            "notes": "Kleines, helles Forschungszelt als temporäre Basisstation.",
+            "forwardM": 5,
+            "rightM": 5
+          }
+        ],
+        "roles": [
+          "person.ground_crew",
+          "watercraft.small_boat",
+          "vehicle.van",
+          "camp.tent"
+        ],
+        "density": "sparse",
+        "layout": "scattered",
+        "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der A"
+      },
+      "aptArrivalPlan": null,
+      "missionTruth": {
+        "source": "mission-truth-v1",
+        "requestedCategory": "water",
+        "poiCategory": "water",
+        "primaryCategory": "water",
+        "geometryMode": "area",
+        "pickedPoi": {
+          "name": "Schluchsee",
+          "lat": 47.818,
+          "lon": 8.181,
+          "source": "Local fallback POIs (forced:water)",
+          "lookup": null
+        },
+        "targetProminence": {
+          "level": "high",
+          "reason": "target-category:water"
+        },
+        "visualLandmarks": [],
+        "mainTarget": {
+          "name": "Uferbereich",
+          "kind": "water",
+          "lat": 47.819379,
+          "lon": 8.182386,
+          "refinedFromPoi": true,
+          "distanceFromPoiM": 185,
+          "bearingFromPoiDeg": 34,
+          "reason": "nearest_water_anchor"
+        },
+        "sceneAnchor": {
+          "kind": "water",
+          "lat": 47.819379,
+          "lon": 8.182386,
+          "reason": "nearest_water_anchor"
+        },
+        "visibleCues": [
+          "offenes Gelaende",
+          "Wasserflaeche oder Uferlinie",
+          "Fahrzeug am Boden",
+          "Person am Boden"
+        ],
+        "constraints": [
+          "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+          "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+        ]
+      },
+      "targetSceneComposerDebug": {
+        "source": "Gemini 3.0 Flash Scene Planner V3",
+        "promptVersion": "scene-v3-tool-planner-2026-05-23",
+        "toolCalls": [
+          {
+            "turn": 0,
+            "name": "get_scene_context_bundle",
+            "id": "xa6h61i5",
+            "args": {
+              "reason": "Initial context gathering for POI scene planning."
+            },
+            "resultKeys": [
+              "schema",
+              "mode",
+              "route",
+              "mission",
+              "sceneIntent",
+              "missionTruth",
+              "targetGeoContext",
+              "missionPlan",
+              "aptArrivalPlan",
+              "aptArrivalGeoContext"
+            ]
+          }
+        ],
+        "aiRaw": {
+          "kind": "water_context",
+          "preset": "",
+          "features": [
+            "people",
+            "watercraft",
+            "utility_truck",
+            "tent"
+          ],
+          "requirements": [
+            {
+              "feature": "people",
+              "count": 1,
+              "placement": "am Ufer (Water-Anker)",
+              "arrangement": "cluster",
+              "forwardM": 0,
+              "rightM": 5,
+              "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie."
+            },
+            {
+              "feature": "watercraft",
+              "count": 1,
+              "placement": "im flachen Wasser (Water-Anker)",
+              "arrangement": "cluster",
+              "forwardM": 0,
+              "rightM": 0,
+              "notes": "Kleines Ruderboot für Wasserproben direkt am Uferstreifen."
+            },
+            {
+              "feature": "utility_truck",
+              "count": 1,
+              "placement": "an der Service-Straße (Road-Anker)",
+              "arrangement": "cluster",
+              "forwardM": 0,
+              "rightM": 0,
+              "notes": "Weißer Geländewagen des Forschungsteams, geparkt am Straßenrand."
+            },
+            {
+              "feature": "tent",
+              "count": 1,
+              "placement": "auf der Wiese (Meadow-Anker)",
+              "arrangement": "cluster",
+              "forwardM": 5,
+              "rightM": 5,
+              "notes": "Kleines, helles Forschungszelt als temporäre Basisstation."
+            }
+          ],
+          "roles": [
+            "person.ground_crew",
+            "watercraft.small_boat",
+            "vehicle.van",
+            "camp.tent"
+          ],
+          "density": "sparse",
+          "layout": "scattered",
+          "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der Arbeitsabläufe zu vermitteln."
+        },
+        "aiArrivalRaw": null,
+        "normalized": {
+          "preset": "",
+          "kind": "water_context",
+          "features": [
+            "people",
+            "tent"
+          ],
+          "requirements": [
+            {
+              "feature": "people",
+              "count": 1,
+              "placement": "am Ufer (Water-Anker)",
+              "arrangement": "cluster",
+              "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie.",
+              "forwardM": 0,
+              "rightM": 5
+            },
+            {
+              "feature": "tent",
+              "count": 1,
+              "placement": "auf der Wiese (Meadow-Anker)",
+              "arrangement": "cluster",
+              "notes": "Kleines, helles Forschungszelt als temporäre Basisstation.",
+              "forwardM": 5,
+              "rightM": 5
+            }
+          ],
+          "roles": [
+            "person.ground_crew",
+            "watercraft.small_boat",
+            "vehicle.van",
+            "camp.tent"
+          ],
+          "density": "sparse",
+          "layout": "scattered",
+          "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der A"
+        },
+        "aptArrivalPlan": null,
+        "localizationNotes": [
+          "Hauptziel ist der Uferbereich (Water-Anker) bei 47.819, 8.182.",
+          "Fahrzeug und Zelt sind auf die angrenzenden Road- und Meadow-Anker verteilt, um die Szene räumlich zu öffnen."
+        ],
+        "validationNotes": [
+          "Keine Landung am POI gemäß Missionsvorgabe.",
+          "Fahrzeug korrekt an der Straße platziert.",
+          "Wasserobjekte korrekt am Ufer platziert."
+        ],
+        "fallback": {
+          "preset": "",
+          "kind": "water_context",
+          "features": [
+            "tent",
+            "small_equipment"
+          ],
+          "requirements": [
+            {
+              "feature": "tent",
+              "count": 1,
+              "placement": "",
+              "arrangement": "",
+              "notes": ""
+            },
+            {
+              "feature": "small_equipment",
+              "count": 1,
+              "placement": "",
+              "arrangement": "",
+              "notes": ""
+            }
+          ],
+          "roles": [
+            "camp.tent",
+            "cargo.small_box"
+          ],
+          "density": "sparse",
+          "layout": "",
+          "notes": "Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser."
+        },
+        "fallbackArrivalPlan": null,
+        "error": ""
+      },
+      "passenger": {
+        "name": "Dr. Paul Reiter",
+        "role": "Ökologe",
+        "gender": "male",
+        "personality": "analytisch, präzise, gelassen",
+        "dialectHint": "neutral",
+        "roleProfile": "science_field_v1",
+        "taskDomain": "science_bio",
+        "gTolerance": "niedrig",
+        "bankTolerance": "niedrig",
+        "cargoSensitivity": "mittel",
+        "stomachSensitivity": "mittel",
+        "comfortPriority": "hoch",
+        "urgencyPriority": "niedrig",
+        "targetAltFt": 4500,
+        "targetRadiusNm": 2.5,
+        "targetDwellMin": 5,
+        "greetingText": "Hi, wir machen heute Umweltbeobachtung am POI. Bitte ruhig und stabil fliegen, damit die Beobachtung verwertbar ist.",
+        "trainingPlan": null,
+        "storyHint": "Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand achten. Da der See auf knapp 930 Metern Höhe liegt, bietet er als größter Schwarzwaldsee ganz eigene ökologische Habitate, die wir heute aus der Luft erfassen."
+      },
+      "briefing": {
+        "title": "📋 Ufer-Monitoring am Schluchsee",
+        "story": "Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand achten. Da der See auf knapp 930 Metern Höhe liegt, bietet er als größter Schwarzwaldsee ganz eigene ökologische Habitate, die wir heute aus der Luft erfassen.\n\nArbeits-Hinweis: Für das Zielgebiet ist eine geplante Höhe von ungefähr 4500 ft vorgesehen.",
+        "dep": "EDTW",
+        "depName": "Winzeln-Schramberg Airport",
+        "dest": "POI",
+        "destName": "Schluchsee",
+        "pax": "1 PAX (Ökologe: Dr. Paul Reiter)",
+        "cargo": "Umweltsensorik und Kamera (18 lbs)",
+        "dist": "58.8 NM",
+        "ete": "22 Min.",
+        "heading": "200°"
+      },
+      "paxTexts": [
+        "Textgen OK (349 Zeichen): \"Hi, wir erfassen heute am Schluchsee die Ufervegetation und den Übergang zum Waldrand für unser Monitoring-Programm. Bitte flieg ruhig und stabil in etwa 4500 Fuß Höhe, damit die Kamera und die Sensoren präzise Daten von der Wasserlinie liefern können. Wir haben keine Eile, denn die Qualität der Aufnahmen ist für die Bestandsaufnahme entscheidend.\""
+      ],
+      "promptKinds": [
+        "mission-planner-v3-tool-call",
+        "mission-planner-v3-final",
+        "mission-planner-v3-final",
+        "mission-dispatcher",
+        "scene-planner-v3-tool-call",
+        "scene-planner-v3-final",
+        "pax-text",
+        "pax-text"
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "mission": {
+        "start": "EDTW",
+        "dest": "EDTW",
+        "isPOI": true,
+        "poiName": "Schluchsee",
+        "poiSource": "Local fallback POIs (forced:water)",
+        "poiCategory": "water",
+        "requestedCategory": "water",
+        "poiLookup": null,
+        "targetName": "Schluchsee",
+        "targetLat": 47.818,
+        "targetLon": 8.181,
+        "targetAltFt": 0,
+        "poiTerrainFt": 0,
+        "mission": "Ufer-Monitoring am Schluchsee",
+        "dist": 58.8,
+        "ac": "PA-24",
+        "heading": 200,
+        "weatherBriefing": {
+          "dep": {
+            "station": "EDTW",
+            "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+            "windDeg": 260,
+            "windKts": 8,
+            "visKm": 10,
+            "tempC": 17,
+            "wxCode": null,
+            "fltCat": "VFR"
+          },
+          "dest": {
+            "station": "EDTW",
+            "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+            "windDeg": 260,
+            "windKts": 8,
+            "visKm": 10,
+            "tempC": 17,
+            "wxCode": null,
+            "fltCat": "VFR"
+          }
+        },
+        "fireHazard": null,
+        "source": "Gemini 3.0 Flash + V3 Tools",
+        "sceneIntent": {
+          "summary": "Ein ruhiger Uferabschnitt am Schluchsee mit einer angrenzenden Service-Straße und wissenschaftlichem Equipment.",
+          "environment": "Seeufer",
+          "visibleIdeas": [
+            "ein weißer Geländewagen an der Service-Straße",
+            "ein kleines Forschungszelt auf der Wiese",
+            "zwei Personen in Warnwesten am Wasser",
+            "ein schmales Ruderboot am Uferstreifen"
+          ],
+          "avoid": [
+            "Einsatzfahrzeuge mit Blaulicht",
+            "Große Menschenansammlungen",
+            "Motorboote"
+          ],
+          "densityHint": "sparse",
+          "notes": "Die Szenerie soll eine laufende Felduntersuchung darstellen."
+        },
+        "sceneAccepted": true,
+        "sceneCompositionStatus": "accepted",
+        "targetGeoContext": {
+          "source": "overpass",
+          "radiusM": 750,
+          "center": {
+            "lat": 47.818,
+            "lon": 8.181
+          },
+          "anchors": {
+            "water": {
+              "present": true,
+              "count": 1,
+              "distM": 185,
+              "bearingDeg": 34,
+              "name": "Uferbereich",
+              "tag": "water"
+            },
+            "road": {
+              "present": true,
+              "count": 1,
+              "distM": 185,
+              "bearingDeg": 19,
+              "name": "service",
+              "tag": "road"
+            },
+            "meadow": {
+              "present": true,
+              "count": 1,
+              "distM": 185,
+              "bearingDeg": 34,
+              "name": "meadow",
+              "tag": "meadow"
+            }
+          },
+          "visualLandmarks": [],
+          "avoidZones": [],
+          "hints": [
+            "roadside/vehicle placement plausible near the road or parking anchor",
+            "waterline placement plausible near the water anchor",
+            "animals/tents/reference objects plausible on meadow or farmland anchors"
+          ],
+          "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+          "fetchedAt": 1779529982818
+        },
+        "missionTruth": {
+          "source": "mission-truth-v1",
+          "requestedCategory": "water",
+          "poiCategory": "water",
+          "primaryCategory": "water",
+          "geometryMode": "area",
+          "pickedPoi": {
+            "name": "Schluchsee",
+            "lat": 47.818,
+            "lon": 8.181,
+            "source": "Local fallback POIs (forced:water)",
+            "lookup": null
+          },
+          "targetProminence": {
+            "level": "high",
+            "reason": "target-category:water"
+          },
+          "visualLandmarks": [],
+          "mainTarget": {
+            "name": "Uferbereich",
+            "kind": "water",
+            "lat": 47.819379,
+            "lon": 8.182386,
+            "refinedFromPoi": true,
+            "distanceFromPoiM": 185,
+            "bearingFromPoiDeg": 34,
+            "reason": "nearest_water_anchor"
+          },
+          "sceneAnchor": {
+            "kind": "water",
+            "lat": 47.819379,
+            "lon": 8.182386,
+            "reason": "nearest_water_anchor"
+          },
+          "visibleCues": [
+            "offenes Gelaende",
+            "Wasserflaeche oder Uferlinie",
+            "Fahrzeug am Boden",
+            "Person am Boden"
+          ],
+          "constraints": [
+            "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+            "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+          ]
+        },
+        "missionPlanV2": {
+          "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+          "status": "ready",
+          "needs": [],
+          "resolvedNeeds": {
+            "geo_context": {
+              "source": "overpass",
+              "radiusM": 750,
+              "center": {
+                "lat": 47.818,
+                "lon": 8.181
+              },
+              "anchors": {
+                "water": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "Uferbereich",
+                  "tag": "water"
+                },
+                "road": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 19,
+                  "name": "service",
+                  "tag": "road"
+                },
+                "meadow": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "meadow",
+                  "tag": "meadow"
+                }
+              },
+              "visualLandmarks": [],
+              "avoidZones": [],
+              "hints": [
+                "roadside/vehicle placement plausible near the road or parking anchor",
+                "waterline placement plausible near the water anchor",
+                "animals/tents/reference objects plausible on meadow or farmland anchors"
+              ],
+              "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+              "fetchedAt": 1779529982818
+            },
+            "mission_truth": {
+              "source": "mission-truth-v1",
+              "requestedCategory": "water",
+              "poiCategory": "water",
+              "primaryCategory": "water",
+              "geometryMode": "area",
+              "pickedPoi": {
+                "name": "Schluchsee",
+                "lat": 47.818,
+                "lon": 8.181,
+                "source": "Local fallback POIs (forced:water)",
+                "lookup": null
+              },
+              "targetProminence": {
+                "level": "high",
+                "reason": "target-category:water"
+              },
+              "visualLandmarks": [],
+              "mainTarget": {
+                "name": "Uferbereich",
+                "kind": "water",
+                "lat": 47.819379,
+                "lon": 8.182386,
+                "refinedFromPoi": true,
+                "distanceFromPoiM": 185,
+                "bearingFromPoiDeg": 34,
+                "reason": "nearest_water_anchor"
+              },
+              "sceneAnchor": {
+                "kind": "water",
+                "lat": 47.819379,
+                "lon": 8.182386,
+                "reason": "nearest_water_anchor"
+              },
+              "visibleCues": [
+                "Wasserflaeche oder Uferlinie",
+                "Strasse oder Zufahrt",
+                "offenes Gelaende"
+              ],
+              "constraints": [
+                "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+                "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+              ]
+            },
+            "weather_snapshot": {
+              "dep": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              },
+              "dest": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              }
+            },
+            "fire_hazard": null,
+            "airport_details": {
+              "start": {
+                "icao": "EDTW",
+                "name": "Winzeln-Schramberg Airport",
+                "lat": 48.2791671753,
+                "lon": 8.4283332825
+              },
+              "dest": null,
+              "targetPoi": {
+                "icao": "POI",
+                "name": "Schluchsee",
+                "lat": 47.818,
+                "lon": 8.181
+              }
+            }
+          },
+          "plan": {
+            "taskDomain": "science_bio",
+            "roleProfile": "science_field_v1",
+            "missionType": "poi",
+            "targetCategory": "water",
+            "primaryObjective": "Ökologische Dokumentation des Uferbereichs am Schluchsee zur Bestandsaufnahme der Vegetation und Wasserlinie.",
+            "targetLabel": "Schluchsee (Uferbereich)",
+            "sceneKind": "water_context",
+            "sceneDensity": "sparse",
+            "requiredAnchors": [
+              "water",
+              "road",
+              "meadow"
+            ],
+            "objectFamilies": [
+              "vehicles",
+              "tents",
+              "small_equipment"
+            ],
+            "placementPolicy": "Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser.",
+            "narrativeRules": [
+              "Keine Landung am Zielort (POI)",
+              "Fokus auf biologische Feldarbeit und Umweltbeobachtung",
+              "Sachlicher, professioneller Tonfall"
+            ],
+            "lockedFields": {
+              "noLandingAtPoi": true
+            },
+            "confidence": 1,
+            "localFacts": [
+              "Zielgebiet liegt am Schluchsee im Schwarzwald",
+              "Uferbereich mit angrenzender Service-Straße und Wiesenflächen",
+              "Entfernung von EDTW beträgt ca. 59 NM"
+            ],
+            "weatherHooks": [
+              "Wind aus 260° mit 8 kt",
+              "Gute VFR-Sichtbedingungen (>10 km)",
+              "Temperatur 17°C"
+            ],
+            "operationalDetails": [
+              "Abflug von Winzeln-Schramberg (EDTW)",
+              "Rundflug-Profil ohne Zwischenlandung",
+              "Niedrige Überflughöhe zur visuellen Erfassung des Ufers erforderlich"
+            ],
+            "realismBrief": "Umweltmonitoring und ökologische Bestandsaufnahmen an Schwarzwald-Talsperren sind typische Aufgaben für spezialisierte GA-Flüge im Auftrag von Landesämtern.",
+            "narrativeHooks": [
+              "Dokumentation von Vegetationsveränderungen im Uferbereich",
+              "Überprüfung der Zugänglichkeit für bodengebundene Feldteams über die Service-Straßen",
+              "Sichtung von potenziellen Probenahmestellen am Wasser"
+            ],
+            "mustMention": [
+              "Schluchsee",
+              "Uferbereich",
+              "Umweltbeobachtung"
+            ],
+            "mustAvoid": [
+              "Notfallszenarien",
+              "Landung auf dem Wasser oder am Ufer",
+              "Dramatische Wettergefahren"
+            ]
+          },
+          "debug": {
+            "source": "Gemini 3.0 Flash Tool Planner V3",
+            "rawStatus": "ready",
+            "pass": "tool-calling",
+            "promptVersion": "mission-v3-tool-planner-2026-05-23",
+            "toolCalls": [
+              {
+                "turn": 0,
+                "name": "get_mission_context_bundle",
+                "id": "p1iyu2b2",
+                "args": {
+                  "reason": "Verifizierung der Route EDTW zum Schluchsee und Abgleich der lokalen Gegebenheiten am Uferbereich fuer eine biologische Feldmission."
+                },
+                "resultKeys": [
+                  "schema",
+                  "route",
+                  "target",
+                  "picker",
+                  "category",
+                  "profile",
+                  "airportDetails",
+                  "weather",
+                  "fireHazard",
+                  "targetGeoContext"
+                ]
+              }
+            ],
+            "fallbackError": ""
+          }
+        },
+        "missionPlanV3": {
+          "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+          "status": "ready",
+          "needs": [],
+          "resolvedNeeds": {
+            "geo_context": {
+              "source": "overpass",
+              "radiusM": 750,
+              "center": {
+                "lat": 47.818,
+                "lon": 8.181
+              },
+              "anchors": {
+                "water": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "Uferbereich",
+                  "tag": "water"
+                },
+                "road": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 19,
+                  "name": "service",
+                  "tag": "road"
+                },
+                "meadow": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "meadow",
+                  "tag": "meadow"
+                }
+              },
+              "visualLandmarks": [],
+              "avoidZones": [],
+              "hints": [
+                "roadside/vehicle placement plausible near the road or parking anchor",
+                "waterline placement plausible near the water anchor",
+                "animals/tents/reference objects plausible on meadow or farmland anchors"
+              ],
+              "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+              "fetchedAt": 1779529982818
+            },
+            "mission_truth": {
+              "source": "mission-truth-v1",
+              "requestedCategory": "water",
+              "poiCategory": "water",
+              "primaryCategory": "water",
+              "geometryMode": "area",
+              "pickedPoi": {
+                "name": "Schluchsee",
+                "lat": 47.818,
+                "lon": 8.181,
+                "source": "Local fallback POIs (forced:water)",
+                "lookup": null
+              },
+              "targetProminence": {
+                "level": "high",
+                "reason": "target-category:water"
+              },
+              "visualLandmarks": [],
+              "mainTarget": {
+                "name": "Uferbereich",
+                "kind": "water",
+                "lat": 47.819379,
+                "lon": 8.182386,
+                "refinedFromPoi": true,
+                "distanceFromPoiM": 185,
+                "bearingFromPoiDeg": 34,
+                "reason": "nearest_water_anchor"
+              },
+              "sceneAnchor": {
+                "kind": "water",
+                "lat": 47.819379,
+                "lon": 8.182386,
+                "reason": "nearest_water_anchor"
+              },
+              "visibleCues": [
+                "Wasserflaeche oder Uferlinie",
+                "Strasse oder Zufahrt",
+                "offenes Gelaende"
+              ],
+              "constraints": [
+                "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+                "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+              ]
+            },
+            "weather_snapshot": {
+              "dep": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              },
+              "dest": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              }
+            },
+            "fire_hazard": null,
+            "airport_details": {
+              "start": {
+                "icao": "EDTW",
+                "name": "Winzeln-Schramberg Airport",
+                "lat": 48.2791671753,
+                "lon": 8.4283332825
+              },
+              "dest": null,
+              "targetPoi": {
+                "icao": "POI",
+                "name": "Schluchsee",
+                "lat": 47.818,
+                "lon": 8.181
+              }
+            }
+          },
+          "plan": {
+            "taskDomain": "science_bio",
+            "roleProfile": "science_field_v1",
+            "missionType": "poi",
+            "targetCategory": "water",
+            "primaryObjective": "Ökologische Dokumentation des Uferbereichs am Schluchsee zur Bestandsaufnahme der Vegetation und Wasserlinie.",
+            "targetLabel": "Schluchsee (Uferbereich)",
+            "sceneKind": "water_context",
+            "sceneDensity": "sparse",
+            "requiredAnchors": [
+              "water",
+              "road",
+              "meadow"
+            ],
+            "objectFamilies": [
+              "vehicles",
+              "tents",
+              "small_equipment"
+            ],
+            "placementPolicy": "Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser.",
+            "narrativeRules": [
+              "Keine Landung am Zielort (POI)",
+              "Fokus auf biologische Feldarbeit und Umweltbeobachtung",
+              "Sachlicher, professioneller Tonfall"
+            ],
+            "lockedFields": {
+              "noLandingAtPoi": true
+            },
+            "confidence": 1,
+            "localFacts": [
+              "Zielgebiet liegt am Schluchsee im Schwarzwald",
+              "Uferbereich mit angrenzender Service-Straße und Wiesenflächen",
+              "Entfernung von EDTW beträgt ca. 59 NM"
+            ],
+            "weatherHooks": [
+              "Wind aus 260° mit 8 kt",
+              "Gute VFR-Sichtbedingungen (>10 km)",
+              "Temperatur 17°C"
+            ],
+            "operationalDetails": [
+              "Abflug von Winzeln-Schramberg (EDTW)",
+              "Rundflug-Profil ohne Zwischenlandung",
+              "Niedrige Überflughöhe zur visuellen Erfassung des Ufers erforderlich"
+            ],
+            "realismBrief": "Umweltmonitoring und ökologische Bestandsaufnahmen an Schwarzwald-Talsperren sind typische Aufgaben für spezialisierte GA-Flüge im Auftrag von Landesämtern.",
+            "narrativeHooks": [
+              "Dokumentation von Vegetationsveränderungen im Uferbereich",
+              "Überprüfung der Zugänglichkeit für bodengebundene Feldteams über die Service-Straßen",
+              "Sichtung von potenziellen Probenahmestellen am Wasser"
+            ],
+            "mustMention": [
+              "Schluchsee",
+              "Uferbereich",
+              "Umweltbeobachtung"
+            ],
+            "mustAvoid": [
+              "Notfallszenarien",
+              "Landung auf dem Wasser oder am Ufer",
+              "Dramatische Wettergefahren"
+            ]
+          },
+          "debug": {
+            "source": "Gemini 3.0 Flash Tool Planner V3",
+            "rawStatus": "ready",
+            "pass": "tool-calling",
+            "promptVersion": "mission-v3-tool-planner-2026-05-23",
+            "toolCalls": [
+              {
+                "turn": 0,
+                "name": "get_mission_context_bundle",
+                "id": "p1iyu2b2",
+                "args": {
+                  "reason": "Verifizierung der Route EDTW zum Schluchsee und Abgleich der lokalen Gegebenheiten am Uferbereich fuer eine biologische Feldmission."
+                },
+                "resultKeys": [
+                  "schema",
+                  "route",
+                  "target",
+                  "picker",
+                  "category",
+                  "profile",
+                  "airportDetails",
+                  "weather",
+                  "fireHazard",
+                  "targetGeoContext"
+                ]
+              }
+            ],
+            "fallbackError": ""
+          }
+        },
+        "missionPipelineMode": "v3",
+        "targetScene": {
+          "preset": "",
+          "kind": "water_context",
+          "features": [
+            "people",
+            "tent"
+          ],
+          "requirements": [
+            {
+              "feature": "people",
+              "count": 1,
+              "placement": "am Ufer (Water-Anker)",
+              "arrangement": "cluster",
+              "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie.",
+              "forwardM": 0,
+              "rightM": 5
+            },
+            {
+              "feature": "tent",
+              "count": 1,
+              "placement": "auf der Wiese (Meadow-Anker)",
+              "arrangement": "cluster",
+              "notes": "Kleines, helles Forschungszelt als temporäre Basisstation.",
+              "forwardM": 5,
+              "rightM": 5
+            }
+          ],
+          "roles": [
+            "person.ground_crew",
+            "watercraft.small_boat",
+            "vehicle.van",
+            "camp.tent"
+          ],
+          "density": "sparse",
+          "layout": "scattered",
+          "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der A"
+        },
+        "targetSceneDraftRaw": {
+          "preset": "",
+          "kind": "water_context",
+          "features": [
+            "road_vehicles",
+            "tent",
+            "small_equipment"
+          ],
+          "requirements": [],
+          "roles": [
+            "vehicle.car",
+            "vehicle.van",
+            "camp.tent",
+            "cargo.small_box"
+          ],
+          "density": "sparse",
+          "layout": "",
+          "notes": ""
+        },
+        "targetSceneAiRaw": {
+          "kind": "water_context",
+          "preset": "",
+          "features": [
+            "people",
+            "watercraft",
+            "utility_truck",
+            "tent"
+          ],
+          "requirements": [
+            {
+              "feature": "people",
+              "count": 1,
+              "placement": "am Ufer (Water-Anker)",
+              "arrangement": "cluster",
+              "forwardM": 0,
+              "rightM": 5,
+              "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie."
+            },
+            {
+              "feature": "watercraft",
+              "count": 1,
+              "placement": "im flachen Wasser (Water-Anker)",
+              "arrangement": "cluster",
+              "forwardM": 0,
+              "rightM": 0,
+              "notes": "Kleines Ruderboot für Wasserproben direkt am Uferstreifen."
+            },
+            {
+              "feature": "utility_truck",
+              "count": 1,
+              "placement": "an der Service-Straße (Road-Anker)",
+              "arrangement": "cluster",
+              "forwardM": 0,
+              "rightM": 0,
+              "notes": "Weißer Geländewagen des Forschungsteams, geparkt am Straßenrand."
+            },
+            {
+              "feature": "tent",
+              "count": 1,
+              "placement": "auf der Wiese (Meadow-Anker)",
+              "arrangement": "cluster",
+              "forwardM": 5,
+              "rightM": 5,
+              "notes": "Kleines, helles Forschungszelt als temporäre Basisstation."
+            }
+          ],
+          "roles": [
+            "person.ground_crew",
+            "watercraft.small_boat",
+            "vehicle.van",
+            "camp.tent"
+          ],
+          "density": "sparse",
+          "layout": "scattered",
+          "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der Arbeitsabläufe zu vermitteln."
+        },
+        "targetSceneAiNormalized": {
+          "preset": "",
+          "kind": "water_context",
+          "features": [
+            "people",
+            "tent"
+          ],
+          "requirements": [
+            {
+              "feature": "people",
+              "count": 1,
+              "placement": "am Ufer (Water-Anker)",
+              "arrangement": "cluster",
+              "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie.",
+              "forwardM": 0,
+              "rightM": 5
+            },
+            {
+              "feature": "tent",
+              "count": 1,
+              "placement": "auf der Wiese (Meadow-Anker)",
+              "arrangement": "cluster",
+              "notes": "Kleines, helles Forschungszelt als temporäre Basisstation.",
+              "forwardM": 5,
+              "rightM": 5
+            }
+          ],
+          "roles": [
+            "person.ground_crew",
+            "watercraft.small_boat",
+            "vehicle.van",
+            "camp.tent"
+          ],
+          "density": "sparse",
+          "layout": "scattered",
+          "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der A"
+        },
+        "sceneIntentDebug": {
+          "aiRaw": {
+            "summary": "Ein ruhiger Uferabschnitt am Schluchsee mit einer angrenzenden Service-Straße und wissenschaftlichem Equipment.",
+            "environment": "Seeufer",
+            "visibleIdeas": [
+              "ein weißer Geländewagen an der Service-Straße",
+              "ein kleines Forschungszelt auf der Wiese",
+              "zwei Personen in Warnwesten am Wasser",
+              "ein schmales Ruderboot am Uferstreifen"
+            ],
+            "avoid": [
+              "Einsatzfahrzeuge mit Blaulicht",
+              "Große Menschenansammlungen",
+              "Motorboote"
+            ],
+            "densityHint": "sparse",
+            "notes": "Die Szenerie soll eine laufende Felduntersuchung darstellen."
+          },
+          "normalized": {
+            "summary": "Ein ruhiger Uferabschnitt am Schluchsee mit einer angrenzenden Service-Straße und wissenschaftlichem Equipment.",
+            "environment": "Seeufer",
+            "visibleIdeas": [
+              "ein weißer Geländewagen an der Service-Straße",
+              "ein kleines Forschungszelt auf der Wiese",
+              "zwei Personen in Warnwesten am Wasser",
+              "ein schmales Ruderboot am Uferstreifen"
+            ],
+            "avoid": [
+              "Einsatzfahrzeuge mit Blaulicht",
+              "Große Menschenansammlungen",
+              "Motorboote"
+            ],
+            "densityHint": "sparse",
+            "notes": "Die Szenerie soll eine laufende Felduntersuchung darstellen."
+          }
+        },
+        "missionContract": {
+          "requestedProfileId": "science_bio",
+          "appliedProfileId": "science_bio",
+          "summary": "Biologie/Umwelt | POI | cat:water",
+          "taskDomain": "science_bio",
+          "roleProfile": "science_field_v1",
+          "urgencyPriority": "niedrig",
+          "paxText": "1 PAX (Biologe)",
+          "cargoText": "Umweltsensorik und Kamera (18 lbs)",
+          "missionTitle": "Ufer-Monitoring am Schluchsee",
+          "missionStory": "Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand achten. Da der See auf knapp 930 Metern Höhe liegt, bietet er als größter Schwarzwaldsee ganz eigene ökologische Habitate, die wir heute aus der Luft erfassen.",
+          "sceneIntent": {
+            "summary": "Ein ruhiger Uferabschnitt am Schluchsee mit einer angrenzenden Service-Straße und wissenschaftlichem Equipment.",
+            "environment": "Seeufer",
+            "visibleIdeas": [
+              "ein weißer Geländewagen an der Service-Straße",
+              "ein kleines Forschungszelt auf der Wiese",
+              "zwei Personen in Warnwesten am Wasser",
+              "ein schmales Ruderboot am Uferstreifen"
+            ],
+            "avoid": [
+              "Einsatzfahrzeuge mit Blaulicht",
+              "Große Menschenansammlungen",
+              "Motorboote"
+            ],
+            "densityHint": "sparse",
+            "notes": "Die Szenerie soll eine laufende Felduntersuchung darstellen."
+          },
+          "sceneAccepted": true,
+          "targetGeoContext": {
+            "source": "overpass",
+            "radiusM": 750,
+            "center": {
+              "lat": 47.818,
+              "lon": 8.181
+            },
+            "anchors": {
+              "water": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "Uferbereich",
+                "tag": "water"
+              },
+              "road": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 19,
+                "name": "service",
+                "tag": "road"
+              },
+              "meadow": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "meadow",
+                "tag": "meadow"
+              }
+            },
+            "visualLandmarks": [],
+            "avoidZones": [],
+            "hints": [
+              "roadside/vehicle placement plausible near the road or parking anchor",
+              "waterline placement plausible near the water anchor",
+              "animals/tents/reference objects plausible on meadow or farmland anchors"
+            ],
+            "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+            "fetchedAt": 1779529982818
+          },
+          "missionTruth": {
+            "source": "mission-truth-v1",
+            "requestedCategory": "water",
+            "poiCategory": "water",
+            "primaryCategory": "water",
+            "geometryMode": "area",
+            "pickedPoi": {
+              "name": "Schluchsee",
+              "lat": 47.818,
+              "lon": 8.181,
+              "source": "Local fallback POIs (forced:water)",
+              "lookup": null
+            },
+            "targetProminence": {
+              "level": "high",
+              "reason": "target-category:water"
+            },
+            "visualLandmarks": [],
+            "mainTarget": {
+              "name": "Uferbereich",
+              "kind": "water",
+              "lat": 47.819379,
+              "lon": 8.182386,
+              "refinedFromPoi": true,
+              "distanceFromPoiM": 185,
+              "bearingFromPoiDeg": 34,
+              "reason": "nearest_water_anchor"
+            },
+            "sceneAnchor": {
+              "kind": "water",
+              "lat": 47.819379,
+              "lon": 8.182386,
+              "reason": "nearest_water_anchor"
+            },
+            "visibleCues": [
+              "offenes Gelaende",
+              "Wasserflaeche oder Uferlinie",
+              "Fahrzeug am Boden",
+              "Person am Boden"
+            ],
+            "constraints": [
+              "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+              "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+            ]
+          },
+          "missionPlanV2": {
+            "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+            "status": "ready",
+            "needs": [],
+            "resolvedNeeds": {
+              "geo_context": {
+                "source": "overpass",
+                "radiusM": 750,
+                "center": {
+                  "lat": 47.818,
+                  "lon": 8.181
+                },
+                "anchors": {
+                  "water": {
+                    "present": true,
+                    "count": 1,
+                    "distM": 185,
+                    "bearingDeg": 34,
+                    "name": "Uferbereich",
+                    "tag": "water"
+                  },
+                  "road": {
+                    "present": true,
+                    "count": 1,
+                    "distM": 185,
+                    "bearingDeg": 19,
+                    "name": "service",
+                    "tag": "road"
+                  },
+                  "meadow": {
+                    "present": true,
+                    "count": 1,
+                    "distM": 185,
+                    "bearingDeg": 34,
+                    "name": "meadow",
+                    "tag": "meadow"
+                  }
+                },
+                "visualLandmarks": [],
+                "avoidZones": [],
+                "hints": [
+                  "roadside/vehicle placement plausible near the road or parking anchor",
+                  "waterline placement plausible near the water anchor",
+                  "animals/tents/reference objects plausible on meadow or farmland anchors"
+                ],
+                "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+                "fetchedAt": 1779529982818
+              },
+              "mission_truth": {
+                "source": "mission-truth-v1",
+                "requestedCategory": "water",
+                "poiCategory": "water",
+                "primaryCategory": "water",
+                "geometryMode": "area",
+                "pickedPoi": {
+                  "name": "Schluchsee",
+                  "lat": 47.818,
+                  "lon": 8.181,
+                  "source": "Local fallback POIs (forced:water)",
+                  "lookup": null
+                },
+                "targetProminence": {
+                  "level": "high",
+                  "reason": "target-category:water"
+                },
+                "visualLandmarks": [],
+                "mainTarget": {
+                  "name": "Uferbereich",
+                  "kind": "water",
+                  "lat": 47.819379,
+                  "lon": 8.182386,
+                  "refinedFromPoi": true,
+                  "distanceFromPoiM": 185,
+                  "bearingFromPoiDeg": 34,
+                  "reason": "nearest_water_anchor"
+                },
+                "sceneAnchor": {
+                  "kind": "water",
+                  "lat": 47.819379,
+                  "lon": 8.182386,
+                  "reason": "nearest_water_anchor"
+                },
+                "visibleCues": [
+                  "Wasserflaeche oder Uferlinie",
+                  "Strasse oder Zufahrt",
+                  "offenes Gelaende"
+                ],
+                "constraints": [
+                  "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+                  "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+                ]
+              },
+              "weather_snapshot": {
+                "dep": {
+                  "station": "EDTW",
+                  "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                  "windDeg": 260,
+                  "windKts": 8,
+                  "visKm": 10,
+                  "tempC": 17,
+                  "wxCode": null,
+                  "fltCat": "VFR"
+                },
+                "dest": {
+                  "station": "EDTW",
+                  "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                  "windDeg": 260,
+                  "windKts": 8,
+                  "visKm": 10,
+                  "tempC": 17,
+                  "wxCode": null,
+                  "fltCat": "VFR"
+                }
+              },
+              "fire_hazard": null,
+              "airport_details": {
+                "start": {
+                  "icao": "EDTW",
+                  "name": "Winzeln-Schramberg Airport",
+                  "lat": 48.2791671753,
+                  "lon": 8.4283332825
+                },
+                "dest": null,
+                "targetPoi": {
+                  "icao": "POI",
+                  "name": "Schluchsee",
+                  "lat": 47.818,
+                  "lon": 8.181
+                }
+              }
+            },
+            "plan": {
+              "taskDomain": "science_bio",
+              "roleProfile": "science_field_v1",
+              "missionType": "poi",
+              "targetCategory": "water",
+              "primaryObjective": "Ökologische Dokumentation des Uferbereichs am Schluchsee zur Bestandsaufnahme der Vegetation und Wasserlinie.",
+              "targetLabel": "Schluchsee (Uferbereich)",
+              "sceneKind": "water_context",
+              "sceneDensity": "sparse",
+              "requiredAnchors": [
+                "water",
+                "road",
+                "meadow"
+              ],
+              "objectFamilies": [
+                "vehicles",
+                "tents",
+                "small_equipment"
+              ],
+              "placementPolicy": "Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser.",
+              "narrativeRules": [
+                "Keine Landung am Zielort (POI)",
+                "Fokus auf biologische Feldarbeit und Umweltbeobachtung",
+                "Sachlicher, professioneller Tonfall"
+              ],
+              "lockedFields": {
+                "noLandingAtPoi": true
+              },
+              "confidence": 1,
+              "localFacts": [
+                "Zielgebiet liegt am Schluchsee im Schwarzwald",
+                "Uferbereich mit angrenzender Service-Straße und Wiesenflächen",
+                "Entfernung von EDTW beträgt ca. 59 NM"
+              ],
+              "weatherHooks": [
+                "Wind aus 260° mit 8 kt",
+                "Gute VFR-Sichtbedingungen (>10 km)",
+                "Temperatur 17°C"
+              ],
+              "operationalDetails": [
+                "Abflug von Winzeln-Schramberg (EDTW)",
+                "Rundflug-Profil ohne Zwischenlandung",
+                "Niedrige Überflughöhe zur visuellen Erfassung des Ufers erforderlich"
+              ],
+              "realismBrief": "Umweltmonitoring und ökologische Bestandsaufnahmen an Schwarzwald-Talsperren sind typische Aufgaben für spezialisierte GA-Flüge im Auftrag von Landesämtern.",
+              "narrativeHooks": [
+                "Dokumentation von Vegetationsveränderungen im Uferbereich",
+                "Überprüfung der Zugänglichkeit für bodengebundene Feldteams über die Service-Straßen",
+                "Sichtung von potenziellen Probenahmestellen am Wasser"
+              ],
+              "mustMention": [
+                "Schluchsee",
+                "Uferbereich",
+                "Umweltbeobachtung"
+              ],
+              "mustAvoid": [
+                "Notfallszenarien",
+                "Landung auf dem Wasser oder am Ufer",
+                "Dramatische Wettergefahren"
+              ]
+            },
+            "debug": {
+              "source": "Gemini 3.0 Flash Tool Planner V3",
+              "rawStatus": "ready",
+              "pass": "tool-calling",
+              "promptVersion": "mission-v3-tool-planner-2026-05-23",
+              "toolCalls": [
+                {
+                  "turn": 0,
+                  "name": "get_mission_context_bundle",
+                  "id": "p1iyu2b2",
+                  "args": {
+                    "reason": "Verifizierung der Route EDTW zum Schluchsee und Abgleich der lokalen Gegebenheiten am Uferbereich fuer eine biologische Feldmission."
+                  },
+                  "resultKeys": [
+                    "schema",
+                    "route",
+                    "target",
+                    "picker",
+                    "category",
+                    "profile",
+                    "airportDetails",
+                    "weather",
+                    "fireHazard",
+                    "targetGeoContext"
+                  ]
+                }
+              ],
+              "fallbackError": ""
+            }
+          },
+          "aptArrivalPlan": null,
+          "targetScene": {
+            "preset": "",
+            "kind": "water_context",
+            "features": [
+              "people",
+              "tent"
+            ],
+            "requirements": [
+              {
+                "feature": "people",
+                "count": 1,
+                "placement": "am Ufer (Water-Anker)",
+                "arrangement": "cluster",
+                "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie.",
+                "forwardM": 0,
+                "rightM": 5
+              },
+              {
+                "feature": "tent",
+                "count": 1,
+                "placement": "auf der Wiese (Meadow-Anker)",
+                "arrangement": "cluster",
+                "notes": "Kleines, helles Forschungszelt als temporäre Basisstation.",
+                "forwardM": 5,
+                "rightM": 5
+              }
+            ],
+            "roles": [
+              "person.ground_crew",
+              "watercraft.small_boat",
+              "vehicle.van",
+              "camp.tent"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der A"
+          },
+          "constraints": [
+            "Rollenkonsistenz: roleProfile=science_field_v1, taskDomain=science_bio, urgency=niedrig",
+            "Kein Themenmix zwischen Auftrag, PAX und Fracht",
+            "Alle Folgeansagen bleiben im gleichen Auftragsrahmen"
+          ]
+        },
+        "sceneCompositionStartedAt": 0,
+        "targetSceneComposerDebug": {
+          "source": "Gemini 3.0 Flash Scene Planner V3",
+          "promptVersion": "scene-v3-tool-planner-2026-05-23",
+          "toolCalls": [
+            {
+              "turn": 0,
+              "name": "get_scene_context_bundle",
+              "id": "xa6h61i5",
+              "args": {
+                "reason": "Initial context gathering for POI scene planning."
+              },
+              "resultKeys": [
+                "schema",
+                "mode",
+                "route",
+                "mission",
+                "sceneIntent",
+                "missionTruth",
+                "targetGeoContext",
+                "missionPlan",
+                "aptArrivalPlan",
+                "aptArrivalGeoContext"
+              ]
+            }
+          ],
+          "aiRaw": {
+            "kind": "water_context",
+            "preset": "",
+            "features": [
+              "people",
+              "watercraft",
+              "utility_truck",
+              "tent"
+            ],
+            "requirements": [
+              {
+                "feature": "people",
+                "count": 1,
+                "placement": "am Ufer (Water-Anker)",
+                "arrangement": "cluster",
+                "forwardM": 0,
+                "rightM": 5,
+                "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie."
+              },
+              {
+                "feature": "watercraft",
+                "count": 1,
+                "placement": "im flachen Wasser (Water-Anker)",
+                "arrangement": "cluster",
+                "forwardM": 0,
+                "rightM": 0,
+                "notes": "Kleines Ruderboot für Wasserproben direkt am Uferstreifen."
+              },
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "an der Service-Straße (Road-Anker)",
+                "arrangement": "cluster",
+                "forwardM": 0,
+                "rightM": 0,
+                "notes": "Weißer Geländewagen des Forschungsteams, geparkt am Straßenrand."
+              },
+              {
+                "feature": "tent",
+                "count": 1,
+                "placement": "auf der Wiese (Meadow-Anker)",
+                "arrangement": "cluster",
+                "forwardM": 5,
+                "rightM": 5,
+                "notes": "Kleines, helles Forschungszelt als temporäre Basisstation."
+              }
+            ],
+            "roles": [
+              "person.ground_crew",
+              "watercraft.small_boat",
+              "vehicle.van",
+              "camp.tent"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der Arbeitsabläufe zu vermitteln."
+          },
+          "aiArrivalRaw": null,
+          "normalized": {
+            "preset": "",
+            "kind": "water_context",
+            "features": [
+              "people",
+              "tent"
+            ],
+            "requirements": [
+              {
+                "feature": "people",
+                "count": 1,
+                "placement": "am Ufer (Water-Anker)",
+                "arrangement": "cluster",
+                "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie.",
+                "forwardM": 0,
+                "rightM": 5
+              },
+              {
+                "feature": "tent",
+                "count": 1,
+                "placement": "auf der Wiese (Meadow-Anker)",
+                "arrangement": "cluster",
+                "notes": "Kleines, helles Forschungszelt als temporäre Basisstation.",
+                "forwardM": 5,
+                "rightM": 5
+              }
+            ],
+            "roles": [
+              "person.ground_crew",
+              "watercraft.small_boat",
+              "vehicle.van",
+              "camp.tent"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der A"
+          },
+          "aptArrivalPlan": null,
+          "localizationNotes": [
+            "Hauptziel ist der Uferbereich (Water-Anker) bei 47.819, 8.182.",
+            "Fahrzeug und Zelt sind auf die angrenzenden Road- und Meadow-Anker verteilt, um die Szene räumlich zu öffnen."
+          ],
+          "validationNotes": [
+            "Keine Landung am POI gemäß Missionsvorgabe.",
+            "Fahrzeug korrekt an der Straße platziert.",
+            "Wasserobjekte korrekt am Ufer platziert."
+          ],
+          "fallback": {
+            "preset": "",
+            "kind": "water_context",
+            "features": [
+              "tent",
+              "small_equipment"
+            ],
+            "requirements": [
+              {
+                "feature": "tent",
+                "count": 1,
+                "placement": "",
+                "arrangement": "",
+                "notes": ""
+              },
+              {
+                "feature": "small_equipment",
+                "count": 1,
+                "placement": "",
+                "arrangement": "",
+                "notes": ""
+              }
+            ],
+            "roles": [
+              "camp.tent",
+              "cargo.small_box"
+            ],
+            "density": "sparse",
+            "layout": "",
+            "notes": "Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser."
+          },
+          "fallbackArrivalPlan": null,
+          "error": ""
+        }
+      },
+      "passenger": {
+        "name": "Dr. Paul Reiter",
+        "role": "Ökologe",
+        "gender": "male",
+        "personality": "analytisch, präzise, gelassen",
+        "dialectHint": "neutral",
+        "roleProfile": "science_field_v1",
+        "taskDomain": "science_bio",
+        "gTolerance": "niedrig",
+        "bankTolerance": "niedrig",
+        "cargoSensitivity": "mittel",
+        "stomachSensitivity": "mittel",
+        "comfortPriority": "hoch",
+        "urgencyPriority": "niedrig",
+        "targetAltFt": 4500,
+        "targetRadiusNm": 2.5,
+        "targetDwellMin": 5,
+        "greetingText": "Hi, wir machen heute Umweltbeobachtung am POI. Bitte ruhig und stabil fliegen, damit die Beobachtung verwertbar ist.",
+        "trainingPlan": null,
+        "storyHint": "Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand achten. Da der See auf knapp 930 Metern Höhe liegt, bietet er als größter Schwarzwaldsee ganz eigene ökologische Habitate, die wir heute aus der Luft erfassen."
+      },
+      "briefing": {
+        "title": "📋 Ufer-Monitoring am Schluchsee",
+        "story": "Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand achten. Da der See auf knapp 930 Metern Höhe liegt, bietet er als größter Schwarzwaldsee ganz eigene ökologische Habitate, die wir heute aus der Luft erfassen.\n\nArbeits-Hinweis: Für das Zielgebiet ist eine geplante Höhe von ungefähr 4500 ft vorgesehen.",
+        "dep": "EDTW",
+        "depName": "Winzeln-Schramberg Airport",
+        "dest": "POI",
+        "destName": "Schluchsee",
+        "pax": "1 PAX (Ökologe: Dr. Paul Reiter)",
+        "cargo": "Umweltsensorik und Kamera (18 lbs)",
+        "dist": "58.8 NM",
+        "ete": "22 Min.",
+        "heading": "200°"
+      },
+      "paxLog": [
+        {
+          "ts": "11:53:50",
+          "type": "state",
+          "msg": "Queue +1 | Event: Verabschiedung"
+        },
+        {
+          "ts": "11:53:50",
+          "type": "event",
+          "msg": "Farewell → API-Call in 0s"
+        },
+        {
+          "ts": "11:53:50",
+          "type": "state",
+          "msg": "triggerPaxFarewell | tts:false done:false pax:true"
+        },
+        {
+          "ts": "11:53:49",
+          "type": "send",
+          "msg": "Textgen → gemini-3-flash-preview"
+        },
+        {
+          "ts": "11:53:49",
+          "type": "send",
+          "msg": "PROMPT (voll): ROLLE: Dr. Paul Reiter (Ökologe) · Persönlichkeit: analytisch, präzise, gelassen FLUG: EDTW → Schluchsee · 58.8 NM LOAD: Umweltsensorik und Kamera (18 lbs) · 1 PAX (Ökologe: Dr. Paul Reiter) AUFTRAG (kurz): Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand acht STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Biologie/Umwelt | POI | cat:water CONTRACT-REGELN: Rollenkonsistenz: roleProfile=science_field_v1, taskDomain=science_bio, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen ZIEL-AUFFAELLIGKEIT: high (target-category:water). ROLLENFIX: Sprich ausschließlich als Dr. Paul Reiter (Ökologe) in Ich-Form. Keine Rollenvermischung. TASK-DOMAIN: science_bio AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen). Moment: Wir sind am Ziel \"Schluchsee\". Höhe: 4500 ft MSL / 700 ft AGL. Wetter: Wind 8 kts aus 260° (schwach), 17°C, Sicht 30 km (ausgezeichnet). Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv. Gib einen kurzen biologischen Zwischenstand zu \"Schluchsee\" (Bestand, Aktivitaet, Auffaelligkeiten). Drift-Guard (Bio): Bleib bei biologischer Beobachtung und Datenguete. Keine Technikpruefung, keine SAR-/Feuerlage. Max 2-3 Sätze. Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze. Neutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch. Keine neue Begrüßung am Satzanfang. Humor kurz und freundlich. Bei Sicherheit/Warnung/Arbeitsanweisung: kein Humor. Nur Deutsch, kein Markdown."
+        },
+        {
+          "ts": "11:53:49",
+          "type": "event",
+          "msg": "── Am Ziel ──"
+        },
+        {
+          "ts": "11:53:49",
+          "type": "state",
+          "msg": "Queue ▶ Start | Event: Am Ziel"
+        },
+        {
+          "ts": "11:53:49",
+          "type": "state",
+          "msg": "Queue +1 | Event: Am Ziel"
+        },
+        {
+          "ts": "11:53:47",
+          "type": "event",
+          "msg": "At-Target → API-Call in 2s"
+        },
+        {
+          "ts": "11:53:47",
+          "type": "state",
+          "msg": "triggerPaxAtTarget | tts:false done:false pax:true alt:4500ft"
+        },
+        {
+          "ts": "11:53:47",
+          "type": "state",
+          "msg": "Queue ✓ Ende | Event: Begrüßung"
+        },
+        {
+          "ts": "11:53:47",
+          "type": "state",
+          "msg": "TTS übersprungen (Stimme deaktiviert) — Text gespeichert"
+        },
+        {
+          "ts": "11:53:47",
+          "type": "recv",
+          "msg": "Textgen OK (349 Zeichen): \"Hi, wir erfassen heute am Schluchsee die Ufervegetation und den Übergang zum Waldrand für unser Monitoring-Programm. Bitte flieg ruhig und stabil in etwa 4500 Fuß Höhe, damit die Kamera und die Sensoren präzise Daten von der Wasserlinie liefern können. Wir haben keine Eile, denn die Qualität der Aufnahmen ist für die Bestandsaufnahme entscheidend.\""
+        },
+        {
+          "ts": "11:53:43",
+          "type": "send",
+          "msg": "Textgen → gemini-3-flash-preview"
+        },
+        {
+          "ts": "11:53:43",
+          "type": "send",
+          "msg": "PROMPT (voll): ROLLE: Dr. Paul Reiter (Ökologe) · Persönlichkeit: analytisch, präzise, gelassen FLUG: EDTW → Schluchsee · 58.8 NM LOAD: Umweltsensorik und Kamera (18 lbs) · 1 PAX (Ökologe: Dr. Paul Reiter) AUFTRAG (kurz): Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand acht STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Biologie/Umwelt | POI | cat:water CONTRACT-REGELN: Rollenkonsistenz: roleProfile=science_field_v1, taskDomain=science_bio, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen ZIEL-AUFFAELLIGKEIT: high (target-category:water). ROLLENFIX: Sprich ausschließlich als Dr. Paul Reiter (Ökologe) in Ich-Form. Keine Rollenvermischung. TASK-DOMAIN: science_bio AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen). Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung. Basistext für deine Begrüßung (frei adaptieren): \"Hi, wir machen heute Umweltbeobachtung am POI. Bitte ruhig und stabil fliegen, damit die Beobachtung verwertbar ist.\" Du DARFST hier mit einer kurzen natürlichen Begrüßung beginnen (z.B. \"Hi\"), aber nur sehr knapp. Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast. Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr 4500 ft). Keine internen Parameter oder technischen Vorgaben zitieren.  Drift-Guard (Bio): Nur Bio/Umwelt-Inhalte (Flora/Fauna/Habitat/Ufervegetation). Keine Risse/Statik/Schadenssuche, keine Geologie, kein SAR-/Feuer-Ton. Kein Zeitdruck kommunizieren. Max 3 Sätze. Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze. Neutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch. Keine neue Begrüßung am Satzanfang. Humor kurz und freundlich. Bei Sicherheit/Warnung/Arbeitsanweisung: kein Humor. Nur Deutsch, kein Markdown."
+        },
+        {
+          "ts": "11:53:43",
+          "type": "event",
+          "msg": "── Begrüßung ──"
+        },
+        {
+          "ts": "11:53:43",
+          "type": "state",
+          "msg": "Queue ▶ Start | Event: Begrüßung"
+        },
+        {
+          "ts": "11:53:43",
+          "type": "state",
+          "msg": "Queue +1 | Event: Begrüßung"
+        },
+        {
+          "ts": "11:53:43",
+          "type": "event",
+          "msg": "Greeting → API-Call"
+        },
+        {
+          "ts": "11:53:43",
+          "type": "state",
+          "msg": "Greeting Standort-Check: 0.00 NM vom Startplatz"
+        },
+        {
+          "ts": "11:53:43",
+          "type": "state",
+          "msg": "triggerPaxGreeting | tts:false done:false pax:true key:true"
+        },
+        {
+          "ts": "11:53:43",
+          "type": "state",
+          "msg": "Queue ✓ Ende | Event: Boarding"
+        },
+        {
+          "ts": "11:53:43",
+          "type": "state",
+          "msg": "TTS übersprungen (Stimme deaktiviert) — Text gespeichert"
+        },
+        {
+          "ts": "11:53:43",
+          "type": "event",
+          "msg": "── Boarding ──"
+        },
+        {
+          "ts": "11:53:43",
+          "type": "state",
+          "msg": "Queue ▶ Start | Event: Boarding"
+        }
+      ],
+      "debugSnapshot": {
+        "ts": 1779530008868,
+        "mode": "POI",
+        "category": "water",
+        "profile": "science_bio",
+        "appliedProfile": "science_bio",
+        "mission": "Ufer-Monitoring am Schluchsee",
+        "target": "Schluchsee",
+        "targetCoords": "47.81800, 8.18100",
+        "source": "Gemini 3.0 Flash + V3 Tools",
+        "poiSource": "Local fallback POIs (forced:water)",
+        "poiLookup": null,
+        "story": "Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand achten. Da der See auf knapp 930 Metern Höhe liegt, bietet er als größter Schwarzwaldsee ganz eigene ökologische Habitate, die wir heute aus der Luft erfassen.",
+        "narrativeGuard": {
+          "urgency": "niedrig",
+          "cargoSensitivity": "niedrig",
+          "timeHintAdded": false,
+          "timePressureStripped": false,
+          "cargoHintStripped": false,
+          "profileContractApplied": false
+        },
+        "contract": {
+          "requestedProfileId": "science_bio",
+          "appliedProfileId": "science_bio",
+          "summary": "Biologie/Umwelt | POI | cat:water",
+          "taskDomain": "science_bio",
+          "roleProfile": "science_field_v1",
+          "urgencyPriority": "niedrig",
+          "paxText": "1 PAX (Biologe)",
+          "cargoText": "Umweltsensorik und Kamera (18 lbs)",
+          "missionTitle": "Ufer-Monitoring am Schluchsee",
+          "missionStory": "Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand achten. Da der See auf knapp 930 Metern Höhe liegt, bietet er als größter Schwarzwaldsee ganz eigene ökologische Habitate, die wir heute aus der Luft erfassen.",
+          "sceneIntent": {
+            "summary": "Ein ruhiger Uferabschnitt am Schluchsee mit einer angrenzenden Service-Straße und wissenschaftlichem Equipment.",
+            "environment": "Seeufer",
+            "visibleIdeas": [
+              "ein weißer Geländewagen an der Service-Straße",
+              "ein kleines Forschungszelt auf der Wiese",
+              "zwei Personen in Warnwesten am Wasser",
+              "ein schmales Ruderboot am Uferstreifen"
+            ],
+            "avoid": [
+              "Einsatzfahrzeuge mit Blaulicht",
+              "Große Menschenansammlungen",
+              "Motorboote"
+            ],
+            "densityHint": "sparse",
+            "notes": "Die Szenerie soll eine laufende Felduntersuchung darstellen."
+          },
+          "sceneAccepted": false,
+          "targetGeoContext": {
+            "source": "overpass",
+            "radiusM": 750,
+            "center": {
+              "lat": 47.818,
+              "lon": 8.181
+            },
+            "anchors": {
+              "water": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "Uferbereich",
+                "tag": "water"
+              },
+              "road": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 19,
+                "name": "service",
+                "tag": "road"
+              },
+              "meadow": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "meadow",
+                "tag": "meadow"
+              }
+            },
+            "visualLandmarks": [],
+            "avoidZones": [],
+            "hints": [
+              "roadside/vehicle placement plausible near the road or parking anchor",
+              "waterline placement plausible near the water anchor",
+              "animals/tents/reference objects plausible on meadow or farmland anchors"
+            ],
+            "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+            "fetchedAt": 1779529982818
+          },
+          "missionTruth": {
+            "source": "mission-truth-v1",
+            "requestedCategory": "water",
+            "poiCategory": "water",
+            "primaryCategory": "water",
+            "geometryMode": "area",
+            "pickedPoi": {
+              "name": "Schluchsee",
+              "lat": 47.818,
+              "lon": 8.181,
+              "source": "Local fallback POIs (forced:water)",
+              "lookup": null
+            },
+            "targetProminence": {
+              "level": "high",
+              "reason": "target-category:water"
+            },
+            "visualLandmarks": [],
+            "mainTarget": {
+              "name": "Uferbereich",
+              "kind": "water",
+              "lat": 47.819379,
+              "lon": 8.182386,
+              "refinedFromPoi": true,
+              "distanceFromPoiM": 185,
+              "bearingFromPoiDeg": 34,
+              "reason": "nearest_water_anchor"
+            },
+            "sceneAnchor": {
+              "kind": "water",
+              "lat": 47.819379,
+              "lon": 8.182386,
+              "reason": "nearest_water_anchor"
+            },
+            "visibleCues": [
+              "Wasserflaeche oder Uferlinie",
+              "Strasse oder Zufahrt",
+              "offenes Gelaende"
+            ],
+            "constraints": [
+              "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+              "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+            ]
+          },
+          "missionPlanV2": {
+            "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+            "status": "ready",
+            "needs": [],
+            "resolvedNeeds": {
+              "geo_context": {
+                "source": "overpass",
+                "radiusM": 750,
+                "center": {
+                  "lat": 47.818,
+                  "lon": 8.181
+                },
+                "anchors": {
+                  "water": {
+                    "present": true,
+                    "count": 1,
+                    "distM": 185,
+                    "bearingDeg": 34,
+                    "name": "Uferbereich",
+                    "tag": "water"
+                  },
+                  "road": {
+                    "present": true,
+                    "count": 1,
+                    "distM": 185,
+                    "bearingDeg": 19,
+                    "name": "service",
+                    "tag": "road"
+                  },
+                  "meadow": {
+                    "present": true,
+                    "count": 1,
+                    "distM": 185,
+                    "bearingDeg": 34,
+                    "name": "meadow",
+                    "tag": "meadow"
+                  }
+                },
+                "visualLandmarks": [],
+                "avoidZones": [],
+                "hints": [
+                  "roadside/vehicle placement plausible near the road or parking anchor",
+                  "waterline placement plausible near the water anchor",
+                  "animals/tents/reference objects plausible on meadow or farmland anchors"
+                ],
+                "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+                "fetchedAt": 1779529982818
+              },
+              "mission_truth": {
+                "source": "mission-truth-v1",
+                "requestedCategory": "water",
+                "poiCategory": "water",
+                "primaryCategory": "water",
+                "geometryMode": "area",
+                "pickedPoi": {
+                  "name": "Schluchsee",
+                  "lat": 47.818,
+                  "lon": 8.181,
+                  "source": "Local fallback POIs (forced:water)",
+                  "lookup": null
+                },
+                "targetProminence": {
+                  "level": "high",
+                  "reason": "target-category:water"
+                },
+                "visualLandmarks": [],
+                "mainTarget": {
+                  "name": "Uferbereich",
+                  "kind": "water",
+                  "lat": 47.819379,
+                  "lon": 8.182386,
+                  "refinedFromPoi": true,
+                  "distanceFromPoiM": 185,
+                  "bearingFromPoiDeg": 34,
+                  "reason": "nearest_water_anchor"
+                },
+                "sceneAnchor": {
+                  "kind": "water",
+                  "lat": 47.819379,
+                  "lon": 8.182386,
+                  "reason": "nearest_water_anchor"
+                },
+                "visibleCues": [
+                  "Wasserflaeche oder Uferlinie",
+                  "Strasse oder Zufahrt",
+                  "offenes Gelaende"
+                ],
+                "constraints": [
+                  "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+                  "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+                ]
+              },
+              "weather_snapshot": {
+                "dep": {
+                  "station": "EDTW",
+                  "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                  "windDeg": 260,
+                  "windKts": 8,
+                  "visKm": 10,
+                  "tempC": 17,
+                  "wxCode": null,
+                  "fltCat": "VFR"
+                },
+                "dest": {
+                  "station": "EDTW",
+                  "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                  "windDeg": 260,
+                  "windKts": 8,
+                  "visKm": 10,
+                  "tempC": 17,
+                  "wxCode": null,
+                  "fltCat": "VFR"
+                }
+              },
+              "fire_hazard": null,
+              "airport_details": {
+                "start": {
+                  "icao": "EDTW",
+                  "name": "Winzeln-Schramberg Airport",
+                  "lat": 48.2791671753,
+                  "lon": 8.4283332825
+                },
+                "dest": null,
+                "targetPoi": {
+                  "icao": "POI",
+                  "name": "Schluchsee",
+                  "lat": 47.818,
+                  "lon": 8.181
+                }
+              }
+            },
+            "plan": {
+              "taskDomain": "science_bio",
+              "roleProfile": "science_field_v1",
+              "missionType": "poi",
+              "targetCategory": "water",
+              "primaryObjective": "Ökologische Dokumentation des Uferbereichs am Schluchsee zur Bestandsaufnahme der Vegetation und Wasserlinie.",
+              "targetLabel": "Schluchsee (Uferbereich)",
+              "sceneKind": "water_context",
+              "sceneDensity": "sparse",
+              "requiredAnchors": [
+                "water",
+                "road",
+                "meadow"
+              ],
+              "objectFamilies": [
+                "vehicles",
+                "tents",
+                "small_equipment"
+              ],
+              "placementPolicy": "Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser.",
+              "narrativeRules": [
+                "Keine Landung am Zielort (POI)",
+                "Fokus auf biologische Feldarbeit und Umweltbeobachtung",
+                "Sachlicher, professioneller Tonfall"
+              ],
+              "lockedFields": {
+                "noLandingAtPoi": true
+              },
+              "confidence": 1,
+              "localFacts": [
+                "Zielgebiet liegt am Schluchsee im Schwarzwald",
+                "Uferbereich mit angrenzender Service-Straße und Wiesenflächen",
+                "Entfernung von EDTW beträgt ca. 59 NM"
+              ],
+              "weatherHooks": [
+                "Wind aus 260° mit 8 kt",
+                "Gute VFR-Sichtbedingungen (>10 km)",
+                "Temperatur 17°C"
+              ],
+              "operationalDetails": [
+                "Abflug von Winzeln-Schramberg (EDTW)",
+                "Rundflug-Profil ohne Zwischenlandung",
+                "Niedrige Überflughöhe zur visuellen Erfassung des Ufers erforderlich"
+              ],
+              "realismBrief": "Umweltmonitoring und ökologische Bestandsaufnahmen an Schwarzwald-Talsperren sind typische Aufgaben für spezialisierte GA-Flüge im Auftrag von Landesämtern.",
+              "narrativeHooks": [
+                "Dokumentation von Vegetationsveränderungen im Uferbereich",
+                "Überprüfung der Zugänglichkeit für bodengebundene Feldteams über die Service-Straßen",
+                "Sichtung von potenziellen Probenahmestellen am Wasser"
+              ],
+              "mustMention": [
+                "Schluchsee",
+                "Uferbereich",
+                "Umweltbeobachtung"
+              ],
+              "mustAvoid": [
+                "Notfallszenarien",
+                "Landung auf dem Wasser oder am Ufer",
+                "Dramatische Wettergefahren"
+              ]
+            },
+            "debug": {
+              "source": "Gemini 3.0 Flash Tool Planner V3",
+              "rawStatus": "ready",
+              "pass": "tool-calling",
+              "promptVersion": "mission-v3-tool-planner-2026-05-23",
+              "toolCalls": [
+                {
+                  "turn": 0,
+                  "name": "get_mission_context_bundle",
+                  "id": "p1iyu2b2",
+                  "args": {
+                    "reason": "Verifizierung der Route EDTW zum Schluchsee und Abgleich der lokalen Gegebenheiten am Uferbereich fuer eine biologische Feldmission."
+                  },
+                  "resultKeys": [
+                    "schema",
+                    "route",
+                    "target",
+                    "picker",
+                    "category",
+                    "profile",
+                    "airportDetails",
+                    "weather",
+                    "fireHazard",
+                    "targetGeoContext"
+                  ]
+                }
+              ],
+              "fallbackError": ""
+            }
+          },
+          "aptArrivalPlan": null,
+          "targetScene": {
+            "preset": "",
+            "kind": "water_context",
+            "features": [
+              "tent",
+              "small_equipment"
+            ],
+            "requirements": [],
+            "roles": [
+              "camp.tent",
+              "cargo.small_box"
+            ],
+            "density": "sparse",
+            "layout": "",
+            "notes": ""
+          },
+          "constraints": [
+            "Rollenkonsistenz: roleProfile=science_field_v1, taskDomain=science_bio, urgency=niedrig",
+            "Kein Themenmix zwischen Auftrag, PAX und Fracht",
+            "Alle Folgeansagen bleiben im gleichen Auftragsrahmen"
+          ]
+        },
+        "sceneAccepted": true,
+        "sceneCompositionStatus": "accepted",
+        "sceneIntent": {
+          "summary": "Ein ruhiger Uferabschnitt am Schluchsee mit einer angrenzenden Service-Straße und wissenschaftlichem Equipment.",
+          "environment": "Seeufer",
+          "visibleIdeas": [
+            "ein weißer Geländewagen an der Service-Straße",
+            "ein kleines Forschungszelt auf der Wiese",
+            "zwei Personen in Warnwesten am Wasser",
+            "ein schmales Ruderboot am Uferstreifen"
+          ],
+          "avoid": [
+            "Einsatzfahrzeuge mit Blaulicht",
+            "Große Menschenansammlungen",
+            "Motorboote"
+          ],
+          "densityHint": "sparse",
+          "notes": "Die Szenerie soll eine laufende Felduntersuchung darstellen."
+        },
+        "targetGeoContext": {
+          "source": "overpass",
+          "radiusM": 750,
+          "center": {
+            "lat": 47.818,
+            "lon": 8.181
+          },
+          "anchors": {
+            "water": {
+              "present": true,
+              "count": 1,
+              "distM": 185,
+              "bearingDeg": 34,
+              "name": "Uferbereich",
+              "tag": "water"
+            },
+            "road": {
+              "present": true,
+              "count": 1,
+              "distM": 185,
+              "bearingDeg": 19,
+              "name": "service",
+              "tag": "road"
+            },
+            "meadow": {
+              "present": true,
+              "count": 1,
+              "distM": 185,
+              "bearingDeg": 34,
+              "name": "meadow",
+              "tag": "meadow"
+            }
+          },
+          "visualLandmarks": [],
+          "avoidZones": [],
+          "hints": [
+            "roadside/vehicle placement plausible near the road or parking anchor",
+            "waterline placement plausible near the water anchor",
+            "animals/tents/reference objects plausible on meadow or farmland anchors"
+          ],
+          "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+          "fetchedAt": 1779529982818
+        },
+        "missionTruth": {
+          "source": "mission-truth-v1",
+          "requestedCategory": "water",
+          "poiCategory": "water",
+          "primaryCategory": "water",
+          "geometryMode": "area",
+          "pickedPoi": {
+            "name": "Schluchsee",
+            "lat": 47.818,
+            "lon": 8.181,
+            "source": "Local fallback POIs (forced:water)",
+            "lookup": null
+          },
+          "targetProminence": {
+            "level": "high",
+            "reason": "target-category:water"
+          },
+          "visualLandmarks": [],
+          "mainTarget": {
+            "name": "Uferbereich",
+            "kind": "water",
+            "lat": 47.819379,
+            "lon": 8.182386,
+            "refinedFromPoi": true,
+            "distanceFromPoiM": 185,
+            "bearingFromPoiDeg": 34,
+            "reason": "nearest_water_anchor"
+          },
+          "sceneAnchor": {
+            "kind": "water",
+            "lat": 47.819379,
+            "lon": 8.182386,
+            "reason": "nearest_water_anchor"
+          },
+          "visibleCues": [
+            "offenes Gelaende",
+            "Wasserflaeche oder Uferlinie",
+            "Fahrzeug am Boden",
+            "Person am Boden"
+          ],
+          "constraints": [
+            "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+            "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+          ]
+        },
+        "missionPlanV2": {
+          "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+          "status": "ready",
+          "needs": [],
+          "resolvedNeeds": {
+            "geo_context": {
+              "source": "overpass",
+              "radiusM": 750,
+              "center": {
+                "lat": 47.818,
+                "lon": 8.181
+              },
+              "anchors": {
+                "water": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "Uferbereich",
+                  "tag": "water"
+                },
+                "road": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 19,
+                  "name": "service",
+                  "tag": "road"
+                },
+                "meadow": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "meadow",
+                  "tag": "meadow"
+                }
+              },
+              "visualLandmarks": [],
+              "avoidZones": [],
+              "hints": [
+                "roadside/vehicle placement plausible near the road or parking anchor",
+                "waterline placement plausible near the water anchor",
+                "animals/tents/reference objects plausible on meadow or farmland anchors"
+              ],
+              "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+              "fetchedAt": 1779529982818
+            },
+            "mission_truth": {
+              "source": "mission-truth-v1",
+              "requestedCategory": "water",
+              "poiCategory": "water",
+              "primaryCategory": "water",
+              "geometryMode": "area",
+              "pickedPoi": {
+                "name": "Schluchsee",
+                "lat": 47.818,
+                "lon": 8.181,
+                "source": "Local fallback POIs (forced:water)",
+                "lookup": null
+              },
+              "targetProminence": {
+                "level": "high",
+                "reason": "target-category:water"
+              },
+              "visualLandmarks": [],
+              "mainTarget": {
+                "name": "Uferbereich",
+                "kind": "water",
+                "lat": 47.819379,
+                "lon": 8.182386,
+                "refinedFromPoi": true,
+                "distanceFromPoiM": 185,
+                "bearingFromPoiDeg": 34,
+                "reason": "nearest_water_anchor"
+              },
+              "sceneAnchor": {
+                "kind": "water",
+                "lat": 47.819379,
+                "lon": 8.182386,
+                "reason": "nearest_water_anchor"
+              },
+              "visibleCues": [
+                "Wasserflaeche oder Uferlinie",
+                "Strasse oder Zufahrt",
+                "offenes Gelaende"
+              ],
+              "constraints": [
+                "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+                "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+              ]
+            },
+            "weather_snapshot": {
+              "dep": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              },
+              "dest": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              }
+            },
+            "fire_hazard": null,
+            "airport_details": {
+              "start": {
+                "icao": "EDTW",
+                "name": "Winzeln-Schramberg Airport",
+                "lat": 48.2791671753,
+                "lon": 8.4283332825
+              },
+              "dest": null,
+              "targetPoi": {
+                "icao": "POI",
+                "name": "Schluchsee",
+                "lat": 47.818,
+                "lon": 8.181
+              }
+            }
+          },
+          "plan": {
+            "taskDomain": "science_bio",
+            "roleProfile": "science_field_v1",
+            "missionType": "poi",
+            "targetCategory": "water",
+            "primaryObjective": "Ökologische Dokumentation des Uferbereichs am Schluchsee zur Bestandsaufnahme der Vegetation und Wasserlinie.",
+            "targetLabel": "Schluchsee (Uferbereich)",
+            "sceneKind": "water_context",
+            "sceneDensity": "sparse",
+            "requiredAnchors": [
+              "water",
+              "road",
+              "meadow"
+            ],
+            "objectFamilies": [
+              "vehicles",
+              "tents",
+              "small_equipment"
+            ],
+            "placementPolicy": "Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser.",
+            "narrativeRules": [
+              "Keine Landung am Zielort (POI)",
+              "Fokus auf biologische Feldarbeit und Umweltbeobachtung",
+              "Sachlicher, professioneller Tonfall"
+            ],
+            "lockedFields": {
+              "noLandingAtPoi": true
+            },
+            "confidence": 1,
+            "localFacts": [
+              "Zielgebiet liegt am Schluchsee im Schwarzwald",
+              "Uferbereich mit angrenzender Service-Straße und Wiesenflächen",
+              "Entfernung von EDTW beträgt ca. 59 NM"
+            ],
+            "weatherHooks": [
+              "Wind aus 260° mit 8 kt",
+              "Gute VFR-Sichtbedingungen (>10 km)",
+              "Temperatur 17°C"
+            ],
+            "operationalDetails": [
+              "Abflug von Winzeln-Schramberg (EDTW)",
+              "Rundflug-Profil ohne Zwischenlandung",
+              "Niedrige Überflughöhe zur visuellen Erfassung des Ufers erforderlich"
+            ],
+            "realismBrief": "Umweltmonitoring und ökologische Bestandsaufnahmen an Schwarzwald-Talsperren sind typische Aufgaben für spezialisierte GA-Flüge im Auftrag von Landesämtern.",
+            "narrativeHooks": [
+              "Dokumentation von Vegetationsveränderungen im Uferbereich",
+              "Überprüfung der Zugänglichkeit für bodengebundene Feldteams über die Service-Straßen",
+              "Sichtung von potenziellen Probenahmestellen am Wasser"
+            ],
+            "mustMention": [
+              "Schluchsee",
+              "Uferbereich",
+              "Umweltbeobachtung"
+            ],
+            "mustAvoid": [
+              "Notfallszenarien",
+              "Landung auf dem Wasser oder am Ufer",
+              "Dramatische Wettergefahren"
+            ]
+          },
+          "debug": {
+            "source": "Gemini 3.0 Flash Tool Planner V3",
+            "rawStatus": "ready",
+            "pass": "tool-calling",
+            "promptVersion": "mission-v3-tool-planner-2026-05-23",
+            "toolCalls": [
+              {
+                "turn": 0,
+                "name": "get_mission_context_bundle",
+                "id": "p1iyu2b2",
+                "args": {
+                  "reason": "Verifizierung der Route EDTW zum Schluchsee und Abgleich der lokalen Gegebenheiten am Uferbereich fuer eine biologische Feldmission."
+                },
+                "resultKeys": [
+                  "schema",
+                  "route",
+                  "target",
+                  "picker",
+                  "category",
+                  "profile",
+                  "airportDetails",
+                  "weather",
+                  "fireHazard",
+                  "targetGeoContext"
+                ]
+              }
+            ],
+            "fallbackError": ""
+          }
+        },
+        "missionPlanV3": {
+          "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+          "status": "ready",
+          "needs": [],
+          "resolvedNeeds": {
+            "geo_context": {
+              "source": "overpass",
+              "radiusM": 750,
+              "center": {
+                "lat": 47.818,
+                "lon": 8.181
+              },
+              "anchors": {
+                "water": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "Uferbereich",
+                  "tag": "water"
+                },
+                "road": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 19,
+                  "name": "service",
+                  "tag": "road"
+                },
+                "meadow": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "meadow",
+                  "tag": "meadow"
+                }
+              },
+              "visualLandmarks": [],
+              "avoidZones": [],
+              "hints": [
+                "roadside/vehicle placement plausible near the road or parking anchor",
+                "waterline placement plausible near the water anchor",
+                "animals/tents/reference objects plausible on meadow or farmland anchors"
+              ],
+              "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+              "fetchedAt": 1779529982818
+            },
+            "mission_truth": {
+              "source": "mission-truth-v1",
+              "requestedCategory": "water",
+              "poiCategory": "water",
+              "primaryCategory": "water",
+              "geometryMode": "area",
+              "pickedPoi": {
+                "name": "Schluchsee",
+                "lat": 47.818,
+                "lon": 8.181,
+                "source": "Local fallback POIs (forced:water)",
+                "lookup": null
+              },
+              "targetProminence": {
+                "level": "high",
+                "reason": "target-category:water"
+              },
+              "visualLandmarks": [],
+              "mainTarget": {
+                "name": "Uferbereich",
+                "kind": "water",
+                "lat": 47.819379,
+                "lon": 8.182386,
+                "refinedFromPoi": true,
+                "distanceFromPoiM": 185,
+                "bearingFromPoiDeg": 34,
+                "reason": "nearest_water_anchor"
+              },
+              "sceneAnchor": {
+                "kind": "water",
+                "lat": 47.819379,
+                "lon": 8.182386,
+                "reason": "nearest_water_anchor"
+              },
+              "visibleCues": [
+                "Wasserflaeche oder Uferlinie",
+                "Strasse oder Zufahrt",
+                "offenes Gelaende"
+              ],
+              "constraints": [
+                "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+                "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+              ]
+            },
+            "weather_snapshot": {
+              "dep": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              },
+              "dest": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              }
+            },
+            "fire_hazard": null,
+            "airport_details": {
+              "start": {
+                "icao": "EDTW",
+                "name": "Winzeln-Schramberg Airport",
+                "lat": 48.2791671753,
+                "lon": 8.4283332825
+              },
+              "dest": null,
+              "targetPoi": {
+                "icao": "POI",
+                "name": "Schluchsee",
+                "lat": 47.818,
+                "lon": 8.181
+              }
+            }
+          },
+          "plan": {
+            "taskDomain": "science_bio",
+            "roleProfile": "science_field_v1",
+            "missionType": "poi",
+            "targetCategory": "water",
+            "primaryObjective": "Ökologische Dokumentation des Uferbereichs am Schluchsee zur Bestandsaufnahme der Vegetation und Wasserlinie.",
+            "targetLabel": "Schluchsee (Uferbereich)",
+            "sceneKind": "water_context",
+            "sceneDensity": "sparse",
+            "requiredAnchors": [
+              "water",
+              "road",
+              "meadow"
+            ],
+            "objectFamilies": [
+              "vehicles",
+              "tents",
+              "small_equipment"
+            ],
+            "placementPolicy": "Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser.",
+            "narrativeRules": [
+              "Keine Landung am Zielort (POI)",
+              "Fokus auf biologische Feldarbeit und Umweltbeobachtung",
+              "Sachlicher, professioneller Tonfall"
+            ],
+            "lockedFields": {
+              "noLandingAtPoi": true
+            },
+            "confidence": 1,
+            "localFacts": [
+              "Zielgebiet liegt am Schluchsee im Schwarzwald",
+              "Uferbereich mit angrenzender Service-Straße und Wiesenflächen",
+              "Entfernung von EDTW beträgt ca. 59 NM"
+            ],
+            "weatherHooks": [
+              "Wind aus 260° mit 8 kt",
+              "Gute VFR-Sichtbedingungen (>10 km)",
+              "Temperatur 17°C"
+            ],
+            "operationalDetails": [
+              "Abflug von Winzeln-Schramberg (EDTW)",
+              "Rundflug-Profil ohne Zwischenlandung",
+              "Niedrige Überflughöhe zur visuellen Erfassung des Ufers erforderlich"
+            ],
+            "realismBrief": "Umweltmonitoring und ökologische Bestandsaufnahmen an Schwarzwald-Talsperren sind typische Aufgaben für spezialisierte GA-Flüge im Auftrag von Landesämtern.",
+            "narrativeHooks": [
+              "Dokumentation von Vegetationsveränderungen im Uferbereich",
+              "Überprüfung der Zugänglichkeit für bodengebundene Feldteams über die Service-Straßen",
+              "Sichtung von potenziellen Probenahmestellen am Wasser"
+            ],
+            "mustMention": [
+              "Schluchsee",
+              "Uferbereich",
+              "Umweltbeobachtung"
+            ],
+            "mustAvoid": [
+              "Notfallszenarien",
+              "Landung auf dem Wasser oder am Ufer",
+              "Dramatische Wettergefahren"
+            ]
+          },
+          "debug": {
+            "source": "Gemini 3.0 Flash Tool Planner V3",
+            "rawStatus": "ready",
+            "pass": "tool-calling",
+            "promptVersion": "mission-v3-tool-planner-2026-05-23",
+            "toolCalls": [
+              {
+                "turn": 0,
+                "name": "get_mission_context_bundle",
+                "id": "p1iyu2b2",
+                "args": {
+                  "reason": "Verifizierung der Route EDTW zum Schluchsee und Abgleich der lokalen Gegebenheiten am Uferbereich fuer eine biologische Feldmission."
+                },
+                "resultKeys": [
+                  "schema",
+                  "route",
+                  "target",
+                  "picker",
+                  "category",
+                  "profile",
+                  "airportDetails",
+                  "weather",
+                  "fireHazard",
+                  "targetGeoContext"
+                ]
+              }
+            ],
+            "fallbackError": ""
+          }
+        },
+        "missionPipelineMode": "v3",
+        "missionPipelineV2Enabled": false,
+        "missionPipelineV3Enabled": true,
+        "aptArrivalPlan": null,
+        "targetScene": {
+          "preset": "",
+          "kind": "water_context",
+          "features": [
+            "people",
+            "tent"
+          ],
+          "requirements": [
+            {
+              "feature": "people",
+              "count": 1,
+              "placement": "am Ufer (Water-Anker)",
+              "arrangement": "cluster",
+              "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie.",
+              "forwardM": 0,
+              "rightM": 5
+            },
+            {
+              "feature": "tent",
+              "count": 1,
+              "placement": "auf der Wiese (Meadow-Anker)",
+              "arrangement": "cluster",
+              "notes": "Kleines, helles Forschungszelt als temporäre Basisstation.",
+              "forwardM": 5,
+              "rightM": 5
+            }
+          ],
+          "roles": [
+            "person.ground_crew",
+            "watercraft.small_boat",
+            "vehicle.van",
+            "camp.tent"
+          ],
+          "density": "sparse",
+          "layout": "scattered",
+          "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der A"
+        },
+        "targetSceneDebug": {
+          "sceneIntentRaw": {
+            "summary": "Ein ruhiger Uferabschnitt am Schluchsee mit einer angrenzenden Service-Straße und wissenschaftlichem Equipment.",
+            "environment": "Seeufer",
+            "visibleIdeas": [
+              "ein weißer Geländewagen an der Service-Straße",
+              "ein kleines Forschungszelt auf der Wiese",
+              "zwei Personen in Warnwesten am Wasser",
+              "ein schmales Ruderboot am Uferstreifen"
+            ],
+            "avoid": [
+              "Einsatzfahrzeuge mit Blaulicht",
+              "Große Menschenansammlungen",
+              "Motorboote"
+            ],
+            "densityHint": "sparse",
+            "notes": "Die Szenerie soll eine laufende Felduntersuchung darstellen."
+          },
+          "aiRequested": {
+            "kind": "water_context",
+            "preset": "",
+            "features": [
+              "people",
+              "watercraft",
+              "utility_truck",
+              "tent"
+            ],
+            "requirements": [
+              {
+                "feature": "people",
+                "count": 1,
+                "placement": "am Ufer (Water-Anker)",
+                "arrangement": "cluster",
+                "forwardM": 0,
+                "rightM": 5,
+                "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie."
+              },
+              {
+                "feature": "watercraft",
+                "count": 1,
+                "placement": "im flachen Wasser (Water-Anker)",
+                "arrangement": "cluster",
+                "forwardM": 0,
+                "rightM": 0,
+                "notes": "Kleines Ruderboot für Wasserproben direkt am Uferstreifen."
+              },
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "an der Service-Straße (Road-Anker)",
+                "arrangement": "cluster",
+                "forwardM": 0,
+                "rightM": 0,
+                "notes": "Weißer Geländewagen des Forschungsteams, geparkt am Straßenrand."
+              },
+              {
+                "feature": "tent",
+                "count": 1,
+                "placement": "auf der Wiese (Meadow-Anker)",
+                "arrangement": "cluster",
+                "forwardM": 5,
+                "rightM": 5,
+                "notes": "Kleines, helles Forschungszelt als temporäre Basisstation."
+              }
+            ],
+            "roles": [
+              "person.ground_crew",
+              "watercraft.small_boat",
+              "vehicle.van",
+              "camp.tent"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der Arbeitsabläufe zu vermitteln."
+          },
+          "aiNormalized": {
+            "preset": "",
+            "kind": "water_context",
+            "features": [
+              "people",
+              "tent"
+            ],
+            "requirements": [
+              {
+                "feature": "people",
+                "count": 1,
+                "placement": "am Ufer (Water-Anker)",
+                "arrangement": "cluster",
+                "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie.",
+                "forwardM": 0,
+                "rightM": 5
+              },
+              {
+                "feature": "tent",
+                "count": 1,
+                "placement": "auf der Wiese (Meadow-Anker)",
+                "arrangement": "cluster",
+                "notes": "Kleines, helles Forschungszelt als temporäre Basisstation.",
+                "forwardM": 5,
+                "rightM": 5
+              }
+            ],
+            "roles": [
+              "person.ground_crew",
+              "watercraft.small_boat",
+              "vehicle.van",
+              "camp.tent"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der A"
+          },
+          "contractTargetScene": {
+            "preset": "",
+            "kind": "water_context",
+            "features": [
+              "people",
+              "tent"
+            ],
+            "requirements": [
+              {
+                "feature": "people",
+                "count": 1,
+                "placement": "am Ufer (Water-Anker)",
+                "arrangement": "cluster",
+                "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie.",
+                "forwardM": 0,
+                "rightM": 5
+              },
+              {
+                "feature": "tent",
+                "count": 1,
+                "placement": "auf der Wiese (Meadow-Anker)",
+                "arrangement": "cluster",
+                "notes": "Kleines, helles Forschungszelt als temporäre Basisstation.",
+                "forwardM": 5,
+                "rightM": 5
+              }
+            ],
+            "roles": [
+              "person.ground_crew",
+              "watercraft.small_boat",
+              "vehicle.van",
+              "camp.tent"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der A"
+          },
+          "aptArrivalPlan": null
+        },
+        "paxText": "1 PAX (Biologe)",
+        "cargoText": "Umweltsensorik und Kamera (18 lbs)",
+        "passenger": {
+          "name": "Dr. Paul Reiter",
+          "role": "Ökologe",
+          "gender": "male",
+          "roleProfile": "science_field_v1",
+          "taskDomain": "science_bio",
+          "gTolerance": "niedrig",
+          "bankTolerance": "niedrig",
+          "cargoSensitivity": "mittel",
+          "stomachSensitivity": "mittel",
+          "comfortPriority": "hoch",
+          "urgencyPriority": "niedrig",
+          "targetAltFt": 4500,
+          "targetRadiusNm": 2.5,
+          "targetDwellMin": 5
+        },
+        "fireHazard": null,
+        "targetSceneComposerDebug": {
+          "source": "Gemini 3.0 Flash Scene Planner V3",
+          "promptVersion": "scene-v3-tool-planner-2026-05-23",
+          "toolCalls": [
+            {
+              "turn": 0,
+              "name": "get_scene_context_bundle",
+              "id": "xa6h61i5",
+              "args": {
+                "reason": "Initial context gathering for POI scene planning."
+              },
+              "resultKeys": [
+                "schema",
+                "mode",
+                "route",
+                "mission",
+                "sceneIntent",
+                "missionTruth",
+                "targetGeoContext",
+                "missionPlan",
+                "aptArrivalPlan",
+                "aptArrivalGeoContext"
+              ]
+            }
+          ],
+          "aiRaw": {
+            "kind": "water_context",
+            "preset": "",
+            "features": [
+              "people",
+              "watercraft",
+              "utility_truck",
+              "tent"
+            ],
+            "requirements": [
+              {
+                "feature": "people",
+                "count": 1,
+                "placement": "am Ufer (Water-Anker)",
+                "arrangement": "cluster",
+                "forwardM": 0,
+                "rightM": 5,
+                "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie."
+              },
+              {
+                "feature": "watercraft",
+                "count": 1,
+                "placement": "im flachen Wasser (Water-Anker)",
+                "arrangement": "cluster",
+                "forwardM": 0,
+                "rightM": 0,
+                "notes": "Kleines Ruderboot für Wasserproben direkt am Uferstreifen."
+              },
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "an der Service-Straße (Road-Anker)",
+                "arrangement": "cluster",
+                "forwardM": 0,
+                "rightM": 0,
+                "notes": "Weißer Geländewagen des Forschungsteams, geparkt am Straßenrand."
+              },
+              {
+                "feature": "tent",
+                "count": 1,
+                "placement": "auf der Wiese (Meadow-Anker)",
+                "arrangement": "cluster",
+                "forwardM": 5,
+                "rightM": 5,
+                "notes": "Kleines, helles Forschungszelt als temporäre Basisstation."
+              }
+            ],
+            "roles": [
+              "person.ground_crew",
+              "watercraft.small_boat",
+              "vehicle.van",
+              "camp.tent"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der Arbeitsabläufe zu vermitteln."
+          },
+          "aiArrivalRaw": null,
+          "normalized": {
+            "preset": "",
+            "kind": "water_context",
+            "features": [
+              "people",
+              "tent"
+            ],
+            "requirements": [
+              {
+                "feature": "people",
+                "count": 1,
+                "placement": "am Ufer (Water-Anker)",
+                "arrangement": "cluster",
+                "notes": "Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie.",
+                "forwardM": 0,
+                "rightM": 5
+              },
+              {
+                "feature": "tent",
+                "count": 1,
+                "placement": "auf der Wiese (Meadow-Anker)",
+                "arrangement": "cluster",
+                "notes": "Kleines, helles Forschungszelt als temporäre Basisstation.",
+                "forwardM": 5,
+                "rightM": 5
+              }
+            ],
+            "roles": [
+              "person.ground_crew",
+              "watercraft.small_boat",
+              "vehicle.van",
+              "camp.tent"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Die Szene stellt eine ökologische Felduntersuchung am Schluchsee dar. Die Objekte sind auf die verschiedenen Anker (Wasser, Straße, Wiese) verteilt, um ein realistisches Bild der A"
+          },
+          "aptArrivalPlan": null,
+          "localizationNotes": [
+            "Hauptziel ist der Uferbereich (Water-Anker) bei 47.819, 8.182.",
+            "Fahrzeug und Zelt sind auf die angrenzenden Road- und Meadow-Anker verteilt, um die Szene räumlich zu öffnen."
+          ],
+          "validationNotes": [
+            "Keine Landung am POI gemäß Missionsvorgabe.",
+            "Fahrzeug korrekt an der Straße platziert.",
+            "Wasserobjekte korrekt am Ufer platziert."
+          ],
+          "fallback": {
+            "preset": "",
+            "kind": "water_context",
+            "features": [
+              "tent",
+              "small_equipment"
+            ],
+            "requirements": [
+              {
+                "feature": "tent",
+                "count": 1,
+                "placement": "",
+                "arrangement": "",
+                "notes": ""
+              },
+              {
+                "feature": "small_equipment",
+                "count": 1,
+                "placement": "",
+                "arrangement": "",
+                "notes": ""
+              }
+            ],
+            "roles": [
+              "camp.tent",
+              "cargo.small_box"
+            ],
+            "density": "sparse",
+            "layout": "",
+            "notes": "Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser."
+          },
+          "fallbackArrivalPlan": null,
+          "error": ""
+        }
+      },
+      "prompts": [
+        {
+          "index": 1,
+          "kind": "mission-planner-v3-tool-call",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": false,
+          "functionResponses": [],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"functionCall\": { \"name\": \"get_mission_context_bundle\", \"args\": { \"reason\": \"Verifizierung der Route EDTW zum Schluchsee und Abgleich der lokalen Gegebenheiten am Uferbereich fuer eine biologische Feldmission.\" }, \"id\": \"p1iyu2b2\" }, \"thoughtSignature\": \"EtMHCtAHAQw51sepY7ezLndnSkhnB9sveieNa7yAdxCaZmQv80BsLulsSYTZD7OREcFXCX2v3GJdqFGYfLLec00ZwzQdvkAhH0x56lpokAlnV0sSOYjcagiqRbTsl5mPtFmz1Sb/3r+pMph+U+4/X1ATGLok+A9BroHfTPIkTmdA3eFjmxln8ftA/iMRvlven2kMWBiE6khX68MAZxJJje1ZadwfEf/YmjEU0ueZpcYZENRpYA7wmKfoczqJ2nQIx6/S5pkgQVbb80QIi8cSygRLFKD9otRCaTrpD+cPuFztlm0hS1seMx6L8edXOdySVc1ynhBBUP19/0giqhsGykdM+33TRv2vUj0Qdamw0H54iiTX4zpYV2/1hPEHivg/9++11GZA2V91ccY6JEtA4UjAQxj065CJffuvnyyolSg90I2f/bFAvrvtDB210ISoyOfIOWH/klkobM4Pug8MJtFXNFiOpe23t4w48yxUOzPia/qo4h57YhlGRStNuvo79RkVlzKbWUJ9Y/MJ6ttCSB9qr7R4xbM/uTDWpFKPSGtCUg7kaVLW+PyUm/pH1krIkqsKgKdoWIcsnBjyFKydg1rftY0op21Ny9f22wjR7uFJo/AiHG1hMbqVFrzProjlqIAzFrlyFWDUeVkyUotnvhZwE/pSOOkJZfc0qttdkWaIPTezdYsu18wcckAjYjxKpVeTpdm3LbB2J8DMhfIkbZl48WC+1cZHiJ0tNleluM+pmRje3igmfKQLp+MRaEUdTj4KZbg2qJpaFw0wBOs3VdWgxYdrGtRTAFFH/Mybx+PzzobPvRTPjsTQq4+LHlfArVV5giJ7RvMlvDoUHsHxrBq0m73ZWihfbac+8SNDQIU9rgd73Waak6GLEblUx2YAtXl",
+          "prompt": "<INSTRUKTIONEN>\nDu bist Mission Planner V3 fuer einen GA-Dispatcher im Flugsimulator.\nDu baust noch keine fertige Story. Du erzeugst ein robustes Planformular fuer die nachfolgende Dispatch-KI.\n\nArbeitsweise:\n1. Rufe zuerst get_mission_context_bundle auf.\n2. Nutze danach nur die Tool-Ergebnisse, den DRAFT und die erlaubten Rollen/Profile.\n3. Wenn ein Detail nicht aus DRAFT oder Tool-Ergebnis ableitbar ist, formuliere allgemein statt zu halluzinieren.\n4. Ziel: realistische, lokal verankerte Missionen mit konkretem Anlass, nicht generische Auftragsfloskeln.\n5. Wetter darf als Realitaetsanker vorkommen, aber nicht als erfundene Gefahrenlage.\n6. Antworte am Ende ausschliesslich als JSON.\n\nPlan-Regeln:\n- taskDomain und roleProfile muessen zum Picker/Profil passen.\n- primaryObjective beschreibt genau einen Hauptauftrag.\n- localFacts enthalten nur sichere, knappe Kontextdetails.\n- weatherHooks enthalten nur konkrete Wetterpunkte aus den Tool-Daten.\n- narrativeHooks sind 2-4 brauchbare Story-Anker fuer den spaeteren Dispatcher.\n- mustAvoid nennt konkrete Dinge, die die spaetere Story nicht tun darf.\n</INSTRUKTIONEN>\n\n<DRAFT>\n{\"schema\":\"missionDraft.v2\",\"mode\":\"poi\",\"route\":{\"startIcao\":\"EDTW\",\"startName\":\"Winzeln-Schramberg Airport\",\"targetIcao\":\"POI\",\"distanceNm\":58.8},\"target\":{\"name\":\"Schluchsee\",\"lat\":47.818,\"lon\":8.181,\"terrainFt\":0,\"poiSource\":\"Local fallback POIs (forced:water)\",\"poiCategory\":\"water\"},\"picker\":{\"baseType\":\"poi\",\"category\":\"water\",\"categoryRequested\":\"all\",\"profile\":\"science_bio\"},\"profile\":{\"id\":\"science_bio\",\"label\":\"Biologie/Umwelt\",\"roleProfile\":\"science_field_v1\",\"taskDomain\":\"science_bio\"},\"category\":\"water\",\"weather\":{\"dep\":\"Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\",\"dest\":\"Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\"},\"fireHazard\":null,\"targetGeoContext\":{\"summary\":\"water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg\",\"hints\":[\"roadside/vehicle placement plausible near the road or parking anchor\",\"waterline placement plausible near the water anchor\",\"animals/tents/reference objects plausible on meadow or farmland anchors\"],\"anchors\":{\"water\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"Uferbereich\",\"tag\":\"water\"},\"road\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":19,\"name\":\"service\",\"tag\":\"road\"},\"meadow\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"meadow\",\"tag\":\"meadow\"}}},\"missionTruth\":{\"requestedCategory\":\"water\",\"poiCategory\":\"water\",\"primaryCategory\":\"water\",\"geometryMode\":\"area\",\"pickedPoi\":{\"name\":\"Schluchsee\",\"lat\":47.818,\"lon\":8.181,\"source\":\"Local fallback POIs (forced:water)\"},\"mainTarget\":{\"name\":\"Uferbereich\",\"kind\":\"water\",\"lat\":47.819379,\"lon\":8.182386,\"refinedFromPoi\":true,\"distanceFromPoiM\":185,\"bearingFromPoiDeg\":34,\"reason\":\"nearest_water_anchor\"},\"sceneAnchor\":{\"kind\":\"water\",\"lat\":47.819379,\"lon\":8.182386,\"reason\":\"nearest_water_anchor\"},\"targetProminence\":{\"level\":\"high\",\"reason\":\"target-category:water\"},\"visualLandmarks\":[],\"visibleCues\":[\"Wasserflaeche oder Uferlinie\",\"Strasse oder Zufahrt\",\"offenes Gelaende\"],\"constraints\":[\"Missionstexte duerfen nur diese Lage als Primaerziel verwenden.\",\"Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen.\"]}}\n</DRAFT>\n\n<OUTPUT_JSON>\n{\n  \"status\": \"ready|invalid\",\n  \"needs\": [],\n  \"plan\": {\n    \"taskDomain\": \"aus erlaubter Liste\",\n    \"roleProfile\": \"aus erlaubter Liste\",\n    \"missionType\": \"poi|apt\",\n    \"targetCategory\": \"bridge|water|cargo|charter|...\",\n    \"primaryObjective\": \"konkreter Hauptauftrag\",\n    \"targetLabel\": \"kanonischer Zielname\",\n    \"sceneKind\": \"none|construction_site|sar_land|water_context|fire_watch|...\",\n    \"sceneDensity\": \"none|sparse|normal|busy\",\n    \"requiredAnchors\": [\"wichtige Platzierungs-/Kontextanker\"],\n    \"objectFamilies\": [\"semantische Objektgruppen, keine Assetnamen\"],\n    \"placementPolicy\": \"wie Zielszene logisch gruppiert werden soll\",\n    \"narrativeRules\": [\"harte Regeln fuer Story/PAX\"],\n    \"localFacts\": [\"1-4 sichere lokale/contextuelle Fakten\"],\n    \"weatherHooks\": [\"0-3 knappe Wetteranker\"],\n    \"operationalDetails\": [\"1-4 fliegerische oder dispatcherische Details\"],\n    \"realismBrief\": \"warum der Auftrag an diesem Ziel glaubwuerdig ist\",\n    \"narrativeHooks\": [\"2-4 konkrete Story-Anker\"],\n    \"mustMention\": [\"konkrete Pflichtpunkte\"],\n    \"mustAvoid\": [\"konkrete Verbote gegen generische oder falsche Storys\"],\n    \"lockedFields\": {\"noLandingAtPoi\": true},\n    \"confidence\": 0.0\n  }\n}\n</OUTPUT_JSON>",
+          "excerpt": "<INSTRUKTIONEN> Du bist Mission Planner V3 fuer einen GA-Dispatcher im Flugsimulator. Du baust noch keine fertige Story. Du erzeugst ein robustes Planformular fuer die nachfolgende Dispatch-KI. Arbeitsweise: 1. Rufe zuerst get_mission_context_bundle auf. 2. Nutze danach nur die Tool-Ergebnisse, den DRAFT und die erlaubten Rollen/Profile. 3. Wenn ein Detail nicht aus DRAFT oder Tool-Ergebnis ableitbar ist, formuliere allgemein statt zu halluzinieren. 4. Ziel: realistische, lokal verankerte Missionen mit konkretem Anlass, nicht generische Auftragsfloskeln. 5. Wetter darf als Realitaetsanker vorkommen, aber nicht als erfundene Gefahrenlage. 6. Antworte am Ende ausschliesslich als JSON. Plan-Reg"
+        },
+        {
+          "index": 2,
+          "kind": "mission-planner-v3-final",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": true,
+          "functionResponses": [
+            {
+              "name": "get_mission_context_bundle",
+              "keys": [
+                "schema",
+                "route",
+                "target",
+                "picker",
+                "category",
+                "profile",
+                "airportDetails",
+                "weather",
+                "fireHazard",
+                "targetGeoContext"
+              ]
+            }
+          ],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"text\": \"{\\n \\\"status\\\": \\\"ready\\\",\\n \\\"needs\\\": [],\\n \\\"plan\\\": {\\n \\\"taskDomain\\\": \\\"science_bio\\\",\\n \\\"roleProfile\\\": \\\"science_field_v1\\\",\\n \\\"missionType\\\": \\\"poi\\\",\\n \\\"targetCategory\\\": \\\"water\\\",\\n \\\"primaryObjective\\\": \\\"Luftgest\", \"thoughtSignature\": \"EvctCvQtAQw51sfosU7ifHI6BxdTBqqAa76ccNSDHOB7bqVVEltyK0nIdft524/PEm470UegSzTLvh84Bf2v8y5Ja47SWehql8hQ4q0+JS2cXEo3SYjVvBrBkkaqnUi36Z5zKALV7r22girnqOuJhHTelB1HKPa3DFYBkvlxJv9l9cInAogcFyU0ctNXEVlAamfh0V1nD/vG7V/sny9o3og2Id09YvQKFGEjgwQQ3z/QJ9fSQc5xH+ugW5VS2diWLGjPP6JjldNore/YM17BWes+xfuEr4sy3GfD2Go107Hk8MId83RpWNKqjQ4uWO2c1vpUn/RuNZf1zAwrBvK+KFXD3w9y7/+jYFvczZt0OhaSh4C0hDwn8xLy+IHeQ3+6fQt9iIRtOWOHOuJ4D2maGCoezMlnQwRkUSulEmbwAIlYjT2GMTgffrV5O/p0h8Qlgtm0Ctrj5lrXtXhIZo5MgKl0PEkRecPp6ZmaBaXnURBd6NPsRtDnBKYiPI+pny4/k1MD93t8NbqMp6Sksy/F75sBZBYRABPyg/nr3koQBrBhCBGzLBmlE2mp/FgcUBsNN0DaQRi9TTGhxORnSc7Q5ZSAcf41z/0as/yUieeqGmLRc24ZPPlLWZRZw1NuBSNMQKd6ezEiqCJrUCZxVDTiE9uZjl6rFG2oHcgkfJ5sk/K79wL3SGIYzYHb/ClYNqo5EBVbeX+g5hJ9huSOdE0fvA88zYCypA+5TpHzVRTgkMKBmQKiKxH7yrSeWCjKTlYu+gmABuX6c5zQd2qMRiqNJYCSOF25aWGFvJ1BrG98s24ZeoKAO79pc9j3FQ1NZNWUP2xXesexfWeNVKo/niUD15Ns2/3bOacCEbeZsQmRUnHXPNGsLHMavcyHulRc",
+          "prompt": "<INSTRUKTIONEN>\nDu bist Mission Planner V3 fuer einen GA-Dispatcher im Flugsimulator.\nDu baust noch keine fertige Story. Du erzeugst ein robustes Planformular fuer die nachfolgende Dispatch-KI.\n\nArbeitsweise:\n1. Rufe zuerst get_mission_context_bundle auf.\n2. Nutze danach nur die Tool-Ergebnisse, den DRAFT und die erlaubten Rollen/Profile.\n3. Wenn ein Detail nicht aus DRAFT oder Tool-Ergebnis ableitbar ist, formuliere allgemein statt zu halluzinieren.\n4. Ziel: realistische, lokal verankerte Missionen mit konkretem Anlass, nicht generische Auftragsfloskeln.\n5. Wetter darf als Realitaetsanker vorkommen, aber nicht als erfundene Gefahrenlage.\n6. Antworte am Ende ausschliesslich als JSON.\n\nPlan-Regeln:\n- taskDomain und roleProfile muessen zum Picker/Profil passen.\n- primaryObjective beschreibt genau einen Hauptauftrag.\n- localFacts enthalten nur sichere, knappe Kontextdetails.\n- weatherHooks enthalten nur konkrete Wetterpunkte aus den Tool-Daten.\n- narrativeHooks sind 2-4 brauchbare Story-Anker fuer den spaeteren Dispatcher.\n- mustAvoid nennt konkrete Dinge, die die spaetere Story nicht tun darf.\n</INSTRUKTIONEN>\n\n<DRAFT>\n{\"schema\":\"missionDraft.v2\",\"mode\":\"poi\",\"route\":{\"startIcao\":\"EDTW\",\"startName\":\"Winzeln-Schramberg Airport\",\"targetIcao\":\"POI\",\"distanceNm\":58.8},\"target\":{\"name\":\"Schluchsee\",\"lat\":47.818,\"lon\":8.181,\"terrainFt\":0,\"poiSource\":\"Local fallback POIs (forced:water)\",\"poiCategory\":\"water\"},\"picker\":{\"baseType\":\"poi\",\"category\":\"water\",\"categoryRequested\":\"all\",\"profile\":\"science_bio\"},\"profile\":{\"id\":\"science_bio\",\"label\":\"Biologie/Umwelt\",\"roleProfile\":\"science_field_v1\",\"taskDomain\":\"science_bio\"},\"category\":\"water\",\"weather\":{\"dep\":\"Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\",\"dest\":\"Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\"},\"fireHazard\":null,\"targetGeoContext\":{\"summary\":\"water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg\",\"hints\":[\"roadside/vehicle placement plausible near the road or parking anchor\",\"waterline placement plausible near the water anchor\",\"animals/tents/reference objects plausible on meadow or farmland anchors\"],\"anchors\":{\"water\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"Uferbereich\",\"tag\":\"water\"},\"road\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":19,\"name\":\"service\",\"tag\":\"road\"},\"meadow\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"meadow\",\"tag\":\"meadow\"}}},\"missionTruth\":{\"requestedCategory\":\"water\",\"poiCategory\":\"water\",\"primaryCategory\":\"water\",\"geometryMode\":\"area\",\"pickedPoi\":{\"name\":\"Schluchsee\",\"lat\":47.818,\"lon\":8.181,\"source\":\"Local fallback POIs (forced:water)\"},\"mainTarget\":{\"name\":\"Uferbereich\",\"kind\":\"water\",\"lat\":47.819379,\"lon\":8.182386,\"refinedFromPoi\":true,\"distanceFromPoiM\":185,\"bearingFromPoiDeg\":34,\"reason\":\"nearest_water_anchor\"},\"sceneAnchor\":{\"kind\":\"water\",\"lat\":47.819379,\"lon\":8.182386,\"reason\":\"nearest_water_anchor\"},\"targetProminence\":{\"level\":\"high\",\"reason\":\"target-category:water\"},\"visualLandmarks\":[],\"visibleCues\":[\"Wasserflaeche oder Uferlinie\",\"Strasse oder Zufahrt\",\"offenes Gelaende\"],\"constraints\":[\"Missionstexte duerfen nur diese Lage als Primaerziel verwenden.\",\"Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen.\"]}}\n</DRAFT>\n\n<OUTPUT_JSON>\n{\n  \"status\": \"ready|invalid\",\n  \"needs\": [],\n  \"plan\": {\n    \"taskDomain\": \"aus erlaubter Liste\",\n    \"roleProfile\": \"aus erlaubter Liste\",\n    \"missionType\": \"poi|apt\",\n    \"targetCategory\": \"bridge|water|cargo|charter|...\",\n    \"primaryObjective\": \"konkreter Hauptauftrag\",\n    \"targetLabel\": \"kanonischer Zielname\",\n    \"sceneKind\": \"none|construction_site|sar_land|water_context|fire_watch|...\",\n    \"sceneDensity\": \"none|sparse|normal|busy\",\n    \"requiredAnchors\": [\"wichtige Platzierungs-/Kontextanker\"],\n    \"objectFamilies\": [\"semantische Objektgruppen, keine Assetnamen\"],\n    \"placementPolicy\": \"wie Zielszene logisch gruppiert werden soll\",\n    \"narrativeRules\": [\"harte Regeln fuer Story/PAX\"],\n    \"localFacts\": [\"1-4 sichere lokale/contextuelle Fakten\"],\n    \"weatherHooks\": [\"0-3 knappe Wetteranker\"],\n    \"operationalDetails\": [\"1-4 fliegerische oder dispatcherische Details\"],\n    \"realismBrief\": \"warum der Auftrag an diesem Ziel glaubwuerdig ist\",\n    \"narrativeHooks\": [\"2-4 konkrete Story-Anker\"],\n    \"mustMention\": [\"konkrete Pflichtpunkte\"],\n    \"mustAvoid\": [\"konkrete Verbote gegen generische oder falsche Storys\"],\n    \"lockedFields\": {\"noLandingAtPoi\": true},\n    \"confidence\": 0.0\n  }\n}\n</OUTPUT_JSON>",
+          "excerpt": "<INSTRUKTIONEN> Du bist Mission Planner V3 fuer einen GA-Dispatcher im Flugsimulator. Du baust noch keine fertige Story. Du erzeugst ein robustes Planformular fuer die nachfolgende Dispatch-KI. Arbeitsweise: 1. Rufe zuerst get_mission_context_bundle auf. 2. Nutze danach nur die Tool-Ergebnisse, den DRAFT und die erlaubten Rollen/Profile. 3. Wenn ein Detail nicht aus DRAFT oder Tool-Ergebnis ableitbar ist, formuliere allgemein statt zu halluzinieren. 4. Ziel: realistische, lokal verankerte Missionen mit konkretem Anlass, nicht generische Auftragsfloskeln. 5. Wetter darf als Realitaetsanker vorkommen, aber nicht als erfundene Gefahrenlage. 6. Antworte am Ende ausschliesslich als JSON. Plan-Reg"
+        },
+        {
+          "index": 3,
+          "kind": "mission-planner-v3-final",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": true,
+          "functionResponses": [
+            {
+              "name": "get_mission_context_bundle",
+              "keys": [
+                "schema",
+                "route",
+                "target",
+                "picker",
+                "category",
+                "profile",
+                "airportDetails",
+                "weather",
+                "fireHazard",
+                "targetGeoContext"
+              ]
+            }
+          ],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"text\": \"{\\n \\\"status\\\": \\\"ready\\\",\\n \\\"needs\\\": [],\\n \\\"plan\\\": {\\n \\\"taskDomain\\\": \\\"science_bio\\\",\\n \\\"roleProfile\\\": \\\"science_field_v1\\\",\\n \\\"missionType\\\": \\\"poi\\\",\\n \\\"targetCategory\\\": \\\"water\\\",\\n \\\"primaryObjective\\\": \\\"Ökologische Dokumentation des Uferbereichs am Schluchsee zur Bestandsaufnahme der Vegetation und Wasserlinie.\\\",\\n \\\"targetLabel\\\": \\\"Schluchsee (Uferbereich)\\\",\\n \\\"sceneKind\\\": \\\"water_context\\\",\\n \\\"sceneDensity\\\": \\\"sparse\\\",\\n \\\"requiredAnchors\\\": [\\\"water\\\", \\\"road\\\", \\\"meadow\\\"],\\n \\\"objectFamilies\\\": [\\\"vehicles\\\", \\\"tents\\\", \\\"small_equipment\\\"],\\n \\\"placementPolicy\\\": \\\"Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser.\\\",\\n \\\"narrativeRules\\\": [\\\"Keine Landung am Zielort (POI)\\\", \\\"Fokus auf biologische Feldarbeit und Umweltbeobachtung\\\", \\\"Sachlicher, professioneller Tonfall\\\"],\\n \\\"localFacts\\\": [\\n \\\"Zielgebiet liegt am Schluchsee im Schwarzwald\\\",\\n \\\"Uferbereich mit angrenzender Service-Straße und Wiesenflächen\\\",\\n \\\"Entfernung von EDTW beträgt ca. 59 NM\\\"\\n ],\\n \\\"weatherHooks\\\": [\\n \\\"Wind aus 260° mit 8 kt\\\",\\n \\\"Gute V",
+          "prompt": "<INSTRUKTIONEN>\nDu bist Mission Planner V3 fuer einen GA-Dispatcher im Flugsimulator.\nDu baust noch keine fertige Story. Du erzeugst ein robustes Planformular fuer die nachfolgende Dispatch-KI.\n\nArbeitsweise:\n1. Rufe zuerst get_mission_context_bundle auf.\n2. Nutze danach nur die Tool-Ergebnisse, den DRAFT und die erlaubten Rollen/Profile.\n3. Wenn ein Detail nicht aus DRAFT oder Tool-Ergebnis ableitbar ist, formuliere allgemein statt zu halluzinieren.\n4. Ziel: realistische, lokal verankerte Missionen mit konkretem Anlass, nicht generische Auftragsfloskeln.\n5. Wetter darf als Realitaetsanker vorkommen, aber nicht als erfundene Gefahrenlage.\n6. Antworte am Ende ausschliesslich als JSON.\n\nPlan-Regeln:\n- taskDomain und roleProfile muessen zum Picker/Profil passen.\n- primaryObjective beschreibt genau einen Hauptauftrag.\n- localFacts enthalten nur sichere, knappe Kontextdetails.\n- weatherHooks enthalten nur konkrete Wetterpunkte aus den Tool-Daten.\n- narrativeHooks sind 2-4 brauchbare Story-Anker fuer den spaeteren Dispatcher.\n- mustAvoid nennt konkrete Dinge, die die spaetere Story nicht tun darf.\n</INSTRUKTIONEN>\n\n<DRAFT>\n{\"schema\":\"missionDraft.v2\",\"mode\":\"poi\",\"route\":{\"startIcao\":\"EDTW\",\"startName\":\"Winzeln-Schramberg Airport\",\"targetIcao\":\"POI\",\"distanceNm\":58.8},\"target\":{\"name\":\"Schluchsee\",\"lat\":47.818,\"lon\":8.181,\"terrainFt\":0,\"poiSource\":\"Local fallback POIs (forced:water)\",\"poiCategory\":\"water\"},\"picker\":{\"baseType\":\"poi\",\"category\":\"water\",\"categoryRequested\":\"all\",\"profile\":\"science_bio\"},\"profile\":{\"id\":\"science_bio\",\"label\":\"Biologie/Umwelt\",\"roleProfile\":\"science_field_v1\",\"taskDomain\":\"science_bio\"},\"category\":\"water\",\"weather\":{\"dep\":\"Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\",\"dest\":\"Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\"},\"fireHazard\":null,\"targetGeoContext\":{\"summary\":\"water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg\",\"hints\":[\"roadside/vehicle placement plausible near the road or parking anchor\",\"waterline placement plausible near the water anchor\",\"animals/tents/reference objects plausible on meadow or farmland anchors\"],\"anchors\":{\"water\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"Uferbereich\",\"tag\":\"water\"},\"road\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":19,\"name\":\"service\",\"tag\":\"road\"},\"meadow\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"meadow\",\"tag\":\"meadow\"}}},\"missionTruth\":{\"requestedCategory\":\"water\",\"poiCategory\":\"water\",\"primaryCategory\":\"water\",\"geometryMode\":\"area\",\"pickedPoi\":{\"name\":\"Schluchsee\",\"lat\":47.818,\"lon\":8.181,\"source\":\"Local fallback POIs (forced:water)\"},\"mainTarget\":{\"name\":\"Uferbereich\",\"kind\":\"water\",\"lat\":47.819379,\"lon\":8.182386,\"refinedFromPoi\":true,\"distanceFromPoiM\":185,\"bearingFromPoiDeg\":34,\"reason\":\"nearest_water_anchor\"},\"sceneAnchor\":{\"kind\":\"water\",\"lat\":47.819379,\"lon\":8.182386,\"reason\":\"nearest_water_anchor\"},\"targetProminence\":{\"level\":\"high\",\"reason\":\"target-category:water\"},\"visualLandmarks\":[],\"visibleCues\":[\"Wasserflaeche oder Uferlinie\",\"Strasse oder Zufahrt\",\"offenes Gelaende\"],\"constraints\":[\"Missionstexte duerfen nur diese Lage als Primaerziel verwenden.\",\"Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen.\"]}}\n</DRAFT>\n\n<OUTPUT_JSON>\n{\n  \"status\": \"ready|invalid\",\n  \"needs\": [],\n  \"plan\": {\n    \"taskDomain\": \"aus erlaubter Liste\",\n    \"roleProfile\": \"aus erlaubter Liste\",\n    \"missionType\": \"poi|apt\",\n    \"targetCategory\": \"bridge|water|cargo|charter|...\",\n    \"primaryObjective\": \"konkreter Hauptauftrag\",\n    \"targetLabel\": \"kanonischer Zielname\",\n    \"sceneKind\": \"none|construction_site|sar_land|water_context|fire_watch|...\",\n    \"sceneDensity\": \"none|sparse|normal|busy\",\n    \"requiredAnchors\": [\"wichtige Platzierungs-/Kontextanker\"],\n    \"objectFamilies\": [\"semantische Objektgruppen, keine Assetnamen\"],\n    \"placementPolicy\": \"wie Zielszene logisch gruppiert werden soll\",\n    \"narrativeRules\": [\"harte Regeln fuer Story/PAX\"],\n    \"localFacts\": [\"1-4 sichere lokale/contextuelle Fakten\"],\n    \"weatherHooks\": [\"0-3 knappe Wetteranker\"],\n    \"operationalDetails\": [\"1-4 fliegerische oder dispatcherische Details\"],\n    \"realismBrief\": \"warum der Auftrag an diesem Ziel glaubwuerdig ist\",\n    \"narrativeHooks\": [\"2-4 konkrete Story-Anker\"],\n    \"mustMention\": [\"konkrete Pflichtpunkte\"],\n    \"mustAvoid\": [\"konkrete Verbote gegen generische oder falsche Storys\"],\n    \"lockedFields\": {\"noLandingAtPoi\": true},\n    \"confidence\": 0.0\n  }\n}\n</OUTPUT_JSON>",
+          "excerpt": "<INSTRUKTIONEN> Du bist Mission Planner V3 fuer einen GA-Dispatcher im Flugsimulator. Du baust noch keine fertige Story. Du erzeugst ein robustes Planformular fuer die nachfolgende Dispatch-KI. Arbeitsweise: 1. Rufe zuerst get_mission_context_bundle auf. 2. Nutze danach nur die Tool-Ergebnisse, den DRAFT und die erlaubten Rollen/Profile. 3. Wenn ein Detail nicht aus DRAFT oder Tool-Ergebnis ableitbar ist, formuliere allgemein statt zu halluzinieren. 4. Ziel: realistische, lokal verankerte Missionen mit konkretem Anlass, nicht generische Auftragsfloskeln. 5. Wetter darf als Realitaetsanker vorkommen, aber nicht als erfundene Gefahrenlage. 6. Antworte am Ende ausschliesslich als JSON. Plan-Reg"
+        },
+        {
+          "index": 4,
+          "kind": "mission-dispatcher",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": false,
+          "functionResponses": [],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"text\": \"{\\n \\\"dispatchFormAck\\\": {\\n \\\"taskDomain\\\": \\\"science_bio\\\",\\n \\\"roleProfile\\\": \\\"science_field_v1\\\",\\n \\\"missionType\\\": \\\"poi\\\"\\n },\\n \\\"title\\\": \\\"Ufer-Monitoring am Schluchsee\\\",\\n \\\"story\\\": \\\"Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand achten. Da der See auf knapp 930 Metern Höhe liegt, bietet er als größter Schwarzwaldsee ganz eigene ökologische Habitate, die wir heute aus der Luft erfassen.\\\",\\n \\\"pax\\\": \\\"1 PAX (Umweltbiologin)\\\",\\n \\\"cargo\\\": \\\"GPS-Logger und Kamera-Equipment (27 lbs)\\\",\\n \\\"sceneIntent\\\": {\\n \\\"summary\\\": \\\"Ein ruhiger Uferabschnitt am Schluchsee mit einer angrenzenden Service-Straße und wissenschaftlichem Equipment.\\\",\\n \\\"environment\\\": \\\"Seeufer\\\",\\n \\\"visibleIdeas\\\": [\\n \\\"ein weißer Geländewagen an der Service-Straße\\\",\\n \\\"ein kleines Forschungszelt auf der Wiese\\\",\\n \\\"zwei Personen in Warnwesten am Wasser\\\",\\n \\\"ein schmales Ruderboot am Uferstreifen\\\"\\n ],\\n \\\"avoid\\\": [\\n \\\"Einsatzf",
+          "prompt": "<INSTRUKTIONEN>\nDu bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen.\nAntwortsprache: Deutsch.\nTon: alltagsnah, locker, glaubwürdig; keine Actionfilm-Rhetorik.\n\nREGELN:\n1) Thema-Pflicht: Der Auftrag MUSS zum Thema \"Oekologische Kurzaufnahme von Vegetation, Ufer, Habitat oder Waldrand\" passen.\n2) 4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu \"Schluchsee\" ganz natürlich ein.\n3) 3b. KATEGORIE-FIX: Die Mission muss zur POI-Kategorie \"water\" passen.\n3b) 4b. POI-KONSISTENZ (zwingend): Der urspruengliche Suchtreffer ist \"Schluchsee\" bei 47.81800, 8.18100, aber die gepruefte Hauptlage ist missionTruth.mainTarget. Story, greetingText und sceneIntent muessen diese Hauptlage als Arbeits-/Sichtziel nutzen. Wenn mainTarget vom Suchtreffer abweicht, erklaere es natuerlich als Ufer, Rand, Zufahrt oder naheliegenden Zielbereich; keinen zweiten Primaerort erfinden.\n3c) 4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. mainTarget beschreibt das kanonische Arbeits-/Sichtziel; sceneAnchor/visibleCues/visualLandmarks duerfen nur Platzierung, Zufahrt oder Orientierung erklaeren und nie ein anderes Primaerziel daraus machen. geometryMode erklaert die Zielart: pinpoint/structure bleibt beim Objekt, area darf nur zur passenden Flaeche/Kante, corridor/facility/broad_infrastructure nur zu passenden Strukturankern. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen. visualLandmarks sind bestaetigte visuelle Referenzen bis 500m; bei unauffaelligem Ziel duerfen sie zur Orientierung genutzt werden, aber nicht als Primaerziel.\n3d) 4d. PIPELINE-V3-TOOL-PLAN: Nutze missionPlanV2 als Tool-Calling-Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, localFacts, weatherHooks, realismBrief, narrativeHooks, mustMention/mustAvoid und lockedFields sind Leitplanken. Die Story muss daraus einen konkreten, lokal plausiblen Auftrag machen.\n4) RUNDFLUG-REGEL: Start/Landung in Winzeln-Schramberg Airport; am POI wird nicht gelandet.\n5) Erfinde passende PAX/Fracht (max 1 Personen). Falls niemand mitfliegt: \"0 PAX\".\n6) Erfinde genau einen Hauptpassagier. (oder null bei 0 PAX).\n6b) passenger.gender ist PFLICHT und MUSS exakt \"male\" oder \"female\" sein (keine anderen Werte).\n7) Leite diese Felder datengetrieben aus Auftrag/Rolle/Fracht/Wetter ab:\n   - gTolerance, bankTolerance, cargoSensitivity, stomachSensitivity, comfortPriority: jeweils niedrig|mittel|hoch\n   - urgencyPriority: niedrig|hoch\n   - roleProfile aus erlaubter Liste\n   - taskDomain aus erlaubter Liste\n   POI-Einsatzparameter: targetAltFt konservativ wählen; niemals so niedrig, dass es unter 500 ft AGL wäre. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).\n8) DRINGLICHKEITS-REGEL FÜR STORY:\n   - Wenn urgencyPriority = hoch: story MUSS genau einen kurzen Zeitkritik-Hinweis enthalten (z.B. \"zeitkritisch\", \"müssen pünktlich ankommen\").\n   - Wenn urgencyPriority = niedrig: story DARF keinen Zeitdruck erwähnen.\n9) Wetter als Realitätsanker nutzen, aber nicht überdramatisieren.\n10) Optional dialectHint: neutral oder leichte regionale Färbung; nie starker Dialekt.\n11) Keine zusätzlichen Eigennamen für den Piloten erfinden (nur \"du\").\n12) Interne Regel-/Verbotssätze NIE wörtlich im story-Feld wiederholen.\n13) Trennung strikt einhalten: Alles in <INSTRUKTIONEN> sind Arbeitsregeln und dürfen nicht als Storytext erscheinen.\n13b) greetingText MUSS die konkrete Aufgabe kurz nennen: was suchen, beobachten, prüfen oder fotografieren wir und in welchem Zielkontext. Keine rein generischen Begrüßungen wie \"Suchmuster und klare Calls\" ohne Objekt/Ort/Trasse/Anlass.\n13c) Story, greetingText und sceneIntent muessen dieselbe Lage beschreiben. Das gilt fuer alle Missionstypen. Erst das Primaerziel definieren, dann passende Kontextobjekte, dann nur bei Bedarf Support. Wenn sceneIntent sichtbare Personen, Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere, Werkzeug, Fracht oder Ausruestung vorsieht, muss die Story/Greeting diese Elemente natuerlich stuetzen. Fuege keine Support-Objekte hinzu, die den Auftrag schon erledigt wirken lassen oder im Briefing nicht vorkommen.\n13d) DISPATCH-FORMULAR: Das JSON in <DISPATCH_FORM> ist bindend. Du darfst Auftragstyp, taskDomain, roleProfile, Ziel, Missionstyp und forbiddenThemes nicht uminterpretieren. Wenn ein Feld im Formular gesetzt ist, muss deine Ausgabe dazu passen.\n10. KEIN TRAININGSDRIFT: Falls es kein Trainingsflug ist, darf KEIN Trainingsauftrag mit Fluglehrer, Übungen, Platzrunden-Drills oder Checkflug-Inhalten erzeugt werden.\n13. POI-GUARDRAIL: Bei POI-Missionen sind Trainingsinhalte strikt verboten (kein Instructor, keine Airwork-/Platzrunden-Aufgaben).\n14. PROFIL-FIX (zwingend): Setze passenger.roleProfile auf \"science_field_v1\" und passenger.taskDomain auf \"science_bio\". Rolle/Story daran ausrichten: Biologie/Umwelt.\n15. KONSISTENZ-PFLICHT: Kein Themenmix gegen das Profil. Beispiel: Bei Sightseeing KEIN Ersatzteil-/Kurier-/Notfallauftrag; bei Reporter KEIN reiner Touri-Text; bei Mapping/SAR nur passende Einsatzinhalte.\n\n\n\n\n17. SCENE-INTENT-PFLICHT: Gib KEINE fertige targetScene aus. Gib stattdessen ein Objekt \"sceneIntent\" aus: eine knappe Klartext-Beschreibung dessen, was am Ziel aus Missionskontext wirklich sichtbar sein sollte.\nProfilkontext: science_bio.\nsceneIntent Felder:\n- summary: 1-2 Saetze, was im Zielgebiet visuell plausibel ist.\n- environment: kurzer Landschafts-/Umgebungstyp, z.B. Wald, Seeufer, Baustelle, Strasse, Industrie, leer.\n- visibleIdeas: 0-8 konkrete sichtbare Ideen als Klartext, z.B. \"zwei kleine private Boote am Ufer\", \"ein Zelt und kleine Ausruestung\", \"ein Baufahrzeug an einer Erdbaustelle\", \"nur natuerliches Ufer und Wasservoegel\". Keine Asset-Namen, keine Kategorien.\n- avoid: Dinge, die NICHT auftauchen sollen, wenn sie unplausibel waeren, z.B. \"keine Kuestenwache\", \"keine Einsatzfahrzeuge\", \"keine Deko\".\n- densityHint: none|sparse|normal|busy.\n- notes: kurzer Grund.\nWichtig: Keine Standard-Deko. Bei Lern-/Sightseeing-Fluegen darf sceneIntent sehr sparsam oder \"none\" sein. Kleine Kontextdetails sind erlaubt, wenn sie aus dem Text entstehen: Enten, Zelt, parkendes Auto, Holz, Kisten, Lagerfeuer, Tiere, Baufahrzeuge, Unfallfahrzeuge usw.\nSpezialobjekte sind keine Deko: Strommast/Freileitung nur bei ausdruecklichem Stromleitungs-, Umspannwerks-, Energieinfrastruktur-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark bis 500m. Windrad/Windpark nur bei ausdruecklichem Windenergie-, Neubau-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark bis 500m und nur in plausibler offener/hochgelegener Umgebung wie Bergkuppe, Wiese oder Feld; nicht in Stadt, Wohngebiet oder Tal.\nBei Lern-/Sightseeing-/Historien-POIs duerfen bestaetigte visualLandmarks wie Strommast, Freileitung, Windrad, Bruecke, Fluss, Autobahn, Autobahnkreuz, Eisenbahnlinie oder Turm als kurze Lagehilfe vorkommen. Sie bleiben Referenz, nicht Hauptthema. Ohne visualLandmarks/targetGeoContext/missionTruth sind solche Landmarken tabu.\nWichtig: Story und sceneIntent muessen denselben Sachverhalt beschreiben. Das gilt fuer alle Missionstypen: Hauptziel, Kontextobjekte und Support muessen zusammenpassen. Wenn visibleIdeas Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere, Menschen, Werkzeug oder Ausruestung enthalten, muss die Story diese Dinge entweder vorher plausibel machen oder sceneIntent muss erklaeren, warum sie dort sichtbar sind.\n</INSTRUKTIONEN>\n\n<KONTEXT>\nStart: Winzeln-Schramberg Airport\nZiel: Schluchsee (POI/Wendepunkt)\nDistanz: 58.8 NM\nWetter Start (Winzeln-Schramberg Airport): Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\nWetter Ziel (Schluchsee): Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\nmissionTruth: {\"requestedCategory\":\"water\",\"poiCategory\":\"water\",\"primaryCategory\":\"water\",\"geometryMode\":\"area\",\"pickedPoi\":{\"name\":\"Schluchsee\",\"lat\":47.818,\"lon\":8.181,\"source\":\"Local fallback POIs (forced:water)\"},\"mainTarget\":{\"name\":\"Uferbereich\",\"kind\":\"water\",\"lat\":47.819379,\"lon\":8.182386,\"refinedFromPoi\":true,\"distanceFromPoiM\":185,\"bearingFromPoiDeg\":34,\"reason\":\"nearest_water_anchor\"},\"sceneAnchor\":{\"kind\":\"water\",\"lat\":47.819379,\"lon\":8.182386,\"reason\":\"nearest_water_anchor\"},\"targetProminence\":{\"level\":\"high\",\"reason\":\"target-category:water\"},\"visualLandmarks\":[],\"visibleCues\":[\"Wasserflaeche oder Uferlinie\",\"Strasse oder Zufahrt\",\"offenes Gelaende\"],\"constraints\":[\"Missionstexte duerfen nur diese Lage als Primaerziel verwenden.\",\"Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen.\"]}\nmissionPlanV2: {\"status\":\"ready\",\"pipelineVersion\":\"mission-v3-tool-planner-2026-05-23\",\"plan\":{\"taskDomain\":\"science_bio\",\"roleProfile\":\"science_field_v1\",\"missionType\":\"poi\",\"targetCategory\":\"water\",\"primaryObjective\":\"Ökologische Dokumentation des Uferbereichs am Schluchsee zur Bestandsaufnahme der Vegetation und Wasserlinie.\",\"targetLabel\":\"Schluchsee (Uferbereich)\",\"sceneKind\":\"water_context\",\"sceneDensity\":\"sparse\",\"requiredAnchors\":[\"water\",\"road\",\"meadow\"],\"objectFamilies\":[\"vehicles\",\"tents\",\"small_equipment\"],\"placementPolicy\":\"Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser.\",\"narrativeRules\":[\"Keine Landung am Zielort (POI)\",\"Fokus auf biologische Feldarbeit und Umweltbeobachtung\",\"Sachlicher, professioneller Tonfall\"],\"localFacts\":[\"Zielgebiet liegt am Schluchsee im Schwarzwald\",\"Uferbereich mit angrenzender Service-Straße und Wiesenflächen\",\"Entfernung von EDTW beträgt ca. 59 NM\"],\"weatherHooks\":[\"Wind aus 260° mit 8 kt\",\"Gute VFR-Sichtbedingungen (>10 km)\",\"Temperatur 17°C\"],\"operationalDetails\":[\"Abflug von Winzeln-Schramberg (EDTW)\",\"Rundflug-Profil ohne Zwischenlandung\",\"Niedrige Überflughöhe zur visuellen Erfassung des Ufers erforderlich\"],\"realismBrief\":\"Umweltmonitoring und ökologische Bestandsaufnahmen an Schwarzwald-Talsperren sind typische Aufgaben für spezialisierte GA-Flüge im Auftrag von Landesämtern.\",\"narrativeHooks\":[\"Dokumentation von Vegetationsveränderungen im Uferbereich\",\"Überprüfung der Zugänglichkeit für bodengebundene Feldteams über die Service-Straßen\",\"Sichtung von potenziellen Probenahmestellen am Wasser\"],\"mustMention\":[\"Schluchsee\",\"Uferbereich\",\"Umweltbeobachtung\"],\"mustAvoid\":[\"Notfallszenarien\",\"Landung auf dem Wasser oder am Ufer\",\"Dramatische Wettergefahren\"],\"lockedFields\":{\"noLandingAtPoi\":true},\"confidence\":1},\"needs\":[],\"resolvedNeedTypes\":[\"geo_context\",\"mission_truth\",\"weather_snapshot\",\"fire_hazard\",\"airport_details\"]}\ntargetGeoContext: {\"summary\":\"water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg\",\"anchors\":{\"water\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"Uferbereich\",\"tag\":\"water\"},\"road\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":19,\"name\":\"service\",\"tag\":\"road\"},\"meadow\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"meadow\",\"tag\":\"meadow\"}},\"visualLandmarks\":[],\"targetProminence\":{\"level\":\"high\",\"reason\":\"target-category:water\"},\"hints\":[\"roadside/vehicle placement plausible near the road or parking anchor\",\"waterline placement plausible near the water anchor\",\"animals/tents/reference objects plausible on meadow or farmland anchors\"]}\nErlaubte roleProfile:\n[\"general_passenger_v1\",\"instructor_calm_precise_v1\",\"charter_professional_neutral_v1\",\"technical_inspector_v1\",\"media_observer_v1\",\"science_field_v1\",\"vip_business_v1\",\"club_utility_v1\",\"medical_sensitive_v1\",\"news_reporter_professional_v1\",\"tour_guide_relaxed_v1\",\"tour_guide_learning_v1\",\"historian_storyteller_v1\",\"photogrammetry_precision_v1\",\"cargo_fragile_highcare_v1\",\"rescue_coordination_v1\",\"fire_observer_ops_v1\",\"club_student_v1\"]\nErlaubte taskDomain:\n[\"general\",\"training\",\"charter\",\"inspection_infra\",\"media_photo\",\"science_bio\",\"science_geo\",\"science_general\",\"club_utility\",\"medical_transfer\",\"news_coverage\",\"sightseeing_tour\",\"poi_learning_guide\",\"historian_guided_tour\",\"mapping_survey\",\"cargo_fragile\",\"search_and_rescue\",\"fire_watch\",\"animal_transport\",\"club_training_basic\",\"club_training_advanced\"]\n</KONTEXT>\n\n<DISPATCH_FORM>\n{\"schema\":\"missionDispatchForm.v2\",\"mode\":\"poi\",\"route\":{\"startName\":\"Winzeln-Schramberg Airport\",\"targetName\":\"Schluchsee\",\"distanceNm\":58.8},\"picker\":{\"category\":\"water\",\"profile\":\"science_bio\"},\"required\":{\"taskDomain\":\"science_bio\",\"roleProfile\":\"science_field_v1\",\"missionType\":\"poi\",\"targetCategory\":\"water\",\"sceneKind\":\"water_context\",\"noLandingAtPoi\":true,\"targetLabel\":\"Schluchsee (Uferbereich)\"},\"profileContract\":{\"id\":\"science_bio\",\"label\":\"Biologie/Umwelt\",\"paxText\":\"1 PAX (Biologe)\",\"cargoExamples\":[\"Umweltsensorik und Kamera (18 lbs)\",\"Feldnotizen und GPS-Logger (9 lbs)\"],\"storyCue\":\"Fokus: Natur-/Umweltbeobachtung mit klarer, sachlicher Einordnung.\"},\"allowedTheme\":\"Oekologische Kurzaufnahme von Vegetation, Ufer, Habitat oder Waldrand\",\"forbiddenTaskDomains\":[],\"forbiddenThemes\":[],\"plannerContext\":{\"status\":\"ready\",\"pipelineVersion\":\"mission-v3-tool-planner-2026-05-23\",\"plan\":{\"taskDomain\":\"science_bio\",\"roleProfile\":\"science_field_v1\",\"missionType\":\"poi\",\"targetCategory\":\"water\",\"primaryObjective\":\"Ökologische Dokumentation des Uferbereichs am Schluchsee zur Bestandsaufnahme der Vegetation und Wasserlinie.\",\"targetLabel\":\"Schluchsee (Uferbereich)\",\"sceneKind\":\"water_context\",\"sceneDensity\":\"sparse\",\"requiredAnchors\":[\"water\",\"road\",\"meadow\"],\"objectFamilies\":[\"vehicles\",\"tents\",\"small_equipment\"],\"placementPolicy\":\"Platzierung von Beobachtungspunkten oder Fahrzeugen entlang der Service-Straße und im Übergangsbereich von Wiese zu Wasser.\",\"narrativeRules\":[\"Keine Landung am Zielort (POI)\",\"Fokus auf biologische Feldarbeit und Umweltbeobachtung\",\"Sachlicher, professioneller Tonfall\"],\"localFacts\":[\"Zielgebiet liegt am Schluchsee im Schwarzwald\",\"Uferbereich mit angrenzender Service-Straße und Wiesenflächen\",\"Entfernung von EDTW beträgt ca. 59 NM\"],\"weatherHooks\":[\"Wind aus 260° mit 8 kt\",\"Gute VFR-Sichtbedingungen (>10 km)\",\"Temperatur 17°C\"],\"operationalDetails\":[\"Abflug von Winzeln-Schramberg (EDTW)\",\"Rundflug-Profil ohne Zwischenlandung\",\"Niedrige Überflughöhe zur visuellen Erfassung des Ufers erforderlich\"],\"realismBrief\":\"Umweltmonitoring und ökologische Bestandsaufnahmen an Schwarzwald-Talsperren sind typische Aufgaben für spezialisierte GA-Flüge im Auftrag von Landesämtern.\",\"narrativeHooks\":[\"Dokumentation von Vegetationsveränderungen im Uferbereich\",\"Überprüfung der Zugänglichkeit für bodengebundene Feldteams über die Service-Straßen\",\"Sichtung von potenziellen Probenahmestellen am Wasser\"],\"mustMention\":[\"Schluchsee\",\"Uferbereich\",\"Umweltbeobachtung\"],\"mustAvoid\":[\"Notfallszenarien\",\"Landung auf dem Wasser oder am Ufer\",\"Dramatische Wettergefahren\"],\"lockedFields\":{\"noLandingAtPoi\":true},\"confidence\":1},\"needs\":[],\"resolvedNeedTypes\":[\"geo_context\",\"mission_truth\",\"weather_snapshot\",\"fire_hazard\",\"airport_details\"]},\"instruction\":\"Fuelle nur die Textfelder fuer genau dieses Formular aus. Auftragstyp, taskDomain, roleProfile und Ziel duerfen nicht neu erfunden werden.\"}\n</DISPATCH_FORM>\n\n<OUTPUT>\nAntworte AUSSCHLIESSLICH als JSON ohne Markdown.\n{\n  \"dispatchFormAck\": {\n    \"taskDomain\": \"aus DISPATCH_FORM.required.taskDomain\",\n    \"roleProfile\": \"aus DISPATCH_FORM.required.roleProfile\",\n    \"missionType\": \"aus DISPATCH_FORM.required.missionType\"\n  },\n  \"title\": \"Kreativer Titel\",\n  \"story\": \"Briefing, max 3-4 Sätze\",\n  \"pax\": \"z.B. '2 PAX (...)' oder '0 PAX'\",\n  \"cargo\": \"z.B. 'Kamera-Gimbal (80 lbs)'\",\n  \"sceneIntent\": {\n    \"summary\": \"Kurze Klartextbeschreibung, was am Ziel sichtbar sein soll oder warum nichts gespawnt werden sollte\",\n    \"environment\": \"z.B. Seeufer, Wald, Baustelle, Strasse, leer\",\n    \"visibleIdeas\": [\"konkrete Ideen als Klartext, keine Asset-Namen\"],\n    \"avoid\": [\"unpassende Dinge, die nicht auftauchen sollen\"],\n    \"densityHint\": \"none|sparse|normal|busy\",\n    \"notes\": \"kurzer Grund\"\n  },\n  \"passenger\": {\n    \"name\": \"Vollständiger Name\",\n    \"role\": \"Beruf/Rolle\",\n    \"gender\": \"male|female\",\n    \"personality\": \"3 Adjektive\",\n    \"dialectHint\": \"neutral oder leicht regional\",\n    \"roleProfile\": \"aus erlaubter Liste\",\n    \"taskDomain\": \"aus erlaubter Liste\",\n    \"gTolerance\": \"niedrig|mittel|hoch\",\n    \"bankTolerance\": \"niedrig|mittel|hoch\",\n    \"cargoSensitivity\": \"niedrig|mittel|hoch\",\n    \"stomachSensitivity\": \"niedrig|mittel|hoch\",\n    \"comfortPriority\": \"niedrig|mittel|hoch\",\n    \"urgencyPriority\": \"niedrig|hoch\",\n    \"targetAltFt\": 3500,\n    \"targetRadiusNm\": 3.0,\n    \"targetDwellMin\": 2,\n    \"greetingText\": \"Persönliche Begrüßung an den Piloten, mit konkretem Auftrag und Zielkontext\",\n    \"trainingPlan\": {\n      \"mode\": \"airwork|pattern\",\n      \"trigger\": \"half_route|five_nm_before_landing\",\n      \"focus\": [\"Übung 1\", \"Übung 2\"],\n      \"instructorLine\": \"Kurze konkrete Instruktoranweisung\"\n    }\n  }\n}\n</OUTPUT>",
+          "excerpt": "<INSTRUKTIONEN> Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen. Antwortsprache: Deutsch. Ton: alltagsnah, locker, glaubwürdig; keine Actionfilm-Rhetorik. REGELN: 1) Thema-Pflicht: Der Auftrag MUSS zum Thema \"Oekologische Kurzaufnahme von Vegetation, Ufer, Habitat oder Waldrand\" passen. 2) 4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu \"Schluchsee\" ganz natürlich ein. 3) 3b. KATEGORIE-FIX: Die Mission muss zur POI-Kategorie \"water\" passen. 3b) 4b. POI-KONSISTENZ (zwingend): Der urspruengliche Suchtreffer ist \"Schluchsee\" bei 47.81800, 8.18100, aber die gepruefte Hauptlage ist miss"
+        },
+        {
+          "index": 5,
+          "kind": "scene-planner-v3-tool-call",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": false,
+          "functionResponses": [],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"functionCall\": { \"name\": \"get_scene_context_bundle\", \"args\": { \"reason\": \"Initial context gathering for POI scene planning.\" }, \"id\": \"xa6h61i5\" }, \"thoughtSignature\": \"EvIGCu8GAQw51sfhnHQDne0MY6iy8CbTmrRvsHrhg0GN739xbVWCcUVwdzMDVrkJvu9mO97VUS0V/L6Uknky726CZlIvf8R8nsENe8MuhrZdRvNgvZ3W6IkH+w0dfI4+tzGO9LtB6gAYnH0XoI+KRcYEiAJD37LnZmkj/xb19yXcFC2lOpTTHOJ3WtIzfaGuRJW8fG0CGKb1UE0MWvSYAL2K6MP6hz40NCzBGlA0L8ls64sK9cTS+RSDYsOQxgjvpmQ682ewEcEqa+wl7/igdl/LMeRW08pdKgkdSxR92NkmA6pXdut4JIfbgq2nn1ZHACDtQ3l8pxVFWCkUancmJB325K1z21/c4fq84nyXAIv85M9QYk1j0U1tofY/qYBy3/n5Ky99Q8lXmNxRkq3dkKKueLoqliXV51RXJeMtt88U4MJMoRDZJJCBIw4UB9wsSJr2w0CqVqCzUutmMumZLlVu5pF8pciCCBKG000EtUGAyYslE+6qDySrF7Ds6CfyYv1BDqIxWZyCLeUoHV7tU5OeKMfU8yHTzTQWwKMc8yNCccYy0yce7NX1Qc0SiU3c65my2czdsphe/IlSPa6s/2oX+0+fRHfkLOH0gwveblJWiKx+1AwN/E5t/hZ3W8/+oPIyWbh/ttxH41eW+Rohd1Nz80O/0tNxAJWh8XQnDI2ZlBYH450SjZkxWbkpv31hLHk4eLVKLbl2KP1oM/nE8RtRTZ629zsnrErY5e7n1jy3H2p9SlmPH16VS5vSQfDhQF/V+ZF1XrcwsVMfBBJd9gpLVquyEBDkYMaCaH2bgP0C3B8JeMKpB0o7jDLwyWY441+GMsH5RzXKT28IpQoGaa9R9JCRSvDbufkKoxDwcn6aWjtIQgeh254b0Yu8LIN0SssjdtwQ8lRynM+KLO5cG4ZhPtTG6tVsYz/cpTn6WAPuMU8L+NqqN1n2CbQ/6RFZ8vteO3zVgQp1npjBK3EYx95d",
+          "prompt": "<INSTRUKTIONEN>\nDu bist Scene Planner V3 fuer einen MSFS-Missionsgenerator.\nDu entwirfst konkrete, sparsame und lokal plausible Szenen.\n\nArbeitsweise:\n1. Rufe zuerst get_scene_context_bundle auf.\n2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage.\n3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget.\n4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker.\n5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser/Ufer. Keine Deko.\n6. Gib ausschliesslich JSON aus.\n\nJSON-Schema:\n{\n  \"status\": \"ready|invalid\",\n  \"mode\": \"poi|apt\",\n  \"targetScene\": {\n    \"kind\": \"none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context\",\n    \"preset\": \"\",\n    \"features\": [],\n    \"requirements\": [\n      {\"feature\":\"small_equipment\",\"count\":1,\"placement\":\"am Ufer\",\"arrangement\":\"cluster\",\"forwardM\":0,\"rightM\":8,\"notes\":\"kurzer Grund\"}\n    ],\n    \"roles\": [],\n    \"density\": \"none|sparse|normal|busy\",\n    \"layout\": \"cluster|scattered|line|roadside|waterline|perimeter|mixed oder leer\",\n    \"notes\": \"kurzer Grund\"\n  },\n  \"aptArrivalPlan\": {\n    \"roleLabel\": \"Frachtuebergabe|Abholung|...\",\n    \"expectedBy\": \"wer wartet\",\n    \"visibleCue\": \"was sieht der Pilot\",\n    \"narrativeHint\": \"kurzer Hinweis fuer Briefing/PAX\",\n    \"preferredPlacement\": {\"source\":\"osm_parking_position|osm_apron\",\"index\":0,\"reason\":\"kurz\"},\n    \"items\": [\n      {\"kind\":\"arrival_vehicle\",\"label\":\"Fracht-Van\",\"role\":\"vehicle.van\",\"forwardM\":-8,\"rightM\":6,\"hdgOffsetDeg\":205},\n      {\"kind\":\"arrival_person_1\",\"label\":\"Frachtkontakt\",\"role\":\"person.ground_crew\",\"forwardM\":2,\"rightM\":3,\"hdgOffsetDeg\":200}\n    ]\n  },\n  \"localizationNotes\": [],\n  \"validationNotes\": []\n}\n</INSTRUKTIONEN>\n\n<AUFGABE>\nPlane die POI-Zielszene mit Tool-Kontext.\n</AUFGABE>",
+          "excerpt": "<INSTRUKTIONEN> Du bist Scene Planner V3 fuer einen MSFS-Missionsgenerator. Du entwirfst konkrete, sparsame und lokal plausible Szenen. Arbeitsweise: 1. Rufe zuerst get_scene_context_bundle auf. 2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage. 3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget. 4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker. 5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser"
+        },
+        {
+          "index": 6,
+          "kind": "scene-planner-v3-final",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": true,
+          "functionResponses": [
+            {
+              "name": "get_scene_context_bundle",
+              "keys": [
+                "schema",
+                "mode",
+                "route",
+                "mission",
+                "sceneIntent",
+                "missionTruth",
+                "targetGeoContext",
+                "missionPlan",
+                "aptArrivalPlan",
+                "aptArrivalGeoContext"
+              ]
+            }
+          ],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"text\": \"```json\\n{\\n \\\"status\\\": \\\"ready\\\",\\n \\\"mode\\\": \\\"poi\\\",\\n \\\"targetScene\\\": {\\n \\\"kind\\\": \\\"water_context\\\",\\n \\\"preset\\\": \\\"\\\",\\n \\\"features\\\": [\\n \\\"people\\\",\\n \\\"watercraft\\\",\\n \\\"utility_truck\\\",\\n \\\"tent\\\"\\n ],\\n \\\"requirements\\\": [\\n {\\n \\\"feature\\\": \\\"people\\\",\\n \\\"count\\\": 1,\\n \\\"placement\\\": \\\"am Ufer (Water-Anker)\\\",\\n \\\"arrangement\\\": \\\"cluster\\\",\\n \\\"forwardM\\\": 0,\\n \\\"rightM\\\": 5,\\n \\\"notes\\\": \\\"Zwei Biologen in Warnwesten bei der Dokumentation der Uferlinie.\\\"\\n },\\n {\\n \\\"feature\\\": \\\"watercraft\\\",\\n \\\"count\\\": 1,\\n \\\"placement\\\": \\\"im flachen Wasser (Water-Anker)\\\",\\n \\\"arrangement\\\": \\\"cluster\\\",\\n \\\"forwardM\\\": 0,\\n \\\"rightM\\\": 0,\\n \\\"notes\\\": \\\"Kleines Ruderboot für Wasserproben direkt am Uferstreifen.\\\"\\n },\\n {\\n \\\"feature\\\": \\\"utility_truck\\\",\\n \\\"count\\\": 1,\\n \\\"placement\\\": \\\"an der Service-Straße (Road-Anker)\\\",\\n \\\"arrangement\\\": \\\"cluster\\\",\\n \\\"forwardM\\\": 0,\\n \\\"rightM\\\": 0,\\n \\\"notes\\\": \\\"Weißer Geländewagen des Forschungsteams, geparkt am Straßenrand.\\\"\\n },\\n {\\n \\\"feature\\\": \\\"tent\\\",\\n \\\"count\\\": 1,\\n \\\"placement\\\": \\\"auf der Wiese (Meadow-Anker)\\\",\\n \\\"arrangement\\\": \\\"cluster\\\",\\n \\\"forwardM\\",
+          "prompt": "<INSTRUKTIONEN>\nDu bist Scene Planner V3 fuer einen MSFS-Missionsgenerator.\nDu entwirfst konkrete, sparsame und lokal plausible Szenen.\n\nArbeitsweise:\n1. Rufe zuerst get_scene_context_bundle auf.\n2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage.\n3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget.\n4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker.\n5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser/Ufer. Keine Deko.\n6. Gib ausschliesslich JSON aus.\n\nJSON-Schema:\n{\n  \"status\": \"ready|invalid\",\n  \"mode\": \"poi|apt\",\n  \"targetScene\": {\n    \"kind\": \"none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context\",\n    \"preset\": \"\",\n    \"features\": [],\n    \"requirements\": [\n      {\"feature\":\"small_equipment\",\"count\":1,\"placement\":\"am Ufer\",\"arrangement\":\"cluster\",\"forwardM\":0,\"rightM\":8,\"notes\":\"kurzer Grund\"}\n    ],\n    \"roles\": [],\n    \"density\": \"none|sparse|normal|busy\",\n    \"layout\": \"cluster|scattered|line|roadside|waterline|perimeter|mixed oder leer\",\n    \"notes\": \"kurzer Grund\"\n  },\n  \"aptArrivalPlan\": {\n    \"roleLabel\": \"Frachtuebergabe|Abholung|...\",\n    \"expectedBy\": \"wer wartet\",\n    \"visibleCue\": \"was sieht der Pilot\",\n    \"narrativeHint\": \"kurzer Hinweis fuer Briefing/PAX\",\n    \"preferredPlacement\": {\"source\":\"osm_parking_position|osm_apron\",\"index\":0,\"reason\":\"kurz\"},\n    \"items\": [\n      {\"kind\":\"arrival_vehicle\",\"label\":\"Fracht-Van\",\"role\":\"vehicle.van\",\"forwardM\":-8,\"rightM\":6,\"hdgOffsetDeg\":205},\n      {\"kind\":\"arrival_person_1\",\"label\":\"Frachtkontakt\",\"role\":\"person.ground_crew\",\"forwardM\":2,\"rightM\":3,\"hdgOffsetDeg\":200}\n    ]\n  },\n  \"localizationNotes\": [],\n  \"validationNotes\": []\n}\n</INSTRUKTIONEN>\n\n<AUFGABE>\nPlane die POI-Zielszene mit Tool-Kontext.\n</AUFGABE>",
+          "excerpt": "<INSTRUKTIONEN> Du bist Scene Planner V3 fuer einen MSFS-Missionsgenerator. Du entwirfst konkrete, sparsame und lokal plausible Szenen. Arbeitsweise: 1. Rufe zuerst get_scene_context_bundle auf. 2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage. 3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget. 4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker. 5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser"
+        },
+        {
+          "index": 7,
+          "kind": "pax-text",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": false,
+          "functionResponses": [],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"text\": \"Hi, wir erfassen heute am Schluchsee die Ufervegetation und den Übergang zum Waldrand für unser Monitoring-Programm. Bitte flieg ruhig und stabil in etwa 4500 Fuß Höhe, damit die Kamera und die Sensoren präzise Daten von der Wasserlinie liefern können. Wir haben keine Eile, denn die Qualität der Aufnahmen ist für die Bestandsaufnahme entscheidend.\", \"thoughtSignature\": \"EswUCskUAQw51sdxsquI2zwYO+UDK09WxscLdaVZynDrpancK5P5CkOzohfYHSK8IwMRneJZ8zFyXNB+aBzdBkJyYl+4zit2+bLstv0Ks+NeF+dSmcJrVTsisUYnCrKCWA6GQMrFOvStJA806B0OpSTKWVT/Y1WyAhY+RDdG01sZXAGhL+MucVYEQgLeB9nNOdN7SXCWbhkrKgPn9jr0O4s0VezT6X/zrnHuXe5fwMUrK5XtxDeb+vJy+Ls3vpA/EIIK79+fRQFXJY+PzM6hdJ1nEQseCJWgnX+xiwGJplkaTIKYT1F51sCFWs9JfXUq+DE3STJXZA6QyMKyYb7e2vy9ePweiyETEkRCNDE5lMr1kZiB7FX9xmaxyymm618yos5f3D6/U7+7r5BzMV24fR8xXaZU8tINTnuGNrSCkwQa2DunreGHeQDXqNMRV1e0ZDyJkzxTfCGtWXcILX5OK6N0YWBM1+HHzNo+91qSaRgO5WhBSTPNh/74/IlzsJLbRq7nQ91kTf/La/7QXVdyohXzDOs6+ESKsevmGj7mWZVTwwHu6pEss9GhBkc9VU651kjA+jZnXnz4wNCXirLFyPZy5fozS/+5Qnu3uebnxx8IpiAlyl4E/VS68SaFz6fpPoLmvDIugS2onMdJlb4ExtwbXT9Rko1D0QIdVxdW3zh8KSQYsNACKaTiTaLSNQm0DHeNS9r3lxuu6w5y0bqPTjMSf0VGR9EOxts0m9rhjun1puj4DM/3ZGkUhsLn/c+zmW4F",
+          "prompt": "ROLLE: Dr. Paul Reiter (Ökologe) · Persönlichkeit: analytisch, präzise, gelassen\nFLUG: EDTW → Schluchsee · 58.8 NM\nLOAD: Umweltsensorik und Kamera (18 lbs) · 1 PAX (Ökologe: Dr. Paul Reiter)\nAUFTRAG (kurz): Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand acht\nSTIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show.\nDRINGLICHKEIT: niedrig\nZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation.\nMISSION-CONTRACT: Biologie/Umwelt | POI | cat:water\nCONTRACT-REGELN: Rollenkonsistenz: roleProfile=science_field_v1, taskDomain=science_bio, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen\nZIEL-AUFFAELLIGKEIT: high (target-category:water).\nROLLENFIX: Sprich ausschließlich als Dr. Paul Reiter (Ökologe) in Ich-Form. Keine Rollenvermischung.\nTASK-DOMAIN: science_bio\nAUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).\n\nMoment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.\nBasistext für deine Begrüßung (frei adaptieren): \"Hi, wir machen heute Umweltbeobachtung am POI. Bitte ruhig und stabil fliegen, damit die Beobachtung verwertbar ist.\"\nDu DARFST hier mit einer kurzen natürlichen Begrüßung beginnen (z.B. \"Hi\"), aber nur sehr knapp.\nBitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast. Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr 4500 ft). Keine internen Parameter oder technischen Vorgaben zitieren.\n Drift-Guard (Bio): Nur Bio/Umwelt-Inhalte (Flora/Fauna/Habitat/Ufervegetation). Keine Risse/Statik/Schadenssuche, keine Geologie, kein SAR-/Feuer-Ton.\nKein Zeitdruck kommunizieren.\nMax 3 Sätze.\nDu-Form, nie mit Namen. Ich-Form, kurze klare Sätze.\nNeutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch.\nKeine neue Begrüßung am Satzanfang.\nHumor kurz und freundlich.\nBei Sicherheit/Warnung/Arbeitsanweisung: kein Humor.\nNur Deutsch, kein Markdown.",
+          "excerpt": "ROLLE: Dr. Paul Reiter (Ökologe) · Persönlichkeit: analytisch, präzise, gelassen FLUG: EDTW → Schluchsee · 58.8 NM LOAD: Umweltsensorik und Kamera (18 lbs) · 1 PAX (Ökologe: Dr. Paul Reiter) AUFTRAG (kurz): Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand acht STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Biologie/Umwelt | POI | cat:water CONTRACT-REGELN: Rollen"
+        },
+        {
+          "index": 8,
+          "kind": "pax-text",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": false,
+          "functionResponses": [],
+          "prompt": "ROLLE: Dr. Paul Reiter (Ökologe) · Persönlichkeit: analytisch, präzise, gelassen\nFLUG: EDTW → Schluchsee · 58.8 NM\nLOAD: Umweltsensorik und Kamera (18 lbs) · 1 PAX (Ökologe: Dr. Paul Reiter)\nAUFTRAG (kurz): Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand acht\nSTIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show.\nDRINGLICHKEIT: niedrig\nZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation.\nMISSION-CONTRACT: Biologie/Umwelt | POI | cat:water\nCONTRACT-REGELN: Rollenkonsistenz: roleProfile=science_field_v1, taskDomain=science_bio, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen\nZIEL-AUFFAELLIGKEIT: high (target-category:water).\nROLLENFIX: Sprich ausschließlich als Dr. Paul Reiter (Ökologe) in Ich-Form. Keine Rollenvermischung.\nTASK-DOMAIN: science_bio\nAUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).\n\nMoment: Wir sind am Ziel \"Schluchsee\". Höhe: 4500 ft MSL / 700 ft AGL. Wetter: Wind 8 kts aus 260° (schwach), 17°C, Sicht 30 km (ausgezeichnet).\nReagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv. Gib einen kurzen biologischen Zwischenstand zu \"Schluchsee\" (Bestand, Aktivitaet, Auffaelligkeiten). Drift-Guard (Bio): Bleib bei biologischer Beobachtung und Datenguete. Keine Technikpruefung, keine SAR-/Feuerlage. Max 2-3 Sätze.\nDu-Form, nie mit Namen. Ich-Form, kurze klare Sätze.\nNeutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch.\nKeine neue Begrüßung am Satzanfang.\nHumor kurz und freundlich.\nBei Sicherheit/Warnung/Arbeitsanweisung: kein Humor.\nNur Deutsch, kein Markdown.",
+          "excerpt": "ROLLE: Dr. Paul Reiter (Ökologe) · Persönlichkeit: analytisch, präzise, gelassen FLUG: EDTW → Schluchsee · 58.8 NM LOAD: Umweltsensorik und Kamera (18 lbs) · 1 PAX (Ökologe: Dr. Paul Reiter) AUFTRAG (kurz): Für das aktuelle Monitoring-Programm fliegen wir heute eine Runde zum Schluchsee, um den dortigen Uferbereich ökologisch zu dokumentieren. Ziel ist eine Bestandsaufnahme der Vegetation und der Wasserlinie, wobei wir besonders auf den Übergang zum Waldrand acht STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Biologie/Umwelt | POI | cat:water CONTRACT-REGELN: Rollen"
+        }
+      ]
+    }
+  ]
+}

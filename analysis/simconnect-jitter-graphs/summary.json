@@ -1,0 +1,57 @@
+[
+  {
+    "test": "01 Boden still",
+    "avg_ms": 8.549,
+    "hz": 116.97,
+    "p95_ms": 9.976,
+    "p99_ms": 11.043,
+    "max_ms": 828.72,
+    "spikes_gt25": 4,
+    "spikes_gt50": 1,
+    "spikes_gt100": 1
+  },
+  {
+    "test": "02 Flug aktiv minimal",
+    "avg_ms": 8.672,
+    "hz": 115.32,
+    "p95_ms": 11.223,
+    "p99_ms": 13.518,
+    "max_ms": 84.298,
+    "spikes_gt25": 13,
+    "spikes_gt50": 4,
+    "spikes_gt100": 0
+  },
+  {
+    "test": "03 Flug aktiv motion",
+    "avg_ms": 8.55,
+    "hz": 116.97,
+    "p95_ms": 10.928,
+    "p99_ms": 12.807,
+    "max_ms": 155.31,
+    "spikes_gt25": 5,
+    "spikes_gt50": 4,
+    "spikes_gt100": 2
+  },
+  {
+    "test": "04 SIM_FRAME motion",
+    "avg_ms": 8.755,
+    "hz": 114.22,
+    "p95_ms": 11.508,
+    "p99_ms": 13.452,
+    "max_ms": 33.743,
+    "spikes_gt25": 3,
+    "spikes_gt50": 0,
+    "spikes_gt100": 0
+  },
+  {
+    "test": "05 Mit DRSM",
+    "avg_ms": 9.473,
+    "hz": 105.56,
+    "p95_ms": 12.008,
+    "p99_ms": 14.305,
+    "max_ms": 128.635,
+    "spikes_gt25": 15,
+    "spikes_gt50": 5,
+    "spikes_gt100": 3
+  }
+]

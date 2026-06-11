@@ -1,0 +1,139 @@
+SIMCONNECT JITTER TEST - ABLAUF
+================================
+
+Vorbereitung
+------------
+1. Alle Dateien in denselben Ordner auf dem MSFS-PC kopieren:
+   - SimConnect-Jitter-Test.exe
+   - 01 Boden Still Visual Minimal.bat
+   - 02 Flug Aktiv Visual Minimal.bat
+   - 03 Flug Aktiv Visual Motion.bat
+   - 04 Flug Aktiv SIM Motion.bat
+   - 05 Mit DRSM Visual Motion.bat
+
+2. MSFS 2024 starten und einen Flug laden.
+   Am besten dasselbe Flugzeug und dieselbe Situation verwenden, in der DRSM ruckelt.
+
+3. Unser VFR-Multitool-Tracker bleibt bei allen Tests AUS.
+
+4. Jede BAT dauert 120 Sekunden.
+   Das Fenster bleibt danach offen. Erst nach dem Lesen/Foto/Notieren eine Taste druecken.
+
+
+Test 01 - Boden Still Visual Minimal
+------------------------------------
+Datei starten:
+01 Boden Still Visual Minimal.bat
+
+Was tun:
+- Flugzeug am Boden stehen lassen.
+- Keine starken Steuerbewegungen.
+- DRSM geschlossen lassen.
+
+Zweck:
+- Basistakt von SimConnect messen, wenn MSFS fast nichts Dynamisches liefern muss.
+
+Ergebnisdatei:
+01-boden-still-visual-minimal.csv
+
+
+Test 02 - Flug Aktiv Visual Minimal
+-----------------------------------
+Datei starten:
+02 Flug Aktiv Visual Minimal.bat
+
+Was tun:
+- In der Luft aktiv fliegen.
+- Waehrend der 120 Sekunden kraeftig rollen, pitchen und abfangen.
+- Genau die Bewegungen machen, bei denen die Plattform normalerweise ruckelt.
+- DRSM geschlossen lassen.
+
+Zweck:
+- Pruefen, ob schon ein minimaler SimConnect-Stream beim aktiven Fliegen Jitter zeigt.
+
+Ergebnisdatei:
+02-flug-aktiv-visual-minimal.csv
+
+
+Test 03 - Flug Aktiv Visual Motion
+----------------------------------
+Datei starten:
+03 Flug Aktiv Visual Motion.bat
+
+Was tun:
+- In der Luft aktiv fliegen.
+- Wieder kraeftig rollen, pitchen und abfangen.
+- DRSM geschlossen lassen.
+
+Zweck:
+- Motion-aehnliche SimVars messen: Lage, Geschwindigkeiten, Beschleunigungen, Rotationsraten.
+- Dieser Test ist naeher an dem, was Motion-Software typischerweise braucht.
+
+Ergebnisdatei:
+03-flug-aktiv-visual-motion.csv
+
+
+Test 04 - Flug Aktiv SIM_FRAME Motion
+-------------------------------------
+Datei starten:
+04 Flug Aktiv SIM Motion.bat
+
+Was tun:
+- In der Luft aktiv fliegen.
+- Wieder kraeftig rollen, pitchen und abfangen.
+- DRSM geschlossen lassen.
+
+Zweck:
+- SIM_FRAME statt VISUAL_FRAME messen.
+- Falls dieser Test deutlich schlechter ist, koennte ein Source-Takt/Resampling-Problem vorliegen.
+
+Ergebnisdatei:
+04-flug-aktiv-sim-motion.csv
+
+
+Test 05 - Mit DRSM Visual Motion (optional)
+-------------------------------------------
+Datei starten:
+05 Mit DRSM Visual Motion.bat
+
+Was tun:
+- DRSM oeffnen.
+- MSFS Source in DRSM aktivieren.
+- Unser VFR-Multitool-Tracker bleibt AUS.
+- In der Luft aktiv fliegen.
+- Wieder kraeftig rollen, pitchen und abfangen.
+
+Zweck:
+- Pruefen, ob DRSM selbst den SimConnect-Takt beeinflusst oder ob parallel zu DRSM mehr Jitter entsteht.
+
+Ergebnisdatei:
+05-mit-drsm-visual-motion.csv
+
+
+Was danach schicken
+-------------------
+Bitte diese CSV-Dateien zur Auswertung schicken:
+- 01-boden-still-visual-minimal.csv
+- 02-flug-aktiv-visual-minimal.csv
+- 03-flug-aktiv-visual-motion.csv
+- 04-flug-aktiv-sim-motion.csv
+- 05-mit-drsm-visual-motion.csv, falls gemacht
+
+Wenn moeglich auch den FINAL-Block aus jedem Fenster notieren oder fotografieren.
+Wichtig sind vor allem:
+- avg
+- p95
+- p99
+- max
+- jitter
+- spikes
+
+
+Hinweis zur Bewertung
+---------------------
+Der Durchschnitt alleine reicht nicht.
+Eine Plattform kann trotz gutem avg ruckeln, wenn p99, max oder spikes hoch sind.
+
+Beispiel:
+- avg 16-20 ms kann normal wirken.
+- einzelne 60-100 ms Ausreisser koennen Motion stark ruckelig machen.

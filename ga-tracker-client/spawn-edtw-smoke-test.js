@@ -7,12 +7,16 @@
  *
  * Optionen:
  *   --lat=48.2792245 --lon=8.4283415 --alt-ft=2310 --hdg=140
+ *   --marker-title="Chimney_Smoke_V1" --count=5 --radius-m=120
  *   --auto-remove-sec=120
  *   --keep
  *   --marker-title="Asobo Airport Vehicle Fuel Truck"
  */
 
 const readline = require('readline');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const {
   open,
   Protocol,
@@ -55,6 +59,7 @@ const SMOKE_TITLES = new Set([
   'Asobo_FX_Smoke_Column',
   'Asobo_FX_WildFire_Smoke',
   'SmokeSystem',
+  'Chimney_Smoke_V1',
 ]);
 
 // Unser Community-Package ist ein SimObject mit fest verdrahtetem VFX im Model-XML.
@@ -93,13 +98,149 @@ const spawnHdg    = toNumber(args.hdg,       DEFAULT_HDG);
 const autoRemoveSec = Math.max(0, toNumber(args['auto-remove-sec'], 0));
 const keepSpawned = args.keep === true || args['no-cleanup'] === true;
 const markerTitleArg = getStringArg(args['marker-title']);
+const smokeCount = clampInt(toNumber(args.count, 1), 1, 20);
+const smokeRadiusM = Math.max(0, toNumber(args['radius-m'], 0));
+const smokeFieldPositions = buildSmokeFieldPositions(spawnLat, spawnLon, spawnAltFt, spawnHdg, smokeCount, smokeRadiusM);
 
 let handle = null;
 let spawnedObjectIds = [];
 const pendingAssign  = new Map();
 const lastExceptions = [];
 
+const DEBUG_FILE_BASENAME = 'edtw-smoke-test-debug.txt';
+const RUNTIME_DIR = getRuntimeDir();
+let debugFilePath = path.join(RUNTIME_DIR, DEBUG_FILE_BASENAME);
+let debugWriteProblem = '';
+const debugLines = [];
+const debugContext = {
+  appName: APP_NAME,
+  packageMode: !!process.pkg,
+  runtimeDir: RUNTIME_DIR,
+  execPath: process.execPath,
+  scriptPath: __filename,
+  cwdAtStart: process.cwd(),
+  nodeVersion: process.version,
+  platform: `${process.platform}/${process.arch}`,
+  hostname: os.hostname(),
+  argv: process.argv,
+  parsedArgs: args,
+  resolvedSpawn: {
+    lat: spawnLat,
+    lon: spawnLon,
+    altFt: spawnAltFt,
+    hdg: spawnHdg,
+    autoRemoveSec,
+    keepSpawned,
+    markerTitleArg: markerTitleArg || null,
+    smokeCount,
+    smokeRadiusM,
+    smokeFieldPositions
+  },
+  smokeTitles: [...SMOKE_TITLES],
+  fallbackCandidates: [...FALLBACK_CANDIDATES],
+  assignedObjectEvents: [],
+  spawnedObjectIds,
+  result: null,
+  cleanup: null,
+  fatalError: null
+};
+const originalConsole = {
+  log: console.log.bind(console),
+  warn: console.warn.bind(console),
+  error: console.error.bind(console)
+};
+
+console.log = (...items) => {
+  appendDebugLine('INFO', items);
+  originalConsole.log(...items);
+};
+console.warn = (...items) => {
+  appendDebugLine('WARN', items);
+  originalConsole.warn(...items);
+};
+console.error = (...items) => {
+  appendDebugLine('ERROR', items);
+  originalConsole.error(...items);
+};
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+function getRuntimeDir() {
+  if (process.pkg) return path.dirname(process.execPath);
+  return __dirname;
+}
+
+function serializeDebugValue(value) {
+  if (value instanceof Error) return value.stack || value.message || String(value);
+  if (typeof value === 'string') return value;
+  if (value === undefined) return 'undefined';
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch (_) {
+    return String(value);
+  }
+}
+
+function appendDebugLine(level, items) {
+  const line = `[${new Date().toISOString()}] [${level}] ${items.map(serializeDebugValue).join(' ')}`;
+  debugLines.push(line);
+  writeDebugSnapshot('running');
+}
+
+function buildDebugSnapshot(reason) {
+  const snapshot = {
+    reason,
+    generatedAt: new Date().toISOString(),
+    debugFilePath,
+    debugWriteProblem: debugWriteProblem || null,
+    pendingRequestIds: [...pendingAssign.keys()],
+    spawnedObjectIds: [...spawnedObjectIds],
+    lastExceptions: [...lastExceptions],
+    context: {
+      ...debugContext,
+      spawnedObjectIds: [...spawnedObjectIds],
+      assignedObjectEvents: [...debugContext.assignedObjectEvents]
+    }
+  };
+  return [
+    'GA Smoke Marker Injector Debug',
+    '================================',
+    '',
+    JSON.stringify(snapshot, null, 2),
+    '',
+    'Log',
+    '---',
+    debugLines.join('\n'),
+    ''
+  ].join('\n');
+}
+
+function writeDebugSnapshot(reason = 'snapshot') {
+  try {
+    fs.writeFileSync(debugFilePath, buildDebugSnapshot(reason), 'utf8');
+    return;
+  } catch (err) {
+    const fallback = path.join(process.cwd(), DEBUG_FILE_BASENAME);
+    debugWriteProblem = `Primary debug write failed: ${err?.message || err}; fallback=${fallback}`;
+    debugFilePath = fallback;
+  }
+  try {
+    fs.writeFileSync(debugFilePath, buildDebugSnapshot(reason), 'utf8');
+  } catch (err) {
+    debugWriteProblem += `; fallback write failed: ${err?.message || err}`;
+  }
+}
+
+function writeDebugFinal(reason) {
+  writeDebugSnapshot(reason || 'final');
+  return debugFilePath;
+}
+
+function printFinalDebugPath(reason) {
+  const finalPath = writeDebugFinal(reason);
+  console.log('Debug TXT: ' + finalPath);
+  writeDebugFinal(reason);
+}
 
 function parseArgs(list) {
   const out = {};
@@ -115,6 +256,12 @@ function parseArgs(list) {
 function toNumber(v, fallback) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function clampInt(value, min, max) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
 }
 
 function getStringArg(v) {
@@ -134,8 +281,63 @@ function buildInitPos(lat, lon, altFt, hdg, onGround = true) {
   return pos;
 }
 
+function offsetLatLonMeters(lat, lon, northM, eastM) {
+  const earthRadiusM = 6371000;
+  const latRad = lat * Math.PI / 180;
+  const dLat = northM / earthRadiusM;
+  const dLon = eastM / (earthRadiusM * Math.cos(latRad));
+  return {
+    lat: lat + dLat * 180 / Math.PI,
+    lon: lon + dLon * 180 / Math.PI
+  };
+}
+
+function buildSmokeFieldPositions(lat, lon, altFt, hdg, count, radiusM) {
+  const n = clampInt(count, 1, 20);
+  const radius = Math.max(0, Number(radiusM) || 0);
+  const out = [{
+    index: 1,
+    lat,
+    lon,
+    altFt,
+    hdg,
+    offsetNorthM: 0,
+    offsetEastM: 0,
+    radiusM: 0,
+    bearingDeg: null
+  }];
+  if (n === 1 || radius <= 0) return out;
+
+  for (let i = 1; i < n; i++) {
+    const bearingDeg = (hdg + ((i - 1) * 360 / (n - 1))) % 360;
+    const rad = bearingDeg * Math.PI / 180;
+    const northM = Math.cos(rad) * radius;
+    const eastM = Math.sin(rad) * radius;
+    const p = offsetLatLonMeters(lat, lon, northM, eastM);
+    out.push({
+      index: i + 1,
+      lat: p.lat,
+      lon: p.lon,
+      altFt,
+      hdg,
+      offsetNorthM: Math.round(northM * 10) / 10,
+      offsetEastM: Math.round(eastM * 10) / 10,
+      radiusM: radius,
+      bearingDeg: Math.round(bearingDeg * 10) / 10
+    });
+  }
+  return out;
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isSelfEmittingTitle(title) {
+  const t = String(title || '').trim();
+  if (!t) return false;
+  if (SELF_EMITTING_TITLES.has(t)) return true;
+  return /(chimney|smoke|wildfire|fire|fx)/i.test(t);
 }
 
 // readline-basiert – funktioniert auch im kompilierten exe.
@@ -214,6 +416,28 @@ async function trySpawnNonATCFromList(candidates, initPos, label, timeoutMs = 50
   return { ok: false };
 }
 
+async function spawnFieldCopies(title, positions, timeoutMs = 5000) {
+  const out = [];
+  if (!title || !Array.isArray(positions) || positions.length <= 1) return out;
+  console.log(`\nRauchfeld: ${positions.length} Objekte, Radius ${smokeRadiusM.toFixed(0)} m`);
+  for (let i = 1; i < positions.length; i++) {
+    const p = positions[i];
+    const initPos = buildInitPos(p.lat, p.lon, p.altFt, p.hdg, true);
+    const reqId = REQ_IDS.MARKER_BASE + 500 + i;
+    try {
+      const objectId = await spawnObjectByTitle(title, initPos, reqId, timeoutMs);
+      const item = { ok: true, title, objectId, ...p };
+      out.push(item);
+      console.log(`  OK  Feld ${p.index}/${positions.length} "${title}" objectId=${objectId} lat=${p.lat.toFixed(7)} lon=${p.lon.toFixed(7)}`);
+    } catch (err) {
+      const item = { ok: false, title, error: err?.message || String(err), ...p };
+      out.push(item);
+      console.log(`  ✗   Feld ${p.index}/${positions.length} "${title}" → ${item.error}`);
+    }
+  }
+  return out;
+}
+
 function enableSmoke(objectId) {
   try {
     handle.addToDataDefinition(DEF_IDS.SMOKE_ENABLE, 'SMOKE ENABLE', 'Bool', SimConnectDataType.INT32);
@@ -267,10 +491,15 @@ function requestUserAircraftTitle() {
 async function cleanupSpawnedObjects() {
   if (!handle || !spawnedObjectIds.length) return;
   const ids = [...new Set(spawnedObjectIds)];
+  debugContext.cleanup = { startedAt: new Date().toISOString(), ids, done: false };
+  writeDebugSnapshot('cleanup-start');
   for (let i = 0; i < ids.length; i++) {
     try { handle.aIRemoveObject(ids[i], 7900 + i); } catch (_) {}
   }
   spawnedObjectIds = [];
+  debugContext.cleanup.done = true;
+  debugContext.cleanup.finishedAt = new Date().toISOString();
+  writeDebugSnapshot('cleanup-done');
 }
 
 function setupSignals() {
@@ -281,6 +510,7 @@ function setupSignals() {
       console.log('\nEntferne gespawnte Test-Objekte ...');
       await cleanupSpawnedObjects();
     }
+    printFinalDebugPath('sigint');
     process.exit(0);
   });
 }
@@ -293,6 +523,12 @@ async function main() {
   console.log('=========================================');
   console.log(`Position : lat=${spawnLat.toFixed(7)}  lon=${spawnLon.toFixed(7)}`);
   console.log(`           alt=${spawnAltFt.toFixed(0)} ft  hdg=${spawnHdg} deg\n`);
+  if (smokeFieldPositions.length > 1) {
+    console.log(`Rauchfeld: ${smokeFieldPositions.length} Objekte im Radius ${smokeRadiusM.toFixed(0)} m`);
+  } else {
+    console.log('Rauchfeld: einzelnes Objekt am Zielpunkt');
+  }
+  console.log(`Debug TXT: ${debugFilePath}`);
   if (keepSpawned) console.log('Cleanup   : aus, gespawnte Objekte bleiben nach dem Beenden im Sim.');
   else if (autoRemoveSec > 0) console.log(`Cleanup   : automatisch nach ${autoRemoveSec} Sekunden.`);
   else console.log('Cleanup   : ENTER oder Ctrl+C entfernt die gespawnten Objekte.');
@@ -305,6 +541,11 @@ async function main() {
   console.log('SimConnect verbunden.\n');
 
   handle.on('assignedObjectID', (recv) => {
+    debugContext.assignedObjectEvents.push({
+      at: new Date().toISOString(),
+      requestID: recv.requestID,
+      objectID: recv.objectID
+    });
     const fn = pendingAssign.get(recv.requestID);
     if (fn) { pendingAssign.delete(recv.requestID); fn(recv.objectID); }
   });
@@ -329,8 +570,10 @@ async function main() {
     console.log('User-Titel nicht verfuegbar (Sim noch nicht bereit?)');
   }
 
-  const initPos = buildInitPos(spawnLat, spawnLon, spawnAltFt, spawnHdg, true);
+  const primaryFieldPos = smokeFieldPositions[0];
+  const initPos = buildInitPos(primaryFieldPos.lat, primaryFieldPos.lon, primaryFieldPos.altFt, primaryFieldPos.hdg, true);
   let spawn = { ok: false };
+  let fieldSpawnResults = [];
 
   if (markerTitleArg) {
     // Expliziter Titel per Argument
@@ -373,19 +616,46 @@ async function main() {
   }
 
   if (!spawn.ok) {
+    debugContext.result = { ok: false, at: new Date().toISOString() };
+    writeDebugSnapshot('spawn-failed');
     console.log('\nFEHLER: Kein Kandidat konnte gespawnt werden.');
     console.log('UNRECOGNIZED_ID = Titel stimmt nicht exakt ueberein.');
     console.log('Loesung: --marker-title="<Titel exakt aus MSFS Aircraft-Selector>"');
+    printFinalDebugPath('spawn-failed');
     await waitForEnter();
     process.exit(1);
   }
 
+  debugContext.result = {
+    ok: true,
+    at: new Date().toISOString(),
+    title: spawn.title,
+    objectId: spawn.objectId,
+    spawn,
+    field: {
+      requestedCount: smokeFieldPositions.length,
+      requestedRadiusM: smokeRadiusM,
+      positions: smokeFieldPositions,
+      spawned: [{ ok: true, ...primaryFieldPos, title: spawn.title, objectId: spawn.objectId }]
+    }
+  };
+  writeDebugSnapshot('spawn-ok');
+
+  fieldSpawnResults = await spawnFieldCopies(spawn.title, smokeFieldPositions, 5000);
+  debugContext.result.field.spawned = [
+    { ok: true, ...primaryFieldPos, title: spawn.title, objectId: spawn.objectId },
+    ...fieldSpawnResults
+  ];
+  debugContext.result.field.okCount = debugContext.result.field.spawned.filter(x => x && x.ok).length;
+  debugContext.result.field.failCount = debugContext.result.field.spawned.filter(x => x && !x.ok).length;
+  writeDebugSnapshot('field-spawn-done');
+
   await new Promise(r => setTimeout(r, 1500));
 
-  if (SELF_EMITTING_TITLES.has(spawn.title)) {
+  if (isSelfEmittingTitle(spawn.title)) {
     console.log('\nSmoke/Marker-Objekt gespawnt – Effekt sollte direkt sichtbar sein.');
-    console.log('-> Beim Community-Marker ist der Smoke-VFX im Model-XML immer aktiv.');
-    console.log('-> Schau auf der EDTW Runway nach dem orangefarbenen Marker und Rauch.');
+    console.log('-> Smoke/Fire/FX/Chimney-Objekte bekommen kein SMOKE_ENABLE, weil sie selbst emittieren.');
+    console.log('-> Schau an der Testposition nach Rauch/FX.');
   } else {
     console.log('\nSetze SMOKE_ENABLE = 1 ...');
     const smokeOk = enableSmoke(spawn.objectId);
@@ -413,11 +683,19 @@ async function main() {
   if (!keepSpawned) {
     await cleanupSpawnedObjects();
   }
+  printFinalDebugPath('normal-exit');
 }
 
 main().catch(async (err) => {
+  debugContext.fatalError = {
+    at: new Date().toISOString(),
+    message: err?.message || String(err),
+    stack: err?.stack || null
+  };
+  writeDebugSnapshot('fatal-error');
   console.log('\nABBRUCH: ' + (err?.message || String(err)));
   if (!keepSpawned) await cleanupSpawnedObjects();
+  printFinalDebugPath('fatal-error');
   await waitForEnter();
   process.exit(1);
 });

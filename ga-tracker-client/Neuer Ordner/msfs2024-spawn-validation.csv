@@ -1,0 +1,110 @@
+status;role;title;spawnedTitle;objectId;score;durationMs;error;roleHints;kind;category;confidence;packageName;path
+ok;vfx.smoke;Chimney_Smoke_V1;Chimney_Smoke_V1;55050258;955;495;;vfx.smoke;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\animatedsmoke_nz\sim.cfg
+ok;vfx.smoke;Chimney_Smoke_V2;Chimney_Smoke_V2;55050259;455;480;;vfx.smoke;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\animatedsmoke_nz\sim.cfg
+ok;vfx.smoke;Chimney_Smoke_V3;Chimney_Smoke_V3;55050260;455;458;;vfx.smoke;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\animatedsmoke_nz\sim.cfg
+ok;vfx.smoke;Chimney_Smoke_V4;Chimney_Smoke_V4;55050261;455;476;;vfx.smoke;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\animatedsmoke_nz\sim.cfg
+ok;vfx.smoke;VO_Smoke_R1_100_Black;VO_Smoke_R1_100_Black;55050262;275;470;;vfx.smoke;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_smoke\sim.cfg
+ok;vfx.smoke;VO_Smoke_R1_100_White;VO_Smoke_R1_100_White;55050263;275;468;;vfx.smoke;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_smoke\sim.cfg
+ok;vfx.smoke;VO_Smoke_R1_105_Black;VO_Smoke_R1_105_Black;55050264;275;472;;vfx.smoke;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_smoke\sim.cfg
+ok;vfx.smoke;VO_Smoke_R1_105_White;VO_Smoke_R1_105_White;55050265;275;478;;vfx.smoke;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_smoke\sim.cfg
+ok;vfx.smoke;VO_Smoke_R1_110_Black;VO_Smoke_R1_110_Black;55050266;275;469;;vfx.smoke;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_smoke\sim.cfg
+ok;vfx.smoke;VO_Smoke_R1_110_White;VO_Smoke_R1_110_White;55050267;275;467;;vfx.smoke;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_smoke\sim.cfg
+ok;vfx.smoke;VO_Smoke_R1_115_Black;VO_Smoke_R1_115_Black;55050268;275;467;;vfx.smoke;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_smoke\sim.cfg
+ok;vfx.smoke;VO_Smoke_R1_115_White;VO_Smoke_R1_115_White;55050269;275;465;;vfx.smoke;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_smoke\sim.cfg
+ok;vfx.fire;VO_Fire_R1_40;VO_Fire_R1_40;55050270;955;475;;vfx.fire;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_fire\sim.cfg
+ok;vfx.fire;VO_Fire_R1_100;VO_Fire_R1_100;55050271;455;468;;vfx.fire;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_fire\sim.cfg
+ok;vfx.fire;VO_Fire_R1_105;VO_Fire_R1_105;55050272;455;466;;vfx.fire;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_fire\sim.cfg
+ok;vfx.fire;VO_Fire_R1_110;VO_Fire_R1_110;55050273;455;458;;vfx.fire;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_fire\sim.cfg
+ok;vfx.fire;VO_Fire_R1_115;VO_Fire_R1_115;55050274;455;493;;vfx.fire;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_fire\sim.cfg
+ok;vfx.fire;VO_Fire_R1_120;VO_Fire_R1_120;55050275;455;477;;vfx.fire;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_fire\sim.cfg
+ok;vfx.fire;VO_Fire_R1_125;VO_Fire_R1_125;55050276;455;482;;vfx.fire;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_fire\sim.cfg
+ok;vfx.fire;VO_Fire_R1_130;VO_Fire_R1_130;55050277;455;458;;vfx.fire;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_fire\sim.cfg
+ok;vfx.fire;VO_Fire_R1_135;VO_Fire_R1_135;55050278;455;461;;vfx.fire;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_fire\sim.cfg
+ok;vfx.fire;VO_Fire_R1_140;VO_Fire_R1_140;55050279;455;479;;vfx.fire;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_fire\sim.cfg
+ok;vfx.fire;VO_Fire_R1_145;VO_Fire_R1_145;55050280;455;482;;vfx.fire;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_fire\sim.cfg
+ok;vfx.fire;VO_Fire_R1_150;VO_Fire_R1_150;55050281;455;474;;vfx.fire;landmarks;StaticObject;high;VFSProjection;simobjects\landmarks\vo_fire\sim.cfg
+ok;vehicle.emergency.fire;Car Bush Firefighting;Car Bush Firefighting;55050282;935;737;;vfx.fire|vehicle.car|vehicle.emergency.fire;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_car_bush\presets\asobo\firefighting_default\config\sim.cfg
+ok;vehicle.emergency.medical;Car Bush Medic;Car Bush Medic;55050283;185;499;;vehicle.car|vehicle.emergency.medical;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_car_bush\presets\asobo\medic_default\config\sim.cfg
+ok;vehicle.emergency.medical;Stretcher_RTC_Medic;Stretcher_RTC_Medic;55050284;185;463;;vehicle.emergency.medical;misc;StaticObject;high;VFSProjection;simobjects\misc\stretcher_rtc_medic\sim.cfg
+ok;vehicle.emergency.medical;Truck Utility Europe Medic Box;Truck Utility Europe Medic Box;55050285;185;467;;vehicle.truck|vehicle.emergency.medical|cargo.small_box;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_truck_utility_europe\presets\asobo\medic_box_default\config\sim.cfg
+ok;vehicle.emergency.medical;Truck Utility Europe Medic Flush;Truck Utility Europe Medic Flush;55050286;185;570;;vehicle.truck|vehicle.emergency.medical;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_truck_utility_europe\presets\asobo\medic_flush_default\config\sim.cfg
+ok;vehicle.emergency.medical;Truck Utility NorthAm Medic;Truck Utility NorthAm Medic;55050287;185;477;;vehicle.truck|vehicle.emergency.medical;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_truck_utility_northam\presets\asobo\truck_utility_northam_medic\config\sim.cfg
+ok;vehicle.emergency.medical;Van Asia High Roof Medic;Van Asia High Roof Medic;55050288;185;505;;vehicle.van|vehicle.emergency.medical;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_van_asia\presets\asobo\medic_highroof_default\config\sim.cfg
+ok;vehicle.emergency.medical;Van Asia High Roof Medic Japan;Van Asia High Roof Medic Japan;55050289;185;465;;vehicle.van|vehicle.emergency.medical;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_van_asia\presets\asobo\medic_highroof_japan\config\sim.cfg
+ok;vehicle.emergency.medical;Van Asia Low Roof Medic;Van Asia Low Roof Medic;55050290;185;486;;vehicle.van|vehicle.emergency.medical;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_van_asia\presets\asobo\medic_lowroof_default\config\sim.cfg
+ok;vehicle.car;Microsoft_Car_EUR_01;Microsoft_Car_EUR_01;55050291;775;466;;vehicle.car;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_car_eur_01\sim.cfg
+ok;vehicle.car;Microsoft_Car_EUR_02;Microsoft_Car_EUR_02;55050292;775;459;;vehicle.car;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_car_eur_02\sim.cfg
+ok;vehicle.car;Microsoft_Car_EUR_03;Microsoft_Car_EUR_03;55050293;775;485;;vehicle.car;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_car_eur_03\sim.cfg
+ok;vehicle.car;Microsoft_Car_EUR_04;Microsoft_Car_EUR_04;55050294;775;486;;vehicle.car;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_car_eur_04\sim.cfg
+ok;vehicle.car;Microsoft_Car_EUR_01_black;Microsoft_Car_EUR_01_black;55050295;295;498;;vehicle.car;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_car_eur_01\sim.cfg
+ok;vehicle.car;Microsoft_Car_EUR_02_Blue;Microsoft_Car_EUR_02_Blue;55050296;295;467;;vehicle.car;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_car_eur_02\sim.cfg
+ok;vehicle.car;Microsoft_Car_EUR_02_Silver;Microsoft_Car_EUR_02_Silver;55050297;295;477;;vehicle.car;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_car_eur_02\sim.cfg
+ok;vehicle.car;Microsoft_Car_EUR_03_Beige;Microsoft_Car_EUR_03_Beige;55050298;295;481;;vehicle.car;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_car_eur_03\sim.cfg
+ok;vehicle.car;Microsoft_Car_EUR_03_Black;Microsoft_Car_EUR_03_Black;55050299;295;470;;vehicle.car;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_car_eur_03\sim.cfg
+ok;vehicle.car;Microsoft_Car_EUR_03_Blue;Microsoft_Car_EUR_03_Blue;55050300;295;478;;vehicle.car;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_car_eur_03\sim.cfg
+ok;vehicle.car;Microsoft_Car_EUR_03_Red;Microsoft_Car_EUR_03_Red;55050301;295;492;;vehicle.car;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_car_eur_03\sim.cfg
+ok;vehicle.car;Microsoft_Car_EUR_04_Blue;Microsoft_Car_EUR_04_Blue;55050302;295;481;;vehicle.car;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_car_eur_04\sim.cfg
+ok;vehicle.van;Microsoft_Van_EUR;Microsoft_Van_EUR;55050303;775;497;;vehicle.van;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_van_eur\sim.cfg
+ok;vehicle.van;Microsoft_Van_ASIA_02;Microsoft_Van_ASIA_02;55050304;295;476;;vehicle.van;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_van_asia_02\sim.cfg
+ok;vehicle.van;Microsoft_Van_ASIA_02_Brown;Microsoft_Van_ASIA_02_Brown;55050305;295;469;;vehicle.van;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_van_asia_02\sim.cfg
+ok;vehicle.van;Microsoft_Van_ASIA_02_Yellow;Microsoft_Van_ASIA_02_Yellow;55050306;295;459;;vehicle.van;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_van_asia_02\sim.cfg
+ok;vehicle.van;Microsoft_Van_EUR_Black;Microsoft_Van_EUR_Black;55050307;295;462;;vehicle.van;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_van_eur\sim.cfg
+ok;vehicle.van;Microsoft_Van_EUR_Blue;Microsoft_Van_EUR_Blue;55050308;295;490;;vehicle.van;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_van_eur\sim.cfg
+ok;vehicle.van;Microsoft_Van_EUR_Red;Microsoft_Van_EUR_Red;55050309;295;462;;vehicle.van;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_van_eur\sim.cfg
+ok;vehicle.van;Microsoft_Van_NA_Lavatory;Microsoft_Van_NA_Lavatory;55050310;295;474;;vehicle.van;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_van_na_lavatory\sim.cfg
+ok;vehicle.van;Microsoft_Van_NA_Lavatory_Blue;Microsoft_Van_NA_Lavatory_Blue;55050311;295;490;;vehicle.van;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_van_na_lavatory\sim.cfg
+ok;vehicle.van;Microsoft_Van_NA_Modern;Microsoft_Van_NA_Modern;55050312;295;477;;vehicle.van;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_van_na_modern\sim.cfg
+ok;vehicle.van;Microsoft_Van_NA_Modern_Green;Microsoft_Van_NA_Modern_Green;55050313;295;488;;vehicle.van;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_van_na_modern\sim.cfg
+ok;vehicle.van;Winch Busio Van Gelder 4D;Winch Busio Van Gelder 4D;55050314;275;480;;vehicle.van;groundvehicles;Winch;high;VFSProjection;simobjects\groundvehicles\winch_busio_van_gelder_4d\sim.cfg
+ok;vehicle.truck;Fuel Truck Long 01;Fuel Truck Long 01;55050315;275;501;;vehicle.truck;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_truck_fuel_long\presets\asobo\cab_01\config\sim.cfg
+ok;vehicle.truck;Fuel Truck Long 02;Fuel Truck Long 02;55050316;275;462;;vehicle.truck;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_truck_fuel_long\presets\asobo\cab_02\config\sim.cfg
+failed;vehicle.truck;Truck Boarding Common;;;275;138;Truck Boarding Common: CREATE_OBJECT_FAILED;vehicle.truck;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\asobo_truck_boarding\common\config\sim.cfg
+ok;vehicle.truck;Truck Fire Short;Truck Fire Short;55050317;275;501;;vfx.fire|vehicle.truck;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_truck_fire_short\presets\asobo\truck_fire_short\config\sim.cfg
+ok;vehicle.truck;Truck Military Cover;Truck Military Cover;55050318;275;470;;vehicle.truck;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_truck_military\presets\asobo\military_cover\config\sim.cfg
+ok;vehicle.truck;Truck Military No Cover;Truck Military No Cover;55050319;275;477;;vehicle.truck;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_truck_military\presets\asobo\military_nocover\config\sim.cfg
+ok;vehicle.truck;Truck Utility Europe Flush;Truck Utility Europe Flush;55050320;275;486;;vehicle.truck;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_truck_utility_europe\presets\asobo\flush_default\config\sim.cfg
+ok;vehicle.truck;Truck Utility NorthAm;Truck Utility NorthAm;55050321;275;487;;vehicle.truck;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_truck_utility_northam\presets\asobo\truck_utility_northam\config\sim.cfg
+failed;vehicle.truck;ASOBO_Pickup_01;;;197;368;ASOBO_Pickup_01: CREATE_OBJECT_FAILED;vehicle.truck;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\asobo_pickup_01\common\config\sim.cfg
+ok;vehicle.truck;ASO_Operation_Truck_White;ASO_Operation_Truck_White;55050322;185;502;;vehicle.truck;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_pickup_01\presets\asobo\aso_operation_truck_white\config\sim.cfg
+ok;vehicle.truck;ASO_Operation_Truck_Yellow;ASO_Operation_Truck_Yellow;55050323;185;473;;vehicle.truck;groundvehicles;;high;VFSProjection;simobjects\groundvehicles\asobo_pickup_01\presets\asobo\aso_operation_truck_yellow\config\sim.cfg
+failed;vehicle.bus;Bus Apron Common;;;275;347;Bus Apron Common: CREATE_OBJECT_FAILED;vehicle.bus;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\asobo_bus_apron\common\config\sim.cfg
+ok;watercraft.boat;Fishing Boat Red Modular;Fishing Boat Red Modular;55050324;275;470;;watercraft.boat;boats;;high;VFSProjection;simobjects\boats\asobo_fishingboat_modular\presets\asobo\fishingboat_red_modular\config\sim.cfg
+ok;watercraft.boat;Fishing Boat White Modular;Fishing Boat White Modular;55050325;275;466;;watercraft.boat;boats;;high;VFSProjection;simobjects\boats\asobo_fishingboat_modular\presets\asobo\fishingboat_white_modular\config\sim.cfg
+ok;watercraft.boat;Microsoft_Ships_AbeilleBourbon_1.0;Microsoft_Ships_AbeilleBourbon_1.0;55050326;205;460;;watercraft.boat;boats;Boat;high;VFSProjection;simobjects\boats\microsoft_ships_abeillebourbon\sim.cfg
+ok;watercraft.boat;Microsoft_Ships_AbeilleBourbon_10.0;Microsoft_Ships_AbeilleBourbon_10.0;55050327;205;471;;watercraft.boat;boats;Boat;high;VFSProjection;simobjects\boats\microsoft_ships_abeillebourbon\sim.cfg
+ok;watercraft.boat;Microsoft_Ships_AbeilleBourbon_11.0;Microsoft_Ships_AbeilleBourbon_11.0;55050328;205;490;;watercraft.boat;boats;Boat;high;VFSProjection;simobjects\boats\microsoft_ships_abeillebourbon\sim.cfg
+ok;watercraft.boat;Microsoft_Ships_AbeilleBourbon_12.0;Microsoft_Ships_AbeilleBourbon_12.0;55050329;205;494;;watercraft.boat;boats;Boat;high;VFSProjection;simobjects\boats\microsoft_ships_abeillebourbon\sim.cfg
+ok;watercraft.boat;Microsoft_Ships_AbeilleBourbon_2.0;Microsoft_Ships_AbeilleBourbon_2.0;55050330;205;472;;watercraft.boat;boats;Boat;high;VFSProjection;simobjects\boats\microsoft_ships_abeillebourbon\sim.cfg
+ok;watercraft.boat;Microsoft_Ships_AbeilleBourbon_3.0;Microsoft_Ships_AbeilleBourbon_3.0;55050331;205;467;;watercraft.boat;boats;Boat;high;VFSProjection;simobjects\boats\microsoft_ships_abeillebourbon\sim.cfg
+ok;watercraft.boat;Microsoft_Ships_AbeilleBourbon_4.0;Microsoft_Ships_AbeilleBourbon_4.0;55050332;205;559;;watercraft.boat;boats;Boat;high;VFSProjection;simobjects\boats\microsoft_ships_abeillebourbon\sim.cfg
+ok;watercraft.boat;Microsoft_Ships_AbeilleBourbon_5.0;Microsoft_Ships_AbeilleBourbon_5.0;55050333;205;462;;watercraft.boat;boats;Boat;high;VFSProjection;simobjects\boats\microsoft_ships_abeillebourbon\sim.cfg
+ok;watercraft.boat;Microsoft_Ships_AbeilleBourbon_6.0;Microsoft_Ships_AbeilleBourbon_6.0;55050334;205;470;;watercraft.boat;boats;Boat;high;VFSProjection;simobjects\boats\microsoft_ships_abeillebourbon\sim.cfg
+ok;watercraft.boat;Microsoft_Ships_AbeilleBourbon_7.0;Microsoft_Ships_AbeilleBourbon_7.0;55050335;205;473;;watercraft.boat;boats;Boat;high;VFSProjection;simobjects\boats\microsoft_ships_abeillebourbon\sim.cfg
+ok;sar.liferaft;LifeRaft;LifeRaft;55050336;775;464;;sar.liferaft;misc;SimpleObjectSim;high;VFSProjection;simobjects\misc\liferaft\sim.cfg
+ok;sar.liferaft;LifeRaft_Characters;LifeRaft_Characters;55050337;275;461;;sar.liferaft;misc;SimpleObjectSim;high;VFSProjection;simobjects\misc\liferaft\sim.cfg
+ok;person.ground_crew;Tarmac_Female_Summer_Asian;Tarmac_Female_Summer_Asian;55050338;685;473;;person.ground_crew|person.passenger;humans;Human;high;VFSProjection;simobjects\humans\tarmacworker\sim.cfg
+ok;person.ground_crew;Marshaller_Female_Summer_African;Marshaller_Female_Summer_African;55050339;275;462;;person.ground_crew|person.passenger;humans;Human;high;VFSProjection;simobjects\humans\marshaller\sim.cfg
+ok;person.ground_crew;Marshaller_Female_Summer_Arab;Marshaller_Female_Summer_Arab;55050340;275;490;;person.ground_crew|person.passenger;humans;Human;high;VFSProjection;simobjects\humans\marshaller\sim.cfg
+ok;person.ground_crew;Marshaller_Female_Summer_Asian;Marshaller_Female_Summer_Asian;55050341;275;462;;person.ground_crew|person.passenger;humans;Human;high;VFSProjection;simobjects\humans\marshaller\sim.cfg
+ok;person.ground_crew;Marshaller_Female_Summer_Caucasian;Marshaller_Female_Summer_Caucasian;55050342;275;462;;person.ground_crew|person.passenger;humans;Human;high;VFSProjection;simobjects\humans\marshaller\sim.cfg
+ok;person.ground_crew;Marshaller_Female_Summer_Hispanic;Marshaller_Female_Summer_Hispanic;55050343;275;468;;person.ground_crew|person.passenger;humans;Human;high;VFSProjection;simobjects\humans\marshaller\sim.cfg
+ok;person.ground_crew;Marshaller_Female_Summer_Indian;Marshaller_Female_Summer_Indian;55050344;275;485;;person.ground_crew|person.passenger;humans;Human;high;VFSProjection;simobjects\humans\marshaller\sim.cfg
+ok;person.ground_crew;Marshaller_Female_Winter_African;Marshaller_Female_Winter_African;55050345;275;468;;person.ground_crew|person.passenger;humans;Human;high;VFSProjection;simobjects\humans\marshaller\sim.cfg
+ok;person.ground_crew;Marshaller_Female_Winter_Arab;Marshaller_Female_Winter_Arab;55050346;275;466;;person.ground_crew|person.passenger;humans;Human;high;VFSProjection;simobjects\humans\marshaller\sim.cfg
+ok;person.ground_crew;Marshaller_Female_Winter_Asian;Marshaller_Female_Winter_Asian;55050347;275;470;;person.ground_crew|person.passenger;humans;Human;high;VFSProjection;simobjects\humans\marshaller\sim.cfg
+ok;person.ground_crew;Marshaller_Female_Winter_Caucasian;Marshaller_Female_Winter_Caucasian;55050348;275;466;;person.ground_crew|person.passenger;humans;Human;high;VFSProjection;simobjects\humans\marshaller\sim.cfg
+ok;person.ground_crew;Marshaller_Female_Winter_Hispanic;Marshaller_Female_Winter_Hispanic;55050349;275;502;;person.ground_crew|person.passenger;humans;Human;high;VFSProjection;simobjects\humans\marshaller\sim.cfg
+ok;cargo.container;Drop_Container;Drop_Container;55050350;895;466;;cargo.container;misc;SimpleObjectSim;high;VFSProjection;simobjects\misc\drop_container\sim.cfg
+ok;cargo.container;Microsoft_Truck_Container;Microsoft_Truck_Container;55050351;205;479;;cargo.container;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_truck_container\sim.cfg
+ok;cargo.container;Microsoft_Truck_Container_Blue;Microsoft_Truck_Container_Blue;55050352;205;460;;cargo.container;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_truck_container\sim.cfg
+ok;cargo.container;Microsoft_Truck_Container_Gray;Microsoft_Truck_Container_Gray;55050353;205;467;;cargo.container;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_truck_container\sim.cfg
+ok;cargo.container;Microsoft_Truck_Container_Red;Microsoft_Truck_Container_Red;55050354;205;465;;cargo.container;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\microsoft_truck_container\sim.cfg
+failed;cargo.container;ASOBO_Truck_Container;;;197;254;ASOBO_Truck_Container: CREATE_OBJECT_FAILED;cargo.container;groundvehicles;GroundVehicle;high;VFSProjection;simobjects\groundvehicles\asobo_truck_container\common\config\sim.cfg
+ok;cargo.container;CargoContainer01;CargoContainer01;55050355;185;471;;watercraft.boat|cargo.container;boats;Boat;high;VFSProjection;simobjects\boats\cargocontainer01\sim.cfg
+ok;cargo.small_box;Cardboard;Cardboard;55050356;885;477;;cargo.small_box;misc;SimpleObjectSim;high;VFSProjection;simobjects\misc\cardboard\sim.cfg
+ok;cargo.small_box;CoffeeCup;CoffeeCup;55050357;755;479;;;misc;StaticObject;high;VFSProjection;simobjects\misc\coffeecup\sim.cfg
+ok;cargo.pallet_large;Pallet01_01;Pallet01_01;55050358;895;475;;cargo.pallet_large;misc;SimpleObjectSim;high;VFSProjection;simobjects\misc\pallet01_01\sim.cfg
+ok;cargo.pallet_medium;Pallet01_02;Pallet01_02;55050359;895;460;;cargo.pallet_medium;misc;SimpleObjectSim;high;VFSProjection;simobjects\misc\pallet01_02\sim.cfg
+ok;cargo.pallet_small;Pallet01_03;Pallet01_03;55050360;895;461;;cargo.pallet_small;misc;SimpleObjectSim;high;VFSProjection;simobjects\misc\pallet01_03\sim.cfg
+ok;marker.cone;Cone_Medium;Cone_Medium;55050361;685;459;;marker.cone;misc;StaticObject;high;VFSProjection;simobjects\misc\cone_medium\sim.cfg
+ok;marker.cone;EDTW Smoke Marker;EDTW Smoke Marker;55050362;145;455;;vfx.smoke|marker.cone;misc;StaticObject;high;VFSProjection;simobjects\misc\edtwsmokemarker\sim.cfg

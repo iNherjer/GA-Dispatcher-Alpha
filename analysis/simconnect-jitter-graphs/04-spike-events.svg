@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <style>
+    .title { font: 700 30px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+    .subtitle { font: 400 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #475569; }
+    .axis { font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #334155; }
+    .small { font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #64748b; }
+    .axis-label { font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #334155; }
+    .legend { font: 600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #1e293b; }
+    .value { font: 700 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #111827; }
+  </style>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="42" y="42" class="title">Einzelne Ausreißer über 25 ms</text>
+  <text x="42" y="68" class="subtitle">Jeder Kreis ist ein Callback-Abstand über 25 ms; längere Linien bedeuten stärkere Hänger</text>
+  <line x1="190" y1="86" x2="190" y2="630" stroke="#e5e7eb"/>
+<line x1="221.3736847186022" y1="86" x2="221.3736847186022" y2="630" stroke="#e5e7eb"/>
+<line x1="252.74736943720436" y1="86" x2="252.74736943720436" y2="630" stroke="#e5e7eb"/>
+<line x1="284.1210541558065" y1="86" x2="284.1210541558065" y2="630" stroke="#e5e7eb"/>
+<line x1="315.4947388744087" y1="86" x2="315.4947388744087" y2="630" stroke="#e5e7eb"/>
+<line x1="346.8684235930109" y1="86" x2="346.8684235930109" y2="630" stroke="#e5e7eb"/>
+<line x1="378.2421083116131" y1="86" x2="378.2421083116131" y2="630" stroke="#e5e7eb"/>
+
+      <text x="172" y="145.4" text-anchor="end" class="legend">01 Boden still</text>
+      <line x1="190" y1="140.4" x2="1230" y2="140.4" stroke="#e5e7eb"/>
+      
+        <line x1="190" y1="140.4" x2="1230" y2="140.4" stroke="#2563eb" stroke-width="2" opacity="0.55"/>
+        <circle cx="1230" cy="140.4" r="11" fill="#2563eb" opacity="0.82">
+          <title>01 Boden still: 828.72 ms bei 24.97s</title>
+        </circle>
+      
+
+        <line x1="190" y1="140.4" x2="230.09556907037359" y2="140.4" stroke="#2563eb" stroke-width="2" opacity="0.55"/>
+        <circle cx="230.09556907037359" cy="140.4" r="4" fill="#2563eb" opacity="0.82">
+          <title>01 Boden still: 31.95 ms bei 43.15s</title>
+        </circle>
+      
+
+        <line x1="190" y1="140.4" x2="222.4215657882035" y2="140.4" stroke="#2563eb" stroke-width="2" opacity="0.55"/>
+        <circle cx="222.4215657882035" cy="140.4" r="4" fill="#2563eb" opacity="0.82">
+          <title>01 Boden still: 25.84 ms bei 43.19s</title>
+        </circle>
+      
+
+        <line x1="190" y1="140.4" x2="225.49744183801525" y2="140.4" stroke="#2563eb" stroke-width="2" opacity="0.55"/>
+        <circle cx="225.49744183801525" cy="140.4" r="4" fill="#2563eb" opacity="0.82">
+          <title>01 Boden still: 28.29 ms bei 45.88s</title>
+        </circle>
+      
+    
+
+      <text x="172" y="254.20000000000002" text-anchor="end" class="legend">02 Flug aktiv minimal</text>
+      <line x1="190" y1="249.20000000000002" x2="1230" y2="249.20000000000002" stroke="#e5e7eb"/>
+      
+        <line x1="190" y1="249.20000000000002" x2="223.59870643884545" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="223.59870643884545" cy="249.20000000000002" r="4" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 26.77 ms bei 2.97s</title>
+        </circle>
+      
+
+        <line x1="190" y1="249.20000000000002" x2="227.23052418187083" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="227.23052418187083" cy="249.20000000000002" r="4" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 29.67 ms bei 21.19s</title>
+        </circle>
+      
+
+        <line x1="190" y1="249.20000000000002" x2="231.1346655082537" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="231.1346655082537" cy="249.20000000000002" r="4" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 32.78 ms bei 22.58s</title>
+        </circle>
+      
+
+        <line x1="190" y1="249.20000000000002" x2="270.9917945747659" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="270.9917945747659" cy="249.20000000000002" r="6.453799999999999" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 64.54 ms bei 27.57s</title>
+        </circle>
+      
+
+        <line x1="190" y1="249.20000000000002" x2="243.80586929240275" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="243.80586929240275" cy="249.20000000000002" r="4.2875" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 42.88 ms bei 68.29s</title>
+        </circle>
+      
+
+        <line x1="190" y1="249.20000000000002" x2="295.78955497634905" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="295.78955497634905" cy="249.20000000000002" r="8.4298" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 84.30 ms bei 100.51s</title>
+        </circle>
+      
+
+        <line x1="190" y1="249.20000000000002" x2="261.267207259388" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="261.267207259388" cy="249.20000000000002" r="5.6789000000000005" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 56.79 ms bei 100.58s</title>
+        </circle>
+      
+
+        <line x1="190" y1="249.20000000000002" x2="285.9582971329279" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="285.9582971329279" cy="249.20000000000002" r="7.6464" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 76.46 ms bei 100.69s</title>
+        </circle>
+      
+
+        <line x1="190" y1="249.20000000000002" x2="227.54928081861183" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="227.54928081861183" cy="249.20000000000002" r="4" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 29.92 ms bei 100.94s</title>
+        </circle>
+      
+
+        <line x1="190" y1="249.20000000000002" x2="236.5033304373009" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="236.5033304373009" cy="249.20000000000002" r="4" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 37.06 ms bei 101.00s</title>
+        </circle>
+      
+
+        <line x1="190" y1="249.20000000000002" x2="236.95887633941499" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="236.95887633941499" cy="249.20000000000002" r="4" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 37.42 ms bei 101.04s</title>
+        </circle>
+      
+
+        <line x1="190" y1="249.20000000000002" x2="232.7861762718409" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="232.7861762718409" cy="249.20000000000002" r="4" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 34.09 ms bei 101.15s</title>
+        </circle>
+      
+
+        <line x1="190" y1="249.20000000000002" x2="228.4503330437301" y2="249.20000000000002" stroke="#059669" stroke-width="2" opacity="0.55"/>
+        <circle cx="228.4503330437301" cy="249.20000000000002" r="4" fill="#059669" opacity="0.82">
+          <title>02 Flug aktiv minimal: 30.64 ms bei 101.18s</title>
+        </circle>
+      
+    
+
+      <text x="172" y="363" text-anchor="end" class="legend">03 Flug aktiv motion</text>
+      <line x1="190" y1="358" x2="1230" y2="358" stroke="#e5e7eb"/>
+      
+        <line x1="190" y1="358" x2="255.51954821894006" y2="358" stroke="#7c3aed" stroke-width="2" opacity="0.55"/>
+        <circle cx="255.51954821894006" cy="358" r="5.2209" fill="#7c3aed" opacity="0.82">
+          <title>03 Flug aktiv motion: 52.21 ms bei 11.67s</title>
+        </circle>
+      
+
+        <line x1="190" y1="358" x2="344.50159281783954" y2="358" stroke="#7c3aed" stroke-width="2" opacity="0.55"/>
+        <circle cx="344.50159281783954" cy="358" r="11" fill="#7c3aed" opacity="0.82">
+          <title>03 Flug aktiv motion: 123.11 ms bei 21.32s</title>
+        </circle>
+      
+
+        <line x1="190" y1="358" x2="256.29134086301764" y2="358" stroke="#7c3aed" stroke-width="2" opacity="0.55"/>
+        <circle cx="256.29134086301764" cy="358" r="5.2824" fill="#7c3aed" opacity="0.82">
+          <title>03 Flug aktiv motion: 52.82 ms bei 46.08s</title>
+        </circle>
+      
+
+        <line x1="190" y1="358" x2="249.97142581330243" y2="358" stroke="#7c3aed" stroke-width="2" opacity="0.55"/>
+        <circle cx="249.97142581330243" cy="358" r="4.7787999999999995" fill="#7c3aed" opacity="0.82">
+          <title>03 Flug aktiv motion: 47.79 ms bei 52.63s</title>
+        </circle>
+      
+
+        <line x1="190" y1="358" x2="384.90587894584417" y2="358" stroke="#7c3aed" stroke-width="2" opacity="0.55"/>
+        <circle cx="384.90587894584417" cy="358" r="11" fill="#7c3aed" opacity="0.82">
+          <title>03 Flug aktiv motion: 155.31 ms bei 59.35s</title>
+        </circle>
+      
+    
+
+      <text x="172" y="471.79999999999995" text-anchor="end" class="legend">04 SIM_FRAME motion</text>
+      <line x1="190" y1="466.79999999999995" x2="1230" y2="466.79999999999995" stroke="#e5e7eb"/>
+      
+        <line x1="190" y1="466.79999999999995" x2="232.34568973839174" y2="466.79999999999995" stroke="#ea580c" stroke-width="2" opacity="0.55"/>
+        <circle cx="232.34568973839174" cy="466.79999999999995" r="4" fill="#ea580c" opacity="0.82">
+          <title>04 SIM_FRAME motion: 33.74 ms bei 0.84s</title>
+        </circle>
+      
+
+        <line x1="190" y1="466.79999999999995" x2="232.32435563278307" y2="466.79999999999995" stroke="#ea580c" stroke-width="2" opacity="0.55"/>
+        <circle cx="232.32435563278307" cy="466.79999999999995" r="4" fill="#ea580c" opacity="0.82">
+          <title>04 SIM_FRAME motion: 33.73 ms bei 45.35s</title>
+        </circle>
+      
+
+        <line x1="190" y1="466.79999999999995" x2="225.48363741673907" y2="466.79999999999995" stroke="#ea580c" stroke-width="2" opacity="0.55"/>
+        <circle cx="225.48363741673907" cy="466.79999999999995" r="4" fill="#ea580c" opacity="0.82">
+          <title>04 SIM_FRAME motion: 28.27 ms bei 89.94s</title>
+        </circle>
+      
+    
+
+      <text x="172" y="580.6" text-anchor="end" class="legend">05 Mit DRSM</text>
+      <line x1="190" y1="575.6" x2="1230" y2="575.6" stroke="#e5e7eb"/>
+      
+        <line x1="190" y1="575.6" x2="262.4631721208611" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="262.4631721208611" cy="575.6" r="5.7741999999999996" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 57.74 ms bei 9.45s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="240.57061492422048" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="240.57061492422048" cy="575.6" r="4.0297" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 40.30 ms bei 16.77s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="222.24712810116807" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="222.24712810116807" cy="575.6" r="4" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 25.70 ms bei 16.88s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="351.43015735109566" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="351.43015735109566" cy="575.6" r="11" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 128.63 ms bei 17.05s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="242.71030022202916" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="242.71030022202916" cy="575.6" r="4.200200000000001" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 42.00 ms bei 17.10s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="223.14567043150882" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="223.14567043150882" cy="575.6" r="4" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 26.41 ms bei 17.13s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="230.01525243749396" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="230.01525243749396" cy="575.6" r="4" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 31.89 ms bei 17.20s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="223.78067381021333" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="223.78067381021333" cy="575.6" r="4" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 26.92 ms bei 17.23s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="233.97084660681531" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="233.97084660681531" cy="575.6" r="4" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 35.04 ms bei 17.26s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="233.63577565402065" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="233.63577565402065" cy="575.6" r="4" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 34.77 ms bei 49.99s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="275.02017569263444" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="275.02017569263444" cy="575.6" r="6.774800000000001" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 67.75 ms bei 76.42s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="316.25272709721014" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="316.25272709721014" cy="575.6" r="10.0604" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 100.60 ms bei 76.53s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="328.28014287093345" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="328.28014287093345" cy="575.6" r="11" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 110.19 ms bei 107.02s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="235.80557968915917" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="235.80557968915917" cy="575.6" r="4" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 36.50 ms bei 107.07s</title>
+        </circle>
+      
+
+        <line x1="190" y1="575.6" x2="232.36325900183414" y2="575.6" stroke="#dc2626" stroke-width="2" opacity="0.55"/>
+        <circle cx="232.36325900183414" cy="575.6" r="4" fill="#dc2626" opacity="0.82">
+          <title>05 Mit DRSM: 33.76 ms bei 107.28s</title>
+        </circle>
+      
+    
+
+    <line x1="190" y1="630" x2="1230" y2="630" stroke="#111827"/>
+    <text x="190" y="660" text-anchor="middle" class="axis">0 ms</text>
+<text x="221.3736847186022" y="660" text-anchor="middle" class="axis">25 ms</text>
+<text x="252.74736943720436" y="660" text-anchor="middle" class="axis">50 ms</text>
+<text x="284.1210541558065" y="660" text-anchor="middle" class="axis">75 ms</text>
+<text x="315.4947388744087" y="660" text-anchor="middle" class="axis">100 ms</text>
+<text x="346.8684235930109" y="660" text-anchor="middle" class="axis">125 ms</text>
+<text x="378.2421083116131" y="660" text-anchor="middle" class="axis">150 ms</text>
+    <text x="640" y="692" text-anchor="middle" class="axis-label">Ausreißer über 25 ms</text>
+  
+</svg>

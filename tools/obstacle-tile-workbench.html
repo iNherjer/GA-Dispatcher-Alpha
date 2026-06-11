@@ -527,30 +527,62 @@
       }
     }
 
+    function regionContinentLabel(code) {
+      const key = String(code || '').trim().toLowerCase();
+      if (key === 'europe') return 'Europe';
+      if (key === 'north_america') return 'North America';
+      return 'Other';
+    }
+
+    function regionContinentOrder(code) {
+      const key = String(code || '').trim().toLowerCase();
+      if (key === 'europe') return 0;
+      if (key === 'north_america') return 1;
+      return 9;
+    }
+
+    function compareRegionsWithinContinent(a, b) {
+      const aPref = String(a.id || '').startsWith('de-') ? 0 : 1;
+      const bPref = String(b.id || '').startsWith('de-') ? 0 : 1;
+      if (aPref !== bPref) return aPref - bPref;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    }
+
     function renderRegionOptions() {
       const sel = document.getElementById('regionSelect');
-      const sig = (state.regions || []).map(r => `${r.id}:${r.name}:${r.sizeMb}`).join('|');
+      const sig = (state.regions || [])
+        .map(r => `${r.id}:${r.name}:${r.sizeMb}:${r.coverage}:${r.continent || ''}`)
+        .join('|');
       if (sig === state.regionsSig) return;
       state.regionsSig = sig;
       sel.innerHTML = '';
       const regions = Array.isArray(state.regions) ? state.regions.slice() : [];
-      regions.sort((a, b) => {
-        const aPref = String(a.id || '').startsWith('de-') ? 0 : 1;
-        const bPref = String(b.id || '').startsWith('de-') ? 0 : 1;
-        if (aPref !== bPref) return aPref - bPref;
-        const aSize = Number(a.sizeMb || 0);
-        const bSize = Number(b.sizeMb || 0);
-        if (aSize !== bSize) return aSize - bSize;
-        return String(a.name || '').localeCompare(String(b.name || ''));
-      });
+      const groups = new Map();
       for (const r of regions) {
-        const opt = document.createElement('option');
-        const size = Number(r.sizeMb || 0);
-        const cov = String(r.coverage || 'unknown');
-        const covLabel = cov === 'poly' ? 'poly' : (cov === 'bbox' ? 'bbox' : 'auto');
-        opt.value = String(r.id || '');
-        opt.textContent = `${r.name} (${r.id}) • ${size} MB • ${covLabel}`;
-        sel.appendChild(opt);
+        const continent = String(r.continent || '').trim().toLowerCase() || 'other';
+        if (!groups.has(continent)) groups.set(continent, []);
+        groups.get(continent).push(r);
+      }
+      const orderedContinents = Array.from(groups.keys()).sort((a, b) => {
+        const orderDelta = regionContinentOrder(a) - regionContinentOrder(b);
+        if (orderDelta !== 0) return orderDelta;
+        return regionContinentLabel(a).localeCompare(regionContinentLabel(b));
+      });
+      for (const continent of orderedContinents) {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = regionContinentLabel(continent);
+        const entries = groups.get(continent) || [];
+        entries.sort(compareRegionsWithinContinent);
+        for (const r of entries) {
+          const opt = document.createElement('option');
+          const size = Number(r.sizeMb || 0);
+          const cov = String(r.coverage || 'unknown');
+          const covLabel = cov === 'poly' ? 'poly' : (cov === 'bbox' ? 'bbox' : 'auto');
+          opt.value = String(r.id || '');
+          opt.textContent = `${r.name} (${r.id}) • ${size} MB • ${covLabel}`;
+          optgroup.appendChild(opt);
+        }
+        sel.appendChild(optgroup);
       }
     }
 

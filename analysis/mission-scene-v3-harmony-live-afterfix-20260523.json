@@ -1,0 +1,3567 @@
+{
+  "generatedAt": "2026-05-23T10:29:36.754Z",
+  "roll": 0.7247464677784592,
+  "summary": [
+    {
+      "run": 1,
+      "seed": 2026052306,
+      "targetType": "poi:all+science_bio",
+      "blocked": false,
+      "blockPhase": null,
+      "blockReason": null,
+      "mode": "POI",
+      "start": "EDTW",
+      "dest": "Feldberg (Gipfel)",
+      "targetName": "Feldberg (Gipfel)",
+      "mission": "Vegetations-Monitoring am Feldberg-Massiv",
+      "source": "Gemini 3.0 Flash + V3 Tools",
+      "missionPipelineMode": "v3",
+      "missionPipelineV2Enabled": false,
+      "missionPipelineV3Enabled": true,
+      "missionPlanV2": {
+        "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+        "status": "ready",
+        "needs": [],
+        "resolvedNeeds": {
+          "geo_context": {
+            "source": "overpass",
+            "radiusM": 750,
+            "center": {
+              "lat": 47.873,
+              "lon": 8.004
+            },
+            "anchors": {
+              "water": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "Uferbereich",
+                "tag": "water"
+              },
+              "road": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 19,
+                "name": "service",
+                "tag": "road"
+              },
+              "meadow": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "meadow",
+                "tag": "meadow"
+              }
+            },
+            "visualLandmarks": [],
+            "avoidZones": [],
+            "hints": [
+              "roadside/vehicle placement plausible near the road or parking anchor",
+              "waterline placement plausible near the water anchor",
+              "animals/tents/reference objects plausible on meadow or farmland anchors"
+            ],
+            "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+            "fetchedAt": 1779532125002
+          },
+          "mission_truth": {
+            "source": "mission-truth-v1",
+            "requestedCategory": "mountain",
+            "poiCategory": "mountain",
+            "primaryCategory": "mountain",
+            "geometryMode": "area",
+            "pickedPoi": {
+              "name": "Feldberg (Gipfel)",
+              "lat": 47.873,
+              "lon": 8.004,
+              "source": "Local fallback POIs (forced:mountain)",
+              "lookup": null
+            },
+            "targetProminence": {
+              "level": "low",
+              "reason": "surface/terrain target"
+            },
+            "visualLandmarks": [],
+            "mainTarget": {
+              "name": "Feldberg (Gipfel)",
+              "kind": "poi",
+              "lat": 47.873,
+              "lon": 8.004,
+              "refinedFromPoi": false,
+              "distanceFromPoiM": 0,
+              "bearingFromPoiDeg": 0,
+              "reason": "original_poi"
+            },
+            "sceneAnchor": {
+              "kind": "poi",
+              "lat": 47.873,
+              "lon": 8.004,
+              "reason": "original_poi"
+            },
+            "visibleCues": [
+              "offenes Gelaende",
+              "Wasserflaeche oder Uferlinie"
+            ],
+            "constraints": [
+              "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+              "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+            ]
+          },
+          "weather_snapshot": {
+            "dep": {
+              "station": "EDTW",
+              "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+              "windDeg": 260,
+              "windKts": 8,
+              "visKm": 10,
+              "tempC": 17,
+              "wxCode": null,
+              "fltCat": "VFR"
+            },
+            "dest": {
+              "station": "EDTW",
+              "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+              "windDeg": 260,
+              "windKts": 8,
+              "visKm": 10,
+              "tempC": 17,
+              "wxCode": null,
+              "fltCat": "VFR"
+            }
+          },
+          "fire_hazard": null,
+          "airport_details": {
+            "start": {
+              "icao": "EDTW",
+              "name": "Winzeln-Schramberg Airport",
+              "lat": 48.2791671753,
+              "lon": 8.4283332825
+            },
+            "dest": null,
+            "targetPoi": {
+              "icao": "POI",
+              "name": "Feldberg (Gipfel)",
+              "lat": 47.873,
+              "lon": 8.004
+            }
+          }
+        },
+        "plan": {
+          "taskDomain": "science_bio",
+          "roleProfile": "science_field_v1",
+          "missionType": "poi",
+          "targetCategory": "mountain",
+          "primaryObjective": "Biologisches Monitoring der alpinen Flora und Vegetationszonen im Gipfelbereich des Feldbergs.",
+          "targetLabel": "Feldberg (Gipfel)",
+          "sceneKind": "none",
+          "sceneDensity": "sparse",
+          "requiredAnchors": [
+            "meadow",
+            "water"
+          ],
+          "objectFamilies": [
+            "scientific_equipment",
+            "small_vehicles"
+          ],
+          "placementPolicy": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden.",
+          "narrativeRules": [
+            "Der Fokus liegt auf wissenschaftlicher Beobachtung.",
+            "Keine Landung am Feldberg; der Flug ist ein reiner Beobachtungs- und Dokumentationsflug.",
+            "Rückkehr zum Startflugplatz EDTW nach Abschluss der Beobachtung."
+          ],
+          "lockedFields": {
+            "noLandingAtPoi": true
+          },
+          "confidence": 1,
+          "localFacts": [
+            "Der Feldberg ist mit 1493 m die höchste Erhebung im Schwarzwald.",
+            "In unmittelbarer Nähe zum Gipfel befindet sich eine Wasserfläche (Uferbereich), die als ökologischer Referenzpunkt dient.",
+            "Offenes Gelände und alpine Wiesen prägen die Gipfelregion."
+          ],
+          "weatherHooks": [
+            "Wind aus 260° mit 8 Knoten sorgt für stabile Anflugbedingungen aus Westen.",
+            "Gute VFR-Sichtweiten bei milden 17°C ermöglichen präzise Sichtbeobachtungen."
+          ],
+          "operationalDetails": [
+            "Flugstrecke ca. 60 NM von Winzeln-Schramberg (EDTW) zum Feldberg.",
+            "Beachtung der Geländehöhe beim Überflug des Schwarzwald-Hauptkamms.",
+            "Rückflug erfolgt auf derselben Route oder als kleiner Rundflug."
+          ],
+          "realismBrief": "Wissenschaftliche Bestandsaufnahmen seltener Pflanzenarten oder die Überwachung von Erosionsschäden sind am Feldberg aufgrund seines Status als Naturschutzgebiet und höchster Punkt der Region absolut plausibel.",
+          "narrativeHooks": [
+            "Dokumentation des Vegetationszustands nach der letzten Trockenperiode.",
+            "Überprüfung der Wasserstände im Bereich der Karsee-Ufer unterhalb des Gipfels.",
+            "Zählung von Gämsen oder anderen Wildtieren in den offenen Hanglagen."
+          ],
+          "mustMention": [
+            "Feldberg-Gipfel",
+            "Biologisches Monitoring",
+            "VFR-Bedingungen"
+          ],
+          "mustAvoid": [
+            "Keine Landung am Zielort (POI).",
+            "Keine Rettungsmission oder dramatische Notlage.",
+            "Keine Erfindung von nicht vorhandenen Gebäuden direkt auf dem Gipfelpunkt."
+          ]
+        },
+        "debug": {
+          "source": "Gemini 3.0 Flash Tool Planner V3",
+          "rawStatus": "ready",
+          "pass": "tool-calling",
+          "promptVersion": "mission-v3-tool-planner-2026-05-23",
+          "toolCalls": [
+            {
+              "turn": 0,
+              "name": "get_mission_context_bundle",
+              "id": "a7vytu2l",
+              "args": {
+                "reason": "Verifying route and local context for a science mission to Feldberg."
+              },
+              "resultKeys": [
+                "schema",
+                "route",
+                "target",
+                "picker",
+                "category",
+                "profile",
+                "airportDetails",
+                "weather",
+                "fireHazard",
+                "targetGeoContext"
+              ]
+            }
+          ],
+          "fallbackError": ""
+        }
+      },
+      "missionPlanV3": {
+        "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+        "status": "ready",
+        "needs": [],
+        "resolvedNeeds": {
+          "geo_context": {
+            "source": "overpass",
+            "radiusM": 750,
+            "center": {
+              "lat": 47.873,
+              "lon": 8.004
+            },
+            "anchors": {
+              "water": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "Uferbereich",
+                "tag": "water"
+              },
+              "road": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 19,
+                "name": "service",
+                "tag": "road"
+              },
+              "meadow": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "meadow",
+                "tag": "meadow"
+              }
+            },
+            "visualLandmarks": [],
+            "avoidZones": [],
+            "hints": [
+              "roadside/vehicle placement plausible near the road or parking anchor",
+              "waterline placement plausible near the water anchor",
+              "animals/tents/reference objects plausible on meadow or farmland anchors"
+            ],
+            "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+            "fetchedAt": 1779532125002
+          },
+          "mission_truth": {
+            "source": "mission-truth-v1",
+            "requestedCategory": "mountain",
+            "poiCategory": "mountain",
+            "primaryCategory": "mountain",
+            "geometryMode": "area",
+            "pickedPoi": {
+              "name": "Feldberg (Gipfel)",
+              "lat": 47.873,
+              "lon": 8.004,
+              "source": "Local fallback POIs (forced:mountain)",
+              "lookup": null
+            },
+            "targetProminence": {
+              "level": "low",
+              "reason": "surface/terrain target"
+            },
+            "visualLandmarks": [],
+            "mainTarget": {
+              "name": "Feldberg (Gipfel)",
+              "kind": "poi",
+              "lat": 47.873,
+              "lon": 8.004,
+              "refinedFromPoi": false,
+              "distanceFromPoiM": 0,
+              "bearingFromPoiDeg": 0,
+              "reason": "original_poi"
+            },
+            "sceneAnchor": {
+              "kind": "poi",
+              "lat": 47.873,
+              "lon": 8.004,
+              "reason": "original_poi"
+            },
+            "visibleCues": [
+              "offenes Gelaende",
+              "Wasserflaeche oder Uferlinie"
+            ],
+            "constraints": [
+              "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+              "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+            ]
+          },
+          "weather_snapshot": {
+            "dep": {
+              "station": "EDTW",
+              "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+              "windDeg": 260,
+              "windKts": 8,
+              "visKm": 10,
+              "tempC": 17,
+              "wxCode": null,
+              "fltCat": "VFR"
+            },
+            "dest": {
+              "station": "EDTW",
+              "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+              "windDeg": 260,
+              "windKts": 8,
+              "visKm": 10,
+              "tempC": 17,
+              "wxCode": null,
+              "fltCat": "VFR"
+            }
+          },
+          "fire_hazard": null,
+          "airport_details": {
+            "start": {
+              "icao": "EDTW",
+              "name": "Winzeln-Schramberg Airport",
+              "lat": 48.2791671753,
+              "lon": 8.4283332825
+            },
+            "dest": null,
+            "targetPoi": {
+              "icao": "POI",
+              "name": "Feldberg (Gipfel)",
+              "lat": 47.873,
+              "lon": 8.004
+            }
+          }
+        },
+        "plan": {
+          "taskDomain": "science_bio",
+          "roleProfile": "science_field_v1",
+          "missionType": "poi",
+          "targetCategory": "mountain",
+          "primaryObjective": "Biologisches Monitoring der alpinen Flora und Vegetationszonen im Gipfelbereich des Feldbergs.",
+          "targetLabel": "Feldberg (Gipfel)",
+          "sceneKind": "none",
+          "sceneDensity": "sparse",
+          "requiredAnchors": [
+            "meadow",
+            "water"
+          ],
+          "objectFamilies": [
+            "scientific_equipment",
+            "small_vehicles"
+          ],
+          "placementPolicy": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden.",
+          "narrativeRules": [
+            "Der Fokus liegt auf wissenschaftlicher Beobachtung.",
+            "Keine Landung am Feldberg; der Flug ist ein reiner Beobachtungs- und Dokumentationsflug.",
+            "Rückkehr zum Startflugplatz EDTW nach Abschluss der Beobachtung."
+          ],
+          "lockedFields": {
+            "noLandingAtPoi": true
+          },
+          "confidence": 1,
+          "localFacts": [
+            "Der Feldberg ist mit 1493 m die höchste Erhebung im Schwarzwald.",
+            "In unmittelbarer Nähe zum Gipfel befindet sich eine Wasserfläche (Uferbereich), die als ökologischer Referenzpunkt dient.",
+            "Offenes Gelände und alpine Wiesen prägen die Gipfelregion."
+          ],
+          "weatherHooks": [
+            "Wind aus 260° mit 8 Knoten sorgt für stabile Anflugbedingungen aus Westen.",
+            "Gute VFR-Sichtweiten bei milden 17°C ermöglichen präzise Sichtbeobachtungen."
+          ],
+          "operationalDetails": [
+            "Flugstrecke ca. 60 NM von Winzeln-Schramberg (EDTW) zum Feldberg.",
+            "Beachtung der Geländehöhe beim Überflug des Schwarzwald-Hauptkamms.",
+            "Rückflug erfolgt auf derselben Route oder als kleiner Rundflug."
+          ],
+          "realismBrief": "Wissenschaftliche Bestandsaufnahmen seltener Pflanzenarten oder die Überwachung von Erosionsschäden sind am Feldberg aufgrund seines Status als Naturschutzgebiet und höchster Punkt der Region absolut plausibel.",
+          "narrativeHooks": [
+            "Dokumentation des Vegetationszustands nach der letzten Trockenperiode.",
+            "Überprüfung der Wasserstände im Bereich der Karsee-Ufer unterhalb des Gipfels.",
+            "Zählung von Gämsen oder anderen Wildtieren in den offenen Hanglagen."
+          ],
+          "mustMention": [
+            "Feldberg-Gipfel",
+            "Biologisches Monitoring",
+            "VFR-Bedingungen"
+          ],
+          "mustAvoid": [
+            "Keine Landung am Zielort (POI).",
+            "Keine Rettungsmission oder dramatische Notlage.",
+            "Keine Erfindung von nicht vorhandenen Gebäuden direkt auf dem Gipfelpunkt."
+          ]
+        },
+        "debug": {
+          "source": "Gemini 3.0 Flash Tool Planner V3",
+          "rawStatus": "ready",
+          "pass": "tool-calling",
+          "promptVersion": "mission-v3-tool-planner-2026-05-23",
+          "toolCalls": [
+            {
+              "turn": 0,
+              "name": "get_mission_context_bundle",
+              "id": "a7vytu2l",
+              "args": {
+                "reason": "Verifying route and local context for a science mission to Feldberg."
+              },
+              "resultKeys": [
+                "schema",
+                "route",
+                "target",
+                "picker",
+                "category",
+                "profile",
+                "airportDetails",
+                "weather",
+                "fireHazard",
+                "targetGeoContext"
+              ]
+            }
+          ],
+          "fallbackError": ""
+        }
+      },
+      "sceneStatus": "accepted",
+      "targetScene": {
+        "preset": "",
+        "kind": "survey_context",
+        "features": [
+          "utility_truck",
+          "people",
+          "small_equipment"
+        ],
+        "requirements": [
+          {
+            "feature": "utility_truck",
+            "count": 1,
+            "placement": "am Strassenrand",
+            "arrangement": "line",
+            "notes": "Servicefahrzeug fuer das Team",
+            "forwardM": 175,
+            "rightM": 60
+          },
+          {
+            "feature": "people",
+            "count": 2,
+            "placement": "auf der Wiese",
+            "arrangement": "cluster",
+            "notes": "Biologen bei der Arbeit",
+            "forwardM": 150,
+            "rightM": 100
+          },
+          {
+            "feature": "small_equipment",
+            "count": 1,
+            "placement": "auf der Wiese",
+            "arrangement": "cluster",
+            "notes": "Messgeraete und Markierungen",
+            "forwardM": 155,
+            "rightM": 105
+          }
+        ],
+        "roles": [
+          "vehicle.truck",
+          "vehicle.van",
+          "person.ground_crew",
+          "cargo.small_box"
+        ],
+        "density": "sparse",
+        "layout": "scattered",
+        "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+      },
+      "aptArrivalPlan": null,
+      "missionTruth": {
+        "source": "mission-truth-v1",
+        "requestedCategory": "mountain",
+        "poiCategory": "mountain",
+        "primaryCategory": "mountain",
+        "geometryMode": "area",
+        "pickedPoi": {
+          "name": "Feldberg (Gipfel)",
+          "lat": 47.873,
+          "lon": 8.004,
+          "source": "Local fallback POIs (forced:mountain)",
+          "lookup": null
+        },
+        "targetProminence": {
+          "level": "low",
+          "reason": "surface/terrain target"
+        },
+        "visualLandmarks": [],
+        "mainTarget": {
+          "name": "Feldberg (Gipfel)",
+          "kind": "poi",
+          "lat": 47.873,
+          "lon": 8.004,
+          "refinedFromPoi": false,
+          "distanceFromPoiM": 0,
+          "bearingFromPoiDeg": 0,
+          "reason": "original_poi"
+        },
+        "sceneAnchor": {
+          "kind": "poi",
+          "lat": 47.873,
+          "lon": 8.004,
+          "reason": "original_poi"
+        },
+        "visibleCues": [
+          "offenes Gelaende",
+          "Wasserflaeche oder Uferlinie",
+          "Person am Boden",
+          "Fahrzeug am Boden"
+        ],
+        "constraints": [
+          "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+          "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+        ]
+      },
+      "targetSceneComposerDebug": {
+        "source": "Gemini 2.5 Flash Scene Planner V3",
+        "promptVersion": "scene-v3-tool-planner-2026-05-23",
+        "toolCalls": [
+          {
+            "turn": 0,
+            "name": "get_scene_context_bundle",
+            "id": null,
+            "args": {
+              "reason": "Planning POI target scene as per user request."
+            },
+            "resultKeys": [
+              "schema",
+              "mode",
+              "route",
+              "mission",
+              "sceneIntent",
+              "missionTruth",
+              "targetGeoContext",
+              "missionPlan",
+              "aptArrivalPlan",
+              "aptArrivalGeoContext"
+            ]
+          }
+        ],
+        "aiRaw": {
+          "kind": "survey_context",
+          "preset": "",
+          "features": [],
+          "requirements": [
+            {
+              "feature": "utility_truck",
+              "count": 1,
+              "placement": "am Strassenrand",
+              "arrangement": "line",
+              "forwardM": 175,
+              "rightM": 60,
+              "notes": "Servicefahrzeug fuer das Team"
+            },
+            {
+              "feature": "people",
+              "count": 2,
+              "placement": "auf der Wiese",
+              "arrangement": "cluster",
+              "forwardM": 150,
+              "rightM": 100,
+              "notes": "Biologen bei der Arbeit"
+            },
+            {
+              "feature": "small_equipment",
+              "count": 1,
+              "placement": "auf der Wiese",
+              "arrangement": "cluster",
+              "forwardM": 155,
+              "rightM": 105,
+              "notes": "Messgeraete und Markierungen"
+            }
+          ],
+          "roles": [],
+          "density": "sparse",
+          "layout": "scattered",
+          "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+        },
+        "aiArrivalRaw": null,
+        "normalized": {
+          "preset": "",
+          "kind": "survey_context",
+          "features": [
+            "utility_truck",
+            "people",
+            "small_equipment"
+          ],
+          "requirements": [
+            {
+              "feature": "utility_truck",
+              "count": 1,
+              "placement": "am Strassenrand",
+              "arrangement": "line",
+              "notes": "Servicefahrzeug fuer das Team",
+              "forwardM": 175,
+              "rightM": 60
+            },
+            {
+              "feature": "people",
+              "count": 2,
+              "placement": "auf der Wiese",
+              "arrangement": "cluster",
+              "notes": "Biologen bei der Arbeit",
+              "forwardM": 150,
+              "rightM": 100
+            },
+            {
+              "feature": "small_equipment",
+              "count": 1,
+              "placement": "auf der Wiese",
+              "arrangement": "cluster",
+              "notes": "Messgeraete und Markierungen",
+              "forwardM": 155,
+              "rightM": 105
+            }
+          ],
+          "roles": [
+            "vehicle.truck",
+            "vehicle.van",
+            "person.ground_crew",
+            "cargo.small_box"
+          ],
+          "density": "sparse",
+          "layout": "scattered",
+          "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+        },
+        "aptArrivalPlan": null,
+        "localizationNotes": [],
+        "validationNotes": [],
+        "fallback": {
+          "kind": "none",
+          "roles": [],
+          "density": "none",
+          "notes": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden."
+        },
+        "fallbackArrivalPlan": null,
+        "error": ""
+      },
+      "passenger": {
+        "name": "Dr. Paul Reiter",
+        "role": "Ökologe",
+        "gender": "male",
+        "personality": "analytisch, präzise, gelassen",
+        "dialectHint": "neutral",
+        "roleProfile": "science_field_v1",
+        "taskDomain": "science_bio",
+        "gTolerance": "niedrig",
+        "bankTolerance": "niedrig",
+        "cargoSensitivity": "mittel",
+        "stomachSensitivity": "mittel",
+        "comfortPriority": "hoch",
+        "urgencyPriority": "niedrig",
+        "targetAltFt": 5800,
+        "targetRadiusNm": 2.5,
+        "targetDwellMin": 4,
+        "greetingText": "Hi, wir machen heute Umweltbeobachtung am POI. Bitte ruhig und stabil fliegen, damit die Beobachtung verwertbar ist.",
+        "trainingPlan": null,
+        "storyHint": "Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahen Uferbereich am Karsee sollen aus der Luft auf Trockenschäden geprüft werden, bevor wir wieder Kurs auf Winzeln-Schramberg nehmen."
+      },
+      "briefing": {
+        "title": "📋 Vegetations-Monitoring am Feldberg-Massiv",
+        "story": "Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahen Uferbereich am Karsee sollen aus der Luft auf Trockenschäden geprüft werden, bevor wir wieder Kurs auf Winzeln-Schramberg nehmen.\n\nArbeits-Hinweis: Für das Zielgebiet ist eine geplante Höhe von ungefähr 5800 ft vorgesehen.",
+        "dep": "EDTW",
+        "depName": "Winzeln-Schramberg Airport",
+        "dest": "POI",
+        "destName": "Feldberg (Gipfel)",
+        "pax": "1 PAX (Ökologe: Dr. Paul Reiter)",
+        "cargo": "Umweltsensorik und Kamera (18 lbs)",
+        "dist": "59.4 NM",
+        "ete": "22 Min.",
+        "heading": "215°"
+      },
+      "paxTexts": [
+        "Textgen OK (305 Zeichen): \"Hi, wir erfassen heute die alpine Flora und die Vegetationszonen der Gipfelwiesen am Feldberg. Flieg bitte möglichst ruhig und stabil in einer Arbeitshöhe von etwa 5800 Fuß, damit die Sensoren die Übergänge präzise dokumentieren können. Wir haben keinen Zeitdruck, die Qualität der Daten ist entscheidend.\""
+      ],
+      "promptKinds": [
+        "mission-planner-v3-tool-call",
+        "mission-planner-v3-final",
+        "mission-dispatcher",
+        "scene-planner-v3-tool-call",
+        "scene-planner-v3-final",
+        "scene-planner-v3-tool-call",
+        "scene-planner-v3-final",
+        "pax-text",
+        "pax-text"
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "mission": {
+        "start": "EDTW",
+        "dest": "EDTW",
+        "isPOI": true,
+        "poiName": "Feldberg (Gipfel)",
+        "poiSource": "Local fallback POIs (forced:mountain)",
+        "poiCategory": "mountain",
+        "requestedCategory": "mountain",
+        "poiLookup": null,
+        "targetName": "Feldberg (Gipfel)",
+        "targetLat": 47.873,
+        "targetLon": 8.004,
+        "targetAltFt": 0,
+        "poiTerrainFt": 0,
+        "mission": "Vegetations-Monitoring am Feldberg-Massiv",
+        "dist": 59.4,
+        "ac": "PA-24",
+        "heading": 215,
+        "weatherBriefing": {
+          "dep": {
+            "station": "EDTW",
+            "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+            "windDeg": 260,
+            "windKts": 8,
+            "visKm": 10,
+            "tempC": 17,
+            "wxCode": null,
+            "fltCat": "VFR"
+          },
+          "dest": {
+            "station": "EDTW",
+            "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+            "windDeg": 260,
+            "windKts": 8,
+            "visKm": 10,
+            "tempC": 17,
+            "wxCode": null,
+            "fltCat": "VFR"
+          }
+        },
+        "fireHazard": null,
+        "source": "Gemini 3.0 Flash + V3 Tools",
+        "sceneIntent": {
+          "summary": "Wissenschaftliches Team bei Feldarbeiten auf den alpinen Wiesen nahe der Zufahrt.",
+          "environment": "alpine Bergwiese",
+          "visibleIdeas": [
+            "ein kleiner weißer Geländewagen am Rand der Service-Zufahrt",
+            "zwei Personen mit Messgeräten auf der Wiesenfläche",
+            "kleine Markierungsfähnchen im Boden für Vegetationsquadrate"
+          ],
+          "avoid": [
+            "keine Rettungsfahrzeuge",
+            "keine großen Touristenmassen",
+            "keine Gebäude direkt auf dem Gipfelplateau"
+          ],
+          "densityHint": "sparse",
+          "notes": "Dezente Platzierung der Bodenobjekte zur Untermauerung der wissenschaftlichen Natur des Fluges."
+        },
+        "sceneAccepted": true,
+        "sceneCompositionStatus": "accepted",
+        "targetGeoContext": {
+          "source": "overpass",
+          "radiusM": 750,
+          "center": {
+            "lat": 47.873,
+            "lon": 8.004
+          },
+          "anchors": {
+            "water": {
+              "present": true,
+              "count": 1,
+              "distM": 185,
+              "bearingDeg": 34,
+              "name": "Uferbereich",
+              "tag": "water"
+            },
+            "road": {
+              "present": true,
+              "count": 1,
+              "distM": 185,
+              "bearingDeg": 19,
+              "name": "service",
+              "tag": "road"
+            },
+            "meadow": {
+              "present": true,
+              "count": 1,
+              "distM": 185,
+              "bearingDeg": 34,
+              "name": "meadow",
+              "tag": "meadow"
+            }
+          },
+          "visualLandmarks": [],
+          "avoidZones": [],
+          "hints": [
+            "roadside/vehicle placement plausible near the road or parking anchor",
+            "waterline placement plausible near the water anchor",
+            "animals/tents/reference objects plausible on meadow or farmland anchors"
+          ],
+          "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+          "fetchedAt": 1779532125002
+        },
+        "missionTruth": {
+          "source": "mission-truth-v1",
+          "requestedCategory": "mountain",
+          "poiCategory": "mountain",
+          "primaryCategory": "mountain",
+          "geometryMode": "area",
+          "pickedPoi": {
+            "name": "Feldberg (Gipfel)",
+            "lat": 47.873,
+            "lon": 8.004,
+            "source": "Local fallback POIs (forced:mountain)",
+            "lookup": null
+          },
+          "targetProminence": {
+            "level": "low",
+            "reason": "surface/terrain target"
+          },
+          "visualLandmarks": [],
+          "mainTarget": {
+            "name": "Feldberg (Gipfel)",
+            "kind": "poi",
+            "lat": 47.873,
+            "lon": 8.004,
+            "refinedFromPoi": false,
+            "distanceFromPoiM": 0,
+            "bearingFromPoiDeg": 0,
+            "reason": "original_poi"
+          },
+          "sceneAnchor": {
+            "kind": "poi",
+            "lat": 47.873,
+            "lon": 8.004,
+            "reason": "original_poi"
+          },
+          "visibleCues": [
+            "offenes Gelaende",
+            "Wasserflaeche oder Uferlinie",
+            "Person am Boden",
+            "Fahrzeug am Boden"
+          ],
+          "constraints": [
+            "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+            "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+          ]
+        },
+        "missionPlanV2": {
+          "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+          "status": "ready",
+          "needs": [],
+          "resolvedNeeds": {
+            "geo_context": {
+              "source": "overpass",
+              "radiusM": 750,
+              "center": {
+                "lat": 47.873,
+                "lon": 8.004
+              },
+              "anchors": {
+                "water": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "Uferbereich",
+                  "tag": "water"
+                },
+                "road": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 19,
+                  "name": "service",
+                  "tag": "road"
+                },
+                "meadow": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "meadow",
+                  "tag": "meadow"
+                }
+              },
+              "visualLandmarks": [],
+              "avoidZones": [],
+              "hints": [
+                "roadside/vehicle placement plausible near the road or parking anchor",
+                "waterline placement plausible near the water anchor",
+                "animals/tents/reference objects plausible on meadow or farmland anchors"
+              ],
+              "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+              "fetchedAt": 1779532125002
+            },
+            "mission_truth": {
+              "source": "mission-truth-v1",
+              "requestedCategory": "mountain",
+              "poiCategory": "mountain",
+              "primaryCategory": "mountain",
+              "geometryMode": "area",
+              "pickedPoi": {
+                "name": "Feldberg (Gipfel)",
+                "lat": 47.873,
+                "lon": 8.004,
+                "source": "Local fallback POIs (forced:mountain)",
+                "lookup": null
+              },
+              "targetProminence": {
+                "level": "low",
+                "reason": "surface/terrain target"
+              },
+              "visualLandmarks": [],
+              "mainTarget": {
+                "name": "Feldberg (Gipfel)",
+                "kind": "poi",
+                "lat": 47.873,
+                "lon": 8.004,
+                "refinedFromPoi": false,
+                "distanceFromPoiM": 0,
+                "bearingFromPoiDeg": 0,
+                "reason": "original_poi"
+              },
+              "sceneAnchor": {
+                "kind": "poi",
+                "lat": 47.873,
+                "lon": 8.004,
+                "reason": "original_poi"
+              },
+              "visibleCues": [
+                "offenes Gelaende",
+                "Wasserflaeche oder Uferlinie"
+              ],
+              "constraints": [
+                "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+                "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+              ]
+            },
+            "weather_snapshot": {
+              "dep": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              },
+              "dest": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              }
+            },
+            "fire_hazard": null,
+            "airport_details": {
+              "start": {
+                "icao": "EDTW",
+                "name": "Winzeln-Schramberg Airport",
+                "lat": 48.2791671753,
+                "lon": 8.4283332825
+              },
+              "dest": null,
+              "targetPoi": {
+                "icao": "POI",
+                "name": "Feldberg (Gipfel)",
+                "lat": 47.873,
+                "lon": 8.004
+              }
+            }
+          },
+          "plan": {
+            "taskDomain": "science_bio",
+            "roleProfile": "science_field_v1",
+            "missionType": "poi",
+            "targetCategory": "mountain",
+            "primaryObjective": "Biologisches Monitoring der alpinen Flora und Vegetationszonen im Gipfelbereich des Feldbergs.",
+            "targetLabel": "Feldberg (Gipfel)",
+            "sceneKind": "none",
+            "sceneDensity": "sparse",
+            "requiredAnchors": [
+              "meadow",
+              "water"
+            ],
+            "objectFamilies": [
+              "scientific_equipment",
+              "small_vehicles"
+            ],
+            "placementPolicy": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden.",
+            "narrativeRules": [
+              "Der Fokus liegt auf wissenschaftlicher Beobachtung.",
+              "Keine Landung am Feldberg; der Flug ist ein reiner Beobachtungs- und Dokumentationsflug.",
+              "Rückkehr zum Startflugplatz EDTW nach Abschluss der Beobachtung."
+            ],
+            "lockedFields": {
+              "noLandingAtPoi": true
+            },
+            "confidence": 1,
+            "localFacts": [
+              "Der Feldberg ist mit 1493 m die höchste Erhebung im Schwarzwald.",
+              "In unmittelbarer Nähe zum Gipfel befindet sich eine Wasserfläche (Uferbereich), die als ökologischer Referenzpunkt dient.",
+              "Offenes Gelände und alpine Wiesen prägen die Gipfelregion."
+            ],
+            "weatherHooks": [
+              "Wind aus 260° mit 8 Knoten sorgt für stabile Anflugbedingungen aus Westen.",
+              "Gute VFR-Sichtweiten bei milden 17°C ermöglichen präzise Sichtbeobachtungen."
+            ],
+            "operationalDetails": [
+              "Flugstrecke ca. 60 NM von Winzeln-Schramberg (EDTW) zum Feldberg.",
+              "Beachtung der Geländehöhe beim Überflug des Schwarzwald-Hauptkamms.",
+              "Rückflug erfolgt auf derselben Route oder als kleiner Rundflug."
+            ],
+            "realismBrief": "Wissenschaftliche Bestandsaufnahmen seltener Pflanzenarten oder die Überwachung von Erosionsschäden sind am Feldberg aufgrund seines Status als Naturschutzgebiet und höchster Punkt der Region absolut plausibel.",
+            "narrativeHooks": [
+              "Dokumentation des Vegetationszustands nach der letzten Trockenperiode.",
+              "Überprüfung der Wasserstände im Bereich der Karsee-Ufer unterhalb des Gipfels.",
+              "Zählung von Gämsen oder anderen Wildtieren in den offenen Hanglagen."
+            ],
+            "mustMention": [
+              "Feldberg-Gipfel",
+              "Biologisches Monitoring",
+              "VFR-Bedingungen"
+            ],
+            "mustAvoid": [
+              "Keine Landung am Zielort (POI).",
+              "Keine Rettungsmission oder dramatische Notlage.",
+              "Keine Erfindung von nicht vorhandenen Gebäuden direkt auf dem Gipfelpunkt."
+            ]
+          },
+          "debug": {
+            "source": "Gemini 3.0 Flash Tool Planner V3",
+            "rawStatus": "ready",
+            "pass": "tool-calling",
+            "promptVersion": "mission-v3-tool-planner-2026-05-23",
+            "toolCalls": [
+              {
+                "turn": 0,
+                "name": "get_mission_context_bundle",
+                "id": "a7vytu2l",
+                "args": {
+                  "reason": "Verifying route and local context for a science mission to Feldberg."
+                },
+                "resultKeys": [
+                  "schema",
+                  "route",
+                  "target",
+                  "picker",
+                  "category",
+                  "profile",
+                  "airportDetails",
+                  "weather",
+                  "fireHazard",
+                  "targetGeoContext"
+                ]
+              }
+            ],
+            "fallbackError": ""
+          }
+        },
+        "missionPlanV3": {
+          "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+          "status": "ready",
+          "needs": [],
+          "resolvedNeeds": {
+            "geo_context": {
+              "source": "overpass",
+              "radiusM": 750,
+              "center": {
+                "lat": 47.873,
+                "lon": 8.004
+              },
+              "anchors": {
+                "water": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "Uferbereich",
+                  "tag": "water"
+                },
+                "road": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 19,
+                  "name": "service",
+                  "tag": "road"
+                },
+                "meadow": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "meadow",
+                  "tag": "meadow"
+                }
+              },
+              "visualLandmarks": [],
+              "avoidZones": [],
+              "hints": [
+                "roadside/vehicle placement plausible near the road or parking anchor",
+                "waterline placement plausible near the water anchor",
+                "animals/tents/reference objects plausible on meadow or farmland anchors"
+              ],
+              "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+              "fetchedAt": 1779532125002
+            },
+            "mission_truth": {
+              "source": "mission-truth-v1",
+              "requestedCategory": "mountain",
+              "poiCategory": "mountain",
+              "primaryCategory": "mountain",
+              "geometryMode": "area",
+              "pickedPoi": {
+                "name": "Feldberg (Gipfel)",
+                "lat": 47.873,
+                "lon": 8.004,
+                "source": "Local fallback POIs (forced:mountain)",
+                "lookup": null
+              },
+              "targetProminence": {
+                "level": "low",
+                "reason": "surface/terrain target"
+              },
+              "visualLandmarks": [],
+              "mainTarget": {
+                "name": "Feldberg (Gipfel)",
+                "kind": "poi",
+                "lat": 47.873,
+                "lon": 8.004,
+                "refinedFromPoi": false,
+                "distanceFromPoiM": 0,
+                "bearingFromPoiDeg": 0,
+                "reason": "original_poi"
+              },
+              "sceneAnchor": {
+                "kind": "poi",
+                "lat": 47.873,
+                "lon": 8.004,
+                "reason": "original_poi"
+              },
+              "visibleCues": [
+                "offenes Gelaende",
+                "Wasserflaeche oder Uferlinie"
+              ],
+              "constraints": [
+                "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+                "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+              ]
+            },
+            "weather_snapshot": {
+              "dep": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              },
+              "dest": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              }
+            },
+            "fire_hazard": null,
+            "airport_details": {
+              "start": {
+                "icao": "EDTW",
+                "name": "Winzeln-Schramberg Airport",
+                "lat": 48.2791671753,
+                "lon": 8.4283332825
+              },
+              "dest": null,
+              "targetPoi": {
+                "icao": "POI",
+                "name": "Feldberg (Gipfel)",
+                "lat": 47.873,
+                "lon": 8.004
+              }
+            }
+          },
+          "plan": {
+            "taskDomain": "science_bio",
+            "roleProfile": "science_field_v1",
+            "missionType": "poi",
+            "targetCategory": "mountain",
+            "primaryObjective": "Biologisches Monitoring der alpinen Flora und Vegetationszonen im Gipfelbereich des Feldbergs.",
+            "targetLabel": "Feldberg (Gipfel)",
+            "sceneKind": "none",
+            "sceneDensity": "sparse",
+            "requiredAnchors": [
+              "meadow",
+              "water"
+            ],
+            "objectFamilies": [
+              "scientific_equipment",
+              "small_vehicles"
+            ],
+            "placementPolicy": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden.",
+            "narrativeRules": [
+              "Der Fokus liegt auf wissenschaftlicher Beobachtung.",
+              "Keine Landung am Feldberg; der Flug ist ein reiner Beobachtungs- und Dokumentationsflug.",
+              "Rückkehr zum Startflugplatz EDTW nach Abschluss der Beobachtung."
+            ],
+            "lockedFields": {
+              "noLandingAtPoi": true
+            },
+            "confidence": 1,
+            "localFacts": [
+              "Der Feldberg ist mit 1493 m die höchste Erhebung im Schwarzwald.",
+              "In unmittelbarer Nähe zum Gipfel befindet sich eine Wasserfläche (Uferbereich), die als ökologischer Referenzpunkt dient.",
+              "Offenes Gelände und alpine Wiesen prägen die Gipfelregion."
+            ],
+            "weatherHooks": [
+              "Wind aus 260° mit 8 Knoten sorgt für stabile Anflugbedingungen aus Westen.",
+              "Gute VFR-Sichtweiten bei milden 17°C ermöglichen präzise Sichtbeobachtungen."
+            ],
+            "operationalDetails": [
+              "Flugstrecke ca. 60 NM von Winzeln-Schramberg (EDTW) zum Feldberg.",
+              "Beachtung der Geländehöhe beim Überflug des Schwarzwald-Hauptkamms.",
+              "Rückflug erfolgt auf derselben Route oder als kleiner Rundflug."
+            ],
+            "realismBrief": "Wissenschaftliche Bestandsaufnahmen seltener Pflanzenarten oder die Überwachung von Erosionsschäden sind am Feldberg aufgrund seines Status als Naturschutzgebiet und höchster Punkt der Region absolut plausibel.",
+            "narrativeHooks": [
+              "Dokumentation des Vegetationszustands nach der letzten Trockenperiode.",
+              "Überprüfung der Wasserstände im Bereich der Karsee-Ufer unterhalb des Gipfels.",
+              "Zählung von Gämsen oder anderen Wildtieren in den offenen Hanglagen."
+            ],
+            "mustMention": [
+              "Feldberg-Gipfel",
+              "Biologisches Monitoring",
+              "VFR-Bedingungen"
+            ],
+            "mustAvoid": [
+              "Keine Landung am Zielort (POI).",
+              "Keine Rettungsmission oder dramatische Notlage.",
+              "Keine Erfindung von nicht vorhandenen Gebäuden direkt auf dem Gipfelpunkt."
+            ]
+          },
+          "debug": {
+            "source": "Gemini 3.0 Flash Tool Planner V3",
+            "rawStatus": "ready",
+            "pass": "tool-calling",
+            "promptVersion": "mission-v3-tool-planner-2026-05-23",
+            "toolCalls": [
+              {
+                "turn": 0,
+                "name": "get_mission_context_bundle",
+                "id": "a7vytu2l",
+                "args": {
+                  "reason": "Verifying route and local context for a science mission to Feldberg."
+                },
+                "resultKeys": [
+                  "schema",
+                  "route",
+                  "target",
+                  "picker",
+                  "category",
+                  "profile",
+                  "airportDetails",
+                  "weather",
+                  "fireHazard",
+                  "targetGeoContext"
+                ]
+              }
+            ],
+            "fallbackError": ""
+          }
+        },
+        "missionPipelineMode": "v3",
+        "targetScene": {
+          "preset": "",
+          "kind": "survey_context",
+          "features": [
+            "utility_truck",
+            "people",
+            "small_equipment"
+          ],
+          "requirements": [
+            {
+              "feature": "utility_truck",
+              "count": 1,
+              "placement": "am Strassenrand",
+              "arrangement": "line",
+              "notes": "Servicefahrzeug fuer das Team",
+              "forwardM": 175,
+              "rightM": 60
+            },
+            {
+              "feature": "people",
+              "count": 2,
+              "placement": "auf der Wiese",
+              "arrangement": "cluster",
+              "notes": "Biologen bei der Arbeit",
+              "forwardM": 150,
+              "rightM": 100
+            },
+            {
+              "feature": "small_equipment",
+              "count": 1,
+              "placement": "auf der Wiese",
+              "arrangement": "cluster",
+              "notes": "Messgeraete und Markierungen",
+              "forwardM": 155,
+              "rightM": 105
+            }
+          ],
+          "roles": [
+            "vehicle.truck",
+            "vehicle.van",
+            "person.ground_crew",
+            "cargo.small_box"
+          ],
+          "density": "sparse",
+          "layout": "scattered",
+          "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+        },
+        "targetSceneDraftRaw": {
+          "kind": "none",
+          "roles": [],
+          "density": "none",
+          "notes": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden."
+        },
+        "targetSceneAiRaw": {
+          "kind": "survey_context",
+          "preset": "",
+          "features": [],
+          "requirements": [
+            {
+              "feature": "utility_truck",
+              "count": 1,
+              "placement": "am Strassenrand",
+              "arrangement": "line",
+              "forwardM": 175,
+              "rightM": 60,
+              "notes": "Servicefahrzeug fuer das Team"
+            },
+            {
+              "feature": "people",
+              "count": 2,
+              "placement": "auf der Wiese",
+              "arrangement": "cluster",
+              "forwardM": 150,
+              "rightM": 100,
+              "notes": "Biologen bei der Arbeit"
+            },
+            {
+              "feature": "small_equipment",
+              "count": 1,
+              "placement": "auf der Wiese",
+              "arrangement": "cluster",
+              "forwardM": 155,
+              "rightM": 105,
+              "notes": "Messgeraete und Markierungen"
+            }
+          ],
+          "roles": [],
+          "density": "sparse",
+          "layout": "scattered",
+          "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+        },
+        "targetSceneAiNormalized": {
+          "preset": "",
+          "kind": "survey_context",
+          "features": [
+            "utility_truck",
+            "people",
+            "small_equipment"
+          ],
+          "requirements": [
+            {
+              "feature": "utility_truck",
+              "count": 1,
+              "placement": "am Strassenrand",
+              "arrangement": "line",
+              "notes": "Servicefahrzeug fuer das Team",
+              "forwardM": 175,
+              "rightM": 60
+            },
+            {
+              "feature": "people",
+              "count": 2,
+              "placement": "auf der Wiese",
+              "arrangement": "cluster",
+              "notes": "Biologen bei der Arbeit",
+              "forwardM": 150,
+              "rightM": 100
+            },
+            {
+              "feature": "small_equipment",
+              "count": 1,
+              "placement": "auf der Wiese",
+              "arrangement": "cluster",
+              "notes": "Messgeraete und Markierungen",
+              "forwardM": 155,
+              "rightM": 105
+            }
+          ],
+          "roles": [
+            "vehicle.truck",
+            "vehicle.van",
+            "person.ground_crew",
+            "cargo.small_box"
+          ],
+          "density": "sparse",
+          "layout": "scattered",
+          "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+        },
+        "sceneIntentDebug": {
+          "aiRaw": {
+            "summary": "Wissenschaftliches Team bei Feldarbeiten auf den alpinen Wiesen nahe der Zufahrt.",
+            "environment": "alpine Bergwiese",
+            "visibleIdeas": [
+              "ein kleiner weißer Geländewagen am Rand der Service-Zufahrt",
+              "zwei Personen mit Messgeräten auf der Wiesenfläche",
+              "kleine Markierungsfähnchen im Boden für Vegetationsquadrate"
+            ],
+            "avoid": [
+              "keine Rettungsfahrzeuge",
+              "keine großen Touristenmassen",
+              "keine Gebäude direkt auf dem Gipfelplateau"
+            ],
+            "densityHint": "sparse",
+            "notes": "Dezente Platzierung der Bodenobjekte zur Untermauerung der wissenschaftlichen Natur des Fluges."
+          },
+          "normalized": {
+            "summary": "Wissenschaftliches Team bei Feldarbeiten auf den alpinen Wiesen nahe der Zufahrt.",
+            "environment": "alpine Bergwiese",
+            "visibleIdeas": [
+              "ein kleiner weißer Geländewagen am Rand der Service-Zufahrt",
+              "zwei Personen mit Messgeräten auf der Wiesenfläche",
+              "kleine Markierungsfähnchen im Boden für Vegetationsquadrate"
+            ],
+            "avoid": [
+              "keine Rettungsfahrzeuge",
+              "keine großen Touristenmassen",
+              "keine Gebäude direkt auf dem Gipfelplateau"
+            ],
+            "densityHint": "sparse",
+            "notes": "Dezente Platzierung der Bodenobjekte zur Untermauerung der wissenschaftlichen Natur des Fluges."
+          }
+        },
+        "missionContract": {
+          "requestedProfileId": "science_bio",
+          "appliedProfileId": "science_bio",
+          "summary": "Biologie/Umwelt | POI | cat:mountain",
+          "taskDomain": "science_bio",
+          "roleProfile": "science_field_v1",
+          "urgencyPriority": "niedrig",
+          "paxText": "1 PAX (Biologe)",
+          "cargoText": "Umweltsensorik und Kamera (18 lbs)",
+          "missionTitle": "Vegetations-Monitoring am Feldberg-Massiv",
+          "missionStory": "Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahen Uferbereich am Karsee sollen aus der Luft auf Trockenschäden geprüft werden, bevor wir wieder Kurs auf Winzeln-Schramberg nehmen.",
+          "sceneIntent": {
+            "summary": "Wissenschaftliches Team bei Feldarbeiten auf den alpinen Wiesen nahe der Zufahrt.",
+            "environment": "alpine Bergwiese",
+            "visibleIdeas": [
+              "ein kleiner weißer Geländewagen am Rand der Service-Zufahrt",
+              "zwei Personen mit Messgeräten auf der Wiesenfläche",
+              "kleine Markierungsfähnchen im Boden für Vegetationsquadrate"
+            ],
+            "avoid": [
+              "keine Rettungsfahrzeuge",
+              "keine großen Touristenmassen",
+              "keine Gebäude direkt auf dem Gipfelplateau"
+            ],
+            "densityHint": "sparse",
+            "notes": "Dezente Platzierung der Bodenobjekte zur Untermauerung der wissenschaftlichen Natur des Fluges."
+          },
+          "sceneAccepted": true,
+          "targetGeoContext": {
+            "source": "overpass",
+            "radiusM": 750,
+            "center": {
+              "lat": 47.873,
+              "lon": 8.004
+            },
+            "anchors": {
+              "water": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "Uferbereich",
+                "tag": "water"
+              },
+              "road": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 19,
+                "name": "service",
+                "tag": "road"
+              },
+              "meadow": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "meadow",
+                "tag": "meadow"
+              }
+            },
+            "visualLandmarks": [],
+            "avoidZones": [],
+            "hints": [
+              "roadside/vehicle placement plausible near the road or parking anchor",
+              "waterline placement plausible near the water anchor",
+              "animals/tents/reference objects plausible on meadow or farmland anchors"
+            ],
+            "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+            "fetchedAt": 1779532125002
+          },
+          "missionTruth": {
+            "source": "mission-truth-v1",
+            "requestedCategory": "mountain",
+            "poiCategory": "mountain",
+            "primaryCategory": "mountain",
+            "geometryMode": "area",
+            "pickedPoi": {
+              "name": "Feldberg (Gipfel)",
+              "lat": 47.873,
+              "lon": 8.004,
+              "source": "Local fallback POIs (forced:mountain)",
+              "lookup": null
+            },
+            "targetProminence": {
+              "level": "low",
+              "reason": "surface/terrain target"
+            },
+            "visualLandmarks": [],
+            "mainTarget": {
+              "name": "Feldberg (Gipfel)",
+              "kind": "poi",
+              "lat": 47.873,
+              "lon": 8.004,
+              "refinedFromPoi": false,
+              "distanceFromPoiM": 0,
+              "bearingFromPoiDeg": 0,
+              "reason": "original_poi"
+            },
+            "sceneAnchor": {
+              "kind": "poi",
+              "lat": 47.873,
+              "lon": 8.004,
+              "reason": "original_poi"
+            },
+            "visibleCues": [
+              "offenes Gelaende",
+              "Wasserflaeche oder Uferlinie",
+              "Person am Boden",
+              "Fahrzeug am Boden"
+            ],
+            "constraints": [
+              "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+              "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+            ]
+          },
+          "missionPlanV2": {
+            "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+            "status": "ready",
+            "needs": [],
+            "resolvedNeeds": {
+              "geo_context": {
+                "source": "overpass",
+                "radiusM": 750,
+                "center": {
+                  "lat": 47.873,
+                  "lon": 8.004
+                },
+                "anchors": {
+                  "water": {
+                    "present": true,
+                    "count": 1,
+                    "distM": 185,
+                    "bearingDeg": 34,
+                    "name": "Uferbereich",
+                    "tag": "water"
+                  },
+                  "road": {
+                    "present": true,
+                    "count": 1,
+                    "distM": 185,
+                    "bearingDeg": 19,
+                    "name": "service",
+                    "tag": "road"
+                  },
+                  "meadow": {
+                    "present": true,
+                    "count": 1,
+                    "distM": 185,
+                    "bearingDeg": 34,
+                    "name": "meadow",
+                    "tag": "meadow"
+                  }
+                },
+                "visualLandmarks": [],
+                "avoidZones": [],
+                "hints": [
+                  "roadside/vehicle placement plausible near the road or parking anchor",
+                  "waterline placement plausible near the water anchor",
+                  "animals/tents/reference objects plausible on meadow or farmland anchors"
+                ],
+                "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+                "fetchedAt": 1779532125002
+              },
+              "mission_truth": {
+                "source": "mission-truth-v1",
+                "requestedCategory": "mountain",
+                "poiCategory": "mountain",
+                "primaryCategory": "mountain",
+                "geometryMode": "area",
+                "pickedPoi": {
+                  "name": "Feldberg (Gipfel)",
+                  "lat": 47.873,
+                  "lon": 8.004,
+                  "source": "Local fallback POIs (forced:mountain)",
+                  "lookup": null
+                },
+                "targetProminence": {
+                  "level": "low",
+                  "reason": "surface/terrain target"
+                },
+                "visualLandmarks": [],
+                "mainTarget": {
+                  "name": "Feldberg (Gipfel)",
+                  "kind": "poi",
+                  "lat": 47.873,
+                  "lon": 8.004,
+                  "refinedFromPoi": false,
+                  "distanceFromPoiM": 0,
+                  "bearingFromPoiDeg": 0,
+                  "reason": "original_poi"
+                },
+                "sceneAnchor": {
+                  "kind": "poi",
+                  "lat": 47.873,
+                  "lon": 8.004,
+                  "reason": "original_poi"
+                },
+                "visibleCues": [
+                  "offenes Gelaende",
+                  "Wasserflaeche oder Uferlinie"
+                ],
+                "constraints": [
+                  "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+                  "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+                ]
+              },
+              "weather_snapshot": {
+                "dep": {
+                  "station": "EDTW",
+                  "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                  "windDeg": 260,
+                  "windKts": 8,
+                  "visKm": 10,
+                  "tempC": 17,
+                  "wxCode": null,
+                  "fltCat": "VFR"
+                },
+                "dest": {
+                  "station": "EDTW",
+                  "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                  "windDeg": 260,
+                  "windKts": 8,
+                  "visKm": 10,
+                  "tempC": 17,
+                  "wxCode": null,
+                  "fltCat": "VFR"
+                }
+              },
+              "fire_hazard": null,
+              "airport_details": {
+                "start": {
+                  "icao": "EDTW",
+                  "name": "Winzeln-Schramberg Airport",
+                  "lat": 48.2791671753,
+                  "lon": 8.4283332825
+                },
+                "dest": null,
+                "targetPoi": {
+                  "icao": "POI",
+                  "name": "Feldberg (Gipfel)",
+                  "lat": 47.873,
+                  "lon": 8.004
+                }
+              }
+            },
+            "plan": {
+              "taskDomain": "science_bio",
+              "roleProfile": "science_field_v1",
+              "missionType": "poi",
+              "targetCategory": "mountain",
+              "primaryObjective": "Biologisches Monitoring der alpinen Flora und Vegetationszonen im Gipfelbereich des Feldbergs.",
+              "targetLabel": "Feldberg (Gipfel)",
+              "sceneKind": "none",
+              "sceneDensity": "sparse",
+              "requiredAnchors": [
+                "meadow",
+                "water"
+              ],
+              "objectFamilies": [
+                "scientific_equipment",
+                "small_vehicles"
+              ],
+              "placementPolicy": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden.",
+              "narrativeRules": [
+                "Der Fokus liegt auf wissenschaftlicher Beobachtung.",
+                "Keine Landung am Feldberg; der Flug ist ein reiner Beobachtungs- und Dokumentationsflug.",
+                "Rückkehr zum Startflugplatz EDTW nach Abschluss der Beobachtung."
+              ],
+              "lockedFields": {
+                "noLandingAtPoi": true
+              },
+              "confidence": 1,
+              "localFacts": [
+                "Der Feldberg ist mit 1493 m die höchste Erhebung im Schwarzwald.",
+                "In unmittelbarer Nähe zum Gipfel befindet sich eine Wasserfläche (Uferbereich), die als ökologischer Referenzpunkt dient.",
+                "Offenes Gelände und alpine Wiesen prägen die Gipfelregion."
+              ],
+              "weatherHooks": [
+                "Wind aus 260° mit 8 Knoten sorgt für stabile Anflugbedingungen aus Westen.",
+                "Gute VFR-Sichtweiten bei milden 17°C ermöglichen präzise Sichtbeobachtungen."
+              ],
+              "operationalDetails": [
+                "Flugstrecke ca. 60 NM von Winzeln-Schramberg (EDTW) zum Feldberg.",
+                "Beachtung der Geländehöhe beim Überflug des Schwarzwald-Hauptkamms.",
+                "Rückflug erfolgt auf derselben Route oder als kleiner Rundflug."
+              ],
+              "realismBrief": "Wissenschaftliche Bestandsaufnahmen seltener Pflanzenarten oder die Überwachung von Erosionsschäden sind am Feldberg aufgrund seines Status als Naturschutzgebiet und höchster Punkt der Region absolut plausibel.",
+              "narrativeHooks": [
+                "Dokumentation des Vegetationszustands nach der letzten Trockenperiode.",
+                "Überprüfung der Wasserstände im Bereich der Karsee-Ufer unterhalb des Gipfels.",
+                "Zählung von Gämsen oder anderen Wildtieren in den offenen Hanglagen."
+              ],
+              "mustMention": [
+                "Feldberg-Gipfel",
+                "Biologisches Monitoring",
+                "VFR-Bedingungen"
+              ],
+              "mustAvoid": [
+                "Keine Landung am Zielort (POI).",
+                "Keine Rettungsmission oder dramatische Notlage.",
+                "Keine Erfindung von nicht vorhandenen Gebäuden direkt auf dem Gipfelpunkt."
+              ]
+            },
+            "debug": {
+              "source": "Gemini 3.0 Flash Tool Planner V3",
+              "rawStatus": "ready",
+              "pass": "tool-calling",
+              "promptVersion": "mission-v3-tool-planner-2026-05-23",
+              "toolCalls": [
+                {
+                  "turn": 0,
+                  "name": "get_mission_context_bundle",
+                  "id": "a7vytu2l",
+                  "args": {
+                    "reason": "Verifying route and local context for a science mission to Feldberg."
+                  },
+                  "resultKeys": [
+                    "schema",
+                    "route",
+                    "target",
+                    "picker",
+                    "category",
+                    "profile",
+                    "airportDetails",
+                    "weather",
+                    "fireHazard",
+                    "targetGeoContext"
+                  ]
+                }
+              ],
+              "fallbackError": ""
+            }
+          },
+          "aptArrivalPlan": null,
+          "targetScene": {
+            "preset": "",
+            "kind": "survey_context",
+            "features": [
+              "utility_truck",
+              "people",
+              "small_equipment"
+            ],
+            "requirements": [
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "am Strassenrand",
+                "arrangement": "line",
+                "notes": "Servicefahrzeug fuer das Team",
+                "forwardM": 175,
+                "rightM": 60
+              },
+              {
+                "feature": "people",
+                "count": 2,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "notes": "Biologen bei der Arbeit",
+                "forwardM": 150,
+                "rightM": 100
+              },
+              {
+                "feature": "small_equipment",
+                "count": 1,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "notes": "Messgeraete und Markierungen",
+                "forwardM": 155,
+                "rightM": 105
+              }
+            ],
+            "roles": [
+              "vehicle.truck",
+              "vehicle.van",
+              "person.ground_crew",
+              "cargo.small_box"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+          },
+          "constraints": [
+            "Rollenkonsistenz: roleProfile=science_field_v1, taskDomain=science_bio, urgency=niedrig",
+            "Kein Themenmix zwischen Auftrag, PAX und Fracht",
+            "Alle Folgeansagen bleiben im gleichen Auftragsrahmen"
+          ]
+        },
+        "sceneCompositionStartedAt": 0,
+        "targetSceneComposerDebug": {
+          "source": "Gemini 2.5 Flash Scene Planner V3",
+          "promptVersion": "scene-v3-tool-planner-2026-05-23",
+          "toolCalls": [
+            {
+              "turn": 0,
+              "name": "get_scene_context_bundle",
+              "id": null,
+              "args": {
+                "reason": "Planning POI target scene as per user request."
+              },
+              "resultKeys": [
+                "schema",
+                "mode",
+                "route",
+                "mission",
+                "sceneIntent",
+                "missionTruth",
+                "targetGeoContext",
+                "missionPlan",
+                "aptArrivalPlan",
+                "aptArrivalGeoContext"
+              ]
+            }
+          ],
+          "aiRaw": {
+            "kind": "survey_context",
+            "preset": "",
+            "features": [],
+            "requirements": [
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "am Strassenrand",
+                "arrangement": "line",
+                "forwardM": 175,
+                "rightM": 60,
+                "notes": "Servicefahrzeug fuer das Team"
+              },
+              {
+                "feature": "people",
+                "count": 2,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "forwardM": 150,
+                "rightM": 100,
+                "notes": "Biologen bei der Arbeit"
+              },
+              {
+                "feature": "small_equipment",
+                "count": 1,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "forwardM": 155,
+                "rightM": 105,
+                "notes": "Messgeraete und Markierungen"
+              }
+            ],
+            "roles": [],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+          },
+          "aiArrivalRaw": null,
+          "normalized": {
+            "preset": "",
+            "kind": "survey_context",
+            "features": [
+              "utility_truck",
+              "people",
+              "small_equipment"
+            ],
+            "requirements": [
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "am Strassenrand",
+                "arrangement": "line",
+                "notes": "Servicefahrzeug fuer das Team",
+                "forwardM": 175,
+                "rightM": 60
+              },
+              {
+                "feature": "people",
+                "count": 2,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "notes": "Biologen bei der Arbeit",
+                "forwardM": 150,
+                "rightM": 100
+              },
+              {
+                "feature": "small_equipment",
+                "count": 1,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "notes": "Messgeraete und Markierungen",
+                "forwardM": 155,
+                "rightM": 105
+              }
+            ],
+            "roles": [
+              "vehicle.truck",
+              "vehicle.van",
+              "person.ground_crew",
+              "cargo.small_box"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+          },
+          "aptArrivalPlan": null,
+          "localizationNotes": [],
+          "validationNotes": [],
+          "fallback": {
+            "kind": "none",
+            "roles": [],
+            "density": "none",
+            "notes": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden."
+          },
+          "fallbackArrivalPlan": null,
+          "error": ""
+        }
+      },
+      "passenger": {
+        "name": "Dr. Paul Reiter",
+        "role": "Ökologe",
+        "gender": "male",
+        "personality": "analytisch, präzise, gelassen",
+        "dialectHint": "neutral",
+        "roleProfile": "science_field_v1",
+        "taskDomain": "science_bio",
+        "gTolerance": "niedrig",
+        "bankTolerance": "niedrig",
+        "cargoSensitivity": "mittel",
+        "stomachSensitivity": "mittel",
+        "comfortPriority": "hoch",
+        "urgencyPriority": "niedrig",
+        "targetAltFt": 5800,
+        "targetRadiusNm": 2.5,
+        "targetDwellMin": 4,
+        "greetingText": "Hi, wir machen heute Umweltbeobachtung am POI. Bitte ruhig und stabil fliegen, damit die Beobachtung verwertbar ist.",
+        "trainingPlan": null,
+        "storyHint": "Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahen Uferbereich am Karsee sollen aus der Luft auf Trockenschäden geprüft werden, bevor wir wieder Kurs auf Winzeln-Schramberg nehmen."
+      },
+      "briefing": {
+        "title": "📋 Vegetations-Monitoring am Feldberg-Massiv",
+        "story": "Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahen Uferbereich am Karsee sollen aus der Luft auf Trockenschäden geprüft werden, bevor wir wieder Kurs auf Winzeln-Schramberg nehmen.\n\nArbeits-Hinweis: Für das Zielgebiet ist eine geplante Höhe von ungefähr 5800 ft vorgesehen.",
+        "dep": "EDTW",
+        "depName": "Winzeln-Schramberg Airport",
+        "dest": "POI",
+        "destName": "Feldberg (Gipfel)",
+        "pax": "1 PAX (Ökologe: Dr. Paul Reiter)",
+        "cargo": "Umweltsensorik und Kamera (18 lbs)",
+        "dist": "59.4 NM",
+        "ete": "22 Min.",
+        "heading": "215°"
+      },
+      "paxLog": [
+        {
+          "ts": "12:29:36",
+          "type": "state",
+          "msg": "Queue +1 | Event: Verabschiedung"
+        },
+        {
+          "ts": "12:29:36",
+          "type": "event",
+          "msg": "Farewell → API-Call in 0s"
+        },
+        {
+          "ts": "12:29:36",
+          "type": "state",
+          "msg": "triggerPaxFarewell | tts:false done:false pax:true"
+        },
+        {
+          "ts": "12:29:36",
+          "type": "send",
+          "msg": "Textgen → gemini-3-flash-preview"
+        },
+        {
+          "ts": "12:29:36",
+          "type": "send",
+          "msg": "PROMPT (voll): ROLLE: Dr. Paul Reiter (Ökologe) · Persönlichkeit: analytisch, präzise, gelassen FLUG: EDTW → Feldberg (Gipfel) · 59.4 NM LOAD: Umweltsensorik und Kamera (18 lbs) · 1 PAX (Ökologe: Dr. Paul Reiter) AUFTRAG (kurz): Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahe STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Biologie/Umwelt | POI | cat:mountain CONTRACT-REGELN: Rollenkonsistenz: roleProfile=science_field_v1, taskDomain=science_bio, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen ZIEL-AUFFAELLIGKEIT: low (surface/terrain target). ROLLENFIX: Sprich ausschließlich als Dr. Paul Reiter (Ökologe) in Ich-Form. Keine Rollenvermischung. TASK-DOMAIN: science_bio AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen). Moment: Wir sind am Ziel \"Feldberg (Gipfel)\". Höhe: 5800 ft MSL / 700 ft AGL. Wetter: Wind 8 kts aus 260° (schwach), 17°C, Sicht 30 km (ausgezeichnet). Reagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv. Gib einen kurzen biologischen Zwischenstand zu \"Feldberg (Gipfel)\" (Bestand, Aktivitaet, Auffaelligkeiten). Drift-Guard (Bio): Bleib bei biologischer Beobachtung und Datenguete. Keine Technikpruefung, keine SAR-/Feuerlage. Max 2-3 Sätze. Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze. Neutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch. Keine neue Begrüßung am Satzanfang. Humor kurz und freundlich. Bei Sicherheit/Warnung/Arbeitsanweisung: kein Humor. Nur Deutsch, kein Markdown."
+        },
+        {
+          "ts": "12:29:36",
+          "type": "event",
+          "msg": "── Am Ziel ──"
+        },
+        {
+          "ts": "12:29:36",
+          "type": "state",
+          "msg": "Queue ▶ Start | Event: Am Ziel"
+        },
+        {
+          "ts": "12:29:36",
+          "type": "state",
+          "msg": "Queue +1 | Event: Am Ziel"
+        },
+        {
+          "ts": "12:29:34",
+          "type": "event",
+          "msg": "At-Target → API-Call in 2s"
+        },
+        {
+          "ts": "12:29:34",
+          "type": "state",
+          "msg": "triggerPaxAtTarget | tts:false done:false pax:true alt:5800ft"
+        },
+        {
+          "ts": "12:29:34",
+          "type": "state",
+          "msg": "Queue ✓ Ende | Event: Begrüßung"
+        },
+        {
+          "ts": "12:29:34",
+          "type": "state",
+          "msg": "TTS übersprungen (Stimme deaktiviert) — Text gespeichert"
+        },
+        {
+          "ts": "12:29:34",
+          "type": "recv",
+          "msg": "Textgen OK (305 Zeichen): \"Hi, wir erfassen heute die alpine Flora und die Vegetationszonen der Gipfelwiesen am Feldberg. Flieg bitte möglichst ruhig und stabil in einer Arbeitshöhe von etwa 5800 Fuß, damit die Sensoren die Übergänge präzise dokumentieren können. Wir haben keinen Zeitdruck, die Qualität der Daten ist entscheidend.\""
+        },
+        {
+          "ts": "12:29:30",
+          "type": "send",
+          "msg": "Textgen → gemini-3-flash-preview"
+        },
+        {
+          "ts": "12:29:30",
+          "type": "send",
+          "msg": "PROMPT (voll): ROLLE: Dr. Paul Reiter (Ökologe) · Persönlichkeit: analytisch, präzise, gelassen FLUG: EDTW → Feldberg (Gipfel) · 59.4 NM LOAD: Umweltsensorik und Kamera (18 lbs) · 1 PAX (Ökologe: Dr. Paul Reiter) AUFTRAG (kurz): Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahe STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Biologie/Umwelt | POI | cat:mountain CONTRACT-REGELN: Rollenkonsistenz: roleProfile=science_field_v1, taskDomain=science_bio, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen ZIEL-AUFFAELLIGKEIT: low (surface/terrain target). ROLLENFIX: Sprich ausschließlich als Dr. Paul Reiter (Ökologe) in Ich-Form. Keine Rollenvermischung. TASK-DOMAIN: science_bio AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen). Moment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung. Basistext für deine Begrüßung (frei adaptieren): \"Hi, wir machen heute Umweltbeobachtung am POI. Bitte ruhig und stabil fliegen, damit die Beobachtung verwertbar ist.\" Du DARFST hier mit einer kurzen natürlichen Begrüßung beginnen (z.B. \"Hi\"), aber nur sehr knapp. Bitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast. Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr 5800 ft). Keine internen Parameter oder technischen Vorgaben zitieren.  Drift-Guard (Bio): Nur Bio/Umwelt-Inhalte (Flora/Fauna/Habitat/Ufervegetation). Keine Risse/Statik/Schadenssuche, keine Geologie, kein SAR-/Feuer-Ton. Kein Zeitdruck kommunizieren. Max 3 Sätze. Du-Form, nie mit Namen. Ich-Form, kurze klare Sätze. Neutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch. Keine neue Begrüßung am Satzanfang. Humor kurz und freundlich. Bei Sicherheit/Warnung/Arbeitsanweisung: kein Humor. Nur Deutsch, kein Markdown."
+        },
+        {
+          "ts": "12:29:30",
+          "type": "event",
+          "msg": "── Begrüßung ──"
+        },
+        {
+          "ts": "12:29:30",
+          "type": "state",
+          "msg": "Queue ▶ Start | Event: Begrüßung"
+        },
+        {
+          "ts": "12:29:30",
+          "type": "state",
+          "msg": "Queue +1 | Event: Begrüßung"
+        },
+        {
+          "ts": "12:29:30",
+          "type": "event",
+          "msg": "Greeting → API-Call"
+        },
+        {
+          "ts": "12:29:30",
+          "type": "state",
+          "msg": "Greeting Standort-Check: 0.00 NM vom Startplatz"
+        },
+        {
+          "ts": "12:29:30",
+          "type": "state",
+          "msg": "triggerPaxGreeting | tts:false done:false pax:true key:true"
+        },
+        {
+          "ts": "12:29:30",
+          "type": "state",
+          "msg": "Queue ✓ Ende | Event: Boarding"
+        },
+        {
+          "ts": "12:29:30",
+          "type": "state",
+          "msg": "TTS übersprungen (Stimme deaktiviert) — Text gespeichert"
+        },
+        {
+          "ts": "12:29:30",
+          "type": "event",
+          "msg": "── Boarding ──"
+        },
+        {
+          "ts": "12:29:30",
+          "type": "state",
+          "msg": "Queue ▶ Start | Event: Boarding"
+        }
+      ],
+      "debugSnapshot": {
+        "ts": 1779532144238,
+        "mode": "POI",
+        "category": "mountain",
+        "profile": "science_bio",
+        "appliedProfile": "science_bio",
+        "mission": "Vegetations-Monitoring am Feldberg-Massiv",
+        "target": "Feldberg (Gipfel)",
+        "targetCoords": "47.87300, 8.00400",
+        "source": "Gemini 3.0 Flash + V3 Tools",
+        "poiSource": "Local fallback POIs (forced:mountain)",
+        "poiLookup": null,
+        "story": "Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahen Uferbereich am Karsee sollen aus der Luft auf Trockenschäden geprüft werden, bevor wir wieder Kurs auf Winzeln-Schramberg nehmen.",
+        "narrativeGuard": {
+          "urgency": "niedrig",
+          "cargoSensitivity": "niedrig",
+          "timeHintAdded": false,
+          "timePressureStripped": false,
+          "cargoHintStripped": true,
+          "profileContractApplied": false
+        },
+        "contract": {
+          "requestedProfileId": "science_bio",
+          "appliedProfileId": "science_bio",
+          "summary": "Biologie/Umwelt | POI | cat:mountain",
+          "taskDomain": "science_bio",
+          "roleProfile": "science_field_v1",
+          "urgencyPriority": "niedrig",
+          "paxText": "1 PAX (Biologe)",
+          "cargoText": "Umweltsensorik und Kamera (18 lbs)",
+          "missionTitle": "Vegetations-Monitoring am Feldberg-Massiv",
+          "missionStory": "Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahen Uferbereich am Karsee sollen aus der Luft auf Trockenschäden geprüft werden, bevor wir wieder Kurs auf Winzeln-Schramberg nehmen.",
+          "sceneIntent": {
+            "summary": "Wissenschaftliches Team bei Feldarbeiten auf den alpinen Wiesen nahe der Zufahrt.",
+            "environment": "alpine Bergwiese",
+            "visibleIdeas": [
+              "ein kleiner weißer Geländewagen am Rand der Service-Zufahrt",
+              "zwei Personen mit Messgeräten auf der Wiesenfläche",
+              "kleine Markierungsfähnchen im Boden für Vegetationsquadrate"
+            ],
+            "avoid": [
+              "keine Rettungsfahrzeuge",
+              "keine großen Touristenmassen",
+              "keine Gebäude direkt auf dem Gipfelplateau"
+            ],
+            "densityHint": "sparse",
+            "notes": "Dezente Platzierung der Bodenobjekte zur Untermauerung der wissenschaftlichen Natur des Fluges."
+          },
+          "sceneAccepted": false,
+          "targetGeoContext": {
+            "source": "overpass",
+            "radiusM": 750,
+            "center": {
+              "lat": 47.873,
+              "lon": 8.004
+            },
+            "anchors": {
+              "water": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "Uferbereich",
+                "tag": "water"
+              },
+              "road": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 19,
+                "name": "service",
+                "tag": "road"
+              },
+              "meadow": {
+                "present": true,
+                "count": 1,
+                "distM": 185,
+                "bearingDeg": 34,
+                "name": "meadow",
+                "tag": "meadow"
+              }
+            },
+            "visualLandmarks": [],
+            "avoidZones": [],
+            "hints": [
+              "roadside/vehicle placement plausible near the road or parking anchor",
+              "waterline placement plausible near the water anchor",
+              "animals/tents/reference objects plausible on meadow or farmland anchors"
+            ],
+            "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+            "fetchedAt": 1779532125002
+          },
+          "missionTruth": {
+            "source": "mission-truth-v1",
+            "requestedCategory": "mountain",
+            "poiCategory": "mountain",
+            "primaryCategory": "mountain",
+            "geometryMode": "area",
+            "pickedPoi": {
+              "name": "Feldberg (Gipfel)",
+              "lat": 47.873,
+              "lon": 8.004,
+              "source": "Local fallback POIs (forced:mountain)",
+              "lookup": null
+            },
+            "targetProminence": {
+              "level": "low",
+              "reason": "surface/terrain target"
+            },
+            "visualLandmarks": [],
+            "mainTarget": {
+              "name": "Feldberg (Gipfel)",
+              "kind": "poi",
+              "lat": 47.873,
+              "lon": 8.004,
+              "refinedFromPoi": false,
+              "distanceFromPoiM": 0,
+              "bearingFromPoiDeg": 0,
+              "reason": "original_poi"
+            },
+            "sceneAnchor": {
+              "kind": "poi",
+              "lat": 47.873,
+              "lon": 8.004,
+              "reason": "original_poi"
+            },
+            "visibleCues": [
+              "offenes Gelaende",
+              "Wasserflaeche oder Uferlinie"
+            ],
+            "constraints": [
+              "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+              "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+            ]
+          },
+          "missionPlanV2": {
+            "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+            "status": "ready",
+            "needs": [],
+            "resolvedNeeds": {
+              "geo_context": {
+                "source": "overpass",
+                "radiusM": 750,
+                "center": {
+                  "lat": 47.873,
+                  "lon": 8.004
+                },
+                "anchors": {
+                  "water": {
+                    "present": true,
+                    "count": 1,
+                    "distM": 185,
+                    "bearingDeg": 34,
+                    "name": "Uferbereich",
+                    "tag": "water"
+                  },
+                  "road": {
+                    "present": true,
+                    "count": 1,
+                    "distM": 185,
+                    "bearingDeg": 19,
+                    "name": "service",
+                    "tag": "road"
+                  },
+                  "meadow": {
+                    "present": true,
+                    "count": 1,
+                    "distM": 185,
+                    "bearingDeg": 34,
+                    "name": "meadow",
+                    "tag": "meadow"
+                  }
+                },
+                "visualLandmarks": [],
+                "avoidZones": [],
+                "hints": [
+                  "roadside/vehicle placement plausible near the road or parking anchor",
+                  "waterline placement plausible near the water anchor",
+                  "animals/tents/reference objects plausible on meadow or farmland anchors"
+                ],
+                "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+                "fetchedAt": 1779532125002
+              },
+              "mission_truth": {
+                "source": "mission-truth-v1",
+                "requestedCategory": "mountain",
+                "poiCategory": "mountain",
+                "primaryCategory": "mountain",
+                "geometryMode": "area",
+                "pickedPoi": {
+                  "name": "Feldberg (Gipfel)",
+                  "lat": 47.873,
+                  "lon": 8.004,
+                  "source": "Local fallback POIs (forced:mountain)",
+                  "lookup": null
+                },
+                "targetProminence": {
+                  "level": "low",
+                  "reason": "surface/terrain target"
+                },
+                "visualLandmarks": [],
+                "mainTarget": {
+                  "name": "Feldberg (Gipfel)",
+                  "kind": "poi",
+                  "lat": 47.873,
+                  "lon": 8.004,
+                  "refinedFromPoi": false,
+                  "distanceFromPoiM": 0,
+                  "bearingFromPoiDeg": 0,
+                  "reason": "original_poi"
+                },
+                "sceneAnchor": {
+                  "kind": "poi",
+                  "lat": 47.873,
+                  "lon": 8.004,
+                  "reason": "original_poi"
+                },
+                "visibleCues": [
+                  "offenes Gelaende",
+                  "Wasserflaeche oder Uferlinie"
+                ],
+                "constraints": [
+                  "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+                  "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+                ]
+              },
+              "weather_snapshot": {
+                "dep": {
+                  "station": "EDTW",
+                  "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                  "windDeg": 260,
+                  "windKts": 8,
+                  "visKm": 10,
+                  "tempC": 17,
+                  "wxCode": null,
+                  "fltCat": "VFR"
+                },
+                "dest": {
+                  "station": "EDTW",
+                  "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                  "windDeg": 260,
+                  "windKts": 8,
+                  "visKm": 10,
+                  "tempC": 17,
+                  "wxCode": null,
+                  "fltCat": "VFR"
+                }
+              },
+              "fire_hazard": null,
+              "airport_details": {
+                "start": {
+                  "icao": "EDTW",
+                  "name": "Winzeln-Schramberg Airport",
+                  "lat": 48.2791671753,
+                  "lon": 8.4283332825
+                },
+                "dest": null,
+                "targetPoi": {
+                  "icao": "POI",
+                  "name": "Feldberg (Gipfel)",
+                  "lat": 47.873,
+                  "lon": 8.004
+                }
+              }
+            },
+            "plan": {
+              "taskDomain": "science_bio",
+              "roleProfile": "science_field_v1",
+              "missionType": "poi",
+              "targetCategory": "mountain",
+              "primaryObjective": "Biologisches Monitoring der alpinen Flora und Vegetationszonen im Gipfelbereich des Feldbergs.",
+              "targetLabel": "Feldberg (Gipfel)",
+              "sceneKind": "none",
+              "sceneDensity": "sparse",
+              "requiredAnchors": [
+                "meadow",
+                "water"
+              ],
+              "objectFamilies": [
+                "scientific_equipment",
+                "small_vehicles"
+              ],
+              "placementPolicy": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden.",
+              "narrativeRules": [
+                "Der Fokus liegt auf wissenschaftlicher Beobachtung.",
+                "Keine Landung am Feldberg; der Flug ist ein reiner Beobachtungs- und Dokumentationsflug.",
+                "Rückkehr zum Startflugplatz EDTW nach Abschluss der Beobachtung."
+              ],
+              "lockedFields": {
+                "noLandingAtPoi": true
+              },
+              "confidence": 1,
+              "localFacts": [
+                "Der Feldberg ist mit 1493 m die höchste Erhebung im Schwarzwald.",
+                "In unmittelbarer Nähe zum Gipfel befindet sich eine Wasserfläche (Uferbereich), die als ökologischer Referenzpunkt dient.",
+                "Offenes Gelände und alpine Wiesen prägen die Gipfelregion."
+              ],
+              "weatherHooks": [
+                "Wind aus 260° mit 8 Knoten sorgt für stabile Anflugbedingungen aus Westen.",
+                "Gute VFR-Sichtweiten bei milden 17°C ermöglichen präzise Sichtbeobachtungen."
+              ],
+              "operationalDetails": [
+                "Flugstrecke ca. 60 NM von Winzeln-Schramberg (EDTW) zum Feldberg.",
+                "Beachtung der Geländehöhe beim Überflug des Schwarzwald-Hauptkamms.",
+                "Rückflug erfolgt auf derselben Route oder als kleiner Rundflug."
+              ],
+              "realismBrief": "Wissenschaftliche Bestandsaufnahmen seltener Pflanzenarten oder die Überwachung von Erosionsschäden sind am Feldberg aufgrund seines Status als Naturschutzgebiet und höchster Punkt der Region absolut plausibel.",
+              "narrativeHooks": [
+                "Dokumentation des Vegetationszustands nach der letzten Trockenperiode.",
+                "Überprüfung der Wasserstände im Bereich der Karsee-Ufer unterhalb des Gipfels.",
+                "Zählung von Gämsen oder anderen Wildtieren in den offenen Hanglagen."
+              ],
+              "mustMention": [
+                "Feldberg-Gipfel",
+                "Biologisches Monitoring",
+                "VFR-Bedingungen"
+              ],
+              "mustAvoid": [
+                "Keine Landung am Zielort (POI).",
+                "Keine Rettungsmission oder dramatische Notlage.",
+                "Keine Erfindung von nicht vorhandenen Gebäuden direkt auf dem Gipfelpunkt."
+              ]
+            },
+            "debug": {
+              "source": "Gemini 3.0 Flash Tool Planner V3",
+              "rawStatus": "ready",
+              "pass": "tool-calling",
+              "promptVersion": "mission-v3-tool-planner-2026-05-23",
+              "toolCalls": [
+                {
+                  "turn": 0,
+                  "name": "get_mission_context_bundle",
+                  "id": "a7vytu2l",
+                  "args": {
+                    "reason": "Verifying route and local context for a science mission to Feldberg."
+                  },
+                  "resultKeys": [
+                    "schema",
+                    "route",
+                    "target",
+                    "picker",
+                    "category",
+                    "profile",
+                    "airportDetails",
+                    "weather",
+                    "fireHazard",
+                    "targetGeoContext"
+                  ]
+                }
+              ],
+              "fallbackError": ""
+            }
+          },
+          "aptArrivalPlan": null,
+          "targetScene": {
+            "kind": "none",
+            "roles": [],
+            "density": "none",
+            "notes": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden."
+          },
+          "constraints": [
+            "Rollenkonsistenz: roleProfile=science_field_v1, taskDomain=science_bio, urgency=niedrig",
+            "Kein Themenmix zwischen Auftrag, PAX und Fracht",
+            "Alle Folgeansagen bleiben im gleichen Auftragsrahmen"
+          ]
+        },
+        "sceneAccepted": true,
+        "sceneCompositionStatus": "accepted",
+        "sceneIntent": {
+          "summary": "Wissenschaftliches Team bei Feldarbeiten auf den alpinen Wiesen nahe der Zufahrt.",
+          "environment": "alpine Bergwiese",
+          "visibleIdeas": [
+            "ein kleiner weißer Geländewagen am Rand der Service-Zufahrt",
+            "zwei Personen mit Messgeräten auf der Wiesenfläche",
+            "kleine Markierungsfähnchen im Boden für Vegetationsquadrate"
+          ],
+          "avoid": [
+            "keine Rettungsfahrzeuge",
+            "keine großen Touristenmassen",
+            "keine Gebäude direkt auf dem Gipfelplateau"
+          ],
+          "densityHint": "sparse",
+          "notes": "Dezente Platzierung der Bodenobjekte zur Untermauerung der wissenschaftlichen Natur des Fluges."
+        },
+        "targetGeoContext": {
+          "source": "overpass",
+          "radiusM": 750,
+          "center": {
+            "lat": 47.873,
+            "lon": 8.004
+          },
+          "anchors": {
+            "water": {
+              "present": true,
+              "count": 1,
+              "distM": 185,
+              "bearingDeg": 34,
+              "name": "Uferbereich",
+              "tag": "water"
+            },
+            "road": {
+              "present": true,
+              "count": 1,
+              "distM": 185,
+              "bearingDeg": 19,
+              "name": "service",
+              "tag": "road"
+            },
+            "meadow": {
+              "present": true,
+              "count": 1,
+              "distM": 185,
+              "bearingDeg": 34,
+              "name": "meadow",
+              "tag": "meadow"
+            }
+          },
+          "visualLandmarks": [],
+          "avoidZones": [],
+          "hints": [
+            "roadside/vehicle placement plausible near the road or parking anchor",
+            "waterline placement plausible near the water anchor",
+            "animals/tents/reference objects plausible on meadow or farmland anchors"
+          ],
+          "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+          "fetchedAt": 1779532125002
+        },
+        "missionTruth": {
+          "source": "mission-truth-v1",
+          "requestedCategory": "mountain",
+          "poiCategory": "mountain",
+          "primaryCategory": "mountain",
+          "geometryMode": "area",
+          "pickedPoi": {
+            "name": "Feldberg (Gipfel)",
+            "lat": 47.873,
+            "lon": 8.004,
+            "source": "Local fallback POIs (forced:mountain)",
+            "lookup": null
+          },
+          "targetProminence": {
+            "level": "low",
+            "reason": "surface/terrain target"
+          },
+          "visualLandmarks": [],
+          "mainTarget": {
+            "name": "Feldberg (Gipfel)",
+            "kind": "poi",
+            "lat": 47.873,
+            "lon": 8.004,
+            "refinedFromPoi": false,
+            "distanceFromPoiM": 0,
+            "bearingFromPoiDeg": 0,
+            "reason": "original_poi"
+          },
+          "sceneAnchor": {
+            "kind": "poi",
+            "lat": 47.873,
+            "lon": 8.004,
+            "reason": "original_poi"
+          },
+          "visibleCues": [
+            "offenes Gelaende",
+            "Wasserflaeche oder Uferlinie",
+            "Person am Boden",
+            "Fahrzeug am Boden"
+          ],
+          "constraints": [
+            "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+            "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+          ]
+        },
+        "missionPlanV2": {
+          "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+          "status": "ready",
+          "needs": [],
+          "resolvedNeeds": {
+            "geo_context": {
+              "source": "overpass",
+              "radiusM": 750,
+              "center": {
+                "lat": 47.873,
+                "lon": 8.004
+              },
+              "anchors": {
+                "water": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "Uferbereich",
+                  "tag": "water"
+                },
+                "road": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 19,
+                  "name": "service",
+                  "tag": "road"
+                },
+                "meadow": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "meadow",
+                  "tag": "meadow"
+                }
+              },
+              "visualLandmarks": [],
+              "avoidZones": [],
+              "hints": [
+                "roadside/vehicle placement plausible near the road or parking anchor",
+                "waterline placement plausible near the water anchor",
+                "animals/tents/reference objects plausible on meadow or farmland anchors"
+              ],
+              "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+              "fetchedAt": 1779532125002
+            },
+            "mission_truth": {
+              "source": "mission-truth-v1",
+              "requestedCategory": "mountain",
+              "poiCategory": "mountain",
+              "primaryCategory": "mountain",
+              "geometryMode": "area",
+              "pickedPoi": {
+                "name": "Feldberg (Gipfel)",
+                "lat": 47.873,
+                "lon": 8.004,
+                "source": "Local fallback POIs (forced:mountain)",
+                "lookup": null
+              },
+              "targetProminence": {
+                "level": "low",
+                "reason": "surface/terrain target"
+              },
+              "visualLandmarks": [],
+              "mainTarget": {
+                "name": "Feldberg (Gipfel)",
+                "kind": "poi",
+                "lat": 47.873,
+                "lon": 8.004,
+                "refinedFromPoi": false,
+                "distanceFromPoiM": 0,
+                "bearingFromPoiDeg": 0,
+                "reason": "original_poi"
+              },
+              "sceneAnchor": {
+                "kind": "poi",
+                "lat": 47.873,
+                "lon": 8.004,
+                "reason": "original_poi"
+              },
+              "visibleCues": [
+                "offenes Gelaende",
+                "Wasserflaeche oder Uferlinie"
+              ],
+              "constraints": [
+                "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+                "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+              ]
+            },
+            "weather_snapshot": {
+              "dep": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              },
+              "dest": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              }
+            },
+            "fire_hazard": null,
+            "airport_details": {
+              "start": {
+                "icao": "EDTW",
+                "name": "Winzeln-Schramberg Airport",
+                "lat": 48.2791671753,
+                "lon": 8.4283332825
+              },
+              "dest": null,
+              "targetPoi": {
+                "icao": "POI",
+                "name": "Feldberg (Gipfel)",
+                "lat": 47.873,
+                "lon": 8.004
+              }
+            }
+          },
+          "plan": {
+            "taskDomain": "science_bio",
+            "roleProfile": "science_field_v1",
+            "missionType": "poi",
+            "targetCategory": "mountain",
+            "primaryObjective": "Biologisches Monitoring der alpinen Flora und Vegetationszonen im Gipfelbereich des Feldbergs.",
+            "targetLabel": "Feldberg (Gipfel)",
+            "sceneKind": "none",
+            "sceneDensity": "sparse",
+            "requiredAnchors": [
+              "meadow",
+              "water"
+            ],
+            "objectFamilies": [
+              "scientific_equipment",
+              "small_vehicles"
+            ],
+            "placementPolicy": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden.",
+            "narrativeRules": [
+              "Der Fokus liegt auf wissenschaftlicher Beobachtung.",
+              "Keine Landung am Feldberg; der Flug ist ein reiner Beobachtungs- und Dokumentationsflug.",
+              "Rückkehr zum Startflugplatz EDTW nach Abschluss der Beobachtung."
+            ],
+            "lockedFields": {
+              "noLandingAtPoi": true
+            },
+            "confidence": 1,
+            "localFacts": [
+              "Der Feldberg ist mit 1493 m die höchste Erhebung im Schwarzwald.",
+              "In unmittelbarer Nähe zum Gipfel befindet sich eine Wasserfläche (Uferbereich), die als ökologischer Referenzpunkt dient.",
+              "Offenes Gelände und alpine Wiesen prägen die Gipfelregion."
+            ],
+            "weatherHooks": [
+              "Wind aus 260° mit 8 Knoten sorgt für stabile Anflugbedingungen aus Westen.",
+              "Gute VFR-Sichtweiten bei milden 17°C ermöglichen präzise Sichtbeobachtungen."
+            ],
+            "operationalDetails": [
+              "Flugstrecke ca. 60 NM von Winzeln-Schramberg (EDTW) zum Feldberg.",
+              "Beachtung der Geländehöhe beim Überflug des Schwarzwald-Hauptkamms.",
+              "Rückflug erfolgt auf derselben Route oder als kleiner Rundflug."
+            ],
+            "realismBrief": "Wissenschaftliche Bestandsaufnahmen seltener Pflanzenarten oder die Überwachung von Erosionsschäden sind am Feldberg aufgrund seines Status als Naturschutzgebiet und höchster Punkt der Region absolut plausibel.",
+            "narrativeHooks": [
+              "Dokumentation des Vegetationszustands nach der letzten Trockenperiode.",
+              "Überprüfung der Wasserstände im Bereich der Karsee-Ufer unterhalb des Gipfels.",
+              "Zählung von Gämsen oder anderen Wildtieren in den offenen Hanglagen."
+            ],
+            "mustMention": [
+              "Feldberg-Gipfel",
+              "Biologisches Monitoring",
+              "VFR-Bedingungen"
+            ],
+            "mustAvoid": [
+              "Keine Landung am Zielort (POI).",
+              "Keine Rettungsmission oder dramatische Notlage.",
+              "Keine Erfindung von nicht vorhandenen Gebäuden direkt auf dem Gipfelpunkt."
+            ]
+          },
+          "debug": {
+            "source": "Gemini 3.0 Flash Tool Planner V3",
+            "rawStatus": "ready",
+            "pass": "tool-calling",
+            "promptVersion": "mission-v3-tool-planner-2026-05-23",
+            "toolCalls": [
+              {
+                "turn": 0,
+                "name": "get_mission_context_bundle",
+                "id": "a7vytu2l",
+                "args": {
+                  "reason": "Verifying route and local context for a science mission to Feldberg."
+                },
+                "resultKeys": [
+                  "schema",
+                  "route",
+                  "target",
+                  "picker",
+                  "category",
+                  "profile",
+                  "airportDetails",
+                  "weather",
+                  "fireHazard",
+                  "targetGeoContext"
+                ]
+              }
+            ],
+            "fallbackError": ""
+          }
+        },
+        "missionPlanV3": {
+          "pipelineVersion": "mission-v3-tool-planner-2026-05-23",
+          "status": "ready",
+          "needs": [],
+          "resolvedNeeds": {
+            "geo_context": {
+              "source": "overpass",
+              "radiusM": 750,
+              "center": {
+                "lat": 47.873,
+                "lon": 8.004
+              },
+              "anchors": {
+                "water": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "Uferbereich",
+                  "tag": "water"
+                },
+                "road": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 19,
+                  "name": "service",
+                  "tag": "road"
+                },
+                "meadow": {
+                  "present": true,
+                  "count": 1,
+                  "distM": 185,
+                  "bearingDeg": 34,
+                  "name": "meadow",
+                  "tag": "meadow"
+                }
+              },
+              "visualLandmarks": [],
+              "avoidZones": [],
+              "hints": [
+                "roadside/vehicle placement plausible near the road or parking anchor",
+                "waterline placement plausible near the water anchor",
+                "animals/tents/reference objects plausible on meadow or farmland anchors"
+              ],
+              "summary": "water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg",
+              "fetchedAt": 1779532125002
+            },
+            "mission_truth": {
+              "source": "mission-truth-v1",
+              "requestedCategory": "mountain",
+              "poiCategory": "mountain",
+              "primaryCategory": "mountain",
+              "geometryMode": "area",
+              "pickedPoi": {
+                "name": "Feldberg (Gipfel)",
+                "lat": 47.873,
+                "lon": 8.004,
+                "source": "Local fallback POIs (forced:mountain)",
+                "lookup": null
+              },
+              "targetProminence": {
+                "level": "low",
+                "reason": "surface/terrain target"
+              },
+              "visualLandmarks": [],
+              "mainTarget": {
+                "name": "Feldberg (Gipfel)",
+                "kind": "poi",
+                "lat": 47.873,
+                "lon": 8.004,
+                "refinedFromPoi": false,
+                "distanceFromPoiM": 0,
+                "bearingFromPoiDeg": 0,
+                "reason": "original_poi"
+              },
+              "sceneAnchor": {
+                "kind": "poi",
+                "lat": 47.873,
+                "lon": 8.004,
+                "reason": "original_poi"
+              },
+              "visibleCues": [
+                "offenes Gelaende",
+                "Wasserflaeche oder Uferlinie"
+              ],
+              "constraints": [
+                "Missionstexte duerfen nur diese Lage als Primaerziel verwenden.",
+                "Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen."
+              ]
+            },
+            "weather_snapshot": {
+              "dep": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              },
+              "dest": {
+                "station": "EDTW",
+                "raw": "EDTW 231220Z 26008KT 9999 FEW030 17/08 Q1015",
+                "windDeg": 260,
+                "windKts": 8,
+                "visKm": 10,
+                "tempC": 17,
+                "wxCode": null,
+                "fltCat": "VFR"
+              }
+            },
+            "fire_hazard": null,
+            "airport_details": {
+              "start": {
+                "icao": "EDTW",
+                "name": "Winzeln-Schramberg Airport",
+                "lat": 48.2791671753,
+                "lon": 8.4283332825
+              },
+              "dest": null,
+              "targetPoi": {
+                "icao": "POI",
+                "name": "Feldberg (Gipfel)",
+                "lat": 47.873,
+                "lon": 8.004
+              }
+            }
+          },
+          "plan": {
+            "taskDomain": "science_bio",
+            "roleProfile": "science_field_v1",
+            "missionType": "poi",
+            "targetCategory": "mountain",
+            "primaryObjective": "Biologisches Monitoring der alpinen Flora und Vegetationszonen im Gipfelbereich des Feldbergs.",
+            "targetLabel": "Feldberg (Gipfel)",
+            "sceneKind": "none",
+            "sceneDensity": "sparse",
+            "requiredAnchors": [
+              "meadow",
+              "water"
+            ],
+            "objectFamilies": [
+              "scientific_equipment",
+              "small_vehicles"
+            ],
+            "placementPolicy": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden.",
+            "narrativeRules": [
+              "Der Fokus liegt auf wissenschaftlicher Beobachtung.",
+              "Keine Landung am Feldberg; der Flug ist ein reiner Beobachtungs- und Dokumentationsflug.",
+              "Rückkehr zum Startflugplatz EDTW nach Abschluss der Beobachtung."
+            ],
+            "lockedFields": {
+              "noLandingAtPoi": true
+            },
+            "confidence": 1,
+            "localFacts": [
+              "Der Feldberg ist mit 1493 m die höchste Erhebung im Schwarzwald.",
+              "In unmittelbarer Nähe zum Gipfel befindet sich eine Wasserfläche (Uferbereich), die als ökologischer Referenzpunkt dient.",
+              "Offenes Gelände und alpine Wiesen prägen die Gipfelregion."
+            ],
+            "weatherHooks": [
+              "Wind aus 260° mit 8 Knoten sorgt für stabile Anflugbedingungen aus Westen.",
+              "Gute VFR-Sichtweiten bei milden 17°C ermöglichen präzise Sichtbeobachtungen."
+            ],
+            "operationalDetails": [
+              "Flugstrecke ca. 60 NM von Winzeln-Schramberg (EDTW) zum Feldberg.",
+              "Beachtung der Geländehöhe beim Überflug des Schwarzwald-Hauptkamms.",
+              "Rückflug erfolgt auf derselben Route oder als kleiner Rundflug."
+            ],
+            "realismBrief": "Wissenschaftliche Bestandsaufnahmen seltener Pflanzenarten oder die Überwachung von Erosionsschäden sind am Feldberg aufgrund seines Status als Naturschutzgebiet und höchster Punkt der Region absolut plausibel.",
+            "narrativeHooks": [
+              "Dokumentation des Vegetationszustands nach der letzten Trockenperiode.",
+              "Überprüfung der Wasserstände im Bereich der Karsee-Ufer unterhalb des Gipfels.",
+              "Zählung von Gämsen oder anderen Wildtieren in den offenen Hanglagen."
+            ],
+            "mustMention": [
+              "Feldberg-Gipfel",
+              "Biologisches Monitoring",
+              "VFR-Bedingungen"
+            ],
+            "mustAvoid": [
+              "Keine Landung am Zielort (POI).",
+              "Keine Rettungsmission oder dramatische Notlage.",
+              "Keine Erfindung von nicht vorhandenen Gebäuden direkt auf dem Gipfelpunkt."
+            ]
+          },
+          "debug": {
+            "source": "Gemini 3.0 Flash Tool Planner V3",
+            "rawStatus": "ready",
+            "pass": "tool-calling",
+            "promptVersion": "mission-v3-tool-planner-2026-05-23",
+            "toolCalls": [
+              {
+                "turn": 0,
+                "name": "get_mission_context_bundle",
+                "id": "a7vytu2l",
+                "args": {
+                  "reason": "Verifying route and local context for a science mission to Feldberg."
+                },
+                "resultKeys": [
+                  "schema",
+                  "route",
+                  "target",
+                  "picker",
+                  "category",
+                  "profile",
+                  "airportDetails",
+                  "weather",
+                  "fireHazard",
+                  "targetGeoContext"
+                ]
+              }
+            ],
+            "fallbackError": ""
+          }
+        },
+        "missionPipelineMode": "v3",
+        "missionPipelineV2Enabled": false,
+        "missionPipelineV3Enabled": true,
+        "aptArrivalPlan": null,
+        "targetScene": {
+          "preset": "",
+          "kind": "survey_context",
+          "features": [
+            "utility_truck",
+            "people",
+            "small_equipment"
+          ],
+          "requirements": [
+            {
+              "feature": "utility_truck",
+              "count": 1,
+              "placement": "am Strassenrand",
+              "arrangement": "line",
+              "notes": "Servicefahrzeug fuer das Team",
+              "forwardM": 175,
+              "rightM": 60
+            },
+            {
+              "feature": "people",
+              "count": 2,
+              "placement": "auf der Wiese",
+              "arrangement": "cluster",
+              "notes": "Biologen bei der Arbeit",
+              "forwardM": 150,
+              "rightM": 100
+            },
+            {
+              "feature": "small_equipment",
+              "count": 1,
+              "placement": "auf der Wiese",
+              "arrangement": "cluster",
+              "notes": "Messgeraete und Markierungen",
+              "forwardM": 155,
+              "rightM": 105
+            }
+          ],
+          "roles": [
+            "vehicle.truck",
+            "vehicle.van",
+            "person.ground_crew",
+            "cargo.small_box"
+          ],
+          "density": "sparse",
+          "layout": "scattered",
+          "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+        },
+        "targetSceneDebug": {
+          "sceneIntentRaw": {
+            "summary": "Wissenschaftliches Team bei Feldarbeiten auf den alpinen Wiesen nahe der Zufahrt.",
+            "environment": "alpine Bergwiese",
+            "visibleIdeas": [
+              "ein kleiner weißer Geländewagen am Rand der Service-Zufahrt",
+              "zwei Personen mit Messgeräten auf der Wiesenfläche",
+              "kleine Markierungsfähnchen im Boden für Vegetationsquadrate"
+            ],
+            "avoid": [
+              "keine Rettungsfahrzeuge",
+              "keine großen Touristenmassen",
+              "keine Gebäude direkt auf dem Gipfelplateau"
+            ],
+            "densityHint": "sparse",
+            "notes": "Dezente Platzierung der Bodenobjekte zur Untermauerung der wissenschaftlichen Natur des Fluges."
+          },
+          "aiRequested": {
+            "kind": "survey_context",
+            "preset": "",
+            "features": [],
+            "requirements": [
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "am Strassenrand",
+                "arrangement": "line",
+                "forwardM": 175,
+                "rightM": 60,
+                "notes": "Servicefahrzeug fuer das Team"
+              },
+              {
+                "feature": "people",
+                "count": 2,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "forwardM": 150,
+                "rightM": 100,
+                "notes": "Biologen bei der Arbeit"
+              },
+              {
+                "feature": "small_equipment",
+                "count": 1,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "forwardM": 155,
+                "rightM": 105,
+                "notes": "Messgeraete und Markierungen"
+              }
+            ],
+            "roles": [],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+          },
+          "aiNormalized": {
+            "preset": "",
+            "kind": "survey_context",
+            "features": [
+              "utility_truck",
+              "people",
+              "small_equipment"
+            ],
+            "requirements": [
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "am Strassenrand",
+                "arrangement": "line",
+                "notes": "Servicefahrzeug fuer das Team",
+                "forwardM": 175,
+                "rightM": 60
+              },
+              {
+                "feature": "people",
+                "count": 2,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "notes": "Biologen bei der Arbeit",
+                "forwardM": 150,
+                "rightM": 100
+              },
+              {
+                "feature": "small_equipment",
+                "count": 1,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "notes": "Messgeraete und Markierungen",
+                "forwardM": 155,
+                "rightM": 105
+              }
+            ],
+            "roles": [
+              "vehicle.truck",
+              "vehicle.van",
+              "person.ground_crew",
+              "cargo.small_box"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+          },
+          "contractTargetScene": {
+            "preset": "",
+            "kind": "survey_context",
+            "features": [
+              "utility_truck",
+              "people",
+              "small_equipment"
+            ],
+            "requirements": [
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "am Strassenrand",
+                "arrangement": "line",
+                "notes": "Servicefahrzeug fuer das Team",
+                "forwardM": 175,
+                "rightM": 60
+              },
+              {
+                "feature": "people",
+                "count": 2,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "notes": "Biologen bei der Arbeit",
+                "forwardM": 150,
+                "rightM": 100
+              },
+              {
+                "feature": "small_equipment",
+                "count": 1,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "notes": "Messgeraete und Markierungen",
+                "forwardM": 155,
+                "rightM": 105
+              }
+            ],
+            "roles": [
+              "vehicle.truck",
+              "vehicle.van",
+              "person.ground_crew",
+              "cargo.small_box"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+          },
+          "aptArrivalPlan": null
+        },
+        "paxText": "1 PAX (Biologe)",
+        "cargoText": "Umweltsensorik und Kamera (18 lbs)",
+        "passenger": {
+          "name": "Dr. Paul Reiter",
+          "role": "Ökologe",
+          "gender": "male",
+          "roleProfile": "science_field_v1",
+          "taskDomain": "science_bio",
+          "gTolerance": "niedrig",
+          "bankTolerance": "niedrig",
+          "cargoSensitivity": "mittel",
+          "stomachSensitivity": "mittel",
+          "comfortPriority": "hoch",
+          "urgencyPriority": "niedrig",
+          "targetAltFt": 5800,
+          "targetRadiusNm": 2.5,
+          "targetDwellMin": 4
+        },
+        "fireHazard": null,
+        "targetSceneComposerDebug": {
+          "source": "Gemini 2.5 Flash Scene Planner V3",
+          "promptVersion": "scene-v3-tool-planner-2026-05-23",
+          "toolCalls": [
+            {
+              "turn": 0,
+              "name": "get_scene_context_bundle",
+              "id": null,
+              "args": {
+                "reason": "Planning POI target scene as per user request."
+              },
+              "resultKeys": [
+                "schema",
+                "mode",
+                "route",
+                "mission",
+                "sceneIntent",
+                "missionTruth",
+                "targetGeoContext",
+                "missionPlan",
+                "aptArrivalPlan",
+                "aptArrivalGeoContext"
+              ]
+            }
+          ],
+          "aiRaw": {
+            "kind": "survey_context",
+            "preset": "",
+            "features": [],
+            "requirements": [
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "am Strassenrand",
+                "arrangement": "line",
+                "forwardM": 175,
+                "rightM": 60,
+                "notes": "Servicefahrzeug fuer das Team"
+              },
+              {
+                "feature": "people",
+                "count": 2,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "forwardM": 150,
+                "rightM": 100,
+                "notes": "Biologen bei der Arbeit"
+              },
+              {
+                "feature": "small_equipment",
+                "count": 1,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "forwardM": 155,
+                "rightM": 105,
+                "notes": "Messgeraete und Markierungen"
+              }
+            ],
+            "roles": [],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+          },
+          "aiArrivalRaw": null,
+          "normalized": {
+            "preset": "",
+            "kind": "survey_context",
+            "features": [
+              "utility_truck",
+              "people",
+              "small_equipment"
+            ],
+            "requirements": [
+              {
+                "feature": "utility_truck",
+                "count": 1,
+                "placement": "am Strassenrand",
+                "arrangement": "line",
+                "notes": "Servicefahrzeug fuer das Team",
+                "forwardM": 175,
+                "rightM": 60
+              },
+              {
+                "feature": "people",
+                "count": 2,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "notes": "Biologen bei der Arbeit",
+                "forwardM": 150,
+                "rightM": 100
+              },
+              {
+                "feature": "small_equipment",
+                "count": 1,
+                "placement": "auf der Wiese",
+                "arrangement": "cluster",
+                "notes": "Messgeraete und Markierungen",
+                "forwardM": 155,
+                "rightM": 105
+              }
+            ],
+            "roles": [
+              "vehicle.truck",
+              "vehicle.van",
+              "person.ground_crew",
+              "cargo.small_box"
+            ],
+            "density": "sparse",
+            "layout": "scattered",
+            "notes": "Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug."
+          },
+          "aptArrivalPlan": null,
+          "localizationNotes": [],
+          "validationNotes": [],
+          "fallback": {
+            "kind": "none",
+            "roles": [],
+            "density": "none",
+            "notes": "Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden."
+          },
+          "fallbackArrivalPlan": null,
+          "error": ""
+        }
+      },
+      "prompts": [
+        {
+          "index": 1,
+          "kind": "mission-planner-v3-tool-call",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": false,
+          "functionResponses": [],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"functionCall\": { \"name\": \"get_mission_context_bundle\", \"args\": { \"reason\": \"Verifying route and local context for a science mission to Feldberg.\" }, \"id\": \"a7vytu2l\" }, \"thoughtSignature\": \"EsQRCsERAQw51sdd9Ka7UPE5XF6h8u5VAnmvH2Vw/yyUqYeSWssNhXaGUIUjo61KG0/Sl+4GSNwClbx59zQIp/qMPuKuJlMR237P3LAZppm4qwsGzvJ9PhJoszyYcPK53I2aK4X7haSW9Xp+519lmZcZRPblLcT9lL3H+hZRgFeVbUl/ClZFl01bnWIf5jsctAsko4jAW9cjWsVygIk/oaCWvTy9wHWp6D4bUHF6G9JxuYbXHqr2La8WpAqythu4hGupAKFZCV+0M2XbAr9tHgT4Lds05nMqSoS7dRgohCyohXz9vBYoQwtx426PYvr4B1SCRhkZcL2mDV5j4BulZYRa5OhVk2lipMAJMQN7K9rEhjPEkMObRVyuSi5AVTHC5n2KR+BBhDrOS3O4xfDINIb2NUhMfQYSDlFNVOUdtu7y+NydDrjKkAZXYe1tXEcAiKXkMtfJE77sPoZ468jSUoG3W1DQwdYRqMCCQgz0OTNlaxL82u7+e7XguvWDJ2IrT7FvJd5rnsTONPIef0C6FUu3d7UixW2TCXkQ81illqzzlVEQ3R4rZQ4fhB1LQImAtH9Fa4I+8zV/pyNoI7EOxrJaAMosaOnFsbIGiOadF3WJIqYciSfzX1pLAmZHvqXxsdLaAFI+otNMMtQEeStWFnPrGi4UCQfx6zAdql+W0TOCLZNcSUXJ9diCT1X64jXxYVQj1Y7vbEIe+PMfiqmIlbeUkw5wuzDunhWKcQznVNpgZlmSvIX3dCSHOf6ifCa+Q9IubzkMIHTvJgXiJhUiMya2Xa29yFr2LtbcCQoI6S4MpZcCIYw6omg85z7ISB10UeVa2JMum6Qohn23h5DlFricda2doTtJD2Yo79knemtQkFq7Cim4pjX6v+Q0vB06/gdeUJHMqGqmXcocT2oTyfCfzyiCZEuvvzlTzd/k9UDSM/lvpL+RXO+bAPAE+Y+j8st",
+          "prompt": "<INSTRUKTIONEN>\nDu bist Mission Planner V3 fuer einen GA-Dispatcher im Flugsimulator.\nDu baust noch keine fertige Story. Du erzeugst ein robustes Planformular fuer die nachfolgende Dispatch-KI.\n\nArbeitsweise:\n1. Rufe zuerst get_mission_context_bundle auf.\n2. Nutze danach nur die Tool-Ergebnisse, den DRAFT und die erlaubten Rollen/Profile.\n3. Wenn ein Detail nicht aus DRAFT oder Tool-Ergebnis ableitbar ist, formuliere allgemein statt zu halluzinieren.\n4. Ziel: realistische, lokal verankerte Missionen mit konkretem Anlass, nicht generische Auftragsfloskeln.\n5. Wetter darf als Realitaetsanker vorkommen, aber nicht als erfundene Gefahrenlage.\n6. Antworte am Ende ausschliesslich als JSON.\n\nPlan-Regeln:\n- taskDomain und roleProfile muessen zum Picker/Profil passen.\n- primaryObjective beschreibt genau einen Hauptauftrag.\n- localFacts enthalten nur sichere, knappe Kontextdetails.\n- weatherHooks enthalten nur konkrete Wetterpunkte aus den Tool-Daten.\n- narrativeHooks sind 2-4 brauchbare Story-Anker fuer den spaeteren Dispatcher.\n- mustAvoid nennt konkrete Dinge, die die spaetere Story nicht tun darf.\n</INSTRUKTIONEN>\n\n<DRAFT>\n{\"schema\":\"missionDraft.v2\",\"mode\":\"poi\",\"route\":{\"startIcao\":\"EDTW\",\"startName\":\"Winzeln-Schramberg Airport\",\"targetIcao\":\"POI\",\"distanceNm\":59.4},\"target\":{\"name\":\"Feldberg (Gipfel)\",\"lat\":47.873,\"lon\":8.004,\"terrainFt\":0,\"poiSource\":\"Local fallback POIs (forced:mountain)\",\"poiCategory\":\"mountain\"},\"picker\":{\"baseType\":\"poi\",\"category\":\"mountain\",\"categoryRequested\":\"all\",\"profile\":\"science_bio\"},\"profile\":{\"id\":\"science_bio\",\"label\":\"Biologie/Umwelt\",\"roleProfile\":\"science_field_v1\",\"taskDomain\":\"science_bio\"},\"category\":\"mountain\",\"weather\":{\"dep\":\"Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\",\"dest\":\"Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\"},\"fireHazard\":null,\"targetGeoContext\":{\"summary\":\"water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg\",\"hints\":[\"roadside/vehicle placement plausible near the road or parking anchor\",\"waterline placement plausible near the water anchor\",\"animals/tents/reference objects plausible on meadow or farmland anchors\"],\"anchors\":{\"water\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"Uferbereich\",\"tag\":\"water\"},\"road\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":19,\"name\":\"service\",\"tag\":\"road\"},\"meadow\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"meadow\",\"tag\":\"meadow\"}}},\"missionTruth\":{\"requestedCategory\":\"mountain\",\"poiCategory\":\"mountain\",\"primaryCategory\":\"mountain\",\"geometryMode\":\"area\",\"pickedPoi\":{\"name\":\"Feldberg (Gipfel)\",\"lat\":47.873,\"lon\":8.004,\"source\":\"Local fallback POIs (forced:mountain)\"},\"mainTarget\":{\"name\":\"Feldberg (Gipfel)\",\"kind\":\"poi\",\"lat\":47.873,\"lon\":8.004,\"refinedFromPoi\":false,\"distanceFromPoiM\":0,\"bearingFromPoiDeg\":0,\"reason\":\"original_poi\"},\"sceneAnchor\":{\"kind\":\"poi\",\"lat\":47.873,\"lon\":8.004,\"reason\":\"original_poi\"},\"targetProminence\":{\"level\":\"low\",\"reason\":\"surface/terrain target\"},\"visualLandmarks\":[],\"visibleCues\":[\"offenes Gelaende\",\"Wasserflaeche oder Uferlinie\"],\"constraints\":[\"Missionstexte duerfen nur diese Lage als Primaerziel verwenden.\",\"Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen.\"]}}\n</DRAFT>\n\n<OUTPUT_JSON>\n{\n  \"status\": \"ready|invalid\",\n  \"needs\": [],\n  \"plan\": {\n    \"taskDomain\": \"aus erlaubter Liste\",\n    \"roleProfile\": \"aus erlaubter Liste\",\n    \"missionType\": \"poi|apt\",\n    \"targetCategory\": \"bridge|water|cargo|charter|...\",\n    \"primaryObjective\": \"konkreter Hauptauftrag\",\n    \"targetLabel\": \"kanonischer Zielname\",\n    \"sceneKind\": \"none|construction_site|sar_land|water_context|fire_watch|...\",\n    \"sceneDensity\": \"none|sparse|normal|busy\",\n    \"requiredAnchors\": [\"wichtige Platzierungs-/Kontextanker\"],\n    \"objectFamilies\": [\"semantische Objektgruppen, keine Assetnamen\"],\n    \"placementPolicy\": \"wie Zielszene logisch gruppiert werden soll\",\n    \"narrativeRules\": [\"harte Regeln fuer Story/PAX\"],\n    \"localFacts\": [\"1-4 sichere lokale/contextuelle Fakten\"],\n    \"weatherHooks\": [\"0-3 knappe Wetteranker\"],\n    \"operationalDetails\": [\"1-4 fliegerische oder dispatcherische Details\"],\n    \"realismBrief\": \"warum der Auftrag an diesem Ziel glaubwuerdig ist\",\n    \"narrativeHooks\": [\"2-4 konkrete Story-Anker\"],\n    \"mustMention\": [\"konkrete Pflichtpunkte\"],\n    \"mustAvoid\": [\"konkrete Verbote gegen generische oder falsche Storys\"],\n    \"lockedFields\": {\"noLandingAtPoi\": true},\n    \"confidence\": 0.0\n  }\n}\n</OUTPUT_JSON>",
+          "excerpt": "<INSTRUKTIONEN> Du bist Mission Planner V3 fuer einen GA-Dispatcher im Flugsimulator. Du baust noch keine fertige Story. Du erzeugst ein robustes Planformular fuer die nachfolgende Dispatch-KI. Arbeitsweise: 1. Rufe zuerst get_mission_context_bundle auf. 2. Nutze danach nur die Tool-Ergebnisse, den DRAFT und die erlaubten Rollen/Profile. 3. Wenn ein Detail nicht aus DRAFT oder Tool-Ergebnis ableitbar ist, formuliere allgemein statt zu halluzinieren. 4. Ziel: realistische, lokal verankerte Missionen mit konkretem Anlass, nicht generische Auftragsfloskeln. 5. Wetter darf als Realitaetsanker vorkommen, aber nicht als erfundene Gefahrenlage. 6. Antworte am Ende ausschliesslich als JSON. Plan-Reg"
+        },
+        {
+          "index": 2,
+          "kind": "mission-planner-v3-final",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": true,
+          "functionResponses": [
+            {
+              "name": "get_mission_context_bundle",
+              "keys": [
+                "schema",
+                "route",
+                "target",
+                "picker",
+                "category",
+                "profile",
+                "airportDetails",
+                "weather",
+                "fireHazard",
+                "targetGeoContext"
+              ]
+            }
+          ],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"text\": \"```json\\n{\\n \\\"status\\\": \\\"ready\\\",\\n \\\"needs\\\": [],\\n \\\"plan\\\": {\\n \\\"taskDomain\\\": \\\"science_bio\\\",\\n \\\"roleProfile\\\": \\\"science_field_v1\\\",\\n \\\"missionType\\\": \\\"poi\\\",\\n \\\"targetCategory\\\": \\\"mountain\\\",\\n \\\"primaryObjective\\\": \\\"Biologisches Monitoring der alpinen Flora und Vegetationszonen im Gipfelbereich des Feldbergs.\\\",\\n \\\"targetLabel\\\": \\\"Feldberg (Gipfel)\\\",\\n \\\"sceneKind\\\": \\\"none\\\",\\n \\\"sceneDensity\\\": \\\"sparse\\\",\\n \\\"requiredAnchors\\\": [\\n \\\"meadow\\\",\\n \\\"water\\\"\\n ],\\n \\\"objectFamilies\\\": [\\n \\\"scientific_equipment\\\",\\n \\\"small_vehicles\\\"\\n ],\\n \\\"placementPolicy\\\": \\\"Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden.\\\",\\n \\\"narrativeRules\\\": [\\n \\\"Der Fokus liegt auf wissenschaftlicher Beobachtung.\\\",\\n \\\"Keine Landung am Feldberg; der Flug ist ein reiner Beobachtungs- und Dokumentationsflug.\\\",\\n \\\"Rückkehr zum Startflugplatz EDTW nach Abschluss der Beobachtung.\\\"\\n ],\\n \\\"localFacts\\\": [\\n \\\"Der Feldberg ist mit 1493 m die höchste Erhebung im Schwarzwald.\\\",\\n \\\"In unmittelbarer Nähe zum Gipfel befindet sich eine Wasserfläche (Uferbereich), die als ökol",
+          "prompt": "<INSTRUKTIONEN>\nDu bist Mission Planner V3 fuer einen GA-Dispatcher im Flugsimulator.\nDu baust noch keine fertige Story. Du erzeugst ein robustes Planformular fuer die nachfolgende Dispatch-KI.\n\nArbeitsweise:\n1. Rufe zuerst get_mission_context_bundle auf.\n2. Nutze danach nur die Tool-Ergebnisse, den DRAFT und die erlaubten Rollen/Profile.\n3. Wenn ein Detail nicht aus DRAFT oder Tool-Ergebnis ableitbar ist, formuliere allgemein statt zu halluzinieren.\n4. Ziel: realistische, lokal verankerte Missionen mit konkretem Anlass, nicht generische Auftragsfloskeln.\n5. Wetter darf als Realitaetsanker vorkommen, aber nicht als erfundene Gefahrenlage.\n6. Antworte am Ende ausschliesslich als JSON.\n\nPlan-Regeln:\n- taskDomain und roleProfile muessen zum Picker/Profil passen.\n- primaryObjective beschreibt genau einen Hauptauftrag.\n- localFacts enthalten nur sichere, knappe Kontextdetails.\n- weatherHooks enthalten nur konkrete Wetterpunkte aus den Tool-Daten.\n- narrativeHooks sind 2-4 brauchbare Story-Anker fuer den spaeteren Dispatcher.\n- mustAvoid nennt konkrete Dinge, die die spaetere Story nicht tun darf.\n</INSTRUKTIONEN>\n\n<DRAFT>\n{\"schema\":\"missionDraft.v2\",\"mode\":\"poi\",\"route\":{\"startIcao\":\"EDTW\",\"startName\":\"Winzeln-Schramberg Airport\",\"targetIcao\":\"POI\",\"distanceNm\":59.4},\"target\":{\"name\":\"Feldberg (Gipfel)\",\"lat\":47.873,\"lon\":8.004,\"terrainFt\":0,\"poiSource\":\"Local fallback POIs (forced:mountain)\",\"poiCategory\":\"mountain\"},\"picker\":{\"baseType\":\"poi\",\"category\":\"mountain\",\"categoryRequested\":\"all\",\"profile\":\"science_bio\"},\"profile\":{\"id\":\"science_bio\",\"label\":\"Biologie/Umwelt\",\"roleProfile\":\"science_field_v1\",\"taskDomain\":\"science_bio\"},\"category\":\"mountain\",\"weather\":{\"dep\":\"Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\",\"dest\":\"Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\"},\"fireHazard\":null,\"targetGeoContext\":{\"summary\":\"water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg\",\"hints\":[\"roadside/vehicle placement plausible near the road or parking anchor\",\"waterline placement plausible near the water anchor\",\"animals/tents/reference objects plausible on meadow or farmland anchors\"],\"anchors\":{\"water\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"Uferbereich\",\"tag\":\"water\"},\"road\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":19,\"name\":\"service\",\"tag\":\"road\"},\"meadow\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"meadow\",\"tag\":\"meadow\"}}},\"missionTruth\":{\"requestedCategory\":\"mountain\",\"poiCategory\":\"mountain\",\"primaryCategory\":\"mountain\",\"geometryMode\":\"area\",\"pickedPoi\":{\"name\":\"Feldberg (Gipfel)\",\"lat\":47.873,\"lon\":8.004,\"source\":\"Local fallback POIs (forced:mountain)\"},\"mainTarget\":{\"name\":\"Feldberg (Gipfel)\",\"kind\":\"poi\",\"lat\":47.873,\"lon\":8.004,\"refinedFromPoi\":false,\"distanceFromPoiM\":0,\"bearingFromPoiDeg\":0,\"reason\":\"original_poi\"},\"sceneAnchor\":{\"kind\":\"poi\",\"lat\":47.873,\"lon\":8.004,\"reason\":\"original_poi\"},\"targetProminence\":{\"level\":\"low\",\"reason\":\"surface/terrain target\"},\"visualLandmarks\":[],\"visibleCues\":[\"offenes Gelaende\",\"Wasserflaeche oder Uferlinie\"],\"constraints\":[\"Missionstexte duerfen nur diese Lage als Primaerziel verwenden.\",\"Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen.\"]}}\n</DRAFT>\n\n<OUTPUT_JSON>\n{\n  \"status\": \"ready|invalid\",\n  \"needs\": [],\n  \"plan\": {\n    \"taskDomain\": \"aus erlaubter Liste\",\n    \"roleProfile\": \"aus erlaubter Liste\",\n    \"missionType\": \"poi|apt\",\n    \"targetCategory\": \"bridge|water|cargo|charter|...\",\n    \"primaryObjective\": \"konkreter Hauptauftrag\",\n    \"targetLabel\": \"kanonischer Zielname\",\n    \"sceneKind\": \"none|construction_site|sar_land|water_context|fire_watch|...\",\n    \"sceneDensity\": \"none|sparse|normal|busy\",\n    \"requiredAnchors\": [\"wichtige Platzierungs-/Kontextanker\"],\n    \"objectFamilies\": [\"semantische Objektgruppen, keine Assetnamen\"],\n    \"placementPolicy\": \"wie Zielszene logisch gruppiert werden soll\",\n    \"narrativeRules\": [\"harte Regeln fuer Story/PAX\"],\n    \"localFacts\": [\"1-4 sichere lokale/contextuelle Fakten\"],\n    \"weatherHooks\": [\"0-3 knappe Wetteranker\"],\n    \"operationalDetails\": [\"1-4 fliegerische oder dispatcherische Details\"],\n    \"realismBrief\": \"warum der Auftrag an diesem Ziel glaubwuerdig ist\",\n    \"narrativeHooks\": [\"2-4 konkrete Story-Anker\"],\n    \"mustMention\": [\"konkrete Pflichtpunkte\"],\n    \"mustAvoid\": [\"konkrete Verbote gegen generische oder falsche Storys\"],\n    \"lockedFields\": {\"noLandingAtPoi\": true},\n    \"confidence\": 0.0\n  }\n}\n</OUTPUT_JSON>",
+          "excerpt": "<INSTRUKTIONEN> Du bist Mission Planner V3 fuer einen GA-Dispatcher im Flugsimulator. Du baust noch keine fertige Story. Du erzeugst ein robustes Planformular fuer die nachfolgende Dispatch-KI. Arbeitsweise: 1. Rufe zuerst get_mission_context_bundle auf. 2. Nutze danach nur die Tool-Ergebnisse, den DRAFT und die erlaubten Rollen/Profile. 3. Wenn ein Detail nicht aus DRAFT oder Tool-Ergebnis ableitbar ist, formuliere allgemein statt zu halluzinieren. 4. Ziel: realistische, lokal verankerte Missionen mit konkretem Anlass, nicht generische Auftragsfloskeln. 5. Wetter darf als Realitaetsanker vorkommen, aber nicht als erfundene Gefahrenlage. 6. Antworte am Ende ausschliesslich als JSON. Plan-Reg"
+        },
+        {
+          "index": 3,
+          "kind": "mission-dispatcher",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": false,
+          "functionResponses": [],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"text\": \"{\\n \\\"dispatchFormAck\\\": {\\n \\\"taskDomain\\\": \\\"science_bio\\\",\\n \\\"roleProfile\\\": \\\"science_field_v1\\\",\\n \\\"missionType\\\": \\\"poi\\\"\\n },\\n \\\"title\\\": \\\"Vegetations-Monitoring am Feldberg-Massiv\\\",\\n \\\"story\\\": \\\"Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der empfindlichen Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahen Uferbereich am Karsee sollen aus der Luft auf Trockenschäden geprüft werden, bevor wir wieder Kurs auf Winzeln-Schramberg nehmen.\\\",\\n \\\"pax\\\": \\\"1 PAX (Biologe)\\\",\\n \\\"cargo\\\": \\\"Hochauflösende Kamera-Ausrüstung und GPS-Logger (27 lbs)\\\",\\n \\\"sceneIntent\\\": {\\n \\\"summary\\\": \\\"Wissenschaftliches Team bei Feldarbeiten auf den alpinen Wiesen nahe der Zufahrt.\\\",\\n \\\"environment\\\": \\\"alpine Bergwiese\\\",\\n \\\"visibleIdeas\\\": [\\n \\\"ein kleiner weißer Geländewagen am Rand der Service-Zufahrt\\\",\\n \\\"zwei Personen mit Messgeräten auf der Wiesenfläche\\\",\\n \\\"kleine Markierungsfähnchen im Boden für Vegetationsquadrate\\\"\\n ],\\n \\\"avoid\\\": [\\n \\\"keine Rettungsfahr",
+          "prompt": "<INSTRUKTIONEN>\nDu bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen.\nAntwortsprache: Deutsch.\nTon: alltagsnah, locker, glaubwürdig; keine Actionfilm-Rhetorik.\n\nREGELN:\n1) Thema-Pflicht: Der Auftrag MUSS zum Thema \"Oekologische Kurzaufnahme von Vegetation, Ufer, Habitat oder Waldrand\" passen.\n2) 4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu \"Feldberg (Gipfel)\" ganz natürlich ein.\n3) 3b. KATEGORIE-FIX: Die Mission muss zur POI-Kategorie \"mountain\" passen.\n3b) 4b. POI-KONSISTENZ (zwingend): Der urspruengliche Suchtreffer ist \"Feldberg (Gipfel)\" bei 47.87300, 8.00400, aber die gepruefte Hauptlage ist missionTruth.mainTarget. Story, greetingText und sceneIntent muessen diese Hauptlage als Arbeits-/Sichtziel nutzen. Wenn mainTarget vom Suchtreffer abweicht, erklaere es natuerlich als Ufer, Rand, Zufahrt oder naheliegenden Zielbereich; keinen zweiten Primaerort erfinden.\n3c) 4c. MISSION-TRUTH: Nutze missionTruth als Gedaechtnis fuer diesen Auftrag. mainTarget beschreibt das kanonische Arbeits-/Sichtziel; sceneAnchor/visibleCues/visualLandmarks duerfen nur Platzierung, Zufahrt oder Orientierung erklaeren und nie ein anderes Primaerziel daraus machen. geometryMode erklaert die Zielart: pinpoint/structure bleibt beim Objekt, area darf nur zur passenden Flaeche/Kante, corridor/facility/broad_infrastructure nur zu passenden Strukturankern. Sichtbare Objekte nur situativ und grob aus visibleCues ableiten (z.B. Person, Fahrzeug, Boot, Rauch), niemals alle Spawn-Objekte listen. visualLandmarks sind bestaetigte visuelle Referenzen bis 500m; bei unauffaelligem Ziel duerfen sie zur Orientierung genutzt werden, aber nicht als Primaerziel.\n3d) 4d. PIPELINE-V3-TOOL-PLAN: Nutze missionPlanV2 als Tool-Calling-Planformular. taskDomain, roleProfile, primaryObjective, targetLabel, localFacts, weatherHooks, realismBrief, narrativeHooks, mustMention/mustAvoid und lockedFields sind Leitplanken. Die Story muss daraus einen konkreten, lokal plausiblen Auftrag machen.\n4) RUNDFLUG-REGEL: Start/Landung in Winzeln-Schramberg Airport; am POI wird nicht gelandet.\n5) Erfinde passende PAX/Fracht (max 2 Personen). Falls niemand mitfliegt: \"0 PAX\".\n6) Erfinde genau einen Hauptpassagier. (oder null bei 0 PAX).\n6b) passenger.gender ist PFLICHT und MUSS exakt \"male\" oder \"female\" sein (keine anderen Werte).\n7) Leite diese Felder datengetrieben aus Auftrag/Rolle/Fracht/Wetter ab:\n   - gTolerance, bankTolerance, cargoSensitivity, stomachSensitivity, comfortPriority: jeweils niedrig|mittel|hoch\n   - urgencyPriority: niedrig|hoch\n   - roleProfile aus erlaubter Liste\n   - taskDomain aus erlaubter Liste\n   POI-Einsatzparameter: targetAltFt konservativ wählen; niemals so niedrig, dass es unter 500 ft AGL wäre. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).\n8) DRINGLICHKEITS-REGEL FÜR STORY:\n   - Wenn urgencyPriority = hoch: story MUSS genau einen kurzen Zeitkritik-Hinweis enthalten (z.B. \"zeitkritisch\", \"müssen pünktlich ankommen\").\n   - Wenn urgencyPriority = niedrig: story DARF keinen Zeitdruck erwähnen.\n9) Wetter als Realitätsanker nutzen, aber nicht überdramatisieren.\n10) Optional dialectHint: neutral oder leichte regionale Färbung; nie starker Dialekt.\n11) Keine zusätzlichen Eigennamen für den Piloten erfinden (nur \"du\").\n12) Interne Regel-/Verbotssätze NIE wörtlich im story-Feld wiederholen.\n13) Trennung strikt einhalten: Alles in <INSTRUKTIONEN> sind Arbeitsregeln und dürfen nicht als Storytext erscheinen.\n13b) greetingText MUSS die konkrete Aufgabe kurz nennen: was suchen, beobachten, prüfen oder fotografieren wir und in welchem Zielkontext. Keine rein generischen Begrüßungen wie \"Suchmuster und klare Calls\" ohne Objekt/Ort/Trasse/Anlass.\n13c) Story, greetingText und sceneIntent muessen dieselbe Lage beschreiben. Das gilt fuer alle Missionstypen. Erst das Primaerziel definieren, dann passende Kontextobjekte, dann nur bei Bedarf Support. Wenn sceneIntent sichtbare Personen, Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere, Werkzeug, Fracht oder Ausruestung vorsieht, muss die Story/Greeting diese Elemente natuerlich stuetzen. Fuege keine Support-Objekte hinzu, die den Auftrag schon erledigt wirken lassen oder im Briefing nicht vorkommen.\n13d) DISPATCH-FORMULAR: Das JSON in <DISPATCH_FORM> ist bindend. Du darfst Auftragstyp, taskDomain, roleProfile, Ziel, Missionstyp und forbiddenThemes nicht uminterpretieren. Wenn ein Feld im Formular gesetzt ist, muss deine Ausgabe dazu passen.\n10. KEIN TRAININGSDRIFT: Falls es kein Trainingsflug ist, darf KEIN Trainingsauftrag mit Fluglehrer, Übungen, Platzrunden-Drills oder Checkflug-Inhalten erzeugt werden.\n13. POI-GUARDRAIL: Bei POI-Missionen sind Trainingsinhalte strikt verboten (kein Instructor, keine Airwork-/Platzrunden-Aufgaben).\n14. PROFIL-FIX (zwingend): Setze passenger.roleProfile auf \"science_field_v1\" und passenger.taskDomain auf \"science_bio\". Rolle/Story daran ausrichten: Biologie/Umwelt.\n15. KONSISTENZ-PFLICHT: Kein Themenmix gegen das Profil. Beispiel: Bei Sightseeing KEIN Ersatzteil-/Kurier-/Notfallauftrag; bei Reporter KEIN reiner Touri-Text; bei Mapping/SAR nur passende Einsatzinhalte.\n\n\n\n\n17. SCENE-INTENT-PFLICHT: Gib KEINE fertige targetScene aus. Gib stattdessen ein Objekt \"sceneIntent\" aus: eine knappe Klartext-Beschreibung dessen, was am Ziel aus Missionskontext wirklich sichtbar sein sollte.\nProfilkontext: science_bio.\nsceneIntent Felder:\n- summary: 1-2 Saetze, was im Zielgebiet visuell plausibel ist.\n- environment: kurzer Landschafts-/Umgebungstyp, z.B. Wald, Seeufer, Baustelle, Strasse, Industrie, leer.\n- visibleIdeas: 0-8 konkrete sichtbare Ideen als Klartext, z.B. \"zwei kleine private Boote am Ufer\", \"ein Zelt und kleine Ausruestung\", \"ein Baufahrzeug an einer Erdbaustelle\", \"nur natuerliches Ufer und Wasservoegel\". Keine Asset-Namen, keine Kategorien.\n- avoid: Dinge, die NICHT auftauchen sollen, wenn sie unplausibel waeren, z.B. \"keine Kuestenwache\", \"keine Einsatzfahrzeuge\", \"keine Deko\".\n- densityHint: none|sparse|normal|busy.\n- notes: kurzer Grund.\nWichtig: Keine Standard-Deko. Bei Lern-/Sightseeing-Fluegen darf sceneIntent sehr sparsam oder \"none\" sein. Kleine Kontextdetails sind erlaubt, wenn sie aus dem Text entstehen: Enten, Zelt, parkendes Auto, Holz, Kisten, Lagerfeuer, Tiere, Baufahrzeuge, Unfallfahrzeuge usw.\nSpezialobjekte sind keine Deko: Strommast/Freileitung nur bei ausdruecklichem Stromleitungs-, Umspannwerks-, Energieinfrastruktur-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark bis 500m. Windrad/Windpark nur bei ausdruecklichem Windenergie-, Neubau-, Wartungs-, Inspektions- oder Bau-Kontext oder als bestaetigte visualLandmark bis 500m und nur in plausibler offener/hochgelegener Umgebung wie Bergkuppe, Wiese oder Feld; nicht in Stadt, Wohngebiet oder Tal.\nBei Lern-/Sightseeing-/Historien-POIs duerfen bestaetigte visualLandmarks wie Strommast, Freileitung, Windrad, Bruecke, Fluss, Autobahn, Autobahnkreuz, Eisenbahnlinie oder Turm als kurze Lagehilfe vorkommen. Sie bleiben Referenz, nicht Hauptthema. Ohne visualLandmarks/targetGeoContext/missionTruth sind solche Landmarken tabu.\nWichtig: Story und sceneIntent muessen denselben Sachverhalt beschreiben. Das gilt fuer alle Missionstypen: Hauptziel, Kontextobjekte und Support muessen zusammenpassen. Wenn visibleIdeas Suchtrupps, Fahrzeuge, Zelte, Rauchsignale, Tiere, Menschen, Werkzeug oder Ausruestung enthalten, muss die Story diese Dinge entweder vorher plausibel machen oder sceneIntent muss erklaeren, warum sie dort sichtbar sind.\n</INSTRUKTIONEN>\n\n<KONTEXT>\nStart: Winzeln-Schramberg Airport\nZiel: Feldberg (Gipfel) (POI/Wendepunkt)\nDistanz: 59.4 NM\nWetter Start (Winzeln-Schramberg Airport): Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\nWetter Ziel (Feldberg (Gipfel)): Wind 260°/8 kt, Sicht >10 km, 17°C, WX NIL, Kategorie VFR\nmissionTruth: {\"requestedCategory\":\"mountain\",\"poiCategory\":\"mountain\",\"primaryCategory\":\"mountain\",\"geometryMode\":\"area\",\"pickedPoi\":{\"name\":\"Feldberg (Gipfel)\",\"lat\":47.873,\"lon\":8.004,\"source\":\"Local fallback POIs (forced:mountain)\"},\"mainTarget\":{\"name\":\"Feldberg (Gipfel)\",\"kind\":\"poi\",\"lat\":47.873,\"lon\":8.004,\"refinedFromPoi\":false,\"distanceFromPoiM\":0,\"bearingFromPoiDeg\":0,\"reason\":\"original_poi\"},\"sceneAnchor\":{\"kind\":\"poi\",\"lat\":47.873,\"lon\":8.004,\"reason\":\"original_poi\"},\"targetProminence\":{\"level\":\"low\",\"reason\":\"surface/terrain target\"},\"visualLandmarks\":[],\"visibleCues\":[\"offenes Gelaende\",\"Wasserflaeche oder Uferlinie\"],\"constraints\":[\"Missionstexte duerfen nur diese Lage als Primaerziel verwenden.\",\"Sichtbare Objekte nur grob aus Pilotensicht nennen, nicht vollstaendig aufzaehlen.\"]}\nmissionPlanV2: {\"status\":\"ready\",\"pipelineVersion\":\"mission-v3-tool-planner-2026-05-23\",\"plan\":{\"taskDomain\":\"science_bio\",\"roleProfile\":\"science_field_v1\",\"missionType\":\"poi\",\"targetCategory\":\"mountain\",\"primaryObjective\":\"Biologisches Monitoring der alpinen Flora und Vegetationszonen im Gipfelbereich des Feldbergs.\",\"targetLabel\":\"Feldberg (Gipfel)\",\"sceneKind\":\"none\",\"sceneDensity\":\"sparse\",\"requiredAnchors\":[\"meadow\",\"water\"],\"objectFamilies\":[\"scientific_equipment\",\"small_vehicles\"],\"placementPolicy\":\"Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden.\",\"narrativeRules\":[\"Der Fokus liegt auf wissenschaftlicher Beobachtung.\",\"Keine Landung am Feldberg; der Flug ist ein reiner Beobachtungs- und Dokumentationsflug.\",\"Rückkehr zum Startflugplatz EDTW nach Abschluss der Beobachtung.\"],\"localFacts\":[\"Der Feldberg ist mit 1493 m die höchste Erhebung im Schwarzwald.\",\"In unmittelbarer Nähe zum Gipfel befindet sich eine Wasserfläche (Uferbereich), die als ökologischer Referenzpunkt dient.\",\"Offenes Gelände und alpine Wiesen prägen die Gipfelregion.\"],\"weatherHooks\":[\"Wind aus 260° mit 8 Knoten sorgt für stabile Anflugbedingungen aus Westen.\",\"Gute VFR-Sichtweiten bei milden 17°C ermöglichen präzise Sichtbeobachtungen.\"],\"operationalDetails\":[\"Flugstrecke ca. 60 NM von Winzeln-Schramberg (EDTW) zum Feldberg.\",\"Beachtung der Geländehöhe beim Überflug des Schwarzwald-Hauptkamms.\",\"Rückflug erfolgt auf derselben Route oder als kleiner Rundflug.\"],\"realismBrief\":\"Wissenschaftliche Bestandsaufnahmen seltener Pflanzenarten oder die Überwachung von Erosionsschäden sind am Feldberg aufgrund seines Status als Naturschutzgebiet und höchster Punkt der Region absolut plausibel.\",\"narrativeHooks\":[\"Dokumentation des Vegetationszustands nach der letzten Trockenperiode.\",\"Überprüfung der Wasserstände im Bereich der Karsee-Ufer unterhalb des Gipfels.\",\"Zählung von Gämsen oder anderen Wildtieren in den offenen Hanglagen.\"],\"mustMention\":[\"Feldberg-Gipfel\",\"Biologisches Monitoring\",\"VFR-Bedingungen\"],\"mustAvoid\":[\"Keine Landung am Zielort (POI).\",\"Keine Rettungsmission oder dramatische Notlage.\",\"Keine Erfindung von nicht vorhandenen Gebäuden direkt auf dem Gipfelpunkt.\"],\"lockedFields\":{\"noLandingAtPoi\":true},\"confidence\":1},\"needs\":[],\"resolvedNeedTypes\":[\"geo_context\",\"mission_truth\",\"weather_snapshot\",\"fire_hazard\",\"airport_details\"]}\ntargetGeoContext: {\"summary\":\"water 185m bearing 34deg; road 185m bearing 19deg; meadow 185m bearing 34deg\",\"anchors\":{\"water\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"Uferbereich\",\"tag\":\"water\"},\"road\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":19,\"name\":\"service\",\"tag\":\"road\"},\"meadow\":{\"present\":true,\"count\":1,\"distM\":185,\"bearingDeg\":34,\"name\":\"meadow\",\"tag\":\"meadow\"}},\"visualLandmarks\":[],\"targetProminence\":{\"level\":\"low\",\"reason\":\"surface/terrain target\"},\"hints\":[\"roadside/vehicle placement plausible near the road or parking anchor\",\"waterline placement plausible near the water anchor\",\"animals/tents/reference objects plausible on meadow or farmland anchors\"]}\nErlaubte roleProfile:\n[\"general_passenger_v1\",\"instructor_calm_precise_v1\",\"charter_professional_neutral_v1\",\"technical_inspector_v1\",\"media_observer_v1\",\"science_field_v1\",\"vip_business_v1\",\"club_utility_v1\",\"medical_sensitive_v1\",\"news_reporter_professional_v1\",\"tour_guide_relaxed_v1\",\"tour_guide_learning_v1\",\"historian_storyteller_v1\",\"photogrammetry_precision_v1\",\"cargo_fragile_highcare_v1\",\"rescue_coordination_v1\",\"fire_observer_ops_v1\",\"club_student_v1\"]\nErlaubte taskDomain:\n[\"general\",\"training\",\"charter\",\"inspection_infra\",\"media_photo\",\"science_bio\",\"science_geo\",\"science_general\",\"club_utility\",\"medical_transfer\",\"news_coverage\",\"sightseeing_tour\",\"poi_learning_guide\",\"historian_guided_tour\",\"mapping_survey\",\"cargo_fragile\",\"search_and_rescue\",\"fire_watch\",\"animal_transport\",\"club_training_basic\",\"club_training_advanced\"]\n</KONTEXT>\n\n<DISPATCH_FORM>\n{\"schema\":\"missionDispatchForm.v2\",\"mode\":\"poi\",\"route\":{\"startName\":\"Winzeln-Schramberg Airport\",\"targetName\":\"Feldberg (Gipfel)\",\"distanceNm\":59.4},\"picker\":{\"category\":\"mountain\",\"profile\":\"science_bio\"},\"required\":{\"taskDomain\":\"science_bio\",\"roleProfile\":\"science_field_v1\",\"missionType\":\"poi\",\"targetCategory\":\"mountain\",\"sceneKind\":\"none\",\"noLandingAtPoi\":true,\"targetLabel\":\"Feldberg (Gipfel)\"},\"profileContract\":{\"id\":\"science_bio\",\"label\":\"Biologie/Umwelt\",\"paxText\":\"1 PAX (Biologe)\",\"cargoExamples\":[\"Umweltsensorik und Kamera (18 lbs)\",\"Feldnotizen und GPS-Logger (9 lbs)\"],\"storyCue\":\"Fokus: Natur-/Umweltbeobachtung mit klarer, sachlicher Einordnung.\"},\"allowedTheme\":\"Oekologische Kurzaufnahme von Vegetation, Ufer, Habitat oder Waldrand\",\"forbiddenTaskDomains\":[],\"forbiddenThemes\":[],\"plannerContext\":{\"status\":\"ready\",\"pipelineVersion\":\"mission-v3-tool-planner-2026-05-23\",\"plan\":{\"taskDomain\":\"science_bio\",\"roleProfile\":\"science_field_v1\",\"missionType\":\"poi\",\"targetCategory\":\"mountain\",\"primaryObjective\":\"Biologisches Monitoring der alpinen Flora und Vegetationszonen im Gipfelbereich des Feldbergs.\",\"targetLabel\":\"Feldberg (Gipfel)\",\"sceneKind\":\"none\",\"sceneDensity\":\"sparse\",\"requiredAnchors\":[\"meadow\",\"water\"],\"objectFamilies\":[\"scientific_equipment\",\"small_vehicles\"],\"placementPolicy\":\"Objekte sollten dezent im Bereich der Wiesenflaechen oder nahe der Service-Zufahrt (road) platziert werden.\",\"narrativeRules\":[\"Der Fokus liegt auf wissenschaftlicher Beobachtung.\",\"Keine Landung am Feldberg; der Flug ist ein reiner Beobachtungs- und Dokumentationsflug.\",\"Rückkehr zum Startflugplatz EDTW nach Abschluss der Beobachtung.\"],\"localFacts\":[\"Der Feldberg ist mit 1493 m die höchste Erhebung im Schwarzwald.\",\"In unmittelbarer Nähe zum Gipfel befindet sich eine Wasserfläche (Uferbereich), die als ökologischer Referenzpunkt dient.\",\"Offenes Gelände und alpine Wiesen prägen die Gipfelregion.\"],\"weatherHooks\":[\"Wind aus 260° mit 8 Knoten sorgt für stabile Anflugbedingungen aus Westen.\",\"Gute VFR-Sichtweiten bei milden 17°C ermöglichen präzise Sichtbeobachtungen.\"],\"operationalDetails\":[\"Flugstrecke ca. 60 NM von Winzeln-Schramberg (EDTW) zum Feldberg.\",\"Beachtung der Geländehöhe beim Überflug des Schwarzwald-Hauptkamms.\",\"Rückflug erfolgt auf derselben Route oder als kleiner Rundflug.\"],\"realismBrief\":\"Wissenschaftliche Bestandsaufnahmen seltener Pflanzenarten oder die Überwachung von Erosionsschäden sind am Feldberg aufgrund seines Status als Naturschutzgebiet und höchster Punkt der Region absolut plausibel.\",\"narrativeHooks\":[\"Dokumentation des Vegetationszustands nach der letzten Trockenperiode.\",\"Überprüfung der Wasserstände im Bereich der Karsee-Ufer unterhalb des Gipfels.\",\"Zählung von Gämsen oder anderen Wildtieren in den offenen Hanglagen.\"],\"mustMention\":[\"Feldberg-Gipfel\",\"Biologisches Monitoring\",\"VFR-Bedingungen\"],\"mustAvoid\":[\"Keine Landung am Zielort (POI).\",\"Keine Rettungsmission oder dramatische Notlage.\",\"Keine Erfindung von nicht vorhandenen Gebäuden direkt auf dem Gipfelpunkt.\"],\"lockedFields\":{\"noLandingAtPoi\":true},\"confidence\":1},\"needs\":[],\"resolvedNeedTypes\":[\"geo_context\",\"mission_truth\",\"weather_snapshot\",\"fire_hazard\",\"airport_details\"]},\"instruction\":\"Fuelle nur die Textfelder fuer genau dieses Formular aus. Auftragstyp, taskDomain, roleProfile und Ziel duerfen nicht neu erfunden werden.\"}\n</DISPATCH_FORM>\n\n<OUTPUT>\nAntworte AUSSCHLIESSLICH als JSON ohne Markdown.\n{\n  \"dispatchFormAck\": {\n    \"taskDomain\": \"aus DISPATCH_FORM.required.taskDomain\",\n    \"roleProfile\": \"aus DISPATCH_FORM.required.roleProfile\",\n    \"missionType\": \"aus DISPATCH_FORM.required.missionType\"\n  },\n  \"title\": \"Kreativer Titel\",\n  \"story\": \"Briefing, max 3-4 Sätze\",\n  \"pax\": \"z.B. '2 PAX (...)' oder '0 PAX'\",\n  \"cargo\": \"z.B. 'Kamera-Gimbal (80 lbs)'\",\n  \"sceneIntent\": {\n    \"summary\": \"Kurze Klartextbeschreibung, was am Ziel sichtbar sein soll oder warum nichts gespawnt werden sollte\",\n    \"environment\": \"z.B. Seeufer, Wald, Baustelle, Strasse, leer\",\n    \"visibleIdeas\": [\"konkrete Ideen als Klartext, keine Asset-Namen\"],\n    \"avoid\": [\"unpassende Dinge, die nicht auftauchen sollen\"],\n    \"densityHint\": \"none|sparse|normal|busy\",\n    \"notes\": \"kurzer Grund\"\n  },\n  \"passenger\": {\n    \"name\": \"Vollständiger Name\",\n    \"role\": \"Beruf/Rolle\",\n    \"gender\": \"male|female\",\n    \"personality\": \"3 Adjektive\",\n    \"dialectHint\": \"neutral oder leicht regional\",\n    \"roleProfile\": \"aus erlaubter Liste\",\n    \"taskDomain\": \"aus erlaubter Liste\",\n    \"gTolerance\": \"niedrig|mittel|hoch\",\n    \"bankTolerance\": \"niedrig|mittel|hoch\",\n    \"cargoSensitivity\": \"niedrig|mittel|hoch\",\n    \"stomachSensitivity\": \"niedrig|mittel|hoch\",\n    \"comfortPriority\": \"niedrig|mittel|hoch\",\n    \"urgencyPriority\": \"niedrig|hoch\",\n    \"targetAltFt\": 3500,\n    \"targetRadiusNm\": 3.0,\n    \"targetDwellMin\": 2,\n    \"greetingText\": \"Persönliche Begrüßung an den Piloten, mit konkretem Auftrag und Zielkontext\",\n    \"trainingPlan\": {\n      \"mode\": \"airwork|pattern\",\n      \"trigger\": \"half_route|five_nm_before_landing\",\n      \"focus\": [\"Übung 1\", \"Übung 2\"],\n      \"instructorLine\": \"Kurze konkrete Instruktoranweisung\"\n    }\n  }\n}\n</OUTPUT>",
+          "excerpt": "<INSTRUKTIONEN> Du bist ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub oder kleinen Charterunternehmen. Antwortsprache: Deutsch. Ton: alltagsnah, locker, glaubwürdig; keine Actionfilm-Rhetorik. REGELN: 1) Thema-Pflicht: Der Auftrag MUSS zum Thema \"Oekologische Kurzaufnahme von Vegetation, Ufer, Habitat oder Waldrand\" passen. 2) 4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu \"Feldberg (Gipfel)\" ganz natürlich ein. 3) 3b. KATEGORIE-FIX: Die Mission muss zur POI-Kategorie \"mountain\" passen. 3b) 4b. POI-KONSISTENZ (zwingend): Der urspruengliche Suchtreffer ist \"Feldberg (Gipfel)\" bei 47.87300, 8.00400, aber die gepruefte H"
+        },
+        {
+          "index": 4,
+          "kind": "scene-planner-v3-tool-call",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": false,
+          "functionResponses": [],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"functionCall\": { \"name\": \"get_scene_context_bundle\", \"args\": { \"reason\": \"Initial context gathering for POI scene planning.\" }, \"id\": \"62436d9e\" }, \"thoughtSignature\": \"EtoGCtcGAQw51scMXVx51M85NBtfQvq5ofkn61FoOjee4U4fJClmve7sdH5APDPXQF5zbrFQyVCmXYpsczOF+kwgg2QKmNc07mdD8grac1r0678ogTW+Dp7zb+Rps8R77NhygCDdz2p1UTB7L41IPyya9E1O3dwRca2OJKSrcCXREqaF4uIfIQh4e2NnJ5e+K0K4yeeT0hjUbQuu2I6bCdxqgAGxaylANPJbFhx42xX6+IZ14ssoPGhDgUuMYSIGEltJea3IdwUjL8Ep1HNzPSAxIvwIimspO/uRCXwnqv2YA+ZnRpNM4LS8aOs27uIm+tURRrHiwec+VLQliOs8LRLlNm/U3gV0TfGjokg53tplogwo0bdrxH15jXjOFESu9W0SWnye8TP785Z3ucos0GBwjr18uvpyhCb6JiRn/TCpIW/4qzVYYzXgqqEZ4wkjfcXvz+bIn9zp8uS6rdzLbtaIh0zBD2RjAF0FLmS8XuPHgoceUt92KNdGOhG/7VSEreGINQRclAZegFFbA2yyOmnpREc9wbi9HNW4Eq5lVSAoSrEre91shsaLssOVhoIntGHqEdD1Ra3DN5FtAoXKW7mGZ6i4hK6SCcBO1aMmOeXMLv6xxT+n/mmFQdjfnX/zePt8T03NslZUbwYU7tK7qYKFE5aIgPK3BYQUaXl3xsvm0UbdWV2qx6AXU4hB4z5Lyu36ofWDRzLy1H0VEhqHshnTQES5UB5eS3VRaGZvXHamw6ab8R7gHvfqtKwFUhCUdukBYO9lzRbBMN+8aDxzNj/s87poFnnDWmOpQD1DV4rb6/i0HWyEE+EaelfqWtOIQVRpYP6YU2gW4XpX726QdngUtEVTgyZFmt2Fj7WGNMZZvzQrmTQI5/fcXmutECZ+Fy48V9bpUV75hytERj5wb3u2BhtsZrFwAFiBQF0dQhkoS4yyRqavY088q6bH4Lr4r2djhMAmalc4YyS/Ui4IOmMW",
+          "prompt": "<INSTRUKTIONEN>\nDu bist Scene Planner V3 fuer einen MSFS-Missionsgenerator.\nDu entwirfst konkrete, sparsame und lokal plausible Szenen.\n\nArbeitsweise:\n1. Rufe zuerst get_scene_context_bundle auf.\n2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage.\n3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget.\n4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker.\n5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser/Ufer. Keine Deko.\n6. Gib ausschliesslich JSON aus.\n\nJSON-Schema:\n{\n  \"status\": \"ready|invalid\",\n  \"mode\": \"poi|apt\",\n  \"targetScene\": {\n    \"kind\": \"none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context\",\n    \"preset\": \"\",\n    \"features\": [],\n    \"requirements\": [\n      {\"feature\":\"small_equipment\",\"count\":1,\"placement\":\"am Ufer\",\"arrangement\":\"cluster\",\"forwardM\":0,\"rightM\":8,\"notes\":\"kurzer Grund\"}\n    ],\n    \"roles\": [],\n    \"density\": \"none|sparse|normal|busy\",\n    \"layout\": \"cluster|scattered|line|roadside|waterline|perimeter|mixed oder leer\",\n    \"notes\": \"kurzer Grund\"\n  },\n  \"aptArrivalPlan\": {\n    \"roleLabel\": \"Frachtuebergabe|Abholung|...\",\n    \"expectedBy\": \"wer wartet\",\n    \"visibleCue\": \"was sieht der Pilot\",\n    \"narrativeHint\": \"kurzer Hinweis fuer Briefing/PAX\",\n    \"preferredPlacement\": {\"source\":\"osm_parking_position|osm_apron\",\"index\":0,\"reason\":\"kurz\"},\n    \"items\": [\n      {\"kind\":\"arrival_vehicle\",\"label\":\"Fracht-Van\",\"role\":\"vehicle.van\",\"forwardM\":-8,\"rightM\":6,\"hdgOffsetDeg\":205},\n      {\"kind\":\"arrival_person_1\",\"label\":\"Frachtkontakt\",\"role\":\"person.ground_crew\",\"forwardM\":2,\"rightM\":3,\"hdgOffsetDeg\":200}\n    ]\n  },\n  \"localizationNotes\": [],\n  \"validationNotes\": []\n}\n</INSTRUKTIONEN>\n\n<AUFGABE>\nPlane die POI-Zielszene mit Tool-Kontext.\n</AUFGABE>",
+          "excerpt": "<INSTRUKTIONEN> Du bist Scene Planner V3 fuer einen MSFS-Missionsgenerator. Du entwirfst konkrete, sparsame und lokal plausible Szenen. Arbeitsweise: 1. Rufe zuerst get_scene_context_bundle auf. 2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage. 3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget. 4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker. 5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser"
+        },
+        {
+          "index": 5,
+          "kind": "scene-planner-v3-final",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": true,
+          "functionResponses": [
+            {
+              "name": "get_scene_context_bundle",
+              "keys": [
+                "schema",
+                "mode",
+                "route",
+                "mission",
+                "sceneIntent",
+                "missionTruth",
+                "targetGeoContext",
+                "missionPlan",
+                "aptArrivalPlan",
+                "aptArrivalGeoContext"
+              ]
+            }
+          ],
+          "liveOk": false,
+          "liveStatus": 0,
+          "liveError": "This operation was aborted",
+          "prompt": "<INSTRUKTIONEN>\nDu bist Scene Planner V3 fuer einen MSFS-Missionsgenerator.\nDu entwirfst konkrete, sparsame und lokal plausible Szenen.\n\nArbeitsweise:\n1. Rufe zuerst get_scene_context_bundle auf.\n2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage.\n3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget.\n4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker.\n5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser/Ufer. Keine Deko.\n6. Gib ausschliesslich JSON aus.\n\nJSON-Schema:\n{\n  \"status\": \"ready|invalid\",\n  \"mode\": \"poi|apt\",\n  \"targetScene\": {\n    \"kind\": \"none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context\",\n    \"preset\": \"\",\n    \"features\": [],\n    \"requirements\": [\n      {\"feature\":\"small_equipment\",\"count\":1,\"placement\":\"am Ufer\",\"arrangement\":\"cluster\",\"forwardM\":0,\"rightM\":8,\"notes\":\"kurzer Grund\"}\n    ],\n    \"roles\": [],\n    \"density\": \"none|sparse|normal|busy\",\n    \"layout\": \"cluster|scattered|line|roadside|waterline|perimeter|mixed oder leer\",\n    \"notes\": \"kurzer Grund\"\n  },\n  \"aptArrivalPlan\": {\n    \"roleLabel\": \"Frachtuebergabe|Abholung|...\",\n    \"expectedBy\": \"wer wartet\",\n    \"visibleCue\": \"was sieht der Pilot\",\n    \"narrativeHint\": \"kurzer Hinweis fuer Briefing/PAX\",\n    \"preferredPlacement\": {\"source\":\"osm_parking_position|osm_apron\",\"index\":0,\"reason\":\"kurz\"},\n    \"items\": [\n      {\"kind\":\"arrival_vehicle\",\"label\":\"Fracht-Van\",\"role\":\"vehicle.van\",\"forwardM\":-8,\"rightM\":6,\"hdgOffsetDeg\":205},\n      {\"kind\":\"arrival_person_1\",\"label\":\"Frachtkontakt\",\"role\":\"person.ground_crew\",\"forwardM\":2,\"rightM\":3,\"hdgOffsetDeg\":200}\n    ]\n  },\n  \"localizationNotes\": [],\n  \"validationNotes\": []\n}\n</INSTRUKTIONEN>\n\n<AUFGABE>\nPlane die POI-Zielszene mit Tool-Kontext.\n</AUFGABE>",
+          "excerpt": "<INSTRUKTIONEN> Du bist Scene Planner V3 fuer einen MSFS-Missionsgenerator. Du entwirfst konkrete, sparsame und lokal plausible Szenen. Arbeitsweise: 1. Rufe zuerst get_scene_context_bundle auf. 2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage. 3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget. 4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker. 5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser"
+        },
+        {
+          "index": 6,
+          "kind": "scene-planner-v3-tool-call",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": false,
+          "functionResponses": [],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"functionCall\": { \"name\": \"get_scene_context_bundle\", \"args\": { \"reason\": \"Planning POI target scene as per user request.\" } }, \"thoughtSignature\": \"CqECAQw51seNUSBz6K8UJu1vDXHwRJwW637BpT0InY2J7vwFcKROytF14ADr5bIXc5Z1H+HwysUHG/XwpwqUlXTensbT1IY3SvSH0TZLVEKQkgs9oP95FTq+8F0lRyJfywUS0qFPXnaosY2HKBYgFvNwzLztvgDI+RNMuhm87erbXEWA1cRkO/EuqYvt5DBUXXSEtz6k/7iwyhZi717WXQzuAdjc6ESabD9EDs98wg1CDNHU/CIfJIAms1h/I9un1m2q5VlWOTkfq46dKtsPbdbbJSn0LmvaysHhF5PLALnXt5My5ipmVe7UDQRPg9q0np7kMb0LCzfuZkEucYvO7WLw85SV740v1TtNmN8pbMX59Ibk4guVwcpqid28k08cBpoJEg==\" } ], \"role\": \"model\" }, \"finishReason\": \"STOP\", \"index\": 0, \"finishMessage\": \"Model generated function call(s).\" } ], \"usageMetadata\": { \"promptTokenCount\": 912, \"candidatesTokenCount\": 27, \"totalTokenCount\": 1005, \"promptTokensDetails\": [ { \"modality\": \"TEXT\", \"tokenCount\": 912 } ], \"thoughtsTokenCount\": 66, \"serviceTier\": \"standard\" }, \"modelVersion\": \"gemini-2.5-flash\", \"responseId\": \"gYERaoLMHqbhnsEPptaugQM\" } ",
+          "prompt": "<INSTRUKTIONEN>\nDu bist Scene Planner V3 fuer einen MSFS-Missionsgenerator.\nDu entwirfst konkrete, sparsame und lokal plausible Szenen.\n\nArbeitsweise:\n1. Rufe zuerst get_scene_context_bundle auf.\n2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage.\n3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget.\n4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker.\n5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser/Ufer. Keine Deko.\n6. Gib ausschliesslich JSON aus.\n\nJSON-Schema:\n{\n  \"status\": \"ready|invalid\",\n  \"mode\": \"poi|apt\",\n  \"targetScene\": {\n    \"kind\": \"none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context\",\n    \"preset\": \"\",\n    \"features\": [],\n    \"requirements\": [\n      {\"feature\":\"small_equipment\",\"count\":1,\"placement\":\"am Ufer\",\"arrangement\":\"cluster\",\"forwardM\":0,\"rightM\":8,\"notes\":\"kurzer Grund\"}\n    ],\n    \"roles\": [],\n    \"density\": \"none|sparse|normal|busy\",\n    \"layout\": \"cluster|scattered|line|roadside|waterline|perimeter|mixed oder leer\",\n    \"notes\": \"kurzer Grund\"\n  },\n  \"aptArrivalPlan\": {\n    \"roleLabel\": \"Frachtuebergabe|Abholung|...\",\n    \"expectedBy\": \"wer wartet\",\n    \"visibleCue\": \"was sieht der Pilot\",\n    \"narrativeHint\": \"kurzer Hinweis fuer Briefing/PAX\",\n    \"preferredPlacement\": {\"source\":\"osm_parking_position|osm_apron\",\"index\":0,\"reason\":\"kurz\"},\n    \"items\": [\n      {\"kind\":\"arrival_vehicle\",\"label\":\"Fracht-Van\",\"role\":\"vehicle.van\",\"forwardM\":-8,\"rightM\":6,\"hdgOffsetDeg\":205},\n      {\"kind\":\"arrival_person_1\",\"label\":\"Frachtkontakt\",\"role\":\"person.ground_crew\",\"forwardM\":2,\"rightM\":3,\"hdgOffsetDeg\":200}\n    ]\n  },\n  \"localizationNotes\": [],\n  \"validationNotes\": []\n}\n</INSTRUKTIONEN>\n\n<AUFGABE>\nPlane die POI-Zielszene mit Tool-Kontext.\n</AUFGABE>",
+          "excerpt": "<INSTRUKTIONEN> Du bist Scene Planner V3 fuer einen MSFS-Missionsgenerator. Du entwirfst konkrete, sparsame und lokal plausible Szenen. Arbeitsweise: 1. Rufe zuerst get_scene_context_bundle auf. 2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage. 3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget. 4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker. 5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser"
+        },
+        {
+          "index": 7,
+          "kind": "scene-planner-v3-final",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": true,
+          "functionResponses": [
+            {
+              "name": "get_scene_context_bundle",
+              "keys": [
+                "schema",
+                "mode",
+                "route",
+                "mission",
+                "sceneIntent",
+                "missionTruth",
+                "targetGeoContext",
+                "missionPlan",
+                "aptArrivalPlan",
+                "aptArrivalGeoContext"
+              ]
+            }
+          ],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"text\": \"```json\\n{\\n \\\"status\\\": \\\"ready\\\",\\n \\\"mode\\\": \\\"poi\\\",\\n \\\"targetScene\\\": {\\n \\\"kind\\\": \\\"survey_context\\\",\\n \\\"preset\\\": \\\"\\\",\\n \\\"features\\\": [],\\n \\\"requirements\\\": [\\n {\\n \\\"feature\\\": \\\"utility_truck\\\",\\n \\\"count\\\": 1,\\n \\\"placement\\\": \\\"am Strassenrand\\\",\\n \\\"arrangement\\\": \\\"line\\\",\\n \\\"forwardM\\\": 175,\\n \\\"rightM\\\": 60,\\n \\\"notes\\\": \\\"Servicefahrzeug fuer das Team\\\"\\n },\\n {\\n \\\"feature\\\": \\\"people\\\",\\n \\\"count\\\": 2,\\n \\\"placement\\\": \\\"auf der Wiese\\\",\\n \\\"arrangement\\\": \\\"cluster\\\",\\n \\\"forwardM\\\": 150,\\n \\\"rightM\\\": 100,\\n \\\"notes\\\": \\\"Biologen bei der Arbeit\\\"\\n },\\n {\\n \\\"feature\\\": \\\"small_equipment\\\",\\n \\\"count\\\": 1,\\n \\\"placement\\\": \\\"auf der Wiese\\\",\\n \\\"arrangement\\\": \\\"cluster\\\",\\n \\\"forwardM\\\": 155,\\n \\\"rightM\\\": 105,\\n \\\"notes\\\": \\\"Messgeraete und Markierungen\\\"\\n }\\n ],\\n \\\"roles\\\": [],\\n \\\"density\\\": \\\"sparse\\\",\\n \\\"layout\\\": \\\"scattered\\\",\\n \\\"notes\\\": \\\"Biologisches Monitoring am Feldberg-Gipfel mit Team und Fahrzeug.\\\"\\n },\\n \\\"aptArrivalPlan\\\": null,\\n \\\"localizationNotes\\\": [],\\n \\\"validationNotes\\\": []\\n}\\n```\", \"thoughtSignature\": \"CoEhAQw51sc5LPyYO6WoAmKn6VPe5gzYiUIciOnzq5mHARpHx50KRoHpnAQkiJLa17",
+          "prompt": "<INSTRUKTIONEN>\nDu bist Scene Planner V3 fuer einen MSFS-Missionsgenerator.\nDu entwirfst konkrete, sparsame und lokal plausible Szenen.\n\nArbeitsweise:\n1. Rufe zuerst get_scene_context_bundle auf.\n2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage.\n3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget.\n4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker.\n5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser/Ufer. Keine Deko.\n6. Gib ausschliesslich JSON aus.\n\nJSON-Schema:\n{\n  \"status\": \"ready|invalid\",\n  \"mode\": \"poi|apt\",\n  \"targetScene\": {\n    \"kind\": \"none|fire_watch|road_incident|sar_water|sar_land|medical_pickup|cargo_site|construction_site|powerline_inspection|wind_turbine_site|erosion_damage|debris_field|infra_bridge|infra_dam|industry_site|water_pollution|water_context|wildlife_site|media_site|event_site|survey_context\",\n    \"preset\": \"\",\n    \"features\": [],\n    \"requirements\": [\n      {\"feature\":\"small_equipment\",\"count\":1,\"placement\":\"am Ufer\",\"arrangement\":\"cluster\",\"forwardM\":0,\"rightM\":8,\"notes\":\"kurzer Grund\"}\n    ],\n    \"roles\": [],\n    \"density\": \"none|sparse|normal|busy\",\n    \"layout\": \"cluster|scattered|line|roadside|waterline|perimeter|mixed oder leer\",\n    \"notes\": \"kurzer Grund\"\n  },\n  \"aptArrivalPlan\": {\n    \"roleLabel\": \"Frachtuebergabe|Abholung|...\",\n    \"expectedBy\": \"wer wartet\",\n    \"visibleCue\": \"was sieht der Pilot\",\n    \"narrativeHint\": \"kurzer Hinweis fuer Briefing/PAX\",\n    \"preferredPlacement\": {\"source\":\"osm_parking_position|osm_apron\",\"index\":0,\"reason\":\"kurz\"},\n    \"items\": [\n      {\"kind\":\"arrival_vehicle\",\"label\":\"Fracht-Van\",\"role\":\"vehicle.van\",\"forwardM\":-8,\"rightM\":6,\"hdgOffsetDeg\":205},\n      {\"kind\":\"arrival_person_1\",\"label\":\"Frachtkontakt\",\"role\":\"person.ground_crew\",\"forwardM\":2,\"rightM\":3,\"hdgOffsetDeg\":200}\n    ]\n  },\n  \"localizationNotes\": [],\n  \"validationNotes\": []\n}\n</INSTRUKTIONEN>\n\n<AUFGABE>\nPlane die POI-Zielszene mit Tool-Kontext.\n</AUFGABE>",
+          "excerpt": "<INSTRUKTIONEN> Du bist Scene Planner V3 fuer einen MSFS-Missionsgenerator. Du entwirfst konkrete, sparsame und lokal plausible Szenen. Arbeitsweise: 1. Rufe zuerst get_scene_context_bundle auf. 2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage. 3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget. 4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: erwarteter Kontakt, sichtbarer Cue, kurze narrativeHint und item-Offsets relativ zum sicheren Vorfeld-/Parking-Anker. 5. Fahrzeuge nur an Road/Parking/Apron. Wasserobjekte nur an Wasser"
+        },
+        {
+          "index": 8,
+          "kind": "pax-text",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": false,
+          "functionResponses": [],
+          "liveOk": true,
+          "liveStatus": 200,
+          "liveBodyExcerpt": "{ \"candidates\": [ { \"content\": { \"parts\": [ { \"text\": \"Hi, wir erfassen heute die alpine Flora und die Vegetationszonen der Gipfelwiesen am Feldberg. Flieg bitte möglichst ruhig und stabil in einer Arbeitshöhe von etwa 5800 Fuß, damit die Sensoren die Übergänge präzise dokumentieren können. Wir haben keinen Zeitdruck, die Qualität der Daten ist entscheidend.\", \"thoughtSignature\": \"Er0TCroTAQw51scrp86F5FMi9WMxR2uBUF9lqSy/Th3ha7rW9ZtjnZM1Cx7F3IYpqOg9i/06/AApN/zAotANhZk64jCt9RNKaVpaHM1XH0JmOaLAyeWj5vWrSXs+jOXO4rMZAuchnkfZIT4ec75jKnotRqD5Jg4b6wDtsbP8hX5Gl/mdL78TiikFDVcBWN0CzOHfTOPisyypmYgUqeTLJl6UWom/ZHjDbSW8egNQW5weHNogE+uV3Be5bi+HyNbIxFKpkGr5HI3Ofs8CoqhP40zkE1TggcjibRorWayIrI9xG++8DTkw20u83uoYfotfv8f8B6vux/nG0O/Z1YbIRDSnmJZsKUM9n18terOCVastyx5jhMHPuJVapULYsbobSRIpvWzdu7y4+fOA/93WVHuYuQhqMDpkvVRoqGVhV7HWqgdceKYT48ZTJbQk6H5rRwtLz0kgg54EZZDpHU1TxAuqhh+HLT7n1CGW2KZCp6ysVcnVq6mHGmyULR++zErzUVUlJz4qUwrnVshFc5hHGB3zD5nGhnf1SxvSNTtj5isEwIW/WC1OCUFEHrV4HpDJenZXEtPSDXDYBBEMdBTqfpdTz0VCht77kju2n4NGPNnQmMl2kdWG5LT1JTUELdfjwR8IJcZh2rxuppw87/lWMfJgB4xegCEZ6bSe/QV0KvBwtDk4nr6RCWrgXXgkHACnH/tgTgut5YuTCkmRN5NvFfE0aDF6VYIMCDOgRPkTGftnU5Hl6ZMrQ53WaABW8vGXNTxInLx4za/q9X1x60o13fSbTelq+OfaEHgQJ0gtPmdqaeDb",
+          "prompt": "ROLLE: Dr. Paul Reiter (Ökologe) · Persönlichkeit: analytisch, präzise, gelassen\nFLUG: EDTW → Feldberg (Gipfel) · 59.4 NM\nLOAD: Umweltsensorik und Kamera (18 lbs) · 1 PAX (Ökologe: Dr. Paul Reiter)\nAUFTRAG (kurz): Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahe\nSTIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show.\nDRINGLICHKEIT: niedrig\nZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation.\nMISSION-CONTRACT: Biologie/Umwelt | POI | cat:mountain\nCONTRACT-REGELN: Rollenkonsistenz: roleProfile=science_field_v1, taskDomain=science_bio, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen\nZIEL-AUFFAELLIGKEIT: low (surface/terrain target).\nROLLENFIX: Sprich ausschließlich als Dr. Paul Reiter (Ökologe) in Ich-Form. Keine Rollenvermischung.\nTASK-DOMAIN: science_bio\nAUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).\n\nMoment: Wir starten gleich — Motor läuft an oder das Flugzeug setzt sich in Bewegung.\nBasistext für deine Begrüßung (frei adaptieren): \"Hi, wir machen heute Umweltbeobachtung am POI. Bitte ruhig und stabil fliegen, damit die Beobachtung verwertbar ist.\"\nDu DARFST hier mit einer kurzen natürlichen Begrüßung beginnen (z.B. \"Hi\"), aber nur sehr knapp.\nBitte sag in natürlicher Sprache kurz, was du am Zielgebiet vorhast. Erwähne dabei einmal die fürs Ziel geplante Arbeitshöhe (ungefähr 5800 ft). Keine internen Parameter oder technischen Vorgaben zitieren.\n Drift-Guard (Bio): Nur Bio/Umwelt-Inhalte (Flora/Fauna/Habitat/Ufervegetation). Keine Risse/Statik/Schadenssuche, keine Geologie, kein SAR-/Feuer-Ton.\nKein Zeitdruck kommunizieren.\nMax 3 Sätze.\nDu-Form, nie mit Namen. Ich-Form, kurze klare Sätze.\nNeutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch.\nKeine neue Begrüßung am Satzanfang.\nHumor kurz und freundlich.\nBei Sicherheit/Warnung/Arbeitsanweisung: kein Humor.\nNur Deutsch, kein Markdown.",
+          "excerpt": "ROLLE: Dr. Paul Reiter (Ökologe) · Persönlichkeit: analytisch, präzise, gelassen FLUG: EDTW → Feldberg (Gipfel) · 59.4 NM LOAD: Umweltsensorik und Kamera (18 lbs) · 1 PAX (Ökologe: Dr. Paul Reiter) AUFTRAG (kurz): Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahe STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Biologie/Umwelt | POI | cat:mountain CONTRACT-REGE"
+        },
+        {
+          "index": 9,
+          "kind": "pax-text",
+          "modelUrl": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=DRYRUN_KEY",
+          "hasFunctionResponse": false,
+          "functionResponses": [],
+          "prompt": "ROLLE: Dr. Paul Reiter (Ökologe) · Persönlichkeit: analytisch, präzise, gelassen\nFLUG: EDTW → Feldberg (Gipfel) · 59.4 NM\nLOAD: Umweltsensorik und Kamera (18 lbs) · 1 PAX (Ökologe: Dr. Paul Reiter)\nAUFTRAG (kurz): Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahe\nSTIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show.\nDRINGLICHKEIT: niedrig\nZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation.\nMISSION-CONTRACT: Biologie/Umwelt | POI | cat:mountain\nCONTRACT-REGELN: Rollenkonsistenz: roleProfile=science_field_v1, taskDomain=science_bio, urgency=niedrig | Kein Themenmix zwischen Auftrag, PAX und Fracht | Alle Folgeansagen bleiben im gleichen Auftragsrahmen\nZIEL-AUFFAELLIGKEIT: low (surface/terrain target).\nROLLENFIX: Sprich ausschließlich als Dr. Paul Reiter (Ökologe) in Ich-Form. Keine Rollenvermischung.\nTASK-DOMAIN: science_bio\nAUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).\n\nMoment: Wir sind am Ziel \"Feldberg (Gipfel)\". Höhe: 5800 ft MSL / 700 ft AGL. Wetter: Wind 8 kts aus 260° (schwach), 17°C, Sicht 30 km (ausgezeichnet).\nReagiere spontan auf diesen Augenblick — was siehst du, was geht dir durch den Kopf? Wenn Wetter oder Bedingungen nicht ideal sind, erwähne es kurz aber bleib positiv. Gib einen kurzen biologischen Zwischenstand zu \"Feldberg (Gipfel)\" (Bestand, Aktivitaet, Auffaelligkeiten). Drift-Guard (Bio): Bleib bei biologischer Beobachtung und Datenguete. Keine Technikpruefung, keine SAR-/Feuerlage. Max 2-3 Sätze.\nDu-Form, nie mit Namen. Ich-Form, kurze klare Sätze.\nNeutral-standardsprachlich, kein Erzählerstil, kein Amtsdeutsch.\nKeine neue Begrüßung am Satzanfang.\nHumor kurz und freundlich.\nBei Sicherheit/Warnung/Arbeitsanweisung: kein Humor.\nNur Deutsch, kein Markdown.",
+          "excerpt": "ROLLE: Dr. Paul Reiter (Ökologe) · Persönlichkeit: analytisch, präzise, gelassen FLUG: EDTW → Feldberg (Gipfel) · 59.4 NM LOAD: Umweltsensorik und Kamera (18 lbs) · 1 PAX (Ökologe: Dr. Paul Reiter) AUFTRAG (kurz): Wir begleiten heute ein biologisches Monitoring am Feldberg, dem mit 1493 Metern höchsten Gipfel des Schwarzwalds. Unser Ziel ist die Dokumentation der alpinen Flora und der Vegetationszonen im Bereich der offenen Gipfelwiesen. Besonders die Übergänge zum nahe STIL: natürlich, glaubwürdig und zur Rolle passend; keine überzogene Show. DRINGLICHKEIT: niedrig ZEITRAHMEN: Niedrige Prioritaet, keine Eile-Kommunikation. MISSION-CONTRACT: Biologie/Umwelt | POI | cat:mountain CONTRACT-REGE"
+        }
+      ]
+    }
+  ]
+}

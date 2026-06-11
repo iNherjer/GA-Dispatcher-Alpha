@@ -1214,8 +1214,10 @@
                     <button id="mapDrawFloatingBtn" class="map-draw-floating-btn" type="button" title="Werkzeugleiste" onclick="window.toggleMapToolRail && toggleMapToolRail(event)">✎</button>
                     <div id="mapDrawToolStack" class="map-draw-tool-stack" aria-label="Kartenwerkzeuge">
                         <button id="mapToolPen" class="map-draw-tool-btn" type="button" title="Stift" onclick="window.activateMapDrawTool && activateMapDrawTool('pen', event)">✎</button>
+                        <button id="mapToolLine" class="map-draw-tool-btn" type="button" title="Linie" onclick="window.activateMapDrawTool && activateMapDrawTool('line', event)">╱</button>
                         <button id="mapToolEraser" class="map-draw-tool-btn" type="button" title="Radierer" onclick="window.activateMapDrawTool && activateMapDrawTool('eraser', event)">⌫</button>
                         <button id="mapToolSettings" class="map-draw-tool-btn" type="button" title="Farben & Größe" onclick="window.toggleMapDrawSettingsMenu && window.toggleMapDrawSettingsMenu()">🎨</button>
+                        <button id="mapToolDrawClear" class="map-draw-tool-btn" type="button" title="Zeichnungen löschen" onclick="window.activateMapDrawTool && activateMapDrawTool('drawClear', event)">🗑</button>
                         <button id="mapToolMeasure" class="map-draw-tool-btn" type="button" title="Maßband" onclick="window.activateMapDrawTool && activateMapDrawTool('measure', event)">📏</button>
                         <button id="mapToolMeasureClear" class="map-draw-tool-btn" type="button" title="Messen löschen" onclick="window.activateMapDrawTool && activateMapDrawTool('measureClear', event)">🗑</button>
                     </div>
