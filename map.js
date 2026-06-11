@@ -38,6 +38,7 @@ const mapDrawState = {
     layer: null,
     drawings: [],
     lineStart: null,
+    lineStartMarker: null,
     previewLine: null,
     drawingLine: null,
     drawingPoints: [],
@@ -6030,6 +6031,10 @@ function resetMapDrawGesture() {
     mapDrawState.isDrawing = false;
     mapDrawState.lastLayerPoint = null;
     mapDrawState.lineStart = null;
+    if (mapDrawState.lineStartMarker && mapDrawState.layer) {
+        mapDrawState.layer.removeLayer(mapDrawState.lineStartMarker);
+    }
+    mapDrawState.lineStartMarker = null;
     mapDrawState.activeDrawPointerId = null;
     clearMapDrawPreview();
     if (map && map.dragging && !mapDrawState.enabled) map.dragging.enable();
@@ -6214,6 +6219,19 @@ function addMapDrawLineLabel(line, start, end) {
     return label;
 }
 
+function addMapDrawLineEndpoint(latlng, kind = 'start') {
+    if (!mapDrawState.layer || !latlng) return null;
+    const isStart = kind === 'start';
+    return L.circleMarker(latlng, {
+        radius: 5,
+        color: '#111',
+        weight: 2,
+        fillColor: isStart ? '#44ff44' : '#ff4444',
+        fillOpacity: 1,
+        interactive: false
+    }).addTo(mapDrawState.layer);
+}
+
 function getMapDrawLayerPointDistance(latlng, layer) {
     if (!map || !layer || typeof layer.getLatLngs !== 'function') return Infinity;
     const target = map.latLngToLayerPoint(latlng);
@@ -6262,6 +6280,12 @@ function eraseMapDrawingAt(latlng, silent = false) {
         mapDrawState.layer.removeLayer(bestLayer._mapDrawLabel);
         bestLayer._mapDrawLabel = null;
     }
+    if (Array.isArray(bestLayer._mapDrawEndpointMarkers)) {
+        bestLayer._mapDrawEndpointMarkers.forEach(marker => {
+            if (marker) mapDrawState.layer.removeLayer(marker);
+        });
+        bestLayer._mapDrawEndpointMarkers = null;
+    }
     mapDrawState.layer.removeLayer(bestLayer);
     mapDrawState.drawings = mapDrawState.drawings.filter(layer => layer !== bestLayer);
     if (!silent) showMapToast('Strich gelöscht', 1000);
@@ -6281,6 +6305,8 @@ function handleMapDrawMapClick(e) {
     ensureMapDrawLayer();
     if (!mapDrawState.lineStart) {
         mapDrawState.lineStart = e.latlng;
+        if (mapDrawState.lineStartMarker) mapDrawState.layer.removeLayer(mapDrawState.lineStartMarker);
+        mapDrawState.lineStartMarker = addMapDrawLineEndpoint(e.latlng, 'start');
         clearMapDrawPreview();
         showMapToast('Endpunkt setzen', 1400);
         return true;
@@ -6288,8 +6314,12 @@ function handleMapDrawMapClick(e) {
     const lineStart = mapDrawState.lineStart;
     const line = L.polyline([lineStart, e.latlng], getMapDrawStyle()).addTo(mapDrawState.layer);
     addMapDrawLineLabel(line, lineStart, e.latlng);
+    const startMarker = mapDrawState.lineStartMarker || addMapDrawLineEndpoint(lineStart, 'start');
+    const endMarker = addMapDrawLineEndpoint(e.latlng, 'end');
+    line._mapDrawEndpointMarkers = [startMarker, endMarker].filter(Boolean);
     mapDrawState.drawings.push(line);
     mapDrawState.lineStart = null;
+    mapDrawState.lineStartMarker = null;
     clearMapDrawPreview();
     return true;
 }
@@ -6387,15 +6417,16 @@ function handleMapDrawPointerDown(evt) {
     const latlng = getMapDrawPointerLatLng(evt);
     if (!latlng) return;
     mapDrawState.activeDrawPointerId = evt.pointerId;
-    mapDrawState.suppressMapClickUntil = Date.now() + 500;
     if (map && map.dragging) map.dragging.disable();
     stopMapDrawPointerEvent(evt);
 
     const drawEvt = { latlng, originalEvent: evt };
     if (mapDrawState.tool === 'line') {
         handleMapDrawMapClick(drawEvt);
+        mapDrawState.suppressMapClickUntil = Date.now() + 500;
         return;
     }
+    mapDrawState.suppressMapClickUntil = Date.now() + 500;
     handleMapDrawMouseDown(drawEvt);
 }
 
@@ -6418,6 +6449,20 @@ function handleMapDrawPointerUp(evt) {
     mapDrawState.activeDrawPointerId = null;
 }
 
+function handleMapDrawTouchStart(e) {
+    if (!mapDrawState.enabled || mapDrawState.tool !== 'line') {
+        handleMapDrawMouseDown(e);
+        return;
+    }
+    if (isMapUiClickTarget(e.originalEvent)) return;
+    if (!e || !e.latlng) return;
+    const handled = handleMapDrawMapClick(e);
+    if (handled) {
+        mapDrawState.suppressMapClickUntil = Date.now() + 500;
+        if (e.originalEvent) L.DomEvent.stop(e.originalEvent);
+    }
+}
+
 function bindMapDrawEvents() {
     if (!map || map._mapDrawEventsBound) return;
     const container = map.getContainer && map.getContainer();
@@ -6428,7 +6473,7 @@ function bindMapDrawEvents() {
         container.addEventListener('pointercancel', handleMapDrawPointerUp, { capture: true, passive: false });
     }
     map.on('mousedown', handleMapDrawMouseDown);
-    map.on('touchstart', handleMapDrawMouseDown);
+    map.on('touchstart', handleMapDrawTouchStart);
     map.on('mousemove', handleMapDrawMouseMove);
     map.on('touchmove', handleMapDrawMouseMove);
     map.on('mouseup', finishMapDrawFreehand);
