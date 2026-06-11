@@ -2013,8 +2013,9 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     const runtime = snap.runtime && typeof snap.runtime === 'object' ? snap.runtime : {};
     const startPhase = String(snap.startPhase || '').toLowerCase();
     const phase = String(runtime.phase || snap.runtimePhase || '').toLowerCase();
+    const trackerActive = options.trackerActive === true;
     const shouldBeClosing = !!runtime.closingPending || phase === 'closing';
-    const shouldBeActive = !!runtime.active || ['active', 'end_ready'].includes(phase);
+    const shouldBeActive = trackerActive || !!runtime.active || ['active', 'end_ready'].includes(phase);
     const shouldRestore = shouldBeClosing || shouldBeActive || ['prepare', 'boarding', 'boarded'].includes(startPhase);
     if (!shouldRestore) return false;
 
@@ -2027,10 +2028,10 @@ function _restoreMissionRuntimeFromSnapshot(snapshot = null, options = {}) {
     _restoreCargoManifestFromRuntimeSnapshot(snap);
     _restoreFlightRecorderFromRuntimeSnapshot(snap);
 
-    if (['prepare', 'boarding', 'boarded'].includes(startPhase)) {
-        _setMissionStartPhase(startPhase);
-    } else if (shouldBeActive) {
+    if (shouldBeActive) {
         _setMissionStartPhase('boarded');
+    } else if (['prepare', 'boarding', 'boarded'].includes(startPhase)) {
+        _setMissionStartPhase(startPhase);
     }
 
     missionRuntime.phase = shouldBeClosing ? 'closing' : (phase === 'end_ready' ? 'end_ready' : (shouldBeActive ? 'active' : _missionRuntimePhaseSnapshot()));
@@ -2108,7 +2109,7 @@ function _handleTrackerMissionStatus(status = null, reason = 'tracker-status') {
             _persistMissionRuntimeSnapshot(reason, { minIntervalMs: 10000 });
             return true;
         }
-        return _restoreMissionRuntimeFromSnapshot(snap, { reason, trackerConfirmed: true });
+        return _restoreMissionRuntimeFromSnapshot(snap, { reason, trackerConfirmed: true, trackerActive });
     }
     if (!trackerActive && (missionRuntime.active || missionRuntime.closingPending)) {
         _missionPhaseDebugPush('resume_tracker_ended', {
@@ -5908,6 +5909,7 @@ function _updateMissionStartBanner() {
     const showEndReady = missionRuntime.active && !!groundAction?.endReady;
     const showEnd = missionRuntime.active && showEndReady && !deboardingBusy;
     const showPickup = missionRuntime.active && groundAction?.action === 'pickup' && !showEnd && !deboardingBusy;
+    const showFinalEndAction = showEnd && groundAction?.action !== 'unload';
     const showStart = valid
         && (trackerConnected || simMode)
         && groundReady
@@ -5918,6 +5920,8 @@ function _updateMissionStartBanner() {
     if (!show) return;
     if (btn) btn.disabled = false;
     banner.classList.toggle('is-end-ready', showEnd);
+    banner.classList.toggle('is-begin-action', showStart && phase === 'planned');
+    banner.classList.toggle('is-final-action', showFinalEndAction);
     if (showClose) {
         if (kickerEl) kickerEl.textContent = 'Mission schliessen';
         if (closeBtn) closeBtn.style.display = 'none';
@@ -9836,9 +9840,11 @@ function updateFlightRecorder(lat, lon, alt) {
             const depCtx = _scenePositionQuality(window.lastLiveGpsPos || {});
             const meaningfulMission = missionRuntime.active && _missionHadMeaningfulFlightForEnd();
             const reconnectRecovery = missionRuntime.active && _trackerReconnectRecoveryActive(now);
-            const allowReset = !meaningfulMission && !reconnectRecovery && !!depCtx.nearDeparture;
+            const activeMissionOnGround = missionRuntime.active || _missionStartPhase() === 'boarded';
+            const allowReset = !activeMissionOnGround && !meaningfulMission && !reconnectRecovery && !!depCtx.nearDeparture;
             if (!allowReset) {
                 const reasons = [
+                    activeMissionOnGround ? 'active-mission-ground' : '',
                     meaningfulMission ? 'meaningful-flight' : '',
                     reconnectRecovery ? 'reconnect-recovery' : '',
                     depCtx.nearDeparture ? '' : 'not-near-departure'
