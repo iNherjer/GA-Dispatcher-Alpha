@@ -4998,12 +4998,12 @@ function _evaluateComfortBreach(flightData, pax) {
         return null;
     };
 
-    const gThr = chooseThreshold(policy.metricLevels.g, [1.45, 1.65], [1.8, 2.1]);
-    const bThr = chooseThreshold(policy.metricLevels.bank, [28, 38], [38, 50]);
+    const gThr = chooseThreshold(policy.metricLevels.g, [1.6, 1.85], [1.9, 2.2]);
+    const bThr = chooseThreshold(policy.metricLevels.bank, [34, 45], [45, 60]);
     // Wetterreaktionen: hoch = frueher, mittel = spaeter, niedrig = stumm.
     const wThr = chooseThreshold(policy.metricLevels.wind, [20, 30], [24, 34]);
-    const gsThr = chooseThreshold(policy.metricLevels.gust, [8, 14], [12, 18]);
-    const tThr = chooseThreshold(policy.metricLevels.turb, [30, 50], [40, 65]);
+    const gsThr = chooseThreshold(policy.metricLevels.gust, [12, 18], [16, 24]);
+    const tThr = chooseThreshold(policy.metricLevels.turb, [40, 60], [50, 75]);
     const pThr = chooseThreshold(policy.metricLevels.precip, [1.0, 3.0], [2.0, 4.5]);
     const dThr = chooseThreshold(policy.metricLevels.descent, [-1300, -2000], [-1600, -2400]);
 
@@ -5056,7 +5056,7 @@ function _maybePaxComfortFeedback(flightData, lat, lon) {
         : (Number(flightData?.aglFt || 0) <= 12 && Number(flightData?.gs || flightData?.gsKts || 0) < 30);
     if (onGround) return;
     const depDistNm = _distanceFromDepartureNm(Number(lat), Number(lon));
-    if (Number.isFinite(depDistNm) && depDistNm < 2.0) return;
+    if (Number.isFinite(depDistNm) && depDistNm < 4.0) return;
     const comfortPolicy = _comfortFeedbackPolicy(window.activePassenger);
     if (!comfortPolicy.reactiveAny) return;
 
