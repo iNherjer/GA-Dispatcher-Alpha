@@ -69,6 +69,10 @@ function _missionCargoPushItem(items, item) {
     const sceneKind = item.sceneKind || (items.length === 0 ? 'cargo' : `cargo_extra_${items.length}`);
     const title = item.objectTitle || _missionCargoSmallTitle(item.label || item.storyName || '');
     const itemType = String(item.itemType || 'cargo').trim().toLowerCase() === 'passenger' ? 'passenger' : 'cargo';
+    const rawTitleCandidates = _sceneAssetCandidates(title, item.titleCandidates || MISSION_SCENE_ASSET_POOLS.smallCargo || MISSION_SCENE_ASSET_POOLS.cargo);
+    const titleCandidates = itemType === 'cargo' && typeof _missionSceneSafeBoardingCargoCandidates === 'function'
+        ? _missionSceneSafeBoardingCargoCandidates(rawTitleCandidates.concat(MISSION_SCENE_ASSET_POOLS.smallCargo || ['Cardboard']))
+        : rawTitleCandidates;
     items.push({
         id,
         itemType,
@@ -85,7 +89,7 @@ function _missionCargoPushItem(items, item) {
         expiresAt: item.expiresAt || '',
         log: item.log && typeof item.log === 'object' ? item.log : {},
         objectTitle: title,
-        titleCandidates: _sceneAssetCandidates(title, item.titleCandidates || MISSION_SCENE_ASSET_POOLS.smallCargo || MISSION_SCENE_ASSET_POOLS.cargo),
+        titleCandidates,
         forwardOffsetM: Number.isFinite(Number(item.forwardOffsetM)) ? Number(item.forwardOffsetM) : (items.length * 0.45),
         rightOffsetM: Number.isFinite(Number(item.rightOffsetM)) ? Number(item.rightOffsetM) : (items.length % 2 ? -0.8 : 0),
         pickupLocation: item.pickupLocation === 'target' ? 'target' : '',

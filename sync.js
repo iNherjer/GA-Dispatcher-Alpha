@@ -2706,11 +2706,14 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
     const baseForward = Number.isFinite(Number(cargoPoint?.forwardM)) ? Number(cargoPoint.forwardM) : 4;
     const baseRight = Number.isFinite(Number(cargoPoint?.rightM)) ? Number(cargoPoint.rightM) : 4;
     const baseAlt = Number.isFinite(Number(cargoPoint?.altOffsetFt)) ? Number(cargoPoint.altOffsetFt) : 0;
+    const safeCargoCandidates = (title, candidates = []) => _missionSceneSafeBoardingCargoCandidates(
+        _sceneAssetCandidates(title || 'Cardboard', candidates).concat(MISSION_SCENE_ASSET_POOLS.smallCargo || ['Cardboard'])
+    );
     const makeItem = (kind, label, title, candidates, forwardOffset = 0, rightOffset = 0) => ({
         kind,
         label,
         objectTitle: title,
-        titleCandidates: candidates,
+        titleCandidates: safeCargoCandidates(title, candidates),
         forwardM: baseForward + forwardOffset,
         rightM: baseRight + rightOffset,
         headingMode: 'with_aircraft',
@@ -2726,7 +2729,7 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
                     item.sceneKind || (index === 0 ? 'cargo' : `cargo_extra_${index}`),
                     item.storyName || item.label || `Ladung ${index + 1}`,
                     item.objectTitle || 'Cardboard',
-                    _sceneAssetCandidates(item.objectTitle || 'Cardboard', item.titleCandidates || MISSION_SCENE_ASSET_POOLS.cargo),
+                    item.titleCandidates || MISSION_SCENE_ASSET_POOLS.cargo,
                     Number(item.forwardOffsetM || 0),
                     Number(item.rightOffsetM || 0)
                 ),
@@ -2735,7 +2738,7 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
             }));
     }
     const primary = cargoAsset?.sizePrimary || cargoAsset?.title || 'Cardboard';
-    const primaryCandidates = _sceneAssetCandidates(primary, cargoAsset?.candidates || MISSION_SCENE_ASSET_POOLS.cargo);
+    const primaryCandidates = cargoAsset?.candidates || MISSION_SCENE_ASSET_POOLS.cargo;
     return [
         makeItem('cargo', primary.startsWith('Pallet') ? 'Transportpalette' : 'Cargo Karton', primary, primaryCandidates, 0, 0)
     ];
