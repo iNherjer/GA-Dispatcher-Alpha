@@ -1773,6 +1773,55 @@ function _missionCargoRemoveLoadedSceneObjects(reason = 'cargo-loaded-sync') {
     return sent;
 }
 
+function _missionCargoSpawnUnloadedSceneObjects(reason = 'cargo-unloaded-sync') {
+    if (window.simModeActive || !window.liveTrackerConnected) return false;
+    const manifest = _missionCargoEnsureManifest();
+    const pos = _missionCargoCommandBasePos();
+    const hasPos = Number.isFinite(Number(pos?.lat)) && Number.isFinite(Number(pos?.lon));
+    if (!hasPos) {
+        window.missionCargoStatus.error = 'Keine gueltige Sim-Position fuer Cargo-Spawn.';
+        return false;
+    }
+    let sent = false;
+    (manifest.items || [])
+        .filter(item => item.status === 'unloaded' && !_missionCargoIsPassengerItem(item))
+        .forEach(item => {
+            const kind = `unloaded_${item.sceneKind || item.id}`;
+            window.sendTrackerCommand({
+                type: 'mission_scene_object_remove',
+                sceneId: _missionCargoUnloadSceneId(),
+                reason: `${reason}-refresh-remove`,
+                kinds: [kind],
+                labels: [item.label, item.storyName],
+                itemIds: [item.id]
+            });
+            const placement = _missionCargoGroundSpawnPlacement(item);
+            const commandId = window.sendTrackerCommand({
+                type: 'mission_scene_object_spawn',
+                sceneId: _missionCargoUnloadSceneId(),
+                reason,
+                lat: Number(pos.lat),
+                lon: Number(pos.lon),
+                altFt: Number.isFinite(Number(pos.altFt)) ? Number(pos.altFt) : 0,
+                hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
+                items: [{
+                    kind,
+                    label: item.storyName || item.label,
+                    objectTitle: item.objectTitle || 'Cardboard',
+                    titleCandidates: item.titleCandidates || _sceneAssetCandidates(item.objectTitle || 'Cardboard', MISSION_SCENE_ASSET_POOLS.cargo),
+                    forwardM: placement.forwardM,
+                    rightM: placement.rightM,
+                    headingMode: 'with_aircraft',
+                    altOffsetFt: placement.altOffsetFt
+                }]
+            });
+            window.missionCargoStatus.lastCommandAt = Date.now();
+            window.missionCargoStatus.lastCommand = { type: 'mission_scene_object_spawn', commandId, itemId: item.id };
+            sent = !!commandId || sent;
+        });
+    return sent;
+}
+
 function _missionCargoPassengerAlreadyUnloaded() {
     return _missionCargoPassengerUnloadedItems().length > 0 && _missionCargoLoadedPassengerItems().length === 0;
 }
@@ -1892,6 +1941,7 @@ window.finishMissionCargoLoadingAndStart = function() {
         return false;
     }
     window.missionCargoStatus.loadConfirmed = true;
+    _missionCargoRemoveLoadedSceneObjects('cargo-finish-loading');
     _missionCargoSyncPayloadToSim('cargo-finish-loading').catch(() => {});
     window.closeMissionCargoDialog?.();
     if (!_missionCargoMaybePromoteStartReady('cargo-finish-loading')) {
@@ -2011,6 +2061,7 @@ window.finishMissionCargoPickupAndContinue = function() {
 
 window.finishMissionCargoUnloadAndEnd = function() {
     _missionPhaseDebugPush('trigger', { name: 'finishMissionCargoUnloadAndEnd' });
+    _missionCargoSpawnUnloadedSceneObjects('cargo-finish-unload');
     window.closeMissionCargoDialog?.();
     if (_missionSceneIsBushMission() && typeof _missionBushUpdateProgress === 'function') {
         try { _missionBushUpdateProgress(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon, Date.now()); } catch (_) {}
