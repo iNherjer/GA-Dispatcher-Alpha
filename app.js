@@ -13453,7 +13453,9 @@ Regeln:
 20. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
 21. Vermeide reine Dispatcher-Floskeln wie "wir machen heute Fotos", "wir fliegen heute eine Inspektion" oder "wir suchen das Gebiet ab", wenn kein genauer Anlass, kein betroffenes Subjekt und keine Folgeentscheidung benannt werden.
 22. Antworte in natuerlichen, vollstaendigen Saetzen; keine Aufzaehlung einzelner Lagefragmente als Kurzsaetze.
-23. Antwort nur als JSON.
+23. CONTRACT.storyFrame-Felder sind Rohmaterial, keine Satzliste. Formuliere sie zu 4-5 fluessigen Saetzen um, statt jedes Feld einzeln aneinanderzureihen.
+24. Wenn subjectDetail bereits ein ganzer Satz ist, schreibe nicht "Gesucht wird nach ..." davor. Nutze dann eine passende eigene Formulierung.
+25. Antwort nur als JSON.
 </INSTRUKTIONEN>
 
 <CONTRACT>
@@ -13552,6 +13554,74 @@ function _missionPipelineV4JoinNaturalList(values = []) {
     return `${src.slice(0, -1).join(', ')} und ${src[src.length - 1]}`;
 }
 
+function _missionPipelineV4StripSentenceEnd(text = '') {
+    return String(text || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\s*[.!?]+$/g, '')
+        .trim();
+}
+
+function _missionPipelineV4LowerFirst(text = '') {
+    const s = String(text || '').trim();
+    if (!s) return '';
+    return s.charAt(0).toLowerCase() + s.slice(1);
+}
+
+function _missionPipelineV4EnsureSentence(text = '', fallback = '') {
+    const s = _missionPipelineV4StripSentenceEnd(text || fallback);
+    if (!s) return '';
+    return /[.!?]$/.test(s) ? s : `${s}.`;
+}
+
+function _missionPipelineV4SentenceParts(text = '') {
+    return String(text || '')
+        .split(/(?<=[.!?])\s+/)
+        .map(part => _missionPipelineV4StripSentenceEnd(part))
+        .filter(Boolean);
+}
+
+function _missionPipelineV4LooksLikeCompleteSentence(text = '') {
+    const s = _missionPipelineV4StripSentenceEnd(text);
+    if (!s) return false;
+    if (/^Meldung\b/i.test(s)) return false;
+    return /\b(wird|wurde|ist|sind|hat|haben|befindet|fehlt|meldet|melden|sucht|suchen|braucht|brauchen|soll|sollen|muss|muessen|müssen)\b/i.test(s);
+}
+
+function _missionPipelineV4SarSubjectSentence(detail = '', fallback = '') {
+    const s = _missionPipelineV4StripSentenceEnd(detail || fallback);
+    if (!s) return '';
+    if (_missionPipelineV4LooksLikeCompleteSentence(s)) return _missionPipelineV4EnsureSentence(s);
+    if (/^(einem|einer|einen)\b/i.test(s)) return `Gesucht wird nach ${_missionPipelineV4LowerFirst(s)}.`;
+    return `Im Mittelpunkt steht ${_missionPipelineV4LowerFirst(s)}.`;
+}
+
+function _missionPipelineV4OutcomeSentence(text = '', fallback = '') {
+    let s = _missionPipelineV4StripSentenceEnd(text || fallback);
+    if (!s) return '';
+    if (_missionPipelineV4LooksLikeCompleteSentence(s)) {
+        return _missionPipelineV4EnsureSentence(s);
+    }
+    return _missionPipelineV4EnsureSentence(`Aus der Luft liefern wir den benoetigten Befund: ${_missionPipelineV4LowerFirst(s)}`);
+}
+
+function _missionPipelineV4CompletionSentence(text = '') {
+    let s = _missionPipelineV4StripSentenceEnd(text);
+    if (!s) return '';
+    if (/^(Uebergabe|Übergabe)\b/i.test(s)) {
+        return _missionPipelineV4EnsureSentence(`Anschliessend folgt die ${s}`);
+    }
+    return _missionPipelineV4EnsureSentence(s);
+}
+
+function _missionPipelineV4PushUniqueSentence(out = [], sentence = '', minHits = 2) {
+    const s = _missionPipelineV4EnsureSentence(sentence);
+    if (!s) return;
+    const existing = out.join(' ');
+    if (existing && _missionPipelineV4StoryFieldCovered(existing, s, minHits)) return;
+    out.push(s);
+}
+
 function _missionPipelineV4ComposeStoryFallback(contract = {}) {
     const targetName = String(contract?.target?.name || 'dem Zielgebiet').trim() || 'dem Zielgebiet';
     const taskDomain = String(contract?.profile?.taskDomain || 'general').trim().toLowerCase();
@@ -13566,6 +13636,12 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}) {
     const clueLine = Array.isArray(frame.visibleClueCandidates) && frame.visibleClueCandidates.length
         ? `Aus der Luft achten wir besonders auf ${_missionPipelineV4JoinNaturalList(frame.visibleClueCandidates.slice(0, 3))}.`
         : '';
+    const avoidText = normalizeMissionText([
+        ...(Array.isArray(contract?.missionPlan?.plan?.mustAvoid) ? contract.missionPlan.plan.mustAvoid : []),
+        ...(Array.isArray(contract?.mustAvoid) ? contract.mustAvoid : []),
+        ...(Array.isArray(contract?.plan?.mustAvoid) ? contract.plan.mustAvoid : [])
+    ].join(' '));
+    const avoidSpeculation = /spekulation|ursache.*verschwind|cause.*missing|keine.*hypothese/.test(avoidText);
     const weather = contract?.weather?.dest || contract?.weather?.dep || null;
     const weatherBits = [];
     if (Number.isFinite(Number(weather?.tempC))) weatherBits.push(`${Math.round(Number(weather.tempC))}°C`);
@@ -13574,21 +13650,43 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}) {
         ? ` Die Bedingungen bleiben mit ${weatherBits.join(' und ')} gut genug fuer einen ruhigen, praezisen Ueberflug.`
         : '';
     if (taskDomain === 'search_and_rescue') {
-        const intro = String(frame.trigger || `Im Bereich ${targetName} laeuft eine SAR-Lage, die aus der Luft verengt werden soll.`).trim();
-        const subjectLine = detail ? `Gesucht wird nach ${detail}.` : '';
-        const contextLine = incident || `Der aktuelle Suchschwerpunkt konzentriert sich auf ${targetName}.`;
-        const lastKnownLine = [lastSeen, probableScenario].filter(Boolean).join(' ');
-        const urgencyLine = `${whyNow || 'Die Bodenkraefte brauchen jetzt einen engeren Suchraum, bevor weitere Teams gebunden werden.'}${weatherSentence}`.trim();
-        const outcomeLine = `${sought || 'Wir sollen einen klaren Hinweis oder den sinnvollsten Zugang fuer die Suchtrupps melden.'} ${completion}`.trim();
-        return [
-            intro,
-            subjectLine,
-            contextLine,
-            lastKnownLine,
-            urgencyLine,
-            outcomeLine,
-            clueLine
-        ].filter(Boolean).join(' ');
+        const sentences = [];
+        const triggerText = String(frame.trigger || '').trim();
+        const introSource = (!_missionPipelineV4LooksLikeCompleteSentence(triggerText) && detail)
+            ? _missionPipelineV4SarSubjectSentence(detail, frame.focusSubject)
+            : (triggerText || `Im Bereich ${targetName} laeuft eine SAR-Lage, die aus der Luft verengt werden soll.`);
+        _missionPipelineV4PushUniqueSentence(sentences, introSource);
+        const subjectLine = detail ? _missionPipelineV4SarSubjectSentence(detail, frame.focusSubject) : '';
+        if (subjectLine && !_missionPipelineV4StoryFieldCovered(sentences.join(' '), detail, 2)) {
+            _missionPipelineV4PushUniqueSentence(sentences, subjectLine);
+        }
+        const contextCandidates = avoidSpeculation
+            ? [lastSeen, incident]
+            : [lastSeen, incident, probableScenario];
+        for (const candidate of contextCandidates) {
+            if (sentences.length >= 3) break;
+            for (const part of _missionPipelineV4SentenceParts(candidate)) {
+                const before = sentences.length;
+                _missionPipelineV4PushUniqueSentence(sentences, part, 4);
+                if (sentences.length > before) break;
+            }
+        }
+        const weatherClause = weatherBits.length
+            ? `; bei ${weatherBits.join(' und ')} bleiben die Bedingungen fuer einen ruhigen, praezisen Ueberflug brauchbar`
+            : '';
+        _missionPipelineV4PushUniqueSentence(
+            sentences,
+            `${_missionPipelineV4StripSentenceEnd(whyNow || 'Die Bodenkraefte brauchen jetzt einen engeren Suchraum, bevor weitere Teams gebunden werden')}${weatherClause}`.trim()
+        );
+        const outcomeSentence = _missionPipelineV4OutcomeSentence(
+            sought,
+            'einen klaren Hinweis oder den sinnvollsten Zugang fuer die Suchtrupps'
+        );
+        const completionSentence = _missionPipelineV4CompletionSentence(completion);
+        const handoff = [outcomeSentence, completionSentence].filter(Boolean).join(' ');
+        _missionPipelineV4PushUniqueSentence(sentences, handoff);
+        if (clueLine && sentences.length < 4) _missionPipelineV4PushUniqueSentence(sentences, clueLine);
+        return sentences.filter(Boolean).slice(0, 5).join(' ');
     }
     if (taskDomain === 'inspection_infra') {
         return [
