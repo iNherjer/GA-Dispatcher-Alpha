@@ -860,13 +860,18 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const missionId = String(command?.missionId || '').trim();
     if (!missionId) return;
     const lifecycleState = String(command?.state || '').trim().toLowerCase();
-    const ended = /^(ended|closed|reset|cleared)$/i.test(lifecycleState);
+    const phase = String(command?.missionPhase || '').trim().toLowerCase();
+    const type = String(command?.type || command?.command || '').trim().toLowerCase();
+    const reason = String(command?.reason || '').trim().toLowerCase();
+    const terminal = /^(ended|closed|reset|cleared|closing)$/i.test(lifecycleState)
+      || phase === 'closing'
+      || (/^mission_scene_clear/.test(type) && /mission-runtime-reset|mission-close|manual-mission-end/.test(reason));
     const sceneSummary = sceneSummaryForMission(missionId);
     trackerMissionStatus = {
       missionId,
-      state: lifecycleState || (ended ? 'ended' : 'active'),
-      active: !ended,
-      phase: String(command?.missionPhase || '').trim() || null,
+      state: lifecycleState || (terminal ? 'ended' : 'active'),
+      active: !terminal,
+      phase: phase || null,
       sceneId: command?.sceneId ? String(command.sceneId) : null,
       sceneCount: sceneSummary.length,
       scenes: sceneSummary.slice(0, 12),

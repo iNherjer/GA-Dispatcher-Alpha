@@ -210,11 +210,15 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
         let primaryLabel = cleanedCargo || 'Missionsladung';
         if (taskDomain === 'fire_watch') {
             primaryTitle = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.fireCargo, 'Drop_Container', 'fire-cargo-primary', 'Drop_Container');
-            primaryCandidates = MISSION_SCENE_ASSET_POOLS.fireCargo;
+            primaryCandidates = typeof _missionSceneSafeBoardingCargoCandidates === 'function'
+                ? _missionSceneSafeBoardingCargoCandidates(MISSION_SCENE_ASSET_POOLS.fireCargo)
+                : MISSION_SCENE_ASSET_POOLS.fireCargo;
             primaryLabel = cleanedCargo || 'Einsatzladung';
         } else if (taskDomain === 'search_and_rescue') {
             primaryTitle = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.sarCargo, 'Drop_Container', 'sar-cargo-primary', 'Drop_Container');
-            primaryCandidates = MISSION_SCENE_ASSET_POOLS.sarCargo;
+            primaryCandidates = typeof _missionSceneSafeBoardingCargoCandidates === 'function'
+                ? _missionSceneSafeBoardingCargoCandidates(MISSION_SCENE_ASSET_POOLS.sarCargo)
+                : MISSION_SCENE_ASSET_POOLS.sarCargo;
             primaryLabel = cleanedCargo || 'SAR Ausruestung';
         } else if (taskDomain === 'medical_transfer') {
             primaryTitle = _scenePreferredTitle(MISSION_SCENE_ASSET_POOLS.medicalEquipment, 'Cardboard', 'medical-cargo-primary', 'Cardboard');

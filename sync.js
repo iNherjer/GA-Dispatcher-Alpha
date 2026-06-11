@@ -438,6 +438,7 @@ const MISSION_RUNTIME_RESUME_KEY = 'ga_active_mission_runtime';
 let missionRuntimeSnapshotTimer = null;
 let missionRuntimeLastPersistAt = 0;
 let missionRuntimeResumeAppliedFor = '';
+let missionRuntimeResumeSuppressedFor = '';
 const TRACKER_RETRYABLE_COMMAND_TYPES = new Set([
     'mission_scene_spawn',
     'mission_scene_clear',
@@ -741,6 +742,7 @@ function _clearMissionRuntimeSnapshot(reason = 'mission-runtime-clear') {
         missionRuntimeSnapshotTimer = null;
     }
     try { localStorage.removeItem(MISSION_RUNTIME_RESUME_KEY); } catch (_) {}
+    missionRuntimeResumeSuppressedFor = _activeMissionRuntimeId('') || missionRuntimeResumeSuppressedFor;
     missionRuntimeResumeAppliedFor = '';
     _missionPhaseDebugPush('resume_snapshot_clear', { reason });
 }
@@ -2068,6 +2070,10 @@ function _handleTrackerMissionStatus(status = null, reason = 'tracker-status') {
         return false;
     }
     window.missionRuntimeResumeConflict = null;
+    if (trackerActive && missionRuntimeResumeSuppressedFor === trackerMissionId && !missionRuntime.active && !missionRuntime.closingPending) {
+        _missionPhaseDebugPush('resume_suppressed', { reason, missionId: trackerMissionId, state: status.state || '' });
+        return true;
+    }
     const snap = _readMissionRuntimeSnapshot();
     if (trackerActive && snap && _snapshotMatchesActiveMission(snap) && !missionRuntime.active && !missionRuntime.closingPending) {
         if (missionRuntimeResumeAppliedFor === trackerMissionId) {
@@ -2554,6 +2560,11 @@ function _missionSceneCargoWeightLbs() {
     return Number.isFinite(n) ? n : null;
 }
 
+function _missionSceneSafeBoardingCargoCandidates(candidates = []) {
+    return _sceneUniqueTitles(candidates)
+        .filter(title => !/(^|[_\s-])Microsoft[_\s-]?Truck[_\s-]?Container($|[_\s-])|Truck[_\s-]?Utility/i.test(String(title || '')));
+}
+
 function _missionSceneCargoAsset() {
     const taskDomain = _missionSceneTaskDomain();
     const cargoText = _missionSceneCargoText().toLowerCase();
@@ -2571,9 +2582,12 @@ function _missionSceneCargoAsset() {
         ? _scenePreferredTitle(pool, 'Drop_Container', `cargo-${cargoText}-${cargoWeightLbs ?? 'n/a'}`, pool[0] || BOARDING_CARGO_FALLBACK_TITLE)
         : _scenePickTitle(pool, `cargo-${cargoText}-${cargoWeightLbs ?? 'n/a'}`, pool[0] || BOARDING_CARGO_FALLBACK_TITLE);
     const preferred = _sceneObjectTitleOverride('cargo', preferredCargo);
+    const candidatePool = (taskDomain === 'fire_watch' || taskDomain === 'search_and_rescue')
+        ? _missionSceneSafeBoardingCargoCandidates(pool.concat(MISSION_SCENE_ASSET_POOLS.smallCargo, ['Cardboard', BOARDING_CARGO_FALLBACK_TITLE]))
+        : _missionSceneSafeBoardingCargoCandidates(pool.concat(MISSION_SCENE_ASSET_POOLS.cargo, [BOARDING_CARGO_FALLBACK_TITLE]));
     return {
         title: preferred,
-        candidates: _sceneAssetCandidates(preferred, pool.concat(MISSION_SCENE_ASSET_POOLS.cargo, [BOARDING_CARGO_FALLBACK_TITLE])),
+        candidates: _sceneAssetCandidates(preferred, candidatePool),
         taskDomain,
         sizePrimary,
         cargoText,
@@ -2738,7 +2752,7 @@ function _missionSceneVehicleAsset() {
         const pool = MISSION_SCENE_ASSET_POOLS.medicalVehicles.length
             ? MISSION_SCENE_ASSET_POOLS.medicalVehicles
             : fallbackPool;
-        const title = _sceneObjectTitleOverride('vehicle', _scenePickTitle(pool, 'vehicle-sar-medical', pool[0] || fallbackPool[0] || 'Microsoft_Van_EUR'), pool.concat(fallbackPool));
+        const title = _sceneObjectTitleOverride('vehicle', _scenePreferredTitle(pool, 'Car Bush Medic', 'vehicle-sar-medical', pool[0] || fallbackPool[0] || 'Microsoft_Van_EUR'), pool.concat(fallbackPool));
         return {
             title,
             candidates: _sceneAssetCandidates(title, pool.concat(fallbackPool))
@@ -2857,7 +2871,11 @@ function _missionSceneVehicleSupportEnabled() {
     try {
         const raw = String(localStorage.getItem('ga_scene_apt_vehicle_enabled') || '').trim().toLowerCase();
         if (/^(1|true|yes|ja|on)$/.test(raw)) return true;
+        if (/^(0|false|no|nein|off)$/.test(raw)) return false;
     } catch (_) {}
+    const taskDomain = _missionSceneTaskDomain();
+    if (/^(medical_transfer|search_and_rescue|cargo|news_coverage|animal_transport|survey|fire_watch)$/.test(taskDomain)) return true;
+    if (/(club_utility|inspection|mapping|science|freight|fracht|cargo|medical|sar|rescue|rettung|news|media|animal|tier)/.test(taskDomain)) return true;
     return false;
 }
 
