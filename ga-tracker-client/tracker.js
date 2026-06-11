@@ -12,8 +12,8 @@ const path = require('path');
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const WS_URL = 'wss://websocketrelais.onrender.com/';
 const CONFIG_FILE = 'tracker-config.json';
-const TRACKER_VERSION = 'v253';
-const TRACKER_VERSION_CODE = 253;
+const TRACKER_VERSION = 'v254';
+const TRACKER_VERSION_CODE = 254;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -264,6 +264,7 @@ function buildTitleCandidates(title, extra = []) {
 function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null, getGroundTrafficSnapshot = null) {
   const missions = new Map();
   const scenes = new Map();
+  let sceneOperationQueue = Promise.resolve();
   let trackerMissionStatus = null;
   const pendingAssign = new Map();
   const pendingPayloadReads = new Map();
@@ -285,6 +286,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   let doorLastAppliedState = null; // true=open, false=closed
   let doorLastAppliedAt = 0;
   let doorLastApplyOk = false;
+
+  const enqueueSceneOperation = (sceneId, operation) => {
+    const current = sceneOperationQueue.catch(() => {}).then(operation);
+    sceneOperationQueue = current.catch(() => {});
+    return current;
+  };
 
   const ensureTeleportDefinition = () => {
     if (teleportDefReady) return true;
@@ -1698,13 +1705,14 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
   };
 
-  const clearScene = async (sceneId, reason = 'clear', commandId = null) => {
+  const clearScene = async (sceneId, reason = 'clear', commandId = null, options = {}) => {
     const key = String(sceneId || 'mission-scene');
+    const ackEnabled = options?.ack !== false;
     const rec = scenes.get(key);
     const missionId = rec?.missionId || rec?.command?.missionId || '';
     if (!rec || !Array.isArray(rec.objects) || rec.objects.length === 0) {
       debugLog(`SCENE_CLEAR_NOOP scene=${key} reason=${reason}`);
-      sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: key, missionId, status: 'noop', reason });
+      if (ackEnabled) sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: key, missionId, status: 'noop', reason });
       return { cleared: 0 };
     }
     let cleared = 0;
@@ -1721,7 +1729,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     scenes.delete(key);
     trackerLog(`🚒 Scene ${key}: ${cleared} Objekte entfernt (${reason}).`);
     debugLog(`SCENE_CLEAR_OK scene=${key} cleared=${cleared} reason=${reason}`);
-    sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: key, missionId, status: 'ok', cleared, reason });
+    if (ackEnabled) sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId: key, missionId, status: 'ok', cleared, reason });
     return { cleared };
   };
 
@@ -1819,7 +1827,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       sendAck({ type: 'mission_scene_spawn_ack', commandId, sceneId, missionId, status: 'error', error: 'invalid scene base/items' });
       return;
     }
-    await clearScene(sceneId, 'replace-before-scene', commandId);
+    await clearScene(sceneId, 'replace-before-scene', null, { ack: false });
     const objects = [];
     trackerLog(`🚒 Scene ${sceneId}: spawn ${positions.length} Objekte (${JSON.stringify(countByKind(positions))})`);
     debugLog(`SCENE_SPAWN_START scene=${sceneId} count=${positions.length} byKind=${JSON.stringify(countByKind(positions))}`);
@@ -2109,24 +2117,27 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         return true;
       }
       if (type === 'mission_scene_spawn') {
-        debugLog(`COMMAND mission_scene_spawn scene=${command?.sceneId || 'mission-scene'} items=${Array.isArray(command?.items) ? command.items.length : 0}`);
-        spawnMissionScene(command).catch(err => {
+        const sceneId = command?.sceneId || 'mission-scene';
+        debugLog(`COMMAND mission_scene_spawn scene=${sceneId} items=${Array.isArray(command?.items) ? command.items.length : 0}`);
+        enqueueSceneOperation(sceneId, () => spawnMissionScene(command)).catch(err => {
           trackerWarn(`⚠️  Scene spawn failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_spawn_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', missionId: command?.missionId || '', status: 'error', error: err?.message || String(err) });
         });
         return true;
       }
       if (type === 'mission_scene_object_remove') {
-        debugLog(`COMMAND mission_scene_object_remove scene=${command?.sceneId || 'mission-scene'} kinds=${Array.isArray(command?.kinds) ? command.kinds.join(',') : (command?.kind || '')}`);
-        removeSceneObjectsBySelector(command).catch(err => {
+        const sceneId = command?.sceneId || 'mission-scene';
+        debugLog(`COMMAND mission_scene_object_remove scene=${sceneId} kinds=${Array.isArray(command?.kinds) ? command.kinds.join(',') : (command?.kind || '')}`);
+        enqueueSceneOperation(sceneId, () => removeSceneObjectsBySelector(command)).catch(err => {
           trackerWarn(`⚠️  Scene object remove failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_object_remove_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', missionId: command?.missionId || '', status: 'error', error: err?.message || String(err) });
         });
         return true;
       }
       if (type === 'mission_scene_object_spawn') {
-        debugLog(`COMMAND mission_scene_object_spawn scene=${command?.sceneId || 'mission-scene'} items=${Array.isArray(command?.items) ? command.items.length : 0}`);
-        spawnSceneObjectsAppend(command).catch(err => {
+        const sceneId = command?.sceneId || 'mission-scene';
+        debugLog(`COMMAND mission_scene_object_spawn scene=${sceneId} items=${Array.isArray(command?.items) ? command.items.length : 0}`);
+        enqueueSceneOperation(sceneId, () => spawnSceneObjectsAppend(command)).catch(err => {
           trackerWarn(`⚠️  Scene object spawn failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_object_spawn_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', missionId: command?.missionId || '', status: 'error', error: err?.message || String(err) });
         });
@@ -2134,8 +2145,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
       if (type === 'mission_scene_boarding') {
         const pathCount = Array.isArray(command?.path) ? command.path.length : (Array.isArray(command?.boardingPath) ? command.boardingPath.length : (Array.isArray(command?.waypoints) ? command.waypoints.length : 0));
-        debugLog(`COMMAND mission_scene_boarding scene=${command?.sceneId || 'mission-scene'} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} pathPoints=${pathCount} cargoPathIndex=${command?.cargoPathIndex ?? ''} door=${command?.openDoor === true || command?.door === true ? 1 : 0} doorProfile=${command?.doorProfile || command?.aircraftDoorProfile || ''} aircraftSlot=${command?.aircraftSlot || ''} aircraftName="${command?.aircraftName || ''}"`);
-        animateMissionSceneBoarding(command).catch(err => {
+        const sceneId = command?.sceneId || 'mission-scene';
+        debugLog(`COMMAND mission_scene_boarding scene=${sceneId} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} pathPoints=${pathCount} cargoPathIndex=${command?.cargoPathIndex ?? ''} door=${command?.openDoor === true || command?.door === true ? 1 : 0} doorProfile=${command?.doorProfile || command?.aircraftDoorProfile || ''} aircraftSlot=${command?.aircraftSlot || ''} aircraftName="${command?.aircraftName || ''}"`);
+        enqueueSceneOperation(sceneId, () => animateMissionSceneBoarding(command)).catch(err => {
           trackerWarn(`⚠️  Scene boarding failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_boarding_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', missionId: command?.missionId || '', status: 'error', error: err?.message || String(err) });
         });
@@ -2143,16 +2155,18 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
       if (type === 'mission_scene_deboarding') {
         const pathCount = Array.isArray(command?.path) ? command.path.length : (Array.isArray(command?.boardingPath) ? command.boardingPath.length : (Array.isArray(command?.waypoints) ? command.waypoints.length : 0));
-        debugLog(`COMMAND mission_scene_deboarding scene=${command?.sceneId || 'mission-scene'} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} pathPoints=${pathCount} boarderCount=${command?.boarderCount ?? ''} door=${command?.openDoor === true || command?.door === true ? 1 : 0} doorProfile=${command?.doorProfile || command?.aircraftDoorProfile || ''} aircraftSlot=${command?.aircraftSlot || ''} aircraftName="${command?.aircraftName || ''}"`);
-        animateMissionSceneDeboarding(command).catch(err => {
+        const sceneId = command?.sceneId || 'mission-scene';
+        debugLog(`COMMAND mission_scene_deboarding scene=${sceneId} profile=${command?.profile || command?.pathProfile || 'ga_right_cockpit_v1'} pathPoints=${pathCount} boarderCount=${command?.boarderCount ?? ''} door=${command?.openDoor === true || command?.door === true ? 1 : 0} doorProfile=${command?.doorProfile || command?.aircraftDoorProfile || ''} aircraftSlot=${command?.aircraftSlot || ''} aircraftName="${command?.aircraftName || ''}"`);
+        enqueueSceneOperation(sceneId, () => animateMissionSceneDeboarding(command)).catch(err => {
           trackerWarn(`⚠️  Scene deboarding failed: ${err?.message || err}`);
           sendAck({ type: 'mission_scene_deboarding_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', missionId: command?.missionId || '', status: 'error', error: err?.message || String(err) });
         });
         return true;
       }
       if (type === 'mission_scene_clear') {
-        debugLog(`COMMAND mission_scene_clear scene=${command?.sceneId || 'mission-scene'}`);
-        clearScene(command?.sceneId || 'mission-scene', 'command', command?.commandId || null).catch(err => {
+        const sceneId = command?.sceneId || 'mission-scene';
+        debugLog(`COMMAND mission_scene_clear scene=${sceneId}`);
+        enqueueSceneOperation(sceneId, () => clearScene(sceneId, command?.reason || 'command', command?.commandId || null)).catch(err => {
           sendAck({ type: 'mission_scene_clear_ack', commandId: command?.commandId || null, sceneId: command?.sceneId || 'mission-scene', missionId: command?.missionId || '', status: 'error', error: err?.message || String(err) });
         });
         return true;
@@ -2162,7 +2176,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         const missionId = command?.missionId || '';
         const ids = [...scenes.keys()];
         debugLog(`COMMAND mission_scene_clear_all scenes=${ids.length}`);
-        Promise.all(ids.map(id => clearScene(id, command?.reason || 'command-all', commandId)))
+        Promise.all(ids.map(id => enqueueSceneOperation(id, () => clearScene(id, command?.reason || 'command-all', commandId))))
           .then(async (results) => {
             const sceneCleared = results.reduce((sum, item) => sum + Number(item?.cleared || 0), 0);
             const tracked = await clearTrackedObjects(command?.reason || 'command-all');

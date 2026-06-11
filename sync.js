@@ -465,7 +465,7 @@ function _trackerRetryConfigForCommand(type = '') {
     const t = String(type || '').toLowerCase();
     if (t === 'mission_scene_spawn') {
         // Spawn is not idempotent on all tracker builds; retries can duplicate scene objects.
-        return { maxAttempts: 1, timeoutMs: 18000 };
+        return { maxAttempts: 1, timeoutMs: 60000 };
     }
     if (t === 'mission_scene_boarding') {
         // Boarding is non-idempotent; a retry can run a second boarding in parallel.
@@ -622,6 +622,8 @@ const MISSION_SCENE_DEFAULT_PERSON_TITLE = 'Tarmac_Female_Summer_Asian';
 const MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE = 'Tarmac_Male_Summer_Asian';
 const MISSION_SCENE_DEBUG_MAX_EVENTS = 50;
 const MISSION_PHASE_DEBUG_MAX_EVENTS = 180;
+const MISSION_SCENE_SPAWN_ERROR_COOLDOWN_MS = 60000;
+const MISSION_SCENE_SPAWN_PENDING_STALE_MS = 90000;
 
 function _missionPhaseDebugState() {
     if (!window.gaMissionPhaseDebug || typeof window.gaMissionPhaseDebug !== 'object') {
@@ -871,6 +873,7 @@ window.missionSceneStatus = {
     lastAck: null,
     spawned: false,
     spawnedCount: 0,
+    lastSpawnFailedAt: 0,
     spawnRequested: false,
     clearRequested: false,
     boardingRequested: false,
@@ -922,6 +925,7 @@ window.missionTargetSceneStatus = {
     lastAck: null,
     spawned: false,
     spawnedCount: 0,
+    lastSpawnFailedAt: 0,
     spawnRequested: false,
     clearRequested: false,
     cleared: false,
@@ -937,6 +941,7 @@ window.missionAptArrivalSceneStatus = {
     lastAck: null,
     spawned: false,
     spawnedCount: 0,
+    lastSpawnFailedAt: 0,
     spawnRequested: false,
     clearRequested: false,
     cleared: false,
@@ -1526,6 +1531,24 @@ function _missionSceneFlightGate(flightData = null) {
     return { ...quality, gs, agl, hasPosition, onGround, nearGround, groundLike, lowGround, stationary, paused, inMenuOrMap, airborne, canStage };
 }
 
+function _missionSceneSpawnBackoffActive(status = {}, sceneId = '') {
+    if (!status || typeof status !== 'object') return false;
+    if (sceneId && status.sceneId && String(status.sceneId) !== String(sceneId)) return false;
+    const failedAt = Number(status.lastSpawnFailedAt || 0);
+    return Number.isFinite(failedAt) && failedAt > 0 && (Date.now() - failedAt) < MISSION_SCENE_SPAWN_ERROR_COOLDOWN_MS;
+}
+
+function _missionSceneSpawnPendingActive(status = {}, sceneId = '') {
+    if (!status || typeof status !== 'object' || !status.spawnRequested) return false;
+    if (sceneId && status.sceneId && String(status.sceneId) !== String(sceneId)) return false;
+    const ageMs = Date.now() - Number(status.lastCommandAt || 0);
+    if (Number.isFinite(ageMs) && ageMs < MISSION_SCENE_SPAWN_PENDING_STALE_MS) return true;
+    status.spawnRequested = false;
+    status.lastSpawnFailedAt = Date.now();
+    status.error = status.error || 'scene_spawn_ack_timeout';
+    return false;
+}
+
 function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
     if (typeof window.missionSceneSpawn !== 'function' || typeof window.missionSceneClear !== 'function') return;
     const startPhase = _missionStartPhase();
@@ -1580,8 +1603,13 @@ function _missionSceneHandleFlightTick(flightData = null, reason = 'gps-tick') {
         status.blockReason = 'already_airborne_cleared';
         return;
     }
-    if (status.sceneId === sceneId && (status.spawned || status.spawnRequested)) {
+    const spawnPending = _missionSceneSpawnPendingActive(status, sceneId);
+    if (status.sceneId === sceneId && (status.spawned || spawnPending)) {
         status.blockReason = status.spawned ? 'already_spawned' : 'spawn_pending';
+        return;
+    }
+    if (_missionSceneSpawnBackoffActive(status, sceneId)) {
+        status.blockReason = 'spawn_error_cooldown';
         return;
     }
     if (status.lastCommand?.type === 'mission_scene_spawn' && (Date.now() - Number(status.lastCommandAt || 0)) < 12000) {
@@ -2380,7 +2408,8 @@ window.missionAptArrivalEnsureSpawned = function(reason = 'apt-arrival-prestage'
         return false;
     }
     if (status.sceneId === sceneId && status.clearRequested && (Date.now() - Number(status.lastCommandAt || 0)) < 15000) return false;
-    if (status.sceneId === sceneId && (status.spawned || status.spawnRequested)) return false;
+    if (status.sceneId === sceneId && (status.spawned || _missionSceneSpawnPendingActive(status, sceneId))) return false;
+    if (_missionSceneSpawnBackoffActive(status, sceneId)) return false;
     if (status.sceneId === sceneId && status.lastCommand?.type === 'mission_scene_spawn' && (Date.now() - Number(status.lastCommandAt || 0)) < 15000) return false;
     const items = _missionAptArrivalSceneItems(plan);
     if (!items.length) return false;
@@ -2435,6 +2464,7 @@ window.missionAptArrivalEnsureSpawned = function(reason = 'apt-arrival-prestage'
         clearedCount: 0,
         spawned: false,
         spawnedCount: 0,
+        lastSpawnFailedAt: 0,
         error: null
     };
     if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
@@ -2934,10 +2964,15 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
         return false;
     }
     const sceneId = _missionSceneId();
+    if (!debugReason && _missionSceneSpawnBackoffActive(window.missionSceneStatus || {}, sceneId)) {
+        window.missionSceneStatus.blockReason = 'spawn_error_cooldown';
+        if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
+        return false;
+    }
     const sameSceneAlreadyRequested = !!(
         !debugReason
         && window.missionSceneStatus?.sceneId === sceneId
-        && (window.missionSceneStatus?.spawnRequested || window.missionSceneStatus?.spawned)
+        && (_missionSceneSpawnPendingActive(window.missionSceneStatus || {}, sceneId) || window.missionSceneStatus?.spawned)
         && (Date.now() - Number(window.missionSceneStatus?.lastCommandAt || 0)) < 15000
     );
     if (sameSceneAlreadyRequested) {
@@ -3051,6 +3086,7 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     window.missionSceneStatus.spawnRequested = true;
     window.missionSceneStatus.clearRequested = false;
     window.missionSceneStatus.spawned = false;
+    window.missionSceneStatus.lastSpawnFailedAt = 0;
     window.missionSceneStatus.error = null;
     window.missionSceneStatus.blockReason = '';
     if (String(reason || '').includes('auto') || reason === 'gps-tick') {
@@ -4551,7 +4587,8 @@ window.missionTargetSceneEnsureSpawned = function(reason = 'mission-start') {
     }
     if (!kind || !point) return false;
     const status = window.missionTargetSceneStatus || {};
-    if (status.sceneId === sceneId && (status.spawned || status.spawnRequested)) return false;
+    if (status.sceneId === sceneId && (status.spawned || _missionSceneSpawnPendingActive(status, sceneId))) return false;
+    if (_missionSceneSpawnBackoffActive(status, sceneId)) return false;
     if (status.sceneId === sceneId && status.lastCommand?.type === 'mission_scene_spawn' && (Date.now() - Number(status.lastCommandAt || 0)) < 15000) return false;
     const items = _missionTargetSceneItems(kind);
     if (!items.length) return false;
@@ -4593,6 +4630,7 @@ window.missionTargetSceneEnsureSpawned = function(reason = 'mission-start') {
         clearedCount: 0,
         spawned: false,
         spawnedCount: 0,
+        lastSpawnFailedAt: 0,
         error: null
     };
     if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
@@ -5044,6 +5082,10 @@ function _handleTrackerAck(ack) {
         _missionSceneDebugPatch({ lastIgnoredAck: ack }, `tracker-ack-ignored:${ack.type}`);
         return;
     }
+    if (ack.type === 'mission_scene_clear_ack' && String(ack.reason || '').toLowerCase() === 'replace-before-scene') {
+        _missionSceneDebugPatch({ lastIgnoredAck: ack }, `tracker-ack-ignored:${ack.type}:replace-before-scene`);
+        return;
+    }
     window.missionSmokeStatus.lastAckAt = Date.now();
     window.missionSmokeStatus.lastAck = ack;
     if (ack.type === 'aircraft_payload_get_ack' || ack.type === 'aircraft_payload_set_ack') {
@@ -5116,6 +5158,7 @@ function _handleTrackerAck(ack) {
                 window.missionTargetSceneStatus.spawnedCount = Number(ack.spawned || 0);
                 window.missionTargetSceneStatus.spawnedByKind = ack.spawnedByKind || null;
                 window.missionTargetSceneStatus.error = ack.status === 'ok' ? null : (ack.error || ack.status || 'target_scene_spawn_failed');
+                window.missionTargetSceneStatus.lastSpawnFailedAt = ack.status === 'ok' ? 0 : Date.now();
             } else if (ack.type === 'mission_scene_clear_ack') {
                 window.missionTargetSceneStatus.spawnRequested = false;
                 window.missionTargetSceneStatus.clearRequested = false;
@@ -5124,6 +5167,7 @@ function _handleTrackerAck(ack) {
                 window.missionTargetSceneStatus.spawnedByKind = null;
                 window.missionTargetSceneStatus.cleared = ack.status === 'ok' || ack.status === 'noop';
                 window.missionTargetSceneStatus.clearedCount = Number(ack.cleared || 0);
+                window.missionTargetSceneStatus.lastSpawnFailedAt = 0;
                 window.missionTargetSceneStatus.error = null;
             }
             if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
@@ -5142,6 +5186,7 @@ function _handleTrackerAck(ack) {
                 window.missionAptArrivalSceneStatus.spawnedCount = Number(ack.spawned || 0);
                 window.missionAptArrivalSceneStatus.spawnedByKind = ack.spawnedByKind || null;
                 window.missionAptArrivalSceneStatus.error = ack.status === 'ok' ? null : (ack.error || ack.status || 'apt_arrival_scene_spawn_failed');
+                window.missionAptArrivalSceneStatus.lastSpawnFailedAt = ack.status === 'ok' ? 0 : Date.now();
             } else if (ack.type === 'mission_scene_clear_ack') {
                 window.missionAptArrivalSceneStatus.spawnRequested = false;
                 window.missionAptArrivalSceneStatus.clearRequested = false;
@@ -5150,6 +5195,7 @@ function _handleTrackerAck(ack) {
                 window.missionAptArrivalSceneStatus.spawnedByKind = null;
                 window.missionAptArrivalSceneStatus.cleared = ack.status === 'ok' || ack.status === 'noop';
                 window.missionAptArrivalSceneStatus.clearedCount = Number(ack.cleared || 0);
+                window.missionAptArrivalSceneStatus.lastSpawnFailedAt = 0;
                 window.missionAptArrivalSceneStatus.error = null;
             } else if (ack.type === 'mission_scene_boarding_ack') {
                 window.missionSceneStatus.boardingRequested = false;
@@ -5176,6 +5222,7 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.spawnedByKind = ack.spawnedByKind || null;
             window.missionSceneStatus.cleared = false;
             window.missionSceneStatus.error = ack.status === 'ok' ? null : (ack.error || ack.status || 'scene_spawn_failed');
+            window.missionSceneStatus.lastSpawnFailedAt = ack.status === 'ok' ? 0 : Date.now();
             window.missionSceneStatus.boardingComplete = false;
             window.missionSceneStatus.personBoarded = false;
             if (ack.status === 'ok') _missionCargoRemoveLoadedSceneObjects('cargo-loaded-after-scene-spawn');
@@ -5187,6 +5234,7 @@ function _handleTrackerAck(ack) {
             window.missionSceneStatus.spawnedByKind = null;
             window.missionSceneStatus.cleared = ack.status === 'ok' || ack.status === 'noop';
             window.missionSceneStatus.clearedCount = Number(ack.cleared || 0);
+            window.missionSceneStatus.lastSpawnFailedAt = 0;
             window.missionSceneStatus.boardingRequested = false;
             window.missionSceneStatus.boardingActive = false;
             window.missionSceneStatus.boardingComplete = false;
@@ -6540,6 +6588,7 @@ window.missionRuntimeReset = function(options = {}) {
     Object.assign(window.missionSceneStatus, {
         spawned: false,
         spawnedCount: 0,
+        lastSpawnFailedAt: 0,
         spawnRequested: false,
         clearRequested: false,
         boardingRequested: false,
@@ -6556,6 +6605,7 @@ window.missionRuntimeReset = function(options = {}) {
         kind: null,
         spawned: false,
         spawnedCount: 0,
+        lastSpawnFailedAt: 0,
         spawnRequested: false,
         clearRequested: false,
         cleared: false,
@@ -6570,6 +6620,7 @@ window.missionRuntimeReset = function(options = {}) {
         lastCommandSummary: null,
         spawned: false,
         spawnedCount: 0,
+        lastSpawnFailedAt: 0,
         spawnRequested: false,
         clearRequested: false,
         cleared: false,
@@ -7793,8 +7844,8 @@ let liveCurrentNavData = [];
 let liveCurrentAirportCacheKey = '';
 let liveCurrentAirportCandidates = [];
 const liveFreqLookupPending = {};
-const MIN_TRACKER_VERSION_CODE = 253;
-const MIN_TRACKER_VERSION_LABEL = 'v253';
+const MIN_TRACKER_VERSION_CODE = 254;
+const MIN_TRACKER_VERSION_LABEL = 'v254';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {
