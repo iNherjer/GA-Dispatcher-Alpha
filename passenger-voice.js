@@ -56,6 +56,7 @@ window.paxVoiceGetDebugState = function() {
         greetingDone: !!_paxGreetingDone,
         atTargetDone: !!_paxAtTargetDone,
         farewellDone: !!_paxFarewellDone,
+        missionEndVoiceActive: _paxMissionEndVoiceActive(),
         pickupBoardingDone: !!_paxPickupBoardingDone,
         pickupDepartureDone: !!_paxPickupDepartureDone,
         poiSatisfied: !!_poiSatisfied,
@@ -121,6 +122,7 @@ window.paxVoiceBuildDebugReport = function() {
     lines.push(`- Greeting done: ${state.greetingDone ? '1' : '0'}`);
     lines.push(`- At-target done: ${state.atTargetDone ? '1' : '0'}`);
     lines.push(`- Farewell done: ${state.farewellDone ? '1' : '0'}`);
+    lines.push(`- End voice lock: ${state.missionEndVoiceActive ? '1' : '0'}`);
     lines.push(`- Pickup boarding done: ${state.pickupBoardingDone ? '1' : '0'}`);
     lines.push(`- Pickup departure done: ${state.pickupDepartureDone ? '1' : '0'}`);
     lines.push(`- POI satisfied/aborted: ${state.poiSatisfied ? '1' : '0'} / ${state.poiAborted ? '1' : '0'} | manual=${state.poiManualConfirmed ? '1' : '0'} | inRadius=${state.poiInRadius ? '1' : '0'} | dwellSec=${Math.round(Number(state.poiDwellSec || 0))} | attempts=${Number(state.poiAttempts || 0)}`);
@@ -402,6 +404,19 @@ let _missionComfortScore = null;
 
 function _paxEpochCurrent(epoch) {
     return Number(epoch) === Number(_paxMissionEpoch);
+}
+
+function _paxMissionEndVoiceActive() {
+    const runtime = (typeof missionRuntime !== 'undefined' && missionRuntime && typeof missionRuntime === 'object')
+        ? missionRuntime
+        : null;
+    return !!(
+        _paxFarewellDone
+        || runtime?.waitingFarewellDeboarding
+        || runtime?.deboardingAfterFarewellStarted
+        || runtime?.closingPending
+        || String(runtime?.phase || '').toLowerCase() === 'closing'
+    );
 }
 
 function _paxStopCurrentPlayback(reason = 'mission-reset') {
@@ -5382,8 +5397,13 @@ Sprich als ${pax.role} kurz und praktisch: ein Satz zur Landung, ein Satz zum Ro
 
 window.paxVoiceResetLeg = function() {
     _paxGreetingDone = false;
-    _paxAtTargetDone = false;
-    _paxLandingPhaseAnnounced = false;
+    if (_paxMissionEndVoiceActive()) {
+        _paxAtTargetDone = true;
+        _paxLandingPhaseAnnounced = true;
+    } else {
+        _paxAtTargetDone = false;
+        _paxLandingPhaseAnnounced = false;
+    }
     _paxPickupBoardingDone = false;
     _paxPickupDepartureDone = false;
     _cargoPickupBoardingDone = false;
@@ -5601,6 +5621,12 @@ window.triggerPaxGreeting = async function(lat, lon, options = {}) {
 window.triggerPaxAtTarget = async function(flightData) {
     _paxLog(`triggerPaxAtTarget | tts:${_paxVoiceEnabled} done:${_paxAtTargetDone} pax:${!!window.activePassenger} alt:${flightData?.mslFt||0}ft`, 'state');
     if (_paxAtTargetDone || !window.activePassenger || !_missionHasPax()) return;
+    if (_paxMissionEndVoiceActive()) {
+        _paxAtTargetDone = true;
+        _paxLandingPhaseAnnounced = true;
+        _paxLog('AtTarget unterdrueckt: Farewell/Missionsende aktiv', 'state');
+        return;
+    }
     const trainingPlan = _activeAptTrainingPlan();
     if (trainingPlan) {
         _paxAtTargetDone = true;
@@ -5614,7 +5640,13 @@ window.triggerPaxAtTarget = async function(flightData) {
     if (!prompt) { _paxAtTargetDone = false; _paxLandingPhaseAnnounced = false; _paxLog('AtTarget: kein Prompt', 'warn'); return; }
     _paxLog('At-Target → API-Call in 2s', 'event');
     const label = _isPOIMission() ? 'Am Ziel' : (_activeAptArrivalPlan() ? 'Ankunft' : 'Landung');
-    _paxMissionTimeout(() => _speakAndShow(prompt, label), 2000);
+    _paxMissionTimeout(() => {
+        if (_paxMissionEndVoiceActive()) {
+            _paxLog('AtTarget-Queue unterdrueckt: Farewell/Missionsende aktiv', 'state');
+            return;
+        }
+        _speakAndShow(prompt, label);
+    }, 2000);
 };
 
 function _notifyFarewellSpeechComplete(reason = 'pax-farewell-complete') {
@@ -5704,10 +5736,14 @@ window.triggerPaxFarewell = async function(record) {
 
 window.triggerPaxLandingRoll = async function(record) {
     if (!window.activePassenger || !_missionHasPax()) return;
+    if (_paxMissionEndVoiceActive()) return;
     const prompt = _landingRollPrompt(record);
     if (!prompt) return;
     _paxLog('Landing-Roll → API-Call in 1s', 'event');
-    _paxMissionTimeout(() => _speakAndShow(prompt, 'Nach der Landung'), 1000);
+    _paxMissionTimeout(() => {
+        if (_paxMissionEndVoiceActive()) return;
+        _speakAndShow(prompt, 'Nach der Landung');
+    }, 1000);
 };
 
 window.triggerPaxOffDestinationLanding = async function(distNm) {
@@ -5752,6 +5788,7 @@ window.checkPaxPoiProximity = function(lat, lon, flightData) {
     const hasPax = !!window.activePassenger && _missionHasPax();
     const cargoOnly = !hasPax && _cargoMissionFocus();
     if (!hasPax && !cargoOnly) return;
+    if (_paxMissionEndVoiceActive()) return;
     const isPoiMission = _isPOIMission();
     _recordMissionComfortSample(flightData || window.lastLiveFlightData || {});
     if (cargoOnly) {

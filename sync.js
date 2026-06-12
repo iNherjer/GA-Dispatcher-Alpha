@@ -10237,7 +10237,12 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     if (missionRuntime.active && typeof window.missionAptArrivalEnsureSpawned === 'function') {
         window.missionAptArrivalEnsureSpawned('gps-tick');
     }
-    if (typeof window.checkPaxPoiProximity === 'function') {
+    const paxMissionTickActive = !!(
+        missionRuntime.active
+        && !missionRuntime.closingPending
+        && String(missionRuntime.phase || '').toLowerCase() !== 'closing'
+    );
+    if (paxMissionTickActive && typeof window.checkPaxPoiProximity === 'function') {
         const _paxAlt = Math.max(0, Math.round(alt));
         const _aglFromTracker = Number(window.lastLiveFlightData?.aglFt);
         const _paxFd  = Object.assign({}, window.lastLiveFlightData || {}, {
@@ -10658,7 +10663,14 @@ function updateFlightRecorder(lat, lon, alt) {
             // fern vom Ziel keine "4-NM-vor-Landung"-Meldung auslöst.
             const dTargetNmNear = _distanceToMissionTargetNm(lat, lon);
             const nearTargetForAtTarget = !_missionBushRequiresReturnHome() && (Number.isFinite(dTargetNmNear) ? dTargetNmNear <= 4.5 : false);
-            if (nearTargetForAtTarget && typeof window.triggerPaxAtTarget === 'function') {
+            const paxVoiceEndBusy = !!(
+                r.farewellTriggered
+                || missionRuntime.waitingFarewellDeboarding
+                || missionRuntime.deboardingAfterFarewellStarted
+                || missionRuntime.closingPending
+                || String(missionRuntime.phase || '').toLowerCase() === 'closing'
+            );
+            if (!paxVoiceEndBusy && nearTargetForAtTarget && typeof window.triggerPaxAtTarget === 'function') {
                 window.triggerPaxAtTarget(window.lastLiveFlightData || {});
             }
         }
