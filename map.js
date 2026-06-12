@@ -7838,7 +7838,18 @@ function updateRoutePerformance() {
         let name2;
         if (isEnd) {
             // Bei einem Rundflug (POI-Mission) ist das Endziel der Startplatz
-            name2 = (currentMissionData && currentMissionData.poiName) ? currentStartICAO : currentDestICAO;
+            const finalWp = routeWaypoints[i + 1] || {};
+            const isSarHeliFinal = !!(
+                finalWp.isSarHeliHospital
+                || (
+                    typeof missionIsSarHeliMission === 'function'
+                    && currentMissionData
+                    && missionIsSarHeliMission(currentMissionData)
+                )
+            );
+            name2 = isSarHeliFinal
+                ? (finalWp.name || currentMissionData?.sarHeli?.hospitalRef?.name || currentDestICAO || 'HOSP')
+                : ((currentMissionData && currentMissionData.poiName) ? currentStartICAO : currentDestICAO);
         } else {
             name2 = routeWaypoints[i + 1].name || `WP ${i + 1}`;
         }
@@ -8493,36 +8504,37 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
         const hospitalLat = Number(hospital?.lat);
         const hospitalLon = Number(hospital?.lon);
         if (Number.isFinite(hospitalLat) && Number.isFinite(hospitalLon)) {
-            const targetTerrainFt = Number(
-                sarSpec?.targetRef?.terrainFt
-                ?? currentMissionData?.poiTerrainFt
-                ?? currentMissionData?.targetAltFt
-            );
-            const recoveryHoldSec = Math.max(20, Number(sarSpec?.recovery?.stableHoldSec || 20));
-            const hospitalName = String(hospital.name || hospital.icao || 'Krankenhaus-Helipad').trim();
-            routeWaypoints = [
+            const builtRoute = (typeof missionSarHeliBuildRouteWaypoints === 'function')
+                ? missionSarHeliBuildRouteWaypoints({
+                    start: { lat: lat1, lon: lon1, icao: currentStartICAO, name: currentSName || currentStartICAO || 'Start' },
+                    target: { lat: lat2, lon: lon2, name: currentMissionData?.poiName || currentMissionData?.targetName || currentDName || 'SAR' },
+                    hospital,
+                    mission: currentMissionData,
+                    startName: currentSName || currentStartICAO || 'Start',
+                    startIcao: currentStartICAO || '',
+                    targetName: currentMissionData?.poiName || currentMissionData?.targetName || currentDName || 'SAR',
+                    targetTerrainFt: sarSpec?.targetRef?.terrainFt ?? currentMissionData?.poiTerrainFt ?? currentMissionData?.targetAltFt
+                })
+                : [];
+            routeWaypoints = builtRoute.length >= 3 ? builtRoute : [
                 { lat: lat1, lng: lon1, name: currentSName || currentStartICAO || 'Start' },
-                {
-                    lat: lat2,
-                    lng: lon2,
-                    name: "🚁 Fundstelle " + (currentMissionData?.poiName || currentMissionData?.targetName || currentDName || 'SAR'),
-                    isPOI: true,
-                    isSarHeliIncident: true,
-                    altFt: Number.isFinite(targetTerrainFt) ? Math.max(0, Math.round(targetTerrainFt)) : null,
-                    simHoldSec: recoveryHoldSec + 2,
-                    simHoldAction: 'sar_heli_recovery'
-                },
-                {
-                    lat: hospitalLat,
-                    lng: hospitalLon,
-                    name: "🏥 " + hospitalName,
-                    isSarHeliHospital: true,
-                    icao: String(hospital.icao || 'HOSP').toUpperCase(),
-                    altFt: Number.isFinite(Number(hospital.elevation)) ? Math.round(Number(hospital.elevation)) : null
-                }
+                { lat: lat2, lng: lon2, name: "🚁 Fundstelle " + (currentMissionData?.poiName || currentMissionData?.targetName || currentDName || 'SAR'), isPOI: true, isSarHeliIncident: true, simHoldSec: 22, simHoldAction: 'sar_heli_recovery' },
+                { lat: hospitalLat, lng: hospitalLon, name: "🏥 " + String(hospital.name || hospital.icao || 'Krankenhaus-Helipad').trim(), isSarHeliHospital: true, icao: String(hospital.icao || 'HOSP').toUpperCase() }
             ];
-            window._missionRouteWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
+            const storedRoute = (typeof cloneRouteWaypointsForStorage === 'function')
+                ? cloneRouteWaypointsForStorage(routeWaypoints)
+                : JSON.parse(JSON.stringify(routeWaypoints));
+            window._missionRouteWaypoints = JSON.parse(JSON.stringify(storedRoute));
+            if (currentMissionData && typeof currentMissionData === 'object') {
+                currentMissionData.routeWaypoints = JSON.parse(JSON.stringify(storedRoute));
+                currentMissionData.missionRouteWaypoints = JSON.parse(JSON.stringify(storedRoute));
+            }
             renderMainRoute();
+            if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
+            if (typeof updateMiniMap === 'function') updateMiniMap();
+            if (typeof scheduleRouteDerivedDataRefresh === 'function') {
+                scheduleRouteDerivedDataRefresh({ profileDelayMs: 120, airspaceDelayMs: 800 });
+            }
             const board = document.getElementById('mapTableOverlay');
             if (board && board.classList.contains('active') && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
                 window.gaScheduleRouteMapLayoutRefresh('route-update');
@@ -8556,6 +8568,7 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
     window._missionRouteWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
 
     renderMainRoute();
+    if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
     const board = document.getElementById('mapTableOverlay');
     if (board && board.classList.contains('active') && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
         window.gaScheduleRouteMapLayoutRefresh('route-update');

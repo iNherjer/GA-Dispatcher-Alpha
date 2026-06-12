@@ -4023,6 +4023,12 @@ window.vpBuildMissionPhaseDebugReport = function() {
     const bushRecipeId = (typeof window._bushRecipeIdFromSpec === 'function' && bush)
         ? String(window._bushRecipeIdFromSpec(bush) || '').trim().toLowerCase()
         : '';
+    const sarHeliProgress = (() => {
+        try {
+            if (typeof window.missionSarHeliProgressSnapshot === 'function') return window.missionSarHeliProgressSnapshot();
+        } catch (_) {}
+        return (typeof currentMissionData !== 'undefined' && currentMissionData?.sarHeliProgress) ? currentMissionData.sarHeliProgress : null;
+    })();
     const lastRuntimePhaseEntry = [...events].reverse().find(e => e?.kind === 'runtime_phase');
     const lastStartPhaseEntry = [...events].reverse().find(e => e?.kind === 'start_phase');
     const lastBushProgressEntry = [...events].reverse().find(e => e?.kind === 'bush_progress');
@@ -4037,25 +4043,26 @@ window.vpBuildMissionPhaseDebugReport = function() {
     const recipeFlow = (() => {
         if (bushRecipeId === 'pickup_return') return 'A -> B (Landung/Pickup) -> A';
         if (bushRecipeId === 'poi_on_task_return' || poiRecipeId === 'poi_on_task_return') return 'A -> B (POI/on-task ohne Landung) -> A';
+        if (poiRecipeId === 'poi_sar_heli') return 'A -> B (Fundstelle: Hover/Landung/Patient) -> C (Klinik)';
         if (poiRecipeId === 'poi_on_task' || poiRecipeId === 'poi_flyover' || poiRecipeId === 'poi_fire_watch' || poiRecipeId === 'poi_search_and_rescue' || poiRecipeId === 'poi_training') {
             return 'A -> B (POI/on-task ohne Landung) -> A';
         }
         return 'A -> B';
     })();
     const validation = {
-        targetReached: hasEvent('ground_action', (p) => p.atTarget === true),
+        targetReached: hasEvent('ground_action', (p) => p.atTarget === true) || !!sarHeliProgress?.targetConfirmed,
         taskEntered: hasEvent(null, (_, entry) => {
             return (entry.kind === 'bush_progress' && (entry.payload?.to === 'on_task' || entry.payload?.to === 'pickup_ready' || entry.payload?.to === 'pickup_loading' || entry.payload?.to === 'pickup_complete'))
                 || (entry.kind === 'ground_action' && ['on_task', 'pickup_ready', 'pickup_loading', 'pickup_complete'].includes(String(entry.payload?.phase || '')));
-        }),
+        }) || !!(sarHeliProgress?.targetConfirmed || sarHeliProgress?.holdReadyAnnounced || sarHeliProgress?.patientLoaded),
         returnLegReached: hasEvent(null, (_, entry) => {
             return (entry.kind === 'bush_progress' && entry.payload?.to === 'return_leg')
                 || (entry.kind === 'ground_action' && String(entry.payload?.phase || '') === 'return_leg');
-        }),
+        }) || !!sarHeliProgress?.patientLoaded,
         readyToCloseReached: hasEvent(null, (_, entry) => {
             return (entry.kind === 'bush_progress' && entry.payload?.to === 'ready_to_close')
                 || (entry.kind === 'ground_action' && String(entry.payload?.phase || '') === 'ready_to_close');
-        }),
+        }) || !!sarHeliProgress?.readyToClose,
         simEndTriggered: hasEvent('trigger', (p) => p.name === 'completeSimMissionEnd'),
         farewellTriggered: hasEvent('trigger', (p) => p.name === '_triggerPaxFarewellAndWaitForDeboard:started'),
         deboardingStarted: hasEvent('trigger', (p) => p.name === 'missionSceneStartDeboardingAfterFarewell' || p.name === 'finishMissionCargoUnloadAndEnd:start-bush-home-deboarding'),

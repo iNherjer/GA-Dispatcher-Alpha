@@ -923,12 +923,63 @@ function missionSarHeliInitialProgress() {
     };
 }
 
+function missionSarHeliBuildRouteWaypoints({
+    start = null,
+    target = null,
+    hospital = null,
+    mission = null,
+    startName = '',
+    startIcao = '',
+    targetName = '',
+    targetTerrainFt = null
+} = {}) {
+    const md = (mission && typeof mission === 'object') ? mission : null;
+    const spec = missionSarHeliSpecFromMission(md) || md?.sarHeli || null;
+    const hospitalRef = hospital || spec?.hospitalRef || null;
+    const targetRef = target || spec?.targetRef || null;
+    const startLat = Number(start?.lat);
+    const startLon = Number(start?.lon ?? start?.lng);
+    const targetLat = Number(targetRef?.lat);
+    const targetLon = Number(targetRef?.lon ?? targetRef?.lng);
+    const hospitalLat = Number(hospitalRef?.lat);
+    const hospitalLon = Number(hospitalRef?.lon ?? hospitalRef?.lng);
+    if (![startLat, startLon, targetLat, targetLon, hospitalLat, hospitalLon].every(Number.isFinite)) return [];
+
+    const terrainFt = Number(targetTerrainFt ?? targetRef?.terrainFt ?? md?.poiTerrainFt ?? md?.targetAltFt);
+    const recoveryHoldSec = Math.max(20, Number(spec?.recovery?.stableHoldSec || 20));
+    const startLabel = String(startName || start?.icao || startIcao || start?.n || start?.name || md?.start || 'Start').trim();
+    const targetLabel = String(targetName || targetRef?.name || md?.poiName || md?.targetName || 'SAR').trim();
+    const hospitalName = String(hospitalRef?.name || hospitalRef?.icao || 'Krankenhaus-Helipad').trim();
+    return [
+        { lat: startLat, lng: startLon, name: startLabel },
+        {
+            lat: targetLat,
+            lng: targetLon,
+            name: `🚁 Fundstelle ${targetLabel}`,
+            isPOI: true,
+            isSarHeliIncident: true,
+            altFt: Number.isFinite(terrainFt) ? Math.max(0, Math.round(terrainFt)) : null,
+            simHoldSec: recoveryHoldSec + 2,
+            simHoldAction: 'sar_heli_recovery'
+        },
+        {
+            lat: hospitalLat,
+            lng: hospitalLon,
+            name: `🏥 ${hospitalName}`,
+            isSarHeliHospital: true,
+            icao: String(hospitalRef?.icao || 'HOSP').toUpperCase(),
+            altFt: Number.isFinite(Number(hospitalRef?.elevation)) ? Math.round(Number(hospitalRef.elevation)) : null
+        }
+    ];
+}
+
 window.SAR_HELI_PROFILE_ID = SAR_HELI_PROFILE_ID;
 window.missionIsSarHeliProfileId = missionIsSarHeliProfileId;
 window.missionIsSarHeliMission = missionIsSarHeliMission;
 window.missionSarHeliSpecFromMission = missionSarHeliSpecFromMission;
 window.missionSarHeliIncidentIdsForCategory = missionSarHeliIncidentIdsForCategory;
 window.missionSarHeliInitialProgress = missionSarHeliInitialProgress;
+window.missionSarHeliBuildRouteWaypoints = missionSarHeliBuildRouteWaypoints;
 
 const MISSION_PICKER_OPTIONS = {
     basic: [
@@ -3126,6 +3177,12 @@ function normalizeRouteWaypointForStorage(point) {
     };
     if (typeof point.name === 'string' && point.name.trim()) out.name = point.name.trim();
     if (point.isPOI === true) out.isPOI = true;
+    if (point.isSarHeliIncident === true) out.isSarHeliIncident = true;
+    if (point.isSarHeliHospital === true) out.isSarHeliHospital = true;
+    if (typeof point.simHoldAction === 'string' && point.simHoldAction.trim()) out.simHoldAction = point.simHoldAction.trim();
+    if (Number.isFinite(Number(point.simHoldSec))) out.simHoldSec = Math.max(0, Math.round(Number(point.simHoldSec)));
+    if (Number.isFinite(Number(point.altFt))) out.altFt = Math.round(Number(point.altFt));
+    if (typeof point.icao === 'string' && point.icao.trim()) out.icao = point.icao.trim().toUpperCase();
     if (typeof point.rppAirportIcao === 'string' && point.rppAirportIcao.trim()) out.rppAirportIcao = point.rppAirportIcao.trim();
     return out;
 }
@@ -3503,6 +3560,24 @@ function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
     }
     if (!depPoint || !destPoint) return [];
 
+    if (missionIsSarHeliMission(mission)) {
+        const sarRoute = missionSarHeliBuildRouteWaypoints({
+            start: { ...depPoint, icao: startIcao, name: state.currentSName || startIcao || 'Start' },
+            target: {
+                lat: Number(mission.sarHeli?.targetRef?.lat ?? mission.targetLat ?? destPoint.lat),
+                lon: Number(mission.sarHeli?.targetRef?.lon ?? mission.targetLon ?? mission.targetLng ?? destPoint.lng),
+                name: mission.sarHeli?.targetRef?.name || mission.poiName || mission.targetName || state.mDestName || 'SAR'
+            },
+            hospital: mission.sarHeli?.hospitalRef || null,
+            mission,
+            startName: state.currentSName || startIcao || 'Start',
+            startIcao,
+            targetName: mission.poiName || mission.targetName || state.mDestName || 'SAR',
+            targetTerrainFt: mission.poiTerrainFt ?? mission.targetAltFt
+        });
+        if (sarRoute.length >= 3) return sarRoute;
+    }
+
     if (isPOI) {
         const targetName = bushUsesPoiTaskRecipe
             ? (bush?.areaRef?.name || mission.targetName || state.mDestName || 'Recon Area')
@@ -3556,7 +3631,8 @@ function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
 
 function resolveRouteWaypointsFromMissionState(state = {}) {
     const md = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : null;
-    const preferMissionRoute = !!(md?.bush && String(md.bush.targetMode || '') === 'strip_then_return');
+    const isSarHeli = !!(md && missionIsSarHeliMission(md));
+    const preferMissionRoute = !!(isSarHeli || (md?.bush && String(md.bush.targetMode || '') === 'strip_then_return'));
     const sources = [
         ...(preferMissionRoute
             ? [state.missionRouteWaypoints, md?.missionRouteWaypoints, state.routeWaypoints, md?.routeWaypoints]
@@ -3564,7 +3640,29 @@ function resolveRouteWaypointsFromMissionState(state = {}) {
     ];
     for (const source of sources) {
         const normalized = normalizeRouteWaypointsForStorage(source);
-        if (normalized.length >= 2) return normalized;
+        if (normalized.length < 2) continue;
+        if (isSarHeli) {
+            const hospital = md?.sarHeli?.hospitalRef || null;
+            const hospitalLat = Number(hospital?.lat);
+            const hospitalLon = Number(hospital?.lon ?? hospital?.lng);
+            const last = normalized[normalized.length - 1];
+            const lastLat = Number(last?.lat);
+            const lastLon = Number(last?.lng ?? last?.lon);
+            const endsAtHospital = !!(
+                last?.isSarHeliHospital
+                || (
+                    Number.isFinite(hospitalLat)
+                    && Number.isFinite(hospitalLon)
+                    && Number.isFinite(lastLat)
+                    && Number.isFinite(lastLon)
+                    && Math.abs(lastLat - hospitalLat) < 0.002
+                    && Math.abs(lastLon - hospitalLon) < 0.002
+                )
+            );
+            const hasRecoveryHold = normalized.some(p => p?.isSarHeliIncident || p?.simHoldAction === 'sar_heli_recovery');
+            if (!endsAtHospital || !hasRecoveryHold) continue;
+        }
+        return normalized;
     }
     return normalizeRouteWaypointsForStorage(buildFallbackRouteWaypointsFromMissionState(state, md));
 }
@@ -3838,11 +3936,12 @@ async function restoreMissionState(state, options = {}) {
 
     currentMissionData = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : {};
     routeWaypoints = resolveRouteWaypointsFromMissionState(state);
-    const restoredMissionRoute = cloneRouteWaypointsForStorage(
-        (state.missionRouteWaypoints && state.missionRouteWaypoints.length >= 2)
+    const restoredMissionRouteSource = missionIsSarHeliMission(currentMissionData)
+        ? routeWaypoints
+        : ((state.missionRouteWaypoints && state.missionRouteWaypoints.length >= 2)
             ? state.missionRouteWaypoints
-            : (currentMissionData.missionRouteWaypoints || routeWaypoints)
-    );
+            : (currentMissionData.missionRouteWaypoints || routeWaypoints));
+    const restoredMissionRoute = cloneRouteWaypointsForStorage(restoredMissionRouteSource);
     window._missionRouteWaypoints = restoredMissionRoute.length >= 2 ? restoredMissionRoute : cloneRouteWaypointsForStorage(routeWaypoints);
     currentMissionData.routeWaypoints = cloneRouteWaypointsForStorage(routeWaypoints);
     currentMissionData.missionRouteWaypoints = cloneRouteWaypointsForStorage(window._missionRouteWaypoints);
@@ -17854,6 +17953,8 @@ async function generateMission() {
         start: currentStartICAO,
         dest: currentDestICAO,
         initialDest: currentDestICAO,
+        initialStartLat: Number(start.lat),
+        initialStartLon: Number(start.lon),
         initialTargetName: dest.n,
         initialTargetLat: Number(dest.lat),
         initialTargetLon: Number(dest.lon),
@@ -17911,6 +18012,28 @@ async function generateMission() {
     if (m && typeof m === 'object') {
         m.missionId = currentMissionData.missionId;
         m.missionKey = currentMissionData.missionKey;
+    }
+    if (missionIsSarHeliMission(currentMissionData)) {
+        const sarHeliRoute = missionSarHeliBuildRouteWaypoints({
+            start,
+            target: dest,
+            mission: currentMissionData,
+            startName: currentStartICAO || start.n || 'Start',
+            startIcao: currentStartICAO || '',
+            targetName: dest.n,
+            targetTerrainFt: effectiveTargetTerrainFt
+        });
+        if (sarHeliRoute.length >= 3) {
+            routeWaypoints = sarHeliRoute.map(point => ({ ...point }));
+            const storedSarHeliRoute = cloneRouteWaypointsForStorage(routeWaypoints);
+            window._missionRouteWaypoints = storedSarHeliRoute.map(point => ({ ...point }));
+            currentMissionData.routeWaypoints = storedSarHeliRoute.map(point => ({ ...point }));
+            currentMissionData.missionRouteWaypoints = storedSarHeliRoute.map(point => ({ ...point }));
+            if (m && typeof m === 'object') {
+                m.routeWaypoints = storedSarHeliRoute.map(point => ({ ...point }));
+                m.missionRouteWaypoints = storedSarHeliRoute.map(point => ({ ...point }));
+            }
+        }
     }
 
     const missionHasPassenger = missionHasPassengerByPaxText(paxText);
@@ -18562,7 +18685,18 @@ function renderFPL(left, right) {
             const p1 = wps[i], p2 = wps[i + 1], nav = calcNav(p1.lat, p1.lng || p1.lon, p2.lat, p2.lng || p2.lon);
             let n1 = i === 0 ? (currentStartICAO || 'DEP') : (wps[i].name || `WP${i}`);
             const missionLikePoi = !!(currentMissionData?.poiName || missionUsesPoiPresentation(currentMissionData));
-            let n2 = i === wps.length - 2 ? (missionLikePoi ? 'POI' : (currentDestICAO || 'DEST')) : (wps[i + 1].name || `WP${i + 1}`);
+            const finalWp = wps[i + 1] || {};
+            const isSarHeliFinal = !!(
+                finalWp.isSarHeliHospital
+                || (
+                    i === wps.length - 2
+                    && typeof missionIsSarHeliMission === 'function'
+                    && missionIsSarHeliMission(currentMissionData)
+                )
+            );
+            let n2 = i === wps.length - 2
+                ? (isSarHeliFinal ? (finalWp.name || currentDestICAO || 'HOSP') : (missionLikePoi ? 'POI' : (currentDestICAO || 'DEST')))
+                : (wps[i + 1].name || `WP${i + 1}`);
 
             n1 = n1.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
             n2 = n2.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '');
