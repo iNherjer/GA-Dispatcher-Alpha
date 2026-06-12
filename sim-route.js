@@ -583,6 +583,7 @@
     // ── Route-Helfer ──────────────────────────────────────────────────────────
 
     function _buildRoute() {
+        _ensureSarHeliRecoveryWaypointMetadata();
         if (typeof routeWaypoints === 'undefined' || !routeWaypoints ||
             routeWaypoints.length < 2) return null;
 
@@ -627,6 +628,95 @@
         return { segs, totalDist: cum, waypoints };
     }
 
+    function _sarHeliSpecForSim() {
+        const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+        if (!md) return null;
+        if (typeof window.missionSarHeliSpecFromMission === 'function') {
+            try {
+                const spec = window.missionSarHeliSpecFromMission(md);
+                if (spec && typeof spec === 'object') return spec;
+            } catch (_) {}
+        }
+        return md?.sarHeli || md?.missionContract?.sarHeli || null;
+    }
+
+    function _sarHeliRecoveryHoldSec() {
+        const spec = _sarHeliSpecForSim();
+        return Math.max(20, Number(spec?.recovery?.stableHoldSec || 20)) + 2;
+    }
+
+    function _isSarHeliRecoveryWaypoint(wp) {
+        return !!(wp && (wp.simHoldAction === 'sar_heli_recovery' || wp.isSarHeliIncident === true));
+    }
+
+    function _distanceBetweenPointsNm(a, b) {
+        const aLat = Number(a?.lat);
+        const aLon = Number(a?.lon ?? a?.lng);
+        const bLat = Number(b?.lat);
+        const bLon = Number(b?.lon ?? b?.lng);
+        if (![aLat, aLon, bLat, bLon].every(Number.isFinite)) return null;
+        if (typeof calcNav === 'function') {
+            try {
+                const nav = calcNav(aLat, aLon, bLat, bLon);
+                const d = Number(nav?.dist);
+                if (Number.isFinite(d)) return d;
+            } catch (_) {}
+        }
+        const dLat = (bLat - aLat) * Math.PI / 180;
+        const dLon = (bLon - aLon) * Math.PI / 180;
+        const h = Math.sin(dLat / 2) ** 2
+            + Math.cos(aLat * Math.PI / 180) * Math.cos(bLat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)) * 3440.065;
+    }
+
+    function _applySarHeliRecoveryWaypointMetadata(wp) {
+        if (!wp || typeof wp !== 'object') return false;
+        const holdSec = _sarHeliRecoveryHoldSec();
+        wp.isSarHeliIncident = true;
+        wp.simHoldAction = 'sar_heli_recovery';
+        const existingHoldSec = Number(wp.simHoldSec);
+        wp.simHoldSec = Math.max(holdSec, Number.isFinite(existingHoldSec) ? existingHoldSec : 0);
+        if (!Number.isFinite(Number(wp.altFt))) {
+            const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+            const spec = _sarHeliSpecForSim();
+            const terrainFt = Number(spec?.targetRef?.terrainFt ?? md?.poiTerrainFt ?? md?.targetAltFt);
+            if (Number.isFinite(terrainFt)) wp.altFt = Math.max(0, Math.round(terrainFt));
+        }
+        return true;
+    }
+
+    function _ensureSarHeliRecoveryWaypointMetadata() {
+        if (!_isSarHeliSimMission()) return false;
+        const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
+        if (wps.length < 3) return false;
+        const lastIdx = wps.length - 1;
+        let idx = wps.findIndex((wp, i) => i > 0 && i < lastIdx && _isSarHeliRecoveryWaypoint(wp));
+        if (idx < 0) {
+            const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+            const spec = _sarHeliSpecForSim();
+            const target = {
+                lat: Number(spec?.targetRef?.lat ?? md?.initialTargetLat ?? md?.targetLat),
+                lon: Number(spec?.targetRef?.lon ?? spec?.targetRef?.lng ?? md?.initialTargetLon ?? md?.targetLon ?? md?.targetLng)
+            };
+            if (Number.isFinite(target.lat) && Number.isFinite(target.lon)) {
+                let bestIdx = -1;
+                let bestDist = Infinity;
+                for (let i = 1; i < lastIdx; i++) {
+                    const d = _distanceBetweenPointsNm(wps[i], target);
+                    if (Number.isFinite(d) && d < bestDist) {
+                        bestDist = d;
+                        bestIdx = i;
+                    }
+                }
+                if (bestIdx >= 0 && (bestDist <= 2.0 || wps.length === 3)) idx = bestIdx;
+            } else if (wps.length === 3) {
+                idx = 1;
+            }
+        }
+        if (idx <= 0 || idx >= lastIdx) return false;
+        return _applySarHeliRecoveryWaypointMetadata(wps[idx]);
+    }
+
     function _intermediateHoldKey(wp) {
         return [
             wp?.index ?? '',
@@ -637,24 +727,38 @@
     }
 
     function _shouldSkipIntermediateHold(wp) {
-        if (!wp || !Number.isFinite(Number(wp.simHoldSec)) || Number(wp.simHoldSec) <= 0) return true;
-        if (wp.simHoldAction === 'sar_heli_recovery' && typeof window.missionSarHeliProgressSnapshot === 'function') {
+        if (!wp) return true;
+        if (_isSarHeliRecoveryWaypoint(wp)) {
+            _applySarHeliRecoveryWaypointMetadata(wp);
             try {
-                const progress = window.missionSarHeliProgressSnapshot();
+                const progress = typeof window.missionSarHeliProgressSnapshot === 'function'
+                    ? window.missionSarHeliProgressSnapshot()
+                    : null;
                 if (progress?.patientLoaded) return true;
             } catch (_) {}
         }
+        if (!Number.isFinite(Number(wp.simHoldSec)) || Number(wp.simHoldSec) <= 0) return true;
         return false;
     }
 
     function _findReachedIntermediateHold(prevDistNM, curDistNM) {
         if (!simRouteCache?.waypoints?.length) return null;
         const start = Math.min(Number(prevDistNM) || 0, Number(curDistNM) || 0);
-        const end = Math.max(Number(prevDistNM) || 0, Number(curDistNM) || 0) + 0.03;
+        const end = Math.max(Number(prevDistNM) || 0, Number(curDistNM) || 0);
+        const curPos = _pos(simRouteCache, Number(curDistNM) || 0);
         for (const wp of simRouteCache.waypoints) {
             const distNM = Number(wp?.distNM);
             if (!Number.isFinite(distNM) || distNM <= 0.05 || distNM >= (simRouteCache.totalDist - 0.05)) continue;
-            if (distNM < start - 0.03 || distNM > end) continue;
+            const isSarHeliRecovery = _isSarHeliRecoveryWaypoint(wp);
+            const distanceToleranceNm = isSarHeliRecovery ? 0.35 : 0.03;
+            let reached = distNM >= start - distanceToleranceNm && distNM <= end + distanceToleranceNm;
+            if (!reached && isSarHeliRecovery && curPos) {
+                const dPos = _distanceBetweenPointsNm(curPos, wp);
+                const spec = _sarHeliSpecForSim();
+                const gateRadiusNm = Math.max(0.03, Number(spec?.recovery?.radiusNm || 0.12));
+                reached = Number.isFinite(dPos) && dPos <= Math.max(0.35, gateRadiusNm + 0.23);
+            }
+            if (!reached) continue;
             if (_shouldSkipIntermediateHold(wp)) continue;
             const key = _intermediateHoldKey(wp);
             if (simVisitedIntermediateHolds.has(key)) continue;
@@ -670,6 +774,16 @@
         simVisitedIntermediateHolds.add(hold.key);
         simPhase = 'intermediate_hold';
         simHoldRemainSec = Math.max(1, Number(hold.wp?.simHoldSec || 1));
+        if (typeof window.gaMissionPhaseDebugRecord === 'function') {
+            try {
+                window.gaMissionPhaseDebugRecord('trigger', {
+                    name: 'sim:intermediate_hold',
+                    action: hold.wp?.simHoldAction || 'hold',
+                    wp: hold.wp?.name || '',
+                    distNM: Number(Number(hold.distNM).toFixed(2))
+                });
+            } catch (_) {}
+        }
         if (hold.wp?.simHoldAction === 'sar_heli_recovery' && typeof window.missionSarHeliConfirmTarget === 'function') {
             try { window.missionSarHeliConfirmTarget('sim-intermediate-hold'); } catch (_) {}
         }
