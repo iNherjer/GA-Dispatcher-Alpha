@@ -361,6 +361,22 @@ const MAP_AUTOZOOM_MIN_STRENGTH = 25;
 const MAP_AUTOZOOM_MAX_STRENGTH = 125;
 const MAP_AUTOZOOM_MIN_ZOOM = 8;
 const MAP_AUTOZOOM_MAX_ZOOM = 15;
+const MAP_AUTOZOOM_SPEED_STAGES = [
+    { max: 18, zoom: 15, label: 'Boden' },
+    { max: 60, zoom: 14, label: 'Langsam/niedrig' },
+    { max: 95, zoom: 13, label: 'Abflug/Anflug' },
+    { max: 130, zoom: 12, label: 'Route' },
+    { max: 170, zoom: 11, label: 'Reise' },
+    { max: Infinity, zoom: 10, label: 'Schnell/hoch' }
+];
+const MAP_AUTOZOOM_ALTITUDE_STAGES = [
+    { max: 250, zoom: 15, label: 'Boden' },
+    { max: 1500, zoom: 14, label: 'Langsam/niedrig' },
+    { max: 3000, zoom: 13, label: 'Abflug/Anflug' },
+    { max: 5500, zoom: 12, label: 'Route' },
+    { max: 9000, zoom: 11, label: 'Reise' },
+    { max: Infinity, zoom: 10, label: 'Schnell/hoch' }
+];
 let lastMapAutoZoomAppliedAt = 0;
 let lastMapAutoZoomTargetZoom = null;
 let lastMapAutoZoomSample = null;
@@ -424,29 +440,72 @@ function clampAutoZoomForMap(zoom) {
     return Math.round(_clampMapAutoZoomNumber(zoom, minZoom, maxZoom));
 }
 
+function _mapAutoZoomStageForValue(value, stages) {
+    const n = Number(value);
+    const safeValue = Number.isFinite(n) ? Math.max(0, n) : 0;
+    return stages.find(stage => safeValue < stage.max) || stages[stages.length - 1];
+}
+
+function _mapAutoZoomPhaseForZoom(zoom) {
+    if (zoom >= 15) return 'Boden';
+    if (zoom >= 14) return 'Langsam/niedrig';
+    if (zoom >= 13) return 'Abflug/Anflug';
+    if (zoom >= 12) return 'Route';
+    if (zoom >= 11) return 'Reise';
+    return 'Schnell/hoch';
+}
+
+function _mapAutoZoomStrengthOffset(strengthPct, baseZoom) {
+    if (baseZoom >= MAP_AUTOZOOM_MAX_ZOOM) return 0;
+    if (strengthPct >= 115) return -2;
+    if (strengthPct >= 90) return -1;
+    if (strengthPct <= 35) return 2;
+    if (strengthPct <= 55) return 1;
+    return 0;
+}
+
 function computeMapAutoZoomTargetZoom(gsKts, altFt) {
     const gs = _clampMapAutoZoomNumber(gsKts, 0, 240);
+    const fd = window.lastLiveFlightData || {};
+    const onGround = fd.onGround === true || fd.simOnGround === true || Number(fd.simOnGround) === 1;
     const aglFt = getMapAutoZoomAglFt(altFt);
     const mslFt = Number(altFt);
     const altitudeRefFt = Number.isFinite(aglFt)
         ? aglFt
         : (Number.isFinite(mslFt) ? Math.max(0, mslFt) : 0);
-    const strength = window.getMapAutoZoomStrength() / 100;
+    const strength = window.getMapAutoZoomStrength();
+    const hasAglReference = Number.isFinite(aglFt);
+    const speedStage = _mapAutoZoomStageForValue(gs, MAP_AUTOZOOM_SPEED_STAGES);
+    const altitudeStage = _mapAutoZoomStageForValue(altitudeRefFt, MAP_AUTOZOOM_ALTITUDE_STAGES);
+    const grounded = onGround || gs < 8 || (hasAglReference && gs < 18 && altitudeRefFt < 250) || (!hasAglReference && gs < 18);
 
-    const speedScore = _clampMapAutoZoomNumber((gs - 35) / 125, 0, 1);
-    const altitudeScore = _clampMapAutoZoomNumber(Math.log2((altitudeRefFt + 500) / 500) / 4.6, 0, 1);
-    const cruiseScore = _clampMapAutoZoomNumber((speedScore * 0.72 + altitudeScore * 0.42) * strength, 0, 1);
-    let targetZoom = MAP_AUTOZOOM_MAX_ZOOM - cruiseScore * (MAP_AUTOZOOM_MAX_ZOOM - MAP_AUTOZOOM_MIN_ZOOM);
-
-    if (gs < 25 && altitudeRefFt < 1200) targetZoom = MAP_AUTOZOOM_MAX_ZOOM;
-    else if (gs < 55 && altitudeRefFt < 1800) targetZoom = Math.max(targetZoom, 14);
+    let baseZoom = grounded
+        ? MAP_AUTOZOOM_MAX_ZOOM
+        : Math.min(speedStage.zoom, altitudeStage.zoom);
+    if (!grounded && altitudeRefFt < 500) {
+        baseZoom = Math.max(baseZoom, 14);
+    } else if (!grounded && altitudeRefFt < 1500) {
+        baseZoom = Math.max(baseZoom, 13);
+    }
+    const minStageZoom = Math.max(MAP_AUTOZOOM_MIN_ZOOM, baseZoom - 2);
+    const maxStageZoom = Math.min(MAP_AUTOZOOM_MAX_ZOOM, baseZoom + 2);
+    const targetZoom = grounded
+        ? MAP_AUTOZOOM_MAX_ZOOM
+        : _clampMapAutoZoomNumber(baseZoom + _mapAutoZoomStrengthOffset(strength, baseZoom), minStageZoom, maxStageZoom);
+    const clampedTargetZoom = clampAutoZoomForMap(targetZoom);
 
     return {
-        targetZoom: clampAutoZoomForMap(targetZoom),
+        targetZoom: clampedTargetZoom,
+        baseZoom,
+        phase: grounded ? 'Boden' : _mapAutoZoomPhaseForZoom(baseZoom),
+        targetPhase: _mapAutoZoomPhaseForZoom(clampedTargetZoom),
+        speedStage: speedStage.label,
+        altitudeStage: altitudeStage.label,
+        onGround: grounded,
         gs,
         aglFt: Number.isFinite(aglFt) ? Math.round(aglFt) : null,
         altitudeRefFt: Math.round(altitudeRefFt),
-        strength: Math.round(strength * 100)
+        strength
     };
 }
 
@@ -471,7 +530,8 @@ window.refreshMapAutoZoomUi = function() {
             const currentZoom = Number.isFinite(lastMapAutoZoomSample.currentZoom)
                 ? `Z${lastMapAutoZoomSample.currentZoom.toFixed(0)}`
                 : 'Z--';
-            status.textContent = `${currentZoom} -> Z${lastMapAutoZoomSample.targetZoom}`;
+            const phase = lastMapAutoZoomSample.targetPhase || lastMapAutoZoomSample.phase || '';
+            status.textContent = `${currentZoom} -> Z${lastMapAutoZoomSample.targetZoom}${phase ? ` ${phase}` : ''}`;
         } else {
             status.textContent = 'Bereit';
         }

@@ -302,6 +302,11 @@
         const altFwd = _alt(fwd, simRouteCache);
         const vs     = (altFwd - alt) / Math.max(0.15 / gs * 60, 0.001); // ft/min
         simTouchdownVs = vs;
+        const terrainFt = _terrainAtDistance(simDistNM);
+        const aglFt = Number.isFinite(terrainFt)
+            ? Math.max(0, Math.round(alt - terrainFt))
+            : Math.max(0, Math.round(alt));
+        const roundedGs = Math.max(0, Math.round((gs || 0) * 10) / 10);
 
         // Globale EMA-Vars (aus sync.js – gleiches Script-Scope) für Profil-Icon
         smoothedGS = gs;
@@ -321,7 +326,9 @@
         // Sim-FlightData für Passenger-Logik spiegeln (inkl. VS).
         window.lastLiveFlightData = {
             mslFt: Math.round(alt || 0),
-            aglFt: 0,
+            aglFt,
+            gsKts: roundedGs,
+            gs: roundedGs,
             bankDeg: 0,
             gForce: 1.0,
             vsFpm: Math.round(vs || 0),
@@ -885,6 +892,36 @@
         if (distNM >= total - descNM)
             return destElevFt + ((total - distNM) / Math.max(descNM, 0.01)) * descFt;
         return cruiseAlt;
+    }
+
+    function _terrainAtDistance(distNM) {
+        const elevData = typeof vpElevationData !== 'undefined' ? vpElevationData : null;
+        if (!elevData || elevData.length < 1) return null;
+
+        const first = elevData[0];
+        const firstDist = Number(first?.distNM);
+        if (!Number.isFinite(distNM) || !Number.isFinite(firstDist) || distNM <= firstDist) {
+            const firstElev = Number(first?.elevFt);
+            return Number.isFinite(firstElev) ? firstElev : null;
+        }
+
+        for (let i = 1; i < elevData.length; i += 1) {
+            const prev = elevData[i - 1];
+            const cur = elevData[i];
+            const prevDist = Number(prev?.distNM);
+            const curDist = Number(cur?.distNM);
+            if (!Number.isFinite(prevDist) || !Number.isFinite(curDist)) continue;
+            if (distNM > curDist) continue;
+
+            const prevElev = Number(prev?.elevFt);
+            const curElev = Number(cur?.elevFt);
+            if (!Number.isFinite(prevElev) || !Number.isFinite(curElev)) return null;
+            const t = Math.min(1, Math.max(0, (distNM - prevDist) / Math.max(curDist - prevDist, 0.0001)));
+            return prevElev + (curElev - prevElev) * t;
+        }
+
+        const lastElev = Number(elevData[elevData.length - 1]?.elevFt);
+        return Number.isFinite(lastElev) ? lastElev : null;
     }
 
     function _gs() {
