@@ -733,6 +733,22 @@ Zusatzregeln:
 - Story, Scene und Voice muessen denselben Suchauftrag beschreiben
 - Falls spaeter echte Pickup-/Evac-Logik noetig wird, ist das kein reines POI-Rezept mehr
 
+SAR-Unterlogik innerhalb dieses Rezepts:
+
+- `search_and_rescue` bleibt `POI on-task`; es bekommt keine eigene Ablaufkette.
+- Die Zielkategorie wird innerhalb des Profils bewusst balanciert. Wald, Wasser und Berg duerfen gegenueber Strassen leicht bevorzugt werden, weil Strassen in den POI-Daten sehr haeufig sind.
+- Vor der Incident-Wahl wird eine Lage-Evidenz aus Zielkategorie, `targetGeoContext`, `missionTruth`, sichtbaren Ankern und Verlauf gebildet.
+- Diese Lage-Evidenz ist primaer; Verlauf/History ist nur Varianz-Tiebreaker. Ein starker Verkehrsraum darf nicht nur wegen History in generische Personensuche kippen.
+- SAR ist nicht automatisch Vermisstensuche. Moegliche Incident-Familien sind u.a. Personensuche, verletzte Person, Verkehrsunfall, Fahrzeug abseits der Strasse, Wasser-/Bootslage und vermisstes Luftfahrzeug.
+- Die gewaehlte Incident-Familie muss durchgängig bleiben:
+  - `road_collision`: Unfall-/Kollisionslage, Fahrzeuge, Personen an der Unfallstelle, Rauch, Zufahrt, Sperrung oder Lagebild fuer Leitstelle.
+  - `vehicle_off_road`: Fahrzeug von Strasse/Weg abgekommen, versteckte Endlage, Boeschung, Waldsaum, Ufer oder schwer einsehbarer Randbereich.
+  - `missing_hiker`/verwandt: Personensuche mit letzter Sichtung, Suchraum, Person oder Bodenhinweis.
+  - Wasserlagen: Boot, Rettungsinsel, Uferhinweis, Person am Ufer oder Wasserrettungs-Zugriffspunkt.
+  - Luftfahrzeuglagen: letzter Funk-/Sichtkontakt, Mayday/Positionshinweis, Wrack-/Debris-/Rauchhinweise.
+- Writer und Scene duerfen keine zwei Incident-Familien zu einer Mischlage verschmelzen. Wenn `road_collision` gewaehlt ist, darf daraus nicht im Briefing ein einzelnes "vermisstes Fahrzeug von der Fahrbahn" werden; wenn genau das gemeint ist, ist die Familie `vehicle_off_road`.
+- Felder wie `lastSeenContext` sind fachlich als letzter Bericht, letzte Sichtung, letzte Ortung oder letzter Funkkontakt zu lesen. Sie duerfen nicht automatisch eine vermisste Person implizieren.
+
 ### 7.2.6 POI Training
 
 POI-Training ist ein POI-Sonderfall, aber kein normales Beobachter-/Arbeitsprofil.

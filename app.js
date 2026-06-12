@@ -13548,11 +13548,12 @@ Arbeitsweise:
 7. Das Zielsubjekt und die TaskDomain bilden einen bindenden Fokus-Lock. Sekundaeranker duerfen nur Kontextrollen aus den semanticsRules uebernehmen.
 8. Baue immer einen klaren Story-Kern: Ausloeser/Trigger, Fokus-Subjekt, offene Frage am Ziel, Einsatznutzen des Fluges, naechster Handoff.
 9. Konkretisiere diesen Story-Kern immer mit 2-4 Lage-Details: wer/was genau betroffen ist, was passiert ist, warum der Einsatz gerade jetzt noetig ist und welcher Befund aus der Luft gebraucht wird.
-10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, wahrscheinliche Lage und moegliche Suchhinweise.
+10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
 11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen. Nutze siteAnalysis/scoredIncidentTypes als primaere Lage-Evidenz und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber bei Strasse/Kreuzung/Kreisverkehr/Stadtrand muss eine generische Wanderer-Vermisstenlage gegen eine Verkehrs- oder Fahrzeuglage fachlich begruendet sein.
-12. Du darfst einen realistischen Missionsanlass frei konkretisieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Bundles erfunden werden.
-13. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
-14. Antworte ausschliesslich als JSON.
+12. Bei search_and_rescue ist plan.storyFrame.incidentType ein Unterfokus-Lock. Vermische nicht benachbarte SAR-Familien im selben Auftrag: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; missing_hiker bleibt Personensuche; downed_ultralight bleibt Luftfahrzeuglage.
+13. Du darfst einen realistischen Missionsanlass frei konkretisieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Bundles erfunden werden.
+14. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
+15. Antworte ausschliesslich als JSON.
 </INSTRUKTIONEN>
 
 <DRAFT>
@@ -13736,17 +13737,18 @@ Regeln:
 12. Wenn CONTRACT.storyFrame incidentType, lastSeenContext, probableScenario oder visibleClueCandidates enthaelt, muessen diese Informationen im Briefing spuerbar werden statt zu abstrakten Standardfloskeln zu verfallen.
 13. Du darfst einen plausiblen operativen Anlass frei ausformulieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Contracts behauptet werden.
 14. search_and_rescue: Sag klar, wer oder was betroffen ist, wo die letzte Sichtung oder Meldung war, welche Lage vermutet wird und worauf wir aus der Luft konkret achten sollen.
-15. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
-16. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
-17. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
-18. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
-19. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
-20. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
-21. Vermeide reine Dispatcher-Floskeln wie "wir machen heute Fotos", "wir fliegen heute eine Inspektion" oder "wir suchen das Gebiet ab", wenn kein genauer Anlass, kein betroffenes Subjekt und keine Folgeentscheidung benannt werden.
-22. Antworte in natuerlichen, vollstaendigen Saetzen; keine Aufzaehlung einzelner Lagefragmente als Kurzsaetze.
-23. CONTRACT.storyFrame-Felder sind Rohmaterial, keine Satzliste. Formuliere sie zu 4-5 fluessigen Saetzen um, statt jedes Feld einzeln aneinanderzureihen.
-24. Wenn subjectDetail bereits ein ganzer Satz ist, schreibe nicht "Gesucht wird nach ..." davor. Nutze dann eine passende eigene Formulierung.
-25. Antwort nur als JSON.
+15. search_and_rescue: CONTRACT.storyFrame.incidentType ist bindender Unterfokus. Vermische keine SAR-Familien im Briefing: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; missing_hiker bleibt Personensuche; downed_ultralight bleibt Luftfahrzeuglage.
+16. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
+17. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
+18. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
+19. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
+20. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
+21. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
+22. Vermeide reine Dispatcher-Floskeln wie "wir machen heute Fotos", "wir fliegen heute eine Inspektion" oder "wir suchen das Gebiet ab", wenn kein genauer Anlass, kein betroffenes Subjekt und keine Folgeentscheidung benannt werden.
+23. Antworte in natuerlichen, vollstaendigen Saetzen; keine Aufzaehlung einzelner Lagefragmente als Kurzsaetze.
+24. CONTRACT.storyFrame-Felder sind Rohmaterial, keine Satzliste. Formuliere sie zu 4-5 fluessigen Saetzen um, statt jedes Feld einzeln aneinanderzureihen.
+25. Wenn subjectDetail bereits ein ganzer Satz ist, schreibe nicht "Gesucht wird nach ..." davor. Nutze dann eine passende eigene Formulierung.
+26. Antwort nur als JSON.
 </INSTRUKTIONEN>
 
 <CONTRACT>

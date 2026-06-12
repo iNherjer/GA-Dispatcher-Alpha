@@ -60,11 +60,18 @@ Kontext darf nicht:
 
 - Primärfokus ist Suchlage, Suchraum oder Rettungslage.
 - Natürliche oder lagebezogene Suchanker haben Vorrang.
+- SAR nutzt eine interne Incident-Familie als Fokus-Lock innerhalb der TaskDomain.
+- Die Incident-Familie wird aus Zielkategorie, Lage-Evidenz, `targetGeoContext`, `missionTruth` und History abgeleitet.
+- Lage-Evidenz hat Vorrang vor Varianz-History; History verhindert Wiederholung, darf aber starke Zielhinweise nicht umdeuten.
+- Die gewaehlte Familie muss Story, Writer-Text, `sceneIntent` und Zielobjekte konsistent halten.
 - Strassen, Strommasten, Gebaeude, Parkplaetze oder Leitungen sind nur:
   - Orientierung
   - Hindernis
   - Zugang fuer Bodenkraefte
   - Support-/Perimeterpunkte
+- Ausnahme innerhalb von SAR: Wenn die Incident-Familie `road_collision` oder `vehicle_off_road` ist, darf die Strasse selbst Einsatzort und Primaerfokus sein.
+- `road_collision` und `vehicle_off_road` duerfen nicht im Briefing zu einer unscharfen Mischlage verschmelzen.
+- `lastSeenContext` ist fachlich breit zu lesen: letzte Sichtung, letzte Meldung, letzte Ortung, letzter Funkkontakt oder letzter plausibler Bericht.
 - Kein Drift zu Inspektion, Vermessung oder Infrastrukturwartung.
 
 ### `inspection_infra`
