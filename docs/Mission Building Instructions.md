@@ -736,7 +736,7 @@ Zusatzregeln:
 SAR-Unterlogik innerhalb dieses Rezepts:
 
 - `search_and_rescue` bleibt `POI on-task`; es bekommt keine eigene Ablaufkette.
-- Die Zielkategorie wird innerhalb des Profils bewusst balanciert. Wald, Wasser und Berg duerfen gegenueber Strassen leicht bevorzugt werden, weil Strassen in den POI-Daten sehr haeufig sind.
+- Die Zielkategorie wird innerhalb des Profils bewusst balanciert. Wald, Wasser und Berg duerfen gegenueber Strassen leicht bevorzugt werden, weil Strassen in den POI-Daten sehr haeufig sind. Diese Gewichtung muss mild bleiben; sie darf keine neue Wasser- oder Naturdominanz erzeugen.
 - Vor der Incident-Wahl wird eine Lage-Evidenz aus Zielkategorie, `targetGeoContext`, `missionTruth`, sichtbaren Ankern und Verlauf gebildet.
 - Diese Lage-Evidenz ist primaer; Verlauf/History ist nur Varianz-Tiebreaker. Ein starker Verkehrsraum darf nicht nur wegen History in generische Personensuche kippen.
 - SAR ist nicht automatisch Vermisstensuche. Moegliche Incident-Familien sind u.a. Personensuche, verletzte Person, Verkehrsunfall, Fahrzeug abseits der Strasse, Wasser-/Bootslage und vermisstes Luftfahrzeug.
@@ -748,6 +748,7 @@ SAR-Unterlogik innerhalb dieses Rezepts:
   - Luftfahrzeuglagen: letzter Funk-/Sichtkontakt, Mayday/Positionshinweis, Wrack-/Debris-/Rauchhinweise.
 - Writer und Scene duerfen keine zwei Incident-Familien zu einer Mischlage verschmelzen. Wenn `road_collision` gewaehlt ist, darf daraus nicht im Briefing ein einzelnes "vermisstes Fahrzeug von der Fahrbahn" werden; wenn genau das gemeint ist, ist die Familie `vehicle_off_road`.
 - Felder wie `lastSeenContext` sind fachlich als letzter Bericht, letzte Sichtung, letzte Ortung oder letzter Funkkontakt zu lesen. Sie duerfen nicht automatisch eine vermisste Person implizieren.
+- Alle frei formulierten Missionstexte bleiben Deutsch. Englische Rohfelder aus einem Planner-/Writer-Ausreisser muessen verworfen oder deutsch neu aufgebaut werden, statt gemischt in das Briefing zu laufen.
 
 ### 7.2.6 POI Training
 

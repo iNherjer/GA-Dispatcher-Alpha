@@ -928,10 +928,10 @@ function missionTaskPoiCategoryWeights(profileId = 'auto') {
     const id = String(profileId || 'auto').toLowerCase();
     if (id === 'search_and_rescue') {
         return {
-            water: 1.35,
-            forest: 1.25,
-            mountain: 1.15,
-            road: 0.75
+            water: 1.1,
+            forest: 1.1,
+            mountain: 1.1,
+            road: 0.9
         };
     }
     return {};
@@ -9875,6 +9875,8 @@ function missionTruthAnchorForCategory(ctx = null, category = '', taskDomain = '
     if (cat === 'industry') lists.push(['building', 'power']);
     if (cat === 'road') lists.push(['traffic_node', 'road', 'parking']);
     if (cat === 'rail') lists.push(['railway', 'rail', 'road']);
+    if (cat === 'mountain') lists.push(['terrain', 'viewpoint', 'path', 'forest', 'meadow', 'farmland', 'road', 'water']);
+    if (cat === 'forest') lists.push(['forest', 'path', 'meadow', 'farmland', 'road', 'water']);
     if (cat === 'fire' || task === 'fire_watch') lists.push(['forest', 'meadow', 'farmland', 'water']);
     if (task.includes('search_and_rescue') && (cat === 'mountain' || cat === 'forest' || cat === 'fire' || cat === 'generic')) {
         lists.push(['forest', 'meadow', 'farmland', 'road', 'water']);
@@ -9927,9 +9929,11 @@ function missionTruthBaseVisibleCues(ctx = null, category = '', taskDomain = '')
     const hasContextAnchors = !!ctx && Object.keys(anchors).length > 0;
     const add = cue => { if (cue && !cues.includes(cue)) cues.push(cue); };
     if (natureTask) {
+        if (cat === 'mountain' && (anchors.terrain || anchors.viewpoint)) add('Gipfel/Berg');
+        if (cat === 'mountain' && anchors.path) add('Grat, Pfad oder Steig');
         if (anchors.forest || (!hasContextAnchors && (cat === 'fire' || cat === 'mountain' || cat === 'forest'))) add('Waldrand');
         if (anchors.meadow || anchors.farmland) add('offenes Gelaende');
-        if (anchors.water) add('Wasserflaeche oder Uferlinie');
+        if (anchors.water && cat !== 'mountain') add('Wasserflaeche oder Uferlinie');
         return cues.slice(0, 3);
     }
     if (cat === 'bridge') {
@@ -13398,6 +13402,19 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
             semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || ''
         );
         const canonicalSarIncident = missionSarCanonicalIncidentType(storyFrame.incidentType);
+        const sarFrameLooksEnglish = _missionPipelineV4LooksEnglish([
+            storyFrame.trigger,
+            storyFrame.focusSubject,
+            storyFrame.keyQuestion,
+            storyFrame.stakes,
+            storyFrame.subjectDetail,
+            storyFrame.incidentContext,
+            storyFrame.whyNow,
+            storyFrame.soughtOutcome,
+            storyFrame.lastSeenContext,
+            storyFrame.probableScenario,
+            ...(Array.isArray(storyFrame.visibleClueCandidates) ? storyFrame.visibleClueCandidates : [])
+        ].join(' '));
         const selectedSarIncident = missionSarPickIncidentType(
             semantics.focusLock.targetCategory || base.plan.targetCategory || '',
             semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || '',
@@ -13409,7 +13426,8 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         );
         const shouldReframeSar = !canonicalSarIncident
             || !allowedSarIncidentIds.includes(canonicalSarIncident)
-            || selectedSarIncident !== canonicalSarIncident;
+            || selectedSarIncident !== canonicalSarIncident
+            || sarFrameLooksEnglish;
         storyFrame.incidentType = selectedSarIncident || allowedSarIncidentIds[0] || 'missing_hiker';
         if (shouldReframeSar) {
             const selectedIncident = _missionPipelineV4BuildSarIncident({
@@ -13553,7 +13571,8 @@ Arbeitsweise:
 12. Bei search_and_rescue ist plan.storyFrame.incidentType ein Unterfokus-Lock. Vermische nicht benachbarte SAR-Familien im selben Auftrag: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; missing_hiker bleibt Personensuche; downed_ultralight bleibt Luftfahrzeuglage.
 13. Du darfst einen realistischen Missionsanlass frei konkretisieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Bundles erfunden werden.
 14. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
-15. Antworte ausschliesslich als JSON.
+15. Schreibe alle frei formulierten Texte auf Deutsch. Eigennamen, ICAO-Kuerzel und feststehende Ortsnamen duerfen unveraendert bleiben.
+16. Antworte ausschliesslich als JSON.
 </INSTRUKTIONEN>
 
 <DRAFT>
@@ -13748,7 +13767,8 @@ Regeln:
 23. Antworte in natuerlichen, vollstaendigen Saetzen; keine Aufzaehlung einzelner Lagefragmente als Kurzsaetze.
 24. CONTRACT.storyFrame-Felder sind Rohmaterial, keine Satzliste. Formuliere sie zu 4-5 fluessigen Saetzen um, statt jedes Feld einzeln aneinanderzureihen.
 25. Wenn subjectDetail bereits ein ganzer Satz ist, schreibe nicht "Gesucht wird nach ..." davor. Nutze dann eine passende eigene Formulierung.
-26. Antwort nur als JSON.
+26. Schreibe alle frei formulierten Texte auf Deutsch. Eigennamen, ICAO-Kuerzel und feststehende Ortsnamen duerfen unveraendert bleiben.
+27. Antwort nur als JSON.
 </INSTRUKTIONEN>
 
 <CONTRACT>
@@ -13814,6 +13834,14 @@ function _missionPipelineV4StoryFieldCovered(story = '', phrase = '', minHits = 
         if (hits >= minHits) return true;
     }
     return false;
+}
+
+function _missionPipelineV4LooksEnglish(text = '') {
+    const normalized = normalizeMissionText(text);
+    if (!normalized) return false;
+    const englishHits = (normalized.match(/\b(the|with|from|near|last|confirmed|position|reported|wearing|their|group|during|steep|section|climber|ground|teams|immediate|aerial|required|before|light|conditions|confirmation|assessment|accessibility|handover|coordinates|coordination|center)\b/g) || []).length;
+    const germanHits = (normalized.match(/\b(der|die|das|und|mit|von|bei|nahe|letzte|meldung|sichtung|ortung|funkkontakt|person|fahrzeug|einsatz|leitstelle|bodenkraefte|suchtrupps|rettung|ausruestung|befund|lagebild)\b/g) || []).length;
+    return englishHits >= 4 && englishHits > germanHits;
 }
 
 function _missionPipelineV4SentenceCount(text = '') {
@@ -14073,6 +14101,7 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}) {
     const raw = String(story || '').trim();
     const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
     if (!raw) return _missionPipelineV4ComposeStoryFallback(contract);
+    if (_missionPipelineV4LooksEnglish(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
     const covered = [
         _missionPipelineV4StoryFieldCovered(raw, frame.subjectDetail, 1),
         _missionPipelineV4StoryFieldCovered(raw, frame.incidentContext, 2),
