@@ -168,16 +168,24 @@
 
         if (simPhase === 'intermediate_hold') {
             const hold = simIntermediateHold;
-            simHoldRemainSec -= Math.max(0, rawDtSec);
+            const isSarHeliRecoveryHold = hold?.wp?.simHoldAction === 'sar_heli_recovery';
+            if (!isSarHeliRecoveryHold) simHoldRemainSec -= Math.max(0, rawDtSec);
             if (hold) {
                 _injectHoldAtDistance(hold.distNM, hold.wp);
-                if (hold.wp?.simHoldAction === 'sar_heli_recovery' && typeof window.missionSarHeliUpdateProgress === 'function') {
+                if (isSarHeliRecoveryHold && typeof window.missionSarHeliUpdateProgress === 'function') {
                     try { window.missionSarHeliUpdateProgress(window.lastLiveGpsPos?.lat, window.lastLiveGpsPos?.lon, Date.now(), window.lastLiveFlightData || null); } catch (_) {}
                     const progress = typeof window.missionSarHeliProgressSnapshot === 'function'
                         ? window.missionSarHeliProgressSnapshot()
                         : null;
-                    if (progress?.patientLoaded) simHoldRemainSec = Math.min(simHoldRemainSec, 1.0);
+                    if (progress?.patientLoaded) simHoldRemainSec = 0;
                 }
+            }
+            if (isSarHeliRecoveryHold) {
+                const progress = typeof window.missionSarHeliProgressSnapshot === 'function'
+                    ? window.missionSarHeliProgressSnapshot()
+                    : null;
+                if (!progress?.patientLoaded) return;
+                simHoldRemainSec = 0;
             }
             if (simHoldRemainSec <= 0) {
                 simPhase = 'flight';
