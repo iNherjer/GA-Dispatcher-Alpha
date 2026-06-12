@@ -9954,6 +9954,14 @@ function missionTruthBaseVisibleCues(ctx = null, category = '', taskDomain = '')
         if (anchors.power) add('Strom- oder Infrastrukturpunkt');
         return cues.slice(0, 3);
     }
+    if (cat === 'road') {
+        if (anchors.traffic_node) add('Kreuzung oder Kreisverkehr');
+        if (anchors.road || anchors.parking) add('Strasse oder Zufahrt');
+        if (anchors.water) add('Wasserflaeche oder Uferlinie');
+        if (anchors.power) add('Strom- oder Infrastrukturpunkt');
+        if (task.includes('search_and_rescue')) add('Fahrzeug- oder Unfallhinweis an der Strasse');
+        return cues.slice(0, 3);
+    }
     if (cat === 'industry') {
         add('Industrie- oder Betriebsanlage');
         if (anchors.road || anchors.parking) add('Zufahrt oder Betriebshof');
@@ -12255,6 +12263,13 @@ const MISSION_SEMANTICS_V4_RULESET = {
             planner: ['Burg, Schloss oder Ruine bleiben Primärsubjekt.'],
             writer: ['Wege, Tal oder Ort bleiben nur Kontext.']
         },
+        road: {
+            planner: [
+                'Strasse, Kreuzung oder Zufahrt bleiben Primaersubjekt.',
+                'Wasser, Strommasten, Gebaeude oder Naturraum sind nur Kontext, Zugang, Hindernis oder Randbereich.'
+            ],
+            writer: ['Verkehrsraum und gemeldete Strassenlage bleiben narrativ fuehrend.']
+        },
         generic: {
             planner: ['Das gewaehlte Ziel bleibt Primärsubjekt.'],
             writer: ['Kontext darf nur anreichern, nie umwidmen.']
@@ -12265,11 +12280,12 @@ const MISSION_SEMANTICS_V4_RULESET = {
 function _missionSemanticsV4NormalizeCategory(value = '') {
     const raw = String(value || '').trim().toLowerCase();
     if (!raw) return 'generic';
-    if (['bridge', 'water', 'mountain', 'forest', 'fire', 'city', 'castle'].includes(raw)) return raw;
+    if (['bridge', 'water', 'mountain', 'forest', 'fire', 'city', 'castle', 'road'].includes(raw)) return raw;
     if (/lake|river|shore|dam|reservoir|basin|water/.test(raw)) return 'water';
     if (/fire|brand|rauch|smoke|hotspot/.test(raw)) return 'fire';
     if (/forest|wood|wald|forst/.test(raw)) return 'forest';
     if (/mountain|ridge|summit|terrain|peak|cliff|hill/.test(raw)) return 'mountain';
+    if (/road|street|strasse|straße|traffic|junction|intersection|roundabout|kreuzung|zufahrt|parking/.test(raw)) return 'road';
     if (/town|village|city|settlement/.test(raw)) return 'city';
     if (/ruin|fort|castle|schloss|burg/.test(raw)) return 'castle';
     return 'generic';
@@ -12337,7 +12353,7 @@ function _missionSemanticsV4SortTexts(values = [], semantics = {}, kind = 'facts
         const hay = normalizeMissionText(text);
         let score = 0;
         if (subject && hay.includes(normalizeMissionText(subject))) score -= 3;
-        if (task === 'search_and_rescue' && semantics?.naturalPriority) {
+        if (task === 'search_and_rescue' && semantics?.naturalPriority && !['road', 'water'].includes(category)) {
             if (/(wald|forest|hang|gipfel|berg|kuppe|such|perimeter|lichtung|gelaende|terrain|trail|pfad|ridge|nature|offen)/.test(hay)) score -= 2;
             if (/(strasse|straße|road|klinik|power|mast|leitung|park|parking|building|gebaeude|gebäude|rail|bahn)/.test(hay)) score += 2;
         }
@@ -13402,7 +13418,7 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
             semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || ''
         );
         const canonicalSarIncident = missionSarCanonicalIncidentType(storyFrame.incidentType);
-        const sarFrameLooksEnglish = _missionPipelineV4LooksEnglish([
+        const sarFrameText = [
             storyFrame.trigger,
             storyFrame.focusSubject,
             storyFrame.keyQuestion,
@@ -13414,7 +13430,9 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
             storyFrame.lastSeenContext,
             storyFrame.probableScenario,
             ...(Array.isArray(storyFrame.visibleClueCandidates) ? storyFrame.visibleClueCandidates : [])
-        ].join(' '));
+        ].join(' ');
+        const sarFrameLooksEnglish = _missionPipelineV4LooksEnglish(sarFrameText);
+        const sarFrameConflictsIncident = _missionPipelineV4SarTextConflictsIncidentFamily(sarFrameText, canonicalSarIncident);
         const selectedSarIncident = missionSarPickIncidentType(
             semantics.focusLock.targetCategory || base.plan.targetCategory || '',
             semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || '',
@@ -13427,7 +13445,8 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         const shouldReframeSar = !canonicalSarIncident
             || !allowedSarIncidentIds.includes(canonicalSarIncident)
             || selectedSarIncident !== canonicalSarIncident
-            || sarFrameLooksEnglish;
+            || sarFrameLooksEnglish
+            || sarFrameConflictsIncident;
         storyFrame.incidentType = selectedSarIncident || allowedSarIncidentIds[0] || 'missing_hiker';
         if (shouldReframeSar) {
             const selectedIncident = _missionPipelineV4BuildSarIncident({
@@ -13844,6 +13863,23 @@ function _missionPipelineV4LooksEnglish(text = '') {
     return englishHits >= 4 && englishHits > germanHits;
 }
 
+function _missionPipelineV4SarTextConflictsIncidentFamily(text = '', incidentType = '') {
+    const id = missionSarCanonicalIncidentType(incidentType);
+    const normalized = normalizeMissionText(text);
+    if (!normalized || !id) return false;
+    const has = re => re.test(normalized);
+    const aircraftTerms = /\b(luftfahrzeug|kleinflugzeug|ultraleicht|ul[\s-]?maschine|echo[\s-]?maschine|flugzeug|einschlag|wrackhinweis)\b/;
+    const roadCollisionTerms = /\b(verkehrsunfall|kollision|auffahrunfall|kreuzungsunfall|unfallstelle mit|mehrere fahrzeuge|mehreren fahrzeugen|unfallfahrzeug)\b/;
+    const offRoadTerms = /\b(von der fahrbahn abgekommen|fahrbahn abgekommen|abseits der strasse|abseits der straße|boeschung|boschung|waldsaum|vermisstes fahrzeug|fahrzeugspuren|reifenspuren)\b/;
+    const waterTerms = /\b(kajak|paddel|boot|bootscrew|angler|wasserrettung|uferabschnitt|anlandepunkt)\b/;
+    if (id === 'downed_ultralight') return has(roadCollisionTerms) || has(offRoadTerms) || has(waterTerms);
+    if (id === 'road_collision') return has(aircraftTerms) || has(offRoadTerms) || has(waterTerms);
+    if (id === 'vehicle_off_road' || id === 'riverside_vehicle_entry') return has(aircraftTerms) || has(roadCollisionTerms);
+    if (['missing_hiker', 'fallen_climber'].includes(id)) return has(aircraftTerms) || has(roadCollisionTerms) || has(waterTerms);
+    if (['missing_kayaker', 'angler_missing', 'small_boat_overdue'].includes(id)) return has(aircraftTerms) || has(roadCollisionTerms) || has(offRoadTerms);
+    return false;
+}
+
 function _missionPipelineV4SentenceCount(text = '') {
     return String(text || '')
         .split(/(?<=[.!?])\s+/)
@@ -14102,6 +14138,10 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}) {
     const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
     if (!raw) return _missionPipelineV4ComposeStoryFallback(contract);
     if (_missionPipelineV4LooksEnglish(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
+    const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
+    if (taskDomain === 'search_and_rescue' && _missionPipelineV4SarTextConflictsIncidentFamily(raw, frame.incidentType)) {
+        return _missionPipelineV4ComposeStoryFallback(contract);
+    }
     const covered = [
         _missionPipelineV4StoryFieldCovered(raw, frame.subjectDetail, 1),
         _missionPipelineV4StoryFieldCovered(raw, frame.incidentContext, 2),
