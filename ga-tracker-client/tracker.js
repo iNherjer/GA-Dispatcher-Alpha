@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v267';
-const TRACKER_VERSION_CODE = 267;
+const TRACKER_VERSION = 'v268';
+const TRACKER_VERSION_CODE = 268;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -805,7 +805,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     // LVar fallback path for A2A aircraft (works without PA24 custom key-event mapping).
     const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche', {
       writeOpenPosition: !openDoor,
-      writeLatch: false,
+      writeLatch: true,
       handleOpenValue: 1,
       handleCloseValue: 0,
       latchUnlockValue: 1,
