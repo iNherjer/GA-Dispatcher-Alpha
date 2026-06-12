@@ -9892,7 +9892,8 @@ function missionTruthAnchorForCategory(ctx = null, category = '', taskDomain = '
 }
 
 function missionTruthSceneVisibleCues(sceneSpec = null) {
-    if (normalizeMissionTargetSceneKind(sceneSpec?.kind || '') === 'none') return [];
+    const kind = normalizeMissionTargetSceneKind(sceneSpec?.kind || '');
+    if (kind === 'none') return [];
     const text = [
         sceneSpec?.kind,
         sceneSpec?.preset,
@@ -9904,8 +9905,12 @@ function missionTruthSceneVisibleCues(sceneSpec = null) {
     const add = (cue, re) => {
         if (re.test(text) && !cues.includes(cue)) cues.push(cue);
     };
-    add('Person am Boden', /(missing_person)/);
-    if (!/missing_person/.test(text)) add('Bodenpersonal', /(^|[^a-z])(people|person|ground_crew|crew)([^a-z]|$)/);
+    if (kind === 'road_incident') {
+        add('Personen an Unfallstelle', /(missing_person|people|person|ground_crew|crew)/);
+    } else {
+        add('Person am Boden', /(missing_person)/);
+        if (!/missing_person/.test(text)) add('Bodenpersonal', /(^|[^a-z])(people|person|ground_crew|crew)([^a-z]|$)/);
+    }
     add('Fahrzeug am Boden', /(vehicle|truck|bus|van|car|emergency_response|utility_truck)/);
     add('Boot auf dem Wasser', /(watercraft|boat|ship|raft|liferaft)/);
     add('Windenergieanlage', /(wind_turbine|windrad|windpark)/);
@@ -13443,14 +13448,18 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
                 : ['search_area', 'forest_edge_or_clearing']),
             ...(Array.isArray(base.plan.requiredAnchors) ? base.plan.requiredAnchors : [])
         ])).slice(0, 6);
-        base.plan.objectFamilies = Array.from(new Set(
-            [
+        let sarObjectFamilies = [
                 ...((Array.isArray(sarProfile?.objectFamilies) && sarProfile.objectFamilies.length) ? sarProfile.objectFamilies : []),
                 ...(Array.isArray(base.plan.objectFamilies) ? base.plan.objectFamilies : [])
             ]
-                .map(normalizeMissionTargetSceneFeature)
-                .filter(Boolean)
-        )).slice(0, 8);
+            .map(normalizeMissionTargetSceneFeature)
+            .filter(Boolean);
+        if (storyFrame.incidentType === 'road_collision') {
+            sarObjectFamilies = sarObjectFamilies
+                .map(feature => feature === 'missing_person' ? 'people' : feature)
+                .filter(feature => !['liferaft', 'watercraft'].includes(feature));
+        }
+        base.plan.objectFamilies = Array.from(new Set(sarObjectFamilies)).slice(0, 8);
     }
     base.semantics = semantics;
     base.debug = {
