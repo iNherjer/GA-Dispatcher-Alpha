@@ -17144,6 +17144,17 @@ async function generateMission() {
             requestedCategory: requestedPoiCategory
         }));
         _ensureDispatchAlive();
+        const hospitalRef = sarHeliSpec?.hospitalRef || null;
+        const hospitalLat = Number(hospitalRef?.lat);
+        const hospitalLon = Number(hospitalRef?.lon);
+        if (Number.isFinite(hospitalLat) && Number.isFinite(hospitalLon)) {
+            const medicalLeg = calcNav(dest.lat, dest.lon, hospitalLat, hospitalLon);
+            if (Number.isFinite(Number(medicalLeg?.dist))) {
+                totalDist = Math.round((Number(nav.dist || 0) + Number(medicalLeg.dist || 0)) * 10) / 10;
+            }
+            const medicalIcao = String(hospitalRef?.icao || '').trim().toUpperCase();
+            currentDestICAO = medicalIcao && medicalIcao !== 'APT' ? medicalIcao : 'HOSP';
+        }
     }
     const plannerContext = {
         start,
@@ -17978,6 +17989,16 @@ async function generateMission() {
     const arrivalHint = !isPOI ? String(currentMissionData?.aptArrivalPlan?.narrativeHint || '').trim() : '';
     if (arrivalHint && !/ankunft|uebergabe|übergabe|vorfeld|parking/i.test(storyForBriefing)) {
         storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Ankunfts-Hinweis: ${arrivalHint}`;
+    }
+    if (missionIsSarHeliMission(currentMissionData)) {
+        const sarHospital = currentMissionData?.sarHeli?.hospitalRef || {};
+        const hospitalName = String(sarHospital.name || sarHospital.icao || 'Krankenhaus-Helipad/Fallback-Handoff').trim();
+        const recovery = currentMissionData?.sarHeli?.recovery || {};
+        const holdSec = Math.max(5, Math.round(Number(recovery.stableHoldSec || 20)));
+        const evacLine = `Evac-Hinweis: Nach Fundbestaetigung an der Fundstelle landen oder unter 10 m AGL stabil hovern, ${holdSec} Sekunden ruhig halten, Patient aufnehmen und danach direkt zum medizinischen Handoff ${hospitalName} weiterfliegen. Die Mission endet erst nach Landung und Stillstand dort.`;
+        if (!/Evac-Hinweis/i.test(storyForBriefing)) {
+            storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${evacLine}`;
+        }
     }
     document.getElementById("mStory").innerText = storyForBriefing;
     document.getElementById("mDepICAO").innerText = currentStartICAO;

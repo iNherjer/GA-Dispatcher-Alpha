@@ -8481,6 +8481,56 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
         )
     );
 
+    if (
+        typeof missionIsSarHeliMission === 'function'
+        && typeof currentMissionData !== 'undefined'
+        && missionIsSarHeliMission(currentMissionData)
+    ) {
+        const sarSpec = (typeof missionSarHeliSpecFromMission === 'function')
+            ? missionSarHeliSpecFromMission(currentMissionData)
+            : (currentMissionData.sarHeli || null);
+        const hospital = sarSpec?.hospitalRef || null;
+        const hospitalLat = Number(hospital?.lat);
+        const hospitalLon = Number(hospital?.lon);
+        if (Number.isFinite(hospitalLat) && Number.isFinite(hospitalLon)) {
+            const targetTerrainFt = Number(
+                sarSpec?.targetRef?.terrainFt
+                ?? currentMissionData?.poiTerrainFt
+                ?? currentMissionData?.targetAltFt
+            );
+            const recoveryHoldSec = Math.max(20, Number(sarSpec?.recovery?.stableHoldSec || 20));
+            const hospitalName = String(hospital.name || hospital.icao || 'Krankenhaus-Helipad').trim();
+            routeWaypoints = [
+                { lat: lat1, lng: lon1, name: currentSName || currentStartICAO || 'Start' },
+                {
+                    lat: lat2,
+                    lng: lon2,
+                    name: "🚁 Fundstelle " + (currentMissionData?.poiName || currentMissionData?.targetName || currentDName || 'SAR'),
+                    isPOI: true,
+                    isSarHeliIncident: true,
+                    altFt: Number.isFinite(targetTerrainFt) ? Math.max(0, Math.round(targetTerrainFt)) : null,
+                    simHoldSec: recoveryHoldSec + 2,
+                    simHoldAction: 'sar_heli_recovery'
+                },
+                {
+                    lat: hospitalLat,
+                    lng: hospitalLon,
+                    name: "🏥 " + hospitalName,
+                    isSarHeliHospital: true,
+                    icao: String(hospital.icao || 'HOSP').toUpperCase(),
+                    altFt: Number.isFinite(Number(hospital.elevation)) ? Math.round(Number(hospital.elevation)) : null
+                }
+            ];
+            window._missionRouteWaypoints = JSON.parse(JSON.stringify(routeWaypoints));
+            renderMainRoute();
+            const board = document.getElementById('mapTableOverlay');
+            if (board && board.classList.contains('active') && typeof window.gaScheduleRouteMapLayoutRefresh === 'function') {
+                window.gaScheduleRouteMapLayoutRefresh('route-update');
+            }
+            return;
+        }
+    }
+
     // POI-Check: Wenn ein Zielgebiet als Arbeitswegpunkt genutzt wird, bauen wir ein Rundflug-Dreieck
     if (missionLikePoi) {
         // Berechnung des direkten Rückwegs (vom POI zurück zum Start)
