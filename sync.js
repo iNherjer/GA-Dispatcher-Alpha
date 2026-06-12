@@ -258,6 +258,16 @@ const MISSION_SCENE_ASSET_POOLS = {
         'Log_01',
         'Cardboard',
         'Pallet01_03'
+    ]),
+    aircraftWreck: _sceneCatalogRoleTitles('aircraft.wreck', [
+        'Cessna 172 Skyhawk (G1000)',
+        'Cessna 172 Skyhawk',
+        'Cessna Skyhawk G1000 Asobo',
+        'Cessna Skyhawk Asobo',
+        'Savage Cub Asobo',
+        'VL3 Asobo',
+        'Pipistrel Virus SW121 Asobo',
+        'DA40-NG Asobo'
     ])
 };
 let boardingMarkerRefreshTimer = null;
@@ -3701,6 +3711,7 @@ function _missionTargetSceneFeatureHintsFromSpec(kind = 'survey_context') {
             if (r === 'camp.tent' || r === 'camp.trailer') add('tent');
             if (r === 'cargo.medical_kit' || r === 'cargo.animal_transport_box') add('cargo_material');
             if (r === 'cargo.small_box') add((kind === 'cargo_site' || kind === 'medical_pickup') ? 'cargo_material' : 'small_equipment');
+            if (r === 'aircraft.wreck') add('aircraft_wreck');
             if (r.startsWith('debris.')) add('debris');
             if (r === 'nature.log' || r === 'material.log') add('logs');
             if (r === 'vfx.smoke') add('smoke_light');
@@ -3718,6 +3729,7 @@ function _missionTargetSceneKindFromFeatureHints(text = '') {
     if (has('wind_turbine')) return _missionTargetSceneAllowsWindTurbine(text) ? 'wind_turbine_site' : 'survey_context';
     if (has('construction_crane') || has('earthmoving') || has('construction_truck')) return 'construction_site';
     if (has('liferaft') || has('service_ship')) return 'sar_water';
+    if (has('aircraft_wreck')) return 'debris_field';
     if (has('missing_person')) return 'sar_land';
     if (has('emergency_response') && /(medizin|medical|patient|rettung|notfall|verletz)/.test(text)) return 'medical_pickup';
     if (has('emergency_response') || (has('road_vehicles') && /(unfall|crash|kollision|sperrung|einsatzlage)/.test(text))) return 'road_incident';
@@ -3906,6 +3918,22 @@ function _missionTargetSceneNormalizeFeature(value) {
         ground_markings: 'cones',
         bodenmarkierung: 'cones',
         bodenmarkierungen: 'cones',
+        aircraft_wreck: 'aircraft_wreck',
+        aircraft_debris: 'aircraft_wreck',
+        downed_aircraft: 'aircraft_wreck',
+        downed_ultralight: 'aircraft_wreck',
+        crashed_aircraft: 'aircraft_wreck',
+        plane_wreck: 'aircraft_wreck',
+        aircraft: 'aircraft_wreck',
+        airplane: 'aircraft_wreck',
+        plane: 'aircraft_wreck',
+        ultralight: 'aircraft_wreck',
+        ultraleicht: 'aircraft_wreck',
+        ultraleichtflugzeug: 'aircraft_wreck',
+        kleinflugzeug: 'aircraft_wreck',
+        flugzeug: 'aircraft_wreck',
+        flugzeugwrack: 'aircraft_wreck',
+        wrack: 'aircraft_wreck',
         rubble: 'debris',
         truemmer: 'debris',
         treibgut: 'logs',
@@ -3991,7 +4019,7 @@ const MISSION_TARGET_SCENE_BASE_FEATURE_COUNTS = {
     road_incident: { road_vehicles: 2, emergency_response: 1, people: 2, cones: 2 },
     construction_site: { construction_crane: 1, earthmoving: 1, construction_truck: 1, cargo_material: 1, cones: 2 },
     erosion_damage: { logs: 2, debris: 1, cones: 1 },
-    debris_field: { debris: 3 },
+    debris_field: { aircraft_wreck: 1, debris: 3 },
     sar_water: { liferaft: 1, service_ship: 1, watercraft: 1, missing_person: 1, small_equipment: 1 },
     sar_land: { missing_person: 1 },
     medical_pickup: { emergency_response: 1, people: 2, cargo_material: 1 },
@@ -4043,6 +4071,7 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
             if (r === 'cargo.medical_kit') add('cargo_material');
             if (r === 'cargo.animal_transport_box') add('cargo_material');
             if (r === 'cargo.small_box') add((kind === 'cargo_site' || kind === 'medical_pickup') ? 'cargo_material' : 'small_equipment');
+            if (r === 'aircraft.wreck') add('aircraft_wreck');
             if (r.startsWith('debris.')) add('debris');
             if (r === 'nature.log' || r === 'material.log') add('logs');
             if (r === 'vfx.smoke') add(/(rauchsignal|signalrauch|farbiger rauch|signalfackel|signal smoke)/.test(text) ? 'signal_smoke' : 'smoke_light');
@@ -4053,6 +4082,7 @@ function _missionTargetSceneRequestedFeatures(kind = '') {
     if (_missionTargetSceneAllowsWindTurbine(text)) add('wind_turbine');
     if (/(kran|crane)/.test(text)) add('construction_crane');
     if (/(bagger|bulldozer|dozer|erdarbeiten)/.test(text)) add('earthmoving');
+    if (/(flugzeug|kleinflugzeug|ultraleicht|ul[\s-]?maschine|luftfahrzeug|wrack|einschlag|absturz)/.test(text)) add('aircraft_wreck');
     if (/(truemmer|trümmer|debris|wrackteile|streugut)/.test(text)) add('debris');
     if (/(treibholz|baumstamm|log|logs)/.test(text)) add('logs');
     if (kind === 'sar_land' && (/(sichtkontakt|gesichtet|fundstelle|person am boden|verletzte person|wink|winkt|hilferuf|hilfezeichen)/.test(text) || _missionSarLooksLikePersonSearch())) add('missing_person');
@@ -4214,6 +4244,7 @@ function _missionTargetSceneItems(kind) {
         : MISSION_SCENE_ASSET_POOLS.boats;
     const serviceShipPool = MISSION_SCENE_ASSET_POOLS.serviceShips.concat(MISSION_SCENE_ASSET_POOLS.ships);
     const debrisPool = MISSION_SCENE_ASSET_POOLS.debrisLight.concat(MISSION_SCENE_ASSET_POOLS.natureLogs);
+    const aircraftWreckPool = MISSION_SCENE_ASSET_POOLS.aircraftWreck || [];
     const peoplePool = MISSION_SCENE_ASSET_POOLS.people;
     const markerPool = MISSION_SCENE_ASSET_POOLS.markers.includes(BOARDING_MARKER_TITLE)
         ? [BOARDING_MARKER_TITLE]
@@ -4327,6 +4358,13 @@ function _missionTargetSceneItems(kind) {
             } else if (feature === 'cones') {
                 add(`feature_cone_${(i * 2) + 1}`, 'Zusatz Absperrkegel', cone, markerPool, -7 + step, -3 - step);
                 add(`feature_cone_${(i * 2) + 2}`, 'Zusatz Absperrkegel', cone, markerPool, 9 + step, 3 + step);
+            } else if (feature === 'aircraft_wreck') {
+                const aircraft = _scenePickTitle(aircraftWreckPool, `feature-aircraft-wreck-${i}`, 'Cessna 172 Skyhawk');
+                const fallback = { f: -2 + (i * 7), r: -5 + (i * 5), hdg: 35 + (i * 25) };
+                add(`feature_aircraft_wreck_${i + 1}`, 'Kleinflugzeug / UL-Wrack', aircraft, aircraftWreckPool, fallback.f, fallback.r, {
+                    hdgOffsetDeg: fallback.hdg,
+                    placement: 'aircraft wreck search target'
+                });
             } else if (feature === 'debris') {
                 const debris = _scenePickTitle(debrisPool, `feature-debris-${i}`, 'Cardboard');
                 add(`feature_debris_${i + 1}`, 'Zusatz Debris', debris, debrisPool, -6 + step, -15 - step, { hdgOffsetDeg: 35 + (i * 30) });
@@ -4506,6 +4544,14 @@ function _missionTargetSceneItems(kind) {
     }
 
     if (kind === 'debris_field') {
+        const hasAircraftWreck = _missionTargetSceneRequestedFeatures(kind).includes('aircraft_wreck');
+        if (hasAircraftWreck) {
+            const aircraft = _scenePickTitle(aircraftWreckPool, 'aircraft-wreck-main', 'Cessna 172 Skyhawk');
+            add('aircraft_wreck', 'Kleinflugzeug / UL-Wrack', aircraft, aircraftWreckPool, -2, -5, {
+                hdgOffsetDeg: 35,
+                placement: 'primary aircraft wreck'
+            });
+        }
         const debrisA = _scenePickTitle(debrisPool, 'debris-a', 'Cardboard');
         const debrisB = _scenePickTitle(debrisPool, 'debris-b', 'Pallet01_03');
         const debrisC = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.natureLogs.concat(debrisPool), 'debris-c', 'Log_01');

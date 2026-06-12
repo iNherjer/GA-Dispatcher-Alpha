@@ -62,7 +62,7 @@ window.MISSION_SCENE_ASSETS = {
         },
         debris_field: {
             label: 'Truemmerfeld / verstreute Gegenstaende',
-            roles: ['debris.light', 'cargo.small_box', 'cargo.pallet_small', 'nature.log'],
+            roles: ['aircraft.wreck', 'debris.light', 'cargo.small_box', 'cargo.pallet_small', 'nature.log'],
             useFor: ['search_and_rescue', 'news_coverage', 'mapping_survey']
         },
         infra_bridge: {
@@ -227,6 +227,10 @@ window.MISSION_SCENE_ASSETS = {
         debris: {
             label: 'Truemmer/leichte verstreute Gegenstaende',
             roles: ['debris.light', 'cargo.small_box', 'cargo.pallet_small']
+        },
+        aircraft_wreck: {
+            label: 'Kleinflugzeug / UL-Wrack als primaerer Absturzfund',
+            roles: ['aircraft.wreck', 'debris.light']
         },
         logs: {
             label: 'Baumstaemme/Treibholz',
@@ -556,6 +560,16 @@ window.MISSION_SCENE_ASSETS = {
             'Cardboard',
             'Pallet01_03',
             'Pallet01_02'
+        ],
+        'aircraft.wreck': [
+            'Cessna 172 Skyhawk (G1000)',
+            'Cessna 172 Skyhawk',
+            'Cessna Skyhawk G1000 Asobo',
+            'Cessna Skyhawk Asobo',
+            'Savage Cub Asobo',
+            'VL3 Asobo',
+            'Pipistrel Virus SW121 Asobo',
+            'DA40-NG Asobo'
         ]
     }
 };

@@ -974,6 +974,22 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return /(smoke|rauch|fire|feuer|vfx|vo_smoke|vo_fire|chimney_smoke|signal)/.test(text);
   };
 
+  const isSceneAircraftSpawn = (title, pos = {}, meta = {}) => {
+    const plan = meta?.plan || {};
+    const text = [
+      title,
+      pos?.title,
+      pos?.requestedTitle,
+      pos?.kind,
+      pos?.label,
+      plan?.title,
+      plan?.requestedTitle,
+      plan?.kind,
+      plan?.label
+    ].filter(Boolean).join(' ').toLowerCase();
+    return /(aircraft_wreck|aircraft\.wreck|kleinflugzeug|ul-wrack|flugzeug|skyhawk|cessna|savage cub|vl3|pipistrel|da40)/.test(text);
+  };
+
   const spawnObject = async (title, pos, timeoutMs = 5000, meta = {}) => {
     const requestId = nextReqId++;
     lastExceptions.length = 0;
@@ -981,7 +997,14 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     try {
       const onGround = !usesAltitudeSensitiveVfx(title, pos, meta);
       if (!onGround) debugLog(`SPAWN_CREATE_VFX_ALT title="${title}" altFt=${pos.altFt} altOffsetFt=${pos.altOffsetFt} onGround=0`);
-      handle.aICreateSimulatedObject(title, buildInitPos(pos.lat, pos.lon, pos.altFt, pos.hdg, onGround), requestId);
+      const initPos = buildInitPos(pos.lat, pos.lon, pos.altFt, pos.hdg, onGround);
+      if (isSceneAircraftSpawn(title, pos, meta) && typeof handle.aICreateNonATCAircraft === 'function') {
+        const tailNumber = `D-SAR${String(requestId % 1000).padStart(3, '0')}`;
+        debugLog(`SPAWN_CREATE_NON_ATC_AIRCRAFT title="${title}" tail="${tailNumber}" onGround=${onGround ? 1 : 0}`);
+        handle.aICreateNonATCAircraft(title, tailNumber, initPos, requestId);
+      } else {
+        handle.aICreateSimulatedObject(title, initPos, requestId);
+      }
     } catch (err) {
       const pending = pendingAssign.get(requestId);
       if (pending) rejectPendingAssign(requestId, pending, err, 'create-throw');

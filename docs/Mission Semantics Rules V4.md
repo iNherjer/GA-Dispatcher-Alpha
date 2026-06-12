@@ -64,6 +64,7 @@ Kontext darf nicht:
 - Die Incident-Familie wird aus Zielkategorie, Lage-Evidenz, `targetGeoContext`, `missionTruth` und History abgeleitet.
 - Lage-Evidenz hat Vorrang vor Varianz-History; History verhindert Wiederholung, darf aber starke Zielhinweise nicht umdeuten.
 - Die gewaehlte Familie muss Story, Writer-Text, `sceneIntent` und Zielobjekte konsistent halten.
+- Bei Luftfahrzeuglagen muss die Zielszene ein Flugzeug-/Wrackobjekt als Primaerbefund nutzen, sofern dieser Baustein verfuegbar ist. Allgemeines Debris oder Rauch sind Zusatzhinweise und duerfen die Luftfahrzeuglage nicht ersetzen.
 - Strassen, Strommasten, Gebaeude, Parkplaetze oder Leitungen sind nur:
   - Orientierung
   - Hindernis

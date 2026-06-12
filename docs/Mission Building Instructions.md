@@ -748,7 +748,7 @@ SAR-Unterlogik innerhalb dieses Rezepts:
   - `vehicle_off_road`: Fahrzeug von Strasse/Weg abgekommen, versteckte Endlage, Boeschung, Waldsaum, Ufer oder schwer einsehbarer Randbereich.
   - `missing_hiker`/verwandt: Personensuche mit letzter Sichtung, Suchraum, Person oder Bodenhinweis.
   - Wasserlagen: Boot, Rettungsinsel, Uferhinweis, Person am Ufer oder Wasserrettungs-Zugriffspunkt.
-  - Luftfahrzeuglagen: letzter Funk-/Sichtkontakt, Mayday/Positionshinweis, Wrack-/Debris-/Rauchhinweise.
+  - Luftfahrzeuglagen: letzter Funk-/Sichtkontakt, Mayday/Positionshinweis, Wrack-/Debris-/Rauchhinweise. Wenn ein Flugzeug-/UL-Objekt verfuegbar ist, ist es das Primaerobjekt der Szene; generische Logs, Paletten oder Kartons sind nur Zusatz-Debris, nicht der eigentliche Befund.
 - Writer und Scene duerfen keine zwei Incident-Familien zu einer Mischlage verschmelzen. Wenn `road_collision` gewaehlt ist, darf daraus nicht im Briefing ein einzelnes "vermisstes Fahrzeug von der Fahrbahn" werden; wenn genau das gemeint ist, ist die Familie `vehicle_off_road`.
 - Diese Trennung ist nicht nur Prompt-Regel: Planner-/Writer-Text, der gegen den gewaehlten Incident oder seine Familie eine andere SAR-Lage einmischt, muss verworfen oder aus dem passenden Incident-Frame neu aufgebaut werden. Gute lokale Details duerfen erhalten bleiben, wenn sie den gelockten Incident konkretisieren statt ihn umzudeuten.
 - SAR-Briefings duerfen keine unentschiedenen Einsatz-Alternativen formulieren. Nicht "Wanderer oder UL", sondern eine konkrete Dispatch-Annahme mit Wer/Was, Wo, Ausloeser, Warum jetzt und benoetigtem Luftbefund.

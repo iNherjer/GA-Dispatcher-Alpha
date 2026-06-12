@@ -8555,7 +8555,7 @@ function missionSceneTargetKindCatalog() {
         powerline_inspection: { roles: ['utility.powerline', 'utility.generator', 'vehicle.truck'] },
         wind_turbine_site: { roles: ['utility.wind_turbine', 'vehicle.truck', 'marker.cone'] },
         erosion_damage: { roles: ['nature.log', 'debris.light'] },
-        debris_field: { roles: ['debris.light', 'cargo.small_box'] },
+        debris_field: { roles: ['aircraft.wreck', 'debris.light', 'cargo.small_box'] },
         infra_bridge: { roles: ['vehicle.truck', 'marker.cone'] },
         infra_dam: { roles: ['marker.cone', 'utility.generator', 'watercraft.small_boat'] },
         industry_site: { roles: ['vehicle.truck', 'cargo.container', 'utility.generator'] },
@@ -8603,6 +8603,7 @@ function missionSceneTargetFeatureCatalog() {
         people: { roles: ['person.ground_crew'] },
         cones: { roles: ['marker.cone'] },
         debris: { roles: ['debris.light', 'cargo.small_box', 'cargo.pallet_small'] },
+        aircraft_wreck: { roles: ['aircraft.wreck', 'debris.light'] },
         logs: { roles: ['nature.log', 'material.log'] },
         liferaft: { roles: ['sar.liferaft'] },
         watercraft: { roles: ['watercraft.small_boat'] },
@@ -8777,6 +8778,22 @@ function normalizeMissionTargetSceneFeature(value) {
         ground_markings: 'cones',
         bodenmarkierung: 'cones',
         bodenmarkierungen: 'cones',
+        aircraft_wreck: 'aircraft_wreck',
+        aircraft_debris: 'aircraft_wreck',
+        downed_aircraft: 'aircraft_wreck',
+        downed_ultralight: 'aircraft_wreck',
+        crashed_aircraft: 'aircraft_wreck',
+        plane_wreck: 'aircraft_wreck',
+        aircraft: 'aircraft_wreck',
+        airplane: 'aircraft_wreck',
+        plane: 'aircraft_wreck',
+        ultralight: 'aircraft_wreck',
+        ultraleicht: 'aircraft_wreck',
+        ultraleichtflugzeug: 'aircraft_wreck',
+        kleinflugzeug: 'aircraft_wreck',
+        flugzeug: 'aircraft_wreck',
+        flugzeugwrack: 'aircraft_wreck',
+        wrack: 'aircraft_wreck',
         truemmer: 'debris',
         rubble: 'debris',
         treibgut: 'logs',
@@ -9139,6 +9156,7 @@ function inferMissionTargetSceneKindFromFeatureHints(values = [], text = '', tar
             'nature.log': 'logs',
             'material.log': 'logs',
             'debris.light': 'debris',
+            'aircraft.wreck': 'aircraft_wreck',
             'sar.liferaft': 'liferaft',
             'watercraft.small_boat': 'watercraft',
             'watercraft.service_ship': 'service_ship',
@@ -9162,6 +9180,7 @@ function inferMissionTargetSceneKindFromFeatureHints(values = [], text = '', tar
     if (has('wind_turbine')) return missionSceneAllowsWindTurbine(text, targetGeoContext) ? 'wind_turbine_site' : 'survey_context';
     if (has('construction_crane') || has('earthmoving') || has('construction_truck')) return 'construction_site';
     if (has('liferaft') || has('service_ship')) return 'sar_water';
+    if (has('aircraft_wreck')) return 'debris_field';
     if (has('missing_person')) return 'sar_land';
     if (has('emergency_response') && /(medizin|medical|patient|rettung|notfall|verletz)/.test(text)) return 'medical_pickup';
     if (has('emergency_response') || (has('road_vehicles') && /(unfall|crash|kollision|sperrung|einsatzlage)/.test(text))) return 'road_incident';
@@ -9458,10 +9477,10 @@ function buildMissionTargetScenePromptGuide(isPOI, forcedProfile = null) {
     const defaultHint = forced === 'fire_watch'
         ? 'fire_watch'
         : (forced === 'search_and_rescue'
-            ? 'sar_water oder sar_land'
+            ? 'sar_water, sar_land, road_incident oder debris_field bei Luftfahrzeuglage'
             : (forced === 'mapping_survey' ? 'construction_site, erosion_damage, infra_bridge, infra_dam, wind_turbine_site bei Windenergie-Kontext, powerline_inspection nur bei Strom-/Energie-Kontext oder survey_context' : (forced === 'poi_learning_guide' || forced === 'sightseeing_tour' ? 'none oder sehr sparsam water_context/wildlife_site' : 'passend zum Kontext')));
     return isPOI
-        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Die KI entscheidet bewusst, was im Ziel wirklich sichtbar und plausibel ist. Nutze "none" bei reinen Sightseeing-/Historien-/Lernfluegen ohne konkreten sichtbaren Boden-Kontext; fuege keine Deko hinzu, nur weil ein POI eine Kategorie hat. Bei Lern-/Sightseeing-Fluegen: sehr sparsam bleiben, density meist "sparse", count meist 0-3; keine Einsatzfahrzeuge, keine grossen Schiffe, keine Marker/Cones, ausser sie sind im Kontext wirklich sichtbar. Szene und Story muessen logisch dieselbe Lage zeigen: keine Fahrzeuge, Personen, Zelte, Rauchsignale, Tiere, Werkzeug, Ladung oder Absperrungen hinzufuegen, wenn sie weder in Story noch sceneIntent vorkommen. Kleine Bausteine wie tent, parked_vehicle, small_equipment, pallet_stack, campfire, waterfowl, logs oder watercraft sind kontextfreie Vokabeln: nutze sie ueberall dort, wo sie aus der Missionslage plausibel sind (Wald, SAR, Ufer, Baustelle, Unfall, POI), nicht nur in einer festen Katalog-Szene. Spezialobjekte sind keine Deko: powerline/powerline_inspection nur wenn der Auftrag konkret Strommast, Freileitung, Stromtrasse, Umspannwerk, Energieinfrastruktur, Bau, Wartung oder Inspektion nennt; nie fuer generische Survey-/Natur-/Waldkulisse. wind_turbine/wind_turbine_site nur wenn Windrad/Windpark/Windenergie/Bau/Wartung/Inspektion konkret Thema ist und targetGeoContext oder Story offene/hochgelegene Flaeche, Wiese, Feld, Acker, Kuppe oder Gipfel plausibel macht; nicht in Stadt, Wohngebiet, dichter Bebauung oder Tal. Erfinde keine festen Sonder-Szenen; beschreibe stattdessen genau die sichtbaren Einzelobjekte und ihre Anordnung. Allgemeine Szenenlogik: Bestimme zuerst das Primaerziel der Mission, dann Kontextobjekte, dann optional Support. Support-Objekte wie Fahrzeuge, Crew, Technik, Absperrungen oder Material duerfen nur erscheinen, wenn sie die Geschichte tragen und nicht den Auftrag logisch erledigen, bevor der Pilot ankommt. Bei Inspection/Survey sind Messobjekte, Infrastruktur oder Referenzpunkte wichtiger als zufaellige Crew; bei Cargo/Medical muessen Fracht, Uebergabe und Personen zur PAX/Fracht-Lage passen; bei News/Event muessen Fahrzeuge/Menschen aus dem Ereignis hervorgehen; bei Natur/Sightseeing bleibt es ruhig und objektarm. SAR-Land: Wenn die Story eine vermisste Person beschreibt, ist missing_person oder ein klarer Hinweis wie small_equipment/tent/signal_smoke das Primaerziel. Suchtrupps/Fahrzeuge duerfen nur als Support/Perimeter/auf Anfahrt vorkommen, wenn Story oder sceneIntent sie nennen; sie duerfen nicht so wirken, als haetten sie die Person schon gefunden. Wasser-Kontext: water_context nur fuer Ufer/Treibgut/kleine zivile Boote/heimische Wasservoegel. watercraft meint kleine zivile Boote. service_ship/grosse Schiffe nur bei Hafen, SAR, Kuestenwache, Arbeitsschiff oder klarer Textgrundlage. Natur-Kontext: wildlife_site darf passende lokale Tiere, Wasservoegel oder kleine Herden bekommen, aber keine exotischen Tiere ohne klaren Grund. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site mit Baufahrzeug und gebuendeltem Materiallager, echte Stromtrasse -> powerline_inspection, Windradbau auf offenem Feld -> wind_turbine_site, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Baustelle => kind="construction_site", layout="cluster", requirements=[{"feature":"earthmoving","count":1},{"feature":"pallet_stack","count":6,"placement":"am Materiallager","arrangement":"cluster"}], Wald-SAR => kind="sar_land", requirements=[{"feature":"missing_person","count":1},{"feature":"small_equipment","count":1},{"feature":"signal_smoke","count":1}], Seeufer-Lernkontext => kind="water_context", requirements=[{"feature":"waterfowl","count":2,"arrangement":"cluster"},{"feature":"parked_vehicle","count":1}] oder nur ["logs"]. Empfehlung fuer dieses Profil: ${defaultHint}.
+        ? `17. TARGET-SCENE-PFLICHT: Gib ein Objekt "targetScene" aus. Wähle genau einen kind als Grundszene und optional ein preset/features/requirements fuer sichtbare Besonderheiten. Die KI entscheidet bewusst, was im Ziel wirklich sichtbar und plausibel ist. Nutze "none" bei reinen Sightseeing-/Historien-/Lernfluegen ohne konkreten sichtbaren Boden-Kontext; fuege keine Deko hinzu, nur weil ein POI eine Kategorie hat. Bei Lern-/Sightseeing-Fluegen: sehr sparsam bleiben, density meist "sparse", count meist 0-3; keine Einsatzfahrzeuge, keine grossen Schiffe, keine Marker/Cones, ausser sie sind im Kontext wirklich sichtbar. Szene und Story muessen logisch dieselbe Lage zeigen: keine Fahrzeuge, Personen, Zelte, Rauchsignale, Tiere, Werkzeug, Ladung oder Absperrungen hinzufuegen, wenn sie weder in Story noch sceneIntent vorkommen. Kleine Bausteine wie tent, parked_vehicle, small_equipment, pallet_stack, campfire, waterfowl, logs oder watercraft sind kontextfreie Vokabeln: nutze sie ueberall dort, wo sie aus der Missionslage plausibel sind (Wald, SAR, Ufer, Baustelle, Unfall, POI), nicht nur in einer festen Katalog-Szene. Spezialobjekte sind keine Deko: powerline/powerline_inspection nur wenn der Auftrag konkret Strommast, Freileitung, Stromtrasse, Umspannwerk, Energieinfrastruktur, Bau, Wartung oder Inspektion nennt; nie fuer generische Survey-/Natur-/Waldkulisse. wind_turbine/wind_turbine_site nur wenn Windrad/Windpark/Windenergie/Bau/Wartung/Inspektion konkret Thema ist und targetGeoContext oder Story offene/hochgelegene Flaeche, Wiese, Feld, Acker, Kuppe oder Gipfel plausibel macht; nicht in Stadt, Wohngebiet, dichter Bebauung oder Tal. Erfinde keine festen Sonder-Szenen; beschreibe stattdessen genau die sichtbaren Einzelobjekte und ihre Anordnung. Allgemeine Szenenlogik: Bestimme zuerst das Primaerziel der Mission, dann Kontextobjekte, dann optional Support. Support-Objekte wie Fahrzeuge, Crew, Technik, Absperrungen oder Material duerfen nur erscheinen, wenn sie die Geschichte tragen und nicht den Auftrag logisch erledigen, bevor der Pilot ankommt. Bei Inspection/Survey sind Messobjekte, Infrastruktur oder Referenzpunkte wichtiger als zufaellige Crew; bei Cargo/Medical muessen Fracht, Uebergabe und Personen zur PAX/Fracht-Lage passen; bei News/Event muessen Fahrzeuge/Menschen aus dem Ereignis hervorgehen; bei Natur/Sightseeing bleibt es ruhig und objektarm. SAR-Land: Wenn die Story eine vermisste Person beschreibt, ist missing_person oder ein klarer Hinweis wie small_equipment/tent/signal_smoke das Primaerziel. SAR-Luftfahrzeuglage: Wenn die Story ein vermisstes Luftfahrzeug, Ultraleichtflugzeug, Mayday, Funkabriss, Einschlag oder Wrack beschreibt, nutze kind="debris_field" mit aircraft_wreck als Primaerobjekt; debris, smoke_light und small_equipment sind Zusatzhinweise. Suchtrupps/Fahrzeuge duerfen nur als Support/Perimeter/auf Anfahrt vorkommen, wenn Story oder sceneIntent sie nennen; sie duerfen nicht so wirken, als haetten sie die Person schon gefunden. Wasser-Kontext: water_context nur fuer Ufer/Treibgut/kleine zivile Boote/heimische Wasservoegel. watercraft meint kleine zivile Boote. service_ship/grosse Schiffe nur bei Hafen, SAR, Kuestenwache, Arbeitsschiff oder klarer Textgrundlage. Natur-Kontext: wildlife_site darf passende lokale Tiere, Wasservoegel oder kleine Herden bekommen, aber keine exotischen Tiere ohne klaren Grund. Bei Mapping/Survey steht am Ziel NICHT automatisch ein Techniker mit Auto; der PAX sitzt bei uns im Flugzeug. Wähle stattdessen sichtbare Kontextobjekte: z.B. Baustelle -> construction_site mit Baufahrzeug und gebuendeltem Materiallager, echte Stromtrasse -> powerline_inspection, Windradbau auf offenem Feld -> wind_turbine_site, Uferbruch/Hangrutsch -> erosion_damage, Brücke -> infra_bridge, Staudamm -> infra_dam. Kombis sind erlaubt: z.B. Baustelle => kind="construction_site", layout="cluster", requirements=[{"feature":"earthmoving","count":1},{"feature":"pallet_stack","count":6,"placement":"am Materiallager","arrangement":"cluster"}], Wald-SAR => kind="sar_land", requirements=[{"feature":"missing_person","count":1},{"feature":"small_equipment","count":1},{"feature":"signal_smoke","count":1}], Luftfahrzeug-SAR => kind="debris_field", requirements=[{"feature":"aircraft_wreck","count":1},{"feature":"debris","count":1},{"feature":"smoke_light","count":1}], Seeufer-Lernkontext => kind="water_context", requirements=[{"feature":"waterfowl","count":2,"arrangement":"cluster"},{"feature":"parked_vehicle","count":1}] oder nur ["logs"]. Empfehlung fuer dieses Profil: ${defaultHint}.
 Erlaubte targetScene.kind:
 ${lines.join('\n')}
 Erlaubte targetScene.preset (optional):
@@ -9518,6 +9537,7 @@ function deriveMissionTargetSceneFromIntent(sceneIntent, { isPOI = false, taskDo
         ['missing_person', /sichtkontakt|gesichtet|fundstelle|person am boden|verletzte person|wink|hilfezeichen|hilferuf/],
         ['people', /person|personen|crew|team|menschen/],
         ['cones', /kegel|absperr|marker|markierung/],
+        ['aircraft_wreck', /flugzeug|kleinflugzeug|ultraleicht|ul[\s-]?maschine|luftfahrzeug|wrack|einschlag|absturz/],
         ['debris', /debris|truemmer|trümmer|schutt|kisten|karton|ausruestung|ausrüstung/],
         ['logs', /holz|log|baumstamm|treibholz/],
         ['liferaft', /rettungsinsel|liferaft/],
@@ -12685,7 +12705,7 @@ function missionSarIncidentSceneProfile(incidentType = '', { category = '', targ
         downed_ultralight: {
             sceneKind: 'debris_field',
             sceneDensity: 'sparse',
-            objectFamilies: ['debris', 'smoke_light', 'small_equipment'],
+            objectFamilies: ['aircraft_wreck', 'debris', 'smoke_light', 'small_equipment'],
             requiredAnchors: ['search_area', 'clearing_or_edge'],
             placementPolicy: 'SAR-Luftfahrzeuglage: Wrack-/Debris-Hinweise und ggf. leichter Rauch bilden den Primaerbefund fuer die Leitstelle.'
         },
