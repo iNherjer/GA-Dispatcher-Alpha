@@ -13379,21 +13379,25 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
 function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNeeds = {}, options = {}) {
     const rawFrame = (plan.storyFrame && typeof plan.storyFrame === 'object') ? plan.storyFrame : {};
     const defaults = _missionPipelineV4NarrativeDefaults(plan, semantics, resolvedNeeds, options);
+    const useSarDecisionFrame = String(semantics?.focusLock?.taskDomain || plan?.taskDomain || '').toLowerCase() === 'search_and_rescue'
+        && !!options?.sarDecision?.incidentType;
+    const frameSource = useSarDecisionFrame ? {} : rawFrame;
+    const planSource = useSarDecisionFrame ? {} : plan;
     return {
-        trigger: _missionPipelineV3Text(rawFrame.trigger || plan.missionTrigger || defaults.trigger, 220),
-        focusSubject: _missionPipelineV3Text(rawFrame.focusSubject || plan.focusSubject || defaults.focusSubject, 140),
-        keyQuestion: _missionPipelineV3Text(rawFrame.keyQuestion || plan.keyQuestion || defaults.keyQuestion, 220),
-        stakes: _missionPipelineV3Text(rawFrame.stakes || plan.missionStakes || defaults.stakes, 220),
-        completionSignal: _missionPipelineV3Text(rawFrame.completionSignal || plan.completionSignal || defaults.completionSignal, 220),
-        subjectDetail: _missionPipelineV3Text(rawFrame.subjectDetail || defaults.subjectDetail, 180),
-        incidentContext: _missionPipelineV3Text(rawFrame.incidentContext || defaults.incidentContext, 220),
-        whyNow: _missionPipelineV3Text(rawFrame.whyNow || defaults.whyNow, 220),
-        soughtOutcome: _missionPipelineV3Text(rawFrame.soughtOutcome || defaults.soughtOutcome, 220),
-        incidentType: _missionPipelineV3Text(rawFrame.incidentType || defaults.incidentType || '', 80),
-        lastSeenContext: _missionPipelineV3Text(rawFrame.lastSeenContext || defaults.lastSeenContext || '', 180),
-        probableScenario: _missionPipelineV3Text(rawFrame.probableScenario || defaults.probableScenario || '', 180),
-        visibleClueCandidates: Array.isArray(rawFrame.visibleClueCandidates)
-            ? rawFrame.visibleClueCandidates.slice(0, 5).map(x => _missionPipelineV3Text(x, 80)).filter(Boolean)
+        trigger: _missionPipelineV3Text(frameSource.trigger || planSource.missionTrigger || defaults.trigger, 220),
+        focusSubject: _missionPipelineV3Text(frameSource.focusSubject || planSource.focusSubject || defaults.focusSubject, 140),
+        keyQuestion: _missionPipelineV3Text(frameSource.keyQuestion || planSource.keyQuestion || defaults.keyQuestion, 220),
+        stakes: _missionPipelineV3Text(frameSource.stakes || planSource.missionStakes || defaults.stakes, 220),
+        completionSignal: _missionPipelineV3Text(frameSource.completionSignal || planSource.completionSignal || defaults.completionSignal, 220),
+        subjectDetail: _missionPipelineV3Text(frameSource.subjectDetail || defaults.subjectDetail, 180),
+        incidentContext: _missionPipelineV3Text(frameSource.incidentContext || defaults.incidentContext, 220),
+        whyNow: _missionPipelineV3Text(frameSource.whyNow || defaults.whyNow, 220),
+        soughtOutcome: _missionPipelineV3Text(frameSource.soughtOutcome || defaults.soughtOutcome, 220),
+        incidentType: _missionPipelineV3Text(frameSource.incidentType || defaults.incidentType || '', 80),
+        lastSeenContext: _missionPipelineV3Text(frameSource.lastSeenContext || defaults.lastSeenContext || '', 180),
+        probableScenario: _missionPipelineV3Text(frameSource.probableScenario || defaults.probableScenario || '', 180),
+        visibleClueCandidates: Array.isArray(frameSource.visibleClueCandidates)
+            ? frameSource.visibleClueCandidates.slice(0, 5).map(x => _missionPipelineV3Text(x, 80)).filter(Boolean)
             : (Array.isArray(defaults.visibleClueCandidates)
                 ? defaults.visibleClueCandidates.slice(0, 5).map(x => _missionPipelineV3Text(x, 80)).filter(Boolean)
                 : [])
@@ -13483,7 +13487,8 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
             ...(Array.isArray(storyFrame.visibleClueCandidates) ? storyFrame.visibleClueCandidates : [])
         ].join(' ');
         const sarFrameLooksEnglish = _missionPipelineV4LooksEnglish(sarFrameText);
-        const sarFrameConflictsIncident = _missionPipelineV4SarTextConflictsIncidentFamily(sarFrameText, canonicalSarIncident);
+        const sarFrameConflictsIncident = _missionPipelineV4SarTextConflictsIncidentFamily(sarFrameText, canonicalSarIncident)
+            || _missionPipelineV4SarTextLooksUndecided(sarFrameText);
         const selectedSarIncident = sarDecision?.incidentType || missionSarPickIncidentType(
             semantics.focusLock.targetCategory || base.plan.targetCategory || '',
             semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || '',
@@ -13548,6 +13553,28 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
                 .filter(feature => !['liferaft', 'watercraft'].includes(feature));
         }
         base.plan.objectFamilies = Array.from(new Set(sarObjectFamilies)).slice(0, 8);
+        base.plan.missionTrigger = storyFrame.trigger;
+        base.plan.focusSubject = storyFrame.focusSubject;
+        base.plan.keyQuestion = storyFrame.keyQuestion;
+        base.plan.missionStakes = storyFrame.stakes;
+        base.plan.completionSignal = storyFrame.completionSignal;
+        base.plan.storyFrame = storyFrame;
+        base.plan.primaryObjective = _missionPipelineV3Text(
+            `SAR-Erkundung: ${_missionPipelineV4StripSentenceEnd(storyFrame.focusSubject || storyFrame.subjectDetail || 'konkrete Suchlage')}`,
+            180
+        );
+        const keepSarText = text => !!String(text || '').trim()
+            && !_missionPipelineV4SarTextConflictsIncidentFamily(text, storyFrame.incidentType)
+            && !_missionPipelineV4SarTextLooksUndecided(text);
+        ['localFacts', 'operationalDetails', 'narrativeHooks', 'mustMention'].forEach(key => {
+            if (Array.isArray(base.plan[key])) base.plan[key] = base.plan[key].filter(keepSarText);
+        });
+        if (!keepSarText(base.plan.realismBrief)) {
+            base.plan.realismBrief = _missionPipelineV3Text(
+                `${semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || 'Das Zielgebiet'} passt durch Zielkategorie, Anker und sichtbare Suchhinweise zu diesem SAR-Unterfokus.`,
+                220
+            );
+        }
     }
     base.semantics = semantics;
     base.debug = {
@@ -13834,18 +13861,19 @@ Regeln:
 13. Du darfst einen plausiblen operativen Anlass frei ausformulieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Contracts behauptet werden.
 14. search_and_rescue: Sag klar, wer oder was betroffen ist, wo die letzte Sichtung oder Meldung war, welche Lage vermutet wird und worauf wir aus der Luft konkret achten sollen.
 15. search_and_rescue: CONTRACT.storyFrame.incidentType ist bindender Unterfokus. Vermische keine SAR-Familien im Briefing: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; missing_hiker bleibt Personensuche; downed_ultralight bleibt Luftfahrzeuglage.
-16. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
-17. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
-18. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
-19. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
-20. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
-21. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
-22. Vermeide reine Dispatcher-Floskeln wie "wir machen heute Fotos", "wir fliegen heute eine Inspektion" oder "wir suchen das Gebiet ab", wenn kein genauer Anlass, kein betroffenes Subjekt und keine Folgeentscheidung benannt werden.
-23. Antworte in natuerlichen, vollstaendigen Saetzen; keine Aufzaehlung einzelner Lagefragmente als Kurzsaetze.
-24. CONTRACT.storyFrame-Felder sind Rohmaterial, keine Satzliste. Formuliere sie zu 4-5 fluessigen Saetzen um, statt jedes Feld einzeln aneinanderzureihen.
-25. Wenn subjectDetail bereits ein ganzer Satz ist, schreibe nicht "Gesucht wird nach ..." davor. Nutze dann eine passende eigene Formulierung.
-26. Schreibe alle frei formulierten Texte auf Deutsch. Eigennamen, ICAO-Kuerzel und feststehende Ortsnamen duerfen unveraendert bleiben.
-27. Antwort nur als JSON.
+16. search_and_rescue: Schreibe keine Einsatz-Alternativen wie "Wanderer oder UL" oder "Person oder Wrack". Triff aus dem Contract eine konkrete Dispatch-Annahme und erzaehle sie mit Hintergrund: wer/was, wo, was ist gemeldet, warum jetzt, welcher Befund wird gebraucht.
+17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
+18. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
+19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
+20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
+21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
+22. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
+23. Vermeide reine Dispatcher-Floskeln wie "wir machen heute Fotos", "wir fliegen heute eine Inspektion" oder "wir suchen das Gebiet ab", wenn kein genauer Anlass, kein betroffenes Subjekt und keine Folgeentscheidung benannt werden.
+24. Antworte in natuerlichen, vollstaendigen Saetzen; keine Aufzaehlung einzelner Lagefragmente als Kurzsaetze.
+25. CONTRACT.storyFrame-Felder sind Rohmaterial, keine Satzliste. Formuliere sie zu 4-5 fluessigen Saetzen um, statt jedes Feld einzeln aneinanderzureihen.
+26. Wenn subjectDetail bereits ein ganzer Satz ist, schreibe nicht "Gesucht wird nach ..." davor. Nutze dann eine passende eigene Formulierung.
+27. Schreibe alle frei formulierten Texte auf Deutsch. Eigennamen, ICAO-Kuerzel und feststehende Ortsnamen duerfen unveraendert bleiben.
+28. Antwort nur als JSON.
 </INSTRUKTIONEN>
 
 <CONTRACT>
@@ -13926,16 +13954,28 @@ function _missionPipelineV4SarTextConflictsIncidentFamily(text = '', incidentTyp
     const normalized = normalizeMissionText(text);
     if (!normalized || !id) return false;
     const has = re => re.test(normalized);
-    const aircraftTerms = /\b(luftfahrzeug|kleinflugzeug|ultraleicht|ul[\s-]?maschine|echo[\s-]?maschine|flugzeug|einschlag|wrackhinweis)\b/;
+    const aircraftTerms = /\b(luftfahrzeug|kleinflugzeug|ultraleichtflugzeug|ultraleichtflugzeuge|ultraleicht|ul[\s-]?maschine|echo[\s-]?maschine|flugzeug|einschlag|wrackhinweis)\b/;
     const roadCollisionTerms = /\b(verkehrsunfall|kollision|auffahrunfall|kreuzungsunfall|unfallstelle mit|mehrere fahrzeuge|mehreren fahrzeugen|unfallfahrzeug)\b/;
     const offRoadTerms = /\b(von der fahrbahn abgekommen|fahrbahn abgekommen|abseits der strasse|abseits der straße|boeschung|boschung|waldsaum|vermisstes fahrzeug|fahrzeugspuren|reifenspuren)\b/;
     const waterTerms = /\b(kajak|paddel|boot|bootscrew|angler|wasserrettung|uferabschnitt|anlandepunkt)\b/;
-    if (id === 'downed_ultralight') return has(roadCollisionTerms) || has(offRoadTerms) || has(waterTerms);
-    if (id === 'road_collision') return has(aircraftTerms) || has(offRoadTerms) || has(waterTerms);
+    const missingPersonTerms = /\b(wanderer|wanderin|kletterer|kletterin|bergsteiger|bergsteigerin|personensuche|vermisste person|vermisstenmeldung)\b/;
+    if (id === 'downed_ultralight') return has(roadCollisionTerms) || has(offRoadTerms) || has(waterTerms) || has(missingPersonTerms);
+    if (id === 'road_collision') return has(aircraftTerms) || has(offRoadTerms) || has(waterTerms) || has(missingPersonTerms);
     if (id === 'vehicle_off_road' || id === 'riverside_vehicle_entry') return has(aircraftTerms) || has(roadCollisionTerms);
     if (['missing_hiker', 'fallen_climber'].includes(id)) return has(aircraftTerms) || has(roadCollisionTerms) || has(waterTerms);
     if (['missing_kayaker', 'angler_missing', 'small_boat_overdue'].includes(id)) return has(aircraftTerms) || has(roadCollisionTerms) || has(offRoadTerms);
     return false;
+}
+
+function _missionPipelineV4SarTextLooksUndecided(text = '') {
+    const normalized = normalizeMissionText(text);
+    if (!normalized) return false;
+    const personFamily = /\b(wanderer|wanderin|kletterer|kletterin|bergsteiger|bergsteigerin|personensuche|vermisste person|vermisstenmeldung)\b/;
+    const aircraftFamily = /\b(luftfahrzeug|kleinflugzeug|ultraleichtflugzeug|ultraleichtflugzeuge|ultraleicht|ul[\s-]?maschine|echo[\s-]?maschine|flugzeug|wrack|wrackteile|absturzortung)\b/;
+    const roadFamily = /\b(verkehrsunfall|kollision|unfallstelle|fahrbahn|fahrzeuge|fahrzeug)\b/;
+    const waterFamily = /\b(kajak|boot|bootscrew|angler|wasserrettung|uferhinweis)\b/;
+    const families = [personFamily, aircraftFamily, roadFamily, waterFamily].filter(re => re.test(normalized)).length;
+    return families >= 2 && /\b(oder|bzw)\b/.test(normalized);
 }
 
 function _missionPipelineV4SentenceCount(text = '') {
@@ -14197,7 +14237,10 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}) {
     if (!raw) return _missionPipelineV4ComposeStoryFallback(contract);
     if (_missionPipelineV4LooksEnglish(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
     const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
-    if (taskDomain === 'search_and_rescue' && _missionPipelineV4SarTextConflictsIncidentFamily(raw, frame.incidentType)) {
+    if (taskDomain === 'search_and_rescue' && (
+        _missionPipelineV4SarTextConflictsIncidentFamily(raw, frame.incidentType)
+        || _missionPipelineV4SarTextLooksUndecided(raw)
+    )) {
         return _missionPipelineV4ComposeStoryFallback(contract);
     }
     const covered = [
