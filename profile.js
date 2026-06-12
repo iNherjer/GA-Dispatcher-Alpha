@@ -2082,6 +2082,129 @@ async function fetchGpsObstacles(lat, lon) {
 }
 window.fetchGpsObstacles = fetchGpsObstacles;
 
+function vpIsSarHeliProfileMission() {
+    try {
+        return !!(
+            typeof currentMissionData !== 'undefined'
+            && currentMissionData
+            && typeof window.missionIsSarHeliMission === 'function'
+            && window.missionIsSarHeliMission(currentMissionData)
+        );
+    } catch (_) {
+        return false;
+    }
+}
+
+function vpRouteWaypointDistances(points = routeWaypoints) {
+    if (!Array.isArray(points) || points.length < 1 || typeof calcNav !== 'function') return [];
+    const out = [0];
+    let total = 0;
+    for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1] || {};
+        const curr = points[i] || {};
+        const pLat = Number(prev.lat);
+        const pLon = Number(prev.lng ?? prev.lon);
+        const cLat = Number(curr.lat);
+        const cLon = Number(curr.lng ?? curr.lon);
+        if (![pLat, pLon, cLat, cLon].every(Number.isFinite)) {
+            out.push(total);
+            continue;
+        }
+        const nav = calcNav(pLat, pLon, cLat, cLon);
+        total += Number.isFinite(Number(nav?.dist)) ? Math.max(0, Number(nav.dist)) : 0;
+        out.push(total);
+    }
+    return out;
+}
+
+function vpSampleElevationFtAtDist(elevationData = [], distNm = 0, fallbackFt = 0) {
+    if (!Array.isArray(elevationData) || elevationData.length < 1) return Math.round(Number(fallbackFt) || 0);
+    const dist = Number(distNm);
+    if (!Number.isFinite(dist)) return Math.round(Number(fallbackFt) || 0);
+    const first = elevationData[0];
+    const last = elevationData[elevationData.length - 1];
+    if (dist <= Number(first?.distNM || 0)) return Math.round(Number(first?.elevFt ?? fallbackFt) || 0);
+    if (dist >= Number(last?.distNM || 0)) return Math.round(Number(last?.elevFt ?? fallbackFt) || 0);
+    for (let i = 0; i < elevationData.length - 1; i++) {
+        const a = elevationData[i] || {};
+        const b = elevationData[i + 1] || {};
+        const ad = Number(a.distNM);
+        const bd = Number(b.distNM);
+        if (!Number.isFinite(ad) || !Number.isFinite(bd) || dist < ad || dist > bd) continue;
+        const f = (dist - ad) / Math.max(0.001, bd - ad);
+        const ae = Number(a.elevFt ?? fallbackFt) || 0;
+        const be = Number(b.elevFt ?? ae) || ae;
+        return Math.round(ae + f * (be - ae));
+    }
+    return Math.round(Number(fallbackFt) || 0);
+}
+
+function vpWaypointAltitudeFt(point = null, distNm = 0, elevationData = []) {
+    const explicit = Number(point?.altFt ?? point?.elevationFt ?? point?.elevation);
+    if (Number.isFinite(explicit)) return Math.max(0, Math.round(explicit));
+    return Math.max(0, vpSampleElevationFtAtDist(elevationData, distNm, 0));
+}
+
+function vpApplySarHeliAltitudeConstraints(cacheKey = '') {
+    if (!vpIsSarHeliProfileMission()) return false;
+    if (!Array.isArray(routeWaypoints) || routeWaypoints.length < 3 || !Array.isArray(vpElevationData) || vpElevationData.length < 2) return false;
+    if (Array.isArray(vpAltWaypoints) && vpAltWaypoints.length > 0 && window._vpAutoSarHeliAltRouteKey !== cacheKey) return false;
+    if (window._vpAutoSarHeliAltRouteKey === cacheKey && Array.isArray(vpAltWaypoints) && vpAltWaypoints.length >= 3) return true;
+
+    const distances = vpRouteWaypointDistances(routeWaypoints);
+    const totalDist = Number(vpElevationData[vpElevationData.length - 1]?.distNM || distances[distances.length - 1] || 0);
+    const incidentIdx = routeWaypoints.findIndex(wp => wp?.isSarHeliIncident || wp?.simHoldAction === 'sar_heli_recovery');
+    const targetIdx = incidentIdx >= 0 ? incidentIdx : 1;
+    const hospitalIdxRaw = routeWaypoints.findIndex(wp => wp?.isSarHeliHospital);
+    const hospitalIdx = hospitalIdxRaw >= 0 ? hospitalIdxRaw : (routeWaypoints.length - 1);
+    const targetDist = Number(distances[targetIdx]);
+    const hospitalDist = Number(distances[hospitalIdx]);
+    if (!Number.isFinite(targetDist) || targetDist <= 0.05 || !Number.isFinite(hospitalDist) || hospitalDist <= targetDist) return false;
+
+    const startAlt = vpWaypointAltitudeFt(routeWaypoints[0], 0, vpElevationData);
+    const targetAlt = vpWaypointAltitudeFt(routeWaypoints[targetIdx], targetDist, vpElevationData);
+    const hospitalAlt = vpWaypointAltitudeFt(routeWaypoints[hospitalIdx], Math.min(totalDist, hospitalDist), vpElevationData);
+    const constraints = [
+        { distNM: 0, altFt: startAlt },
+        { distNM: Math.max(0, Math.min(totalDist, targetDist)), altFt: targetAlt },
+        { distNM: Math.max(0, totalDist), altFt: hospitalAlt }
+    ].filter((wp, idx, arr) => idx === 0 || Math.abs(wp.distNM - arr[idx - 1].distNM) > 0.05);
+    if (constraints.length < 3) return false;
+
+    const cruiseAlt = parseInt(document.getElementById('altMapInput')?.textContent || document.getElementById('altSlider')?.value || 4500);
+    const medLegNm = Math.max(0, hospitalDist - targetDist);
+    const lowMedicalCruise = Math.ceil((Math.max(targetAlt, hospitalAlt) + 1200) / 100) * 100;
+    const hospitalLegAlt = medLegNm > 0 && medLegNm <= 18
+        ? Math.min(cruiseAlt, Math.max(lowMedicalCruise, Math.max(targetAlt, hospitalAlt) + 500))
+        : cruiseAlt;
+    vpAltWaypoints = constraints.map(wp => ({ distNM: Math.round(wp.distNM * 100) / 100, altFt: Math.round(wp.altFt) }));
+    vpSegmentAlts = [];
+    for (let i = 0; i < vpAltWaypoints.length - 1; i++) {
+        vpSegmentAlts.push(i === 1 ? hospitalLegAlt : cruiseAlt);
+    }
+    window._vpAutoSarHeliAltRouteKey = cacheKey;
+    return true;
+}
+
+function vpRouteWaypointLabel(index, point = null) {
+    const wp = point || (Array.isArray(routeWaypoints) ? routeWaypoints[index] : null) || {};
+    const isLast = Array.isArray(routeWaypoints) && index === routeWaypoints.length - 1;
+    const missionLikePoi = !!(
+        typeof currentMissionData !== 'undefined'
+        && currentMissionData
+        && (
+            currentMissionData.poiName
+            || currentMissionData.poiPresentation
+            || (typeof missionUsesPoiTaskRecipe === 'function' && missionUsesPoiTaskRecipe(currentMissionData))
+        )
+    );
+    const isSarHeliFinal = !!(isLast && (wp.isSarHeliHospital || vpIsSarHeliProfileMission()));
+    if (index === 0) return currentStartICAO || 'DEP';
+    if (isSarHeliFinal) return String(wp.name || currentMissionData?.sarHeli?.hospitalRef?.name || currentDestICAO || 'HOSP').replace(/^🏥\s*/, '');
+    if (isLast) return missionLikePoi ? (currentStartICAO || 'HOME') : (currentDestICAO || 'DEST');
+    return wp.name ? String(wp.name).replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').replace(/^🚁\s*/, '').split(' ')[0] : `WP${index}`;
+}
+
 function triggerVerticalProfileUpdate() {
     if (vpProfileFastTimeout) clearTimeout(vpProfileFastTimeout);
     if (window.vpFetchController) window.vpFetchController.abort();
@@ -2114,6 +2237,9 @@ function triggerVerticalProfileUpdate() {
             window.vpBgNeedsUpdate = true;
             
             window.vpElevationData = vpElevationData;
+            if (typeof vpApplySarHeliAltitudeConstraints === 'function') {
+                vpApplySarHeliAltitudeConstraints(cacheKey);
+            }
             
             // 2. Städte / Landmarks (Lokale JSON, blitzschnell)
             if (window._lastLmRouteKey !== cacheKey) {
@@ -6955,19 +7081,9 @@ function renderVerticalProfile(canvasId) {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        const missionLikePoi = !!(
-            typeof currentMissionData !== 'undefined'
-            && currentMissionData
-            && (
-                currentMissionData.poiName
-                || currentMissionData.poiPresentation
-                || (typeof missionUsesPoiTaskRecipe === 'function' && missionUsesPoiTaskRecipe(currentMissionData))
-            )
-        );
-        let wpLabel;
-        if (i === 0) wpLabel = currentStartICAO || 'DEP';
-        else if (i === routeWaypoints.length - 1) wpLabel = missionLikePoi ? (currentStartICAO || 'HOME') : (currentDestICAO || 'DEST');
-        else wpLabel = routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i;
+        let wpLabel = typeof vpRouteWaypointLabel === 'function'
+            ? vpRouteWaypointLabel(i, routeWaypoints[i])
+            : (i === 0 ? (currentStartICAO || 'DEP') : (routeWaypoints[i].name || 'WP' + i));
         if (wpLabel.length > 8) wpLabel = wpLabel.substring(0, 7) + '…';
 
         ctx.save();
@@ -7839,20 +7955,9 @@ function renderMapProfileFrames(timeMs) {
 
             fgCtx.beginPath(); fgCtx.setLineDash([2, 3]); fgCtx.strokeStyle = 'rgba(255,255,255,0.2)'; fgCtx.lineWidth = 1;
             fgCtx.moveTo(x, padTop); fgCtx.lineTo(x, padTop + plotH); fgCtx.stroke(); fgCtx.setLineDash([]);
-            const missionLikePoi = !!(
-                typeof currentMissionData !== 'undefined'
-                && currentMissionData
-                && (
-                    currentMissionData.poiName
-                    || currentMissionData.poiPresentation
-                    || (typeof missionUsesPoiTaskRecipe === 'function' && missionUsesPoiTaskRecipe(currentMissionData))
-                )
-            );
-            let wpLabel = (i === 0)
-                ? (currentStartICAO || 'DEP')
-                : ((i === routeWaypoints.length - 1)
-                    ? (missionLikePoi ? (currentStartICAO || 'HOME') : (currentDestICAO || 'DEST'))
-                    : (routeWaypoints[i].name ? routeWaypoints[i].name.replace(/^RPP\s+/i, '').replace(/^APT\s+/i, '').split(' ')[0] : 'WP' + i));
+            let wpLabel = typeof vpRouteWaypointLabel === 'function'
+                ? vpRouteWaypointLabel(i, routeWaypoints[i])
+                : (i === 0 ? (currentStartICAO || 'DEP') : (routeWaypoints[i].name || 'WP' + i));
             if (!zoomFactor || zoomFactor < 2) { if (wpLabel.length > 6) wpLabel = wpLabel.substring(0, 5) + '…'; } else { if (wpLabel.length > 12) wpLabel = wpLabel.substring(0, 11) + '…'; }
             fgCtx.beginPath(); fgCtx.arc(x, padTop + plotH + 3, 3, 0, Math.PI * 2); fgCtx.fillStyle = i === 0 ? '#44ff44' : (i === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00'); fgCtx.fill();
             fgCtx.fillStyle = '#bbb'; fgCtx.font = (zoomFactor >= 2) ? 'bold 11px Arial' : 'bold 9px Arial'; fgCtx.textAlign = 'center'; fgCtx.fillText(wpLabel, x, padTop + plotH + 16);
