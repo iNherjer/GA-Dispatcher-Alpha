@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v266';
-const TRACKER_VERSION_CODE = 266;
+const TRACKER_VERSION = 'v267';
+const TRACKER_VERSION_CODE = 267;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -482,12 +482,35 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   };
 
   const normalizeInputEventName = (name) => String(name || '').trim().replace(/^B:/i, '').toLowerCase();
+  const compactInputEventName = (name) => normalizeInputEventName(name).replace(/[^a-z0-9]/g, '');
+
+  const isInputEventFuzzyMatch = (cachedName, requestedName) => {
+    const cached = normalizeInputEventName(cachedName);
+    const requested = normalizeInputEventName(requestedName);
+    const cachedCompact = compactInputEventName(cached);
+    const requestedCompact = compactInputEventName(requested);
+    if (!cachedCompact || !requestedCompact) return false;
+    if (cachedCompact === requestedCompact || cachedCompact.includes(requestedCompact)) return true;
+    const requestedWithoutLever = requestedCompact.replace(/^lever/, '');
+    if (requestedWithoutLever && cachedCompact.includes(requestedWithoutLever)) return true;
+    if (requestedCompact.includes('doorlatch')) {
+      return ['door', 'latch', 'toggle'].every((token) => cached.includes(token) || cachedCompact.includes(token));
+    }
+    return false;
+  };
 
   const findInputEventHash = (names = []) => {
     const list = Array.isArray(names) ? names : [names];
     for (const name of list) {
       const hash = inputEventHashCache.get(normalizeInputEventName(name));
       if (hash !== undefined && hash !== null) return hash;
+    }
+    for (const [cachedName, hash] of inputEventHashCache.entries()) {
+      const requestedName = list.find((name) => isInputEventFuzzyMatch(cachedName, name));
+      if (requestedName && hash !== undefined && hash !== null) {
+        debugLog(`INPUT_EVENT_FUZZY_MATCH requested=${normalizeInputEventName(requestedName)} matched=${cachedName}`);
+        return hash;
+      }
     }
     return null;
   };
@@ -775,7 +798,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     // Legacy custom latch events only as fallback; the behavior input event is the real PA24 latch path.
     let eventOk = false;
     if (openDoor && !inputLatchOk && ensurePa24DoorEvents()) {
-      eventOk = sendDoorClientEvent(PA24_DOOR_LOCK_EVENT_ID, 1, 'PA24-door_latch_open_inverted', reason) || eventOk;
+      eventOk = sendDoorClientEvent(PA24_DOOR_UNLOCK_EVENT_ID, 1, 'PA24-door_latch_unlock', reason) || eventOk;
       ok = eventOk || ok;
     }
 
@@ -783,8 +806,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche', {
       writeOpenPosition: !openDoor,
       writeLatch: false,
-      handleOpenValue: 0,
-      handleCloseValue: 1,
+      handleOpenValue: 1,
+      handleCloseValue: 0,
       latchUnlockValue: 1,
       latchLockValue: 0
     });
@@ -793,7 +816,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       inputLatchOk = await setInputEventByNameCandidates(PA24_LATCH_INPUT_EVENTS, 1, `${reason}-behavior-latch-toggle-close`);
       ok = inputLatchOk || ok;
       if (!inputLatchOk && ensurePa24DoorEvents()) {
-        eventOk = sendDoorClientEvent(PA24_DOOR_UNLOCK_EVENT_ID, 1, 'PA24-door_latch_close_inverted', reason) || eventOk;
+        eventOk = sendDoorClientEvent(PA24_DOOR_LOCK_EVENT_ID, 1, 'PA24-door_latch_lock', reason) || eventOk;
         ok = eventOk || ok;
       }
     }
@@ -888,8 +911,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         await setA2aDoorByLVars(true, idx, `${reason}-hold-${tick}-${why}`, holdProfile, {
           writeOpenPosition: !isComancheProfile,
           writeLatch: !isComancheProfile,
-          handleOpenValue: isComancheProfile ? 0 : undefined,
-          handleCloseValue: isComancheProfile ? 1 : undefined,
+          handleOpenValue: isComancheProfile ? 1 : undefined,
+          handleCloseValue: isComancheProfile ? 0 : undefined,
           latchUnlockValue: isComancheProfile ? 1 : undefined,
           latchLockValue: isComancheProfile ? 0 : undefined
         });
