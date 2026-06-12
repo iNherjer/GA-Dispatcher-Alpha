@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v260';
-const TRACKER_VERSION_CODE = 260;
+const TRACKER_VERSION = 'v261';
+const TRACKER_VERSION_CODE = 261;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -558,7 +558,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
     let ok = false;
     if (openDoor) {
-      ok = setNamedVarFromCandidates(latchVars, 1, ['number', 'Bool', 'bool'], `${reason}-latch-unlock`) || ok;
+      ok = setNamedVarFromCandidates(latchVars, 0, ['number', 'Bool', 'bool'], `${reason}-latch-unlock`) || ok;
       await sleep(80);
       ok = setNamedVarFromCandidates(handleVars, 1, ['Bool', 'bool', 'number'], `${reason}-handle-open`) || ok;
       ok = setNamedVarFromCandidates(openVars, 1, ['Bool', 'bool', 'number'], `${reason}-openvar-bool`) || ok;
@@ -572,7 +572,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       await sleep(70);
       ok = setNamedVarFromCandidates(exitVars, 0, ['percent', 'number', 'Bool', 'bool'], `${reason}-exit-close`) || ok;
       await sleep(70);
-      ok = setNamedVarFromCandidates(latchVars, 0, ['number', 'Bool', 'bool'], `${reason}-latch-lock`) || ok;
+      ok = setNamedVarFromCandidates(latchVars, 1, ['number', 'Bool', 'bool'], `${reason}-latch-lock`) || ok;
     }
     debugLog(`A2A_DOOR_LVAR_${action}_DONE profile=${profile} doorIndex=${doorIndex} status=${ok ? 'ok' : 'error'} reason=${reason}`);
     return ok;
