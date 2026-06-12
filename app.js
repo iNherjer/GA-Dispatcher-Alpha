@@ -837,6 +837,99 @@ function cycleRadioOption(selectId) {
 }
 
 const MISSION_PICKER_STORAGE_KEY = 'ga_mission_picker_mode';
+const SAR_HELI_PROFILE_ID = 'sar_heli';
+const SAR_HELI_RECOVERABLE_INCIDENT_IDS = Object.freeze([
+    'missing_hiker',
+    'fallen_climber',
+    'missing_kayaker',
+    'angler_missing',
+    'small_boat_overdue',
+    'vehicle_off_road',
+    'road_collision'
+]);
+
+function missionIsSarHeliProfileId(profileId = '') {
+    return String(profileId || '').trim().toLowerCase() === SAR_HELI_PROFILE_ID;
+}
+
+function missionSarHeliSpecFromMission(mission = null) {
+    const explicitMission = !!(mission && typeof mission === 'object');
+    const md = mission && typeof mission === 'object'
+        ? mission
+        : ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null);
+    if (!md || typeof md !== 'object') return null;
+    const contract = md.missionContract && typeof md.missionContract === 'object'
+        ? md.missionContract
+        : ((!explicitMission && typeof window !== 'undefined' && window.activeMissionContract && typeof window.activeMissionContract === 'object')
+            ? window.activeMissionContract
+            : null);
+    return (md.sarHeli && typeof md.sarHeli === 'object')
+        ? md.sarHeli
+        : ((contract?.sarHeli && typeof contract.sarHeli === 'object') ? contract.sarHeli : null);
+}
+
+function missionIsSarHeliMission(mission = null) {
+    const explicitMission = !!(mission && typeof mission === 'object');
+    const md = mission && typeof mission === 'object'
+        ? mission
+        : ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null);
+    const spec = missionSarHeliSpecFromMission(md);
+    if (spec?.enabled === true) return true;
+    const contract = md?.missionContract || (!explicitMission && typeof window !== 'undefined' ? window.activeMissionContract : null) || null;
+    return [
+        md?._appliedProfile,
+        md?._requestedProfile,
+        md?.profileId,
+        md?.missionPicker?.profile,
+        md?.missionPlanV2?.picker?.profile,
+        md?.missionPlanV4?.picker?.profile,
+        contract?.appliedProfileId,
+        contract?.requestedProfileId
+    ].some(missionIsSarHeliProfileId);
+}
+
+function missionSarHeliIncidentIdsForCategory(category = '', targetLabel = '') {
+    const key = missionSarIncidentCategoryKey(category, targetLabel);
+    const target = String(targetLabel || '').trim().toLowerCase();
+    const matrix = {
+        water: ['missing_kayaker', 'angler_missing', 'small_boat_overdue'],
+        road: ['vehicle_off_road', 'road_collision', 'missing_hiker'],
+        forest: ['missing_hiker', 'fallen_climber', 'vehicle_off_road'],
+        mountain: ['fallen_climber', 'missing_hiker'],
+        land: ['missing_hiker', 'fallen_climber', 'vehicle_off_road']
+    };
+    const ids = matrix[key] || matrix.land;
+    if (key === 'road' && /(kreuzung|intersection|junction|abzweig|zufahrt|auffahrt|ausfahrt|anschluss)/.test(target)) {
+        return ['road_collision', 'vehicle_off_road'];
+    }
+    return ids.filter(id => SAR_HELI_RECOVERABLE_INCIDENT_IDS.includes(id));
+}
+
+function missionSarHeliInitialProgress() {
+    return {
+        schema: 'sarHeliProgress.v1',
+        status: 'enroute_search',
+        targetConfirmed: false,
+        markerSpawned: false,
+        targetAreaEnteredAt: 0,
+        holdReadyAnnounced: false,
+        holdStartedAt: 0,
+        holdSec: 0,
+        patientLoaded: false,
+        patientLoadedAt: 0,
+        hospitalReached: false,
+        readyToClose: false,
+        lastUpdatedAt: Date.now()
+    };
+}
+
+window.SAR_HELI_PROFILE_ID = SAR_HELI_PROFILE_ID;
+window.missionIsSarHeliProfileId = missionIsSarHeliProfileId;
+window.missionIsSarHeliMission = missionIsSarHeliMission;
+window.missionSarHeliSpecFromMission = missionSarHeliSpecFromMission;
+window.missionSarHeliIncidentIdsForCategory = missionSarHeliIncidentIdsForCategory;
+window.missionSarHeliInitialProgress = missionSarHeliInitialProgress;
+
 const MISSION_PICKER_OPTIONS = {
     basic: [
         { value: 'apt', classic: 'Flugplatz (A ➔ B)', radioShort: 'APT', radioFull: 'Airport (alle Kategorien)' },
@@ -882,6 +975,7 @@ const MISSION_PICKER_OPTIONS = {
         { value: 'poi:all+science_bio', classic: 'POI · Bio/Umwelt', radioShort: 'POI BIO', radioFull: 'POI · Biologie/Umwelt' },
         { value: 'poi:all+science_geo', classic: 'POI · Geo/Relief', radioShort: 'POI GEO', radioFull: 'POI · Geologie/Relief' },
         { value: 'poi:all+search_and_rescue', classic: 'POI · SAR/Rescue', radioShort: 'POI SAR', radioFull: 'POI · SAR/Rescue' },
+        { value: 'poi:all+sar_heli', classic: 'POI · SAR Heli', radioShort: 'SAR HELI', radioFull: 'POI · SAR Heli (Bergung + Klinik)' },
         { value: 'poi:fire+fire_watch', classic: 'POI · Fire Watch (Wald/Berg)', radioShort: 'POI FIRE', radioFull: 'POI · Fire Watch (Wald/Berg)' },
         { value: 'bush:all', classic: 'BUSH (Auto)', radioShort: 'BUSH ALL', radioFull: 'Bush (Auto/Backcountry)' },
         { value: 'bush:all+bush_supply_strip', classic: 'BUSH · Versorgung', radioShort: 'BUSH SUP', radioFull: 'Bush · Supply Run' },
@@ -910,6 +1004,7 @@ function missionTaskPoiCategoryPolicy(profileId = 'auto') {
     const id = String(profileId || 'auto').toLowerCase();
     const policies = {
         search_and_rescue: ['mountain', 'forest', 'water', 'road'],
+        sar_heli: ['mountain', 'forest', 'water', 'road'],
         mapping_survey: ['infrastructure', 'industry', 'road', 'bridge', 'dam'],
         inspection_infra: ['infrastructure', 'bridge', 'dam', 'telecom', 'industry', 'road'],
         fire_watch: ['fire'],
@@ -926,7 +1021,7 @@ function missionTaskPoiCategoryPolicy(profileId = 'auto') {
 
 function missionTaskPoiCategoryWeights(profileId = 'auto') {
     const id = String(profileId || 'auto').toLowerCase();
-    if (id === 'search_and_rescue') {
+    if (id === 'search_and_rescue' || id === 'sar_heli') {
         return {
             water: 1.1,
             forest: 1.1,
@@ -1182,6 +1277,27 @@ const MISSION_ROLE_TASK_PROFILES = {
         cargoPool: ['Optik- und SAR-Kit (24 lbs)', 'Signalmittel und Kartenpaket (16 lbs)'],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'mittel', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'mittel', urgencyPriority: 'hoch' },
         storyCue: 'Fokus: Suchmuster, Lagebild und sichere Durchführung.'
+    },
+    sar_heli: {
+        id: 'sar_heli',
+        label: 'SAR Heli',
+        appliesTo: ['poi'],
+        roleProfile: 'rescue_coordination_v1',
+        taskDomain: 'search_and_rescue',
+        personas: [
+            { name: 'Mara Seidel', role: 'SAR-Heli-Koordinatorin', gender: 'female', personality: 'ruhig, klar, medizinisch fokussiert' },
+            { name: 'Timo Brandt', role: 'Luftrettungskoordinator', gender: 'male', personality: 'präzise, belastbar, handlungsorientiert' }
+        ],
+        greetingText: 'Hi, das ist heute eine SAR-Heli-Bergung. Erst Fund bestätigen, dann landen oder unter 10 Meter stabil hovern, Patient aufnehmen und direkt zum Klinik-Helipad.',
+        paxText: '1 PAX (SAR-Heli-Koordination)',
+        cargoPool: ['Rettungs- und Sanitätskit (38 lbs)', 'Winden-/Bergungspaket und MedPack (44 lbs)'],
+        tolerances: { gTolerance: 'mittel', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'hoch' },
+        storyCue: 'Fokus: Fundbestätigung, stabile Heli-Bergung und medizinischer Handoff am Krankenhaus-Helipad.',
+        opsNotes: [
+            'Picker-only Profil: nicht in Auto-/Random-Pools verwenden.',
+            'Nach Fund Landung oder Hover unter 10 m AGL fuer 20 Sekunden.',
+            'Nach Aufnahme Route auf naechsten Klinik-Helipad-/Medical-Handoff-Punkt umschreiben.'
+        ]
     },
     fire_watch: {
         id: 'fire_watch',
@@ -1669,6 +1785,24 @@ function _offlinePoiProfileFallbacks(profileId = 'auto', poiName = 'Zielgebiet')
         ]
     };
     return (byProfile[id] || []).map(x => ({ ...x }));
+}
+
+function buildSarHeliLocalFallbackMission(poiName = 'Zielgebiet') {
+    const n = String(poiName || 'Zielgebiet');
+    return {
+        t: `SAR-Heli Bergung: ${n}`,
+        i: '🚁',
+        cat: 'poi',
+        s: `Im Bereich ${n} wurde eine vermisste oder verletzte Person gemeldet. Fliege die Fundstelle an, bestaetige den Fund, lande oder halte einen stabilen Hover unter 10 m und bring den Patienten danach zum medizinischen Handoff.`,
+        payloadText: '1 PAX (SAR-Heli-Koordination)',
+        cargoText: 'Rettungs- und Sanitaetskit (38 lbs)',
+        passenger: {
+            roleProfile: 'rescue_coordination_v1',
+            taskDomain: 'search_and_rescue',
+            urgencyPriority: 'hoch',
+            comfortPriority: 'hoch'
+        }
+    };
 }
 
 function buildOfflinePoiMissionPool(selectedPoiCategory = 'all', dispatchProfileId = 'auto', poiName = 'Zielgebiet') {
@@ -3023,6 +3157,208 @@ function missionAirportPoint(icao, fallbackCoordsText = '') {
     if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
     return parseMissionCoordsText(fallbackCoordsText);
 }
+
+function _sarHeliDistanceNm(lat1, lon1, lat2, lon2) {
+    const aLat = Number(lat1), aLon = Number(lon1), bLat = Number(lat2), bLon = Number(lon2);
+    if (![aLat, aLon, bLat, bLon].every(Number.isFinite)) return Infinity;
+    const dLat = (bLat - aLat) * Math.PI / 180;
+    const dLon = (bLon - aLon) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2
+        + Math.cos(aLat * Math.PI / 180) * Math.cos(bLat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 3440.065;
+}
+
+function _sarHeliMedicalTextScore(text = '') {
+    const t = String(text || '').toLowerCase();
+    let score = 0;
+    if (/(krankenhaus|klinikum|hospital|clinic|medical center|medizin|notaufnahme|rettungszentrum|trauma)/.test(t)) score += 80;
+    if (/(helipad|heliport|helistop|helideck|hubschrauber|rettungshubschrauber|air ambulance|luftrettung)/.test(t)) score += 65;
+    if (/(rescue|rettung|ems|medevac|emergency)/.test(t)) score += 25;
+    return score;
+}
+
+function _sarHeliNormalizeHospitalCandidate(raw = null, origin = null, source = 'unknown') {
+    if (!raw || typeof raw !== 'object') return null;
+    const lat = Number(raw.lat ?? raw.center?.lat);
+    const lon = Number(raw.lon ?? raw.lng ?? raw.center?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const tags = raw.tags && typeof raw.tags === 'object' ? raw.tags : {};
+    const name = String(raw.name || tags.name || tags['name:de'] || tags.operator || raw.icao || '').trim() || 'Medical Handoff Point';
+    const aeroway = String(tags.aeroway || raw.aeroway || '').toLowerCase();
+    const amenity = String(tags.amenity || raw.amenity || '').toLowerCase();
+    const healthcare = String(tags.healthcare || raw.healthcare || '').toLowerCase();
+    const text = [
+        name,
+        aeroway,
+        amenity,
+        healthcare,
+        tags.emergency,
+        tags.operator,
+        tags.description,
+        tags['healthcare:speciality'],
+        raw.kind,
+        raw.icao,
+        raw.city,
+        raw.country
+    ].filter(Boolean).join(' ');
+    const distNm = origin ? _sarHeliDistanceNm(origin.lat, origin.lon, lat, lon) : null;
+    const isHospital = amenity === 'hospital' || healthcare === 'hospital' || /(krankenhaus|klinikum|hospital|clinic|medical center|notaufnahme|trauma)/i.test(text);
+    const isHeli = /^(helipad|heliport)$/.test(aeroway) || /(helipad|heliport|helistop|hubschrauber|air ambulance|luftrettung)/i.test(text);
+    const kind = isHospital && isHeli
+        ? 'hospital_helipad'
+        : (isHospital ? 'hospital_site' : (isHeli ? 'heliport' : 'airport_fallback'));
+    const medicalScore = _sarHeliMedicalTextScore(text);
+    const baseScore = (isHospital && isHeli ? 240 : (isHospital ? 170 : (isHeli ? 120 : 35))) + medicalScore;
+    const distancePenalty = Number.isFinite(distNm) ? Math.min(140, distNm * 1.4) : 0;
+    return {
+        kind,
+        source,
+        icao: String(raw.icao || tags.icao || (kind === 'airport_fallback' ? 'APT' : 'HOSP')).trim().toUpperCase(),
+        name,
+        lat,
+        lon,
+        elevation: Number.isFinite(Number(raw.elevation ?? raw.elevFt)) ? Math.round(Number(raw.elevation ?? raw.elevFt)) : null,
+        distanceNm: Number.isFinite(distNm) ? Math.round(distNm * 10) / 10 : null,
+        score: Math.round((baseScore - distancePenalty) * 10) / 10,
+        tags: Object.keys(tags).length ? tags : null
+    };
+}
+
+async function _sarHeliFetchOverpassHospitalCandidates(lat, lon, radiusM = 85000) {
+    if (typeof fetch !== 'function') return [];
+    const qLat = Number(lat), qLon = Number(lon);
+    if (!Number.isFinite(qLat) || !Number.isFinite(qLon)) return [];
+    const query = `[out:json][timeout:7];
+(
+  node(around:${Math.round(radiusM)},${qLat},${qLon})["aeroway"~"^(helipad|heliport)$"];
+  way(around:${Math.round(radiusM)},${qLat},${qLon})["aeroway"~"^(helipad|heliport)$"];
+  relation(around:${Math.round(radiusM)},${qLat},${qLon})["aeroway"~"^(helipad|heliport)$"];
+  node(around:${Math.round(radiusM)},${qLat},${qLon})["amenity"="hospital"];
+  way(around:${Math.round(radiusM)},${qLat},${qLon})["amenity"="hospital"];
+  relation(around:${Math.round(radiusM)},${qLat},${qLon})["amenity"="hospital"];
+  node(around:${Math.round(radiusM)},${qLat},${qLon})["healthcare"="hospital"];
+  way(around:${Math.round(radiusM)},${qLat},${qLon})["healthcare"="hospital"];
+  relation(around:${Math.round(radiusM)},${qLat},${qLon})["healthcare"="hospital"];
+);
+out center tags 80;`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8500);
+    try {
+        const res = await fetch('https://overpass-api.de/api/interpreter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+            body: query,
+            signal: controller.signal
+        });
+        if (!res.ok) return [];
+        const json = await res.json();
+        return Array.isArray(json?.elements) ? json.elements : [];
+    } catch (_) {
+        return [];
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+async function resolveSarHeliHospitalRef(targetLat, targetLon, options = {}) {
+    const origin = { lat: Number(targetLat), lon: Number(targetLon) };
+    if (!Number.isFinite(origin.lat) || !Number.isFinite(origin.lon)) return null;
+    const overpassElements = await _sarHeliFetchOverpassHospitalCandidates(origin.lat, origin.lon, options.radiusM || 85000);
+    const overpassCandidates = overpassElements
+        .map(el => _sarHeliNormalizeHospitalCandidate(el, origin, 'overpass'))
+        .filter(c => c && c.kind !== 'airport_fallback');
+    const airportCandidates = [];
+    const airports = (typeof globalAirports === 'object' && globalAirports) ? globalAirports : {};
+    Object.values(airports).forEach(apt => {
+        if (!apt || typeof apt !== 'object') return;
+        const lat = Number(apt.lat);
+        const lon = Number(apt.lon ?? apt.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        const text = [apt.icao, apt.name, apt.city, apt.state, apt.country, apt.type, apt.kind].filter(Boolean).join(' ');
+        const candidate = _sarHeliNormalizeHospitalCandidate({
+            ...apt,
+            lat,
+            lon,
+            tags: {
+                name: apt.name || '',
+                aeroway: /heli|hubschrauber/i.test(text) ? 'heliport' : '',
+                amenity: /(hospital|krankenhaus|klinikum|clinic)/i.test(text) ? 'hospital' : ''
+            }
+        }, origin, 'airports');
+        if (!candidate) return;
+        if (_sarHeliMedicalTextScore(text) <= 0) candidate.score -= 70;
+        airportCandidates.push(candidate);
+    });
+    const ranked = [...overpassCandidates, ...airportCandidates]
+        .filter(c => Number.isFinite(Number(c.distanceNm)) ? Number(c.distanceNm) <= 180 : true)
+        .sort((a, b) => (Number(b.score || 0) - Number(a.score || 0)) || (Number(a.distanceNm || Infinity) - Number(b.distanceNm || Infinity)));
+    return ranked[0] || null;
+}
+
+function sarHeliRecoverableKindsForIncident(incidentType = '') {
+    const id = missionSarCanonicalIncidentType(incidentType);
+    if (['missing_kayaker', 'angler_missing', 'small_boat_overdue'].includes(id)) return ['liferaft', 'missing_person'];
+    if (['road_collision', 'vehicle_off_road'].includes(id)) return ['sar_heli_patient', 'missing_person'];
+    return ['missing_person'];
+}
+
+async function buildSarHeliMissionSpec({ start = null, dest = null, poiTerrainFt = null, selectedCategory = 'all', requestedCategory = 'all' } = {}) {
+    const targetLat = Number(dest?.lat);
+    const targetLon = Number(dest?.lon);
+    if (!Number.isFinite(targetLat) || !Number.isFinite(targetLon)) return null;
+    const hospitalRef = await resolveSarHeliHospitalRef(targetLat, targetLon);
+    return {
+        schema: 'sarHeliMission.v1',
+        enabled: true,
+        profileId: SAR_HELI_PROFILE_ID,
+        targetRef: {
+            kind: 'sar_incident_poi',
+            name: String(dest?.n || dest?.name || 'SAR Fundstelle'),
+            lat: targetLat,
+            lon: targetLon,
+            terrainFt: Number.isFinite(Number(poiTerrainFt)) ? Math.round(Number(poiTerrainFt)) : null,
+            category: String(selectedCategory || 'all'),
+            requestedCategory: String(requestedCategory || selectedCategory || 'all')
+        },
+        hospitalRef: hospitalRef || {
+            kind: 'airport_fallback',
+            source: 'start-fallback',
+            icao: String(start?.icao || currentStartICAO || 'APT').toUpperCase(),
+            name: String(start?.n || start?.name || currentStartICAO || 'Medical Handoff Point'),
+            lat: Number(start?.lat),
+            lon: Number(start?.lon),
+            elevation: Number.isFinite(Number(start?.elevation)) ? Math.round(Number(start.elevation)) : null,
+            distanceNm: _sarHeliDistanceNm(targetLat, targetLon, Number(start?.lat), Number(start?.lon))
+        },
+        recovery: {
+            radiusNm: 0.12,
+            maxAglFt: 33,
+            maxGsKts: 18,
+            stableHoldSec: 20,
+            autoMarkAfterSec: 60
+        },
+        recoverableKinds: ['missing_person', 'liferaft', 'sar_heli_patient'],
+        incidentType: '',
+        routeRewritten: false
+    };
+}
+
+function finalizeSarHeliMissionSpec(spec = null, { missionPlanV2 = null } = {}) {
+    if (!spec || typeof spec !== 'object') return null;
+    const frame = missionPlanV2?.plan?.storyFrame || missionPlanV2?.storyFrame || {};
+    const incidentType = missionSarCanonicalIncidentType(frame.incidentType || spec.incidentType || '');
+    return {
+        ...spec,
+        enabled: true,
+        incidentType,
+        recoverableKinds: sarHeliRecoverableKindsForIncident(incidentType)
+    };
+}
+
+window.resolveSarHeliHospitalRef = resolveSarHeliHospitalRef;
+window.buildSarHeliMissionSpec = buildSarHeliMissionSpec;
+window.finalizeSarHeliMissionSpec = finalizeSarHeliMissionSpec;
+window.sarHeliRecoverableKindsForIncident = sarHeliRecoverableKindsForIncident;
 
 function buildFallbackRouteWaypointsFromMissionState(state = {}, md = null) {
     const mission = md && typeof md === 'object' ? md : {};
@@ -5795,7 +6131,7 @@ function _shouldIncludeCoreForPoiSearch(forcedCategory = null, dispatchProfileId
     if (cat === 'trn') return false;
     if (cat && cat !== 'all') return true;
     if (profile === 'inspection_infra') return true;
-    if (profile === 'search_and_rescue') return true;
+    if (profile === 'search_and_rescue' || missionIsSarHeliProfileId(profile)) return true;
     if (profile === 'mapping_survey') return true;
     if (profile === 'fire_watch') return true;
     if (profile === 'tour_guide_knowledge') return true;
@@ -5806,7 +6142,8 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
     const forceCat = String(forcedCategory || '').toLowerCase();
     const profileId = String(dispatchProfileId || '').toLowerCase();
     const isKnowledgeGuideProfile = profileId === 'tour_guide_knowledge';
-    const sarCorridorMode = profileId === 'search_and_rescue' && (!forceCat || forceCat === 'all');
+    const isSarHeliProfile = missionIsSarHeliProfileId(profileId);
+    const sarCorridorMode = (profileId === 'search_and_rescue' || isSarHeliProfile) && (!forceCat || forceCat === 'all');
     if (forceCat === 'trn') return null;
     const includeCore = _shouldIncludeCoreForPoiSearch(forceCat, dispatchProfileId);
     const allowLegacyFallback =
@@ -5877,7 +6214,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const tf = f?.tags || {};
         const railTag = String(tf.railway || '').toLowerCase();
         const isRailOpPoint = ['signal', 'switch', 'level_crossing', 'crossing'].includes(railTag);
-        const isSarLikeProfile = (profileId === 'search_and_rescue');
+        const isSarLikeProfile = (profileId === 'search_and_rescue' || isSarHeliProfile);
         const isInfraOpsProfile = (profileId === 'inspection_infra' || profileId === 'mapping_survey');
 
         if (forceCat === 'dam' && !hasName && String(f?.sourceKind || '') === 'lin') continue;
@@ -5938,6 +6275,7 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
             forceCat === 'rail' &&
             isRailPointOp &&
             profileId !== 'search_and_rescue' &&
+            !isSarHeliProfile &&
             profileId !== 'inspection_infra' &&
             profileId !== 'mapping_survey'
         ) ? 7 : 0;
@@ -5978,11 +6316,11 @@ async function findTaggedTilePOI(lat, lon, minNM, maxNM, dirPref, forcedCategory
         const namedTelecom = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n));
         if (namedTelecom.length >= 1) scoredCandidates = namedTelecom;
     }
-    if (forceCat === 'road' && profileId !== 'search_and_rescue') {
+    if (forceCat === 'road' && profileId !== 'search_and_rescue' && !isSarHeliProfile) {
         const namedRoad = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n) && !_poiLooksJunctionLabel(c.n));
         if (namedRoad.length >= 2) scoredCandidates = namedRoad;
     }
-    if (forceCat === 'rail' && profileId !== 'search_and_rescue' && profileId !== 'inspection_infra' && profileId !== 'mapping_survey') {
+    if (forceCat === 'rail' && profileId !== 'search_and_rescue' && !isSarHeliProfile && profileId !== 'inspection_infra' && profileId !== 'mapping_survey') {
         const namedRail = scoredCandidates.filter(c => !!c.hasName && !_poiIsGenericFallbackName(c.n) && !_poiIsNumericLikeName(c.n));
         if (namedRail.length >= 2) scoredCandidates = namedRail;
     }
@@ -7444,6 +7782,7 @@ function missionPoiRecipeId(mission = null) {
     const dwellMin = Number(passenger?.targetDwellMin ?? md?.targetDwellMin ?? 0);
     if (/^(training|club_training_basic|club_training_advanced)$/.test(taskDomain)) return 'poi_training';
     if (taskDomain === 'fire_watch') return 'poi_fire_watch';
+    if (missionIsSarHeliMission(md)) return 'poi_sar_heli';
     if (taskDomain === 'search_and_rescue') return 'poi_search_and_rescue';
     if (Number.isFinite(dwellMin) && dwellMin === 0) return 'poi_flyover';
     if (missionType === 'bush' && ((typeof _bushRecipeIdFromSpec === 'function' && _bushRecipeIdFromSpec(bush) === 'poi_on_task_return')
@@ -8151,6 +8490,7 @@ function buildMissionContract({ isPOI = false, missionType = '', bushSpec = null
         missionPlanV4: missionPlanV4 || mission?._missionPlanV4 || mission?.missionPlanV4 || passenger?.missionPlanV4 || null,
         missionContractV4: missionContractV4 || mission?._missionContractV4 || mission?.missionContractV4 || passenger?.missionContractV4 || null,
         aptArrivalPlan: aptArrivalPlan || mission?.aptArrivalPlan || passenger?.aptArrivalPlan || null,
+        sarHeli: missionSarHeliSpecFromMission(mission) || null,
         bush: normalizedBushSpec,
         targetScene,
         constraints
@@ -10053,7 +10393,7 @@ function buildMissionTruth(missionData = null, geoContext = null, sceneSpec = nu
         if (shoreline) {
             mainKind = 'water_edge';
             mainPoint = shoreline;
-            mainName = String(waterZone.name || poiName || 'Wasserziel').trim() || poiName;
+            mainName = _missionSemanticsV4TargetLabelOrFallback(waterZone.name, poiName || 'Wasserziel');
             anchorKind = 'shoreline';
             anchorPoint = shoreline;
             reason = 'nearest_water_geometry';
@@ -10064,7 +10404,7 @@ function buildMissionTruth(missionData = null, geoContext = null, sceneSpec = nu
         if (pickedAnchor && anchorPointFromCtx) {
             mainKind = pickedAnchor.key;
             mainPoint = anchorPointFromCtx;
-            mainName = String(pickedAnchor.anchor?.name || poiName).trim() || poiName;
+            mainName = _missionSemanticsV4TargetLabelOrFallback(pickedAnchor.anchor?.name, poiName);
             anchorKind = (pickedAnchor.key === 'power' || pickedAnchor.key === 'building') ? 'perimeter' : pickedAnchor.key;
             anchorPoint = anchorPointFromCtx;
             reason = `nearest_${pickedAnchor.key}_anchor`;
@@ -11369,7 +11709,8 @@ function buildMissionPlannerV2Draft({
     missionWeather = null,
     missionFireHazard = null,
     targetGeoContext = null,
-    missionTruth = null
+    missionTruth = null,
+    sarHeli = null
 } = {}) {
     const baseType = normalizeMissionType(
         missionType || missionPicker?.baseType || (isPOI ? 'poi' : 'apt'),
@@ -11424,6 +11765,12 @@ function buildMissionPlannerV2Draft({
             dest: _summarizeMissionWeather(missionWeather?.dest || null)
         },
         fireHazard: missionFireHazard || null,
+        sarHeli: sarHeli && typeof sarHeli === 'object' ? {
+            enabled: !!sarHeli.enabled,
+            targetRef: sarHeli.targetRef || null,
+            hospitalRef: sarHeli.hospitalRef || null,
+            recovery: sarHeli.recovery || null
+        } : null,
         bush: bushSpec ? {
             profileId: bushSpec.profileId,
             targetMode: bushSpec.targetMode,
@@ -11767,6 +12114,7 @@ async function _missionPipelineV3ContextBundle(context = {}, draft = {}, working
     const geo = await _missionPipelineV3ResolveGeoContext(context, working);
     const truth = await _missionPipelineV3ResolveMissionTruth(context, working);
     const fire = await _missionPipelineV3ResolveFireHazard(context, working);
+    const sarHeli = missionIsSarHeliProfileId(context.dispatchProfileId || draft?.picker?.profile || '');
     return {
         schema: 'missionPlannerV3.contextBundle.v1',
         route: draft.route || {},
@@ -11780,7 +12128,9 @@ async function _missionPipelineV3ContextBundle(context = {}, draft = {}, working
         targetGeoContext: _missionPipelineV3CompactGeoContext(geo),
         missionTruth: compactMissionTruthForPrompt(truth),
         routeRules: [
-            context.isPOI ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.',
+            sarHeli
+                ? 'SAR-Heli: Start zur Fundstelle am POI, dort Landung oder stabiler Hover zur Bergung, danach medizinischer Weiterflug zum Krankenhaus-Helipad oder Fallback-Handoff.'
+                : (context.isPOI ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.'),
             'Der Auftrag braucht einen konkreten lokalen Anlass, aber keine Actionfilm-Dramatik.',
             'Story, Passenger, Cargo, sceneIntent und Zielkontext muessen dieselbe Lage beschreiben.'
         ],
@@ -12316,7 +12666,15 @@ function _missionSemanticsV4IsGenericTargetLabel(label = '') {
     const normalized = normalizeMissionText(raw);
     if (!normalized) return true;
     if (raw.length <= 2) return true;
-    return /^(yes|no|unknown|poi|ziel|water|wasser|ditch|stream|river|terrain|road|track|path|footway|service|parking|building|traffic signals|traffic_signals|crossing|minor line|minor_line)$/.test(normalized);
+    return /^(yes|no|unknown|poi|ziel|water|wasser|gewaesser|gewasser|gewaesserbereich|gewasserbereich|ufer|uferbereich|uferlinie|shoreline|water edge|water_edge|ditch|stream|river|terrain|road|track|path|footway|service|parking|building|traffic signals|traffic_signals|crossing|minor line|minor_line|meadow|farmland|grass|grassland|village green|village_green|field|fields|clearing|forest|wood|woods|scrub|heath|orchard|vineyard|wiese|wiesen|acker|feld|felder|lichtung|wald|forst)$/.test(normalized);
+}
+
+function _missionSemanticsV4TargetLabelOrFallback(label = '', fallback = 'Ziel') {
+    const raw = String(label || '').trim();
+    const fallbackText = String(fallback || '').trim();
+    if (raw && !_missionSemanticsV4IsGenericTargetLabel(raw)) return raw;
+    if (fallbackText) return fallbackText;
+    return raw || 'Ziel';
 }
 
 function _missionSemanticsV4Build({
@@ -12335,7 +12693,7 @@ function _missionSemanticsV4Build({
     const truthMain = missionTruth?.mainTarget || null;
     const truthMainName = String(truthMain?.name || '').trim();
     const targetLabel = String(targetName || '').trim();
-    const primarySubjectLabel = (!_missionSemanticsV4IsGenericTargetLabel(truthMainName) ? truthMainName : targetLabel) || truthMainName || 'Ziel';
+    const primarySubjectLabel = _missionSemanticsV4TargetLabelOrFallback(truthMainName, targetLabel || truthMainName || 'Ziel');
     const primarySubjectType = String(truthMain?.kind || categoryKey || normalizedMode).trim().toLowerCase() || normalizedMode;
     const modeRule = MISSION_SEMANTICS_V4_RULESET.modeRules[normalizedMode] || MISSION_SEMANTICS_V4_RULESET.modeRules.apt;
     const domainRule = MISSION_SEMANTICS_V4_RULESET.domainRules[domainKey] || MISSION_SEMANTICS_V4_RULESET.domainRules.general;
@@ -12603,8 +12961,11 @@ function missionSarWriteIncidentHistory(storageKey = '', values = [], limit = 10
 }
 
 function missionSarIncidentGuidance(category = '', targetLabel = '', context = {}) {
+    const overrideAllowedIncidentTypes = Array.isArray(context?.allowedIncidentTypes)
+        ? context.allowedIncidentTypes.map(missionSarCanonicalIncidentType).filter(Boolean)
+        : [];
     const allowedIncidentTypes = [...new Set(
-        missionSarIncidentIdsForCategory(category, targetLabel)
+        (overrideAllowedIncidentTypes.length ? overrideAllowedIncidentTypes : missionSarIncidentIdsForCategory(category, targetLabel))
             .map(missionSarCanonicalIncidentType)
             .filter(Boolean)
     )];
@@ -12747,9 +13108,9 @@ function missionSarIncidentSceneProfile(incidentType = '', { category = '', targ
         riverside_vehicle_entry: {
             sceneKind: 'sar_water',
             sceneDensity: 'sparse',
-            objectFamilies: ['liferaft', 'small_equipment'],
+            objectFamilies: ['parked_vehicle', 'small_equipment', 'signal_smoke'],
             requiredAnchors: ['waterline', 'roadside', 'shore_access'],
-            placementPolicy: 'Ufer-Fahrzeuglage: Wasser-/Uferhinweis und Zugriffspunkt stehen im Fokus; kein grosses Rettungsschiff auf Seen erzwingen.'
+            placementPolicy: 'Ufer-Fahrzeuglage: Fahrzeug oder Fahrzeughinweis am Wasserzugang ist Primaerziel; kein grosses Rettungsschiff und keine Rettungsinsel erzwingen.'
         }
     };
     return profiles[id] || null;
@@ -12761,6 +13122,7 @@ function missionPipelineV4SarDecision({
     plan = {},
     resolvedNeeds = {},
     suggestedIncidentType = '',
+    allowedIncidentTypes = null,
     writeHistory = true,
     lockSuggested = false
 } = {}) {
@@ -12769,7 +13131,8 @@ function missionPipelineV4SarDecision({
     const targetLabel = String(semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || '').trim();
     const context = {
         geoContext: resolvedNeeds?.geo_context || null,
-        missionTruth: resolvedNeeds?.mission_truth || null
+        missionTruth: resolvedNeeds?.mission_truth || null,
+        allowedIncidentTypes: Array.isArray(allowedIncidentTypes) ? allowedIncidentTypes : null
     };
     const incidentType = missionSarSelectIncidentType(
         category,
@@ -13481,11 +13844,19 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         missionTruth: resolvedNeeds?.mission_truth || null
     });
     const rawSarIncidentType = rawPlan?.storyFrame?.incidentType || base?.plan?.storyFrame?.incidentType || '';
+    const sarHeliPlanner = missionIsSarHeliProfileId(draft?.picker?.profile || draft?.profile?.id || '');
+    const sarHeliAllowedIncidentIds = sarHeliPlanner
+        ? missionSarHeliIncidentIdsForCategory(
+            semantics.focusLock.targetCategory || base?.plan?.targetCategory || draft?.category || '',
+            semantics.focusLock.primarySubjectLabel || base?.plan?.targetLabel || draft?.target?.name || ''
+        )
+        : null;
     const sarDecision = missionPipelineV4SarDecision({
         semantics,
         plan: base.plan,
         resolvedNeeds,
         suggestedIncidentType: rawSarIncidentType,
+        allowedIncidentTypes: sarHeliAllowedIncidentIds,
         writeHistory: true
     });
     const storyFrame = _missionPipelineV4BuildStoryFrame({
@@ -13532,11 +13903,13 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         base.plan.objectFamilies = [];
         base.plan.placementPolicy = 'Keine Zielobjekte platzieren; vorhandene Landmarken nur als visuelle Orientierung nutzen.';
     }
-    if (semantics.focusLock.taskDomain === 'search_and_rescue') {
-        const allowedSarIncidentIds = missionSarIncidentIdsForCategory(
-            semantics.focusLock.targetCategory || base.plan.targetCategory || '',
-            semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || ''
-        );
+	    if (semantics.focusLock.taskDomain === 'search_and_rescue') {
+        const allowedSarIncidentIds = sarHeliAllowedIncidentIds?.length
+            ? sarHeliAllowedIncidentIds
+            : missionSarIncidentIdsForCategory(
+                semantics.focusLock.targetCategory || base.plan.targetCategory || '',
+                semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || ''
+            );
         const canonicalSarIncident = missionSarCanonicalIncidentType(storyFrame.incidentType);
         const sarFrameText = [
             storyFrame.trigger,
@@ -13613,6 +13986,19 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
             ]
             .map(normalizeMissionTargetSceneFeature)
             .filter(Boolean);
+        if (sarHeliPlanner) {
+            const heliIncident = missionSarCanonicalIncidentType(storyFrame.incidentType);
+            if (['missing_kayaker', 'angler_missing', 'small_boat_overdue'].includes(heliIncident)) {
+                sarObjectFamilies = sarObjectFamilies.filter(feature => !['aircraft_wreck', 'service_ship'].includes(feature));
+                sarObjectFamilies.unshift('liferaft');
+            } else if (['road_collision', 'vehicle_off_road'].includes(heliIncident)) {
+                sarObjectFamilies = sarObjectFamilies.filter(feature => !['liferaft', 'watercraft', 'aircraft_wreck'].includes(feature));
+                sarObjectFamilies.unshift('people');
+            } else {
+                sarObjectFamilies = sarObjectFamilies.filter(feature => !['liferaft', 'watercraft', 'aircraft_wreck'].includes(feature));
+                sarObjectFamilies.unshift('missing_person');
+            }
+        }
         if (storyFrame.incidentType === 'road_collision') {
             sarObjectFamilies = sarObjectFamilies
                 .map(feature => feature === 'missing_person' ? 'people' : feature)
@@ -13637,14 +14023,45 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         ['localFacts', 'operationalDetails', 'narrativeHooks', 'mustMention'].forEach(key => {
             if (Array.isArray(base.plan[key])) base.plan[key] = base.plan[key].filter(keepSarText);
         });
-        if (!keepSarText(base.plan.realismBrief)) {
-            base.plan.realismBrief = _missionPipelineV3Text(
-                _missionPipelineV4BuildSarRealismBrief(storyFrame, semantics, resolvedNeeds),
-                220
-            );
-        }
-    }
-    base.semantics = semantics;
+	        if (!keepSarText(base.plan.realismBrief)) {
+	            base.plan.realismBrief = _missionPipelineV3Text(
+	                _missionPipelineV4BuildSarRealismBrief(storyFrame, semantics, resolvedNeeds),
+	                220
+	            );
+	        }
+	    }
+	    if (sarHeliPlanner) {
+	        const stripRegularPoiReturn = text => {
+	            const n = normalizeMissionText(text);
+	            return !/\b(keine landung am poi|am poi wird nicht gelandet|start und landung bleiben|rundflug|rueckkehr zum start|zurueck zum start|zuruck zum start|startflugplatz)\b/.test(n);
+	        };
+	        ['operationalDetails', 'narrativeHooks', 'mustMention', 'mustAvoid'].forEach(key => {
+	            if (Array.isArray(base.plan[key])) base.plan[key] = base.plan[key].filter(stripRegularPoiReturn);
+	        });
+	        base.plan.lockedFields = {
+	            ...(base.plan.lockedFields || {}),
+	            noLandingAtPoi: false,
+	            requiresRescueAtPoi: true
+	        };
+	        const recoveryDetail = 'SAR-Heli: Nach Fundbestaetigung Landung oder stabiler Hover unter 10 m an der Fundstelle, danach Patient aufnehmen und zum medizinischen Handoff fliegen.';
+	        base.plan.operationalDetails = Array.from(new Set([
+	            recoveryDetail,
+	            ...(Array.isArray(base.plan.operationalDetails) ? base.plan.operationalDetails : [])
+	        ])).slice(0, 5);
+	        base.plan.mustMention = Array.from(new Set([
+	            ...(Array.isArray(base.plan.mustMention) ? base.plan.mustMention : []),
+	            'Landung oder Hover unter 10 m an der Fundstelle',
+	            'medizinischer Handoff nach Aufnahme'
+	        ])).slice(0, 6);
+	        base.plan.completionSignal = _missionPipelineV3Text(
+	            'Nach der stabilen Aufnahme wird der Patient zum Krankenhaus-Helipad oder medizinischen Fallback-Handoff geflogen.',
+	            220
+	        );
+	        if (base.plan.storyFrame && typeof base.plan.storyFrame === 'object') {
+	            base.plan.storyFrame.completionSignal = base.plan.completionSignal;
+	        }
+	    }
+	    base.semantics = semantics;
     base.debug = {
         ...(base.debug || {}),
         source: debug.source || base.debug?.source || 'Gemini Planner V4',
@@ -13676,13 +14093,21 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         targetName: draft?.target?.name || context.dest?.n || '',
         missionTruth: truth || working.missionTruth || context.missionTruth || null
     });
+    const sarHeli = missionIsSarHeliProfileId(context.dispatchProfileId || draft?.picker?.profile || '');
+    const sarAllowedIncidentTypes = sarHeli
+        ? missionSarHeliIncidentIdsForCategory(
+            semanticsRules.focusLock.targetCategory || draft?.category || context.selectedCategory || 'generic',
+            semanticsRules.focusLock.primarySubjectLabel || draft?.target?.name || context.dest?.n || ''
+        )
+        : null;
     const sarIncidentGuidance = semanticsRules?.focusLock?.taskDomain === 'search_and_rescue'
         ? missionSarIncidentGuidance(
             semanticsRules.focusLock.targetCategory || draft?.category || context.selectedCategory || 'generic',
             semanticsRules.focusLock.primarySubjectLabel || draft?.target?.name || context.dest?.n || '',
             {
                 geoContext: geo || null,
-                missionTruth: truth || working.missionTruth || context.missionTruth || null
+                missionTruth: truth || working.missionTruth || context.missionTruth || null,
+                allowedIncidentTypes: sarAllowedIncidentTypes
             }
         )
         : null;
@@ -13703,7 +14128,9 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             semanticsRules,
             sarIncidentGuidance,
             routeRules: [
-                context.isPOI ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.',
+                sarHeli
+                    ? 'SAR-Heli: Start zur Fundstelle am POI, dort Landung oder stabiler Hover zur Bergung, danach medizinischer Weiterflug zum Krankenhaus-Helipad oder Fallback-Handoff.'
+                    : (context.isPOI ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.'),
                 'Der Auftrag braucht einen konkreten lokalen Anlass, aber keine Actionfilm-Dramatik.',
                 'Story, Passenger, Cargo, sceneIntent und Zielkontext muessen dieselbe Lage beschreiben.'
             ],
@@ -13727,7 +14154,8 @@ Arbeitsweise:
 3. Wenn Details im Kontext fehlen, formuliere bewusst allgemein statt zu halluzinieren.
 4. weatherHooks duerfen nur konkrete Wetteranker aus dem Bundle enthalten.
 5. localFacts, narrativeHooks und operationalDetails muessen aus dem Bundle ableitbar sein.
-6. Bei POI niemals Landung am Ziel andeuten.
+	6. Bei POI niemals Landung am Ziel andeuten, ausser CONTEXT_BUNDLE.routeRules beschreibt explizit SAR-Heli-Bergung; dann muss Landung oder stabiler Hover an der Fundstelle und Weiterflug zum medizinischen Handoff klar sein.
+	6a. Bei SAR-Heli muss lockedFields.noLandingAtPoi=false und lockedFields.requiresRescueAtPoi=true sein; mustMention/mustAvoid duerfen keine normale POI-Rueckkehr oder "keine Landung am POI" verlangen.
 7. Das Zielsubjekt und die TaskDomain bilden einen bindenden Fokus-Lock. Sekundaeranker duerfen nur Kontextrollen aus den semanticsRules uebernehmen.
 8. Baue immer einen klaren Story-Kern: Ausloeser/Trigger, Fokus-Subjekt, offene Frage am Ziel, Einsatznutzen des Fluges, naechster Handoff.
 9. Konkretisiere diesen Story-Kern immer mit 2-4 Lage-Details: wer/was genau betroffen ist, was passiert ist, warum der Einsatz gerade jetzt noetig ist und welcher Befund aus der Luft gebraucht wird.
@@ -13848,6 +14276,7 @@ function buildMissionContractV4({
         !!plannerContext.isPOI
     );
     const profile = getMissionTaskProfile(plannerContext.dispatchProfileId || 'auto', mode) || {};
+    const sarHeli = missionIsSarHeliProfileId(plannerContext.dispatchProfileId || '');
     const semantics = plannerResult?.semantics || _missionSemanticsV4Build({
         mode,
         taskDomain: plan?.plan?.taskDomain || profile.taskDomain || 'general',
@@ -13861,6 +14290,10 @@ function buildMissionContractV4({
         plan: plan?.plan || {},
         resolvedNeeds: plannerResult?.resolvedNeeds || {},
         suggestedIncidentType: plan?.plan?.storyFrame?.incidentType || '',
+        allowedIncidentTypes: sarHeli ? missionSarHeliIncidentIdsForCategory(
+            semantics.focusLock.targetCategory || plan?.plan?.targetCategory || plannerContext.selectedCategory || '',
+            semantics.focusLock.primarySubjectLabel || plan?.plan?.targetLabel || plannerContext.dest?.n || ''
+        ) : null,
         writeHistory: false,
         lockSuggested: true
     });
@@ -13897,6 +14330,7 @@ function buildMissionContractV4({
         fireHazard: plannerResult?.resolvedNeeds?.fire_hazard || plannerContext.missionFireHazard || null,
         missionPlan: plan,
         storyFrame,
+        sarHeli: sarHeli ? (plannerContext.sarHeli || null) : null,
         missionTruth: compactMissionTruthForPrompt(
             plannerResult?.resolvedNeeds?.mission_truth || plannerContext.missionTruth || null
         ),
@@ -13921,7 +14355,7 @@ Regeln:
 4. Die Story muss denselben Sachverhalt beschreiben wie primaryObjective, localFacts, weatherHooks und sceneIntent.
 5. sceneIntent beschreibt sichtbare, semantische Dinge am Ziel oder begruendet, warum keine Zielszene entstehen soll. Keine Asset-Namen.
 6. Wenn sceneKind="none", dann sceneIntent sehr sparsam halten: keine Zielszene, visibleIdeas=[], densityHint="none".
-7. Bei POI niemals Landung am Ziel andeuten.
+7. Bei POI niemals Landung am Ziel andeuten, ausser CONTRACT.sarHeli.enabled ist true; dann muss der SAR-Heli-Ablauf mit Fundstelle, Landung/Hover-Aufnahme und medizinischem Handoff beschrieben werden.
 8. Das Zielsubjekt und die TaskDomain bleiben bindend; Kontext darf nur anreichern, nicht umwidmen.
 9. Benannte Nebenanker nur dann prominent nutzen, wenn sie in CONTRACT.semantics als Kontextrolle plausibel bleiben.
 10. Die Story muss einen klaren Story-Frame aus CONTRACT.storyFrame transportieren: Trigger, Fokus-Subjekt, offene Frage, Stakes und Abschluss/Handoff.
@@ -14115,6 +14549,12 @@ function _missionPipelineV4LooksEnumerative(text = '') {
     return false;
 }
 
+function _missionPipelineV4LooksFragmentedStory(text = '') {
+    const s = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!s) return false;
+    return /[.!?]\s+(einem|einer|einen|eines|mit|bei|nach|wegen|durch|unter)\s+[a-zäöüß][^.!?]{8,}[.!?]/.test(s);
+}
+
 function _missionPipelineV4JoinNaturalList(values = []) {
     const src = Array.isArray(values) ? values.map(x => String(x || '').trim()).filter(Boolean) : [];
     if (!src.length) return '';
@@ -14167,9 +14607,16 @@ function _missionPipelineV4EnsureSentence(text = '', fallback = '') {
 }
 
 function _missionPipelineV4SentenceParts(text = '') {
-    return String(text || '')
+    const protectedText = String(text || '')
+        .replace(/\bbzw\./gi, m => `${m.slice(0, -1)}__DOT__`)
+        .replace(/\bca\./gi, m => `${m.slice(0, -1)}__DOT__`)
+        .replace(/\bggf\./gi, m => `${m.slice(0, -1)}__DOT__`)
+        .replace(/\bu\.a\./gi, m => m.replace(/\./g, '__DOT__'))
+        .replace(/\bd\.h\./gi, m => m.replace(/\./g, '__DOT__'))
+        .replace(/\bz\.\s*b\./gi, m => m.replace(/\./g, '__DOT__'));
+    return protectedText
         .split(/(?<=[.!?])\s+/)
-        .map(part => _missionPipelineV4StripSentenceEnd(part))
+        .map(part => _missionPipelineV4StripSentenceEnd(part.replace(/__DOT__/g, '.')))
         .filter(Boolean);
 }
 
@@ -14183,8 +14630,8 @@ function _missionPipelineV4LooksLikeCompleteSentence(text = '') {
 function _missionPipelineV4SarSubjectSentence(detail = '', fallback = '') {
     const s = _missionPipelineV4StripSentenceEnd(detail || fallback);
     if (!s) return '';
+    if (/^(einem|einer|einen|eines)\b/i.test(s)) return `Gesucht wird nach ${_missionPipelineV4LowerFirst(s)}.`;
     if (_missionPipelineV4LooksLikeCompleteSentence(s)) return _missionPipelineV4EnsureSentence(s);
-    if (/^(einem|einer|einen)\b/i.test(s)) return `Gesucht wird nach ${_missionPipelineV4LowerFirst(s)}.`;
     return `Im Mittelpunkt steht ${_missionPipelineV4LowerFirst(s)}.`;
 }
 
@@ -14374,6 +14821,7 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}) {
     if (!raw) return _missionPipelineV4ComposeStoryFallback(contract);
     if (_missionPipelineV4LooksEnglish(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
     if (_missionPipelineV4LooksInternalMissionText(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
+    if (_missionPipelineV4LooksFragmentedStory(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
     const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
     if (taskDomain === 'search_and_rescue' && (
         _missionPipelineV4SarTextConflictsIncidentType(raw, frame.incidentType)
@@ -14393,6 +14841,7 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}) {
     const looksFlat = raw.length < 190
         || /(wir machen|wir fliegen|kurze zielarbeit|klar umrissenen, ruhigen auftrag|lagebildaufnahme|zielgebiet .* mit einem klar umrissenen)/i.test(raw)
         || _missionPipelineV4LooksEnumerative(raw)
+        || _missionPipelineV4LooksFragmentedStory(raw)
         || repeatedTarget >= 4
         || _missionPipelineV4SentenceCount(raw) < 3;
     if (covered >= 2 && !looksFlat) return raw;
@@ -14454,6 +14903,7 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
         i: '📋',
         cat: String(plan.targetCategory || context.selectedCategory || (isPOI ? 'poi' : 'std')).toLowerCase(),
         missionType,
+        sarHeli: contract?.sarHeli || context.sarHeli || null,
         bush: context.bushSpec || null,
         _missionPlanV2: context.missionPlanV2 || null,
         _missionPlanV4: contract || null,
@@ -14517,6 +14967,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const isPoiTrainingMission = isPOI && missionSel.baseType === 'poi' && missionSel.category === 'trn';
     const isTrainingMission = isAptTrainingMission || isPoiTrainingMission;
     const forcedProfile = getMissionTaskProfile(missionSel.profile || 'auto', missionBaseType);
+    const isSarHeliLegacy = isPOI && missionIsSarHeliProfileId(forcedProfile?.id || missionSel.profile || '');
     const provisionalBushSpec = isBushMission
         ? buildBushMissionSpec({
             profileId: String(missionSel.profile || 'auto'),
@@ -14616,6 +15067,12 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Wasser-SAR mit Boot, Rettungsinsel, Uferhinweis oder vermisster Person am Wasser',
             'SAR-Luftfahrzeuglage: vermisstes UL/Kleinflugzeug, Debris, Rauch oder Lichtungshinweis',
             'Rettungsaufklaerung mit Suchsektoren an Waldrand, Ufer, Weg, Strasse oder Bahnlinie'
+        ],
+        sar_heli: [
+            'SAR-Heli-Bergung einer gesichteten vermissten oder verletzten Person mit Landung oder stabilem Hover',
+            'Luftrettung: Fundstelle sichern, Patient aufnehmen und direkt zum Krankenhaus-Helipad fliegen',
+            'Wasser-SAR mit Rettungsinsel oder Person am Wasser, Bergung per Heli und medizinischer Weiterflug',
+            'Bergsteiger- oder Unfallbergung im Zielgebiet mit kurzer stabiler Aufnahmephase und Klinik-Handoff'
         ],
         fire_watch: [
             'Feuerwacht mit Fokus auf Rauchfahnen und Hotspots',
@@ -14994,7 +15451,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     };
 
     const poiLikeTask = !!(isPOI || missionUsesPoiTaskRecipe({ missionType: missionBaseType, bush: provisionalBushSpec }));
-    const poiAltRule = (poiLikeTask && !isTrainingMission)
+    const poiAltRule = isSarHeliLegacy
+        ? 'SAR-HELI-EINSATZPARAMETER: Das ist keine normale POI-Verweil-/Fotoaufgabe. Am POI wird nach Fundbestaetigung gelandet oder unter 10 m AGL stabil gehovert; danach Weiterflug zum Krankenhaus-Helipad oder medizinischen Fallback-Ziel. targetDwellMin soll 0 bleiben; die 20s Recovery steuert die Runtime.'
+        : (poiLikeTask && !isTrainingMission)
         ? (Number.isFinite(poiTerrainFt)
             ? `POI-Einsatzparameter: targetAltFt (MSL) darf NICHT unter ${Math.round(poiTerrainFt + 500)} ft liegen, weil am POI mindestens 500 ft AGL gelten. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).`
             : "POI-Einsatzparameter: targetAltFt konservativ wählen; niemals so niedrig, dass es unter 500 ft AGL wäre. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).")
@@ -15031,6 +15490,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
     const missionTruth = poiTargetMeta?.missionTruth || null;
     const targetGeoContext = poiTargetMeta?.targetGeoContext || null;
     const missionPlanV2 = poiTargetMeta?.missionPlanV2 || null;
+    const sarHeliContext = poiTargetMeta?.sarHeli || missionPlanV2?.sarHeli || null;
     const compactMissionPlanV2 = compactMissionPlanV2ForPrompt(missionPlanV2);
     const compactTruth = compactMissionTruthForPrompt(missionTruth);
     const dispatchPlan = compactMissionPlanV2?.plan || {};
@@ -15078,7 +15538,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             missionType: missionBaseType,
             targetCategory: String(dispatchPlan.targetCategory || targetMissionCat || missionSel.category || '').toLowerCase() || null,
             sceneKind: String(dispatchPlan.sceneKind || (poiLikeTask ? '' : 'none')).toLowerCase() || null,
-            noLandingAtPoi: !!poiLikeTask,
+            noLandingAtPoi: !!poiLikeTask && !isSarHeliLegacy,
+            requiresRescueAtPoi: !!isSarHeliLegacy,
             targetLabel: String(dispatchPlan.targetLabel || promptDestName || '')
         },
         profileContract: forcedProfile && forcedProfile.id !== 'auto' ? {
@@ -15100,6 +15561,11 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             homeRef: provisionalBushSpec.homeRef || null,
             targetRef: provisionalBushSpec.targetRef || null,
             areaRef: provisionalBushSpec.areaRef || null
+        } : null,
+        sarHeliContext: sarHeliContext ? {
+            targetRef: sarHeliContext.targetRef || null,
+            hospitalRef: sarHeliContext.hospitalRef || null,
+            recovery: sarHeliContext.recovery || null
         } : null,
         instruction: 'Fuelle nur die Textfelder fuer genau dieses Formular aus. Auftragstyp, taskDomain, roleProfile und Ziel duerfen nicht neu erfunden werden.'
     };
@@ -15131,7 +15597,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         ? `4a. BUSH-TON: Sprache und Missionsrahmen muessen bodenstaendig, direkt und praxisnah wirken. Weniger akademisch, weniger touristisch, kein Gutachten- oder Prospektton. Gute Bilder sind abgelegene Strips, Pistenrand, Tal, Hang, Wald, Wetterfenster, Ladung, Werkzeug, Camp-Alltag, Bodencrew oder Rueckkehr in die Zivilisation. Kurz, glaubwuerdig und einsatznah bleiben.`
         : '';
     const routeRule = poiLikeTask
-        ? `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.`
+        ? (isSarHeliLegacy
+            ? `SAR-HELI-REGEL: Start in ${startName}, Such-/Fundstelle "${promptDestName}" anfliegen, dort nach Sichtkontakt landen oder unter 10 m stabil hovern, Patient aufnehmen und danach zum medizinischen Ziel "${sarHeliContext?.hospitalRef?.name || 'Krankenhaus-Helipad/Fallback-Handoff'}" fliegen. Nicht als Rundflug oder Rueckkehr zum Start formulieren.`
+            : `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.`)
         : (isBushMission
             ? (provisionalBushSpec?.completionMode === 'return_home'
                 ? `BUSH-REGEL: Bush-Recon ab ${startName} in das Zielgebiet "${promptDestName}" mit anschliessender Rueckkehr nach ${startName}. Die Story muss Recon im Gebiet und den RTB klar abbilden; keine normale A-B-Endlandung als Missionsziel formulieren.`
@@ -16665,6 +17133,18 @@ async function generateMission() {
     let missionPlanV3Attempt = null;
     let missionPlanV4 = null;
     let missionContractV4 = null;
+    let sarHeliSpec = null;
+    if (isPOI && missionIsSarHeliProfileId(dispatchProfileId)) {
+        indicator.innerText = 'SAR Heli: Klinikziel wird gesucht...';
+        sarHeliSpec = await dispatchMeasure('sar_heli_hospital_resolve', async () => buildSarHeliMissionSpec({
+            start,
+            dest,
+            poiTerrainFt,
+            selectedCategory: selectedPoiCategory,
+            requestedCategory: requestedPoiCategory
+        }));
+        _ensureDispatchAlive();
+    }
     const plannerContext = {
         start,
         dest,
@@ -16679,7 +17159,8 @@ async function generateMission() {
         missionWeather,
         missionFireHazard,
         targetGeoContext: preMissionTargetGeoContext,
-        missionTruth: preMissionTruth
+        missionTruth: preMissionTruth,
+        sarHeli: sarHeliSpec
     };
     const absorbPlannerResolvedNeeds = (plan) => {
         if (plan?.resolvedNeeds?.geo_context && !preMissionTargetGeoContext) {
@@ -16861,6 +17342,7 @@ async function generateMission() {
                     isPOI: false,
                     poiTerrainFt,
                     targetGeoContext: preMissionTargetGeoContext,
+                    sarHeli: sarHeliSpec,
                     bushSpec: buildBushMissionSpec({
                         profileId: dispatchProfileId,
                         startAirport: start,
@@ -16886,6 +17368,7 @@ async function generateMission() {
                         lon: Number(dest?.lon),
                         name: String(dest?.n || ''),
                         missionPlanV2,
+                        sarHeli: sarHeliSpec,
                         startAirport: start,
                         destAirport: dest
                     }
@@ -16937,6 +17420,7 @@ async function generateMission() {
                 isPOI,
                 poiTerrainFt,
                 targetGeoContext: preMissionTargetGeoContext,
+                sarHeli: sarHeliSpec,
                 bushSpec: null
             }));
         }
@@ -16962,7 +17446,8 @@ async function generateMission() {
                     startAirport: start,
                     targetGeoContext: preMissionTargetGeoContext,
                     missionTruth: preMissionTruth,
-                    missionPlanV2
+                    missionPlanV2,
+                    sarHeli: sarHeliSpec
                 }
             ));
         }
@@ -17000,13 +17485,18 @@ async function generateMission() {
                     paxText = "1 PAX (Instruktor)";
                     cargoText = "Trainingsunterlagen (10 lbs)";
                     dataSource = "Lokale Training DB";
-                } else {
-                    const offlinePoiPool = buildOfflinePoiMissionPool(selectedPoiCategory, dispatchProfileId, dest.n);
-                    m = pickOfflineMissionFromPool(offlinePoiPool, 'ga_offline_poi_mission_history') || generateDynamicPOIMission(dest.n, maxSeats, dest.poiCategory);
-                    paxText = m.payloadText || paxText;
-                    cargoText = m.cargoText || cargoText;
-                    dataSource = "Lokale POI DB";
-                }
+	                } else {
+	                    if (missionIsSarHeliProfileId(dispatchProfileId)) {
+	                        m = buildSarHeliLocalFallbackMission(dest.n);
+	                        dataSource = "Lokale SAR Heli DB";
+	                    } else {
+	                        const offlinePoiPool = buildOfflinePoiMissionPool(selectedPoiCategory, dispatchProfileId, dest.n);
+	                        m = pickOfflineMissionFromPool(offlinePoiPool, 'ga_offline_poi_mission_history') || generateDynamicPOIMission(dest.n, maxSeats, dest.poiCategory);
+	                        dataSource = "Lokale POI DB";
+	                    }
+	                    paxText = m.payloadText || paxText;
+	                    cargoText = m.cargoText || cargoText;
+	                }
             } else if (typeof missions !== 'undefined') {
                 // A->B-Missionen gleichmäßig über Kategorien rotieren (inkl. Trainingsflüge).
                 const availDbMissions = missions.filter(ms => {
@@ -17100,6 +17590,16 @@ async function generateMission() {
             m._appliedProfile = profApplied.appliedProfile || effectiveProfileId || 'auto';
             m._missionPlanV2 = missionPlanV2 || m._missionPlanV2 || null;
         }
+        if (m && missionIsSarHeliProfileId(m._appliedProfile || dispatchProfileId || '')) {
+            sarHeliSpec = finalizeSarHeliMissionSpec(sarHeliSpec || m.sarHeli || missionContractV4?.sarHeli || null, { missionPlanV2 });
+            if (sarHeliSpec) {
+                m.sarHeli = sarHeliSpec;
+                if (missionPlanV2 && typeof missionPlanV2 === 'object') missionPlanV2.sarHeli = sarHeliSpec;
+                if (missionPlanV4 && typeof missionPlanV4 === 'object') missionPlanV4.sarHeli = sarHeliSpec;
+                if (missionContractV4 && typeof missionContractV4 === 'object') missionContractV4.sarHeli = sarHeliSpec;
+                if (m._missionContractV4 && typeof m._missionContractV4 === 'object') m._missionContractV4.sarHeli = sarHeliSpec;
+            }
+        }
     }
     _ensureDispatchAlive();
 
@@ -17134,10 +17634,32 @@ async function generateMission() {
         missionSceneIntent = sanitizeMissionSceneIntentSpec(m?.s || '', { isPOI, taskDomain: missionTaskDomain });
     }
     const missionNeedsAccept = !isPlanningOnlyMode;
-    const initialTargetScene = sanitizeMissionTargetSceneSpec(
+    let initialTargetScene = sanitizeMissionTargetSceneSpec(
         missionNeedsAccept ? null : (m?.targetScene || null),
         { isPOI, taskDomain: missionTaskDomain, targetGeoContext: preMissionTargetGeoContext || null, missionPlanV2 }
     );
+    if (
+        isPOI
+        && missionIsSarHeliProfileId(m?._appliedProfile || dispatchProfileId || '')
+        && (!initialTargetScene || String(initialTargetScene.kind || '').toLowerCase() === 'none')
+    ) {
+        const incidentType = missionSarCanonicalIncidentType(missionPlanV2?.plan?.storyFrame?.incidentType || sarHeliSpec?.incidentType || '');
+        const sarProfile = missionSarIncidentSceneProfile(incidentType || 'missing_hiker', {
+            category: poolCategory,
+            targetLabel: dest?.n || ''
+        }) || missionSarIncidentSceneProfile('missing_hiker', { category: poolCategory, targetLabel: dest?.n || '' });
+        const objectFamilies = Array.from(new Set([
+            ...((Array.isArray(sarProfile?.objectFamilies) && sarProfile.objectFamilies.length) ? sarProfile.objectFamilies : ['missing_person']),
+            ...(Array.isArray(sarHeliSpec?.recoverableKinds) ? sarHeliSpec.recoverableKinds : [])
+        ])).filter(feature => !['aircraft_wreck', 'service_ship'].includes(feature));
+        initialTargetScene = sanitizeMissionTargetSceneSpec({
+            kind: sarProfile?.sceneKind || 'sar_land',
+            density: sarProfile?.sceneDensity || 'sparse',
+            features: objectFamilies,
+            requirements: objectFamilies.map(feature => ({ feature, count: 1 })),
+            notes: 'SAR-Heli-Bergung: ein bergbares Ziel an der Fundstelle platzieren.'
+        }, { isPOI, taskDomain: missionTaskDomain, targetGeoContext: preMissionTargetGeoContext || null, missionPlanV2 });
+    }
     if (missionNeedsAccept) {
         clearDraftMissionPersistence('new-mission-draft');
     }
@@ -17171,6 +17693,8 @@ async function generateMission() {
         initialDist: totalDist,
         initialHeading: nav.brng,
         missionType,
+        sarHeli: sarHeliSpec || m?.sarHeli || null,
+        sarHeliProgress: (sarHeliSpec || m?.sarHeli) ? missionSarHeliInitialProgress() : null,
         bush: bushSpec,
         bushProgress: bushSpec ? buildInitialBushMissionProgress(bushSpec) : null,
         isPOI,
@@ -17241,6 +17765,11 @@ async function generateMission() {
     window.activePassenger = shouldActivateMissionPassenger
         ? enforcePoiPassengerAltitudeRule(m.passenger, isPOI, effectiveTargetTerrainFt, poiTaskDefaults)
         : null;
+    if (window.activePassenger && missionIsSarHeliMission(currentMissionData)) {
+        window.activePassenger.targetAltFt = 0;
+        window.activePassenger.targetDwellMin = 0;
+        window.activePassenger.targetRadiusNm = Math.max(0.25, Number(window.activePassenger.targetRadiusNm || 0.35) || 0.35);
+    }
     if (typeof window.paxVoiceRefreshWidget === 'function') window.paxVoiceRefreshWidget();
     const suppressAptArrivalPlan = missionType === 'bush'
         && !!bushSpec?.requiresReturnHome

@@ -493,15 +493,20 @@ window.paxVoiceResetMission = function() {
 };
 
 window.paxVoiceGetPoiMissionProgress = function() {
+    const sarHeli = (typeof window.missionSarHeliProgressSnapshot === 'function')
+        ? window.missionSarHeliProgressSnapshot()
+        : null;
+    const sarHeliLoaded = !!(sarHeli && sarHeli.patientLoaded);
     return {
         hasSignal: true,
         trackingActive: !!window.activePassenger && _missionHasPax(),
-        satisfied: !!_poiSatisfied,
+        satisfied: !!(_poiSatisfied || sarHeliLoaded),
         aborted: !!_poiAborted,
         manualConfirmed: !!_poiManuallyConfirmed,
-        atTargetDone: !!_paxAtTargetDone,
+        atTargetDone: !!(_paxAtTargetDone || sarHeliLoaded),
         dwellSec: Math.max(0, Number(_poiDwellSec || 0)),
-        attempts: Math.max(0, Number(_poiAttempts || 0))
+        attempts: Math.max(0, Number(_poiAttempts || 0)),
+        sarHeli
     };
 };
 
@@ -909,6 +914,7 @@ function _activePoiConfirmCoords() {
     const md = (typeof currentMissionData !== 'undefined' ? currentMissionData : null) || {};
     const contract = md.missionContract || window.activeMissionContract || null;
     const truth = md.missionTruth || contract?.missionTruth || null;
+    const sarHeliTarget = md.sarHeli?.targetRef || contract?.sarHeli?.targetRef || null;
     const main = truth?.mainTarget || null;
     const anchor = truth?.sceneAnchor || null;
     const pick = (...points) => {
@@ -925,7 +931,7 @@ function _activePoiConfirmCoords() {
         }
         return null;
     };
-    return pick(main, anchor, _getDestCoords());
+    return pick(sarHeliTarget, main, anchor, _getDestCoords());
 }
 
 function _poiManualConfirmRangeNm() {
@@ -2328,6 +2334,11 @@ function _refreshMissionActionMenu() {
     const cargoFocus = _cargoMissionFocus();
     const hasPax = !!window.activePassenger && _missionHasPax();
     const sarPoi = isPoi && hasPax && _activeTaskDomain() === 'search_and_rescue';
+    const sarHeli = !!(typeof window.missionIsSarHeliMission === 'function' && window.missionIsSarHeliMission((typeof currentMissionData !== 'undefined' ? currentMissionData : null)));
+    const sarHeliProgress = sarHeli && typeof window.missionSarHeliProgressSnapshot === 'function'
+        ? window.missionSarHeliProgressSnapshot()
+        : null;
+    const sarHeliFoundReported = !!(sarHeliProgress?.targetConfirmed || sarHeliProgress?.patientLoaded);
     const showWeather = !!_missionWeatherReactionLine(window.lastLiveFlightData || {});
     const setVisible = (id, visible) => {
         const el = document.getElementById(id);
@@ -2335,7 +2346,7 @@ function _refreshMissionActionMenu() {
     };
     setVisible('paxMissionStatusBtn', isPoi && hasPax);
     setVisible('paxMissionOrientationBtn', isPoi && hasPax);
-    setVisible('paxPoiFoundBtn', sarPoi && !_poiSatisfied && !_poiAborted);
+    setVisible('paxPoiFoundBtn', sarPoi && !_poiSatisfied && !_poiAborted && (!sarHeli || !sarHeliFoundReported));
     setVisible('paxAptWellbeingBtn', !isPoi && hasPax && !cargoFocus);
     setVisible('paxCargoConditionBtn', !isPoi && cargoFocus);
     setVisible('paxWeatherReactionBtn', showWeather && (hasPax || cargoFocus));
@@ -2406,6 +2417,18 @@ function _missionOrientationFactLine(ctx = null) {
 
 function _missionStatusFacts(ctx) {
     const pax = window.activePassenger || {};
+    const sarHeli = !!(typeof window.missionIsSarHeliMission === 'function' && window.missionIsSarHeliMission((typeof currentMissionData !== 'undefined' ? currentMissionData : null)));
+    if (sarHeli) {
+        const progress = typeof window.missionSarHeliProgressSnapshot === 'function' ? window.missionSarHeliProgressSnapshot() : null;
+        const parts = [];
+        if (ctx?.hasPosition) parts.push(`Distanz zur Fundstelle ${ctx.distNm.toFixed(1)} NM, Richtung ${String(ctx.roundedBearingDeg).padStart(3, '0')} Grad`);
+        if (progress?.patientLoaded) parts.push(`Status: Patient aufgenommen, Ziel ${_sarHeliHospitalName()}`);
+        else if (progress?.targetConfirmed) parts.push(`Status: Fund bestaetigt, Bergung laeuft (${Math.round(Number(progress.holdSec || 0))}/20 Sekunden stabil)`);
+        else parts.push('Status: Such-/Fundphase, Fundmeldung oder Auto-Markierung offen');
+        const wx = _weatherContext(ctx?.fd || window.lastLiveFlightData || {});
+        if (wx) parts.push(wx);
+        return parts.join(' | ');
+    }
     const radius = Number(pax.targetRadiusNm || 1.5) || 1.5;
     const targetAlt = Number(pax.targetAltFt || 0);
     const dwellReq = Number(pax.targetDwellMin || 0) * 60;
@@ -2630,6 +2653,52 @@ function _poiManualNotFoundFallback(ctx) {
     return `Negativ, ich kann ${subject} noch nicht bestaetigen. Lass uns das Suchmuster weiterfliegen, bis wir naeher am Zielkern sind.`;
 }
 
+function _sarHeliHospitalName() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const ref = md?.sarHeli?.hospitalRef || md?.missionContract?.sarHeli?.hospitalRef || window.activeMissionContract?.sarHeli?.hospitalRef || null;
+    return String(ref?.name || ref?.icao || 'das Krankenhaus-Helipad').trim() || 'das Krankenhaus-Helipad';
+}
+
+function _sarHeliTargetName() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    return String(md?.sarHeli?.targetRef?.name || md?.poiName || md?.targetName || 'die Fundstelle').trim() || 'die Fundstelle';
+}
+
+window.triggerPaxSarHeliFoundConfirmed = function(ctx = {}) {
+    _refreshPaxWidgetVisibility();
+    _paxSpeakTextDirect(
+        `Fund bestaetigt bei ${_sarHeliTargetName()}. Gehe jetzt in die Bergung: landen oder unter 10 Meter ruhig hovern, nah an der Person bleiben und die Maschine stabil halten.`,
+        'Fund bestaetigt'
+    );
+};
+
+window.triggerPaxSarHeliTargetMarked = function(ctx = {}) {
+    _refreshPaxWidgetVisibility();
+    _paxSpeakTextDirect(
+        `Ziel gesichtet und mit Rauch markiert. Bitte jetzt zur Markierung einrichten, landen oder unter 10 Meter stabil hovern und langsam genug bleiben.`,
+        'Ziel markiert'
+    );
+};
+
+window.triggerPaxSarHeliHoldReady = function(ctx = {}) {
+    _paxSpeakTextDirect(
+        'Das passt, wir sind nah genug und tief genug. Halte die Position jetzt ruhig, ich zaehle die Aufnahmephase.',
+        'Bergung halten'
+    );
+};
+
+window.triggerPaxSarHeliPatientLoaded = function(ctx = {}) {
+    const hospital = String(ctx?.hospitalRef?.name || _sarHeliHospitalName()).trim();
+    _poiSatisfied = true;
+    _paxAtTargetDone = true;
+    if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('sar-heli-patient-loaded-voice', { immediate: true });
+    _refreshPaxWidgetVisibility();
+    _paxSpeakTextDirect(
+        `Patient ist verladen. Steig sauber aus der Fundstelle raus und flieg direkt ${hospital ? `zum medizinischen Ziel ${hospital}` : 'zum Krankenhaus-Helipad'}.`,
+        'Patient verladen'
+    );
+};
+
 window.paxMissionStatusReport = function() {
     const ctx = _missionActionContext();
     if (!_isPOIMission()) {
@@ -2699,6 +2768,24 @@ window.paxMissionReportTargetFound = function() {
         const prompt = _poiManualNotFoundPrompt(ctx);
         const fallback = _poiManualNotFoundFallback(ctx);
         _missionActionSpeak(prompt, 'Weiter suchen', fallback);
+        return;
+    }
+    const sarHeli = !!(typeof window.missionIsSarHeliMission === 'function' && window.missionIsSarHeliMission((typeof currentMissionData !== 'undefined' ? currentMissionData : null)));
+    if (sarHeli) {
+        _poiInRadius = true;
+        _poiEntryDone = true;
+        _poiManuallyConfirmed = true;
+        _poiLastTickTime = Date.now();
+        if (!_poiEnteredAt) _poiEnteredAt = _poiLastTickTime;
+        try {
+            if (typeof window.missionSarHeliConfirmTarget === 'function') window.missionSarHeliConfirmTarget('manual-found');
+            if (typeof saveMissionState === 'function') saveMissionState();
+            if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('sar-heli-manual-confirmed', { immediate: true });
+        } catch (_) {}
+        _paxLog(`SAR-Heli-Fundmeldung bestaetigt | dist ${Number(ctx.confirmDistNm || 0).toFixed(2)} NM <= ${ctx.confirmRangeNm.toFixed(2)} NM`, 'event');
+        _refreshPaxWidgetVisibility();
+        if (typeof window.triggerPaxSarHeliFoundConfirmed === 'function') window.triggerPaxSarHeliFoundConfirmed(ctx);
+        else _paxSpeakTextDirect('Fund bestaetigt. Bitte landen oder unter 10 Meter stabil hovern, damit wir die Person aufnehmen koennen.', 'Fund bestaetigt');
         return;
     }
     _poiInRadius = true;
@@ -5203,9 +5290,12 @@ function _farewellPrompt(record) {
         : '';
     const aptFarewellHint = (!isPOI && !trainingPlan) ? _aptArrivalFarewellHint() : '';
     const bushContinuityHint = _bushPickupNarrativeHint('farewell');
+    const sarHeliFarewellTask = (typeof window.missionIsSarHeliMission === 'function' && window.missionIsSarHeliMission((typeof currentMissionData !== 'undefined' ? currentMissionData : null)))
+        ? `Verabschiede dich als ${pax.role} nach einer SAR-Heli-Bergung. Sage klar, dass der Patient am medizinischen Ziel ${_sarHeliHospitalName()} uebergeben ist, danke fuer die ruhige Bergung und den Weiterflug, und schliesse professionell ab.`
+        : '';
     const farewellTask = isMissionFailed
         ? `Verabschiede dich persönlich beim Piloten aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Bleib freundlich, aber nenne den Fehlschlag klar und ohne ihn schönzureden.${missionFailureTask}`
-        : `Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Auch wenn etwas nicht perfekt war, schließ positiv ab.${trnTask}`;
+        : (sarHeliFarewellTask || `Verabschiede dich persönlich beim Piloten und gib dein Fazit zum Flug — aus deiner Sicht als ${pax.role}. Danke dem Piloten explizit für den Flug (bevorzuge alltagsnah: "danke fürs Mitnehmen" statt "danke für das Mitnehmen"). Auch wenn etwas nicht perfekt war, schließ positiv ab.${trnTask}`);
     const facts = (min != null && distanceNm != null && maxAltFt != null)
         ? `${min} min, ${distanceNm.toFixed(1)} NM, max ${maxAltFt} ft, max Bank ${bank}°, max G ${maxG}g.`
         : `Flugdaten teilweise unvollständig (z. B. Slew/Teleport). Max Bank ${bank}°, max G ${maxG}g.`;
@@ -5797,6 +5887,29 @@ function _tickPoiDwell(lat, lon, flightData) {
     const strict               = _paxStrictMode;
     const taskDomain = _activeTaskDomain();
     if (taskDomain === 'fire_watch' && _tickFireMissionSearch(flightData, distNm)) {
+        return;
+    }
+    const sarHeli = !!(typeof window.missionIsSarHeliMission === 'function' && window.missionIsSarHeliMission((typeof currentMissionData !== 'undefined' ? currentMissionData : null)));
+    if (sarHeli) {
+        if (typeof window.missionSarHeliHandlePoiTick === 'function') {
+            window.missionSarHeliHandlePoiTick({
+                lat,
+                lon,
+                flightData,
+                distNm,
+                inRadius,
+                radius,
+                now
+            });
+        }
+        if (inRadius && !_poiInRadius) {
+            _poiInRadius = true;
+            _poiLastTickTime = now;
+            if (!_poiEnteredAt) _poiEnteredAt = now;
+        } else if (!inRadius) {
+            _poiInRadius = false;
+            _poiLastTickTime = null;
+        }
         return;
     }
     const tightAltitudeBand = /^(fire_watch|search_and_rescue|inspection_infra|mapping_survey)$/.test(taskDomain);

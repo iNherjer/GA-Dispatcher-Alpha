@@ -139,6 +139,7 @@ function responseJson(obj, ok = true, status = 200) {
   return {
     ok,
     status,
+    headers: { get: () => '' },
     json: async () => obj,
     text: async () => JSON.stringify(obj)
   };
@@ -148,8 +149,62 @@ function responseText(text, ok = true, status = 200) {
   return {
     ok,
     status,
+    headers: { get: () => '' },
     json: async () => JSON.parse(text),
     text: async () => text
+  };
+}
+
+function dryrunTileBoundsFromUrl(href = '') {
+  const raw = String(href || '');
+  try {
+    const u = new URL(raw, 'https://dryrun.local/');
+    const south = Number(u.searchParams.get('south'));
+    const west = Number(u.searchParams.get('west'));
+    const north = Number(u.searchParams.get('north'));
+    const east = Number(u.searchParams.get('east'));
+    if ([south, west, north, east].every(Number.isFinite)) return { south, west, north, east };
+  } catch (_) {}
+  const match = raw.match(/\/(\d+)\/(\d+)\.json(?:\.gz)?(?:$|\?)/);
+  if (!match) return null;
+  const latI = Number(match[1]);
+  const lonI = Number(match[2]);
+  const step = 25 / 60;
+  if (!Number.isFinite(latI) || !Number.isFinite(lonI)) return null;
+  const south = (latI * step) - 90;
+  const west = (lonI * step) - 180;
+  return { south, west, north: south + step, east: west + step };
+}
+
+function dryrunSyntheticPoiTilePayload(href = '') {
+  const raw = String(href || '');
+  if (!/obstacles\/(?:poi-tiles|core-tiles)|api\/obstacles\/tile/.test(raw)) return null;
+  const b = dryrunTileBoundsFromUrl(raw);
+  if (!b) return { sourceKind: 'split', lin: [], poi: [] };
+  const points = [];
+  let idx = 0;
+  for (const fy of [0.2, 0.5, 0.8]) {
+    for (const fx of [0.2, 0.5, 0.8]) {
+      idx += 1;
+      points.push({
+        idx,
+        lat: b.south + ((b.north - b.south) * fy),
+        lon: b.west + ((b.east - b.west) * fx)
+      });
+    }
+  }
+  return {
+    sourceKind: 'split',
+    lin: points.flatMap(p => [
+      { lat: p.lat, lon: p.lon, name: `Dryrun Kreisverkehr ${p.idx}`, type: 'primary', layer: 'road', highway: 'primary' },
+      { lat: p.lat + 0.003, lon: p.lon + 0.003, name: `Dryrun Uferlinie ${p.idx}`, type: 'river', layer: 'hydro', waterway: 'river', natural: 'water' },
+      { lat: p.lat - 0.003, lon: p.lon + 0.002, name: `Dryrun Bahnlinie ${p.idx}`, type: 'railway', layer: 'rail', railway: 'rail' }
+    ]),
+    poi: points.flatMap(p => [
+      { lat: p.lat + 0.002, lon: p.lon - 0.002, name: `Dryrun Waldgebiet ${p.idx}`, landuse: 'forest', natural: 'wood' },
+      { lat: p.lat - 0.002, lon: p.lon - 0.002, name: `Dryrun Berg ${p.idx}`, natural: 'peak' },
+      { lat: p.lat + 0.001, lon: p.lon + 0.001, name: `Dryrun See ${p.idx}`, natural: 'water', water: 'lake' }
+    ])
   };
 }
 
@@ -1433,8 +1488,13 @@ function buildSpokenText(prompt) {
 }
 
 function setupFetch(context, prompts, { liveGemini = false } = {}) {
+  context.__dryrunFetchStats = { tile: 0, syntheticTile: 0, urls: [] };
   context.fetch = async (url, options = {}) => {
     const href = String(url);
+    if (/obstacles\/(?:poi-tiles|core-tiles)|api\/obstacles\/tile/.test(href)) {
+      context.__dryrunFetchStats.tile += 1;
+      if (context.__dryrunFetchStats.urls.length < 12) context.__dryrunFetchStats.urls.push(href);
+    }
     if (href.includes('airports.json')) {
       return responseJson(JSON.parse(fs.readFileSync(path.join(root, 'airports.json'), 'utf8')));
     }
@@ -1449,6 +1509,11 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
         current: { wind_speed_10m: 8, wind_direction_10m: 260, temperature_2m: 17 },
         hourly: { time: [], visibility: [], weather_code: [] }
       });
+    }
+    const syntheticTilePayload = dryrunSyntheticPoiTilePayload(href);
+    if (syntheticTilePayload) {
+      context.__dryrunFetchStats.syntheticTile += 1;
+      return responseJson(syntheticTilePayload);
     }
     if (href.includes('overpass-api.de')) {
       const rawBody = String(options?.body || '');
@@ -1646,12 +1711,122 @@ function loadScript(context, rel) {
   vm.runInContext(code, context, { filename: rel });
 }
 
+function parseDryrunTargetType(raw = '') {
+  const value = String(raw || '').trim().toLowerCase();
+  const [leftPart, rightPart] = value.split('+');
+  const profile = String(rightPart || 'auto').trim() || 'auto';
+  if (leftPart === 'apt') return { baseType: 'apt', category: 'all', profile };
+  if (leftPart === 'poi') return { baseType: 'poi', category: 'all', profile };
+  if (leftPart === 'bush') return { baseType: 'bush', category: 'all', profile };
+  if (leftPart.startsWith('apt:')) return { baseType: 'apt', category: leftPart.split(':')[1] || 'all', profile };
+  if (leftPart.startsWith('poi:')) return { baseType: 'poi', category: leftPart.split(':')[1] || 'all', profile };
+  if (leftPart.startsWith('bush:')) return { baseType: 'bush', category: leftPart.split(':')[1] || 'all', profile };
+  return { baseType: 'apt', category: 'all', profile: 'auto' };
+}
+
+function dryrunVisiblePickerValue(targetType = '') {
+  const parsed = parseDryrunTargetType(targetType);
+  const profilePart = parsed.profile && parsed.profile !== 'auto' ? `+${parsed.profile}` : '';
+  return `${parsed.baseType}:all${profilePart}`;
+}
+
+function installForcedPoiDryrunFallback(context, targetType = '') {
+  const parsed = parseDryrunTargetType(targetType);
+  if (parsed.baseType !== 'poi' || !parsed.category || parsed.category === 'all') return;
+  const config = JSON.stringify({ category: parsed.category, profile: parsed.profile, targetType: String(targetType || '') });
+  vm.runInContext(`
+    (() => {
+      window.__dryrunForcedPoi = ${config};
+      if (window.__dryrunFindTaggedTilePoiPatched || typeof findTaggedTilePOI !== 'function') return;
+      const originalFindTaggedTilePOI = findTaggedTilePOI;
+      const syntheticNames = {
+        road: 'Dryrun Kreisverkehr B33',
+        forest: 'Dryrun Waldgebiet Kinzigtal',
+        water: 'Dryrun Seeufer',
+        mountain: 'Dryrun Bergkuppe',
+        bridge: 'Dryrun Bruecke',
+        dam: 'Dryrun Talsperre',
+        infrastructure: 'Dryrun Infrastrukturkorridor'
+      };
+      findTaggedTilePOI = async function(lat, lon, minNM, maxNM, dirPref, forcedCategory, dispatchProfileId, searchAnchor) {
+        const original = await originalFindTaggedTilePOI.apply(this, arguments);
+        if (original) return original;
+        const cfg = window.__dryrunForcedPoi || {};
+        const cat = String(forcedCategory || cfg.category || '').toLowerCase();
+        if (!cat || cat === 'all' || cat !== String(cfg.category || '').toLowerCase()) return original;
+        const safeMin = Math.max(4, Number(minNM) || 12);
+        const safeMax = Math.max(safeMin + 2, Number(maxNM) || safeMin + 18);
+        const distNm = safeMin + ((safeMax - safeMin) * 0.55);
+        const bearingDeg = (typeof randomBearingForDirection === 'function')
+          ? randomBearingForDirection(dirPref)
+          : 220;
+        const p = (typeof getDestinationPoint === 'function')
+          ? getDestinationPoint(Number(lat), Number(lon), distNm, bearingDeg)
+          : { lat: Number(lat) - 0.25, lon: Number(lon) - 0.25 };
+        const name = syntheticNames[cat] || ('Dryrun ' + cat);
+        return {
+          icao: 'POI',
+          n: name,
+          lat: Number(p.lat),
+          lon: Number(p.lon),
+          poiCategory: cat,
+          poiSource: 'Dryrun synthetic POI (forced:' + cat + ')',
+          poiLookup: {
+            engine: 'dryrun-forced-category',
+            selectedDistNm: Number(distNm.toFixed(1)),
+            selectedBrgDeg: Number(bearingDeg.toFixed(0)),
+            requestedCategory: cat,
+            profile: String(dispatchProfileId || cfg.profile || '')
+          }
+        };
+      };
+      window.__dryrunFindTaggedTilePoiPatched = true;
+    })()
+  `, context);
+}
+
+function installForcedSarIncidentDryrun(context, incidentType = '') {
+  const raw = String(incidentType || '').trim().toLowerCase();
+  if (!raw) return;
+  const config = JSON.stringify({ incidentType: raw });
+  vm.runInContext(`
+    (() => {
+      const cfg = ${config};
+      if (!cfg.incidentType || typeof missionSarCanonicalIncidentType !== 'function') return;
+      const forcedIncidentType = missionSarCanonicalIncidentType(cfg.incidentType);
+      if (!forcedIncidentType) return;
+      window.__dryrunForcedSarIncidentType = forcedIncidentType;
+      const forcedIds = () => [forcedIncidentType];
+      if (typeof missionSarIncidentIdsForCategory === 'function') {
+        missionSarIncidentIdsForCategory = forcedIds;
+        window.missionSarIncidentIdsForCategory = forcedIds;
+      }
+      if (typeof missionSarHeliIncidentIdsForCategory === 'function') {
+        missionSarHeliIncidentIdsForCategory = forcedIds;
+        window.missionSarHeliIncidentIdsForCategory = forcedIds;
+      }
+      if (typeof missionSarSelectIncidentType === 'function') {
+        const originalSelect = missionSarSelectIncidentType;
+        missionSarSelectIncidentType = function(category, targetLabel, suggestedIncidentType, context, options) {
+          return forcedIncidentType || originalSelect.apply(this, arguments);
+        };
+        window.missionSarSelectIncidentType = missionSarSelectIncidentType;
+      }
+      if (typeof missionSarPickIncidentType === 'function') {
+        missionSarPickIncidentType = function() { return forcedIncidentType; };
+        window.missionSarPickIncidentType = missionSarPickIncidentType;
+      }
+    })()
+  `, context);
+}
+
 function initUiForRun(context, targetType, { pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, apiKey = 'DRYRUN_KEY' } = {}) {
+  const pickerValue = dryrunVisiblePickerValue(targetType);
   const values = {
     startLoc: 'EDTW',
     destLoc: '',
     destLocRadio: '',
-    targetType,
+    targetType: pickerValue,
     distRange: 'medium',
     regionFilter: 'any',
     dirPref: 'any',
@@ -1681,11 +1856,16 @@ function initUiForRun(context, targetType, { pipelineV2 = false, pipelineV3 = fa
     context.localStorage.setItem('ga_mission_pipeline_mode', 'v3');
   }
   if (typeof context.refreshMissionPickerOptions === 'function') {
-    context.refreshMissionPickerOptions(targetType);
+    context.refreshMissionPickerOptions(pickerValue);
   }
   if (typeof context.setMissionTypeSelection === 'function') {
-    context.setMissionTypeSelection(targetType);
+    context.setMissionTypeSelection(pickerValue);
   }
+  // Synthetic dryrun combinations such as poi:road+search_and_rescue are not
+  // visible picker options, but generateMission() can parse them directly.
+  el('targetType').value = String(targetType || pickerValue);
+  el('targetTypeRadio').value = String(targetType || pickerValue);
+  installForcedPoiDryrunFallback(context, targetType);
 }
 
 async function wait(ms) {
@@ -1714,7 +1894,7 @@ function promptRecords(prompts) {
   }));
 }
 
-async function runOne({ seed, targetType, pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY' }) {
+async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY' }) {
   const { context, prompts } = setupContext(seed, { liveGemini });
   loadScript(context, 'datenbank.js');
   loadScript(context, 'missions.js');
@@ -1726,6 +1906,7 @@ async function runOne({ seed, targetType, pipelineV2 = false, pipelineV3 = false
   loadScript(context, 'sync.js');
   loadScript(context, 'app.js');
   loadScript(context, 'passenger-voice.js');
+  installForcedSarIncidentDryrun(context, forcedIncidentType);
 
   const airports = JSON.parse(fs.readFileSync(path.join(root, 'airports.json'), 'utf8'));
   vm.runInContext(`globalAirports = ${JSON.stringify(airports)};`, context);
@@ -1764,6 +1945,16 @@ async function runOne({ seed, targetType, pipelineV2 = false, pipelineV3 = false
       blockPhase: 'dispatch',
       blockReason: 'currentMissionData missing after generateMission/acceptMissionDraft',
       dispatchState,
+      dryrunState: vm.runInContext(`(() => ({
+        targetType: document.getElementById('targetType').value || '',
+        targetTypeRadio: document.getElementById('targetTypeRadio').value || '',
+        indicator: document.getElementById('searchIndicator').innerText || '',
+        pickerMode: localStorage.getItem('ga_mission_picker_mode') || '',
+        storedTargetType: localStorage.getItem('ga_target_type') || '',
+        forcedSarIncidentType: window.__dryrunForcedSarIncidentType || '',
+        poiTileDebug: window.gaPoiTileDebug || null,
+        fetchStats: globalThis.__dryrunFetchStats || null
+      }))()`, context),
       mission: null,
       passenger: null,
       briefing: null,
@@ -1860,6 +2051,11 @@ async function runOne({ seed, targetType, pipelineV2 = false, pipelineV3 = false
         heading: document.getElementById('mHeadingNote').innerText
       },
       paxLog: paxVoiceGetLogEntries(),
+      dryrunState: {
+        targetType: document.getElementById('targetType').value || '',
+        targetTypeRadio: document.getElementById('targetTypeRadio').value || '',
+        forcedSarIncidentType: window.__dryrunForcedSarIncidentType || ''
+      },
       debugSnapshot: window.vpMissionDebugSnapshot || null
     };
   })()`, context);
@@ -1885,15 +2081,21 @@ function parseCliArgs(argv) {
     seed: 20260522,
     variants: false,
     targetTypes: null,
+    baseType: 'poi',
+    profile: null,
+    categories: null,
+    incidents: null,
     pipelineV2: false,
     pipelineV3: false,
     pipelineV4: false,
     liveGemini: false,
+    help: false,
     out: 'mission-pipeline-dryrun-edtw.json'
   };
   for (const raw of argv) {
     const arg = String(raw || '').trim();
-    if (arg === '--variants') args.variants = true;
+    if (arg === '--help' || arg === '-h') args.help = true;
+    else if (arg === '--variants') args.variants = true;
     else if (arg === '--pipeline-v2') args.pipelineV2 = true;
     else if (arg === '--pipeline-v3') {
       args.pipelineV3 = true;
@@ -1910,6 +2112,19 @@ function parseCliArgs(argv) {
     else if (arg.startsWith('--seed=')) args.seed = Number.parseInt(arg.slice(7), 10) || args.seed;
     else if (arg.startsWith('--types=')) {
       args.targetTypes = arg.slice(8).split(',').map(s => s.trim()).filter(Boolean);
+    } else if (arg.startsWith('--base=')) {
+      const base = arg.slice(7).trim().toLowerCase();
+      if (['apt', 'poi', 'bush'].includes(base)) args.baseType = base;
+    } else if (arg.startsWith('--profile=')) {
+      args.profile = arg.slice(10).trim().toLowerCase() || null;
+    } else if (arg.startsWith('--category=')) {
+      args.categories = [arg.slice(11).trim().toLowerCase()].filter(Boolean);
+    } else if (arg.startsWith('--categories=')) {
+      args.categories = arg.slice(13).split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    } else if (arg.startsWith('--incident=')) {
+      args.incidents = [arg.slice(11).trim().toLowerCase()].filter(Boolean);
+    } else if (arg.startsWith('--incidents=')) {
+      args.incidents = arg.slice(12).split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
     } else if (arg.startsWith('--out=')) {
       args.out = arg.slice(6).replace(/[\\/]/g, '').trim() || args.out;
     }
@@ -1917,11 +2132,60 @@ function parseCliArgs(argv) {
   return args;
 }
 
+function defaultCategoryForIncident(incident = '') {
+  const id = String(incident || '').trim().toLowerCase();
+  if (['missing_kayaker', 'angler_missing', 'small_boat_overdue', 'riverside_vehicle_entry'].includes(id)) return 'water';
+  if (['road_collision', 'vehicle_off_road'].includes(id)) return 'road';
+  if (['fallen_climber', 'downed_ultralight'].includes(id)) return 'mountain';
+  if (id === 'missing_hiker') return 'forest';
+  return 'all';
+}
+
 function buildRunConfigs(args) {
+  if (args.profile && Array.isArray(args.incidents) && args.incidents.length) {
+    return Array.from({ length: args.runs }, (_, i) => {
+      const incident = args.incidents[i % args.incidents.length] || '';
+      const category = (Array.isArray(args.categories) && args.categories.length)
+        ? (args.categories[i % args.categories.length] || 'all')
+        : defaultCategoryForIncident(incident);
+      const targetType = `${args.baseType}:${category}+${args.profile}`;
+      return {
+        seed: args.seed + i,
+        targetType,
+        forcedBaseType: args.baseType,
+        forcedProfile: args.profile,
+        forcedCategory: category,
+        forcedIncidentType: incident,
+        pipelineV2: !!args.pipelineV2,
+        pipelineV3: !!args.pipelineV3,
+        pipelineV4: !!args.pipelineV4,
+        liveGemini: !!args.liveGemini
+      };
+    });
+  }
+  if (args.profile && Array.isArray(args.categories) && args.categories.length) {
+    return Array.from({ length: args.runs }, (_, i) => {
+      const category = args.categories[i % args.categories.length] || 'all';
+      const targetType = `${args.baseType}:${category}+${args.profile}`;
+      return {
+        seed: args.seed + i,
+        targetType,
+        forcedBaseType: args.baseType,
+        forcedProfile: args.profile,
+        forcedCategory: category,
+        forcedIncidentType: '',
+        pipelineV2: !!args.pipelineV2,
+        pipelineV3: !!args.pipelineV3,
+        pipelineV4: !!args.pipelineV4,
+        liveGemini: !!args.liveGemini
+      };
+    });
+  }
   if (Array.isArray(args.targetTypes) && args.targetTypes.length) {
     return Array.from({ length: args.runs }, (_, i) => ({
       seed: args.seed + i,
       targetType: args.targetTypes[i % args.targetTypes.length],
+      forcedIncidentType: Array.isArray(args.incidents) && args.incidents.length ? args.incidents[i % args.incidents.length] : '',
       pipelineV2: !!args.pipelineV2,
       pipelineV3: !!args.pipelineV3,
       pipelineV4: !!args.pipelineV4,
@@ -1955,8 +2219,41 @@ function buildRunConfigs(args) {
   ].slice(0, args.runs);
 }
 
+function printUsage() {
+  console.log(`Mission pipeline dryrun
+
+Usage:
+  node tools/mission-pipeline-dryrun.mjs [options]
+
+Options:
+  --pipeline-v4                  Use V4 contract writer pipeline
+  --runs=N                       Number of runs, 1-20
+  --seed=N                       Deterministic seed
+  --types=A,B                    Explicit picker/dryrun target types
+  --profile=PROFILE             Force task profile, e.g. search_and_rescue
+  --categories=A,B              Force categories with --profile, e.g. road,forest,water,mountain
+  --category=A                  Single forced category
+  --incidents=A,B               Force SAR incident types in dryrun, e.g. missing_hiker,angler_missing
+  --incident=A                  Single forced SAR incident type
+  --base=poi|apt|bush           Base mission type for --profile/--categories, default poi
+  --variants                    Run built-in mixed variant set
+  --live-gemini                 Use real Gemini API instead of dryrun stubs
+  --out=FILE.json               Write report under analysis/
+  --help                        Show this help
+
+Examples:
+  node tools/mission-pipeline-dryrun.mjs --pipeline-v4 --runs=8 --profile=search_and_rescue --categories=road,forest,water,mountain --out=sar-forced.json
+  node tools/mission-pipeline-dryrun.mjs --pipeline-v4 --runs=3 --profile=search_and_rescue --incidents=missing_hiker,angler_missing,riverside_vehicle_entry
+  node tools/mission-pipeline-dryrun.mjs --pipeline-v4 --runs=4 --types=poi:road+search_and_rescue,poi:forest+search_and_rescue
+`);
+}
+
 async function main() {
   const args = parseCliArgs(process.argv.slice(2));
+  if (args.help) {
+    printUsage();
+    return;
+  }
   const apiKey = String(process.env.GEMINI_API_KEY || '').trim();
   if (args.liveGemini && !apiKey) {
     throw new Error('GEMINI_API_KEY fehlt. Lege ihn lokal in .env.local oder als Umgebungsvariable ab.');
@@ -1998,6 +2295,7 @@ async function main() {
       aptArrivalPlan: md.aptArrivalPlan || null,
       missionTruth: md.missionTruth || null,
       targetSceneComposerDebug: md.targetSceneComposerDebug || null,
+      dryrunState: r.dryrunState || null,
       passenger: r.passenger,
       briefing: r.briefing,
       paxTexts: paxLines,

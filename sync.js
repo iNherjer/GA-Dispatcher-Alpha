@@ -4634,8 +4634,13 @@ function _missionTargetSceneItems(kind) {
         add('incident_car_1', 'Unfallfahrzeug 1', carA, carPool, roadPos.f, roadPos.r, { hdgOffsetDeg: roadPos.hdg });
         add('incident_car_2', 'Unfallfahrzeug 2', carB, carPool, roadPos.f + 7, roadPos.r + 3, { hdgOffsetDeg: 198 });
         add('support_vehicle', 'Einsatzfahrzeug', support, supportVehiclePool, roadPos.f - 13, roadPos.r + 19, { hdgOffsetDeg: 210 });
-        add('person_1', 'Person an Unfallstelle', personA, peoplePool, 3, -12, { hdgOffsetDeg: 90 });
-        add('person_2', 'Person an Unfallstelle', personB, peoplePool, -2, -13, { hdgOffsetDeg: 110 });
+        if (_missionSceneIsSarHeliMission()) {
+            add('sar_heli_patient', 'Zu bergende Person an Unfallstelle', personA, peoplePool, 3, -12, { hdgOffsetDeg: 90 });
+            add('person_2', 'Person an Unfallstelle', personB, peoplePool, -2, -13, { hdgOffsetDeg: 110 });
+        } else {
+            add('person_1', 'Person an Unfallstelle', personA, peoplePool, 3, -12, { hdgOffsetDeg: 90 });
+            add('person_2', 'Person an Unfallstelle', personB, peoplePool, -2, -13, { hdgOffsetDeg: 110 });
+        }
         add('marker_1', 'Absperrkegel', cone, markerPool, -5, -2);
         add('marker_2', 'Absperrkegel', cone, markerPool, 11, 1);
         return finish();
@@ -4647,22 +4652,32 @@ function _missionTargetSceneItems(kind) {
         const raft = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.sarWaterTarget, 'sar-water-raft', 'LifeRaft');
         const smallBoat = _scenePickTitle(smallBoatPool, 'sar-water-small-boat', 'Fishing Boat Red Modular');
         const serviceShip = _scenePickTitle(serviceShipPool, 'sar-water-service-ship', 'Microsoft_Ships_AbeilleBourbon_1.0');
+        const shoreVehicle = _scenePickTitle(carPool, 'sar-water-shore-vehicle', 'Microsoft_Car_EUR_01');
         const targetPerson = _scenePickTitle([personA, personB].filter(Boolean), 'sar-water-missing-person', personA || personB);
         const kit = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smallCargo, 'sar-water-clue-equipment', 'Cardboard');
         const waterPos = _missionTargetGeoOffset(['water'], 0, 0, { minM: 10, maxM: 115, hdgOffsetDeg: 20 });
         const shorePos = _missionTargetGeoOffset(['path', 'road', 'parking', 'meadow', 'water'], 10, -8, { minM: 14, maxM: 125, lateralM: -10, hdgOffsetDeg: 180 });
         const cluePos = _missionTargetGeoOffset(['path', 'road', 'parking', 'water'], 7, -12, { minM: 14, maxM: 120, lateralM: 8, hdgOffsetDeg: 35 });
         const supportPos = _missionTargetGeoOffset(['water'], waterPos.f - 32, waterPos.r + 23, { minM: 35, maxM: 150, lateralM: 22, hdgOffsetDeg: 135 });
-        add('liferaft', 'Rettungsinsel / Wasser-SAR-Ziel', raft, MISSION_SCENE_ASSET_POOLS.sarWaterTarget, waterPos.f, waterPos.r, {
-            hdgOffsetDeg: waterPos.hdg,
-            placement: 'search target on water',
-            geoAnchor: _missionTargetGeoAnchorDebug(waterPos, ['water'])
-        });
+        if (requestedFeatures.includes('liferaft') || /(rettungsinsel|liferaft|life raft|person im wasser|wasserrettung)/.test(sarText)) {
+            add('liferaft', 'Rettungsinsel / Wasser-SAR-Ziel', raft, MISSION_SCENE_ASSET_POOLS.sarWaterTarget, waterPos.f, waterPos.r, {
+                hdgOffsetDeg: waterPos.hdg,
+                placement: 'search target on water',
+                geoAnchor: _missionTargetGeoAnchorDebug(waterPos, ['water'])
+            });
+        }
         if (requestedFeatures.includes('watercraft') || /(kajak|kayak|paddel|paddler|paddlerin|kleines boot|small boat)/.test(sarText)) {
             add('watercraft', 'Kleines Boot / Wasserhinweis', smallBoat, smallBoatPool, waterPos.f + 16, waterPos.r - 10, {
                 hdgOffsetDeg: waterPos.hdg,
                 placement: 'secondary water clue',
                 geoAnchor: _missionTargetGeoAnchorDebug(waterPos, ['water'])
+            });
+        }
+        if (requestedFeatures.includes('parked_vehicle') || /(fahrzeug.*wasser|wasser.*fahrzeug|auto.*ufer|ufer.*auto|pkw.*wasser|kleinwagen)/.test(sarText)) {
+            add('shore_vehicle', 'Fahrzeug am Ufer / Wasserzugang', shoreVehicle, carPool, shorePos.f + 6, shorePos.r + 5, {
+                hdgOffsetDeg: shorePos.hdg,
+                placement: 'shore vehicle clue',
+                geoAnchor: _missionTargetGeoAnchorDebug(shorePos, ['path', 'road', 'parking', 'water'])
             });
         }
         if (!_missionSarExplicitFalseAlarm() && requestedFeatures.includes('missing_person')) {
@@ -6490,6 +6505,391 @@ function _distanceToMissionHomeNm(lat, lon) {
     return _haversineNmLocal(Number(lat), Number(lon), home.lat, home.lon);
 }
 
+function _missionSceneIsSarHeliMission() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (typeof window.missionIsSarHeliMission === 'function') {
+        try { return !!window.missionIsSarHeliMission(md); } catch (_) {}
+    }
+    const contract = md?.missionContract || window.activeMissionContract || null;
+    const ids = [
+        md?._appliedProfile,
+        md?._requestedProfile,
+        md?.profileId,
+        contract?.appliedProfileId,
+        contract?.requestedProfileId,
+        md?.sarHeli?.profileId,
+        contract?.sarHeli?.profileId
+    ].map(x => String(x || '').toLowerCase());
+    return !!(md?.sarHeli?.enabled || contract?.sarHeli?.enabled || ids.includes('sar_heli'));
+}
+window.missionSceneIsSarHeliMission = _missionSceneIsSarHeliMission;
+
+function _activeSarHeliSpec() {
+    if (!_missionSceneIsSarHeliMission()) return null;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const contract = md?.missionContract || window.activeMissionContract || null;
+    const spec = md?.sarHeli || contract?.sarHeli || null;
+    return spec && typeof spec === 'object' ? spec : null;
+}
+
+function _sarHeliInitialProgress() {
+    if (typeof window.missionSarHeliInitialProgress === 'function') {
+        try { return window.missionSarHeliInitialProgress(); } catch (_) {}
+    }
+    return {
+        schema: 'sarHeliProgress.v1',
+        status: 'enroute_search',
+        targetConfirmed: false,
+        markerSpawned: false,
+        targetAreaEnteredAt: 0,
+        holdReadyAnnounced: false,
+        holdStartedAt: 0,
+        holdSec: 0,
+        patientLoaded: false,
+        patientLoadedAt: 0,
+        hospitalReached: false,
+        readyToClose: false,
+        lastUpdatedAt: Date.now()
+    };
+}
+
+function _activeSarHeliProgress() {
+    if (!_missionSceneIsSarHeliMission()) return null;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (!md) return null;
+    if (!md.sarHeliProgress || typeof md.sarHeliProgress !== 'object') {
+        md.sarHeliProgress = _sarHeliInitialProgress();
+    }
+    return md.sarHeliProgress;
+}
+
+function _persistSarHeliProgress(next = null, reason = 'sar-heli-progress') {
+    if (!_missionSceneIsSarHeliMission()) return null;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (!md) return null;
+    const progress = {
+        ...(_activeSarHeliProgress() || _sarHeliInitialProgress()),
+        ...(next && typeof next === 'object' ? next : {}),
+        lastUpdatedAt: Date.now()
+    };
+    md.sarHeliProgress = progress;
+    if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.sarHeliProgress = progress;
+    if (window.activeMissionContract && typeof window.activeMissionContract === 'object') window.activeMissionContract.sarHeliProgress = progress;
+    try {
+        if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot(reason, { immediate: true });
+        else if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+        else if (typeof saveMissionState === 'function') saveMissionState();
+    } catch (_) {}
+    try { _updateMissionRuntimeUi(); } catch (_) {}
+    return progress;
+}
+
+function _sarHeliTargetPoint() {
+    const spec = _activeSarHeliSpec();
+    const ref = spec?.targetRef || {};
+    const lat = Number(ref.lat);
+    const lon = Number(ref.lon);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon, name: ref.name || 'Fundstelle' };
+    const point = _targetPointForMission();
+    return point ? { ...point, name: 'Fundstelle' } : null;
+}
+
+function _sarHeliHospitalPoint() {
+    const spec = _activeSarHeliSpec();
+    const ref = spec?.hospitalRef || {};
+    const lat = Number(ref.lat);
+    const lon = Number(ref.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon, name: ref.name || ref.icao || 'Krankenhaus-Helipad', ref };
+}
+
+function _sarHeliRecoveryGate(lat, lon, flightData = null) {
+    const spec = _activeSarHeliSpec();
+    const recovery = spec?.recovery || {};
+    const target = _sarHeliTargetPoint();
+    const curLat = Number(lat);
+    const curLon = Number(lon);
+    if (!target || !Number.isFinite(curLat) || !Number.isFinite(curLon)) return { ok: false, reason: 'no_target' };
+    const dNm = _haversineNmLocal(curLat, curLon, target.lat, target.lon);
+    const radiusNm = Math.max(0.03, Number(recovery.radiusNm || 0.12));
+    const fd = flightData || window.lastLiveFlightData || {};
+    const aglFt = Number(fd.aglFt ?? fd.agl ?? window.lastLiveGpsPos?.aglFt ?? window.lastLiveGpsPos?.agl ?? NaN);
+    const gs = Number(fd.gs ?? fd.gsKts ?? fd.groundSpeed ?? window.lastLiveGpsPos?.gs ?? window.lastLiveGpsPos?.gsKts ?? 0);
+    const vs = Number(fd.vsFpm ?? fd.verticalSpeedFpm ?? fd.vs ?? NaN);
+    const onGround = typeof fd.onGround === 'boolean'
+        ? !!fd.onGround
+        : (Number.isFinite(aglFt) && aglFt <= 8 && gs <= 12);
+    const close = Number.isFinite(dNm) && dNm <= radiusNm;
+    const lowEnough = onGround || (Number.isFinite(aglFt) && aglFt <= Math.max(20, Number(recovery.maxAglFt || 33)));
+    const slowEnough = gs <= Math.max(8, Number(recovery.maxGsKts || 18));
+    const verticalStable = !Number.isFinite(vs) || Math.abs(vs) <= 450;
+    return {
+        ok: !!(close && lowEnough && slowEnough && verticalStable),
+        close,
+        lowEnough,
+        slowEnough,
+        verticalStable,
+        onGround,
+        hover: !onGround && lowEnough,
+        dNm,
+        aglFt: Number.isFinite(aglFt) ? aglFt : null,
+        gs,
+        radiusNm
+    };
+}
+
+window.missionSarHeliProgressSnapshot = function() {
+    const progress = _activeSarHeliProgress();
+    return progress ? { ...progress } : null;
+};
+
+window.missionSarHeliConfirmTarget = function(reason = 'manual') {
+    if (!_missionSceneIsSarHeliMission()) return false;
+    const progress = _activeSarHeliProgress() || _sarHeliInitialProgress();
+    if (progress.patientLoaded) return true;
+    _persistSarHeliProgress({
+        ...progress,
+        status: 'recovery_pending',
+        targetConfirmed: true,
+        targetConfirmedAt: progress.targetConfirmedAt || Date.now(),
+        targetConfirmedReason: String(reason || 'manual')
+    }, `sar-heli-confirm-${reason}`);
+    return true;
+};
+
+window.missionSarHeliSpawnTargetMarker = function(reason = 'sar-heli-auto-marker') {
+    if (!_missionSceneIsSarHeliMission()) return false;
+    const point = _missionTargetScenePoint({ allowMissingTerrain: true }) || _sarHeliTargetPoint();
+    const sceneId = _missionTargetSceneId();
+    if (!point || !sceneId || typeof window.sendTrackerCommand !== 'function') return false;
+    const item = _missionTargetSceneItem(
+        'sar_heli_signal_smoke',
+        'Signalrauch / Fundmarkierung',
+        MISSION_SCENE_SIGNAL_SMOKE_TITLE,
+        MISSION_SCENE_ASSET_POOLS.smokeVfx,
+        0,
+        0,
+        { hdgOffsetDeg: 0, altOffsetFt: MISSION_SCENE_SIGNAL_SMOKE_ALT_OFFSET_FT }
+    );
+    if (!item) return false;
+    const commandId = window.sendTrackerCommand({
+        type: 'mission_scene_object_spawn',
+        sceneId,
+        reason,
+        targetSceneKind: _missionTargetSceneKind(),
+        lat: point.lat,
+        lon: point.lon,
+        altFt: point.altFt || 0,
+        hdg: point.hdg || 0,
+        items: [item]
+    });
+    if (!commandId) return false;
+    const progress = _activeSarHeliProgress() || _sarHeliInitialProgress();
+    _persistSarHeliProgress({
+        ...progress,
+        markerSpawned: true,
+        markerSpawnedAt: progress.markerSpawnedAt || Date.now(),
+        targetConfirmed: true,
+        targetConfirmedAt: progress.targetConfirmedAt || Date.now(),
+        targetConfirmedReason: reason
+    }, 'sar-heli-marker-spawned');
+    return true;
+};
+
+window.missionSarHeliDespawnRecoverable = function(reason = 'sar-heli-patient-loaded') {
+    if (!_missionSceneIsSarHeliMission()) return false;
+    const spec = _activeSarHeliSpec();
+    const kinds = Array.from(new Set([
+        ...(Array.isArray(spec?.recoverableKinds) ? spec.recoverableKinds : []),
+        'missing_person',
+        'liferaft',
+        'sar_heli_patient'
+    ].filter(Boolean)));
+    if (!kinds.length || typeof window.sendTrackerCommand !== 'function') return false;
+    const sceneId = window.missionTargetSceneStatus?.sceneId || _missionTargetSceneId();
+    const commandId = window.sendTrackerCommand({
+        type: 'mission_scene_object_remove',
+        sceneId,
+        reason,
+        kinds
+    });
+    return !!commandId;
+};
+
+function _sarHeliRouteWaypoint(ref = {}, nameFallback = 'WP', extra = {}) {
+    const lat = Number(ref.lat);
+    const lon = Number(ref.lon ?? ref.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return {
+        lat,
+        lng: lon,
+        lon,
+        name: String(ref.name || ref.icao || nameFallback),
+        ...extra
+    };
+}
+
+window.missionSarHeliRewriteRouteToHospital = function(reason = 'sar-heli-patient-loaded') {
+    if (!_missionSceneIsSarHeliMission()) return false;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const spec = _activeSarHeliSpec();
+    const hospital = _sarHeliHospitalPoint();
+    const target = _sarHeliTargetPoint();
+    if (!md || !spec || !hospital || !target) return false;
+    const currentRoute = _missionRuntimeRouteWaypoints() || [];
+    const startAirport = (typeof globalAirports === 'object' && typeof currentStartICAO !== 'undefined')
+        ? globalAirports[String(currentStartICAO || '').toUpperCase()]
+        : null;
+    const startWp = currentRoute[0] || _sarHeliRouteWaypoint({
+        lat: md.initialStartLat || md.startLat || startAirport?.lat,
+        lon: md.initialStartLon || md.startLon || startAirport?.lon,
+        name: md.start || currentStartICAO || startAirport?.name || 'Start'
+    }, 'Start');
+    const targetWp = _sarHeliRouteWaypoint(spec.targetRef || target, `Fundstelle ${target.name || ''}`.trim(), { isPOI: true, isSarHeliIncident: true });
+    const hospitalWp = _sarHeliRouteWaypoint(hospital.ref || hospital, hospital.name || 'Krankenhaus-Helipad', { isSarHeliHospital: true });
+    if (!startWp || !targetWp || !hospitalWp) return false;
+    const nextRoute = [startWp, targetWp, hospitalWp];
+    try {
+        routeWaypoints = JSON.parse(JSON.stringify(nextRoute));
+        window._missionRouteWaypoints = JSON.parse(JSON.stringify(nextRoute));
+        md.routeWaypoints = JSON.parse(JSON.stringify(nextRoute));
+        md.missionRouteWaypoints = JSON.parse(JSON.stringify(nextRoute));
+    } catch (_) {
+        routeWaypoints = nextRoute;
+        window._missionRouteWaypoints = nextRoute;
+        md.routeWaypoints = nextRoute;
+        md.missionRouteWaypoints = nextRoute;
+    }
+    md.dest = String(hospital.ref?.icao || 'HOSP').toUpperCase();
+    md.targetName = hospital.name;
+    md.targetLat = hospital.lat;
+    md.targetLon = hospital.lon;
+    md.sarHeli = { ...spec, routeRewritten: true };
+    if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.sarHeli = md.sarHeli;
+    if (window.activeMissionContract && typeof window.activeMissionContract === 'object') window.activeMissionContract.sarHeli = md.sarHeli;
+    if (typeof currentDestICAO !== 'undefined') currentDestICAO = md.dest;
+    if (typeof currentDName !== 'undefined') currentDName = hospital.name;
+    const destIcaoEl = document.getElementById('mDestICAO');
+    const destNameEl = document.getElementById('mDestName');
+    const destCoordsEl = document.getElementById('mDestCoords');
+    const wikiDestNameEl = document.getElementById('wikiDestNameDisplay');
+    if (destIcaoEl) destIcaoEl.innerText = md.dest || 'HOSP';
+    if (destNameEl) destNameEl.innerText = hospital.name;
+    if (destCoordsEl) destCoordsEl.innerText = `${hospital.lat.toFixed(4)}, ${hospital.lon.toFixed(4)}`;
+    if (wikiDestNameEl) wikiDestNameEl.innerText = `${md.dest || 'HOSP'} - ${hospital.name}`;
+    try { renderMainRoute?.(); } catch (_) {}
+    try { updateMiniMap?.(); } catch (_) {}
+    try { refreshGPSAfterDispatch?.(); } catch (_) {}
+    try {
+        if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+        else if (typeof saveMissionState === 'function') saveMissionState();
+    } catch (_) {}
+    _persistSarHeliProgress({ ...(_activeSarHeliProgress() || {}), routeRewritten: true }, `sar-heli-route-rewrite-${reason}`);
+    return true;
+};
+
+window.missionSarHeliGroundEndReady = function(endReady = null) {
+    if (!_missionSceneIsSarHeliMission()) return false;
+    const progress = _activeSarHeliProgress();
+    if (!progress?.patientLoaded) return false;
+    const hospital = _sarHeliHospitalPoint();
+    const pos = window.lastLiveGpsPos || {};
+    const lat = Number(pos.lat);
+    const lon = Number(pos.lon);
+    const ready = endReady && typeof endReady === 'object' ? endReady : _missionEndReadiness(lat, lon);
+    if (!hospital || !ready?.groundStill || !Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+    const dHospitalNm = _haversineNmLocal(lat, lon, hospital.lat, hospital.lon);
+    const atHospital = Number.isFinite(dHospitalNm) && dHospitalNm <= 0.35;
+    if (atHospital && _missionHasReachedEndEligibleFlightPhase()) {
+        if (!progress.readyToClose) {
+            _persistSarHeliProgress({
+                ...progress,
+                status: 'ready_to_close',
+                hospitalReached: true,
+                readyToClose: true,
+                hospitalReachedAt: progress.hospitalReachedAt || Date.now()
+            }, 'sar-heli-hospital-ready');
+        }
+        return true;
+    }
+    return false;
+};
+
+window.missionSarHeliUpdateProgress = function(lat = null, lon = null, now = Date.now(), flightData = null) {
+    if (!_missionSceneIsSarHeliMission()) return null;
+    const progress = _activeSarHeliProgress() || _sarHeliInitialProgress();
+    if (progress.patientLoaded) {
+        window.missionSarHeliGroundEndReady();
+        return progress;
+    }
+    if (!progress.targetConfirmed) return progress;
+    const gate = _sarHeliRecoveryGate(lat ?? window.lastLiveGpsPos?.lat, lon ?? window.lastLiveGpsPos?.lon, flightData);
+    const requiredSec = Math.max(5, Number(_activeSarHeliSpec()?.recovery?.stableHoldSec || 20));
+    if (gate.ok) {
+        const holdStartedAt = Number(progress.holdStartedAt || 0) || now;
+        const holdSec = Math.max(0, (now - holdStartedAt) / 1000);
+        let next = {
+            ...progress,
+            status: 'recovery_holding',
+            holdStartedAt,
+            holdSec,
+            recoveryGate: gate
+        };
+        if (!progress.holdReadyAnnounced) {
+            next.holdReadyAnnounced = true;
+            try { window.triggerPaxSarHeliHoldReady?.({ gate, requiredSec }); } catch (_) {}
+        }
+        if (holdSec >= requiredSec) {
+            next = {
+                ...next,
+                status: 'hospital_leg',
+                patientLoaded: true,
+                patientLoadedAt: Date.now(),
+                holdSec: requiredSec
+            };
+            _persistSarHeliProgress(next, 'sar-heli-patient-loaded');
+            try { window.missionSarHeliDespawnRecoverable('sar-heli-patient-loaded'); } catch (_) {}
+            try { window.missionSarHeliRewriteRouteToHospital('sar-heli-patient-loaded'); } catch (_) {}
+            try { window.triggerPaxSarHeliPatientLoaded?.({ hospitalRef: _activeSarHeliSpec()?.hospitalRef || null }); } catch (_) {}
+            return next;
+        }
+        return _persistSarHeliProgress(next, 'sar-heli-hold-progress');
+    }
+    if (progress.holdStartedAt || progress.holdSec) {
+        return _persistSarHeliProgress({
+            ...progress,
+            status: 'recovery_pending',
+            holdStartedAt: 0,
+            holdSec: 0,
+            recoveryGate: gate
+        }, 'sar-heli-hold-reset');
+    }
+    return progress;
+};
+
+window.missionSarHeliHandlePoiTick = function(ctx = {}) {
+    if (!_missionSceneIsSarHeliMission()) return false;
+    const now = Number(ctx.now || Date.now());
+    const progress = _activeSarHeliProgress() || _sarHeliInitialProgress();
+    if (progress.patientLoaded) return true;
+    const inRadius = !!ctx.inRadius;
+    if (inRadius && !progress.targetAreaEnteredAt) {
+        _persistSarHeliProgress({ ...progress, targetAreaEnteredAt: now, status: 'target_area' }, 'sar-heli-target-area');
+    } else if (!inRadius && progress.targetAreaEnteredAt && !progress.targetConfirmed) {
+        _persistSarHeliProgress({ ...progress, targetAreaEnteredAt: 0, status: 'enroute_search' }, 'sar-heli-target-area-exit');
+    }
+    const latest = _activeSarHeliProgress() || progress;
+    const autoMarkAfterSec = Math.max(10, Number(_activeSarHeliSpec()?.recovery?.autoMarkAfterSec || 60));
+    const enteredAt = Number(latest.targetAreaEnteredAt || 0);
+    if (inRadius && !latest.targetConfirmed && enteredAt && (now - enteredAt) >= autoMarkAfterSec * 1000) {
+        const marked = window.missionSarHeliSpawnTargetMarker('sar-heli-auto-marker');
+        if (!marked) window.missionSarHeliConfirmTarget('sar-heli-auto-marker');
+        try { window.triggerPaxSarHeliTargetMarked?.({ distNm: ctx.distNm }); } catch (_) {}
+    }
+    window.missionSarHeliUpdateProgress(ctx.lat, ctx.lon, now, ctx.flightData || null);
+    return true;
+};
+
 function _isAtMissionHome(lat, lon, thresholdNm = 0.35) {
     const dNm = _distanceToMissionHomeNm(lat, lon);
     return Number.isFinite(dNm) ? dNm <= thresholdNm : false;
@@ -6605,6 +7005,37 @@ function _missionPoiRuntimeStatus(endReady = null) {
     const poiRecipeId = (typeof window.missionPoiRecipeId === 'function')
         ? String(window.missionPoiRecipeId((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null) || '').trim().toLowerCase()
         : '';
+    if (poiRecipeId === 'poi_sar_heli' || _missionSceneIsSarHeliMission()) {
+        const sar = _activeSarHeliProgress();
+        const spec = _activeSarHeliSpec();
+        const hospitalName = String(spec?.hospitalRef?.name || 'Krankenhaus-Helipad').trim();
+        if (!sar?.targetConfirmed) {
+            return {
+                stage: 'sar_heli_search',
+                detail: 'SAR-Heli: Fundstelle noch nicht bestaetigt.',
+                nextStep: 'Nächster Schritt: Zielgebiet anfliegen, Fund melden oder nach 60s automatisch markieren lassen'
+            };
+        }
+        if (!sar?.patientLoaded) {
+            return {
+                stage: 'sar_heli_recovery',
+                detail: `SAR-Heli: Bergung offen. Stabilzeit ${Math.round(Number(sar?.holdSec || 0))}/20s.`,
+                nextStep: 'Nächster Schritt: landen oder unter 10 m AGL langsam und stabil über der Fundstelle halten'
+            };
+        }
+        if (canEndHere || sar?.readyToClose) {
+            return {
+                stage: 'sar_heli_ready',
+                detail: `SAR-Heli: Patient am medizinischen Ziel ${hospitalName} uebergeben.`,
+                nextStep: 'Nächster Schritt: Mission beenden'
+            };
+        }
+        return {
+            stage: 'sar_heli_hospital_leg',
+            detail: `SAR-Heli: Patient aufgenommen. Medizinisches Ziel: ${hospitalName}.`,
+            nextStep: 'Nächster Schritt: Krankenhaus-Helipad/Fallback-Ziel anfliegen, landen und stoppen'
+        };
+    }
     const taskLabel = poiRecipeId === 'poi_on_task_return'
         ? 'Recon-/Arbeitsauftrag im Zielgebiet'
         : (poiRecipeId === 'poi_fire_watch'
@@ -10156,6 +10587,9 @@ function updateFlightRecorder(lat, lon, alt) {
 
     if (_missionSceneIsBushMission()) {
         _missionBushUpdateProgress(lat, lon, now);
+    }
+    if (_missionSceneIsSarHeliMission()) {
+        window.missionSarHeliUpdateProgress?.(lat, lon, now, window.lastLiveFlightData || {});
     }
 
     // Missionsende / Bodenfall:

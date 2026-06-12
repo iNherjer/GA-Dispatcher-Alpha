@@ -288,6 +288,11 @@ window.missionBushUpdateProgress = _missionBushUpdateProgress;
 
 function _missionPoiGroundEndReady(endReady = null) {
     if (!_missionSceneIsPoiMission()) return false;
+    if (typeof window.missionSceneIsSarHeliMission === 'function' && window.missionSceneIsSarHeliMission()) {
+        return typeof window.missionSarHeliGroundEndReady === 'function'
+            ? !!window.missionSarHeliGroundEndReady(endReady)
+            : false;
+    }
     const ready = endReady && typeof endReady === 'object' ? endReady : _missionEndReadiness();
     return !!(ready?.groundStill && _missionHasReachedEndEligibleFlightPhase());
 }
@@ -436,6 +441,11 @@ function _missionBushGroundEndReady(endReady = null) {
 
 function _missionRuntimeGroundEndReady(endReady = null) {
     const ready = endReady && typeof endReady === 'object' ? endReady : _missionEndReadiness();
+    if (typeof window.missionSceneIsSarHeliMission === 'function' && window.missionSceneIsSarHeliMission()) {
+        return typeof window.missionSarHeliGroundEndReady === 'function'
+            ? !!window.missionSarHeliGroundEndReady(ready)
+            : false;
+    }
     if (_missionSceneIsPoiMission()) return !!(ready?.ready || _missionPoiGroundEndReady(ready));
     if (_missionSceneIsBushMission()) return _missionBushGroundEndReady(ready);
     return !!ready?.ready;

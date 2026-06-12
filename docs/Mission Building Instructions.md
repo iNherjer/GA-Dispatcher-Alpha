@@ -738,9 +738,10 @@ SAR-Unterlogik innerhalb dieses Rezepts:
 - `search_and_rescue` bleibt `POI on-task`; es bekommt keine eigene Ablaufkette.
 - Die Zielkategorie wird innerhalb des Profils bewusst balanciert. Wald, Wasser und Berg duerfen gegenueber Strassen leicht bevorzugt werden, weil Strassen in den POI-Daten sehr haeufig sind. Diese Gewichtung muss mild bleiben; sie darf keine neue Wasser- oder Naturdominanz erzeugen.
 - Die V4-Semantik darf SAR-Zielkategorien nicht grober machen als noetig. Insbesondere bleibt `road` eine Road-/Traffic-Kategorie und darf nicht zu `generic` fallen, weil sonst generische Land-Incidents wie Luftfahrzeuglagen faelschlich erlaubt werden.
-- Generische OSM-/Geometry-Namen wie `water`, `road`, `track`, `traffic_signals` oder `terrain` duerfen nie den sichtbaren Zielnamen im Briefing ersetzen. Sie sind technische Anker, nicht Erzaehlsubjekt.
+- Generische OSM-/Geometry-Namen wie `water`, `road`, `track`, `traffic_signals`, `terrain`, `meadow`, `farmland`, `forest`, `service` oder `Uferbereich` duerfen nie den sichtbaren Zielnamen im Briefing ersetzen. Sie sind technische Anker, nicht Erzaehlsubjekt. Wenn der verfeinerte Anker nur so ein technisches Label hat, bleibt der gewaehlte POI-Name das narrative Ziel; der Anker dient nur fuer Platzierung, Sichtbezug und Lagebeschreibung.
 - Vor der Incident-Wahl wird eine Lage-Evidenz aus Zielkategorie, `targetGeoContext`, `missionTruth`, sichtbaren Ankern und Verlauf gebildet.
 - Nach dem Ziel-/Kategorie-Lock wird genau eine SAR-Decision gebildet. StoryFrame, SceneProfile, Objektfamilien und Writer-Contract muessen auf dieser Entscheidung aufbauen; es darf keinen zweiten unabhaengigen Incident-Wurf in einem spaeteren Schritt geben.
+- StoryFrame-Felder sind Rohmaterial fuer den Writer, keine Satzliste. Ein einzelnes Feld wie `subjectDetail` darf nicht als freistehendes Fragment in die Story rutschen; bei fragmentierter Writer-Ausgabe wird aus dem Contract neu zusammengesetzt.
 - Diese Lage-Evidenz ist primaer; Verlauf/History ist nur Varianz-Tiebreaker. Ein starker Verkehrsraum darf nicht nur wegen History in generische Personensuche kippen.
 - SAR ist nicht automatisch Vermisstensuche. Moegliche Incident-Familien sind u.a. Personensuche, verletzte Person, Verkehrsunfall, Fahrzeug abseits der Strasse, Wasser-/Bootslage und vermisstes Luftfahrzeug.
 - Die gewaehlte Incident-Familie muss durchgängig bleiben:
@@ -755,6 +756,7 @@ SAR-Unterlogik innerhalb dieses Rezepts:
 - User-facing SAR-Texte duerfen keine internen Planungswoerter wie `SAR-Erkundung`, `Unterfokus`, `Pipeline`, `Contract`, `Planner`, `Zielkategorie` oder `passt durch Zielkategorie` enthalten.
 - Felder wie `lastSeenContext` sind fachlich als letzter Bericht, letzte Sichtung, letzte Ortung oder letzter Funkkontakt zu lesen. Sie duerfen nicht automatisch eine vermisste Person implizieren.
 - Alle frei formulierten Missionstexte bleiben Deutsch. Englische Rohfelder aus einem Planner-/Writer-Ausreisser muessen verworfen oder deutsch neu aufgebaut werden, statt gemischt in das Briefing zu laufen.
+- QA-Dryruns koennen SAR-Profil, Zielkategorien und einzelne Test-Incidents erzwingen, ohne die echte Dispatch-Auswahl zu aendern: `node tools/mission-pipeline-dryrun.mjs --pipeline-v4 --runs=8 --profile=search_and_rescue --categories=road,forest,water,mountain --out=sar-forced.json` oder `node tools/mission-pipeline-dryrun.mjs --pipeline-v4 --runs=3 --profile=search_and_rescue --incidents=missing_hiker,angler_missing,riverside_vehicle_entry --out=sar-incidents.json`. Synthetische Ziel-POIs in diesem Tool sind nur Testanker, damit Kategorien und Incident-Familien deterministisch durch Zieldefinition, Contract, Writer und Scene laufen.
 
 ### 7.2.6 POI Training
 
