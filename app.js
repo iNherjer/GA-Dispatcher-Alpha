@@ -12291,6 +12291,14 @@ function _missionSemanticsV4NormalizeCategory(value = '') {
     return 'generic';
 }
 
+function _missionSemanticsV4IsGenericTargetLabel(label = '') {
+    const raw = String(label || '').trim();
+    const normalized = normalizeMissionText(raw);
+    if (!normalized) return true;
+    if (raw.length <= 2) return true;
+    return /^(yes|no|unknown|poi|ziel|water|wasser|ditch|stream|river|terrain|road|track|path|footway|service|parking|building|traffic signals|traffic_signals|crossing|minor line|minor_line)$/.test(normalized);
+}
+
 function _missionSemanticsV4Build({
     mode = 'apt',
     taskDomain = 'general',
@@ -12305,7 +12313,9 @@ function _missionSemanticsV4Build({
         missionTruth?.primaryCategory || targetCategory || requestedCategory || 'generic'
     );
     const truthMain = missionTruth?.mainTarget || null;
-    const primarySubjectLabel = String(truthMain?.name || targetName || 'Ziel').trim() || 'Ziel';
+    const truthMainName = String(truthMain?.name || '').trim();
+    const targetLabel = String(targetName || '').trim();
+    const primarySubjectLabel = (!_missionSemanticsV4IsGenericTargetLabel(truthMainName) ? truthMainName : targetLabel) || truthMainName || 'Ziel';
     const primarySubjectType = String(truthMain?.kind || categoryKey || normalizedMode).trim().toLowerCase() || normalizedMode;
     const modeRule = MISSION_SEMANTICS_V4_RULESET.modeRules[normalizedMode] || MISSION_SEMANTICS_V4_RULESET.modeRules.apt;
     const domainRule = MISSION_SEMANTICS_V4_RULESET.domainRules[domainKey] || MISSION_SEMANTICS_V4_RULESET.domainRules.general;
@@ -12632,6 +12642,7 @@ function missionSarSelectIncidentType(category = '', targetLabel = '', suggested
     if (uniqueAllowed.length === 1) return uniqueAllowed[0];
 
     const suggested = missionSarCanonicalIncidentType(suggestedIncidentType);
+    if (options?.lockSuggested && suggested && uniqueAllowed.includes(suggested)) return suggested;
     const keys = missionSarIncidentHistoryKeys(category, targetLabel);
     const exactHistory = missionSarReadIncidentHistory(keys.exact);
     const familyHistory = missionSarReadIncidentHistory(keys.family);
@@ -12730,7 +12741,8 @@ function missionPipelineV4SarDecision({
     plan = {},
     resolvedNeeds = {},
     suggestedIncidentType = '',
-    writeHistory = true
+    writeHistory = true,
+    lockSuggested = false
 } = {}) {
     if (String(semantics?.focusLock?.taskDomain || plan?.taskDomain || '').toLowerCase() !== 'search_and_rescue') return null;
     const category = String(semantics?.focusLock?.targetCategory || plan?.targetCategory || '').trim();
@@ -12744,7 +12756,7 @@ function missionPipelineV4SarDecision({
         targetLabel,
         suggestedIncidentType,
         context,
-        { writeHistory }
+        { writeHistory, lockSuggested }
     );
     const incidentFrame = _missionPipelineV4BuildSarIncident({ category, targetLabel, incidentType });
     const sceneProfile = missionSarIncidentSceneProfile(incidentType, { category, targetLabel });
@@ -12769,7 +12781,7 @@ function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel 
     const waterFamilies = [
         pack({
             incidentType: 'missing_kayaker',
-            trigger: `Rund um ${targetLabel} wird nach einem ueberfaelligen Kajakfahrer gesucht; die Leitstelle braucht jetzt ein Luftlagebild entlang Ufer und Wasserflaeche.`,
+            trigger: `Rund um ${targetLabel} wird nach einem ueberfaelligen Kajakfahrer gesucht; die Leitstelle braucht jetzt eine erste Sichtmeldung entlang Ufer und Wasserflaeche.`,
             subjectDetail: _missionPipelineV4PickOne([
                 'einem 34-jaehrigen Kajakfahrer, der nach einer kurzen Abendrunde nicht an der Einsatzstelle zurueckkam',
                 'einer 29-jaehrigen Paddlerin, die nach einem Solo-Trainingsabschnitt vom Ufer aus nicht mehr gesehen wurde',
@@ -12829,10 +12841,10 @@ function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel 
         }),
         pack({
             incidentType: 'small_boat_overdue',
-            trigger: `Im Bereich ${targetLabel} wird eine ueberfaellige Bootscrew gesucht; der Luftcheck soll sofort klaeren, ob der Schwerpunkt auf Wasser oder Ufer gesetzt wird.`,
+            trigger: `Im Bereich ${targetLabel} wird eine ueberfaellige Bootsbesatzung gesucht; der Suchflug soll sofort klaeren, ob der Schwerpunkt auf Wasser oder Ufer gesetzt wird.`,
             subjectDetail: _missionPipelineV4PickOne([
                 'einem kleinen Motorboot mit zwei Personen, das nach einer kurzen Runde nicht am vereinbarten Punkt zurueckkam',
-                'einer Bootscrew auf einem Alu- oder Angelboot, die nach dem letzten Funkkontakt ueberfaellig ist',
+                'einer Bootsbesatzung auf einem Alu- oder Angelboot, die nach dem letzten Funkkontakt ueberfaellig ist',
                 'einem Freizeitboot, dessen Rueckkehrfenster deutlich ueberschritten wurde'
             ]),
             lastSeenContext: _missionPipelineV4PickOne([
@@ -12846,13 +12858,13 @@ function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel 
                 'Manoeverunfaehigkeit mit moeglicher Verdriftung oder improvisierter Anlandung.'
             ]),
             incidentContext: _missionPipelineV4PickOne([
-                `Die Bootscrew hat sich nach dem letzten Funkkontakt nicht mehr gemeldet, seitdem konzentriert sich die Suche auf ${targetLabel}.`,
+                `Die Bootsbesatzung hat sich nach dem letzten Funkkontakt nicht mehr gemeldet, seitdem konzentriert sich die Suche auf ${targetLabel}.`,
                 `Seit dem letzten kurzen Funkwechsel sucht die Leitstelle im Bereich ${targetLabel} nach einem Wasser- oder Uferhinweis.`,
                 `Die Suche wird auf ${targetLabel} verengt, weil dort der letzte plausible Kurs und das letzte Motorengeraeusch zusammentreffen.`
             ]),
-            whyNow: 'Noch bevor groessere Suchflaechen belegt werden, soll der Luftcheck den wahrscheinlichsten Wasser- oder Uferabschnitt eingrenzen.',
+            whyNow: 'Noch bevor groessere Suchflaechen belegt werden, soll der Ueberflug den wahrscheinlichsten Wasser- oder Uferabschnitt eingrenzen.',
             soughtOutcome: 'Wir sollen Boot, Spiegelung, Hilfesignal oder einen moeglichen Anlandepunkt fuer die Wasserrettung melden.',
-            focusSubject: 'ueberfaellige Bootscrew oder klarer Wasserhinweis',
+            focusSubject: 'ueberfaellige Bootsbesatzung oder klarer Wasserhinweis',
             keyQuestion: `Ob sich an ${targetLabel} ein Boot, eine Person oder ein vernuenftiger Ansatzpunkt fuer die Rettung auf dem Wasser erkennen laesst.`,
             stakes: 'Die Einsatzleitung muss wissen, ob sie den Schwerpunkt auf Wasserflaeche, Ufer oder Abdrift setzen soll.',
             visibleClueCandidates: ['Boot oder Spiegelung', 'Hilfesignal', 'Person im Uferbereich', 'moeglicher Anlandepunkt']
@@ -12951,7 +12963,7 @@ function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel 
         }),
         pack({
             incidentType: 'downed_ultralight',
-            trigger: `Im Korridor um ${targetLabel} wird ein vermisstes Klein- oder Ultraleichtflugzeug gesucht; der Luftcheck soll den Suchsektor jetzt sichtbar verengen.`,
+            trigger: `Im Korridor um ${targetLabel} wird ein vermisstes Klein- oder Ultraleichtflugzeug gesucht; der Suchflug soll den Sektor jetzt sichtbar verengen.`,
             subjectDetail: _missionPipelineV4PickOne([
                 'einem vermissten Ultraleichtflugzeug mit letzter unklarer Sichtmeldung im Hoehenzug',
                 'einer kleinen Echo- oder UL-Maschine, die nach dem letzten Funkkontakt aus dem Suchbild verschwand',
@@ -12981,7 +12993,7 @@ function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel 
         }),
         pack({
             incidentType: 'vehicle_off_road',
-            trigger: `Im Bereich ${targetLabel} wird nach einem moeglichen Fahrzeugunfall im Hang- oder Waldrandgebiet gesucht; der Luftcheck soll jetzt den konkreten Strassenabschnitt bestimmen.`,
+            trigger: `Im Bereich ${targetLabel} wird nach einem moeglichen Fahrzeugunfall im Hang- oder Waldrandgebiet gesucht; der Ueberflug soll jetzt den konkreten Strassenabschnitt bestimmen.`,
             subjectDetail: _missionPipelineV4PickOne([
                 'einem Pkw, der nach einer letzten Handy-Ortung unterhalb der Hoehenlage von der Strasse abgekommen sein koennte',
                 'einem Motorradfahrer, der nach einer kurvigen Berg- oder Waldstrecke nicht am Ziel ankam',
@@ -13081,12 +13093,12 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         });
         return {
             trigger: category === 'water'
-                ? String(incident.trigger || `Rund um ${targetLabel} wird eine Wasser- oder Uferlage abgeklaert; die Leitstelle braucht jetzt ein schnelles Luftlagebild.`)
-                : String(incident.trigger || `Im Bereich ${targetLabel} wird eine laufende Such- oder Unfalllage aus der Luft verengt; die Leitstelle braucht jetzt ein schnelles Lagebild.`),
+                ? String(incident.trigger || `Rund um ${targetLabel} wird eine Wasser- oder Uferlage abgeklaert; die Leitstelle braucht jetzt eine erste Sichtmeldung.`)
+                : String(incident.trigger || `Im Bereich ${targetLabel} wird eine laufende Such- oder Unfalllage aus der Luft verengt; die Leitstelle braucht jetzt eine erste Sichtmeldung.`),
             focusSubject: incident.focusSubject,
             keyQuestion: incident.keyQuestion,
             stakes: incident.stakes,
-            completionSignal: 'Das Luftlagebild geht unmittelbar an Leitstelle und Bodenkraefte, damit der naechste Suchabschnitt festgelegt wird.',
+            completionSignal: 'Die Sichtmeldung geht unmittelbar an Leitstelle und Bodenkraefte, damit der naechste Suchabschnitt festgelegt wird.',
             subjectDetail: incident.subjectDetail,
             incidentContext: incident.incidentContext,
             whyNow: incident.whyNow,
@@ -13381,8 +13393,41 @@ function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNe
     const defaults = _missionPipelineV4NarrativeDefaults(plan, semantics, resolvedNeeds, options);
     const useSarDecisionFrame = String(semantics?.focusLock?.taskDomain || plan?.taskDomain || '').toLowerCase() === 'search_and_rescue'
         && !!options?.sarDecision?.incidentType;
-    const frameSource = useSarDecisionFrame ? {} : rawFrame;
-    const planSource = useSarDecisionFrame ? {} : plan;
+    const sarIncidentType = options?.sarDecision?.incidentType || defaults.incidentType || rawFrame.incidentType || '';
+    const sarTextUsable = text => !!String(text || '').trim()
+        && !_missionPipelineV4LooksEnglish(text)
+        && !_missionPipelineV4LooksInternalMissionText(text)
+        && !_missionPipelineV4SarTextConflictsIncidentType(text, sarIncidentType)
+        && !_missionPipelineV4SarTextConflictsIncidentFamily(text, sarIncidentType)
+        && !_missionPipelineV4SarTextLooksUndecided(text);
+    const pickSarText = (text = '') => useSarDecisionFrame && !sarTextUsable(text) ? '' : text;
+    const frameSource = useSarDecisionFrame
+        ? {
+            trigger: pickSarText(rawFrame.trigger),
+            focusSubject: pickSarText(rawFrame.focusSubject),
+            keyQuestion: pickSarText(rawFrame.keyQuestion),
+            stakes: pickSarText(rawFrame.stakes),
+            completionSignal: pickSarText(rawFrame.completionSignal),
+            subjectDetail: pickSarText(rawFrame.subjectDetail),
+            incidentContext: pickSarText(rawFrame.incidentContext),
+            whyNow: pickSarText(rawFrame.whyNow),
+            soughtOutcome: pickSarText(rawFrame.soughtOutcome),
+            lastSeenContext: pickSarText(rawFrame.lastSeenContext),
+            probableScenario: pickSarText(rawFrame.probableScenario),
+            visibleClueCandidates: Array.isArray(rawFrame.visibleClueCandidates)
+                ? rawFrame.visibleClueCandidates.filter(sarTextUsable)
+                : undefined
+        }
+        : rawFrame;
+    const planSource = useSarDecisionFrame
+        ? {
+            missionTrigger: pickSarText(plan.missionTrigger),
+            focusSubject: pickSarText(plan.focusSubject),
+            keyQuestion: pickSarText(plan.keyQuestion),
+            missionStakes: pickSarText(plan.missionStakes),
+            completionSignal: pickSarText(plan.completionSignal)
+        }
+        : plan;
     return {
         trigger: _missionPipelineV3Text(frameSource.trigger || planSource.missionTrigger || defaults.trigger, 220),
         focusSubject: _missionPipelineV3Text(frameSource.focusSubject || planSource.focusSubject || defaults.focusSubject, 140),
@@ -13487,7 +13532,8 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
             ...(Array.isArray(storyFrame.visibleClueCandidates) ? storyFrame.visibleClueCandidates : [])
         ].join(' ');
         const sarFrameLooksEnglish = _missionPipelineV4LooksEnglish(sarFrameText);
-        const sarFrameConflictsIncident = _missionPipelineV4SarTextConflictsIncidentFamily(sarFrameText, canonicalSarIncident)
+        const sarFrameConflictsIncident = _missionPipelineV4SarTextConflictsIncidentType(sarFrameText, canonicalSarIncident)
+            || _missionPipelineV4SarTextConflictsIncidentFamily(sarFrameText, canonicalSarIncident)
             || _missionPipelineV4SarTextLooksUndecided(sarFrameText);
         const selectedSarIncident = sarDecision?.incidentType || missionSarPickIncidentType(
             semantics.focusLock.targetCategory || base.plan.targetCategory || '',
@@ -13560,18 +13606,20 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         base.plan.completionSignal = storyFrame.completionSignal;
         base.plan.storyFrame = storyFrame;
         base.plan.primaryObjective = _missionPipelineV3Text(
-            `SAR-Erkundung: ${_missionPipelineV4StripSentenceEnd(storyFrame.focusSubject || storyFrame.subjectDetail || 'konkrete Suchlage')}`,
+            _missionPipelineV4BuildSarObjective(storyFrame, semantics),
             180
         );
         const keepSarText = text => !!String(text || '').trim()
+            && !_missionPipelineV4SarTextConflictsIncidentType(text, storyFrame.incidentType)
             && !_missionPipelineV4SarTextConflictsIncidentFamily(text, storyFrame.incidentType)
+            && !_missionPipelineV4LooksInternalMissionText(text)
             && !_missionPipelineV4SarTextLooksUndecided(text);
         ['localFacts', 'operationalDetails', 'narrativeHooks', 'mustMention'].forEach(key => {
             if (Array.isArray(base.plan[key])) base.plan[key] = base.plan[key].filter(keepSarText);
         });
         if (!keepSarText(base.plan.realismBrief)) {
             base.plan.realismBrief = _missionPipelineV3Text(
-                `${semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || 'Das Zielgebiet'} passt durch Zielkategorie, Anker und sichtbare Suchhinweise zu diesem SAR-Unterfokus.`,
+                _missionPipelineV4BuildSarRealismBrief(storyFrame, semantics, resolvedNeeds),
                 220
             );
         }
@@ -13665,7 +13713,7 @@ Arbeitsweise:
 9. Konkretisiere diesen Story-Kern immer mit 2-4 Lage-Details: wer/was genau betroffen ist, was passiert ist, warum der Einsatz gerade jetzt noetig ist und welcher Befund aus der Luft gebraucht wird.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
 11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen. Nutze siteAnalysis/scoredIncidentTypes als primaere Lage-Evidenz und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber bei Strasse/Kreuzung/Kreisverkehr/Stadtrand muss eine generische Wanderer-Vermisstenlage gegen eine Verkehrs- oder Fahrzeuglage fachlich begruendet sein.
-12. Bei search_and_rescue ist plan.storyFrame.incidentType ein Unterfokus-Lock. Vermische nicht benachbarte SAR-Familien im selben Auftrag: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; missing_hiker bleibt Personensuche; downed_ultralight bleibt Luftfahrzeuglage.
+12. Bei search_and_rescue ist plan.storyFrame.incidentType ein konkreter Einsatz-Lock. Vermische keine anderen SAR-Incidents in denselben Auftrag: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
 13. Du darfst einen realistischen Missionsanlass frei konkretisieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Bundles erfunden werden.
 14. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
 15. Schreibe alle frei formulierten Texte auf Deutsch. Eigennamen, ICAO-Kuerzel und feststehende Ortsnamen duerfen unveraendert bleiben.
@@ -13793,7 +13841,8 @@ function buildMissionContractV4({
         plan: plan?.plan || {},
         resolvedNeeds: plannerResult?.resolvedNeeds || {},
         suggestedIncidentType: plan?.plan?.storyFrame?.incidentType || '',
-        writeHistory: false
+        writeHistory: false,
+        lockSuggested: true
     });
     const storyFrame = _missionPipelineV4BuildStoryFrame(plan?.plan || {}, semantics, plannerResult?.resolvedNeeds || {}, { sarDecision });
     return {
@@ -13860,7 +13909,7 @@ Regeln:
 12. Wenn CONTRACT.storyFrame incidentType, lastSeenContext, probableScenario oder visibleClueCandidates enthaelt, muessen diese Informationen im Briefing spuerbar werden statt zu abstrakten Standardfloskeln zu verfallen.
 13. Du darfst einen plausiblen operativen Anlass frei ausformulieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Contracts behauptet werden.
 14. search_and_rescue: Sag klar, wer oder was betroffen ist, wo die letzte Sichtung oder Meldung war, welche Lage vermutet wird und worauf wir aus der Luft konkret achten sollen.
-15. search_and_rescue: CONTRACT.storyFrame.incidentType ist bindender Unterfokus. Vermische keine SAR-Familien im Briefing: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; missing_hiker bleibt Personensuche; downed_ultralight bleibt Luftfahrzeuglage.
+15. search_and_rescue: CONTRACT.storyFrame.incidentType ist bindender Einsatz-Lock. Vermische keine anderen SAR-Incidents im Briefing: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
 16. search_and_rescue: Schreibe keine Einsatz-Alternativen wie "Wanderer oder UL" oder "Person oder Wrack". Triff aus dem Contract eine konkrete Dispatch-Annahme und erzaehle sie mit Hintergrund: wer/was, wo, was ist gemeldet, warum jetzt, welcher Befund wird gebraucht.
 17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
 18. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
@@ -13949,6 +13998,51 @@ function _missionPipelineV4LooksEnglish(text = '') {
     return englishHits >= 4 && englishHits > germanHits;
 }
 
+function _missionPipelineV4LooksInternalMissionText(text = '') {
+    const normalized = normalizeMissionText(text);
+    if (!normalized) return false;
+    return /\b(sar[\s_-]*erkundung|unterfokus|storyframe|missiontruth|contract|writer|planner|pipeline|zielkategorie|objectfamil(?:y|ien)?|primaerfokus|passt durch zielkategorie|sichtbare suchhinweise zu diesem sar)\b/.test(normalized);
+}
+
+function _missionPipelineV4SarIncidentSignatureRegex(incidentType = '') {
+    const id = missionSarCanonicalIncidentType(incidentType);
+    return ({
+        missing_hiker: /\b(wanderer|wanderin|spaziergaenger|spazierganger|vermisste person|personensuche|orientierungslos|verlaufen)\b/,
+        fallen_climber: /\b(kletterer|kletterin|bergsteiger|bergsteigerin|kletter|fels|grat|steig|abgerutscht|absturzkante|geroell|geroll)\b/,
+        downed_ultralight: /\b(luftfahrzeug|kleinflugzeug|ultraleichtflugzeug|ultraleicht|ul[\s-]?maschine|echo[\s-]?maschine|flugzeug|mayday|wrack|wrackteil|einschlag|absturz)\b/,
+        vehicle_off_road: /\b(von der fahrbahn abgekommen|fahrbahn abgekommen|abseits der strasse|abseits der straße|boeschung|boschung|waldsaum|vermisstes fahrzeug|fahrzeugspuren|reifenspuren|handy[\s-]?ortung)\b/,
+        road_collision: /\b(verkehrsunfall|kollision|auffahrunfall|kreuzungsunfall|unfallstelle|mehrere fahrzeuge|mehreren fahrzeugen|fahrzeugkollision|sperrung|rettungsgasse)\b/,
+        missing_kayaker: /\b(kajak|kajakfahrer|kajakfahrerin|paddler|paddlerin|paddel|kanu|kenterung|gekentert)\b/,
+        angler_missing: /\b(angler|anglerin|angelplatz|angelausruestung|angelausrustung|angelrute|fischerei|fischer)\b/,
+        small_boat_overdue: /\b(bootsbesatzung|bootscrew|motorboot|freizeitboot|angelboot|aluboot|ueberfaelliges boot|uberfalliges boot)\b/,
+        riverside_vehicle_entry: /\b(fahrzeugeintritt ins wasser|fahrzeug im wasser|pkw im wasser|auto im wasser|fahrzeug.*wasserkontakt|wasserkontakt.*fahrzeug|fahrzeug.*ufer|ufer.*fahrzeug)\b/
+    })[id] || null;
+}
+
+function _missionPipelineV4SarTextConflictsIncidentType(text = '', incidentType = '') {
+    const id = missionSarCanonicalIncidentType(incidentType);
+    const normalized = normalizeMissionText(text);
+    if (!normalized || !id) return false;
+    const own = _missionPipelineV4SarIncidentSignatureRegex(id);
+    const known = [
+        'missing_hiker',
+        'fallen_climber',
+        'downed_ultralight',
+        'vehicle_off_road',
+        'road_collision',
+        'missing_kayaker',
+        'angler_missing',
+        'small_boat_overdue',
+        'riverside_vehicle_entry'
+    ];
+    return known.some(otherId => {
+        if (otherId === id) return false;
+        const other = _missionPipelineV4SarIncidentSignatureRegex(otherId);
+        if (!other || !other.test(normalized)) return false;
+        return !own || !own.test(normalized) || /\b(oder|bzw|stattdessen)\b/.test(normalized);
+    });
+}
+
 function _missionPipelineV4SarTextConflictsIncidentFamily(text = '', incidentType = '') {
     const id = missionSarCanonicalIncidentType(incidentType);
     const normalized = normalizeMissionText(text);
@@ -13957,7 +14051,7 @@ function _missionPipelineV4SarTextConflictsIncidentFamily(text = '', incidentTyp
     const aircraftTerms = /\b(luftfahrzeug|kleinflugzeug|ultraleichtflugzeug|ultraleichtflugzeuge|ultraleicht|ul[\s-]?maschine|echo[\s-]?maschine|flugzeug|einschlag|wrackhinweis)\b/;
     const roadCollisionTerms = /\b(verkehrsunfall|kollision|auffahrunfall|kreuzungsunfall|unfallstelle mit|mehrere fahrzeuge|mehreren fahrzeugen|unfallfahrzeug)\b/;
     const offRoadTerms = /\b(von der fahrbahn abgekommen|fahrbahn abgekommen|abseits der strasse|abseits der straße|boeschung|boschung|waldsaum|vermisstes fahrzeug|fahrzeugspuren|reifenspuren)\b/;
-    const waterTerms = /\b(kajak|paddel|boot|bootscrew|angler|wasserrettung|uferabschnitt|anlandepunkt)\b/;
+    const waterTerms = /\b(kajak|paddel|boot|bootscrew|bootsbesatzung|angler|wasserrettung|uferabschnitt|anlandepunkt)\b/;
     const missingPersonTerms = /\b(wanderer|wanderin|kletterer|kletterin|bergsteiger|bergsteigerin|personensuche|vermisste person|vermisstenmeldung)\b/;
     if (id === 'downed_ultralight') return has(roadCollisionTerms) || has(offRoadTerms) || has(waterTerms) || has(missingPersonTerms);
     if (id === 'road_collision') return has(aircraftTerms) || has(offRoadTerms) || has(waterTerms) || has(missingPersonTerms);
@@ -13973,7 +14067,7 @@ function _missionPipelineV4SarTextLooksUndecided(text = '') {
     const personFamily = /\b(wanderer|wanderin|kletterer|kletterin|bergsteiger|bergsteigerin|personensuche|vermisste person|vermisstenmeldung)\b/;
     const aircraftFamily = /\b(luftfahrzeug|kleinflugzeug|ultraleichtflugzeug|ultraleichtflugzeuge|ultraleicht|ul[\s-]?maschine|echo[\s-]?maschine|flugzeug|wrack|wrackteile|absturzortung)\b/;
     const roadFamily = /\b(verkehrsunfall|kollision|unfallstelle|fahrbahn|fahrzeuge|fahrzeug)\b/;
-    const waterFamily = /\b(kajak|boot|bootscrew|angler|wasserrettung|uferhinweis)\b/;
+    const waterFamily = /\b(kajak|boot|bootscrew|bootsbesatzung|angler|wasserrettung|uferhinweis)\b/;
     const families = [personFamily, aircraftFamily, roadFamily, waterFamily].filter(re => re.test(normalized)).length;
     return families >= 2 && /\b(oder|bzw)\b/.test(normalized);
 }
@@ -14021,6 +14115,29 @@ function _missionPipelineV4LowerFirst(text = '') {
     const s = String(text || '').trim();
     if (!s) return '';
     return s.charAt(0).toLowerCase() + s.slice(1);
+}
+
+function _missionPipelineV4BuildSarObjective(frame = {}, semantics = {}) {
+    const targetName = String(semantics?.focusLock?.primarySubjectLabel || '').trim() || 'dem Zielgebiet';
+    const subject = _missionPipelineV4SarPrimarySubjectText(frame.focusSubject || frame.subjectDetail || 'einer konkreten Suchlage');
+    return `Luftsuche bei ${targetName}: ${_missionPipelineV4LowerFirst(subject)}`;
+}
+
+function _missionPipelineV4BuildSarRealismBrief(frame = {}, semantics = {}, resolvedNeeds = {}) {
+    const targetName = String(semantics?.focusLock?.primarySubjectLabel || '').trim() || 'Das Zielgebiet';
+    const cues = Array.isArray(resolvedNeeds?.mission_truth?.visibleCues)
+        ? resolvedNeeds.mission_truth.visibleCues.slice(0, 2).map(x => String(x || '').trim()).filter(Boolean)
+        : [];
+    const cueText = cues.length ? ` mit ${_missionPipelineV4JoinNaturalList(cues)}` : '';
+    const subject = _missionPipelineV4SarPrimarySubjectText(frame.focusSubject || frame.subjectDetail || 'Suchhinweisen');
+    return `${targetName}${cueText} ist ein plausibler Suchraum fuer ${_missionPipelineV4LowerFirst(subject)}.`;
+}
+
+function _missionPipelineV4SarPrimarySubjectText(text = '') {
+    const subject = _missionPipelineV4StripSentenceEnd(text || 'eine konkrete Suchlage');
+    return subject
+        .replace(/\s+oder\s+(frischer|klarer|verwertbarer|eindeutiger|moeglicher|möglicher)?\s*(hinweis|unfallhinweis|wasserhinweis|suchhinweis|einschlaghinweis|uferhinweis|zugriffspunkt|befund).*$/i, '')
+        .trim() || subject;
 }
 
 function _missionPipelineV4EnsureSentence(text = '', fallback = '') {
@@ -14236,9 +14353,11 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}) {
     const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
     if (!raw) return _missionPipelineV4ComposeStoryFallback(contract);
     if (_missionPipelineV4LooksEnglish(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
+    if (_missionPipelineV4LooksInternalMissionText(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
     const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
     if (taskDomain === 'search_and_rescue' && (
-        _missionPipelineV4SarTextConflictsIncidentFamily(raw, frame.incidentType)
+        _missionPipelineV4SarTextConflictsIncidentType(raw, frame.incidentType)
+        || _missionPipelineV4SarTextConflictsIncidentFamily(raw, frame.incidentType)
         || _missionPipelineV4SarTextLooksUndecided(raw)
     )) {
         return _missionPipelineV4ComposeStoryFallback(contract);

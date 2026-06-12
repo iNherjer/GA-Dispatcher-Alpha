@@ -738,6 +738,7 @@ SAR-Unterlogik innerhalb dieses Rezepts:
 - `search_and_rescue` bleibt `POI on-task`; es bekommt keine eigene Ablaufkette.
 - Die Zielkategorie wird innerhalb des Profils bewusst balanciert. Wald, Wasser und Berg duerfen gegenueber Strassen leicht bevorzugt werden, weil Strassen in den POI-Daten sehr haeufig sind. Diese Gewichtung muss mild bleiben; sie darf keine neue Wasser- oder Naturdominanz erzeugen.
 - Die V4-Semantik darf SAR-Zielkategorien nicht grober machen als noetig. Insbesondere bleibt `road` eine Road-/Traffic-Kategorie und darf nicht zu `generic` fallen, weil sonst generische Land-Incidents wie Luftfahrzeuglagen faelschlich erlaubt werden.
+- Generische OSM-/Geometry-Namen wie `water`, `road`, `track`, `traffic_signals` oder `terrain` duerfen nie den sichtbaren Zielnamen im Briefing ersetzen. Sie sind technische Anker, nicht Erzaehlsubjekt.
 - Vor der Incident-Wahl wird eine Lage-Evidenz aus Zielkategorie, `targetGeoContext`, `missionTruth`, sichtbaren Ankern und Verlauf gebildet.
 - Nach dem Ziel-/Kategorie-Lock wird genau eine SAR-Decision gebildet. StoryFrame, SceneProfile, Objektfamilien und Writer-Contract muessen auf dieser Entscheidung aufbauen; es darf keinen zweiten unabhaengigen Incident-Wurf in einem spaeteren Schritt geben.
 - Diese Lage-Evidenz ist primaer; Verlauf/History ist nur Varianz-Tiebreaker. Ein starker Verkehrsraum darf nicht nur wegen History in generische Personensuche kippen.
@@ -749,8 +750,9 @@ SAR-Unterlogik innerhalb dieses Rezepts:
   - Wasserlagen: Boot, Rettungsinsel, Uferhinweis, Person am Ufer oder Wasserrettungs-Zugriffspunkt.
   - Luftfahrzeuglagen: letzter Funk-/Sichtkontakt, Mayday/Positionshinweis, Wrack-/Debris-/Rauchhinweise.
 - Writer und Scene duerfen keine zwei Incident-Familien zu einer Mischlage verschmelzen. Wenn `road_collision` gewaehlt ist, darf daraus nicht im Briefing ein einzelnes "vermisstes Fahrzeug von der Fahrbahn" werden; wenn genau das gemeint ist, ist die Familie `vehicle_off_road`.
-- Diese Trennung ist nicht nur Prompt-Regel: Planner-/Writer-Text, der gegen die gewaehlte Incident-Familie eine andere SAR-Familie einmischt, muss verworfen oder aus dem passenden Incident-Frame neu aufgebaut werden.
+- Diese Trennung ist nicht nur Prompt-Regel: Planner-/Writer-Text, der gegen den gewaehlten Incident oder seine Familie eine andere SAR-Lage einmischt, muss verworfen oder aus dem passenden Incident-Frame neu aufgebaut werden. Gute lokale Details duerfen erhalten bleiben, wenn sie den gelockten Incident konkretisieren statt ihn umzudeuten.
 - SAR-Briefings duerfen keine unentschiedenen Einsatz-Alternativen formulieren. Nicht "Wanderer oder UL", sondern eine konkrete Dispatch-Annahme mit Wer/Was, Wo, Ausloeser, Warum jetzt und benoetigtem Luftbefund.
+- User-facing SAR-Texte duerfen keine internen Planungswoerter wie `SAR-Erkundung`, `Unterfokus`, `Pipeline`, `Contract`, `Planner`, `Zielkategorie` oder `passt durch Zielkategorie` enthalten.
 - Felder wie `lastSeenContext` sind fachlich als letzter Bericht, letzte Sichtung, letzte Ortung oder letzter Funkkontakt zu lesen. Sie duerfen nicht automatisch eine vermisste Person implizieren.
 - Alle frei formulierten Missionstexte bleiben Deutsch. Englische Rohfelder aus einem Planner-/Writer-Ausreisser muessen verworfen oder deutsch neu aufgebaut werden, statt gemischt in das Briefing zu laufen.
 
