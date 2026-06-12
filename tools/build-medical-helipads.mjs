@@ -168,8 +168,10 @@ function normalizeOpenAipItem(item, score) {
         country: item.country || '',
         region: item.country ? `${String(item.country).toUpperCase()}-OPENAIP` : '',
         city: '',
-        kind: score >= 95 ? 'hospital_helipad' : 'medical_heliport',
-        confidence: Math.min(0.94, 0.65 + Math.max(0, score) / 400),
+        kind: score >= 70 ? 'hospital_helipad' : 'heliport',
+        confidence: score >= 70
+            ? Math.min(0.94, 0.65 + Math.max(0, score) / 400)
+            : 0.58,
         sourceUrl: item._id ? `openaip:${item._id}` : '',
         tags: {
             openaipType: item.type,
@@ -203,7 +205,7 @@ async function fetchOpenAipMedicalHelipads() {
         const items = await fetchOpenAipBbox(bbox);
         for (const item of items) {
             const score = scoreOpenAip(item);
-            if (score < 70) continue;
+            if (score < 0) continue;
             const normalized = normalizeOpenAipItem(item, score);
             if (normalized) byId.set(normalized.id, normalized);
         }

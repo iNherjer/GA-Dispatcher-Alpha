@@ -2423,7 +2423,7 @@ function _missionStatusFacts(ctx) {
         const parts = [];
         if (ctx?.hasPosition) parts.push(`Distanz zur Fundstelle ${ctx.distNm.toFixed(1)} NM, Richtung ${String(ctx.roundedBearingDeg).padStart(3, '0')} Grad`);
         if (progress?.patientLoaded) parts.push(`Status: Patient aufgenommen, Ziel ${_sarHeliHospitalName()}`);
-        else if (progress?.targetConfirmed) parts.push(`Status: Fund bestaetigt, Bergung laeuft (${Math.round(Number(progress.holdSec || 0))}/20 Sekunden stabil)`);
+        else if (progress?.targetConfirmed) parts.push(`Status: Fund bestätigt, Bergung läuft, Position ruhig halten`);
         else parts.push('Status: Such-/Fundphase, Fundmeldung oder Auto-Markierung offen');
         const wx = _weatherContext(ctx?.fd || window.lastLiveFlightData || {});
         if (wx) parts.push(wx);
@@ -2667,22 +2667,22 @@ function _sarHeliTargetName() {
 window.triggerPaxSarHeliFoundConfirmed = function(ctx = {}) {
     _refreshPaxWidgetVisibility();
     _paxSpeakTextDirect(
-        `Fund bestaetigt bei ${_sarHeliTargetName()}. Gehe jetzt in die Bergung: landen oder unter 10 Meter ruhig hovern, nah an der Person bleiben und die Maschine stabil halten.`,
-        'Fund bestaetigt'
+        `Fund bestätigt bei ${_sarHeliTargetName()}. Gehe jetzt in die Bergung: landen oder ruhig hovern, nah an der Person bleiben und die Maschine stabil halten.`,
+        'Fund bestätigt'
     );
 };
 
 window.triggerPaxSarHeliTargetMarked = function(ctx = {}) {
     _refreshPaxWidgetVisibility();
     _paxSpeakTextDirect(
-        `Ziel gesichtet und mit Rauch markiert. Bitte jetzt zur Markierung einrichten, landen oder unter 10 Meter stabil hovern und langsam genug bleiben.`,
+        `Ziel gesichtet und mit Rauch markiert. Bitte jetzt zur Markierung einrichten, landen oder stabil hovern und langsam genug bleiben.`,
         'Ziel markiert'
     );
 };
 
 window.triggerPaxSarHeliHoldReady = function(ctx = {}) {
     _paxSpeakTextDirect(
-        'Das passt, wir sind nah genug und tief genug. Halte die Position jetzt ruhig, ich zaehle die Aufnahmephase.',
+        'Das passt, wir sind nah genug und die Position ist gut. Halte jetzt ruhig, wir übernehmen die Aufnahme.',
         'Bergung halten'
     );
 };

@@ -7014,8 +7014,8 @@ function _missionPoiRuntimeStatus(endReady = null) {
         if (!sar?.patientLoaded) {
             return {
                 stage: 'sar_heli_recovery',
-                detail: `SAR-Heli: Bergung offen. Stabilzeit ${Math.round(Number(sar?.holdSec || 0))}/20s.`,
-                nextStep: 'Nächster Schritt: landen oder unter 10 m AGL langsam und stabil über der Fundstelle halten'
+                detail: `SAR-Heli: Bergung offen. Aufnahmephase läuft.`,
+                nextStep: 'Nächster Schritt: landen oder langsam und stabil über der Fundstelle halten'
             };
         }
         if (canEndHere || sar?.readyToClose) {

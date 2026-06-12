@@ -1288,15 +1288,15 @@ const MISSION_ROLE_TASK_PROFILES = {
             { name: 'Mara Seidel', role: 'SAR-Heli-Koordinatorin', gender: 'female', personality: 'ruhig, klar, medizinisch fokussiert' },
             { name: 'Timo Brandt', role: 'Luftrettungskoordinator', gender: 'male', personality: 'präzise, belastbar, handlungsorientiert' }
         ],
-        greetingText: 'Hi, das ist heute eine SAR-Heli-Bergung. Erst Fund bestätigen, dann landen oder unter 10 Meter stabil hovern, Patient aufnehmen und direkt zum Klinik-Helipad.',
+        greetingText: 'Hi, das ist heute eine SAR-Heli-Bergung. Erst Fund bestätigen, dann an der Fundstelle landen oder stabil hovern, Patient aufnehmen und direkt zum Klinik-Helipad.',
         paxText: '1 PAX (SAR-Heli-Koordination)',
         cargoPool: ['Rettungs- und Sanitätskit (38 lbs)', 'Winden-/Bergungspaket und MedPack (44 lbs)'],
         tolerances: { gTolerance: 'mittel', bankTolerance: 'niedrig', cargoSensitivity: 'mittel', stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'hoch' },
         storyCue: 'Fokus: Fundbestätigung, stabile Heli-Bergung und medizinischer Handoff am Krankenhaus-Helipad.',
         opsNotes: [
             'Picker-only Profil: nicht in Auto-/Random-Pools verwenden.',
-            'Nach Fund Landung oder Hover unter 10 m AGL fuer 20 Sekunden.',
-            'Nach Aufnahme Route auf naechsten Klinik-Helipad-/Medical-Handoff-Punkt umschreiben.'
+            'Nach Fund Landung oder stabiler Hover an der Fundstelle.',
+            'Nach Aufnahme Route auf nächsten Klinik-Helipad-/Medical-Handoff-Punkt umschreiben.'
         ]
     },
     fire_watch: {
@@ -1793,7 +1793,7 @@ function buildSarHeliLocalFallbackMission(poiName = 'Zielgebiet') {
         t: `SAR-Heli Bergung: ${n}`,
         i: '🚁',
         cat: 'poi',
-        s: `Im Bereich ${n} wurde eine vermisste oder verletzte Person gemeldet. Fliege die Fundstelle an, bestaetige den Fund, lande oder halte einen stabilen Hover unter 10 m und bring den Patienten danach zum medizinischen Handoff.`,
+        s: `Im Bereich ${n} wurde eine vermisste oder verletzte Person gemeldet. Fliege die Fundstelle an, bestätige den Fund, lande oder halte einen stabilen Hover und bring den Patienten danach zum medizinischen Handoff.`,
         payloadText: '1 PAX (SAR-Heli-Koordination)',
         cargoText: 'Rettungs- und Sanitaetskit (38 lbs)',
         passenger: {
@@ -3569,6 +3569,52 @@ function resolveRouteWaypointsFromMissionState(state = {}) {
     return normalizeRouteWaypointsForStorage(buildFallbackRouteWaypointsFromMissionState(state, md));
 }
 
+function compactMissionObjectForQuotaStorage(value = null) {
+    if (!value || typeof value !== 'object') return value || null;
+    const keep = [
+        'id', 'title', 'name', 's', 'missionType', 'missionPipelineMode',
+        'start', 'dest', 'poiName', 'targetName', 'targetLat', 'targetLon',
+        'category', 'profileId', 'pax', 'cargo', 'passenger',
+        'sarHeli', 'sarHeliProgress', 'bush',
+        'routeWaypoints', 'missionRouteWaypoints',
+        'targetScene', 'sceneIntent', 'missionTruth', 'targetGeoContext',
+        'missionPlanV2', '_missionPlanV2', 'aptArrivalPlan'
+    ];
+    const out = {};
+    keep.forEach(key => {
+        if (value[key] !== undefined) out[key] = value[key];
+    });
+    if (value.missionContract && typeof value.missionContract === 'object') {
+        out.missionContract = compactMissionObjectForQuotaStorage(value.missionContract);
+    }
+    return out;
+}
+
+function storeActiveMissionStateSafely(state = {}) {
+    try {
+        localStorage.setItem('ga_active_mission', JSON.stringify(state));
+        return true;
+    } catch (err) {
+        try { console.warn('[MISSION SAVE] Active mission state too large; retrying compact save.', err); } catch (_) {}
+        const compactState = {
+            ...state,
+            wikiDepImageUrl: '',
+            wikiDestImageUrl: '',
+            freqCache: {},
+            currentMissionData: compactMissionObjectForQuotaStorage(state.currentMissionData),
+            activeMissionContract: compactMissionObjectForQuotaStorage(state.activeMissionContract)
+        };
+        try {
+            localStorage.removeItem('ga_active_mission');
+            localStorage.setItem('ga_active_mission', JSON.stringify(compactState));
+            return true;
+        } catch (err2) {
+            try { console.warn('[MISSION SAVE] Compact active mission save skipped after quota error.', err2); } catch (_) {}
+            return false;
+        }
+    }
+}
+
 function saveMissionState() {
     if (document.getElementById("briefingBox").style.display !== "block") return;
     const draftPending = isMissionDraftPending();
@@ -3634,7 +3680,7 @@ function saveMissionState() {
         activePassenger: window.activePassenger || null,
         activeMissionContract: window.activeMissionContract || currentMissionData?.missionContract || null
     };
-    localStorage.setItem('ga_active_mission', JSON.stringify(state));
+    storeActiveMissionStateSafely(state);
     if (draftPending) {
         try { console.debug('[MISSION DRAFT] Lokal gespeichert, Cloud-Sync blockiert.'); } catch (_) {}
         return;
@@ -3848,7 +3894,7 @@ async function restoreMissionState(state, options = {}) {
         state.currentMissionData = currentMissionData;
         state.activePassenger = window.activePassenger || null;
         state.activeMissionContract = window.activeMissionContract || currentMissionData?.missionContract || null;
-        localStorage.setItem('ga_active_mission', JSON.stringify(state));
+        storeActiveMissionStateSafely(state);
     } catch (_) {}
     if (resumeRuntime && typeof window.missionRuntimeRestoreFromSnapshot === 'function') {
         try { window.missionRuntimeRestoreFromSnapshot(null, { reason: 'mission-state-restore' }); } catch (_) {}
@@ -14155,14 +14201,14 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
 	            noLandingAtPoi: false,
 	            requiresRescueAtPoi: true
 	        };
-	        const recoveryDetail = 'SAR-Heli: Nach Fundbestaetigung Landung oder stabiler Hover unter 10 m an der Fundstelle, danach Patient aufnehmen und zum medizinischen Handoff fliegen.';
+	        const recoveryDetail = 'SAR-Heli: Nach Fundbestätigung Landung oder stabiler Hover an der Fundstelle, danach Patient aufnehmen und zum medizinischen Handoff fliegen.';
 	        base.plan.operationalDetails = Array.from(new Set([
 	            recoveryDetail,
 	            ...(Array.isArray(base.plan.operationalDetails) ? base.plan.operationalDetails : [])
 	        ])).slice(0, 5);
 	        base.plan.mustMention = Array.from(new Set([
 	            ...(Array.isArray(base.plan.mustMention) ? base.plan.mustMention : []),
-	            'Landung oder Hover unter 10 m an der Fundstelle',
+	            'Landung oder stabiler Hover an der Fundstelle',
 	            'medizinischer Handoff nach Aufnahme'
 	        ])).slice(0, 6);
 	        base.plan.completionSignal = _missionPipelineV3Text(
@@ -15564,7 +15610,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
 
     const poiLikeTask = !!(isPOI || missionUsesPoiTaskRecipe({ missionType: missionBaseType, bush: provisionalBushSpec }));
     const poiAltRule = isSarHeliLegacy
-        ? 'SAR-HELI-EINSATZPARAMETER: Das ist keine normale POI-Verweil-/Fotoaufgabe. Am POI wird nach Fundbestaetigung gelandet oder unter 10 m AGL stabil gehovert; danach Weiterflug zum Krankenhaus-Helipad oder medizinischen Fallback-Ziel. targetDwellMin soll 0 bleiben; die 20s Recovery steuert die Runtime.'
+        ? 'SAR-HELI-EINSATZPARAMETER: Das ist keine normale POI-Verweil-/Fotoaufgabe. Am POI wird nach Fundbestätigung gelandet oder stabil gehovert; danach Weiterflug zum Krankenhaus-Helipad oder medizinischen Fallback-Ziel. targetDwellMin soll 0 bleiben; die eigentliche Bergungsfreigabe steuert die Runtime.'
         : (poiLikeTask && !isTrainingMission)
         ? (Number.isFinite(poiTerrainFt)
             ? `POI-Einsatzparameter: targetAltFt (MSL) darf NICHT unter ${Math.round(poiTerrainFt + 500)} ft liegen, weil am POI mindestens 500 ft AGL gelten. targetRadiusNm (2 präzise Punkte, 3 Stadtgebiet, 4-5 Landschaft), targetDwellMin (0 Überflug, 1-2 kurz, 3-5 professionell).`
@@ -15710,7 +15756,7 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
         : '';
     const routeRule = poiLikeTask
         ? (isSarHeliLegacy
-            ? `SAR-HELI-REGEL: Start in ${startName}, Such-/Fundstelle "${promptDestName}" anfliegen, dort nach Sichtkontakt landen oder unter 10 m stabil hovern, Patient aufnehmen und danach zum medizinischen Ziel "${sarHeliContext?.hospitalRef?.name || 'Krankenhaus-Helipad/Fallback-Handoff'}" fliegen. Nicht als Rundflug oder Rueckkehr zum Start formulieren.`
+            ? `SAR-HELI-REGEL: Start in ${startName}, Such-/Fundstelle "${promptDestName}" anfliegen, dort nach Sichtkontakt landen oder stabil hovern, Patient aufnehmen und danach zum medizinischen Ziel "${sarHeliContext?.hospitalRef?.name || 'Krankenhaus-Helipad/Fallback-Handoff'}" fliegen. Nicht als Rundflug oder Rückkehr zum Start formulieren.`
             : `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.`)
         : (isBushMission
             ? (provisionalBushSpec?.completionMode === 'return_home'
@@ -18105,9 +18151,28 @@ async function generateMission() {
     if (missionIsSarHeliMission(currentMissionData)) {
         const sarHospital = currentMissionData?.sarHeli?.hospitalRef || {};
         const hospitalName = String(sarHospital.name || sarHospital.icao || 'Krankenhaus-Helipad/Fallback-Handoff').trim();
-        const recovery = currentMissionData?.sarHeli?.recovery || {};
-        const holdSec = Math.max(5, Math.round(Number(recovery.stableHoldSec || 20)));
-        const evacLine = `Evac-Hinweis: Nach Fundbestaetigung an der Fundstelle landen oder unter 10 m AGL stabil hovern, ${holdSec} Sekunden ruhig halten, Patient aufnehmen und danach direkt zum medizinischen Handoff ${hospitalName} weiterfliegen. Die Mission endet erst nach Landung und Stillstand dort.`;
+        const plan = currentMissionData?.missionPlanV2?.plan || currentMissionData?._missionPlanV2?.plan || {};
+        const frame = plan.storyFrame || {};
+        const scene = currentMissionData?.sceneIntent || {};
+        const visibleIdeas = [
+            ...(Array.isArray(scene.visibleIdeas) ? scene.visibleIdeas : []),
+            ...(Array.isArray(scene.visible) ? scene.visible : []),
+            ...(Array.isArray(frame.visibleClueCandidates) ? frame.visibleClueCandidates : [])
+        ].map(x => String(x || '').trim()).filter(Boolean);
+        const situationBits = [
+            frame.probableScenario,
+            frame.incidentContext,
+            scene.summary,
+            scene.environment ? `Umfeld: ${scene.environment}` : ''
+        ].map(x => String(x || '').trim()).filter(Boolean);
+        const lageLine = [
+            situationBits.length ? `Lagebild: ${situationBits.slice(0, 2).join(' ')}` : '',
+            visibleIdeas.length ? `Erwartete Hinweise: ${Array.from(new Set(visibleIdeas)).slice(0, 3).join('; ')}.` : ''
+        ].filter(Boolean).join(' ');
+        if (lageLine && !/Lagebild:/i.test(storyForBriefing)) {
+            storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${lageLine}`;
+        }
+        const evacLine = `Evac-Hinweis: Nach Fundbestätigung an der Fundstelle landen oder stabil hovern, Patient aufnehmen und danach direkt zum medizinischen Handoff ${hospitalName} weiterfliegen. Die Mission endet nach sicherer Übergabe am Ziel.`;
         if (!/Evac-Hinweis/i.test(storyForBriefing)) {
             storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${evacLine}`;
         }
