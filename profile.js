@@ -4050,18 +4050,23 @@ window.vpBuildMissionPhaseDebugReport = function() {
         return 'A -> B';
     })();
     const validation = {
-        targetReached: hasEvent('ground_action', (p) => p.atTarget === true) || !!sarHeliProgress?.targetConfirmed,
+        targetReached: hasEvent('ground_action', (p) => p.atTarget === true)
+            || hasEvent('sar_heli_progress', (p) => p.targetConfirmed === true)
+            || !!sarHeliProgress?.targetConfirmed,
         taskEntered: hasEvent(null, (_, entry) => {
             return (entry.kind === 'bush_progress' && (entry.payload?.to === 'on_task' || entry.payload?.to === 'pickup_ready' || entry.payload?.to === 'pickup_loading' || entry.payload?.to === 'pickup_complete'))
-                || (entry.kind === 'ground_action' && ['on_task', 'pickup_ready', 'pickup_loading', 'pickup_complete'].includes(String(entry.payload?.phase || '')));
+                || (entry.kind === 'ground_action' && ['on_task', 'pickup_ready', 'pickup_loading', 'pickup_complete'].includes(String(entry.payload?.phase || '')))
+                || (entry.kind === 'sar_heli_progress' && (entry.payload?.targetConfirmed || entry.payload?.holdReady || entry.payload?.patientLoaded));
         }) || !!(sarHeliProgress?.targetConfirmed || sarHeliProgress?.holdReadyAnnounced || sarHeliProgress?.patientLoaded),
         returnLegReached: hasEvent(null, (_, entry) => {
             return (entry.kind === 'bush_progress' && entry.payload?.to === 'return_leg')
-                || (entry.kind === 'ground_action' && String(entry.payload?.phase || '') === 'return_leg');
+                || (entry.kind === 'ground_action' && String(entry.payload?.phase || '') === 'return_leg')
+                || (entry.kind === 'sar_heli_progress' && entry.payload?.patientLoaded === true);
         }) || !!sarHeliProgress?.patientLoaded,
         readyToCloseReached: hasEvent(null, (_, entry) => {
             return (entry.kind === 'bush_progress' && entry.payload?.to === 'ready_to_close')
-                || (entry.kind === 'ground_action' && String(entry.payload?.phase || '') === 'ready_to_close');
+                || (entry.kind === 'ground_action' && String(entry.payload?.phase || '') === 'ready_to_close')
+                || (entry.kind === 'sar_heli_progress' && entry.payload?.readyToClose === true);
         }) || !!sarHeliProgress?.readyToClose,
         simEndTriggered: hasEvent('trigger', (p) => p.name === 'completeSimMissionEnd'),
         farewellTriggered: hasEvent('trigger', (p) => p.name === '_triggerPaxFarewellAndWaitForDeboard:started'),

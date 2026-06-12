@@ -6562,14 +6562,33 @@ function _persistSarHeliProgress(next = null, reason = 'sar-heli-progress') {
     if (!_missionSceneIsSarHeliMission()) return null;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (!md) return null;
+    const prev = { ...(_activeSarHeliProgress() || _sarHeliInitialProgress()) };
     const progress = {
-        ...(_activeSarHeliProgress() || _sarHeliInitialProgress()),
+        ...prev,
         ...(next && typeof next === 'object' ? next : {}),
         lastUpdatedAt: Date.now()
     };
     md.sarHeliProgress = progress;
     if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.sarHeliProgress = progress;
     if (window.activeMissionContract && typeof window.activeMissionContract === 'object') window.activeMissionContract.sarHeliProgress = progress;
+    try {
+        const statusChanged = String(prev.status || '') !== String(progress.status || '');
+        const targetChanged = !!prev.targetConfirmed !== !!progress.targetConfirmed;
+        const loadedChanged = !!prev.patientLoaded !== !!progress.patientLoaded;
+        const readyChanged = !!prev.readyToClose !== !!progress.readyToClose;
+        if (statusChanged || targetChanged || loadedChanged || readyChanged) {
+            _missionPhaseDebugPush('sar_heli_progress', {
+                from: String(prev.status || 'unknown'),
+                to: String(progress.status || 'unknown'),
+                trigger: reason,
+                targetConfirmed: !!progress.targetConfirmed,
+                holdReady: !!progress.holdReadyAnnounced,
+                holdSec: Math.round(Number(progress.holdSec || 0)),
+                patientLoaded: !!progress.patientLoaded,
+                readyToClose: !!progress.readyToClose
+            });
+        }
+    } catch (_) {}
     try {
         if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot(reason, { immediate: true });
         else if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
@@ -6642,13 +6661,17 @@ window.missionSarHeliConfirmTarget = function(reason = 'manual') {
     if (!_missionSceneIsSarHeliMission()) return false;
     const progress = _activeSarHeliProgress() || _sarHeliInitialProgress();
     if (progress.patientLoaded) return true;
-    _persistSarHeliProgress({
+    const wasConfirmed = !!progress.targetConfirmed;
+    const next = _persistSarHeliProgress({
         ...progress,
         status: 'recovery_pending',
         targetConfirmed: true,
         targetConfirmedAt: progress.targetConfirmedAt || Date.now(),
         targetConfirmedReason: String(reason || 'manual')
     }, `sar-heli-confirm-${reason}`);
+    if (!wasConfirmed) {
+        try { window.triggerPaxSarHeliFoundConfirmed?.({ reason, progress: next }); } catch (_) {}
+    }
     return true;
 };
 

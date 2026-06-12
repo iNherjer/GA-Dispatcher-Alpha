@@ -2777,15 +2777,18 @@ window.paxMissionReportTargetFound = function() {
         _poiManuallyConfirmed = true;
         _poiLastTickTime = Date.now();
         if (!_poiEnteredAt) _poiEnteredAt = _poiLastTickTime;
+        let confirmed = false;
         try {
-            if (typeof window.missionSarHeliConfirmTarget === 'function') window.missionSarHeliConfirmTarget('manual-found');
+            if (typeof window.missionSarHeliConfirmTarget === 'function') confirmed = !!window.missionSarHeliConfirmTarget('manual-found');
             if (typeof saveMissionState === 'function') saveMissionState();
             if (typeof window.missionPersistRuntimeSnapshot === 'function') window.missionPersistRuntimeSnapshot('sar-heli-manual-confirmed', { immediate: true });
         } catch (_) {}
         _paxLog(`SAR-Heli-Fundmeldung bestaetigt | dist ${Number(ctx.confirmDistNm || 0).toFixed(2)} NM <= ${ctx.confirmRangeNm.toFixed(2)} NM`, 'event');
         _refreshPaxWidgetVisibility();
-        if (typeof window.triggerPaxSarHeliFoundConfirmed === 'function') window.triggerPaxSarHeliFoundConfirmed(ctx);
-        else _paxSpeakTextDirect('Fund bestaetigt. Bitte landen oder unter 10 Meter stabil hovern, damit wir die Person aufnehmen koennen.', 'Fund bestaetigt');
+        if (!confirmed) {
+            if (typeof window.triggerPaxSarHeliFoundConfirmed === 'function') window.triggerPaxSarHeliFoundConfirmed(ctx);
+            else _paxSpeakTextDirect('Fund bestaetigt. Bitte landen oder stabil hovern, damit wir die Person aufnehmen koennen.', 'Fund bestaetigt');
+        }
         return;
     }
     _poiInRadius = true;
