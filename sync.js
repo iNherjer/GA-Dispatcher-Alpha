@@ -6105,7 +6105,7 @@ function _updateMissionStartBanner() {
         && groundReady
         && !missionRuntime.active
         && !dismissed;
-    const show = showClose || showDeboarding || showEnd || showPickup || showStart;
+    const show = showClose || showEnd || showPickup || showStart;
     banner.style.display = show ? 'flex' : 'none';
     if (!show) return;
     if (btn) btn.disabled = false;
@@ -6368,7 +6368,7 @@ function _updateMissionRuntimeUi() {
     const bAuto = document.getElementById('missionAutoStartBtn');
     const bMap = document.getElementById('mapMissionToggleBtn');
     if (bStart) bStart.disabled = missionRuntime.active;
-    if (bEnd) bEnd.disabled = !missionRuntime.active;
+    if (bEnd) bEnd.disabled = !missionRuntime.active || deboardingBusy;
     if (bAuto) {
         bAuto.style.display = 'none';
         bAuto.disabled = true;

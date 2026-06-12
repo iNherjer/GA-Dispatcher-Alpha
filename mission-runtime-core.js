@@ -589,6 +589,9 @@ function _triggerPaxFarewellAndWaitForDeboard(record, reason = 'pax-farewell') {
     const farewellRecord = _missionFarewellRecordWithCargoOutcome(record);
     missionRuntime.waitingFarewellDeboarding = true;
     missionRuntime.deboardingAfterFarewellStarted = false;
+    if (typeof _updateMissionRuntimeUi === 'function') {
+        try { _updateMissionRuntimeUi(); } catch (_) {}
+    }
     try {
         window.triggerPaxFarewell(farewellRecord);
         _missionPhaseDebugPush('trigger', { name: '_triggerPaxFarewellAndWaitForDeboard:started', reason });
@@ -620,5 +623,8 @@ window.missionSceneStartDeboardingAfterFarewell = function(reason = 'pax-farewel
     if (!missionRuntime.waitingFarewellDeboarding) return false;
     if (missionRuntime.deboardingAfterFarewellStarted) return false;
     missionRuntime.deboardingAfterFarewellStarted = true;
+    if (typeof _updateMissionRuntimeUi === 'function') {
+        try { _updateMissionRuntimeUi(); } catch (_) {}
+    }
     return _missionSceneFinishRuntimeAfterDeboard(reason);
 };

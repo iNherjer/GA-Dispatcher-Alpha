@@ -14300,7 +14300,7 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
 	            noLandingAtPoi: false,
 	            requiresRescueAtPoi: true
 	        };
-	        const recoveryDetail = 'SAR-Heli: Nach Fundbestätigung Landung oder stabiler Hover an der Fundstelle, danach Patient aufnehmen und zum medizinischen Handoff fliegen.';
+	        const recoveryDetail = 'SAR-Heli: Nach Fundbestätigung ruhige Aufnahme an der Fundstelle, danach direkter Weiterflug zum medizinischen Handoff.';
 	        base.plan.operationalDetails = Array.from(new Set([
 	            recoveryDetail,
 	            ...(Array.isArray(base.plan.operationalDetails) ? base.plan.operationalDetails : [])
@@ -14311,7 +14311,7 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
 	            'medizinischer Handoff nach Aufnahme'
 	        ])).slice(0, 6);
 	        base.plan.completionSignal = _missionPipelineV3Text(
-	            'Nach der stabilen Aufnahme wird der Patient zum Krankenhaus-Helipad oder medizinischen Fallback-Handoff geflogen.',
+	            'Nach der Aufnahme geht der Flug direkt zum Krankenhaus-Helipad oder medizinischen Fallback-Handoff.',
 	            220
 	        );
 	        if (base.plan.storyFrame && typeof base.plan.storyFrame === 'object') {
@@ -14613,6 +14613,7 @@ Regeln:
 5. sceneIntent beschreibt sichtbare, semantische Dinge am Ziel oder begruendet, warum keine Zielszene entstehen soll. Keine Asset-Namen.
 6. Wenn sceneKind="none", dann sceneIntent sehr sparsam halten: keine Zielszene, visibleIdeas=[], densityHint="none".
 7. Bei POI niemals Landung am Ziel andeuten, ausser CONTRACT.sarHeli.enabled ist true; dann muss der SAR-Heli-Ablauf mit Fundstelle, Landung/Hover-Aufnahme und medizinischem Handoff beschrieben werden.
+7a. Bei SAR-Heli darf die Story keinen separaten "Evac-Hinweis" und keine technischen Hoehen-/Zeitvorgaben enthalten. Erzaehle die Bergung und den medizinischen Weiterflug als natuerlichen Teil des Briefings.
 8. Das Zielsubjekt und die TaskDomain bleiben bindend; Kontext darf nur anreichern, nicht umwidmen.
 9. Benannte Nebenanker nur dann prominent nutzen, wenn sie in CONTRACT.semantics als Kontextrolle plausibel bleiben.
 10. Die Story muss einen klaren Story-Frame aus CONTRACT.storyFrame transportieren: Trigger, Fokus-Subjekt, offene Frage, Stakes und Abschluss/Handoff.
@@ -14631,6 +14632,7 @@ Regeln:
 23. Vermeide reine Dispatcher-Floskeln wie "wir machen heute Fotos", "wir fliegen heute eine Inspektion" oder "wir suchen das Gebiet ab", wenn kein genauer Anlass, kein betroffenes Subjekt und keine Folgeentscheidung benannt werden.
 24. Antworte in natuerlichen, vollstaendigen Saetzen; keine Aufzaehlung einzelner Lagefragmente als Kurzsaetze.
 25. CONTRACT.storyFrame-Felder sind Rohmaterial, keine Satzliste. Formuliere sie zu 4-5 fluessigen Saetzen um, statt jedes Feld einzeln aneinanderzureihen.
+25a. Vermeide Satzstarts, die nach Formularfeldern klingen: "Zuletzt...", "Der letzte...", "Die Meldung...", "Aus der Luft liefern wir...". Baue daraus eine zusammenhaengende Einsatzgeschichte.
 26. Wenn subjectDetail bereits ein ganzer Satz ist, schreibe nicht "Gesucht wird nach ..." davor. Nutze dann eine passende eigene Formulierung.
 27. Schreibe alle frei formulierten Texte auf Deutsch. Eigennamen, ICAO-Kuerzel und feststehende Ortsnamen duerfen unveraendert bleiben.
 28. Antwort nur als JSON.
@@ -15024,6 +15026,135 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}) {
     ].join(' ');
 }
 
+function _missionPipelineV4SarHeliSubjectLabel(frame = {}) {
+    const incidentId = missionSarCanonicalIncidentType(frame.incidentType || '');
+    const byIncident = {
+        missing_hiker: 'eine vermisste Person',
+        fallen_climber: 'einen abgestürzten Bergsteiger',
+        missing_kayaker: 'einen überfälligen Kajakfahrer',
+        angler_missing: 'einen vermissten Angler',
+        small_boat_overdue: 'eine überfällige Bootsbesatzung',
+        vehicle_off_road: 'eine Person an einem verunfallten Fahrzeug',
+        road_collision: 'eine verletzte Person an der Unfallstelle',
+        riverside_vehicle_entry: 'eine Person nach einem Fahrzeug-Wasser-Kontakt'
+    };
+    return byIncident[incidentId] || 'eine vermisste oder verletzte Person';
+}
+
+function _missionPipelineV4CleanSarHeliBriefingInput(text = '') {
+    return String(text || '')
+        .replace(/\bN\/A\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .replace(/^(Lagebild|Evac-Hinweis|Erwartete Hinweise)\s*:\s*/i, '')
+        .trim();
+}
+
+function _missionPipelineV4SarHeliContextSentence(text = '', targetName = '') {
+    const parts = _missionPipelineV4SentenceParts(_missionPipelineV4CleanSarHeliBriefingInput(text));
+    const clean = _missionPipelineV4CleanSarHeliBriefingInput(parts[0] || text);
+    if (!clean) return '';
+    if (/^zuletzt\s+/i.test(clean)) {
+        let rest = clean
+            .replace(/^zuletzt\s+/i, '')
+            .replace(/\s+gemeldet.*$/i, '')
+            .replace(/\s+gesichtet.*$/i, '')
+            .trim();
+        rest = rest
+            .replace(/^im Bereich\b/i, 'in den Bereich')
+            .replace(/^am Bereich\b/i, 'an den Bereich');
+        return `Die letzte belastbare Meldung führt ${rest || `in den Bereich ${targetName}`}; seitdem fehlt der direkte Kontakt.`;
+    }
+    if (/^der letzte\s+(funkkontakt|kontakt|sichtkontakt|blickkontakt)\b/i.test(clean)) {
+        return _missionPipelineV4EnsureSentence(clean.replace(/^Der letzte/i, 'Der letzte belastbare'));
+    }
+    return _missionPipelineV4EnsureSentence(clean);
+}
+
+function _missionPipelineV4SarHeliScenarioSentence(text = '') {
+    const clean = _missionPipelineV4CleanSarHeliBriefingInput(text);
+    if (!clean) return '';
+    if (/^nach aktuellem bild\b/i.test(clean)) return _missionPipelineV4EnsureSentence(clean);
+    return _missionPipelineV4EnsureSentence(`Nach aktuellem Bild ${_missionPipelineV4LowerFirst(clean)}`);
+}
+
+function _missionPipelineV4SarHeliClues(contract = {}) {
+    const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
+    const plan = contract?.missionPlan?.plan || contract?.plan || {};
+    const scene = contract?.sceneIntent || plan.sceneIntent || {};
+    const visibleIdeas = [
+        ...(Array.isArray(frame.visibleClueCandidates) ? frame.visibleClueCandidates : []),
+        ...(Array.isArray(scene.visibleIdeas) ? scene.visibleIdeas : []),
+        ...(Array.isArray(scene.visible) ? scene.visible : [])
+    ].map(_missionPipelineV4CleanSarHeliBriefingInput).filter(Boolean);
+    return Array.from(new Set(visibleIdeas)).slice(0, 3);
+}
+
+function _missionPipelineV4ComposeSarHeliStory(contract = {}, sourceStory = '') {
+    const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
+    const targetName = String(contract?.target?.name || contract?.route?.targetName || 'dem Einsatzgebiet').trim() || 'dem Einsatzgebiet';
+    const sarHeli = contract?.sarHeli || {};
+    const hospitalName = String(sarHeli?.hospitalRef?.name || sarHeli?.hospitalRef?.icao || 'dem medizinischen Handoff').trim();
+    const subject = _missionPipelineV4SarHeliSubjectLabel(frame);
+    const lastSeenSentence = _missionPipelineV4SarHeliContextSentence(frame.lastSeenContext || frame.incidentContext || sourceStory, targetName);
+    const scenarioSentence = _missionPipelineV4SarHeliScenarioSentence(frame.probableScenario || '');
+    const whyNow = _missionPipelineV4CleanSarHeliBriefingInput(frame.whyNow || frame.stakes || '');
+    const sought = _missionPipelineV4CleanSarHeliBriefingInput(frame.soughtOutcome || frame.keyQuestion || '');
+    const clues = _missionPipelineV4SarHeliClues(contract);
+    const sentences = [];
+    _missionPipelineV4PushUniqueSentence(
+        sentences,
+        `Im Bereich ${targetName} läuft eine SAR-Heli-Bergung für ${subject}.`
+    );
+    if (lastSeenSentence) _missionPipelineV4PushUniqueSentence(sentences, lastSeenSentence, 4);
+    if (scenarioSentence) _missionPipelineV4PushUniqueSentence(sentences, scenarioSentence, 4);
+    const decisionText = sought || 'den genauen Fundort und die sicherste Bergungsseite';
+    const nowText = whyNow || 'die Bodenteams brauchen vor dem Einstieg ins Gelände eine klare Luftentscheidung';
+    _missionPipelineV4PushUniqueSentence(
+        sentences,
+        `${_missionPipelineV4StripSentenceEnd(nowText)}; für sie zählt jetzt ${_missionPipelineV4LowerFirst(decisionText)}.`
+    );
+    const clueText = clues.length
+        ? `Aus dem Cockpit achten wir besonders auf ${_missionPipelineV4JoinNaturalList(clues)}, bevor wir die Aufnahme an der Fundstelle freigeben.`
+        : 'Nach der Fundbestätigung folgt eine ruhige Aufnahme an der Fundstelle, ohne zum Startplatz zurückzukehren.';
+    _missionPipelineV4PushUniqueSentence(sentences, clueText);
+    _missionPipelineV4PushUniqueSentence(
+        sentences,
+        `Nach der Aufnahme geht der Flug direkt zum medizinischen Handoff ${hospitalName}.`
+    );
+    return sentences.filter(Boolean).slice(0, 5).join(' ');
+}
+
+function missionSarHeliBuildBriefingNarrative(missionData = null, sourceStory = '') {
+    const md = (missionData && typeof missionData === 'object')
+        ? missionData
+        : ((typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null);
+    if (!md || !missionIsSarHeliMission(md)) return String(sourceStory || '').trim();
+    const baseContract = md.missionContractV4
+        || md.missionPlanV4
+        || md._missionPlanV4
+        || md.missionContract?.missionContractV4
+        || window.activeMissionContract?.missionContractV4
+        || md.missionContract
+        || {};
+    const plan = md.missionPlanV2?.plan || md._missionPlanV2?.plan || baseContract?.missionPlan?.plan || {};
+    const contract = {
+        ...baseContract,
+        target: {
+            ...(baseContract.target || {}),
+            name: md.poiName || md.targetName || baseContract?.target?.name || baseContract?.route?.targetName || ''
+        },
+        profile: {
+            ...(baseContract.profile || {}),
+            taskDomain: baseContract?.profile?.taskDomain || md.passenger?.taskDomain || 'search_and_rescue'
+        },
+        storyFrame: baseContract.storyFrame || plan.storyFrame || {},
+        sarHeli: md.sarHeli || baseContract.sarHeli || null,
+        sceneIntent: md.sceneIntent || baseContract.sceneIntent || plan.sceneIntent || null
+    };
+    return _missionPipelineV4ComposeSarHeliStory(contract, sourceStory);
+}
+window.missionSarHeliBuildBriefingNarrative = missionSarHeliBuildBriefingNarrative;
+
 function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, storyText = '') {
     const pax = (passenger && typeof passenger === 'object') ? passenger : {};
     const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
@@ -15075,11 +15206,15 @@ function _missionPipelineV4FinalizeGreeting(passenger = {}, contract = {}, story
 function _missionPipelineV4FinalizeStory(story = '', contract = {}) {
     const raw = String(story || '').trim();
     const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
+    const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
+    if (contract?.sarHeli?.enabled && taskDomain === 'search_and_rescue') {
+        const sarHeliStory = _missionPipelineV4ComposeSarHeliStory(contract, raw);
+        if (sarHeliStory) return sarHeliStory;
+    }
     if (!raw) return _missionPipelineV4ComposeStoryFallback(contract);
     if (_missionPipelineV4LooksEnglish(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
     if (_missionPipelineV4LooksInternalMissionText(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
     if (_missionPipelineV4LooksFragmentedStory(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
-    const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
     if (taskDomain === 'search_and_rescue' && (
         _missionPipelineV4SarTextConflictsIncidentType(raw, frame.incidentType)
         || _missionPipelineV4SarTextConflictsIncidentFamily(raw, frame.incidentType)
@@ -18272,33 +18407,8 @@ async function generateMission() {
         storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Ankunfts-Hinweis: ${arrivalHint}`;
     }
     if (missionIsSarHeliMission(currentMissionData)) {
-        const sarHospital = currentMissionData?.sarHeli?.hospitalRef || {};
-        const hospitalName = String(sarHospital.name || sarHospital.icao || 'Krankenhaus-Helipad/Fallback-Handoff').trim();
-        const plan = currentMissionData?.missionPlanV2?.plan || currentMissionData?._missionPlanV2?.plan || {};
-        const frame = plan.storyFrame || {};
-        const scene = currentMissionData?.sceneIntent || {};
-        const visibleIdeas = [
-            ...(Array.isArray(scene.visibleIdeas) ? scene.visibleIdeas : []),
-            ...(Array.isArray(scene.visible) ? scene.visible : []),
-            ...(Array.isArray(frame.visibleClueCandidates) ? frame.visibleClueCandidates : [])
-        ].map(x => String(x || '').trim()).filter(Boolean);
-        const situationBits = [
-            frame.probableScenario,
-            frame.incidentContext,
-            scene.summary,
-            scene.environment ? `Umfeld: ${scene.environment}` : ''
-        ].map(x => String(x || '').trim()).filter(Boolean);
-        const lageLine = [
-            situationBits.length ? `Lagebild: ${situationBits.slice(0, 2).join(' ')}` : '',
-            visibleIdeas.length ? `Erwartete Hinweise: ${Array.from(new Set(visibleIdeas)).slice(0, 3).join('; ')}.` : ''
-        ].filter(Boolean).join(' ');
-        if (lageLine && !/Lagebild:/i.test(storyForBriefing)) {
-            storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${lageLine}`;
-        }
-        const evacLine = `Evac-Hinweis: Nach Fundbestätigung an der Fundstelle landen oder stabil hovern, Patient aufnehmen und danach direkt zum medizinischen Handoff ${hospitalName} weiterfliegen. Die Mission endet nach sicherer Übergabe am Ziel.`;
-        if (!/Evac-Hinweis/i.test(storyForBriefing)) {
-            storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${evacLine}`;
-        }
+        const sarHeliBriefing = missionSarHeliBuildBriefingNarrative(currentMissionData, storyForBriefing);
+        if (sarHeliBriefing) storyForBriefing = sarHeliBriefing;
     }
     document.getElementById("mStory").innerText = storyForBriefing;
     document.getElementById("mDepICAO").innerText = currentStartICAO;
