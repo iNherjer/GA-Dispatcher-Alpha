@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v259';
-const TRACKER_VERSION_CODE = 259;
+const TRACKER_VERSION = 'v260';
+const TRACKER_VERSION_CODE = 260;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -558,22 +558,21 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
     let ok = false;
     if (openDoor) {
-      ok = setNamedVarFromCandidates(latchVars, 1, ['number', 'Bool', 'bool'], `${reason}-latch-unlock-1`) || ok;
-      ok = setNamedVarFromCandidates(latchVars, 0, ['number', 'Bool', 'bool'], `${reason}-latch-unlock-0`) || ok;
+      ok = setNamedVarFromCandidates(latchVars, 1, ['number', 'Bool', 'bool'], `${reason}-latch-unlock`) || ok;
       await sleep(80);
       ok = setNamedVarFromCandidates(handleVars, 1, ['Bool', 'bool', 'number'], `${reason}-handle-open`) || ok;
-      ok = setNamedVarFromCandidates(openVars, 1, ['Bool', 'bool', 'number', 'percent'], `${reason}-openvar-1`) || ok;
+      ok = setNamedVarFromCandidates(openVars, 1, ['Bool', 'bool', 'number'], `${reason}-openvar-bool`) || ok;
+      ok = setNamedVarFromCandidates(openVars, 100, ['percent'], `${reason}-openvar-percent`) || ok;
       await sleep(80);
-      ok = setNamedVarFromCandidates(exitVars, 100, ['percent', 'number', 'Bool', 'bool'], `${reason}-exit-open-100`) || ok;
-      ok = setNamedVarFromCandidates(exitVars, 1, ['Bool', 'bool', 'number'], `${reason}-exit-open-1`) || ok;
+      ok = setNamedVarFromCandidates(exitVars, 1, ['Bool', 'bool', 'number'], `${reason}-exit-open-bool`) || ok;
+      ok = setNamedVarFromCandidates(exitVars, 100, ['percent'], `${reason}-exit-open-percent`) || ok;
     } else {
       ok = setNamedVarFromCandidates(handleVars, 0, ['Bool', 'bool', 'number'], `${reason}-handle-close`) || ok;
       ok = setNamedVarFromCandidates(openVars, 0, ['Bool', 'bool', 'number', 'percent'], `${reason}-openvar-0`) || ok;
       await sleep(70);
       ok = setNamedVarFromCandidates(exitVars, 0, ['percent', 'number', 'Bool', 'bool'], `${reason}-exit-close`) || ok;
       await sleep(70);
-      ok = setNamedVarFromCandidates(latchVars, 1, ['number', 'Bool', 'bool'], `${reason}-latch-lock-1`) || ok;
-      ok = setNamedVarFromCandidates(latchVars, 0, ['number', 'Bool', 'bool'], `${reason}-latch-lock-0`) || ok;
+      ok = setNamedVarFromCandidates(latchVars, 0, ['number', 'Bool', 'bool'], `${reason}-latch-lock`) || ok;
     }
     debugLog(`A2A_DOOR_LVAR_${action}_DONE profile=${profile} doorIndex=${doorIndex} status=${ok ? 'ok' : 'error'} reason=${reason}`);
     return ok;
@@ -598,8 +597,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const candidates = buildGenericExitOpenCandidates(doorIndex);
     let ok = false;
     candidates.forEach((name) => {
-      ok = setNamedVarValue(name, valuePrimary, 'percent', `${reason}-simvar-percent`) || ok;
       ok = setNamedVarValue(name, valueBool, 'number', `${reason}-simvar-number`) || ok;
+      ok = setNamedVarValue(name, valueBool, 'Bool', `${reason}-simvar-bool`) || ok;
+      ok = setNamedVarValue(name, valuePrimary, 'percent', `${reason}-simvar-percent`) || ok;
     });
     debugLog(`DOOR_GENERIC_SIMVAR_${openDoor ? 'OPEN' : 'CLOSE'} candidates=${candidates.join(',')} status=${ok ? 'ok' : 'error'} reason=${reason}`);
     await sleep(70);
@@ -639,19 +639,19 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const setPa24ComancheDoor = async (openDoor, doorIndex = 1, reason = 'boarding') => {
     const action = openDoor ? 'OPEN' : 'CLOSE';
     debugLog(`DOOR_PA24_${action}_START reason=${reason} doorIndex=${doorIndex}`);
-    let ok = true;
+    let ok = false;
 
     // Legacy custom events first (works for setups where PA24 key events are available).
     let eventOk = false;
     if (ensurePa24DoorEvents()) {
-      eventOk = sendDoorClientEvent(PA24_DOOR_UNLOCK_EVENT_ID, 1, 'PA24-door_latch_unlock', reason) || eventOk;
-      await sleep(120);
-      eventOk = sendDoorClientEvent(PA24_DOOR_HANDLE_EVENT_ID, 1, 'PA24-door_handle_open', reason) || eventOk;
-      if (!openDoor) {
+      if (openDoor) {
+        eventOk = sendDoorClientEvent(PA24_DOOR_UNLOCK_EVENT_ID, 1, 'PA24-door_latch_unlock', reason) || eventOk;
         await sleep(120);
+        eventOk = sendDoorClientEvent(PA24_DOOR_HANDLE_EVENT_ID, 1, 'PA24-door_handle_open', reason) || eventOk;
+      } else {
         eventOk = sendDoorClientEvent(PA24_DOOR_LOCK_EVENT_ID, 1, 'PA24-door_latch_lock', reason) || eventOk;
       }
-      ok = eventOk && ok;
+      ok = eventOk || ok;
     }
 
     // LVar fallback path for A2A aircraft (works without PA24 custom key-event mapping).
