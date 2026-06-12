@@ -2051,6 +2051,9 @@ async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = 
         heading: document.getElementById('mHeadingNote').innerText
       },
       paxLog: paxVoiceGetLogEntries(),
+      targetScenePreview: (typeof window.missionTargetSceneDebugPreview === 'function')
+        ? window.missionTargetSceneDebugPreview('dryrun-report-preview')
+        : null,
       dryrunState: {
         targetType: document.getElementById('targetType').value || '',
         targetTypeRadio: document.getElementById('targetTypeRadio').value || '',
@@ -2295,6 +2298,7 @@ async function main() {
       aptArrivalPlan: md.aptArrivalPlan || null,
       missionTruth: md.missionTruth || null,
       targetSceneComposerDebug: md.targetSceneComposerDebug || null,
+      targetScenePreview: r.targetScenePreview || null,
       dryrunState: r.dryrunState || null,
       passenger: r.passenger,
       briefing: r.briefing,
