@@ -739,6 +739,7 @@ SAR-Unterlogik innerhalb dieses Rezepts:
 - Die Zielkategorie wird innerhalb des Profils bewusst balanciert. Wald, Wasser und Berg duerfen gegenueber Strassen leicht bevorzugt werden, weil Strassen in den POI-Daten sehr haeufig sind. Diese Gewichtung muss mild bleiben; sie darf keine neue Wasser- oder Naturdominanz erzeugen.
 - Die V4-Semantik darf SAR-Zielkategorien nicht grober machen als noetig. Insbesondere bleibt `road` eine Road-/Traffic-Kategorie und darf nicht zu `generic` fallen, weil sonst generische Land-Incidents wie Luftfahrzeuglagen faelschlich erlaubt werden.
 - Vor der Incident-Wahl wird eine Lage-Evidenz aus Zielkategorie, `targetGeoContext`, `missionTruth`, sichtbaren Ankern und Verlauf gebildet.
+- Nach dem Ziel-/Kategorie-Lock wird genau eine SAR-Decision gebildet. StoryFrame, SceneProfile, Objektfamilien und Writer-Contract muessen auf dieser Entscheidung aufbauen; es darf keinen zweiten unabhaengigen Incident-Wurf in einem spaeteren Schritt geben.
 - Diese Lage-Evidenz ist primaer; Verlauf/History ist nur Varianz-Tiebreaker. Ein starker Verkehrsraum darf nicht nur wegen History in generische Personensuche kippen.
 - SAR ist nicht automatisch Vermisstensuche. Moegliche Incident-Familien sind u.a. Personensuche, verletzte Person, Verkehrsunfall, Fahrzeug abseits der Strasse, Wasser-/Bootslage und vermisstes Luftfahrzeug.
 - Die gewaehlte Incident-Familie muss durchgängig bleiben:

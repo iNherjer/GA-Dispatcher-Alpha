@@ -12625,7 +12625,7 @@ function missionSarIncidentGuidance(category = '', targetLabel = '', context = {
 }
 window.missionSarIncidentGuidance = missionSarIncidentGuidance;
 
-function missionSarPickIncidentType(category = '', targetLabel = '', suggestedIncidentType = '', context = {}) {
+function missionSarSelectIncidentType(category = '', targetLabel = '', suggestedIncidentType = '', context = {}, options = {}) {
     const guidance = missionSarIncidentGuidance(category, targetLabel, context);
     const uniqueAllowed = guidance.allowedIncidentTypes;
     if (!uniqueAllowed.length) return 'missing_hiker';
@@ -12639,9 +12639,15 @@ function missionSarPickIncidentType(category = '', targetLabel = '', suggestedIn
     if (suggested && pool.includes(suggested) && Math.random() < 0.35) pool = [suggested, ...pool];
 
     const selected = pool[Math.floor(Math.random() * pool.length)] || uniqueAllowed[0];
-    missionSarWriteIncidentHistory(keys.exact, exactHistory.filter(id => uniqueAllowed.includes(id)).concat(selected), Math.max(6, uniqueAllowed.length * 2));
-    missionSarWriteIncidentHistory(keys.family, familyHistory.concat(missionSarIncidentFamily(selected)), 10);
+    if (options?.writeHistory !== false) {
+        missionSarWriteIncidentHistory(keys.exact, exactHistory.filter(id => uniqueAllowed.includes(id)).concat(selected), Math.max(6, uniqueAllowed.length * 2));
+        missionSarWriteIncidentHistory(keys.family, familyHistory.concat(missionSarIncidentFamily(selected)), 10);
+    }
     return selected;
+}
+
+function missionSarPickIncidentType(category = '', targetLabel = '', suggestedIncidentType = '', context = {}) {
+    return missionSarSelectIncidentType(category, targetLabel, suggestedIncidentType, context, { writeHistory: true });
 }
 window.missionSarPickIncidentType = missionSarPickIncidentType;
 
@@ -12718,6 +12724,39 @@ function missionSarIncidentSceneProfile(incidentType = '', { category = '', targ
     return profiles[id] || null;
 }
 window.missionSarIncidentSceneProfile = missionSarIncidentSceneProfile;
+
+function missionPipelineV4SarDecision({
+    semantics = null,
+    plan = {},
+    resolvedNeeds = {},
+    suggestedIncidentType = '',
+    writeHistory = true
+} = {}) {
+    if (String(semantics?.focusLock?.taskDomain || plan?.taskDomain || '').toLowerCase() !== 'search_and_rescue') return null;
+    const category = String(semantics?.focusLock?.targetCategory || plan?.targetCategory || '').trim();
+    const targetLabel = String(semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || '').trim();
+    const context = {
+        geoContext: resolvedNeeds?.geo_context || null,
+        missionTruth: resolvedNeeds?.mission_truth || null
+    };
+    const incidentType = missionSarSelectIncidentType(
+        category,
+        targetLabel,
+        suggestedIncidentType,
+        context,
+        { writeHistory }
+    );
+    const incidentFrame = _missionPipelineV4BuildSarIncident({ category, targetLabel, incidentType });
+    const sceneProfile = missionSarIncidentSceneProfile(incidentType, { category, targetLabel });
+    return {
+        incidentType,
+        category,
+        targetLabel,
+        incidentFrame,
+        sceneProfile,
+        guidance: missionSarIncidentGuidance(category, targetLabel, context)
+    };
+}
 
 function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel = 'Ziel', incidentType = '' } = {}) {
     const cat = String(category || 'generic').toLowerCase();
@@ -13013,7 +13052,7 @@ function _missionPipelineV4BuildSarIncident({ category = 'generic', targetLabel 
     return _missionPipelineV4PickEntry(pool) || landFamilies[0];
 }
 
-function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolvedNeeds = {}) {
+function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolvedNeeds = {}, options = {}) {
     const taskDomain = String(semantics?.focusLock?.taskDomain || plan?.taskDomain || 'general').toLowerCase();
     const targetLabel = String(semantics?.focusLock?.primarySubjectLabel || plan?.targetLabel || 'Ziel').trim() || 'Ziel';
     const category = String(semantics?.focusLock?.targetCategory || plan?.targetCategory || 'generic').toLowerCase();
@@ -13035,7 +13074,11 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
         soughtOutcome: 'Wir sollen einen klaren Erstbefund liefern, damit der naechste Schritt geordnet ausgelost werden kann.'
     };
     if (taskDomain === 'search_and_rescue') {
-        const incident = _missionPipelineV4BuildSarIncident({ category, targetLabel });
+        const incident = options?.sarDecision?.incidentFrame || _missionPipelineV4BuildSarIncident({
+            category,
+            targetLabel,
+            incidentType: options?.sarDecision?.incidentType || ''
+        });
         return {
             trigger: category === 'water'
                 ? String(incident.trigger || `Rund um ${targetLabel} wird eine Wasser- oder Uferlage abgeklaert; die Leitstelle braucht jetzt ein schnelles Luftlagebild.`)
@@ -13333,9 +13376,9 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
     return base;
 }
 
-function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNeeds = {}) {
+function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNeeds = {}, options = {}) {
     const rawFrame = (plan.storyFrame && typeof plan.storyFrame === 'object') ? plan.storyFrame : {};
-    const defaults = _missionPipelineV4NarrativeDefaults(plan, semantics, resolvedNeeds);
+    const defaults = _missionPipelineV4NarrativeDefaults(plan, semantics, resolvedNeeds, options);
     return {
         trigger: _missionPipelineV3Text(rawFrame.trigger || plan.missionTrigger || defaults.trigger, 220),
         focusSubject: _missionPipelineV3Text(rawFrame.focusSubject || plan.focusSubject || defaults.focusSubject, 140),
@@ -13368,6 +13411,14 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         targetName: base?.plan?.targetLabel || draft?.target?.name || '',
         missionTruth: resolvedNeeds?.mission_truth || null
     });
+    const rawSarIncidentType = rawPlan?.storyFrame?.incidentType || base?.plan?.storyFrame?.incidentType || '';
+    const sarDecision = missionPipelineV4SarDecision({
+        semantics,
+        plan: base.plan,
+        resolvedNeeds,
+        suggestedIncidentType: rawSarIncidentType,
+        writeHistory: true
+    });
     const storyFrame = _missionPipelineV4BuildStoryFrame({
         ...base.plan,
         missionTrigger: rawPlan.missionTrigger,
@@ -13376,7 +13427,7 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         missionStakes: rawPlan.missionStakes,
         completionSignal: rawPlan.completionSignal,
         storyFrame: rawPlan.storyFrame
-    }, semantics, resolvedNeeds);
+    }, semantics, resolvedNeeds, { sarDecision });
     base.pipelineVersion = MISSION_PIPELINE_V4_PLANNER_VERSION;
     base.plan = {
         ...base.plan,
@@ -13433,7 +13484,7 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         ].join(' ');
         const sarFrameLooksEnglish = _missionPipelineV4LooksEnglish(sarFrameText);
         const sarFrameConflictsIncident = _missionPipelineV4SarTextConflictsIncidentFamily(sarFrameText, canonicalSarIncident);
-        const selectedSarIncident = missionSarPickIncidentType(
+        const selectedSarIncident = sarDecision?.incidentType || missionSarPickIncidentType(
             semantics.focusLock.targetCategory || base.plan.targetCategory || '',
             semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || '',
             canonicalSarIncident,
@@ -13470,7 +13521,7 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
                     : storyFrame.visibleClueCandidates;
             }
         }
-        const sarProfile = missionSarIncidentSceneProfile(storyFrame.incidentType, {
+        const sarProfile = sarDecision?.sceneProfile || missionSarIncidentSceneProfile(storyFrame.incidentType, {
             category: semantics.focusLock.targetCategory || base.plan.targetCategory || '',
             targetLabel: semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || ''
         });
@@ -13532,8 +13583,8 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     });
     const sarIncidentGuidance = semanticsRules?.focusLock?.taskDomain === 'search_and_rescue'
         ? missionSarIncidentGuidance(
-            draft?.category || context.selectedCategory || 'generic',
-            draft?.target?.name || context.dest?.n || '',
+            semanticsRules.focusLock.targetCategory || draft?.category || context.selectedCategory || 'generic',
+            semanticsRules.focusLock.primarySubjectLabel || draft?.target?.name || context.dest?.n || '',
             {
                 geoContext: geo || null,
                 missionTruth: truth || working.missionTruth || context.missionTruth || null
@@ -13710,7 +13761,14 @@ function buildMissionContractV4({
         targetName: plannerContext.dest?.n || '',
         missionTruth: plannerResult?.resolvedNeeds?.mission_truth || plannerContext.missionTruth || null
     });
-    const storyFrame = _missionPipelineV4BuildStoryFrame(plan?.plan || {}, semantics, plannerResult?.resolvedNeeds || {});
+    const sarDecision = missionPipelineV4SarDecision({
+        semantics,
+        plan: plan?.plan || {},
+        resolvedNeeds: plannerResult?.resolvedNeeds || {},
+        suggestedIncidentType: plan?.plan?.storyFrame?.incidentType || '',
+        writeHistory: false
+    });
+    const storyFrame = _missionPipelineV4BuildStoryFrame(plan?.plan || {}, semantics, plannerResult?.resolvedNeeds || {}, { sarDecision });
     return {
         pipelineVersion: MISSION_PIPELINE_V4_VERSION,
         status: String(plan?.status || 'invalid'),
