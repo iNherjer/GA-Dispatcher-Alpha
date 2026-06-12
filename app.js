@@ -2110,8 +2110,9 @@ let currentDepFreq = "";
 let currentDestFreq = "";
 let currentDepElev = null;
 let currentDestElev = null;
-let globalAirports = null, runwayCache = {}, freqCache = {};
+let globalAirports = null, globalMedicalHelipads = null, runwayCache = {}, freqCache = {};
 let globalAirportsLoadPromise = null;
+let globalMedicalHelipadsLoadPromise = null;
 const openAipAirportDispatchCache = new Map();
 window.drumCache = {};
 
@@ -3171,9 +3172,11 @@ function _sarHeliDistanceNm(lat1, lon1, lat2, lon2) {
 function _sarHeliMedicalTextScore(text = '') {
     const t = String(text || '').toLowerCase();
     let score = 0;
-    if (/(krankenhaus|klinikum|hospital|clinic|medical center|medizin|notaufnahme|rettungszentrum|trauma)/.test(t)) score += 80;
+    if (/(krankenhaus|klinikum|hospital|clinic|medical center|medizin|notaufnahme|rettungszentrum|trauma|helios|\bkrhs\b|\blkh\b|\bkh\b|uniklinik|universitaetsklinikum|universitatsklinikum|spital|bgu|charite|asklepios|sana|malteser|johanniter)/.test(t)) score += 80;
+    if (/(helios|notaufnahme|trauma|uniklinik|universitaetsklinikum|universitatsklinikum|klinikum|charite|bgu)/.test(t)) score += 35;
+    if (/(\bkrhs\b|\blkh\b|\bkh\b|spital|asklepios|sana|malteser|johanniter)/.test(t)) score += 20;
     if (/(helipad|heliport|helistop|helideck|hubschrauber|rettungshubschrauber|air ambulance|luftrettung)/.test(t)) score += 65;
-    if (/(rescue|rettung|ems|medevac|emergency)/.test(t)) score += 25;
+    if (/(rescue|rettung|\bems\b|medevac|emergency)/.test(t)) score += 25;
     return score;
 }
 
@@ -3202,7 +3205,7 @@ function _sarHeliNormalizeHospitalCandidate(raw = null, origin = null, source = 
         raw.country
     ].filter(Boolean).join(' ');
     const distNm = origin ? _sarHeliDistanceNm(origin.lat, origin.lon, lat, lon) : null;
-    const isHospital = amenity === 'hospital' || healthcare === 'hospital' || /(krankenhaus|klinikum|hospital|clinic|medical center|notaufnahme|trauma)/i.test(text);
+    const isHospital = amenity === 'hospital' || healthcare === 'hospital' || /(krankenhaus|klinikum|hospital|clinic|medical center|notaufnahme|trauma|helios|\bkrhs\b|\blkh\b|\bkh\b|uniklinik|universitaetsklinikum|universitatsklinikum|spital|bgu|charite|asklepios|sana|malteser|johanniter)/i.test(text);
     const isHeli = /^(helipad|heliport)$/.test(aeroway) || /(helipad|heliport|helistop|hubschrauber|air ambulance|luftrettung)/i.test(text);
     const kind = isHospital && isHeli
         ? 'hospital_helipad'
@@ -3210,6 +3213,8 @@ function _sarHeliNormalizeHospitalCandidate(raw = null, origin = null, source = 
     const medicalScore = _sarHeliMedicalTextScore(text);
     const baseScore = (isHospital && isHeli ? 240 : (isHospital ? 170 : (isHeli ? 120 : 35))) + medicalScore;
     const distancePenalty = Number.isFinite(distNm) ? Math.min(140, distNm * 1.4) : 0;
+    const sourceBoost = source === 'medical-helipads' || source === 'openaip' ? 90 : 0;
+    const confidenceBoost = Number.isFinite(Number(raw.confidence)) ? Math.max(0, Math.min(40, Number(raw.confidence) * 40)) : 0;
     return {
         kind,
         source,
@@ -3219,9 +3224,98 @@ function _sarHeliNormalizeHospitalCandidate(raw = null, origin = null, source = 
         lon,
         elevation: Number.isFinite(Number(raw.elevation ?? raw.elevFt)) ? Math.round(Number(raw.elevation ?? raw.elevFt)) : null,
         distanceNm: Number.isFinite(distNm) ? Math.round(distNm * 10) / 10 : null,
-        score: Math.round((baseScore - distancePenalty) * 10) / 10,
-        tags: Object.keys(tags).length ? tags : null
+        score: Math.round((baseScore + sourceBoost + confidenceBoost - distancePenalty) * 10) / 10,
+        tags: Object.keys(tags).length ? tags : null,
+        sourceUrl: raw.sourceUrl || ''
     };
+}
+
+async function loadMedicalHelipads() {
+    if (globalMedicalHelipads && Array.isArray(globalMedicalHelipads.items)) return;
+    if (globalMedicalHelipadsLoadPromise) {
+        await globalMedicalHelipadsLoadPromise;
+        return;
+    }
+
+    const isValidMedicalHelipadSet = (parsed) => {
+        if (!parsed || typeof parsed !== 'object') return false;
+        return parsed.schema === 'ga.medicalHelipads.v1' && Array.isArray(parsed.items);
+    };
+
+    const tryParseResponse = async (res) => {
+        if (!res || !res.ok) return null;
+        try {
+            const parsed = await res.json();
+            return isValidMedicalHelipadSet(parsed) ? parsed : null;
+        } catch (_) {
+            return null;
+        }
+    };
+
+    globalMedicalHelipadsLoadPromise = (async () => {
+        if (window.location && window.location.protocol === 'file:') {
+            globalMedicalHelipads = null;
+            return;
+        }
+        const urls = [
+            './medical-helipads.json',
+            'medical-helipads.json',
+            '/medical-helipads.json',
+            `./medical-helipads.json?t=${Date.now()}`
+        ];
+        if (typeof caches !== 'undefined' && caches && typeof caches.match === 'function') {
+            for (const url of urls) {
+                try {
+                    const parsed = await tryParseResponse(await caches.match(url, { ignoreSearch: true }));
+                    if (parsed) {
+                        globalMedicalHelipads = parsed;
+                        return;
+                    }
+                } catch (_) {}
+            }
+        }
+        for (const url of urls) {
+            try {
+                const parsed = await tryParseResponse(await fetch(url, { cache: 'default' }));
+                if (parsed) {
+                    globalMedicalHelipads = parsed;
+                    return;
+                }
+            } catch (_) {}
+        }
+        for (const url of urls) {
+            try {
+                const parsed = await tryParseResponse(await fetch(url, { cache: 'reload' }));
+                if (parsed) {
+                    globalMedicalHelipads = parsed;
+                    return;
+                }
+            } catch (_) {}
+        }
+        globalMedicalHelipads = null;
+    })().finally(() => {
+        globalMedicalHelipadsLoadPromise = null;
+    });
+
+    await globalMedicalHelipadsLoadPromise;
+}
+
+async function _sarHeliStaticMedicalHelipadCandidates(origin, options = {}) {
+    await loadMedicalHelipads();
+    const items = Array.isArray(globalMedicalHelipads?.items) ? globalMedicalHelipads.items : [];
+    const radiusNm = Math.max(10, Number(options.staticRadiusNm || options.radiusNm || 120));
+    return items
+        .map(item => _sarHeliNormalizeHospitalCandidate({
+            ...item,
+            tags: {
+                ...(item.tags || {}),
+                name: item.name || '',
+                aeroway: 'helipad',
+                amenity: String(item.kind || '').includes('hospital') ? 'hospital' : ''
+            }
+        }, origin, item.source || 'medical-helipads'))
+        .filter(c => c && c.kind !== 'airport_fallback')
+        .filter(c => Number.isFinite(Number(c.distanceNm)) ? Number(c.distanceNm) <= radiusNm : true);
 }
 
 async function _sarHeliFetchOverpassHospitalCandidates(lat, lon, radiusM = 85000) {
@@ -3263,6 +3357,11 @@ out center tags 80;`;
 async function resolveSarHeliHospitalRef(targetLat, targetLon, options = {}) {
     const origin = { lat: Number(targetLat), lon: Number(targetLon) };
     if (!Number.isFinite(origin.lat) || !Number.isFinite(origin.lon)) return null;
+    const staticCandidates = await _sarHeliStaticMedicalHelipadCandidates(origin, options);
+    if (staticCandidates.length) {
+        return staticCandidates
+            .sort((a, b) => (Number(b.score || 0) - Number(a.score || 0)) || (Number(a.distanceNm || Infinity) - Number(b.distanceNm || Infinity)))[0];
+    }
     const overpassElements = await _sarHeliFetchOverpassHospitalCandidates(origin.lat, origin.lon, options.radiusM || 85000);
     const overpassCandidates = overpassElements
         .map(el => _sarHeliNormalizeHospitalCandidate(el, origin, 'overpass'))

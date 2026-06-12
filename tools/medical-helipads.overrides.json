@@ -1,0 +1,25 @@
+{
+  "schema": "ga.medicalHelipads.overrides.v1",
+  "items": [
+    {
+      "id": "manual-de-bw-helios-klinik-rottweil",
+      "name": "HELIOS Klinik Rottweil",
+      "lat": 48.1654267,
+      "lon": 8.6126921,
+      "elevation": null,
+      "country": "DE",
+      "region": "DE-BW",
+      "city": "Rottweil",
+      "kind": "hospital_site",
+      "source": "manual-osm-nominatim",
+      "sourceUrl": "https://www.openstreetmap.org/relation/2017234",
+      "confidence": 0.65,
+      "tags": {
+        "amenity": "hospital",
+        "operator": "Helios",
+        "handoff": "medical"
+      },
+      "notes": "Seeded for SAR Heli handoff near Rottweil. Dedicated helipad position should be upgraded when an open authoritative helipad source is available."
+    }
+  ]
+}

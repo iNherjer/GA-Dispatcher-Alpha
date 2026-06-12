@@ -1498,6 +1498,9 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
     if (href.includes('airports.json')) {
       return responseJson(JSON.parse(fs.readFileSync(path.join(root, 'airports.json'), 'utf8')));
     }
+    if (href.includes('medical-helipads.json')) {
+      return responseJson(JSON.parse(fs.readFileSync(path.join(root, 'medical-helipads.json'), 'utf8')));
+    }
     if (href.includes('api.open-elevation.com')) return responseJson({ results: [{ elevation: 420 }] });
     if (
       href.includes('aviationweather.gov')
