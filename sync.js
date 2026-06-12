@@ -464,6 +464,17 @@ function _mapAutoZoomStrengthOffset(strengthPct, baseZoom) {
     return 0;
 }
 
+function getMapAutoZoomPlanReference() {
+    const tas = Number(document.getElementById('tasSlider')?.value);
+    const mapAlt = Number(document.getElementById('altMapInput')?.textContent);
+    const sliderAlt = Number(document.getElementById('altSlider')?.value);
+    const cruiseAlt = Number.isFinite(mapAlt) ? mapAlt : sliderAlt;
+    return {
+        tasKts: Number.isFinite(tas) ? _clampMapAutoZoomNumber(tas, 80, 300) : 115,
+        cruiseAltFt: Number.isFinite(cruiseAlt) ? Math.max(1000, cruiseAlt) : 4500
+    };
+}
+
 function computeMapAutoZoomTargetZoom(gsKts, altFt) {
     const gs = _clampMapAutoZoomNumber(gsKts, 0, 240);
     const fd = window.lastLiveFlightData || {};
@@ -478,10 +489,18 @@ function computeMapAutoZoomTargetZoom(gsKts, altFt) {
     const speedStage = _mapAutoZoomStageForValue(gs, MAP_AUTOZOOM_SPEED_STAGES);
     const altitudeStage = _mapAutoZoomStageForValue(altitudeRefFt, MAP_AUTOZOOM_ALTITUDE_STAGES);
     const grounded = onGround || gs < 8 || (hasAglReference && gs < 18 && altitudeRefFt < 250) || (!hasAglReference && gs < 18);
+    const planRef = getMapAutoZoomPlanReference();
 
     let baseZoom = grounded
         ? MAP_AUTOZOOM_MAX_ZOOM
         : Math.min(speedStage.zoom, altitudeStage.zoom);
+    if (!grounded) {
+        const speedProgress = _clampMapAutoZoomNumber((gs - 12) / Math.max(30, planRef.tasKts - 12), 0, 1);
+        const altitudeProgress = _clampMapAutoZoomNumber(altitudeRefFt / Math.max(1000, planRef.cruiseAltFt), 0, 1);
+        const cruiseProgress = _clampMapAutoZoomNumber(speedProgress * 0.55 + altitudeProgress * 0.45, 0, 1);
+        const planZoom = Math.round(MAP_AUTOZOOM_MAX_ZOOM - cruiseProgress * (MAP_AUTOZOOM_MAX_ZOOM - 10));
+        baseZoom = Math.min(baseZoom, planZoom);
+    }
     if (!grounded && altitudeRefFt < 500) {
         baseZoom = Math.max(baseZoom, 14);
     } else if (!grounded && altitudeRefFt < 1500) {
@@ -505,6 +524,8 @@ function computeMapAutoZoomTargetZoom(gsKts, altFt) {
         gs,
         aglFt: Number.isFinite(aglFt) ? Math.round(aglFt) : null,
         altitudeRefFt: Math.round(altitudeRefFt),
+        planTasKts: Math.round(planRef.tasKts),
+        planCruiseAltFt: Math.round(planRef.cruiseAltFt),
         strength
     };
 }
@@ -582,8 +603,6 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode, options 
 
     const sinceLastAutoZoom = now - lastMapAutoZoomAppliedAt;
     const force = options.force === true;
-    if (!force && window.vpMapInteractionActive && !isAutoFollowProgrammaticMapMove(now) && sinceLastAutoZoom > 900) return false;
-
     const sample = computeMapAutoZoomTargetZoom(gsKts, altFt);
     sample.currentZoom = currentZoom;
     sample.t = now;
@@ -10151,11 +10170,63 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         lastTrailPoint = [lat, lon];
     }
 
-    // --- FEATURE 2: AUTO-FOLLOW ---
+    let autoFollowGs = curGs;
+
+    // --- FEATURE 2: TELEMETRY (GS & VS) ---
+    if (lastGpsTickDetails) {
+        const dt = (now - lastGpsTickDetails.t) / 1000; // Sekunden
+        if (dt > 1.0) { // UI-Update-Schutz & Smoothing (ca. 1 Sekunde)
+            const distM = map.distance([lastGpsTickDetails.lat, lastGpsTickDetails.lon], [lat, lon]);
+            const calcGs = (distM / dt) * 1.94384;
+            const simGs = Number(window.lastLiveFlightData?.gsKts ?? window.lastLiveFlightData?.gs);
+            const gs = Number.isFinite(simGs) ? simGs : calcGs;
+            const vs = ((alt - lastGpsTickDetails.alt) / dt) * 60;
+            autoFollowGs = Number.isFinite(gs) ? gs : autoFollowGs;
+
+            const box = document.getElementById('liveTelemetryBox');
+            if (box) {
+                box.style.display = (window.simModeActive || isMapHintOn('telemetry', true)) ? 'block' : 'none';
+                const gsEl = document.getElementById('teleGS');
+                const vsEl = document.getElementById('teleVS');
+                if (gsEl) gsEl.textContent = gs.toFixed(1);
+                if (vsEl) {
+                    vsEl.textContent = Math.round(vs);
+                    vsEl.style.color = vs > 100 ? 'var(--green)' : (vs < -100 ? 'var(--red)' : '#fff');
+                }
+                // AGL wird in updateLivePlanePosition weiter unten gesetzt (nach bestIdx-Suche)
+            }
+            const nextInfo = updateNextWpTelemetry(lat, lon);
+            updateRouteProgressBar(lat, lon, gs, nextInfo);
+            updateCurrentInfoTelemetry(lat, lon, alt);
+            // Smoothed GS/VS for prediction (EMA alpha=0.3)
+            smoothedGS = smoothedGS === 0 ? gs : smoothedGS * 0.7 + gs * 0.3;
+            smoothedVS = smoothedVS === 0 ? vs : smoothedVS * 0.7 + vs * 0.3;
+
+            // Auto-HDG: Bei erster echter GPS-Bewegung HDG-Modus aktivieren (nicht im Sim-Modus)
+            if (smoothedGS > 20 && !window._hdgAutoActivated
+                && !window.simModeActive
+                && typeof vpMode !== 'undefined' && vpMode === 'ROUTE'
+                && typeof vpToggleMode === 'function') {
+                window._hdgAutoActivated = true;
+                vpToggleMode();
+            }
+
+            // Update last info for speed calculation
+            lastGpsTickDetails = { lat, lon, alt, t: now };
+            window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now, gs: autoFollowGs };
+        }
+    } else {
+        lastGpsTickDetails = { lat, lon, alt, t: now };
+        const nextInfo = updateNextWpTelemetry(lat, lon);
+        updateRouteProgressBar(lat, lon, curGs, nextInfo);
+        updateCurrentInfoTelemetry(lat, lon, alt);
+    }
+
+    // --- FEATURE 3: AUTO-FOLLOW ---
     const lowFpsMode = isLowFpsModeActive();
     if (isAutoFollow) {
         const autoFollowViewApplied = applyAutoFollowViewNow({
-            sample: { lat, lon, alt, gs: curGs, now, lowFpsMode },
+            sample: { lat, lon, alt, gs: autoFollowGs, now, lowFpsMode },
             panFallback: false
         });
         if (autoFollowViewApplied) {
@@ -10176,54 +10247,6 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
                 lastAutoFollowPanPos = [lat, lon];
             }
         }
-    }
-
-    // --- FEATURE 3: TELEMETRY (GS & VS) ---
-    if (lastGpsTickDetails) {
-        const dt = (now - lastGpsTickDetails.t) / 1000; // Sekunden
-        if (dt > 1.0) { // UI-Update-Schutz & Smoothing (ca. 1 Sekunde)
-            const distM = map.distance([lastGpsTickDetails.lat, lastGpsTickDetails.lon], [lat, lon]);
-            const calcGs = (distM / dt) * 1.94384;
-            const simGs = Number(window.lastLiveFlightData?.gsKts ?? window.lastLiveFlightData?.gs);
-            const gs = Number.isFinite(simGs) ? simGs : calcGs;
-            const vs = ((alt - lastGpsTickDetails.alt) / dt) * 60;
-
-            const box = document.getElementById('liveTelemetryBox');
-            if (box) {
-                box.style.display = (window.simModeActive || isMapHintOn('telemetry', true)) ? 'block' : 'none';
-                const gsEl = document.getElementById('teleGS');
-                const vsEl = document.getElementById('teleVS');
-                if (gsEl) gsEl.textContent = gs.toFixed(1);
-                if (vsEl) {
-                    vsEl.textContent = Math.round(vs);
-                    vsEl.style.color = vs > 100 ? 'var(--green)' : (vs < -100 ? 'var(--red)' : '#fff');
-                }
-                // AGL wird in updateLivePlanePosition weiter unten gesetzt (nach bestIdx-Suche)
-            }
-            const nextInfo = updateNextWpTelemetry(lat, lon);
-            updateRouteProgressBar(lat, lon, gs, nextInfo);
-            updateCurrentInfoTelemetry(lat, lon, alt);
-            // Smoothed GS/VS for prediction (EMA α=0.3)
-            smoothedGS = smoothedGS === 0 ? gs : smoothedGS * 0.7 + gs * 0.3;
-            smoothedVS = smoothedVS === 0 ? vs : smoothedVS * 0.7 + vs * 0.3;
-
-            // Auto-HDG: Bei erster echter GPS-Bewegung HDG-Modus aktivieren (nicht im Sim-Modus)
-            if (smoothedGS > 20 && !window._hdgAutoActivated
-                && !window.simModeActive
-                && typeof vpMode !== 'undefined' && vpMode === 'ROUTE'
-                && typeof vpToggleMode === 'function') {
-                window._hdgAutoActivated = true;
-                vpToggleMode();
-            }
-
-            // Update last info for speed calculation
-            lastGpsTickDetails = { lat, lon, alt, t: now };
-        }
-    } else {
-        lastGpsTickDetails = { lat, lon, alt, t: now };
-        const nextInfo = updateNextWpTelemetry(lat, lon);
-        updateRouteProgressBar(lat, lon, curGs, nextInfo);
-        updateCurrentInfoTelemetry(lat, lon, alt);
     }
 
     // --- PREDICTION VECTORS ---
