@@ -361,6 +361,8 @@ const MAP_AUTOZOOM_MIN_STRENGTH = 25;
 const MAP_AUTOZOOM_MAX_STRENGTH = 125;
 const MAP_AUTOZOOM_MIN_ZOOM = 8;
 const MAP_AUTOZOOM_MAX_ZOOM = 15;
+const MAP_AUTOZOOM_ZOOM_SNAP = 0.25;
+const MAP_AUTOZOOM_MIN_APPLY_DELTA = 0.12;
 const MAP_AUTOZOOM_SPEED_STAGES = [
     { max: 18, zoom: 15, label: 'Boden' },
     { max: 60, zoom: 14, label: 'Langsam/niedrig' },
@@ -382,6 +384,7 @@ let lastMapAutoZoomTargetZoom = null;
 let lastMapAutoZoomSample = null;
 let mapAutoFollowProgrammaticMoveUntil = 0;
 let autoFollowMapInteractionBound = false;
+let mapAutoZoomFractionalZoomConfigured = false;
 
 function _clampMapAutoZoomNumber(value, min, max) {
     const n = Number(value);
@@ -437,7 +440,16 @@ function clampAutoZoomForMap(zoom) {
         if (Number.isFinite(mapMin)) minZoom = Math.max(minZoom, mapMin);
         if (Number.isFinite(mapMax)) maxZoom = Math.min(maxZoom, mapMax);
     }
-    return Math.round(_clampMapAutoZoomNumber(zoom, minZoom, maxZoom));
+    const clampedZoom = _clampMapAutoZoomNumber(zoom, minZoom, maxZoom);
+    return Math.round(clampedZoom / MAP_AUTOZOOM_ZOOM_SNAP) * MAP_AUTOZOOM_ZOOM_SNAP;
+}
+
+function ensureMapAutoZoomFractionalZoom() {
+    if (mapAutoZoomFractionalZoomConfigured) return;
+    if (typeof map === 'undefined' || !map || !map.options) return;
+    map.options.zoomSnap = Math.min(Number(map.options.zoomSnap) || 1, MAP_AUTOZOOM_ZOOM_SNAP);
+    map.options.zoomDelta = Math.min(Number(map.options.zoomDelta) || 1, 0.5);
+    mapAutoZoomFractionalZoomConfigured = true;
 }
 
 function _mapAutoZoomStageForValue(value, stages) {
@@ -455,13 +467,31 @@ function _mapAutoZoomPhaseForZoom(zoom) {
     return 'Schnell/hoch';
 }
 
-function _mapAutoZoomStrengthOffset(strengthPct, baseZoom) {
-    if (baseZoom >= MAP_AUTOZOOM_MAX_ZOOM) return 0;
-    if (strengthPct >= 115) return -2;
-    if (strengthPct >= 90) return -1;
-    if (strengthPct <= 35) return 2;
-    if (strengthPct <= 55) return 1;
-    return 0;
+function _mapAutoZoomSmoothstep(value) {
+    const t = _clampMapAutoZoomNumber(value, 0, 1);
+    return t * t * (3 - 2 * t);
+}
+
+function _mapAutoZoomLerp(a, b, t) {
+    return a + (b - a) * _clampMapAutoZoomNumber(t, 0, 1);
+}
+
+function _mapAutoZoomStrengthFactor(strengthPct) {
+    const centered = (strengthPct - MAP_AUTOZOOM_DEFAULT_STRENGTH) / (MAP_AUTOZOOM_MAX_STRENGTH - MAP_AUTOZOOM_DEFAULT_STRENGTH);
+    return _clampMapAutoZoomNumber(1 + centered * 0.45, 0.55, 1.45);
+}
+
+function _mapAutoZoomLowAltitudeFloor(altitudeRefFt) {
+    if (altitudeRefFt < 500) {
+        return _mapAutoZoomLerp(14.75, 14, _mapAutoZoomSmoothstep(altitudeRefFt / 500));
+    }
+    if (altitudeRefFt < 1500) {
+        return _mapAutoZoomLerp(14, 13, _mapAutoZoomSmoothstep((altitudeRefFt - 500) / 1000));
+    }
+    if (altitudeRefFt < 2500) {
+        return _mapAutoZoomLerp(13, 12, _mapAutoZoomSmoothstep((altitudeRefFt - 1500) / 1000));
+    }
+    return MAP_AUTOZOOM_MIN_ZOOM;
 }
 
 function getMapAutoZoomPlanReference() {
@@ -491,27 +521,17 @@ function computeMapAutoZoomTargetZoom(gsKts, altFt) {
     const grounded = onGround || gs < 8 || (hasAglReference && gs < 18 && altitudeRefFt < 250) || (!hasAglReference && gs < 18);
     const planRef = getMapAutoZoomPlanReference();
 
-    let baseZoom = grounded
-        ? MAP_AUTOZOOM_MAX_ZOOM
-        : Math.min(speedStage.zoom, altitudeStage.zoom);
+    let baseZoom = MAP_AUTOZOOM_MAX_ZOOM;
     if (!grounded) {
-        const speedProgress = _clampMapAutoZoomNumber((gs - 12) / Math.max(30, planRef.tasKts - 12), 0, 1);
-        const altitudeProgress = _clampMapAutoZoomNumber(altitudeRefFt / Math.max(1000, planRef.cruiseAltFt), 0, 1);
-        const cruiseProgress = _clampMapAutoZoomNumber(speedProgress * 0.55 + altitudeProgress * 0.45, 0, 1);
-        const planZoom = Math.round(MAP_AUTOZOOM_MAX_ZOOM - cruiseProgress * (MAP_AUTOZOOM_MAX_ZOOM - 10));
-        baseZoom = Math.min(baseZoom, planZoom);
+        const speedProgress = _mapAutoZoomSmoothstep((gs - 12) / Math.max(30, planRef.tasKts - 12));
+        const altitudeProgress = _mapAutoZoomSmoothstep(altitudeRefFt / Math.max(1000, planRef.cruiseAltFt));
+        const cruiseProgress = _clampMapAutoZoomNumber(speedProgress * 0.58 + altitudeProgress * 0.42, 0, 1);
+        const zoomOutRange = MAP_AUTOZOOM_MAX_ZOOM - 10;
+        const rawZoomOut = cruiseProgress * zoomOutRange * _mapAutoZoomStrengthFactor(strength);
+        const lowAltitudeFloor = _mapAutoZoomLowAltitudeFloor(altitudeRefFt);
+        baseZoom = Math.max(MAP_AUTOZOOM_MAX_ZOOM - rawZoomOut, lowAltitudeFloor);
     }
-    if (!grounded && altitudeRefFt < 500) {
-        baseZoom = Math.max(baseZoom, 14);
-    } else if (!grounded && altitudeRefFt < 1500) {
-        baseZoom = Math.max(baseZoom, 13);
-    }
-    const minStageZoom = Math.max(MAP_AUTOZOOM_MIN_ZOOM, baseZoom - 2);
-    const maxStageZoom = Math.min(MAP_AUTOZOOM_MAX_ZOOM, baseZoom + 2);
-    const targetZoom = grounded
-        ? MAP_AUTOZOOM_MAX_ZOOM
-        : _clampMapAutoZoomNumber(baseZoom + _mapAutoZoomStrengthOffset(strength, baseZoom), minStageZoom, maxStageZoom);
-    const clampedTargetZoom = clampAutoZoomForMap(targetZoom);
+    const clampedTargetZoom = clampAutoZoomForMap(baseZoom);
 
     return {
         targetZoom: clampedTargetZoom,
@@ -549,10 +569,13 @@ window.refreshMapAutoZoomUi = function() {
             status.textContent = 'Follow aus';
         } else if (lastMapAutoZoomSample) {
             const currentZoom = Number.isFinite(lastMapAutoZoomSample.currentZoom)
-                ? `Z${lastMapAutoZoomSample.currentZoom.toFixed(0)}`
+                ? `Z${lastMapAutoZoomSample.currentZoom.toFixed(1)}`
                 : 'Z--';
+            const targetZoom = Number.isFinite(lastMapAutoZoomSample.targetZoom)
+                ? lastMapAutoZoomSample.targetZoom.toFixed(1)
+                : '--';
             const phase = lastMapAutoZoomSample.targetPhase || lastMapAutoZoomSample.phase || '';
-            status.textContent = `${currentZoom} -> Z${lastMapAutoZoomSample.targetZoom}${phase ? ` ${phase}` : ''}`;
+            status.textContent = `${currentZoom} -> Z${targetZoom}${phase ? ` ${phase}` : ''}`;
         } else {
             status.textContent = 'Bereit';
         }
@@ -598,6 +621,7 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode, options 
     if (typeof map === 'undefined' || !map || typeof map.getZoom !== 'function') return false;
     if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return false;
 
+    ensureMapAutoZoomFractionalZoom();
     const currentZoom = Number(map.getZoom());
     if (!Number.isFinite(currentZoom)) return false;
 
@@ -608,23 +632,34 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode, options 
     sample.t = now;
     lastMapAutoZoomSample = sample;
 
-    const targetZoomChanged = lastMapAutoZoomTargetZoom !== null && sample.targetZoom !== lastMapAutoZoomTargetZoom;
+    const targetZoomChanged = lastMapAutoZoomTargetZoom !== null
+        && Math.abs(sample.targetZoom - lastMapAutoZoomTargetZoom) >= MAP_AUTOZOOM_ZOOM_SNAP;
     const zoomDelta = Math.abs(sample.targetZoom - currentZoom);
-    const minZoomDelta = lastMapAutoZoomTargetZoom === null ? 0.5 : 0.75;
+    const minZoomDelta = force ? 0 : MAP_AUTOZOOM_MIN_APPLY_DELTA;
     if (!force && !targetZoomChanged && zoomDelta < minZoomDelta) {
         if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
         return false;
     }
 
-    const minIntervalMs = lowFpsMode ? 2600 : 1600;
+    const minIntervalMs = lowFpsMode ? 1100 : 650;
     if (!force && !targetZoomChanged && sinceLastAutoZoom < minIntervalMs) return false;
 
     try {
+        let appliedZoom = sample.targetZoom;
+        if (!force) {
+            const direction = sample.targetZoom >= currentZoom ? 1 : -1;
+            const rawStep = zoomDelta * (lowFpsMode ? 0.28 : 0.36);
+            const minStep = Math.min(zoomDelta, MAP_AUTOZOOM_ZOOM_SNAP);
+            const maxStep = lowFpsMode ? 0.5 : 0.75;
+            const step = direction * Math.min(maxStep, Math.max(minStep, rawStep));
+            appliedZoom = clampAutoZoomForMap(currentZoom + step);
+        }
+        sample.appliedZoom = appliedZoom;
         markAutoFollowProgrammaticMapMove(now);
         if (typeof map.setView === 'function') {
-            map.setView([lat, lon], sample.targetZoom, { animate: false });
+            map.setView([lat, lon], appliedZoom, { animate: false });
         } else if (typeof map.setZoom === 'function') {
-            map.setZoom(sample.targetZoom, { animate: false });
+            map.setZoom(appliedZoom, { animate: false });
         }
         lastMapAutoZoomAppliedAt = now;
         lastMapAutoZoomTargetZoom = sample.targetZoom;
