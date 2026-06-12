@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v263';
-const TRACKER_VERSION_CODE = 263;
+const TRACKER_VERSION = 'v264';
+const TRACKER_VERSION_CODE = 264;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -34,6 +34,8 @@ const PA24_DOOR_LOCK_EVENT_ID = 9368;
 const DOOR_OPEN_SINGLE_EVENT_ID = 9369;
 const DOOR_CLOSE_SINGLE_EVENT_ID = 9370;
 const PARKING_BRAKE_DEF_ID = 9371;
+const INPUT_EVENT_ENUM_REQUEST_ID = 9372;
+const PA24_LATCH_INPUT_EVENTS = ['LEVER_door_latch_2States_Toggle', 'B:LEVER_door_latch_2States_Toggle'];
 const CONSOLE_MODES = new Set(['status', 'full', 'quiet']);
 let consoleMode = 'status';
 let consoleStatusLine = '';
@@ -290,9 +292,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   let parkingBrakeDefReady = false;
   let doorEventsReady = false;
   let pa24DoorEventsReady = false;
+  let inputEventsEnumerating = false;
+  let inputEventsEnumerationDone = false;
   let doorLastAppliedState = null; // true=open, false=closed
   let doorLastAppliedAt = 0;
   let doorLastApplyOk = false;
+  const inputEventHashCache = new Map();
+  const pendingInputEventLookups = [];
 
   const enqueueSceneOperation = (sceneId, operation) => {
     const current = sceneOperationQueue.catch(() => {}).then(operation);
@@ -475,6 +481,106 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
   };
 
+  const normalizeInputEventName = (name) => String(name || '').trim().replace(/^B:/i, '').toLowerCase();
+
+  const findInputEventHash = (names = []) => {
+    const list = Array.isArray(names) ? names : [names];
+    for (const name of list) {
+      const hash = inputEventHashCache.get(normalizeInputEventName(name));
+      if (hash !== undefined && hash !== null) return hash;
+    }
+    return null;
+  };
+
+  const resolvePendingInputEventLookups = () => {
+    for (let i = pendingInputEventLookups.length - 1; i >= 0; i -= 1) {
+      const pending = pendingInputEventLookups[i];
+      const hash = findInputEventHash(pending.names);
+      if (hash !== null || inputEventsEnumerationDone) {
+        pendingInputEventLookups.splice(i, 1);
+        clearTimeout(pending.timer);
+        pending.resolve(hash);
+      }
+    }
+  };
+
+  const cacheInputEventDescriptors = (descriptors = []) => {
+    let added = 0;
+    descriptors.forEach((descriptor) => {
+      const name = String(descriptor?.name || '').trim();
+      const hash = descriptor?.inputEventIdHash;
+      if (!name || hash === undefined || hash === null) return;
+      const key = normalizeInputEventName(name);
+      if (!inputEventHashCache.has(key)) added++;
+      inputEventHashCache.set(key, hash);
+    });
+    return added;
+  };
+
+  const requestInputEventEnumeration = (reason = 'input-event') => {
+    if (inputEventsEnumerationDone || inputEventsEnumerating) return true;
+    if (typeof handle.enumerateInputEvents !== 'function') {
+      debugLog(`INPUT_EVENT_ENUM_UNSUPPORTED reason=${reason}`);
+      inputEventsEnumerationDone = true;
+      resolvePendingInputEventLookups();
+      return false;
+    }
+    try {
+      handle.enumerateInputEvents(INPUT_EVENT_ENUM_REQUEST_ID);
+      inputEventsEnumerating = true;
+      debugLog(`INPUT_EVENT_ENUM_REQUEST reason=${reason}`);
+      setTimeout(() => {
+        if (!inputEventsEnumerating) return;
+        inputEventsEnumerating = false;
+        inputEventsEnumerationDone = true;
+        debugLog(`INPUT_EVENT_ENUM_TIMEOUT cached=${inputEventHashCache.size} reason=${reason}`);
+        resolvePendingInputEventLookups();
+      }, 1600);
+      return true;
+    } catch (err) {
+      inputEventsEnumerating = false;
+      inputEventsEnumerationDone = true;
+      debugLog(`INPUT_EVENT_ENUM_ERROR reason=${reason} error=${err?.message || err}`);
+      resolvePendingInputEventLookups();
+      return false;
+    }
+  };
+
+  const resolveInputEventHash = async (names = [], reason = 'input-event') => {
+    const found = findInputEventHash(names);
+    if (found !== null) return found;
+    if (inputEventsEnumerationDone) return null;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        const index = pendingInputEventLookups.findIndex((pending) => pending.resolve === resolve);
+        if (index >= 0) pendingInputEventLookups.splice(index, 1);
+        resolve(findInputEventHash(names));
+      }, 1650);
+      pendingInputEventLookups.push({ names: Array.isArray(names) ? names : [names], resolve, timer });
+      requestInputEventEnumeration(reason);
+    });
+  };
+
+  const setInputEventByNameCandidates = async (names = [], value = 1, reason = 'input-event') => {
+    if (typeof handle.setInputEvent !== 'function') {
+      debugLog(`INPUT_EVENT_SET_UNSUPPORTED names=${(Array.isArray(names) ? names : [names]).join(',')} reason=${reason}`);
+      return false;
+    }
+    const hash = await resolveInputEventHash(names, reason);
+    if (hash === null || hash === undefined) {
+      debugLog(`INPUT_EVENT_HASH_MISSING names=${(Array.isArray(names) ? names : [names]).join(',')} reason=${reason}`);
+      return false;
+    }
+    try {
+      handle.setInputEvent(hash, value);
+      debugLog(`INPUT_EVENT_SET hash=${hash.toString()} value=${value} reason=${reason}`);
+      return true;
+    } catch (err) {
+      debugLog(`INPUT_EVENT_SET_ERROR hash=${hash.toString()} value=${value} reason=${reason} error=${err?.message || err}`);
+      return false;
+    }
+  };
+
   const ensureNamedVarSetDefinition = (name, units = 'number') => {
     const varName = String(name || '').trim();
     const unitName = String(units || 'number').trim() || 'number';
@@ -531,11 +637,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const useIndices = idx === 1 ? [1, 2] : [idx, 1, 2];
     const out = [];
     const nameVariants = (n) => {
-      const variants = [String(baseName || '') + String(n)];
+      const cleanBaseName = String(baseName || '');
+      const variants = [];
       // A2A Comanche often uses Door1Handle / Door1Latch (index in the middle).
-      if (/^Door.+Handle$/i.test(baseName)) variants.push(`Door${n}Handle`);
-      if (/^Door.+Latch$/i.test(baseName)) variants.push(`Door${n}Latch`);
-      if (/^ExitOpen$/i.test(baseName)) variants.push(`Exit${n}Open`);
+      if (/^Door.*Handle$/i.test(cleanBaseName)) variants.push(`Door${n}Handle`);
+      if (/^Door.*Latch$/i.test(cleanBaseName)) variants.push(`Door${n}Latch`);
+      if (/^ExitOpen$/i.test(cleanBaseName)) variants.push(`Exit${n}Open`);
+      variants.push(cleanBaseName + String(n));
       return uniqueStrings(variants);
     };
     useIndices.forEach((n) => {
@@ -559,17 +667,18 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const writeOpenPosition = Object.prototype.hasOwnProperty.call(opts, 'writeOpenPosition')
       ? opts.writeOpenPosition !== false
       : true;
+    const writeLatch = opts.writeLatch !== false;
     const latchUnlockValue = Number.isFinite(Number(opts.latchUnlockValue))
       ? Number(opts.latchUnlockValue)
       : (isPa24Profile ? 1 : 0);
     const latchLockValue = Number.isFinite(Number(opts.latchLockValue))
       ? Number(opts.latchLockValue)
       : (isPa24Profile ? 0 : 1);
-    debugLog(`A2A_DOOR_LVAR_${action}_START profile=${profile} doorIndex=${doorIndex} writeOpenPosition=${writeOpenPosition ? 1 : 0} latchUnlock=${latchUnlockValue} latchLock=${latchLockValue} reason=${reason}`);
+    debugLog(`A2A_DOOR_LVAR_${action}_START profile=${profile} doorIndex=${doorIndex} writeOpenPosition=${writeOpenPosition ? 1 : 0} writeLatch=${writeLatch ? 1 : 0} latchUnlock=${latchUnlockValue} latchLock=${latchLockValue} reason=${reason}`);
 
     let ok = false;
     if (openDoor) {
-      ok = setNamedVarFromCandidates(latchVars, latchUnlockValue, ['number', 'Bool', 'bool'], `${reason}-latch-unlock`) || ok;
+      if (writeLatch) ok = setNamedVarFromCandidates(latchVars, latchUnlockValue, ['number', 'Bool', 'bool'], `${reason}-latch-unlock`) || ok;
       await sleep(80);
       ok = setNamedVarFromCandidates(handleVars, 1, ['Bool', 'bool', 'number'], `${reason}-handle-open`) || ok;
       if (writeOpenPosition) {
@@ -585,7 +694,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       await sleep(70);
       ok = setNamedVarFromCandidates(exitVars, 0, ['percent', 'number', 'Bool', 'bool'], `${reason}-exit-close`) || ok;
       await sleep(70);
-      ok = setNamedVarFromCandidates(latchVars, latchLockValue, ['number', 'Bool', 'bool'], `${reason}-latch-lock`) || ok;
+      if (writeLatch) ok = setNamedVarFromCandidates(latchVars, latchLockValue, ['number', 'Bool', 'bool'], `${reason}-latch-lock`) || ok;
     }
     debugLog(`A2A_DOOR_LVAR_${action}_DONE profile=${profile} doorIndex=${doorIndex} status=${ok ? 'ok' : 'error'} reason=${reason}`);
     return ok;
@@ -653,28 +762,39 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const action = openDoor ? 'OPEN' : 'CLOSE';
     debugLog(`DOOR_PA24_${action}_START reason=${reason} doorIndex=${doorIndex}`);
     let ok = false;
+    let inputLatchOk = false;
 
-    // Legacy custom events first (works for setups where PA24 key events are available).
+    if (openDoor) {
+      inputLatchOk = await setInputEventByNameCandidates(PA24_LATCH_INPUT_EVENTS, 1, `${reason}-behavior-latch-toggle-open`);
+      ok = inputLatchOk || ok;
+      if (inputLatchOk) await sleep(120);
+    }
+
+    // Legacy custom latch events only as fallback; the behavior input event is the real PA24 latch path.
     let eventOk = false;
-    if (ensurePa24DoorEvents()) {
-      if (openDoor) {
-        eventOk = sendDoorClientEvent(PA24_DOOR_UNLOCK_EVENT_ID, 1, 'PA24-door_latch_unlock', reason) || eventOk;
-        await sleep(120);
-        eventOk = sendDoorClientEvent(PA24_DOOR_HANDLE_EVENT_ID, 1, 'PA24-door_handle_open', reason) || eventOk;
-      } else {
-        eventOk = sendDoorClientEvent(PA24_DOOR_LOCK_EVENT_ID, 1, 'PA24-door_latch_lock', reason) || eventOk;
-      }
+    if (openDoor && !inputLatchOk && ensurePa24DoorEvents()) {
+      eventOk = sendDoorClientEvent(PA24_DOOR_UNLOCK_EVENT_ID, 1, 'PA24-door_latch_unlock', reason) || eventOk;
       ok = eventOk || ok;
     }
 
     // LVar fallback path for A2A aircraft (works without PA24 custom key-event mapping).
     const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche', {
       writeOpenPosition: !openDoor,
+      writeLatch: false,
       latchUnlockValue: 1,
       latchLockValue: 0
     });
+    if (!openDoor) {
+      await sleep(120);
+      inputLatchOk = await setInputEventByNameCandidates(PA24_LATCH_INPUT_EVENTS, 1, `${reason}-behavior-latch-toggle-close`);
+      ok = inputLatchOk || ok;
+      if (!inputLatchOk && ensurePa24DoorEvents()) {
+        eventOk = sendDoorClientEvent(PA24_DOOR_LOCK_EVENT_ID, 1, 'PA24-door_latch_lock', reason) || eventOk;
+        ok = eventOk || ok;
+      }
+    }
     const finalOk = ok || lvarOk;
-    debugLog(`DOOR_PA24_${action}_DONE status=${finalOk ? 'ok' : 'error'} eventOk=${eventOk ? 1 : 0} lvarOk=${lvarOk ? 1 : 0} reason=${reason}`);
+    debugLog(`DOOR_PA24_${action}_DONE status=${finalOk ? 'ok' : 'error'} inputLatchOk=${inputLatchOk ? 1 : 0} eventOk=${eventOk ? 1 : 0} lvarOk=${lvarOk ? 1 : 0} reason=${reason}`);
     return finalOk;
   };
 
@@ -763,6 +883,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         const holdProfile = isComancheProfile ? 'pa24_comanche' : profile;
         await setA2aDoorByLVars(true, idx, `${reason}-hold-${tick}-${why}`, holdProfile, {
           writeOpenPosition: !isComancheProfile,
+          writeLatch: !isComancheProfile,
           latchUnlockValue: isComancheProfile ? 1 : undefined,
           latchLockValue: isComancheProfile ? 0 : undefined
         });
@@ -2324,6 +2445,21 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     } catch (err) {
       pending.reject(err);
     }
+  });
+
+  handle.on('inputEventsList', (recv) => {
+    const added = cacheInputEventDescriptors(recv?.inputEventDescriptors || []);
+    const entryNumber = Number(recv?.entryNumber);
+    const outOf = Number(recv?.outOf);
+    const done = Number.isFinite(entryNumber) && Number.isFinite(outOf)
+      ? entryNumber >= outOf - 1
+      : true;
+    debugLog(`INPUT_EVENT_ENUM_RESULT requestId=${recv?.requestID ?? ''} added=${added} cached=${inputEventHashCache.size} entry=${recv?.entryNumber ?? ''}/${recv?.outOf ?? ''} done=${done ? 1 : 0}`);
+    if (done) {
+      inputEventsEnumerating = false;
+      inputEventsEnumerationDone = true;
+    }
+    resolvePendingInputEventLookups();
   });
 
   handle.on('exception', (recv) => {
