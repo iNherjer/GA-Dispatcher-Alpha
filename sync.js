@@ -582,22 +582,23 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode, options 
 
     const sinceLastAutoZoom = now - lastMapAutoZoomAppliedAt;
     const force = options.force === true;
-    if (!force && window.vpMapInteractionActive && sinceLastAutoZoom > 900) return false;
+    if (!force && window.vpMapInteractionActive && !isAutoFollowProgrammaticMapMove(now) && sinceLastAutoZoom > 900) return false;
 
     const sample = computeMapAutoZoomTargetZoom(gsKts, altFt);
     sample.currentZoom = currentZoom;
     sample.t = now;
     lastMapAutoZoomSample = sample;
 
+    const targetZoomChanged = lastMapAutoZoomTargetZoom !== null && sample.targetZoom !== lastMapAutoZoomTargetZoom;
     const zoomDelta = Math.abs(sample.targetZoom - currentZoom);
     const minZoomDelta = lastMapAutoZoomTargetZoom === null ? 0.5 : 0.75;
-    if (!force && zoomDelta < minZoomDelta) {
+    if (!force && !targetZoomChanged && zoomDelta < minZoomDelta) {
         if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
         return false;
     }
 
     const minIntervalMs = lowFpsMode ? 2600 : 1600;
-    if (!force && sinceLastAutoZoom < minIntervalMs) return false;
+    if (!force && !targetZoomChanged && sinceLastAutoZoom < minIntervalMs) return false;
 
     try {
         markAutoFollowProgrammaticMapMove(now);
@@ -632,6 +633,7 @@ function applyAutoFollowViewNow(options = {}) {
     }
     if (options.panFallback === false) return false;
     if (typeof map.panTo === 'function') {
+        markAutoFollowProgrammaticMapMove(now);
         map.panTo([sample.lat, sample.lon], { animate: options.animate === true });
         lastAutoFollowPanAt = now;
         lastAutoFollowPanPos = [sample.lat, sample.lon];
@@ -10159,12 +10161,16 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         if (autoFollowViewApplied) {
             // handled by applyAutoFollowViewNow()
         } else if (!lowFpsMode) {
+            markAutoFollowProgrammaticMapMove(now);
             map.panTo([lat, lon]);
+            lastAutoFollowPanAt = now;
+            lastAutoFollowPanPos = [lat, lon];
         } else {
             const movedM = lastAutoFollowPanPos ? map.distance(lastAutoFollowPanPos, [lat, lon]) : Number.POSITIVE_INFINITY;
             const canPanByTime = (now - lastAutoFollowPanAt) >= 320;
             const canPanByDist = movedM >= 45;
             if (canPanByTime && canPanByDist) {
+                markAutoFollowProgrammaticMapMove(now);
                 map.panTo([lat, lon], { animate: false });
                 lastAutoFollowPanAt = now;
                 lastAutoFollowPanPos = [lat, lon];
