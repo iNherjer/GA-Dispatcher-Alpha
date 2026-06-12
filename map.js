@@ -923,6 +923,16 @@ window.isMapHintEnabled = function(key) {
     return window.mapHints[key] !== false;
 };
 
+function isMapWeatherMasterEnabled() {
+    return !(window.mapHints && window.mapHints.weather === false);
+}
+window.isMapWeatherMasterEnabled = isMapWeatherMasterEnabled;
+
+function isVfrIndexWeatherLayerEnabled() {
+    return isMapWeatherMasterEnabled() && !(window.mapHints && window.mapHints.vfrIndex === false);
+}
+window.isVfrIndexWeatherLayerEnabled = isVfrIndexWeatherLayerEnabled;
+
 window.isLowFpsMode = function() {
     return window.isMapHintEnabled('lowFps');
 };
@@ -973,16 +983,37 @@ window.toggleMapWeatherSource = function() {
 
 function applyMapHintEffects(key) {
     if (key === 'weather') {
-        window.vpShowMapMetar = window.mapHints.weather !== false;
+        const weatherOn = isMapWeatherMasterEnabled();
+        window.vpShowMapMetar = weatherOn;
         localStorage.setItem('ga_show_map_metar', window.vpShowMapMetar);
+        if (!weatherOn) {
+            try {
+                if (wxOverlayFetchTimer) {
+                    clearTimeout(wxOverlayFetchTimer);
+                    wxOverlayFetchTimer = null;
+                }
+                if (wxOverlayFetchController) {
+                    wxOverlayFetchController.abort();
+                    wxOverlayFetchController = null;
+                }
+                if (wxMapWeatherFetchController) {
+                    wxMapWeatherFetchController.abort();
+                    wxMapWeatherFetchController = null;
+                }
+            } catch (_) {}
+            if (typeof clearMapOpenMeteoOverlays === 'function') clearMapOpenMeteoOverlays();
+            if (typeof vpClearVfrLayer === 'function') vpClearVfrLayer();
+        }
         if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
         if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
+        if (weatherOn && isVfrIndexWeatherLayerEnabled()) vpScheduleVfrOverlayUpdate(false);
+        if (typeof vpUpdateVfrUi === 'function') vpUpdateVfrUi();
     }
     if (key === 'vfrIndex') {
         if (window.mapHints.vfrIndex === false) {
             vpClearVfrLayer();
             vpVfrIndexState.timeline = null;
-        } else vpScheduleVfrOverlayUpdate(false);
+        } else if (isVfrIndexWeatherLayerEnabled()) vpScheduleVfrOverlayUpdate(false);
         vpUpdateVfrUi();
     }
     if (key === 'terrainAvoid') {
@@ -4474,7 +4505,10 @@ function vpUpdateVfrUi() {
 
     const status = document.getElementById('vfrIndexStatus');
     if (status) {
-        if (window.mapHints.vfrIndex === false) {
+        if (!isMapWeatherMasterEnabled()) {
+            status.textContent = 'Status: Wetter Aus';
+            status.style.color = '#9bb5d1';
+        } else if (window.mapHints.vfrIndex === false) {
             status.textContent = 'Status: Aus';
             status.style.color = '#9bb5d1';
         } else if (map && Number(map.getZoom()) < vpGetVfrMinVisibleZoomForModel(vpVfrIndexState.vfrModel)) {
@@ -4515,7 +4549,7 @@ function vpUpdateVfrUi() {
         ampelBtn.style.color = '#fff';
     }
     const block = document.getElementById('vfrIndexMenuBlock');
-    if (block) block.style.opacity = (window.mapHints.vfrIndex === false) ? '0.72' : '1';
+    if (block) block.style.opacity = (!isVfrIndexWeatherLayerEnabled()) ? '0.72' : '1';
 }
 window.vpUpdateVfrUi = vpUpdateVfrUi;
 
@@ -4523,7 +4557,7 @@ window.vpToggleVfrAmpel = function() {
     vpVfrIndexState.showSectorAmpel = !(vpVfrIndexState.showSectorAmpel !== false);
     localStorage.setItem('ga_vfr_sector_ampel', String(vpVfrIndexState.showSectorAmpel !== false));
     vpUpdateVfrUi();
-    if (window.mapHints.vfrIndex !== false && map) {
+    if (isVfrIndexWeatherLayerEnabled() && map) {
         vpRefreshVfrLayerFromCache();
     }
 };
@@ -4532,7 +4566,7 @@ window.vpSetVfrModel = function(value) {
     vpVfrIndexState.vfrModel = vpNormalizeVfrModel(value);
     localStorage.setItem('ga_vfr_index_model', vpVfrIndexState.vfrModel);
     vpUpdateVfrUi();
-    if (window.mapHints.vfrIndex !== false && map) {
+    if (isVfrIndexWeatherLayerEnabled() && map) {
         const needsSectorSource = (
             vpVfrIndexState.vfrModel === 'gafor_sector'
             || vpVfrIndexState.vfrModel === 'internal_sector'
@@ -4553,7 +4587,7 @@ window.vpSetVfrSectorLineWidth = function(value) {
     vpVfrIndexState.sectorLineWidthPx = vpNormalizeVfrSectorLineWidth(value);
     localStorage.setItem('ga_vfr_sector_line_width_px', String(vpVfrIndexState.sectorLineWidthPx));
     vpUpdateVfrUi();
-    if (window.mapHints.vfrIndex !== false && map) {
+    if (isVfrIndexWeatherLayerEnabled() && map) {
         vpRefreshVfrLayerFromCache();
     }
 };
@@ -4562,7 +4596,7 @@ window.vpSetVfrAmpelWindowMode = async function(value) {
     vpVfrIndexState.ampelWindowMode = vpNormalizeVfrAmpelWindowMode(value);
     localStorage.setItem('ga_vfr_ampel_window_mode', vpVfrIndexState.ampelWindowMode);
     vpUpdateVfrUi();
-    if (window.mapHints.vfrIndex !== false && typeof window.renderVfrIndexOverlay === 'function') {
+    if (isVfrIndexWeatherLayerEnabled() && typeof window.renderVfrIndexOverlay === 'function') {
         await window.renderVfrIndexOverlay(true);
     } else if (map) {
         vpRefreshVfrLayerFromCache();
@@ -4858,7 +4892,7 @@ window.vpSetVfrCountry = async function(value) {
     vpVfrIndexState.selectedCountry = vpNormalizeVfrCountrySelection(value);
     localStorage.setItem('ga_vfr_index_country', vpVfrIndexState.selectedCountry);
     vpUpdateVfrUi();
-    if (window.mapHints.vfrIndex !== false && typeof window.renderVfrIndexOverlay === 'function') {
+    if (isVfrIndexWeatherLayerEnabled() && typeof window.renderVfrIndexOverlay === 'function') {
         await window.renderVfrIndexOverlay(true);
     }
 };
@@ -4876,7 +4910,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         return;
     }
     vpUpdateVfrUi();
-    if (window.mapHints.vfrIndex === false) {
+    if (!isVfrIndexWeatherLayerEnabled()) {
         vpClearVfrLayer();
         vpUpdateVfrUi();
         finishRenderPerf('disabled');
@@ -5151,13 +5185,14 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         finishRenderPerf('error', { active, model: activeVfrModel, message: vpVfrIndexState.lastError });
     } finally {
         vpVfrIndexState.inFlight = false;
+        if (!isVfrIndexWeatherLayerEnabled()) vpClearVfrLayer();
         vpUpdateVfrUi();
         finishRenderPerf('finally', { active, model: activeVfrModel });
     }
 };
 
 function vpScheduleVfrOverlayUpdate(forceFetch = false) {
-    if (window.mapHints.vfrIndex === false) return;
+    if (!isVfrIndexWeatherLayerEnabled()) return;
     if (vpIsVfrIndexHiddenByHighZoom()) {
         vpClearVfrLayer();
         vpUpdateVfrUi();
@@ -5178,7 +5213,7 @@ function vpScheduleVfrOverlayUpdate(forceFetch = false) {
 function vpEnsureVfrAutoTimer() {
     if (vpVfrAutoTimer) return;
     vpVfrAutoTimer = setInterval(() => {
-        if (window.mapHints.vfrIndex === false) return;
+        if (!isVfrIndexWeatherLayerEnabled()) return;
         if (!map) return;
         vpScheduleVfrOverlayUpdate(false);
         vpUpdateVfrUi();
@@ -5186,7 +5221,7 @@ function vpEnsureVfrAutoTimer() {
 }
 
 function vpRefreshVfrLayerFromCache() {
-    if (!map || window.mapHints.vfrIndex === false) return;
+    if (!map || !isVfrIndexWeatherLayerEnabled()) return;
     if (vpIsVfrIndexHiddenByHighZoom()) {
         vpClearVfrLayer();
         vpUpdateVfrUi();
@@ -5223,7 +5258,7 @@ window.gaRunVfrFreezeProbe = async function(iterations = 1) {
                 const stepPerf = window.gaPerfStart ? window.gaPerfStart('VFR freeze probe step', { cycle: c + 1, zoom: z }) : null;
                 if (map.setZoom && Number.isFinite(z)) map.setZoom(z, { animate: false });
                 if (map.invalidateSize) map.invalidateSize(false);
-                if (window.mapHints && window.mapHints.vfrIndex !== false) vpRefreshVfrLayerFromCache();
+                if (isVfrIndexWeatherLayerEnabled()) vpRefreshVfrLayerFromCache();
                 await new Promise(r => setTimeout(r, 120));
                 if (window.gaPerfEnd) window.gaPerfEnd(stepPerf, {
                     layerCount: vpVfrIndexLayer && vpVfrIndexLayer.getLayers ? vpVfrIndexLayer.getLayers().length : null
@@ -5233,7 +5268,7 @@ window.gaRunVfrFreezeProbe = async function(iterations = 1) {
     } finally {
         if (originalCenter && map.setView && Number.isFinite(Number(originalZoom))) {
             map.setView(originalCenter, originalZoom, { animate: false });
-            if (window.mapHints && window.mapHints.vfrIndex !== false) vpRefreshVfrLayerFromCache();
+            if (isVfrIndexWeatherLayerEnabled()) vpRefreshVfrLayerFromCache();
         }
         if (window.gaPerfEnd) window.gaPerfEnd(probePerf, {
             layerCount: vpVfrIndexLayer && vpVfrIndexLayer.getLayers ? vpVfrIndexLayer.getLayers().length : null
@@ -7412,7 +7447,7 @@ function renderMainRoute() {
     updateRoutePerformance(); updateMiniMap();
     scheduleWeatherMarkerDodging(true);
     vpUpdateVfrUi();
-    if (window.mapHints.vfrIndex !== false && vpNormalizeVfrCountrySelection(vpVfrIndexState.selectedCountry) === 'auto') {
+    if (isVfrIndexWeatherLayerEnabled() && vpNormalizeVfrCountrySelection(vpVfrIndexState.selectedCountry) === 'auto') {
         vpScheduleVfrOverlayUpdate(false);
     }
 }
@@ -8411,7 +8446,7 @@ function initMapBase() {
         renderMissionSceneTargetMarker();
         updateAeroOverlayZoomVisibility();
         if (isOpenAipOverlayEnabled()) refreshOpenAipOverlay(false);
-        if (window.mapHints.vfrIndex !== false) {
+        if (isVfrIndexWeatherLayerEnabled()) {
             vpRefreshVfrLayerFromCache();
             vpScheduleVfrOverlayUpdate(false);
         }
@@ -8470,7 +8505,7 @@ function initMapBase() {
     }
     if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
     vpUpdateVfrUi();
-    if (window.mapHints.vfrIndex !== false) vpScheduleVfrOverlayUpdate(false);
+    if (isVfrIndexWeatherLayerEnabled()) vpScheduleVfrOverlayUpdate(false);
     updateMissionSceneDebugOverlayButtonUi();
     if (window.vpMissionSceneDebugOverlayEnabled) renderMissionSceneDebugOverlay();
     renderMissionSceneTargetMarker();
@@ -9071,14 +9106,12 @@ window.toggleMapMetars = function() {
         btn.style.background = window.vpShowMapMetar ? '#4da6ff' : '#444';
         btn.style.color = window.vpShowMapMetar ? '#111' : '#fff';
     }
+    applyMapHintEffects('weather');
     refreshMapHintMenuUi();
-    // API triggern falls Wetter gebraucht wird, ansonsten nur Marker neu rendern
+    // API triggern falls Wetter gebraucht wird.
     if (window.vpShowMapMetar && typeof window._lastVpRouteKey !== 'undefined') {
         if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
-    } else {
-        if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers();
     }
-    if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9536,6 +9569,10 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
         if (window.vpWeatherDebug) window.vpWeatherDebug.mapOverlayFetches += 1;
         const samples = await window.fetchOpenMeteoWeatherPoints(points, { signal, includePressure: false, maxConcurrency: 4 });
         if (signal.aborted) return;
+        if (!isMapWeatherMasterEnabled() || getMapWeatherSource() !== 'openmeteo') {
+            clearMapOpenMeteoOverlays();
+            return;
+        }
         wxOverlayLastFetchAt = Date.now();
 
         clearMapOpenMeteoOverlays();
