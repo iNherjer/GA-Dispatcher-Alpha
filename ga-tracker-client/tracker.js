@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v265';
-const TRACKER_VERSION_CODE = 265;
+const TRACKER_VERSION = 'v266';
+const TRACKER_VERSION_CODE = 266;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -775,7 +775,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     // Legacy custom latch events only as fallback; the behavior input event is the real PA24 latch path.
     let eventOk = false;
     if (openDoor && !inputLatchOk && ensurePa24DoorEvents()) {
-      eventOk = sendDoorClientEvent(PA24_DOOR_UNLOCK_EVENT_ID, 1, 'PA24-door_latch_unlock', reason) || eventOk;
+      eventOk = sendDoorClientEvent(PA24_DOOR_LOCK_EVENT_ID, 1, 'PA24-door_latch_open_inverted', reason) || eventOk;
       ok = eventOk || ok;
     }
 
@@ -793,7 +793,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       inputLatchOk = await setInputEventByNameCandidates(PA24_LATCH_INPUT_EVENTS, 1, `${reason}-behavior-latch-toggle-close`);
       ok = inputLatchOk || ok;
       if (!inputLatchOk && ensurePa24DoorEvents()) {
-        eventOk = sendDoorClientEvent(PA24_DOOR_LOCK_EVENT_ID, 1, 'PA24-door_latch_lock', reason) || eventOk;
+        eventOk = sendDoorClientEvent(PA24_DOOR_UNLOCK_EVENT_ID, 1, 'PA24-door_latch_close_inverted', reason) || eventOk;
         ok = eventOk || ok;
       }
     }
