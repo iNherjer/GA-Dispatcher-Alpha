@@ -364,6 +364,8 @@ const MAP_AUTOZOOM_MAX_ZOOM = 15;
 let lastMapAutoZoomAppliedAt = 0;
 let lastMapAutoZoomTargetZoom = null;
 let lastMapAutoZoomSample = null;
+let mapAutoFollowProgrammaticMoveUntil = 0;
+let autoFollowMapInteractionBound = false;
 
 function _clampMapAutoZoomNumber(value, min, max) {
     const n = Number(value);
@@ -482,7 +484,35 @@ window.resetMapAutoZoomState = function() {
     lastMapAutoZoomSample = null;
 };
 
-function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode) {
+function markAutoFollowProgrammaticMapMove(now = Date.now(), durationMs = 700) {
+    mapAutoFollowProgrammaticMoveUntil = Math.max(mapAutoFollowProgrammaticMoveUntil, now + durationMs);
+}
+
+function isAutoFollowProgrammaticMapMove(now = Date.now()) {
+    return now < mapAutoFollowProgrammaticMoveUntil;
+}
+
+function getAutoFollowLiveSample() {
+    const pos = window.lastLiveGpsPos || {};
+    const lat = Number(pos.lat);
+    const lon = Number(pos.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const fd = window.lastLiveFlightData || {};
+    const alt = Number.isFinite(Number(pos.alt)) ? Number(pos.alt)
+        : (Number.isFinite(Number(fd.mslFt)) ? Number(fd.mslFt) : 0);
+    const gs = Number.isFinite(Number(fd.gsKts ?? fd.gs)) ? Number(fd.gsKts ?? fd.gs)
+        : (Number.isFinite(Number(pos.gs)) ? Number(pos.gs) : smoothedGS);
+    return {
+        lat,
+        lon,
+        alt,
+        gs: Number.isFinite(gs) ? gs : 0,
+        now: Date.now(),
+        lowFpsMode: isLowFpsModeActive()
+    };
+}
+
+function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode, options = {}) {
     if (!isMapAutoZoomEnabled() || !isAutoFollow) return false;
     if (typeof map === 'undefined' || !map || typeof map.getZoom !== 'function') return false;
     if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return false;
@@ -491,7 +521,8 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode) {
     if (!Number.isFinite(currentZoom)) return false;
 
     const sinceLastAutoZoom = now - lastMapAutoZoomAppliedAt;
-    if (window.vpMapInteractionActive && sinceLastAutoZoom > 900) return false;
+    const force = options.force === true;
+    if (!force && window.vpMapInteractionActive && sinceLastAutoZoom > 900) return false;
 
     const sample = computeMapAutoZoomTargetZoom(gsKts, altFt);
     sample.currentZoom = currentZoom;
@@ -500,15 +531,16 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode) {
 
     const zoomDelta = Math.abs(sample.targetZoom - currentZoom);
     const minZoomDelta = lastMapAutoZoomTargetZoom === null ? 0.5 : 0.75;
-    if (zoomDelta < minZoomDelta) {
+    if (!force && zoomDelta < minZoomDelta) {
         if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
         return false;
     }
 
     const minIntervalMs = lowFpsMode ? 2600 : 1600;
-    if (sinceLastAutoZoom < minIntervalMs) return false;
+    if (!force && sinceLastAutoZoom < minIntervalMs) return false;
 
     try {
+        markAutoFollowProgrammaticMapMove(now);
         if (typeof map.setView === 'function') {
             map.setView([lat, lon], sample.targetZoom, { animate: false });
         } else if (typeof map.setZoom === 'function') {
@@ -522,6 +554,41 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode) {
         console.warn('[Map Autozoom] Zoom update failed:', err && err.message ? err.message : err);
         return false;
     }
+}
+
+function applyAutoFollowViewNow(options = {}) {
+    if (!isAutoFollow || typeof map === 'undefined' || !map) return false;
+    const sample = options.sample || getAutoFollowLiveSample();
+    if (!sample) return false;
+    const now = Number.isFinite(Number(sample.now)) ? Number(sample.now) : Date.now();
+    const lowFpsMode = typeof sample.lowFpsMode === 'boolean' ? sample.lowFpsMode : isLowFpsModeActive();
+    const autoZoomApplied = maybeApplyMapAutoZoom(sample.lat, sample.lon, sample.alt, sample.gs, now, lowFpsMode, {
+        force: options.forceZoom === true
+    });
+    if (autoZoomApplied) {
+        lastAutoFollowPanAt = now;
+        lastAutoFollowPanPos = [sample.lat, sample.lon];
+        return true;
+    }
+    if (options.panFallback === false) return false;
+    if (typeof map.panTo === 'function') {
+        map.panTo([sample.lat, sample.lon], { animate: options.animate === true });
+        lastAutoFollowPanAt = now;
+        lastAutoFollowPanPos = [sample.lat, sample.lon];
+        return true;
+    }
+    return false;
+}
+
+function handleAutoFollowManualMapInteraction() {
+    if (!isAutoFollow || isAutoFollowProgrammaticMapMove()) return;
+    toggleAutoFollow(false);
+}
+
+function bindAutoFollowMapInteractionHandlers() {
+    if (autoFollowMapInteractionBound || typeof map === 'undefined' || !map || typeof map.on !== 'function') return;
+    autoFollowMapInteractionBound = true;
+    map.on('dragstart zoomstart', handleAutoFollowManualMapInteraction);
 }
 
 // --- FLIGHT RECORDER (Snail Trail + Stats) ---
@@ -7853,17 +7920,20 @@ window.clearLiveToWpLine = function() {
     }
 };
 
-function toggleAutoFollow() {
-    isAutoFollow = !isAutoFollow;
+function toggleAutoFollow(forceState = null) {
+    const nextState = (typeof forceState === 'boolean') ? forceState : !isAutoFollow;
+    isAutoFollow = nextState;
     if (isAutoFollow) {
         lastAutoFollowPanAt = 0;
         lastAutoFollowPanPos = null;
+        if (typeof window.resetMapAutoZoomState === 'function') window.resetMapAutoZoomState();
     }
     const btn = document.getElementById('autoFollowBtn');
     if (btn) {
         btn.style.background = isAutoFollow ? 'var(--blue)' : '#666';
         btn.innerHTML = isAutoFollow ? '🎯' : '📍';
     }
+    if (isAutoFollow) applyAutoFollowViewNow({ forceZoom: true });
     if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
 }
 
@@ -10022,10 +10092,12 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     // --- FEATURE 2: AUTO-FOLLOW ---
     const lowFpsMode = isLowFpsModeActive();
     if (isAutoFollow) {
-        const autoZoomApplied = maybeApplyMapAutoZoom(lat, lon, alt, curGs, now, lowFpsMode);
-        if (autoZoomApplied) {
-            lastAutoFollowPanAt = now;
-            lastAutoFollowPanPos = [lat, lon];
+        const autoFollowViewApplied = applyAutoFollowViewNow({
+            sample: { lat, lon, alt, gs: curGs, now, lowFpsMode },
+            panFallback: false
+        });
+        if (autoFollowViewApplied) {
+            // handled by applyAutoFollowViewNow()
         } else if (!lowFpsMode) {
             map.panTo([lat, lon]);
         } else {
@@ -10301,7 +10373,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         const planeEl = liveGpsMarker.getElement();
         if (planeEl) planeEl.style.pointerEvents = 'none';
 
-        map.on('dragstart', () => { if (isAutoFollow) toggleAutoFollow(); });
+        bindAutoFollowMapInteractionHandlers();
     } else {
         liveGpsMarker.setLatLng([lat, lon]);
         // Im Low-FPS-Mode die Heading-Rotation leicht drosseln, um Repaint-Spitzen zu vermeiden.
