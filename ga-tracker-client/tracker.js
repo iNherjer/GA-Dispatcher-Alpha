@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v261';
-const TRACKER_VERSION_CODE = 261;
+const TRACKER_VERSION = 'v262';
+const TRACKER_VERSION_CODE = 262;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -719,6 +719,54 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return finalOk;
   };
 
+  const startUserAircraftDoorOpenHold = (doorIndex = 1, reason = 'door-hold-open', doorProfile = 'default', maxMs = 45000) => {
+    const profile = String(doorProfile || 'default').trim().toLowerCase();
+    const isComancheProfile = (profile === 'pa24_comanche' || profile === 'pa24' || profile === 'comanche');
+    const isA2aProfile = profile.includes('a2a');
+    if (!isComancheProfile && !isA2aProfile) return null;
+    const idx = clampInt(doorIndex, 0, 8);
+    const holdMaxMs = clampInt(maxMs, 5000, 90000);
+    const startedAt = Date.now();
+    const intervalMs = 1250;
+    let active = true;
+    let inFlight = false;
+    let tick = 0;
+    let timer = null;
+    const runHold = async (why = 'interval') => {
+      if (!active || inFlight) return;
+      if ((Date.now() - startedAt) > holdMaxMs) {
+        active = false;
+        if (timer) clearInterval(timer);
+        debugLog(`DOOR_HOLD_OPEN_TIMEOUT profile=${profile} index=${idx} ageMs=${Date.now() - startedAt} reason=${reason}`);
+        return;
+      }
+      inFlight = true;
+      tick++;
+      try {
+        const holdProfile = isComancheProfile ? 'pa24_comanche' : profile;
+        await setA2aDoorByLVars(true, idx, `${reason}-hold-${tick}-${why}`, holdProfile);
+      } catch (err) {
+        debugLog(`DOOR_HOLD_OPEN_ERROR profile=${profile} index=${idx} tick=${tick} reason=${reason} error=${err?.message || err}`);
+      } finally {
+        inFlight = false;
+      }
+    };
+    timer = setInterval(() => {
+      runHold('interval').catch(() => {});
+    }, intervalMs);
+    setTimeout(() => {
+      runHold('initial').catch(() => {});
+    }, 650);
+    debugLog(`DOOR_HOLD_OPEN_START profile=${profile} index=${idx} intervalMs=${intervalMs} maxMs=${holdMaxMs} reason=${reason}`);
+    return (stopReason = 'stop') => {
+      if (!active && !timer) return;
+      active = false;
+      if (timer) clearInterval(timer);
+      timer = null;
+      debugLog(`DOOR_HOLD_OPEN_STOP profile=${profile} index=${idx} ticks=${tick} ageMs=${Date.now() - startedAt} reason=${reason} stopReason=${stopReason}`);
+    };
+  };
+
   const clampPayloadStationCount = (value, fallback = 12) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return Math.max(1, Math.min(15, Math.round(fallback)));
@@ -1411,6 +1459,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return;
     }
     activeBoardingScenes.add(sceneId);
+    let stopDoorOpenHold = null;
+    const stopDoorHold = (why = 'stop') => {
+      if (stopDoorOpenHold) {
+        stopDoorOpenHold(why);
+        stopDoorOpenHold = null;
+      }
+    };
     try {
     const rec = scenes.get(sceneId);
     if (!rec || !Array.isArray(rec.objects) || rec.objects.length === 0) {
@@ -1491,6 +1546,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
     if (doorEnabled) {
       await setUserAircraftDoor(true, doorIndex, 'boarding-open', doorProfile);
+      stopDoorOpenHold = startUserAircraftDoorOpenHold(doorIndex, 'boarding-open', doorProfile, durationMs + 8000);
       await sleep(350);
     }
 
@@ -1600,6 +1656,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
     }
     if (doorEnabled) {
+      stopDoorHold('boarding-close');
       await sleep(300);
       await setUserAircraftDoor(false, doorIndex, 'boarding-close', doorProfile);
     }
@@ -1607,6 +1664,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     debugLog(`SCENE_BOARDING_OK scene=${sceneId} boarders=${boarderPlans.length} routeSent=${routeSent ? 1 : 0} routeSentCount=${routeSentCount} removed=${removed} vehicleDeparture=${vehicleDeparture ? 1 : 0}`);
     sendAck({ type: 'mission_scene_boarding_ack', commandId, sceneId, status: routeSent ? 'ok' : 'error', routeSent: routeSent ? 1 : 0, routeSentCount, removed, cargoRemoved, boarded: routeSent ? boarderPlans.length : 0, vehicleDeparture: vehicleDeparture ? 1 : 0, durationMs, error: routeSent ? '' : 'waypoint_route_failed' });
     } finally {
+      if (typeof stopDoorHold === 'function') stopDoorHold('boarding-finally');
       activeBoardingScenes.delete(sceneId);
     }
   };
@@ -1621,6 +1679,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       return;
     }
     activeDeboardingScenes.add(sceneId);
+    let stopDoorOpenHold = null;
+    const stopDoorHold = (why = 'stop') => {
+      if (stopDoorOpenHold) {
+        stopDoorOpenHold(why);
+        stopDoorOpenHold = null;
+      }
+    };
     try {
     const rec = scenes.get(sceneId) || { sceneId, command: { ...command }, objects: [], positions: [] };
     rec.sceneId = sceneId;
@@ -1689,6 +1754,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const doorIndex = clampInt(command?.doorIndex ?? 1, 0, 8);
     if (doorEnabled) {
       await setUserAircraftDoor(true, doorIndex, 'deboarding-open', doorProfile);
+      stopDoorOpenHold = startUserAircraftDoorOpenHold(doorIndex, 'deboarding-open', doorProfile, 50000);
       await sleep(450);
     }
 
@@ -1732,7 +1798,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
     }
     if (!people.length) {
-      if (doorEnabled) await setUserAircraftDoor(false, doorIndex, 'deboarding-close-no-pax', doorProfile);
+      if (doorEnabled) {
+        stopDoorHold('deboarding-close-no-pax');
+        await setUserAircraftDoor(false, doorIndex, 'deboarding-close-no-pax', doorProfile);
+      }
       sendAck({ type: 'mission_scene_deboarding_ack', commandId, sceneId, status: 'error', error: 'person_spawn_failed', vehicleRouteSent: vehicleRouteSent ? 1 : 0 });
       return;
     }
@@ -1800,6 +1869,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
     }
     if (doorEnabled) {
+      stopDoorHold('deboarding-close');
       await setUserAircraftDoor(false, doorIndex, 'deboarding-close', doorProfile);
     }
     sendAck({
@@ -1816,6 +1886,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       error: routeSentCount > 0 ? '' : 'waypoint_route_failed'
     });
     } finally {
+      if (typeof stopDoorHold === 'function') stopDoorHold('deboarding-finally');
       activeDeboardingScenes.delete(sceneId);
     }
   };
