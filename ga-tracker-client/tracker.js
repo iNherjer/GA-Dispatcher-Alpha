@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v264';
-const TRACKER_VERSION_CODE = 264;
+const TRACKER_VERSION = 'v265';
+const TRACKER_VERSION_CODE = 265;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -674,13 +674,15 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const latchLockValue = Number.isFinite(Number(opts.latchLockValue))
       ? Number(opts.latchLockValue)
       : (isPa24Profile ? 0 : 1);
-    debugLog(`A2A_DOOR_LVAR_${action}_START profile=${profile} doorIndex=${doorIndex} writeOpenPosition=${writeOpenPosition ? 1 : 0} writeLatch=${writeLatch ? 1 : 0} latchUnlock=${latchUnlockValue} latchLock=${latchLockValue} reason=${reason}`);
+    const handleOpenValue = Number.isFinite(Number(opts.handleOpenValue)) ? Number(opts.handleOpenValue) : 1;
+    const handleCloseValue = Number.isFinite(Number(opts.handleCloseValue)) ? Number(opts.handleCloseValue) : 0;
+    debugLog(`A2A_DOOR_LVAR_${action}_START profile=${profile} doorIndex=${doorIndex} writeOpenPosition=${writeOpenPosition ? 1 : 0} writeLatch=${writeLatch ? 1 : 0} handleOpen=${handleOpenValue} handleClose=${handleCloseValue} latchUnlock=${latchUnlockValue} latchLock=${latchLockValue} reason=${reason}`);
 
     let ok = false;
     if (openDoor) {
       if (writeLatch) ok = setNamedVarFromCandidates(latchVars, latchUnlockValue, ['number', 'Bool', 'bool'], `${reason}-latch-unlock`) || ok;
       await sleep(80);
-      ok = setNamedVarFromCandidates(handleVars, 1, ['Bool', 'bool', 'number'], `${reason}-handle-open`) || ok;
+      ok = setNamedVarFromCandidates(handleVars, handleOpenValue, ['Bool', 'bool', 'number'], `${reason}-handle-open`) || ok;
       if (writeOpenPosition) {
         ok = setNamedVarFromCandidates(openVars, 1, ['Bool', 'bool', 'number'], `${reason}-openvar-bool`) || ok;
         ok = setNamedVarFromCandidates(openVars, 100, ['percent'], `${reason}-openvar-percent`) || ok;
@@ -689,7 +691,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         ok = setNamedVarFromCandidates(exitVars, 100, ['percent'], `${reason}-exit-open-percent`) || ok;
       }
     } else {
-      ok = setNamedVarFromCandidates(handleVars, 0, ['Bool', 'bool', 'number'], `${reason}-handle-close`) || ok;
+      ok = setNamedVarFromCandidates(handleVars, handleCloseValue, ['Bool', 'bool', 'number'], `${reason}-handle-close`) || ok;
       ok = setNamedVarFromCandidates(openVars, 0, ['Bool', 'bool', 'number', 'percent'], `${reason}-openvar-0`) || ok;
       await sleep(70);
       ok = setNamedVarFromCandidates(exitVars, 0, ['percent', 'number', 'Bool', 'bool'], `${reason}-exit-close`) || ok;
@@ -781,6 +783,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche', {
       writeOpenPosition: !openDoor,
       writeLatch: false,
+      handleOpenValue: 0,
+      handleCloseValue: 1,
       latchUnlockValue: 1,
       latchLockValue: 0
     });
@@ -884,6 +888,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         await setA2aDoorByLVars(true, idx, `${reason}-hold-${tick}-${why}`, holdProfile, {
           writeOpenPosition: !isComancheProfile,
           writeLatch: !isComancheProfile,
+          handleOpenValue: isComancheProfile ? 0 : undefined,
+          handleCloseValue: isComancheProfile ? 1 : undefined,
           latchUnlockValue: isComancheProfile ? 1 : undefined,
           latchLockValue: isComancheProfile ? 0 : undefined
         });
