@@ -15,8 +15,8 @@ const RUNTIME_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(RUNTIME_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v262';
-const TRACKER_VERSION_CODE = 262;
+const TRACKER_VERSION = 'v263';
+const TRACKER_VERSION_CODE = 263;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
@@ -548,31 +548,44 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     return uniqueStrings(out);
   };
 
-  const setA2aDoorByLVars = async (openDoor, doorIndex = 1, reason = 'boarding', profile = 'a2a') => {
+  const setA2aDoorByLVars = async (openDoor, doorIndex = 1, reason = 'boarding', profile = 'a2a', options = {}) => {
     const handleVars = buildDoorVarCandidates(doorIndex, 'DoorHandle');
     const latchVars = buildDoorVarCandidates(doorIndex, 'DoorLatch');
     const exitVars = buildDoorVarCandidates(doorIndex, 'ExitOpen');
     const openVars = buildDoorVarCandidates(doorIndex, 'DoorOpen').concat(buildDoorVarCandidates(doorIndex, 'CabinDoorOpen'));
     const action = openDoor ? 'OPEN' : 'CLOSE';
-    debugLog(`A2A_DOOR_LVAR_${action}_START profile=${profile} doorIndex=${doorIndex} reason=${reason}`);
+    const opts = options && typeof options === 'object' ? options : {};
+    const isPa24Profile = /pa24|comanche/i.test(String(profile || ''));
+    const writeOpenPosition = Object.prototype.hasOwnProperty.call(opts, 'writeOpenPosition')
+      ? opts.writeOpenPosition !== false
+      : true;
+    const latchUnlockValue = Number.isFinite(Number(opts.latchUnlockValue))
+      ? Number(opts.latchUnlockValue)
+      : (isPa24Profile ? 1 : 0);
+    const latchLockValue = Number.isFinite(Number(opts.latchLockValue))
+      ? Number(opts.latchLockValue)
+      : (isPa24Profile ? 0 : 1);
+    debugLog(`A2A_DOOR_LVAR_${action}_START profile=${profile} doorIndex=${doorIndex} writeOpenPosition=${writeOpenPosition ? 1 : 0} latchUnlock=${latchUnlockValue} latchLock=${latchLockValue} reason=${reason}`);
 
     let ok = false;
     if (openDoor) {
-      ok = setNamedVarFromCandidates(latchVars, 0, ['number', 'Bool', 'bool'], `${reason}-latch-unlock`) || ok;
+      ok = setNamedVarFromCandidates(latchVars, latchUnlockValue, ['number', 'Bool', 'bool'], `${reason}-latch-unlock`) || ok;
       await sleep(80);
       ok = setNamedVarFromCandidates(handleVars, 1, ['Bool', 'bool', 'number'], `${reason}-handle-open`) || ok;
-      ok = setNamedVarFromCandidates(openVars, 1, ['Bool', 'bool', 'number'], `${reason}-openvar-bool`) || ok;
-      ok = setNamedVarFromCandidates(openVars, 100, ['percent'], `${reason}-openvar-percent`) || ok;
-      await sleep(80);
-      ok = setNamedVarFromCandidates(exitVars, 1, ['Bool', 'bool', 'number'], `${reason}-exit-open-bool`) || ok;
-      ok = setNamedVarFromCandidates(exitVars, 100, ['percent'], `${reason}-exit-open-percent`) || ok;
+      if (writeOpenPosition) {
+        ok = setNamedVarFromCandidates(openVars, 1, ['Bool', 'bool', 'number'], `${reason}-openvar-bool`) || ok;
+        ok = setNamedVarFromCandidates(openVars, 100, ['percent'], `${reason}-openvar-percent`) || ok;
+        await sleep(80);
+        ok = setNamedVarFromCandidates(exitVars, 1, ['Bool', 'bool', 'number'], `${reason}-exit-open-bool`) || ok;
+        ok = setNamedVarFromCandidates(exitVars, 100, ['percent'], `${reason}-exit-open-percent`) || ok;
+      }
     } else {
       ok = setNamedVarFromCandidates(handleVars, 0, ['Bool', 'bool', 'number'], `${reason}-handle-close`) || ok;
       ok = setNamedVarFromCandidates(openVars, 0, ['Bool', 'bool', 'number', 'percent'], `${reason}-openvar-0`) || ok;
       await sleep(70);
       ok = setNamedVarFromCandidates(exitVars, 0, ['percent', 'number', 'Bool', 'bool'], `${reason}-exit-close`) || ok;
       await sleep(70);
-      ok = setNamedVarFromCandidates(latchVars, 1, ['number', 'Bool', 'bool'], `${reason}-latch-lock`) || ok;
+      ok = setNamedVarFromCandidates(latchVars, latchLockValue, ['number', 'Bool', 'bool'], `${reason}-latch-lock`) || ok;
     }
     debugLog(`A2A_DOOR_LVAR_${action}_DONE profile=${profile} doorIndex=${doorIndex} status=${ok ? 'ok' : 'error'} reason=${reason}`);
     return ok;
@@ -655,7 +668,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
 
     // LVar fallback path for A2A aircraft (works without PA24 custom key-event mapping).
-    const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche');
+    const lvarOk = await setA2aDoorByLVars(openDoor, doorIndex, reason, 'pa24_comanche', {
+      writeOpenPosition: !openDoor,
+      latchUnlockValue: 1,
+      latchLockValue: 0
+    });
     const finalOk = ok || lvarOk;
     debugLog(`DOOR_PA24_${action}_DONE status=${finalOk ? 'ok' : 'error'} eventOk=${eventOk ? 1 : 0} lvarOk=${lvarOk ? 1 : 0} reason=${reason}`);
     return finalOk;
@@ -744,7 +761,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       tick++;
       try {
         const holdProfile = isComancheProfile ? 'pa24_comanche' : profile;
-        await setA2aDoorByLVars(true, idx, `${reason}-hold-${tick}-${why}`, holdProfile);
+        await setA2aDoorByLVars(true, idx, `${reason}-hold-${tick}-${why}`, holdProfile, {
+          writeOpenPosition: !isComancheProfile,
+          latchUnlockValue: isComancheProfile ? 1 : undefined,
+          latchLockValue: isComancheProfile ? 0 : undefined
+        });
       } catch (err) {
         debugLog(`DOOR_HOLD_OPEN_ERROR profile=${profile} index=${idx} tick=${tick} reason=${reason} error=${err?.message || err}`);
       } finally {
