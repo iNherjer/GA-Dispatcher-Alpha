@@ -355,6 +355,174 @@ let smoothedVS = 0;
 let liveToWpLine = null;
 let vpProfileLockIdx = -1;
 let vpProfileLockSig = '';
+const MAP_AUTOZOOM_STRENGTH_KEY = 'ga_map_autozoom_strength';
+const MAP_AUTOZOOM_DEFAULT_STRENGTH = 70;
+const MAP_AUTOZOOM_MIN_STRENGTH = 25;
+const MAP_AUTOZOOM_MAX_STRENGTH = 125;
+const MAP_AUTOZOOM_MIN_ZOOM = 8;
+const MAP_AUTOZOOM_MAX_ZOOM = 15;
+let lastMapAutoZoomAppliedAt = 0;
+let lastMapAutoZoomTargetZoom = null;
+let lastMapAutoZoomSample = null;
+
+function _clampMapAutoZoomNumber(value, min, max) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return min;
+    return Math.min(max, Math.max(min, n));
+}
+
+function normalizeMapAutoZoomStrength(value) {
+    const n = parseInt(value, 10);
+    if (!Number.isFinite(n)) return MAP_AUTOZOOM_DEFAULT_STRENGTH;
+    return Math.round(_clampMapAutoZoomNumber(n, MAP_AUTOZOOM_MIN_STRENGTH, MAP_AUTOZOOM_MAX_STRENGTH) / 5) * 5;
+}
+
+window.getMapAutoZoomStrength = function() {
+    return normalizeMapAutoZoomStrength(localStorage.getItem(MAP_AUTOZOOM_STRENGTH_KEY));
+};
+
+window.setMapAutoZoomStrength = function(value, options = {}) {
+    const strength = normalizeMapAutoZoomStrength(value);
+    if (options.persist !== false) {
+        localStorage.setItem(MAP_AUTOZOOM_STRENGTH_KEY, String(strength));
+    }
+    lastMapAutoZoomAppliedAt = 0;
+    lastMapAutoZoomTargetZoom = null;
+    if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
+    return strength;
+};
+
+function isMapAutoZoomEnabled() {
+    if (typeof window.isMapHintEnabled === 'function') return window.isMapHintEnabled('autoZoom');
+    return localStorage.getItem('ga_map_hint_autoZoom') === 'true';
+}
+
+function getMapAutoZoomAglFt(altFt) {
+    const fd = window.lastLiveFlightData || {};
+    const rawAgl = Number(fd.aglFt ?? fd.agl ?? fd.heightAboveGroundFt ?? fd.radioAltFt);
+    if (Number.isFinite(rawAgl)) return Math.max(0, rawAgl);
+
+    const terrainFt = Number(window.lastLiveTerrainFt);
+    const mslFt = Number(altFt);
+    if (Number.isFinite(mslFt) && Number.isFinite(terrainFt) && terrainFt > 0) {
+        return Math.max(0, mslFt - terrainFt);
+    }
+    return null;
+}
+
+function clampAutoZoomForMap(zoom) {
+    let minZoom = MAP_AUTOZOOM_MIN_ZOOM;
+    let maxZoom = MAP_AUTOZOOM_MAX_ZOOM;
+    if (typeof map !== 'undefined' && map) {
+        const mapMin = Number(typeof map.getMinZoom === 'function' ? map.getMinZoom() : NaN);
+        const mapMax = Number(typeof map.getMaxZoom === 'function' ? map.getMaxZoom() : NaN);
+        if (Number.isFinite(mapMin)) minZoom = Math.max(minZoom, mapMin);
+        if (Number.isFinite(mapMax)) maxZoom = Math.min(maxZoom, mapMax);
+    }
+    return Math.round(_clampMapAutoZoomNumber(zoom, minZoom, maxZoom));
+}
+
+function computeMapAutoZoomTargetZoom(gsKts, altFt) {
+    const gs = _clampMapAutoZoomNumber(gsKts, 0, 240);
+    const aglFt = getMapAutoZoomAglFt(altFt);
+    const mslFt = Number(altFt);
+    const altitudeRefFt = Number.isFinite(aglFt)
+        ? aglFt
+        : (Number.isFinite(mslFt) ? Math.max(0, mslFt) : 0);
+    const strength = window.getMapAutoZoomStrength() / 100;
+
+    const speedScore = _clampMapAutoZoomNumber((gs - 35) / 125, 0, 1);
+    const altitudeScore = _clampMapAutoZoomNumber(Math.log2((altitudeRefFt + 500) / 500) / 4.6, 0, 1);
+    const cruiseScore = _clampMapAutoZoomNumber((speedScore * 0.72 + altitudeScore * 0.42) * strength, 0, 1);
+    let targetZoom = MAP_AUTOZOOM_MAX_ZOOM - cruiseScore * (MAP_AUTOZOOM_MAX_ZOOM - MAP_AUTOZOOM_MIN_ZOOM);
+
+    if (gs < 25 && altitudeRefFt < 1200) targetZoom = MAP_AUTOZOOM_MAX_ZOOM;
+    else if (gs < 55 && altitudeRefFt < 1800) targetZoom = Math.max(targetZoom, 14);
+
+    return {
+        targetZoom: clampAutoZoomForMap(targetZoom),
+        gs,
+        aglFt: Number.isFinite(aglFt) ? Math.round(aglFt) : null,
+        altitudeRefFt: Math.round(altitudeRefFt),
+        strength: Math.round(strength * 100)
+    };
+}
+
+window.refreshMapAutoZoomUi = function() {
+    const strength = window.getMapAutoZoomStrength();
+    const slider = document.getElementById('mapAutoZoomStrengthSlider');
+    if (slider && slider.value !== String(strength)) slider.value = String(strength);
+
+    const value = document.getElementById('mapAutoZoomStrengthValue');
+    if (value) value.textContent = `${strength}%`;
+
+    const block = document.getElementById('mapAutoZoomMenuBlock');
+    if (block) block.style.opacity = isMapAutoZoomEnabled() ? '1' : '0.62';
+
+    const status = document.getElementById('mapAutoZoomStatus');
+    if (status) {
+        if (!isMapAutoZoomEnabled()) {
+            status.textContent = 'Aus';
+        } else if (!isAutoFollow) {
+            status.textContent = 'Follow aus';
+        } else if (lastMapAutoZoomSample) {
+            const currentZoom = Number.isFinite(lastMapAutoZoomSample.currentZoom)
+                ? `Z${lastMapAutoZoomSample.currentZoom.toFixed(0)}`
+                : 'Z--';
+            status.textContent = `${currentZoom} -> Z${lastMapAutoZoomSample.targetZoom}`;
+        } else {
+            status.textContent = 'Bereit';
+        }
+    }
+};
+
+window.resetMapAutoZoomState = function() {
+    lastMapAutoZoomAppliedAt = 0;
+    lastMapAutoZoomTargetZoom = null;
+    lastMapAutoZoomSample = null;
+};
+
+function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode) {
+    if (!isMapAutoZoomEnabled() || !isAutoFollow) return false;
+    if (typeof map === 'undefined' || !map || typeof map.getZoom !== 'function') return false;
+    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return false;
+
+    const currentZoom = Number(map.getZoom());
+    if (!Number.isFinite(currentZoom)) return false;
+
+    const sinceLastAutoZoom = now - lastMapAutoZoomAppliedAt;
+    if (window.vpMapInteractionActive && sinceLastAutoZoom > 900) return false;
+
+    const sample = computeMapAutoZoomTargetZoom(gsKts, altFt);
+    sample.currentZoom = currentZoom;
+    sample.t = now;
+    lastMapAutoZoomSample = sample;
+
+    const zoomDelta = Math.abs(sample.targetZoom - currentZoom);
+    const minZoomDelta = lastMapAutoZoomTargetZoom === null ? 0.5 : 0.75;
+    if (zoomDelta < minZoomDelta) {
+        if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
+        return false;
+    }
+
+    const minIntervalMs = lowFpsMode ? 2600 : 1600;
+    if (sinceLastAutoZoom < minIntervalMs) return false;
+
+    try {
+        if (typeof map.setView === 'function') {
+            map.setView([lat, lon], sample.targetZoom, { animate: false });
+        } else if (typeof map.setZoom === 'function') {
+            map.setZoom(sample.targetZoom, { animate: false });
+        }
+        lastMapAutoZoomAppliedAt = now;
+        lastMapAutoZoomTargetZoom = sample.targetZoom;
+        if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
+        return true;
+    } catch (err) {
+        console.warn('[Map Autozoom] Zoom update failed:', err && err.message ? err.message : err);
+        return false;
+    }
+}
 
 // --- FLIGHT RECORDER (Snail Trail + Stats) ---
 let flightRecorder = {
@@ -7696,6 +7864,7 @@ function toggleAutoFollow() {
         btn.style.background = isAutoFollow ? 'var(--blue)' : '#666';
         btn.innerHTML = isAutoFollow ? '🎯' : '📍';
     }
+    if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
 }
 
 function saveSyncId() {
@@ -9853,7 +10022,11 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     // --- FEATURE 2: AUTO-FOLLOW ---
     const lowFpsMode = isLowFpsModeActive();
     if (isAutoFollow) {
-        if (!lowFpsMode) {
+        const autoZoomApplied = maybeApplyMapAutoZoom(lat, lon, alt, curGs, now, lowFpsMode);
+        if (autoZoomApplied) {
+            lastAutoFollowPanAt = now;
+            lastAutoFollowPanPos = [lat, lon];
+        } else if (!lowFpsMode) {
             map.panTo([lat, lon]);
         } else {
             const movedM = lastAutoFollowPanPos ? map.distance(lastAutoFollowPanPos, [lat, lon]) : Number.POSITIVE_INFINITY;
@@ -10799,6 +10972,7 @@ window.hideLivePlane = function (options = {}) {
     lastAutoFollowPanAt = 0;
     lastAutoFollowPanPos = null;
     lastLivePlaneHeadingUpdateAt = 0;
+    if (typeof window.resetMapAutoZoomState === 'function') window.resetMapAutoZoomState();
     if (liveSnailTrail) { liveSnailTrail.setLatLngs([]); }
     if (liveToWpLine) { liveToWpLine.remove(); liveToWpLine = null; }
     // Prediction-Vektoren entfernen

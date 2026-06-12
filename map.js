@@ -74,6 +74,7 @@ const MAP_HINT_DEFAULTS = {
     vfrIndex: false,
     terrainAvoid: false,
     traffic: true,
+    autoZoom: false,
     telemetry: true,
     currentInfo: true,
     nextLeg: true,
@@ -1037,6 +1038,10 @@ function applyMapHintEffects(key) {
         window.vpTrafficMapVisible = window.mapHints.traffic !== false;
         if (typeof window.applyTrafficVisibility === 'function') window.applyTrafficVisibility();
     }
+    if (key === 'autoZoom') {
+        if (typeof window.resetMapAutoZoomState === 'function') window.resetMapAutoZoomState();
+        if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
+    }
     if (key === 'telemetry') {
         const box = document.getElementById('liveTelemetryBox');
         if (box) box.classList.toggle('tele-hint-off', !window.mapHints.telemetry);
@@ -1129,6 +1134,7 @@ function refreshMapHintMenuUi() {
         vfrIndex: '🧭 VFR-Index',
         terrainAvoid: '🏔️ Terrain Avoid',
         traffic: '✈️ Traffic',
+        autoZoom: '🔍 Autozoom',
         telemetry: '📟 Telemetrie',
         currentInfo: '📍 Aktuell',
         nextLeg: '🧭 Wegpunkt-Info',
@@ -1144,6 +1150,7 @@ function refreshMapHintMenuUi() {
         vfrIndex: 'hintToggleVfrIndex',
         terrainAvoid: 'hintToggleTerrainAvoid',
         traffic: 'hintToggleTraffic',
+        autoZoom: 'hintToggleAutoZoom',
         telemetry: 'hintToggleTelemetry',
         currentInfo: 'hintToggleCurrentInfo',
         nextLeg: 'hintToggleNextLeg',
@@ -1168,6 +1175,7 @@ function refreshMapHintMenuUi() {
     updateTerrainAvoidThresholdUi();
     updateMapWeatherSourceBtn();
     updateRouteLegLabelModeButton();
+    if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
     positionMapHintsMenuInViewport();
 }
 
@@ -9133,6 +9141,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyMapHintEffects('vfrIndex');
     applyMapHintEffects('terrainAvoid');
     applyMapHintEffects('traffic');
+    applyMapHintEffects('autoZoom');
     applyMapHintEffects('routeProgress');
     applyMapHintEffects('lowFps');
     vpUpdateVfrUi();
