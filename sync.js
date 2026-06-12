@@ -4405,11 +4405,13 @@ function _missionTargetSceneItems(kind) {
             } else if (feature === 'parked_vehicle') {
                 const car = _scenePickTitle(carPool, `feature-shore-car-${i}`, 'Microsoft_Car_EUR_02');
                 const fallback = kind === 'sar_land' ? { f: -78 - step, r: 34 + step, hdg: 35 } : { f: -22 - step, r: 11 + step, hdg: 205 };
-                const anchorNames = ['parking', 'road', 'path'];
+                const anchorNames = kind === 'sar_water' ? ['path', 'road', 'parking', 'water'] : ['parking', 'road', 'path'];
                 const pos = _missionTargetGeoOffset(anchorNames, fallback.f, fallback.r, { minM: kind === 'sar_land' ? 55 : 18, maxM: kind === 'sar_land' ? 900 : 115, lateralM: i * 7, hdgOffsetDeg: fallback.hdg });
-                add(`feature_shore_vehicle_${i + 1}`, kind === 'sar_land' ? 'Abgestelltes Fahrzeug abseits Fundpunkt' : 'Zusatz parkendes Auto', car, carPool, pos.f, pos.r, {
+                add(`feature_shore_vehicle_${i + 1}`, kind === 'sar_land'
+                    ? 'Abgestelltes Fahrzeug abseits Fundpunkt'
+                    : (kind === 'sar_water' ? 'Fahrzeug am Ufer / Wasserzugang' : 'Zusatz parkendes Auto'), car, carPool, pos.f, pos.r, {
                     hdgOffsetDeg: pos.hdg,
-                    placement: kind === 'sar_land' ? 'road/perimeter support' : 'parked vehicle',
+                    placement: kind === 'sar_land' ? 'road/perimeter support' : (kind === 'sar_water' ? 'shore vehicle clue' : 'parked vehicle'),
                     geoAnchor: _missionTargetGeoAnchorDebug(pos, anchorNames)
                 });
             } else if (feature === 'small_equipment') {
@@ -4652,14 +4654,13 @@ function _missionTargetSceneItems(kind) {
         const raft = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.sarWaterTarget, 'sar-water-raft', 'LifeRaft');
         const smallBoat = _scenePickTitle(smallBoatPool, 'sar-water-small-boat', 'Fishing Boat Red Modular');
         const serviceShip = _scenePickTitle(serviceShipPool, 'sar-water-service-ship', 'Microsoft_Ships_AbeilleBourbon_1.0');
-        const shoreVehicle = _scenePickTitle(carPool, 'sar-water-shore-vehicle', 'Microsoft_Car_EUR_01');
         const targetPerson = _scenePickTitle([personA, personB].filter(Boolean), 'sar-water-missing-person', personA || personB);
         const kit = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.smallCargo, 'sar-water-clue-equipment', 'Cardboard');
         const waterPos = _missionTargetGeoOffset(['water'], 0, 0, { minM: 10, maxM: 115, hdgOffsetDeg: 20 });
         const shorePos = _missionTargetGeoOffset(['path', 'road', 'parking', 'meadow', 'water'], 10, -8, { minM: 14, maxM: 125, lateralM: -10, hdgOffsetDeg: 180 });
         const cluePos = _missionTargetGeoOffset(['path', 'road', 'parking', 'water'], 7, -12, { minM: 14, maxM: 120, lateralM: 8, hdgOffsetDeg: 35 });
         const supportPos = _missionTargetGeoOffset(['water'], waterPos.f - 32, waterPos.r + 23, { minM: 35, maxM: 150, lateralM: 22, hdgOffsetDeg: 135 });
-        if (requestedFeatures.includes('liferaft') || /(rettungsinsel|liferaft|life raft|person im wasser|wasserrettung)/.test(sarText)) {
+        if (requestedFeatures.includes('liferaft')) {
             add('liferaft', 'Rettungsinsel / Wasser-SAR-Ziel', raft, MISSION_SCENE_ASSET_POOLS.sarWaterTarget, waterPos.f, waterPos.r, {
                 hdgOffsetDeg: waterPos.hdg,
                 placement: 'search target on water',
@@ -4671,13 +4672,6 @@ function _missionTargetSceneItems(kind) {
                 hdgOffsetDeg: waterPos.hdg,
                 placement: 'secondary water clue',
                 geoAnchor: _missionTargetGeoAnchorDebug(waterPos, ['water'])
-            });
-        }
-        if (requestedFeatures.includes('parked_vehicle') || /(fahrzeug.*wasser|wasser.*fahrzeug|auto.*ufer|ufer.*auto|pkw.*wasser|kleinwagen)/.test(sarText)) {
-            add('shore_vehicle', 'Fahrzeug am Ufer / Wasserzugang', shoreVehicle, carPool, shorePos.f + 6, shorePos.r + 5, {
-                hdgOffsetDeg: shorePos.hdg,
-                placement: 'shore vehicle clue',
-                geoAnchor: _missionTargetGeoAnchorDebug(shorePos, ['path', 'road', 'parking', 'water'])
             });
         }
         if (!_missionSarExplicitFalseAlarm() && requestedFeatures.includes('missing_person')) {
@@ -4865,6 +4859,7 @@ window.missionTargetSceneDebugPreview = function(reason = 'planned-target-scene'
                 ? (currentMissionData.missionTruth || currentMissionData.missionContract?.missionTruth || window.activeMissionContract?.missionTruth || null)
                 : (window.activeMissionContract?.missionTruth || null),
             resolvedKind: kind,
+            requestedFeatures: _missionTargetSceneRequestedFeatures(kind),
             point,
             itemCount: items.length,
             items: _missionSceneDebugSummarizeItems(items)
