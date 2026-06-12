@@ -924,17 +924,32 @@ function missionTaskPoiCategoryPolicy(profileId = 'auto') {
     return (policies[id] || []).filter(Boolean);
 }
 
+function missionTaskPoiCategoryWeights(profileId = 'auto') {
+    const id = String(profileId || 'auto').toLowerCase();
+    if (id === 'search_and_rescue') {
+        return {
+            water: 1.35,
+            forest: 1.25,
+            mountain: 1.15,
+            road: 0.75
+        };
+    }
+    return {};
+}
+
 function pickPoiCategoryForTaskProfile(profileId = 'auto', requestedCategory = 'all') {
     const requested = String(requestedCategory || 'all').toLowerCase();
     if (requested && requested !== 'all') return requested;
     const categories = missionTaskPoiCategoryPolicy(profileId);
     if (!categories.length) return requested || 'all';
+    const weights = missionTaskPoiCategoryWeights(profileId);
     const historyKey = `ga_poi_profile_cat_${String(profileId || 'auto').toLowerCase()}`;
     let history = {};
     try { history = JSON.parse(localStorage.getItem(historyKey) || '{}'); } catch (_) { history = {}; }
     if (!history || typeof history !== 'object') history = {};
-    const minCount = Math.min(...categories.map(cat => Number(history[cat] || 0)));
-    const pool = categories.filter(cat => Number(history[cat] || 0) === minCount);
+    const categoryScore = cat => Number(history[cat] || 0) / Math.max(0.1, Number(weights[cat] || 1));
+    const minScore = Math.min(...categories.map(categoryScore));
+    const pool = categories.filter(cat => Math.abs(categoryScore(cat) - minScore) < 0.0001);
     const pick = pool[Math.floor(Math.random() * pool.length)] || categories[0];
     history[pick] = Number(history[pick] || 0) + 1;
     try { localStorage.setItem(historyKey, JSON.stringify(history)); } catch (_) {}
@@ -9581,6 +9596,8 @@ function missionVisualLandmarkFromTags(tags = {}, { name = '', rawType = '' } = 
     if (raw.includes('wind') || /wind/.test(String(t.generator_source || t['generator:source'] || '').toLowerCase()) || /wind/.test(labelName.toLowerCase())) {
         return make('wind_turbine', 'Windrad');
     }
+    if (String(t.junction || '').toLowerCase() === 'roundabout') return make('traffic_node', 'Kreisverkehr');
+    if (['mini_roundabout', 'traffic_signals'].includes(highway)) return make('traffic_node', highway === 'mini_roundabout' ? 'Kreisverkehr' : 'Ampelkreuzung');
     if (power === 'tower' || power === 'pole' || raw.includes('power_tower')) return make('power_tower', 'Strommast');
     if (['line', 'minor_line', 'cable'].includes(power)) return make('powerline', 'Freileitung');
     if ((bridge && !/^(no|false|0)$/i.test(bridge)) || manMade === 'bridge') return make('bridge', 'Bruecke');
@@ -9602,6 +9619,8 @@ function missionTargetGeoContextCategory(tags = {}) {
     const manMade = String(tags.man_made || '').toLowerCase();
     if ((bridge && !/^(no|false|0)$/i.test(bridge)) || manMade === 'bridge') return 'bridge';
     const highway = String(tags.highway || '').toLowerCase();
+    const junction = String(tags.junction || '').toLowerCase();
+    if (junction === 'roundabout' || ['motorway_junction', 'mini_roundabout', 'traffic_signals'].includes(highway)) return 'traffic_node';
     if (highway) {
         if (/path|footway|cycleway|bridleway|steps|track/.test(highway)) return 'path';
         return 'road';
@@ -9854,7 +9873,7 @@ function missionTruthAnchorForCategory(ctx = null, category = '', taskDomain = '
     if (cat === 'water') lists.push(['water']);
     if (cat === 'infrastructure') lists.push(['power', 'road', 'parking', 'building', 'railway']);
     if (cat === 'industry') lists.push(['building', 'power']);
-    if (cat === 'road') lists.push(['road', 'parking']);
+    if (cat === 'road') lists.push(['traffic_node', 'road', 'parking']);
     if (cat === 'rail') lists.push(['railway', 'rail', 'road']);
     if (cat === 'fire' || task === 'fire_watch') lists.push(['forest', 'meadow', 'farmland', 'water']);
     if (task.includes('search_and_rescue') && (cat === 'mountain' || cat === 'forest' || cat === 'fire' || cat === 'generic')) {
@@ -9933,11 +9952,18 @@ function missionTruthBaseVisibleCues(ctx = null, category = '', taskDomain = '')
         return cues.slice(0, 3);
     }
     if (cat === 'water' || anchors.water) add('Wasserflaeche oder Uferlinie');
+    if (anchors.traffic_node) add('Kreuzung oder Kreisverkehr');
     if (anchors.road || anchors.parking) add('Strasse oder Zufahrt');
     if (anchors.power) add('Strom- oder Infrastrukturpunkt');
     if (anchors.forest) add('Waldrand');
     if (anchors.meadow || anchors.farmland) add('offenes Gelaende');
-    if (task.includes('search_and_rescue')) add('Person oder Hinweis am Boden');
+    if (task.includes('search_and_rescue')) {
+        if (cat === 'road' || anchors.traffic_node) {
+            add('Fahrzeug- oder Unfallhinweis an der Strasse');
+        } else {
+            add('Person, Fahrzeug oder anderer Suchhinweis');
+        }
+    }
     return cues.slice(0, 3);
 }
 
@@ -10153,6 +10179,7 @@ function normalizeMissionTargetGeoContext(raw = null, centerLat = null, centerLo
     avoidZones.sort((a, b) => Number(a.distM || 999999) - Number(b.distM || 999999));
     const compactAvoidZones = avoidZones.slice(0, 48);
     const hints = [];
+    if (anchors.traffic_node) hints.push('traffic incident placement plausible near the intersection or roundabout anchor');
     if (anchors.road || anchors.parking) hints.push('roadside/vehicle placement plausible near the road or parking anchor');
     if (anchors.water) hints.push('waterline placement plausible near the water anchor');
     if (anchors.forest) hints.push('forest-edge placement plausible near the forest anchor');
@@ -11568,6 +11595,7 @@ function _missionPipelineV3CompactGeoContext(ctx = null) {
         anchors[key] = {
             present: !!anchor.present,
             name: _missionPipelineV3Text(anchor.name, 80),
+            count: Number.isFinite(Number(anchor.count)) ? Math.round(Number(anchor.count)) : null,
             distM: Number.isFinite(Number(anchor.distM)) ? Math.round(Number(anchor.distM)) : null,
             bearingDeg: Number.isFinite(Number(anchor.bearingDeg)) ? Math.round(Number(anchor.bearingDeg)) : null
         };
@@ -11577,10 +11605,11 @@ function _missionPipelineV3CompactGeoContext(ctx = null) {
         hints: _missionPipelineV3Array(ctx.hints, 8, 120),
         anchors,
         visualLandmarks: (Array.isArray(ctx.visualLandmarks) ? ctx.visualLandmarks : []).slice(0, 6).map(lm => ({
+            kind: _missionPipelineV3Text(lm?.kind || lm?.type, 60),
             label: _missionPipelineV3Text(lm?.label, 80),
             type: _missionPipelineV3Text(lm?.type, 60),
             distM: Number.isFinite(Number(lm?.distM)) ? Math.round(Number(lm.distM)) : null
-        })).filter(lm => lm.label || lm.type),
+        })).filter(lm => lm.label || lm.type || lm.kind),
         avoidZoneCounts: (Array.isArray(ctx.avoidZones) ? ctx.avoidZones : []).reduce((acc, z) => {
             const k = _missionPipelineV3Text(z?.type || 'unknown', 40);
             acc[k] = (acc[k] || 0) + 1;
@@ -12401,6 +12430,102 @@ function missionSarIncidentFamily(incidentType = '') {
     })[id] || id || 'generic';
 }
 
+function missionSarSiteAnalysis(category = '', targetLabel = '', context = {}) {
+    const geoContext = context?.geoContext || context?.targetGeoContext || null;
+    const missionTruth = context?.missionTruth || null;
+    const anchors = geoContext?.anchors && typeof geoContext.anchors === 'object' ? geoContext.anchors : {};
+    const visualLandmarks = Array.isArray(geoContext?.visualLandmarks) ? geoContext.visualLandmarks : [];
+    const anchorPresent = key => !!anchors[key]?.present;
+    const text = normalizeMissionText([
+        category,
+        targetLabel,
+        geoContext?.summary || '',
+        ...(Array.isArray(geoContext?.hints) ? geoContext.hints : []),
+        ...Object.entries(anchors).map(([key, anchor]) => `${key} ${anchor?.name || ''}`),
+        ...visualLandmarks.map(lm => `${lm?.kind || lm?.type || ''} ${lm?.label || ''} ${lm?.name || ''}`),
+        missionTruth?.mainTarget?.kind || '',
+        missionTruth?.sceneAnchor?.kind || '',
+        ...(Array.isArray(missionTruth?.visibleCues) ? missionTruth.visibleCues : [])
+    ].join(' '));
+    const key = missionSarIncidentCategoryKey(category, targetLabel);
+    const hasTrafficNode = anchorPresent('traffic_node') || /(kreisverkehr|roundabout|kreuzung|junction|intersection|traffic signals|ampelkreuzung|verkehrsknoten)/.test(text);
+    const hasRoad = key === 'road' || anchorPresent('road') || anchorPresent('parking') || hasTrafficNode || /(strasse|straße|road|rue|route|fahrbahn|verkehr)/.test(text);
+    const hasWater = key === 'water' || anchorPresent('water') || /(wasser|ufer|fluss|river|stream|see|lake|l'allaine)/.test(text);
+    const hasBridge = anchorPresent('bridge') || /(bruecke|brucke|bridge|pont)/.test(text);
+    const hasBuiltUp = anchorPresent('building') || anchorPresent('parking') || /(stadt|city|ort|dorf|village|rue|grand'?rue|building|gebaeude|gebäude|parking|parkplatz)/.test(text);
+    const hasTrail = anchorPresent('path') || /(trail|pfad|wander|weg|chemin|path)/.test(text);
+    const hasForest = key === 'forest' || anchorPresent('forest') || /(wald|forst|forest|wood)/.test(text);
+    const hasTerrain = key === 'mountain' || anchorPresent('terrain') || anchorPresent('viewpoint') || /\b(berg|gipfel|hang|ridge|cliff|fels|mountain|slope)\b/.test(text);
+    const hasOpenLand = anchorPresent('meadow') || anchorPresent('farmland');
+    const evidence = [];
+    const addEvidence = label => { if (label && !evidence.includes(label)) evidence.push(label); };
+    if (hasRoad) addEvidence('road_target');
+    if (hasTrafficNode) addEvidence('traffic_node');
+    if (hasBuiltUp) addEvidence('built_up_context');
+    if (hasBridge) addEvidence('bridge_nearby');
+    if (hasWater) addEvidence('water_nearby');
+    if (hasTrail) addEvidence('path_or_trail');
+    if (hasForest) addEvidence('forest_context');
+    if (hasTerrain) addEvidence('terrain_context');
+    if (hasOpenLand) addEvidence('open_land');
+
+    const incidentScores = {
+        missing_hiker: 1,
+        fallen_climber: 1,
+        missing_kayaker: 1,
+        angler_missing: 1,
+        small_boat_overdue: 1,
+        riverside_vehicle_entry: 1,
+        vehicle_off_road: 1,
+        road_collision: 1,
+        downed_ultralight: 1
+    };
+    const addScore = (id, amount) => {
+        const canonical = missionSarCanonicalIncidentType(id);
+        incidentScores[canonical] = Number(incidentScores[canonical] || 0) + Number(amount || 0);
+    };
+    if (hasRoad) {
+        addScore('vehicle_off_road', 1.8);
+        addScore('road_collision', 2.2);
+        addScore('missing_hiker', -0.4);
+    }
+    if (hasTrafficNode) {
+        addScore('road_collision', 4.0);
+        addScore('vehicle_off_road', 0.8);
+        addScore('missing_hiker', -1.2);
+    }
+    if (hasBuiltUp && hasRoad) {
+        addScore('road_collision', 1.5);
+        addScore('vehicle_off_road', 0.6);
+        addScore('missing_hiker', -0.8);
+    }
+    if (hasRoad && (hasWater || hasBridge)) {
+        addScore('vehicle_off_road', 2.0);
+        addScore('road_collision', 0.9);
+        addScore('riverside_vehicle_entry', 2.2);
+    }
+    if (hasWater) {
+        addScore('missing_kayaker', 1.8);
+        addScore('angler_missing', 1.6);
+        addScore('small_boat_overdue', 1.8);
+    }
+    if (hasTrail || hasForest || hasTerrain || hasOpenLand) {
+        addScore('missing_hiker', 1.8);
+        addScore('fallen_climber', hasTerrain ? 2.0 : 0.7);
+        addScore('downed_ultralight', hasOpenLand || hasForest ? 1.2 : 0.5);
+    }
+    Object.keys(incidentScores).forEach(id => {
+        incidentScores[id] = Math.max(0.1, Math.round(Number(incidentScores[id]) * 10) / 10);
+    });
+    return {
+        categoryKey: key,
+        evidence,
+        incidentScores,
+        rule: 'Incident-Auswahl folgt zuerst der Lage-Evidenz am Ziel; Verlauf/History dient nur als Varianz-Tiebreaker.'
+    };
+}
+window.missionSarSiteAnalysis = missionSarSiteAnalysis;
+
 function missionSarIncidentHistoryKeys(category = '', targetLabel = '') {
     const key = missionSarIncidentCategoryKey(category, targetLabel);
     return {
@@ -12422,7 +12547,7 @@ function missionSarWriteIncidentHistory(storageKey = '', values = [], limit = 10
     try { localStorage.setItem(storageKey, JSON.stringify(values.slice(-limit))); } catch (_) {}
 }
 
-function missionSarIncidentGuidance(category = '', targetLabel = '') {
+function missionSarIncidentGuidance(category = '', targetLabel = '', context = {}) {
     const allowedIncidentTypes = [...new Set(
         missionSarIncidentIdsForCategory(category, targetLabel)
             .map(missionSarCanonicalIncidentType)
@@ -12439,30 +12564,44 @@ function missionSarIncidentGuidance(category = '', targetLabel = '') {
     const recentFamilyLimit = Math.min(2, Math.max(0, allowedFamilies.length - 1));
     const recentIncidentTypes = recentIncidentLimit ? exactHistory.slice(-recentIncidentLimit) : [];
     const recentFamilies = recentFamilyLimit ? familyHistory.slice(-recentFamilyLimit) : [];
-    let preferredIncidentTypes = allowedIncidentTypes.filter(id =>
+    const siteAnalysis = missionSarSiteAnalysis(category, targetLabel, context);
+    const scoredIncidentTypes = allowedIncidentTypes
+        .map(id => ({
+            id,
+            score: Number(siteAnalysis.incidentScores?.[id] || 1),
+            family: missionSarIncidentFamily(id)
+        }))
+        .sort((a, b) => (b.score - a.score) || a.id.localeCompare(b.id));
+    const bestScore = Number(scoredIncidentTypes[0]?.score || 1);
+    const evidencePreferred = bestScore > 1.2
+        ? scoredIncidentTypes.filter(entry => entry.score >= bestScore - 0.8).map(entry => entry.id)
+        : allowedIncidentTypes.slice();
+    let preferredIncidentTypes = evidencePreferred.filter(id =>
         !recentIncidentTypes.includes(id)
         && !recentFamilies.includes(missionSarIncidentFamily(id))
     );
     if (!preferredIncidentTypes.length) {
-        preferredIncidentTypes = allowedIncidentTypes.filter(id => !recentIncidentTypes.includes(id));
+        preferredIncidentTypes = evidencePreferred.filter(id => !recentIncidentTypes.includes(id));
     }
     if (!preferredIncidentTypes.length) {
-        preferredIncidentTypes = allowedIncidentTypes.filter(id => !recentFamilies.includes(missionSarIncidentFamily(id)));
+        preferredIncidentTypes = evidencePreferred.filter(id => !recentFamilies.includes(missionSarIncidentFamily(id)));
     }
-    if (!preferredIncidentTypes.length) preferredIncidentTypes = allowedIncidentTypes.slice();
+    if (!preferredIncidentTypes.length) preferredIncidentTypes = evidencePreferred.length ? evidencePreferred.slice() : allowedIncidentTypes.slice();
     return {
         allowedIncidentTypes,
         allowedFamilies,
+        siteAnalysis,
+        scoredIncidentTypes,
         recentIncidentTypes,
         recentFamilies,
         preferredIncidentTypes,
-        rule: 'Waehle einen Incident aus allowedIncidentTypes, der zur Zielkategorie passt. Missing-Person bleibt erlaubt, aber wiederhole recentIncidentTypes/recentFamilies nur, wenn es fachlich die beste Option ist.'
+        rule: 'Waehle einen Incident aus allowedIncidentTypes, der zur Lage-Evidenz in siteAnalysis passt. Missing-Person bleibt erlaubt, aber History darf starke Ziel-Evidenz nicht gegen generische Personensuche ueberstimmen.'
     };
 }
 window.missionSarIncidentGuidance = missionSarIncidentGuidance;
 
-function missionSarPickIncidentType(category = '', targetLabel = '', suggestedIncidentType = '') {
-    const guidance = missionSarIncidentGuidance(category, targetLabel);
+function missionSarPickIncidentType(category = '', targetLabel = '', suggestedIncidentType = '', context = {}) {
+    const guidance = missionSarIncidentGuidance(category, targetLabel, context);
     const uniqueAllowed = guidance.allowedIncidentTypes;
     if (!uniqueAllowed.length) return 'missing_hiker';
     if (uniqueAllowed.length === 1) return uniqueAllowed[0];
@@ -13257,7 +13396,11 @@ function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds 
         const selectedSarIncident = missionSarPickIncidentType(
             semantics.focusLock.targetCategory || base.plan.targetCategory || '',
             semantics.focusLock.primarySubjectLabel || base.plan.targetLabel || '',
-            canonicalSarIncident
+            canonicalSarIncident,
+            {
+                geoContext: resolvedNeeds?.geo_context || null,
+                missionTruth: resolvedNeeds?.mission_truth || null
+            }
         );
         const shouldReframeSar = !canonicalSarIncident
             || !allowedSarIncidentIds.includes(canonicalSarIncident)
@@ -13344,7 +13487,11 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     const sarIncidentGuidance = semanticsRules?.focusLock?.taskDomain === 'search_and_rescue'
         ? missionSarIncidentGuidance(
             draft?.category || context.selectedCategory || 'generic',
-            draft?.target?.name || context.dest?.n || ''
+            draft?.target?.name || context.dest?.n || '',
+            {
+                geoContext: geo || null,
+                missionTruth: truth || working.missionTruth || context.missionTruth || null
+            }
         )
         : null;
     return {
@@ -13393,7 +13540,7 @@ Arbeitsweise:
 8. Baue immer einen klaren Story-Kern: Ausloeser/Trigger, Fokus-Subjekt, offene Frage am Ziel, Einsatznutzen des Fluges, naechster Handoff.
 9. Konkretisiere diesen Story-Kern immer mit 2-4 Lage-Details: wer/was genau betroffen ist, was passiert ist, warum der Einsatz gerade jetzt noetig ist und welcher Befund aus der Luft gebraucht wird.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, wahrscheinliche Lage und moegliche Suchhinweise.
-11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber wiederhole recentIncidentTypes/recentFamilies nur, wenn es fuer Ziel und Lage fachlich am besten passt.
+11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen. Nutze siteAnalysis/scoredIncidentTypes als primaere Lage-Evidenz und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber bei Strasse/Kreuzung/Kreisverkehr/Stadtrand muss eine generische Wanderer-Vermisstenlage gegen eine Verkehrs- oder Fahrzeuglage fachlich begruendet sein.
 12. Du darfst einen realistischen Missionsanlass frei konkretisieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Bundles erfunden werden.
 13. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
 14. Antworte ausschliesslich als JSON.
@@ -13434,7 +13581,7 @@ ${JSON.stringify(contextBundle)}
       "whyNow": "warum der Flug gerade jetzt noetig ist",
       "soughtOutcome": "welcher konkrete Befund oder welche Entscheidungshilfe gebraucht wird",
       "incidentType": "vor allem bei SAR: z.B. missing_hiker, fallen_climber, missing_kayaker, small_boat_overdue, vehicle_off_road, road_collision, downed_ultralight",
-      "lastSeenContext": "wo oder in welchem Zusammenhang die betroffene Person zuletzt gesehen/gemeldet wurde",
+      "lastSeenContext": "wo oder in welchem Zusammenhang das betroffene Subjekt zuletzt gesehen, gemeldet oder vermutet wurde",
       "probableScenario": "wahrscheinliche Lagehypothese",
       "visibleClueCandidates": ["2-4 moegliche sichtbare Hinweise im Suchraum"]
     },
@@ -13579,7 +13726,7 @@ Regeln:
 11. Nutze aus CONTRACT.storyFrame nach Moeglichkeit auch subjectDetail, incidentContext, whyNow und soughtOutcome, damit der Auftrag nicht abstrakt bleibt.
 12. Wenn CONTRACT.storyFrame incidentType, lastSeenContext, probableScenario oder visibleClueCandidates enthaelt, muessen diese Informationen im Briefing spuerbar werden statt zu abstrakten Standardfloskeln zu verfallen.
 13. Du darfst einen plausiblen operativen Anlass frei ausformulieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Contracts behauptet werden.
-14. search_and_rescue: Sag klar, wer betroffen ist, wo die letzte Sichtung oder Meldung war, welche Lage vermutet wird und worauf wir aus der Luft konkret achten sollen.
+14. search_and_rescue: Sag klar, wer oder was betroffen ist, wo die letzte Sichtung oder Meldung war, welche Lage vermutet wird und worauf wir aus der Luft konkret achten sollen.
 15. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
 16. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
 17. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
