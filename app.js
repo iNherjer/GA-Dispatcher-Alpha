@@ -3310,12 +3310,26 @@ async function _sarHeliStaticMedicalHelipadCandidates(origin, options = {}) {
             tags: {
                 ...(item.tags || {}),
                 name: item.name || '',
-                aeroway: 'helipad',
+                aeroway: /(?:helipad|heliport)/i.test(String(item.kind || '')) ? 'helipad' : '',
                 amenity: String(item.kind || '').includes('hospital') ? 'hospital' : ''
             }
         }, origin, item.source || 'medical-helipads'))
         .filter(c => c && c.kind !== 'airport_fallback')
         .filter(c => Number.isFinite(Number(c.distanceNm)) ? Number(c.distanceNm) <= radiusNm : true);
+}
+
+function _sarHeliPickNearestDedicatedMedicalHeliport(candidates = []) {
+    const valid = candidates
+        .filter(c => c && Number.isFinite(Number(c.distanceNm)))
+        .slice();
+    if (!valid.length) return null;
+    const actualHeliports = valid.filter(c => /(?:helipad|heliport|medical_heliport)/i.test(String(c.kind || '')));
+    const pool = actualHeliports.length ? actualHeliports : valid;
+    return pool
+        .sort((a, b) =>
+            (Number(a.distanceNm || Infinity) - Number(b.distanceNm || Infinity))
+            || (Number(b.score || 0) - Number(a.score || 0))
+        )[0] || null;
 }
 
 async function _sarHeliFetchOverpassHospitalCandidates(lat, lon, radiusM = 85000) {
@@ -3359,8 +3373,7 @@ async function resolveSarHeliHospitalRef(targetLat, targetLon, options = {}) {
     if (!Number.isFinite(origin.lat) || !Number.isFinite(origin.lon)) return null;
     const staticCandidates = await _sarHeliStaticMedicalHelipadCandidates(origin, options);
     if (staticCandidates.length) {
-        return staticCandidates
-            .sort((a, b) => (Number(b.score || 0) - Number(a.score || 0)) || (Number(a.distanceNm || Infinity) - Number(b.distanceNm || Infinity)))[0];
+        return _sarHeliPickNearestDedicatedMedicalHeliport(staticCandidates);
     }
     const overpassElements = await _sarHeliFetchOverpassHospitalCandidates(origin.lat, origin.lon, options.radiusM || 85000);
     const overpassCandidates = overpassElements
