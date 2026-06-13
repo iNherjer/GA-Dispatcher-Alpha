@@ -682,6 +682,7 @@
                     <input type="checkbox" id="aiToggle" onchange="saveAiToggle()" checked>
                     <span class="slider"></span>
                 </label>
+                <button type="button" class="settings-help-btn" onclick="showSettingsHelp('dispatcher', event)" aria-label="Hilfe zu KI-Dispatcher" aria-expanded="false">?</button>
             </div>
         </div>
         <input type="text" style="display:none;" aria-hidden="true" autocomplete="username">
@@ -708,6 +709,7 @@
                 <span id="syncTrafficIndicator" style="font-size: 13px; margin-right: 6px; opacity: 0; transition: opacity 0.3s;"></span>
                 <span id="syncStatus" style="font-size: 10px; color: #888;">Warte auf Login</span>
                 <span id="liveGpsIndicator" style="color: #666; margin-left: 10px; font-size: 14px; font-weight: bold; transition: color 0.3s;" title="Live GPS Status">🛰️ OFF</span>
+                <button type="button" class="settings-help-btn" onclick="showSettingsHelp('pilot-sync', event)" aria-label="Hilfe zu Pilot Identity und Sync" aria-expanded="false">?</button>
             </div>
         </div>
         
@@ -761,7 +763,10 @@
                 <div class="settings-section-kicker">Crew</div>
                 <label class="settings-section-title">Crew Board</label>
             </div>
-            <span id="groupStatus" style="font-size: 10px; color: #888;">Nicht verbunden</span>
+            <div class="settings-section-status">
+                <span id="groupStatus" style="font-size: 10px; color: #888;">Nicht verbunden</span>
+                <button type="button" class="settings-help-btn" onclick="showSettingsHelp('crew-board', event)" aria-label="Hilfe zu Crew Board" aria-expanded="false">?</button>
+            </div>
         </div>
         <div class="settings-form-row">
             <input type="text" id="groupNameInput" placeholder="Crew-Code (z.B. EDTK)" style="flex: 2; margin: 0; font-family: monospace;" autocomplete="off" spellcheck="false">
@@ -782,7 +787,10 @@
                 <div class="settings-section-kicker">Aircraft</div>
                 <label class="settings-section-title">Presets</label>
             </div>
-            <span id="aircraftPresetStatus" style="font-size: 10px; color: #888;">Slot wählen und speichern</span>
+            <div class="settings-section-status">
+                <span id="aircraftPresetStatus" style="font-size: 10px; color: #888;">Slot wählen und speichern</span>
+                <button type="button" class="settings-help-btn" onclick="showSettingsHelp('aircraft-presets', event)" aria-label="Hilfe zu Aircraft Presets" aria-expanded="false">?</button>
+            </div>
         </div>
         <div class="settings-form-row">
             <select id="aircraftPresetSlot" onchange="selectAircraftPresetSlotFromSettings(this.value)" style="flex: 1;">
@@ -806,15 +814,18 @@
                     <div class="settings-section-kicker">Boarding Szene</div>
                     <div class="boarding-scene-copy">Relative Punkte zum Flugzeug</div>
                 </div>
-                <div class="boarding-toggle-row">
-                    <label class="boarding-toggle">
-                        <input type="checkbox" id="boardingDoorOpenToggle" onchange="setBoardingDoorOption(this.checked)" checked>
-                        <span>Tür</span>
-                    </label>
-                    <label class="boarding-toggle">
-                        <input type="checkbox" id="boardingMarkerToggle" onchange="setBoardingMarkerOption(this.checked)">
-                        <span>Marker</span>
-                    </label>
+                <div class="boarding-toolbar-actions">
+                    <div class="boarding-toggle-row">
+                        <label class="boarding-toggle">
+                            <input type="checkbox" id="boardingDoorOpenToggle" onchange="setBoardingDoorOption(this.checked)" checked>
+                            <span>Tür</span>
+                        </label>
+                        <label class="boarding-toggle">
+                            <input type="checkbox" id="boardingMarkerToggle" onchange="setBoardingMarkerOption(this.checked)">
+                            <span>Marker</span>
+                        </label>
+                    </div>
+                    <button type="button" class="settings-help-btn" onclick="showSettingsHelp('boarding-scene', event)" aria-label="Hilfe zur Boarding Szene" aria-expanded="false">?</button>
                 </div>
             </div>
             <div class="boarding-route-editor">
@@ -846,7 +857,12 @@
     </div>
 
     <div class="theme-switch-wrapper settings-section settings-theme-section" style="flex-direction: column; align-items: center; border-top: 2px dashed #444; margin-top: 30px; padding-top: 15px;">
-        <div class="settings-section-kicker">Darstellung</div>
+        <div class="settings-section-head">
+            <div>
+                <div class="settings-section-kicker">Darstellung</div>
+            </div>
+            <button type="button" class="settings-help-btn" onclick="showSettingsHelp('appearance', event)" aria-label="Hilfe zur Darstellung" aria-expanded="false">?</button>
+        </div>
         <div style="display: flex; justify-content: space-between; width: 210px; font-size: 10px; font-weight: bold; text-transform: uppercase;">
             <span id="lbl-classic" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(0)">Modern</span>
             <span id="lbl-retro" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(1)">Analog</span>

@@ -693,6 +693,218 @@ function toggleSettingsPanel() {
     setSettingsPanelOpen(!(shell && shell.classList.contains('is-open')));
 }
 
+const SETTINGS_HELP_CONTENT = {
+    dispatcher: {
+        kicker: 'Aufträge',
+        title: 'KI-Dispatcher',
+        intro: 'Hier stellst du ein, ob Missionen aus der lokalen Datenbank kommen oder ob Gemini neue Aufträge erzeugen darf.',
+        items: [
+            { term: 'Schalter', text: 'Schaltet die KI-Missionen ein oder aus. Aus bedeutet: Die App nutzt feste lokale Aufträge.' },
+            { term: 'FUEL-Anzeige', text: 'Zeigt grob, wie viel Tageskontingent fuer KI-Anfragen noch uebrig ist.' },
+            { term: 'API-Key', text: 'Optionaler Gemini-Schluessel. Leer lassen ist okay; dann bleibt die App bei lokalen Daten.' },
+            { term: 'Status', text: 'Zeigt, ob der Key zuletzt erfolgreich geprueft wurde.' },
+            { term: 'Sicherheit', text: 'Der Key wird nur in diesem Browser gespeichert und nicht in dein Profil geschrieben.' }
+        ]
+    },
+    'pilot-sync': {
+        kicker: 'Cloud & Mission',
+        title: 'Pilot Identity & Sync',
+        intro: 'Diese Gruppe verbindet dein lokales Cockpit mit deiner Pilot-ID, Cloud-Daten und optional dem PC-Tracker.',
+        items: [
+            { term: 'Pilot-ID', text: 'Dein Name im System. Damit erkennt die App, welche Daten zu dir gehoeren.' },
+            { term: 'PIN', text: 'Schuetzt deine Pilot-ID. Ohne passenden PIN bleibt Sync gesperrt.' },
+            { term: 'Login', text: 'Meldet dich mit Pilot-ID und PIN an und schaltet Cloud-Funktionen frei.' },
+            { term: 'PC-Tracker', text: 'Ladet das kleine Windows-Tool, das Live-Position und Flugzustand aus MSFS senden kann.' },
+            { term: 'Auto-Sync', text: 'Speichert und laedt Daten automatisch, wenn du angemeldet bist.' },
+            { term: 'Push / Pull', text: 'Push sendet deine Daten in die Cloud. Pull holt den gespeicherten Stand zurueck.' },
+            { term: 'Live GPS', text: 'Zeigt, ob gerade Live-Daten vom Tracker ankommen.' },
+            { term: 'Missionsstatus', text: 'Zeigt, was die laufende Mission gerade erwartet, zum Beispiel Bodenstabilisierung oder naechsten Schritt.' },
+            { term: 'Mission Reset', text: 'Setzt die laufende Mission zurueck, ohne alles andere zu loeschen.' },
+            { term: 'Auto Load', text: 'Laedt Missionsfracht automatisch, wenn diese Option eingeschaltet ist.' }
+        ]
+    },
+    'crew-board': {
+        kicker: 'Crew',
+        title: 'Crew Board',
+        intro: 'Hier verbindest du dich mit einer gemeinsamen Crew-Tafel, damit andere denselben Flugkontext sehen koennen.',
+        items: [
+            { term: 'Crew-Code', text: 'Der gemeinsame Gruppenname, zum Beispiel ein Flugplatzcode. Alle mit demselben Code landen im selben Board.' },
+            { term: 'Anzeigename', text: 'Der Name, der fuer dich angezeigt wird. Wenn er leer bleibt, nutzt die App deine Pilot-ID.' },
+            { term: 'Beitreten / Update', text: 'Tritt der Crew bei oder aktualisiert deinen Namen und Status.' },
+            { term: 'Verlassen', text: 'Entfernt dich aus der aktuellen Crew-Gruppe.' },
+            { term: 'Status', text: 'Zeigt, ob du gerade verbunden bist.' }
+        ]
+    },
+    'aircraft-presets': {
+        kicker: 'Aircraft',
+        title: 'Presets',
+        intro: 'Aircraft Presets speichern die wichtigsten Planungswerte deines Flugzeugs, damit Missionen und Zeiten realistischer werden.',
+        items: [
+            { term: 'Slot', text: 'Waehlt einen von drei Speicherplaetzen fuer Flugzeugprofile.' },
+            { term: 'Name', text: 'Freier Anzeigename fuer das Flugzeug.' },
+            { term: 'TAS', text: 'True Airspeed in Knoten. Dieser Wert bestimmt die geplante Reisegeschwindigkeit.' },
+            { term: 'GPH', text: 'Fuel Flow in Gallonen pro Stunde. Damit schaetzt die App den Verbrauch.' },
+            { term: 'PAX', text: 'Maximale Sitzplaetze oder Personenanzahl fuer Missionsplanung.' },
+            { term: 'Preset speichern', text: 'Speichert Name und Werte im gewaehlten Slot. Angemeldet koennen sie auch synchronisiert werden.' }
+        ]
+    },
+    'boarding-scene': {
+        kicker: 'Aircraft',
+        title: 'Boarding Szene',
+        intro: 'Diese Werkzeuge bestimmen, wo Passagiere, Marker und Einstiegsweg relativ zum Flugzeug erscheinen.',
+        items: [
+            { term: 'Tuer', text: 'Steuert, ob die Boarding-Szene mit offener Tuer geplant wird.' },
+            { term: 'Marker', text: 'Blendet einen sichtbaren Marker fuer die Boarding-Position ein.' },
+            { term: 'Punkt-Auswahl', text: 'Waehlt den Wegpunkt, den du gerade bearbeiten moechtest.' },
+            { term: '+ Wegpunkt', text: 'Fuegt nach dem ausgewaehlten Punkt einen neuen Wegpunkt ein.' },
+            { term: 'Punktanzeige', text: 'Zeigt die aktuelle Position des gewaehlten Punkts relativ zum Flugzeug.' },
+            { term: 'Pfeile', text: 'Verschieben den Punkt nach vorn, hinten, links oder rechts.' },
+            { term: 'Punkt zurueck / vor', text: 'Aendert die Reihenfolge des gewaehlten Wegpunkts.' },
+            { term: 'Loeschen', text: 'Entfernt den gewaehlten Wegpunkt aus dem Boarding-Weg.' },
+            { term: 'Reset', text: 'Setzt die Boarding-Konfiguration fuer diesen Slot auf Standardwerte.' },
+            { term: 'Szene neu setzen', text: 'Wendet die aktuelle Boarding-Konfiguration sofort wieder in der Szene an.' }
+        ]
+    },
+    appearance: {
+        kicker: 'Darstellung',
+        title: 'Darstellung',
+        intro: 'Diese Gruppe aendert nur das Aussehen der App. Deine Missions- und Flugzeugdaten bleiben gleich.',
+        items: [
+            { term: 'Modern', text: 'Klare aktuelle Optik mit Glas- und Farbverlaufselementen.' },
+            { term: 'Analog', text: 'Klassischere Panel-Optik mit Instrumenten-Gefuehl.' },
+            { term: 'NavCom', text: 'Funkgeraete-Look mit dunkler Bedienoberflaeche.' },
+            { term: 'Ops 1940', text: 'Militaerisch angelehnte Retro-Bedienoberflaeche.' },
+            { term: 'Schieberegler', text: 'Wechselt zwischen den vier Darstellungsarten.' }
+        ]
+    }
+};
+
+let activeSettingsHelp = null;
+
+function _appendSettingsHelpText(parent, tagName, className, text) {
+    const el = document.createElement(tagName);
+    if (className) el.className = className;
+    el.textContent = text;
+    parent.appendChild(el);
+    return el;
+}
+
+function _buildSettingsHelpPopover(data) {
+    const panel = document.createElement('div');
+    panel.className = 'settings-help-popover';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'false');
+    panel.setAttribute('tabindex', '-1');
+
+    const head = document.createElement('div');
+    head.className = 'settings-help-popover-head';
+    const titleWrap = document.createElement('div');
+    _appendSettingsHelpText(titleWrap, 'div', 'settings-help-popover-kicker', data.kicker || 'Hilfe');
+    const title = _appendSettingsHelpText(titleWrap, 'h3', 'settings-help-popover-title', data.title || 'Hilfe');
+    const titleId = `settingsHelpTitle_${Date.now()}`;
+    title.id = titleId;
+    panel.setAttribute('aria-labelledby', titleId);
+    head.appendChild(titleWrap);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'settings-help-close-btn';
+    closeBtn.setAttribute('aria-label', 'Hilfe schliessen');
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', closeSettingsHelp);
+    head.appendChild(closeBtn);
+    panel.appendChild(head);
+
+    if (data.intro) _appendSettingsHelpText(panel, 'p', 'settings-help-intro', data.intro);
+
+    const list = document.createElement('dl');
+    list.className = 'settings-help-list';
+    (data.items || []).forEach(item => {
+        _appendSettingsHelpText(list, 'dt', '', item.term);
+        _appendSettingsHelpText(list, 'dd', '', item.text);
+    });
+    panel.appendChild(list);
+    return panel;
+}
+
+function _positionSettingsHelpPopover(panel, anchor) {
+    if (!panel || !anchor) return;
+    const margin = 12;
+    const rect = anchor.getBoundingClientRect();
+    const width = panel.offsetWidth;
+    const height = panel.offsetHeight;
+    let left = Math.min(window.innerWidth - width - margin, Math.max(margin, rect.right - width));
+    let top = rect.bottom + 8;
+
+    if (top + height > window.innerHeight - margin) {
+        top = rect.top - height - 8;
+    }
+    if (top < margin || window.innerWidth <= 540) {
+        left = margin;
+        top = Math.min(window.innerHeight - height - margin, Math.max(margin, rect.bottom + 8));
+        if (top + height > window.innerHeight - margin) top = margin;
+    }
+
+    panel.style.left = `${Math.round(left)}px`;
+    panel.style.top = `${Math.round(top)}px`;
+}
+
+function closeSettingsHelp() {
+    if (!activeSettingsHelp) return;
+    const { panel, anchor, onOutside, onKey, onReposition } = activeSettingsHelp;
+    if (anchor) anchor.setAttribute('aria-expanded', 'false');
+    if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
+    document.removeEventListener('pointerdown', onOutside, true);
+    document.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('resize', onReposition);
+    document.removeEventListener('scroll', onReposition, true);
+    activeSettingsHelp = null;
+}
+
+function showSettingsHelp(helpKey, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    const data = SETTINGS_HELP_CONTENT[helpKey];
+    const anchor = event?.currentTarget || null;
+    if (!data) return;
+
+    if (activeSettingsHelp?.key === helpKey && activeSettingsHelp?.anchor === anchor) {
+        closeSettingsHelp();
+        return;
+    }
+
+    closeSettingsHelp();
+
+    const panel = _buildSettingsHelpPopover(data);
+    document.body.appendChild(panel);
+    if (anchor) anchor.setAttribute('aria-expanded', 'true');
+
+    const onReposition = () => _positionSettingsHelpPopover(panel, anchor || panel);
+    requestAnimationFrame(onReposition);
+
+    const onOutside = (e) => {
+        if (panel.contains(e.target) || (anchor && anchor.contains(e.target))) return;
+        closeSettingsHelp();
+    };
+    const onKey = (e) => {
+        if (e.key === 'Escape') closeSettingsHelp();
+    };
+
+    activeSettingsHelp = { key: helpKey, panel, anchor, onOutside, onKey, onReposition };
+    document.addEventListener('pointerdown', onOutside, true);
+    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('resize', onReposition);
+    document.addEventListener('scroll', onReposition, true);
+
+    panel.focus({ preventScroll: true });
+}
+
+window.showSettingsHelp = showSettingsHelp;
+window.closeSettingsHelp = closeSettingsHelp;
+
 function setTheme(mode) {
     const wasNavcom = document.body.classList.contains('theme-navcom');
     document.body.classList.remove('theme-retro', 'theme-navcom', 'theme-ops1940');
