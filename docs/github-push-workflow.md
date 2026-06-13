@@ -1,6 +1,7 @@
 # GitHub Push Workflow (verbindlich)
 
-Diese Regeln gelten als Standard fuer normale Pushes in diesem Repo.
+Diese Regeln gelten als Standard fuer normale Pushes in diesem Repo. Das Standardziel ist immer
+`origin/main`, ausser der User verlangt ausdruecklich einen separaten Branch oder PR.
 
 ## 1) Normaler Push nach `origin/main`
 
@@ -14,12 +15,15 @@ Diese Regeln gelten als Standard fuer normale Pushes in diesem Repo.
    - Bei gemischtem Worktree niemals `git add -A`.
    - Stattdessen explizit nur die Fix-Dateien stage'n, z. B. `git add sw.js index.html sync.js`.
 4. Ausgeschlossene Dateien nicht committen/pushen (z. B. laut `.gitignore` wie `*.exe`, `.DS_Store`, `.env*`, `.wrangler/state`, temporaere `analysis/*.json`).
-5. Nach `origin main` pushen.
+5. Nach `origin/main` pushen:
+   - Wenn der aktuelle Branch `main` ist: `git push origin main`
+   - Wenn Codex auf einem Arbeitsbranch steht, der Stand aber direkt nach `main` soll: zuerst Fast-Forward pruefen, dann `git push origin HEAD:main`
+   - Nicht nur den Arbeitsbranch pushen, wenn der User "main" oder den normalen Push meint.
 
 ## 1a) Codex-Hinweise
 
 1. Wenn Codex in einer Sandbox laeuft, koennen Branch-/Upstream-Schritte Freigaben brauchen, weil sie in `.git` schreiben.
-2. Das ist kein inhaltlicher Blocker: nach Freigabe normal mit `git switch`, `git push -u origin <branch>` oder `git branch --set-upstream-to=...` fortfahren.
+2. Das ist kein inhaltlicher Blocker: nach Freigabe normal mit `git switch`, `git push origin HEAD:main` oder `git branch --set-upstream-to=...` fortfahren. `git push -u origin <branch>` nur nutzen, wenn wirklich ein separater Branch/PR gewuenscht ist.
 3. Wenn der Remote-Push erfolgreich war, aber das lokale Upstream-Tracking wegen `.git/config` scheitert:
    - Remote-Branch kurz mit `git ls-remote --heads origin <branch>` pruefen.
    - Danach bei Bedarf `git fetch origin <branch>:refs/remotes/origin/<branch>` und `git branch --set-upstream-to=origin/<branch> <branch>` ausfuehren.
