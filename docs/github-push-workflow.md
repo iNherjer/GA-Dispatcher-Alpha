@@ -7,9 +7,22 @@ Diese Regeln gelten als Standard fuer normale Pushes in diesem Repo.
 1. Vor dem Push immer zuerst die SW-Version in `sw.js` erhoehen:
    - `const CACHE = 'ga-dispatcher-vXXX';`
    - `XXX` um `+1` erhoehen.
-2. Nur gewuenschte Dateien committen.
-3. Ausgeschlossene Dateien nicht committen/pushen (z. B. laut `.gitignore` wie `*.exe`, `.DS_Store`, `.env*`).
-4. Nach `origin main` pushen.
+2. Preflight:
+   - `git status -sb`
+   - `git diff --stat`
+3. Nur gewuenschte Dateien committen:
+   - Bei gemischtem Worktree niemals `git add -A`.
+   - Stattdessen explizit nur die Fix-Dateien stage'n, z. B. `git add sw.js index.html sync.js`.
+4. Ausgeschlossene Dateien nicht committen/pushen (z. B. laut `.gitignore` wie `*.exe`, `.DS_Store`, `.env*`, `.wrangler/state`, temporaere `analysis/*.json`).
+5. Nach `origin main` pushen.
+
+## 1a) Codex-Hinweise
+
+1. Wenn Codex in einer Sandbox laeuft, koennen Branch-/Upstream-Schritte Freigaben brauchen, weil sie in `.git` schreiben.
+2. Das ist kein inhaltlicher Blocker: nach Freigabe normal mit `git switch`, `git push -u origin <branch>` oder `git branch --set-upstream-to=...` fortfahren.
+3. Wenn der Remote-Push erfolgreich war, aber das lokale Upstream-Tracking wegen `.git/config` scheitert:
+   - Remote-Branch kurz mit `git ls-remote --heads origin <branch>` pruefen.
+   - Danach bei Bedarf `git fetch origin <branch>:refs/remotes/origin/<branch>` und `git branch --set-upstream-to=origin/<branch> <branch>` ausfuehren.
 
 ## 2) Sonderfall: `ga-tracker-client/tracker.js` wurde geaendert
 
