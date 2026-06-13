@@ -227,6 +227,59 @@ h1 {
     box-sizing: border-box;
 }
 
+.mission-generation-progress {
+    --mission-generation-progress: 0%;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin: -7px 0 15px;
+    min-height: 18px;
+}
+
+.mission-generation-progress.is-visible {
+    display: flex;
+}
+
+.mission-generation-progress-track {
+    position: relative;
+    flex: 1 1 auto;
+    height: 7px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.72);
+}
+
+.mission-generation-progress-fill {
+    width: var(--mission-generation-progress);
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #4da6ff, #44ff44);
+    box-shadow: 0 0 10px rgba(77, 166, 255, 0.42);
+    transition: width 260ms ease;
+}
+
+.mission-generation-progress-label {
+    flex: 0 0 34px;
+    color: #aeb9c6;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.mission-generation-progress.is-complete .mission-generation-progress-fill {
+    background: linear-gradient(90deg, #44ff44, #f2c12e);
+    box-shadow: 0 0 12px rgba(68, 255, 68, 0.48);
+}
+
+.mission-generation-progress.is-error .mission-generation-progress-fill {
+    background: linear-gradient(90deg, #ffcc00, #ff4444);
+    box-shadow: 0 0 12px rgba(255, 68, 68, 0.5);
+}
+
 label {
     font-size: 11px;
     color: #d1d1d1;
@@ -791,6 +844,28 @@ body.theme-retro #searchIndicator {
     color: var(--piper-yellow);
     font-weight: bold;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 2px rgba(0, 0, 0, 0.9);
+}
+
+body.theme-retro .mission-generation-progress {
+    margin-top: -8px;
+}
+
+body.theme-retro .mission-generation-progress-track {
+    height: 8px;
+    border: 2px inset #111;
+    border-radius: 3px;
+    background: #1d1d1d;
+}
+
+body.theme-retro .mission-generation-progress-fill {
+    border-radius: 1px;
+    background: linear-gradient(90deg, #4da6ff, var(--piper-yellow));
+}
+
+body.theme-retro .mission-generation-progress-label {
+    color: var(--piper-yellow);
+    font-family: 'Arial', sans-serif;
+    text-shadow: 0 1px 2px #000;
 }
 
 body.theme-retro h3.theme-title-text {
@@ -4842,6 +4917,30 @@ body.theme-navcom #searchIndicator {
     color: #aaa;
     font-family: monospace;
 }
+
+body.theme-navcom .mission-generation-progress {
+    margin: -2px 0 13px;
+}
+
+body.theme-navcom .mission-generation-progress-track {
+    height: 6px;
+    border-radius: 0;
+    border: 1px solid #050505;
+    background: #090909;
+    box-shadow: inset 0 0 8px #000;
+}
+
+body.theme-navcom .mission-generation-progress-fill {
+    border-radius: 0;
+    background: linear-gradient(90deg, #2f6f3c, #33ff33);
+    box-shadow: 0 0 8px rgba(51, 255, 51, 0.45);
+}
+
+body.theme-navcom .mission-generation-progress-label {
+    color: #8be88b;
+    font-family: monospace;
+}
+
 body.theme-navcom .help-icon {
     display: inline-flex;
     align-items: center;
@@ -7678,6 +7777,10 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #searchIndicator {
     font-style: normal;
 }
 
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .mission-generation-progress {
+    margin: -9px 2px 18px;
+}
+
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) #classicInputs {
     display: flex;
     flex-direction: column;
@@ -8420,6 +8523,33 @@ body.theme-ops1940 #searchIndicator {
     font-size: 11px;
     font-style: normal;
     letter-spacing: 0;
+}
+
+body.theme-ops1940 .mission-generation-progress {
+    margin: -8px 0 16px;
+}
+
+body.theme-ops1940 .mission-generation-progress-track {
+    height: 9px;
+    border-radius: 2px;
+    border: 1px solid #050403;
+    background:
+        linear-gradient(180deg, #020201, #1a1510 45%, #050403);
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.82), 0 1px 0 rgba(255, 235, 176, 0.08);
+}
+
+body.theme-ops1940 .mission-generation-progress-fill {
+    border-radius: 1px;
+    background: linear-gradient(90deg, #7f2715, #f2ca67);
+    box-shadow: 0 0 9px rgba(242, 202, 103, 0.38);
+}
+
+body.theme-ops1940 .mission-generation-progress-label {
+    flex-basis: 38px;
+    color: #f4d68a;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    text-shadow: 0 1px 0 #000;
 }
 
 body.theme-ops1940 #navcomInputs {

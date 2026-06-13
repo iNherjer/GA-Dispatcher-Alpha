@@ -4383,7 +4383,7 @@ function resetApp() {
     if (destLocEl) destLocEl.value = '';
     if (destLocRadioEl) destLocRadioEl.value = '';
 
-    document.getElementById('searchIndicator').innerText = "System bereit."; setDrumCounter('distDrum', 0); recalculatePerformance();
+    document.getElementById('searchIndicator').innerText = "System bereit."; setMissionGenerationProgress({ visible: false, force: true }); setDrumCounter('distDrum', 0); recalculatePerformance();
     setDispatchLampState('idle');
     const rBtn = document.getElementById('radioGenerateBtn');
     if (rBtn) rBtn.classList.remove('active');
@@ -4648,6 +4648,76 @@ function resetBtn(btn) {
     }
 }
 
+const MISSION_GENERATION_PROGRESS_PHASES = [
+    { test: phase => phase === 'start', start: 3, done: 5 },
+    { test: phase => phase === 'load_start_airport', start: 7, done: 12 },
+    { test: phase => phase === 'resolve_target', start: 16, done: 30 },
+    { test: phase => phase === 'resolve_poi_terrain' || phase === 'weather_departure' || phase === 'weather_destination', start: 33, done: 40 },
+    { test: phase => phase.startsWith('poi_geo_context'), start: 42, done: 48 },
+    { test: phase => phase.startsWith('poi_mission_truth'), start: 49, done: 53 },
+    { test: phase => phase === 'sar_heli_hospital_resolve', start: 50, done: 57 },
+    { test: phase => phase.startsWith('planner_'), start: 58, done: 68 },
+    { test: phase => phase === 'build_v4_contract', start: 68, done: 72 },
+    { test: phase => phase === 'mission_content' || phase.startsWith('writer_'), start: 75, done: 84 },
+    { test: phase => phase === 'assemble_mission', start: 85, done: 88 },
+    { test: phase => phase === 'apt_arrival_placement', start: 88, done: 92 },
+    { test: phase => phase === 'render_briefing', start: 94, done: 96 },
+    { test: phase => phase === 'enrichment', start: 97, done: 98 },
+    { test: phase => phase === 'complete', start: 100, done: 100 }
+];
+
+function getMissionGenerationPhaseProgress(phase, completed = false) {
+    const key = String(phase || '').trim().toLowerCase();
+    if (!key) return null;
+    if (key === 'error') return null;
+    for (const item of MISSION_GENERATION_PROGRESS_PHASES) {
+        if (item.test(key)) return completed ? item.done : item.start;
+    }
+    return null;
+}
+
+function setMissionGenerationProgress(phaseOrOptions = '', options = {}) {
+    const config = (phaseOrOptions && typeof phaseOrOptions === 'object')
+        ? phaseOrOptions
+        : { ...options, phase: phaseOrOptions };
+    const container = document.getElementById('missionGenerationProgress');
+    if (!container) return;
+    const label = document.getElementById('missionGenerationProgressLabel');
+
+    if (config.reset || config.visible === false) {
+        container.hidden = true;
+        container.classList.remove('is-visible', 'is-complete', 'is-error');
+        container.dataset.progress = '0';
+        container.style.setProperty('--mission-generation-progress', '0%');
+        container.setAttribute('aria-valuenow', '0');
+        if (label) label.textContent = '0%';
+        return;
+    }
+
+    let nextProgress = Number(config.progress);
+    if (!Number.isFinite(nextProgress)) {
+        nextProgress = getMissionGenerationPhaseProgress(config.phase, !!config.completed);
+    }
+    if (!Number.isFinite(nextProgress)) {
+        nextProgress = Number(container.dataset.progress || 0);
+    }
+    nextProgress = Math.max(0, Math.min(100, nextProgress));
+
+    const currentProgress = Number(container.dataset.progress || 0);
+    const resolvedProgress = config.force ? nextProgress : Math.max(currentProgress, nextProgress);
+    const rounded = Math.round(resolvedProgress);
+
+    container.hidden = false;
+    container.classList.add('is-visible');
+    container.classList.toggle('is-complete', rounded >= 100 && !config.error);
+    container.classList.toggle('is-error', !!config.error);
+    container.dataset.progress = String(resolvedProgress);
+    container.style.setProperty('--mission-generation-progress', `${rounded}%`);
+    container.setAttribute('aria-valuenow', String(rounded));
+    if (label) label.textContent = `${rounded}%`;
+}
+window.setMissionGenerationProgress = setMissionGenerationProgress;
+
 function setDispatchLampState(state = 'idle', dataSource = '') {
     const btn = document.getElementById('generateBtn');
     if (!btn) return;
@@ -4702,6 +4772,7 @@ function _abortDispatchRun(reason = 'Abbruch') {
     _dispatchState.active = false;
     const indicator = document.getElementById('searchIndicator');
     if (indicator) indicator.innerText = `Dispatch abgebrochen (${reason}).`;
+    setMissionGenerationProgress({ visible: false, force: true });
     const btn = document.getElementById('generateBtn');
     resetBtn(btn);
     if (window.meterInterval) clearInterval(window.meterInterval);
@@ -17332,9 +17403,11 @@ async function generateMission() {
     if (!confirmMissionOverwriteIfNeeded()) {
         const indicator = document.getElementById('searchIndicator');
         if (indicator) indicator.innerText = 'Aktive Mission bleibt bestehen.';
+        setMissionGenerationProgress({ visible: false, force: true });
         return;
     }
     const dispatchRunId = _startDispatchRun();
+    setMissionGenerationProgress({ phase: 'start', progress: 2, force: true });
     let _dispatchDeferredFinalize = false;
     const _ensureDispatchAlive = () => {
         if (_isDispatchRunAlive(dispatchRunId)) return;
@@ -17348,6 +17421,7 @@ async function generateMission() {
     const dispatchPerf = {};
     const dispatchPhaseStart = (phase) => {
         dispatchPerf[phase] = { startedAt: (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now() };
+        setMissionGenerationProgress(phase);
     };
     const dispatchPhaseEnd = (phase, extra = null) => {
         const now = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
@@ -17359,6 +17433,7 @@ async function generateMission() {
             ms: Math.max(0, Math.round((now - startedAt) * 10) / 10),
             ...(extra && typeof extra === 'object' ? extra : {})
         };
+        setMissionGenerationProgress(phase, { completed: true });
     };
     const dispatchMeasure = async (phase, fn, extra = null) => {
         dispatchPhaseStart(phase);
@@ -17417,6 +17492,7 @@ async function generateMission() {
     if (document.getElementById("wikiDestDescText")) document.getElementById("wikiDestDescText").innerText = "Lade Ziel-Info...";
 
     const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = "Sucht Route & Daten...";
     const needle = document.getElementById('meterNeedle');
     const led = document.getElementById('meterLed');
     if (led) led.classList.remove('led-green', 'led-blue', 'led-red');
@@ -17439,6 +17515,7 @@ async function generateMission() {
     _ensureDispatchAlive();
     if (!start) {
         setDispatchLampState('error');
+        setMissionGenerationProgress('error', { error: true });
         alert("Startplatz unbekannt!"); resetBtn(btn);
         if (window.meterInterval) clearInterval(window.meterInterval);
         if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`; return;
@@ -17700,6 +17777,7 @@ async function generateMission() {
 
     if (!dest) {
         setDispatchLampState('error');
+        setMissionGenerationProgress('error', { error: true });
         indicator.innerText = "Fehler: Kein passendes Ziel gefunden.";
         if (effectiveType === "apt" && (!globalAirports || Object.keys(globalAirports).length === 0)) {
             indicator.innerText = "Fehler: Airport-Daten nicht geladen (airports.json).";
@@ -17972,6 +18050,7 @@ async function generateMission() {
             console.warn('[MISSION PIPELINE V2] Planner failed, using classic pipeline context.', err);
         }
     }
+    setMissionGenerationProgress('mission_content');
     let m = null;
     if (isPlanningOnlyMode) {
         indicator.innerText = `Planungsmodus aktiv: erstelle Freiflug-Briefing...`;
@@ -18264,6 +18343,7 @@ async function generateMission() {
         }
     }
     _ensureDispatchAlive();
+    setMissionGenerationProgress('assemble_mission');
 
     const poolCategory = isPOI ? (dest.poiCategory || classifyPOITitleCategory(dest.n)) : (m?.cat || 'std');
     const poiSource = isPOI ? String(dest?.poiSource || dataSource || 'n/a') : '';
@@ -18325,6 +18405,7 @@ async function generateMission() {
     if (missionNeedsAccept) {
         clearDraftMissionPersistence('new-mission-draft');
     }
+    setMissionGenerationProgress('render_briefing');
 
     const missionType = normalizeMissionType(m?.missionType || requestedMissionType || '', isPOI);
     const bushSpec = missionType === 'bush'
@@ -18713,6 +18794,7 @@ async function generateMission() {
     if (destLinks) destLinks.style.display = missionActsLikePoi ? "none" : "block";
 
     indicator.innerText = `Flugplan bereit (${dataSource}). Lade Infos...`;
+    setMissionGenerationProgress('enrichment');
     fetchRunwayDetails(start.lat, start.lon, 'mDepRwy', currentStartICAO);
 
     _dispatchDeferredFinalize = true;
@@ -18742,6 +18824,7 @@ async function generateMission() {
         loadMetarWidget(missionActsLikePoi ? null : currentDestICAO, 'metarContainerDest', dest.lat, dest.lon);
 
         indicator.innerText = `Briefing komplett.`; resetBtn(btn);
+        setMissionGenerationProgress('complete', { completed: true, force: true });
         setDispatchLampState('done', dataSource);
         const rBtnLed = document.getElementById('radioGenerateBtn');
         if (rBtnLed) rBtnLed.classList.add('active');
@@ -18782,6 +18865,7 @@ async function generateMission() {
             console.error('[Dispatch] Fehler:', e);
             const indicator = document.getElementById('searchIndicator');
             if (indicator) indicator.innerText = 'Fehler beim Dispatch. Bitte erneut versuchen.';
+            setMissionGenerationProgress('error', { error: true });
             const btn = document.getElementById('generateBtn');
             resetBtn(btn);
             setDispatchLampState('error');
