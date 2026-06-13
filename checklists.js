@@ -9,6 +9,7 @@
     const COMMUNITY_SUBS_KEY = 'ga_checklist_community_subs_v1';
     const COMMUNITY_META_KEY = 'ga_checklist_community_meta_v1';
     const COMMUNITY_CACHE_KEY = 'ga_checklist_community_cache_v1';
+    const COMMUNITY_POLL_LOCK_KEY = 'ga_checklist_community_poll_lock_v1';
     const SHARE_PREFIX = 'GA-CHECKLIST-v1:';
     const MAX_CHAPTERS = 20;
     const MAX_ITEMS = 300;
@@ -21,6 +22,10 @@
     const NEAREST_RADIUS_NM = 50;
     const NEAREST_MOVE_REFRESH_NM = 3;
     const PLACE_MAP_MODE_KEY = 'ga_route_tool_place_map_mode';
+    const COMMUNITY_POLL_INTERVAL_MS = 30 * 60 * 1000;
+    const COMMUNITY_POLL_TIMER_MS = 60 * 1000;
+    const COMMUNITY_POLL_LOCK_TTL_MS = 2 * 60 * 1000;
+    const COMMUNITY_TAB_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
     const BUILTIN_CHECKLISTS = [
         {
@@ -694,6 +699,34 @@
 
     function isDrawerOpen() {
         return !!(drawerEl && drawerEl.classList.contains('is-open'));
+    }
+
+    function isCommunityUiActive() {
+        return isDrawerOpen() && (state.view === 'list' || state.view === 'manager' || state.view === 'home');
+    }
+
+    function isNetworkSleeping(label) {
+        return typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork(label);
+    }
+
+    function acquireCommunityPollLock(force = false) {
+        const now = Date.now();
+        try {
+            const current = JSON.parse(localStorage.getItem(COMMUNITY_POLL_LOCK_KEY) || 'null');
+            const owner = current && typeof current.owner === 'string' ? current.owner : '';
+            const expiresAt = Number(current && current.expiresAt || 0);
+            const lockedByOther = owner && owner !== COMMUNITY_TAB_ID && expiresAt > now;
+            if (lockedByOther && !force) return false;
+            if (lockedByOther && force && !document.hasFocus()) return false;
+            localStorage.setItem(COMMUNITY_POLL_LOCK_KEY, JSON.stringify({
+                owner: COMMUNITY_TAB_ID,
+                expiresAt: now + COMMUNITY_POLL_LOCK_TTL_MS,
+                updatedAt: now
+            }));
+            return true;
+        } catch (_) {
+            return true;
+        }
     }
 
     function render() {
@@ -2443,7 +2476,7 @@ ${routeLines}`;
                 ${communityRows}
             </div>
         `;
-        maybePullCommunity(true);
+        maybePullCommunity(false);
     }
 
     function reorderRow(checklist, index, total) {
@@ -3120,7 +3153,13 @@ ${routeLines}`;
     async function maybePullCommunity(force = false) {
         if (communityPullInProgress) return;
         const now = Date.now();
-        if (!force && now - lastCommunityPullAt < 90000) return;
+        if (!force && !isCommunityUiActive()) return;
+        if (isNetworkSleeping('checklists.community')) {
+            window.gaRunWhenAwake?.('checklists-community', () => maybePullCommunity(true));
+            return;
+        }
+        if (!force && now - lastCommunityPullAt < COMMUNITY_POLL_INTERVAL_MS) return;
+        if (!acquireCommunityPollLock(force)) return;
         communityPullInProgress = true;
         lastCommunityPullAt = now;
         try {
@@ -3600,13 +3639,9 @@ ${routeLines}`;
         loadStateFromStorage();
         initDrawerEvents();
         render();
-        setTimeout(() => {
-            maybePullKvChecklists(true);
-            maybePullCommunity(true);
-        }, 1400);
         setInterval(() => {
             if (document.visibilityState === 'visible') maybePullCommunity(false);
-        }, 180000);
+        }, COMMUNITY_POLL_TIMER_MS);
     }
 
     window.gaChecklistToggleDrawer = function(force) {
@@ -3641,6 +3676,13 @@ ${routeLines}`;
     });
     window.addEventListener('missioncargopayloadchange', () => {
         if (state.view === 'cargo') render();
+    });
+    window.addEventListener('ga-sleepchange', (event) => {
+        if (event?.detail?.sleeping) return;
+        if (isDrawerOpen()) {
+            if (state.view === 'list') maybePullKvChecklists(true);
+            if (state.view === 'list' || state.view === 'manager' || state.view === 'home') maybePullCommunity(true);
+        }
     });
 
     document.addEventListener('DOMContentLoaded', init);

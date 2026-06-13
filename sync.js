@@ -7,6 +7,103 @@ const SYNC_MAX_UPLOAD_BYTES = 95000;
 let localSyncTime = localStorage.getItem('ga_sync_time') ? parseInt(localStorage.getItem('ga_sync_time')) : 0;
 let lastSyncedPayloadStr = "";
 
+(function installIdleNetworkSleep() {
+    if (window.gaIdleSleep) return;
+    const IDLE_SLEEP_MS = 10 * 60 * 1000;
+    const CHECK_INTERVAL_MS = 15 * 1000;
+    let lastActivityAt = Date.now();
+    let sleeping = false;
+    const wakeTasks = new Map();
+
+    function isTrackerLive() {
+        const lastTelemetryAt = Number(window.gaLastTrackerTelemetryAt || window.lastLiveGpsPos?.t || 0);
+        return !!window.liveTrackerConnected && Number.isFinite(lastTelemetryAt) && (Date.now() - lastTelemetryAt) < 15000;
+    }
+
+    function dispatchSleepChange(reason) {
+        try {
+            window.dispatchEvent(new CustomEvent('ga-sleepchange', {
+                detail: {
+                    sleeping,
+                    reason: String(reason || ''),
+                    lastActivityAt,
+                    idleMs: Math.max(0, Date.now() - lastActivityAt)
+                }
+            }));
+        } catch (_) {}
+    }
+
+    function flushWakeTasks() {
+        if (!wakeTasks.size) return;
+        const tasks = Array.from(wakeTasks.entries());
+        wakeTasks.clear();
+        tasks.forEach(([, fn]) => {
+            try { Promise.resolve().then(fn).catch(() => {}); } catch (_) {}
+        });
+    }
+
+    function setSleeping(next, reason = '') {
+        const shouldSleep = !!next && !isTrackerLive();
+        if (sleeping === shouldSleep) return;
+        sleeping = shouldSleep;
+        dispatchSleepChange(reason);
+        if (!sleeping) {
+            setTimeout(() => {
+                flushWakeTasks();
+                const t = document.getElementById('syncToggle');
+                if (t && t.checked && getSyncId() && typeof silentSyncLoad === 'function') {
+                    try { silentSyncLoad(); } catch (_) {}
+                }
+            }, 0);
+        }
+    }
+
+    function markActivity(reason = 'activity') {
+        lastActivityAt = Date.now();
+        if (sleeping) setSleeping(false, reason);
+    }
+
+    function runWhenAwake(key, fn) {
+        if (typeof fn !== 'function') return false;
+        if (!sleeping || isTrackerLive()) {
+            try { Promise.resolve().then(fn).catch(() => {}); } catch (_) {}
+            return false;
+        }
+        wakeTasks.set(String(key || `task:${wakeTasks.size + 1}`), fn);
+        return true;
+    }
+
+    function checkIdle() {
+        if (isTrackerLive()) {
+            if (sleeping) setSleeping(false, 'tracker-live');
+            return;
+        }
+        if (!sleeping && Date.now() - lastActivityAt >= IDLE_SLEEP_MS) {
+            setSleeping(true, 'idle-timeout');
+        }
+    }
+
+    ['pointerdown', 'keydown', 'wheel', 'touchstart', 'mousedown', 'click', 'scroll'].forEach(type => {
+        window.addEventListener(type, () => markActivity(type), { capture: true, passive: true });
+    });
+    window.addEventListener('focus', () => markActivity('focus'), { passive: true });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') markActivity('visible');
+    }, { passive: true });
+
+    setInterval(checkIdle, CHECK_INTERVAL_MS);
+
+    window.gaIdleSleep = {
+        isSleeping: () => sleeping,
+        getLastActivityAt: () => lastActivityAt,
+        markActivity,
+        shouldPauseNetwork: () => sleeping && !isTrackerLive(),
+        runWhenAwake
+    };
+    window.gaShouldPauseNetwork = (reason) => !!(window.gaIdleSleep && window.gaIdleSleep.shouldPauseNetwork(reason));
+    window.gaRunWhenAwake = (key, fn) => window.gaIdleSleep ? window.gaIdleSleep.runWhenAwake(key, fn) : false;
+})();
+
 function saveSyncToggle() {
     const t = document.getElementById('syncToggle');
     const label = document.getElementById('autoSyncLabel');
@@ -8720,6 +8817,10 @@ let idleCheckInProgress = false;
 async function checkCloudAfterIdle() {
     const id = getSyncId();
     if (!id) return;
+    if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('sync-idle-check')) {
+        window.gaRunWhenAwake?.('sync-idle-check', () => checkCloudAfterIdle());
+        return;
+    }
     idleCheckInProgress = true;
     updateSyncStatus("Prüfe Cloud...");
     try {
@@ -8823,6 +8924,37 @@ let gpsWatchdog;
 let gpsReconnectDelay = 2000; // Start: 2s, wächst bei wiederholtem Fehlschlag
 let liveGpsConnectionSeq = 0;
 let liveGpsReconnectTimer = null;
+window.addEventListener('ga-sleepchange', (event) => {
+    if (!event?.detail?.sleeping) return;
+    const lastTelemetryAt = Number(window.gaLastTrackerTelemetryAt || window.lastLiveGpsPos?.t || 0);
+    if (Number.isFinite(lastTelemetryAt) && Date.now() - lastTelemetryAt < 15000) return;
+    const hadLiveGpsSession = !!liveGpsSocket || !!liveGpsReconnectTimer;
+    const reconnectId = getSyncId();
+    if (liveGpsReconnectTimer) {
+        clearTimeout(liveGpsReconnectTimer);
+        liveGpsReconnectTimer = null;
+    }
+    if (liveGpsSocket) {
+        try {
+            liveGpsSocket.onopen = null;
+            liveGpsSocket.onmessage = null;
+            liveGpsSocket.onclose = null;
+            liveGpsSocket.onerror = null;
+            liveGpsSocket.close();
+        } catch (_) {}
+        liveGpsSocket = null;
+        window.liveTrackerConnected = false;
+        const ind = document.getElementById('liveGpsIndicator');
+        if (ind) {
+            ind.innerHTML = '🛰️ OFF';
+            ind.style.color = '#666';
+            ind.style.textShadow = 'none';
+        }
+    }
+    if (hadLiveGpsSession && reconnectId) {
+        window.gaRunWhenAwake?.('live-gps-reconnect', () => window.connectToLiveGPS(reconnectId));
+    }
+});
 let liveNextLegIndex = 0;
 let liveNextRouteKey = '';
 let liveActiveWpIndex = null; // null = automatisch (aus Leg), sonst manuell gewählter Ziel-Wegpunkt
@@ -9914,6 +10046,10 @@ function updateNextWpTelemetry(lat, lon) {
 // Diese Funktion aufrufen, sobald eine Route per Sync ID geladen wurde (z.B. connectToLiveGPS("4815"))
 window.connectToLiveGPS = async function(syncId) {
     if (!syncId) return;
+    if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('live-gps')) {
+        window.gaRunWhenAwake?.('live-gps-reconnect', () => window.connectToLiveGPS(syncId));
+        return;
+    }
 
     const wsUrl = 'wss://websocketrelais.onrender.com/';
     const connectionSeq = ++liveGpsConnectionSeq;
@@ -10107,7 +10243,13 @@ window.connectToLiveGPS = async function(syncId) {
         console.warn(`[GPS] ❌ Verbindung getrennt. Reconnect in ${(gpsReconnectDelay/1000).toFixed(0)}s...`);
         liveGpsReconnectTimer = setTimeout(() => {
             liveGpsReconnectTimer = null;
-            if (connectionSeq === liveGpsConnectionSeq) connectToLiveGPS(syncId);
+            if (connectionSeq === liveGpsConnectionSeq) {
+                if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('live-gps')) {
+                    window.gaRunWhenAwake?.('live-gps-reconnect', () => window.connectToLiveGPS(syncId));
+                } else {
+                    connectToLiveGPS(syncId);
+                }
+            }
         }, gpsReconnectDelay);
         gpsReconnectDelay = Math.min(gpsReconnectDelay * 2, 15000);
     };
@@ -10171,6 +10313,8 @@ function _profileIdxScore(ed, i, lat, lon, hdg) {
 
 function updateLivePlanePosition(lat, lon, alt, hdg) {
     const now = Date.now();
+    lastTelemetryUpdateAt = now;
+    window.gaLastTrackerTelemetryAt = now;
     const simGsNow = Number(window.lastLiveFlightData?.gsKts ?? window.lastLiveFlightData?.gs);
     const curGs = Number.isFinite(simGsNow) ? simGsNow : smoothedGS;
     window.lastLiveGpsPos = { lat, lon, alt, hdg, t: now, gs: curGs };
@@ -11179,6 +11323,8 @@ window.hideLivePlane = function (options = {}) {
     if (typeof vpUpdateLiveAircraft === 'function') vpUpdateLiveAircraft(-1, 0, 0);
     window.lastLiveGpsPos = null;
     window.lastLiveFlightData = null;
+    window.gaLastTrackerTelemetryAt = 0;
+    lastTelemetryUpdateAt = 0;
     vpProfileLockIdx = -1;
     vpProfileLockSig = '';
     lastGpsTickDetails = null;

@@ -5201,6 +5201,10 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
 
 function vpScheduleVfrOverlayUpdate(forceFetch = false) {
     if (!isVfrIndexWeatherLayerEnabled()) return;
+    if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('vfr-overlay')) {
+        window.gaRunWhenAwake?.('vfr-overlay', () => vpScheduleVfrOverlayUpdate(true));
+        return;
+    }
     if (vpIsVfrIndexHiddenByHighZoom()) {
         vpClearVfrLayer();
         vpUpdateVfrUi();
@@ -5222,6 +5226,10 @@ function vpEnsureVfrAutoTimer() {
     if (vpVfrAutoTimer) return;
     vpVfrAutoTimer = setInterval(() => {
         if (!isVfrIndexWeatherLayerEnabled()) return;
+        if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('vfr-auto')) {
+            window.gaRunWhenAwake?.('vfr-overlay', () => vpScheduleVfrOverlayUpdate(true));
+            return;
+        }
         if (!map) return;
         vpScheduleVfrOverlayUpdate(false);
         vpUpdateVfrUi();
@@ -8118,6 +8126,10 @@ function renderOpenAipOverlayData(payload) {
 
 async function refreshOpenAipOverlay(forceFetch = false) {
     if (!map || !isOpenAipOverlayEnabled()) return;
+    if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('openaip-overlay')) {
+        window.gaRunWhenAwake?.('openaip-overlay', () => refreshOpenAipOverlay(true));
+        return;
+    }
     const zoom = Number(map.getZoom && map.getZoom());
     if (!Number.isFinite(zoom) || zoom < OPENAIP_OVERLAY_MIN_ZOOM) {
         clearOpenAipOverlayLayer();
@@ -9530,8 +9542,16 @@ async function ensureMapWeatherData(forceFetch = false) {
 }
 
 window.scheduleMapWeatherOverlayUpdate = function(forceFetch = false) {
+    if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('map-weather')) {
+        window.gaRunWhenAwake?.('map-weather', () => window.scheduleMapWeatherOverlayUpdate(true));
+        return;
+    }
     if (wxOverlayFetchTimer) clearTimeout(wxOverlayFetchTimer);
     wxOverlayFetchTimer = setTimeout(() => {
+        if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('map-weather')) {
+            window.gaRunWhenAwake?.('map-weather', () => window.scheduleMapWeatherOverlayUpdate(true));
+            return;
+        }
         if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers(forceFetch);
         if (typeof window.renderMapWeatherOverlays === 'function') window.renderMapWeatherOverlays(forceFetch);
     }, forceFetch ? 180 : 900);
@@ -9539,6 +9559,10 @@ window.scheduleMapWeatherOverlayUpdate = function(forceFetch = false) {
 
 window.renderMapWeatherOverlays = async function(forceFetch = false) {
     if (!map) return;
+    if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('map-weather')) {
+        window.gaRunWhenAwake?.('map-weather', () => window.renderMapWeatherOverlays(true));
+        return;
+    }
     if (getMapWeatherSource() !== 'openmeteo') {
         clearMapOpenMeteoOverlays();
         return;

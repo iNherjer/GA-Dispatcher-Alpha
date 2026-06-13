@@ -58,6 +58,7 @@ const BUG_MAX_BODY_BYTES = 350 * 1024;
 
 const COMMUNITY_CHECKLIST_PREFIX = "checklist:community:";
 const COMMUNITY_CHECKLIST_INDEX_PREFIX = "checklist:community:index:";
+const COMMUNITY_CHECKLIST_AGGREGATE_INDEX_KEY = "checklist:community:index:v2";
 const COMMUNITY_CHECKLIST_MAX_BODY_BYTES = 160 * 1024;
 const COMMUNITY_CHECKLIST_MAX_CHAPTERS = 20;
 const COMMUNITY_CHECKLIST_MAX_ITEMS = 300;
@@ -138,6 +139,85 @@ function reverseTimestampKey(value) {
 
 function communityIndexKey(id, updatedAt) {
   return `${COMMUNITY_CHECKLIST_INDEX_PREFIX}${reverseTimestampKey(updatedAt)}:${id}`;
+}
+
+function normalizeCommunityIndexItems(items, limit = 120) {
+  const seen = new Set();
+  return (Array.isArray(items) ? items : [])
+    .map(item => communityPublicMeta(item))
+    .filter(item => {
+      if (!item.id || !item.title || seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    })
+    .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))
+    .slice(0, limit);
+}
+
+async function readCommunityAggregateIndex(env, limit = 120) {
+  const raw = await env.GA_SYNC_KV.get(COMMUNITY_CHECKLIST_AGGREGATE_INDEX_KEY);
+  if (!raw) return null;
+  const parsed = raw ? safeJsonParse(raw, null) : null;
+  return normalizeCommunityIndexItems(parsed && parsed.items, limit);
+}
+
+async function writeCommunityAggregateIndex(env, items) {
+  const normalized = normalizeCommunityIndexItems(items, 120);
+  await env.GA_SYNC_KV.put(COMMUNITY_CHECKLIST_AGGREGATE_INDEX_KEY, JSON.stringify({
+    kind: "community-index-v2",
+    updatedAt: Date.now(),
+    count: normalized.length,
+    items: normalized
+  }));
+  return normalized;
+}
+
+async function buildCommunityAggregateIndexFromLegacy(env, limit = 120) {
+  const listed = await env.GA_SYNC_KV.list({ prefix: COMMUNITY_CHECKLIST_INDEX_PREFIX, limit });
+  const items = [];
+  for (const key of listed.keys || []) {
+    try {
+      const rawMeta = await env.GA_SYNC_KV.get(key.name);
+      const meta = rawMeta ? safeJsonParse(rawMeta, null) : null;
+      if (meta && meta.id && meta.title) items.push(communityPublicMeta(meta));
+    } catch (error) {
+      console.error("Community checklist index read failed:", key.name, String(error?.message || error));
+    }
+  }
+  return writeCommunityAggregateIndex(env, items);
+}
+
+async function getCommunityIndexItems(env, limit = 120) {
+  const aggregate = await readCommunityAggregateIndex(env, limit);
+  if (aggregate) return aggregate;
+  return buildCommunityAggregateIndexFromLegacy(env, limit);
+}
+
+async function upsertCommunityIndexMeta(env, meta) {
+  let items = await readCommunityAggregateIndex(env, 120);
+  if (!items) {
+    try {
+      items = await buildCommunityAggregateIndexFromLegacy(env, 120);
+    } catch (_) {
+      items = [];
+    }
+  }
+  const normalized = communityPublicMeta(meta);
+  const next = [normalized, ...items.filter(item => item.id !== normalized.id)];
+  return writeCommunityAggregateIndex(env, next);
+}
+
+async function removeCommunityIndexMeta(env, id) {
+  const normalizedId = normalizeCommunityId(id);
+  let items = await readCommunityAggregateIndex(env, 120);
+  if (!items) {
+    try {
+      items = await buildCommunityAggregateIndexFromLegacy(env, 120);
+    } catch (_) {
+      items = [];
+    }
+  }
+  return writeCommunityAggregateIndex(env, items.filter(item => item.id !== normalizedId));
 }
 
 function communityPublicMeta(record) {
@@ -281,22 +361,11 @@ async function handleCommunityChecklists(request, requestUrl, env) {
     }
 
     const limit = clampNumber(requestUrl.searchParams.get("limit"), 1, 120, 80);
-    let listed = null;
+    let items = null;
     try {
-      listed = await env.GA_SYNC_KV.list({ prefix: COMMUNITY_CHECKLIST_INDEX_PREFIX, limit });
+      items = await getCommunityIndexItems(env, limit);
     } catch (error) {
-      return json({ error: "KV-List fehlgeschlagen", message: String(error?.message || error) }, 502);
-    }
-
-    const items = [];
-    for (const key of listed.keys || []) {
-      try {
-        const rawMeta = await env.GA_SYNC_KV.get(key.name);
-        const meta = rawMeta ? safeJsonParse(rawMeta, null) : null;
-        if (meta && meta.id && meta.title) items.push(communityPublicMeta(meta));
-      } catch (error) {
-        console.error("Community checklist index read failed:", key.name, String(error?.message || error));
-      }
+      return json({ error: "KV-Index-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
     }
     return json({ ok: true, count: items.length, items }, 200, { "Cache-Control": "no-store" });
   }
@@ -331,6 +400,7 @@ async function handleCommunityChecklists(request, requestUrl, env) {
       try {
         await env.GA_SYNC_KV.delete(communityChecklistKey(targetId));
         if (existing.indexKey) await env.GA_SYNC_KV.delete(existing.indexKey);
+        await removeCommunityIndexMeta(env, targetId);
       } catch (error) {
         return json({ error: "KV-Delete fehlgeschlagen", message: String(error?.message || error) }, 502);
       }
@@ -378,6 +448,7 @@ async function handleCommunityChecklists(request, requestUrl, env) {
       await env.GA_SYNC_KV.put(communityChecklistKey(normalized.id), JSON.stringify(record));
       if (existing?.indexKey && existing.indexKey !== indexKey) await env.GA_SYNC_KV.delete(existing.indexKey);
       await env.GA_SYNC_KV.put(indexKey, JSON.stringify(meta));
+      await upsertCommunityIndexMeta(env, meta);
     } catch (error) {
       return json({ error: "KV-Write fehlgeschlagen", message: String(error?.message || error) }, 502);
     }

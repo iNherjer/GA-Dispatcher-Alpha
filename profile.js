@@ -8997,6 +8997,13 @@ function ensureWeatherRefreshTimer() {
     vpWeatherRefreshTimer = setInterval(() => {
         const now = Date.now();
         if (routeWaypoints && routeWaypoints.length >= 2) {
+            if (typeof window.gaShouldPauseNetwork === 'function' && window.gaShouldPauseNetwork('profile-weather')) {
+                window.gaRunWhenAwake?.('profile-weather', () => {
+                    if (typeof triggerVerticalProfileUpdate === 'function') triggerVerticalProfileUpdate();
+                    if (typeof window.scheduleMapWeatherOverlayUpdate === 'function') window.scheduleMapWeatherOverlayUpdate(true);
+                });
+                return;
+            }
             const profileWeatherNeeded = (vpShowClouds || vpShowIsobars || vpShowWindComponents);
             const mapWeatherNeeded = !!(window.mapHints && window.mapHints.weather !== false);
             const mapWeatherSource = String(window.vpMapWeatherSource || localStorage.getItem('ga_map_weather_source') || 'metar').toLowerCase() === 'openmeteo' ? 'openmeteo' : 'metar';
