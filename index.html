@@ -134,7 +134,7 @@
                 <option value="apt">Flugplatz (A ➔ B)</option>
                 <option value="poi">POI (Rundflug)</option>
             </select></div>
-            <div><label>Distanz (Total)</label><select id="distRange" onchange="syncToNavCom('distRangeRadio', this.value)">
+            <div><label>Distanz (Total)</label><select id="distRange" onchange="syncOpsSelectField('distRange', this.value)">
                 <option value="any">Egal (Zufall)</option>
                 <option value="short">Short (10-50 NM)</option>
                 <option value="medium">Medium (50-100 NM)</option>
@@ -143,12 +143,12 @@
         </div>
         
         <div class="grid-3 ops-filter-fields">
-            <div><label>Region</label><select id="regionFilter" onchange="syncToNavCom('regionFilterRadio', this.value)">
+            <div><label>Region</label><select id="regionFilter" onchange="syncOpsSelectField('regionFilter', this.value)">
                 <option value="any" selected>Europaweit</option>
                 <option value="de">Nur DE</option>
                 <option value="int">Nur Ausland</option>
             </select></div>
-            <div><label>Richtung</label><select id="dirPref" onchange="syncToNavCom('dirPrefRadio', this.value)">
+            <div><label>Richtung</label><select id="dirPref" onchange="syncOpsSelectField('dirPref', this.value)">
                 <option value="any">Egal</option>
                 <option value="N">Norden</option>
                 <option value="E">Osten</option>
@@ -312,7 +312,7 @@
                 <div class="radio-display-container">
                     <div class="radio-disp-inner">
                         <span class="lcd-label">DIST</span>
-                        <select id="distRangeRadio" class="lcd-input" onchange="document.getElementById('distRange').value = this.value">
+                        <select id="distRangeRadio" class="lcd-input" onchange="syncOpsSelectField('distRange', this.value)">
                             <option value="any">RNDM</option>
                             <option value="short">10-50</option>
                             <option value="medium">50-99</option>
@@ -332,7 +332,7 @@
                 <div class="radio-display-container">
                     <div class="radio-disp-inner">
                         <span class="lcd-label">REGN</span>
-                        <select id="regionFilterRadio" class="lcd-input" onchange="document.getElementById('regionFilter').value = this.value">
+                        <select id="regionFilterRadio" class="lcd-input" onchange="syncOpsSelectField('regionFilter', this.value)">
                             <option value="any" selected>ALL</option>
                             <option value="de">GER</option>
                             <option value="int">INT</option>
@@ -348,7 +348,7 @@
                 <div class="radio-display-container">
                     <div class="radio-disp-inner">
                         <span class="lcd-label">HDG°</span>
-                        <select id="dirPrefRadio" class="lcd-input" onchange="document.getElementById('dirPref').value = this.value">
+                        <select id="dirPrefRadio" class="lcd-input" onchange="syncOpsSelectField('dirPref', this.value)">
                             <option value="any">ANY</option>
                             <option value="N">N</option>
                             <option value="E">E</option>

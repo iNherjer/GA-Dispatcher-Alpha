@@ -27,6 +27,16 @@ const MAIN_PERF_SETTING_KEYS = {
     maxSeats: 'ga_perf_max_seats',
     aircraft: 'ga_perf_aircraft'
 };
+const MISSION_PARAMETER_SETTING_KEYS = {
+    distRange: 'ga_mission_dist_range',
+    regionFilter: 'ga_mission_region_filter',
+    dirPref: 'ga_mission_dir_pref'
+};
+const MISSION_PARAMETER_RADIO_IDS = {
+    distRange: 'distRangeRadio',
+    regionFilter: 'regionFilterRadio',
+    dirPref: 'dirPrefRadio'
+};
 const AIRCRAFT_PRESET_STORAGE_KEY = 'ga_aircraft_presets_v1';
 const AIRCRAFT_PRESET_DEFAULTS = {
     'C172': { name: 'C172', tas: 115, gph: 9, pax: 4 },
@@ -609,6 +619,43 @@ function persistMainPerformanceSetting(type, value) {
     localStorage.setItem(key, String(value));
 }
 window.persistMainPerformanceSetting = persistMainPerformanceSetting;
+
+function _selectHasOptionValue(selectEl, value) {
+    if (!selectEl || value === null || value === undefined) return false;
+    const next = String(value);
+    return Array.from(selectEl.options || []).some(opt => opt.value === next);
+}
+
+function syncMissionParameterControl(selectId, value, options = {}) {
+    const selectEl = document.getElementById(selectId);
+    if (!selectEl) return null;
+    const next = _selectHasOptionValue(selectEl, value)
+        ? String(value)
+        : (selectEl.value || selectEl.options?.[0]?.value || '');
+    if (!next) return null;
+
+    selectEl.value = next;
+    const radioId = MISSION_PARAMETER_RADIO_IDS[selectId];
+    if (radioId) syncToNavCom(radioId, next);
+
+    if (options.persist && MISSION_PARAMETER_SETTING_KEYS[selectId]) {
+        localStorage.setItem(MISSION_PARAMETER_SETTING_KEYS[selectId], next);
+    }
+    return next;
+}
+window.syncMissionParameterControl = syncMissionParameterControl;
+
+function persistMissionParameterSetting(selectId, value) {
+    syncMissionParameterControl(selectId, value, { persist: true });
+}
+window.persistMissionParameterSetting = persistMissionParameterSetting;
+
+function applyPersistedMissionParameterSettings() {
+    Object.keys(MISSION_PARAMETER_SETTING_KEYS).forEach(selectId => {
+        const stored = localStorage.getItem(MISSION_PARAMETER_SETTING_KEYS[selectId]);
+        if (stored !== null) syncMissionParameterControl(selectId, stored);
+    });
+}
 
 function applyPersistedMainPerformanceSettings() {
     const tas = clampMainPerfSetting(localStorage.getItem(MAIN_PERF_SETTING_KEYS.tas), 80, 300, 5, 115);
@@ -2703,11 +2750,10 @@ function syncOpsSelectField(classicId, value) {
     if (!classic) return;
     if (classicId === 'targetType') {
         setMissionTypeSelection(value);
+    } else if (MISSION_PARAMETER_SETTING_KEYS[classicId]) {
+        syncMissionParameterControl(classicId, value, { persist: true });
     } else {
         classic.value = value;
-        if (classicId === 'distRange') syncToNavCom('distRangeRadio', value);
-        if (classicId === 'regionFilter') syncToNavCom('regionFilterRadio', value);
-        if (classicId === 'dirPref') syncToNavCom('dirPrefRadio', value);
     }
     updateOps1940Panel();
 }
@@ -2789,7 +2835,7 @@ function updateOps1940Panel() {
 }
 
 function initOps1940Panel() {
-    ['startLoc', 'destLoc', 'targetType', 'distRange', 'maxSeats'].forEach(id => {
+    ['startLoc', 'destLoc', 'targetType', 'distRange', 'regionFilter', 'dirPref', 'maxSeats'].forEach(id => {
         const el = document.getElementById(id);
         if (!el || el.dataset.opsPanelBound === '1') return;
         el.addEventListener('input', updateOps1940Panel);
@@ -3038,6 +3084,7 @@ function bootAppOnce() {
     applySavedPanelTheme();
     loadAircraftPresets();
     applyPersistedMainPerformanceSettings();
+    applyPersistedMissionParameterSettings();
     setTimeout(() => { loadGlobalAirports(); }, 2000);
     const lastDest = localStorage.getItem('last_icao_dest');
     if (lastDest) document.getElementById('startLoc').value = lastDest;
