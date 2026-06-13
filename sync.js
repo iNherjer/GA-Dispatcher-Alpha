@@ -452,12 +452,12 @@ let smoothedVS = 0;
 let liveToWpLine = null;
 let vpProfileLockIdx = -1;
 let vpProfileLockSig = '';
-const MAP_AUTOZOOM_STRENGTH_KEY = 'ga_map_autozoom_strength';
-const MAP_AUTOZOOM_DEFAULT_STRENGTH = 70;
-const MAP_AUTOZOOM_MIN_STRENGTH = 25;
-const MAP_AUTOZOOM_MAX_STRENGTH = 125;
+const MAP_AUTOZOOM_LOOKAHEAD_KEY = 'ga_map_autozoom_lookahead_min';
+const MAP_AUTOZOOM_DEFAULT_LOOKAHEAD_MIN = 8;
+const MAP_AUTOZOOM_MIN_LOOKAHEAD_MIN = 2;
+const MAP_AUTOZOOM_MAX_LOOKAHEAD_MIN = 25;
 const MAP_AUTOZOOM_MIN_ZOOM = 8;
-const MAP_AUTOZOOM_MAX_ZOOM = 15;
+const MAP_AUTOZOOM_MAX_ZOOM = 18;
 const MAP_AUTOZOOM_ZOOM_SNAP = 0.25;
 const MAP_AUTOZOOM_MIN_APPLY_DELTA = 0.12;
 const MAP_AUTOZOOM_SPEED_STAGES = [
@@ -482,6 +482,9 @@ let lastMapAutoZoomSample = null;
 let mapAutoFollowProgrammaticMoveUntil = 0;
 let autoFollowMapInteractionBound = false;
 let mapAutoZoomFractionalZoomConfigured = false;
+let mapAutoZoomManualHoldZoom = null;
+let mapAutoZoomManualHoldTargetZoom = null;
+let mapAutoZoomManualHoldPhase = '';
 
 function _clampMapAutoZoomNumber(value, min, max) {
     const n = Number(value);
@@ -489,26 +492,29 @@ function _clampMapAutoZoomNumber(value, min, max) {
     return Math.min(max, Math.max(min, n));
 }
 
-function normalizeMapAutoZoomStrength(value) {
+function normalizeMapAutoZoomLookaheadMinutes(value) {
     const n = parseInt(value, 10);
-    if (!Number.isFinite(n)) return MAP_AUTOZOOM_DEFAULT_STRENGTH;
-    return Math.round(_clampMapAutoZoomNumber(n, MAP_AUTOZOOM_MIN_STRENGTH, MAP_AUTOZOOM_MAX_STRENGTH) / 5) * 5;
+    if (!Number.isFinite(n)) return MAP_AUTOZOOM_DEFAULT_LOOKAHEAD_MIN;
+    return Math.round(_clampMapAutoZoomNumber(n, MAP_AUTOZOOM_MIN_LOOKAHEAD_MIN, MAP_AUTOZOOM_MAX_LOOKAHEAD_MIN));
 }
 
-window.getMapAutoZoomStrength = function() {
-    return normalizeMapAutoZoomStrength(localStorage.getItem(MAP_AUTOZOOM_STRENGTH_KEY));
+window.getMapAutoZoomLookaheadMinutes = function() {
+    return normalizeMapAutoZoomLookaheadMinutes(localStorage.getItem(MAP_AUTOZOOM_LOOKAHEAD_KEY));
 };
 
-window.setMapAutoZoomStrength = function(value, options = {}) {
-    const strength = normalizeMapAutoZoomStrength(value);
+window.setMapAutoZoomLookaheadMinutes = function(value, options = {}) {
+    const lookaheadMin = normalizeMapAutoZoomLookaheadMinutes(value);
     if (options.persist !== false) {
-        localStorage.setItem(MAP_AUTOZOOM_STRENGTH_KEY, String(strength));
+        localStorage.setItem(MAP_AUTOZOOM_LOOKAHEAD_KEY, String(lookaheadMin));
     }
     lastMapAutoZoomAppliedAt = 0;
     lastMapAutoZoomTargetZoom = null;
     if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
-    return strength;
+    return lookaheadMin;
 };
+
+window.getMapAutoZoomStrength = window.getMapAutoZoomLookaheadMinutes;
+window.setMapAutoZoomStrength = window.setMapAutoZoomLookaheadMinutes;
 
 function isMapAutoZoomEnabled() {
     if (typeof window.isMapHintEnabled === 'function') return window.isMapHintEnabled('autoZoom');
@@ -573,24 +579,6 @@ function _mapAutoZoomLerp(a, b, t) {
     return a + (b - a) * _clampMapAutoZoomNumber(t, 0, 1);
 }
 
-function _mapAutoZoomStrengthFactor(strengthPct) {
-    const centered = (strengthPct - MAP_AUTOZOOM_DEFAULT_STRENGTH) / (MAP_AUTOZOOM_MAX_STRENGTH - MAP_AUTOZOOM_DEFAULT_STRENGTH);
-    return _clampMapAutoZoomNumber(1 + centered * 0.45, 0.55, 1.45);
-}
-
-function _mapAutoZoomLowAltitudeFloor(altitudeRefFt) {
-    if (altitudeRefFt < 500) {
-        return _mapAutoZoomLerp(14.75, 14, _mapAutoZoomSmoothstep(altitudeRefFt / 500));
-    }
-    if (altitudeRefFt < 1500) {
-        return _mapAutoZoomLerp(14, 13, _mapAutoZoomSmoothstep((altitudeRefFt - 500) / 1000));
-    }
-    if (altitudeRefFt < 2500) {
-        return _mapAutoZoomLerp(13, 12, _mapAutoZoomSmoothstep((altitudeRefFt - 1500) / 1000));
-    }
-    return MAP_AUTOZOOM_MIN_ZOOM;
-}
-
 function getMapAutoZoomPlanReference() {
     const tas = Number(document.getElementById('tasSlider')?.value);
     const mapAlt = Number(document.getElementById('altMapInput')?.textContent);
@@ -602,7 +590,76 @@ function getMapAutoZoomPlanReference() {
     };
 }
 
-function computeMapAutoZoomTargetZoom(gsKts, altFt) {
+function _mapAutoZoomPointAt(lat, lon, distNm, bearingDeg) {
+    if (typeof getDestinationPoint === 'function') {
+        try { return getDestinationPoint(lat, lon, distNm, bearingDeg); } catch (_) {}
+    }
+    const rNm = 3440.065;
+    const lat1 = lat * Math.PI / 180;
+    const lon1 = lon * Math.PI / 180;
+    const brng = bearingDeg * Math.PI / 180;
+    const lat2 = Math.asin(
+        Math.sin(lat1) * Math.cos(distNm / rNm)
+        + Math.cos(lat1) * Math.sin(distNm / rNm) * Math.cos(brng)
+    );
+    const lon2 = lon1 + Math.atan2(
+        Math.sin(brng) * Math.sin(distNm / rNm) * Math.cos(lat1),
+        Math.cos(distNm / rNm) - Math.sin(lat1) * Math.sin(lat2)
+    );
+    return { lat: lat2 * 180 / Math.PI, lon: lon2 * 180 / Math.PI };
+}
+
+function _mapAutoZoomRouteTarget(lat, lon) {
+    if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return null;
+    if (typeof calcNav !== 'function') return null;
+    const autoWpIdx = typeof clampLiveWpIndex === 'function'
+        ? clampLiveWpIndex((Number.isFinite(Number(liveNextLegIndex)) ? liveNextLegIndex : 0) + 1)
+        : 1;
+    const wpIdx = liveActiveWpIndex == null
+        ? autoWpIdx
+        : (typeof clampLiveWpIndex === 'function' ? clampLiveWpIndex(liveActiveWpIndex) : liveActiveWpIndex);
+    const wp = routeWaypoints[wpIdx];
+    const wpLon = wp?.lng ?? wp?.lon;
+    if (!wp || !Number.isFinite(Number(wp.lat)) || !Number.isFinite(Number(wpLon))) return null;
+    let nav = null;
+    try { nav = calcNav(lat, lon, Number(wp.lat), Number(wpLon)); } catch (_) {}
+    const distNm = Number(nav?.dist);
+    const brng = Number(nav?.brng);
+    return {
+        lat: Number(wp.lat),
+        lon: Number(wpLon),
+        distNm: Number.isFinite(distNm) ? distNm : null,
+        brng: Number.isFinite(brng) ? brng : null,
+        idx: wpIdx,
+        name: typeof getWpDisplayName === 'function' ? getWpDisplayName(wpIdx) : (wp.name || `WP ${wpIdx}`),
+        isPoi: wp.isPOI === true || String(wp.icao || '').toUpperCase() === 'POI'
+    };
+}
+
+function _mapAutoZoomZoomForRadius(lat, lon, radiusNm, paddingPx = 90) {
+    if (typeof L === 'undefined' || typeof map === 'undefined' || !map || typeof map.getBoundsZoom !== 'function') {
+        const safeRadius = Math.max(0.15, Number(radiusNm) || 1);
+        return clampAutoZoomForMap(15 - Math.log2(safeRadius));
+    }
+    const radius = Math.max(0.12, Number(radiusNm) || 0.5);
+    const points = [
+        [lat, lon],
+        _mapAutoZoomPointAt(lat, lon, radius, 0),
+        _mapAutoZoomPointAt(lat, lon, radius, 90),
+        _mapAutoZoomPointAt(lat, lon, radius, 180),
+        _mapAutoZoomPointAt(lat, lon, radius, 270)
+    ].map(p => Array.isArray(p) ? p : [p.lat, p.lon]);
+    try {
+        const bounds = L.latLngBounds(points);
+        const padding = typeof L.point === 'function' ? L.point(paddingPx, paddingPx) : [paddingPx, paddingPx];
+        return clampAutoZoomForMap(map.getBoundsZoom(bounds, false, padding));
+    } catch (_) {
+        const safeRadius = Math.max(0.15, Number(radiusNm) || 1);
+        return clampAutoZoomForMap(15 - Math.log2(safeRadius));
+    }
+}
+
+function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
     const gs = _clampMapAutoZoomNumber(gsKts, 0, 240);
     const fd = window.lastLiveFlightData || {};
     const onGround = fd.onGround === true || fd.simOnGround === true || Number(fd.simOnGround) === 1;
@@ -611,49 +668,95 @@ function computeMapAutoZoomTargetZoom(gsKts, altFt) {
     const altitudeRefFt = Number.isFinite(aglFt)
         ? aglFt
         : (Number.isFinite(mslFt) ? Math.max(0, mslFt) : 0);
-    const strength = window.getMapAutoZoomStrength();
     const hasAglReference = Number.isFinite(aglFt);
     const speedStage = _mapAutoZoomStageForValue(gs, MAP_AUTOZOOM_SPEED_STAGES);
     const altitudeStage = _mapAutoZoomStageForValue(altitudeRefFt, MAP_AUTOZOOM_ALTITUDE_STAGES);
     const grounded = onGround || gs < 8 || (hasAglReference && gs < 18 && altitudeRefFt < 250) || (!hasAglReference && gs < 18);
     const planRef = getMapAutoZoomPlanReference();
+    const lookaheadMin = window.getMapAutoZoomLookaheadMinutes();
+    const plannedLookaheadNm = Math.max(2, planRef.tasKts * (lookaheadMin / 60));
+    const cruiseSpeedT = _mapAutoZoomSmoothstep(gs / Math.max(60, planRef.tasKts));
+    const cruiseAltT = _mapAutoZoomSmoothstep(altitudeRefFt / Math.max(1000, planRef.cruiseAltFt));
+    const cruiseProgress = _clampMapAutoZoomNumber(cruiseSpeedT * 0.58 + cruiseAltT * 0.42, 0, 1);
+    const cruiseLookaheadCapNm = _mapAutoZoomLerp(Math.max(2.5, plannedLookaheadNm * 0.55), plannedLookaheadNm, cruiseProgress);
+    const routeTarget = Number.isFinite(Number(lat)) && Number.isFinite(Number(lon)) ? _mapAutoZoomRouteTarget(Number(lat), Number(lon)) : null;
+    const routeDistNm = Number(routeTarget?.distNm);
+    const hdg = Number.isFinite(Number(hdgDeg)) ? Number(hdgDeg)
+        : (Number.isFinite(Number(routeTarget?.brng)) ? Number(routeTarget.brng) : null);
+    const lookaheadNm = _clampMapAutoZoomNumber(gs * (lookaheadMin / 60), 0.35, Math.max(0.35, cruiseLookaheadCapNm));
 
-    let baseZoom = MAP_AUTOZOOM_MAX_ZOOM;
-    if (!grounded) {
-        const speedProgress = _mapAutoZoomSmoothstep((gs - 12) / Math.max(30, planRef.tasKts - 12));
-        const altitudeProgress = _mapAutoZoomSmoothstep(altitudeRefFt / Math.max(1000, planRef.cruiseAltFt));
-        const cruiseProgress = _clampMapAutoZoomNumber(speedProgress * 0.58 + altitudeProgress * 0.42, 0, 1);
-        const zoomOutRange = MAP_AUTOZOOM_MAX_ZOOM - 10;
-        const rawZoomOut = cruiseProgress * zoomOutRange * _mapAutoZoomStrengthFactor(strength);
-        const lowAltitudeFloor = _mapAutoZoomLowAltitudeFloor(altitudeRefFt);
-        baseZoom = Math.max(MAP_AUTOZOOM_MAX_ZOOM - rawZoomOut, lowAltitudeFloor);
+    let phase = 'Strecke';
+    let requiredRadiusNm = Math.max(2, lookaheadNm);
+    let minModeZoom = MAP_AUTOZOOM_MIN_ZOOM;
+    let maxModeZoom = 14.25;
+
+    if (grounded) {
+        phase = 'Taxi';
+        requiredRadiusNm = 0.28;
+        minModeZoom = 17;
+        maxModeZoom = MAP_AUTOZOOM_MAX_ZOOM;
+    } else if (routeTarget?.isPoi && Number.isFinite(routeDistNm) && routeDistNm <= 5.5) {
+        phase = 'POI';
+        requiredRadiusNm = Math.max(0.8, Math.min(6.5, routeDistNm + 0.8));
+        minModeZoom = 14.75;
+        maxModeZoom = 16.5;
+    } else if (altitudeRefFt < 1800 || gs < 75) {
+        phase = 'Platzrunde';
+        const lowAltT = _mapAutoZoomSmoothstep(altitudeRefFt / 1800);
+        requiredRadiusNm = _mapAutoZoomLerp(1.4, 4.8, lowAltT);
+        if (Number.isFinite(routeDistNm) && routeDistNm <= 6.5) requiredRadiusNm = Math.max(requiredRadiusNm, routeDistNm + 0.6);
+        minModeZoom = 13.75;
+        maxModeZoom = 16.25;
+    } else if (Number.isFinite(routeDistNm) && routeDistNm <= Math.max(4.5, lookaheadNm * 0.75)) {
+        phase = routeTarget?.isPoi ? 'POI' : 'Wegpunkt';
+        requiredRadiusNm = Math.max(1.1, Math.min(8, routeDistNm + 0.9));
+        minModeZoom = 13.75;
+        maxModeZoom = 16;
+    } else {
+        if (Number.isFinite(routeDistNm) && routeDistNm <= Math.max(8, lookaheadNm * 1.15)) {
+            requiredRadiusNm = Math.max(requiredRadiusNm, routeDistNm + 1.2);
+        }
+        requiredRadiusNm = _clampMapAutoZoomNumber(requiredRadiusNm, 2.2, 85);
     }
-    const clampedTargetZoom = clampAutoZoomForMap(baseZoom);
+
+    const radiusZoom = _mapAutoZoomZoomForRadius(Number(lat), Number(lon), requiredRadiusNm, phase === 'Taxi' ? 70 : 95);
+    const clampedTargetZoom = clampAutoZoomForMap(_clampMapAutoZoomNumber(radiusZoom, minModeZoom, maxModeZoom));
 
     return {
         targetZoom: clampedTargetZoom,
-        baseZoom,
-        phase: grounded ? 'Boden' : _mapAutoZoomPhaseForZoom(baseZoom),
+        baseZoom: clampedTargetZoom,
+        phase,
         targetPhase: _mapAutoZoomPhaseForZoom(clampedTargetZoom),
         speedStage: speedStage.label,
         altitudeStage: altitudeStage.label,
         onGround: grounded,
         gs,
+        hdg: Number.isFinite(hdg) ? Math.round(hdg) : null,
         aglFt: Number.isFinite(aglFt) ? Math.round(aglFt) : null,
         altitudeRefFt: Math.round(altitudeRefFt),
         planTasKts: Math.round(planRef.tasKts),
         planCruiseAltFt: Math.round(planRef.cruiseAltFt),
-        strength
+        lookaheadMin,
+        lookaheadNm: Math.round(lookaheadNm * 10) / 10,
+        plannedLookaheadNm: Math.round(plannedLookaheadNm * 10) / 10,
+        cruiseProgress: Math.round(cruiseProgress * 100) / 100,
+        requiredRadiusNm: Math.round(requiredRadiusNm * 10) / 10,
+        routeTarget: routeTarget ? {
+            idx: routeTarget.idx,
+            name: routeTarget.name,
+            distNm: Number.isFinite(routeDistNm) ? Math.round(routeDistNm * 10) / 10 : null,
+            isPoi: routeTarget.isPoi
+        } : null
     };
 }
 
 window.refreshMapAutoZoomUi = function() {
-    const strength = window.getMapAutoZoomStrength();
+    const lookaheadMin = window.getMapAutoZoomLookaheadMinutes();
     const slider = document.getElementById('mapAutoZoomStrengthSlider');
-    if (slider && slider.value !== String(strength)) slider.value = String(strength);
+    if (slider && slider.value !== String(lookaheadMin)) slider.value = String(lookaheadMin);
 
     const value = document.getElementById('mapAutoZoomStrengthValue');
-    if (value) value.textContent = `${strength}%`;
+    if (value) value.textContent = `${lookaheadMin} min`;
 
     const block = document.getElementById('mapAutoZoomMenuBlock');
     if (block) block.style.opacity = isMapAutoZoomEnabled() ? '1' : '0.62';
@@ -671,8 +774,9 @@ window.refreshMapAutoZoomUi = function() {
             const targetZoom = Number.isFinite(lastMapAutoZoomSample.targetZoom)
                 ? lastMapAutoZoomSample.targetZoom.toFixed(1)
                 : '--';
-            const phase = lastMapAutoZoomSample.targetPhase || lastMapAutoZoomSample.phase || '';
-            status.textContent = `${currentZoom} -> Z${targetZoom}${phase ? ` ${phase}` : ''}`;
+            const phase = lastMapAutoZoomSample.phase || lastMapAutoZoomSample.targetPhase || '';
+            const hold = lastMapAutoZoomSample.manualHoldZoom ? ` manuell Z${lastMapAutoZoomSample.manualHoldZoom.toFixed(1)}` : '';
+            status.textContent = `${currentZoom} -> Z${targetZoom}${phase ? ` ${phase}` : ''}${hold}`;
         } else {
             status.textContent = 'Bereit';
         }
@@ -683,6 +787,9 @@ window.resetMapAutoZoomState = function() {
     lastMapAutoZoomAppliedAt = 0;
     lastMapAutoZoomTargetZoom = null;
     lastMapAutoZoomSample = null;
+    mapAutoZoomManualHoldZoom = null;
+    mapAutoZoomManualHoldTargetZoom = null;
+    mapAutoZoomManualHoldPhase = '';
 };
 
 function markAutoFollowProgrammaticMapMove(now = Date.now(), durationMs = 700) {
@@ -691,6 +798,40 @@ function markAutoFollowProgrammaticMapMove(now = Date.now(), durationMs = 700) {
 
 function isAutoFollowProgrammaticMapMove(now = Date.now()) {
     return now < mapAutoFollowProgrammaticMoveUntil;
+}
+
+function rememberMapAutoZoomManualZoom(now = Date.now()) {
+    if (!isAutoFollow || isAutoFollowProgrammaticMapMove(now)) return;
+    if (!isMapAutoZoomEnabled()) return;
+    if (typeof map === 'undefined' || !map || typeof map.getZoom !== 'function') return;
+    const zoom = Number(map.getZoom());
+    if (!Number.isFinite(zoom)) return;
+    mapAutoZoomManualHoldZoom = zoom;
+    mapAutoZoomManualHoldTargetZoom = Number.isFinite(Number(lastMapAutoZoomSample?.targetZoom))
+        ? Number(lastMapAutoZoomSample.targetZoom)
+        : zoom;
+    mapAutoZoomManualHoldPhase = String(lastMapAutoZoomSample?.phase || '');
+    if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
+}
+
+function shouldHoldManualMapAutoZoom(sample) {
+    if (!sample || !Number.isFinite(Number(mapAutoZoomManualHoldZoom))) return false;
+    const targetZoom = Number(sample.targetZoom);
+    const holdTargetZoom = Number(mapAutoZoomManualHoldTargetZoom);
+    const targetMoved = Number.isFinite(targetZoom)
+        && Number.isFinite(holdTargetZoom)
+        && Math.abs(targetZoom - holdTargetZoom) >= 0.75;
+    const phaseChanged = mapAutoZoomManualHoldPhase
+        && sample.phase
+        && mapAutoZoomManualHoldPhase !== sample.phase;
+    if (targetMoved || phaseChanged) {
+        mapAutoZoomManualHoldZoom = null;
+        mapAutoZoomManualHoldTargetZoom = null;
+        mapAutoZoomManualHoldPhase = '';
+        return false;
+    }
+    sample.manualHoldZoom = Number(mapAutoZoomManualHoldZoom);
+    return true;
 }
 
 function getAutoFollowLiveSample() {
@@ -708,12 +849,13 @@ function getAutoFollowLiveSample() {
         lon,
         alt,
         gs: Number.isFinite(gs) ? gs : 0,
+        hdg: Number.isFinite(Number(pos.hdg ?? fd.hdg ?? fd.headingDeg ?? fd.heading)) ? Number(pos.hdg ?? fd.hdg ?? fd.headingDeg ?? fd.heading) : null,
         now: Date.now(),
         lowFpsMode: isLowFpsModeActive()
     };
 }
 
-function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode, options = {}) {
+function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, hdgDeg, now, lowFpsMode, options = {}) {
     if (!isMapAutoZoomEnabled() || !isAutoFollow) return false;
     if (typeof map === 'undefined' || !map || typeof map.getZoom !== 'function') return false;
     if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return false;
@@ -724,10 +866,15 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode, options 
 
     const sinceLastAutoZoom = now - lastMapAutoZoomAppliedAt;
     const force = options.force === true;
-    const sample = computeMapAutoZoomTargetZoom(gsKts, altFt);
+    const sample = computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg);
     sample.currentZoom = currentZoom;
     sample.t = now;
     lastMapAutoZoomSample = sample;
+
+    if (!force && shouldHoldManualMapAutoZoom(sample)) {
+        if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
+        return false;
+    }
 
     const targetZoomChanged = lastMapAutoZoomTargetZoom !== null
         && Math.abs(sample.targetZoom - lastMapAutoZoomTargetZoom) >= MAP_AUTOZOOM_ZOOM_SNAP;
@@ -738,7 +885,7 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode, options 
         return false;
     }
 
-    const minIntervalMs = lowFpsMode ? 1100 : 650;
+    const minIntervalMs = lowFpsMode ? 1400 : 900;
     if (!force && !targetZoomChanged && sinceLastAutoZoom < minIntervalMs) return false;
 
     try {
@@ -747,16 +894,16 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, now, lowFpsMode, options 
             const direction = sample.targetZoom >= currentZoom ? 1 : -1;
             const rawStep = zoomDelta * (lowFpsMode ? 0.28 : 0.36);
             const minStep = Math.min(zoomDelta, MAP_AUTOZOOM_ZOOM_SNAP);
-            const maxStep = lowFpsMode ? 0.5 : 0.75;
+            const maxStep = lowFpsMode ? 0.25 : 0.5;
             const step = direction * Math.min(maxStep, Math.max(minStep, rawStep));
             appliedZoom = clampAutoZoomForMap(currentZoom + step);
         }
         sample.appliedZoom = appliedZoom;
-        markAutoFollowProgrammaticMapMove(now);
+        markAutoFollowProgrammaticMapMove(now, force ? 700 : (lowFpsMode ? 1250 : 900));
         if (typeof map.setView === 'function') {
-            map.setView([lat, lon], appliedZoom, { animate: false });
+            map.setView([lat, lon], appliedZoom, force ? { animate: false } : { animate: true, duration: lowFpsMode ? 0.85 : 0.55 });
         } else if (typeof map.setZoom === 'function') {
-            map.setZoom(appliedZoom, { animate: false });
+            map.setZoom(appliedZoom, force ? { animate: false } : { animate: true });
         }
         lastMapAutoZoomAppliedAt = now;
         lastMapAutoZoomTargetZoom = sample.targetZoom;
@@ -774,7 +921,7 @@ function applyAutoFollowViewNow(options = {}) {
     if (!sample) return false;
     const now = Number.isFinite(Number(sample.now)) ? Number(sample.now) : Date.now();
     const lowFpsMode = typeof sample.lowFpsMode === 'boolean' ? sample.lowFpsMode : isLowFpsModeActive();
-    const autoZoomApplied = maybeApplyMapAutoZoom(sample.lat, sample.lon, sample.alt, sample.gs, now, lowFpsMode, {
+    const autoZoomApplied = maybeApplyMapAutoZoom(sample.lat, sample.lon, sample.alt, sample.gs, sample.hdg, now, lowFpsMode, {
         force: options.forceZoom === true
     });
     if (autoZoomApplied) {
@@ -784,7 +931,7 @@ function applyAutoFollowViewNow(options = {}) {
     }
     if (options.panFallback === false) return false;
     if (typeof map.panTo === 'function') {
-        markAutoFollowProgrammaticMapMove(now);
+        markAutoFollowProgrammaticMapMove(now, options.animate === true ? 900 : 700);
         map.panTo([sample.lat, sample.lon], { animate: options.animate === true });
         lastAutoFollowPanAt = now;
         lastAutoFollowPanPos = [sample.lat, sample.lon];
@@ -793,15 +940,20 @@ function applyAutoFollowViewNow(options = {}) {
     return false;
 }
 
-function handleAutoFollowManualMapInteraction() {
+function handleAutoFollowManualMapDrag() {
     if (!isAutoFollow || isAutoFollowProgrammaticMapMove()) return;
     toggleAutoFollow(false);
+}
+
+function handleAutoFollowManualMapZoom() {
+    rememberMapAutoZoomManualZoom();
 }
 
 function bindAutoFollowMapInteractionHandlers() {
     if (autoFollowMapInteractionBound || typeof map === 'undefined' || !map || typeof map.on !== 'function') return;
     autoFollowMapInteractionBound = true;
-    map.on('dragstart zoomstart', handleAutoFollowManualMapInteraction);
+    map.on('dragstart', handleAutoFollowManualMapDrag);
+    map.on('zoomend', handleAutoFollowManualMapZoom);
 }
 
 // --- FLIGHT RECORDER (Snail Trail + Stats) ---
@@ -10405,7 +10557,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     const lowFpsMode = isLowFpsModeActive();
     if (isAutoFollow) {
         const autoFollowViewApplied = applyAutoFollowViewNow({
-            sample: { lat, lon, alt, gs: autoFollowGs, now, lowFpsMode },
+            sample: { lat, lon, alt, gs: autoFollowGs, hdg, now, lowFpsMode },
             panFallback: false
         });
         if (autoFollowViewApplied) {

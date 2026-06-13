@@ -1069,10 +1069,10 @@
                     <button id="hintToggleAutoZoom" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('autoZoom')">🔍 Autozoom (Aus)</button>
                     <div id="mapAutoZoomMenuBlock" style="box-sizing:border-box; width:100%; max-width:100%; min-width:0; overflow:hidden; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:3px;">
-                            <label for="mapAutoZoomStrengthSlider" style="font-size:10px; color:#a8a8a8;">Stärke</label>
-                            <span id="mapAutoZoomStrengthValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">70%</span>
+                            <label for="mapAutoZoomStrengthSlider" style="font-size:10px; color:#a8a8a8;">Vorausschau</label>
+                            <span id="mapAutoZoomStrengthValue" style="font-size:10px; color:#d6d6d6; font-family:monospace;">8 min</span>
                         </div>
-                        <input id="mapAutoZoomStrengthSlider" type="range" min="25" max="125" step="5" value="70" style="display:block; width:100%; max-width:100%; box-sizing:border-box; cursor:pointer; margin-bottom:4px;" oninput="window.setMapAutoZoomStrength && window.setMapAutoZoomStrength(this.value, { persist: true })">
+                        <input id="mapAutoZoomStrengthSlider" type="range" min="2" max="25" step="1" value="8" style="display:block; width:100%; max-width:100%; box-sizing:border-box; cursor:pointer; margin-bottom:4px;" oninput="window.setMapAutoZoomLookaheadMinutes && window.setMapAutoZoomLookaheadMinutes(this.value, { persist: true })">
                         <div id="mapAutoZoomStatus" style="font-size:10px; color:#9a9a9a;">Aus</div>
                     </div>
                     <button id="hintToggleTelemetry" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('telemetry')">📟 Telemetrie (An)</button>
@@ -1629,7 +1629,7 @@
 <script defer src="mission-arrival-core.js?v=mission-arrival-core-20260605-01"></script>
 <script defer src="mission-runtime-core.js?v=bush-ready-to-close-20260604-01"></script>
 <script defer src="mission-cargo-core.js?v=bush-supply-close-20260604-01"></script>
-<script defer src="sync.js?v=idle-sleep-20260613-01"></script>
+<script defer src="sync.js?v=autozoom-20260613-05"></script>
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=idle-sleep-20260613-01"></script>
 <script defer src="map.js?v=idle-sleep-20260613-01"></script>
