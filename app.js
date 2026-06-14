@@ -9460,6 +9460,58 @@ function formatPaxBriefingText(paxText, passenger) {
     return `${base} (${name})`;
 }
 
+function buildBushPickupStoryHint({
+    mission = null,
+    missionPlanV2 = null,
+    missionContractV4 = null,
+    targetGeoContext = null,
+    dest = null
+} = {}) {
+    const parts = [];
+    const add = (value) => {
+        if (Array.isArray(value)) {
+            value.forEach(add);
+            return;
+        }
+        if (value && typeof value === 'object') {
+            Object.values(value).forEach(add);
+            return;
+        }
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        if (text) parts.push(text.slice(0, 360));
+    };
+    const plan = missionPlanV2?.plan && typeof missionPlanV2.plan === 'object' ? missionPlanV2.plan : {};
+    const frame = plan.storyFrame && typeof plan.storyFrame === 'object' ? plan.storyFrame : {};
+    const contractPlan = missionContractV4?.plan && typeof missionContractV4.plan === 'object' ? missionContractV4.plan : {};
+    const contractFrame = missionContractV4?.storyFrame && typeof missionContractV4.storyFrame === 'object'
+        ? missionContractV4.storyFrame
+        : (contractPlan.storyFrame && typeof contractPlan.storyFrame === 'object' ? contractPlan.storyFrame : {});
+    add(dest?.n || dest?.name || dest?.icao);
+    add(mission?.t);
+    add(mission?.s);
+    add(mission?.pax);
+    add(plan.primaryObjective);
+    add(plan.missionTrigger);
+    add(plan.focusSubject);
+    add(plan.keyQuestion);
+    add(plan.missionStakes);
+    add(plan.completionSignal);
+    add(plan.localFacts);
+    add(plan.weatherHooks);
+    add(plan.operationalDetails);
+    add(plan.realismBrief);
+    add(plan.narrativeHooks);
+    add(plan.mustMention);
+    add(frame);
+    add(contractPlan.primaryObjective);
+    add(contractPlan.mustMention);
+    add(contractFrame);
+    add(targetGeoContext?.summary);
+    add(targetGeoContext?.localFacts);
+    add(targetGeoContext?.airportDetails);
+    return parts.join(' | ').slice(0, 1800);
+}
+
 function missionHasPassengerByPaxText(paxText) {
     const txt = String(paxText || '').trim();
     if (!txt) return true;
@@ -18073,6 +18125,12 @@ async function generateMission() {
         cargoText = '-';
     } else if (isBushDispatch) {
         indicator.innerText = aiModeEnabled ? `Kontaktiere Bush-Dispatcher...` : `Erzeuge Bush-Mission...`;
+        const initialBushPickupStoryHint = buildBushPickupStoryHint({
+            missionPlanV2,
+            missionContractV4,
+            targetGeoContext: preMissionTargetGeoContext,
+            dest
+        });
         if (aiModeEnabled) {
             if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
                 m = await dispatchMeasure('writer_v4_bush', async () => fetchMissionWriterV4({
@@ -18089,7 +18147,8 @@ async function generateMission() {
                         profileId: dispatchProfileId,
                         startAirport: start,
                         destAirport: dest,
-                        distNm: totalDist
+                        distNm: totalDist,
+                        storyHint: initialBushPickupStoryHint
                     })
                 }));
             }
@@ -18128,7 +18187,8 @@ async function generateMission() {
                 profileId: dispatchProfileId,
                 startAirport: start,
                 destAirport: dest,
-                distNm: totalDist
+                distNm: totalDist,
+                storyHint: initialBushPickupStoryHint
             });
             m = bushMission.mission || null;
             paxText = bushMission.paxText || paxText;
@@ -18146,36 +18206,55 @@ async function generateMission() {
             const shouldHydratePickupStory = bushProfileId === 'bush_pickup_strip'
                 || (targetModeBeforeHydrate === 'strip_then_return' && pickupKindBeforeHydrate === 'passenger');
             if (shouldHydratePickupStory) {
+                const pickupStoryHint = buildBushPickupStoryHint({
+                    mission: m,
+                    missionPlanV2,
+                    missionContractV4,
+                    targetGeoContext: preMissionTargetGeoContext,
+                    dest
+                });
                 const pickupFallback = buildBushMissionEnvelope({
                     profileId: 'bush_pickup_strip',
                     startAirport: start,
                     destAirport: dest,
-                    distNm: totalDist
+                    distNm: totalDist,
+                    storyHint: pickupStoryHint
                 });
                 const fallbackMission = pickupFallback?.mission || null;
                 const fallbackBushSpec = sanitizeBushMissionSpec(fallbackMission?.bush || null);
                 if (fallbackBushSpec) {
                     const existingBush = dispatchBushSpec && typeof dispatchBushSpec === 'object' ? dispatchBushSpec : {};
+                    const existingPickupName = String(existingBush?.pickupStory?.personName || existingBush?.pickupLabel || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+                    const hasNamedExistingPickupStory = !!(
+                        existingBush?.pickupStory
+                        && existingBush.pickupStory.personName
+                        && existingPickupName
+                        && existingPickupName.length >= 3
+                    );
+                    const useFallbackPickupDetails = !hasNamedExistingPickupStory;
                     const hydratedBush = sanitizeBushMissionSpec({
                         ...fallbackBushSpec,
                         ...existingBush,
-                        pickupLabel: existingBush.pickupLabel || fallbackBushSpec.pickupLabel,
-                        pickupRole: existingBush.pickupRole || fallbackBushSpec.pickupRole,
-                        pickupGreetingText: existingBush.pickupGreetingText || fallbackBushSpec.pickupGreetingText,
-                        pickupStory: existingBush.pickupStory || fallbackBushSpec.pickupStory
+                        pickupLabel: useFallbackPickupDetails ? fallbackBushSpec.pickupLabel : (existingBush.pickupLabel || fallbackBushSpec.pickupLabel),
+                        pickupRole: useFallbackPickupDetails ? fallbackBushSpec.pickupRole : (existingBush.pickupRole || fallbackBushSpec.pickupRole),
+                        pickupGreetingText: useFallbackPickupDetails ? fallbackBushSpec.pickupGreetingText : (existingBush.pickupGreetingText || fallbackBushSpec.pickupGreetingText),
+                        pickupStory: useFallbackPickupDetails ? fallbackBushSpec.pickupStory : (existingBush.pickupStory || fallbackBushSpec.pickupStory)
                     });
                     if (hydratedBush) {
                         m.bush = hydratedBush;
                         dispatchBushSpec = hydratedBush;
                     }
-                    if (!m.passenger || typeof m.passenger !== 'object' || !m.passenger.pickupStory) {
+                    if (useFallbackPickupDetails || !m.passenger || typeof m.passenger !== 'object' || !m.passenger.pickupStory) {
                         m.passenger = fallbackMission?.passenger || m.passenger || null;
                     }
                     const storyText = String(m.s || '').trim();
+                    const fallbackPickupName = String(fallbackBushSpec?.pickupStory?.personName || fallbackMission?.passenger?.name || '').trim();
+                    const storyHasPickupName = !!fallbackPickupName && storyText.toLowerCase().includes(fallbackPickupName.toLowerCase());
                     const storyLooksFlat = !storyText
                         || storyText.length < 260
                         || /mission gilt|mission endet|beendet,?\s*wenn|abgeschlossen,?\s*wenn|rueckkehr.*ausstieg|ruckkehr.*ausstieg|rückkehr.*ausstieg/i.test(storyText);
-                    if (storyLooksFlat && fallbackMission?.s) m.s = fallbackMission.s;
+                    const storyLacksNamedPickup = !!fallbackPickupName && !storyHasPickupName;
+                    if ((storyLooksFlat || storyLacksNamedPickup) && fallbackMission?.s) m.s = fallbackMission.s;
                     paxText = pickupFallback?.paxText || paxText;
                     cargoText = '-';
                     if (typeof m === 'object') {
@@ -18704,7 +18783,10 @@ async function generateMission() {
         try { localStorage.setItem('ga_active_mission_contract', JSON.stringify(activeMissionContract)); } catch(e) {}
     }
     try {
-        const p = window.activePassenger || {};
+        const plannedPickupPassenger = isDeferredBushPickupPassenger && m?.passenger && typeof m.passenger === 'object'
+            ? m.passenger
+            : null;
+        const p = window.activePassenger || plannedPickupPassenger || {};
         const missionDebugSnapshot = {
             ts: Date.now(),
             mode: dispatchSnapshot.mode,
@@ -18771,7 +18853,10 @@ async function generateMission() {
     } catch (_) {}
     if (typeof window.missionRuntimeReset === 'function') window.missionRuntimeReset();
     if (typeof window.paxVoiceResetMission === 'function') window.paxVoiceResetMission();
-    const paxBriefingText = formatPaxBriefingText(paxText, window.activePassenger);
+    const plannedBriefingPassenger = isDeferredBushPickupPassenger && m?.passenger && typeof m.passenger === 'object'
+        ? m.passenger
+        : null;
+    const paxBriefingText = formatPaxBriefingText(paxText, window.activePassenger || plannedBriefingPassenger);
 
     document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
     let storyForBriefing = String(m.s || '');

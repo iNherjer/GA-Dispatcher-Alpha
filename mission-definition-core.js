@@ -406,11 +406,11 @@ const BUSH_PERSONA_LIBRARY = {
     bush_pickup_strip: [
         {
             name: 'Tessa Rowan',
-            role: 'Rangerin',
+            role: 'USFS-Rangerin',
             gender: 'female',
-            greetingText: 'Gut, dass du da bist. Ich habe seit gestern den oberen Talabschnitt bei {targetName} kontrolliert und will vor dem Wetterwechsel wieder runter nach {homeName}. Wenn wir hier weg sind, erzaehle ich dir unterwegs, was die Rangerstation diese Woche draussen eingesammelt hat.',
+            greetingText: 'Gut, dass du da bist. Ich habe seit gestern den oberen Talabschnitt bei {targetName} kontrolliert, die Markierungen am Bachlauf gesetzt und will vor dem Wetterwechsel wieder runter nach {homeName}. Wenn wir hier weg sind, erzaehle ich dir unterwegs, was die Rangerstation diese Woche draussen eingesammelt hat.',
             pickupStory: {
-                exactWhere: 'am Striprand bei {targetName}, neben dem Ranger-Pickup am kurzen Bahnende',
+                exactWhere: 'am Striprand bei {targetName}, neben dem kleinen Gelaendewagen am kurzen Bahnende',
                 whyThere: 'Sie hat seit gestern den oberen Talabschnitt kontrolliert, frische Wildwechsel markiert und nach der Regenfront Wasserstaende sowie umgestuerzte Aeste notiert',
                 returnReason: 'Dort muessen ihre Sperrnotizen noch vor dem naechsten Wetterfenster in die Ranger-Funkrunde',
                 boardingCue: 'Ich habe die letzten Markierungen am Bachlauf gesetzt und will jetzt vor dem Wetter raus.',
@@ -419,15 +419,15 @@ const BUSH_PERSONA_LIBRARY = {
         },
         {
             name: 'Luke Mercer',
-            role: 'Mechaniker',
+            role: 'USFS-Funktechniker',
             gender: 'male',
-            greetingText: 'Perfektes Timing. Ich war hier draussen bei {targetName} noch an einer Generator-Reparatur und habe jetzt Werkzeug, Notizen und genug Geschichten fuer den Rueckflug dabei. Bring mich einfach wieder nach {homeName}, dann bin ich rechtzeitig zur naechsten Schicht zurueck.',
+            greetingText: 'Perfektes Timing. Ich war hier draussen bei {targetName} an den Funkrelais oberhalb des Salmon River und am Generator der USFS-Aussenstelle. Bring mich bitte zurueck nach {homeName}; die Technikleitung wartet auf die Messdaten, bevor sie die naechste Crew rausplant.',
             pickupStory: {
-                exactWhere: 'am Materialstapel neben der kleinen Generatorhuette bei {targetName}',
-                whyThere: 'Er hat draussen einen Generator fuer eine Trailcrew-Huette wieder ans Laufen gebracht und die defekten Relais mitgenommen',
-                returnReason: 'Dort wartet die Werkstatt auf seine Notizen, bevor die naechste Crew mit Ersatzteilen rausgeschickt wird',
-                boardingCue: 'Der Generator laeuft wieder, die defekten Relais liegen im Werkzeugbeutel, und ich muss zurueck zur Werkstatt.',
-                departureCue: 'Erzaehle von der Generatorhuette, den improvisierten Reparaturen und warum die Werkstatt in {homeName} die Diagnose braucht.'
+                exactWhere: 'am Striprand bei {targetName}, bei einem kleinen Gelaendewagen mit zwei Alukoffern, Werkzeugtasche und Tablet',
+                whyThere: 'Er hat fuer den United States Forest Service die saisonale Wartung der Funkrelais oberhalb des Salmon River abgeschlossen, Batterien getauscht, Antennen geprueft und die Messdaten fuer die Einsatzleitung gesichert',
+                returnReason: 'In {homeName} wartet die Technikleitung auf seine Relaisdaten, bevor die naechste Crew mit Ersatzteilen und Frequenzplan rausgeschickt wird; eine weitere kalte Nacht am Strip soll er nicht einplanen',
+                boardingCue: 'Die Relais laufen wieder, die Messdaten sind im Tablet, und die kalte Nacht hier draussen spare ich mir gern.',
+                departureCue: 'Erzaehle von den Funkrelais oberhalb des Salmon River, dem Antennencheck und warum die Technikleitung in {homeName} die Daten heute noch braucht.'
             }
         }
     ]
@@ -471,9 +471,38 @@ function _getBushProfileDefinition(profileId = 'auto') {
     return BUSH_DISPATCH_PROFILES.bush_supply_strip;
 }
 
-function _pickBushPersona(profileId = 'bush_charter_strip') {
+function _normalizeBushPersonaHint(text = '') {
+    const raw = (typeof normalizeMissionText === 'function')
+        ? normalizeMissionText(text)
+        : String(text || '').toLowerCase();
+    return String(raw || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function _pickBushPersona(profileId = 'bush_charter_strip', context = {}) {
     const pool = Array.isArray(BUSH_PERSONA_LIBRARY[profileId]) ? BUSH_PERSONA_LIBRARY[profileId] : [];
     if (!pool.length) return null;
+    const hint = _normalizeBushPersonaHint([
+        context?.storyHint,
+        context?.missionStory,
+        context?.targetName,
+        context?.targetRef?.name
+    ].filter(Boolean).join(' '));
+    if (profileId === 'bush_pickup_strip' && hint) {
+        const techHint = /funk|radio|relais|antenne|generator|batterie|technik|techniker|mechanik|wartung|maintenance|tablet|messdaten|frequenz/.test(hint);
+        const rangerHint = /ranger|usfs|forest|forst|wild|talabschnitt|bachlauf|wasserstand|sperrnotiz|feldarbeit|proben/.test(hint);
+        if (techHint) {
+            const tech = pool.find(p => /luke|funk|technik|mechanik|generator|relais/i.test(`${p.name || ''} ${p.role || ''} ${p.pickupStory?.whyThere || ''}`));
+            if (tech) return { ...tech };
+        }
+        if (rangerHint) {
+            const ranger = pool.find(p => /tessa|ranger|talabschnitt|wild/i.test(`${p.name || ''} ${p.role || ''} ${p.pickupStory?.whyThere || ''}`));
+            if (ranger) return { ...ranger };
+        }
+    }
     return { ...pool[Math.floor(Math.random() * pool.length)] };
 }
 
@@ -524,13 +553,15 @@ function _buildBushPickupBriefingStory({ passenger = null, bushSpec = null, home
     const where = String(story.exactWhere || `am Treffpunkt am Striprand bei ${targetName || 'dem Zielstrip'}`).trim();
     const why = String(story.whyThere || `${name} war dort draussen fuer einen kurzen Backcountry-Auftrag unterwegs`).trim();
     const back = String(story.returnReason || `Zurueck am Heimatplatz wird ${name} fuer die naechste Lagebesprechung gebraucht`).trim();
+    const boardingCue = String(story.boardingCue || '').trim();
     const pronoun = _bushPassengerPronoun(passenger, name);
     const roleLine = role ? `${name}, ${role}, wartet heute ${where}.` : `${name} wartet heute ${where}.`;
-    return `${roleLine} ${why}. Flieg leer von ${homeName || 'deinem Heimatplatz'} hinaus, nimm ${pronoun} nach der Landung am Treffpunkt auf und bring ${pronoun} zurueck nach ${homeName || 'den Heimatplatz'}. ${back}.`;
+    const cueLine = boardingCue ? ` Beim Einsteigen kann ${name} dir kurz sagen: ${boardingCue}` : '';
+    return `${roleLine} Hintergrund: ${why}. Flieg leer von ${homeName || 'deinem Heimatplatz'} hinaus, setz die Maschine sauber am Zielstrip ab und such den Treffpunkt am Rand der Piste. Nimm ${pronoun} nach der Landung auf und bring ${pronoun} zurueck nach ${homeName || 'den Heimatplatz'}. ${back}.${cueLine}`;
 }
 
 function _buildBushPassenger(profileId = 'bush_charter_strip', context = {}) {
-    const persona = _pickBushPersona(profileId);
+    const persona = _pickBushPersona(profileId, context);
     if (!persona) return null;
     const templatedPersona = {
         ...persona,
@@ -602,7 +633,7 @@ function buildBushAreaRefFromAirport(airport = null, radiusNm = 0) {
     };
 }
 
-function buildBushMissionSpec({ profileId = 'bush_supply_strip', startAirport = null, destAirport = null, distNm = 0, pickupPassenger = null } = {}) {
+function buildBushMissionSpec({ profileId = 'bush_supply_strip', startAirport = null, destAirport = null, distNm = 0, pickupPassenger = null, storyHint = '' } = {}) {
     const profile = _getBushProfileDefinition(profileId);
     const homeRef = buildBushMissionRefFromAirport(startAirport);
     const targetRef = buildBushMissionRefFromAirport(destAirport);
@@ -645,7 +676,7 @@ function buildBushMissionSpec({ profileId = 'bush_supply_strip', startAirport = 
     if (profile.id === 'bush_pickup_strip') {
         const passengerForPickup = (pickupPassenger && typeof pickupPassenger === 'object')
             ? pickupPassenger
-            : _buildBushPassenger(profile.id, { homeRef, targetRef });
+            : _buildBushPassenger(profile.id, { homeRef, targetRef, storyHint });
         return sanitizeBushMissionSpec({
             profileId: profile.id,
             targetMode: 'strip_then_return',
@@ -729,14 +760,14 @@ function buildBushMissionSpec({ profileId = 'bush_supply_strip', startAirport = 
     });
 }
 
-function buildBushMissionEnvelope({ profileId = 'bush_supply_strip', startAirport = null, destAirport = null, distNm = 0 } = {}) {
+function buildBushMissionEnvelope({ profileId = 'bush_supply_strip', startAirport = null, destAirport = null, distNm = 0, storyHint = '' } = {}) {
     const profile = _getBushProfileDefinition(profileId);
     const targetName = String(destAirport?.n || destAirport?.name || destAirport?.icao || 'Remote Strip').trim();
     const homeName = String(startAirport?.n || startAirport?.name || startAirport?.icao || 'Startplatz').trim();
     const pickupPassengerForSpec = profile.id === 'bush_pickup_strip'
-        ? _buildBushPassenger(profile.id, { homeName, targetName })
+        ? _buildBushPassenger(profile.id, { homeName, targetName, storyHint })
         : null;
-    const bushSpec = buildBushMissionSpec({ profileId: profile.id, startAirport, destAirport, distNm, pickupPassenger: pickupPassengerForSpec });
+    const bushSpec = buildBushMissionSpec({ profileId: profile.id, startAirport, destAirport, distNm, pickupPassenger: pickupPassengerForSpec, storyHint });
     let passenger = null;
     let paxText = '0 PAX';
     let cargoText = profile.cargoPool[Math.floor(Math.random() * profile.cargoPool.length)] || 'Bush Load';
