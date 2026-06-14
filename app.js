@@ -14504,6 +14504,60 @@ function _missionPipelineV4BuildStoryFrame(plan = {}, semantics = {}, resolvedNe
     };
 }
 
+function buildBushPickupCreativeBrief(context = {}, draft = {}, weatherBundle = null) {
+    const targetName = String(draft?.target?.name || context.dest?.n || context.dest?.name || 'dem Zielstrip').trim();
+    const homeName = String(context.start?.n || currentStartICAO || 'dem Heimatplatz').trim();
+    const destWeather = weatherBundle?.dest || null;
+    const weatherNote = Number.isFinite(Number(destWeather?.tempC))
+        ? `Wetteranker: am Ziel etwa ${Math.round(Number(destWeather.tempC))}°C; das kann als Zeit-, Komfort- oder Materialdruck dienen, wenn es zur Geschichte passt.`
+        : '';
+    return {
+        purpose: 'Offener Kreativrahmen für einen Bush-Pickup-Return. Keine Vorlage kopieren; aus Profil, Ziel, Wetter und lokalen Fakten eine eigenständige Mikrogeschichte bauen.',
+        recipe: `Leerflug nach ${targetName}, dort Person oder kleine Rückholfracht aufnehmen, Rückflug nach ${homeName}; der Ablauf ist fest, die Story bleibt frei.`,
+        coreQuestions: [
+            `Wer wartet bei ${targetName}, mit Name, Rolle und erkennbarem Auftrag?`,
+            'Was hat diese Person draußen konkret getan, mit mindestens zwei beobachtbaren Tätigkeiten oder Ergebnissen?',
+            `Warum war ${targetName} genau der passende Zugangspunkt, Treffpunkt oder Abholstrip?`,
+            'Wann oder warum muss die Person jetzt zurück, statt noch draußen zu bleiben?',
+            'Wie sieht der Wartepunkt aus: Gepäck, Kisten, Werkzeug, Proben, Tablet, Karten, Fahrzeug oder sichtbare Notizen?',
+            `Warum macht der Rückflug nach ${homeName} für den nächsten Schritt einen Unterschied?`
+        ],
+        ingredientAxes: {
+            roleFamilies: [
+                'Feldforscher, Geologin, Biologe oder Hydrologin',
+                'Ranger, Wildlife-Mitarbeiterin, Trail-Crew oder Permit-Kontakt',
+                'Mechanikerin, Utility-Techniker, Strip-Betreiber oder Inspektorin',
+                'Camp-Koordinator, Lodge-Kontakt, Outfitter oder Crew-Logistiker',
+                'Fotograf, Kartenmacherin, Versicherungsprüfer oder Projektleiterin'
+            ],
+            activityVerbs: [
+                'messen', 'kartieren', 'fotografieren', 'proben sichern', 'markieren',
+                'zählen', 'prüfen', 'reparieren', 'verpacken', 'dokumentieren', 'übergeben'
+            ],
+            evidenceObjects: [
+                'Probenbeutel', 'GPS-Punkte', 'Feldskizzen', 'Tablet-Daten', 'Messkoffer',
+                'Kartenmappe', 'Markierungsband', 'Werkzeugtasche', 'Rückholkisten', 'Fotokarten'
+            ],
+            returnDrivers: [
+                'Auswertung in der Basis', 'Wetter- oder Kältefenster', 'Crewwechsel',
+                'Materialplanung', 'Anschluss oder Termin', 'Datenübergabe', 'Freigabeentscheidung'
+            ],
+            accessReasons: [
+                'nächster brauchbarer Strip', 'schnellster Zugang zum Talabschnitt',
+                'Treffpunkt für ein verstreutes Feldteam', 'kurzer Weg zu Messpunkten oder Camp',
+                'sicherer Abholpunkt vor Wetter, Dunkelheit oder weiterem Geländemarsch'
+            ]
+        },
+        writerExpectations: [
+            'Nicht alle Achsen abarbeiten; frei kombinieren und variieren.',
+            'Keine neuen Ortsnamen oder harten Geofakten erfinden.',
+            'Der Zielstrip bleibt Zugangspunkt und Pickup-Ort, nicht selbst der ganze Auftrag.',
+            'Die Story soll natürlich wirken, nicht wie ein Formular oder eine Checkliste.'
+        ],
+        weatherNote
+    };
+}
+
 function sanitizeMissionPlannerV4Result(raw = null, draft = null, resolvedNeeds = {}, debug = {}) {
     const base = sanitizeMissionPlannerV3Result(raw, draft, resolvedNeeds, debug);
     const rawPlan = (raw?.plan && typeof raw.plan === 'object') ? raw.plan : {};
@@ -14783,6 +14837,32 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             }
         )
         : null;
+    const profileId = String(context.dispatchProfileId || draft?.picker?.profile || draft?.profile?.id || '').trim().toLowerCase();
+    const bushPickupReturn = profileId === 'bush_pickup_strip';
+    const baseRouteRule = sarHeli
+        ? 'SAR-Heli: Start zur Fundstelle am POI, dort Landung oder stabiler Hover zur Bergung, danach medizinischer Weiterflug zum Krankenhaus-Helipad oder Fallback-Handoff.'
+        : (context.isPOI
+            ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.'
+            : (bushPickupReturn
+                ? 'Bush-Pickup-Return: Leerflug zum Zielstrip, Landung am Strip, Passagier am Wartepunkt aufnehmen, danach Rückflug zum Heimatplatz.'
+                : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.'));
+    const routeRules = [
+        baseRouteRule,
+        'Der Auftrag braucht einen konkreten lokalen Anlass, aber keine Actionfilm-Dramatik.',
+        'Story, Passenger, Cargo, sceneIntent und Zielkontext müssen dieselbe Lage beschreiben.'
+    ];
+    const realismTargets = [
+        'Nutze 1-2 echte oder aus Kontext abgeleitete Details: Zielart, Umgebung, Wetter, Betreiber-/Nutzungslogik.',
+        'Keine generischen Floskeln wie "wichtige Mission" ohne konkreten Grund.',
+        'Wenn Kontext schwach ist, ehrlich allgemein bleiben statt Ortsnamen oder Fakten zu erfinden.'
+    ];
+    if (bushPickupReturn) {
+        routeRules.push('Bush-Pickup-Story: Der Plan beantwortet aus dem Pickup-Kontext wer, was, wo, wann, wie und warum, ohne eine feste Standardgeschichte zu kopieren.');
+        realismTargets.unshift('Bei Feldarbeit, Forschung, Technik, Rangerarbeit oder Backcountry-Logistik konkrete Story-Anker liefern: Tätigkeiten, Material, Rückkehrgrund und nächster Handoff statt nur Rollenlabel.');
+    }
+    const pickupCreativeBrief = bushPickupReturn
+        ? buildBushPickupCreativeBrief(context, draft, _missionPipelineV3WeatherBundle(context.missionWeather || null))
+        : null;
     return {
         working,
         bundle: {
@@ -14799,18 +14879,9 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
             missionTruth: compactMissionTruthForPrompt(truth),
             semanticsRules,
             sarIncidentGuidance,
-            routeRules: [
-                sarHeli
-                    ? 'SAR-Heli: Start zur Fundstelle am POI, dort Landung oder stabiler Hover zur Bergung, danach medizinischer Weiterflug zum Krankenhaus-Helipad oder Fallback-Handoff.'
-                    : (context.isPOI ? 'POI-Flug: Start und Landung bleiben am Startflugplatz; am POI wird nicht gelandet.' : 'APT-Flug: normaler Streckenflug zum Zielflugplatz.'),
-                'Der Auftrag braucht einen konkreten lokalen Anlass, aber keine Actionfilm-Dramatik.',
-                'Story, Passenger, Cargo, sceneIntent und Zielkontext muessen dieselbe Lage beschreiben.'
-            ],
-            realismTargets: [
-                'Nutze 1-2 echte oder aus Kontext abgeleitete Details: Zielart, Umgebung, Wetter, Betreiber-/Nutzungslogik.',
-                'Keine generischen Floskeln wie "wichtige Mission" ohne konkreten Grund.',
-                'Wenn Kontext schwach ist, ehrlich allgemein bleiben statt Ortsnamen oder Fakten zu erfinden.'
-            ]
+            pickupCreativeBrief,
+            routeRules,
+            realismTargets
         }
     };
 }
@@ -14831,12 +14902,14 @@ Arbeitsweise:
 7. Das Zielsubjekt und die TaskDomain bilden einen bindenden Fokus-Lock. Sekundaeranker duerfen nur Kontextrollen aus den semanticsRules uebernehmen.
 8. Baue immer einen klaren Story-Kern: Ausloeser/Trigger, Fokus-Subjekt, offene Frage am Ziel, Einsatznutzen des Fluges, naechster Handoff.
 9. Konkretisiere diesen Story-Kern immer mit 2-4 Lage-Details: wer/was genau betroffen ist, was passiert ist, warum der Einsatz gerade jetzt noetig ist und welcher Befund aus der Luft gebraucht wird.
+9a. Bei bush_pickup_strip nutze CONTEXT_BUNDLE.pickupCreativeBrief als offenen kreativen Rahmen. Plane keine fertige Vorlage, sondern beantworte wer/was/wo/wann/wie/warum im storyFrame: konkrete Person, Grund am Zielstrip, mindestens zwei konkrete Tätigkeiten oder Fundstücke, Wartepunkt, Rückkehrgrund und Nutzen des Rückflugs.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
 11. Wenn CONTEXT_BUNDLE.sarIncidentGuidance vorhanden ist: Nutze allowedIncidentTypes als erlaubten Rahmen. Nutze siteAnalysis/scoredIncidentTypes als primaere Lage-Evidenz und preferredIncidentTypes als weichen Varianz-Hinweis. Missing-Person bleibt erlaubt, aber bei Strasse/Kreuzung/Kreisverkehr/Stadtrand muss eine generische Wanderer-Vermisstenlage gegen eine Verkehrs- oder Fahrzeuglage fachlich begruendet sein.
 12. Bei search_and_rescue ist plan.storyFrame.incidentType ein konkreter Einsatz-Lock. Vermische keine anderen SAR-Incidents in denselben Auftrag: road_collision bleibt Unfall-/Kollisionslage; vehicle_off_road bleibt Fahrzeug abseits der Strasse; angler_missing bleibt Ufer-/Anglerlage; small_boat_overdue bleibt Bootslage; downed_ultralight bleibt Luftfahrzeuglage.
 13. Du darfst einen realistischen Missionsanlass frei konkretisieren, solange keine neuen Ortsnamen oder harten Geofakten ausserhalb des Bundles erfunden werden.
 14. Kontext darf die Mission anreichern, aber nicht in ein neues Thema umwidmen.
-15. Schreibe alle frei formulierten Texte auf Deutsch. Eigennamen, ICAO-Kuerzel und feststehende Ortsnamen duerfen unveraendert bleiben.
+15. Schreibe alle frei formulierten Texte auf Deutsch. Eigennamen, ICAO-Kürzel und feststehende Ortsnamen dürfen unverändert bleiben.
+15a. Nutze normale deutsche Umlaute in Ausgabetexten, also "für", "zurück", "prüfen" statt "fuer", "zurueck", "pruefen".
 16. Antworte ausschliesslich als JSON.
 </INSTRUKTIONEN>
 
@@ -14970,6 +15043,13 @@ function buildMissionContractV4({
         lockSuggested: true
     });
     const storyFrame = _missionPipelineV4BuildStoryFrame(plan?.plan || {}, semantics, plannerResult?.resolvedNeeds || {}, { sarDecision });
+    const contractProfileId = String(profile.id || plannerContext.dispatchProfileId || '').trim().toLowerCase();
+    const pickupCreativeBrief = contractProfileId === 'bush_pickup_strip'
+        ? buildBushPickupCreativeBrief(plannerContext, {
+            target: { name: plannerContext.dest?.n || plannerContext.dest?.name || '' },
+            picker: { profile: contractProfileId }
+        }, _missionPipelineV3WeatherBundle(plannerContext.missionWeather || null))
+        : null;
     return {
         pipelineVersion: MISSION_PIPELINE_V4_VERSION,
         status: String(plan?.status || 'invalid'),
@@ -15002,6 +15082,7 @@ function buildMissionContractV4({
         fireHazard: plannerResult?.resolvedNeeds?.fire_hazard || plannerContext.missionFireHazard || null,
         missionPlan: plan,
         storyFrame,
+        pickupCreativeBrief,
         sarHeli: sarHeli ? (plannerContext.sarHeli || null) : null,
         missionTruth: compactMissionTruthForPrompt(
             plannerResult?.resolvedNeeds?.mission_truth || plannerContext.missionTruth || null
@@ -15041,7 +15122,7 @@ Regeln:
 17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
 18. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
 19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
-19a. bush + bush_pickup_strip: Das ist ein Pickup-Return-Auftrag. Erfinde fuer den abzuholenden Gast dynamisch aus CONTRACT.storyFrame, localFacts, narrativeHooks und weatherHooks einen konkreten Namen, eine Rolle, einen Grund fuer seinen Aufenthalt am Zielstrip, seinen genauen Wartepunkt und den Grund fuer die Rueckkehr. Wiederhole kein festes Standardmotiv, wenn der Contract andere Anker liefert.
+19a. bush + bush_pickup_strip: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
 22. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
@@ -15050,7 +15131,8 @@ Regeln:
 25. CONTRACT.storyFrame-Felder sind Rohmaterial, keine Satzliste. Formuliere sie zu 4-5 fluessigen Saetzen um, statt jedes Feld einzeln aneinanderzureihen.
 25a. Vermeide Satzstarts, die nach Formularfeldern klingen: "Zuletzt...", "Der letzte...", "Die Meldung...", "Aus der Luft liefern wir...". Baue daraus eine zusammenhaengende Einsatzgeschichte.
 26. Wenn subjectDetail bereits ein ganzer Satz ist, schreibe nicht "Gesucht wird nach ..." davor. Nutze dann eine passende eigene Formulierung.
-27. Schreibe alle frei formulierten Texte auf Deutsch. Eigennamen, ICAO-Kuerzel und feststehende Ortsnamen duerfen unveraendert bleiben.
+27. Schreibe alle frei formulierten Texte auf Deutsch. Eigennamen, ICAO-Kürzel und feststehende Ortsnamen dürfen unverändert bleiben.
+27a. Nutze normale deutsche Umlaute in Briefing, PAX-Texten und Dialogen, also "für", "zurück", "prüfen" statt "fuer", "zurueck", "pruefen".
 28. Antwort nur als JSON.
 </INSTRUKTIONEN>
 
