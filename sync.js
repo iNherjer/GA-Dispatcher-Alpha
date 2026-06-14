@@ -508,6 +508,14 @@ function clampAutoZoomToRange(zoom, minZoom, maxZoom) {
     return quantizeMapAutoZoom(_clampMapAutoZoomNumber(zoom, min, max));
 }
 
+function sanitizeMapAutoZoomVisibilityCap(zoom) {
+    const n = Number(zoom);
+    if (!Number.isFinite(n)) return null;
+    const q = quantizeMapAutoZoom(n);
+    if (q < MAP_AUTOZOOM_MIN_ZOOM) return null;
+    return Math.min(MAP_AUTOZOOM_MAX_ZOOM, q);
+}
+
 function normalizeMapAutoZoomLookaheadMinutes(value) {
     const n = parseInt(value, 10);
     if (!Number.isFinite(n)) return MAP_AUTOZOOM_DEFAULT_LOOKAHEAD_MIN;
@@ -796,8 +804,11 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
     }
 
     const radiusZoom = _mapAutoZoomZoomForRadius(Number(lat), Number(lon), requiredRadiusNm, phase === 'Taxi' ? 70 : 95);
-    const visibleMaxZoom = Number.isFinite(Number(targetVisibilityMaxZoom))
-        ? Math.min(maxModeZoom, Number(targetVisibilityMaxZoom))
+    const usableVisibilityCapZoom = sanitizeMapAutoZoomVisibilityCap(targetVisibilityMaxZoom);
+    const hasVisibilityCapZoom = usableVisibilityCapZoom !== null && Number.isFinite(usableVisibilityCapZoom);
+    const hasRawVisibilityCapZoom = targetVisibilityMaxZoom !== null && Number.isFinite(targetVisibilityMaxZoom);
+    const visibleMaxZoom = hasVisibilityCapZoom
+        ? Math.min(maxModeZoom, usableVisibilityCapZoom)
         : maxModeZoom;
     const visibleMinZoom = Math.min(minModeZoom, visibleMaxZoom);
     const clampedTargetZoom = clampAutoZoomToRange(radiusZoom, visibleMinZoom, visibleMaxZoom);
@@ -821,7 +832,8 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         plannedLookaheadNm: Math.round(plannedLookaheadNm * 10) / 10,
         cruiseProgress: Math.round(cruiseProgress * 100) / 100,
         departureProgress: Math.round(departureT * 100) / 100,
-        targetVisibilityMaxZoom: Number.isFinite(Number(targetVisibilityMaxZoom)) ? Number(targetVisibilityMaxZoom) : null,
+        targetVisibilityMaxZoom: hasRawVisibilityCapZoom ? targetVisibilityMaxZoom : null,
+        usableVisibilityCapZoom: hasVisibilityCapZoom ? usableVisibilityCapZoom : null,
         radiusZoom: Number.isFinite(Number(radiusZoom)) ? Math.round(Number(radiusZoom) * 10) / 10 : null,
         modeMinZoom: Math.round(visibleMinZoom * 10) / 10,
         modeMaxZoom: Math.round(visibleMaxZoom * 10) / 10,
@@ -970,8 +982,11 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, hdgDeg, now, lowFpsMode, 
     sample.currentZoom = currentZoom;
     sample.t = now;
     lastMapAutoZoomSample = sample;
+    const recoveringInvalidZoom = currentZoom < MAP_AUTOZOOM_MIN_ZOOM - 0.25
+        && sample.targetZoom >= MAP_AUTOZOOM_MIN_ZOOM;
+    if (recoveringInvalidZoom) sample.recoveringInvalidZoom = true;
 
-    if (!force && shouldHoldManualMapAutoZoom(sample)) {
+    if (!force && !recoveringInvalidZoom && shouldHoldManualMapAutoZoom(sample)) {
         if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
         return false;
     }
@@ -980,17 +995,17 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, hdgDeg, now, lowFpsMode, 
         && Math.abs(sample.targetZoom - lastMapAutoZoomTargetZoom) >= MAP_AUTOZOOM_TARGET_CHANGE_DELTA;
     const zoomDelta = Math.abs(sample.targetZoom - currentZoom);
     const minZoomDelta = force ? 0 : MAP_AUTOZOOM_MIN_APPLY_DELTA;
-    if (!force && !targetZoomChanged && zoomDelta < minZoomDelta) {
+    if (!force && !recoveringInvalidZoom && !targetZoomChanged && zoomDelta < minZoomDelta) {
         if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
         return false;
     }
 
     const minIntervalMs = lowFpsMode ? 1400 : 900;
-    if (!force && !targetZoomChanged && sinceLastAutoZoom < minIntervalMs) return false;
+    if (!force && !recoveringInvalidZoom && !targetZoomChanged && sinceLastAutoZoom < minIntervalMs) return false;
 
     try {
         let appliedZoom = sample.targetZoom;
-        if (!force) {
+        if (!force && !recoveringInvalidZoom) {
             const direction = sample.targetZoom >= currentZoom ? 1 : -1;
             const rawStep = zoomDelta * (lowFpsMode ? 0.28 : 0.36);
             const minStep = Math.min(zoomDelta, MAP_AUTOZOOM_MIN_STEP);
@@ -1001,9 +1016,9 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, hdgDeg, now, lowFpsMode, 
         sample.appliedZoom = appliedZoom;
         markAutoFollowProgrammaticMapMove(now, force ? 700 : (lowFpsMode ? 1250 : 900));
         if (typeof map.setView === 'function') {
-            map.setView([lat, lon], appliedZoom, force ? { animate: false } : { animate: true, duration: lowFpsMode ? 0.85 : 0.55 });
+            map.setView([lat, lon], appliedZoom, (force || recoveringInvalidZoom) ? { animate: false } : { animate: true, duration: lowFpsMode ? 0.85 : 0.55 });
         } else if (typeof map.setZoom === 'function') {
-            map.setZoom(appliedZoom, force ? { animate: false } : { animate: true });
+            map.setZoom(appliedZoom, (force || recoveringInvalidZoom) ? { animate: false } : { animate: true });
         }
         lastMapAutoZoomAppliedAt = now;
         lastMapAutoZoomTargetZoom = sample.targetZoom;
