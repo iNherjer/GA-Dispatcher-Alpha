@@ -483,7 +483,7 @@ input[type=range]::-webkit-slider-thumb {
     border: 1px solid #444;
     display: none;
     transition: all 0.3s;
-    overflow-x: hidden;
+    overflow: visible;
     word-wrap: break-word;
 }
 
@@ -1440,6 +1440,8 @@ body.theme-retro .slider-label {
     margin-bottom: 15px;
     max-width: 100%;
     box-sizing: border-box;
+    position: relative;
+    overflow: visible;
 }
 
 .paperclip,
@@ -1461,6 +1463,7 @@ body.theme-retro .notes-stack {
     display: grid;
     grid-template-areas: "stack";
     position: relative;
+    overflow: visible;
     margin-bottom: 25px;
     cursor: pointer;
     min-width: 250px;
@@ -1480,7 +1483,8 @@ body.theme-retro .paperclip {
     height: 60px;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 60'%3E%3Cpath d='M10 40 V12 a4 4 0 0 1 8 0 v32 a6 6 0 0 1-12 0 V10 a8 8 0 0 1 16 0 v32' fill='none' stroke='%23889' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    z-index: 10;
+    z-index: 30;
+    pointer-events: none;
     filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.5));
     transform: rotate(-15deg);
 }
@@ -8068,6 +8072,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .notes-stack {
     display: grid;
     grid-template-areas: "stack";
     position: relative;
+    overflow: visible;
     margin-bottom: 25px;
     gap: 0;
     cursor: pointer;
@@ -8146,7 +8151,8 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940) .paperclip {
     height: 60px;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 60'%3E%3Cpath d='M10 40 V12 a4 4 0 0 1 8 0 v32 a6 6 0 0 1-12 0 V10 a8 8 0 0 1 16 0 v32' fill='none' stroke='%23889' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    z-index: 10;
+    z-index: 30;
+    pointer-events: none;
     filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.5));
     transform: rotate(-15deg);
 }
@@ -9772,7 +9778,8 @@ body.theme-ops1940 .paperclip {
     position: absolute;
     top: 18px;
     right: 24px;
-    z-index: 9;
+    z-index: 30;
+    pointer-events: none;
     width: 54px;
     height: 18px;
     border-radius: 2px;
