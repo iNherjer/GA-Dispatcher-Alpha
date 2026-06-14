@@ -463,7 +463,9 @@ const MAP_AUTOZOOM_TARGET_CHANGE_DELTA = 0.15;
 const MAP_AUTOZOOM_MIN_STEP = 0.05;
 const MAP_AUTOZOOM_MIN_APPLY_DELTA = 0.05;
 const MAP_AUTOZOOM_TARGET_APPROACH_MIN = 5;
-const MAP_AUTOZOOM_TARGET_APPROACH_ZOOM = 13.4;
+const MAP_AUTOZOOM_POI_APPROACH_ZOOM = 13.4;
+const MAP_AUTOZOOM_WAYPOINT_APPROACH_ZOOM = 12.5;
+const MAP_AUTOZOOM_TARGET_APPROACH_CENTER_TARGET_WEIGHT = 1 / 3;
 const MAP_AUTOZOOM_SPEED_STAGES = [
     { max: 18, zoom: 15, label: 'Boden' },
     { max: 60, zoom: 14, label: 'Langsam/niedrig' },
@@ -723,22 +725,34 @@ function _mapAutoZoomZoomForPoints(points, paddingPx = 110) {
     }
 }
 
-function _mapAutoZoomCenterForPoints(points) {
+function _mapAutoZoomZoomForPointsAroundCenter(points, center, paddingPx = 110) {
+    const centerLat = Number(center?.lat ?? (Array.isArray(center) ? center[0] : NaN));
+    const centerLon = Number(center?.lon ?? center?.lng ?? (Array.isArray(center) ? center[1] : NaN));
+    if (!Number.isFinite(centerLat) || !Number.isFinite(centerLon)) return _mapAutoZoomZoomForPoints(points, paddingPx);
     const validPoints = (Array.isArray(points) ? points : [])
         .map(p => Array.isArray(p) ? p : [p?.lat, p?.lon])
         .filter(p => Number.isFinite(Number(p[0])) && Number.isFinite(Number(p[1])))
         .map(p => [Number(p[0]), Number(p[1])]);
     if (validPoints.length < 2) return null;
-    if (typeof L !== 'undefined' && L && typeof L.latLngBounds === 'function') {
-        try {
-            const center = L.latLngBounds(validPoints).getCenter();
-            if (center && Number.isFinite(Number(center.lat)) && Number.isFinite(Number(center.lng))) {
-                return { lat: Number(center.lat), lon: Number(center.lng) };
-            }
-        } catch (_) {}
-    }
-    const avg = validPoints.reduce((acc, p) => ({ lat: acc.lat + p[0], lon: acc.lon + p[1] }), { lat: 0, lon: 0 });
-    return { lat: avg.lat / validPoints.length, lon: avg.lon / validPoints.length };
+    const centeredPoints = [[centerLat, centerLon]];
+    validPoints.forEach(p => {
+        centeredPoints.push(p);
+        centeredPoints.push([centerLat * 2 - p[0], centerLon * 2 - p[1]]);
+    });
+    return _mapAutoZoomZoomForPoints(centeredPoints, paddingPx);
+}
+
+function _mapAutoZoomWeightedCenterBetweenPoints(fromPoint, toPoint, toWeight) {
+    const fromLat = Number(fromPoint?.lat ?? (Array.isArray(fromPoint) ? fromPoint[0] : NaN));
+    const fromLon = Number(fromPoint?.lon ?? fromPoint?.lng ?? (Array.isArray(fromPoint) ? fromPoint[1] : NaN));
+    const toLat = Number(toPoint?.lat ?? (Array.isArray(toPoint) ? toPoint[0] : NaN));
+    const toLon = Number(toPoint?.lon ?? toPoint?.lng ?? (Array.isArray(toPoint) ? toPoint[1] : NaN));
+    if (!Number.isFinite(fromLat) || !Number.isFinite(fromLon) || !Number.isFinite(toLat) || !Number.isFinite(toLon)) return null;
+    const t = _clampMapAutoZoomNumber(toWeight, 0, 1);
+    return {
+        lat: fromLat + (toLat - fromLat) * t,
+        lon: fromLon + (toLon - fromLon) * t
+    };
 }
 
 function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
@@ -784,6 +798,15 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
     let minModeZoom = MAP_AUTOZOOM_MIN_ZOOM;
     let maxModeZoom = 14.25;
     let targetVisibilityMaxZoom = null;
+    const routeTargetPoint = routeTarget ? { lat: routeTarget.lat, lon: routeTarget.lon } : null;
+    const aircraftPoint = { lat: Number(lat), lon: Number(lon) };
+    const targetApproachViewCenter = targetApproachActive && routeTargetPoint
+        ? _mapAutoZoomWeightedCenterBetweenPoints(
+            aircraftPoint,
+            routeTargetPoint,
+            MAP_AUTOZOOM_TARGET_APPROACH_CENTER_TARGET_WEIGHT
+        )
+        : null;
 
     if (grounded) {
         phase = 'Taxi';
@@ -793,9 +816,13 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
     } else if (routeTarget?.isPoi && targetApproachActive) {
         phase = 'POI';
         requiredRadiusNm = Math.max(1.1, Math.min(8, routeDistNm + 0.9));
-        minModeZoom = MAP_AUTOZOOM_TARGET_APPROACH_ZOOM;
-        maxModeZoom = MAP_AUTOZOOM_TARGET_APPROACH_ZOOM;
-        targetVisibilityMaxZoom = _mapAutoZoomZoomForPoints([[lat, lon], [routeTarget.lat, routeTarget.lon]], 120);
+        minModeZoom = MAP_AUTOZOOM_POI_APPROACH_ZOOM;
+        maxModeZoom = MAP_AUTOZOOM_POI_APPROACH_ZOOM;
+        targetVisibilityMaxZoom = _mapAutoZoomZoomForPointsAroundCenter(
+            [[lat, lon], [routeTarget.lat, routeTarget.lon]],
+            targetApproachViewCenter || aircraftPoint,
+            120
+        );
     } else if ((altitudeRefFt < 1800 || gs < 75) && nearDeparture) {
         phase = 'Platzrunde';
         const lowAltT = _mapAutoZoomSmoothstep(altitudeRefFt / 1800);
@@ -810,7 +837,11 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         requiredRadiusNm = Math.max(localRadiusNm, departureLookaheadNm);
         if (Number.isFinite(routeDistNm) && routeDistNm <= Math.max(8, lookaheadNm * 1.05)) {
             requiredRadiusNm = Math.max(requiredRadiusNm, routeDistNm + 1.0);
-            targetVisibilityMaxZoom = _mapAutoZoomZoomForPoints([[lat, lon], [routeTarget.lat, routeTarget.lon]], 115);
+            targetVisibilityMaxZoom = _mapAutoZoomZoomForPointsAroundCenter(
+                [[lat, lon], [routeTarget.lat, routeTarget.lon]],
+                aircraftPoint,
+                115
+            );
         }
         requiredRadiusNm = _clampMapAutoZoomNumber(requiredRadiusNm, 3.8, 45);
         minModeZoom = 10.75;
@@ -818,21 +849,30 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
     } else if (Number.isFinite(routeDistNm) && targetApproachActive) {
         phase = routeTarget?.isPoi ? 'POI' : 'Wegpunkt';
         requiredRadiusNm = Math.max(1.1, Math.min(8, routeDistNm + 0.9));
-        minModeZoom = MAP_AUTOZOOM_TARGET_APPROACH_ZOOM;
-        maxModeZoom = MAP_AUTOZOOM_TARGET_APPROACH_ZOOM;
-        targetVisibilityMaxZoom = _mapAutoZoomZoomForPoints([[lat, lon], [routeTarget.lat, routeTarget.lon]], 115);
+        const approachZoom = routeTarget?.isPoi
+            ? MAP_AUTOZOOM_POI_APPROACH_ZOOM
+            : MAP_AUTOZOOM_WAYPOINT_APPROACH_ZOOM;
+        minModeZoom = approachZoom;
+        maxModeZoom = approachZoom;
+        targetVisibilityMaxZoom = _mapAutoZoomZoomForPointsAroundCenter(
+            [[lat, lon], [routeTarget.lat, routeTarget.lon]],
+            targetApproachViewCenter || aircraftPoint,
+            115
+        );
     } else {
         if (Number.isFinite(routeDistNm) && routeDistNm <= Math.max(8, lookaheadNm * 1.15)) {
             requiredRadiusNm = Math.max(requiredRadiusNm, routeDistNm + 1.2);
-            targetVisibilityMaxZoom = _mapAutoZoomZoomForPoints([[lat, lon], [routeTarget.lat, routeTarget.lon]], 110);
+            targetVisibilityMaxZoom = _mapAutoZoomZoomForPointsAroundCenter(
+                [[lat, lon], [routeTarget.lat, routeTarget.lon]],
+                aircraftPoint,
+                110
+            );
         }
         requiredRadiusNm = Math.max(requiredRadiusNm, departureLookaheadNm);
         requiredRadiusNm = _clampMapAutoZoomNumber(requiredRadiusNm, 2.2, 85);
     }
 
-    const targetViewCenter = targetApproachActive && routeTarget
-        ? _mapAutoZoomCenterForPoints([[lat, lon], [routeTarget.lat, routeTarget.lon]])
-        : null;
+    const targetViewCenter = targetApproachViewCenter;
     const radiusZoom = _mapAutoZoomZoomForRadius(Number(lat), Number(lon), requiredRadiusNm, phase === 'Taxi' ? 70 : 95);
     const usableVisibilityCapZoom = sanitizeMapAutoZoomVisibilityCap(targetVisibilityMaxZoom);
     const hasVisibilityCapZoom = usableVisibilityCapZoom !== null && Number.isFinite(usableVisibilityCapZoom);
