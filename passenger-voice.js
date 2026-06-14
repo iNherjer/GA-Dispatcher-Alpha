@@ -2283,7 +2283,41 @@ function _bushPickupPassengerPerspectiveLine() {
     const role = String(window.activePassenger?.role || active.bush?.pickupRole || 'Pickup-Gast').trim();
     const pickupPlace = String(active.bush?.targetRef?.name || active.contract?.dest || 'dem Zielstrip').trim();
     const homePlace = String(active.bush?.homeRef?.name || active.contract?.start || 'dem Heimatplatz').trim();
-    return `BUSH-PICKUP-PERSPEKTIVE: Du bist der abgeholte Passagier (${role}). Du wartest nicht mehr draussen, sondern bist nach dem Pickup an Bord auf dem Rueckflug von ${pickupPlace} nach ${homePlace}. Sprich nie als Pilot, Abholer, Lademeister, Bodencrew oder Dispatcher. Sage nicht, dass du "den Gast", "den Passagier" oder "ihn" eingesammelt hast; du bist selbst dieser Gast.`;
+    const storyLine = _bushPickupStoryAnchorLine(active, window.activePassenger);
+    return `BUSH-PICKUP-PERSPEKTIVE: Du bist der abgeholte Passagier (${role}). Du wartest nicht mehr draussen, sondern bist nach dem Pickup an Bord auf dem Rueckflug von ${pickupPlace} nach ${homePlace}. Sprich nie als Pilot, Abholer, Lademeister, Bodencrew oder Dispatcher. Sage nicht, dass du "den Gast", "den Passagier" oder "ihn" eingesammelt hast; du bist selbst dieser Gast.${storyLine ? ` ${storyLine}` : ''}`;
+}
+
+function _bushPickupStoryData(active = null, pax = null) {
+    const bush = active?.bush || _activeBushPickupPassengerContract()?.bush || null;
+    const story = (bush?.pickupStory && typeof bush.pickupStory === 'object')
+        ? bush.pickupStory
+        : ((pax?.pickupStory && typeof pax.pickupStory === 'object') ? pax.pickupStory : {});
+    const personName = String(story.personName || pax?.name || bush?.pickupLabel || 'Pickup-Gast').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const role = String(story.role || pax?.role || bush?.pickupRole || 'Pickup-Gast').trim();
+    const pickupPlace = String(bush?.targetRef?.name || active?.contract?.dest || 'dem Zielstrip').trim();
+    const homePlace = String(bush?.homeRef?.name || active?.contract?.start || 'dem Heimatplatz').trim();
+    return {
+        personName,
+        role,
+        pickupPlace,
+        homePlace,
+        exactWhere: String(story.exactWhere || `am Treffpunkt am Striprand bei ${pickupPlace}`).trim(),
+        whyThere: String(story.whyThere || '').trim(),
+        returnReason: String(story.returnReason || '').trim(),
+        boardingCue: String(story.boardingCue || '').trim(),
+        departureCue: String(story.departureCue || '').trim()
+    };
+}
+
+function _bushPickupStoryAnchorLine(active = null, pax = null) {
+    const d = _bushPickupStoryData(active, pax);
+    const parts = [
+        `STORY-ANKER: ${d.personName}${d.role ? ` (${d.role})` : ''}`,
+        `Treffpunkt=${d.exactWhere}`,
+        d.whyThere ? `Warum dort=${d.whyThere}` : '',
+        d.returnReason ? `Warum zurueck nach ${d.homePlace}=${d.returnReason}` : ''
+    ].filter(Boolean);
+    return parts.join(' | ');
 }
 
 function _cargoOnlyVoiceContext() {
@@ -4076,9 +4110,12 @@ function _baseContext() {
     }
     let storyShort = String(story || '').trim().replace(/\s+/g, ' ').slice(0, 260);
     if (pickupPaxActive) {
-        const pickupPlace = String(pickupPaxContext?.bush?.targetRef?.name || md.poiName || md.dest || 'dem Zielstrip').trim();
-        const homePlace = String(pickupPaxContext?.bush?.homeRef?.name || md.start || 'dem Heimatplatz').trim();
-        storyShort = `Ich wurde am abgelegenen Strip bei ${pickupPlace} abgeholt und fliege jetzt als Passagier zurueck nach ${homePlace}. Ich spreche aus meiner eigenen Gast-Perspektive, nicht aus Crew- oder Abholer-Sicht.`;
+        const pickupStory = _bushPickupStoryData(pickupPaxContext, pax);
+        const why = pickupStory.boardingCue
+            ? ` ${pickupStory.boardingCue}`
+            : (pickupStory.whyThere ? ` Hintergrund: ${pickupStory.whyThere}.` : '');
+        const back = pickupStory.returnReason ? ` Rueckkehrgrund: ${pickupStory.returnReason}.` : '';
+        storyShort = `Ich bin ${pickupStory.personName}${pickupStory.role ? `, ${pickupStory.role},` : ''} und wurde ${pickupStory.exactWhere} abgeholt.${why} Jetzt fliege ich als Passagier zurueck nach ${pickupStory.homePlace}.${back} Ich spreche aus meiner eigenen Gast-Perspektive, nicht aus Crew- oder Abholer-Sicht.`;
     }
     const trainingDiscipline = trainingPlan
         ? `TRAINING (${trainingPlan.mode}): Nur fliegerische Inhalte, prozedural, sicherheitsfokussiert. Kein Sightseeing/Ortsstory.`
@@ -5432,12 +5469,16 @@ function _pickupBoardingPrompt() {
     const active = _activeBushPickupPassengerContract();
     if (!active) return null;
     const wx = _weatherContext(window.lastLiveFlightData);
+    const storyAnchor = _bushPickupStoryAnchorLine(active, pax);
+    const storyData = _bushPickupStoryData(active, pax);
     const manifestSpeechRule = 'WICHTIG: Keine Manifest- oder UI-Sprache. Sage nie Dinge wie "1 PAX", "AN BORD", "AUSRUESTUNG", "Payload" oder "ich bin jetzt als PAX geladen". Sprich einfach natuerlich als Person, die gerade eingestiegen ist.';
     return `${ctx}
 
 Moment: Der Pickup ist gerade abgeschlossen und ich bin jetzt an Bord, wir stehen noch am Strip oder rollen langsam an.${wx ? ' ' + wx : ''}
 Basistext für deinen Einstieg am Strip (frei adaptieren): "${String(pax.greetingText || '').trim()}"
-Sprich strikt als abgeholter Gast, der gerade eingestiegen ist. Sag jetzt kurz, dass du an Bord bist, nenne knapp warum du hier draussen warst oder woran du gearbeitet hast und leite in einem letzten Halbsatz zum Rueckflug ueber. Lege dabei schon den thematischen Faden fuer die spaetere Rueckflug-Ansage fest: genau ein klarer Einsatzschwerpunkt, kein Themenmix. Das ist der kurze Moment direkt beim Einsteigen, noch kein laengerer Debrief.
+${storyAnchor}
+${storyData.boardingCue ? `Ich-Cue fuer diesen Moment: "${storyData.boardingCue}"` : ''}
+Sprich strikt als abgeholter Gast, der gerade eingestiegen ist. Sag jetzt kurz, dass du an Bord bist, verorte dich natuerlich am Treffpunkt (${storyData.exactWhere}), nenne knapp warum du hier draussen warst oder woran du gearbeitet hast und leite in einem letzten Halbsatz zum Rueckflug ueber. Lege dabei schon den thematischen Faden fuer die spaetere Rueckflug-Ansage fest: genau ein klarer Einsatzschwerpunkt, kein Themenmix. Das ist der kurze Moment direkt beim Einsteigen, noch kein laengerer Debrief.
 Harte Perspektiv-Regel: Verwende "ich" fuer den abgeholten Gast. Sage niemals, du haettest "den Gast", "den Passagier", "ihn" oder "sie" eingesammelt, eingeladen oder abgeholt. Das hat der Pilot getan.
 ${manifestSpeechRule}
 Max 3 Sätze.${_toneHint()}`;
@@ -5451,11 +5492,15 @@ function _pickupDeparturePrompt() {
     if (!active) return null;
     const wx = _weatherContext(window.lastLiveFlightData);
     const continuityHint = _bushPickupNarrativeHint('departure');
+    const storyAnchor = _bushPickupStoryAnchorLine(active, pax);
+    const storyData = _bushPickupStoryData(active, pax);
     return `${ctx}
 
 Moment: Wir sind wieder in der Luft und der Rueckflug nach Hause laeuft.${wx ? ' ' + wx : ''}
 Basistext fuer deine Rueckflug-Spur (nur inhaltlich, nicht als neue Begruessung wiederholen): "${String(pax.greetingText || '').trim()}"${continuityHint}
-Baue direkt auf deiner kurzen Ansage vom Strip auf: Erzaehle jetzt etwas ausfuehrlicher aus deiner Ich-Perspektive als abgeholter Gast, warum du dort draussen warst, warum du wieder nach Hause musst und was du vom Ort oder vom Einsatz mitnimmst. Der Ton darf klar Wilderness- und Einsatzcharakter haben: Abgeschiedenheit, Gelaende, Dauer draussen, Feldarbeit, Wetterfenster oder Rueckkehr in die Zivilisation. Das darf persoenlicher und etwas bildhafter sein, aber weiterhin glaubwuerdig und knapp. Beginne NICHT erneut mit einer Begruessung wie "Hallo", "Hi", "Moin" oder einer neuen Selbstvorstellung, sondern setze inhaltlich einfach fort.
+${storyAnchor}
+${storyData.departureCue ? `Ich-Cue fuer den Rueckflug: "${storyData.departureCue}"` : ''}
+Baue direkt auf deiner kurzen Ansage vom Strip auf: Erzaehle jetzt etwas ausfuehrlicher aus deiner Ich-Perspektive als abgeholter Gast, warum du dort draussen warst, warum du wieder nach ${storyData.homePlace} musst und was du vom Ort oder vom Einsatz mitnimmst. Nutze dabei den Rueckkehrgrund: ${storyData.returnReason || 'zu Hause wartet der naechste konkrete Arbeitsschritt'}. Der Ton darf klar Wilderness- und Einsatzcharakter haben: Abgeschiedenheit, Gelaende, Dauer draussen, Feldarbeit, Wetterfenster oder Rueckkehr in die Zivilisation. Das darf persoenlicher und etwas bildhafter sein, aber weiterhin glaubwuerdig und knapp. Beginne NICHT erneut mit einer Begruessung wie "Hallo", "Hi", "Moin" oder einer neuen Selbstvorstellung, sondern setze inhaltlich einfach fort.
 Harte Perspektiv-Regel: Du bist der Passagier an Bord, nicht Pilot, Abholer, Lademeister oder Bodencrew. Verbotene Aussagen: "ich habe den Gast eingesammelt", "ich habe den Passagier abgeholt", "er sieht ... aus", "wir haben ihn geladen". Wenn du den Pickup erwaehnst, dann nur so: der Pilot hat mich abgeholt/eingesammelt oder ich bin zugestiegen.
 Max 4 Sätze.${_toneHint()}`;
 }
