@@ -92,13 +92,6 @@
     <div class="screw bottom-right"></div>
 
     <h1 id="mainTitle">VFR Multitool <a href="readme.html" target="_blank" class="help-icon" title="Hilfe & Readme" style="font-weight:bold;">?</a></h1>
-    <div id="searchIndicator">System bereit.</div>
-    <div id="missionGenerationProgress" class="mission-generation-progress" role="progressbar" aria-label="Missionsgenerierung" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
-        <div class="mission-generation-progress-track">
-            <div id="missionGenerationProgressFill" class="mission-generation-progress-fill"></div>
-        </div>
-        <div id="missionGenerationProgressLabel" class="mission-generation-progress-label">0%</div>
-    </div>
     
     <div id="classicInputs">
         <div class="ops-command-panel" aria-label="Ops 1940 Missionsauswahl">
@@ -462,7 +455,17 @@
         </div>
     </div>
     
-    <div style="display:flex; gap: 10px; margin-top: 15px; margin-bottom: 5px;">
+    <div id="dispatchStatusArea" class="dispatch-status-area">
+        <div id="searchIndicator">System bereit.</div>
+        <div id="missionGenerationProgress" class="mission-generation-progress" role="progressbar" aria-label="Missionsgenerierung" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
+            <div class="mission-generation-progress-track">
+                <div id="missionGenerationProgressFill" class="mission-generation-progress-fill"></div>
+            </div>
+            <div id="missionGenerationProgressLabel" class="mission-generation-progress-label">0%</div>
+        </div>
+    </div>
+
+    <div class="main-menu-row">
         <button class="btn-menu" id="mapTableBtn" onclick="toggleMapTable()">🗺️ Kartentisch</button>
         <button class="btn-menu" id="pinboardMenuBtn" onclick="togglePinboard()">📋 Pinnwand <span id="mainPinboardBadge">!</span></button>
     </div>
