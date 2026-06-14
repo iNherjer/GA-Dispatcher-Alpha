@@ -846,6 +846,52 @@ Warnsignal fuer künftige Arbeit:
 - Wenn ein Bush-Profil nicht sauber in eine dieser drei Gruppen passt, brauchen wir zuerst eine fachliche Rezeptentscheidung.
 - Wenn nur Story, Rolle, Cargo oder Zieltyp anders sind, darf kein neuer Ablauf gebaut werden.
 
+### 7.3.1 Mission Variety Packs
+
+Fuer Missionskategorien mit vielen moeglichen Rollen, Anlaessen oder Mikrogeschichten kann die globale Variety-Engine genutzt werden. Sie ist optional und darf keine Rezeptlogik ersetzen.
+
+Ziel:
+
+- grosse interne Rollen-/Themenpools wartbar ausserhalb von `app.js` halten
+- pro Generierung nur einen kleinen, passenden Ausschnitt in den Prompt geben
+- Wiederholungen ueber lokale Browser-History reduzieren
+- Token sparen, ohne die KI auf eine einzige feste Story zu setzen
+
+Grundregel:
+
+- Kontext und Rezept schlagen Varianz.
+- Die Variety-History darf nur zwischen mehreren plausiblen Optionen streuen.
+- Eine Rolle oder Storyfamilie darf nie gegen `missionTruth`, Zielkontext, Profil, TaskDomain oder Wetterlogik erzwungen werden.
+- Sobald Planner/Writer eine Storyrichtung nutzen, muss sie im Contract/Debug sichtbar sein und von Briefing, `pickupStory` und Voice konsistent weitergefuehrt werden.
+
+Technisches Muster:
+
+- Kandidatenpools liegen in `mission-variety-core.js`.
+- Ein Profil kann `selectMissionVarietyPack({ namespace, profileId, context, draft, maxItems, wildcardRate })` nutzen.
+- Die Funktion liefert ein `missionVarietyPack.v1` mit `candidateShortlist`, `ingredientAxes`, `primaryId`, `primaryFamily`, `selectedFamilies`, `selectedIds`, `contextTags` und `storageKey`.
+- Der erste Eintrag der `candidateShortlist` ist der Primary-Kandidat. Fuer ihn gilt ein eigener History-Cooldown, weil er normalerweise die konkrete Storyrichtung praegt.
+- Die History liegt nur lokal im Browser (`localStorage`), z. B. `ga_mission_variety_history_bush_pickup_strip_v1`.
+- Gespeichert werden nur kleine Signaturen, keine kompletten Stories.
+
+Wildcard:
+
+- Wildcard-Kandidaten duerfen seltener und kurioser sein.
+- Auch Wildcards bleiben profilkompatibel und duerfen keine neue Geografie, kein neues Rezept und keine unpassende TaskDomain erzeugen.
+
+Aktueller Anschluss:
+
+- `bush_pickup_strip` nutzt ein Variety-Pack fuer Rollen-/Storyrichtungen.
+- Der Flugablauf bleibt fest: leer zum Zielstrip, Pickup, Rueckflug, Abschluss daheim.
+- Das Pack liefert nur den kreativen Rahmen: Rolle, Taetigkeit, sichtbare Ausruestung, Rueckkehrgrund und Handoff.
+
+Empfohlene spaetere Anschluesse:
+
+- `bush_pickup_cargo`: Rueckholfracht-Familien, defekte Ausruestung, Unterlagen, Sensorik, Material.
+- `bush_supply_strip`: Liefergrund, Empfaenger und Folgeablauf.
+- `bush_charter_strip`: Besuch, Crewwechsel, Lodge, Arbeitstermin, Outfitter.
+- `bush_recon_return`: Strip-Zustand, Wetterfolgen, Betreibercheck, Anflugraum.
+- POI Inspection/Photo/Science: Anlassfamilien und Blickwinkel, nicht neue Abschlussrezepte.
+
 ### 7.4 Bush Supply
 
 Bausteine:

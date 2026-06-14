@@ -44,6 +44,20 @@ function makeStore() {
   };
 }
 
+function makeScopedStore(sharedStore = null, sharedPrefixes = []) {
+  const localStore = makeStore();
+  if (!sharedStore) return localStore;
+  const prefixes = sharedPrefixes.map(value => String(value || '')).filter(Boolean);
+  const storeFor = (key) => prefixes.some(prefix => String(key).startsWith(prefix)) ? sharedStore : localStore;
+  return {
+    getItem: (key) => storeFor(key).getItem(key),
+    setItem: (key, value) => storeFor(key).setItem(key, value),
+    removeItem: (key) => storeFor(key).removeItem(key),
+    clear: () => localStore.clear(),
+    _dump: () => ({ ...localStore._dump(), ...sharedStore._dump() })
+  };
+}
+
 class StubElement {
   constructor(id = '', tagName = 'div') {
     this.id = id;
@@ -853,6 +867,70 @@ function buildMissionWriterV4Payload(prompt) {
   const taskDomain = String(profile.taskDomain || plan.taskDomain || 'general').toLowerCase();
   const roleProfile = String(profile.roleProfile || plan.roleProfile || 'general_passenger_v1').toLowerCase();
   const isPoi = !!target.isPOI;
+  const profileId = String(profile.id || '').toLowerCase();
+
+  if (profileId === 'bush_pickup_strip' || roleProfile === 'bush_pickup_guest_v1') {
+    const homeName = String(route.startName || route.startIcao || 'Heimatplatz').trim();
+    const brief = contract.pickupCreativeBrief || {};
+    const candidate = Array.isArray(brief.candidateShortlist) && brief.candidateShortlist.length
+      ? brief.candidateShortlist[0]
+      : {};
+    const role = String(candidate.roleIdeas?.[0] || 'Backcountry-Kontakt').trim();
+    const roleText = `${role} ${candidate.label || ''}`.toLowerCase();
+    const gender = /in\b|leiterin|koordinatorin|wartin|managerin|prueferin|prüferin|fotografin|macherin|beobachterin/.test(roleText) ? 'female' : 'male';
+    const name = gender === 'female' ? 'Mara Ellison' : 'Caleb Turner';
+    const taskA = String(candidate.taskIdeas?.[0] || 'den Auftrag vor Ort abgeschlossen').trim();
+    const taskB = String(candidate.taskIdeas?.[1] || 'die offenen Punkte fuer die Basis notiert').trim();
+    const objects = (Array.isArray(candidate.objectIdeas) && candidate.objectIdeas.length)
+      ? candidate.objectIdeas.slice(0, 3).join(', ')
+      : 'Klemmbrett, Tasche und kleiner Rueckholkiste';
+    const returnReason = String(candidate.returnDrivers?.[0] || 'in der Basis wartet der naechste konkrete Arbeitsschritt').trim();
+    const accessReason = String(candidate.accessReasons?.[0] || 'der Strip ist der sichere Abholpunkt fuer den Rueckweg').trim();
+    const exactWhere = `am Striprand bei ${targetName}, neben einem kleinen Gelaendewagen mit ${objects}`;
+    const story = `${name}, ${role}, wartet heute ${exactWhere}. ${gender === 'female' ? 'Sie' : 'Er'} war dort draussen, weil ${accessReason}, und hat ${taskA} sowie ${taskB}. Flieg leer nach ${targetName}, nimm ${gender === 'female' ? 'sie' : 'ihn'} am Wartepunkt auf und bring ${gender === 'female' ? 'sie' : 'ihn'} zurueck nach ${homeName}. ${returnReason}; darum soll der Rueckflug nicht bis zum naechsten Wetterfenster warten.`;
+    return {
+      title: `Bush-Pickup: ${targetName}`,
+      story,
+      pax: `0 PAX am Start · 1 PAX Pickup (${role})`,
+      cargo: '-',
+      passenger: {
+        name,
+        role,
+        gender,
+        personality: 'praktisch, draussen-erfahren, ruhig',
+        dialectHint: 'neutral',
+        roleProfile,
+        taskDomain,
+        gTolerance: 'mittel',
+        bankTolerance: 'mittel',
+        cargoSensitivity: 'mittel',
+        stomachSensitivity: 'niedrig',
+        comfortPriority: 'mittel',
+        urgencyPriority: 'niedrig',
+        targetAltFt: 0,
+        targetRadiusNm: 0,
+        targetDwellMin: 0,
+        greetingText: `Gut, dass du da bist. Ich war hier draussen bei ${targetName}: ${taskA}, ${taskB}. Bring mich bitte zurueck nach ${homeName}; ${returnReason}.`,
+        pickupStory: {
+          personName: name,
+          role,
+          exactWhere,
+          whyThere: `${accessReason}; vor Ort ging es konkret darum, ${taskA} und ${taskB}.`,
+          returnReason,
+          boardingCue: `${taskA}, ${taskB}, und die Sachen sind verpackt.`,
+          departureCue: `${returnReason}; unterwegs kann ich dir die wichtigsten Punkte aus dem Einsatz kurz zusammenfassen.`
+        }
+      },
+      sceneIntent: {
+        summary: 'A-B-Flug mit Pickup am Bush-Strip; keine separate Zielszene ausser dem Pickup-Kontakt am Striprand.',
+        environment: 'Bush-Strip',
+        visibleIdeas: [],
+        avoid: ['keine SAR-Lage', 'keine Notlandung', 'keine zweite Arbeitsstelle neben dem Pickup'],
+        densityHint: 'none',
+        notes: 'Pickup-Objekte werden ueber APT/Bush-Arrival gesetzt.'
+      }
+    };
+  }
 
   if (taskDomain === 'mapping_survey') {
     return {
@@ -1322,7 +1400,7 @@ function buildPlannerV4Payload(prompt) {
   let bundle = {};
   try { draft = JSON.parse(draftRaw || '{}'); } catch (_) {}
   try { bundle = JSON.parse(contextRaw || '{}'); } catch (_) {}
-  return buildPlannerV3Payload(prompt, bundle?.schema ? bundle : {
+  const normalizedBundle = bundle?.schema ? bundle : {
     schema: 'missionPlannerV4.contextBundle.v1',
     route: bundle?.route || draft?.route || {},
     target: bundle?.target || draft?.target || {},
@@ -1334,7 +1412,66 @@ function buildPlannerV4Payload(prompt) {
     fireHazard: bundle?.fireHazard || null,
     targetGeoContext: bundle?.targetGeoContext || null,
     missionTruth: bundle?.missionTruth || null
-  });
+  };
+  const payload = buildPlannerV3Payload(prompt, normalizedBundle);
+  const profile = normalizedBundle?.profile?.selected || normalizedBundle?.profile || draft?.profile || {};
+  const profileId = String(profile.id || normalizedBundle?.picker?.profile || draft?.picker?.profile || '').toLowerCase();
+  const roleProfile = String(profile.roleProfile || payload?.plan?.roleProfile || '').toLowerCase();
+  const candidates = normalizedBundle?.pickupCreativeBrief?.candidateShortlist || [];
+  if ((profileId === 'bush_pickup_strip' || roleProfile === 'bush_pickup_guest_v1') && candidates.length && payload?.plan) {
+    const targetLabel = String(payload.plan.targetLabel || normalizedBundle?.target?.name || draft?.target?.name || 'Zielstrip').trim();
+    const homeLabel = String(normalizedBundle?.route?.startName || normalizedBundle?.route?.startIcao || 'Heimatplatz').trim();
+    const candidate = candidates[0] || {};
+    const role = String(candidate.roleIdeas?.[0] || 'Backcountry-Kontakt').trim();
+    const taskA = String(candidate.taskIdeas?.[0] || 'den Auftrag vor Ort abgeschlossen').trim();
+    const taskB = String(candidate.taskIdeas?.[1] || 'die offenen Punkte fuer die Basis notiert').trim();
+    const accessReason = String(candidate.accessReasons?.[0] || 'der Zielstrip ist der sichere Abholpunkt').trim();
+    const returnReason = String(candidate.returnDrivers?.[0] || 'in der Basis wartet der naechste Arbeitsschritt').trim();
+    payload.plan.primaryObjective = `Hole ${role} am ${targetLabel} ab und bringe die Person nach ${homeLabel} zurueck.`;
+    payload.plan.missionTrigger = `${role} wartet am Striprand bei ${targetLabel}, weil ${accessReason}.`;
+    payload.plan.focusSubject = `${role} mit Rueckkehrgrund: ${returnReason}.`;
+    payload.plan.keyQuestion = `Wer wartet am ${targetLabel}, was wurde dort erledigt und warum muss der Rueckflug jetzt stattfinden?`;
+    payload.plan.missionStakes = `${returnReason}; ein spaeterer Rueckflug wuerde die Folgeplanung in der Basis verzoegern.`;
+    payload.plan.completionSignal = `Die Person ist in ${homeLabel} angekommen und kann ${returnReason.toLowerCase()}.`;
+    payload.plan.storyFrame = {
+      trigger: payload.plan.missionTrigger,
+      focusSubject: payload.plan.focusSubject,
+      keyQuestion: payload.plan.keyQuestion,
+      stakes: payload.plan.missionStakes,
+      completionSignal: payload.plan.completionSignal,
+      subjectDetail: `${role} am Striprand bei ${targetLabel}`,
+      incidentContext: `Vor Ort ging es konkret darum, ${taskA} und ${taskB}.`,
+      whyNow: returnReason,
+      soughtOutcome: `Leerflug zum Pickup, Aufnahme von ${role} und Rueckflug nach ${homeLabel}.`,
+      incidentType: '',
+      lastSeenContext: `Am Striprand bei ${targetLabel}.`,
+      probableScenario: `${role} hat die Arbeit abgeschlossen und wartet mit kleiner Ausruestung am vereinbarten Treffpunkt.`,
+      visibleClueCandidates: candidate.objectIdeas || []
+    };
+    payload.plan.operationalDetails = [
+      `Leerflug nach ${targetLabel}, Pickup am Striprand, Rueckflug nach ${homeLabel}.`,
+      `Rolle, Ausruestung und Rueckkehrgrund bleiben bei ${role}.`
+    ];
+    payload.plan.narrativeHooks = [
+      payload.plan.primaryObjective,
+      `Arbeit vor Ort: ${taskA}; ${taskB}.`,
+      `Rueckkehrgrund: ${returnReason}.`
+    ];
+    payload.plan.mustMention = [targetLabel, role, taskA, returnReason].filter(Boolean);
+    payload.plan.mustAvoid = [
+      'keine SAR-Lage',
+      'keine Notlandung',
+      'keinen zweiten Auftrag neben dem Pickup erfinden',
+      'keine Rollen- oder Objektmischung aus mehreren Kandidaten'
+    ];
+    payload.plan.lockedFields = {
+      ...(payload.plan.lockedFields || {}),
+      taskDomain: 'charter',
+      roleProfile: 'bush_pickup_guest_v1',
+      targetName: targetLabel
+    };
+  }
+  return payload;
 }
 
 function normalizeScenePlannerV3ToolResult(value = {}) {
@@ -1354,30 +1491,45 @@ function buildScenePlannerV3Payload(prompt, toolResult = {}) {
   if (mode !== 'poi') {
     const base = bundle?.aptArrivalPlan || {};
     const combined = `${base.role || ''} ${base.roleLabel || ''} ${taskDomain} ${mission.title || ''}`.toLowerCase();
+    const isBushPickup = /bush|pickup|strip/.test(combined);
     const isMedical = /medical|medizin|patient|arzt/.test(combined);
     const isAnimal = /animal|tier|veterin/.test(combined);
-    const isCargo = /cargo|fracht|fragile|box|liefer/.test(combined) || (!isMedical && !isAnimal);
+    const isCargo = !isBushPickup && (/cargo|fracht|fragile|box|liefer/.test(combined) || (!isMedical && !isAnimal));
     const preferredPlacement = base?.placementCandidates?.parking?.length
       ? { source: 'osm_parking_position', index: 0, reason: 'naechster sicherer Parking-Kandidat aus OSM-Kontext' }
       : (base?.placementCandidates?.apron?.length ? { source: 'osm_apron', index: 0, reason: 'sicherer Apron-Kandidat aus OSM-Kontext' } : undefined);
-    const items = [
-      {
-        kind: 'arrival_vehicle',
-        label: isMedical ? 'Medical-Van' : (isAnimal ? 'Tiertransport-Fahrzeug' : 'Fracht-Van'),
-        role: isMedical ? 'vehicle.emergency.medical' : 'vehicle.van',
-        forwardM: -9,
-        rightM: 6,
-        hdgOffsetDeg: 205
-      },
-      {
-        kind: 'arrival_contact',
-        label: isMedical ? 'medizinischer Kontakt' : (isAnimal ? 'Tierpflege-Kontakt' : 'Frachtkontakt'),
-        role: 'person.ground_crew',
-        forwardM: 2,
-        rightM: 3,
-        hdgOffsetDeg: 195
-      }
-    ];
+    const baseItems = Array.isArray(base.items) ? base.items : [];
+    const pickupName = String(base.expectedBy || 'Pickup-Gast').trim();
+    const items = isBushPickup && baseItems.length
+      ? baseItems
+        .filter(item => item && /arrival_(vehicle|person|contact)/i.test(String(item.kind || '')))
+        .slice(0, 3)
+        .map(item => ({
+          kind: item.kind,
+          label: item.label || item.objectTitle || (String(item.kind || '').includes('vehicle') ? 'Geländewagen' : pickupName),
+          role: item.role || (String(item.kind || '').includes('vehicle') ? 'vehicle.offroad' : 'person.ground_crew'),
+          forwardM: Number(item.forwardM || 0),
+          rightM: Number(item.rightM || 0),
+          hdgOffsetDeg: Number(item.hdgOffsetDeg || 0)
+        }))
+      : [
+        {
+          kind: 'arrival_vehicle',
+          label: isBushPickup ? 'Geländewagen' : (isMedical ? 'Medical-Van' : (isAnimal ? 'Tiertransport-Fahrzeug' : 'Fracht-Van')),
+          role: isBushPickup ? 'vehicle.offroad' : (isMedical ? 'vehicle.emergency.medical' : 'vehicle.van'),
+          forwardM: -9,
+          rightM: 6,
+          hdgOffsetDeg: 205
+        },
+        {
+          kind: isBushPickup ? 'arrival_person_1' : 'arrival_contact',
+          label: isBushPickup ? pickupName : (isMedical ? 'medizinischer Kontakt' : (isAnimal ? 'Tierpflege-Kontakt' : 'Frachtkontakt')),
+          role: 'person.ground_crew',
+          forwardM: 2,
+          rightM: 3,
+          hdgOffsetDeg: 195
+        }
+      ];
     if (isCargo) {
       items.push({ kind: 'handoff_cargo', label: 'markierte Frachtbox', role: 'cargo.small_box', forwardM: 0, rightM: 5, hdgOffsetDeg: 185 });
     } else if (isMedical) {
@@ -1390,15 +1542,17 @@ function buildScenePlannerV3Payload(prompt, toolResult = {}) {
       mode: 'apt',
       targetScene: { kind: 'none', roles: [], density: 'none', notes: 'APT-Szene wird ueber aptArrivalPlan lokalisiert.' },
       aptArrivalPlan: {
-        roleLabel: base.roleLabel || (isMedical ? 'Medizinische Uebergabe' : (isAnimal ? 'Tiertransport-Uebergabe' : 'Frachtuebergabe')),
-        expectedBy: base.expectedBy || (isMedical ? 'medizinischer Ansprechpartner am Vorfeld' : (isAnimal ? 'Bodenpersonal mit Transportbox' : 'Frachtkontakt am Vorfeld')),
-        visibleCue: base.visibleCue || (isMedical ? 'Medical-Van neben dem sicheren Parking-Bereich' : (isAnimal ? 'Van und kleine Transportbox am Parking' : 'Fracht-Van und markierte Box am Parking')),
-        narrativeHint: `${targetName}: Uebergabe bleibt am sicheren Vorfeld-/Parking-Anker und nicht auf Taxiway oder Runway.`,
+        roleLabel: base.roleLabel || (isBushPickup ? 'Bush-Pickup' : (isMedical ? 'Medizinische Uebergabe' : (isAnimal ? 'Tiertransport-Uebergabe' : 'Frachtuebergabe'))),
+        expectedBy: base.expectedBy || (isBushPickup ? pickupName : (isMedical ? 'medizinischer Ansprechpartner am Vorfeld' : (isAnimal ? 'Bodenpersonal mit Transportbox' : 'Frachtkontakt am Vorfeld'))),
+        visibleCue: base.visibleCue || (isBushPickup ? 'Geländewagen am Striprand' : (isMedical ? 'Medical-Van neben dem sicheren Parking-Bereich' : (isAnimal ? 'Van und kleine Transportbox am Parking' : 'Fracht-Van und markierte Box am Parking'))),
+        narrativeHint: base.narrativeHint || (isBushPickup
+          ? `Am Zielstrip wartet der Pickup-Kontakt fuer ${targetName} am Striprand.`
+          : `${targetName}: Uebergabe bleibt am sicheren Vorfeld-/Parking-Anker und nicht auf Taxiway oder Runway.`),
         preferredPlacement,
         items
       },
       localizationNotes: ['APT targetScene bleibt none; sichtbare Objekte werden relativ zum Arrival-Anker gesetzt.'],
-      validationNotes: ['Rollen/Objekte passen zum Uebergabeauftrag und bleiben sparsam.']
+      validationNotes: [isBushPickup ? 'Bush-Pickup bleibt Person plus kleines Fahrzeug am Striprand, ohne Cargo-Uebergabe.' : 'Rollen/Objekte passen zum Uebergabeauftrag und bleiben sparsam.']
     };
   }
 
@@ -1649,7 +1803,7 @@ function setupFetch(context, prompts, { liveGemini = false } = {}) {
   context.window.fetch = context.fetch;
 }
 
-function setupContext(seed, { liveGemini = false } = {}) {
+function setupContext(seed, { liveGemini = false, sharedLocalStorage = null } = {}) {
   const prompts = [];
   const context = {
     console,
@@ -1681,7 +1835,7 @@ function setupContext(seed, { liveGemini = false } = {}) {
     addEventListener: () => {},
     removeEventListener: () => {},
     dispatchEvent: () => true,
-    localStorage: makeStore(),
+    localStorage: makeScopedStore(sharedLocalStorage, ['ga_mission_variety_history_']),
     sessionStorage: makeStore(),
     window: {}
   };
@@ -1897,12 +2051,13 @@ function promptRecords(prompts) {
   }));
 }
 
-async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY' }) {
-  const { context, prompts } = setupContext(seed, { liveGemini });
+async function runOne({ seed, targetType, forcedIncidentType = '', pipelineV2 = false, pipelineV3 = false, pipelineV4 = false, liveGemini = false, apiKey = 'DRYRUN_KEY', sharedLocalStorage = null }) {
+  const { context, prompts } = setupContext(seed, { liveGemini, sharedLocalStorage });
   loadScript(context, 'datenbank.js');
   loadScript(context, 'missions.js');
   loadScript(context, 'data/mission-scene-assets.js');
   loadScript(context, 'mission-definition-core.js');
+  loadScript(context, 'mission-variety-core.js');
   loadScript(context, 'mission-arrival-core.js');
   loadScript(context, 'mission-runtime-core.js');
   loadScript(context, 'mission-cargo-core.js');
@@ -2265,7 +2420,12 @@ async function main() {
     throw new Error('GEMINI_API_KEY fehlt. Lege ihn lokal in .env.local oder als Umgebungsvariable ab.');
   }
   const roll = stableRandom(args.seed)();
-  const runs = buildRunConfigs(args).map(cfg => ({ ...cfg, apiKey: args.liveGemini ? apiKey : 'DRYRUN_KEY' }));
+  const sharedLocalStorage = makeStore();
+  const runs = buildRunConfigs(args).map(cfg => ({
+    ...cfg,
+    apiKey: args.liveGemini ? apiKey : 'DRYRUN_KEY',
+    sharedLocalStorage
+  }));
   const results = [];
   for (const cfg of runs) results.push(await runOne(cfg));
   const outDir = path.join(root, 'analysis');
@@ -2296,6 +2456,7 @@ async function main() {
       missionPipelineV3Enabled: !!md.missionPlanV3,
       missionPlanV2: md.missionPlanV2 || null,
       missionPlanV3: md.missionPlanV3 || null,
+      missionVariety: md.missionVariety || md.missionContractV4?.pickupCreativeBrief?.variety || md.missionPlanV4?.variety || null,
       sceneStatus: md.sceneCompositionStatus,
       targetScene: md.targetScene,
       aptArrivalPlan: md.aptArrivalPlan || null,
