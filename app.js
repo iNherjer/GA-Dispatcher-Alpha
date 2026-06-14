@@ -9531,6 +9531,115 @@ function compactBushPickupStoryExcerpt(text = '', maxLen = 320) {
     return (out || clean).slice(0, maxLen).trim();
 }
 
+function bushPickupStorySentences(text = '') {
+    return String(text || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+}
+
+function pickBushPickupStorySentence(text = '', pattern = null, maxLen = 260) {
+    const sentences = bushPickupStorySentences(text);
+    const re = pattern instanceof RegExp ? pattern : null;
+    const picked = re ? sentences.find(sentence => re.test(normalizeMissionText(sentence))) : sentences[0];
+    return String(picked || '').slice(0, maxLen).trim();
+}
+
+function bushPickupRoleContext(role = '', storyText = '') {
+    const hay = normalizeMissionText(`${role} ${storyText}`);
+    if (/\b(hydrolog|wasserstand|pegel|fluss|river|bach|ufer|sediment)\b/.test(hay)) {
+        return {
+            equipment: 'Feldmappe, Tablet, Wasserproben und zwei leichten Kisten',
+            boarding: 'Die Pegelpunkte sind kontrolliert, die Wasserproben sind beschriftet und die Messdaten liegen im Tablet.',
+            departure: 'In der Basis müssen die Wasserstandsreihen, Proben und Fotos ausgewertet werden, bevor die nächste Crew rausgeht.',
+            returnReason: 'In der Basis müssen die Messdaten, Proben und Fotos ausgewertet und für die nächste Einsatzplanung übergeben werden.'
+        };
+    }
+    if (/\b(geolog|gestein|fels|hang|erosion|rutsch|kartier|probe|sediment)\b/.test(hay)) {
+        return {
+            equipment: 'Probenbeuteln, GPS-Notizen, Feldskizzen und einem Messkoffer',
+            boarding: 'Die Proben sind beschriftet, die GPS-Punkte sitzen und die Feldskizzen sind trocken verpackt.',
+            departure: 'In der Basis müssen Proben, Fotos und Kartiernotizen zusammengeführt werden.',
+            returnReason: 'In der Basis müssen die Proben, Fotos und Kartiernotizen ausgewertet und ans Projektteam übergeben werden.'
+        };
+    }
+    if (/\b(ranger|wildlife|trail|forst|permit|bachlauf|markierung|sperr)\b/.test(hay)) {
+        return {
+            equipment: 'Rucksack, Markierungsband, Kartenmappe und einer kleinen Rückholkiste',
+            boarding: 'Die Markierungen sind gesetzt, die Fotos sind im Tablet und die Notizen für die Rangerstation sind vollständig.',
+            departure: 'Die Rangerstation braucht die Sperr- und Zustandsnotizen, bevor die nächste Crew rausgeschickt wird.',
+            returnReason: 'In der Basis müssen die Zustandsnotizen, Fotos und Markierungen für die nächste Crewplanung abgegeben werden.'
+        };
+    }
+    if (/\b(technik|techniker|inspekt|mechan|wartung|funk|relais|generator|pruef|prüf|maengel|mängel)\b/.test(hay)) {
+        return {
+            equipment: 'Prüfmappe, Werkzeugtasche, Tablet und zwei leichten Kisten',
+            boarding: 'Die Prüfung ist abgeschlossen, die Fotos sind im Tablet und die kleinen Kisten können mit zurück.',
+            departure: 'In der Basis müssen Prüfwerte, Mängelliste und Ersatzteilbedarf in die nächste Planung.',
+            returnReason: 'In der Basis müssen Prüfwerte, Mängelliste und Materialbedarf für den nächsten Einsatz eingetragen werden.'
+        };
+    }
+    return {
+        equipment: 'Feldmappe, Tablet, persönlichem Gepäck und leichter Ausrüstung',
+        boarding: 'Die Feldnotizen sind vollständig, die Fotos sind gesichert und die leichte Ausrüstung ist bereit für den Rückflug.',
+        departure: 'In der Basis müssen Notizen, Daten und Rückholmaterial in den nächsten Ablauf.',
+        returnReason: 'In der Basis müssen Notizen, Daten und Rückholmaterial für den nächsten Schritt übergeben werden.'
+    };
+}
+
+function buildAiBushPickupStory({
+    aiPassenger = null,
+    storyText = '',
+    fallbackPickupStory = null,
+    dest = null,
+    start = null
+} = {}) {
+    const passenger = aiPassenger && typeof aiPassenger === 'object' ? aiPassenger : {};
+    const aiStory = passenger.pickupStory && typeof passenger.pickupStory === 'object' ? passenger.pickupStory : {};
+    const role = String(aiStory.role || passenger.role || fallbackPickupStory?.role || 'Pickup-Gast').trim();
+    const personName = String(aiStory.personName || passenger.name || fallbackPickupStory?.personName || '').trim();
+    const targetName = String(dest?.n || dest?.name || dest?.icao || 'dem Zielstrip').trim();
+    const homeName = String(start?.n || start?.name || start?.icao || currentStartICAO || 'dem Heimatplatz').trim();
+    const roleContext = bushPickupRoleContext(role, storyText);
+    const storyReturn = pickBushPickupStorySentence(
+        storyText,
+        /\b(zurueck|zurück|heim|basis|mccall|auswert|ueberg|überg|bericht|planung|crew|naechst|nächst|handoff|termin|freigabe)\b/,
+        280
+    );
+    const storyWork = pickBushPickupStorySentence(
+        storyText,
+        /\b(gemess|mess|probe|daten|foto|tablet|karte|skizz|markier|kontroll|geprueft|geprüft|dokument|wartung|feld)\b/,
+        320
+    );
+    const exactWhere = String(aiStory.exactWhere || '').trim()
+        || `am Striprand bei ${targetName}, neben einem kleinen Geländewagen mit ${roleContext.equipment}`;
+    const whyThere = String(aiStory.whyThere || '').trim()
+        || compactBushPickupStoryExcerpt(storyText, 320)
+        || String(fallbackPickupStory?.whyThere || '').trim();
+    const returnReason = String(aiStory.returnReason || '').trim()
+        || storyReturn
+        || roleContext.returnReason.replace(/\bder Basis\b/g, homeName);
+    const boardingCue = String(aiStory.boardingCue || '').trim()
+        || storyWork
+        || roleContext.boarding;
+    const departureCue = String(aiStory.departureCue || '').trim()
+        || roleContext.departure.replace(/\bder Basis\b/g, homeName);
+    const story = {
+        personName,
+        role,
+        exactWhere,
+        whyThere,
+        returnReason,
+        boardingCue,
+        departureCue
+    };
+    return (typeof _sanitizeBushPickupStory === 'function')
+        ? _sanitizeBushPickupStory(story)
+        : story;
+}
+
 function addBushPickupNameToStory(storyText = '', { name = '', role = '', exactWhere = '' } = {}) {
     const story = String(storyText || '').replace(/\s+/g, ' ').trim();
     const personName = String(name || '').trim();
@@ -15123,6 +15232,7 @@ Regeln:
 18. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
 19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
 19a. bush + bush_pickup_strip: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
+19b. bush + bush_pickup_strip: Fülle passenger.pickupStory mit Voice-Ankern zur exakt gleichen Geschichte. Diese Felder sind keine neue Story, sondern die Basis für spätere PAX-Ansagen: exactWhere, whyThere, returnReason, boardingCue, departureCue.
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
 22. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
@@ -15163,7 +15273,16 @@ ${JSON.stringify(contract)}
     "targetAltFt": 0,
     "targetRadiusNm": 0,
     "targetDwellMin": 0,
-    "greetingText": "Kurze persoenliche Begruessung an den Piloten mit konkretem Auftragsbezug und einem Hauch vom Warum des Flugs"
+    "greetingText": "Kurze persoenliche Begruessung an den Piloten mit konkretem Auftragsbezug und einem Hauch vom Warum des Flugs",
+    "pickupStory": {
+      "personName": "nur bei bush_pickup_strip: gleicher Name wie passenger.name",
+      "role": "nur bei bush_pickup_strip: gleiche Rolle wie passenger.role",
+      "exactWhere": "wo die Person am Zielstrip wartet, mit Gepäck/Ausrüstung",
+      "whyThere": "warum sie dort draußen war und was sie konkret getan hat",
+      "returnReason": "warum sie jetzt zurück zur Basis muss",
+      "boardingCue": "kurzer Ich-Satz für den Moment direkt nach dem Einsteigen",
+      "departureCue": "kurzer Ich-Satz für den Rückflug, mit Ergebnis oder nächstem Schritt"
+    }
   },
   "sceneIntent": {
     "summary": "Was am Ziel aus Pilotensicht sichtbar oder eben nicht sichtbar sein soll",
@@ -18354,16 +18473,13 @@ async function generateMission() {
                     const storyText = String(m.s || '').trim();
                     const fallbackPickupStory = fallbackBushSpec.pickupStory || {};
                     const aiPickupStory = hasAiPickupPassenger
-                        ? {
-                            ...fallbackPickupStory,
-                            personName: aiPassengerName,
-                            role: aiPassengerRole || fallbackPickupStory.role || fallbackBushSpec.pickupRole || '',
-                            exactWhere: fallbackPickupStory.exactWhere || `am Treffpunkt am Zielstrip bei ${String(dest?.n || dest?.name || dest?.icao || 'dem Ziel').trim()}`,
-                            whyThere: compactBushPickupStoryExcerpt(storyText || fallbackPickupStory.whyThere || '', 320) || fallbackPickupStory.whyThere || '',
-                            returnReason: fallbackPickupStory.returnReason || '',
-                            boardingCue: fallbackPickupStory.boardingCue || '',
-                            departureCue: fallbackPickupStory.departureCue || ''
-                        }
+                        ? buildAiBushPickupStory({
+                            aiPassenger,
+                            storyText,
+                            fallbackPickupStory,
+                            dest,
+                            start
+                        })
                         : null;
                     const selectedPickupStory = useExistingPickupStory
                         ? existingBush.pickupStory

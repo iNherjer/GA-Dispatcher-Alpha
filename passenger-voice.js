@@ -398,7 +398,7 @@ let _poiTrainingPreBriefDone = false; // 4 NM before training area
 let _poiTrainingZoneStartDone = false; // when entering training area
 let _poiTrainingLandingBriefDone = false; // 5/4 NM before landing on return leg
 let _poiNarrativeMemory = { pre: '', entry: '', done: '' }; // anti-repeat memory across POI phases
-let _bushPickupNarrativeMemory = { boarding: '', departure: '' }; // continuity across bush pickup return-leg calls
+let _bushPickupNarrativeMemory = { boarding: '', departure: '', arrival: '', farewell: '' }; // continuity across bush pickup return-leg calls
 let _bushCargoPickupNarrativeMemory = { boarding: '', departure: '', farewell: '' }; // continuity across bush cargo pickup handoff calls
 let _missionComfortScore = null;
 
@@ -498,7 +498,7 @@ window.paxVoiceResetMission = function() {
     _poiTrainingZoneStartDone = false;
     _poiTrainingLandingBriefDone = false;
     _poiNarrativeMemory = { pre: '', entry: '', done: '' };
-    _bushPickupNarrativeMemory = { boarding: '', departure: '' };
+    _bushPickupNarrativeMemory = { boarding: '', departure: '', arrival: '', farewell: '' };
     _bushCargoPickupNarrativeMemory = { boarding: '', departure: '', farewell: '' };
     _missionComfortScore = _createMissionComfortScore();
     _lastPaxText = '';
@@ -601,6 +601,22 @@ function _captureBushPickupNarrativeMemory(eventLabel, spokenText) {
     if (!compact) return;
     if (ev.includes('pickup')) _bushPickupNarrativeMemory.boarding = compact;
     else if (ev.includes('rueckflug') || ev.includes('rückflug')) _bushPickupNarrativeMemory.departure = compact;
+    else if (ev.includes('landung') || ev.includes('anflug')) _bushPickupNarrativeMemory.arrival = compact;
+    else if (ev.includes('verabschiedung')) _bushPickupNarrativeMemory.farewell = compact;
+}
+
+function _bushPickupStageProgression(stage = 'departure') {
+    const s = String(stage || '').toLowerCase();
+    if (s === 'departure') {
+        return 'Story-Stufe Rückflug: Nenne jetzt ein neues Detail aus der Arbeit draußen oder ein konkretes Ergebnis, das beim Einsteigen noch nicht gesagt wurde. Wiederhole nicht denselben Satz in anderen Worten.';
+    }
+    if (s === 'arrival') {
+        return 'Story-Stufe Anflug: Verschiebe den Fokus nach vorn auf McCall und den ersten Schritt nach der Landung. Nenne höchstens ein kurzes Ergebnis aus der Wildnis, aber kein erneutes komplettes Debrief.';
+    }
+    if (s === 'farewell') {
+        return 'Story-Stufe Abschluss: Runde die Geschichte persönlich ab. Danke dem Piloten, nenne den Handoff oder die Auswertung in der Basis und wiederhole weder Pickup-Grund noch Rückfluggrund ausführlich.';
+    }
+    return 'Story-Stufe Einstieg: Setze den Einsatzschwerpunkt, aber hebe Details und Ergebnisse für die späteren Ansagen auf.';
 }
 
 function _bushPickupNarrativeHint(stage = 'departure') {
@@ -608,13 +624,14 @@ function _bushPickupNarrativeHint(stage = 'departure') {
     if (!active) return '';
     const boarding = String(_bushPickupNarrativeMemory?.boarding || '').trim();
     const departure = String(_bushPickupNarrativeMemory?.departure || '').trim();
+    const arrival = String(_bushPickupNarrativeMemory?.arrival || '').trim();
     if (stage === 'departure') {
         if (!boarding) return '';
-        return ` Bisherige Strip-Ansage (inhaltlich verbindlich): "${boarding}". Greife denselben Einsatz, dieselbe Tätigkeit und denselben Wildnis-Kontext wieder auf. Fuehre diese Spur weiter und erfinde keinen anderen Forschungs-, Tier-, Einsatz- oder Missionsschwerpunkt.`;
+        return ` Bisherige Strip-Ansage (inhaltlich verbindlich, nicht wortgleich wiederholen): "${boarding}". ${_bushPickupStageProgression('departure')} Bleib bei demselben Einsatz, derselben Tätigkeit und demselben Wildnis-Kontext; erfinde keinen anderen Forschungs-, Tier-, Einsatz- oder Missionsschwerpunkt.`;
     }
-    const used = [boarding, departure].filter(Boolean);
+    const used = [boarding, departure, stage === 'farewell' ? arrival : ''].filter(Boolean);
     if (!used.length) return '';
-    return ` Bisherige Bush-Pickup-Ansagen (inhaltlich verbindlich): ${used.map(text => `"${text}"`).join(' | ')}. Bleib bei derselben Geschichte und fuehre sie nur weiter oder runde sie ab. Fuehre keinen neuen Forschungs-, Wildnis- oder Einsatzschwerpunkt ein.`;
+    return ` Bisherige Bush-Pickup-Ansagen (inhaltlich verbindlich, nicht wortgleich wiederholen): ${used.map(text => `"${text}"`).join(' | ')}. ${_bushPickupStageProgression(stage)} Bleib bei derselben Geschichte; führe sie weiter oder runde sie ab, statt dieselben Inhalte neu zu verpacken. Führe keinen neuen Forschungs-, Wildnis- oder Einsatzschwerpunkt ein.`;
 }
 
 function _captureBushCargoPickupNarrativeMemory(eventLabel, spokenText) {
@@ -2284,7 +2301,7 @@ function _bushPickupPassengerPerspectiveLine() {
     const pickupPlace = String(active.bush?.targetRef?.name || active.contract?.dest || 'dem Zielstrip').trim();
     const homePlace = String(active.bush?.homeRef?.name || active.contract?.start || 'dem Heimatplatz').trim();
     const storyLine = _bushPickupStoryAnchorLine(active, window.activePassenger);
-    return `BUSH-PICKUP-PERSPEKTIVE: Du bist der abgeholte Passagier (${role}). Du wartest nicht mehr draussen, sondern bist nach dem Pickup an Bord auf dem Rueckflug von ${pickupPlace} nach ${homePlace}. Sprich nie als Pilot, Abholer, Lademeister, Bodencrew oder Dispatcher. Sage nicht, dass du "den Gast", "den Passagier" oder "ihn" eingesammelt hast; du bist selbst dieser Gast.${storyLine ? ` ${storyLine}` : ''}`;
+    return `BUSH-PICKUP-PERSPEKTIVE: Du bist der abgeholte Passagier (${role}). Du wartest nicht mehr draußen, sondern bist nach dem Pickup an Bord auf dem Rückflug von ${pickupPlace} nach ${homePlace}. Sprich nie als Pilot, Abholer, Lademeister, Bodencrew oder Dispatcher. Sage nicht, dass du "den Gast", "den Passagier" oder "ihn" eingesammelt hast; du bist selbst dieser Gast.${storyLine ? ` ${storyLine}` : ''}`;
 }
 
 function _bushPickupStoryData(active = null, pax = null) {
@@ -2309,13 +2326,25 @@ function _bushPickupStoryData(active = null, pax = null) {
     };
 }
 
+function _bushPickupSentence(text = '') {
+    const s = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+    return /[.!?]$/.test(s) ? s : `${s}.`;
+}
+
+function _bushPickupReturnSentence(returnReason = '') {
+    const reason = String(returnReason || '').replace(/\s+/g, ' ').trim();
+    if (!reason) return '';
+    return _bushPickupSentence(reason);
+}
+
 function _bushPickupStoryAnchorLine(active = null, pax = null) {
     const d = _bushPickupStoryData(active, pax);
     const parts = [
         `STORY-ANKER: ${d.personName}${d.role ? ` (${d.role})` : ''}`,
         `Treffpunkt=${d.exactWhere}`,
         d.whyThere ? `Warum dort=${d.whyThere}` : '',
-        d.returnReason ? `Warum zurueck nach ${d.homePlace}=${d.returnReason}` : ''
+        d.returnReason ? `Warum zurück nach ${d.homePlace}=${d.returnReason}` : ''
     ].filter(Boolean);
     return parts.join(' | ');
 }
@@ -4114,7 +4143,7 @@ function _baseContext() {
         const why = pickupStory.boardingCue
             ? ` ${pickupStory.boardingCue}`
             : (pickupStory.whyThere ? ` Auftrag vor Ort: ${pickupStory.whyThere}.` : '');
-        const back = pickupStory.returnReason ? ` Zurück nach ${pickupStory.homePlace}, weil ${pickupStory.returnReason}.` : '';
+        const back = pickupStory.returnReason ? ` ${_bushPickupReturnSentence(pickupStory.returnReason)}` : '';
         storyShort = `Ich bin ${pickupStory.personName}${pickupStory.role ? `, ${pickupStory.role},` : ''} und wurde ${pickupStory.exactWhere} abgeholt.${why} Jetzt fliege ich als Passagier zurück nach ${pickupStory.homePlace}.${back}`;
     }
     const trainingDiscipline = trainingPlan
@@ -4177,9 +4206,23 @@ ${urgencyLine}`
     ].join(' | ') : '';
     if (targetProminenceLine) lines.push(targetProminenceLine);
     if (visualLandmarksLine) lines.push(visualLandmarksLine);
-    if (storyFrameLine) lines.push(storyFrameLine);
-    if (storyFrameDetailLine) lines.push(storyFrameDetailLine);
-    if (storyFrameSarLine) lines.push(storyFrameSarLine);
+    if (pickupPaxActive) {
+        const pickupStory = _bushPickupStoryData(pickupPaxContext, pax);
+        const pickupStoryLine = [
+            `BUSH-PICKUP-STORY: Name=${pickupStory.personName}`,
+            `Rolle=${pickupStory.role || 'n/a'}`,
+            `Wartepunkt=${pickupStory.exactWhere}`,
+            pickupStory.whyThere ? `Auftrag draußen=${pickupStory.whyThere}` : '',
+            pickupStory.returnReason ? `Rückkehrgrund=${pickupStory.returnReason}` : '',
+            pickupStory.boardingCue ? `Einstieg-Cue=${pickupStory.boardingCue}` : '',
+            pickupStory.departureCue ? `Rückflug-Cue=${pickupStory.departureCue}` : ''
+        ].filter(Boolean).join(' | ');
+        lines.push(pickupStoryLine);
+    } else {
+        if (storyFrameLine) lines.push(storyFrameLine);
+        if (storyFrameDetailLine) lines.push(storyFrameDetailLine);
+        if (storyFrameSarLine) lines.push(storyFrameSarLine);
+    }
     const bushToneLine = _bushVoiceToneLine();
     if (bushToneLine) lines.push(bushToneLine);
     const bushPickupPerspectiveLine = _bushPickupPassengerPerspectiveLine();
@@ -5445,7 +5488,7 @@ window.paxVoiceResetLeg = function() {
     _paxPickupDepartureDone = false;
     _cargoPickupBoardingDone = false;
     _cargoPickupDepartureDone = false;
-    _bushPickupNarrativeMemory = { boarding: '', departure: '' };
+    _bushPickupNarrativeMemory = { boarding: '', departure: '', arrival: '', farewell: '' };
     _bushCargoPickupNarrativeMemory = { boarding: '', departure: '', farewell: '' };
 };
 
@@ -5475,11 +5518,11 @@ function _pickupBoardingPrompt() {
     return `${ctx}
 
 Moment: Der Pickup ist gerade abgeschlossen und ich bin jetzt an Bord, wir stehen noch am Strip oder rollen langsam an.${wx ? ' ' + wx : ''}
-Basistext für deinen Einstieg am Strip (frei adaptieren): "${String(pax.greetingText || '').trim()}"
 ${storyAnchor}
-${storyData.boardingCue ? `Ich-Cue fuer diesen Moment: "${storyData.boardingCue}"` : ''}
-Sprich strikt als abgeholter Gast, der gerade eingestiegen ist. Sag jetzt kurz, dass du an Bord bist, verorte dich natuerlich am Treffpunkt (${storyData.exactWhere}), nenne knapp warum du hier draussen warst oder woran du gearbeitet hast und leite in einem letzten Halbsatz zum Rueckflug ueber. Lege dabei schon den thematischen Faden fuer die spaetere Rueckflug-Ansage fest: genau ein klarer Einsatzschwerpunkt, kein Themenmix. Das ist der kurze Moment direkt beim Einsteigen, noch kein laengerer Debrief.
-Harte Perspektiv-Regel: Verwende "ich" fuer den abgeholten Gast. Sage niemals, du haettest "den Gast", "den Passagier", "ihn" oder "sie" eingesammelt, eingeladen oder abgeholt. Das hat der Pilot getan.
+${storyData.boardingCue ? `Ich-Cue für diesen Moment: "${storyData.boardingCue}"` : ''}
+${_bushPickupStageProgression('boarding')}
+Sprich strikt als abgeholter Gast, der gerade eingestiegen ist. Sag jetzt kurz, dass du an Bord bist, verorte dich natürlich am Treffpunkt (${storyData.exactWhere}), nenne knapp warum du hier draußen warst oder woran du gearbeitet hast und leite in einem letzten Halbsatz zum Rückflug über. Lege dabei schon den thematischen Faden für die spätere Rückflug-Ansage fest: genau ein klarer Einsatzschwerpunkt, kein Themenmix. Das ist der kurze Moment direkt beim Einsteigen, noch kein längerer Debrief.
+Harte Perspektiv-Regel: Verwende "ich" für den abgeholten Gast. Sage niemals, du hättest "den Gast", "den Passagier", "ihn" oder "sie" eingesammelt, eingeladen oder abgeholt. Das hat der Pilot getan.
 ${manifestSpeechRule}
 Max 3 Sätze.${_toneHint()}`;
 }
@@ -5496,12 +5539,11 @@ function _pickupDeparturePrompt() {
     const storyData = _bushPickupStoryData(active, pax);
     return `${ctx}
 
-Moment: Wir sind wieder in der Luft und der Rueckflug nach Hause laeuft.${wx ? ' ' + wx : ''}
-Basistext fuer deine Rueckflug-Spur (nur inhaltlich, nicht als neue Begruessung wiederholen): "${String(pax.greetingText || '').trim()}"${continuityHint}
+Moment: Wir sind wieder in der Luft und der Rückflug nach Hause läuft.${wx ? ' ' + wx : ''}${continuityHint}
 ${storyAnchor}
-${storyData.departureCue ? `Ich-Cue fuer den Rueckflug: "${storyData.departureCue}"` : ''}
-Baue direkt auf deiner kurzen Ansage vom Strip auf: Erzaehle jetzt etwas ausfuehrlicher aus deiner Ich-Perspektive als abgeholter Gast, warum du dort draussen warst, warum du wieder nach ${storyData.homePlace} musst und was du vom Ort oder vom Einsatz mitnimmst. Nutze dabei den Rueckkehrgrund: ${storyData.returnReason || 'zu Hause wartet der naechste konkrete Arbeitsschritt'}. Der Ton darf klar Wilderness- und Einsatzcharakter haben: Abgeschiedenheit, Gelaende, Dauer draussen, Feldarbeit, Wetterfenster oder Rueckkehr in die Zivilisation. Das darf persoenlicher und etwas bildhafter sein, aber weiterhin glaubwuerdig und knapp. Beginne NICHT erneut mit einer Begruessung wie "Hallo", "Hi", "Moin" oder einer neuen Selbstvorstellung, sondern setze inhaltlich einfach fort.
-Harte Perspektiv-Regel: Du bist der Passagier an Bord, nicht Pilot, Abholer, Lademeister oder Bodencrew. Verbotene Aussagen: "ich habe den Gast eingesammelt", "ich habe den Passagier abgeholt", "er sieht ... aus", "wir haben ihn geladen". Wenn du den Pickup erwaehnst, dann nur so: der Pilot hat mich abgeholt/eingesammelt oder ich bin zugestiegen.
+${storyData.departureCue ? `Ich-Cue für den Rückflug: "${storyData.departureCue}"` : ''}
+Baue direkt auf deiner kurzen Ansage vom Strip auf: Erzähle jetzt etwas ausführlicher aus deiner Ich-Perspektive als abgeholter Gast, warum du dort draußen warst, warum du wieder nach ${storyData.homePlace} musst und was du vom Ort oder vom Einsatz mitnimmst. Nutze dabei den Rückkehrgrund: ${storyData.returnReason || 'zu Hause wartet der nächste konkrete Arbeitsschritt'}. Der Ton darf klar Wilderness- und Einsatzcharakter haben: Abgeschiedenheit, Gelände, Dauer draußen, Feldarbeit, Wetterfenster oder Rückkehr in die Zivilisation. Das darf persönlicher und etwas bildhafter sein, aber weiterhin glaubwürdig und knapp. Beginne NICHT erneut mit einer Begrüßung wie "Hallo", "Hi", "Moin" oder einer neuen Selbstvorstellung, sondern setze inhaltlich einfach fort.
+Harte Perspektiv-Regel: Du bist der Passagier an Bord, nicht Pilot, Abholer, Lademeister oder Bodencrew. Verbotene Aussagen: "ich habe den Gast eingesammelt", "ich habe den Passagier abgeholt", "er sieht ... aus", "wir haben ihn geladen". Wenn du den Pickup erwähnst, dann nur so: der Pilot hat mich abgeholt/eingesammelt oder ich bin zugestiegen.
 Max 4 Sätze.${_toneHint()}`;
 }
 
