@@ -455,6 +455,11 @@
         </div>
     </div>
     
+    <div class="main-menu-row">
+        <button class="btn-menu" id="mapTableBtn" onclick="toggleMapTable()">🗺️ Kartentisch</button>
+        <button class="btn-menu" id="pinboardMenuBtn" onclick="togglePinboard()">📋 Pinnwand <span id="mainPinboardBadge">!</span></button>
+    </div>
+
     <div id="dispatchStatusArea" class="dispatch-status-area">
         <div id="searchIndicator">System bereit.</div>
         <div id="missionGenerationProgress" class="mission-generation-progress" role="progressbar" aria-label="Missionsgenerierung" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
@@ -463,11 +468,6 @@
             </div>
             <div id="missionGenerationProgressLabel" class="mission-generation-progress-label">0%</div>
         </div>
-    </div>
-
-    <div class="main-menu-row">
-        <button class="btn-menu" id="mapTableBtn" onclick="toggleMapTable()">🗺️ Kartentisch</button>
-        <button class="btn-menu" id="pinboardMenuBtn" onclick="togglePinboard()">📋 Pinnwand <span id="mainPinboardBadge">!</span></button>
     </div>
 
 <div class="briefing" id="briefingBox">
