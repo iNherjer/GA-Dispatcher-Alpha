@@ -466,6 +466,7 @@ const MAP_AUTOZOOM_TARGET_APPROACH_MIN = 5;
 const MAP_AUTOZOOM_POI_APPROACH_ZOOM = 13.4;
 const MAP_AUTOZOOM_WAYPOINT_APPROACH_ZOOM = 12.5;
 const MAP_AUTOZOOM_TARGET_APPROACH_CENTER_TARGET_WEIGHT = 1 / 3;
+const MAP_AUTOZOOM_POI_FOCUS_RELEASE_PROGRESS = 0.5;
 const MAP_AUTOZOOM_SPEED_STAGES = [
     { max: 18, zoom: 15, label: 'Boden' },
     { max: 60, zoom: 14, label: 'Langsam/niedrig' },
@@ -492,6 +493,7 @@ let mapAutoZoomManualHoldZoom = null;
 let mapAutoZoomManualHoldTargetZoom = null;
 let mapAutoZoomManualHoldPhase = '';
 let mapAutoZoomUserZoomIntentUntil = 0;
+let mapAutoZoomPoiFocusLock = null;
 
 function _clampMapAutoZoomNumber(value, min, max) {
     const n = Number(value);
@@ -642,15 +644,11 @@ function _mapAutoZoomPointAt(lat, lon, distNm, bearingDeg) {
     return { lat: lat2 * 180 / Math.PI, lon: lon2 * 180 / Math.PI };
 }
 
-function _mapAutoZoomRouteTarget(lat, lon) {
+function _mapAutoZoomWaypointTarget(idx, lat, lon, options = {}) {
     if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return null;
     if (typeof calcNav !== 'function') return null;
-    const autoWpIdx = typeof clampLiveWpIndex === 'function'
-        ? clampLiveWpIndex((Number.isFinite(Number(liveNextLegIndex)) ? liveNextLegIndex : 0) + 1)
-        : 1;
-    const wpIdx = liveActiveWpIndex == null
-        ? autoWpIdx
-        : (typeof clampLiveWpIndex === 'function' ? clampLiveWpIndex(liveActiveWpIndex) : liveActiveWpIndex);
+    const wpIdx = typeof clampLiveWpIndex === 'function' ? clampLiveWpIndex(idx) : Number(idx);
+    if (!Number.isFinite(wpIdx)) return null;
     const wp = routeWaypoints[wpIdx];
     const wpLon = wp?.lng ?? wp?.lon;
     if (!wp || !Number.isFinite(Number(wp.lat)) || !Number.isFinite(Number(wpLon))) return null;
@@ -665,8 +663,135 @@ function _mapAutoZoomRouteTarget(lat, lon) {
         brng: Number.isFinite(brng) ? brng : null,
         idx: wpIdx,
         name: typeof getWpDisplayName === 'function' ? getWpDisplayName(wpIdx) : (wp.name || `WP ${wpIdx}`),
-        isPoi: wp.isPOI === true || String(wp.icao || '').toUpperCase() === 'POI'
+        isPoi: wp.isPOI === true || String(wp.icao || '').toUpperCase() === 'POI',
+        focusLocked: options.focusLocked === true,
+        focusLockRawIdx: Number.isFinite(Number(options.rawIdx)) ? Number(options.rawIdx) : null,
+        focusLockEtaMin: Number.isFinite(Number(options.etaMin)) ? Number(options.etaMin) : null,
+        focusLockProgress: Number.isFinite(Number(options.progress)) ? Number(options.progress) : null
     };
+}
+
+function _mapAutoZoomRouteTarget(lat, lon) {
+    if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return null;
+    const autoWpIdx = typeof clampLiveWpIndex === 'function'
+        ? clampLiveWpIndex((Number.isFinite(Number(liveNextLegIndex)) ? liveNextLegIndex : 0) + 1)
+        : 1;
+    const wpIdx = liveActiveWpIndex == null
+        ? autoWpIdx
+        : (typeof clampLiveWpIndex === 'function' ? clampLiveWpIndex(liveActiveWpIndex) : liveActiveWpIndex);
+    return _mapAutoZoomWaypointTarget(wpIdx, lat, lon);
+}
+
+function _mapAutoZoomRouteKeySnapshot() {
+    if (typeof routeKeyForLiveNav === 'function') {
+        try { return routeKeyForLiveNav(); } catch (_) {}
+    }
+    if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints)) return '';
+    return routeWaypoints.map((wp, i) => {
+        const wpLon = wp?.lng ?? wp?.lon ?? 0;
+        return `${i}:${Number(wp?.lat || 0).toFixed(4)},${Number(wpLon || 0).toFixed(4)}`;
+    }).join('|');
+}
+
+function _mapAutoZoomSegmentProgress(fromPoint, toPoint, point) {
+    const fromLat = Number(fromPoint?.lat);
+    const fromLon = Number(fromPoint?.lon ?? fromPoint?.lng);
+    const toLat = Number(toPoint?.lat);
+    const toLon = Number(toPoint?.lon ?? toPoint?.lng);
+    const pointLat = Number(point?.lat);
+    const pointLon = Number(point?.lon ?? point?.lng);
+    if (!Number.isFinite(fromLat) || !Number.isFinite(fromLon)
+        || !Number.isFinite(toLat) || !Number.isFinite(toLon)
+        || !Number.isFinite(pointLat) || !Number.isFinite(pointLon)) return null;
+    const refLat = (fromLat + toLat + pointLat) / 3;
+    const cosRef = Math.cos(refLat * Math.PI / 180);
+    const ax = fromLon * cosRef * 60;
+    const ay = fromLat * 60;
+    const bx = toLon * cosRef * 60;
+    const by = toLat * 60;
+    const px = pointLon * cosRef * 60;
+    const py = pointLat * 60;
+    const abx = bx - ax;
+    const aby = by - ay;
+    const denom = abx * abx + aby * aby;
+    if (denom <= 0.000001) return null;
+    return _clampMapAutoZoomNumber(((px - ax) * abx + (py - ay) * aby) / denom, 0, 1);
+}
+
+function _mapAutoZoomRefreshPoiFocusLock(routeTarget, routeKey) {
+    if (!routeTarget?.isPoi || !Number.isFinite(Number(routeTarget.idx))) return;
+    mapAutoZoomPoiFocusLock = {
+        idx: Number(routeTarget.idx),
+        lat: Number(routeTarget.lat),
+        lon: Number(routeTarget.lon),
+        name: routeTarget.name,
+        routeKey,
+        acquiredAt: Date.now()
+    };
+}
+
+function _mapAutoZoomResolveFocusTarget(lat, lon, rawRouteTarget, gsKts) {
+    if (!rawRouteTarget) {
+        mapAutoZoomPoiFocusLock = null;
+        return null;
+    }
+    const routeKey = _mapAutoZoomRouteKeySnapshot();
+    if (mapAutoZoomPoiFocusLock?.routeKey && routeKey && mapAutoZoomPoiFocusLock.routeKey !== routeKey) {
+        mapAutoZoomPoiFocusLock = null;
+    }
+    if (rawRouteTarget.isPoi) {
+        _mapAutoZoomRefreshPoiFocusLock(rawRouteTarget, routeKey);
+        return rawRouteTarget;
+    }
+    if (typeof liveActiveWpIndex !== 'undefined' && liveActiveWpIndex != null) {
+        mapAutoZoomPoiFocusLock = null;
+        return rawRouteTarget;
+    }
+    const lock = mapAutoZoomPoiFocusLock;
+    if (!lock || !Number.isFinite(Number(lock.idx))) return rawRouteTarget;
+
+    const rawIdx = Number(rawRouteTarget.idx);
+    if (!Number.isFinite(rawIdx) || rawIdx <= Number(lock.idx)) {
+        mapAutoZoomPoiFocusLock = null;
+        return rawRouteTarget;
+    }
+
+    const aircraftPoint = { lat: Number(lat), lon: Number(lon) };
+    const poiPoint = { lat: Number(lock.lat), lon: Number(lock.lon) };
+    const progress = _mapAutoZoomSegmentProgress(poiPoint, rawRouteTarget, aircraftPoint);
+    const poiTarget = _mapAutoZoomWaypointTarget(lock.idx, lat, lon, {
+        focusLocked: true,
+        rawIdx,
+        progress
+    }) || {
+        ...poiPoint,
+        idx: lock.idx,
+        name: lock.name || `WP ${lock.idx}`,
+        isPoi: true,
+        focusLocked: true,
+        focusLockRawIdx: rawIdx,
+        focusLockProgress: progress
+    };
+    const distNm = Number(poiTarget.distNm);
+    const gs = Number(gsKts);
+    const etaAwayMin = Number.isFinite(distNm) && Number.isFinite(gs) && gs > 5
+        ? (distNm / Math.max(gs, 1)) * 60
+        : null;
+    poiTarget.focusLockEtaMin = Number.isFinite(etaAwayMin) ? etaAwayMin : null;
+    poiTarget.focusLockProgress = Number.isFinite(progress) ? progress : null;
+
+    const releaseByEta = Number.isFinite(etaAwayMin) && etaAwayMin >= MAP_AUTOZOOM_TARGET_APPROACH_MIN;
+    const releaseByProgress = Number.isFinite(progress) && progress >= MAP_AUTOZOOM_POI_FOCUS_RELEASE_PROGRESS;
+    if (releaseByEta || releaseByProgress) {
+        mapAutoZoomPoiFocusLock = null;
+        return {
+            ...rawRouteTarget,
+            focusLockReleased: releaseByEta ? 'eta' : 'progress',
+            focusLockReleasedEtaMin: Number.isFinite(etaAwayMin) ? etaAwayMin : null,
+            focusLockReleasedProgress: Number.isFinite(progress) ? progress : null
+        };
+    }
+    return poiTarget;
 }
 
 function _mapAutoZoomRouteStart(lat, lon) {
@@ -775,7 +900,10 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
     const cruiseAltT = _mapAutoZoomSmoothstep(altitudeRefFt / Math.max(1000, planRef.cruiseAltFt));
     const cruiseProgress = _clampMapAutoZoomNumber(cruiseSpeedT * 0.58 + cruiseAltT * 0.42, 0, 1);
     const cruiseLookaheadCapNm = _mapAutoZoomLerp(Math.max(2.5, plannedLookaheadNm * 0.55), plannedLookaheadNm, cruiseProgress);
-    const routeTarget = Number.isFinite(Number(lat)) && Number.isFinite(Number(lon)) ? _mapAutoZoomRouteTarget(Number(lat), Number(lon)) : null;
+    const rawRouteTarget = Number.isFinite(Number(lat)) && Number.isFinite(Number(lon)) ? _mapAutoZoomRouteTarget(Number(lat), Number(lon)) : null;
+    const routeTarget = Number.isFinite(Number(lat)) && Number.isFinite(Number(lon))
+        ? _mapAutoZoomResolveFocusTarget(Number(lat), Number(lon), rawRouteTarget, gs)
+        : null;
     const routeStart = Number.isFinite(Number(lat)) && Number.isFinite(Number(lon)) ? _mapAutoZoomRouteStart(Number(lat), Number(lon)) : null;
     const routeDistNm = Number(routeTarget?.distNm);
     const startDistNm = Number(routeStart?.distNm);
@@ -902,6 +1030,8 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         targetApproachMin: MAP_AUTOZOOM_TARGET_APPROACH_MIN,
         targetApproachLeadNm: Math.round(targetApproachLeadNm * 10) / 10,
         targetApproachActive,
+        poiFocusLocked: routeTarget?.focusLocked === true,
+        poiFocusReleaseProgress: MAP_AUTOZOOM_POI_FOCUS_RELEASE_PROGRESS,
         plannedLookaheadNm: Math.round(plannedLookaheadNm * 10) / 10,
         cruiseProgress: Math.round(cruiseProgress * 100) / 100,
         departureProgress: Math.round(departureT * 100) / 100,
@@ -921,7 +1051,19 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
             name: routeTarget.name,
             distNm: Number.isFinite(routeDistNm) ? Math.round(routeDistNm * 10) / 10 : null,
             etaMin: Number.isFinite(routeEtaMin) ? Math.round(routeEtaMin * 10) / 10 : null,
-            isPoi: routeTarget.isPoi
+            isPoi: routeTarget.isPoi,
+            focusLocked: routeTarget.focusLocked === true,
+            focusLockRawIdx: Number.isFinite(Number(routeTarget.focusLockRawIdx)) ? Number(routeTarget.focusLockRawIdx) : null,
+            focusLockEtaMin: Number.isFinite(Number(routeTarget.focusLockEtaMin)) ? Math.round(Number(routeTarget.focusLockEtaMin) * 10) / 10 : null,
+            focusLockProgress: Number.isFinite(Number(routeTarget.focusLockProgress)) ? Math.round(Number(routeTarget.focusLockProgress) * 100) / 100 : null,
+            focusLockReleased: routeTarget.focusLockReleased || null,
+            focusLockReleasedEtaMin: Number.isFinite(Number(routeTarget.focusLockReleasedEtaMin)) ? Math.round(Number(routeTarget.focusLockReleasedEtaMin) * 10) / 10 : null,
+            focusLockReleasedProgress: Number.isFinite(Number(routeTarget.focusLockReleasedProgress)) ? Math.round(Number(routeTarget.focusLockReleasedProgress) * 100) / 100 : null
+        } : null,
+        rawRouteTarget: rawRouteTarget ? {
+            idx: rawRouteTarget.idx,
+            name: rawRouteTarget.name,
+            isPoi: rawRouteTarget.isPoi
         } : null,
         routeStart: routeStart ? {
             name: routeStart.name,
@@ -971,6 +1113,7 @@ window.resetMapAutoZoomState = function() {
     mapAutoZoomManualHoldTargetZoom = null;
     mapAutoZoomManualHoldPhase = '';
     mapAutoZoomUserZoomIntentUntil = 0;
+    mapAutoZoomPoiFocusLock = null;
 };
 
 function markAutoFollowProgrammaticMapMove(now = Date.now(), durationMs = 700) {
