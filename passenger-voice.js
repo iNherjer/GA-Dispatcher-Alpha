@@ -4113,9 +4113,9 @@ function _baseContext() {
         const pickupStory = _bushPickupStoryData(pickupPaxContext, pax);
         const why = pickupStory.boardingCue
             ? ` ${pickupStory.boardingCue}`
-            : (pickupStory.whyThere ? ` Hintergrund: ${pickupStory.whyThere}.` : '');
-        const back = pickupStory.returnReason ? ` Rueckkehrgrund: ${pickupStory.returnReason}.` : '';
-        storyShort = `Ich bin ${pickupStory.personName}${pickupStory.role ? `, ${pickupStory.role},` : ''} und wurde ${pickupStory.exactWhere} abgeholt.${why} Jetzt fliege ich als Passagier zurueck nach ${pickupStory.homePlace}.${back} Ich spreche aus meiner eigenen Gast-Perspektive, nicht aus Crew- oder Abholer-Sicht.`;
+            : (pickupStory.whyThere ? ` Auftrag vor Ort: ${pickupStory.whyThere}.` : '');
+        const back = pickupStory.returnReason ? ` Zurück nach ${pickupStory.homePlace}, weil ${pickupStory.returnReason}.` : '';
+        storyShort = `Ich bin ${pickupStory.personName}${pickupStory.role ? `, ${pickupStory.role},` : ''} und wurde ${pickupStory.exactWhere} abgeholt.${why} Jetzt fliege ich als Passagier zurück nach ${pickupStory.homePlace}.${back}`;
     }
     const trainingDiscipline = trainingPlan
         ? `TRAINING (${trainingPlan.mode}): Nur fliegerische Inhalte, prozedural, sicherheitsfokussiert. Kein Sightseeing/Ortsstory.`
