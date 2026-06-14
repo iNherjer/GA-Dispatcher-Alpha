@@ -723,6 +723,24 @@ function _mapAutoZoomZoomForPoints(points, paddingPx = 110) {
     }
 }
 
+function _mapAutoZoomCenterForPoints(points) {
+    const validPoints = (Array.isArray(points) ? points : [])
+        .map(p => Array.isArray(p) ? p : [p?.lat, p?.lon])
+        .filter(p => Number.isFinite(Number(p[0])) && Number.isFinite(Number(p[1])))
+        .map(p => [Number(p[0]), Number(p[1])]);
+    if (validPoints.length < 2) return null;
+    if (typeof L !== 'undefined' && L && typeof L.latLngBounds === 'function') {
+        try {
+            const center = L.latLngBounds(validPoints).getCenter();
+            if (center && Number.isFinite(Number(center.lat)) && Number.isFinite(Number(center.lng))) {
+                return { lat: Number(center.lat), lon: Number(center.lng) };
+            }
+        } catch (_) {}
+    }
+    const avg = validPoints.reduce((acc, p) => ({ lat: acc.lat + p[0], lon: acc.lon + p[1] }), { lat: 0, lon: 0 });
+    return { lat: avg.lat / validPoints.length, lon: avg.lon / validPoints.length };
+}
+
 function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
     const gs = _clampMapAutoZoomNumber(gsKts, 0, 240);
     const fd = window.lastLiveFlightData || {};
@@ -812,6 +830,9 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         requiredRadiusNm = _clampMapAutoZoomNumber(requiredRadiusNm, 2.2, 85);
     }
 
+    const targetViewCenter = targetApproachActive && routeTarget
+        ? _mapAutoZoomCenterForPoints([[lat, lon], [routeTarget.lat, routeTarget.lon]])
+        : null;
     const radiusZoom = _mapAutoZoomZoomForRadius(Number(lat), Number(lon), requiredRadiusNm, phase === 'Taxi' ? 70 : 95);
     const usableVisibilityCapZoom = sanitizeMapAutoZoomVisibilityCap(targetVisibilityMaxZoom);
     const hasVisibilityCapZoom = usableVisibilityCapZoom !== null && Number.isFinite(usableVisibilityCapZoom);
@@ -849,6 +870,11 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         radiusZoom: Number.isFinite(Number(radiusZoom)) ? Math.round(Number(radiusZoom) * 10) / 10 : null,
         modeMinZoom: Math.round(visibleMinZoom * 10) / 10,
         modeMaxZoom: Math.round(visibleMaxZoom * 10) / 10,
+        viewCenter: targetViewCenter ? {
+            lat: Number(targetViewCenter.lat),
+            lon: Number(targetViewCenter.lon),
+            reason: 'target-approach'
+        } : null,
         requiredRadiusNm: Math.round(requiredRadiusNm * 10) / 10,
         routeTarget: routeTarget ? {
             idx: routeTarget.idx,
@@ -959,6 +985,20 @@ function shouldHoldManualMapAutoZoom(sample) {
     return true;
 }
 
+function getMapAutoZoomViewCenter(sample, fallbackLat, fallbackLon) {
+    const center = sample?.viewCenter;
+    const lat = Number(center?.lat);
+    const lon = Number(center?.lon);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) return [lat, lon];
+    return [fallbackLat, fallbackLon];
+}
+
+function shouldUseMapAutoZoomViewCenter(sample, fallbackLat, fallbackLon) {
+    const center = getMapAutoZoomViewCenter(sample, fallbackLat, fallbackLon);
+    return Math.abs(Number(center[0]) - Number(fallbackLat)) > 0.000001
+        || Math.abs(Number(center[1]) - Number(fallbackLon)) > 0.000001;
+}
+
 function getAutoFollowLiveSample() {
     const pos = window.lastLiveGpsPos || {};
     const lat = Number(pos.lat);
@@ -1027,11 +1067,14 @@ function maybeApplyMapAutoZoom(lat, lon, altFt, gsKts, hdgDeg, now, lowFpsMode, 
             appliedZoom = clampAutoZoomForMap(currentZoom + step);
         }
         sample.appliedZoom = appliedZoom;
+        const viewCenter = getMapAutoZoomViewCenter(sample, lat, lon);
+        sample.appliedCenter = { lat: viewCenter[0], lon: viewCenter[1] };
         markAutoFollowProgrammaticMapMove(now, force ? 700 : (lowFpsMode ? 1250 : 900));
         if (typeof map.setView === 'function') {
-            map.setView([lat, lon], appliedZoom, (force || recoveringInvalidZoom) ? { animate: false } : { animate: true, duration: lowFpsMode ? 0.85 : 0.55 });
+            map.setView(viewCenter, appliedZoom, (force || recoveringInvalidZoom) ? { animate: false } : { animate: true, duration: lowFpsMode ? 0.85 : 0.55 });
         } else if (typeof map.setZoom === 'function') {
             map.setZoom(appliedZoom, (force || recoveringInvalidZoom) ? { animate: false } : { animate: true });
+            if (typeof map.panTo === 'function') map.panTo(viewCenter, { animate: !(force || recoveringInvalidZoom) });
         }
         lastMapAutoZoomAppliedAt = now;
         lastMapAutoZoomTargetZoom = sample.targetZoom;
@@ -1053,16 +1096,28 @@ function applyAutoFollowViewNow(options = {}) {
         force: options.forceZoom === true
     });
     if (autoZoomApplied) {
+        const followCenter = getMapAutoZoomViewCenter(lastMapAutoZoomSample, sample.lat, sample.lon);
         lastAutoFollowPanAt = now;
-        lastAutoFollowPanPos = [sample.lat, sample.lon];
+        lastAutoFollowPanPos = followCenter;
+        return true;
+    }
+    const useAutoZoomCenter = isMapAutoZoomEnabled() && shouldUseMapAutoZoomViewCenter(lastMapAutoZoomSample, sample.lat, sample.lon);
+    const autoZoomViewCenter = useAutoZoomCenter
+        ? getMapAutoZoomViewCenter(lastMapAutoZoomSample, sample.lat, sample.lon)
+        : [sample.lat, sample.lon];
+    if (useAutoZoomCenter && typeof map.panTo === 'function') {
+        markAutoFollowProgrammaticMapMove(now, options.animate === true ? 900 : 700);
+        map.panTo(autoZoomViewCenter, { animate: options.animate === true && !lowFpsMode });
+        lastAutoFollowPanAt = now;
+        lastAutoFollowPanPos = autoZoomViewCenter;
         return true;
     }
     if (options.panFallback === false) return false;
     if (typeof map.panTo === 'function') {
         markAutoFollowProgrammaticMapMove(now, options.animate === true ? 900 : 700);
-        map.panTo([sample.lat, sample.lon], { animate: options.animate === true });
+        map.panTo(autoZoomViewCenter, { animate: options.animate === true });
         lastAutoFollowPanAt = now;
-        lastAutoFollowPanPos = [sample.lat, sample.lon];
+        lastAutoFollowPanPos = autoZoomViewCenter;
         return true;
     }
     return false;
