@@ -537,14 +537,15 @@ function getMapAutoZoomAglFt(altFt) {
     return null;
 }
 
-function clampAutoZoomForMap(zoom) {
+function clampAutoZoomForMap(zoom, options = {}) {
     let minZoom = MAP_AUTOZOOM_MIN_ZOOM;
     let maxZoom = MAP_AUTOZOOM_MAX_ZOOM;
+    const respectMapMax = options.respectMapMax !== false;
     if (typeof map !== 'undefined' && map) {
         const mapMin = Number(typeof map.getMinZoom === 'function' ? map.getMinZoom() : NaN);
         const mapMax = Number(typeof map.getMaxZoom === 'function' ? map.getMaxZoom() : NaN);
         if (Number.isFinite(mapMin)) minZoom = Math.max(minZoom, mapMin);
-        if (Number.isFinite(mapMax)) maxZoom = Math.min(maxZoom, mapMax);
+        if (respectMapMax && Number.isFinite(mapMax) && mapMax > minZoom) maxZoom = Math.min(maxZoom, mapMax);
     }
     const clampedZoom = _clampMapAutoZoomNumber(zoom, minZoom, maxZoom);
     return Math.round(clampedZoom / MAP_AUTOZOOM_ZOOM_SNAP) * MAP_AUTOZOOM_ZOOM_SNAP;
@@ -555,6 +556,10 @@ function ensureMapAutoZoomFractionalZoom() {
     if (typeof map === 'undefined' || !map || !map.options) return;
     map.options.zoomSnap = Math.min(Number(map.options.zoomSnap) || 1, MAP_AUTOZOOM_ZOOM_SNAP);
     map.options.zoomDelta = Math.min(Number(map.options.zoomDelta) || 1, 0.5);
+    const currentMaxZoom = Number(map.options.maxZoom);
+    if (!Number.isFinite(currentMaxZoom) || currentMaxZoom < MAP_AUTOZOOM_MAX_ZOOM) {
+        map.options.maxZoom = MAP_AUTOZOOM_MAX_ZOOM;
+    }
     mapAutoZoomFractionalZoomConfigured = true;
 }
 
@@ -782,7 +787,7 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         ? Math.min(maxModeZoom, Number(targetVisibilityMaxZoom))
         : maxModeZoom;
     const visibleMinZoom = Math.min(minModeZoom, visibleMaxZoom);
-    const clampedTargetZoom = clampAutoZoomForMap(_clampMapAutoZoomNumber(radiusZoom, visibleMinZoom, visibleMaxZoom));
+    const clampedTargetZoom = clampAutoZoomForMap(_clampMapAutoZoomNumber(radiusZoom, visibleMinZoom, visibleMaxZoom), { respectMapMax: false });
 
     return {
         targetZoom: clampedTargetZoom,
