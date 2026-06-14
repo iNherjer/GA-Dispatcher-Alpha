@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v1045';
+const CACHE = 'ga-dispatcher-v1046';
 
 const STATIC = [
     './',
@@ -56,6 +56,15 @@ const NETWORK_FIRST_PATHS = [
     '/data/gafor-sector-dataset-de.json'
 ];
 
+const APP_SHELL_NETWORK_FIRST_EXTENSIONS = ['.html', '.js', '.css'];
+
+function isNetworkFirstRequest(url) {
+    if (NETWORK_FIRST_PATHS.some(p => url.pathname.endsWith(p))) return true;
+    if (url.origin !== self.location.origin) return false;
+    if (url.pathname.endsWith('/')) return true;
+    return APP_SHELL_NETWORK_FIRST_EXTENSIONS.some(ext => url.pathname.endsWith(ext));
+}
+
 // ── Install: statische Dateien vorab cachen ──────────────────────────────────
 self.addEventListener('install', e => {
     e.waitUntil(
@@ -86,8 +95,8 @@ self.addEventListener('fetch', e => {
         || url.pathname.includes('/MapServer/tile/')
     ) return;
 
-    // Dataset immer bevorzugt frisch vom Netz holen (mit Cache-Fallback)
-    if (NETWORK_FIRST_PATHS.some(p => url.pathname.endsWith(p))) {
+    // App-Shell und Daten bevorzugt frisch vom Netz holen (mit Cache-Fallback)
+    if (isNetworkFirstRequest(url)) {
         e.respondWith(
             fetch(e.request).then(response => {
                 if (response && response.status === 200 && e.request.method === 'GET') {

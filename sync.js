@@ -495,6 +495,19 @@ function _clampMapAutoZoomNumber(value, min, max) {
     return Math.min(max, Math.max(min, n));
 }
 
+function quantizeMapAutoZoom(zoom) {
+    const n = Number(zoom);
+    if (!Number.isFinite(n)) return n;
+    return Math.round(n / MAP_AUTOZOOM_ZOOM_SNAP) * MAP_AUTOZOOM_ZOOM_SNAP;
+}
+
+function clampAutoZoomToRange(zoom, minZoom, maxZoom) {
+    let min = Number.isFinite(Number(minZoom)) ? Number(minZoom) : MAP_AUTOZOOM_MIN_ZOOM;
+    let max = Number.isFinite(Number(maxZoom)) ? Number(maxZoom) : MAP_AUTOZOOM_MAX_ZOOM;
+    if (max < min) max = min;
+    return quantizeMapAutoZoom(_clampMapAutoZoomNumber(zoom, min, max));
+}
+
 function normalizeMapAutoZoomLookaheadMinutes(value) {
     const n = parseInt(value, 10);
     if (!Number.isFinite(n)) return MAP_AUTOZOOM_DEFAULT_LOOKAHEAD_MIN;
@@ -540,15 +553,15 @@ function getMapAutoZoomAglFt(altFt) {
 function clampAutoZoomForMap(zoom, options = {}) {
     let minZoom = MAP_AUTOZOOM_MIN_ZOOM;
     let maxZoom = MAP_AUTOZOOM_MAX_ZOOM;
-    const respectMapMax = options.respectMapMax !== false;
+    const respectMapMax = options.respectMapMax === true;
     if (typeof map !== 'undefined' && map) {
         const mapMin = Number(typeof map.getMinZoom === 'function' ? map.getMinZoom() : NaN);
         const mapMax = Number(typeof map.getMaxZoom === 'function' ? map.getMaxZoom() : NaN);
         if (Number.isFinite(mapMin)) minZoom = Math.max(minZoom, mapMin);
         if (respectMapMax && Number.isFinite(mapMax) && mapMax > minZoom) maxZoom = Math.min(maxZoom, mapMax);
     }
-    const clampedZoom = _clampMapAutoZoomNumber(zoom, minZoom, maxZoom);
-    return Math.round(clampedZoom / MAP_AUTOZOOM_ZOOM_SNAP) * MAP_AUTOZOOM_ZOOM_SNAP;
+    if (minZoom > maxZoom) minZoom = maxZoom;
+    return clampAutoZoomToRange(zoom, minZoom, maxZoom);
 }
 
 function ensureMapAutoZoomFractionalZoom() {
@@ -677,7 +690,7 @@ function _mapAutoZoomZoomForRadius(lat, lon, radiusNm, paddingPx = 90) {
     try {
         const bounds = L.latLngBounds(points);
         const padding = typeof L.point === 'function' ? L.point(paddingPx, paddingPx) : [paddingPx, paddingPx];
-        return clampAutoZoomForMap(map.getBoundsZoom(bounds, false, padding));
+        return quantizeMapAutoZoom(map.getBoundsZoom(bounds, false, padding));
     } catch (_) {
         const safeRadius = Math.max(0.15, Number(radiusNm) || 1);
         return clampAutoZoomForMap(15 - Math.log2(safeRadius));
@@ -694,7 +707,7 @@ function _mapAutoZoomZoomForPoints(points, paddingPx = 110) {
     try {
         const bounds = L.latLngBounds(validPoints);
         const padding = typeof L.point === 'function' ? L.point(paddingPx, paddingPx) : [paddingPx, paddingPx];
-        return clampAutoZoomForMap(map.getBoundsZoom(bounds, false, padding));
+        return quantizeMapAutoZoom(map.getBoundsZoom(bounds, false, padding));
     } catch (_) {
         return null;
     }
@@ -787,7 +800,7 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         ? Math.min(maxModeZoom, Number(targetVisibilityMaxZoom))
         : maxModeZoom;
     const visibleMinZoom = Math.min(minModeZoom, visibleMaxZoom);
-    const clampedTargetZoom = clampAutoZoomForMap(_clampMapAutoZoomNumber(radiusZoom, visibleMinZoom, visibleMaxZoom), { respectMapMax: false });
+    const clampedTargetZoom = clampAutoZoomToRange(radiusZoom, visibleMinZoom, visibleMaxZoom);
 
     return {
         targetZoom: clampedTargetZoom,
@@ -809,6 +822,9 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         cruiseProgress: Math.round(cruiseProgress * 100) / 100,
         departureProgress: Math.round(departureT * 100) / 100,
         targetVisibilityMaxZoom: Number.isFinite(Number(targetVisibilityMaxZoom)) ? Number(targetVisibilityMaxZoom) : null,
+        radiusZoom: Number.isFinite(Number(radiusZoom)) ? Math.round(Number(radiusZoom) * 10) / 10 : null,
+        modeMinZoom: Math.round(visibleMinZoom * 10) / 10,
+        modeMaxZoom: Math.round(visibleMaxZoom * 10) / 10,
         requiredRadiusNm: Math.round(requiredRadiusNm * 10) / 10,
         routeTarget: routeTarget ? {
             idx: routeTarget.idx,

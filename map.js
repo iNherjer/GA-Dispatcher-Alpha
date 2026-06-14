@@ -8245,7 +8245,7 @@ function initMapBase() {
     if (awcSigmetActive) startupLayers.push(awcSigmetOverlay);
     if (usaVfrOverlayActive) startupLayers.push(usaVfrSectionalOverlay);
     if (openAipOverlayActive && openAipVectorOverlay) startupLayers.push(openAipVectorOverlay);
-    map = L.map('map', { layers: startupLayers, attributionControl: false }).setView([51.1657, 10.4515], 6);
+    map = L.map('map', { layers: startupLayers, attributionControl: false, maxZoom: 18 }).setView([51.1657, 10.4515], 6);
     const updateAeroOverlayZoomVisibility = () => {
         if (!map || !aeroOverlay || !map.hasLayer(aeroOverlay)) return;
         const zoom = Number(map.getZoom && map.getZoom());
