@@ -462,6 +462,8 @@ const MAP_AUTOZOOM_ZOOM_SNAP = 0.05;
 const MAP_AUTOZOOM_TARGET_CHANGE_DELTA = 0.15;
 const MAP_AUTOZOOM_MIN_STEP = 0.05;
 const MAP_AUTOZOOM_MIN_APPLY_DELTA = 0.05;
+const MAP_AUTOZOOM_TARGET_APPROACH_MIN = 5;
+const MAP_AUTOZOOM_TARGET_APPROACH_ZOOM = 13.4;
 const MAP_AUTOZOOM_SPEED_STAGES = [
     { max: 18, zoom: 15, label: 'Boden' },
     { max: 60, zoom: 14, label: 'Langsam/niedrig' },
@@ -748,6 +750,13 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
     const hdg = Number.isFinite(Number(hdgDeg)) ? Number(hdgDeg)
         : (Number.isFinite(Number(routeTarget?.brng)) ? Number(routeTarget.brng) : null);
     const lookaheadNm = _clampMapAutoZoomNumber(gs * (lookaheadMin / 60), 0.35, Math.max(0.35, cruiseLookaheadCapNm));
+    const routeEtaMin = Number.isFinite(routeDistNm) && gs > 5
+        ? (routeDistNm / Math.max(gs, 1)) * 60
+        : null;
+    const targetApproachLeadNm = Math.max(0.8, gs * (MAP_AUTOZOOM_TARGET_APPROACH_MIN / 60));
+    const targetApproachActive = Number.isFinite(routeEtaMin)
+        ? routeEtaMin <= MAP_AUTOZOOM_TARGET_APPROACH_MIN
+        : (Number.isFinite(routeDistNm) && routeDistNm <= targetApproachLeadNm);
     const departureT = Number.isFinite(startDistNm) ? _mapAutoZoomSmoothstep((startDistNm - 2) / 14) : cruiseProgress;
     const departureLookaheadNm = _mapAutoZoomLerp(3.8, Math.max(lookaheadNm, cruiseLookaheadCapNm), departureT);
     const nearDeparture = !Number.isFinite(startDistNm) || startDistNm <= 4.5;
@@ -763,11 +772,11 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         requiredRadiusNm = 0.28;
         minModeZoom = 17;
         maxModeZoom = MAP_AUTOZOOM_MAX_ZOOM;
-    } else if (routeTarget?.isPoi && Number.isFinite(routeDistNm) && routeDistNm <= 5.5) {
+    } else if (routeTarget?.isPoi && targetApproachActive) {
         phase = 'POI';
-        requiredRadiusNm = Math.max(0.8, Math.min(6.5, routeDistNm + 0.8));
-        minModeZoom = 14.75;
-        maxModeZoom = 16.5;
+        requiredRadiusNm = Math.max(1.1, Math.min(8, routeDistNm + 0.9));
+        minModeZoom = MAP_AUTOZOOM_TARGET_APPROACH_ZOOM;
+        maxModeZoom = MAP_AUTOZOOM_TARGET_APPROACH_ZOOM;
         targetVisibilityMaxZoom = _mapAutoZoomZoomForPoints([[lat, lon], [routeTarget.lat, routeTarget.lon]], 120);
     } else if ((altitudeRefFt < 1800 || gs < 75) && nearDeparture) {
         phase = 'Platzrunde';
@@ -788,11 +797,11 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         requiredRadiusNm = _clampMapAutoZoomNumber(requiredRadiusNm, 3.8, 45);
         minModeZoom = 10.75;
         maxModeZoom = _mapAutoZoomLerp(15.5, 13.25, departureT);
-    } else if (Number.isFinite(routeDistNm) && routeDistNm <= Math.max(4.5, lookaheadNm * 0.75)) {
+    } else if (Number.isFinite(routeDistNm) && targetApproachActive) {
         phase = routeTarget?.isPoi ? 'POI' : 'Wegpunkt';
         requiredRadiusNm = Math.max(1.1, Math.min(8, routeDistNm + 0.9));
-        minModeZoom = 13.75;
-        maxModeZoom = 16;
+        minModeZoom = MAP_AUTOZOOM_TARGET_APPROACH_ZOOM;
+        maxModeZoom = MAP_AUTOZOOM_TARGET_APPROACH_ZOOM;
         targetVisibilityMaxZoom = _mapAutoZoomZoomForPoints([[lat, lon], [routeTarget.lat, routeTarget.lon]], 115);
     } else {
         if (Number.isFinite(routeDistNm) && routeDistNm <= Math.max(8, lookaheadNm * 1.15)) {
@@ -829,6 +838,9 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         planCruiseAltFt: Math.round(planRef.cruiseAltFt),
         lookaheadMin,
         lookaheadNm: Math.round(lookaheadNm * 10) / 10,
+        targetApproachMin: MAP_AUTOZOOM_TARGET_APPROACH_MIN,
+        targetApproachLeadNm: Math.round(targetApproachLeadNm * 10) / 10,
+        targetApproachActive,
         plannedLookaheadNm: Math.round(plannedLookaheadNm * 10) / 10,
         cruiseProgress: Math.round(cruiseProgress * 100) / 100,
         departureProgress: Math.round(departureT * 100) / 100,
@@ -842,6 +854,7 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
             idx: routeTarget.idx,
             name: routeTarget.name,
             distNm: Number.isFinite(routeDistNm) ? Math.round(routeDistNm * 10) / 10 : null,
+            etaMin: Number.isFinite(routeEtaMin) ? Math.round(routeEtaMin * 10) / 10 : null,
             isPoi: routeTarget.isPoi
         } : null,
         routeStart: routeStart ? {
