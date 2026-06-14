@@ -9512,6 +9512,38 @@ function buildBushPickupStoryHint({
     return parts.join(' | ').slice(0, 1800);
 }
 
+function compactBushPickupStoryExcerpt(text = '', maxLen = 320) {
+    const clean = String(text || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!clean) return '';
+    const sentences = clean
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+    let out = '';
+    for (const sentence of sentences) {
+        const next = `${out}${out ? ' ' : ''}${sentence}`.trim();
+        if (next.length > maxLen && out) break;
+        out = next;
+        if (out.length >= Math.min(180, maxLen)) break;
+    }
+    return (out || clean).slice(0, maxLen).trim();
+}
+
+function addBushPickupNameToStory(storyText = '', { name = '', role = '', exactWhere = '' } = {}) {
+    const story = String(storyText || '').replace(/\s+/g, ' ').trim();
+    const personName = String(name || '').trim();
+    if (!story || !personName) return story;
+    if (story.toLowerCase().includes(personName.toLowerCase())) return story;
+    const roleText = String(role || '').trim();
+    const where = String(exactWhere || 'am Treffpunkt am Zielstrip').trim();
+    const intro = roleText
+        ? `${personName}, ${roleText}, wartet ${where}.`
+        : `${personName} wartet ${where}.`;
+    return `${intro} ${story}`;
+}
+
 function missionHasPassengerByPaxText(paxText) {
     const txt = String(paxText || '').trim();
     if (!txt) return true;
@@ -15009,6 +15041,7 @@ Regeln:
 17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
 18. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
 19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
+19a. bush + bush_pickup_strip: Das ist ein Pickup-Return-Auftrag. Erfinde fuer den abzuholenden Gast dynamisch aus CONTRACT.storyFrame, localFacts, narrativeHooks und weatherHooks einen konkreten Namen, eine Rolle, einen Grund fuer seinen Aufenthalt am Zielstrip, seinen genauen Wartepunkt und den Grund fuer die Rueckkehr. Wiederhole kein festes Standardmotiv, wenn der Contract andere Anker liefert.
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
 22. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
@@ -18224,6 +18257,9 @@ async function generateMission() {
                 const fallbackBushSpec = sanitizeBushMissionSpec(fallbackMission?.bush || null);
                 if (fallbackBushSpec) {
                     const existingBush = dispatchBushSpec && typeof dispatchBushSpec === 'object' ? dispatchBushSpec : {};
+                    const aiPassenger = m?.passenger && typeof m.passenger === 'object' ? m.passenger : null;
+                    const aiPassengerName = String(aiPassenger?.name || '').trim();
+                    const aiPassengerRole = String(aiPassenger?.role || '').trim();
                     const existingPickupName = String(existingBush?.pickupStory?.personName || existingBush?.pickupLabel || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
                     const hasNamedExistingPickupStory = !!(
                         existingBush?.pickupStory
@@ -18231,31 +18267,71 @@ async function generateMission() {
                         && existingPickupName
                         && existingPickupName.length >= 3
                     );
-                    const useFallbackPickupDetails = !hasNamedExistingPickupStory;
+                    const hasAiPickupPassenger = !!(aiPassengerName && aiPassengerName.length >= 3);
+                    const useExistingPickupStory = hasNamedExistingPickupStory && !hasAiPickupPassenger;
+                    const storyText = String(m.s || '').trim();
+                    const fallbackPickupStory = fallbackBushSpec.pickupStory || {};
+                    const aiPickupStory = hasAiPickupPassenger
+                        ? {
+                            ...fallbackPickupStory,
+                            personName: aiPassengerName,
+                            role: aiPassengerRole || fallbackPickupStory.role || fallbackBushSpec.pickupRole || '',
+                            exactWhere: fallbackPickupStory.exactWhere || `am Treffpunkt am Zielstrip bei ${String(dest?.n || dest?.name || dest?.icao || 'dem Ziel').trim()}`,
+                            whyThere: compactBushPickupStoryExcerpt(storyText || fallbackPickupStory.whyThere || '', 320) || fallbackPickupStory.whyThere || '',
+                            returnReason: fallbackPickupStory.returnReason || '',
+                            boardingCue: fallbackPickupStory.boardingCue || '',
+                            departureCue: fallbackPickupStory.departureCue || ''
+                        }
+                        : null;
+                    const selectedPickupStory = useExistingPickupStory
+                        ? existingBush.pickupStory
+                        : (aiPickupStory || fallbackPickupStory);
+                    const selectedPickupName = String(selectedPickupStory?.personName || aiPassengerName || fallbackMission?.passenger?.name || '').trim();
+                    const selectedPickupRole = String(selectedPickupStory?.role || aiPassengerRole || fallbackMission?.passenger?.role || fallbackBushSpec.pickupRole || '').trim();
+                    const useFallbackPickupDetails = !useExistingPickupStory && !hasAiPickupPassenger;
                     const hydratedBush = sanitizeBushMissionSpec({
                         ...fallbackBushSpec,
                         ...existingBush,
-                        pickupLabel: useFallbackPickupDetails ? fallbackBushSpec.pickupLabel : (existingBush.pickupLabel || fallbackBushSpec.pickupLabel),
-                        pickupRole: useFallbackPickupDetails ? fallbackBushSpec.pickupRole : (existingBush.pickupRole || fallbackBushSpec.pickupRole),
-                        pickupGreetingText: useFallbackPickupDetails ? fallbackBushSpec.pickupGreetingText : (existingBush.pickupGreetingText || fallbackBushSpec.pickupGreetingText),
-                        pickupStory: useFallbackPickupDetails ? fallbackBushSpec.pickupStory : (existingBush.pickupStory || fallbackBushSpec.pickupStory)
+                        pickupLabel: hasAiPickupPassenger
+                            ? `${selectedPickupName}${selectedPickupRole ? ` (${selectedPickupRole})` : ''}`
+                            : (existingBush.pickupLabel || (selectedPickupName ? `${selectedPickupName}${selectedPickupRole ? ` (${selectedPickupRole})` : ''}` : fallbackBushSpec.pickupLabel)),
+                        pickupRole: hasAiPickupPassenger
+                            ? (selectedPickupRole || fallbackBushSpec.pickupRole)
+                            : (existingBush.pickupRole || selectedPickupRole || fallbackBushSpec.pickupRole),
+                        pickupGreetingText: hasAiPickupPassenger
+                            ? (aiPassenger?.greetingText || existingBush.pickupGreetingText || fallbackBushSpec.pickupGreetingText)
+                            : (existingBush.pickupGreetingText || aiPassenger?.greetingText || fallbackBushSpec.pickupGreetingText),
+                        pickupStory: selectedPickupStory || fallbackBushSpec.pickupStory
                     });
                     if (hydratedBush) {
                         m.bush = hydratedBush;
                         dispatchBushSpec = hydratedBush;
                     }
-                    if (useFallbackPickupDetails || !m.passenger || typeof m.passenger !== 'object' || !m.passenger.pickupStory) {
+                    if (hasAiPickupPassenger) {
+                        m.passenger = {
+                            ...aiPassenger,
+                            role: aiPassengerRole || selectedPickupRole || aiPassenger.role,
+                            pickupStory: selectedPickupStory || aiPassenger.pickupStory || null
+                        };
+                    } else if (useFallbackPickupDetails || !m.passenger || typeof m.passenger !== 'object' || !m.passenger.pickupStory) {
                         m.passenger = fallbackMission?.passenger || m.passenger || null;
                     }
-                    const storyText = String(m.s || '').trim();
-                    const fallbackPickupName = String(fallbackBushSpec?.pickupStory?.personName || fallbackMission?.passenger?.name || '').trim();
-                    const storyHasPickupName = !!fallbackPickupName && storyText.toLowerCase().includes(fallbackPickupName.toLowerCase());
+                    const pickupNameForStory = selectedPickupName || String(fallbackBushSpec?.pickupStory?.personName || fallbackMission?.passenger?.name || '').trim();
+                    const pickupRoleForStory = selectedPickupRole || String(fallbackBushSpec?.pickupRole || fallbackMission?.passenger?.role || '').trim();
+                    const storyHasPickupName = !!pickupNameForStory && storyText.toLowerCase().includes(pickupNameForStory.toLowerCase());
                     const storyLooksFlat = !storyText
                         || storyText.length < 260
                         || /mission gilt|mission endet|beendet,?\s*wenn|abgeschlossen,?\s*wenn|rueckkehr.*ausstieg|ruckkehr.*ausstieg|rückkehr.*ausstieg/i.test(storyText);
-                    const storyLacksNamedPickup = !!fallbackPickupName && !storyHasPickupName;
-                    if ((storyLooksFlat || storyLacksNamedPickup) && fallbackMission?.s) m.s = fallbackMission.s;
-                    paxText = pickupFallback?.paxText || paxText;
+                    if (storyLooksFlat && fallbackMission?.s) {
+                        m.s = fallbackMission.s;
+                    } else if (pickupNameForStory && !storyHasPickupName) {
+                        m.s = addBushPickupNameToStory(storyText, {
+                            name: pickupNameForStory,
+                            role: pickupRoleForStory,
+                            exactWhere: selectedPickupStory?.exactWhere || fallbackBushSpec?.pickupStory?.exactWhere || ''
+                        });
+                    }
+                    paxText = selectedPickupRole ? `0 PAX am Start · 1 PAX Pickup (${selectedPickupRole})` : (pickupFallback?.paxText || paxText);
                     cargoText = '-';
                     if (typeof m === 'object') {
                         m.pax = paxText;
