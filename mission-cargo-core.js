@@ -1962,7 +1962,7 @@ window.finishMissionCargoPickupAndContinue = function() {
     if (typeof window.paxVoiceResetLeg === 'function') {
         try { window.paxVoiceResetLeg(); } catch (_) {}
     }
-    if (typeof window.triggerPaxPickupBoarding === 'function' && bush?.pickupGreetingText) {
+    if (_missionBushIsPickupPassengerMission() && typeof window.triggerPaxPickupBoarding === 'function') {
         setTimeout(() => {
             try {
                 if (!window.activePassenger) return;
@@ -1980,7 +1980,7 @@ window.finishMissionCargoPickupAndContinue = function() {
     if (window.simModeActive && typeof window.resumeSimMissionAfterPickup === 'function') {
         try { window.resumeSimMissionAfterPickup(); } catch (_) {}
     }
-    if (typeof window.triggerPaxPickupDeparture === 'function' && bush?.pickupGreetingText) {
+    if (_missionBushIsPickupPassengerMission() && typeof window.triggerPaxPickupDeparture === 'function') {
         setTimeout(() => {
             try {
                 if (!window.activePassenger) return;

@@ -19627,6 +19627,39 @@ async function generateMission(options = {}) {
             const targetMode = String(dispatchBushSpec?.targetMode || '').toLowerCase();
             if (targetMode === 'strip_then_return' && (pickupKind === 'passenger' || pickupKind === 'cargo')) {
                 cargoText = '-';
+                if (pickupKind === 'passenger') {
+                    const pickupStory = (dispatchBushSpec?.pickupStory && typeof dispatchBushSpec.pickupStory === 'object') ? dispatchBushSpec.pickupStory : {};
+                    const pickupRole = String(
+                        dispatchBushSpec?.pickupRole
+                        || pickupStory.role
+                        || m?.passenger?.pickupStory?.role
+                        || m?.passenger?.role
+                        || ''
+                    ).replace(/\s+/g, ' ').trim();
+                    const pickupName = String(
+                        pickupStory.personName
+                        || m?.passenger?.pickupStory?.personName
+                        || m?.passenger?.name
+                        || dispatchBushSpec?.pickupLabel
+                        || ''
+                    ).replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
+                    const pickupDescriptor = pickupRole || pickupName;
+                    paxText = pickupDescriptor
+                        ? `0 PAX am Start · 1 PAX Pickup (${pickupDescriptor})`
+                        : '0 PAX am Start · 1 PAX Pickup';
+                    if (typeof m === 'object') {
+                        m.pax = paxText;
+                        m.paxText = paxText;
+                        m.cat = 'bush_pickup';
+                    }
+                } else if (pickupKind === 'cargo') {
+                    paxText = '0 PAX';
+                    if (typeof m === 'object') {
+                        m.pax = '0 PAX';
+                        m.paxText = '0 PAX';
+                        m.cat = 'bush_pickup_cargo';
+                    }
+                }
                 if (typeof m === 'object') {
                     m.cargo = '-';
                     m.cargoText = '-';
