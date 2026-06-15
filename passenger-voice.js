@@ -2425,16 +2425,64 @@ function _bushPickupBetweenFlightsLine(active = null, pax = null) {
     return parts.length ? `FOLLOW-UP-ZWISCHENZEIT: ${parts.join(' | ')}` : '';
 }
 
+function _bushCargoPickupLabel(active = null, cargoCtx = null) {
+    try {
+        const manifest = (typeof window.missionCargoGetManifestSnapshot === 'function')
+            ? window.missionCargoGetManifestSnapshot()
+            : null;
+        const pickupItem = Array.isArray(manifest?.items)
+            ? manifest.items.find(item => item?.pickupLocation === 'target' && !_missionManifestItemIsPassenger(item))
+            : null;
+        const manifestLabel = String(pickupItem?.storyName || pickupItem?.label || '').trim();
+        if (manifestLabel) return manifestLabel;
+    } catch (_) {}
+    const bushLabel = String(active?.bush?.pickupLabel || '').trim();
+    if (bushLabel) return bushLabel;
+    const cargoText = String(cargoCtx?.cargoText || _activeCargoText() || '').trim();
+    if (cargoText && !/^[-–—]$/.test(cargoText)) return cargoText;
+    return 'Rueckholfracht';
+}
+
+function _bushCargoPickupFollowUpLine() {
+    const followUp = _activeMissionFollowUpContext();
+    if (!followUp) return '';
+    const sourceMission = (followUp.sourceMission && typeof followUp.sourceMission === 'object') ? followUp.sourceMission : {};
+    const frame = (followUp.storyFrame && typeof followUp.storyFrame === 'object') ? followUp.storyFrame : {};
+    const parts = [
+        sourceMission.title ? `Vorheriger Auftrag=${_bushPickupVoiceText(sourceMission.title)}` : '',
+        sourceMission.story ? `Supply-Hinflug=${_bushPickupVoiceText(sourceMission.story)}` : '',
+        frame.incidentContext ? `Was vor Ort passierte=${_bushPickupVoiceText(frame.incidentContext)}` : '',
+        frame.whyNow ? `Warum jetzt zurück=${_bushPickupVoiceText(frame.whyNow)}` : '',
+        frame.soughtOutcome || frame.completionSignal ? `Handoff=${_bushPickupVoiceText(frame.soughtOutcome || frame.completionSignal)}` : ''
+    ].filter(Boolean);
+    return parts.length ? `FOLLOW-UP-CARGO-STORY: ${parts.join(' | ')}` : '';
+}
+
 function _cargoOnlyVoiceContext() {
     if (_missionHasPax() || !_cargoMissionFocus()) return null;
     const md = _activeMissionData();
     const contract = _activeMissionContractData();
     const bush = _activeBushMissionSpec();
+    const isBushCargoPickup = !!(
+        bush
+        && String(bush.targetMode || '') === 'strip_then_return'
+        && String(bush.pickupKind || '').toLowerCase() === 'cargo'
+    );
     const story = _sanitizePaxSoftPoiStory(_getMissionStory());
-    const cargoText = _activeCargoText() || 'wichtige Fracht';
+    const cargoText = isBushCargoPickup
+        ? _bushCargoPickupLabel({ contract, bush }, null)
+        : (_activeCargoText() || 'wichtige Fracht');
     const paxText = _activePaxText() || '0 PAX';
-    const start = String(md.start || contract.start || 'Startplatz').trim();
-    const dest = String(md.poiName || md.dest || contract.dest || 'Zielflugplatz').trim();
+    const start = String(
+        isBushCargoPickup
+            ? (bush?.targetRef?.name || md.poiName || md.dest || contract.dest || 'Zielstrip')
+            : (md.start || contract.start || 'Startplatz')
+    ).trim();
+    const dest = String(
+        isBushCargoPickup
+            ? (bush?.homeRef?.name || md.start || contract.start || 'Heimatplatz')
+            : (md.poiName || md.dest || contract.dest || 'Zielflugplatz')
+    ).trim();
     const dist = String(md.dist || contract.dist || '?').trim();
     const taskDomain = _normTaskDomain(contract?.taskDomain || md?.missionContract?.taskDomain || 'general');
     const contractSummary = String(contract?.summary || '').trim();
@@ -2451,7 +2499,8 @@ function _cargoOnlyVoiceContext() {
         dist,
         taskDomain,
         contractSummary,
-        aptArrivalLine
+        aptArrivalLine,
+        isBushCargoPickup
     };
 }
 
@@ -5715,20 +5764,22 @@ function _pickupCargoBoardingPrompt() {
     const active = _activeBushPickupCargoContract();
     if (!cargoCtx || !active) return null;
     const wx = _weatherContext(window.lastLiveFlightData);
-    const cargoLine = _missionRequiredItemNames(3).join(', ') || String(active.bush?.pickupLabel || cargoCtx.cargoText || 'Rueckholfracht').trim();
+    const cargoLine = _bushCargoPickupLabel(active, cargoCtx);
+    const followUpLine = _bushCargoPickupFollowUpLine();
     const targetName = String(active.bush?.targetRef?.name || cargoCtx.dest || 'dem Strip').trim();
     return `ROLLE: Lademeister am Zielstrip · Persönlichkeit: pragmatisch, direkt, routiniert
 FLUG: ${cargoCtx.start} → ${cargoCtx.dest} · ${cargoCtx.dist || '?'} NM
 AN BORD: ${cargoCtx.paxText}
-AUSRUESTUNG: ${cargoCtx.cargoText}
+RUECKHOLFRACHT: ${cargoLine}
 AUFTRAG (kurz): ${cargoCtx.story || 'Rueckholfracht an einem abgelegenen Strip aufnehmen und zum Heimatplatz zurueckbringen.'}
 STIL: kurze, glaubwuerdige Uebergabe am Boden aus Sicht des Loadmasters vor Ort.
 ${cargoCtx.contractSummary ? `MISSION-CONTRACT: ${cargoCtx.contractSummary}` : ''}
+${followUpLine}
 TASK-DOMAIN: ${cargoCtx.taskDomain}
 AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).
 
 Moment: Die Pickup-Fracht wird gerade am Zielstrip verladen, wir stehen noch am Boden in ${targetName}.${wx ? ` ${wx}` : ''}
-Sprich direkt zum Piloten als Lademeister vor Ort. Sag kurz, was jetzt eingeladen wird, warum diese Fracht zurueck zum Heimatplatz muss und worauf beim Rueckflug zu achten ist. Erwaehne die Fracht immer direkt beim Namen: ${cargoLine}. Keine Passagierperspektive, kein Smalltalk. Lege hier nur die Ausgangslage und die wichtigste Vorsicht fest; Details zum Empfaenger oder zur Werkstatt hebst du dir fuer spaetere Phasen auf.
+Sprich direkt zum Piloten als Lademeister vor Ort. Sag kurz, was jetzt eingeladen wird, wie diese Rueckfracht aus dem vorherigen Supply Run entstanden ist, warum sie zurueck zum Heimatplatz muss und worauf beim Rueckflug zu achten ist. Erwaehne die Fracht immer direkt beim Namen: ${cargoLine}. Keine Passagierperspektive, kein Smalltalk. Lege hier nur die Ausgangslage und die wichtigste Vorsicht fest; Details zum Empfaenger, zur Werkstatt oder zur Bestandsliste hebst du dir fuer spaetere Phasen auf.
 Max 3 Sätze.${_toneHint()}`;
 }
 
@@ -5737,21 +5788,23 @@ function _pickupCargoDeparturePrompt() {
     const active = _activeBushPickupCargoContract();
     if (!cargoCtx || !active) return null;
     const wx = _weatherContext(window.lastLiveFlightData);
-    const cargoLine = _missionRequiredItemNames(3).join(', ') || String(active.bush?.pickupLabel || cargoCtx.cargoText || 'Rueckholfracht').trim();
-    const homeName = String(active.bush?.homeRef?.name || cargoCtx.start || 'dem Heimatplatz').trim();
+    const cargoLine = _bushCargoPickupLabel(active, cargoCtx);
+    const homeName = String(active.bush?.homeRef?.name || cargoCtx.dest || 'dem Heimatplatz').trim();
     const continuityHint = _bushCargoPickupNarrativeHint('departure');
+    const followUpLine = _bushCargoPickupFollowUpLine();
     return `ROLLE: Lademeister am Zielstrip · Persönlichkeit: pragmatisch, direkt, routiniert
 FLUG: ${cargoCtx.start} → ${cargoCtx.dest} · ${cargoCtx.dist || '?'} NM
 AN BORD: ${cargoCtx.paxText}
-AUSRUESTUNG: ${cargoCtx.cargoText}
+RUECKHOLFRACHT: ${cargoLine}
 AUFTRAG (kurz): ${cargoCtx.story || 'Rueckholfracht an einem abgelegenen Strip aufnehmen und zum Heimatplatz zurueckbringen.'}
 STIL: kurze Rueckflug-Freigabe aus Sicht des Boden-/Ladekontakts, nicht wie ein Mitflieger.
 ${cargoCtx.contractSummary ? `MISSION-CONTRACT: ${cargoCtx.contractSummary}` : ''}
+${followUpLine}
 TASK-DOMAIN: ${cargoCtx.taskDomain}
 AUSGABE: Nur gesprochener Text (kein Markdown, keine Regieanweisungen, keine Anführungszeichen).
 
 Moment: Die Fracht ist eingeladen und der Rueckflug zum Heimatplatz laeuft jetzt an.${wx ? ` ${wx}` : ''}${continuityHint}
-Sprich direkt zum Piloten als Ladekontakt am Zielstrip. Sag kurz, dass ${cargoLine} jetzt sauber verstaut ist, warum die Lieferung in ${homeName} gebraucht wird oder ausgewertet werden muss, und gib den Rueckflug knapp frei. Fuehre die Geschichte gegenueber der Pickup-Ansage inhaltlich weiter: keine wortgleiche Wiederholung von Frachtgrund, Empfaenger oder Vorsichtshinweis. Keine Passagierperspektive.
+Sprich direkt zum Piloten als Ladekontakt am Zielstrip. Sag kurz, dass ${cargoLine} jetzt sauber verstaut ist, was seit der Supply-Lieferung am Strip damit passiert ist, warum die Lieferung in ${homeName} gebraucht wird oder ausgewertet werden muss, und gib den Rueckflug knapp frei. Fuehre die Geschichte gegenueber der Pickup-Ansage inhaltlich weiter: keine wortgleiche Wiederholung von Frachtgrund, Empfaenger oder Vorsichtshinweis. Keine Passagierperspektive.
 Max 3 Sätze.${_toneHint()}`;
 }
 
