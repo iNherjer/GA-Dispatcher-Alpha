@@ -885,6 +885,7 @@ Aktueller Anschluss:
 - Das Pack liefert nur den kreativen Rahmen: Rolle, Taetigkeit, sichtbare Ausruestung, Rueckkehrgrund und Handoff.
 - `bush_pickup_strip` verwendet dafuer die eigene `taskDomain` `bush_pickup_return`, nicht die generische `charter`-Domain.
 - Grund: normales Charter darf Termin-/Anschlusslogik nutzen; Bush-Pickup soll aus Arbeit vor Ort, Wartepunkt, Ergebnis und Rueckkehr-Handoff erzaehlen und nur dann Zeitdruck bekommen, wenn Wetter, Urgency oder Story das konkret tragen.
+- Perspektive bleibt getrennt: `story`/Briefing ist Dispatcher- bzw. Auftragsperspektive fuer den Piloten; Ich-Form des abgeholten Gasts gehoert nur in `passenger.greetingText`, `pickupStory.boardingCue`, `pickupStory.departureCue` und spaetere Voice-Ansagen.
 
 Empfohlene spaetere Anschluesse:
 

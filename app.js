@@ -9650,13 +9650,28 @@ function buildAiBushPickupStory({
         : story;
 }
 
+function sanitizeBushPickupBriefingWhere(value = '', fallback = 'am Treffpunkt am Zielstrip') {
+    let text = String(value || '').replace(/\s+/g, ' ').trim().replace(/[.!?]+$/g, '');
+    if (!text) return fallback;
+    text = text
+        .replace(/^ich\s+(?:warte|stehe|sitze)\s+/i, '')
+        .replace(/^ich\s+bin\s+/i, '')
+        .replace(/^(?:warte|stehe|sitze)\s+/i, '')
+        .replace(/\s+(?:und\s+)?(?:warte|stehe|sitze)?\s*(?:hier\s+)?auf\s+(?:sie|dich|den\s+piloten|meine\s+abholung)\s*$/i, '')
+        .replace(/\s+auf\s+(?:sie|dich|den\s+piloten|meine\s+abholung)\s*$/i, '')
+        .replace(/\bmein(?:e|en|em|er)?\s+/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return text || fallback;
+}
+
 function addBushPickupNameToStory(storyText = '', { name = '', role = '', exactWhere = '' } = {}) {
     const story = String(storyText || '').replace(/\s+/g, ' ').trim();
     const personName = String(name || '').trim();
     if (!story || !personName) return story;
     if (story.toLowerCase().includes(personName.toLowerCase())) return story;
     const roleText = String(role || '').trim();
-    const where = String(exactWhere || 'am Treffpunkt am Zielstrip').trim();
+    const where = sanitizeBushPickupBriefingWhere(exactWhere, 'am Treffpunkt am Zielstrip');
     const intro = roleText
         ? `${personName}, ${roleText}, wartet ${where}.`
         : `${personName} wartet ${where}.`;
@@ -15312,6 +15327,7 @@ Regeln:
 19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
 19a. bush + bush_pickup_strip / taskDomain bush_pickup_return: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Der Rueckkehrgrund darf organisatorisch, persoenlich, wetterbedingt oder ergebnisbezogen sein, aber nicht automatisch wie ein Charter-Termin oder Notfall klingen. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
 19b. bush + bush_pickup_strip: Fülle passenger.pickupStory mit Voice-Ankern zur exakt gleichen Geschichte. Diese Felder sind keine neue Story, sondern die Basis für spätere PAX-Ansagen: exactWhere, whyThere, returnReason, boardingCue, departureCue.
+19c. bush + bush_pickup_strip: OUTPUT.story ist immer ein Briefing fuer den Piloten aus Dispatcher-/Auftragsperspektive. Keine Ich-Form aus Sicht des Pickup-Gasts, keine Formulierungen wie "ich war", "bring mich", "ich sitze an Bord" oder "ich muss zurueck". Die Ich-Perspektive gehoert nur in passenger.greetingText und die Pickup-Voice-Cues.
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
 22. Jede Mission soll implizit oder explizit vier Fragen beantworten: Wer/was genau ist betroffen? Was ist passiert oder was hat den Auftrag ausgeloest? Warum gerade jetzt? Welchen konkreten Unterschied macht unser Flug?
@@ -15332,7 +15348,7 @@ ${JSON.stringify(contract)}
 <OUTPUT>
 {
   "title": "Kurzer Missionstitel",
-  "story": "4-5 Saetze, konkret, lokal plausibel und mit echtem Missionsanlass",
+  "story": "4-5 Saetze als Dispatch-Briefing fuer den Piloten, konkret, lokal plausibel und mit echtem Missionsanlass",
   "pax": "z.B. 1 PAX (...) oder 0 PAX",
   "cargo": "z.B. Messkoffer (45 lbs)",
   "passenger": {
@@ -15745,6 +15761,42 @@ function _missionPipelineV4SarHeliSubjectLabel(frame = {}) {
     return byIncident[incidentId] || 'eine vermisste oder verletzte Person';
 }
 
+function _missionPipelineV4BushPickupBriefingLooksPaxPerspective(text = '') {
+    const normalized = normalizeMissionText(text);
+    if (!normalized) return false;
+    return /\b(ich\s+(bin|war|habe|muss|soll|sitze|stehe|warte|komme|fliege|bringe)|bring\s+mich|hol\s+mich|nimm\s+mich|mein(?:e|er|em|en)?\s+(arbeit|auftrag|ausruestung|ausrüstung|rucksack|tablet|daten|proben|werkzeug|notizen)|als\s+passagier\s+zurueck|als\s+passagier\s+zuruck|als\s+passagier\s+zurück)\b/.test(normalized);
+}
+
+function _missionPipelineV4BushPickupNeutralField(value = '', fallback = '') {
+    const text = _missionPipelineV4EnsureSentence(String(value || '').replace(/\s+/g, ' ').trim());
+    if (!text) return _missionPipelineV4EnsureSentence(fallback);
+    return _missionPipelineV4BushPickupBriefingLooksPaxPerspective(text)
+        ? _missionPipelineV4EnsureSentence(fallback)
+        : text;
+}
+
+function _missionPipelineV4ComposeBushPickupBriefingStory(contract = {}, passenger = {}, sourceStory = '') {
+    const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
+    const pax = (passenger && typeof passenger === 'object') ? passenger : {};
+    const pickupStory = (pax.pickupStory && typeof pax.pickupStory === 'object') ? pax.pickupStory : {};
+    const targetName = String(contract?.target?.name || contract?.route?.targetName || 'dem Zielstrip').trim() || 'dem Zielstrip';
+    const startIcao = (typeof currentStartICAO !== 'undefined') ? currentStartICAO : '';
+    const homeName = String(contract?.route?.startName || startIcao || 'dem Heimatplatz').trim() || 'dem Heimatplatz';
+    const name = String(pickupStory.personName || pax.name || 'Der Pickup-Gast').replace(/\s*\([^)]*\)\s*$/, '').trim() || 'Der Pickup-Gast';
+    const role = String(pickupStory.role || pax.role || 'Pickup-Gast').trim();
+    const gender = String(pax.gender || '').toLowerCase();
+    const pronoun = gender === 'female' ? 'sie' : (gender === 'male' ? 'ihn' : name);
+    const where = sanitizeBushPickupBriefingWhere(pickupStory.exactWhere, `am Treffpunkt am Striprand bei ${targetName}`);
+    const whyFallback = String(frame.incidentContext || frame.subjectDetail || sourceStory || `${name} hat die Arbeit draußen abgeschlossen und wartet auf den Rückflug.`).trim();
+    const backFallback = String(frame.soughtOutcome || frame.whyNow || frame.completionSignal || `Zurück in ${homeName} werden Ergebnisse, Notizen und Ausrüstung übergeben.`).trim();
+    const why = _missionPipelineV4BushPickupNeutralField(pickupStory.whyThere, whyFallback);
+    const back = _missionPipelineV4BushPickupNeutralField(pickupStory.returnReason, backFallback);
+    const roleLine = role ? `${name}, ${role}, wartet heute ${where}.` : `${name} wartet heute ${where}.`;
+    const pickupLine = `Flieg leer von ${homeName} nach ${targetName}, setz die Maschine sauber am Strip ab und nimm ${pronoun} am Wartepunkt auf.`;
+    const returnLine = `Bring ${pronoun} anschließend zurück nach ${homeName}; ${_missionPipelineV4LowerFirst(_missionPipelineV4StripSentenceEnd(back))}.`;
+    return [roleLine, why, pickupLine, returnLine].filter(Boolean).join(' ');
+}
+
 function _missionPipelineV4CleanSarHeliBriefingInput(text = '') {
     return String(text || '')
         .replace(/\bN\/A\b/gi, '')
@@ -15910,7 +15962,7 @@ function _missionPipelineV4FinalizeGreeting(passenger = {}, contract = {}, story
     return pax;
 }
 
-function _missionPipelineV4FinalizeStory(story = '', contract = {}) {
+function _missionPipelineV4FinalizeStory(story = '', contract = {}, context = {}) {
     const raw = String(story || '').trim();
     const frame = (contract?.storyFrame && typeof contract.storyFrame === 'object') ? contract.storyFrame : {};
     const taskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
@@ -15922,6 +15974,9 @@ function _missionPipelineV4FinalizeStory(story = '', contract = {}) {
     if (_missionPipelineV4LooksEnglish(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
     if (_missionPipelineV4LooksInternalMissionText(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
     if (_missionPipelineV4LooksFragmentedStory(raw)) return _missionPipelineV4ComposeStoryFallback(contract);
+    if (taskDomain === 'bush_pickup_return' && _missionPipelineV4BushPickupBriefingLooksPaxPerspective(raw)) {
+        return _missionPipelineV4ComposeBushPickupBriefingStory(contract, context.passenger, raw);
+    }
     if (taskDomain === 'search_and_rescue' && (
         _missionPipelineV4SarTextConflictsIncidentType(raw, frame.incidentType)
         || _missionPipelineV4SarTextConflictsIncidentFamily(raw, frame.incidentType)
@@ -15980,7 +16035,7 @@ function sanitizeMissionWriterV4Payload(raw = null, context = {}) {
         targetGeoContext: context.targetGeoContext || null,
         missionPlanV2: context.missionPlanV2 || null
     });
-    const finalStory = _missionPipelineV4FinalizeStory(String(src.story || '').trim(), contract);
+    const finalStory = _missionPipelineV4FinalizeStory(String(src.story || '').trim(), contract, { passenger });
     passenger = _missionPipelineV4FinalizeGreeting(passenger, contract, finalStory);
     return {
         t: String(src.title || '').trim(),
