@@ -11212,6 +11212,17 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
     z-index: 5;
 }
 
+.navcom-dispatch-help-bar {
+    display: none;
+}
+
+body.theme-navcom .navcom-dispatch-help-bar {
+    display: flex;
+    width: 100%;
+    margin: 0 0 6px;
+    padding-right: 2px;
+}
+
 .map-toolbar-help-btn,
 .map-side-help-btn {
     flex-basis: 28px;
