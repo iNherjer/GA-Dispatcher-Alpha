@@ -18,8 +18,14 @@
             followUpKind: 'bush_pickup_cargo',
             sourceLabel: 'Bush Supply Run',
             followUpLabel: 'Bush Cargo Pickup'
+        },
+        bush_scenic_hopper: {
+            followUpKind: 'bush_pickup_strip',
+            sourceLabel: 'Bush Adventure',
+            followUpLabel: 'Bush Pickup'
         }
     };
+    const PASSENGER_PICKUP_SOURCE_KINDS = new Set(['bush_charter_strip', 'bush_scenic_hopper']);
 
     let initialized = false;
     const acceptingIds = new Set();
@@ -315,6 +321,20 @@
                 sourceCargoText: cargo
             };
         }
+        if (sourceKind === 'bush_scenic_hopper') {
+            const name = passenger?.name || 'der Adventure-Gast';
+            const role = passenger?.role || 'Adventure-Gast';
+            return {
+                outboundPurpose: story || `${name} wurde als ${role} von ${homeName} nach ${targetName} geflogen, um den geplanten Backcountry-Aufenthalt am Zielstrip zu beginnen.`,
+                stayOrWorkSummary: `${name} hat die Zeit draußen für den geplanten Adventure-Teil genutzt: den lokalen Treffpunkt erreicht, den Tagesrucksack sortiert, Fotos und Eindrücke gesammelt und den Rückweg zum bekannten Strip mit dem Kontakt abgestimmt.`,
+                whyNowReturn: 'Der vereinbarte Wildnisaufenthalt ist beendet, das Wetterfenster passt, und Kamera, Rucksack und persönliche Sachen sind wieder gepackt.',
+                returnReason: 'Rückkehr zur Basis mit Fotos, Notizen und der persönlichen Geschichte vom Aufenthalt draußen.',
+                teamContinuity: `Der Gast fragt bewusst wieder denselben Piloten an, weil der Strip, der Anflug und die Absprachen aus dem Adventure-Hinflug vertraut sind.`,
+                pickupGreetingText: `${name || 'Ich'} bin wieder am Strip. Der Ausflug hat sich gelohnt, der Rucksack ist gepackt, und ich habe einiges vom Aufenthalt zu erzählen.`,
+                sourcePaxText: pax,
+                sourceCargoText: cargo
+            };
+        }
         return {
             outboundPurpose: story || `Die Versorgungsladung aus ${homeName} wurde nach ${targetName} gebracht.`,
             stayOrWorkSummary: `Die Crew vor Ort hat die Lieferung sortiert, Verbrauchsmaterial verteilt und die Rückfracht für den Heimflug vorbereitet.`,
@@ -347,6 +367,8 @@
         const memory = req.narrativeMemory || {};
         const sourceStory = displayText(req.source?.story || memory.outboundPurpose || '');
         if (followUpKind === 'bush_pickup_strip') {
+            const sourceLabel = displayText(req.sourceLabel || 'Bush-Flug');
+            const adventureSource = String(req.sourceKind || '').toLowerCase() === 'bush_scenic_hopper';
             const passenger = {
                 ...(req.passenger || {}),
                 name: cleanText(req.passenger?.name || 'Bush-Teamgast', 80),
@@ -379,7 +401,7 @@
                     trigger: `${name} meldet sich nach dem abgeschlossenen Aufenthalt am ${targetName} für den Rückflug.`,
                     focusSubject: `${name}, ${role}, Rückholung nach erledigter Arbeit am Zielstrip`,
                     keyQuestion: `Was ${name} am ${targetName} erledigt hat, warum die Rückholung jetzt passt und welcher Handoff in ${homeName} folgt.`,
-                    stakes: `${whyNow} Die Fortsetzung knüpft bewusst an den vorherigen Charter-Dropoff an.`,
+                    stakes: `${whyNow} Die Fortsetzung knüpft bewusst an den vorherigen ${sourceLabel}-Hinflug an.`,
                     completionSignal: `Nach der Rückkehr nach ${homeName} werden Rückbericht, Notizen und mitgeführte Ausrüstung übergeben.`,
                     subjectDetail: `${name}, ${role}, wartet ${exactWhere} mit Notizen und persönlichem Gepäck.`,
                     incidentContext: stay,
@@ -396,16 +418,23 @@
                     departureCue: `${whyNow} Zurück in ${homeName} kann ich den Bericht direkt übergeben.`
                 },
                 pickupCreativeBrief: {
-                    purpose: 'Fortsetzung einer bereits geflogenen Bush-Charter-Mission. Der Folgeauftrag nutzt dieselbe Person und erzählt die Rückholung nach dem Aufenthalt vor Ort.',
-                    recipe: `Leerflug von ${homeName} nach ${targetName}, ${name} am Strip aufnehmen, Rückflug nach ${homeName}; Briefing und Voice bauen auf dem vorherigen Charter-Dropoff auf.`,
-                    coreQuestions: [
+                    purpose: adventureSource
+                        ? 'Fortsetzung einer bereits geflogenen Bush-Adventure-Mission. Der Folgeauftrag nutzt dieselbe Person und erzählt die Rückholung nach einem persönlichen Backcountry-Aufenthalt.'
+                        : 'Fortsetzung einer bereits geflogenen Bush-Charter-Mission. Der Folgeauftrag nutzt dieselbe Person und erzählt die Rückholung nach dem Aufenthalt vor Ort.',
+                    recipe: `Leerflug von ${homeName} nach ${targetName}, ${name} am Strip aufnehmen, Rückflug nach ${homeName}; Briefing und Voice bauen auf dem vorherigen ${sourceLabel}-Hinflug auf.`,
+                    coreQuestions: adventureSource ? [
+                        `Wie knüpft die Rückholung glaubwürdig an den vorherigen Adventure-Hop von ${name} an?`,
+                        `Was hat ${name} am ${targetName} persönlich erlebt, gesehen oder geschafft?`,
+                        `Warum wartet ${name} jetzt genau am Striprand von ${targetName}?`,
+                        `Welche Fotos, Notizen, Ausrüstung oder kleine Erinnerung kommen mit zurück nach ${homeName}?`
+                    ] : [
                         `Wie knüpft die Rückholung glaubwürdig an den vorherigen Charter-Dropoff von ${name} an?`,
                         `Was hat ${name} am Zielstrip konkret erledigt?`,
                         `Warum wartet ${name} jetzt genau am Striprand von ${targetName}?`,
                         `Was wird nach der Rückkehr in ${homeName} mit Notizen, Bericht oder Ausrüstung gemacht?`
                     ],
                     candidateShortlist: [{
-                        id: 'followup_original_charter_guest',
+                        id: adventureSource ? 'followup_original_adventure_guest' : 'followup_original_charter_guest',
                         roleIdeas: [role],
                         taskIdeas: [stay, whyNow],
                         objectIdeas: ['Notizen', 'persönliches Gepäck', displayText(memory.sourceCargoText || 'leichte Ausrüstung')],
@@ -415,9 +444,10 @@
                     writerExpectations: [
                         `Nutze exakt denselben Gast: ${name}, ${role}.`,
                         'Das Briefing ist ein Dispatch-Briefing für den Piloten, keine Ich-Erzählung des Gasts.',
+                        adventureSource ? 'Adventure-Follow-ups dürfen persönlicher, sinnlicher und erlebnisorientierter sein, aber nicht plötzlich wie ein beruflicher Charter oder Notfall klingen.' : '',
                         'Keine Formular- oder Instruction-Sprache. Die Fortsetzung soll wie ein echter Folgeauftrag wirken.',
                         'Normale deutsche Umlaute verwenden.'
-                    ]
+                    ].filter(Boolean)
                 }
             };
         }
@@ -509,7 +539,7 @@
 
         const now = nowMs();
         const eligibleAt = nextLocalMorningAt(8);
-        const passenger = sourceKind === 'bush_charter_strip' ? extractPassenger(md) : null;
+        const passenger = PASSENGER_PICKUP_SOURCE_KINDS.has(sourceKind) ? extractPassenger(md) : null;
         const memory = buildNarrativeMemory(sourceKind, md, passenger, homeRef, targetRef);
         const req = {
             schema: SCHEMA,
@@ -539,12 +569,12 @@
                 distanceNm: Number.isFinite(Number(md.initialDist || md.dist)) ? Number(md.initialDist || md.dist) : null
             },
             passenger,
-            cargoReturn: sourceKind === 'bush_supply_strip' ? buildCargoReturn(memory, targetRef) : null,
+            cargoReturn: cfg.followUpKind === 'bush_pickup_cargo' ? buildCargoReturn(memory, targetRef) : null,
             narrativeMemory: memory,
             ui: {
                 title: `${cfg.followUpLabel}: ${targetRef.name || targetRef.icao}`,
                 subtitle: `Fortsetzung von ${cfg.sourceLabel}`,
-                previewText: sourceKind === 'bush_charter_strip'
+                previewText: cfg.followUpKind === 'bush_pickup_strip'
                     ? `${passenger?.name || 'Der Gast'} meldet sich vom Strip zur Rückholung.`
                     : `Am Strip wartet Rückfracht aus dem Supply Run.`
             }
@@ -736,8 +766,9 @@
         const name = p.name || 'der Gast';
         const role = p.role || 'Bush-Teamgast';
         const pronoun = passengerPronoun(p);
+        const sourceLabel = displayText(req.sourceLabel || 'Bush-Flug');
         return [
-            `Folgeauftrag aus dem letzten Bush Charter: ${name}, ${role}, wartet wieder am Strip bei ${targetName}.`,
+            `Folgeauftrag aus dem letzten ${sourceLabel}: ${name}, ${role}, wartet wieder am Strip bei ${targetName}.`,
             `${memory.stayOrWorkSummary || 'Der Aufenthalt vor Ort ist abgeschlossen, die Ausrüstung ist geordnet und der lokale Kontakt hat den Rückflug freigegeben.'}`,
             `${memory.whyNowReturn || 'Die Basis braucht den Rückbericht noch heute, bevor das Team die nächsten Schritte plant.'}`,
             `Du startest wieder in ${homeName}, fliegst leer zum bekannten Strip, nimmst ${name} am vereinbarten Treffpunkt auf und bringst ${pronoun} mit Notizen, Gepäck und Lagebild zurück zur Basis.`,
