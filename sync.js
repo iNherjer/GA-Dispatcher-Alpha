@@ -951,7 +951,16 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         : (Number.isFinite(routeDistNm) && routeDistNm <= targetApproachLeadNm);
     const departureT = Number.isFinite(startDistNm) ? _mapAutoZoomSmoothstep((startDistNm - 2) / 14) : cruiseProgress;
     const departureLookaheadNm = _mapAutoZoomLerp(3.8, Math.max(lookaheadNm, cruiseLookaheadCapNm), departureT);
+    const routeLastIdx = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints) && routeWaypoints.length > 0)
+        ? routeWaypoints.length - 1
+        : null;
+    const routeTargetIsFinal = routeLastIdx !== null
+        && Number.isFinite(Number(routeTarget?.idx))
+        && Number(routeTarget.idx) === routeLastIdx;
     const nearDeparture = !Number.isFinite(startDistNm) || startDistNm <= 4.5;
+    const nearArrival = routeTargetIsFinal && Number.isFinite(routeDistNm) && routeDistNm <= 6.5;
+    const nearPatternAirport = nearDeparture || nearArrival;
+    const patternCandidate = nearArrival || ((altitudeRefFt < 1800 || gs < 75) && nearPatternAirport);
 
     let phase = 'Strecke';
     let requiredRadiusNm = Math.max(2, lookaheadNm);
@@ -983,7 +992,7 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
             targetApproachViewCenter || aircraftPoint,
             120
         );
-    } else if ((altitudeRefFt < 1800 || gs < 75) && nearDeparture) {
+    } else if (patternCandidate) {
         phase = 'Platzrunde';
         const lowAltT = _mapAutoZoomSmoothstep(altitudeRefFt / 1800);
         requiredRadiusNm = _mapAutoZoomLerp(1.4, 4.8, lowAltT);
@@ -1062,6 +1071,10 @@ function computeMapAutoZoomTargetZoom(lat, lon, gsKts, altFt, hdgDeg = null) {
         targetApproachMin: MAP_AUTOZOOM_TARGET_APPROACH_MIN,
         targetApproachLeadNm: Math.round(targetApproachLeadNm * 10) / 10,
         targetApproachActive,
+        routeTargetIsFinal,
+        nearDeparture,
+        nearArrival,
+        nearPatternAirport,
         poiFocusLocked: routeTarget?.focusLocked === true,
         poiFocusReleaseProgress: MAP_AUTOZOOM_POI_FOCUS_RELEASE_PROGRESS,
         plannedLookaheadNm: Math.round(plannedLookaheadNm * 10) / 10,
