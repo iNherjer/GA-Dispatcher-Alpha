@@ -1041,7 +1041,8 @@ function _normTaskDomain(value) {
         'animal_transport',
         'club_training_basic',
         'club_training_advanced',
-        'bush_pickup_return'
+        'bush_pickup_return',
+        'bush_adventure'
     ]);
     return allowed.has(s) ? s : 'general';
 }
@@ -1197,7 +1198,7 @@ function _professionalRoleMeta() {
     const objectName = md.poiName || 'dem Zielobjekt';
     const taskDomain = _activeTaskDomain();
 
-    if (taskDomain === 'media_photo' || taskDomain === 'inspection_infra' || taskDomain === 'training' || taskDomain === 'charter' || taskDomain === 'club_utility' || taskDomain === 'bush_pickup_return') {
+    if (taskDomain === 'media_photo' || taskDomain === 'inspection_infra' || taskDomain === 'training' || taskDomain === 'charter' || taskDomain === 'club_utility' || taskDomain === 'bush_pickup_return' || taskDomain === 'bush_adventure') {
         return null;
     }
     // Operative Domains sollen nicht in wissenschaftliche Fallback-Hinweise driften.
@@ -4564,6 +4565,9 @@ function _roleStyleHint(roleRaw, pax = null) {
     if (taskDomain === 'poi_learning_guide') {
         return 'locker-bildend und faktenorientiert: kurze Orientierung, klare Einordnung, kein Anweisungsstil.';
     }
+    if (taskDomain === 'bush_adventure') {
+        return 'locker, bodenstaendig und leicht gespannt: wildnisnah, ruhig, mit persoenlichem Backcountry-Faden und klarem Bezug zum Aufenthalt nach der Landung.';
+    }
     if (taskDomain === 'sightseeing_tour') {
         if (_isBushAdventureMission()) {
             return 'locker, bodenstaendig und leicht staunend: wildnisnah, ruhig, mit persoenlichem Backcountry-Faden; kein Stadt-, Event- oder Prospektton.';
@@ -5175,7 +5179,7 @@ function _greetingMissionGuidance() {
     const taskDomain = String(pax?.taskDomain || '').toLowerCase();
     const isReporterApt = (!isPOI && taskDomain === 'news_coverage');
     const isSightseeingApt = (!isPOI && taskDomain === 'sightseeing_tour');
-    const isBushAdventure = (!isPOI && taskDomain === 'sightseeing_tour' && _isBushAdventureMission());
+    const isBushAdventure = (!isPOI && (taskDomain === 'bush_adventure' || (taskDomain === 'sightseeing_tour' && _isBushAdventureMission())));
     const isBushPickupReturn = (!isPOI && taskDomain === 'bush_pickup_return');
     const isLearningGuidePoi = (isPOI && taskDomain === 'poi_learning_guide');
     const targetAltFt = Math.round(Number(pax?.targetAltFt || 0));
@@ -5207,7 +5211,7 @@ function _greetingMissionGuidance() {
             ? `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass). Nenne einen Komforthinweis nur wenn wirklich nötig. ${comfortContentRule}${timingHintNeeded ? ' Erwähne kurz, dass pünktliche Ankunft wichtig ist.' : ''} Sonst klarer Fokus auf Arbeit am Boden. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`
             : `Nenne kurz, was dein Reporter-Einsatz am Ziel vor Ort ist (1 konkreter Anlass), danach Fokus auf ${timingHintNeeded ? 'pünktliche ' : ''}Ankunft und Start der Arbeit am Boden. KEIN Komforthinweis. KEINE Zielarbeitsanforderungen in der Luft wie feste Höhe, Überflug oder Verweildauer nennen.`;
     } else if (isBushAdventure) {
-        reqLine = `Gib dem Flug einen konkreten persoenlichen Anlass am Ziel: warum du genau zu diesem Strip willst, was dort auf dich wartet oder warum du dort Zeit verbringen wirst. Keine generischen Formulierungen wie Gast, Transfer, Ausflug oder einfach nur Aussicht. Der Ton soll nach Bush-Adventure klingen: abgelegen, ruhig, glaubwuerdig, mit einem klaren Wildnisbezug. Kein Anweisungsstil: KEINE Navigations-, Hoehen- oder Arbeitsvorgaben an den Piloten. Maximal ein kurzer Komforthinweis, sonst klare Vorfreude mit echtem Hintergrund.`;
+        reqLine = `Sag kurz und persoenlich, warum du genau zu diesem Strip willst, was dort auf dich wartet oder warum du dort Zeit verbringen wirst. Nenne einen konkreten Bodenplan mit Wildnisbezug, z.B. Camp, Trail, Lodge, Flussabschnitt, Fotozeit oder ruhigen Beobachtungspunkt. Sprich freundlich als Gast, ohne Navigations-, Hoehen- oder Arbeitsvorgaben an den Piloten. Maximal ein kurzer Komforthinweis, sonst klare Vorfreude mit echtem Hintergrund.`;
     } else if (isBushPickupReturn) {
         reqLine = `Sprich als abgeholter Bush-Pickup-Gast, nicht als Pilot oder Dispatcher. Fokus auf deine konkrete Arbeit draußen, deinen Wartepunkt und warum der Rückflug zur Basis der passende Abschluss ist. Kein generischer Charter-Termin, kein künstlicher Zeitdruck, keine Zielarbeitsanforderungen wie feste Höhe, Überflug oder Verweildauer nennen.`;
     } else if (isSightseeingApt) {

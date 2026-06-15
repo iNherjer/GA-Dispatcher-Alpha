@@ -380,16 +380,16 @@
             accessReasons: ['der Flussabschnitt liegt naeher am Zielstrip als an jeder Strasse', 'der Guide wartet am Striprand', 'das Gepaeck bleibt fuer den kurzen Flug handlich']
         },
         {
-            id: 'geology_scenic_stop',
+            id: 'geology_ground_stop',
             familyId: 'geo_guest',
             label: 'Geologie, Landschaft und kurze Bodenpause',
             tags: ['mountain', 'mapping', 'photo', 'remote_strip'],
             weight: 0.9,
             roleIdeas: ['Geologie-Dozentin', 'Naturkundler', 'Karteninteressierter Gast'],
-            taskIdeas: ['Gesteinslinien und Hangformen aus der Luft sehen', 'am Ziel ein paar Fotos und Notizen machen', 'den Strip als ruhigen Aussichtspunkt nutzen'],
+            taskIdeas: ['nach der Landung eine kurze Bodenpause mit Fotos und Notizen machen', 'den Strip als Zugang zu Talrand, Hangweg oder Aussichtspunkt nutzen', 'Kartenrolle und Kamera fuer den Aufenthalt am Boden bereithalten'],
             objectIdeas: ['Notizbuch', 'kleine Lupe', 'Kameratasche', 'Kartenrolle'],
-            returnDrivers: ['die Landung am Ziel ist der geplante Hoehepunkt des Hoppers', 'der Gast bekommt den Backcountry-Kontext aus Luft und Bodenperspektive', 'es gibt keinen Folgeauftrag ausser dem sauberen Abschluss am Strip'],
-            accessReasons: ['der Strip liegt gut fuer Blick auf Tal und Hang', 'eine kurze Landung macht den Scenic-Leg greifbar', 'die Route bleibt ein entspannter Adventure-Flug']
+            returnDrivers: ['die Landung am Ziel ist der geplante Hoehepunkt des Hoppers', 'der Gast bekommt den Backcountry-Kontext direkt am Zielstrip und am kurzen Bodenweg', 'es gibt keinen Folgeauftrag ausser dem sauberen Abschluss am Strip'],
+            accessReasons: ['der Strip liegt gut fuer den kurzen Weg zu Talrand oder Hang', 'die kurze Landung macht den Aufenthalt vor Ort erst sinnvoll', 'der Hop bleibt ein entspannter Backcountry-Hinflug']
         },
         {
             id: 'lodge_guest_short_hop',
@@ -410,7 +410,7 @@
             tags: ['wildlife', 'forest', 'meadow', 'water'],
             weight: 0.85,
             roleIdeas: ['Naturbeobachter', 'Fotografin', 'Guide-Gast'],
-            taskIdeas: ['Lichtung, Ufer und Waldrand aus der Luft lesen', 'am Ziel ruhig aussteigen und Beobachtungspunkt erreichen', 'Kamera und Fernglas griffbereit halten'],
+            taskIdeas: ['nach der Landung leise zum Beobachtungspunkt weitergehen', 'am Strip vom lokalen Kontakt den besten Pfad zu Lichtung oder Ufer bekommen', 'Kamera und Fernglas fuer den Aufenthalt am Boden griffbereit halten'],
             objectIdeas: ['Fernglas', 'Kameratasche', 'Tagesrucksack', 'Feldnotizbuch'],
             returnDrivers: ['der kurze Hop liefert den besonderen Zugang zum Beobachtungsraum', 'der Aufenthalt beginnt ohne laute Logistik', 'die Landung ist der natuerliche Abschluss des Fluglegs'],
             accessReasons: ['der Strip liegt nahe am Beobachtungspunkt', 'die Umgebung passt zu einem stillen Outdoor-Aufenthalt', 'der Flug vermeidet einen langen Anmarsch']
@@ -429,8 +429,8 @@
         },
         {
             id: 'plein_air_artist',
-            familyId: 'wildcard_scenic',
-            label: 'Kurioser, ruhiger Scenic-Gast',
+            familyId: 'wildcard_adventure',
+            label: 'Kurioser, ruhiger Backcountry-Gast',
             tags: ['photo', 'camp', 'wildcard', 'remote_strip'],
             wildcard: true,
             weight: 0.5,

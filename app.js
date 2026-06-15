@@ -1690,11 +1690,11 @@ function getMissionTaskProfile(profileId, baseType) {
                 id: bush.id,
                 label: bush.label,
                 appliesTo: ['bush'],
-                roleProfile: 'tour_guide_relaxed_v1',
-                taskDomain: 'sightseeing_tour',
+                roleProfile: 'bush_adventure_guest_v1',
+                taskDomain: 'bush_adventure',
                 paxText: '1 PAX (Adventure Guest)',
                 cargoPool: Array.isArray(bush.cargoPool) ? bush.cargoPool.slice() : [],
-                storyCue: 'Backcountry-Adventure mit persoenlichem Wildnis-Anlass, glaubwuerdigem Zielstrip und sauberer Landung am Remote Strip.',
+                storyCue: 'Backcountry-Adventure mit persoenlichem Wildnis-Anlass, glaubwuerdigem Zielstrip, sauberer Landung und Beginn des Aufenthalts am Boden.',
                 category: bush.category,
                 opsNotes: Array.isArray(bush.opsNotes) ? bush.opsNotes.slice() : []
             };
@@ -8519,7 +8519,8 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
         'animal_transport',
         'club_training_basic',
         'club_training_advanced',
-        'bush_pickup_return'
+        'bush_pickup_return',
+        'bush_adventure'
     ]);
     const _normRoleProfile = (v, fallback = 'general_passenger_v1') => {
         const s = String(v || '').trim().toLowerCase();
@@ -8554,6 +8555,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
         if (roleProfile === 'instructor_calm_precise_v1') return 'training';
         if (roleProfile === 'charter_professional_neutral_v1') return 'charter';
         if (roleProfile === 'bush_pickup_guest_v1') return 'bush_pickup_return';
+        if (roleProfile === 'bush_adventure_guest_v1') return 'bush_adventure';
         if (roleProfile === 'medical_sensitive_v1') return 'medical_transfer';
         if (roleProfile === 'news_reporter_professional_v1') return 'news_coverage';
         if (roleProfile === 'tour_guide_relaxed_v1') return 'sightseeing_tour';
@@ -9326,7 +9328,7 @@ function _storyAlreadyCoversProfileCue(story, profile) {
 function _profileOpsRuleForPrompt(profile, isPOI = false) {
     if (!profile || profile.id === 'auto') return '';
     if (profile.id === 'bush_scenic_hopper') {
-        return '16. OPERATIONS-REGEL BUSH-ADVENTURE: Auftrag ist ein glaubwuerdiger Backcountry-Adventure- oder Wildnis-Transfer zu einem Remote Strip mit Landung am Ziel. Die Story MUSS dem Passagier einen konkreten persoenlichen Anlass geben, warum er genau dorthin will oder dort hinmuss (z.B. Fotoauftrag, Lodge, Rangerhuette, Trekking-Ende, Canyon-Camp, Fluss- oder Angeltrip, abgelegene Verabredung, Huettennacht, Wildnisbesuch). Vermeide generische Formulierungen wie "ein Gast wird gebracht", "wir fliegen jemanden hin", "Adventure Guest", "Scenic-Transfer" oder reinen Touri-/Stadtrundflugton. Der Bush-Strip und die abgelegene Lage muessen in Story und greetingText spuerbar wichtig sein.';
+        return '16. OPERATIONS-REGEL BUSH-ADVENTURE: Auftrag ist ein glaubwuerdiger Backcountry-Adventure- oder Wildnis-Transfer zu einem Remote Strip mit Landung am Ziel. Die Story MUSS dem Passagier einen konkreten persoenlichen Anlass geben, warum er genau dorthin will oder dort hinmuss (z.B. Fotoaufenthalt nach der Landung, Lodge, Rangerhuette, Trekking-Start, Canyon-Camp, Fluss- oder Angeltrip, abgelegene Verabredung, Huettennacht, Wildnisbesuch). Formuliere als konkreten Hinflug mit Ausstieg und Beginn des Bodenplans am Zielstrip; Beobachtungen aus dem Cockpit sind nur Anflugstimmung. Der Bush-Strip und die abgelegene Lage muessen in Story und greetingText spuerbar wichtig sein.';
     }
     if (profile.id === 'news_coverage' && !isPOI) {
         return '16. OPERATIONS-REGEL REPORTER A-B: Dies ist ein reiner Transport zum Zielflugplatz. KEIN Arbeitsauftrag in der Luft am Ziel, KEIN Kreisen, KEIN Verweilen/Überflug als Missionsziel. Die eigentliche Berichterstattung findet nach der Landung am Boden statt.';
@@ -13425,7 +13427,7 @@ function _missionPipelineV3ProfileCatalog(context = {}) {
             'science_geo', 'science_general', 'club_utility', 'medical_transfer', 'news_coverage',
             'sightseeing_tour', 'poi_learning_guide', 'historian_guided_tour', 'mapping_survey',
             'cargo_fragile', 'search_and_rescue', 'fire_watch', 'animal_transport',
-            'club_training_basic', 'club_training_advanced', 'bush_pickup_return'
+            'club_training_basic', 'club_training_advanced', 'bush_pickup_return', 'bush_adventure'
         ]
     };
 }
@@ -13924,6 +13926,17 @@ const MISSION_SEMANTICS_V4_RULESET = {
             ],
             writer: [
                 'Story bleibt entspannt und driftet nicht in Arbeitssprache.'
+            ],
+            forceSceneNone: true
+        },
+        bush_adventure: {
+            planner: [
+                'Backcountry-Hinflug mit Landung und Beginn eines Aufenthalts am Ziel bleibt Hauptzweck.',
+                'Landung, Ausstieg und Bodenplan am Zielstrip sind die relevanten Abschlussmarker.'
+            ],
+            writer: [
+                'Adventure-Story endet mit Ankunft und Ausstieg am Zielstrip; Beobachtungen aus dem Cockpit duerfen nur Anflugstimmung sein.',
+                'Schreibe den Flug als Zugang zum Erlebnisort, an dem der Aufenthalt nach der Landung beginnt.'
             ],
             forceSceneNone: true
         },
@@ -15113,6 +15126,23 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             soughtOutcome: 'Wir sollen den Zielbereich so anfliegen, dass Blick, Stimmung und Wiedererkennungswert wirklich tragen.'
         };
     }
+    if (taskDomain === 'bush_adventure') {
+        return {
+            trigger: `Ein Gast möchte heute bewusst per Bush-Hop zum abgelegenen Strip ${targetLabel}, weil dort der eigentliche Aufenthalt beginnt.`,
+            focusSubject: 'Backcountry-Gast, Zielstrip und Beginn des Aufenthalts nach der Landung',
+            keyQuestion: `Wer nach ${targetLabel} gebracht wird, was dort nach der Landung beginnt und warum genau dieser Strip der sinnvolle Zugang ist.`,
+            stakes: 'Der Bush-Charakter entsteht durch Ankunft, Ausstieg und den geplanten Aufenthalt vor Ort.',
+            completionSignal: 'Nach der Landung am Zielstrip steigt der Gast mit leichtem Gepäck aus und wird dort vom Kontakt, Trail oder Camp-Plan übernommen.',
+            subjectDetail: _missionPipelineV4PickOne([
+                'einen Outdoor-Gast mit leichtem Kit, der am Zielstrip einen konkreten Wildnisplan beginnt',
+                'eine Person, die den Strip als Zugang zu Camp, Lodge, Trail oder Wasser nutzt',
+                'einen Backcountry-Besucher, dessen Ausrüstung und Treffpunkt nach der Landung plausibel zum Ort passen'
+            ]),
+            incidentContext: `Der Zielstrip ${targetLabel} ist der geplante Zugangspunkt fuer den Aufenthalt draussen.`,
+            whyNow: 'Das Flugfenster passt, damit der Gast am Ziel noch ruhig ankommt, Gepaeck uebernimmt und den Bodenplan ohne Hektik beginnt.',
+            soughtOutcome: 'Wir sollen den Gast sicher zum Zielstrip bringen, dort sauber landen und den Adventure-Leg mit Ausstieg und Handoff abschliessen.'
+        };
+    }
     if (taskDomain === 'cargo_fragile') {
         return {
             trigger: `Die empfindliche Sendung fuer ${targetLabel} wird am Ziel in einem engen Zeitfenster weiterverarbeitet.`,
@@ -15447,17 +15477,18 @@ const BUSH_MISSION_VARIETY_COPY = {
         ]
     },
     bush_scenic_hopper: {
-        purpose: 'Offener Kreativrahmen fuer einen Bush-Adventure- oder Scenic-Hopper. Das Profil lebt vom Ort, vom Gast und vom Erlebnis der Landung, nicht von einem harten Arbeitsauftrag.',
-        recipe: (targetName, homeName) => `Kurzer Adventure-/Scenic-Flug von ${homeName} nach ${targetName}, Landung am Zielstrip, Abschluss dort; kein Rueckhol- oder Lieferzwang.`,
+        purpose: 'Offener Kreativrahmen fuer einen Bush-Adventure-Hopper. Das Profil bringt einen Gast zu einem abgelegenen Strip, wo nach der Landung ein Aufenthalt, Trail-, Lodge-, Camp- oder Naturplan beginnt.',
+        recipe: (targetName, homeName) => `Kurzer Backcountry-Hinflug von ${homeName} nach ${targetName}, Landung am Zielstrip, Ausstieg/Handoff dort; kein Rundflug, kein Ueberflugauftrag, kein Rueckhol- oder Lieferzwang.`,
         coreQuestions: (targetName) => [
-            `Wer erlebt den Hop nach ${targetName} und was macht den Ort fuer diese Person reizvoll?`,
+            `Wer fliegt nach ${targetName} und warum beginnt genau dort der persoenliche Outdoor- oder Backcountry-Plan?`,
             'Was nimmt der Gast mit: Kamera, Tagesrucksack, Angelrohr, Skizzenrolle oder anderes leichtes Material?',
-            'Was beginnt nach der Landung: Hike, Lodge-Aufenthalt, Fotozeit, Campbesuch oder Beobachtung?',
+            'Was beginnt nach der Landung am Boden: Hike, Lodge-Aufenthalt, Fotozeit, Campbesuch, Flussabschnitt oder stiller Beobachtungspunkt?',
             'Warum macht die Bush-Landung selbst den Auftrag besonders?',
             'Wie bleibt der Ton ruhig, glaubwuerdig und nicht wie ein formaler Arbeitsauftrag?'
         ],
         writerExpectations: [
-            'Nicht jedes Scenic-Profil in Arbeit, Forschung oder Zeitdruck verwandeln.',
+            'Nicht jedes Adventure-Profil in Arbeit, Forschung oder Zeitdruck verwandeln.',
+            'Schreibe den Flug als Transport zum Erlebnisort, an dem der Aufenthalt am Boden beginnt.',
             'Die Landung am Ziel ist der natuerliche Abschluss des Fluglegs.',
             'Der Gast darf persoenlich, neugierig oder ungewoehnlich sein; die Geografie bleibt aus dem Contract.'
         ]
@@ -16025,8 +16056,8 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
         routeRules.push('Bush-Charter: Passagier wird am Zielstrip abgesetzt; der Abschluss liegt am Ziel, nicht daheim.');
         realismTargets.unshift('Charter braucht einen konkreten Gast, dessen Zielgrund und den Ablauf, der nach der Landung vor Ort beginnt.');
     } else if (profileId === 'bush_scenic_hopper') {
-        routeRules.push('Bush-Scenic-Hopper: Adventure-/Scenic-Landung am Zielstrip; kein Liefer-, Pickup- oder Recon-Zwang.');
-        realismTargets.unshift('Scenic braucht Erlebnis, Gastperspektive und Ortssinn, ohne daraus automatisch Feldarbeit oder Zeitdruck zu machen.');
+        routeRules.push('Bush-Adventure-Hopper: Hinflug zu einem Remote Strip; Landung, Ausstieg und Beginn des Bodenplans am Ziel sind bindend.');
+        realismTargets.unshift('Adventure braucht einen Gast, einen persoenlichen Bodenplan nach der Landung und einen plausiblen Grund fuer genau diesen Zielstrip.');
     } else if (profileId === 'bush_recon_return') {
         routeRules.push('Bush-Recon-Return: Zielstrip oder Umfeld wird aus der Luft geprueft; keine geplante Landung, Rueckflug zur Basis ist Pflicht.');
         realismTargets.unshift('Recon braucht Anlass, sichtbare Pruefpunkte und die Folgeentscheidung in der Basis.');
@@ -16083,7 +16114,7 @@ Arbeitsweise:
 7. Das Zielsubjekt und die TaskDomain bilden einen bindenden Fokus-Lock. Sekundaeranker duerfen nur Kontextrollen aus den semanticsRules uebernehmen.
 8. Baue immer einen klaren Story-Kern: Ausloeser/Trigger, Fokus-Subjekt, offene Frage am Ziel, Einsatznutzen des Fluges, naechster Handoff.
 9. Konkretisiere diesen Story-Kern immer mit 2-4 Lage-Details: wer/was genau betroffen ist, was passiert ist, warum der Einsatz gerade jetzt noetig ist und welcher Befund aus der Luft gebraucht wird.
-9a. Bei Bush-Profilen mit CONTEXT_BUNDLE.missionVarietyBrief nutze diesen Brief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende, Zweck und Folgegrund nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Das Profil-Rezept bleibt bindend: Supply liefert, Charter setzt ab, Scenic landet als Erlebnis, Recon kehrt nach Luftcheck heim, Cargo-Pickup holt Fracht zurueck.
+9a. Bei Bush-Profilen mit CONTEXT_BUNDLE.missionVarietyBrief nutze diesen Brief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende, Zweck und Folgegrund nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Das Profil-Rezept bleibt bindend: Supply liefert, Charter setzt ab, Adventure bringt den Gast zur Landung und zum Beginn des Aufenthalts am Ziel, Recon kehrt nach Luftcheck heim, Cargo-Pickup holt Fracht zurueck.
 9b. Bei bush_pickup_strip nutze CONTEXT_BUNDLE.pickupCreativeBrief als offenen kreativen Rahmen. Wenn candidateShortlist vorhanden ist, plane im Normalfall eine konsistente Richtung daraus und mische Rollen, Gegenstaende und Rueckkehrgruende nicht quer durch mehrere Kandidaten. Candidate-Elemente sind Rohmaterial, keine fertigen Satzteile: nicht wortwoertlich hinter "weil", "damit" oder "um" kopieren, sondern grammatisch frei ausformulieren. Plane keine fertige Vorlage, sondern beantworte wer/was/wo/wann/wie/warum im storyFrame: konkrete Person, Grund am Zielstrip, mindestens zwei konkrete Tätigkeiten oder Fundstücke, Wartepunkt, Rückkehrgrund und Nutzen des Rückflugs.
 9c. Bei CONTEXT_BUNDLE.followUpContext plane eine Fortsetzung, keinen neuen Zufallsauftrag: lockedPassenger und sourceMission bleiben bindend, storyFrame/pickupStory liefern den inhaltlichen Anschluss. Formuliere Planfelder als natürliche Story-Anker, nicht als Systemanweisungen.
 10. Fuer search_and_rescue gilt zusaetzlich: Lege eine konkrete Incident-Familie fest, z.B. missing_hiker, fallen_climber, missing_kayaker, vehicle_off_road, road_collision oder downed_ultralight. Waehle sie aus der Zielkategorie heraus; SAR ist nicht automatisch Personensuche. Benenne letzte Sichtung, Meldung, Ortung oder Funkkontakt, wahrscheinliche Lage und moegliche Suchhinweise.
@@ -16449,7 +16480,7 @@ Regeln:
 17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
 18. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
 19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
-19a. bush + CONTRACT.missionVarietyBrief: Nutze missionVarietyBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung, Zweck und Folgegrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Das Profil-Rezept bleibt bindend: Supply liefert am Ziel aus, Charter setzt am Ziel ab, Scenic endet als Erlebnislandung am Ziel, Recon prueft aus der Luft und kehrt heim, Cargo-Pickup holt nur Fracht zur Basis zurueck.
+19a. bush + CONTRACT.missionVarietyBrief: Nutze missionVarietyBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung, Zweck und Folgegrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Das Profil-Rezept bleibt bindend: Supply liefert am Ziel aus, Charter setzt am Ziel ab, Adventure landet am Ziel und startet dort den Aufenthalt am Boden, Recon prueft aus der Luft und kehrt heim, Cargo-Pickup holt nur Fracht zur Basis zurueck.
 19b. bush + bush_pickup_strip / taskDomain bush_pickup_return: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren. Schreibe niemals Rohfragmente wie "weil der Strip ist..." oder "damit die Basis kann..."; forme daraus natuerliche deutsche Saetze. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Der Rueckkehrgrund darf organisatorisch, persoenlich, wetterbedingt oder ergebnisbezogen sein, aber nicht automatisch wie ein Charter-Termin oder Notfall klingen. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
 19c. bush + bush_pickup_strip: Fülle passenger.pickupStory mit Voice-Ankern zur exakt gleichen Geschichte. Diese Felder sind keine neue Story, sondern die Basis für spätere PAX-Ansagen: exactWhere, whyThere, returnReason, boardingCue, departureCue.
 19d. bush + bush_pickup_strip: OUTPUT.story ist immer ein Briefing fuer den Piloten aus Dispatcher-/Auftragsperspektive. Keine Ich-Form aus Sicht des Pickup-Gasts, keine Formulierungen wie "ich war", "bring mich", "ich sitze an Bord" oder "ich muss zurueck". Die Ich-Perspektive gehoert nur in passenger.greetingText und die Pickup-Voice-Cues.
@@ -17750,9 +17781,9 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             'Remote Charter mit Fokus auf Terrain-Management und kontrolliertem Ausstieg'
         ],
         bush_scenic_hopper: [
-            'Bush-Adventure-Leg mit Scenic-Charakter zu einem Remote Strip',
-            'Backcountry-Hopper fuer Aussicht, Wildnis und saubere Strip-Landung',
-            'Abgelegener Adventure-Transfer mit ruhigem Bush-Flying-Charakter'
+            'Bush-Adventure-Hinflug zu einem Remote Strip mit Aufenthalt nach der Landung',
+            'Backcountry-Hopper fuer Wildniszugang, leichtes Gepaeck und saubere Strip-Landung',
+            'Abgelegener Adventure-Transfer mit klarem Bodenplan am Zielstrip'
         ],
         bush_recon_return: [
             'Backcountry-Recon zu einem abgelegenen Strip mit Rueckkehr zum Heimatplatz',
@@ -18258,7 +18289,7 @@ targetGeoContext: ${JSON.stringify(targetGeoContext ? {
 Erlaubte roleProfile:
 ["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","tour_guide_learning_v1","historian_storyteller_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1","bush_pickup_guest_v1","bush_charter_guest_v1","bush_adventure_guest_v1"]
 Erlaubte taskDomain:
-["general","training","charter","inspection_infra","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","poi_learning_guide","historian_guided_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced","bush_pickup_return"]
+["general","training","charter","inspection_infra","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","poi_learning_guide","historian_guided_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced","bush_pickup_return","bush_adventure"]
 </KONTEXT>
 
 <DISPATCH_FORM>

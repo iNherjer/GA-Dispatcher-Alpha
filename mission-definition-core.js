@@ -637,7 +637,7 @@ function _buildBushPassenger(profileId = 'bush_charter_strip', context = {}) {
             ? 'technical_inspector_v1'
             : (profileId === 'bush_pickup_strip' ? 'bush_pickup_guest_v1' : 'bush_charter_guest_v1'));
     passenger.taskDomain = profileId === 'bush_scenic_hopper'
-        ? 'sightseeing_tour'
+        ? 'bush_adventure'
         : (profileId === 'bush_recon_return'
             ? 'inspection_infra'
             : (profileId === 'bush_pickup_strip' ? 'bush_pickup_return' : 'charter'));
@@ -847,7 +847,7 @@ function buildBushMissionEnvelope({ profileId = 'bush_supply_strip', startAirpor
     } else if (profile.id === 'bush_scenic_hopper') {
         passenger = _buildBushPassenger(profile.id, { homeName, targetName });
         title = `Bush Adventure: ${targetName}`;
-        story = `${passenger?.role || 'Ein Gast'} nutzt den Flug von ${homeName} nach ${targetName} als echten Backcountry-Hop. Kein Arbeitsauftrag, sondern ein kontrollierter Adventure-Leg mit Fokus auf Aussicht, Gelande und einer sauberen Landung am Strip.`;
+        story = `${passenger?.role || 'Ein Gast'} nutzt den Flug von ${homeName} nach ${targetName} als echten Backcountry-Hop. Der kurze Hinflug bringt die Person an einen abgelegenen Strip, wo nach der sauberen Landung der Aufenthalt oder Outdoor-Plan beginnt.`;
         paxText = passenger?.role ? `1 PAX (${passenger.role})` : '1 PAX';
     } else if (profile.id === 'bush_recon_return') {
         passenger = _buildBushPassenger(profile.id, { homeName, targetName });
