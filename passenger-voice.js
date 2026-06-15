@@ -2305,13 +2305,51 @@ function _bushPickupPassengerPerspectiveLine() {
     return `BUSH-PICKUP-PERSPEKTIVE: Du bist der abgeholte Passagier (${role}). Du wartest nicht mehr draußen, sondern bist nach dem Pickup an Bord auf dem Rückflug von ${pickupPlace} nach ${homePlace}. Sprich nie als Pilot, Abholer, Lademeister, Bodencrew oder Dispatcher. Sage nicht, dass du "den Gast", "den Passagier" oder "ihn" eingesammelt hast; du bist selbst dieser Gast.${storyLine ? ` ${storyLine}` : ''}`;
 }
 
+function _bushPickupVoiceText(text = '') {
+    return String(text || '')
+        .replace(/\bfuer\b/g, 'für')
+        .replace(/\bFuer\b/g, 'Für')
+        .replace(/\bzurueck\b/g, 'zurück')
+        .replace(/\bZurueck\b/g, 'Zurück')
+        .replace(/\bRueck/g, 'Rück')
+        .replace(/\brueck/g, 'rück')
+        .replace(/\bnaechst/g, 'nächst')
+        .replace(/\bNaechst/g, 'Nächst')
+        .replace(/\bGelaende/g, 'Gelände')
+        .replace(/\bgelaende/g, 'gelände')
+        .replace(/\bGelaendewagen\b/g, 'Geländewagen')
+        .replace(/\bPruef/g, 'Prüf')
+        .replace(/\bpruef/g, 'prüf')
+        .replace(/\bgeprueft\b/g, 'geprüft')
+        .replace(/\bMaengel/g, 'Mängel')
+        .replace(/\bmaengel/g, 'mängel')
+        .replace(/\bUeber/g, 'Über')
+        .replace(/\bueber/g, 'über')
+        .replace(/\bAusruestung\b/g, 'Ausrüstung')
+        .replace(/\bausruestung\b/g, 'ausrüstung')
+        .replace(/\bdraussen\b/g, 'draußen')
+        .replace(/\bDraussen\b/g, 'Draußen')
+        .replace(/\bGeraet/g, 'Gerät')
+        .replace(/\bgeraet/g, 'gerät')
+        .replace(/geraet\b/g, 'gerät')
+        .replace(/\bHandgeraet/g, 'Handgerät')
+        .replace(/\bLuecken\b/g, 'Lücken')
+        .replace(/\bluecken\b/g, 'lücken')
+        .replace(/Lueck/g, 'Lück')
+        .replace(/lueck/g, 'lück')
+        .replace(/\bGaeste/g, 'Gäste')
+        .replace(/\bgaeste/g, 'gäste')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 function _bushPickupStoryData(active = null, pax = null) {
     const bush = active?.bush || _activeBushPickupPassengerContract()?.bush || null;
     const story = (bush?.pickupStory && typeof bush.pickupStory === 'object')
         ? bush.pickupStory
         : ((pax?.pickupStory && typeof pax.pickupStory === 'object') ? pax.pickupStory : {});
-    const personName = String(story.personName || pax?.name || bush?.pickupLabel || 'Pickup-Gast').replace(/\s*\([^)]*\)\s*$/, '').trim();
-    const role = String(story.role || pax?.role || bush?.pickupRole || 'Pickup-Gast').trim();
+    const personName = _bushPickupVoiceText(story.personName || pax?.name || bush?.pickupLabel || 'Pickup-Gast').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const role = _bushPickupVoiceText(story.role || pax?.role || bush?.pickupRole || 'Pickup-Gast');
     const pickupPlace = String(bush?.targetRef?.name || active?.contract?.dest || 'dem Zielstrip').trim();
     const homePlace = String(bush?.homeRef?.name || active?.contract?.start || 'dem Heimatplatz').trim();
     return {
@@ -2319,11 +2357,11 @@ function _bushPickupStoryData(active = null, pax = null) {
         role,
         pickupPlace,
         homePlace,
-        exactWhere: String(story.exactWhere || `am Treffpunkt am Striprand bei ${pickupPlace}`).trim(),
-        whyThere: String(story.whyThere || '').trim(),
-        returnReason: String(story.returnReason || '').trim(),
-        boardingCue: String(story.boardingCue || '').trim(),
-        departureCue: String(story.departureCue || '').trim()
+        exactWhere: _bushPickupVoiceText(story.exactWhere || `am Treffpunkt am Striprand bei ${pickupPlace}`),
+        whyThere: _bushPickupVoiceText(story.whyThere || ''),
+        returnReason: _bushPickupVoiceText(story.returnReason || ''),
+        boardingCue: _bushPickupVoiceText(story.boardingCue || ''),
+        departureCue: _bushPickupVoiceText(story.departureCue || '')
     };
 }
 

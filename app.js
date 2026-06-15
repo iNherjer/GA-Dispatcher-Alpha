@@ -9557,6 +9557,23 @@ function pickBushPickupStorySentence(text = '', pattern = null, maxLen = 260) {
     return String(picked || '').slice(0, maxLen).trim();
 }
 
+function normalizeBushPickupWhyThereText(value = '', targetName = 'dem Zielstrip') {
+    const clean = _missionPipelineV4BushPickupDisplayText(value).replace(/\s+/g, ' ').trim();
+    if (!clean) return '';
+    const parts = clean.split(/\s*;\s*/).map(part => part.trim()).filter(Boolean);
+    if (!parts.length) return clean;
+    const first = parts[0];
+    const firstNorm = normalizeMissionText(first);
+    const needsAccessSentence = _missionPipelineV4LooksBushPickupFragmentText(first)
+        || /^(?:der\s+)?strip\s+(?:selbst\s+)?(?:ist|liegt|dient|bleibt)\b/.test(firstNorm)
+        || /^(treffpunkt|abholpunkt|naechster|nachster|nächster|sicherer|neutraler|kurzer|schnellster|besserer)\b/.test(firstNorm);
+    if (!needsAccessSentence) return clean;
+    const access = _missionPipelineV4StripSentenceEnd(
+        _missionPipelineV4BushPickupAccessSentence(first, targetName)
+    ).replace(/[.!?]+$/g, '').trim();
+    return [access, ...parts.slice(1)].filter(Boolean).join('; ');
+}
+
 function bushPickupRoleContext(role = '', storyText = '') {
     const hay = normalizeMissionText(`${role} ${storyText}`);
     if (/\b(hydrolog|wasserstand|pegel|fluss|river|bach|ufer|sediment)\b/.test(hay)) {
@@ -9608,33 +9625,34 @@ function buildAiBushPickupStory({
 } = {}) {
     const passenger = aiPassenger && typeof aiPassenger === 'object' ? aiPassenger : {};
     const aiStory = passenger.pickupStory && typeof passenger.pickupStory === 'object' ? passenger.pickupStory : {};
-    const role = String(aiStory.role || passenger.role || fallbackPickupStory?.role || 'Pickup-Gast').trim();
-    const personName = String(aiStory.personName || passenger.name || fallbackPickupStory?.personName || '').trim();
+    const display = (value = '') => _missionPipelineV4BushPickupDisplayText(String(value || '')).replace(/\s+/g, ' ').trim();
+    const role = display(aiStory.role || passenger.role || fallbackPickupStory?.role || 'Pickup-Gast');
+    const personName = display(aiStory.personName || passenger.name || fallbackPickupStory?.personName || '');
     const targetName = String(dest?.n || dest?.name || dest?.icao || 'dem Zielstrip').trim();
     const homeName = String(start?.n || start?.name || start?.icao || currentStartICAO || 'dem Heimatplatz').trim();
     const roleContext = bushPickupRoleContext(role, storyText);
-    const storyReturn = pickBushPickupStorySentence(
+    const storyReturn = display(pickBushPickupStorySentence(
         storyText,
         /\b(zurueck|zurück|heim|basis|mccall|auswert|ueberg|überg|bericht|planung|crew|naechst|nächst|handoff|termin|freigabe)\b/,
         280
-    );
-    const storyWork = pickBushPickupStorySentence(
+    ));
+    const storyWork = display(pickBushPickupStorySentence(
         storyText,
         /\b(gemess|mess|probe|daten|foto|tablet|karte|skizz|markier|kontroll|geprueft|geprüft|dokument|wartung|feld)\b/,
         320
-    );
-    const exactWhere = String(aiStory.exactWhere || '').trim()
+    ));
+    const exactWhere = display(aiStory.exactWhere)
         || `am Striprand bei ${targetName}, neben einem kleinen Geländewagen mit ${roleContext.equipment}`;
-    const whyThere = String(aiStory.whyThere || '').trim()
+    const whyThere = normalizeBushPickupWhyThereText(aiStory.whyThere, targetName)
         || compactBushPickupStoryExcerpt(storyText, 320)
-        || String(fallbackPickupStory?.whyThere || '').trim();
-    const returnReason = String(aiStory.returnReason || '').trim()
+        || normalizeBushPickupWhyThereText(fallbackPickupStory?.whyThere, targetName);
+    const returnReason = display(aiStory.returnReason)
         || storyReturn
         || roleContext.returnReason.replace(/\bder Basis\b/g, homeName);
-    const boardingCue = String(aiStory.boardingCue || '').trim()
+    const boardingCue = display(aiStory.boardingCue)
         || storyWork
         || roleContext.boarding;
-    const departureCue = String(aiStory.departureCue || '').trim()
+    const departureCue = display(aiStory.departureCue)
         || roleContext.departure.replace(/\bder Basis\b/g, homeName);
     const story = {
         personName,
@@ -13608,9 +13626,15 @@ function _missionPipelineV4BushPickupDisplayText(text = '') {
         .replace(/\bgelaende/g, 'gelände')
         .replace(/\bGelaendewagen\b/g, 'Geländewagen')
         .replace(/\bgeprueft\b/g, 'geprüft')
+        .replace(/\bgepruefte\b/g, 'geprüfte')
+        .replace(/\bgeprueften\b/g, 'geprüften')
         .replace(/\bpruefen\b/g, 'prüfen')
+        .replace(/\bprueft\b/g, 'prüft')
+        .replace(/\bpruefte\b/g, 'prüfte')
+        .replace(/\bprueften\b/g, 'prüften')
         .replace(/\bPruef/g, 'Prüf')
         .replace(/\bMaengel/g, 'Mängel')
+        .replace(/\bmaengel/g, 'mängel')
         .replace(/\bUebergabe\b/g, 'Übergabe')
         .replace(/\buebergeben\b/g, 'übergeben')
         .replace(/\bueber\b/g, 'über')
@@ -13625,7 +13649,14 @@ function _missionPipelineV4BushPickupDisplayText(text = '') {
         .replace(/\bentlueftet\b/g, 'entlüftet')
         .replace(/\bStoer/g, 'Stör')
         .replace(/\bGeraet/g, 'Gerät')
+        .replace(/geraet\b/g, 'gerät')
         .replace(/\bHandgeraet/g, 'Handgerät')
+        .replace(/\bLuecken\b/g, 'Lücken')
+        .replace(/\bluecken\b/g, 'lücken')
+        .replace(/Lueck/g, 'Lück')
+        .replace(/lueck/g, 'lück')
+        .replace(/\bGaeste/g, 'Gäste')
+        .replace(/\bgaeste/g, 'gäste')
         .replace(/\bAussen/g, 'Außen')
         .replace(/\bGebaeude/g, 'Gebäude')
         .replace(/\bMassband\b/g, 'Maßband');
@@ -13635,6 +13666,19 @@ function _missionPipelineV4BushPickupAccessSentence(reason = '', targetLabel = '
     const r = _missionPipelineV4StripSentenceEnd(_missionPipelineV4BushPickupDisplayText(reason || '')).trim();
     const target = String(targetLabel || 'Der Zielstrip').trim() || 'Der Zielstrip';
     if (!r) return `${target} ist der passende Zugangspunkt für den Abschluss der Arbeit draußen.`;
+    if (/^(?:der\s+)?strip\s+selbst\s+ist\s+der\s+arbeitsort\b/i.test(r)) {
+        return _missionPipelineV4EnsureSentence(`${target} ist selbst der Arbeitsort dieser Prüfung`);
+    }
+    if (/^(?:der\s+)?strip\s+liegt\s+/i.test(r)) {
+        return _missionPipelineV4EnsureSentence(`${target} liegt ${r.replace(/^(?:der\s+)?strip\s+liegt\s+/i, '').trim()}`);
+    }
+    if (/^(?:der\s+)?strip\s+dient\s+/i.test(r)) {
+        return _missionPipelineV4EnsureSentence(`${target} dient ${r.replace(/^(?:der\s+)?strip\s+dient\s+/i, '').trim()}`);
+    }
+    if (/^(?:der\s+)?strip\s+bleibt\s+/i.test(r)) {
+        return _missionPipelineV4EnsureSentence(`${target} bleibt ${r.replace(/^(?:der\s+)?strip\s+bleibt\s+/i, '').trim()}`);
+    }
+    if (/^der\s+strip\s+ist\s+/i.test(r)) return _missionPipelineV4EnsureSentence(`Der Strip ist ${r.replace(/^der\s+strip\s+ist\s+/i, '').trim()}`);
     if (/^strip\s+ist\s+/i.test(r)) return _missionPipelineV4EnsureSentence(`Der Strip ist ${r.replace(/^strip\s+ist\s+/i, '').trim()}`);
     if (/^treffpunkt\s+/i.test(r)) return _missionPipelineV4EnsureSentence(`Der Treffpunkt liegt ${r.replace(/^treffpunkt\s+/i, '').trim()}`);
     if (/^abholpunkt\s+/i.test(r)) return _missionPipelineV4EnsureSentence(`Der Abholpunkt liegt ${r.replace(/^abholpunkt\s+/i, '').trim()}`);
@@ -15600,8 +15644,10 @@ function _missionPipelineV4NarrativeTextUsable(text = '') {
 function _missionPipelineV4LooksBushPickupFragmentText(text = '') {
     const normalized = normalizeMissionText(text);
     if (!normalized) return false;
-    if (/^(strip\s+ist|treffpunkt|abholpunkt|naechster|nächster|sicherer|neutraler|kurzer|schnellster|besserer)\b/.test(normalized)) return true;
-    if (/\bweil\s+(strip|treffpunkt|abholpunkt|naechster|nächster|sicherer|neutraler|kurzer|schnellster|besserer)\b/.test(normalized)) return true;
+    if (/^(strip\s+(selbst\s+)?(ist|liegt|dient|bleibt)|treffpunkt|abholpunkt|naechster|nachster|nächster|sicherer|neutraler|kurzer|schnellster|besserer)\b/.test(normalized)) return true;
+    if (/^(der\s+)?strip\s+selbst\s+ist\s+der\s+arbeitsort\b/.test(normalized)) return true;
+    if (/\bweil\s+(?:(?:der|die|das)\s+)?(?:strip|treffpunkt|abholpunkt|naechster|nachster|nächster|sicherer|neutraler|kurzer|schnellster|besserer)\b/.test(normalized)) return true;
+    if (/\bweil\s+(?:der|die|das)\s+[a-z0-9_-]+\s+(?:selbst\s+)?ist\s+/.test(normalized)) return true;
     if (/\bweil\s+[a-z0-9_-]+\s+ist\s+/.test(normalized)) return true;
     if (/(^|[.!?]\s+)(naechste|nächste|rangerstation|basis|lodge-team|projektleitung|freigabe)[a-z0-9_-]*\s+(crew|braucht|passt|wartet|geht|wird)\b/.test(normalized)) return true;
     return false;
@@ -15983,7 +16029,7 @@ function _missionPipelineV4BushPickupReturnSentence(value = '', homeName = 'der 
         if (/^nächste\s+crew\s+/i.test(raw)) return `Die nächste Crew ${raw.replace(/^nächste\s+crew\s+/i, '').trim()}`;
         return raw;
     })();
-    return _missionPipelineV4EnsureSentence(normalized);
+    return _missionPipelineV4EnsureSentence(normalized.charAt(0).toUpperCase() + normalized.slice(1));
 }
 
 function _missionPipelineV4ComposeBushPickupBriefingStory(contract = {}, passenger = {}, sourceStory = '') {

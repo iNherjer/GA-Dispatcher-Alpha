@@ -32,11 +32,47 @@ function _sanitizeBushMissionSuccess(raw = null) {
     };
 }
 
+function _normalizeBushPickupStoryText(text = '') {
+    return String(text || '')
+        .replace(/\bfuer\b/g, 'für')
+        .replace(/\bFuer\b/g, 'Für')
+        .replace(/\bzurueck\b/g, 'zurück')
+        .replace(/\bZurueck\b/g, 'Zurück')
+        .replace(/\bRueck/g, 'Rück')
+        .replace(/\brueck/g, 'rück')
+        .replace(/\bnaechst/g, 'nächst')
+        .replace(/\bNaechst/g, 'Nächst')
+        .replace(/\bGelaende/g, 'Gelände')
+        .replace(/\bgelaende/g, 'gelände')
+        .replace(/\bGelaendewagen\b/g, 'Geländewagen')
+        .replace(/\bPruef/g, 'Prüf')
+        .replace(/\bpruef/g, 'prüf')
+        .replace(/\bgeprueft\b/g, 'geprüft')
+        .replace(/\bMaengel/g, 'Mängel')
+        .replace(/\bmaengel/g, 'mängel')
+        .replace(/\bUeber/g, 'Über')
+        .replace(/\bueber/g, 'über')
+        .replace(/\bAusruestung\b/g, 'Ausrüstung')
+        .replace(/\bausruestung\b/g, 'ausrüstung')
+        .replace(/\bdraussen\b/g, 'draußen')
+        .replace(/\bDraussen\b/g, 'Draußen')
+        .replace(/\bGeraet/g, 'Gerät')
+        .replace(/\bgeraet/g, 'gerät')
+        .replace(/geraet\b/g, 'gerät')
+        .replace(/\bHandgeraet/g, 'Handgerät')
+        .replace(/\bLuecken\b/g, 'Lücken')
+        .replace(/\bluecken\b/g, 'lücken')
+        .replace(/Lueck/g, 'Lück')
+        .replace(/lueck/g, 'lück')
+        .replace(/\bGaeste/g, 'Gäste')
+        .replace(/\bgaeste/g, 'gäste');
+}
+
 function _sanitizeBushPickupStory(raw = null) {
     if (!raw || typeof raw !== 'object') return null;
     const out = {};
     const add = (key, maxLen = 260) => {
-        const value = String(raw[key] || '').trim().replace(/\s+/g, ' ');
+        const value = _normalizeBushPickupStoryText(raw[key]).trim().replace(/\s+/g, ' ');
         if (value) out[key] = value.slice(0, maxLen);
     };
     add('personName', 120);
