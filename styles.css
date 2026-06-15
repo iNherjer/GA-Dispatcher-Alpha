@@ -239,6 +239,7 @@ h1 {
     gap: 10px;
     margin-top: 0;
     margin-bottom: 0;
+    align-items: stretch;
 }
 
 .mission-generation-progress {
@@ -2497,6 +2498,13 @@ body.theme-retro .api-fuel-meter .api-scale {
     cursor: pointer;
 }
 
+.map-side-drawer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
 .map-side-drawer-status {
     min-height: 18px;
     padding: 7px 14px 0;
@@ -4382,6 +4390,13 @@ body.map-is-fullscreen .pinboard-header {
                 opacity     0.22s ease,
                 padding     0.22s ease;
     opacity: 1;
+}
+
+.map-toolbar-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
 }
 
 /* ── Collapse toggle tab — floats below header into map, doesn't add height ── */
@@ -11181,6 +11196,40 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
     background: rgba(77, 166, 255, 0.28);
     color: #ffffff;
     outline: none;
+}
+
+.context-help-bar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin: -2px 0 8px;
+}
+
+.context-help-btn,
+.main-menu-help-btn,
+.map-toolbar-help-btn,
+.map-side-help-btn {
+    position: relative;
+    z-index: 5;
+}
+
+.main-menu-help-btn {
+    align-self: center;
+    flex-basis: 32px;
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    min-height: 32px;
+}
+
+.map-toolbar-help-btn,
+.map-side-help-btn {
+    flex-basis: 28px;
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
+    font-size: 13px;
 }
 
 .settings-help-popover {

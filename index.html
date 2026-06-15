@@ -96,6 +96,9 @@
     <div id="followupRequestBanner" class="followup-request-banner" hidden></div>
     
     <div id="classicInputs">
+        <div class="context-help-bar dispatch-help-bar">
+            <button type="button" class="settings-help-btn context-help-btn" onclick="showSettingsHelp('dispatch', event)" aria-label="Hilfe zum Dispatch-Bereich" aria-expanded="false">?</button>
+        </div>
         <div class="ops-command-panel" aria-label="Ops 1940 Missionsauswahl">
             <div class="ops-picto-card ops-picto-dep" data-focus="opsDepInput" title="Start bearbeiten">
                 <span class="ops-picto-label">DEP</span>
@@ -240,6 +243,9 @@
     </div>
 
     <div id="navcomInputs" class="radio-stack">
+        <div class="context-help-bar dispatch-help-bar navcom-dispatch-help-bar">
+            <button type="button" class="settings-help-btn context-help-btn" onclick="showSettingsHelp('dispatch', event)" aria-label="Hilfe zum Dispatch-Bereich" aria-expanded="false">?</button>
+        </div>
         
         <div class="radio-module audio-panel" style="padding: 10px 12px;">
             <div class="radio-module-right-screws"></div>
@@ -460,6 +466,7 @@
     <div class="main-menu-row">
         <button class="btn-menu" id="mapTableBtn" onclick="toggleMapTable()">🗺️ Kartentisch</button>
         <button class="btn-menu" id="pinboardMenuBtn" onclick="togglePinboard()">📋 Pinnwand <span id="mainPinboardBadge">!</span></button>
+        <button type="button" class="settings-help-btn main-menu-help-btn" onclick="showSettingsHelp('main-menu', event)" aria-label="Hilfe zu Menue Funktionen" aria-expanded="false">?</button>
     </div>
 
     <div id="dispatchStatusArea" class="dispatch-status-area">
@@ -1000,7 +1007,10 @@
 <div id="mapTableOverlay" class="pinboard-overlay">
     <div class="pinboard-header">
         <div id="mapToolbarInner">
-        <span id="navStationLabel" style="color: #fff; font-weight: bold; font-family: monospace;">NAV STATION (KARTENTISCH)</span>
+        <div class="map-toolbar-title-row">
+            <span id="navStationLabel" style="color: #fff; font-weight: bold; font-family: monospace;">NAV STATION (KARTENTISCH)</span>
+            <button type="button" class="settings-help-btn map-toolbar-help-btn" onclick="showSettingsHelp('map-table', event)" aria-label="Hilfe zum Kartentisch" aria-expanded="false">?</button>
+        </div>
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
             <button class="pb-btn" onclick="resetMainRoute()">🔄 Route Reset</button>
             <button class="pb-btn" id="vpToggleBtn" onclick="toggleMapProfile()" style="background:#2E8B57; color:#fff; font-weight:bold;">📊 Profil (An)</button>
@@ -1214,7 +1224,10 @@
                             <div class="map-side-drawer-kicker">TOOLS</div>
                             <div id="checklistDrawerTitle" class="map-side-drawer-title">Kartenwerkzeuge</div>
                         </div>
-                        <button class="map-side-drawer-close" type="button" onclick="window.gaChecklistToggleDrawer && gaChecklistToggleDrawer(false)" title="Schließen">×</button>
+                        <div class="map-side-drawer-actions">
+                            <button type="button" class="settings-help-btn map-side-help-btn" onclick="showSettingsHelp('map-side-drawer', event)" aria-label="Hilfe zu Seitenmenue und Checklisten" aria-expanded="false">?</button>
+                            <button class="map-side-drawer-close" type="button" onclick="window.gaChecklistToggleDrawer && gaChecklistToggleDrawer(false)" title="Schließen">×</button>
+                        </div>
                     </div>
                     <div id="checklistDrawerStatus" class="map-side-drawer-status" aria-live="polite"></div>
                     <div id="checklistDrawerBody" class="map-side-drawer-body"></div>

@@ -741,6 +741,67 @@ function toggleSettingsPanel() {
 }
 
 const SETTINGS_HELP_CONTENT = {
+    dispatch: {
+        kicker: 'Mission planen',
+        title: 'Dispatch Bereich',
+        intro: 'Hier legst du fest, von wo der Auftrag startet, wohin er gehen soll und mit welchen Flugzeugwerten geplant wird.',
+        items: [
+            { term: 'DEP / Start', text: 'Der Startflugplatz. Du kannst ICAO-Codes wie EDTW oder auch Suchtext eingeben.' },
+            { term: 'DEST / Ziel', text: 'Das Ziel. Leer oder RNDM bedeutet: Die App sucht ein passendes Ziel selbst aus.' },
+            { term: 'TYPE / Typ', text: 'APT plant einen Flugplatz-zu-Flugplatz-Auftrag. POI plant einen Rundflug oder Zielpunkt.' },
+            { term: 'RANGE / Distanz', text: 'Begrenzt die ungefaehre Gesamtstrecke. Egal/RNDM laesst die App frei waehlen.' },
+            { term: 'Region', text: 'Filtert die Suche auf Europa, Deutschland oder Ausland.' },
+            { term: 'Richtung', text: 'Gibt eine bevorzugte Flugrichtung vor. Egal/RND nimmt jede passende Richtung.' },
+            { term: 'Sitze / PAX', text: 'Bestimmt, wie viele Personen die Mission maximal einplanen darf.' },
+            { term: 'Aircraft Presets', text: 'Waehlt schnell ein Flugzeugprofil wie C172, Comanche oder Aerostar.' },
+            { term: 'GPH', text: 'Gallonen pro Stunde. Daraus schaetzt die App den Treibstoffverbrauch.' },
+            { term: 'TAS', text: 'Reisegeschwindigkeit in Knoten. Dieser Wert bestimmt die Flugzeit.' },
+            { term: 'Cruise ALT', text: 'Geplante Reiseflughoehe. Sie beeinflusst Profil, Wetter- und Luftraumhinweise.' },
+            { term: 'V/S Rate', text: 'Steig- und Sinkrate fuer das Hoehenprofil.' },
+            { term: 'Auftrag / DISPATCH', text: 'Erzeugt aus den Eingaben einen neuen Missionsentwurf.' },
+            { term: 'DATA / Transfer', text: 'Oeffnet Import, Export und MSFS-Transferdaten.' },
+            { term: 'Reset / CLEAR', text: 'Verwirft den aktuellen Entwurf und setzt die Oberflaeche zurueck.' }
+        ]
+    },
+    'main-menu': {
+        kicker: 'Navigation',
+        title: 'Menue Funktionen',
+        intro: 'Diese beiden Haupttasten oeffnen die Arbeitsbereiche neben dem Briefing.',
+        items: [
+            { term: 'Kartentisch', text: 'Oeffnet die grosse Karte mit Route, Werkzeugen, Profil, Wetter- und Anzeigeoptionen.' },
+            { term: 'Pinnwand', text: 'Oeffnet gespeicherte Fluege, Notizen und angeheftete Briefings.' },
+            { term: 'Badge', text: 'Das kleine Zeichen an der Pinnwand zeigt, dass dort etwas Neues oder Wichtiges liegt.' }
+        ]
+    },
+    'map-table': {
+        kicker: 'Karte',
+        title: 'Kartentisch',
+        intro: 'Der Kartentisch ist die grosse Planungs- und Flugkarte. Hier pruefst du Route, Wetter, Profil und Live-Position.',
+        items: [
+            { term: 'Route Reset', text: 'Loescht manuelle Routenanpassungen und stellt die geplante Hauptroute wieder her.' },
+            { term: 'Profil', text: 'Blendet das Hoehenprofil ein oder aus. Dort siehst du Strecke, Hoehe, Terrain und Wolken.' },
+            { term: 'Anzeige', text: 'Oeffnet Optionen wie Snapping, Direkt-Linie, Wetter, VFR-Index, Terrain Avoid, Traffic, Autozoom und Kartenleisten.' },
+            { term: 'Voice', text: 'Oeffnet Sprachausgabe und Warnstimmen fuer Frequenzen, Terrain, Luftraum, Wegpunkte und Passagier-Voice.' },
+            { term: 'Direct To', text: 'Schaltet freien Flugmodus ein. Das ist fuer direkte Navigation ohne normalen Missionsablauf gedacht.' },
+            { term: 'Mission starten', text: 'Startet oder steuert die aktive Mission, wenn ein Missionsentwurf bereit ist.' },
+            { term: 'Zeichenwerkzeuge', text: 'Die linke Werkzeugleiste erlaubt Markierungen, Notizen, Peilungen und Kartenhilfen.' },
+            { term: 'Kartenprofil', text: 'Die Profil-Leiste zeigt Steigflug, Sinkflug und Hindernisse entlang der Route.' },
+            { term: 'Schliessen', text: 'Schliesst den Kartentisch und bringt dich zur Hauptansicht zurueck.' }
+        ]
+    },
+    'map-side-drawer': {
+        kicker: 'Tools',
+        title: 'Seitenmenue & Checklisten',
+        intro: 'Das Seitenmenue sammelt Checklisten und Kartenwerkzeuge, ohne die Karte zu verlassen.',
+        items: [
+            { term: 'Griff', text: 'Der kleine seitliche Griff oeffnet oder schliesst das Menue.' },
+            { term: 'Checklisten', text: 'Enthaelt VFR Briefing, Normal Procedures und Arrival/Landing Briefing. Abgehakte Punkte zeigen deinen Fortschritt.' },
+            { term: 'Eigene Listen', text: 'Wenn eigene oder geteilte Listen vorhanden sind, erscheinen sie im selben Bereich.' },
+            { term: 'Kartenwerkzeuge', text: 'Bieten schnelle Aktionen fuer Route, Wetter, Radio, Warnungen, Orte und nahe Flugplaetze.' },
+            { term: 'Statuszeile', text: 'Zeigt kurz an, welcher Bereich aktiv ist oder ob etwas gespeichert wurde.' },
+            { term: 'Schliessen', text: 'Das X klappt das Seitenmenue zu; die Karte bleibt offen.' }
+        ]
+    },
     dispatcher: {
         kicker: 'Aufträge',
         title: 'KI-Dispatcher',
