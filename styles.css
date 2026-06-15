@@ -337,6 +337,107 @@ select {
     gap: 8px;
 }
 
+.airport-search-anchor {
+    position: relative;
+    z-index: 20;
+    overflow: visible !important;
+}
+
+.airport-autocomplete {
+    position: absolute;
+    top: calc(100% - 2px);
+    left: 0;
+    right: 0;
+    z-index: 10020;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 260px;
+    overflow: auto;
+    padding: 5px;
+    border: 1px solid rgba(126, 199, 255, 0.34);
+    border-radius: 8px;
+    background: rgba(13, 18, 24, 0.98);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.58);
+}
+
+.airport-autocomplete[hidden] {
+    display: none;
+}
+
+.airport-autocomplete-option {
+    width: 100%;
+    min-height: 42px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+        "code name"
+        "code meta";
+    column-gap: 9px;
+    row-gap: 1px;
+    align-items: center;
+    padding: 7px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #f8fcff;
+    text-align: left;
+    cursor: pointer;
+}
+
+.airport-autocomplete-option:hover,
+.airport-autocomplete-option.is-active {
+    border-color: rgba(126, 199, 255, 0.48);
+    background: rgba(126, 199, 255, 0.16);
+}
+
+.airport-result-code {
+    grid-area: code;
+    min-width: 43px;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    font-size: 15px;
+    font-weight: 800;
+    color: #8fd0ff;
+    letter-spacing: 0;
+}
+
+.airport-result-name {
+    grid-area: name;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 750;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.airport-result-meta {
+    grid-area: meta;
+    min-width: 0;
+    overflow: hidden;
+    color: rgba(228, 241, 250, 0.66);
+    font-size: 11px;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+input.airport-input-valid,
+body.theme-ops1940 .ops-picto-field.airport-input-valid {
+    border-color: rgba(93, 220, 145, 0.72);
+}
+
+input.airport-input-pending,
+body.theme-ops1940 .ops-picto-field.airport-input-pending {
+    border-color: rgba(214, 181, 107, 0.72);
+}
+
+input.airport-input-invalid,
+body.theme-ops1940 .ops-picto-field.airport-input-invalid {
+    border-color: rgba(255, 106, 106, 0.78);
+}
+
 .preset-row {
     display: flex;
     gap: 5px;
@@ -8933,6 +9034,52 @@ body.theme-ops1940 .ops-picto-card {
     cursor: pointer;
     font-family: 'Courier New', monospace;
     text-align: left;
+}
+
+body.theme-ops1940 .ops-picto-card.airport-search-anchor {
+    overflow: visible;
+    z-index: 12;
+}
+
+body.theme-ops1940 .airport-autocomplete {
+    top: calc(100% + 4px);
+    min-width: 220px;
+    padding: 4px;
+    border-radius: 4px;
+    border-color: rgba(242, 202, 103, 0.46);
+    background:
+        linear-gradient(180deg, rgba(46, 39, 28, 0.98), rgba(9, 8, 7, 0.99));
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.74);
+}
+
+body.theme-ops1940 .airport-autocomplete-option {
+    min-height: 38px;
+    padding: 6px 7px;
+    border-radius: 3px;
+    color: #f4e2b4;
+    background: rgba(255, 232, 174, 0.06);
+    font-family: 'Courier New', monospace;
+}
+
+body.theme-ops1940 .airport-autocomplete-option:hover,
+body.theme-ops1940 .airport-autocomplete-option.is-active {
+    border-color: rgba(242, 202, 103, 0.62);
+    background: rgba(242, 202, 103, 0.16);
+}
+
+body.theme-ops1940 .airport-result-code {
+    color: #f2ca67;
+    font-family: 'MS33558', 'Courier New', monospace;
+    font-size: 12px;
+}
+
+body.theme-ops1940 .airport-result-name {
+    font-size: 11px;
+}
+
+body.theme-ops1940 .airport-result-meta {
+    color: rgba(244, 226, 180, 0.62);
+    font-size: 10px;
 }
 
 body.theme-ops1940 .ops-picto-card::before,

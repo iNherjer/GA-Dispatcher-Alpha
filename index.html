@@ -100,12 +100,12 @@
             <div class="ops-picto-card ops-picto-dep" data-focus="opsDepInput" title="Start bearbeiten">
                 <span class="ops-picto-label">DEP</span>
                 <span class="ops-picto-symbol ops-symbol-dep" aria-hidden="true"></span>
-                <input type="text" class="ops-picto-field" id="opsDepInput" value="EDTW" maxlength="4" onfocus="this.select()" onclick="event.stopPropagation(); this.select()" oninput="syncOpsTextField('startLoc', this.value)" aria-label="Startplatz">
+                <input type="text" class="ops-picto-field" id="opsDepInput" value="EDTW" maxlength="64" autocomplete="off" spellcheck="false" onfocus="this.select()" onclick="event.stopPropagation(); this.select()" aria-label="Startplatz">
             </div>
             <div class="ops-picto-card ops-picto-dest" data-focus="opsDestInput" title="Ziel bearbeiten">
                 <span class="ops-picto-label" data-ops-label-action="swap-route" title="DEP und DEST tauschen">DEST</span>
                 <span class="ops-picto-symbol ops-symbol-dest" aria-hidden="true"></span>
-                <input type="text" class="ops-picto-field" id="opsDestInput" placeholder="RNDM" maxlength="4" onfocus="this.select()" onclick="event.stopPropagation(); this.select()" oninput="syncOpsTextField('destLoc', this.value)" aria-label="Zielplatz">
+                <input type="text" class="ops-picto-field" id="opsDestInput" placeholder="RNDM" maxlength="64" autocomplete="off" spellcheck="false" onfocus="this.select()" onclick="event.stopPropagation(); this.select()" aria-label="Zielplatz">
             </div>
             <div class="ops-picto-card ops-picto-type type-apt" onclick="if(!event.target.matches('input, select, option')) cycleOpsSelect('targetType', 'opsTypeSelect')" title="Klicken: Typ weiterblättern">
                 <span class="ops-picto-label" data-ops-label-action="toggle-picker" title="Mission-Picker umschalten">TYPE</span>
@@ -126,8 +126,8 @@
         </div>
 
         <div class="grid-2 ops-route-fields">
-            <div><label>Start</label><input type="text" id="startLoc" value="EDTW" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); syncToNavCom('startLocRadio', this.value)"></div>
-            <div><label>Ziel (Opt.)</label><input type="text" id="destLoc" placeholder="Zufall" maxlength="4" onfocus="this.select()" onclick="this.select()" oninput="this.value=this.value.toUpperCase(); syncToNavCom('destLocRadio', this.value)"></div>
+            <div><label>Start</label><input type="text" id="startLoc" value="EDTW" maxlength="64" autocomplete="off" spellcheck="false" onfocus="this.select()" onclick="this.select()"></div>
+            <div><label>Ziel (Opt.)</label><input type="text" id="destLoc" placeholder="Zufall" maxlength="64" autocomplete="off" spellcheck="false" onfocus="this.select()" onclick="this.select()"></div>
         </div>
         
         <div class="grid-2 ops-type-fields">
@@ -1642,7 +1642,7 @@
 <script defer src="checklists.js?v=idle-sleep-20260613-01"></script>
 <script defer src="profile.js?v=idle-sleep-20260613-01"></script>
 <script defer src="map.js?v=autozoom-max-20260614-01"></script>
-<script defer src="app.js?v=airport-faa-local-20260615-01"></script>
+<script defer src="app.js?v=airport-search-20260615-01"></script>
 <script defer src="board.js?v=debug-report-20260523-01"></script>
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
 <script defer src="passenger-voice.js?v=cargo-voice-bush-supply-20260604-01"></script>
