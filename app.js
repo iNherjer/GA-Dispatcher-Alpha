@@ -14994,7 +14994,7 @@ function buildBushMissionVarietyBrief(context = {}, draft = {}, weatherBundle = 
         };
     }
     const targetName = String(draft?.target?.name || context.dest?.n || context.dest?.name || 'dem Zielstrip').trim();
-    const homeName = String(context.start?.n || currentStartICAO || 'dem Heimatplatz').trim();
+    const homeName = String(context.followUpContext?.route?.homeName || context.start?.n || currentStartICAO || 'dem Heimatplatz').trim();
     const copy = BUSH_MISSION_VARIETY_COPY[profileId] || {};
     const destWeather = weatherBundle?.dest || null;
     const weatherNote = Number.isFinite(Number(destWeather?.tempC))
@@ -15054,7 +15054,7 @@ function buildBushMissionVarietyBrief(context = {}, draft = {}, weatherBundle = 
 
 function buildBushPickupCreativeBrief(context = {}, draft = {}, weatherBundle = null, options = {}) {
     const targetName = String(draft?.target?.name || context.dest?.n || context.dest?.name || 'dem Zielstrip').trim();
-    const homeName = String(context.start?.n || currentStartICAO || 'dem Heimatplatz').trim();
+    const homeName = String(context.followUpContext?.route?.homeName || context.start?.n || currentStartICAO || 'dem Heimatplatz').trim();
     if (context.followUpContext?.pickupCreativeBrief && typeof context.followUpContext.pickupCreativeBrief === 'object') {
         return {
             ...context.followUpContext.pickupCreativeBrief,
@@ -15497,6 +15497,10 @@ async function _missionPipelineV4ResolveContextBundle(context = {}, draft = {}) 
     if (followUpContext) {
         routeRules.push('Follow-up: Dies ist eine Fortsetzung einer bereits abgeschlossenen Mission. Der neue Auftrag muss inhaltlich auf sourceMission, lockedPassenger, storyFrame und pickupStory aufbauen.');
         realismTargets.unshift('Follow-up-Qualität: keine Formularsprache, keine Systemregeln im Briefing, sondern eine natürliche Fortsetzung mit derselben Person, demselben Zielstrip und glaubwürdigem Handoff.');
+        if (String(followUpContext.acceptanceMode || followUpContext.pilotStartPolicy || '').toLowerCase() === 'pickup_from_third_place') {
+            const followRoute = followUpContext.route && typeof followUpContext.route === 'object' ? followUpContext.route : {};
+            routeRules.push(`Follow-up-Drittplatz: Start ist ${followRoute.departureName || 'der aktuelle Drittplatz'}, Abholstrip ist ${followRoute.targetName || 'der Zielstrip'}, Rückkehrbasis und Entlade-/Debriefing-Ort ist ${followRoute.homeName || 'die ursprüngliche Basis'}.`);
+        }
     }
     if (profileId === 'bush_supply_strip') {
         routeRules.push('Bush-Supply: Fracht wird am Zielstrip abgegeben; keine Pickup- oder Rueckholstory daraus machen.');
@@ -15822,6 +15826,8 @@ function buildMissionContractV4({
     const followUpContext = plannerContext.followUpContext && typeof plannerContext.followUpContext === 'object'
         ? plannerContext.followUpContext
         : (plannerResult?.followUpContext && typeof plannerResult.followUpContext === 'object' ? plannerResult.followUpContext : null);
+    const followUpRoute = followUpContext?.route && typeof followUpContext.route === 'object' ? followUpContext.route : {};
+    const contractHomeName = String(followUpRoute.homeName || plannerContext.start?.n || plannerContext.start?.name || currentStartICAO || '').trim();
     const pickupCreativeBrief = contractProfileId === 'bush_pickup_strip'
         ? (plannerResult?.pickupCreativeBrief || buildBushPickupCreativeBrief(plannerContext, {
             target: { name: plannerContext.dest?.n || plannerContext.dest?.name || '' },
@@ -15839,7 +15845,7 @@ function buildMissionContractV4({
         pickupCreativeBrief,
         missionVarietyBrief,
         followUpContext,
-        homeName: plannerContext.start?.n || plannerContext.start?.name || currentStartICAO || ''
+        homeName: contractHomeName
     });
     const taskDomain = String(plan?.plan?.taskDomain || profile.taskDomain || 'general');
     const roleProfile = String(plan?.plan?.roleProfile || profile.roleProfile || 'general_passenger_v1');
@@ -16186,13 +16192,28 @@ function _missionPipelineV4BushVarietySecond(values = [], fallback = '') {
         : String(fallback || '').trim();
 }
 
+function _missionPipelineV4ContractHomeName(contract = {}, fallback = 'der Basis') {
+    const followRoute = contract?.followUpContext?.route && typeof contract.followUpContext.route === 'object'
+        ? contract.followUpContext.route
+        : null;
+    return String(
+        followRoute?.homeName
+        || followRoute?.returnHomeRef?.name
+        || contract?.route?.homeName
+        || contract?.route?.startName
+        || contract?.route?.startIcao
+        || currentStartICAO
+        || fallback
+    ).trim() || fallback;
+}
+
 function _missionPipelineV4ComposeBushVarietyStory(contract = {}) {
     const profileId = String(contract?.profile?.id || '').trim().toLowerCase();
     if (!bushProfileSupportsMissionVariety(profileId)) return '';
     const candidate = _missionPipelineV4BushVarietyCandidate(contract);
     if (!candidate) return '';
     const targetName = String(contract?.target?.name || contract?.route?.targetName || 'dem Zielstrip').trim() || 'dem Zielstrip';
-    const homeName = String(contract?.route?.startName || contract?.route?.startIcao || currentStartICAO || 'der Basis').trim() || 'der Basis';
+    const homeName = _missionPipelineV4ContractHomeName(contract, 'der Basis');
     const role = _missionPipelineV4BushVarietyFirst(candidate.roleIdeas, 'Backcountry-Kontakt');
     const taskA = _missionPipelineV4BushVarietyFirst(candidate.taskIdeas, 'den Auftrag vor Ort vorbereiten');
     const taskB = _missionPipelineV4BushVarietySecond(candidate.taskIdeas, 'die offenen Punkte dokumentieren');
@@ -16640,8 +16661,7 @@ function _missionPipelineV4ComposeBushPickupBriefingStory(contract = {}, passeng
     const pax = (passenger && typeof passenger === 'object') ? passenger : {};
     const pickupStory = (pax.pickupStory && typeof pax.pickupStory === 'object') ? pax.pickupStory : {};
     const targetName = String(contract?.target?.name || contract?.route?.targetName || 'dem Zielstrip').trim() || 'dem Zielstrip';
-    const startIcao = (typeof currentStartICAO !== 'undefined') ? currentStartICAO : '';
-    const homeName = String(contract?.route?.startName || startIcao || 'dem Heimatplatz').trim() || 'dem Heimatplatz';
+    const homeName = _missionPipelineV4ContractHomeName(contract, 'dem Heimatplatz');
     const name = String(pickupStory.personName || pax.name || 'Der Pickup-Gast').replace(/\s*\([^)]*\)\s*$/, '').trim() || 'Der Pickup-Gast';
     const role = String(pickupStory.role || pax.role || 'Pickup-Gast').trim();
     const gender = String(pax.gender || '').toLowerCase();
@@ -19576,6 +19596,15 @@ async function generateMission(options = {}) {
                     m.cargoText = cargoText;
                 }
             }
+            if (followupSeed && String(followupSeed.followUpKind || '').toLowerCase() === 'bush_pickup_cargo' && m && typeof m === 'object') {
+                const returnCargoText = followupSeed.cargoReturn?.label || dispatchBushSpec?.pickupLabel || m.cargo || m.cargoText || 'Rückholfracht';
+                paxText = '0 PAX';
+                cargoText = returnCargoText;
+                m.pax = '0 PAX';
+                m.paxText = '0 PAX';
+                m.cargo = returnCargoText;
+                m.cargoText = returnCargoText;
+            }
             const bushProfileId = String(dispatchProfileId || m?._appliedProfile || '').toLowerCase();
             const pickupKindBeforeHydrate = String(dispatchBushSpec?.pickupKind || '').toLowerCase();
             const targetModeBeforeHydrate = String(dispatchBushSpec?.targetMode || '').toLowerCase();
@@ -21112,7 +21141,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1080', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1081', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);

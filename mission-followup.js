@@ -837,6 +837,11 @@
             const cargo = req.cargoReturn?.label || `Rückholfracht ${targetName}`;
             const stay = displayText(memory.stayOrWorkSummary || 'Die Crew vor Ort hat die Lieferung geprüft und Rückfracht am Strip bereitgelegt.');
             const whyNow = displayText(memory.whyNowReturn || 'Die Rückfracht soll zurück zur Basis, damit Bestand, Belege und Material wieder sauber im Umlauf sind.');
+            const cargoTaskIdeas = [
+                'die ursprüngliche Lieferung vor Ort zu sortieren',
+                'Rückfracht, Belege und leere Behälter für den Heimflug bereitzustellen'
+            ];
+            const cargoReturnDriver = displayText(req.cargoReturn?.reason || memory.returnReason || `Rücktransport nach ${homeName}`);
             if (acceptanceMode === 'onsite_to_home' || effectiveProfileId === 'bush_supply_strip') {
                 return {
                     schema: 'ga.followup.pipelineContext.v1',
@@ -883,9 +888,9 @@
                         candidateShortlist: [{
                             id: 'followup_onsite_supply_return',
                             roleIdeas: [req.cargoReturn?.role || 'Frachtkontakt am Strip'],
-                            taskIdeas: [stay, whyNow],
-                            objectIdeas: [cargo, 'signierte Materialliste', 'leere Versorgungskisten'],
-                            returnDrivers: [displayText(req.cargoReturn?.reason || memory.returnReason || 'Rücktransport zur Basis')],
+                            taskIdeas: cargoTaskIdeas,
+                            objectIdeas: [cargo],
+                            returnDrivers: [cargoReturnDriver],
                             accessReasons: [`${targetName} ist der Ort, an dem der Supply Run endete.`]
                         }],
                         writerExpectations: [
@@ -942,9 +947,9 @@
                     candidateShortlist: [{
                         id: 'followup_supply_return_cargo',
                         roleIdeas: [req.cargoReturn?.role || 'Frachtkontakt am Strip'],
-                        taskIdeas: [stay, whyNow],
-                        objectIdeas: [cargo, 'signierte Materialliste', 'leere Versorgungskisten'],
-                        returnDrivers: [displayText(req.cargoReturn?.reason || memory.returnReason || 'Rücktransport zur Basis')],
+                        taskIdeas: cargoTaskIdeas,
+                        objectIdeas: [cargo],
+                        returnDrivers: [cargoReturnDriver],
                         accessReasons: [`${targetName} ist der bekannte Ablade- und Abholpunkt aus dem Supply Run.`]
                     }],
                     writerExpectations: [
