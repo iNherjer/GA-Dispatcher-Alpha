@@ -5602,6 +5602,7 @@ async function getAirportData(icao) {
     } catch (e) { }
     return null;
 }
+window.getAirportData = getAirportData;
 
 async function findGithubAirport(lat, lon, minNM, maxNM, dirPref, regionPref) {
     await loadGlobalAirports();
@@ -18831,14 +18832,47 @@ async function generateMission(options = {}) {
         if (needle) needle.style.transform = `translateX(-50%) rotate(${randomAngle}deg)`;
     }, 120);
 
-    const followupHomeRef = followupSeed?.route?.homeRef || null;
-    const followupTargetRef = followupSeed?.route?.targetRef || null;
+    const followupAcceptance = (followupSeed?.acceptance && typeof followupSeed.acceptance === 'object')
+        ? followupSeed.acceptance
+        : null;
+    const followupHomeRef = followupAcceptance?.returnHomeRef || followupSeed?.route?.homeRef || null;
+    const followupTargetRef = followupAcceptance?.targetRef || followupSeed?.route?.targetRef || null;
+    const followupStartRef = followupAcceptance?.startRef || followupHomeRef;
+    const followupDestRef = String(followupAcceptance?.mode || '').toLowerCase() === 'onsite_to_home'
+        ? followupHomeRef
+        : followupTargetRef;
+    const followupDispatchProfileId = String(
+        followupAcceptance?.dispatchProfileId
+        || followupSeed?.followUpKind
+        || ''
+    ).trim().toLowerCase();
     const followupStartAirport = followupSeed && typeof window.missionFollowupAirportFromRef === 'function'
-        ? window.missionFollowupAirportFromRef(followupHomeRef)
+        ? window.missionFollowupAirportFromRef(followupStartRef)
         : null;
-    const followupTargetAirport = followupSeed && typeof window.missionFollowupAirportFromRef === 'function'
-        ? window.missionFollowupAirportFromRef(followupTargetRef)
+    const followupDestAirport = followupSeed && typeof window.missionFollowupAirportFromRef === 'function'
+        ? window.missionFollowupAirportFromRef(followupDestRef)
         : null;
+    const followupBushRef = (ref = null) => {
+        if (!ref || typeof ref !== 'object') return null;
+        return {
+            ...ref,
+            kind: ref.kind || 'airport'
+        };
+    };
+    const applyFollowupAcceptanceToBushSpec = (bushSpec = null) => {
+        const sanitized = sanitizeBushMissionSpec(bushSpec || null);
+        if (!sanitized || !followupSeed || !followupAcceptance) return sanitized;
+        const mode = String(followupAcceptance.mode || '').toLowerCase();
+        if (mode !== 'pickup_from_third_place') return sanitized;
+        if (String(sanitized.targetMode || '').toLowerCase() !== 'strip_then_return') return sanitized;
+        const homeRef = followupBushRef(followupAcceptance.returnHomeRef || followupSeed.route?.homeRef || null);
+        if (!homeRef) return sanitized;
+        return sanitizeBushMissionSpec({
+            ...sanitized,
+            homeRef
+        }) || sanitized;
+    };
+    const buildFollowupAwareBushSpec = (params = {}) => applyFollowupAcceptanceToBushSpec(buildBushMissionSpec(params));
 
     currentStartICAO = followupStartAirport?.icao || document.getElementById("startLoc").value.toUpperCase();
     const start = await dispatchMeasure('load_start_airport', async () => followupStartAirport || getAirportData(currentStartICAO), {
@@ -18854,7 +18888,7 @@ async function generateMission(options = {}) {
     }
 
     const rangePref = document.getElementById("distRange").value, regionPref = document.getElementById("regionFilter").value;
-    const followupPickerValue = followupSeed?.followUpKind ? `bush:all+${String(followupSeed.followUpKind).toLowerCase()}` : '';
+    const followupPickerValue = followupDispatchProfileId ? `bush:all+${followupDispatchProfileId}` : '';
     const targetType = followupPickerValue || document.getElementById("targetType").value, dirPref = document.getElementById("dirPref").value;
     const missionPicker = parseMissionPickerValue(targetType);
     const maxSeats = parseInt(document.getElementById("maxSeats").value);
@@ -18863,7 +18897,7 @@ async function generateMission(options = {}) {
     const selectedTas = Number.isFinite(selectedTasRaw) ? selectedTasRaw : 160;
     const selectedGph = Number.isFinite(selectedGphRaw) ? selectedGphRaw : 14;
 
-    let targetDest = followupTargetAirport?.icao || document.getElementById("destLoc").value.toUpperCase();
+    let targetDest = followupDestAirport?.icao || document.getElementById("destLoc").value.toUpperCase();
     let forcePOI = false;
     if (!followupSeed && targetDest && targetDest === currentStartICAO) {
         targetDest = '';
@@ -18928,7 +18962,7 @@ async function generateMission(options = {}) {
     }
 
     dispatchPhaseStart('resolve_target');
-    if (targetDest) { dest = followupTargetAirport || await getAirportData(targetDest); _ensureDispatchAlive(); } else {
+    if (targetDest) { dest = followupDestAirport || await getAirportData(targetDest); _ensureDispatchAlive(); } else {
         if (isBushDispatch) {
             dest = await findBushAirport(start.lat, start.lon, searchMin, searchMax, dirPref, regionPref);
             _ensureDispatchAlive();
@@ -19445,7 +19479,7 @@ async function generateMission(options = {}) {
                     poiTerrainFt,
                     targetGeoContext: preMissionTargetGeoContext,
                     sarHeli: sarHeliSpec,
-                    bushSpec: buildBushMissionSpec({
+                    bushSpec: buildFollowupAwareBushSpec({
                         profileId: dispatchProfileId,
                         startAirport: start,
                         destAirport: dest,
@@ -19516,7 +19550,32 @@ async function generateMission(options = {}) {
             m._requestedProfile = selectedMissionProfile;
             m._appliedProfile = dispatchProfileId || 'auto';
             m._missionPlanV2 = missionPlanV2 || m._missionPlanV2 || null;
-            let dispatchBushSpec = sanitizeBushMissionSpec(m?.bush || null);
+            let dispatchBushSpec = applyFollowupAcceptanceToBushSpec(m?.bush || null);
+            if (dispatchBushSpec && m && typeof m === 'object') {
+                m.bush = dispatchBushSpec;
+            }
+            if (followupSeed && String(followupAcceptance?.mode || '').toLowerCase() === 'onsite_to_home' && m && typeof m === 'object') {
+                const originalFollowupKind = String(followupSeed.followUpKind || '').toLowerCase();
+                if (originalFollowupKind === 'bush_pickup_strip' && followupSeed.passenger && typeof followupSeed.passenger === 'object') {
+                    const lockedPassenger = {
+                        ...followupSeed.passenger,
+                        roleProfile: 'bush_charter_guest_v1',
+                        taskDomain: 'charter'
+                    };
+                    m.passenger = lockedPassenger;
+                    paxText = lockedPassenger.role ? `1 PAX (${lockedPassenger.role})` : '1 PAX';
+                    m.pax = paxText;
+                    m.paxText = paxText;
+                }
+                if (originalFollowupKind === 'bush_pickup_cargo') {
+                    paxText = '0 PAX';
+                    cargoText = followupSeed.cargoReturn?.label || m.cargo || m.cargoText || 'Rückholfracht';
+                    m.pax = '0 PAX';
+                    m.paxText = '0 PAX';
+                    m.cargo = cargoText;
+                    m.cargoText = cargoText;
+                }
+            }
             const bushProfileId = String(dispatchProfileId || m?._appliedProfile || '').toLowerCase();
             const pickupKindBeforeHydrate = String(dispatchBushSpec?.pickupKind || '').toLowerCase();
             const targetModeBeforeHydrate = String(dispatchBushSpec?.targetMode || '').toLowerCase();
@@ -19540,7 +19599,7 @@ async function generateMission(options = {}) {
                     storyHint: pickupStoryHint
                 });
                 const fallbackMission = pickupFallback?.mission || null;
-                const fallbackBushSpec = sanitizeBushMissionSpec(fallbackMission?.bush || null);
+                const fallbackBushSpec = applyFollowupAcceptanceToBushSpec(fallbackMission?.bush || null);
                 if (fallbackBushSpec) {
                     const existingBush = dispatchBushSpec && typeof dispatchBushSpec === 'object' ? dispatchBushSpec : {};
                     const aiPassenger = m?.passenger && typeof m.passenger === 'object' ? m.passenger : null;
@@ -19949,7 +20008,13 @@ async function generateMission(options = {}) {
             sourceMissionKey: followupSeed.sourceMissionKey || null,
             sourceKind: followupSeed.sourceKind || null,
             followUpKind: followupSeed.followUpKind || null,
-            pilotStartPolicy: followupSeed.pilotStartPolicy || 'original_home'
+            effectiveProfileId: followupDispatchProfileId || null,
+            pilotStartPolicy: followupAcceptance?.mode || followupSeed.pilotStartPolicy || 'original_home',
+            acceptanceMode: followupAcceptance?.mode || null,
+            acceptance: followupAcceptance || null,
+            startRef: followupAcceptance?.startRef || null,
+            targetRef: followupAcceptance?.targetRef || followupTargetRef || null,
+            returnHomeRef: followupAcceptance?.returnHomeRef || followupHomeRef || null
         } : (m?.followUpContinuation || null),
         start: currentStartICAO,
         dest: currentDestICAO,
@@ -20020,6 +20085,7 @@ async function generateMission(options = {}) {
         m.missionId = currentMissionData.missionId;
         m.missionKey = currentMissionData.missionKey;
     }
+    window.currentMissionData = currentMissionData;
     if (missionIsSarHeliMission(currentMissionData)) {
         const sarHeliRoute = missionSarHeliBuildRouteWaypoints({
             start,
@@ -21046,7 +21112,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('swVersionDisplay');
     if (/^https?:$/i.test(window.location.protocol)) {
         // SW Version auslesen und sofort anzeigen (wartet nicht auf Bilder)
-        fetch('sw.js?v=ga-dispatcher-v1078', { cache: 'no-store' })
+        fetch('sw.js?v=ga-dispatcher-v1080', { cache: 'no-store' })
             .then(r => r.text())
             .then(text => {
                 const match = text.match(/const CACHE = ['"]([^'"]+)['"]/);
