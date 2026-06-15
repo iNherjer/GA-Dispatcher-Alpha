@@ -3336,6 +3336,16 @@ function _extractWeightLbs(text) {
     return total > 0 ? Math.round(total) : 0;
 }
 
+function _stripManifestWeightForSpeech(text) {
+    return String(text || '')
+        .replace(/\s*\((?:ca\.\s*)?\d+(?:[.,]\d+)?\s*(?:lb|lbs|pound|pounds|pfund|kg|kilogramm|kilograms?)\)\s*/ig, ' ')
+        .replace(/\b(?:ca\.\s*)?\d+(?:[.,]\d+)?\s*(?:lb|lbs|pound|pounds|pfund|kg|kilogramm|kilograms?)\b/ig, '')
+        .replace(/\s+/g, ' ')
+        .replace(/\s+([,.;:!?])/g, '$1')
+        .replace(/\s*(?:und|,)\s*$/i, '')
+        .trim();
+}
+
 function _extractPaxCount(text) {
     const m = String(text || '').match(/^\s*(\d+)\s*PAX\b/i);
     return m ? Math.max(0, parseInt(m[1], 10) || 0) : (_missionHasPax() ? 1 : 0);
@@ -3372,7 +3382,7 @@ function _buildBoardingText() {
     const cargoText = String(contract.cargoText || document.getElementById('mWeight')?.innerText || '').trim();
     const pax = window.activePassenger || {};
     const paxCount = _extractPaxCount(paxText);
-    const cargoClean = cargoText && !/^[-–—]$/.test(cargoText) ? cargoText : 'kein zusaetzliches Gepaeck';
+    const cargoClean = cargoText && !/^[-–—]$/.test(cargoText) ? (_stripManifestWeightForSpeech(cargoText) || cargoText) : 'kein zusaetzliches Gepaeck';
     const role = pax.role ? ` als ${pax.role}` : '';
     const bush = contract?.bush && typeof contract.bush === 'object' ? contract.bush : null;
     const isTargetPickupMission = !!(bush && String(bush.targetMode || '') === 'strip_then_return' && String(bush.pickupKind || '').trim());
@@ -3383,12 +3393,12 @@ function _buildBoardingText() {
             ? `${pax.name ? `ich bin ${pax.name}` : 'ich bin heute mit an Bord'}${role}`
             : (isTargetPickupMission ? 'heute geht es zunaechst leer raus' : 'heute geht es ohne Passagier los'));
     const requiredItems = _missionRequiredItemNames(4);
-    const requiredShort = requiredItems.slice(0, 4);
+    const requiredShort = requiredItems.slice(0, 4).map(_stripManifestWeightForSpeech).filter(Boolean);
     const requiredText = requiredShort.length
         ? (requiredShort.length === 1
-            ? `Der wichtige Gegenstand ist ${requiredShort[0]}.`
-            : `Wichtige Gegenstaende sind ${requiredShort.join(', ')}.`)
-        : `Der wichtige Gegenstand ist ${cargoClean}.`;
+            ? `Ich habe heute ${requiredShort[0]} dabei; das muss bitte sicher verstaut werden.`
+            : `Ich habe heute ${requiredShort.join(', ')} dabei; das muss bitte sicher verstaut werden.`)
+        : `Ich habe heute ${cargoClean} dabei; das muss bitte sicher verstaut werden.`;
     return `Hi, ${paxPart}. ${requiredText} Gib mir bitte ein kurzes Missionsbriefing, dann sind wir startklar.`;
 }
 
@@ -5078,13 +5088,16 @@ Max 3-4 Sätze.${_toneHint()}`;
     if (!guidance) return null;
     const requiredItems = _missionRequiredItemNames(3);
     const cargoText = String(_activeCargoText() || '').trim();
-    const cargoFallback = cargoText && !/^[-–—]$/.test(cargoText) ? cargoText : 'unser Einsatzgegenstand';
-    const cargoLine = requiredItems.length
-        ? (requiredItems.length === 1
-            ? `Nenne den wichtigen Gegenstand beim Namen: "${requiredItems[0]}". Sage klar, dass dieser Gegenstand als Zuladung vor dem Start verladen und gesichert sein muss, sonst kann ich den Auftrag nicht sauber erledigen.`
-            : `Nenne die wichtigen Gegenstaende beim Namen: "${requiredItems.join(', ')}". Sage klar, dass diese Gegenstaende als Zuladung vor dem Start verladen und gesichert sein muessen, sonst kann ich den Auftrag nicht sauber erledigen.`)
-        : `Nenne den wichtigen Gegenstand beim Namen ("${cargoFallback}") und sage klar, dass er als Zuladung vor dem Start verladen und gesichert sein muss.`;
-    const manifestSpeechRule = 'WICHTIG: Sprich nie in Manifest-, UI- oder Ladezettel-Sprache. Verwende NICHT Formulierungen wie "1 PAX", "AN BORD", "AUSRUESTUNG", "Payload", "Zuladung", "ich bin 1 PAX", "als 1 PAX", "ich bin die Ladung" oder reine Inventarlisten. Wenn du dich vorstellst, dann nur natuerlich als Person in Alltagssprache.';
+    const cargoFallback = cargoText && !/^[-–—]$/.test(cargoText) ? (_stripManifestWeightForSpeech(cargoText) || cargoText) : 'meine Ausruestung';
+    const speechItems = (requiredItems.length ? requiredItems : [cargoFallback])
+        .map(_stripManifestWeightForSpeech)
+        .filter(Boolean)
+        .slice(0, 3);
+    const cargoNameLine = speechItems.length === 1
+        ? `"${speechItems[0]}"`
+        : `"${speechItems.join(', ')}"`;
+    const cargoLine = `Nenne die mitgefuehrte Ausruestung natuerlich beim Namen: ${cargoNameLine}. Formuliere sinngemaess wie: "Ich habe heute ${speechItems.join(' und ') || cargoFallback} dabei; das muss bitte sicher verstaut werden." Keine Ladezettel- oder Gewichtsformulierung.`;
+    const manifestSpeechRule = 'WICHTIG: Sprich nie in Manifest-, UI- oder Ladezettel-Sprache. Gewichte sind nur interne Loadsheet-Daten: Nenne niemals Pfund, lbs, kg, Passagiergewicht, "bei etwa ... Gewicht", "zusammen mit mir als Passagier", "1 PAX", "AN BORD", "AUSRUESTUNG", "Payload", "Zuladung", "ich bin 1 PAX", "als 1 PAX", "ich bin die Ladung" oder reine Inventarlisten. Wenn du dich vorstellst, dann nur natuerlich als Person in Alltagssprache.';
     return `${ctx}
 
 Moment: Boarding und Verladen laufen gerade, Start steht gleich an.${wx ? ' ' + wx : ''}
