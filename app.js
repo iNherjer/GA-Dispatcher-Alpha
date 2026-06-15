@@ -13586,8 +13586,53 @@ function _missionPipelineV4PickEntry(values = []) {
     return src[Math.floor(Math.random() * src.length)] ?? src[0] ?? null;
 }
 
+function _missionPipelineV4BushPickupDisplayText(text = '') {
+    return String(text || '')
+        .replace(/\bfuer\b/g, 'für')
+        .replace(/\bFuer\b/g, 'Für')
+        .replace(/\bzurueck\b/g, 'zurück')
+        .replace(/\bZurueck\b/g, 'Zurück')
+        .replace(/\bRueckflug\b/g, 'Rückflug')
+        .replace(/\bRueckkehr\b/g, 'Rückkehr')
+        .replace(/\bRueckmeldung\b/g, 'Rückmeldung')
+        .replace(/\bRueckhol/g, 'Rückhol')
+        .replace(/\bRueckweg\b/g, 'Rückweg')
+        .replace(/\bRueckfahrt\b/g, 'Rückfahrt')
+        .replace(/\bnaechste\b/g, 'nächste')
+        .replace(/\bNaechste\b/g, 'Nächste')
+        .replace(/\bnaechster\b/g, 'nächster')
+        .replace(/\bNaechster\b/g, 'Nächster')
+        .replace(/\bnaechsten\b/g, 'nächsten')
+        .replace(/\bNaechsten\b/g, 'Nächsten')
+        .replace(/\bGelaende/g, 'Gelände')
+        .replace(/\bgelaende/g, 'gelände')
+        .replace(/\bGelaendewagen\b/g, 'Geländewagen')
+        .replace(/\bgeprueft\b/g, 'geprüft')
+        .replace(/\bpruefen\b/g, 'prüfen')
+        .replace(/\bPruef/g, 'Prüf')
+        .replace(/\bMaengel/g, 'Mängel')
+        .replace(/\bUebergabe\b/g, 'Übergabe')
+        .replace(/\buebergeben\b/g, 'übergeben')
+        .replace(/\bueber\b/g, 'über')
+        .replace(/\bUeber/g, 'Über')
+        .replace(/\bAusruestung\b/g, 'Ausrüstung')
+        .replace(/\bausruestung\b/g, 'ausrüstung')
+        .replace(/\bdraussen\b/g, 'draußen')
+        .replace(/\bDraussen\b/g, 'Draußen')
+        .replace(/\bSchluessel/g, 'Schlüssel')
+        .replace(/\bgezaehlt\b/g, 'gezählt')
+        .replace(/\bzaehlen\b/g, 'zählen')
+        .replace(/\bentlueftet\b/g, 'entlüftet')
+        .replace(/\bStoer/g, 'Stör')
+        .replace(/\bGeraet/g, 'Gerät')
+        .replace(/\bHandgeraet/g, 'Handgerät')
+        .replace(/\bAussen/g, 'Außen')
+        .replace(/\bGebaeude/g, 'Gebäude')
+        .replace(/\bMassband\b/g, 'Maßband');
+}
+
 function _missionPipelineV4BushPickupAccessSentence(reason = '', targetLabel = 'Der Zielstrip') {
-    const r = _missionPipelineV4StripSentenceEnd(reason || '').trim();
+    const r = _missionPipelineV4StripSentenceEnd(_missionPipelineV4BushPickupDisplayText(reason || '')).trim();
     const target = String(targetLabel || 'Der Zielstrip').trim() || 'Der Zielstrip';
     if (!r) return `${target} ist der passende Zugangspunkt für den Abschluss der Arbeit draußen.`;
     if (/^strip\s+ist\s+/i.test(r)) return _missionPipelineV4EnsureSentence(`Der Strip ist ${r.replace(/^strip\s+ist\s+/i, '').trim()}`);
@@ -13607,13 +13652,13 @@ function _missionPipelineV4BushPickupCandidateNarrativeDefaults(plan = {}, seman
     if (!candidate || typeof candidate !== 'object') return null;
     const targetLabel = String(plan?.targetLabel || semantics?.focusLock?.primarySubjectLabel || 'dem Zielstrip').trim() || 'dem Zielstrip';
     const homeName = String(options?.homeName || 'der Heimatbasis').trim() || 'der Heimatbasis';
-    const role = String(candidate.roleIdeas?.[0] || 'Backcountry-Kontakt').trim() || 'Backcountry-Kontakt';
-    const taskA = String(candidate.taskIdeas?.[0] || 'die Arbeit vor Ort abgeschlossen').trim();
-    const taskB = String(candidate.taskIdeas?.[1] || 'die offenen Punkte fuer die Basis notiert').trim();
-    const accessReason = String(candidate.accessReasons?.[0] || 'der Zielstrip der passende Abholpunkt ist').trim();
-    const returnReason = String(candidate.returnDrivers?.[0] || 'die Basis den aktuellen Stand fuer den naechsten Schritt braucht').trim();
+    const role = _missionPipelineV4BushPickupDisplayText(String(candidate.roleIdeas?.[0] || 'Backcountry-Kontakt').trim()) || 'Backcountry-Kontakt';
+    const taskA = _missionPipelineV4BushPickupDisplayText(String(candidate.taskIdeas?.[0] || 'die Arbeit vor Ort abgeschlossen').trim());
+    const taskB = _missionPipelineV4BushPickupDisplayText(String(candidate.taskIdeas?.[1] || 'die offenen Punkte für die Basis notiert').trim());
+    const accessReason = _missionPipelineV4BushPickupDisplayText(String(candidate.accessReasons?.[0] || 'der Zielstrip der passende Abholpunkt ist').trim());
+    const returnReason = _missionPipelineV4BushPickupDisplayText(String(candidate.returnDrivers?.[0] || 'die Basis den aktuellen Stand für den nächsten Schritt braucht').trim());
     const objects = Array.isArray(candidate.objectIdeas)
-        ? candidate.objectIdeas.slice(0, 3).map(x => String(x || '').trim()).filter(Boolean)
+        ? candidate.objectIdeas.slice(0, 3).map(x => _missionPipelineV4BushPickupDisplayText(String(x || '').trim())).filter(Boolean)
         : [];
     const objectText = objects.length ? ` mit ${_missionPipelineV4JoinNaturalList(objects)}` : '';
     const taskText = taskB
@@ -15926,7 +15971,7 @@ function _missionPipelineV4BushPickupNeutralField(value = '', fallback = '', opt
 }
 
 function _missionPipelineV4BushPickupReturnSentence(value = '', homeName = 'der Basis') {
-    const raw = _missionPipelineV4StripSentenceEnd(value || '').trim();
+    const raw = _missionPipelineV4StripSentenceEnd(_missionPipelineV4BushPickupDisplayText(value || '')).trim();
     const home = String(homeName || 'der Basis').trim() || 'der Basis';
     if (!raw) return `In ${home} kann der Auftrag anschließend sauber abgeschlossen werden.`;
     const normalized = (() => {
@@ -15952,7 +15997,7 @@ function _missionPipelineV4ComposeBushPickupBriefingStory(contract = {}, passeng
     const role = String(pickupStory.role || pax.role || 'Pickup-Gast').trim();
     const gender = String(pax.gender || '').toLowerCase();
     const pronoun = gender === 'female' ? 'sie' : (gender === 'male' ? 'ihn' : name);
-    const where = sanitizeBushPickupBriefingWhere(pickupStory.exactWhere, `am Treffpunkt am Striprand bei ${targetName}`);
+    const where = _missionPipelineV4BushPickupDisplayText(sanitizeBushPickupBriefingWhere(pickupStory.exactWhere, `am Treffpunkt am Striprand bei ${targetName}`));
     const candidateDefaults = _missionPipelineV4BushPickupCandidateNarrativeDefaults(
         { targetLabel: targetName },
         { focusLock: { taskDomain: 'bush_pickup_return', primarySubjectLabel: targetName } },
@@ -15961,7 +16006,7 @@ function _missionPipelineV4ComposeBushPickupBriefingStory(contract = {}, passeng
     );
     const whyFallback = String(candidateDefaults?.incidentContext || frame.incidentContext || frame.subjectDetail || sourceStory || `${name} hat die Arbeit draußen abgeschlossen und wartet auf den Rückflug.`).trim();
     const backFallback = String(candidateDefaults?.whyNow || frame.whyNow || frame.soughtOutcome || frame.completionSignal || `Zurück in ${homeName} werden Ergebnisse, Notizen und Ausrüstung übergeben.`).trim();
-    const why = _missionPipelineV4BushPickupNeutralField(pickupStory.whyThere, whyFallback);
+    const why = _missionPipelineV4BushPickupDisplayText(_missionPipelineV4BushPickupNeutralField(pickupStory.whyThere, whyFallback));
     const back = _missionPipelineV4BushPickupReturnSentence(
         _missionPipelineV4BushPickupNeutralField(pickupStory.returnReason, backFallback, { rejectFragments: false }),
         homeName
