@@ -412,20 +412,20 @@ const BUSH_PERSONA_LIBRARY = {
             pickupStory: {
                 exactWhere: 'am Striprand bei {targetName}, neben dem kleinen Geländewagen am kurzen Bahnende',
                 whyThere: 'Sie hat seit gestern den oberen Talabschnitt kontrolliert, frische Wildwechsel markiert und nach der Regenfront Wasserstände sowie umgestürzte Äste notiert',
-                returnReason: 'Dort müssen ihre Sperrnotizen noch vor dem nächsten Wetterfenster in die Ranger-Funkrunde',
-                boardingCue: 'Ich habe die letzten Markierungen am Bachlauf gesetzt und will jetzt vor dem Wetter raus.',
-                departureCue: 'Die Rangerstation braucht die Wasserstandsnotizen heute noch, damit die nächste Crew die Sperrungen sauber setzen kann.'
+                returnReason: 'Dort gehen ihre Sperrnotizen in die Ranger-Funkrunde und in die Planung der nächsten Crew',
+                boardingCue: 'Ich habe die letzten Markierungen am Bachlauf gesetzt und bin fertig für den Rückflug.',
+                departureCue: 'Die Rangerstation braucht die Wasserstandsnotizen, damit die nächste Crew die Sperrungen sauber setzen kann.'
             }
         },
         {
             name: 'Jonah Pierce',
             role: 'USFS-Technikinspektor',
             gender: 'male',
-            greetingText: 'Danke fürs Rauskommen. Ich habe bei {targetName} die technische Begehung am Strip abgeschlossen: Windsack, Zufahrtsgatter, Notfallfunk-Kasten und Generatoranschluss sind dokumentiert. Bring mich bitte zurück nach {homeName}, dann kann ich die Freigaben noch heute eintragen.',
+            greetingText: 'Danke fürs Rauskommen. Ich habe bei {targetName} die technische Begehung am Strip abgeschlossen: Windsack, Zufahrtsgatter, Notfallfunk-Kasten und Generatoranschluss sind dokumentiert. Bring mich bitte zurück nach {homeName}, dann kann ich die Freigaben in der Basis eintragen.',
             pickupStory: {
                 exactWhere: 'am Pistenrand bei {targetName}, neben einem kleinen Geländewagen mit Prüfmappe, Werkzeugtasche und zwei leichten Kisten',
                 whyThere: 'Er hat für den United States Forest Service die technische Begehung am Strip abgeschlossen, die Windsackbefestigung, das Zufahrtsgatter, den Notfallfunk-Kasten und den Generatoranschluss geprüft und die Fotos für die Betriebsakte gesichert',
-                returnReason: 'In {homeName} muss er die Freigabe- und Mängelnotizen eintragen, bevor der nächste Versorgungsflug für den Strip geplant wird',
+                returnReason: 'In {homeName} trägt er die Freigabe- und Mängelnotizen ein, damit der nächste Versorgungsflug für den Strip geplant werden kann',
                 boardingCue: 'Der Strip ist dokumentiert, die Fotos sind im Tablet, und die kleinen Kisten können mit zurück.',
                 departureCue: 'Die Prüfmappe ist vollständig; in {homeName} geht es vor allem um Freigabe, Mängelliste und den nächsten Versorgungsflug.'
             }
@@ -434,11 +434,11 @@ const BUSH_PERSONA_LIBRARY = {
             name: 'Luke Mercer',
             role: 'USFS-Funktechniker',
             gender: 'male',
-            greetingText: 'Perfektes Timing. Ich war hier draußen bei {targetName} an den Funkrelais oberhalb des Salmon River und am Generator der USFS-Außenstelle. Bring mich bitte zurück nach {homeName}; die Technikleitung wartet auf die Messdaten, bevor sie die nächste Crew rausplant.',
+            greetingText: 'Perfektes Timing. Ich war hier draußen bei {targetName} an den Funkrelais oberhalb des Salmon River und am Generator der USFS-Außenstelle. Bring mich bitte zurück nach {homeName}; die Technikleitung übernimmt dort die Messdaten für die nächste Crewplanung.',
             pickupStory: {
                 exactWhere: 'am Striprand bei {targetName}, bei einem kleinen Geländewagen mit zwei Alukoffern, Werkzeugtasche und Tablet',
                 whyThere: 'Er hat für den United States Forest Service die saisonale Wartung der Funkrelais oberhalb des Salmon River abgeschlossen, Batterien getauscht, Antennen geprüft und die Messdaten für die Einsatzleitung gesichert',
-                returnReason: 'In {homeName} wartet die Technikleitung auf seine Relaisdaten, bevor die nächste Crew mit Ersatzteilen und Frequenzplan rausgeschickt wird; eine weitere kalte Nacht am Strip soll er nicht einplanen',
+                returnReason: 'In {homeName} übernimmt die Technikleitung seine Relaisdaten, Ersatzteilnotizen und den Frequenzplan für die nächste Crew',
                 boardingCue: 'Die Relais laufen wieder, die Messdaten sind im Tablet, und die kalte Nacht hier draußen spare ich mir gern.',
                 departureCue: 'Der Antennencheck ist sauber abgeschlossen; in {homeName} warten Relaisdaten, Frequenzplan und Ersatzteilentscheidung.'
             }
@@ -602,7 +602,9 @@ function _buildBushPassenger(profileId = 'bush_charter_strip', context = {}) {
             : (profileId === 'bush_pickup_strip' ? 'bush_pickup_guest_v1' : 'bush_charter_guest_v1'));
     passenger.taskDomain = profileId === 'bush_scenic_hopper'
         ? 'sightseeing_tour'
-        : (profileId === 'bush_recon_return' ? 'inspection_infra' : 'charter');
+        : (profileId === 'bush_recon_return'
+            ? 'inspection_infra'
+            : (profileId === 'bush_pickup_strip' ? 'bush_pickup_return' : 'charter'));
     if (profileId === 'bush_pickup_strip') passenger.pickupStory = _buildBushPickupStory(templatedPersona, context);
     return passenger;
 }

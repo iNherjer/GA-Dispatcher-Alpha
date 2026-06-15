@@ -1719,7 +1719,7 @@ function getMissionTaskProfile(profileId, baseType) {
                 label: bush.label,
                 appliesTo: ['bush'],
                 roleProfile: 'bush_pickup_guest_v1',
-                taskDomain: 'charter',
+                taskDomain: 'bush_pickup_return',
                 paxText: '0 PAX am Start · 1 PAX Pickup',
                 cargoPool: Array.isArray(bush.cargoPool) ? bush.cargoPool.slice() : [],
                 storyCue: 'Leerer Outbound-Leg zu einem abgelegenen Strip, dort Pickup und anschliessender Rueckflug zum Heimatplatz.',
@@ -7979,7 +7979,10 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
         'cargo_fragile_highcare_v1',
         'rescue_coordination_v1',
         'fire_observer_ops_v1',
-        'club_student_v1'
+        'club_student_v1',
+        'bush_pickup_guest_v1',
+        'bush_charter_guest_v1',
+        'bush_adventure_guest_v1'
     ]);
     const TASK_DOMAIN_VALUES = new Set([
         'general',
@@ -8002,7 +8005,8 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
         'fire_watch',
         'animal_transport',
         'club_training_basic',
-        'club_training_advanced'
+        'club_training_advanced',
+        'bush_pickup_return'
     ]);
     const _normRoleProfile = (v, fallback = 'general_passenger_v1') => {
         const s = String(v || '').trim().toLowerCase();
@@ -8036,6 +8040,7 @@ function enforcePoiPassengerAltitudeRule(passenger, isPOI, poiTerrainFt = null, 
         const roleProfile = _normRoleProfile(roleProfileRaw, '');
         if (roleProfile === 'instructor_calm_precise_v1') return 'training';
         if (roleProfile === 'charter_professional_neutral_v1') return 'charter';
+        if (roleProfile === 'bush_pickup_guest_v1') return 'bush_pickup_return';
         if (roleProfile === 'medical_sensitive_v1') return 'medical_transfer';
         if (roleProfile === 'news_reporter_professional_v1') return 'news_coverage';
         if (roleProfile === 'tour_guide_relaxed_v1') return 'sightseeing_tour';
@@ -9558,39 +9563,39 @@ function bushPickupRoleContext(role = '', storyText = '') {
         return {
             equipment: 'Feldmappe, Tablet, Wasserproben und zwei leichten Kisten',
             boarding: 'Die Pegelpunkte sind kontrolliert, die Wasserproben sind beschriftet und die Messdaten liegen im Tablet.',
-            departure: 'In der Basis müssen die Wasserstandsreihen, Proben und Fotos ausgewertet werden, bevor die nächste Crew rausgeht.',
-            returnReason: 'In der Basis müssen die Messdaten, Proben und Fotos ausgewertet und für die nächste Einsatzplanung übergeben werden.'
+            departure: 'In der Basis werden Wasserstandsreihen, Proben und Fotos ausgewertet und an die nächste Crew übergeben.',
+            returnReason: 'In der Basis gehen Messdaten, Proben und Fotos in die nächste Einsatzplanung.'
         };
     }
     if (/\b(geolog|gestein|fels|hang|erosion|rutsch|kartier|probe|sediment)\b/.test(hay)) {
         return {
             equipment: 'Probenbeuteln, GPS-Notizen, Feldskizzen und einem Messkoffer',
             boarding: 'Die Proben sind beschriftet, die GPS-Punkte sitzen und die Feldskizzen sind trocken verpackt.',
-            departure: 'In der Basis müssen Proben, Fotos und Kartiernotizen zusammengeführt werden.',
-            returnReason: 'In der Basis müssen die Proben, Fotos und Kartiernotizen ausgewertet und ans Projektteam übergeben werden.'
+            departure: 'In der Basis werden Proben, Fotos und Kartiernotizen zusammengeführt.',
+            returnReason: 'In der Basis gehen Proben, Fotos und Kartiernotizen an das Projektteam.'
         };
     }
     if (/\b(ranger|wildlife|trail|forst|permit|bachlauf|markierung|sperr)\b/.test(hay)) {
         return {
             equipment: 'Rucksack, Markierungsband, Kartenmappe und einer kleinen Rückholkiste',
             boarding: 'Die Markierungen sind gesetzt, die Fotos sind im Tablet und die Notizen für die Rangerstation sind vollständig.',
-            departure: 'Die Rangerstation braucht die Sperr- und Zustandsnotizen, bevor die nächste Crew rausgeschickt wird.',
-            returnReason: 'In der Basis müssen die Zustandsnotizen, Fotos und Markierungen für die nächste Crewplanung abgegeben werden.'
+            departure: 'Die Rangerstation braucht die Sperr- und Zustandsnotizen für die nächste Crewplanung.',
+            returnReason: 'In der Basis werden Zustandsnotizen, Fotos und Markierungen für die nächste Crewplanung abgegeben.'
         };
     }
     if (/\b(technik|techniker|inspekt|mechan|wartung|funk|relais|generator|pruef|prüf|maengel|mängel)\b/.test(hay)) {
         return {
             equipment: 'Prüfmappe, Werkzeugtasche, Tablet und zwei leichten Kisten',
             boarding: 'Die Prüfung ist abgeschlossen, die Fotos sind im Tablet und die kleinen Kisten können mit zurück.',
-            departure: 'In der Basis müssen Prüfwerte, Mängelliste und Ersatzteilbedarf in die nächste Planung.',
-            returnReason: 'In der Basis müssen Prüfwerte, Mängelliste und Materialbedarf für den nächsten Einsatz eingetragen werden.'
+            departure: 'In der Basis gehen Prüfwerte, Mängelliste und Ersatzteilbedarf in die nächste Planung.',
+            returnReason: 'In der Basis werden Prüfwerte, Mängelliste und Materialbedarf für den nächsten Einsatz eingetragen.'
         };
     }
     return {
         equipment: 'Feldmappe, Tablet, persönlichem Gepäck und leichter Ausrüstung',
         boarding: 'Die Feldnotizen sind vollständig, die Fotos sind gesichert und die leichte Ausrüstung ist bereit für den Rückflug.',
-        departure: 'In der Basis müssen Notizen, Daten und Rückholmaterial in den nächsten Ablauf.',
-        returnReason: 'In der Basis müssen Notizen, Daten und Rückholmaterial für den nächsten Schritt übergeben werden.'
+        departure: 'In der Basis gehen Notizen, Daten und Rückholmaterial in den nächsten Ablauf.',
+        returnReason: 'In der Basis werden Notizen, Daten und Rückholmaterial für den nächsten Schritt übergeben.'
     };
 }
 
@@ -12445,6 +12450,15 @@ function sanitizeMissionPlannerV2Result(raw = null, draft = null, resolvedNeeds 
             noLandingAtPoi: false
         };
     }
+    if (String(draft?.profile?.id || draft?.picker?.profile || '').toLowerCase() === 'bush_pickup_strip') {
+        plan.taskDomain = 'bush_pickup_return';
+        plan.roleProfile = 'bush_pickup_guest_v1';
+        plan.lockedFields = {
+            ...(plan.lockedFields || {}),
+            taskDomain: 'bush_pickup_return',
+            roleProfile: 'bush_pickup_guest_v1'
+        };
+    }
     if (String(plan.taskDomain || '').toLowerCase() === 'poi_learning_guide') {
         const target = String(plan.targetLabel || draft?.target?.name || 'Ziel').trim();
         plan.roleProfile = 'tour_guide_learning_v1';
@@ -12839,14 +12853,15 @@ function _missionPipelineV3ProfileCatalog(context = {}) {
             'club_utility_v1', 'medical_sensitive_v1', 'news_reporter_professional_v1',
             'tour_guide_relaxed_v1', 'tour_guide_learning_v1', 'historian_storyteller_v1',
             'photogrammetry_precision_v1', 'cargo_fragile_highcare_v1', 'rescue_coordination_v1',
-            'fire_observer_ops_v1', 'club_student_v1'
+            'fire_observer_ops_v1', 'club_student_v1', 'bush_pickup_guest_v1',
+            'bush_charter_guest_v1', 'bush_adventure_guest_v1'
         ],
         allowedTaskDomains: [
             'general', 'training', 'charter', 'inspection_infra', 'media_photo', 'science_bio',
             'science_geo', 'science_general', 'club_utility', 'medical_transfer', 'news_coverage',
             'sightseeing_tour', 'poi_learning_guide', 'historian_guided_tour', 'mapping_survey',
             'cargo_fragile', 'search_and_rescue', 'fire_watch', 'animal_transport',
-            'club_training_basic', 'club_training_advanced'
+            'club_training_basic', 'club_training_advanced', 'bush_pickup_return'
         ]
     };
 }
@@ -14450,6 +14465,23 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
             soughtOutcome: 'Wir sollen klaeren, ob ein echter Brandansatz, ein klarer Hotspot oder nur ein Fehlalarm vorliegt.'
         };
     }
+    if (taskDomain === 'bush_pickup_return') {
+        return {
+            trigger: `Am ${targetLabel} wartet ein Pickup-Gast nach abgeschlossenem Backcountry-Auftrag auf den Rueckflug.`,
+            focusSubject: 'Pickup-Gast, Arbeit vor Ort und Rueckkehr zur Basis',
+            keyQuestion: `Wer am ${targetLabel} wartet, was draussen erledigt wurde und warum der Rueckflug nach Hause der naechste sinnvolle Schritt ist.`,
+            stakes: 'Ohne Rueckflug bleiben Person, Ausruestung und Rueckmeldung draussen; die Basis kann den naechsten Schritt nicht sauber einordnen.',
+            completionSignal: 'Nach der Rueckkehr am Heimatplatz steigt der Gast aus und kann Ergebnisse, Unterlagen oder Material uebergeben.',
+            subjectDetail: _missionPipelineV4PickOne([
+                'einen Backcountry-Kontakt mit abgeschlossener Feld- oder Camp-Arbeit',
+                'eine Person mit konkreten Notizen, Werkzeug oder Rueckholmaterial vom Zielstrip',
+                'einen draussen-erfahrenen Gast, der nach erledigtem Auftrag zur Basis zurueck muss'
+            ]),
+            incidentContext: `Die Person hat am ${targetLabel} oder in der unmittelbaren Umgebung eine konkrete Feld-, Betriebs- oder Camp-Aufgabe abgeschlossen.`,
+            whyNow: 'Der Aufenthalt draussen ist abgeschlossen; der Rueckflug bringt die Person samt Ergebnissen wieder zur Basis, ohne daraus automatisch einen Notfall zu machen.',
+            soughtOutcome: 'Wir sollen leer zum Zielstrip fliegen, die Person samt leichter Ausruestung aufnehmen und die begonnene Geschichte sauber nach Hause weiterfuehren.'
+        };
+    }
     if (taskDomain === 'charter') {
         return {
             trigger: `Der heutige Charter nach ${targetLabel} hat einen klaren Termin- oder Anschlussgrund und soll nicht auf spaeter rutschen.`,
@@ -14623,7 +14655,7 @@ function buildBushPickupCreativeBrief(context = {}, draft = {}, weatherBundle = 
     const homeName = String(context.start?.n || currentStartICAO || 'dem Heimatplatz').trim();
     const destWeather = weatherBundle?.dest || null;
     const weatherNote = Number.isFinite(Number(destWeather?.tempC))
-        ? `Wetteranker: am Ziel etwa ${Math.round(Number(destWeather.tempC))}°C; das kann als Zeit-, Komfort- oder Materialdruck dienen, wenn es zur Geschichte passt.`
+        ? `Wetteranker: am Ziel etwa ${Math.round(Number(destWeather.tempC))}°C; nutze das als Stimmung, Komfort- oder Materialdetail, nur bei passender Geschichte auch als leichten Zeitdruck.`
         : '';
     const varietyPack = (typeof selectMissionVarietyPack === 'function')
         ? selectMissionVarietyPack({
@@ -14657,12 +14689,12 @@ function buildBushPickupCreativeBrief(context = {}, draft = {}, weatherBundle = 
             'Fotokarten', 'Funkliste', 'Tablet', 'Klemmbrett', 'Akkucase', 'versiegelte Tasche'
         ],
         returnDrivers: [
-            'Wetter- oder Kaeltefenster', 'Crewwechsel', 'Materialplanung',
-            'Anschluss oder Termin', 'Datenuebergabe', 'Freigabeentscheidung', 'Basis-Briefing'
+            'Crewwechsel', 'Materialplanung', 'Datenuebergabe',
+            'Freigabeentscheidung', 'Basis-Briefing', 'Rueckgabe von Werkzeug oder Unterlagen'
         ],
         accessReasons: [
             'naechster brauchbarer Strip', 'schnellster Zugang zum Talabschnitt',
-            'Treffpunkt fuer ein verstreutes Feldteam', 'sicherer Abholpunkt vor Wetter, Dunkelheit oder weiterem Gelaendemarsch'
+            'Treffpunkt fuer ein verstreutes Feldteam', 'sicherer Abholpunkt am Ende der Arbeit draussen'
         ]
     };
     const axes = varietyAxes || fallbackAxes;
@@ -14673,7 +14705,7 @@ function buildBushPickupCreativeBrief(context = {}, draft = {}, weatherBundle = 
             `Wer wartet bei ${targetName}, mit Name, Rolle und erkennbarem Auftrag?`,
             'Was hat diese Person draußen konkret getan, mit mindestens zwei beobachtbaren Tätigkeiten oder Ergebnissen?',
             `Warum war ${targetName} genau der passende Zugangspunkt, Treffpunkt oder Abholstrip?`,
-            'Wann oder warum muss die Person jetzt zurück, statt noch draußen zu bleiben?',
+            'Warum ist der Rückflug jetzt der passende Abschluss des Aufenthalts draußen?',
             'Wie sieht der Wartepunkt aus: Gepäck, Kisten, Werkzeug, Tablet, Karten, Fahrzeug, sichtbare Notizen oder anderes passendes Rückholmaterial?',
             `Warum macht der Rückflug nach ${homeName} für den nächsten Schritt einen Unterschied?`
         ],
@@ -15278,7 +15310,7 @@ Regeln:
 17. inspection_infra: Sag klar, welche Stoerung, Beobachtung oder Schadensmeldung den Einsatz ausloest und welche Folgeentscheidung daran haengt.
 18. news_coverage: Gib einen beobachtbaren Aufhaenger statt nur "wir machen Bilder".
 19. charter und club_utility: Sag klar, warum genau dieser Gast oder diese Erledigung heute nach genau diesem Ziel muss und welcher Termin, Anschluss oder praktische Ablauf daran haengt.
-19a. bush + bush_pickup_strip: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
+19a. bush + bush_pickup_strip / taskDomain bush_pickup_return: Nutze CONTRACT.pickupCreativeBrief, storyFrame, localFacts, narrativeHooks und weatherHooks als offenen Rahmen. Wenn pickupCreativeBrief.candidateShortlist vorhanden ist, waehle im Normalfall genau eine Richtung daraus und halte Rolle, Taetigkeiten, Ausruestung und Rueckkehrgrund konsistent zusammen; nicht quer durch alle Kandidaten mischen. Schreibe eine eigenständige Bush-Pickup-Geschichte, die wer/was/wo/wann/wie/warum beantwortet: Name/Rolle, was genau vor Ort getan wurde, warum genau dieser Strip, Wartepunkt mit Gepäck/Ausrüstung, warum jetzt zurück, welcher nächste Schritt in der Basis folgt. Der Rueckkehrgrund darf organisatorisch, persoenlich, wetterbedingt oder ergebnisbezogen sein, aber nicht automatisch wie ein Charter-Termin oder Notfall klingen. Nicht als Schema abarbeiten; natürlich in 4-5 Sätzen erzählen.
 19b. bush + bush_pickup_strip: Fülle passenger.pickupStory mit Voice-Ankern zur exakt gleichen Geschichte. Diese Felder sind keine neue Story, sondern die Basis für spätere PAX-Ansagen: exactWhere, whyThere, returnReason, boardingCue, departureCue.
 20. cargo_fragile, medical_transfer und animal_transport: Sag klar, welcher vorbereitete Folgeablauf am Ziel unsere ruhige und zeitgerechte Uebergabe heute erforderlich macht.
 21. sceneIntent und visibleIdeas duerfen nur Dinge zeigen, die zur Story passen. Keine bereits "geloeste" Lage, wenn die Story noch eine offene Frage beschreibt.
@@ -15666,6 +15698,14 @@ function _missionPipelineV4ComposeStoryFallback(contract = {}) {
             `${sought || 'Wir sollen ein belastbares Bild und eine kurze Einordnung liefern, damit die Redaktion nicht auf Archivmaterial ausweichen muss.'} ${completion}`.trim()
         ].join(' ');
     }
+    if (taskDomain === 'bush_pickup_return') {
+        return [
+            String(frame.trigger || `Am ${targetName} wartet ein Pickup-Gast nach abgeschlossener Arbeit draussen auf den Rueckflug.`).trim(),
+            incident || `${detail} gibt dem Pickup einen konkreten Grund und macht den Zielstrip zum passenden Treffpunkt.`,
+            `${whyNow || 'Der Aufenthalt am Strip ist abgeschlossen; der Rueckflug bringt Person, Notizen und Ausruestung zurueck zur Basis.'}${weatherSentence}`.trim(),
+            `${sought || 'Wir sollen leer zum Pickup fliegen, den Gast aufnehmen und die Geschichte auf dem Rueckflug nach Hause weiterfuehren.'} ${completion}`.trim()
+        ].join(' ');
+    }
     if (taskDomain === 'charter' || taskDomain === 'club_utility') {
         return [
             String(frame.trigger || `Der Flug nach ${targetName} hat heute einen konkreten Anlass am Ziel.`).trim(),
@@ -15837,6 +15877,9 @@ function _missionPipelineV4BuildGreetingFallback(passenger = {}, contract = {}, 
     }
     if (taskDomain === 'inspection_infra') {
         return `${opener}, wir prüfen heute ${subject} an ${targetName}; flieg bitte stabil, damit wir ${outcome ? outcome.toLowerCase() : 'den Verdachtsbereich sauber eingrenzen'}.`;
+    }
+    if (taskDomain === 'bush_pickup_return') {
+        return `${opener}, ich war bei ${targetName} draussen wegen ${subject}; bring mich bitte zurück, damit ${outcome ? outcome.toLowerCase() : 'die Unterlagen und Ausrüstung wieder in der Basis ankommen'}.`;
     }
     if (taskDomain === 'charter' || taskDomain === 'club_utility') {
         return `${opener}, heute geht es wegen ${subject} nach ${targetName}; wichtig ist, dass wir ${outcome ? outcome.toLowerCase() : 'den Termin oder die Uebergabe am Ziel sauber erreichen'}.`;
@@ -16032,6 +16075,8 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             distNm: Number.isFinite(Number(dist)) ? Number(dist) : 0
         })
         : null;
+    const isBushPickupStrip = isBushMission
+        && String(provisionalBushSpec?.profileId || forcedProfile?.id || missionSel.profile || '').toLowerCase() === 'bush_pickup_strip';
     const profileThemeOverrides = {
         medical_transfer: ['Medizinischer Personal- oder Materialtransfer mit hoher Prioritaet und ruhigem Flug, ohne Patient an Bord'],
         cargo_fragile: ['Empfindliche Fracht sicher und erschuetterungsarm transportieren'],
@@ -16650,16 +16695,18 @@ async function fetchGeminiMission(startName, destName, dist, isPOI, paxText, car
             ? `4. FOKUS-REGEL TRAINING: Kein Ortswissen, keine Sehenswürdigkeiten, keine Geschichte zum Punkt. Fokus nur auf Übungsthema, Verfahren, Luftraum, Maschine und Sicherheit.`
             : `4. LOKALES WISSEN: Baue 1-2 echte geografische, infrastrukturelle oder kulturelle Fakten zu "${promptDestName}" ganz natürlich ein.`);
     const bushToneRule = isBushMission
-        ? `4a. BUSH-TON: Sprache und Missionsrahmen muessen bodenstaendig, direkt und praxisnah wirken. Weniger akademisch, weniger touristisch, kein Gutachten- oder Prospektton. Gute Bilder sind abgelegene Strips, Pistenrand, Tal, Hang, Wald, Wetterfenster, Ladung, Werkzeug, Camp-Alltag, Bodencrew oder Rueckkehr in die Zivilisation. Kurz, glaubwuerdig und einsatznah bleiben.`
+        ? `4a. BUSH-TON: Sprache und Missionsrahmen muessen bodenstaendig, direkt und praxisnah wirken. Weniger akademisch, weniger touristisch, kein Gutachten- oder Prospektton. Gute Bilder sind abgelegene Strips, Pistenrand, Tal, Hang, Wald, Wetter, Ladung, Werkzeug, Camp-Alltag, Bodencrew oder Rueckkehr in die Zivilisation. Kurz, glaubwuerdig und einsatznah bleiben.`
         : '';
     const routeRule = poiLikeTask
         ? (isSarHeliLegacy
             ? `SAR-HELI-REGEL: Start in ${startName}, Such-/Fundstelle "${promptDestName}" anfliegen, dort nach Sichtkontakt landen oder stabil hovern, Patient aufnehmen und danach zum medizinischen Ziel "${sarHeliContext?.hospitalRef?.name || 'Krankenhaus-Helipad/Fallback-Handoff'}" fliegen. Nicht als Rundflug oder Rückkehr zum Start formulieren.`
             : `RUNDFLUG-REGEL: Start/Landung in ${startName}; am POI wird nicht gelandet.`)
         : (isBushMission
-            ? (provisionalBushSpec?.completionMode === 'return_home'
+            ? (isBushPickupStrip
+                ? `BUSH-PICKUP-REGEL: Leerflug von ${startName} zum Zielstrip "${promptDestName}", dort landen, die wartende Person am Striprand aufnehmen und danach nach ${startName} zurueckfliegen. Die Story muss Pickup, Arbeit vor Ort, Wartepunkt und Rueckkehrgrund als eine zusammenhaengende Geschichte tragen.`
+                : (provisionalBushSpec?.completionMode === 'return_home'
                 ? `BUSH-REGEL: Bush-Recon ab ${startName} in das Zielgebiet "${promptDestName}" mit anschliessender Rueckkehr nach ${startName}. Die Story muss Recon im Gebiet und den RTB klar abbilden; keine normale A-B-Endlandung als Missionsziel formulieren.`
-                : `BUSH-REGEL: Bush-Transfer von ${startName} nach ${promptDestName}. Die Story muss einen abgelegenen Zielstrip, Terrain-Disziplin und Bush-Flying-Charakter glaubwuerdig stuetzen.`)
+                : `BUSH-REGEL: Bush-Transfer von ${startName} nach ${promptDestName}. Die Story muss einen abgelegenen Zielstrip, Terrain-Disziplin und Bush-Flying-Charakter glaubwuerdig stuetzen.`))
             : `ROUTEN-REGEL: Normaler Streckenflug von ${startName} nach ${promptDestName}.`);
     const promptNow = new Date();
     const promptStartAirport = poiTargetMeta?.startAirport && typeof poiTargetMeta.startAirport === 'object'
@@ -16731,9 +16778,9 @@ targetGeoContext: ${JSON.stringify(targetGeoContext ? {
     hints: targetGeoContext.hints || []
 } : null)}
 Erlaubte roleProfile:
-["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","tour_guide_learning_v1","historian_storyteller_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1"]
+["general_passenger_v1","instructor_calm_precise_v1","charter_professional_neutral_v1","technical_inspector_v1","media_observer_v1","science_field_v1","vip_business_v1","club_utility_v1","medical_sensitive_v1","news_reporter_professional_v1","tour_guide_relaxed_v1","tour_guide_learning_v1","historian_storyteller_v1","photogrammetry_precision_v1","cargo_fragile_highcare_v1","rescue_coordination_v1","fire_observer_ops_v1","club_student_v1","bush_pickup_guest_v1","bush_charter_guest_v1","bush_adventure_guest_v1"]
 Erlaubte taskDomain:
-["general","training","charter","inspection_infra","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","poi_learning_guide","historian_guided_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced"]
+["general","training","charter","inspection_infra","media_photo","science_bio","science_geo","science_general","club_utility","medical_transfer","news_coverage","sightseeing_tour","poi_learning_guide","historian_guided_tour","mapping_survey","cargo_fragile","search_and_rescue","fire_watch","animal_transport","club_training_basic","club_training_advanced","bush_pickup_return"]
 </KONTEXT>
 
 <DISPATCH_FORM>

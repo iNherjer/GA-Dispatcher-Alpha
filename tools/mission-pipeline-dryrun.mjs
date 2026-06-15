@@ -887,7 +887,7 @@ function buildMissionWriterV4Payload(prompt) {
     const returnReason = String(candidate.returnDrivers?.[0] || 'in der Basis wartet der naechste konkrete Arbeitsschritt').trim();
     const accessReason = String(candidate.accessReasons?.[0] || 'der Strip ist der sichere Abholpunkt fuer den Rueckweg').trim();
     const exactWhere = `am Striprand bei ${targetName}, neben einem kleinen Gelaendewagen mit ${objects}`;
-    const story = `${name}, ${role}, wartet heute ${exactWhere}. ${gender === 'female' ? 'Sie' : 'Er'} war dort draussen, weil ${accessReason}, und hat ${taskA} sowie ${taskB}. Flieg leer nach ${targetName}, nimm ${gender === 'female' ? 'sie' : 'ihn'} am Wartepunkt auf und bring ${gender === 'female' ? 'sie' : 'ihn'} zurueck nach ${homeName}. ${returnReason}; darum soll der Rueckflug nicht bis zum naechsten Wetterfenster warten.`;
+    const story = `${name}, ${role}, wartet heute ${exactWhere}. ${gender === 'female' ? 'Sie' : 'Er'} war dort draussen, weil ${accessReason}, und hat ${taskA} sowie ${taskB}. Flieg leer nach ${targetName}, nimm ${gender === 'female' ? 'sie' : 'ihn'} am Wartepunkt auf und bring ${gender === 'female' ? 'sie' : 'ihn'} zurueck nach ${homeName}. ${returnReason}; der Rueckflug ist der geplante Abschluss dieses Backcountry-Aufenthalts.`;
     return {
       title: `Bush-Pickup: ${targetName}`,
       story,
@@ -900,7 +900,7 @@ function buildMissionWriterV4Payload(prompt) {
         personality: 'praktisch, draussen-erfahren, ruhig',
         dialectHint: 'neutral',
         roleProfile,
-        taskDomain,
+        taskDomain: 'bush_pickup_return',
         gTolerance: 'mittel',
         bankTolerance: 'mittel',
         cargoSensitivity: 'mittel',
@@ -1430,8 +1430,8 @@ function buildPlannerV4Payload(prompt) {
     payload.plan.primaryObjective = `Hole ${role} am ${targetLabel} ab und bringe die Person nach ${homeLabel} zurueck.`;
     payload.plan.missionTrigger = `${role} wartet am Striprand bei ${targetLabel}, weil ${accessReason}.`;
     payload.plan.focusSubject = `${role} mit Rueckkehrgrund: ${returnReason}.`;
-    payload.plan.keyQuestion = `Wer wartet am ${targetLabel}, was wurde dort erledigt und warum muss der Rueckflug jetzt stattfinden?`;
-    payload.plan.missionStakes = `${returnReason}; ein spaeterer Rueckflug wuerde die Folgeplanung in der Basis verzoegern.`;
+    payload.plan.keyQuestion = `Wer wartet am ${targetLabel}, was wurde dort erledigt und warum ist der Rueckflug jetzt der passende Abschluss?`;
+    payload.plan.missionStakes = `${returnReason}; der Rueckflug bringt Person, Notizen und Ausruestung wieder in den Basisablauf.`;
     payload.plan.completionSignal = `Die Person ist in ${homeLabel} angekommen und kann ${returnReason.toLowerCase()}.`;
     payload.plan.storyFrame = {
       trigger: payload.plan.missionTrigger,
@@ -1466,7 +1466,7 @@ function buildPlannerV4Payload(prompt) {
     ];
     payload.plan.lockedFields = {
       ...(payload.plan.lockedFields || {}),
-      taskDomain: 'charter',
+      taskDomain: 'bush_pickup_return',
       roleProfile: 'bush_pickup_guest_v1',
       targetName: targetLabel
     };

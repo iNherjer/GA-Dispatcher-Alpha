@@ -16,7 +16,7 @@
             roleIdeas: ['USFS-Rangerin', 'Trail-Crew-Leiter', 'Backcountry-Permit-Kontakt'],
             taskIdeas: ['Markierungen am Bachlauf gesetzt', 'Trail-Sperren nach Wetter kontrolliert', 'Wildwechsel und umgestuerzte Aeste dokumentiert'],
             objectIdeas: ['Kartenmappe', 'Markierungsband', 'Rucksack', 'kleine Rueckholkiste'],
-            returnDrivers: ['Rangerstation braucht Sperrnotizen', 'naechste Crew muss vor dem Wetterfenster disponiert werden', 'Permit-Planung muss in der Basis aktualisiert werden'],
+            returnDrivers: ['Rangerstation braucht Sperrnotizen', 'naechste Crew braucht die Trailhinweise fuer die Planung', 'Permit-Planung wird in der Basis aktualisiert'],
             accessReasons: ['naechster brauchbarer Strip zum Talabschnitt', 'sicherer Abholpunkt vor weiterem Gelaendemarsch', 'Treffpunkt fuer ein verstreutes Feldteam']
         },
         {
@@ -28,7 +28,7 @@
             roleIdeas: ['Strip-Betreiber', 'USFS-Technikinspektorin', 'Backcountry-Operations-Kontakt'],
             taskIdeas: ['Windsackbefestigung und Randstreifen geprueft', 'Zufahrtsgatter und Notfallkasten dokumentiert', 'Spurrinnen und lose Gegenstaende am Bahnrand notiert'],
             objectIdeas: ['Pruefmappe', 'Werkzeugtasche', 'Tablet', 'zwei leichte Kisten'],
-            returnDrivers: ['Freigabe- und Maengelnotizen muessen in die Planung', 'Versorgungsflug wartet auf den Strip-Status', 'Betreiberakte braucht Fotos und Freigabeentscheidung'],
+            returnDrivers: ['Freigabe- und Maengelnotizen gehen in die Planung', 'Versorgungsflug wartet auf den Strip-Status', 'Betreiberakte braucht Fotos und Freigabeentscheidung'],
             accessReasons: ['der Strip selbst ist der Arbeitsort', 'Parkpunkt am Pistenrand ist der sichere Treffpunkt', 'kurzer Check nach Wetter- oder Nutzungsfenster']
         },
         {
@@ -40,7 +40,7 @@
             roleIdeas: ['Utility-Technikerin', 'Pumpenmechaniker', 'Generator-Servicekontakt'],
             taskIdeas: ['Generatorlauf protokolliert', 'Pumpenleitung entlueftet', 'Batterie- und Sicherungskasten kontrolliert'],
             objectIdeas: ['Werkzeugrolle', 'Ersatzriemen', 'kleines Batterietestgeraet', 'Servicezettel'],
-            returnDrivers: ['Materialbedarf muss in der Basis nachbestellt werden', 'der naechste Versorgungslauf braucht die Fehlerliste', 'Servicefreigabe muss vor dem Abend raus'],
+            returnDrivers: ['Materialbedarf wird in der Basis nachbestellt', 'der naechste Versorgungslauf braucht die Fehlerliste', 'Servicefreigabe wird in der Basis abgeschlossen'],
             accessReasons: ['naechster Strip zur Aussenstelle', 'schnellster Rueckweg mit empfindlichen Kleinteilen', 'Camp-Zugang ohne langen Rueckmarsch']
         },
         {
@@ -52,7 +52,7 @@
             roleIdeas: ['Lodge-Koordinatorin', 'Outfitter-Kontakt', 'Ranch-Caretaker'],
             taskIdeas: ['Gaesteliste und Vorratszettel abgestimmt', 'Camp-Schluessel und Funkliste eingesammelt', 'Saisonbedarf fuer den naechsten Turnaround gezaehlt'],
             objectIdeas: ['Klemmbrett', 'Schluesselbund', 'Posttasche', 'kleine Vorratskiste'],
-            returnDrivers: ['in der Basis wartet die naechste Gaesteplanung', 'Fracht- und Crewrotation muss umgebaut werden', 'Anschluss an die Abendbesprechung ist knapp'],
+            returnDrivers: ['in der Basis wartet die naechste Gaesteplanung', 'Fracht- und Crewrotation wird dort angepasst', 'die Abendbesprechung braucht den aktuellen Stand'],
             accessReasons: ['Treffpunkt zwischen Lodge und Strip', 'Abholpunkt fuer Crewwechsel', 'sicherster kurzer Weg aus dem Tal']
         },
         {
@@ -64,7 +64,7 @@
             roleIdeas: ['Wildlife-Mitarbeiter', 'Habitat-Koordinatorin', 'Forstbiologe'],
             taskIdeas: ['Kamerakarten eingesammelt', 'Spurenpunkte und Zaunluecken notiert', 'Ufer- und Wiesenabschnitt auf Stoerstellen geprueft'],
             objectIdeas: ['Kamerakarten-Box', 'Feldnotizbuch', 'GPS-Handgeraet', 'kleine Rueckholtasche'],
-            returnDrivers: ['die Karten muessen in der Basis gesichert werden', 'Forstteam braucht die Fundpunkte fuer die Wochenplanung', 'Stoerstellen sollen vor dem naechsten Crewgang gemeldet werden'],
+            returnDrivers: ['die Karten werden in der Basis gesichert', 'Forstteam braucht die Fundpunkte fuer die Wochenplanung', 'Stoerstellen sollen vor dem naechsten Crewgang gemeldet werden'],
             accessReasons: ['Strip liegt nahe an mehreren Kontrollpunkten', 'kurzer Weg vom Beobachtungsbogen zum Abholpunkt', 'besserer Rueckweg als mehrere Stunden Talabstieg']
         },
         {
@@ -88,7 +88,7 @@
             roleIdeas: ['Permit-Koordinator', 'Rangerstation-Kontakt', 'Projektleiterin vor Ort'],
             taskIdeas: ['Nutzungsnotizen mit der Aussenstelle abgeglichen', 'Grenzmarken und alte Wegpunkte fotografiert', 'Unterschriftenmappe und Betriebszettel eingesammelt'],
             objectIdeas: ['Dokumentenmappe', 'Funkliste', 'Tablet', 'versiegelte Posttasche'],
-            returnDrivers: ['Unterlagen muessen heute in die Basisakte', 'naechste Freigabe haengt an den Rueckmeldungen', 'Projektbesprechung wartet auf die Originalnotizen'],
+            returnDrivers: ['Unterlagen gehoeren zurueck in die Basisakte', 'naechste Freigabe haengt an den Rueckmeldungen', 'Projektbesprechung braucht die Originalnotizen'],
             accessReasons: ['neutraler Treffpunkt fuer mehrere Teams', 'sicherer Abholpunkt fuer Unterlagen', 'kein langer Transport ueber raues Gelaende']
         },
         {
@@ -100,7 +100,7 @@
             roleIdeas: ['Lookout-Beobachterin', 'Wetterposten-Kontakt', 'Pegelwart'],
             taskIdeas: ['Wind- und Sichtnotizen mit alten Messpunkten abgeglichen', 'Pegelmarken kontrolliert', 'Wetterfenster fuer die naechste Crew gemeldet'],
             objectIdeas: ['Wetterkladde', 'Handfunkgeraet', 'kleine Instrumententasche', 'Akkupack'],
-            returnDrivers: ['Basis braucht die Lage fuer die Morgenplanung', 'Wetterfenster schliesst vor der naechsten Schicht', 'Daten muessen vor dem Crewbriefing uebergeben werden'],
+            returnDrivers: ['Basis braucht die Lage fuer die Morgenplanung', 'Wetterstand gehoert in die naechste Schichtbesprechung', 'Daten werden im Crewbriefing uebergeben'],
             accessReasons: ['kurzer Zugang zu Lookout oder Pegelpunkt', 'sicherer Treffpunkt vor Wetterwechsel', 'Rueckflug spart langen Abstieg im Dunkeln']
         },
         {
@@ -112,7 +112,7 @@
             roleIdeas: ['Camp-Koordinatorin', 'Saisonarbeiter', 'Crew-Vorarbeiter'],
             taskIdeas: ['Crewwechsel vorbereitet', 'Materialliste und offene Reparaturen notiert', 'Camp sauber uebergeben und Funkliste aktualisiert'],
             objectIdeas: ['Seesack', 'Klemmbrett', 'kleine Werkzeugkiste', 'Postbeutel'],
-            returnDrivers: ['naechste Crew muss in der Basis gebrieft werden', 'Arbeitsstunden und Materialbedarf muessen ins System', 'Anschluss an die Rueckfahrt vom Heimatplatz ist knapp'],
+            returnDrivers: ['naechste Crew wird in der Basis gebrieft', 'Arbeitsstunden und Materialbedarf gehen ins System', 'die Rueckfahrt vom Heimatplatz ist der naechste logische Schritt'],
             accessReasons: ['Strip ist der Wechselpunkt fuer das Camp', 'zu Fuss waere der Rueckweg zu lang', 'kurzer Turnaround zwischen zwei Crewfenstern']
         },
         {
@@ -124,8 +124,8 @@
             roleIdeas: ['Versicherungsprueferin', 'Schadensgutachter', 'Property-Managerin'],
             taskIdeas: ['Fotos von Zaun, Zufahrt und Nebengebaeude gesichert', 'Sturmschaden und Spurrinnen protokolliert', 'Rueckfragen mit dem lokalen Kontakt geklaert'],
             objectIdeas: ['Fototablet', 'Schadenmappe', 'Massband', 'kleiner Aktenkoffer'],
-            returnDrivers: ['Schadennummer muss heute geschlossen werden', 'Freigabe fuer Material und Reparatur haengt an den Bildern', 'Eigentuemer wartet in der Basis auf die Einschaetzung'],
-            accessReasons: ['Strip ist der einzig praktikable Zugang zum Objekt', 'Treffpunkt ohne lange Pistenfahrt', 'Rueckflug bringt Originalnotizen rechtzeitig zurueck']
+            returnDrivers: ['Schadennummer wird in der Basis weiterbearbeitet', 'Freigabe fuer Material und Reparatur haengt an den Bildern', 'Eigentuemer wartet in der Basis auf die Einschaetzung'],
+            accessReasons: ['Strip ist der einzig praktikable Zugang zum Objekt', 'Treffpunkt ohne lange Pistenfahrt', 'Rueckflug bringt Originalnotizen zurueck zur Basis']
         },
         {
             id: 'relay_cache_courier',
@@ -136,7 +136,7 @@
             roleIdeas: ['Funkwartin', 'Kommunikationshelfer', 'Cache-Koordinatorin'],
             taskIdeas: ['Akkus getauscht', 'Funkcache versiegelt', 'Antennenstand und Reichweitennotizen geprueft'],
             objectIdeas: ['Alukoffer', 'Akkutasche', 'Funkliste', 'versiegelter Cache-Beutel'],
-            returnDrivers: ['Frequenz- und Akkuliste muss in die Basis', 'Ersatzteile fuer den naechsten Lauf muessen gepackt werden', 'Dienstplan haengt an der Rueckmeldung'],
+            returnDrivers: ['Frequenz- und Akkuliste gehoeren zurueck in die Basis', 'Ersatzteile fuer den naechsten Lauf werden dort gepackt', 'Dienstplan haengt an der Rueckmeldung'],
             accessReasons: ['Strip liegt am besten zum Relaiszugang', 'kurzer Weg vom Cache zum Abholpunkt', 'Rueckflug vermeidet Uebernachtung am Funkposten']
         },
         {
@@ -149,7 +149,7 @@
             roleIdeas: ['Camp-Koch', 'Backcountry-Eventhelferin', 'Lodge-Allrounder'],
             taskIdeas: ['defekten Kuehlbox-Deckel und Essensliste dokumentiert', 'Campinventar nach einem langen Wochenende gezaehlt', 'eine vergessene Sonderbestellung fuer die Basis gesichert'],
             objectIdeas: ['Kuehlboxdeckel', 'Bestellzettel', 'Emailletopf', 'kleine Vorratskiste'],
-            returnDrivers: ['Basis muss die naechste Versorgungsliste heute umstellen', 'Lodge-Team wartet auf den Fehlbestand', 'der naechste Flug soll nicht mit falscher Kuechenfracht starten'],
+            returnDrivers: ['Basis passt die naechste Versorgungsliste an', 'Lodge-Team wartet auf den Fehlbestand', 'der naechste Flug soll nicht mit falscher Kuechenfracht starten'],
             accessReasons: ['Strip ist der einzige schnelle Weg aus dem Camp', 'Treffpunkt am Gelaendewagen statt langer Rueckfahrt', 'kurzer Abholpunkt nach Camp-Schluss']
         }
     ];
